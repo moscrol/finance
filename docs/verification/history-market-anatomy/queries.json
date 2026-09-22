@@ -1,0 +1,65 @@
+{
+  "information_cutoff": "2026-09-17",
+  "queries": {
+    "market": {
+      "operation": "inspect_history",
+      "entity_kind": "market",
+      "entity_codes": ["000001.SH"],
+      "start": "2026-09-15",
+      "end": "2026-09-15"
+    },
+    "analogues": {
+      "operation": "find_analogues",
+      "entity_kind": "market",
+      "entity_codes": ["000001.SH"],
+      "start": "2026-09-01",
+      "end": "2026-09-15",
+      "search_start": "2026-01-01",
+      "search_end": "2026-08-31",
+      "window_days": 11,
+      "step_days": 5,
+      "features": ["return_pct", "amount_vs_prior_mean", "max_drawdown_pct", "advancers_mean", "limit_up_mean", "limit_down_mean"],
+      "preview_limit": 3
+    },
+    "sector_rank": {
+      "operation": "rank_history",
+      "entity_kind": "sector",
+      "start": "2026-05-18",
+      "end": "2026-06-01",
+      "features": ["return_pct", "max_drawdown_pct", "up_day_share"],
+      "preview_limit": 5
+    },
+    "stock_rank": {
+      "operation": "rank_history",
+      "entity_kind": "stock",
+      "start": "2026-05-18",
+      "end": "2026-06-01",
+      "features": ["return_pct", "max_drawdown_pct", "up_day_share"],
+      "preview_limit": 5
+    },
+    "ranked_stock_trace": {
+      "operation": "trace_history",
+      "entity_kind": "stock",
+      "entity_codes": ["300212.SZ", "000636.SZ", "002552.SZ"],
+      "start": "2026-05-18",
+      "end": "2026-06-01",
+      "preview_limit": 12
+    },
+    "ranked_sector_trace": {
+      "operation": "trace_history",
+      "entity_kind": "sector",
+      "entity_codes": ["990001.FP", "881270.TI", "881105.TI"],
+      "start": "2026-05-18",
+      "end": "2026-06-01",
+      "preview_limit": 12
+    },
+    "trace": {
+      "operation": "trace_history",
+      "entity_kind": "sector",
+      "entity_codes": ["990219.FP", "990306.FP", "990122.FP"],
+      "start": "2026-08-03",
+      "end": "2026-09-15",
+      "preview_limit": 12
+    }
+  }
+}

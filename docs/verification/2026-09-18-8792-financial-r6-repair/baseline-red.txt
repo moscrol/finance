@@ -1,0 +1,933 @@
+FFFFFFF..FFFFFFFFFFFFFF...FFFFFFFFFFFF........F                          [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260918T132022Z-87b854e2.json
+
+=================================== FAILURES ===================================
+_ test_unbulleted_watch_does_not_absorb_a_disclaimer[\u5355\u5b63\u53e3\u5f84\u4e3a\u63a8\u7b97\u503c\uff0c\u975e\u5b98\u65b9\u62ab\u9732\u3002\u4e0d\u6784\u6210\u4e70\u5356\u5efa\u8bae\uff0c\u672c\u6b21\u7814\u7a76\u4e0d\u767b\u8bb0\u4e3a\u957f\u671f\u8ddf\u8e2a\u3001\u4e0d\u5199\u5165\u6295\u8d44\u89c2\u70b9\u3002-] _
+
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2601/test_unbulleted_watch_does_not0')
+separator = '', footer = '单季口径为推算值，非官方披露。不构成买卖建议，本次研究不登记为长期跟踪、不写入投资观点。'
+
+    @pytest.mark.parametrize("separator", ["", "\n", "\n\n"])
+    @pytest.mark.parametrize("footer", [TAIL, "以上为跟踪分析，不构成买卖建议。"])
+    def test_unbulleted_watch_does_not_absorb_a_disclaimer(tmp_path, separator, footer):
+        answer = HEAD + "**下期关注（一条）**：" + WATCH + separator + footer
+>       assert missing_contract_elements(answer) == ()
+E       AssertionError: assert ('next_watch',) == ()
+E
+E         Left contains one more item: 'next_watch'
+E         Use -v to get more diff
+
+intelligence/tests/test_financial_r6_regressions.py:46: AssertionError
+_ test_unbulleted_watch_does_not_absorb_a_disclaimer[\u5355\u5b63\u53e3\u5f84\u4e3a\u63a8\u7b97\u503c\uff0c\u975e\u5b98\u65b9\u62ab\u9732\u3002\u4e0d\u6784\u6210\u4e70\u5356\u5efa\u8bae\uff0c\u672c\u6b21\u7814\u7a76\u4e0d\u767b\u8bb0\u4e3a\u957f\u671f\u8ddf\u8e2a\u3001\u4e0d\u5199\u5165\u6295\u8d44\u89c2\u70b9\u3002-\n] _
+
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2601/test_unbulleted_watch_does_not1')
+separator = '\n', footer = '单季口径为推算值，非官方披露。不构成买卖建议，本次研究不登记为长期跟踪、不写入投资观点。'
+
+    @pytest.mark.parametrize("separator", ["", "\n", "\n\n"])
+    @pytest.mark.parametrize("footer", [TAIL, "以上为跟踪分析，不构成买卖建议。"])
+    def test_unbulleted_watch_does_not_absorb_a_disclaimer(tmp_path, separator, footer):
+        answer = HEAD + "**下期关注（一条）**：" + WATCH + separator + footer
+>       assert missing_contract_elements(answer) == ()
+E       AssertionError: assert ('next_watch',) == ()
+E
+E         Left contains one more item: 'next_watch'
+E         Use -v to get more diff
+
+intelligence/tests/test_financial_r6_regressions.py:46: AssertionError
+_ test_unbulleted_watch_does_not_absorb_a_disclaimer[\u5355\u5b63\u53e3\u5f84\u4e3a\u63a8\u7b97\u503c\uff0c\u975e\u5b98\u65b9\u62ab\u9732\u3002\u4e0d\u6784\u6210\u4e70\u5356\u5efa\u8bae\uff0c\u672c\u6b21\u7814\u7a76\u4e0d\u767b\u8bb0\u4e3a\u957f\u671f\u8ddf\u8e2a\u3001\u4e0d\u5199\u5165\u6295\u8d44\u89c2\u70b9\u3002-\n\n] _
+
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2601/test_unbulleted_watch_does_not2')
+separator = '\n\n', footer = '单季口径为推算值，非官方披露。不构成买卖建议，本次研究不登记为长期跟踪、不写入投资观点。'
+
+    @pytest.mark.parametrize("separator", ["", "\n", "\n\n"])
+    @pytest.mark.parametrize("footer", [TAIL, "以上为跟踪分析，不构成买卖建议。"])
+    def test_unbulleted_watch_does_not_absorb_a_disclaimer(tmp_path, separator, footer):
+        answer = HEAD + "**下期关注（一条）**：" + WATCH + separator + footer
+>       assert missing_contract_elements(answer) == ()
+E       AssertionError: assert ('next_watch',) == ()
+E
+E         Left contains one more item: 'next_watch'
+E         Use -v to get more diff
+
+intelligence/tests/test_financial_r6_regressions.py:46: AssertionError
+_ test_unbulleted_watch_does_not_absorb_a_disclaimer[\u4ee5\u4e0a\u4e3a\u8ddf\u8e2a\u5206\u6790\uff0c\u4e0d\u6784\u6210\u4e70\u5356\u5efa\u8bae\u3002-] _
+
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2601/test_unbulleted_watch_does_not3')
+separator = '', footer = '以上为跟踪分析，不构成买卖建议。'
+
+    @pytest.mark.parametrize("separator", ["", "\n", "\n\n"])
+    @pytest.mark.parametrize("footer", [TAIL, "以上为跟踪分析，不构成买卖建议。"])
+    def test_unbulleted_watch_does_not_absorb_a_disclaimer(tmp_path, separator, footer):
+        answer = HEAD + "**下期关注（一条）**：" + WATCH + separator + footer
+>       assert missing_contract_elements(answer) == ()
+E       AssertionError: assert ('next_watch',) == ()
+E
+E         Left contains one more item: 'next_watch'
+E         Use -v to get more diff
+
+intelligence/tests/test_financial_r6_regressions.py:46: AssertionError
+_ test_unbulleted_watch_does_not_absorb_a_disclaimer[\u4ee5\u4e0a\u4e3a\u8ddf\u8e2a\u5206\u6790\uff0c\u4e0d\u6784\u6210\u4e70\u5356\u5efa\u8bae\u3002-\n] _
+
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2601/test_unbulleted_watch_does_not4')
+separator = '\n', footer = '以上为跟踪分析，不构成买卖建议。'
+
+    @pytest.mark.parametrize("separator", ["", "\n", "\n\n"])
+    @pytest.mark.parametrize("footer", [TAIL, "以上为跟踪分析，不构成买卖建议。"])
+    def test_unbulleted_watch_does_not_absorb_a_disclaimer(tmp_path, separator, footer):
+        answer = HEAD + "**下期关注（一条）**：" + WATCH + separator + footer
+>       assert missing_contract_elements(answer) == ()
+E       AssertionError: assert ('next_watch',) == ()
+E
+E         Left contains one more item: 'next_watch'
+E         Use -v to get more diff
+
+intelligence/tests/test_financial_r6_regressions.py:46: AssertionError
+_ test_unbulleted_watch_does_not_absorb_a_disclaimer[\u4ee5\u4e0a\u4e3a\u8ddf\u8e2a\u5206\u6790\uff0c\u4e0d\u6784\u6210\u4e70\u5356\u5efa\u8bae\u3002-\n\n] _
+
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2601/test_unbulleted_watch_does_not5')
+separator = '\n\n', footer = '以上为跟踪分析，不构成买卖建议。'
+
+    @pytest.mark.parametrize("separator", ["", "\n", "\n\n"])
+    @pytest.mark.parametrize("footer", [TAIL, "以上为跟踪分析，不构成买卖建议。"])
+    def test_unbulleted_watch_does_not_absorb_a_disclaimer(tmp_path, separator, footer):
+        answer = HEAD + "**下期关注（一条）**：" + WATCH + separator + footer
+>       assert missing_contract_elements(answer) == ()
+E       AssertionError: assert ('next_watch',) == ()
+E
+E         Left contains one more item: 'next_watch'
+E         Use -v to get more diff
+
+intelligence/tests/test_financial_r6_regressions.py:46: AssertionError
+_ test_footer_does_not_excuse_a_real_incomplete_watch[\u6307\u6807=\u5b58\u8d27\uff1b\u65f6\u95f4\u8282\u70b9=2026-10-22\u3002] _
+
+suffix = '指标=存货；时间节点=2026-10-22。'
+
+    @pytest.mark.parametrize("suffix", [
+        "指标=存货；时间节点=2026-10-22。",
+        "2. 指标=存货；时间节点=2026-10-22。",
+        "单季口径为推算值，非官方披露；指标=存货；时间节点=2026-10-22。",
+    ])
+    def test_footer_does_not_excuse_a_real_incomplete_watch(suffix):
+        answer = HEAD + "下期关注清单：" + WATCH + "\n" + suffix
+>       assert missing_contract_elements(answer) == ("next_watch",)
+E       AssertionError: assert () == ('next_watch',)
+E
+E         Right contains one more item: 'next_watch'
+E         Use -v to get more diff
+
+intelligence/tests/test_financial_r6_regressions.py:64: AssertionError
+_ test_threshold_question_is_not_a_numeric_gate_escape[off-\u68c0\u9a8c\u6761\u4ef6\uff1a\u4e09\u5b63\u62a5\u51c0\u73b0\u6bd4\u662f\u5426\u56de\u52300.6\u4ee5\u4e0a\u3001\u5b58\u8d27\u5468\u8f6c\u662f\u5426\u56de\u843d\u3002] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10993f4d0>
+condition = '检验条件：三季报净现比是否回到0.6以上、存货周转是否回落。', mode = 'off'
+
+    @pytest.mark.parametrize("condition", [
+        "检验条件：三季报净现比是否回到0.6以上、存货周转是否回落。",
+        "三季报净现比是否回到0.6以上？",
+        "三季报净现比能否恢复至0.6？",
+        "三季报净现比能不能达到60%？",
+        "三季报净现比可否回升到六成？",
+        "净现比回到0.6以上才上调判断。",
+        "| 净现比 | 是否回到0.6以上 |",
+    ])
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    def test_threshold_question_is_not_a_numeric_gate_escape(monkeypatch, condition, mode):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        frame, verified = _structural(SAFE + "\n" + condition, detail=SAFE)
+        result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+            frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5),
+        )
+        assert SAFE in result.public_answer
+>       assert condition not in result.public_answer
+E       AssertionError: assert '检验条件：三季报净现比...以上、存货周转是否回落。' not in '应收账款明细尚未取得，...以上、存货周转是否回落。'
+E
+E         '检验条件：三季报净现比是否回到0.6以上、存货周转是否回落。' is contained here:
+E           应收账款明细尚未取得，回款变化原因仍待核实。
+E           检验条件：三季报净现比是否回到0.6以上、存货周转是否回落。
+
+intelligence/tests/test_financial_r6_regressions.py:84: AssertionError
+_ test_threshold_question_is_not_a_numeric_gate_escape[off-\u4e09\u5b63\u62a5\u51c0\u73b0\u6bd4\u662f\u5426\u56de\u52300.6\u4ee5\u4e0a\uff1f] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10996e990>
+condition = '三季报净现比是否回到0.6以上？', mode = 'off'
+
+    @pytest.mark.parametrize("condition", [
+        "检验条件：三季报净现比是否回到0.6以上、存货周转是否回落。",
+        "三季报净现比是否回到0.6以上？",
+        "三季报净现比能否恢复至0.6？",
+        "三季报净现比能不能达到60%？",
+        "三季报净现比可否回升到六成？",
+        "净现比回到0.6以上才上调判断。",
+        "| 净现比 | 是否回到0.6以上 |",
+    ])
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    def test_threshold_question_is_not_a_numeric_gate_escape(monkeypatch, condition, mode):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        frame, verified = _structural(SAFE + "\n" + condition, detail=SAFE)
+        result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+            frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5),
+        )
+        assert SAFE in result.public_answer
+>       assert condition not in result.public_answer
+E       AssertionError: assert '三季报净现比是否回到0.6以上？' not in '应收账款明细尚未取得，...现比是否回到0.6以上？'
+E
+E         '三季报净现比是否回到0.6以上？' is contained here:
+E           应收账款明细尚未取得，回款变化原因仍待核实。
+E           三季报净现比是否回到0.6以上？
+
+intelligence/tests/test_financial_r6_regressions.py:84: AssertionError
+_ test_threshold_question_is_not_a_numeric_gate_escape[off-\u4e09\u5b63\u62a5\u51c0\u73b0\u6bd4\u80fd\u5426\u6062\u590d\u81f30.6\uff1f] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10996d490>
+condition = '三季报净现比能否恢复至0.6？', mode = 'off'
+
+    @pytest.mark.parametrize("condition", [
+        "检验条件：三季报净现比是否回到0.6以上、存货周转是否回落。",
+        "三季报净现比是否回到0.6以上？",
+        "三季报净现比能否恢复至0.6？",
+        "三季报净现比能不能达到60%？",
+        "三季报净现比可否回升到六成？",
+        "净现比回到0.6以上才上调判断。",
+        "| 净现比 | 是否回到0.6以上 |",
+    ])
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    def test_threshold_question_is_not_a_numeric_gate_escape(monkeypatch, condition, mode):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        frame, verified = _structural(SAFE + "\n" + condition, detail=SAFE)
+        result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+            frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5),
+        )
+        assert SAFE in result.public_answer
+>       assert condition not in result.public_answer
+E       AssertionError: assert '三季报净现比能否恢复至0.6？' not in '应收账款明细尚未取得，...净现比能否恢复至0.6？'
+E
+E         '三季报净现比能否恢复至0.6？' is contained here:
+E           应收账款明细尚未取得，回款变化原因仍待核实。
+E           三季报净现比能否恢复至0.6？
+
+intelligence/tests/test_financial_r6_regressions.py:84: AssertionError
+_ test_threshold_question_is_not_a_numeric_gate_escape[off-\u4e09\u5b63\u62a5\u51c0\u73b0\u6bd4\u80fd\u4e0d\u80fd\u8fbe\u523060%\uff1f] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10996f290>
+condition = '三季报净现比能不能达到60%？', mode = 'off'
+
+    @pytest.mark.parametrize("condition", [
+        "检验条件：三季报净现比是否回到0.6以上、存货周转是否回落。",
+        "三季报净现比是否回到0.6以上？",
+        "三季报净现比能否恢复至0.6？",
+        "三季报净现比能不能达到60%？",
+        "三季报净现比可否回升到六成？",
+        "净现比回到0.6以上才上调判断。",
+        "| 净现比 | 是否回到0.6以上 |",
+    ])
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    def test_threshold_question_is_not_a_numeric_gate_escape(monkeypatch, condition, mode):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        frame, verified = _structural(SAFE + "\n" + condition, detail=SAFE)
+        result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+            frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5),
+        )
+        assert SAFE in result.public_answer
+>       assert condition not in result.public_answer
+E       AssertionError: assert '三季报净现比能不能达到60%？' not in '应收账款明细尚未取得，...净现比能不能达到60%？'
+E
+E         '三季报净现比能不能达到60%？' is contained here:
+E           应收账款明细尚未取得，回款变化原因仍待核实。
+E           三季报净现比能不能达到60%？
+
+intelligence/tests/test_financial_r6_regressions.py:84: AssertionError
+_ test_threshold_question_is_not_a_numeric_gate_escape[off-\u4e09\u5b63\u62a5\u51c0\u73b0\u6bd4\u53ef\u5426\u56de\u5347\u5230\u516d\u6210\uff1f] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1099b0260>
+condition = '三季报净现比可否回升到六成？', mode = 'off'
+
+    @pytest.mark.parametrize("condition", [
+        "检验条件：三季报净现比是否回到0.6以上、存货周转是否回落。",
+        "三季报净现比是否回到0.6以上？",
+        "三季报净现比能否恢复至0.6？",
+        "三季报净现比能不能达到60%？",
+        "三季报净现比可否回升到六成？",
+        "净现比回到0.6以上才上调判断。",
+        "| 净现比 | 是否回到0.6以上 |",
+    ])
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    def test_threshold_question_is_not_a_numeric_gate_escape(monkeypatch, condition, mode):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        frame, verified = _structural(SAFE + "\n" + condition, detail=SAFE)
+        result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+            frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5),
+        )
+        assert SAFE in result.public_answer
+>       assert condition not in result.public_answer
+E       AssertionError: assert '三季报净现比可否回升到六成？' not in '应收账款明细尚未取得，...报净现比可否回升到六成？'
+E
+E         '三季报净现比可否回升到六成？' is contained here:
+E           应收账款明细尚未取得，回款变化原因仍待核实。
+E           三季报净现比可否回升到六成？
+
+intelligence/tests/test_financial_r6_regressions.py:84: AssertionError
+_ test_threshold_question_is_not_a_numeric_gate_escape[off-\u51c0\u73b0\u6bd4\u56de\u52300.6\u4ee5\u4e0a\u624d\u4e0a\u8c03\u5224\u65ad\u3002] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1099b10d0>
+condition = '净现比回到0.6以上才上调判断。', mode = 'off'
+
+    @pytest.mark.parametrize("condition", [
+        "检验条件：三季报净现比是否回到0.6以上、存货周转是否回落。",
+        "三季报净现比是否回到0.6以上？",
+        "三季报净现比能否恢复至0.6？",
+        "三季报净现比能不能达到60%？",
+        "三季报净现比可否回升到六成？",
+        "净现比回到0.6以上才上调判断。",
+        "| 净现比 | 是否回到0.6以上 |",
+    ])
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    def test_threshold_question_is_not_a_numeric_gate_escape(monkeypatch, condition, mode):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        frame, verified = _structural(SAFE + "\n" + condition, detail=SAFE)
+        result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+            frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5),
+        )
+        assert SAFE in result.public_answer
+>       assert condition not in result.public_answer
+E       AssertionError: assert '净现比回到0.6以上才上调判断。' not in '应收账款明细尚未取得，...到0.6以上才上调判断。'
+E
+E         '净现比回到0.6以上才上调判断。' is contained here:
+E           应收账款明细尚未取得，回款变化原因仍待核实。
+E           净现比回到0.6以上才上调判断。
+
+intelligence/tests/test_financial_r6_regressions.py:84: AssertionError
+_ test_threshold_question_is_not_a_numeric_gate_escape[off-| \u51c0\u73b0\u6bd4 | \u662f\u5426\u56de\u52300.6\u4ee5\u4e0a |] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1099b22d0>
+condition = '| 净现比 | 是否回到0.6以上 |', mode = 'off'
+
+    @pytest.mark.parametrize("condition", [
+        "检验条件：三季报净现比是否回到0.6以上、存货周转是否回落。",
+        "三季报净现比是否回到0.6以上？",
+        "三季报净现比能否恢复至0.6？",
+        "三季报净现比能不能达到60%？",
+        "三季报净现比可否回升到六成？",
+        "净现比回到0.6以上才上调判断。",
+        "| 净现比 | 是否回到0.6以上 |",
+    ])
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    def test_threshold_question_is_not_a_numeric_gate_escape(monkeypatch, condition, mode):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        frame, verified = _structural(SAFE + "\n" + condition, detail=SAFE)
+        result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+            frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5),
+        )
+        assert SAFE in result.public_answer
+>       assert condition not in result.public_answer
+E       AssertionError: assert '| 净现比 | 是否回到0.6以上 |' not in '应收账款明细尚未取得，... 是否回到0.6以上 |'
+E
+E         '| 净现比 | 是否回到0.6以上 |' is contained here:
+E           应收账款明细尚未取得，回款变化原因仍待核实。
+E           | 净现比 | 是否回到0.6以上 |
+
+intelligence/tests/test_financial_r6_regressions.py:84: AssertionError
+_ test_threshold_question_is_not_a_numeric_gate_escape[llm-\u68c0\u9a8c\u6761\u4ef6\uff1a\u4e09\u5b63\u62a5\u51c0\u73b0\u6bd4\u662f\u5426\u56de\u52300.6\u4ee5\u4e0a\u3001\u5b58\u8d27\u5468\u8f6c\u662f\u5426\u56de\u843d\u3002] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1099b3770>
+condition = '检验条件：三季报净现比是否回到0.6以上、存货周转是否回落。', mode = 'llm'
+
+    @pytest.mark.parametrize("condition", [
+        "检验条件：三季报净现比是否回到0.6以上、存货周转是否回落。",
+        "三季报净现比是否回到0.6以上？",
+        "三季报净现比能否恢复至0.6？",
+        "三季报净现比能不能达到60%？",
+        "三季报净现比可否回升到六成？",
+        "净现比回到0.6以上才上调判断。",
+        "| 净现比 | 是否回到0.6以上 |",
+    ])
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    def test_threshold_question_is_not_a_numeric_gate_escape(monkeypatch, condition, mode):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        frame, verified = _structural(SAFE + "\n" + condition, detail=SAFE)
+        result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+            frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5),
+        )
+        assert SAFE in result.public_answer
+>       assert condition not in result.public_answer
+E       AssertionError: assert '检验条件：三季报净现比...以上、存货周转是否回落。' not in '应收账款明细尚未取得，...以上、存货周转是否回落。'
+E
+E         '检验条件：三季报净现比是否回到0.6以上、存货周转是否回落。' is contained here:
+E           应收账款明细尚未取得，回款变化原因仍待核实。
+E           检验条件：三季报净现比是否回到0.6以上、存货周转是否回落。
+
+intelligence/tests/test_financial_r6_regressions.py:84: AssertionError
+_ test_threshold_question_is_not_a_numeric_gate_escape[llm-\u4e09\u5b63\u62a5\u51c0\u73b0\u6bd4\u662f\u5426\u56de\u52300.6\u4ee5\u4e0a\uff1f] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1099a4380>
+condition = '三季报净现比是否回到0.6以上？', mode = 'llm'
+
+    @pytest.mark.parametrize("condition", [
+        "检验条件：三季报净现比是否回到0.6以上、存货周转是否回落。",
+        "三季报净现比是否回到0.6以上？",
+        "三季报净现比能否恢复至0.6？",
+        "三季报净现比能不能达到60%？",
+        "三季报净现比可否回升到六成？",
+        "净现比回到0.6以上才上调判断。",
+        "| 净现比 | 是否回到0.6以上 |",
+    ])
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    def test_threshold_question_is_not_a_numeric_gate_escape(monkeypatch, condition, mode):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        frame, verified = _structural(SAFE + "\n" + condition, detail=SAFE)
+        result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+            frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5),
+        )
+        assert SAFE in result.public_answer
+>       assert condition not in result.public_answer
+E       AssertionError: assert '三季报净现比是否回到0.6以上？' not in '应收账款明细尚未取得，...现比是否回到0.6以上？'
+E
+E         '三季报净现比是否回到0.6以上？' is contained here:
+E           应收账款明细尚未取得，回款变化原因仍待核实。
+E           三季报净现比是否回到0.6以上？
+
+intelligence/tests/test_financial_r6_regressions.py:84: AssertionError
+_ test_threshold_question_is_not_a_numeric_gate_escape[llm-\u4e09\u5b63\u62a5\u51c0\u73b0\u6bd4\u80fd\u5426\u6062\u590d\u81f30.6\uff1f] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1099a5d30>
+condition = '三季报净现比能否恢复至0.6？', mode = 'llm'
+
+    @pytest.mark.parametrize("condition", [
+        "检验条件：三季报净现比是否回到0.6以上、存货周转是否回落。",
+        "三季报净现比是否回到0.6以上？",
+        "三季报净现比能否恢复至0.6？",
+        "三季报净现比能不能达到60%？",
+        "三季报净现比可否回升到六成？",
+        "净现比回到0.6以上才上调判断。",
+        "| 净现比 | 是否回到0.6以上 |",
+    ])
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    def test_threshold_question_is_not_a_numeric_gate_escape(monkeypatch, condition, mode):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        frame, verified = _structural(SAFE + "\n" + condition, detail=SAFE)
+        result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+            frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5),
+        )
+        assert SAFE in result.public_answer
+>       assert condition not in result.public_answer
+E       AssertionError: assert '三季报净现比能否恢复至0.6？' not in '应收账款明细尚未取得，...净现比能否恢复至0.6？'
+E
+E         '三季报净现比能否恢复至0.6？' is contained here:
+E           应收账款明细尚未取得，回款变化原因仍待核实。
+E           三季报净现比能否恢复至0.6？
+
+intelligence/tests/test_financial_r6_regressions.py:84: AssertionError
+_ test_threshold_question_is_not_a_numeric_gate_escape[llm-\u4e09\u5b63\u62a5\u51c0\u73b0\u6bd4\u80fd\u4e0d\u80fd\u8fbe\u523060%\uff1f] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1099a62d0>
+condition = '三季报净现比能不能达到60%？', mode = 'llm'
+
+    @pytest.mark.parametrize("condition", [
+        "检验条件：三季报净现比是否回到0.6以上、存货周转是否回落。",
+        "三季报净现比是否回到0.6以上？",
+        "三季报净现比能否恢复至0.6？",
+        "三季报净现比能不能达到60%？",
+        "三季报净现比可否回升到六成？",
+        "净现比回到0.6以上才上调判断。",
+        "| 净现比 | 是否回到0.6以上 |",
+    ])
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    def test_threshold_question_is_not_a_numeric_gate_escape(monkeypatch, condition, mode):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        frame, verified = _structural(SAFE + "\n" + condition, detail=SAFE)
+        result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+            frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5),
+        )
+        assert SAFE in result.public_answer
+>       assert condition not in result.public_answer
+E       AssertionError: assert '三季报净现比能不能达到60%？' not in '应收账款明细尚未取得，...净现比能不能达到60%？'
+E
+E         '三季报净现比能不能达到60%？' is contained here:
+E           应收账款明细尚未取得，回款变化原因仍待核实。
+E           三季报净现比能不能达到60%？
+
+intelligence/tests/test_financial_r6_regressions.py:84: AssertionError
+_ test_threshold_question_is_not_a_numeric_gate_escape[llm-\u4e09\u5b63\u62a5\u51c0\u73b0\u6bd4\u53ef\u5426\u56de\u5347\u5230\u516d\u6210\uff1f] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1099a7470>
+condition = '三季报净现比可否回升到六成？', mode = 'llm'
+
+    @pytest.mark.parametrize("condition", [
+        "检验条件：三季报净现比是否回到0.6以上、存货周转是否回落。",
+        "三季报净现比是否回到0.6以上？",
+        "三季报净现比能否恢复至0.6？",
+        "三季报净现比能不能达到60%？",
+        "三季报净现比可否回升到六成？",
+        "净现比回到0.6以上才上调判断。",
+        "| 净现比 | 是否回到0.6以上 |",
+    ])
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    def test_threshold_question_is_not_a_numeric_gate_escape(monkeypatch, condition, mode):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        frame, verified = _structural(SAFE + "\n" + condition, detail=SAFE)
+        result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+            frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5),
+        )
+        assert SAFE in result.public_answer
+>       assert condition not in result.public_answer
+E       AssertionError: assert '三季报净现比可否回升到六成？' not in '应收账款明细尚未取得，...报净现比可否回升到六成？'
+E
+E         '三季报净现比可否回升到六成？' is contained here:
+E           应收账款明细尚未取得，回款变化原因仍待核实。
+E           三季报净现比可否回升到六成？
+
+intelligence/tests/test_financial_r6_regressions.py:84: AssertionError
+_ test_threshold_question_is_not_a_numeric_gate_escape[llm-\u51c0\u73b0\u6bd4\u56de\u52300.6\u4ee5\u4e0a\u624d\u4e0a\u8c03\u5224\u65ad\u3002] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1099a6ff0>
+condition = '净现比回到0.6以上才上调判断。', mode = 'llm'
+
+    @pytest.mark.parametrize("condition", [
+        "检验条件：三季报净现比是否回到0.6以上、存货周转是否回落。",
+        "三季报净现比是否回到0.6以上？",
+        "三季报净现比能否恢复至0.6？",
+        "三季报净现比能不能达到60%？",
+        "三季报净现比可否回升到六成？",
+        "净现比回到0.6以上才上调判断。",
+        "| 净现比 | 是否回到0.6以上 |",
+    ])
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    def test_threshold_question_is_not_a_numeric_gate_escape(monkeypatch, condition, mode):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        frame, verified = _structural(SAFE + "\n" + condition, detail=SAFE)
+        result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+            frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5),
+        )
+        assert SAFE in result.public_answer
+>       assert condition not in result.public_answer
+E       AssertionError: assert '净现比回到0.6以上才上调判断。' not in '应收账款明细尚未取得，...到0.6以上才上调判断。'
+E
+E         '净现比回到0.6以上才上调判断。' is contained here:
+E           应收账款明细尚未取得，回款变化原因仍待核实。
+E           净现比回到0.6以上才上调判断。
+
+intelligence/tests/test_financial_r6_regressions.py:84: AssertionError
+_ test_threshold_question_is_not_a_numeric_gate_escape[llm-| \u51c0\u73b0\u6bd4 | \u662f\u5426\u56de\u52300.6\u4ee5\u4e0a |] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1099a4ec0>
+condition = '| 净现比 | 是否回到0.6以上 |', mode = 'llm'
+
+    @pytest.mark.parametrize("condition", [
+        "检验条件：三季报净现比是否回到0.6以上、存货周转是否回落。",
+        "三季报净现比是否回到0.6以上？",
+        "三季报净现比能否恢复至0.6？",
+        "三季报净现比能不能达到60%？",
+        "三季报净现比可否回升到六成？",
+        "净现比回到0.6以上才上调判断。",
+        "| 净现比 | 是否回到0.6以上 |",
+    ])
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    def test_threshold_question_is_not_a_numeric_gate_escape(monkeypatch, condition, mode):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        frame, verified = _structural(SAFE + "\n" + condition, detail=SAFE)
+        result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+            frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5),
+        )
+        assert SAFE in result.public_answer
+>       assert condition not in result.public_answer
+E       AssertionError: assert '| 净现比 | 是否回到0.6以上 |' not in '应收账款明细尚未取得，... 是否回到0.6以上 |'
+E
+E         '| 净现比 | 是否回到0.6以上 |' is contained here:
+E           应收账款明细尚未取得，回款变化原因仍待核实。
+E           | 净现比 | 是否回到0.6以上 |
+
+intelligence/tests/test_financial_r6_regressions.py:84: AssertionError
+_ test_financial_contradiction_is_removed_even_when_judge_passes[off-2026\u4e2d\u62a5\u7d2f\u8ba1\u7ecf\u8425\u73b0\u91d1\u6d4118\u4ebf\u5143\uff0c\u4e00\u5b63\u62a5\u4e3a33.68\u4ebf\u5143\uff0c\u4e8c\u5b63\u5ea6\u5355\u5b63\u7ecf\u8425\u73b0\u91d1\u6d41\u4e3a\u51c0\u6d41\u51fa\u7ea615.66\u4ebf\u5143\u3002] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1099b0da0>
+claim = '2026中报累计经营现金流18亿元，一季报为33.68亿元，二季度单季经营现金流为净流出约15.66亿元。', mode = 'off'
+
+    @pytest.mark.parametrize("claim", [
+        "2026中报累计经营现金流18亿元，一季报为33.68亿元，二季度单季经营现金流为净流出约15.66亿元。",
+        "二季度单季经营现金流=18−33.68=−15.66亿元。",
+        "2026中报净现比0.133。",
+        "2026中报净现比为0.132，同累计长度对照2025全年净现比1.009。",
+        "2026中报OCF/净利从2025年报的1.009降至0.132。",
+        "存货半年内增加约41.5亿元（156.72→198.26亿元）。",
+    ])
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    def test_financial_contradiction_is_removed_even_when_judge_passes(monkeypatch, claim, mode):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        frame, verified = _financial(SAFE + "\n" + claim)
+        result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+            frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5),
+        )
+        assert SAFE in result.public_answer
+>       assert claim not in result.public_answer
+E       AssertionError: assert '2026中报累计经营现...净流出约15.66亿元。' not in '应收账款明细尚未取得，...净流出约15.66亿元。'
+E
+E         '2026中报累计经营现金流18亿元，...季经营现金流为净流出约15.66亿元。' is contained here:
+E           应收账款明细尚未取得，回款变化原因仍待核实。
+E           2026中报累计经营现金流18亿元，一季报为33.68亿元，二季度单季经营现金流为净流出约15.66亿元。
+
+intelligence/tests/test_financial_r6_regressions.py:147: AssertionError
+_ test_financial_contradiction_is_removed_even_when_judge_passes[off-\u4e8c\u5b63\u5ea6\u5355\u5b63\u7ecf\u8425\u73b0\u91d1\u6d41=18\u221233.68=\u221215.66\u4ebf\u5143\u3002] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10996dd90>
+claim = '二季度单季经营现金流=18−33.68=−15.66亿元。', mode = 'off'
+
+    @pytest.mark.parametrize("claim", [
+        "2026中报累计经营现金流18亿元，一季报为33.68亿元，二季度单季经营现金流为净流出约15.66亿元。",
+        "二季度单季经营现金流=18−33.68=−15.66亿元。",
+        "2026中报净现比0.133。",
+        "2026中报净现比为0.132，同累计长度对照2025全年净现比1.009。",
+        "2026中报OCF/净利从2025年报的1.009降至0.132。",
+        "存货半年内增加约41.5亿元（156.72→198.26亿元）。",
+    ])
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    def test_financial_contradiction_is_removed_even_when_judge_passes(monkeypatch, claim, mode):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        frame, verified = _financial(SAFE + "\n" + claim)
+        result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+            frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5),
+        )
+        assert SAFE in result.public_answer
+>       assert claim not in result.public_answer
+E       AssertionError: assert '二季度单季经营现金流=...68=−15.66亿元。' not in '应收账款明细尚未取得，...68=−15.66亿元。'
+E
+E         '二季度单季经营现金流=18−33.68=−15.66亿元。' is contained here:
+E           应收账款明细尚未取得，回款变化原因仍待核实。
+E           二季度单季经营现金流=18−33.68=−15.66亿元。
+
+intelligence/tests/test_financial_r6_regressions.py:147: AssertionError
+_ test_financial_contradiction_is_removed_even_when_judge_passes[off-2026\u4e2d\u62a5\u51c0\u73b0\u6bd40.133\u3002] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10996f1a0>
+claim = '2026中报净现比0.133。', mode = 'off'
+
+    @pytest.mark.parametrize("claim", [
+        "2026中报累计经营现金流18亿元，一季报为33.68亿元，二季度单季经营现金流为净流出约15.66亿元。",
+        "二季度单季经营现金流=18−33.68=−15.66亿元。",
+        "2026中报净现比0.133。",
+        "2026中报净现比为0.132，同累计长度对照2025全年净现比1.009。",
+        "2026中报OCF/净利从2025年报的1.009降至0.132。",
+        "存货半年内增加约41.5亿元（156.72→198.26亿元）。",
+    ])
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    def test_financial_contradiction_is_removed_even_when_judge_passes(monkeypatch, claim, mode):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        frame, verified = _financial(SAFE + "\n" + claim)
+        result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+            frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5),
+        )
+        assert SAFE in result.public_answer
+>       assert claim not in result.public_answer
+E       AssertionError: assert '2026中报净现比0.133。' not in '应收账款明细尚未取得，...6中报净现比0.133。'
+E
+E         '2026中报净现比0.133。' is contained here:
+E           应收账款明细尚未取得，回款变化原因仍待核实。
+E           2026中报净现比0.133。
+
+intelligence/tests/test_financial_r6_regressions.py:147: AssertionError
+_ test_financial_contradiction_is_removed_even_when_judge_passes[off-2026\u4e2d\u62a5\u51c0\u73b0\u6bd4\u4e3a0.132\uff0c\u540c\u7d2f\u8ba1\u957f\u5ea6\u5bf9\u71672025\u5168\u5e74\u51c0\u73b0\u6bd41.009\u3002] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1099f8b90>
+claim = '2026中报净现比为0.132，同累计长度对照2025全年净现比1.009。', mode = 'off'
+
+    @pytest.mark.parametrize("claim", [
+        "2026中报累计经营现金流18亿元，一季报为33.68亿元，二季度单季经营现金流为净流出约15.66亿元。",
+        "二季度单季经营现金流=18−33.68=−15.66亿元。",
+        "2026中报净现比0.133。",
+        "2026中报净现比为0.132，同累计长度对照2025全年净现比1.009。",
+        "2026中报OCF/净利从2025年报的1.009降至0.132。",
+        "存货半年内增加约41.5亿元（156.72→198.26亿元）。",
+    ])
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    def test_financial_contradiction_is_removed_even_when_judge_passes(monkeypatch, claim, mode):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        frame, verified = _financial(SAFE + "\n" + claim)
+        result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+            frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5),
+        )
+        assert SAFE in result.public_answer
+>       assert claim not in result.public_answer
+E       AssertionError: assert '2026中报净现比为0...5全年净现比1.009。' not in '应收账款明细尚未取得，...5全年净现比1.009。'
+E
+E         '2026中报净现比为0.132，同累计长度对照2025全年净现比1.009。' is contained here:
+E           应收账款明细尚未取得，回款变化原因仍待核实。
+E           2026中报净现比为0.132，同累计长度对照2025全年净现比1.009。
+
+intelligence/tests/test_financial_r6_regressions.py:147: AssertionError
+_ test_financial_contradiction_is_removed_even_when_judge_passes[off-2026\u4e2d\u62a5OCF/\u51c0\u5229\u4ece2025\u5e74\u62a5\u76841.009\u964d\u81f30.132\u3002] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1099fa630>
+claim = '2026中报OCF/净利从2025年报的1.009降至0.132。', mode = 'off'
+
+    @pytest.mark.parametrize("claim", [
+        "2026中报累计经营现金流18亿元，一季报为33.68亿元，二季度单季经营现金流为净流出约15.66亿元。",
+        "二季度单季经营现金流=18−33.68=−15.66亿元。",
+        "2026中报净现比0.133。",
+        "2026中报净现比为0.132，同累计长度对照2025全年净现比1.009。",
+        "2026中报OCF/净利从2025年报的1.009降至0.132。",
+        "存货半年内增加约41.5亿元（156.72→198.26亿元）。",
+    ])
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    def test_financial_contradiction_is_removed_even_when_judge_passes(monkeypatch, claim, mode):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        frame, verified = _financial(SAFE + "\n" + claim)
+        result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+            frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5),
+        )
+        assert SAFE in result.public_answer
+>       assert claim not in result.public_answer
+E       AssertionError: assert '2026中报OCF/净....009降至0.132。' not in '应收账款明细尚未取得，....009降至0.132。'
+E
+E         '2026中报OCF/净利从2025年报的1.009降至0.132。' is contained here:
+E           应收账款明细尚未取得，回款变化原因仍待核实。
+E           2026中报OCF/净利从2025年报的1.009降至0.132。
+
+intelligence/tests/test_financial_r6_regressions.py:147: AssertionError
+_ test_financial_contradiction_is_removed_even_when_judge_passes[off-\u5b58\u8d27\u534a\u5e74\u5185\u589e\u52a0\u7ea641.5\u4ebf\u5143\uff08156.72\u2192198.26\u4ebf\u5143\uff09\u3002] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1099e3140>
+claim = '存货半年内增加约41.5亿元（156.72→198.26亿元）。', mode = 'off'
+
+    @pytest.mark.parametrize("claim", [
+        "2026中报累计经营现金流18亿元，一季报为33.68亿元，二季度单季经营现金流为净流出约15.66亿元。",
+        "二季度单季经营现金流=18−33.68=−15.66亿元。",
+        "2026中报净现比0.133。",
+        "2026中报净现比为0.132，同累计长度对照2025全年净现比1.009。",
+        "2026中报OCF/净利从2025年报的1.009降至0.132。",
+        "存货半年内增加约41.5亿元（156.72→198.26亿元）。",
+    ])
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    def test_financial_contradiction_is_removed_even_when_judge_passes(monkeypatch, claim, mode):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        frame, verified = _financial(SAFE + "\n" + claim)
+        result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+            frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5),
+        )
+        assert SAFE in result.public_answer
+>       assert claim not in result.public_answer
+E       AssertionError: assert '存货半年内增加约41....2→198.26亿元）。' not in '应收账款明细尚未取得，...2→198.26亿元）。'
+E
+E         '存货半年内增加约41.5亿元（156.72→198.26亿元）。' is contained here:
+E           应收账款明细尚未取得，回款变化原因仍待核实。
+E           存货半年内增加约41.5亿元（156.72→198.26亿元）。
+
+intelligence/tests/test_financial_r6_regressions.py:147: AssertionError
+_ test_financial_contradiction_is_removed_even_when_judge_passes[llm-2026\u4e2d\u62a5\u7d2f\u8ba1\u7ecf\u8425\u73b0\u91d1\u6d4118\u4ebf\u5143\uff0c\u4e00\u5b63\u62a5\u4e3a33.68\u4ebf\u5143\uff0c\u4e8c\u5b63\u5ea6\u5355\u5b63\u7ecf\u8425\u73b0\u91d1\u6d41\u4e3a\u51c0\u6d41\u51fa\u7ea615.66\u4ebf\u5143\u3002] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1099e1310>
+claim = '2026中报累计经营现金流18亿元，一季报为33.68亿元，二季度单季经营现金流为净流出约15.66亿元。', mode = 'llm'
+
+    @pytest.mark.parametrize("claim", [
+        "2026中报累计经营现金流18亿元，一季报为33.68亿元，二季度单季经营现金流为净流出约15.66亿元。",
+        "二季度单季经营现金流=18−33.68=−15.66亿元。",
+        "2026中报净现比0.133。",
+        "2026中报净现比为0.132，同累计长度对照2025全年净现比1.009。",
+        "2026中报OCF/净利从2025年报的1.009降至0.132。",
+        "存货半年内增加约41.5亿元（156.72→198.26亿元）。",
+    ])
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    def test_financial_contradiction_is_removed_even_when_judge_passes(monkeypatch, claim, mode):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        frame, verified = _financial(SAFE + "\n" + claim)
+        result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+            frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5),
+        )
+        assert SAFE in result.public_answer
+>       assert claim not in result.public_answer
+E       AssertionError: assert '2026中报累计经营现...净流出约15.66亿元。' not in '应收账款明细尚未取得，...净流出约15.66亿元。'
+E
+E         '2026中报累计经营现金流18亿元，...季经营现金流为净流出约15.66亿元。' is contained here:
+E           应收账款明细尚未取得，回款变化原因仍待核实。
+E           2026中报累计经营现金流18亿元，一季报为33.68亿元，二季度单季经营现金流为净流出约15.66亿元。
+
+intelligence/tests/test_financial_r6_regressions.py:147: AssertionError
+_ test_financial_contradiction_is_removed_even_when_judge_passes[llm-\u4e8c\u5b63\u5ea6\u5355\u5b63\u7ecf\u8425\u73b0\u91d1\u6d41=18\u221233.68=\u221215.66\u4ebf\u5143\u3002] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1099e2ea0>
+claim = '二季度单季经营现金流=18−33.68=−15.66亿元。', mode = 'llm'
+
+    @pytest.mark.parametrize("claim", [
+        "2026中报累计经营现金流18亿元，一季报为33.68亿元，二季度单季经营现金流为净流出约15.66亿元。",
+        "二季度单季经营现金流=18−33.68=−15.66亿元。",
+        "2026中报净现比0.133。",
+        "2026中报净现比为0.132，同累计长度对照2025全年净现比1.009。",
+        "2026中报OCF/净利从2025年报的1.009降至0.132。",
+        "存货半年内增加约41.5亿元（156.72→198.26亿元）。",
+    ])
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    def test_financial_contradiction_is_removed_even_when_judge_passes(monkeypatch, claim, mode):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        frame, verified = _financial(SAFE + "\n" + claim)
+        result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+            frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5),
+        )
+        assert SAFE in result.public_answer
+>       assert claim not in result.public_answer
+E       AssertionError: assert '二季度单季经营现金流=...68=−15.66亿元。' not in '应收账款明细尚未取得，...68=−15.66亿元。'
+E
+E         '二季度单季经营现金流=18−33.68=−15.66亿元。' is contained here:
+E           应收账款明细尚未取得，回款变化原因仍待核实。
+E           二季度单季经营现金流=18−33.68=−15.66亿元。
+
+intelligence/tests/test_financial_r6_regressions.py:147: AssertionError
+_ test_financial_contradiction_is_removed_even_when_judge_passes[llm-2026\u4e2d\u62a5\u51c0\u73b0\u6bd40.133\u3002] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1099e1dc0>
+claim = '2026中报净现比0.133。', mode = 'llm'
+
+    @pytest.mark.parametrize("claim", [
+        "2026中报累计经营现金流18亿元，一季报为33.68亿元，二季度单季经营现金流为净流出约15.66亿元。",
+        "二季度单季经营现金流=18−33.68=−15.66亿元。",
+        "2026中报净现比0.133。",
+        "2026中报净现比为0.132，同累计长度对照2025全年净现比1.009。",
+        "2026中报OCF/净利从2025年报的1.009降至0.132。",
+        "存货半年内增加约41.5亿元（156.72→198.26亿元）。",
+    ])
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    def test_financial_contradiction_is_removed_even_when_judge_passes(monkeypatch, claim, mode):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        frame, verified = _financial(SAFE + "\n" + claim)
+        result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+            frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5),
+        )
+        assert SAFE in result.public_answer
+>       assert claim not in result.public_answer
+E       AssertionError: assert '2026中报净现比0.133。' not in '应收账款明细尚未取得，...6中报净现比0.133。'
+E
+E         '2026中报净现比0.133。' is contained here:
+E           应收账款明细尚未取得，回款变化原因仍待核实。
+E           2026中报净现比0.133。
+
+intelligence/tests/test_financial_r6_regressions.py:147: AssertionError
+_ test_financial_contradiction_is_removed_even_when_judge_passes[llm-2026\u4e2d\u62a5\u51c0\u73b0\u6bd4\u4e3a0.132\uff0c\u540c\u7d2f\u8ba1\u957f\u5ea6\u5bf9\u71672025\u5168\u5e74\u51c0\u73b0\u6bd41.009\u3002] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1099faab0>
+claim = '2026中报净现比为0.132，同累计长度对照2025全年净现比1.009。', mode = 'llm'
+
+    @pytest.mark.parametrize("claim", [
+        "2026中报累计经营现金流18亿元，一季报为33.68亿元，二季度单季经营现金流为净流出约15.66亿元。",
+        "二季度单季经营现金流=18−33.68=−15.66亿元。",
+        "2026中报净现比0.133。",
+        "2026中报净现比为0.132，同累计长度对照2025全年净现比1.009。",
+        "2026中报OCF/净利从2025年报的1.009降至0.132。",
+        "存货半年内增加约41.5亿元（156.72→198.26亿元）。",
+    ])
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    def test_financial_contradiction_is_removed_even_when_judge_passes(monkeypatch, claim, mode):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        frame, verified = _financial(SAFE + "\n" + claim)
+        result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+            frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5),
+        )
+        assert SAFE in result.public_answer
+>       assert claim not in result.public_answer
+E       AssertionError: assert '2026中报净现比为0...5全年净现比1.009。' not in '应收账款明细尚未取得，...5全年净现比1.009。'
+E
+E         '2026中报净现比为0.132，同累计长度对照2025全年净现比1.009。' is contained here:
+E           应收账款明细尚未取得，回款变化原因仍待核实。
+E           2026中报净现比为0.132，同累计长度对照2025全年净现比1.009。
+
+intelligence/tests/test_financial_r6_regressions.py:147: AssertionError
+_ test_financial_contradiction_is_removed_even_when_judge_passes[llm-2026\u4e2d\u62a5OCF/\u51c0\u5229\u4ece2025\u5e74\u62a5\u76841.009\u964d\u81f30.132\u3002] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1099f8da0>
+claim = '2026中报OCF/净利从2025年报的1.009降至0.132。', mode = 'llm'
+
+    @pytest.mark.parametrize("claim", [
+        "2026中报累计经营现金流18亿元，一季报为33.68亿元，二季度单季经营现金流为净流出约15.66亿元。",
+        "二季度单季经营现金流=18−33.68=−15.66亿元。",
+        "2026中报净现比0.133。",
+        "2026中报净现比为0.132，同累计长度对照2025全年净现比1.009。",
+        "2026中报OCF/净利从2025年报的1.009降至0.132。",
+        "存货半年内增加约41.5亿元（156.72→198.26亿元）。",
+    ])
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    def test_financial_contradiction_is_removed_even_when_judge_passes(monkeypatch, claim, mode):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        frame, verified = _financial(SAFE + "\n" + claim)
+        result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+            frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5),
+        )
+        assert SAFE in result.public_answer
+>       assert claim not in result.public_answer
+E       AssertionError: assert '2026中报OCF/净....009降至0.132。' not in '应收账款明细尚未取得，....009降至0.132。'
+E
+E         '2026中报OCF/净利从2025年报的1.009降至0.132。' is contained here:
+E           应收账款明细尚未取得，回款变化原因仍待核实。
+E           2026中报OCF/净利从2025年报的1.009降至0.132。
+
+intelligence/tests/test_financial_r6_regressions.py:147: AssertionError
+_ test_financial_contradiction_is_removed_even_when_judge_passes[llm-\u5b58\u8d27\u534a\u5e74\u5185\u589e\u52a0\u7ea641.5\u4ebf\u5143\uff08156.72\u2192198.26\u4ebf\u5143\uff09\u3002] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10996cb30>
+claim = '存货半年内增加约41.5亿元（156.72→198.26亿元）。', mode = 'llm'
+
+    @pytest.mark.parametrize("claim", [
+        "2026中报累计经营现金流18亿元，一季报为33.68亿元，二季度单季经营现金流为净流出约15.66亿元。",
+        "二季度单季经营现金流=18−33.68=−15.66亿元。",
+        "2026中报净现比0.133。",
+        "2026中报净现比为0.132，同累计长度对照2025全年净现比1.009。",
+        "2026中报OCF/净利从2025年报的1.009降至0.132。",
+        "存货半年内增加约41.5亿元（156.72→198.26亿元）。",
+    ])
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    def test_financial_contradiction_is_removed_even_when_judge_passes(monkeypatch, claim, mode):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        frame, verified = _financial(SAFE + "\n" + claim)
+        result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+            frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5),
+        )
+        assert SAFE in result.public_answer
+>       assert claim not in result.public_answer
+E       AssertionError: assert '存货半年内增加约41....2→198.26亿元）。' not in '应收账款明细尚未取得，...2→198.26亿元）。'
+E
+E         '存货半年内增加约41.5亿元（156.72→198.26亿元）。' is contained here:
+E           应收账款明细尚未取得，回款变化原因仍待核实。
+E           存货半年内增加约41.5亿元（156.72→198.26亿元）。
+
+intelligence/tests/test_financial_r6_regressions.py:147: AssertionError
+_________ test_structured_rows_cannot_fulfil_explicit_document_request _________
+
+    def test_structured_rows_cannot_fulfil_explicit_document_request():
+        question = "选用一份你确实检索到、带明确发布日期的公告或定期报告，分析利润与回款。"
+        _, verified = _financial(SAFE, question=question)
+>       assert verified.verified_status == "partial"
+E       AssertionError: assert 'completed' == 'partial'
+E
+E         - partial
+E         + completed
+
+intelligence/tests/test_financial_r6_regressions.py:173: AssertionError
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_financial_r6_regressions.py::test_unbulleted_watch_does_not_absorb_a_disclaimer[\u5355\u5b63\u53e3\u5f84\u4e3a\u63a8\u7b97\u503c\uff0c\u975e\u5b98\u65b9\u62ab\u9732\u3002\u4e0d\u6784\u6210\u4e70\u5356\u5efa\u8bae\uff0c\u672c\u6b21\u7814\u7a76\u4e0d\u767b\u8bb0\u4e3a\u957f\u671f\u8ddf\u8e2a\u3001\u4e0d\u5199\u5165\u6295\u8d44\u89c2\u70b9\u3002-]
+FAILED intelligence/tests/test_financial_r6_regressions.py::test_unbulleted_watch_does_not_absorb_a_disclaimer[\u5355\u5b63\u53e3\u5f84\u4e3a\u63a8\u7b97\u503c\uff0c\u975e\u5b98\u65b9\u62ab\u9732\u3002\u4e0d\u6784\u6210\u4e70\u5356\u5efa\u8bae\uff0c\u672c\u6b21\u7814\u7a76\u4e0d\u767b\u8bb0\u4e3a\u957f\u671f\u8ddf\u8e2a\u3001\u4e0d\u5199\u5165\u6295\u8d44\u89c2\u70b9\u3002-\n]
+FAILED intelligence/tests/test_financial_r6_regressions.py::test_unbulleted_watch_does_not_absorb_a_disclaimer[\u5355\u5b63\u53e3\u5f84\u4e3a\u63a8\u7b97\u503c\uff0c\u975e\u5b98\u65b9\u62ab\u9732\u3002\u4e0d\u6784\u6210\u4e70\u5356\u5efa\u8bae\uff0c\u672c\u6b21\u7814\u7a76\u4e0d\u767b\u8bb0\u4e3a\u957f\u671f\u8ddf\u8e2a\u3001\u4e0d\u5199\u5165\u6295\u8d44\u89c2\u70b9\u3002-\n\n]
+FAILED intelligence/tests/test_financial_r6_regressions.py::test_unbulleted_watch_does_not_absorb_a_disclaimer[\u4ee5\u4e0a\u4e3a\u8ddf\u8e2a\u5206\u6790\uff0c\u4e0d\u6784\u6210\u4e70\u5356\u5efa\u8bae\u3002-]
+FAILED intelligence/tests/test_financial_r6_regressions.py::test_unbulleted_watch_does_not_absorb_a_disclaimer[\u4ee5\u4e0a\u4e3a\u8ddf\u8e2a\u5206\u6790\uff0c\u4e0d\u6784\u6210\u4e70\u5356\u5efa\u8bae\u3002-\n]
+FAILED intelligence/tests/test_financial_r6_regressions.py::test_unbulleted_watch_does_not_absorb_a_disclaimer[\u4ee5\u4e0a\u4e3a\u8ddf\u8e2a\u5206\u6790\uff0c\u4e0d\u6784\u6210\u4e70\u5356\u5efa\u8bae\u3002-\n\n]
+FAILED intelligence/tests/test_financial_r6_regressions.py::test_footer_does_not_excuse_a_real_incomplete_watch[\u6307\u6807=\u5b58\u8d27\uff1b\u65f6\u95f4\u8282\u70b9=2026-10-22\u3002]
+FAILED intelligence/tests/test_financial_r6_regressions.py::test_threshold_question_is_not_a_numeric_gate_escape[off-\u68c0\u9a8c\u6761\u4ef6\uff1a\u4e09\u5b63\u62a5\u51c0\u73b0\u6bd4\u662f\u5426\u56de\u52300.6\u4ee5\u4e0a\u3001\u5b58\u8d27\u5468\u8f6c\u662f\u5426\u56de\u843d\u3002]
+FAILED intelligence/tests/test_financial_r6_regressions.py::test_threshold_question_is_not_a_numeric_gate_escape[off-\u4e09\u5b63\u62a5\u51c0\u73b0\u6bd4\u662f\u5426\u56de\u52300.6\u4ee5\u4e0a\uff1f]
+FAILED intelligence/tests/test_financial_r6_regressions.py::test_threshold_question_is_not_a_numeric_gate_escape[off-\u4e09\u5b63\u62a5\u51c0\u73b0\u6bd4\u80fd\u5426\u6062\u590d\u81f30.6\uff1f]
+FAILED intelligence/tests/test_financial_r6_regressions.py::test_threshold_question_is_not_a_numeric_gate_escape[off-\u4e09\u5b63\u62a5\u51c0\u73b0\u6bd4\u80fd\u4e0d\u80fd\u8fbe\u523060%\uff1f]
+FAILED intelligence/tests/test_financial_r6_regressions.py::test_threshold_question_is_not_a_numeric_gate_escape[off-\u4e09\u5b63\u62a5\u51c0\u73b0\u6bd4\u53ef\u5426\u56de\u5347\u5230\u516d\u6210\uff1f]
+FAILED intelligence/tests/test_financial_r6_regressions.py::test_threshold_question_is_not_a_numeric_gate_escape[off-\u51c0\u73b0\u6bd4\u56de\u52300.6\u4ee5\u4e0a\u624d\u4e0a\u8c03\u5224\u65ad\u3002]
+FAILED intelligence/tests/test_financial_r6_regressions.py::test_threshold_question_is_not_a_numeric_gate_escape[off-| \u51c0\u73b0\u6bd4 | \u662f\u5426\u56de\u52300.6\u4ee5\u4e0a |]
+FAILED intelligence/tests/test_financial_r6_regressions.py::test_threshold_question_is_not_a_numeric_gate_escape[llm-\u68c0\u9a8c\u6761\u4ef6\uff1a\u4e09\u5b63\u62a5\u51c0\u73b0\u6bd4\u662f\u5426\u56de\u52300.6\u4ee5\u4e0a\u3001\u5b58\u8d27\u5468\u8f6c\u662f\u5426\u56de\u843d\u3002]
+FAILED intelligence/tests/test_financial_r6_regressions.py::test_threshold_question_is_not_a_numeric_gate_escape[llm-\u4e09\u5b63\u62a5\u51c0\u73b0\u6bd4\u662f\u5426\u56de\u52300.6\u4ee5\u4e0a\uff1f]
+FAILED intelligence/tests/test_financial_r6_regressions.py::test_threshold_question_is_not_a_numeric_gate_escape[llm-\u4e09\u5b63\u62a5\u51c0\u73b0\u6bd4\u80fd\u5426\u6062\u590d\u81f30.6\uff1f]
+FAILED intelligence/tests/test_financial_r6_regressions.py::test_threshold_question_is_not_a_numeric_gate_escape[llm-\u4e09\u5b63\u62a5\u51c0\u73b0\u6bd4\u80fd\u4e0d\u80fd\u8fbe\u523060%\uff1f]
+FAILED intelligence/tests/test_financial_r6_regressions.py::test_threshold_question_is_not_a_numeric_gate_escape[llm-\u4e09\u5b63\u62a5\u51c0\u73b0\u6bd4\u53ef\u5426\u56de\u5347\u5230\u516d\u6210\uff1f]
+FAILED intelligence/tests/test_financial_r6_regressions.py::test_threshold_question_is_not_a_numeric_gate_escape[llm-\u51c0\u73b0\u6bd4\u56de\u52300.6\u4ee5\u4e0a\u624d\u4e0a\u8c03\u5224\u65ad\u3002]
+FAILED intelligence/tests/test_financial_r6_regressions.py::test_threshold_question_is_not_a_numeric_gate_escape[llm-| \u51c0\u73b0\u6bd4 | \u662f\u5426\u56de\u52300.6\u4ee5\u4e0a |]
+FAILED intelligence/tests/test_financial_r6_regressions.py::test_financial_contradiction_is_removed_even_when_judge_passes[off-2026\u4e2d\u62a5\u7d2f\u8ba1\u7ecf\u8425\u73b0\u91d1\u6d4118\u4ebf\u5143\uff0c\u4e00\u5b63\u62a5\u4e3a33.68\u4ebf\u5143\uff0c\u4e8c\u5b63\u5ea6\u5355\u5b63\u7ecf\u8425\u73b0\u91d1\u6d41\u4e3a\u51c0\u6d41\u51fa\u7ea615.66\u4ebf\u5143\u3002]
+FAILED intelligence/tests/test_financial_r6_regressions.py::test_financial_contradiction_is_removed_even_when_judge_passes[off-\u4e8c\u5b63\u5ea6\u5355\u5b63\u7ecf\u8425\u73b0\u91d1\u6d41=18\u221233.68=\u221215.66\u4ebf\u5143\u3002]
+FAILED intelligence/tests/test_financial_r6_regressions.py::test_financial_contradiction_is_removed_even_when_judge_passes[off-2026\u4e2d\u62a5\u51c0\u73b0\u6bd40.133\u3002]
+FAILED intelligence/tests/test_financial_r6_regressions.py::test_financial_contradiction_is_removed_even_when_judge_passes[off-2026\u4e2d\u62a5\u51c0\u73b0\u6bd4\u4e3a0.132\uff0c\u540c\u7d2f\u8ba1\u957f\u5ea6\u5bf9\u71672025\u5168\u5e74\u51c0\u73b0\u6bd41.009\u3002]
+FAILED intelligence/tests/test_financial_r6_regressions.py::test_financial_contradiction_is_removed_even_when_judge_passes[off-2026\u4e2d\u62a5OCF/\u51c0\u5229\u4ece2025\u5e74\u62a5\u76841.009\u964d\u81f30.132\u3002]
+FAILED intelligence/tests/test_financial_r6_regressions.py::test_financial_contradiction_is_removed_even_when_judge_passes[off-\u5b58\u8d27\u534a\u5e74\u5185\u589e\u52a0\u7ea641.5\u4ebf\u5143\uff08156.72\u2192198.26\u4ebf\u5143\uff09\u3002]
+FAILED intelligence/tests/test_financial_r6_regressions.py::test_financial_contradiction_is_removed_even_when_judge_passes[llm-2026\u4e2d\u62a5\u7d2f\u8ba1\u7ecf\u8425\u73b0\u91d1\u6d4118\u4ebf\u5143\uff0c\u4e00\u5b63\u62a5\u4e3a33.68\u4ebf\u5143\uff0c\u4e8c\u5b63\u5ea6\u5355\u5b63\u7ecf\u8425\u73b0\u91d1\u6d41\u4e3a\u51c0\u6d41\u51fa\u7ea615.66\u4ebf\u5143\u3002]
+FAILED intelligence/tests/test_financial_r6_regressions.py::test_financial_contradiction_is_removed_even_when_judge_passes[llm-\u4e8c\u5b63\u5ea6\u5355\u5b63\u7ecf\u8425\u73b0\u91d1\u6d41=18\u221233.68=\u221215.66\u4ebf\u5143\u3002]
+FAILED intelligence/tests/test_financial_r6_regressions.py::test_financial_contradiction_is_removed_even_when_judge_passes[llm-2026\u4e2d\u62a5\u51c0\u73b0\u6bd40.133\u3002]
+FAILED intelligence/tests/test_financial_r6_regressions.py::test_financial_contradiction_is_removed_even_when_judge_passes[llm-2026\u4e2d\u62a5\u51c0\u73b0\u6bd4\u4e3a0.132\uff0c\u540c\u7d2f\u8ba1\u957f\u5ea6\u5bf9\u71672025\u5168\u5e74\u51c0\u73b0\u6bd41.009\u3002]
+FAILED intelligence/tests/test_financial_r6_regressions.py::test_financial_contradiction_is_removed_even_when_judge_passes[llm-2026\u4e2d\u62a5OCF/\u51c0\u5229\u4ece2025\u5e74\u62a5\u76841.009\u964d\u81f30.132\u3002]
+FAILED intelligence/tests/test_financial_r6_regressions.py::test_financial_contradiction_is_removed_even_when_judge_passes[llm-\u5b58\u8d27\u534a\u5e74\u5185\u589e\u52a0\u7ea641.5\u4ebf\u5143\uff08156.72\u2192198.26\u4ebf\u5143\uff09\u3002]
+FAILED intelligence/tests/test_financial_r6_regressions.py::test_structured_rows_cannot_fulfil_explicit_document_request
+34 failed, 13 passed in 0.35s

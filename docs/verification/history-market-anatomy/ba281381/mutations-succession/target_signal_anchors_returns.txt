@@ -1,0 +1,14 @@
+F                                                                        [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260918T082050Z-ba281381.json
+
+=================================== FAILURES ===================================
+_ test_calculator_records_same_peak_next5_dates_without_confirmation_prerequisite _
+tests/test_history_succession_projection.py:275: in test_calculator_records_same_peak_next5_dates_without_confirmation_prerequisite
+    assert row["evidence"]["target_return_pct"] == pytest.approx((.98**2 * 1.05**3 - 1) * 100)
+E   assert 6.686720000000013 == 11.17830500000001 ± 1.1e-05
+E     
+E     comparison failed
+E     Obtained: 6.686720000000013
+E     Expected: 11.17830500000001 ± 1.1e-05
+=========================== short test summary info ============================
+FAILED tests/test_history_succession_projection.py::test_calculator_records_same_peak_next5_dates_without_confirmation_prerequisite
+1 failed in 0.60s

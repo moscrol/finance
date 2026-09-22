@@ -1,0 +1,2853 @@
+{
+  "schema_version": 1,
+  "sealed_at": "2026-09-18T16:18:07.354385+00:00",
+  "business_revision": "d965721553741b7a1267b8541e7806d088083a8f",
+  "branch": "fix/8792-financial-r6-repair",
+  "base_documentation_revision": "53f433b6",
+  "previous_business_revision": "15527aad05efda1b42d8ffac107da94186760378",
+  "transplant": {
+    "source_commit": "a31b572f9a762c6205224d251717472ffa61c530",
+    "scope": "delivery protection patch only, with local seam repairs; not whole data-readiness branch"
+  },
+  "decision": {
+    "author_engineering": "conditional_pass_at_pinned_inputs",
+    "ambient_all_passed": false,
+    "original_r6_and_r3": "0/4 not_passed, unchanged",
+    "new_live_runs": 0,
+    "independent_qc": "not_run",
+    "full_parallel_integration": false,
+    "pushed": false,
+    "merged_main": false,
+    "deployed": false,
+    "production_8792_switched": false
+  },
+  "engineering": {
+    "python": {
+      "passed": 12180,
+      "failed": 0,
+      "skipped": 86,
+      "xfailed": 2,
+      "warnings": 17
+    },
+    "frontend_passed": 107,
+    "e2e_passed": 34,
+    "e2e_skipped": 2,
+    "scope": "full checks ran at clean candidate revision; pinned native registry checks separately, no receipt transplant"
+  },
+  "pinned_repositories": {
+    "finance-workspace-private": {
+      "path": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/registry-pinned-d9657215/finance-workspace-private",
+      "revision": "d965721553741b7a1267b8541e7806d088083a8f",
+      "status": ""
+    },
+    "knowledge-base-private": {
+      "path": "/Users/a77/.finance-runtime/reviews/kb-retrieval-merge-20260918/knowledge-base-private",
+      "revision": "91725ea9ba0252a43665f9e3130142f946c289ae",
+      "status": ""
+    },
+    "finance-research-site": {
+      "path": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/registry-pinned-d9657215/finance-research-site",
+      "revision": "9f60bef076749cdba13cf228ffa6f22141876eb8",
+      "status": ""
+    }
+  },
+  "mutation_suites": [
+    {
+      "suite": "financial-delivery",
+      "mutation_groups": 6,
+      "baseline": {
+        "label": "baseline",
+        "exit": 0,
+        "executed": 20,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "failed_cases": []
+      },
+      "restored": {
+        "label": "restored-full",
+        "exit": 0,
+        "executed": 20,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "failed_cases": []
+      },
+      "red_kind": "every group includes actual AssertionError"
+    },
+    {
+      "suite": "financial-r6",
+      "mutation_groups": 13,
+      "baseline": {
+        "label": "baseline",
+        "exit": 0,
+        "executed": 91,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "failed_cases": []
+      },
+      "restored": {
+        "label": "restored-full",
+        "exit": 0,
+        "executed": 91,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "failed_cases": []
+      },
+      "red_kind": "every group includes actual AssertionError"
+    },
+    {
+      "suite": "research-delivery",
+      "mutation_groups": 13,
+      "baseline": {
+        "label": "baseline",
+        "exit": 0,
+        "executed": 107,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "failed_cases": []
+      },
+      "restored": {
+        "label": "restored-full",
+        "exit": 0,
+        "executed": 107,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "failed_cases": []
+      },
+      "red_kind": "every group includes actual AssertionError"
+    },
+    {
+      "suite": "extraction",
+      "mutation_groups": 35,
+      "baseline": {
+        "label": "baseline",
+        "exit": 0,
+        "executed": 165,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "failed_cases": []
+      },
+      "restored": {
+        "label": "restored-full",
+        "exit": 0,
+        "executed": 165,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "failed_cases": []
+      },
+      "red_kind": "28 groups with assertions; 7 exception-only groups"
+    }
+  ],
+  "failure_type_correction": "Default extraction 35 groups are test-body failures, not all AssertionError. Current and old 15527aad XML both have 28 assertion-bearing groups / 7 exception-only groups; original package is unchanged.",
+  "replay": {
+    "scope": "finite original-input mechanical replay, not final publication, live acceptance or general financial correctness",
+    "sources_unchanged": true,
+    "network_connect_attempts": 0,
+    "original_input_count": 12
+  },
+  "development_reds": {
+    "transplant_first": "2F/296P: R5 assumptions for empty calculation success updated; protection kept",
+    "seams_first": "16F: 14 behavior assertions + 2 fixture TypeError; do not count all as product defects",
+    "seams_repair_first": "2F/338P fixture error remains",
+    "invalid_target": "exit 4, zero tests; bad test path, not product defect"
+  },
+  "toolkit_revision": "aa87df5014b901cd27cd29fd022870f8dfb7d258",
+  "vault": {
+    "method_auto_sync": "4ba3af24",
+    "capability_and_project_auto_sync": "db683c32",
+    "lint": "exit 1 before and after: 20 errors / 17 warnings; 11 age warnings shift at local midnight; exact and normalized delta preserved",
+    "manual_push": false
+  },
+  "secret_scan": {
+    "scope": [
+      "private_key",
+      "github_token",
+      "api_key",
+      "bearer"
+    ],
+    "matches": [],
+    "universal_secret_certification": false
+  },
+  "packaged_receipts": [
+    {
+      "path": "engineering.json",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/candidate-d9657215/result.json",
+      "sha256": "35a18fc97f2a7fbc543977190630ae913f9f6ed5d08a7ec070930fa9fe867915",
+      "bytes": 4394,
+      "source_sha256": "35a18fc97f2a7fbc543977190630ae913f9f6ed5d08a7ec070930fa9fe867915",
+      "source_bytes": 4394,
+      "transformation": "none; byte-identical copy"
+    },
+    {
+      "path": "pytest-receipt.json",
+      "source": "/Users/a77/.finance-runtime/test-receipts/20260918T155728Z-d9657215.json",
+      "sha256": "a81a9bd712684730424859884ac9100597ee8daa7936cc97f86a02779f6a001f",
+      "bytes": 664,
+      "source_sha256": "a81a9bd712684730424859884ac9100597ee8daa7936cc97f86a02779f6a001f",
+      "source_bytes": 664,
+      "transformation": "none; byte-identical copy"
+    },
+    {
+      "path": "registry-pinned.json",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/registry-pinned-d9657215/registry-results.json",
+      "sha256": "9157cf7140bd458f3223b1a8a8b9156c424476090bf5960e4db5ca114f68746a",
+      "bytes": 2975,
+      "source_sha256": "9157cf7140bd458f3223b1a8a8b9156c424476090bf5960e4db5ca114f68746a",
+      "source_bytes": 2975,
+      "transformation": "none; byte-identical copy"
+    },
+    {
+      "path": "archive-replay.json",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/archive-replay-d9657215.json",
+      "sha256": "9750eb50808f4fd2bda57768657e060798dbdb681643f7d93df9ce380b920458",
+      "bytes": 15107,
+      "source_sha256": "9750eb50808f4fd2bda57768657e060798dbdb681643f7d93df9ce380b920458",
+      "source_bytes": 15107,
+      "transformation": "none; byte-identical copy"
+    },
+    {
+      "path": "receipt-check.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/receipt-check-d9657215.log",
+      "sha256": "973a8ac65362ebbeee9efc5a619ed4e50963694b7568f94dddb8b04c3dd2969e",
+      "bytes": 751,
+      "source_sha256": "973a8ac65362ebbeee9efc5a619ed4e50963694b7568f94dddb8b04c3dd2969e",
+      "source_bytes": 751,
+      "transformation": "none; byte-identical copy"
+    },
+    {
+      "path": "registry-ambient-red.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/candidate-d9657215/registry.log",
+      "sha256": "aaf5dfa001820fdd23d9398d803e3e1b7a2692298d01c8b9adbfdc04d84b680c",
+      "bytes": 1105,
+      "source_sha256": "aaf5dfa001820fdd23d9398d803e3e1b7a2692298d01c8b9adbfdc04d84b680c",
+      "source_bytes": 1105,
+      "transformation": "none; byte-identical copy"
+    },
+    {
+      "path": "mutation-failure-classification.json",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/mutation-failure-classification.json",
+      "sha256": "89a02660108a8e03a65b0b345543316a059c2002b2be8387ff83b0a49b703793",
+      "bytes": 7829,
+      "source_sha256": "89a02660108a8e03a65b0b345543316a059c2002b2be8387ff83b0a49b703793",
+      "source_bytes": 7829,
+      "transformation": "none; byte-identical copy"
+    },
+    {
+      "path": "prior-extraction-failure-audit.json",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/prior-extraction-failure-audit.json",
+      "sha256": "7e7b9b08c89e4104b0a1455ba31933610d11aa02641604723a4fa5f88cc99e34",
+      "bytes": 6924,
+      "source_sha256": "7e7b9b08c89e4104b0a1455ba31933610d11aa02641604723a4fa5f88cc99e34",
+      "source_bytes": 6924,
+      "transformation": "none; byte-identical copy"
+    },
+    {
+      "path": "closeout-state.json",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/closeout-state.json",
+      "sha256": "3134052896416de21103cc9de6dd335834c69c0145292c03fdbecb29a887947b",
+      "bytes": 2334,
+      "source_sha256": "3134052896416de21103cc9de6dd335834c69c0145292c03fdbecb29a887947b",
+      "source_bytes": 2334,
+      "transformation": "none; byte-identical copy"
+    },
+    {
+      "path": "graph-audit.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/graph-audit.log",
+      "sha256": "474529f9146c1a5719a2894d496347fbedf9b7efbedad3dee08da98d3811132a",
+      "bytes": 41526,
+      "source_sha256": "474529f9146c1a5719a2894d496347fbedf9b7efbedad3dee08da98d3811132a",
+      "source_bytes": 41526,
+      "transformation": "none; byte-identical copy"
+    },
+    {
+      "path": "harness-refs.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/harness-refs-closeout.log",
+      "sha256": "980c0ef51c7f5ba10d37338046626d3a08940c112acb57aa9800f0ba8098a1bf",
+      "bytes": 2339,
+      "source_sha256": "980c0ef51c7f5ba10d37338046626d3a08940c112acb57aa9800f0ba8098a1bf",
+      "source_bytes": 2339,
+      "transformation": "none; byte-identical copy"
+    },
+    {
+      "path": "vault-lint-diff.json",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/vault-lint-diff.json",
+      "sha256": "685ae3f96012813c1ac6ea86cee91d68046a6c1d9285a67d198a0b49efac2449",
+      "bytes": 4010,
+      "source_sha256": "685ae3f96012813c1ac6ea86cee91d68046a6c1d9285a67d198a0b49efac2449",
+      "source_bytes": 4010,
+      "transformation": "none; byte-identical copy"
+    },
+    {
+      "path": "vault-lint-before.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/vault-lint-before.log",
+      "sha256": "e153ea8d5c98d21e29bfdb69cd1ca8315f17a16f55264988dcab441bc9fad4af",
+      "bytes": 5345,
+      "source_sha256": "e153ea8d5c98d21e29bfdb69cd1ca8315f17a16f55264988dcab441bc9fad4af",
+      "source_bytes": 5345,
+      "transformation": "none; byte-identical copy"
+    },
+    {
+      "path": "vault-lint-after.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/vault-lint-after.log",
+      "sha256": "e9677ab03ae4fa4633fab55e3b4519c998a3ccdaf7275c97c9150ae59429a517",
+      "bytes": 5345,
+      "source_sha256": "e9677ab03ae4fa4633fab55e3b4519c998a3ccdaf7275c97c9150ae59429a517",
+      "source_bytes": 5345,
+      "transformation": "none; byte-identical copy"
+    },
+    {
+      "path": "related-development-invalid-target.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/related-development.log",
+      "sha256": "41b465f086480ca9fdecef571e5bbfa69e4f0edf7b9e4b2bbcb09e7f9b4cd29a",
+      "bytes": 186,
+      "source_sha256": "41b465f086480ca9fdecef571e5bbfa69e4f0edf7b9e4b2bbcb09e7f9b4cd29a",
+      "source_bytes": 186,
+      "transformation": "none; byte-identical copy"
+    },
+    {
+      "path": "integration-mutations.json",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/integration-mutations-d9657215/results.json",
+      "sha256": "f7218720404bf38359aba4470b7fdac4d3a574088bc4629b329e799c5260d12c",
+      "bytes": 23978,
+      "source_sha256": "f7218720404bf38359aba4470b7fdac4d3a574088bc4629b329e799c5260d12c",
+      "source_bytes": 23978,
+      "transformation": "none; byte-identical copy"
+    },
+    {
+      "path": "financial-mutations.json",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/financial-mutations-d9657215/results.json",
+      "sha256": "c4f9bf3a7c3977e22beb8dc6db330cf59db3d1bdaa49aeb46510074d92942ae2",
+      "bytes": 63763,
+      "source_sha256": "c4f9bf3a7c3977e22beb8dc6db330cf59db3d1bdaa49aeb46510074d92942ae2",
+      "source_bytes": 63763,
+      "transformation": "none; byte-identical copy"
+    },
+    {
+      "path": "delivery-mutations.json",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/delivery-mutations-d9657215/results.json",
+      "sha256": "4baf77da761036b4e9b99d3be80c9cbd7816878212065693ed1153145ec31f9b",
+      "bytes": 44559,
+      "source_sha256": "4baf77da761036b4e9b99d3be80c9cbd7816878212065693ed1153145ec31f9b",
+      "source_bytes": 44559,
+      "transformation": "none; byte-identical copy"
+    },
+    {
+      "path": "extraction-mutations.json",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/results.json",
+      "sha256": "d98df23bc64b279383fd5982fbeb7801d67d92a6e83ed996ee0dcebf6bd46432",
+      "bytes": 54055,
+      "source_sha256": "d98df23bc64b279383fd5982fbeb7801d67d92a6e83ed996ee0dcebf6bd46432",
+      "source_bytes": 54055,
+      "transformation": "none; byte-identical copy"
+    },
+    {
+      "path": "ruff.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/candidate-d9657215/ruff.log",
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+      "bytes": 19,
+      "source_sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+      "source_bytes": 19,
+      "transformation": "none; byte-identical copy"
+    },
+    {
+      "path": "pytest.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/candidate-d9657215/pytest.log",
+      "sha256": "e5e2d61b5c72beb5617baff0a1af7a078a5e25f93e9130eec56065df231d4dbd",
+      "bytes": 17774,
+      "source_sha256": "e5e2d61b5c72beb5617baff0a1af7a078a5e25f93e9130eec56065df231d4dbd",
+      "source_bytes": 17774,
+      "transformation": "none; byte-identical copy"
+    },
+    {
+      "path": "frontend-lint.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/candidate-d9657215/frontend-lint.log",
+      "sha256": "50a429d8d570eadb917e98010a891887c4c5756a92297d6976da05d15f71a59a",
+      "bytes": 118,
+      "source_sha256": "96cc5c6c6c8ad551916c62a0fef84e9fc6c8863b7fbfa23894e755374c7dc03e",
+      "source_bytes": 119,
+      "transformation": "display copy only: remove trailing line whitespace and surplus blank lines at EOF; external original unchanged"
+    },
+    {
+      "path": "frontend-typecheck.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/candidate-d9657215/frontend-typecheck.log",
+      "sha256": "cae7db441b27c24ba9cfe374bfca25798328458068b3a1555f5d3e8bf298b197",
+      "bytes": 216,
+      "source_sha256": "653ea3a0810fea9267a8e6ee2b2d6bd93f319ca8b16c228291c79b56edbbebe8",
+      "source_bytes": 217,
+      "transformation": "display copy only: remove trailing line whitespace and surplus blank lines at EOF; external original unchanged"
+    },
+    {
+      "path": "frontend-test.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/candidate-d9657215/frontend-test.log",
+      "sha256": "dd13d5659c0c633342eb9d439ba80422f7b200c5b515565fa9baac0b581c4321",
+      "bytes": 848,
+      "source_sha256": "25782b12aeb53e199ebe306e30200841a78ffda70b44b4dbd300fb878ecf708a",
+      "source_bytes": 849,
+      "transformation": "display copy only: remove trailing line whitespace and surplus blank lines at EOF; external original unchanged"
+    },
+    {
+      "path": "frontend-build.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/candidate-d9657215/frontend-build.log",
+      "sha256": "175d6cc094e4a6fbe2270a4c1f6befa65e2dcae5537370350aa9390c3c124438",
+      "bytes": 717,
+      "source_sha256": "175d6cc094e4a6fbe2270a4c1f6befa65e2dcae5537370350aa9390c3c124438",
+      "source_bytes": 717,
+      "transformation": "none; byte-identical copy"
+    },
+    {
+      "path": "e2e.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/candidate-d9657215/e2e.log",
+      "sha256": "2850fd74ff879d26410975cd15b83c6310c04e12755a09fb335e7fbc6975d76e",
+      "bytes": 12756,
+      "source_sha256": "2850fd74ff879d26410975cd15b83c6310c04e12755a09fb335e7fbc6975d76e",
+      "source_bytes": 12756,
+      "transformation": "none; byte-identical copy"
+    },
+    {
+      "path": "registry-pinned-parseability.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/registry-pinned-d9657215/parseability.log",
+      "sha256": "b2d7a8d77df0fdc0f638e93d711f397b07859eb91e6aa5d45d793a52f2abef60",
+      "bytes": 95,
+      "source_sha256": "b2d7a8d77df0fdc0f638e93d711f397b07859eb91e6aa5d45d793a52f2abef60",
+      "source_bytes": 95,
+      "transformation": "none; byte-identical copy"
+    },
+    {
+      "path": "registry-pinned-registry.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/registry-pinned-d9657215/registry.log",
+      "sha256": "8c996aaec0fcd03defec5afb55f6ebb96935c7a5bc571e1811410de6339fe0df",
+      "bytes": 33,
+      "source_sha256": "8c996aaec0fcd03defec5afb55f6ebb96935c7a5bc571e1811410de6339fe0df",
+      "source_bytes": 33,
+      "transformation": "none; byte-identical copy"
+    },
+    {
+      "path": "registry-pinned-tables.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/registry-pinned-d9657215/tables.log",
+      "sha256": "362c2b566827eb15434ae230b1ce60edad2006c45ff08836d0a24fc744447261",
+      "bytes": 116,
+      "source_sha256": "362c2b566827eb15434ae230b1ce60edad2006c45ff08836d0a24fc744447261",
+      "source_bytes": 116,
+      "transformation": "none; byte-identical copy"
+    },
+    {
+      "path": "registry-pinned-views.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/registry-pinned-d9657215/views.log",
+      "sha256": "9730a43a0a4535867153d7ac0afd888b1feaaa96f3846b2922c39a16ad068e89",
+      "bytes": 68,
+      "source_sha256": "9730a43a0a4535867153d7ac0afd888b1feaaa96f3846b2922c39a16ad068e89",
+      "source_bytes": 68,
+      "transformation": "none; byte-identical copy"
+    },
+    {
+      "path": "registry-pinned-ledger-crosswalk.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/registry-pinned-d9657215/ledger-crosswalk.log",
+      "sha256": "816bcf0af51b555b9efcf264a341ab4c894d5703f4aa727e4da188dcc6c1aeba",
+      "bytes": 2103,
+      "source_sha256": "816bcf0af51b555b9efcf264a341ab4c894d5703f4aa727e4da188dcc6c1aeba",
+      "source_bytes": 2103,
+      "transformation": "none; byte-identical copy"
+    },
+    {
+      "path": "transplant-first.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/transplant-first.log",
+      "sha256": "b7770cd2a856c9f415e12e4c2db5d73ba3d00342d56eb80986dd0fcf29007de6",
+      "bytes": 4213,
+      "source_sha256": "b7770cd2a856c9f415e12e4c2db5d73ba3d00342d56eb80986dd0fcf29007de6",
+      "source_bytes": 4213,
+      "transformation": "none; byte-identical copy"
+    },
+    {
+      "path": "seams-first-red.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/seams-first-red.log",
+      "sha256": "e14862964b52e311c2b4d0fdeaaf66d3dfb37b0c069e47710d849de6bddafa46",
+      "bytes": 28066,
+      "source_sha256": "7722d92ed381d743e334309f2550faf0fd13fdb30a4cc1a241325fe49580390a",
+      "source_bytes": 28196,
+      "transformation": "display copy only: remove trailing line whitespace and surplus blank lines at EOF; external original unchanged"
+    },
+    {
+      "path": "seams-repair-first.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/seams-repair-first.log",
+      "sha256": "40b842c72888e70e335ab6d35114f95408a88b196495b717acca6afaaaed3424",
+      "bytes": 4562,
+      "source_sha256": "40b842c72888e70e335ab6d35114f95408a88b196495b717acca6afaaaed3424",
+      "source_bytes": 4562,
+      "transformation": "none; byte-identical copy"
+    },
+    {
+      "path": "seams-fixed-fixture.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/seams-fixed-fixture.log",
+      "sha256": "31dab9f79da42d0cd0a989bb961000a216184588e7cc58b4746863fd1b5dcf94",
+      "bytes": 186,
+      "source_sha256": "31dab9f79da42d0cd0a989bb961000a216184588e7cc58b4746863fd1b5dcf94",
+      "source_bytes": 186,
+      "transformation": "none; byte-identical copy"
+    },
+    {
+      "path": "related-development-valid.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/related-development-valid.log",
+      "sha256": "ebfda68663a7f00c94d694dc2db2823cd9467369a9d69fe2f4f368da92e4db1d",
+      "bytes": 828,
+      "source_sha256": "ebfda68663a7f00c94d694dc2db2823cd9467369a9d69fe2f4f368da92e4db1d",
+      "source_bytes": 828,
+      "transformation": "none; byte-identical copy"
+    },
+    {
+      "path": "material-projection-development.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/material-projection-development.log",
+      "sha256": "51020576662efa8de80164e4438d30858d212dd89cf0c699624e47770d027477",
+      "bytes": 267,
+      "source_sha256": "51020576662efa8de80164e4438d30858d212dd89cf0c699624e47770d027477",
+      "source_bytes": 267,
+      "transformation": "none; byte-identical copy"
+    }
+  ],
+  "external_sources": [
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/archive-replay-d9657215.json",
+      "sha256": "9750eb50808f4fd2bda57768657e060798dbdb681643f7d93df9ce380b920458",
+      "bytes": 15107
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/candidate-d9657215/e2e-deploy-ledger.jsonl",
+      "sha256": "32fc57f8a026301f601e193b4acd47bcc3598d196f4fe4d4a1f8266fa9191e86",
+      "bytes": 849
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/candidate-d9657215/e2e-result.json",
+      "sha256": "d2c9bdea949eb40f286a64889368e042c5ad416cea512a427fbba2841fe06bfc",
+      "bytes": 215
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/candidate-d9657215/e2e.log",
+      "sha256": "2850fd74ff879d26410975cd15b83c6310c04e12755a09fb335e7fbc6975d76e",
+      "bytes": 12756
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/candidate-d9657215/frontend-build-result.json",
+      "sha256": "b42a3e1f906aa10d5f3e9b8657f33a8c2d2ec52836c51217a09fc0c4154e6da8",
+      "bytes": 222
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/candidate-d9657215/frontend-build.log",
+      "sha256": "175d6cc094e4a6fbe2270a4c1f6befa65e2dcae5537370350aa9390c3c124438",
+      "bytes": 717
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/candidate-d9657215/frontend-lint-result.json",
+      "sha256": "b3f4c449b199154b89a0cf234976dd96fa4956571a43ea71c87e86b35a03414c",
+      "bytes": 220
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/candidate-d9657215/frontend-lint.log",
+      "sha256": "96cc5c6c6c8ad551916c62a0fef84e9fc6c8863b7fbfa23894e755374c7dc03e",
+      "bytes": 119
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/candidate-d9657215/frontend-test-result.json",
+      "sha256": "ff2cdf74aaedcd6d5d842331ec00343f948e226b7b7054497b0907430526ec97",
+      "bytes": 220
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/candidate-d9657215/frontend-test.log",
+      "sha256": "25782b12aeb53e199ebe306e30200841a78ffda70b44b4dbd300fb878ecf708a",
+      "bytes": 849
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/candidate-d9657215/frontend-typecheck-result.json",
+      "sha256": "18d295687d70abdba9784a2f3839c9e942cd3801f58f1fa60ecf6f1e68e9f63f",
+      "bytes": 230
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/candidate-d9657215/frontend-typecheck.log",
+      "sha256": "653ea3a0810fea9267a8e6ee2b2d6bd93f319ca8b16c228291c79b56edbbebe8",
+      "bytes": 217
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/candidate-d9657215/ledger-crosswalk-result.json",
+      "sha256": "f840c1d3a7a08ce06878410c520dfdc55749539a228d20027b02d2f410248488",
+      "bytes": 316
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/candidate-d9657215/ledger-crosswalk.log",
+      "sha256": "9165bd397b1f3bae5565042a04912ce8012a66919389ce6c7a9d03915fdfecdf",
+      "bytes": 2014
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/candidate-d9657215/parseability-result.json",
+      "sha256": "03ed01de3ad005ccbeba74509410858fd999ed7530808e93128c217aab0af67b",
+      "bytes": 325
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/candidate-d9657215/parseability.log",
+      "sha256": "b2d7a8d77df0fdc0f638e93d711f397b07859eb91e6aa5d45d793a52f2abef60",
+      "bytes": 95
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/candidate-d9657215/pytest-result.json",
+      "sha256": "f4a052ce7eb5e3b2a3c6ec9ff7b8cba96f52a859d7dc691f74413849c493d172",
+      "bytes": 450
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/candidate-d9657215/pytest.log",
+      "sha256": "e5e2d61b5c72beb5617baff0a1af7a078a5e25f93e9130eec56065df231d4dbd",
+      "bytes": 17774
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/candidate-d9657215/registry-result.json",
+      "sha256": "c548932f5cc6f1b129ec8f21c989dca7a6d6921246630f8ecb5af8ff4de7b98f",
+      "bytes": 308
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/candidate-d9657215/registry.log",
+      "sha256": "aaf5dfa001820fdd23d9398d803e3e1b7a2692298d01c8b9adbfdc04d84b680c",
+      "bytes": 1105
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/candidate-d9657215/result.json",
+      "sha256": "35a18fc97f2a7fbc543977190630ae913f9f6ed5d08a7ec070930fa9fe867915",
+      "bytes": 4394
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/candidate-d9657215/ruff-result.json",
+      "sha256": "bcb7c4cb19f83ffd0eb20648bc103c6f79bdf9c61725b3e79f4b67ea5c9a1e0f",
+      "bytes": 302
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/candidate-d9657215/ruff.log",
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+      "bytes": 19
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/candidate-d9657215/started.json",
+      "sha256": "1ecf15fe831ff99774a48f8c0d0ff2cd7d128b58cecda9582dc35f3842b74d20",
+      "bytes": 128
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/candidate-d9657215/tables-result.json",
+      "sha256": "d4a06e4d7475b6bff67e766a485a4fe8308493036b9d989db6d96752959ec0eb",
+      "bytes": 331
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/candidate-d9657215/tables.log",
+      "sha256": "362c2b566827eb15434ae230b1ce60edad2006c45ff08836d0a24fc744447261",
+      "bytes": 116
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/candidate-d9657215/views-result.json",
+      "sha256": "723c57bc3106fc2670fb376fd9f4315415187f1393c2f6e3f0c2d796a1b3f2a8",
+      "bytes": 329
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/candidate-d9657215/views.log",
+      "sha256": "9730a43a0a4535867153d7ac0afd888b1feaaa96f3846b2922c39a16ad068e89",
+      "bytes": 68
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/closeout-state.json",
+      "sha256": "3134052896416de21103cc9de6dd335834c69c0145292c03fdbecb29a887947b",
+      "bytes": 2334
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/delivery-mutations-console.log",
+      "sha256": "3ef3aa3add0cefcd2453f7c8641fa1e193ff1fbad5f4f72f6f34ee53f27b1e2f",
+      "bytes": 37190
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/delivery-mutations-d9657215/baseline.log",
+      "sha256": "7ecc61ca7ec79a64ec48fef0a78fd6c05d6eeeddd97515b784fe65524756b6be",
+      "bytes": 1042
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/delivery-mutations-d9657215/baseline.xml",
+      "sha256": "78cfa616a65b30d3e78e94e5d947754244b08a180cd705f90334be09cd157f89",
+      "bytes": 21783
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/delivery-mutations-d9657215/cell-local-preservation-green.log",
+      "sha256": "23522f7d6203bd01424ec941304ef27536463717eeb51fc8a22cc6fa90d9a310",
+      "bytes": 1162
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/delivery-mutations-d9657215/cell-local-preservation-green.xml",
+      "sha256": "c4a6cdecd8c8bbbda310e6da6cc92e079b4b79872d917529abfdba9522a00f9c",
+      "bytes": 729
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/delivery-mutations-d9657215/cell-local-preservation-red.log",
+      "sha256": "a9b1af3d5508a17706d0f420507606d78e0d648eccf1a89241b2b4ef9f6d351c",
+      "bytes": 4644
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/delivery-mutations-d9657215/cell-local-preservation-red.xml",
+      "sha256": "ff254d787cbbc8a2747faeef3c9070ae94943dba074f0d4974f49cd7510f42c9",
+      "bytes": 5582
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/delivery-mutations-d9657215/cell-local-preservation.diff",
+      "sha256": "9d198fcef30c87ddded3cba021190ceb9ce69a5b6e5037f85dafd85ea970a98d",
+      "bytes": 716
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/delivery-mutations-d9657215/definitions.json",
+      "sha256": "3392d4ba1915f46c4f6dceef5ce24ae8f57db25f2a4cf8062736ebca11d25dd9",
+      "bytes": 4758
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/delivery-mutations-d9657215/domain-error-status-green.log",
+      "sha256": "cb8acfa2d337f401f8f1296182a2fe53a1a795c7e80d6bfc7e8322d1c3760c35",
+      "bytes": 1085
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/delivery-mutations-d9657215/domain-error-status-green.xml",
+      "sha256": "74a0899172ec995bacfd7f2c65bc7d07f0fde133869af6ede84e905038e2efd1",
+      "bytes": 396
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/delivery-mutations-d9657215/domain-error-status-red.log",
+      "sha256": "c4132734bd18fddf0f50add3a3a80328b1b332a3fec9c97548bf537b0b8b4579",
+      "bytes": 1679
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/delivery-mutations-d9657215/domain-error-status-red.xml",
+      "sha256": "07e7f33fee2379ed761a77cc686346db917a1abdb5a8e336d5058fbfc5cc4467",
+      "bytes": 685
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/delivery-mutations-d9657215/domain-error-status.diff",
+      "sha256": "92eb266eaae01f528d66a74d867c0318e12a914132ab8e9384c43c75a614e632",
+      "bytes": 756
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/delivery-mutations-d9657215/harness-status-delivery-green.log",
+      "sha256": "f2d7c88e08aece1579a005162ee1fe060dfbf32f2c8d6921ad48548383897acd",
+      "bytes": 1093
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/delivery-mutations-d9657215/harness-status-delivery-green.xml",
+      "sha256": "cbe8dd5de235b8436e31dec2dc4a7573c4fb78b6051a3a16eedd8d32ccc544ce",
+      "bytes": 396
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/delivery-mutations-d9657215/harness-status-delivery-red.log",
+      "sha256": "500832e2f53450df7823d2eebb4094733fcb4c4158d9bd9cdc5a7944e4802b83",
+      "bytes": 1687
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/delivery-mutations-d9657215/harness-status-delivery-red.xml",
+      "sha256": "de1cd4ed1708aee314c9c89ae82b5137633694f42eb11043d6ff22336d8f7a37",
+      "bytes": 685
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/delivery-mutations-d9657215/harness-status-delivery.diff",
+      "sha256": "77e19bb71d63cb0ed00ca95590a2a4c805ed88eb2beea688db46cd3a8b611f8b",
+      "bytes": 666
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/delivery-mutations-d9657215/metric-column-not-table-purpose-green.log",
+      "sha256": "03c3e2d644847d114c216e2556be0f76a6acd353f01b86ead394a9649fafbfbd",
+      "bytes": 1108
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/delivery-mutations-d9657215/metric-column-not-table-purpose-green.xml",
+      "sha256": "66924827fb0fb36cb1947fa5ec8ad68a94a0ec307cf5486c69d08bb117dfda9f",
+      "bytes": 2024
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/delivery-mutations-d9657215/metric-column-not-table-purpose-red.log",
+      "sha256": "81cb6554d122b4c7bc1d656d72c1084ccc81c306f8b61319f3d99da80087f979",
+      "bytes": 4344
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/delivery-mutations-d9657215/metric-column-not-table-purpose-red.xml",
+      "sha256": "9f85c7dd30de121077c420789c561e8e2899675173369c224ce87c02c7711ac9",
+      "bytes": 4129
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/delivery-mutations-d9657215/metric-column-not-table-purpose.diff",
+      "sha256": "567703c9f3915284d7871cfbd749bbb8fe3ea522a96b3ddc3d1d4c63d47dd192",
+      "bytes": 910
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/delivery-mutations-d9657215/missing-product-not-certified-green.log",
+      "sha256": "127d8f40d81748135d626048edd2c1a20baa2c83bbc1462ad4a025a239173cd5",
+      "bytes": 1182
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/delivery-mutations-d9657215/missing-product-not-certified-green.xml",
+      "sha256": "c9a80c3605e5cd7618ae70a03294299b206263f201193b73f6c05bb13ef02d34",
+      "bytes": 730
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/delivery-mutations-d9657215/missing-product-not-certified-red.log",
+      "sha256": "11eb555108b063ea429b2735a61ce7ecf2ac08c348331c6d64047c82823a5de2",
+      "bytes": 5867
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/delivery-mutations-d9657215/missing-product-not-certified-red.xml",
+      "sha256": "8fb4f2d86b0b4610472d33ec8db5a2e37da70444b05962a96e6abc70e46e5c1a",
+      "bytes": 8118
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/delivery-mutations-d9657215/missing-product-not-certified.diff",
+      "sha256": "70b66eb50b707196180dcad741571a9e8c4d5adb07fba5bef32c1ae4b1fceff1",
+      "bytes": 594
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/delivery-mutations-d9657215/nonmaterial-final-projection-green.log",
+      "sha256": "bfae60702f3fc0360397107766df2c06c9e362ab39dad5394fed39c31228d1f7",
+      "bytes": 1088
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/delivery-mutations-d9657215/nonmaterial-final-projection-green.xml",
+      "sha256": "24642d37606e88c74de905fd9668158f14d00059d00f005244fa8de6c8cdb44d",
+      "bytes": 381
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/delivery-mutations-d9657215/nonmaterial-final-projection-red.log",
+      "sha256": "d3f509db083c832d860f3d2c9cd2ff51c5cb97ddb1fc4c119810885eaf759326",
+      "bytes": 1950
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/delivery-mutations-d9657215/nonmaterial-final-projection-red.xml",
+      "sha256": "9920f51f71aa13dcbc787e8c9da08748a0743a670e8c4fbca8f95bf8fd79938a",
+      "bytes": 1264
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/delivery-mutations-d9657215/nonmaterial-final-projection.diff",
+      "sha256": "799a704b87d613022502221ac566a5b7162019067dc3bbf14c601b25032d2655",
+      "bytes": 748
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/delivery-mutations-d9657215/period-not-bag-of-numbers-green.log",
+      "sha256": "3dafee00791010e9b6ae1565a052a3895c05c376457bea2a94ed7fc61c303d96",
+      "bytes": 1160
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/delivery-mutations-d9657215/period-not-bag-of-numbers-green.xml",
+      "sha256": "85ad9185f86aa6d2616f8402b56f959d6cdcd506fc9170836446cfd85d254442",
+      "bytes": 2178
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/delivery-mutations-d9657215/period-not-bag-of-numbers-red.log",
+      "sha256": "489c029fef05bd9bed2f956563cd678e823a306f85bffea309001c864cc8ce66",
+      "bytes": 4321
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/delivery-mutations-d9657215/period-not-bag-of-numbers-red.xml",
+      "sha256": "195977ce5ce7043080e81ad051a4af29663af6ce7d248c70604cafc2b9fbbf4f",
+      "bytes": 4380
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/delivery-mutations-d9657215/period-not-bag-of-numbers.diff",
+      "sha256": "923fbbeb6c0921fc94311d65925df85db595952a9891e8e89701dd777bb60508",
+      "bytes": 948
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/delivery-mutations-d9657215/public-calculation-check-green.log",
+      "sha256": "4d2644db30bb9f7806f6c291705a2c575cec3be850609665a6979953a6e956ee",
+      "bytes": 1167
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/delivery-mutations-d9657215/public-calculation-check-green.xml",
+      "sha256": "d9ab51458071734b74e3153d0a31760e3b73450dc918313939c1e89908bd678a",
+      "bytes": 899
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/delivery-mutations-d9657215/public-calculation-check-red.log",
+      "sha256": "6522aabb6c22f6982579018834d718ee873d65596f2bceff88155bf9b997a90c",
+      "bytes": 6237
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/delivery-mutations-d9657215/public-calculation-check-red.xml",
+      "sha256": "cbcc89cbc78fb4c4dbae12746a9f0f593b258192a6f986cd1279722edbec3f5a",
+      "bytes": 8369
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/delivery-mutations-d9657215/public-calculation-check.diff",
+      "sha256": "3f59d2d4bd0527f6ee4c8af8e35250f739e3015358d4a3e4eba82a0aa5329bf3",
+      "bytes": 730
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/delivery-mutations-d9657215/public-disclosure-check-green.log",
+      "sha256": "35f5e993eb19d70580655da84bf3265ef42026adaf41bade7b16cc3137d7f091",
+      "bytes": 1149
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/delivery-mutations-d9657215/public-disclosure-check-green.xml",
+      "sha256": "9b86d84a285db8020b28c3a5edf4e5a4b4750d7c2fee014ada63f98069f11c5e",
+      "bytes": 1912
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/delivery-mutations-d9657215/public-disclosure-check-red.log",
+      "sha256": "2c122cb71fad3741e52ace41f1a6912b89b1d8a846b6b1ea7469feada3729254",
+      "bytes": 10085
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/delivery-mutations-d9657215/public-disclosure-check-red.xml",
+      "sha256": "c294325e2e1dd59a6ef281c95ea97bf1db727b8b243a9dd296974bb8c8edde9d",
+      "bytes": 13541
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/delivery-mutations-d9657215/public-disclosure-check.diff",
+      "sha256": "d6c558d3693d74712f91fcb53945e4ccfd867f9348a0dbe121f4333e01d118a2",
+      "bytes": 758
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/delivery-mutations-d9657215/restored-full.log",
+      "sha256": "d0974ea1cb2320d1e330098ae77a71febd7510d37e322fda9eb7f5987fb80bb6",
+      "bytes": 1052
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/delivery-mutations-d9657215/restored-full.xml",
+      "sha256": "efd30b35cfa640ec6c387f820b723c270471464a2b3e3f8c9e678f0fac141988",
+      "bytes": 21783
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/delivery-mutations-d9657215/result-success-admission-green.log",
+      "sha256": "e0370ade8cedcf33918bdb324bffbe94012032c7227dd3db539d53d6c95d8dae",
+      "bytes": 1151
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/delivery-mutations-d9657215/result-success-admission-green.xml",
+      "sha256": "6d8373657e117741888e951cb51155e5df27df6ca4d1cd0af3c8b16a49501d1c",
+      "bytes": 545
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/delivery-mutations-d9657215/result-success-admission-red.log",
+      "sha256": "46fc2051b3aa7c3b484126a3073adf5a034e8c3f411fe41d5fe551d81a4de5de",
+      "bytes": 3012
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/delivery-mutations-d9657215/result-success-admission-red.xml",
+      "sha256": "432db5715cf3c281077aba6eef94288b97709510a8b9937937549200196543c1",
+      "bytes": 2972
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/delivery-mutations-d9657215/result-success-admission.diff",
+      "sha256": "cb23bad6500b85b4fdfae7d492c5e1ed28a5223ee13c16390ce2f7ec8691655a",
+      "bytes": 570
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/delivery-mutations-d9657215/results.json",
+      "sha256": "4baf77da761036b4e9b99d3be80c9cbd7816878212065693ed1153145ec31f9b",
+      "bytes": 44559
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/delivery-mutations-d9657215/retained-bound-citations-green.log",
+      "sha256": "be9e12855b5b4f8c3e6b245368c2efbf26af1e13d2e12a0c55e09f93acd36405",
+      "bytes": 1180
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/delivery-mutations-d9657215/retained-bound-citations-green.xml",
+      "sha256": "072ae4c9302d38149888f87d6d0d6af3938e61cf5cb97f0f209e990bc3097673",
+      "bytes": 7661
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/delivery-mutations-d9657215/retained-bound-citations-red.log",
+      "sha256": "b6692b9b0b942b01e3bf4dd9bbc0ac14ef7024a2048847010f3e20b9ceb5239c",
+      "bytes": 9749
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/delivery-mutations-d9657215/retained-bound-citations-red.xml",
+      "sha256": "d97e4682949811d55e688d4477269860597b31b4482db7ac96f2eb5eddbb2683",
+      "bytes": 15127
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/delivery-mutations-d9657215/retained-bound-citations.diff",
+      "sha256": "7e0314ce7dd89fdd323600953eea6f65b3f5d633a6f2ce8c7717d9e58a4431b6",
+      "bytes": 754
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/delivery-mutations-d9657215/same-turn-repair-note-green.log",
+      "sha256": "93bc49e2c3aea03d7f3395eb429938e81b75d0ae197117ef9f8486317ce0c938",
+      "bytes": 1095
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/delivery-mutations-d9657215/same-turn-repair-note-green.xml",
+      "sha256": "494e841c32b96af5b8079495225f9c8cd6fbb99554e860c555b954f6b6619ba3",
+      "bytes": 7492
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/delivery-mutations-d9657215/same-turn-repair-note-red.log",
+      "sha256": "2fd4074e40a95d1a1b014eb67e2812233bf991cc03eea1d52f057be6514ae6f0",
+      "bytes": 8400
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/delivery-mutations-d9657215/same-turn-repair-note-red.xml",
+      "sha256": "bd324df843e2c63cf2a2d1c28cbbb741f8997ed62112dde3ac05d525f657b4b9",
+      "bytes": 14153
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/delivery-mutations-d9657215/same-turn-repair-note.diff",
+      "sha256": "0e23d90d568981bc3766bebac007c096f9df1457cc801d1a218b0167ad786249",
+      "bytes": 733
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/delivery-mutations-d9657215/strict-table-width-green.log",
+      "sha256": "074a0d1444cae1a7004fcdadb6eca00420124118785a0093ce7cd1319fa5e27a",
+      "bytes": 1077
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/delivery-mutations-d9657215/strict-table-width-green.xml",
+      "sha256": "0d2b7f863a1aabcc273cc665b3cb02b283225ab60218f0f84627be0252a87072",
+      "bytes": 3202
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/delivery-mutations-d9657215/strict-table-width-red.log",
+      "sha256": "b6140a5deacaf3760261f61d58cca9a10ad888a91aa63f6599ed068469c3c730",
+      "bytes": 1682
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/delivery-mutations-d9657215/strict-table-width-red.xml",
+      "sha256": "2af79c0a68c5f020bc63a7adf794c92ad381d6562e2d1f791162105ead2c312c",
+      "bytes": 3486
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/delivery-mutations-d9657215/strict-table-width.diff",
+      "sha256": "8a2e84e7a958d3d96d0685f1770c51c03bd708da7b616c3813415af63401551f",
+      "bytes": 728
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/engineering-console.log",
+      "sha256": "d6f5337a972fcade2ea752f5662ac89b36192ea0c130f5eaa6870b8570b6a26b",
+      "bytes": 154
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/engineering-pid.json",
+      "sha256": "83755608efc9d0177c694fd8b3297f6dc4534cdf2bf8339da16116cb6f23f9f9",
+      "bytes": 70
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-console.log",
+      "sha256": "f92bddf181da020977f271c4647e6bbc313e4ce2cce74d9aaa3107b78f2e0e33",
+      "bytes": 34949
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M1-green.log",
+      "sha256": "fa6afff5db7f2ef14d016fb3a806473ffbf5c434ad7c9d911706565fe55c1418",
+      "bytes": 949
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M1-green.xml",
+      "sha256": "4161a28222912bf248da80d65e170c7dcd48042d8d3dd0e9c0b5f2e46cd3363d",
+      "bytes": 1027
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M1-red.log",
+      "sha256": "e00ad7e2ea72179ac04212ed719719311503fe6d3bf0694397283fb112bebdca",
+      "bytes": 3408
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M1-red.xml",
+      "sha256": "22f497f4823f1262a4798282f2d7cbc4f2237e240c1126755c4a14b7c29294c6",
+      "bytes": 3875
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M1.diff",
+      "sha256": "e7499c95ca18db88de3b71b78455321f6cd7f5798588da774ac238f311a0a231",
+      "bytes": 550
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M10-green.log",
+      "sha256": "8d395e7ec8b6625ba550c95ab50b13cdfac2ee1668fe9dfd9b2ca44817eeb3fa",
+      "bytes": 961
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M10-green.xml",
+      "sha256": "246371bdbadd756e713ffc2a7711823f2a49668b87c9369e10b0374cd254ea46",
+      "bytes": 762
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M10-red.log",
+      "sha256": "fbb576dcc86363dccf8eaeec25233a066fc77a73722e8fb9aa43af3b22228d60",
+      "bytes": 2138
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M10-red.xml",
+      "sha256": "c88c9ae9116b18eef088937300c93ffc424c2282b4b06084d656cb6236fe5271",
+      "bytes": 2160
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M10.diff",
+      "sha256": "56b13d01963a0d736510da26bb6b1bb4493a8ed3c178a571c1f4a516477b14e4",
+      "bytes": 682
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M11-green.log",
+      "sha256": "686a86b6b3118cd26158add1b1689e801d8782f21c358d11ae8bc47768cf6802",
+      "bytes": 975
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M11-green.xml",
+      "sha256": "0ed2aa467c8839f84c6e3f82dd73b747098383cc45912dc74453cc3c11d6a6f1",
+      "bytes": 602
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M11-red.log",
+      "sha256": "c4efc054286971eca2b305350e497fdff1cb0ee0ca7342dc3e7a565cc4b9f069",
+      "bytes": 2447
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M11-red.xml",
+      "sha256": "be57607f33f76ebb1e5bfeebf67b8cfab601644d6b969f41c3748b95041802a1",
+      "bytes": 1977
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M11.diff",
+      "sha256": "bc08ec6efbb96a70b683d768568f9526bf3c6c5f6ccf6b40214c0566c9a0b3b9",
+      "bytes": 795
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M12-green.log",
+      "sha256": "d3d2a471944785b856eaf4aa613cbd7be0537b09cdc819123b9e1d1d54ac84e8",
+      "bytes": 978
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M12-green.xml",
+      "sha256": "0301fe9bac5a5efccb6b3c048305b08a6e12f7de8ae7d97c53506a16cade39bf",
+      "bytes": 621
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M12-red.log",
+      "sha256": "214aa9ca53df6bf5f6aa1b6c8d1e4c6434db351ffeebf28a638abe7d5f22790e",
+      "bytes": 3010
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M12-red.xml",
+      "sha256": "e494a8763af43e8e4a2b598af5bcc36412ff16b8646371d70428911fe1300ad6",
+      "bytes": 3669
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M12.diff",
+      "sha256": "39597cc87904f6f7fa9474d7502da119fb5d1ae705f86172f112c9afb4f4da32",
+      "bytes": 711
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M13-green.log",
+      "sha256": "6027a8ef74ee36dd9d780a23001de159be1384a1bda9e3f779eb4d26bdd559a2",
+      "bytes": 978
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M13-green.xml",
+      "sha256": "d0f5306c2f92d9ce9db5c90a7589957805a011dec53576140a8961c16eb58b6a",
+      "bytes": 621
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M13-red.log",
+      "sha256": "2ae391ece85b291c10a80c2a5ee38ec850462dc899fc19433ccc0de81ebe6a30",
+      "bytes": 1627
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M13-red.xml",
+      "sha256": "68eb7481dd9565aa34903cd13eb7110f6881ecb9612cc3cde841ef0e8a460ee7",
+      "bytes": 898
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M13.diff",
+      "sha256": "e837e64478f5d6811225639cbd03807a9b2f36ec060e7ebcc067838a31342883",
+      "bytes": 600
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M14-green.log",
+      "sha256": "74241acb7256644bca01dfec604f850571215d5ce03896e231f69c274946faac",
+      "bytes": 974
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M14-green.xml",
+      "sha256": "f5d01443aca6453b367489588a08650f21daa8515b13d97e5009ce83256c8efc",
+      "bytes": 769
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M14-red.log",
+      "sha256": "e067cfe531b83f28a607cd68738e16762e2421408fd2c2fbe9272ddaa74b6e53",
+      "bytes": 3778
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M14-red.xml",
+      "sha256": "8703c778497ec0b7933baf5d63b3d70831ec8b6bb6f51d76b77cd90a0f322474",
+      "bytes": 3146
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M14.diff",
+      "sha256": "21eab79223c1aee9587fbe682fb85ed32fa330310cc3024375bf2c7629f11eeb",
+      "bytes": 1074
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M15-green.log",
+      "sha256": "bda8694b8658ba9d6979fa27854e5b54110c9a55299ee4ca1820e1e588ba4e54",
+      "bytes": 967
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M15-green.xml",
+      "sha256": "d0c8d4c0a3ff070177376a6cf2fa982ec7e9b984324af2ae94712afd5457f76e",
+      "bytes": 603
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M15-red.log",
+      "sha256": "38af8d72f55d15cb0466da687e4bb9aac67f019d7636d6aed7075249777943d7",
+      "bytes": 2788
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M15-red.xml",
+      "sha256": "37df5cbf5ba5364c9df2ec1854b62d5c2fefe8acfd8d33b1f8623b414438521e",
+      "bytes": 2585
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M15.diff",
+      "sha256": "ecf1176bac09ad0c7cb4f0aebe296cfc3913a59af0b7d09ed75cd9d6a69ae24e",
+      "bytes": 808
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M16-green.log",
+      "sha256": "805fc6619044a872109680d1141b6b618a234a74f78429142a6a861df7ccd40a",
+      "bytes": 976
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M16-green.xml",
+      "sha256": "c8f0dac2da8b6ed6618a6bcf945b1b158f21165fac9766046af50e9ce62e594b",
+      "bytes": 428
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M16-red.log",
+      "sha256": "110a62f15e1369281f85053728fad2c47f74194aa9cbc8fad535e5f7f396f050",
+      "bytes": 1627
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M16-red.xml",
+      "sha256": "df7c19dedbfb8ed60e1a60f0081f6fb3f05bda8c46f54968968f442cdfff7a90",
+      "bytes": 781
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M16.diff",
+      "sha256": "a54ae936d004204161fc8efc5bc834cf93710366145ad07a355ea690b5ddb4d8",
+      "bytes": 580
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M17-green.log",
+      "sha256": "d8dcc12053f8effe0ab4b4b5101f28d70fd6fd91b5e084244959d01e362571e5",
+      "bytes": 972
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M17-green.xml",
+      "sha256": "a707f229cc11e50f11ce1486c03f818ceaab8caa2bbd624d0c87a08e12a8f1ec",
+      "bytes": 940
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M17-red.log",
+      "sha256": "a2f1512253f48e2b1aa653870a8179d6a3a58d2777edd58571c41e75158e698f",
+      "bytes": 2862
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M17-red.xml",
+      "sha256": "8ee258a77efff3bfb877725756c1fe8bc61cd10d4bf6b42120f3d45927c9f4da",
+      "bytes": 2699
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M17.diff",
+      "sha256": "90084486a3f7214890187ff1efd85408f040736b02b515ba06b2b84f16beb37f",
+      "bytes": 698
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M18-green.log",
+      "sha256": "26045c0ed42d509820a1a0c9a757f0d3123a2c1006135a862aba482800af6a58",
+      "bytes": 977
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M18-green.xml",
+      "sha256": "bd24c772faebafdd222b2c01da477d30d447f404398da069d08d36087bc42fef",
+      "bytes": 611
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M18-red.log",
+      "sha256": "d91dc3ed3ddbe8d5c92b185d181c71a2b43cdb0734c18d547774828a7ee3f6b9",
+      "bytes": 2340
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M18-red.xml",
+      "sha256": "3cb330698f3aaeeca171312067d4d7e96f648f553804730855f8445522d67ba7",
+      "bytes": 1797
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M18.diff",
+      "sha256": "8ba75089a3559e0fb6661e5527913ce3be4c1b19c9fe7f75975ecec800cb1981",
+      "bytes": 726
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M19-green.log",
+      "sha256": "a5604533377f73b506c50a705ca9ab347279ab312dfacdcf9644e72645d5007a",
+      "bytes": 975
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M19-green.xml",
+      "sha256": "e4f7f4c8dd97a8081a46a20b69908f38458b67f0039ced65e6cbbbf8f78ae226",
+      "bytes": 583
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M19-red.log",
+      "sha256": "9f6d490638e347b5d799e7f33d634b98ba732ba5f049fd94b0296600fca8ad0c",
+      "bytes": 1740
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M19-red.xml",
+      "sha256": "daa9892bfda5ef60adb503599abec53a4cf34bf1ca01ceab77030897692b0068",
+      "bytes": 1145
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M19.diff",
+      "sha256": "61b8b16661d21d3a0c50c8373f6e7c1166b0f74915f269aa47cb6d7108661179",
+      "bytes": 580
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M2-green.log",
+      "sha256": "f9e2790da0db6f739f8ffa05082bdb8fda747a6fd196468b22d1aa2896a3c27c",
+      "bytes": 1005
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M2-green.xml",
+      "sha256": "01279841a4cd55c74c581a727ec3153742558bcc9cf6990d5250f3c99838917c",
+      "bytes": 2529
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M2-red.log",
+      "sha256": "fb058c7995c895d39074459366b4606c345f06d025a29ab20149b85d42c7006c",
+      "bytes": 4187
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M2-red.xml",
+      "sha256": "2eb3b0642c0d2f53d9330e37cf8b8dbf6b09b0bea423d20b3e2facf02876818e",
+      "bytes": 5908
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M2.diff",
+      "sha256": "87267681b7e2c9f6394f8e264ab305f029d16bc1fcd83f998846df5899d8058e",
+      "bytes": 579
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M20-green.log",
+      "sha256": "29095df4e081a0b1e6258fabba399302807c931942f6746267181b68b1f5930e",
+      "bytes": 979
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M20-green.xml",
+      "sha256": "59f647de2e219c180af9ab009d50ae1cf7cbffffa9ea866f472803948eed8914",
+      "bytes": 605
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M20-red.log",
+      "sha256": "459685030be44890f1b2b1e3e2fc40b6a42032b5840b67184ae5279e7ac15d13",
+      "bytes": 1748
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M20-red.xml",
+      "sha256": "c6e620612a36f31063e95a43730950b2d458b18468d5ead2fada2f111bf2ddc4",
+      "bytes": 1140
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M20.diff",
+      "sha256": "5b7552899abba0fbf2a8b242bc78201967430e958b961fd5c9f8e1bff7704ed4",
+      "bytes": 794
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M21-green.log",
+      "sha256": "4a5bd8b67be373306509967160c7aec194f70c4fda4519a3595f4eef3ea57c12",
+      "bytes": 971
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M21-green.xml",
+      "sha256": "fc05ccb9c17c6dd05e564bba4f96178fcd640af8aaac58e20decf2c287673451",
+      "bytes": 424
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M21-red.log",
+      "sha256": "0f9044de1b915502e6fed620a05f6645af7377416f25a942e93a12617659925c",
+      "bytes": 1953
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M21-red.xml",
+      "sha256": "04fd53e033fead9100e5960a9241532293eca6e6732f6334b58042752fbedf0d",
+      "bytes": 755
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M21.diff",
+      "sha256": "a14b422bdcbf30600a93aaafdfccaf482042f1697f2fd6c63296b23a5c4f815a",
+      "bytes": 750
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M22-green.log",
+      "sha256": "a40230bf2578e40084002d4aa096681a584d6f04340b962a1ecc0c2832215ee9",
+      "bytes": 978
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M22-green.xml",
+      "sha256": "537b84de67ee01caecc09463d91c50e371e4898a55fdac13838d475534570800",
+      "bytes": 786
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M22-red.log",
+      "sha256": "d50672cdaeeae193f6bdc16773024e8e7609ecb1748cc0d31294a91fb51a02ea",
+      "bytes": 2334
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M22-red.xml",
+      "sha256": "34b66115b3d0f70345a31da601c315158a62de5b7f292b022af039a85f10e1f0",
+      "bytes": 2539
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M22.diff",
+      "sha256": "a8b8b2c5f2819256750ada387d2dddae634d9fd440ab433440590fb9dc1936cc",
+      "bytes": 1291
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M23-green.log",
+      "sha256": "de92ce582d7cc861bcc1bbd5b8debb57f16bc743b004036a346834068cddf0e8",
+      "bytes": 977
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M23-green.xml",
+      "sha256": "96bcdd470ae1bff01bed2712d94379940e81d540a3bf916a7fae4d18116abbed",
+      "bytes": 429
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M23-red.log",
+      "sha256": "c854364df7c50f51f9819a78bb0efbefdec5c2f90c18c79e643189bd7cdb794a",
+      "bytes": 2066
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M23-red.xml",
+      "sha256": "43a152b02c21308f35817583327059308b88b041590e4fff61782b98e30d112f",
+      "bytes": 1240
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M23.diff",
+      "sha256": "c28133659ef5e03c462f38d8107a45c1cdb0fd3eddff78770d661d56688c8082",
+      "bytes": 1367
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M24-green.log",
+      "sha256": "bd4f9e42f559da8815b1403649f1e57a373e861c5a6ed3988a21b82bd0a4cde0",
+      "bytes": 974
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M24-green.xml",
+      "sha256": "3af5919b3f67e675d75470b764c105b78dc9f1ceb163ca711d3f73c93780dd35",
+      "bytes": 613
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M24-red.log",
+      "sha256": "ad0fd4b6f2b7396e18a6d13eb9e3d6309887f2a3505a8389bb161c2fa151d8f1",
+      "bytes": 3914
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M24-red.xml",
+      "sha256": "a50ed4253f6c5deb8bfbd54f68409843d29d288c460eb7ac253e71c15bba59b7",
+      "bytes": 4206
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M24.diff",
+      "sha256": "f8f794951a32be489171e9aa790bcb826a9a38139cee5dd426dc1662b6128a73",
+      "bytes": 646
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M25-green.log",
+      "sha256": "d7f41c2b0dc1f87fa9cedb3426449f14194777fee4d8e9e2ce5e38734d0d133b",
+      "bytes": 984
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M25-green.xml",
+      "sha256": "54537b13ec6ef531c811b53830f00269360d813372eba92e5d727b28d2c96c7d",
+      "bytes": 642
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M25-red.log",
+      "sha256": "f63a7a3376bcacd662e42cb1d738e5abf6bec897332ad839994488c4904b9fe2",
+      "bytes": 1835
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M25-red.xml",
+      "sha256": "3ca451b58f1800f4af5c05b3963c69d794d3626ec3e77b362b04e894a5bdf175",
+      "bytes": 1278
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M25.diff",
+      "sha256": "b2609882238ecda519a46623e7133099716c770fc187b902d1d72e5032a790e7",
+      "bytes": 745
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M26-green.log",
+      "sha256": "747adfb08e0842cd545360dfcd551c47db5f780dcad97e03378f766cba3ebac2",
+      "bytes": 976
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M26-green.xml",
+      "sha256": "dfd5a1fa07e3e5649033e24c6930513fda495254e65ebf886b9af464a6bcb270",
+      "bytes": 773
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M26-red.log",
+      "sha256": "b7ef907c023f318e32620488848a4e198eae2a312f6122c58cb747d0dd4f3290",
+      "bytes": 2468
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M26-red.xml",
+      "sha256": "6b2d86a01642cfa7e22ccb98a42fede99941f0dc9f84ae78ba36b391c1fb85ea",
+      "bytes": 2232
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M26.diff",
+      "sha256": "a7a802af14cab2f5c43a43adc1919bdec3fe720a25d134e12d0160a769794f4f",
+      "bytes": 914
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M27-green.log",
+      "sha256": "7e9b0a2e2571e1a61344b3294254aaba09b461282ddd7197212712917009bbc6",
+      "bytes": 979
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M27-green.xml",
+      "sha256": "d6d56391a0786384826ef69795c2f2e0586f99ba6970d843d921242d70dcc981",
+      "bytes": 609
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M27-red.log",
+      "sha256": "1674294c57f2623848d44d5c2d76ed6fbbde789f2d8c15ed246e478207d83a46",
+      "bytes": 1846
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M27-red.xml",
+      "sha256": "923e3d0720dfea1f7072a686cedc205915692110af4a5f229a86167c7b90515f",
+      "bytes": 1362
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M27.diff",
+      "sha256": "3e86da9313154f9f2bab4b63c4ad295380bdade4de87ca028467c5d45b8948d6",
+      "bytes": 614
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M28-green.log",
+      "sha256": "ca41621902694434210014a0394ecc7ee231a84d38f3bdbbb0798223f81ce0d3",
+      "bytes": 974
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M28-green.xml",
+      "sha256": "f7dcfc1565a8ecbb4ce2e7897deacdd8e821a817f2735683f276a464ac47239b",
+      "bytes": 762
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M28-red.log",
+      "sha256": "6be4b5adbffec9f53d6a57d1acbb6657797d5e05e2e815c47ebe73f1bfcb730f",
+      "bytes": 2099
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M28-red.xml",
+      "sha256": "6b8173d9263328b27c4164ca517c91db90188bd33f0c438d2d1fc7cc4ebc32fc",
+      "bytes": 1525
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M28.diff",
+      "sha256": "de7527ebfd5ea54d6da9274d65a0996463ed498c6de28f46bead9260b2f2d471",
+      "bytes": 889
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M29-green.log",
+      "sha256": "9f58b0dcb0466e2ad60810462a5448ca616e78b3794ff26f4191d48e5bc9f759",
+      "bytes": 997
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M29-green.xml",
+      "sha256": "26fdfbadcaef5b9a0bcb6398f26a4ffaf076e542aaf4558bf1421ea8b8f50b19",
+      "bytes": 1238
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M29-red.log",
+      "sha256": "3f049b60945e161fcd247975208a811b097d66c0a2aa1c9c69cc1719c64e547f",
+      "bytes": 4366
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M29-red.xml",
+      "sha256": "0247eac2bde801cf987fe48a2724a7abaf25e5f0746a786df0f9b9d8031cbec5",
+      "bytes": 4070
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M29.diff",
+      "sha256": "c5cdbc7ca411bfbe7f64920574b1f1a6ae17b3b6e4da294ffa8b39b1004a051c",
+      "bytes": 581
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M3-green.log",
+      "sha256": "b467faccc4e8c880a808051fbcb7967706c2aab17b2d43a4768b8eb62841e406",
+      "bytes": 954
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M3-green.xml",
+      "sha256": "6abd3171239e1025d1e05535bc1032541639a7396761bfeed6178ceb9630ea8f",
+      "bytes": 1700
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M3-red.log",
+      "sha256": "eb2fd1ab54e669cdad1d70a518b1ad3a23301245a3182650cdf93a4421622b0a",
+      "bytes": 1744
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M3-red.xml",
+      "sha256": "bf33300b4661703b7188c7355d89d1cf8ef3ccf5340bf1969a76d12405bf289c",
+      "bytes": 2368
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M3.diff",
+      "sha256": "564cfbb5a6c1fa53eaf03178e0cae6cb8d16d06310703768378a82bd45bec282",
+      "bytes": 706
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M30-green.log",
+      "sha256": "9c45fa61f86280e5b0a9267ab48f9d796477ebb890da09184c7883447318f50d",
+      "bytes": 990
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M30-green.xml",
+      "sha256": "c93893d71c98c2160e56a3fbad85b3c0b0dd0e017665901611fa0ef73a9464aa",
+      "bytes": 1025
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M30-red.log",
+      "sha256": "fda22ee5885fe7b93e73ebf37c0de7cf0a29c040c79b6a4de0ad2b38b6f3eb44",
+      "bytes": 2411
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M30-red.xml",
+      "sha256": "eacc90404ee1c833903a901eec8516f48a12d11193652f098b7cd8a0aa4db581",
+      "bytes": 1868
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M30.diff",
+      "sha256": "2bee8a479fb2517858c0cc28dcc42817c97ea6ae96c2fc00b2cbe32e1f434fd9",
+      "bytes": 898
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M31-green.log",
+      "sha256": "260badc6b802f92f6a4a1a1acc7eebe07eb478794a001268ce5f71de759be760",
+      "bytes": 990
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M31-green.xml",
+      "sha256": "0d5e3574ea59f4d58a40860f52c716c0913d105265e002c08e2f01c7c8c6bb87",
+      "bytes": 1025
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M31-red.log",
+      "sha256": "d859676d3db20747c6698be968bf017429fb851f0c473cd9c7cbafe069975d1f",
+      "bytes": 1993
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M31-red.xml",
+      "sha256": "641ef98fb01bd8f6856d00b67a31ab2893a4880ac4dbaa59644ec8364eea0caa",
+      "bytes": 1587
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M31.diff",
+      "sha256": "cee4b02d5a247b0a456c9e697a8a299042a5eb1da21337eb580c3c0ab6f5b101",
+      "bytes": 673
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M32-green.log",
+      "sha256": "109ae6f6ad8570fa12ad7db5144f38d6d0a4336dcef70a25584225cd5140dcc2",
+      "bytes": 1002
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M32-green.xml",
+      "sha256": "6734ded25e8c6af1eaadd54d9cfe2369077c36ea2b8d64e6acd95b5dbba07d21",
+      "bytes": 390
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M32-red.log",
+      "sha256": "904825291d0c32ee6f1185e349e7ec46b35e564ded7f71fd44013309c1e9dbe3",
+      "bytes": 2051
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M32-red.xml",
+      "sha256": "e347222f9c1382b60d7e230382eca54ecb0fc48ae778e1180eb789ca10cfc82d",
+      "bytes": 1656
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M32.diff",
+      "sha256": "904c8420cd90467cb7cc7259feadf6df75ef5e359ab239a5cbe677d26f7e9189",
+      "bytes": 815
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M33-green.log",
+      "sha256": "caf4b015a567c365cbd3b62e312d4d4121fcbe01eea62299859a34288e75c265",
+      "bytes": 986
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M33-green.xml",
+      "sha256": "4ab39a7f8f096424382da1e4d8a9a6f044d76386a724898d8ca55c0d91d11990",
+      "bytes": 1443
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M33-red.log",
+      "sha256": "45621f980c12d81b43b9ff466ec87a9876986f9d15e2574ebc231411e2178175",
+      "bytes": 1637
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M33-red.xml",
+      "sha256": "cade76fd0a339373cc3a832790c24a9e38f6db217cec3d1004b6111db51ff2a7",
+      "bytes": 1879
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M33.diff",
+      "sha256": "234871b9d6e6963edd98932de984f38f89d0c47b8856ed2b81b6e03da99c697b",
+      "bytes": 633
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M34-green.log",
+      "sha256": "46bdf0819adae27bce8a55e591dba4695e07521b8ca0a30f9a492a8eaee9df66",
+      "bytes": 981
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M34-green.xml",
+      "sha256": "d093cedfa5e47565be56eb72ae29f5cfa373c9c8db03dfde92fab0b765b5b64d",
+      "bytes": 1214
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M34-red.log",
+      "sha256": "bfb25ccee3364052277f40290d2383a6b2d9b7c41728ef8bcf6e02ea776a9794",
+      "bytes": 3104
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M34-red.xml",
+      "sha256": "0607af2eab99077f0c7caa16d636056cf5549505c089cd3ad026e42ab2d576ec",
+      "bytes": 2579
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M34.diff",
+      "sha256": "8d45fc6c4bcbfbbd117a869fe88c059f34a52b891769fb3d470ffc5efc2bf8a5",
+      "bytes": 670
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M35-green.log",
+      "sha256": "5617128e87a04bf42bb5bbbfb0fbbead5f8c1590e048ce934c62d5437b5e8404",
+      "bytes": 981
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M35-green.xml",
+      "sha256": "cbfcacf4e30fa6a3cf02236d3fd4eeb1c527b98b6baa94089287e2dbbb8da0f5",
+      "bytes": 1214
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M35-red.log",
+      "sha256": "cb8a173966b85f57f748011b75786237b2ff64608f0c985a8bea32913a4adc21",
+      "bytes": 1935
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M35-red.xml",
+      "sha256": "a7f79e4a538eb2a8f98aaa0ea7923810becddc379f4f4bfd593a49da768fbda1",
+      "bytes": 1760
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M35.diff",
+      "sha256": "d44eb029e05de6687ed0056145cbef7cd94d45a7883b73634179d969246b4a08",
+      "bytes": 590
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M4-green.log",
+      "sha256": "372d64646e75825a4e492d3cb8cf3fe6288deae78f56f3ef59d29222657b5991",
+      "bytes": 954
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M4-green.xml",
+      "sha256": "7594fa41a1ef1a9da713a71abb67d896b8f5bfd94d2f5215e63e94ca1ce40976",
+      "bytes": 1548
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M4-red.log",
+      "sha256": "b235c0aee3f2181cc0dd2a24e7491191891316089f386a440bc8d3ad8db4342a",
+      "bytes": 2934
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M4-red.xml",
+      "sha256": "42bab7fa2aa325d9adc1e45863e865181233692ccaa3ec71eff7ba13526867a3",
+      "bytes": 4121
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M4.diff",
+      "sha256": "ddaf4ad4342e85c59bc78a4f38578dae900183e0ff42ddb76bb8b61b4101c8b4",
+      "bytes": 504
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M5-green.log",
+      "sha256": "ab3a1e9e8310ee8d88a028cd32874bceb92f5e5e8827c1b3da6361a57e40c53e",
+      "bytes": 954
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M5-green.xml",
+      "sha256": "b3ea875af0c8c0d6b161871e140a2c919c492349efd00b34ce9e8f4e64f21f5d",
+      "bytes": 1700
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M5-red.log",
+      "sha256": "57869a9c5db2f7d29a262d96977162ca0d097c151eec3175b8816015f6e51bba",
+      "bytes": 2904
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M5-red.xml",
+      "sha256": "1fa76b65276585309e6ab6621cb669d788a7171568c2cdcb4f654432921c059f",
+      "bytes": 4689
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M5.diff",
+      "sha256": "fd7c7a4d9fbd6b7787377a99bb311538c21217ccd2de226f133dfb1e754ef3c1",
+      "bytes": 568
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M6-green.log",
+      "sha256": "f5ffa8ff012209982f30385185f6cdad61aee38562612daa5ef3999be11c2c48",
+      "bytes": 968
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M6-green.xml",
+      "sha256": "a0b33b1a8cc1fda22f6a25de056da24cb51b6aebcf38cd002e0d531629c55019",
+      "bytes": 606
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M6-red.log",
+      "sha256": "2f386dba8e6457279f20658ea4f15b92dc49f163f36f2b7202162cfd5dcf0247",
+      "bytes": 2063
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M6-red.xml",
+      "sha256": "ed75db1d2cc269125c20561d9d8fd8f26bd75e2c1aff909cc5abef4f6a3664eb",
+      "bytes": 1175
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M6.diff",
+      "sha256": "a3432746e97f77fed3e931feb51868bb25ec0b4c2f3f0538ba873ebb0258fea8",
+      "bytes": 548
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M7-green.log",
+      "sha256": "dc57675377dd303a956d78bba2b63741aab791d9967beeaefd2a192dbe5cfc51",
+      "bytes": 969
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M7-green.xml",
+      "sha256": "9aaefe637281f1a30c40847fb6bca618576a89c5e2dc55c55d704f832ce26cf6",
+      "bytes": 591
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M7-red.log",
+      "sha256": "040139c2e18830d6b6f2dab9dee64a296934f00aeb625f665648e2e92eddd146",
+      "bytes": 1568
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M7-red.xml",
+      "sha256": "1d03ba6d6d7e4e54d125af35e49fcd2e251ab94899edca7aa692c85e43727d7e",
+      "bytes": 852
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M7.diff",
+      "sha256": "1fc97adf06515555849c61b426cfe6b15bf501bf6a0ae842caa57c89938103fa",
+      "bytes": 795
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M8-green.log",
+      "sha256": "b11b3902d7ccc6d1665b3ff54f9f0f01dd5e861245538dd4fb73fd590a13b7b4",
+      "bytes": 972
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M8-green.xml",
+      "sha256": "74b123b1a502e819a11b5cd600683d367701dc063bbc54224852a8606c18232a",
+      "bytes": 597
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M8-red.log",
+      "sha256": "41b06f1328e2cc766add30eaddba2ea8dd3be5cc6856d4dc35a671e60671868d",
+      "bytes": 1671
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M8-red.xml",
+      "sha256": "d20788fbbe6a739acc5808e17c4b6293bf1763fcbc15e292529afa645a327981",
+      "bytes": 1034
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M8.diff",
+      "sha256": "f941d530fc545920e61052d554007254eedca87f8866252aac1b82c85d5607e7",
+      "bytes": 702
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M9-green.log",
+      "sha256": "62f824e22cf54737e5b5048eb5c262d1232d8db594dfce967844b157e867e1d7",
+      "bytes": 969
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M9-green.xml",
+      "sha256": "8708d0052c767832759bac018f892a44111252c0e097cf811a4bbc9bace83dae",
+      "bytes": 609
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M9-red.log",
+      "sha256": "090088c9872681c4e4abcddab730bd223415746c7a395044646752748c154e7d",
+      "bytes": 1599
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M9-red.xml",
+      "sha256": "7847424cf5ec7052f97b56913e70ca8f3b39513596d30960c30d4f60d1421967",
+      "bytes": 890
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/M9.diff",
+      "sha256": "aa49d285a15038fdded92ac5b125eb8239607114541e5006802bc1b23b88f64f",
+      "bytes": 858
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/baseline.log",
+      "sha256": "f16d1228cffab432d1f48d3cdd56b3f7c80ecaf58db4f76689cf813dda3fb121",
+      "bytes": 1072
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/baseline.xml",
+      "sha256": "5e7f5d9deb6efd2480dc4c0d05353c15c1d5ec44352ed57bcc4a06cadae48073",
+      "bytes": 28071
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/definitions.json",
+      "sha256": "6d1e55296fc6a594f0d6a825b0e547bdd7d7ee9a5f0fa8bd06262e7a3b467cde",
+      "bytes": 14741
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/restored-full.log",
+      "sha256": "6df954b39b10b67dbfa35dad6f31222f37ff4496356d1390794a6ae1b2f32fbf",
+      "bytes": 1082
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/restored-full.xml",
+      "sha256": "caf5f8938e8f9b9329d8c43abc0642b4f975783afe60f7f2f621ffbfb0ab5ec7",
+      "bytes": 28071
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/extraction-mutations-d9657215/results.json",
+      "sha256": "d98df23bc64b279383fd5982fbeb7801d67d92a6e83ed996ee0dcebf6bd46432",
+      "bytes": 54055
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/financial-mutations-console.log",
+      "sha256": "db9ff3698df040ef5739671ce2ad8f30806fa6e492d4c1de80b261e228ec73ef",
+      "bytes": 55167
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/financial-mutations-d9657215/arithmetic_comparison_disabled-green.log",
+      "sha256": "8409ae8fa527ad3df6cb5113ab01c3987fbe8e577a7e89b819d29c40e1184652",
+      "bytes": 940
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/financial-mutations-d9657215/arithmetic_comparison_disabled-green.xml",
+      "sha256": "8cbb4c662151c4bb911638aa89661d8e120bbaca7a8f338ac716c429042c47c6",
+      "bytes": 8073
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/financial-mutations-d9657215/arithmetic_comparison_disabled-red.log",
+      "sha256": "52d4479968957a57e78258d6d156b1991a2f3fd23b737e47a69345fadfbc1751",
+      "bytes": 11802
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/financial-mutations-d9657215/arithmetic_comparison_disabled-red.xml",
+      "sha256": "fc7345389d75632e2266cf8e123a4bd2ffba7cda6ac1b78bb6a31b13fce5ae8d",
+      "bytes": 18831
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/financial-mutations-d9657215/arithmetic_comparison_disabled.diff",
+      "sha256": "36b4b8a1cb788c1a393ee5511ecd3467960c5144f45022ab45e739346ff6e0cc",
+      "bytes": 710
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/financial-mutations-d9657215/baseline.log",
+      "sha256": "e09cdb1179c285cc7a25d08a1baf2b1712b2915206d5de52e5423284da10ebc6",
+      "bytes": 875
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/financial-mutations-d9657215/baseline.xml",
+      "sha256": "d192d0fa46399293a66f23e7be027e3d9281376317041b0414b97f7835e24326",
+      "bytes": 24055
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/financial-mutations-d9657215/conflicting_inputs_cherry_picked-green.log",
+      "sha256": "e3f6cafdfe0616e722414f2473bd6f152cb4d84524674e5e9dbeff81f390fd09",
+      "bytes": 907
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/financial-mutations-d9657215/conflicting_inputs_cherry_picked-green.xml",
+      "sha256": "9b0b6f69fe21175ee447f51c5013794ab1049de81527dbb581c98fc442840cbf",
+      "bytes": 386
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/financial-mutations-d9657215/conflicting_inputs_cherry_picked-red.log",
+      "sha256": "e1cd8ec4643bd7c3cc916f03606adf06631d0e851d20b8f5bf70ab41c2584dd1",
+      "bytes": 1551
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/financial-mutations-d9657215/conflicting_inputs_cherry_picked-red.xml",
+      "sha256": "2ba3a33dadd8299624425847c22aab06e27307eba96de4371e55de60b3660fbc",
+      "bytes": 804
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/financial-mutations-d9657215/conflicting_inputs_cherry_picked.diff",
+      "sha256": "7bc6fc156e9113f8d46df39d46a5f81b2193531a03786f953e1174395c30bd9a",
+      "bytes": 726
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/financial-mutations-d9657215/cumulative_length_disabled-green.log",
+      "sha256": "101ee72f7345289c3d4ff207d518487b681b74d3cb19fe3d3ff2ebbd63cc20b9",
+      "bytes": 902
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/financial-mutations-d9657215/cumulative_length_disabled-green.xml",
+      "sha256": "0867b20a1aac422ee6f8926643b9d39ade89b1d3b27d217684a6b00fb2957a23",
+      "bytes": 6516
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/financial-mutations-d9657215/cumulative_length_disabled-red.log",
+      "sha256": "190d24a36543300b5aa2863f84b0e1e63e8d9ab7ef453ac705a0d07f43317412",
+      "bytes": 9578
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/financial-mutations-d9657215/cumulative_length_disabled-red.xml",
+      "sha256": "aba872b14ebdaf3f047316e940cbfd2763946ddeee75a0ca41125a1f9495f9f6",
+      "bytes": 13964
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/financial-mutations-d9657215/cumulative_length_disabled.diff",
+      "sha256": "e147f079a450eb67b78f9affb4dc3005499b2ef2f377bc8112ecfc4d548f3706",
+      "bytes": 766
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/financial-mutations-d9657215/definitions.json",
+      "sha256": "77298798dc1b79c6dbde26b250ba81d7fae27d027672d2a954872e0d1132d705",
+      "bytes": 3633
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/financial-mutations-d9657215/deleted_claims_pretend_complete-green.log",
+      "sha256": "4c5057bef5503c87cf0c70c7bb26b220821e2fb66c078c2bdb0aa1c4ced46865",
+      "bytes": 946
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/financial-mutations-d9657215/deleted_claims_pretend_complete-green.xml",
+      "sha256": "0be137605aa6bd0538d8ed6af7d806b1743aea30ae78f400efd13ef1d1884fab",
+      "bytes": 6677
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/financial-mutations-d9657215/deleted_claims_pretend_complete-red.log",
+      "sha256": "824375f84d3f994f5d12e05f614985b40ac68727aa8356d3cfe6d49d9828d45c",
+      "bytes": 19198
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/financial-mutations-d9657215/deleted_claims_pretend_complete-red.xml",
+      "sha256": "07238057a8711b234df0a2894f9843ccd3db76657e0fe11556a93afa159dde2c",
+      "bytes": 19377
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/financial-mutations-d9657215/deleted_claims_pretend_complete.diff",
+      "sha256": "11d31e2c5712f87016ce53cd55cecd11b67c4ec484c80d5ad8164f5051de3822",
+      "bytes": 866
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/financial-mutations-d9657215/document_delivery_unwired-green.log",
+      "sha256": "e02ea1676f67be47a5521941d14afee9d03c5a72fd3f578651e23c4ce351f270",
+      "bytes": 894
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/financial-mutations-d9657215/document_delivery_unwired-green.xml",
+      "sha256": "84b50a0f2a765cde30a5927ab6f8ef6f5d692314aeadd6591fd4c29962edb0bb",
+      "bytes": 391
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/financial-mutations-d9657215/document_delivery_unwired-red.log",
+      "sha256": "8a4d1ce6e41683b327e20c74e6d7c54d5a82976f315d95affd7d921c6ba24a8a",
+      "bytes": 1517
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/financial-mutations-d9657215/document_delivery_unwired-red.xml",
+      "sha256": "a6b0f43deddf5a6c55c9c9e5f5bd19ee9c56842b5552eddd621df887497cd172",
+      "bytes": 780
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/financial-mutations-d9657215/document_delivery_unwired.diff",
+      "sha256": "7c69a565ecb7bc016ffef0fceedb19b44490e58db951c64b4aa8405d288dc7bd",
+      "bytes": 754
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/financial-mutations-d9657215/financial_semantic_wiring_removed-green.log",
+      "sha256": "d3586eb64b78db48ec54db4be0d5ccc57a02b1c48e50dd6ae0cce2d0db3a6d7e",
+      "bytes": 916
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/financial-mutations-d9657215/financial_semantic_wiring_removed-green.xml",
+      "sha256": "a4c8a3b02cc7432be587f12c5f551633522eebe40529d442c742c82c22f95538",
+      "bytes": 6516
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/financial-mutations-d9657215/financial_semantic_wiring_removed-red.log",
+      "sha256": "dac1b55faa2895a6abb1a9adc60644ea3853d593b1eb3d5d82e7e29b19c8fdb4",
+      "bytes": 22296
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/financial-mutations-d9657215/financial_semantic_wiring_removed-red.xml",
+      "sha256": "84468a6703779b8702c5c4c911a51f1c8ad21def77fc23e48df09e72f9911c62",
+      "bytes": 25997
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/financial-mutations-d9657215/financial_semantic_wiring_removed.diff",
+      "sha256": "0e49ffdde38a152e058a2b7051eb63b908ce1281dc08233702c455f657879103",
+      "bytes": 752
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/financial-mutations-d9657215/foreign_document_accepted-green.log",
+      "sha256": "7bb76a41a60f847e9a11589d56c52db75db992a971888c9f5814432299fa9e50",
+      "bytes": 924
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/financial-mutations-d9657215/foreign_document_accepted-green.xml",
+      "sha256": "280acc418d4fee32930cf71215f2cd50e0f6aaf9db15cd9ff07b827459b896ca",
+      "bytes": 3074
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/financial-mutations-d9657215/foreign_document_accepted-red.log",
+      "sha256": "d4404312a2e7141f685948ab190dc1063c5903ba5be9bf737a987a66e919f919",
+      "bytes": 2676
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/financial-mutations-d9657215/foreign_document_accepted-red.xml",
+      "sha256": "bb751e3a96f6d9f38cc223c5a405cff1ec173ce8ead06d7abe8ff7a1171c9d97",
+      "bytes": 4488
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/financial-mutations-d9657215/foreign_document_accepted.diff",
+      "sha256": "66383a896f331954ae9ed7cebd234982a9dc2fc1b48befe2708d1ed8dd7dd19d",
+      "bytes": 697
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/financial-mutations-d9657215/inventory_duration_disabled-green.log",
+      "sha256": "d8c8287e73d81ff8697981b803b51bfacf7dc3de94c5e29ba5e10105890ce70d",
+      "bytes": 904
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/financial-mutations-d9657215/inventory_duration_disabled-green.xml",
+      "sha256": "0df86b4689eb1122410820816c1b85e2e3ad8d5f5a5c733ab631a9e5f8e694b1",
+      "bytes": 6516
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/financial-mutations-d9657215/inventory_duration_disabled-red.log",
+      "sha256": "569d917198ce7b3b4bc835376380ebb5c3fd8e7fc51dccb2b46fd857730f1132",
+      "bytes": 3054
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/financial-mutations-d9657215/inventory_duration_disabled-red.xml",
+      "sha256": "d4694212f36876e1bed6f703226a6dedd87619ce5a269a23a0ba81e0437622b7",
+      "bytes": 8506
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/financial-mutations-d9657215/inventory_duration_disabled.diff",
+      "sha256": "4eeae8da7970c0166893b69f91e6b1b5a8c725bfd0859326816898ed2479fc11",
+      "bytes": 909
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/financial-mutations-d9657215/new_watch_swallowed_by_previous-green.log",
+      "sha256": "5b41e4a7640bc143f95394ddc3576aa690cb0fa4173cd9fdcacdee71201abbc9",
+      "bytes": 899
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/financial-mutations-d9657215/new_watch_swallowed_by_previous-green.xml",
+      "sha256": "351842ec0c2d88820efd7e01a3ad7cdd308d9d0aa05204873e8a6d794d990564",
+      "bytes": 987
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/financial-mutations-d9657215/new_watch_swallowed_by_previous-red.log",
+      "sha256": "ec19169be49cc7783d24d87b1f6ed4d799116312d58d6afebb944ba2a54c7823",
+      "bytes": 1693
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/financial-mutations-d9657215/new_watch_swallowed_by_previous-red.xml",
+      "sha256": "614e6d9814e607a0d04d5e2d0f4f8f5ecec48520ede3f36bc0964a4f215b6cf4",
+      "bytes": 1465
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/financial-mutations-d9657215/new_watch_swallowed_by_previous.diff",
+      "sha256": "af909af83a781f1fae0810e4c2a10fdda49265d566052b5558015a26731d0201",
+      "bytes": 752
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/financial-mutations-d9657215/product_crosscheck_unwired-green.log",
+      "sha256": "0a8276f3f60cf0c064f7056c28e66dbe2839d7a78bb079e34a59ae15eec25657",
+      "bytes": 888
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/financial-mutations-d9657215/product_crosscheck_unwired-green.xml",
+      "sha256": "2c299bc3cb491ea3d9e083a2d6c3152e2597b4ad05d02c0ffd661083242f7cea",
+      "bytes": 392
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/financial-mutations-d9657215/product_crosscheck_unwired-red.log",
+      "sha256": "50cec50c99a73c43135f457f14593e340953fb0c8dade3210333f559f562ab3c",
+      "bytes": 1575
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/financial-mutations-d9657215/product_crosscheck_unwired-red.xml",
+      "sha256": "f2075c8467f135f654290689770963ee34d3301df9d4fe8919f67581f8b6946f",
+      "bytes": 896
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/financial-mutations-d9657215/product_crosscheck_unwired.diff",
+      "sha256": "ae185b2cd67c95c769c5f82a50a07118c1c07621b36006d7e2e17ea48ecf0499",
+      "bytes": 650
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/financial-mutations-d9657215/question_threshold_shape_removed-green.log",
+      "sha256": "889a00ad05618750e9366ac8e3351bda54da06c894ee007a86f8d3c7db6c0c54",
+      "bytes": 905
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/financial-mutations-d9657215/question_threshold_shape_removed-green.xml",
+      "sha256": "ffb06d31153afae24771b2262c5375ff7a6ad52bdd5a9dce9a34ade6d9a327a7",
+      "bytes": 3616
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/financial-mutations-d9657215/question_threshold_shape_removed-red.log",
+      "sha256": "39d2a2d08dc53360afb105fb234e8ac9bfeaa95cba1949ba7f82c6ddc0ae13d6",
+      "bytes": 6148
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/financial-mutations-d9657215/question_threshold_shape_removed-red.xml",
+      "sha256": "dfc46acb4a48f55e070b20e10c503c9fd10171ea089968a343f198b4e627149a",
+      "bytes": 8944
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/financial-mutations-d9657215/question_threshold_shape_removed.diff",
+      "sha256": "2de0c06c0a56da3a49237ef1f21af5b9fe8198d18849d728a62cc2301cfd2595",
+      "bytes": 720
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/financial-mutations-d9657215/restored-full.log",
+      "sha256": "7aa518fc08476176eca23ef28157358b53932b15203c3f721f90b63a1fca27a4",
+      "bytes": 885
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/financial-mutations-d9657215/restored-full.xml",
+      "sha256": "95ca4e3054057f2de792a7ee1e6791b9ca83fc6cef0e3642b555e2e31d28465a",
+      "bytes": 24055
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/financial-mutations-d9657215/results.json",
+      "sha256": "c4f9bf3a7c3977e22beb8dc6db330cf59db3d1bdaa49aeb46510074d92942ae2",
+      "bytes": 63763
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/financial-mutations-d9657215/single_quarter_anchor_removed-green.log",
+      "sha256": "bfa4513a968a8298ba0869421013cebcb2b084eb10aeaaf7f12edf7a8af1433d",
+      "bytes": 908
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/financial-mutations-d9657215/single_quarter_anchor_removed-green.xml",
+      "sha256": "80b513d382d6001bbe196f08b09691c22d6e93de337c02ea3bb18aaaf4cf6c03",
+      "bytes": 6516
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/financial-mutations-d9657215/single_quarter_anchor_removed-red.log",
+      "sha256": "13d3089013856d432cc58998af41d8a6ff95fd43acac550a7fb377ee7f4fa511",
+      "bytes": 3756
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/financial-mutations-d9657215/single_quarter_anchor_removed-red.xml",
+      "sha256": "f4ea85c743f9062e8782b4195eec89347435ed92c9e6baa4538f4fb42880cf16",
+      "bytes": 8894
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/financial-mutations-d9657215/single_quarter_anchor_removed.diff",
+      "sha256": "87ddfdcc2adf19d5478f697f9377f3390af8d231cd7a68be4c3ca997f41277cb",
+      "bytes": 758
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/financial-mutations-d9657215/watch_disclaimer_not_removed-green.log",
+      "sha256": "657ccb28cc27ff30252722f05f485be0890b5fb916b29018f01f9cbb2015364a",
+      "bytes": 903
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/financial-mutations-d9657215/watch_disclaimer_not_removed-green.xml",
+      "sha256": "daf36dd2282757a2aef5fef08c0f88fc06e2e2a72750bfc8b65a82bae863e54b",
+      "bytes": 2211
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/financial-mutations-d9657215/watch_disclaimer_not_removed-red.log",
+      "sha256": "2e2459788f55dfc3f1bfcf76bff7168f1e45edfb45d5983ef7493ebe50548d78",
+      "bytes": 6047
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/financial-mutations-d9657215/watch_disclaimer_not_removed-red.xml",
+      "sha256": "cdc7eeb60dd41b7e24560a5545d67cf94b76e367fad2c1d443ac45b4222f331f",
+      "bytes": 4983
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/financial-mutations-d9657215/watch_disclaimer_not_removed.diff",
+      "sha256": "bdd5c2b4d72288440d377cc8fe9cd80412510e16cb6ab3bd1d919b14b583fde8",
+      "bytes": 633
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/graph-audit.log",
+      "sha256": "474529f9146c1a5719a2894d496347fbedf9b7efbedad3dee08da98d3811132a",
+      "bytes": 41526
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/harness-refs-closeout.log",
+      "sha256": "980c0ef51c7f5ba10d37338046626d3a08940c112acb57aa9800f0ba8098a1bf",
+      "bytes": 2339
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/harness-refs.log",
+      "sha256": "bd59689c00010908d6ea68237fb4d4f23ccdc0ca4e6bf4353271acd754776125",
+      "bytes": 2339
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/integration-mutations-console.log",
+      "sha256": "44d55b008e77203c8cd53a1cbbfc4147850f06085e12769c7e9ac0080ab32a93",
+      "bytes": 20499
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/integration-mutations-d9657215/baseline.log",
+      "sha256": "fcdc3b1fc0989ba53d28d111e36601fe96322985bb785f8032d9f9b0dda1fd39",
+      "bytes": 805
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/integration-mutations-d9657215/baseline.xml",
+      "sha256": "8908e42e8e3e175752a96be61fa5ca9b38e1baa7336e6b4c2e75fefd61c3f7b4",
+      "bytes": 4890
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/integration-mutations-d9657215/definitions.json",
+      "sha256": "a362c394eb5702e8776227f5a759d5e6ff2c862ab0c7f793ee85829ee2bffa65",
+      "bytes": 2354
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/integration-mutations-d9657215/delivery-keeps-earlier-verdict-ledger-green.log",
+      "sha256": "c17587eafd4b28269d1cb6c43563a12b5582b2aef8c11031aa9da600430d1998",
+      "bytes": 950
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/integration-mutations-d9657215/delivery-keeps-earlier-verdict-ledger-green.xml",
+      "sha256": "1ebb5a0b0dd5976202469e77c67af17c780984b35ea31dc26b7965a01a6d0a57",
+      "bytes": 388
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/integration-mutations-d9657215/delivery-keeps-earlier-verdict-ledger-red.log",
+      "sha256": "c61f2a5408b58a313fc68f09f646c76c4ffdaf7dcac20a060c389edaff42e8cb",
+      "bytes": 1540
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/integration-mutations-d9657215/delivery-keeps-earlier-verdict-ledger-red.xml",
+      "sha256": "478a2764cb9e117d24c5440df46a2fa3e5d0f4de7bb2fbbb8d1bfe50e7115cd8",
+      "bytes": 711
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/integration-mutations-d9657215/delivery-keeps-earlier-verdict-ledger.diff",
+      "sha256": "499f5e4463d9dd0bf9aa8b64fedaa74fa96877288d59e97f90ede37bebe8f7d3",
+      "bytes": 735
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/integration-mutations-d9657215/financial-concrete-repair-note-green.log",
+      "sha256": "933de3bece7099861e0b0b4077f605d01bbe376aece2ce1d66a0e6094b55a0ca",
+      "bytes": 963
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/integration-mutations-d9657215/financial-concrete-repair-note-green.xml",
+      "sha256": "4b26d15b06717605a1e8e3e9d5ec855424b04fe057a178e194e92a4509458ae2",
+      "bytes": 603
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/integration-mutations-d9657215/financial-concrete-repair-note-red.log",
+      "sha256": "f9c101b40569f3048120b09345fc59352d851e2aa37c604c419917d962054b67",
+      "bytes": 2425
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/integration-mutations-d9657215/financial-concrete-repair-note-red.xml",
+      "sha256": "4443c628c576f9c4f5d65f8a605de1e5a096a92f0366c07d7ce9557d1951fb42",
+      "bytes": 1921
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/integration-mutations-d9657215/financial-concrete-repair-note.diff",
+      "sha256": "513d99407130dab3cd18423301f02aaab5aafda59095e7fadabd1be5e8897f8b",
+      "bytes": 704
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/integration-mutations-d9657215/financial-debt-retained-citations-green.log",
+      "sha256": "885f7c99fd2e567c5c36c483f92842227228c3737385f269d6bc03c17d9d0e55",
+      "bytes": 969
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/integration-mutations-d9657215/financial-debt-retained-citations-green.xml",
+      "sha256": "d828180b3a1c857b10a34153b34d6d19a4b4e276ee2ab2b8b0c22f44bba04d23",
+      "bytes": 603
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/integration-mutations-d9657215/financial-debt-retained-citations-red.log",
+      "sha256": "d6079c45499445055ede882b8329185009f1828456baf4107114581c58561b45",
+      "bytes": 2401
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/integration-mutations-d9657215/financial-debt-retained-citations-red.xml",
+      "sha256": "08c83add375c0e4db6fc10192c25523b1992f0cac67e974532a4d57d546de0fc",
+      "bytes": 1777
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/integration-mutations-d9657215/financial-debt-retained-citations.diff",
+      "sha256": "002f0491c1a706acb27435cf8b0aeee92a9dfbe9d03f3f380c7813b063812ac9",
+      "bytes": 1063
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/integration-mutations-d9657215/financial-final-text-check-green.log",
+      "sha256": "702f0edcf1923de5dad6a2f61c4b0bd74dee482b32cbc46921e229bd3c5d5bc4",
+      "bytes": 1015
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/integration-mutations-d9657215/financial-final-text-check-green.xml",
+      "sha256": "0e84beb839e4affae15a13ef8b8ca076fa7eee1ce08c8d0adb52e297c850833c",
+      "bytes": 3124
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/integration-mutations-d9657215/financial-final-text-check-red.log",
+      "sha256": "70c6d379a836aeae2844956a6571dc4499a024e0fe934f775174d3c08c935a40",
+      "bytes": 11234
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/integration-mutations-d9657215/financial-final-text-check-red.xml",
+      "sha256": "617b0d73f177b79d236eaa114d26f5efac35b7a4e5a360bb5af91571f77a60c7",
+      "bytes": 12794
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/integration-mutations-d9657215/financial-final-text-check.diff",
+      "sha256": "9784d04b7dd9e39ee3996add80dfc3c4aab8382a8298208c5f0ff79d80855108",
+      "bytes": 741
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/integration-mutations-d9657215/recovery-final-projection-check-green.log",
+      "sha256": "fa6f390d2020a15010f0b95a828028a81963438b7a0e794eb28643ca4e2bff26",
+      "bytes": 1030
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/integration-mutations-d9657215/recovery-final-projection-check-green.xml",
+      "sha256": "d28ecbeea34c0ca923ccd68e616fa39b55a321138421affe6492170192ab5bab",
+      "bytes": 951
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/integration-mutations-d9657215/recovery-final-projection-check-red.log",
+      "sha256": "95e7d39ebed68786575ab827fa43f3ff7e9f17954c58525ad739ae60c11f5f88",
+      "bytes": 4626
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/integration-mutations-d9657215/recovery-final-projection-check-red.xml",
+      "sha256": "a2cea65da8f05585481f2a7aa62a06cc2463983d68e1d2213d5aefb79bbd47ba",
+      "bytes": 5217
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/integration-mutations-d9657215/recovery-final-projection-check.diff",
+      "sha256": "2dd0e1d903f610a3b93c2b25ca06a206aad413fac920b6510cecd3329a447b8e",
+      "bytes": 948
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/integration-mutations-d9657215/recovery-retained-cards-green.log",
+      "sha256": "2cefdc6f3f7181999ec082dabe23d96c3a320dd0762363fb6d2d946d3cb405eb",
+      "bytes": 936
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/integration-mutations-d9657215/recovery-retained-cards-green.xml",
+      "sha256": "de638fcef710177d0844f5a8ce3618d782fd85ad836990f337de9629c4ced952",
+      "bytes": 777
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/integration-mutations-d9657215/recovery-retained-cards-red.log",
+      "sha256": "584d482f70647f51b3bf7740aeec5b3ff0305acea6831f7809e3921eb0c5d6d1",
+      "bytes": 8830
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/integration-mutations-d9657215/recovery-retained-cards-red.xml",
+      "sha256": "2c0fde8bd09f1a2e1564b6d9f4b2c446e3ae5db47efd96df63f200577c0ac121",
+      "bytes": 14239
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/integration-mutations-d9657215/recovery-retained-cards.diff",
+      "sha256": "8792377204cab814b56f9f2ef0ee69549e42368dc2985f2c5e9219b5d239ca9b",
+      "bytes": 776
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/integration-mutations-d9657215/restored-full.log",
+      "sha256": "bafb287248b0fb4334299c3e5d33b7c6ef22020a32e559a16de2a7876805a52d",
+      "bytes": 815
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/integration-mutations-d9657215/restored-full.xml",
+      "sha256": "7011557fc33df1272beab9fc48cafdd469724cf8323fb83a40ad08c11c82c082",
+      "bytes": 4890
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/integration-mutations-d9657215/results.json",
+      "sha256": "f7218720404bf38359aba4470b7fdac4d3a574088bc4629b329e799c5260d12c",
+      "bytes": 23978
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/material-projection-development.log",
+      "sha256": "51020576662efa8de80164e4438d30858d212dd89cf0c699624e47770d027477",
+      "bytes": 267
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/mutation-failure-classification.json",
+      "sha256": "89a02660108a8e03a65b0b345543316a059c2002b2be8387ff83b0a49b703793",
+      "bytes": 7829
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/prior-extraction-failure-audit.json",
+      "sha256": "7e7b9b08c89e4104b0a1455ba31933610d11aa02641604723a4fa5f88cc99e34",
+      "bytes": 6924
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/receipt-check-d9657215.log",
+      "sha256": "973a8ac65362ebbeee9efc5a619ed4e50963694b7568f94dddb8b04c3dd2969e",
+      "bytes": 751
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/registry-pinned-d9657215/ledger-crosswalk.log",
+      "sha256": "816bcf0af51b555b9efcf264a341ab4c894d5703f4aa727e4da188dcc6c1aeba",
+      "bytes": 2103
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/registry-pinned-d9657215/parseability.log",
+      "sha256": "b2d7a8d77df0fdc0f638e93d711f397b07859eb91e6aa5d45d793a52f2abef60",
+      "bytes": 95
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/registry-pinned-d9657215/registry-results.json",
+      "sha256": "9157cf7140bd458f3223b1a8a8b9156c424476090bf5960e4db5ca114f68746a",
+      "bytes": 2975
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/registry-pinned-d9657215/registry.log",
+      "sha256": "8c996aaec0fcd03defec5afb55f6ebb96935c7a5bc571e1811410de6339fe0df",
+      "bytes": 33
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/registry-pinned-d9657215/tables.log",
+      "sha256": "362c2b566827eb15434ae230b1ce60edad2006c45ff08836d0a24fc744447261",
+      "bytes": 116
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/registry-pinned-d9657215/views.log",
+      "sha256": "9730a43a0a4535867153d7ac0afd888b1feaaa96f3846b2922c39a16ad068e89",
+      "bytes": 68
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/related-development-valid.log",
+      "sha256": "ebfda68663a7f00c94d694dc2db2823cd9467369a9d69fe2f4f368da92e4db1d",
+      "bytes": 828
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/related-development.log",
+      "sha256": "41b465f086480ca9fdecef571e5bbfa69e4f0edf7b9e4b2bbcb09e7f9b4cd29a",
+      "bytes": 186
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/run_candidate_checks.py",
+      "sha256": "c419613f67a485ad5a28ee97908d4b80c0453345b59a55e470643cc5c5960c91",
+      "bytes": 3812
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/seal_receipts.py",
+      "sha256": "b829a065978ec261ce7ce8d1fb3c90c97312dababb4b9236e3343b99818fe384",
+      "bytes": 10000
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/seams-first-red.log",
+      "sha256": "7722d92ed381d743e334309f2550faf0fd13fdb30a4cc1a241325fe49580390a",
+      "bytes": 28196
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/seams-fixed-fixture.log",
+      "sha256": "31dab9f79da42d0cd0a989bb961000a216184588e7cc58b4746863fd1b5dcf94",
+      "bytes": 186
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/seams-repair-first.log",
+      "sha256": "40b842c72888e70e335ab6d35114f95408a88b196495b717acca6afaaaed3424",
+      "bytes": 4562
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/transplant-first.log",
+      "sha256": "b7770cd2a856c9f415e12e4c2db5d73ba3d00342d56eb80986dd0fcf29007de6",
+      "bytes": 4213
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/vault-lint-after.log",
+      "sha256": "e9677ab03ae4fa4633fab55e3b4519c998a3ccdaf7275c97c9150ae59429a517",
+      "bytes": 5345
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/vault-lint-before.log",
+      "sha256": "e153ea8d5c98d21e29bfdb69cd1ca8315f17a16f55264988dcab441bc9fad4af",
+      "bytes": 5345
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/vault-lint-diff.json",
+      "sha256": "685ae3f96012813c1ac6ea86cee91d68046a6c1d9285a67d198a0b49efac2449",
+      "bytes": 4010
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-live-r6-20260918/cases/f1-opt-out/artifacts/continuous-episode.json",
+      "sha256": "8b17420c6040d683a46393b6a2a0c13a1a9eeddffefeac3dcc28a75cfce56ead",
+      "bytes": 622729
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-live-r6-20260918/cases/f1-opt-out/public-message.json",
+      "sha256": "b4d591106bb8827518ffd4869f59fc3b7e8d1faeec96744593d7ee493f70ee2c",
+      "bytes": 6005
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-live-r6-20260918/cases/f1-opt-out/question.txt",
+      "sha256": "358ced15d987f52cc382fa03221e2e2d53551407f7b253cb7502e0a82438d928",
+      "bytes": 962
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-live-r6-20260918/cases/f2-dated-citation-plan/artifacts/continuous-episode.json",
+      "sha256": "2c9356b10ca582fc315600fe2a1d3474e47f4d02499aac2f170f169947fef640",
+      "bytes": 621774
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-live-r6-20260918/cases/f2-dated-citation-plan/public-message.json",
+      "sha256": "4a0de2725ebccef77c9910a210ff3564dca5395e9ebc89c5fca7d87c577e43c7",
+      "bytes": 5635
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-live-r6-20260918/cases/f2-dated-citation-plan/question.txt",
+      "sha256": "32825f7cfe72e9fc308dff6635fea4dd4700ebb117fcfa44f377460e3f1faecb",
+      "bytes": 648
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-live-r6-20260918/cases/f3-calculated-financial/artifacts/continuous-episode.json",
+      "sha256": "c358b00cefaf737d1cdd72d01cb48e4d11826eba16a279e0ff679d9ab897715a",
+      "bytes": 716100
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-live-r6-20260918/cases/f3-calculated-financial/public-message.json",
+      "sha256": "038b79ea724888ea98fcead3285b70acc089b08ae6974fcb0a109108e173b9c3",
+      "bytes": 6579
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-live-r6-20260918/cases/f3-calculated-financial/question.txt",
+      "sha256": "df1611908909903b655589cf420fbaf87893de3c7244d04b55e2496ae34b1298",
+      "bytes": 913
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-live-r6-20260918/cases/positive-persistence/artifacts/continuous-episode.json",
+      "sha256": "e051cf1153204d17d6d3602171a9c427deb86dba8b7f4599e69ba7ebf667a9da",
+      "bytes": 770619
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-live-r6-20260918/cases/positive-persistence/public-message.json",
+      "sha256": "c2969a2d8ab822cdb049d2ff833d34d509cdd032d9742ce32642dbc6b3409145",
+      "bytes": 6085
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-live-r6-20260918/cases/positive-persistence/question.txt",
+      "sha256": "68a4e80516fac83c1249f968c5aa24345a708a1d12ea41fd152d47ab9f6b6668",
+      "bytes": 950
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-r6-repair/extraction-15527aad/M1-red.xml",
+      "sha256": "fb8230a111e13318df86257e33df1272878340c9b53bf660f8dcec8178efca41",
+      "bytes": 3875
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-r6-repair/extraction-15527aad/M10-red.xml",
+      "sha256": "7ac51be73dd20fa7c9e02942d2896b2024dec437132eaf97396866a19e0da064",
+      "bytes": 2160
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-r6-repair/extraction-15527aad/M11-red.xml",
+      "sha256": "9e5490c93762eeca2bace92c8f3a21e1830b9d01496e2978e774b307a916bb55",
+      "bytes": 1977
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-r6-repair/extraction-15527aad/M12-red.xml",
+      "sha256": "8611898ac2214c3e2b2aa2bc789e5ad1aa722e545090e920d512a6b4953e12b0",
+      "bytes": 3669
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-r6-repair/extraction-15527aad/M13-red.xml",
+      "sha256": "539155416db00fd3d5e551c2156c2ffe1feb935dd84cbc5930ad2e4efa6fefc6",
+      "bytes": 898
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-r6-repair/extraction-15527aad/M14-red.xml",
+      "sha256": "a0de5b6bb40028ac5aa3bfba1b3c79e1ab7f46d0cd451782dbfab795658d2cc7",
+      "bytes": 3146
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-r6-repair/extraction-15527aad/M15-red.xml",
+      "sha256": "b1358d9ef98f4b698f46e1c29adb05fb86bc3700c2d4517b5db5c911f56ab39b",
+      "bytes": 2585
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-r6-repair/extraction-15527aad/M16-red.xml",
+      "sha256": "ae4bb45f4d687bae07e203b597f962e84b2bcf683bdff21d17f3b26c502ef924",
+      "bytes": 781
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-r6-repair/extraction-15527aad/M17-red.xml",
+      "sha256": "128e7890f80b429c91a24875e6171d7273ef1bb273572d16cccd31722fe90fd6",
+      "bytes": 2699
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-r6-repair/extraction-15527aad/M18-red.xml",
+      "sha256": "caeca9e1ccefc6168e230ef12ffb52538d7470d1d14b05f287aacc97130e36a3",
+      "bytes": 1797
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-r6-repair/extraction-15527aad/M19-red.xml",
+      "sha256": "5f9bcf4a65d4955fad4a2ecc447bec068cc4c8d520ee7501da139bda3dce9e65",
+      "bytes": 1145
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-r6-repair/extraction-15527aad/M2-red.xml",
+      "sha256": "96b03c1a127f73258b563cf561f509c99bd611a14d054c02cb0f3354822506c4",
+      "bytes": 5908
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-r6-repair/extraction-15527aad/M20-red.xml",
+      "sha256": "7fb50bde509f2782e784ad73da1139935873ae688f1a3adbd2790ba80f0b8ce5",
+      "bytes": 1140
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-r6-repair/extraction-15527aad/M21-red.xml",
+      "sha256": "aae5a95006dbbcda2e5156160d4a8709cce30488a8076105aedb75b5f2e118e7",
+      "bytes": 755
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-r6-repair/extraction-15527aad/M22-red.xml",
+      "sha256": "84f97d5955ad546d85fd13adbbd4f097fab04371a389a6dc56ad824d01c429fe",
+      "bytes": 2539
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-r6-repair/extraction-15527aad/M23-red.xml",
+      "sha256": "17772d4d2b76c18dbe4efef80981db57a78f010cca97f04937f24e91627baf54",
+      "bytes": 1240
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-r6-repair/extraction-15527aad/M24-red.xml",
+      "sha256": "35b6fdb7763aff036ed6ae2d1105915b0b5869db0d6b374f76102d0c62b29c5f",
+      "bytes": 4206
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-r6-repair/extraction-15527aad/M25-red.xml",
+      "sha256": "14aac1406dd3fcbec3a7cf0d84ec07ae688d25d6e7d2137111dfdae80acce033",
+      "bytes": 1278
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-r6-repair/extraction-15527aad/M26-red.xml",
+      "sha256": "961e21db58f9778ddc53012103d6f6a38323c065eaf2199ce143afb133f036d6",
+      "bytes": 2232
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-r6-repair/extraction-15527aad/M27-red.xml",
+      "sha256": "d26206a566196e28101d21d9f3980c9a20cac38203446d7fcb3515c9f1810bd5",
+      "bytes": 1362
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-r6-repair/extraction-15527aad/M28-red.xml",
+      "sha256": "68d7076d9be323c8fee3f0253b0d9c744989da0c5f3b0229d775fa49346bdd60",
+      "bytes": 1525
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-r6-repair/extraction-15527aad/M29-red.xml",
+      "sha256": "c3639aac58cc5914ca291ca532468f1596bb33ab72a14abcc956ee6504b00bd4",
+      "bytes": 4070
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-r6-repair/extraction-15527aad/M3-red.xml",
+      "sha256": "45922eced6a180ef8cb2554942a87cc3ea3af275e830f080ec3d563451519cdd",
+      "bytes": 2368
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-r6-repair/extraction-15527aad/M30-red.xml",
+      "sha256": "f635571fd12a8935ad8fc4b1e304d587860ace62adf21408b38fa22e53bf9990",
+      "bytes": 1868
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-r6-repair/extraction-15527aad/M31-red.xml",
+      "sha256": "d4fbaacc3e1bea692c7dc193d936afa5fe90e68be189915938813152a7bc8c09",
+      "bytes": 1587
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-r6-repair/extraction-15527aad/M32-red.xml",
+      "sha256": "69abc4a548b955065f07531f0e8dc6ee965c3f513762ef6b1e6a3476ae6fdac3",
+      "bytes": 1702
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-r6-repair/extraction-15527aad/M33-red.xml",
+      "sha256": "a65bc57b2b53feb7d6b89882bee5ebd53a5239e5ba5ebe0ab9054d3627eeade2",
+      "bytes": 1879
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-r6-repair/extraction-15527aad/M34-red.xml",
+      "sha256": "2d2f3d648b8f013b88827e01ff4fa2ab7f54e789e8736c11036df36668e298b0",
+      "bytes": 2579
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-r6-repair/extraction-15527aad/M35-red.xml",
+      "sha256": "ffb0ee71eeb8fa3ffdb68d045700752b69133a8a91deb5244a739486e02bba15",
+      "bytes": 1760
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-r6-repair/extraction-15527aad/M4-red.xml",
+      "sha256": "ce026eb9418b9a10b39a98e65b5f0cd5a5240f49cc891c730f6bf25794989e18",
+      "bytes": 4121
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-r6-repair/extraction-15527aad/M5-red.xml",
+      "sha256": "86fc489e32f43c68cb4a2271407cf9083d3a3810b53541a07f0d42e6320354a4",
+      "bytes": 4689
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-r6-repair/extraction-15527aad/M6-red.xml",
+      "sha256": "93b222483ffcc4bfc3493dd4a4e8d74fe771caecaf06bd89e93daa47e290d296",
+      "bytes": 1175
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-r6-repair/extraction-15527aad/M7-red.xml",
+      "sha256": "86c4777ed3482c31f4d81636a5e82bf2b1e63609353f0408c55b8b10bbc95d66",
+      "bytes": 852
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-r6-repair/extraction-15527aad/M8-red.xml",
+      "sha256": "659cb4d133acb12a4f107c913519af8f391e95ed8e9f5978d96ad48a69df48dc",
+      "bytes": 1034
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/8792-financial-r6-repair/extraction-15527aad/M9-red.xml",
+      "sha256": "c553f5e417e712d83da93e17a81555e0d9b4bda7510fc22311c0bf581ede4274",
+      "bytes": 890
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/test-receipts/20260918T155728Z-d9657215.json",
+      "sha256": "a81a9bd712684730424859884ac9100597ee8daa7936cc97f86a02779f6a001f",
+      "bytes": 664
+    }
+  ],
+  "exclusions": [
+    "pytest-tmp/",
+    "isolated-users/",
+    "worktrees/",
+    "symlinks"
+  ],
+  "display_copy_policy": "display copy only: remove trailing line whitespace and surplus blank lines at EOF; external original unchanged",
+  "checksum_policy": "SHA256SUMS covers every packaged file except itself; manifest does not self-hash."
+}

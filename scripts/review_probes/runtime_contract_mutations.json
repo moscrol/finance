@@ -1,0 +1,93 @@
+[
+  {
+    "id": "terminal_completion_fence",
+    "path": "intelligence/runtime/agent_episode.py",
+    "old": "        persistence = self.persistence_mode\n        if self.store_failures:\n",
+    "new": "        persistence = self.persistence_mode\n        if False:\n",
+    "targets": ["test_failed_write_stops_new_effects"]
+  },
+  {
+    "id": "pre_model_dispatch_fence",
+    "path": "intelligence/runtime/agent_episode.py",
+    "old": "        if self.store_failures:\n            return ModelTurn(\"\", (), error=\"storage_failed\", provider_attempts=0)\n        return model.complete(**kwargs)",
+    "new": "        return model.complete(**kwargs)",
+    "targets": ["test_failed_write_stops_new_effects"]
+  },
+  {
+    "id": "tool_intent_fence",
+    "path": "intelligence/runtime/episode_tool_batch.py",
+    "old": "            if dispatch_allowed is False:\n",
+    "new": "            if False:\n",
+    "targets": ["test_tool_intent_rejection_never_submits_to_executor"]
+  },
+  {
+    "id": "terminal_flush",
+    "path": "intelligence/runtime/agent_episode.py",
+    "old": "\"finish\", \"inbox_inserted\", \"inbox_claimed\", \"inbox_discarded\",",
+    "new": "\"inbox_inserted\", \"inbox_claimed\", \"inbox_discarded\",",
+    "targets": ["test_successful_durable_completion_is_explicit_and_flushed"]
+  },
+  {
+    "id": "neutral_completion_boundary",
+    "path": "intelligence/services/agent_runtime.py",
+    "old": "            if reason in {\"length\", \"max_tokens\", \"content_filter\"}:\n",
+    "new": "            if False:\n",
+    "targets": ["test_direct_model_turn_cannot_bypass_completion_boundary", "test_truncated_finalizer_cannot_publish_parseable_finish"]
+  },
+  {
+    "id": "nonstream_finish_reason",
+    "path": "intelligence/services/llm_refine.py",
+    "old": "        finish_reason = _stable_finish_reason(choice.get(\"finish_reason\"))\n",
+    "new": "        finish_reason = None\n",
+    "targets": ["test_transport_preserves_truncation_reason"]
+  },
+  {
+    "id": "provider_no_hidden_retry",
+    "path": "intelligence/runtime/glm_agent_runtime.py",
+    "old": "                if turn.error.startswith(\"incomplete_model_response:\"):\n",
+    "new": "                if False:\n",
+    "targets": ["test_incomplete_envelope_is_not_executed_or_silently_retried"]
+  },
+  {
+    "id": "inbox_no_false_ack",
+    "path": "intelligence/runtime/agent_episode.py",
+    "old": "            persistence_failed=lambda: bool(ledger.store_failures),\n",
+    "new": "            persistence_failed=lambda: False,\n",
+    "targets": ["test_failed_inbox_write_is_not_acknowledged_or_deleted"]
+  },
+  {
+    "id": "inbox_flush_before_ack",
+    "path": "intelligence/runtime/agent_episode.py",
+    "old": "\"finish\", \"inbox_inserted\", \"inbox_claimed\", \"inbox_discarded\",",
+    "new": "\"finish\", \"inbox_claimed\", \"inbox_discarded\",",
+    "targets": ["test_inbox_ack_flushes_insert_before_deleting_spool"]
+  },
+  {
+    "id": "assembly_cancel_propagation",
+    "path": "intelligence/api/app.py",
+    "old": "        is_cancelled=execution_cancel,\n        # 只在 continuous_glm 上接",
+    "new": "        is_cancelled=is_cancelled,\n        # 只在 continuous_glm 上接",
+    "targets": ["test_real_assembly_shares_local_failure_with_inflight_model"]
+  },
+  {
+    "id": "received_tool_result_retention",
+    "path": "intelligence/runtime/episode_tool_batch.py",
+    "old": "            if cancelled_during_wait and storage_failed:\n",
+    "new": "            if False:\n",
+    "targets": ["test_parallel_failure_keeps_received_result_and_fences_queued_runner"]
+  },
+  {
+    "id": "queued_runner_fence",
+    "path": "intelligence/services/research_tool_registry.py",
+    "old": "            if is_cancelled is not None and is_cancelled():\n                raise RuntimeError(\"agent tool cancelled before execution\")\n",
+    "new": "            # removed queued-runner fence\n",
+    "targets": ["test_parallel_failure_keeps_received_result_and_fences_queued_runner"]
+  },
+  {
+    "id": "sse_terminal_delivery_race",
+    "path": "intelligence/api/app.py",
+    "old": "                    if any(event[\"seq\"] > current_cursor for event in terminal_snapshot):\n",
+    "new": "                    if False:\n",
+    "targets": ["test_sse_emits_terminal_message_arriving_between_reads"]
+  }
+]

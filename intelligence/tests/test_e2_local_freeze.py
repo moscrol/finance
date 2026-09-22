@@ -212,18 +212,17 @@ def test_local_factory_does_not_run_unclassified_static_precheck(monkeypatch):
     assert context.contract.material_contract.data_scope == "local_only"
 
 
-def test_local_history_does_not_readd_uncertified_tools_or_output_producers(tmp_path, monkeypatch):
-    from intelligence.services.historical_research import episode as history_episode
-
-    monkeypatch.setattr(history_episode, "history_tool_specs", fail_external)
+def test_local_history_adds_only_audited_readers_not_case_writer(tmp_path, monkeypatch):
+    from intelligence.services.material_permissions import LOCAL_EVIDENCE_PRODUCERS
     frame = understand_query("不要联网。这一波农业是怎么走出来的？").task_frame
     assert frame.history_intent is not None
     context = build_episode_context(frame, task_id="local-history", today="2026-07-24")
     registry = episode_tools.build_episode_registry(frame, context, finance_root=tmp_path, knowledge_wiki=tmp_path / "wiki")
     assert "finance_query" in registry.names()
-    assert not {"history_query", "read_history_result", "save_history_research"} & set(registry.names())
-    assert all(set(output.evidence_types) <= set(context.contract.allowed_capabilities) for output in context.contract.required_outputs)
-    # Retain the time restriction used by finance_query; no new history tool permission.
+    assert "history_query" in registry.names()
+    assert "save_history_research" not in registry.names()
+    assert all({LOCAL_EVIDENCE_PRODUCERS.get(p, p) for p in output.evidence_types} <= set(context.contract.allowed_capabilities) for output in context.contract.required_outputs)
+    # Evidence producer aliases do not grant new capabilities or unknown IO.
     assert context.history_intent == frame.history_intent
     assert ResearchTaskContract.from_dict(context.contract.to_dict()) == context.contract
 
