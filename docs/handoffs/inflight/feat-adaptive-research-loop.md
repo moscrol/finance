@@ -2,39 +2,32 @@
 
 ## 这个分支做什么
 
-修研究回路取证、窗口收益计算与公开保真。传输层绝对截止已落地（`f514e6713`），收口剩内容层与两位终审。
+研究回路取证、窗口收益、公开保真 + LLM 传输层绝对截止（`f514e6713`）。#72 收口接手：独立复核、补用例、前向 main、四叶、开 PR。#76/#75 条件卡与全部读数在 `docs/verification/2026-09-22-adaptive-deadline/README.md`。
 
 ## 决策与被否方案
 
-local_only 四只读能力、根 T900/单发帽75/共享窗150 不变，不开 derived_calculation；`finance_query` 只给已观测日逐日复利摘要。
-接管上轮在途改动而非重写（读下来实现是对的）。探针改为驱动真实传输层，否了保留自建 opener——探针绕过被测对象，它的绿证明不了产品行为。
-时间断言放宽到远大于 spawn 开销，否了加重试/flaky 标记——重试把"机器忙"和"实现错"一起吞掉。
-完整决策见同日 `-adaptive-deadline-transport.md` 与 `-adaptive-closeout-audit.md`。
+- 验收变异（`deadline=` 不传）376 条全绿 → 判「无人守」补包装层用例；否了「作者四杀已够」：那四条只变传输层模块，包装函数没进过。
+- 前向 `--no-ff` 合 main 在作者树做（分支已由工单移交，22:37 起无进程）；否了推 detached 提交：本地分支会与远端分叉。
+- INDEX #72 行不改；否了写 #858 分支：它 23:22 仍在动。行文本放 PR 描述末尾。
+- `is_cancelled=` 转发变异也存活但不补代码；否了再加一测：不在验收项，且会让门禁过的代码尖再漂一层。配方在 README。
+- 预算 T900/75/150、`derived_calculation` 关、数字门单位（#852）均未动。
 
 ## 当前状态
 
-已提交 `f514e6713`（传输层，20 文件）与 `a945c51ff`（修一条既有测试竞态）。pre-commit 全钩子通过，**未用 `--no-verify`**。
-未 push／PR／合 main／部署，未碰生产 8792；工作树干净。
+代码尖 `013eb5c4a`（`c582d6755` + main@f24a61a8a 合流），其上只有 docs 提交。未 push、未开 PR、未合 main、未部署、未碰 8792。作者树与隔离树 `~/fwp-wt-adaptive-deadline-0922` 均干净。
 
 ## 已验证
 
-严格探针提交态 exit 0、13 场景 **0 越窗**（修前 7 个），`dirty=false`。判官迟到回包现记 `failed/timeout`，不再当 success 采纳。
-变异四条（父侧截止关／子侧硬停关／两侧全关＝修前行为／共享截止忽略）**四杀零存活**，每轮还原校验 sha256 一致。
-完整 pytest 提交态 **12849 passed / 0 failed**（load 6.5，13分20秒）。ruff 通过；字段契约 37/90，低于基线 40/100。
-收据根 `~/.finance-runtime/adaptive-advance-20260922/`，`ROUND.md` 是索引。
+隔离树 @`013eb5c4a`：ruff 0；pytest **12879P/85S/2X exit 0**（2030 s，load 9→17），收据 `check_test_receipt --expect-revision` ✅；前端六步 0（110 单测、E2E 34P/2S）；registry×4 + crosswalk 0；严格探针 0 越窗（`aa0509d61` 亦独立跑过一次）。变异 `deadline=None`：新用例 RED → 还原 GREEN，sha256 核对。收据根 `~/.finance-runtime/adaptive-deadline-0922/`。
 
 ## 未验证 / 已知边界
 
-**代价**：每次 HTTP 调用多一个子进程启动，空闲约 0.15 秒、高负载 >0.35 秒，**且算在调用预算内**——亚秒级窗口（判官 0.8 秒）比以前更早失败。要省这笔只能做常驻 worker 复用，**不能**把 spawn 排除在预算外，那等于把刚买到的绝对截止再让掉。
-真实自然模型改稿复核未做（现在才具备条件）。`2026-09-22-adaptive-absence-live.md` 记的内容未过（板块累计涨跌幅有错、强弱方向反转、判官无有效裁决）**依然成立**，本轮没动内容层。
-两位独立终审仍未满足（上一轮 codex 外审 268 秒额度耗尽中断，不计入）。前端六步／registry／crosswalk 本轮未重跑。
+真实模型改稿复核（#76 L6）未跑；两位终审（#75）未做；`absence-live` 三个内容未过项仍成立。`is_cancelled=` 转发无人守（15 条 cancel 测试在变异下全绿）。四处调用点 `timeout` 片是否都经 `Deadline.slice()` 未逐点核。spawn 代价 0.15–0.35 s 计入预算，load>20 勿跑亚秒窗口。
 
 ## 下一步
 
-1 真实自然模型改稿复核，另预注册样本，不重跑旧失败题刷绿；2 修内容层那三个未过项；3 补两位独立终审；4 合入前补完整门禁全貌。
+1 push + 开 PR（base main），`gitea_pr.py conflict-check` 先跑；2 挂 #75 QUEUE 行；3 用户确认后合；4 #76 三题；5 内容层三项；6 可选补 `is_cancelled` 用例。
 
 ## 踩过的坑
 
-pytest 用主树 `.venv-workbench/bin/python` 并建独占 basetemp；密封 fixture 只读，清理前先 `chmod -R u+w`，一轮占 3.2G。
-改了被 mock 对象的签名，全仓假实现都是潜在的红（本轮炸出 37 条），它们不受类型检查保护。
-时间断言要断"有没有活过截止"，别断"由哪条路径停的"——后者把环境噪声算进结果。
+`--basetemp=X/Y` 前先 `mkdir -p X`，否则 tmp_path 夹具在 setup 抛 FileNotFoundError 伪红。zsh 里无匹配的 glob 会让 `&&` 链整条中断。别人的全量 pytest 会把 13 分钟拖成 34 分钟，读数成立但不读快慢。
