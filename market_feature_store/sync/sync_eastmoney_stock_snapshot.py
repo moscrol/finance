@@ -141,9 +141,12 @@ PROXY_FAKE_IP_PREFIX = "198.18."
 #: ValueError 收 JSON 解析失败 (上游偶尔回非 JSON 的挡板页)。
 TRANSIENT_FETCH_ERRORS = (OSError, http.client.HTTPException, ValueError)
 #: 「连上即空回应」的形状: TCP 连得上、TLS 握手成功、证书验证通过,
-#: 对端接下连接却一个字节响应体都不给。2026-09-22 19:2x 东财按出口 IP
-#: 在应用层拒绝时就是这个形状 (curl 侧为 `52 Empty reply from server`)。
-#: 它与瞬时抖动的区别在于**重试无用, 且可能把滑动窗口封禁不断续命**。
+#: 对端接下连接却一个字节响应体都不给。2026-09-22 19:2x 东财对 `/api/qt/clist/get`
+#: 拒绝服务时就是这个形状 (curl 侧为 `52 Empty reply from server`)。
+#: 21:55 根因修正: 不是按出口 IP 封禁——同一主机、同一 IP 上 `/` 返 404、
+#: `ulist.np/get` 返 200, 被针对的是端点; 且连发 clist 会把同主机其他端点一起
+#: 拖成空回应 (冷却 45–75s 不恢复)。所以它与瞬时抖动的区别在于
+#: **重试无用, 且每多打一发都在扩大伤害面**。
 EMPTY_REPLY_ERRORS = (http.client.RemoteDisconnected,)
 #: 同一 host 连续这么多发都是空回应 → 判定被拒, 立刻停手。
 #: 取 3 = 容两次真抖动; 判据是「连续」不是「累计」, 成功一发即清零。
@@ -151,7 +154,7 @@ EMPTY_REPLY_STREAK_LIMIT = 3
 
 
 class UpstreamRefusing(RuntimeError):
-    """上游按出口 IP 在应用层拒绝——重试解决不了, 继续打只会加深。
+    """上游在应用层拒绝服务 (连上即空回应)——重试解决不了, 继续打只会扩大伤害面。
 
     继承 ``RuntimeError`` 是为了不破坏既有 ``except RuntimeError`` 的调用方;
     单独的类型是为了让调用方**能够**区分「上游不让我们取」与「重试耗尽」
@@ -312,8 +315,8 @@ def _get_json(url: str, timeout: float, retries: int = 6, backoff: float = 1.2) 
                 return data
     if hosts and all(h in _refusing_hosts for h in hosts):
         raise UpstreamRefusing(
-            f"东财对本机出口 IP 在应用层拒绝 (连上即空回应, 已试 {', '.join(hosts)}): {url}\n"
-            "重试不会解决, 只会加深。换出口/等封禁窗口过去/换数据源再来。"
+            f"东财在应用层拒绝服务 (连上即空回应, 已试 {', '.join(hosts)}): {url}\n"
+            "重试不会解决, 只会把同主机其他端点一起拖垮。停本轮/等窗口过去/换数据源再来。"
         ) from last_err
     raise RuntimeError(f"东财快照请求失败: {url}") from last_err
 

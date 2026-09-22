@@ -1,9 +1,14 @@
 """东财取数的**错误形状分类**：不是所有失败都该用同一种方式重试。
 
-2026-09-22 19:2x 起，东财对本机出口 IP 在**应用层**拒绝：TCP 连得上、TLS 握手成功、
+2026-09-22 19:2x 起，东财在**应用层**拒绝服务：TCP 连得上、TLS 握手成功、
 证书 `*.eastmoney.com` 验证通过、对端确实是真东财，但它接下连接后对
 `/api/qt/clist/get` 一个字节响应体都不给（`curl --resolve` 直打真实 IP 同样是
 `curl: (52) Empty reply from server`，**与 Python 代码无关**）。
+
+根因修正（09-22 21:55，见 `fix-eastmoney-snapshot-direct-ip-0922` 交接）：**不是按出口 IP
+封禁**——同一主机、同一 IP、同一条 TLS 上 `/` 返 404、`ulist.np/get` 返 200 有数据，
+只有 `clist/get` 被掉；且 6 连发 clist 后 `ulist.np` 也转空回应，冷却 45–75s 不恢复。
+被针对的是端点，而每多打一发都在扩大伤害面。熔断的判据与语义不受此修正影响。
 
 证据链（`~/.finance-runtime/reviews/eastmoney-hotfix-20260922T1917/` 与本轮 21:11 复测）：
 
@@ -14,10 +19,10 @@
 
 所以这类失败与「瞬时抖动」有本质区别：
 
-| | 瞬时抖动 | 上游按出口 IP 拒绝 |
+| | 瞬时抖动 | 上游拒绝服务（连上即空回应） |
 |---|---|---|
 | 重试有用吗 | 有 | **没有** |
-| 继续重试的代价 | 几秒 | **可能加深封禁**（滑动窗口被不断刷新） |
+| 继续重试的代价 | 几秒 | **拖垮同主机其他端点**（实测 clist 连发后 ulist.np 也转空回应） |
 
 而 `b1d797593` 把两者归为同一类 `TRANSIENT_FETCH_ERRORS` 无差别重试。该补丁**提高了
 重试压力**（snapshot 步骤 41.7s → 90.9s 就是证据），在被拒场景下这是反作用：
@@ -167,7 +172,8 @@ class TestCircuitBreakerOnUpstreamRefusal:
             em._get_json(f"{em.EM_URL}?pn=1", timeout=5)
 
         message = str(excinfo.value)
-        assert "出口 IP" in message or "拒绝" in message, "错误信息要说清是哪一类失败"
+        assert "拒绝" in message and "空回应" in message, "错误信息要说清是哪一类失败"
+        assert "出口 IP" not in message, "21:55 已证实不是按 IP 封禁, 别把错误归因写进日志"
         assert isinstance(excinfo.value.__cause__, http.client.RemoteDisconnected)
 
     def test_breaker_does_not_burn_the_fallback_host_on_the_first_host_verdict(
