@@ -38,6 +38,7 @@ class IssueCode(str, Enum):
     EVIDENCE_TYPE_STRIPPED = "evidence_type_stripped"
     EVIDENCE_TYPE_UNSUPPORTED = "evidence_type_unsupported"
     HISTORY_OPERATION_UNSUPPORTED = "history_operation_unsupported"
+    HISTORY_OPERATION_STRIPPED = "history_operation_stripped"
     FINANCIAL_ANCHOR_MISSING = "financial_anchor_missing"
     MISSING_MANDATORY_CAPABILITY = "missing_mandatory_capability"
     REQUIRED_OUTPUT_NO_SUBSTANCE = "required_output_no_substance"
@@ -82,6 +83,9 @@ RELEASE_POLICY: dict[IssueCode, ReleaseAction] = {
     IssueCode.EVIDENCE_TYPE_STRIPPED: ReleaseAction.STRIP_OK,
     IssueCode.EVIDENCE_TYPE_UNSUPPORTED: ReleaseAction.PARTIAL_OK,
     IssueCode.HISTORY_OPERATION_UNSUPPORTED: ReleaseAction.BLOCK,
+    # 引错算子与伪造身份不同等：前者剪掉该引用即可，槽里还有合法证据就不必
+    # 整篇作废（与 EVIDENCE_TYPE_STRIPPED 同一口径）。
+    IssueCode.HISTORY_OPERATION_STRIPPED: ReleaseAction.STRIP_OK,
     IssueCode.FINANCIAL_ANCHOR_MISSING: ReleaseAction.BLOCK,
     IssueCode.MISSING_MANDATORY_CAPABILITY: ReleaseAction.PARTIAL_OK,
     IssueCode.REQUIRED_OUTPUT_NO_SUBSTANCE: ReleaseAction.BLOCK,
