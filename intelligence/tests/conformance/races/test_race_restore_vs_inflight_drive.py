@@ -1,8 +1,8 @@
 """竞态⑧：restore vs 仍在飞的驱动（INV-R6 / INV-R3）。
 
-P2 的决定：``restore`` 只给 ``ResumePlan``，不重新驱动、不写一字。所以它与在飞驱动的两序
-都安全**由构造保证**——本条把这个保证钉成测试：驱动停在 model_pending 时调 restore（A），
-或驱动结束后调 restore（B），两序里 restore 都零写入，且该 turn_id 恰一条结算。
+这里只覆盖会返回纯读取计划的前缀（足够重试额的 model_pending）及确认完成态，
+新日志提供由fixture输入重建的当前授权。两序均零写入，turn_id恰一条结算；
+不能外推为所有restore路径可与活驱动并发，合成路径仍须未来的单写者保护。
 """
 
 from __future__ import annotations
@@ -26,7 +26,7 @@ def test_order_a_restore_while_drive_is_paused_at_model_pending() -> None:
     state_before = rig.stored_state()
     assert state_before is not None and state_before.phase == "model_pending"
 
-    result = ContinuousAgentEpisode.restore(rig.task_id, rig.oracle)
+    result = ContinuousAgentEpisode.restore(rig.task_id, rig.oracle, context=rig.context, registry=rig.registry)
 
     # restore 看到的是「意图有、结算无」：给 retry_model，指向同一个 turn_id。
     assert result.disposition == "resumable"
@@ -59,7 +59,7 @@ def test_restore_lists_unclaimed_inbox_messages_and_clears_them_once_claimed() -
     receipt = rig.episode.steer("补一句：只看主板", target="next_step")
     assert receipt.accepted
 
-    paused = ContinuousAgentEpisode.restore(rig.task_id, rig.oracle)
+    paused = ContinuousAgentEpisode.restore(rig.task_id, rig.oracle, context=rig.context, registry=rig.registry)
     assert paused.pending_inbox == (receipt.message_id,)
     assert paused.to_dict()["pending_inbox"] == [receipt.message_id]
 

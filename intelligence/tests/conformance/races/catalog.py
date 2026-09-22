@@ -83,8 +83,8 @@ RACES: tuple[Race, ...] = (
         module="test_race_store_failure_vs_memory_ledger",
         order_a="store 在写一条意图（model_intent）时失败",
         order_b="store 在写一条结算（model_turn）时失败",
-        legal_history_a="内存账本完整、episode 照常完成；store 只留失败前的严格前缀且不再被写；store_failures 收据带序号；durable 副本对 restore 仍自洽",
-        legal_history_b="同上，且 store 里最后一条是意图：restore 读到「意图有、结算无」并给 retry_model，而不是把结算当没发生之外的任何猜测",
+        legal_history_a="意图保存失败后模型零执行；episode failed/storage_failed；内存保留结果及错误收据，store 不再被写",
+        legal_history_b="结算保存失败后零新效果；模型费用保留；磁盘只有意图时 restore 仍可能给 retry_model，这是未决窗口而非重试无代价的证明",
     ),
     Race(
         key="restore_vs_inflight_drive",

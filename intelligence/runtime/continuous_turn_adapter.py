@@ -583,6 +583,8 @@ class ContinuousTurnAdapter:
             if not isinstance(outcome_candidate, AgentOutcome):
                 raise TypeError("runtime must return AgentOutcome")
             outcome = outcome_candidate
+            if outcome.persistence == "failed":
+                return self._storage_failed_result(outcome, context)
             if self._is_cancelled():
                 return _cancelled_result()
             self._publish_progress(
@@ -688,6 +690,8 @@ class ContinuousTurnAdapter:
                 if backfilled is not None:
                     previous_snapshot = current_snapshot
                     outcome, structural = backfilled
+                    if outcome.persistence == "failed":
+                        return self._storage_failed_result(outcome, context)
                     current_snapshot = _repair_snapshot(
                         outcome,
                         structural,
@@ -744,6 +748,8 @@ class ContinuousTurnAdapter:
                     break
                 previous_snapshot = current_snapshot
                 outcome, structural, delivery_only = repaired
+                if outcome.persistence == "failed":
+                    return self._storage_failed_result(outcome, context)
                 structural = _with_track_contract_gaps(structural, context)
                 delivery_repair_attempted = (
                     delivery_repair_attempted or delivery_only
@@ -852,6 +858,8 @@ class ContinuousTurnAdapter:
                     break
                 previous_snapshot = current_snapshot
                 outcome, structural, delivery_only = repaired
+                if outcome.persistence == "failed":
+                    return self._storage_failed_result(outcome, context)
                 structural = _with_track_contract_gaps(structural, context)
                 delivery_repair_attempted = (
                     delivery_repair_attempted or delivery_only
@@ -1241,6 +1249,28 @@ class ContinuousTurnAdapter:
             ),
         )
 
+    def _storage_failed_result(
+        self, outcome: AgentOutcome, context: ResearchRunContext,
+    ) -> ContinuousTurnResult:
+        """Persistence failure must not trigger another paid repair or judge.
+
+        Preserve the unverified draft privately, never publish it as a verified answer.
+        """
+        notice = "研究恢复记录保存失败，本轮已停止；现有草稿未作为可靠完成的答案发布。"
+        return ContinuousTurnResult(
+            handled=True, status="failed", answer=notice, as_of=None, citations=(),
+            warnings=(notice,), events=self._terminal_events(status="failed"),
+            private_artifact=cast(dict[str, object], _redact_private({
+                "schema_version": 1, "log_version": EPISODE_LOG_VERSION,
+                "execution_kind": "continuous_episode", "runtime_backend": self._runtime_name,
+                "research_context": _episode_context_provenance(context),
+                "contract": context.contract.to_dict(), "outcome": _private_outcome(outcome),
+                "events": list(project_durable_events(outcome.events).events),
+                "failure": {"type": "storage_failed", "recovery": "uncertain"},
+                "learning_eligible": False,
+            })),
+        )
+
     def _verify_semantics(
         self,
         *,
@@ -1348,6 +1378,9 @@ class ContinuousTurnAdapter:
         candidate = resume(admission.goal)
         if not isinstance(candidate, AgentOutcome):
             raise TypeError("episode session resume must return AgentOutcome")
+        if candidate.persistence == "failed":
+            # 调用方在使用 structural 前处理保存失败，不再把它喂给领域核验/修复。
+            return candidate, structural, admission.delivery_only
         # 修复不得倒退：修复轮死在 provider 上时，上一轮那份答案并没有因此失效。
         #
         # 下面那行 ``outcome, structural, _ = repaired`` 是无条件替换，所以一个空
@@ -1428,6 +1461,8 @@ class ContinuousTurnAdapter:
         candidate = resume(admission.goal)
         if not isinstance(candidate, AgentOutcome):
             raise TypeError("episode session resume must return AgentOutcome")
+        if candidate.persistence == "failed":
+            return candidate, structural
         if outcome.draft.strip() and not candidate.draft.strip():
             candidate = replace(
                 candidate,

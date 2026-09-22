@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Generator, Mapping
+from collections.abc import Callable, Generator, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta
 import hashlib
@@ -71,6 +71,7 @@ from intelligence.services.provider_latency import (
 from intelligence.services.repair_coordinator import BudgetGrant, RepairGoal
 from intelligence.services.research_contract import (
     PRODUCT_MAX_TOOL_CALLS,
+    InMemoryRootBudgetLedger,
     ResearchDeadline,
     ResearchRunContext,
 )
@@ -104,6 +105,8 @@ from intelligence.services.episode_messages import (
     user_message,
 )
 from intelligence.services.episode_restore import RestoreResult, restore_episode
+from intelligence.services.episode_authorization import capture_authorization_snapshot
+from intelligence.services.episode_evidence import capture_evidence_snapshot
 from intelligence.services.episode_scope import EpisodeScope
 from intelligence.services.episode_store import (
     EPISODE_LOG_VERSION,
@@ -111,6 +114,7 @@ from intelligence.services.episode_store import (
     EpisodePhase,
     EpisodeState,
     EpisodeStore,
+    FencedEpisodeStore,
     now_iso,
 )
 from intelligence.services.research_harness import (
@@ -128,6 +132,7 @@ from intelligence.runtime.sub_research_tool import (
     branch_telemetry,
 )
 from intelligence.runtime.sub_research import (
+    BranchRun,
     SubResearchCoordinator,
     SubResearchResult,
 )
@@ -183,7 +188,7 @@ def _token_usage_from_events(
     input_observed = False
     output_observed = False
     for event in events:
-        if event.kind not in {"model_turn", "branch_completed"}:
+        if event.kind not in {"model_turn", "branch_completed", "branch_failed"}:
             continue
         input_value = event.payload.get("input_tokens")
         output_value = event.payload.get("output_tokens")
@@ -216,6 +221,20 @@ def _agent_usage(
     )
 
 
+def _tool_branch_usage(events: Sequence[EpisodeEvent]) -> tuple[int, int]:
+    """Count newly settled branches, never telemetry re-served from query cache.
+
+    PLAN branches settle separately. A result beyond the parent delivery window
+    has no terminal branch event here and remains uncertain, not a known zero.
+    """
+    settlements = [e for e in events if e.kind in {"branch_completed", "branch_failed"}
+                   and e.payload.get("origin") == "tool"]
+    return (
+        sum(int(e.payload.get("llm_calls") or 0) for e in settlements),
+        sum(int(e.payload.get("tool_calls") or 0) for e in settlements),
+    )
+
+
 def _consume_root_seconds(context: ResearchRunContext, seconds: float) -> bool:
     ledger = context.root_budget
     if ledger is None:
@@ -242,7 +261,8 @@ def _settle_batch_calls(
     异常逃出 episode 主循环，run 直接 failed——没有 stopped_outcome、没有
     修复轮、冷启动也够不着（adapter 拿到的是异常不是 AgentOutcome）。
 
-    账本烧穿时降级为 ``settle_seconds``（能扣多少扣多少，绝不抛）；
+    秒账本烧穿时降级为 ``consume_call_slot`` + ``settle_seconds``：已执行的调用
+    仍扣槽，时间能扣多少扣多少，不因超时退款；次数已空则不再扣成负数。
     call 槽位随 ``remaining_calls`` 归零自然反映到 ``_remaining_tool_slots``，
     下一轮进入 ``tool_budget_exhausted`` finalization，模型还能带着
     已取得的证据交卷。这与 #297 在重试闸门确立的原则同源：
@@ -256,7 +276,17 @@ def _settle_batch_calls(
         try:
             root_budget.consume_call(seconds=seconds_per_call)
         except ValueError:
+            # consume_call rejected both debits. Time overrun does not refund
+            # an already executed call (including a child's parent call slot).
+            consume_slot = getattr(root_budget, "consume_call_slot", None)
+            if callable(consume_slot):
+                try:
+                    consume_slot()
+                except ValueError:
+                    pass  # no slots remain; never invent a negative balance
             root_budget.settle_seconds(seconds=seconds_per_call)
+
+
 def _wall_clock_after(seconds: float) -> str:
     """把 ``ResearchDeadline`` 的单调钟余量换成恢复时能读的挂钟时刻。"""
 
@@ -274,7 +304,9 @@ class _EpisodeLedger:
         store: EpisodeStore | None = None,
         episode_id: str = "",
         configure: Mapping[str, object] | None = None,
+        on_store_failure: Callable[[], None] | None = None,
     ) -> None:
+        self._on_store_failure = on_store_failure
         self._task_frame_hash = task_frame.task_frame_hash
         self._event_sink = event_sink
         # 见 add() 里的临界区注释：序号是「读长度 → 追加」两步，不锁就会重号。
@@ -296,15 +328,20 @@ class _EpisodeLedger:
         # 多出来的只有 ``configure`` 首条与 ``model_intent``，它们与 store 无关。
         self._store = store
         self.episode_id = str(episode_id or "").strip() or task_frame.task_frame_hash
-        # 落盘失败不拥有执行（与 event_sink_failures / derive_mismatch 同族）；但失败一次后
-        # 不再写：半份日志会让恢复读出一个自信的错答案，比「没有日志」更坏。
-        self.store_failures: list[str] = []
+        # OPT-08：可靠存储与进度通知是两份合同。关键写失败后停止新效果，
+        # 仅内存继续收集已发生的结果；不能静默退化为正常完成的临时模式。
+        self.persistence_mode = "durable" if store is not None else "ephemeral"
+        self._local_store_failures: list[str] = []
+        self._store_fence = store if isinstance(store, FencedEpisodeStore) else None
         # 已落意图、等结算的工具调用；``consume`` 对它们不再补事后 ``tool_request``。
         self.intended_call_ids: set[str] = set()
         self.contract_snapshot: Mapping[str, object] = dict(configure or {})
         self.state: EpisodeState | None = None
         # 状态写入要算「截止还剩多久」；loop 在换 context（深度裁决 / 修复轮）时更新它。
         self.active_context: ResearchRunContext | None = None
+        self.active_registry: ResearchToolRegistry | None = None
+        self.active_evidence_ledger: EvidenceLedger | None = None
+        self.presented_evidence: list[AgentEvidence] | None = None
         # ── P3 收件箱（INV-R5）────────────────────────────────────────────
         # run() 建好账本后挂上；``finish`` 落账前由 add() 统一清箱（收口 / 取消各一个 reason），
         # 与 ``done`` 挂在同一个出口——十个 return 点没有一个能漏掉箱里的话。
@@ -328,15 +365,64 @@ class _EpisodeLedger:
 
     # ── durable：意图 / 状态 ─────────────────────────────────────────────
 
+    @property
+    def store_failures(self) -> list[str]:
+        # Read shared health without callbacks into other ledger locks (no ABBA).
+        failures = list(self._local_store_failures)
+        if not failures and self._store_fence is not None and self._store_fence.failure:
+            failures.append(f"episode_tree:{self._store_fence.failure}")
+        return failures
+
     def _persist(self, event: EpisodeEvent) -> None:
+        if self.store_failures:
+            self._store = None
         store = self._store
         if store is None:
             return
         try:
-            store.append(self.episode_id, (event,), sync=event.kind in INTENT_KINDS)
-        except Exception as exc:  # noqa: BLE001 - 落盘失败进收据，不拥有执行
-            self.store_failures.append(f"append#{event.sequence}:{type(exc).__name__}")
-            self._store = None
+            store.append(
+                self.episode_id, (event,),
+                sync=event.kind in INTENT_KINDS or event.kind in {
+                    "finish", "inbox_inserted", "inbox_claimed", "inbox_discarded",
+                },
+            )
+        except Exception as exc:  # noqa: BLE001 - 熔断新派发，保留内存结果
+            self._fail_store(f"append#{event.sequence}:{type(exc).__name__}")
+
+    def _fail_store(self, detail: str) -> None:
+        self._local_store_failures.append(detail)
+        self._store = None
+        if self._on_store_failure is not None:
+            self._on_store_failure()
+
+    def model_complete(self, model: AgentModelClient, **kwargs: object) -> ModelTurn:
+        """Every model entry (including repair) must pass the durable fence."""
+        if self.store_failures:
+            return ModelTurn("", (), error="storage_failed", provider_attempts=0)
+        return model.complete(**kwargs)
+
+    def outcome(self, **kwargs: object) -> AgentOutcome:
+        """Only advertise completion AFTER finish append and done checkpoint succeed.
+
+        A finish already appended cannot be rewritten when the done checkpoint fails.
+        The extra in-memory failure receipt supersedes it without corrupting the prefix.
+        """
+        persistence = self.persistence_mode
+        if self.store_failures:
+            persistence = "failed"
+            gap = "关键恢复记录保存失败；已停止新派发，保留的草稿不可视为可靠完成或自动续跑依据。"
+            if not any(e.kind == "persistence_failed" for e in self.events):
+                self.add("persistence_failed", {
+                    "status": "failed", "stop_reason": "storage_failed",
+                    "store_failures": list(self.store_failures),
+                    "recovery": "uncertain", "learning_eligible": False,
+                })
+            kwargs.update(
+                status="failed", stop_reason="storage_failed",
+                gaps=tuple(dict.fromkeys((*kwargs.get("gaps", ()), gap))),
+            )
+        kwargs.update(events=tuple(self.events), persistence=persistence)
+        return AgentOutcome(**kwargs)
 
     def put_state(
         self,
@@ -380,14 +466,74 @@ class _EpisodeLedger:
                 last_sequence=len(self.events),
                 updated_at=now_iso(),
             )
+            if not self.store_failures:
+                try:
+                    budget_snapshot = previous.budget_snapshot if previous is not None else None
+                    budget_sequence = previous.budget_snapshot_sequence if previous is not None else None
+                    if source is not None:
+                        # A child view is NOT an independent root allocation.
+                        root = source.root_budget
+                        budget_snapshot = root.to_snapshot() if isinstance(root, InMemoryRootBudgetLedger) else None
+                        if isinstance(root, InMemoryRootBudgetLedger) and budget_snapshot is None:
+                            raise ValueError("root budget omitted its required snapshot")
+                        budget_sequence = len(self.events) if budget_snapshot is not None else None
+                    state = replace(
+                        state, budget_snapshot=budget_snapshot, budget_snapshot_sequence=budget_sequence,
+                    )
+                except Exception as exc:
+                    # Encoding is part of required persistence. Do not write a
+                    # valid-looking state with its required budget omitted.
+                    if self.persistence_mode != "durable":
+                        raise
+                    if self._store_fence is not None:
+                        self._store_fence.fail(self.episode_id, f"state:{phase}:budget", exc)
+                    self._fail_store(f"state:{phase}:budget:{type(exc).__name__}")
+            if not self.store_failures:
+                try:
+                    authorization = previous.authorization_snapshot if previous is not None else None
+                    if source is not None:
+                        if self.active_registry is None:
+                            raise ValueError("episode omitted its required authorization registry")
+                        authorization = capture_authorization_snapshot(source, self.active_registry)
+                        if authorization is None:
+                            raise ValueError("episode omitted its required authorization snapshot")
+                    state = replace(state, authorization_snapshot=authorization)
+                except Exception as exc:
+                    if self.persistence_mode != "durable":
+                        raise
+                    if self._store_fence is not None:
+                        self._store_fence.fail(self.episode_id, f"state:{phase}:authorization", exc)
+                    self._fail_store(f"state:{phase}:authorization:{type(exc).__name__}")
+            if not self.store_failures:
+                try:
+                    evidence = previous.evidence_snapshot if previous is not None else None
+                    evidence_sequence = previous.evidence_snapshot_sequence if previous is not None else None
+                    if source is not None:
+                        if self.active_evidence_ledger is None or self.presented_evidence is None:
+                            raise ValueError("episode omitted its required evidence source")
+                        if self.active_evidence_ledger.information_cutoff != source.information_cutoff.as_of_date:
+                            raise ValueError("episode evidence cutoff differs from current context")
+                        evidence = capture_evidence_snapshot(
+                            episode_id=self.episode_id, ledger=self.active_evidence_ledger,
+                            presented_evidence=tuple(self.presented_evidence),
+                        )
+                        if evidence is None:
+                            raise ValueError("episode omitted its required evidence snapshot")
+                        evidence_sequence = len(self.events)
+                    state = replace(state, evidence_snapshot=evidence, evidence_snapshot_sequence=evidence_sequence)
+                except Exception as exc:
+                    if self.persistence_mode != "durable":
+                        raise
+                    if self._store_fence is not None:
+                        self._store_fence.fail(self.episode_id, f"state:{phase}:evidence", exc)
+                    self._fail_store(f"state:{phase}:evidence:{type(exc).__name__}")
             self.state = state
-            store = self._store
+            store = self._store if not self.store_failures else None
             if store is not None:
                 try:
                     store.put_state(self.episode_id, state)
                 except Exception as exc:  # noqa: BLE001 - 同 _persist
-                    self.store_failures.append(f"state:{phase}:{type(exc).__name__}")
-                    self._store = None
+                    self._fail_store(f"state:{phase}:{type(exc).__name__}")
         return state
 
     def record_model_intent(
@@ -424,13 +570,15 @@ class _EpisodeLedger:
         )
         return turn_id
 
-    def record_dispatch_intent(self, intent: DispatchIntent) -> None:
+    def record_dispatch_intent(self, intent: DispatchIntent) -> bool:
         """工具派发前的意图：这一批真要进线程池的每个调用各一条 ``tool_request``。
 
         payload 与事后写法同形（``call.to_dict()`` + dispatch clock + 空池回退标记），多一个
         ``replay``——恢复时决定「同参数重跑」还是「合成 interrupted」的依据。
         """
 
+        if self.store_failures:
+            return False
         clock = intent.clock.to_payload()
         for call in intent.calls:
             payload: dict[str, object] = {
@@ -448,6 +596,7 @@ class _EpisodeLedger:
             phase="tools_pending",
             reserved_ids=tuple(call.call_id for call in intent.calls),
         )
+        return not self.store_failures
 
     def settle_tool_request(self, call_id: str) -> bool:
         """结算到达：该调用若有在飞意图则销掉并返回 True（调用方不再补事后 tool_request）。"""
@@ -495,10 +644,9 @@ class _EpisodeLedger:
                     "chars_saved": self.history_compaction_saved,
                 },
             )
-            # P4 竞态目录「store.append 失败 vs 内存 ledger」：落盘失败不拥有执行，但要有收据。
-            # 收据只能落在内存 / 产物这一侧——store 已经写不进了；读产物的人由此知道
-            # durable 副本从哪一条序号起是不完整的（空列表 = 全部落盘）。
             event_payload.setdefault("store_failures", list(self.store_failures))
+            if self.store_failures:
+                event_payload.update(status="failed", stop_reason="storage_failed")
         # 事件发生的挂钟时刻。相邻两条事件的时间差就是上一步的耗时——所以不需要
         # 给每一步单独开 span，就能算出「哪一步吃掉了时钟」。
         #
@@ -521,20 +669,19 @@ class _EpisodeLedger:
             # 抢着写会让 JSONL 乱序（读回时按「1..N 连续」判损坏）。意图类 fsync，
             # 结算类不 fsync——见 episode_store 文首。
             self._persist(event)
+        if kind == "finish":
+            # done 写成功之前不向 UI 广告完成；finish fsync 同时冲刷前序结算。
+            self.put_state(phase="done")
         # sink 调用**留在锁外**：它是外部回调（UI/进度），持锁调外部代码是经典死锁
         # 源，且慢 sink 会把研究主路径一起卡住。代价是并发时 sink 的到达顺序可能与
         # sequence 不一致——消费者按 sequence 排序，别按到达顺序。
-        if self._event_sink is not None:
+        if self._event_sink is not None and not (kind == "finish" and self.store_failures):
             try:
                 self._event_sink(event)
             except Exception:
                 # Progress is observability, never an alternate execution
                 # owner. A broken UI sink must not abort financial research.
                 pass
-        if kind == "finish":
-            # 终局只有一个出口种类（finish 事件），所以 ``done`` 挂在这里而不是十个
-            # return 点上：任何停机路径都不可能漏掉程序计数器的终态。
-            self.put_state(phase="done")
         return event
 
     def record_plan(self, plan: ResearchPlan) -> EpisodeEvent:
@@ -1031,7 +1178,11 @@ class ContinuousAgentEpisode:
         # P2：durable store（INV-R2 / R3）。None = 只在内存记账，事件流形状仍与落盘时相同。
         # ``runtime_config`` 是装配根（GLMAgentRuntime）知道、Episode 不知道的配置
         # （模型名 / provider 链），只进 ``configure`` 快照，不参与任何判断。
-        self._store = store
+        self._store = (
+            FencedEpisodeStore(store)
+            if store is not None and not isinstance(store, FencedEpisodeStore)
+            else store
+        )
         self._runtime_config: dict[str, object] = dict(runtime_config or {})
         # 领域门（prompt / 批后停机 / 取证面 / 终局准入 / 深度裁决）由 harness 回答，
         # loop 只调。默认金融 harness 是对既有函数的纯委托；传别的实现进来就是换领域。
@@ -1059,6 +1210,8 @@ class ContinuousAgentEpisode:
         # ``_is_cancelled`` 仍是可调用的——所有既有检查点零改动，多出来的是 ``.cause``。
         self._cancel = CancelSignal.coerce(is_cancelled)
         self._is_cancelled: Callable[[], bool] = self._cancel
+        if isinstance(self._store, FencedEpisodeStore):
+            self._store.on_failure(lambda: self._cancel.request("hook", "storage_failed"))
         self._sub_research_coordinator = sub_research_coordinator
         self._event_sink = event_sink
         # P3：当前在跑的 episode 的收件箱（INV-R5）。``steer()`` 从这里递话；run() 进门时换新。
@@ -1123,6 +1276,7 @@ class ContinuousAgentEpisode:
         registry: ResearchToolRegistry | None = None,
         harness: ResearchHarness | None = None,
         now: datetime | None = None,
+        context: ResearchRunContext | None = None,
     ) -> RestoreResult:
         """崩溃后恢复（INV-R3）：读 ``EpisodeState``、按预留 id 点查结算、给下一动作或直接闭合。
 
@@ -1131,7 +1285,7 @@ class ContinuousAgentEpisode:
         """
 
         return restore_episode(
-            episode_id, store, registry=registry, harness=harness, now=now
+            episode_id, store, registry=registry, harness=harness, now=now, context=context,
         )
 
     def run(
@@ -1226,6 +1380,7 @@ class ContinuousAgentEpisode:
             store=self._store,
             episode_id=context.contract.task_id,
             configure=self._configure_snapshot(context=context, registry=registry),
+            on_store_failure=lambda: self._cancel.request("hook", "storage_failed"),
         )
         ledger.active_context = context
         # INV-R5：收件箱在账本之后、任何模型请求之前建好——从此外部输入只有这一扇门。
@@ -1235,6 +1390,7 @@ class ContinuousAgentEpisode:
             ledger,
             admit=self._harness.admit_inbox_message,
             spool=spool_dir_for(self._store, ledger.episode_id),
+            persistence_failed=lambda: bool(ledger.store_failures),
         )
         ledger.inbox = inbox
         self._active_inbox = inbox
@@ -1248,6 +1404,9 @@ class ContinuousAgentEpisode:
             ledger=ledger,
             progress=progress,
         )
+        # Dynamic tools are now bound; configure intentionally predates them.
+        # Recovery authority must describe this actual registry, not its summary.
+        ledger.active_registry = registry
         episode_scope = EpisodeScope(
             episode_id=context.contract.task_id,
             # 用户身份不在本层：memory 身份是装配期输入（build_episode_registry
@@ -1265,6 +1424,7 @@ class ContinuousAgentEpisode:
         # INV-R2：工具意图出口。批次执行器在 ``_dispatch`` 之前把真要跑的调用整批交给它，
         # ledger 落 ``tool_request{replay}`` 并把程序计数器推到 ``tools_pending``。
         tool_session.on_dispatch = ledger.record_dispatch_intent
+        tool_session.execution_failed = lambda: bool(ledger.store_failures)
         # INV-R1 对账失败落进 Scope 收据（dump()["derive_mismatches"]）。
         ledger.derive_mismatch_sink = episode_scope.record_derive_mismatch
         if (
@@ -1285,8 +1445,6 @@ class ContinuousAgentEpisode:
         _ = SYSTEM_PROMPT_DYNAMIC_BOUNDARY
         # 模型可见即已落账：system 与首轮 user 先进 durable 事件，再进 messages。
         record_prompt_assembled(ledger, system=system, user=user)
-        # 程序计数器第一份：prompt 已落、还没向模型开口。
-        ledger.put_state(phase="planning", context=context)
         messages: list[EpisodeMessage] = [system_message(system), user_message(user)]
         initial_evidence_snapshot = evidence_ledger.snapshot()
         accumulator = _EpisodeToolAccumulator(
@@ -1296,8 +1454,12 @@ class ContinuousAgentEpisode:
             harness=self._harness,
             progress=progress,
         )
+        ledger.active_evidence_ledger = evidence_ledger
+        ledger.presented_evidence = accumulator.evidence
         _seed_prior_evidence(accumulator, messages, context)
         _seed_opening_prefetch(accumulator, messages, registry)
+        # First checkpoint includes opening evidence before any model effect.
+        ledger.put_state(phase="planning", context=context)
         continuation_state: _EpisodeContinuationState | None = None
         if _continuation_sink is not None:
             continuation_state = _EpisodeContinuationState(
@@ -1322,6 +1484,14 @@ class ContinuousAgentEpisode:
             1,
             MAX_EPISODE_TOOL_CALLS + MAX_PLAN_TURNS + 2,
         ):
+            if ledger.store_failures:
+                return self._stopped_outcome(
+                    task_frame=task_frame, status="failed", stop_reason="storage_failed",
+                    gap="恢复记录保存失败", ledger=ledger,
+                    evidence=accumulator.evidence, traces=accumulator.traces,
+                    gaps=accumulator.gaps, llm_calls=llm_calls, tool_calls=tool_calls,
+                    invalid_actions=invalid_actions,
+                )
             if self._is_cancelled():
                 return self._cancelled_outcome(
                     task_frame=task_frame,
@@ -1425,7 +1595,8 @@ class ContinuousAgentEpisode:
             model_started = monotonic()
             try:
                 # 线格式只在这里出现：loop 全程 EpisodeMessage，边界一次转换。
-                turn = self._model.complete(
+                turn = ledger.model_complete(
+                    self._model,
                     messages=to_provider(messages),
                     tools=[] if finalization_started else definitions,
                     timeout=timeout,
@@ -1534,6 +1705,21 @@ class ContinuousAgentEpisode:
                 )
             # P4 步点②：模型结算刚落，下一件外部效果（派发 / 收口）还没开始。
             yield StepPoint("model_settled", llm_calls, tool_calls, turn_id=turn_id)
+            if ledger.store_failures:
+                if not _consume_root_seconds(context, model_elapsed) and context.root_budget is not None:
+                    context.root_budget.settle_seconds(seconds=model_elapsed)
+                carried = self._carry_just_written_finish(
+                    turn=turn, context=context, evidence=tuple(accumulator.evidence), registry=registry,
+                )
+                return self._stopped_outcome(
+                    task_frame=task_frame, status="failed", stop_reason="storage_failed",
+                    gap="恢复记录保存失败", ledger=ledger,
+                    evidence=accumulator.evidence, traces=accumulator.traces,
+                    gaps=accumulator.gaps, llm_calls=llm_calls, tool_calls=tool_calls,
+                    invalid_actions=invalid_actions,
+                    carried_draft=carried.draft if carried is not None else "",
+                    carried_bindings=carried.bindings if carried is not None else (),
+                )
             if not _consume_root_seconds(context, model_elapsed):
                 if context.root_budget is not None:
                     context.root_budget.settle_seconds(seconds=model_elapsed)
@@ -1800,6 +1986,7 @@ class ContinuousAgentEpisode:
                 # P4 步点③：工具批次将派发（意图 tool_request 在 _dispatch 前由 ledger 落）。
                 yield StepPoint("before_tool_dispatch", llm_calls, tool_calls, turn_id=turn_id)
                 batch_started = monotonic()
+                branch_event_offset = len(ledger.events)
                 batch = tool_session.execute(
                     turn.tool_calls,
                     registry=registry,
@@ -1812,8 +1999,18 @@ class ContinuousAgentEpisode:
                     turn_elapsed_at_dispatch=model_elapsed,
                 )
                 batch_elapsed = max(0.0, monotonic() - batch_started)
-                tool_calls += batch.executed_count
+                branch_llm_calls, branch_tool_calls = _tool_branch_usage(ledger.events[branch_event_offset:])
+                llm_calls += branch_llm_calls
+                tool_calls += batch.executed_count + branch_tool_calls
                 invalid_actions += accumulator.consume(batch, context)
+                # Debit received work before exposing a settled step or writing
+                # any finalizing checkpoint. Unknown in-flight work is still
+                # not refundable/replayable merely because a snapshot exists.
+                _settle_batch_calls(
+                    context.root_budget,
+                    executed_count=batch.executed_count,
+                    batch_elapsed=batch_elapsed,
+                )
                 # P4 步点④：这一批的结算（tool_result / tool_error）全部落账。
                 yield StepPoint("tools_settled", llm_calls, tool_calls, turn_id=turn_id)
                 halt = self._harness.halt_after_tool_batch(
@@ -1827,11 +2024,6 @@ class ContinuousAgentEpisode:
                         ledger=ledger,
                         reason=halt,
                     )
-                _settle_batch_calls(
-                    context.root_budget,
-                    executed_count=batch.executed_count,
-                    batch_elapsed=batch_elapsed,
-                )
                 fallback = self._maybe_execute_empty_pool_fallback(
                     batch=batch,
                     tool_session=tool_session,
@@ -2029,7 +2221,7 @@ class ContinuousAgentEpisode:
                     **admission.rejection,
                 },
             )
-            return AgentOutcome(
+            return ledger.outcome(
                 task_frame_hash=task_frame.task_frame_hash,
                 status=status,
                 draft=draft,
@@ -2113,7 +2305,8 @@ class ContinuousAgentEpisode:
             )
             model_started = monotonic()
             try:
-                turn = self._model.complete(
+                turn = ledger.model_complete(
+                    self._model,
                     messages=to_provider(messages),
                     tools=tools,
                     timeout=timeout,
@@ -2130,6 +2323,10 @@ class ContinuousAgentEpisode:
             llm_calls += turn.provider_attempts
             ledger.add("model_turn", {"phase": phase, "turn_id": turn_id, **turn.to_dict()})
             budget_alive = _consume_root_seconds(repair_context, model_elapsed)
+            if ledger.store_failures:
+                if not budget_alive and repair_context.root_budget is not None:
+                    repair_context.root_budget.settle_seconds(seconds=model_elapsed)
+                return (turn, llm_calls, False, repair_deadline, repair_context, transient_retries_left)
             if (
                 turn.error
                 and transient_retries_left > 0
@@ -2203,6 +2400,8 @@ class ContinuousAgentEpisode:
     ) -> AgentOutcome:
         """Continue one captured provider history for a verifier repair goal."""
 
+        if state.ledger.store_failures:
+            return previous
         context = state.context
         if state.context_ref is not None:
             state.context_ref.value = context
@@ -2312,6 +2511,7 @@ class ContinuousAgentEpisode:
         )
         # 程序计数器进修复阶段；此后 deadline_at 按修复窗算。
         ledger.active_context = repair_context
+        ledger.active_registry = registry
         ledger.put_state(phase="repair", context=repair_context)
         llm_calls = previous.usage.llm_calls
         tool_calls = previous.usage.tool_calls
@@ -2431,6 +2631,7 @@ class ContinuousAgentEpisode:
             )
         if turn.tool_calls:
             batch_started = monotonic()
+            branch_event_offset = len(ledger.events)
             batch = tool_session.execute(
                 turn.tool_calls,
                 registry=registry,
@@ -2449,16 +2650,18 @@ class ContinuousAgentEpisode:
                 is_cancelled=self._is_cancelled,
             )
             batch_elapsed = max(0.0, monotonic() - batch_started)
-            tool_calls += batch.executed_count
+            branch_llm_calls, branch_tool_calls = _tool_branch_usage(ledger.events[branch_event_offset:])
+            llm_calls += branch_llm_calls
+            tool_calls += batch.executed_count + branch_tool_calls
             performed_tool_action = batch.executed_count > 0
             invalid_actions += accumulator.consume(batch, repair_context)
-            # 修复轮的工具结算全部落下，程序计数器回到 repair。
-            ledger.put_state(phase="repair", context=repair_context)
             _settle_batch_calls(
                 repair_context.root_budget,
                 executed_count=batch.executed_count,
                 batch_elapsed=batch_elapsed,
             )
+            # 修复轮的结果与预算均结算后，才把程序计数器移回 repair。
+            ledger.put_state(phase="repair", context=repair_context)
             append_model_input(
                 messages,
                 ledger,
@@ -2616,7 +2819,7 @@ class ContinuousAgentEpisode:
                 **admission.rejection,
             },
         )
-        return AgentOutcome(
+        return ledger.outcome(
             task_frame_hash=task_frame.task_frame_hash,
             status=verdict.status,
             draft=admission.draft,
@@ -2650,7 +2853,7 @@ class ContinuousAgentEpisode:
             context=context,
             tool_calls=tool_calls,
         )
-        if remaining <= 0:
+        if remaining <= 0 or accumulator.ledger.store_failures:
             return None
         # 底座只递自己拥有的事实：本批结果、此刻真能派的工具、事件流、阶段。
         # 该不该补、补什么是领域的事（harness），付不付得起（上面的剩余槛）是这里的事。
@@ -2845,6 +3048,17 @@ class ContinuousAgentEpisode:
             context_ref.value = promoted
         # 程序计数器之后按新 context 的截止算 deadline_at。
         ledger.active_context = promoted
+        if promoted is not context:
+            # PLAN branches can start before the next parent model/tool intent.
+            # Confirm the new authority/budget BEFORE those child effects too,
+            # without erasing the settled turn or its still-undispatched tools.
+            position = ledger.state
+            if position is None:
+                raise RuntimeError("mode promotion requires an episode checkpoint")
+            ledger.put_state(
+                phase=position.phase, reserved_ids=position.reserved_ids,
+                retry=position.retry, cancel=position.cancel, context=promoted,
+            )
         return promoted, governance
 
     def _run_sub_research(
@@ -2866,17 +3080,24 @@ class ContinuousAgentEpisode:
             or not plan.branch_goals
         ):
             return None
-        for index, goal in enumerate(plan.branch_goals, start=1):
-            ledger.add(
-                "branch_started",
-                {"branch_id": f"branch-{index}", "goal": goal},
-            )
+        branch_run = BranchRun(ledger.episode_id, "plan")
+        self._record_branch_starts(ledger, plan.branch_goals, branch_run)
+        if ledger.store_failures:
+            for index, goal in enumerate(plan.branch_goals, start=1):
+                ledger.add("branch_failed", {
+                    "branch_id": f"branch-{index}", "goal": goal,
+                    "status": "failed", "error": "storage_failed",
+                    "episode_ref": branch_run.reference(f"branch-{index}").to_dict(),
+                })
+            return None
         result = coordinator.run(
             goals=plan.branch_goals,
             task_frame=task_frame,
             context=context,
             registry=registry,
             evidence_sink_factory=evidence_ledger.branch_sink,
+            branch_run=branch_run,
+            episode_store=self._store,
         )
         completed_ids: set[str] = set()
         for branch in result.branches:
@@ -2892,7 +3113,10 @@ class ContinuousAgentEpisode:
                     if branch.status in {"completed", "partial"}
                     else "branch_failed"
                 ),
-                branch_telemetry(branch),
+                {
+                    **branch_telemetry(branch),
+                    "episode_ref": branch_run.reference(branch.branch_id).to_dict(),
+                },
             )
         for index, goal in enumerate(plan.branch_goals, start=1):
             branch_id = f"branch-{index}"
@@ -2904,6 +3128,7 @@ class ContinuousAgentEpisode:
                         "goal": goal,
                         "status": "failed",
                         "reason": result.refused_reason or "branch_not_executed",
+                        "episode_ref": branch_run.reference(branch_id).to_dict(),
                     },
                 )
         return result
@@ -2944,10 +3169,14 @@ class ContinuousAgentEpisode:
         if coordinator is None:
             return registry
 
-        def record(goals: tuple[str, ...], result: SubResearchResult) -> None:
+        def start(goals: tuple[str, ...], branch_run: BranchRun) -> bool:
+            self._record_branch_starts(ledger, goals, branch_run)
+            return not ledger.store_failures
+
+        def record(goals: tuple[str, ...], result: SubResearchResult, branch_run: BranchRun) -> None:
             # 与 PLAN 路径同一组 durable 事件（branch_started / completed / failed），
             # 事件流的消费者不必区分分支是模型点的还是 PLAN 批的。
-            self._record_branch_events(ledger, goals=goals, result=result)
+            self._record_branch_events(ledger, goals=goals, result=result, branch_run=branch_run)
             if progress is not None:
                 # 分支状态进研究进展账（工具路径的证据本身经 tool_result 进 consume）。
                 progress.record_branches(
@@ -2960,9 +3189,22 @@ class ContinuousAgentEpisode:
             current_context=context_ref,
             base_registry=registry,
             evidence_ledger=evidence_ledger,
+            on_start=start,
             on_result=record,
+            episode_store=self._store,
         )
         return registry.with_specs(spec)
+
+    @staticmethod
+    def _record_branch_starts(
+        ledger: _EpisodeLedger, goals: tuple[str, ...], branch_run: BranchRun,
+    ) -> None:
+        for index, goal in enumerate(goals, start=1):
+            branch_id = f"branch-{index}"
+            ledger.add("branch_started", {
+                "branch_id": branch_id, "goal": goal, "origin": branch_run.origin,
+                "episode_ref": branch_run.reference(branch_id).to_dict(),
+            })
 
     @staticmethod
     def _record_branch_events(
@@ -2970,12 +3212,8 @@ class ContinuousAgentEpisode:
         *,
         goals: tuple[str, ...],
         result: SubResearchResult,
+        branch_run: BranchRun,
     ) -> None:
-        for index, goal in enumerate(goals, start=1):
-            ledger.add(
-                "branch_started",
-                {"branch_id": f"branch-{index}", "goal": goal, "origin": "tool"},
-            )
         completed_ids: set[str] = set()
         for branch in result.branches:
             completed_ids.add(branch.branch_id)
@@ -2985,7 +3223,10 @@ class ContinuousAgentEpisode:
                     if branch.status in {"completed", "partial"}
                     else "branch_failed"
                 ),
-                {**branch_telemetry(branch), "origin": "tool"},
+                {
+                    **branch_telemetry(branch), "origin": "tool",
+                    "episode_ref": branch_run.reference(branch.branch_id).to_dict(),
+                },
             )
         for index, goal in enumerate(goals, start=1):
             branch_id = f"branch-{index}"
@@ -2998,6 +3239,7 @@ class ContinuousAgentEpisode:
                         "status": "failed",
                         "reason": result.refused_reason or "branch_not_executed",
                         "origin": "tool",
+                        "episode_ref": branch_run.reference(branch_id).to_dict(),
                     },
                 )
 
@@ -3243,6 +3485,7 @@ class ContinuousAgentEpisode:
         return {
             **self._runtime_config,
             "log_version": EPISODE_LOG_VERSION,
+            "persistence_mode": "durable" if self._store is not None else "ephemeral",
             "task_id": contract.task_id,
             "research_tier": contract.research_tier,
             "allowed_capabilities": list(contract.allowed_capabilities),
@@ -3314,6 +3557,18 @@ class ContinuousAgentEpisode:
             reserved_ids=("finalization_recovery",),
             context=context,
         )
+        if ledger.store_failures:
+            return self._failed_recovery_outcome(
+                task_frame=task_frame, ledger=ledger, accumulator=accumulator,
+                reason="storage_failed", public_gap="恢复记录保存失败",
+                llm_calls=llm_calls, tool_calls=tool_calls, invalid_actions=invalid_actions,
+            )
+
+        def record_recovery_prompt(system: str, user: str) -> None:
+            record_prompt_assembled(ledger, system=system, user=user, source=PROMPT_SOURCE_FINALIZER)
+            if ledger.store_failures:
+                raise RuntimeError("storage_failed")
+
         recovery_started = monotonic()
         try:
             recovery_options = {}
@@ -3338,9 +3593,7 @@ class ContinuousAgentEpisode:
                 failure_reason=failure_reason,
                 # 兜底合成那段独立 prompt 也是模型可见内容：落账（source=finalizer），
                 # 但不进 episode 的消息历史，派生器对它跳过。
-                on_prompt=lambda system, user: record_prompt_assembled(
-                    ledger, system=system, user=user, source=PROMPT_SOURCE_FINALIZER
-                ),
+                on_prompt=record_recovery_prompt,
                 **recovery_options,
             )
         except Exception as exc:
@@ -3483,7 +3736,7 @@ class ContinuousAgentEpisode:
                 **admission.rejection,
             },
         )
-        return AgentOutcome(
+        return ledger.outcome(
             task_frame_hash=task_frame.task_frame_hash,
             status=status,
             draft=draft,
@@ -3753,7 +4006,7 @@ class ContinuousAgentEpisode:
                 **dict(finish_extra or {}),
             },
         )
-        return AgentOutcome(
+        return ledger.outcome(
             task_frame_hash=task_frame.task_frame_hash,
             status=status,
             draft=carried_draft,
