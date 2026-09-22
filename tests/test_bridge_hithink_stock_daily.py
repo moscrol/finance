@@ -38,6 +38,23 @@ CREATE TABLE fact_stock_adjustment_hithink(
 _NOW = datetime(2026, 9, 22, 19, 24, 37)
 
 
+class _KeepOpen:
+    """代理连接：close() 空转。
+
+    被测步骤在 finally 里 close()，而测试还要接着查库；
+    DuckDBPyConnection.close 是只读属性，monkeypatch 不上去。
+    """
+
+    def __init__(self, con) -> None:
+        self._con = con
+
+    def __getattr__(self, name):
+        return getattr(self._con, name)
+
+    def close(self) -> None:
+        pass
+
+
 def _codes(n: int) -> list[str]:
     return [f"{i:06d}.SZ" for i in range(1, n + 1)]
 
@@ -267,3 +284,30 @@ def test_unknown_nontrading_policy_is_refused() -> None:
     con = _con(_codes(3))
     with pytest.raises(BridgeRefused, match="未知停牌政策"):
         build_bridge_day(con, TD, policy=BridgePolicy(nontrading="drop_silently"))
+
+
+def test_nightly_step_skips_when_primary_source_succeeded(monkeypatch) -> None:
+    """兜底步骤不得抢主源的活：东财写过了就跳过，不覆盖它的换手率与股名。"""
+    from market_feature_store.sync import sync_daily_full
+
+    con = _con(_codes(3))
+    _seed_canonical(con, _codes(3), PREV)
+    _seed_canonical(con, _codes(3), TD, name="东财名")
+    monkeypatch.setattr(sync_daily_full, "connect", lambda *a, **k: _KeepOpen(con))
+    out = sync_daily_full.run_bridge_stock_daily_step(TD)
+    assert out["skipped"] is True and out["rows"] == 3
+    assert con.execute("SELECT DISTINCT stock_name FROM fact_stock_daily "
+                       "WHERE trade_date = ?", [TD]).fetchall() == [("东财名",)]
+
+
+def test_nightly_step_bridges_when_primary_source_left_the_day_empty(monkeypatch) -> None:
+    """主源挂了、当日 0 行 —— 这正是 09-21/09-22 的情形，兜底必须补上。"""
+    from market_feature_store.sync import sync_daily_full
+
+    con = _con(_codes(3))
+    _seed_canonical(con, _codes(3), PREV)
+    monkeypatch.setattr(sync_daily_full, "connect", lambda *a, **k: _KeepOpen(con))
+    out = sync_daily_full.run_bridge_stock_daily_step(TD)
+    assert out["bridged"] is True and out["written_rows"] == 3
+    assert con.execute("SELECT count(*) FROM fact_stock_daily WHERE trade_date = ?",
+                       [TD]).fetchone()[0] == 3
