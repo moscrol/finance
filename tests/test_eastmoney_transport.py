@@ -45,8 +45,9 @@ PAYLOAD = {"data": {"total": 1, "diff": [{"f12": "600000", "f297": 20260922}]}}
 @pytest.fixture(autouse=True)
 def _reset_transport_state(monkeypatch: pytest.MonkeyPatch) -> None:
     """清掉进程级缓存并掐掉退避睡眠——否则用例之间会互相串味、还平白慢 20 秒。"""
-    em._ip_cache.clear()
-    em._transport_cache.clear()
+    # 走公共的 reset_transport_state() 而不是逐个摸私有变量: 新增一个进程级状态
+    # 就得记得改那里, 漏了就是用例间串味 (熔断补丁开发时已踩过一次)。
+    em.reset_transport_state()
     monkeypatch.setattr(em.time, "sleep", lambda _s: None)
 
 

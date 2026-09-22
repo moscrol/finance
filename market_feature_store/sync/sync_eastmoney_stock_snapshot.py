@@ -140,11 +140,49 @@ PROXY_FAKE_IP_PREFIX = "198.18."
 #: URLError, 而连接是在 getresponse() 阶段断的, 异常原样穿透整个调用栈。
 #: ValueError 收 JSON 解析失败 (上游偶尔回非 JSON 的挡板页)。
 TRANSIENT_FETCH_ERRORS = (OSError, http.client.HTTPException, ValueError)
+#: 「连上即空回应」的形状: TCP 连得上、TLS 握手成功、证书验证通过,
+#: 对端接下连接却一个字节响应体都不给。2026-09-22 19:2x 东财按出口 IP
+#: 在应用层拒绝时就是这个形状 (curl 侧为 `52 Empty reply from server`)。
+#: 它与瞬时抖动的区别在于**重试无用, 且可能把滑动窗口封禁不断续命**。
+EMPTY_REPLY_ERRORS = (http.client.RemoteDisconnected,)
+#: 同一 host 连续这么多发都是空回应 → 判定被拒, 立刻停手。
+#: 取 3 = 容两次真抖动; 判据是「连续」不是「累计」, 成功一发即清零。
+EMPTY_REPLY_STREAK_LIMIT = 3
+
+
+class UpstreamRefusing(RuntimeError):
+    """上游按出口 IP 在应用层拒绝——重试解决不了, 继续打只会加深。
+
+    继承 ``RuntimeError`` 是为了不破坏既有 ``except RuntimeError`` 的调用方;
+    单独的类型是为了让调用方**能够**区分「上游不让我们取」与「重试耗尽」
+    ——前者该停手换源/换时间窗口, 后者可以等一会儿再试。
+    """
+
 
 _ip_cache: dict[str, str | None] = {}
 _ip_lock = threading.Lock()
 #: 已知「系统解析这条路打不通」的 host。失败一次就记住——否则 60 页每页都白打一发。
 _transport_cache: dict[str, str] = {}
+#: host → 连续空回应次数 (成功即清零)
+_empty_reply_streak: dict[str, int] = {}
+#: 本进程内已判定「上游在拒」的 host。进程级而非持久化:
+#: 夜跑每晚是新进程, 不会把一晚的封禁结论带到下一晚。
+_refusing_hosts: set[str] = set()
+
+
+def reset_transport_state() -> None:
+    """清空进程级传输状态 (解析缓存 / 选路 / 熔断)。
+
+    有了进程级可变状态就必须有重置入口, 否则两头出事:
+    长驻进程换网络环境后无法自愈; 测试用例之间串味。
+    本补丁开发时先踩了后者: 新增 ``_refusing_hosts`` 后, 既有 9 个用例
+    单独跑绿、一起跑红——因为前面的用例把 host 标进了熔断集。
+    """
+    with _ip_lock:
+        _ip_cache.clear()
+    _transport_cache.clear()
+    _empty_reply_streak.clear()
+    _refusing_hosts.clear()
 
 
 def _system_ip(host: str) -> str | None:
@@ -183,8 +221,12 @@ def _direct_ip(host: str) -> str | None:
                 break
         except Exception:  # noqa: BLE001 — dig 不存在/超时都退回系统解析
             continue
-    with _ip_lock:
-        _ip_cache[host] = ip
+    # 只缓存成功结果。把 None 也写进去等于 negative caching without TTL:
+    # 公共 DNS 首次全超时 → 本进程此后每一发都退回被劫持的系统解析,
+    # 失败形态与修复前同形, 排查时极易误以为补丁没生效。
+    if ip:
+        with _ip_lock:
+            _ip_cache[host] = ip
     return ip
 
 
@@ -231,20 +273,48 @@ def _get_json(url: str, timeout: float, retries: int = 6, backoff: float = 1.2) 
     if EM_URL in url:
         targets.append(url.replace(EM_URL, EM_URL_FALLBACK))
     last_err: Exception | None = None
+    hosts: list[str] = []
     for target in targets:
         parts = urllib.parse.urlsplit(target)
         host = parts.netloc
+        hosts.append(host)
         path = parts.path + (f"?{parts.query}" if parts.query else "")
+        if host in _refusing_hosts:
+            # 已判定被拒: 一发都不再打。否则 60 页 × 每页重试 = 给封禁计时器不断续命。
+            continue
         for attempt in range(retries):
             try:
                 if _transport_cache.get(host) == "direct" or _looks_hijacked(host):
-                    return _direct_get_json(host, path, timeout)
-                return _urllib_get_json(target, timeout)
+                    data = _direct_get_json(host, path, timeout)
+                else:
+                    data = _urllib_get_json(target, timeout)
+            except EMPTY_REPLY_ERRORS as exc:
+                # 连上即空回应。单发可能是抖动, 连续多发就是上游在拒。
+                last_err = exc
+                _empty_reply_streak[host] = _empty_reply_streak.get(host, 0) + 1
+                if _empty_reply_streak[host] >= EMPTY_REPLY_STREAK_LIMIT:
+                    _refusing_hosts.add(host)
+                    break
+                _transport_cache[host] = "direct"
+                time.sleep(backoff * (attempt + 1))
+            except ValueError as exc:
+                # 内容层: 上游回了非 JSON 的挡板页。链路可能完全正常,
+                # 所以既不改传输选路, 也不计入熔断——只走原有重试阶梯。
+                last_err = exc
+                time.sleep(backoff * (attempt + 1))
             except TRANSIENT_FETCH_ERRORS as exc:
                 last_err = exc
                 # 系统解析这条路这次没打通 → 下一发换直连, 不在同一条坏路上耗满重试。
                 _transport_cache[host] = "direct"
                 time.sleep(backoff * (attempt + 1))
+            else:
+                _empty_reply_streak[host] = 0
+                return data
+    if hosts and all(h in _refusing_hosts for h in hosts):
+        raise UpstreamRefusing(
+            f"东财对本机出口 IP 在应用层拒绝 (连上即空回应, 已试 {', '.join(hosts)}): {url}\n"
+            "重试不会解决, 只会加深。换出口/等封禁窗口过去/换数据源再来。"
+        ) from last_err
     raise RuntimeError(f"东财快照请求失败: {url}") from last_err
 
 
