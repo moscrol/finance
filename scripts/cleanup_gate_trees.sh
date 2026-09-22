@@ -42,12 +42,19 @@ NOW=$(date +%s); CUTOFF=$((NOW - DAYS * 86400))
 
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 # 「谁在用」只采样一次：所有进程打开的文件 + 每个进程的 cwd，之后做子串匹配。
-# -S 2 给内核调用 2 秒超时（卡死的挂载点不至于拖住整个 lsof）；再套 120 秒看门狗，超时就拒绝删。
-( lsof -S 2 -w -Fn 2>/dev/null | sed -n 's/^n//p' | grep '^/' | sort -u > "$TMP/open"; : > "$TMP/open.done" ) &
-i=0; while [ ! -f "$TMP/open.done" ] && [ $i -lt 120 ]; do sleep 1; i=$((i+1)); done
+# -d '^mem' 排除内存映射（共享库占 lsof 输出的大头，对「树在不在用」没信息）；-nP 不反查 DNS/端口名；
+# -S 2 给内核调用 2 秒超时（卡死的挂载点不至于拖住整个 lsof）。再套看门狗（LSOF_TIMEOUT 秒，默认 120）：
+# 超时就杀掉整条 lsof 管线并拒绝删——拿不到「谁在用」时退化成盲删比不删危险。
+# 子 shell 的 stdout/stderr 要甩到 /dev/null：否则它握着本脚本的输出管道，调用方 `| head` 会等到 lsof 自然结束。
+( lsof -nP -S 2 -w -d '^mem' -Fn 2>/dev/null | sed -n 's/^n//p' | grep '^/' | sort -u > "$TMP/open"; : > "$TMP/open.done" ) >/dev/null 2>&1 &
+LSOF_JOB=$!
+LIMIT="${LSOF_TIMEOUT:-120}"
+i=0; while [ ! -f "$TMP/open.done" ] && [ "$i" -lt "$LIMIT" ]; do sleep 1; i=$((i+1)); done
 if [ ! -f "$TMP/open.done" ]; then
-  echo "lsof 120 秒未完成，无法判断哪些树正被使用，本轮不动任何树。" >&2; exit 4
+  pkill -P "$LSOF_JOB" 2>/dev/null; kill "$LSOF_JOB" 2>/dev/null
+  echo "lsof ${LIMIT} 秒未完成，无法判断哪些树正被使用，本轮不动任何树（可设 LSOF_TIMEOUT 放宽）。" >&2; exit 4
 fi
+echo "lsof 采样 ${i}s，$(wc -l < "$TMP/open" | tr -d ' ') 条打开路径"
 # 定时任务代码根：plist 与启动器里出现的家目录路径，任何是它们前缀的树都不能拆。
 { grep -hoE "$HOME/[^<\"' ]+" "$HOME"/Library/LaunchAgents/*.plist 2>/dev/null
   grep -hoE "($HOME|\\\$HOME|~)/[^\"' )]+" "$HOME"/.local/bin/* 2>/dev/null | sed "s#^\\\$HOME#$HOME#; s#^~#$HOME#"
