@@ -1,32 +1,32 @@
-# mootdx 历史日线通道排障
+# mootdx 停供排障 + 同花顺桥可行性验证
 
 ## 这个分支做什么
-定位 mootdx `bars()` 返 0 行的根因，并把「源死亡被静默吞成空数据」改成 fail-fast。只读排查 + 护栏代码；不写生产库，不恢复 09-21 数据。
+定位 mootdx 返 0 行根因并加护栏；抢救 staging 里将被销毁的增量；只读验证「同花顺→`fact_stock_daily`」这座桥。不写生产库。
 
 ## 决策与被否方案
 | 选了什么 | 否了什么 / 理由 |
 |---|---|
-| 判定为供应商停供，停止修客户端 | 不换 pytdx/不调参：39 台扫描 15 台可连，K 线 body 恒 2 字节，报文与 pytdx 1.72 逐字段一致 |
-| 加健康探针 + 熔断 + CLI 退非零码 | 不再让 `rc=0` 掩盖 `rows_written=0` |
-| 探针走 `client.bars()` 真实路径 | 不拿连接状态/`stock_count` 当可用性——正是它俩全绿才骗过两周 |
-| 三态 no_route/metadata_only/empty_payload | 不合并成布尔；三者处置不同（换网络/换源/查参数） |
-| 不删 `db/*.staging` | 已从孤儿变成今晚失败夜跑（rc=2 未换名）的取证现场 |
+| 判定 mootdx 为供应商停供，停止修客户端 | 39 台扫描 15 台可连，K 线 body 恒 2 字节，报文与 pytdx 1.72 逐字段一致 |
+| 护栏：三态探针 + 熔断 + `rc=2` | 不再让 `rc=0` 掩盖 `rows_written=0` |
+| 先抢救 staging 增量 | 同花顺增量是 10 交易日滚动窗口，不保则 09-09 起逐日永久丢失 |
+| 复用主线 `preview_stock_calculation` | 不重写除息/舍入算术；不新写 ingest（与 `fwp-wt-market-recovery-0921` 互补）|
+| 不套 `SPEC_20260921` | 它假设当日已有旧行；09-21 整日 0 行会让 5553 只全落 `new_code_names` |
 
 ## 当前状态
-未提交：`mootdx_source.py`、`tests/test_mootdx_source_health.py`（两个新增）、`sync/sync_mootdx_stock_daily.py` + `cli.py`（改）。证据在 `tmp/mootdx-unblock-20260922/`（已 gitignore），结论见 `diagnosis-conclusion.json` 与 `server-sweep.json`。已删 09-17 备份（receipt 第 6 步明示可删）；磁盘现 39Gi。
+已提交 `d0815dd67`（mootdx 护栏 + 12 测试）。证据全在 `tmp/mootdx-unblock-20260922/`（gitignore，**不可再生**）：`staging-delta-20260922.tar.gz`（2.3MB，sha256 见同名 .sha256）含 15 表 135,737 行；`diagnosis-conclusion.json` / `server-sweep.json` / `bridge-backtest-0918.json` / `exdiv-agreement-0918.json` / `full-market-preview.json`。
 
 ## 已验证
-- 12 项新测试 + 21 项既有相关测试通过；Ruff 全绿。
-- 端到端：`sync-stock-daily --limit 1` 打一次性临时库，`rc=2`、`verdict=metadata_only`，附 server/异常原文/换源建议；改前同命令 `rc=0`。
-- 回归样本钉住真实 body `2003`（ret_count=800、无 K 线体）会让 tdxpy 抛异常而非返空。
-- 生产库只读查询：`fact_stock_daily` 中 mootdx 最后一天 = 2026-09-07（345 万行/689 日），09-08 起逐日换临时源。
-- 生产库大小/指纹未变，未创建新 staging。
+- 护栏端到端：`sync-stock-daily` 由 `rc=0` 变 `rc=2`，附 verdict/server/异常原文。测试 12+21 通过，Ruff 绿。
+- 增量保全：边界日 09-08 与生产库**逐行零差异**，15 个 parquet 均可独立读回。
+- 桥回测（09-18，有东财权威答案）：5553 只全算通、0 缺口；**OHLC 5552/5552 逐位一致**；`pre_close/pct_chg/amount/volume` 5550/5552 相等。
+- 除息日 30 只中 **28 只 `pre_close` 完全一致**。
+- 09-21/09-22 全市场预演：算通 5551/5553 与 5551/5554（99.96%/99.95%）。
 
 ## 未验证 / 已知边界
-护栏只覆盖 mootdx 路径；`sina` / `eastmoney:snapshot` / `hithink` 各源仍可能静默返空，未加同类探针。熔断阈值 50 是推理值（退市停牌零散分布），无历史数据标定。mootdx 通道**不可能修复**，护栏只保证「死得可见」。09-21 仍整日 0 行，三门仍 `rc=2`。
+两家对分红金额分歧 2 只（`000703.SZ` 0.90/0.82；`002255.SZ` 0.06/0.05），需第三方仲裁。名单差异 2 只已解释未签合同：`302132.SZ`（东财漏收，与 SPEC_20260911 一致）、`688496.SH`（停牌，同花顺正确不含）。`stock_name`/`turnover` 同花顺不提供。全市场范围口径（5553 vs 另一分支 5565 并集）未定。桥**没有写者**，未取写库授权。
 
 ## 下一步
-09-21 的数据其实已在 `fact_stock_daily_hithink`（staging 覆盖到 09-22、5553 行/日），缺的是 hithink→`fact_stock_daily` 的 ingest 路径。`repair_hithink_stock_day` **不适用**：其断言与 `stock_name`/`turnover` 继承都假设该日已有旧行，整日 0 行会让 5553 只票全部落入 `new_code_names`（需逐票钉 8 字段预期值）。需新写 ingest 并单独取写库授权。
+夜跑处于恶性循环：`fact_stock_daily` 缺当日行 → 13 个下游步骤全塌 → `rc=2` 不换名 → 当晚成功抓到的 6 类同花顺数据（65,542 行）全丢 → 次日重演（09-21、09-22 日志一字不差）。要打破它，需签三项政策（`turnover`=NULL、`stock_name` 取库内历史名标 unverified、停牌股留分母不造 K 线）+ 仲裁上述 4 只具名例外，再建写者并按阶段取授权。
 
 ## 踩过的坑
-两表同名列语义全错位：hithink `turnover` 是成交额（元，÷1e8 得 amount）、`volume` 是股（÷100 得手），而 `fact_stock_daily.turnover` 是换手率（hithink 根本没有）。按同名列对齐 INSERT 会灌进量级差 1e8 的脏数据。`adjusted='none'` 必须先断言，否则 `pre_close` 校准语义整套不成立。另：`rows` 是 DuckDB 保留字，别拿来做列别名。
+两表同名列语义全错位：同花顺 `turnover` 是成交额（元，÷1e8 得 amount）、`volume` 是股（÷100 得手），而 `fact_stock_daily.turnover` 是换手率。按同名列对齐 INSERT 会灌进量级差 1e8 的脏数据。删文件前必须比 `(inode,size,mtime_ns)`——这道检查拦下了一次 staging 误删。`rows` 是 DuckDB 保留字。
