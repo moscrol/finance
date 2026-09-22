@@ -82,6 +82,12 @@ class LatestTradingDayRuleTests(unittest.TestCase):
         answer = "2026-09-18 并非最近一个已收盘交易日，仅是本次取到的最后一行。"
         self.assertEqual([], _rules(answer, MARKET_CONTEXT))
 
+    def test_bound_cannot_verify_hedge_clears_the_claim(self) -> None:
+        # 2026-09-23 第二方审查探针：这句正是规则想要的写法，句级否定词表没收
+        # 「无法确认」，被当成断言误报。免责紧跟断言短语（同一子句内）即放行。
+        answer = "因未核对交易日历，是否为最近一个已收盘交易日无法确认。"
+        self.assertEqual([], _rules(answer, MARKET_CONTEXT))
+
 
 class QualifierBindingTests(unittest.TestCase):
     """2026-09-22 审查探针：限定词必须紧挨断言，整句放行会放走真缺陷。"""
@@ -102,6 +108,11 @@ class QualifierBindingTests(unittest.TestCase):
 
     def test_every_claim_in_a_sentence_must_be_bound(self) -> None:
         answer = "库内最新交易日为 2026-09-18，也就是最近一个已收盘交易日。"
+        self.assertEqual([RULE_LATEST_TRADING_DAY], _rules(answer, MARKET_CONTEXT))
+
+    def test_cannot_verify_about_another_object_does_not_clear(self) -> None:
+        # 免责说的是成交额，不是日期断言；把「无法确认」收进句级词表会让这句静默。
+        answer = "2026-09-18 为最近一个已收盘交易日，但成交额无法确认。"
         self.assertEqual([RULE_LATEST_TRADING_DAY], _rules(answer, MARKET_CONTEXT))
 
 

@@ -89,6 +89,14 @@ _LATEST_DAY_NEGATION = re.compile(
     r"不(?:能|可|应|得)?(?:视为|当作|等同|代表|等于)|并非|不是最新|非最新|"
     r"尚未(?:收盘|更新)|不属于最新"
 )
+# 「是否为最近一个已收盘交易日无法确认」正是本规则想要的写法，却被当成断言
+# （2026-09-23 第二方审查探针）。免责必须**紧跟断言短语**（同一子句内 ≤8 字）
+# 才算：若把「无法确认」收进句级词表，「X 为最近一个已收盘交易日，但成交额
+# 无法确认」这种对别的对象免责的句子也会静默——又是一个 fail-open。
+_LATEST_DAY_HEDGE_AFTER = re.compile(
+    r"^[^，,。；;！!？?]{0,8}(?:无法|无从|不能|难以|尚未|未能)"
+    r"(?:确认|核验|核实|确定|判断|验证|核对)"
+)
 
 # R2：全称范围词 + 范围名词。"跑赢所有归属板块"要求分母是全部归属，
 # 而这次只取了其中几个。
@@ -251,11 +259,12 @@ def _latest_trading_day_issue(
         return None
     if _LATEST_DAY_NEGATION.search(sentence):
         return None
-    # 一句里可能出现多次断言；只有**每一次**都被紧邻限定才算限住。
+    # 一句里可能出现多次断言；每一次都得被紧邻限定住、或紧跟着免责，才算限住。
     if all(
         _SCOPE_BINDING.search(
             sentence[max(0, match.start() - _CLAIM_BINDING_WINDOW) : match.start()]
         )
+        or _LATEST_DAY_HEDGE_AFTER.search(sentence[match.end() :])
         for match in matches
     ):
         return None
