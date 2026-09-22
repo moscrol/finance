@@ -306,6 +306,15 @@ P4（D5）在 `fix/e2-delivery-closeout` 补齐 `material_only` 逐题交付：�
 备忘录只由明确题意触发，与该题共用一个槽；T3 q8 上限200字（保守计入正文
 所有非空白字符和标点/Markdown，不含题标题，引用不可藏超长）。真漏答可获有界
 零工具补写，不靠降 optional 或假增证据数量；已交代缺口不触发空转修复。
+
+`fix/e2-re06-resume-0922` 把这套逐题交付扩到 `local_only`：用户自己编了号就按原号
+冻结 `answer_qN` 必需槽（未编号的本地题与 full 题形状不变），写作提示词、判官载荷、
+语义修复保号与公开稿复验共用同一份实现，第二题不再被卷进 `direct_answer` 一格。
+分界只写在结清口径上——`local_only` 手里仍有本地读工具，所以「缺少X，无法Y」不是
+可结清的 `legal_gap`，只按普通 `required_output_gap` 记 `partial` 并进修复，也不套用
+「仅凭本轮材料」那句全缺口声明；每题仍须本轮实际读到的本地证据，claims 不能替代
+证据，IO 纯度与读权限上限照旧。跨轮恢复不得删除、降 optional 或把这些槽改成推理槽。
+这一片是作者回归加变异验证，不是 P7 验收。
 前置同时修了题内案例弱分区吞题、验收采集 followup 错开会话/误收旧答。
 公开稿的两处再出口（投影后复验、判官拒绝重开）只经 `session_projection.view()`
 并已登记，不另开拼串路径。证据：离线反例与定向回归（`docs/handoffs/2026-09-16-e2-delivery-p4.md`）；
@@ -347,8 +356,9 @@ material_outputs 清单，工具定义同步限制 ID 与数量，解析仍严�
 钉测试锁现状）；判读基线/题型规则等方法文案留在 material_only 输入里，定性为
 「非事实、无 IO」不越 P3 红线，答案质量影响归 P4/P6 再议。引擎 B 内部仍无合同
 意识，不得绕过 P3h 两道门直接调用；注入式 registry_factory 内部读取不可撤销
-（P3c 声明）。local_only 原题号槽、材料题真实模型交付及可信跨轮继承五格全链
-仍待验收；纯度与材料锚点已有上述候选实现，普通上下文不是按来源过滤后的安全输入。
+（P3c 声明）。local_only 原题号槽已按上述实现并有作者回归，但它与材料题的真实模型
+交付、可信跨轮继承五格全链同样仍待真实模型验收；纯度与材料锚点已有上述候选
+实现，普通上下文不是按来源过滤后的安全输入。
 不得把局部短路当成真实入口已经零外呼，也不得运行正式 T2→T3/Knevo 对照。Grok CLI 已做过回顾性语义判卷试跑，但有效返回来自关闭系统沙箱的配置（不再沿用），且输入未含完整原题/材料，结果仅作试跑证据，不是隔离验收或正式评分；Knevo 有已登录浏览器的 CDP 回贴入口，但本轮未发新题、没有未揭盲成对答案，故没有正式 PK；详细状态见 [判官/Knevo 记录](verification/e2-boundary-closeout/llm-judge-knevo-status-20260915.md)。设计与阶段证据见
 [设计 v10](learning/knevo-distill/recheck/2026-09-12-t23-nogrok/E2-DESIGN-material-contract-2026-09-13.md)
 及 `docs/handoffs/inflight/fix-e2-boundary-closeout.md`；是否部署看实际服务 revision。

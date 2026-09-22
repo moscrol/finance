@@ -937,6 +937,19 @@ class ResearchTaskContract:
                 if len(matches) != 1 or not matches[0].required:
                     raise ResearchContractError("material_only 每题须保留唯一必需输出槽：" + question.question_id)
         if self.material_contract is not None and self.material_contract.data_scope == "local_only":
+            # 已按原题号冻结的本地题：跨轮恢复不得删掉、降成可选或改成推理槽。
+            # 判据是「这份合同里已经有 answer_q* 槽」而不是「有编号问题」：本改动之前
+            # 落盘的会话存的是 direct_answer 形状，不能让它们在恢复时集体报错。
+            if any(item.output_id.startswith("answer_q") for item in self.required_outputs):
+                for question in self.material_contract.questions:
+                    matches = tuple(
+                        item for item in self.required_outputs
+                        if item.output_id == f"answer_{question.question_id}"
+                    )
+                    if len(matches) != 1 or not matches[0].required or matches[0].grounding_mode != "evidence":
+                        raise ResearchContractError(
+                            "local_only 每题须保留唯一必需且凭证据的输出槽：" + question.question_id
+                        )
             if restrict_read_capabilities(tuple(self.allowed_capabilities), "local_only") != tuple(self.allowed_capabilities):
                 raise ResearchContractError("local_only 含未审定的读取能力")
             if any(item.capability not in self.allowed_capabilities for item in self.evidence_plan.requirements):
