@@ -23,6 +23,7 @@ from intelligence.api.structured_reports import (
     new_structured_report,
     render_daily_review_answer,
     upsert_report_module,
+    worse_status,
 )
 from intelligence.services import answer_model, followups as followups_svc
 from intelligence.services import context_growth
@@ -4515,7 +4516,10 @@ class TurnOrchestrator:
         answer_status = projected.report_business
         if delivery.applied:
             answer_text = delivery.text
-            answer_status = delivery.answer_status or answer_status
+            # 取更差而不是覆盖：业务状态已是 gap / blocked 时，门判 partial 不得把
+            # answer_status 字段抬回 partial（complete_report 的 status 本来就取更差，
+            # 这里让字段本身也如实；排序与 complete_report 共用同一张 STATUS_RANK）。
+            answer_status = worse_status(answer_status, delivery.answer_status)
             warning = f"public_delivery_gate:{delivery.verdict}"
             warnings.append(warning)
             self.run_store.add_degrade(run_id, warning)
