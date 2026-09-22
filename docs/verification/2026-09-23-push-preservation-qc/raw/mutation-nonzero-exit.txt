@@ -1,0 +1,29 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_________ test_prepare_rejects_invalid_archive_with_nonzero_exit[hash] _________
+
+repo = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3674/test_prepare_rejects_invalid_a0')
+fault = 'hash'
+
+    @pytest.mark.parametrize("fault", ["hash", "unlisted", "ignored", "symlink"])
+    def test_prepare_rejects_invalid_archive_with_nonzero_exit(repo, fault):
+        changed(repo)
+        if fault == "hash":
+            (repo / "archive/report.md").write_text("changed after seal")
+        elif fault == "unlisted":
+            (repo / "archive/forgotten.md").write_text("not listed")
+        elif fault == "ignored":
+            (repo / ".git/info/exclude").write_text("new.log.txt\n")
+        else:
+            (repo / "archive/new.log.txt").unlink()
+            (repo / "archive/new.log.txt").symlink_to("report.md")
+            seal(repo)
+        index = (repo / ".git/index").read_bytes()
+        rc, result = cli(repo, "prepare", "archive")
+>       assert rc == 1 and result["ok"] is False
+E       assert (0 == 1)
+
+tests/test_preview_evidence_archive.py:139: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_preview_evidence_archive.py::test_prepare_rejects_invalid_archive_with_nonzero_exit[hash]
+1 failed in 1.11s
