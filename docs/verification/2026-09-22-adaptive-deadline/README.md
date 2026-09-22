@@ -83,6 +83,47 @@ sha256 见 `llm_refine.head.sha256` / `llm_refine.restored.sha256`，结构化�
 
 PR head 若在 `013eb5c4a` 之上，只允许 docs 提交（`git diff --stat 013eb5c4a..<head>` 应只有 `docs/`）。
 
+## 二次前向（00:31 main 合入 #863 之后）
+
+PR #868 开出后 `conflict-check` 变红：`gitea/main@8e7989372`（#863 研究尾单三线合流 squash）与本枝 4 文件冲突。在作者树 `--no-ff` 合入得 `3020e42df`：
+
+| 文件 | 冲突 | 解法 |
+|---|---|---|
+| `intelligence/runtime/continuous_turn_adapter.py` | 1 hunk | 取 main：`rejected_claims` 同时带 `claim_index:*` 与 `delivery_repair_notes` |
+| `intelligence/services/finance_query.py` | 1 hunk | `__all__` 两侧新名都留（`result_has_date_axis` + `validation_diagnostic`） |
+| `intelligence/services/episode_semantic_verifier.py` | 3 hunks | hunk1 两侧新函数族都留（main 的 `_retained_delivery_hashes` / `_recheck_research_delivery` + 本枝 `semantic_repair_feedback` 族），补回被共享尾巴吞掉的 `)`；hunk2 两侧新局部量都留；hunk3 取 main 的归一化 + 标题/条件段逻辑，保留本枝的 E-token / 季度 token 剔除 |
+| `scripts/review_probes/run_extraction_mutations.py` | 8 hunks | 以 main 的 `SUITES` / `_parse_args` 结构为底，加入本枝 `stock-amount` / `finance-absence` / `finance-return` 三套件与独占 `--basetemp`；main 的 `tests/test_mutation_runner_selection.py` 照过 |
+
+**语义冲突一处**：#863 的新测 `test_research_delivery_repair.py::test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference` 直接把第二次模型请求当 `REPAIR_GOAL` 读（12 个 `reserved` 参数化全红，`KeyError('evidence')` 被运行时吞成 `sdk_run_failed`）；本枝 `3c30eceb9` 起把修复目标包进 `REPAIR_CONTEXT` 信封（`repair_goal_message` + `evidence` 行随信封走）。解法：测试解信封后再断言，**产品行为未改**（与本枝 `test_continuous_turn_adapter.py:2101` 同一解法）。
+定向回归（verifier / adapter / repair / harness / runner-selection / timeout 等 10 文件）**641 passed / 1 skipped**，ruff 0，日志 `merge2-fix3.log`。
+
+### `3020e42df` 四叶重门禁：8/9 绿 + 全量 pytest 4 红
+
+`gate-3020e42df/`：ruff、合流尖严格探针（0 越窗）、registry ×4、crosswalk、前端六步（118 单测、E2E 34P/2S，00:48 跑，Playwright 浏览器当时在；01:55 磁盘清理把 `~/Library/Caches/ms-playwright` 删了，此后复跑前端要先 `pnpm exec playwright install chromium`）全 exit 0。
+全量 pytest 第一次在 83% 被系统低内存杀掉（01:00，磁盘一度只剩 416 MiB，机上 9 个 pytest 并发）；01:47 重跑得 **14612 passed / 4 failed / 85 skipped / 2 xfailed**（1544 s，日志 `pytest-full-rerun.log.txt`，收据 `pytest-full-rerun.pytest-receipt.json`）。4 红都是 #863 新测撞本枝改动，修在 `b7a479e6a`：
+
+| 红 | 根因 | 解法（产品行为改动？） |
+|---|---|---|
+| `test_episode_numeric_citations::test_non_citation_numeric_tokens_are_not_exempted[E0]/[E027]` | 本枝 `00d35ae80` 的裸 E-token 剔除 `E\d{1,3}` 把 `E0` / `E027` 也当引用免检；main 的引用语法 `strip_evidence_ordinals`（`[1-9][0-9]{0,2}`）已覆盖真实引用 | 删本枝那一行与常量，main 语法为唯一事实源（**是**：`E0`/`E027` 这类非引用 token 不再免检，与 main 一致；本枝「（E6）/ Q3 不算数量」测试照过） |
+| `test_model_turn_completion_boundary::test_transport_preserves_truncation_reason[False]/[True]` | 该测 `patch` 的是 `urllib.request.urlopen`，本枝 HTTP 边界已是 `llm_http_transport` 子进程 worker，假响应进不去、真去连假域名报 `URLError` | 改走 `llm_refine.http_transport_override`（本枝文档化的测试缝）注入 `nullcontext(response)`（**否**） |
+
+定向六文件 471 passed、ruff 0（`merge2-fix4.log`）。
+
+### `b7a479e6a` 四叶：九项全绿（PR #868 的代码尖）
+
+`gate-b7a479e6a/`，隔离树 `checkout --detach b7a479e6a`、首尾干净：
+
+| 叶 | 读数 | 收据 |
+|---|---|---|
+| ruff | exit 0 | `ruff.log.txt` |
+| pytest 全量 | **14616 passed / 85 skipped / 2 xfailed**，exit 0，1753 s（load ~11–14） | `pytest-full.pytest-receipt.json`（`check_test_receipt.py --expect-revision b7a479e6a…` ✅ 可采信）、`pytest-full.xml` |
+| 前端六步 | 全 exit 0：单测 118 passed、E2E 34 passed / 2 skipped（Playwright 浏览器由另一会话 02:3x 装回后才跑） | `frontend/frontend.json` |
+| registry ×4 + crosswalk | 五项 exit 0 | `registry-*.log.txt`、`ledger-crosswalk.log.txt` |
+| 严格探针 | exit 0，`deadline_violations: []` | `strict-deadline.json` |
+
+`registry-tables` / `registry-views` 第一次 exit 2 是我的 shell 把 `backfill-tables --check` 当成一个词传给 argparse（zsh 不分词，同 `~/agent-memory` 的 `zsh-no-word-split-fakes-a-gate-red`），不是树红；拆词重跑 exit 0，两个日志都留了。
+`3020e42df..b7a479e6a` 只改 `episode_semantic_verifier.py` 一行常量 + 一处剔除、以及一个 Python 测试，前端叶在两尖都独立跑过。
+
 ## 附加变异（非验收项）：`is_cancelled=` 转发也无人守
 
 同法把包装函数的 `is_cancelled=is_cancelled` 改为 `is_cancelled=None`，跑 `test_llm_timeout_diagnostic.py`、`test_llm_refine_tool_stream.py`、
