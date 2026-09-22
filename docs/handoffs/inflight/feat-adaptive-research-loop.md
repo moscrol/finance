@@ -2,31 +2,37 @@
 
 ## 这个分支做什么
 
-修研究回路取证、窗口收益计算、修订与公开保真；最近真实自然验收内容失败，但本轮已落计算与提示边界修复。
+修研究回路取证、窗口收益计算与公开保真；收益与提示边界已修，收口卡在传输层不守绝对截止。
 
 ## 决策与被否方案
 
-local_only 四只读能力、根 T900/单发帽75/核验共享窗150 不变，不开 derived_calculation，不重跑旧真实题刷成功。
-`finance_query` 受限提供已观测日逐日复利摘要；不用自由文本算术解析器，也不把 `river_query` 个股首前收盘口径冒充板块日涨幅口径。
-收益比较必须同窗同实际日期集合、收益差用百分点；空集/gap/失败仍不升级为否定事实。判官不可用仍 partial，但公开提示不再把结构绑定说成计算正确。
-完整背景见 `docs/handoffs/2026-09-22-adaptive-return-summary.md`；自然失败见 `docs/handoffs/2026-09-22-adaptive-absence-live.md`。
+local_only 四只读能力、根 T900/单发帽75/共享窗150 不变，不开 derived_calculation。
+`finance_query` 受限提供已观测日逐日复利摘要；不用文本算术解析器，不把 `river_query` 个股口径冒充板块。
+收口审计在隔离树 `~/fwp-wt-adaptive-research-closeout-0922`（钉 `a9ba35159`）跑；否了本树直接跑、否了 stash——本树 19 路径未提交，混进去的绿说不清是哪份代码的。
+本轮不跑真实模型：超时不受控时，失败分不清是内容差还是请求被拖断。
+完整决策与收据见 `docs/handoffs/2026-09-22-adaptive-closeout-audit.md`。
 
 ## 当前状态
 
-收益摘要修复与判官公开提示已完成。新增本地超时诊断探针和定向测试，尚未修改生产传输层；未 push/PR/合 main/部署/fetch，未操作生产8792。完整发现见 `docs/handoffs/2026-09-22-adaptive-timeout-diagnosis.md`。
+已提交部分裁决 **CHANGES_REQUIRED，不予收口**。未 push/PR/合 main/部署，未碰生产 8792。
+本树 19 路径未提交（含新文件 `llm_http_transport.py`，上一轮在做的绝对截止传输层）——**非本轮产物，任何收据都不含它**，别当已验过的东西用。
 
 ## 已验证
 
-收益修复准确 SHA 回归 `984 passed, 8 skipped`，变异套件11条逐条撤保护通过。超时探针代码提交 `6f084297b`，定向测试 `14 passed`；本机诊断确认共享窗第三槽零秒拒发有效、根期限耗尽不发请求，但在途 HTTP/流读取会越过 `timeout_asked`。准确收据 `/Users/a77/.finance-runtime/adaptive-timeout-diagnosis-20260922/transport-6f084297b.json`。
+隔离树 `a9ba35159`：ruff、registry 四项、ledger-crosswalk 全 exit 0；前端六步 exit 0（单测 110，E2E 34 passed/2 skipped）；完整 pytest **12840 passed / 85 skipped / 2 xfailed，exit 0**。两个自写收益对抗探针均过。收据根 `~/.finance-runtime/adaptive-closeout-20260922/`，裁决书 `VERDICT.md`。
 
 ## 未验证 / 已知边界
 
-尚未证明旧真实 GLM 请求是响应头停顿、响应体停顿还是持续流式；未修复绝对墙钟截止，也未重跑真实模型。自然模型是否主动用收益摘要、内容方向是否正确、完整 Python/前端/E2E/registry/独立 Spec/Quality 仍未验。
+严格探针 `--assert-deadline` **exit 1，13 场景 7 个越窗**：`llm_refine.py` 1130/1178/1364/1474 行把获批秒数交给 `urlopen(timeout=)`，那只是 socket 空闲上限；1365 行起的流式读循环无绝对截止，持续滴流可无限延长。最狠的 `judge_late_report`：批 0.8 秒、2.94 秒才回包，却记 `success` 被采纳。
+全绿不矛盾：`test_llm_timeout_diagnostic.py` 只断言探针自身，全仓没一条测试约束 `llm_refine` 墙钟——工具入库了，约束没入库。
+独立审查**未完成**（新上下文 codex、只读沙箱、268 秒额度耗尽中断），不算外审，两位终审仍未满足。真实模型改稿复核未做，`adaptive-absence-live` 记的内容未过依然成立。
 
 ## 下一步
 
-下一阶段修传输层绝对截止与迟到报告拒收，再用 `--assert-deadline` 验收（当前13场景中7个越窗，仍红）。修复前后分记墙钟、请求次数和台账耗时；通过后另预注册真实样本，不重跑旧失败题刷绿；合入前补完整门禁。
+1 传输层落绝对截止（流式读循环内按单调时钟判，超时断连并归因，不靠对端配合）；2 补会红的回归测试进常规 pytest，`--assert-deadline` 那 7 条是现成用例；3 判官迟到回包判不可用、修预算归因；4 顺序不可颠倒：修完→重跑严格探针→真实改稿复核→两位终审。
 
 ## 踩过的坑
 
-pytest 必须用主树 `.venv-workbench/bin/python` 并先建独占 basetemp；提交前回归不能移签提交后 SHA。`timeout_asked` 不是实际耗时，核验轮数、实际调用数、零秒拒发要分账。
+pytest 用主树 `.venv-workbench/bin/python` 并建独占 basetemp；里面密封 fixture 是只读的，清理前先 `chmod -R u+w`，一轮占 3.2G。
+`timeout_asked` 不是实际耗时，核验轮数/实际调用数/零秒拒发要分账。
+新增诊断工具时同时问"测出的东西有没有常规测试在守"，否则只在有人想起来跑时才起作用。
