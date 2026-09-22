@@ -107,9 +107,22 @@ provider 没有前一日快照，闸门直接跳过。跨源的板块名称本�
 - `hithink_stock_preview._read_inputs` 只有一条 `con.execute`（单条 UNION 查询），天然单快照，
   **无 D1 同类缺陷**——已核实，不是推测。
 
+## 合入结果（事后补记）
+
+- PR #851（`fix/hithink-sector-closeout-0922` → `main`）已经用户逐字授权后合入，合并提交
+  `53bd332c1`。合后核验三项全过：base 指向合并提交、head 是双亲、合并树 == 合前预览树；
+  授权记录 `~/.finance-runtime/merge-records/851-hithink-sector-closeout-20260922.json`。
+- **合并后的那棵树另跑了一次**（`merge-tree` 只能证无文本冲突，语义冲突正是这么漏的）：
+  收据 `20260922T121855Z-53bd332c.json`，**143 passed**，`dirty=false`，revision 绑 `53bd332c1`。
+  另一份 `20260922T114039Z-078f7eb4.json`（143 passed）绑 PR head。三份均为**目标收据**。
+- 设计文档 `2026-07-29-daily-sector-universe-root-repair-design.md` 的 `(trade_date,
+  provider_source)` 口径已同步为按日，并写明换源时 95% 闸门不适用。
+- 按交接规约（「做完、合并、归档的事从 inflight 里删掉，只留在快照」），
+  `inflight/fix-hithink-sector-closeout-0922.md` 已删，状态只留本快照。
+
 ## 下一步
 
-1. 请人复核 D2 的口径判断（写者对齐读者），再决定 push / 开 PR。
+1. ~~复核 D2 口径、push / 开 PR~~ —— 已完成，见上方「合入结果」。
 2. 真实验算前先签：名称来源合同、换手率来源合同、停复牌对统计与板块分母的政策。
 3. 再验板块名单版本（generation）、正式 canonical 投影，最后才是真实产物。
 4. 写库须另获授权并分阶段：隔离 staging → 逐表回读 → 日历最后写 → 全质量门 → 原子换库。
