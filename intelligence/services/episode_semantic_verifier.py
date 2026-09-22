@@ -6462,6 +6462,7 @@ def _stable_semantic_judge_error(value: object) -> tuple[str, bool, bool]:
         marker in normalized
         for marker in (
             "timeouterror",
+            "llmdeadlineexceeded",
             "readtimeout",
             "connecttimeout",
             "connectionerror",

@@ -1,9 +1,10 @@
-"""Probe integrity tests; actual deadline failures live in its strict receipt."""
+"""Probe integrity and real loopback deadline regression tests."""
 
 from __future__ import annotations
 
 import json
 import sys
+import time
 
 import pytest
 
@@ -18,8 +19,8 @@ def test_violation_uses_actual_wall_time_not_timeout_quote():
     assert probe.violations([case], 0.2) == []
 
 
-def test_real_fast_loopback_preserves_one_attempt_and_restores_urlopen():
-    before = probe.llm_refine.urllib.request.urlopen
+def test_real_fast_loopback_preserves_one_attempt_and_restores_transport():
+    before = probe.llm_refine.llm_http_transport.urlopen
     result = probe.run_case("fast")
     assert result["content_present"] is True
     assert result["request_count"] == result["reserved_count"] == len(result["records"]) == 1
@@ -27,7 +28,7 @@ def test_real_fast_loopback_preserves_one_attempt_and_restores_urlopen():
     assert result["requests"] == [{"stream_requested": False}]
     assert 0 < result["attempts"][0]["timeout_seconds"] <= 0.8
     assert result["records"][0]["status"] == "success"
-    assert probe.llm_refine.urllib.request.urlopen is before
+    assert probe.llm_refine.llm_http_transport.urlopen is before
 
 
 def test_zero_deadline_has_no_http_or_billing_attempt():
@@ -37,6 +38,87 @@ def test_zero_deadline_has_no_http_or_billing_attempt():
     assert result["attempts"] == result["records"] == []
 
 
+@pytest.mark.parametrize("scenario", [
+    "header_delay", "body_stall", "headers_then_body", "body_trickle",
+    "tools_stream_trickle", "tools_stream_partial_line",
+    "synthesis_stream_trickle", "synthesis_stream_partial_line",
+])
+def test_real_slow_response_is_cancelled_without_accepting_late_payload(scenario):
+    budget = 1.2 if scenario.startswith("synthesis_stream") else 0.8
+    result = probe.run_case(scenario, budget)
+    assert result["content_present"] is False
+    assert result["request_count"] == result["reserved_count"] == len(result["records"]) == 1
+    assert result["wall_elapsed_seconds"] <= budget + 0.2
+    assert result["records"][0]["status"] == "failed"
+    assert result["records"][0]["reason"] == "timeout"
+    if scenario.endswith("partial_line"):
+        assert result["emitted_chars"] == 0
+    elif "stream" in scenario:
+        assert result["emitted_chars"] > 0
+
+
+def test_real_late_judge_report_is_rejected_at_the_transport_boundary():
+    result = probe.run_judge_case("judge_late_report")
+    assert result["report_received"] is False
+    assert result["unavailable"] is True
+    assert result["wall_elapsed_seconds"] <= 1.0
+    assert result["records"][0]["status"] == "failed"
+    assert result["request_count"] == len(result["records"]) == 1
+
+
+def test_stalled_parent_still_stops_the_worker_at_the_deadline():
+    """The worker owns the socket, so its own hard stop must not be redundant.
+
+    Every other case ends because the parent checks the deadline between reads.
+    Here the parent never reads, which is what a slow content callback looks
+    like from the worker's side: only the worker-side stop can close the
+    network, and it must fire long before the endpoint stops trickling.
+    """
+    # Budgets stay well above worker spawn cost: a deadline shorter than the
+    # spawn would expire before the worker runs, which tests the machine's load
+    # rather than the stop. The endpoint trickles ~10.8s, far past the deadline.
+    with probe.local_endpoint("body_trickle", 3.0) as (provider, _requests, _attempts):
+        request = probe.urllib.request.Request(
+            provider.base_url + "/chat/completions", data=b"{}", method="POST",
+        )
+        started = time.monotonic()
+        response = probe.llm_refine.llm_http_transport.urlopen(
+            request, 1.5, loopback_only=True,
+        )
+        try:
+            # TimeoutExpired here is the regression: a worker that outlives its
+            # deadline keeps reading the socket no matter what the parent does.
+            returncode = response.process.wait(timeout=4.0)
+            elapsed = time.monotonic() - started
+            assert elapsed < 4.0, f"worker outlived its deadline (rc={returncode})"
+        finally:
+            response.close()
+
+
+def test_call_timeout_never_outlives_the_shared_research_deadline():
+    """A per-call slice must not spend budget the shared deadline no longer has.
+
+    Callers hand down both a slice and the research deadline. If the transport
+    honoured only the slice, one late call could outlive the whole run, which is
+    the failure the probe cannot see while both values agree.
+    """
+    transport = probe.llm_refine.llm_http_transport
+    with probe.local_endpoint("body_trickle", 0.8) as (provider, _requests, _attempts):
+        request = probe.urllib.request.Request(
+            provider.base_url + "/chat/completions", data=b"{}", method="POST",
+        )
+        deadline = probe.llm_refine.Deadline.from_timeout(0.5)
+        started = time.monotonic()
+        with pytest.raises(transport.HTTPDeadlineExceeded):
+            with transport.urlopen(
+                request, 10.0, deadline=deadline, loopback_only=True,
+            ) as response:
+                response.read()
+        # The endpoint needs ~2.9s to finish; honouring only the 10s slice would
+        # read it to completion instead of raising.
+        assert time.monotonic() - started < 2.0
+
+
 def test_shared_window_zero_rejection_is_not_a_third_request():
     result = probe.run_judge_case("judge_window_stalls")
     assert result["request_count"] == len(result["attempts"]) == len(result["records"]) == 2
@@ -44,10 +126,11 @@ def test_shared_window_zero_rejection_is_not_a_third_request():
     assert result["final_timeout_asked"] == 0.0
     assert result["final_exc_class"] is None
     assert result["last_dispatched_failure"]["judge_attempt_index"] == 1
-    assert result["last_dispatched_failure"]["exc_class"] == "TimeoutError"
+    assert result["last_dispatched_failure"]["exc_class"] == "LLMDeadlineExceeded"
     assert result["final_issue"] == probe.semantic.WINDOW_EXHAUSTED_ISSUE
     assert result["remaining_root_seconds"] > 0
     assert all(row["purpose"] == "judge" for row in result["records"])
+    assert all(0 < row["timeout_seconds"] <= 0.8 for row in result["attempts"])
 
 
 def test_expired_root_is_distinct_from_exhausted_judge_window():
@@ -92,8 +175,9 @@ def test_probe_rejects_unbounded_or_nonfinite_waits(monkeypatch, tmp_path, value
 
 
 def test_endpoint_guard_rejects_external_hosts_before_network():
-    with probe.local_endpoint("fast", 0.8):
-        with pytest.raises(RuntimeError, match="non-loopback"):
-            probe.llm_refine.urllib.request.urlopen(
-                probe.urllib.request.Request("https://example.invalid/v1"), timeout=0.8,
-            )
+    with pytest.raises(RuntimeError, match="[Nn]on-loopback"):
+        probe.llm_refine.llm_http_transport.urlopen(
+            probe.urllib.request.Request("https://example.invalid/v1"),
+            timeout=0.8,
+            loopback_only=True,
+        )

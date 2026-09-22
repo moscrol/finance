@@ -87,7 +87,7 @@ def test_client_reassembles_exactly_the_draft(tmp_path: Path, size: int) -> None
             llm_refine, "_insufficient_budget_reason", return_value=None
         ),
         mock.patch(
-            "urllib.request.urlopen",
+            "intelligence.services.llm_http_transport.urlopen",
             return_value=_ChunkedResponse(ENVELOPE, size),
         ),
     ):

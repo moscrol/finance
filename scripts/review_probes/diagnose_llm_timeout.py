@@ -50,14 +50,9 @@ STREAM_LINE = b'data: {"choices":[{"delta":{"content":"x"}}]}\n\n'
 STREAM_END = b'data: {"choices":[{"delta":{},"finish_reason":"stop"}]}\n\ndata: [DONE]\n\n'
 
 
-class _NoRedirect(urllib.request.HTTPRedirectHandler):
-    def redirect_request(self, *args, **kwargs):
-        raise RuntimeError("diagnostic redirects are forbidden")
-
-
 @contextmanager
 def local_endpoint(scenario: str, budget: float):
-    """Finite responses and cooperative shutdown leave no handler threads behind."""
+    """Real worker, loopback-only requests, finite responses, joined handlers."""
     stop = threading.Event()
     requests: list[dict] = []
 
@@ -125,49 +120,30 @@ def local_endpoint(scenario: str, budget: float):
     thread.start()
     base = f"http://127.0.0.1:{server.server_port}/v1"
     provider = llm_refine.LLMProvider("offline-diagnostic", "fixture", base, "offline-model")
-    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), _NoRedirect())
     attempts: list[dict] = []
+    real_opener = llm_refine.llm_http_transport.urlopen
 
-    class ObservedResponse:
-        def __init__(self, response, attempt, started):
-            self.response, self.attempt, self.started = response, attempt, started
-            self.headers = response.headers
-
-        def __enter__(self):
-            self.response.__enter__()
-            return self
-
-        def __exit__(self, *exc):
-            return self.response.__exit__(*exc)
-
-        def close(self):
-            self.response.close()
-
-        def read(self):
-            self.attempt["phase"] = "body_read"
-            data = self.response.read()
-            self.attempt["phase"] = "body_complete"
-            return data
-
-        def __iter__(self):
-            self.attempt["phase"] = "stream_read"
-            for line in self.response:
-                self.attempt.setdefault("first_line_ms", round((time.monotonic() - self.started) * 1000))
-                yield line
-
-    def open_local(request, timeout):
+    def open_real(request, timeout, **kwargs):
         parsed = urllib.parse.urlsplit(request.full_url)
         if parsed.scheme != "http" or parsed.hostname != "127.0.0.1" or parsed.port != server.server_port:
             raise RuntimeError("diagnostic non-loopback request rejected")
         attempt = {"timeout_seconds": timeout, "phase": "open_response"}
         attempts.append(attempt)
         started = time.monotonic()
-        response = opener.open(request, timeout=timeout)
-        attempt["headers_ms"] = round((time.monotonic() - started) * 1000)
-        return ObservedResponse(response, attempt, started)
+
+        def observe(event, **fields):
+            attempt.update(fields)
+            if event != "closed":
+                attempt["phase"] = event
+            if event == "headers":
+                attempt["headers_ms"] = round((time.monotonic() - started) * 1000)
+            if event == "closed":
+                attempt["elapsed_ms"] = round((time.monotonic() - started) * 1000)
+
+        return real_opener(request, timeout, loopback_only=True, observer=observe, **kwargs)
 
     try:
-        with mock.patch.object(llm_refine.urllib.request, "urlopen", open_local):
+        with llm_refine.http_transport_override(open_real):
             yield provider, requests, attempts
     finally:
         stop.set()
@@ -264,7 +240,8 @@ def source_identity() -> dict:
         return subprocess.check_output(["git", "-C", str(ROOT), *args], text=True).strip()
 
     paths = [Path(__file__).relative_to(ROOT), Path(llm_refine.__file__).relative_to(ROOT),
-             Path(semantic.__file__).relative_to(ROOT), Path("intelligence/services/research_contract.py")]
+             Path(semantic.__file__).relative_to(ROOT), Path("intelligence/services/research_contract.py"),
+             Path(llm_refine.llm_http_transport.__file__).relative_to(ROOT)]
     return {
         "revision": git("rev-parse", "HEAD"),
         "working_tree_status": git("status", "--porcelain"),
@@ -294,7 +271,7 @@ def main() -> int:
         cases.extend(run_judge_case(name, args.timeout) for name in JUDGE_SCENARIOS)
         overruns = violations(cases, args.tolerance)
         result = {
-            "schema_version": 1,
+            "schema_version": 2,
             "scope": "synthetic loopback HTTP; no live model or content acceptance",
             "source_before": before,
             "source_after": source_identity(),
