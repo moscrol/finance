@@ -73,7 +73,7 @@ launchd `com.financeworkspace.dual-blind-forecast`（工作日 09:10 跑 `script
 
 | 台账 | 最近落点 | 缺档 | 触发方式 | 断因 | 证据 |
 |---|---|---|---|---|---|
-| 晨汇 / 晨汇原料（本行 2026-09-21 复核重写） | `wiki/briefings/2026-09-14.md`（`#6841`/`#6842`，2026-09-15 入库）；原料 `~/Downloads/ima-briefings/` | 库内缺 **09-02 / 09-15 / 09-18**——三份 PDF 都已在本地，卡在入库、不是卡在抓取；09-16 / 09-17 / 09-19 上游确无 PDF（五词交叉验证：路演 / 预期差 / 复盘 / 汇总 / 总结） | **IMA bridge**：`ima-desktop-bridge/scripts/ima-fetch.cjs` 搜浑水调研 → 拉 PDF → `morning-briefing` 入库。无 crontab | 2026-09-21 实测**推翻** 08-28 的「OpenAPI 能搜不能下 / 待打开 IMA 再拉」：`status` 仍报 `IMA_BRIDGE_OFFLINE`，但 `get --media-id` **能正常下载**（status 与下载走不同通道，不必先开 IMA）。真正的坑是**单关键词会漏**——09-18 那份叫「电话会 总结」，默认词「路演」搜不到，换「总结」才命中 | 09-21 实拉 `20260915_路演调研_预期差.pdf`(4.3MB)、`20260918_电话会_总结.pdf`(1.3MB)，均返回 `ok:true`；08-28 原始诊断见本文件 git 历史 |
+| 晨汇 / 晨汇原料（本行 2026-09-21 二次复核重写） | `wiki/briefings/2026-09-18.md`（`#6892`，2026-09-21 入库）；9 月已连续：09-01 / 03 / 06 / 07 / 08 / 14 / 15 / 18 | **当前无缺档**。09-15、09-18 于 2026-09-21 回填入库（`#6891`/`#6892`，知识库仓 PR #156）；09-16 / 09-17 / 09-19 上游确无 PDF（五词交叉验证：路演 / 预期差 / 复盘 / 汇总 / 总结） | **IMA bridge**：`ima-desktop-bridge/scripts/ima-fetch.cjs` 搜浑水调研 → 拉 PDF → `morning-briefing` 入库。无 crontab | 2026-09-21 实测推翻 08-28 的「OpenAPI 能搜不能下 / 待打开 IMA 再拉」：`status` 仍报 `IMA_BRIDGE_OFFLINE`，但 `get --media-id` **能正常下载**（status 与下载走不同通道，不必先开 IMA）。两个真实的坑：①**单关键词会漏**——09-18 那份标题是「电话会 总结」，默认词「路演」搜不到；②**IMA 文件名的日期会错**——`20260902_路演调研全量总结.pdf` 正文自称 2026-09-03，早已作为 `2026-09-03.md` 入库（`#6837`），按文件名判缺档会重复入库 | 09-21 实拉 `20260915_路演调研_预期差.pdf`(4.3MB)、`20260918_电话会_总结.pdf`(1.3MB) 均 `ok:true`；管线收据见知识库仓 PR #156（matcher 31/3/137 与 37/4/271、`extract_tier_events --check` exit 0、974 项测试通过）；08-28 原始诊断见本文件 git 历史 |
 | 卖方原文 | `wiki/raw/sellside/2026-08-17-调研纪要miracle.md`（`#5366`，2026-08-18 手贴入库） | 08-18 起无 miracle/原文。东方财富 RSSHub 快照更早停在 07-21 | **近月实写是手贴**，不是 launchd。`material-router` 已 frozen（2026-07 审计：日志零使用）。双盲 sellside/briefing plist 在 `~/Library/LaunchAgents/disabled-by-devin/`，属退役夜跑，不恢复 | 三层自动源都出不了货，手贴也停了 | 见下表 |
 
 卖方自动源（2026-08-28 实测）：
@@ -85,7 +85,7 @@ launchd `com.financeworkspace.dual-blind-forecast`（工作日 09:10 跑 `script
 | wechat2rss `:8090` | 已死（08-14 已登记，08-28 复核仍死） | 端口无响应；`com.finhot.wechat2rss-sync` 未加载；`~/wechat2rss-data/res.db` mtime 08-05 |
 | wechat-download-api `:5050` | 进程健康、库仍空 | `/api/health` healthy；`rss.db` `articles=0` / `subscriptions=39`（mtime 08-22）；`#5365/#5366` 写明频控，8/6 后抓不到，改手贴 |
 
-状态标签（2026-09-21 复核）：**晨汇 = 原料能自动拉、卡在入库；卖方 = 微信频控，待用户决策**。不要把两条线当成同一个故障。晨汇缺档不是「无原文」，也不再是「抓取断了」——09-02 / 09-15 / 09-18 三份 PDF 已躺在 `~/Downloads/ima-briefings`，只差走 `morning-briefing` 入库；卖方缺档仍是「无原文，禁止编造」。
+状态标签（2026-09-21 二次复核）：**晨汇 = 已补齐、无缺档；卖方 = 微信频控，待用户决策**。不要把两条线当成同一个故障。晨汇原料能自动拉（bridge `status` 报 offline 不影响 `get --media-id`），09-15 / 09-18 已于 2026-09-21 入库，9 月序列连续；卖方缺档仍是「无原文，禁止编造」。
 
 ## IMA 缺口清单断档与回填（2026-09-21）
 
