@@ -9,11 +9,12 @@
 - 保留失败、PR 保持 WIP；不关审稿闸/改题凑绿，因 completed 不等语义通过。
 
 ## 当前状态
-- 代码提交 `85bff6326`；报告/观察提交 `61ebccc88`；本 handoff 的最终 docs-only 修订已推 Gitea。
-- PR **#877 WIP**：head `b73c8df34`，平台 `mergeable=false`。不合 main、不部署 8792、不回补行情、不写生产画像。
+- 代码提交 `85bff6326`；报告/观察提交 `61ebccc88`；本 handoff 的 docs-only 修订均已推 Gitea。
+- PR **#877 WIP**：当前 head 以 PR 页面为准，平台 `mergeable=false`。不合 main、不部署 8792、不回补行情、不写生产画像。
 
 ## 已验证
-- 当前 HEAD 定向 Python **325 passed**（收据应绑定最终 HEAD）；代码提交全仓 **12567P/85S/2X/0F**，Ruff/diff-check 绿；前端绑定 `61ebccc88`：lint/typecheck、Vitest **110**、build、E2E **34P/2S** 全绿。它们是工程门禁，不是语义验收。
+- 代码提交全仓 **12567P/85S/2X/0F**，定向 325P，Ruff/diff-check 绿；之后在 docs-only closeout revision `82b7493e9` 重跑同一组定向测试，收据 `~/.finance-runtime/test-receipts/20260922T194629Z-82b7493e.json`（clean、325P/0F）。其后仅文档提交，不能把该收据冒充最新 HEAD 全仓验证。
+- 前端绑定 `61ebccc88`：lint/typecheck、Vitest **110**、build、E2E **34P/2S** 全绿。它们是工程门禁，不是语义验收。
 - 12 题：9 completed/3 failed；作者文本仅 G1c/G2a 代理层有限满足，端到端 **0/12**；G3b 查库、pack2 越界工具、Q14 通用题型、pack3 只有公开脱敏 frame。
 - packet 为 `prepared_not_run`；inspect 在 `~/.finance-runtime/knevo-absorption-20260923/inspect-final-85bff6326/summary.json`。提交 61 后全仓 gate 因共享并发长时间无收据中止，不计通过或失败。
 
