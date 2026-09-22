@@ -18,7 +18,7 @@
 反例：跨用户/会话/run/消息、未绑定↔已绑定双向、伪造落盘身份、过期截止下拒绝零写入、恢复写回仍带主人。
 
 ## 未验证 / 已知边界
-那 1F：`test_workbench_conversation_integration::test_skill_timeout_degrades_one_module_and_continues`，`_SlowSkill` 睡 1.2s 对 `timeout_seconds=1`（0.2s 余量），不经 `_build_continuous_turn_adapter`、不碰 episode 存储/恢复；单跑与整文件跑均绿。未在同等负载下对照基线，只能说「无路径交集且负载敏感」。前端未跑。
+那 1F：`test_workbench_conversation_integration::test_skill_timeout_degrades_one_module_and_continues`，`_SlowSkill` 睡 1.2s 对 `timeout_seconds=1`（0.2s 余量），不经 `_build_continuous_turn_adapter`、不碰 episode 存储/恢复。**已分诊结案（0922 晚）**：在基线 `e7e12a189`（无本轮改动）单独检出一棵树复跑同一用例 5/5 绿、耗时区间与本分支重叠；本分支同用例 5/5 绿、整文件 7/7 绿。判定为**与本改动无关的既有负载敏感脆弱点**，不改 sleep、不放宽断言。后续 `fix/runtime-effect-reconciliation-0922` 的全量跑中该用例为绿（另有 `test_rag_worker::test_warm_worker_survives_first_timeout_and_drains_the_late_response` 表现出同型抖动，同样单跑全绿）。前端未跑。
 身份只证「同一扇门同一会话」，不证崩溃前那次外部请求是否已执行/已计费；续跑仍不安全。
 关联子 episode（父子任务）恢复仍整体拒绝。`EpisodeScope.user_id` 仍空串，未接身份（避免漂进工具收据）。
 
