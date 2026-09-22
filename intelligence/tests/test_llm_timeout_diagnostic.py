@@ -119,6 +119,31 @@ def test_call_timeout_never_outlives_the_shared_research_deadline():
         assert time.monotonic() - started < 2.0
 
 
+def test_refine_wrapper_forwards_the_shared_deadline_to_the_transport():
+    """`llm_refine._open_deadline_http_response` is the seam every call site uses.
+
+    The transport test above proves the transport honours ``deadline`` when it is
+    given one.  This test proves the wrapper actually gives it one: with a 10s
+    slice and a 0.5s shared deadline against a trickling endpoint (~2.9s), the
+    call must die at the shared deadline and surface as ``LLMDeadlineExceeded``.
+    Dropping the ``deadline=`` forwarding in the wrapper keeps the probe and the
+    transport test green (there slice == deadline), so only this test guards it.
+    """
+    llm_refine = probe.llm_refine
+    with probe.local_endpoint("body_trickle", 0.8) as (provider, _requests, _attempts):
+        request = probe.urllib.request.Request(
+            provider.base_url + "/chat/completions", data=b"{}", method="POST",
+        )
+        deadline = llm_refine.Deadline.from_timeout(0.5)
+        started = time.monotonic()
+        with pytest.raises(llm_refine.LLMDeadlineExceeded):
+            with llm_refine._open_deadline_http_response(
+                request, 10.0, deadline=deadline,
+            ) as response:
+                response.read()
+        assert time.monotonic() - started < 2.0
+
+
 def test_shared_window_zero_rejection_is_not_a_third_request():
     result = probe.run_judge_case("judge_window_stalls")
     assert result["request_count"] == len(result["attempts"]) == len(result["records"]) == 2

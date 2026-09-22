@@ -1,0 +1,26 @@
+{
+  "workorder": 72,
+  "purpose": "acceptance positive control: drop the deadline= forwarding in llm_refine._open_deadline_http_response and require at least one regular pytest case to go red",
+  "tree": "/Users/a77/fwp-wt-adaptive-deadline-0922",
+  "revision": "aa0509d61fb063be6fd2d2ac3ddc15732e6fd16e",
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "env": {"PYTHONDONTWRITEBYTECODE": "1", "pytest_flags": "-q -p no:randomly --basetemp=<exclusive>"},
+  "mutation": {
+    "file": "intelligence/services/llm_refine.py",
+    "line": 222,
+    "before": "request, timeout, deadline=deadline, is_cancelled=is_cancelled,",
+    "after": "request, timeout, deadline=None, is_cancelled=is_cancelled,",
+    "head_sha256": "ff587c5039073e938a9652465cf4cc76604cf82f93d3834db2a368e723aca424"
+  },
+  "runs": [
+    {"step": "baseline-before-mutation", "target": "intelligence/tests/test_llm_timeout_diagnostic.py", "result": "25 passed", "exit": 0, "receipt": "~/.finance-runtime/test-receipts/20260922T154226Z-aa0509d6.json"},
+    {"step": "mutated-targeted", "target": "intelligence/tests/test_llm_timeout_diagnostic.py", "result": "25 passed", "exit": 0, "verdict": "mutation survived", "receipt": "~/.finance-runtime/test-receipts/20260922T154357Z-aa0509d6.json"},
+    {"step": "mutated-broad", "target": "13 other test files referencing llm_http_transport / _open_deadline_http_response / _HTTP_TRANSPORT_OVERRIDE", "result": "351 passed in 39.93s", "exit": 0, "verdict": "mutation survived", "log": "~/.finance-runtime/adaptive-deadline-0922/mut-broad.log", "receipt": "~/.finance-runtime/test-receipts/20260922T154543Z-aa0509d6.json"},
+    {"step": "mutated-new-test", "target": "intelligence/tests/test_llm_timeout_diagnostic.py::test_refine_wrapper_forwards_the_shared_deadline_to_the_transport", "result": "1 failed in 4.28s (DID NOT RAISE LLMDeadlineExceeded)", "exit": 1, "verdict": "mutation killed", "log": "~/.finance-runtime/adaptive-deadline-0922/mut-newtest.log"},
+    {"step": "restore", "command": "git checkout -- intelligence/services/llm_refine.py", "restored_sha256_equals_head": true},
+    {"step": "post-restore-targeted", "target": "intelligence/tests/test_llm_timeout_diagnostic.py", "result": "26 passed in 12.92s", "exit": 0, "log": "~/.finance-runtime/adaptive-deadline-0922/post-restore-targeted.log", "receipt": "~/.finance-runtime/test-receipts/20260922T154726Z-aa0509d6.json"},
+    {"step": "ruff", "target": "intelligence/tests/test_llm_timeout_diagnostic.py", "result": "All checks passed!", "exit": 0}
+  ],
+  "why_it_survived_before": "every fixture either gave slice == shared deadline (probe scenarios) or drove llm_http_transport.urlopen directly (bypassing the wrapper); dropping the wrapper's deadline= forwarding was invisible to both",
+  "added_test": "test_refine_wrapper_forwards_the_shared_deadline_to_the_transport: slice 10s, shared deadline 0.5s, body_trickle endpoint ~2.9s; expects LLMDeadlineExceeded within 2s"
+}
