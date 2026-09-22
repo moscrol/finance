@@ -22,9 +22,12 @@ from intelligence.services.task_frame import TaskFrame
 from intelligence.services.material_contract import MaterialContract
 from intelligence.services.material_grounding import MaterialGrounding
 from intelligence.services.premise_financial_calculation import PremiseCalculation
-from intelligence.services.material_permissions import restrict_read_capabilities
+from intelligence.services.material_permissions import LOCAL_EVIDENCE_PRODUCERS, restrict_read_capabilities
 from intelligence.services.historical_research.intent import HistoryIntent
-from intelligence.services.user_task import requests_previous_answer_review
+from intelligence.services.user_task import (
+    requests_previous_answer_review,
+    top_level_message_text,
+)
 
 if TYPE_CHECKING:
     from intelligence.services.prior_evidence import PriorTurnEvidence
@@ -941,7 +944,8 @@ class ResearchTaskContract:
                 raise ResearchContractError("local_only 含未审定的读取能力")
             if any(item.capability not in self.allowed_capabilities for item in self.evidence_plan.requirements):
                 raise ResearchContractError("local_only 证据计划超出冻结读取授权")
-            if any(cap not in self.allowed_capabilities for output in self.required_outputs for cap in output.evidence_types):
+            if any(LOCAL_EVIDENCE_PRODUCERS.get(cap, cap) not in self.allowed_capabilities
+                   for output in self.required_outputs for cap in output.evidence_types):
                 raise ResearchContractError("local_only 输出工具证据超出冻结读取授权")
         mandatory = set(self.evidence_plan.mandatory_capabilities)
         if not mandatory.issubset(set(self.allowed_capabilities)):
@@ -1259,8 +1263,15 @@ class StageArtifact:
             return None
 
 
+def _top_level_follow_up_query(query: str) -> tuple[str, bool]:
+    raw = str(query or "")
+    visible, _uncertain = top_level_message_text(raw)
+    cleaned = visible.strip()
+    return cleaned, cleaned != raw.strip()
+
+
 def is_follow_up(query: str) -> bool:
-    cleaned = query.strip()
+    cleaned, _protected = _top_level_follow_up_query(query)
     return bool(
         classify_reference(cleaned) != "none"
         or _COMPARISON_PATTERN.search(cleaned)
@@ -1276,13 +1287,17 @@ def is_contextual_follow_up(
 ) -> bool:
     if previous_intent is None:
         return False
-    cleaned = query.strip()
+    cleaned, protected_content_present = _top_level_follow_up_query(query)
+    if not cleaned:
+        return False
     if requests_previous_answer_review(cleaned):
         return not _EXPLICIT_SWITCH_PATTERN.search(cleaned) and (
             envelope.subject is None or envelope.subject == previous_intent.primary_subject
         )
     if is_follow_up(cleaned) or (
-        resolution is not None and resolution.context_dependent
+        resolution is not None
+        and resolution.context_dependent
+        and not protected_content_present
     ):
         return True
     if (
@@ -1312,12 +1327,12 @@ def build_turn_intent(
     resolution: QueryResolution | None = None,
     task_frame: TaskFrame | None = None,
 ) -> TurnIntent:
-    cleaned = query.strip()
+    cleaned, protected_content_present = _top_level_follow_up_query(query)
     follow_up = is_contextual_follow_up(
-        cleaned,
+        query,
         envelope,
         previous_intent,
-        resolution=resolution,
+        resolution=resolution if not protected_content_present else None,
     )
     explicit_task_type = _explicit_task_type(cleaned)
     explicit_task_switch = (

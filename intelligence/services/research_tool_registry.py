@@ -753,6 +753,28 @@ ToolCutoffResolver = Callable[
 
 
 @dataclass(frozen=True)
+class ToolDiagnostic:
+    """Trusted runner control feedback, never retrieved facts or raw provider text.
+
+    Only an audited producer may construct this from validation/operational state.
+    A provider name, failure status or empty evidence list does not confer trust.
+    It is delivered outside date filtering, but never becomes citable evidence.
+    """
+
+    code: str
+    message: str
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.code, str) or not re.fullmatch(r"[a-z][a-z0-9_]*", self.code):
+            raise ValueError("diagnostic code must be a machine-readable identifier")
+        if not isinstance(self.message, str) or not self.message.strip():
+            raise ValueError("diagnostic message must be non-empty")
+
+    def render(self) -> str:
+        return f"工具诊断（非市场事实）[{self.code}]：{self.message}"
+
+
+@dataclass(frozen=True)
 class ToolRunResult:
     evidence: tuple[agent_research.AgentEvidence, ...]
     observation: str
@@ -763,8 +785,13 @@ class ToolRunResult:
     payload_field_names: tuple[str, ...] = ()
     payload_sha256: str = ""
     telemetry: dict[str, object] = field(default_factory=dict)
+    diagnostics: tuple[ToolDiagnostic, ...] = ()
 
     def __post_init__(self) -> None:
+        diagnostics = tuple(self.diagnostics)
+        if any(not isinstance(item, ToolDiagnostic) for item in diagnostics):
+            raise TypeError("tool diagnostics must contain ToolDiagnostic values")
+        object.__setattr__(self, "diagnostics", diagnostics)
         evidence = tuple(self.evidence)
         if any(not isinstance(item, agent_research.AgentEvidence) for item in evidence):
             raise TypeError("tool evidence must contain AgentEvidence values")
@@ -1298,6 +1325,27 @@ class ResearchToolRegistry:
                     if parsed_trade_date is not None
                     else None
                 )
+            history = effective_context.history_intent
+            if history is not None and history.strict_window and spec.name not in {
+                "history_query", "read_history_result", "save_history_research",
+            }:
+                # History originals have their own recursive scope gate, including
+                # undated formula metadata. Other tools may not launder unknown or
+                # pre-authorisation dates through a prose observation.
+                kept = [item for item in evidence if (
+                    (d := closed_loop_retrieval.parse_source_date(item.source_date)) is not None
+                    and (not history.requested_start or d.isoformat() >= history.requested_start)
+                    and (not history.requested_end or d.isoformat() <= history.requested_end)
+                )]
+                # A diagnostic-only result carries no facts to date. Do not erase
+                # the repair hint or falsely report that its facts were withheld.
+                # An untyped prose observation is still filtered, even on errors.
+                if len(kept) != len(evidence) or (
+                    not evidence and (observation or not run_result.diagnostics)
+                ):
+                    gaps = (*gaps, "未取得历史授权范围内可交付的有日期材料；越界或日期未知内容未交付")
+                    evidence = kept
+                    observation = "；".join(f"{item.title}：{item.detail}" for item in kept) or gaps[-1]
             evidence, rejected = closed_loop_retrieval.filter_future_dated(
                 evidence,
                 information_cutoff=effective_context.information_cutoff,
@@ -1315,6 +1363,12 @@ class ResearchToolRegistry:
             ):
                 rejected.extend(evidence)
                 evidence = []
+            if (
+                history is not None and not evidence and trace_trade_date is not None
+                and trace_trade_date > effective_context.information_cutoff.as_of_date
+            ):
+                observation = "源已检索但日期晚于信息截止日，未交付内容；不是源里没有。"
+                gaps = (*gaps, observation)
             remaining_after_cutoff_filter = list(evidence)
             if rejected:
                 cutoff_iso = effective_context.information_cutoff.as_of_date.isoformat()
@@ -1326,6 +1380,11 @@ class ResearchToolRegistry:
                         )
                         or observation
                     )
+                elif history is not None:
+                    # Explicit history research is not a latest-news request.
+                    # A warning label cannot grant permission to consume future facts.
+                    observation = "已取得材料但全部晚于信息截止日，未交付内容；不是源里没有。"
+                    gaps = (*gaps, observation)
                 else:
                     # T2-a：全滤时空手会让模型以为「源里没有」。把越界条目标注后交还。
                     evidence = [
@@ -1357,6 +1416,14 @@ class ResearchToolRegistry:
                         f"源返回 {len(evidence)} 条，全部晚于问句日 {cutoff_iso}，"
                         f"已标注后交付；不是源里没有。{listed}"
                     )
+            # Render only the explicit trusted control channel after fact gates.
+            # Never restore the original prose when its evidence was withheld.
+            if run_result.diagnostics:
+                observation = "；".join(
+                    part for part in (
+                        observation, *(item.render() for item in run_result.diagnostics),
+                    ) if part
+                )
             evidence = [
                 item
                 if item.content_hash

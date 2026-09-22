@@ -1,0 +1,51 @@
+{
+  "suite": "diagnostics",
+  "scope": "author-side in-memory mutation tests; no product source edits, independent QC or live-model claim",
+  "revision": "ba28138189ff231b19b61561644594ab9a44b041",
+  "dirty_paths": [],
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "source_sha256": {
+    "intelligence/services/episode_tools.py": "7abfaec10ecc6976267b82fc420bfd3e753953eb9688f0acb47f0b4064b68e9b",
+    "intelligence/services/finance_query.py": "38140a46d062fb6597bb0939abbf9fd164817a9a6d631f6ba800f57c3ab832a4",
+    "intelligence/services/historical_research/query.py": "064f47765624b651b96fcb9f76d77034b60276c0c79403343cba97885935533b",
+    "intelligence/services/research_tool_registry.py": "43fdcf13902d51f183594611ba570131ef103425505a6d47faf4eb090bea3770",
+    "scripts/review_probes/history_diagnostic_mutations.py": "d577b9e93b9aa16618ece51e5064f16fc5306ab0866ffe62d493ab24ceafae1e",
+    "tests/test_history_argument_repair.py": "7febd49bdb1331be757dfcf812854d2afa438e49328dea4a502a8c735ed5db08",
+    "tests/test_history_tool_diagnostics.py": "48f32dc4a8b2be312310d4a5d139aef95463222cda68a6205d5b24f96212d022"
+  },
+  "source_unchanged": true,
+  "mutations": [
+    {
+      "mutation": "erase_diagnostic_delivery",
+      "test": "tests/test_history_tool_diagnostics.py::test_real_strict_history_validation_diagnostic_can_repair_query",
+      "exit_code": 1,
+      "caught": true,
+      "log": "erase_diagnostic_delivery.txt",
+      "sha256": "c60accef898cad108c066de16aacf9b3321f0706e96c259dcb5e65f3729d9677"
+    },
+    {
+      "mutation": "diagnostic_bypasses_fact_gate",
+      "test": "tests/test_history_tool_diagnostics.py::test_trusted_diagnostic_does_not_restore_disallowed_facts_or_prose",
+      "exit_code": 1,
+      "caught": true,
+      "log": "diagnostic_bypasses_fact_gate.txt",
+      "sha256": "88e1d2e3ae03359ed62ee8631eda2f4dae38238e772dfa6b661e96bfe72eb342"
+    },
+    {
+      "mutation": "raw_exception_as_diagnostic",
+      "test": "tests/test_history_tool_diagnostics.py::test_validation_diagnostic_does_not_echo_model_prose_or_unknown_error[exception]",
+      "exit_code": 1,
+      "caught": true,
+      "log": "raw_exception_as_diagnostic.txt",
+      "sha256": "16ba68b08e13a0f261f7379621320cf262d3d432a494982646be7776d34271fc"
+    },
+    {
+      "mutation": "silently_infer_market_kind",
+      "test": "tests/test_history_argument_repair.py::test_omitted_kind_is_not_silently_inferred_from_code_or_features",
+      "exit_code": 1,
+      "caught": true,
+      "log": "silently_infer_market_kind.txt",
+      "sha256": "6615f929dc8f96fbfce8c7ff9244e12c9324ac0be068202e9f167c6765768736"
+    }
+  ]
+}

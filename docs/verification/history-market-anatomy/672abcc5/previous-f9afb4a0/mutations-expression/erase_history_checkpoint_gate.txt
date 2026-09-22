@@ -1,0 +1,12 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_ test_orchestrator_blocks_history_before_resolving_user_path_or_calling_writers _
+tests/test_history_expression_contract_boundary.py:208: in test_orchestrator_blocks_history_before_resolving_user_path_or_calling_writers
+    assert calls == []
+E   AssertionError: assert ['user_space'...er', 'writer'] == []
+E     
+E     Left contains 3 more items, first extra item: 'user_space'
+E     Use -v to get more diff
+=========================== short test summary info ============================
+FAILED tests/test_history_expression_contract_boundary.py::test_orchestrator_blocks_history_before_resolving_user_path_or_calling_writers
+1 failed in 0.26s

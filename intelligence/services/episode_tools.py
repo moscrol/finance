@@ -43,6 +43,7 @@ from intelligence.services.research_tool_registry import (
     MIN_WINDOW_SECONDS,
     PreparedToolArguments,
     ResearchToolRegistry,
+    ToolDiagnostic,
     ToolSpec,
     ToolRunResult,
     default_registry,
@@ -1464,7 +1465,7 @@ def build_episode_registry(
         if spec.name in {"mainline_context", "evidence_lookup"} else spec
         for spec in base_registry.authorized_specs()
     ]
-    if frame.history_intent is not None and not local_only:
+    if frame.history_intent is not None:
         from intelligence.services.historical_research.episode import history_tool_specs
 
         specs.extend(
@@ -1973,10 +1974,7 @@ def _finance_query_failure_result(
     if isinstance(error, finance_query.FinanceQueryValidationError):
         failure_code = "invalid_query"
         status = "parse_error"
-        observation = (
-            f"结构化查询参数无效：{str(error)[:160]}；重试提示："
-            f"{finance_query.validation_retry_hint(spec, error)}"
-        )
+        observation = finance_query.validation_diagnostic(spec, error)
         gap = "结构化查询条件无效；请改写 dataset、字段、筛选或日期范围后重试"
         from intelligence.services.tool_hunger import record_finance_query_rejected
 
@@ -2003,7 +2001,8 @@ def _finance_query_failure_result(
         gap = "结构化数据源暂不可用；当前答案仍缺少该查询对应的数据"
     return ToolRunResult(
         evidence=(),
-        observation=observation,
+        observation="",
+        diagnostics=(ToolDiagnostic(code=failure_code, message=observation),),
         trace=ProviderTrace(
             provider="duckdb_semantic_query",
             capability="finance_query",

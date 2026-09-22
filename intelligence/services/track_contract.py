@@ -25,6 +25,8 @@ from typing import Any
 
 import re
 
+from intelligence.services.historical_research.intent import HistoryIntent
+
 # 跟踪类词面：持续性 + 增量性表述。刻意不收「最近怎么样」这类泛化问法——
 # 它们既可能是跟踪也可能是首次全景，由 route/question_type 判定兜底。
 _TRACK_TERMS = (
@@ -78,7 +80,9 @@ def persistence_opt_out(query: str) -> bool:
     return _OPT_OUT_RE.search(text) is not None
 
 
-def parse_track_intent(query: str, question_type: str | None = None) -> bool:
+def parse_track_intent(
+    query: str, question_type: str | None = None, *, history_intent: HistoryIntent | None = None
+) -> bool:
     """问题类型为 theme_track，或命中跟踪/增量词面即触发。
 
     否定句里的「跟踪」不算跟踪意图：「不登记长期跟踪」整句被抠掉后再匹配词面，
@@ -86,6 +90,9 @@ def parse_track_intent(query: str, question_type: str | None = None) -> bool:
     正面跟踪诉求时（「跟踪一下液冷，但别登记为长期跟踪」）仍然路由，只是后面
     不落盘——表达纪律和持久化是两件事，别合成一个开关。
     """
+    # 历史路径追踪不是前向持续跟踪。用可信任务状态（含续轮），不由答案或关键词撤销。
+    if history_intent is not None:
+        return False
     if question_type == "theme_track":
         return True
     text = re.sub(r"\s+", "", str(query or ""))
@@ -149,16 +156,20 @@ def build_track_guidance_for_episode() -> str:
     )
 
 
-def track_guidance_for_query(query: str, question_type: str | None = None) -> str:
+def track_guidance_for_query(
+    query: str, question_type: str | None = None, *, history_intent: HistoryIntent | None = None
+) -> str:
     """命中意图返回表达契约，否则空串（不注入，行为不变）。"""
-    if not parse_track_intent(query, question_type):
+    if not parse_track_intent(query, question_type, history_intent=history_intent):
         return ""
     return build_track_guidance()
 
 
-def episode_track_rule(query: str, question_type: str | None = None) -> str:
+def episode_track_rule(
+    query: str, question_type: str | None = None, *, history_intent: HistoryIntent | None = None
+) -> str:
     """episode 指令的条件注入口：命中跟踪意图返回 episode 版契约，否则空串。"""
-    if not parse_track_intent(query, question_type):
+    if not parse_track_intent(query, question_type, history_intent=history_intent):
         return ""
     return build_track_guidance_for_episode()
 
@@ -248,13 +259,14 @@ def contract_missing_outputs(
     *,
     query: str = "",
     question_type: str | None = None,
+    history_intent: HistoryIntent | None = None,
 ) -> tuple[str, ...]:
     """程序核对：跟踪题的契约缺件 → missing_outputs 词表输出项 id。
 
     非跟踪意图恒返回空元组（普通问答零改动）。返回值形状与
     ``repair_coordinator.build_repair_goal(missing_outputs=...)`` 兼容。
     """
-    if not parse_track_intent(query, question_type):
+    if not parse_track_intent(query, question_type, history_intent=history_intent):
         return ()
     return tuple(
         TRACK_CONTRACT_OUTPUT_IDS[key]
@@ -269,10 +281,11 @@ def merge_track_missing_outputs(
     *,
     query: str = "",
     question_type: str | None = None,
+    history_intent: HistoryIntent | None = None,
 ) -> tuple[str, ...]:
     """把跟踪契约缺件并入 repair 用的 missing_outputs。非跟踪题原样返回。"""
     extra = contract_missing_outputs(
-        answer, query=query, question_type=question_type
+        answer, query=query, question_type=question_type, history_intent=history_intent
     )
     return tuple(dict.fromkeys((*tuple(existing or ()), *extra)))
 
@@ -360,15 +373,16 @@ def contract_receipt(
     query: str = "",
     question_type: str | None = None,
     as_of: str | None = None,
+    history_intent: HistoryIntent | None = None,
 ) -> dict[str, object]:
     """EVAL 可读收据：``missing_outputs`` 字段恒在场（空列表 = 契约齐/非跟踪题）。
 
     只含 JSON 原生类型，可直接落 ledger/trace/eval 载荷；``track_intent``
     区分「契约齐」与「本题不适用契约」两种空缺件。
     """
-    track_intent = parse_track_intent(query, question_type)
+    track_intent = parse_track_intent(query, question_type, history_intent=history_intent)
     missing = contract_missing_outputs(
-        answer, query=query, question_type=question_type
+        answer, query=query, question_type=question_type, history_intent=history_intent
     )
     body = str(answer or "")
     valid = parse_valid_until(body) if track_intent else None
@@ -572,6 +586,7 @@ def ingest_next_watch(
     as_of: str | None = None,
     theme: str | None = None,
     session_id: str | None = None,
+    history_intent: HistoryIntent | None = None,
 ) -> list[dict[str, Any]]:
     """把可证伪的下期关注登记进 checkpoints.jsonl。非跟踪题 / 无条目时空操作。"""
     from intelligence.services.checkpoints import (
@@ -584,7 +599,7 @@ def ingest_next_watch(
         # 用户说了不登记就一条都不写。放在最前面：意图判定、条目解析都还没跑，
         # 没有任何「先算出来再决定要不要写」的中间态可以被后面某一层重新用上。
         return []
-    if not parse_track_intent(query, question_type):
+    if not parse_track_intent(query, question_type, history_intent=history_intent):
         return []
     items = parse_next_watch_items(answer, as_of=as_of)
     if not items:
