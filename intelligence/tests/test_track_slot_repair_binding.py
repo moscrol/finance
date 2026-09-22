@@ -154,6 +154,7 @@ def test_repair_goal_message_explains_expression_slots_only_when_present() -> No
     note = with_slots["expression_elements_note"]
     assert "track_ttl" in note and "track_next_watch" in note and "change_summary" not in note
     assert "不要作为 bindings 的 output_id" in note and "复核期限" in note
+    assert all(part in note for part in ("指标/事件", "时间节点", "可证伪触发条件", "不编造数字阈值", "保留可信正文"))
     # 没有表达槽的修复轮：消息里没有这一键，形状与拆分前逐字节相同（既有测试钉着）。
     without = json.loads(harness.repair_goal_message(_goal("change_summary"), tools_open=False))
     assert "expression_elements_note" not in without

@@ -1,0 +1,58 @@
+{
+  "checked_at": "2026-09-18T16:10:23.635238+00:00",
+  "revision": "d965721553741b7a1267b8541e7806d088083a8f",
+  "candidate_status": "",
+  "parallel": {
+    "data-readiness": {
+      "path": "/Users/a77/fwp-wt-research-data-readiness",
+      "revision": "b47577092fed5b8771d64b7bd0fa7735e683ea57",
+      "status": "",
+      "scope": "Read-only identity/handoff inspection; no branch transplant except a31b572f delivery patch already in candidate."
+    },
+    "answer-preservation": {
+      "path": "/Users/a77/fwp-wt-research-answer-preservation",
+      "revision": "68e0c8dc265eae7c2dbe97db96ed5a791ff3a9ff",
+      "status": "M intelligence/services/rag_worker.py\n?? intelligence/tests/test_rag_worker_transport.py",
+      "scope": "Read-only identity/handoff inspection; no branch transplant except a31b572f delivery patch already in candidate."
+    },
+    "runtime-contracts": {
+      "path": "/Users/a77/fwp-wt-runtime-contracts-0918",
+      "revision": "e20f5c1dae459f912b7008c855debb0cabf8ded7",
+      "status": "",
+      "scope": "Read-only identity/handoff inspection; no branch transplant except a31b572f delivery patch already in candidate."
+    }
+  },
+  "temporary_worktrees_removed": [
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/registry-pinned-d9657215/finance-workspace-private",
+      "revision": "d965721553741b7a1267b8541e7806d088083a8f",
+      "clean_before": true,
+      "removed": true
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/registry-pinned-d9657215/finance-research-site",
+      "revision": "9f60bef076749cdba13cf228ffa6f22141876eb8",
+      "clean_before": true,
+      "removed": true
+    }
+  ],
+  "kb_pinned_reused_untouched": "/Users/a77/.finance-runtime/reviews/kb-retrieval-merge-20260918/knowledge-base-private",
+  "test_ports": {
+    "8931": {
+      "listener": false,
+      "lsof_exit": 1
+    },
+    "8934": {
+      "listener": false,
+      "lsof_exit": 1
+    }
+  },
+  "r6_original_12_hashes_unchanged": true,
+  "live_runs": 0,
+  "pushed": false,
+  "merged_main": false,
+  "deployed": false,
+  "production_8792_switched": false,
+  "toolkit_revision": "aa87df5014b901cd27cd29fd022870f8dfb7d258",
+  "vault_revision_at_observation": "db683c32b7b0b96ec48c0bf4d354fbd6378d030d"
+}

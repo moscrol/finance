@@ -1,0 +1,93 @@
+[
+  {
+    "id": "result-success-admission",
+    "path": "intelligence/services/derived_calculation.py",
+    "old": "    if result_errors:\n",
+    "new": "    if False and result_errors:\n",
+    "targets": ["test_frozen_nested_summary_is_not_success_or_derived_evidence", "test_original_script_no_longer_claims_renderable_success"]
+  },
+  {
+    "id": "strict-table-width",
+    "path": "intelligence/services/derived_calculation_artifacts.py",
+    "old": "                if len(row) != len(columns):\n",
+    "new": "                if False and len(row) != len(columns):\n",
+    "targets": ["test_invalid_result_has_stable_codes_without_private_values"]
+  },
+  {
+    "id": "domain-error-status",
+    "path": "intelligence/services/research_tool_registry.py",
+    "old": "            return {\"ok\": False, \"error\": str(error[\"code\"]), \"status\": self.trace.status}",
+    "new": "            return {\"ok\": True}",
+    "targets": ["test_actual_failure_flag_reaches_model_and_audit_not_transport_ok"]
+  },
+  {
+    "id": "harness-status-delivery",
+    "path": "intelligence/services/research_harness.py",
+    "old": "            **observation.result_status_fields(),",
+    "new": "            \"ok\": True,",
+    "targets": ["test_actual_failure_flag_reaches_model_and_audit_not_transport_ok"]
+  },
+  {
+    "id": "public-disclosure-check",
+    "path": "intelligence/services/episode_semantic_verifier.py",
+    "old": "        *disclosure_absence_findings(public, before.outcome.traces),",
+    "new": "        *(),",
+    "targets": ["test_success_exit_also_checks_absence_and_preserves_neighbors", "test_frozen_disclosure_answer_through_real_verifier_exit"]
+  },
+  {
+    "id": "public-calculation-check",
+    "path": "intelligence/services/episode_semantic_verifier.py",
+    "old": "            public, before.outcome.evidence,\n",
+    "new": "            '', before.outcome.evidence,\n",
+    "targets": ["test_ratio_error_reaches_real_verifier_exit_without_losing_input_facts", "test_old_empty_product_cannot_support_claimed_calculator_ratios"]
+  },
+  {
+    "id": "period-not-bag-of-numbers",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "                values = products.get(period or \"\", set())",
+    "new": "                values = set().union(*products.values())",
+    "targets": ["test_copy_guard_binds_period_and_column_not_a_bag_of_numbers", "test_correct_rounding_percent_and_unrelated_numbers_not_rejected"]
+  },
+  {
+    "id": "metric-column-not-table-purpose",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "            if not _absolute_ratio_label(column):",
+    "new": "            if False and not _absolute_ratio_label(column):",
+    "targets": ["test_correct_rounding_percent_and_unrelated_numbers_not_rejected"]
+  },
+  {
+    "id": "cell-local-preservation",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "                                offset + cell.start(), offset + cell.end(),",
+    "new": "                                offset, offset + len(line),",
+    "targets": ["test_copy_guard_binds_period_and_column_not_a_bag_of_numbers", "test_ratio_error_reaches_real_verifier_exit_without_losing_input_facts"]
+  },
+  {
+    "id": "same-turn-repair-note",
+    "path": "intelligence/runtime/continuous_turn_adapter.py",
+    "old": "                        *semantic.delivery_repair_notes,",
+    "new": "                        *(),",
+    "targets": ["test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference"]
+  },
+  {
+    "id": "nonmaterial-final-projection",
+    "path": "intelligence/runtime/continuous_turn_adapter.py",
+    "old": "        semantic = recheck_material_public_delivery(semantic, projected=answer)\n",
+    "new": "        semantic = replace(semantic, public_answer=answer)\n",
+    "targets": ["test_adapter_rechecks_nonmaterial_final_projection"]
+  },
+  {
+    "id": "retained-bound-citations",
+    "path": "intelligence/services/episode_semantic_verifier.py",
+    "old": "    retained = tuple(h for h, ordinal in ordinals.items() if h in bound and ordinal in cited)",
+    "new": "    retained = ()",
+    "targets": ["test_retained_citations_do_not_resurrect_unbound_or_already_gapped_evidence", "test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference"]
+  },
+  {
+    "id": "missing-product-not-certified",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "    require_product = calculation_required or bool(re.search(r\"计算编号\\s*[0-9a-f]{16}\", text))",
+    "new": "    require_product = False",
+    "targets": ["test_missing_and_conflicting_products_are_not_certified_by_numeric_presence", "test_old_empty_product_cannot_support_claimed_calculator_ratios"]
+  }
+]

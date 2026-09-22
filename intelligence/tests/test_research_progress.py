@@ -3,8 +3,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
+from types import MappingProxyType
 
 import pytest
+
+from intelligence.services.agent_runtime import ModelToolCall
 
 from intelligence.runtime.research_progress import (
     REPEAT_QUERY_THRESHOLD,
@@ -41,6 +45,37 @@ def test_frozen_structured_call_can_be_recorded_after_failure(status) -> None:
     assert digest.query == normalize_query(arguments)
     assert _batch(tracker, digest).calls == (digest,)
     assert call.to_dict()["arguments"] == arguments
+
+
+@pytest.mark.parametrize("arguments", [
+    {"url": "file:///nonexistent"},
+    {"operation": "read", "filters": {"periods": [{"as_of": "2026-06-30"}]}},
+    {"query": "", "filters": {"nested": [1, None, True]}},
+    {"goals": ["长电", "通富"]},
+    {},
+])
+def test_frozen_tool_arguments_have_the_same_progress_key_as_json(arguments) -> None:
+    """模型调用递归冻结；无 query 的拒绝/错误路径也必须能记账。"""
+    call = ModelToolCall("f3", "web_fetch", arguments)
+    before = call.to_dict()
+    expected = normalize_query(arguments)
+    assert normalize_query(call.arguments) == expected
+    for status in ("rejected", "error", "timeout", "empty", "duplicate"):
+        tracker = ResearchProgressTracker()
+        _batch(tracker, ToolCallDigest(call.name, call.arguments, status))
+        payload = tracker.model_view()
+        assert payload["last_batch"][0] == {
+            "tool": "web_fetch", "query": expected, "result": status,
+        }
+        json.dumps(payload)
+    assert call.to_dict() == before  # 不把冻结的合同改回可变结构。
+
+
+def test_json_projection_still_rejects_unsupported_objects() -> None:
+    # 不准用 default=str 把类型错误伪装成可用的查询键。
+    for value in (object(), {1, 2}):
+        with pytest.raises(TypeError, match="is not JSON serializable"):
+            normalize_query(MappingProxyType({"filters": MappingProxyType({"value": value})}))
 
 
 def test_digest_rejects_unknown_status() -> None:

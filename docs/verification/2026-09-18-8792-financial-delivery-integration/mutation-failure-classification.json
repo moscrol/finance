@@ -1,0 +1,416 @@
+{
+  "integration": [
+    {
+      "file": "delivery-keeps-earlier-verdict-ledger-red.xml",
+      "failure_types": {
+        "AssertionError": 1
+      }
+    },
+    {
+      "file": "financial-concrete-repair-note-red.xml",
+      "failure_types": {
+        "AssertionError": 2
+      }
+    },
+    {
+      "file": "financial-debt-retained-citations-red.xml",
+      "failure_types": {
+        "AssertionError": 2
+      }
+    },
+    {
+      "file": "financial-final-text-check-red.xml",
+      "failure_types": {
+        "AssertionError": 11
+      }
+    },
+    {
+      "file": "recovery-final-projection-check-red.xml",
+      "failure_types": {
+        "AssertionError": 3
+      }
+    },
+    {
+      "file": "recovery-retained-cards-red.xml",
+      "failure_types": {
+        "AssertionError": 2
+      }
+    }
+  ],
+  "delivery": [
+    {
+      "file": "cell-local-preservation-red.xml",
+      "failure_types": {
+        "AssertionError": 3
+      }
+    },
+    {
+      "file": "domain-error-status-red.xml",
+      "failure_types": {
+        "AssertionError": 1
+      }
+    },
+    {
+      "file": "harness-status-delivery-red.xml",
+      "failure_types": {
+        "AssertionError": 1
+      }
+    },
+    {
+      "file": "metric-column-not-table-purpose-red.xml",
+      "failure_types": {
+        "AssertionError": 3
+      }
+    },
+    {
+      "file": "missing-product-not-certified-red.xml",
+      "failure_types": {
+        "AssertionError": 3
+      }
+    },
+    {
+      "file": "nonmaterial-final-projection-red.xml",
+      "failure_types": {
+        "AssertionError": 1
+      }
+    },
+    {
+      "file": "period-not-bag-of-numbers-red.xml",
+      "failure_types": {
+        "AssertionError": 3
+      }
+    },
+    {
+      "file": "public-calculation-check-red.xml",
+      "failure_types": {
+        "AssertionError": 4
+      }
+    },
+    {
+      "file": "public-disclosure-check-red.xml",
+      "failure_types": {
+        "AssertionError": 10
+      }
+    },
+    {
+      "file": "result-success-admission-red.xml",
+      "failure_types": {
+        "AssertionError": 2
+      }
+    },
+    {
+      "file": "retained-bound-citations-red.xml",
+      "failure_types": {
+        "AssertionError": 13
+      }
+    },
+    {
+      "file": "same-turn-repair-note-red.xml",
+      "failure_types": {
+        "AssertionError": 12
+      }
+    },
+    {
+      "file": "strict-table-width-red.xml",
+      "failure_types": {
+        "AssertionError": 1
+      }
+    }
+  ],
+  "financial": [
+    {
+      "file": "arithmetic_comparison_disabled-red.xml",
+      "failure_types": {
+        "AssertionError": 11
+      }
+    },
+    {
+      "file": "conflicting_inputs_cherry_picked-red.xml",
+      "failure_types": {
+        "AssertionError": 1
+      }
+    },
+    {
+      "file": "cumulative_length_disabled-red.xml",
+      "failure_types": {
+        "AssertionError": 8
+      }
+    },
+    {
+      "file": "deleted_claims_pretend_complete-red.xml",
+      "failure_types": {
+        "AssertionError": 21
+      }
+    },
+    {
+      "file": "document_delivery_unwired-red.xml",
+      "failure_types": {
+        "AssertionError": 1
+      }
+    },
+    {
+      "file": "financial_semantic_wiring_removed-red.xml",
+      "failure_types": {
+        "AssertionError": 20
+      }
+    },
+    {
+      "file": "foreign_document_accepted-red.xml",
+      "failure_types": {
+        "AssertionError": 2
+      }
+    },
+    {
+      "file": "inventory_duration_disabled-red.xml",
+      "failure_types": {
+        "AssertionError": 2
+      }
+    },
+    {
+      "file": "new_watch_swallowed_by_previous-red.xml",
+      "failure_types": {
+        "AssertionError": 1
+      }
+    },
+    {
+      "file": "product_crosscheck_unwired-red.xml",
+      "failure_types": {
+        "AssertionError": 1
+      }
+    },
+    {
+      "file": "question_threshold_shape_removed-red.xml",
+      "failure_types": {
+        "AssertionError": 6
+      }
+    },
+    {
+      "file": "single_quarter_anchor_removed-red.xml",
+      "failure_types": {
+        "AssertionError": 2
+      }
+    },
+    {
+      "file": "watch_disclaimer_not_removed-red.xml",
+      "failure_types": {
+        "AssertionError": 6
+      }
+    }
+  ],
+  "extraction": [
+    {
+      "file": "M1-red.xml",
+      "failure_types": {
+        "KeyError": 2,
+        "AssertionError": 1
+      }
+    },
+    {
+      "file": "M10-red.xml",
+      "failure_types": {
+        "AssertionError": 1
+      }
+    },
+    {
+      "file": "M11-red.xml",
+      "failure_types": {
+        "AssertionError": 2
+      }
+    },
+    {
+      "file": "M12-red.xml",
+      "failure_types": {
+        "AssertionError": 1
+      }
+    },
+    {
+      "file": "M13-red.xml",
+      "failure_types": {
+        "AssertionError": 1
+      }
+    },
+    {
+      "file": "M14-red.xml",
+      "failure_types": {
+        "UnicodeDecodeError": 3
+      }
+    },
+    {
+      "file": "M15-red.xml",
+      "failure_types": {
+        "AssertionError": 1
+      }
+    },
+    {
+      "file": "M16-red.xml",
+      "failure_types": {
+        "AssertionError": 1
+      }
+    },
+    {
+      "file": "M17-red.xml",
+      "failure_types": {
+        "AssertionError": 2,
+        "KeyError": 1
+      }
+    },
+    {
+      "file": "M18-red.xml",
+      "failure_types": {
+        "AssertionError": 2
+      }
+    },
+    {
+      "file": "M19-red.xml",
+      "failure_types": {
+        "AssertionError": 1
+      }
+    },
+    {
+      "file": "M2-red.xml",
+      "failure_types": {
+        "KeyError": 1,
+        "AssertionError": 4
+      }
+    },
+    {
+      "file": "M20-red.xml",
+      "failure_types": {
+        "AssertionError": 1
+      }
+    },
+    {
+      "file": "M21-red.xml",
+      "failure_types": {
+        "AssertionError": 1
+      }
+    },
+    {
+      "file": "M22-red.xml",
+      "failure_types": {
+        "AssertionError": 1
+      }
+    },
+    {
+      "file": "M23-red.xml",
+      "failure_types": {
+        "UnicodeDecodeError": 1
+      }
+    },
+    {
+      "file": "M24-red.xml",
+      "failure_types": {
+        "AssertionError": 2
+      }
+    },
+    {
+      "file": "M25-red.xml",
+      "failure_types": {
+        "AssertionError": 1
+      }
+    },
+    {
+      "file": "M26-red.xml",
+      "failure_types": {
+        "AssertionError": 2
+      }
+    },
+    {
+      "file": "M27-red.xml",
+      "failure_types": {
+        "AssertionError": 1
+      }
+    },
+    {
+      "file": "M28-red.xml",
+      "failure_types": {
+        "AssertionError": 2
+      }
+    },
+    {
+      "file": "M29-red.xml",
+      "failure_types": {
+        "AssertionError": 6
+      }
+    },
+    {
+      "file": "M3-red.xml",
+      "failure_types": {
+        "AssertionError": 1
+      }
+    },
+    {
+      "file": "M30-red.xml",
+      "failure_types": {
+        "KeyError": 3
+      }
+    },
+    {
+      "file": "M31-red.xml",
+      "failure_types": {
+        "KeyError": 2
+      }
+    },
+    {
+      "file": "M32-red.xml",
+      "failure_types": {
+        "AssertionError": 1
+      }
+    },
+    {
+      "file": "M33-red.xml",
+      "failure_types": {
+        "AssertionError": 1
+      }
+    },
+    {
+      "file": "M34-red.xml",
+      "failure_types": {
+        "KeyError": 5
+      }
+    },
+    {
+      "file": "M35-red.xml",
+      "failure_types": {
+        "KeyError": 2
+      }
+    },
+    {
+      "file": "M4-red.xml",
+      "failure_types": {
+        "AssertionError": 2
+      }
+    },
+    {
+      "file": "M5-red.xml",
+      "failure_types": {
+        "AssertionError": 1
+      }
+    },
+    {
+      "file": "M6-red.xml",
+      "failure_types": {
+        "AssertionError": 1,
+        "KeyError": 1
+      }
+    },
+    {
+      "file": "M7-red.xml",
+      "failure_types": {
+        "KeyError": 1
+      }
+    },
+    {
+      "file": "M8-red.xml",
+      "failure_types": {
+        "AssertionError": 1
+      }
+    },
+    {
+      "file": "M9-red.xml",
+      "failure_types": {
+        "AssertionError": 1
+      }
+    }
+  ]
+}

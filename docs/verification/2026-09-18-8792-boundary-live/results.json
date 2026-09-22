@@ -1,0 +1,191 @@
+{
+  "schema": "boundary-live-verification-index/v1",
+  "private_root": "/Users/a77/.finance-runtime/reviews/8792-boundary-live-20260918",
+  "code_revision": "3faf64fbadcfe45fdd0b306acd223d9e78c56525",
+  "overall_acceptance": "not_passed",
+  "promotion_eligible": false,
+  "new_engineering_receipt": false,
+  "indexed_private_files": 219,
+  "key_artifacts": {
+    "protocol.json": {
+      "bytes": 6915,
+      "sha256": "621083d498bdb44b9960b134719751968813fdb35f9d4f031db0e5e6aa2cbfa9"
+    },
+    "acceptance-summary.json": {
+      "bytes": 8357,
+      "sha256": "032f14a5e79705800459815a8222f20bffd5f29cb80f88a075ef18f98292283d"
+    },
+    "run-inspection.json": {
+      "bytes": 27485,
+      "sha256": "2cba700ae74bbef68e1449884634c2e0fdaf07cf4e7b164b767a238c4a987dd7"
+    },
+    "offline-controls-final.json": {
+      "bytes": 5360,
+      "sha256": "d3d86b9fb588b854233c1b5c55d6f683a6895b4bb4253484102751fb4823bb0d"
+    },
+    "offline-controls.json": {
+      "bytes": 5363,
+      "sha256": "f0fba629145e2c6632390c6d906c413595fcb4ae07b72801c7345f448534f22e"
+    },
+    "closure.json": {
+      "bytes": 1327,
+      "sha256": "0c3f2d124dad6a747b0f590b218a4f842ff2285c620e4e0e3627a4a308ea1c75"
+    },
+    "production-health-before.json": {
+      "bytes": 1998,
+      "sha256": "8c3bca5ecc23bbcf4dd1635e8082044e204512a702f7e76ef00ada89d982f5bf"
+    },
+    "production-health-after.json": {
+      "bytes": 1998,
+      "sha256": "c4e4db44b1b24474b433b4087600553debb2b5703f356c247f198bbfb0caa647"
+    },
+    "evidence-index.json": {
+      "bytes": 38431,
+      "sha256": "17fbaabc1dacef61f29bbfea0f08cfa0fd600384ccf4d63b5a64ada3ccad9c06"
+    },
+    "preserved-secret-scan-final.json": {
+      "bytes": 13404,
+      "sha256": "229d2fdd8cea1879ce3af6675f11a50846d62c7c698f1f1166ffb862789f3b0e"
+    },
+    "finalize-final.log": {
+      "bytes": 180,
+      "sha256": "61376d58f4180dd4e4c280ce6bda1e0bb95687f0c1e6eb16b14ea556fc11cd95"
+    },
+    "finalize-final.exit": {
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    }
+  },
+  "runs": [
+    {
+      "case": "f1-opt-out",
+      "user": "boundary-live-f1-20260918",
+      "question_sha256": "c540ebd9218fd99b0edcb765f20798b3664cbd0421fdababf7c648275d6939de",
+      "run_id": "run_20260918_085354_182061",
+      "conversation_id": "conv_18f39efc85634f4a8310f9a802664e74",
+      "assistant_message_id": "msg_4b6130e40cc54e4abef05c6815c290df",
+      "run_status": "completed",
+      "report_status": "completed",
+      "probe_exit": 0,
+      "probe_elapsed_seconds": 145.458,
+      "server_recorded_duration_seconds": 142.0,
+      "elapsed_interpretation": "probe includes HTTP polling and, for f3, coordinator suspension; server timestamps are separate persisted observations",
+      "checkpoint_count": 0,
+      "judgment_count": 0,
+      "answer_sha256": "f3af58e8e23092312289ae49073d3b9e95218ca2f86b7e0172c66b7e9378e25b",
+      "recorded_usage": {
+        "input_tokens": 303716,
+        "output_tokens": 3755,
+        "llm_calls": 10,
+        "tool_calls": 8,
+        "by_model": {
+          "glm-5.3-flash": {
+            "input_tokens": 303716,
+            "output_tokens": 3755
+          }
+        }
+      },
+      "judge_usage": {
+        "calls": 1,
+        "input_tokens": null,
+        "output_tokens": null,
+        "usage_source": null
+      }
+    },
+    {
+      "case": "f3-formatted-financial",
+      "user": "boundary-live-f3-20260918",
+      "question_sha256": "3ac06f5bd820b238fefd2146d102b518cce9d4a5c08d0abac8fb092466c015dd",
+      "run_id": "run_20260918_085619_685299",
+      "conversation_id": "conv_98c81992521f4ca0bfa83d20e56e3b6f",
+      "assistant_message_id": "msg_9d5060e675ac45b3a4eb0e498cb49e42",
+      "run_status": "failed",
+      "report_status": "blocked",
+      "probe_exit": 2,
+      "probe_elapsed_seconds": 154.602,
+      "server_recorded_duration_seconds": 71.0,
+      "elapsed_interpretation": "probe includes HTTP polling and, for f3, coordinator suspension; server timestamps are separate persisted observations",
+      "checkpoint_count": 0,
+      "judgment_count": 0,
+      "answer_sha256": "5d32946a691b4f7139174e7ca85d5761f2319b98c4f6ad5fb18d908b1db6fa3b",
+      "recorded_usage": null,
+      "judge_usage": {
+        "calls": 0,
+        "input_tokens": null,
+        "output_tokens": null,
+        "usage_source": null
+      }
+    },
+    {
+      "case": "f2-dated-citation-plan",
+      "user": "boundary-live-f2-20260918",
+      "question_sha256": "f3c993b25eb9fd70f5ea5cf60bf840fe5c2bbaa953f915f10398f8e8e397f5fc",
+      "run_id": "run_20260918_085854_333533",
+      "conversation_id": "conv_412bff555f73400c97ef5dac6466ff13",
+      "assistant_message_id": "msg_2b0b9b0a5aa347b1af2cc43e2aafdf61",
+      "run_status": "completed",
+      "report_status": "partial",
+      "probe_exit": 0,
+      "probe_elapsed_seconds": 175.484,
+      "server_recorded_duration_seconds": 174.0,
+      "elapsed_interpretation": "probe includes HTTP polling and, for f3, coordinator suspension; server timestamps are separate persisted observations",
+      "checkpoint_count": 0,
+      "judgment_count": 0,
+      "answer_sha256": "a61fb76cc1ca3d313f1208a3f301f015b3b8258f73da6d735c88d95263f18cba",
+      "recorded_usage": {
+        "input_tokens": 266951,
+        "output_tokens": 3725,
+        "llm_calls": 8,
+        "tool_calls": 8,
+        "by_model": {
+          "glm-5.3-flash": {
+            "input_tokens": 266951,
+            "output_tokens": 3725
+          }
+        }
+      },
+      "judge_usage": {
+        "calls": 2,
+        "input_tokens": null,
+        "output_tokens": null,
+        "usage_source": null
+      }
+    },
+    {
+      "case": "positive-persistence",
+      "user": "boundary-live-positive-20260918",
+      "question_sha256": "529f88445a70d7f793b774d1f69a37d74e5d1adf5a4ce97cabee25cf6ae85f76",
+      "run_id": "run_20260918_090149_835284",
+      "conversation_id": "conv_5dbfcbb97c3f4904a3ff1f66db030692",
+      "assistant_message_id": "msg_f41817c855894781b2e85eb542b7fcd8",
+      "run_status": "completed",
+      "report_status": "partial",
+      "probe_exit": 0,
+      "probe_elapsed_seconds": 205.637,
+      "server_recorded_duration_seconds": 203.0,
+      "elapsed_interpretation": "probe includes HTTP polling and, for f3, coordinator suspension; server timestamps are separate persisted observations",
+      "checkpoint_count": 1,
+      "judgment_count": 0,
+      "answer_sha256": "1d2bdfc8b9170f8c22ecc92efc0fac0ec7f6b44039cc0d6ef9fcc44aac753d6c",
+      "recorded_usage": {
+        "input_tokens": 387542,
+        "output_tokens": 4119,
+        "llm_calls": 12,
+        "tool_calls": 13,
+        "by_model": {
+          "glm-5.3-flash": {
+            "input_tokens": 387542,
+            "output_tokens": 4119
+          }
+        }
+      },
+      "judge_usage": {
+        "calls": 2,
+        "input_tokens": null,
+        "output_tokens": null,
+        "usage_source": null
+      }
+    }
+  ],
+  "scope": "real Workbench session HTTP, four initial submissions, no resubmission; offline controls separately labelled; no browser-click or blind evaluation"
+}

@@ -1,0 +1,312 @@
+{
+  "schema": "boundary-offline-repair/v1",
+  "at": "2026-09-18T07:06:19.259091+00:00",
+  "tested_revision": "97ca716ba10e1efc5c4558fb6147ad17b5fa88cd",
+  "dirty_during_full_suite": false,
+  "base_revision": "0a1cb8c44aaf2d19ae5f5809bf27119b709b8442",
+  "base_drift": 0,
+  "engineering": "passed",
+  "live_acceptance": "not_retested",
+  "promotion_eligible": false,
+  "new_live_submissions": 0,
+  "prior_r3": {
+    "revision": "c481272e0d0198a44e028497a66c21d6d1d82973",
+    "verdict": "not_passed",
+    "whole_task_passed": 0,
+    "whole_task_denominator": 4,
+    "resubmissions": 0
+  },
+  "python_receipt": {
+    "path": "/Users/a77/.finance-runtime/test-receipts/20260918T065951Z-97ca716b.json",
+    "bytes": 667,
+    "sha256": "8602c09e537d23269ca02d83a73343e64f6f139bce7359f05ad4bd0e3a8fbe9d",
+    "counts": {
+      "passed": 11852,
+      "failed": 0,
+      "error": 0,
+      "skipped": 81
+    },
+    "xfailed": 2,
+    "warnings": 17,
+    "seconds": 521.38
+  },
+  "new_regressions": 175,
+  "targeted_tests": 718,
+  "frontend": {
+    "tests_passed": 107,
+    "lint": "passed",
+    "typecheck": "passed",
+    "build": "passed"
+  },
+  "e2e": {
+    "passed": 34,
+    "skipped": 2,
+    "failed": 0,
+    "fixture_backed": true,
+    "initial_failed": 1,
+    "initial_passed": 33,
+    "initial_skipped": 2,
+    "failure_reason": "RE06_E2E_URL omitted: test dialed 8794 while isolated server listened on 8795",
+    "product_code_changed_for_retry": false
+  },
+  "leaves": {
+    "pytest-97ca716b": {
+      "exit_status": 0,
+      "log": "pytest-97ca716b.log",
+      "bytes": 17385,
+      "sha256": "51268da580131cea1b7461c4776eec76dd9777920dfb75fac22dd9a839af5c1b"
+    },
+    "frontend-97ca716b": {
+      "exit_status": 0,
+      "log": "frontend-97ca716b.log",
+      "bytes": 1907,
+      "sha256": "2a5b77c67009835e55028d30e57e6b3a5e0c986b3f448655a7f1a5b13f9eaaa1"
+    },
+    "e2e-97ca716b-corrected": {
+      "exit_status": 0,
+      "log": "e2e-97ca716b-corrected.log",
+      "bytes": 12742,
+      "sha256": "aae1448ef36397538cb0ccba77f565108839422026db9300d07214a5d094c3ac"
+    },
+    "registry-97ca716b": {
+      "exit_status": 0,
+      "log": "registry-97ca716b.log",
+      "bytes": 2355,
+      "sha256": "8c4279addbd20ea1048550fcd82bc54a0ecc70fb9df3b93709f5e4be031fdc34"
+    },
+    "ruff-97ca716b": {
+      "exit_status": 0,
+      "log": "ruff-97ca716b.log",
+      "bytes": 19,
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    "receipt-check-97ca716b": {
+      "exit_status": 0,
+      "log": "receipt-check-97ca716b.log",
+      "bytes": 752,
+      "sha256": "ae988a1e5e919d040514558911862cc11bdd35117c8837445b2678766ee4aea4"
+    },
+    "mutations-97ca716b": {
+      "exit_status": 0,
+      "log": "mutations-97ca716b.log",
+      "bytes": 1106,
+      "sha256": "90ee6f10dfea4e4e3e4c2e4024c15dba9419d9255c50e7011e808084b580fedf"
+    },
+    "archived-97ca716b": {
+      "exit_status": 0,
+      "log": "archived-97ca716b.log",
+      "bytes": 142,
+      "sha256": "4a0768a81cef4ef425ca167b8704dc2ebba686eafc31b70331e45200c8053d58"
+    },
+    "qc-97ca716b": {
+      "exit_status": 0,
+      "log": "qc-97ca716b.log",
+      "bytes": 3403,
+      "sha256": "b8f25c70a36eb265c4cda39758bde58c100a84fbaeedabcdab66157d0e8ef252"
+    },
+    "original-replay-97ca716b": {
+      "exit_status": 0,
+      "log": "original-replay-97ca716b.log",
+      "bytes": 1149,
+      "sha256": "c3a6b7b35b79b9675fe072fa427f0983ed0644c705bf8f662cd43a6e24c49bfc"
+    }
+  },
+  "mutation_counts": {
+    "requested_source_resolution_removed": {
+      "tests": 7,
+      "failures": 7,
+      "errors": 0
+    },
+    "numeric_comparators_removed": {
+      "tests": 48,
+      "failures": 18,
+      "errors": 0
+    },
+    "condition_context_removed": {
+      "tests": 48,
+      "failures": 6,
+      "errors": 0
+    },
+    "receipt_filter_removed": {
+      "tests": 12,
+      "failures": 8,
+      "errors": 0
+    },
+    "review_date_role_removed": {
+      "tests": 9,
+      "failures": 9,
+      "errors": 0
+    },
+    "review_date_conflict_removed": {
+      "tests": 3,
+      "failures": 3,
+      "errors": 0
+    },
+    "arrow_condition_removed": {
+      "tests": 1,
+      "failures": 1,
+      "errors": 0
+    },
+    "list_end_removed": {
+      "tests": 3,
+      "failures": 3,
+      "errors": 0
+    },
+    "mapping_projection_removed": {
+      "tests": 3,
+      "failures": 3,
+      "errors": 0
+    },
+    "section_boundary_removed": {
+      "tests": 13,
+      "failures": 12,
+      "errors": 0
+    },
+    "date_counts_as_trigger": {
+      "tests": 7,
+      "failures": 7,
+      "errors": 0
+    },
+    "post_semantic_completeness_removed": {
+      "tests": 2,
+      "failures": 2,
+      "errors": 0
+    },
+    "verified_recovery_removed": {
+      "tests": 4,
+      "failures": 4,
+      "errors": 0
+    },
+    "all_checkpoint_writes_disabled": {
+      "tests": 2,
+      "failures": 2,
+      "errors": 0
+    },
+    "numeric_gate_removed": {
+      "tests": 2,
+      "failures": 2,
+      "errors": 0
+    },
+    "opt_out_removed": {
+      "tests": 2,
+      "failures": 2,
+      "errors": 0
+    }
+  },
+  "archived_diagnostic": {
+    "scope": "pure production functions on archived input, not full Episode replay",
+    "network_connect_attempts": 0,
+    "sources_unchanged": true,
+    "runs": [
+      {
+        "case": "f1-opt-out",
+        "references_material": false,
+        "watch_missing": [],
+        "due_dates": [
+          "2026-10-22"
+        ],
+        "numeric_rejected_indexes": []
+      },
+      {
+        "case": "f3-formatted-financial",
+        "references_material": false,
+        "watch_missing": [],
+        "due_dates": [
+          "2026-10-18",
+          "2026-10-18"
+        ],
+        "numeric_rejected_indexes": [
+          13,
+          21,
+          23
+        ]
+      },
+      {
+        "case": "f2-dated-citation-plan",
+        "references_material": false,
+        "watch_missing": [
+          "quad_or_baseline",
+          "ttl",
+          "next_watch"
+        ],
+        "due_dates": [],
+        "numeric_rejected_indexes": []
+      },
+      {
+        "case": "positive-persistence",
+        "references_material": false,
+        "watch_missing": [],
+        "due_dates": [
+          "2026-10-22"
+        ],
+        "numeric_rejected_indexes": []
+      }
+    ]
+  },
+  "old_seals_verified": {
+    "8792-boundary-live-20260918": {
+      "files_verified": 219,
+      "index": {
+        "bytes": 38431,
+        "sha256": "17fbaabc1dacef61f29bbfea0f08cfa0fd600384ccf4d63b5a64ada3ccad9c06"
+      }
+    },
+    "8792-boundary-repairs-20260918": {
+      "files_verified": 131,
+      "index": {
+        "bytes": 22180,
+        "sha256": "f77a51210f489c9e50539e7ffc229c4d2f4227b411ed6572be204c05dce72f16"
+      }
+    },
+    "8792-boundary-retest-20260918": {
+      "files_verified": 334,
+      "index": {
+        "bytes": 58298,
+        "sha256": "3115e11d5ba22bb53a34747c6522e97fc2a231a086b6a70c20c8fab6d0d22a06"
+      }
+    }
+  },
+  "production_reported_identity": {
+    "source_revision": "bf662e9310ff751a4c31763815ee78fb7d6d5122",
+    "source_dirty": false,
+    "code_matches_repo": true,
+    "loaded_tree_fingerprint": "e5a2f94c4638392ace619606e1aa279ab81e3692e4e6d0a420a5f24fcfeb59e8",
+    "users_dir": "/Users/a77/.local/share/finance-workbench/users",
+    "agent_runtime": {
+      "backend": "continuous_glm",
+      "ready": true,
+      "reason": "ready",
+      "model": "glm-5.3-flash",
+      "credential_available": true,
+      "benchmark_only": false
+    }
+  },
+  "production_limit": "health startup identity only, not new full filesystem isolation audit",
+  "temporary_ports_closed": {
+    "8793": true,
+    "8795": true,
+    "8828": true
+  },
+  "unchanged_contracts": [
+    "opt-out persistence",
+    "frozen arguments and illegal URL rejection",
+    "V8 semantic-only objections remain issues",
+    "model_reasoning threshold authorization",
+    "same-episode zero-tool expression repair",
+    "verified-only fallback and unified public projection"
+  ],
+  "unresolved": [
+    "latest-two-report selection skips available Q1",
+    "information cutoff propagation and per-source timing audit",
+    "qualitative conditions depend on missing financial baselines",
+    "F1 overall TTL conflict and non-list footer absorption",
+    "calculation domain failures inside ok envelopes",
+    "calculation identifier versus judge contract conflict",
+    "new candidate has no live financial quality acceptance",
+    "old suspected credential revocation/rotation and Git-history governance not done"
+  ],
+  "writer_and_judge_cost": null,
+  "pushed": false,
+  "merged": false,
+  "deployed": false
+}

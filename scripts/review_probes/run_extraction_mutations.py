@@ -8,6 +8,10 @@
 用法（在仓根，用 test-environment.json 指定的 Python）：
     python scripts/review_probes/run_extraction_mutations.py --output <新证据目录>
     python scripts/review_probes/run_extraction_mutations.py --revision <sha> --output <目录>
+    python scripts/review_probes/run_extraction_mutations.py --suite financial-r6 --output <新目录>
+    python scripts/review_probes/run_extraction_mutations.py --suite research-delivery --output <新目录>
+    python scripts/review_probes/run_extraction_mutations.py --suite publication --output <新目录>
+    python scripts/review_probes/run_extraction_mutations.py --suite rag-transport --output <新目录>
 
 默认仍跑工单 #53；其他合同复用 --definitions <仓内 JSON> --tests <测试路径...>，
 不复制 runner。只测试已提交 revision；未提交源码或定义不会被悄悄混进证据。证据目录必须新建。
@@ -32,6 +36,32 @@ TESTS = [
     "intelligence/tests/test_extraction_closeout.py",
 ]
 DEFINITIONS = "scripts/review_probes/extraction_mutations.json"
+SUITES = {
+    "extraction": (TESTS, DEFINITIONS),
+    "financial-r6": ([
+        "intelligence/tests/test_financial_r6_regressions.py",
+    ], "scripts/review_probes/financial_r6_mutations.json"),
+    "financial-delivery": ([
+        "intelligence/tests/test_financial_delivery_integration.py",
+    ], "scripts/review_probes/financial_delivery_mutations.json"),
+    "publication": ([
+        "intelligence/tests/test_workbench_api.py",
+        "intelligence/tests/test_workbench_conversation_integration.py",
+        "intelligence/tests/test_financial_publication_integration.py",
+        "tests/test_workbench_probe.py",
+    ], "scripts/review_probes/publication_mutations.json"),
+    "rag-transport": ([
+        "intelligence/tests/test_rag_worker_transport.py",
+        "intelligence/tests/test_rag_worker.py",
+        "intelligence/tests/test_rag_worker_keepalive.py",
+    ], "scripts/review_probes/rag_transport_mutations.json"),
+    "research-delivery": ([
+        "intelligence/tests/test_calculation_result_delivery.py",
+        "intelligence/tests/test_research_delivery_checks.py",
+        "intelligence/tests/test_research_delivery_repair.py",
+        "intelligence/tests/test_frozen_research_delivery.py",
+    ], "scripts/review_probes/research_delivery_mutations.json"),
+}
 
 
 def git(root: Path, *args: str) -> str:
@@ -58,6 +88,8 @@ def run_tests(
         "PYTHONDONTWRITEBYTECODE": "1",
         "FWP_TEST_RECEIPT": "0",
         "FORESIGHT_USERS_DIR": str(out / "isolated-users"),
+        "FORESIGHT_LLM_KEYCHAIN": "0",
+        **{k: os.environ[k] for k in ("LANG", "TMPDIR", "KNOWLEDGE_WIKI") if k in os.environ},
     }
     proc = subprocess.run(cmd, cwd=root, env=env, text=True, capture_output=True, timeout=180)
     (out / f"{label}.log").write_text(
@@ -88,14 +120,24 @@ def check_result(result: dict, *, red: bool = False) -> None:
     assert (result["failures"] > 0) if red else (result["failures"] == 0), result
 
 
-def main() -> int:
+def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--revision", default="HEAD")
+    parser.add_argument("--suite", choices=tuple(SUITES), default="extraction")
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--definitions", default=DEFINITIONS, help="仓内已提交的变异定义 JSON")
-    parser.add_argument("--tests", nargs="+", default=TESTS, help="仓内已提交的测试路径")
-    args = parser.parse_args()
-    tests = args.tests
+    parser.add_argument("--definitions", help="仓内已提交的变异定义 JSON；优先于 --suite")
+    parser.add_argument("--tests", nargs="+", help="仓内已提交的测试路径；优先于 --suite")
+    args = parser.parse_args(argv)
+    suite_tests, suite_definitions = SUITES[args.suite]
+    args.tests = args.tests if args.tests is not None else suite_tests
+    args.definitions = args.definitions if args.definitions is not None else suite_definitions
+    return args
+
+
+def main() -> int:
+    args = _parse_args()
+    tests, definitions = args.tests, args.definitions
+    os.umask(0o022)
     repo = Path(git(Path.cwd(), "rev-parse", "--show-toplevel"))
     revision = git(repo, "rev-parse", f"{args.revision}^{{commit}}")
     out = args.output.expanduser().resolve()
@@ -103,12 +145,12 @@ def main() -> int:
     parent = Path(tempfile.mkdtemp(prefix="contract-mutations-")).resolve()
     root = parent / "tree"
     subprocess.run(["git", "-C", str(repo), "worktree", "add", "--detach", str(root), revision], check=True)
-    report = {"revision": revision, "tree": str(root), "python": sys.executable,
-              "tests": tests, "definitions": args.definitions,
+    report = {"revision": revision, "suite": args.suite, "tree": str(root), "python": sys.executable,
+              "tests": tests, "definitions": definitions,
               "complete": False, "runs": [], "mutations": []}
     try:
         assert git(root, "status", "--porcelain") == ""
-        definitions_path = (root / args.definitions).resolve()
+        definitions_path = (root / definitions).resolve()
         assert definitions_path.is_relative_to(root), "definitions must belong to the frozen tree"
         for test_path in tests:
             assert (root / test_path).resolve().is_relative_to(root), test_path
