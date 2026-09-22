@@ -132,6 +132,10 @@ _FUND_FLOW_DISCLAIMER = re.compile(
 # 不成立」、「『存量资金腾挪放大换手』——撤回」。堆词表追不完这些写法，
 # 用结构判据：句中所有资金短语都落在引号内，就是提及而非断言。
 _QUOTED_SPAN = re.compile(r"[「『“\"][^」』”\"]*[」』”\"]")
+# 「大单净流入**扫描榜单**」「板块级资金净流入**字段**」是榜单/字段的**名字**，
+# 不是方向断言。与本模块早先处理「单位成本」是指标名同一类问题；
+# 2026-09-22 的日期类管辖差分测试把它当场抓住。
+_DATASET_NOUN = re.compile(r"^(?:榜单|扫描|排行|排名|名单|明细|数据|字段|指标|口径|表)")
 # 设问句不是断言：「成交增加能否证明新增资金入场？」是小标题，不是结论。
 _INTERROGATIVE = re.compile(r"[？?]\s*$|(?:能否|是否|可否|吗)[^。！\n]{0,20}[？?]")
 
@@ -234,6 +238,9 @@ def _quote(sentence: str) -> str:
     return collapsed[:_QUOTE_LIMIT] + "…"
 
 
+# 管辖边界：本规则只管**无真值可比**时的越界断言。若块层带着真实扫描日、
+# 答案把旧数据写成「当日」，那是 `output_review._check_stale_mislabel` 的事实核对，
+# 不归这里。差分测试见 intelligence/tests/test_date_claim_jurisdiction.py。
 def _latest_trading_day_issue(
     sentence: str, context: ClaimEvidenceContext
 ) -> ClaimIssue | None:
@@ -293,7 +300,13 @@ def _fund_flow_issue(sentence: str, context: ClaimEvidenceContext) -> ClaimIssue
         return None
     if _FUND_FLOW_DISCLAIMER.search(sentence) or _INTERROGATIVE.search(sentence):
         return None
-    claims = list(_FUND_FLOW_CLAIM.finditer(sentence))
+    claims = [
+        match
+        for match in _FUND_FLOW_CLAIM.finditer(sentence)
+        if not _DATASET_NOUN.match(sentence[match.end() :])
+    ]
+    if not claims:
+        return None
     quoted = [m.span() for m in _QUOTED_SPAN.finditer(sentence)]
     if claims and all(
         any(start <= claim.start() and claim.end() <= end for start, end in quoted)
