@@ -13,20 +13,27 @@
 4d541a90实现、cdcbc5a8收窄统计范围均已提交；**cdcbc精确干净完整工程全绿**。离线返修已收尾，旧三个实际样本仍not_passed。
 R=`~/.finance-runtime/reviews/research-draft-claim-repair-20260919/`，748文件封存；根层含4d中止轮，final/才是cdcbc最终轮。8792仍bf662e9310ff、启动器不变；8849/8851/8852无监听、无锁。未push/合main/部署。
 
-**0922有界live验收：环境阻塞未发题，授权名额未消耗（首发0/重发0/续问0，provider调用0）。**
-L=`~/.finance-runtime/reviews/research-preservation-natural-live-20260922/`。候选cdcbc5a8干净、收据校验绿、离线回放repaired复现（retained1/8发现/7类）、旧748文件零变动。数据按09-18口径新冻结（主库clone 3.70GB、快照合约PASS、746文件只读manifest），**旧库副本已被清理故非严格新旧对照**，题面显式写截至2026-09-18。
-阻塞在产品自身fail-closed：`/api/readiness` 503，`missing_critical=['rag_worker']`。真因非内存非代码：**BAAI/bge-m3权重整机不存在**（`~/.cache/huggingface`、`~/Library/Caches/huggingface`均无，全盘无`models--BAAI`，清理归档清单亦无记录），而`HF_HUB_OFFLINE=1`禁下载 → 任何新进程预热必失败（12.7s即挂，非145s加载）。未绕闸、未降级hash编码器（512维与1024维索引不兼容且属伪质量）。
-生产8792只读观测未动：其worker在权重消失前已加载故仍ready；**但8792一旦重启会撞同一失败**。另其readiness本就not_ready于`market_data_consistency`（库09-18 vs 快照meta 09-22），属既有夜跑数据链问题，未处理。
-收尾：实例已停、自有锁释放、8849空闲；生产身份七字段逐项相同，冻结数据manifest复核不变，测试用户未落入共享用户根。
+**0922有界live验收已执行：首发1/重发0/续问0，四项分账——三项未触发，金融质量不通过。**
+L=`~/.finance-runtime/reviews/research-preservation-natural-live-20260922/`，`audit.json`为结论件。数据按09-18口径新冻结（主库clone、快照合约PASS、746文件只读manifest），**旧库副本已被清理故非严格新旧对照**，题面显式写截至2026-09-18。run_20260922_191550_067475，102秒/6工具/77证据。
+**前置阻塞与修复**：首轮readiness 503于`rag_worker`——**BAAI/bge-m3权重整机不存在**且`HF_HUB_OFFLINE=1`禁下载，任何新进程预热必败。用户授权后固定sha 5617a9f6拉回12文件/2189MB（排除未用的onnx 2.16GB）。两个坑：按sha下载**不会写`refs/main`**，离线解析main失败；补齐ref后又因hub要求**整仓完整快照**而报incomplete。最终用`RAG_BGE_MODEL`指本地快照目录绕开仓库解析（同一sha同一权重），已记`protocol-amendment.json`。
+**生产遗留风险**：8792 worker在权重消失前已加载故仍ready，**但重启会撞incomplete snapshot**；要么补齐onnx（磁盘不够）要么给启动器加`RAG_BGE_MODEL`（生产配置变更，未做）。另其readiness本就not_ready于`market_data_consistency`（库09-18 vs 快照meta 09-22）。磁盘已到100%、仅2.6–4GB可用。
+收尾：实例已停、自有锁释放、8849空闲；生产身份七字段逐项相同，冻结数据manifest复核不变，测试用户未落入共享用户根，旧748文件零变动。
 
 ## 未验证 / 已知边界
-- 仅证明保稿/七类有限发现/修订反馈通路；未证明真实模型自然改对，无独立金融QC。
+- **0922样本四项分账**：保稿=未触发（模型首次finish即被接收，无not_json_object拒收，retained0）；诊断=未触发且有一条漏报（findings 0，而人工核对发现`endpoint_not_path`类问题）；自然纠错=未触发（repair_attempts/cycles均0，无批注就无从纠错）。**未触发不计通过。**
+- **金融质量不通过**（作者自查，非独立QC）：①交付是空指针——154字以「见正文」开头而**正文不存在**（report modules=0），必需输出`direct_assessment`/`evidence_boundary`缺失但仅observation_only、judge照样passed；②「两段先回调」与D10原数据不符（该两段后续5日均为正+0.30%/+1.08%，10/20日才转负，应为先走强后回落）；③选择口径未交代（09-18满足双红的85个板块中，成交额前列是芯片9277亿/电子6499/数据中心5740，答案只报半导体与AI算力且未说排序依据）；④模型自造实体`899050.BK`（北证50），冻结库无此码、特征全missing，仅入gaps未入公开答案。
+- 已核实为真：反弹第1天（stage_day=1）、推荐板块确满足双红规则、半导体系居涨幅前列、D10确有三段真实计算窗口、D11个股类比如实标缺口。
+- KB索引处stale（源文件已变），召回质量降级，属机器既有状态未动。
+- 仅证明保稿/七类有限发现/修订反馈通路（离线）；未证明真实模型自然改对，无独立金融QC。
 - 未知投影、明确校准声明的真实性仍靠语义核验；子集/前瞻窗口不强套全表均值下限。
 - 历史find_analogues参考窗口纠参未修；候选/发布跨进程恢复、旧用量/durable不一致未修。
 - 上轮209 live是published/partial但质量未过；该轮retained0事实不变，本轮retained1仅离线。
 
 ## 下一步
-先恢复检索模型再谈验收：需用户授权联网重新拉取`BAAI/bge-m3`（约2.3GB写入共享HF缓存，当前磁盘余16GB）——它同时解除8792「重启即坏」的隐患。恢复后可直接复用L的control.py（prepare已完成且幂等拒重跑，续跑launch/run/close即可），仍按首发1/重发0/续问0、600秒40步、四项分账判定。
+本线仍保blocked：三项机制未触发、质量不通过，不得以本样本为由宣布收口。优先级建议：
+1. **空指针交付是新缺陷**（与保稿线同源但独立）：「见正文」而无正文、必需输出缺失仍能passed，建议单独立单；考虑把`answer_marker_coverage`由observation_only升为阻断条件。
+2. 若要再取自然纠错样本，需**能稳定触发拒收的题型或注入点**；本次正常路径不进修复机制，再抽盲样本价值低。新样本仍须新授权与新证据根。
+3. 机器层：磁盘100%、HF快照不完整、KB索引stale三件都会影响下一次验收，建议先清。
 不重发旧样本；合流/上线另确认，当前收据不覆盖后续revision。共享harness的BUILD.md他人在途，KIT/TOOLKIT登记暂缓，勿覆盖。
 
 ## 已验证
