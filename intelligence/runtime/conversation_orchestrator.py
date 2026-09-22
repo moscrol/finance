@@ -85,6 +85,7 @@ from intelligence.services.watchlist_digest_pack import (
 )
 from intelligence.services.answer_stream import AnswerSnapshot
 from intelligence.services.provider_observability import ProviderTrace
+from intelligence.services.historical_research.intent import HistoryIntent, inherit_history_followup
 from intelligence.services.answer_orchestrator import (
     QUESTION_CONCEPT_DEFINITION,
     QUESTION_GENERAL,
@@ -1945,16 +1946,18 @@ class TurnOrchestrator:
             # Recover state only from complete persisted user messages in the
             # same bounded window; summary/assistant prose is never authority.
             parts = split_user_message(str(query or "").strip())
+            history_continuation = inherit_history_followup(
+                query, inherited_intent.history_intent if inherited_intent is not None else None,
+            ) is not None
             material_contract = compile_material_contract(parts.regions) if parts.regions else None
             material_history = None
-            if material_contract and material_contract.continuation_requested:
+            if history_continuation or (material_contract and material_contract.continuation_requested):
                 material_history = collect_material_turn_history(
                     context.material_messages or (),
                     unavailable=context.material_history_unavailable,
                 )
-                material_contract = compile_material_contract(
-                    parts.regions, source_turn=material_history.source_turn,
-                    inherited_contract=material_history.base_contract,
+                material_contract = material_history.compile_contract(
+                    parts.regions, history_continuation=history_continuation,
                 )
             elif material_contract and material_contract.data_scope == "material_only":
                 material_history = (
@@ -1973,13 +1976,14 @@ class TurnOrchestrator:
             # injected controllers keep their pre-existing keyword contract.
             if not material_contract or (
                 material_contract.data_scope != "material_only"
+                and not history_continuation
                 and not self._uses_default_turn_controller
             ):
                 material_history = None
             restricted_history = bool(
                 material_contract
                 and material_history is not None
-                and (material_contract.data_scope == "material_only" or material_contract.needs_clarification)
+                and (history_continuation or material_contract.data_scope == "material_only" or material_contract.needs_clarification)
             )
             # Keep the established controller context contract byte-compatible.
             # The typed projection is an additional authority input; the model
@@ -2030,6 +2034,7 @@ class TurnOrchestrator:
                     query,
                     legacy_envelope,
                     conversation_materials=material_history,
+                    history_continuation=history_continuation,
                     inherited_subject=(
                         inherited_intent.primary_subject
                         if inherited_intent is not None
@@ -2047,7 +2052,10 @@ class TurnOrchestrator:
             if restricted_history and not self._uses_default_turn_controller:
                 # Injected controllers may supply stale/full frames. Recompile
                 # the source-aware contract, not just replace its permission bit.
-                decision = decide_turn(query, conversation_materials=material_history)
+                decision = decide_turn(
+                    query, conversation_materials=material_history,
+                    previous_intent=inherited_intent, previous_turn_id=inherited_turn_id,
+                )
                 task_frame = decision.task_frame
                 assert task_frame is not None
                 raw_envelope = envelope_from_task_frame(task_frame)
@@ -3390,6 +3398,7 @@ class TurnOrchestrator:
                 as_of=getattr(result, "trade_date", None),
                 theme=getattr(result, "matched_theme", None),
                 session_id=run_id,
+                history_intent=task_frame.history_intent,
             )
             has_answer_snapshot = result.answer_spec is not None and decision.lane in {
                 "research",
@@ -4691,6 +4700,7 @@ class TurnOrchestrator:
             as_of=result.as_of,
             theme=task_frame.subject,
             session_id=run_id,
+            history_intent=task_frame.history_intent,
         )
         return TurnResult(
             status=projected.run,
@@ -5481,8 +5491,11 @@ class TurnOrchestrator:
         as_of: str | None,
         theme: str | None,
         session_id: str,
+        history_intent: HistoryIntent | None = None,
     ) -> None:
-        """跟踪题下期关注 / 排序题改判条件写入 checkpoint。测试/default 用户不写；失败不挡回答。"""
+        """前向跟踪/排序才写 checkpoint；历史回溯不自动登记，失败不挡回答。"""
+        if history_intent is not None:
+            return
         if os.environ.get("PYTEST_CURRENT_TEST"):
             return
         user_id = self.run_store.user_id

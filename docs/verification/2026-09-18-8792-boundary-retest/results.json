@@ -1,0 +1,455 @@
+{
+  "schema": "boundary-live-retest-summary/v1",
+  "revision": "c481272e0d0198a44e028497a66c21d6d1d82973",
+  "dirty_during_live": false,
+  "engineering_revision": "9655b16d37b95c9f16e201cf41811c2999e1c5bf",
+  "runtime_changed_from_engineering_revision": false,
+  "verdict": "not_passed",
+  "promotion_eligible": false,
+  "initial_submissions": 4,
+  "resubmissions": 0,
+  "clarification_replies": 0,
+  "api_completed": 4,
+  "substantive_research_answers": 3,
+  "misrouted_clarifications": 1,
+  "whole_task_passed": 0,
+  "whole_task_denominator": 4,
+  "cases": [
+    {
+      "case": "f1-opt-out",
+      "user": "boundary-retest-f1-20260918",
+      "run_id": "run_20260918_124232_344866",
+      "conversation_id": "conv_843d43666d074d468a93afcee0cdfc84",
+      "assistant_message_id": "msg_a5cc49ae73ad4864b1f133485d8207ac",
+      "elapsed_seconds": 275.662,
+      "run_status": "completed",
+      "report_status": "completed",
+      "public_answer_chars": 1327,
+      "route": {
+        "lane": "research",
+        "question_type": "financial_analysis",
+        "subject": "中际旭创",
+        "timeframe": "2026-09-17"
+      },
+      "episode_present": true,
+      "artifact_usage": {
+        "input_tokens": 592033,
+        "output_tokens": 4952,
+        "llm_calls": 16,
+        "tool_calls": 16,
+        "by_model": {
+          "glm-5.3-flash": {
+            "input_tokens": 592033,
+            "output_tokens": 4952
+          }
+        }
+      },
+      "metrics": {
+        "provider_attempts": 20,
+        "tool_calls": 16,
+        "duplicate_queries": 0,
+        "structural_status": "completed",
+        "semantic_status": "repaired",
+        "judge_usage": {
+          "calls": 2,
+          "input_tokens": null,
+          "output_tokens": null,
+          "usage_source": null
+        }
+      }
+    },
+    {
+      "case": "f3-formatted-financial",
+      "user": "boundary-retest-f3-20260918",
+      "run_id": "run_20260918_124708_106592",
+      "conversation_id": "conv_7d44d4c19a714ccf8031a6b04a0e29f9",
+      "assistant_message_id": "msg_9341f0142eba41669cc656a2ca71aaef",
+      "elapsed_seconds": 280.661,
+      "run_status": "completed",
+      "report_status": "partial",
+      "public_answer_chars": 1695,
+      "route": {
+        "lane": "research",
+        "question_type": "financial_analysis",
+        "subject": "中际旭创",
+        "timeframe": "2026-09-16"
+      },
+      "episode_present": true,
+      "artifact_usage": {
+        "input_tokens": 698171,
+        "output_tokens": 7645,
+        "llm_calls": 17,
+        "tool_calls": 17,
+        "by_model": {
+          "glm-5.3-flash": {
+            "input_tokens": 698171,
+            "output_tokens": 7645
+          }
+        }
+      },
+      "metrics": {
+        "provider_attempts": 21,
+        "tool_calls": 17,
+        "duplicate_queries": 0,
+        "structural_status": "completed",
+        "semantic_status": "repaired",
+        "judge_usage": {
+          "calls": 2,
+          "input_tokens": null,
+          "output_tokens": null,
+          "usage_source": null
+        }
+      }
+    },
+    {
+      "case": "f2-dated-citation-plan",
+      "user": "boundary-retest-f2-20260918",
+      "run_id": "run_20260918_125148_844859",
+      "conversation_id": "conv_9d139b06470d4098b5fcc2763e623942",
+      "assistant_message_id": "msg_0716e5107ac043e08ce4ea7cd73cdf1d",
+      "elapsed_seconds": 5.118,
+      "run_status": "completed",
+      "report_status": "completed",
+      "public_answer_chars": 64,
+      "route": {
+        "lane": "clarify",
+        "question_type": "financial_analysis",
+        "subject": "中际旭创",
+        "timeframe": "2026-09-17"
+      },
+      "episode_present": false,
+      "artifact_usage": null,
+      "metrics": null
+    },
+    {
+      "case": "positive-persistence",
+      "user": "boundary-retest-positive-20260918",
+      "run_id": "run_20260918_125154_030490",
+      "conversation_id": "conv_d1dc2544e4254395a80dc3b716090256",
+      "assistant_message_id": "msg_d9014e97080e466dba184948869e7e12",
+      "elapsed_seconds": 160.36,
+      "run_status": "completed",
+      "report_status": "partial",
+      "public_answer_chars": 773,
+      "route": {
+        "lane": "research",
+        "question_type": "financial_analysis",
+        "subject": "中际旭创",
+        "timeframe": "2026-09-17"
+      },
+      "episode_present": true,
+      "artifact_usage": {
+        "input_tokens": 265263,
+        "output_tokens": 4283,
+        "llm_calls": 9,
+        "tool_calls": 7,
+        "by_model": {
+          "glm-5.3-flash": {
+            "input_tokens": 265263,
+            "output_tokens": 4283
+          }
+        }
+      },
+      "metrics": {
+        "provider_attempts": 12,
+        "tool_calls": 7,
+        "duplicate_queries": 0,
+        "structural_status": "partial",
+        "semantic_status": "repaired",
+        "judge_usage": {
+          "calls": 2,
+          "input_tokens": null,
+          "output_tokens": null,
+          "usage_source": null
+        }
+      }
+    }
+  ],
+  "quality_review": {
+    "schema": "boundary-live-retest-quality/v1",
+    "review_method": "manual review of archived final answers, bound/cited evidence, controller/semantic records and actual checkpoint files; no additional model/judge call",
+    "verdict": "not_passed",
+    "promotion_eligible": false,
+    "whole_task_passed": 0,
+    "whole_task_denominator": 4,
+    "case_results": {
+      "f1-opt-out": {
+        "verdict": "not_passed",
+        "confirmed_subchecks": [
+          "research/financial_analysis route",
+          "substantive public answer",
+          "zero checkpoints/judgments",
+          "watch parser reports complete"
+        ],
+        "failures": [
+          "latest two reports selected FY2025 and H1 2026 despite available Q1 2026 evidence E6",
+          "2026-08-24 CNINFO disclosure assertion retained without cited/bound support",
+          "review date 2026-10-22 conflicts with later stale date 2026-10-17"
+        ],
+        "diagnostics": [
+          "watch item's first date is report-period 2026-09-30, so mechanical due becomes 2026-09-30; no actual opt-out write occurred",
+          "three judge-rejected sentences demoted_to_issue remain public; this observation alone does not prove each rejection correct"
+        ],
+        "judge_correction": "Auditor name has a matching search snippet in E54, but E54 is unbound and not cited by the claim. Therefore no-evidence-anywhere would be false; cited/bound support and publication behavior remain unresolved."
+      },
+      "f3-formatted-financial": {
+        "verdict": "not_passed",
+        "confirmed_subchecks": [
+          "financial_analysis route retained with zero user materials",
+          "substantive public answer retained and missing-watch notice published",
+          "zero checkpoints/judgments",
+          "same-episode zero-tool expression repair naturally attempted; no subsequent tool request"
+        ],
+        "failures": [
+          "unsupported >=50% and <0.2 thresholds remain in distinction prose and change-condition table after conditional-list copies were deleted",
+          "latest-two report selection skips available Q1",
+          "watch-contract repair still ends partial"
+        ],
+        "diagnostics": [
+          "offline public numeric check rejects no remaining sentences: three threshold-bearing sentences contain none of the recognized trigger words; 50% and 0.2 are unsupported by the bound-quantity check",
+          "parser treats parenthesized review deadline and trailing prose as watch claims; lacks some qualitative condition forms",
+          "nine cited evidence source_date values are 2026-09-18, later than requested 2026-09-16; source body E54 includes 2026-08-24. Metadata inconsistency is established, actual post-cutoff knowledge leakage is not certified."
+        ]
+      },
+      "f2-dated-citation-plan": {
+        "verdict": "not_passed",
+        "confirmed_subchecks": [
+          "zero checkpoints/judgments",
+          "one initial submission, no clarification reply"
+        ],
+        "failures": [
+          "request to retrieve evidence misrouted to missing-material clarification; only a 64-character request for material published",
+          "no dated evidence or future-plan-with-citation delivered"
+        ],
+        "diagnostics": [
+          "references_material matches '这份' in instruction to cite a to-be-retrieved source; request has zero pasted materials",
+          "no ContinuousEpisode exists; date/citation gate was not reached, not evidence that date gate itself failed"
+        ]
+      },
+      "positive-persistence": {
+        "verdict": "not_passed",
+        "confirmed_subchecks": [
+          "substantive public answer",
+          "exactly one actual track_next_watch checkpoint",
+          "checkpoint session_id equals exact run",
+          "checkpoint due equals 2026-10-22",
+          "zero judgment writes",
+          "same-episode zero-tool expression repair; no subsequent tool request"
+        ],
+        "failures": [
+          "public message says registered while deterministic notice says watch incomplete: trailing registration statement is parsed as another invalid watch claim",
+          "persisted condition compares against lower of two net-cash ratios that answer says cannot be calculated; actionable supported baseline missing",
+          "latest-two report selection skips Q1"
+        ],
+        "diagnostics": [
+          "one watch item parsed and written; overall completeness fails on separate '本条已登记为长期跟踪' chunk",
+          "judge criticizes calculation IDs but calculation tool explicitly tells writer to include them; this is a contract conflict, not automatic proof of a secret leak",
+          "historical disclosure timing statement lacks directly cited support; E8 does contain one prior Q3 date, which does not establish a general multi-year rule"
+        ]
+      }
+    },
+    "coverage": {
+      "invalid_file_url_mappingproxy_path": "not_naturally_exercised",
+      "recover_last_verified_answer_after_exception": "not_naturally_exercised",
+      "calculation_domain_error_feedback": "observed 10 events across 3 episodes, all inside ok=true tool envelopes, later finish present",
+      "calculation_script_errors": 9,
+      "base_calc_not_found": 1,
+      "tool_envelope_error_events": 0,
+      "invalid_finish_protocol": "one positive-case invalid_action, not_json_object, then continuation",
+      "zero_tool_expression_repair": "observed F3 and positive; not proof repair succeeded",
+      "requested_cutoff": "all 3 research episodes retain runtime_default 2026-09-18 despite route 09-16/17; F2 has no episode"
+    },
+    "scope_limits": [
+      "new wording and live external retrieval prevent paired performance comparison",
+      "four first submissions are not a reliability estimate",
+      "semantic judge reasoning is evidence to inspect, not infallible truth",
+      "cost/invoice totals remain unknown",
+      "no product code repair, deployment, push, merge or judge-mode change during retest"
+    ]
+  },
+  "writer_observed": {
+    "input_tokens": 1555467,
+    "output_tokens": 16880,
+    "calls": 42,
+    "tools": 40
+  },
+  "judge_calls_observed": 6,
+  "judge_tokens": null,
+  "complete_cost": null,
+  "actual_checkpoint_counts": {
+    "f1-opt-out": 0,
+    "f3-formatted-financial": 0,
+    "f2-dated-citation-plan": 0,
+    "positive-persistence": 1
+  },
+  "actual_judgment_counts": {
+    "f1-opt-out": 0,
+    "f3-formatted-financial": 0,
+    "f2-dated-citation-plan": 0,
+    "positive-persistence": 0
+  },
+  "model": {
+    "backend": "continuous_glm",
+    "ready": true,
+    "reason": "ready",
+    "model": "glm-5.3-flash",
+    "credential_available": true,
+    "benchmark_only": false
+  },
+  "semantic_judge": "llm (unchanged)",
+  "evidence_judge": "auto (unchanged)",
+  "prior_live": {
+    "revision": "3faf64fbadcfe45fdd0b306acd223d9e78c56525",
+    "verdict": "not_passed",
+    "initial_submissions": 4,
+    "resubmissions": 0
+  },
+  "production_unchanged_scope": {
+    "at": "2026-09-18T04:55:45.003882+00:00",
+    "owned_server_pid": 32155,
+    "server_stopped": true,
+    "port_8828_closed": true,
+    "owned_lock_removed": true,
+    "revision": "c481272e0d0198a44e028497a66c21d6d1d82973",
+    "code_git_status": "",
+    "run_statuses": {
+      "run_20260918_124232_344866": "completed",
+      "run_20260918_125154_030490": "completed",
+      "run_20260918_124708_106592": "completed",
+      "run_20260918_125148_844859": "completed"
+    },
+    "initial_submissions": 4,
+    "resubmissions": 0,
+    "production_reported_identity_unchanged": {
+      "source_revision": true,
+      "source_dirty": true,
+      "code_matches_repo": true,
+      "loaded_tree_fingerprint": true,
+      "users_dir": true,
+      "agent_runtime": true
+    },
+    "snapshot_sha256": "2d192a78205d94a1f7bcef9d90f82ed2d9ecee8b1e7a9d1e30dfe23da0eb6b89",
+    "snapshot_matches": true,
+    "data_manifests_unchanged": {
+      "market_feature_store/exports": true,
+      "market_snapshot": true
+    },
+    "shared_sinks_after": {
+      "/Users/a77/.finance-runtime/rejudge-pending/index.jsonl": {
+        "bytes": 1529790,
+        "mtime_ns": 1789704669474343541,
+        "sha256": "6b34060f7b888cf88254cd7897bcd5c6ec0e11ebd892132ef587193507f80bfd"
+      },
+      "/Users/a77/finhot/finhot/disclosure_lookup/.cache/disclosure_cache.sqlite": {
+        "bytes": 6090752,
+        "mtime_ns": 1789697289066378833,
+        "sha256": "992c96d1bb655b2d90ca4f6a0436b1594e867699142c396617345c7079d8ef17"
+      },
+      "/Users/a77/finhot/finhot/disclosure_lookup/.cache/sse_uids.json": {
+        "bytes": 16709,
+        "mtime_ns": 1784143164830136820,
+        "sha256": "9522484a608fb42d52e268be3607b8da41e79959c84d1e38a7de09428bed99a1"
+      }
+    },
+    "shared_sinks_unchanged": {
+      "/Users/a77/.finance-runtime/rejudge-pending/index.jsonl": true,
+      "/Users/a77/finhot/finhot/disclosure_lookup/.cache/disclosure_cache.sqlite": true,
+      "/Users/a77/finhot/finhot/disclosure_lookup/.cache/sse_uids.json": true
+    },
+    "test_identity_dirs_outside_isolated_root": [],
+    "shared_rejudge_index_matching_lines": [],
+    "isolated_rejudge_rows": 0,
+    "retained": "all user/artifact/data/code/cache evidence retained; only owned process and lock closed",
+    "limitations": "health reports launch identity, not fresh filesystem hash; no whole production user filesystem proof; shared online retrieval not frozen"
+  },
+  "evidence_root": "/Users/a77/.finance-runtime/reviews/8792-boundary-retest-20260918",
+  "prior_sealed_files_verified": {
+    "old_live": 219,
+    "repair_engineering": 131
+  },
+  "diagnostic": {
+    "script": "scripts/review_probes/inspect_boundary_retest.py",
+    "bytes": 8305,
+    "sha256": "75cc23520ddef8435b31e2eed81047490cd92d3df8bac7b512230c726c1555c4",
+    "ruff_exit": 0,
+    "original_cases_inspected": 4,
+    "network_connect_attempts": 0,
+    "full_engineering_rerun": false,
+    "runtime_fix": false,
+    "guards": [
+      {
+        "check": "refuse_existing",
+        "exit": 2
+      },
+      {
+        "check": "refuse_input",
+        "exit": 2
+      }
+    ]
+  },
+  "publication_secret_scan": {
+    "f1-opt-out": {
+      "secret": {
+        "strings": 16017,
+        "hits": []
+      },
+      "public_leaks": {
+        "strings": 590,
+        "hits": []
+      }
+    },
+    "f3-formatted-financial": {
+      "secret": {
+        "strings": 23074,
+        "hits": []
+      },
+      "public_leaks": {
+        "strings": 719,
+        "hits": []
+      }
+    },
+    "f2-dated-citation-plan": {
+      "secret": {
+        "strings": 92,
+        "hits": []
+      },
+      "public_leaks": {
+        "strings": 92,
+        "hits": []
+      }
+    },
+    "positive-persistence": {
+      "secret": {
+        "strings": 8280,
+        "hits": []
+      },
+      "public_leaks": {
+        "strings": 433,
+        "hits": []
+      }
+    }
+  },
+  "limits": [
+    "new wording and review date; not paired same-question performance comparison",
+    "market inputs frozen, F10/web/knowledge still live",
+    "external L3 code/config relocated with own cache; source dirty provenance recorded",
+    "real Workbench HTTP session contract, not browser-click UX",
+    "no 770/material cross-turn acceptance",
+    "writer/judge accounting completeness separately assessed"
+  ],
+  "pushed": false,
+  "merged": false,
+  "deployed": false,
+  "evidence_index": {
+    "path": "evidence-index.json",
+    "sealed_file_count": 334,
+    "bytes": 58298,
+    "sha256": "3115e11d5ba22bb53a34747c6522e97fc2a231a086b6a70c20c8fab6d0d22a06"
+  },
+  "retained_text_secret_scan": {
+    "files_scanned": 333,
+    "matches": 14,
+    "unresolved": 0,
+    "scope": "retained retest text outside pinned code, bulk market inputs and binary caches; explicit changed repo files. Not Git history/all filesystem."
+  }
+}

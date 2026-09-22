@@ -1,0 +1,64 @@
+{
+  "business_revision": "d06dc1e8d1adf6ba8b39bd02333af6299416dc1d",
+  "repositories": {
+    "finance": {
+      "path": "/Users/a77/fwp-wt-8792-financial-r6-repair",
+      "revision": "d06dc1e8d1adf6ba8b39bd02333af6299416dc1d",
+      "status": ""
+    },
+    "toolkit": {
+      "path": "/Users/a77/harness-wt-financial-r6-repair",
+      "revision": "78ec62260359f996b83cefdca2c08ab7759b11af",
+      "status": ""
+    },
+    "vault": {
+      "path": "/Users/a77/agent-memory",
+      "revision": "86eb21ba1a19d1ed9b247351be04d75516efe64e",
+      "status": ""
+    },
+    "answer-preservation": {
+      "path": "/Users/a77/fwp-wt-research-answer-preservation",
+      "revision": "ad459ad09459ecaa48df2ee97a576d0aa0acbb97",
+      "status": ""
+    },
+    "runtime": {
+      "path": "/Users/a77/fwp-wt-runtime-contracts-0918",
+      "revision": "89f8d72744a64417fe979561c3c49aa00e1c6bb8",
+      "status": ""
+    },
+    "data-readiness": {
+      "path": "/Users/a77/fwp-wt-research-data-readiness",
+      "revision": "b47577092fed5b8771d64b7bd0fa7735e683ea57",
+      "status": ""
+    }
+  },
+  "engineering_pid_finished": 44817,
+  "listeners_8931_8934": false,
+  "removed_owned_registry_worktrees": [
+    "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/registry-pinned-d06dc1e8/finance-workspace-private",
+    "/Users/a77/.finance-runtime/reviews/8792-financial-publication-integration-20260919/registry-pinned-d06dc1e8/finance-research-site"
+  ],
+  "reused_kb_untouched": {
+    "path": "/Users/a77/.finance-runtime/reviews/kb-retrieval-merge-20260918/knowledge-base-private",
+    "revision": "91725ea9ba0252a43665f9e3130142f946c289ae",
+    "status": ""
+  },
+  "old_packages": {
+    "2026-09-18-8792-financial-r6-repair": {
+      "checksums_valid": true,
+      "sums_sha256": "4fcbab9bd9b7ce9470ba305cdc4122ee1a8626ed4653563669a8e2f79f2fde4b"
+    },
+    "2026-09-18-8792-financial-delivery-integration": {
+      "checksums_valid": true,
+      "sums_sha256": "db4f22519a3d10058d0ba4b4c3d6018864264e2a3fcfbfedd3dd787cbee2e157"
+    }
+  },
+  "new_live_runs_this_candidate": 0,
+  "push_finance_toolkit": false,
+  "merged_main": false,
+  "deployed_or_switched_8792": false,
+  "vault_method_sync": "7457f945",
+  "vault_project_graph_sync": "86eb21ba",
+  "toolkit_revision": "78ec62260359f996b83cefdca2c08ab7759b11af",
+  "parallel_scope": "Read-only identities/handoffs only. Runtime WIP not touched. Only 49fd8d72 publication slice applied; neighbor live/engineering claims not adopted."
+}

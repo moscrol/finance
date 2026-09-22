@@ -216,9 +216,14 @@ _VIEW_CALLERS = frozenset(
         "services/episode_semantic_verifier.py::_generic_gap_answer",
         # D5 材料题：公开投影后的复验与判官拒绝重开原题，都只经 view() 再出稿。
         "services/episode_semantic_verifier.py::recheck_material_public_delivery",
+        "services/episode_semantic_verifier.py::_recheck_research_delivery",
         "services/episode_semantic_verifier.py::_reject_material_gaps",
         # 题设计算终局复验：程序表与降级原因同走统一投影。
         "services/episode_semantic_verifier.py::verify",
+        # R6 财务删错后保留补修责任；提示仍由统一出口产出。
+        "services/episode_semantic_verifier.py::_with_financial_repair_debt",
+        # 同轮补全失败只恢复已核验的公开稿；恢复稿仍经统一出口。
+        "runtime/continuous_turn_adapter.py::_recover_verified_delivery",
     }
 )
 

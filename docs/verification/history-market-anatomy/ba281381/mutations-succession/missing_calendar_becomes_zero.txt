@@ -1,0 +1,11 @@
+F                                                                        [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260918T082051Z-ba281381.json
+
+=================================== FAILURES ===================================
+_ test_legacy_calendar_absence_is_unknown_not_zero_and_later_dates_do_not_expand_window _
+tests/test_history_succession_projection.py:95: in test_legacy_calendar_absence_is_unknown_not_zero_and_later_dates_do_not_expand_window
+    assert all(r["observed_days"] is None for r in pairs if "succession_status" in r)
+E   assert False
+E    +  where False = all(<generator object test_legacy_calendar_absence_is_unknown_not_zero_and_later_dates_do_not_expand_window.<locals>.<genexpr> at 0x10b3edff0>)
+=========================== short test summary info ============================
+FAILED tests/test_history_succession_projection.py::test_legacy_calendar_absence_is_unknown_not_zero_and_later_dates_do_not_expand_window
+1 failed in 0.99s

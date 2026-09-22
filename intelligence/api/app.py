@@ -811,8 +811,59 @@ def _public_degrades(values: list[str]) -> list[str]:
     )
 
 
-def _public_run_payload(run: rs.Run) -> dict[str, object]:
+def _public_run_payload(run: rs.Run, *, store: rs.RunStore) -> dict[str, object]:
+    # Claiming terminal ownership precedes message/artifact writes. Only the
+    # matching final message event is a publication barrier; a report file alone
+    # is neither sufficient nor required (failure/cancellation can lack one).
+    publication: dict[str, object] = {"status": "pending", "message_id": None}
+    target = None
+    if run.session_id:
+        try:
+            messages = ConversationStore(user_id=store.user_id).load_messages(
+                run.session_id
+            )
+        except json.JSONDecodeError:
+            # Corrupt conversation metadata is not an absent conversation.
+            raise
+        except (FileNotFoundError, ValueError):
+            # Legacy /api/runs may carry an arbitrary session label, and
+            # non-chat callers may supply a session that is not a conversation.
+            messages = []
+        target = next(
+            (m for m in messages if m.role == "assistant" and m.run_id == run.run_id),
+            None,
+        )
+    if target is None:
+        publication["status"] = "not_applicable"
+    elif (
+        run.status in {rs.STATUS_COMPLETED, rs.STATUS_FAILED, rs.STATUS_CANCELLED}
+        and target.status == run.status
+    ):
+        expected_type = (
+            "message.complete" if run.status == rs.STATUS_COMPLETED else "message.error"
+        )
+        for event in store.load_stream_events(run.run_id):
+            message = event.get("payload", {}).get("message")
+            if (
+                event.get("event_type") == expected_type
+                and event.get("run_id") == run.run_id
+                and event.get("conversation_id") == run.session_id
+                and isinstance(message, dict)
+                and message.get("role") == "assistant"
+                and message.get("status") == run.status
+                and message.get("run_id") == run.run_id
+                and message.get("conversation_id") == run.session_id
+                and isinstance(event.get("message_id"), str)
+                and event["message_id"] == target.message_id
+                and message.get("message_id") == event["message_id"]
+            ):
+                publication = {"status": "published", "message_id": event["message_id"]}
+                # Do not label a pre-event snapshot published: an artifact may
+                # have been registered between load_run and the event read.
+                run = store.load_run(run.run_id)
+                break
     payload = asdict(run)
+    payload["publication"] = publication
     payload["artifacts"] = [
         artifact
         for artifact in run.artifacts
@@ -3247,47 +3298,16 @@ def create_app(
         # pair an old run snapshot with a newly-finished future and claim ready.
         active = supervisor.is_active(store.user_id, run_id)
         run = store.load_run(run_id)
-        delivery_pending = active and run.status == rs.STATUS_COMPLETED
-        if run.session_id and run.status in (rs.STATUS_FAILED, rs.STATUS_CANCELLED):
-            # A supervisor can publish failure/cancellation while the worker is
-            # still blocked. Wait for its durable message event, not that worker.
-            try:
-                messages = conversation_store_for(store.user_id).load_messages(run.session_id)
-            except json.JSONDecodeError:
-                # Corrupt conversation metadata is not an absent conversation.
-                raise
-            except (FileNotFoundError, ValueError):
-                # Non-chat callers may supply a session that is not a conversation.
-                messages = []
-            message_ids = {
-                message.message_id for message in messages
-                if message.role == "assistant" and message.run_id == run_id
-            }
-            if message_ids:
-                delivered = False
-                for event in store.load_stream_events(run_id):
-                    if (
-                        event["event_type"] != "message.error"
-                        or event["conversation_id"] != run.session_id
-                        or event["message_id"] not in message_ids
-                    ):
-                        continue
-                    payload = event["payload"]
-                    status = payload.get("status")
-                    if status is None and isinstance(payload.get("message"), dict):
-                        status = payload["message"].get("status")
-                    if status == run.status:
-                        delivered = True
-                        break
-                delivery_pending = not delivered
-                if delivered:
-                    # Read artifacts after the receipt, never pair an old run
-                    # snapshot with a newly published delivery event.
-                    run = store.load_run(run_id)
-        return {
-            **_public_run_payload(run),
-            "delivery_pending": delivery_pending,
-        }
+        payload = _public_run_payload(run, store=store)
+        # A supervisor can publish failure/cancellation while the worker is
+        # still blocked. Delivery then waits for the exact durable message
+        # event (``publication``), not for that worker. Completed runs also
+        # wait for the worker's own artifact writes to land.
+        delivery_pending = (active and run.status == rs.STATUS_COMPLETED) or (
+            run.status in (rs.STATUS_FAILED, rs.STATUS_CANCELLED)
+            and payload["publication"]["status"] == "pending"
+        )
+        return {**payload, "delivery_pending": delivery_pending}
 
     @app.get("/api/runs")
     def list_runs(user: str | None = None) -> list[dict[str, object]]:
@@ -3366,7 +3386,6 @@ def create_app(
         def stream():
             current_cursor = cursor
             deadline = time.monotonic() + _SSE_MAX_SECONDS
-            terminal_event_deadline: float | None = None
             while True:
                 run_payload = delivered_run_payload(store, run_id)
                 report_events = store.load_stream_events(run_id, after=current_cursor)
@@ -3386,31 +3405,17 @@ def create_app(
                     rs.STATUS_FAILED,
                     rs.STATUS_CANCELLED,
                 ):
-                    terminal_snapshot = store.load_stream_events(run_id)
-                    if any(event["seq"] > current_cursor for event in terminal_snapshot):
-                        # A terminal message may arrive between the first read and
-                        # this check. Seeing it on disk is not delivering it to SSE.
-                        continue
-                    terminal_message_missing = run_payload["session_id"] and not any(
-                        event["event_type"] in {"message.complete", "message.error"}
-                        for event in terminal_snapshot
-                    )
-                    if terminal_message_missing:
-                        terminal_event_deadline = (
-                            terminal_event_deadline
-                            or time.monotonic() + 2 * _SSE_POLL_SECONDS
+                    if run_payload["publication"]["status"] != "pending":
+                        # A commit event can arrive between the reads above.
+                        # Drain it on the next pass before the terminal run.
+                        pending = store.load_stream_events(run_id, after=current_cursor)
+                        if pending:
+                            continue
+                        yield (
+                            "event: run\n"
+                            f"data: {json.dumps(run_payload, ensure_ascii=False)}\n\n"
                         )
-                    if (
-                        terminal_message_missing
-                        and time.monotonic() < terminal_event_deadline
-                    ):
-                        time.sleep(_SSE_POLL_SECONDS)
-                        continue
-                    yield (
-                        "event: run\n"
-                        f"data: {json.dumps(run_payload, ensure_ascii=False)}\n\n"
-                    )
-                    return
+                        return
                 if time.monotonic() > deadline:
                     yield "event: timeout\ndata: {}\n\n"
                     return
@@ -3674,7 +3679,7 @@ def create_app(
         return {
             "user": store.user_id,
             "workflows": workflows,
-            "recent_runs": [_public_run_payload(run) for run in runs],
+            "recent_runs": [_public_run_payload(run, store=store) for run in runs],
             "latest_artifacts": [artifact.public_dict() for artifact in artifacts[:10]],
             "latest_daily_artifact": latest_daily.public_dict()
             if latest_daily

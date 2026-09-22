@@ -1,0 +1,77 @@
+"""Attribute legacy API test workers to submitting tests; block escaped real runners.
+
+This diagnostic instruments in memory only. It does not accept a green prefix as
+full CI, and prevents the known escaped ask path from reaching provider/DB IO.
+"""
+import hashlib
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+import threading
+
+import pytest
+
+os.umask(0o022)
+ROOT = Path(__file__).parent
+REPO = Path.home() / "fwp-wt-history-market-anatomy"
+REVISION = "672abcc504b3466a2ddd24dfa450c55703265c70"
+TARGET = "intelligence/tests/test_ask_call_provenance.py::test_receipt_covers_calls_and_reuses_outer_budget"
+assert subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=REPO, text=True).strip() == REVISION
+assert not subprocess.check_output(["git", "status", "--porcelain"], cwd=REPO, text=True).strip()
+os.chdir(REPO)
+sys.path.insert(0, str(REPO))
+log = (ROOT / "late-runner-events.jsonl").open("x")
+lock = threading.Lock()
+origins = {}
+supervisors = set()
+
+
+def emit(event):
+    with lock:
+        log.write(json.dumps(event, ensure_ascii=False) + "\n")
+        log.flush()
+
+
+class Probe:
+    def pytest_collection_modifyitems(self, session, config, items):
+        from intelligence.api import app as api
+        index = next(i for i, item in enumerate(items) if item.nodeid == TARGET)
+        removed = items[index + 1:]
+        items[:] = items[:index + 1]
+        config.hook.pytest_deselected(items=removed)
+        original_submit = api.RunSupervisor._submit
+        original_shutdown = api.RunSupervisor.shutdown
+
+        def submit(supervisor, store, run_id, runner, *args, **kwargs):
+            supervisors.add(supervisor)
+            event = {"kind": "submit", "user": store.user_id, "run_id": run_id,
+                     "test": os.environ.get("PYTEST_CURRENT_TEST"), "store": str(store.run_dir(run_id))}
+            origins[(store.user_id, run_id)] = event
+            emit(event)
+            return original_submit(supervisor, store, run_id, runner, *args, **kwargs)
+
+        def shutdown(supervisor):
+            emit({"kind": "shutdown", "test": os.environ.get("PYTEST_CURRENT_TEST"),
+                  "active": supervisor.active_count()})
+            return original_shutdown(supervisor)
+
+        def escaped_ask(store, run_id, req):
+            emit({"kind": "escaped_real_ask_blocked", "origin": origins.get((store.user_id, run_id)),
+                  "current_test": os.environ.get("PYTEST_CURRENT_TEST"), "thread": threading.current_thread().name})
+            store.finish_run(run_id, "failed", error="diagnostic_blocked_escaped_test_runner")
+
+        api.RunSupervisor._submit = submit
+        api.RunSupervisor.shutdown = shutdown
+        api._run_ask = escaped_ask
+
+
+code = pytest.main(["-q", "--tb=short"], plugins=[Probe()])
+for supervisor in supervisors:
+    supervisor.shutdown()
+    supervisor._executor.shutdown(wait=True, cancel_futures=True)
+emit({"kind": "probe_end", "pytest_exit": code,
+      "source_sha256": hashlib.sha256((REPO / "intelligence/api/app.py").read_bytes()).hexdigest()})
+log.close()
+raise SystemExit(code)

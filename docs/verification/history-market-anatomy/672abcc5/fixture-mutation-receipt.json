@@ -1,0 +1,20 @@
+{
+  "revision": "672abcc504b3466a2ddd24dfa450c55703265c70",
+  "dirty": false,
+  "source_sha256": {
+    "intelligence/tests/fixtures/run_supervisor.py": "2a4bac5be3c0fd3332c1b309efb094552bef6310213f467542367a48fe91e926",
+    "intelligence/tests/test_api_fixture_lifecycle.py": "968a414b0f89bf1ee805cc253ea8df618483b7c053d03e65bece35abb086bd23",
+    "intelligence/tests/test_api_quota.py": "9b60751795685f1851a8a9395f8396c899641224cc137528bdc74b49a7816bf7",
+    "intelligence/tests/test_api_credits.py": "10fb16120265bbcc443e65fccdd3a759c80d14e6e8dc2753ef134b37abbf7f96",
+    "intelligence/tests/test_api_run_admission.py": "202ec156232bcd57b69d444598eec61ab19c69152df014ac896f59a691bb32c9"
+  },
+  "source_unchanged": true,
+  "intentional_failure_exit": 1,
+  "caught_for_owners": [
+    "quota",
+    "credits",
+    "admission"
+  ],
+  "log_sha256": "ca65fbff73c9fc1de2eddbeb8b3652a7eeb3de167144709d9a7d4e2eaa2620da",
+  "scope": "author-side fixture-lifecycle mutation; not product business acceptance"
+}

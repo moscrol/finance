@@ -938,6 +938,9 @@ class _EpisodeToolAccumulator:
             self.messages.append(
                 tool_message(call.call_id, projection.model_content, source="tool_result")
             )
+            acknowledge = getattr(self.harness, "acknowledge_tool_result", None)
+            if acknowledge is not None:
+                acknowledge(observation, projection, context=context)
         return invalid_actions
 
     def _append_tool_error(
