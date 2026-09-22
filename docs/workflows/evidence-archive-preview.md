@@ -55,7 +55,9 @@ fi
 - **没有选择“仅临时索引跑 checker”**：checker 读的是提交对象，索引还不是可核验的 revision。
 - **没有选择“校验器自动提交/推送”**：只读校验与授权副作用分开；工具不替调用者选择提交范围。
 - 环境变量必须覆盖每个预览子进程。手工移植时，在唯一临时目录下、子 shell 内先
-  `export GIT_INDEX_FILE="$tmp/index"`，再执行所有 Git 命令。仅在第一条命令前赋值不会跨 `&&` 传播。
+  `export GIT_INDEX_FILE="$tmp/index"` 与 `export GIT_NO_REPLACE_OBJECTS=1`，再执行所有 Git 命令。
+  父身份必须从 `git cat-file commit <sha>` 的原始 header 读取，不要用会受 shallow/grafts
+  改写的 `git show --format=%P`。仅在第一条命令前赋值不会跨 `&&` 传播。
 
 ## 范围与限制
 

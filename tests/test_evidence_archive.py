@@ -116,7 +116,10 @@ def test_replacement_refs_cannot_hide_corrupt_committed_bytes(archive_repo, repl
     assert "hash mismatch: archive/report.md" in result["errors"]
 
 
-@pytest.mark.parametrize("archive", ["/tmp/archive", "../archive", "archive/../archive", ".", "archive/"])
+@pytest.mark.parametrize("archive", [
+    "/tmp/archive", "../archive", "archive/../archive", ".", "archive/",
+    ":!archive", ":(glob)archive", ".git/config",
+])
 def test_invalid_archive_path_is_rejected(archive_repo, archive):
     revision = commit(archive_repo)
     with pytest.raises(ValueError):

@@ -26,6 +26,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 from pathlib import Path, PurePosixPath
 import subprocess
 import tempfile
@@ -44,11 +45,24 @@ _REDIRECT = (
 )
 
 
+def _child_env(env: dict[str, str] | None = None) -> dict[str, str]:
+    child = dict(os.environ if env is None else env)
+    child["GIT_NO_REPLACE_OBJECTS"] = "1"
+    return child
+
+
 def _git(repo: Path, *args: str, env: dict[str, str] | None = None) -> str:
     return subprocess.run(
         ["git", "--no-replace-objects", "--literal-pathspecs", "-C", str(repo), *args],
-        check=True, capture_output=True, text=True, timeout=30, env=env,
+        check=True, capture_output=True, text=True, timeout=30, env=_child_env(env),
     ).stdout.strip()
+
+
+def _git_bytes(repo: Path, *args: str, env: dict[str, str] | None = None) -> bytes:
+    return subprocess.run(
+        ["git", "--no-replace-objects", "--literal-pathspecs", "-C", str(repo), *args],
+        check=True, capture_output=True, timeout=30, env=_child_env(env),
+    ).stdout
 
 
 def _path(value: str) -> str:
@@ -72,11 +86,28 @@ def _commit(repo: Path, revision: str) -> str:
     return _git(repo, "rev-parse", "--verify", "--end-of-options", f"{revision}^{{commit}}")
 
 
+_OBJECT_ID = re.compile(rb"[0-9a-f]{40}\Z")
+
+
 def _parents(repo: Path, revision: str) -> list[str]:
     # Revision walkers (including `show --format=%P`) may hide or rewrite
-    # parents at shallow/graft boundaries. Read the immutable object header.
-    header = _git(repo, "cat-file", "commit", revision).split("\n\n", 1)[0]
-    return [line.removeprefix("parent ") for line in header.splitlines() if line.startswith("parent ")]
+    # parents at shallow/graft boundaries. Read only the immutable commit
+    # header; never decode the message body, whose bytes may use another
+    # commitEncoding.
+    raw = _git_bytes(repo, "cat-file", "commit", revision)
+    header = raw.split(b"\n\n", 1)[0]
+    lines = header.split(b"\n")
+    if not lines or not lines[0].startswith(b"tree ") or _OBJECT_ID.fullmatch(lines[0][5:]) is None:
+        raise ValueError("invalid commit object header: missing valid tree")
+    parents: list[str] = []
+    index = 1
+    while index < len(lines) and lines[index].startswith(b"parent "):
+        token = lines[index][7:]
+        if _OBJECT_ID.fullmatch(token) is None:
+            raise ValueError("invalid commit object header: invalid parent")
+        parents.append(token.decode("ascii"))
+        index += 1
+    return parents
 
 
 def prepare(repo: Path, archive: str, paths: list[str]) -> dict[str, object]:

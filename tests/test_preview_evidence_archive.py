@@ -70,6 +70,22 @@ def commit_archive(repo):
     return git(repo, "rev-parse", "HEAD")
 
 
+def raw_commit(repo, tree, parents=(), *, message=b"raw commit\n", extra_headers=()):
+    headers = [f"tree {tree}".encode()]
+    headers.extend(f"parent {parent}".encode() for parent in parents)
+    headers.extend(extra_headers)
+    headers.extend([
+        b"author Preview Test <preview@example.invalid> 1 +0000",
+        b"committer Preview Test <preview@example.invalid> 1 +0000",
+        b"",
+    ])
+    payload = b"\n".join(headers) + message
+    return subprocess.run(
+        ["git", "-C", str(repo), "hash-object", "-t", "commit", "-w", "--literally", "--stdin"],
+        input=payload, check=True, capture_output=True,
+    ).stdout.decode("ascii").strip()
+
+
 def test_prepare_preserves_real_index_refs_and_other_staged_content(repo):
     (repo / "other.txt").write_text("another agent's staged work\n")
     git(repo, "add", "--", "other.txt")
@@ -233,6 +249,46 @@ def test_graft_cannot_hide_an_extra_real_parent(repo):
     assert "real commit must have exactly the preview's pinned base parent" in result["errors"]
 
 
+def test_replace_graft_cannot_hide_an_extra_real_parent(repo):
+    changed(repo)
+    planned = preview.prepare(repo, "archive", [])
+    base = planned["base_revision"]
+    other = git(repo, "commit-tree", planned["tree"], "-p", base, "-m", "other parent")
+    actual = git(repo, "commit-tree", planned["tree"], "-p", base, "-p", other, "-m", "merge")
+    git(repo, "replace", "--graft", actual, base)
+    result = preview.verify(repo, "archive", planned["preview_revision"], actual)
+    assert result["tree"] == result["preview_tree"]
+    assert result["ok"] is False
+    assert "real commit must have exactly the preview's pinned base parent" in result["errors"]
+
+
+def test_non_utf8_commit_message_does_not_break_raw_parent_read(repo):
+    planned = preview.prepare(repo, "archive", [])
+    actual = raw_commit(
+        repo,
+        planned["tree"],
+        [planned["base_revision"]],
+        message=b"\xff\xfe non-utf8 message\n",
+        extra_headers=(b"encoding GBK",),
+    )
+    result = preview.verify(repo, "archive", planned["preview_revision"], actual)
+    assert result["ok"] is True
+
+
+def test_parent_after_author_is_not_treated_as_git_parent(repo):
+    planned = preview.prepare(repo, "archive", [])
+    actual = raw_commit(
+        repo,
+        planned["tree"],
+        message=b"malformed header\n",
+        extra_headers=(f"author Preview Test <preview@example.invalid> 1 +0000\nparent {planned['base_revision']}".encode(),),
+    )
+    result = preview.verify(repo, "archive", planned["preview_revision"], actual)
+    assert result["tree"] == result["preview_tree"]
+    assert result["ok"] is False
+    assert "real commit must have exactly the preview's pinned base parent" in result["errors"]
+
+
 def test_shallow_boundary_does_not_erase_raw_parent_identity(repo):
     changed(repo)
     planned = preview.prepare(repo, "archive", [])
@@ -260,7 +316,9 @@ def test_verification_rechecks_archive_even_if_trees_match(repo):
     assert any(e.startswith("real commit: hash mismatch") for e in result["errors"])
 
 
-@pytest.mark.parametrize("path", [".", "..", "../archive", "/archive", "archive/", ":(glob)*", ".git/config"])
+@pytest.mark.parametrize("path", [
+    ".", "..", "../archive", "/archive", "archive/", ":(glob)*", ":!archive", ".git/config",
+])
 def test_broad_escaping_or_magic_path_is_rejected(repo, path):
     with pytest.raises(ValueError, match="literal repository-relative"):
         preview.prepare(repo, "archive", [path])

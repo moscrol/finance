@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path, PurePosixPath
 import re
 import subprocess
@@ -23,10 +24,11 @@ MANIFEST = "sha256-manifest.txt"
 
 
 def _git(repo: Path, *args: str) -> bytes:
+    # Replacement refs are local overlays, not bytes named by the SHA.
+    env = {**os.environ, "GIT_NO_REPLACE_OBJECTS": "1"}
     return subprocess.run(
-        # Replacement refs are local overlays, not bytes named by the SHA.
-        ["git", "--no-replace-objects", "-C", str(repo), *args],
-        check=True, capture_output=True, timeout=30,
+        ["git", "--no-replace-objects", "--literal-pathspecs", "-C", str(repo), *args],
+        check=True, capture_output=True, timeout=30, env=env,
     ).stdout
 
 
@@ -34,6 +36,7 @@ def check_archive(repo: Path, archive: str, revision: str) -> dict[str, object]:
     directory = PurePosixPath(archive)
     if (
         directory.is_absolute() or ".." in directory.parts
+        or ".git" in directory.parts or archive.startswith(":")
         or directory.as_posix() != archive or not directory.parts
     ):
         raise ValueError("archive must be a normalized repository-relative directory")
