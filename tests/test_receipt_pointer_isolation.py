@@ -8,10 +8,12 @@
 - `scripts/session_facts.sh` 的判据是「收据 revision == 本树 HEAD 且 dirty=false →
   可直接采信，不必重跑」。同 base 的两棵干净树 revision 天然相等，于是它会拿**别人跑的**
   读数劝你别重跑。
-- `scripts/run_main_gate.sh` 跑完 pytest 立刻读 latest.json，中间别人的全量一结束，
-  它就把别人的 passed/failed 抄成本次门禁结果。
+- `scripts/run_main_gate.sh` 曾在跑完 pytest 后立刻读 latest.json，中间别人的全量一结束，
+  它就把别人的 passed/failed 抄成本次门禁结果。（#814 已改成每轮显式传
+  `FWP_TEST_RECEIPT_PATH`、读自己那张 `gate-*/pytest.json`，完全不碰共享指针——
+  主动调用方拿自己那张，比「猜最新那张」更强，所以它不再是本指针的消费者。）
 
-所以 conftest 另写一份按树区分的指针，两个 shell 消费者与校验器都改读它。
+所以 conftest 另写一份按树区分的指针，被动读者（`session_facts.sh`）与校验器改读它。
 命名规则要在 **Python 与 shell 两侧**算出同一个名字，这种跨语言接缝最容易单边漂移，
 故本文件把它锁成测试：改了任一侧而不改另一侧即红。
 """
@@ -35,7 +37,8 @@ _spec = importlib.util.spec_from_file_location("check_test_receipt_pointer", _SC
 ctr = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(ctr)
 
-_SHELL_CONSUMERS = ("scripts/session_facts.sh", "scripts/run_main_gate.sh")
+# run_main_gate.sh 自 #814 起读自己那张显式收据，不再是共享指针的消费者（见模块 docstring）。
+_SHELL_CONSUMERS = ("scripts/session_facts.sh",)
 _ELSEWHERE = Path.home() / "someone-elses-tree"  # 「别人的树」——从位置推导，不写死家目录
 _SHELL_RULE = "tr -c 'A-Za-z0-9._-' '_'"
 

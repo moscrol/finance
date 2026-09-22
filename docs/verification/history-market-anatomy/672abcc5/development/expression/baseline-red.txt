@@ -1,0 +1,125 @@
+FFF                                                                      [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260918T113717Z-b6f9cbc2.json
+
+=================================== FAILURES ===================================
+______ test_original_four_turn_prompts_use_history_not_forward_contracts _______
+
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2514/test_original_four_turn_prompt0')
+
+    def test_original_four_turn_prompts_use_history_not_forward_contracts(tmp_path):
+        frozen = Path(__file__).resolve().parents[1] / (
+            "docs/verification/history-market-anatomy/fbd8f2a6/questions.json"
+        )
+        assert json.loads(frozen.read_text())["questions"] == [FIRST, *FOLLOWUPS]
+        store = ConversationStore("history-contract", root=tmp_path / "conversation")
+        conv = store.create_conversation()
+        previous = None
+        for n, question in enumerate((FIRST, *FOLLOWUPS)):
+            decision = _decide(store, conv, question, previous, n)
+            frame = decision.task_frame
+>           context = _context(frame)
+
+tests/test_history_expression_contract_boundary.py:76: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/test_history_expression_contract_boundary.py:47: in _context
+    return build_episode_context(
+intelligence/services/episode_factory.py:860: in build_episode_context
+    root_budget=root_budget_for_policy(policy, episode_id=task_id),
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+policy = ResearchPolicy(tier='standard', max_steps=6, total_seconds=90.0, synthesis_reserve=20.0)
+
+    def root_budget_for_policy(
+        policy: ResearchPolicy,
+        *,
+        episode_id: str,
+    ) -> InMemoryRootBudgetLedger:
+        """Allocate one root ledger from the immutable tier policy."""
+    
+        episode = str(episode_id or "").strip()
+        if not episode:
+            raise ValueError("episode_id must be non-empty")
+        hard_calls = {
+            "quick": 4,
+            "standard": 8,
+            "deep": 24,
+            "max": PRODUCT_MAX_TOOL_CALLS,
+        }.get(str(policy.tier).strip().lower(), policy.max_steps)
+        with _LIVE_ROOT_BUDGETS_LOCK:
+            if episode in _LIVE_ROOT_BUDGETS:
+>               raise ValueError(f"root budget already exists for live episode: {episode}")
+E               ValueError: root budget already exists for live episode: history-expression-boundary
+
+intelligence/services/research_contract.py:775: ValueError
+____ test_repair_does_not_replace_history_evidence_gaps_with_forward_slots _____
+
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2514/test_repair_does_not_replace_h0')
+
+    def test_repair_does_not_replace_history_evidence_gaps_with_forward_slots(tmp_path):
+        frame = _history_frame(tmp_path)
+>       context = _context(frame)
+
+tests/test_history_expression_contract_boundary.py:94: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/test_history_expression_contract_boundary.py:47: in _context
+    return build_episode_context(
+intelligence/services/episode_factory.py:860: in build_episode_context
+    root_budget=root_budget_for_policy(policy, episode_id=task_id),
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+policy = ResearchPolicy(tier='standard', max_steps=6, total_seconds=90.0, synthesis_reserve=20.0)
+
+    def root_budget_for_policy(
+        policy: ResearchPolicy,
+        *,
+        episode_id: str,
+    ) -> InMemoryRootBudgetLedger:
+        """Allocate one root ledger from the immutable tier policy."""
+    
+        episode = str(episode_id or "").strip()
+        if not episode:
+            raise ValueError("episode_id must be non-empty")
+        hard_calls = {
+            "quick": 4,
+            "standard": 8,
+            "deep": 24,
+            "max": PRODUCT_MAX_TOOL_CALLS,
+        }.get(str(policy.tier).strip().lower(), policy.max_steps)
+        with _LIVE_ROOT_BUDGETS_LOCK:
+            if episode in _LIVE_ROOT_BUDGETS:
+>               raise ValueError(f"root budget already exists for live episode: {episode}")
+E               ValueError: root budget already exists for live episode: history-expression-boundary
+
+intelligence/services/research_contract.py:775: ValueError
+_________ test_actual_adapter_receipts_and_repair_keep_history_missing _________
+
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2514/test_actual_adapter_receipts_a0')
+
+    def test_actual_adapter_receipts_and_repair_keep_history_missing(tmp_path):
+        frame = _history_frame(tmp_path)
+        context = _context(frame)
+>       outcome = _unfulfilled(frame, context)
+
+tests/test_history_expression_contract_boundary.py:138: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+frame = TaskFrame(raw_question='继续：从你刚才找到的相似历史窗口里选一个证据最完整的，看看当时强势的板块和个股分别有哪些。区分全市场排名与板块成员排名，再追踪有明确启动信号的代表：从启动到窗口内峰值经过了什么过程、量价怎..._marks=(), questions=(), continuation_requested=False, uncertain_reasons=(), data_scope_declared=True), source_turn=2))
+context = ResearchRunContext(contract=ResearchTaskContract(task_id='history-expression-boundary', question='继续：从你刚才找到的相似历史窗口里选一个...strict_window=True, window_error=None, information_cutoff='2026-09-15'), history_results=[], history_artifact_index=[])
+
+    def _unfulfilled(frame, context):
+>       return AgentOutcome(
+            task_frame_hash=frame.task_frame_hash,
+            status="partial",
+            draft="尚无可核验的历史原件，不能据此声称样本比较已完成。",
+            evidence=(), traces=(), gaps=("缺少历史原件",),
+            stop_reason="model_finish",
+            events=(EpisodeEvent(1, "task", {"task_frame_hash": frame.task_frame_hash}),),
+            bindings=(),
+        )
+E       TypeError: AgentOutcome.__init__() missing 1 required positional argument: 'usage'
+
+tests/test_history_expression_contract_boundary.py:54: TypeError
+=========================== short test summary info ============================
+FAILED tests/test_history_expression_contract_boundary.py::test_original_four_turn_prompts_use_history_not_forward_contracts
+FAILED tests/test_history_expression_contract_boundary.py::test_repair_does_not_replace_history_evidence_gaps_with_forward_slots
+FAILED tests/test_history_expression_contract_boundary.py::test_actual_adapter_receipts_and_repair_keep_history_missing
+3 failed, 6 deselected in 0.56s

@@ -1,0 +1,12 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_ test_both_checkpoint_writers_reject_history_even_with_registerable_answer[ingest_next_watch] _
+tests/test_history_expression_contract_boundary.py:182: in test_both_checkpoint_writers_reject_history_even_with_registerable_answer
+    assert writer(missing, answer, query=FORWARD, history_intent=frame.history_intent) == []
+E   AssertionError: assert [{'category':...: False, ...}] == []
+E     
+E     Left contains one more item: {'category': '下期关注', 'claim': '若 26Q3 季报应收账款周转天数继续上行，则削弱经营质量改善判断（约2026-10月底披露）', 'due': '2026-10-31', 'hindsight': False, ...}
+E     Use -v to get more diff
+=========================== short test summary info ============================
+FAILED tests/test_history_expression_contract_boundary.py::test_both_checkpoint_writers_reject_history_even_with_registerable_answer[ingest_next_watch]
+1 failed in 0.87s

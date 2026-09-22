@@ -1,0 +1,14 @@
+FF                                                                       [100%]
+=================================== FAILURES ===================================
+_ test_citing_only_pair_status_delivers_reason_to_actual_semantic_review_projection[False] _
+tests/test_history_succession_projection.py:176: in test_citing_only_pair_status_delivers_reason_to_actual_semantic_review_projection
+    assert "尚不能判成败" in reviewed["meaning"]
+E   AssertionError: assert '尚不能判成败' in '接力失败，必须先回撤确认'
+_ test_citing_only_pair_status_delivers_reason_to_actual_semantic_review_projection[True] _
+tests/test_history_succession_projection.py:176: in test_citing_only_pair_status_delivers_reason_to_actual_semantic_review_projection
+    assert "尚不能判成败" in reviewed["meaning"]
+E   AssertionError: assert '尚不能判成败' in '接力失败，必须先回撤确认'
+=========================== short test summary info ============================
+FAILED tests/test_history_succession_projection.py::test_citing_only_pair_status_delivers_reason_to_actual_semantic_review_projection[False]
+FAILED tests/test_history_succession_projection.py::test_citing_only_pair_status_delivers_reason_to_actual_semantic_review_projection[True]
+2 failed in 0.55s

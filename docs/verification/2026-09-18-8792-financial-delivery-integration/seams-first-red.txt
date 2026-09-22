@@ -1,0 +1,376 @@
+FFFFFFFFFFFFFFFF                                                         [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260918T153450Z-53f433b6.json
+
+=================================== FAILURES ===================================
+_ test_changed_public_projection_rechecks_financial_claims_without_upgrading[completed-\u4e8c\u5b63\u5ea6\u5355\u5b63\u7ecf\u8425\u73b0\u91d1\u6d41=18\u221233.68=\u221215.66\u4ebf\u5143\u3002] _
+
+bad = '二季度单季经营现金流=18−33.68=−15.66亿元。', prior_status = 'completed'
+
+    @pytest.mark.parametrize("bad", [BAD, "2026中报净现比0.133。", "本次实际取得并引用的报告为中际旭创2026年半年度报告。"])
+    @pytest.mark.parametrize("prior_status", ["completed", "partial", "degraded"])
+    def test_changed_public_projection_rechecks_financial_claims_without_upgrading(bad, prior_status):
+        _, verified = _metric_only(SAFE + "[E1]。")
+        initial = SemanticEpisodeOutcome(
+            verified=verified, status=prior_status, public_answer=verified.outcome.draft, judge_status="passed",
+        )
+        checked = recheck_material_public_delivery(initial, projected=initial.public_answer + "\n" + bad)
+>       assert bad not in checked.public_answer
+E       AssertionError: assert '二季度单季经营现金流=...68=−15.66亿元。' not in '应收账款明细尚未取得，...68=−15.66亿元。'
+E
+E         '二季度单季经营现金流=18−33.68=−15.66亿元。' is contained here:
+E           应收账款明细尚未取得，回款变化原因仍待核实。[E1]。
+E           二季度单季经营现金流=18−33.68=−15.66亿元。
+
+intelligence/tests/test_financial_delivery_integration.py:52: AssertionError
+_ test_changed_public_projection_rechecks_financial_claims_without_upgrading[completed-2026\u4e2d\u62a5\u51c0\u73b0\u6bd40.133\u3002] _
+
+bad = '2026中报净现比0.133。', prior_status = 'completed'
+
+    @pytest.mark.parametrize("bad", [BAD, "2026中报净现比0.133。", "本次实际取得并引用的报告为中际旭创2026年半年度报告。"])
+    @pytest.mark.parametrize("prior_status", ["completed", "partial", "degraded"])
+    def test_changed_public_projection_rechecks_financial_claims_without_upgrading(bad, prior_status):
+        _, verified = _metric_only(SAFE + "[E1]。")
+        initial = SemanticEpisodeOutcome(
+            verified=verified, status=prior_status, public_answer=verified.outcome.draft, judge_status="passed",
+        )
+        checked = recheck_material_public_delivery(initial, projected=initial.public_answer + "\n" + bad)
+>       assert bad not in checked.public_answer
+E       AssertionError: assert '2026中报净现比0.133。' not in '应收账款明细尚未取得，...6中报净现比0.133。'
+E
+E         '2026中报净现比0.133。' is contained here:
+E           应收账款明细尚未取得，回款变化原因仍待核实。[E1]。
+E           2026中报净现比0.133。
+
+intelligence/tests/test_financial_delivery_integration.py:52: AssertionError
+_ test_changed_public_projection_rechecks_financial_claims_without_upgrading[completed-\u672c\u6b21\u5b9e\u9645\u53d6\u5f97\u5e76\u5f15\u7528\u7684\u62a5\u544a\u4e3a\u4e2d\u9645\u65ed\u521b2026\u5e74\u534a\u5e74\u5ea6\u62a5\u544a\u3002] _
+
+bad = '本次实际取得并引用的报告为中际旭创2026年半年度报告。', prior_status = 'completed'
+
+    @pytest.mark.parametrize("bad", [BAD, "2026中报净现比0.133。", "本次实际取得并引用的报告为中际旭创2026年半年度报告。"])
+    @pytest.mark.parametrize("prior_status", ["completed", "partial", "degraded"])
+    def test_changed_public_projection_rechecks_financial_claims_without_upgrading(bad, prior_status):
+        _, verified = _metric_only(SAFE + "[E1]。")
+        initial = SemanticEpisodeOutcome(
+            verified=verified, status=prior_status, public_answer=verified.outcome.draft, judge_status="passed",
+        )
+        checked = recheck_material_public_delivery(initial, projected=initial.public_answer + "\n" + bad)
+>       assert bad not in checked.public_answer
+E       AssertionError: assert '本次实际取得并引用的报...创2026年半年度报告。' not in '应收账款明细尚未取得，...创2026年半年度报告。'
+E
+E         '本次实际取得并引用的报告为中际旭创2026年半年度报告。' is contained here:
+E           应收账款明细尚未取得，回款变化原因仍待核实。[E1]。
+E           本次实际取得并引用的报告为中际旭创2026年半年度报告。
+
+intelligence/tests/test_financial_delivery_integration.py:52: AssertionError
+_ test_changed_public_projection_rechecks_financial_claims_without_upgrading[partial-\u4e8c\u5b63\u5ea6\u5355\u5b63\u7ecf\u8425\u73b0\u91d1\u6d41=18\u221233.68=\u221215.66\u4ebf\u5143\u3002] _
+
+bad = '二季度单季经营现金流=18−33.68=−15.66亿元。', prior_status = 'partial'
+
+    @pytest.mark.parametrize("bad", [BAD, "2026中报净现比0.133。", "本次实际取得并引用的报告为中际旭创2026年半年度报告。"])
+    @pytest.mark.parametrize("prior_status", ["completed", "partial", "degraded"])
+    def test_changed_public_projection_rechecks_financial_claims_without_upgrading(bad, prior_status):
+        _, verified = _metric_only(SAFE + "[E1]。")
+        initial = SemanticEpisodeOutcome(
+            verified=verified, status=prior_status, public_answer=verified.outcome.draft, judge_status="passed",
+        )
+        checked = recheck_material_public_delivery(initial, projected=initial.public_answer + "\n" + bad)
+>       assert bad not in checked.public_answer
+E       AssertionError: assert '二季度单季经营现金流=...68=−15.66亿元。' not in '应收账款明细尚未取得，...68=−15.66亿元。'
+E
+E         '二季度单季经营现金流=18−33.68=−15.66亿元。' is contained here:
+E           应收账款明细尚未取得，回款变化原因仍待核实。[E1]。
+E           二季度单季经营现金流=18−33.68=−15.66亿元。
+
+intelligence/tests/test_financial_delivery_integration.py:52: AssertionError
+_ test_changed_public_projection_rechecks_financial_claims_without_upgrading[partial-2026\u4e2d\u62a5\u51c0\u73b0\u6bd40.133\u3002] _
+
+bad = '2026中报净现比0.133。', prior_status = 'partial'
+
+    @pytest.mark.parametrize("bad", [BAD, "2026中报净现比0.133。", "本次实际取得并引用的报告为中际旭创2026年半年度报告。"])
+    @pytest.mark.parametrize("prior_status", ["completed", "partial", "degraded"])
+    def test_changed_public_projection_rechecks_financial_claims_without_upgrading(bad, prior_status):
+        _, verified = _metric_only(SAFE + "[E1]。")
+        initial = SemanticEpisodeOutcome(
+            verified=verified, status=prior_status, public_answer=verified.outcome.draft, judge_status="passed",
+        )
+        checked = recheck_material_public_delivery(initial, projected=initial.public_answer + "\n" + bad)
+>       assert bad not in checked.public_answer
+E       AssertionError: assert '2026中报净现比0.133。' not in '应收账款明细尚未取得，...6中报净现比0.133。'
+E
+E         '2026中报净现比0.133。' is contained here:
+E           应收账款明细尚未取得，回款变化原因仍待核实。[E1]。
+E           2026中报净现比0.133。
+
+intelligence/tests/test_financial_delivery_integration.py:52: AssertionError
+_ test_changed_public_projection_rechecks_financial_claims_without_upgrading[partial-\u672c\u6b21\u5b9e\u9645\u53d6\u5f97\u5e76\u5f15\u7528\u7684\u62a5\u544a\u4e3a\u4e2d\u9645\u65ed\u521b2026\u5e74\u534a\u5e74\u5ea6\u62a5\u544a\u3002] _
+
+bad = '本次实际取得并引用的报告为中际旭创2026年半年度报告。', prior_status = 'partial'
+
+    @pytest.mark.parametrize("bad", [BAD, "2026中报净现比0.133。", "本次实际取得并引用的报告为中际旭创2026年半年度报告。"])
+    @pytest.mark.parametrize("prior_status", ["completed", "partial", "degraded"])
+    def test_changed_public_projection_rechecks_financial_claims_without_upgrading(bad, prior_status):
+        _, verified = _metric_only(SAFE + "[E1]。")
+        initial = SemanticEpisodeOutcome(
+            verified=verified, status=prior_status, public_answer=verified.outcome.draft, judge_status="passed",
+        )
+        checked = recheck_material_public_delivery(initial, projected=initial.public_answer + "\n" + bad)
+>       assert bad not in checked.public_answer
+E       AssertionError: assert '本次实际取得并引用的报...创2026年半年度报告。' not in '应收账款明细尚未取得，...创2026年半年度报告。'
+E
+E         '本次实际取得并引用的报告为中际旭创2026年半年度报告。' is contained here:
+E           应收账款明细尚未取得，回款变化原因仍待核实。[E1]。
+E           本次实际取得并引用的报告为中际旭创2026年半年度报告。
+
+intelligence/tests/test_financial_delivery_integration.py:52: AssertionError
+_ test_changed_public_projection_rechecks_financial_claims_without_upgrading[degraded-\u4e8c\u5b63\u5ea6\u5355\u5b63\u7ecf\u8425\u73b0\u91d1\u6d41=18\u221233.68=\u221215.66\u4ebf\u5143\u3002] _
+
+bad = '二季度单季经营现金流=18−33.68=−15.66亿元。', prior_status = 'degraded'
+
+    @pytest.mark.parametrize("bad", [BAD, "2026中报净现比0.133。", "本次实际取得并引用的报告为中际旭创2026年半年度报告。"])
+    @pytest.mark.parametrize("prior_status", ["completed", "partial", "degraded"])
+    def test_changed_public_projection_rechecks_financial_claims_without_upgrading(bad, prior_status):
+        _, verified = _metric_only(SAFE + "[E1]。")
+        initial = SemanticEpisodeOutcome(
+            verified=verified, status=prior_status, public_answer=verified.outcome.draft, judge_status="passed",
+        )
+        checked = recheck_material_public_delivery(initial, projected=initial.public_answer + "\n" + bad)
+>       assert bad not in checked.public_answer
+E       AssertionError: assert '二季度单季经营现金流=...68=−15.66亿元。' not in '应收账款明细尚未取得，...68=−15.66亿元。'
+E
+E         '二季度单季经营现金流=18−33.68=−15.66亿元。' is contained here:
+E           应收账款明细尚未取得，回款变化原因仍待核实。[E1]。
+E           二季度单季经营现金流=18−33.68=−15.66亿元。
+
+intelligence/tests/test_financial_delivery_integration.py:52: AssertionError
+_ test_changed_public_projection_rechecks_financial_claims_without_upgrading[degraded-2026\u4e2d\u62a5\u51c0\u73b0\u6bd40.133\u3002] _
+
+bad = '2026中报净现比0.133。', prior_status = 'degraded'
+
+    @pytest.mark.parametrize("bad", [BAD, "2026中报净现比0.133。", "本次实际取得并引用的报告为中际旭创2026年半年度报告。"])
+    @pytest.mark.parametrize("prior_status", ["completed", "partial", "degraded"])
+    def test_changed_public_projection_rechecks_financial_claims_without_upgrading(bad, prior_status):
+        _, verified = _metric_only(SAFE + "[E1]。")
+        initial = SemanticEpisodeOutcome(
+            verified=verified, status=prior_status, public_answer=verified.outcome.draft, judge_status="passed",
+        )
+        checked = recheck_material_public_delivery(initial, projected=initial.public_answer + "\n" + bad)
+>       assert bad not in checked.public_answer
+E       AssertionError: assert '2026中报净现比0.133。' not in '应收账款明细尚未取得，...6中报净现比0.133。'
+E
+E         '2026中报净现比0.133。' is contained here:
+E           应收账款明细尚未取得，回款变化原因仍待核实。[E1]。
+E           2026中报净现比0.133。
+
+intelligence/tests/test_financial_delivery_integration.py:52: AssertionError
+_ test_changed_public_projection_rechecks_financial_claims_without_upgrading[degraded-\u672c\u6b21\u5b9e\u9645\u53d6\u5f97\u5e76\u5f15\u7528\u7684\u62a5\u544a\u4e3a\u4e2d\u9645\u65ed\u521b2026\u5e74\u534a\u5e74\u5ea6\u62a5\u544a\u3002] _
+
+bad = '本次实际取得并引用的报告为中际旭创2026年半年度报告。', prior_status = 'degraded'
+
+    @pytest.mark.parametrize("bad", [BAD, "2026中报净现比0.133。", "本次实际取得并引用的报告为中际旭创2026年半年度报告。"])
+    @pytest.mark.parametrize("prior_status", ["completed", "partial", "degraded"])
+    def test_changed_public_projection_rechecks_financial_claims_without_upgrading(bad, prior_status):
+        _, verified = _metric_only(SAFE + "[E1]。")
+        initial = SemanticEpisodeOutcome(
+            verified=verified, status=prior_status, public_answer=verified.outcome.draft, judge_status="passed",
+        )
+        checked = recheck_material_public_delivery(initial, projected=initial.public_answer + "\n" + bad)
+>       assert bad not in checked.public_answer
+E       AssertionError: assert '本次实际取得并引用的报...创2026年半年度报告。' not in '应收账款明细尚未取得，...创2026年半年度报告。'
+E
+E         '本次实际取得并引用的报告为中际旭创2026年半年度报告。' is contained here:
+E           应收账款明细尚未取得，回款变化原因仍待核实。[E1]。
+E           本次实际取得并引用的报告为中际旭创2026年半年度报告。
+
+intelligence/tests/test_financial_delivery_integration.py:52: AssertionError
+_ test_both_guards_keep_local_debt_bound_citations_and_corrected_draft_clears_it[off] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x109b982f0>
+mode = 'off'
+
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    def test_both_guards_keep_local_debt_bound_citations_and_corrected_draft_clears_it(monkeypatch, mode):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        frame, verified = _metric_only(SAFE + "[E1]。\n" + BAD + "\n" + ABSENCE)
+        verified = replace(verified, outcome=replace(verified.outcome, traces=(ProviderTrace("l3_lookup", "l3_lookup", "partial"),)))
+        verifier = SemanticEpisodeVerifier(judge_fn=_judge(True))
+        result = verifier.verify(frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5))
+        assert BAD not in result.public_answer and ABSENCE not in result.public_answer
+        assert SAFE in result.public_answer and result.status == "partial"
+        assert result.gap_output_ids == result.repair_output_ids == ("metric_evidence",)
+        assert result.delivery_retained_evidence_hashes == (verified.outcome.evidence[0].content_hash,)
+>       assert any("差值" in note or "期间" in note for note in result.delivery_repair_notes)
+E       assert False
+E        +  where False = any(<generator object test_both_guards_keep_local_debt_bound_citations_and_corrected_draft_clears_it.<locals>.<genexpr> at 0x109b90110>)
+
+intelligence/tests/test_financial_delivery_integration.py:75: AssertionError
+_ test_both_guards_keep_local_debt_bound_citations_and_corrected_draft_clears_it[llm] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x109b9a930>
+mode = 'llm'
+
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    def test_both_guards_keep_local_debt_bound_citations_and_corrected_draft_clears_it(monkeypatch, mode):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        frame, verified = _metric_only(SAFE + "[E1]。\n" + BAD + "\n" + ABSENCE)
+        verified = replace(verified, outcome=replace(verified.outcome, traces=(ProviderTrace("l3_lookup", "l3_lookup", "partial"),)))
+        verifier = SemanticEpisodeVerifier(judge_fn=_judge(True))
+        result = verifier.verify(frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5))
+        assert BAD not in result.public_answer and ABSENCE not in result.public_answer
+        assert SAFE in result.public_answer and result.status == "partial"
+        assert result.gap_output_ids == result.repair_output_ids == ("metric_evidence",)
+        assert result.delivery_retained_evidence_hashes == (verified.outcome.evidence[0].content_hash,)
+>       assert any("差值" in note or "期间" in note for note in result.delivery_repair_notes)
+E       assert False
+E        +  where False = any(<generator object test_both_guards_keep_local_debt_bound_citations_and_corrected_draft_clears_it.<locals>.<genexpr> at 0x109b91220>)
+
+intelligence/tests/test_financial_delivery_integration.py:75: AssertionError
+_ test_exception_recovery_checks_after_calendar_and_keeps_citations[\u4e8c\u5b63\u5ea6\u5355\u5b63\u7ecf\u8425\u73b0\u91d1\u6d41=18\u221233.68=\u221215.66\u4ebf\u5143\u3002] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x109b8ce30>
+bad = '二季度单季经营现金流=18−33.68=−15.66亿元。'
+
+    @pytest.mark.parametrize("bad", [BAD, ABSENCE])
+    def test_exception_recovery_checks_after_calendar_and_keeps_citations(monkeypatch, bad):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", "off")
+        original = adapter_module._with_calendar_disclosure
+        # Deliberate post-check injection, not a claim about natural calendar output.
+        monkeypatch.setattr(adapter_module, "_with_calendar_disclosure", lambda text, frame: original(text, frame) + "\n" + bad)
+        frame, verified = _metric_only(SAFE + "[E1]。\n" + BAD)
+        verified = replace(verified, outcome=replace(verified.outcome, traces=(ProviderTrace("l3_lookup", "l3_lookup", "partial"),)))
+        semantic = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+            frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5),
+        )
+        context = ResearchRunContext(
+            contract=verified.contract, deadline=ResearchDeadline.from_timeout(60),
+            policy=ResearchPolicy("standard", 3, 60, 20), trace_parent_id=verified.contract.task_id,
+        )
+>       result = ContinuousTurnAdapter(runtime=object())._recover_verified_delivery(frame, context, semantic, {})
+E       TypeError: ContinuousTurnAdapter.__init__() missing 1 required keyword-only argument: 'semantic_verifier'
+
+intelligence/tests/test_financial_delivery_integration.py:98: TypeError
+_ test_exception_recovery_checks_after_calendar_and_keeps_citations[\u7a97\u53e3\u5185\u65e0\u65b0\u516c\u544a\u5373\u65e0\u65b0\u589e\u5b98\u65b9\u4fe1\u606f\u5dee\u3002] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x109b601a0>
+bad = '窗口内无新公告即无新增官方信息差。'
+
+    @pytest.mark.parametrize("bad", [BAD, ABSENCE])
+    def test_exception_recovery_checks_after_calendar_and_keeps_citations(monkeypatch, bad):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", "off")
+        original = adapter_module._with_calendar_disclosure
+        # Deliberate post-check injection, not a claim about natural calendar output.
+        monkeypatch.setattr(adapter_module, "_with_calendar_disclosure", lambda text, frame: original(text, frame) + "\n" + bad)
+        frame, verified = _metric_only(SAFE + "[E1]。\n" + BAD)
+        verified = replace(verified, outcome=replace(verified.outcome, traces=(ProviderTrace("l3_lookup", "l3_lookup", "partial"),)))
+        semantic = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+            frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5),
+        )
+        context = ResearchRunContext(
+            contract=verified.contract, deadline=ResearchDeadline.from_timeout(60),
+            policy=ResearchPolicy("standard", 3, 60, 20), trace_parent_id=verified.contract.task_id,
+        )
+>       result = ContinuousTurnAdapter(runtime=object())._recover_verified_delivery(frame, context, semantic, {})
+E       TypeError: ContinuousTurnAdapter.__init__() missing 1 required keyword-only argument: 'semantic_verifier'
+
+intelligence/tests/test_financial_delivery_integration.py:98: TypeError
+______ test_adapter_final_financial_projection_is_guarded_and_cited[off] _______
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x109b61df0>
+mode = 'off'
+
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    def test_adapter_final_financial_projection_is_guarded_and_cited(monkeypatch, mode):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        frame, verified = _metric_only(SAFE + "[E1]。\n" + GOOD)
+        context = ResearchRunContext(
+            contract=verified.contract, deadline=ResearchDeadline.from_timeout(60),
+            policy=ResearchPolicy("standard", 3, 60, 20), trace_parent_id=verified.contract.task_id,
+        )
+        class Runtime:
+            def run(self, **kwargs):
+                return verified.outcome
+        monkeypatch.setattr(adapter_module, "_with_calendar_disclosure", lambda text, frame: text + "\n" + BAD)
+        result = ContinuousTurnAdapter(
+            runtime=Runtime(), mode="on", context_factory=lambda *a, **k: context,
+            registry_factory=lambda *a, **k: "registry",
+            semantic_verifier=SemanticEpisodeVerifier(judge_fn=_judge(True)),
+        ).handle(frame=frame, control=_control(frame))
+>       assert result.status == "partial" and BAD not in result.answer
+E       AssertionError: assert ('completed' == 'partial'
+E
+E         - partial
+E         + completed)
+
+intelligence/tests/test_financial_delivery_integration.py:122: AssertionError
+______ test_adapter_final_financial_projection_is_guarded_and_cited[llm] _______
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x109b9acc0>
+mode = 'llm'
+
+    @pytest.mark.parametrize("mode", ["off", "llm"])
+    def test_adapter_final_financial_projection_is_guarded_and_cited(monkeypatch, mode):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", mode)
+        frame, verified = _metric_only(SAFE + "[E1]。\n" + GOOD)
+        context = ResearchRunContext(
+            contract=verified.contract, deadline=ResearchDeadline.from_timeout(60),
+            policy=ResearchPolicy("standard", 3, 60, 20), trace_parent_id=verified.contract.task_id,
+        )
+        class Runtime:
+            def run(self, **kwargs):
+                return verified.outcome
+        monkeypatch.setattr(adapter_module, "_with_calendar_disclosure", lambda text, frame: text + "\n" + BAD)
+        result = ContinuousTurnAdapter(
+            runtime=Runtime(), mode="on", context_factory=lambda *a, **k: context,
+            registry_factory=lambda *a, **k: "registry",
+            semantic_verifier=SemanticEpisodeVerifier(judge_fn=_judge(True)),
+        ).handle(frame=frame, control=_control(frame))
+>       assert result.status == "partial" and BAD not in result.answer
+E       AssertionError: assert ('completed' == 'partial'
+E
+E         - partial
+E         + completed)
+
+intelligence/tests/test_financial_delivery_integration.py:122: AssertionError
+__ test_true_exception_recovery_cannot_restore_postcheck_disclosure_inference __
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x109b3fbc0>
+
+    def test_true_exception_recovery_cannot_restore_postcheck_disclosure_inference(monkeypatch):
+        monkeypatch.setenv("ASK_SEMANTIC_JUDGE", "off")
+        # Existing real adapter exception path, with no new tool permission.
+        original = adapter_module._with_calendar_disclosure
+        monkeypatch.setattr(adapter_module, "_with_calendar_disclosure", lambda text, frame: original(text, frame) + "\n查询空白，因此公司没有公告。")
+        # Add an actual trace to the scripted outcome; no external lookup.
+        structural = __import__("intelligence.tests.test_boundary_partial_delivery", fromlist=["_structural"])
+        build = structural._structural
+        monkeypatch.setattr(structural, "_structural", lambda *a, **k: build(*a, **k, traces=(ProviderTrace("l3_lookup", "l3_lookup", "partial"),)))
+        result, goals, _ = _delivery(repair="recheck_raises")
+        assert "delivery_recovery" in result.private_artifact and goals
+>       assert "查询空白，因此公司没有公告" not in result.answer
+E       AssertionError: assert '查询空白，因此公司没有公告' not in '需求仍待确认 E1。无...的指标、时间或触发条件。'
+E
+E         '查询空白，因此公司没有公告' is contained here:
+E           、不升格为已验证。
+E           查询空白，因此公司没有公告。
+E
+E           后续补全或复验未完成；以上保留此前已核验的内容，未采用本次未核验的新断言。
+E
+E           跟踪输出未完成：下期关注的指标、时间或触发条件。
+
+intelligence/tests/test_financial_delivery_integration.py:138: AssertionError
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_financial_delivery_integration.py::test_changed_public_projection_rechecks_financial_claims_without_upgrading[completed-\u4e8c\u5b63\u5ea6\u5355\u5b63\u7ecf\u8425\u73b0\u91d1\u6d41=18\u221233.68=\u221215.66\u4ebf\u5143\u3002]
+FAILED intelligence/tests/test_financial_delivery_integration.py::test_changed_public_projection_rechecks_financial_claims_without_upgrading[completed-2026\u4e2d\u62a5\u51c0\u73b0\u6bd40.133\u3002]
+FAILED intelligence/tests/test_financial_delivery_integration.py::test_changed_public_projection_rechecks_financial_claims_without_upgrading[completed-\u672c\u6b21\u5b9e\u9645\u53d6\u5f97\u5e76\u5f15\u7528\u7684\u62a5\u544a\u4e3a\u4e2d\u9645\u65ed\u521b2026\u5e74\u534a\u5e74\u5ea6\u62a5\u544a\u3002]
+FAILED intelligence/tests/test_financial_delivery_integration.py::test_changed_public_projection_rechecks_financial_claims_without_upgrading[partial-\u4e8c\u5b63\u5ea6\u5355\u5b63\u7ecf\u8425\u73b0\u91d1\u6d41=18\u221233.68=\u221215.66\u4ebf\u5143\u3002]
+FAILED intelligence/tests/test_financial_delivery_integration.py::test_changed_public_projection_rechecks_financial_claims_without_upgrading[partial-2026\u4e2d\u62a5\u51c0\u73b0\u6bd40.133\u3002]
+FAILED intelligence/tests/test_financial_delivery_integration.py::test_changed_public_projection_rechecks_financial_claims_without_upgrading[partial-\u672c\u6b21\u5b9e\u9645\u53d6\u5f97\u5e76\u5f15\u7528\u7684\u62a5\u544a\u4e3a\u4e2d\u9645\u65ed\u521b2026\u5e74\u534a\u5e74\u5ea6\u62a5\u544a\u3002]
+FAILED intelligence/tests/test_financial_delivery_integration.py::test_changed_public_projection_rechecks_financial_claims_without_upgrading[degraded-\u4e8c\u5b63\u5ea6\u5355\u5b63\u7ecf\u8425\u73b0\u91d1\u6d41=18\u221233.68=\u221215.66\u4ebf\u5143\u3002]
+FAILED intelligence/tests/test_financial_delivery_integration.py::test_changed_public_projection_rechecks_financial_claims_without_upgrading[degraded-2026\u4e2d\u62a5\u51c0\u73b0\u6bd40.133\u3002]
+FAILED intelligence/tests/test_financial_delivery_integration.py::test_changed_public_projection_rechecks_financial_claims_without_upgrading[degraded-\u672c\u6b21\u5b9e\u9645\u53d6\u5f97\u5e76\u5f15\u7528\u7684\u62a5\u544a\u4e3a\u4e2d\u9645\u65ed\u521b2026\u5e74\u534a\u5e74\u5ea6\u62a5\u544a\u3002]
+FAILED intelligence/tests/test_financial_delivery_integration.py::test_both_guards_keep_local_debt_bound_citations_and_corrected_draft_clears_it[off]
+FAILED intelligence/tests/test_financial_delivery_integration.py::test_both_guards_keep_local_debt_bound_citations_and_corrected_draft_clears_it[llm]
+FAILED intelligence/tests/test_financial_delivery_integration.py::test_exception_recovery_checks_after_calendar_and_keeps_citations[\u4e8c\u5b63\u5ea6\u5355\u5b63\u7ecf\u8425\u73b0\u91d1\u6d41=18\u221233.68=\u221215.66\u4ebf\u5143\u3002]
+FAILED intelligence/tests/test_financial_delivery_integration.py::test_exception_recovery_checks_after_calendar_and_keeps_citations[\u7a97\u53e3\u5185\u65e0\u65b0\u516c\u544a\u5373\u65e0\u65b0\u589e\u5b98\u65b9\u4fe1\u606f\u5dee\u3002]
+FAILED intelligence/tests/test_financial_delivery_integration.py::test_adapter_final_financial_projection_is_guarded_and_cited[off]
+FAILED intelligence/tests/test_financial_delivery_integration.py::test_adapter_final_financial_projection_is_guarded_and_cited[llm]
+FAILED intelligence/tests/test_financial_delivery_integration.py::test_true_exception_recovery_cannot_restore_postcheck_disclosure_inference
+16 failed in 2.47s

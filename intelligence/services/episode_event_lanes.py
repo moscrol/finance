@@ -115,6 +115,7 @@ DURABLE_EVENT_KINDS: frozenset[str] = frozenset(
         "finalization_recovery_outcome",
         "runtime_result",
         "finish",
+        "persistence_failed",  # memory/artifact receipt when durable writing is fenced
         "configure",
         "root_budget_overdraft",
     }

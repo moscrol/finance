@@ -1,0 +1,153 @@
+{
+  "scope": "First failed author-side live attempt; not fixed fbd8f2a6 acceptance. Runtime checkout was then WIP; do not infer a clean revision from directory date.",
+  "runtime_root": "/Users/a77/.finance-runtime/history-anatomy-live-20260917",
+  "overall_acceptance": "failed",
+  "isolation_defect": "users/deploy-ledger isolated but FORESIGHT_EPISODE_STORE omitted; durable events were written under shared FINANCE_WS/state/episodes. Retained, not deleted. No production market DB write is inferred.",
+  "deep_failure": "turn 4: TypeError: Object of type mappingproxy is not JSON serializable; summary tool_calls=0 did not erase successful read_history_result in durable events.",
+  "turns": [
+    {
+      "turn": 1,
+      "run_id": "run_20260917_233349_527852",
+      "files": [
+        {
+          "path": "/Users/a77/.finance-runtime/history-anatomy-live-20260917/turn-1.txt",
+          "bytes": 3436,
+          "sha256": "d21c45cc0ff0d61411661b3444a4724497bfb2a2350333c7ca19f81f03cbecfd"
+        },
+        {
+          "path": "/Users/a77/.finance-runtime/history-anatomy-live-20260917/users/history-anatomy-acceptance/runs/run_20260917_233349_527852/answer.md",
+          "bytes": 3104,
+          "sha256": "6ce879a15a4c444960cafbeade223ebf899b83ec188619845e723ff0ca857763"
+        },
+        {
+          "path": "/Users/a77/.finance-runtime/history-anatomy-live-20260917/users/history-anatomy-acceptance/runs/run_20260917_233349_527852/continuous-episode.json",
+          "bytes": 1023132,
+          "sha256": "fe5b726f5001ec44887d360ac463db2d2a9250ae1546204b6f773dc81729597d"
+        },
+        {
+          "path": "/Users/a77/.finance-runtime/history-anatomy-live-20260917/users/history-anatomy-acceptance/runs/run_20260917_233349_527852/run.json",
+          "bytes": 2485,
+          "sha256": "c0b7ff909d9fd3fe4d6619eadd45d144993ec9852b0caae19ad70d24f6c7fbd9"
+        },
+        {
+          "path": "/Users/a77/.finance-runtime/history-anatomy-live-20260917/users/history-anatomy-acceptance/runs/run_20260917_233349_527852/trace.jsonl",
+          "bytes": 20796,
+          "sha256": "22dffae4c2fa4328697675f9e34ac20d0f996de95ba72d4335ed2788c68f3e37"
+        },
+        {
+          "path": "/Users/a77/finance-workspace-private/state/episodes/run_20260917_233349_527852_msg_38c87ac488944179b0d97475aa808929-0253ac0693f6/events.jsonl",
+          "bytes": 200613,
+          "sha256": "97deb80ff8586307b0990c8812910909676f431c6819e8c83d3f10adb56db95d"
+        }
+      ]
+    },
+    {
+      "turn": 2,
+      "run_id": "run_20260917_233602_034980",
+      "files": [
+        {
+          "path": "/Users/a77/.finance-runtime/history-anatomy-live-20260917/turn-2.txt",
+          "bytes": 1214,
+          "sha256": "f9c6f8aebb3a1a4b04ca6b2064bef154c9af17c897124abe049d654b1d713d37"
+        },
+        {
+          "path": "/Users/a77/.finance-runtime/history-anatomy-live-20260917/users/history-anatomy-acceptance/runs/run_20260917_233602_034980/answer.md",
+          "bytes": 882,
+          "sha256": "bc676a44fc394d23b5465b54a75a21afb48c50cf77d0e851977c3797465c7b2f"
+        },
+        {
+          "path": "/Users/a77/.finance-runtime/history-anatomy-live-20260917/users/history-anatomy-acceptance/runs/run_20260917_233602_034980/continuous-episode.json",
+          "bytes": 1738529,
+          "sha256": "303562edf5663c4771b7e68567db9908b788b3dc64042db78b48328baa6f7e86"
+        },
+        {
+          "path": "/Users/a77/.finance-runtime/history-anatomy-live-20260917/users/history-anatomy-acceptance/runs/run_20260917_233602_034980/run.json",
+          "bytes": 2605,
+          "sha256": "393c23dccec051b74dfd05ae2b275f14367b706de45b2a76d82d75af9e32965b"
+        },
+        {
+          "path": "/Users/a77/.finance-runtime/history-anatomy-live-20260917/users/history-anatomy-acceptance/runs/run_20260917_233602_034980/trace.jsonl",
+          "bytes": 30328,
+          "sha256": "ba90c7828deb47e41f3e3b755ee2f7f89bc3e6454d1c5d335df7c000c9aa0863"
+        },
+        {
+          "path": "/Users/a77/finance-workspace-private/state/episodes/run_20260917_233602_034980_msg_6ea3fc0aa9a545f28dec9db23b516b0e-68b88c953b89/events.jsonl",
+          "bytes": 338829,
+          "sha256": "67619e61d032f372744341b501c26128816fc41ccf8265e7208985b6fba39412"
+        }
+      ]
+    },
+    {
+      "turn": 3,
+      "run_id": "run_20260917_233814_585393",
+      "files": [
+        {
+          "path": "/Users/a77/.finance-runtime/history-anatomy-live-20260917/turn-3.txt",
+          "bytes": 2384,
+          "sha256": "35e5960dc914f5f5be0198e0ed1fedef6580a57cbcc20964cde9f4a3f47361f2"
+        },
+        {
+          "path": "/Users/a77/.finance-runtime/history-anatomy-live-20260917/users/history-anatomy-acceptance/runs/run_20260917_233814_585393/answer.md",
+          "bytes": 2052,
+          "sha256": "3544daf5ce16ef2132b9e58e051653d4b293fb4d10c02980f3c128368381a1a5"
+        },
+        {
+          "path": "/Users/a77/.finance-runtime/history-anatomy-live-20260917/users/history-anatomy-acceptance/runs/run_20260917_233814_585393/continuous-episode.json",
+          "bytes": 9576818,
+          "sha256": "47cd73214cce4a10d5a4e90bc72880454c7f5885503ea6d3892d7571ded04ff6"
+        },
+        {
+          "path": "/Users/a77/.finance-runtime/history-anatomy-live-20260917/users/history-anatomy-acceptance/runs/run_20260917_233814_585393/run.json",
+          "bytes": 4809,
+          "sha256": "477089a4f9e4c3c096a1454fb82a647c4c3e6b0a19227baab07798a1dda68848"
+        },
+        {
+          "path": "/Users/a77/.finance-runtime/history-anatomy-live-20260917/users/history-anatomy-acceptance/runs/run_20260917_233814_585393/trace.jsonl",
+          "bytes": 22891,
+          "sha256": "bf509a03e3ac51aa961ae64fdbfed3f7ee06eb54378c71126755e72346962720"
+        },
+        {
+          "path": "/Users/a77/finance-workspace-private/state/episodes/run_20260917_233814_585393_msg_15e190a7428943c3a66d2b374c49b28a-36631597c4d8/events.jsonl",
+          "bytes": 1757810,
+          "sha256": "cce442b92bf1d19112a33e50e2c7db1dd97c74e03199b0540e586c01761e03e7"
+        }
+      ]
+    },
+    {
+      "turn": 4,
+      "run_id": "run_20260917_234112_374567",
+      "files": [
+        {
+          "path": "/Users/a77/.finance-runtime/history-anatomy-live-20260917/turn-4.txt",
+          "bytes": 381,
+          "sha256": "b92b4f0c9da9a113f35c6c3141366f3de4ae866b5662d47a210f0cb7236dad2a"
+        },
+        {
+          "path": "/Users/a77/.finance-runtime/history-anatomy-live-20260917/users/history-anatomy-acceptance/runs/run_20260917_234112_374567/answer.md",
+          "bytes": 45,
+          "sha256": "5d32946a691b4f7139174e7ca85d5761f2319b98c4f6ad5fb18d908b1db6fa3b"
+        },
+        {
+          "path": "/Users/a77/.finance-runtime/history-anatomy-live-20260917/users/history-anatomy-acceptance/runs/run_20260917_234112_374567/continuous-episode.json",
+          "bytes": 8160,
+          "sha256": "c4391a04306fc0102362b7465a1c614a2deee2285df1398eeb167d554ffa7d3b"
+        },
+        {
+          "path": "/Users/a77/.finance-runtime/history-anatomy-live-20260917/users/history-anatomy-acceptance/runs/run_20260917_234112_374567/run.json",
+          "bytes": 2228,
+          "sha256": "2c355d9505ef03081c19c470a18d46f03e8a0b76f5f638279e7e6f4cbf4db93f"
+        },
+        {
+          "path": "/Users/a77/.finance-runtime/history-anatomy-live-20260917/users/history-anatomy-acceptance/runs/run_20260917_234112_374567/trace.jsonl",
+          "bytes": 15736,
+          "sha256": "986324201c413baa43a70f0ad042e53cd256f5e8420356444ab3bc1287241c77"
+        },
+        {
+          "path": "/Users/a77/finance-workspace-private/state/episodes/run_20260917_234112_374567_msg_67af05100a464b3f8cb82f16ac9a2d94-d4317354931b/events.jsonl",
+          "bytes": 760707,
+          "sha256": "96e9cd4e2850c025794855e90ff56a626dd9f20421fe0904661a95beeaad0d0d"
+        }
+      ]
+    }
+  ]
+}
