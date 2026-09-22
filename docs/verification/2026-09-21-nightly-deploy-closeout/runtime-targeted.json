@@ -1,0 +1,22 @@
+{
+  "revision": "adcda94b5e401158f1c3aa51f210e1e8d0f0b713",
+  "cwd": "/Users/a77/.finance-runtime/finance-sync-adcda94b5e40",
+  "command": [
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "-p",
+    "no:cacheprovider",
+    "tests/test_review_sync_hithink_wiring.py",
+    "tests/test_index_local_fallback_boundary.py",
+    "tests/test_l2_file_pipeline.py",
+    "tests/test_l2_file_source_quality.py",
+    "tests/test_review_plan_alignment.py",
+    "--junitxml=/Users/a77/.finance-runtime/reviews/nightly-deploy-closeout-20260921/runtime-targeted.xml"
+  ],
+  "exit_code": 0,
+  "before_status": "",
+  "after_status": "",
+  "boundary": "targeted offline tests, no real collector"
+}

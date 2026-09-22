@@ -29,6 +29,7 @@ from typing import Any
 from intelligence.services.judge_degrade import (
     classify_degrade_counts as classify_degrade_counts_canonical,
 )
+from intelligence.services.judge_mode import JUDGE_MODE_DETERMINISTIC, JUDGE_MODE_OFF
 from intelligence.services.runtime_provenance import _git_output
 
 SCHEMA_VERSION = 1
@@ -144,10 +145,13 @@ def episode_public_correlated_judge(semantic: Mapping[str, Any] | None) -> bool 
     the judge never ran (empty draft, missing contract).  Public eval must not
     treat that default as an independent L4 sample.  A real independent
     attempt is clocked (``timeout_asked`` present) or finishes
-    passed/repaired/rejected.
+    passed/repaired/rejected. Deterministic mode can synthesize those statuses
+    without any model call, so mode takes precedence over the bool/timing.
     """
 
     block = semantic if isinstance(semantic, Mapping) else {}
+    if block.get("judge_mode") in (JUDGE_MODE_DETERMINISTIC, JUDGE_MODE_OFF):
+        return None
     raw = optional_bool(block.get("correlated_judge"))
     if raw is not False:
         return raw

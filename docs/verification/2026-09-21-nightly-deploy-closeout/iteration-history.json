@@ -1,0 +1,20 @@
+{
+  "scope": "targeted local iteration, not a fixed-revision receipt",
+  "first_run": {
+    "passed": 156,
+    "failed": 1,
+    "failed_id": "tests/test_eval_launchd_installer.py::test_preflight_failure_prevents_partial_install[plist]",
+    "observed_reason": "plutil -lint accepts bare OpenStep string; assertion on returncode failed",
+    "outer_timeout_seconds": 180,
+    "source": "tool stdout, full per-run log not retained"
+  },
+  "repair": "Add Label and RunAtLoad semantic checks; test malformed XML and scalar plist independently",
+  "second_run": {
+    "passed": 53,
+    "failed": 0,
+    "scope": [
+      "tests/test_eval_launchd_installer.py",
+      "tests/test_eval_launchd_wiring.py"
+    ]
+  }
+}

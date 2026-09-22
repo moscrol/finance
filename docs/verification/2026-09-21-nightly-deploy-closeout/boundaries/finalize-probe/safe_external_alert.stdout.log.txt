@@ -1,0 +1,382 @@
+[2026-09-21 15:36:44] === 全量复盘开始 phase=finalize date=2026-09-11 l2_code=/Users/a77/.finance-runtime/reviews/nightly-deploy-closeout-20260921/boundaries/finalize-probe/safe_external_alert-5onf2tpz/elsewhere/ops-code l2_rev=unknown workspace=/Users/a77/.finance-runtime/reviews/nightly-deploy-closeout-20260921/boundaries/finalize-probe/safe_external_alert-5onf2tpz/data workspace_rev=unknown db=/Users/a77/.finance-runtime/reviews/nightly-deploy-closeout-20260921/boundaries/finalize-probe/safe_external_alert-5onf2tpz/data/db/market_feature_store.duckdb moneyflow_out=/Users/a77/.finance-runtime/reviews/nightly-deploy-closeout-20260921/boundaries/finalize-probe/safe_external_alert-5onf2tpz/data/scripts/moneyflow/outputs ===
+[2026-09-21 15:36:46] generation_code=/Users/a77/.finance-runtime/reviews/nightly-deploy-closeout-20260921/boundaries/finalize-probe/safe_external_alert-5onf2tpz/code snapshot generation_rev=unknown l2_code=/Users/a77/.finance-runtime/reviews/nightly-deploy-closeout-20260921/boundaries/finalize-probe/safe_external_alert-5onf2tpz/elsewhere/ops-code
+{
+  "workflow": "daily",
+  "status": "FAIL",
+  "started_at": "2026-09-21T15:36:51+08:00",
+  "finished_at": "2026-09-21T15:36:51+08:00",
+  "inputs": {
+    "date": "2026-09-11",
+    "plan": "local",
+    "user": null,
+    "skip_sync": true,
+    "skip_long": false,
+    "skip_theme": false,
+    "skip_agent": false,
+    "skip_legacy_theme": false,
+    "skip_workbench": false,
+    "start_date": null,
+    "from_step": "daily-review",
+    "only_step": null,
+    "continue_on_warn": false,
+    "kb_wiki": null,
+    "step_timeout_sec": 1800,
+    "alerts_enabled": true,
+    "alert_on_warn": false,
+    "dry_run": false
+  },
+  "steps": [
+    {
+      "name": "quality-gate",
+      "status": "FAIL",
+      "command": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python -P /Users/a77/.finance-runtime/reviews/nightly-deploy-closeout-20260921/boundaries/finalize-probe/safe_external_alert-5onf2tpz/code snapshot/scripts/check_daily_review_data.py 2026-09-11 --phase data --plan local",
+      "returncode": 3,
+      "duration_sec": 0.09,
+      "stdout_tail": [],
+      "stderr_tail": [],
+      "outputs": [],
+      "warnings": [],
+      "errors": [
+        "command failed with returncode 3"
+      ],
+      "structured_result": null
+    },
+    {
+      "name": "cross-day-quality-gate",
+      "status": "SKIP",
+      "command": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python -P -m market_feature_store.cli check-daily --trade-date 2026-09-11 --json /Users/a77/.finance-runtime/reviews/nightly-deploy-closeout-20260921/boundaries/finalize-probe/safe_external_alert-5onf2tpz/data/skills/daily-full-review/state/quality-2026-09-11.json --plan local",
+      "returncode": null,
+      "duration_sec": null,
+      "stdout_tail": [],
+      "stderr_tail": [],
+      "outputs": [],
+      "warnings": [
+        "skipped because a previous required step failed"
+      ],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "export-increment",
+      "status": "SKIP",
+      "command": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python -P /Users/a77/.finance-runtime/reviews/nightly-deploy-closeout-20260921/boundaries/finalize-probe/safe_external_alert-5onf2tpz/code snapshot/skills/daily-full-review/scripts/export_increment.py --date 2026-09-11 --db /Users/a77/.finance-runtime/reviews/nightly-deploy-closeout-20260921/boundaries/finalize-probe/safe_external_alert-5onf2tpz/data/db/market_feature_store.duckdb --out-root /Users/a77/.finance-runtime/reviews/nightly-deploy-closeout-20260921/boundaries/finalize-probe/safe_external_alert-5onf2tpz/data/db/snapshots",
+      "returncode": null,
+      "duration_sec": null,
+      "stdout_tail": [],
+      "stderr_tail": [],
+      "outputs": [],
+      "warnings": [
+        "skipped because a previous required step failed"
+      ],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "daily-review",
+      "status": "SKIP",
+      "command": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python -P -m market_feature_store.cli daily-review --trade-date 2026-09-11 --output /Users/a77/.finance-runtime/reviews/nightly-deploy-closeout-20260921/boundaries/finalize-probe/safe_external_alert-5onf2tpz/data/market_feature_store/exports/2026-09-11-daily-review.md --chart-output /Users/a77/.finance-runtime/reviews/nightly-deploy-closeout-20260921/boundaries/finalize-probe/safe_external_alert-5onf2tpz/data/market_feature_store/exports/2026-09-11-advancers-ma5.png",
+      "returncode": null,
+      "duration_sec": null,
+      "stdout_tail": [],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/a77/.finance-runtime/reviews/nightly-deploy-closeout-20260921/boundaries/finalize-probe/safe_external_alert-5onf2tpz/data/market_feature_store/exports/2026-09-11-daily-review.json",
+        "/Users/a77/.finance-runtime/reviews/nightly-deploy-closeout-20260921/boundaries/finalize-probe/safe_external_alert-5onf2tpz/data/market_feature_store/exports/2026-09-11-daily-review.md",
+        "/Users/a77/.finance-runtime/reviews/nightly-deploy-closeout-20260921/boundaries/finalize-probe/safe_external_alert-5onf2tpz/data/market_feature_store/exports/2026-09-11-advancers-ma5.png"
+      ],
+      "warnings": [
+        "skipped because a previous required step failed"
+      ],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "daily-review-html",
+      "status": "SKIP",
+      "command": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python -P /Users/a77/.finance-runtime/reviews/nightly-deploy-closeout-20260921/boundaries/finalize-probe/safe_external_alert-5onf2tpz/code snapshot/scripts/render_daily_review_briefing.py 2026-09-11 --plan local",
+      "returncode": null,
+      "duration_sec": null,
+      "stdout_tail": [],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/a77/.finance-runtime/reviews/nightly-deploy-closeout-20260921/boundaries/finalize-probe/safe_external_alert-5onf2tpz/data/复盘/daily/2026-09-11/2026-09-11-daily-review.html"
+      ],
+      "warnings": [
+        "skipped because a previous required step failed"
+      ],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "framework-interpretation",
+      "status": "SKIP",
+      "command": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python -P -m intelligence.cli perspective framework-daily --date 2026-09-11 --daily-review-md /Users/a77/.finance-runtime/reviews/nightly-deploy-closeout-20260921/boundaries/finalize-probe/safe_external_alert-5onf2tpz/data/market_feature_store/exports/2026-09-11-daily-review.md --out-md /Users/a77/.finance-runtime/reviews/nightly-deploy-closeout-20260921/boundaries/finalize-probe/safe_external_alert-5onf2tpz/data/market_feature_store/exports/2026-09-11-framework-interpretation.md",
+      "returncode": null,
+      "duration_sec": null,
+      "stdout_tail": [],
+      "stderr_tail": [],
+      "outputs": [],
+      "warnings": [
+        "skipped because a previous required step failed"
+      ],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "checkpoint-recheck",
+      "status": "SKIP",
+      "command": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python -P -m intelligence.cli checkpoint recheck --date 2026-09-11 --kb-wiki /Users/a77/knowledge-base-private/wiki --apply",
+      "returncode": null,
+      "duration_sec": null,
+      "stdout_tail": [],
+      "stderr_tail": [],
+      "outputs": [],
+      "warnings": [
+        "skipped because a previous required step failed"
+      ],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "theme-candidates",
+      "status": "SKIP",
+      "command": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python -P -m intelligence.cli theme --date 2026-09-11 --market-triggered --out-json /Users/a77/.finance-runtime/reviews/nightly-deploy-closeout-20260921/boundaries/finalize-probe/safe_external_alert-5onf2tpz/data/market_feature_store/exports/2026-09-11-theme-candidates.json --out-md /Users/a77/.finance-runtime/reviews/nightly-deploy-closeout-20260921/boundaries/finalize-probe/safe_external_alert-5onf2tpz/data/market_feature_store/exports/2026-09-11-theme-candidates.md",
+      "returncode": null,
+      "duration_sec": null,
+      "stdout_tail": [],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/a77/.finance-runtime/reviews/nightly-deploy-closeout-20260921/boundaries/finalize-probe/safe_external_alert-5onf2tpz/data/market_feature_store/exports/2026-09-11-theme-candidates.json",
+        "/Users/a77/.finance-runtime/reviews/nightly-deploy-closeout-20260921/boundaries/finalize-probe/safe_external_alert-5onf2tpz/data/market_feature_store/exports/2026-09-11-theme-candidates.md"
+      ],
+      "warnings": [
+        "skipped because a previous required step failed"
+      ],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "theme-backfill-queue",
+      "status": "SKIP",
+      "command": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python -P /Users/a77/.finance-runtime/reviews/nightly-deploy-closeout-20260921/boundaries/finalize-probe/safe_external_alert-5onf2tpz/code snapshot/scripts/build_theme_backfill_queue.py 2026-09-11",
+      "returncode": null,
+      "duration_sec": null,
+      "stdout_tail": [],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/a77/.finance-runtime/reviews/nightly-deploy-closeout-20260921/boundaries/finalize-probe/safe_external_alert-5onf2tpz/data/market_feature_store/exports/2026-09-11-theme-backfill-queue.json"
+      ],
+      "warnings": [
+        "skipped because a previous required step failed"
+      ],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "theme-backfill-review-queue",
+      "status": "SKIP",
+      "command": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python -P /Users/a77/.finance-runtime/reviews/nightly-deploy-closeout-20260921/boundaries/finalize-probe/safe_external_alert-5onf2tpz/code snapshot/scripts/build_theme_backfill_review_queue.py 2026-09-11",
+      "returncode": null,
+      "duration_sec": null,
+      "stdout_tail": [],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/a77/.finance-runtime/reviews/nightly-deploy-closeout-20260921/boundaries/finalize-probe/safe_external_alert-5onf2tpz/data/market_feature_store/exports/2026-09-11-theme-backfill-review-queue.json",
+        "/Users/a77/.finance-runtime/reviews/nightly-deploy-closeout-20260921/boundaries/finalize-probe/safe_external_alert-5onf2tpz/data/market_feature_store/exports/2026-09-11-theme-backfill-review-queue.md"
+      ],
+      "warnings": [
+        "skipped because a previous required step failed"
+      ],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "theme-candidates-html",
+      "status": "SKIP",
+      "command": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python -P /Users/a77/.finance-runtime/reviews/nightly-deploy-closeout-20260921/boundaries/finalize-probe/safe_external_alert-5onf2tpz/code snapshot/scripts/render_theme_candidates_workbench_html.py 2026-09-11",
+      "returncode": null,
+      "duration_sec": null,
+      "stdout_tail": [],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/a77/.finance-runtime/reviews/nightly-deploy-closeout-20260921/boundaries/finalize-probe/safe_external_alert-5onf2tpz/data/复盘/daily/2026-09-11/2026-09-11-theme-candidates.html"
+      ],
+      "warnings": [
+        "skipped because a previous required step failed"
+      ],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "legacy-market-triggered-theme-brief-html",
+      "status": "SKIP",
+      "command": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python -P /Users/a77/.finance-runtime/reviews/nightly-deploy-closeout-20260921/boundaries/finalize-probe/safe_external_alert-5onf2tpz/code snapshot/scripts/render_market_triggered_theme_brief_html.py 2026-09-11",
+      "returncode": null,
+      "duration_sec": null,
+      "stdout_tail": [],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/a77/.finance-runtime/reviews/nightly-deploy-closeout-20260921/boundaries/finalize-probe/safe_external_alert-5onf2tpz/data/market_feature_store/exports/2026-09-11-triggered-themes.json",
+        "/Users/a77/.finance-runtime/reviews/nightly-deploy-closeout-20260921/boundaries/finalize-probe/safe_external_alert-5onf2tpz/data/market_feature_store/exports/2026-09-11-market-triggered-theme-brief.md",
+        "/Users/a77/.finance-runtime/reviews/nightly-deploy-closeout-20260921/boundaries/finalize-probe/safe_external_alert-5onf2tpz/data/复盘/daily/2026-09-11/2026-09-11-market-triggered-theme-brief.html"
+      ],
+      "warnings": [
+        "skipped because a previous required step failed"
+      ],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "agent-daily",
+      "status": "SKIP",
+      "command": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python -P -m intelligence.cli agent-daily --date 2026-09-11 --kb-wiki /Users/a77/knowledge-base-private/wiki --out-json /Users/a77/.finance-runtime/reviews/nightly-deploy-closeout-20260921/boundaries/finalize-probe/safe_external_alert-5onf2tpz/data/market_feature_store/exports/2026-09-11-daily-agent.json --out-md /Users/a77/.finance-runtime/reviews/nightly-deploy-closeout-20260921/boundaries/finalize-probe/safe_external_alert-5onf2tpz/data/market_feature_store/exports/2026-09-11-daily-agent.md --out-html /Users/a77/.finance-runtime/reviews/nightly-deploy-closeout-20260921/boundaries/finalize-probe/safe_external_alert-5onf2tpz/data/复盘/daily/2026-09-11/2026-09-11-daily-agent.html --semantic-rag-top-n 0",
+      "returncode": null,
+      "duration_sec": null,
+      "stdout_tail": [],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/a77/.finance-runtime/reviews/nightly-deploy-closeout-20260921/boundaries/finalize-probe/safe_external_alert-5onf2tpz/data/market_feature_store/exports/2026-09-11-research-queue.json",
+        "/Users/a77/.finance-runtime/reviews/nightly-deploy-closeout-20260921/boundaries/finalize-probe/safe_external_alert-5onf2tpz/data/market_feature_store/exports/2026-09-11-research-queue.md",
+        "/Users/a77/.finance-runtime/reviews/nightly-deploy-closeout-20260921/boundaries/finalize-probe/safe_external_alert-5onf2tpz/data/复盘/daily/2026-09-11/2026-09-11-research-queue.html",
+        "/Users/a77/.finance-runtime/reviews/nightly-deploy-closeout-20260921/boundaries/finalize-probe/safe_external_alert-5onf2tpz/data/market_feature_store/exports/2026-09-11-daily-agent.json",
+        "/Users/a77/.finance-runtime/reviews/nightly-deploy-closeout-20260921/boundaries/finalize-probe/safe_external_alert-5onf2tpz/data/market_feature_store/exports/2026-09-11-daily-agent.md",
+        "/Users/a77/.finance-runtime/reviews/nightly-deploy-closeout-20260921/boundaries/finalize-probe/safe_external_alert-5onf2tpz/data/复盘/daily/2026-09-11/2026-09-11-daily-agent.html"
+      ],
+      "warnings": [
+        "skipped because a previous required step failed"
+      ],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "kb-ingest-receive",
+      "status": "SKIP",
+      "command": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python -P -m intelligence.cli kb-queue-receive --date 2026-09-11 --finance-root /Users/a77/.finance-runtime/reviews/nightly-deploy-closeout-20260921/boundaries/finalize-probe/safe_external_alert-5onf2tpz/data --kb-wiki /Users/a77/knowledge-base-private/wiki",
+      "returncode": null,
+      "duration_sec": null,
+      "stdout_tail": [],
+      "stderr_tail": [],
+      "outputs": [],
+      "warnings": [
+        "skipped because a previous required step failed"
+      ],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "strategy1-matrix-draft",
+      "status": "SKIP",
+      "command": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python -P /Users/a77/.finance-runtime/reviews/nightly-deploy-closeout-20260921/boundaries/finalize-probe/safe_external_alert-5onf2tpz/code snapshot/scripts/generate_strategy1_mechanical_row.py --date 2026-09-11",
+      "returncode": null,
+      "duration_sec": null,
+      "stdout_tail": [],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/a77/.finance-runtime/reviews/nightly-deploy-closeout-20260921/boundaries/finalize-probe/safe_external_alert-5onf2tpz/data/复盘/matrices/strategy1-priority-stock-matrix.html"
+      ],
+      "warnings": [
+        "skipped because a previous required step failed"
+      ],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "strategy3-matrix",
+      "status": "SKIP",
+      "command": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python -P /Users/a77/.finance-runtime/reviews/nightly-deploy-closeout-20260921/boundaries/finalize-probe/safe_external_alert-5onf2tpz/code snapshot/scripts/backfill_strategy3_touch_matrix.py --append-missing",
+      "returncode": null,
+      "duration_sec": null,
+      "stdout_tail": [],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/a77/.finance-runtime/reviews/nightly-deploy-closeout-20260921/boundaries/finalize-probe/safe_external_alert-5onf2tpz/data/复盘/matrices/strategy3-touch-up-rebound-matrix.html"
+      ],
+      "warnings": [
+        "skipped because a previous required step failed"
+      ],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "strategy4-matrix",
+      "status": "SKIP",
+      "command": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python -P /Users/a77/.finance-runtime/reviews/nightly-deploy-closeout-20260921/boundaries/finalize-probe/safe_external_alert-5onf2tpz/code snapshot/scripts/render_strategy4_dual_engine_matrix.py --end 2026-09-11",
+      "returncode": null,
+      "duration_sec": null,
+      "stdout_tail": [],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/a77/.finance-runtime/reviews/nightly-deploy-closeout-20260921/boundaries/finalize-probe/safe_external_alert-5onf2tpz/data/复盘/matrices/strategy4-dual-engine-matrix.html"
+      ],
+      "warnings": [
+        "skipped because a previous required step failed"
+      ],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "review-workbench",
+      "status": "SKIP",
+      "command": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python -P /Users/a77/.finance-runtime/reviews/nightly-deploy-closeout-20260921/boundaries/finalize-probe/safe_external_alert-5onf2tpz/code snapshot/scripts/render_review_workbench.py",
+      "returncode": null,
+      "duration_sec": null,
+      "stdout_tail": [],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/a77/.finance-runtime/reviews/nightly-deploy-closeout-20260921/boundaries/finalize-probe/safe_external_alert-5onf2tpz/data/复盘/matrices/strategy-review-workbench.html"
+      ],
+      "warnings": [
+        "skipped because a previous required step failed"
+      ],
+      "errors": [],
+      "structured_result": null
+    },
+    {
+      "name": "cockpit",
+      "status": "SKIP",
+      "command": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python -P /Users/a77/.finance-runtime/reviews/nightly-deploy-closeout-20260921/boundaries/finalize-probe/safe_external_alert-5onf2tpz/code snapshot/scripts/render_cockpit.py --knowledge-root /Users/a77/knowledge-base-private",
+      "returncode": null,
+      "duration_sec": null,
+      "stdout_tail": [],
+      "stderr_tail": [],
+      "outputs": [
+        "/Users/a77/.finance-runtime/reviews/nightly-deploy-closeout-20260921/boundaries/finalize-probe/safe_external_alert-5onf2tpz/data/复盘/index.html"
+      ],
+      "warnings": [
+        "skipped because a previous required step failed"
+      ],
+      "errors": [],
+      "structured_result": null
+    }
+  ],
+  "outputs": [],
+  "warnings": [
+    "starting from step: daily-review",
+    "pre-report quality gates and export were prepended; downstream steps cannot bypass them",
+    "skipped because a previous required step failed",
+    "skipped because a previous required step failed",
+    "skipped because a previous required step failed",
+    "skipped because a previous required step failed",
+    "skipped because a previous required step failed",
+    "skipped because a previous required step failed",
+    "skipped because a previous required step failed",
+    "skipped because a previous required step failed",
+    "skipped because a previous required step failed",
+    "skipped because a previous required step failed",
+    "skipped because a previous required step failed",
+    "skipped because a previous required step failed",
+    "skipped because a previous required step failed",
+    "skipped because a previous required step failed",
+    "skipped because a previous required step failed",
+    "skipped because a previous required step failed",
+    "skipped because a previous required step failed",
+    "skipped because a previous required step failed"
+  ],
+  "errors": [
+    "command failed with returncode 3"
+  ],
+  "next_actions": [
+    "Fix the failed step, then re-run the workflow from the appropriate point."
+  ]
+}
+[2026-09-21 15:36:52] 生成段失败 rc=1

@@ -1,0 +1,37 @@
+{
+  "revision": "2137345daa44daefa0d029ba4c2de89e0f725b2a",
+  "source_mutated": false,
+  "real_launchctl_used": false,
+  "cases": [
+    {
+      "case": "narrow_selection_removed",
+      "detected": true,
+      "assertion": "",
+      "mutated_sha256": "30bc870c417d5ce620d43d259dfa75b55e9a32af3afee09ca14fe1560c27fad2"
+    },
+    {
+      "case": "preview_executes",
+      "detected": true,
+      "assertion": "",
+      "mutated_sha256": "65939063e32435de50517ca268660af2e06a0c29c59ff953704071dcd5a39324"
+    },
+    {
+      "case": "shared_helper_replaced",
+      "detected": true,
+      "assertion": "",
+      "mutated_sha256": "290337f9b556d9e634b0ce689ecb8ac8980cb5e91ccd7f860a5a011adf1aaf9a"
+    },
+    {
+      "case": "run_at_load_not_checked",
+      "detected": true,
+      "assertion": "",
+      "mutated_sha256": "6aac33185ba8f299baec1e29544c0e2964b405e30d65b86a96860b13f1635ef2"
+    },
+    {
+      "case": "label_not_checked",
+      "detected": true,
+      "assertion": "",
+      "mutated_sha256": "19bfa04b1f96cbd77d7b8d868367dd17602d55a16a14c63672b62126e635d9fd"
+    }
+  ]
+}

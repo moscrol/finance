@@ -1,0 +1,144 @@
+{
+  "axis": "quality",
+  "revision": "2ea6c3db01a062b9c623498df1b60edfbafe582b",
+  "command": [
+    "/opt/homebrew/bin/pi",
+    "--provider",
+    "mirasim-kimi",
+    "--model",
+    "kimi-k3",
+    "--thinking",
+    "xhigh",
+    "--models",
+    "mirasim-kimi/kimi-k3",
+    "--no-session",
+    "--no-extensions",
+    "-e",
+    "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/credential-bootstrap.mjs",
+    "--no-skills",
+    "--no-prompt-templates",
+    "--no-context-files",
+    "--no-themes",
+    "--no-approve",
+    "--offline",
+    "--tools",
+    "read,bash,write,grep,find,ls",
+    "--mode",
+    "json",
+    "-p",
+    "--",
+    "<prompt file>"
+  ],
+  "prompt_sha256": "5983225cfafc035e4fb004c5b1fa8012d947cf5f6d4c02b20e3f09ec547e939d",
+  "common_sha256": "e5dc18d6a26f7e3913678fe6be304246067e0ddbba8575ecc573d85af9479201",
+  "settings_sha256": "ea3b67cdee8eb32030f8e3b7acde1e3c4b4f9394ab399fd21b18b2aecc037b2d",
+  "authorization_sha256": "1d339fdb6a61320b20c85c5109c9e89acaeff81f95e1c0e2aa20400d19377d28",
+  "runner_sha256": "290d53dc044cad3932f4eae6c4bcb35cc776c944c38d2095d0a882764ca0fc61",
+  "identity_before": {
+    "revision": "2ea6c3db01a062b9c623498df1b60edfbafe582b",
+    "status": "",
+    "relevant_refs": "refs/heads/fix/nightly-deploy-closeout-0921 2ea6c3db01a062b9c623498df1b60edfbafe582b\nrefs/remotes/gitea/main f783f19c8a01fbe8d0ed70d851df7ed14598c051",
+    "author": {
+      "revision": "2ea6c3db01a062b9c623498df1b60edfbafe582b",
+      "status": ""
+    },
+    "vault": {
+      "revision": "3dc80b494138889826b38b0a35e717ad5d6d8eb5",
+      "status": ""
+    },
+    "inputs_sha256": {
+      "run-review.py": "290d53dc044cad3932f4eae6c4bcb35cc776c944c38d2095d0a882764ca0fc61",
+      "quality-prompt.md": "5983225cfafc035e4fb004c5b1fa8012d947cf5f6d4c02b20e3f09ec547e939d",
+      "review-common.md": "e5dc18d6a26f7e3913678fe6be304246067e0ddbba8575ecc573d85af9479201",
+      "authorization-update.json": "1d339fdb6a61320b20c85c5109c9e89acaeff81f95e1c0e2aa20400d19377d28",
+      "credential-bootstrap.mjs": "4abd95638e299f1be10bc3c7ecf5a56fc7834461f7a6b954550a1ec77da631e4",
+      "provider-template.json": "d3030f00ab3ba2d67c27d1fba2fcbdf60af34ea0d0d675e8bba704dfc54094b4",
+      "pi-config/settings.json": "ea3b67cdee8eb32030f8e3b7acde1e3c4b4f9394ab399fd21b18b2aecc037b2d",
+      "pi-config/models.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      "pi-config/auth.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      "spec-k3/qc.json": "8f91110bc1b10c567ffd9519eae7932b6101f398fbfdd57b4e1f976918d8b5fb",
+      "spec-k3/execution.json": "1332d2a4edc41175126d11c75f806e4ae69d7796193a5703a9964823b2727712"
+    },
+    "spec_report_sha256": "b39316b685fdc85fb3f8e4f15b1a47b45bde3c00eaa4e13f1ef9d000b6595295",
+    "spec_verdict_sha256": "af2eac820216e9b41c31f11c1f52b497148b474d9e4ec438af4166c3cc649e32"
+  },
+  "time_before": "2026-09-21T08:36:19.956913+00:00",
+  "complete": true,
+  "timeout_seconds": 1200,
+  "turn_watchdog_threshold": 41,
+  "max_provider_request_admissions": 40,
+  "monetary_cap": null,
+  "billing": "existing subscription; estimated cost is not a financial invoice",
+  "pid": 18641,
+  "exit_code": 1,
+  "stop_reason": null,
+  "identity_after": {
+    "revision": "2ea6c3db01a062b9c623498df1b60edfbafe582b",
+    "status": "",
+    "relevant_refs": "refs/heads/fix/nightly-deploy-closeout-0921 2ea6c3db01a062b9c623498df1b60edfbafe582b\nrefs/remotes/gitea/main f783f19c8a01fbe8d0ed70d851df7ed14598c051",
+    "author": {
+      "revision": "2ea6c3db01a062b9c623498df1b60edfbafe582b",
+      "status": ""
+    },
+    "vault": {
+      "revision": "3dc80b494138889826b38b0a35e717ad5d6d8eb5",
+      "status": ""
+    },
+    "inputs_sha256": {
+      "run-review.py": "290d53dc044cad3932f4eae6c4bcb35cc776c944c38d2095d0a882764ca0fc61",
+      "quality-prompt.md": "5983225cfafc035e4fb004c5b1fa8012d947cf5f6d4c02b20e3f09ec547e939d",
+      "review-common.md": "e5dc18d6a26f7e3913678fe6be304246067e0ddbba8575ecc573d85af9479201",
+      "authorization-update.json": "1d339fdb6a61320b20c85c5109c9e89acaeff81f95e1c0e2aa20400d19377d28",
+      "credential-bootstrap.mjs": "4abd95638e299f1be10bc3c7ecf5a56fc7834461f7a6b954550a1ec77da631e4",
+      "provider-template.json": "d3030f00ab3ba2d67c27d1fba2fcbdf60af34ea0d0d675e8bba704dfc54094b4",
+      "pi-config/settings.json": "ea3b67cdee8eb32030f8e3b7acde1e3c4b4f9394ab399fd21b18b2aecc037b2d",
+      "pi-config/models.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      "pi-config/auth.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      "spec-k3/qc.json": "8f91110bc1b10c567ffd9519eae7932b6101f398fbfdd57b4e1f976918d8b5fb",
+      "spec-k3/execution.json": "1332d2a4edc41175126d11c75f806e4ae69d7796193a5703a9964823b2727712"
+    },
+    "spec_report_sha256": "b39316b685fdc85fb3f8e4f15b1a47b45bde3c00eaa4e13f1ef9d000b6595295",
+    "spec_verdict_sha256": "af2eac820216e9b41c31f11c1f52b497148b474d9e4ec438af4166c3cc649e32"
+  },
+  "time_after": "2026-09-21T08:40:40.375077+00:00",
+  "elapsed_seconds": 260.418,
+  "candidate_untouched": true,
+  "author_untouched": true,
+  "relevant_refs_unchanged": true,
+  "vault_unchanged": true,
+  "inputs_unchanged": true,
+  "spec_unchanged": true,
+  "event_counts": {
+    "session": 1,
+    "agent_start": 1,
+    "turn_start": 10,
+    "message_start": 27,
+    "message_end": 26,
+    "message_update": 5445,
+    "tool_execution_start": 16,
+    "tool_execution_update": 33,
+    "tool_execution_end": 16,
+    "turn_end": 9
+  },
+  "assistant_messages": 9,
+  "model_identities": [
+    "mirasim-kimi/kimi-k3"
+  ],
+  "model_errors": [],
+  "usage": {
+    "input": 39540,
+    "output": 5759,
+    "cacheRead": 85063,
+    "cacheWrite": 0,
+    "totalTokens": 130362
+  },
+  "estimated_cost_not_invoice": 0,
+  "provider_request_admissions": 10,
+  "admissions_valid": true,
+  "sha256": {
+    "events.jsonl": "4cdf0b375ce5be7c05846a78076c3e532a71d9f82fe4cddc72aaf539584b171b",
+    "stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "credential.json": "5bec9d7b42722a0140b35f7a982cb1cbd918b638742b7de1afe67a2fb9560784",
+    "request-admissions.jsonl": "43e2eb5177f5e99e04703145952be5c85de4873af649c7b3dd090031c70d416f"
+  }
+}
