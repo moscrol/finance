@@ -157,6 +157,48 @@ def init_db(con: duckdb.DuckDBPyConnection | None = None) -> None:
             con.close()
 
 
+class SnapshotUnavailableError(ValueError):
+    """调用方已持有事务，本次读取无法自持快照。"""
+
+
+@contextmanager
+def read_snapshot(con):
+    """把一组读取绑定到同一个数据库快照上。
+
+    为什么需要：自动提交模式下**每条 SELECT 各取一次快照**。预览类命令要读目录、
+    成员、指数、个股行情多张表，中途有写者提交就会产出「旧名单 + 新价格」的拼接
+    报告——里面每个数字都真实存在过，但它们从未同时成立。这种报告比直接报错更
+    危险：它看上去完全正常。
+
+    为什么用 READ ONLY 事务而不是普通事务：DuckDB 的 MVCC（多版本并发控制）下读
+    不加锁，所以它**不会阻塞写者**；同时它从引擎层面禁止写入，比「约定不写」更硬。
+
+    退出时一律 ROLLBACK：只读事务没有要提交的东西，ROLLBACK 表达的是「只释放快
+    照、不声称任何变更」。finally 兼顾 BaseException（如 KeyboardInterrupt），否则
+    一次中断就会把事务泄漏给后续调用方。
+
+    调用方已开事务时 fail-closed：那时本函数无法保证看到的是已提交状态，而预览结果
+    会被当成证据保存。不说话地复用外层事务，等于允许它读未提交、可能回滚的行。这里
+    不放任 duckdb.TransactionException 冒泡，因为它是 duckdb.Error 子类，会被 CLI
+    归因成「数据库不可用 / schema 不匹配」——错误的归因比没有归因更难排查。
+
+    **拒绝不是无副作用的**：DuckDB 的 Python API 没有暴露事务状态，只能试着 BEGIN；
+    而事务内任何语句报错都会把该事务置为 aborted，调用方必须 ROLLBACK 且未提交
+    改动会丢失。不写在这里的话，下一个人会把它当成「只是报个错」。
+    """
+    try:
+        con.execute("BEGIN TRANSACTION READ ONLY")
+    except duckdb.TransactionException as exc:
+        raise SnapshotUnavailableError(
+            "调用方已持有事务；本次读取需要自持只读快照，不复用可能含未提交行的外层事务；"
+            "该事务已被引擎置为 aborted，请先 ROLLBACK 再用独立连接重试"
+        ) from exc
+    try:
+        yield con
+    finally:
+        con.execute("ROLLBACK")
+
+
 def get_published_snapshot_id(con: duckdb.DuckDBPyConnection, trade_date: str) -> str:
     """获取某交易日已发布的 sector_universe_snapshot_id。
 
