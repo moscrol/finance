@@ -123,13 +123,21 @@ class TestCircuitBreakerOnUpstreamRefusal:
     def test_success_resets_the_streak_so_it_counts_consecutive_not_cumulative(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """判据是「连续」。整晚翻 60 页，偶发抖动累计超阈值是正常的，不该误熔断。"""
+        """判据是「连续」。整晚翻 60 页，偶发抖动累计超阈值是正常的，不该误熔断。
+
+        **刻意打单 host**（`EM_URL_FALLBACK` 不含 `EM_URL`，不会追加兜底域）：
+        带兜底域时，「计数没清零 → 第一个 host 熔断 → 第二个 host 接住」也会
+        返回 PAYLOAD 且总请求数同样是 6，断言分辨不出来——变异测试 M5 正是
+        这样从本用例手里漏过去的。
+        """
+        single_host = f"{em.EM_URL_FALLBACK}?pn="
         urlopen = _counting_urlopen(_disc(), _disc(), PAYLOAD, _disc(), _disc(), PAYLOAD)
         monkeypatch.setattr(em.urllib.request, "urlopen", urlopen)
 
-        assert em._get_json(f"{em.EM_URL}?pn=1", timeout=5) == PAYLOAD
-        assert em._get_json(f"{em.EM_URL}?pn=2", timeout=5) == PAYLOAD
+        assert em._get_json(f"{single_host}1", timeout=5) == PAYLOAD
+        assert em._get_json(f"{single_host}2", timeout=5) == PAYLOAD
         assert len(urlopen.calls) == 6
+        assert em._refusing_hosts == set(), "连续计数没清零，把正常抖动误判成了上游拒绝"
 
     def test_refusal_is_remembered_so_remaining_pages_fail_fast_without_requests(
         self, monkeypatch: pytest.MonkeyPatch
