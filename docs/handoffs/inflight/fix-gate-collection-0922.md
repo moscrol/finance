@@ -25,8 +25,8 @@
 
 | 项 | 结果 |
 |---|---|
-| `pytest -q` 全树（无任何 --ignore）@`661811b8a` 干净树 | **12462P / 85S / 2X / 0F**，38m31s，exit 0；收据自证未收窄、`collected=12549` 与读数对平 |
-| 同上 @`f783f19c8`+改动 | 12442P / 85S / 2X / 0F，26m13s |
+| `pytest -q` 全树（无 --ignore）@`b450d1db9` 干净树 | **12473P / 85S / 2X / 0F**，26m58s，exit 0；不带参数跑校验器即挑中本树收据，十项全 ✓ |
+| 同上 @`661811b8a` / @`f783f19c8`+改动 | 12462P / 12442P，同为 0F |
 | `ruff check .` 全树 | All checks passed |
 | 撤保护 | 归档守卫 2/2、收据 scope 6/6、指针隔离 6/6 全红 |
 
@@ -41,3 +41,5 @@
 - Gitea 仍不跑 Actions，`workbench-check.yml` 依旧是一张纸——门禁还得人手跑。
 - 同树 `fix/financial-comparison-0922` 的 13352P 是绕开坏文件得出的；合并后应重跑。
 - #835 独立终审仍 `BLOCKED_PROVIDER_CAPACITY`；R6/R3 自然四题仍 0/4，本轮未动。
+- **与 PR #814（per-run 不可变收据，WIP）在 `conftest.py`/`run_main_gate.sh` 文本冲突、语义互补**，
+  整合配方（哪一侧为准、怎么合）写在证据目录 `README.md` 末节。
