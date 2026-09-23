@@ -80,7 +80,7 @@
 |---|------|--------|------|--------|
 | 81 | `2026-09-23-react-trace-chain-closeout-workorder.md` | P1（中单，一到两天） | 金融 | ⏳ 待派。ReAct trace 六项修复链：#809 已关（→ #832），#832 是唯一载体，对 main 6 处冲突、新增代码在 main 只见 44%；前向 + 对照 #863 已覆盖项 + 四叶 + #75/#76 登记；用户若裁定放弃则关 #832 留指针。#841 归 #68。 |
 | 82 | `2026-09-23-finarena-candidate-disposition-workorder.md` | P2（先拍产品裁决，再定工程量） | 金融 | ⏳ 待派。FinArena：#811 已关（→ #816/#817），#817 修了 NO-GO 的 P1/P2 但无新组合四叶、无独立复审；对 main 0 冲突、0% 落地。先出两条路决策页（落地为 opt-in 模块 / 归档），拍完再动。 |
-| 83 | `2026-09-23-backfill-302132-acceptance-integration-workorder.md` | P1（中单；生产回填另需逐字授权） | 金融 | ⏳ 待派。302132 回填父子命令 #813（0 冲突、4% 落地）前向 + 四叶 + 库副本父子发布演练（clonefile）+ 抓值审计；#802 关闭留指针；生产回填只写出命令等授权。 |
+| 83 | `2026-09-23-backfill-302132-acceptance-integration-workorder.md` | P1（中单；生产回填另需逐字授权） | 金融 | 已认领：`fix/backfill-302132-0923` / #813，前向 main `626d8a50` 无冲突；源码 `b9b59a9a` 修复时间推进后的窗外保护与来源分段。干净定向 118P、完整副本父子发布/独立验收/1e15 拒收/备份恢复/抓值审计已通过，生产未改，#802 已关→#813（评论6446，分支保留）。四叶闭环与最终 head 只看 `~/.finance-runtime/reviews/backfill-302132-0923/CURRENT.json`，缺失或有红不得合；已登记 #75。决策/授权模板见 `docs/handoffs/2026-09-23-backfill-302132-integration.md`。合入与生产均未授权，不碰 8792/launchd/他股。 |
 | 84 | `2026-09-23-worktree-board-hardening-pr812-workorder.md` | P1（小到中单；#64 的前置） | 金融 | ⏳ 待派。看板三类误判修复 + 9 反例测试（#812，`worktree_board.py` 1 处冲突）前向；与今日合入的 #876 拆树工具去重；输出加 `unknown_reason` / `blockers`；12 棵 ownership 证据树只出处置表，拆除归 #64。 |
 | 85 | `2026-09-23-hithink-research-observations-pr810-workorder.md` | P1（中单） | 金融 | ⏳ 待派。#810 研究观察值（15 文件，仅 lessons 冲突）前向 + 429 指数退避（现状 429 会中止整轮）+ 四叶 + K3 桥独立复审；不 live sync、不切生产根，部署命令只写不跑。 |
 | 86 | `2026-09-23-deploy-help-fail-closed-pr846-workorder.md` | P1（小单，半天） | 金融 | ⏳ 待派。#846：部署脚本 `--help` 曾真的 rsync 覆盖 8792；修复有定向 57P + 变异 3/3、6/6，缺四叶与独立结论（外审 300 秒空输出）。前向 + 四叶 + 查安装副本指向；不部署。 |
