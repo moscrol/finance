@@ -19,7 +19,8 @@ from intelligence.services.market_midterm import parse_midterm_intent
 from intelligence.services.route_table import fine_grained_route_length_ok
 from intelligence.services.scenario_tree import parse_scenario_intent
 from intelligence.services.task_frame import TaskFrame, build_task_frame
-from intelligence.services.user_task import resolve_nicknames, split_user_message
+from intelligence.services.user_task import MessageParts, resolve_nicknames, split_user_message
+from intelligence.services.material_contract import compile_material_contract
 
 
 SubjectKind = Literal[
@@ -764,6 +765,26 @@ def _definition_subject(query: str) -> str | None:
     return None
 
 
+_SUPPLIED_NEWS_REQUEST_RE = re.compile(
+    r"(?:这(?:个|条|则)|该)(?:消息|新闻|公告|事件)"
+    r"[^。；！？?\n]{0,32}(?:支持什么结论|意味着什么|说明什么|怎么解读|如何解读|有何影响|有什么影响|是利好|是利空)"
+)
+
+
+def material_request_question_type(parts: MessageParts) -> str:
+    """Classify a supplied-news request without entity resolution or tool grants.
+
+    Numbered packs keep their own output contract; quoted/document-owned words
+    cannot change the task type. The caller still owns the data-scope ceiling.
+    """
+    regions = parts.regions
+    if (regions is not None and not regions.sub_questions
+            and regions.classification != "boundary_uncertain"
+            and _SUPPLIED_NEWS_REQUEST_RE.search(regions.control_text)):
+        return "news_impact"
+    return "general_finance_qa"
+
+
 def _news_impact_target(query: str) -> str | None:
     text = re.sub(r"\s+", "", str(query or "").strip())
     match = _RELATED_NEWS_TOPIC_RE.search(text)
@@ -1505,6 +1526,14 @@ def understand_query(
         # 追问 timeframe 落 None、继承上一轮日期。这里按不晚于今天的最近同月同日解析，
         # 但「涨幅8.5」「跌了2.3」这类前面是数量词的数字不算日期。
         timeframe = _yearless_timeframe(text)
+
+    material_contract = compile_material_contract(parts.regions) if parts.regions else None
+    if (material_contract and material_contract.data_scope == "material_only"
+            and material_request_question_type(parts) == "news_impact"):
+        return envelope(
+            "news_impact", "unknown", None,
+            "依据用户材料判断消息支持的结论，分开事实、解读和情绪", None, "explicit", 1.0,
+        )
 
     if has_materials and _MATERIAL_CRITIQUE_RE.search(text):
         return envelope(

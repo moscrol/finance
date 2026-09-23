@@ -482,6 +482,11 @@ _B_MATERIAL_ONLY_PHRASES: tuple[str, ...] = (
     "只分析以下材料", "仅分析以下材料", "只分析以下虚构材料", "仅分析以下虚构材料",
     "不查其他资料", "不查其它资料",
 )
+_B_SUPPLIED_MATERIAL_HEAD = (
+    r"(?:只|仅)(?:使用|用|分析)(?:以下|下列|上述|以上|给定|这些|这个)?"
+    r"(?:虚构的?)?(?:材料|资料|案例|算例)"
+)
+_B_SUPPLIED_MATERIAL_RE = re.compile("^" + _B_SUPPLIED_MATERIAL_HEAD)
 _B_PREVIOUS_EVIDENCE_ONLY_HEAD = (
     r"(?:只|仅)(?:用|使用|依据)(?:已取得|已获得|刚才查到|上轮查到)的"
     r"(?:本地)?(?:数据|资料|证据)"
@@ -510,17 +515,18 @@ _STATE_PREFIX_ATOM = r"(?:请|麻烦|烦请|本轮|这次|此次|仍)\s*"
 # 同句多轴操作不仅以标点分开，也可用「且/并」连接。只在后面确有
 # 状态操作时切分，不能把公司名/普通叙述里的「并」拆碎；偏移仍对应原文。
 _SENT_SPLIT_RE = re.compile(
-    r"[。！？；，,\n]|(?:并且|而且|且|并|同时)(?=\s*(?:" + _STATE_PREFIX_ATOM + r")*(?:"
+    r"[。！？；，,\n]|(?:、|并且|而且|且|并|同时)(?=\s*(?:" + _STATE_PREFIX_ATOM + r")*(?:"
     + "|".join(re.escape(p) for p in (
         *_B_MATERIAL_ONLY_PHRASES, *_B_LOCAL_ONLY_PHRASES, *_B_RELAX_PHRASES,
         *_CONTINUATION_HEAD_PHRASES, "其余条件不变", "假设", "如果",
     ))
-    + "|" + _B_PREVIOUS_EVIDENCE_ONLY_HEAD + r"))"
+    + "|" + _B_PREVIOUS_EVIDENCE_ONLY_HEAD + "|" + _B_SUPPLIED_MATERIAL_HEAD + r"))"
 )
 # 虚构前提声明：「以下是完全虚构的研究案例」「均为虚构」「纯属虚构」等（句中即算，
 # 这类措辞极少出现在叙述句里；出现在复核块里时走 boundary_uncertain 保守分支）。
 _FICTIONAL_SENT_RE = re.compile(
-    r"以下\s*[是为][^。；，]{0,12}虚构|均为虚构|纯属虚构|完全虚构|虚构案例|以下虚构材料|(?<!不)[是为]虚构的?"
+    r"以下\s*[是为][^。；，]{0,12}虚构|均为虚构|纯属虚构|完全虚构|(?<!不)[是为]虚构的?"
+    r"|(?<!非)(?<!不)(?<!不是)虚构的?(?:案例|算例|材料|公司|企业|行业)"
 )
 # A8 的「假设 X，结合当前行情」不要求额外的「成立」。是否顶层由区域复核决定，
 # 而不是把明确假设漏成无约束；材料内同形态仍走 uncertain，强保护内不可见。
@@ -562,7 +568,7 @@ _QUESTIONISH_RE = re.compile(
 # 「行业空间说明」是标题而非请求；题首证明必须比正文关键词更强。
 _QUESTION_START_RE = re.compile(
     r"[？?]|什么|怎么|多少|哪些|如何|为何|是否|选哪|"
-    r"^(?:请|假设|如果|排序|指出|说明|计算|分析|比较|判断)"
+    r"(?:^|[。；，])\s*(?:请|假设|如果|排序|指出|说明|计算|分析|比较|判断|评价|核算|解释|给出|给我|列出|归纳|区分)"
 )
 _STATE_PREFIX_RE = re.compile(r"^(?:" + _STATE_PREFIX_ATOM + r")+")
 
@@ -623,7 +629,9 @@ def _state_op_in_sentence(sent: str) -> str | None:
 
 def is_material_only_instruction(head: str) -> bool:
     """Previously obtained data is an input ceiling, not permission to query again."""
-    return head.startswith(_B_MATERIAL_ONLY_PHRASES) or bool(_B_PREVIOUS_EVIDENCE_ONLY_RE.match(head))
+    return head.startswith(_B_MATERIAL_ONLY_PHRASES) or bool(
+        _B_PREVIOUS_EVIDENCE_ONLY_RE.match(head) or _B_SUPPLIED_MATERIAL_RE.match(head)
+    )
 
 
 def requests_previous_answer_review(text: str) -> bool:
@@ -991,9 +999,10 @@ def classify_top_level_regions(text: str) -> TopLevelRegions:
                 [m.group(2).strip(), *(masked[k].strip() for k in range(li + 1, j))]
             ).strip()
             # 组在文末、下一编号或独立指令前结束；叙述正文仍不能证明题组终点。
-            if _QUESTIONISH_RE.search(body) and (
-                nxt >= n or followed_by_next_item or followed_by_instruction
-            ):
+            question_request = _QUESTIONISH_RE.search(body) or any(
+                _QUESTION_START_RE.search(line.strip()) for line in body.splitlines()
+            )
+            if question_request and (nxt >= n or followed_by_next_item or followed_by_instruction):
                 # 存储用原文（掩码仅供检测），保留题内引号内容
                 original_body = "\n".join(
                     [
@@ -1066,7 +1075,7 @@ def classify_top_level_regions(text: str) -> TopLevelRegions:
         if span.kind != "constraint_b":
             continue
         head = _state_head(span.text)
-        if head.startswith(_B_MATERIAL_ONLY_PHRASES):
+        if is_material_only_instruction(head):
             message_scope = "material_only"
         elif head.startswith(_B_RELAX_PHRASES):
             message_scope = "full"
