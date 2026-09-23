@@ -10,7 +10,8 @@
 2. 原验收器只看 teaching briefing 对象的聚合 `recorded_at`。构造一个早写标签和其余晚写标签后确认早写行可被 max 时间掩盖；因此逐个校验原始 `computed_at >= source recorded_at` 的日期下界。因为生产 source 是日期级 recorded_at，这不虚构同日盘中顺序。
 3. 使用生产 schema 和真实 `slice_river` 做合成探针，确认 PASS、NULL/零 FAIL、早写 FAIL、行情日历不足 BLOCKED 且 labels DB 不变。没有把 ordinary river 升格成全历史冻结。
 4. 新 head 上定向作者测试 24 + 14 通过。全量 `run_main_gate.sh` Python 叶 1200 秒未完成且没有收据，故不沿用旧 head 的全量数字。
-5. K3 bridge 绑定新 head 跑一次，28 请求后 1080 秒无模型错误但无正式 REPORT/verdict；按合同 BLOCKED，不伪造独立批准。
+5. #87 K3 bridge 绑定业务代码 head 跑一次，28 请求后 1080 秒无模型错误但无正式 REPORT/verdict；按合同 BLOCKED，不伪造独立批准。
+6. #86 另跑独立 K3：11 请求、无模型错误、报告与 verdict 齐全，限定离线 PASS；P3 非原子 rsync 风险确认是基线已有。只读调查 `~/.local/bin` 与 LaunchAgents 未发现部署脚本副本，不替换启动器。
 
 ## 被否方案
 
@@ -21,4 +22,4 @@
 
 ## 当前证据
 
-定向收据和合成探针索引：`docs/verification/2026-09-23-briefing-k3-r2/README.md`。K3 原始执行：`/Users/a77/.finance-runtime/reviews/briefing-k3-r2-20260923/`。候选 worktree clean，merge-tree clean。用户确认前保持 WIP。
+定向收据和合成探针索引：`docs/verification/2026-09-23-briefing-k3-r2/README.md`。#87 K3 原始执行：`/Users/a77/.finance-runtime/reviews/briefing-k3-r2-20260923/`；#86 K3 原始执行：`/Users/a77/.finance-runtime/reviews/deploy-help-k3-r2-20260923/`。候选 worktree clean，merge-tree clean。用户确认前保持 WIP。
