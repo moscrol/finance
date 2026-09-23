@@ -63,6 +63,7 @@ from intelligence.services.research_harness import (
     FinanceResearchHarness,
     ResearchHarness,
 )
+from intelligence.services.episode_entry_identity import EntryIdentity
 from intelligence.services.research_contract import ResearchDeadline, ResearchRunContext
 from intelligence.services.research_tool_registry import (
     ResearchToolRegistry,
@@ -169,6 +170,7 @@ class ContinuousTurnAdapter:
         fast_path_runner: Callable[..., object] = run_deterministic_fast_path,
         structural_verifier: Callable[..., object] = verify_episode_outcome,
         task_id_factory: Callable[[], str] = _new_task_id,
+        entry_identity: EntryIdentity | None = None,
         timeout: float = 90.0,
         verification_reserve: float = DEFAULT_VERIFICATION_RESERVE_SECONDS,
         synthesis_reserve_for_task: Callable[..., float] | None = None,
@@ -195,6 +197,8 @@ class ContinuousTurnAdapter:
             raise ValueError("runtime_name must be non-empty")
         if not callable(task_id_factory):
             raise TypeError("task_id_factory must be callable")
+        if entry_identity is not None and not isinstance(entry_identity, EntryIdentity):
+            raise TypeError("entry_identity must be an EntryIdentity")
         if synthesis_reserve_for_task is not None and not callable(
             synthesis_reserve_for_task
         ):
@@ -208,6 +212,9 @@ class ContinuousTurnAdapter:
         self._structural_verifier = structural_verifier
         self._semantic_verifier = semantic_verifier
         self._task_id_factory = task_id_factory
+        # None = 没有经过核对的入口（离线驱动、测试）。它不是占位符：未绑定的 episode
+        # 将来也只能被同样未绑定的调用方恢复读，不会被任何一扇门认领。
+        self._entry_identity = entry_identity
         self._timeout = max(0.0, float(timeout))
         self._verification_reserve = max(0.0, float(verification_reserve))
         self._synthesis_reserve_for_task = synthesis_reserve_for_task
@@ -546,7 +553,16 @@ class ContinuousTurnAdapter:
             context_candidate = self._context_factory(frame, **context_kwargs)
             if not isinstance(context_candidate, ResearchRunContext):
                 raise TypeError("context factory must return ResearchRunContext")
-            context = replace(context_candidate, prior_evidence=control.prior_evidence)
+            # 身份只由入口盖章：context 工厂（含注入替身）写什么都不算，这里无条件覆写。
+            # 绑定发生在 episode 号铸出之后，所以一份身份不可能被搬到另一个 episode 上。
+            context = replace(
+                context_candidate,
+                prior_evidence=control.prior_evidence,
+                entry_identity=(
+                    None if self._entry_identity is None
+                    else self._entry_identity.bind(task_id)
+                ),
+            )
             registry = cast(
                 ResearchToolRegistry,
                 self._registry_factory(frame, context),

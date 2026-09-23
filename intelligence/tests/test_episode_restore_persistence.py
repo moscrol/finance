@@ -134,12 +134,16 @@ def test_restore_ack_failure_propagates_without_advertising_next_action(tmp_path
     assert store.attempted_states == (1 if boundary == "state" else 0)
     landed, state = JsonlEpisodeStore(tmp_path).load(EPISODE_ID)
     assert landed[:len(prefix)] == prefix
-    extra = {"model_error": 0, "finish": 1, "state": 2 if expired else 1}[boundary]
+    # 合成顺序：结算 → 未知效果登记 → finish。登记夹在中间是被逼的：finish 必须是
+    # 最后一条（terminal 校验要求它对齐 last_sequence），而登记又必须在换档前落盘。
+    synthesis = ["model_error", "effects_unknown", "finish"]
+    extra = {"model_error": 0, "finish": 2, "state": 3 if expired else 2}[boundary]
     if after_write and boundary != "state":
         extra += 1
-    assert [e.kind for e in landed[len(prefix):]] == ["model_error", "finish"][:extra]
+    assert [e.kind for e in landed[len(prefix):]] == synthesis[:extra]
     if boundary == "state" and after_write:
-        assert state.phase == ("done" if expired else "finalizing")
+        assert state.phase == ("done" if expired else initial_state.phase)
+        assert state.reserved_ids == (() if expired else initial_state.reserved_ids)
         assert state.last_sequence == len(landed)
     else:
         assert state == initial_state
@@ -197,7 +201,16 @@ def test_old_finish_does_not_hide_the_active_repair_checkpoint():
     assert result.disposition == "resumable" and not result.terminal
     assert result.plan.action == "retry_model"
     assert result.plan.phase == "repair" and result.plan.turn_id == "turn-2"
-    assert store.load(EPISODE_ID) == before  # a plan is not permission to dispatch
+    # a plan is not permission to dispatch: 日志不得多出**意图**或**结算**，程序计数器不得推进。
+    # 唯一多出来的是未知效果登记：它记的是「之前那一枪可能已经发出去了」，恰恰是重发前
+    # 必须先留下的那句话。
+    after_events, after_state = store.load(EPISODE_ID)
+    assert after_events[: len(before[0])] == before[0]
+    assert [e.kind for e in after_events[len(before[0]):]] == ["effects_unknown"]
+    assert (after_state.phase, after_state.reserved_ids, after_state.turn_index) == (
+        before[1].phase, before[1].reserved_ids, before[1].turn_index,
+    )
+    assert [e.reserved_id for e in result.unreconciled_effects] == ["turn-2"]
 
 
 def test_real_runtime_repair_prefix_is_not_mistaken_for_previous_completion(tmp_path):
@@ -248,7 +261,10 @@ def test_real_runtime_repair_prefix_is_not_mistaken_for_previous_completion(tmp_
     assert result.disposition == "resumable"
     assert result.plan.phase == "repair" and result.plan.turn_id == "turn-3"
     assert result.plan.action == "retry_model"
-    assert crash.load(context.contract.task_id) == before
+    after_events, after_state = crash.load(context.contract.task_id)
+    assert after_events[: len(before[0])] == before[0]
+    assert [e.kind for e in after_events[len(before[0]):]] == ["effects_unknown"]
+    assert (after_state.phase, after_state.reserved_ids) == (before[1].phase, before[1].reserved_ids)
     assert len(model.calls) == 3  # restore itself performs no additional effect
 
 

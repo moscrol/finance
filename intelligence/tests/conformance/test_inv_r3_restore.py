@@ -86,7 +86,14 @@ def test_continuous_restores_next_action_from_state_not_from_log_shape() -> None
     assert result.disposition == "resumable"
     assert result.plan is not None and result.plan.action == "replay_tools"
     assert result.plan.call_ids == (call_id,)
-    assert result.synthesized == ()
+    # INV-R3 守的是两件事：不伪造**结算**，不推进**程序计数器**。不是「一字不写」——
+    # 那只是前两者的代理指标。``replay_tools`` 在提议重发一次可能已计费的调用，
+    # 登记那段未知窗口既不是结算、也不改变位置。
+    assert [e.kind for e in result.synthesized] == ["effects_unknown"]
+    assert [e.reserved_id for e in result.unreconciled_effects] == [call_id]
+    _, after = crash.load("conf-inv-r3-continuous")
+    assert after is not None
+    assert (after.phase, after.reserved_ids) == ("tools_pending", (call_id,))
     assert crash.list_open() == ("conf-inv-r3-continuous",)
 
 
@@ -96,8 +103,11 @@ def test_continuous_closes_when_deadline_passed_and_lists_nothing_open() -> None
     result = restore_episode("conf-inv-r3-closed", crash, now=later, context=context, registry=registry)
     assert result.disposition == "closed" and result.outcome is not None
     assert result.outcome.stop_reason == "interrupted"
-    assert [e.kind for e in result.synthesized] == ["tool_error", "finish"]
+    assert [e.kind for e in result.synthesized] == ["tool_error", "effects_unknown", "finish"]
     assert result.synthesized[0].payload["call_id"] == call_id
+    # 关闭不等于对账：已经可能花出去的钱不会因为 episode 终局而回来。
+    assert [e.reserved_id for e in result.unreconciled_effects] == [call_id]
+    assert crash.load("conf-inv-r3-closed")[1].unreconciled_effects != ()
     assert crash.list_open() == ()
 
 

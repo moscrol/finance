@@ -1,13 +1,15 @@
 """竞态⑧：restore vs 仍在飞的驱动（INV-R6 / INV-R3）。
 
-这里只覆盖会返回纯读取计划的前缀（足够重试额的 model_pending）及确认完成态，
-新日志提供由fixture输入重建的当前授权。两序均零写入，turn_id恰一条结算；
-不能外推为所有restore路径可与活驱动并发，合成路径仍须未来的单写者保护。
+活驱动持有写者身份时恢复必须拒绝（含纯计划），不能让两个控制者共享旧位置。
+确认完成态在驱动释放后可读；收件箱的崩溃判定使用独立快照，不与活驱动争写。
 """
 
 from __future__ import annotations
 
+import pytest
+
 from intelligence.runtime.agent_episode import ContinuousAgentEpisode
+from intelligence.services.episode_store import EpisodeWriterBusy, MemoryEpisodeStore
 from intelligence.tests.conformance.races._drive import (
     assert_no_orphan_intents,
     assert_store_mirrors_outcome,
@@ -26,13 +28,9 @@ def test_order_a_restore_while_drive_is_paused_at_model_pending() -> None:
     state_before = rig.stored_state()
     assert state_before is not None and state_before.phase == "model_pending"
 
-    result = ContinuousAgentEpisode.restore(rig.task_id, rig.oracle, context=rig.context, registry=rig.registry)
+    with pytest.raises(EpisodeWriterBusy):
+        ContinuousAgentEpisode.restore(rig.task_id, rig.oracle, context=rig.context, registry=rig.registry)
 
-    # restore 看到的是「意图有、结算无」：给 retry_model，指向同一个 turn_id。
-    assert result.disposition == "resumable"
-    assert result.plan is not None
-    assert result.plan.action == "retry_model" and result.plan.turn_id == point.turn_id
-    assert result.synthesized == ()
     # 一字不写：事件数与状态都没动。
     assert rig.stored_events() == stored_before
     assert rig.stored_state() == state_before
@@ -59,7 +57,10 @@ def test_restore_lists_unclaimed_inbox_messages_and_clears_them_once_claimed() -
     receipt = rig.episode.steer("补一句：只看主板", target="next_step")
     assert receipt.accepted
 
-    paused = ContinuousAgentEpisode.restore(rig.task_id, rig.oracle, context=rig.context, registry=rig.registry)
+    crash = MemoryEpisodeStore()
+    crash.append(rig.task_id, rig.stored_events())
+    crash.put_state(rig.task_id, rig.stored_state())
+    paused = ContinuousAgentEpisode.restore(rig.task_id, crash, context=rig.context, registry=rig.registry)
     assert paused.pending_inbox == (receipt.message_id,)
     assert paused.to_dict()["pending_inbox"] == [receipt.message_id]
 

@@ -1,0 +1,37 @@
+[
+  {
+    "id": "runner_control_not_exclusive",
+    "path": "intelligence/runtime/agent_episode.py",
+    "old": "        if not self._control_lock.acquire(blocking=False):\n            raise EpisodeWriterBusy(\"episode runner already controls a task\")",
+    "new": "        if self._control_lock.locked():\n            yield\n            return\n        self._control_lock.acquire()",
+    "targets": ["test_one_runner_rejects_other_task_without_replacing_or_leaking_inbox"]
+  },
+  {
+    "id": "run_bypasses_instance_owner",
+    "path": "intelligence/runtime/agent_episode.py",
+    "old": "        episode_id = context.contract.task_id.strip()\n        with self._control_writer(episode_id):",
+    "new": "        episode_id = context.contract.task_id.strip()\n        with episode_writer(self._store, episode_id):",
+    "targets": ["test_live_repair_blocks_fresh_run_on_same_runner"]
+  },
+  {
+    "id": "repair_bypasses_instance_owner",
+    "path": "intelligence/runtime/agent_episode.py",
+    "old": "        with self._control_writer(episode_id):\n            if self._store is not None:\n                events, checkpoint",
+    "new": "        with episode_writer(self._store, episode_id):\n            if self._store is not None:\n                events, checkpoint",
+    "targets": ["test_live_run_blocks_repair_of_another_task_on_same_runner"]
+  },
+  {
+    "id": "rejected_step_marks_finished",
+    "path": "intelligence/runtime/agent_episode.py",
+    "old": "    def step(self) -> StepPoint | None:\n        if not self._operation_lock.acquire(blocking=False):\n            raise EpisodeWriterBusy",
+    "new": "    def step(self) -> StepPoint | None:\n        if not self._operation_lock.acquire(blocking=False):\n            self.finished = True\n            raise EpisodeWriterBusy",
+    "targets": ["test_rejected_concurrent_drive_operation_keeps_owner_live"]
+  },
+  {
+    "id": "rejected_close_marks_finished",
+    "path": "intelligence/runtime/agent_episode.py",
+    "old": "        \"\"\"Abandon a paused drive; an executing step must finish before closing.\"\"\"\n        if not self._operation_lock.acquire(blocking=False):\n            raise EpisodeWriterBusy",
+    "new": "        \"\"\"Abandon a paused drive; an executing step must finish before closing.\"\"\"\n        if not self._operation_lock.acquire(blocking=False):\n            self.finished = True\n            raise EpisodeWriterBusy",
+    "targets": ["test_rejected_concurrent_drive_operation_keeps_owner_live"]
+  }
+]
