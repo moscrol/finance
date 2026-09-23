@@ -1,0 +1,207 @@
+{
+  "at": "2026-09-21T11:18:42.947377+00:00",
+  "command": [
+    "/Users/a77/knowledge-base-private/.rag_venv/bin/python",
+    "-X",
+    "importtime",
+    "/Users/a77/knowledge-base-private/scripts/rag_index.py",
+    "query",
+    "--help"
+  ],
+  "elapsed_s": 0.45311879203654826,
+  "exit_code": 0,
+  "timed_out": false,
+  "production_probe_timeout_s": 5,
+  "production_timeout_changed": false,
+  "script_sha256": "2bdb0616be89380ca57d219c4655217371c4be6b55d51af2219dc4af0ed34321",
+  "kb_revision": "8a413cde59cd0d6a7757c845243024a3016b50bc",
+  "top_cumulative_imports": [
+    {
+      "self_us": 603,
+      "cumulative_us": 222602,
+      "module": "rag"
+    },
+    {
+      "self_us": 3935,
+      "cumulative_us": 199722,
+      "module": "rag.agent"
+    },
+    {
+      "self_us": 2481,
+      "cumulative_us": 177578,
+      "module": "rag.retrieval"
+    },
+    {
+      "self_us": 3200,
+      "cumulative_us": 133764,
+      "module": "numpy"
+    },
+    {
+      "self_us": 899,
+      "cumulative_us": 77837,
+      "module": "numpy.__config__"
+    },
+    {
+      "self_us": 66,
+      "cumulative_us": 76939,
+      "module": "numpy._core._multiarray_umath"
+    },
+    {
+      "self_us": 1488,
+      "cumulative_us": 76874,
+      "module": "numpy._core"
+    },
+    {
+      "self_us": 1591,
+      "cumulative_us": 45456,
+      "module": "numpy.lib"
+    },
+    {
+      "self_us": 2879,
+      "cumulative_us": 41333,
+      "module": "rag.chunking"
+    },
+    {
+      "self_us": 1162,
+      "cumulative_us": 27011,
+      "module": "yaml"
+    },
+    {
+      "self_us": 1676,
+      "cumulative_us": 23041,
+      "module": "numpy.lib._arraypad_impl"
+    },
+    {
+      "self_us": 2712,
+      "cumulative_us": 22894,
+      "module": "numpy._core.multiarray"
+    },
+    {
+      "self_us": 1057,
+      "cumulative_us": 21366,
+      "module": "numpy.lib._index_tricks_impl"
+    },
+    {
+      "self_us": 2726,
+      "cumulative_us": 19717,
+      "module": "rag.store"
+    },
+    {
+      "self_us": 14788,
+      "cumulative_us": 18932,
+      "module": "numpy._core._multiarray_umath"
+    },
+    {
+      "self_us": 2746,
+      "cumulative_us": 18511,
+      "module": "site"
+    },
+    {
+      "self_us": 624,
+      "cumulative_us": 16870,
+      "module": "yaml.loader"
+    },
+    {
+      "self_us": 988,
+      "cumulative_us": 16501,
+      "module": "dataclasses"
+    }
+  ],
+  "top_self_imports": [
+    {
+      "self_us": 14788,
+      "cumulative_us": 18932,
+      "module": "numpy._core._multiarray_umath"
+    },
+    {
+      "self_us": 9355,
+      "cumulative_us": 11811,
+      "module": "numpy._core._add_newdocs"
+    },
+    {
+      "self_us": 7686,
+      "cumulative_us": 7686,
+      "module": "_colorize"
+    },
+    {
+      "self_us": 6120,
+      "cumulative_us": 6120,
+      "module": "yaml.reader"
+    },
+    {
+      "self_us": 4732,
+      "cumulative_us": 4732,
+      "module": "_hashlib"
+    },
+    {
+      "self_us": 4685,
+      "cumulative_us": 4775,
+      "module": "typing"
+    },
+    {
+      "self_us": 4385,
+      "cumulative_us": 5877,
+      "module": "sysconfig"
+    },
+    {
+      "self_us": 4086,
+      "cumulative_us": 4086,
+      "module": "rag.tokenizer"
+    },
+    {
+      "self_us": 3935,
+      "cumulative_us": 199722,
+      "module": "rag.agent"
+    },
+    {
+      "self_us": 3906,
+      "cumulative_us": 5069,
+      "module": "argparse"
+    },
+    {
+      "self_us": 3585,
+      "cumulative_us": 13552,
+      "module": "inspect"
+    },
+    {
+      "self_us": 3572,
+      "cumulative_us": 3572,
+      "module": "numpy._core.records"
+    },
+    {
+      "self_us": 3462,
+      "cumulative_us": 4323,
+      "module": "numpy.lib._type_check_impl"
+    },
+    {
+      "self_us": 3462,
+      "cumulative_us": 3462,
+      "module": "binascii"
+    },
+    {
+      "self_us": 3254,
+      "cumulative_us": 3254,
+      "module": "_lzma"
+    },
+    {
+      "self_us": 3200,
+      "cumulative_us": 133764,
+      "module": "numpy"
+    },
+    {
+      "self_us": 3153,
+      "cumulative_us": 13168,
+      "module": "numpy.linalg._linalg"
+    },
+    {
+      "self_us": 3117,
+      "cumulative_us": 3117,
+      "module": "yaml._yaml"
+    }
+  ],
+  "limits": [
+    "one profiled sample with profiler overhead; not a performance distribution",
+    "no dynamic link to the original 19:01 child process, so historical wall-time attribution remains unproven",
+    "old production readiness reproduced the same timeout at 19:17, so rollback is not a durable fix"
+  ]
+}

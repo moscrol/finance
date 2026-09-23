@@ -1,0 +1,39 @@
+"""Four independent engineering leaves on frozen code; no model or production writes."""
+from concurrent.futures import ThreadPoolExecutor
+import hashlib
+import json
+import os
+from pathlib import Path
+import subprocess
+
+os.umask(0o022)
+root = Path(__file__).parent
+repo = Path.home() / 'fwp-wt-history-market-anatomy'
+python = Path.home() / 'finance-workspace-private/.venv-workbench/bin/python'
+revision = 'ba28138189ff231b19b61561644594ab9a44b041'
+env = {k: os.environ[k] for k in ('HOME', 'TMPDIR') if k in os.environ}
+env.update(PATH='/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin', WORKBENCH_PYTHON=str(python), WORKBENCH_E2E_PORT='18891', RE06_E2E_PORT='18894', RE06_E2E_URL='http://127.0.0.1:18894', FORESIGHT_EPISODE_STORE=str(root/'e2e-episodes'), FORESIGHT_LLM_KEYCHAIN='0')
+assert subprocess.check_output(['git','rev-parse','HEAD'], cwd=repo, text=True).strip() == revision
+assert not subprocess.check_output(['git','status','--porcelain'], cwd=repo, text=True).strip()
+commands = {
+    'python': [[str(python), '-m', 'ruff', 'check', '.'], [str(python), '-m', 'pytest', '-q']],
+    'frontend': [['pnpm', action] for action in ('lint', 'typecheck', 'test', 'build')],
+    'e2e': [['pnpm', 'test:e2e']],
+    'registry': [[str(python), 'scripts/build_registry.py', *args] for args in [('check-parseability',), ('check',), ('backfill-tables','--check'), ('generate-views','--check')]] + [[str(python), 'scripts/audit_ledger_spec_crosswalk.py']],
+}
+def run(leaf):
+    results = []
+    with (root/f'{leaf}.txt').open('x') as log:
+        for cmd in commands[leaf]:
+            log.write('$ '+' '.join(cmd)+'\n'); log.flush()
+            result = subprocess.run(cmd, cwd=repo/'intelligence/webapp' if leaf in ('frontend','e2e') else repo, env=env, stdout=log, stderr=subprocess.STDOUT)
+            results.append({'command': cmd, 'exit_code': result.returncode})
+    receipt = {'commands': results, 'exit_code': int(any(r['exit_code'] for r in results)), 'sha256': hashlib.sha256((root/f'{leaf}.txt').read_bytes()).hexdigest()}
+    (root/f'{leaf}-receipt.json').write_text(json.dumps(receipt, indent=2))
+    print(leaf, receipt['exit_code'], flush=True)
+    return leaf, receipt
+with ThreadPoolExecutor(max_workers=4) as pool:
+    leaves = dict(pool.map(run, commands))
+report = {'tested_revision': revision, 'scope': 'author-side equivalent CI, not independent QC or live-model acceptance', 'leaves': leaves, 'revision_after': subprocess.check_output(['git','rev-parse','HEAD'],cwd=repo,text=True).strip(), 'dirty_after': subprocess.check_output(['git','status','--porcelain'],cwd=repo,text=True).splitlines()}
+(root/'receipt.json').write_text(json.dumps(report, indent=2))
+raise SystemExit(int(any(r['exit_code'] for r in leaves.values()) or report['dirty_after'] or report['revision_after'] != revision))

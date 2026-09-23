@@ -1,0 +1,129 @@
+{
+  "at": "2026-09-21T11:03:08.625947+00:00",
+  "reason": "New rag_query_protocol failure at final-readiness; no attribution to K3 or code yet",
+  "prior_failed_readiness": "final-readiness.json",
+  "current_readiness": {
+    "status": "not_ready",
+    "timestamp": "2026-09-21T19:03:06+08:00",
+    "checks": {
+      "repo_root": true,
+      "knowledge_wiki": true,
+      "relations": true,
+      "vector_index": true,
+      "rag_runtime": true,
+      "market_snapshot": true,
+      "frontend_built": true,
+      "rag_query_protocol": true,
+      "rag_worker": true,
+      "run_store_writable": true,
+      "market_snapshot_contract": true,
+      "market_data_consistency": false,
+      "code_snapshot_matches_repo": true
+    },
+    "critical": {
+      "repo_root": true,
+      "run_store_writable": true,
+      "knowledge_wiki": true,
+      "relations": true,
+      "vector_index": true,
+      "rag_query_protocol": true,
+      "rag_worker": true,
+      "market_snapshot": true,
+      "market_data_consistency": false
+    },
+    "missing_critical": [
+      "market_data_consistency"
+    ],
+    "rag": {
+      "available": true,
+      "query_protocol_compatible": true,
+      "supported_options": [
+        "--json",
+        "--k",
+        "--mode",
+        "--evidence-chars"
+      ],
+      "missing_required_options": [],
+      "missing_optional_options": [
+        "--evidence-layer",
+        "--fact-hardness",
+        "--source-type",
+        "--as-of",
+        "--receipt"
+      ],
+      "warning": "RAG CLI 使用 legacy query 协议"
+    },
+    "market_snapshot": {
+      "status": "PASS",
+      "ready": true,
+      "date": "2026-09-21",
+      "requested_date": "2026-09-21",
+      "provider": "akshare_exact",
+      "source": "AkShare",
+      "summary": {
+        "theme_count": 52,
+        "strong_stock_count": 103,
+        "market_stage": "上涨阶段",
+        "latest_trade_date": "2026-09-21",
+        "requested_trade_date": "2026-09-21",
+        "served_trade_date": "2026-09-21",
+        "provider": "akshare_exact",
+        "source": "AkShare",
+        "source_updated_at": null,
+        "quality": "complete",
+        "freshness": "fresh"
+      },
+      "errors": [],
+      "warnings": []
+    },
+    "market_database": {
+      "date": "2026-09-18",
+      "snapshot_date": "2026-09-21",
+      "consistent_with_snapshot": false,
+      "required_by_continuous_runtime": true
+    },
+    "workers": {
+      "active": 0,
+      "queued": 0,
+      "capacity": 4,
+      "max_active_per_user": 1,
+      "max_queued": 4,
+      "timeout_sec": 900,
+      "rag": {
+        "enabled": true,
+        "state": "ready",
+        "active": 1,
+        "configured_workers": 1,
+        "model_load_count": 1,
+        "prewarm_latency_ms": 73957,
+        "last_error_type": null,
+        "lifecycle": "startup_prewarm",
+        "counters": {
+          "queries_served": 1,
+          "timeouts_abandoned_kept_warm": 0,
+          "timeouts_killed": 0,
+          "stale_responses_drained": 0,
+          "recoveries": 0,
+          "keepalive_sent": 0,
+          "keepalive_timeouts": 0,
+          "keepalive_skipped_busy": 0
+        },
+        "abandoned_in_flight": 0,
+        "rss_bytes": 1032929280,
+        "idle_seconds": 2915.1,
+        "keepalive_interval_seconds": 0.0
+      }
+    },
+    "recovered_runs": 0,
+    "open_episodes": {
+      "count": 2,
+      "episode_ids": [
+        "run_20260917_202956_828111:msg_aeafc1152bb04f31ae2ad1ffb918c8b6",
+        "run_20260917_234112_374567:msg_67af05100a464b3f8cb82f16ac9a2d94"
+      ],
+      "truncated": false
+    }
+  },
+  "restore_revision": "adcda94b5e401158f1c3aa51f210e1e8d0f0b713",
+  "restore_launcher_sha256": "b736771770e67e5d73d1c222c5e5658108628921b28bf8dc554808d9f603dda3"
+}

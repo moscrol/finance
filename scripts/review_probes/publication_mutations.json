@@ -1,0 +1,58 @@
+[
+  {
+    "id": "publication-requires-commit-event",
+    "path": "intelligence/api/app.py",
+    "old": "        for event in store.load_stream_events(run.run_id):",
+    "new": "        publication = {\"status\": \"published\", \"message_id\": target.message_id}\n        for event in store.load_stream_events(run.run_id):",
+    "targets": ["test_run_publication_waits_for_exact_terminal_message_event", "test_financial_partial_publication_preserves_debt_citations_and_safe_answer"]
+  },
+  {
+    "id": "publication-requires-matching-message",
+    "path": "intelligence/api/app.py",
+    "old": "                and event[\"message_id\"] == target.message_id",
+    "new": "                and True",
+    "targets": ["test_run_publication_waits_for_exact_terminal_message_event"]
+  },
+  {
+    "id": "publication-requires-matching-conversation",
+    "path": "intelligence/api/app.py",
+    "old": "                and event.get(\"conversation_id\") == run.session_id",
+    "new": "                and True",
+    "targets": ["test_run_publication_waits_for_exact_terminal_message_event"]
+  },
+  {
+    "id": "publication-reloads-artifact-snapshot",
+    "path": "intelligence/api/app.py",
+    "old": "                run = store.load_run(run.run_id)\n                break",
+    "new": "                break",
+    "targets": ["test_publication_snapshot_reloads_artifacts_after_observing_commit_marker"]
+  },
+  {
+    "id": "sse-waits-for-publication",
+    "path": "intelligence/api/app.py",
+    "old": "                    if public_run[\"publication\"][\"status\"] != \"pending\":",
+    "new": "                    if True:",
+    "targets": ["test_sse_waits_for_publication_or_times_out_without_faking_completion"]
+  },
+  {
+    "id": "sse-drains-between-read-commit",
+    "path": "intelligence/api/app.py",
+    "old": "                        if pending:\n                            continue",
+    "new": "                        if False and pending:\n                            continue",
+    "targets": ["test_sse_drains_commit_event_observed_between_reads"]
+  },
+  {
+    "id": "probe-waits-for-publication",
+    "path": "scripts/workbench_probe.py",
+    "old": "        if status in {*RUN_FAILURE, RUN_SUCCESS} and publication is not None:",
+    "new": "        if False and status in {*RUN_FAILURE, RUN_SUCCESS} and publication is not None:",
+    "targets": ["test_terminal_claim_waits_for_matching_publication", "test_unpublished_terminal_run_times_out_without_returning_early_body"]
+  },
+  {
+    "id": "publication-is-not-financial-completeness",
+    "path": "intelligence/services/status_projection.py",
+    "old": "    return ArtifactStatuses(\n        episode=status,\n        run=\"completed\",\n        report=\"partial\",\n        report_business=\"partial\",\n        transport=\"completed\",\n    )",
+    "new": "    return ArtifactStatuses(\n        episode=status,\n        run=\"completed\",\n        report=\"completed\",\n        report_business=\"complete\",\n        transport=\"completed\",\n    )",
+    "targets": ["test_financial_partial_publication_preserves_debt_citations_and_safe_answer"]
+  }
+]

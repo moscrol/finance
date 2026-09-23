@@ -1,0 +1,49 @@
+"""One bounded, read-only RAG CLI help profile; no retrieval/model/index write.
+
+Use the production KB interpreter and real CLI. This measures import cost, not
+recovery or readiness acceptance. A 30 s diagnostic window does NOT change the
+5 s production readiness timeout. Preserve the first profile even on failure.
+"""
+import datetime
+import hashlib
+import json
+import os
+import subprocess
+import time
+from pathlib import Path
+
+root = Path(__file__).resolve().parent
+kb = Path.home() / "knowledge-base-private"
+python = kb / ".rag_venv/bin/python"
+script = kb / "scripts/rag_index.py"
+out = root / "rag-help-profile"
+out.mkdir(exist_ok=False)
+command = [str(python), "-X", "importtime", str(script), "query", "--help"]
+started = time.monotonic()
+with (out / "stdout.txt").open("x") as stdout, (out / "imports.txt").open("x") as stderr:
+    try:
+        result = subprocess.run(command, cwd=kb, stdout=stdout, stderr=stderr, timeout=30,
+            env={"HOME": str(Path.home()), "PATH": os.environ["PATH"], "PYTHONDONTWRITEBYTECODE": "1"})
+        exit_code, timed_out = result.returncode, False
+    except subprocess.TimeoutExpired:
+        exit_code, timed_out = None, True
+elapsed = time.monotonic() - started
+imports = []
+for line in (out / "imports.txt").read_text().splitlines():
+    if not line.startswith("import time:"):
+        continue
+    parts = line.removeprefix("import time:").split("|")
+    if len(parts) == 3 and parts[0].strip().isdigit() and parts[1].strip().isdigit():
+        imports.append({"self_us": int(parts[0]), "cumulative_us": int(parts[1]), "module": parts[2].strip()})
+receipt = {
+    "at": datetime.datetime.now(datetime.timezone.utc).isoformat(), "command": command,
+    "elapsed_s": elapsed, "exit_code": exit_code, "timed_out": timed_out,
+    "production_probe_timeout_s": 5, "production_timeout_changed": False,
+    "script_sha256": hashlib.sha256(script.read_bytes()).hexdigest(),
+    "kb_revision": subprocess.check_output(["git", "-C", str(kb), "rev-parse", "HEAD"], text=True).strip(),
+    "top_cumulative_imports": sorted(imports, key=lambda row: row["cumulative_us"], reverse=True)[:18],
+    "top_self_imports": sorted(imports, key=lambda row: row["self_us"], reverse=True)[:18],
+    "limits": ["one profiled sample with profiler overhead; not a performance distribution", "no dynamic link to the original 19:01 child process, so historical wall-time attribution remains unproven", "old production readiness reproduced the same timeout at 19:17, so rollback is not a durable fix"],
+}
+(out / "receipt.json").write_text(json.dumps(receipt, ensure_ascii=False, indent=2) + "\n")
+print(json.dumps(receipt, ensure_ascii=False, indent=2))

@@ -1,0 +1,205 @@
+#!/usr/bin/env python3
+"""夜跑 sync 的 S7 包装：写锁只落在 staging，成功才原子换进生产库。
+
+为什么不切 8792：S7 在 market_feature_store/，deploy_workbench_runtime.sh
+只 rsync intelligence/。夜跑真正的写者是
+finance-workspace-private 上的 run_review_sync.py（模块化 sync-*），
+它从不调用 daily-full。切 8792 既带不上 S7，还会把 R-24 叠上 episode 路径。
+
+子进程跑哪棵树的 run_review_sync.py（2026-09-10）：默认 FINANCE_DATA_ROOT
+（本机数据仓）。runtime 快照没有闲鱼 L2 文件源，也没有题材资金的板块篮子加总；
+18:30 若仍 import CODE_ROOT，theme_flow 空会让 same-day-gate 红，20:40 连 L2
+都进不去。可用 FINANCE_SYNC_CODE_ROOT 改回快照。数据根仍是 FINANCE_DATA_ROOT。
+S7 只提供 clone / 守卫 / 换名。
+"""
+from __future__ import annotations
+
+import json
+import os
+import subprocess
+import sys
+import time
+import uuid
+from datetime import datetime
+from pathlib import Path
+
+S7_ROOT = Path(os.environ.get("FINANCE_S7_ROOT", "/Users/a77/.finance-runtime/finance-s7-sync"))
+PRIV_ROOT = Path(os.environ.get("FINANCE_DATA_ROOT", "/Users/a77/finance-workspace-private"))
+PROD_DB = Path(
+    os.environ.get(
+        "MARKET_FEATURE_STORE_DB",
+        str(PRIV_ROOT / "db" / "market_feature_store.duckdb"),
+    )
+)
+PY = os.environ.get(
+    "FINANCE_SYNC_PYTHON",
+    str(PRIV_ROOT / ".venv-workbench" / "bin" / "python"),
+)
+CODE_ROOT = Path(os.environ.get("FINANCE_CODE_ROOT", str(PRIV_ROOT)))
+SYNC_ROOT = Path(os.environ.get("FINANCE_SYNC_CODE_ROOT", str(PRIV_ROOT)))
+SYNC_SCRIPT = SYNC_ROOT / "skills" / "daily-full-review" / "scripts" / "run_review_sync.py"
+
+os.environ["MARKET_FEATURE_STORE_DB"] = str(PROD_DB)
+sys.path.insert(0, str(S7_ROOT))
+
+from market_feature_store import db as _db  # noqa: E402
+from market_feature_store.sync.sync_daily_full import (  # noqa: E402
+    _db_shape,
+    _write_receipt,
+)
+
+
+def _abort(result: dict, reason: str) -> int:
+    result["reason"] = reason
+    print(f"[staging] {reason}", flush=True)
+    return 2
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = list(sys.argv[1:] if argv is None else argv)
+    if "--date" not in args:
+        print("usage: nightly-review-sync-staged.py --date YYYY-MM-DD", file=sys.stderr)
+        return 2
+    trade_date = args[args.index("--date") + 1]
+
+    started_at = datetime.now()
+    started_mono = time.monotonic()
+    target = PROD_DB
+    staging = _db.staging_path(target)
+    result: dict = {
+        "target": str(target),
+        "staging": str(staging),
+        "swapped": False,
+        "rc": 2,
+        "reason": None,
+    }
+
+    if not SYNC_SCRIPT.is_file():
+        return _abort(result, f"找不到夜跑脚本: {SYNC_SCRIPT}")
+    if not Path(PY).is_file():
+        return _abort(result, f"找不到解释器: {PY}")
+
+    result["stale_staging_removed"] = _db.remove_stale_staging(staging)
+    if result["stale_staging_removed"]:
+        print(f"[staging] 清理上一轮残留 staging: {staging}", flush=True)
+
+    try:
+        _db.probe_no_active_writer(target)
+    except _db.DatabaseLockedError as exc:
+        return _abort(result, f"生产库有活跃写者, 拒绝开工: {exc}")
+
+    if not target.exists():
+        return _abort(result, f"生产库不存在: {target}")
+    source_shape = _db_shape(target)
+    if source_shape is None:
+        return _abort(result, f"生产库打不开: {target}")
+
+    result["copy"] = _db.clone_to_staging(target, staging)
+    source_stat = target.stat()
+    copy = result["copy"]
+    print(
+        f"[staging] 克隆生产库 -> {staging.name} "
+        f"({copy['method']}, {copy['seconds']}s, {copy['bytes']} bytes)",
+        flush=True,
+    )
+
+    child_env = os.environ.copy()
+    child_env["MARKET_FEATURE_STORE_DB"] = str(staging)
+    # 子进程从 SYNC_ROOT（默认数据仓）import mfs；清掉 PYTHONPATH 避免 S7 树混入。
+    child_env.pop("PYTHONPATH", None)
+    proc = subprocess.Popen(
+        [PY, "-u", str(SYNC_SCRIPT), *args],
+        env=child_env,
+        cwd=str(PRIV_ROOT),
+    )
+    print(
+        f"[staging] 子进程同步 pid={proc.pid} (写锁只落在 staging, 生产库无锁)",
+        flush=True,
+    )
+    child_rc = proc.wait()
+    result["child_returncode"] = child_rc
+    result["child_pid"] = proc.pid
+
+    if child_rc != 0:
+        return _abort(
+            result,
+            f"夜跑 sync 未全绿 (rc={child_rc}), 不换名；生产库未动, staging 留作取证",
+        )
+
+    staging_shape = _db_shape(staging)
+    if staging_shape is None:
+        return _abort(result, f"staging 打不开, 不换名: {staging}")
+    if staging_shape["table_count"] < source_shape["table_count"]:
+        return _abort(
+            result,
+            f"校验失败: staging 表数 {staging_shape['table_count']} < "
+            f"生产 {source_shape['table_count']}, 不换名",
+        )
+    if (
+        source_shape["max_trade_date"]
+        and (staging_shape["max_trade_date"] or "") < source_shape["max_trade_date"]
+    ):
+        return _abort(
+            result,
+            f"校验失败: staging 交易日覆盖 {staging_shape['max_trade_date']}"
+            f" 倒退于生产 {source_shape['max_trade_date']}, 不换名",
+        )
+    print(
+        "[staging] 校验通过: 表 "
+        f"{staging_shape['table_count']}>={source_shape['table_count']}"
+        f", fact_market_daily 覆盖到 {staging_shape['max_trade_date']}",
+        flush=True,
+    )
+
+    run_id = uuid.uuid4().hex[:12]
+    _write_receipt(
+        staging,
+        {
+            "run_id": run_id,
+            "kind": "nightly-review-sync",
+            "plan": "staging-swap",
+            "trade_date": trade_date,
+            "started_at": started_at,
+            "finished_at": datetime.now(),
+            "duration_s": round(time.monotonic() - started_mono, 1),
+            "ok": True,
+            "pid": os.getpid(),
+            "child_pid": proc.pid,
+            "copy_method": copy.get("method"),
+            "copy_seconds": copy.get("seconds"),
+            "source_bytes": copy.get("bytes"),
+            "rows_summary": staging_shape["rows"],
+            "steps_summary": [],
+        },
+    )
+
+    now_stat = target.stat()
+    if (
+        now_stat.st_mtime_ns != source_stat.st_mtime_ns
+        or now_stat.st_size != source_stat.st_size
+    ):
+        return _abort(
+            result,
+            "第三方写者守卫: 生产库在同步期间被修改, 拒绝换名; staging 保留待人工裁决",
+        )
+    try:
+        _db.probe_no_active_writer(target)
+    except _db.DatabaseLockedError as exc:
+        return _abort(result, f"第三方写者守卫: {exc}; 拒绝换名")
+
+    swap_started = time.monotonic()
+    try:
+        _db.atomic_swap_into_place(staging, target)
+    except (RuntimeError, FileNotFoundError, OSError) as exc:
+        return _abort(result, f"换名失败: {exc}")
+    print(
+        f"[staging] 原子换名完成 ({round(time.monotonic() - swap_started, 3)}s), "
+        f"收据 run_id={run_id}",
+        flush=True,
+    )
+    print(json.dumps({"swapped": True, "run_id": run_id, "rc": 0}, ensure_ascii=False))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

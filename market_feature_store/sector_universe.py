@@ -572,12 +572,32 @@ class SectorUniverseStore:
         provider_source: str,
         sectors: Sequence[SectorDescriptor],
         captured_at: str | datetime,
+        supersede_provider: str | None = None,
     ) -> PublishedSectorSnapshot:
-        """Validate and atomically publish one daily provider universe."""
+        """Validate and atomically publish one daily provider universe.
+
+        一个交易日只能有**一个**已发布名单，跨 provider 也算数。读者侧
+        (``published_snapshot`` / ``fact_sector_daily`` 视图) 一直按这个口径写，
+        但写者侧曾把它收窄成每 (日, provider) 一个——于是 fupanhui 已发布的日子
+        再发 hithink 会得到两个 published 表头：视图同时暴露两版「正式名单」，
+        ``get_published_snapshot_id`` 静默按 captured_at 挑晚的那个。
+
+        换源本身是允许的 (2026-09-15 定)，但必须**显式声明换掉谁**：
+        ``supersede_provider`` 要求调用方写出它以为当前在位的 provider，写错即拒。
+        比布尔开关强的地方在于：它拦得住「以为在覆盖 A，实际在覆盖 B」。
+        """
         canonical_date = _normalize_trade_date(trade_date)
         canonical_provider = _canonical_text(provider_source).casefold()
         if not canonical_provider:
             raise SectorUniverseValidationError("provider_source must be non-empty")
+        retired_provider = (
+            None if supersede_provider is None
+            else _canonical_text(supersede_provider).casefold()
+        )
+        if retired_provider == canonical_provider:
+            raise SectorUniverseValidationError(
+                "supersede_provider must name a different provider than the one being published"
+            )
         canonical_captured_at = _normalize_captured_at(captured_at)
         canonical_sectors = _normalize_sectors(sectors)
         snapshot_id = _snapshot_id(
@@ -603,14 +623,31 @@ class SectorUniverseStore:
         try:
             published_before = self._con.execute(
                 """
-                SELECT count(*) FROM ops_sector_universe_snapshot_daily
-                WHERE trade_date = ? AND provider_source = ? AND status = 'published'
+                SELECT provider_source FROM ops_sector_universe_snapshot_daily
+                WHERE trade_date = ? AND status = 'published'
+                ORDER BY snapshot_id
                 """,
-                [canonical_date, canonical_provider],
-            ).fetchone()[0]
-            if published_before > 1:
+                [canonical_date],
+            ).fetchall()
+            if len(published_before) > 1:
                 raise SectorUniverseValidationError(
                     "more than one published snapshot exists before publication"
+                )
+            incumbent = published_before[0][0] if published_before else None
+            if incumbent is not None and incumbent != canonical_provider:
+                if retired_provider is None:
+                    raise SectorUniverseValidationError(
+                        f"provider switch from {incumbent} to {canonical_provider} "
+                        "requires an explicit supersede_provider"
+                    )
+                if retired_provider != incumbent:
+                    raise SectorUniverseValidationError(
+                        f"provider switch expected to supersede {retired_provider} "
+                        f"but {incumbent} is the published provider"
+                    )
+            elif retired_provider is not None:
+                raise SectorUniverseValidationError(
+                    f"no published {retired_provider} snapshot to supersede"
                 )
             existing = self._con.execute(
                 """
@@ -729,10 +766,9 @@ class SectorUniverseStore:
                 """
                 UPDATE ops_sector_universe_snapshot_daily
                 SET status = 'superseded'
-                WHERE trade_date = ? AND provider_source = ?
-                  AND status = 'published' AND snapshot_id <> ?
+                WHERE trade_date = ? AND status = 'published' AND snapshot_id <> ?
                 """,
-                [canonical_date, canonical_provider, snapshot_id],
+                [canonical_date, snapshot_id],
             )
             self._con.execute(
                 """
@@ -746,9 +782,9 @@ class SectorUniverseStore:
             published_count = self._con.execute(
                 """
                 SELECT count(*) FROM ops_sector_universe_snapshot_daily
-                WHERE trade_date = ? AND provider_source = ? AND status = 'published'
+                WHERE trade_date = ? AND status = 'published'
                 """,
-                [canonical_date, canonical_provider],
+                [canonical_date],
             ).fetchone()[0]
             if published_count != 1:
                 raise SectorUniverseValidationError(
@@ -795,7 +831,7 @@ class SectorUniverseStore:
                 """
                 UPDATE dim_sector AS d
                 SET is_active = false, updated_at = ?
-                WHERE d.source = ? AND d.is_active IS TRUE
+                WHERE d.source IN (?, ?) AND d.is_active IS TRUE
                   AND NOT EXISTS (
                     SELECT 1 FROM fact_sector_universe_daily AS u
                     WHERE u.trade_date = ? AND u.snapshot_id = ?
@@ -805,6 +841,9 @@ class SectorUniverseStore:
                 [
                     canonical_captured_at,
                     canonical_provider,
+                    # 换源时旧 provider 的 active 身份也必须退役，否则 dim_sector 里
+                    # 两池同时 is_active，维度表自己就成了第二份「正式名单」。
+                    retired_provider or canonical_provider,
                     canonical_date,
                     snapshot_id,
                 ],

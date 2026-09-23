@@ -1,0 +1,779 @@
+{
+  "revision": "15527aad05efda1b42d8ffac107da94186760378",
+  "suite": "financial-r6",
+  "tree": "/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/extraction-closeout-mutations-deqld9_v/tree",
+  "python": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "complete": true,
+  "runs": [
+    {
+      "label": "baseline",
+      "exit": 0,
+      "executed": 91,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "watch_disclaimer_not_removed-red",
+      "exit": 1,
+      "executed": 6,
+      "failures": 6,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_unbulleted_watch_does_not_absorb_a_disclaimer[\\u5355\\u5b63\\u53e3\\u5f84\\u4e3a\\u63a8\\u7b97\\u503c\\uff0c\\u975e\\u5b98\\u65b9\\u62ab\\u9732\\u3002\\u4e0d\\u6784\\u6210\\u4e70\\u5356\\u5efa\\u8bae\\uff0c\\u672c\\u6b21\\u7814\\u7a76\\u4e0d\\u767b\\u8bb0\\u4e3a\\u957f\\u671f\\u8ddf\\u8e2a\\u3001\\u4e0d\\u5199\\u5165\\u6295\\u8d44\\u89c2\\u70b9\\u3002-]",
+          "message": "AssertionError: assert ('next_watch',) == ()\n  \n  Left contains one more item: 'next_watch'\n  Use -v to get more diff"
+        },
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_unbulleted_watch_does_not_absorb_a_disclaimer[\\u5355\\u5b63\\u53e3\\u5f84\\u4e3a\\u63a8\\u7b97\\u503c\\uff0c\\u975e\\u5b98\\u65b9\\u62ab\\u9732\\u3002\\u4e0d\\u6784\\u6210\\u4e70\\u5356\\u5efa\\u8bae\\uff0c\\u672c\\u6b21\\u7814\\u7a76\\u4e0d\\u767b\\u8bb0\\u4e3a\\u957f\\u671f\\u8ddf\\u8e2a\\u3001\\u4e0d\\u5199\\u5165\\u6295\\u8d44\\u89c2\\u70b9\\u3002-\\n]",
+          "message": "AssertionError: assert ('next_watch',) == ()\n  \n  Left contains one more item: 'next_watch'\n  Use -v to get more diff"
+        },
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_unbulleted_watch_does_not_absorb_a_disclaimer[\\u5355\\u5b63\\u53e3\\u5f84\\u4e3a\\u63a8\\u7b97\\u503c\\uff0c\\u975e\\u5b98\\u65b9\\u62ab\\u9732\\u3002\\u4e0d\\u6784\\u6210\\u4e70\\u5356\\u5efa\\u8bae\\uff0c\\u672c\\u6b21\\u7814\\u7a76\\u4e0d\\u767b\\u8bb0\\u4e3a\\u957f\\u671f\\u8ddf\\u8e2a\\u3001\\u4e0d\\u5199\\u5165\\u6295\\u8d44\\u89c2\\u70b9\\u3002-\\n\\n]",
+          "message": "AssertionError: assert ('next_watch',) == ()\n  \n  Left contains one more item: 'next_watch'\n  Use -v to get more diff"
+        },
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_unbulleted_watch_does_not_absorb_a_disclaimer[\\u4ee5\\u4e0a\\u4e3a\\u8ddf\\u8e2a\\u5206\\u6790\\uff0c\\u4e0d\\u6784\\u6210\\u4e70\\u5356\\u5efa\\u8bae\\u3002-]",
+          "message": "AssertionError: assert ('next_watch',) == ()\n  \n  Left contains one more item: 'next_watch'\n  Use -v to get more diff"
+        },
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_unbulleted_watch_does_not_absorb_a_disclaimer[\\u4ee5\\u4e0a\\u4e3a\\u8ddf\\u8e2a\\u5206\\u6790\\uff0c\\u4e0d\\u6784\\u6210\\u4e70\\u5356\\u5efa\\u8bae\\u3002-\\n]",
+          "message": "AssertionError: assert ('next_watch',) == ()\n  \n  Left contains one more item: 'next_watch'\n  Use -v to get more diff"
+        },
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_unbulleted_watch_does_not_absorb_a_disclaimer[\\u4ee5\\u4e0a\\u4e3a\\u8ddf\\u8e2a\\u5206\\u6790\\uff0c\\u4e0d\\u6784\\u6210\\u4e70\\u5356\\u5efa\\u8bae\\u3002-\\n\\n]",
+          "message": "AssertionError: assert ('next_watch',) == ()\n  \n  Left contains one more item: 'next_watch'\n  Use -v to get more diff"
+        }
+      ]
+    },
+    {
+      "label": "watch_disclaimer_not_removed-green",
+      "exit": 0,
+      "executed": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "new_watch_swallowed_by_previous-red",
+      "exit": 1,
+      "executed": 3,
+      "failures": 1,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_footer_does_not_excuse_a_real_incomplete_watch[\\u6307\\u6807=\\u5b58\\u8d27\\uff1b\\u65f6\\u95f4\\u8282\\u70b9=2026-10-22\\u3002]",
+          "message": "AssertionError: assert () == ('next_watch',)\n  \n  Right contains one more item: 'next_watch'\n  Use -v to get more diff"
+        }
+      ]
+    },
+    {
+      "label": "new_watch_swallowed_by_previous-green",
+      "exit": 0,
+      "executed": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "question_threshold_shape_removed-red",
+      "exit": 1,
+      "executed": 14,
+      "failures": 6,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_threshold_question_is_not_a_numeric_gate_escape[off-\\u4e09\\u5b63\\u62a5\\u51c0\\u73b0\\u6bd4\\u80fd\\u5426\\u6062\\u590d\\u81f30.6\\uff1f]",
+          "message": "AssertionError: assert '三季报净现比能否恢复至0.6？' not in '应收账款明细尚未取得，...净现比能否恢复至0.6？'\n  \n  '三季报净现比能否恢复至0.6？' is contained here:\n    应收账款明细尚未取得，回款变化原因仍待核实。\n    三季报净现比能否恢复至0.6？"
+        },
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_threshold_question_is_not_a_numeric_gate_escape[off-\\u4e09\\u5b63\\u62a5\\u51c0\\u73b0\\u6bd4\\u80fd\\u4e0d\\u80fd\\u8fbe\\u523060%\\uff1f]",
+          "message": "AssertionError: assert '三季报净现比能不能达到60%？' not in '应收账款明细尚未取得，...净现比能不能达到60%？'\n  \n  '三季报净现比能不能达到60%？' is contained here:\n    应收账款明细尚未取得，回款变化原因仍待核实。\n    三季报净现比能不能达到60%？"
+        },
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_threshold_question_is_not_a_numeric_gate_escape[off-\\u4e09\\u5b63\\u62a5\\u51c0\\u73b0\\u6bd4\\u53ef\\u5426\\u56de\\u5347\\u5230\\u516d\\u6210\\uff1f]",
+          "message": "AssertionError: assert '三季报净现比可否回升到六成？' not in '应收账款明细尚未取得，...报净现比可否回升到六成？'\n  \n  '三季报净现比可否回升到六成？' is contained here:\n    应收账款明细尚未取得，回款变化原因仍待核实。\n    三季报净现比可否回升到六成？"
+        },
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_threshold_question_is_not_a_numeric_gate_escape[llm-\\u4e09\\u5b63\\u62a5\\u51c0\\u73b0\\u6bd4\\u80fd\\u5426\\u6062\\u590d\\u81f30.6\\uff1f]",
+          "message": "AssertionError: assert '三季报净现比能否恢复至0.6？' not in '应收账款明细尚未取得，...净现比能否恢复至0.6？'\n  \n  '三季报净现比能否恢复至0.6？' is contained here:\n    应收账款明细尚未取得，回款变化原因仍待核实。\n    三季报净现比能否恢复至0.6？"
+        },
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_threshold_question_is_not_a_numeric_gate_escape[llm-\\u4e09\\u5b63\\u62a5\\u51c0\\u73b0\\u6bd4\\u80fd\\u4e0d\\u80fd\\u8fbe\\u523060%\\uff1f]",
+          "message": "AssertionError: assert '三季报净现比能不能达到60%？' not in '应收账款明细尚未取得，...净现比能不能达到60%？'\n  \n  '三季报净现比能不能达到60%？' is contained here:\n    应收账款明细尚未取得，回款变化原因仍待核实。\n    三季报净现比能不能达到60%？"
+        },
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_threshold_question_is_not_a_numeric_gate_escape[llm-\\u4e09\\u5b63\\u62a5\\u51c0\\u73b0\\u6bd4\\u53ef\\u5426\\u56de\\u5347\\u5230\\u516d\\u6210\\uff1f]",
+          "message": "AssertionError: assert '三季报净现比可否回升到六成？' not in '应收账款明细尚未取得，...报净现比可否回升到六成？'\n  \n  '三季报净现比可否回升到六成？' is contained here:\n    应收账款明细尚未取得，回款变化原因仍待核实。\n    三季报净现比可否回升到六成？"
+        }
+      ]
+    },
+    {
+      "label": "question_threshold_shape_removed-green",
+      "exit": 0,
+      "executed": 14,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "financial_semantic_wiring_removed-red",
+      "exit": 1,
+      "executed": 20,
+      "failures": 20,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_financial_contradiction_is_removed_even_when_judge_passes[off-2026\\u4e2d\\u62a5\\u7d2f\\u8ba1\\u7ecf\\u8425\\u73b0\\u91d1\\u6d4118\\u4ebf\\u5143\\uff0c\\u4e00\\u5b63\\u62a5\\u4e3a33.68\\u4ebf\\u5143\\uff0c\\u4e8c\\u5b63\\u5ea6\\u5355\\u5b63\\u7ecf\\u8425\\u73b0\\u91d1\\u6d41\\u4e3a\\u51c0\\u6d41\\u51fa\\u7ea615.66\\u4ebf\\u5143\\u3002]",
+          "message": "AssertionError: assert '2026中报累计经营现...净流出约15.66亿元。' not in '应收账款明细尚未取得，...净流出约15.66亿元。'\n  \n  '2026中报累计经营现金流18亿元，...季经营现金流为净流出约15.66亿元。' is contained here:\n    应收账款明细尚未取得，回款变化原因仍待核实。\n    2026中报累计经营现金流18亿元，一季报为33.68亿元，二季度单季经营现金流为净流出约15.66亿元。"
+        },
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_financial_contradiction_is_removed_even_when_judge_passes[off-\\u4e8c\\u5b63\\u5ea6\\u5355\\u5b63\\u7ecf\\u8425\\u73b0\\u91d1\\u6d41=18\\u221233.68=\\u221215.66\\u4ebf\\u5143\\u3002]",
+          "message": "AssertionError: assert '二季度单季经营现金流=...68=−15.66亿元。' not in '应收账款明细尚未取得，...68=−15.66亿元。'\n  \n  '二季度单季经营现金流=18−33.68=−15.66亿元。' is contained here:\n    应收账款明细尚未取得，回款变化原因仍待核实。\n    二季度单季经营现金流=18−33.68=−15.66亿元。"
+        },
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_financial_contradiction_is_removed_even_when_judge_passes[off-2026\\u4e2d\\u62a5\\u51c0\\u73b0\\u6bd40.133\\u3002]",
+          "message": "AssertionError: assert '2026中报净现比0.133。' not in '应收账款明细尚未取得，...6中报净现比0.133。'\n  \n  '2026中报净现比0.133。' is contained here:\n    应收账款明细尚未取得，回款变化原因仍待核实。\n    2026中报净现比0.133。"
+        },
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_financial_contradiction_is_removed_even_when_judge_passes[off-2026\\u4e2d\\u62a5\\u51c0\\u73b0\\u6bd4\\u4e3a0.132\\uff0c\\u540c\\u7d2f\\u8ba1\\u957f\\u5ea6\\u5bf9\\u71672025\\u5168\\u5e74\\u51c0\\u73b0\\u6bd41.009\\u3002]",
+          "message": "AssertionError: assert '2026中报净现比为0...5全年净现比1.009。' not in '应收账款明细尚未取得，...5全年净现比1.009。'\n  \n  '2026中报净现比为0.132，同累计长度对照2025全年净现比1.009。' is contained here:\n    应收账款明细尚未取得，回款变化原因仍待核实。\n    2026中报净现比为0.132，同累计长度对照2025全年净现比1.009。"
+        },
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_financial_contradiction_is_removed_even_when_judge_passes[off-2026\\u4e2d\\u62a5OCF/\\u51c0\\u5229\\u4ece2025\\u5e74\\u62a5\\u76841.009\\u964d\\u81f30.132\\u3002]",
+          "message": "AssertionError: assert '2026中报OCF/净....009降至0.132。' not in '应收账款明细尚未取得，....009降至0.132。'\n  \n  '2026中报OCF/净利从2025年报的1.009降至0.132。' is contained here:\n    应收账款明细尚未取得，回款变化原因仍待核实。\n    2026中报OCF/净利从2025年报的1.009降至0.132。"
+        },
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_financial_contradiction_is_removed_even_when_judge_passes[off-\\u5b58\\u8d27\\u534a\\u5e74\\u5185\\u589e\\u52a0\\u7ea641.5\\u4ebf\\u5143\\uff08156.72\\u2192198.26\\u4ebf\\u5143\\uff09\\u3002]",
+          "message": "AssertionError: assert '存货半年内增加约41....2→198.26亿元）。' not in '应收账款明细尚未取得，...2→198.26亿元）。'\n  \n  '存货半年内增加约41.5亿元（156.72→198.26亿元）。' is contained here:\n    应收账款明细尚未取得，回款变化原因仍待核实。\n    存货半年内增加约41.5亿元（156.72→198.26亿元）。"
+        },
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_financial_contradiction_is_removed_even_when_judge_passes[off-\\u82e5\\u4e09\\u5b63\\u62a5\\u7d2f\\u8ba1\\u7ecf\\u8425\\u73b0\\u91d1\\u6d41\\u5bf9\\u5f52\\u6bcd\\u51c0\\u5229\\u7684\\u8986\\u76d6\\u7387\\u8f83\\u4e2d\\u62a5\\u76840.132\\u660e\\u663e\\u56de\\u5347\\uff0c\\u5219\\u6539\\u53d8\\u5224\\u65ad\\u3002]",
+          "message": "assert False\n +  where False = any(<generator object test_financial_contradiction_is_removed_even_when_judge_passes.<locals>.<genexpr> at 0x109afa9b0>)"
+        },
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_financial_contradiction_is_removed_even_when_judge_passes[off-2026\\u4e2d\\u62a5\\u7d2f\\u8ba1\\u7ecf\\u8425\\u73b0\\u91d1\\u6d4118\\u4ebf\\u5143\\uff0c\\u4e00\\u5b63\\u62a533.68\\u4ebf\\u5143\\uff08\\u4e8c\\u5b63\\u5ea6\\u5355\\u5b63\\u7ecf\\u8425\\u73b0\\u91d1\\u6d41\\u4e3a\\u51c0\\u6d41\\u51fa\\u7ea615.66\\u4ebf\\u5143\\uff09\\uff0cOCF/\\u51c0\\u5229\\u4ece2025\\u5e74\\u62a5\\u76841.009\\u964d\\u81f30.132\\u3002]",
+          "message": "AssertionError: assert '2026中报累计经营现....009降至0.132。' not in '应收账款明细尚未取得，....009降至0.132。'\n  \n  '2026中报累计经营现金流18亿元，...025年报的1.009降至0.132。' is contained here:\n    应收账款明细尚未取得，回款变化原因仍待核实。\n    2026中报累计经营现金流18亿元，一季报33.68亿元（二季度单季经营现金流为净流出约15.66亿元），OCF/净利从2025年报的1.009降至0.132。"
+        },
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_financial_contradiction_is_removed_even_when_judge_passes[off-2026\\u4e2d\\u62a5\\u7d2f\\u8ba1\\u51c0\\u73b0\\u6bd40.133\\u3002]",
+          "message": "AssertionError: assert '2026中报累计净现比0.133。' not in '应收账款明细尚未取得，...报累计净现比0.133。'\n  \n  '2026中报累计净现比0.133。' is contained here:\n    应收账款明细尚未取得，回款变化原因仍待核实。\n    2026中报累计净现比0.133。"
+        },
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_financial_contradiction_is_removed_even_when_judge_passes[off-2026\\u4e2d\\u62a5\\u548c2025\\u5168\\u5e74\\u4e0d\\u80fd\\u76f4\\u63a5\\u6bd4\\u8f83\\uff0c\\u4f46\\u51c0\\u73b0\\u6bd4\\u4ece2025\\u5168\\u5e741.009\\u964d\\u81f32026\\u4e2d\\u62a50.132\\uff0c\\u8bf4\\u660e\\u56de\\u6b3e\\u6076\\u5316\\u3002]",
+          "message": "AssertionError: assert '2026中报和2025....132，说明回款恶化。' not in '应收账款明细尚未取得，....132，说明回款恶化。'\n  \n  '2026中报和2025全年不能直接比...2026中报0.132，说明回款恶化。' is contained here:\n    应收账款明细尚未取得，回款变化原因仍待核实。\n    2026中报和2025全年不能直接比较，但净现比从2025全年1.009降至2026中报0.132，说明回款恶化。"
+        },
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_financial_contradiction_is_removed_even_when_judge_passes[llm-2026\\u4e2d\\u62a5\\u7d2f\\u8ba1\\u7ecf\\u8425\\u73b0\\u91d1\\u6d4118\\u4ebf\\u5143\\uff0c\\u4e00\\u5b63\\u62a5\\u4e3a33.68\\u4ebf\\u5143\\uff0c\\u4e8c\\u5b63\\u5ea6\\u5355\\u5b63\\u7ecf\\u8425\\u73b0\\u91d1\\u6d41\\u4e3a\\u51c0\\u6d41\\u51fa\\u7ea615.66\\u4ebf\\u5143\\u3002]",
+          "message": "AssertionError: assert '2026中报累计经营现...净流出约15.66亿元。' not in '应收账款明细尚未取得，...净流出约15.66亿元。'\n  \n  '2026中报累计经营现金流18亿元，...季经营现金流为净流出约15.66亿元。' is contained here:\n    应收账款明细尚未取得，回款变化原因仍待核实。\n    2026中报累计经营现金流18亿元，一季报为33.68亿元，二季度单季经营现金流为净流出约15.66亿元。"
+        },
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_financial_contradiction_is_removed_even_when_judge_passes[llm-\\u4e8c\\u5b63\\u5ea6\\u5355\\u5b63\\u7ecf\\u8425\\u73b0\\u91d1\\u6d41=18\\u221233.68=\\u221215.66\\u4ebf\\u5143\\u3002]",
+          "message": "AssertionError: assert '二季度单季经营现金流=...68=−15.66亿元。' not in '应收账款明细尚未取得，...68=−15.66亿元。'\n  \n  '二季度单季经营现金流=18−33.68=−15.66亿元。' is contained here:\n    应收账款明细尚未取得，回款变化原因仍待核实。\n    二季度单季经营现金流=18−33.68=−15.66亿元。"
+        },
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_financial_contradiction_is_removed_even_when_judge_passes[llm-2026\\u4e2d\\u62a5\\u51c0\\u73b0\\u6bd40.133\\u3002]",
+          "message": "AssertionError: assert '2026中报净现比0.133。' not in '应收账款明细尚未取得，...6中报净现比0.133。'\n  \n  '2026中报净现比0.133。' is contained here:\n    应收账款明细尚未取得，回款变化原因仍待核实。\n    2026中报净现比0.133。"
+        },
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_financial_contradiction_is_removed_even_when_judge_passes[llm-2026\\u4e2d\\u62a5\\u51c0\\u73b0\\u6bd4\\u4e3a0.132\\uff0c\\u540c\\u7d2f\\u8ba1\\u957f\\u5ea6\\u5bf9\\u71672025\\u5168\\u5e74\\u51c0\\u73b0\\u6bd41.009\\u3002]",
+          "message": "AssertionError: assert '2026中报净现比为0...5全年净现比1.009。' not in '应收账款明细尚未取得，...5全年净现比1.009。'\n  \n  '2026中报净现比为0.132，同累计长度对照2025全年净现比1.009。' is contained here:\n    应收账款明细尚未取得，回款变化原因仍待核实。\n    2026中报净现比为0.132，同累计长度对照2025全年净现比1.009。"
+        },
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_financial_contradiction_is_removed_even_when_judge_passes[llm-2026\\u4e2d\\u62a5OCF/\\u51c0\\u5229\\u4ece2025\\u5e74\\u62a5\\u76841.009\\u964d\\u81f30.132\\u3002]",
+          "message": "AssertionError: assert '2026中报OCF/净....009降至0.132。' not in '应收账款明细尚未取得，....009降至0.132。'\n  \n  '2026中报OCF/净利从2025年报的1.009降至0.132。' is contained here:\n    应收账款明细尚未取得，回款变化原因仍待核实。\n    2026中报OCF/净利从2025年报的1.009降至0.132。"
+        },
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_financial_contradiction_is_removed_even_when_judge_passes[llm-\\u5b58\\u8d27\\u534a\\u5e74\\u5185\\u589e\\u52a0\\u7ea641.5\\u4ebf\\u5143\\uff08156.72\\u2192198.26\\u4ebf\\u5143\\uff09\\u3002]",
+          "message": "AssertionError: assert '存货半年内增加约41....2→198.26亿元）。' not in '应收账款明细尚未取得，...2→198.26亿元）。'\n  \n  '存货半年内增加约41.5亿元（156.72→198.26亿元）。' is contained here:\n    应收账款明细尚未取得，回款变化原因仍待核实。\n    存货半年内增加约41.5亿元（156.72→198.26亿元）。"
+        },
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_financial_contradiction_is_removed_even_when_judge_passes[llm-\\u82e5\\u4e09\\u5b63\\u62a5\\u7d2f\\u8ba1\\u7ecf\\u8425\\u73b0\\u91d1\\u6d41\\u5bf9\\u5f52\\u6bcd\\u51c0\\u5229\\u7684\\u8986\\u76d6\\u7387\\u8f83\\u4e2d\\u62a5\\u76840.132\\u660e\\u663e\\u56de\\u5347\\uff0c\\u5219\\u6539\\u53d8\\u5224\\u65ad\\u3002]",
+          "message": "assert False\n +  where False = any(<generator object test_financial_contradiction_is_removed_even_when_judge_passes.<locals>.<genexpr> at 0x10b181b10>)"
+        },
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_financial_contradiction_is_removed_even_when_judge_passes[llm-2026\\u4e2d\\u62a5\\u7d2f\\u8ba1\\u7ecf\\u8425\\u73b0\\u91d1\\u6d4118\\u4ebf\\u5143\\uff0c\\u4e00\\u5b63\\u62a533.68\\u4ebf\\u5143\\uff08\\u4e8c\\u5b63\\u5ea6\\u5355\\u5b63\\u7ecf\\u8425\\u73b0\\u91d1\\u6d41\\u4e3a\\u51c0\\u6d41\\u51fa\\u7ea615.66\\u4ebf\\u5143\\uff09\\uff0cOCF/\\u51c0\\u5229\\u4ece2025\\u5e74\\u62a5\\u76841.009\\u964d\\u81f30.132\\u3002]",
+          "message": "AssertionError: assert '2026中报累计经营现....009降至0.132。' not in '应收账款明细尚未取得，....009降至0.132。'\n  \n  '2026中报累计经营现金流18亿元，...025年报的1.009降至0.132。' is contained here:\n    应收账款明细尚未取得，回款变化原因仍待核实。\n    2026中报累计经营现金流18亿元，一季报33.68亿元（二季度单季经营现金流为净流出约15.66亿元），OCF/净利从2025年报的1.009降至0.132。"
+        },
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_financial_contradiction_is_removed_even_when_judge_passes[llm-2026\\u4e2d\\u62a5\\u7d2f\\u8ba1\\u51c0\\u73b0\\u6bd40.133\\u3002]",
+          "message": "AssertionError: assert '2026中报累计净现比0.133。' not in '应收账款明细尚未取得，...报累计净现比0.133。'\n  \n  '2026中报累计净现比0.133。' is contained here:\n    应收账款明细尚未取得，回款变化原因仍待核实。\n    2026中报累计净现比0.133。"
+        },
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_financial_contradiction_is_removed_even_when_judge_passes[llm-2026\\u4e2d\\u62a5\\u548c2025\\u5168\\u5e74\\u4e0d\\u80fd\\u76f4\\u63a5\\u6bd4\\u8f83\\uff0c\\u4f46\\u51c0\\u73b0\\u6bd4\\u4ece2025\\u5168\\u5e741.009\\u964d\\u81f32026\\u4e2d\\u62a50.132\\uff0c\\u8bf4\\u660e\\u56de\\u6b3e\\u6076\\u5316\\u3002]",
+          "message": "AssertionError: assert '2026中报和2025....132，说明回款恶化。' not in '应收账款明细尚未取得，....132，说明回款恶化。'\n  \n  '2026中报和2025全年不能直接比...2026中报0.132，说明回款恶化。' is contained here:\n    应收账款明细尚未取得，回款变化原因仍待核实。\n    2026中报和2025全年不能直接比较，但净现比从2025全年1.009降至2026中报0.132，说明回款恶化。"
+        }
+      ]
+    },
+    {
+      "label": "financial_semantic_wiring_removed-green",
+      "exit": 0,
+      "executed": 20,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "arithmetic_comparison_disabled-red",
+      "exit": 1,
+      "executed": 27,
+      "failures": 11,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_financial_contradiction_is_removed_even_when_judge_passes[off-2026\\u4e2d\\u62a5\\u7d2f\\u8ba1\\u7ecf\\u8425\\u73b0\\u91d1\\u6d4118\\u4ebf\\u5143\\uff0c\\u4e00\\u5b63\\u62a5\\u4e3a33.68\\u4ebf\\u5143\\uff0c\\u4e8c\\u5b63\\u5ea6\\u5355\\u5b63\\u7ecf\\u8425\\u73b0\\u91d1\\u6d41\\u4e3a\\u51c0\\u6d41\\u51fa\\u7ea615.66\\u4ebf\\u5143\\u3002]",
+          "message": "AssertionError: assert '2026中报累计经营现...净流出约15.66亿元。' not in '应收账款明细尚未取得，...净流出约15.66亿元。'\n  \n  '2026中报累计经营现金流18亿元，...季经营现金流为净流出约15.66亿元。' is contained here:\n    应收账款明细尚未取得，回款变化原因仍待核实。\n    2026中报累计经营现金流18亿元，一季报为33.68亿元，二季度单季经营现金流为净流出约15.66亿元。"
+        },
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_financial_contradiction_is_removed_even_when_judge_passes[off-\\u4e8c\\u5b63\\u5ea6\\u5355\\u5b63\\u7ecf\\u8425\\u73b0\\u91d1\\u6d41=18\\u221233.68=\\u221215.66\\u4ebf\\u5143\\u3002]",
+          "message": "AssertionError: assert '二季度单季经营现金流=...68=−15.66亿元。' not in '应收账款明细尚未取得，...68=−15.66亿元。'\n  \n  '二季度单季经营现金流=18−33.68=−15.66亿元。' is contained here:\n    应收账款明细尚未取得，回款变化原因仍待核实。\n    二季度单季经营现金流=18−33.68=−15.66亿元。"
+        },
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_financial_contradiction_is_removed_even_when_judge_passes[off-2026\\u4e2d\\u62a5\\u51c0\\u73b0\\u6bd40.133\\u3002]",
+          "message": "AssertionError: assert '2026中报净现比0.133。' not in '应收账款明细尚未取得，...6中报净现比0.133。'\n  \n  '2026中报净现比0.133。' is contained here:\n    应收账款明细尚未取得，回款变化原因仍待核实。\n    2026中报净现比0.133。"
+        },
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_financial_contradiction_is_removed_even_when_judge_passes[off-\\u5b58\\u8d27\\u534a\\u5e74\\u5185\\u589e\\u52a0\\u7ea641.5\\u4ebf\\u5143\\uff08156.72\\u2192198.26\\u4ebf\\u5143\\uff09\\u3002]",
+          "message": "AssertionError: assert '存货半年内增加约41....2→198.26亿元）。' not in '应收账款明细尚未取得，...2→198.26亿元）。'\n  \n  '存货半年内增加约41.5亿元（156.72→198.26亿元）。' is contained here:\n    应收账款明细尚未取得，回款变化原因仍待核实。\n    存货半年内增加约41.5亿元（156.72→198.26亿元）。"
+        },
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_financial_contradiction_is_removed_even_when_judge_passes[off-2026\\u4e2d\\u62a5\\u7d2f\\u8ba1\\u51c0\\u73b0\\u6bd40.133\\u3002]",
+          "message": "AssertionError: assert '2026中报累计净现比0.133。' not in '应收账款明细尚未取得，...报累计净现比0.133。'\n  \n  '2026中报累计净现比0.133。' is contained here:\n    应收账款明细尚未取得，回款变化原因仍待核实。\n    2026中报累计净现比0.133。"
+        },
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_financial_contradiction_is_removed_even_when_judge_passes[llm-2026\\u4e2d\\u62a5\\u7d2f\\u8ba1\\u7ecf\\u8425\\u73b0\\u91d1\\u6d4118\\u4ebf\\u5143\\uff0c\\u4e00\\u5b63\\u62a5\\u4e3a33.68\\u4ebf\\u5143\\uff0c\\u4e8c\\u5b63\\u5ea6\\u5355\\u5b63\\u7ecf\\u8425\\u73b0\\u91d1\\u6d41\\u4e3a\\u51c0\\u6d41\\u51fa\\u7ea615.66\\u4ebf\\u5143\\u3002]",
+          "message": "AssertionError: assert '2026中报累计经营现...净流出约15.66亿元。' not in '应收账款明细尚未取得，...净流出约15.66亿元。'\n  \n  '2026中报累计经营现金流18亿元，...季经营现金流为净流出约15.66亿元。' is contained here:\n    应收账款明细尚未取得，回款变化原因仍待核实。\n    2026中报累计经营现金流18亿元，一季报为33.68亿元，二季度单季经营现金流为净流出约15.66亿元。"
+        },
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_financial_contradiction_is_removed_even_when_judge_passes[llm-\\u4e8c\\u5b63\\u5ea6\\u5355\\u5b63\\u7ecf\\u8425\\u73b0\\u91d1\\u6d41=18\\u221233.68=\\u221215.66\\u4ebf\\u5143\\u3002]",
+          "message": "AssertionError: assert '二季度单季经营现金流=...68=−15.66亿元。' not in '应收账款明细尚未取得，...68=−15.66亿元。'\n  \n  '二季度单季经营现金流=18−33.68=−15.66亿元。' is contained here:\n    应收账款明细尚未取得，回款变化原因仍待核实。\n    二季度单季经营现金流=18−33.68=−15.66亿元。"
+        },
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_financial_contradiction_is_removed_even_when_judge_passes[llm-2026\\u4e2d\\u62a5\\u51c0\\u73b0\\u6bd40.133\\u3002]",
+          "message": "AssertionError: assert '2026中报净现比0.133。' not in '应收账款明细尚未取得，...6中报净现比0.133。'\n  \n  '2026中报净现比0.133。' is contained here:\n    应收账款明细尚未取得，回款变化原因仍待核实。\n    2026中报净现比0.133。"
+        },
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_financial_contradiction_is_removed_even_when_judge_passes[llm-\\u5b58\\u8d27\\u534a\\u5e74\\u5185\\u589e\\u52a0\\u7ea641.5\\u4ebf\\u5143\\uff08156.72\\u2192198.26\\u4ebf\\u5143\\uff09\\u3002]",
+          "message": "AssertionError: assert '存货半年内增加约41....2→198.26亿元）。' not in '应收账款明细尚未取得，...2→198.26亿元）。'\n  \n  '存货半年内增加约41.5亿元（156.72→198.26亿元）。' is contained here:\n    应收账款明细尚未取得，回款变化原因仍待核实。\n    存货半年内增加约41.5亿元（156.72→198.26亿元）。"
+        },
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_financial_contradiction_is_removed_even_when_judge_passes[llm-2026\\u4e2d\\u62a5\\u7d2f\\u8ba1\\u51c0\\u73b0\\u6bd40.133\\u3002]",
+          "message": "AssertionError: assert '2026中报累计净现比0.133。' not in '应收账款明细尚未取得，...报累计净现比0.133。'\n  \n  '2026中报累计净现比0.133。' is contained here:\n    应收账款明细尚未取得，回款变化原因仍待核实。\n    2026中报累计净现比0.133。"
+        },
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_result_ratio_is_recomputed_only_from_its_own_inputs[\\u51c0\\u73b0\\u6bd4.\\u51c0\\u73b0\\u6bd4[2026\\u4e2d\\u62a5]-0.133-True]",
+          "message": "AssertionError: assert False == True\n +  where False = bool(())\n +    where () = <function calculation_ratio_gaps at 0x1090100e0>((AgentEvidence(tool='financial_data', title='300308 2026-06-30', detail='2026-06-30累计经营现金流18.0亿元，归母净利136.51亿元，存货198.26...ed=None, pointer_dropped=None, structural_neighbor_demoted=None, deep_read=False, publisher_kind='', document_type='')), ('calc',), subject='300308')"
+        }
+      ]
+    },
+    {
+      "label": "arithmetic_comparison_disabled-green",
+      "exit": 0,
+      "executed": 27,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "single_quarter_anchor_removed-red",
+      "exit": 1,
+      "executed": 20,
+      "failures": 2,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_financial_contradiction_is_removed_even_when_judge_passes[off-2026\\u4e2d\\u62a5\\u7d2f\\u8ba1\\u7ecf\\u8425\\u73b0\\u91d1\\u6d4118\\u4ebf\\u5143\\uff0c\\u4e00\\u5b63\\u62a5\\u4e3a33.68\\u4ebf\\u5143\\uff0c\\u4e8c\\u5b63\\u5ea6\\u5355\\u5b63\\u7ecf\\u8425\\u73b0\\u91d1\\u6d41\\u4e3a\\u51c0\\u6d41\\u51fa\\u7ea615.66\\u4ebf\\u5143\\u3002]",
+          "message": "AssertionError: assert '2026中报累计经营现...净流出约15.66亿元。' not in '应收账款明细尚未取得，...净流出约15.66亿元。'\n  \n  '2026中报累计经营现金流18亿元，...季经营现金流为净流出约15.66亿元。' is contained here:\n    应收账款明细尚未取得，回款变化原因仍待核实。\n    2026中报累计经营现金流18亿元，一季报为33.68亿元，二季度单季经营现金流为净流出约15.66亿元。"
+        },
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_financial_contradiction_is_removed_even_when_judge_passes[llm-2026\\u4e2d\\u62a5\\u7d2f\\u8ba1\\u7ecf\\u8425\\u73b0\\u91d1\\u6d4118\\u4ebf\\u5143\\uff0c\\u4e00\\u5b63\\u62a5\\u4e3a33.68\\u4ebf\\u5143\\uff0c\\u4e8c\\u5b63\\u5ea6\\u5355\\u5b63\\u7ecf\\u8425\\u73b0\\u91d1\\u6d41\\u4e3a\\u51c0\\u6d41\\u51fa\\u7ea615.66\\u4ebf\\u5143\\u3002]",
+          "message": "AssertionError: assert '2026中报累计经营现...净流出约15.66亿元。' not in '应收账款明细尚未取得，...净流出约15.66亿元。'\n  \n  '2026中报累计经营现金流18亿元，...季经营现金流为净流出约15.66亿元。' is contained here:\n    应收账款明细尚未取得，回款变化原因仍待核实。\n    2026中报累计经营现金流18亿元，一季报为33.68亿元，二季度单季经营现金流为净流出约15.66亿元。"
+        }
+      ]
+    },
+    {
+      "label": "single_quarter_anchor_removed-green",
+      "exit": 0,
+      "executed": 20,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "inventory_duration_disabled-red",
+      "exit": 1,
+      "executed": 20,
+      "failures": 2,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_financial_contradiction_is_removed_even_when_judge_passes[off-\\u5b58\\u8d27\\u534a\\u5e74\\u5185\\u589e\\u52a0\\u7ea641.5\\u4ebf\\u5143\\uff08156.72\\u2192198.26\\u4ebf\\u5143\\uff09\\u3002]",
+          "message": "AssertionError: assert '存货半年内增加约41....2→198.26亿元）。' not in '应收账款明细尚未取得，...2→198.26亿元）。'\n  \n  '存货半年内增加约41.5亿元（156.72→198.26亿元）。' is contained here:\n    应收账款明细尚未取得，回款变化原因仍待核实。\n    存货半年内增加约41.5亿元（156.72→198.26亿元）。"
+        },
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_financial_contradiction_is_removed_even_when_judge_passes[llm-\\u5b58\\u8d27\\u534a\\u5e74\\u5185\\u589e\\u52a0\\u7ea641.5\\u4ebf\\u5143\\uff08156.72\\u2192198.26\\u4ebf\\u5143\\uff09\\u3002]",
+          "message": "AssertionError: assert '存货半年内增加约41....2→198.26亿元）。' not in '应收账款明细尚未取得，...2→198.26亿元）。'\n  \n  '存货半年内增加约41.5亿元（156.72→198.26亿元）。' is contained here:\n    应收账款明细尚未取得，回款变化原因仍待核实。\n    存货半年内增加约41.5亿元（156.72→198.26亿元）。"
+        }
+      ]
+    },
+    {
+      "label": "inventory_duration_disabled-green",
+      "exit": 0,
+      "executed": 20,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "cumulative_length_disabled-red",
+      "exit": 1,
+      "executed": 20,
+      "failures": 8,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_financial_contradiction_is_removed_even_when_judge_passes[off-2026\\u4e2d\\u62a5\\u51c0\\u73b0\\u6bd4\\u4e3a0.132\\uff0c\\u540c\\u7d2f\\u8ba1\\u957f\\u5ea6\\u5bf9\\u71672025\\u5168\\u5e74\\u51c0\\u73b0\\u6bd41.009\\u3002]",
+          "message": "AssertionError: assert '2026中报净现比为0...5全年净现比1.009。' not in '应收账款明细尚未取得，...5全年净现比1.009。'\n  \n  '2026中报净现比为0.132，同累计长度对照2025全年净现比1.009。' is contained here:\n    应收账款明细尚未取得，回款变化原因仍待核实。\n    2026中报净现比为0.132，同累计长度对照2025全年净现比1.009。"
+        },
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_financial_contradiction_is_removed_even_when_judge_passes[off-2026\\u4e2d\\u62a5OCF/\\u51c0\\u5229\\u4ece2025\\u5e74\\u62a5\\u76841.009\\u964d\\u81f30.132\\u3002]",
+          "message": "AssertionError: assert '2026中报OCF/净....009降至0.132。' not in '应收账款明细尚未取得，....009降至0.132。'\n  \n  '2026中报OCF/净利从2025年报的1.009降至0.132。' is contained here:\n    应收账款明细尚未取得，回款变化原因仍待核实。\n    2026中报OCF/净利从2025年报的1.009降至0.132。"
+        },
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_financial_contradiction_is_removed_even_when_judge_passes[off-\\u82e5\\u4e09\\u5b63\\u62a5\\u7d2f\\u8ba1\\u7ecf\\u8425\\u73b0\\u91d1\\u6d41\\u5bf9\\u5f52\\u6bcd\\u51c0\\u5229\\u7684\\u8986\\u76d6\\u7387\\u8f83\\u4e2d\\u62a5\\u76840.132\\u660e\\u663e\\u56de\\u5347\\uff0c\\u5219\\u6539\\u53d8\\u5224\\u65ad\\u3002]",
+          "message": "assert False\n +  where False = any(<generator object test_financial_contradiction_is_removed_even_when_judge_passes.<locals>.<genexpr> at 0x10adf7d30>)"
+        },
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_financial_contradiction_is_removed_even_when_judge_passes[off-2026\\u4e2d\\u62a5\\u548c2025\\u5168\\u5e74\\u4e0d\\u80fd\\u76f4\\u63a5\\u6bd4\\u8f83\\uff0c\\u4f46\\u51c0\\u73b0\\u6bd4\\u4ece2025\\u5168\\u5e741.009\\u964d\\u81f32026\\u4e2d\\u62a50.132\\uff0c\\u8bf4\\u660e\\u56de\\u6b3e\\u6076\\u5316\\u3002]",
+          "message": "AssertionError: assert '2026中报和2025....132，说明回款恶化。' not in '应收账款明细尚未取得，....132，说明回款恶化。'\n  \n  '2026中报和2025全年不能直接比...2026中报0.132，说明回款恶化。' is contained here:\n    应收账款明细尚未取得，回款变化原因仍待核实。\n    2026中报和2025全年不能直接比较，但净现比从2025全年1.009降至2026中报0.132，说明回款恶化。"
+        },
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_financial_contradiction_is_removed_even_when_judge_passes[llm-2026\\u4e2d\\u62a5\\u51c0\\u73b0\\u6bd4\\u4e3a0.132\\uff0c\\u540c\\u7d2f\\u8ba1\\u957f\\u5ea6\\u5bf9\\u71672025\\u5168\\u5e74\\u51c0\\u73b0\\u6bd41.009\\u3002]",
+          "message": "AssertionError: assert '2026中报净现比为0...5全年净现比1.009。' not in '应收账款明细尚未取得，...5全年净现比1.009。'\n  \n  '2026中报净现比为0.132，同累计长度对照2025全年净现比1.009。' is contained here:\n    应收账款明细尚未取得，回款变化原因仍待核实。\n    2026中报净现比为0.132，同累计长度对照2025全年净现比1.009。"
+        },
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_financial_contradiction_is_removed_even_when_judge_passes[llm-2026\\u4e2d\\u62a5OCF/\\u51c0\\u5229\\u4ece2025\\u5e74\\u62a5\\u76841.009\\u964d\\u81f30.132\\u3002]",
+          "message": "AssertionError: assert '2026中报OCF/净....009降至0.132。' not in '应收账款明细尚未取得，....009降至0.132。'\n  \n  '2026中报OCF/净利从2025年报的1.009降至0.132。' is contained here:\n    应收账款明细尚未取得，回款变化原因仍待核实。\n    2026中报OCF/净利从2025年报的1.009降至0.132。"
+        },
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_financial_contradiction_is_removed_even_when_judge_passes[llm-\\u82e5\\u4e09\\u5b63\\u62a5\\u7d2f\\u8ba1\\u7ecf\\u8425\\u73b0\\u91d1\\u6d41\\u5bf9\\u5f52\\u6bcd\\u51c0\\u5229\\u7684\\u8986\\u76d6\\u7387\\u8f83\\u4e2d\\u62a5\\u76840.132\\u660e\\u663e\\u56de\\u5347\\uff0c\\u5219\\u6539\\u53d8\\u5224\\u65ad\\u3002]",
+          "message": "assert False\n +  where False = any(<generator object test_financial_contradiction_is_removed_even_when_judge_passes.<locals>.<genexpr> at 0x10adf76b0>)"
+        },
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_financial_contradiction_is_removed_even_when_judge_passes[llm-2026\\u4e2d\\u62a5\\u548c2025\\u5168\\u5e74\\u4e0d\\u80fd\\u76f4\\u63a5\\u6bd4\\u8f83\\uff0c\\u4f46\\u51c0\\u73b0\\u6bd4\\u4ece2025\\u5168\\u5e741.009\\u964d\\u81f32026\\u4e2d\\u62a50.132\\uff0c\\u8bf4\\u660e\\u56de\\u6b3e\\u6076\\u5316\\u3002]",
+          "message": "AssertionError: assert '2026中报和2025....132，说明回款恶化。' not in '应收账款明细尚未取得，....132，说明回款恶化。'\n  \n  '2026中报和2025全年不能直接比...2026中报0.132，说明回款恶化。' is contained here:\n    应收账款明细尚未取得，回款变化原因仍待核实。\n    2026中报和2025全年不能直接比较，但净现比从2025全年1.009降至2026中报0.132，说明回款恶化。"
+        }
+      ]
+    },
+    {
+      "label": "cumulative_length_disabled-green",
+      "exit": 0,
+      "executed": 20,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "deleted_claims_pretend_complete-red",
+      "exit": 1,
+      "executed": 21,
+      "failures": 21,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_financial_contradiction_is_removed_even_when_judge_passes[off-2026\\u4e2d\\u62a5\\u7d2f\\u8ba1\\u7ecf\\u8425\\u73b0\\u91d1\\u6d4118\\u4ebf\\u5143\\uff0c\\u4e00\\u5b63\\u62a5\\u4e3a33.68\\u4ebf\\u5143\\uff0c\\u4e8c\\u5b63\\u5ea6\\u5355\\u5b63\\u7ecf\\u8425\\u73b0\\u91d1\\u6d41\\u4e3a\\u51c0\\u6d41\\u51fa\\u7ea615.66\\u4ebf\\u5143\\u3002]",
+          "message": "AssertionError: assert 'metric_evidence' in ('financial_assessment',)\n +  where ('financial_assessment',) = SemanticEpisodeOutcome(verified=VerifiedEpisodeOutcome(outcome=AgentOutcome(task_frame_hash='196707ad7aae78cc2bd5a68c8...count=None, rejudge_called=False, outcome='skipped', lifted_count=None, still_doubted_count=None, support_evidence=())).gap_output_ids"
+        },
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_financial_contradiction_is_removed_even_when_judge_passes[off-\\u4e8c\\u5b63\\u5ea6\\u5355\\u5b63\\u7ecf\\u8425\\u73b0\\u91d1\\u6d41=18\\u221233.68=\\u221215.66\\u4ebf\\u5143\\u3002]",
+          "message": "AssertionError: assert 'metric_evidence' in ('financial_assessment',)\n +  where ('financial_assessment',) = SemanticEpisodeOutcome(verified=VerifiedEpisodeOutcome(outcome=AgentOutcome(task_frame_hash='196707ad7aae78cc2bd5a68c8...count=None, rejudge_called=False, outcome='skipped', lifted_count=None, still_doubted_count=None, support_evidence=())).gap_output_ids"
+        },
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_financial_contradiction_is_removed_even_when_judge_passes[off-2026\\u4e2d\\u62a5\\u51c0\\u73b0\\u6bd40.133\\u3002]",
+          "message": "AssertionError: assert 'completed' == 'partial'\n  \n  - partial\n  + completed"
+        },
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_financial_contradiction_is_removed_even_when_judge_passes[off-2026\\u4e2d\\u62a5\\u51c0\\u73b0\\u6bd4\\u4e3a0.132\\uff0c\\u540c\\u7d2f\\u8ba1\\u957f\\u5ea6\\u5bf9\\u71672025\\u5168\\u5e74\\u51c0\\u73b0\\u6bd41.009\\u3002]",
+          "message": "AssertionError: assert 'completed' == 'partial'\n  \n  - partial\n  + completed"
+        },
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_financial_contradiction_is_removed_even_when_judge_passes[off-2026\\u4e2d\\u62a5OCF/\\u51c0\\u5229\\u4ece2025\\u5e74\\u62a5\\u76841.009\\u964d\\u81f30.132\\u3002]",
+          "message": "AssertionError: assert 'completed' == 'partial'\n  \n  - partial\n  + completed"
+        },
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_financial_contradiction_is_removed_even_when_judge_passes[off-\\u5b58\\u8d27\\u534a\\u5e74\\u5185\\u589e\\u52a0\\u7ea641.5\\u4ebf\\u5143\\uff08156.72\\u2192198.26\\u4ebf\\u5143\\uff09\\u3002]",
+          "message": "AssertionError: assert 'completed' == 'partial'\n  \n  - partial\n  + completed"
+        },
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_financial_contradiction_is_removed_even_when_judge_passes[off-\\u82e5\\u4e09\\u5b63\\u62a5\\u7d2f\\u8ba1\\u7ecf\\u8425\\u73b0\\u91d1\\u6d41\\u5bf9\\u5f52\\u6bcd\\u51c0\\u5229\\u7684\\u8986\\u76d6\\u7387\\u8f83\\u4e2d\\u62a5\\u76840.132\\u660e\\u663e\\u56de\\u5347\\uff0c\\u5219\\u6539\\u53d8\\u5224\\u65ad\\u3002]",
+          "message": "AssertionError: assert 'metric_evidence' in ('financial_assessment',)\n +  where ('financial_assessment',) = SemanticEpisodeOutcome(verified=VerifiedEpisodeOutcome(outcome=AgentOutcome(task_frame_hash='196707ad7aae78cc2bd5a68c8...count=None, rejudge_called=False, outcome='skipped', lifted_count=None, still_doubted_count=None, support_evidence=())).gap_output_ids"
+        },
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_financial_contradiction_is_removed_even_when_judge_passes[off-2026\\u4e2d\\u62a5\\u7d2f\\u8ba1\\u7ecf\\u8425\\u73b0\\u91d1\\u6d4118\\u4ebf\\u5143\\uff0c\\u4e00\\u5b63\\u62a533.68\\u4ebf\\u5143\\uff08\\u4e8c\\u5b63\\u5ea6\\u5355\\u5b63\\u7ecf\\u8425\\u73b0\\u91d1\\u6d41\\u4e3a\\u51c0\\u6d41\\u51fa\\u7ea615.66\\u4ebf\\u5143\\uff09\\uff0cOCF/\\u51c0\\u5229\\u4ece2025\\u5e74\\u62a5\\u76841.009\\u964d\\u81f30.132\\u3002]",
+          "message": "AssertionError: assert 'metric_evidence' in ('financial_assessment',)\n +  where ('financial_assessment',) = SemanticEpisodeOutcome(verified=VerifiedEpisodeOutcome(outcome=AgentOutcome(task_frame_hash='196707ad7aae78cc2bd5a68c8...count=None, rejudge_called=False, outcome='skipped', lifted_count=None, still_doubted_count=None, support_evidence=())).gap_output_ids"
+        },
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_financial_contradiction_is_removed_even_when_judge_passes[off-2026\\u4e2d\\u62a5\\u7d2f\\u8ba1\\u51c0\\u73b0\\u6bd40.133\\u3002]",
+          "message": "AssertionError: assert 'completed' == 'partial'\n  \n  - partial\n  + completed"
+        },
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_financial_contradiction_is_removed_even_when_judge_passes[off-2026\\u4e2d\\u62a5\\u548c2025\\u5168\\u5e74\\u4e0d\\u80fd\\u76f4\\u63a5\\u6bd4\\u8f83\\uff0c\\u4f46\\u51c0\\u73b0\\u6bd4\\u4ece2025\\u5168\\u5e741.009\\u964d\\u81f32026\\u4e2d\\u62a50.132\\uff0c\\u8bf4\\u660e\\u56de\\u6b3e\\u6076\\u5316\\u3002]",
+          "message": "AssertionError: assert 'completed' == 'partial'\n  \n  - partial\n  + completed"
+        },
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_financial_contradiction_is_removed_even_when_judge_passes[llm-2026\\u4e2d\\u62a5\\u7d2f\\u8ba1\\u7ecf\\u8425\\u73b0\\u91d1\\u6d4118\\u4ebf\\u5143\\uff0c\\u4e00\\u5b63\\u62a5\\u4e3a33.68\\u4ebf\\u5143\\uff0c\\u4e8c\\u5b63\\u5ea6\\u5355\\u5b63\\u7ecf\\u8425\\u73b0\\u91d1\\u6d41\\u4e3a\\u51c0\\u6d41\\u51fa\\u7ea615.66\\u4ebf\\u5143\\u3002]",
+          "message": "AssertionError: assert 'metric_evidence' in ('financial_assessment',)\n +  where ('financial_assessment',) = SemanticEpisodeOutcome(verified=VerifiedEpisodeOutcome(outcome=AgentOutcome(task_frame_hash='196707ad7aae78cc2bd5a68c8...count=None, rejudge_called=False, outcome='skipped', lifted_count=None, still_doubted_count=None, support_evidence=())).gap_output_ids"
+        },
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_financial_contradiction_is_removed_even_when_judge_passes[llm-\\u4e8c\\u5b63\\u5ea6\\u5355\\u5b63\\u7ecf\\u8425\\u73b0\\u91d1\\u6d41=18\\u221233.68=\\u221215.66\\u4ebf\\u5143\\u3002]",
+          "message": "AssertionError: assert 'metric_evidence' in ('financial_assessment',)\n +  where ('financial_assessment',) = SemanticEpisodeOutcome(verified=VerifiedEpisodeOutcome(outcome=AgentOutcome(task_frame_hash='196707ad7aae78cc2bd5a68c8...count=None, rejudge_called=False, outcome='skipped', lifted_count=None, still_doubted_count=None, support_evidence=())).gap_output_ids"
+        },
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_financial_contradiction_is_removed_even_when_judge_passes[llm-2026\\u4e2d\\u62a5\\u51c0\\u73b0\\u6bd40.133\\u3002]",
+          "message": "AssertionError: assert 'completed' == 'partial'\n  \n  - partial\n  + completed"
+        },
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_financial_contradiction_is_removed_even_when_judge_passes[llm-2026\\u4e2d\\u62a5\\u51c0\\u73b0\\u6bd4\\u4e3a0.132\\uff0c\\u540c\\u7d2f\\u8ba1\\u957f\\u5ea6\\u5bf9\\u71672025\\u5168\\u5e74\\u51c0\\u73b0\\u6bd41.009\\u3002]",
+          "message": "AssertionError: assert 'completed' == 'partial'\n  \n  - partial\n  + completed"
+        },
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_financial_contradiction_is_removed_even_when_judge_passes[llm-2026\\u4e2d\\u62a5OCF/\\u51c0\\u5229\\u4ece2025\\u5e74\\u62a5\\u76841.009\\u964d\\u81f30.132\\u3002]",
+          "message": "AssertionError: assert 'completed' == 'partial'\n  \n  - partial\n  + completed"
+        },
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_financial_contradiction_is_removed_even_when_judge_passes[llm-\\u5b58\\u8d27\\u534a\\u5e74\\u5185\\u589e\\u52a0\\u7ea641.5\\u4ebf\\u5143\\uff08156.72\\u2192198.26\\u4ebf\\u5143\\uff09\\u3002]",
+          "message": "AssertionError: assert 'completed' == 'partial'\n  \n  - partial\n  + completed"
+        },
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_financial_contradiction_is_removed_even_when_judge_passes[llm-\\u82e5\\u4e09\\u5b63\\u62a5\\u7d2f\\u8ba1\\u7ecf\\u8425\\u73b0\\u91d1\\u6d41\\u5bf9\\u5f52\\u6bcd\\u51c0\\u5229\\u7684\\u8986\\u76d6\\u7387\\u8f83\\u4e2d\\u62a5\\u76840.132\\u660e\\u663e\\u56de\\u5347\\uff0c\\u5219\\u6539\\u53d8\\u5224\\u65ad\\u3002]",
+          "message": "AssertionError: assert 'metric_evidence' in ('financial_assessment',)\n +  where ('financial_assessment',) = SemanticEpisodeOutcome(verified=VerifiedEpisodeOutcome(outcome=AgentOutcome(task_frame_hash='196707ad7aae78cc2bd5a68c8...count=None, rejudge_called=False, outcome='skipped', lifted_count=None, still_doubted_count=None, support_evidence=())).gap_output_ids"
+        },
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_financial_contradiction_is_removed_even_when_judge_passes[llm-2026\\u4e2d\\u62a5\\u7d2f\\u8ba1\\u7ecf\\u8425\\u73b0\\u91d1\\u6d4118\\u4ebf\\u5143\\uff0c\\u4e00\\u5b63\\u62a533.68\\u4ebf\\u5143\\uff08\\u4e8c\\u5b63\\u5ea6\\u5355\\u5b63\\u7ecf\\u8425\\u73b0\\u91d1\\u6d41\\u4e3a\\u51c0\\u6d41\\u51fa\\u7ea615.66\\u4ebf\\u5143\\uff09\\uff0cOCF/\\u51c0\\u5229\\u4ece2025\\u5e74\\u62a5\\u76841.009\\u964d\\u81f30.132\\u3002]",
+          "message": "AssertionError: assert 'metric_evidence' in ('financial_assessment',)\n +  where ('financial_assessment',) = SemanticEpisodeOutcome(verified=VerifiedEpisodeOutcome(outcome=AgentOutcome(task_frame_hash='196707ad7aae78cc2bd5a68c8...count=None, rejudge_called=False, outcome='skipped', lifted_count=None, still_doubted_count=None, support_evidence=())).gap_output_ids"
+        },
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_financial_contradiction_is_removed_even_when_judge_passes[llm-2026\\u4e2d\\u62a5\\u7d2f\\u8ba1\\u51c0\\u73b0\\u6bd40.133\\u3002]",
+          "message": "AssertionError: assert 'completed' == 'partial'\n  \n  - partial\n  + completed"
+        },
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_financial_contradiction_is_removed_even_when_judge_passes[llm-2026\\u4e2d\\u62a5\\u548c2025\\u5168\\u5e74\\u4e0d\\u80fd\\u76f4\\u63a5\\u6bd4\\u8f83\\uff0c\\u4f46\\u51c0\\u73b0\\u6bd4\\u4ece2025\\u5168\\u5e741.009\\u964d\\u81f32026\\u4e2d\\u62a50.132\\uff0c\\u8bf4\\u660e\\u56de\\u6b3e\\u6076\\u5316\\u3002]",
+          "message": "AssertionError: assert 'completed' == 'partial'\n  \n  - partial\n  + completed"
+        },
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_financial_repair_debt_is_local_and_not_sticky_after_correction",
+          "message": "AssertionError: assert () == ('metric_evidence',)\n  \n  Right contains one more item: 'metric_evidence'\n  Use -v to get more diff"
+        }
+      ]
+    },
+    {
+      "label": "deleted_claims_pretend_complete-green",
+      "exit": 0,
+      "executed": 21,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "product_crosscheck_unwired-red",
+      "exit": 1,
+      "executed": 1,
+      "failures": 1,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_wrong_product_reopens_metric_slot_not_the_whole_research",
+          "message": "AssertionError: assert () == ('metric_evidence',)\n  \n  Right contains one more item: 'metric_evidence'\n  Use -v to get more diff"
+        }
+      ]
+    },
+    {
+      "label": "product_crosscheck_unwired-green",
+      "exit": 0,
+      "executed": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "document_delivery_unwired-red",
+      "exit": 1,
+      "executed": 1,
+      "failures": 1,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_structured_rows_cannot_fulfil_explicit_document_request",
+          "message": "AssertionError: assert 'completed' == 'partial'\n  \n  - partial\n  + completed"
+        }
+      ]
+    },
+    {
+      "label": "document_delivery_unwired-green",
+      "exit": 0,
+      "executed": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "foreign_document_accepted-red",
+      "exit": 1,
+      "executed": 13,
+      "failures": 2,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_report_delivery_requires_subject_body_date_and_document_type[overrides8-False]",
+          "message": "assert False != False\n +  where False = bool(())"
+        },
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_document_claim_does_not_borrow_an_unrelated_company[overrides1-\\u672c\\u6b21\\u5b9e\\u9645\\u53d6\\u5f97\\u5e76\\u5f15\\u7528\\u7684\\u62a5\\u544a\\u4e3a\\u4e2d\\u9645\\u65ed\\u521b2026\\u5e74\\u534a\\u5e74\\u5ea6\\u62a5\\u544a\\u3002-True]",
+          "message": "AssertionError: assert ('本次实际取得并引用的报...创2026年半年度报告。' not in '应收账款明细尚未取得，...创2026年半年度报告。'\n  \n  '本次实际取得并引用的报告为中际旭创2026年半年度报告。' is contained here:\n    应收账款明细尚未取得，回款变化原因仍待核实。\n    本次实际取得并引用的报告为中际旭创2026年半年度报告。) == True"
+        }
+      ]
+    },
+    {
+      "label": "foreign_document_accepted-green",
+      "exit": 0,
+      "executed": 13,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "conflicting_inputs_cherry_picked-red",
+      "exit": 1,
+      "executed": 1,
+      "failures": 1,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_financial_r6_regressions",
+          "name": "test_conflicting_financial_inputs_are_not_cherry_picked",
+          "message": "assert (1,) == ()\n  \n  Left contains one more item: 1\n  Use -v to get more diff"
+        }
+      ]
+    },
+    {
+      "label": "conflicting_inputs_cherry_picked-green",
+      "exit": 0,
+      "executed": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "restored-full",
+      "exit": 0,
+      "executed": 91,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    }
+  ],
+  "mutations": [
+    {
+      "id": "watch_disclaimer_not_removed",
+      "path": "intelligence/services/track_contract.py",
+      "before_sha256": "46aed39025ee5bac7d8369c4969e1472967ede679b4525ea7d182c309f9ab49f",
+      "mutated_sha256": "96b6c345bd898230af3c35d12c421c269a7c1553fc935e800c6d8be62c6e431c",
+      "restored_sha256": "46aed39025ee5bac7d8369c4969e1472967ede679b4525ea7d182c309f9ab49f"
+    },
+    {
+      "id": "new_watch_swallowed_by_previous",
+      "path": "intelligence/services/track_contract.py",
+      "before_sha256": "46aed39025ee5bac7d8369c4969e1472967ede679b4525ea7d182c309f9ab49f",
+      "mutated_sha256": "822fb60c36fb9d7db0441112b00332b24777fde351e114bbbd051c8c82f8b854",
+      "restored_sha256": "46aed39025ee5bac7d8369c4969e1472967ede679b4525ea7d182c309f9ab49f"
+    },
+    {
+      "id": "question_threshold_shape_removed",
+      "path": "intelligence/services/episode_semantic_verifier.py",
+      "before_sha256": "57f15ddfa148f9e1739051e315698172b39c3449716ceea7043b5ac73148f9d9",
+      "mutated_sha256": "bb724e69291eabea503f0186e4572ff385f7748d4211006fe1e5a1761ea0bccd",
+      "restored_sha256": "57f15ddfa148f9e1739051e315698172b39c3449716ceea7043b5ac73148f9d9"
+    },
+    {
+      "id": "financial_semantic_wiring_removed",
+      "path": "intelligence/services/episode_semantic_verifier.py",
+      "before_sha256": "57f15ddfa148f9e1739051e315698172b39c3449716ceea7043b5ac73148f9d9",
+      "mutated_sha256": "bc4bb0a1740f6ce463f4979245a14cf8d98bc47ff1730cd47babecab5aa76a91",
+      "restored_sha256": "57f15ddfa148f9e1739051e315698172b39c3449716ceea7043b5ac73148f9d9"
+    },
+    {
+      "id": "arithmetic_comparison_disabled",
+      "path": "intelligence/services/financial_claim_checks.py",
+      "before_sha256": "ff41fd82edbf953d6b71b9c90dbdbfa08558d206a3fc2ae392d63efa6b8b8972",
+      "mutated_sha256": "3797642809d49e11b7963b8d57d3396ddbff2d77627cd92a28ee534f3763f103",
+      "restored_sha256": "ff41fd82edbf953d6b71b9c90dbdbfa08558d206a3fc2ae392d63efa6b8b8972"
+    },
+    {
+      "id": "single_quarter_anchor_removed",
+      "path": "intelligence/services/financial_claim_checks.py",
+      "before_sha256": "ff41fd82edbf953d6b71b9c90dbdbfa08558d206a3fc2ae392d63efa6b8b8972",
+      "mutated_sha256": "8bca57c62a56c247486eb9dd3e0c37184b7210751a6a50cddedc0c8ba9eeb364",
+      "restored_sha256": "ff41fd82edbf953d6b71b9c90dbdbfa08558d206a3fc2ae392d63efa6b8b8972"
+    },
+    {
+      "id": "inventory_duration_disabled",
+      "path": "intelligence/services/financial_claim_checks.py",
+      "before_sha256": "ff41fd82edbf953d6b71b9c90dbdbfa08558d206a3fc2ae392d63efa6b8b8972",
+      "mutated_sha256": "6a8fa28921f821f9131b2cb85d7a486bb7cd9409e014f0aa68389d543ba4af8e",
+      "restored_sha256": "ff41fd82edbf953d6b71b9c90dbdbfa08558d206a3fc2ae392d63efa6b8b8972"
+    },
+    {
+      "id": "cumulative_length_disabled",
+      "path": "intelligence/services/financial_claim_checks.py",
+      "before_sha256": "ff41fd82edbf953d6b71b9c90dbdbfa08558d206a3fc2ae392d63efa6b8b8972",
+      "mutated_sha256": "3eab43b1d236bc4df4d626e9866adfb6349576348b339b1ca7968c60f25fe733",
+      "restored_sha256": "ff41fd82edbf953d6b71b9c90dbdbfa08558d206a3fc2ae392d63efa6b8b8972"
+    },
+    {
+      "id": "deleted_claims_pretend_complete",
+      "path": "intelligence/services/episode_semantic_verifier.py",
+      "before_sha256": "57f15ddfa148f9e1739051e315698172b39c3449716ceea7043b5ac73148f9d9",
+      "mutated_sha256": "3854a71acec39e89420f2d20e4d1e09b7efeb45ce6667f1590eb6e8d98ebfb63",
+      "restored_sha256": "57f15ddfa148f9e1739051e315698172b39c3449716ceea7043b5ac73148f9d9"
+    },
+    {
+      "id": "product_crosscheck_unwired",
+      "path": "intelligence/services/episode_verifier.py",
+      "before_sha256": "bda35a184cde78fe29f10c19cd06348d91eeb2e805d10b772911b24d181c852c",
+      "mutated_sha256": "a97ee4d7e1289a81789ecb2059b4ce73343d8d4a3c4359ec0702a533fae55c5d",
+      "restored_sha256": "bda35a184cde78fe29f10c19cd06348d91eeb2e805d10b772911b24d181c852c"
+    },
+    {
+      "id": "document_delivery_unwired",
+      "path": "intelligence/services/episode_verifier.py",
+      "before_sha256": "bda35a184cde78fe29f10c19cd06348d91eeb2e805d10b772911b24d181c852c",
+      "mutated_sha256": "69b0826bdfe22ab34576e5c0a36aab7392356383ac57d652d1e1e9c2fd60528b",
+      "restored_sha256": "bda35a184cde78fe29f10c19cd06348d91eeb2e805d10b772911b24d181c852c"
+    },
+    {
+      "id": "foreign_document_accepted",
+      "path": "intelligence/services/financial_report_contract.py",
+      "before_sha256": "084ff14f0b59bbf21c1e848fdabc97979f78ea290d1b1667e4fc2244a05fdffc",
+      "mutated_sha256": "1e36d24e877efa4c909200b73ff8727505bb2e89cda782df93141d86db673e1a",
+      "restored_sha256": "084ff14f0b59bbf21c1e848fdabc97979f78ea290d1b1667e4fc2244a05fdffc"
+    },
+    {
+      "id": "conflicting_inputs_cherry_picked",
+      "path": "intelligence/services/financial_claim_checks.py",
+      "before_sha256": "ff41fd82edbf953d6b71b9c90dbdbfa08558d206a3fc2ae392d63efa6b8b8972",
+      "mutated_sha256": "7ca9c9de77c3cae641a1e9a6a9197ca6c5f8238c12fe0896d85f36eb30354d46",
+      "restored_sha256": "ff41fd82edbf953d6b71b9c90dbdbfa08558d206a3fc2ae392d63efa6b8b8972"
+    }
+  ],
+  "definitions_sha256": "77298798dc1b79c6dbde26b250ba81d7fae27d027672d2a954872e0d1132d705",
+  "final_status": ""
+}

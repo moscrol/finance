@@ -1,0 +1,107 @@
+{
+  "at": "2026-09-21T11:20:13.174059+00:00",
+  "pid": "59511",
+  "command": [
+    "/Users/a77/knowledge-base-private/.rag_venv/bin/python",
+    "-X",
+    "importtime",
+    "/Users/a77/knowledge-base-private/scripts/rag_index.py",
+    "query",
+    "--help"
+  ],
+  "elapsed_s": 0.42612008284777403,
+  "exit_code": 0,
+  "timed_out": false,
+  "environment_allowlist": {
+    "PYTHONPATH": "/Users/a77/finance-workspace-runtime",
+    "PYTHONHOME": null,
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "OPENBLAS_NUM_THREADS": null,
+    "OMP_NUM_THREADS": null,
+    "MKL_NUM_THREADS": null,
+    "KB_RAG_PYTHON": "/Users/a77/knowledge-base-private/.rag_venv/bin/python",
+    "KB_RAG_CODE_ROOT": null
+  },
+  "production_probe_timeout_s": 5,
+  "production_timeout_changed": false,
+  "help_has_required_options": true,
+  "stdout_sha256": "5df93f5a9eeb7b73ed67f2b80f43d506e39901e089627f85de9e60a3bd2ad06a",
+  "top_cumulative_imports": [
+    {
+      "self_us": 730,
+      "cumulative_us": 231074,
+      "module": "rag"
+    },
+    {
+      "self_us": 3800,
+      "cumulative_us": 208947,
+      "module": "rag.agent"
+    },
+    {
+      "self_us": 3204,
+      "cumulative_us": 163720,
+      "module": "rag.retrieval"
+    },
+    {
+      "self_us": 3108,
+      "cumulative_us": 119515,
+      "module": "numpy"
+    },
+    {
+      "self_us": 600,
+      "cumulative_us": 74312,
+      "module": "numpy.__config__"
+    },
+    {
+      "self_us": 24,
+      "cumulative_us": 73712,
+      "module": "numpy._core._multiarray_umath"
+    },
+    {
+      "self_us": 898,
+      "cumulative_us": 73688,
+      "module": "numpy._core"
+    },
+    {
+      "self_us": 2595,
+      "cumulative_us": 41002,
+      "module": "rag.chunking"
+    },
+    {
+      "self_us": 13537,
+      "cumulative_us": 39586,
+      "module": "dataclasses"
+    },
+    {
+      "self_us": 714,
+      "cumulative_us": 34630,
+      "module": "numpy.lib"
+    },
+    {
+      "self_us": 2722,
+      "cumulative_us": 27771,
+      "module": "numpy._core.multiarray"
+    },
+    {
+      "self_us": 1356,
+      "cumulative_us": 24687,
+      "module": "yaml"
+    },
+    {
+      "self_us": 3866,
+      "cumulative_us": 24185,
+      "module": "inspect"
+    },
+    {
+      "self_us": 19338,
+      "cumulative_us": 23683,
+      "module": "numpy._core._multiarray_umath"
+    },
+    {
+      "self_us": 3159,
+      "cumulative_us": 21004,
+      "module": "site"
+    }
+  ],
+  "limits": "one profiled sample; no proof of historical cause or production stability; secrets never persisted"
+}
