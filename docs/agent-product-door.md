@@ -217,9 +217,12 @@ SSE 沿原总时限等待，超时不伪造完成。
 API 生命周期不再重复保存一份无法随自愈清除的全局错误。readiness 仍须所有已注册
 worker 就绪；成功查询不能抹掉另一实例或启动配置的失败。无实例的配置错误不自动重试。
 预热成功仍要求 `returncode=0` 且 `model_load_count>0`，不放宽 hybrid / 代际门禁。
+代际检查、恢复配方转换与保活启动异常同属实例失败；配方完整校验后才替换，保活启动完成后
+才标记 ready。关闭后的旧实例拒绝查询及预热，已调度的恢复也不能重新拉起已退役进程。
 协议启动前的进程 stderr 与 stdout 同时非阻塞读取，私有尾部最多保留 4096 字节；
 公开 `workers.rag.last_error_diagnostic` 仅含阶段、固定原因、退出码、白名单异常类型，
-不输出原文、路径或查询。关闭进程清空尾部，成功恢复清空错误。常规查询响应合同不变。
+不输出原文、路径或查询。关闭进程清空尾部，成功恢复清空错误；管道注册失败也关闭 selector。
+常规查询响应合同不变。
 覆盖真实轻量子进程与应用 lifespan 的 503→200；不等于生产模型、金融质量或资源余量验收。
 回归 `test_rag_worker_startup_recovery.py`；撤保护复用 `scripts/review_probes/run_extraction_mutations.py`
 的 `--definitions scripts/review_probes/rag_startup_recovery_mutations.json --tests intelligence/tests/test_rag_worker_startup_recovery.py`。

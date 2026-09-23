@@ -47,5 +47,40 @@
     "old": "                        response.stderr,",
     "new": "                        '',",
     "targets": ["prewarm_response_preserves", "real_lifespan_readiness"]
+  },
+  {
+    "id": "prewarm-failure-state-unrecorded",
+    "path": "intelligence/services/rag_worker.py",
+    "old": "                self._mark_failed(exc)\n                raise\n            self._prewarm_latency_ms",
+    "new": "                raise\n            self._prewarm_latency_ms",
+    "targets": ["whole_prewarm_failure"]
+  },
+  {
+    "id": "closed-query-admitted",
+    "path": "intelligence/services/rag_worker.py",
+    "old": "        if self._closed:\n            raise RuntimeError(\"rag worker is closed\")\n        try:",
+    "new": "        try:",
+    "targets": ["closed_instance"]
+  },
+  {
+    "id": "closed-prewarm-admitted",
+    "path": "intelligence/services/rag_worker.py",
+    "old": "            if self._closed:\n                raise RuntimeError(\"rag worker is closed\")\n            started = time.monotonic()",
+    "new": "            started = time.monotonic()",
+    "targets": ["closed_instance", "recovery_admitted"]
+  },
+  {
+    "id": "recovery-recipe-partially-replaced",
+    "path": "intelligence/services/rag_worker.py",
+    "old": "                self._recovery_argv, self._recovery_timeout = list(argv), float(timeout)",
+    "new": "                self._recovery_argv = list(argv)\n                self._recovery_timeout = float(timeout)",
+    "targets": ["whole_prewarm_failure"]
+  },
+  {
+    "id": "selector-registration-outside-cleanup",
+    "path": "intelligence/services/rag_worker.py",
+    "old": "        try:\n            selector.register(process.stdout, selectors.EVENT_READ, \"stdout\")\n            if process.stderr is not None:\n                selector.register(process.stderr, selectors.EVENT_READ, \"stderr\")\n            search_from = 0",
+    "new": "        selector.register(process.stdout, selectors.EVENT_READ, \"stdout\")\n        if process.stderr is not None:\n            selector.register(process.stderr, selectors.EVENT_READ, \"stderr\")\n        try:\n            search_from = 0",
+    "targets": ["stderr_registration_failure"]
   }
 ]

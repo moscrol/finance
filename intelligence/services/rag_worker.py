@@ -218,6 +218,8 @@ class PersistentRagWorker:
 
     def _serve(self, argv: list[str], timeout: float) -> WorkerResponse:
         """持锁调用。真实查询与 keepalive 共用同一套失败处置，不给 keepalive 开第二套规矩。"""
+        if self._closed:
+            raise RuntimeError("rag worker is closed")
         try:
             self._generation.require_available()
             response = self._query_locked(argv, timeout, allow_abandon=True)
@@ -239,18 +241,16 @@ class PersistentRagWorker:
 
     def prewarm(self, argv: list[str], timeout: float) -> WorkerResponse:
         with self._lock:
-            try:
-                self._generation.require_available()
-            except RagGenerationUnavailable as exc:
-                self._mark_generation_unavailable(exc)
-                raise
-            self._recovery_argv = list(argv)
-            self._recovery_timeout = float(timeout)
-            self._state = "warming"
-            self._last_error_type = None
-            self._last_error_diagnostic = None
+            # Recovery can pass its first closed check before shutdown wins the lock.
+            if self._closed:
+                raise RuntimeError("rag worker is closed")
             started = time.monotonic()
             try:
+                self._generation.require_available()
+                self._recovery_argv, self._recovery_timeout = list(argv), float(timeout)
+                self._state = "warming"
+                self._last_error_type = None
+                self._last_error_diagnostic = None
                 # 预热不放弃：预热窗本来就是按模型加载给的，超了就是真失败。
                 response = self._query_locked(argv, timeout, allow_abandon=False)
                 if response.returncode != 0 or response.model_load_count < 1:
@@ -260,6 +260,8 @@ class PersistentRagWorker:
                         response.returncode,
                         response.stderr,
                     )
+                # Keepalive startup is part of prewarm; failure must not report ready.
+                self._start_keepalive()
             except Exception as exc:
                 self._prewarm_latency_ms = int(
                     (time.monotonic() - started) * 1000
@@ -271,8 +273,6 @@ class PersistentRagWorker:
             )
             self._state = "ready"
             self._last_error_type = None
-        # 预热成功才开 keepalive：冷 worker 没有「热」可保，那是预热/自愈的活。
-        self._start_keepalive()
         return response
 
     def idle_seconds(self) -> float | None:
@@ -480,10 +480,10 @@ class PersistentRagWorker:
         started = time.monotonic()
         deadline = started + max(0.001, float(timeout))
         selector = selectors.DefaultSelector()
-        selector.register(process.stdout, selectors.EVENT_READ, "stdout")
-        if process.stderr is not None:
-            selector.register(process.stderr, selectors.EVENT_READ, "stderr")
         try:
+            selector.register(process.stdout, selectors.EVENT_READ, "stdout")
+            if process.stderr is not None:
+                selector.register(process.stderr, selectors.EVENT_READ, "stderr")
             search_from = 0
             while True:
                 remaining = deadline - time.monotonic()

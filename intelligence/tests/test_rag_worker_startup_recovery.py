@@ -7,7 +7,9 @@ from pathlib import Path
 import socket
 import subprocess
 import sys
+import threading
 import time
+from unittest.mock import Mock
 
 import pytest
 
@@ -94,6 +96,92 @@ def test_startup_failure_then_probe_recovery_clears_aggregate_state(tmp_path):
     assert state["last_error_diagnostic"] is None
     assert state["counters"]["recoveries"] == 2
     assert worker.query(["query", "after"], timeout=5).returncode == 0
+
+
+@pytest.mark.parametrize("stage", ["generation", "recipe", "keepalive"])
+def test_whole_prewarm_failure_is_owned_and_recoverable(tmp_path, monkeypatch, stage):
+    args = _fixture(tmp_path)
+    rag_worker.prewarm(**args)
+    worker = _only_worker()
+    failed_args = dict(args)
+
+    def fail(*args, **kwargs):
+        raise RuntimeError("private startup failure")
+
+    with monkeypatch.context() as patch:
+        if stage == "generation":
+            patch.setattr(type(worker._generation), "require_available", fail)
+        elif stage == "recipe":
+            failed_args["argv"] = ["query", "different"]
+            failed_args["timeout"] = "invalid-timeout"
+        else:
+            patch.setattr(worker, "_start_keepalive", fail)
+        with pytest.raises((RuntimeError, ValueError)):
+            rag_worker.prewarm(**failed_args)
+
+    state = rag_worker.status()
+    assert state["state"] == "failed", "all prewarm failures must reach readiness"
+    assert state["active"] == 0
+    assert state["last_error_type"] == ("ValueError" if stage == "recipe" else "RuntimeError")
+    assert "private startup" not in json.dumps(state)
+    if stage == "recipe":
+        assert worker._recovery_argv == args["argv"]
+        assert worker._recovery_timeout == args["timeout"]
+    _recover(worker)
+    assert rag_worker.status()["state"] == "ready"
+    assert rag_worker.status()["last_error_type"] is None
+
+
+@pytest.mark.parametrize("operation", ["query", "prewarm"])
+def test_closed_instance_cannot_be_reused(tmp_path, operation):
+    args = _fixture(tmp_path)
+    rag_worker.prewarm(**args)
+    worker = _only_worker()
+    rag_worker.close_all()
+    try:
+        with pytest.raises(RuntimeError, match="closed"):
+            getattr(worker, operation)(args["argv"], timeout=5)
+        assert not worker.healthy()
+        assert rag_worker.status()["configured_workers"] == 0
+        # A new application lifecycle can register a fresh instance normally.
+        rag_worker.prewarm(**args)
+        assert _only_worker() is not worker
+        assert rag_worker.status()["state"] == "ready"
+    finally:
+        worker.close()
+
+
+def test_recovery_admitted_before_close_cannot_restart_retired_instance(tmp_path, monkeypatch):
+    args = _fixture(tmp_path)
+    rag_worker.prewarm(**args)
+    worker = _only_worker()
+    worker._stop_process()
+    admitted, resume = threading.Event(), threading.Event()
+    original_prewarm = worker.prewarm
+
+    def paused_prewarm(*args, **kwargs):
+        admitted.set()
+        assert resume.wait(timeout=10)
+        return original_prewarm(*args, **kwargs)
+
+    monkeypatch.setattr(worker, "prewarm", paused_prewarm)
+    thread = None
+    try:
+        rag_worker.ensure_recovery()
+        thread = worker._recovery_thread
+        assert admitted.wait(timeout=5), "recovery must pass its initial closed check"
+        rag_worker.close_all()
+        assert rag_worker.status()["configured_workers"] == 0
+        resume.set()
+        thread.join(timeout=10)
+        assert not thread.is_alive()
+        assert not worker.healthy(), "an unregistered worker must not resurrect after close"
+        assert worker._process is None
+    finally:
+        resume.set()
+        if thread is not None:
+            thread.join(timeout=10)
+        worker.close()
 
 
 def test_configuration_failure_cannot_be_hidden_by_healthy_worker(tmp_path):
@@ -219,6 +307,19 @@ def test_process_exit_before_request_write_keeps_safe_diagnostic(tmp_path, monke
         process.stdout.close()
 
 
+def test_stderr_registration_failure_closes_selector(tmp_path, monkeypatch):
+    args = _fixture(tmp_path)
+    selector = Mock()
+    selector.register.side_effect = [None, OSError("private pipe details")]
+    monkeypatch.setattr(rag_worker.selectors, "DefaultSelector", lambda: selector)
+    with pytest.raises(OSError):
+        rag_worker.prewarm(**args)
+    selector.close.assert_called_once_with()
+    assert rag_worker.status()["state"] == "failed"
+    assert not _only_worker().healthy()
+    assert "private pipe" not in json.dumps(rag_worker.status())
+
+
 def test_stderr_noise_does_not_block_valid_stdout_or_leak_to_status(tmp_path):
     args = _fixture(tmp_path)
     script = tmp_path / "scripts/rag_index.py"
@@ -233,7 +334,7 @@ def test_stderr_noise_does_not_block_valid_stdout_or_leak_to_status(tmp_path):
     assert worker._stderr_tail == b""
 
 
-@pytest.mark.parametrize("failure_kind", ["cache", "configuration"])
+@pytest.mark.parametrize("failure_kind", ["cache", "configuration", "keepalive"])
 def test_real_lifespan_readiness_recovers_without_restarting_app(
     tmp_path, monkeypatch, failure_kind,
 ):
@@ -250,6 +351,17 @@ def test_real_lifespan_readiness_recovers_without_restarting_app(
         '    print("--json --k K --mode MODE --evidence-chars N --stale-policy")\n'
     ))
     marker = _cache_failure(tmp_path)
+    if failure_kind == "keepalive":
+        marker.touch()
+        marker = tmp_path / "keepalive-ready"
+        original_start = rag_worker.PersistentRagWorker._start_keepalive
+
+        def start_keepalive(worker):
+            if not marker.exists():
+                raise RuntimeError("private keepalive failure")
+            return original_start(worker)
+
+        monkeypatch.setattr(rag_worker.PersistentRagWorker, "_start_keepalive", start_keepalive)
     snapshot = tmp_path / "market_snapshot"
     snapshot.mkdir()
     _write_market_snapshot_fixture(snapshot)
@@ -270,7 +382,7 @@ def test_real_lifespan_readiness_recovers_without_restarting_app(
 
     with TestClient(create_app(repo_root=repo)) as client:
         assert rag_worker.status()["state"] == "failed"
-        if failure_kind == "cache":
+        if failure_kind != "configuration":
             worker = _only_worker()
             # Hold the ordinary cooldown for the first HTTP observation.
             worker._last_recovery_at = time.monotonic()
@@ -280,12 +392,15 @@ def test_real_lifespan_readiness_recovers_without_restarting_app(
         assert "credential-secret" not in failed.text
         if failure_kind == "cache":
             assert failed.json()["workers"]["rag"]["last_error_diagnostic"]["error_type"] == "OSError"
+        elif failure_kind == "keepalive":
+            assert failed.json()["workers"]["rag"]["last_error_type"] == "RuntimeError"
+            assert "private keepalive" not in failed.text
         else:
             assert failed.json()["workers"]["rag"]["last_error_type"] == "FileNotFoundError"
             assert rag_worker.status()["configured_workers"] == 0
 
         marker.touch()
-        if failure_kind == "cache":
+        if failure_kind != "configuration":
             worker._last_recovery_at = float("-inf")
             client.get("/api/readiness")  # The real endpoint schedules recovery.
             thread = worker._recovery_thread
