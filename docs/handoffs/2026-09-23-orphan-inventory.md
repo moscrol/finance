@@ -82,5 +82,23 @@
 | e2e | 34P / 2S（首跑 33P/1F 是 `RE06_E2E_URL` 未与 `RE06_E2E_PORT` 成对设，`ERR_CONNECTION_REFUSED :8794`，非产品红；重跑成对设后绿） | `e2e-rerun.log` |
 | python | 19:00 准入（load1 11.09），ruff 0，全量进行中；结果看 `python-gate.log` 的 `GATE_EXIT=` 与 `receipts/gate-SFFAGzfL/pytest.json` | `python-gate.log` |
 
-主干核对：`f47d464eb`（19:1x）对预览基座 `b59d6eed0` 非文档漂移 0；#856 合并提交 `27ca084f9`（15:37）早于基座，不构成漂移。合入顺序与逐张核对由 `run-merge-batch.sh` 执行（`main6` → `807` → `one 889` → `verify`），每张写 `merge-<n>.json`；本节在合入后补「实际合并提交 / 文件集一致」两列。
-**截至本文件提交时未合入任何 PR。**
+python 终读数：**14639 passed / 0 failed / 85 skipped / 2 xfailed**，1915 s，收据 revision `53c51cfdcada`、`dirty=False`（`receipts/gate-SFFAGzfL/pytest.json`）。
+
+主干核对：`f47d464eb`（19:1x）对预览基座 `b59d6eed0` 非文档漂移 0；#856 合并提交 `27ca084f9`（15:37）早于基座，不构成漂移。合入由 `run-merge-batch.sh` 逐张执行：fetch → 漂移（main 上非文档改动的 blob 必须与预览树一致）→ head 钉 → `merge-tree` → `gitea_pr.py merge --expect-head --expect-base --delete-branch --record` → 合后 `git diff --name-only <before> gitea/main` == PR 文件集。
+
+| PR | 合并提交 | 落地文件 | record |
+|---|---|---|---|
+| #853 | `098e5123d` | 4 ✓ | `merge-853.json` |
+| #857 | `aaec54897` | 8 ✓ | `merge-857.json` |
+| #804 | `0e9c452a7` | 47 ✓ | `merge-804.json` |
+| #840 | `f66954200` | 108 ✓（脚本被 `sed` 非法字节 SIGPIPE 打断，文件集手工核） | `merge-840.json` |
+| #849 | `a2f845fff` | 19 ✓ | `merge-849.json` |
+| #836 | `917e15a87` | 107 ✓ | `merge-836.json` |
+| #807 → **#891** | `e926157d9` | 73 ✓（== #807 文件集） | `merge-891.json`；#807 关闭留指针 |
+| #889（本分支） | 合入后由合并者补 | — | — |
+
+#807 为何另开 #891：其分支被 `~/.finance-runtime/reviews/stale-work-closeout-20260920/acceptance-docs/` 检出，`checkout -B` 失败；refspec 推送被用户级 hook 拦；前向 union 落在临时分支 `fwd/stale-closeout-gates-0920-local` 并推成新分支开 PR，lessons 与预览树逐字节相同（0 行差异）。
+
+合后核对：`git diff 53c51cfdc gitea/main` 非文档差异 0；文档差异只剩 #889 自身文件与他人 docs 漂移（`inflight/main.md`、INDEX 一行、一份新 inflight）。
+
+清理（`cleanup.log`）：删掉 18 棵干净且 cherry+0 的树——`/private/tmp/fwp-qc-{853,853-latest,853-main5f,857,857-latest,857-main5f,804,807-0923,807-current,807-current2,836,840,849}`、`fwp-wt-853-handoff-budget-gate`、`fwp-wt-pr857-merge-0922`、`fwp-wt-preview-807`、`reviews/pr857-docs-qc-20260923/candidate`、`fwp-wt-807-forward-0923`；保留 dirty 的 `fwp-qc-853-current` / `fwp-qc-857-current`（来源未知）。远端分支随 `--delete-branch` 删除；`docs/stale-closeout-gates-0920` 远端与本地保留（被他人树检出）。
