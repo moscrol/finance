@@ -9,7 +9,7 @@
 - 保留失败、PR #877 保持 WIP；不关审稿闸/改题凑绿，因 completed 不等语义通过。
 
 ## 当前状态
-- 最新 `gitea/main=9a0227986` 已无冲突整合；当前候选为 `9f6646d6a`，ahead 12 / behind 0。main 的 #879 删除了同名旧材料，本枝保留本 PR 的实现与证据。
+- 最新 `gitea/main=9a0227986` 已无冲突整合；本次快照提交完成后的 HEAD 才是最终门禁候选。main 的 #879 删除了同名旧材料，本枝保留本 PR 的实现与证据。
 - 工程门禁与语义门禁分开：语义仍 **0/12**，不能宣称 Knevo 炼化、胜率/top3 增益或完整消融通过。
 - 不合 main、不部署 8792、不回补行情、不写生产画像；主检出树有其他 agent 改动，不要接管。
 
@@ -19,7 +19,7 @@
 - `execution.json` 仍为 `prepared_not_run`；live observations 仅为 9 completed/3 failed，作者文本层 G1c/G2a 有限满足，端到端 **0/12**。
 
 ## 未验证 / 下一步
-- 提交本次快照更新后，以最终 revision 运行并留存完整 Python、定向 Python、前端六步、registry、diff-check 收据；收据写出后不再改 tracked 文件。
+- 本次快照提交后，以最终 revision 运行并留存完整 Python、定向 Python、前端六步、registry、diff-check 收据；收据写出后不再改 tracked 文件。
 - 继续等待审查和用户确认；若 PR head/主干再变，重新 merge-tree 和全部门禁。
 - 后续修复 `split_user_message → material_contract → task_frame → registry`，再修 Q14 路由、invalid finish/missing output/judge unavailable；原题不改、不放松门禁。
 
