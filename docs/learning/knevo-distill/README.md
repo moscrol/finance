@@ -1,5 +1,12 @@
 # Knevo 方法论蒸馏笔记（基于 71 页使用分享，2026/6/30）
 
+## 最新收件索引
+
+- **2026-09-24收件，研究截止09-21/22/23分别保留**：[连续研究原文与九题索引](batches/2026-09-24-research-continuation/README.md)；[审读及八项待裁决候选](../distill/2026-09-24-knevo-research-continuation-intake.md)。包含旧半导体三题的补充版本、自主线索/动态竞争/虚构组合三包、订单/盈利/观察修订三轮。旧q1本次补出优先级表，q3仍有图表报错。仅离线留证，不是九个独立样本、事实金标或吸收完成证明。
+- **2026-09-22旧三方收件**：`fix/research-contract-citations-0921` 分支提交 `31cb2ff3c` 的 `docs/handoffs/2026-09-22-knevo-threeway-intake-review.md`；原件在 `~/.finance-runtime/comparisons/knevo-threeway-20260921-2042/knevo-intake-18722d18/`。不在常规专题目录，查最近材料须一起检索交接和跨分支记录。
+
+以下章节保留各自历史时点；最新收件不自动更新旧对照胜率、运行时能力或候选吸收状态。
+
 ## 一、他做得好的核心机制（按章节）
 
 ### 定位（P1）

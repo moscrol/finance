@@ -1,0 +1,89 @@
+{
+  "scope": "Internal arithmetic of quoted numbers only. No external fact validation.",
+  "checks": [
+    {
+      "id": "q6-weight",
+      "expression": "25 + 20",
+      "result": 45,
+      "unit": "percent of portfolio",
+      "boundary": "Nominal allocation only, not a factor sensitivity."
+    },
+    {
+      "id": "q6-equity-denominator",
+      "expression": "45 / 80 * 100",
+      "result": 56.25,
+      "unit": "percent of equity allocation",
+      "boundary": "Does not measure the economic exposure."
+    },
+    {
+      "id": "q8-nonrecurring-difference",
+      "expression": "68.57 - 48.83",
+      "result": 19.739999999999995,
+      "unit": "CNY 100 million",
+      "boundary": "Unverified source inputs; composition still unknown."
+    },
+    {
+      "id": "q8-nonrecurring-share",
+      "expression": "(68.57 - 48.83) / 68.57 * 100",
+      "result": 28.78809975207816,
+      "unit": "percent",
+      "boundary": "Share of current stated profit, not share of profit growth."
+    },
+    {
+      "id": "q8-prior-cashflow",
+      "expression": "3.33 / (1 + 513.86 / 100)",
+      "result": 0.542468966865409,
+      "unit": "CNY 100 million",
+      "boundary": "Both the inferred prior and current amounts are positive; contradicts the answer saying negative to positive."
+    },
+    {
+      "id": "q8-giga-gross-profit",
+      "expression": "115.66 * 63.13 / 100",
+      "result": 73.016158,
+      "unit": "CNY 100 million",
+      "boundary": "Current level only; does not quantify price contribution or year-on-year gross profit change."
+    },
+    {
+      "id": "q8-changchuan-gross-profit",
+      "expression": "34.61 * 55.48 / 100",
+      "result": 19.201628,
+      "unit": "CNY 100 million",
+      "boundary": "Approximate derived level using unverified inputs and rounded ratio."
+    },
+    {
+      "id": "q8-deducted-profit-share",
+      "expression": "9.22 / 9.64 * 100",
+      "result": 95.64315352697096,
+      "unit": "percent",
+      "boundary": "Not a decomposition of economies of scale or expense reduction."
+    },
+    {
+      "id": "q7-cash-conversion-ratio",
+      "expression": "3.33 / 9.64",
+      "result": 0.3454356846473029,
+      "unit": "ratio",
+      "boundary": "Period cash-flow/profit ratio, not proof of profit authenticity."
+    },
+    {
+      "id": "q8-impairment-ratio",
+      "expression": "(1.40 + 0.18) / 9.64 * 100",
+      "result": 16.390041493775932,
+      "unit": "percent",
+      "boundary": "Pretax impairment divided by attributable profit; not an identified after-tax attributable-profit loss."
+    },
+    {
+      "id": "q7-contract-liability-ratio",
+      "expression": "1.16 / 34.61 * 100",
+      "result": 3.351632476162959,
+      "unit": "percent",
+      "boundary": "Balance versus half-year revenue flow, not order coverage."
+    },
+    {
+      "id": "q8-hypothetical-scenario",
+      "expression": "74 * (66.6 - 5) / 100",
+      "result": 45.583999999999996,
+      "unit": "CNY 100 million",
+      "boundary": "Both revenue and comparison case are illustrative assumptions, not new company guidance."
+    }
+  ]
+}
