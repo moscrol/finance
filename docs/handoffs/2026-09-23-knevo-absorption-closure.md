@@ -16,8 +16,8 @@
 
 ## 合流后的工程证据
 
-- 已 fetch 最新 `gitea/main=9a02279863733c9b9f60fd92fcc7e840fa83f878`，连续三次无冲突前向整合；本次快照提交完成后的 HEAD 才是最终门禁候选，`merge-tree --write-tree` 与实际 merge 均 exit 0，具体完整 revision 只以最终收据为准。
-- 最新 main 的 #879 清理了基线中的 Knevo 回归/材料文件；本枝在合流时保留本 PR 自己的实现、题面和证据（因此本枝不是 main 的同树快照，不能把 main 的删除误报为本枝缺证）。
+- 已 fetch 最新 `gitea/main=ffd1b7f1572067e9a4c7e3a5845e99cf7f876cfb`，连续四次无冲突前向整合；本次快照提交完成后的 HEAD 才是最终门禁候选，`merge-tree --write-tree` 与实际 merge 均 exit 0，具体完整 revision 只以最终收据为准。
+- 最新 main 的 #879/#873 收口提交清理了基线中的 Knevo 回归/材料文件；本枝在合流时保留本 PR 自己的实现、题面和证据（因此本枝不是 main 的同树快照，不能把 main 的删除误报为本枝缺证）。
 - 先前合流候选 `8b3a1cd07` 的 Python 全仓为 **14606 passed / 85 skipped / 2 xfailed / 0 failed**，Ruff、前端六步、registry 四项及 ledger/spec crosswalk 均通过；这些只作过程证据，不能冒充最终候选。
 - 本次快照提交完成后，最终证据统一写入 `~/.finance-runtime/knevo-absorption-20260923/final-closure/`：`python-targeted.json`、`python-full.json`、`frontend/frontend.json`、`registry.log`、`diff-check.txt`，另保留各步原始日志。各收据 JSON 的 `revision` 字段是唯一可信的最终候选身份；收据完成后不再改 tracked 文件。
 
