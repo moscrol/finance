@@ -1,0 +1,67 @@
+{
+  "claim": "FQ",
+  "stage": "report",
+  "before": {
+    "revision": "1de68567e740a9a5d9c25bea91142741ad12aa10",
+    "status": "",
+    "main": "c9dd71dfd678855b61662100ec74625b92ad1f1b"
+  },
+  "started_at": "2026-09-23T15:17:33.583050+00:00",
+  "inputs_sha256": {
+    "run.py": "9a3e4f67603cce0d05afef82c26fc75f3ea2e2900403585c75b65daab22aa102",
+    "review.py": "121f4055585015bfb1877e8be9303cba592de8258f942986ec5031dd468bd384",
+    "delivery-gate.mjs": "637dcda9ebfbfbc831816d15016fcd197723aa7b79ac75f11387db193da17b5b",
+    "credential-bootstrap.mjs": "3ac219e330914525a0bd0b9b8f9385a8d0c57f4cd5bfefcc8705cf7aa5447880",
+    "provider-template.json": "d2e173caef38771c78451e8f0651da143fd5b58fb60c58efbd9d257008003b30",
+    "pi-config/settings.json": "179a8e23430a882ed27af93a2fa9a7d5ab4c60ff3a7b755ee5bbec1c9b750b15"
+  },
+  "packet_sha256": "54f503cc57eed6ee8c66fd6d402e132103ae4a6a3cd55c2d71717cbf367d386e",
+  "complete": true,
+  "composition_base": "c9dd71dfd678855b61662100ec74625b92ad1f1b",
+  "review_fixed_revision_only": true,
+  "merge_admission": false,
+  "exit_code": 0,
+  "deadline_hit": false,
+  "elapsed_seconds": 114.746,
+  "command": [
+    "/opt/homebrew/bin/pi",
+    "--provider",
+    "zhipu",
+    "--model",
+    "glm-5.3",
+    "--thinking",
+    "off",
+    "--models",
+    "zhipu/glm-5.3",
+    "--no-session",
+    "--no-extensions",
+    "-e",
+    "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/suite-followup/glm-deadline/credential-bootstrap.mjs",
+    "-e",
+    "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/suite-followup/glm-deadline/delivery-gate.mjs",
+    "--no-skills",
+    "--no-prompt-templates",
+    "--no-context-files",
+    "--no-themes",
+    "--no-approve",
+    "--offline",
+    "--no-builtin-tools",
+    "--mode",
+    "json",
+    "-p",
+    "--",
+    "<prompt.md>"
+  ],
+  "after": {
+    "revision": "1de68567e740a9a5d9c25bea91142741ad12aa10",
+    "status": "",
+    "main": "c9dd71dfd678855b61662100ec74625b92ad1f1b"
+  },
+  "model_errors": [],
+  "delivered": true,
+  "status": "DELIVERED",
+  "model_identities": [
+    "zhipu/glm-5.3"
+  ],
+  "inputs_unchanged": true
+}

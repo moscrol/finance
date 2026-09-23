@@ -1,0 +1,34 @@
+{
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "python_version": "3.12.13",
+  "dependency_fingerprint": "3328bed61f3e21ea",
+  "tree": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/suite-followup/candidate",
+  "revision": "1de68567e740a9a5d9c25bea91142741ad12aa10",
+  "branch": "HEAD",
+  "dirty": false,
+  "dirty_paths": [],
+  "worktree_dirty_total": 0,
+  "dependency_gate_bypassed": false,
+  "target": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/suite-followup/candidate",
+  "scope": {
+    "ignore": [],
+    "ignore_glob": [],
+    "deselect": [],
+    "keyword": "",
+    "markexpr": "",
+    "maxfail": 0,
+    "last_failed": false,
+    "collected": 14998
+  },
+  "counts": {
+    "passed": 14911,
+    "failed": 0,
+    "error": 0,
+    "skipped": 85,
+    "xfailed": 2,
+    "xpassed": 0
+  },
+  "failed_ids": [],
+  "exit_status": 0,
+  "finished_at": "2026-09-23T15:39:31+00:00"
+}

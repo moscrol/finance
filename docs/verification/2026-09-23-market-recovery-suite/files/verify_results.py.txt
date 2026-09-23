@@ -1,0 +1,73 @@
+"""Reconcile fixed-revision full leaves and retain failures without a green-by-diagnostics path."""
+from datetime import datetime, timezone
+import hashlib
+import json
+from pathlib import Path
+import subprocess
+import xml.etree.ElementTree as ET
+
+ROOT = Path(__file__).resolve().parent
+PY = '/Users/a77/finance-workspace-private/.venv-workbench/bin/python'
+TREE = ROOT / 'candidate'
+info = json.loads((ROOT / 'candidate.json').read_text())
+rev = info['revision']
+
+
+def load(path):
+    return json.loads(path.read_text())
+
+
+def sha(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def git(*args):
+    return subprocess.check_output(['git', '-C', str(TREE), *args], text=True, timeout=30).strip()
+
+
+pipeline = load(ROOT / 'pipeline-v3.json')
+assert pipeline['complete']
+full = load(ROOT / 'full-gate-v3/execution.json')
+assert full['complete'] and full['before']['revision'] == full['after']['revision'] == rev
+assert full['before']['status'] == full['after']['status'] == ''
+paths = list((ROOT / 'full-gate-v3').glob('gate-*/pytest.json'))
+assert len(paths) == 1
+receipt = load(paths[0])
+assert receipt['revision'] == rev and not receipt['dirty']
+assert Path(receipt['target']).resolve() == TREE.resolve()
+assert receipt['scope']['collected'] == sum(receipt['counts'].values())
+assert not any(receipt['scope'][key] for key in ['ignore', 'ignore_glob', 'deselect', 'keyword', 'markexpr', 'maxfail', 'last_failed'])
+assert receipt['interpreter'] == PY and not receipt['dependency_gate_bypassed']
+cases = list(ET.parse(ROOT / 'full-gate-v3/pytest.xml').getroot().iter('testcase'))
+assert len(cases) == receipt['scope']['collected']
+failed = [ET.tostring(case, encoding='unicode') for case in cases if case.find('failure') is not None or case.find('error') is not None]
+watched = {'test_timeout_interrupts_connection', 'test_recovery_respects_cooldown',
+           'test_second_consecutive_timeout_kills_and_self_heals',
+           'test_single_bad_query_does_not_reclassify_worker_as_retired', 'test_close_stops_keepalive_thread'}
+old_failures = [ET.tostring(case, encoding='unicode') for case in cases if case.get('name') in watched]
+assert len(old_failures) == len(watched)
+subprocess.run(['git', '-C', str(TREE), 'fetch', 'gitea', 'main'], check=True, timeout=30)
+check_exit = subprocess.run([PY, '-B', str(ROOT / 'run_step.py'), '--tree', str(TREE),
+    '--name', 'receipt-check', '--seconds', '120', '--clean', '--', PY, 'scripts/check_test_receipt.py', str(paths[0]),
+    '--expect-revision', rev, '--base-drift-max', '0', '--require-full-scope']).returncode
+front = None
+if (ROOT / 'frontend-receipt/frontend.json').exists():
+    front = load(ROOT / 'frontend-receipt/frontend.json')
+    assert front['complete'] and front['identity_stable'] and not front['dirty'] and front['revision'] == rev
+    for check in front['checks']:
+        assert sha(ROOT / 'frontend-receipt' / check['log']) == check['log_sha256']
+summary = {**info, 'at': datetime.now(timezone.utc).isoformat(), 'overall': 'HOLD',
+    'python': {'receipt': str(paths[0]), 'exit_code': full['exit_code'], 'counts': receipt['counts'],
+               'collected': receipt['scope']['collected'], 'failures': failed,
+               'watched_testcases': old_failures, 'elapsed_seconds': full['elapsed_seconds'],
+               'python_version': receipt['python_version'], 'dependency_fingerprint': receipt['dependency_fingerprint']},
+    'frontend': front, 'pipeline': pipeline, 'receipt_check_exit': check_exit,
+    'registry': load(ROOT / 'registry.json'), 'independent_deadline_review': load(ROOT / 'glm-deadline/validated.json'),
+    'main_at_end': git('ls-remote', 'gitea', 'refs/heads/main').split()[0],
+    'old_red_receipts_preserved': True, 'historical_six_failure_root_causes_proven': False,
+    'production_authorization': False}
+summary['base_unchanged'] = summary['main_at_end'] == info['base']
+summary['candidate_clean'] = git('rev-parse', 'HEAD') == rev and not git('status', '--porcelain')
+with (ROOT / 'summary.json').open('x') as stream:
+    json.dump(summary, stream, indent=2, ensure_ascii=False)
+print(json.dumps({key: summary[key] for key in ['revision', 'overall', 'base_unchanged', 'receipt_check_exit']}))

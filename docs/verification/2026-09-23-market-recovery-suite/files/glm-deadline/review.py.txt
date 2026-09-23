@@ -1,0 +1,42 @@
+"""Independent deadline review using the existing bounded GLM delivery adapter unchanged."""
+import ast
+import json
+from pathlib import Path
+import sys
+
+import run
+
+candidate = json.loads((run.ROOT.parent / 'candidate.json').read_text())
+run.REV = candidate['revision']
+run.BASE = candidate['base']
+run.CLAIMS = {'FQ': 'Review FinanceQuery.run absolute query deadlines: setup and monitor scheduling must not renew the timeout; respect parent synthesis reserve; preserve cancellation vs timeout; reject late SQL/fetch/close success and clean up connections. Investigate regressions and uncovered deadline/cancellation edges. No claim of forcibly preempting connect/close or of hard real-time OS scheduling. Do not infer the root cause of historical wall-clock test failures.'}
+run.AUTHOR_TESTS = {'FQ': ['intelligence/tests/test_finance_query_deadline.py', 'intelligence/tests/test_finance_query.py', 'intelligence/tests/test_research_contract.py', 'intelligence/tests/test_episode_tools.py']}
+
+
+def source_packet(claim):
+    chunks = [f'Candidate {run.REV}; base {run.BASE}; source root {run.TREE}\n{run.CLAIMS[claim]}\n']
+    targets = {
+        'intelligence/services/finance_query.py': {'FinanceQuery', 'FinanceQuerySpec', 'FinanceQueryLimits', 'FinanceQueryError', 'FinanceQueryValidationError', 'FinanceQueryExecutionError', 'FinanceQueryLimitExceeded', 'FinanceQueryCancelled', 'FinanceQueryTimedOut', 'FinanceQueryAudit', 'FinanceQueryResult', '_rows_to_evidence'},
+        'intelligence/services/research_contract.py': {'ResearchDeadline', 'InformationCutoff'},
+    }
+    for name, symbols in targets.items():
+        path = run.TREE / name
+        text = path.read_text()
+        lines = text.splitlines()
+        chunks.append(f'\nSOURCE {name} sha256={run.sha(path)}\n')
+        for node in ast.parse(text).body:
+            if isinstance(node, (ast.Import, ast.ImportFrom)) or getattr(node, 'name', '') in symbols:
+                start = min([node.lineno, *[d.lineno for d in getattr(node, 'decorator_list', [])]])
+                chunks.append('\n'.join(f'{i + 1}: {lines[i]}' for i in range(start - 1, node.end_lineno)))
+    chunks.append('''\nPublic fixture guidance, not author tests: FinanceQuery accepts connect(path, read_only=True) and limits=FinanceQueryLimits(timeout=...). A fake connection may implement execute(sql, parameters)->cursor, cursor.fetchmany(count)->[], interrupt(), close(). FinanceQuerySpec.from_arguments({"dataset":"market_daily","metrics":["total_amount"],"dimensions":["trade_date"]}) is a valid empty-result query; use InformationCutoff(date(2026,7,24), "requested"). Import from intelligence.services.finance_query / research_contract. Use your own fixtures. If using a fake clock, replace module time bindings with a small object, not process-global time.monotonic. SQL compilation is real. No production database, network, or real model calls in probes. Distinguish dynamic verification from static observations and untested scheduling/IO boundaries. Do not import author tests.\n''')
+    return '\n'.join(chunks)
+
+
+run.source_packet = source_packet
+if __name__ == '__main__':
+    stage = sys.argv[1]
+    assert stage in {'explore', 'execute', 'report'}
+    if stage == 'execute':
+        run.execute('FQ')
+    else:
+        run.model_stage('FQ', stage)

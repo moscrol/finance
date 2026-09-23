@@ -1,0 +1,38 @@
+{
+  "at": "2026-09-23T15:48:12.078442+00:00",
+  "candidate": "1de68567e740a9a5d9c25bea91142741ad12aa10",
+  "candidates": {
+    "candidate": {
+      "revision": "1de68567e740a9a5d9c25bea91142741ad12aa10",
+      "tree": "de67ee72b9eeca0b6ec26e5a2aafa1fb630ac1b8",
+      "clean": true
+    },
+    "frontend-candidate": {
+      "revision": "1de68567e740a9a5d9c25bea91142741ad12aa10",
+      "tree": "de67ee72b9eeca0b6ec26e5a2aafa1fb630ac1b8",
+      "clean": true
+    }
+  },
+  "main": "c9dd71dfd678855b61662100ec74625b92ad1f1b",
+  "matching_own_root_python_node_pi_processes": [],
+  "e2e_ports": {
+    "19971": "no listener",
+    "19974": "no listener"
+  },
+  "unchanged_since_previous_candidate": [
+    "intelligence/services/finance_query.py",
+    "intelligence/services/rag_worker.py",
+    "intelligence/tests/test_rag_worker.py",
+    "intelligence/tests/test_rag_worker_generation.py",
+    "intelligence/tests/test_rag_worker_keepalive.py",
+    "intelligence/webapp",
+    "market_feature_store",
+    "skills/daily-full-review/scripts/run_review_sync.py"
+  ],
+  "successful_basetemp_removed_by_existing_gate": true,
+  "interrupted_attempt_scratch_preserved": true,
+  "previous_failed_scratch_preserved": true,
+  "candidate_worktrees_and_ref_preserved": true,
+  "new_product_code_changes": false,
+  "push_merge_deploy_production_write": false
+}

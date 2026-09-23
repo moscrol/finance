@@ -1,0 +1,50 @@
+{
+  "before": {
+    "revision": "1de68567e740a9a5d9c25bea91142741ad12aa10",
+    "status": "",
+    "main": "c9dd71dfd678855b61662100ec74625b92ad1f1b"
+  },
+  "complete": true,
+  "reason": "pytest package collection stats a sibling directory; its contents remain denied",
+  "original_failure": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/suite-followup/glm-deadline/FQ-execute/author.stdout",
+  "profile_sha256": "0265f1b05b7521a84b0c0c7ef15fd36cc6604f5de829b8b92899392b1b49d2bb",
+  "result": {
+    "exit_code": 0,
+    "deadline_hit": false,
+    "elapsed_seconds": 5.512,
+    "command": [
+      "/usr/bin/sandbox-exec",
+      "-f",
+      "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/suite-followup/glm-deadline/FQ-author-recheck/tools.sb",
+      "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+      "-B",
+      "-m",
+      "pytest",
+      "-q",
+      "-o",
+      "addopts=",
+      "-p",
+      "no:cacheprovider",
+      "--confcutdir",
+      "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/suite-followup/glm-deadline/FQ-author-recheck",
+      "intelligence/tests/test_finance_query_deadline.py",
+      "intelligence/tests/test_finance_query.py",
+      "intelligence/tests/test_research_contract.py",
+      "intelligence/tests/test_episode_tools.py",
+      "--junitxml=/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/suite-followup/glm-deadline/FQ-author-recheck/author.xml"
+    ]
+  },
+  "counts": {
+    "tests": 151,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "passed": 151
+  },
+  "after": {
+    "revision": "1de68567e740a9a5d9c25bea91142741ad12aa10",
+    "status": "",
+    "main": "c9dd71dfd678855b61662100ec74625b92ad1f1b"
+  },
+  "profile_unchanged": true
+}

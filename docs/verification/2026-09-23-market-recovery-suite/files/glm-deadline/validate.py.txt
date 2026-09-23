@@ -1,0 +1,82 @@
+"""Reconcile independent evidence, adapter accounting and exact credential persistence."""
+from datetime import datetime, timezone
+import json
+from pathlib import Path
+import shutil
+import subprocess
+
+import review
+
+run = review.run
+stages = ['FQ-explore', 'FQ-report', 'FQ-report-clarified']
+requests = 0
+for name in stages:
+    folder = run.ROOT / name
+    execution = json.loads((folder / 'execution.json').read_text())
+    assert execution['complete'] and execution['status'] == 'DELIVERED'
+    assert execution['exit_code'] == 0 and not execution['deadline_hit']
+    assert execution['inputs_unchanged'] and not execution['model_errors']
+    assert execution['model_identities'] == ['zhipu/glm-5.3']
+    assert all(execution[when]['revision'] == run.REV and not execution[when]['status'] for when in ['before', 'after'])
+    admissions = [json.loads(line) for line in (folder / 'request-admissions.jsonl').read_text().splitlines()]
+    responses = [json.loads(line) for line in (folder / 'http-responses.jsonl').read_text().splitlines()]
+    assert 0 < len(admissions) <= 4 and len(admissions) == len(responses)
+    assert all(a['stream'] and not a['has_temperature'] and a['model'] == 'glm-5.3' for a in admissions)
+    assert all(r['status'] == 200 for r in responses)
+    requests += len(admissions)
+probe = run.counts(run.ROOT / 'FQ-execute/probe.xml')
+author = run.counts(run.ROOT / 'FQ-author-recheck/author.xml')
+historical = run.counts(run.ROOT / 'FQ-historical/probe.xml')
+control = run.counts(run.ROOT / 'FQ-execute/positive.xml')
+assert probe == dict(tests=4, failures=0, errors=0, skipped=0, passed=4)
+assert author == dict(tests=151, failures=0, errors=0, skipped=0, passed=151)
+assert historical == dict(tests=4, failures=2, errors=0, skipped=0, passed=2)
+assert control == dict(tests=1, failures=1, errors=0, skipped=0, passed=0)
+report = json.loads((run.ROOT / 'FQ-report-clarified/delivery/report.json').read_text())
+assert report['revision'] == run.REV and report['verdict'] == 'PASS_WITH_LIMITS'
+assert report['independent_probe_counts']['passed'] == 4
+assert report['author_test_counts']['recheck']['passed'] == 151
+
+out = run.make_out('sandbox-metadata-control')
+shutil.copy2(run.ROOT / 'FQ-author-recheck/tools.sb', out / 'tools.sb')
+code = f'''import os, stat
+path = {str(run.TREE / 'intelligence/users')!r}
+assert stat.S_ISDIR(os.stat(path).st_mode)
+try:
+    os.listdir(path)
+except PermissionError:
+    print('metadata allowed; directory contents denied')
+else:
+    raise AssertionError('directory contents unexpectedly readable')
+'''
+result = run.bounded([run.PY, '-B', '-c', code], out, run.env_for(out), 30, 'control', True)
+run.save(out / 'execution.json', result)
+assert result['exit_code'] == 0 and not result['deadline_hit']
+
+secret = subprocess.check_output(['/usr/bin/security', 'find-generic-password', '-s',
+                                  'finance-workbench-glm', '-a', 'a77', '-w']).rstrip(b'\r\n')
+assert len(secret) >= 8
+checked = []
+for path in sorted(run.ROOT.rglob('*')):
+    relative = path.relative_to(run.ROOT)
+    if any(part in {'tmp', 'users', '__pycache__'} for part in relative.parts):
+        continue
+    assert not path.is_symlink(), 'Unexpected review artifact symlink'
+    if not path.is_file():
+        continue
+    if secret in path.read_bytes():
+        raise AssertionError('Exact credential detected in review output')
+    checked.append(str(relative))
+secret = b''
+result = {'at': datetime.now(timezone.utc).isoformat(), 'revision': run.REV,
+          'base': run.BASE, 'selected_report': 'FQ-report-clarified/delivery/report.json',
+          'original_report_preserved': True, 'model_stages': stages, 'requests': requests,
+          'http_200': requests, 'price_verified': False, 'probe': probe, 'author_recheck': author,
+          'historical_sensitivity': historical, 'positive_control': control,
+          'original_author_collection_blocked': True, 'sandbox_metadata_control': 'PASS',
+          'exact_credential_persistence': {'checked_files': len(checked), 'occurrences': 0,
+            'credential_value_or_hash_recorded': False, 'scope': 'GLM adapter and evidence files, excluding scratch/users/cache; not a generic secret detector'},
+          'merge_admission': False}
+with (run.ROOT / 'validated.json').open('x') as stream:
+    json.dump(result, stream, indent=2)
+print(json.dumps(result))

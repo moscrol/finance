@@ -1,0 +1,31 @@
+"""Ask the independent reviewer to reconcile evidence limits; never edit its original report."""
+from pathlib import Path
+
+import review
+
+run = review.run
+packet = run.source_packet
+make_out = run.make_out
+
+
+def corrected_packet(claim):
+    text = packet(claim)
+    for name in ['FQ-report/delivery/report.json', 'FQ-author-recheck/execution.json',
+                 'FQ-author-recheck/author.stdout', 'FQ-historical/execution.json',
+                 'FQ-historical/probe.stdout', 'FQ-explore/delivery/manifest.json']:
+        text += f'\nSUPPLEMENT {name}\n' + (run.ROOT / name).read_text()
+    text += '''\nEVIDENCE RECONCILIATION REQUEST (not a prescribed verdict):
+1. The four independent probes do not explicitly exercise the upfront <=0.001 grant rejection. The setup probe connects and closes once, then expires; please do not count that as an upfront-no-connect dynamic test.
+2. The source checks query_deadline.expired AFTER connection.close at L2287; distinguish this static check from the independent probe not exercising a delayed close. Author tests passing in the separate recheck do not increase independent coverage.
+3. The cancellation callable's 4th invocation may occur in the monitor or main thread. The probe only asserts exception type/no execute/one close; it does not record which thread/check raised. Avoid pinning the observed exception to a specific check.
+4. Initial author collection was blocked and remains preserved. The only recheck change allows metadata stat on the literal intelligence/users directory; contents remain denied. Recheck is 151P on the same clean candidate. Report original blocked execution and successful recheck separately, not as one uninterrupted run.
+5. Independent probe source is FQ-explore/delivery/probe.py (manifest provided), not FQ-execute/delivery. Historical immutable replay has 2 behavioral failures/2 passes, 0 collection errors; this is host sensitivity evidence, not another independent reviewer or additional new coverage.
+Issue a corrected full report, retaining genuine limitations and any defects you identify. Do not infer historical timeout root causes, full-repo acceptance, hard real-time guarantees, or production authorization.
+'''
+    return text
+
+
+run.source_packet = corrected_packet
+run.make_out = lambda name: make_out('FQ-report-clarified' if name == 'FQ-report' else name)
+if __name__ == '__main__':
+    run.model_stage('FQ', 'report')

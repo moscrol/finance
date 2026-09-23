@@ -1,0 +1,256 @@
+"""One-off isolated independent claim review. No production access or retries."""
+from __future__ import annotations
+
+import argparse
+import ast
+from datetime import datetime, timezone
+import hashlib
+import json
+import os
+from pathlib import Path
+import re
+import shutil
+import signal
+import subprocess
+import time
+import xml.etree.ElementTree as ET
+
+ROOT = Path(__file__).resolve().parent
+TREE = ROOT.parent / 'candidate'
+PY = '/Users/a77/finance-workspace-private/.venv-workbench/bin/python'
+REV = '50330cf4fa435292bbd555ccc817e62ca5cc45b4'
+BASE = 'b59d6eed0356ae093b52bd291ab328628de8790e'
+CLAIMS = {
+    'F2': 'Explicit recovery_members: missing canonical member bars or invalid closes (NULL, NaN, +/-infinity, zero, negative), including outside-sector bars consumed by market counts, must refuse before changing any of four derived tables. Frozen denominator keeps proven nontrading identities. Default daily behavior, other fields and concurrency are out of scope.',
+    'F1': 'Local plan orders hithink-stock-daily before canonical stock-daily, then derived consumers. Canonical sync attempts snapshot, member fallback, then hithink bridge only when canonical day remains empty. Exhausted stock dependency retries block downstream and release. Attempt records remain available. No live network or subprocess allowed in probe: monkeypatch all side effects.',
+    'F3': 'apply_bridge_day must recheck existing target-day rows inside its transaction. A stale default plan or second application must refuse unchanged. Only literal boolean True authorizes replacing existing target day; truthy non-booleans refuse. Other dates remain unchanged. Full input fingerprints, concurrent scheduler and mootdx partial flush are out of scope.',
+}
+AUTHOR_TESTS = {
+    'F2': ['tests/test_compute_local_stats.py', 'tests/test_recovery_coverage.py'],
+    'F1': ['tests/test_review_sync_hithink_wiring.py'],
+    'F3': ['tests/test_bridge_hithink_stock_daily.py'],
+}
+
+
+def save(path, obj):
+    path.write_text(json.dumps(obj, indent=2, ensure_ascii=False) + '\n')
+
+
+def sha(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def git(*args):
+    return subprocess.check_output(['git', '-C', str(TREE), *args], text=True).strip()
+
+
+def identity():
+    return {'revision': git('rev-parse', 'HEAD'), 'status': git('status', '--porcelain', '--untracked-files=all'),
+            'main': git('rev-parse', 'gitea/main')}
+
+
+def source_packet(claim):
+    paths = {
+        'F2': ['market_feature_store/sync/compute_local_stats.py', 'market_feature_store/recovery_coverage.py'],
+        'F1': ['skills/daily-full-review/scripts/run_review_sync.py'],
+        'F3': ['market_feature_store/sync/bridge_hithink_stock_daily.py'],
+    }[claim]
+    chunks = [f'Candidate: {REV}\nComposition base: {BASE}\nRoot: {TREE}\nClaim {claim}: {CLAIMS[claim]}\n'
+              'This review certifies only the fixed candidate revision. Main has advanced; no merge admission is implied.\n']
+    for name in paths:
+        text = (TREE / name).read_text()
+        lines = text.splitlines()
+        if name.endswith('compute_local_stats.py'):
+            node = next(n for n in ast.parse(text).body if isinstance(n, ast.FunctionDef) and n.name == 'compute_limit_stats_local')
+            lines = lines[:node.end_lineno]
+        chunks.append(f'\nSOURCE {name} sha256={sha(TREE / name)}\n' + '\n'.join(f'{i}: {line}' for i, line in enumerate(lines, 1)))
+    if claim in {'F2', 'F3'}:
+        import duckdb
+        schema = TREE / 'market_feature_store/schema.sql'
+        names = {'dim_sector', 'ops_sector_universe_snapshot_daily', 'fact_sector_universe_daily',
+                 'fact_sector_stock_daily_generation', 'fact_stock_daily', 'fact_theme_limit_heat_daily',
+                 'fact_theme_limit_stock_daily', 'fact_limit_advance_daily', 'fact_leader_height_daily',
+                 'fact_stock_daily_hithink', 'fact_stock_adjustment_hithink'}
+        statements = duckdb.extract_statements(schema.read_text())
+        for stmt in statements:
+            match = re.search(r'CREATE TABLE IF NOT EXISTS (\w+)', stmt.query)
+            if match and match[1] in names:
+                chunks.append(f'\nSCHEMA {schema.relative_to(TREE)} table={match[1]}\n{stmt.query}')
+        chunks.append('\nFixture API: duckdb.connect(":memory:"); market_feature_store.db.init_db(con). Always pass con=con. No production DB. fact_sector_stock_daily is a VIEW: write its _generation table with sector_universe_snapshot_id. Without a published snapshot legacy is visible. Use your own fixtures; author tests are withheld in this phase.')
+    return '\n'.join(chunks)
+
+
+def env_for(out):
+    return {'HOME': '/Users/a77', 'PATH': '/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin',
+            'LANG': 'C.UTF-8', 'TMPDIR': str(out / 'tmp'), 'PYTHONDONTWRITEBYTECODE': '1',
+            'PYTHONPATH': str(TREE), 'FWP_TEST_RECEIPT': '0', 'GIT_OPTIONAL_LOCKS': '0',
+            'FORESIGHT_USERS_DIR': str(out / 'users'), 'MARKET_FEATURE_STORE_DB': str(out / 'never-production.duckdb'),
+            'PI_CODING_AGENT_DIR': str(out / 'pi-config'), 'PI_OFFLINE': '1', 'PI_TELEMETRY': '0',
+            'REVIEW_OUTPUT_DIR': str(out)}
+
+
+def make_out(name):
+    out = ROOT / name
+    out.mkdir(exist_ok=False)
+    (out / 'tmp').mkdir()
+    (out / 'users').mkdir()
+    return out
+
+
+def bounded(command, out, env, timeout, stem, sandbox=False):
+    if sandbox:
+        command = ['/usr/bin/sandbox-exec', '-f', str(out / 'tools.sb'), *command]
+    started = time.monotonic()
+    with (out / f'{stem}.stdout').open('xb') as stdout, (out / f'{stem}.stderr').open('xb') as stderr:
+        proc = subprocess.Popen(command, cwd=TREE, env=env, stdin=subprocess.DEVNULL,
+                                stdout=stdout, stderr=stderr, start_new_session=True)
+        timeout_hit = False
+        try:
+            proc.wait(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            timeout_hit = True
+            os.killpg(proc.pid, signal.SIGTERM)
+            try:
+                proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                os.killpg(proc.pid, signal.SIGKILL)
+                proc.wait()
+    return {'exit_code': proc.returncode, 'deadline_hit': timeout_hit,
+            'elapsed_seconds': round(time.monotonic() - started, 3), 'command': command}
+
+
+def model_stage(claim, stage):
+    before = identity()
+    assert before['revision'] == REV and before['status'] == '', before
+    out = make_out(f'{claim}-{stage}')
+    shutil.copytree(ROOT / 'pi-config', out / 'pi-config')
+    if stage == 'explore':
+        packet = source_packet(claim)
+        task = ('Read packet once, then immediately submit a small runnable pytest probe (ideally under 100 lines) '
+                'and EXPLORE notes. Use real candidate functions with fresh in-memory fixtures. Never import author tests. '
+                'Prefer one adversarial case plus a valid control over broad coverage with no artifact. '
+                'State untested subclaims honestly. You cannot execute yet; next host phase executes your immutable probe. '
+                'Do not request other reads or tools; they are unavailable. Do not declare PASS before execution.')
+    else:
+        execute = ROOT / f'{claim}-execute'
+        assert (execute / 'execution.json').exists(), 'Execution must precede report'
+        packet = source_packet(claim)
+        for folder, names in [(ROOT / f'{claim}-explore/delivery', ['probe.py', 'EXPLORE.md']),
+                              (execute, ['execution.json', 'probe.stdout', 'probe.stderr', 'positive.stdout', 'positive.stderr', 'author.stdout', 'author.stderr'])]:
+            for name in names:
+                packet += f'\nEVIDENCE {folder.name}/{name}\n' + (folder / name).read_text()
+        task = ('Read packet once, then submit report_json, spec_markdown, quality_markdown. '
+                'Report JSON must include verdict, claim, revision, verified_subclaims, not_verified_subclaims, '
+                'findings (file/line/trigger/actual result), independent_probe_counts, author_test_counts, '
+                'positive_control (must classify intentional red assertion as probe_bug), limitations. '
+                'Use PASS_WITH_LIMITS when only part of a claim was tested. Test collection/import errors are '
+                'BLOCKED_PROBE, not product bugs; unexecuted claims are not_verified. Do not claim full repo or production acceptance. '
+                'Only PASS/PASS_WITH_LIMITS/CHANGES_REQUIRED/BLOCKED_* verdicts are valid. All three artifacts are mandatory.')
+    (out / 'packet.md').write_text(packet)
+    prompt = f'Independent GLM reviewer for {claim}, stage {stage}. {task}\nCandidate {REV}. No author verdicts are provided. Use read_packet now; the following tool must be submit_delivery.'
+    (out / 'prompt.md').write_text(prompt)
+    env = {**env_for(out), 'REVIEW_STAGE': stage}
+    command = ['/opt/homebrew/bin/pi', '--provider', 'zhipu', '--model', 'glm-5.3', '--thinking', 'off',
+               '--models', 'zhipu/glm-5.3', '--no-session', '--no-extensions',
+               '-e', str(ROOT / 'credential-bootstrap.mjs'), '-e', str(ROOT / 'delivery-gate.mjs'),
+               '--no-skills', '--no-prompt-templates', '--no-context-files', '--no-themes', '--no-approve',
+               '--offline', '--no-builtin-tools', '--mode', 'json', '-p', '--', prompt]
+    watched = {name: sha(ROOT / name) for name in ['run.py', 'review.py', 'delivery-gate.mjs', 'credential-bootstrap.mjs', 'provider-template.json', 'pi-config/settings.json']}
+    record = {'claim': claim, 'stage': stage, 'before': before, 'started_at': datetime.now(timezone.utc).isoformat(),
+              'inputs_sha256': watched, 'packet_sha256': sha(out / 'packet.md'), 'complete': False,
+              'composition_base': BASE, 'review_fixed_revision_only': True, 'merge_admission': False}
+    save(out / 'execution.json', record)
+    result = bounded(command, out, env, 600, 'events')
+    result['command'][-1] = '<prompt.md>'
+    events = []
+    for line in (out / 'events.stdout').read_text().splitlines():
+        try:
+            events.append(json.loads(line))
+        except ValueError:
+            pass
+    messages = [e['message'] for e in events if e.get('type') == 'message_end' and e.get('message', {}).get('role') == 'assistant']
+    errors = [m.get('errorMessage', m.get('stopReason')) for m in messages if m.get('stopReason') in {'error', 'aborted'}]
+    delivered = (out / 'delivery/manifest.json').is_file()
+    http = [json.loads(line) for line in (out / 'http-responses.jsonl').read_text().splitlines()] if (out / 'http-responses.jsonl').exists() else []
+    provider_error = next((code for code in ('400', '401', '402', '403', '429', '500', '502', '503', '504')
+                           if any(str(error).startswith(code + ' ') for error in errors)), None)
+    status = ('DELIVERED' if delivered else 'BLOCKED_SESSION_DEADLINE' if result['deadline_hit']
+              else f'BLOCKED_PROVIDER_{provider_error}' if provider_error
+              else f"BLOCKED_PROVIDER_{http[-1]['status']}" if http and http[-1]['status'] >= 400
+              else 'BLOCKED_NO_DELIVERY')
+    record.update(result, complete=True, after=identity(), model_errors=errors, delivered=delivered, status=status,
+                  model_identities=sorted({f"{m.get('provider')}/{m.get('model')}" for m in messages}),
+                  inputs_unchanged=watched == {name: sha(ROOT / name) for name in watched})
+    save(out / 'execution.json', record)
+    print(json.dumps({k: record[k] for k in ['claim', 'stage', 'status', 'exit_code', 'elapsed_seconds', 'model_errors']}), flush=True)
+
+
+def sandbox_profile(out):
+    denied = ['/Users/a77/.claude', '/Users/a77/.pi', '/Users/a77/.ssh', '/Users/a77/Library/Keychains',
+              '/Users/a77/Library/Application Support/mirasim-sidecar', '/Users/a77/agent-memory',
+              '/Users/a77/finance-workspace-private/db', '/Users/a77/.local/share/finance-workbench',
+              '/Users/a77/fwp-wt-market-recovery-qc-fix-0923', str(TREE / 'db'), str(TREE / 'intelligence/users'),
+              str(TREE / '.git'), str(ROOT.parent / 'independent-d3abd670'), str(ROOT.parent / 'independent-45e752c')]
+    text = f'(version 1)\n(allow default)\n(deny network*)\n(deny file-write*)\n(allow file-write* (subpath "{out}") (literal "/dev/null"))\n'
+    text += '(deny file-read* ' + ' '.join(f'(subpath "{p}")' for p in denied) + ')\n'
+    text += '(deny file-read* (regex #"/docs/(handoffs|verification)/"))\n'
+    text += f'(allow file-read-metadata (literal "{TREE / ".git"}"))\n'
+    (out / 'tools.sb').write_text(text)
+
+
+def counts(path):
+    if not path.exists():
+        return None
+    root = ET.parse(path).getroot()
+    suites = [root] if root.tag == 'testsuite' else list(root.iter('testsuite'))
+    values = {key: sum(int(s.get(key, '0')) for s in suites) for key in ['tests', 'failures', 'errors', 'skipped']}
+    values['passed'] = values['tests'] - values['failures'] - values['errors'] - values['skipped']
+    return values
+
+
+def execute(claim):
+    before = identity()
+    assert before['revision'] == REV and before['status'] == '', before
+    delivered = ROOT / f'{claim}-explore/delivery'
+    assert (delivered / 'manifest.json').is_file()
+    manifest = json.loads((delivered / 'manifest.json').read_text())
+    assert all(sha(delivered / name) == digest for name, digest in manifest.items())
+    text = (delivered / 'probe.py').read_text()
+    tree = ast.parse(text)
+    assert any(isinstance(n, (ast.FunctionDef, ast.ClassDef)) and n.name.startswith(('test_', 'Test')) for n in tree.body)
+    out = make_out(f'{claim}-execute')
+    shutil.copy2(delivered / 'probe.py', out / 'probe.py')
+    (out / 'positive_control.py').write_text('def test_intentional_red_probe_bug():\n    assert 1 == 2, "intentional positive control: probe_bug"\n')
+    sandbox_profile(out)
+    env = env_for(out)
+    env['PYTEST_DISABLE_PLUGIN_AUTOLOAD'] = '1'
+    env['PYTEST_ADDOPTS'] = ''
+    env['REVIEW_CANDIDATE'] = str(TREE)
+    inputs = {p.name: sha(p) for p in [out / 'probe.py', out / 'positive_control.py', out / 'tools.sb']}
+    base_command = [PY, '-B', '-m', 'pytest', '-q', '-o', 'addopts=', '-p', 'no:cacheprovider', '--confcutdir', str(out)]
+    record = {'claim': claim, 'before': before, 'python': PY, 'inputs_sha256': inputs,
+              'independent_probe_provenance': str(delivered), 'production_access': 'OS sandbox denies', 'complete': False}
+    save(out / 'execution.json', record)
+    module = 'intelligence.services.finance_query'
+    preflight = bounded([PY, '-B', '-c', f'import {module} as m; from pathlib import Path; assert Path(m.__file__).is_relative_to({str(TREE)!r}); print(m.__file__)'], out, env, 90, 'preflight', True)
+    assert preflight['exit_code'] == 0, preflight
+    for name, paths in [('probe', [str(out / 'probe.py')]), ('positive', [str(out / 'positive_control.py')]), ('author', AUTHOR_TESTS[claim])]:
+        result = bounded([*base_command, *paths, f'--junitxml={out / (name + ".xml")}'], out, env, 180, name, True)
+        result['counts'] = counts(out / f'{name}.xml')
+        record[name] = result
+        save(out / 'execution.json', record)
+    record.update(complete=True, after=identity(), inputs_unchanged=inputs == {name: sha(out / name) for name in inputs})
+    record['positive_control_detected'] = record['positive']['exit_code'] == 1 and record['positive']['counts'] == {'tests': 1, 'failures': 1, 'errors': 0, 'skipped': 0, 'passed': 0}
+    save(out / 'execution.json', record)
+    print(json.dumps({k: record[k] for k in ['claim', 'positive_control_detected']}), flush=True)
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('claim', choices=CLAIMS)
+    parser.add_argument('stage', choices=['explore', 'execute', 'report'])
+    args = parser.parse_args()
+    if args.stage == 'execute':
+        execute(args.claim)
+    else:
+        model_stage(args.claim, args.stage)

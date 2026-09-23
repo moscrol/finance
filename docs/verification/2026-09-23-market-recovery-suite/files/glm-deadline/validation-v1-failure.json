@@ -1,0 +1,10 @@
+{
+  "status": "FAILED_CONTROLLER_VALIDATION",
+  "exit_code": 1,
+  "driver": "validate-v1.py",
+  "exception": "AssertionError at line 34, positive control counts assertion",
+  "cause": "Verifier guessed positive_control.xml; actual immutable execution artifact is positive.xml. counts() returns zero counts for a missing file and the expected-count assertion stopped validation.",
+  "product_tests_rerun": false,
+  "model_requests_added": 0,
+  "original_evidence_modified": false
+}

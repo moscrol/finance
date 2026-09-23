@@ -1,0 +1,26 @@
+"""Author-only retry after a sandbox metadata denial; preserve the original failure."""
+import json
+from pathlib import Path
+
+import review
+
+run = review.run
+out = run.make_out('FQ-author-recheck')
+run.sandbox_profile(out)
+profile = out / 'tools.sb'
+profile.write_text(profile.read_text() + f'(allow file-read-metadata (literal "{run.TREE / "intelligence/users"}"))\n')
+env = run.env_for(out)
+env['PYTEST_DISABLE_PLUGIN_AUTOLOAD'] = '1'
+env['PYTEST_ADDOPTS'] = ''
+record = {'before': run.identity(), 'complete': False,
+          'reason': 'pytest package collection stats a sibling directory; its contents remain denied',
+          'original_failure': str(run.ROOT / 'FQ-execute/author.stdout'),
+          'profile_sha256': run.sha(profile)}
+run.save(out / 'execution.json', record)
+command = [run.PY, '-B', '-m', 'pytest', '-q', '-o', 'addopts=', '-p', 'no:cacheprovider',
+           '--confcutdir', str(out), *run.AUTHOR_TESTS['FQ'], f'--junitxml={out / "author.xml"}']
+result = run.bounded(command, out, env, 180, 'author', True)
+record.update(complete=True, result=result, counts=run.counts(out / 'author.xml'), after=run.identity(),
+              profile_unchanged=record['profile_sha256'] == run.sha(profile))
+run.save(out / 'execution.json', record)
+print(json.dumps(record))

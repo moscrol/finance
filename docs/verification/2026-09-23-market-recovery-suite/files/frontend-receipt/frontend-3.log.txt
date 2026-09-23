@@ -1,0 +1,26 @@
+
+> market-intelligence-workbench@0.1.0 test /Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/suite-followup/frontend-candidate/intelligence/webapp
+> vitest run
+
+
+[1m[46m RUN [49m[22m [36mv3.2.4 [39m[90m/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/suite-followup/frontend-candidate/intelligence/webapp[39m
+
+ [32m✓[39m src/streamEventRegistry.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m src/api.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+ [32m✓[39m src/researchActivity.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 25[2mms[22m[39m
+ [32m✓[39m src/components/ResearchActivityControl.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[33m 323[2mms[22m[39m
+ [32m✓[39m src/components/ResearchProjectPanel.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[32m 275[2mms[22m[39m
+ [32m✓[39m src/components/DailyReportView.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[33m 392[2mms[22m[39m
+ [32m✓[39m src/components/ResearchEvolutionPanel.test.tsx [2m([22m[2m18 tests[22m[2m)[22m[33m 885[2mms[22m[39m
+ [32m✓[39m src/components/components.test.tsx [2m([22m[2m81 tests[22m[2m)[22m[33m 7102[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mrecovers a persisted terminal run after the stream disconnects [33m 423[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mkeeps polling while completed ownership precedes delivery [33m 375[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mkeeps polling while failed ownership precedes delivery [33m 530[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mkeeps polling while cancelled ownership precedes delivery [33m 507[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mdoes not let an old finalization snapshot erase the next submitted turn [33m 413[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m8 passed[39m[22m[90m (8)[39m
+[2m      Tests [22m [1m[32m120 passed[39m[22m[90m (120)[39m
+[2m   Start at [22m 23:44:17
+[2m   Duration [22m 10.60s[2m (transform 1.99s, setup 3.53s, collect 4.33s, tests 9.02s, environment 8.79s, prepare 1.18s)[22m
+

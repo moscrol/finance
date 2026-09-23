@@ -1,0 +1,83 @@
+{
+  "at": "2026-09-23T15:03:59.998428+00:00",
+  "reason": "ps comm truncated; other pytest count falsely zero",
+  "pipeline_before": {
+    "complete": false,
+    "controller_pid": 94137,
+    "steps": [],
+    "candidate": {
+      "revision": "1de68567e740a9a5d9c25bea91142741ad12aa10",
+      "tree": "de67ee72b9eeca0b6ec26e5a2aafa1fb630ac1b8",
+      "base": "c9dd71dfd678855b61662100ec74625b92ad1f1b",
+      "fix_head": "814b91cab93782644598b24be3c98a2ccc78b71a",
+      "ref": "refs/verification/market-recovery-suite-c9dd71dfd-20260923",
+      "source": "/Users/a77/fwp-wt-market-recovery-qc-fix-0923",
+      "prepared_at": "2026-09-23T14:58:25.927597+00:00",
+      "merge_admission": false,
+      "previous_candidate": "5213e9344b77e4094221734722b478705611a865"
+    },
+    "started_at": "2026-09-23T15:01:35.624673+00:00",
+    "policy": {
+      "load1_max": 12,
+      "other_pytest_max": 1,
+      "free_bytes_min": 8589934592,
+      "admission_seconds": 600,
+      "consecutive_samples": 2
+    },
+    "phase": "full-gate"
+  },
+  "gate_before": {
+    "started_at": "2026-09-23T15:02:22.565005+00:00",
+    "before": {
+      "revision": "1de68567e740a9a5d9c25bea91142741ad12aa10",
+      "tree": "de67ee72b9eeca0b6ec26e5a2aafa1fb630ac1b8",
+      "status": "",
+      "main": "c9dd71dfd678855b61662100ec74625b92ad1f1b"
+    },
+    "cwd": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/suite-followup/candidate",
+    "command": [
+      "bash",
+      "scripts/run_main_gate.sh",
+      "--pytest-args",
+      "-q -p no:cacheprovider --basetemp=/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/suite-followup/full-pytest-tmp --junitxml=/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/suite-followup/full-gate/pytest.xml --durations=20"
+    ],
+    "complete": false,
+    "controller_pid": 95315,
+    "deadline_seconds": 5400,
+    "driver_sha256": "5634aacc209fe0286fac98a6931d73a4032c5ff632bbeeac5582dae14dc6b974",
+    "pid": 95324
+  },
+  "signals": [
+    {
+      "pid": 94137,
+      "signal": "SIGTERM"
+    },
+    {
+      "pgid": 95324,
+      "signal": "SIGTERM"
+    }
+  ],
+  "valid_full_gate": false,
+  "group_members_after": [],
+  "gate_after": {
+    "started_at": "2026-09-23T15:02:22.565005+00:00",
+    "before": {
+      "revision": "1de68567e740a9a5d9c25bea91142741ad12aa10",
+      "tree": "de67ee72b9eeca0b6ec26e5a2aafa1fb630ac1b8",
+      "status": "",
+      "main": "c9dd71dfd678855b61662100ec74625b92ad1f1b"
+    },
+    "cwd": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/suite-followup/candidate",
+    "command": [
+      "bash",
+      "scripts/run_main_gate.sh",
+      "--pytest-args",
+      "-q -p no:cacheprovider --basetemp=/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/suite-followup/full-pytest-tmp --junitxml=/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/suite-followup/full-gate/pytest.xml --durations=20"
+    ],
+    "complete": false,
+    "controller_pid": 95315,
+    "deadline_seconds": 5400,
+    "driver_sha256": "5634aacc209fe0286fac98a6931d73a4032c5ff632bbeeac5582dae14dc6b974",
+    "pid": 95324
+  }
+}

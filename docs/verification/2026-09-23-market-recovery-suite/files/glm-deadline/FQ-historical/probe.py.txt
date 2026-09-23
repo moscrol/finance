@@ -1,0 +1,124 @@
+"""Independent explore probe: FinanceQuery.run absolute query deadlines.
+
+Adversarial 1: connect() setup must not renew the bounded_stage grant, and the
+parent synthesis_reserve must shrink it (5s window - 4.8s reserve ~= 0.2s grant).
+Adversarial 2: late SQL success after a deadline interrupt must be rejected.
+Adversarial 3: cancellation must beat late setup success.
+Control: happy path returns an empty result and closes the connection.
+"""
+from __future__ import annotations
+
+import threading
+import time
+from datetime import date
+
+import pytest
+
+from intelligence.services.finance_query import (
+    FinanceQuery,
+    FinanceQueryCancelled,
+    FinanceQueryLimits,
+    FinanceQuerySpec,
+    FinanceQueryTimedOut,
+)
+from intelligence.services.research_contract import InformationCutoff, ResearchDeadline
+
+CUTOFF = InformationCutoff(date(2026, 7, 24), "requested")
+SPEC = FinanceQuerySpec.from_arguments(
+    {"dataset": "market_daily", "metrics": ["total_amount"], "dimensions": ["trade_date"]}
+)
+
+
+class EmptyCursor:
+    def __init__(self) -> None:
+        self.fetchmany_calls = 0
+
+    def fetchmany(self, count: int) -> list:
+        self.fetchmany_calls += 1
+        return []
+
+
+class FakeConnection:
+    """In-memory duckdb stand-in; optionally sleeps in connect or gates execute on interrupt."""
+
+    def __init__(self, connect_delay: float = 0.0, gate_on_interrupt: bool = False) -> None:
+        self.connect_delay = connect_delay
+        self._gate = threading.Event() if gate_on_interrupt else None
+        self.execute_calls: list[tuple] = []
+        self.interrupt_calls = 0
+        self.close_calls = 0
+
+    def execute(self, sql, parameters):
+        self.execute_calls.append((sql, list(parameters)))
+        if self._gate is not None:
+            assert self._gate.wait(timeout=5.0), "deadline monitor never interrupted"
+        return EmptyCursor()
+
+    def interrupt(self) -> None:
+        self.interrupt_calls += 1
+        if self._gate is not None:
+            self._gate.set()
+
+    def close(self) -> None:
+        self.close_calls += 1
+
+
+def make_engine(conn: FakeConnection, timeout: float) -> FinanceQuery:
+    def connect(path: str, read_only: bool) -> FakeConnection:
+        assert read_only is True
+        time.sleep(conn.connect_delay)
+        return conn
+
+    return FinanceQuery(
+        ":memory:", limits=FinanceQueryLimits(timeout=timeout), connect=connect
+    )
+
+
+def test_control_happy_path_returns_result_and_closes():
+    conn = FakeConnection()
+    result = make_engine(conn, timeout=2.0).run(
+        SPEC, information_cutoff=CUTOFF, deadline=ResearchDeadline.from_timeout(5.0)
+    )
+    assert result.rows == () and result.audit.row_count == 0
+    assert len(conn.execute_calls) == 1
+    assert conn.interrupt_calls == 0 and conn.close_calls == 1
+
+
+def test_setup_and_synthesis_reserve_cannot_renew_deadline():
+    conn = FakeConnection(connect_delay=0.4)
+    parent = ResearchDeadline.from_timeout(5.0, synthesis_reserve=4.8)
+    assert 0.0 < parent.stage_timeout(8.0) <= 0.25  # grant sanity: reserve respected
+    with pytest.raises(FinanceQueryTimedOut):
+        make_engine(conn, timeout=8.0).run(SPEC, information_cutoff=CUTOFF, deadline=parent)
+    assert conn.execute_calls == []  # no late SQL after setup ate the grant
+    assert conn.interrupt_calls == 0  # expiry caught before monitor scheduling
+    assert conn.close_calls == 1  # cleanup still happens
+
+
+def test_late_sql_success_after_timeout_interrupt_is_rejected():
+    conn = FakeConnection(gate_on_interrupt=True)
+    with pytest.raises(FinanceQueryTimedOut):
+        make_engine(conn, timeout=0.5).run(
+            SPEC, information_cutoff=CUTOFF, deadline=ResearchDeadline.from_timeout(5.0)
+        )
+    assert len(conn.execute_calls) == 1  # SQL "succeeded" post-interrupt...
+    assert conn.interrupt_calls >= 1  # ...but the interrupt cause must win
+    assert conn.close_calls == 1
+
+
+def test_cancellation_beats_late_setup_success():
+    calls = {"n": 0}
+
+    def cancel_from_fourth_check() -> bool:
+        calls["n"] += 1
+        return calls["n"] > 3  # entry/pre-connect checks pass, pre-execute check trips
+
+    conn = FakeConnection()
+    with pytest.raises(FinanceQueryCancelled):
+        make_engine(conn, timeout=2.0).run(
+            SPEC,
+            information_cutoff=CUTOFF,
+            deadline=ResearchDeadline.from_timeout(5.0),
+            is_cancelled=cancel_from_fourth_check,
+        )
+    assert conn.execute_calls == [] and conn.close_calls == 1

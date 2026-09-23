@@ -1,0 +1,25 @@
+{
+  "complete": false,
+  "controller_pid": 94137,
+  "steps": [],
+  "candidate": {
+    "revision": "1de68567e740a9a5d9c25bea91142741ad12aa10",
+    "tree": "de67ee72b9eeca0b6ec26e5a2aafa1fb630ac1b8",
+    "base": "c9dd71dfd678855b61662100ec74625b92ad1f1b",
+    "fix_head": "814b91cab93782644598b24be3c98a2ccc78b71a",
+    "ref": "refs/verification/market-recovery-suite-c9dd71dfd-20260923",
+    "source": "/Users/a77/fwp-wt-market-recovery-qc-fix-0923",
+    "prepared_at": "2026-09-23T14:58:25.927597+00:00",
+    "merge_admission": false,
+    "previous_candidate": "5213e9344b77e4094221734722b478705611a865"
+  },
+  "started_at": "2026-09-23T15:01:35.624673+00:00",
+  "policy": {
+    "load1_max": 12,
+    "other_pytest_max": 1,
+    "free_bytes_min": 8589934592,
+    "admission_seconds": 600,
+    "consecutive_samples": 2
+  },
+  "phase": "full-gate"
+}

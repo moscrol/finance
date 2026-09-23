@@ -1,0 +1,28 @@
+Traceback (most recent call last):
+  File "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/suite-followup/serial_gates.py", line 103, in <module>
+    main()
+  File "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/suite-followup/serial_gates.py", line 70, in main
+    if not admitted():
+           ^^^^^^^^^^
+  File "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/suite-followup/serial_gates.py", line 45, in admitted
+    sample = observation()
+             ^^^^^^^^^^^^^
+  File "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/suite-followup/serial_gates.py", line 31, in observation
+    lines = subprocess.check_output(['ps', '-axo', 'pid=,comm=,args='], text=True, timeout=20).splitlines()
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/subprocess.py", line 466, in check_output
+    return run(*popenargs, stdout=PIPE, timeout=timeout, check=True,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/subprocess.py", line 550, in run
+    stdout, stderr = process.communicate(input, timeout=timeout)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/subprocess.py", line 1209, in communicate
+    stdout, stderr = self._communicate(input, endtime, timeout)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/subprocess.py", line 2153, in _communicate
+    stdout = self._translate_newlines(stdout,
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/subprocess.py", line 1086, in _translate_newlines
+    data = data.decode(encoding, errors)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeDecodeError: 'utf-8' codec can't decode bytes in position 122122-122123: invalid continuation byte

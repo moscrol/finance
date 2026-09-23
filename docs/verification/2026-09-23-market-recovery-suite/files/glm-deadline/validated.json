@@ -1,0 +1,52 @@
+{
+  "at": "2026-09-23T15:33:40.939328+00:00",
+  "revision": "1de68567e740a9a5d9c25bea91142741ad12aa10",
+  "base": "c9dd71dfd678855b61662100ec74625b92ad1f1b",
+  "selected_report": "FQ-report-clarified/delivery/report.json",
+  "original_report_preserved": true,
+  "model_stages": [
+    "FQ-explore",
+    "FQ-report",
+    "FQ-report-clarified"
+  ],
+  "requests": 6,
+  "http_200": 6,
+  "price_verified": false,
+  "probe": {
+    "tests": 4,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "passed": 4
+  },
+  "author_recheck": {
+    "tests": 151,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "passed": 151
+  },
+  "historical_sensitivity": {
+    "tests": 4,
+    "failures": 2,
+    "errors": 0,
+    "skipped": 0,
+    "passed": 2
+  },
+  "positive_control": {
+    "tests": 1,
+    "failures": 1,
+    "errors": 0,
+    "skipped": 0,
+    "passed": 0
+  },
+  "original_author_collection_blocked": true,
+  "sandbox_metadata_control": "PASS",
+  "exact_credential_persistence": {
+    "checked_files": 97,
+    "occurrences": 0,
+    "credential_value_or_hash_recorded": false,
+    "scope": "GLM adapter and evidence files, excluding scratch/users/cache; not a generic secret detector"
+  },
+  "merge_admission": false
+}

@@ -1,0 +1,41 @@
+"""Stop only this run after detecting a false resource admission; preserve raw records."""
+from datetime import datetime, timezone
+import json
+import os
+from pathlib import Path
+import signal
+import subprocess
+import time
+
+ROOT = Path(__file__).resolve().parent
+pipeline = json.loads((ROOT / 'pipeline-v2.json').read_text())
+gate = json.loads((ROOT / 'full-gate/execution.json').read_text())
+assert pipeline['controller_pid'] == 94137 and gate['pid'] == 95324 and gate['controller_pid'] == 95315
+
+
+def command(pid):
+    return subprocess.check_output(['ps', '-p', str(pid), '-o', 'command='], text=True, errors='replace').strip()
+
+
+assert str(ROOT / 'serial_gates_v2.py') in command(94137)
+assert str(ROOT / 'run_step.py') in command(95315)
+assert str(ROOT / 'full-pytest-tmp') in command(95324)
+assert os.getpgid(95324) == 95324
+record = {'at': datetime.now(timezone.utc).isoformat(), 'reason': 'ps comm truncated; other pytest count falsely zero',
+          'pipeline_before': pipeline, 'gate_before': gate, 'signals': [], 'valid_full_gate': False}
+os.kill(94137, signal.SIGTERM)
+record['signals'].append({'pid': 94137, 'signal': 'SIGTERM'})
+os.killpg(95324, signal.SIGTERM)
+record['signals'].append({'pgid': 95324, 'signal': 'SIGTERM'})
+for _ in range(30):
+    rows = subprocess.check_output(['ps', '-axo', 'pid=,pgid='], text=True).splitlines()
+    members = [int(parts[0]) for line in rows if len(parts := line.split()) == 2 and parts[1] == '95324']
+    if not members:
+        break
+    time.sleep(1)
+record['group_members_after'] = members
+record['gate_after'] = json.loads((ROOT / 'full-gate/execution.json').read_text())
+with (ROOT / 'admission-interruption.json').open('x') as stream:
+    json.dump(record, stream, indent=2)
+assert not members, members
+print(json.dumps({'interrupted': True, 'group_members_after': members}))

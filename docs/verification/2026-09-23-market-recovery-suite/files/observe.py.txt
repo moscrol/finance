@@ -1,0 +1,29 @@
+"""Append bounded host observations; load is context, not a failure attribution."""
+from datetime import datetime, timezone
+import json
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import time
+
+from resource_probe import running_pytest_pids
+
+ROOT = Path(__file__).resolve().parent
+until = time.monotonic() + 7800
+while time.monotonic() < until:
+    sample = {'at': datetime.now(timezone.utc).isoformat(), 'load': os.getloadavg(),
+              'visible_module_pytest_pids': running_pytest_pids(),
+              'free_bytes': shutil.disk_usage(ROOT).free}
+    sample['swap'] = subprocess.check_output(['sysctl', 'vm.swapusage'], text=True, timeout=10).strip()
+    try:
+        pipeline = json.loads((ROOT / 'pipeline-v3.json').read_text())
+        sample['pipeline_phase'] = pipeline['phase']
+        sample['pipeline_complete'] = pipeline['complete']
+    except json.JSONDecodeError:
+        sample['pipeline_snapshot'] = 'concurrent_write'
+    with (ROOT / 'host-observations.jsonl').open('a') as stream:
+        stream.write(json.dumps(sample) + '\n')
+    if sample.get('pipeline_complete'):
+        break
+    time.sleep(30)

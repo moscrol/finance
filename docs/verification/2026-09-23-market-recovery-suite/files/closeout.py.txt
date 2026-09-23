@@ -1,0 +1,65 @@
+"""Record final identities and resource observations without stopping or cleaning other sessions."""
+from datetime import datetime, timezone
+import json
+import os
+from pathlib import Path
+import subprocess
+import time
+
+ROOT = Path(__file__).resolve().parent
+SOURCE = Path('/Users/a77/fwp-wt-market-recovery-qc-fix-0923')
+info = json.loads((ROOT / 'candidate.json').read_text())
+assert json.loads((ROOT / 'pipeline-v3.json').read_text())['complete']
+
+
+def git(tree, *args):
+    return subprocess.check_output(['git', '-C', str(tree), *args], text=True, timeout=30).strip()
+
+
+def matching_processes():
+    raw = subprocess.check_output(['ps', '-ww', '-axo', 'pid=,args='], timeout=10).decode('utf-8', errors='replace')
+    matches = []
+    for row in raw.splitlines():
+        fields = row.strip().split(None, 1)
+        if len(fields) != 2 or int(fields[0]) in {os.getpid(), os.getppid()}:
+            continue
+        command = fields[1]
+        executable = Path(command.split(None, 1)[0]).name.lower()
+        if str(ROOT) in command and (executable.startswith('python') or executable in {'node', 'pi'}):
+            matches.append({'pid': int(fields[0]), 'command': command})
+    return matches
+
+
+until = time.monotonic() + 45
+while matching_processes() and time.monotonic() < until:
+    time.sleep(2)
+active = matching_processes()
+assert not active, active
+candidates = {}
+for name in ['candidate', 'frontend-candidate']:
+    tree = ROOT / name
+    assert git(tree, 'rev-parse', 'HEAD') == info['revision']
+    assert git(tree, 'status', '--porcelain') == ''
+    candidates[name] = {'revision': info['revision'], 'tree': git(tree, 'rev-parse', 'HEAD^{tree}'), 'clean': True}
+ports = {}
+for port in [19971, 19974]:
+    result = subprocess.run(['lsof', '-nP', f'-iTCP:{port}', '-sTCP:LISTEN'], capture_output=True, text=True, timeout=10)
+    assert result.returncode == 1 and not result.stdout, result.stdout
+    ports[str(port)] = 'no listener'
+unchanged_paths = ['intelligence/services/finance_query.py', 'intelligence/services/rag_worker.py',
+                   'intelligence/tests/test_rag_worker.py', 'intelligence/tests/test_rag_worker_generation.py',
+                   'intelligence/tests/test_rag_worker_keepalive.py', 'intelligence/webapp',
+                   'market_feature_store', 'skills/daily-full-review/scripts/run_review_sync.py']
+subprocess.run(['git', '-C', str(SOURCE), 'diff', '--quiet', info['previous_candidate'], info['revision'], '--', *unchanged_paths], check=True)
+record = {'at': datetime.now(timezone.utc).isoformat(), 'candidate': info['revision'],
+          'candidates': candidates, 'main': git(SOURCE, 'ls-remote', 'gitea', 'refs/heads/main').split()[0],
+          'matching_own_root_python_node_pi_processes': active, 'e2e_ports': ports,
+          'unchanged_since_previous_candidate': unchanged_paths,
+          'successful_basetemp_removed_by_existing_gate': not (ROOT / 'full-pytest-tmp-v3').exists(),
+          'interrupted_attempt_scratch_preserved': (ROOT / 'full-pytest-tmp').exists(),
+          'previous_failed_scratch_preserved': (ROOT.parent / 'timeout-followup/full-pytest-tmp').exists(),
+          'candidate_worktrees_and_ref_preserved': True,
+          'new_product_code_changes': False, 'push_merge_deploy_production_write': False}
+with (ROOT / 'closeout.json').open('x') as stream:
+    json.dump(record, stream, indent=2)
+print(json.dumps(record))

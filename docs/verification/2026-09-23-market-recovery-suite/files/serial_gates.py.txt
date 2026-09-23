@@ -1,0 +1,110 @@
+"""One bounded serial verification attempt; no automatic retries or production operations."""
+from datetime import datetime, timezone
+import json
+import os
+from pathlib import Path
+import shutil
+import socket
+import subprocess
+import sys
+import time
+
+ROOT = Path(__file__).resolve().parent
+PY = '/Users/a77/finance-workspace-private/.venv-workbench/bin/python'
+CANDIDATE = json.loads((ROOT / 'candidate.json').read_text())
+state = {'complete': False, 'controller_pid': os.getpid(), 'steps': [],
+         'candidate': CANDIDATE, 'started_at': datetime.now(timezone.utc).isoformat(),
+         'policy': {'load1_max': 12, 'other_pytest_max': 1, 'free_bytes_min': 8 * 1024**3,
+                    'admission_seconds': 600, 'consecutive_samples': 2}}
+
+
+def save():
+    (ROOT / 'pipeline.json').write_text(json.dumps(state, indent=2) + '\n')
+
+
+def remote_main():
+    return subprocess.check_output(['git', '-C', str(ROOT / 'candidate'), 'ls-remote',
+                                    'gitea', 'refs/heads/main'], text=True, timeout=30).split()[0]
+
+
+def observation():
+    lines = subprocess.check_output(['ps', '-axo', 'pid=,comm=,args='], text=True, timeout=20).splitlines()
+    pids = []
+    for line in lines:
+        fields = line.strip().split(None, 2)
+        if len(fields) == 3 and 'python' in Path(fields[1]).name.lower() and ' -m pytest ' in fields[2]:
+            pids.append(int(fields[0]))
+    return {'at': datetime.now(timezone.utc).isoformat(), 'load': os.getloadavg(),
+            'other_pytest_pids': pids, 'free_bytes': shutil.disk_usage(ROOT).free}
+
+
+def admitted():
+    until = time.monotonic() + 600
+    consecutive = 0
+    while time.monotonic() < until:
+        sample = observation()
+        with (ROOT / 'admission.jsonl').open('a') as stream:
+            stream.write(json.dumps(sample) + '\n')
+        eligible = sample['load'][0] <= 12 and len(sample['other_pytest_pids']) <= 1 and sample['free_bytes'] >= 8 * 1024**3
+        consecutive = consecutive + 1 if eligible else 0
+        if consecutive >= 2:
+            return True
+        time.sleep(15)
+    return False
+
+
+def step(name, tree, seconds, command):
+    state['phase'] = name
+    save()
+    argv = [PY, '-B', str(ROOT / 'run_step.py'), '--tree', str(ROOT / tree), '--name', name,
+            '--seconds', str(seconds), '--clean', '--', *command]
+    with (ROOT / f'{name}-controller.log').open('xb') as log:
+        result = subprocess.run(argv, stdout=log, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL)
+    state['steps'].append({'name': name, 'exit_code': result.returncode})
+    save()
+
+
+def main():
+    state['phase'] = 'resource_admission'
+    save()
+    if not admitted():
+        state['blocked'] = 'resource_admission_timeout'
+        return
+    if remote_main() != CANDIDATE['base']:
+        state['blocked'] = 'base_drift_before_start'
+        return
+    step('full-gate', 'candidate', 5400, ['bash', 'scripts/run_main_gate.sh', '--pytest-args',
+         f'-q -p no:cacheprovider --basetemp={ROOT / "full-pytest-tmp"} --junitxml={ROOT / "full-gate/pytest.xml"} --durations=20'])
+    state['main_after_python'] = remote_main()
+    if state['main_after_python'] != CANDIDATE['base']:
+        state['blocked'] = 'base_drift_after_python'
+        return
+    state['phase'] = 'frontend_resource_admission'
+    save()
+    if not admitted():
+        state['blocked'] = 'frontend_resource_admission_timeout'
+        return
+    for port in [19971, 19974]:
+        with socket.socket() as sock:
+            sock.bind(('127.0.0.1', port))
+    step('frontend-gate', 'frontend-candidate', 1800, [PY, '-B', 'scripts/run_frontend_gate.py',
+         '--tree', str(ROOT / 'frontend-candidate'), '--expect-revision', CANDIDATE['revision'],
+         '--output', str(ROOT / 'frontend-receipt'), '--workbench-port', '19971', '--re06-port', '19974'])
+    state['main_after_frontend'] = remote_main()
+
+
+if '--launch' in sys.argv:
+    with (ROOT / 'pipeline.log').open('xb') as log:
+        proc = subprocess.Popen([PY, '-B', str(Path(__file__))], stdout=log, stderr=subprocess.STDOUT,
+                                stdin=subprocess.DEVNULL, start_new_session=True)
+    print(json.dumps({'controller_pid': proc.pid, 'root': str(ROOT)}))
+else:
+    try:
+        main()
+    except BaseException as exc:
+        state['error'] = f'{type(exc).__name__}: {exc}'
+        raise
+    finally:
+        state['complete'] = True
+        state['finished_at'] = datetime.now(timezone.utc).isoformat()
+        save()

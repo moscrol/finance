@@ -1,0 +1,23 @@
+== gate @ 1de68567e740 tree=/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/suite-followup/candidate py=/Users/a77/finance-workspace-private/.venv-workbench/bin/python receipt=/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/suite-followup/full-gate-v3/gate-Fu64IaCU/pytest.json
+== ruff check .
+All checks passed!
+== pytest -q -p no:cacheprovider --basetemp=/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/suite-followup/full-pytest-tmp-v3 --junitxml=/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/suite-followup/full-gate-v3/pytest.xml --durations=20
+17.65s call     intelligence/tests/test_research_validation_eval.py::test_ablation_end_to_end_receipt_with_visible_coverage_loss
+16.49s call     intelligence/tests/test_agent_review_gate.py::test_narrow_repair_does_not_seal_older_unreviewed_milestone
+15.84s call     tests/test_scripts_module_references.py::test_scanner_ignores_imports_written_inside_string_fixtures
+14.20s call     tests/test_scripts_module_references.py::test_import_statement_module_references_resolve
+13.93s call     intelligence/tests/test_agent_review_gate.py::test_two_provisional_slices_allowed_but_third_denied
+12.88s call     tests/test_generation_code_root.py::test_direct_renderers_and_queues_use_data_paths
+8.59s setup    intelligence/tests/test_methodology_backtest.py::test_synthetic_positive_control_supported_in_every_stage_with_own_baseline
+8.34s call     tests/test_moneyflow_ch_preflight.py::test_run_scan_rejects_all_empty
+8.33s call     intelligence/tests/test_agent_review_contract.py::test_verdict_commit_must_match_request
+8.30s setup    intelligence/tests/test_methodology_dependence.py::TestPurge::test_窗末跨界事件被剔且如实计数
+7.58s call     intelligence/tests/test_agent_review_worker.py::test_worker_skips_failed_repair_for_newer_superseding_repair
+7.47s call     intelligence/tests/test_answer_orchestrator.py::AnswerOrchestratorTests::test_general_base_presenter_does_not_echo_question_as_title
+7.39s call     tests/test_sync_fupanhui_public_assets.py::test_sync_range_aligns_to_market_calendar_and_skips_existing
+7.35s call     intelligence/tests/test_methodology_backtest.py::test_synthetic_positive_control_supported_in_every_stage_with_own_baseline
+14911 passed, 85 skipped, 2 xfailed, 17 warnings in 1561.30s (0:26:01)
+== receipt /Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/suite-followup/full-gate-v3/gate-Fu64IaCU/pytest.json
+   revision=1de68567e740 dirty=False target=/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/suite-followup/candidate
+   passed=14911 failed=0 error=0 skipped=85 xfailed=2 xpassed=0
+== 门禁绿，basetemp 已清: /Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/suite-followup/full-pytest-tmp-v3（要保留请设 GATE_KEEP_BASETEMP=1）

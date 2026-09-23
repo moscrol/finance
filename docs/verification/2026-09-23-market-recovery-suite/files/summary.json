@@ -1,0 +1,234 @@
+{
+  "revision": "1de68567e740a9a5d9c25bea91142741ad12aa10",
+  "tree": "de67ee72b9eeca0b6ec26e5a2aafa1fb630ac1b8",
+  "base": "c9dd71dfd678855b61662100ec74625b92ad1f1b",
+  "fix_head": "814b91cab93782644598b24be3c98a2ccc78b71a",
+  "ref": "refs/verification/market-recovery-suite-c9dd71dfd-20260923",
+  "source": "/Users/a77/fwp-wt-market-recovery-qc-fix-0923",
+  "prepared_at": "2026-09-23T14:58:25.927597+00:00",
+  "merge_admission": false,
+  "previous_candidate": "5213e9344b77e4094221734722b478705611a865",
+  "at": "2026-09-23T15:47:53.548109+00:00",
+  "overall": "HOLD",
+  "python": {
+    "receipt": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/suite-followup/full-gate-v3/gate-Fu64IaCU/pytest.json",
+    "exit_code": 0,
+    "counts": {
+      "passed": 14911,
+      "failed": 0,
+      "error": 0,
+      "skipped": 85,
+      "xfailed": 2,
+      "xpassed": 0
+    },
+    "collected": 14998,
+    "failures": [],
+    "watched_testcases": [
+      "<testcase classname=\"intelligence.tests.test_finance_query\" name=\"test_timeout_interrupts_connection\" time=\"0.032\" />",
+      "<testcase classname=\"intelligence.tests.test_rag_worker\" name=\"test_second_consecutive_timeout_kills_and_self_heals\" time=\"0.668\" />",
+      "<testcase classname=\"intelligence.tests.test_rag_worker\" name=\"test_recovery_respects_cooldown\" time=\"0.662\" />",
+      "<testcase classname=\"intelligence.tests.test_rag_worker_generation\" name=\"test_single_bad_query_does_not_reclassify_worker_as_retired\" time=\"0.362\" />",
+      "<testcase classname=\"intelligence.tests.test_rag_worker_keepalive\" name=\"test_close_stops_keepalive_thread\" time=\"0.422\" />"
+    ],
+    "elapsed_seconds": 1590.258,
+    "python_version": "3.12.13",
+    "dependency_fingerprint": "3328bed61f3e21ea"
+  },
+  "frontend": {
+    "schema": 1,
+    "leaf": "frontend",
+    "tree": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/suite-followup/frontend-candidate",
+    "revision": "1de68567e740a9a5d9c25bea91142741ad12aa10",
+    "runner_sha256": "4fa9fd9a8e40507eb7a26e90f46928ac066551225cd6abb91d84370d3c427f32",
+    "started_at": "2026-09-23T15:44:03.298616+00:00",
+    "identity_before": {
+      "recorded_at": "2026-09-23T15:44:03.460960+00:00",
+      "revision": "1de68567e740a9a5d9c25bea91142741ad12aa10",
+      "dirty": false,
+      "status_porcelain_z": ""
+    },
+    "identity_after": {
+      "recorded_at": "2026-09-23T15:46:52.650480+00:00",
+      "revision": "1de68567e740a9a5d9c25bea91142741ad12aa10",
+      "dirty": false,
+      "status_porcelain_z": ""
+    },
+    "dirty": false,
+    "identity_stable": true,
+    "complete": true,
+    "checks": [
+      {
+        "command": [
+          "pnpm",
+          "install",
+          "--frozen-lockfile"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 3.12,
+        "log": "frontend-0.log.txt",
+        "log_bytes": 1878,
+        "log_sha256": "201aac4d10a64fbae0d60f65ada23959f4d4c968a1e36154f46078dfeb39216d"
+      },
+      {
+        "command": [
+          "pnpm",
+          "lint"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 3.41,
+        "log": "frontend-1.log.txt",
+        "log_bytes": 174,
+        "log_sha256": "6c251fa620af053217d4b9a3be4719ead3e000ed5967a2779d816ea60125541c"
+      },
+      {
+        "command": [
+          "pnpm",
+          "typecheck"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 5.84,
+        "log": "frontend-2.log.txt",
+        "log_bytes": 272,
+        "log_sha256": "cdf247968b4bdcf3b8cd38092b796ccbd7fe21cfb2b8bb7129ebcb2ce7b9e720"
+      },
+      {
+        "command": [
+          "pnpm",
+          "test"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 12.9,
+        "log": "frontend-3.log.txt",
+        "log_bytes": 2337,
+        "log_sha256": "5c5b04c8730c9e187a2021fcd930921ae7a29aef97cbcf3cb8e529589794f9e9"
+      },
+      {
+        "command": [
+          "pnpm",
+          "build"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 8.7,
+        "log": "frontend-4.log.txt",
+        "log_bytes": 1035,
+        "log_sha256": "02a5489ce4f94b60711cec9e793676755237e5b36af6369c532d216a811e5238"
+      },
+      {
+        "command": [
+          "pnpm",
+          "test:e2e"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 134.82,
+        "log": "frontend-5.log.txt",
+        "log_bytes": 12815,
+        "log_sha256": "466000083d773135996ea1bd624004b9a4c34f5249dcb72a25755b896986d68a"
+      }
+    ],
+    "exit_code": 0,
+    "finished_at": "2026-09-23T15:46:52.650634+00:00"
+  },
+  "pipeline": {
+    "complete": true,
+    "controller_pid": 2051,
+    "steps": [
+      {
+        "name": "full-gate-v3",
+        "exit_code": 0
+      },
+      {
+        "name": "frontend-gate",
+        "exit_code": 0
+      }
+    ],
+    "candidate": {
+      "revision": "1de68567e740a9a5d9c25bea91142741ad12aa10",
+      "tree": "de67ee72b9eeca0b6ec26e5a2aafa1fb630ac1b8",
+      "base": "c9dd71dfd678855b61662100ec74625b92ad1f1b",
+      "fix_head": "814b91cab93782644598b24be3c98a2ccc78b71a",
+      "ref": "refs/verification/market-recovery-suite-c9dd71dfd-20260923",
+      "source": "/Users/a77/fwp-wt-market-recovery-qc-fix-0923",
+      "prepared_at": "2026-09-23T14:58:25.927597+00:00",
+      "merge_admission": false,
+      "previous_candidate": "5213e9344b77e4094221734722b478705611a865"
+    },
+    "started_at": "2026-09-23T15:07:57.960970+00:00",
+    "policy": {
+      "load1_max": 12,
+      "other_pytest_max": 1,
+      "free_bytes_min": 8589934592,
+      "admission_seconds": 600,
+      "consecutive_samples": 2
+    },
+    "phase": "frontend-gate",
+    "main_after_python": "c9dd71dfd678855b61662100ec74625b92ad1f1b",
+    "main_after_frontend": "c9dd71dfd678855b61662100ec74625b92ad1f1b",
+    "finished_at": "2026-09-23T15:46:59.549998+00:00"
+  },
+  "receipt_check_exit": 0,
+  "registry": {
+    "parseability": 0,
+    "registry": 0,
+    "tables": 0,
+    "views": 0,
+    "ledger-crosswalk": 0
+  },
+  "independent_deadline_review": {
+    "at": "2026-09-23T15:33:40.939328+00:00",
+    "revision": "1de68567e740a9a5d9c25bea91142741ad12aa10",
+    "base": "c9dd71dfd678855b61662100ec74625b92ad1f1b",
+    "selected_report": "FQ-report-clarified/delivery/report.json",
+    "original_report_preserved": true,
+    "model_stages": [
+      "FQ-explore",
+      "FQ-report",
+      "FQ-report-clarified"
+    ],
+    "requests": 6,
+    "http_200": 6,
+    "price_verified": false,
+    "probe": {
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "passed": 4
+    },
+    "author_recheck": {
+      "tests": 151,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "passed": 151
+    },
+    "historical_sensitivity": {
+      "tests": 4,
+      "failures": 2,
+      "errors": 0,
+      "skipped": 0,
+      "passed": 2
+    },
+    "positive_control": {
+      "tests": 1,
+      "failures": 1,
+      "errors": 0,
+      "skipped": 0,
+      "passed": 0
+    },
+    "original_author_collection_blocked": true,
+    "sandbox_metadata_control": "PASS",
+    "exact_credential_persistence": {
+      "checked_files": 97,
+      "occurrences": 0,
+      "credential_value_or_hash_recorded": false,
+      "scope": "GLM adapter and evidence files, excluding scratch/users/cache; not a generic secret detector"
+    },
+    "merge_admission": false
+  },
+  "main_at_end": "c9dd71dfd678855b61662100ec74625b92ad1f1b",
+  "old_red_receipts_preserved": true,
+  "historical_six_failure_root_causes_proven": false,
+  "production_authorization": false,
+  "base_unchanged": true,
+  "candidate_clean": true
+}

@@ -1,0 +1,178 @@
+{
+  "claim": "FQ",
+  "claim_text": "FinanceQuery.run absolute query deadlines: setup and monitor scheduling must not renew the timeout; respect parent synthesis reserve; preserve cancellation vs timeout; reject late SQL/fetch/close success and clean up connections; investigate regressions and uncovered deadline/cancellation edges.",
+  "revision": "1de68567e740a9a5d9c25bea91142741ad12aa10",
+  "base_revision": "c9dd71dfd678855b61662100ec74625b92ad1f1b",
+  "verdict": "PASS_WITH_LIMITS",
+  "verdict_rationale": "Independent immutable probes (source FQ-explore/delivery, executed unchanged under OS sandbox in FQ-execute) passed 4/4 on the candidate, dynamically verifying the core deadline/cancellation observables: setup cannot renew the bounded grant, the parent synthesis reserve shrinks the child grant, late SQL success after a timeout interrupt is rejected, cancellation takes precedence over late setup success at the observable level, and connections are always closed exactly once; the positive control functioned and is classified probe_bug. However, several declared subclaims were not executed (upfront nearly-exhausted no-connect rejection, late fetch success with populated rows, late-close-success rejection, fetch-loop cancellation, byte-limit remap, isolated monitor-recorded cancellation mapping), author evidence spans two separate runs (original collection BLOCKED_PROBE; a later passing recheck that adds no independent coverage), and an immutable historical replay shows host/revision sensitivity of exactly these probes. Only part of the claim was tested dynamically, so PASS_WITH_LIMITS rather than PASS.",
+  "verified_subclaims": [
+    "Setup must not renew the timeout: the grant is fixed once via deadline.bounded_stage(self._limits.timeout) at finance_query.py L2209 before connection setup and monitor scheduling; a 0.4s connect inside a ~0.2s grant yields FinanceQueryTimedOut with zero execute calls and zero interrupts (expiry caught at the post-connect check L2222-2223, before monitor scheduling), and exactly one close (verified dynamically, probe test_setup_and_synthesis_reserve_cannot_renew_deadline). Note: this verifies expiry-at-setup rejection after connect; it does not exercise the upfront remaining() <= 0.001 no-connect rejection at L2210-2211.",
+    "Parent synthesis reserve is respected: ResearchDeadline.bounded_stage (research_contract.py L393-401) intersects the child grant with parent.expires_at - synthesis_reserve and the child carries no reserve of its own; the probe sanity assertion 0.0 < parent.stage_timeout(8.0) <= 0.25 held, and the ~0.2s effective grant caused the setup timeout despite limits.timeout=8.0 (verified dynamically).",
+    "Late SQL success after a timeout interrupt is rejected: execute() blocked on an Event released only by interrupt(); after the monitor interrupted and the SQL then 'succeeded' returning a cursor, FinanceQueryTimedOut was still raised; execute_calls == 1, interrupt_calls >= 1, close_calls == 1 (finance_query.py L2225-2279; verified dynamically, probe test_late_sql_success_after_timeout_interrupt_is_rejected).",
+    "Cancellation beats late setup success (outcome level): is_cancelled returning False for the first three invocations and True on the fourth yields FinanceQueryCancelled with no SQL executed and exactly one close (finance_query.py L2216-2245; verified dynamically, probe test_cancellation_beats_late_setup_success). The probe does not record whether the fourth invocation was evaluated in the monitor thread or a main-thread check, so the result is asserted at the observable level (exception type, zero execute calls, one close) and not pinned to a specific check site.",
+    "Connections are cleaned up: connection.close() was called exactly once in every scenario (control, deadline-exhausted setup, late-SQL timeout, cancelled) via the unconditional outer finally at finance_query.py L2282-2285, with stop_monitor always set (verified dynamically in all four probes).",
+    "Control happy path: the empty-result query returns a FinanceQueryResult with rows == (), audit.row_count == 0, exactly one execute, zero interrupts, one close (verified dynamically, probe test_control_happy_path_returns_result_and_closes)."
+  ],
+  "not_verified_subclaims": [
+    "Upfront nearly-exhausted grant rejection: the remaining() <= 0.001 check at finance_query.py L2210-2211 that raises before connect was NOT dynamically exercised; the setup probe performed one connect and one close before expiring, so it must not be counted as an upfront-no-connect test (static observation only).",
+    "Late fetch-loop success after an interrupt with populated rows: all adversarial probes used an empty cursor (fetchmany -> []), so _fetch_rows (finance_query.py L2380-2424) returning rows post-interrupt was not exercised; only the empty-cursor post-interrupt rejection at L2276-2279 was verified.",
+    "Late close success rejection: the source checks query_deadline.expired only AFTER connection.close() in the outer finally (finance_query.py L2287 vs L2282-2285); close() itself is unconditional and its return is not gated on deadline state. No dynamic probe isolated delayed/late-close-success semantics; the static L2287 check must not be conflated with dynamic coverage, and the passing author recheck does not increase independent coverage.",
+    "Pure monitor-recorded 'cancelled' -> FinanceQueryCancelled mapping (L2227-2230 marker deciding L2262-2264 / L2276-2278) was not isolated: the cancellation probe did not record which thread/check raised; the resulting exception type is identical either way.",
+    "Fetch-loop cancellation between fetchmany batches (finance_query.py L2391-2392).",
+    "Byte-limit path FinanceQueryLimitExceeded (finance_query.py L2416-2417) and the monitor-priority remap of structured fetch-loop errors to TimedOut/Cancelled in the except block (L2261-2267).",
+    "No-preemption boundary: a connect() that blocks forever still blocks run() (explicitly out of scope per packet; only deadline accounting was verified, not unblocking).",
+    "Real DuckDB interrupt()/close-under-interrupt semantics and connect latencies: probes used an in-memory fake connection gated on a threading.Event.",
+    "Monitor-thread lifecycle when interrupt() blocks (join timeout 0.2s, daemon thread) - potential thread leak untested.",
+    "Author-side claims: the original author-suite execution was blocked at collection (BLOCKED_PROBE, sandbox PermissionError); the separate later recheck (151 passed under an adjusted sandbox profile) is a distinct run on the same clean candidate, was not reviewed for claim coverage, and adds no independent coverage; author test assertions remain not_verified by this reviewer.",
+    "dataset_max_date swallowing FinanceQueryError, reverse_after_fetch, and _rows_to_evidence content hashing: untested."
+  ],
+  "findings": [
+    {
+      "file": "intelligence/services/finance_query.py",
+      "line": "2208-2211",
+      "trigger": "Parent ResearchDeadline.from_timeout(5.0, synthesis_reserve=4.8) with limits.timeout=8.0 gives a bounded_stage grant of ~0.2s; the injected connect sleeps 0.4s before returning.",
+      "actual": "FinanceQueryTimedOut raised; execute_calls == [] (no late SQL after setup), interrupt_calls == 0 (expiry caught at the post-connect check L2222-2223, before monitor scheduling), close_calls == 1. Setup consumed the absolute grant and did not renew it. This does not dynamically exercise the upfront remaining() <= 0.001 rejection at L2210-2211.",
+      "status": "verified_dynamic"
+    },
+    {
+      "file": "intelligence/services/research_contract.py",
+      "line": "393-401",
+      "trigger": "bounded_stage(8.0) under a parent with a 4.8s synthesis reserve inside a 5.0s window; sanity assertion 0.0 < stage_timeout(8.0) <= 0.25.",
+      "actual": "Assertion held; child grant expires_at = min(parent.expires_at - synthesis_reserve, now + limit), i.e. the reserve is subtracted and the child carries no reserve of its own; the shrunken grant drove the setup timeout in the run-level probe.",
+      "status": "verified_dynamic"
+    },
+    {
+      "file": "intelligence/services/finance_query.py",
+      "line": "2225-2279",
+      "trigger": "execute() blocks on a threading.Event released only by interrupt(); grant 0.5s; the monitor interrupts at expiry, then the SQL 'succeeds' and returns an empty cursor.",
+      "actual": "FinanceQueryTimedOut raised despite post-interrupt SQL success; execute_calls == 1, interrupt_calls >= 1, close_calls == 1. Late SQL success rejected via interrupted_for[0] == 'timeout'.",
+      "status": "verified_dynamic"
+    },
+    {
+      "file": "intelligence/services/finance_query.py",
+      "line": "2216-2245",
+      "trigger": "is_cancelled returns False for the first three invocations and True on the fourth.",
+      "actual": "FinanceQueryCancelled raised; execute_calls == []; close_calls == 1. Cancellation beats late setup success at the observable level; the probe did not record whether the fourth invocation was consumed by the monitor thread or a main-thread check, so the outcome is not pinned to a specific check site.",
+      "status": "verified_dynamic"
+    },
+    {
+      "file": "intelligence/services/finance_query.py",
+      "line": "2282-2285",
+      "trigger": "All four probe scenarios (happy path, deadline-exhausted setup, late-SQL timeout, cancellation).",
+      "actual": "connection.close() called exactly once in every scenario and stop_monitor always set; unconditional cleanup in the outer finally.",
+      "status": "verified_dynamic"
+    },
+    {
+      "file": "intelligence/services/finance_query.py",
+      "line": "2210-2211",
+      "trigger": "Static reading of the upfront grant check.",
+      "actual": "remaining() <= 0.001 raises FinanceQueryTimedOut before connect; not exercised dynamically (the setup probe performed one connect and one close before expiring), so the upfront-no-connect path remains unverified.",
+      "status": "static_observation"
+    },
+    {
+      "file": "intelligence/services/finance_query.py",
+      "line": "2287",
+      "trigger": "Static reading of the final expiry check relative to cleanup.",
+      "actual": "query_deadline.expired is checked only after the outer finally has already closed the connection, rejecting success landing after the last in-loop check; this is distinct from any delayed-close-success probe, which was never run. Passing author recheck tests do not add independent coverage here.",
+      "status": "static_observation"
+    },
+    {
+      "file": "intelligence/services/finance_query.py",
+      "line": "2235",
+      "trigger": "Static analysis of monitor loop wait granularity.",
+      "actual": "stop_monitor.wait(min(0.01, query_deadline.remaining())) polls cancellation/expiry at <=10ms cadence; interrupt latency verified only indirectly via the event-gated late-SQL probe, not as a hard bound.",
+      "status": "static_observation"
+    },
+    {
+      "file": "intelligence/services/finance_query.py",
+      "line": "2261-2267",
+      "trigger": "Static analysis of except-mapping priority when the monitor recorded a cause.",
+      "actual": "The first interrupted_for marker remaps any exception, including a fetch-loop FinanceQueryLimitExceeded or fetch-loop Cancelled, to TimedOut/Cancelled; cause priority belongs to the monitor marker. Not observed dynamically (empty cursor), so the byte-limit remap interaction is unverified.",
+      "status": "static_observation"
+    },
+    {
+      "file": "intelligence/tests/test_finance_query_deadline.py, intelligence/tests/test_finance_query.py, intelligence/tests/test_research_contract.py, intelligence/tests/test_episode_tools.py",
+      "line": "collection",
+      "trigger": "Original author-suite run under the FQ-execute sandbox profile.",
+      "actual": "exit_code 4; PermissionError [Errno 1] Operation not permitted on candidate/intelligence/users during package collection; no collectors found for the four test files; 0 author tests executed. Classified BLOCKED_PROBE (sandbox/collection error), not a product bug. Separately, a later recheck run (FQ-author-recheck) under an adjusted profile that permits a metadata stat on the literal intelligence/users directory (contents remain denied) executed the same four suites on the same clean candidate: 151 tests, 151 passed, 0 failures, exit_code 0, 5.512s. The two executions are reported separately, not as one uninterrupted run, and the recheck adds no independent coverage.",
+      "status": "blocked_probe_with_separate_passing_recheck"
+    },
+    {
+      "file": "FQ-historical/probe.py (immutable replay of FQ-explore/delivery/probe.py, sha256 7c0801e2656ed34347f20c7e6573066d175c57253951afbfef2ffbe956f433fc)",
+      "line": "replay at revision 50330cf4fa435292bbd555ccc817e62ca5cc45b4",
+      "trigger": "The byte-identical independent probe replayed at a historical revision.",
+      "actual": "2 failed / 2 passed, exit_code 1, 0 collection errors, 1.523s: test_setup_and_synthesis_reserve_cannot_renew_deadline DID NOT RAISE FinanceQueryTimedOut, and test_cancellation_beats_late_setup_success observed one executed SELECT. Classification per packet: historical sensitivity evidence, not a new independent verdict, not additional coverage of the candidate, and no root-cause inference is drawn.",
+      "status": "historical_sensitivity"
+    }
+  ],
+  "independent_probe_counts": {
+    "tests": 4,
+    "passed": 4,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "exit_code": 0,
+    "elapsed_seconds": 1.77,
+    "deadline_hit": false,
+    "provenance": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/suite-followup/glm-deadline/FQ-explore/delivery (probe.py sha256 7c0801e2656ed34347f20c7e6573066d175c57253951afbfef2ffbe956f433fc, per manifest.json)",
+    "execution": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/suite-followup/glm-deadline/FQ-execute (probe executed unchanged under OS sandbox; inputs_unchanged true; pytest-reported 4 passed in 1.44s)",
+    "tests_run": [
+      "test_control_happy_path_returns_result_and_closes",
+      "test_setup_and_synthesis_reserve_cannot_renew_deadline",
+      "test_late_sql_success_after_timeout_interrupt_is_rejected",
+      "test_cancellation_beats_late_setup_success"
+    ]
+  },
+  "author_test_counts": {
+    "original": {
+      "tests": 0,
+      "passed": 0,
+      "failures": 0,
+      "errors": 1,
+      "skipped": 0,
+      "exit_code": 4,
+      "status": "BLOCKED_PROBE: collection error (sandbox PermissionError on candidate/intelligence/users); 0 author tests executed; author-side assertions remain not_verified"
+    },
+    "recheck": {
+      "tests": 151,
+      "passed": 151,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "exit_code": 0,
+      "elapsed_seconds": 5.512,
+      "status": "Separate later execution (FQ-author-recheck) under an adjusted sandbox profile permitting only a metadata stat on the literal intelligence/users directory (contents remain denied); same clean candidate revision 1de68567e740a9a5d9c25bea91142741ad12aa10; suites: test_finance_query_deadline.py, test_finance_query.py, test_research_contract.py, test_episode_tools.py"
+    },
+    "note": "Two separate executions, not one uninterrupted run. The successful recheck is author-side evidence only and does not increase independent coverage; the original blocked run is preserved and classified BLOCKED_PROBE (harness/sandbox issue, not a product bug)."
+  },
+  "positive_control": {
+    "file": "positive_control.py",
+    "test": "test_intentional_red_probe_bug",
+    "trigger": "assert 1 == 2, 'intentional positive control: probe_bug'",
+    "actual": "1 failure, 0 errors, exit_code 1, 0.343s; positive_control_detected = true",
+    "classification": "probe_bug",
+    "note": "The intentional red assertion was detected and reported as a failure, confirming the failure-detection pipeline works. Classified as probe_bug (control behaved as designed); not a candidate/product defect."
+  },
+  "historical_replay": {
+    "revision": "50330cf4fa435292bbd555ccc817e62ca5cc45b4",
+    "probe_sha256": "7c0801e2656ed34347f20c7e6573066d175c57253951afbfef2ffbe956f433fc",
+    "tests": 4,
+    "passed": 2,
+    "failures": 2,
+    "errors": 0,
+    "exit_code": 1,
+    "classification": "historical sensitivity; not a new independent verdict and not additional coverage",
+    "note": "The same immutable probes that pass on the current candidate failed at the historical revision (setup timeout DID NOT RAISE; cancellation probe observed one executed SELECT), demonstrating host/revision sensitivity of these timing- and check-placement-dependent probes. Root cause of historical wall-clock failures is not inferred, per packet constraints."
+  },
+  "limitations": [
+    "Only part of the FQ claim was tested dynamically: the upfront remaining() <= 0.001 no-connect rejection (L2210-2211), late fetch-loop success with populated rows, late-close-success rejection semantics (the L2287 post-close expiry check is static only), fetch-loop cancellation, the byte-limit remap interaction, and the isolated monitor-recorded cancellation mapping were not executed. Hence PASS_WITH_LIMITS, not PASS.",
+    "Author evidence consists of two separate runs, not one uninterrupted execution: the original collection was BLOCKED_PROBE (sandbox PermissionError on candidate/intelligence/users; 0 tests executed), and a later recheck under an adjusted profile (metadata stat permitted on that directory only, contents still denied) passed 151/151 on the same clean candidate. The recheck adds no independent coverage, and the author tests were not reviewed for claim coverage.",
+    "Probes used an in-memory fake connection (execute/fetchmany/interrupt/close) with event-gated interrupt ordering; real DuckDB interrupt(), close-under-interrupt, and connect latencies were not exercised. No production database, network, or model calls were made.",
+    "The cancellation probe asserts outcome-level observables only (exception type, zero executes, one close); it does not record which thread or check site consumed the fourth cancelled() invocation, so behavior is not pinned to a specific check.",
+    "Adversarial probes 1 and 2 depend on real host scheduling: margins are generous (~0.2s grant vs 0.4s connect; 0.5s grant with a 5s event-gate safety and <=10ms monitor polling), but under extreme load the sanity bound stage_timeout(8.0) <= 0.25 or the gate timeout could in principle flake.",
+    "The immutable historical replay (2 failures / 2 passes at revision 50330cf4) shows these probes and the underlying check placements are sensitive to revision/host timing; this is sensitivity evidence only, and the root cause of historical wall-clock failures is neither investigated nor inferred, per packet constraints.",
+    "No claim is made about forcibly preempting connect()/close() or about hard real-time OS scheduling (explicitly out of scope per packet).",
+    "Findings are scoped to the FQ claim only; this is not a full-repo review and implies no production acceptance or authorization.",
+    "Static observations are based on the packet source snapshot; line numbers refer to candidate 1de68567e740a9a5d9c25bea91142741ad12aa10."
+  ]
+}

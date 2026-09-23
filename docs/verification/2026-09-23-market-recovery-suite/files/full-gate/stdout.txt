@@ -1,0 +1,4 @@
+== gate @ 1de68567e740 tree=/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/suite-followup/candidate py=/Users/a77/finance-workspace-private/.venv-workbench/bin/python receipt=/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/suite-followup/full-gate/gate-HwDJ6QTP/pytest.json
+== ruff check .
+All checks passed!
+== pytest -q -p no:cacheprovider --basetemp=/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/suite-followup/full-pytest-tmp --junitxml=/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/suite-followup/full-gate/pytest.xml --durations=20

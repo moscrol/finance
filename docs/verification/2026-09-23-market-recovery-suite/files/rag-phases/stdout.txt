@@ -1,0 +1,5 @@
+........................................................................ [ 80%]
+..................                                                       [100%]读数收据: /Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/suite-followup/rag-phases/20260923T145628Z-5213e934-01014dc47f91.json
+
+- generated xml file: /Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/suite-followup/rag-phases/junit.xml -
+90 passed in 15.66s

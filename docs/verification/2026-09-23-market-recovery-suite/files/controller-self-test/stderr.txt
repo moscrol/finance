@@ -1,0 +1,12 @@
+test_inline_python_payload_is_not_a_test_runner (__main__.ResourceProbeTests.test_inline_python_payload_is_not_a_test_runner) ... ok
+test_macos_long_interpreter_path (__main__.ResourceProbeTests.test_macos_long_interpreter_path) ... ok
+test_multiple_runners (__main__.ResourceProbeTests.test_multiple_runners) ... ok
+test_non_pytest_module (__main__.ResourceProbeTests.test_non_pytest_module) ... ok
+test_non_utf8_neighbor_does_not_erase_runner (__main__.ResourceProbeTests.test_non_utf8_neighbor_does_not_erase_runner) ... ok
+test_shell_and_grep_are_not_python (__main__.ResourceProbeTests.test_shell_and_grep_are_not_python) ... ok
+test_versioned_interpreter_and_flags (__main__.ResourceProbeTests.test_versioned_interpreter_and_flags) ... ok
+
+----------------------------------------------------------------------
+Ran 7 tests in 0.001s
+
+OK

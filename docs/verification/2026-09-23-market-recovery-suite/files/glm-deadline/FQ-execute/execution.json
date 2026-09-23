@@ -1,0 +1,117 @@
+{
+  "claim": "FQ",
+  "before": {
+    "revision": "1de68567e740a9a5d9c25bea91142741ad12aa10",
+    "status": "",
+    "main": "c9dd71dfd678855b61662100ec74625b92ad1f1b"
+  },
+  "python": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "inputs_sha256": {
+    "probe.py": "7c0801e2656ed34347f20c7e6573066d175c57253951afbfef2ffbe956f433fc",
+    "positive_control.py": "5aafcdf0a73fb7dc62edf5689f4949d31d1dfe552f7859031bf7e7907c549e5a",
+    "tools.sb": "61ee6c2b24699a740b6c659411613763994d486656d698619b6041caad5f2e9d"
+  },
+  "independent_probe_provenance": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/suite-followup/glm-deadline/FQ-explore/delivery",
+  "production_access": "OS sandbox denies",
+  "complete": true,
+  "probe": {
+    "exit_code": 0,
+    "deadline_hit": false,
+    "elapsed_seconds": 1.77,
+    "command": [
+      "/usr/bin/sandbox-exec",
+      "-f",
+      "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/suite-followup/glm-deadline/FQ-execute/tools.sb",
+      "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+      "-B",
+      "-m",
+      "pytest",
+      "-q",
+      "-o",
+      "addopts=",
+      "-p",
+      "no:cacheprovider",
+      "--confcutdir",
+      "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/suite-followup/glm-deadline/FQ-execute",
+      "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/suite-followup/glm-deadline/FQ-execute/probe.py",
+      "--junitxml=/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/suite-followup/glm-deadline/FQ-execute/probe.xml"
+    ],
+    "counts": {
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "passed": 4
+    }
+  },
+  "positive": {
+    "exit_code": 1,
+    "deadline_hit": false,
+    "elapsed_seconds": 0.343,
+    "command": [
+      "/usr/bin/sandbox-exec",
+      "-f",
+      "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/suite-followup/glm-deadline/FQ-execute/tools.sb",
+      "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+      "-B",
+      "-m",
+      "pytest",
+      "-q",
+      "-o",
+      "addopts=",
+      "-p",
+      "no:cacheprovider",
+      "--confcutdir",
+      "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/suite-followup/glm-deadline/FQ-execute",
+      "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/suite-followup/glm-deadline/FQ-execute/positive_control.py",
+      "--junitxml=/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/suite-followup/glm-deadline/FQ-execute/positive.xml"
+    ],
+    "counts": {
+      "tests": 1,
+      "failures": 1,
+      "errors": 0,
+      "skipped": 0,
+      "passed": 0
+    }
+  },
+  "author": {
+    "exit_code": 4,
+    "deadline_hit": false,
+    "elapsed_seconds": 0.35,
+    "command": [
+      "/usr/bin/sandbox-exec",
+      "-f",
+      "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/suite-followup/glm-deadline/FQ-execute/tools.sb",
+      "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+      "-B",
+      "-m",
+      "pytest",
+      "-q",
+      "-o",
+      "addopts=",
+      "-p",
+      "no:cacheprovider",
+      "--confcutdir",
+      "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/suite-followup/glm-deadline/FQ-execute",
+      "intelligence/tests/test_finance_query_deadline.py",
+      "intelligence/tests/test_finance_query.py",
+      "intelligence/tests/test_research_contract.py",
+      "intelligence/tests/test_episode_tools.py",
+      "--junitxml=/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/suite-followup/glm-deadline/FQ-execute/author.xml"
+    ],
+    "counts": {
+      "tests": 1,
+      "failures": 0,
+      "errors": 1,
+      "skipped": 0,
+      "passed": 0
+    }
+  },
+  "after": {
+    "revision": "1de68567e740a9a5d9c25bea91142741ad12aa10",
+    "status": "",
+    "main": "c9dd71dfd678855b61662100ec74625b92ad1f1b"
+  },
+  "inputs_unchanged": true,
+  "positive_control_detected": true
+}

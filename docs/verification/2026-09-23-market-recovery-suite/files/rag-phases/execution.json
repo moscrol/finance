@@ -1,0 +1,31 @@
+{
+  "started_at": "2026-09-23T14:56:11.961161+00:00",
+  "before": {
+    "revision": "5213e9344b77e4094221734722b478705611a865",
+    "tree": "97070f9b4da710185f743e6891df9dc2c5da70ef",
+    "status": "",
+    "main": "c9dd71dfd678855b61662100ec74625b92ad1f1b"
+  },
+  "cwd": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/timeout-followup/candidate",
+  "command": [
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "-B",
+    "-c",
+    "import sys; sys.path.insert(0,\"/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/suite-followup\"); import pytest; raise SystemExit(pytest.main([\"-q\",\"-p\",\"no:cacheprovider\",\"-p\",\"rag_phases\",\"--phase-log=/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/suite-followup/rag-phases/phases.json\",\"--basetemp=/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/suite-followup/rag-tmp\",\"--junitxml=/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/suite-followup/rag-phases/junit.xml\",\"intelligence/tests/test_rag_worker.py\",\"intelligence/tests/test_rag_worker_generation.py\",\"intelligence/tests/test_rag_worker_keepalive.py\"]))"
+  ],
+  "complete": true,
+  "controller_pid": 83860,
+  "deadline_seconds": 240,
+  "driver_sha256": "5634aacc209fe0286fac98a6931d73a4032c5ff632bbeeac5582dae14dc6b974",
+  "pid": 83890,
+  "exit_code": 0,
+  "stopped_for": null,
+  "elapsed_seconds": 17.051,
+  "after": {
+    "revision": "5213e9344b77e4094221734722b478705611a865",
+    "tree": "97070f9b4da710185f743e6891df9dc2c5da70ef",
+    "status": "",
+    "main": "c9dd71dfd678855b61662100ec74625b92ad1f1b"
+  },
+  "free_bytes": 25163608064
+}

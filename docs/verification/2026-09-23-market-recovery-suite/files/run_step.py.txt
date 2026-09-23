@@ -1,0 +1,73 @@
+"""Bounded local checks with exclusive outputs and fixed-tree identity records."""
+import argparse
+from datetime import datetime, timezone
+import hashlib
+import json
+import os
+from pathlib import Path
+import shutil
+import signal
+import subprocess
+import time
+
+ROOT = Path(__file__).resolve().parent
+p = argparse.ArgumentParser()
+p.add_argument('--tree', type=Path, required=True)
+p.add_argument('--name', required=True)
+p.add_argument('--seconds', type=int, default=300)
+p.add_argument('--clean', action='store_true')
+p.add_argument('command', nargs=argparse.REMAINDER)
+a = p.parse_args()
+command = a.command[1:] if a.command[:1] == ['--'] else a.command
+out = ROOT / a.name
+out.mkdir(exist_ok=False)
+os.umask(0o022)
+
+def git(*args):
+    return subprocess.check_output(['git', '-C', str(a.tree), *args], text=True).strip()
+
+def identity():
+    return {'revision': git('rev-parse', 'HEAD'), 'tree': git('rev-parse', 'HEAD^{tree}'),
+            'status': git('status', '--porcelain'), 'main': git('rev-parse', 'gitea/main')}
+
+def save(record):
+    (out / 'execution.json').write_text(json.dumps(record, indent=2) + '\n')
+
+before = identity()
+if a.clean:
+    assert not before['status'], before
+record = {'started_at': datetime.now(timezone.utc).isoformat(), 'before': before,
+          'cwd': str(a.tree), 'command': command, 'complete': False,
+          'controller_pid': os.getpid(), 'deadline_seconds': a.seconds,
+          'driver_sha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest()}
+save(record)
+env = {'HOME': '/Users/a77', 'PATH': '/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin',
+       'LANG': 'C.UTF-8', 'KNOWLEDGE_WIKI': '/Users/a77/knowledge-base-private/wiki',
+       'FWP_TEST_RECEIPT_DIR': str(out), 'PYTHONDONTWRITEBYTECODE': '1'}
+started = time.monotonic()
+with (out / 'stdout.txt').open('xb') as stdout, (out / 'stderr.txt').open('xb') as stderr:
+    proc = subprocess.Popen(command, cwd=a.tree, env=env, stdin=subprocess.DEVNULL,
+                            stdout=stdout, stderr=stderr, start_new_session=True)
+    record['pid'] = proc.pid
+    save(record)
+    stopped_for = None
+    while proc.poll() is None:
+        if time.monotonic() - started > a.seconds:
+            stopped_for = 'deadline'
+        elif shutil.disk_usage(ROOT).free < 2 * 1024**3:
+            stopped_for = 'disk_below_2GiB'
+        if stopped_for:
+            os.killpg(proc.pid, signal.SIGTERM)
+            try:
+                proc.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                os.killpg(proc.pid, signal.SIGKILL)
+                proc.wait()
+            break
+        time.sleep(1)
+record.update(complete=True, exit_code=proc.returncode, stopped_for=stopped_for,
+              elapsed_seconds=round(time.monotonic() - started, 3), after=identity(),
+              free_bytes=shutil.disk_usage(ROOT).free)
+save(record)
+print(json.dumps(record), flush=True)
+raise SystemExit(proc.returncode if not stopped_for else 124)

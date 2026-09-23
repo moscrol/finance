@@ -1,0 +1,29 @@
+"""Count visible Python module pytest runners from untruncated ps args, not comm."""
+from pathlib import Path
+import re
+import subprocess
+
+
+def pytest_pids(raw: bytes) -> list[int]:
+    found = []
+    for line in raw.decode('utf-8', errors='replace').splitlines():
+        fields = line.strip().split(None, 1)
+        if len(fields) != 2 or not fields[0].isdigit():
+            continue
+        args = fields[1].split()
+        executable = Path(args[0]).name.casefold()
+        if not re.fullmatch(r'python[0-9.]*', executable):
+            continue
+        # A -c payload mentioning pytest is not a pytest invocation.
+        for index, arg in enumerate(args[1:], 1):
+            if arg == '-c':
+                break
+            if arg == '-m':
+                if index + 1 < len(args) and args[index + 1] == 'pytest':
+                    found.append(int(fields[0]))
+                break
+    return found
+
+
+def running_pytest_pids() -> list[int]:
+    return pytest_pids(subprocess.check_output(['ps', '-ww', '-axo', 'pid=,args='], timeout=20))

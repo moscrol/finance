@@ -1,0 +1,41 @@
+.F.F                                                                     [100%]
+=================================== FAILURES ===================================
+____________ test_setup_and_synthesis_reserve_cannot_renew_deadline ____________
+
+    def test_setup_and_synthesis_reserve_cannot_renew_deadline():
+        conn = FakeConnection(connect_delay=0.4)
+        parent = ResearchDeadline.from_timeout(5.0, synthesis_reserve=4.8)
+        assert 0.0 < parent.stage_timeout(8.0) <= 0.25  # grant sanity: reserve respected
+>       with pytest.raises(FinanceQueryTimedOut):
+E       Failed: DID NOT RAISE <class 'intelligence.services.finance_query.FinanceQueryTimedOut'>
+
+../../suite-followup/glm-deadline/FQ-historical/probe.py:91: Failed
+__________________ test_cancellation_beats_late_setup_success __________________
+
+    def test_cancellation_beats_late_setup_success():
+        calls = {"n": 0}
+    
+        def cancel_from_fourth_check() -> bool:
+            calls["n"] += 1
+            return calls["n"] > 3  # entry/pre-connect checks pass, pre-execute check trips
+    
+        conn = FakeConnection()
+        with pytest.raises(FinanceQueryCancelled):
+            make_engine(conn, timeout=2.0).run(
+                SPEC,
+                information_cutoff=CUTOFF,
+                deadline=ResearchDeadline.from_timeout(5.0),
+                is_cancelled=cancel_from_fourth_check,
+            )
+>       assert conn.execute_calls == [] and conn.close_calls == 1
+E       assert ([('SELECT "tr...-07-24', 50])] == []
+E         
+E         Left contains one more item: ('SELECT "trade_date" AS c0, "total_amount" AS c1, "trade_date" AS __source_date FROM "fact_market_daily" WHERE "trade_date" <= ? ORDER BY c0 DESC LIMIT ?', ['2026-07-24', 50])
+E         Use -v to get more diff)
+
+../../suite-followup/glm-deadline/FQ-historical/probe.py:124: AssertionError
+- generated xml file: /Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/suite-followup/glm-deadline/FQ-historical/probe.xml -
+=========================== short test summary info ============================
+FAILED ../../suite-followup/glm-deadline/FQ-historical/probe.py::test_setup_and_synthesis_reserve_cannot_renew_deadline
+FAILED ../../suite-followup/glm-deadline/FQ-historical/probe.py::test_cancellation_beats_late_setup_success
+2 failed, 2 passed in 1.30s

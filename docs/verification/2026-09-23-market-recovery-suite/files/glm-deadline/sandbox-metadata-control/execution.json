@@ -1,0 +1,14 @@
+{
+  "exit_code": 0,
+  "deadline_hit": false,
+  "elapsed_seconds": 0.074,
+  "command": [
+    "/usr/bin/sandbox-exec",
+    "-f",
+    "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/suite-followup/glm-deadline/sandbox-metadata-control/tools.sb",
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "-B",
+    "-c",
+    "import os, stat\npath = '/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/suite-followup/candidate/intelligence/users'\nassert stat.S_ISDIR(os.stat(path).st_mode)\ntry:\n    os.listdir(path)\nexcept PermissionError:\n    print('metadata allowed; directory contents denied')\nelse:\n    raise AssertionError('directory contents unexpectedly readable')\n"
+  ]
+}

@@ -1,0 +1,76 @@
+"""Diagnostic-only pytest plugin: observe worker phases without changing clocks or limits."""
+import functools
+import json
+import os
+from pathlib import Path
+import subprocess
+import threading
+import time
+
+import pytest
+
+POPEN = subprocess.Popen
+records = []
+processes = {}
+originals = {}
+lock = threading.Lock()
+
+
+def pytest_addoption(parser):
+    parser.addoption("--phase-log", required=True)
+
+
+def process_id(worker):
+    process = worker._process
+    if isinstance(process, POPEN):
+        with lock:
+            processes[process.pid] = process
+        return process.pid
+    return None
+
+
+def wrap(name, original):
+    @functools.wraps(original)
+    def observed(worker, *args, **kwargs):
+        started = time.monotonic()
+        entry = {"test": os.environ.get("PYTEST_CURRENT_TEST"), "phase": name,
+                 "worker": id(worker), "thread": threading.current_thread().name,
+                 "started": started, "pid_before": process_id(worker)}
+        if name in {"prewarm", "_query_locked"}:
+            entry["timeout"] = kwargs.get("timeout", args[1] if len(args) > 1 else None)
+        try:
+            return original(worker, *args, **kwargs)
+        except BaseException as exc:
+            entry["error"] = type(exc).__name__
+            raise
+        finally:
+            entry.update(elapsed=time.monotonic() - started, pid_after=process_id(worker))
+            with lock:
+                records.append(entry)
+    return observed
+
+
+def pytest_configure(config):
+    from intelligence.services.rag_worker import PersistentRagWorker
+    for name in ("prewarm", "_ensure_process", "_query_locked", "_stop_process", "close"):
+        original = getattr(PersistentRagWorker, name)
+        originals[name] = original
+        setattr(PersistentRagWorker, name, wrap(name, original))
+
+
+@pytest.hookimpl(trylast=True)
+def pytest_sessionfinish(session, exitstatus):
+    with lock:
+        payload = {"diagnostic_only": True, "pytest_exit": exitstatus,
+                   "records": sorted(records, key=lambda item: item["started"]),
+                   "child_exit_codes": {str(pid): proc.poll() for pid, proc in processes.items()}}
+    target = Path(session.config.getoption("--phase-log"))
+    with target.open("x") as stream:
+        json.dump(payload, stream, indent=2)
+        stream.write("\n")
+
+
+def pytest_unconfigure(config):
+    from intelligence.services.rag_worker import PersistentRagWorker
+    for name, original in originals.items():
+        setattr(PersistentRagWorker, name, original)

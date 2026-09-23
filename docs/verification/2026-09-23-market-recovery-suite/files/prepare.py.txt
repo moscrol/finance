@@ -1,0 +1,38 @@
+"""Build a verification-only merge after the upstream recovery PRs landed."""
+from datetime import datetime, timezone
+import json
+from pathlib import Path
+import subprocess
+
+ROOT = Path(__file__).resolve().parent
+SOURCE = Path('/Users/a77/fwp-wt-market-recovery-qc-fix-0923')
+BASE = 'c9dd71dfd678855b61662100ec74625b92ad1f1b'
+HEAD = '814b91cab93782644598b24be3c98a2ccc78b71a'
+
+
+def git(*args, input=None):
+    return subprocess.check_output(['git', '-C', str(SOURCE), *args], text=True, input=input).strip()
+
+
+assert git('status', '--porcelain') == ''
+assert git('rev-parse', 'HEAD') == HEAD
+assert git('ls-remote', 'gitea', 'refs/heads/main').split()[0] == BASE
+result = subprocess.run(['git', '-C', str(SOURCE), 'merge-tree', '--write-tree', BASE, HEAD],
+                        capture_output=True, text=True)
+with (ROOT / 'merge-tree.txt').open('x') as stream:
+    stream.write(result.stdout + result.stderr)
+result.check_returncode()
+tree = result.stdout.strip()
+assert len(tree) == 40
+revision = git('commit-tree', tree, '-p', BASE, '-p', HEAD,
+               input='Verification only: recovery QC on merged recovery PRs and delivery status fix\n')
+ref = 'refs/verification/market-recovery-suite-c9dd71dfd-20260923'
+git('update-ref', ref, revision, '0' * 40)
+for name in ['candidate', 'frontend-candidate']:
+    git('worktree', 'add', '--detach', str(ROOT / name), revision)
+record = {'revision': revision, 'tree': tree, 'base': BASE, 'fix_head': HEAD, 'ref': ref,
+          'source': str(SOURCE), 'prepared_at': datetime.now(timezone.utc).isoformat(),
+          'merge_admission': False, 'previous_candidate': '5213e9344b77e4094221734722b478705611a865'}
+with (ROOT / 'candidate.json').open('x') as stream:
+    json.dump(record, stream, indent=2)
+print(json.dumps(record))

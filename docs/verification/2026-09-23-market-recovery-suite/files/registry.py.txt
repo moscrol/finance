@@ -1,0 +1,22 @@
+"""Run the existing five registry checks on the new fixed candidate."""
+import json
+from pathlib import Path
+import subprocess
+
+ROOT = Path(__file__).resolve().parent
+PY = '/Users/a77/finance-workspace-private/.venv-workbench/bin/python'
+checks = [
+    ('parseability', ['scripts/build_registry.py', 'check-parseability']),
+    ('registry', ['scripts/build_registry.py', 'check']),
+    ('tables', ['scripts/build_registry.py', 'backfill-tables', '--check']),
+    ('views', ['scripts/build_registry.py', 'generate-views', '--check']),
+    ('ledger-crosswalk', ['scripts/audit_ledger_spec_crosswalk.py']),
+]
+results = {}
+for name, args in checks:
+    result = subprocess.run([PY, '-B', str(ROOT / 'run_step.py'), '--tree', str(ROOT / 'candidate'),
+                             '--name', name, '--clean', '--seconds', '120', '--', PY, '-B', *args])
+    results[name] = result.returncode
+with (ROOT / 'registry.json').open('x') as stream:
+    json.dump(results, stream, indent=2)
+print(json.dumps(results))

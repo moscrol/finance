@@ -1,0 +1,27 @@
+"""Replay the immutable independent probe on the pre-deadline-fix candidate once."""
+import json
+import shutil
+
+import review
+
+run = review.run
+out = run.make_out('FQ-historical')
+run.TREE = run.ROOT.parent.parent / 'glm-50330cf/candidate'
+assert run.git('rev-parse', 'HEAD') == '50330cf4fa435292bbd555ccc817e62ca5cc45b4'
+assert run.git('status', '--porcelain') == ''
+source = run.ROOT / 'FQ-explore/delivery/probe.py'
+shutil.copy2(source, out / 'probe.py')
+run.sandbox_profile(out)
+env = run.env_for(out)
+env['PYTEST_DISABLE_PLUGIN_AUTOLOAD'] = '1'
+env['PYTEST_ADDOPTS'] = ''
+record = {'before': run.identity(), 'complete': False, 'probe_sha256': run.sha(source),
+          'classification': 'historical sensitivity; not a new independent verdict'}
+run.save(out / 'execution.json', record)
+result = run.bounded([run.PY, '-B', '-m', 'pytest', '-q', '-o', 'addopts=', '-p', 'no:cacheprovider',
+                      '--confcutdir', str(out), str(out / 'probe.py'), f'--junitxml={out / "probe.xml"}'],
+                     out, env, 60, 'probe', True)
+record.update(complete=True, result=result, counts=run.counts(out / 'probe.xml'), after=run.identity(),
+              probe_unchanged=record['probe_sha256'] == run.sha(out / 'probe.py') == run.sha(source))
+run.save(out / 'execution.json', record)
+print(json.dumps(record))

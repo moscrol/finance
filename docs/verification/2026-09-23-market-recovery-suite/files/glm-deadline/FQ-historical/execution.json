@@ -1,0 +1,46 @@
+{
+  "before": {
+    "revision": "50330cf4fa435292bbd555ccc817e62ca5cc45b4",
+    "status": "",
+    "main": "c9dd71dfd678855b61662100ec74625b92ad1f1b"
+  },
+  "complete": true,
+  "probe_sha256": "7c0801e2656ed34347f20c7e6573066d175c57253951afbfef2ffbe956f433fc",
+  "classification": "historical sensitivity; not a new independent verdict",
+  "result": {
+    "exit_code": 1,
+    "deadline_hit": false,
+    "elapsed_seconds": 1.523,
+    "command": [
+      "/usr/bin/sandbox-exec",
+      "-f",
+      "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/suite-followup/glm-deadline/FQ-historical/tools.sb",
+      "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+      "-B",
+      "-m",
+      "pytest",
+      "-q",
+      "-o",
+      "addopts=",
+      "-p",
+      "no:cacheprovider",
+      "--confcutdir",
+      "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/suite-followup/glm-deadline/FQ-historical",
+      "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/suite-followup/glm-deadline/FQ-historical/probe.py",
+      "--junitxml=/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/suite-followup/glm-deadline/FQ-historical/probe.xml"
+    ]
+  },
+  "counts": {
+    "tests": 4,
+    "failures": 2,
+    "errors": 0,
+    "skipped": 0,
+    "passed": 2
+  },
+  "after": {
+    "revision": "50330cf4fa435292bbd555ccc817e62ca5cc45b4",
+    "status": "",
+    "main": "c9dd71dfd678855b61662100ec74625b92ad1f1b"
+  },
+  "probe_unchanged": true
+}

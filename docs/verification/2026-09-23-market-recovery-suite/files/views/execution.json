@@ -1,0 +1,32 @@
+{
+  "started_at": "2026-09-23T15:13:41.483545+00:00",
+  "before": {
+    "revision": "1de68567e740a9a5d9c25bea91142741ad12aa10",
+    "tree": "de67ee72b9eeca0b6ec26e5a2aafa1fb630ac1b8",
+    "status": "",
+    "main": "c9dd71dfd678855b61662100ec74625b92ad1f1b"
+  },
+  "cwd": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/suite-followup/candidate",
+  "command": [
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "-B",
+    "scripts/build_registry.py",
+    "generate-views",
+    "--check"
+  ],
+  "complete": true,
+  "controller_pid": 10040,
+  "deadline_seconds": 120,
+  "driver_sha256": "5634aacc209fe0286fac98a6931d73a4032c5ff632bbeeac5582dae14dc6b974",
+  "pid": 10046,
+  "exit_code": 0,
+  "stopped_for": null,
+  "elapsed_seconds": 1.006,
+  "after": {
+    "revision": "1de68567e740a9a5d9c25bea91142741ad12aa10",
+    "tree": "de67ee72b9eeca0b6ec26e5a2aafa1fb630ac1b8",
+    "status": "",
+    "main": "c9dd71dfd678855b61662100ec74625b92ad1f1b"
+  },
+  "free_bytes": 24265490432
+}

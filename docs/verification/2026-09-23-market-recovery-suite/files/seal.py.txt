@@ -1,0 +1,51 @@
+"""Seal this bounded attempt, preserving failed controllers and original reviewer artifacts."""
+from datetime import datetime, timezone
+import hashlib
+import json
+from pathlib import Path
+import shutil
+
+ROOT = Path(__file__).resolve().parent
+DEST = Path('/Users/a77/fwp-wt-market-recovery-qc-fix-0923/docs/verification/2026-09-23-market-recovery-suite')
+summary = json.loads((ROOT / 'summary.json').read_text())
+assert summary['overall'] == 'HOLD' and summary['candidate_clean']
+assert json.loads((ROOT / 'pipeline-v3.json').read_text())['complete']
+assert not DEST.exists()
+DEST.mkdir(parents=True)
+folders = {'rag-phases', 'controller-self-test', 'full-gate', 'full-gate-v3', 'frontend-gate',
+           'frontend-receipt', 'receipt-check', 'glm-deadline', 'parseability', 'registry',
+           'tables', 'views', 'ledger-crosswalk'}
+excluded = {'tmp', 'users', '__pycache__', '.pytest_cache'}
+suffixes = {'.json', '.jsonl', '.txt', '.log', '.xml', '.py', '.sb', '.md', '.mjs', '.stdout', '.stderr'}
+paths = [path for path in ROOT.iterdir() if path.is_file()]
+for folder in sorted(folders):
+    paths.extend((ROOT / folder).rglob('*'))
+raw = []
+archived = []
+for path in sorted(paths):
+    relative = path.relative_to(ROOT)
+    if path.is_symlink() or not path.is_file() or excluded.intersection(relative.parts) or path.suffix not in suffixes:
+        continue
+    data = path.read_bytes()
+    record = {'path': str(relative), 'bytes': len(data), 'sha256': hashlib.sha256(data).hexdigest()}
+    raw.append(record)
+    if len(data) > 2_000_000:
+        continue
+    target = DEST / 'files' / relative
+    if target.suffix in {'.py', '.log', '.sb', '.mjs'}:
+        target = target.with_name(target.name + '.txt')
+    target.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(path, target)
+    archived.append({**record, 'path': str(target.relative_to(DEST)), 'source': str(relative)})
+raw_path = DEST / 'raw-manifest.json'
+raw_path.write_text(json.dumps({'root': str(ROOT), 'files': raw}, indent=2) + '\n')
+archived.append({'path': raw_path.name, 'bytes': raw_path.stat().st_size,
+                 'sha256': hashlib.sha256(raw_path.read_bytes()).hexdigest()})
+(DEST / 'manifest.json').write_text(json.dumps({'sealed_at': datetime.now(timezone.utc).isoformat(),
+    'candidate': summary['revision'], 'overall': 'HOLD', 'files': archived}, indent=2) + '\n')
+for item in archived:
+    assert hashlib.sha256((DEST / item['path']).read_bytes()).hexdigest() == item['sha256']
+for item in raw:
+    assert hashlib.sha256((ROOT / item['path']).read_bytes()).hexdigest() == item['sha256']
+print(json.dumps({'overall': 'HOLD', 'archived_including_manifest': len(archived) + 1,
+                  'raw_files': len(raw), 'destination': str(DEST)}))

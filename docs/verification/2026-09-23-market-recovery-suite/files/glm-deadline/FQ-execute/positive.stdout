@@ -1,0 +1,14 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+________________________ test_intentional_red_probe_bug ________________________
+
+    def test_intentional_red_probe_bug():
+>       assert 1 == 2, "intentional positive control: probe_bug"
+E       AssertionError: intentional positive control: probe_bug
+E       assert 1 == 2
+
+../glm-deadline/FQ-execute/positive_control.py:2: AssertionError
+- generated xml file: /Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/suite-followup/glm-deadline/FQ-execute/positive.xml -
+=========================== short test summary info ============================
+FAILED ../glm-deadline/FQ-execute/positive_control.py::test_intentional_red_probe_bug
+1 failed in 0.04s
