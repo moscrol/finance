@@ -2,7 +2,7 @@
 
 ## 背景与范围
 
-本轮承接“继续”任务，目标不是再盘点材料，而是把 Knevo 原料放进「材料 → 吸收决定 → 实现/回归 → 验证证据」链。工作在独立树 `/Users/a77/fwp-wt-knevo-closure-0923`、分支 `feat/knevo-absorption-closure-0923` 完成；生产 8792、生产行情库和用户画像未触碰。原 28 题冻结基准不变，09-17 揭盲材料不进入盲测分母。
+本轮承接“继续”任务，目标不是再盘点材料，而是把 Knevo 原料放进「材料 → 吸收决定 → 实现/回归 → 验证证据」链。工作在独立树 `/Users/a77/fwp-wt-knevo-closure-0923`、分支 `feat/knevo-absorption-closure-0923` 完成；生产 8792、生产行情库和用户画像未触碰。原 28 题冻结不变，09-17 揭盲材料不进入盲测分母。
 
 ## 按发现顺序的关键决定
 
@@ -14,11 +14,11 @@
 6. 真实 Workbench 结果不能用“completed”代替语义通过：9 completed、3 failed，作者侧仅 G1c/G2a 满足代理规则的文本层，端到端接纳 0/12。G3b 越过不查库，pack2 越过仅用材料，Q14 丢到通用题型，多个题只剩降级/复核不可用。
 7. 公开 `report.json` 的 frame 与私有 Episode 分层。`sanitize_user_visible_artifact_text()` 可复现 pack3 D 日标签缺失，因此确认的是公开工件脱敏/保真问题；没有清洗前私有记录，不能断言实际模型输入被删。缺 Episode audit 也不能记成零 IO。
 
-## 验证与收据
+## 合流后的工程证据
 
-- 固定代码提交 `85bff632610d0b0861d6afae7f410cc498392f11`：定向 325 passed，收据 `~/.finance-runtime/test-receipts/20260922T180913Z-85bff632.json`；全仓 12567 passed / 85 skipped / 2 xfailed，收据 `~/.finance-runtime/test-receipts/20260922T183622Z-85bff632.json`；两者 dirty=false。
-- Ruff exit 0、`git diff --check` exit 0。前端独占树同 revision：lint/typecheck/build、Vitest 110、E2E 34 passed/2 skipped，收据 `~/.finance-runtime/knevo-absorption-20260923/frontend-gate-85bff6326/frontend.json`。
-- 12 题 run、题面哈希、工具请求、内部状态和作者裁决在 `docs/learning/knevo-distill/batches/2026-09-23-regression/observations.json`；最终离线 packet 在 runtime `final-packet-85bff6326/`，仅 prepared_not_run。
+- 已 fetch 最新 `gitea/main=760248ecebc79fbe4f2686ddd42255c1a00ec862`，与 Knevo 分支做两次无冲突前向整合；当前文档更新前的合流父提交为 `8b3a1cd07c503e5e0b00a9cf7a19ded54349e689`，`merge-tree --write-tree` exit 0，分支相对最新 main 为 ahead 9 / behind 0。
+- 合流父提交上的 Python 全仓门禁为 **14606 passed / 85 skipped / 2 xfailed / 0 failed**，Ruff 通过；收据 `~/.finance-runtime/knevo-absorption-20260923/final-python-gate-8b3a1cd07/gate-FxnNhpLZ/pytest.json`。前端六步（install/lint/typecheck/Vitest/build/E2E）均 exit 0，收据 `~/.finance-runtime/knevo-absorption-20260923/frontend-gate-8b3a1cd07/frontend.json`。注册表四项检查及 ledger/spec crosswalk 均 exit 0，日志 `~/.finance-runtime/knevo-absorption-20260923/registry-8b3a1cd07.log`。
+- 上一组 `85bff6326` / `61ebccc88` 收据仅作为历史基线；不得把它们冒充合流后或最终文档提交的验证。文档提交后重新生成的最终证据统一放在 `~/.finance-runtime/knevo-absorption-20260923/final-closure/`：`python-targeted.json`、`python-full.json`、`frontend/frontend.json`、`registry.log`、`diff-check.txt`。各收据 JSON 的 `revision` 字段是唯一可信的最终候选身份。
 
 ## 失败归因与重开顺序
 
@@ -26,4 +26,4 @@
 
 ## 禁止误读
 
-工程门禁绿不等于研究质量绿；准备成功、HTTP/消息交付成功、语义通过是三种状态。公开 frame 缺字段不等于模型输入损坏；恢复风远原料不等于批准画像；外部工具自述、UI 标签和单次回执不替后端真相。PR 保持 WIP，合 main、部署和画像写入另等确认。
+工程门禁绿不等于研究质量绿；准备成功、HTTP/消息交付成功、语义通过是三种状态。公开 frame 缺字段不等于模型输入损坏；恢复风远原料不等于批准画像；外部工具自述、UI 标签和单次回执不替后端真相。PR #877 保持 WIP；合 main、部署和画像写入另等确认。
