@@ -1,6 +1,7 @@
 {
   "report_kind": "host_closeout_not_independent_reviewer_verdict",
   "status": "BLOCKED_INDEPENDENT_QC",
+  "further_qc_retry_authorized": false,
   "requests": 63,
   "revision": "b24c86f87aaef6244dc6a2c6cf80f74ae1918943",
   "baseline": "ffd1b7f1572067e9a4c7e3a5845e99cf7f876cfb",
