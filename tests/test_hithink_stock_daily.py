@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+import email.message
 import inspect
+import io
 import json
-from datetime import date
+import urllib.error
+from datetime import date, datetime, timedelta, timezone
+from email.utils import format_datetime
 from pathlib import Path
 import duckdb
 import pytest
@@ -357,3 +361,192 @@ def test_4001_retries_then_ok(monkeypatch) -> None:
     assert payload["code"] == 0
     assert calls["n"] == 2
     assert secret not in json.dumps(payload)
+
+
+# --- 全局限流（HTTP 429）退避 -------------------------------------------------
+# 载荷形状取自 2026-09-21 10:24 盘中实测（~/.finance-runtime/
+# hithink-anomaly-sample-20260921T1020/valuation-probe.log）：HTTP 429 +
+# 业务码 429，正文是合法 JSON，头里没有 Retry-After。修复前 429 既不匹配
+# code==0 也不匹配 4001，会在首个请求处直接抛错、中止整轮采集。
+
+_LIMIT_BODY = json.dumps(
+    {"code": 429, "message": "Global request rate limit exceeded"}
+).encode()
+_LIMIT_HEADERS = {
+    "Date": "Mon, 21 Sep 2026 02:24:06 GMT",
+    "Content-Type": "application/json",
+    "Server": "Stargate",
+}
+
+
+def _headers(mapping):
+    msg = email.message.Message()
+    for key, value in (mapping or {}).items():
+        msg[key] = value
+    return msg
+
+
+def _limit_error(body=_LIMIT_BODY, *, status=429, headers=_LIMIT_HEADERS):
+    return urllib.error.HTTPError(
+        "https://fuyao.aicubes.cn/api/x",
+        status,
+        "Too Many Requests",
+        _headers(headers),
+        io.BytesIO(body),
+    )
+
+
+class _OkResp:
+    def __init__(self, payload):
+        self.status = 200
+        self.headers = _headers({"Content-Type": "application/json"})
+        self._raw = json.dumps(payload).encode()
+
+    def read(self):
+        return self._raw
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+
+def _arm(monkeypatch, responses):
+    """按序回放 responses；元素是 Exception 就 raise。返回 (calls, slept)。"""
+
+    calls = {"n": 0}
+    slept: list[float] = []
+
+    def _urlopen(*a, **k):
+        index = calls["n"]
+        calls["n"] += 1
+        item = responses[min(index, len(responses) - 1)]
+        if isinstance(item, Exception):
+            raise item
+        return item
+
+    monkeypatch.setenv("HITHINK_FINANCE_API_KEY", "test-key-must-not-leak-xyz")
+    monkeypatch.delenv(hithink_client.ENV_RATE_LIMIT_BUDGET, raising=False)
+    monkeypatch.setattr(hithink_client, "_last_request_monotonic", 0.0)
+    monkeypatch.setattr(hithink_client.time, "sleep", slept.append)
+    monkeypatch.setattr("urllib.request.urlopen", _urlopen)
+    return calls, slept
+
+
+def test_http_429_retries_then_ok(monkeypatch) -> None:
+    calls, slept = _arm(
+        monkeypatch, [_limit_error(), _OkResp({"code": 0, "data": {"item": []}})]
+    )
+    payload = get_json("/api/a-share/valuations/snapshot", gap_seconds=0)
+    assert payload["code"] == 0
+    assert calls["n"] == 2
+    assert slept == [0.8]  # 无 Retry-After 时走指数退避首档
+
+
+def test_http_429_with_non_json_body_retries(monkeypatch) -> None:
+    """网关返 HTML 时也算限流，不能误报成「非 JSON 响应」。"""
+
+    calls, _ = _arm(
+        monkeypatch,
+        [
+            _limit_error(
+                b"<html><body>429 Too Many Requests</body></html>",
+                headers={"Content-Type": "text/html"},
+            ),
+            _OkResp({"code": 0, "data": {"item": []}}),
+        ],
+    )
+    payload = get_json("/api/a-share/anomaly-analysis-list", gap_seconds=0)
+    assert payload["code"] == 0
+    assert calls["n"] == 2
+
+
+def test_retry_after_seconds_header_wins_over_backoff(monkeypatch) -> None:
+    headers = dict(_LIMIT_HEADERS, **{"Retry-After": "12"})
+    _, slept = _arm(
+        monkeypatch,
+        [
+            _limit_error(headers=headers),
+            _OkResp({"code": 0, "data": {"item": []}}),
+        ],
+    )
+    get_json("/api/a-share/valuations/snapshot", gap_seconds=0)
+    assert slept == [12.0]
+
+
+def test_retry_after_http_date_header_is_parsed(monkeypatch) -> None:
+    when = datetime.now(tz=timezone.utc) + timedelta(seconds=30)
+    headers = dict(_LIMIT_HEADERS, **{"Retry-After": format_datetime(when, usegmt=True)})
+    _, slept = _arm(
+        monkeypatch,
+        [
+            _limit_error(headers=headers),
+            _OkResp({"code": 0, "data": {"item": []}}),
+        ],
+    )
+    get_json("/api/a-share/valuations/snapshot", gap_seconds=0)
+    assert len(slept) == 1
+    assert 20.0 < slept[0] <= 30.0
+
+
+def test_retry_after_is_capped(monkeypatch) -> None:
+    """上游给个离谱的 Retry-After 也不能让夜跑挂死。"""
+
+    headers = dict(_LIMIT_HEADERS, **{"Retry-After": "86400"})
+    _, slept = _arm(
+        monkeypatch,
+        [
+            _limit_error(headers=headers),
+            _OkResp({"code": 0, "data": {"item": []}}),
+        ],
+    )
+    get_json("/api/a-share/valuations/snapshot", gap_seconds=0, rate_limit_budget_seconds=600)
+    assert slept == [hithink_client.MAX_RATE_LIMIT_SLEEP_SECONDS]
+
+
+def test_rate_limit_budget_exhausts_and_fails_closed(monkeypatch) -> None:
+    calls, slept = _arm(monkeypatch, [_limit_error()])
+    with pytest.raises(HithinkAPIError) as excinfo:
+        get_json(
+            "/api/a-share/valuations/snapshot",
+            gap_seconds=0,
+            rate_limit_budget_seconds=5,
+        )
+    text = f"{excinfo.value!s}{excinfo.value!r}"
+    assert "限流退避耗尽" in text
+    assert "test-key-must-not-leak-xyz" not in text
+    assert sum(slept) <= 5  # 不越预算
+    assert calls["n"] < 20  # 有界，不死循环
+
+
+def test_zero_budget_disables_rate_limit_retry(monkeypatch) -> None:
+    calls, slept = _arm(monkeypatch, [_limit_error()])
+    with pytest.raises(HithinkAPIError):
+        get_json(
+            "/api/a-share/valuations/snapshot",
+            gap_seconds=0,
+            rate_limit_budget_seconds=0,
+        )
+    assert calls["n"] == 1
+    assert slept == []
+
+
+def test_rate_limit_budget_reads_environment(monkeypatch) -> None:
+    calls, slept = _arm(monkeypatch, [_limit_error()])
+    monkeypatch.setenv(hithink_client.ENV_RATE_LIMIT_BUDGET, "0")
+    with pytest.raises(HithinkAPIError):
+        get_json("/api/a-share/valuations/snapshot", gap_seconds=0)
+    assert calls["n"] == 1
+    assert slept == []
+
+
+def test_non_rate_limit_code_still_fails_fast(monkeypatch) -> None:
+    """只放行限流码；其余业务错误仍须立即失败，不被新退避吞掉。"""
+
+    calls, slept = _arm(monkeypatch, [_OkResp({"code": 2003, "message": "auth failed"})])
+    with pytest.raises(HithinkAPIError) as excinfo:
+        get_json("/api/a-share/valuations/snapshot", gap_seconds=0)
+    assert calls["n"] == 1
+    assert slept == []
+    assert "code=2003" in str(excinfo.value)
