@@ -11,6 +11,7 @@
 
 - **[2026-09-23] read/write 顺序只写在提示词里，GLM 同一响应先猜后写；直接调用工具的 mock 又漏验 CLI 允许名单。**
   根因：并发工具调用的参数在读取结果返回前已生成；工具注册存在也不代表 `--tools` 允许它。PR #868 新批准入4请求结束，最终文本正确但副本错误，失败即停。复核发现正式阶段名单遗漏 deliver_stage，未启动正式审查。后续用工具菜单状态机约束依赖顺序、真实 pi 启动检查可用工具集合；不能覆盖错误证据或用 mock 绿代签端到端。原件见 `docs/verification/2026-09-23-adaptive-qc-glm-roundtrip/`。
+  修复：`324a76f9a` 增加真实CLI菜单检查、跨响应状态机、精确副本检查及独占终稿调用；本地假服务还抓到“先记请求再被状态机拒绝”多算问题，调整为先检查再记账。固定干净树定向55P，真实模型0次；不等于独审通过。工具与反例已入 `scripts/review_probes/pi_review_protocol.mjs`、`tests/test_pi_review_repair.py`，收据见 `docs/verification/2026-09-23-pi-review-protocol-repair/`。
 
 ## Git 预览与真实提交
 
