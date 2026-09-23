@@ -1,0 +1,71 @@
+{
+  "stale_plan_overwrites_despite_default_policy": {
+    "allow_replace_existing": false,
+    "trade_date": "2026-09-18",
+    "deleted_replaced": 3,
+    "written_rows": 3,
+    "final_rows": 3,
+    "other_days_unchanged": true,
+    "surviving_prices": [
+      [
+        10.0
+      ]
+    ]
+  },
+  "missing_canonical_bar_reports_full_coverage": {
+    "before": [
+      [
+        2,
+        3
+      ]
+    ],
+    "after": [
+      [
+        1,
+        3
+      ]
+    ],
+    "action": "written",
+    "coverage": {
+      "declared_count": 3,
+      "observed_count": 3,
+      "nontrading_count": 0,
+      "bar_coverage_denominator": 3,
+      "observed_bar_fraction": 1.0,
+      "disposition_coverage_fraction": 1.0,
+      "official_historical_universe_verified": false,
+      "nontrading_codes": [],
+      "ratio_denominator": 3,
+      "synthetic_rows": 0
+    }
+  },
+  "nightly_local_plan": {
+    "labels": [
+      "db-lock",
+      "stock-daily",
+      "hithink-stock-daily",
+      "hithink-sector-kline",
+      "hithink-limit-pools",
+      "hithink-dragon-auction",
+      "index-daily",
+      "sw-l1-daily",
+      "carry-forward-universe",
+      "stitch-sector-stocks",
+      "sector-daily-local",
+      "limit-stats-local",
+      "market-overview-local",
+      "market-editorial-local",
+      "market-stage-local",
+      "stock-high-local",
+      "mainline-local",
+      "core-stock-local",
+      "core-leader-local",
+      "features"
+    ],
+    "bridge_present": false
+  },
+  "cli_recovery_arguments": {
+    "force": false,
+    "min_boards": 2
+  }
+}

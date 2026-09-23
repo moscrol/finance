@@ -1,0 +1,37 @@
+{
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "python_version": "3.12.13",
+  "dependency_fingerprint": "3328bed61f3e21ea",
+  "tree": "/private/tmp/qc-market-recovery-ffd1b7f1",
+  "revision": "c57a4d019bd0bfa0a8f552590ec13f8ef4349de0",
+  "branch": "HEAD",
+  "dirty": false,
+  "dirty_paths": [],
+  "worktree_dirty_total": 0,
+  "dependency_gate_bypassed": false,
+  "target": "tests/test_audit_dated_quote_capture.py tests/test_audit_recovery_metadata.py tests/test_hithink_recovery_candidate.py tests/test_recovery_coverage.py tests/test_compute_local_stats.py tests/test_sync_local_sector_members.py tests/test_bridge_hithink_stock_daily.py tests/test_mootdx_source_health.py tests/test_consumption_registry.py intelligence/tests/test_codex_headless_runtime.py::test_installed_codex_sandbox_denies_network_and_unix_socket",
+  "scope": {
+    "ignore": [],
+    "ignore_glob": [],
+    "deselect": [],
+    "keyword": "",
+    "markexpr": "",
+    "maxfail": 0,
+    "last_failed": false,
+    "collected": 233
+  },
+  "counts": {
+    "passed": 231,
+    "failed": 2,
+    "error": 0,
+    "skipped": 0,
+    "xfailed": 0,
+    "xpassed": 0
+  },
+  "failed_ids": [
+    "intelligence/tests/test_codex_headless_runtime.py::test_installed_codex_sandbox_denies_network_and_unix_socket[False]",
+    "intelligence/tests/test_codex_headless_runtime.py::test_installed_codex_sandbox_denies_network_and_unix_socket[True]"
+  ],
+  "exit_status": 1,
+  "finished_at": "2026-09-23T04:09:36+00:00"
+}

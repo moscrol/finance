@@ -1,0 +1,10 @@
+consumption registry @ 2026-09-15
+  A-replace    8  stock_daily, hithink_stock_daily, hithink_sector_kline, hithink_limit_pools, hithink_dragon_auction, index_and_sw_l1, dragon, auction
+  B-identity   3  sector_universe, sector_members, research_catalog
+  C-daily     12  market_overview, mainline, limit_heat, stock_high, limit_advance, theme_flow, regulation, global_market, leader_height_similar_days, events, fundamentals_docs, summary_keywords
+  D-derived    4  sector_daily, core_stocks, core_leaders, sector_period_rank
+  plan full   17 步: db-lock → sectors → market-overview → index-daily → sw-l1-daily → market-deviation → sector-daily → sector-stocks → limit-heat → stock-high → limit-advance → stock-daily → mainline-daily → mainline-sector-daily → theme-flow-daily → public-assets → features
+  plan cheap  18 步: db-lock → sectors → market-overview → index-daily → sw-l1-daily → market-deviation → stock-daily → stock-high → limit-heat → stitch-sector-stocks → sector-stocks-delta → sector-daily-local → limit-advance → mainline-daily → mainline-sector-daily → theme-flow-daily → public-assets → features
+  plan local  20 步: db-lock → stock-daily → hithink-stock-daily → hithink-sector-kline → hithink-limit-pools → hithink-dragon-auction → index-daily → sw-l1-daily → carry-forward-universe → stitch-sector-stocks → sector-daily-local → limit-stats-local → market-overview-local → market-editorial-local → market-stage-local → stock-high-local → mainline-local → core-stock-local → core-leader-local → features
+  recipes 6（pending-grilling: -）
+registry 校验通过（档位/表名/计划步骤归属）

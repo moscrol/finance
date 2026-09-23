@@ -1,0 +1,37 @@
+{
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "python_version": "3.12.13",
+  "dependency_fingerprint": "3328bed61f3e21ea",
+  "tree": "/private/tmp/qc-market-base-9a022798",
+  "revision": "9a02279863733c9b9f60fd92fcc7e840fa83f878",
+  "branch": "HEAD",
+  "dirty": false,
+  "dirty_paths": [],
+  "worktree_dirty_total": 0,
+  "dependency_gate_bypassed": false,
+  "target": "intelligence/tests/test_codex_headless_runtime.py",
+  "scope": {
+    "ignore": [],
+    "ignore_glob": [],
+    "deselect": [],
+    "keyword": "installed_codex_sandbox",
+    "markexpr": "",
+    "maxfail": 0,
+    "last_failed": false,
+    "collected": 2
+  },
+  "counts": {
+    "passed": 0,
+    "failed": 2,
+    "error": 0,
+    "skipped": 0,
+    "xfailed": 0,
+    "xpassed": 0
+  },
+  "failed_ids": [
+    "intelligence/tests/test_codex_headless_runtime.py::test_installed_codex_sandbox_denies_network_and_unix_socket[False]",
+    "intelligence/tests/test_codex_headless_runtime.py::test_installed_codex_sandbox_denies_network_and_unix_socket[True]"
+  ],
+  "exit_status": 1,
+  "finished_at": "2026-09-23T04:00:57+00:00"
+}
