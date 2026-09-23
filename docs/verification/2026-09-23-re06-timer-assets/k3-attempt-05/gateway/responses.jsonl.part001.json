@@ -1,0 +1,9 @@
+{
+  "source": "gateway/responses.jsonl",
+  "raw_sha256": "2be45e6e2ac79800fe6c786db63288983148f3a47029d39bf535891dacdb4228",
+  "raw_bytes": 91,
+  "chunk": 1,
+  "chunks": 1,
+  "encoding": "gzip-base64-chunk",
+  "data": "H4sIAAAAAAACE6tWKkotLE0tLlGyMtRRSs1JLChOTYnPLVayMjOzNNJRKi5JLCkF8owMDGq5qhGKjVAVG1oYG5uiqQYA0AE3slsAAAA="
+}

@@ -1,0 +1,126 @@
+{
+  "schema": "reversible-evidence-v1",
+  "source_root": "/Users/a77/.finance-runtime/reviews/re06-timer-scope-acceptance-20260923-02",
+  "revision": "f9ce5c6b296492b423400ad66d333784a4be13bc",
+  "files": {
+    "artifact-drift.json": {
+      "sha256": "500c3a2192d4214660d0e0dd45b15723323d12e4fdec7484c5ca4d2d78082fea",
+      "bytes": 1086,
+      "artifacts": [
+        "artifact-drift.json"
+      ],
+      "encoding": "identity"
+    },
+    "frontend.log.txt": {
+      "sha256": "67cf77c07ecc4c84473c197902b8e1bc3ffd64b51c3b47b6fbca088331d677b1",
+      "bytes": 260,
+      "artifacts": [
+        "frontend.log.txt.part001.json"
+      ],
+      "encoding": "gzip-base64-chunks",
+      "compressed_sha256": "5cae4726f341714c5a18234a5168c3257f0e2db1098186b9517389ac7b7aab13"
+    },
+    "frontend/frontend-0.log.txt": {
+      "sha256": "916f4c1808f2b82b19cfb9c911085c3e422cd84a36afb90d41fba8a7954b1311",
+      "bytes": 105,
+      "artifacts": [
+        "frontend/frontend-0.log.txt.part001.json"
+      ],
+      "encoding": "gzip-base64-chunks",
+      "compressed_sha256": "3e98b7f01b595ea885946980eddda384c3ecd0a76d21fc8f83c0d520b11af3b8"
+    },
+    "frontend/frontend-1.log.txt": {
+      "sha256": "5d175fbe10d4b7abdf60e23d2a1e0c26370d2592adf29a3e351a37805a0d1473",
+      "bytes": 110,
+      "artifacts": [
+        "frontend/frontend-1.log.txt.part001.json"
+      ],
+      "encoding": "gzip-base64-chunks",
+      "compressed_sha256": "d7d8ac78707637db01e63b53f09ebdfd5e0225b891e6d8d640c655f1c765ac2e"
+    },
+    "frontend/frontend-2.log.txt": {
+      "sha256": "f4ca2ce882e0a8af60c80a98f465e1bca7ecd5f14df16406a480bf9c3ca6f099",
+      "bytes": 208,
+      "artifacts": [
+        "frontend/frontend-2.log.txt.part001.json"
+      ],
+      "encoding": "gzip-base64-chunks",
+      "compressed_sha256": "33a3af3983ac29dab3760375e36cc0775c7d43a13687e09725725ed05814e61a"
+    },
+    "frontend/frontend-3.log.txt": {
+      "sha256": "7d255c85ef1a3de8891e02a0cc05ce281c5a6cd9e3da93a2fd5eb2fd0c1594d1",
+      "bytes": 1421,
+      "artifacts": [
+        "frontend/frontend-3.log.txt.part001.json"
+      ],
+      "encoding": "gzip-base64-chunks",
+      "compressed_sha256": "679521a51fc6efe00ed7bd01bb2a7e468464a446932ef0d29fa9e2a898375d01"
+    },
+    "frontend/frontend-4.log.txt": {
+      "sha256": "238c5095eeebbca9cf768185c4f8d4ee6e6ed6cab4f4b3bc31561ed9f92465bd",
+      "bytes": 907,
+      "artifacts": [
+        "frontend/frontend-4.log.txt.part001.json"
+      ],
+      "encoding": "gzip-base64-chunks",
+      "compressed_sha256": "aa0e6f33d879afc8ad892debd4c369f99771689b85e8df7aab53a66fbb60b53d"
+    },
+    "frontend/frontend.json": {
+      "sha256": "76881a2ba50fca8804fd746bf75956d4d16c07c24dee032d2507e5b799330328",
+      "bytes": 2370,
+      "artifacts": [
+        "frontend/frontend.json"
+      ],
+      "encoding": "identity"
+    },
+    "frontend_leaf.py": {
+      "sha256": "0ece4a2e5935bdecc3c6fa2c383d9034e41f363e411619be1f96f714035ccf3c",
+      "bytes": 748,
+      "artifacts": [
+        "frontend_leaf.py.txt"
+      ],
+      "encoding": "identity"
+    },
+    "prepare_next.py": {
+      "sha256": "1e88d10a51850b1fdbe902ea33534c3405b6ba9b2aed759f4828ea8d2eac9759",
+      "bytes": 1178,
+      "artifacts": [
+        "prepare_next.py.txt"
+      ],
+      "encoding": "identity"
+    },
+    "preserve_artifact_drift.py": {
+      "sha256": "7e6a142bed6c8362ef798bb36e0db223fd0c02fdc3fffe94ba50cc1cc2b5716c",
+      "bytes": 2415,
+      "artifacts": [
+        "preserve_artifact_drift.py.txt"
+      ],
+      "encoding": "identity"
+    },
+    "receipt.json": {
+      "sha256": "814987067937c10f2aab4591e65086d467e9a6f4391cb4536cbd84f709b24783",
+      "bytes": 5425,
+      "artifacts": [
+        "receipt.json"
+      ],
+      "encoding": "identity"
+    },
+    "run.py": {
+      "sha256": "d4806ad3d50914056a161036fc50330c176d78a0949fc269172ad76b76bf6b82",
+      "bytes": 7132,
+      "artifacts": [
+        "run.py.txt"
+      ],
+      "encoding": "identity"
+    },
+    "runner.log.txt": {
+      "sha256": "216ac9aa9b644d0fb155919e552c389dae7b301bd68deff2a3035904ff8bae21",
+      "bytes": 889,
+      "artifacts": [
+        "runner.log.txt.part001.json"
+      ],
+      "encoding": "gzip-base64-chunks",
+      "compressed_sha256": "a3a9258e89638e9fcd5a3f27a2fb387a4da09e9846df993560e8647d018dfdee"
+    }
+  }
+}

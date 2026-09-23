@@ -1,0 +1,67 @@
+"""Offline verification of archived bytes, identities, claims, and request accounting."""
+import ast
+import hashlib
+import json
+from pathlib import Path
+import re
+import shutil
+import sys
+import xml.etree.ElementTree as ET
+import markdown
+ROOT=Path(__file__).resolve().parent
+sys.path.insert(0,str(ROOT))
+from archive_evidence import decode,verify
+REPO=Path('/Users/a77/fwp-wt-closeout-workorders-0922')
+DOC=REPO/'docs/verification/2026-09-23-re06-timer-assets'
+OLD=REPO/'docs/verification/2026-09-23-re06-timer-scope/acceptance-02'
+REV='b24c86f87aaef6244dc6a2c6cf80f74ae1918943'
+results=[]
+for folder in [OLD,DOC/'acceptance-03',DOC/'k3-attempt-05',DOC/'k3-attempt-06']:
+    count=verify(folder)
+    manifest=json.loads((folder/'manifest.json').read_text())
+    for name,item in manifest['files'].items():
+        raw=decode(folder,item)
+        original=Path(manifest['source_root'])/name
+        assert original.read_bytes()==raw,(folder,name)
+        if name.endswith('.py'):
+            ast.parse(raw,filename=name)
+        if name.endswith('.json'):
+            json.loads(raw)
+    results.append({'archive':str(folder.relative_to(REPO)),'verified_original_files':count,
+                    'manifest_sha256':hashlib.sha256((folder/'manifest.json').read_bytes()).hexdigest()})
+report=json.loads((DOC/'report.json').read_text())
+assert report['revision']==REV and report['engineering_acceptance']=='PASS'
+assert not report['mergeable'] and report['quality']=='not_evaluated'
+assert report['requests']==report['request_accounting']['current_candidate']==63
+assert report['request_accounting']['cumulative']==73
+assert report['reviewer_pytest_runs']==report['independent_author_test_runs']==0
+assert all(value=='not_verified' for value in report['claims'].values())
+table=ET.fromstring('<root>'+markdown.markdown((DOC/'spec/CLAIMS.md').read_text(),extensions=['tables'])+'</root>')
+claims={''.join(row[0].itertext()):''.join(row[-1].itertext()) for row in table.findall('.//tbody/tr')}
+assert claims==report['claims']
+for base in [DOC,OLD]:
+    for path in base.rglob('*'):
+        if not path.is_file():
+            continue
+        raw=path.read_bytes()
+        assert not raw or (raw.endswith(b'\n') and not raw.endswith(b'\n\n')),(path,'EOF')
+        assert not re.search(rb'[ \t]+$',raw,re.M),(path,'trailing whitespace')
+        if path.suffix=='.json':
+            json.loads(raw)
+        assert path.stat().st_size<500000,(path,'large file')
+authored=[DOC/'README.md',DOC/'acceptance-03/README.md',DOC/'quality/STATUS.md',DOC/'probes/README.md',DOC/'spec/CLAIMS.md',OLD/'README.md']
+for path in authored:
+    html=ET.fromstring('<root>'+markdown.markdown(path.read_text(),extensions=['tables','fenced_code'])+'</root>')
+    for link in html.iter('a'):
+        target=link.get('href','').split('#',1)[0]
+        if target and '://' not in target:
+            assert (path.parent/target).exists(),(path,target)
+handoff=REPO/'docs/handoffs/inflight/docs-closeout-workorders-0922.md'
+assert handoff.stat().st_size<=3000
+summary={'status':'PASS','revision':REV,'archives':results,'requests_current_candidate':63,'requests_candidate_chain':73,
+         'claims_all_not_verified':True,'quality_not_evaluated':True,'handoff_bytes':handoff.stat().st_size,
+         'model_requests':0,'pytest_runs':0,'purpose':'Evidence-integrity checks only, not independent QC.'}
+if '--save' in sys.argv:
+    shutil.copyfile(Path(__file__),DOC/'verify_packet.py.txt')
+    (DOC/'verification.json').write_text(json.dumps(summary,indent=2)+'\n')
+print(json.dumps(summary))

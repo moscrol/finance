@@ -1,0 +1,20 @@
+{
+  "at": "2026-09-23T07:15:05.224224+00:00",
+  "revision": "f9ce5c6b296492b423400ad66d333784a4be13bc",
+  "finding": "Tracked static bundle still uses v1 instead of source timer v2.",
+  "status_after_build": " D intelligence/api/static/assets/index-o4AWiRNg.js\u0000 M intelligence/api/static/index.html\u0000?? intelligence/api/static/assets/index-BobixB9S.js\u0000",
+  "old_bundle": {
+    "path": "intelligence/api/static/assets/index-o4AWiRNg.js",
+    "sha256": "112d774005472a198cc98ae9ab543dc88598598dcb0837e33f396989b61d11d4"
+  },
+  "generated_bundle": {
+    "path": "intelligence/api/static/assets/index-BobixB9S.js",
+    "sha256": "a2ef2085b83b84a4242314fad75b30ce2d304a8fa71f49c497c0ed63fbef7c96"
+  },
+  "generated_index_sha256": "61475495759a53b395e7d10a7bf90ee663ae3d181a6878ed245459d5505323d6",
+  "product_source_edited": false,
+  "new_candidate_tree": "/Users/a77/fwp-wt-re06-timer-assets-0923",
+  "new_candidate_base": "f9ce5c6b296492b423400ad66d333784a4be13bc",
+  "full_acceptance_status": "BLOCKED_ARTIFACT_IDENTITY_DRIFT",
+  "original_candidate_restored_clean": true
+}

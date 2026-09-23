@@ -1,0 +1,60 @@
+"""Fail closed on absent deliverables before invoking the credential-bearing runner."""
+import ast
+from datetime import datetime, timezone
+import hashlib
+import json
+from pathlib import Path
+import subprocess
+import sys
+import time
+ROOT=Path(__file__).resolve().parent
+stage,group=sys.argv[1:3]
+assert stage in {'execute','report'} and group in {'timer','e2','consent'}
+check_only=sys.argv[3:]==['--check-only']
+assert len(sys.argv)==3 or check_only
+config=json.loads((ROOT/'config.json').read_text())
+previous='explore' if stage=='execute' else 'execute'
+work=ROOT/'work'/group
+reasons=[]
+files={}
+prior_path=ROOT/f'{previous}-{group}'/'execution.json'
+if not prior_path.is_file():
+    reasons.append('MISSING_PREVIOUS_STAGE')
+else:
+    prior=json.loads(prior_path.read_text())
+    if prior.get('status')!='STAGE_COMPLETE' or prior.get('revision')!=config['revision']:
+        reasons.append('PREVIOUS_STAGE_NOT_COMPLETE')
+required=['EXPLORE.md','probes/test_reviewer.py'] if stage=='execute' else ['EXECUTE.md','EXECUTE.json','host-execution-check.json']
+for name in required:
+    path=work/name
+    if path.is_symlink() or not path.resolve().is_relative_to(work.resolve()):
+        reasons.append('UNSAFE_ARTIFACT:'+name)
+        continue
+    if not path.is_file() or not path.stat().st_size:
+        reasons.append('MISSING_ARTIFACT:'+name)
+        continue
+    data=path.read_bytes()
+    files[name]=hashlib.sha256(data).hexdigest()
+    if path.suffix=='.py':
+        try:
+            module=ast.parse(data)
+            assert any(isinstance(n,(ast.FunctionDef,ast.AsyncFunctionDef)) and n.name.startswith('test_') for n in ast.walk(module))
+        except (SyntaxError,AssertionError):
+            reasons.append('NO_PARSEABLE_PROBE_TESTS')
+    if name=='host-execution-check.json':
+        check=json.loads(data)
+        if check.get('complete_execution_evidence') is not True or check.get('revision')!=config['revision']:
+            reasons.append('EXECUTION_EVIDENCE_NOT_COMPLETE')
+record={'at':datetime.now(timezone.utc).isoformat(),'stage':stage,'group':group,'revision':config['revision'],
+        'allowed':not reasons,'reasons':reasons,'artifact_sha256':files,'credential_access_before_check':False,
+        'model_requests_before_check':0,'runner_sha256':hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+        'semantic_candidate_verdict':None,'check_only':check_only}
+folder=ROOT/'stage-admissions'
+folder.mkdir(exist_ok=True)
+with (folder/f'{stage}-{group}-{time.time_ns()}.json').open('x') as stream:
+    json.dump(record,stream,indent=2)
+print(json.dumps(record),flush=True)
+if reasons:
+    raise SystemExit(75)
+if not check_only:
+    raise SystemExit(subprocess.call([sys.executable,str(ROOT/'run_stage.py'),stage,group]))

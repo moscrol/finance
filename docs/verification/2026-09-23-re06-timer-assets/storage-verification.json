@@ -1,0 +1,24 @@
+{
+  "status": "PASS",
+  "raw_bytes_changed": false,
+  "archives": [
+    {
+      "archive": "acceptance-03",
+      "files_verified": 29,
+      "storage_conversions": 0,
+      "final_manifest_sha256": "f97abb701bd90f4383f314e3d02195ca6a18d1f9166fa428f944ae38df860825"
+    },
+    {
+      "archive": "k3-attempt-05",
+      "files_verified": 396,
+      "storage_conversions": 220,
+      "final_manifest_sha256": "e356c3430fdae7b484e130367b6443d5957f93618af2d8717ff3d4c67d92b121"
+    },
+    {
+      "archive": "k3-attempt-06",
+      "files_verified": 85,
+      "storage_conversions": 37,
+      "final_manifest_sha256": "9784ac508b0afe223648772054d02a3d0e0331bb58ee7c4c6043ecb43af63a40"
+    }
+  ]
+}

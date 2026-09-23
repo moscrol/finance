@@ -1,0 +1,9 @@
+{
+  "source": "pi-config/models-store.json",
+  "raw_sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+  "raw_bytes": 2,
+  "chunk": 1,
+  "chunks": 1,
+  "encoding": "gzip-base64-chunk",
+  "data": "H4sIAAAAAAACE6uuBQBDv6ajAgAAAA=="
+}

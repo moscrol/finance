@@ -1,0 +1,9 @@
+{
+  "source": "explore-consent/responses.jsonl",
+  "raw_sha256": "bb7a2799e2c2ab66d3a353c807d90458f9291e81a9eff782277f5768c68ae1ad",
+  "raw_bytes": 261,
+  "chunk": 1,
+  "chunks": 1,
+  "encoding": "gzip-base64-chunk",
+  "data": "H4sIAAAAAAACE6tWSkzJzSwuzszPU7Iy1FEqLkksKS1WsjIyMKjlqkaWNMInaYxP0gSfpCk+STN8kub4JC3wSVqiSQIA5kZ+ZwUBAAA="
+}

@@ -1,0 +1,36 @@
+"""Fresh E2-only follow-up. Preserve the prior reviewer's report without rewriting it."""
+import hashlib
+import json
+from pathlib import Path
+ROOT=Path(__file__).resolve().parent
+OLD=ROOT.with_name('re06-timer-scope-qc-20260923-05')
+names=['config.json','provider-template.json','credential-bootstrap.mjs','gateway.mjs','run_gateway.py',
+       'review.mjs','run_stage.py','file_tool.py','tools.sb','sandbox_preflight.mjs','caps_preflight.mjs',
+       'group-plan.json','pi-config/settings.json','inputs/claims.md','inputs/identity.json',
+       'resource_pytest.py','stage_admission.py','prompt-explore-e2.md']
+for name in names:
+    text=(OLD/name).read_text().replace(str(OLD),str(ROOT))
+    if name=='group-plan.json':
+        plan=json.loads(text)
+        plan.update(active_groups=['e2'],continuity='Timer and consent remain assigned to attempt 05; only E2 deliverables are retried here.',
+                    retry_reason='Attempt 05 E2 had a static terminal report but no probe code or files; execute was denied before credentials.',
+                    maximum_consecutive_attempts_for_current_candidate=2)
+        text=json.dumps(plan,ensure_ascii=False,indent=2)+'\n'
+    if name=='run_stage.py':
+        anchor="    hashes = {str(p.relative_to(ROOT)): digest(p) for p in watched}"
+        assert anchor in text
+        text=text.replace(anchor,"    watched.append(ROOT / 'inputs/e2-prior-explore.md')\n"+anchor)
+    target=ROOT/name
+    target.parent.mkdir(parents=True,exist_ok=True)
+    target.write_text(text)
+for group in ['timer','e2','consent']:
+    (ROOT/'work'/group/'probes').mkdir(parents=True)
+(ROOT/'work/tmp').mkdir()
+(ROOT/'work/users').mkdir()
+prior=(OLD/'explore-e2/REPORT.md').read_bytes()
+(ROOT/'inputs/e2-prior-explore.md').write_bytes(prior)
+(ROOT/'setup.json').write_text(json.dumps({'revision':'b24c86f87aaef6244dc6a2c6cf80f74ae1918943',
+    'prior_report':str(OLD/'explore-e2/REPORT.md'),'prior_report_sha256':hashlib.sha256(prior).hexdigest(),
+    'prior_report_rewritten':False,'request_cap_changed':False,'automatic_retry':False,
+    'active_groups':['e2'],'request_timeout_ms':300000,'stage_timeout_seconds':1800},indent=2)+'\n')
+print(ROOT)

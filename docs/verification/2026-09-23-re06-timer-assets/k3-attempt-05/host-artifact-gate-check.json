@@ -1,0 +1,36 @@
+{
+  "status": "PASS",
+  "source_sha256": "a93184e7c0e7022deeec25efe3d8fbc4ba401b18202b9108a5a3e0e4686c428d",
+  "checks": [
+    {
+      "case": "missing_artifacts",
+      "exit_code": 75,
+      "stub_dispatched": false,
+      "source_sha256": "a93184e7c0e7022deeec25efe3d8fbc4ba401b18202b9108a5a3e0e4686c428d",
+      "stdout": "{\"at\": \"2026-09-23T08:34:52.386282+00:00\", \"stage\": \"execute\", \"group\": \"e2\", \"revision\": \"host-fixture-only\", \"allowed\": false, \"reasons\": [\"MISSING_ARTIFACT:EXPLORE.md\", \"MISSING_ARTIFACT:probes/test_reviewer.py\"], \"artifact_sha256\": {}, \"credential_access_before_check\": false, \"model_requests_before_check\": 0, \"runner_sha256\": \"a93184e7c0e7022deeec25efe3d8fbc4ba401b18202b9108a5a3e0e4686c428d\", \"semantic_candidate_verdict\": null, \"check_only\": false}\n",
+      "stderr": ""
+    },
+    {
+      "case": "valid_artifacts",
+      "exit_code": 99,
+      "stub_dispatched": true,
+      "source_sha256": "a93184e7c0e7022deeec25efe3d8fbc4ba401b18202b9108a5a3e0e4686c428d",
+      "stdout": "{\"at\": \"2026-09-23T08:34:52.639203+00:00\", \"stage\": \"execute\", \"group\": \"e2\", \"revision\": \"host-fixture-only\", \"allowed\": true, \"reasons\": [], \"artifact_sha256\": {\"EXPLORE.md\": \"39253f84c7782d8fe3dba1b8010ef7696be8ed97cf457adeb864eb6a39ecb638\", \"probes/test_reviewer.py\": \"5123de0cc197ee16b5f47a0509a56ef6d09a46e4b67f1619f764a456125f6da0\"}, \"credential_access_before_check\": false, \"model_requests_before_check\": 0, \"runner_sha256\": \"a93184e7c0e7022deeec25efe3d8fbc4ba401b18202b9108a5a3e0e4686c428d\", \"semantic_candidate_verdict\": null, \"check_only\": false}\n",
+      "stderr": ""
+    },
+    {
+      "case": "missing_guard_mutant",
+      "exit_code": 99,
+      "stub_dispatched": true,
+      "source_sha256": "9209aaca2c63ec4987f293b9a4a27f256920c6d248cae35cedf2ff28b68a72aa",
+      "stdout": "{\"at\": \"2026-09-23T08:34:53.227083+00:00\", \"stage\": \"execute\", \"group\": \"e2\", \"revision\": \"host-fixture-only\", \"allowed\": false, \"reasons\": [\"MISSING_ARTIFACT:EXPLORE.md\", \"MISSING_ARTIFACT:probes/test_reviewer.py\"], \"artifact_sha256\": {}, \"credential_access_before_check\": false, \"model_requests_before_check\": 0, \"runner_sha256\": \"9209aaca2c63ec4987f293b9a4a27f256920c6d248cae35cedf2ff28b68a72aa\", \"semantic_candidate_verdict\": null, \"check_only\": false}\n",
+      "stderr": ""
+    }
+  ],
+  "guard_removal_detected": true,
+  "real_model_requests": 0,
+  "credential_accesses": 0,
+  "pytest_executions": 0,
+  "independent_qc_positive_control": false,
+  "scope": "Host artifact-admission control only; not candidate correctness, reviewer probes, or assert-1-equals-2 acceptance."
+}

@@ -1,0 +1,58 @@
+"""Prepare fresh, isolated review inputs for the asset-only successor."""
+import hashlib
+import json
+from pathlib import Path
+import subprocess
+ROOT=Path(__file__).resolve().parent
+OLD=ROOT.with_name('re06-timer-scope-qc-20260923-04')
+REV='b24c86f87aaef6244dc6a2c6cf80f74ae1918943'
+BASE='ffd1b7f1572067e9a4c7e3a5845e99cf7f876cfb'
+TREE=ROOT/'candidate/finance-workspace-private'
+AUTHOR='/Users/a77/fwp-wt-re06-timer-assets-0923'
+names=['config.json','provider-template.json','credential-bootstrap.mjs','gateway.mjs','run_gateway.py',
+       'review.mjs','run_stage.py','file_tool.py','tools.sb','sandbox_preflight.mjs','caps_preflight.mjs',
+       'group-plan.json','pi-config/settings.json','inputs/claims.md',
+       'prompt-explore-timer.md','prompt-explore-e2.md','prompt-explore-consent.md']
+changes={str(OLD):str(ROOT),
+    '/Users/a77/.finance-runtime/reviews/re06-timer-scope-qc-20260923-02/candidate/finance-workspace-private':str(TREE),
+    '/Users/a77/.finance-runtime/reviews/re06-timer-scope-qc-20260923-02/candidate':str(ROOT/'candidate'),
+    '/Users/a77/.finance-runtime/reviews/re06-timer-scope-qc-20260923-02':str(ROOT),
+    '/Users/a77/fwp-wt-wave2-re06-0923':AUTHOR,
+    'f9ce5c6b296492b423400ad66d333784a4be13bc':REV}
+for name in names:
+    text=(OLD/name).read_text()
+    for before,after in changes.items():
+        text=text.replace(before,after)
+    if name=='review.mjs':
+        text=text.replace('elapsedMs >= 450000','elapsedMs >= 1440000').replace('nowSeconds + 720','nowSeconds + 1920').replace('>= 600000','>= 1800000')
+    elif name=='sandbox_preflight.mjs':
+        text=text.replace('449999','1439999').replace('450000','1440000')
+    elif name=='run_stage.py':
+        text=text.replace("'timeout_seconds': 600","'timeout_seconds': 1800").replace('timeout=600','timeout=1800')
+    elif name=='run_gateway.py':
+        text=text.replace("'timeout_seconds': 270","'timeout_seconds': 630").replace('timeout=270','timeout=630')
+    elif name.startswith('prompt-explore-'):
+        text=text.replace('600秒总窗','1800秒总窗')
+    if name=='pi-config/settings.json':
+        obj=json.loads(text)
+        obj['retry']['provider']['timeoutMs']=300000
+        text=json.dumps(obj,indent=2)+'\n'
+    if name=='group-plan.json':
+        obj=json.loads(text)
+        obj.update(request_timeout_ms=300000,stage_timeout_seconds=1800,
+                   current_status='NEW_CANDIDATE_AWAITING_FRESH_PREFLIGHT',
+                   parent_candidate='f9ce5c6b296492b423400ad66d333784a4be13bc',
+                   budget_change_reason='New authorized run; previous 120-second limit was a local SDK setting, not an HTTP failure code. No claim that this explains past failures.')
+        text=json.dumps(obj,ensure_ascii=False,indent=2)+'\n'
+    target=ROOT/name
+    target.parent.mkdir(parents=True,exist_ok=True)
+    target.write_text(text)
+for group in ['timer','e2','consent']:
+    (ROOT/'work'/group/'probes').mkdir(parents=True)
+(ROOT/'work/tmp').mkdir()
+(ROOT/'work/users').mkdir()
+changed=subprocess.check_output(['git','-C',str(TREE),'diff','--name-only','--diff-filter=ACMR',BASE,REV],text=True).splitlines()
+identity={'revision':REV,'baseline':BASE,'parent_candidate':'f9ce5c6b296492b423400ad66d333784a4be13bc',
+          'tree':str(TREE),'author':AUTHOR,'changed_source_sha256':{name:hashlib.sha256((TREE/name).read_bytes()).hexdigest() for name in changed}}
+(ROOT/'inputs/identity.json').write_text(json.dumps(identity,indent=2)+'\n')
+print(json.dumps({'root':str(ROOT),'revision':REV,'changed_files':len(changed),'request_timeout_ms':300000,'stage_timeout_seconds':1800}))

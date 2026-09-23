@@ -1,0 +1,49 @@
+{
+  "schema": 1,
+  "leaf": "frontend",
+  "tree": "/Users/a77/fwp-wt-re06-timer-assets-0923",
+  "revision": "b24c86f87aaef6244dc6a2c6cf80f74ae1918943",
+  "runner_sha256": "4fa9fd9a8e40507eb7a26e90f46928ac066551225cd6abb91d84370d3c427f32",
+  "started_at": "2026-09-23T07:35:27.775807+00:00",
+  "identity_before": {
+    "recorded_at": "2026-09-23T07:35:27.896612+00:00",
+    "revision": "b24c86f87aaef6244dc6a2c6cf80f74ae1918943",
+    "dirty": false,
+    "status_porcelain_z": ""
+  },
+  "identity_after": {
+    "recorded_at": "2026-09-23T07:37:10.375480+00:00",
+    "revision": "b24c86f87aaef6244dc6a2c6cf80f74ae1918943",
+    "dirty": false,
+    "status_porcelain_z": ""
+  },
+  "dirty": false,
+  "identity_stable": true,
+  "complete": true,
+  "checks": [
+    {
+      "command": [
+        "pnpm",
+        "build"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 7.95,
+      "log": "frontend-0.log.txt",
+      "log_bytes": 921,
+      "log_sha256": "a30659ca5aea8450c711847825afbd337a7733a711bcc00345dea05fb2b48967"
+    },
+    {
+      "command": [
+        "pnpm",
+        "test:e2e"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 94.29,
+      "log": "frontend-1.log.txt",
+      "log_bytes": 7065,
+      "log_sha256": "900651489e02c6713724c2c2270d448256b3b690951b64dac3bd5978f561c602"
+    }
+  ],
+  "exit_code": 0,
+  "finished_at": "2026-09-23T07:37:10.375652+00:00"
+}

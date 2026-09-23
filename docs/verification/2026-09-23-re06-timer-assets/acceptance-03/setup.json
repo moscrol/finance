@@ -1,0 +1,24 @@
+{
+  "source": "/Users/a77/.finance-runtime/reviews/re06-timer-scope-acceptance-20260923-02",
+  "replacements": {
+    "/Users/a77/fwp-wt-wave2-re06-0923": "/Users/a77/fwp-wt-re06-timer-assets-0923",
+    "f9ce5c6b296492b423400ad66d333784a4be13bc": "b24c86f87aaef6244dc6a2c6cf80f74ae1918943",
+    "29601": "29701",
+    "29604": "29704",
+    "time.monotonic()+300": "time.monotonic()+900"
+  },
+  "files": {
+    "run.py": {
+      "source_sha256": "d4806ad3d50914056a161036fc50330c176d78a0949fc269172ad76b76bf6b82",
+      "sha256": "00fe4527d3f89627e9752198c4a6decf88d351fcb4926a75fa1be419c4ef1705"
+    },
+    "frontend_leaf.py": {
+      "source_sha256": "0ece4a2e5935bdecc3c6fa2c383d9034e41f363e411619be1f96f714035ccf3c",
+      "sha256": "1f97b0d62e115fd7bd21c77b947655cf18b76b18dca9047e2c6cac0ce8a028dd"
+    }
+  },
+  "resource_wait_per_leaf_seconds": 900,
+  "pytest_timeout_seconds": 3600,
+  "e2e_owns_build": true,
+  "previous_candidate_receipts_reused": false
+}

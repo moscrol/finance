@@ -1,0 +1,9 @@
+{
+  "source": "sandbox-preflight/commands/004-read/output.log",
+  "raw_sha256": "a005ae5cab4857e6435518e0bb3ee031abad8529043854640871377727a46a8e",
+  "raw_bytes": 995,
+  "chunk": 1,
+  "chunks": 1,
+  "encoding": "gzip-base64-chunk",
+  "data": "H4sIAAAAAAACE8WTXW/TMBSG7/srjnbTVkriJBWtVhGEhNgtuxjcIFY5zsli1bHNsbOwf4/trrAxCSGExLmIk/PxJu8T+4a4wJaLI6xG4zwQCtQeBFcKFHd+vV8AXEmFcME+OiTH+G7Hil5qrgXmNGkvR2SE9xJnF9Zym8cM5U4Yi/lXkddlvS0v601eblkflA7eGFXYh4sMlNQI9asMpIbXo+kmhW/C+yAVHDTgOd2hLwh5d/D4za/WhbNK+lRfHREt6s41NzThOg2e4/ZF/PRhrGeDGbElnNk7VIoTsw9+MPrtpqhqFi9FtTnU7Ir4iLOho2PXqaHozxn2KcCQRrvUzpRsHzXSo+V+CKknLquy3iWfP7yk752lH8Ch6otAS4d/0GGzpGUGqIXppL5rzjchRWTINadlDdxBv1/8xvEfxH+HUm0SlGg+WSH0E2mQ5sQjkskgUsmgnfoe6UTiFyYZaJyj4rNNcPu3sbhGGqWLTt5H/T18Dqs2UH2BDxaJ+1ABbTzY2Og9dntY/ovzIbjuZMc9srNCAm3DIc0tyftY6YxwbAiNpu8di9N5eZmH+RfibTF2y8V3hVpXhOMDAAA="
+}

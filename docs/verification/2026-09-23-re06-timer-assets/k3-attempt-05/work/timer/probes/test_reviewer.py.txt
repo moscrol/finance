@@ -1,0 +1,142 @@
+"""K3 reviewer probes C7-C10 (group=timer). 自造构造器 + tmp_path；不触生产/网络/真实LLM。"""
+from __future__ import annotations
+from copy import deepcopy
+from datetime import datetime, timedelta, timezone
+import pytest
+from intelligence.services.product_value import measure as M, validate_event
+from intelligence.services.product_value.consent import measurement_scopes, covers_measurement
+from intelligence.services.product_value.contracts import (
+    ACTIVITY_TIMER_SCOPE, EVENT_SCHEMA, PROVENANCE_OBSERVED,
+    REQUIRED_MEASUREMENT_SCOPES, SOURCE_FRONTEND, SOURCE_SERVER,
+)
+from intelligence.services.research_evolution.run_observer import ObservingRunStore
+
+OWNER = "k3-reviewer-owner"
+T0 = datetime(2026, 10, 1, 0, 0, tzinfo=timezone.utc)
+
+def at(m): return T0 + timedelta(minutes=m)
+
+def make_event(m, action, scopes, *, version="bench-v9", source=SOURCE_SERVER,
+               protocol="workbench-self-use/v1", pilot=f"workbench:{OWNER}",
+               participant=OWNER, owner=OWNER, task=None, tag="x"):
+    stamp = at(m).isoformat()
+    return {"schema_version": EVENT_SCHEMA, "event_id": f"k3-{tag}-{m}-{action}",
+        "event_type": "consent_changed", "owner_user_id": owner, "pilot_id": pilot,
+        "participant_id": participant, "task_id": task, "case_id": None,
+        "case_version": None, "case_pair_id": None, "run_ids": [], "object_refs": [],
+        "assistance_condition": None, "event_at": stamp, "recorded_at": stamp,
+        "source_version": {"code_sha": "k3", "protocol_version": protocol, "artifact_hash": None},
+        "provenance": {"kind": PROVENANCE_OBSERVED, "source_ref": "k3", "source_hash": None},
+        "source_channel": source,
+        "payload": {"consent_version": version, "scopes": scopes, "effective_at": stamp,
+            "action": action, "terms_hash": "sha256:" + "ab" * 32,
+            "initiator": "user", "assistance_source": "workbench"},
+        "gaps": []}
+
+def legacy_timer(m, action, tag="legacy", **over):
+    return make_event(m, action, ["research", "logging"], version="workbench-activity-v1",
+                      source=SOURCE_FRONTEND, tag=tag, **over)
+
+def v2_timer(m, action, tag="v2", **over):
+    return make_event(m, action, [ACTIVITY_TIMER_SCOPE], version="workbench-activity-v2",
+                      source=SOURCE_FRONTEND, tag=tag, **over)
+
+def store_with(tmp_path, events):
+    store = ObservingRunStore(user_id=OWNER, root=tmp_path / "runs", evolution_root=tmp_path / "evo")
+    with store._evolution_store.transaction() as txn:
+        for e in events:
+            r = validate_event(e); assert r.ok, [i.code for i in r.issues]
+            txn.append_product_value_event(r.normalized or e, content_hash=r.content_hash or "")
+    return store
+
+def gate(tmp_path, events, m): return store_with(tmp_path, events)._measurement_consented(at(m))
+def read_side(tmp_path, events, m):
+    evs = store_with(tmp_path, events)._evolution_store.list_product_value_events()
+    return M._scopes_at(M._consent_timeline(evs), OWNER, at(m))
+
+# --- C8 分类 ---
+def test_pure_timer_is_none_any_version():
+    assert measurement_scopes(v2_timer(0, "grant")) is None
+    assert measurement_scopes(make_event(0, "withdraw", ["activity-timer"], version="anything")) is None
+
+def test_empty_scope_is_record_not_default():
+    r = measurement_scopes(make_event(0, "grant", []))
+    assert r == frozenset() and r is not None and not covers_measurement(r)
+
+def test_partial_and_mixed_scopes():
+    assert measurement_scopes(make_event(0, "grant", ["research"])) == {"research"}
+    assert measurement_scopes(make_event(0, "grant", ["activity-timer", "research"])) == {"research"}
+    full = measurement_scopes(make_event(0, "grant", ["activity-timer", "research", "logging"]))
+    assert full == REQUIRED_MEASUREMENT_SCOPES and covers_measurement(full)
+
+def test_missing_payload_and_scopes_key():
+    assert measurement_scopes({"payload": {}}) == frozenset()
+    assert measurement_scopes({}) == frozenset()
+
+# --- C9 旧形状 ---
+@pytest.mark.parametrize("action", ["grant", "withdraw"])
+def test_legacy_full_shape_symmetric(action):
+    assert measurement_scopes(legacy_timer(0, action)) is None
+
+@pytest.mark.parametrize("over", [
+    {"source": SOURCE_SERVER}, {"protocol": "pilot/v1"}, {"pilot": "pilot-9"},
+    {"participant": "other-user"}, {"task": "t-1"}, {"participant": None},
+    {"version": "workbench-activity-v2"},
+])
+def test_legacy_mismatch_not_converted(over):
+    assert measurement_scopes(legacy_timer(0, "grant", **over)) == REQUIRED_MEASUREMENT_SCOPES
+
+def test_legacy_partial_scopes_not_converted():
+    assert measurement_scopes(legacy_timer(0, "withdraw", scopes := None) if False
+        else make_event(0, "withdraw", ["research"], version="workbench-activity-v1",
+                        source=SOURCE_FRONTEND)) == {"research"}
+    extra = make_event(0, "grant", ["research", "logging", "blind_review"],
+                       version="workbench-activity-v1", source=SOURCE_FRONTEND)
+    assert measurement_scopes(extra) == {"research", "logging", "blind_review"}
+
+# --- C10 写侧门 + 读侧 ---
+def test_no_records_default_open(tmp_path):
+    assert gate(tmp_path, [], 1) is True
+
+@pytest.mark.parametrize("cycle", ["v1", "v2"])
+def test_timer_only_keeps_default_and_read_unknown(tmp_path, cycle):
+    mk = legacy_timer if cycle == "v1" else v2_timer
+    evs = [mk(0, "grant", "a"), mk(5, "withdraw", "b")]
+    assert gate(tmp_path, evs, 6) is True and read_side(tmp_path, evs, 6) is None
+
+def test_real_withdrawal_survives_timer_restart(tmp_path):
+    for mk in (legacy_timer, v2_timer):
+        evs = [make_event(-9, "grant", ["research", "logging"], tag="m1"),
+               make_event(-7, "withdraw", ["logging"], tag="m2"),
+               mk(-5, "grant", "t1"), mk(-4, "withdraw", "t2"), mk(3, "grant", "t3")]
+        for m in (-6, 0, 4):
+            assert gate(tmp_path / mk.__name__, evs, m) is False, mk.__name__
+            assert read_side(tmp_path / f"{mk.__name__}r", evs, m) == {"research"}
+
+def test_timer_withdraw_never_revokes_measurement(tmp_path):
+    evs = [make_event(-2, "grant", ["research", "logging"], tag="m"),
+           v2_timer(-1, "withdraw", "t"), legacy_timer(0, "withdraw", "t2")]
+    assert gate(tmp_path, evs, 2) is True
+
+def test_partial_grant_flips_default_despite_timer(tmp_path):
+    evs = [make_event(-1, "grant", ["blind_review"], tag="p"), v2_timer(0, "grant", "t")]
+    assert gate(tmp_path, evs, 1) is False
+
+def test_empty_scope_record_blocks_default_both_sides(tmp_path):
+    evs = [make_event(-1, "grant", [], tag="e")]
+    assert gate(tmp_path, evs, 0) is False
+    assert read_side(tmp_path, evs, 0) == frozenset()  # 非 None：不算未知/默认
+
+def test_ledger_and_hashes_not_rewritten(tmp_path):
+    evs = [legacy_timer(0, "grant", "a"), legacy_timer(2, "withdraw", "b"),
+           v2_timer(4, "grant", "c"), v2_timer(6, "withdraw", "d")]
+    store = store_with(tmp_path, evs)
+    before = deepcopy(store._evolution_store.list_product_value_events())
+    for m in (1, 3, 5, 7):
+        store._measurement_consented(at(m))
+        M._consent_timeline(store._evolution_store.list_product_value_events())
+    after = store._evolution_store.list_product_value_events()
+    assert after == before
+    for orig, stored in zip(evs, after):
+        r = validate_event(orig); assert r.ok
+        assert stored.get("payload", {}).get("scopes") == orig["payload"]["scopes"]

@@ -16,9 +16,11 @@
 
 ## 决策（09-23 已选择 B）
 
-用户原话 `b`。已在独立候选 `fix/re06-timer-scope-0923@4bb3bf0cb` 实施 B：`activity-timer`/v2，读写共用测量域分类；旧 v1 仅对原控件完整自用形状作对称读取兼容，不改台账或哈希。原任务树保留，固定基线 `ffd1b7f15720`。干净候选授权/API 89P、前端9P，完整四叶和独立QC仍待，不是合入/部署/迁移授权。详情 `~/fwp-wt-wave2-re06-0923/docs/handoffs/2026-09-23-re06-timer-scope-b.md`。
+用户原话 `b`。B 已实现：`activity-timer`/v2，读写共用测量域分类；旧 v1 仅对原控件完整自用形状作对称读取兼容，不改台账或哈希。原 `4bb3bf0cb` 的89P/前端9P及反证属于历史作者证据，不移签；背景见原作者树 `docs/handoffs/2026-09-23-re06-timer-scope-b.md`。
 
-09-23 本轮验收输入固定为 `f9ce5c6b296492b423400ad66d333784a4be13bc`，代码候选未改。17处业务事务逐项作者静态核对已落 `docs/verification/2026-09-23-re06-toctou-family.md`：分母是 RE06 服务/API 直接事务调用，另列底层 `_locked` 1处，不再表述成全仓仅17处。完整C1–C10主张已入#75。第三次实际预检首请求超时；观察设备会话恢复后第四次往返2请求HTTP200（158.502秒），timer组explore首请求6366字节即120秒超时（总124.656秒），0工具/终稿/探针，`BLOCKED_PROVIDER_TIMEOUT`；Pi exit0不算完成。三组覆盖C1-C10的准备与输出限额离线检查已完成，不代QC；累计10请求，SDK自动重试0/未换模型，旧失败与成功分别留账。四叶尝试未完成：Ruff过，pytest到30分钟上限（最后93%、exit -15），无完整收据；14:45资源仍红，前端/E2E/registry未跑。下轮E2E改为自身先build的计划已作离线反证，不代真实E2E；详情 `docs/verification/2026-09-23-re06-timer-scope/README.md`。
+09-23 最新候选为 `fix/re06-timer-assets-0923@b24c86f87aaef6244dc6a2c6cf80f74ae1918943`，base仍 `ffd1b7f1572067e9a4c7e3a5845e99cf7f876cfb`。旧f9的源码是v2、已提交包仍是v1，构建使身份漂移并被拒收；旧树恢复clean，新提交仅更新发布包。新四叶全部PASS：Python14673P/85S/2X、前端122P、E2E自身build后34P/2S、registry五项；JUnit/完整收据一致，首尾clean。
+
+#75仍未完成：timer/e2仅有静态探索终稿，timer探针逐字恢复未执行、E2无探针；consent探索与timer执行HTTP504无终稿，06仅新工具预检通过而未派发补交。当前候选63请求、历史10、累计73，自动重试0/未换模型。C1-C10全not_verified、Quality未评估，独审必红对照/分账测试/事务同族独立分类未完。17业务+1底层作者清单仍见 `docs/verification/2026-09-23-re06-toctou-family.md`，不把它说成全仓分母。当前入口 `docs/verification/2026-09-23-re06-timer-assets/README.md`，旧失败完整保留；未push/PR/合main/部署/迁移，#76/P7未推进。
 
 原三选一比较保留：
 - A **只改文案**：界面明说「停止计时会撤回自用测量同意」。零代码风险，但用户每次停计时都在关测量。
@@ -61,11 +63,11 @@
 
 ## 验收
 
-- [ ] PR head 四叶收据 revision == head。
+- [ ] PR head 四叶收据 revision == head（本地b24固定候选四叶已过；尚无PR或前向main验收）。
 - [ ] 阳性对照：把锁内复核去掉、只保留锁外读，TOCTOU 用例（含 T2 伪修法守卫）必须红；还原后绿。
 - [ ] 决策有用户原话；所选方案的刻画测试更新且拆掉修法即红。
 - [x] 同族筛查文档 17 行齐全（固定 f9ce5c6b2，作者静态核对；非独立QC或新行为测试）。
-- [ ] 前端 `pnpm test` 含 `ResearchActivityControl` 用例通过（若 B，scope 名断言更新）。
+- [x] b24前端122项通过，含 `ResearchActivityControl` 的B方案scope断言；独立UI动态审查未完成。
 
 ## 红线
 

@@ -1,0 +1,55 @@
+"""Freeze only completed acceptance evidence, excluding fixture data and latest aliases."""
+import ast
+import base64
+import hashlib
+import json
+from pathlib import Path
+import shutil
+import sys
+import xml.etree.ElementTree as ET
+ROOT=Path(__file__).resolve().parent
+TOOL=Path('/Users/a77/.finance-runtime/reviews/re06-timer-scope-qc-20260923-05/archive_evidence.py')
+shutil.copyfile(TOOL,ROOT/'archive_evidence.py')
+sys.path.insert(0,str(ROOT))
+from archive_evidence import archive
+revision='b24c86f87aaef6244dc6a2c6cf80f74ae1918943'
+receipt=json.loads((ROOT/'receipt.json').read_text())
+python=json.loads((ROOT/'receipts/pytest.json').read_text())
+assert receipt['complete'] and receipt['status']=='PASS' and receipt['identity_stable']
+assert all(row['status']=='PASS' for row in receipt['leaves'].values())
+assert python['revision']==revision and python['exit_status']==0 and not python['dirty']
+cases=list(ET.parse(ROOT/'python-junit.xml').iter('testcase'))
+failed=sum(c.find('failure') is not None for c in cases)
+errors=sum(c.find('error') is not None for c in cases)
+skipped=sum(c.find('skipped') is not None for c in cases)
+xfail=sum(c.find('skipped') is not None and c.find('skipped').get('type')=='pytest.xfail' for c in cases)
+counts={'passed':len(cases)-failed-errors-skipped,'failed':failed,'error':errors,'skipped':skipped-xfail,'xfailed':xfail,'xpassed':0}
+assert counts==python['counts'] and len(cases)==python['scope']['collected']
+assert len(cases)==14760
+for leaf in ['frontend','e2e']:
+    row=receipt['leaves'][leaf]
+    assert hashlib.sha256((ROOT/row['receipt']).read_bytes()).hexdigest()==row['receipt_sha256']
+assert receipt['leaves']['e2e']['checks'][0]['command']==['pnpm','build']
+assert receipt['leaves']['e2e']['checks'][1]['command']==['pnpm','test:e2e']
+summary={'revision':revision,'baseline':receipt['baseline'],'engineering_status':'PASS',
+    'python_counts':counts,'collected':len(cases),'junit_matches_receipt':True,
+    'frontend_tests_passed':122,'e2e_passed':34,'e2e_skipped':2,'registry_checks_passed':5,
+    'independent_qc_signed':False,'mergeable':False,'identity_stable':True,
+    'minimum_free_disk_gib_during_pytest':receipt['leaves']['python']['checks'][1]['minimum_free_disk_gib'],
+    'scope':'Fixed candidate only. Not main/integration/deployment acceptance. No old receipts or latest aliases reused.'}
+(ROOT/'acceptance-summary.json').write_text(json.dumps(summary,indent=2)+'\n')
+names=[p.name for p in ROOT.iterdir() if p.is_file() and p.suffix in {'.json','.txt','.py','.xml'}]
+for folder in ['frontend','e2e']:
+    names.extend(str(p.relative_to(ROOT)) for p in (ROOT/folder).iterdir() if p.is_file())
+names.append('receipts/pytest.json')
+destination=Path('/Users/a77/fwp-wt-closeout-workorders-0922/docs/verification/2026-09-23-re06-timer-assets/acceptance-03')
+fixture_source=Path('/Users/a77/fwp-wt-re06-timer-assets-0923/tests/test_smoke_workbench_self_use.py')
+fixture_hash='f69cdf0588da7c5fd887d930b8f54f8bbaacad4138e242a651ff377e1dbb0f46'
+literals=[n.value for n in ast.walk(ast.parse(fixture_source.read_text())) if isinstance(n,ast.Constant) and isinstance(n.value,str)]
+matching=[value for value in literals if hashlib.sha256(value.encode()).hexdigest()==fixture_hash]
+assert len(matching)==1
+assert base64.urlsafe_b64decode(matching[0].split('.')[-1]+'==')==b'testsignature'
+fixtures={fixture_hash:{'source':'tests/test_smoke_workbench_self_use.py:495','revision':revision,
+    'source_sha256':hashlib.sha256(fixture_source.read_bytes()).hexdigest(),
+    'reason':'Committed negative-test JWT literal; signature decodes to testsignature, not an operational credential.'}}
+print(json.dumps(archive(ROOT,destination,revision,names,credential_fixtures=fixtures)))

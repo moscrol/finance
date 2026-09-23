@@ -1,0 +1,96 @@
+"""Close immutable review attempts and archive observed evidence, never infer QC success."""
+from collections import Counter
+from datetime import datetime, timezone
+import hashlib
+import json
+from pathlib import Path
+import subprocess
+import sys
+ROOT=Path(__file__).resolve().parent
+NEXT=ROOT.with_name('re06-timer-scope-qc-20260923-06')
+REV='b24c86f87aaef6244dc6a2c6cf80f74ae1918943'
+BASE='ffd1b7f1572067e9a4c7e3a5845e99cf7f876cfb'
+DOC=Path('/Users/a77/fwp-wt-closeout-workorders-0922/docs/verification/2026-09-23-re06-timer-assets')
+sys.path.insert(0,str(ROOT))
+from archive_evidence import archive
+
+def sha(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+def check_stage(root,name):
+    out=root/name
+    record=json.loads((out/'execution.json').read_text())
+    assert record['complete'] and record['revision']==REV and record['baseline']==BASE
+    assert record['inputs_unchanged']
+    for path,value in record['inputs_sha256'].items():
+        assert sha(root/path)==value,(name,path)
+    for path,value in record['artifact_sha256'].items():
+        assert sha(out/path)==value,(name,path)
+    admissions=[json.loads(line) for line in (out/'request-admissions.jsonl').read_text().splitlines()]
+    assert len(admissions)==record['requests']
+    return {'raw_status':record['status'],'requests':len(admissions),'elapsed_seconds':record['elapsed_seconds'],
+            'controller_timed_out':record['timed_out'],'response_statuses':dict(Counter(r['status'] for r in record['responses'])),
+            'terminal_report':(out/'REPORT.md').exists(),'errors':record['errors']}
+
+stages={name:check_stage(ROOT,name) for name in ['explore-timer','explore-e2','explore-consent','execute-timer']}
+assert not list((ROOT/'work').glob('*/**/*.xml'))
+assert not (ROOT/'work/timer/probes/test_positive_control.py').exists()
+assert not any((ROOT/name).exists() for name in ['execute-e2','execute-consent','report-timer'])
+identity=json.loads((ROOT/'inputs/identity.json').read_text())
+trees=[Path(identity['author']),Path(identity['tree']),NEXT/'candidate/finance-workspace-private']
+for tree in trees:
+    assert subprocess.check_output(['git','-C',str(tree),'rev-parse','HEAD'],text=True).strip()==REV
+    assert not subprocess.check_output(['git','-C',str(tree),'status','--porcelain'])
+    for name,value in identity['changed_source_sha256'].items():
+        assert sha(tree/name)==value,(tree,name)
+old=Path('/Users/a77/fwp-wt-wave2-re06-0923')
+assert subprocess.check_output(['git','-C',str(old),'rev-parse','HEAD'],text=True).strip()=='f9ce5c6b296492b423400ad66d333784a4be13bc'
+assert not subprocess.check_output(['git','-C',str(old),'status','--porcelain'])
+roots=[ROOT,NEXT,ROOT.with_name('re06-timer-scope-acceptance-20260923-02'),ROOT.with_name('re06-timer-scope-acceptance-20260923-03')]
+needles=[str(root/name) for root in roots for name in ['run.py','run_stage.py','run_gateway.py','review.mjs','gateway.mjs','stage_admission.py']]
+commands=subprocess.check_output(['/bin/ps','-axo','pid=,command='],text=True).splitlines()
+active=[row for row in commands if any(needle in row for needle in needles)]
+assert not active,active
+for port in [29701,29704]:
+    listeners=subprocess.run(['/usr/sbin/lsof','-nP',f'-iTCP:{port}','-sTCP:LISTEN'],capture_output=True,text=True)
+    assert listeners.returncode==1 and not listeners.stdout
+count05=sum(s['requests'] for s in stages.values())+json.loads((ROOT/'gateway/receipt.json').read_text())['requests']
+count06=json.loads((NEXT/'gateway/receipt.json').read_text())['requests']
+assert (count05,count06)==(61,2)
+report={'revision':REV,'baseline':BASE,'parent_candidate':'f9ce5c6b296492b423400ad66d333784a4be13bc',
+        'as_of':datetime.now(timezone.utc).isoformat(),'engineering_acceptance':'PASS',
+        'independent_qc':'INCOMPLETE','blockers':['BLOCKED_PROVIDER_HTTP_504','BLOCKED_EXPLORE_DELIVERABLES'],
+        'quality':'not_evaluated','claims':{f'C{i}':'not_verified' for i in range(1,11)},'mergeable':False,
+        'request_accounting':{'attempt_05':count05,'attempt_06_preflight_only':count06,'current_candidate':count05+count06,
+                              'previous_candidate_attempts_01_to_04':10,'cumulative':count05+count06+10,'automatic_retries':0},
+        'attempt_05_stages':stages,
+        'timer_probe_origin':'Reviewer final-response Python fence, mechanically extracted verbatim; never authored/repaired by host.',
+        'e2_probe_delivery':'Missing: raw STAGE_COMPLETE did not satisfy artifact admission; execute denied before credentials.',
+        'consent_probe_delivery':'Early independent probe file exists, but HTTP 504 prevented terminal delivery and transaction-family classification.',
+        'attempt_06':'Fresh two-request tools preflight passed; E2 follow-up prepared, not dispatched after renewed HTTP 504.',
+        'reviewer_pytest_runs':0,'independent_author_test_runs':0,'pytest_positive_control':'not_run',
+        'host_mutation_check':'Artifact-admission guard-removal mutation detected; zero model/pytest calls; not QC positive control.',
+        'transaction_family_independent_review':'incomplete','ui_independent_dynamic_review':'not_run',
+        'identity_checks':{'clean_successor_trees':list(map(str,trees)),'changed_tracked_file_hashes_per_tree':len(identity['changed_source_sha256']),
+                           'original_candidate_restored_and_clean':True},
+        'owned_processes_remaining':[],'e2e_ports_closed':[29701,29704],
+        'not_authorized_or_performed':['push','PR','merge','deploy','production writes','production migration','gateway restart','worktree deletion'],
+        'scope':'HTTP 504 is a request failure, not a correctness verdict or established root cause. Engineering receipts do not sign independent claims.'}
+(ROOT/'closeout-summary.json').write_text(json.dumps(report,ensure_ascii=False,indent=2)+'\n')
+DOC.mkdir(parents=True,exist_ok=True)
+(DOC/'report.json').write_text(json.dumps(report,ensure_ascii=False,indent=2)+'\n')
+results={}
+for root,sub in [(ROOT,'k3-attempt-05'),(NEXT,'k3-attempt-06')]:
+    names=[p.name for p in root.iterdir() if p.is_file() and p.suffix in {'.py','.mjs','.sb','.json','.md','.txt'}]
+    folders=['pi-config','inputs','gateway','sandbox-preflight','caps-preflight','stage-admissions']
+    folders+=['explore-timer','explore-e2','explore-consent','execute-timer'] if root==ROOT else []
+    for folder in folders:
+        if (root/folder).exists():
+            names.extend(str(p.relative_to(root)) for p in (root/folder).rglob('*') if p.is_file() and not p.is_symlink() and '__pycache__' not in p.parts)
+    for group in ['timer','e2','consent']:
+        names.extend(str(p.relative_to(root)) for p in (root/'work'/group).rglob('*') if p.is_file() and not p.is_symlink() and '__pycache__' not in p.parts)
+    admission=root/'work/reviewer-pytest-admissions.jsonl'
+    if admission.exists():
+        names.append(str(admission.relative_to(root)))
+    results[sub]=archive(root,DOC/sub,REV,names)
+print(json.dumps({'requests':report['request_accounting'],'archives':results,'clean_trees':len(trees),'ports_closed':[29701,29704]}))

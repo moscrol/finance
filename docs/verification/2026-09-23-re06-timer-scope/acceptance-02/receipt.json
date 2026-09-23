@@ -1,0 +1,206 @@
+{
+  "revision": "f9ce5c6b296492b423400ad66d333784a4be13bc",
+  "baseline": "ffd1b7f1572067e9a4c7e3a5845e99cf7f876cfb",
+  "tree": "/Users/a77/fwp-wt-wave2-re06-0923",
+  "started_at": "2026-09-23T07:11:08.726047+00:00",
+  "runner_sha256": "d4806ad3d50914056a161036fc50330c176d78a0949fc269172ad76b76bf6b82",
+  "complete": false,
+  "leaves": {
+    "frontend": {
+      "status": "FAIL",
+      "controller_check": {
+        "command": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "/Users/a77/.finance-runtime/reviews/re06-timer-scope-acceptance-20260923-02/frontend_leaf.py",
+          "frontend"
+        ],
+        "exit_code": 2,
+        "timed_out": false,
+        "stop_reason": null,
+        "minimum_free_disk_gib": 25.94,
+        "elapsed_seconds": 26.058,
+        "log": "frontend.log.txt",
+        "log_sha256": "67cf77c07ecc4c84473c197902b8e1bc3ffd64b51c3b47b6fbca088331d677b1",
+        "log_bytes": 260
+      },
+      "receipt": "frontend/frontend.json",
+      "receipt_sha256": "76881a2ba50fca8804fd746bf75956d4d16c07c24dee032d2507e5b799330328",
+      "checks": [
+        {
+          "command": [
+            "pnpm",
+            "install",
+            "--frozen-lockfile"
+          ],
+          "exit_code": 0,
+          "elapsed_seconds": 0.57,
+          "log": "frontend-0.log.txt",
+          "log_bytes": 105,
+          "log_sha256": "916f4c1808f2b82b19cfb9c911085c3e422cd84a36afb90d41fba8a7954b1311"
+        },
+        {
+          "command": [
+            "pnpm",
+            "lint"
+          ],
+          "exit_code": 0,
+          "elapsed_seconds": 2.48,
+          "log": "frontend-1.log.txt",
+          "log_bytes": 110,
+          "log_sha256": "5d175fbe10d4b7abdf60e23d2a1e0c26370d2592adf29a3e351a37805a0d1473"
+        },
+        {
+          "command": [
+            "pnpm",
+            "typecheck"
+          ],
+          "exit_code": 0,
+          "elapsed_seconds": 4.31,
+          "log": "frontend-2.log.txt",
+          "log_bytes": 208,
+          "log_sha256": "f4ca2ce882e0a8af60c80a98f465e1bca7ecd5f14df16406a480bf9c3ca6f099"
+        },
+        {
+          "command": [
+            "pnpm",
+            "test"
+          ],
+          "exit_code": 0,
+          "elapsed_seconds": 9.86,
+          "log": "frontend-3.log.txt",
+          "log_bytes": 1421,
+          "log_sha256": "7d255c85ef1a3de8891e02a0cc05ce281c5a6cd9e3da93a2fd5eb2fd0c1594d1"
+        },
+        {
+          "command": [
+            "pnpm",
+            "build"
+          ],
+          "exit_code": 0,
+          "elapsed_seconds": 8.4,
+          "log": "frontend-4.log.txt",
+          "log_bytes": 907,
+          "log_sha256": "238c5095eeebbca9cf768185c4f8d4ee6e6ed6cab4f4b3bc31561ed9f92465bd"
+        }
+      ]
+    }
+  },
+  "resource_admissions": [
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T07:11:08.976698+00:00",
+      "load": [
+        7.23681640625,
+        5.5908203125,
+        8.34326171875
+      ],
+      "pytest_processes": 3,
+      "projected_pytest_processes": 3,
+      "free_disk_gib": 25.958,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T07:11:19.037926+00:00",
+      "load": [
+        7.0400390625,
+        5.603515625,
+        8.31494140625
+      ],
+      "pytest_processes": 4,
+      "projected_pytest_processes": 4,
+      "free_disk_gib": 25.964,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T07:11:29.078588+00:00",
+      "load": [
+        7.10693359375,
+        5.66552734375,
+        8.30517578125
+      ],
+      "pytest_processes": 2,
+      "projected_pytest_processes": 2,
+      "free_disk_gib": 25.972,
+      "allowed": true
+    },
+    {
+      "leaf": "e2e",
+      "at": "2026-09-23T07:11:55.291396+00:00",
+      "load": [
+        9.01123046875,
+        6.26171875,
+        8.44482421875
+      ],
+      "pytest_processes": 2,
+      "projected_pytest_processes": 2,
+      "free_disk_gib": 25.955,
+      "allowed": false
+    },
+    {
+      "leaf": "e2e",
+      "at": "2026-09-23T07:12:05.336867+00:00",
+      "load": [
+        9.1884765625,
+        6.3857421875,
+        8.46240234375
+      ],
+      "pytest_processes": 2,
+      "projected_pytest_processes": 2,
+      "free_disk_gib": 25.951,
+      "allowed": false
+    },
+    {
+      "leaf": "e2e",
+      "at": "2026-09-23T07:12:15.377227+00:00",
+      "load": [
+        8.986328125,
+        6.4375,
+        8.45654296875
+      ],
+      "pytest_processes": 3,
+      "projected_pytest_processes": 3,
+      "free_disk_gib": 25.945,
+      "allowed": false
+    },
+    {
+      "leaf": "e2e",
+      "at": "2026-09-23T07:12:25.434737+00:00",
+      "load": [
+        8.1455078125,
+        6.3408203125,
+        8.39794921875
+      ],
+      "pytest_processes": 2,
+      "projected_pytest_processes": 2,
+      "free_disk_gib": 25.942,
+      "allowed": false
+    },
+    {
+      "leaf": "e2e",
+      "at": "2026-09-23T07:12:35.528056+00:00",
+      "load": [
+        7.34765625,
+        6.22998046875,
+        8.33447265625
+      ],
+      "pytest_processes": 2,
+      "projected_pytest_processes": 2,
+      "free_disk_gib": 26.94,
+      "allowed": true
+    }
+  ],
+  "identity_before": {
+    "revision": "f9ce5c6b296492b423400ad66d333784a4be13bc",
+    "status": ""
+  },
+  "model_requests_authorized": false,
+  "production_writes_authorized": false,
+  "ports": [
+    29601,
+    29604
+  ],
+  "pytest_timeout_seconds": 3600,
+  "disk_floor_gib": 8
+}

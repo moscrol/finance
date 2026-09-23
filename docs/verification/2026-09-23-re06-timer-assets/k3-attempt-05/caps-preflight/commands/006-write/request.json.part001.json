@@ -1,0 +1,9 @@
+{
+  "source": "caps-preflight/commands/006-write/request.json",
+  "raw_sha256": "a6c89c411c4b6f55ea1404a14b45b92f9bac31f335e508735a810e445f79d407",
+  "raw_bytes": 7157,
+  "chunk": 1,
+  "chunks": 1,
+  "encoding": "gzip-base64-chunk",
+  "data": "H4sIAAAAAAACE+3NQQ6CMBAF0Lt07dAGI0S2rjyAOzdNHbQRW2wHISHc3XoCL/Df5v9MJvmrkhiHkx2G8011ak5emO7eBqHBB1Y7NdpkX1l1a2nyKD/6kjllbdtWV70PNjimNAXxL9aJP57nXNI09Lskyi6OTG9Htakbc6z3ZA56jumpnR2p94tMiStZpGy5GISDlJEFAAAAAAAAAAAAAAAAAP66BrVtX1q432f1GwAA"
+}

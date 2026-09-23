@@ -1,0 +1,14 @@
+{
+  "at": "2026-09-23T07:43:28.453438+00:00",
+  "source_report": "/Users/a77/.finance-runtime/reviews/re06-timer-scope-qc-20260923-05/explore-timer/REPORT.md",
+  "source_report_sha256": "f578df309018085dd5ab2ff367b65006d4e3546c4fb1961650428dc8af0fe115",
+  "probe_path": "/Users/a77/.finance-runtime/reviews/re06-timer-scope-qc-20260923-05/work/timer/probes/test_reviewer.py",
+  "probe_sha256": "1eae04a2a13a0aec064f033f4617946a910f62bd445023cf736324a1b93c8aca",
+  "method": "Python-Markdown fenced_code plus ElementTree code.text; exactly one block; source membership verified; no alterations",
+  "authorship": "K3 explore-timer final response; host only materialized bytes",
+  "syntax_parse": "PASS",
+  "executed": false,
+  "candidate_verdict": null,
+  "explore_side_file_delivery": "RECOVERED_VERBATIM_FROM_PERSISTED_REVIEWER_REPORT",
+  "known_limits": "Raw report and artifacts=[] footer remain unchanged. This recovery is not QC or test success."
+}

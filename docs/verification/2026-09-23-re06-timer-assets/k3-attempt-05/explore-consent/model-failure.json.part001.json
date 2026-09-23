@@ -1,0 +1,9 @@
+{
+  "source": "explore-consent/model-failure.json",
+  "raw_sha256": "620de43cef236e68e1675e327a7896d5cb72da66dc5d1a655b1fdacf3b4f625d",
+  "raw_bytes": 37,
+  "chunk": 1,
+  "chunks": 1,
+  "encoding": "gzip-base64-chunk",
+  "data": "H4sIAAAAAAACE6tWKi7JLwhKTSzOz1OyUkotKsovUtJRSkzJzSwuzgSJGRrUAgARwYbmJQAAAA=="
+}

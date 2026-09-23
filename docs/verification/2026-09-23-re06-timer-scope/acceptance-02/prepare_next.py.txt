@@ -1,0 +1,24 @@
+"""Mechanically bind the next acceptance run to the artifact-only successor."""
+import ast
+import hashlib
+import json
+from pathlib import Path
+ROOT=Path(__file__).resolve().parent
+NEXT=ROOT.with_name('re06-timer-scope-acceptance-20260923-03')
+NEXT.mkdir(exist_ok=False)
+changes={'/Users/a77/fwp-wt-wave2-re06-0923':'/Users/a77/fwp-wt-re06-timer-assets-0923',
+         'f9ce5c6b296492b423400ad66d333784a4be13bc':'b24c86f87aaef6244dc6a2c6cf80f74ae1918943',
+         '29601':'29701','29604':'29704','time.monotonic()+300':'time.monotonic()+900'}
+files={}
+for name in ['run.py','frontend_leaf.py']:
+    data=(ROOT/name).read_text()
+    for old,new in changes.items():
+        data=data.replace(old,new)
+    ast.parse(data)
+    (NEXT/name).write_text(data)
+    files[name]={'source_sha256':hashlib.sha256((ROOT/name).read_bytes()).hexdigest(),
+                 'sha256':hashlib.sha256(data.encode()).hexdigest()}
+(NEXT/'setup.json').write_text(json.dumps({'source':str(ROOT),'replacements':changes,'files':files,
+    'resource_wait_per_leaf_seconds':900,'pytest_timeout_seconds':3600,'e2e_owns_build':True,
+    'previous_candidate_receipts_reused':False},indent=2)+'\n')
+print(NEXT)

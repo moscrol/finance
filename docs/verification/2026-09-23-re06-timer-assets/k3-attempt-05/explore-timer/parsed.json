@@ -1,0 +1,19 @@
+{
+  "stage": "explore",
+  "group": "timer",
+  "revision": "b24c86f87aaef6244dc6a2c6cf80f74ae1918943",
+  "baseline": "ffd1b7f1572067e9a4c7e3a5845e99cf7f876cfb",
+  "complete": true,
+  "artifacts": [],
+  "suspected_issues": [
+    "measurement_scopes 假定台账已过校验：payload.scopes 为裸字符串会逐字符拆解（契约外输入，未实证全部写入入口均有 validate_event 拦截）",
+    "participant_id=None 的旧 v1 全形状记录不转换、被当作真实测量同意（设计内但需探针钉死）",
+    "内容摘要 summarize.py 与事件接收端补戳路径未审查：C10『摘要不改写』仅有 consent.py 无回写代码的间接证据"
+  ],
+  "limits": [
+    "EXPLORE.md 与 probes/test_reviewer.py 因 stage 提前关闭未写入 work/timer/，内容内嵌于本回复",
+    "所有 pytest 探针未执行，不构成通过证据",
+    "前端 UI 未动态验证；bundle 核对基于 rg -o 窄查",
+    "仅审 C7-C10，C1-C6 不背书"
+  ]
+}

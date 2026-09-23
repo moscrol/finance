@@ -1,0 +1,9 @@
+{
+  "source": "explore-timer/commands/017-read/request.json",
+  "raw_sha256": "556f4c548b1d69048241441d0803fc86380dada2e915a7da93db0d7254f86c28",
+  "raw_bytes": 214,
+  "chunk": 1,
+  "chunks": 1,
+  "encoding": "gzip-base64-chunk",
+  "data": "H4sIAAAAAAACEzWMwQrCMBBE/yVn05SKVr2JgojozbOs6WoWY5ruxhYR/90oeJo3M8y8VGpbvwLvt41a/MzJreW2P/qaXLeD6OaH3cHRbHNRIxWB4S5q8cqUXB6YoyCLgbo2xYUCBIuaHyHRHQ1jTzhI1nKqvwlrsW1E3VldldW0nFdjXU6MhdBQAwnN/2Fo+SYRMkWm/ttQSOg9XTHXZsAzxGiEbf4WBLZuaRP1lJ5FEvV+fwCNeO4B1gAAAA=="
+}

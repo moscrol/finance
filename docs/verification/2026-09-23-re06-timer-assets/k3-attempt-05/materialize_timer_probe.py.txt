@@ -1,0 +1,35 @@
+"""Extract the reviewer-authored fenced probe verbatim; do not repair it."""
+import ast
+from datetime import datetime, timezone
+import hashlib
+import json
+from pathlib import Path
+import xml.etree.ElementTree as ET
+import markdown
+ROOT=Path(__file__).resolve().parent
+report=ROOT/'explore-timer/REPORT.md'
+execution=json.loads((report.parent/'execution.json').read_text())
+assert execution['complete'] and execution['status']=='STAGE_COMPLETE'
+raw=report.read_text()
+html=markdown.markdown(raw,extensions=['fenced_code'])
+blocks=[e.text for e in ET.fromstring('<root>'+html+'</root>').iter('code') if e.attrib.get('class')=='language-python']
+assert len(blocks)==1
+code=blocks[0]
+assert '```python\n'+code+'```' in raw
+ast.parse(code)
+path=ROOT/'work/timer/probes/test_reviewer.py'
+assert not path.exists()
+path.write_text(code)
+(ROOT/'work/timer/EXPLORE.md').write_text(raw)
+(ROOT/'inputs/timer-reviewer-initial.py.txt').write_text(code)
+assert path.read_text()==blocks[0]
+record={'at':datetime.now(timezone.utc).isoformat(),'source_report':str(report),
+        'source_report_sha256':hashlib.sha256(report.read_bytes()).hexdigest(),
+        'probe_path':str(path),'probe_sha256':hashlib.sha256(path.read_bytes()).hexdigest(),
+        'method':'Python-Markdown fenced_code plus ElementTree code.text; exactly one block; source membership verified; no alterations',
+        'authorship':'K3 explore-timer final response; host only materialized bytes',
+        'syntax_parse':'PASS','executed':False,'candidate_verdict':None,
+        'explore_side_file_delivery':'RECOVERED_VERBATIM_FROM_PERSISTED_REVIEWER_REPORT',
+        'known_limits':'Raw report and artifacts=[] footer remain unchanged. This recovery is not QC or test success.'}
+(ROOT/'materialization.json').write_text(json.dumps(record,indent=2)+'\n')
+print(json.dumps(record))

@@ -1,0 +1,9 @@
+{
+  "source": "caps-preflight/commands/008-bash/output.log",
+  "raw_sha256": "fa28ee0a21d972fcc8fb8c485df07e26307e112b5b8e68c9d20e888ae559a47d",
+  "raw_bytes": 10001,
+  "chunk": 1,
+  "chunks": 1,
+  "encoding": "gzip-base64-chunk",
+  "data": "H4sIAAAAAAACE+3BMQ0AAAACoN/ExjeHG9ACAAAAAAAAAADAvwxloQV9EScAAA=="
+}

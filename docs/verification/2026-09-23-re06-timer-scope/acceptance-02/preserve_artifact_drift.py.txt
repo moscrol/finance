@@ -1,0 +1,46 @@
+"""Preserve build drift, restore only our generated files, seed a new candidate."""
+from datetime import datetime, timezone
+import hashlib
+import json
+from pathlib import Path
+import shutil
+import subprocess
+ROOT=Path(__file__).resolve().parent
+OLD=Path('/Users/a77/fwp-wt-wave2-re06-0923')
+NEW=Path('/Users/a77/fwp-wt-re06-timer-assets-0923')
+REV='f9ce5c6b296492b423400ad66d333784a4be13bc'
+HTML='intelligence/api/static/index.html'
+OLDJS='intelligence/api/static/assets/index-o4AWiRNg.js'
+NEWJS='intelligence/api/static/assets/index-BobixB9S.js'
+def git(tree,*args):
+    return subprocess.check_output(['git','-C',str(tree),*args])
+def sha(data):
+    return hashlib.sha256(data).hexdigest()
+assert git(OLD,'rev-parse','HEAD').decode().strip()==REV
+assert git(NEW,'rev-parse','HEAD').decode().strip()==REV and not git(NEW,'status','--porcelain')
+status=git(OLD,'status','--porcelain','-z','--untracked-files=all')
+assert {row[3:].decode() for row in status.split(b'\0') if row}=={HTML,OLDJS,NEWJS}
+assert not (OLD/OLDJS).exists()
+raw_old=git(OLD,'show',REV+':'+OLDJS)
+raw_new=(OLD/NEWJS).read_bytes()
+assert b'workbench-activity-v1' in raw_old and b'activity-timer' not in raw_old
+assert b'workbench-activity-v2' in raw_new and b'activity-timer' in raw_new
+snapshot=ROOT/'generated-static'
+snapshot.mkdir(exist_ok=False)
+for name in [HTML,NEWJS]:
+    dst=snapshot/Path(name).name
+    shutil.copyfile(OLD/name,dst)
+    shutil.copyfile(dst,NEW/name)
+(NEW/OLDJS).unlink()
+record={'at':datetime.now(timezone.utc).isoformat(),'revision':REV,'finding':'Tracked static bundle still uses v1 instead of source timer v2.',
+        'status_after_build':status.decode(),'old_bundle':{'path':OLDJS,'sha256':sha(raw_old)},
+        'generated_bundle':{'path':NEWJS,'sha256':sha(raw_new)},
+        'generated_index_sha256':sha((OLD/HTML).read_bytes()),'product_source_edited':False,
+        'new_candidate_tree':str(NEW),'new_candidate_base':REV,'full_acceptance_status':'BLOCKED_ARTIFACT_IDENTITY_DRIFT'}
+subprocess.run(['git','-C',str(OLD),'restore','--source='+REV,'--',HTML,OLDJS],check=True)
+assert (snapshot/Path(NEWJS).name).read_bytes()==(OLD/NEWJS).read_bytes()
+(OLD/NEWJS).unlink()
+assert not git(OLD,'status','--porcelain')
+record['original_candidate_restored_clean']=True
+(ROOT/'artifact-drift.json').write_text(json.dumps(record,ensure_ascii=False,indent=2)+'\n')
+print(json.dumps(record,ensure_ascii=False,indent=2))

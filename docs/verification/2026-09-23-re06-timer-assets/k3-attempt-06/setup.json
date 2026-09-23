@@ -1,0 +1,13 @@
+{
+  "revision": "b24c86f87aaef6244dc6a2c6cf80f74ae1918943",
+  "prior_report": "/Users/a77/.finance-runtime/reviews/re06-timer-scope-qc-20260923-05/explore-e2/REPORT.md",
+  "prior_report_sha256": "2aca9f1c277a3a79f2fcbe42635284f86e40612c14fe83c62d29215efe6d96cc",
+  "prior_report_rewritten": false,
+  "request_cap_changed": false,
+  "automatic_retry": false,
+  "active_groups": [
+    "e2"
+  ],
+  "request_timeout_ms": 300000,
+  "stage_timeout_seconds": 1800
+}

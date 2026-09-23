@@ -1,0 +1,9 @@
+{
+  "source": "e2e.log.txt",
+  "raw_sha256": "b946d6dce44bc0b6d8cc7ecd712c2d274d62fe728da3ac38f2659c6a1b9d5283",
+  "raw_bytes": 97,
+  "chunk": 1,
+  "chunks": 1,
+  "encoding": "gzip-base64-chunk",
+  "data": "H4sIAAAAAAACE6tWSs7PzU3MS1GyUohWKsgryFXSUVBKKs3MSVGKBbJSKzJL4pPzU1KB8ga1XNVYlZekFpdYpRqlYtMBALq2s8JhAAAA"
+}

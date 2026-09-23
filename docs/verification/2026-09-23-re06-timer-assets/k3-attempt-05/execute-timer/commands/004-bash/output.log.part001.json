@@ -1,0 +1,9 @@
+{
+  "source": "execute-timer/commands/004-bash/output.log",
+  "raw_sha256": "7eeab806c376876d2c13b6d5b3b40ad2275f3159fa217e303735fd1a15e56e36",
+  "raw_bytes": 848,
+  "chunk": 1,
+  "chunks": 1,
+  "encoding": "gzip-base64-chunk",
+  "data": "H4sIAAAAAAACE7WSy07DMBBF9/6K+QHb8TM0KzbdIYFASOxQSBzJkBe2S9q/x0nFwxUKm1YayZZ9547njOmjN87TMs8paWxf9pXBbtcH2xnqzIc1k49rpvF84rCvhtHg9wrzjOtswwXOFLX9uAueFigMoWxBcFS7ae/wHNcACqI7gA9l0wAA0xk8mBG4AKYKKYAkcskTORNSfst1wRQQgrCbsMNzRHuW6LnWm1/2nEHVlrbzpKvX0oQSPE2ztYkUwoG8+qFfS82lYGlDR1RHenFjexts2ZLxQMI+IETPgHwa3Btd7unohhfzQ5/pBKdI4cNGr8I/GRW/OlGn7P8FYXx4/uIQ+0fzC4BnCs7MYPt0d3N7v52HvJRg8RddBvPfLQmZw4IffQLHBYAyUAMAAA=="
+}

@@ -1,0 +1,58 @@
+"""Encode noncanonical text without changing the original execution bytes."""
+import base64
+import gzip
+import hashlib
+import json
+from pathlib import Path
+import re
+import shutil
+import sys
+ROOT=Path(__file__).resolve().parent
+sys.path.insert(0,str(ROOT))
+from archive_evidence import decode,verify
+DOC=Path('/Users/a77/fwp-wt-closeout-workorders-0922/docs/verification/2026-09-23-re06-timer-assets')
+BACKUP=ROOT/'pre-format-archive'
+assert not BACKUP.exists()
+BACKUP.mkdir()
+results=[]
+for folder in ['acceptance-03','k3-attempt-05','k3-attempt-06']:
+    destination=DOC/folder
+    before=verify(destination)
+    manifest_path=destination/'manifest.json'
+    previous=manifest_path.read_bytes()
+    manifest=json.loads(previous)
+    changed=[]
+    for source,item in manifest['files'].items():
+        if item['encoding']!='identity':
+            continue
+        raw=decode(destination,item)
+        if not raw or (raw.endswith(b'\n') and not raw.endswith(b'\n\n') and b'\r' not in raw and not re.search(rb'[ \t]+$',raw,re.M)):
+            continue
+        old=destination/item['artifacts'][0]
+        saved=BACKUP/folder/item['artifacts'][0]
+        saved.parent.mkdir(parents=True,exist_ok=True)
+        shutil.move(old,saved)
+        compressed=gzip.compress(raw,mtime=0)
+        chunks=[compressed[i:i+131072] for i in range(0,len(compressed),131072)]
+        item.update(encoding='gzip-base64-chunks',compressed_sha256=hashlib.sha256(compressed).hexdigest(),artifacts=[])
+        for index,chunk in enumerate(chunks,1):
+            name=Path(source).with_name(Path(source).name+f'.part{index:03}.json')
+            target=destination/name
+            assert not target.exists()
+            target.parent.mkdir(parents=True,exist_ok=True)
+            target.write_text(json.dumps({'source':source,'raw_sha256':item['sha256'],'raw_bytes':item['bytes'],
+                'chunk':index,'chunks':len(chunks),'encoding':'gzip-base64-chunk','data':base64.b64encode(chunk).decode()},indent=2)+'\n')
+            item['artifacts'].append(str(name))
+        assert decode(destination,item)==raw
+        changed.append(source)
+    (BACKUP/folder).mkdir(exist_ok=True)
+    (BACKUP/folder/'manifest.original.json').write_bytes(previous)
+    manifest['storage_repack']={'reason':'Avoid hook normalization of original EOF/whitespace; reversible storage only.',
+        'original_manifest_sha256':hashlib.sha256(previous).hexdigest(),'raw_bytes_changed':False,'converted_source_names':changed}
+    manifest_path.write_text(json.dumps(manifest,ensure_ascii=False,indent=2)+'\n')
+    assert verify(destination)==before
+    results.append({'archive':folder,'files_verified':before,'storage_conversions':len(changed),
+                    'final_manifest_sha256':hashlib.sha256(manifest_path.read_bytes()).hexdigest()})
+shutil.copyfile(Path(__file__),DOC/'repack_for_git.py.txt')
+(DOC/'storage-verification.json').write_text(json.dumps({'status':'PASS','raw_bytes_changed':False,'archives':results},indent=2)+'\n')
+print(json.dumps(results))

@@ -1,0 +1,84 @@
+"""One actual Pi tools/stream round trip. No retry or provider fallback."""
+from datetime import datetime, timezone
+import hashlib
+import json
+import os
+from pathlib import Path
+import secrets
+import signal
+import subprocess
+import time
+
+ROOT = Path(__file__).resolve().parent
+OUT = ROOT / 'gateway'
+OUT.mkdir(exist_ok=False)
+(OUT / 'work').mkdir()
+(OUT / 'work/tmp').mkdir()
+sentinel = 'K3_TOOL_ROUNDTRIP_' + secrets.token_hex(8)
+fixture = OUT / 'work/fixture.txt'
+fixture.write_text(sentinel + '\n')
+prompt = f'Gateway test only. Use read exactly once on {fixture} (offset=1, limit=1), then return exactly its contents. Do not use any other tools or output a review.'
+env = {'HOME': '/Users/a77', 'PATH': '/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin',
+       'LANG': 'C.UTF-8', 'TMPDIR': str(OUT / 'work/tmp'),
+       'PI_CODING_AGENT_DIR': str(ROOT / 'pi-config'), 'PI_OFFLINE': '1',
+       'PI_TELEMETRY': '0', 'REVIEW_OUTPUT_DIR': str(OUT)}
+command = ['/opt/homebrew/bin/pi', '--provider', 'mirasim-kimi', '--model', 'kimi-k3',
+           '--thinking', 'xhigh', '--models', 'mirasim-kimi/kimi-k3', '--no-session',
+           '--no-extensions', '-e', str(ROOT / 'gateway.mjs'), '--no-skills',
+           '--no-prompt-templates', '--no-context-files', '--no-themes', '--no-approve',
+           '--offline', '--tools', 'read,bash,write', '--mode', 'json', '-p', '--', prompt]
+record = {'started_at': datetime.now(timezone.utc).isoformat(), 'complete': False,
+          'request_limit': 2, 'automatic_retries': 0, 'timeout_seconds': 630,
+          'provider': 'mirasim-kimi', 'model': 'kimi-k3', 'thinking': 'xhigh',
+          'revision': 'b24c86f87aaef6244dc6a2c6cf80f74ae1918943',
+          'baseline': 'ffd1b7f1572067e9a4c7e3a5845e99cf7f876cfb',
+          'purpose': 'Actual Pi streaming tools request and tool-result round trip, not QC',
+          'command': command[:-1] + ['<fixture roundtrip prompt>']}
+receipt = OUT / 'receipt.json'
+def save():
+    receipt.write_text(json.dumps(record, ensure_ascii=False, indent=2) + '\n')
+save()
+started = time.monotonic()
+timed_out = False
+with (OUT / 'events.jsonl').open('xb') as stdout, (OUT / 'stderr.log').open('xb') as stderr:
+    proc = subprocess.Popen(command, cwd=ROOT, env=env, stdin=subprocess.DEVNULL,
+                            stdout=stdout, stderr=stderr, start_new_session=True)
+    record['pid'] = proc.pid
+    save()
+    try:
+        proc.wait(timeout=630)
+    except subprocess.TimeoutExpired:
+        timed_out = True
+        os.killpg(proc.pid, signal.SIGTERM)
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            os.killpg(proc.pid, signal.SIGKILL)
+            proc.wait()
+events = []
+for line in (OUT / 'events.jsonl').read_text().splitlines():
+    try:
+        events.append(json.loads(line))
+    except ValueError:
+        pass
+messages = [e['message'] for e in events if e.get('type') == 'message_end' and e.get('message', {}).get('role') == 'assistant']
+errors = [m.get('errorMessage', m.get('stopReason')) for m in messages if m.get('stopReason') in {'error', 'aborted'}]
+final = '\n'.join(c.get('text', '') for m in messages for c in m.get('content', []) if c.get('type') == 'text')
+tools = [e for e in events if e.get('type') == 'tool_execution_end']
+def rows(name):
+    p = OUT / name
+    return [json.loads(line) for line in p.read_text().splitlines()] if p.exists() else []
+shapes = rows('payload-shapes.jsonl')
+responses = rows('responses.jsonl')
+passed = (proc.returncode == 0 and not errors and not timed_out and sentinel in final
+          and len(tools) == 1 and not tools[0].get('isError') and len(shapes) == 2
+          and all(s.get('stream') is True for s in shapes)
+          and 'tool' in shapes[-1].get('roles', []))
+status = 'PASS' if passed else ('BLOCKED_PROVIDER_TIMEOUT' if timed_out else 'BLOCKED_PROVIDER_OR_ROUNDTRIP')
+record.update(complete=True, exit_code=proc.returncode, elapsed_seconds=round(time.monotonic()-started, 3),
+              status=status, errors=errors, requests=len(shapes), response_statuses=[r['status'] for r in responses],
+              tool_executions=len(tools), sentinel_returned=sentinel in final, timed_out=timed_out,
+              artifact_sha256={str(p.relative_to(OUT)): hashlib.sha256(p.read_bytes()).hexdigest()
+                               for p in OUT.rglob('*') if p.is_file() and p != receipt})
+save()
+print(json.dumps(record, ensure_ascii=False, indent=2))

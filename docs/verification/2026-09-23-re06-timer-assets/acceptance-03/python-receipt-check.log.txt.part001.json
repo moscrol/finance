@@ -1,0 +1,9 @@
+{
+  "source": "python-receipt-check.log.txt",
+  "raw_sha256": "4559c9fcede2ebb919fac85fba07ca318ceb40061c61900e144f24070f866e5b",
+  "raw_bytes": 257,
+  "chunk": 1,
+  "chunks": 1,
+  "encoding": "gzip-base64-chunk",
+  "data": "H4sIAAAAAAACE02OOxLCMAxEe06hCxgbB5JQuOUGHEAYhTEfxyMJArcnZlJQ7exKeqsQgClSKgr2KMRisevsekgZcyTDz6zpQZbplWiSWV1rasJG4ljIYIxU9LfrnW/d3jfGNXZhii0fJdH1Vca8AoDKkTTmcPLb2LdD3yESnBPrJxzwLgSKfCENf88MUzGTmr9qFCEVU8sqtFR/Dptt2zUwYLrPxgExjzyr3FIpc9Lv4L0MPbyXG7f6AkDo+jYBAQAA"
+}

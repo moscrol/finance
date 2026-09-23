@@ -1,0 +1,24 @@
+{
+  "revision": "b24c86f87aaef6244dc6a2c6cf80f74ae1918943",
+  "baseline": "ffd1b7f1572067e9a4c7e3a5845e99cf7f876cfb",
+  "engineering_status": "PASS",
+  "python_counts": {
+    "passed": 14673,
+    "failed": 0,
+    "error": 0,
+    "skipped": 85,
+    "xfailed": 2,
+    "xpassed": 0
+  },
+  "collected": 14760,
+  "junit_matches_receipt": true,
+  "frontend_tests_passed": 122,
+  "e2e_passed": 34,
+  "e2e_skipped": 2,
+  "registry_checks_passed": 5,
+  "independent_qc_signed": false,
+  "mergeable": false,
+  "identity_stable": true,
+  "minimum_free_disk_gib_during_pytest": 15.941,
+  "scope": "Fixed candidate only. Not main/integration/deployment acceptance. No old receipts or latest aliases reused."
+}

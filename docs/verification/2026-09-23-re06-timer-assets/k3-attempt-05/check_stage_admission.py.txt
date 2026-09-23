@@ -1,0 +1,45 @@
+"""Host-only mutation check. Stub dispatch cannot access credentials or run pytest."""
+import hashlib
+import json
+from pathlib import Path
+import subprocess
+import sys
+ROOT=Path(__file__).resolve().parent
+SOURCE=(ROOT/'stage_admission.py').read_text()
+CASES=ROOT/'host-artifact-gate-cases'
+CASES.mkdir(exist_ok=False)
+rows=[]
+for name,valid,mutated in [('missing_artifacts',False,False),('valid_artifacts',True,False),('missing_guard_mutant',False,True)]:
+    folder=CASES/name
+    folder.mkdir()
+    (folder/'config.json').write_text(json.dumps({'revision':'host-fixture-only'}))
+    prior=folder/'explore-e2'
+    prior.mkdir()
+    (prior/'execution.json').write_text(json.dumps({'status':'STAGE_COMPLETE','revision':'host-fixture-only'}))
+    work=folder/'work/e2/probes'
+    work.mkdir(parents=True)
+    if valid:
+        (work.parent/'EXPLORE.md').write_text('Host fixture only; not a review.\n')
+        (work/'test_reviewer.py').write_text('def test_host_fixture():\n    assert 1 == 1\n')
+    code=SOURCE
+    if mutated:
+        anchor='if reasons:\n    raise SystemExit(75)'
+        assert code.count(anchor)==1
+        code=code.replace(anchor,'if False:\n    raise SystemExit(75)')
+    (folder/'stage_admission.py').write_text(code)
+    (folder/'run_stage.py').write_text("from pathlib import Path\nPath(__file__).with_name('dispatch-marker.json').write_text('{\"stub_called\":true}')\nraise SystemExit(99)\n")
+    run=subprocess.run([sys.executable,str(folder/'stage_admission.py'),'execute','e2'],capture_output=True,text=True)
+    marker=(folder/'dispatch-marker.json').is_file()
+    record={'case':name,'exit_code':run.returncode,'stub_dispatched':marker,
+            'source_sha256':hashlib.sha256(code.encode()).hexdigest(),'stdout':run.stdout,'stderr':run.stderr}
+    if name=='missing_artifacts':
+        assert run.returncode==75 and not marker
+    else:
+        assert run.returncode==99 and marker
+    rows.append(record)
+result={'status':'PASS','source_sha256':hashlib.sha256(SOURCE.encode()).hexdigest(),
+        'checks':rows,'guard_removal_detected':True,'real_model_requests':0,'credential_accesses':0,
+        'pytest_executions':0,'independent_qc_positive_control':False,
+        'scope':'Host artifact-admission control only; not candidate correctness, reviewer probes, or assert-1-equals-2 acceptance.'}
+(ROOT/'host-artifact-gate-check.json').write_text(json.dumps(result,indent=2)+'\n')
+print(json.dumps({k:v for k,v in result.items() if k!='checks'}))

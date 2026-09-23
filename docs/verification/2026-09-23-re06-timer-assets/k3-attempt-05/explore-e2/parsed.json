@@ -1,0 +1,20 @@
+{
+  "stage": "explore",
+  "group": "e2",
+  "revision": "b24c86f87aaef6244dc6a2c6cf80f74ae1918943",
+  "baseline": "ffd1b7f1572067e9a4c7e3a5845e99cf7f876cfb",
+  "complete": true,
+  "artifacts": [],
+  "suspected_issues": [
+    "research_contract.py:1129 恢复校验不拒绝无对应题的多余 answer_qN 槽",
+    "旧 direct_answer 形状合同恢复后编号题无逐题结构校验（有意设计但风险未量化）",
+    "episode_factory.py:717/731 重建编号槽时丢弃 prior_recall/residual_prime 槽是否预期未验证"
+  ],
+  "limits": [
+    "探针与 EXPLORE.md 未落盘（工具预算耗尽），artifacts 为空",
+    "未运行 pytest，未签候选 PASS",
+    "作者测试仅读 218/289 行；episode_semantic_verifier.py 仅局部阅读",
+    "未读 source.diff / 未做 baseline 对比",
+    "仅覆盖 C1-C3"
+  ]
+}

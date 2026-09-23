@@ -1,30 +1,30 @@
 # docs/closeout-workorders-0922
 
 ## 这个分支做什么
-维护#58-#77，本轮续#73/#75。入口`docs/verification/2026-09-23-re06-timer-scope/README.md`；决策快照`docs/handoffs/2026-09-23-re06-grouped-qc-and-gates.md`。
+维护#58-#77，本轮续#73/#75。当前入口`docs/verification/2026-09-23-re06-timer-assets/README.md`；决策快照`docs/handoffs/2026-09-23-re06-shipping-assets-and-acceptance.md`。
 
 ## 决策与被否方案
-- #73选B：计时独立scope，旧v1窄形状读取兼容，不迁移。
-- 固定候选f9ce5c6b2，证据仅本枝；不改候选后沿用收据。
-- 设备会话恢复后另开一次预检；失败另账，不盲目循环、不换模型。
-- Pi exit0/小往返成功不代终稿；pytest 93%不代完整收据。
-- 下轮E2E自己build，不依赖前端叶先成功；原执行器不回改。
+- B不变：计时独立scope，旧v1窄形状读取兼容，不迁移。
+- f9源码v2但已提交包v1，构建身份门拒收；另开b24只修产物，重跑四叶，不移签。
+- STAGE_COMPLETE不代文件/测试交付；后续阶段先验文件，再取凭据。
+- 原样恢复K3终稿中的探针，不代写、不把存在当通过；504不当业务FAIL。
 
 ## 当前状态
-作者`~/fwp-wt-wave2-re06-0923`与locked独占审查树均clean，固定`f9ce5c6b296492b423400ad66d333784a4be13bc`，base ffd1b7f15720。审查树仍在`~/.finance-runtime/reviews/re06-timer-scope-qc-20260923-02/candidate/finance-workspace-private`。03/04新模型尝试和acceptance-01已归档，INDEX/队列同步。全部本轮进程已退出；未push/PR/合并/部署/生产写入/删树。
-#69仍绑3b7e473575b0；#68/#71/#66未推进；共享脏主树未动。
+代码已本地提交`b24c86f87aaef6244dc6a2c6cf80f74ae1918943`，作者`~/fwp-wt-re06-timer-assets-0923`，base`ffd1b7f1572067e9a4c7e3a5845e99cf7f876cfb`。作者/两棵新审查树均clean。旧`~/fwp-wt-wave2-re06-0923`仍clean@f9。证据与交接在本次文档提交中；未push/PR/合并/部署/生产写入/删树，所有本轮进程结束，29701/29704已关闭。
+新原件`~/.finance-runtime/reviews/re06-timer-scope-acceptance-20260923-03/`、`re06-timer-scope-qc-20260923-05/`及`...-06/`；审查树在各QC目录`candidate/finance-workspace-private`。INDEX/队列已指b24，旧包另留接替指针。
 
 ## 已验证
-第三次预检首请求超时。第四次工具往返2请求HTTP200、158.502秒；timer组首请求6366字节即120秒超时，总124.656秒，0工具/终稿/探针。累计10请求，SDK重试0。74份核心证据、两树各16源码及7阶段输入哈希核对。分组覆盖/限额/阶段拒绝检查通过，非QC。
-14:11资源准入后Ruff过；pytest到1800秒上限（最后93%、exit -15），无完整收据，校验器拒收。14:45 load11.69、pytest4，剩余三叶未跑。E2E新计划的旧切片变异/模拟构建失败检查通过，非真实前端验收。
+四叶PASS：Python14673P/85S/2X（14760 collected，0F/0E）、前端122P、E2E自身build后34P/2S、registry五项；完整JUnit/收据一致、身份不变。pytest1654.98秒，最低空盘15.941GiB。
+K3预检过；timer/e2各23请求仅静态探索终稿；consent探索第10请求、timer执行第3请求HTTP504无终稿。06仅新预检2请求，补交未派发。本候选63、历史10、累计73请求，自动重试0/未换模型。宿主文件门真实拒绝与移除门变异通过，不算QC阳性对照。
 
 ## 未验证 / 已知边界
-四叶INCOMPLETE，无新增可采信全量测试数；旧89P/前端9P仍属4bb3bf0cb。C1-C10全not_verified，Quality未评估，独立探针/pytest必红对照/execute/report全缺。17业务+1底层仍是作者分类。#76/P7与生产迁移/重算未做。
+C1-C10全not_verified，Quality未评估；两探针未经执行，E2缺探针，独审pytest/作者分账/必红对照/三组最终report均缺。17业务+1底层仍是作者分类。#76/P7及生产迁移/重算未做；四叶不签前向main。
+#69仍绑3b7e473575b0；#68/#71/#66未推进，共享脏主树源码未改。
 
 ## 下一步
-1. 新资源窗口中整轮重跑四叶，明确足够预算；新目录，E2E自己先build，不拼接93%尾部。
-2. K3新预检、新会话；timer/e2/consent三组全覆盖与三段终稿、分账探针缺一不可。
+1. 新实际载荷健康窗口、全新输出目录续三组独审；保留每次失败，不改05/06原件。
+2. 通过阶段文件门后执行自造探针/必红对照，作者测试另账，再独立report及事务同族分类。
 3. 验收齐再申请push/PR/合main；部署/迁移另授权。#68另需load<=4。
 
 ## 踩过的坑
-准入不是资源预留；超时不等于代码错或额度尽。设备会话恢复不是模型完成证明。执行器仍是一次性封存材料，未晋升通用工具。
+构建也改变候选；准入不是资源预留；HTTP200/exit0/结构终稿不代完整审查。脚本仍是固定本机的一次性证据，未晋升通用工具。归档保留原字节，不能让格式化钩子改原始收据。

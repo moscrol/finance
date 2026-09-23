@@ -1,0 +1,123 @@
+"""K3 审查者自造探针（stage=explore, group=consent）。
+
+覆盖：C4 共用折叠 / C5 同刻撤回优先·未来不提前·事件自身时刻 / C6 锁内复核门。
+本批（第一批）只测 consent.scopes_at 纯函数，不访问真实 LLM、网络、凭据。
+候选根由环境变量 CANDIDATE_ROOT 指定；未设时相对本文件推 4 级到 candidate/finance-workspace-private。
+"""
+from __future__ import annotations
+
+import os
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+
+_ROOT = os.environ.get("CANDIDATE_ROOT")
+if _ROOT:
+    sys.path.insert(0, _ROOT)
+else:
+    sys.path.insert(
+        0,
+        str(Path(__file__).resolve().parents[4] / "candidate" / "finance-workspace-private"),
+    )
+
+from intelligence.services.product_value.consent import (  # noqa: E402
+    ConsentEntry,
+    covers_measurement,
+    measurement_scopes,
+    scopes_at,
+)
+
+T0 = datetime(2026, 9, 1, 12, 0, 0, tzinfo=timezone.utc)
+T1 = datetime(2026, 9, 1, 12, 0, 1, tzinfo=timezone.utc)
+T2 = datetime(2026, 9, 1, 12, 0, 2, tzinfo=timezone.utc)
+BOTH = frozenset({"research", "logging"})
+
+
+def entry(t: datetime, action: str, *scopes: str) -> ConsentEntry:
+    return (t, action, frozenset(scopes))
+
+
+# ---- C5: 相同时刻撤回优先（保守方向） ----
+
+def test_same_instant_grant_withdraw_nets_to_withdraw() -> None:
+    entries = [entry(T0, "grant", "research", "logging"), entry(T0, "withdraw", "research", "logging")]
+    assert scopes_at(entries, T0) == frozenset()
+
+
+def test_same_instant_partial_withdraw_keeps_rest() -> None:
+    entries = [entry(T0, "grant", "research", "logging"), entry(T0, "withdraw", "logging")]
+    assert scopes_at(entries, T0) == frozenset({"research"})
+
+
+def test_same_instant_input_order_irrelevant() -> None:
+    # 输入乱序：withdraw 写在 grant 前，结果一致
+    a = [entry(T0, "withdraw", "research", "logging"), entry(T0, "grant", "research", "logging")]
+    b = [entry(T0, "grant", "research", "logging"), entry(T0, "withdraw", "research", "logging")]
+    assert scopes_at(a, T0) == scopes_at(b, T0) == frozenset()
+
+
+# ---- C5: 乱序输入按 (effective_at, action) 排序 ----
+
+def test_out_of_order_by_time() -> None:
+    entries = [entry(T2, "withdraw", "research"), entry(T0, "grant", "research", "logging")]
+    assert scopes_at(entries, T2) == frozenset({"logging"})
+    assert scopes_at(entries, T1) == BOTH
+
+
+# ---- C5: 未来生效记录不提前作用；边界 == at 生效 ----
+
+def test_future_dated_record_does_not_apply_early() -> None:
+    entries = [entry(T0, "grant", "research", "logging"), entry(T2, "withdraw", "research", "logging")]
+    assert scopes_at(entries, T1) == BOTH          # 撤回在 T2 才生效
+    assert scopes_at(entries, T2) == frozenset()  # 边界：== at 生效
+    assert scopes_at(entries, T0) == BOTH          # grant 边界同样生效
+
+
+def test_future_grant_does_not_apply_early() -> None:
+    entries = [entry(T2, "grant", "research", "logging")]
+    assert scopes_at(entries, T1) == frozenset()
+    assert scopes_at(entries, T2) == BOTH
+
+
+# ---- C4: 空输入折叠出空集，折叠层不替调用方回答「无记录」语义 ----
+
+def test_empty_entries_fold_to_empty_set_not_none() -> None:
+    assert scopes_at([], T0) == frozenset()
+
+
+def test_unknown_action_ignored() -> None:
+    entries = [entry(T0, "grant", "research"), entry(T1, "revoke-everything", "research")]
+    assert scopes_at(entries, T2) == frozenset({"research"})
+
+
+# ---- C5: 复核以事件自身时刻为准（at 为参数，调用方各自传事件时间） ----
+
+def test_revocation_blocks_earlier_event_not_later_behavior_differs_by_at() -> None:
+    entries = [entry(T0, "grant", "research", "logging"), entry(T1, "withdraw", "research", "logging")]
+    assert covers_measurement(scopes_at(entries, T0)) is True   # 撤回前的事件
+    assert covers_measurement(scopes_at(entries, T1)) is False  # 撤回后的事件
+
+
+# ---- C4 支撑：measurement_scopes 两侧共用解释的纯函数面（C8/C9 细节归别组） ----
+
+def test_pure_timer_record_has_no_measurement_scopes() -> None:
+    ev = {"payload": {"scopes": ["activity-timer"]}}
+    assert measurement_scopes(ev) is None
+
+
+def test_explicit_empty_scopes_is_an_answer_not_absence() -> None:
+    # 空集返回值不是 None：折叠层区分「纯计时/无记录」与「明确空授权」
+    ev = {"payload": {"scopes": []}}
+    result = measurement_scopes(ev)
+    assert result is not None and result == frozenset()
+
+
+def test_measurement_scopes_strips_activity_timer_but_keeps_measurement() -> None:
+    ev = {"payload": {"scopes": ["activity-timer", "research", "logging"]}}
+    assert measurement_scopes(ev) == BOTH
+
+
+def test_covers_measurement_requires_both() -> None:
+    assert covers_measurement({"research", "logging"}) is True
+    assert covers_measurement({"research"}) is False
+    assert covers_measurement(set()) is False

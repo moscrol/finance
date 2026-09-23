@@ -1,0 +1,9 @@
+{
+  "source": "frontend/frontend-2.log.txt",
+  "raw_sha256": "f4ca2ce882e0a8af60c80a98f465e1bca7ecd5f14df16406a480bf9c3ca6f099",
+  "raw_bytes": 208,
+  "chunk": 1,
+  "chunks": 1,
+  "encoding": "gzip-base64-chunk",
+  "data": "H4sIAAAAAAACE3WMQQ7CIBBF95xiVt0NYE1s3DRuegQPQHHaYlsgMJH09uLOhe7+y8v7oofdpJUYnWfaNjeTt4QlpHWsa7lpeZIa+IhkF7IrqHumlJXpOjWViIWxmBe1mEhfUF/bs/o+UoVGE6PogbMFRB+G3TFg/HDwk5tl1fKZg682JmI+YDJbJmia/40PD/oVCfEG2vYCxtAAAAA="
+}

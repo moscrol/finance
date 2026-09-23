@@ -1,0 +1,17 @@
+"""Execute one official frontend leaf; E2E always owns its fresh build."""
+import importlib.util
+import os
+from pathlib import Path
+import sys
+ROOT=Path(__file__).resolve().parent
+TREE=Path('/Users/a77/fwp-wt-re06-timer-assets-0923')
+REVISION='b24c86f87aaef6244dc6a2c6cf80f74ae1918943'
+spec=importlib.util.spec_from_file_location('fixed_frontend_gate',TREE/'scripts/run_frontend_gate.py')
+gate=importlib.util.module_from_spec(spec)
+spec.loader.exec_module(gate)
+leaf=sys.argv[1]
+assert leaf in {'frontend','e2e'}
+commands=gate.COMMANDS[:5] if leaf=='frontend' else gate.COMMANDS[4:]
+if leaf=='e2e':
+    assert commands==(('pnpm','build'),('pnpm','test:e2e'))
+raise SystemExit(gate.run_gate(TREE,ROOT/leaf,REVISION,commands=commands,env=dict(os.environ)))
