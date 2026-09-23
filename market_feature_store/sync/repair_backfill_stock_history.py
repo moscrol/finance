@@ -262,10 +262,11 @@ def _guard(con, spec: BackfillSpec, parquet_path: Path) -> dict:
     # 部分态 = 异常，fail closed。
     live_parallel = [str(r[0]) for r in con.execute(
         "SELECT h.trade_date FROM fact_stock_daily_hithink h "
-        "WHERE h.stock_ts_code=? AND h.trade_date BETWEEN ? AND ? "
+        "WHERE h.stock_ts_code=? AND h.adjusted='none' "
+        "AND h.trade_date BETWEEN ? AND ? "
         "AND h.trade_date NOT IN (SELECT trade_date FROM fact_stock_daily "
         " WHERE stock_ts_code=?) ORDER BY 1",
-        [spec.code, spec.window_start, spec.main_fill_end, spec.code]).fetchall()]
+        [spec.code, spec.window_start, max(spec.gap_parallel), spec.code]).fetchall()]
     live_pq = [str(r[0]) for r in con.execute(
         "SELECT CAST(to_timestamp(date_ms/1000) AS DATE) FROM read_parquet(?) "
         "WHERE thscode=? AND CAST(to_timestamp(date_ms/1000) AS DATE) BETWEEN ? AND ? "

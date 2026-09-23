@@ -217,6 +217,33 @@ def _spec(db_path: Path, parquet_path: Path, pinned: dict) -> BackfillSpec:
     )
 
 
+def test_backfill_keeps_frozen_tail_source_after_parallel_table_advances(tmp_path):
+    db_path, pq = tmp_path / "advanced.duckdb", tmp_path / "tail.parquet"
+    fx = _fixture(db_path, pq)
+    spec = _spec(db_path, pq, fx["pinned"])
+    with duckdb.connect(str(db_path)) as con:
+        con.execute(
+            "INSERT INTO fact_stock_daily_hithink "
+            "(trade_date, stock_ts_code, open, high, low, close, volume, turnover, adjusted) "
+            "SELECT CAST(to_timestamp(date_ms/1000) AS DATE), thscode, open_price, "
+            "high_price, low_price, close_price, volume, turnover, adjusted "
+            "FROM read_parquet(?) WHERE CAST(to_timestamp(date_ms/1000) AS DATE)>?",
+            [str(pq), max(spec.gap_parallel)],
+        )
+        # Newer source observations must not replace the authorized frozen tail.
+        con.execute(
+            "UPDATE fact_stock_daily_hithink SET turnover=turnover+100000000 "
+            "WHERE trade_date>?", [max(spec.gap_parallel)],
+        )
+        report = run_backfill_child(con, spec, pq)
+        assert report["mode"] == "apply"
+        assert con.execute(
+            "SELECT amount, source FROM fact_stock_daily "
+            "WHERE stock_ts_code=? AND trade_date=?", [CODE, CAL[27]],
+        ).fetchone() == (_amount(27), mod.SOURCE_PARQUET)
+        assert run_backfill_child(con, spec, pq)["mode"] == "verify"
+
+
 def _others_snapshot(con) -> dict:
     return {
         t: con.execute(
@@ -938,6 +965,73 @@ def test_acceptance_e2e_baseline_pass(e2e_art, tmp_path):
     assert res.returncode == 0, (res.stdout, res.stderr)
     verdict = json.loads(out.read_text())
     assert verdict["verdict"] == "PASS" and verdict["failed"] == []
+
+
+@pytest.mark.parametrize("mutation", ["none", "amount", "delete", "insert", "timestamp"])
+def test_acceptance_preserves_later_target_rows(tmp_path, mutation):
+    """Later daily updates are protected data, not a reason to reject backfill."""
+    art = _build_e2e_artifacts(tmp_path)
+    for path in (art["baseline"], art["clone"]):
+        with duckdb.connect(str(path)) as con:
+            con.execute(
+                "INSERT INTO fact_stock_daily SELECT * REPLACE "
+                "(DATE '2026-09-22' AS trade_date) FROM fact_stock_daily "
+                "WHERE stock_ts_code=? AND trade_date=?",
+                [art["spec"].code, art["spec"].window_end],
+            )
+    art["base_sha"] = mod._sha256(art["baseline"])
+    for rid in (APPLY_RUN, VERIFY_RUN):
+        path = Path(str(art["clone"]) + f".repair-backfill-execution.{rid}.json")
+        receipt = json.loads(path.read_text())
+        receipt["backup"]["backup_sha256"] = art["base_sha"]
+        path.write_text(json.dumps(receipt))
+    if mutation != "none":
+        with duckdb.connect(str(art["clone"])) as con:
+            if mutation == "insert":
+                con.execute(
+                    "INSERT INTO fact_stock_daily SELECT * REPLACE "
+                    "(DATE '2026-09-23' AS trade_date) FROM fact_stock_daily "
+                    "WHERE stock_ts_code=? AND trade_date=DATE '2026-09-22'",
+                    [art["spec"].code],
+                )
+            elif mutation == "delete":
+                con.execute(
+                    "DELETE FROM fact_stock_daily WHERE stock_ts_code=? "
+                    "AND trade_date=DATE '2026-09-22'", [art["spec"].code],
+                )
+            else:
+                assignment = ("amount=amount+1" if mutation == "amount" else
+                              "updated_at=TIMESTAMP '2026-09-23 12:00:00'")
+                con.execute(
+                    f"UPDATE fact_stock_daily SET {assignment} "
+                    "WHERE stock_ts_code=? AND trade_date=DATE '2026-09-22'",
+                    [art["spec"].code],
+                )
+    out = tmp_path / "acceptance.json"
+    res = _run_acceptance(art["clone"], art, out)
+    if mutation == "none":
+        assert res.returncode == 0, (res.stdout, res.stderr)
+    else:
+        _assert_structured_fail(
+            res, out, must_fail=("target_outside_window_allcols",),
+            must_pass=("retained_rows_full_column_identical",),
+        )
+
+
+def test_acceptance_rejects_extreme_amount(e2e_art, tmp_path):
+    clone = _install(tmp_path, e2e_art, lambda *_: None)
+    with duckdb.connect(str(clone)) as con:
+        con.execute(
+            "UPDATE fact_stock_daily SET amount=1e15 "
+            "WHERE stock_ts_code=? AND trade_date=?",
+            [e2e_art["spec"].code, e2e_art["spec"].gap_parallel[0]],
+        )
+    out = tmp_path / "amount.json"
+    _assert_structured_fail(
+        _run_acceptance(clone, e2e_art, out), out,
+        must_fail=("keyset_fullfield_oracle",),
+        must_pass=("receipt_apply_schema", "receipt_verify_schema"),
+    )
 
 
 def _set0(lst, v):

@@ -57,8 +57,8 @@
 
 数据合同（clone vs 基线双向对照 + 独立 oracle；预检/参数/收据 schema 不过不
 执行；任何读取/计算异常归入 data_checks_error 结构化 FAIL（rc=2），不裸逃逸）：
-- 他股 fact_stock_daily 全列双向零差；目标股窗外无行；保留行（行数 =
-  expected_total_rows − 授权键集数）全列（含 updated_at）逐字节相等；
+- 他股 fact_stock_daily 全列双向零差；目标股窗外全列双向零差；窗内保留行
+  （行数 = expected_total_rows − 授权键集数）全列（含 updated_at）相等；
 - **并跑源表 fact_stock_daily_hithink 与除权源表 fact_stock_adjustment_hithink
   整表全列双向零差**（合同承诺写入器不触碰；oracle 输入独立性前提）；
 - **parallel_source_md5 从基线重算**（与写入器同查询同序列化）并绑定两轮
@@ -571,17 +571,20 @@ def _data_checks(check, prod: Path, clone: Path, pq: Path,
         expected_retained = spec["expected_total_rows"] - len(write_keys)
         before = con.execute(
             f"SELECT * FROM prod.fact_stock_daily WHERE stock_ts_code='{CODE}' "
+            f"AND trade_date BETWEEN '{d0}' AND '{d1}' "
             f"AND trade_date NOT IN ({marks}) ORDER BY trade_date").fetchall()
         after = con.execute(
             f"SELECT * FROM fact_stock_daily WHERE stock_ts_code='{CODE}' "
+            f"AND trade_date BETWEEN '{d0}' AND '{d1}' "
             f"AND trade_date NOT IN ({marks}) ORDER BY trade_date").fetchall()
         check("retained_rows_full_column_identical",
               before == after and len(after) == expected_retained,
               {"rows": len(after), "expected": expected_retained})
-        oor = con.execute(
-            f"SELECT COUNT(*) FROM fact_stock_daily WHERE stock_ts_code='{CODE}' "
-            f"AND trade_date NOT BETWEEN '{d0}' AND '{d1}'").fetchone()[0]
-        check("target_outside_window_none", oor == 0, oor)
+        outside_diff = xa(
+            "fact_stock_daily", f"WHERE stock_ts_code='{CODE}' "
+            f"AND trade_date NOT BETWEEN '{d0}' AND '{d1}'")
+        check("target_outside_window_allcols", outside_diff == [0, 0],
+              outside_diff)
 
         # 源表禁止变更（整表；合同承诺写入器不触碰这两张输入表）
         check("hithink_source_untouched",
