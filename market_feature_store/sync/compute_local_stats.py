@@ -136,6 +136,10 @@ def carry_forward_universe(trade_date, *, con=None, provider: str = CARRY_PROVID
 # ---------------------------------------------------------------------------
 # 2. 涨跌停统计
 # ---------------------------------------------------------------------------
+class InvalidStockName(ValueError):
+    """A required dated identity cannot be treated as a missing optional metric."""
+
+
 def _limit_flags(con, td: date, lookback_days: int = 60) -> tuple[list[tuple], dict[str, list[tuple[date, bool]]]]:
     """返回 (当日全A带涨跌停判定的行, 每只股近 lookback 天的 (日期, 是否涨停) 序列)。"""
     since = td - timedelta(days=lookback_days)
@@ -159,9 +163,14 @@ def _limit_flags(con, td: date, lookback_days: int = 60) -> tuple[list[tuple], d
     today: list[tuple] = []
     for r in rows:
         d = _as_date(r[0])
-        series[r[1]].append((d, bool(r[9])))
         if d == td:
+            # Names determine IPO/ST rules; SQL NULL is not a negative flag.
+            name = r[2]
+            if (not isinstance(name, str) or not name.strip()
+                    or any(ord(char) < 32 or ord(char) == 127 for char in name)):
+                raise InvalidStockName(f"invalid canonical stock name: {r[1]} @ {td}")
             today.append(r)
+        series[r[1]].append((d, bool(r[9])))
     return today, series
 
 
@@ -669,6 +678,8 @@ def compute_stock_high_local(trade_date, *, con=None, force: bool = False) -> di
         try:
             today, series = _limit_flags(con, td)
             streaks = {r[1]: _streak(series[r[1]], td)[0] for r in today if r[9]}
+        except InvalidStockName:
+            raise
         except Exception:  # noqa: BLE001
             streaks = {}
         sw = dict(con.execute(

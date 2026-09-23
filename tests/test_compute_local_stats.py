@@ -155,6 +155,55 @@ def test_recovery_rejects_invalid_close_before_any_derived_write(stock, close):
         assert {table: con.execute(f"SELECT * FROM {table} ORDER BY ALL").fetchall() for table in tables} == before
 
 
+@pytest.mark.parametrize("name", [None, "", "   ", "\u3000", "bad\x00name", "bad\tname", "bad\x7fname"],
+                         ids=["null", "empty", "spaces", "wide-space", "nul", "tab", "del"])
+@pytest.mark.parametrize("consumer", ["daily", "recovery", "overview", "high"])
+def test_missing_or_corrupt_name_refuses_before_statistics_are_replaced(name, consumer):
+    with _db() as con:
+        _seed_two_days(con)
+        _seed_universe_and_members(con)
+        cls_.compute_limit_stats_local("2026-09-02", con=con)
+        cls_.compute_market_overview_local("2026-09-02", con=con)
+        con.execute("UPDATE fact_stock_daily SET high=close")
+        con.execute("INSERT INTO fact_stock_high_daily (trade_date, stock_ts_code, stock_name, source) "
+                    "VALUES ('2026-09-02', '920001.BJ', 'prior result', 'local:high-ohlc')")
+        tables = ("fact_theme_limit_heat_daily", "fact_theme_limit_stock_daily",
+                  "fact_limit_advance_daily", "fact_leader_height_daily", "fact_market_daily", "fact_stock_high_daily")
+        before = {table: con.execute(f"SELECT * FROM {table} ORDER BY ALL").fetchall() for table in tables}
+        # Outside the sector sample, but still consumed by market-wide counts.
+        con.execute("UPDATE fact_stock_daily SET stock_name=? "
+                    "WHERE trade_date='2026-09-02' AND stock_ts_code='920001.BJ'", [name])
+        with pytest.raises(ValueError, match="invalid canonical stock name: 920001.BJ"):
+            if consumer == "overview":
+                cls_.compute_market_overview_local("2026-09-02", con=con)
+            elif consumer == "high":
+                cls_.compute_stock_high_local("2026-09-02", con=con)
+            else:
+                kwargs = {} if consumer == "daily" else {"recovery_members": {
+                    "990001.FP": ["600001.SH", "300001.SZ", "000001.SZ"],
+                    "990002.FP": ["002514.SZ"],
+                }}
+                cls_.compute_limit_stats_local("2026-09-02", con=con, **kwargs)
+        assert {table: con.execute(f"SELECT * FROM {table} ORDER BY ALL").fetchall() for table in tables} == before
+
+
+def test_dated_ipo_name_and_beijing_name_produce_distinct_limit_flags():
+    with _db() as con:
+        _stock(con, "2026-09-23", "301686.SZ", "C中塑股份", 283.5, 433.)
+        _stock(con, "2026-09-23", "920229.BJ", "世纪数码", 92.4, 132.)
+        result = cls_.compute_market_overview_local("2026-09-23", con=con)
+        assert result["limit_down"] == 1
+        assert result["limit_up"] == 0
+
+
+def test_name_guard_is_scoped_to_the_requested_day():
+    with _db() as con:
+        _stock(con, "2026-09-22", "920229.BJ", None, 132., 15.67)
+        _stock(con, "2026-09-23", "920229.BJ", "世纪数码", 92.4, 132.)
+        _stock(con, "2026-09-24", "920229.BJ", None, 92.4, 92.4)
+        assert cls_.compute_market_overview_local("2026-09-23", con=con)["limit_down"] == 1
+
+
 def test_limit_stats_refuses_to_overwrite_fupanhui_rows_unless_forced():
     con = _db()
     _seed_two_days(con)
