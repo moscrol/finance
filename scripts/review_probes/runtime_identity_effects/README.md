@@ -93,3 +93,16 @@ raw output survives even without JUnit. Existing output is never overwritten.
 The spool test demonstrates at-least-once delivery in an injected unlink-failure
 window, not exactly-once delivery or a complete process-restart driver. These
 host replays do not turn the historical K3 independent verdict into PASS.
+
+## Local CI Sandbox Preflight
+
+`scripts/review_probes/check_loopback_sandbox.py` checks the separate local-CI
+policy before the full gates. It requires a real IPv4 loopback connection,
+`PermissionError` on remote TCP, and refusal to execute the `security` CLI.
+A timeout, missing program, invalid response, or absent check is not a pass.
+
+Do not combine local/remote address filters under one `allow network*` rule:
+the first PR884 gate attempt demonstrated that it can allow remote traffic.
+The preflight accepts `--profile-file` for explicit negative-policy tests.
+It is not proof of arbitrary IO isolation or all native keychain APIs. The
+runtime mutation probes retain their original stricter all-network denial.

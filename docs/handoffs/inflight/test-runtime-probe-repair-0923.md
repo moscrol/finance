@@ -1,25 +1,25 @@
 # Runtime 合同量具补验
 
 ## 这个分支做什么
-修复可复跑量具、验收K3写手局部产物；不改运行时产品源码。
+修量具、验K3写手局部代码、补#884工程门禁；不改运行时产品行为。
 
 ## 决策与被否方案
-复用现有变异runner加沙箱和具名失败校验，不另造引擎。K3写手与宿主验收分账，否决局部绿改写全局独审。详见 `docs/handoffs/2026-09-23-runtime-contract-followup.md`。
+K3写手与宿主验收分账，不以局部绿改全局独审。先写完文档再冻结提交，最终收据树外绑SHA，避免写收据又改变tip。快照：`docs/handoffs/2026-09-23-pr884-gate-freeze.md`。
 
 ## 当前状态
-已推Gitea，PR #884 WIP，平台回读mergeable=false；未合main/部署。代码0099486f6，原件归档f0f75625b。当前树自有变更已提交；主工作树其他agent改动不碰。
-入口 `scripts/review_probes/run_runtime_contract_checks.py`，四组runtime/writer/reentry/inbox；新输出根+完整SHA+干净候选。说明见旧identity工具README。
+PR #884 WIP，未合main/部署。fc7fed47b已将固定main bbd53487f4ce带入本枝。最终工程结论唯一读取点：`~/.finance-runtime/reviews/pr884-gates-20260923-02/verification.json`及#884最新门禁评论。只有四叶通过、预检通过、revision与PR当前head全等才可采信；文件缺失或不符即未完成，不回退旧收据。
+首轮480cad07057c的Python被宿主中止，不能报全绿；原因及23原件在 `docs/verification/2026-09-23-pr884-gates/`。
 
 ## 未验证 / 已知边界
-历史K3独审C1-C8仍未签字，整体BLOCKED；本轮主要是既有作者测试的宿主重放，不能当新的独审。K3第三场仅写完6例并基线通过，deadline停、无终稿；宿主接手完成变异与还原。
-没有本枝全仓/前端门禁。未验完整跨进程续跑driver、跨机锁、真实费用对账、所有入口异常收口。unlink故障不等于真实崩溃恢复，spool只证明at-least-once。
+历史独审C1-C8仍未签字、整体BLOCKED。K3第三场只完成6例及基线，deadline停无终稿；变异/还原为宿主接手。工程四叶不等于独立语义验收。
+未验完整跨进程续跑driver、跨机锁、真实计费、全部入口异常收口。spool只证明at-least-once；预检只验IPv4 TCP及security CLI，不声称完整主机隔离。
 
 ## 下一步
-先完成本枝等价CI再申请合工具PR；不重复合#865。完整独审须另按合同授权补验，不自动续K3/买额度/移签旧main收据。harness-reference的BUILD.md有他人改动，未动；量具已入本仓，通用目录登记待安全窗口。
+核对当前head与最终回执；不齐先复验，齐后等用户明确确认合#884，不自动去WIP。不重复合#865，不续K3/买额度/移签旧main收据。harness-reference BUILD.md仍有他人改动，本轮不碰。
 
 ## 踩过的坑
-锁观察钩子消失不算行为失败，要观察close是否提前返回。JUnit可能无type属性；KeyError只允许精确变异/用例/字段组合。两个失效源码锚点已修，先唯一匹配/编译再执行。runtime最终原拒收与重新裁决分开，后者未重新执行测试。原始日志不做空白格式化；probe命名*_checks.py不进默认收集。
+本机CI的generic allow network*配local/remote会漏放外连；应按入站/出站分别授权并先动态预检。首轮已作废，坏策略exit1/正确策略exit0留证；旧runtime全禁网策略不受影响。关闭等待要观察close，不能等被删除的锁钩子。JUnit可无type；KeyError只接纳精确变异/用例/字段。首红不覆盖，日志不格式化。
 
 ## 已验证
-冻结5f35da172：身份16P及两组撤保护/还原；磁盘恢复等8文件178P。d542658a7：runtime71P/13变异、writer23P/9、reentry12P/5，还原均绿。0099486f6：K3原样inbox6P/1变异2指定红/还原6P；另在5f35验shadow。合计28种源码变异，不重复累计同一保护。验收器35P、目标Ruff绿。
-归档 `docs/verification/2026-09-23-runtime-contract-followup/`，MANIFEST所列241个提交blob字节核对通过；不宣称完整模型会话归档。所有本轮测试/写手进程已退出。
+旧冻结版本：身份16P及两种撤保护；磁盘恢复178P；runtime71P/13变异、writer23P/9、reentry12P/5；K3原样inbox6P/1变异2指定红，均还原绿。241原件hash已验，详见 `docs/verification/2026-09-23-runtime-contract-followup/`。
+本轮新增预检后验收器44P、目标Ruff绿。首轮前端120P、E2E34P/2S、注册表5/5仅保留为诊断旁证，不当最终提交验收。
