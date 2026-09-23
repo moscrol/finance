@@ -127,11 +127,12 @@ def local_endpoint(scenario: str, budget: float):
         parsed = urllib.parse.urlsplit(request.full_url)
         if parsed.scheme != "http" or parsed.hostname != "127.0.0.1" or parsed.port != server.server_port:
             raise RuntimeError("diagnostic non-loopback request rejected")
-        attempt = {"timeout_seconds": timeout, "phase": "open_response"}
+        attempt = {"timeout_seconds": timeout, "phase": "open_response", "events": []}
         attempts.append(attempt)
         started = time.monotonic()
 
         def observe(event, **fields):
+            attempt["events"].append({"event": event, "elapsed_ms": round((time.monotonic() - started) * 1000), **fields})
             attempt.update(fields)
             if event != "closed":
                 attempt["phase"] = event
@@ -235,6 +236,31 @@ def violations(cases: list[dict], tolerance: float) -> list[str]:
             if case["wall_elapsed_seconds"] > case["timeout_input_seconds"] + tolerance]
 
 
+def coverage_gaps(cases: list[dict]) -> list[dict]:
+    """A startup timeout cannot stand in for a response-body cancellation."""
+    gaps = []
+    for case in cases:
+        name = case["scenario"]
+        attempts = case.get("attempts", [])
+        count = case.get("request_count", 0)
+        if name in {"zero_deadline", "judge_root_expired"}:
+            exercised = count == 0 and not attempts and not case.get("records")
+        elif name == "fast":
+            exercised = count == 1 and case.get("content_present") is True
+        elif name in {"header_delay", "judge_window_stalls"}:
+            expected = 2 if name == "judge_window_stalls" else 1
+            exercised = count == expected and len(attempts) == expected
+        else:
+            exercised = count == 1 and len(attempts) == 1 and all(
+                "headers_ms" in attempt for attempt in attempts
+            )
+            if "stream" in name and not name.endswith("partial_line"):
+                exercised = exercised and case.get("emitted_chars", 0) > 0
+        if not exercised:
+            gaps.append({"scenario": name, "reason": "target_phase_not_exercised"})
+    return gaps
+
+
 def source_identity() -> dict:
     def git(*args):
         return subprocess.check_output(["git", "-C", str(ROOT), *args], text=True).strip()
@@ -270,19 +296,21 @@ def main() -> int:
                  for name in SCENARIOS]
         cases.extend(run_judge_case(name, args.timeout) for name in JUDGE_SCENARIOS)
         overruns = violations(cases, args.tolerance)
+        gaps = coverage_gaps(cases)
         result = {
-            "schema_version": 2,
+            "schema_version": 3,
             "scope": "synthetic loopback HTTP; no live model or content acceptance",
             "source_before": before,
             "source_after": source_identity(),
             "scheduling_tolerance_seconds": args.tolerance,
             "deadline_violations": overruns,
+            "coverage_gaps": gaps,
             "cases": cases,
         }
         json.dump(result, output, ensure_ascii=False, indent=2)
         output.write("\n")
-    print(json.dumps({"receipt": str(args.output), "deadline_violations": overruns}))
-    return int(args.assert_deadline and bool(overruns))
+    print(json.dumps({"receipt": str(args.output), "deadline_violations": overruns, "coverage_gaps": gaps}))
+    return int(args.assert_deadline and bool(overruns or gaps))
 
 
 if __name__ == "__main__":

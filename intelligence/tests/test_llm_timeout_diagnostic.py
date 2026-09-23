@@ -28,6 +28,12 @@ def test_real_fast_loopback_preserves_one_attempt_and_restores_transport():
     assert result["requests"] == [{"stream_requested": False}]
     assert 0 < result["attempts"][0]["timeout_seconds"] <= 0.8
     assert result["records"][0]["status"] == "success"
+    events = result["attempts"][0]["events"]
+    assert [event["event"] for event in events] == [
+        "spawn_started", "spawned", "request_sent", "headers", "eof", "closed",
+    ]
+    assert [event["elapsed_ms"] for event in events] == sorted(event["elapsed_ms"] for event in events)
+    assert events[-1]["reap_ms"] >= 0
     assert probe.llm_refine.llm_http_transport.urlopen is before
 
 
@@ -174,12 +180,86 @@ def test_cli_strict_mode_is_a_real_wall_clock_gate(monkeypatch, tmp_path, strict
     monkeypatch.setattr(probe, "source_identity", lambda: {"revision": "fixed"})
     monkeypatch.setattr(probe, "run_case", lambda name, budget: {
         "scenario": name, "timeout_input_seconds": budget, "wall_elapsed_seconds": elapsed,
+        "request_count": 1, "content_present": True,
     })
     monkeypatch.setattr(sys, "argv", ["probe", "--output", str(output), *(["--assert-deadline"] if strict else [])])
     assert probe.main() == expected
     receipt = json.loads(output.read_text())
     assert receipt["deadline_violations"] == (["fast"] if elapsed > 1 else [])
     assert receipt["source_before"] == receipt["source_after"]
+
+
+@pytest.mark.parametrize("name", ["body_stall", "headers_then_body", "body_trickle", "judge_late_report", "tools_stream_partial_line"])
+def test_startup_timeout_is_not_body_coverage(name):
+    case = {"scenario": name, "request_count": 0, "attempts": [{"phase": "request_sent"}]}
+    assert probe.coverage_gaps([case]) == [{"scenario": name, "reason": "target_phase_not_exercised"}]
+    case["request_count"] = 1
+    assert probe.coverage_gaps([case])
+    case["attempts"][0]["headers_ms"] = 1
+    assert probe.coverage_gaps([case]) == []
+
+
+def test_header_stalls_and_zero_deadlines_have_distinct_coverage():
+    assert probe.coverage_gaps([
+        {"scenario": "judge_window_stalls", "request_count": 2, "attempts": [{}, {}]},
+        {"scenario": "header_delay", "request_count": 1, "attempts": [{}]},
+        {"scenario": "zero_deadline", "request_count": 0, "attempts": [], "records": []},
+    ]) == []
+    assert probe.coverage_gaps([{"scenario": "zero_deadline", "request_count": 1}])
+    assert probe.coverage_gaps([{"scenario": "synthesis_stream_trickle", "request_count": 1,
+                                 "attempts": [{"headers_ms": 1}], "emitted_chars": 0}])
+
+
+def test_strict_mode_rejects_missing_coverage_even_inside_deadline(monkeypatch, tmp_path):
+    output = tmp_path / "receipt.json"
+    monkeypatch.setattr(probe, "SCENARIOS", ("body_stall",))
+    monkeypatch.setattr(probe, "JUDGE_SCENARIOS", ())
+    monkeypatch.setattr(probe, "source_identity", lambda: {"revision": "fixed"})
+    monkeypatch.setattr(probe, "run_case", lambda name, budget: {
+        "scenario": name, "timeout_input_seconds": budget, "wall_elapsed_seconds": 0.8,
+        "request_count": 0, "attempts": [{}],
+    })
+    monkeypatch.setattr(sys, "argv", ["probe", "--output", str(output), "--assert-deadline"])
+    assert probe.main() == 1
+    receipt = json.loads(output.read_text())
+    assert receipt["deadline_violations"] == []
+    assert receipt["coverage_gaps"]
+
+
+def test_real_cancel_can_interrupt_a_partial_line_without_a_consumer_callback():
+    """Trigger from a timer: the iterator cannot yield an incomplete line."""
+    import threading
+
+    transport = probe.llm_refine.llm_http_transport
+    cancelled = threading.Event()
+    with probe.local_endpoint("tools_stream_partial_line", 0.8) as (provider, requests, _attempts):
+        request = probe.urllib.request.Request(provider.base_url + "/chat/completions", data=b"{}", method="POST")
+        with transport.urlopen(request, 3, loopback_only=True, is_cancelled=cancelled.is_set) as response:
+            timer = threading.Timer(0.1, cancelled.set)
+            timer.start()
+            started = time.monotonic()
+            try:
+                with pytest.raises(transport.HTTPStreamCancelled):
+                    next(iter(response))
+                assert cancelled.is_set() and len(requests) == 1
+                assert time.monotonic() - started < 1
+            finally:
+                timer.cancel()
+                timer.join()
+        assert response.process.poll() is not None
+
+
+def test_partial_line_cannot_trigger_cancellation_from_the_iterator_body():
+    transport = probe.llm_refine.llm_http_transport
+    state = {"cancelled": False}
+    with probe.local_endpoint("tools_stream_partial_line", 0.8) as (provider, requests, _attempts):
+        request = probe.urllib.request.Request(provider.base_url + "/chat/completions", data=b"{}", method="POST")
+        with pytest.raises(transport.HTTPDeadlineExceeded):
+            with transport.urlopen(request, 0.8, loopback_only=True, is_cancelled=lambda: state["cancelled"]) as response:
+                for _line in response:
+                    state["cancelled"] = True
+        assert len(requests) == 1 and state["cancelled"] is False
+        assert response.process.poll() is not None
 
 
 def test_existing_receipt_is_never_overwritten(monkeypatch, tmp_path):

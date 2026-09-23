@@ -16,6 +16,7 @@ from pathlib import Path
 import re
 import subprocess
 import sys
+import time
 import urllib.request
 
 
@@ -196,24 +197,15 @@ def freeze_data(source: Path, output: Path, code: Path) -> dict:
 
 
 def retrieval_probe(python: Path, kb: Path, model: Path, output: Path) -> dict:
-    command = """import json, sys
-sys.path.insert(0, sys.argv[1])
-from rag.embedder import get_embedder
-try:
-    encoder = get_embedder('bge-m3')
-    vector = encoder.encode(['local readiness probe'])
-    print(json.dumps({'ready': vector.shape == (1, 1024), 'shape': list(vector.shape)}))
-except Exception as exc:
-    print(json.dumps({'ready': False, 'error_type': type(exc).__name__, 'detail': str(exc)[:1600]}))
-    raise SystemExit(1)
-"""
+    worker = Path(__file__).with_name("retrieval_readiness_worker.py")
+    started = time.monotonic()
     env = {
         "HOME": str(Path.home()),
         "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
         "HF_HUB_OFFLINE": "1",
         "TRANSFORMERS_OFFLINE": "1",
         "RAG_BGE_MODEL": str(model),
-        "PYTHONPYCACHEPREFIX": str(output / "pycache"),
+        "PYTHONDONTWRITEBYTECODE": "1",
         "HF_HUB_DISABLE_PROGRESS_BARS": "1",
         "TRANSFORMERS_VERBOSITY": "error",
         "TQDM_DISABLE": "1",
@@ -221,7 +213,7 @@ except Exception as exc:
     with (output / "retrieval-probe.log").open("xb") as log:
         try:
             process = subprocess.run(
-                [str(python), "-c", command, str(kb / "skills/lib")],
+                [str(python), "-u", "-B", str(worker), str(kb / "skills/lib")],
                 env=env,
                 cwd=kb,
                 stdout=log,
@@ -231,9 +223,24 @@ except Exception as exc:
             code = process.returncode
         except subprocess.TimeoutExpired:
             code = 124
+    events = []
+    for line in (output / "retrieval-probe.log").read_text(errors="replace").splitlines():
+        try:
+            event = json.loads(line)
+        except ValueError:
+            continue
+        if isinstance(event, dict) and "event" in event:
+            events.append(event)
+    complete = [event for event in events if event["event"] == "complete"]
+    valid = len(complete) == 1 and complete[0].get("ready") is True and complete[0].get("shape") == [1, 1024]
     result = {
-        "ready": code == 0,
+        "ready": code == 0 and valid and events[-1].get("event") == "complete",
         "exit_code": code,
+        "timeout_seconds": 120,
+        "wall_elapsed_seconds": round(time.monotonic() - started, 6),
+        "last_event": events[-1] if events else None,
+        "events": events,
+        "worker": digest(worker),
         "model_path": str(model),
         "offline": True,
         "downloads": False,

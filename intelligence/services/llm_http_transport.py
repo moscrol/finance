@@ -194,6 +194,7 @@ class HTTPResponse:
         if self._closed:
             return
         self._closed = True
+        close_started = time.monotonic()
         try:
             # No grace period for a socket owner: SIGKILL cannot be ignored and
             # wait() reaps it before the call ledger can be finalized.
@@ -202,7 +203,8 @@ class HTTPResponse:
             self.process.wait()
         finally:
             if self.observer is not None:
-                self.observer("closed", returncode=self.process.returncode)
+                self.observer("closed", returncode=self.process.returncode,
+                              reap_ms=round((time.monotonic() - close_started) * 1000))
             for stream in (self.process.stdin, self.process.stdout):
                 try:
                     stream.close()
@@ -235,6 +237,8 @@ def urlopen(request, timeout: float, *, deadline=None, is_cancelled=None, loopba
     }).encode("utf-8")
     if time.monotonic() >= expires_at:
         raise HTTPDeadlineExceeded()
+    if observer is not None:
+        observer("spawn_started")
     process = subprocess.Popen(
         [sys.executable, "-I", "-u", str(Path(__file__).resolve())],
         stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
@@ -242,8 +246,12 @@ def urlopen(request, timeout: float, *, deadline=None, is_cancelled=None, loopba
     )
     response = HTTPResponse(process, expires_at, is_cancelled, observer)
     try:
+        if observer is not None:
+            observer("spawned")
         os.set_blocking(process.stdout.fileno(), False)
         response.send_request(payload)
+        if observer is not None:
+            observer("request_sent")
         response.open()
         return response
     except BaseException:

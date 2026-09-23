@@ -41,6 +41,14 @@ def test_prepare_preserves_sealed_inputs_and_refuses_reuse(tmp_path):
         assert not (root / axis / "gateway/receipt.json").exists()
         assert not (root / axis / "report").exists()
         assert not list((root / axis / "work/probes").iterdir())
+        execute = (root / axis / "prompt-execute.md").read_text()
+        assert "first two tool calls MUST be bash" in execute
+        assert "control below exactly once" in execute and "author tests exactly once" in execute
+        assert "Stage EXECUTE: first read" not in execute
+        explore = (root / axis / "prompt-explore.md").read_text()
+        assert "verify every called API signature" in explore
+        assert "target trigger was reached" in explore
+        assert "Exit nonzero" in explore
     with pytest.raises(FileExistsError):
         prepare(root)
     with pytest.raises(ValueError, match="sealed evidence"):

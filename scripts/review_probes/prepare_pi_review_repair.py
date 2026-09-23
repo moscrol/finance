@@ -98,6 +98,23 @@ def prepare(destination: Path, archive: Path = ARCHIVE) -> dict:
                 "Do NOT supply stage, axis, revision or baseline; those fields are controller-owned. "
                 "Identity injection is rejected, never normalized;",
             )
+            if stage == "execute":
+                inputs[prompt] = replace_once(
+                    inputs[prompt], "Stage EXECUTE: first read ",
+                    "Stage EXECUTE: your first two tool calls MUST be bash: run the intentional "
+                    "failing control below exactly once, then the prescribed pure author tests "
+                    "exactly once. Preserve both outcomes even if later probes cannot run. "
+                    "Do not spend these calls on reading or debugging. After those two calls, read ",
+                )
+            if stage == "explore":
+                inputs[prompt] += (
+                    "\nBefore writing a probe, verify every called API signature in candidate source. "
+                    "Each probe must separately report whether its target trigger was reached; "
+                    "an exception alone does not prove cancellation, body timeout or late rejection. "
+                    "Exit nonzero if any non-control assertion fails; report subcase counts separately "
+                    "from script invocations. Keep probes small enough to run after mandatory controls "
+                    "within the existing execute budget.\n"
+                )
             if stage == "report":
                 inputs[prompt] = replace_once(
                     inputs[prompt],
