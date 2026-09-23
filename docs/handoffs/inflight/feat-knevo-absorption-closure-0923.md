@@ -1,30 +1,30 @@
-# Knevo 材料吸收续修
+# Knevo 部署候选续修
 
 ## 这个分支做什么
-PR #877 WIP：原题/八问/原审稿闸修交付，不合main、不部署8792、不回补、不写生产画像。
+PR #877 WIP：原题/八问/来源/预算/审稿闸不变，修交付。只留本地候选，未经确认不推、不合回main、不部署8792、不回补或写生产画像。
 
 ## 决策与被否方案
-- 86692c7b5补首轮/修复共用逐句构造指引：全输入锚点、主体/指标/单位/期间、收入不等于利润；未改schema/预算/重试/闸门。指引送达不代表模型遵守。
-- 不自动改kind、拆句借锚点或截断，不加JSON模式，不再追加写手重试凑成功。详情`docs/handoffs/2026-09-24-knevo-claim-inputs.md`。
+- main=3bb81b963合入本枝为6d721fdaa；不拿落后107提交的旧基底签部署。
+- 7343cfc34保存私有审查尝试、输入hash和修复轮次；历史不覆盖终态、不授权新稿。inspect只出脱敏摘要，旧缺记录不补造。
+- 模型/JSON模式/先锚点实验未证明质量，不追加提示、预算或盲目重试凑绿。详见`docs/handoffs/2026-09-24-knevo-deploy-readiness.md`。
 
 ## 当前状态
-运行代码86692c7b57dc06e73b48ed8d5d7ccc5e56fa9a71已提交。首轮仅material_grounding两处rule变化，载荷19035→19415字符，原题/八问/来源/系统/终局模板相同。
-原入口run_20260923_235628_399142：首稿63.967秒分句失败，格式续轮35.279秒缺evidence_boundary，有界补写38.691秒后44条声明结构完成。判官两次75秒超时、首层150.011秒无报告；请求/结构completed、语义partial、作者not_passed、driver not_evaluated。
-旧冻结稿重放150.031秒首层超时；两次HTTP哈希均5d091c4f…，与历史70.228秒成功首审相同，未到非事实复核。不证明稳定性。
-所有本轮进程已停，8817无监听。证据索引`~/.finance-runtime/knevo-absorption-20260923/claim-inputs-20260923/current.json`。
+代码7343cfc34已本地提交，未推。生产只读health仍为3b7e473575b0。仍不可部署。
+原八问run_20260924_015153_765303在6d运行：写手38.673/30.570秒，修复40.009秒超时；repair_model_unavailable、请求failed、最终judge unavailable、作者not_passed。有中途rejected事件，旧工件未保留旧审查原件，不能追认两层报告。
+7343首轮全仓8F/15054P/87S/2X；同版本独立检出完整复跑15064P/85S/2X/0F。8红集中rag_worker_keepalive，根因未定，小范围与整仓复跑未重现，不擦红、不称稳定性已修。
+本轮检查进程与live均已结束。证据根`~/.finance-runtime/knevo-deploy-readiness-20260924/`，身份索引current.json；红收据audit-full-tests、绿收据audit-canonical-tests，完整详情audit-canonical-junit.xml。
 
 ## 已验证
-86692c7b5干净定向2154P/2S/1X，收集2157，Ruff/收据验签通过；接线302P、撤保护5F/恢复5P。非全仓/前端/main组合。
-原题逐字保真/material_only/0 Episode工具请求，非全IO零；七份原件不变。writer-only采集不留隐藏推理，私有判词不进写手。
+6d完整Python15062P/85S/2X；7343完整绿收集15151，定向267P、撤保护4F/恢复4P，Ruff/注册表通过。两revision前端六步通过，7343为120单测、34E2E/2跳过。收据各属自己的revision。
+固定旧稿三次判官均合法返回且passed=false，原150秒/75秒帽不变；首层请求相同，第二层上下文不同，不签稳定性。请求thinking=disabled仍有非零思考计数。
 
 ## 未验证 / 已知边界
-提示未修好生成：q6仍把厂商出货125→110写量增、40→30未绑40；q7库存60被写远超消耗100，价格/收入事实仍标reasoning无锚点，q8八成计算缺基期。
-一次正确分句/全输入、两层判官稳定性与金融语义未过。旧low同hash超时、f1fd 0/12、G1b、包3、Q14、真实Q18、unsupported/nonfactual反例未翻案。开工base落后93提交，不签最新main。
+写手仍有厂商量降写量升、无基线否定过剩、预设盈利改善，多句绑定仍在；没有语义接纳。新审计修复未另跑自然live。旧0/12、G1b、包3、Q14、真实Q18、unsupported/nonfactual反例不翻案。8项整仓不一致未归因。
 
 ## 下一步
-1. 定位规则在场仍错的句子构造环节，别把继续堆提示当已验证修复；仍需原八问验收。
-2. 固定稿检验判官重复性/协议规模，不提高预算、不用重放代签Episode。
-3. 续修旧反例，删句后重验交付义务。
+1. 处理生成可靠性，任何协议方案仍须原八问/原预算/原判官验收。
+2. 查清8项整仓不一致；保留旧红与新绿，勿猜测路径/内存是已证原因。
+3. 完整回归与真实前置验收后才讨论部署；合并结果待用户确认再推。
 
 ## 踩过的坑
-主树.venv-workbench/bin/python，从目标树cwd跑gate；test_id用uuid。撤保护脚本需保留future annotations，原NameError不算有效反证。采集argv须保留--port；字符不是token，stop/合法JSON/结构完成都不等于接纳。
+主树.venv-workbench/bin/python。run_main_gate只保尾部，首次全仓即加--junitxml。模型/思考请求参数不等于服务实际执行；历史快照不是当前裁决。合法JSON、报告返回与工程绿都不是答案接纳。作者复核也要守语境，不把相对期间或“更像”改写成更强的错误断言。
