@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from dataclasses import replace
 import json
 
 import pytest
@@ -25,7 +26,9 @@ from intelligence.services.research_contract import (
     ResearchRunContext,
     ResearchTaskContract,
 )
-from intelligence.services.research_tool_registry import ResearchToolRegistry, ToolSpec
+from intelligence.services.research_tool_registry import (
+    ResearchToolRegistry, ToolSpec, URL_TOOL_PARAMETERS, parse_url_arguments,
+)
 from intelligence.services.task_frame import TaskFrame
 
 
@@ -316,6 +319,65 @@ def test_rejected_structured_arguments_do_not_crash_progress_recording():
     progress = _budget_blocks(model)[1]["research_progress"]
     assert progress["last_batch"][0]["result"] == "rejected"
     assert "condition" in progress["last_batch"][0]["query"]
+
+
+@pytest.mark.parametrize("url,error,dispatched", [
+    ("file:///nonexistent", "invalid_query", False),  # F3 原始持久事件中的实参。
+    ("relative/path", "invalid_query", False),
+    ("https://example.org/report", "tool_exception", True),
+])
+def test_url_failure_keeps_prior_evidence_and_returns_feedback_to_same_episode(
+    monkeypatch: pytest.MonkeyPatch, url: str, error: str, dispatched: bool,
+) -> None:
+    def denied(*_args, **_kwargs):
+        raise AssertionError("offline regression must not connect")
+
+    monkeypatch.setattr("socket.socket.connect", denied)
+    monkeypatch.setattr("socket.create_connection", denied)
+    calls = []
+
+    def failing_fetch(value, _context):
+        calls.append(value)
+        raise RuntimeError("offline provider failure")
+
+    frame = _frame()
+    base = _context(frame)
+    context = replace(base, contract=replace(
+        base.contract, allowed_capabilities=("market_data", "web_fetch"),
+    ))
+    registry = ResearchToolRegistry((
+        _registry(_runner).resolve("market_data"),
+        ToolSpec(
+            name="web_fetch", capability="web_fetch", description="网页正文",
+            cost="remote", freshness="current", runner=failing_fetch,
+            parameters=URL_TOOL_PARAMETERS, parse_arguments=parse_url_arguments,
+        ),
+    ))
+    call = ModelToolCall("bad-url", "web_fetch", {"url": url})
+    model = ScriptedModel([
+        _tool_turn("q1", "c1"), ModelTurn("", (call,), "scripted"),
+        _finish_turn(("hash-q1",)),
+    ])
+    outcome = ContinuousAgentEpisode(model).run(
+        task_frame=frame, context=context, registry=registry,
+    )
+    assert outcome.status == "completed" and outcome.stop_reason == "model_finish"
+    assert outcome.draft and [e.content_hash for e in outcome.evidence] == ["hash-q1"]
+    assert outcome.bindings[0].evidence_hashes == ("hash-q1",)
+    assert len(model.calls) == 3
+    assert calls == ([url] if dispatched else [])
+    assert outcome.usage.tool_calls == 1 + int(dispatched)
+    errors = [e for e in outcome.events if e.kind == "tool_error"]
+    assert len(errors) == 1 and errors[0].payload["error"] == error
+    feedback = next(
+        json.loads(m["content"]) for m in model.calls[-1]["messages"]
+        if m.get("role") == "tool" and m.get("tool_call_id") == "bad-url"
+    )
+    assert feedback["ok"] is False and feedback["error"] == error
+    assert feedback["detail"]
+    progress = _budget_blocks(model)[-1]["research_progress"]
+    assert progress["evidence_total"] == 1 and progress["stalled_batches"] == 1
+    assert progress["last_batch"][0]["result"] == ("error" if dispatched else "rejected")
 
 
 def test_tool_error_after_success_keeps_evidence_and_reports_error(monkeypatch: pytest.MonkeyPatch) -> None:

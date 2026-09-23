@@ -1,0 +1,41 @@
+
+> market-intelligence-workbench@0.1.0 test /Users/a77/fwp-wt-8792-financial-r6-repair/intelligence/webapp
+> vitest run
+
+
+ RUN  v3.2.4 /Users/a77/fwp-wt-8792-financial-r6-repair/intelligence/webapp
+
+ ✓ src/streamEventRegistry.test.ts (2 tests) 161ms
+ ✓ src/researchActivity.test.ts (2 tests) 13ms
+ ✓ src/api.test.ts (3 tests) 16ms
+ ✓ src/components/ResearchActivityControl.test.tsx (5 tests) 1513ms
+   ✓ 默认关闭，拒收同意不启动区间，也不影响其他研究控件  1151ms
+ ✓ src/components/ResearchProjectPanel.test.tsx (5 tests) 1386ms
+   ✓ ResearchProjectPanel > renders judgment, open questions, triggers, prior note and rounds from the projection  689ms
+   ✓ ResearchProjectPanel > orders next questions as given and sends continuation of the last completed round on click  502ms
+ ✓ src/components/DailyReportView.test.tsx (4 tests) 1342ms
+   ✓ DailyReportView > renders the five report layers with reader-facing labels  549ms
+   ✓ DailyReportView > keeps glossary and the original report behind disclosure controls  636ms
+ ✓ src/components/ResearchEvolutionPanel.test.tsx (18 tests) 3183ms
+   ✓ ResearchEvolutionPanel > 哈希变化显示为需复核，不出现已证伪  431ms
+   ✓ ResearchEvolutionPanel > 哈希与内部版本只在详情里出现，不上主屏  992ms
+   ✓ ResearchEvolutionPanel > R4：未绑定记录可以「从现在开始跟踪」，从受控目录勾选证据后提交绑定  414ms
+ ✓ src/components/components.test.tsx (68 tests) 11569ms
+   ✓ Workbench components > starts a workflow preset and submits from the unified composer  390ms
+   ✓ Workbench navigation reliability > opens on today and navigates across the five product surfaces  487ms
+   ✓ Workbench navigation reliability > restores the latest conversation and submits in hybrid mode  370ms
+   ✓ Workbench navigation reliability > seeds the credits line from bootstrap and refreshes it once a question is accepted  410ms
+   ✓ Workbench navigation reliability > submits an explicit KOL perspective without mixing other profiles  574ms
+   ✓ Workbench navigation reliability > recovers a persisted terminal run after the stream disconnects  493ms
+   ✓ Workbench navigation reliability > keeps cancel pending until polling confirms the cancelled state  716ms
+   ✓ Workbench navigation reliability > closes the event stream and polling timer when unmounted  739ms
+   ✓ Workbench navigation reliability > configures session-only BYOK without exposing the key  1153ms
+   ✓ Workbench navigation reliability > persists BYOK only after opt-in and can explicitly forget it  1053ms
+   ✓ Workbench navigation reliability > regenerates as a new message without replacing the old answer  432ms
+   ✓ Workbench navigation reliability > does not let a late conversation response replace the current thread  414ms
+   ✓ Workbench navigation reliability > does not let a late artifact response replace the current selection  822ms
+
+ Test Files  8 passed (8)
+      Tests  107 passed (107)
+   Start at  22:32:50
+   Duration  23.83s (transform 6.81s, setup 10.01s, collect 17.21s, tests 19.18s, environment 25.34s, prepare 4.20s)

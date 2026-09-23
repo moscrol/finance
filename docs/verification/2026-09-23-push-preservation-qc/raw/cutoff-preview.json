@@ -1,0 +1,22 @@
+{
+  "ok": true,
+  "phase": "preview_only",
+  "repo": "/Users/a77/fwp-wt-market-date-advisory-0921",
+  "archive": "docs/verification/2026-09-22-market-cutoff-followup",
+  "paths": [
+    "docs/verification/2026-09-22-market-cutoff-followup",
+    "docs/handoffs/inflight/fix-market-date-advisory-0921.md"
+  ],
+  "base_revision": "ca4cdcb8981c9e1a0341c597062e0957c635fa8c",
+  "preview_revision": "8030332c9d5af56ea995fcefeb17b0cb94c1f4e9",
+  "tree": "e9230d8c797c23bdd9993a84300f98a926b0a3fb",
+  "archive_check": {
+    "revision": "8030332c9d5af56ea995fcefeb17b0cb94c1f4e9",
+    "archive": "docs/verification/2026-09-22-market-cutoff-followup",
+    "manifest_files": 181,
+    "committed_files": 181,
+    "ok": true,
+    "errors": []
+  },
+  "errors": []
+}

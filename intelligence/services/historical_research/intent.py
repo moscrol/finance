@@ -35,10 +35,6 @@ _FULL_COMPARISON_REQUEST = re.compile(
     r"(?:收益|后续|历史|普遍|共同).{0,8}规律|规律(?:是否|成立|验证)"
 )
 _DATE = re.compile(r"(?<!\d)(20\d{2})[-/年](\d{1,2})[-/月](\d{1,2})日?(?!\d)")
-_EXPLICIT_INFORMATION_CUTOFF_RE = re.compile(
-    r"(?:以\s*)?(?P<before>20\d{2}-\d{2}-\d{2}|20\d{2}年\d{1,2}月\d{1,2}日)\s*(?:为|作为)?\s*信息截止日"
-    r"|信息截止日\s*(?:为|是|[:：])?\s*(?P<after>20\d{2}-\d{2}-\d{2}|20\d{2}年\d{1,2}月\d{1,2}日)"
-)
 _SHORT_RANGE_END = re.compile(
     r"\s*(?:到|至|~|～|—|-)\s*"
     r"(?:(?P<month>\d{1,2})[月/-](?P<day>\d{1,2})日?|(?P<same_month_day>\d{1,2})日)"
@@ -157,15 +153,18 @@ def with_analysis_window_policy(
 def explicit_information_cutoff(question: str) -> date | None:
     """An explicitly named information date, never an observation range start.
 
-    Shared by history intent recovery and Episode cutoff assembly. Invalid or
-    conflicting dates raise so a history task cannot silently become unbounded.
+    Reads the same parser as Episode cutoff assembly
+    (``honesty_gates.explicit_information_cutoff_dates``): same forms, same
+    top-level provenance partition, same negation / date-role / range-start
+    rules, so a negated or role-bound date cannot re-enter through the history
+    intent. Invalid or conflicting dates raise so a history task cannot silently
+    become unbounded.
     """
-    question = _top_level_history_text(question)
-    values = set()
-    for match in _EXPLICIT_INFORMATION_CUTOFF_RE.finditer(question):
-        anchor = _DATE.fullmatch(match["before"] or match["after"])
-        assert anchor is not None
-        values.add(date(*(int(v) for v in anchor.groups())))
+    from intelligence.services.honesty_gates import explicit_information_cutoff_dates
+
+    values = set(explicit_information_cutoff_dates(question))
+    if None in values:
+        raise ValueError("信息截止日无效，请明确有效日期")
     if len(values) > 1:
         raise ValueError("存在多个信息截止日，请明确唯一日期")
     return next(iter(values), None)

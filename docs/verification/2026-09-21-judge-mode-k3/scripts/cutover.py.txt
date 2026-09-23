@@ -1,0 +1,108 @@
+"""Narrow atomic cutover with identity guards and pre-existing readiness red retained.
+
+Requires explicit fixed revision + green four-leaf receipts. Does not change market
+facts, users or other agents' launchers. Rollback covers both launcher and code.
+"""
+import argparse
+import hashlib
+import json
+import os
+import shutil
+import subprocess
+import sys
+import time
+import urllib.request
+import urllib.error
+from pathlib import Path
+
+root=Path(__file__).resolve().parent
+home=Path.home()
+launcher=home/'.local/bin/start-finance-workbench'
+link=home/'finance-workspace-runtime'
+service=f'gui/{os.getuid()}/com.a77.finance-workbench'
+plist=home/'Library/LaunchAgents/com.a77.finance-workbench.plist'
+python=sys.executable
+
+def run(*args,**kw): return subprocess.run(list(args),check=True,**kw)
+def git(repo,*args):return subprocess.check_output(['git','-C',str(repo),*args],text=True).strip()
+def health(path='/api/health'):
+    try:
+        with urllib.request.urlopen('http://127.0.0.1:8792'+path,timeout=40) as r:return json.load(r)
+    except urllib.error.HTTPError as e:
+        if e.code==503:return json.loads(e.read())
+        raise
+
+def main():
+    ap=argparse.ArgumentParser()
+    ap.add_argument('--revision',required=True)
+    ap.add_argument('--gates',type=Path,required=True)
+    args=ap.parse_args()
+    gates=json.loads(args.gates.read_text())
+    assert gates['revision']==args.revision and gates['ok'], 'requires same revision full green gate review'
+    snapshot=home/'.finance-runtime'/f'finance-workspace-{args.revision[:12]}'
+    assert git(snapshot,'rev-parse','HEAD')==args.revision and not git(snapshot,'status','--porcelain')
+    assert git(snapshot,'rev-parse','gitea/main')==args.revision, 'main moved; re-evaluate'
+    before=json.loads((root/'launcher-before-identity.json').read_text())
+    assert hashlib.sha256(launcher.read_bytes()).hexdigest()==before['sha256'], 'another writer changed launcher'
+    assert str(link.resolve())==before['runtime_target'], 'another deploy changed runtime'
+    prior=health()
+    assert prior['runtime']['source_revision'].startswith('adcda94b5e40')
+    ready=health('/api/readiness')
+    assert ready.get('workers',{}).get('active')==0 and ready['workers'].get('queued')==0, 'do not interrupt active work'
+    failed=[k for k,v in ready.get('checks',{}).items() if v is not True]
+    baseline=json.loads((root/'readiness-8792-diagnosis.json').read_text())
+    assert failed==[] or (failed==['market_data_consistency'] and ready.get('market_database')==baseline['market_database']), 'new readiness regression'
+    for name,data in [('pre-switch-health.json',prior),('pre-switch-readiness.json',ready)]:
+        (root/name).write_text(json.dumps(data,ensure_ascii=False,indent=2)+'\n')
+    candidate=root/'launcher-candidate.sh'
+    run('/bin/zsh','-n',str(candidate))
+    marker=root/'cutover-started.json'
+    assert not marker.exists()
+    marker.write_text(json.dumps({'revision':args.revision,'previous':before,'candidate_sha256':hashlib.sha256(candidate.read_bytes()).hexdigest(),'time':time.time()},indent=2)+'\n')
+    # No shell can truncate the installed launcher; stage and replace after service stops.
+    run('launchctl','bootout',service)
+    try:
+        staged=launcher.with_name(launcher.name+'.stage-judge-mode-k3')
+        assert not staged.exists()
+        shutil.copy2(candidate,staged)
+        staged.chmod(0o700)
+        os.replace(staged,launcher)
+        run('/bin/ln','-sfh',str(snapshot),str(link))
+        env=dict(os.environ,FINANCE_WS=str(home/'finance-workspace-private'))
+        run(python,str(snapshot/'scripts/audit_deploy_ledger.py'),'record','--action','switch','--rev',args.revision,'--snapshot-path',str(snapshot),'--port','8792','--ledger',str(home/'.finance-runtime/deploy-ledger.jsonl'),env=env)
+        run('launchctl','bootstrap',f'gui/{os.getuid()}',str(plist))
+        until=time.monotonic()+420
+        h={}
+        while time.monotonic()<until:
+            try:
+                h=health()
+                r=h.get('runtime',{})
+                if r.get('source_revision')==args.revision and r.get('source_dirty') is False and r.get('code_matches_repo') is True:
+                    break
+            except OSError: pass
+            time.sleep(4)
+        else: raise RuntimeError('new runtime health identity did not become ready')
+        for i in range(3):
+            h=health();r=h['runtime']
+            assert r['source_revision']==args.revision and r['source_dirty'] is False and r['code_matches_repo'] is True
+            assert r['agent_runtime']['model']=='kimi-k3'
+            (root/f'post-switch-health-{i+1}.json').write_text(json.dumps(h,ensure_ascii=False,indent=2)+'\n')
+            time.sleep(2)
+        post_ready=health('/api/readiness')
+        post_failed=[k for k,v in post_ready.get('checks',{}).items() if v is not True]
+        assert post_failed==[] or (post_failed==['market_data_consistency'] and post_ready.get('market_database')==ready.get('market_database')), 'new post-switch readiness regression'
+        (root/'post-switch-readiness.json').write_text(json.dumps(post_ready,ensure_ascii=False,indent=2)+'\n')
+        (root/'cutover-installed.json').write_text(json.dumps({'revision':args.revision,'launcher_sha256':hashlib.sha256(launcher.read_bytes()).hexdigest(),'runtime_target':str(link.resolve()),'health_identity_verified':True,'readiness_exception':post_failed,'readiness_and_live_acceptance':'pending'},indent=2)+'\n')
+    except BaseException:
+        subprocess.run(['launchctl','bootout',service],check=False,capture_output=True)
+        staged=launcher.with_name(launcher.name+'.rollback-judge-mode-k3')
+        shutil.copy2(root/'launcher-before.sh',staged)
+        os.replace(staged,launcher)
+        run('/bin/ln','-sfh',before['runtime_target'],str(link))
+        run(python,str(Path(before['runtime_target'])/'scripts/audit_deploy_ledger.py'),'record','--action','switch','--rev',prior['runtime']['source_revision'],'--snapshot-path',before['runtime_target'],'--port','8792','--ledger',str(home/'.finance-runtime/deploy-ledger.jsonl'))
+        run('launchctl','bootstrap',f'gui/{os.getuid()}',str(plist))
+        (root/'cutover-rolled-back.json').write_text(json.dumps({'time':time.time(),'runtime_target':before['runtime_target']},indent=2)+'\n')
+        raise
+    print('Installed fixed runtime and launcher; run readiness/live checks before acceptance.')
+
+if __name__=='__main__':main()

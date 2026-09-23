@@ -747,6 +747,17 @@ def cited_evidence_ordinals(text: str) -> tuple[str, ...]:
     return tuple(seen)
 
 
+def strip_evidence_ordinals(text: str) -> str:
+    """Mask prose E references in an analysis-only copy, using the citation grammar.
+
+    Citation IDs are not quantities. Replace them with a space rather than
+    joining adjacent tokens. This neither validates references nor changes the
+    public draft: consumers must still check unknown ordinals in the original.
+    """
+
+    return _PROSE_EVIDENCE_REF_RE.sub(" ", str(text or ""))
+
+
 def resolve_evidence_refs(
     raw_refs: list[object],
     evidence: tuple[AgentEvidence, ...],
@@ -1355,6 +1366,7 @@ __all__ = [
     "parse_finish_json",
     "rejection_response",
     "resolve_evidence_refs",
+    "strip_evidence_ordinals",
     "strip_hashes_for_model",
     "validate_episode_finish",
 ]

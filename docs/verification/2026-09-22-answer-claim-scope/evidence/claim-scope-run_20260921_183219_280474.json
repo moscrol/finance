@@ -1,0 +1,28 @@
+{
+  "clean": false,
+  "issue_count": 1,
+  "rules_hit": [
+    "unit_gap_claim_contradicts_input"
+  ],
+  "sentences_scanned": 17,
+  "context": {
+    "question_length": 162,
+    "evidence_dates": [],
+    "calendar_evidence": false,
+    "compared_scope_count": null,
+    "known_scope_total": null,
+    "fund_flow_evidence": false
+  },
+  "issues": [
+    {
+      "rule": "unit_gap_claim_contradicts_input",
+      "label": "称缺单位但输入已给单位",
+      "quote": "材料未注明公告日期、是否审计、合并或分部口径及币种单位，故精确性以该段文字为限。",
+      "reason": "题面/材料已给数量单位「亿元」，该缺口声明与输入矛盾",
+      "remedy": "币种未知就只说币种未知，不要扩大成单位未知"
+    }
+  ],
+  "boundary": "四个已知形状的关键词检出器；干净不代表内容正确，命中也需人读原句确认",
+  "run_id": "run_20260921_183219_280474",
+  "scope_total_source": "未提供"
+}

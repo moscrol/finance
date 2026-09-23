@@ -484,7 +484,12 @@ DERIVED_CALCULATION_PARAMETERS: dict[str, object] = {
                 "财务助手 fincalc 已内置：series(subject, metric) 取某公司某指标按报告期升序的序列；"
                 "to_single_quarter(累计序列) 累计→单季（缺上一期就 None 并写 note）；yoy / qoq / "
                 "ratio_series / safe_div / pct / pct_change / to_yi(值, 单位) / growth_path / "
-                "scenario_table / sensitivity_grid / table / chart。"
+                "scenario_table / sensitivity_grid。"
+                "表的完整签名 table(name, columns, rows, *, unit=None, note=None)，前三项必填；"
+                "name 是表名（不接受 title），columns 是列名列表，rows 是行列表；rows 行长须与 columns 一致。"
+                "例：table('核对', ['报告期', '金额'], [['2025FY', 12]], unit='亿元')。"
+                "图的签名 chart(name, kind, x, series_by_label, *, unit=None, y_label=None)，"
+                "series_by_label 是 {系列名: 数值列表}。"
                 "结果用 emit_result(summary={标量}, tables=[table(...)], charts=[chart(...)], "
                 "formulas=[...], notes=[...]) 输出（表格会成为可下载 CSV / HTML 产物）；"
                 "简单结果也可 emit({...})。不 emit 视为没有结果。可 import 标准库与 numpy / pandas；"
@@ -907,6 +912,23 @@ class ToolObservation:
     payload_sha256: str = ""
     telemetry: dict[str, object] = field(default_factory=dict)
 
+    def result_status_fields(self) -> dict[str, object]:
+        """Domain failure is not transport success; empty lookup remains distinct.
+
+        Keep this at the domain projection seam, not by throwing away the
+        observation in the batch executor. Gaps and prior evidence must survive.
+        """
+        error = self.telemetry.get("calculation_error")
+        if self.tool == "derived_calculation" and isinstance(error, Mapping):
+            return {"ok": False, "error": str(error["code"]), "status": self.trace.status}
+        failed = self.trace.status in {
+            "error", "timeout", "request_error", "parse_error", "proxy_unavailable",
+            "fallback_failed", "disabled", "not_attempted",
+        }
+        if failed:
+            return {"ok": False, "error": self.trace.status, "status": self.trace.status}
+        return {"ok": True}
+
 
 @dataclass(frozen=True)
 class ToolSpec:
@@ -1182,6 +1204,7 @@ class ResearchToolRegistry:
         is_cancelled: Callable[[], bool] | None = None,
         scope: EpisodeScope | None = None,
         tool_call_id: str = "",
+        retain_received_result: Callable[[], bool] | None = None,
     ) -> ToolObservation:
         """执行一个工具。
 
@@ -1272,6 +1295,10 @@ class ResearchToolRegistry:
             )
 
         def fetch() -> ToolObservation:
+            # A queued task may start after cancellation/storage failure. Checking
+            # only after runner() would prevent publication, but not the effect.
+            if is_cancelled is not None and is_cancelled():
+                raise RuntimeError("agent tool cancelled before execution")
             if scope is not None:
                 # 登记必须在 runner 真的被调起时发生，不在「决定要调」时。
                 # 这个闭包由 query_ledger.executed 决定跑不跑——被去重挡掉的调用
@@ -1310,8 +1337,13 @@ class ResearchToolRegistry:
                 )
             trace = run_result.trace
             gaps = run_result.gaps
-            if is_cancelled is not None and is_cancelled():
+            if (
+                is_cancelled is not None and is_cancelled()
+                and not (retain_received_result is not None and retain_received_result())
+            ):
                 raise RuntimeError("agent tool cancelled")
+            # Retention is private settlement, not publication permission. The
+            # existing QueryPublishGuard still rejects shared-cache publication.
             served_date = closed_loop_retrieval.latest_served_date(
                 evidence,
                 date_getter=lambda item: item.source_date,
@@ -1753,6 +1785,8 @@ _TOOL_CONTRACTS: dict[str, str] = {
         "财务数用 financial_data 每行 observations 里的结构化值算（metric 名带口径与单位，如 "
         "revenue_cum_yi 是累计亿元），不要解析表格文本；累计口径转单季必须用 to_single_quarter，"
         "不要把中报 / 三季报的累计数当单季数。"
+        "summary 仅接标量，不接逐期嵌套字典；逐期结果用 tables=[table(name, columns, rows)]。"
+        "格式错误或无可展示结果会返回 invalid_result_contract，不是成功计算。"
         "结果用 emit_result(summary, tables, charts, params, formulas, notes) 组织：表格里的每个数都会"
         "进这条派生证据的 observations，正文引用它们时逐字照抄（不四舍五入成别的数）；"
         "表格 / 图表 / 完整记录会作为本次回答的产物落盘为 calc-<计算编号>.csv / .html / .json，"
@@ -1882,6 +1916,9 @@ def default_registry(tools: dict[str, agent_research.ToolRunner]) -> ResearchToo
                 else parse_query_arguments
             ),
             produces=produces,
+            # A nested research run can have paid/settled children even if the
+            # parent tool result was lost. Reconcile those refs, never rerun it.
+            replay="never" if name == "sub_research" else "safe",
         )
         for name, (capability, description, freshness, produces) in _DEFAULT_TOOL_METADATA.items()
         if name in tools

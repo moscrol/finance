@@ -1,0 +1,14 @@
+{
+  "at": "2026-09-21T18:00:06.762918+08:00",
+  "tool_start_count": 33,
+  "tools": [
+    "bash",
+    "read",
+    "write"
+  ],
+  "no_candidate_source_mutations": true,
+  "candidate_inputs_fingerprint_verified": true,
+  "live_install_calls": 0,
+  "live_collectors": 0,
+  "scope_note": "shell scripts use fake HOME and stub launchctl; live root reads only; global vault changed concurrently, not claimed stable"
+}

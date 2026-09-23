@@ -427,6 +427,7 @@ def format_board(rows: list[TreeRow], *, base: str, base_sha: str) -> str:
     lines += [
         "",
         "拆树（需你确认）：git worktree remove <path>",
+        "批量拆 detached 门禁快照树 / 已合且干净的树：bash scripts/cleanup_gate_trees.sh（默认 dry-run，--apply 才删）",
         "合入状态不要写进 inflight/main.md 或项目笔记交接记录，下次跑本脚本。",
     ]
     return "\n".join(lines) + "\n"
