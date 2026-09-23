@@ -179,4 +179,10 @@ PR #868 开出后 `conflict-check` 变红：`gitea/main@8e7989372`（#863 研究
 - **证据目录**：最新四叶 `~/.finance-runtime/reviews/pr868-forward-20260923/gate-7ad61a0d3/`；历史复核与变异 `~/.finance-runtime/adaptive-deadline-0922/`；作者侧 `~/.finance-runtime/adaptive-advance-20260922/`；早期审计 `~/.finance-runtime/adaptive-closeout-20260922/`。
 - **主张清单来源**：PR 描述「主张清单」节（Spec 轴输入）。
 - **Quality 轴建议探针**：复跑本目录 `mutation-record.json` 的变异；对 `llm_http_transport.urlopen` 复跑作者 M1（父侧截止关）/ M2（子侧硬停关）/ M4（共享截止 `min` 忽略）确认仍被杀。
-- **本单未覆盖、请审查者留意**：`is_cancelled=` 转发的旧变异已做但存活，尚无停顿期杀死/还原证明。五处 timeout 直接来源已由宿主逐点核对，表见 L6 closure；该模块 Deadline 没有 slice()，不能沿用旧提法。跨模块上游预算及独立行为探针仍未签。
+- **历史交接时未覆盖**：`is_cancelled=` 转发的旧变异已做但存活。当时尚无停顿期杀死/还原证明；五处 timeout 直接来源已由宿主逐点核对，该模块 Deadline 没有 slice()，不能沿用旧提法。
+
+### 09-23 后续：取消宿主对照补齐，#75 仍阻塞
+
+见 [新工装 / #75 执行封存](../2026-09-23-adaptive-qc-harness/README.md)。固定 `31f1b40dd` 的 wrapper / tools stream / synthesis stream 三路径均完成原版绿、AST内存撤掉取消转发红、还原绿；候选磁盘源码未改。普通测试已进后来工装提交 `2f4b5f089`，该提交干净树定向45P，不移签旧全量收据。
+
+独立 K3 Spec explore 发出14次请求，末次HTTP200后120秒流未结束，无探针/终稿，宿主记 `BLOCKED_REVIEW_TRANSPORT_DEADLINE`；停止该候选，不继续execute/report或Quality。批前网关3请求通过，总17请求，重试0。以上宿主行为证明不替代独立QC；跨模块上游预算及双轴终审仍未签，L6仍NOT_PASSED。

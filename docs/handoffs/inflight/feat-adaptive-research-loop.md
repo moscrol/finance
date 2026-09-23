@@ -1,28 +1,29 @@
 # feat/adaptive-research-loop 在途
 
 ## 这个分支做什么
-#72 传输层绝对截止 / PR #868，及 #76 L6 候选验收；不合入、不部署。
+#72 / PR #868，及 #76 L6、#75独立工程审查。保持WIP，不合入、不部署。
 
 ## 决策与被否方案
-- live 固定 `31f1b40dd`；全量工程收据固定 `7ad61a0d3`，不移签后来的预检工装 head。
-- 三题各至多一次；Q2失败即停，否了补Q3/重发。判官 llm/flash、检索判官 auto，不做 off 对照。
-- 原 protocol 保留，新 `protocol-closure.json` 接替终态；否了倒写原始运行证据。
-- 工装问题与产品缺陷分开；否了把全部超时归咎候选。详见 `../2026-09-23-adaptive-l6-closure.md`。
+- 候选固定31f1b40dd；全量收据7ad61a0d3；新工装2f4b5f089仅45P定向，不移签。
+- L6失败停批、实际1/1/0；否了补Q3/重发和扩大off对照，旧原件不改。
+- 新shim单独修/验；取消变异仅改内存AST，否了改固定候选文件。
+- #75零终稿停止候选，否了加时/换模型/发report补签。详情 `../2026-09-23-adaptive-qc-harness.md`。
 
 ## 当前状态
-本批 **NOT_PASSED**，已完成审计、停批与收尾。Q1 partial/判官 unavailable；Q2 writer 两轮超时、零工具；Q3未提交。实际首发1/1/0，重发/续问0。#75仅核对并更新候选，独立双轴终审未启动。
-归档在 `docs/verification/2026-09-23-adaptive-l6-closure/`；原件 `~/.finance-runtime/reviews/pr868-l6-natural-20260923-1455/live-r2/`。本次提交只归档报告/探针与更新交接，运行代码不变。PR已认证核对仍WIP/open/unmerged。
+L6仍NOT_PASSED：Q1 partial/判官不可用，Q2超时零工具，Q3未交。
+#75已尝试，宿主终态BLOCKED_REVIEW_TRANSPORT_DEADLINE，非独立verdict。网关3请求通过；Spec explore 14请求，末次HTTP200后120秒未完成、terminated，无探针/终稿。execute/report/Quality模型均未启动，重试0。归档 `docs/verification/2026-09-23-adaptive-qc-harness/`。
+独占候选与私有原件：`~/.finance-runtime/reviews/pr868-k3-qc-20260923-1530/`。进程已退出，19899已释放，候选干净。本轮没有金融题、生产操作或合入。
 
 ## 已验证
-Q1逐句审计重放与原JSON一致，拒签PASS；冻结751/751无漂移，候选/生产稳定身份未变，密钥未落盘，拥有的进程/锁已释放。原候选严格模拟13场景零越窗。宿主离线复现shim流式缓冲，0模型请求。五处timeout直接来源已核对，并非全经Deadline.slice。
+2f4b5f089干净树45P，收据 `20260923T073620Z-2f4b5f08-5a926a26676f.json`，解释器/依赖/身份校验通过。新shim首块透传、断连清理、退出计数、配额预占等12项离线通过。固定候选wrapper/tools/synthesis取消：原版3绿、撤转发3红、还原3绿。最终沙箱正反准入通过、请求计数对账17、密钥模式扫描无命中。
 
 ## 未验证 / 已知边界
-Q1无实际repair新稿/自然迟到判官样本；parse_error不证明寒武纪本地无数据，Q2也不能评价查询能力。shim两次BrokenPipe、退出计数失真，read(65536)延后首块；没有证明它是历史超时全部根因。旧取消转发变异15P仍属测试缺口，未在新候选重做。KB/外部输入未冻结。#75、最新head完整门禁及联合main未验。
+45P是作者测试，不是独审。K3自造探针0、作者测试复跑0；必红控制只在宿主准入执行，独立execute未验。最后一发有流式内容，不能将中断唯一归咎供应商/工装，更不能反证历史L6根因。Q1无实际repair新稿，parse_error或Q2零工具不证明数据不存在。新head全量门禁、联合最新main、双轴终稿仍缺。
 
 ## 下一步
-1. 独立修/验工装小块透传、断连与退出计数；新自然验收另获授权，不向本批补题。
-2. #75按K3工单独占树/分段会话，作者测试与审查探针分账；补停顿期取消撤保护/还原。
-3. 合入仍等用户明确确认；main已漂移，届时重冻head/base再验。
+1. 新#75批须新证据根和明确请求形状/预算；不续跑本批execute、不擅改上限。让explore更早落盘局部探针须先验证。
+2. 自然验收另获授权，不能补本批金融题。跨模块预算和内容保真仍待独立证据。
+3. main持续漂移，合前重冻head/base，跑完整门禁与联合树，再等用户确认。
 
 ## 踩过的坑
-模型修订稿未观测不等于候选revision未识别；run completed不等于质量PASS；shim落盘0不等于0请求。工程历史绿不覆盖新工装，冲突clean不等于联合树通过。
+HTTP200/进程exit0/execution.complete都不等于审查完成。completed代理计数只代表传输结束。macOS宽放回环再排除端口未实效，最终只准26001–26008；随机端口作者测试受限，EPERM不能记产品缺陷。Deadline无slice()。共享harness-reference有他人改动，未碰。
