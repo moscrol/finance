@@ -1,0 +1,7 @@
+{
+  "path": "/private/tmp/pytest-of-a77/pytest-1804",
+  "pid": 55217,
+  "inode": 237898589,
+  "ownership_evidence": "The directory .lock contained PID 55217 while that full-gate pytest process was active.",
+  "cleanup_condition": "Only after full-gate exits successfully, this PID is absent and the directory inode still matches; no symlink traversal."
+}

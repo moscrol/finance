@@ -1,0 +1,91 @@
+..FFFFFF.                                                                [100%]
+=================================== FAILURES ===================================
+__________ test_outside_sector_invalid_close_refuses_untouched[None] ___________
+
+bad = None
+
+    @pytest.mark.parametrize("bad", [None, -1.0, 0.0, float("nan"), float("inf")])
+    def test_outside_sector_invalid_close_refuses_untouched(bad):
+        # OUT is not a declared member, but market counts consume its bar.
+        con = _con(out_close=bad)
+        _seed(con)
+        before = _snap_all(con)
+>       with pytest.raises(ValueError):
+E       Failed: DID NOT RAISE <class 'ValueError'>
+
+../execute/probe.py:98: Failed
+__________ test_outside_sector_invalid_close_refuses_untouched[-1.0] ___________
+
+bad = -1.0
+
+    @pytest.mark.parametrize("bad", [None, -1.0, 0.0, float("nan"), float("inf")])
+    def test_outside_sector_invalid_close_refuses_untouched(bad):
+        # OUT is not a declared member, but market counts consume its bar.
+        con = _con(out_close=bad)
+        _seed(con)
+        before = _snap_all(con)
+>       with pytest.raises(ValueError):
+E       Failed: DID NOT RAISE <class 'ValueError'>
+
+../execute/probe.py:98: Failed
+___________ test_outside_sector_invalid_close_refuses_untouched[0.0] ___________
+
+bad = 0.0
+
+    @pytest.mark.parametrize("bad", [None, -1.0, 0.0, float("nan"), float("inf")])
+    def test_outside_sector_invalid_close_refuses_untouched(bad):
+        # OUT is not a declared member, but market counts consume its bar.
+        con = _con(out_close=bad)
+        _seed(con)
+        before = _snap_all(con)
+>       with pytest.raises(ValueError):
+E       Failed: DID NOT RAISE <class 'ValueError'>
+
+../execute/probe.py:98: Failed
+___________ test_outside_sector_invalid_close_refuses_untouched[nan] ___________
+
+bad = nan
+
+    @pytest.mark.parametrize("bad", [None, -1.0, 0.0, float("nan"), float("inf")])
+    def test_outside_sector_invalid_close_refuses_untouched(bad):
+        # OUT is not a declared member, but market counts consume its bar.
+        con = _con(out_close=bad)
+        _seed(con)
+        before = _snap_all(con)
+>       with pytest.raises(ValueError):
+E       Failed: DID NOT RAISE <class 'ValueError'>
+
+../execute/probe.py:98: Failed
+___________ test_outside_sector_invalid_close_refuses_untouched[inf] ___________
+
+bad = inf
+
+    @pytest.mark.parametrize("bad", [None, -1.0, 0.0, float("nan"), float("inf")])
+    def test_outside_sector_invalid_close_refuses_untouched(bad):
+        # OUT is not a declared member, but market counts consume its bar.
+        con = _con(out_close=bad)
+        _seed(con)
+        before = _snap_all(con)
+>       with pytest.raises(ValueError):
+E       Failed: DID NOT RAISE <class 'ValueError'>
+
+../execute/probe.py:98: Failed
+__________________ test_missing_member_bar_refuses_untouched ___________________
+
+    def test_missing_member_bar_refuses_untouched():
+        con = _con(drop=M2)  # M2 still projected as a sector member, bar absent
+        _seed(con)
+        before = _snap_all(con)
+>       with pytest.raises(ValueError):
+E       Failed: DID NOT RAISE <class 'ValueError'>
+
+../execute/probe.py:107: Failed
+- generated xml file: /Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/continuation-257263f/mutations/F2-before-member-guard/execute/probe.xml -
+=========================== short test summary info ============================
+FAILED ../execute/probe.py::test_outside_sector_invalid_close_refuses_untouched[None]
+FAILED ../execute/probe.py::test_outside_sector_invalid_close_refuses_untouched[-1.0]
+FAILED ../execute/probe.py::test_outside_sector_invalid_close_refuses_untouched[0.0]
+FAILED ../execute/probe.py::test_outside_sector_invalid_close_refuses_untouched[nan]
+FAILED ../execute/probe.py::test_outside_sector_invalid_close_refuses_untouched[inf]
+FAILED ../execute/probe.py::test_missing_member_bar_refuses_untouched - Faile...
+6 failed, 3 passed in 2.87s

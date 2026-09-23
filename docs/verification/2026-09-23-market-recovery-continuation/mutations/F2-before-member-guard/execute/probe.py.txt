@@ -1,0 +1,119 @@
+"""Independent F2 probe (explore stage). Real candidate functions only; fresh
+in-memory DuckDB fixtures; never imports author tests. Not executed here.
+
+F2: with explicit recovery_members, missing canonical member bars / invalid
+canonical closes (NULL, NaN, +/-inf, zero, negative) - including outside-sector
+bars consumed by market counts - must refuse before changing any of the four
+derived tables. Frozen denominator keeps proven nontrading identities.
+"""
+from __future__ import annotations
+
+import math
+from datetime import date, datetime, timezone
+
+import duckdb
+import pytest
+
+from market_feature_store.db import init_db
+from market_feature_store.sync.compute_local_stats import compute_limit_stats_local
+
+TD = date(2026, 9, 3)
+SNAP = "snap-1"
+SEC = "801010.SH"
+M1, M2, OUT = "600001.SH", "600002.SH", "600003.SH"
+FOUR = ("fact_theme_limit_heat_daily", "fact_theme_limit_stock_daily",
+        "fact_limit_advance_daily", "fact_leader_height_daily")
+
+
+def _snap_all(con):
+    """Full-row snapshot of all four derived tables (no date filter) so a
+    count-only check cannot hide value mutations or cross-date deletion."""
+    return {t: con.execute(f"SELECT * FROM {t} ORDER BY ALL").fetchall() for t in FOUR}
+
+
+def _seed(con):
+    """One local:source row per derived table; a refusing call must not touch it."""
+    con.execute("INSERT INTO fact_theme_limit_heat_daily "
+                "(trade_date,sector_ts_code,dimension,scope,source) VALUES (?,?,?,?,?)",
+                [TD, "seed", "s", "s", "local:seed"])
+    con.execute("INSERT INTO fact_theme_limit_stock_daily "
+                "(trade_date,sector_ts_code,stock_ts_code,source) VALUES (?,?,?,?)",
+                [TD, "seed", "seed", "local:seed"])
+    con.execute("INSERT INTO fact_limit_advance_daily "
+                "(trade_date,stock_ts_code,source) VALUES (?,?,?)",
+                [TD, "seed", "local:seed"])
+    con.execute("INSERT INTO fact_leader_height_daily "
+                "(trade_date,source) VALUES (?,?)", [TD, "local:seed"])
+
+
+def _con(*, out_close=10.0, drop=None, project=(M1, M2)):
+    """Published snapshot SNAP; bars M1 (+10% limit-up), M2 flat, OUT flat and
+    outside the declared sector. Named columns: fact_stock_daily has 14 cols."""
+    con = duckdb.connect(":memory:")
+    init_db(con)
+    con.execute("INSERT INTO ops_sector_universe_snapshot_daily VALUES (?,?,?,?,?,?,?)",
+                [TD, SNAP, "test", 1, 2, "published", datetime.now(timezone.utc)])
+    con.execute("INSERT INTO fact_sector_universe_daily VALUES (?,?,?,?,?,?,?)",
+                [TD, SNAP, SEC, "Sec", 2, "test", datetime.now(timezone.utc)])
+    bars = {M1: (11.0, 10.0), M2: (9.0, 9.0), OUT: (out_close, 10.0)}
+    for code, (close, pre) in bars.items():
+        if code == drop:
+            continue
+        con.execute("INSERT INTO fact_stock_daily "
+                    "(trade_date,stock_ts_code,stock_name,close,pre_close,amount,source,updated_at) "
+                    "VALUES (?,?,?,?,?,?,?,?)",
+                    [TD, code, "A", close, pre, 1000.0, "test", datetime.now()])
+    for code in project:
+        con.execute("INSERT INTO fact_sector_stock_daily_generation "
+                    "(trade_date,sector_universe_snapshot_id,sector_ts_code,sector_name,stock_ts_code,amount) "
+                    "VALUES (?,?,?,?,?,?)", [TD, SNAP, SEC, "Sec", code, 1000.0])
+    return con
+
+
+def test_control_frozen_denominator_writes():
+    res = compute_limit_stats_local(TD, con=_con(), recovery_members={SEC: [M1, M2]})
+    assert res["action"] == "written"
+    assert res["denominator_basis"] == "frozen_identity"
+    assert res["market_limit_up"] == 1  # only M1 limits up; OUT flat is ignored
+    assert res["recovery_member_coverage"][SEC]["ratio_denominator"] == 2
+
+
+def test_control_frozen_denominator_keeps_nontrading():
+    # M2 declared but has no bar and no member projection -> proven nontrading identity.
+    con = _con(drop=M2, project=(M1,))
+    res = compute_limit_stats_local(TD, con=con, recovery_members={SEC: [M1, M2]},
+                                    recovery_nontrading=(M2,))
+    cov = res["recovery_member_coverage"][SEC]
+    assert res["action"] == "written"
+    assert cov["ratio_denominator"] == 2 and cov["observed_count"] == 1
+    assert cov["nontrading_codes"] == [M2]  # identity kept in denominator, not dropped
+
+
+@pytest.mark.parametrize("bad", [None, -1.0, 0.0, float("nan"), float("inf")])
+def test_outside_sector_invalid_close_refuses_untouched(bad):
+    # OUT is not a declared member, but market counts consume its bar.
+    con = _con(out_close=bad)
+    _seed(con)
+    before = _snap_all(con)
+    with pytest.raises(ValueError):
+        compute_limit_stats_local(TD, con=con, recovery_members={SEC: [M1, M2]})
+    assert _snap_all(con) == before  # full-row equality, not counts
+
+
+def test_missing_member_bar_refuses_untouched():
+    con = _con(drop=M2)  # M2 still projected as a sector member, bar absent
+    _seed(con)
+    before = _snap_all(con)
+    with pytest.raises(ValueError):
+        compute_limit_stats_local(TD, con=con, recovery_members={SEC: [M1, M2]})
+    assert _snap_all(con) == before
+
+
+def test_nontrading_identity_with_bar_refuses():
+    con = _con()  # M1 has a live bar
+    _seed(con)
+    before = _snap_all(con)
+    with pytest.raises(ValueError):
+        compute_limit_stats_local(TD, con=con, recovery_members={SEC: [M1, M2]},
+                                  recovery_nontrading=(M1,))
+    assert _snap_all(con) == before

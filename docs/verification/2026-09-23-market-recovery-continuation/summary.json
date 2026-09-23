@@ -1,0 +1,329 @@
+{
+  "status": "HOLD",
+  "revision": "257263f63f526035a27724ffb2e7777ff2a9ee50",
+  "base": "2edbe4c46595cbea3eb3abe04fe84a7bd5afd55e",
+  "tree": "dd731224eaea1d609f6ef5327d75bf3695687ddd",
+  "raw_root": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/continuation-257263f",
+  "final_identity": {
+    "revision": "257263f63f526035a27724ffb2e7777ff2a9ee50",
+    "status": "",
+    "main": "2edbe4c46595cbea3eb3abe04fe84a7bd5afd55e"
+  },
+  "full_gate": {
+    "complete": true,
+    "before": {
+      "revision": "257263f63f526035a27724ffb2e7777ff2a9ee50",
+      "status": "",
+      "main": "2edbe4c46595cbea3eb3abe04fe84a7bd5afd55e"
+    },
+    "driver_sha256": "55b1243b7d1b0cc13f97cd29bb7b7a2c3deaabac1264c5ec7243967fd41f83ab",
+    "controller_sha256": "395f1a7789718abb064d23dd8ca43b3b9fce0c4b965fa9440759d1b7bee3751a",
+    "full_repo": true,
+    "target": "",
+    "timeout_seconds": 7200,
+    "exit_code": 0,
+    "deadline_hit": false,
+    "elapsed_seconds": 2390.465,
+    "command": [
+      "bash",
+      "scripts/run_main_gate.sh",
+      "--pytest-args",
+      "-q -p no:cacheprovider --junitxml=/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/continuation-257263f/full-gate/pytest.xml --durations=20"
+    ],
+    "after": {
+      "revision": "257263f63f526035a27724ffb2e7777ff2a9ee50",
+      "status": "",
+      "main": "2edbe4c46595cbea3eb3abe04fe84a7bd5afd55e"
+    },
+    "receipt": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/continuation-257263f/full-gate/gate-fbkayBkJ/pytest.json",
+    "receipt_check": {
+      "exit_code": 0,
+      "deadline_hit": false,
+      "elapsed_seconds": 0.606,
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/check_test_receipt.py",
+        "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/continuation-257263f/full-gate/gate-fbkayBkJ/pytest.json",
+        "--expect-revision",
+        "257263f63f526035a27724ffb2e7777ff2a9ee50",
+        "--base-drift-max",
+        "0",
+        "--require-full-scope"
+      ]
+    },
+    "receipt_target_empty": false,
+    "counts": {
+      "passed": 14874,
+      "failed": 0,
+      "error": 0,
+      "skipped": 85,
+      "xfailed": 2,
+      "xpassed": 0
+    },
+    "remote_main_at_end": "2edbe4c46595cbea3eb3abe04fe84a7bd5afd55e",
+    "base_unchanged_at_remote": true,
+    "driver_unchanged": true,
+    "controller_unchanged": true
+  },
+  "claims": {
+    "F1": {
+      "probe": {
+        "tests": 5,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 5
+      },
+      "author": {
+        "tests": 28,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 28
+      },
+      "positive_control_detected": true,
+      "new_formal_report": false
+    },
+    "F2": {
+      "probe": {
+        "tests": 9,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 9
+      },
+      "author": {
+        "tests": 75,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 75
+      },
+      "positive_control_detected": true,
+      "new_formal_report": false
+    },
+    "F3": {
+      "probe": {
+        "tests": 6,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 6
+      },
+      "author": {
+        "tests": 28,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 28
+      },
+      "positive_control_detected": true,
+      "new_formal_report": false
+    }
+  },
+  "model_stages": {
+    "F2-explore": "BLOCKED_PROVIDER_504",
+    "F1-report": "BLOCKED_PROVIDER_504"
+  },
+  "model_requests": 3,
+  "new_review_deliveries": 0,
+  "replayed_independent_passed": 20,
+  "author_related_passed": 131,
+  "production_writes": false,
+  "merge_push_deployment": false,
+  "F3_expansion": "NOT_STARTED_AFTER_PROVIDER_FAILURE",
+  "qualifications": [
+    "All 20 independent cases are unchanged replays from the prior reviewer, not newly generated tests.",
+    "Prior F2/F3 formal reports remain pinned to 4dd5e6660; they are not re-signed to this preview.",
+    "F2 missing negative infinity, member invalid close and other-date independent coverage remain open.",
+    "F3 full-row and missing-policy other-date independent coverage remain open.",
+    "Positive controls prove red detection only. Five separate one-file historical reversions also trigger behavior failures; three old-API TypeErrors are excluded from behavioral sensitivity claims.",
+    "No live nightly, staging, production recovery, or business-contract acceptance."
+  ],
+  "postflight": {
+    "before": {
+      "revision": "257263f63f526035a27724ffb2e7777ff2a9ee50",
+      "status": "",
+      "main": "2edbe4c46595cbea3eb3abe04fe84a7bd5afd55e"
+    },
+    "receipt_target": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/continuation-257263f/candidate",
+    "receipt_target_matches_repo_root": true,
+    "note": "An unfiltered pytest run records the repository root as target, not an empty string.",
+    "driver_sha256": "0f33781d0d9d73e3cc6fc77ea9cd0ccd96c26cb631e2e69340684e08422e5a1d",
+    "receipt_check": {
+      "exit_code": 0,
+      "deadline_hit": false,
+      "elapsed_seconds": 0.556,
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/check_test_receipt.py",
+        "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/continuation-257263f/full-gate/gate-fbkayBkJ/pytest.json",
+        "--expect-revision",
+        "257263f63f526035a27724ffb2e7777ff2a9ee50",
+        "--base-drift-max",
+        "0",
+        "--require-full-scope"
+      ]
+    },
+    "remote_main": "2edbe4c46595cbea3eb3abe04fe84a7bd5afd55e",
+    "base_unchanged_at_remote": true,
+    "cleanup": {
+      "path": "/private/tmp/pytest-of-a77/pytest-1804",
+      "verified_inode": 237898589,
+      "pid_absent": true,
+      "removed": true,
+      "followed_symlinks": false
+    },
+    "after": {
+      "revision": "257263f63f526035a27724ffb2e7777ff2a9ee50",
+      "status": "",
+      "main": "2edbe4c46595cbea3eb3abe04fe84a7bd5afd55e"
+    }
+  },
+  "actual_receipt_scope": {
+    "target": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/continuation-257263f/candidate",
+    "ignore": [],
+    "ignore_glob": [],
+    "deselect": [],
+    "keyword": "",
+    "markexpr": "",
+    "maxfail": 0,
+    "last_failed": false,
+    "collected": 14961
+  },
+  "full_repo_receipt_accepted": true,
+  "supplementary_checks": {
+    "delivery-gate-tests": {
+      "exit_code": 0,
+      "deadline_hit": false,
+      "elapsed_seconds": 0.445,
+      "command": [
+        "node",
+        "--test",
+        "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/continuation-257263f/delivery-gate.test.mjs"
+      ]
+    },
+    "consumption-registry": {
+      "exit_code": 0,
+      "deadline_hit": false,
+      "elapsed_seconds": 0.399,
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-m",
+        "market_feature_store.cli",
+        "registry-check"
+      ]
+    },
+    "skills-registry": {
+      "exit_code": 0,
+      "deadline_hit": false,
+      "elapsed_seconds": 0.177,
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "--check"
+      ]
+    },
+    "skills-parseability": {
+      "exit_code": 0,
+      "deadline_hit": false,
+      "elapsed_seconds": 0.18,
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "check-parseability"
+      ]
+    },
+    "remote-main": {
+      "exit_code": 0,
+      "deadline_hit": false,
+      "elapsed_seconds": 0.336,
+      "command": [
+        "git",
+        "ls-remote",
+        "gitea",
+        "refs/heads/main"
+      ]
+    }
+  },
+  "historical_reversion_sensitivity": {
+    "F1-before-wiring": {
+      "revision": "4408ac40521d150785a20a1094ced00660156fa3",
+      "counts": {
+        "tests": 5,
+        "failures": 5,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 0
+      },
+      "checkout_removed": true,
+      "behavior_failures": 2,
+      "api_shape_failures": 3,
+      "other_failures": 0
+    },
+    "F1-before-attempt-history": {
+      "revision": "3329eddd752eea2fc4481b90cc90d3eebf400192",
+      "counts": {
+        "tests": 5,
+        "failures": 1,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 4
+      },
+      "checkout_removed": true,
+      "behavior_failures": 1,
+      "api_shape_failures": 0,
+      "other_failures": 0
+    },
+    "F2-before-member-guard": {
+      "revision": "c7a5d9ffa491a7d5dac674ad72baa3fbc308574f",
+      "counts": {
+        "tests": 9,
+        "failures": 6,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 3
+      },
+      "checkout_removed": true,
+      "behavior_failures": 6,
+      "api_shape_failures": 0,
+      "other_failures": 0
+    },
+    "F2-before-close-guard": {
+      "revision": "99a3828256d3c3fdbe9f4c2b3b1678611644c062",
+      "counts": {
+        "tests": 9,
+        "failures": 5,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 4
+      },
+      "checkout_removed": true,
+      "behavior_failures": 5,
+      "api_shape_failures": 0,
+      "other_failures": 0
+    },
+    "F3-before-apply-guard": {
+      "revision": "2cd3fca98c56e057f0a621251fbafe726e3c14b7",
+      "counts": {
+        "tests": 6,
+        "failures": 6,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 0
+      },
+      "checkout_removed": true,
+      "behavior_failures": 6,
+      "api_shape_failures": 0,
+      "other_failures": 0
+    }
+  },
+  "historical_behavior_failures": 20,
+  "excluded_historical_api_shape_failures": 3,
+  "http_response_hook_counts": {
+    "200": 1
+  },
+  "model_error_counts": {
+    "504": 2
+  }
+}

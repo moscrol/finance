@@ -1,0 +1,94 @@
+{
+  "kind": "historical_reversion_sensitivity_not_new_reviewer_verdict",
+  "name": "F1-before-wiring",
+  "claim": "F1",
+  "corrected_revision": "257263f63f526035a27724ffb2e7777ff2a9ee50",
+  "mutation_revision": "4408ac40521d150785a20a1094ced00660156fa3",
+  "historical_source_revision": "c57a4d019bd0bfa0a8f552590ec13f8ef4349de0",
+  "historical_blob": "b3c0e86f24ebc8f7317e29f849cec9f3c74c66e5",
+  "changed_paths": [
+    "skills/daily-full-review/scripts/run_review_sync.py"
+  ],
+  "verification_ref": "refs/verification/market-recovery-sensitivity-20260923/F1-before-wiring",
+  "probe_source": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/delivery-gate-4dd5e66/F1-explore/delivery/probe.py",
+  "probe_sha256": "8d86c437140984a4e0f1dc655266cd2abd1c40c7433c9ac449cb3786ae00561e",
+  "driver_sha256": "e7f88ccd7bf7e5f1db4f6cec5f528fb2920bfa614828b61510b59f833143893a",
+  "controller_sha256": "395f1a7789718abb064d23dd8ca43b3b9fce0c4b965fa9440759d1b7bee3751a",
+  "sandbox_sha256": "0e8e199f0a292eb0d2bed4b68ede18733236fe902dd3d61b55b167646d439ab5",
+  "before": {
+    "revision": "4408ac40521d150785a20a1094ced00660156fa3",
+    "status": "",
+    "main": "2edbe4c46595cbea3eb3abe04fe84a7bd5afd55e"
+  },
+  "complete": true,
+  "exit_code": 1,
+  "deadline_hit": false,
+  "elapsed_seconds": 1.087,
+  "command": [
+    "/usr/bin/sandbox-exec",
+    "-f",
+    "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/continuation-257263f/mutations/F1-before-wiring/execute/tools.sb",
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "-B",
+    "-m",
+    "pytest",
+    "-q",
+    "-o",
+    "addopts=",
+    "-p",
+    "no:cacheprovider",
+    "--confcutdir",
+    "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/continuation-257263f/mutations/F1-before-wiring/execute",
+    "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/continuation-257263f/mutations/F1-before-wiring/execute/probe.py",
+    "--junitxml=/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/continuation-257263f/mutations/F1-before-wiring/execute/probe.xml"
+  ],
+  "counts": {
+    "tests": 5,
+    "failures": 5,
+    "errors": 0,
+    "skipped": 0,
+    "passed": 0
+  },
+  "failures": [
+    {
+      "test": "test_local_plan_orders_hithink_then_stock_daily_then_consumers",
+      "outcome": "failure",
+      "message": "AssertionError: ['db-lock', 'stock-daily', 'hithink-stock-daily', 'hithink-sector-kline', 'hithink-limit-pools', 'hithink-dragon-auction', ...]\nassert 2 < 1",
+      "text": "def test_local_plan_orders_hithink_then_stock_daily_then_consumers():\n        names = [n for n, _ in rs.build_local_plan(\"2026-09-23\", 1, 1)]  # build only; lambdas not invoked\n        i_h, i_s = names.index(\"hithink-stock-daily\"), names.index(\"stock-daily\")\n>       assert i_h < i_s, names\nE       AssertionError: ['db-lock', 'stock-daily', 'hithink-stock-daily', 'hithink-sector-kline', 'hithink-limit-pools', 'hithink-dragon-auction', ...]\nE       assert 2 < 1\n\n../execute/probe.py:51: AssertionError"
+    },
+    {
+      "test": "test_snapshot_success_short_circuits_control",
+      "outcome": "failure",
+      "message": "TypeError: sync_stock_daily() got an unexpected keyword argument 'hithink_fallback'",
+      "text": "monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10a6b22a0>\n\n    def test_snapshot_success_short_circuits_control(monkeypatch):\n        calls = []\n        monkeypatch.setattr(rs, \"run_step\", _recorder(calls))\n        monkeypatch.setattr(rs, \"_count\", lambda table, date: 5000)\n>       out = rs.sync_stock_daily(\"2026-09-23\", 1, hithink_fallback=True)\nE       TypeError: sync_stock_daily() got an unexpected keyword argument 'hithink_fallback'\n\n../execute/probe.py:61: TypeError"
+    },
+    {
+      "test": "test_bridge_runs_only_when_canonical_day_empty",
+      "outcome": "failure",
+      "message": "TypeError: sync_stock_daily() got an unexpected keyword argument 'hithink_fallback'",
+      "text": "monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10a7113d0>\n\n    def test_bridge_runs_only_when_canonical_day_empty(monkeypatch):\n        calls = []\n        monkeypatch.setattr(rs, \"run_step\", _recorder(calls))\n        counts = iter([0, 0, 700])  # empty after snapshot, empty after fallback, filled by bridge\n        monkeypatch.setattr(rs, \"_count\", lambda table, date: next(counts))\n>       out = rs.sync_stock_daily(\"2026-09-23\", 1, hithink_fallback=True)\nE       TypeError: sync_stock_daily() got an unexpected keyword argument 'hithink_fallback'\n\n../execute/probe.py:72: TypeError"
+    },
+    {
+      "test": "test_bridge_skipped_when_fallback_fills_rows_adversarial",
+      "outcome": "failure",
+      "message": "TypeError: sync_stock_daily() got an unexpected keyword argument 'hithink_fallback'",
+      "text": "monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10a711a90>\n\n    def test_bridge_skipped_when_fallback_fills_rows_adversarial(monkeypatch):\n        # Adversarial: snapshot yields 0 rows, fallback fills them; a buggy impl would still bridge.\n        calls = []\n        monkeypatch.setattr(rs, \"run_step\", _recorder(calls))\n        counts = iter([0, 321])\n        monkeypatch.setattr(rs, \"_count\", lambda table, date: next(counts))\n>       out = rs.sync_stock_daily(\"2026-09-23\", 1, hithink_fallback=True)\nE       TypeError: sync_stock_daily() got an unexpected keyword argument 'hithink_fallback'\n\n../execute/probe.py:84: TypeError"
+    },
+    {
+      "test": "test_exhausted_stock_daily_retries_block_downstream_and_release",
+      "outcome": "failure",
+      "message": "assert 0 == 1",
+      "text": "monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10a710710>\n\n    def test_exhausted_stock_daily_retries_block_downstream_and_release(monkeypatch):\n        seen = {\"runs\": 0, \"downstream\": 0, \"release\": 0, \"runlog\": None}\n    \n        def failing_stock():\n            seen[\"runs\"] += 1\n            tag = \"orig\" if seen[\"runs\"] == 1 else f\"r{seen['runs'] - 1}\"\n            return {\"label\": \"stock-daily\", \"status\": \"fail\", \"code\": 1, \"elapsed\": 0.1,\n                    \"attempts\": [{\"label\": tag, \"status\": \"fail\", \"code\": 1, \"elapsed\": 0.1}]}\n    \n        def downstream():\n            seen[\"downstream\"] += 1\n            return _res(\"sector-daily-local\")\n    \n        monkeypatch.setattr(rs, \"build_plan\", lambda *a, **k: [(\"stock-daily\", failing_stock),\n                                                               (\"sector-daily-local\", downstream)])\n        monkeypatch.setattr(rs, \"_notify\", lambda msg: None)\n        monkeypatch.setattr(rs, \"run_release_steps\",\n                            lambda *a, **k: (seen.__setitem__(\"release\", seen[\"release\"] + 1), ([], True))[1])\n        monkeypatch.setattr(rs, \"write_runlog\",\n                            lambda date, results, gate_ok, plan=\"full\": seen.__setitem__(\"runlog\", (results, gate_ok)))\n        monkeypatch.setattr(sys, \"argv\", [\"x\", \"--date\", \"2026-09-23\", \"--plan\", \"local\",\n                                          \"--skip-preflight\", \"--retry-rounds\", \"2\"])\n        rc = rs.main()\n>       assert rc == 1\nE       assert 0 == 1\n\n../execute/probe.py:112: AssertionError"
+    }
+  ],
+  "after": {
+    "revision": "4408ac40521d150785a20a1094ced00660156fa3",
+    "status": "",
+    "main": "2edbe4c46595cbea3eb3abe04fe84a7bd5afd55e"
+  },
+  "probe_unchanged": true,
+  "driver_unchanged": true,
+  "behavior_failures": 2,
+  "api_shape_failures": 3,
+  "other_failures": 0
+}

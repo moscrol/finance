@@ -1,0 +1,22 @@
+== gate @ 257263f63f52 tree=/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/continuation-257263f/candidate py=/Users/a77/finance-workspace-private/.venv-workbench/bin/python receipt=/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/continuation-257263f/full-gate/gate-fbkayBkJ/pytest.json
+== ruff check .
+All checks passed!
+== pytest -q -p no:cacheprovider --junitxml=/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/continuation-257263f/full-gate/pytest.xml --durations=20
+20.53s call     tests/test_money_effect_regime.py::test_load_regime_state_from_synthetic_db_and_as_of
+19.71s call     intelligence/tests/test_agent_review_gate.py::test_composed_dual_lane_acceptance_through_repair_and_release
+18.37s setup    intelligence/tests/test_methodology_dependence.py::TestPurge::test_窗末跨界事件被剔且如实计数
+18.09s call     tests/test_generation_code_root.py::test_direct_renderers_and_queues_use_data_paths
+17.11s call     tests/test_money_effect_regime.py::test_cli_json_outputs_today_and_replay
+16.99s call     tests/test_scripts_module_references.py::test_scanner_ignores_imports_written_inside_string_fixtures
+16.61s call     tests/test_scripts_module_references.py::test_import_statement_module_references_resolve
+16.07s call     tests/test_money_effect_regime.py::test_db_fixture_reproduces_vector_magnitudes
+13.76s call     intelligence/tests/test_session_projection.py::test_view_callers_are_registered
+12.50s call     intelligence/tests/test_agent_review_gate.py::test_narrow_repair_does_not_seal_older_unreviewed_milestone
+11.69s call     intelligence/tests/test_tier_promotion.py::test_services_layer_never_writes_the_root_ledger
+10.33s call     intelligence/tests/test_graph_research_map_modes.py::test_package_mode_returns_theme_package_evidence
+10.32s call     intelligence/tests/test_exposure_ranking.py::test_truncation_reaches_the_answer_not_just_the_adapter
+10.06s call     intelligence/tests/test_methodology_backtest.py::test_cli_run_scan_write_refuted_and_report_refuted
+14874 passed, 85 skipped, 2 xfailed, 17 warnings in 2385.43s (0:39:45)
+== receipt /Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/continuation-257263f/full-gate/gate-fbkayBkJ/pytest.json
+   revision=257263f63f52 dirty=False target=/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/continuation-257263f/candidate
+   passed=14874 failed=0 error=0 skipped=85 xfailed=2 xpassed=0

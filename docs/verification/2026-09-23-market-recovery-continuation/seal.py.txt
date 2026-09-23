@@ -1,0 +1,116 @@
+"""Seal this continuation only after the complete gate has stopped."""
+from collections import Counter
+import json
+import os
+from pathlib import Path
+import shutil
+import xml.etree.ElementTree as ET
+
+import run
+
+
+def load(path):
+    return json.loads(path.read_text())
+
+
+def files(root):
+    for directory, dirs, names in os.walk(root):
+        dirs[:] = sorted(d for d in dirs if d not in {'candidate', 'pi-config', 'tmp', 'users', '__pycache__'})
+        for name in sorted(names):
+            yield Path(directory) / name
+
+
+def main():
+    full = load(run.ROOT / 'full-gate/execution.json')
+    assert full['complete'], 'Full gate still running; do not seal or imply completion.'
+    assert run.identity()['revision'] == run.REV and not run.identity()['status']
+    xml_path = run.ROOT / 'full-gate/pytest.xml'
+    if xml_path.exists():
+        failures = [{'classname': case.get('classname'), 'name': case.get('name'),
+                     'outcome': child.tag, 'message': child.get('message'), 'text': child.text}
+                    for case in ET.parse(xml_path).iter('testcase')
+                    for child in case if child.tag in {'failure', 'error'}]
+        run.save(run.ROOT / 'full-gate/failures.json', failures)
+    summary = {'status': 'HOLD', 'revision': run.REV, 'base': run.BASE,
+               'tree': run.git('rev-parse', 'HEAD^{tree}'), 'raw_root': str(run.ROOT),
+               'final_identity': run.identity(), 'full_gate': full, 'claims': {},
+               'model_stages': {}, 'model_requests': 0, 'new_review_deliveries': 0,
+               'replayed_independent_passed': 0, 'author_related_passed': 0,
+               'production_writes': False, 'merge_push_deployment': False,
+               'F3_expansion': 'NOT_STARTED_AFTER_PROVIDER_FAILURE',
+               'qualifications': [
+                   'All 20 independent cases are unchanged replays from the prior reviewer, not newly generated tests.',
+                   'Prior F2/F3 formal reports remain pinned to 4dd5e6660; they are not re-signed to this preview.',
+                   'F2 missing negative infinity, member invalid close and other-date independent coverage remain open.',
+                   'F3 full-row and missing-policy other-date independent coverage remain open.',
+                   'Positive controls prove red detection only. Five separate one-file historical reversions also trigger behavior failures; three old-API TypeErrors are excluded from behavioral sensitivity claims.',
+                   'No live nightly, staging, production recovery, or business-contract acceptance.',
+               ]}
+    postflight = load(run.ROOT / 'postflight/execution.json')
+    receipt = load(Path(full['receipt']))
+    summary['postflight'] = postflight
+    summary['actual_receipt_scope'] = {'target': receipt['target'], **receipt['scope']}
+    summary['full_repo_receipt_accepted'] = (full['exit_code'] == 0 and
+        postflight['receipt_check']['exit_code'] == 0 and postflight['base_unchanged_at_remote'] and
+        postflight['receipt_target_matches_repo_root'])
+    summary['supplementary_checks'] = load(run.ROOT / 'supplementary-checks/execution.json')['checks']
+    sensitivity = load(run.ROOT / 'mutations/summary.json')
+    assert len(sensitivity) == 5
+    assert all(r['behavior_failures'] > 0 and r['other_failures'] == 0 and r['checkout_removed'] for r in sensitivity.values())
+    summary['historical_reversion_sensitivity'] = sensitivity
+    summary['historical_behavior_failures'] = sum(r['behavior_failures'] for r in sensitivity.values())
+    summary['excluded_historical_api_shape_failures'] = sum(r['api_shape_failures'] for r in sensitivity.values())
+    http = Counter()
+    errors = Counter()
+    for stage in ['F2-explore', 'F1-report']:
+        folder = run.ROOT / stage
+        record = load(folder / 'execution.json')
+        assert record['complete'] and record['inputs_unchanged']
+        assert record['before'] == record['after']
+        summary['model_stages'][stage] = record['status']
+        summary['new_review_deliveries'] += int(record['delivered'])
+        admissions = [json.loads(line) for line in (folder / 'request-admissions.jsonl').read_text().splitlines()]
+        assert len(admissions) <= 4
+        assert [r['admission'] for r in admissions] == list(range(1, len(admissions) + 1))
+        assert all(r['model'] == 'kimi-k3' and r['stream'] and not r['has_temperature'] and r['tools'] == 1 for r in admissions)
+        summary['model_requests'] += len(admissions)
+        path = folder / 'http-responses.jsonl'
+        if path.exists():
+            http.update(str(json.loads(line)['status']) for line in path.read_text().splitlines())
+        errors.update('504' for error in record['model_errors'] if str(error).startswith('504 '))
+    summary['http_response_hook_counts'] = dict(http)
+    summary['model_error_counts'] = dict(errors)
+    for claim in ['F1', 'F2', 'F3']:
+        parent = run.ROOT if claim == 'F1' else run.ROOT / 'replay'
+        record = load(parent / f'{claim}-execute/execution.json')
+        assert record['complete'] and record['before'] == record['after']
+        assert record['before']['revision'] == run.REV and record['positive_control_detected']
+        assert record['probe']['exit_code'] == record['author']['exit_code'] == 0
+        summary['claims'][claim] = {'probe': record['probe']['counts'], 'author': record['author']['counts'],
+                                    'positive_control_detected': True, 'new_formal_report': False}
+        summary['replayed_independent_passed'] += record['probe']['counts']['passed']
+        summary['author_related_passed'] += record['author']['counts']['passed']
+    dest = Path('/Users/a77/fwp-wt-market-recovery-qc-fix-0923/docs/verification/2026-09-23-market-recovery-continuation')
+    dest.mkdir(exist_ok=False)
+    raw = {}
+    renames = {}
+    for path in files(run.ROOT):
+        relative = path.relative_to(run.ROOT)
+        raw[str(relative)] = run.sha(path)
+        if path.name in {'events.stdout', 'packet.md', 'credential.json'} or relative == Path('full-gate/pytest.xml'):
+            continue
+        target = dest / relative
+        if path.suffix in {'.py', '.mjs', '.log'}:
+            target = target.with_name(target.name + '.txt')
+            renames[str(relative)] = str(target.relative_to(dest))
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(path, target)
+    run.save(dest / 'raw-manifest.json', raw)
+    run.save(dest / 'archive-renames.json', renames)
+    run.save(dest / 'summary.json', summary)
+    run.save(dest / 'manifest.json', {str(p.relative_to(dest)): run.sha(p) for p in files(dest)})
+    print(json.dumps(summary, ensure_ascii=False, indent=2))
+
+
+if __name__ == '__main__':
+    main()

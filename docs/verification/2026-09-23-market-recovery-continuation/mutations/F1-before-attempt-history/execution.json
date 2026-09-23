@@ -1,0 +1,70 @@
+{
+  "kind": "historical_reversion_sensitivity_not_new_reviewer_verdict",
+  "name": "F1-before-attempt-history",
+  "claim": "F1",
+  "corrected_revision": "257263f63f526035a27724ffb2e7777ff2a9ee50",
+  "mutation_revision": "3329eddd752eea2fc4481b90cc90d3eebf400192",
+  "historical_source_revision": "4fa70046f69d23571189fe27176074674a1de8e5",
+  "historical_blob": "f0b5db7399f35a543c49b269a2e51f52184eb03f",
+  "changed_paths": [
+    "skills/daily-full-review/scripts/run_review_sync.py"
+  ],
+  "verification_ref": "refs/verification/market-recovery-sensitivity-20260923/F1-before-attempt-history",
+  "probe_source": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/delivery-gate-4dd5e66/F1-explore/delivery/probe.py",
+  "probe_sha256": "8d86c437140984a4e0f1dc655266cd2abd1c40c7433c9ac449cb3786ae00561e",
+  "driver_sha256": "e7f88ccd7bf7e5f1db4f6cec5f528fb2920bfa614828b61510b59f833143893a",
+  "controller_sha256": "395f1a7789718abb064d23dd8ca43b3b9fce0c4b965fa9440759d1b7bee3751a",
+  "sandbox_sha256": "801cb676e6a414e0d2220d8d4071c4b1257a694239491c7b36b2ccfbbe8b7ae8",
+  "before": {
+    "revision": "3329eddd752eea2fc4481b90cc90d3eebf400192",
+    "status": "",
+    "main": "2edbe4c46595cbea3eb3abe04fe84a7bd5afd55e"
+  },
+  "complete": true,
+  "exit_code": 1,
+  "deadline_hit": false,
+  "elapsed_seconds": 0.706,
+  "command": [
+    "/usr/bin/sandbox-exec",
+    "-f",
+    "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/continuation-257263f/mutations/F1-before-attempt-history/execute/tools.sb",
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "-B",
+    "-m",
+    "pytest",
+    "-q",
+    "-o",
+    "addopts=",
+    "-p",
+    "no:cacheprovider",
+    "--confcutdir",
+    "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/continuation-257263f/mutations/F1-before-attempt-history/execute",
+    "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/continuation-257263f/mutations/F1-before-attempt-history/execute/probe.py",
+    "--junitxml=/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/continuation-257263f/mutations/F1-before-attempt-history/execute/probe.xml"
+  ],
+  "counts": {
+    "tests": 5,
+    "failures": 1,
+    "errors": 0,
+    "skipped": 0,
+    "passed": 4
+  },
+  "failures": [
+    {
+      "test": "test_exhausted_stock_daily_retries_block_downstream_and_release",
+      "outcome": "failure",
+      "message": "AssertionError: assert ['r2'] == ['orig', 'r1', 'r2']\n  \n  At index 0 diff: 'r2' != 'orig'\n  Right contains 2 more items, first extra item: 'r1'\n  Use -v to get more diff",
+      "text": "monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x105ebaae0>\n\n    def test_exhausted_stock_daily_retries_block_downstream_and_release(monkeypatch):\n        seen = {\"runs\": 0, \"downstream\": 0, \"release\": 0, \"runlog\": None}\n    \n        def failing_stock():\n            seen[\"runs\"] += 1\n            tag = \"orig\" if seen[\"runs\"] == 1 else f\"r{seen['runs'] - 1}\"\n            return {\"label\": \"stock-daily\", \"status\": \"fail\", \"code\": 1, \"elapsed\": 0.1,\n                    \"attempts\": [{\"label\": tag, \"status\": \"fail\", \"code\": 1, \"elapsed\": 0.1}]}\n    \n        def downstream():\n            seen[\"downstream\"] += 1\n            return _res(\"sector-daily-local\")\n    \n        monkeypatch.setattr(rs, \"build_plan\", lambda *a, **k: [(\"stock-daily\", failing_stock),\n                                                               (\"sector-daily-local\", downstream)])\n        monkeypatch.setattr(rs, \"_notify\", lambda msg: None)\n        monkeypatch.setattr(rs, \"run_release_steps\",\n                            lambda *a, **k: (seen.__setitem__(\"release\", seen[\"release\"] + 1), ([], True))[1])\n        monkeypatch.setattr(rs, \"write_runlog\",\n                            lambda date, results, gate_ok, plan=\"full\": seen.__setitem__(\"runlog\", (results, gate_ok)))\n        monkeypatch.setattr(sys, \"argv\", [\"x\", \"--date\", \"2026-09-23\", \"--plan\", \"local\",\n                                          \"--skip-preflight\", \"--retry-rounds\", \"2\"])\n        rc = rs.main()\n        assert rc == 1\n        assert seen[\"runs\"] == 3  # original + 2 exhausted retries\n        assert seen[\"downstream\"] == 0 and seen[\"release\"] == 0  # downstream + release blocked\n        results, gate_ok = seen[\"runlog\"]\n        assert gate_ok is False\n>       assert [a[\"label\"] for a in results[0][\"attempts\"]] == [\"orig\", \"r1\", \"r2\"]  # records retained\nE       AssertionError: assert ['r2'] == ['orig', 'r1', 'r2']\nE         \nE         At index 0 diff: 'r2' != 'orig'\nE         Right contains 2 more items, first extra item: 'r1'\nE         Use -v to get more diff\n\n../execute/probe.py:117: AssertionError"
+    }
+  ],
+  "after": {
+    "revision": "3329eddd752eea2fc4481b90cc90d3eebf400192",
+    "status": "",
+    "main": "2edbe4c46595cbea3eb3abe04fe84a7bd5afd55e"
+  },
+  "probe_unchanged": true,
+  "driver_unchanged": true,
+  "behavior_failures": 1,
+  "api_shape_failures": 0,
+  "other_failures": 0
+}

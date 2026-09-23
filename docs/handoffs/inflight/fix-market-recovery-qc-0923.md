@@ -1,31 +1,32 @@
 # 行情恢复 QC 修复
 
 ## 这个分支做什么
-修 #861/#871 的 F1 接线、F2 假覆盖/坏收盘价、F3 过期覆盖。最新快照：`docs/handoffs/2026-09-23-market-recovery-delivery-gate.md`。
+修 #861/#871 的 F1 接线、F2 假覆盖/坏价、F3 过期覆盖。最新快照：`docs/handoffs/2026-09-23-market-recovery-continuation.md`。
 
 ## 当前状态
-业务仍为 4fa70046f、981c4d629、3abb7a4d3；本轮只做分项独审与证据封存。整体 HOLD：F1 报告504阻塞、新组合无全仓收据、业务合同未确认。收尾main已到2edbe4c46，零漂移复核exit1（落后4张合并）；4dd5收据不得充最新准入。未合并/推送/部署/staging/换库/写生产。所有本轮进程退出；独占干净 candidate 保留。
+整体 HOLD。main 2edbe4c46 + 修复枝f3c99ab5b重组为257263f63，全仓绿；F1 report、F2补强explore仍被504阻塞，新探针/报告0。业务仍为4fa70046f、981c4d629、3abb7a4d3，本轮无业务代码改动。未合并/推送/部署/staging/换库/写生产。所有本轮进程退出；干净candidate保留。
 
 ## 决策与被否方案
-- 读一次后仅能交付，否定只加提示：上轮600秒零探针，本轮工具权限实际收缩。
-- 初版F2建数错误留痕，由K3自修；否定作者代改后冒称独立。
-- F2/F3报告只按实际断言收窄采用；不把逻辑行值比对称物理字节相同。
-- F1上游504记阻塞，否定Pi exit0=成功；本轮不重试、不切模型。
+- 最新main重组跑全仓，否定tests/或旧全仓收据移签：身份与范围必须同时匹配。
+- 原探针逐字节复跑，否定复跑=新独审裁决；旧F2/F3报告仍属4dd5。
+- 504后停止开会话，否定自动重试/换模型；Pi exit0不是交付。
+- 另建五个单文件历史回退版本，否定必红断言=回归敏感度；旧API的3个TypeError不算行为覆盖。
 
 ## 已验证
-- main 27ca084f9 + 修复枝7466e3982：merge-tree无冲突，组合4dd5e6660，tree49f280d1；远端复核一致。
-- 独立探针最终20P（F2R9/F1 5/F3 6）；作者相关131P分账；四次必红对照均1F。初版F2另7F、作者收集1E，非产品缺陷，原件保留。
-- K3正式F2R/F3报告PASS_WITH_LIMITS；F1无报告。14请求，13条HTTP200钩子记录，1条模型上游504错误。
-- 新组合 tests/ 2676P/62S，非全仓；收据身份/解释器/依赖/干净/对账/基座漂移0通过；Ruff、注册表、交付门5项自测通过。
+- 组合257263f63，treedd731224；结束后fetch，main仍2edbe4c46，零漂移复核通过。
+- 全仓14874P/85S/2XFAIL，收集14961对账，0F/0E；2385.43秒。require-full-scope、revision、解释器、依赖、干净检查通过。target为候选仓根，非tests/。
+- 原独立探针20P（F1 5/F2 9/F3 6）；作者相关131P分账；3次必红对照均1F。
+- 5个历史回退版本均有行为失败：20次行为失败、3次API不兼容、0收集错误。是重复运行，不是新增独立用例。临时树已清，验证refs保留。
+- Ruff、注册表/解析、交付门5自测通过；无webapp改动，前端/E2E未跑。
 
 ## 未验证 / 已知边界
-F2未单测-inf/成员坏价，无其他日期种子；F3仅比码和close，不认证整行/任意并发/完整指纹/部分写后回滚。run-v2未纳入运行中输入监听，仅收尾封存。供应商全集、53只公司行动、恢复CLI、真实nightly与生产验收未闭合。旧d3全仓不得移签。
+F1无正式报告；F2/F3旧PASS_WITH_LIMITS不移签。F2未补-inf/成员坏close/其他日期独立覆盖；F3未补全列/缺policy其他日期覆盖；并发、完整指纹、部分写后回滚未认证。五问/三合同/5553-5565范围/53只公司行动未裁决。真实nightly、恢复CLI及生产验收未做。
 
 ## 下一步
-1. 先按届时main重组候选；已有F1探针/execute可作旧候选证据，只缺report。修正F2/F3过宽措辞，按需补缺口。
-2. 用户确认五问、三合同、5553/5565范围与53只处置。
-3. 最新main组合补全仓门禁，再讨论合并/生产授权。
+1. 通道恢复后有界补F1 report和F2/F3缺口，不覆盖旧失败目录。
+2. 用户裁决业务口径；不要把「继续」当签字或生产授权。
+3. main/实现再变则重新判定收据适用性；获授权前不合并/推送/部署/写库。
 
 ## 踩过的坑
-schema.sql不等于init_db迁移后列数；探针建数用显式列名。504可能只进model_errors而不进响应钩子。target=tests/不是全仓。
-证据：`docs/verification/2026-09-23-market-recovery-delivery-gate/`；运行根 `~/.finance-runtime/reviews/market-recovery-qc-20260923/delivery-gate-4dd5e66/`，验证引用 `refs/verification/market-recovery-delivery-20260923`。
+3请求只有1条HTTP200钩子记录，另2条504只在model_errors；两次Pi exit0均无交付。全仓target可为仓根，不要求空字符串。历史回退红与当前候选失败必须分账。
+证据：`docs/verification/2026-09-23-market-recovery-continuation/`；运行根 `~/.finance-runtime/reviews/market-recovery-qc-20260923/continuation-257263f/`；引用 `refs/verification/market-recovery-continuation-20260923`。

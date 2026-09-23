@@ -1,0 +1,58 @@
+"""Recheck receipt identity after fetch and clean only this completed run's proven temp root."""
+import json
+import os
+from pathlib import Path
+import shutil
+import stat
+import subprocess
+
+import run
+
+root = run.ROOT
+out = run.make_out('postflight')
+full = json.loads((root / 'full-gate/execution.json').read_text())
+receipt = json.loads(Path(full['receipt']).read_text())
+assert full['complete'] and full['exit_code'] == 0 and full['driver_unchanged'] and full['controller_unchanged']
+assert Path(receipt['target']).resolve() == run.TREE.resolve()
+assert receipt['scope']['collected'] == sum(receipt['counts'].values())
+assert receipt['revision'] == run.REV and not receipt['dirty']
+env = {'HOME': '/Users/a77', 'PATH': '/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin'}
+record = {'before': run.identity(), 'receipt_target': receipt['target'],
+          'receipt_target_matches_repo_root': True,
+          'note': 'An unfiltered pytest run records the repository root as target, not an empty string.',
+          'driver_sha256': run.sha(Path(__file__))}
+record['receipt_check'] = run.bounded([
+    run.PY, 'scripts/check_test_receipt.py', full['receipt'], '--expect-revision', run.REV,
+    '--base-drift-max', '0', '--require-full-scope',
+], out, env, 120, 'receipt-check')
+record['remote_main'] = subprocess.check_output(
+    ['git', '-C', str(run.TREE), 'ls-remote', 'gitea', 'refs/heads/main'], text=True).split()[0]
+record['base_unchanged_at_remote'] = record['remote_main'] == run.BASE
+owner = json.loads((root / 'full-gate/temp-owner.json').read_text())
+temp = Path(owner['path'])
+assert temp == Path('/private/tmp/pytest-of-a77/pytest-1804') and temp.resolve() == temp
+assert not temp.is_symlink() and temp.stat().st_ino == owner['inode']
+try:
+    os.kill(owner['pid'], 0)
+except ProcessLookupError:
+    pass
+else:
+    raise AssertionError('Recorded pytest PID is still alive or has been reused; leave temp untouched.')
+
+
+def allow_directory_removal(path):
+    mode = path.lstat().st_mode
+    if not stat.S_ISDIR(mode):
+        return
+    path.chmod(mode | 0o700)
+    for child in path.iterdir():
+        allow_directory_removal(child)
+
+
+allow_directory_removal(temp)
+shutil.rmtree(temp)
+record['cleanup'] = {'path': str(temp), 'verified_inode': owner['inode'], 'pid_absent': True,
+                     'removed': not temp.exists(), 'followed_symlinks': False}
+record['after'] = run.identity()
+run.save(out / 'execution.json', record)
+print(json.dumps(record, ensure_ascii=False, indent=2))

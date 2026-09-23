@@ -1,0 +1,114 @@
+{
+  "claim": "F3",
+  "before": {
+    "revision": "257263f63f526035a27724ffb2e7777ff2a9ee50",
+    "status": "",
+    "main": "2edbe4c46595cbea3eb3abe04fe84a7bd5afd55e"
+  },
+  "python": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "inputs_sha256": {
+    "probe.py": "24cd07a4e5ee62edc4f44d1e97c33e7651a84b86f0b78a4ccb9303c1d37d57c8",
+    "positive_control.py": "5aafcdf0a73fb7dc62edf5689f4949d31d1dfe552f7859031bf7e7907c549e5a",
+    "tools.sb": "8070476b6c15a9f0e3d34b0b72cfd36ea03b231e82f2c34bf878915432572670"
+  },
+  "independent_probe_provenance": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/continuation-257263f/replay/F3-explore/delivery",
+  "production_access": "OS sandbox denies",
+  "complete": true,
+  "probe": {
+    "exit_code": 0,
+    "deadline_hit": false,
+    "elapsed_seconds": 1.358,
+    "command": [
+      "/usr/bin/sandbox-exec",
+      "-f",
+      "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/continuation-257263f/replay/F3-execute/tools.sb",
+      "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+      "-B",
+      "-m",
+      "pytest",
+      "-q",
+      "-o",
+      "addopts=",
+      "-p",
+      "no:cacheprovider",
+      "--confcutdir",
+      "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/continuation-257263f/replay/F3-execute",
+      "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/continuation-257263f/replay/F3-execute/probe.py",
+      "--junitxml=/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/continuation-257263f/replay/F3-execute/probe.xml"
+    ],
+    "counts": {
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "passed": 6
+    }
+  },
+  "positive": {
+    "exit_code": 1,
+    "deadline_hit": false,
+    "elapsed_seconds": 0.42,
+    "command": [
+      "/usr/bin/sandbox-exec",
+      "-f",
+      "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/continuation-257263f/replay/F3-execute/tools.sb",
+      "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+      "-B",
+      "-m",
+      "pytest",
+      "-q",
+      "-o",
+      "addopts=",
+      "-p",
+      "no:cacheprovider",
+      "--confcutdir",
+      "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/continuation-257263f/replay/F3-execute",
+      "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/continuation-257263f/replay/F3-execute/positive_control.py",
+      "--junitxml=/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/continuation-257263f/replay/F3-execute/positive.xml"
+    ],
+    "counts": {
+      "tests": 1,
+      "failures": 1,
+      "errors": 0,
+      "skipped": 0,
+      "passed": 0
+    }
+  },
+  "author": {
+    "exit_code": 0,
+    "deadline_hit": false,
+    "elapsed_seconds": 2.078,
+    "command": [
+      "/usr/bin/sandbox-exec",
+      "-f",
+      "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/continuation-257263f/replay/F3-execute/tools.sb",
+      "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+      "-B",
+      "-m",
+      "pytest",
+      "-q",
+      "-o",
+      "addopts=",
+      "-p",
+      "no:cacheprovider",
+      "--confcutdir",
+      "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/continuation-257263f/replay/F3-execute",
+      "tests/test_bridge_hithink_stock_daily.py",
+      "--junitxml=/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/continuation-257263f/replay/F3-execute/author.xml"
+    ],
+    "counts": {
+      "tests": 28,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "passed": 28
+    }
+  },
+  "after": {
+    "revision": "257263f63f526035a27724ffb2e7777ff2a9ee50",
+    "status": "",
+    "main": "2edbe4c46595cbea3eb3abe04fe84a7bd5afd55e"
+  },
+  "inputs_unchanged": true,
+  "positive_control_detected": true
+}

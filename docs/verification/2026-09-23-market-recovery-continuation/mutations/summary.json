@@ -1,0 +1,72 @@
+{
+  "F1-before-wiring": {
+    "revision": "4408ac40521d150785a20a1094ced00660156fa3",
+    "counts": {
+      "tests": 5,
+      "failures": 5,
+      "errors": 0,
+      "skipped": 0,
+      "passed": 0
+    },
+    "checkout_removed": true,
+    "behavior_failures": 2,
+    "api_shape_failures": 3,
+    "other_failures": 0
+  },
+  "F1-before-attempt-history": {
+    "revision": "3329eddd752eea2fc4481b90cc90d3eebf400192",
+    "counts": {
+      "tests": 5,
+      "failures": 1,
+      "errors": 0,
+      "skipped": 0,
+      "passed": 4
+    },
+    "checkout_removed": true,
+    "behavior_failures": 1,
+    "api_shape_failures": 0,
+    "other_failures": 0
+  },
+  "F2-before-member-guard": {
+    "revision": "c7a5d9ffa491a7d5dac674ad72baa3fbc308574f",
+    "counts": {
+      "tests": 9,
+      "failures": 6,
+      "errors": 0,
+      "skipped": 0,
+      "passed": 3
+    },
+    "checkout_removed": true,
+    "behavior_failures": 6,
+    "api_shape_failures": 0,
+    "other_failures": 0
+  },
+  "F2-before-close-guard": {
+    "revision": "99a3828256d3c3fdbe9f4c2b3b1678611644c062",
+    "counts": {
+      "tests": 9,
+      "failures": 5,
+      "errors": 0,
+      "skipped": 0,
+      "passed": 4
+    },
+    "checkout_removed": true,
+    "behavior_failures": 5,
+    "api_shape_failures": 0,
+    "other_failures": 0
+  },
+  "F3-before-apply-guard": {
+    "revision": "2cd3fca98c56e057f0a621251fbafe726e3c14b7",
+    "counts": {
+      "tests": 6,
+      "failures": 6,
+      "errors": 0,
+      "skipped": 0,
+      "passed": 0
+    },
+    "checkout_removed": true,
+    "behavior_failures": 6,
+    "api_shape_failures": 0,
+    "other_failures": 0
+  }
+}

@@ -1,0 +1,94 @@
+{
+  "kind": "historical_reversion_sensitivity_not_new_reviewer_verdict",
+  "name": "F2-before-close-guard",
+  "claim": "F2",
+  "corrected_revision": "257263f63f526035a27724ffb2e7777ff2a9ee50",
+  "mutation_revision": "99a3828256d3c3fdbe9f4c2b3b1678611644c062",
+  "historical_source_revision": "1717db91c2d4a08f1abd918f2c0b3dab04ce277e",
+  "historical_blob": "b1b53f4b17f9e45d813da559182060e76c99b4fe",
+  "changed_paths": [
+    "market_feature_store/sync/compute_local_stats.py"
+  ],
+  "verification_ref": "refs/verification/market-recovery-sensitivity-20260923/F2-before-close-guard",
+  "probe_source": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/delivery-gate-4dd5e66/F2R-explore/delivery/probe.py",
+  "probe_sha256": "1195dff0edd84485d026bb412f46192e2dcde4e03abc1a7928a4d8b2483f1c20",
+  "driver_sha256": "e7f88ccd7bf7e5f1db4f6cec5f528fb2920bfa614828b61510b59f833143893a",
+  "controller_sha256": "395f1a7789718abb064d23dd8ca43b3b9fce0c4b965fa9440759d1b7bee3751a",
+  "sandbox_sha256": "a4872df69d2c79341923770468540ad0c0c9dbb2057ca455923ed06fd068c3c1",
+  "before": {
+    "revision": "99a3828256d3c3fdbe9f4c2b3b1678611644c062",
+    "status": "",
+    "main": "2edbe4c46595cbea3eb3abe04fe84a7bd5afd55e"
+  },
+  "complete": true,
+  "exit_code": 1,
+  "deadline_hit": false,
+  "elapsed_seconds": 2.904,
+  "command": [
+    "/usr/bin/sandbox-exec",
+    "-f",
+    "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/continuation-257263f/mutations/F2-before-close-guard/execute/tools.sb",
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "-B",
+    "-m",
+    "pytest",
+    "-q",
+    "-o",
+    "addopts=",
+    "-p",
+    "no:cacheprovider",
+    "--confcutdir",
+    "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/continuation-257263f/mutations/F2-before-close-guard/execute",
+    "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/continuation-257263f/mutations/F2-before-close-guard/execute/probe.py",
+    "--junitxml=/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/continuation-257263f/mutations/F2-before-close-guard/execute/probe.xml"
+  ],
+  "counts": {
+    "tests": 9,
+    "failures": 5,
+    "errors": 0,
+    "skipped": 0,
+    "passed": 4
+  },
+  "failures": [
+    {
+      "test": "test_outside_sector_invalid_close_refuses_untouched[None]",
+      "outcome": "failure",
+      "message": "Failed: DID NOT RAISE <class 'ValueError'>",
+      "text": "bad = None\n\n    @pytest.mark.parametrize(\"bad\", [None, -1.0, 0.0, float(\"nan\"), float(\"inf\")])\n    def test_outside_sector_invalid_close_refuses_untouched(bad):\n        # OUT is not a declared member, but market counts consume its bar.\n        con = _con(out_close=bad)\n        _seed(con)\n        before = _snap_all(con)\n>       with pytest.raises(ValueError):\nE       Failed: DID NOT RAISE <class 'ValueError'>\n\n../execute/probe.py:98: Failed"
+    },
+    {
+      "test": "test_outside_sector_invalid_close_refuses_untouched[-1.0]",
+      "outcome": "failure",
+      "message": "Failed: DID NOT RAISE <class 'ValueError'>",
+      "text": "bad = -1.0\n\n    @pytest.mark.parametrize(\"bad\", [None, -1.0, 0.0, float(\"nan\"), float(\"inf\")])\n    def test_outside_sector_invalid_close_refuses_untouched(bad):\n        # OUT is not a declared member, but market counts consume its bar.\n        con = _con(out_close=bad)\n        _seed(con)\n        before = _snap_all(con)\n>       with pytest.raises(ValueError):\nE       Failed: DID NOT RAISE <class 'ValueError'>\n\n../execute/probe.py:98: Failed"
+    },
+    {
+      "test": "test_outside_sector_invalid_close_refuses_untouched[0.0]",
+      "outcome": "failure",
+      "message": "Failed: DID NOT RAISE <class 'ValueError'>",
+      "text": "bad = 0.0\n\n    @pytest.mark.parametrize(\"bad\", [None, -1.0, 0.0, float(\"nan\"), float(\"inf\")])\n    def test_outside_sector_invalid_close_refuses_untouched(bad):\n        # OUT is not a declared member, but market counts consume its bar.\n        con = _con(out_close=bad)\n        _seed(con)\n        before = _snap_all(con)\n>       with pytest.raises(ValueError):\nE       Failed: DID NOT RAISE <class 'ValueError'>\n\n../execute/probe.py:98: Failed"
+    },
+    {
+      "test": "test_outside_sector_invalid_close_refuses_untouched[nan]",
+      "outcome": "failure",
+      "message": "Failed: DID NOT RAISE <class 'ValueError'>",
+      "text": "bad = nan\n\n    @pytest.mark.parametrize(\"bad\", [None, -1.0, 0.0, float(\"nan\"), float(\"inf\")])\n    def test_outside_sector_invalid_close_refuses_untouched(bad):\n        # OUT is not a declared member, but market counts consume its bar.\n        con = _con(out_close=bad)\n        _seed(con)\n        before = _snap_all(con)\n>       with pytest.raises(ValueError):\nE       Failed: DID NOT RAISE <class 'ValueError'>\n\n../execute/probe.py:98: Failed"
+    },
+    {
+      "test": "test_outside_sector_invalid_close_refuses_untouched[inf]",
+      "outcome": "failure",
+      "message": "Failed: DID NOT RAISE <class 'ValueError'>",
+      "text": "bad = inf\n\n    @pytest.mark.parametrize(\"bad\", [None, -1.0, 0.0, float(\"nan\"), float(\"inf\")])\n    def test_outside_sector_invalid_close_refuses_untouched(bad):\n        # OUT is not a declared member, but market counts consume its bar.\n        con = _con(out_close=bad)\n        _seed(con)\n        before = _snap_all(con)\n>       with pytest.raises(ValueError):\nE       Failed: DID NOT RAISE <class 'ValueError'>\n\n../execute/probe.py:98: Failed"
+    }
+  ],
+  "after": {
+    "revision": "99a3828256d3c3fdbe9f4c2b3b1678611644c062",
+    "status": "",
+    "main": "2edbe4c46595cbea3eb3abe04fe84a7bd5afd55e"
+  },
+  "probe_unchanged": true,
+  "driver_unchanged": true,
+  "behavior_failures": 5,
+  "api_shape_failures": 0,
+  "other_failures": 0
+}

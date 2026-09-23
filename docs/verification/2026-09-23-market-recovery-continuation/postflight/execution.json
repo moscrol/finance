@@ -1,0 +1,40 @@
+{
+  "before": {
+    "revision": "257263f63f526035a27724ffb2e7777ff2a9ee50",
+    "status": "",
+    "main": "2edbe4c46595cbea3eb3abe04fe84a7bd5afd55e"
+  },
+  "receipt_target": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/continuation-257263f/candidate",
+  "receipt_target_matches_repo_root": true,
+  "note": "An unfiltered pytest run records the repository root as target, not an empty string.",
+  "driver_sha256": "0f33781d0d9d73e3cc6fc77ea9cd0ccd96c26cb631e2e69340684e08422e5a1d",
+  "receipt_check": {
+    "exit_code": 0,
+    "deadline_hit": false,
+    "elapsed_seconds": 0.556,
+    "command": [
+      "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+      "scripts/check_test_receipt.py",
+      "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/continuation-257263f/full-gate/gate-fbkayBkJ/pytest.json",
+      "--expect-revision",
+      "257263f63f526035a27724ffb2e7777ff2a9ee50",
+      "--base-drift-max",
+      "0",
+      "--require-full-scope"
+    ]
+  },
+  "remote_main": "2edbe4c46595cbea3eb3abe04fe84a7bd5afd55e",
+  "base_unchanged_at_remote": true,
+  "cleanup": {
+    "path": "/private/tmp/pytest-of-a77/pytest-1804",
+    "verified_inode": 237898589,
+    "pid_absent": true,
+    "removed": true,
+    "followed_symlinks": false
+  },
+  "after": {
+    "revision": "257263f63f526035a27724ffb2e7777ff2a9ee50",
+    "status": "",
+    "main": "2edbe4c46595cbea3eb3abe04fe84a7bd5afd55e"
+  }
+}

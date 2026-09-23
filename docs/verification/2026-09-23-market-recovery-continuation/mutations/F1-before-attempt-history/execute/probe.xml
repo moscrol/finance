@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="5" time="0.144" timestamp="2026-09-23T16:52:39.397257+08:00" hostname="77deMacBook-Air.local"><testcase classname="execute.probe" name="test_local_plan_orders_hithink_then_stock_daily_then_consumers" time="0.001" /><testcase classname="execute.probe" name="test_snapshot_success_short_circuits_control" time="0.001" /><testcase classname="execute.probe" name="test_bridge_runs_only_when_canonical_day_empty" time="0.001" /><testcase classname="execute.probe" name="test_bridge_skipped_when_fallback_fills_rows_adversarial" time="0.000" /><testcase classname="execute.probe" name="test_exhausted_stock_daily_retries_block_downstream_and_release" time="0.002"><failure message="AssertionError: assert ['r2'] == ['orig', 'r1', 'r2']&#10;  &#10;  At index 0 diff: 'r2' != 'orig'&#10;  Right contains 2 more items, first extra item: 'r1'&#10;  Use -v to get more diff">monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x105ebaae0&gt;
+
+    def test_exhausted_stock_daily_retries_block_downstream_and_release(monkeypatch):
+        seen = {"runs": 0, "downstream": 0, "release": 0, "runlog": None}
+    
+        def failing_stock():
+            seen["runs"] += 1
+            tag = "orig" if seen["runs"] == 1 else f"r{seen['runs'] - 1}"
+            return {"label": "stock-daily", "status": "fail", "code": 1, "elapsed": 0.1,
+                    "attempts": [{"label": tag, "status": "fail", "code": 1, "elapsed": 0.1}]}
+    
+        def downstream():
+            seen["downstream"] += 1
+            return _res("sector-daily-local")
+    
+        monkeypatch.setattr(rs, "build_plan", lambda *a, **k: [("stock-daily", failing_stock),
+                                                               ("sector-daily-local", downstream)])
+        monkeypatch.setattr(rs, "_notify", lambda msg: None)
+        monkeypatch.setattr(rs, "run_release_steps",
+                            lambda *a, **k: (seen.__setitem__("release", seen["release"] + 1), ([], True))[1])
+        monkeypatch.setattr(rs, "write_runlog",
+                            lambda date, results, gate_ok, plan="full": seen.__setitem__("runlog", (results, gate_ok)))
+        monkeypatch.setattr(sys, "argv", ["x", "--date", "2026-09-23", "--plan", "local",
+                                          "--skip-preflight", "--retry-rounds", "2"])
+        rc = rs.main()
+        assert rc == 1
+        assert seen["runs"] == 3  # original + 2 exhausted retries
+        assert seen["downstream"] == 0 and seen["release"] == 0  # downstream + release blocked
+        results, gate_ok = seen["runlog"]
+        assert gate_ok is False
+&gt;       assert [a["label"] for a in results[0]["attempts"]] == ["orig", "r1", "r2"]  # records retained
+E       AssertionError: assert ['r2'] == ['orig', 'r1', 'r2']
+E         
+E         At index 0 diff: 'r2' != 'orig'
+E         Right contains 2 more items, first extra item: 'r1'
+E         Use -v to get more diff
+
+../execute/probe.py:117: AssertionError</failure></testcase></testsuite></testsuites>
