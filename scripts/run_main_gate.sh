@@ -44,26 +44,45 @@ if [ ! -x "$PY" ]; then
   exit 4
 fi
 cd "$REPO" || exit 4
+canonical_path() {
+  python3 -c 'import os, sys; print(os.path.realpath(sys.argv[1]))' "$1"
+}
+path_is_same_or_child() {
+  case "$1" in
+    "$2"|"$2"/*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
 # 显式 --basetemp（"--basetemp=DIR" 或 "--basetemp DIR"）；没给就不管。
 BASETEMP="$(printf '%s\n' "$PYTEST_ARGS" | sed -nE 's/.*--basetemp[= ]+([^[:space:]]+).*/\1/p')"
+BASETEMP_REAL=""
+if [ -n "$BASETEMP" ]; then
+  BASETEMP_REAL="$(canonical_path "$BASETEMP")" || { echo "无法解析 basetemp: $BASETEMP" >&2; exit 4; }
+  case "$BASETEMP_REAL" in
+    /|"$HOME") echo "basetemp 是根目录或家目录，拒绝启动 pytest: $BASETEMP_REAL" >&2; exit 4 ;;
+  esac
+  if path_is_same_or_child "$BASETEMP_REAL" "$REPO" || path_is_same_or_child "$REPO" "$BASETEMP_REAL"; then
+    echo "basetemp 与仓库树有包含关系，拒绝启动 pytest: $BASETEMP_REAL" >&2
+    exit 4
+  fi
+fi
 PYTEST_EXIT=""
 cleanup_basetemp() {
   local real
   [ -d "$1" ] || return 0
-  real="$(cd "$1" 2>/dev/null && pwd -P)" || return 0
-  case "$real" in
-    /|"$HOME"|"$REPO") echo "== basetemp 就是根/家目录/仓库树，保留: $real"; return 0 ;;
-  esac
-  case "$REPO" in
-    "$real"/*) echo "== basetemp 包含仓库树，保留: $real"; return 0 ;;
-  esac
+  real="$(canonical_path "$1")" || { echo "== 无法解析 basetemp，保留: $1" >&2; return 4; }
+  if [ "$real" != "$BASETEMP_REAL" ]; then
+    echo "== basetemp 路径在测试期间改变，保留: $real" >&2
+    return 4
+  fi
   chmod -R u+w "$real" 2>/dev/null   # pytest 夹具常留只读文件，不加这步 rm 会失败一半
   # 注意 ${real} 要带花括号：bash 3.2 在 UTF-8 下会把紧跟的全角括号当成变量名的一部分，set -u 直接报 unbound。
   if rm -rf -- "${real}"; then
     echo "== 门禁绿，basetemp 已清: ${real}（要保留请设 GATE_KEEP_BASETEMP=1）"
-  else
-    echo "== basetemp 清理失败，保留: ${real}" >&2
+    return 0
   fi
+  echo "== basetemp 清理失败，保留: ${real}" >&2
+  return 4
 }
 REV="$(git rev-parse HEAD)" || exit 4
 STATUS="$(git status --porcelain)" || exit 4
@@ -111,6 +130,8 @@ GATE_EXIT=$?
 # 只有「本轮真跑了 pytest 且退出 0 且收据校验通过」才清；--receipt 只读回放、任何红、显式保留都不动。
 if [ "$GATE_EXIT" = 0 ] && [ -z "$RECEIPT_ONLY" ] && [ "$PYTEST_EXIT" = 0 ] \
    && [ -n "$BASETEMP" ] && [ "${GATE_KEEP_BASETEMP:-0}" != "1" ]; then
-  cleanup_basetemp "$BASETEMP"
+  if ! cleanup_basetemp "$BASETEMP"; then
+    GATE_EXIT=4
+  fi
 fi
 exit "$GATE_EXIT"

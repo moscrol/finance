@@ -447,6 +447,18 @@ def test_green_gate_removes_explicit_basetemp(repo, tmp_path):
     assert "basetemp 已清" in result.stdout
 
 
+@pytest.mark.parametrize("target", ["repo-file", "repo-parent"])
+def test_gate_refuses_basetemp_overlapping_repo(repo, tmp_path, target):
+    _commit_sample(repo, USES_TMP)
+    basetemp = repo / "test_sample.py" if target == "repo-file" else tmp_path
+    before = (repo / "test_sample.py").read_text()
+    result = run_gate(repo, tmp_path, "--pytest-args",
+                      f"-q -p no:cacheprovider --basetemp={basetemp} test_sample.py")
+    assert result.returncode == 4, result.stdout + result.stderr
+    assert "basetemp 与仓库树有包含关系" in result.stderr
+    assert (repo / "test_sample.py").read_text() == before
+
+
 def test_red_gate_keeps_basetemp_as_evidence(repo, tmp_path):
     _commit_sample(repo, USES_TMP.replace("write_text('1')", "write_text('1')\n    assert False"))
     bt = tmp_path / "bt"

@@ -23,9 +23,14 @@ APPLY=0; DAYS=2; REPO=""; BASE=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --apply) APPLY=1; shift ;;
-    --days) DAYS="$2"; shift 2 ;;
-    --repo) REPO="$2"; shift 2 ;;
-    --base) BASE="$2"; shift 2 ;;
+    --days)
+      [ $# -ge 2 ] || { echo "--days 缺少参数" >&2; exit 5; }
+      case "$2" in ''|*[!0-9]*) echo "--days 必须是非负整数: $2" >&2; exit 5 ;; esac
+      DAYS="$2"; shift 2 ;;
+    --repo|--base)
+      [ $# -ge 2 ] || { echo "$1 缺少参数" >&2; exit 5; }
+      if [ "$1" = --repo ]; then REPO="$2"; else BASE="$2"; fi
+      shift 2 ;;
     -h|--help) sed -n '2,20p' "$0"; exit 0 ;;
     *) echo "unknown arg: $1" >&2; exit 5 ;;
   esac
@@ -33,51 +38,135 @@ done
 [ -z "$REPO" ] && REPO="$(git rev-parse --show-toplevel 2>/dev/null)"
 [ -d "$REPO" ] || { echo "不是 git 仓: $REPO" >&2; exit 5; }
 REPO="$(cd "$REPO" && pwd -P)"
-MAIN_TREE="$(git -C "$REPO" worktree list --porcelain | awk 'NR==1{print substr($0,10)}')"
+canonical_path() {
+  python3 -c 'import os, sys; print(os.path.realpath(sys.argv[1]))' "$1"
+}
+MAIN_TREE_RAW="$(git -C "$REPO" worktree list --porcelain | awk 'NR==1{print substr($0,10)}')" || exit 5
+[ -n "$MAIN_TREE_RAW" ] || { echo "无法读取主工作树" >&2; exit 5; }
+MAIN_TREE="$(canonical_path "$MAIN_TREE_RAW")" || { echo "无法解析主工作树" >&2; exit 5; }
 if [ -z "$BASE" ]; then
   if git -C "$REPO" rev-parse --verify -q gitea/main >/dev/null; then BASE=gitea/main; else BASE=main; fi
 fi
 BASE_SHA="$(git -C "$REPO" rev-parse "$BASE" 2>/dev/null)" || { echo "基线引用不存在: $BASE" >&2; exit 5; }
 NOW=$(date +%s); CUTOFF=$((NOW - DAYS * 86400))
 
-TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
-# 「谁在用」只采样一次：所有进程打开的文件 + 每个进程的 cwd，之后做子串匹配。
-# -d '^mem' 排除内存映射（共享库占 lsof 输出的大头，对「树在不在用」没信息）；-nP 不反查 DNS/端口名；
-# -S 2 给内核调用 2 秒超时（卡死的挂载点不至于拖住整个 lsof）。再套看门狗（LSOF_TIMEOUT 秒，默认 120）：
-# 超时就杀掉整条 lsof 管线并拒绝删——拿不到「谁在用」时退化成盲删比不删危险。
-# 子 shell 的 stdout/stderr 要甩到 /dev/null：否则它握着本脚本的输出管道，调用方 `| head` 会等到 lsof 自然结束。
-( lsof -nP -S 2 -w -d '^mem' -Fn 2>/dev/null | sed -n 's/^n//p' | grep '^/' | sort -u > "$TMP/open"; : > "$TMP/open.done" ) >/dev/null 2>&1 &
-LSOF_JOB=$!
+TMP="$(mktemp -d)" || { echo "无法创建临时目录" >&2; exit 5; }
+trap 'rm -rf "$TMP"' EXIT
+CUTOFF_MARKER="$TMP/cutoff"
+: > "$CUTOFF_MARKER" || { echo "无法建立 mtime 阈值" >&2; exit 5; }
+python3 - "$CUTOFF" "$CUTOFF_MARKER" <<'PY' || { echo "无法建立 mtime 阈值" >&2; exit 5; }
+import os
+import sys
+
+cutoff = float(sys.argv[1])
+os.utime(sys.argv[2], (cutoff, cutoff))
+PY
+# 「谁在用」只采样一次：所有进程打开的文件 + 每个进程的 cwd。
+# -d '^mem' 排除内存映射；-nP 不反查 DNS/端口名；-S 2 给内核调用 2 秒超时。
+# 只有完整 pipeline 成功才写 open.done；拿不到「谁在用」时必须拒绝删除。
 LIMIT="${LSOF_TIMEOUT:-120}"
-i=0; while [ ! -f "$TMP/open.done" ] && [ "$i" -lt "$LIMIT" ]; do sleep 1; i=$((i+1)); done
+case "$LIMIT" in ''|*[!0-9]*) echo "LSOF_TIMEOUT 必须是正整数: $LIMIT" >&2; exit 5 ;; esac
+[ "$LIMIT" -gt 0 ] || { echo "LSOF_TIMEOUT 必须大于 0" >&2; exit 5; }
+(
+  if lsof -nP -S 2 -w -d '^mem' -Fn 2>/dev/null \
+      | sed -n 's/^n//p' \
+      | awk '/^\// { print }' \
+      | sort -u > "$TMP/open"; then
+    : > "$TMP/open.done"
+  else
+    : > "$TMP/open.failed"
+  fi
+) >/dev/null 2>&1 &
+LSOF_JOB=$!
+i=0
+while [ ! -f "$TMP/open.done" ] && [ ! -f "$TMP/open.failed" ] && [ "$i" -lt "$LIMIT" ]; do
+  sleep 1
+  i=$((i+1))
+done
+if [ -f "$TMP/open.failed" ]; then
+  echo "lsof 采样失败，无法判断哪些树正被使用，本轮不动任何树。" >&2
+  exit 4
+fi
 if [ ! -f "$TMP/open.done" ]; then
   pkill -P "$LSOF_JOB" 2>/dev/null; kill "$LSOF_JOB" 2>/dev/null
-  echo "lsof ${LIMIT} 秒未完成，无法判断哪些树正被使用，本轮不动任何树（可设 LSOF_TIMEOUT 放宽）。" >&2; exit 4
+  echo "lsof ${LIMIT} 秒未完成，无法判断哪些树正被使用，本轮不动任何树（可设 LSOF_TIMEOUT 放宽）。" >&2
+  exit 4
 fi
 echo "lsof 采样 ${i}s，$(wc -l < "$TMP/open" | tr -d ' ') 条打开路径"
-# 定时任务代码根：plist 与启动器里出现的家目录路径，任何是它们前缀的树都不能拆。
-{ grep -hoE "$HOME/[^<\"' ]+" "$HOME"/Library/LaunchAgents/*.plist 2>/dev/null
-  grep -hoE "($HOME|\\\$HOME|~)/[^\"' )]+" "$HOME"/.local/bin/* 2>/dev/null | sed "s#^\\\$HOME#$HOME#; s#^~#$HOME#"
-} | sort -u > "$TMP/refs"
+# 定时任务代码根：先收集字面路径，再统一 canonical 化，避免 plist 引用软链接时漏守卫。
+RAW_REFS="$TMP/refs.raw"
+: > "$RAW_REFS"
+for file in "$HOME"/Library/LaunchAgents/*.plist; do
+  [ -f "$file" ] || continue
+  grep -hoE "$HOME/[^<\"' ]+" "$file" >> "$RAW_REFS"
+  rc=$?
+  [ "$rc" -le 1 ] || { echo "无法读取启动项: $file" >&2; exit 4; }
+done
+for file in "$HOME"/.local/bin/*; do
+  [ -f "$file" ] || continue
+  grep -hoE "($HOME|\\\$HOME|~)/[^\"' )]+" "$file" > "$TMP/ref.matches"
+  rc=$?
+  if [ "$rc" -gt 1 ]; then
+    echo "无法读取启动器: $file" >&2; exit 4
+  elif [ "$rc" -eq 0 ]; then
+    sed "s#^\\\$HOME#$HOME#; s#^~#$HOME#" "$TMP/ref.matches" >> "$RAW_REFS" || exit 4
+  fi
+done
+: > "$TMP/refs"
+while IFS= read -r raw; do
+  [ -n "$raw" ] || continue
+  canonical_path "$raw" >> "$TMP/refs" || { echo "无法解析引用路径: $raw" >&2; exit 4; }
+done < "$RAW_REFS"
+sort -u "$TMP/refs" -o "$TMP/refs" || exit 4
+
+path_is_same_or_child() {
+  case "$1" in
+    "$2"|"$2"/*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+is_open() {
+  awk -v root="$1" '$0 == root || index($0, root "/") == 1 { found=1 } END { exit !found }' "$TMP/open"
+}
+is_referenced() {
+  local ref
+  while IFS= read -r ref; do
+    [ -n "$ref" ] || continue
+    if path_is_same_or_child "$1" "$ref" || path_is_same_or_child "$ref" "$1"; then
+      return 0
+    fi
+  done < "$TMP/refs"
+  return 1
+}
+has_recent_activity() {
+  local recent
+  [ "$(stat -f %m "$1" 2>/dev/null || echo 0)" -gt "$CUTOFF" ] && return 0
+  recent="$(find "$1" \( -type f -o -type d \) -newer "$CUTOFF_MARKER" -print -quit 2>/dev/null)" || return 0
+  [ -n "$recent" ]
+}
 
 gb() { awk -v k="$1" 'BEGIN{printf "%.1f", k/1048576}'; }
-TOTAL=0; N=0
-consider() {   # consider <path> <why>
-  local p="$1" why="$2" reason="" k
+TOTAL=0; N=0; FAILURES=0
+consider() {   # consider <registered-path> <why>
+  local raw="$1" why="$2" p reason="" k status kept_status
+  p="$(canonical_path "$raw")" || { echo "  SKIP  $raw  (无法解析路径)"; return 0; }
   [ "$p" = "$MAIN_TREE" ] && return 0
-  [ -d "$p" ] || return 0
-  if grep -qF -- "$p" "$TMP/open"; then reason="有进程打开/cwd 在里面"
-  elif grep -qF -- "$p" "$TMP/refs"; then reason="被 launchd/启动器引用（定时任务代码根）"
-  elif [ "$(stat -f %m "$p" 2>/dev/null || echo 0)" -gt "$CUTOFF" ]; then reason="根目录 ${DAYS} 天内有动静"
-  elif [ -n "$(git -C "$p" status --porcelain 2>/dev/null | grep -v '^ D .code-review-graph' | head -1)" ]; then reason="有未提交改动"
-  fi
-  if [ -n "$reason" ]; then echo "  SKIP  $p  ($reason)"; return 0; fi
-  k=$(du -xsk "$p" 2>/dev/null | cut -f1); TOTAL=$((TOTAL + k)); N=$((N + 1))
-  if [ "$APPLY" = 1 ]; then
-    if git -C "$REPO" worktree remove --force -- "$p" >/dev/null 2>&1; then echo "  RM    $(gb "$k")G  $p  [$why]"
-    else echo "  FAIL  $p  (git worktree remove 失败)" >&2; fi
+  [ -d "$raw" ] || return 0
+  if is_open "$p"; then reason="有进程打开/cwd 在里面"
+  elif is_referenced "$p"; then reason="被 launchd/启动器引用（定时任务代码根）"
+  elif has_recent_activity "$raw"; then reason="树内 ${DAYS} 天内有动静"
+  elif ! status="$(git -C "$raw" status --porcelain --untracked-files=all --ignored 2>/dev/null)"; then reason="无法读取 Git 状态"
   else
-    echo "  DRY   $(gb "$k")G  $p  [$why]"
+    kept_status="$(printf '%s\n' "$status" | grep -vE '^.. \.code-review-graph(/|$)' || true)"
+    [ -n "$kept_status" ] && reason="有未提交或 ignored 内容"
+  fi
+  if [ -n "$reason" ]; then echo "  SKIP  $raw  ($reason)"; return 0; fi
+  k=$(du -xsk "$raw" 2>/dev/null | cut -f1); TOTAL=$((TOTAL + k)); N=$((N + 1))
+  if [ "$APPLY" = 1 ]; then
+    if git -C "$REPO" worktree remove --force -- "$raw" >/dev/null 2>&1; then echo "  RM    $(gb "$k")G  $raw  [$why]"
+    else echo "  FAIL  $raw  (git worktree remove 失败)" >&2; FAILURES=1; fi
+  else
+    echo "  DRY   $(gb "$k")G  $raw  [$why]"
   fi
 }
 
@@ -89,5 +178,8 @@ while IFS=$'	' read -r p b; do
   elif git -C "$REPO" merge-base --is-ancestor "$b" "$BASE_SHA" 2>/dev/null; then consider "$p" "已合 ${b#refs/heads/}"
   fi
 done < "$TMP/wts"
-[ "$APPLY" = 1 ] && git -C "$REPO" worktree prune
+if [ "$APPLY" = 1 ]; then
+  git -C "$REPO" worktree prune || FAILURES=1
+fi
 echo "合计 $N 棵 $(gb "$TOTAL") GB$([ "$APPLY" = 1 ] || echo '（dry-run，--apply 才删）')"
+exit "$FAILURES"
