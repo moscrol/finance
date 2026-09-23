@@ -7,11 +7,11 @@ import argparse
 import hashlib
 import json
 import os
-import shutil
 import sys
 import tempfile
 import zipfile
 from datetime import datetime
+from pathlib import Path
 
 import duckdb
 
@@ -22,6 +22,12 @@ except ImportError:  # pragma: no cover
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     from db_delta_export import is_iso_date
     from db_delta_import import _schema_snapshot
+
+try:
+    from market_feature_store.db import clone_to_staging as _clone_db
+except ImportError:  # pragma: no cover  — `python3 scripts/x.py` 直跑时 sys.path[0] 是 scripts/
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    from market_feature_store.db import clone_to_staging as _clone_db
 
 
 def _sha256(path: str) -> str:
@@ -48,7 +54,8 @@ def export_baseline(db_path: str, out_zip: str, trade_date: str, *, force: bool 
             con.execute("checkpoint")
         finally:
             con.close()
-        shutil.copy2(db_path, snapshot)
+        # 只读快照走 APFS clonefile（cp -c）：3.4 GB 库秒级、零额外占盘；非同卷/非 APFS 自动退回整份拷贝。
+        _clone_db(Path(db_path), Path(snapshot))
 
         check = duckdb.connect(snapshot, read_only=True)
         try:
