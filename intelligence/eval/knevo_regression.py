@@ -158,6 +158,26 @@ def _protocol_failure_summary(failure: dict | None) -> dict | None:
     )}
 
 
+def _material_review_summary(semantic: dict) -> list[dict] | None:
+    calls = semantic.get("material_review_calls")
+    if not isinstance(calls, list):
+        return None
+    return [
+        {
+            "stage": call.get("stage"),
+            "unavailable": call.get("unavailable"),
+            "deadline_exhausted": call.get("issue") == "semantic judge deadline exhausted",
+            "timeout_asked": call.get("timeout_asked"),
+            "remaining_seconds_at_entry": call.get("remaining_seconds_at_entry"),
+            "elapsed_seconds": call.get("elapsed_seconds"),
+            "report_passed": (call.get("report") or {}).get("passed"),
+            "rejected_sentence_indexes": (call.get("report") or {}).get("rejected_sentence_indexes"),
+            "protocol_failure": _protocol_failure_summary(call.get("protocol_failure")),
+        }
+        for call in calls
+    ]
+
+
 def inspect_run(directory: Path, case: RegressionCase) -> dict:
     """Read exact run artifacts; missing audit is unknown, never zero calls or a pass.
 
@@ -204,6 +224,7 @@ def inspect_run(directory: Path, case: RegressionCase) -> dict:
                 raise ValueError(f"artifact escapes run directory: {name}")
             hashes[name] = sha256(path.read_bytes())
     semantic = (episode or {}).get("semantic_verifier") or {}
+    attempts = (episode or {}).get("semantic_verifier_attempts")
     llm_calls = None
     trace_path = directory / "trace.jsonl"
     if trace_path.is_file():
@@ -250,20 +271,20 @@ def inspect_run(directory: Path, case: RegressionCase) -> dict:
             for event in (events or []) if event.get("kind") == "invalid_action"
         ] if audit_available else None,
         "judge_protocol_failure": _protocol_failure_summary(semantic.get("judge_protocol_failure")),
-        "material_review_stages": [
+        "material_review_stages": _material_review_summary(semantic),
+        "semantic_verifier_attempts": [
             {
-                "stage": call.get("stage"),
-                "unavailable": call.get("unavailable"),
-                "deadline_exhausted": call.get("issue") == "semantic judge deadline exhausted",
-                "timeout_asked": call.get("timeout_asked"),
-                "remaining_seconds_at_entry": call.get("remaining_seconds_at_entry"),
-                "elapsed_seconds": call.get("elapsed_seconds"),
-                "report_passed": (call.get("report") or {}).get("passed"),
-                "rejected_sentence_indexes": (call.get("report") or {}).get("rejected_sentence_indexes"),
-                "protocol_failure": _protocol_failure_summary(call.get("protocol_failure")),
+                "repair_attempts": attempt.get("repair_attempts"),
+                "input_draft_sha256": attempt.get("input_draft_sha256"),
+                "internal_semantic_status": attempt.get("semantic_verifier", {}).get("status"),
+                "internal_judge_status": attempt.get("semantic_verifier", {}).get("judge_status"),
+                "judge_protocol_failure": _protocol_failure_summary(
+                    attempt.get("semantic_verifier", {}).get("judge_protocol_failure")
+                ),
+                "material_review_stages": _material_review_summary(attempt.get("semantic_verifier", {})),
             }
-            for call in semantic["material_review_calls"]
-        ] if isinstance(semantic.get("material_review_calls"), list) else None,
+            for attempt in attempts
+        ] if isinstance(attempts, list) else None,
         "llm_call_diagnostics": llm_calls,
         "tool_audit_available": audit_available,
         "tool_requests": calls,

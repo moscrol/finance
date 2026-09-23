@@ -302,6 +302,36 @@ def test_inspect_llm_transport_counts_without_response_or_reasoning_text(tmp_pat
     assert result["semantic_verdict"] == "not_evaluated"
 
 
+def test_inspect_keeps_prior_judgments_separate_from_final_unavailable(tmp_path):
+    case = regression.load_suite()[0]
+    directory = _saved_run(tmp_path, case, episode={
+        "events": [],
+        "semantic_verifier": {"status": "failed", "judge_status": "unavailable"},
+        "semantic_verifier_attempts": [
+            {"repair_attempts": 0, "input_draft_sha256": "a" * 64,
+             "semantic_verifier": {"status": "partial", "judge_status": "rejected",
+                 "material_review_calls": [{"stage": "material_review", "elapsed_seconds": 48,
+                     "request": {"text": "PRIVATE_REQUEST"},
+                     "report": {"passed": False, "issues": ["PRIVATE_REASON"]}}]}},
+            {"repair_attempts": 1, "input_draft_sha256": "b" * 64,
+             "semantic_verifier": {"status": "failed", "judge_status": "unavailable"}},
+        ],
+    })
+    before = (directory / "continuous-episode.json").read_bytes()
+    result = regression.inspect_run(directory, case)
+    assert result["internal_judge_status"] == "unavailable"
+    assert result["material_review_stages"] is None
+    attempts = result["semantic_verifier_attempts"]
+    assert [row["repair_attempts"] for row in attempts] == [0, 1]
+    assert [row["input_draft_sha256"] for row in attempts] == ["a" * 64, "b" * 64]
+    assert attempts[0]["internal_judge_status"] == "rejected"
+    assert attempts[0]["material_review_stages"][0]["elapsed_seconds"] == 48
+    assert attempts[1]["material_review_stages"] is None
+    assert "PRIVATE_" not in json.dumps(result)
+    assert result["semantic_verdict"] == "not_evaluated"
+    assert (directory / "continuous-episode.json").read_bytes() == before
+
+
 def test_inspect_absent_diagnostics_do_not_mean_success(tmp_path):
     case = regression.load_suite()[0]
     directory = _saved_run(tmp_path, case, episode={"events": []})
@@ -310,6 +340,7 @@ def test_inspect_absent_diagnostics_do_not_mean_success(tmp_path):
     assert result["llm_call_diagnostics"] is None
     assert result["judge_protocol_failure"] is None
     assert result["material_review_stages"] is None
+    assert result["semantic_verifier_attempts"] is None
     assert result["semantic_verdict"] == "not_evaluated"
 
 

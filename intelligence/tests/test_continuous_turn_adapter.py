@@ -1467,8 +1467,9 @@ def test_adapter_uses_production_sdk_runtime_same_episode_repair() -> None:
     assert any(event["kind"] == "repair_reentry" for event in events)
 
 
+@pytest.mark.parametrize("repair_fails", [False, True])
 def test_sdk_semantic_repair_uses_root_reserve_after_research_deadline(
-    monkeypatch: pytest.MonkeyPatch,
+    monkeypatch: pytest.MonkeyPatch, repair_fails: bool,
 ) -> None:
     """The verifier reserve may repair wording, but may not reopen research."""
 
@@ -1555,6 +1556,9 @@ def test_sdk_semantic_repair_uses_root_reserve_after_research_deadline(
         else:
             assert request._continuation_input is provider_history
             assert request.tools == ()
+            assert "PRIVATE_AUDIT" not in request.instructions + request.input
+            if repair_fails:
+                raise TimeoutError("repair provider timeout")
             finish = {
                 "status": "completed",
                 "draft": "当前更像缩量下跌后的修复，持续性仍取决于量能。",
@@ -1573,6 +1577,9 @@ def test_sdk_semantic_repair_uses_root_reserve_after_research_deadline(
             continuation_input=provider_history,
         )
 
+    review = {"stage": "material_review", "request": {"text": "PRIVATE_AUDIT"},
+              "report": {"passed": False, "issues": ["PRIVATE_AUDIT"]}}
+
     class Semantic:
         def __init__(self) -> None:
             self.calls = 0
@@ -1587,12 +1594,13 @@ def test_sdk_semantic_repair_uses_root_reserve_after_research_deadline(
                     judge_status="rejected",
                     gap_output_ids=("direct_assessment",),
                     rejected_claim_indexes=(0,),
+                    material_review_calls=(review,),
                 )
             return SemanticEpisodeOutcome(
                 verified=structurally_verified,
-                status="completed",
-                public_answer=structurally_verified.outcome.draft,
-                judge_status="passed",
+                status="failed" if repair_fails else "completed",
+                public_answer="" if repair_fails else structurally_verified.outcome.draft,
+                judge_status="unavailable" if repair_fails else "passed",
             )
 
     semantic = Semantic()
@@ -1610,11 +1618,28 @@ def test_sdk_semantic_repair_uses_root_reserve_after_research_deadline(
         timeout=120.0,
     ).handle(frame=frame, control=control)
 
-    assert result.status == "completed"
-    assert result.answer == "当前更像缩量下跌后的修复，持续性仍取决于量能。"
+    if repair_fails:
+        assert result.status != "completed"
+        assert result.private_artifact["outcome"]["stop_reason"] == "sdk_timeout"
+    else:
+        assert result.status == "completed"
+        assert result.answer == "当前更像缩量下跌后的修复，持续性仍取决于量能。"
+        assert result.private_artifact["repair_cycles"] == 1
     assert len(runner_calls) == 2
     assert semantic.calls == 2
-    assert result.private_artifact["repair_cycles"] == 1
+    attempts = result.private_artifact["semantic_verifier_attempts"]
+    assert [row["repair_attempts"] for row in attempts] == [0, 1]
+    assert [row["semantic_verifier"]["judge_status"] for row in attempts] == [
+        "rejected", "unavailable" if repair_fails else "passed",
+    ]
+    assert all(len(row["input_draft_sha256"]) == 64 for row in attempts)
+    assert attempts[0]["semantic_verifier"]["material_review_calls"] == [review]
+    review["report"]["issues"].append("AFTER_RECORDING")
+    assert "AFTER_RECORDING" not in json.dumps(attempts)
+    assert "material_review_calls" not in result.private_artifact["semantic_verifier"]
+    assert "PRIVATE_AUDIT" not in json.dumps({
+        "answer": result.answer, "warnings": result.warnings, "events": result.events,
+    })
 
 
 def test_sdk_timeout_with_unbound_evidence_uses_tool_closed_delivery_repair(

@@ -9,8 +9,10 @@ verification gates.
 from __future__ import annotations
 
 from collections.abc import Callable
+from copy import deepcopy
 from dataclasses import asdict, dataclass, replace
 from datetime import date
+import hashlib
 import inspect
 import os
 import re
@@ -495,6 +497,7 @@ class ContinuousTurnAdapter:
         outcome: AgentOutcome | None = None
         structural: VerifiedEpisodeOutcome | None = None
         semantic: SemanticEpisodeOutcome | None = None
+        semantic_verifier_attempts: list[dict[str, object]] = []
         session: object | None = None
         repair_cycles = 0
         repair_attempts = 0
@@ -818,6 +821,9 @@ class ContinuousTurnAdapter:
                 deadline=root_deadline,
                 retrieve_fn=guided_retriever,
             )
+            semantic_verifier_attempts.append(
+                _semantic_verification_snapshot(semantic_candidate, structural, repair_attempts)
+            )
             semantic = _with_semantic_contract_gaps(semantic_candidate, context)
             _phase_note(
                 phase_recorder,
@@ -919,6 +925,9 @@ class ContinuousTurnAdapter:
                     deadline=root_deadline,
                     retrieve_fn=guided_retriever,
                 )
+                semantic_verifier_attempts.append(
+                    _semantic_verification_snapshot(semantic_candidate, structural, repair_attempts)
+                )
                 semantic = _with_semantic_contract_gaps(semantic_candidate, context)
                 _phase_note(
                     phase_recorder,
@@ -950,6 +959,7 @@ class ContinuousTurnAdapter:
                 "repair_attempts": repair_attempts,
                 "repair_cycles": repair_cycles,
                 "backfill_turns": backfill_turns,
+                "semantic_verifier_attempts": semantic_verifier_attempts,
                 "failure": {
                     "type": type(exc).__name__,
                     "message": str(exc),
@@ -1196,6 +1206,7 @@ class ContinuousTurnAdapter:
             "structural_verifier": structural.to_dict(),
             "satisfiability_precheck": _satisfiability_payload(satisfiability),
             "semantic_verifier": semantic.to_dict(),
+            "semantic_verifier_attempts": semantic_verifier_attempts,
             "publication_assessment": asdict(publication),
             "semantic_verifier_stale": semantic_verifier_stale,
             "repair_attempts": repair_attempts,
@@ -2093,6 +2104,19 @@ def _declined_result() -> ContinuousTurnResult:
         private_artifact=None,
         events=(),
     )
+
+
+def _semantic_verification_snapshot(
+    semantic: SemanticEpisodeOutcome,
+    structural: VerifiedEpisodeOutcome,
+    repair_attempts: int,
+) -> dict[str, object]:
+    # A later repair verdict must not erase the earlier private review or inherit its pass.
+    return {
+        "repair_attempts": repair_attempts,
+        "input_draft_sha256": hashlib.sha256(structural.outcome.draft.encode("utf-8")).hexdigest(),
+        "semantic_verifier": deepcopy(semantic.to_dict()),
+    }
 
 
 def _cancelled_result() -> ContinuousTurnResult:
