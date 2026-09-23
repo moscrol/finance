@@ -1,0 +1,20 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_________________ test_same_tree_with_wrong_parent_is_rejected _________________
+
+repo = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3673/test_same_tree_with_wrong_pare0')
+
+    def test_same_tree_with_wrong_parent_is_rejected(repo):
+        changed(repo)
+        planned = preview.prepare(repo, "archive", [])
+        actual = commit_archive(repo)
+        wrong = git(repo, "commit-tree", planned["tree"], "-p", actual, "-m", "wrong parent")
+        result = preview.verify(repo, "archive", planned["preview_revision"], wrong)
+        assert result["tree"] == result["preview_tree"]
+>       assert result["ok"] is False
+E       assert True is False
+
+tests/test_preview_evidence_archive.py:189: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_preview_evidence_archive.py::test_same_tree_with_wrong_parent_is_rejected
+1 failed in 2.09s
