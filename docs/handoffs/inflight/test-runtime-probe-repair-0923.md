@@ -1,23 +1,25 @@
-# Runtime 探针量具修复
+# Runtime 合同量具补验
 
 ## 这个分支做什么
-将上一轮 K3 探针修成可执行、能辨别有效撤保护失败的工具；产品源码不改。
+修复可复跑量具、验收K3写手局部产物；不改运行时产品源码。
 
 ## 决策与被否方案
-用户已明确可用 K3 写手，已实际委派；两场均请求超时、0工具。宿主随后修副本并验收，否决冒称K3完成/无限重试/用局部绿改写全局独审。详见 `docs/handoffs/2026-09-23-runtime-probe-writer-followup.md`。
+复用现有变异runner加沙箱和具名失败校验，不另造引擎。K3写手与宿主验收分账，否决局部绿改写全局独审。详见 `docs/handoffs/2026-09-23-runtime-contract-followup.md`。
 
 ## 当前状态
-产物在 `scripts/review_probes/runtime_identity_effects/`，runner自测 `tests/test_runtime_identity_effects_probe.py`，9原件封存在 `docs/verification/2026-09-23-runtime-probe-repair/`。本枝继承1ef5bc3ec文档，产品基座ffd1b7f15；未推送/合main/部署。
+已推Gitea，PR #884 WIP，平台回读mergeable=false；未合main/部署。代码0099486f6，原件归档f0f75625b。当前树自有变更已提交；主工作树其他agent改动不碰。
+入口 `scripts/review_probes/run_runtime_contract_checks.py`，四组runtime/writer/reentry/inbox；新输出根+完整SHA+干净候选。说明见旧identity工具README。
 
 ## 未验证 / 已知边界
-被测仅固定760248ecebc7的身份与未知效果预算；旧整体验收仍BLOCKED。未验保存失败/锁争用/重入/inbox/完整交付/入口异常合同/真实计费/完整跨进程驱动。没有本枝全仓及前端绿收据。
+历史K3独审C1-C8仍未签字，整体BLOCKED；本轮主要是既有作者测试的宿主重放，不能当新的独审。K3第三场仅写完6例并基线通过，deadline停、无终稿；宿主接手完成变异与还原。
+没有本枝全仓/前端门禁。未验完整跨进程续跑driver、跨机锁、真实费用对账、所有入口异常收口。unlink故障不等于真实崩溃恢复，spool只证明at-least-once。
 
 ## 下一步
-按README可复跑工具；K3通道恢复后按单合同委派实现，宿主单独验收。不需再通读全栈后才动手。新prod修改先独立复现；不可重复合#865或将旧门禁移签后来main。
+先完成本枝等价CI再申请合工具PR；不重复合#865。完整独审须另按合同授权补验，不自动续K3/买额度/移签旧main收据。harness-reference的BUILD.md有他人改动，未动；量具已入本仓，通用目录登记待安全窗口。
 
 ## 踩过的坑
-K3首次124.769秒超时；手动补试300秒等待仍126.488秒收到上游504，本地health200不代表模型可用，非额度返回。宿主首轮嵌套mappingproxy红改用事件to_dict；unit首命令漏TMPDIR导致收集前失败，均非产品缺陷。
-探针文件命名*_checks.py，显式选择，不能改成默认test_*.py。shadow必须注册sys.modules、用其自己的异常类型。单看退出1会误把收集错误算有效变异。
+锁观察钩子消失不算行为失败，要观察close是否提前返回。JUnit可能无type属性；KeyError只允许精确变异/用例/字段组合。两个失效源码锚点已修，先唯一匹配/编译再执行。runtime最终原拒收与重新裁决分开，后者未重新执行测试。原始日志不做空白格式化；probe命名*_checks.py不进默认收集。
 
 ## 已验证
-仓内工具固定760248：16P→身份7指定红/4P→预算2指定红/3P→还原16P，0error；runner13P、目标Ruff绿。两种变异，不是9种；原K3三文件哈希及候选树不变。两写手进程已退出，无K3代码产物。原件路径见日期快照。
+冻结5f35da172：身份16P及两组撤保护/还原；磁盘恢复等8文件178P。d542658a7：runtime71P/13变异、writer23P/9、reentry12P/5，还原均绿。0099486f6：K3原样inbox6P/1变异2指定红/还原6P；另在5f35验shadow。合计28种源码变异，不重复累计同一保护。验收器35P、目标Ruff绿。
+归档 `docs/verification/2026-09-23-runtime-contract-followup/`，MANIFEST所列241个提交blob字节核对通过；不宣称完整模型会话归档。所有本轮测试/写手进程已退出。
