@@ -1,8 +1,11 @@
-# 2026-09-22 第二方 Spec + Quality 队列（工单 #75 消费）
+# 独立 QC 批（工单 #75）候选队列
 
-各作者单**只追加一行**，#75 按行消费；不改别人的行。列义：工单号 / PR / head SHA（被门禁的代码尖；其上若只有 docs 提交请注明）/ 候选检出路径（绝对）/ 证据目录 / 主张清单来源 / 状态。
-若多单并发创建本文件，合并时按行合并即可（行之间无依赖）。
+各工单往本文件追加一行，#75 只消费不改写候选。格式：工单号 / PR / head SHA / 候选检出路径（绝对）/ 证据目录 / 主张清单来源 / 状态。状态由 #75 回写（待审 → 审中 → PASS / PASS_WITH_LIMITS / FAIL / BLOCKED_*）。
 
 | 工单 | PR | head SHA | 候选检出路径 | 证据目录 | 主张清单来源 | 状态 |
 |---|---|---|---|---|---|---|
-| #72 | #868 | `7ad61a0d3`（最新代码尖；由 `24ada4f80` 前向 `gitea/main@760248ece` 得到；PR head 若更高只多 docs 提交） | `/Users/a77/.finance-runtime/reviews/pr868-forward-20260923/finance-workspace-private`（只读引用，审查者应自建树） | `~/.finance-runtime/reviews/pr868-forward-20260923/gate-7ad61a0d3/`（九项全绿：pytest 14921P/85S/2X、前端六步、registry×4+crosswalk、探针 0 越窗）；旧复核 / 变异记录仍见 `docs/verification/2026-09-22-adaptive-deadline/` | PR #868 描述「主张清单」C1–C7（C2 已更正为 5 处 wrapper 调用，C7 以 README「`7ad61a0d3` 三次前向」节为准） | 待审（最新前向工程绿已齐；PR 保持 WIP，合 main 等用户确认） |
+| #67 | #863 | `65fde6171e15d3a73c493b2808d076ae6c45cb7c` | `/Users/a77/.finance-runtime/reviews/research-tail-union-resume-20260922/candidate/finance-workspace-private` | `/Users/a77/.finance-runtime/reviews/research-tail-union-resume-20260922/` | PR #863 描述「主张清单」6 条（原件同目录 `PR-BODY-draft.md`） | 已合入 main `8e79893729da`（2026-09-23 00:3x，用户授权）。合前 Claude 子代理做 Quality 轴：PASS_WITH_LIMITS（F1 / F2 见 #863 描述「独立审查」）。#75 若事后审，对象改为该合并提交，Spec 轴主张清单不变 |
+| #69 | #843 | 已并入 #865（本层代码 `e7e12a189`，分支 head `7a4326630`） | 同 #865 候选；作者旧只读候选 `/Users/a77/.finance-runtime/reviews/runtime-pr843-k3-20260922-followup-01/host-qc-01/candidate-e7e12a189` 仅供对照 | `/Users/a77/.finance-runtime/reviews/runtime-pr843-k3-20260922-followup-01/host-qc-01/` | PR #843 描述 + 分支 inflight「决策与被否方案」4 条 | 并入 #865 一起审（09-23 02:5x 改栈顶一次前向；本 PR 不单独合，标题已加「已并入 #865」） |
+| #69 | #864 | 已并入 #865（本层代码 `691d0ad5c`，分支 head `1516b94b9`） | 同 #865 候选 | `/Users/a77/.finance-runtime/reviews/runtime-identity-effects-20260922/` | PR #864 描述「主张清单」C1–C7 | 并入 #865 一起审（阳性对照 A 见 `positive-controls/summary.json`） |
+| #69 | #865 | `698f689b07edcae1d80abb1e80c6312316e34a57`（三层合一 + 前向 `main@72be60059`；栈代码 `e7e12a189` / `691d0ad5c` / `aec5a6d50`，冲突解法见 PR 评论 5995） | `/Users/a77/.finance-runtime/reviews/runtime-identity-effects-20260922/candidate/finance-workspace-private`（detached @ `698f689b0`） | `/Users/a77/.finance-runtime/reviews/runtime-identity-effects-20260922/`（`positive-controls/`、`forward2/`、`gate-20260922T192315Z-698f689b0/`） | PR #864 描述 C1–C7 + PR #865 描述 E1–E9 + #843 描述 | 待审（09-23 登记；base 已改 main；定向并集 2635P/0F，四叶在跑；合入等用户授权） |
+| #72 | #868 | `7ad61a0d3`（最新代码尖；其上仅 docs；本次再前向 `gitea/main@9a0227986` 仅解决队列文档 add/add 冲突） | `/Users/a77/.finance-runtime/reviews/pr868-forward-20260923/finance-workspace-private`（只读引用，审查者应自建树） | `~/.finance-runtime/reviews/pr868-forward-20260923/gate-7ad61a0d3/`（九项全绿：pytest 14921P/85S/2X、前端六步、registry×4+crosswalk、探针 0 越窗）；旧复核 / 变异记录仍见 `docs/verification/2026-09-22-adaptive-deadline/` | PR #868 描述「主张清单」C1–C7（C2 已更正为 5 处 wrapper 调用，C7 以 README「`7ad61a0d3` 三次前向」节为准） | 待审（最新前向工程绿已齐；PR 保持 WIP，合 main 等用户确认） |
