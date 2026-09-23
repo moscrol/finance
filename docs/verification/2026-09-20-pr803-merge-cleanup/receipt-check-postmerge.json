@@ -1,0 +1,13 @@
+{
+  "command": [
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/python/finance-workspace-private/scripts/check_test_receipt.py",
+    "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/python/receipts/20260920T102128Z-728f3271.json",
+    "--expect-revision",
+    "728f327160bbd2485cb635e7ef09d040d718d7b5",
+    "--base-drift-max",
+    "0"
+  ],
+  "exit_code": 0,
+  "main": "728f327160bbd2485cb635e7ef09d040d718d7b5"
+}
