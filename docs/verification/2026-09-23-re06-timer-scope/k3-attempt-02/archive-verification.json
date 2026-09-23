@@ -1,0 +1,11 @@
+{
+  "status": "PASS",
+  "verification": "artifact and accounting integrity only, not behavior tests or independent QC",
+  "archive_core_files": 78,
+  "requests_attempt_02": 5,
+  "requests_all_attempts": 6,
+  "claims_not_verified": 10,
+  "pinned_trees_clean": 2,
+  "source_hashes_verified": 16,
+  "handoff_bytes": 2438
+}

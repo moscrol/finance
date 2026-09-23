@@ -1,0 +1,1 @@
+{"toolCallId":"first-red","params":{"command":"printf first-red; exit 7","timeout":10}}

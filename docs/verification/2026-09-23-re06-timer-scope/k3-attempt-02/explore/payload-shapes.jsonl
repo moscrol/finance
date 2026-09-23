@@ -1,0 +1,3 @@
+{"admission":1,"stage":"explore","stream":true,"model":"kimi-k3","tools":["read","bash","write"],"temperature_removed":false,"reasoning_effort":"xhigh"}
+{"admission":2,"stage":"explore","stream":true,"model":"kimi-k3","tools":["read","bash","write"],"temperature_removed":false,"reasoning_effort":"xhigh"}
+{"admission":3,"stage":"explore","stream":true,"model":"kimi-k3","tools":["read","bash","write"],"temperature_removed":false,"reasoning_effort":"xhigh"}

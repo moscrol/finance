@@ -84,11 +84,10 @@
     "Sandbox self-test is host evidence, not reviewer probes or the required pytest positive control."
   ],
   "artifacts": {
-    "gateway": "k3-attempt-02/gateway/receipt.json",
-    "explore": "k3-attempt-02/explore/execution.json",
-    "sandbox": "k3-attempt-02/sandbox-preflight-02/receipt.json",
-    "model_failure": "k3-attempt-02/explore/model-failure.json",
-    "manifest": "k3-attempt-02/manifest.json"
-  },
-  "previous_attempt_report": "attempt-01-report.json"
+    "gateway": "gateway/receipt.json",
+    "explore": "explore/execution.json",
+    "sandbox": "sandbox-preflight-02/receipt.json",
+    "model_failure": "explore/model-failure.json",
+    "manifest": "manifest.json"
+  }
 }

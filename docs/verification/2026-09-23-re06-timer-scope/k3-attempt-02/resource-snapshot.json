@@ -1,0 +1,21 @@
+{
+  "observed_at": "2026-09-23T05:28:35.493951+00:00",
+  "load_averages": [
+    85.1611328125,
+    51.33056640625,
+    37.68994140625
+  ],
+  "pytest_processes": 5,
+  "pytest_rows": [
+    "3991  3965       16:05 /opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -m pytest -q -p no:cacheprovider",
+    "4844  4827       14:59 /opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -m pytest -q -p no:cacheprovider",
+    "20682 20624       05:48 /opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -m pytest -q -p no:cacheprovider",
+    "22279 22234       04:47 /opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -m pytest -q -p no:cacheprovider",
+    "27711 27650       02:11 /opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -m pytest -q -p no:cacheprovider --junitxml=/Users/a77/.finance-runtime/reviews/run-queued-regression-20260923/gates/python-junit.xml --basetemp=/Users/a77/.finance-runtime/reviews/run-queued-regression-20260923/gates/basetemp-python"
+  ],
+  "free_disk_gib": 54.956,
+  "full_test_load_limit": 8,
+  "full_test_pytest_limit": 2,
+  "minimum_disk_gib": 8,
+  "gate_passed": false
+}

@@ -1,0 +1,4 @@
+    1387 /Users/a77/.finance-runtime/reviews/re06-timer-scope-qc-20260923-02/inputs/source.diff
+claims.md
+identity.json
+source.diff
