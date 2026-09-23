@@ -134,6 +134,27 @@ def test_recovery_member_rows_cannot_prove_missing_canonical_bars(missing):
         assert {table: con.execute(f"SELECT * FROM {table} ORDER BY ALL").fetchall() for table in tables} == before
 
 
+@pytest.mark.parametrize("close", [None, float("nan"), float("inf"), float("-inf"), 0.0, -1.0],
+                         ids=["null", "nan", "infinity", "negative-infinity", "zero", "negative"])
+@pytest.mark.parametrize("stock", ["600001.SH", "000001.SZ", "002514.SZ", "920001.BJ"],
+                         ids=["limit-up", "flat", "st-only-sector", "outside-members"])
+def test_recovery_rejects_invalid_close_before_any_derived_write(stock, close):
+    with _db() as con:
+        _seed_two_days(con)
+        _seed_universe_and_members(con)
+        declared = {"990001.FP": ["600001.SH", "300001.SZ", "000001.SZ"],
+                    "990002.FP": ["002514.SZ"]}
+        cls_.compute_limit_stats_local("2026-09-02", con=con, recovery_members=declared)
+        tables = ("fact_theme_limit_heat_daily", "fact_theme_limit_stock_daily",
+                  "fact_limit_advance_daily", "fact_leader_height_daily")
+        before = {table: con.execute(f"SELECT * FROM {table} ORDER BY ALL").fetchall() for table in tables}
+        con.execute("UPDATE fact_stock_daily SET close=? WHERE trade_date='2026-09-02' AND stock_ts_code=?",
+                    [close, stock])
+        with pytest.raises(ValueError, match="invalid canonical stock bar close"):
+            cls_.compute_limit_stats_local("2026-09-02", con=con, recovery_members=declared)
+        assert {table: con.execute(f"SELECT * FROM {table} ORDER BY ALL").fetchall() for table in tables} == before
+
+
 def test_limit_stats_refuses_to_overwrite_fupanhui_rows_unless_forced():
     con = _db()
     _seed_two_days(con)
