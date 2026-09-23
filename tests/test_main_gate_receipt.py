@@ -427,6 +427,67 @@ def test_process_identity_mismatch_is_refused(repo, tmp_path, changed):
     assert "does not match" in result.stderr
 
 
+def _commit_sample(repo, body):
+    (repo / "test_sample.py").write_text(body)
+    git(repo, "add", "--", "test_sample.py")
+    git(repo, "commit", "-m", "basetemp fixture")
+
+
+USES_TMP = "def test_ok(tmp_path):\n    (tmp_path / 'x').write_text('1')\n"
+
+
+def test_green_gate_removes_explicit_basetemp(repo, tmp_path):
+    # 绿了的 basetemp 没有证据价值；不清就是 2026-09-23 盘上那 30 GB。
+    _commit_sample(repo, USES_TMP)
+    bt = tmp_path / "bt"
+    result = run_gate(repo, tmp_path, "--pytest-args",
+                      f"-q -p no:cacheprovider --basetemp={bt} test_sample.py")
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert not bt.exists()
+    assert "basetemp 已清" in result.stdout
+
+
+@pytest.mark.parametrize("target", ["repo-file", "repo-parent"])
+def test_gate_refuses_basetemp_overlapping_repo(repo, tmp_path, target):
+    _commit_sample(repo, USES_TMP)
+    basetemp = repo / "test_sample.py" if target == "repo-file" else tmp_path
+    before = (repo / "test_sample.py").read_text()
+    result = run_gate(repo, tmp_path, "--pytest-args",
+                      f"-q -p no:cacheprovider --basetemp={basetemp} test_sample.py")
+    assert result.returncode == 4, result.stdout + result.stderr
+    assert "basetemp 与仓库树有包含关系" in result.stderr
+    assert (repo / "test_sample.py").read_text() == before
+
+
+def test_red_gate_keeps_basetemp_as_evidence(repo, tmp_path):
+    _commit_sample(repo, USES_TMP.replace("write_text('1')", "write_text('1')\n    assert False"))
+    bt = tmp_path / "bt"
+    result = run_gate(repo, tmp_path, "--pytest-args",
+                      f"-q -p no:cacheprovider --basetemp={bt} test_sample.py")
+    assert result.returncode != 0
+    assert bt.exists()
+    assert "basetemp 已清" not in result.stdout
+
+
+def test_keep_flag_preserves_basetemp_on_green(repo, tmp_path):
+    _commit_sample(repo, USES_TMP)
+    bt = tmp_path / "bt"
+    # 空格分隔的 "--basetemp DIR" 写法也要认。
+    result = run_gate(repo, tmp_path, "--pytest-args",
+                      f"-q -p no:cacheprovider --basetemp {bt} test_sample.py",
+                      extra_env={"GATE_KEEP_BASETEMP": "1"})
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert bt.exists()
+
+
+def test_gate_without_basetemp_flag_touches_nothing(repo, tmp_path):
+    _commit_sample(repo, USES_TMP)
+    result = run_gate(repo, tmp_path, "--pytest-args", "-q -p no:cacheprovider test_sample.py")
+    assert result.returncode == 0, result.stdout + result.stderr
+    # 收据路径里会带本测试自己的名字（含 "basetemp"），所以只锁清理动作那句。
+    assert "basetemp 已清" not in result.stdout
+
+
 def test_writer_honors_override_without_overwriting_original(tmp_path, monkeypatch):
     folder = tmp_path / "receipts"
     output = tmp_path / "run/pytest.json"

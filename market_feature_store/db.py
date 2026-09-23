@@ -326,6 +326,12 @@ def clone_to_staging(source: Path, staging: Path) -> dict:
     初始零额外磁盘占用, 且相对文件系统是原子快照。非 APFS/非 macOS 退回
     shutil.copy2 (3.4G 实测约几十秒, 磁盘峰值 2×库大小)。
 
+    名字叫 staging, 但它是仓里**唯一**的整库快照原语: 换名前备份
+    (backup_before_swap)、基线导出 (scripts/db_baseline_export.py)、拉基线前的
+    回滚副本 (scripts/db_delta_pull.py) 都走这里。别处再写 shutil.copy2 整份拷
+    ——2026-09-23 盘上静置着 20 份 3.4 GB 的整库拷贝 (68 GB), 全是修库 / 门禁
+    的「改前快照」, 用 clonefile 这些几乎不占空间。
+
     source 若带 WAL (上一个写者崩溃留下), 一并按 staging 命名克隆——
     duckdb 打开 staging 时自动重放, 不丢已提交事务。
 
