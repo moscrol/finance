@@ -647,16 +647,23 @@ def prewarm(
     """Load the production hybrid retriever before serving user requests."""
     if not rag_worker.enabled():
         return rag_worker.status()
-    if not kb_wiki:
-        raise ValueError("knowledge wiki is required for RAG prewarm")
-    root = kb_root(kb_wiki)
-    runtime_root = _resolve_code_root(root)
-    script = runtime_root / RAG_SCRIPT_REL
-    index_dir = _resolve_index_dir(root)
-    if not script.is_file():
-        raise FileNotFoundError(script)
-    if not index_dir.is_dir():
-        raise FileNotFoundError(index_dir)
+    try:
+        if not kb_wiki:
+            raise ValueError("knowledge wiki is required for RAG prewarm")
+        root = kb_root(kb_wiki)
+        runtime_root = _resolve_code_root(root)
+        script = runtime_root / RAG_SCRIPT_REL
+        index_dir = _resolve_index_dir(root)
+        if not script.is_file():
+            raise FileNotFoundError(script)
+        if not index_dir.is_dir():
+            raise FileNotFoundError(index_dir)
+        python = _resolve_rag_python(runtime_root)
+        wiki = Path(kb_wiki).expanduser().resolve()
+    except Exception as exc:
+        # No worker exists yet to carry this failure into readiness.
+        rag_worker.record_startup_failure(exc)
+        raise
     # 预热必须和普通查询用同一个 stale 口径（见 `_run_rag_cli` 里同名分支）。
     # 漏掉它不是「少一个参数」而是换了一套失败语义：KB 侧 CLI 的默认是
     # `fail`，而 `_STALE_POLICY` 默认 `warn`——索引一旦过期，普通查询照常降级
@@ -674,10 +681,10 @@ def prewarm(
         prewarm_argv.extend(["--stale-policy", _STALE_POLICY])
     prewarm_argv.append("--json")
     rag_worker.prewarm(
-        python=_resolve_rag_python(runtime_root),
+        python=python,
         kb_root=runtime_root,
         index_dir=index_dir,
-        kb_wiki=Path(kb_wiki).expanduser().resolve(),
+        kb_wiki=wiki,
         argv=prewarm_argv,
         timeout=timeout,
     )

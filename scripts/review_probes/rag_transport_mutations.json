@@ -16,15 +16,15 @@
   {
     "id": "rag-absolute-read-deadline",
     "path": "intelligence/services/rag_worker.py",
-    "old": "                    buffer.extend(chunk)",
-    "new": "                    deadline = time.monotonic() + timeout\n                    buffer.extend(chunk)",
+    "old": "                        buffer.extend(chunk)",
+    "new": "                        deadline = time.monotonic() + timeout\n                        buffer.extend(chunk)",
     "targets": ["stale_and_partial_chunks_do_not_extend_absolute_deadline"]
   },
   {
     "id": "rag-decode-only-complete-frame",
     "path": "intelligence/services/rag_worker.py",
-    "old": "                    buffer.extend(chunk)",
-    "new": "                    chunk.decode(\"utf-8\")\n                    buffer.extend(chunk)",
+    "old": "                        buffer.extend(chunk)",
+    "new": "                        chunk.decode(\"utf-8\")\n                        buffer.extend(chunk)",
     "targets": ["fragmented_utf8_and_long_line", "retrieve_consumes_current_hit"]
   },
   {

@@ -1,0 +1,51 @@
+[
+  {
+    "id": "worker-failure-global-latch",
+    "path": "intelligence/services/rag_worker.py",
+    "old": "    return worker.prewarm(argv, timeout)",
+    "new": "    try:\n        return worker.prewarm(argv, timeout)\n    except Exception as exc:\n        record_startup_failure(exc)\n        raise",
+    "targets": ["startup_failure_then_probe_recovery", "real_lifespan_readiness"]
+  },
+  {
+    "id": "api-duplicates-worker-failure",
+    "path": "intelligence/api/app.py",
+    "old": "            except Exception:  # noqa: BLE001 - fail closed at readiness\n                # prewarm records setup failures; registered workers own their\n                # failure/recovery state. Do not latch the same failure twice.\n                pass",
+    "new": "            except Exception as exc:\n                kb_rag.rag_worker.record_startup_failure(exc)",
+    "targets": ["real_lifespan_readiness"]
+  },
+  {
+    "id": "configuration-failure-not-recorded",
+    "path": "intelligence/services/kb_rag.py",
+    "old": "        rag_worker.record_startup_failure(exc)",
+    "new": "        pass",
+    "targets": ["configuration_failure_cannot", "real_lifespan_readiness"]
+  },
+  {
+    "id": "child-stderr-discarded",
+    "path": "intelligence/services/rag_worker.py",
+    "old": "            stderr=subprocess.PIPE,",
+    "new": "            stderr=subprocess.DEVNULL,",
+    "targets": ["early_process_exit_preserves"]
+  },
+  {
+    "id": "stderr-tail-unbounded",
+    "path": "intelligence/services/rag_worker.py",
+    "old": "        del self._stderr_tail[:-_STDERR_TAIL_BYTES]",
+    "new": "        pass",
+    "targets": ["stderr_noise_does_not_block"]
+  },
+  {
+    "id": "untrusted-error-class-disclosed",
+    "path": "intelligence/services/rag_worker.py",
+    "old": "    return next((name for name in reversed(names) if name in _CHILD_ERROR_TYPES), None)",
+    "new": "    return names[-1] if names else None",
+    "targets": ["child_error_parser_only"]
+  },
+  {
+    "id": "prewarm-response-cause-discarded",
+    "path": "intelligence/services/rag_worker.py",
+    "old": "                        response.stderr,",
+    "new": "                        '',",
+    "targets": ["prewarm_response_preserves", "real_lifespan_readiness"]
+  }
+]

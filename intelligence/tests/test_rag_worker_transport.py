@@ -62,7 +62,7 @@ def _pipe_worker(monkeypatch, on_request):
             self.truncate()
             on_request(request, send, end)
 
-    process = SimpleNamespace(stdin=RequestSink(), stdout=reader, pid=12345,
+    process = SimpleNamespace(stdin=RequestSink(), stdout=reader, stderr=None, pid=12345,
                               poll=lambda: 0 if ended else None, terminate=end,
                               kill=end, wait=lambda **kwargs: 0)
     # Main now samples RSS after a response. This pipe double has no child
@@ -154,7 +154,7 @@ def test_fragmented_utf8_and_long_line_reassemble_before_decode(monkeypatch, chu
 
         def select(self, timeout):
             clock[0] += 0.000001
-            return [True] if payload else []
+            return [(SimpleNamespace(data="stdout"), 1)] if payload else []
 
         def close(self):
             pass
@@ -190,7 +190,7 @@ def test_stale_and_partial_chunks_do_not_extend_absolute_deadline(monkeypatch):
             clock[0] += min(0.03, timeout)
             selections += 1
             assert selections <= 10, "deadline was extended by incoming chunks"
-            return [True]
+            return [(SimpleNamespace(data="stdout"), 1)]
 
         def close(self):
             pass
