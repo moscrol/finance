@@ -1020,21 +1020,29 @@ def cmd_sync_limit_advance_range(args) -> int:
 
 
 def cmd_sync_stock_daily(args) -> int:
+    from .mootdx_source import MootdxSourceUnavailable
     from .sync.sync_mootdx_stock_daily import sync_fact_stock_daily
 
-    stats = sync_fact_stock_daily(
-        start_date=args.start_date,
-        offset=args.offset,
-        limit=args.limit,
-        only_missing=not args.refresh,
-        sleep=args.sleep,
-        qfq=args.qfq,
-        timeout=args.timeout,
-        progress_every=args.progress_every,
-        end_date=args.end_date,
-        ohlc_only=args.ohlc_only,
-        skip=args.skip,
-    )
+    try:
+        stats = sync_fact_stock_daily(
+            start_date=args.start_date,
+            offset=args.offset,
+            limit=args.limit,
+            only_missing=not args.refresh,
+            sleep=args.sleep,
+            qfq=args.qfq,
+            timeout=args.timeout,
+            progress_every=args.progress_every,
+            end_date=args.end_date,
+            ohlc_only=args.ohlc_only,
+            skip=args.skip,
+        )
+    except MootdxSourceUnavailable as exc:
+        # 源不可用必须退非零码: 以前无论写了多少行都 return 0,
+        # 夜跑编排看不到红灯, 断供两周无人发现。
+        print(f"源不可用, 未写入(或已部分写入后中止): {exc}")
+        print(f"诊断: {json.dumps(exc.health.as_dict(), ensure_ascii=False)}")
+        return 2
     mode = " | 模式: 只补 OHLC" if args.ohlc_only else ""
     print(f"起始日: {stats['start_date']}{' ~ ' + args.end_date if args.end_date else ''} | 全A股池: {stats['universe']}{mode}")
     print(f"本次抓取: {stats['processed']} 只 | 写入行: {stats['rows_written']}")
@@ -1043,6 +1051,7 @@ def cmd_sync_stock_daily(args) -> int:
           f"{stats['distinct_dates']} 交易日 ({stats['date_min']}~{stats['date_max']})")
     if stats["failures"]:
         print(f"失败 {len(stats['failures'])}: " + ", ".join(c for c, _ in stats['failures'][:10]))
+        print(f"失败分类: {stats['failure_kinds']}")
     return 0
 
 
