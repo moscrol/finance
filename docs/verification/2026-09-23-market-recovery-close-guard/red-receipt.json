@@ -1,0 +1,61 @@
+{
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "python_version": "3.12.13",
+  "dependency_fingerprint": "3328bed61f3e21ea",
+  "tree": "/Users/a77/fwp-wt-market-recovery-qc-fix-0923",
+  "revision": "1717db91c2d4a08f1abd918f2c0b3dab04ce277e",
+  "branch": "fix/market-recovery-qc-0923",
+  "dirty": true,
+  "dirty_paths": [
+    "tests/test_compute_local_stats.py"
+  ],
+  "worktree_dirty_total": 1,
+  "dependency_gate_bypassed": false,
+  "target": "tests/test_compute_local_stats.py",
+  "scope": {
+    "ignore": [],
+    "ignore_glob": [],
+    "deselect": [],
+    "keyword": "test_recovery_rejects_invalid_close_before_any_derived_write",
+    "markexpr": "",
+    "maxfail": 0,
+    "last_failed": false,
+    "collected": 24
+  },
+  "counts": {
+    "passed": 0,
+    "failed": 24,
+    "error": 0,
+    "skipped": 0,
+    "xfailed": 0,
+    "xpassed": 0
+  },
+  "failed_ids": [
+    "tests/test_compute_local_stats.py::test_recovery_rejects_invalid_close_before_any_derived_write[flat-infinity]",
+    "tests/test_compute_local_stats.py::test_recovery_rejects_invalid_close_before_any_derived_write[flat-nan]",
+    "tests/test_compute_local_stats.py::test_recovery_rejects_invalid_close_before_any_derived_write[flat-negative-infinity]",
+    "tests/test_compute_local_stats.py::test_recovery_rejects_invalid_close_before_any_derived_write[flat-negative]",
+    "tests/test_compute_local_stats.py::test_recovery_rejects_invalid_close_before_any_derived_write[flat-null]",
+    "tests/test_compute_local_stats.py::test_recovery_rejects_invalid_close_before_any_derived_write[flat-zero]",
+    "tests/test_compute_local_stats.py::test_recovery_rejects_invalid_close_before_any_derived_write[limit-up-infinity]",
+    "tests/test_compute_local_stats.py::test_recovery_rejects_invalid_close_before_any_derived_write[limit-up-nan]",
+    "tests/test_compute_local_stats.py::test_recovery_rejects_invalid_close_before_any_derived_write[limit-up-negative-infinity]",
+    "tests/test_compute_local_stats.py::test_recovery_rejects_invalid_close_before_any_derived_write[limit-up-negative]",
+    "tests/test_compute_local_stats.py::test_recovery_rejects_invalid_close_before_any_derived_write[limit-up-null]",
+    "tests/test_compute_local_stats.py::test_recovery_rejects_invalid_close_before_any_derived_write[limit-up-zero]",
+    "tests/test_compute_local_stats.py::test_recovery_rejects_invalid_close_before_any_derived_write[outside-members-infinity]",
+    "tests/test_compute_local_stats.py::test_recovery_rejects_invalid_close_before_any_derived_write[outside-members-nan]",
+    "tests/test_compute_local_stats.py::test_recovery_rejects_invalid_close_before_any_derived_write[outside-members-negative-infinity]",
+    "tests/test_compute_local_stats.py::test_recovery_rejects_invalid_close_before_any_derived_write[outside-members-negative]",
+    "tests/test_compute_local_stats.py::test_recovery_rejects_invalid_close_before_any_derived_write[outside-members-null]",
+    "tests/test_compute_local_stats.py::test_recovery_rejects_invalid_close_before_any_derived_write[outside-members-zero]",
+    "tests/test_compute_local_stats.py::test_recovery_rejects_invalid_close_before_any_derived_write[st-only-sector-infinity]",
+    "tests/test_compute_local_stats.py::test_recovery_rejects_invalid_close_before_any_derived_write[st-only-sector-nan]",
+    "tests/test_compute_local_stats.py::test_recovery_rejects_invalid_close_before_any_derived_write[st-only-sector-negative-infinity]",
+    "tests/test_compute_local_stats.py::test_recovery_rejects_invalid_close_before_any_derived_write[st-only-sector-negative]",
+    "tests/test_compute_local_stats.py::test_recovery_rejects_invalid_close_before_any_derived_write[st-only-sector-null]",
+    "tests/test_compute_local_stats.py::test_recovery_rejects_invalid_close_before_any_derived_write[st-only-sector-zero]"
+  ],
+  "exit_status": 1,
+  "finished_at": "2026-09-23T06:25:02+00:00"
+}

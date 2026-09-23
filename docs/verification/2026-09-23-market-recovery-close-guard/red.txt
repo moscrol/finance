@@ -1,0 +1,893 @@
+FFFFFFFFFFFFFFFFFFFFFFFF                                                 [100%]读数收据: /Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/offline-followup-qxS6vd/red-receipt.json
+
+=================================== FAILURES ===================================
+_ test_recovery_rejects_invalid_close_before_any_derived_write[limit-up-null] __
+
+stock = '600001.SH', close = None
+
+    @pytest.mark.parametrize("close", [None, float("nan"), float("inf"), float("-inf"), 0.0, -1.0],
+                             ids=["null", "nan", "infinity", "negative-infinity", "zero", "negative"])
+    @pytest.mark.parametrize("stock", ["600001.SH", "000001.SZ", "002514.SZ", "920001.BJ"],
+                             ids=["limit-up", "flat", "st-only-sector", "outside-members"])
+    def test_recovery_rejects_invalid_close_before_any_derived_write(stock, close):
+>       with _db() as con:
+
+tests/test_compute_local_stats.py:142: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+stock = '600001.SH', close = None
+
+    @pytest.mark.parametrize("close", [None, float("nan"), float("inf"), float("-inf"), 0.0, -1.0],
+                             ids=["null", "nan", "infinity", "negative-infinity", "zero", "negative"])
+    @pytest.mark.parametrize("stock", ["600001.SH", "000001.SZ", "002514.SZ", "920001.BJ"],
+                             ids=["limit-up", "flat", "st-only-sector", "outside-members"])
+    def test_recovery_rejects_invalid_close_before_any_derived_write(stock, close):
+        with _db() as con:
+            _seed_two_days(con)
+            _seed_universe_and_members(con)
+            declared = {"990001.FP": ["600001.SH", "300001.SZ", "000001.SZ"],
+                        "990002.FP": ["002514.SZ"]}
+            cls_.compute_limit_stats_local("2026-09-02", con=con, recovery_members=declared)
+            tables = ("fact_theme_limit_heat_daily", "fact_theme_limit_stock_daily",
+                      "fact_limit_advance_daily", "fact_leader_height_daily")
+            before = {table: con.execute(f"SELECT * FROM {table} ORDER BY ALL").fetchall() for table in tables}
+            con.execute("UPDATE fact_stock_daily SET close=? WHERE trade_date='2026-09-02' AND stock_ts_code=?",
+                        [close, stock])
+>           with pytest.raises(ValueError, match="invalid canonical stock bar close"):
+E           Failed: DID NOT RAISE <class 'ValueError'>
+
+tests/test_compute_local_stats.py:153: Failed
+__ test_recovery_rejects_invalid_close_before_any_derived_write[limit-up-nan] __
+
+stock = '600001.SH', close = nan
+
+    @pytest.mark.parametrize("close", [None, float("nan"), float("inf"), float("-inf"), 0.0, -1.0],
+                             ids=["null", "nan", "infinity", "negative-infinity", "zero", "negative"])
+    @pytest.mark.parametrize("stock", ["600001.SH", "000001.SZ", "002514.SZ", "920001.BJ"],
+                             ids=["limit-up", "flat", "st-only-sector", "outside-members"])
+    def test_recovery_rejects_invalid_close_before_any_derived_write(stock, close):
+>       with _db() as con:
+
+tests/test_compute_local_stats.py:142: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+stock = '600001.SH', close = nan
+
+    @pytest.mark.parametrize("close", [None, float("nan"), float("inf"), float("-inf"), 0.0, -1.0],
+                             ids=["null", "nan", "infinity", "negative-infinity", "zero", "negative"])
+    @pytest.mark.parametrize("stock", ["600001.SH", "000001.SZ", "002514.SZ", "920001.BJ"],
+                             ids=["limit-up", "flat", "st-only-sector", "outside-members"])
+    def test_recovery_rejects_invalid_close_before_any_derived_write(stock, close):
+        with _db() as con:
+            _seed_two_days(con)
+            _seed_universe_and_members(con)
+            declared = {"990001.FP": ["600001.SH", "300001.SZ", "000001.SZ"],
+                        "990002.FP": ["002514.SZ"]}
+            cls_.compute_limit_stats_local("2026-09-02", con=con, recovery_members=declared)
+            tables = ("fact_theme_limit_heat_daily", "fact_theme_limit_stock_daily",
+                      "fact_limit_advance_daily", "fact_leader_height_daily")
+            before = {table: con.execute(f"SELECT * FROM {table} ORDER BY ALL").fetchall() for table in tables}
+            con.execute("UPDATE fact_stock_daily SET close=? WHERE trade_date='2026-09-02' AND stock_ts_code=?",
+                        [close, stock])
+>           with pytest.raises(ValueError, match="invalid canonical stock bar close"):
+E           Failed: DID NOT RAISE <class 'ValueError'>
+
+tests/test_compute_local_stats.py:153: Failed
+_ test_recovery_rejects_invalid_close_before_any_derived_write[limit-up-infinity] _
+
+stock = '600001.SH', close = inf
+
+    @pytest.mark.parametrize("close", [None, float("nan"), float("inf"), float("-inf"), 0.0, -1.0],
+                             ids=["null", "nan", "infinity", "negative-infinity", "zero", "negative"])
+    @pytest.mark.parametrize("stock", ["600001.SH", "000001.SZ", "002514.SZ", "920001.BJ"],
+                             ids=["limit-up", "flat", "st-only-sector", "outside-members"])
+    def test_recovery_rejects_invalid_close_before_any_derived_write(stock, close):
+>       with _db() as con:
+
+tests/test_compute_local_stats.py:142: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+stock = '600001.SH', close = inf
+
+    @pytest.mark.parametrize("close", [None, float("nan"), float("inf"), float("-inf"), 0.0, -1.0],
+                             ids=["null", "nan", "infinity", "negative-infinity", "zero", "negative"])
+    @pytest.mark.parametrize("stock", ["600001.SH", "000001.SZ", "002514.SZ", "920001.BJ"],
+                             ids=["limit-up", "flat", "st-only-sector", "outside-members"])
+    def test_recovery_rejects_invalid_close_before_any_derived_write(stock, close):
+        with _db() as con:
+            _seed_two_days(con)
+            _seed_universe_and_members(con)
+            declared = {"990001.FP": ["600001.SH", "300001.SZ", "000001.SZ"],
+                        "990002.FP": ["002514.SZ"]}
+            cls_.compute_limit_stats_local("2026-09-02", con=con, recovery_members=declared)
+            tables = ("fact_theme_limit_heat_daily", "fact_theme_limit_stock_daily",
+                      "fact_limit_advance_daily", "fact_leader_height_daily")
+            before = {table: con.execute(f"SELECT * FROM {table} ORDER BY ALL").fetchall() for table in tables}
+            con.execute("UPDATE fact_stock_daily SET close=? WHERE trade_date='2026-09-02' AND stock_ts_code=?",
+                        [close, stock])
+>           with pytest.raises(ValueError, match="invalid canonical stock bar close"):
+E           Failed: DID NOT RAISE <class 'ValueError'>
+
+tests/test_compute_local_stats.py:153: Failed
+_ test_recovery_rejects_invalid_close_before_any_derived_write[limit-up-negative-infinity] _
+
+stock = '600001.SH', close = -inf
+
+    @pytest.mark.parametrize("close", [None, float("nan"), float("inf"), float("-inf"), 0.0, -1.0],
+                             ids=["null", "nan", "infinity", "negative-infinity", "zero", "negative"])
+    @pytest.mark.parametrize("stock", ["600001.SH", "000001.SZ", "002514.SZ", "920001.BJ"],
+                             ids=["limit-up", "flat", "st-only-sector", "outside-members"])
+    def test_recovery_rejects_invalid_close_before_any_derived_write(stock, close):
+>       with _db() as con:
+
+tests/test_compute_local_stats.py:142: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+stock = '600001.SH', close = -inf
+
+    @pytest.mark.parametrize("close", [None, float("nan"), float("inf"), float("-inf"), 0.0, -1.0],
+                             ids=["null", "nan", "infinity", "negative-infinity", "zero", "negative"])
+    @pytest.mark.parametrize("stock", ["600001.SH", "000001.SZ", "002514.SZ", "920001.BJ"],
+                             ids=["limit-up", "flat", "st-only-sector", "outside-members"])
+    def test_recovery_rejects_invalid_close_before_any_derived_write(stock, close):
+        with _db() as con:
+            _seed_two_days(con)
+            _seed_universe_and_members(con)
+            declared = {"990001.FP": ["600001.SH", "300001.SZ", "000001.SZ"],
+                        "990002.FP": ["002514.SZ"]}
+            cls_.compute_limit_stats_local("2026-09-02", con=con, recovery_members=declared)
+            tables = ("fact_theme_limit_heat_daily", "fact_theme_limit_stock_daily",
+                      "fact_limit_advance_daily", "fact_leader_height_daily")
+            before = {table: con.execute(f"SELECT * FROM {table} ORDER BY ALL").fetchall() for table in tables}
+            con.execute("UPDATE fact_stock_daily SET close=? WHERE trade_date='2026-09-02' AND stock_ts_code=?",
+                        [close, stock])
+>           with pytest.raises(ValueError, match="invalid canonical stock bar close"):
+E           Failed: DID NOT RAISE <class 'ValueError'>
+
+tests/test_compute_local_stats.py:153: Failed
+_ test_recovery_rejects_invalid_close_before_any_derived_write[limit-up-zero] __
+
+stock = '600001.SH', close = 0.0
+
+    @pytest.mark.parametrize("close", [None, float("nan"), float("inf"), float("-inf"), 0.0, -1.0],
+                             ids=["null", "nan", "infinity", "negative-infinity", "zero", "negative"])
+    @pytest.mark.parametrize("stock", ["600001.SH", "000001.SZ", "002514.SZ", "920001.BJ"],
+                             ids=["limit-up", "flat", "st-only-sector", "outside-members"])
+    def test_recovery_rejects_invalid_close_before_any_derived_write(stock, close):
+>       with _db() as con:
+
+tests/test_compute_local_stats.py:142: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+stock = '600001.SH', close = 0.0
+
+    @pytest.mark.parametrize("close", [None, float("nan"), float("inf"), float("-inf"), 0.0, -1.0],
+                             ids=["null", "nan", "infinity", "negative-infinity", "zero", "negative"])
+    @pytest.mark.parametrize("stock", ["600001.SH", "000001.SZ", "002514.SZ", "920001.BJ"],
+                             ids=["limit-up", "flat", "st-only-sector", "outside-members"])
+    def test_recovery_rejects_invalid_close_before_any_derived_write(stock, close):
+        with _db() as con:
+            _seed_two_days(con)
+            _seed_universe_and_members(con)
+            declared = {"990001.FP": ["600001.SH", "300001.SZ", "000001.SZ"],
+                        "990002.FP": ["002514.SZ"]}
+            cls_.compute_limit_stats_local("2026-09-02", con=con, recovery_members=declared)
+            tables = ("fact_theme_limit_heat_daily", "fact_theme_limit_stock_daily",
+                      "fact_limit_advance_daily", "fact_leader_height_daily")
+            before = {table: con.execute(f"SELECT * FROM {table} ORDER BY ALL").fetchall() for table in tables}
+            con.execute("UPDATE fact_stock_daily SET close=? WHERE trade_date='2026-09-02' AND stock_ts_code=?",
+                        [close, stock])
+>           with pytest.raises(ValueError, match="invalid canonical stock bar close"):
+E           Failed: DID NOT RAISE <class 'ValueError'>
+
+tests/test_compute_local_stats.py:153: Failed
+_ test_recovery_rejects_invalid_close_before_any_derived_write[limit-up-negative] _
+
+stock = '600001.SH', close = -1.0
+
+    @pytest.mark.parametrize("close", [None, float("nan"), float("inf"), float("-inf"), 0.0, -1.0],
+                             ids=["null", "nan", "infinity", "negative-infinity", "zero", "negative"])
+    @pytest.mark.parametrize("stock", ["600001.SH", "000001.SZ", "002514.SZ", "920001.BJ"],
+                             ids=["limit-up", "flat", "st-only-sector", "outside-members"])
+    def test_recovery_rejects_invalid_close_before_any_derived_write(stock, close):
+>       with _db() as con:
+
+tests/test_compute_local_stats.py:142: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+stock = '600001.SH', close = -1.0
+
+    @pytest.mark.parametrize("close", [None, float("nan"), float("inf"), float("-inf"), 0.0, -1.0],
+                             ids=["null", "nan", "infinity", "negative-infinity", "zero", "negative"])
+    @pytest.mark.parametrize("stock", ["600001.SH", "000001.SZ", "002514.SZ", "920001.BJ"],
+                             ids=["limit-up", "flat", "st-only-sector", "outside-members"])
+    def test_recovery_rejects_invalid_close_before_any_derived_write(stock, close):
+        with _db() as con:
+            _seed_two_days(con)
+            _seed_universe_and_members(con)
+            declared = {"990001.FP": ["600001.SH", "300001.SZ", "000001.SZ"],
+                        "990002.FP": ["002514.SZ"]}
+            cls_.compute_limit_stats_local("2026-09-02", con=con, recovery_members=declared)
+            tables = ("fact_theme_limit_heat_daily", "fact_theme_limit_stock_daily",
+                      "fact_limit_advance_daily", "fact_leader_height_daily")
+            before = {table: con.execute(f"SELECT * FROM {table} ORDER BY ALL").fetchall() for table in tables}
+            con.execute("UPDATE fact_stock_daily SET close=? WHERE trade_date='2026-09-02' AND stock_ts_code=?",
+                        [close, stock])
+>           with pytest.raises(ValueError, match="invalid canonical stock bar close"):
+E           Failed: DID NOT RAISE <class 'ValueError'>
+
+tests/test_compute_local_stats.py:153: Failed
+___ test_recovery_rejects_invalid_close_before_any_derived_write[flat-null] ____
+
+stock = '000001.SZ', close = None
+
+    @pytest.mark.parametrize("close", [None, float("nan"), float("inf"), float("-inf"), 0.0, -1.0],
+                             ids=["null", "nan", "infinity", "negative-infinity", "zero", "negative"])
+    @pytest.mark.parametrize("stock", ["600001.SH", "000001.SZ", "002514.SZ", "920001.BJ"],
+                             ids=["limit-up", "flat", "st-only-sector", "outside-members"])
+    def test_recovery_rejects_invalid_close_before_any_derived_write(stock, close):
+>       with _db() as con:
+
+tests/test_compute_local_stats.py:142: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+stock = '000001.SZ', close = None
+
+    @pytest.mark.parametrize("close", [None, float("nan"), float("inf"), float("-inf"), 0.0, -1.0],
+                             ids=["null", "nan", "infinity", "negative-infinity", "zero", "negative"])
+    @pytest.mark.parametrize("stock", ["600001.SH", "000001.SZ", "002514.SZ", "920001.BJ"],
+                             ids=["limit-up", "flat", "st-only-sector", "outside-members"])
+    def test_recovery_rejects_invalid_close_before_any_derived_write(stock, close):
+        with _db() as con:
+            _seed_two_days(con)
+            _seed_universe_and_members(con)
+            declared = {"990001.FP": ["600001.SH", "300001.SZ", "000001.SZ"],
+                        "990002.FP": ["002514.SZ"]}
+            cls_.compute_limit_stats_local("2026-09-02", con=con, recovery_members=declared)
+            tables = ("fact_theme_limit_heat_daily", "fact_theme_limit_stock_daily",
+                      "fact_limit_advance_daily", "fact_leader_height_daily")
+            before = {table: con.execute(f"SELECT * FROM {table} ORDER BY ALL").fetchall() for table in tables}
+            con.execute("UPDATE fact_stock_daily SET close=? WHERE trade_date='2026-09-02' AND stock_ts_code=?",
+                        [close, stock])
+>           with pytest.raises(ValueError, match="invalid canonical stock bar close"):
+E           Failed: DID NOT RAISE <class 'ValueError'>
+
+tests/test_compute_local_stats.py:153: Failed
+____ test_recovery_rejects_invalid_close_before_any_derived_write[flat-nan] ____
+
+stock = '000001.SZ', close = nan
+
+    @pytest.mark.parametrize("close", [None, float("nan"), float("inf"), float("-inf"), 0.0, -1.0],
+                             ids=["null", "nan", "infinity", "negative-infinity", "zero", "negative"])
+    @pytest.mark.parametrize("stock", ["600001.SH", "000001.SZ", "002514.SZ", "920001.BJ"],
+                             ids=["limit-up", "flat", "st-only-sector", "outside-members"])
+    def test_recovery_rejects_invalid_close_before_any_derived_write(stock, close):
+>       with _db() as con:
+
+tests/test_compute_local_stats.py:142: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+stock = '000001.SZ', close = nan
+
+    @pytest.mark.parametrize("close", [None, float("nan"), float("inf"), float("-inf"), 0.0, -1.0],
+                             ids=["null", "nan", "infinity", "negative-infinity", "zero", "negative"])
+    @pytest.mark.parametrize("stock", ["600001.SH", "000001.SZ", "002514.SZ", "920001.BJ"],
+                             ids=["limit-up", "flat", "st-only-sector", "outside-members"])
+    def test_recovery_rejects_invalid_close_before_any_derived_write(stock, close):
+        with _db() as con:
+            _seed_two_days(con)
+            _seed_universe_and_members(con)
+            declared = {"990001.FP": ["600001.SH", "300001.SZ", "000001.SZ"],
+                        "990002.FP": ["002514.SZ"]}
+            cls_.compute_limit_stats_local("2026-09-02", con=con, recovery_members=declared)
+            tables = ("fact_theme_limit_heat_daily", "fact_theme_limit_stock_daily",
+                      "fact_limit_advance_daily", "fact_leader_height_daily")
+            before = {table: con.execute(f"SELECT * FROM {table} ORDER BY ALL").fetchall() for table in tables}
+            con.execute("UPDATE fact_stock_daily SET close=? WHERE trade_date='2026-09-02' AND stock_ts_code=?",
+                        [close, stock])
+>           with pytest.raises(ValueError, match="invalid canonical stock bar close"):
+E           Failed: DID NOT RAISE <class 'ValueError'>
+
+tests/test_compute_local_stats.py:153: Failed
+_ test_recovery_rejects_invalid_close_before_any_derived_write[flat-infinity] __
+
+stock = '000001.SZ', close = inf
+
+    @pytest.mark.parametrize("close", [None, float("nan"), float("inf"), float("-inf"), 0.0, -1.0],
+                             ids=["null", "nan", "infinity", "negative-infinity", "zero", "negative"])
+    @pytest.mark.parametrize("stock", ["600001.SH", "000001.SZ", "002514.SZ", "920001.BJ"],
+                             ids=["limit-up", "flat", "st-only-sector", "outside-members"])
+    def test_recovery_rejects_invalid_close_before_any_derived_write(stock, close):
+>       with _db() as con:
+
+tests/test_compute_local_stats.py:142: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+stock = '000001.SZ', close = inf
+
+    @pytest.mark.parametrize("close", [None, float("nan"), float("inf"), float("-inf"), 0.0, -1.0],
+                             ids=["null", "nan", "infinity", "negative-infinity", "zero", "negative"])
+    @pytest.mark.parametrize("stock", ["600001.SH", "000001.SZ", "002514.SZ", "920001.BJ"],
+                             ids=["limit-up", "flat", "st-only-sector", "outside-members"])
+    def test_recovery_rejects_invalid_close_before_any_derived_write(stock, close):
+        with _db() as con:
+            _seed_two_days(con)
+            _seed_universe_and_members(con)
+            declared = {"990001.FP": ["600001.SH", "300001.SZ", "000001.SZ"],
+                        "990002.FP": ["002514.SZ"]}
+            cls_.compute_limit_stats_local("2026-09-02", con=con, recovery_members=declared)
+            tables = ("fact_theme_limit_heat_daily", "fact_theme_limit_stock_daily",
+                      "fact_limit_advance_daily", "fact_leader_height_daily")
+            before = {table: con.execute(f"SELECT * FROM {table} ORDER BY ALL").fetchall() for table in tables}
+            con.execute("UPDATE fact_stock_daily SET close=? WHERE trade_date='2026-09-02' AND stock_ts_code=?",
+                        [close, stock])
+>           with pytest.raises(ValueError, match="invalid canonical stock bar close"):
+E           Failed: DID NOT RAISE <class 'ValueError'>
+
+tests/test_compute_local_stats.py:153: Failed
+_ test_recovery_rejects_invalid_close_before_any_derived_write[flat-negative-infinity] _
+
+stock = '000001.SZ', close = -inf
+
+    @pytest.mark.parametrize("close", [None, float("nan"), float("inf"), float("-inf"), 0.0, -1.0],
+                             ids=["null", "nan", "infinity", "negative-infinity", "zero", "negative"])
+    @pytest.mark.parametrize("stock", ["600001.SH", "000001.SZ", "002514.SZ", "920001.BJ"],
+                             ids=["limit-up", "flat", "st-only-sector", "outside-members"])
+    def test_recovery_rejects_invalid_close_before_any_derived_write(stock, close):
+>       with _db() as con:
+
+tests/test_compute_local_stats.py:142: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+stock = '000001.SZ', close = -inf
+
+    @pytest.mark.parametrize("close", [None, float("nan"), float("inf"), float("-inf"), 0.0, -1.0],
+                             ids=["null", "nan", "infinity", "negative-infinity", "zero", "negative"])
+    @pytest.mark.parametrize("stock", ["600001.SH", "000001.SZ", "002514.SZ", "920001.BJ"],
+                             ids=["limit-up", "flat", "st-only-sector", "outside-members"])
+    def test_recovery_rejects_invalid_close_before_any_derived_write(stock, close):
+        with _db() as con:
+            _seed_two_days(con)
+            _seed_universe_and_members(con)
+            declared = {"990001.FP": ["600001.SH", "300001.SZ", "000001.SZ"],
+                        "990002.FP": ["002514.SZ"]}
+            cls_.compute_limit_stats_local("2026-09-02", con=con, recovery_members=declared)
+            tables = ("fact_theme_limit_heat_daily", "fact_theme_limit_stock_daily",
+                      "fact_limit_advance_daily", "fact_leader_height_daily")
+            before = {table: con.execute(f"SELECT * FROM {table} ORDER BY ALL").fetchall() for table in tables}
+            con.execute("UPDATE fact_stock_daily SET close=? WHERE trade_date='2026-09-02' AND stock_ts_code=?",
+                        [close, stock])
+>           with pytest.raises(ValueError, match="invalid canonical stock bar close"):
+E           Failed: DID NOT RAISE <class 'ValueError'>
+
+tests/test_compute_local_stats.py:153: Failed
+___ test_recovery_rejects_invalid_close_before_any_derived_write[flat-zero] ____
+
+stock = '000001.SZ', close = 0.0
+
+    @pytest.mark.parametrize("close", [None, float("nan"), float("inf"), float("-inf"), 0.0, -1.0],
+                             ids=["null", "nan", "infinity", "negative-infinity", "zero", "negative"])
+    @pytest.mark.parametrize("stock", ["600001.SH", "000001.SZ", "002514.SZ", "920001.BJ"],
+                             ids=["limit-up", "flat", "st-only-sector", "outside-members"])
+    def test_recovery_rejects_invalid_close_before_any_derived_write(stock, close):
+>       with _db() as con:
+
+tests/test_compute_local_stats.py:142: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+stock = '000001.SZ', close = 0.0
+
+    @pytest.mark.parametrize("close", [None, float("nan"), float("inf"), float("-inf"), 0.0, -1.0],
+                             ids=["null", "nan", "infinity", "negative-infinity", "zero", "negative"])
+    @pytest.mark.parametrize("stock", ["600001.SH", "000001.SZ", "002514.SZ", "920001.BJ"],
+                             ids=["limit-up", "flat", "st-only-sector", "outside-members"])
+    def test_recovery_rejects_invalid_close_before_any_derived_write(stock, close):
+        with _db() as con:
+            _seed_two_days(con)
+            _seed_universe_and_members(con)
+            declared = {"990001.FP": ["600001.SH", "300001.SZ", "000001.SZ"],
+                        "990002.FP": ["002514.SZ"]}
+            cls_.compute_limit_stats_local("2026-09-02", con=con, recovery_members=declared)
+            tables = ("fact_theme_limit_heat_daily", "fact_theme_limit_stock_daily",
+                      "fact_limit_advance_daily", "fact_leader_height_daily")
+            before = {table: con.execute(f"SELECT * FROM {table} ORDER BY ALL").fetchall() for table in tables}
+            con.execute("UPDATE fact_stock_daily SET close=? WHERE trade_date='2026-09-02' AND stock_ts_code=?",
+                        [close, stock])
+>           with pytest.raises(ValueError, match="invalid canonical stock bar close"):
+E           Failed: DID NOT RAISE <class 'ValueError'>
+
+tests/test_compute_local_stats.py:153: Failed
+_ test_recovery_rejects_invalid_close_before_any_derived_write[flat-negative] __
+
+stock = '000001.SZ', close = -1.0
+
+    @pytest.mark.parametrize("close", [None, float("nan"), float("inf"), float("-inf"), 0.0, -1.0],
+                             ids=["null", "nan", "infinity", "negative-infinity", "zero", "negative"])
+    @pytest.mark.parametrize("stock", ["600001.SH", "000001.SZ", "002514.SZ", "920001.BJ"],
+                             ids=["limit-up", "flat", "st-only-sector", "outside-members"])
+    def test_recovery_rejects_invalid_close_before_any_derived_write(stock, close):
+>       with _db() as con:
+
+tests/test_compute_local_stats.py:142: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+stock = '000001.SZ', close = -1.0
+
+    @pytest.mark.parametrize("close", [None, float("nan"), float("inf"), float("-inf"), 0.0, -1.0],
+                             ids=["null", "nan", "infinity", "negative-infinity", "zero", "negative"])
+    @pytest.mark.parametrize("stock", ["600001.SH", "000001.SZ", "002514.SZ", "920001.BJ"],
+                             ids=["limit-up", "flat", "st-only-sector", "outside-members"])
+    def test_recovery_rejects_invalid_close_before_any_derived_write(stock, close):
+        with _db() as con:
+            _seed_two_days(con)
+            _seed_universe_and_members(con)
+            declared = {"990001.FP": ["600001.SH", "300001.SZ", "000001.SZ"],
+                        "990002.FP": ["002514.SZ"]}
+            cls_.compute_limit_stats_local("2026-09-02", con=con, recovery_members=declared)
+            tables = ("fact_theme_limit_heat_daily", "fact_theme_limit_stock_daily",
+                      "fact_limit_advance_daily", "fact_leader_height_daily")
+            before = {table: con.execute(f"SELECT * FROM {table} ORDER BY ALL").fetchall() for table in tables}
+            con.execute("UPDATE fact_stock_daily SET close=? WHERE trade_date='2026-09-02' AND stock_ts_code=?",
+                        [close, stock])
+>           with pytest.raises(ValueError, match="invalid canonical stock bar close"):
+E           Failed: DID NOT RAISE <class 'ValueError'>
+
+tests/test_compute_local_stats.py:153: Failed
+_ test_recovery_rejects_invalid_close_before_any_derived_write[st-only-sector-null] _
+
+stock = '002514.SZ', close = None
+
+    @pytest.mark.parametrize("close", [None, float("nan"), float("inf"), float("-inf"), 0.0, -1.0],
+                             ids=["null", "nan", "infinity", "negative-infinity", "zero", "negative"])
+    @pytest.mark.parametrize("stock", ["600001.SH", "000001.SZ", "002514.SZ", "920001.BJ"],
+                             ids=["limit-up", "flat", "st-only-sector", "outside-members"])
+    def test_recovery_rejects_invalid_close_before_any_derived_write(stock, close):
+>       with _db() as con:
+
+tests/test_compute_local_stats.py:142: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+stock = '002514.SZ', close = None
+
+    @pytest.mark.parametrize("close", [None, float("nan"), float("inf"), float("-inf"), 0.0, -1.0],
+                             ids=["null", "nan", "infinity", "negative-infinity", "zero", "negative"])
+    @pytest.mark.parametrize("stock", ["600001.SH", "000001.SZ", "002514.SZ", "920001.BJ"],
+                             ids=["limit-up", "flat", "st-only-sector", "outside-members"])
+    def test_recovery_rejects_invalid_close_before_any_derived_write(stock, close):
+        with _db() as con:
+            _seed_two_days(con)
+            _seed_universe_and_members(con)
+            declared = {"990001.FP": ["600001.SH", "300001.SZ", "000001.SZ"],
+                        "990002.FP": ["002514.SZ"]}
+            cls_.compute_limit_stats_local("2026-09-02", con=con, recovery_members=declared)
+            tables = ("fact_theme_limit_heat_daily", "fact_theme_limit_stock_daily",
+                      "fact_limit_advance_daily", "fact_leader_height_daily")
+            before = {table: con.execute(f"SELECT * FROM {table} ORDER BY ALL").fetchall() for table in tables}
+            con.execute("UPDATE fact_stock_daily SET close=? WHERE trade_date='2026-09-02' AND stock_ts_code=?",
+                        [close, stock])
+>           with pytest.raises(ValueError, match="invalid canonical stock bar close"):
+E           Failed: DID NOT RAISE <class 'ValueError'>
+
+tests/test_compute_local_stats.py:153: Failed
+_ test_recovery_rejects_invalid_close_before_any_derived_write[st-only-sector-nan] _
+
+stock = '002514.SZ', close = nan
+
+    @pytest.mark.parametrize("close", [None, float("nan"), float("inf"), float("-inf"), 0.0, -1.0],
+                             ids=["null", "nan", "infinity", "negative-infinity", "zero", "negative"])
+    @pytest.mark.parametrize("stock", ["600001.SH", "000001.SZ", "002514.SZ", "920001.BJ"],
+                             ids=["limit-up", "flat", "st-only-sector", "outside-members"])
+    def test_recovery_rejects_invalid_close_before_any_derived_write(stock, close):
+>       with _db() as con:
+
+tests/test_compute_local_stats.py:142: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+stock = '002514.SZ', close = nan
+
+    @pytest.mark.parametrize("close", [None, float("nan"), float("inf"), float("-inf"), 0.0, -1.0],
+                             ids=["null", "nan", "infinity", "negative-infinity", "zero", "negative"])
+    @pytest.mark.parametrize("stock", ["600001.SH", "000001.SZ", "002514.SZ", "920001.BJ"],
+                             ids=["limit-up", "flat", "st-only-sector", "outside-members"])
+    def test_recovery_rejects_invalid_close_before_any_derived_write(stock, close):
+        with _db() as con:
+            _seed_two_days(con)
+            _seed_universe_and_members(con)
+            declared = {"990001.FP": ["600001.SH", "300001.SZ", "000001.SZ"],
+                        "990002.FP": ["002514.SZ"]}
+            cls_.compute_limit_stats_local("2026-09-02", con=con, recovery_members=declared)
+            tables = ("fact_theme_limit_heat_daily", "fact_theme_limit_stock_daily",
+                      "fact_limit_advance_daily", "fact_leader_height_daily")
+            before = {table: con.execute(f"SELECT * FROM {table} ORDER BY ALL").fetchall() for table in tables}
+            con.execute("UPDATE fact_stock_daily SET close=? WHERE trade_date='2026-09-02' AND stock_ts_code=?",
+                        [close, stock])
+>           with pytest.raises(ValueError, match="invalid canonical stock bar close"):
+E           Failed: DID NOT RAISE <class 'ValueError'>
+
+tests/test_compute_local_stats.py:153: Failed
+_ test_recovery_rejects_invalid_close_before_any_derived_write[st-only-sector-infinity] _
+
+stock = '002514.SZ', close = inf
+
+    @pytest.mark.parametrize("close", [None, float("nan"), float("inf"), float("-inf"), 0.0, -1.0],
+                             ids=["null", "nan", "infinity", "negative-infinity", "zero", "negative"])
+    @pytest.mark.parametrize("stock", ["600001.SH", "000001.SZ", "002514.SZ", "920001.BJ"],
+                             ids=["limit-up", "flat", "st-only-sector", "outside-members"])
+    def test_recovery_rejects_invalid_close_before_any_derived_write(stock, close):
+>       with _db() as con:
+
+tests/test_compute_local_stats.py:142: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+stock = '002514.SZ', close = inf
+
+    @pytest.mark.parametrize("close", [None, float("nan"), float("inf"), float("-inf"), 0.0, -1.0],
+                             ids=["null", "nan", "infinity", "negative-infinity", "zero", "negative"])
+    @pytest.mark.parametrize("stock", ["600001.SH", "000001.SZ", "002514.SZ", "920001.BJ"],
+                             ids=["limit-up", "flat", "st-only-sector", "outside-members"])
+    def test_recovery_rejects_invalid_close_before_any_derived_write(stock, close):
+        with _db() as con:
+            _seed_two_days(con)
+            _seed_universe_and_members(con)
+            declared = {"990001.FP": ["600001.SH", "300001.SZ", "000001.SZ"],
+                        "990002.FP": ["002514.SZ"]}
+            cls_.compute_limit_stats_local("2026-09-02", con=con, recovery_members=declared)
+            tables = ("fact_theme_limit_heat_daily", "fact_theme_limit_stock_daily",
+                      "fact_limit_advance_daily", "fact_leader_height_daily")
+            before = {table: con.execute(f"SELECT * FROM {table} ORDER BY ALL").fetchall() for table in tables}
+            con.execute("UPDATE fact_stock_daily SET close=? WHERE trade_date='2026-09-02' AND stock_ts_code=?",
+                        [close, stock])
+>           with pytest.raises(ValueError, match="invalid canonical stock bar close"):
+E           Failed: DID NOT RAISE <class 'ValueError'>
+
+tests/test_compute_local_stats.py:153: Failed
+_ test_recovery_rejects_invalid_close_before_any_derived_write[st-only-sector-negative-infinity] _
+
+stock = '002514.SZ', close = -inf
+
+    @pytest.mark.parametrize("close", [None, float("nan"), float("inf"), float("-inf"), 0.0, -1.0],
+                             ids=["null", "nan", "infinity", "negative-infinity", "zero", "negative"])
+    @pytest.mark.parametrize("stock", ["600001.SH", "000001.SZ", "002514.SZ", "920001.BJ"],
+                             ids=["limit-up", "flat", "st-only-sector", "outside-members"])
+    def test_recovery_rejects_invalid_close_before_any_derived_write(stock, close):
+>       with _db() as con:
+
+tests/test_compute_local_stats.py:142: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+stock = '002514.SZ', close = -inf
+
+    @pytest.mark.parametrize("close", [None, float("nan"), float("inf"), float("-inf"), 0.0, -1.0],
+                             ids=["null", "nan", "infinity", "negative-infinity", "zero", "negative"])
+    @pytest.mark.parametrize("stock", ["600001.SH", "000001.SZ", "002514.SZ", "920001.BJ"],
+                             ids=["limit-up", "flat", "st-only-sector", "outside-members"])
+    def test_recovery_rejects_invalid_close_before_any_derived_write(stock, close):
+        with _db() as con:
+            _seed_two_days(con)
+            _seed_universe_and_members(con)
+            declared = {"990001.FP": ["600001.SH", "300001.SZ", "000001.SZ"],
+                        "990002.FP": ["002514.SZ"]}
+            cls_.compute_limit_stats_local("2026-09-02", con=con, recovery_members=declared)
+            tables = ("fact_theme_limit_heat_daily", "fact_theme_limit_stock_daily",
+                      "fact_limit_advance_daily", "fact_leader_height_daily")
+            before = {table: con.execute(f"SELECT * FROM {table} ORDER BY ALL").fetchall() for table in tables}
+            con.execute("UPDATE fact_stock_daily SET close=? WHERE trade_date='2026-09-02' AND stock_ts_code=?",
+                        [close, stock])
+>           with pytest.raises(ValueError, match="invalid canonical stock bar close"):
+E           Failed: DID NOT RAISE <class 'ValueError'>
+
+tests/test_compute_local_stats.py:153: Failed
+_ test_recovery_rejects_invalid_close_before_any_derived_write[st-only-sector-zero] _
+
+stock = '002514.SZ', close = 0.0
+
+    @pytest.mark.parametrize("close", [None, float("nan"), float("inf"), float("-inf"), 0.0, -1.0],
+                             ids=["null", "nan", "infinity", "negative-infinity", "zero", "negative"])
+    @pytest.mark.parametrize("stock", ["600001.SH", "000001.SZ", "002514.SZ", "920001.BJ"],
+                             ids=["limit-up", "flat", "st-only-sector", "outside-members"])
+    def test_recovery_rejects_invalid_close_before_any_derived_write(stock, close):
+>       with _db() as con:
+
+tests/test_compute_local_stats.py:142: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+stock = '002514.SZ', close = 0.0
+
+    @pytest.mark.parametrize("close", [None, float("nan"), float("inf"), float("-inf"), 0.0, -1.0],
+                             ids=["null", "nan", "infinity", "negative-infinity", "zero", "negative"])
+    @pytest.mark.parametrize("stock", ["600001.SH", "000001.SZ", "002514.SZ", "920001.BJ"],
+                             ids=["limit-up", "flat", "st-only-sector", "outside-members"])
+    def test_recovery_rejects_invalid_close_before_any_derived_write(stock, close):
+        with _db() as con:
+            _seed_two_days(con)
+            _seed_universe_and_members(con)
+            declared = {"990001.FP": ["600001.SH", "300001.SZ", "000001.SZ"],
+                        "990002.FP": ["002514.SZ"]}
+            cls_.compute_limit_stats_local("2026-09-02", con=con, recovery_members=declared)
+            tables = ("fact_theme_limit_heat_daily", "fact_theme_limit_stock_daily",
+                      "fact_limit_advance_daily", "fact_leader_height_daily")
+            before = {table: con.execute(f"SELECT * FROM {table} ORDER BY ALL").fetchall() for table in tables}
+            con.execute("UPDATE fact_stock_daily SET close=? WHERE trade_date='2026-09-02' AND stock_ts_code=?",
+                        [close, stock])
+>           with pytest.raises(ValueError, match="invalid canonical stock bar close"):
+E           Failed: DID NOT RAISE <class 'ValueError'>
+
+tests/test_compute_local_stats.py:153: Failed
+_ test_recovery_rejects_invalid_close_before_any_derived_write[st-only-sector-negative] _
+
+stock = '002514.SZ', close = -1.0
+
+    @pytest.mark.parametrize("close", [None, float("nan"), float("inf"), float("-inf"), 0.0, -1.0],
+                             ids=["null", "nan", "infinity", "negative-infinity", "zero", "negative"])
+    @pytest.mark.parametrize("stock", ["600001.SH", "000001.SZ", "002514.SZ", "920001.BJ"],
+                             ids=["limit-up", "flat", "st-only-sector", "outside-members"])
+    def test_recovery_rejects_invalid_close_before_any_derived_write(stock, close):
+>       with _db() as con:
+
+tests/test_compute_local_stats.py:142: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+stock = '002514.SZ', close = -1.0
+
+    @pytest.mark.parametrize("close", [None, float("nan"), float("inf"), float("-inf"), 0.0, -1.0],
+                             ids=["null", "nan", "infinity", "negative-infinity", "zero", "negative"])
+    @pytest.mark.parametrize("stock", ["600001.SH", "000001.SZ", "002514.SZ", "920001.BJ"],
+                             ids=["limit-up", "flat", "st-only-sector", "outside-members"])
+    def test_recovery_rejects_invalid_close_before_any_derived_write(stock, close):
+        with _db() as con:
+            _seed_two_days(con)
+            _seed_universe_and_members(con)
+            declared = {"990001.FP": ["600001.SH", "300001.SZ", "000001.SZ"],
+                        "990002.FP": ["002514.SZ"]}
+            cls_.compute_limit_stats_local("2026-09-02", con=con, recovery_members=declared)
+            tables = ("fact_theme_limit_heat_daily", "fact_theme_limit_stock_daily",
+                      "fact_limit_advance_daily", "fact_leader_height_daily")
+            before = {table: con.execute(f"SELECT * FROM {table} ORDER BY ALL").fetchall() for table in tables}
+            con.execute("UPDATE fact_stock_daily SET close=? WHERE trade_date='2026-09-02' AND stock_ts_code=?",
+                        [close, stock])
+>           with pytest.raises(ValueError, match="invalid canonical stock bar close"):
+E           Failed: DID NOT RAISE <class 'ValueError'>
+
+tests/test_compute_local_stats.py:153: Failed
+_ test_recovery_rejects_invalid_close_before_any_derived_write[outside-members-null] _
+
+stock = '920001.BJ', close = None
+
+    @pytest.mark.parametrize("close", [None, float("nan"), float("inf"), float("-inf"), 0.0, -1.0],
+                             ids=["null", "nan", "infinity", "negative-infinity", "zero", "negative"])
+    @pytest.mark.parametrize("stock", ["600001.SH", "000001.SZ", "002514.SZ", "920001.BJ"],
+                             ids=["limit-up", "flat", "st-only-sector", "outside-members"])
+    def test_recovery_rejects_invalid_close_before_any_derived_write(stock, close):
+>       with _db() as con:
+
+tests/test_compute_local_stats.py:142: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+stock = '920001.BJ', close = None
+
+    @pytest.mark.parametrize("close", [None, float("nan"), float("inf"), float("-inf"), 0.0, -1.0],
+                             ids=["null", "nan", "infinity", "negative-infinity", "zero", "negative"])
+    @pytest.mark.parametrize("stock", ["600001.SH", "000001.SZ", "002514.SZ", "920001.BJ"],
+                             ids=["limit-up", "flat", "st-only-sector", "outside-members"])
+    def test_recovery_rejects_invalid_close_before_any_derived_write(stock, close):
+        with _db() as con:
+            _seed_two_days(con)
+            _seed_universe_and_members(con)
+            declared = {"990001.FP": ["600001.SH", "300001.SZ", "000001.SZ"],
+                        "990002.FP": ["002514.SZ"]}
+            cls_.compute_limit_stats_local("2026-09-02", con=con, recovery_members=declared)
+            tables = ("fact_theme_limit_heat_daily", "fact_theme_limit_stock_daily",
+                      "fact_limit_advance_daily", "fact_leader_height_daily")
+            before = {table: con.execute(f"SELECT * FROM {table} ORDER BY ALL").fetchall() for table in tables}
+            con.execute("UPDATE fact_stock_daily SET close=? WHERE trade_date='2026-09-02' AND stock_ts_code=?",
+                        [close, stock])
+>           with pytest.raises(ValueError, match="invalid canonical stock bar close"):
+E           Failed: DID NOT RAISE <class 'ValueError'>
+
+tests/test_compute_local_stats.py:153: Failed
+_ test_recovery_rejects_invalid_close_before_any_derived_write[outside-members-nan] _
+
+stock = '920001.BJ', close = nan
+
+    @pytest.mark.parametrize("close", [None, float("nan"), float("inf"), float("-inf"), 0.0, -1.0],
+                             ids=["null", "nan", "infinity", "negative-infinity", "zero", "negative"])
+    @pytest.mark.parametrize("stock", ["600001.SH", "000001.SZ", "002514.SZ", "920001.BJ"],
+                             ids=["limit-up", "flat", "st-only-sector", "outside-members"])
+    def test_recovery_rejects_invalid_close_before_any_derived_write(stock, close):
+>       with _db() as con:
+
+tests/test_compute_local_stats.py:142: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+stock = '920001.BJ', close = nan
+
+    @pytest.mark.parametrize("close", [None, float("nan"), float("inf"), float("-inf"), 0.0, -1.0],
+                             ids=["null", "nan", "infinity", "negative-infinity", "zero", "negative"])
+    @pytest.mark.parametrize("stock", ["600001.SH", "000001.SZ", "002514.SZ", "920001.BJ"],
+                             ids=["limit-up", "flat", "st-only-sector", "outside-members"])
+    def test_recovery_rejects_invalid_close_before_any_derived_write(stock, close):
+        with _db() as con:
+            _seed_two_days(con)
+            _seed_universe_and_members(con)
+            declared = {"990001.FP": ["600001.SH", "300001.SZ", "000001.SZ"],
+                        "990002.FP": ["002514.SZ"]}
+            cls_.compute_limit_stats_local("2026-09-02", con=con, recovery_members=declared)
+            tables = ("fact_theme_limit_heat_daily", "fact_theme_limit_stock_daily",
+                      "fact_limit_advance_daily", "fact_leader_height_daily")
+            before = {table: con.execute(f"SELECT * FROM {table} ORDER BY ALL").fetchall() for table in tables}
+            con.execute("UPDATE fact_stock_daily SET close=? WHERE trade_date='2026-09-02' AND stock_ts_code=?",
+                        [close, stock])
+>           with pytest.raises(ValueError, match="invalid canonical stock bar close"):
+E           Failed: DID NOT RAISE <class 'ValueError'>
+
+tests/test_compute_local_stats.py:153: Failed
+_ test_recovery_rejects_invalid_close_before_any_derived_write[outside-members-infinity] _
+
+stock = '920001.BJ', close = inf
+
+    @pytest.mark.parametrize("close", [None, float("nan"), float("inf"), float("-inf"), 0.0, -1.0],
+                             ids=["null", "nan", "infinity", "negative-infinity", "zero", "negative"])
+    @pytest.mark.parametrize("stock", ["600001.SH", "000001.SZ", "002514.SZ", "920001.BJ"],
+                             ids=["limit-up", "flat", "st-only-sector", "outside-members"])
+    def test_recovery_rejects_invalid_close_before_any_derived_write(stock, close):
+>       with _db() as con:
+
+tests/test_compute_local_stats.py:142: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+stock = '920001.BJ', close = inf
+
+    @pytest.mark.parametrize("close", [None, float("nan"), float("inf"), float("-inf"), 0.0, -1.0],
+                             ids=["null", "nan", "infinity", "negative-infinity", "zero", "negative"])
+    @pytest.mark.parametrize("stock", ["600001.SH", "000001.SZ", "002514.SZ", "920001.BJ"],
+                             ids=["limit-up", "flat", "st-only-sector", "outside-members"])
+    def test_recovery_rejects_invalid_close_before_any_derived_write(stock, close):
+        with _db() as con:
+            _seed_two_days(con)
+            _seed_universe_and_members(con)
+            declared = {"990001.FP": ["600001.SH", "300001.SZ", "000001.SZ"],
+                        "990002.FP": ["002514.SZ"]}
+            cls_.compute_limit_stats_local("2026-09-02", con=con, recovery_members=declared)
+            tables = ("fact_theme_limit_heat_daily", "fact_theme_limit_stock_daily",
+                      "fact_limit_advance_daily", "fact_leader_height_daily")
+            before = {table: con.execute(f"SELECT * FROM {table} ORDER BY ALL").fetchall() for table in tables}
+            con.execute("UPDATE fact_stock_daily SET close=? WHERE trade_date='2026-09-02' AND stock_ts_code=?",
+                        [close, stock])
+>           with pytest.raises(ValueError, match="invalid canonical stock bar close"):
+E           Failed: DID NOT RAISE <class 'ValueError'>
+
+tests/test_compute_local_stats.py:153: Failed
+_ test_recovery_rejects_invalid_close_before_any_derived_write[outside-members-negative-infinity] _
+
+stock = '920001.BJ', close = -inf
+
+    @pytest.mark.parametrize("close", [None, float("nan"), float("inf"), float("-inf"), 0.0, -1.0],
+                             ids=["null", "nan", "infinity", "negative-infinity", "zero", "negative"])
+    @pytest.mark.parametrize("stock", ["600001.SH", "000001.SZ", "002514.SZ", "920001.BJ"],
+                             ids=["limit-up", "flat", "st-only-sector", "outside-members"])
+    def test_recovery_rejects_invalid_close_before_any_derived_write(stock, close):
+>       with _db() as con:
+
+tests/test_compute_local_stats.py:142: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+stock = '920001.BJ', close = -inf
+
+    @pytest.mark.parametrize("close", [None, float("nan"), float("inf"), float("-inf"), 0.0, -1.0],
+                             ids=["null", "nan", "infinity", "negative-infinity", "zero", "negative"])
+    @pytest.mark.parametrize("stock", ["600001.SH", "000001.SZ", "002514.SZ", "920001.BJ"],
+                             ids=["limit-up", "flat", "st-only-sector", "outside-members"])
+    def test_recovery_rejects_invalid_close_before_any_derived_write(stock, close):
+        with _db() as con:
+            _seed_two_days(con)
+            _seed_universe_and_members(con)
+            declared = {"990001.FP": ["600001.SH", "300001.SZ", "000001.SZ"],
+                        "990002.FP": ["002514.SZ"]}
+            cls_.compute_limit_stats_local("2026-09-02", con=con, recovery_members=declared)
+            tables = ("fact_theme_limit_heat_daily", "fact_theme_limit_stock_daily",
+                      "fact_limit_advance_daily", "fact_leader_height_daily")
+            before = {table: con.execute(f"SELECT * FROM {table} ORDER BY ALL").fetchall() for table in tables}
+            con.execute("UPDATE fact_stock_daily SET close=? WHERE trade_date='2026-09-02' AND stock_ts_code=?",
+                        [close, stock])
+>           with pytest.raises(ValueError, match="invalid canonical stock bar close"):
+E           Failed: DID NOT RAISE <class 'ValueError'>
+
+tests/test_compute_local_stats.py:153: Failed
+_ test_recovery_rejects_invalid_close_before_any_derived_write[outside-members-zero] _
+
+stock = '920001.BJ', close = 0.0
+
+    @pytest.mark.parametrize("close", [None, float("nan"), float("inf"), float("-inf"), 0.0, -1.0],
+                             ids=["null", "nan", "infinity", "negative-infinity", "zero", "negative"])
+    @pytest.mark.parametrize("stock", ["600001.SH", "000001.SZ", "002514.SZ", "920001.BJ"],
+                             ids=["limit-up", "flat", "st-only-sector", "outside-members"])
+    def test_recovery_rejects_invalid_close_before_any_derived_write(stock, close):
+>       with _db() as con:
+
+tests/test_compute_local_stats.py:142: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+stock = '920001.BJ', close = 0.0
+
+    @pytest.mark.parametrize("close", [None, float("nan"), float("inf"), float("-inf"), 0.0, -1.0],
+                             ids=["null", "nan", "infinity", "negative-infinity", "zero", "negative"])
+    @pytest.mark.parametrize("stock", ["600001.SH", "000001.SZ", "002514.SZ", "920001.BJ"],
+                             ids=["limit-up", "flat", "st-only-sector", "outside-members"])
+    def test_recovery_rejects_invalid_close_before_any_derived_write(stock, close):
+        with _db() as con:
+            _seed_two_days(con)
+            _seed_universe_and_members(con)
+            declared = {"990001.FP": ["600001.SH", "300001.SZ", "000001.SZ"],
+                        "990002.FP": ["002514.SZ"]}
+            cls_.compute_limit_stats_local("2026-09-02", con=con, recovery_members=declared)
+            tables = ("fact_theme_limit_heat_daily", "fact_theme_limit_stock_daily",
+                      "fact_limit_advance_daily", "fact_leader_height_daily")
+            before = {table: con.execute(f"SELECT * FROM {table} ORDER BY ALL").fetchall() for table in tables}
+            con.execute("UPDATE fact_stock_daily SET close=? WHERE trade_date='2026-09-02' AND stock_ts_code=?",
+                        [close, stock])
+>           with pytest.raises(ValueError, match="invalid canonical stock bar close"):
+E           Failed: DID NOT RAISE <class 'ValueError'>
+
+tests/test_compute_local_stats.py:153: Failed
+_ test_recovery_rejects_invalid_close_before_any_derived_write[outside-members-negative] _
+
+stock = '920001.BJ', close = -1.0
+
+    @pytest.mark.parametrize("close", [None, float("nan"), float("inf"), float("-inf"), 0.0, -1.0],
+                             ids=["null", "nan", "infinity", "negative-infinity", "zero", "negative"])
+    @pytest.mark.parametrize("stock", ["600001.SH", "000001.SZ", "002514.SZ", "920001.BJ"],
+                             ids=["limit-up", "flat", "st-only-sector", "outside-members"])
+    def test_recovery_rejects_invalid_close_before_any_derived_write(stock, close):
+>       with _db() as con:
+
+tests/test_compute_local_stats.py:142: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+stock = '920001.BJ', close = -1.0
+
+    @pytest.mark.parametrize("close", [None, float("nan"), float("inf"), float("-inf"), 0.0, -1.0],
+                             ids=["null", "nan", "infinity", "negative-infinity", "zero", "negative"])
+    @pytest.mark.parametrize("stock", ["600001.SH", "000001.SZ", "002514.SZ", "920001.BJ"],
+                             ids=["limit-up", "flat", "st-only-sector", "outside-members"])
+    def test_recovery_rejects_invalid_close_before_any_derived_write(stock, close):
+        with _db() as con:
+            _seed_two_days(con)
+            _seed_universe_and_members(con)
+            declared = {"990001.FP": ["600001.SH", "300001.SZ", "000001.SZ"],
+                        "990002.FP": ["002514.SZ"]}
+            cls_.compute_limit_stats_local("2026-09-02", con=con, recovery_members=declared)
+            tables = ("fact_theme_limit_heat_daily", "fact_theme_limit_stock_daily",
+                      "fact_limit_advance_daily", "fact_leader_height_daily")
+            before = {table: con.execute(f"SELECT * FROM {table} ORDER BY ALL").fetchall() for table in tables}
+            con.execute("UPDATE fact_stock_daily SET close=? WHERE trade_date='2026-09-02' AND stock_ts_code=?",
+                        [close, stock])
+>           with pytest.raises(ValueError, match="invalid canonical stock bar close"):
+E           Failed: DID NOT RAISE <class 'ValueError'>
+
+tests/test_compute_local_stats.py:153: Failed
+=========================== short test summary info ============================
+FAILED tests/test_compute_local_stats.py::test_recovery_rejects_invalid_close_before_any_derived_write[limit-up-null]
+FAILED tests/test_compute_local_stats.py::test_recovery_rejects_invalid_close_before_any_derived_write[limit-up-nan]
+FAILED tests/test_compute_local_stats.py::test_recovery_rejects_invalid_close_before_any_derived_write[limit-up-infinity]
+FAILED tests/test_compute_local_stats.py::test_recovery_rejects_invalid_close_before_any_derived_write[limit-up-negative-infinity]
+FAILED tests/test_compute_local_stats.py::test_recovery_rejects_invalid_close_before_any_derived_write[limit-up-zero]
+FAILED tests/test_compute_local_stats.py::test_recovery_rejects_invalid_close_before_any_derived_write[limit-up-negative]
+FAILED tests/test_compute_local_stats.py::test_recovery_rejects_invalid_close_before_any_derived_write[flat-null]
+FAILED tests/test_compute_local_stats.py::test_recovery_rejects_invalid_close_before_any_derived_write[flat-nan]
+FAILED tests/test_compute_local_stats.py::test_recovery_rejects_invalid_close_before_any_derived_write[flat-infinity]
+FAILED tests/test_compute_local_stats.py::test_recovery_rejects_invalid_close_before_any_derived_write[flat-negative-infinity]
+FAILED tests/test_compute_local_stats.py::test_recovery_rejects_invalid_close_before_any_derived_write[flat-zero]
+FAILED tests/test_compute_local_stats.py::test_recovery_rejects_invalid_close_before_any_derived_write[flat-negative]
+FAILED tests/test_compute_local_stats.py::test_recovery_rejects_invalid_close_before_any_derived_write[st-only-sector-null]
+FAILED tests/test_compute_local_stats.py::test_recovery_rejects_invalid_close_before_any_derived_write[st-only-sector-nan]
+FAILED tests/test_compute_local_stats.py::test_recovery_rejects_invalid_close_before_any_derived_write[st-only-sector-infinity]
+FAILED tests/test_compute_local_stats.py::test_recovery_rejects_invalid_close_before_any_derived_write[st-only-sector-negative-infinity]
+FAILED tests/test_compute_local_stats.py::test_recovery_rejects_invalid_close_before_any_derived_write[st-only-sector-zero]
+FAILED tests/test_compute_local_stats.py::test_recovery_rejects_invalid_close_before_any_derived_write[st-only-sector-negative]
+FAILED tests/test_compute_local_stats.py::test_recovery_rejects_invalid_close_before_any_derived_write[outside-members-null]
+FAILED tests/test_compute_local_stats.py::test_recovery_rejects_invalid_close_before_any_derived_write[outside-members-nan]
+FAILED tests/test_compute_local_stats.py::test_recovery_rejects_invalid_close_before_any_derived_write[outside-members-infinity]
+FAILED tests/test_compute_local_stats.py::test_recovery_rejects_invalid_close_before_any_derived_write[outside-members-negative-infinity]
+FAILED tests/test_compute_local_stats.py::test_recovery_rejects_invalid_close_before_any_derived_write[outside-members-zero]
+FAILED tests/test_compute_local_stats.py::test_recovery_rejects_invalid_close_before_any_derived_write[outside-members-negative]
+24 failed, 23 deselected in 5.57s

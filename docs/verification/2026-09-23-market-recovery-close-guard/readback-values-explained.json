@@ -1,0 +1,265 @@
+{
+  "database": "/Users/a77/finance-workspace-private/db/market_feature_store.duckdb",
+  "read_only": true,
+  "read_at": "2026-09-23T06:35:12.774774+00:00",
+  "vendor_bars_missing_from_canonical": [
+    {
+      "trade_date": "2026-09-18",
+      "stock_ts_code": "302132.SZ"
+    },
+    {
+      "trade_date": "2026-09-21",
+      "stock_ts_code": "600301.SH"
+    },
+    {
+      "trade_date": "2026-09-21",
+      "stock_ts_code": "600825.SH"
+    },
+    {
+      "trade_date": "2026-09-22",
+      "stock_ts_code": "300803.SZ"
+    },
+    {
+      "trade_date": "2026-09-22",
+      "stock_ts_code": "301686.SZ"
+    },
+    {
+      "trade_date": "2026-09-22",
+      "stock_ts_code": "920229.BJ"
+    }
+  ],
+  "file_metadata_unchanged": true,
+  "value_audit": [
+    {
+      "trade_date": "2026-09-18",
+      "rows": 5553,
+      "invalid_close": 0,
+      "null_pre_close": 0,
+      "null_pct_chg": 0,
+      "null_amount": 1,
+      "zero_amount": 0,
+      "null_stock_name": 0,
+      "null_turnover": 0
+    },
+    {
+      "trade_date": "2026-09-21",
+      "rows": 5551,
+      "invalid_close": 0,
+      "null_pre_close": 0,
+      "null_pct_chg": 0,
+      "null_amount": 0,
+      "zero_amount": 0,
+      "null_stock_name": 0,
+      "null_turnover": 5551
+    },
+    {
+      "trade_date": "2026-09-22",
+      "rows": 5551,
+      "invalid_close": 0,
+      "null_pre_close": 0,
+      "null_pct_chg": 0,
+      "null_amount": 0,
+      "zero_amount": 0,
+      "null_stock_name": 0,
+      "null_turnover": 5551
+    }
+  ],
+  "missing_bar_previews": [
+    {
+      "contract_version": "hithink-stock-preview-v1",
+      "trade_date": "2026-09-18",
+      "previous_trade_date": "2026-09-17",
+      "stock_codes": [
+        "302132.SZ"
+      ],
+      "requested_stock_count": 1,
+      "calculated_stock_count": 1,
+      "rows": [
+        {
+          "stock_ts_code": "302132.SZ",
+          "stock_name": null,
+          "turnover": null,
+          "open": 59.7,
+          "high": 60.45,
+          "low": 59.0,
+          "close": 59.14,
+          "pre_close": 59.5,
+          "pct_chg": -0.61,
+          "amount": 3.6835,
+          "volume": 61788.0,
+          "raw_amount_yuan": 368349338.38,
+          "raw_volume_shares": 6178849.0,
+          "reference_basis": "previous_scheduled_close_no_recorded_event",
+          "bar_source": "hithink:daily-k-10d",
+          "previous_bar_source": "hithink:daily-k-10d",
+          "adjustment_source": null
+        }
+      ],
+      "gaps": [],
+      "calculation_ready": true,
+      "production_ready": false,
+      "request_complete": null,
+      "provider_completeness": "unverified",
+      "adjustment_coverage": "unverified",
+      "scope_fingerprint": "2ac0a0325966b3d5ada1e85957e1094461c4b5b70c1581f98f8b5eb943268008",
+      "input_fingerprint": "7dc54a7bd5bdf969d8bedf212dc504335511feeef7ef3c4c9e11518700d61210",
+      "basis": {
+        "values": "fact_stock_daily_hithink",
+        "actions": "fact_stock_adjustment_hithink",
+        "price_adjustment": "none",
+        "pre_close": "previous_scheduled_close_or_cash_dividend_reference",
+        "pct_chg": "(close-reference_price)*100/reference_price",
+        "price_unit": "\u5143",
+        "amount_unit": "\u4ebf\u5143",
+        "volume_unit": "\u624b",
+        "pct_unit": "%",
+        "rounding": "decimal_from_double_text_half_up",
+        "pre_close_decimals": 2,
+        "pct_decimals": 2,
+        "amount_decimals": 4,
+        "volume_decimals": 0,
+        "window": "two_adjacent_scheduled_trading_days",
+        "scope": "explicit_stock_codes_not_market_universe",
+        "missing_event": "no_recorded_event_not_verified_absence",
+        "unsupported": [
+          "noncash_actions",
+          "missing_previous_bar",
+          "zero_volume_or_amount"
+        ],
+        "unavailable_fields": [
+          "stock_name",
+          "turnover"
+        ]
+      }
+    },
+    {
+      "contract_version": "hithink-stock-preview-v1",
+      "trade_date": "2026-09-21",
+      "previous_trade_date": "2026-09-18",
+      "stock_codes": [
+        "600301.SH",
+        "600825.SH"
+      ],
+      "requested_stock_count": 2,
+      "calculated_stock_count": 0,
+      "rows": [],
+      "gaps": [
+        {
+          "stock_ts_code": "600301.SH",
+          "reasons": [
+            "missing-previous-bar"
+          ]
+        },
+        {
+          "stock_ts_code": "600825.SH",
+          "reasons": [
+            "missing-previous-bar"
+          ]
+        }
+      ],
+      "calculation_ready": false,
+      "production_ready": false,
+      "request_complete": null,
+      "provider_completeness": "unverified",
+      "adjustment_coverage": "unverified",
+      "scope_fingerprint": "eae0e8501fb7dfbba4cd64d60083b2a38cd22690bbe835db2d41e0a048873b4f",
+      "input_fingerprint": "4e3ac03ff0e4fd5d44174cf7cf0848336897e34fca93cac55133758fde261056",
+      "basis": {
+        "values": "fact_stock_daily_hithink",
+        "actions": "fact_stock_adjustment_hithink",
+        "price_adjustment": "none",
+        "pre_close": "previous_scheduled_close_or_cash_dividend_reference",
+        "pct_chg": "(close-reference_price)*100/reference_price",
+        "price_unit": "\u5143",
+        "amount_unit": "\u4ebf\u5143",
+        "volume_unit": "\u624b",
+        "pct_unit": "%",
+        "rounding": "decimal_from_double_text_half_up",
+        "pre_close_decimals": 2,
+        "pct_decimals": 2,
+        "amount_decimals": 4,
+        "volume_decimals": 0,
+        "window": "two_adjacent_scheduled_trading_days",
+        "scope": "explicit_stock_codes_not_market_universe",
+        "missing_event": "no_recorded_event_not_verified_absence",
+        "unsupported": [
+          "noncash_actions",
+          "missing_previous_bar",
+          "zero_volume_or_amount"
+        ],
+        "unavailable_fields": [
+          "stock_name",
+          "turnover"
+        ]
+      }
+    },
+    {
+      "contract_version": "hithink-stock-preview-v1",
+      "trade_date": "2026-09-22",
+      "previous_trade_date": "2026-09-21",
+      "stock_codes": [
+        "300803.SZ",
+        "301686.SZ",
+        "920229.BJ"
+      ],
+      "requested_stock_count": 3,
+      "calculated_stock_count": 0,
+      "rows": [],
+      "gaps": [
+        {
+          "stock_ts_code": "300803.SZ",
+          "reasons": [
+            "unsupported-noncash-action"
+          ]
+        },
+        {
+          "stock_ts_code": "301686.SZ",
+          "reasons": [
+            "missing-previous-bar"
+          ]
+        },
+        {
+          "stock_ts_code": "920229.BJ",
+          "reasons": [
+            "missing-previous-bar"
+          ]
+        }
+      ],
+      "calculation_ready": false,
+      "production_ready": false,
+      "request_complete": null,
+      "provider_completeness": "unverified",
+      "adjustment_coverage": "unverified",
+      "scope_fingerprint": "8491a63903fa93adbbd0646f20bfc233ed1dc88884d1df0c763c92f2bf602484",
+      "input_fingerprint": "febb5dc4eddabd7d1f677bdcd98e83df701f2cc94008040dedf8132d63a451cc",
+      "basis": {
+        "values": "fact_stock_daily_hithink",
+        "actions": "fact_stock_adjustment_hithink",
+        "price_adjustment": "none",
+        "pre_close": "previous_scheduled_close_or_cash_dividend_reference",
+        "pct_chg": "(close-reference_price)*100/reference_price",
+        "price_unit": "\u5143",
+        "amount_unit": "\u4ebf\u5143",
+        "volume_unit": "\u624b",
+        "pct_unit": "%",
+        "rounding": "decimal_from_double_text_half_up",
+        "pre_close_decimals": 2,
+        "pct_decimals": 2,
+        "amount_decimals": 4,
+        "volume_decimals": 0,
+        "window": "two_adjacent_scheduled_trading_days",
+        "scope": "explicit_stock_codes_not_market_universe",
+        "missing_event": "no_recorded_event_not_verified_absence",
+        "unsupported": [
+          "noncash_actions",
+          "missing_previous_bar",
+          "zero_volume_or_amount"
+        ],
+        "unavailable_fields": [
+          "stock_name",
+          "turnover"
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "complete": true,
+  "requests": 1,
+  "route": "mirasim-kimi/kimi-k3",
+  "output": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/independent-d3abd670/gateway-preflight-mIrBTX",
+  "error_type": "TimeoutError",
+  "usable": false,
+  "elapsed_ms": 46779
+}

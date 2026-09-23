@@ -1,0 +1,115 @@
+{
+  "module": "/Users/a77/fwp-wt-market-recovery-qc-preview-0923/market_feature_store/sync/compute_local_stats.py",
+  "author_side": true,
+  "production_database_opened": false,
+  "results": [
+    {
+      "case": "null",
+      "accepted": true,
+      "action": "written",
+      "coverage": {
+        "declared_count": 3,
+        "observed_count": 3,
+        "nontrading_count": 0,
+        "bar_coverage_denominator": 3,
+        "observed_bar_fraction": 1.0,
+        "disposition_coverage_fraction": 1.0,
+        "official_historical_universe_verified": false,
+        "nontrading_codes": [],
+        "ratio_denominator": 3,
+        "synthetic_rows": 0
+      },
+      "derived_rows_unchanged": false
+    },
+    {
+      "case": "nan",
+      "accepted": true,
+      "action": "written",
+      "coverage": {
+        "declared_count": 3,
+        "observed_count": 3,
+        "nontrading_count": 0,
+        "bar_coverage_denominator": 3,
+        "observed_bar_fraction": 1.0,
+        "disposition_coverage_fraction": 1.0,
+        "official_historical_universe_verified": false,
+        "nontrading_codes": [],
+        "ratio_denominator": 3,
+        "synthetic_rows": 0
+      },
+      "derived_rows_unchanged": false
+    },
+    {
+      "case": "infinity",
+      "accepted": true,
+      "action": "written",
+      "coverage": {
+        "declared_count": 3,
+        "observed_count": 3,
+        "nontrading_count": 0,
+        "bar_coverage_denominator": 3,
+        "observed_bar_fraction": 1.0,
+        "disposition_coverage_fraction": 1.0,
+        "official_historical_universe_verified": false,
+        "nontrading_codes": [],
+        "ratio_denominator": 3,
+        "synthetic_rows": 0
+      },
+      "derived_rows_unchanged": false
+    },
+    {
+      "case": "negative_infinity",
+      "accepted": true,
+      "action": "written",
+      "coverage": {
+        "declared_count": 3,
+        "observed_count": 3,
+        "nontrading_count": 0,
+        "bar_coverage_denominator": 3,
+        "observed_bar_fraction": 1.0,
+        "disposition_coverage_fraction": 1.0,
+        "official_historical_universe_verified": false,
+        "nontrading_codes": [],
+        "ratio_denominator": 3,
+        "synthetic_rows": 0
+      },
+      "derived_rows_unchanged": false
+    },
+    {
+      "case": "zero",
+      "accepted": true,
+      "action": "written",
+      "coverage": {
+        "declared_count": 3,
+        "observed_count": 3,
+        "nontrading_count": 0,
+        "bar_coverage_denominator": 3,
+        "observed_bar_fraction": 1.0,
+        "disposition_coverage_fraction": 1.0,
+        "official_historical_universe_verified": false,
+        "nontrading_codes": [],
+        "ratio_denominator": 3,
+        "synthetic_rows": 0
+      },
+      "derived_rows_unchanged": false
+    },
+    {
+      "case": "negative",
+      "accepted": true,
+      "action": "written",
+      "coverage": {
+        "declared_count": 3,
+        "observed_count": 3,
+        "nontrading_count": 0,
+        "bar_coverage_denominator": 3,
+        "observed_bar_fraction": 1.0,
+        "disposition_coverage_fraction": 1.0,
+        "official_historical_universe_verified": false,
+        "nontrading_codes": [],
+        "ratio_denominator": 3,
+        "synthetic_rows": 0
+      },
+      "derived_rows_unchanged": false
+    }
+  ]
+}

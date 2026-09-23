@@ -1,0 +1,43 @@
+{
+  "module": "/Users/a77/fwp-wt-market-recovery-qc-close-0923/market_feature_store/sync/compute_local_stats.py",
+  "author_side": true,
+  "production_database_opened": false,
+  "results": [
+    {
+      "case": "null",
+      "accepted": false,
+      "error": "invalid canonical stock bar close: ['000001.SZ']",
+      "derived_rows_unchanged": true
+    },
+    {
+      "case": "nan",
+      "accepted": false,
+      "error": "invalid canonical stock bar close: ['000001.SZ']",
+      "derived_rows_unchanged": true
+    },
+    {
+      "case": "infinity",
+      "accepted": false,
+      "error": "invalid canonical stock bar close: ['000001.SZ']",
+      "derived_rows_unchanged": true
+    },
+    {
+      "case": "negative_infinity",
+      "accepted": false,
+      "error": "invalid canonical stock bar close: ['000001.SZ']",
+      "derived_rows_unchanged": true
+    },
+    {
+      "case": "zero",
+      "accepted": false,
+      "error": "invalid canonical stock bar close: ['000001.SZ']",
+      "derived_rows_unchanged": true
+    },
+    {
+      "case": "negative",
+      "accepted": false,
+      "error": "invalid canonical stock bar close: ['000001.SZ']",
+      "derived_rows_unchanged": true
+    }
+  ]
+}

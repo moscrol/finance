@@ -1,0 +1,4 @@
+revision=45e752cfaf30929d15acbd0bcab0a667aef0e12e
+tree=3ea686889344ebbaaddeee2b3866bce9bd9a3733
+parents=bbd53487f4cefdae97eae90f7322394d36e65462 3abb7a4d320d2ba52e5c3cf35661b877123b17db
+subject=QC preview: latest main plus invalid recovery close guard
