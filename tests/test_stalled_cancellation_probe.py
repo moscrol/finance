@@ -1,6 +1,7 @@
 """Keep stalled-read cancellation assertions in the ordinary test suite."""
 from __future__ import annotations
 
+from contextlib import contextmanager
 import time
 
 import pytest
@@ -20,9 +21,11 @@ def test_stalled_read_cancellation_is_prompt(path):
 def test_read_cancellation_waits_for_headers_even_when_open_is_slow(monkeypatch, path):
     original = llm_refine._open_deadline_http_response
 
+    @contextmanager
     def slow_open(*args, **kwargs):
         time.sleep(0.4)
-        return original(*args, **kwargs)
+        with original(*args, **kwargs) as response:
+            yield response
 
     monkeypatch.setattr(llm_refine, "_open_deadline_http_response", slow_open)
     result = run_case(llm_refine, local_endpoint, path)

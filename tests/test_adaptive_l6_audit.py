@@ -278,6 +278,10 @@ def test_fresh_runner_wires_source_audit_and_inherits_no_receipts(tmp_path):
     calls = [node for node in ast.walk(tree) if isinstance(node, ast.Call)]
     assert sum(isinstance(c.func, ast.Name) and c.func.id == "run_audited_batch" for c in calls) == 1
     assert sum(isinstance(c.func, ast.Name) and c.func.id == "await_source_audit" for c in calls) == 1
+    admission = [c for c in calls if isinstance(c.func, ast.Name) and c.func.id == "validate_deadline_admission"]
+    assert len(admission) == 1
+    sidecars = [c for c in calls if isinstance(c.func, ast.Attribute) and c.func.attr == "Popen"]
+    assert sidecars and all(admission[0].lineno < call.lineno for call in sidecars)
     assert not any(isinstance(node, ast.For) and isinstance(node.iter, ast.Name) and node.iter.id == "QUESTIONS"
                    for node in ast.walk(tree))
     assert not (root / "source-regression.json").exists()

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+from contextlib import contextmanager
 import hashlib
 import inspect
 import json
@@ -44,14 +45,15 @@ def run_case(llm, endpoint, name: str) -> dict:
             cancelled_at = time.monotonic()
             cancelled.set()
 
+        @contextmanager
         def arm_after_headers(*args, **kwargs):
             nonlocal timer, headers_at
-            response = opener(*args, **kwargs)
-            # This probe measures cancellation during a read, not before spawn.
-            headers_at = time.monotonic()
-            timer = threading.Timer(0.3, cancel)
-            timer.start()
-            return response
+            with opener(*args, **kwargs) as response:
+                # Entering the lazy context, not constructing it, observes headers.
+                headers_at = time.monotonic()
+                timer = threading.Timer(0.3, cancel)
+                timer.start()
+                yield response
 
         error = None
         try:

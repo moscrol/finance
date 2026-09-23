@@ -8,6 +8,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 from pathlib import Path
 
 from scripts.review_probes.prepare_adaptive_l6 import validate_authorization
@@ -15,6 +16,39 @@ from scripts.review_probes.prepare_pi_review_repair import replace_once
 
 ARCHIVE = Path(__file__).resolve().parents[2] / "docs/verification/2026-09-23-glm-qc-and-l6/l6"
 FILES = ("run_live_l6.py", "glm_l6_shim.py", "check_proxy_offline.py", "launcher-exports.sh")
+
+
+def validate_deadline_admission(receipt: dict, revision: str) -> None:
+    """Recompute strict coverage and timing before admitting any live sidecar."""
+    from scripts.review_probes import diagnose_llm_timeout as probe
+
+    current = probe.source_identity()
+    if (receipt.get("schema_version") != 3 or current["revision"] != revision
+            or current["working_tree_status"]
+            or receipt.get("source_before") != current
+            or receipt.get("source_after") != current):
+        raise ValueError("strict receipt is not bound to this clean candidate")
+    cases = receipt.get("cases")
+    expected = set(probe.SCENARIOS + probe.JUDGE_SCENARIOS)
+    if (not isinstance(cases, list) or len(cases) != len(expected)
+            or any(not isinstance(case, dict) or not isinstance(case.get("scenario"), str) for case in cases)
+            or {case.get("scenario") for case in cases} != expected):
+        raise ValueError("strict receipt must contain every scenario exactly once")
+    tolerance = receipt.get("scheduling_tolerance_seconds")
+    if type(tolerance) not in (float, int) or not math.isfinite(tolerance) or not 0 <= tolerance <= 0.2:
+        raise ValueError("strict scheduling tolerance exceeds admission policy")
+    for case in cases:
+        name = case["scenario"]
+        budget = (0.0 if name in {"zero_deadline", "judge_root_expired"}
+                  else 1.2 if name.startswith("synthesis_stream") else 0.8)
+        elapsed = case.get("wall_elapsed_seconds")
+        if (type(case.get("timeout_input_seconds")) not in (float, int)
+                or case["timeout_input_seconds"] != budget
+                or type(elapsed) not in (float, int) or not math.isfinite(elapsed) or elapsed < 0):
+            raise ValueError("strict scenario budget or measurement is invalid")
+    if (receipt.get("deadline_violations") != [] or receipt.get("coverage_gaps") != []
+            or probe.violations(cases, tolerance) or probe.coverage_gaps(cases)):
+        raise ValueError("strict receipt has deadline violations or coverage gaps")
 
 
 def prepare(destination: Path, protocol: dict, archive: Path = ARCHIVE) -> dict:
@@ -41,6 +75,14 @@ def prepare(destination: Path, protocol: dict, archive: Path = ARCHIVE) -> dict:
                           "    from scripts.review_probes.adaptive_l6_batch import await_source_audit, run_audited_batch\n"
                           "    from scripts.review_probes.prepare_adaptive_l6 import validate_authorization\n"
                           "    validate_authorization(PROTOCOL)")
+    runner = replace_once(
+        runner,
+        '    assert not json.loads(Path(__file__).with_name("strict-deadline.json").read_text())["deadline_violations"]',
+        '    from scripts.review_probes.prepare_adaptive_l6_runner import validate_deadline_admission\n'
+        '    validate_deadline_admission(\n'
+        '        json.loads(Path(__file__).with_name("strict-deadline.json").read_text()), CANDIDATE,\n'
+        '    )',
+    )
     runner = replace_once(
         runner,
         '    assert json.loads(Path(__file__).with_name("positive-control.json").read_text())["verdict"] == "NOT_PASSED"',
