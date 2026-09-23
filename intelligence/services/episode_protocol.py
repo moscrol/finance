@@ -161,7 +161,13 @@ def _question_type_rules(
     task_frame: TaskFrame,
     context: ResearchRunContext,
 ) -> str:
-    """Per-question rule tail. Wording is a verbatim move from the old system."""
+    """Per-question rule tail, subordinate to the settled delivery contract."""
+    from intelligence.services.material_delivery import material_question_outputs
+
+    # Numbered material delivery already owns the required answer shape. Legacy
+    # keyword templates would add foreign slots and unavailable tool evidence.
+    if material_question_outputs(context.contract):
+        return workflow_guidance(task_frame.question_type) + reasoning_guidance(task_frame.question_type)
 
     valuation_rule = (
         "估值题专用完成规则：scenario_range 必须给出保守、中性、乐观"
