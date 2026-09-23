@@ -1,34 +1,35 @@
-# fix/disk-burn-cow-snapshots-0923 · 门禁与修库不留现场
+# fix/disk-burn-cow-snapshots-0923
 
 ## 这个分支做什么
-改掉「日烧 30–45 GB 盘」的三个生产者：整库改前快照走 APFS 克隆、门禁绿即删显式 basetemp、detached 门禁树一条命令批量拆；AGENTS.md 加一条规则。清理本身（回收 98.8 GB）不在分支里，收据在 `~/.finance-runtime/reviews/disk-cleanup-20260923/`。
+修复磁盘清理与门禁快照链路，确保无法完成安全审计时不删除现场。
 
 ## 决策与被否方案
-- 复用 `db.clone_to_staging` 作唯一快照原语 / 否了新起 `clone_db_file` / 4 个调用点 + 6 处测试 monkeypatch 钉着旧名。
-- basetemp 只认显式 `--basetemp=DIR`，绿删红留，`GATE_KEEP_BASETEMP=1` 可留 / 否了清默认编号目录 / 并发下分不清归属；红的是证据。
-- `cleanup_gate_trees.sh` 默认 dry-run 人工触发 / 否了 launchd 定时扫 / 用户 09-23 明确拒绝自动清扫。
-- 删树前对 LaunchAgents 与 `~/.local/bin` 引用 / 否了只看干净+mtime / `.devin-worktrees/ima-queue-auto-triage`、`kb-runtime` 是 detached 树却是定时任务代码根。
-展开见 `docs/handoffs/2026-09-23-disk-cleanup-and-burn-fix.md`。
+- `lsof`/Git 状态/批处理扫描失败统一 fail-closed；否了“空结果继续删”，因为无法确认使用中路径时会盲删。
+- 启动器引用先 canonical 化并按目录边界比较；否了原始字符串匹配，因为 launchd 可引用软链接路径。
+- basetemp 在 pytest 启动前拒绝与仓库有包含关系；否了仅在绿门禁后保护，因为 pytest 自己会先清空 basetemp。
+- cleanup 跳过其他 ignored/untracked 内容并设单树/整轮超时；否了把所有 detached/Git-clean 树当门禁快照。
 
 ## 当前状态
-- 已提交两笔（`git log -2`）：`a2ec1fcc7` 主体（9 文件）；其后一笔给 `cleanup_gate_trees.sh` 的 lsof 加 `-d '^mem'` + 看门狗超时真杀 + `LSOF_TIMEOUT`。
-- 交接与日期快照随后单独提交；之后不再加提交（四叶读数对 revision）。全量门禁读数贴 PR 评论。
+- 远端 PR #876 head：`8353fce14`，与本地一致，工作树干净。
+- 修复提交：`11eb5ba6f`、`8353fce14`；已强制更新 PR 分支。
+- PR 仍 open；Gitea API 报 `mergeable=false`，本地 `git merge-tree` 无冲突，未合并。
 
 ## 已验证
-ruff；`check_path_literals.py` 无新增；`bash -n`；`tests/test_db_snapshot_clone.py` 3 条 + basetemp 4 条通过，test_main_gate_receipt.py 其余 88 条通过；pre-commit 11 道过；`cleanup_gate_trees.sh` dry-run 66 s 跑完，0 候选（第四轮已拆），94 棵按四类理由跳过。
+- 定向回归：`136 passed`。
+- 全量 Python：`14581 passed / 0 failed / 85 skipped / 2 xfailed`。
+- 收据：`/private/tmp/pr876-full-8353fce1/receipts/gate-YfXmmWJd/pytest.json`；当前 `check_test_receipt --base-drift-max 5` 为 `rc=0`，基座漂移 `2`。
+- ruff、`bash -n`、`git diff --check` 通过。
+- 真实 cleanup dry-run 在设定总时限内返回 `4`，未删除。
 
 ## 未验证 / 已知边界
-- `cp -c` 对 3.4 GB 生产库的真实节省没量；非同卷退回整份 copy2。
-- run_main_gate.sh「basetemp 包含仓库树则保留」分支无测试：pytest 启动会清空显式 basetemp，造不出安全夹具。
-- `cleanup_gate_trees.sh --apply` 没在真树上跑过。
-- 前端 / e2e 叶子没跑：不碰 `intelligence/webapp`，读数同 gitea/main；补不补由用户定。
+- 未执行 cleanup `--apply`；只在 disposable Git 仓库中验证删除/保留分支。
+- 前端/e2e 未跑，改动不触及 webapp；合流 tip 仍按仓库级规程补跑。
+- Gitea `mergeable` 状态与本地无冲突读数不一致，合并前需刷新/处理该状态；基座推进后收据必须重新检查。
 
 ## 下一步
-1. 等全量 python 读数（PR 评论），红集与 gitea/main 对齐再提合并；合并等用户确认。
-2. 合并后隔天 `bash scripts/cleanup_gate_trees.sh`（先 dry-run）：今天很多已合树 mtime 被第三轮删缓存顶成今天。
-3. 仓外修库脚本（`~/.finance-runtime/db-repair/*/verify_*.py` 一类）下次改走 `clone_to_staging`。
+1. 让 PR 合并状态刷新，确认 Gitea 允许合并。
+2. 合并前复核 head、base、收据 revision 三者一致性；不要直接使用旧 head 的收据。
 
 ## 踩过的坑
-- bash 3.2：`"$real（…"` 在 set -u 下报 `real\xef: unbound variable`，孤立 `\xef` 让 subprocess text=True 解码崩。变量后跟非 ASCII 一律 `${var}`。
-- 全量 `lsof -Fn` 在这台机器会停 10 分钟以上（内存映射条目占大头）；`-d '^mem' -nP` 后 0.4 秒。看门狗超时必须 `pkill -P` 杀管线，且子 shell 输出甩 /dev/null，否则调用方 `| head` 等到它自然结束。
-- 测试名含 "basetemp" 会进收据路径，`"basetemp" not in stdout` 必红；锁具体句子。
+- 全量门禁耗时约 30 分钟；必须用独立 `/private/tmp` 收据目录，质检 review 目录会被外部清理器回收。
+- 同时存在多个全量门禁进程，判断运行状态必须核对 PID cwd 和 revision，不能只看进程名。
