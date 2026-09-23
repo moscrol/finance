@@ -1,0 +1,1 @@
+{"toolCallId":"bash_33","params":{"command":"cd /Users/a77/.finance-runtime/reviews/pr884-closeout-20260923-04/finance-workspace-private && rg -ln 'class InMemoryRootBudgetLedger' intelligence/ && rg -n 'schema_version|def from_snapshot|def to_snapshot|io_effect' intelligence/services/research_contract.py | head -20"}}

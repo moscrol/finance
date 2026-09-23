@@ -1,0 +1,105 @@
+{
+  "leaf": "python-native",
+  "revision": "db2605d1b1a6a929d9bac468c84ef6aeaddce9ff",
+  "before": {
+    "revision": "db2605d1b1a6a929d9bac468c84ef6aeaddce9ff",
+    "status": ""
+  },
+  "checks": [
+    {
+      "name": "sandbox-preflight",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/review_probes/check_loopback_sandbox.py"
+      ],
+      "cwd": "/Users/a77/.finance-runtime/reviews/pr884-closeout-20260923-04/finance-workspace-private",
+      "timeout": 30,
+      "disk_free_before": 27603566592,
+      "pid": 81771,
+      "disk_free_last": 27603562496,
+      "remaining_before_cleanup": [],
+      "remaining_after_cleanup": [],
+      "exit_code": 0,
+      "elapsed_seconds": 0.169,
+      "log_sha256": "1afff7bf0770770480d7c632315faabbc3868988cbcdd16b17bb7acdb3dfcf81",
+      "log_bytes": 1088
+    },
+    {
+      "name": "toolchain",
+      "command": [
+        "/usr/bin/sandbox-exec",
+        "-p",
+        "(version 1) (allow default) (deny network*) (allow network-inbound (local ip \"localhost:*\")) (allow network-outbound (remote ip \"localhost:*\")) (deny process-exec (literal \"/usr/bin/security\"))",
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-c",
+        "import json,platform,subprocess; print(json.dumps({'python':platform.python_version(),'node':subprocess.check_output(['node','--version'],text=True).strip(),'pnpm':subprocess.check_output(['pnpm','--version'],text=True).strip(),'platform':platform.platform()}))"
+      ],
+      "cwd": "/Users/a77/.finance-runtime/reviews/pr884-closeout-20260923-04/finance-workspace-private",
+      "timeout": 30,
+      "disk_free_before": 27603181568,
+      "pid": 81783,
+      "disk_free_last": 27603181568,
+      "remaining_before_cleanup": [],
+      "remaining_after_cleanup": [],
+      "exit_code": 0,
+      "elapsed_seconds": 0.504,
+      "log_sha256": "111fb26ef886380cb9d1a6edf649cd8e9aa012ac3a239b3f1036dec978f2aa3e",
+      "log_bytes": 103
+    },
+    {
+      "name": "main-gate",
+      "command": [
+        "bash",
+        "scripts/run_main_gate.sh",
+        "--pytest-args",
+        "-q -p no:cacheprovider --durations=10 --basetemp=/Users/a77/.finance-runtime/reviews/pr884-closeout-20260923-04/python-native/pytest --junitxml=/Users/a77/.finance-runtime/reviews/pr884-closeout-20260923-04/python-native/pytest.xml"
+      ],
+      "cwd": "/Users/a77/.finance-runtime/reviews/pr884-closeout-20260923-04/finance-workspace-private",
+      "timeout": 1800,
+      "disk_free_before": 27601801216,
+      "pid": 81810,
+      "disk_free_last": 18466254848,
+      "timed_out": true,
+      "remaining_before_cleanup": [
+        13671,
+        81810,
+        81848,
+        81849,
+        81850
+      ],
+      "remaining_after_cleanup": [
+        13671,
+        42340,
+        81848
+      ],
+      "exit_code": -9,
+      "elapsed_seconds": 1800.111,
+      "log_sha256": "89eaf472056430b0b4c7fa7db362d7de1d8fe30f4b6ec49c2e1eb09a09a45fc1",
+      "log_bytes": 715
+    }
+  ],
+  "complete": true,
+  "started_at": "2026-09-23T11:02:07.846125+00:00",
+  "env": {
+    "PATH": "/Users/a77/.finance-runtime/reviews/pr884-toolchain-20260923/node_modules/.bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+    "HOME": "/Users/a77",
+    "LANG": "en_US.UTF-8",
+    "TMPDIR": "/Users/a77/.finance-runtime/reviews/pr884-closeout-20260923-04/python-native/tmp",
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "FORESIGHT_LLM_KEYCHAIN": "0",
+    "FORESIGHT_USERS_DIR": "/Users/a77/.finance-runtime/reviews/pr884-closeout-20260923-04/python-native/users",
+    "FWP_TEST_RECEIPT_DIR": "/Users/a77/.finance-runtime/reviews/pr884-closeout-20260923-04/python-native/receipts",
+    "CI": "1"
+  },
+  "profile": "(version 1) (allow default) (deny network*) (allow network-inbound (local ip \"localhost:*\")) (allow network-outbound (remote ip \"localhost:*\")) (deny process-exec (literal \"/usr/bin/security\"))",
+  "outer_sandbox_on_main_gate": false,
+  "profile_scope": "preflight/toolchain only",
+  "driver_sha256": "001a00957ffa1a3b64a744bd0f234742775caf8889bf6e5f578a416d2fc9f26f",
+  "after": {
+    "revision": "db2605d1b1a6a929d9bac468c84ef6aeaddce9ff",
+    "status": ""
+  },
+  "identity_stable": true,
+  "accepted": false,
+  "finished_at": "2026-09-23T11:32:08.813365+00:00"
+}

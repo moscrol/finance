@@ -1,0 +1,17 @@
+[
+  {
+    "leaf": "registry",
+    "pid": 79622,
+    "exit_code": 0
+  },
+  {
+    "leaf": "frontend",
+    "pid": 79681,
+    "exit_code": 0
+  },
+  {
+    "leaf": "python-native",
+    "pid": 81762,
+    "exit_code": 1
+  }
+]
