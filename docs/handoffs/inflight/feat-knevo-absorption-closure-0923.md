@@ -1,32 +1,31 @@
 ## 这个分支做什么
-把 Knevo 原料按「材料→吸收决定→实现/回归→证据」收口；真实入口失败照实留证，PR #877 保持 WIP。
+收口 Knevo 材料处置与入口修复；保留真实失败，PR #877 仍 WIP，不是语义验收通过。
 
 ## 决策与被否方案
-- 揭盲材料只作回归，不当金标、不进盲测分母、不改冻结 28 题。
-- Q14 只吸收事实/解读/情绪结构；未回测的信源权重、情绪溢价公式、交易窗口不采用。
-- Q18 材料代理不证明真实台账、权限、身份隔离、跨轮能力；风远仅恢复原料，不写画像。
-- 公开 report 与私有 Episode 分证据；脱敏 D 日缺失不证明实际模型输入损坏，缺 audit 不等于零调用。
+- 揭盲套件不进冻结28题分母；不改原题、不开审稿闸、不写生产画像。
+- 在既有解析器补有限句法；引用/围栏/材料正文不能授予权限。Q14只保留news_impact指导，不恢复工具。
+- 运行完成、有效草稿、判官有效报告、公开回答满足题目分账；判官invalid tool call不称网络故障。
+- 快照：`docs/handoffs/2026-09-23-knevo-material-entry-repair.md`；旧观察原件不覆盖。
 
 ## 当前状态
-- 已无冲突整合 main `bbd53487f`（#876 含门禁/数据库快照代码）。本次勘误提交后固定候选，不继续追逐移动主干。
-- 勘误：端点 diff 的 D 不是删除历史。#879 只改四份 claim-scope 文档，不能称它删除 Knevo 材料；本枝文件完整。
-- 最新运行/推送状态查 PR #877 与 `~/.finance-runtime/knevo-absorption-20260923/final-closure/current.json`。本段是运行前快照，不预写成功；索引缺失不视作已完成。
-- 不合 main、不部署 8792、不回补行情、不写生产画像；不接管主检出树或其他 agent 改动。
+- 代码 `f1fd8aa1a16bea4f3dd4e2ba0e5fd92114aea2c6` 已提交；材料范围、虚构身份、编号请求与Q14题型接线已修。
+- 隔离Workbench复验绑定上述干净代码，证据在 `~/.finance-runtime/knevo-absorption-20260923/material-repair-f1fd8aa1a/`。最终逐题结论读该目录 `observations.json`；缺文件不是通过。
+- 后续文档固定候选的工程门禁与推送结果读同根 `material-repair-closeout/current.json`（含完整SHA、tree、dirty、退出码与收据）；旧 `final-closure/current.json` 只签89780ac77，禁止移签。
+- 不合main、不部署8792、不回补、不写画像；不接管其他树。主干漂移只记录，合并前另验组合候选。
 
 ## 已验证
-- 历史 `537c4c4c4`：全仓14606P/85S/2X/0F、定向335P、Ruff通过；前端六步120P/E2E34P2S，registry与crosswalk通过（98 warning）。收据仍只绑定该 revision。
-- live observations：9 completed/3 failed，作者文本层仅 G1c/G2a 有限满足，端到端 **0/12**。
-- runtime `execution.json` 是四条运行记录；`final-prepare-85bff6326.json` 才是 prepared_not_run。两者不替代 observations 的语义判定。
+- f1fd干净定向门禁580P/4S/0F，Ruff通过；收据在新live目录 `targeted/gate-WNGQ8erU/pytest.json`。886P/4S为提交前迭代读数，不代签新HEAD。
+- 真实run_turn装配探针覆盖12原题：材料合同、原始问题、三包answer_q1至q8送达；受测resolver/先验/预取/网络读取尝试0。探针在模型前停，不是答案验收。
+- 新首两题公开稿仍为复核不可用，内部均invalid tool call；G1c有有效正文但逐句来源核验仍拒绝。完整终态以后述索引为准。
+- 旧live仍9 completed/3 failed、端到端0/12；旧89780ac77工程全量绿不翻案。
 
 ## 未验证 / 已知边界
-材料范围约束、Q14 正门路由、出稿/判官失败处理、Q18 真前置未通过；不能宣称 Knevo 炼化、胜率/top3 增益或完整消融。
+出稿/判官协议与逐句来源核验未闭环；Q18真实台账、空集、权限、身份及跨轮前置未验。非独立审查、非Knevo胜率/top3增益、非完整消融。
 
 ## 下一步
-- 固定候选门禁写入 `final-closure/runs/<完整revision>/`，完成后生成 current.json 并更新 WIP PR；旧证据不覆盖、不移签。已测树不再改 tracked 文件。
-- 主干漂移只记录差异及 merge-tree；真正合入前另验组合候选，等待审查和用户确认。
-- 后续先修 `split_user_message → material_contract → task_frame → registry`，再修 Q14 路由和失败分桶，原题同正门复验。
+1. 从新observations逐条定位invalid finish、missing output、judge协议失败和内容拒绝；缺审计记unknown。
+2. 不凭结构化草稿放行；先复现最小失败再修，原题同正门重验，旧失败不覆盖。
+3. 等用户确认合并/部署；批准前固定届时组合版本跑完整门禁。
 
 ## 踩过的坑
-目标树无本地 venv；用主树 `.venv-workbench/bin/python`。`run_main_gate.sh` 必须从目标树 cwd 启动；同时核对 revision、tree、dirty 和全仓收集面。
-
-日期快照：`docs/handoffs/2026-09-23-knevo-absorption-closure.md`。
+目标树无venv，用主树`.venv-workbench/bin/python`；run_main_gate必须从目标树cwd启动并验完整收集面。四份冻结原件文末空行导致PR diff-check exit2，哈希正确，不改原件凑绿。端点diff的D不是删除历史，#879只改四份claim-scope文档。
