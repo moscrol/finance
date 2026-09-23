@@ -1,0 +1,38 @@
+{
+  "purpose": "硬化不得改变真实首跑的判定",
+  "runs": [
+    {
+      "run_id": "run_20260921_183219_280474",
+      "rules_hit_after": [
+        "unit_gap_claim_contradicts_input"
+      ],
+      "rules_hit_before": [
+        "unit_gap_claim_contradicts_input"
+      ],
+      "issue_count_after": 1,
+      "issue_count_before": 1,
+      "identical": true,
+      "degraded": [],
+      "exit_code": 1
+    },
+    {
+      "run_id": "run_20260921_183642_325351",
+      "rules_hit_after": [
+        "latest_trading_day_unverified",
+        "scope_claim_exceeds_comparison",
+        "fund_flow_claim_without_flow_evidence"
+      ],
+      "rules_hit_before": [
+        "latest_trading_day_unverified",
+        "scope_claim_exceeds_comparison",
+        "fund_flow_claim_without_flow_evidence"
+      ],
+      "issue_count_after": 3,
+      "issue_count_before": 3,
+      "identical": true,
+      "degraded": [],
+      "exit_code": 1
+    }
+  ],
+  "boundary": "两次首跑不是统计样本；一致只说明本次收紧没动到这两题的结论"
+}

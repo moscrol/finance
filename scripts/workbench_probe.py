@@ -223,6 +223,21 @@ def main() -> int:
         if status != last_status:
             print(f"run status: {status}", flush=True)
             last_status = status
+        if status == RUN_SUCCESS:
+            completed_seen = True
+        publication = run.get("publication")
+        if status in {*RUN_FAILURE, RUN_SUCCESS} and publication is not None:
+            # New servers expose the final message/artifact publication barrier.
+            # Do not capture a half-published run just because its owner claimed
+            # completed/failed. Old servers without the field keep the legacy
+            # message-ID contract below; they do not prove artifact completeness.
+            if not isinstance(publication, dict) or (
+                publication.get("status") != "published"
+                or publication.get("message_id") != assistant_message_id
+                or run.get("run_id") != run_id
+                or run.get("session_id") != conversation_id
+            ):
+                continue
         if status in RUN_FAILURE:
             print(
                 f"run 终态={status} run_id={run_id} error={run.get('error')}",
@@ -231,7 +246,6 @@ def main() -> int:
             print(f"run 工件：{_artifacts_hint(args.user, run_id)}", file=sys.stderr)
             return 2
         if status == RUN_SUCCESS:
-            completed_seen = True
             try:
                 message = _find_message(
                     base, conversation_id, args.user, assistant_message_id
@@ -254,7 +268,7 @@ def main() -> int:
     if completed_seen:
         print(
             f"run {run_id} 已 completed，但 assistant 消息 {assistant_message_id} "
-            f"到 {args.timeout}s 超时仍无内容（退化形态，需人工查）",
+            f"到 {args.timeout}s 超时仍未确认发布或无内容（退化形态，需人工查）",
             file=sys.stderr,
         )
         return 3

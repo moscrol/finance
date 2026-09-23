@@ -46,12 +46,52 @@ FEATURES = {
         "unit": "trading_days",
         "rule": "first member >=7% day minus first strict-double-red day; daily ordering only; no trigger is not_observed",
     },
+    "max_drawdown_pct": {
+        "fields": ("pct_chg",),
+        "unit": "percent",
+        "rule": "maximum (1 - compounded NAV / running peak NAV) * 100; includes pre-window NAV=1; positive loss depth",
+    },
+    "up_day_share": {
+        "fields": ("pct_chg",),
+        "unit": "ratio",
+        "rule": "positive-return dates / all declared trading dates",
+    },
+    "amount_vs_prior_mean": {
+        "fields": ("amount",),
+        "unit": "ratio",
+        "rule": "last amount / mean of all earlier amounts in this window; at least 2 dates; not MA20 unless 21 dates",
+    },
+    "amount_share_change_pp": {
+        "fields": ("amount", "market.total_amount"),
+        "unit": "percentage_points",
+        "rule": "100 * (last sector amount / last market amount - first sector amount / first market amount); both in yi yuan",
+    },
+    "advancers_mean": {
+        "fields": ("advancers",),
+        "unit": "stocks",
+        "rule": "mean market advancers over all declared dates; count, not breadth ratio",
+    },
+    "limit_up_mean": {
+        "fields": ("limit_up",),
+        "unit": "stocks",
+        "rule": "mean market limit-up count over all declared dates",
+    },
+    "limit_down_mean": {
+        "fields": ("limit_down",),
+        "unit": "stocks",
+        "rule": "mean market limit-down count over all declared dates",
+    },
     "market_relative_return_pct": {
         "fields": ("pct_chg", "market.sh_index_pct_chg"),
         "unit": "percentage_points",
         "rule": "entity compounded return minus index compounded return over identical days",
     },
 }
+
+# Additive definitions do not relabel the original v1 formulas/artifacts.
+for _name in ("max_drawdown_pct", "up_day_share", "amount_vs_prior_mean", "amount_share_change_pp",
+              "advancers_mean", "limit_up_mean", "limit_down_mean"):
+    FEATURES[_name]["version"] = "history-anatomy-features-v1"
 
 
 def finite(value: object) -> bool:
@@ -123,6 +163,10 @@ def compute_features(
                         return False
                 elif not finite(by_day[day].get(field)):
                     return False
+                elif name == "max_drawdown_pct" and field == "pct_chg" and by_day[day][field] <= -100:
+                    return False
+                elif name in {"amount_vs_prior_mean", "amount_share_change_pp", "advancers_mean", "limit_up_mean", "limit_down_mean"} and by_day[day][field] < 0:
+                    return False
             return True
 
         good = [d for d in days if complete_day(d)]
@@ -148,6 +192,32 @@ def compute_features(
                     value = rows[-1]["amount"] / rows[0]["amount"]
                 else:
                     coverage[name]["status"] = "zero_denominator"
+            elif name == "max_drawdown_pct":
+                nav = peak = 1.0
+                value = 0.0
+                for row in rows:
+                    nav *= 1 + row["pct_chg"] / 100
+                    peak = max(peak, nav)
+                    value = max(value, (1 - nav / peak) * 100)
+            elif name == "up_day_share":
+                value = sum(row["pct_chg"] > 0 for row in rows) / len(rows)
+            elif name == "amount_vs_prior_mean":
+                if len(rows) < 2:
+                    coverage[name]["status"] = "insufficient_history"
+                elif (base := sum(r["amount"] for r in rows[:-1]) / (len(rows) - 1)) > 0:
+                    value = rows[-1]["amount"] / base
+                else:
+                    coverage[name]["status"] = "zero_denominator"
+            elif name == "amount_share_change_pp":
+                if all(market_days[d][0]["total_amount"] > 0 for d in days):
+                    value = 100 * (
+                        rows[-1]["amount"] / market_days[days[-1]][0]["total_amount"]
+                        - rows[0]["amount"] / market_days[days[0]][0]["total_amount"]
+                    )
+                else:
+                    coverage[name]["status"] = "zero_denominator"
+            elif name in {"advancers_mean", "limit_up_mean", "limit_down_mean"}:
+                value = sum(row[fields[0]] for row in rows) / len(rows)
             elif name in {"double_red_days", "max_double_red_streak"}:
                 flags = [
                     is_double_red(r["pct_chg"], r["diff_ratio"], r["amount"])

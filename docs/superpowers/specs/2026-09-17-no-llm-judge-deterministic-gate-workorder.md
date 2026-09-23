@@ -80,7 +80,7 @@
 7. T6 测试文件 `test_judge_mode_off.py`；跑定向集：`intelligence/tests/test_episode_semantic_verifier.py test_judge_*.py test_v11_judge_guided_retrieval.py test_semantic_judge_gate.py test_judge_mode_off.py` 与 `rg -l "ask_synthesis" intelligence/tests`。
 8. 变异反证（§6 倒数第三条），还原后全量四叶：`ruff check .`、`pytest -q`（收据 `check_test_receipt.py --expect-revision <tip> --base-drift-max 5`）、前端四步、e2e（另一会话占 8791 时 `WORKBENCH_E2E_PORT=8793 RE06_E2E_PORT=8795 RE06_E2E_URL=http://127.0.0.1:8795`，`WORKBENCH_PYTHON` 指主树 venv）、registry 五项。
 9. 文档三处（§2 目标 8）；`handoff` skill 覆写 `docs/handoffs/inflight/feat-no-llm-judge-mode.md`（≤3 KB）；PR 开到 `main`，**不合**。
-10. 上线（合并后、用户确认）：`cp ~/.local/bin/start-finance-workbench ~/.local/bin/start-finance-workbench.bak-<date>-pre-nojudge` → 加 `export ASK_SEMANTIC_JUDGE="off"`、`ASK_EVIDENCE_JUDGE="auto"` 改 `"off"`（在 L138 原地改，注释写日期与本单号）→ 按 acceptance-workflow §4 链切五步切到含本单的 main → health 三读 + readiness → 探针 run 的 `report.json` 里 `gate_receipt.judge_mode == "deterministic"`、`judge_unavailable_count == 0`。回滚 = 还原启动器备份 + `launchctl kickstart -k gui/$(id -u)/com.a77.finance-workbench`（代码侧不用回滚，默认 `llm`）。
+10. 上线（合并后、用户确认）：`cp ~/.local/bin/start-finance-workbench ~/.local/bin/start-finance-workbench.bak-<date>-pre-nojudge` → 加 `export ASK_SEMANTIC_JUDGE="off"`、`ASK_EVIDENCE_JUDGE="auto"` 改 `"off"`（在 L138 原地改，注释写日期与本单号）→ 按 acceptance-workflow §4 链切五步切到含本单的 main → health 三读 + readiness → Episode 探针 run 的 `continuous-episode.json` 私有块 `semantic_verifier.judge_mode == "deterministic"`、`judge_unavailable_count == 0`，并核对模型调用轨迹无判官调用（公开 `gate_receipt` 没有 `judge_mode`，不扩其 schema）。回滚 = 还原启动器备份 + `launchctl kickstart -k gui/$(id -u)/com.a77.finance-workbench`（代码侧不用回滚，默认 `llm`）。
 
 ## 6. 验收（全部勾上才算完）
 

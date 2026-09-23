@@ -1,0 +1,29 @@
+FFF                                                                      [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260918T082049Z-ba281381.json
+
+=================================== FAILURES ===================================
+_ test_target_signal_window_excludes_peak_includes_fifth_but_not_sixth_date[12-outside_succession_window-None] _
+tests/test_history_succession_projection.py:310: in test_target_signal_window_excludes_peak_includes_fifth_but_not_sixth_date
+    assert row["outcome_dates"] == [f"2026-01-{d}" for d in range(13, 18)]
+E   AssertionError: assert ['2026-01-12'... '2026-01-16'] == ['2026-01-13'... '2026-01-17']
+E     
+E     At index 0 diff: '2026-01-12' != '2026-01-13'
+E     Use -v to get more diff
+_ test_target_signal_window_excludes_peak_includes_fifth_but_not_sixth_date[17-candidate_not_causal-5] _
+tests/test_history_succession_projection.py:308: in test_target_signal_window_excludes_peak_includes_fifth_but_not_sixth_date
+    assert row["succession_status"] == expected
+E   AssertionError: assert 'outside_succession_window' == 'candidate_not_causal'
+E     
+E     - candidate_not_causal
+E     + outside_succession_window
+_ test_target_signal_window_excludes_peak_includes_fifth_but_not_sixth_date[18-outside_succession_window-None] _
+tests/test_history_succession_projection.py:310: in test_target_signal_window_excludes_peak_includes_fifth_but_not_sixth_date
+    assert row["outcome_dates"] == [f"2026-01-{d}" for d in range(13, 18)]
+E   AssertionError: assert ['2026-01-12'... '2026-01-16'] == ['2026-01-13'... '2026-01-17']
+E     
+E     At index 0 diff: '2026-01-12' != '2026-01-13'
+E     Use -v to get more diff
+=========================== short test summary info ============================
+FAILED tests/test_history_succession_projection.py::test_target_signal_window_excludes_peak_includes_fifth_but_not_sixth_date[12-outside_succession_window-None]
+FAILED tests/test_history_succession_projection.py::test_target_signal_window_excludes_peak_includes_fifth_but_not_sixth_date[17-candidate_not_causal-5]
+FAILED tests/test_history_succession_projection.py::test_target_signal_window_excludes_peak_includes_fifth_but_not_sixth_date[18-outside_succession_window-None]
+3 failed in 0.78s
