@@ -1,0 +1,169 @@
+"""Freeze and verify the two *existing first* production runs; no model calls.
+
+Read-only DuckDB cross-check, persisted variance receipt, original artifact
+hashes and existing secret scanner. This is scoped wiring/fact evidence, not a
+quality gate: known answer overclaims remain in the receipt and original runs.
+Run with PYTHONPATH pointing to the exact deployed snapshot.
+"""
+from __future__ import annotations
+
+import collections
+import hashlib
+import json
+import math
+import shutil
+from pathlib import Path
+
+import duckdb
+
+from intelligence.eval.variance_baseline import (
+    build_receipt,
+    extract_from_run_dir,
+    score_distribution,
+    write_receipt,
+)
+from scripts.smoke_workbench_self_use import SecretScanner
+
+ROOT = Path(__file__).resolve().parent
+REV = "f2c3e9e1a24f42ae9b1d5a8cb9e501ababd1330a"
+CASES = {
+    "material": "run_20260921_183219_280474",
+    "grounded": "run_20260921_183642_325351",
+}
+USERS = Path.home() / ".local/share/finance-workbench/users/linxiaoqi5111/runs"
+
+
+def save(path, payload):
+    with path.open("x", encoding="utf-8") as file:
+        file.write(json.dumps(payload, ensure_ascii=False, indent=2, default=str) + "\n")
+
+
+def rows(con, query, params=None):
+    cursor = con.execute(query, params or [])
+    return [dict(zip([c[0] for c in cursor.description], row)) for row in cursor.fetchall()]
+
+
+def main():
+    out = ROOT / "production-verification"
+    out.mkdir(exist_ok=False)
+    scanner = SecretScanner()
+    hashes = []
+    scored_questions = []
+    wiring = []
+    grounded = None
+    process = json.loads((ROOT / "production-process-config-public.json").read_text())
+    env = process["environment_allowlist"]
+    assert env["ASK_SEMANTIC_JUDGE"] == env["ASK_EVIDENCE_JUDGE"] == "off"
+    for name, rid in CASES.items():
+        run = USERS / rid
+        frozen = out / "runs" / rid
+        frozen.mkdir(parents=True)
+        for src in sorted(run.iterdir()):
+            if not src.is_file() or src.name.startswith("."):
+                continue
+            content = src.read_bytes()
+            if src.suffix == ".json":
+                scanner.scan(json.loads(content), f"{rid}/{src.name}")
+            elif src.suffix == ".jsonl":
+                for index, line in enumerate(content.decode().splitlines()):
+                    if line.strip():
+                        scanner.scan(json.loads(line), f"{rid}/{src.name}:{index + 1}")
+            else:
+                scanner.scan(content.decode(), f"{rid}/{src.name}")
+            dest = frozen / src.name
+            shutil.copy2(src, dest)
+            assert dest.read_bytes() == content
+            hashes.append({"source": str(src), "archive": str(dest), "sha256": hashlib.sha256(content).hexdigest()})
+        ep = json.loads((frozen / "continuous-episode.json").read_text())
+        report = json.loads((frozen / "report.json").read_text())
+        raw = json.loads((frozen / "run.json").read_text())
+        events = ep["outcome"]["events"]
+        turns = [event["payload"] for event in events if event["kind"] == "model_turn"]
+        requests = [event["payload"] for event in events if event["kind"] == "tool_request"]
+        sem = ep["semantic_verifier"]
+        assert raw["status"] == ep["outcome"]["status"] == "completed"
+        assert report["gate_receipt"]["rev"] == REV
+        assert report["llm"]["model"] == "kimi-k3"
+        assert turns and all(turn["served_model"] == "kimi-k3" and not turn["error"] for turn in turns)
+        assert all(turn["provider_attempts"] == 1 for turn in turns)
+        assert sem["judge_mode"] == "deterministic"
+        assert ep["metrics"]["judge_usage"]["calls"] == 0
+        assert not sem.get("material_review_calls")
+        assert report["gate_receipt"]["correlated_judge"] is None
+        assert not raw["degrades"]
+        tools = collections.Counter(request["name"] for request in requests)
+        # These runs never enter the KB-candidate relevance judging path.
+        # This does not substitute for a future KB-retrieval live test.
+        assert set(tools) <= {"market_data", "finance_query", "derived_calculation"}
+        wiring.append({
+            "case": name, "run_id": rid,
+            "writer_turns": len(turns), "reported_models": [t["served_model"] for t in turns],
+            "provider_attempts": ep["metrics"]["provider_attempts"],
+            "fallback_observed": False, "terminal_judge_calls": 0,
+            "retrieval_judge_mode_from_process": env["ASK_EVIDENCE_JUDGE"],
+            "retrieval_judge_candidate_path_exercised": False,
+            "tool_requests": dict(tools),
+            "invalid_actions": [e["payload"] for e in events if e["kind"] == "invalid_action"],
+            "v11_skip_reason": sem.get("v11_skip_reason"),
+            "source_dates": dict(collections.Counter(e.get("source_date") for e in ep["outcome"]["evidence"])),
+        })
+        scored_questions.append({"question_id": name, "repeats": [extract_from_run_dir(frozen)]})
+        if name == "grounded":
+            grounded = ep
+    assert not scanner.hits
+    save(out / "secret-scan.json", {"scanned_string_count": scanner.scanned_string_count, "hit_count": len(scanner.hits), "hits": scanner.hits, "files": hashes})
+    save(out / "wiring.json", {"revision": REV, "runs": wiring,
+         "model_identity_boundary": "served_model is the provider response declaration, not independent attestation of the upstream model",
+         "evidence_judge_boundary": "production environment off + these runs have no KB/relevance tool path; populated KB-candidate off behavior was tested offline, not naturally exercised here"})
+    scored = score_distribution({"rev": REV, "live": True, "source": "production conversation HTTP first runs, post-hoc read-only extraction", "questions": scored_questions,
+        "note": "Two questions, n=1 each; no variance, speed or quality improvement claim."})
+    payload = build_receipt(scored)
+    assert payload["independent_n"] == 0 and payload["no_judge_rate"] == 1.0
+    write_receipt(payload, out / "evaluation.json")
+    assert json.loads((out / "evaluation.json").read_text())["no_judge_rate"] == 1.0
+    assert "no_judge_rate: 1.0" in (out / "evaluation.md").read_text()
+
+    database = Path.home() / "finance-workspace-private/db/market_feature_store.duckdb"
+    con = duckdb.connect(str(database), read_only=True)
+    latest = {table: str(con.execute(f"SELECT max(trade_date) FROM {table}").fetchone()[0]) for table in (
+        "fact_stock_daily", "fact_sector_daily", "fact_sector_stock_daily", "fact_market_daily")}
+    stock = rows(con, "SELECT trade_date, stock_ts_code, close, pre_close, pct_chg, amount, turnover FROM fact_stock_daily WHERE stock_ts_code=? AND trade_date<=? ORDER BY trade_date DESC LIMIT 2", ["600584.SH", "2026-09-18"])
+    selected = ["990123.FP", "990122.FP", "990068.FP", "990276.FP", "990325.FP"]
+    sector = rows(con, "SELECT trade_date, sector_ts_code, sector_name, pct_chg, amount, diff_ratio FROM fact_sector_daily WHERE trade_date=? AND sector_ts_code IN (?,?,?,?,?) ORDER BY pct_chg DESC", ["2026-09-18", *selected])
+    memberships = rows(con, "SELECT DISTINCT sector_ts_code, sector_name FROM fact_sector_stock_daily WHERE stock_ts_code=? AND trade_date=? ORDER BY sector_ts_code", ["600584.SH", "2026-09-18"])
+    market = rows(con, "SELECT trade_date,total_amount,amount_vs_yesterday_pct,advancers,limit_up,limit_down,sh_index_pct_chg FROM fact_market_daily WHERE trade_date=?", ["2026-09-18"])
+    con.close()
+    assert math.isclose(stock[0]["close"], 73.0)
+    assert math.isclose(stock[0]["pct_chg"], 7.75)
+    assert math.isclose(stock[0]["amount"], 114.9025)
+    assert math.isclose(stock[1]["amount"], 49.3146)
+    expected = {"990123.FP": (4.08, 411.197), "990122.FP": (3.9664, 3385.168), "990068.FP": (2.9504, 3080.0643), "990276.FP": (2.7489, 6499.1619), "990325.FP": (2.6213, 9277.2314)}
+    assert len(sector) == 5
+    for item in sector:
+        pct, amount = expected[item["sector_ts_code"]]
+        assert math.isclose(item["pct_chg"], pct) and math.isclose(item["amount"], amount)
+    assert market[0]["total_amount"] == 20764.84 and market[0]["advancers"] == 4234
+    tool_names = [e["payload"]["name"] for e in grounded["outcome"]["events"] if e["kind"] == "tool_request"]
+    save(out / "fact-check.json", {
+        "database": str(database), "read_only": True, "latest_dates": latest,
+        "stock_rows": stock, "queried_sector_rows": sector,
+        "available_memberships": memberships, "market_row": market,
+        "computed_amount_change_pct": (stock[0]["amount"] / stock[1]["amount"] - 1) * 100,
+        "limited_numeric_checks_passed": True, "answer_quality_accepted": False,
+        "findings": [
+            "材料两项计算正确（9/180=5%，50/180≈0.28），零工具；首个模型 finish 有 bad_claim_binding，原会话内第二轮修正，未重跑题目。",
+            "材料末句称未注明币种单位：币种未显式写明，但金额单位亿元已在题面给出，应拆开表述；不把所有边界文案签成正确。",
+            "行情原始数值与09-18事实库相符；09-18仅能称库内最新数据，不能从max日期推出最近一个已收盘交易日。",
+            "实际只查询5个核心板块的表现，不能扩成所有归属板块；membership名单不等于已比较过每个板块。",
+            "边际量和成交额增大不直接证明净资金流入；资金集中流入表述强于证据，本轮无资金流工具请求。",
+            "首笔裸代码600584查询为空，模型自行换600584.SH后取到值，不代表代码归一缺陷已修。",
+            "递归data_dates只有请求日期09-21，不能替代evidence.source_date和事实表日期。",
+        ], "tool_requests": tool_names})
+    print(json.dumps({"ok": True, "scope": "wiring and limited numeric check only", "answer_quality_accepted": False,
+        "independent_n": payload["independent_n"], "no_judge_rate": payload["no_judge_rate"],
+        "secret_scan_hit_count": len(scanner.hits), "scanned_string_count": scanner.scanned_string_count,
+        "artifact_count": len(hashes), "membership_count": len(memberships), "output": str(out)}, ensure_ascii=False))
+
+
+if __name__ == "__main__":
+    main()

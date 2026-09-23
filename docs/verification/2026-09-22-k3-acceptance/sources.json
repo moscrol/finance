@@ -1,0 +1,93 @@
+{
+  "archived_at": "2026-09-22T18:18:39.222898+08:00",
+  "archive": "docs/verification/2026-09-22-k3-acceptance",
+  "file_count": 13,
+  "sources": [
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/k3-acceptance-20260922/prior-archive-check.json",
+      "archived_as": "evidence/prior-archive-check.json",
+      "sha256": "1ce16310245f439de87904a00130499385f8cbd4cce1109ced15170a7b39c817",
+      "redacted": false
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/k3-acceptance-20260922/frozen-run-review.json",
+      "archived_as": "evidence/frozen-run-review.json",
+      "sha256": "439420c59eeb505cf0b4b4cb9814713bb67f36b18270057e739aa6d85ca4dbf3",
+      "redacted": false
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/k3-acceptance-20260922/health-1.json",
+      "archived_as": "evidence/health-1.json",
+      "sha256": "f0703f6253ea2029d2c061b0cd5503cf9bbb04dcb08d5cbfc44d24eb353671ef",
+      "redacted": false
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/k3-acceptance-20260922/health-2.json",
+      "archived_as": "evidence/health-2.json",
+      "sha256": "f0703f6253ea2029d2c061b0cd5503cf9bbb04dcb08d5cbfc44d24eb353671ef",
+      "redacted": false
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/k3-acceptance-20260922/health-3.json",
+      "archived_as": "evidence/health-3.json",
+      "sha256": "7c982d4b6947e770ad61dc338c2d0bee4670c41f190af243316c64a4c86e109a",
+      "redacted": false
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/k3-acceptance-20260922/production-readonly-receipt.json",
+      "archived_as": "evidence/production-readonly-receipt.json",
+      "sha256": "1c3ac34ec1d8a7cd3663112ceac3c586e3b3a1b149763237346140adee2970cc",
+      "redacted": false
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/k3-acceptance-20260922/snapshot-contract.json",
+      "archived_as": "evidence/snapshot-contract.json",
+      "sha256": "e3b57df877cb6767d6ec93dc560e2d619ba760c71a65064c36b2d3e2db082c09",
+      "redacted": false
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/k3-acceptance-20260922/database-readonly.json",
+      "archived_as": "evidence/database-readonly.json",
+      "sha256": "7581ed359a46d2f1929bdb7d404b217269109eba56e3758c4eb55d820fa70098",
+      "redacted": false
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/k3-acceptance-20260922/protected-files.json",
+      "archived_as": "evidence/protected-files.json",
+      "sha256": "42eb720c27a11a1adc4bc33ccb24fdd578aef961f76f554648b2ec226bb35243",
+      "redacted": false
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/k3-acceptance-20260922/backup-integrity.json",
+      "archived_as": "evidence/backup-integrity.json",
+      "sha256": "f3b748dc3370c3d95571a69bd519c25624bd1c6377ae089c665207dbad73bfa1",
+      "redacted": false
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/k3-acceptance-20260922/pr-status-readonly.json",
+      "archived_as": "evidence/pr-status-readonly.json",
+      "sha256": "e08d5fc28418b6ff529d188c443e220d1dd090fcb2b2fd22669c8f24c91e8312",
+      "redacted": false
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/k3-acceptance-20260922/collect.py",
+      "archived_as": "scripts/collect.py.txt",
+      "sha256": "5fb64bcb96e2dce2f06578bb027f6743808c905090996df7ed9284853e4e140c",
+      "redacted": false,
+      "note": "audit original, not an executable entry point"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/k3-acceptance-20260922/archive_evidence.py",
+      "archived_as": "scripts/archive_evidence.py.txt",
+      "sha256": "207641da7d1f3f10ad142973fb3e046ec8ec076ceddd6b566c8e59c6caa6e22e",
+      "redacted": false,
+      "note": "audit original, not an executable entry point"
+    }
+  ],
+  "excluded": [
+    "gitea backup archive itself (4.2 GiB, outside the repository)",
+    "launcher, LaunchAgent, credentials, raw process environment",
+    "DuckDB databases and market snapshot payloads"
+  ],
+  "boundary": "selective archive of this round's receipts, not a full backup of the private evidence root"
+}

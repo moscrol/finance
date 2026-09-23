@@ -1,0 +1,95 @@
+{
+  "schema": "eval_variance_baseline.v1",
+  "generated_at": "20260921T105919Z",
+  "filename": "20260921T105919Z-var1.json",
+  "live": true,
+  "fixture": false,
+  "rev": "f2c3e9e1a24f42ae9b1d5a8cb9e501ababd1330a",
+  "n": 1,
+  "question_count": 2,
+  "baseline_flip_rate": 0.0,
+  "judge_unavailable_rate": 0.0,
+  "correlated_judge_rate": 0.0,
+  "independent_judge_rate": 0.0,
+  "no_judge_rate": 1.0,
+  "unknown_judge_independence_rate": 0.0,
+  "independent_n": 0,
+  "content_flip_rate": 0.0,
+  "formula": "per_question_flip_rate = count(primary_outcome != mode) / N; baseline_flip_rate = mean(per_question_flip_rate); mode = most frequent primary_outcome, ties broken by lexicographically smallest label; judge_unavailable_rate is mean(count(judge_unavailable)/N) and is NOT folded into content quality or into the A/B pass/fail call; correlated_judge_rate / independent_judge_rate are independence buckets and are NOT folded into content quality.",
+  "ab_rule": "观测差异小于基线翻转率，不得下回归/改善结论。judge_unavailable 类 degrade 单列，不计入内容质量。independent_n=0 时不得把判官结果当成独立验证（相关自审 / 缺字段都算）。",
+  "how_to_produce_441c60f2_live_baseline": "Checkout or attach sidecar at 441c60f2. Then: python scripts/eval_variance_baseline.py --live --rev 441c60f2 --n 5 --port 8796 --questions A1-market-overview,B1-theme-photoresist,C1-future-date-no-data. Do not use reserved ports 8792/8793/8795/8799/8801. Same rev, same questions, N repeats; do not mix with a later fix.",
+  "questions": [
+    {
+      "question_id": "material",
+      "n": 1,
+      "primary_outcome_counts": {
+        "completed": 1
+      },
+      "mode": "completed",
+      "flip_rate": 0.0,
+      "judge_unavailable_count": 0,
+      "judge_unavailable_rate": 0.0,
+      "correlated_judge_count": 0,
+      "correlated_judge_rate": 0.0,
+      "independent_judge_count": 0,
+      "independent_judge_rate": 0.0,
+      "no_judge_count": 1,
+      "no_judge_rate": 1.0,
+      "unknown_judge_independence_count": 0,
+      "unknown_judge_independence_rate": 0.0,
+      "content_n": 1,
+      "content_flip_rate": 0.0,
+      "repeats": [
+        {
+          "question_id": "run_20260921_183219_280474",
+          "primary_outcome": "completed",
+          "judge_status": "passed",
+          "judge_unavailable": false,
+          "judge_mode": "deterministic",
+          "correlated_judge": null,
+          "verified_status": "completed",
+          "terminal_outcome": null,
+          "run_id": "run_20260921_183219_280474",
+          "repeat_index": null
+        }
+      ]
+    },
+    {
+      "question_id": "grounded",
+      "n": 1,
+      "primary_outcome_counts": {
+        "completed": 1
+      },
+      "mode": "completed",
+      "flip_rate": 0.0,
+      "judge_unavailable_count": 0,
+      "judge_unavailable_rate": 0.0,
+      "correlated_judge_count": 0,
+      "correlated_judge_rate": 0.0,
+      "independent_judge_count": 0,
+      "independent_judge_rate": 0.0,
+      "no_judge_count": 1,
+      "no_judge_rate": 1.0,
+      "unknown_judge_independence_count": 0,
+      "unknown_judge_independence_rate": 0.0,
+      "content_n": 1,
+      "content_flip_rate": 0.0,
+      "repeats": [
+        {
+          "question_id": "run_20260921_183642_325351",
+          "primary_outcome": "completed",
+          "judge_status": "passed",
+          "judge_unavailable": false,
+          "judge_mode": "deterministic",
+          "correlated_judge": null,
+          "verified_status": "completed",
+          "terminal_outcome": null,
+          "run_id": "run_20260921_183642_325351",
+          "repeat_index": null
+        }
+      ]
+    }
+  ],
+  "source": "production conversation HTTP first runs, post-hoc read-only extraction",
+  "note": "Two questions, n=1 each; no variance, speed or quality improvement claim."
+}

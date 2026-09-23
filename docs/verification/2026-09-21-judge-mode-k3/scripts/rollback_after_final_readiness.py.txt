@@ -1,0 +1,96 @@
+"""Restore the pre-task launcher and code after a NEW final-readiness failure.
+
+One guarded recovery, not another attempt to deploy K3. Does not modify market
+facts or existing user runs. The first failed final readiness remains immutable.
+"""
+from __future__ import annotations
+
+import datetime
+import hashlib
+import json
+import os
+import shutil
+import time
+from pathlib import Path
+
+from retry_cutover import (
+    git,
+    http_json,
+    launcher,
+    link,
+    old_rev,
+    record,
+    restart_loaded_job,
+    root,
+    wait_for_old,
+)
+
+NEW = "f2c3e9e1a24f42ae9b1d5a8cb9e501ababd1330a"
+
+
+def save(name, value):
+    with (root / name).open("x", encoding="utf-8") as file:
+        json.dump(value, file, ensure_ascii=False, indent=2)
+        file.write("\n")
+
+
+def main():
+    incident = json.loads((root / "final-readiness.json").read_text())
+    assert incident["checks"]["rag_query_protocol"] is False
+    assert incident["rag"]["warning"] == "RAG CLI 能力探测超时"
+    before = json.loads((root / "launcher-before-identity.json").read_text())
+    installed = json.loads((root / "cutover-installed-attempt2.json").read_text())
+    assert hashlib.sha256(launcher.read_bytes()).hexdigest() == installed["launcher_sha256"]
+    assert str(link.resolve()) == installed["runtime_target"]
+    assert hashlib.sha256((root / "launcher-before.sh").read_bytes()).hexdigest() == before["sha256"]
+    old = Path(before["runtime_target"])
+    assert git(old, "rev-parse", "HEAD") == old_rev
+    assert git(old, "status", "--porcelain") == ""
+    health = http_json("/api/health")
+    assert health["runtime"]["source_revision"] == NEW
+    ready = http_json("/api/readiness")
+    assert ready["workers"]["active"] == ready["workers"]["queued"] == 0, "active user work: do not interrupt"
+    save("rollback-final-precheck.json", {
+        "at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "reason": "New rag_query_protocol failure at final-readiness; no attribution to K3 or code yet",
+        "prior_failed_readiness": "final-readiness.json", "current_readiness": ready,
+        "restore_revision": old_rev, "restore_launcher_sha256": before["sha256"],
+    })
+    staged = launcher.with_name(launcher.name + ".rollback-final-k3-0921")
+    assert not staged.exists()
+    shutil.copy2(root / "launcher-before.sh", staged)
+    staged.chmod(0o700)
+    os.replace(staged, launcher)
+    temp_link = link.with_name(link.name + ".rollback-final-k3-0921")
+    assert not temp_link.exists() and not temp_link.is_symlink()
+    temp_link.symlink_to(old)
+    os.replace(temp_link, link)
+    record(old_rev, old)
+    restart_loaded_job()
+    old_health = wait_for_old()
+    save("rollback-final-health-1.json", old_health)
+    for i in (2, 3):
+        time.sleep(2)
+        observed = http_json("/api/health")
+        rt = observed["runtime"]
+        assert rt["source_revision"] == old_rev and not rt["source_dirty"] and rt["code_matches_repo"]
+        save(f"rollback-final-health-{i}.json", observed)
+    # Preserve the first old-runtime readiness. No acceptance claim from a retry.
+    old_ready = http_json("/api/readiness")
+    save("rollback-final-readiness.json", old_ready)
+    assert hashlib.sha256(launcher.read_bytes()).hexdigest() == before["sha256"]
+    assert str(link.resolve()) == str(old)
+    save("rollback-final-completed.json", {
+        "at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "revision": old_rev, "model": old_health["runtime"]["agent_runtime"]["model"],
+        "runtime_target": str(link.resolve()), "launcher_sha256": before["sha256"],
+        "health_identity_verified": True,
+        "readiness_failed_checks": [k for k, v in old_ready["checks"].items() if v is not True],
+        "k3_deployment_accepted": False,
+        "judge_configuration": "pre-task defaults restored; this is NOT a production judge-off completion",
+    })
+    print("Old code and launcher restored; K3 deployment is NOT accepted. See rollback-final-completed.json.", flush=True)
+
+
+if __name__ == "__main__":
+    main()
