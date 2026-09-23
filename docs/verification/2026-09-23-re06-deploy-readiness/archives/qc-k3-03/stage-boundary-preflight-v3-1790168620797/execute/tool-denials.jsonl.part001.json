@@ -1,0 +1,9 @@
+{
+  "source": "stage-boundary-preflight-v3-1790168620797/execute/tool-denials.jsonl",
+  "raw_sha256": "b361fc210f2ed10da3c9ca5ae577e752bdd4844bd13e3ad5fc37e6bb2aecc83e",
+  "raw_bytes": 107,
+  "chunk": 1,
+  "chunks": 1,
+  "encoding": "gzip-base64-chunk",
+  "data": "H4sIAAAAAAACEyWMQQqAIBBF950iZt2qZZeJUQcN0hFHIYnu3li7/96Hd4NU9AQb0EW2VYIFfOGWh1kVKvOp26AEJcsxYnLjtIFn0zOKqC+Ewkn1V9v/1sFpN9ySw9LhmV6rc8spawAAAA=="
+}

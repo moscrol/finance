@@ -1,0 +1,9 @@
+{
+  "source": "explore-e2/commands/021-write/result.json",
+  "raw_sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+  "raw_bytes": 14,
+  "chunk": 1,
+  "chunks": 1,
+  "encoding": "gzip-base64-chunk",
+  "data": "H4sIAAAAAAACE6tWSq3ILHHOT0lVsjKoBQDuag0ZDgAAAA=="
+}

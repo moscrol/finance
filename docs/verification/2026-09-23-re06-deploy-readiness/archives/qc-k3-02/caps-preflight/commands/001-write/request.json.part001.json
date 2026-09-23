@@ -1,0 +1,9 @@
+{
+  "source": "caps-preflight/commands/001-write/request.json",
+  "raw_sha256": "8ae21fdf8d9076abb74aa8d821377dbbe38707a538ddbad75c84d6eb5512fb07",
+  "raw_bytes": 1911,
+  "chunk": 1,
+  "chunks": 1,
+  "encoding": "gzip-base64-chunk",
+  "data": "H4sIAAAAAAACEyXSvW4TURSF0VdBrjGefeY/LRUPQEdjJRNhxbGDPZAgxLtjsqp9pSt9p1l/Nuv5fPy8Px6/PGzuNq+Xw7psj4fTct183LzsL/vn6+buz+21fr99775el8t1tx/H3afHw2l/ul+2l5+n9fC87C7Lr8Pyer1tM2wflpfj+ff2suwf/reu22pqaOZqt012P+63T7dH7V7Pl6fd/f5l+3h4W39elk/r23o7e38+rctpvd1rmnx4+3ZqmjKt6UxvBjOayczvk8aoRCUqUYlKVKISlaiUSqmUSqmUSqmUSqmUSqm0Kq1Kq9KqtCqtSqvSqrQqrUqn0ql0Kp1Kp9KpdCqdSqfSqfQqvUqv0qv0Kr1Kr9Kr9Cq9yqAyqAwqg8qgMqgMKoPKoDKojCqjyqgyqowqo8qoMqqMKqPKpDKpTCqTyqQyqUwqk8qkMqnMKrPKrDKrzCqzyqwyq8wq83slTWNiyrSmM70ZzGgmo8Ju2A27YTfsht2wG3bDbtgNu2E37IbdsBt2w27YDbthN+yG3bAbdsNu2A27YTfsht2wG3bDbtgNu2E37IbdsBt2w27YDbthN+yG3bAbdsNu2A27YTfsht2wG3bDbtgNu2E37IbdsBt2w27YDbthN+yG3bAbdsNu2A27YTfsht2wG3bDbtgNu2E37IbdsBt2w27YLXaL3WK32C12i91it9gtdovdYrfYLXaL3WK32C12i91it9gtdovdYrfYLXaL3WK32C12i91it9gtdovdYrfYLXaL3WK32C12i91it9gtdovdYrfYLXaL3WJ38/fvP3/XLGx3BwAA"
+}

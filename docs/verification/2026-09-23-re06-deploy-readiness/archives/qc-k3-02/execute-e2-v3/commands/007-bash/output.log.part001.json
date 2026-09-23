@@ -1,0 +1,9 @@
+{
+  "source": "execute-e2-v3/commands/007-bash/output.log",
+  "raw_sha256": "6ad3ed070c07b1e54c4085a4d41ffa6e9849cf83f3106aa511146909bf56f8ca",
+  "raw_bytes": 1619,
+  "chunk": 1,
+  "chunks": 1,
+  "encoding": "gzip-base64-chunk",
+  "data": "H4sIAAAAAAACE8VUUWvbMBB+1684PAYbVLZkJ3YSyKB0LhTGVroWBmMYxZYTNY7kSXKbrPRxf2Jvg+0HDPa2wX5NYXvaX5ichD50XTJYYYfAPunuu9N9pxsONwhYbiwYboxQEoxl2hoYbhRUV8yWSs+gYPpcSMAYDhd24vwjn4Y+jXagXrS4uOdHftdpVTMeLzD1Y58grZQthB5AcGK4NgFLksAvhWQy51g30ooZDzQ/E/zcuC+JccHrSi2w5qwQ0mWKQxLGpB9GmNDgdY6n7idEbRAhzQCYXAiFOz51C+WqqnhueQEUhOUzhHw/cEvIurEmKLV6wyXmcxdBc8xDfBYFtVYjboL2BlmtjLDijGe5klaryq8XsA9LeUkJuf8KoeF2gf3dgycnR+lz+AtjlN0ucGtC2axxuyUTFfzBL0OoTbfg5TaEBw8H6NHqcsCMY8e6qrnsQ4B74Gq0LORv/hDAsmLZqBn//Pru6tvbH++/XH349P3zR5TehnYHHAwoGcDuEtT1baq10gjDmEuuWUv2fFZBKSp+110WnCs9DXgYOAgT3EwM06RPaBz3SUJ7YdIlToLTRgrrtwnhTa0CZqJchVbPsZnNmF6AkKXa2DGo7av0Mfx7PQfbmgvf4HBLw1NovRwTbj4Qn/S3DZUhQumLdO/k+ODZ0+wo3UsPDo/hwquZnXgD8P47i5rnXNTWPzVKejvgmQkLu3GbWtEd5ZRF/YKO4n7Sj+NuTsuYORB3EoVlHPaSpOxyyminE0dJTnmedHolzaMRD5OkReNzYV34gjtA6vRcubsZp1x4LS9mvV23FBROIU5Z1Xd9wtsXYNYnZirq+tpufm1IlsjreXgdaa1nRjU6bxPwVsM7M7ZQjfUundWoUvl06SObqrpEvwCqDudgUwYAAA=="
+}

@@ -1,0 +1,61 @@
+{
+  "schema": 1,
+  "leaf": "frontend",
+  "tree": "/Users/a77/fwp-wt-re06-ready-0923",
+  "revision": "8eac9b3b55c563b1eb3be58686fcc0918464f69a",
+  "runner_sha256": "4fa9fd9a8e40507eb7a26e90f46928ac066551225cd6abb91d84370d3c427f32",
+  "started_at": "2026-09-23T11:59:54.626742+00:00",
+  "identity_before": {
+    "recorded_at": "2026-09-23T11:59:54.759368+00:00",
+    "revision": "8eac9b3b55c563b1eb3be58686fcc0918464f69a",
+    "dirty": false,
+    "status_porcelain_z": ""
+  },
+  "identity_after": {
+    "recorded_at": "2026-09-23T12:01:32.135324+00:00",
+    "revision": "8eac9b3b55c563b1eb3be58686fcc0918464f69a",
+    "dirty": false,
+    "status_porcelain_z": ""
+  },
+  "dirty": false,
+  "identity_stable": true,
+  "complete": true,
+  "checks": [
+    {
+      "command": [
+        "pnpm",
+        "install",
+        "--frozen-lockfile"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.7,
+      "log": "frontend-0.log.txt",
+      "log_bytes": 995,
+      "log_sha256": "63ed608ee9336c1944c69faa78c01524271e5c43c5aa0db0d1d2e8c5af5ead9c"
+    },
+    {
+      "command": [
+        "pnpm",
+        "build"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 9.09,
+      "log": "frontend-1.log.txt",
+      "log_bytes": 907,
+      "log_sha256": "9c0a37b26c93f6cf14c80c94d3e56d4cb2e5703df248ec67674025630247c048"
+    },
+    {
+      "command": [
+        "pnpm",
+        "test:e2e"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 87.42,
+      "log": "frontend-2.log.txt",
+      "log_bytes": 7058,
+      "log_sha256": "3707f9127e5c362b5044b8d0a5735437948fdb697933e2fb97644a75a6e8bae6"
+    }
+  ],
+  "exit_code": 0,
+  "finished_at": "2026-09-23T12:01:32.135382+00:00"
+}

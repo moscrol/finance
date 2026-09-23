@@ -1,0 +1,1548 @@
+{
+  "revision": "8eac9b3b55c563b1eb3be58686fcc0918464f69a",
+  "baseline": "b59d6eed0356ae093b52bd291ab328628de8790e",
+  "tree": "/Users/a77/fwp-wt-re06-ready-0923",
+  "started_at": "2026-09-23T10:27:44.050716+00:00",
+  "runner_sha256": "add78a667661fa0a88d6052325677b4f6cbf00431de82552c54a06461f8d63b6",
+  "complete": false,
+  "leaves": {
+    "frontend": {
+      "status": "BLOCKED_RESOURCE_GATE"
+    }
+  },
+  "resource_admissions": [
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:27:44.565471+00:00",
+      "load": [
+        74.361328125,
+        31.3466796875,
+        17.68017578125
+      ],
+      "pytest_processes": 4,
+      "projected_pytest_processes": 4,
+      "free_disk_gib": 30.803,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:27:54.970651+00:00",
+      "load": [
+        81.5341796875,
+        34.3115234375,
+        18.89208984375
+      ],
+      "pytest_processes": 4,
+      "projected_pytest_processes": 4,
+      "free_disk_gib": 30.738,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:28:05.378803+00:00",
+      "load": [
+        86.6435546875,
+        36.9794921875,
+        20.02001953125
+      ],
+      "pytest_processes": 4,
+      "projected_pytest_processes": 4,
+      "free_disk_gib": 30.681,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:28:15.584591+00:00",
+      "load": [
+        89.359375,
+        39.201171875,
+        21.00634765625
+      ],
+      "pytest_processes": 4,
+      "projected_pytest_processes": 4,
+      "free_disk_gib": 30.679,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:28:25.721666+00:00",
+      "load": [
+        95.26123046875,
+        42.123046875,
+        22.25537109375
+      ],
+      "pytest_processes": 4,
+      "projected_pytest_processes": 4,
+      "free_disk_gib": 30.639,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:28:35.926315+00:00",
+      "load": [
+        101.47607421875,
+        45.1982421875,
+        23.578125
+      ],
+      "pytest_processes": 4,
+      "projected_pytest_processes": 4,
+      "free_disk_gib": 30.62,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:28:46.150510+00:00",
+      "load": [
+        106.34130859375,
+        48.08984375,
+        24.8564453125
+      ],
+      "pytest_processes": 4,
+      "projected_pytest_processes": 4,
+      "free_disk_gib": 30.596,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:28:56.299239+00:00",
+      "load": [
+        104.83447265625,
+        49.69677734375,
+        25.6982421875
+      ],
+      "pytest_processes": 4,
+      "projected_pytest_processes": 4,
+      "free_disk_gib": 30.551,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:29:06.490612+00:00",
+      "load": [
+        101.43896484375,
+        50.76513671875,
+        26.35595703125
+      ],
+      "pytest_processes": 6,
+      "projected_pytest_processes": 6,
+      "free_disk_gib": 30.496,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:29:16.670204+00:00",
+      "load": [
+        97.0087890625,
+        51.494140625,
+        26.89990234375
+      ],
+      "pytest_processes": 6,
+      "projected_pytest_processes": 6,
+      "free_disk_gib": 30.498,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:29:26.826230+00:00",
+      "load": [
+        88.634765625,
+        51.15869140625,
+        27.0654296875
+      ],
+      "pytest_processes": 6,
+      "projected_pytest_processes": 6,
+      "free_disk_gib": 30.479,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:29:36.995772+00:00",
+      "load": [
+        83.12646484375,
+        51.23046875,
+        27.37353515625
+      ],
+      "pytest_processes": 8,
+      "projected_pytest_processes": 8,
+      "free_disk_gib": 30.443,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:29:47.104962+00:00",
+      "load": [
+        79.36865234375,
+        51.470703125,
+        27.73681640625
+      ],
+      "pytest_processes": 8,
+      "projected_pytest_processes": 8,
+      "free_disk_gib": 30.452,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:29:57.285763+00:00",
+      "load": [
+        72.90869140625,
+        51.03515625,
+        27.861328125
+      ],
+      "pytest_processes": 6,
+      "projected_pytest_processes": 6,
+      "free_disk_gib": 30.472,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:30:07.458429+00:00",
+      "load": [
+        72.22705078125,
+        51.609375,
+        28.33544921875
+      ],
+      "pytest_processes": 6,
+      "projected_pytest_processes": 6,
+      "free_disk_gib": 30.446,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:30:17.595950+00:00",
+      "load": [
+        75.28857421875,
+        52.953125,
+        29.083984375
+      ],
+      "pytest_processes": 6,
+      "projected_pytest_processes": 6,
+      "free_disk_gib": 30.373,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:30:27.702026+00:00",
+      "load": [
+        78.6259765625,
+        54.40283203125,
+        29.876953125
+      ],
+      "pytest_processes": 7,
+      "projected_pytest_processes": 7,
+      "free_disk_gib": 30.332,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:30:37.796705+00:00",
+      "load": [
+        78.12548828125,
+        55.1357421875,
+        30.42578125
+      ],
+      "pytest_processes": 4,
+      "projected_pytest_processes": 4,
+      "free_disk_gib": 30.314,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:30:48.008453+00:00",
+      "load": [
+        75.75439453125,
+        55.7333984375,
+        31.0703125
+      ],
+      "pytest_processes": 4,
+      "projected_pytest_processes": 4,
+      "free_disk_gib": 30.32,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:30:58.129870+00:00",
+      "load": [
+        78.1171875,
+        56.89501953125,
+        31.7705078125
+      ],
+      "pytest_processes": 4,
+      "projected_pytest_processes": 4,
+      "free_disk_gib": 30.308,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:31:08.233987+00:00",
+      "load": [
+        71.359375,
+        56.1416015625,
+        31.7958984375
+      ],
+      "pytest_processes": 4,
+      "projected_pytest_processes": 4,
+      "free_disk_gib": 30.273,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:31:18.328686+00:00",
+      "load": [
+        62.7998046875,
+        54.80419921875,
+        31.60498046875
+      ],
+      "pytest_processes": 4,
+      "projected_pytest_processes": 4,
+      "free_disk_gib": 30.276,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:31:28.493138+00:00",
+      "load": [
+        55.13623046875,
+        53.4267578125,
+        31.38671875
+      ],
+      "pytest_processes": 5,
+      "projected_pytest_processes": 5,
+      "free_disk_gib": 30.27,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:31:38.648599+00:00",
+      "load": [
+        48.49755859375,
+        52.06201171875,
+        31.15966796875
+      ],
+      "pytest_processes": 4,
+      "projected_pytest_processes": 4,
+      "free_disk_gib": 30.218,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:31:48.734332+00:00",
+      "load": [
+        46.01171875,
+        51.42919921875,
+        31.18017578125
+      ],
+      "pytest_processes": 4,
+      "projected_pytest_processes": 4,
+      "free_disk_gib": 30.101,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:31:58.807392+00:00",
+      "load": [
+        39.55224609375,
+        49.8671875,
+        30.86181640625
+      ],
+      "pytest_processes": 4,
+      "projected_pytest_processes": 4,
+      "free_disk_gib": 30.001,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:32:08.894236+00:00",
+      "load": [
+        35.908203125,
+        48.7373046875,
+        30.68212890625
+      ],
+      "pytest_processes": 4,
+      "projected_pytest_processes": 4,
+      "free_disk_gib": 29.939,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:32:18.971012+00:00",
+      "load": [
+        32.2451171875,
+        47.52734375,
+        30.46337890625
+      ],
+      "pytest_processes": 4,
+      "projected_pytest_processes": 4,
+      "free_disk_gib": 29.919,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:32:29.102049+00:00",
+      "load": [
+        28.74462890625,
+        46.27490234375,
+        30.2177734375
+      ],
+      "pytest_processes": 4,
+      "projected_pytest_processes": 4,
+      "free_disk_gib": 29.865,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:32:39.156390+00:00",
+      "load": [
+        25.32080078125,
+        44.96435546875,
+        29.9404296875
+      ],
+      "pytest_processes": 4,
+      "projected_pytest_processes": 4,
+      "free_disk_gib": 29.81,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:32:49.306274+00:00",
+      "load": [
+        24.56298828125,
+        44.15771484375,
+        29.82958984375
+      ],
+      "pytest_processes": 5,
+      "projected_pytest_processes": 5,
+      "free_disk_gib": 29.584,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:32:59.625301+00:00",
+      "load": [
+        34.482421875,
+        45.60791015625,
+        30.509765625
+      ],
+      "pytest_processes": 5,
+      "projected_pytest_processes": 5,
+      "free_disk_gib": 29.321,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:33:09.753166+00:00",
+      "load": [
+        45.53466796875,
+        47.5986328125,
+        31.3916015625
+      ],
+      "pytest_processes": 6,
+      "projected_pytest_processes": 6,
+      "free_disk_gib": 29.189,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:33:19.923281+00:00",
+      "load": [
+        52.92431640625,
+        49.13671875,
+        32.1279296875
+      ],
+      "pytest_processes": 5,
+      "projected_pytest_processes": 5,
+      "free_disk_gib": 29.138,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:33:30.074683+00:00",
+      "load": [
+        56.76611328125,
+        50.0859375,
+        32.66357421875
+      ],
+      "pytest_processes": 4,
+      "projected_pytest_processes": 4,
+      "free_disk_gib": 29.094,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:33:40.224981+00:00",
+      "load": [
+        56.8046875,
+        50.32666015625,
+        32.953125
+      ],
+      "pytest_processes": 4,
+      "projected_pytest_processes": 4,
+      "free_disk_gib": 29.245,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:33:50.354648+00:00",
+      "load": [
+        56.818359375,
+        50.53173828125,
+        33.22802734375
+      ],
+      "pytest_processes": 4,
+      "projected_pytest_processes": 4,
+      "free_disk_gib": 29.191,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:34:00.489808+00:00",
+      "load": [
+        54.478515625,
+        50.234375,
+        33.32421875
+      ],
+      "pytest_processes": 4,
+      "projected_pytest_processes": 4,
+      "free_disk_gib": 29.187,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:34:10.824071+00:00",
+      "load": [
+        51.68212890625,
+        49.767578125,
+        33.35546875
+      ],
+      "pytest_processes": 4,
+      "projected_pytest_processes": 4,
+      "free_disk_gib": 29.163,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:34:21.227179+00:00",
+      "load": [
+        62.14697265625,
+        52.05126953125,
+        34.35595703125
+      ],
+      "pytest_processes": 4,
+      "projected_pytest_processes": 4,
+      "free_disk_gib": 29.135,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:34:31.357721+00:00",
+      "load": [
+        60.3076171875,
+        51.9716796875,
+        34.53271484375
+      ],
+      "pytest_processes": 4,
+      "projected_pytest_processes": 4,
+      "free_disk_gib": 29.017,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:34:41.462477+00:00",
+      "load": [
+        58.42138671875,
+        51.86669921875,
+        34.7001953125
+      ],
+      "pytest_processes": 4,
+      "projected_pytest_processes": 4,
+      "free_disk_gib": 28.86,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:34:51.583347+00:00",
+      "load": [
+        51.76416015625,
+        50.6533203125,
+        34.4697265625
+      ],
+      "pytest_processes": 5,
+      "projected_pytest_processes": 5,
+      "free_disk_gib": 28.837,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:35:01.752956+00:00",
+      "load": [
+        46.1591796875,
+        49.494140625,
+        34.24755859375
+      ],
+      "pytest_processes": 5,
+      "projected_pytest_processes": 5,
+      "free_disk_gib": 28.682,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:35:11.864507+00:00",
+      "load": [
+        43.107421875,
+        48.7353515625,
+        34.15673828125
+      ],
+      "pytest_processes": 5,
+      "projected_pytest_processes": 5,
+      "free_disk_gib": 28.551,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:35:21.994311+00:00",
+      "load": [
+        41.35107421875,
+        48.16845703125,
+        34.12548828125
+      ],
+      "pytest_processes": 5,
+      "projected_pytest_processes": 5,
+      "free_disk_gib": 28.542,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:35:32.083775+00:00",
+      "load": [
+        39.6630859375,
+        47.5986328125,
+        34.087890625
+      ],
+      "pytest_processes": 5,
+      "projected_pytest_processes": 5,
+      "free_disk_gib": 28.497,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:35:42.188714+00:00",
+      "load": [
+        35.88671875,
+        46.53857421875,
+        33.86962890625
+      ],
+      "pytest_processes": 4,
+      "projected_pytest_processes": 4,
+      "free_disk_gib": 28.417,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:35:52.280258+00:00",
+      "load": [
+        34.3310546875,
+        45.84716796875,
+        33.771484375
+      ],
+      "pytest_processes": 3,
+      "projected_pytest_processes": 3,
+      "free_disk_gib": 28.536,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:36:02.433358+00:00",
+      "load": [
+        32.2841796875,
+        45.015625,
+        33.6162109375
+      ],
+      "pytest_processes": 3,
+      "projected_pytest_processes": 3,
+      "free_disk_gib": 29.558,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:36:12.572053+00:00",
+      "load": [
+        36.48095703125,
+        45.4794921875,
+        33.91259765625
+      ],
+      "pytest_processes": 3,
+      "projected_pytest_processes": 3,
+      "free_disk_gib": 30.442,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:36:22.688126+00:00",
+      "load": [
+        43.11083984375,
+        46.599609375,
+        34.4453125
+      ],
+      "pytest_processes": 3,
+      "projected_pytest_processes": 3,
+      "free_disk_gib": 31.586,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:36:32.830176+00:00",
+      "load": [
+        42.0390625,
+        46.29052734375,
+        34.4794921875
+      ],
+      "pytest_processes": 3,
+      "projected_pytest_processes": 3,
+      "free_disk_gib": 31.541,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:36:43.040037+00:00",
+      "load": [
+        41.62255859375,
+        46.009765625,
+        34.58642578125
+      ],
+      "pytest_processes": 3,
+      "projected_pytest_processes": 3,
+      "free_disk_gib": 31.518,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:36:53.573795+00:00",
+      "load": [
+        49.76123046875,
+        47.580078125,
+        35.27490234375
+      ],
+      "pytest_processes": 3,
+      "projected_pytest_processes": 3,
+      "free_disk_gib": 31.476,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:37:04.447611+00:00",
+      "load": [
+        61.43408203125,
+        50.1728515625,
+        36.33935546875
+      ],
+      "pytest_processes": 3,
+      "projected_pytest_processes": 3,
+      "free_disk_gib": 32.453,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:37:14.836591+00:00",
+      "load": [
+        70.9375,
+        52.5458984375,
+        37.3408203125
+      ],
+      "pytest_processes": 3,
+      "projected_pytest_processes": 3,
+      "free_disk_gib": 32.445,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:37:25.150071+00:00",
+      "load": [
+        83.4833984375,
+        55.82373046875,
+        38.68017578125
+      ],
+      "pytest_processes": 3,
+      "projected_pytest_processes": 3,
+      "free_disk_gib": 32.388,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:37:35.704805+00:00",
+      "load": [
+        95.640625,
+        59.3359375,
+        40.12646484375
+      ],
+      "pytest_processes": 3,
+      "projected_pytest_processes": 3,
+      "free_disk_gib": 32.239,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:37:45.966035+00:00",
+      "load": [
+        104.3046875,
+        62.38671875,
+        41.43310546875
+      ],
+      "pytest_processes": 3,
+      "projected_pytest_processes": 3,
+      "free_disk_gib": 32.267,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:37:56.551122+00:00",
+      "load": [
+        103.841796875,
+        63.58056640625,
+        42.09619140625
+      ],
+      "pytest_processes": 3,
+      "projected_pytest_processes": 3,
+      "free_disk_gib": 32.187,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:38:06.729240+00:00",
+      "load": [
+        113.1767578125,
+        66.87744140625,
+        43.51513671875
+      ],
+      "pytest_processes": 3,
+      "projected_pytest_processes": 3,
+      "free_disk_gib": 32.067,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:38:16.926652+00:00",
+      "load": [
+        125.80126953125,
+        71.1240234375,
+        45.29541015625
+      ],
+      "pytest_processes": 3,
+      "projected_pytest_processes": 3,
+      "free_disk_gib": 32.065,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:38:27.110315+00:00",
+      "load": [
+        115.63916015625,
+        70.78173828125,
+        45.4775390625
+      ],
+      "pytest_processes": 3,
+      "projected_pytest_processes": 3,
+      "free_disk_gib": 31.048,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:38:37.252684+00:00",
+      "load": [
+        103.72119140625,
+        69.72900390625,
+        45.40087890625
+      ],
+      "pytest_processes": 3,
+      "projected_pytest_processes": 3,
+      "free_disk_gib": 31.041,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:38:47.788654+00:00",
+      "load": [
+        109.66015625,
+        72.09765625,
+        46.52392578125
+      ],
+      "pytest_processes": 3,
+      "projected_pytest_processes": 3,
+      "free_disk_gib": 30.983,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:38:58.041939+00:00",
+      "load": [
+        119.0029296875,
+        76.0224609375,
+        48.37158203125
+      ],
+      "pytest_processes": 3,
+      "projected_pytest_processes": 3,
+      "free_disk_gib": 30.943,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:39:08.342516+00:00",
+      "load": [
+        124.703125,
+        78.6826171875,
+        49.6396484375
+      ],
+      "pytest_processes": 3,
+      "projected_pytest_processes": 3,
+      "free_disk_gib": 30.855,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:39:18.517642+00:00",
+      "load": [
+        131.35595703125,
+        81.63623046875,
+        51.02783203125
+      ],
+      "pytest_processes": 3,
+      "projected_pytest_processes": 3,
+      "free_disk_gib": 30.75,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:39:28.672000+00:00",
+      "load": [
+        131.0283203125,
+        83.236328125,
+        51.95458984375
+      ],
+      "pytest_processes": 3,
+      "projected_pytest_processes": 3,
+      "free_disk_gib": 30.67,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:39:38.893768+00:00",
+      "load": [
+        122.54833984375,
+        82.99658203125,
+        52.23486328125
+      ],
+      "pytest_processes": 3,
+      "projected_pytest_processes": 3,
+      "free_disk_gib": 30.599,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:39:49.245170+00:00",
+      "load": [
+        119.6259765625,
+        83.68505859375,
+        52.8388671875
+      ],
+      "pytest_processes": 3,
+      "projected_pytest_processes": 3,
+      "free_disk_gib": 30.519,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:40:00.501546+00:00",
+      "load": [
+        109.154296875,
+        82.67724609375,
+        52.84423828125
+      ],
+      "pytest_processes": 3,
+      "projected_pytest_processes": 3,
+      "free_disk_gib": 30.455,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:40:10.813545+00:00",
+      "load": [
+        102.98681640625,
+        82.2001953125,
+        53.021484375
+      ],
+      "pytest_processes": 3,
+      "projected_pytest_processes": 3,
+      "free_disk_gib": 30.393,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:40:21.044403+00:00",
+      "load": [
+        103.52978515625,
+        83.0,
+        53.64599609375
+      ],
+      "pytest_processes": 3,
+      "projected_pytest_processes": 3,
+      "free_disk_gib": 30.211,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:40:31.446421+00:00",
+      "load": [
+        96.58740234375,
+        82.15283203125,
+        53.68603515625
+      ],
+      "pytest_processes": 3,
+      "projected_pytest_processes": 3,
+      "free_disk_gib": 29.931,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:40:41.687273+00:00",
+      "load": [
+        91.3623046875,
+        81.4794921875,
+        53.77783203125
+      ],
+      "pytest_processes": 3,
+      "projected_pytest_processes": 3,
+      "free_disk_gib": 29.895,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:40:51.991181+00:00",
+      "load": [
+        87.7314453125,
+        81.033203125,
+        53.943359375
+      ],
+      "pytest_processes": 3,
+      "projected_pytest_processes": 3,
+      "free_disk_gib": 29.74,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:41:02.575071+00:00",
+      "load": [
+        82.8818359375,
+        80.1962890625,
+        53.96142578125
+      ],
+      "pytest_processes": 3,
+      "projected_pytest_processes": 3,
+      "free_disk_gib": 29.719,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:41:12.853341+00:00",
+      "load": [
+        79.0302734375,
+        79.4638671875,
+        54.0078125
+      ],
+      "pytest_processes": 3,
+      "projected_pytest_processes": 3,
+      "free_disk_gib": 29.698,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:41:23.048417+00:00",
+      "load": [
+        75.2568359375,
+        78.62060546875,
+        54.15185546875
+      ],
+      "pytest_processes": 3,
+      "projected_pytest_processes": 3,
+      "free_disk_gib": 29.618,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:41:33.143501+00:00",
+      "load": [
+        70.27099609375,
+        77.47216796875,
+        54.03173828125
+      ],
+      "pytest_processes": 3,
+      "projected_pytest_processes": 3,
+      "free_disk_gib": 29.551,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:41:43.200160+00:00",
+      "load": [
+        60.44384765625,
+        75.1337890625,
+        53.4755859375
+      ],
+      "pytest_processes": 3,
+      "projected_pytest_processes": 3,
+      "free_disk_gib": 29.528,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:41:53.283409+00:00",
+      "load": [
+        51.5380859375,
+        72.74169921875,
+        52.87939453125
+      ],
+      "pytest_processes": 3,
+      "projected_pytest_processes": 3,
+      "free_disk_gib": 29.456,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:42:03.461486+00:00",
+      "load": [
+        50.9228515625,
+        71.92333984375,
+        52.82177734375
+      ],
+      "pytest_processes": 3,
+      "projected_pytest_processes": 3,
+      "free_disk_gib": 29.376,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:42:13.555885+00:00",
+      "load": [
+        45.17822265625,
+        69.99951171875,
+        52.3623046875
+      ],
+      "pytest_processes": 3,
+      "projected_pytest_processes": 3,
+      "free_disk_gib": 29.085,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:42:23.652530+00:00",
+      "load": [
+        41.51171875,
+        68.38818359375,
+        51.99560546875
+      ],
+      "pytest_processes": 3,
+      "projected_pytest_processes": 3,
+      "free_disk_gib": 28.942,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:42:33.792080+00:00",
+      "load": [
+        37.35546875,
+        66.61279296875,
+        51.55712890625
+      ],
+      "pytest_processes": 3,
+      "projected_pytest_processes": 3,
+      "free_disk_gib": 29.02,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:42:43.912029+00:00",
+      "load": [
+        33.2578125,
+        64.779296875,
+        51.08251953125
+      ],
+      "pytest_processes": 3,
+      "projected_pytest_processes": 3,
+      "free_disk_gib": 28.972,
+      "allowed": false
+    },
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T10:42:54.012470+00:00",
+      "load": [
+        30.27099609375,
+        63.10546875,
+        50.64892578125
+      ],
+      "pytest_processes": 3,
+      "projected_pytest_processes": 3,
+      "free_disk_gib": 28.898,
+      "allowed": false
+    },
+    {
+      "leaf": "e2e",
+      "at": "2026-09-23T10:42:54.101317+00:00",
+      "load": [
+        30.27099609375,
+        63.10546875,
+        50.64892578125
+      ],
+      "pytest_processes": 3,
+      "projected_pytest_processes": 3,
+      "free_disk_gib": 28.898,
+      "allowed": false
+    },
+    {
+      "leaf": "e2e",
+      "at": "2026-09-23T10:43:04.189923+00:00",
+      "load": [
+        27.12841796875,
+        61.35546875,
+        50.17333984375
+      ],
+      "pytest_processes": 4,
+      "projected_pytest_processes": 4,
+      "free_disk_gib": 28.848,
+      "allowed": false
+    },
+    {
+      "leaf": "e2e",
+      "at": "2026-09-23T10:43:14.258340+00:00",
+      "load": [
+        25.384765625,
+        59.85986328125,
+        49.77294921875
+      ],
+      "pytest_processes": 4,
+      "projected_pytest_processes": 4,
+      "free_disk_gib": 28.805,
+      "allowed": false
+    },
+    {
+      "leaf": "e2e",
+      "at": "2026-09-23T10:43:24.370415+00:00",
+      "load": [
+        22.79150390625,
+        58.16845703125,
+        49.2900390625
+      ],
+      "pytest_processes": 6,
+      "projected_pytest_processes": 6,
+      "free_disk_gib": 29.748,
+      "allowed": false
+    },
+    {
+      "leaf": "e2e",
+      "at": "2026-09-23T10:43:34.457975+00:00",
+      "load": [
+        21.42041015625,
+        56.712890625,
+        48.876953125
+      ],
+      "pytest_processes": 4,
+      "projected_pytest_processes": 4,
+      "free_disk_gib": 29.689,
+      "allowed": false
+    },
+    {
+      "leaf": "e2e",
+      "at": "2026-09-23T10:43:44.584410+00:00",
+      "load": [
+        23.091796875,
+        55.900390625,
+        48.6796875
+      ],
+      "pytest_processes": 4,
+      "projected_pytest_processes": 4,
+      "free_disk_gib": 29.649,
+      "allowed": false
+    },
+    {
+      "leaf": "e2e",
+      "at": "2026-09-23T10:43:54.648720+00:00",
+      "load": [
+        21.43408203125,
+        54.4697265625,
+        48.25634765625
+      ],
+      "pytest_processes": 3,
+      "projected_pytest_processes": 3,
+      "free_disk_gib": 29.638,
+      "allowed": false
+    },
+    {
+      "leaf": "e2e",
+      "at": "2026-09-23T10:44:04.765986+00:00",
+      "load": [
+        18.97412109375,
+        52.8564453125,
+        47.755859375
+      ],
+      "pytest_processes": 3,
+      "projected_pytest_processes": 3,
+      "free_disk_gib": 29.621,
+      "allowed": false
+    },
+    {
+      "leaf": "e2e",
+      "at": "2026-09-23T10:44:14.859183+00:00",
+      "load": [
+        17.20654296875,
+        51.3623046875,
+        47.28466796875
+      ],
+      "pytest_processes": 3,
+      "projected_pytest_processes": 3,
+      "free_disk_gib": 29.51,
+      "allowed": false
+    },
+    {
+      "leaf": "e2e",
+      "at": "2026-09-23T10:44:24.958991+00:00",
+      "load": [
+        15.87744140625,
+        49.95068359375,
+        46.8310546875
+      ],
+      "pytest_processes": 3,
+      "projected_pytest_processes": 3,
+      "free_disk_gib": 29.354,
+      "allowed": false
+    },
+    {
+      "leaf": "e2e",
+      "at": "2026-09-23T10:44:35.062876+00:00",
+      "load": [
+        14.80078125,
+        48.60107421875,
+        46.388671875
+      ],
+      "pytest_processes": 3,
+      "projected_pytest_processes": 3,
+      "free_disk_gib": 29.317,
+      "allowed": false
+    },
+    {
+      "leaf": "e2e",
+      "at": "2026-09-23T10:44:45.124917+00:00",
+      "load": [
+        20.0419921875,
+        48.65234375,
+        46.43505859375
+      ],
+      "pytest_processes": 3,
+      "projected_pytest_processes": 3,
+      "free_disk_gib": 29.38,
+      "allowed": false
+    },
+    {
+      "leaf": "e2e",
+      "at": "2026-09-23T10:44:55.209192+00:00",
+      "load": [
+        18.2705078125,
+        47.32958984375,
+        45.9912109375
+      ],
+      "pytest_processes": 5,
+      "projected_pytest_processes": 5,
+      "free_disk_gib": 29.374,
+      "allowed": false
+    },
+    {
+      "leaf": "e2e",
+      "at": "2026-09-23T10:45:05.272751+00:00",
+      "load": [
+        18.15478515625,
+        46.3466796875,
+        45.658203125
+      ],
+      "pytest_processes": 5,
+      "projected_pytest_processes": 5,
+      "free_disk_gib": 29.367,
+      "allowed": false
+    },
+    {
+      "leaf": "e2e",
+      "at": "2026-09-23T10:45:15.335043+00:00",
+      "load": [
+        20.228515625,
+        45.884765625,
+        45.50341796875
+      ],
+      "pytest_processes": 3,
+      "projected_pytest_processes": 3,
+      "free_disk_gib": 29.483,
+      "allowed": false
+    },
+    {
+      "leaf": "e2e",
+      "at": "2026-09-23T10:45:25.423107+00:00",
+      "load": [
+        20.1767578125,
+        45.01806640625,
+        45.19921875
+      ],
+      "pytest_processes": 3,
+      "projected_pytest_processes": 3,
+      "free_disk_gib": 29.475,
+      "allowed": false
+    },
+    {
+      "leaf": "e2e",
+      "at": "2026-09-23T10:45:35.486985+00:00",
+      "load": [
+        18.75927734375,
+        43.8974609375,
+        44.798828125
+      ],
+      "pytest_processes": 3,
+      "projected_pytest_processes": 3,
+      "free_disk_gib": 29.455,
+      "allowed": false
+    },
+    {
+      "leaf": "e2e",
+      "at": "2026-09-23T10:45:45.563311+00:00",
+      "load": [
+        17.01806640625,
+        42.6982421875,
+        44.3623046875
+      ],
+      "pytest_processes": 3,
+      "projected_pytest_processes": 3,
+      "free_disk_gib": 29.447,
+      "allowed": false
+    },
+    {
+      "leaf": "e2e",
+      "at": "2026-09-23T10:45:55.646371+00:00",
+      "load": [
+        16.64013671875,
+        41.77001953125,
+        44.0126953125
+      ],
+      "pytest_processes": 3,
+      "projected_pytest_processes": 3,
+      "free_disk_gib": 29.378,
+      "allowed": false
+    },
+    {
+      "leaf": "e2e",
+      "at": "2026-09-23T10:46:05.758085+00:00",
+      "load": [
+        15.4716796875,
+        40.6904296875,
+        43.60302734375
+      ],
+      "pytest_processes": 3,
+      "projected_pytest_processes": 3,
+      "free_disk_gib": 29.293,
+      "allowed": false
+    },
+    {
+      "leaf": "e2e",
+      "at": "2026-09-23T10:46:15.866071+00:00",
+      "load": [
+        15.93701171875,
+        39.9462890625,
+        43.3037109375
+      ],
+      "pytest_processes": 3,
+      "projected_pytest_processes": 3,
+      "free_disk_gib": 29.192,
+      "allowed": false
+    },
+    {
+      "leaf": "e2e",
+      "at": "2026-09-23T10:46:25.951601+00:00",
+      "load": [
+        17.08642578125,
+        39.390625,
+        43.06640625
+      ],
+      "pytest_processes": 3,
+      "projected_pytest_processes": 3,
+      "free_disk_gib": 29.032,
+      "allowed": false
+    },
+    {
+      "leaf": "e2e",
+      "at": "2026-09-23T10:46:36.069942+00:00",
+      "load": [
+        17.59765625,
+        38.78076171875,
+        42.8076171875
+      ],
+      "pytest_processes": 3,
+      "projected_pytest_processes": 3,
+      "free_disk_gib": 28.985,
+      "allowed": false
+    },
+    {
+      "leaf": "e2e",
+      "at": "2026-09-23T10:46:46.195514+00:00",
+      "load": [
+        19.494140625,
+        38.4775390625,
+        42.65185546875
+      ],
+      "pytest_processes": 3,
+      "projected_pytest_processes": 3,
+      "free_disk_gib": 28.99,
+      "allowed": false
+    },
+    {
+      "leaf": "e2e",
+      "at": "2026-09-23T10:46:56.297654+00:00",
+      "load": [
+        19.638671875,
+        37.884765625,
+        42.392578125
+      ],
+      "pytest_processes": 3,
+      "projected_pytest_processes": 3,
+      "free_disk_gib": 28.941,
+      "allowed": false
+    },
+    {
+      "leaf": "e2e",
+      "at": "2026-09-23T10:47:06.389350+00:00",
+      "load": [
+        18.3837890625,
+        37.01513671875,
+        42.03125
+      ],
+      "pytest_processes": 3,
+      "projected_pytest_processes": 3,
+      "free_disk_gib": 28.901,
+      "allowed": false
+    },
+    {
+      "leaf": "e2e",
+      "at": "2026-09-23T10:47:16.501881+00:00",
+      "load": [
+        17.34765625,
+        36.17529296875,
+        41.67431640625
+      ],
+      "pytest_processes": 3,
+      "projected_pytest_processes": 3,
+      "free_disk_gib": 28.799,
+      "allowed": false
+    }
+  ],
+  "identity_before": {
+    "revision": "8eac9b3b55c563b1eb3be58686fcc0918464f69a",
+    "status": ""
+  },
+  "model_requests_authorized": false,
+  "production_writes_authorized": false,
+  "ports": [
+    29801,
+    29804
+  ],
+  "pytest_timeout_seconds": 3600,
+  "disk_floor_gib": 8
+}

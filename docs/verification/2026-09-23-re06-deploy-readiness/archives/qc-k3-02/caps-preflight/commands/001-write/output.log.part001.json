@@ -1,0 +1,9 @@
+{
+  "source": "caps-preflight/commands/001-write/output.log",
+  "raw_sha256": "73abbf32c299ef7babee3069f2490e1736e8ce7748ba1895b853b482f86079bc",
+  "raw_bytes": 120,
+  "chunk": 1,
+  "chunks": 1,
+  "encoding": "gzip-base64-chunk",
+  "data": "H4sIAAAAAAACEw3GQRKCMAwF0L2n6AVCQh1hPIjjusJnpoO2mASB28vqvadWR2hvIuF1OCx4DfwwqHHqe26mXFIZQLoWzx+w4pex2al0NGJ514MUacwFZhQldnKPV5KWvwPNZyJvVWce0kJT3n1VNL775Q8TordqeAAAAA=="
+}

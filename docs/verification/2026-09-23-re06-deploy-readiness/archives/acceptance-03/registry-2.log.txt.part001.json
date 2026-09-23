@@ -1,0 +1,9 @@
+{
+  "source": "registry-2.log.txt",
+  "raw_sha256": "8c996aaec0fcd03defec5afb55f6ebb96935c7a5bc571e1811410de6339fe0df",
+  "raw_bytes": 33,
+  "chunk": 1,
+  "chunks": 1,
+  "encoding": "gzip-base64-chunk",
+  "data": "H4sIAAAAAAACEwEhAN7/W2NoZWNrXSDms6jlhozooajkuI7mupDkuIDoh7TjgIIKxtzF4iEAAAA="
+}

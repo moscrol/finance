@@ -1,0 +1,46 @@
+"""Bind incremental review inputs to the new tree without importing any verdict."""
+import ast
+import hashlib
+import json
+from pathlib import Path
+import subprocess
+ROOT=Path(__file__).resolve().parent
+QC=ROOT/'qc-k3-03'; OLD=ROOT/'qc-k3-02'
+identity=json.loads((ROOT/'identity-02.json').read_text()); config=json.loads((QC/'config.json').read_text())
+rev=identity['revision']; before=identity['supersedes_revision']; tree=Path(config['tree'])
+def git(*args): return subprocess.check_output(['git','-C',identity['author'],*args],text=True).strip()
+old_tree=git('rev-parse',before+':intelligence'); new_tree=git('rev-parse',rev+':intelligence')
+assert old_tree==new_tree
+brief={'revision':rev,'baseline':identity['baseline'],'previous_revision':before,'intelligence_git_tree_before':old_tree,'intelligence_git_tree_after':new_tree,'entire_tracked_intelligence_subtree_identical':True,'non_documentation_delta':json.loads((QC/'inputs/base-delta.json').read_text())['non_documentation_paths'],'host_fact_only_not_semantic_approval':True,'prior_final_reports_not_supplied':True,'mechanical_relocation_manifest':'inputs/probe-relocation.json','original_exploration':'inputs/prior-explore/<group>/','no_pytest_or_domain_smoke_in_explore':True}
+(QC/'inputs/delta-brief.json').write_text(json.dumps(brief,indent=2)+'\n')
+for group in ['e2','timer','consent']:
+    work=QC/'work'/group
+    paths=set()
+    for probe in (work/'probes').glob('*.py'):
+        for node in ast.walk(ast.parse(probe.read_text())):
+            if isinstance(node,ast.ImportFrom) and (node.module or '').startswith('intelligence'):
+                p=Path(node.module.replace('.','/'))
+                for rel in [p.with_suffix('.py'),p/'__init__.py']:
+                    if (tree/rel).is_file(): paths.add(str(rel))
+    files={}
+    for name in sorted(paths):
+        old=subprocess.check_output(['git','-C',identity['author'],'show',before+':'+name])
+        new=(tree/name).read_bytes()
+        assert old==new
+        files[name]={'before_sha256':hashlib.sha256(old).hexdigest(),'current_sha256':hashlib.sha256(new).hexdigest()}
+    (QC/f'inputs/scope-files-{group}.json').write_text(json.dumps(files,indent=2)+'\n')
+    prompt=f'''你是独立增量探索审查者，只负责{group}组。固定候选{rev}，基线{identity['baseline']}，代码根{tree}，产物目录{work}。
+这是新合流身份，不继承旧结论。先前独立审查者的EXPLORE与探针原件在{QC}/inputs/prior-explore/{group}/；宿主仅将路径和revision机械重定位到本轮work，未改断言。原件/重定位哈希在inputs/probe-relocation.json。你必须独立接受、拒绝或修订这些探针，不能把宿主哈希当正确性结论。
+这是限定增量审查，不要求重做整套静态探索。已核实整个tracked intelligence子树Git对象未变，详见{QC}/inputs/delta-brief.json；直接导入文件逐项哈希在inputs/scope-files-{group}.json。主干外部变化在inputs/base-delta.patch（复盘快照读取及交接门禁）；可以读当前源码核对影响，不假设无间接影响。原explore的估计计数、普通python smoke、旧执行读数一律不继承。
+最多3次工作请求和1次无工具收尾请求。前两次可一次调用多个read/bash工具做静态核对；第3次必须写{work}/EXPLORE.md，写明当前身份、机械重定位是否接受、范围/残余风险、待执行的探针与必红对照。probes中现成测试可保持原样，不必为制造新颖而改断言。需要修改时留下不同文件名且解释修改。timer必须有activity-reviewer.test.tsx；consent必须保留或独立修订transaction-review.md/json的18处分类，并明确17业务/1基础设施只是指定范围，不是全仓保证。
+探索只可静态read/AST/哈希检查，不得运行pytest、Vitest、业务smoke、导入API或发网络。静态Python一律{config['python']} -B。不能在未执行时签PASS，缺证据如实BLOCKED。行/字节读取上限120/6000，bash返回6000字符，完整日志保留。
+'''
+    (QC/f'prompt-explore-{group}-v3.md').write_text(prompt)
+    for stage in ['execute','report']:
+        p=QC/f'prompt-{stage}-{group}-v3.md'
+        text=p.read_text()
+        for old_count in ['最多12次工作请求','最多20次工作请求','最多24次工作请求','最多16次工作请求','最多8次工作请求']:
+            text=text.replace(old_count,f"最多{config['stage_group_work_request_limits'][stage][group]}次工作请求")
+        text+='\n本轮是重新合流后的新身份。宿主对旧独立探针只做机械路径重定位，增量探索须先明确接受；全部正式测试重新执行。不要继承旧候选的通过数或结论。测试默认用户根由只读pytest插件隔离，业务源码和断言未改。请尽早保存真实EXECUTE或FINAL产物，可批量调用多个独立read/write工具，不能仅在终端最终文本交付文件。\n'
+        p.write_text(text)
+print(json.dumps({'revision':rev,'same_intelligence_tree':new_tree,'model_requests':0}))

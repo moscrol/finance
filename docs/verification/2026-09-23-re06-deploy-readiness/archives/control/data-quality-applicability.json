@@ -1,0 +1,43 @@
+{
+  "revision": "8eac9b3b55c563b1eb3be58686fcc0918464f69a",
+  "baseline": "b59d6eed0356ae093b52bd291ab328628de8790e",
+  "workflow_sha256": "fe0fb2cbc8266c0323965bde16105d475ae0adbd367357eea2872869b879e26f",
+  "patterns": [
+    "scripts/db_delta_export.py",
+    "scripts/db_delta_import.py",
+    "tests/test_db_delta.py",
+    "skills/report-search/scripts/**",
+    ".github/workflows/data-quality-check.yml"
+  ],
+  "changed_paths": [
+    "docs/agent-product-door.md",
+    "docs/handoffs/2026-09-23-re06-timer-scope-b.md",
+    "docs/handoffs/inflight/docs-qc-re06-i11-50074c76.md",
+    "docs/handoffs/inflight/fix-e2-re06-resume-0922.md",
+    "docs/handoffs/inflight/fix-re06-timer-scope-0923.md",
+    "docs/superpowers/specs/2026-09-01-workorders-INDEX.md",
+    "docs/superpowers/specs/2026-09-22-re06-timer-consent-scope-workorder.md",
+    "intelligence/api/static/assets/index-BobixB9S.js",
+    "intelligence/api/static/assets/index-o4AWiRNg.js",
+    "intelligence/api/static/index.html",
+    "intelligence/services/episode_factory.py",
+    "intelligence/services/episode_semantic_verifier.py",
+    "intelligence/services/episode_verifier.py",
+    "intelligence/services/material_delivery.py",
+    "intelligence/services/product_value/consent.py",
+    "intelligence/services/product_value/contracts.py",
+    "intelligence/services/product_value/measure.py",
+    "intelligence/services/research_contract.py",
+    "intelligence/services/research_evolution/run_observer.py",
+    "intelligence/tests/test_e2_local_question_delivery.py",
+    "intelligence/tests/test_re06_activity_consent_gate_effect.py",
+    "intelligence/tests/test_re06_consent_fold_shared.py",
+    "intelligence/tests/test_re06_consent_gate_toctou.py",
+    "intelligence/tests/test_research_evolution_i11_consent.py",
+    "intelligence/webapp/src/components/ResearchActivityControl.test.tsx",
+    "intelligence/webapp/src/components/ResearchActivityControl.tsx"
+  ],
+  "matched_paths": [],
+  "status": "NOT_TRIGGERED",
+  "not_a_pass": true
+}

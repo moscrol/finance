@@ -1,0 +1,9 @@
+{
+  "source": "stage-boundary-preflight-v2/report/payload-shapes.jsonl",
+  "raw_sha256": "8340f21efb42b276bdba4cf8dcae2c68530f19f3725969a507ada86b7c7813a9",
+  "raw_bytes": 208,
+  "chunk": 1,
+  "chunks": 1,
+  "encoding": "gzip-base64-chunk",
+  "data": "H4sIAAAAAAACEz2OwQrCMAxA735GzhOcIkh/RaTENUpZu8wkdQzx340ePCaP95IXYKpZNfMEoe9ADe8EAYRmFoPvQggrBJNGHVROVByPuebteHBuzEUhnN3A5PMi2QguDqjOJGhNKApVflKCcMOinplxLYwpXlcjl/vj3tOk6rfjwG0yCLsOUCzfcLD4a2rkqaz/xMIyevfRSC0Wf8ed03vzAeZpy8DQAAAA"
+}

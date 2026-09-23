@@ -1,0 +1,20 @@
+{
+  "stage": "explore",
+  "group": "e2",
+  "revision": "8eac9b3b55c563b1eb3be58686fcc0918464f69a",
+  "baseline": "b59d6eed0356ae093b52bd291ab328628de8790e",
+  "complete": true,
+  "artifacts": [],
+  "suspected_issues": [
+    "C1/C3: compile_material_contract 未查重复 qid 与 from_dict 拒收不对称，episode_factory material_descriptions 可能静默塌缩重复题号（可达性依赖未读的 user_task.question_ids，未验证）",
+    "C1: 边界题号 q0/跳号/重复小节与 memo 计数探针未执行",
+    "C2: io_effect 冻结 scope 的完整执行路径未核读",
+    "C3: 恢复时 questions 变更(续轮加题)与 stale answer_q 槽行为未探"
+  ],
+  "limits": [
+    "探针文件与 EXPLORE.md 未落盘：闭幕在写盘轮前到达，自造探针 0 条，下一场必须补写",
+    "episode_semantic_verifier.py 未读；research_contract.py/episode_verifier.py 仅部分阅读",
+    "未运行任何 pytest；静态读码一致方向不构成候选 PASS",
+    ".git 未访问（按指令）"
+  ]
+}

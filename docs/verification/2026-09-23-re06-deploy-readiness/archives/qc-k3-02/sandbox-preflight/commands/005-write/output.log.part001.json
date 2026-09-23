@@ -1,0 +1,9 @@
+{
+  "source": "sandbox-preflight/commands/005-write/output.log",
+  "raw_sha256": "8f49dd3b9c2dcff0f04be031d572158d718fb1832a4c72257367b977db015776",
+  "raw_bytes": 262,
+  "chunk": 1,
+  "chunks": 1,
+  "encoding": "gzip-base64-chunk",
+  "data": "H4sIAAAAAAACE32NsWrDQBAFe33Fw41t8PlkBWRigrukTpHU4Xxaw6LVnb17jtDf5yBdilTvFcPMh4ZIlxBHbKZsBUqRUkEMIpBgZXtqgDcWwsp/Gqn5cDz6/ZVTSJGcPlLhibzSN9NsddveDXSTvDilMHAiM9e1Xd8+d0+uPfh7dGM9nb9W6VfJWfa3ZbWDVBSHfgdOeJny8BA61zSggY3wTjqxGef0qpp1s85JFvxmMWcdwYZZuYSL0Hrb/OFP+I9vfgCgIDS9BgEAAA=="
+}

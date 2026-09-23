@@ -1,0 +1,9 @@
+{
+  "source": "explore-e2/commands/024-bash/output.log",
+  "raw_sha256": "b2b5574cfc59e1f968122883df363a76466e11eefe068b6e072917c0cb101135",
+  "raw_bytes": 718,
+  "chunk": 1,
+  "chunks": 1,
+  "encoding": "gzip-base64-chunk",
+  "data": "H4sIAAAAAAACE5VQ3UrjQBS+z1Mc4k0LEjTGLRvoe+ydxGQaBiYz3ZlUkEUoikp367rLuqLdriAqyLLaeqP2522aSZsrX8FJ/Km1F+K5mYHz/R7TskucBYBpiAjBPqIuMgTiK9hFwgicEHHskCUPEbyC+CrgoMx4CDnNXPhow4uZgWHvV3y7KXf/yaujqPsdnsmMktW7fiNZP0m268mf61GrJ3f3478byeGPu3496p5GvZNhv5scd+KDltxrRbfVUashL4+y1cGguq6Z1twrO8LcR22Ia9+Uctysxc3/stlO9W/O5OaNEpdbO6PLUyDIV2DfKcPwoqbCDffOB9W68pTtn58G1Z2o0473L9JUv9tRpya/HiuuMrUmTNPBJfA5q1APU39JuKyMci6jIXfcMA/FIugTtXWlUZjQGCcpwjJjRF1ysTDloj/D9NRxTEJEIMjpARZCBciWHH2uYI484+nzANJTcn5WMz/M268KTDMc6gFl4djI1hasxalYjEPuPe0z3azlMs44hkscHIh8XrMKpv1mJBE6YUUYD08WEFP4opcqpIQJQZ4++/JSa9o9ZM3YaM4CAAA="
+}

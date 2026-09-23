@@ -1,0 +1,60 @@
+"""Archive completed readiness evidence, excluding code trees, caches, and fixture data."""
+import ast
+import base64
+import hashlib
+import json
+import os
+from pathlib import Path
+import re
+import subprocess
+from archive_evidence import archive,verify
+ROOT=Path(__file__).resolve().parent
+DOC=Path('/Users/a77/fwp-wt-closeout-workorders-0922/docs/verification/2026-09-23-re06-deploy-readiness')
+TEXT={'.py','.mjs','.sb','.ts','.tsx','.sh','.json','.jsonl','.md','.txt','.log','.xml','.patch'}
+SKIP={'candidate','node_modules','__pycache__','.git','.pytest_cache','tmp','users','test-results','playwright-report','vitest-cache','.vite','pre-format-archive'}
+GROUPS={'e2','timer','consent','controller','controller-v3'}
+def names(source):
+    for base,dirs,files in os.walk(source,followlinks=False):
+        dirs[:]=[d for d in dirs if d not in SKIP and not d.startswith('basetemp') and not (Path(base)/d).is_symlink()]
+        for name in files:
+            p=Path(base)/name; rel=p.relative_to(source)
+            if p.is_symlink() or p.suffix not in TEXT: continue
+            if name.startswith('.env') or name in {'mcp_config.json','feishu_config.json'}: continue
+            if rel.parts[0]=='work':
+                rest=rel.parts[1:]
+                if not rest: continue
+                if rest[0] in GROUPS:
+                    if len(rest)>=3 and rest[1]=='runs':
+                        if len(rest)!=4 or rest[-1] not in {'receipt.json','stdout.log.txt','junit.xml'}: continue
+                    elif not (len(rest)==2 or (len(rest)==3 and rest[1]=='probes')): continue
+                elif len(rest)!=1: continue
+            if name=='auth.json': assert json.loads(p.read_text())=={},p
+            yield str(rel)
+def main():
+    for filename in ['qc-refresh-continuation.json','acceptance-recovery.json']:
+        assert json.loads((ROOT/filename).read_text())['complete'],filename
+    identity=json.loads((ROOT/'identity-02.json').read_text())
+    old=json.loads((ROOT/'identity.json').read_text())
+    packages=[]
+    top=[str(p.relative_to(ROOT)) for p in ROOT.iterdir() if p.is_file() and p.suffix in TEXT]
+    packages.append(('control',ROOT,top,identity['revision']))
+    for p in sorted(ROOT.iterdir()):
+        if p.is_dir() and re.fullmatch(r'acceptance-\d+|qc-k3-\d+',p.name):
+            rev=identity['revision'] if p.name in {'acceptance-04','acceptance-05','qc-k3-03'} else old['revision']
+            packages.append((p.name,p,list(names(p)),rev))
+    receipts=[]
+    for label,source,selected,rev in packages:
+        destination=DOC/'archives'/label
+        fixture_name='tests/test_smoke_workbench_self_use.py'
+        fixture_hash='f69cdf0588da7c5fd887d930b8f54f8bbaacad4138e242a651ff377e1dbb0f46'
+        fixture_source=subprocess.check_output(['git','-C',identity['author'],'show',rev+':'+fixture_name])
+        constants=[n for n in ast.walk(ast.parse(fixture_source)) if isinstance(n,ast.Constant) and isinstance(n.value,str) and hashlib.sha256(n.value.encode()).hexdigest()==fixture_hash]
+        assert len(constants)==1 and base64.urlsafe_b64decode(constants[0].value.split('.')[-1]+'==')==b'testsignature'
+        fixtures={fixture_hash:{'source':fixture_name+':'+str(constants[0].lineno),'revision':rev,'source_sha256':hashlib.sha256(fixture_source).hexdigest(),'reason':'Committed negative-test JWT; signature decodes to testsignature, not an operational credential.'}}
+        result=archive(source,destination,rev,selected,credential_fixtures=fixtures)
+        assert verify(destination)==result['files']
+        assert (destination/'manifest.json').stat().st_size<500000
+        receipts.append({'archive':label,'source':str(source),'revision':rev,**result})
+    (DOC/'archive-verification.json').write_text(json.dumps({'status':'PASS','purpose':'Byte integrity only, not independent QC','model_requests':0,'pytest_runs':0,'packages':receipts},indent=2)+'\n')
+    print(json.dumps({'status':'PASS','files':sum(x['files'] for x in receipts),'raw_bytes':sum(x['raw_bytes'] for x in receipts)}))
+if __name__=='__main__': main()

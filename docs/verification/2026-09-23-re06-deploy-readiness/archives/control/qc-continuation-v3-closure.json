@@ -1,0 +1,18 @@
+{
+  "at": "2026-09-23T12:39:43.818899+00:00",
+  "status": "STOPPED_FUTURE_STAGE_DISPATCH_FOR_BASE_DRIFT",
+  "controller_pid": 23197,
+  "verified_command": "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python /Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/continue_qc_v3.py",
+  "active_stage_left_to_finish": {
+    "name": "report-e2",
+    "pid": 24173,
+    "command": [
+      "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+      "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/stage_admission_v3.py",
+      "report",
+      "e2"
+    ]
+  },
+  "reason": "gitea/main advanced 15 merges; avoid spending remaining QC budget on a stale integration candidate",
+  "active_model_or_test_processes_signalled": false
+}

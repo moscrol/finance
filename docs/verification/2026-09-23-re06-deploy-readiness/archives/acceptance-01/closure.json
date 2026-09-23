@@ -1,0 +1,23 @@
+{
+  "at": "2026-09-23T10:47:19.836442+00:00",
+  "status": "BLOCKED_RESOURCE_GATE",
+  "reason": "Frontend admission exhausted its 900-second window. Cancelled only the waiting controller before any test/build command; original receipt preserved.",
+  "controller_pid": 25610,
+  "controller_exited": true,
+  "active_commands_at_stop": [],
+  "test_or_build_commands_started": 0,
+  "last_admission": {
+    "leaf": "e2e",
+    "at": "2026-09-23T10:47:16.501881+00:00",
+    "load": [
+      17.34765625,
+      36.17529296875,
+      41.67431640625
+    ],
+    "pytest_processes": 3,
+    "projected_pytest_processes": 3,
+    "free_disk_gib": 28.799,
+    "allowed": false
+  },
+  "unrelated_processes_signalled": false
+}

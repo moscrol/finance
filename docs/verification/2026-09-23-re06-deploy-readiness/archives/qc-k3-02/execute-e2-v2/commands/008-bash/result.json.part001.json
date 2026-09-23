@@ -1,0 +1,9 @@
+{
+  "source": "execute-e2-v2/commands/008-bash/result.json",
+  "raw_sha256": "33faf11c95be54a7f3383b93d8a6fa776723d83f0d241471aad0f5c015923b2e",
+  "raw_bytes": 14,
+  "chunk": 1,
+  "chunks": 1,
+  "encoding": "gzip-base64-chunk",
+  "data": "H4sIAAAAAAACE6tWSq3ILHHOT0lVsjKpBQDqr2F9DgAAAA=="
+}

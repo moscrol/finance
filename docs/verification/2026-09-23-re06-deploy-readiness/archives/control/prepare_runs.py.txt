@@ -1,0 +1,65 @@
+"""Prepare fresh runs from previously exercised controllers; never edit old runs."""
+import ast
+import hashlib
+import json
+from pathlib import Path
+import subprocess
+
+ROOT=Path(__file__).resolve().parent
+identity=json.loads((ROOT/'identity.json').read_text())
+REV=identity['revision']; BASE=identity['baseline']; AUTHOR=identity['author']
+OLD=ROOT.with_name('re06-timer-scope-qc-20260923-05')
+QC=ROOT/'qc-k3-01'
+TREE=QC/'candidate/finance-workspace-private'
+assert not QC.exists()
+QC.mkdir()
+subprocess.run(['git','-C',AUTHOR,'worktree','add','--detach',str(TREE),REV],check=True)
+subprocess.run(['git','-C',AUTHOR,'worktree','lock','--reason','RE06 independent QC fixed candidate',str(TREE)],check=True)
+replacements={str(OLD):str(QC),'/Users/a77/fwp-wt-re06-timer-assets-0923':AUTHOR,
+              'b24c86f87aaef6244dc6a2c6cf80f74ae1918943':REV,
+              'ffd1b7f1572067e9a4c7e3a5845e99cf7f876cfb':BASE}
+names=['config.json','provider-template.json','credential-bootstrap.mjs','gateway.mjs','run_gateway.py',
+       'review.mjs','run_stage.py','file_tool.py','tools.sb','sandbox_preflight.mjs','caps_preflight.mjs',
+       'group-plan.json','pi-config/settings.json','resource_pytest.py','stage_admission.py']
+for name in names:
+    text=(OLD/name).read_text()
+    for before,after in replacements.items(): text=text.replace(before,after)
+    if name=='tools.sb':
+        text += f'(allow file-read-metadata (literal "{ROOT}"))\n'
+    target=QC/name; target.parent.mkdir(parents=True,exist_ok=True); target.write_text(text)
+for group in ['timer','e2','consent']:
+    work=QC/'work'/group
+    (work/'probes').mkdir(parents=True)
+    text=(OLD/f'prompt-explore-{group}.md').read_text()
+    for before,after in replacements.items(): text=text.replace(before,after)
+    text += f'\n本轮是全新的合流候选，不继承任何旧审查结论。交付文件先行：在第6次请求前保存至少一个非空、可解析、真实断言的自造探针，再增量扩展；不可把代码只放在最终回复。必须另写 {work}/probes/test_positive_control.py，包含一条 assert 1 == 2，供下一会话单独运行并记为 expected_positive_control/probe_bug。未覆盖的主张诚实列明，不为赶文件门伪造覆盖。\n'
+    if group=='timer':
+        text += f'C10内容摘要是content_hash，不是自然语言摘要。C7还需自造React控件生命周期测试；候选webapp的锁定依赖由宿主准备，可写TSX与Vitest配置到{work}/probes，所有缓存写入{work}，不要安装依赖或访问网络。必须实际核对HTML引用的已提交JS发布物。\n'
+    (QC/f'prompt-explore-{group}.md').write_text(text)
+for name in ['tmp','users']: (QC/'work'/name).mkdir()
+(QC/'inputs').mkdir()
+claims=Path('/Users/a77/fwp-wt-closeout-workorders-0922/docs/verification/2026-09-23-re06-timer-assets/spec/CLAIMS.md').read_text()
+for before,after in replacements.items(): claims=claims.replace(before,after)
+(QC/'inputs/claims.md').write_text(claims)
+changed=subprocess.check_output(['git','-C',AUTHOR,'diff','--name-only','--diff-filter=ACMR',BASE,REV],text=True).splitlines()
+(QC/'inputs/identity.json').write_text(json.dumps({**identity,'tree':str(TREE),
+    'changed_source_sha256':{p:hashlib.sha256((TREE/p).read_bytes()).hexdigest() for p in changed}},indent=2)+'\n')
+plan=json.loads((QC/'group-plan.json').read_text())
+plan.update(parent_candidate=identity['source_candidate'],authorization_quote=identity['authorization_quote'],
+            total_request_limit=218,automatic_retries=0,attempt=1,
+            budget_change_reason='Fresh user authorization to resume readiness; one bounded full three-group attempt, no automatic repeats.')
+(QC/'group-plan.json').write_text(json.dumps(plan,ensure_ascii=False,indent=2)+'\n')
+ACCEPT=ROOT/'acceptance-01'; ACCEPT.mkdir()
+OLD_ACCEPT=ROOT.with_name('re06-timer-scope-acceptance-20260923-03')
+for name in ['run.py','frontend_leaf.py']:
+    text=(OLD_ACCEPT/name).read_text()
+    for before,after in replacements.items(): text=text.replace(before,after)
+    text=text.replace('29701','29801').replace('29704','29804')
+    ast.parse(text)
+    (ACCEPT/name).write_text(text)
+record={'revision':REV,'baseline':BASE,'qc':str(QC),'acceptance':str(ACCEPT),
+        'old_runs_modified':False,'model_requests':0,'total_request_limit':218,
+        'prepared_files_sha256':{str(p.relative_to(ROOT)):hashlib.sha256(p.read_bytes()).hexdigest()
+            for folder in [QC,ACCEPT] for p in folder.rglob('*') if p.is_file() and 'candidate' not in p.relative_to(folder).parts}}
+(ROOT/'setup.json').write_text(json.dumps(record,indent=2)+'\n')
+print(json.dumps({k:v for k,v in record.items() if k!='prepared_files_sha256'}))

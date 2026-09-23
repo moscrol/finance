@@ -1,0 +1,9 @@
+{
+  "source": "execute-e2-v2/payload-shapes.jsonl",
+  "raw_sha256": "7255633762e3da3dd50363a55ea311b15f55102b87ea4374018165a19907f74a",
+  "raw_bytes": 2467,
+  "chunk": 1,
+  "chunks": 1,
+  "encoding": "gzip-base64-chunk",
+  "data": "H4sIAAAAAAACE83VwW6EIBAA0Hs/g7NNBFTQX2kawuroklXZAnbXbPrvHXtomtBTy4GT0WFmeIcZH0QPi/He2JV0tCA+6AlIR+AO/RaAHF8c6IV0wW1QkMUOMGP8YhbzfOEYD9bOnnQvBI8N+H7S/oyPmzOY/opxWK7gdNgcKAeLfYeBdKOePVbDFG9Xs04KxtG6gIXvZzMd+Ve9z1YP6rQHwPKyZBV2B+/xfqq324qHWUG0C2bUfVBf/byy67x/l79Zd8Gebxv4oGa8MebQ5uPp8RPN8kXTuqSxuk6h5vmqGRMNjdQyhbrKWN2KponUtEzBrvNlc96Wv7CTTHaTMVvUdTzZx7D/ny0yZreViEebNinYMl92xaVkMTvJSmvzZdey5CL+aSdZacdizNUteMV57OZ/dH8C/Cz5WaMJAAA="
+}

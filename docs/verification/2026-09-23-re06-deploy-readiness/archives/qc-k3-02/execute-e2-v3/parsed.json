@@ -1,0 +1,79 @@
+{
+  "stage": "execute",
+  "group": "e2",
+  "revision": "8eac9b3b55c563b1eb3be58686fcc0918464f69a",
+  "baseline": "b59d6eed0356ae093b52bd291ab328628de8790e",
+  "complete": true,
+  "positive_control": {
+    "receipt": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/work/e2/runs/positive_control-1790166907182750000/receipt.json",
+    "receipt_sha256": "d5bc1a39d1b6979665c1f6a179d5b32f62877f5e1a144637c1ec748f1c3be277",
+    "classification": "probe_bug/expected_positive_control",
+    "exit_code": 1,
+    "counts": {
+      "tests": 1,
+      "passed": 0,
+      "failed": 1,
+      "errors": 0,
+      "skipped": 0,
+      "xfailed": 0,
+      "collected": 1
+    },
+    "runs": [
+      {
+        "receipt": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/work/e2/runs/positive_control-1790166907182750000/receipt.json"
+      }
+    ]
+  },
+  "reviewer_runs": [
+    {
+      "receipt": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/work/e2/runs/reviewer-1790166915668737000/receipt.json",
+      "receipt_sha256": "a14c4f157cc2740820138ea0ed3ba6e03377cd7e09b4ca4d8ba0e3fcb97cd9ec",
+      "classification": "passed",
+      "reason": "冻结初稿一次成功19/19，exit0，无v2修复，无candidate_bug保留项",
+      "exit_code": 0,
+      "counts": {
+        "tests": 19,
+        "passed": 19,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0,
+        "xfailed": 0,
+        "collected": 19
+      }
+    }
+  ],
+  "author_runs": [
+    {
+      "receipt": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/work/e2/runs/author-1790166926481397000/receipt.json",
+      "receipt_sha256": "aa90464a7d031a0cb6e8221e22f7a9337cdf423aff6e7bc8281e22327e5ccbfb",
+      "classification": "passed",
+      "exit_code": 0,
+      "counts": {
+        "tests": 20,
+        "passed": 20,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0,
+        "xfailed": 0,
+        "collected": 20
+      }
+    }
+  ],
+  "wrapper_invocations_observed": 3,
+  "blocked_runs": 0,
+  "artifacts": {
+    "execute_md": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/work/e2/EXECUTE.md",
+    "execute_json": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/work/e2/EXECUTE.json",
+    "run_dirs": [
+      "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/work/e2/runs/positive_control-1790166907182750000",
+      "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/work/e2/runs/reviewer-1790166915668737000",
+      "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/work/e2/runs/author-1790166926481397000"
+    ]
+  },
+  "suspected_issues": [],
+  "limits": [
+    "episode_semantic_verifier.py 未读，语义裁决层无探针；material_only 正向 legal_gap 对照与 completed+缺口拒收路径未自造",
+    "IO 纯度仅探 external_or_mixed；中文「第N题」、混绑同槽、stale 多余槽恢复未探",
+    "v2 作者收集被 .agents stat 阻断的历史保留说明，旧结果不并入本次；complete 非候选通过，裁决交 report 阶段"
+  ]
+}

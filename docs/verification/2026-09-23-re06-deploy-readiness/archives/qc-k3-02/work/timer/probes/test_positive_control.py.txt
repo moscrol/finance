@@ -1,0 +1,14 @@
+"""Positive control for the probe harness itself.
+
+This test is INTENTIONALLY failing. It exists so the next session can verify
+that pytest actually executes and reports failures in this directory
+(expected_positive_control / probe_bug). It must be run standalone:
+
+    pytest probes/test_positive_control.py
+
+Expected result: FAILED (assert 1 == 2). If it "passes", the harness is broken.
+"""
+
+
+def test_positive_control_fails_by_design():
+    assert 1 == 2, "positive control: harness must report this as a failure"

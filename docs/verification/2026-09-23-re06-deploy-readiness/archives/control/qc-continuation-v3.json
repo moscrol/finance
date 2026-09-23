@@ -1,0 +1,45 @@
+{
+  "started_at": "2026-09-23T12:34:04.384429+00:00",
+  "complete": false,
+  "status": "RUNNING_REPORT_E2",
+  "request_ceiling": 218,
+  "automatic_model_retries": 0,
+  "steps": [
+    {
+      "name": "admit-execute-e2",
+      "exit_code": 0,
+      "log": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/admit-execute-e2-v3.controller.log.txt"
+    },
+    {
+      "name": "execute-e2",
+      "exit_code": 0,
+      "log": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/execute-e2-v3.controller.log.txt"
+    },
+    {
+      "name": "check-execution-e2",
+      "exit_code": 0,
+      "log": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/check-execution-e2-v3.controller.log.txt"
+    }
+  ],
+  "resource_admissions": [
+    {
+      "group": "e2",
+      "at": "2026-09-23T12:34:04.504090+00:00",
+      "load_1m": 7.2626953125,
+      "existing_pytest": 1,
+      "projected_pytest": 2,
+      "free_gib": 20.15705108642578,
+      "allowed": true
+    }
+  ],
+  "active": {
+    "name": "report-e2",
+    "pid": 24173,
+    "command": [
+      "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+      "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/stage_admission_v3.py",
+      "report",
+      "e2"
+    ]
+  }
+}

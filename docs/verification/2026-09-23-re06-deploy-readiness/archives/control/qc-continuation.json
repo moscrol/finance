@@ -1,0 +1,50 @@
+{
+  "started_at": "2026-09-23T11:46:37.919295+00:00",
+  "complete": true,
+  "status": "BLOCKED_EXECUTE_E2",
+  "request_ceiling": 218,
+  "automatic_model_retries": 0,
+  "steps": [
+    {
+      "name": "admit-execute-e2",
+      "exit_code": 0,
+      "log": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/admit-execute-e2.controller.log.txt"
+    },
+    {
+      "name": "execute-e2",
+      "exit_code": 0,
+      "log": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/execute-e2.controller.log.txt"
+    }
+  ],
+  "resource_admissions": [
+    {
+      "group": "e2",
+      "at": "2026-09-23T11:46:37.980547+00:00",
+      "load_1m": 8.953125,
+      "existing_pytest": 0,
+      "projected_pytest": 1,
+      "free_gib": 25.689701080322266,
+      "allowed": false
+    },
+    {
+      "group": "e2",
+      "at": "2026-09-23T11:46:53.016491+00:00",
+      "load_1m": 8.3115234375,
+      "existing_pytest": 0,
+      "projected_pytest": 1,
+      "free_gib": 25.679122924804688,
+      "allowed": false
+    },
+    {
+      "group": "e2",
+      "at": "2026-09-23T11:47:08.059374+00:00",
+      "load_1m": 7.20263671875,
+      "existing_pytest": 0,
+      "projected_pytest": 1,
+      "free_gib": 25.68240737915039,
+      "allowed": true
+    }
+  ],
+  "requests": 119,
+  "finished_at": "2026-09-23T11:50:12.732470+00:00"
+}

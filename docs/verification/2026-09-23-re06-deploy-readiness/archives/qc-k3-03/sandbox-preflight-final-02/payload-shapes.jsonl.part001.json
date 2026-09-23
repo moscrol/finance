@@ -1,0 +1,9 @@
+{
+  "source": "sandbox-preflight-final-02/payload-shapes.jsonl",
+  "raw_sha256": "aece229015e2a1243125849840d22720624bf3c101d05a36e84b323bddbe3610",
+  "raw_bytes": 4195,
+  "chunk": 1,
+  "chunks": 1,
+  "encoding": "gzip-base64-chunk",
+  "data": "H4sIAAAAAAACE9XXPWoDMRCG4d7HmHoDO/JPbF0lBDH2jh2x0sqRtDGLyd2jJhBIZXdfK2aGp3vRnWSIvhSfJrLcUalZJZKtedaOYho0kKXRR/8yrqmjmlIoZN/oKOWD3tuDxqtmqXNWlzWmLx1+t6+yhCSDOy5V285+1w5qKXJRd0rzVMn2HUmu/iyn6m7ZtzGXprCQPUso7cIt5bFd/Zy1VBcaou0Y8726/1UbSPUaUr2BVG8h1TtI9Sukeg+pPkCqucdkY9aRMfPImH1kzEAyZiEZM5GM2UjGjCRjVtJgVtKA/iExK2keqORD4M22/yfmJ8U/j206ZGMQAAA="
+}

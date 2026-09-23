@@ -1,0 +1,1096 @@
+{
+  "revision": "8eac9b3b55c563b1eb3be58686fcc0918464f69a",
+  "baseline": "b59d6eed0356ae093b52bd291ab328628de8790e",
+  "tree": "/Users/a77/fwp-wt-re06-ready-0923",
+  "started_at": "2026-09-23T11:54:40.298583+00:00",
+  "runner_sha256": "9d0c771dfd33e89fe6a442efa44295bf11bf61598b100293a388704161f87aee",
+  "complete": true,
+  "leaves": {
+    "frontend": {
+      "status": "PASS",
+      "controller_check": {
+        "command": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/acceptance-03/frontend_leaf.py",
+          "frontend"
+        ],
+        "exit_code": 0,
+        "timed_out": false,
+        "stop_reason": null,
+        "minimum_free_disk_gib": 23.33,
+        "elapsed_seconds": 32.098,
+        "log": "frontend.log.txt",
+        "log_sha256": "67cf77c07ecc4c84473c197902b8e1bc3ffd64b51c3b47b6fbca088331d677b1",
+        "log_bytes": 260
+      },
+      "receipt": "frontend/frontend.json",
+      "receipt_sha256": "ea545a1e9c7e4c47c38baad90869e0910deaaaf489eace5ff7ada308f3e43fbb",
+      "checks": [
+        {
+          "command": [
+            "pnpm",
+            "install",
+            "--frozen-lockfile"
+          ],
+          "exit_code": 0,
+          "elapsed_seconds": 2.46,
+          "log": "frontend-0.log.txt",
+          "log_bytes": 1818,
+          "log_sha256": "8d05ba17a9871fd620761871f1c836df67ef15ea356f3246919dee939c9a24e4"
+        },
+        {
+          "command": [
+            "pnpm",
+            "lint"
+          ],
+          "exit_code": 0,
+          "elapsed_seconds": 3.37,
+          "log": "frontend-1.log.txt",
+          "log_bytes": 110,
+          "log_sha256": "f3073c29cdb25684ff848337fe4ebd2506cad785600dd7406d2027b57ce6fbac"
+        },
+        {
+          "command": [
+            "pnpm",
+            "typecheck"
+          ],
+          "exit_code": 0,
+          "elapsed_seconds": 4.59,
+          "log": "frontend-2.log.txt",
+          "log_bytes": 208,
+          "log_sha256": "317ba4726bd3e2143dd374dfd5fc5591da453d99a265d74f9b32af08d5253a53"
+        },
+        {
+          "command": [
+            "pnpm",
+            "test"
+          ],
+          "exit_code": 0,
+          "elapsed_seconds": 11.97,
+          "log": "frontend-3.log.txt",
+          "log_bytes": 1726,
+          "log_sha256": "235604f5b8adddf97d4afd8b49f77e6153a7cfc9e02a535fea9e2f2c7d6f2aae"
+        },
+        {
+          "command": [
+            "pnpm",
+            "build"
+          ],
+          "exit_code": 0,
+          "elapsed_seconds": 7.87,
+          "log": "frontend-4.log.txt",
+          "log_bytes": 907,
+          "log_sha256": "35deaf05b230f8044129830f68e43e95c2c25a6997c8493abfb251ff89ad117f"
+        }
+      ]
+    },
+    "e2e": {
+      "status": "PASS",
+      "controller_check": {
+        "command": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/acceptance-03/frontend_leaf.py",
+          "e2e"
+        ],
+        "exit_code": 0,
+        "timed_out": false,
+        "stop_reason": null,
+        "minimum_free_disk_gib": 20.194,
+        "elapsed_seconds": 98.256,
+        "log": "e2e.log.txt",
+        "log_sha256": "e057885a87129733d18f9a7e82d2f0fc9a1e89eae4924d6d6c7238800580e374",
+        "log_bytes": 167
+      },
+      "receipt": "e2e/frontend.json",
+      "receipt_sha256": "c8765f72d0e39aabf5197b7349ea6376234c6d3affa021c4e2686ed5763d1b3c",
+      "checks": [
+        {
+          "command": [
+            "pnpm",
+            "install",
+            "--frozen-lockfile"
+          ],
+          "exit_code": 0,
+          "elapsed_seconds": 0.7,
+          "log": "frontend-0.log.txt",
+          "log_bytes": 995,
+          "log_sha256": "63ed608ee9336c1944c69faa78c01524271e5c43c5aa0db0d1d2e8c5af5ead9c"
+        },
+        {
+          "command": [
+            "pnpm",
+            "build"
+          ],
+          "exit_code": 0,
+          "elapsed_seconds": 9.09,
+          "log": "frontend-1.log.txt",
+          "log_bytes": 907,
+          "log_sha256": "9c0a37b26c93f6cf14c80c94d3e56d4cb2e5703df248ec67674025630247c048"
+        },
+        {
+          "command": [
+            "pnpm",
+            "test:e2e"
+          ],
+          "exit_code": 0,
+          "elapsed_seconds": 87.42,
+          "log": "frontend-2.log.txt",
+          "log_bytes": 7058,
+          "log_sha256": "3707f9127e5c362b5044b8d0a5735437948fdb697933e2fb97644a75a6e8bae6"
+        }
+      ]
+    },
+    "registry": {
+      "status": "PASS",
+      "checks": [
+        {
+          "command": [
+            "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+            "scripts/build_registry.py",
+            "check-parseability"
+          ],
+          "exit_code": 0,
+          "timed_out": false,
+          "stop_reason": null,
+          "minimum_free_disk_gib": 17.513,
+          "elapsed_seconds": 2.005,
+          "log": "registry-1.log.txt",
+          "log_sha256": "b2d7a8d77df0fdc0f638e93d711f397b07859eb91e6aa5d45d793a52f2abef60",
+          "log_bytes": 95
+        },
+        {
+          "command": [
+            "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+            "scripts/build_registry.py",
+            "check"
+          ],
+          "exit_code": 0,
+          "timed_out": false,
+          "stop_reason": null,
+          "minimum_free_disk_gib": 17.454,
+          "elapsed_seconds": 2.011,
+          "log": "registry-2.log.txt",
+          "log_sha256": "8c996aaec0fcd03defec5afb55f6ebb96935c7a5bc571e1811410de6339fe0df",
+          "log_bytes": 33
+        },
+        {
+          "command": [
+            "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+            "scripts/build_registry.py",
+            "backfill-tables",
+            "--check"
+          ],
+          "exit_code": 0,
+          "timed_out": false,
+          "stop_reason": null,
+          "minimum_free_disk_gib": 17.395,
+          "elapsed_seconds": 2.014,
+          "log": "registry-3.log.txt",
+          "log_sha256": "362c2b566827eb15434ae230b1ce60edad2006c45ff08836d0a24fc744447261",
+          "log_bytes": 116
+        },
+        {
+          "command": [
+            "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+            "scripts/build_registry.py",
+            "generate-views",
+            "--check"
+          ],
+          "exit_code": 0,
+          "timed_out": false,
+          "stop_reason": null,
+          "minimum_free_disk_gib": 17.351,
+          "elapsed_seconds": 2.016,
+          "log": "registry-4.log.txt",
+          "log_sha256": "9730a43a0a4535867153d7ac0afd888b1feaaa96f3846b2922c39a16ad068e89",
+          "log_bytes": 68
+        },
+        {
+          "command": [
+            "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+            "scripts/audit_ledger_spec_crosswalk.py"
+          ],
+          "exit_code": 0,
+          "timed_out": false,
+          "stop_reason": null,
+          "minimum_free_disk_gib": 17.349,
+          "elapsed_seconds": 2.011,
+          "log": "registry-5.log.txt",
+          "log_sha256": "8eaf18bf15386b5249b8203ed0ad1b097fb08d6c7fbcd42ebb2a2dc9325d20cf",
+          "log_bytes": 2005
+        }
+      ]
+    },
+    "python": {
+      "status": "FAIL",
+      "checks": [
+        {
+          "command": [
+            "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+            "-m",
+            "ruff",
+            "check",
+            "."
+          ],
+          "exit_code": 0,
+          "timed_out": false,
+          "stop_reason": null,
+          "minimum_free_disk_gib": 19.945,
+          "elapsed_seconds": 2.01,
+          "log": "ruff.log.txt",
+          "log_sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+          "log_bytes": 19
+        },
+        {
+          "command": [
+            "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+            "-m",
+            "pytest",
+            "-q",
+            "-p",
+            "no:cacheprovider",
+            "--junitxml=/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/acceptance-03/python-junit.xml",
+            "--basetemp=/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/acceptance-03/basetemp-python"
+          ],
+          "exit_code": 0,
+          "timed_out": false,
+          "stop_reason": null,
+          "minimum_free_disk_gib": 18.737,
+          "elapsed_seconds": 774.697,
+          "log": "pytest.log.txt",
+          "log_sha256": "8815e88492d6ec886203943f22fd1c4fb7dfcb2918c163fabf1ffe2365a19e8a",
+          "log_bytes": 20632
+        },
+        {
+          "command": [
+            "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+            "scripts/main_gate_receipt.py",
+            "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/acceptance-03/receipts/pytest.json",
+            "--revision",
+            "8eac9b3b55c563b1eb3be58686fcc0918464f69a",
+            "--tree",
+            "/Users/a77/fwp-wt-re06-ready-0923",
+            "--pytest-exit",
+            "0"
+          ],
+          "exit_code": 0,
+          "timed_out": false,
+          "stop_reason": null,
+          "minimum_free_disk_gib": 18.737,
+          "elapsed_seconds": 2.009,
+          "log": "python-receipt-check.log.txt",
+          "log_sha256": "64c07a3bb8aa9bbc41b5e3af6e114b13b6cd99a933f456027c4475bbeae9226a",
+          "log_bytes": 258
+        },
+        {
+          "command": [
+            "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+            "scripts/check_test_receipt.py",
+            "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/acceptance-03/receipts/pytest.json",
+            "--expect-revision",
+            "8eac9b3b55c563b1eb3be58686fcc0918464f69a",
+            "--require-full-scope",
+            "--base-drift-max",
+            "5"
+          ],
+          "exit_code": 1,
+          "timed_out": false,
+          "stop_reason": null,
+          "minimum_free_disk_gib": 18.737,
+          "elapsed_seconds": 2.005,
+          "log": "python-full-scope-check.log.txt",
+          "log_sha256": "88444e327d1a37a1b49fd237ecb33c533b75154a13fd6026cc376365efb3d673",
+          "log_bytes": 1170
+        }
+      ]
+    }
+  },
+  "resource_admissions": [
+    {
+      "leaf": "frontend",
+      "at": "2026-09-23T11:54:40.480949+00:00",
+      "load": [
+        6.7314453125,
+        7.607421875,
+        12.30712890625
+      ],
+      "pytest_processes": 2,
+      "projected_pytest_processes": 2,
+      "free_disk_gib": 23.481,
+      "allowed": true
+    },
+    {
+      "leaf": "e2e",
+      "at": "2026-09-23T11:55:12.694126+00:00",
+      "load": [
+        14.78466796875,
+        9.51513671875,
+        12.8369140625
+      ],
+      "pytest_processes": 2,
+      "projected_pytest_processes": 2,
+      "free_disk_gib": 23.323,
+      "allowed": false
+    },
+    {
+      "leaf": "e2e",
+      "at": "2026-09-23T11:55:22.746229+00:00",
+      "load": [
+        13.80859375,
+        9.48095703125,
+        12.78564453125
+      ],
+      "pytest_processes": 3,
+      "projected_pytest_processes": 3,
+      "free_disk_gib": 23.305,
+      "allowed": false
+    },
+    {
+      "leaf": "e2e",
+      "at": "2026-09-23T11:55:32.848663+00:00",
+      "load": [
+        12.7744140625,
+        9.3994140625,
+        12.7177734375
+      ],
+      "pytest_processes": 3,
+      "projected_pytest_processes": 3,
+      "free_disk_gib": 23.288,
+      "allowed": false
+    },
+    {
+      "leaf": "e2e",
+      "at": "2026-09-23T11:55:42.893106+00:00",
+      "load": [
+        12.13916015625,
+        9.3701171875,
+        12.66796875
+      ],
+      "pytest_processes": 3,
+      "projected_pytest_processes": 3,
+      "free_disk_gib": 22.283,
+      "allowed": false
+    },
+    {
+      "leaf": "e2e",
+      "at": "2026-09-23T11:55:52.953398+00:00",
+      "load": [
+        13.3310546875,
+        9.73193359375,
+        12.75830078125
+      ],
+      "pytest_processes": 2,
+      "projected_pytest_processes": 2,
+      "free_disk_gib": 22.27,
+      "allowed": false
+    },
+    {
+      "leaf": "e2e",
+      "at": "2026-09-23T11:56:03.007198+00:00",
+      "load": [
+        12.89208984375,
+        9.7568359375,
+        12.7314453125
+      ],
+      "pytest_processes": 2,
+      "projected_pytest_processes": 2,
+      "free_disk_gib": 22.191,
+      "allowed": false
+    },
+    {
+      "leaf": "e2e",
+      "at": "2026-09-23T11:56:13.060543+00:00",
+      "load": [
+        12.75439453125,
+        9.83056640625,
+        12.72265625
+      ],
+      "pytest_processes": 2,
+      "projected_pytest_processes": 2,
+      "free_disk_gib": 22.12,
+      "allowed": false
+    },
+    {
+      "leaf": "e2e",
+      "at": "2026-09-23T11:56:23.118208+00:00",
+      "load": [
+        12.0166015625,
+        9.76953125,
+        12.6669921875
+      ],
+      "pytest_processes": 2,
+      "projected_pytest_processes": 2,
+      "free_disk_gib": 22.086,
+      "allowed": false
+    },
+    {
+      "leaf": "e2e",
+      "at": "2026-09-23T11:56:33.180660+00:00",
+      "load": [
+        11.37939453125,
+        9.7099609375,
+        12.61181640625
+      ],
+      "pytest_processes": 2,
+      "projected_pytest_processes": 2,
+      "free_disk_gib": 22.109,
+      "allowed": false
+    },
+    {
+      "leaf": "e2e",
+      "at": "2026-09-23T11:56:43.237364+00:00",
+      "load": [
+        11.54150390625,
+        9.80078125,
+        12.60986328125
+      ],
+      "pytest_processes": 2,
+      "projected_pytest_processes": 2,
+      "free_disk_gib": 22.063,
+      "allowed": false
+    },
+    {
+      "leaf": "e2e",
+      "at": "2026-09-23T11:56:53.309941+00:00",
+      "load": [
+        11.40673828125,
+        9.83740234375,
+        12.59033203125
+      ],
+      "pytest_processes": 2,
+      "projected_pytest_processes": 2,
+      "free_disk_gib": 22.053,
+      "allowed": false
+    },
+    {
+      "leaf": "e2e",
+      "at": "2026-09-23T11:57:03.398386+00:00",
+      "load": [
+        13.81005859375,
+        10.4287109375,
+        12.76904296875
+      ],
+      "pytest_processes": 2,
+      "projected_pytest_processes": 2,
+      "free_disk_gib": 22.015,
+      "allowed": false
+    },
+    {
+      "leaf": "e2e",
+      "at": "2026-09-23T11:57:13.437953+00:00",
+      "load": [
+        12.76904296875,
+        10.3154296875,
+        12.701171875
+      ],
+      "pytest_processes": 2,
+      "projected_pytest_processes": 2,
+      "free_disk_gib": 22.017,
+      "allowed": false
+    },
+    {
+      "leaf": "e2e",
+      "at": "2026-09-23T11:57:23.509209+00:00",
+      "load": [
+        13.32275390625,
+        10.5048828125,
+        12.7392578125
+      ],
+      "pytest_processes": 2,
+      "projected_pytest_processes": 2,
+      "free_disk_gib": 22.015,
+      "allowed": false
+    },
+    {
+      "leaf": "e2e",
+      "at": "2026-09-23T11:57:33.603642+00:00",
+      "load": [
+        12.9111328125,
+        10.5048828125,
+        12.712890625
+      ],
+      "pytest_processes": 2,
+      "projected_pytest_processes": 2,
+      "free_disk_gib": 21.991,
+      "allowed": false
+    },
+    {
+      "leaf": "e2e",
+      "at": "2026-09-23T11:57:43.668514+00:00",
+      "load": [
+        13.7763671875,
+        10.78076171875,
+        12.78564453125
+      ],
+      "pytest_processes": 2,
+      "projected_pytest_processes": 2,
+      "free_disk_gib": 21.95,
+      "allowed": false
+    },
+    {
+      "leaf": "e2e",
+      "at": "2026-09-23T11:57:53.740613+00:00",
+      "load": [
+        12.794921875,
+        10.67138671875,
+        12.72314453125
+      ],
+      "pytest_processes": 2,
+      "projected_pytest_processes": 2,
+      "free_disk_gib": 21.844,
+      "allowed": false
+    },
+    {
+      "leaf": "e2e",
+      "at": "2026-09-23T11:58:03.804748+00:00",
+      "load": [
+        12.2783203125,
+        10.6318359375,
+        12.68505859375
+      ],
+      "pytest_processes": 2,
+      "projected_pytest_processes": 2,
+      "free_disk_gib": 21.572,
+      "allowed": false
+    },
+    {
+      "leaf": "e2e",
+      "at": "2026-09-23T11:58:13.876651+00:00",
+      "load": [
+        11.38623046875,
+        10.4951171875,
+        12.6123046875
+      ],
+      "pytest_processes": 2,
+      "projected_pytest_processes": 2,
+      "free_disk_gib": 21.477,
+      "allowed": false
+    },
+    {
+      "leaf": "e2e",
+      "at": "2026-09-23T11:58:23.948112+00:00",
+      "load": [
+        10.56396484375,
+        10.34716796875,
+        12.53466796875
+      ],
+      "pytest_processes": 2,
+      "projected_pytest_processes": 2,
+      "free_disk_gib": 21.3,
+      "allowed": false
+    },
+    {
+      "leaf": "e2e",
+      "at": "2026-09-23T11:58:34.003316+00:00",
+      "load": [
+        10.3359375,
+        10.30322265625,
+        12.49267578125
+      ],
+      "pytest_processes": 2,
+      "projected_pytest_processes": 2,
+      "free_disk_gib": 21.239,
+      "allowed": false
+    },
+    {
+      "leaf": "e2e",
+      "at": "2026-09-23T11:58:44.053395+00:00",
+      "load": [
+        9.75537109375,
+        10.177734375,
+        12.42236328125
+      ],
+      "pytest_processes": 2,
+      "projected_pytest_processes": 2,
+      "free_disk_gib": 21.223,
+      "allowed": false
+    },
+    {
+      "leaf": "e2e",
+      "at": "2026-09-23T11:58:54.127670+00:00",
+      "load": [
+        9.61328125,
+        10.13720703125,
+        12.38134765625
+      ],
+      "pytest_processes": 2,
+      "projected_pytest_processes": 2,
+      "free_disk_gib": 21.216,
+      "allowed": false
+    },
+    {
+      "leaf": "e2e",
+      "at": "2026-09-23T11:59:04.174266+00:00",
+      "load": [
+        9.73974609375,
+        10.1484375,
+        12.35888671875
+      ],
+      "pytest_processes": 2,
+      "projected_pytest_processes": 2,
+      "free_disk_gib": 21.207,
+      "allowed": false
+    },
+    {
+      "leaf": "e2e",
+      "at": "2026-09-23T11:59:14.215670+00:00",
+      "load": [
+        9.79833984375,
+        10.1435546875,
+        12.3310546875
+      ],
+      "pytest_processes": 2,
+      "projected_pytest_processes": 2,
+      "free_disk_gib": 21.195,
+      "allowed": false
+    },
+    {
+      "leaf": "e2e",
+      "at": "2026-09-23T11:59:24.286827+00:00",
+      "load": [
+        9.61328125,
+        10.08642578125,
+        12.2724609375
+      ],
+      "pytest_processes": 2,
+      "projected_pytest_processes": 2,
+      "free_disk_gib": 21.148,
+      "allowed": false
+    },
+    {
+      "leaf": "e2e",
+      "at": "2026-09-23T11:59:34.351702+00:00",
+      "load": [
+        8.97705078125,
+        9.93505859375,
+        12.19287109375
+      ],
+      "pytest_processes": 2,
+      "projected_pytest_processes": 2,
+      "free_disk_gib": 21.171,
+      "allowed": false
+    },
+    {
+      "leaf": "e2e",
+      "at": "2026-09-23T11:59:44.403324+00:00",
+      "load": [
+        8.5986328125,
+        9.82177734375,
+        12.1259765625
+      ],
+      "pytest_processes": 2,
+      "projected_pytest_processes": 2,
+      "free_disk_gib": 21.16,
+      "allowed": false
+    },
+    {
+      "leaf": "e2e",
+      "at": "2026-09-23T11:59:54.443364+00:00",
+      "load": [
+        7.96484375,
+        9.64599609375,
+        12.0361328125
+      ],
+      "pytest_processes": 2,
+      "projected_pytest_processes": 2,
+      "free_disk_gib": 21.154,
+      "allowed": true
+    },
+    {
+      "leaf": "registry",
+      "at": "2026-09-23T12:01:32.884873+00:00",
+      "load": [
+        10.9111328125,
+        10.23193359375,
+        12.01025390625
+      ],
+      "pytest_processes": 2,
+      "projected_pytest_processes": 2,
+      "free_disk_gib": 20.199,
+      "allowed": false
+    },
+    {
+      "leaf": "registry",
+      "at": "2026-09-23T12:01:42.947326+00:00",
+      "load": [
+        10.2900390625,
+        10.12451171875,
+        11.951171875
+      ],
+      "pytest_processes": 2,
+      "projected_pytest_processes": 2,
+      "free_disk_gib": 20.056,
+      "allowed": false
+    },
+    {
+      "leaf": "registry",
+      "at": "2026-09-23T12:01:52.996039+00:00",
+      "load": [
+        11.08447265625,
+        10.28759765625,
+        11.98681640625
+      ],
+      "pytest_processes": 2,
+      "projected_pytest_processes": 2,
+      "free_disk_gib": 19.867,
+      "allowed": false
+    },
+    {
+      "leaf": "registry",
+      "at": "2026-09-23T12:02:03.055856+00:00",
+      "load": [
+        10.5234375,
+        10.19482421875,
+        11.93408203125
+      ],
+      "pytest_processes": 2,
+      "projected_pytest_processes": 2,
+      "free_disk_gib": 19.667,
+      "allowed": false
+    },
+    {
+      "leaf": "registry",
+      "at": "2026-09-23T12:02:13.127398+00:00",
+      "load": [
+        10.7822265625,
+        10.25537109375,
+        11.9345703125
+      ],
+      "pytest_processes": 2,
+      "projected_pytest_processes": 2,
+      "free_disk_gib": 19.543,
+      "allowed": false
+    },
+    {
+      "leaf": "registry",
+      "at": "2026-09-23T12:02:23.209207+00:00",
+      "load": [
+        10.34130859375,
+        10.18017578125,
+        11.8876953125
+      ],
+      "pytest_processes": 2,
+      "projected_pytest_processes": 2,
+      "free_disk_gib": 19.471,
+      "allowed": false
+    },
+    {
+      "leaf": "registry",
+      "at": "2026-09-23T12:02:33.416417+00:00",
+      "load": [
+        10.5478515625,
+        10.22412109375,
+        11.8828125
+      ],
+      "pytest_processes": 2,
+      "projected_pytest_processes": 2,
+      "free_disk_gib": 19.448,
+      "allowed": false
+    },
+    {
+      "leaf": "registry",
+      "at": "2026-09-23T12:02:43.582463+00:00",
+      "load": [
+        9.78125,
+        10.068359375,
+        11.8076171875
+      ],
+      "pytest_processes": 3,
+      "projected_pytest_processes": 3,
+      "free_disk_gib": 19.437,
+      "allowed": false
+    },
+    {
+      "leaf": "registry",
+      "at": "2026-09-23T12:02:53.748360+00:00",
+      "load": [
+        11.2138671875,
+        10.3759765625,
+        11.89697265625
+      ],
+      "pytest_processes": 2,
+      "projected_pytest_processes": 2,
+      "free_disk_gib": 19.426,
+      "allowed": false
+    },
+    {
+      "leaf": "registry",
+      "at": "2026-09-23T12:03:03.850961+00:00",
+      "load": [
+        11.548828125,
+        10.47802734375,
+        11.9150390625
+      ],
+      "pytest_processes": 2,
+      "projected_pytest_processes": 2,
+      "free_disk_gib": 19.41,
+      "allowed": false
+    },
+    {
+      "leaf": "registry",
+      "at": "2026-09-23T12:03:13.965296+00:00",
+      "load": [
+        11.05078125,
+        10.4111328125,
+        11.87451171875
+      ],
+      "pytest_processes": 2,
+      "projected_pytest_processes": 2,
+      "free_disk_gib": 19.383,
+      "allowed": false
+    },
+    {
+      "leaf": "registry",
+      "at": "2026-09-23T12:03:24.023211+00:00",
+      "load": [
+        10.5810546875,
+        10.33154296875,
+        11.82861328125
+      ],
+      "pytest_processes": 2,
+      "projected_pytest_processes": 2,
+      "free_disk_gib": 19.348,
+      "allowed": false
+    },
+    {
+      "leaf": "registry",
+      "at": "2026-09-23T12:03:34.145284+00:00",
+      "load": [
+        10.0361328125,
+        10.2216796875,
+        11.77197265625
+      ],
+      "pytest_processes": 2,
+      "projected_pytest_processes": 2,
+      "free_disk_gib": 19.352,
+      "allowed": false
+    },
+    {
+      "leaf": "registry",
+      "at": "2026-09-23T12:03:44.218962+00:00",
+      "load": [
+        9.421875,
+        10.08251953125,
+        11.7041015625
+      ],
+      "pytest_processes": 2,
+      "projected_pytest_processes": 2,
+      "free_disk_gib": 19.274,
+      "allowed": false
+    },
+    {
+      "leaf": "registry",
+      "at": "2026-09-23T12:03:54.294053+00:00",
+      "load": [
+        10.044921875,
+        10.1943359375,
+        11.724609375
+      ],
+      "pytest_processes": 2,
+      "projected_pytest_processes": 2,
+      "free_disk_gib": 19.163,
+      "allowed": false
+    },
+    {
+      "leaf": "registry",
+      "at": "2026-09-23T12:04:04.368512+00:00",
+      "load": [
+        10.05419921875,
+        10.1845703125,
+        11.69384765625
+      ],
+      "pytest_processes": 2,
+      "projected_pytest_processes": 2,
+      "free_disk_gib": 18.976,
+      "allowed": false
+    },
+    {
+      "leaf": "registry",
+      "at": "2026-09-23T12:04:14.422380+00:00",
+      "load": [
+        9.28955078125,
+        10.013671875,
+        11.615234375
+      ],
+      "pytest_processes": 2,
+      "projected_pytest_processes": 2,
+      "free_disk_gib": 18.868,
+      "allowed": false
+    },
+    {
+      "leaf": "registry",
+      "at": "2026-09-23T12:04:24.470920+00:00",
+      "load": [
+        8.93701171875,
+        9.9140625,
+        11.560546875
+      ],
+      "pytest_processes": 2,
+      "projected_pytest_processes": 2,
+      "free_disk_gib": 18.762,
+      "allowed": false
+    },
+    {
+      "leaf": "registry",
+      "at": "2026-09-23T12:04:34.521036+00:00",
+      "load": [
+        8.73193359375,
+        9.83447265625,
+        11.5126953125
+      ],
+      "pytest_processes": 2,
+      "projected_pytest_processes": 2,
+      "free_disk_gib": 18.611,
+      "allowed": false
+    },
+    {
+      "leaf": "registry",
+      "at": "2026-09-23T12:04:44.581112+00:00",
+      "load": [
+        8.32421875,
+        9.7080078125,
+        11.44775390625
+      ],
+      "pytest_processes": 2,
+      "projected_pytest_processes": 2,
+      "free_disk_gib": 18.387,
+      "allowed": false
+    },
+    {
+      "leaf": "registry",
+      "at": "2026-09-23T12:04:54.655736+00:00",
+      "load": [
+        10.03564453125,
+        10.01611328125,
+        11.53564453125
+      ],
+      "pytest_processes": 2,
+      "projected_pytest_processes": 2,
+      "free_disk_gib": 18.184,
+      "allowed": false
+    },
+    {
+      "leaf": "registry",
+      "at": "2026-09-23T12:05:04.718496+00:00",
+      "load": [
+        9.9755859375,
+        9.99951171875,
+        11.51123046875
+      ],
+      "pytest_processes": 2,
+      "projected_pytest_processes": 2,
+      "free_disk_gib": 18.113,
+      "allowed": false
+    },
+    {
+      "leaf": "registry",
+      "at": "2026-09-23T12:05:14.765058+00:00",
+      "load": [
+        9.05029296875,
+        9.80126953125,
+        11.4228515625
+      ],
+      "pytest_processes": 2,
+      "projected_pytest_processes": 2,
+      "free_disk_gib": 18.012,
+      "allowed": false
+    },
+    {
+      "leaf": "registry",
+      "at": "2026-09-23T12:05:24.812370+00:00",
+      "load": [
+        8.43994140625,
+        9.64306640625,
+        11.34716796875
+      ],
+      "pytest_processes": 2,
+      "projected_pytest_processes": 2,
+      "free_disk_gib": 17.66,
+      "allowed": false
+    },
+    {
+      "leaf": "registry",
+      "at": "2026-09-23T12:05:34.871521+00:00",
+      "load": [
+        7.609375,
+        9.42431640625,
+        11.2490234375
+      ],
+      "pytest_processes": 2,
+      "projected_pytest_processes": 2,
+      "free_disk_gib": 17.516,
+      "allowed": true
+    },
+    {
+      "leaf": "python",
+      "at": "2026-09-23T12:05:45.075625+00:00",
+      "load": [
+        7.3486328125,
+        9.310546875,
+        11.1875
+      ],
+      "pytest_processes": 3,
+      "projected_pytest_processes": 4,
+      "free_disk_gib": 17.319,
+      "allowed": false
+    },
+    {
+      "leaf": "python",
+      "at": "2026-09-23T12:05:55.112577+00:00",
+      "load": [
+        7.16015625,
+        9.2021484375,
+        11.12646484375
+      ],
+      "pytest_processes": 2,
+      "projected_pytest_processes": 3,
+      "free_disk_gib": 17.266,
+      "allowed": false
+    },
+    {
+      "leaf": "python",
+      "at": "2026-09-23T12:06:05.164435+00:00",
+      "load": [
+        8.416015625,
+        9.39501953125,
+        11.17138671875
+      ],
+      "pytest_processes": 1,
+      "projected_pytest_processes": 2,
+      "free_disk_gib": 17.581,
+      "allowed": false
+    },
+    {
+      "leaf": "python",
+      "at": "2026-09-23T12:06:15.210162+00:00",
+      "load": [
+        7.74267578125,
+        9.21728515625,
+        11.0869140625
+      ],
+      "pytest_processes": 1,
+      "projected_pytest_processes": 2,
+      "free_disk_gib": 19.924,
+      "allowed": true
+    }
+  ],
+  "identity_before": {
+    "revision": "8eac9b3b55c563b1eb3be58686fcc0918464f69a",
+    "status": ""
+  },
+  "model_requests_authorized": false,
+  "production_writes_authorized": false,
+  "ports": [
+    29801,
+    29804
+  ],
+  "pytest_timeout_seconds": 3600,
+  "disk_floor_gib": 8,
+  "identity_after": {
+    "revision": "8eac9b3b55c563b1eb3be58686fcc0918464f69a",
+    "status": ""
+  },
+  "identity_stable": true,
+  "status": "NOT_PASS",
+  "finished_at": "2026-09-23T12:19:16.133950+00:00"
+}

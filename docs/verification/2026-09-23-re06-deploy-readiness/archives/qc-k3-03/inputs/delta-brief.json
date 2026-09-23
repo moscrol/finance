@@ -1,0 +1,23 @@
+{
+  "revision": "7ec9d022b14db46ac667accc08c7891f27f5a1a6",
+  "baseline": "626d8a508c1c988ff094110b371987e6afdcdd15",
+  "previous_revision": "8eac9b3b55c563b1eb3be58686fcc0918464f69a",
+  "intelligence_git_tree_before": "38563f3da4481ab2e17132f2b737c14191dd63ca",
+  "intelligence_git_tree_after": "38563f3da4481ab2e17132f2b737c14191dd63ca",
+  "entire_tracked_intelligence_subtree_identical": true,
+  "non_documentation_delta": [
+    ".pre-commit-config.yaml",
+    "market_feature_store/query.py",
+    "market_feature_store/reports/daily_review.py",
+    "scripts/audit_unsnapshotted_reads.py",
+    "scripts/check_handoff_budget.py",
+    "tests/test_handoff_budget_gate.py",
+    "tests/test_report_reads_cross_process_boundary.py",
+    "tests/test_report_reads_single_snapshot.py"
+  ],
+  "host_fact_only_not_semantic_approval": true,
+  "prior_final_reports_not_supplied": true,
+  "mechanical_relocation_manifest": "inputs/probe-relocation.json",
+  "original_exploration": "inputs/prior-explore/<group>/",
+  "no_pytest_or_domain_smoke_in_explore": true
+}

@@ -1,0 +1,9 @@
+{
+  "source": "explore-timer/commands/033-bash/request.json",
+  "raw_sha256": "36d89f932d42b660dd39e2f2c3ce15f01af54ec85488b04507b624f2cd21159e",
+  "raw_bytes": 696,
+  "chunk": 1,
+  "chunks": 1,
+  "encoding": "gzip-base64-chunk",
+  "data": "H4sIAAAAAAACE21RS2/bMAz+K4IPxQbMUeoWTR/Iocgplx2GbsAAA4YiMbEQWdJI2V4W9b+PRt0ih55EkZ/4PXQuUghuo5zbmuKx2Clqm5uqMauHW1Vd3xbfiqhQdVQ8ngsduk75CaaNkD8JkKRareRib73yGkrsfbIdSITBwkh8Lu9KA9GFU4mgjPVAVFbL6m75UN2Uy2v5R5dHLiqpebE1KoF8XzYGPFJUXEW0wzSxPoFz9gA8FldXAg+i9KIuDOxFB4p6hA58akiHCJTfDrEWewz/wBOkHNXJBWUWB0h1/aWua/bEA34zsBkb/NTKFHrU0OhWeQ8uU1KYaLSpzUnRsbFmQtX1V2FJfA8ePpjWoq7Pz5uX7a/ty++MkHr0Yh6WLFRwZIPVQDJiML1mWuV6kLOIRTw9CdBt4E3rpw97zaW3GQomT64bBB3Q5E8R7NCH8ZIVgUChbhsYgusT+5X8ZU3YTQhA5hdZtPxRorz/TMm0OomZgIPNbw1KIV7eOK7pGtUBWmsgG0sxEBhuJuzhHQd+6rC+EXYqRkmoOYkucqI+kfwxi33WyQ42nTbBJwxukehv8fr6H3gL6ru4AgAA"
+}

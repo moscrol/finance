@@ -1,0 +1,56 @@
+{
+  "status": "PASS",
+  "scope": "Byte/identity/accounting integrity only; not independent semantic approval",
+  "revision": "7ec9d022b14db46ac667accc08c7891f27f5a1a6",
+  "archives": [
+    {
+      "archive": "acceptance-01",
+      "files": 5,
+      "manifest_sha256": "a13a89ce00208e1738e957ffb1c031b641f481a71c8f194c19644eee931c918c"
+    },
+    {
+      "archive": "acceptance-02",
+      "files": 4,
+      "manifest_sha256": "4b71406fb24f5b70aec624da5f1f0ee9c7229b65be40e6f880df9319702c5020"
+    },
+    {
+      "archive": "acceptance-03",
+      "files": 29,
+      "manifest_sha256": "1886254dc01b11272abd48452ef3df1441898f975d07d52b356e10c3dce5d650"
+    },
+    {
+      "archive": "acceptance-04",
+      "files": 5,
+      "manifest_sha256": "85b35795ff18210af1d6a6794ff4b5c8377024d0abc9fa93d2e88155ba8dce90"
+    },
+    {
+      "archive": "control",
+      "files": 52,
+      "manifest_sha256": "728de33ec09109b83423f3364f205e8242dbc3ed2f8e0a2f61d7597ae6237f1d"
+    },
+    {
+      "archive": "qc-k3-01",
+      "files": 176,
+      "manifest_sha256": "c59cd86da259cf4e8ab27ce38a741b015eb31dc8afc894fd4c68b10f1ce322d3"
+    },
+    {
+      "archive": "qc-k3-02",
+      "files": 823,
+      "manifest_sha256": "aac5b808c28e901b005ef321e80397d369b9d21ccb7f338059588c747814276c"
+    },
+    {
+      "archive": "qc-k3-03",
+      "files": 157,
+      "manifest_sha256": "23018cb0c106e8bbff4df68339282415fd1cead64665aa6f9978d5b4f551098e"
+    }
+  ],
+  "original_files_verified": 1251,
+  "requests_readiness": 147,
+  "requests_prior_shipping": 73,
+  "requests_both_packets": 220,
+  "fresh_candidate_tests": 0,
+  "fresh_candidate_model_requests": 0,
+  "handoff_bytes": 2898,
+  "model_requests": 0,
+  "pytest_runs": 0
+}

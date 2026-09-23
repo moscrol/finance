@@ -1,0 +1,9 @@
+{
+  "source": "artifact-guard-preflight/payload-shapes.jsonl",
+  "raw_sha256": "91d0f278b951d43b69e216fe62aeb97c793d3c51385052185e7d9417884d7329",
+  "raw_bytes": 3541,
+  "chunk": 1,
+  "chunks": 1,
+  "encoding": "gzip-base64-chunk",
+  "data": "H4sIAAAAAAACE93VUUvDMBAH8Hc/xj1XaNamrvkqIiFbbhqaNDVJnWX43T0VRBBxOqZwTyG55J/7QSAHMDa4nF0cQYkKcjG3CArwcfIxIbysJDQBVEkzVhCiRU/1wQV3OTRULzH6DOoaaJul+cbkOxr2yRWEG6pjmDCZMifUCUN8QAtqZ3ymtMksPhqrN0tByhB9TzdgztSD3sZ5LKDqCkwqbme2Rb9mZh1Hv7xH7GMaKPd+xly0p67ojOieLg4fYSuusIYrrOUKk1xhHVfYFVfY+iTYbyhd036iiK8obx0cJenZSET9DxR5HorgQ1n9OWUtz/TAGj6Ulg9F8qF0fCgnff0/M7SyPt7wzS//DFuH9gHVDQAA"
+}

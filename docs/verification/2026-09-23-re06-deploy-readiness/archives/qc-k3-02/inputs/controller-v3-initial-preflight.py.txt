@@ -1,0 +1,35 @@
+"""Host infrastructure preflight only, not an independent candidate probe."""
+from pathlib import Path
+import json
+import socket
+import pytest
+
+ROOT=Path(__file__).resolve().parents[3]
+
+def test_deliberate_controller_red():
+    assert 1 == 2
+
+def test_owned_writes_work(tmp_path):
+    file=tmp_path/'allowed.txt'
+    file.write_text('allowed')
+    assert file.read_text()=='allowed'
+
+def test_external_writes_denied():
+    with pytest.raises(PermissionError):
+        (ROOT/'controller-denied-write.txt').write_text('must not be created')
+
+def test_host_sentinel_read_denied():
+    with pytest.raises(PermissionError):
+        (ROOT.parent/'sandbox-host-sentinel.txt').read_text()
+
+def test_restricted_directories_expose_metadata_not_contents():
+    tree=Path(json.loads((ROOT/'config.json').read_text())['tree'])
+    for name in ['.agents','.claude','docs','db','intelligence/users']:
+        folder=tree/name
+        assert folder.is_dir()
+        with pytest.raises(PermissionError):
+            list(folder.iterdir())
+
+def test_network_denied():
+    with socket.socket() as connection, pytest.raises(PermissionError):
+        connection.connect(('127.0.0.1',9))

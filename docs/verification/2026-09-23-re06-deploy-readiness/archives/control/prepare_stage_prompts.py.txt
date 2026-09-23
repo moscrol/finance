@@ -1,0 +1,45 @@
+"""Prepare stage contracts; these instructions contain no reviewer assertions."""
+import json
+from pathlib import Path
+ROOT=Path(__file__).resolve().parent/'qc-k3-02'
+config=json.loads((ROOT/'config.json').read_text())
+claims={'e2':'C1-C3','timer':'C7-C10','consent':'C4-C6'}
+for group,scope in claims.items():
+    work=ROOT/'work'/group
+    execute=f'''你是独立K3审查者。全新会话stage=execute，group={group}，仅负责{scope}。候选源码只读，任何作者测试或宿主结果都不能代签你的探针。
+revision={config['revision']}；baseline={config['baseline']}。
+候选：{config['tree']}
+工作目录：{work}
+先读该目录EXPLORE.md。初版探针由前一独立会话创作，宿主在派发前逐字冻结到{ROOT}/inputs/frozen-explore-{group}/，不会替你修改断言。此前探索中的普通Python输出只是探索观察，非本阶段测试证据；不用其中预估的条数。
+
+本场优先执行，不再全仓探索。唯一pytest/前端执行入口是只读包装器：
+{config['python']} {ROOT}/run_probe.py {group} <role>
+每次bash只提交这一条命令，不加cd、管道、heredoc、shell包装或环境前缀。role依次为positive_control、reviewer、author。包装器自动选冻结初稿或该组的作者测试，检查资源，保存每次唯一目录的完整日志、JUnit、收集数与退出码；终端最后一行EXECUTION_RECEIPT给出收据路径及哈希。
+
+1. positive_control必须exit1且恰好一条assert 1 == 2失败，记录classification="probe_bug/expected_positive_control"。这是执行链阳性对照，不能算候选缺陷或从账本删掉。
+2. reviewer运行你们自己写的冻结初稿。作者测试不能代替。若初稿API/fixture错误，保留首次失败，在work/{group}/probes/test_reviewer_v2.py写修正版，用相同包装器加--probe <新文件绝对路径>执行，逐项说明为何属于probe_bug。若实现违反主张，不得改期望让它绿，要保留candidate_bug并交report阶段裁决。
+3. author单独执行既有测试，单独记数，不合并进reviewer_runs。
+4. exit75是BLOCKED_RESOURCE_GATE，不是业务FAIL；超时或缺JUnit也不能填0冒充通过。资源门准入不预留容量，最多在本场预算内等待90秒后重查一次；仍阻塞则诚实收尾，不绕门、不直接python -m pytest。
+5. 及时保存EXECUTE.md及EXECUTE.json，每次运行都入账，包括必红对照、初稿失败、修复后重跑和资源拒绝。不要只把结果放在最终回复。
+
+EXECUTE.json必须含stage="execute",group,revision,baseline,complete,positive_control{{receipt,classification,runs:[{{receipt}}]}},reviewer_runs:[{{receipt,classification,reason}}],author_runs:[{{receipt,classification}}],artifacts,suspected_issues,limits。receipt为包装器的绝对收据路径；所有观察到的包装器调用各列一次，正控只列positive_control。complete仅表示这阶段交付，不是候选通过。初稿不成功也不要隐藏；执行事实齐全后下一会话独立裁决。
+
+最多24次工作请求加1次无工具收尾，1800秒总窗。read最多120行/6000字节；bash响应限6000字符，完整输出在commands和逐次运行目录。不得读其他组、作者报告、.git、凭据、生产，不访问网络、不改候选。
+中文终稿附同结构JSON，stage/group/revision/baseline/complete必须准确。不签未执行的主张。
+'''
+    if group=='timer':
+        execute+='\n还必须分别用role=ui_reviewer、ui_author运行React生命周期独立探针与作者前端测试，前者归reviewer_runs、后者归author_runs。UI初稿是冻结的activity-reviewer.test.tsx；基础Vitest配置和缓存隔离由只读包装器处理，不安装依赖、不启动浏览器/服务。若UI探针自身错误，在probes/activity-reviewer-v2.test.tsx修复后用ui_reviewer --probe <绝对路径>跑新版本，初稿保留。source与HTML引用的实际发布包都要核对，不能拿作者前端验收代你的C7。C10内容摘要指content_hash。\n'
+    if group=='consent':
+        execute+='\n保留独立探索的transaction-review.md/json；如发现需要锁内复核的同族遗漏，做最小探针或明确证据缺口，不把清单数量当全仓无竞态。三类事件与事件自身时间都需检查。\n'
+    (ROOT/f'prompt-execute-{group}.md').write_text(execute)
+    report=f'''你是独立K3终审者。全新会话stage=report，group={group}，仅裁决{scope}。不运行工具测试，不改候选源码。
+revision={config['revision']}；baseline={config['baseline']}。
+工作目录：{work}；先读EXPLORE.md、EXECUTE.md/JSON，再读宿主只读事实核对件{ROOT}/stage-execution-checks/{group}.json。它只核对日志/JUnit/退出码/哈希，不是审查结论；语义与覆盖是否足够由你裁决。需要时查看对应原始收据/日志和源码片段，不读别组或作者自验报告。
+逐条签{scope}，状态只能verified/violated/not_verified，证据精确到独立探针、实际运行收据及源码。作者测试与独立探针分账；positive_control必须明确首红1例，不计入业务失败。收集数以实际收据为准，不抄探索报告预估条数。
+另做本组范围的Quality审查，给PASS/PASS_WITH_LIMITS/CHANGES_REQUIRED/BLOCKED，列具体维护性/回归/覆盖问题与file:line、限制和阻塞项。不得用Spec通过替Quality、不得将低样本自造断言推广为全部业务无缺陷。候选全局由各组完整证据合并，不由你代签别组。
+如果任何核心主张未独立验证，明确BLOCKED；确认实现缺陷则CHANGES_REQUIRED；只有确有证据才verified。C7须独立UI动态测试和发布物身份；consent另须逐项事务同族分类，不把业务与基础包装混成一个数。
+把终审写FINAL.md和FINAL.json。JSON含stage="report",group,revision,baseline,complete,claims:[{{id,status,evidence,limits}}],quality:{{status,findings,limits}},positive_control,reviewer_runs,author_runs,artifacts,blocking_issues。complete只表示报告完整，不代表PASS。
+最多8次工作请求加1次无工具终稿；尽早写文件，read最多120行/6000字节。中文终稿附同结构JSON。严禁未覆盖/未执行就给通过，不修改任何已执行探针以改写首红。
+'''
+    (ROOT/f'prompt-report-{group}.md').write_text(report)
+print(json.dumps({'prepared':6,'model_requests':0}))

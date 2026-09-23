@@ -1,0 +1,9 @@
+{
+  "source": "explore-e2/payload-shapes.jsonl",
+  "raw_sha256": "42055319f9f2437e9dd557c4d55c721ee0d463cb8ddd5de09d6cc259f1a9ec96",
+  "raw_bytes": 4474,
+  "chunk": 1,
+  "chunks": 1,
+  "encoding": "gzip-base64-chunk",
+  "data": "H4sIAAAAAAACE82XTW7DIBBG9z0G61Ri+DW+SlVZpCaJFTtE4LSJot69ZFfN+ACzsmxgzNPo6YOniOMy1Trli+hhJ+oaj0n0It2vcy5JvL6UFBfRr+WWdmLJY5rb+HlapvezbuNrznMV/Ydo08b2vo/11B4/ZVqT+GzjabmmEtdbSUNJS/5Oo+gPca6tWltS82W6HId0OOSytsL303R8rb/Gx5zjOOwfa2rlPYBpf0+1tv0NX/l2aZPV79vz//4V3/2DAq0IgEUAmjGAgaAJQIcADF8AJa2mACARgWVM4JynEgC2wPEl0NA5SwmwBp4xgbchUAKPCDq+BEYbJylBQASBMYFVGyYrQAQgGSM4IzuKoDEC40Q2vvMbXcAuA+NQNgGkpwhYZmAcy9ZaudEFbDMwDmYHW2c7TXRmnMzOaOUoAtGZcTR72VnqgiY6M87mFs1+A4HozDicfRcCzQVNdGaczp3xgXbBYJ0V43QO4AJQBKyzYpzOwUmgJ22DdVacr8xS+Y14NthnxfnWLH0wGwxN6D/SzNlyehEAAA=="
+}

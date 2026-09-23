@@ -1,0 +1,188 @@
+{
+  "stage": "execute",
+  "group": "e2",
+  "revision": "8eac9b3b55c563b1eb3be58686fcc0918464f69a",
+  "baseline": "b59d6eed0356ae093b52bd291ab328628de8790e",
+  "started_at": "2026-09-23T12:34:04.975053+00:00",
+  "complete": true,
+  "candidate_before": {
+    "revision": "8eac9b3b55c563b1eb3be58686fcc0918464f69a",
+    "status": ""
+  },
+  "author_before": {
+    "revision": "8eac9b3b55c563b1eb3be58686fcc0918464f69a",
+    "status": ""
+  },
+  "inputs_sha256": {
+    "config.json": "937d9d6f0e2edcf4d1e4a345a866553bcf6ed293f2b816663f8693e96e163da4",
+    "review_v3.mjs": "a6cf7286f881f7497361f70ad7b1e11867a01fd586900f01f687a73412c15636",
+    "tools-v3.sb": "23a6a7e0f5f526b0b71f2ebfad4c0bcfacf5be32a457dc619dac887c3cb3c69e",
+    "file_tool.py": "d172ccc3510efefa5ea69384601ea670a5d3c15b522371b85816f1aea9212472",
+    "provider-template.json": "d3030f00ab3ba2d67c27d1fba2fcbdf60af34ea0d0d675e8bba704dfc54094b4",
+    "pi-config/settings.json": "bcd27e52f5ffdd3a19890f35f71a586d6824ca259704c2a630d7ea7c59242f7f",
+    "prompt-execute-e2-v3.md": "7e16e0e2e6d2d72f19071abb85bb2e269e7c0df0af2d3f2219e81d5c929a702c"
+  },
+  "timeout_seconds": 1800,
+  "max_requests": 13,
+  "automatic_retries": 0,
+  "command": [
+    "/opt/homebrew/bin/pi",
+    "--provider",
+    "mirasim-kimi",
+    "--model",
+    "kimi-k3",
+    "--thinking",
+    "xhigh",
+    "--models",
+    "mirasim-kimi/kimi-k3",
+    "--no-session",
+    "--no-extensions",
+    "-e",
+    "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/review_v3.mjs",
+    "--no-skills",
+    "--no-prompt-templates",
+    "--no-context-files",
+    "--no-themes",
+    "--no-approve",
+    "--offline",
+    "--tools",
+    "read,bash,write",
+    "--mode",
+    "json",
+    "-p",
+    "--",
+    "<stage prompt>"
+  ],
+  "pid": 23218,
+  "status": "STAGE_COMPLETE",
+  "exit_code": 0,
+  "elapsed_seconds": 199.549,
+  "timed_out": false,
+  "requests": 11,
+  "responses": [
+    {
+      "admission": 1,
+      "status": 200
+    },
+    {
+      "admission": 2,
+      "status": 200
+    },
+    {
+      "admission": 3,
+      "status": 200
+    },
+    {
+      "admission": 4,
+      "status": 200
+    },
+    {
+      "admission": 5,
+      "status": 200
+    },
+    {
+      "admission": 6,
+      "status": 200
+    },
+    {
+      "admission": 7,
+      "status": 200
+    },
+    {
+      "admission": 8,
+      "status": 200
+    },
+    {
+      "admission": 9,
+      "status": 200
+    },
+    {
+      "admission": 10,
+      "status": 200
+    },
+    {
+      "admission": 11,
+      "status": 200
+    }
+  ],
+  "errors": [],
+  "candidate_after": {
+    "revision": "8eac9b3b55c563b1eb3be58686fcc0918464f69a",
+    "status": ""
+  },
+  "author_after": {
+    "revision": "8eac9b3b55c563b1eb3be58686fcc0918464f69a",
+    "status": ""
+  },
+  "inputs_unchanged": true,
+  "event_counts": {
+    "session": 1,
+    "agent_start": 1,
+    "turn_start": 11,
+    "message_start": 24,
+    "message_end": 24,
+    "message_update": 3677,
+    "tool_execution_start": 12,
+    "tool_execution_end": 12,
+    "turn_end": 11,
+    "tool_execution_update": 6,
+    "agent_end": 1,
+    "agent_settled": 1
+  },
+  "report_structural": true,
+  "model_identities": [
+    "mirasim-kimi/kimi-k3"
+  ],
+  "usage": {
+    "input": 15129,
+    "output": 7283,
+    "cacheRead": 78656,
+    "cacheWrite": 0,
+    "totalTokens": 101068
+  },
+  "artifact_sha256": {
+    "payload-shapes.jsonl": "65dc11e88a1e226f18785e1271ce71095ea9157aa0d1dbaebf63454165153312",
+    "stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "parsed.json": "3491f5c8ba2efae68cd6d1b6a797521e3f04a07e154fdcc61449a12d7e6284dc",
+    "REPORT.md": "30f13085c7910d68477f6abbaced3826366415e8a7c7b5050a0102df2814dd36",
+    "auth-reserved.json": "89d3a977d27d8a5032bbf88f303e090c5d2b24e52f34c59a7f97a56857472e04",
+    "credential.json": "4d8ad0a432862ac4cf1d6558e5670e969f5ccef1a5991ae3cbad3458243e4664",
+    "request-admissions.jsonl": "1d0b93e59d85559c6e7f31ee54c10fa31db287d35f5637d3de05e59b38e998cc",
+    "responses.jsonl": "45dddbadbe01d3a2ccfb3b9f2982707901b8d7c0c3213c65e78b482057648be9",
+    "tool-denials.jsonl": "8d699fa4e54207533754220afefbc56de3c830262142703de1cc4e7f23820a88",
+    "events.jsonl": "05ac1aa97c189d58b298b91d0a0bbe13d4d96c1acc93110b83aa18fc98ff10c5",
+    "commands/011-write/request.json": "34c7aaf0975b05749f81a8d87d1b9c934a57fd06a0329169111c857151e54743",
+    "commands/011-write/result.json": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "commands/011-write/output.log": "124fa39788af3e185177e96e1aa77174c5704f3247acab3f0e99ed9cd245f17d",
+    "commands/005-read/request.json": "94b1774b3577790f3c5a81ecdab032229fc12bf535589af7923c29fc32073154",
+    "commands/005-read/result.json": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "commands/005-read/output.log": "a85d03078ea430badfc8c38ceeb5287fdda86139210cda80fc77594cf14cf8f0",
+    "commands/008-bash/request.json": "dc1e1a99a00574cb123ba210619d479663ddf803271027d8e3425a783894fabd",
+    "commands/008-bash/result.json": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "commands/008-bash/output.log": "2bdfa8b58391730f6fe9e6b5f49df8db506255e56a977c7a0b077d675ebb3897",
+    "commands/009-bash/request.json": "af55f12985b1e6bbc937f7b37d2e7be5a9bb1eb7dd636a87d07a3c28005d4b4f",
+    "commands/009-bash/result.json": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "commands/009-bash/output.log": "f48b34c58c7f52fe5812967c46a350d3ba887736457169368d6fa31fd1cf91f8",
+    "commands/004-read/request.json": "f5b76aa368a62961304c0a6ea2b49f2750f1a4662f3faa18572ab2eedae89a4e",
+    "commands/004-read/result.json": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "commands/004-read/output.log": "e9834be31cfb91bf0c1f01a9070ad2b1948ec30c5c053f0aedc43330de1f5c21",
+    "commands/003-read/request.json": "e4743cae450e9682dd908c66cef5266888fed45a05e5d5e69bf37c8f2171dbba",
+    "commands/003-read/result.json": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "commands/003-read/output.log": "a6512d4adcacc956457b062e3e4f13b4539ac2b6991b0a86534e41bc0694f286",
+    "commands/010-write/request.json": "ed32d0d6c2577fea10e4f840434085e81d1fe06659ad9d42b9a8a65fd0567a16",
+    "commands/010-write/result.json": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "commands/010-write/output.log": "03c295a868b7012e272466346b56588ad352d9593b08c518b2c0cb1926057dc4",
+    "commands/002-read/request.json": "193f0a27666f67a71dbe5ae65658f78ecb7d865bf17102efce6e0f8e04125988",
+    "commands/002-read/result.json": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "commands/002-read/output.log": "871077bf499340d2a69de2134c3d761872457d99b3eb03aac15012938ce5cf26",
+    "commands/001-read/request.json": "92af8b35c59d55c015eac855f1938982ab8a20caa7ce170ea7bf32b5e9e209a7",
+    "commands/001-read/result.json": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "commands/001-read/output.log": "6e50fb3b7e50a4ce12489a9f671fd1b096e69f38d7193734fe547673aa485aec",
+    "commands/006-read/request.json": "5f2d303f19ef23dc58844ad497b8e884dcb3a77fdec98382c122c86b6375dd08",
+    "commands/006-read/result.json": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "commands/006-read/output.log": "b31aa70a83e5ff7514a82b8e03f5b0c8894b1baad4b658991977b6b17e071132",
+    "commands/007-bash/request.json": "755f5bdb3584d527a937942f1295e75bc4243a7e0d1537a431e2407304e750c5",
+    "commands/007-bash/result.json": "d67659d29dad50e65ac903e33dc7ef4a692331d96253553956300d1fcfa5786a",
+    "commands/007-bash/output.log": "6ad3ed070c07b1e54c4085a4d41ffa6e9849cf83f3106aa511146909bf56f8ca"
+  }
+}

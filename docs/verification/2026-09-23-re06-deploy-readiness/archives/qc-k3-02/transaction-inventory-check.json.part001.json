@@ -1,0 +1,9 @@
+{
+  "source": "transaction-inventory-check.json",
+  "raw_sha256": "36327ee2d3b11dfb684dc3cae79757e1f720859d8e221973d54de0f710d210e2",
+  "raw_bytes": 1154,
+  "chunk": 1,
+  "chunks": 1,
+  "encoding": "gzip-base64-chunk",
+  "data": "H4sIAAAAAAACE51TYWvjMAz9vl9R+rnc4qRx4v2VMYwsy6s51w62010Z++8ntzfG4Di4QAiR/J6erOi9P+x2+0wXX3yK+6fdfiZAZQYzjjjKwQjibxpnOUuH2CkxH+XRSQX7Q2MaKBR8pMY0o7KSyHbDKIE6xTV6Y3slwAz9LPvZ0jypju5MiuuZMlSW1ZjOS6DaqtS80v0855QLZ55fbrH1mbBqhBBaVsyHz87pjbL+6aNt+XfOtr7Wwl2VG3I63HM+ugyFBbCuuWkJzn/cypx9Yfzrlxr9qhm+woJpaYznz0qVQvCvFJEeC+WLRyqPmQpBxpOmSwpru9ij1j76qvWP5bo//CcXkA/KJqaFpVLexMUU+eZYN5EdIFjawlx8SFX7tIWb16iTaQjKW/ilpkzbiKu9/qNpWPxfaA3N4Jfv+wu5eh5f1eUE/Sibn7punI6DGgdnps7No+2noZuol/wIaydr5SywxwmPzg1DJ0gdlRRCDmJyynR3nxU6Q6weNQbgJXceb54rmqfFEVltrvqUSmVJB6Hc3fd2SoF0piUVz+O5at4JaiX8+RuOXUcL8StWXalUvbAINdvFNYQbJPKPBfZttN5CpaZrPdY/Xn/4+A1SLd+vggQAAA=="
+}

@@ -1,0 +1,86 @@
+{
+  "status": "PASS",
+  "real_model_requests": 0,
+  "independent_candidate_tests": 0,
+  "runs": [
+    {
+      "role": "controller_preflight",
+      "exit_code": 1,
+      "log": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/execution-boundary-preflight-v3-1790166780099222000/controller_preflight.log.txt",
+      "markers": [
+        {
+          "path": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/work/controller-v3/runs/controller_preflight-1790166780165990000/receipt.json",
+          "sha256": "f877e0824825a51227b66b679f34a87c51c2e2c4fdacf835fc69f86480efec10",
+          "exit_code": 1,
+          "counts": {
+            "tests": 6,
+            "passed": 5,
+            "failed": 1,
+            "errors": 0,
+            "skipped": 0,
+            "xfailed": 0,
+            "collected": 6,
+            "collected_source": "pytest_stdout"
+          },
+          "blocked": null
+        }
+      ]
+    },
+    {
+      "role": "ui_controller_preflight",
+      "exit_code": 1,
+      "log": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/execution-boundary-preflight-v3-1790166780099222000/ui_controller_preflight.log.txt",
+      "markers": [
+        {
+          "path": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/work/controller-v3/runs/ui_controller_preflight-1790166780863080000/receipt.json",
+          "sha256": "ca4eda94cf6d6c187c2aba35b17c4b04eae4de6a02dec5cf4ae6914e65180766",
+          "exit_code": 1,
+          "counts": {
+            "tests": 2,
+            "passed": 1,
+            "failed": 1,
+            "errors": 0,
+            "skipped": 0,
+            "xfailed": 0,
+            "collected": 2,
+            "collected_source": "vitest_junit"
+          },
+          "blocked": null
+        }
+      ]
+    },
+    {
+      "role": "controller_author_collection",
+      "exit_code": 0,
+      "log": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/execution-boundary-preflight-v3-1790166780099222000/controller_author_collection.log.txt",
+      "markers": [
+        {
+          "path": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/work/controller-v3/runs/controller_author_collection-1790166783949340000/receipt.json",
+          "sha256": "02f449b41dd0aad4a74b90a6621594978148bcd0c5aa87f7d844e5a10f033cbc",
+          "exit_code": 0,
+          "counts": {
+            "tests": 0,
+            "passed": 0,
+            "failed": 0,
+            "errors": 0,
+            "skipped": 0,
+            "xfailed": 0,
+            "collected": 109,
+            "collected_source": "pytest_stdout"
+          },
+          "blocked": null
+        }
+      ]
+    }
+  ],
+  "expected_host_control_failures": 2,
+  "not_the_independent_qc_positive_control": true,
+  "source_sha256": {
+    "run_probe_v3.py": "34dc57980fb2854a640b11688aef36e32bded8c79957b72da2e861bc9178b76d",
+    "review_v3.mjs": "a6cf7286f881f7497361f70ad7b1e11867a01fd586900f01f687a73412c15636",
+    "tools-v3.sb": "23a6a7e0f5f526b0b71f2ebfad4c0bcfacf5be32a457dc619dac887c3cb3c69e",
+    "resource_pytest.py": "d504da06f9351183ef0fd94ee4d8a4a02b28c4f541a6403c81d83426e5d82a06",
+    "inputs/ui.vitest-v3.config.mjs": "b4f5ae7dc9d9ffb23ab6dc5c315da99afc33c6fd4c67772d475777dcb2a89ebc",
+    "inputs/qc_userspace_isolation.py": "d132e700abfa926b5e87c3adeee84d152d705b43d7fead4f38c7a19b98b41b2e"
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "stage": "explore",
+  "group": "consent",
+  "revision": "8eac9b3b55c563b1eb3be58686fcc0918464f69a",
+  "baseline": "b59d6eed0356ae093b52bd291ab328628de8790e",
+  "complete": true,
+  "artifacts": [
+    "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/work/consent/probes/test_reviewer.py",
+    "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/work/consent/probes/test_positive_control.py",
+    "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/work/consent/transaction-review.json",
+    "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/work/consent/transaction-review.md",
+    "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/work/consent/ast_enum_transactions.py",
+    "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/work/consent/EXPLORE.md"
+  ],
+  "suspected_issues": [
+    "S1: consent.py docstring 自述写侧坏时间戳跳过并留 stderr，但 run_observer.py:165-166 的 continue 无 stderr（doc-vs-code；静默跳过 withdraw=已撤回当仍授权；合法台账下或不可达，待 execute 确认）",
+    "S2: effective_at 不可解析时静默回退 event_at（run_observer.py:164），与跳过语义不同，方向保守但无痕迹",
+    "S3: 用户发起 product_value 事件（facade.py:1665 task_selected、ingest_events）不走 I11 同意门——与 C6 表述一致的设计边界，记录待确认",
+    "S4: measurement_scopes 对字符串型 payload.scopes 会按字符成集（consent.py:42），依赖上游校验"
+  ],
+  "limits": [
+    "本场只静态审查：探针仅经 AST 解析校验，未执行 pytest，无行为通过结论",
+    "measure_pair/_task_quality 读侧全链路未做端到端探针，仅到 _consent_timeline/_scopes_at 单元层",
+    "StoreLockTimeout 真实占锁路径与多进程 flock 竞态未覆盖",
+    "cost_recorded 同意后正常落账方向未探（撤回方向三类已覆盖）",
+    "C1-C3、C7-C10 属其他组，本组不代签；事务分母 18 为本人 AST 独立得出，数量一致不等于全仓无竞态"
+  ]
+}

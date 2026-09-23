@@ -1,0 +1,9 @@
+{
+  "source": "execute-e2/commands/014-read/output.log",
+  "raw_sha256": "7db032425b5d7556d24f83f7336e404050c5e76a8f99b6d3f957ff169174dfbe",
+  "raw_bytes": 506,
+  "chunk": 1,
+  "chunks": 1,
+  "encoding": "gzip-base64-chunk",
+  "data": "H4sIAAAAAAACE72Py0rFMBRF535FyFQb8n75G85ESmzPLb20SUly1XLx301HgnTs8Kyz2Zt1x6FijzCnXHfUdVy8MOqV9sISZ6y29pFSTyl+QnhJYezZ2uJcE22Ns5ZbxlV7wddc6hynftsrlKORN7rldIWhwviLRcOXDNBP8/uRkkRIJagWTksrhTnKwrKkTxjb+xKWAgfJ00c7X3HXjXnv8i3it4bnWLbWP6d4KIRpyjCFCijFZX9GbX2AUtCQ1jXEsaCQAcVUUYZ6y7ENfD/cT/SZp9IzTZiU0rAzfUcoY4ZZc67OztX5H3VFNG3ayijHjRFS/q/6D9iEkMz6AQAA"
+}

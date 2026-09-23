@@ -1,0 +1,48 @@
+{
+  "schema": "reversible-evidence-v1",
+  "source_root": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/acceptance-02",
+  "revision": "8eac9b3b55c563b1eb3be58686fcc0918464f69a",
+  "nonsecret_pattern_exemptions": {
+    "f69cdf0588da7c5fd887d930b8f54f8bbaacad4138e242a651ff377e1dbb0f46": {
+      "source": "tests/test_smoke_workbench_self_use.py:495",
+      "revision": "8eac9b3b55c563b1eb3be58686fcc0918464f69a",
+      "source_sha256": "36cbdce755bbd0e7f2403c6caf990aee9363bc0b253d3fa713e839a8b10379be",
+      "reason": "Committed negative-test JWT; signature decodes to testsignature, not an operational credential."
+    }
+  },
+  "files": {
+    "controller.log.txt": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "artifacts": [
+        "controller.log.txt.part001.json"
+      ],
+      "encoding": "gzip-base64-chunks",
+      "compressed_sha256": "f1b651238a58fe290baec6c5e32f3bdb1943dd2bd582f02569231f7a757c7837"
+    },
+    "frontend_leaf.py": {
+      "sha256": "856ea0a22c4a698a5b6ff48416f474b21f28b1aef7630386b07a8c90800d41fa",
+      "bytes": 807,
+      "artifacts": [
+        "frontend_leaf.py.txt"
+      ],
+      "encoding": "identity"
+    },
+    "receipt.json": {
+      "sha256": "7533bdb76baa2824057391fdcb724522d52200458925e345bfa5ecb94648e1c2",
+      "bytes": 28141,
+      "artifacts": [
+        "receipt.json"
+      ],
+      "encoding": "identity"
+    },
+    "run.py": {
+      "sha256": "c79a3cefd789482fdb61088edc8e16abf1e2e3557bf2237057c7faf3c925eaf4",
+      "bytes": 7673,
+      "artifacts": [
+        "run.py.txt"
+      ],
+      "encoding": "identity"
+    }
+  }
+}

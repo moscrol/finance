@@ -1,0 +1,22 @@
+{
+  "complete": true,
+  "status": "V2_QC_BLOCKED",
+  "started_at": "2026-09-23T12:13:43.369773+00:00",
+  "checks": [
+    {
+      "at": "2026-09-23T12:13:43.425678+00:00",
+      "exit_code": 0,
+      "stdout": "{\"at\": \"2026-09-23T12:13:43.422038+00:00\", \"load_1m\": 4.68212890625, \"existing_pytest\": 1, \"projected_pytest\": 2, \"free_gib\": 21.170604705810547, \"allowed\": true, \"argv\": [\"--dry-run\"], \"inspection\": \"aggregate only; process commands are not returned\"}\n",
+      "stderr": ""
+    }
+  ],
+  "provider_retries": 0,
+  "max_wait_seconds": 2700,
+  "preflight": {
+    "exit_code": 0,
+    "log": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/recovery-preflight-1790165623425987000.log.txt"
+  },
+  "qc_controller_pid": 8364,
+  "exit_code": 75,
+  "finished_at": "2026-09-23T12:18:17.503926+00:00"
+}

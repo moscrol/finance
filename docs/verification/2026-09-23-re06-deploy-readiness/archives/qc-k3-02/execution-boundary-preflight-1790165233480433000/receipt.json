@@ -1,0 +1,21 @@
+{
+  "status": "BLOCKED_RESOURCE_GATE",
+  "real_model_requests": 0,
+  "independent_candidate_tests": 0,
+  "runs": [
+    {
+      "role": "controller_preflight",
+      "exit_code": 75,
+      "log": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/execution-boundary-preflight-1790165233480433000/controller_preflight.log.txt",
+      "markers": [
+        {
+          "path": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/work/controller/runs/controller_preflight-1790165233542393000/receipt.json",
+          "sha256": "87dc3ed4eb689effb2b3dcfca8f1fcfcea564e5fab8929858a42de90d3416da2",
+          "exit_code": 75,
+          "counts": null,
+          "blocked": "BLOCKED_RESOURCE_GATE"
+        }
+      ]
+    }
+  ]
+}

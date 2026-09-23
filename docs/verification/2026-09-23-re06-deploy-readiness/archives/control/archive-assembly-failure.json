@@ -1,0 +1,15 @@
+{
+  "kind": "ARCHIVE_ASSEMBLY_BLOCKED",
+  "candidate_verdict": false,
+  "command": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python -B archive_readiness.py",
+  "exit_code": 1,
+  "exception": "AssertionError: Credential-pattern review required: python-junit.xml",
+  "source": "acceptance-03/python-junit.xml",
+  "matched_pattern_sha256": "f69cdf0588da7c5fd887d930b8f54f8bbaacad4138e242a651ff377e1dbb0f46",
+  "classification": "Known committed negative-test JWT fixture, not an operational credential",
+  "partial_assembly_preserved_at": "archive-assembly-initial",
+  "original_execution_bytes_modified": false,
+  "resolution": "Validate the exact AST string literal against the fixed revision and require its decoded signature to equal testsignature. Whitelist that hash only. Reassemble in a fresh destination.",
+  "model_requests": 0,
+  "pytest_runs": 0
+}

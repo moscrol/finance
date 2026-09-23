@@ -1,0 +1,9 @@
+{
+  "source": "sandbox-preflight/receipt.json",
+  "raw_sha256": "dcc1ea1b8425ee43401f6d3387bfb54ac9b5b8a536f1432acf1606cdb2f7b8b9",
+  "raw_bytes": 477,
+  "chunk": 1,
+  "chunks": 1,
+  "encoding": "gzip-base64-chunk",
+  "data": "H4sIAAAAAAACE3WQsW5CMQxFd77CenMR3ZC69Q8qMVYVihJTLJI4tR1oVfXf6weEAbWj7z32tf29AJjUgnWdnmB6ed5spodZEwx5Wzhh3gp+dFSbgcezF/cYD3P56tVch5ooBUOg0ljsPMH1E8sBTkKGOqTQbc+yUu4SERJHBU9KkLASpkFFQReMQv7LvTSvuJtSwkvAPfJVMtVrOKDG0O6Rinbe77/k5U4QwZgzYD2ScC1uDG5HorZ0GHY9Z/BdWjfwPwB+ksF6cIalofh7BUFNqDWq78Ns+6AI1/eujApCpkK3EK6zqyhHz4mZFT3n1sy+wBDHkHGNI2+Ln18I97VW3QEAAA=="
+}

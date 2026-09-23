@@ -1,0 +1,79 @@
+{
+  "revision": "7ec9d022b14db46ac667accc08c7891f27f5a1a6",
+  "baseline": "626d8a508c1c988ff094110b371987e6afdcdd15",
+  "provider": "mirasim-kimi",
+  "model": "kimi-k3",
+  "thinking": "xhigh",
+  "request_timeout_ms": 300000,
+  "automatic_retries": 0,
+  "concurrent_model_sessions": 1,
+  "groups": [
+    {
+      "id": "timer",
+      "claims": [
+        "C7",
+        "C8",
+        "C9",
+        "C10"
+      ],
+      "focus": "timer lifecycle, scope classification, narrow legacy compatibility, genuine withdrawal"
+    },
+    {
+      "id": "e2",
+      "claims": [
+        "C1",
+        "C2",
+        "C3"
+      ],
+      "focus": "local_only original question numbering, delivery completeness, restore protection"
+    },
+    {
+      "id": "consent",
+      "claims": [
+        "C4",
+        "C5",
+        "C6"
+      ],
+      "focus": "shared fold with intentional differences, event-time semantics, locked recheck",
+      "additional_review": "RE06 service/API transaction and try_transaction family, business sites and infrastructure separately"
+    }
+  ],
+  "stages_per_group": [
+    "explore",
+    "execute",
+    "report"
+  ],
+  "read_limits": {
+    "lines": 120,
+    "body_bytes": 6000,
+    "next_offset_exact": true
+  },
+  "bash_result_limit": {
+    "body_characters": 6000,
+    "raw_output_preserved": true
+  },
+  "current_status": "PREPARED_AWAITING_FRESH_PREFLIGHT",
+  "test_policy": "No pytest, build or e2e starts while resource gate is red. Explore is static source review and probe authoring only.",
+  "final_acceptance": "Every claim requires a reviewed status and evidence. Any missing group, missing stage, missing positive control, or provider failure remains BLOCKED; never infer candidate PASS from one completed group.",
+  "stage_timeout_seconds": 1800,
+  "parent_candidate": "b24c86f87aaef6244dc6a2c6cf80f74ae1918943",
+  "budget_change_reason": "Fresh main integration identity; bounded delta exploration plus independent re-execution, no inherited verdicts",
+  "authorization_quote": "继续",
+  "total_request_limit": 218,
+  "attempt": 3,
+  "prior_requests": 147,
+  "remaining_requests": 71,
+  "retry_kind": "Fresh integration identity after main drift; no inherited verdict and no provider retry.",
+  "phase_work_request_limits": {
+    "explore": 3,
+    "execute": 13,
+    "report": 6
+  },
+  "phase_override": {
+    "execute-e2": 7,
+    "execute-consent": 11
+  },
+  "maximum_additional_requests": 69,
+  "total_maximum_including_prior": 216,
+  "planned_cumulative_ceiling": 216
+}

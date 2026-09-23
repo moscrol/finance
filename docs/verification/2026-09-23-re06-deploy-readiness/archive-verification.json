@@ -1,0 +1,72 @@
+{
+  "status": "PASS",
+  "purpose": "Byte integrity only, not independent QC",
+  "model_requests": 0,
+  "pytest_runs": 0,
+  "packages": [
+    {
+      "archive": "control",
+      "source": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01",
+      "revision": "7ec9d022b14db46ac667accc08c7891f27f5a1a6",
+      "files": 52,
+      "raw_bytes": 172967,
+      "encoded_files": 52
+    },
+    {
+      "archive": "acceptance-01",
+      "source": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/acceptance-01",
+      "revision": "8eac9b3b55c563b1eb3be58686fcc0918464f69a",
+      "files": 5,
+      "raw_bytes": 44488,
+      "encoded_files": 5
+    },
+    {
+      "archive": "acceptance-02",
+      "source": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/acceptance-02",
+      "revision": "8eac9b3b55c563b1eb3be58686fcc0918464f69a",
+      "files": 4,
+      "raw_bytes": 36621,
+      "encoded_files": 4
+    },
+    {
+      "archive": "acceptance-03",
+      "source": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/acceptance-03",
+      "revision": "8eac9b3b55c563b1eb3be58686fcc0918464f69a",
+      "files": 29,
+      "raw_bytes": 2476365,
+      "encoded_files": 31
+    },
+    {
+      "archive": "acceptance-04",
+      "source": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/acceptance-04",
+      "revision": "7ec9d022b14db46ac667accc08c7891f27f5a1a6",
+      "files": 5,
+      "raw_bytes": 36549,
+      "encoded_files": 5
+    },
+    {
+      "archive": "qc-k3-01",
+      "source": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-01",
+      "revision": "8eac9b3b55c563b1eb3be58686fcc0918464f69a",
+      "files": 176,
+      "raw_bytes": 1695624,
+      "encoded_files": 176
+    },
+    {
+      "archive": "qc-k3-02",
+      "source": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02",
+      "revision": "8eac9b3b55c563b1eb3be58686fcc0918464f69a",
+      "files": 823,
+      "raw_bytes": 32618113,
+      "encoded_files": 828
+    },
+    {
+      "archive": "qc-k3-03",
+      "source": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-03",
+      "revision": "7ec9d022b14db46ac667accc08c7891f27f5a1a6",
+      "files": 157,
+      "raw_bytes": 440190,
+      "encoded_files": 157
+    }
+  ]
+}

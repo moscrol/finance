@@ -1,0 +1,18 @@
+{
+  "previous_revision": "8eac9b3b55c563b1eb3be58686fcc0918464f69a",
+  "revision": "7ec9d022b14db46ac667accc08c7891f27f5a1a6",
+  "baseline": "626d8a508c1c988ff094110b371987e6afdcdd15",
+  "changed_paths_count": 380,
+  "non_documentation_paths": [
+    ".pre-commit-config.yaml",
+    "market_feature_store/query.py",
+    "market_feature_store/reports/daily_review.py",
+    "scripts/audit_unsnapshotted_reads.py",
+    "scripts/check_handoff_budget.py",
+    "tests/test_handoff_budget_gate.py",
+    "tests/test_report_reads_cross_process_boundary.py",
+    "tests/test_report_reads_single_snapshot.py"
+  ],
+  "source_candidate": "b24c86f87aaef6244dc6a2c6cf80f74ae1918943",
+  "no_prior_verdict_inherited": true
+}

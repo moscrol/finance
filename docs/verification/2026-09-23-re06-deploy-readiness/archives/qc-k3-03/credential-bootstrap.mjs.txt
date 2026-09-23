@@ -1,0 +1,94 @@
+import childProcess from "node:child_process";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { createHash } from "node:crypto";
+
+const ROOT = path.dirname(fileURLToPath(import.meta.url));
+const RESOLVER = "/Users/a77/.claude/mirasim-kimi-token.sh";
+const RESOLVER_SHA256 = "602a59daf33af6b27c3c7504881001c6aafc4d92d96f40580069c11641a83e36";
+const PYTHON = "/opt/homebrew/bin/python3";
+const MAX_REQUESTS = 40;
+const BUDGET_SECONDS = 600;
+
+export function bootstrap(pi) {
+  const out = fs.realpathSync(process.env.REVIEW_OUTPUT_DIR || "/invalid-output");
+  if (!out.startsWith(ROOT + path.sep)) throw new Error("output is outside review root");
+  const recordPath = path.join(out, "credential.json");
+  const started = Date.now();
+  const record = { status: "RESERVED", started_at: new Date(started).toISOString(),
+    provider: "mirasim-kimi", model: "kimi-k3", cached_only_in_process_memory: true,
+    prices_verified: false, model_requests_admitted_at_bootstrap: 0 };
+  // Reserve before authentication side effects; a reload cannot silently mint again.
+  fs.writeFileSync(recordPath, JSON.stringify(record, null, 2) + "\n", { flag: "wx", mode: 0o600 });
+  try {
+    const config = JSON.parse(fs.readFileSync(path.join(ROOT, "provider-template.json"), "utf8"));
+    if (config.baseUrl !== "http://127.0.0.1:18788/v1" || config.api !== "openai-completions" ||
+        config.models.length !== 1 || config.models[0].id !== "kimi-k3") {
+      throw new Error("provider route mismatch");
+    }
+    // The resolver is /bin/sh + heredoc, and a heredoc needs a writable temp file that
+    // the controller sandbox denies. Pin the resolver by hash, then run its Python body
+    // directly: same code, no temp file, no widening of the write policy.
+    const resolverSource = fs.readFileSync(RESOLVER, "utf8");
+    if (createHash("sha256").update(resolverSource).digest("hex") !== RESOLVER_SHA256) {
+      throw new Error("resolver changed; stop before credential access");
+    }
+    const body = resolverSource.split("python3 - <<'PY'\n")[1]?.split("\nPY")[0];
+    if (!body) throw new Error("resolver python body missing");
+    const token = childProcess.execFileSync(PYTHON, ["-I", "-B", "-c", body], {
+      encoding: "utf8", timeout: 35000, maxBuffer: 65536, stdio: ["ignore", "pipe", "pipe"],
+      env: { HOME: "/Users/a77", PATH: "/opt/homebrew/bin:/usr/bin:/bin", LANG: "C.UTF-8" },
+    }).trim();
+    const parts = token.split(".");
+    if (parts.length !== 3) throw new Error("invalid credential format");
+    const claims = JSON.parse(Buffer.from(parts[1], "base64url").toString("utf8"));
+    const until = Date.now() / 1000 + BUDGET_SECONDS + 120;
+    if (claims.plan !== "plus" || !Number.isFinite(claims.exp) || claims.exp < until ||
+        !Number.isFinite(claims.plan_exp) || claims.plan_exp < until) {
+      throw new Error("existing Plus credential cannot cover review deadline");
+    }
+    Object.assign(record, { status: "READY", plan: claims.plan, expires_at: claims.exp,
+      plan_expires_at: claims.plan_exp, resolver_sha256: RESOLVER_SHA256,
+      resolver_invocation: "pinned_python_body_no_heredoc" });
+    fs.writeFileSync(recordPath, JSON.stringify(record, null, 2) + "\n");
+    // No token is written to disk, argv, the environment, or an agent event.
+    pi.registerProvider("mirasim-kimi", { ...config, apiKey: token });
+    let admitted = 0;
+    pi.on("before_provider_request", (event, ctx) => {
+      try {
+        if (ctx.model?.provider !== "mirasim-kimi" || ctx.model?.id !== "kimi-k3" ||
+            event.payload?.model !== "kimi-k3" || admitted >= MAX_REQUESTS ||
+            Date.now() - started >= BUDGET_SECONDS * 1000) {
+          throw new Error("model request admission denied");
+        }
+        // This append precedes request dispatch. A failed audit write also stops.
+        fs.appendFileSync(path.join(out, "request-admissions.jsonl"), JSON.stringify({
+          admission: admitted + 1, timestamp: new Date().toISOString(),
+          provider: "mirasim-kimi", model: "kimi-k3",
+        }) + "\n", { mode: 0o600 });
+        admitted += 1;
+      } catch {
+        process.stderr.write("Review request admission blocked; no retry or fallback.\n");
+        process.exit(75);
+      }
+    });
+  } catch (error) {
+    // Child-process errors may hold stdout; never serialize the exception itself.
+    Object.assign(record, { status: "BLOCKED", error_type: error?.name || "Error",
+      resolver_exit: Number.isInteger(error?.status) ? error.status : null,
+      resolver_signal: error?.signal || null,
+      stderr_sha256: error?.stderr ? createHash("sha256").update(error.stderr).digest("hex") : null });
+    fs.writeFileSync(recordPath, JSON.stringify(record, null, 2) + "\n");
+    throw new Error("credential bootstrap blocked; details intentionally omit credentials");
+  }
+}
+
+export default function (pi) {
+  try {
+    bootstrap(pi);
+  } catch {
+    process.stderr.write("Review credential bootstrap failed before model dispatch.\n");
+    process.exit(70);
+  }
+}

@@ -1,0 +1,318 @@
+{
+  "schema": "readiness-evidence-status-v1",
+  "generated_at": "2026-09-23T13:39:05.405003+00:00",
+  "generated_by": "host_accounting_not_semantic_reviewer",
+  "identity": {
+    "created_at": "2026-09-23T12:52:47.596509+00:00",
+    "revision": "7ec9d022b14db46ac667accc08c7891f27f5a1a6",
+    "baseline": "626d8a508c1c988ff094110b371987e6afdcdd15",
+    "source_candidate": "b24c86f87aaef6244dc6a2c6cf80f74ae1918943",
+    "tree_hash": "9fd659e541f6b4bd009c895764ad948e78e63289",
+    "author": "/Users/a77/fwp-wt-re06-ready-refresh-0923",
+    "branch": "baseline/re06-ready-refresh-0923",
+    "qc_tree": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-03/candidate/finance-workspace-private",
+    "main_modified": false,
+    "pushed": false,
+    "authorization_quote": "继续",
+    "prior_requests": 147,
+    "total_request_ceiling": 218,
+    "planned_maximum_requests": 216,
+    "supersedes_revision": "8eac9b3b55c563b1eb3be58686fcc0918464f69a"
+  },
+  "current_main_observation": {
+    "revision": "626d8a508c1c988ff094110b371987e6afdcdd15",
+    "candidate_merge_base": "626d8a508c1c988ff094110b371987e6afdcdd15",
+    "merge_drift": 0
+  },
+  "author_identity_after": {
+    "revision": "7ec9d022b14db46ac667accc08c7891f27f5a1a6",
+    "status": ""
+  },
+  "acceptance_attempts": {
+    "acceptance-01": {
+      "revision": "8eac9b3b55c563b1eb3be58686fcc0918464f69a",
+      "baseline": "b59d6eed0356ae093b52bd291ab328628de8790e",
+      "status": null,
+      "receipt_complete": false,
+      "leaves": {
+        "frontend": "BLOCKED_RESOURCE_GATE"
+      },
+      "closure": {
+        "at": "2026-09-23T10:47:19.836442+00:00",
+        "status": "BLOCKED_RESOURCE_GATE",
+        "reason": "Frontend admission exhausted its 900-second window. Cancelled only the waiting controller before any test/build command; original receipt preserved.",
+        "controller_pid": 25610,
+        "controller_exited": true,
+        "active_commands_at_stop": [],
+        "test_or_build_commands_started": 0,
+        "last_admission": {
+          "leaf": "e2e",
+          "at": "2026-09-23T10:47:16.501881+00:00",
+          "load": [
+            17.34765625,
+            36.17529296875,
+            41.67431640625
+          ],
+          "pytest_processes": 3,
+          "projected_pytest_processes": 3,
+          "free_disk_gib": 28.799,
+          "allowed": false
+        },
+        "unrelated_processes_signalled": false
+      },
+      "python_receipt_counts": null
+    },
+    "acceptance-02": {
+      "revision": "8eac9b3b55c563b1eb3be58686fcc0918464f69a",
+      "baseline": "b59d6eed0356ae093b52bd291ab328628de8790e",
+      "status": "BLOCKED_RESOURCE_GATE",
+      "receipt_complete": false,
+      "leaves": {
+        "frontend": "BLOCKED_RESOURCE_GATE",
+        "e2e": "NOT_STARTED",
+        "registry": "NOT_STARTED",
+        "python": "NOT_STARTED"
+      },
+      "closure": null,
+      "python_receipt_counts": null
+    },
+    "acceptance-03": {
+      "revision": "8eac9b3b55c563b1eb3be58686fcc0918464f69a",
+      "baseline": "b59d6eed0356ae093b52bd291ab328628de8790e",
+      "status": "NOT_PASS",
+      "receipt_complete": true,
+      "leaves": {
+        "frontend": "PASS",
+        "e2e": "PASS",
+        "registry": "PASS",
+        "python": "FAIL"
+      },
+      "closure": null,
+      "python_receipt_counts": {
+        "passed": 14726,
+        "failed": 0,
+        "error": 0,
+        "skipped": 85,
+        "xfailed": 2,
+        "xpassed": 0
+      }
+    },
+    "acceptance-04": {
+      "revision": "7ec9d022b14db46ac667accc08c7891f27f5a1a6",
+      "baseline": "626d8a508c1c988ff094110b371987e6afdcdd15",
+      "status": "BLOCKED_RESOURCE_GATE",
+      "receipt_complete": false,
+      "leaves": {
+        "frontend": "BLOCKED_RESOURCE_GATE",
+        "e2e": "NOT_STARTED",
+        "registry": "NOT_STARTED",
+        "python": "NOT_STARTED"
+      },
+      "closure": {
+        "complete": true,
+        "status": "BLOCKED_RESOURCE_GATE",
+        "test_or_build_commands_started": 0,
+        "controller_running": false,
+        "identity_after": {
+          "revision": "7ec9d022b14db46ac667accc08c7891f27f5a1a6",
+          "status": ""
+        },
+        "source_receipt_complete": false,
+        "finished_at": "2026-09-23T13:09:23.568643+00:00",
+        "recorded_at": "2026-09-23T13:14:23.851738+00:00",
+        "model_requests": 0
+      },
+      "python_receipt_counts": null
+    }
+  },
+  "current_qc_status": "BLOCKED_RESOURCE_GATE",
+  "current_acceptance_status": "BLOCKED_RESOURCE_GATE",
+  "current_claims": {
+    "C1": "not_verified",
+    "C2": "not_verified",
+    "C3": "not_verified",
+    "C4": "not_verified",
+    "C5": "not_verified",
+    "C6": "not_verified",
+    "C7": "not_verified",
+    "C8": "not_verified",
+    "C9": "not_verified",
+    "C10": "not_verified"
+  },
+  "current_independent_reports": {},
+  "requests": {
+    "total": 147,
+    "ceiling": 218,
+    "remaining": 71,
+    "phases": {
+      "qc-k3-01/explore-e2": 23,
+      "qc-k3-01/gateway": 2,
+      "qc-k3-02/execute-e2": 13,
+      "qc-k3-02/report-e2-v3": 7,
+      "qc-k3-02/execute-e2-v3": 11,
+      "qc-k3-02/explore-consent": 34,
+      "qc-k3-02/explore-e2": 15,
+      "qc-k3-02/execute-e2-v2": 10,
+      "qc-k3-02/explore-timer": 30,
+      "qc-k3-02/gateway": 2
+    }
+  },
+  "superseded_e2_report": {
+    "stage": "report",
+    "group": "e2",
+    "revision": "8eac9b3b55c563b1eb3be58686fcc0918464f69a",
+    "baseline": "b59d6eed0356ae093b52bd291ab328628de8790e",
+    "complete": true,
+    "complete_note": "仅表示终审报告交付完整，不代表候选全局PASS；候选全局由各组证据合并，本组不代签别组。",
+    "host_fact_check": {
+      "path": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/stage-execution-checks-v3/e2.json",
+      "complete_execution_evidence": true,
+      "errors": [],
+      "candidate_semantic_verdict": null,
+      "role_note": "仅核对日志/JUnit/退出码/哈希；语义与覆盖是否足够由本终审裁决。"
+    },
+    "claims": [
+      {
+        "id": "C1",
+        "status": "verified",
+        "evidence": [
+          "独立探针7函数实跑通过（收据 runs/reviewer-1790166915668737000/receipt.json sha256=a14c4f157cc2740820138ea0ed3ba6e03377cd7e09b4ca4d8ba0e3fcb97cd9ec，collected=19、19 passed、exit=0）：从2编号冻结为answer_q2/answer_q3不重组；q0端到端；正文+绑定齐全无缺；重复## q3小节仍缺answer_q3；空正文/占位符/纯引用/memo超120字4例绑定齐全仍缺；跳号不保留q1不重排；重复编号不塌缩。",
+          "本会话抽读源码语义吻合：material_delivery.py:172-190 question_body（len(blocks)!=1→空、占位符集、memo超限→空），material_delivery.py:212-228 material_delivery_missing_outputs（binding+正文双判）。",
+          "消费路径 user_task.py:966-1005 连续编号约束与 episode_factory.py:721-733 冻结分支为探索期阅读，本轮由探针经真实 understand_query→build_episode_context 路径运行确认行为。"
+        ],
+        "limits": [
+          "中文「第N题」小节形式未探。",
+          "跳号仅钉死「q1不得出现」不变量，未枚举全部跳号组合。",
+          "混绑（gap+hashes同槽）未探（旧疑点③）。"
+        ]
+      },
+      {
+        "id": "C2",
+        "status": "verified",
+        "evidence": [
+          "独立探针3函数实跑通过（同一reviewer收据19/19）：local契约material_input_output_ids==frozenset()、claim_finish_format is None、交付rules含local_only不含legal_gap；本地题披露缺口经verify_episode_outcome落partial、answer_q2 missing、completion状态无legal_gap；validate_episode_finish对io_effect=external_or_mixed证据抛ValueError（frozen data scope）、local_read放行status=completed。",
+          "episode_verifier.py:239-257（legal_gap仅material_only）为探索期阅读，本轮探针行为实测确认同向。"
+        ],
+        "limits": [
+          "material_only正向legal_gap结清对照未建（需材料载体，预算内未完成）。",
+          "completed+缺口的validate_episode_finish拒收路径未自造；作者测试覆盖（20/20）单独计数，不计入独立验证。",
+          "IO纯度仅探external_or_mixed一种effect值。",
+          "episode_semantic_verifier.py（6720行）未读，语义裁决层无探针。"
+        ]
+      },
+      {
+        "id": "C3",
+        "status": "verified",
+        "evidence": [
+          "独立探针4函数实跑通过（同一reviewer收据19/19）：to_dict→from_dict往返保持answer_q2/answer_q3槽；删answer_q2/降可选/改model_reasoning 3例均抛ResearchContractError且match local_only；无answer_q*槽的旧direct_answer形状恢复不误伤；未编号本地题与full编号题均无answer_q*槽。",
+          "本会话抽读源码research_contract.py:1128-1138：判据为「已有answer_q*槽」（any(output_id.startswith(\"answer_q\"))），要求每题唯一必需且grounding_mode=evidence，否则ResearchContractError——与探针断言一致。"
+        ],
+        "limits": [
+          "stale多余answer_q*槽恢复未探（旧疑点④，疑似良性，不猜为缺陷）。"
+        ]
+      }
+    ],
+    "quality": {
+      "status": "PASS_WITH_LIMITS",
+      "findings": [
+        "三次运行无suspected_issues、无candidate_bug保留项；未观察到与主张冲突的实现行为。",
+        "维护性正面：research_contract.py:1128-1138恢复保护判据含兼容旧direct_answer会话的注释意图；material_delivery.py缺答判定集中、形状/语义分离（disclosed gap是否结清交由verifier）。",
+        "回归风险（非当前缺陷）：compile_material_contract不查重与research_contract.py:105 from_dict拒重的不对称存在；当前由user_task.py:966-1005连续编号约束闭合可达性且探针钉死不变量；若未来绕开classify_top_level_regions直接构造TopLevelRegions，dict塌缩风险重新打开（EXPLORE疑点①，建议后续在compile_material_contract一并查重）。",
+        "覆盖限制：19例横截面，不得推广为全部业务无缺陷——episode_semantic_verifier语义层、material_only正向legal_gap对照、completed+缺口拒收、IO纯度其它effect值、中文「第N题」、混绑同槽、stale多余槽恢复均未独立覆盖。"
+      ],
+      "limits": [
+        "C1/C2/C3各条limits同claims，不重复列。",
+        "C7独立UI动态测试与发布物身份、consent逐项事务同族分类不在e2范围，本组不涉及、不置评。"
+      ]
+    },
+    "positive_control": {
+      "receipt": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/work/e2/runs/positive_control-1790166907182750000/receipt.json",
+      "receipt_sha256": "d5bc1a39d1b6979665c1f6a179d5b32f62877f5e1a144637c1ec748f1c3be277",
+      "exit_code": 1,
+      "counts": {
+        "tests": 1,
+        "passed": 0,
+        "failed": 1,
+        "errors": 0,
+        "skipped": 0,
+        "xfailed": 0,
+        "collected": 1
+      },
+      "first_red": "test_positive_control_must_fail：assert 1 == 2，junit恰好1条failure，无其它条数",
+      "classification": "probe_bug/expected_positive_control",
+      "note": "首红1例为预期正控，不计入业务失败；exit=1证明沙箱→pytest→junit→收据执行链存活，reviewer/author结果可采信。"
+    },
+    "reviewer_runs": [
+      {
+        "receipt": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/work/e2/runs/reviewer-1790166915668737000/receipt.json",
+        "receipt_sha256": "a14c4f157cc2740820138ea0ed3ba6e03377cd7e09b4ca4d8ba0e3fcb97cd9ec",
+        "probe_source": "inputs/frozen-explore-e2-v3/probes/test_reviewer.py",
+        "probe_sha256": "b4c6296fbc06eb928d5e66a19893383d659b0fbf95dd7c4018337be0aaf6407f",
+        "probe_variant": "initial_frozen",
+        "exit_code": 0,
+        "counts": {
+          "tests": 19,
+          "passed": 19,
+          "failed": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xfailed": 0,
+          "collected": 19
+        },
+        "counts_from": "receipt.json实际计数（collected_source=pytest_stdout），非探索报告预估",
+        "note": "本会话抽读该收据：sandbox-exec包装、隔离users根、sources_unchanged=true、wrapper_sha256=34dc57980fb2854a640b11688aef36e32bded8c79957b72da2e861bc9178b76d。"
+      }
+    ],
+    "author_runs": [
+      {
+        "receipt": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/work/e2/runs/author-1790166926481397000/receipt.json",
+        "receipt_sha256": "aa90464a7d031a0cb6e8221e22f7a9337cdf423aff6e7bc8281e22327e5ccbfb",
+        "source": "candidate intelligence/tests/test_e2_local_question_delivery.py",
+        "exit_code": 0,
+        "counts": {
+          "tests": 20,
+          "passed": 20,
+          "failed": 0,
+          "errors": 0,
+          "skipped": 0,
+          "xfailed": 0,
+          "collected": 20
+        },
+        "note": "作者测试与独立探针分账，未合并进reviewer_runs；v2场.agents stat阻断的历史记录在v3资源门+收集预检下消除，旧结果不并入本轮。"
+      }
+    ],
+    "artifacts": {
+      "final_md": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/work/e2/FINAL.md",
+      "final_json": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/work/e2/FINAL.json",
+      "explore_md": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/work/e2/EXPLORE.md",
+      "execute_md": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/work/e2/EXECUTE.md",
+      "execute_json": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/work/e2/EXECUTE.json",
+      "run_dirs": [
+        "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/work/e2/runs/positive_control-1790166907182750000",
+        "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/work/e2/runs/reviewer-1790166915668737000",
+        "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/work/e2/runs/author-1790166926481397000"
+      ],
+      "frozen_probe_sources": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/inputs/frozen-explore-e2-v3/probes",
+      "host_fact_check": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/stage-execution-checks-v3/e2.json"
+    },
+    "blocking_issues": [],
+    "history_retained_not_counted": [
+      "v2：独立探针19通+正控1预期失败在场，但作者收集被.agents stat权限阻断；旧结果不并入本轮通过数，本轮作者20/20由v3重跑取得。",
+      "更早期E2：沙箱不能启动ps导致pytest之前失败；原始记录保留，既非对照成功亦非候选缺陷。"
+    ]
+  },
+  "status": "NOT_READY",
+  "mergeable": false,
+  "deployable": false,
+  "natural_financial_quality": "not_evaluated",
+  "p7": "not_executed_not_authorized",
+  "formal_t2_t3_knevo_comparison": "forbidden_at_current_stage",
+  "publication_or_production_operations_performed": false,
+  "new_business_source_edits": false,
+  "automatic_provider_retries": 0,
+  "limits": [
+    "Superseded revision results do not certify the refreshed candidate.",
+    "Host integrity checks and preflights do not independently verify claims.",
+    "P7 requires its own protocol and authorization; #76 six-line budget is not a substitute for the A1-A17 contract."
+  ]
+}

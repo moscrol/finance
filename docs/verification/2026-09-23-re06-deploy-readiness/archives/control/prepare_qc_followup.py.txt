@@ -1,0 +1,55 @@
+"""Fresh controller generation with a bounded artifact-first exploration stage."""
+import hashlib
+import json
+from pathlib import Path
+import subprocess
+
+ROOT=Path(__file__).resolve().parent
+OLD=ROOT/'qc-k3-01'
+NEW=ROOT/'qc-k3-02'
+assert not list(NEW.glob('*/events.jsonl'))
+NEW.mkdir(exist_ok=True)
+config=json.loads((OLD/'config.json').read_text())
+old_tree=config['tree']; new_tree=str(NEW/'candidate/finance-workspace-private')
+if not Path(new_tree).exists():
+    subprocess.run(['git','-C',config['author'],'worktree','add','--detach',new_tree,config['revision']],check=True)
+    subprocess.run(['git','-C',config['author'],'worktree','lock','--reason','RE06 independent QC artifact follow-up',new_tree],check=True)
+else:
+    assert subprocess.check_output(['git','-C',new_tree,'rev-parse','HEAD'],text=True).strip()==config['revision']
+    assert not subprocess.check_output(['git','-C',new_tree,'status','--porcelain'],text=True).strip()
+files=['config.json','provider-template.json','credential-bootstrap.mjs','gateway.mjs','run_gateway.py',
+       'review.mjs','run_stage.py','file_tool.py','tools.sb','sandbox_preflight.mjs','caps_preflight.mjs',
+       'group-plan.json','pi-config/settings.json','resource_pytest.py','stage_admission.py',
+       'prompt-explore-timer.md','prompt-explore-consent.md','prompt-explore-e2.md','inputs/claims.md','inputs/identity.json']
+for name in files:
+    text=(OLD/name).read_text().replace(str(OLD),str(NEW))
+    target=NEW/name; target.parent.mkdir(parents=True,exist_ok=True); target.write_text(text)
+for name in ['tmp','users','timer/probes','consent/probes','e2/probes']:
+    (NEW/'work'/name).mkdir(parents=True,exist_ok=True)
+report=(OLD/'explore-e2/REPORT.md').read_bytes()
+(NEW/'inputs/e2-prior-independent-explore.md').write_bytes(report)
+config=json.loads((NEW/'config.json').read_text())
+config['stage_work_request_limits']={'explore':35,'execute':24,'report':8}
+config['group_stage_overrides']={'explore-e2':16}
+config['artifact_first_explore']=True
+(NEW/'config.json').write_text(json.dumps(config,indent=2)+'\n')
+prior=sum(len((OLD/stage/'request-admissions.jsonl').read_text().splitlines()) for stage in ['gateway','explore-e2'])
+assert prior==25
+plan=json.loads((NEW/'group-plan.json').read_text())
+plan.update(attempt=2,prior_requests=prior,total_request_limit=218,remaining_requests=193,
+            retry_kind='Explicit artifact-completion follow-up after missing files; not a provider retry.',
+            current_status='PREPARED_AWAITING_FRESH_PREFLIGHT',
+            phase_work_request_limits=config['stage_work_request_limits'],
+            phase_override=config['group_stage_overrides'],
+            maximum_additional_requests=193,
+            total_maximum_including_prior=218)
+(NEW/'group-plan.json').write_text(json.dumps(plan,indent=2)+'\n')
+amendment={'revision':config['revision'],'baseline':config['baseline'],
+    'reason':'The first E2 exploration consumed its read budget without writing artifacts; execute admission correctly rejected it.',
+    'source_report':str(OLD/'explore-e2/REPORT.md'),'source_report_sha256':hashlib.sha256(report).hexdigest(),
+    'artifact_first_guard':'After 8 exploration requests, offer only the write tool until a nonempty test_reviewer.py exists; after 30 (12 for E2 follow-up), require EXPLORE.md and positive control too. The host never writes reviewer probes.',
+    'budget':'Prior 25 + fresh preflight 2 + E2 explore 17 + timer/consent explore 72 + three execute 75 + three report 27 = maximum 218.',
+    'candidate_changed':False,'automatic_provider_retries':0,'model_changed':False,
+    'old_attempt_modified':False,'no_test_results_inherited':True}
+(NEW/'amendment.json').write_text(json.dumps(amendment,indent=2)+'\n')
+print(json.dumps({'directory':str(NEW),'prior_requests':prior,'maximum_total_requests':218}))

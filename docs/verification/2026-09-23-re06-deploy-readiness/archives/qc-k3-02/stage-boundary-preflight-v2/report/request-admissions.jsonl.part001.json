@@ -1,0 +1,9 @@
+{
+  "source": "stage-boundary-preflight-v2/report/request-admissions.jsonl",
+  "raw_sha256": "8cfcb41acd85d4a02fa7295e3220c5d4fb27d93e086a1b8d61eede631bd9bd61",
+  "raw_bytes": 117,
+  "chunk": 1,
+  "chunks": 1,
+  "encoding": "gzip-base64-chunk",
+  "data": "H4sIAAAAAAACExWKzQrDIAyA732MnGtRy2zrc+y0m2BgoaaKKaUw9u7Ljt/PB1JmEqF6QHQjtHcShAh4t1I7wggnMcqZuKn11gdjN+Pnp/PRhvhYJmfXl26t14sydr2YehJisxOTFq4Zi+o/mn2G7/ADFRkB3HUAAAA="
+}

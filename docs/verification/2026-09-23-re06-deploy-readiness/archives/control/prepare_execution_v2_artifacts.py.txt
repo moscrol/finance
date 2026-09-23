@@ -1,0 +1,40 @@
+"""Prepare a fresh execution attempt after a host sandbox incompatibility."""
+import hashlib
+import json
+from pathlib import Path
+import shutil
+ROOT=Path(__file__).resolve().parent
+QC=ROOT/'qc-k3-02'
+original=QC/'inputs/blocked-execute-e2-original'
+original.mkdir()
+manifest={}
+for name in ['EXECUTE.md','EXECUTE.json']:
+    source=QC/'work/e2'/name
+    if source.exists():
+        shutil.copy2(source,original/name)
+        manifest[name]=hashlib.sha256(source.read_bytes()).hexdigest()
+(original/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
+for group in ['e2','timer','consent']:
+    for stage in ['execute','report']:
+        text=(QC/f'prompt-{stage}-{group}.md').read_text()
+        text=text.replace('run_probe.py','run_probe_v2.py').replace(f'{QC}/run_probe_v2.py',f'-I {QC}/run_probe_v2.py')
+        text=text.replace(f'frozen-explore-{group}/',f'frozen-explore-{group}-v2/')
+        text=text.replace('stage-execution-checks/','stage-execution-checks-v2/')
+        text=text.replace('最多在本场预算内等待90秒后重查一次；仍阻塞则诚实收尾','资源拒绝即停止本场并诚实收尾，不在本场重试')
+        if group=='e2' and stage=='execute': text=text.replace('最多24次工作请求','最多16次工作请求')
+        text+='\n这是v2执行/终审会话。旧E2执行因沙箱不能启动ps，在pytest之前失败；原始记录已保留，不能作为对照成功或候选缺陷。本轮只读包装器在宿主作即时资源检查，再把pytest/Vitest子进程放进原沙箱；探针正文不变。EXPLORE中的旧执行口令已停用，以本场run_probe_v2入口为准。宿主controller预检不属于独立QC，不读/复用其断言或测试数。旧执行结果不得计入本次通过数，但保留历史阻塞说明。\n'
+        (QC/f'prompt-{stage}-{group}-v2.md').write_text(text)
+source=(QC/'stage_boundary_preflight.mjs').read_text()
+source=source.replace("from './review.mjs'","from './review_v2.mjs'")
+source=source.replace('`${config.python} ${root}/run_probe.py','`${config.python} -I ${root}/run_probe_v2.py')
+source=source.replace("'stage-boundary-preflight'","'stage-boundary-preflight-v2'")
+(QC/'stage_boundary_preflight_v2.mjs').write_text(source)
+record={'prior_attempt':'execute-e2','prior_reason':'macOS sandbox cannot spawn /bin/ps; no pytest started',
+        'new_attempt_suffix':'v2','fixed_revision':'8eac9b3b55c563b1eb3be58686fcc0918464f69a',
+        'reviewer_assertions_modified_by_host':False,'provider_retry':False,
+        'requests_already_admitted':119,'request_ceiling':218,'remaining_stage_ceiling':94,
+        'planned_cumulative_ceiling':213,'new_gateway_requests':0,
+        'resource_boundary':'Trusted isolated-Python host wrapper, then untrusted tests inside unchanged OS sandbox',
+        'original_probe_origin':'Same independent exploration, frozen byte-identically for fresh execution'}
+(QC/'execution-v2-amendment.json').write_text(json.dumps(record,indent=2)+'\n')
+print(json.dumps(record))

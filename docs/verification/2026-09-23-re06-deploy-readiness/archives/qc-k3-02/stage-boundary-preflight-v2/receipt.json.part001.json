@@ -1,0 +1,9 @@
+{
+  "source": "stage-boundary-preflight-v2/receipt.json",
+  "raw_sha256": "57061cf23b9002f0efc9c22975decc116a25dd8f7f224823e9eb644f04238cdc",
+  "raw_bytes": 276,
+  "chunk": 1,
+  "chunks": 1,
+  "encoding": "gzip-base64-chunk",
+  "data": "H4sIAAAAAAACE12Ouw7CMAxF936FlZmBmY0/QOqIUGWllhJIk+C4D4T4d5yKCsF4fe7R9bMBMEVQxmIOYE7HtjW7emPC0A2pp9Ax3UcqUgv7leWHaO58nJJF8Sl+kXVkbzWeNWmmBa3AzJgzMWAIaQ6+yLqheEL2GAXSHImL83kDAwlah6y2ekxXsnVow7SQHYWg9yWjWAc9RY9hw0w5sUDRbwZUuwj7H/9T+NcVXprXG+b/CfwUAQAA"
+}

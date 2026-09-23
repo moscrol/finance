@@ -1,0 +1,9 @@
+{
+  "source": "caps-preflight/commands/003-write/request.json",
+  "raw_sha256": "655cb71ef7c06c7f009aa8bbae93eb7917fb4c9bb9ce7793861b974ff180aeff",
+  "raw_bytes": 15311,
+  "chunk": 1,
+  "chunks": 1,
+  "encoding": "gzip-base64-chunk",
+  "data": "H4sIAAAAAAACE73aPU7sMABF4b2kJsTX/6Z9FQugowkzRkQMybzEMIMQeydiDxw3tuTiVl93vrq2LKd/4+l0f+zuuss6tdo/fba6dTfdeVzHt627+9pf7WX/Hh62um7DmNJw+zzN43yo/fo+t+mtDmv9mOpl228T+2M9n5bPfq3jcZrrtvXW2GiKdb3R8P/Qv/4+Lsv6OhzGc/88Xdv7Wm/bte2zh2VudW77njG6/vF5nI2xxIgjRjwxEoiRSIwkYiQTIwUYkSFGCPEixIsQL0K8CPEixIsQL0K8CPGWEG8J8ZYQbwnxlhBvCfGWEG8J8ZYQbwnxjhDvCPGOEO8I8Y4Q7wjxjhDvCPGOEO8I8Z4Q7wnxnhDvCfGeEO8J8Z4Q7wnxnhDvCfGBEB8I8YEQHwjxgRAfCPGBEB8I8YEQHwjxkRAfCfGREB8J8ZEQHwnxkRAfCfGREB8J8YkQnwjxiRCfCPGJEJ8I8YkQnwjxiRCfCPGZEJ8J8ZkQnwnxmRCfCfGZEJ8J8ZkQnwnxhRBfCPGFEF8I8YUQXwjxhRBfCPGFEF8A8TKGGBExYokRR4x4YiQQI5EYScRIJkYI8URzJ6K5E9HciWjuRDR3Ipo7Ec2diOZORHMnorkT0dyJaO5ENHcimjsRzZ2I5k5EcyeiuRPR3Ilo7kQ0dyKaOxHNnYjmTkRzJ6K5E9HciWjuRDR3Ipo7Ec2diOZORHMnorkT0dyJaO5ENHcimjsRzZ2I5k5Ec9d9f/8AOqGYL887AAA="
+}

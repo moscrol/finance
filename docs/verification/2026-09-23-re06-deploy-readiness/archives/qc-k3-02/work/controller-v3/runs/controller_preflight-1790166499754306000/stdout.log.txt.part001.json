@@ -1,0 +1,9 @@
+{
+  "source": "work/controller-v3/runs/controller_preflight-1790166499754306000/stdout.log.txt",
+  "raw_sha256": "6fbe3b0ba023a7cb8a4d2cab530ab12b3de824d8b66d790cdfaf5415a682b03a",
+  "raw_bytes": 1119,
+  "chunk": 1,
+  "chunks": 1,
+  "encoding": "gzip-base64-chunk",
+  "data": "H4sIAAAAAAACE62UUWvbMBDH3/Up7mWwQSVLduIshgwKS2Gwh7HRpzGMap0TrbbknZRm/vaTs8FKaZxR9kdgW9adf7r/yZvNjCBiiBAwBOsdhKgpBtjMig2djq2nHoymo3XAOXwa4z7FF0LlQhVXMIxTXv5WFGKZnrrDbjdyJUohGXkfjaUKstuAFDK9WmWitU67BjkdXLQ9ZoQPFo8hXWXJDQ6dHzmhNtYlUp7LvJTrvOBSZT8afp9ucjZ9xLpQgXaj9XwhVBqs8V2HTUQDJdiIfWBMiCyNo6f7rPEu0rSC+EORDeTvMGQTef33jRhGuBGT4Im+KilffWNsc1lwc/3h4+3n7Rf4h8WsPqOTWbXBzt4h6YiPKGtKWzwXx9iEa7C9kOD1m4q9+7M5HZI7EVQChpxtn519QSkrJSu4PmVJDbcl8sQ47NCdeAz87DtobYf/uz2eg0zZwqOpeiBsO7vbR65Wa6nKcrFer5aLQpZSyuz7wdkoJj4+5ziEvU8V+n2sDn2vaQTrWj9rPJvaY/seXlDP6kJP8CeenQdX0OpUeXMFSximIJPAQQpZzP0R2C/8itrDXwQAAA=="
+}

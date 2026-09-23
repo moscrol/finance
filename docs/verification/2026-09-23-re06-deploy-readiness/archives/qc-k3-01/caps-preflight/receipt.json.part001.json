@@ -1,0 +1,9 @@
+{
+  "source": "caps-preflight/receipt.json",
+  "raw_sha256": "19bcdac49084eb6a316ab7c22449dab4ca87d2a663386aec90e34e502980f2bb",
+  "raw_bytes": 289,
+  "chunk": 1,
+  "chunks": 1,
+  "encoding": "gzip-base64-chunk",
+  "data": "H4sIAAAAAAACE0WOsW7DMAxE93wFobkF5A4duhX5gQAZg8JQZNoWopCKSDVJi/57ZRtOxrt7d+TvBsCIOi1iPsDsPvd78zJ5GV1sz9xhbDNeCopOgJ0zP6I/TfJQ1cJ2EAMheJegebPzxBoc77oE79Y+Es+kgYrTwATc94IKeHNeV4C/MUv4wQ4k0BBx2cdbisEHjXfI2BfBbuWPTsbqSWKS+Vyq1WvQarorcNFUFAr50dHwbG2b121jYchcJn7+oG4zeTSV+Nr8/QO43f5pIQEAAA=="
+}

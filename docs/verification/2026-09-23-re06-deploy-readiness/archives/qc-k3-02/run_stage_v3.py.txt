@@ -1,0 +1,130 @@
+"""Run exactly one isolated K3 stage with fixed identity and fresh logs."""
+from datetime import datetime, timezone
+import hashlib
+import json
+import os
+from pathlib import Path
+import re
+import signal
+import subprocess
+import sys
+import time
+
+ROOT = Path(__file__).resolve().parent
+CONFIG = json.loads((ROOT / 'config.json').read_text())
+STAGE = sys.argv[1]
+assert STAGE in {'explore', 'execute', 'report'}
+GROUP = sys.argv[2]
+assert GROUP in {'timer', 'e2', 'consent'}
+OUT = ROOT / f'{STAGE}-{GROUP}-v3'
+WORK_REQUEST_LIMIT = (12 if GROUP == 'e2' else 20) if STAGE == 'execute' else CONFIG['stage_work_request_limits'][STAGE]
+
+def identity(tree):
+    def git(*args):
+        return subprocess.check_output(['git', '-C', tree, *args], text=True, env={**os.environ, 'GIT_OPTIONAL_LOCKS': '0'}).strip()
+    return {'revision': git('rev-parse', 'HEAD'), 'status': git('status', '--porcelain', '--untracked-files=all')}
+
+def digest(p):
+    return hashlib.sha256(p.read_bytes()).hexdigest()
+
+def main():
+    assert json.loads((ROOT / 'gateway/receipt.json').read_text())['status'] == 'PASS'
+    assert json.loads((ROOT / 'sandbox-preflight/receipt.json').read_text())['status'] == 'PASS'
+    preflight = json.loads((ROOT / 'execution-boundary-preflight-v3.json').read_text())
+    assert preflight['status'] == 'PASS'
+    assert all(digest(ROOT / name) == value for name, value in preflight['source_sha256'].items())
+    if STAGE != 'explore':
+        previous = 'explore' if STAGE == 'execute' else 'execute'
+        previous_name = f'{previous}-{GROUP}' + ('-v3' if previous == 'execute' else '')
+        prior = json.loads((ROOT / previous_name / 'execution.json').read_text())
+        assert prior['status'] == 'STAGE_COMPLETE', prior['status']
+    candidate_before = identity(CONFIG['tree'])
+    author_before = identity(CONFIG['author'])
+    assert candidate_before == author_before == {'revision': CONFIG['revision'], 'status': ''}
+    OUT.mkdir(exist_ok=False)
+    (OUT / 'commands').mkdir()
+    prompt_name = f'prompt-{STAGE}-{GROUP}-v3.md'
+    prompt = (ROOT / prompt_name).read_text()
+    watched = [ROOT / name for name in ['config.json', 'review_v3.mjs', 'tools-v3.sb', 'file_tool.py', 'provider-template.json', 'pi-config/settings.json', prompt_name]]
+    hashes = {str(p.relative_to(ROOT)): digest(p) for p in watched}
+    env = {'HOME': '/Users/a77', 'PATH': '/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin',
+           'LANG': 'C.UTF-8', 'TMPDIR': str(ROOT / 'work/tmp'), 'PYTHONDONTWRITEBYTECODE': '1',
+           'PYTHONPATH': CONFIG['tree'], 'GIT_OPTIONAL_LOCKS': '0',
+           'PI_CODING_AGENT_DIR': str(ROOT / 'pi-config'), 'PI_OFFLINE': '1', 'PI_TELEMETRY': '0',
+           'REVIEW_OUTPUT_DIR': str(OUT), 'REVIEW_PHASE': STAGE, 'REVIEW_GROUP': GROUP}
+    cmd = ['/opt/homebrew/bin/pi', '--provider', 'mirasim-kimi', '--model', 'kimi-k3',
+           '--thinking', 'xhigh', '--models', 'mirasim-kimi/kimi-k3', '--no-session',
+           '--no-extensions', '-e', str(ROOT / 'review_v3.mjs'), '--no-skills', '--no-prompt-templates',
+           '--no-context-files', '--no-themes', '--no-approve', '--offline', '--tools', 'read,bash,write',
+           '--mode', 'json', '-p', '--', prompt]
+    record = {'stage': STAGE, 'group': GROUP, 'revision': CONFIG['revision'], 'baseline': CONFIG['baseline'],
+              'started_at': datetime.now(timezone.utc).isoformat(), 'complete': False,
+              'candidate_before': candidate_before, 'author_before': author_before,
+              'inputs_sha256': hashes, 'timeout_seconds': 1800, 'max_requests': WORK_REQUEST_LIMIT + 1,
+              'automatic_retries': 0, 'command': cmd[:-1] + ['<stage prompt>']}
+    def save():
+        (OUT / 'execution.json').write_text(json.dumps(record, ensure_ascii=False, indent=2) + '\n')
+    save()
+    start = time.monotonic()
+    timed_out = False
+    with (OUT / 'events.jsonl').open('xb') as stdout, (OUT / 'stderr.log').open('xb') as stderr:
+        proc = subprocess.Popen(cmd, cwd=CONFIG['tree'], env=env, stdin=subprocess.DEVNULL,
+                                stdout=stdout, stderr=stderr, start_new_session=True)
+        record['pid'] = proc.pid
+        save()
+        try:
+            proc.wait(timeout=1800)
+        except subprocess.TimeoutExpired:
+            timed_out = True
+            os.killpg(proc.pid, signal.SIGTERM)
+            try:
+                proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                os.killpg(proc.pid, signal.SIGKILL)
+                proc.wait()
+    counts, messages = {}, []
+    for line in (OUT / 'events.jsonl').read_text().splitlines():
+        try:
+            e = json.loads(line)
+        except ValueError:
+            counts['invalid_json'] = counts.get('invalid_json', 0) + 1
+            continue
+        kind = e.get('type', 'unknown')
+        counts[kind] = counts.get(kind, 0) + 1
+        if kind == 'message_end' and e.get('message', {}).get('role') == 'assistant':
+            messages.append(e['message'])
+    def rows(name):
+        p = OUT / name
+        return [json.loads(line) for line in p.read_text().splitlines()] if p.exists() else []
+    admissions = rows('request-admissions.jsonl')
+    errors = [m.get('errorMessage', m.get('stopReason')) for m in messages if m.get('stopReason') in {'error', 'aborted'}]
+    report = OUT / 'REPORT.md'
+    parsed = None
+    if report.exists():
+        for body in re.findall(r'```json\s*(.*?)```', report.read_text(), flags=re.S):
+            try:
+                value = json.loads(body)
+            except ValueError:
+                continue
+            if isinstance(value, dict) and value.get('revision') == CONFIG['revision']:
+                parsed = value
+    if parsed:
+        (OUT / 'parsed.json').write_text(json.dumps(parsed, ensure_ascii=False, indent=2) + '\n')
+    candidate_after = identity(CONFIG['tree'])
+    author_after = identity(CONFIG['author'])
+    unchanged = hashes == {str(p.relative_to(ROOT)): digest(p) for p in watched}
+    structural = bool(parsed and parsed.get('stage') == STAGE and parsed.get('group') == GROUP and parsed.get('complete') is True and parsed.get('baseline') == CONFIG['baseline'])
+    ok = proc.returncode == 0 and not timed_out and not errors and structural and unchanged and candidate_before == candidate_after and author_before == author_after
+    record.update(complete=True, status='STAGE_COMPLETE' if ok else 'BLOCKED_STAGE_OR_PROVIDER',
+                  exit_code=proc.returncode, elapsed_seconds=round(time.monotonic()-start, 3),
+                  timed_out=timed_out, requests=len(admissions), responses=rows('responses.jsonl'),
+                  errors=errors, candidate_after=candidate_after, author_after=author_after,
+                  inputs_unchanged=unchanged, event_counts=counts, report_structural=structural,
+                  model_identities=sorted({str(m.get('provider')) + '/' + str(m.get('model')) for m in messages}),
+                  usage={k: sum(m.get('usage', {}).get(k, 0) or 0 for m in messages) for k in ['input','output','cacheRead','cacheWrite','totalTokens']},
+                  artifact_sha256={str(p.relative_to(OUT)): digest(p) for p in OUT.rglob('*') if p.is_file() and not p.is_symlink() and p.name != 'execution.json'})
+    save()
+    print(json.dumps({k: record[k] for k in ['stage','status','requests','elapsed_seconds','errors','report_structural']}, ensure_ascii=False), flush=True)
+
+if __name__ == '__main__':
+    main()

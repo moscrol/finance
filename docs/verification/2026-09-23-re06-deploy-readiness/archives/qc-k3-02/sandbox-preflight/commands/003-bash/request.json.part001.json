@@ -1,0 +1,9 @@
+{
+  "source": "sandbox-preflight/commands/003-bash/request.json",
+  "raw_sha256": "c88f48855aaef34d97deb201ac3a1d50e2569967a672d523d489aed73fff3c3c",
+  "raw_bytes": 223,
+  "chunk": 1,
+  "chunks": 1,
+  "encoding": "gzip-base64-chunk",
+  "data": "H4sIAAAAAAACE02OwQ6CMBBEf8X0bNmCCUaOevIDPJulrKEBtrUtIDH8u8XExNNMZpI38xbR2v6CfX9tRCXqXOyFQ49DENVbaDsMyFsBt0A+AB6P8DCMrEnO1nfBYXLOmwkjQTYRT9+8JtYt1IbBLbG1vJPn3R8i+zH8yNEMBJ4mQ3NIqkrZkOvtIj1hY5hCkIUqSnUqDlLl8NSyS6aAbQZCelfb1123pLvMLen9xrNjFNVBresHInfEeN8AAAA="
+}

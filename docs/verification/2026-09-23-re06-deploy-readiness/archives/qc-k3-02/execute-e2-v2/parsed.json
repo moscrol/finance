@@ -1,0 +1,73 @@
+{
+  "stage": "execute",
+  "group": "e2",
+  "revision": "8eac9b3b55c563b1eb3be58686fcc0918464f69a",
+  "baseline": "b59d6eed0356ae093b52bd291ab328628de8790e",
+  "complete": true,
+  "positive_control": {
+    "receipt": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/work/e2/runs/positive_control-1790165683204812000/receipt.json",
+    "receipt_sha256": "406ef3978ab4de67cce059aa73b16343628547d38880464dca7f979f8fb93baa",
+    "classification": "probe_bug/expected_positive_control",
+    "exit_code": 1,
+    "counts": {
+      "tests": 1,
+      "passed": 0,
+      "failed": 1,
+      "errors": 0,
+      "collected": 1
+    },
+    "runs": [
+      {
+        "receipt": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/work/e2/runs/positive_control-1790165683204812000/receipt.json"
+      }
+    ]
+  },
+  "reviewer_runs": [
+    {
+      "receipt": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/work/e2/runs/reviewer-1790165691133932000/receipt.json",
+      "receipt_sha256": "682de5d30c8176b7771c35a0c5efa3c0670b4e651bc3dcb482c8f6fbc6269d51",
+      "classification": "pass",
+      "reason": "冻结初稿一次通过：collected=19, passed=19, failed=0, errors=0, exit 0；无 API/fixture 错误，未写 v2 修正版；C1 10 例、C2 3 例、C3 6 例全绿，未发现 candidate_bug。",
+      "exit_code": 0,
+      "counts": {
+        "tests": 19,
+        "passed": 19,
+        "failed": 0,
+        "errors": 0,
+        "collected": 19
+      }
+    }
+  ],
+  "author_runs": [
+    {
+      "receipt": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/work/e2/runs/author-1790165702885800000/receipt.json",
+      "receipt_sha256": "b5e16a1e9bf8972e423c6ae53362cf2cdbcd8ffad51e6b43a73364f93550bfcb",
+      "classification": "blocked_sandbox_permission",
+      "reason": "pytest 收集阶段对 candidate/.agents stat 被沙箱拒绝（PermissionError Errno 1），exit 4，collected=0，errors=1；作者测试 0 条实际运行。环境阻断而非候选缺陷、非 exit75；未重试、未绕门，不以 0 冒充通过。",
+      "exit_code": 4,
+      "counts": {
+        "tests": 0,
+        "passed": 0,
+        "failed": 0,
+        "errors": 1,
+        "collected": 0
+      }
+    }
+  ],
+  "artifacts": [
+    "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/work/e2/runs/positive_control-1790165683204812000/",
+    "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/work/e2/runs/reviewer-1790165691133932000/",
+    "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/work/e2/runs/author-1790165702885800000/",
+    "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/work/e2/runs/reviewer-1790165691133932000/junit.xml",
+    "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/work/e2/EXECUTE.md",
+    "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/work/e2/EXECUTE.json"
+  ],
+  "suspected_issues": [],
+  "limits": [
+    "author 既有测试因沙箱 PermissionError（candidate/.agents）未能执行，作者侧证据缺失，留待 report/后续会话裁决是否换径补跑。",
+    "EXPLORE.md 预估 13 条/17 例，冻结稿实际 14 函数/19 例；以实际收集数 19 为准。",
+    "旧 E2 执行（沙箱 ps 失败）未计入本次任何计数。",
+    "未覆盖：episode_semantic_verifier、material_only 正向 legal_gap 对照、混绑、stale answer_q7、中文「第N题」、其它 io_effect 值。",
+    "complete=true 仅表示本阶段交付齐全，不代表候选通过。"
+  ]
+}

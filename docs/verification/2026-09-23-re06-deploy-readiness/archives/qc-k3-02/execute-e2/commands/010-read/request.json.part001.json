@@ -1,0 +1,9 @@
+{
+  "source": "execute-e2/commands/010-read/request.json",
+  "raw_sha256": "32fa8dec3e9d7766c60f59b0bb1f0001bc2e0ed03b17d4cf97b83d0284218b9a",
+  "raw_bytes": 136,
+  "chunk": 1,
+  "chunks": 1,
+  "encoding": "gzip-base64-chunk",
+  "data": "H4sIAAAAAAACExWMQQ6CMBBF7zJrhyk1gcjWlQdwTSqMsbG0daZqCOHu1tV7ycv/G5SUwtmFcJlhAGE3j62BA2QnblEYtmrlURNdlUXJ9T01dx9dnBjlHYtfmIQ/nr9aaTqcOYe04v/KR1ZFa2xnTvaIpqXXhM8qlup0zJJu3OQV9v0Hym6ArIgAAAA="
+}

@@ -1,0 +1,57 @@
+{
+  "schema": "reversible-evidence-v1",
+  "source_root": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/acceptance-04",
+  "revision": "7ec9d022b14db46ac667accc08c7891f27f5a1a6",
+  "nonsecret_pattern_exemptions": {
+    "f69cdf0588da7c5fd887d930b8f54f8bbaacad4138e242a651ff377e1dbb0f46": {
+      "source": "tests/test_smoke_workbench_self_use.py:495",
+      "revision": "7ec9d022b14db46ac667accc08c7891f27f5a1a6",
+      "source_sha256": "36cbdce755bbd0e7f2403c6caf990aee9363bc0b253d3fa713e839a8b10379be",
+      "reason": "Committed negative-test JWT; signature decodes to testsignature, not an operational credential."
+    }
+  },
+  "files": {
+    "closure.json": {
+      "sha256": "079cd7477ef10c45ec2d97a8ce0fe7e10f00ac83998b222edee8893de18e685f",
+      "bytes": 398,
+      "artifacts": [
+        "closure.json.part001.json"
+      ],
+      "encoding": "gzip-base64-chunks",
+      "compressed_sha256": "8f92503895e24bb31aabba2ed1cab9bf234e00d7c468097441c72ff5eb5cb284"
+    },
+    "controller.log.txt": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "artifacts": [
+        "controller.log.txt.part001.json"
+      ],
+      "encoding": "gzip-base64-chunks",
+      "compressed_sha256": "f1b651238a58fe290baec6c5e32f3bdb1943dd2bd582f02569231f7a757c7837"
+    },
+    "frontend_leaf.py": {
+      "sha256": "87fea00026bee5c161fe4eab54c3925eb37f8f85083f5be3435375011030270d",
+      "bytes": 815,
+      "artifacts": [
+        "frontend_leaf.py.txt"
+      ],
+      "encoding": "identity"
+    },
+    "receipt.json": {
+      "sha256": "22c202ff9db261eca4abfe210aede89481cb08ed9bafbe15e42f6d7ed69c4f2b",
+      "bytes": 27422,
+      "artifacts": [
+        "receipt.json"
+      ],
+      "encoding": "identity"
+    },
+    "run.py": {
+      "sha256": "c457826ee98b21e8c8ad4066d456561e9804f9764907d93e9cf7d34657d0a1f1",
+      "bytes": 7914,
+      "artifacts": [
+        "run.py.txt"
+      ],
+      "encoding": "identity"
+    }
+  }
+}

@@ -1,0 +1,62 @@
+{
+  "stage": "execute",
+  "group": "e2",
+  "revision": "8eac9b3b55c563b1eb3be58686fcc0918464f69a",
+  "baseline": "b59d6eed0356ae093b52bd291ab328628de8790e",
+  "complete": true,
+  "positive_control": {
+    "receipt": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/work/e2/runs/positive_control-1790166907182750000/receipt.json",
+    "receipt_sha256": "d5bc1a39d1b6979665c1f6a179d5b32f62877f5e1a144637c1ec748f1c3be277",
+    "classification": "probe_bug/expected_positive_control",
+    "exit_code": 1,
+    "counts": {"tests": 1, "passed": 0, "failed": 1, "errors": 0, "skipped": 0, "xfailed": 0, "collected": 1},
+    "note": "exit1且恰好一条 assert 1 == 2 失败，执行链阳性对照成立；非候选缺陷，不从账本删除。",
+    "runs": [
+      {
+        "receipt": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/work/e2/runs/positive_control-1790166907182750000/receipt.json"
+      }
+    ]
+  },
+  "reviewer_runs": [
+    {
+      "receipt": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/work/e2/runs/reviewer-1790166915668737000/receipt.json",
+      "receipt_sha256": "a14c4f157cc2740820138ea0ed3ba6e03377cd7e09b4ca4d8ba0e3fcb97cd9ec",
+      "classification": "passed",
+      "reason": "冻结初稿 test_reviewer.py（inputs/frozen-explore-e2-v3）一次成功：collected=19，19 passed，exit=0；未出现 API/fixture 错误，未触发 v2 修复（无 test_reviewer_v2.py），无保留 candidate_bug。",
+      "probe_variant": "initial_frozen",
+      "exit_code": 0,
+      "counts": {"tests": 19, "passed": 19, "failed": 0, "errors": 0, "skipped": 0, "xfailed": 0, "collected": 19}
+    }
+  ],
+  "author_runs": [
+    {
+      "receipt": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/work/e2/runs/author-1790166926481397000/receipt.json",
+      "receipt_sha256": "aa90464a7d031a0cb6e8221e22f7a9337cdf423aff6e7bc8281e22327e5ccbfb",
+      "classification": "passed",
+      "source": "candidate intelligence/tests/test_e2_local_question_delivery.py",
+      "exit_code": 0,
+      "counts": {"tests": 20, "passed": 20, "failed": 0, "errors": 0, "skipped": 0, "xfailed": 0, "collected": 20},
+      "note": "作者测试单独计数，未合并进 reviewer_runs；v2 场 .agents stat 阻塞在 v3 资源门下未再出现。"
+    }
+  ],
+  "wrapper_invocations_observed": 3,
+  "blocked_runs": 0,
+  "artifacts": {
+    "execute_md": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/work/e2/EXECUTE.md",
+    "execute_json": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/work/e2/EXECUTE.json",
+    "run_dirs": [
+      "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/work/e2/runs/positive_control-1790166907182750000",
+      "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/work/e2/runs/reviewer-1790166915668737000",
+      "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/work/e2/runs/author-1790166926481397000"
+    ],
+    "frozen_probe_sources": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/inputs/frozen-explore-e2-v3/probes"
+  },
+  "suspected_issues": [],
+  "limits": [
+    "reviewer 探针为 19 例横截面：episode_semantic_verifier.py 未读、无语义裁决层探针。",
+    "material_only 正向 legal_gap 结清对照、completed+缺口的 validate_episode_finish 拒收路径未自造。",
+    "IO 纯度仅探 external_or_mixed 一种 effect；中文「第N题」小节、混绑同槽、stale 多余 answer_q* 槽恢复均未探。",
+    "历史阻塞保留说明：v2 作者收集被 .agents stat 阻断（本 v3 已补得 20/20，旧结果不并入）；更早期 E2 沙箱不能启动 ps 的原始记录既非对照成功亦非候选缺陷。",
+    "complete=true 仅表示执行阶段交付完毕，不构成候选通过结论；候选裁决交 report 阶段独立作出。"
+  ]
+}

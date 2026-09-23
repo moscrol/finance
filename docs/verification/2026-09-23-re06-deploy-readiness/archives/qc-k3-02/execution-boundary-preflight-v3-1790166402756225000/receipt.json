@@ -1,0 +1,30 @@
+{
+  "status": "RUNNING",
+  "real_model_requests": 0,
+  "independent_candidate_tests": 0,
+  "runs": [
+    {
+      "role": "controller_preflight",
+      "exit_code": 1,
+      "log": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/execution-boundary-preflight-v3-1790166402756225000/controller_preflight.log.txt",
+      "markers": [
+        {
+          "path": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/work/controller-v3/runs/controller_preflight-1790166402794752000/receipt.json",
+          "sha256": "388a44a7a01eb6dc2daca694753627918e460d528f3eab0b83140f88b78288f6",
+          "exit_code": 1,
+          "counts": {
+            "tests": 6,
+            "passed": 4,
+            "failed": 2,
+            "errors": 0,
+            "skipped": 0,
+            "xfailed": 0,
+            "collected": 6,
+            "collected_source": "pytest_stdout"
+          },
+          "blocked": null
+        }
+      ]
+    }
+  ]
+}

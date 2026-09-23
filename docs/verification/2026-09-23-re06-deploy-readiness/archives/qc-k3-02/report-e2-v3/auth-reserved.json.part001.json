@@ -1,0 +1,9 @@
+{
+  "source": "report-e2-v3/auth-reserved.json",
+  "raw_sha256": "89d3a977d27d8a5032bbf88f303e090c5d2b24e52f34c59a7f97a56857472e04",
+  "raw_bytes": 40,
+  "chunk": 1,
+  "chunks": 1,
+  "encoding": "gzip-base64-chunk",
+  "data": "H4sIAAAAAAACE6tWKi5JLCktVrJSCnINdg0Kc3VR0lHKzU9JzYkvSi0sTS0uAcoZ1AIA/Ar8wCgAAAA="
+}

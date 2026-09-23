@@ -1,0 +1,9 @@
+{
+  "source": "explore-e2/commands/008-bash/request.json",
+  "raw_sha256": "631621ec59b5b3b001c235d876871f9357a615e970b27c81c1c8671a2817247d",
+  "raw_bytes": 292,
+  "chunk": 1,
+  "chunks": 1,
+  "encoding": "gzip-base64-chunk",
+  "data": "H4sIAAAAAAACEzWOQW7CMBBFr2J5warGJkgJsGXVA3SHFE2daWLh2GbGTRQR7l6nEqt5o//19Z4yx+iv4P1nJy/yG3hom7Y2xwOcq5P8kAkIRpaXp7RxHCFsLdsJ/cVIrKFp9P7HBQgWFf2G7EbUhJPDmcs1teow+bgoQuhcQGZVmao25+qozEE/rLr/gy3DroOM+j02R7pzgkKJ3LQlLmT03vVYYrHbCeqFCuImfbTg2xj8so6lR+79eewL9pBWCDwjtY+VkHMkvElR9CdncbNkBLJDa2PIBDbv0yJWMRRhoU5Gvl5/bRZPOiQBAAA="
+}

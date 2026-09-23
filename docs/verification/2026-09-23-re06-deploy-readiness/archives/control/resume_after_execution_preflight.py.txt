@@ -1,0 +1,42 @@
+"""Wait for admitted host preflight, then dispatch the bounded v2 QC once."""
+from datetime import datetime, timezone
+import json
+from pathlib import Path
+import subprocess
+import sys
+import time
+ROOT=Path(__file__).resolve().parent
+QC=ROOT/'qc-k3-02'
+STATE=ROOT/'execution-recovery.json'
+assert not STATE.exists()
+record={'complete':False,'status':'WAITING_RESOURCES','started_at':datetime.now(timezone.utc).isoformat(),'checks':[],
+        'provider_retries':0,'max_wait_seconds':2700}
+def save():
+    tmp=STATE.with_suffix('.tmp'); tmp.write_text(json.dumps(record,indent=2)+'\n'); tmp.replace(STATE)
+save()
+deadline=time.monotonic()+2700
+while True:
+    probe=subprocess.run([sys.executable,str(QC/'resource_pytest.py'),'--dry-run'],capture_output=True,text=True)
+    record['checks'].append({'at':datetime.now(timezone.utc).isoformat(),'exit_code':probe.returncode,'stdout':probe.stdout,'stderr':probe.stderr})
+    save()
+    if probe.returncode==0:
+        log=ROOT/('recovery-preflight-'+str(time.time_ns())+'.log.txt')
+        with log.open('xb') as stream:
+            preflight=subprocess.run([sys.executable,str(QC/'execution_boundary_preflight.py')],stdout=stream,stderr=subprocess.STDOUT)
+        record['preflight']={'exit_code':preflight.returncode,'log':str(log)}; save()
+        if preflight.returncode==0: break
+        if preflight.returncode!=75:
+            record.update(complete=True,status='BLOCKED_PREFLIGHT',finished_at=datetime.now(timezone.utc).isoformat()); save(); raise SystemExit(75)
+    elif probe.returncode!=75:
+        record.update(complete=True,status='BLOCKED_RESOURCE_INSPECTION'); save(); raise SystemExit(75)
+    if time.monotonic()>=deadline:
+        record.update(complete=True,status='BLOCKED_RESOURCE_WAIT_EXHAUSTED',finished_at=datetime.now(timezone.utc).isoformat()); save(); raise SystemExit(75)
+    time.sleep(20)
+record['status']='V2_QC_DISPATCHED'; save()
+with (ROOT/'qc-continuation-v2.controller.log.txt').open('xb') as stream:
+    child=subprocess.Popen([sys.executable,str(ROOT/'continue_qc_v2.py')],stdin=subprocess.DEVNULL,stdout=stream,stderr=subprocess.STDOUT)
+    record['qc_controller_pid']=child.pid; save()
+    rc=child.wait()
+record.update(complete=True,status='V2_QC_FINISHED' if rc==0 else 'V2_QC_BLOCKED',exit_code=rc,finished_at=datetime.now(timezone.utc).isoformat())
+save()
+raise SystemExit(rc)

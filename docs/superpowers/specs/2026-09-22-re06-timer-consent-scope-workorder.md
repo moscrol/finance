@@ -1,7 +1,7 @@
 # 2026-09-22 E2 边界与 RE06 收尾：计时同意范围决策与 PR 工单
 
 可独立分发。执行方无需读聊天记录，本单自带背景、证据路径、步骤、验收与红线。
-姊妹：#75（独立 QC）、#76（P7 隔离验收：新会话 + 原始 T3 + 真实模型）。本单含一处用户决策：计时按钮的同意范围三选一。
+姊妹：#75（独立 QC）、#76（自然金融质量）。P7的新会话/原始T3/真实模型条件卡仍待，#76现有六行预算不是其完整A1-A17协议。本单含一处用户决策：计时按钮的同意范围三选一。
 
 ## 背景与动机
 
@@ -18,9 +18,9 @@
 
 用户原话 `b`。B 已实现：`activity-timer`/v2，读写共用测量域分类；旧 v1 仅对原控件完整自用形状作对称读取兼容，不改台账或哈希。原 `4bb3bf0cb` 的89P/前端9P及反证属于历史作者证据，不移签；背景见原作者树 `docs/handoffs/2026-09-23-re06-timer-scope-b.md`。
 
-09-23 最新候选为 `fix/re06-timer-assets-0923@b24c86f87aaef6244dc6a2c6cf80f74ae1918943`，base仍 `ffd1b7f1572067e9a4c7e3a5845e99cf7f876cfb`。旧f9的源码是v2、已提交包仍是v1，构建使身份漂移并被拒收；旧树恢复clean，新提交仅更新发布包。新四叶全部PASS：Python14673P/85S/2X、前端122P、E2E自身build后34P/2S、registry五项；JUnit/完整收据一致，首尾clean。
+09-23当前固定合流为`baseline/re06-ready-refresh-0923@7ec9d022b14db46ac667accc08c7891f27f5a1a6`，base`626d8a508c1c988ff094110b371987e6afdcdd15`，作者树`~/fwp-wt-re06-ready-refresh-0923`。B业务代码未再改。历史shipping修复b24的四叶PASS保留；旧合流8eac在b59d基座跑出Python14726P/85S/2X、其他三叶绿，但完整收据因main漂移15次合并（上限5）拒收，故另建新合流，不移签。
 
-#75仍未完成：timer/e2仅有静态探索终稿，timer探针逐字恢复未执行、E2无探针；consent探索与timer执行HTTP504无终稿，06仅新工具预检通过而未派发补交。当前候选63请求、历史10、累计73，自动重试0/未换模型。C1-C10全not_verified、Quality未评估，独审必红对照/分账测试/事务同族独立分类未完。17业务+1底层作者清单仍见 `docs/verification/2026-09-23-re06-toctou-family.md`，不把它说成全仓分母。当前入口 `docs/verification/2026-09-23-re06-timer-assets/README.md`，旧失败完整保留；未push/PR/合main/部署/迁移，#76/P7未推进。
+#75部分推进仅属旧8eac：QC02 v3 E2正控1次预期失败、独立19P与作者20P分账，终审C1-C3 verified、Quality PASS_WITH_LIMITS；timer/consent仍未完成。新7ec只完成宿主沙箱/命令边界预检与18事务点枚举（17业务+1底层，非全仓分母/语义批准），机械重定位探针待独审接受。两条有界资源等待均超时，新候选测试/build/模型请求0，acceptance-05未创建，当前C1-C10全not_verified、Quality未评估，NOT_READY。readiness运行根147/218请求、余71，早期shipping73另账；K3/xhigh、自动重试0。当前入口`docs/verification/2026-09-23-re06-deploy-readiness/README.md`，全部原件/失败保留；所属进程已结束，未push/PR/合main/部署/迁移/删树，#76/P7仍未执行。
 
 原三选一比较保留：
 - A **只改文案**：界面明说「停止计时会撤回自用测量同意」。零代码风险，但用户每次停计时都在关测量。

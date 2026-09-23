@@ -1,0 +1,15 @@
+{
+  "prior_attempt": "execute-e2",
+  "prior_reason": "macOS sandbox cannot spawn /bin/ps; no pytest started",
+  "new_attempt_suffix": "v2",
+  "fixed_revision": "8eac9b3b55c563b1eb3be58686fcc0918464f69a",
+  "reviewer_assertions_modified_by_host": false,
+  "provider_retry": false,
+  "requests_already_admitted": 119,
+  "request_ceiling": 218,
+  "remaining_stage_ceiling": 94,
+  "planned_cumulative_ceiling": 213,
+  "new_gateway_requests": 0,
+  "resource_boundary": "Trusted isolated-Python host wrapper, then untrusted tests inside unchanged OS sandbox",
+  "original_probe_origin": "Same independent exploration, frozen byte-identically for fresh execution"
+}

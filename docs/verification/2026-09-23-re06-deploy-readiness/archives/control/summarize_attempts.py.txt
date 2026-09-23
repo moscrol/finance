@@ -1,0 +1,40 @@
+"""Summarize fixed identities and observed evidence; never produce semantic approval."""
+from datetime import datetime,timezone
+import json
+from pathlib import Path
+import re
+import subprocess
+ROOT=Path(__file__).resolve().parent
+identity=json.loads((ROOT/'identity-02.json').read_text())
+def load(path): return json.loads(path.read_text()) if path.is_file() else None
+def git(*args): return subprocess.check_output(['git','-C',identity['author'],*args],text=True).strip()
+request_rows={}
+for qc in [ROOT/'qc-k3-01',ROOT/'qc-k3-02',ROOT/'qc-k3-03']:
+    for phase in qc.iterdir():
+        if phase.is_dir() and (phase.name=='gateway' or re.fullmatch(r'(explore|execute|report)-(e2|timer|consent)(-v[23])?',phase.name)):
+            path=phase/'request-admissions.jsonl'
+            if path.exists(): request_rows[str(phase.relative_to(ROOT))]=len(path.read_text().splitlines())
+assert sum(request_rows.values())<=218
+acceptances={}
+for path in sorted(ROOT.glob('acceptance-*/receipt.json')):
+    data=load(path)
+    acceptances[path.parent.name]={'revision':data['revision'],'baseline':data.get('baseline'),'status':data.get('status'),'receipt_complete':data.get('complete'),'leaves':{name:value['status'] for name,value in data['leaves'].items()},'closure':load(path.parent/'closure.json'),'python_receipt_counts':(load(path.parent/'receipts/pytest.json') or {}).get('counts')}
+claims={f'C{i}':'not_verified' for i in range(1,11)}
+current_reports={}
+for group in ['e2','timer','consent']:
+    p=ROOT/'qc-k3-03/work'/group/'FINAL.json'
+    if p.exists():
+        data=load(p)
+        assert data['revision']==identity['revision'] and data['baseline']==identity['baseline']
+        current_reports[group]=data
+        allowed={'e2':{'C1','C2','C3'},'timer':{'C7','C8','C9','C10'},'consent':{'C4','C5','C6'}}[group]
+        for claim in data.get('claims',[]):
+            assert claim['id'] in allowed
+            claims[claim['id']]=claim['status']
+main=git('rev-parse','gitea/main'); base=git('merge-base',identity['revision'],main)
+qc=load(ROOT/'qc-refresh-continuation.json'); recovery=load(ROOT/'acceptance-recovery.json')
+assert qc['complete'] and recovery['complete']
+report={'schema':'readiness-evidence-status-v1','generated_at':datetime.now(timezone.utc).isoformat(),'generated_by':'host_accounting_not_semantic_reviewer','identity':identity,'current_main_observation':{'revision':main,'candidate_merge_base':base,'merge_drift':int(git('rev-list','--count','--merges',base+'..'+main))},'author_identity_after':{'revision':git('rev-parse','HEAD'),'status':git('status','--porcelain')},'acceptance_attempts':acceptances,'current_qc_status':qc['status'],'current_acceptance_status':recovery['status'],'current_claims':claims,'current_independent_reports':current_reports,'requests':{'total':sum(request_rows.values()),'ceiling':218,'remaining':218-sum(request_rows.values()),'phases':request_rows},'superseded_e2_report':load(ROOT/'qc-k3-02/work/e2/FINAL.json'),'status':'NOT_READY','mergeable':False,'deployable':False,'natural_financial_quality':'not_evaluated','p7':'not_executed_not_authorized','formal_t2_t3_knevo_comparison':'forbidden_at_current_stage','publication_or_production_operations_performed':False,'new_business_source_edits':False,'automatic_provider_retries':0,'limits':['Superseded revision results do not certify the refreshed candidate.','Host integrity checks and preflights do not independently verify claims.','P7 requires its own protocol and authorization; #76 six-line budget is not a substitute for the A1-A17 contract.']}
+assert report['author_identity_after']=={'revision':identity['revision'],'status':''}
+with (ROOT/'readiness-report.json').open('x') as f: json.dump(report,f,ensure_ascii=False,indent=2); f.write('\n')
+print(json.dumps({'status':report['status'],'revision':identity['revision'],'requests':report['requests']['total'],'qc_status':qc['status'],'acceptance_status':recovery['status'],'base_drift':report['current_main_observation']['merge_drift']}))

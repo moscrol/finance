@@ -1,0 +1,9 @@
+{
+  "source": "report-e2-v3/commands/001-read/output.log",
+  "raw_sha256": "32ab8d8cacf0418e3ae06d1167d172cb62c0ac0308ddaf12de18262e3faceac9",
+  "raw_bytes": 936,
+  "chunk": 1,
+  "chunks": 1,
+  "encoding": "gzip-base64-chunk",
+  "data": "H4sIAAAAAAACE8WTwW7bMAyG73kKopckgG3ZCtagwTxs2Fqgtx66XYY1UGy6ESJLHinXzdtPVpZu3YCiKAqUB5MmKcr/Z+maVIUbVe1g1jr2QFih9VApY8Ao9vPVBOBCG4QT8ZWRWKjlUmSNtspWmFJvvW5REN5pHDj4/DStsTNunxKqWltkTmUuT/MzuUjzQvys0l0IpGjC0LV3zmTd/iQBE1pBvktAW3jfuro3+CFsDbHAUIJXdIs+G6euPd772Tzjzmgf67MdYoe25vKaepzHhUe7+c/+SHKdF1vX4oZwEJ/RGEWi2/utsx8XWSHF+MiKxVqKC1ItDo52LK5iQ9YcM+Jb4KKd5dgujN78nhFfO+W3IfWXyiKXy6jzQUv83kH7LTCaJnNBSvgdNZZTmiaAtnKB5G15DEKKyBGXBzcHxdCsJk8ofoa9OZRiEaGM4qMUQt+TBe0OPEYyCYxUEtj0TYN0IPEPkwQsDuPER4fg5qU2ueRPX3S4Fd7R/nzcYQXfg7cOZPEDLhkU1Mf6CqavfEkiSZTTyS/xU4RFqAMAAA=="
+}

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<testsuites name="vitest tests" tests="2" failures="1" errors="0" time="0.031237708">
+    <testsuite name="../../../../work/controller-v3/probes/controller.test.tsx" timestamp="2026-09-23T12:28:21.025Z" hostname="77deMacBook-Air.local" tests="2" failures="1" errors="0" skipped="0" time="0.031237708">
+        <testcase classname="../../../../work/controller-v3/probes/controller.test.tsx" name="controller deliberate red" time="0.002864334">
+            <failure message="expected 1 to be 2 // Object.is equality" type="AssertionError">
+AssertionError: expected 1 to be 2 // Object.is equality
+
+- Expected
++ Received
+
+- 2
++ 1
+
+ ❯ ../../../../work/controller-v3/probes/controller.test.tsx:7:53
+            </failure>
+        </testcase>
+        <testcase classname="../../../../work/controller-v3/probes/controller.test.tsx" name="controller jsdom and React are usable" time="0.02805975">
+        </testcase>
+    </testsuite>
+</testsuites>

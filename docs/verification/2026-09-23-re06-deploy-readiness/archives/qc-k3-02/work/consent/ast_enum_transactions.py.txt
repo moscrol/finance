@@ -1,0 +1,76 @@
+"""AST enumeration of direct transaction/try_transaction calls (K3 consent group).
+
+Scope (fixed by task): intelligence/services/research_evolution/*.py and
+intelligence/api/research_evolution.py in the candidate tree.
+
+Outputs JSON to stdout: {"scope": [...], "entries": [{file, line, function, call, ctx}]}
+The reviewer classifies each entry manually afterwards; this script only
+produces the independent denominator (no author numbers consulted).
+"""
+from __future__ import annotations
+
+import ast
+import json
+import sys
+from pathlib import Path
+
+ROOT = Path(
+    "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/"
+    "qc-k3-02/candidate/finance-workspace-private"
+)
+SCOPE = sorted(ROOT.glob("intelligence/services/research_evolution/*.py")) + [
+    ROOT / "intelligence/api/research_evolution.py"
+]
+
+
+def enclosing_function(tree: ast.AST, line: int) -> str:
+    best = "<module>"
+    best_line = -1
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            if node.lineno <= line and node.lineno > best_line:
+                # crude: nearest preceding def; refined below by end_lineno
+                end = getattr(node, "end_lineno", node.lineno)
+                if end >= line:
+                    best = node.name
+                    best_line = node.lineno
+    return best
+
+
+entries = []
+for path in SCOPE:
+    src = path.read_text(encoding="utf-8")
+    tree = ast.parse(src, filename=str(path))
+    rel = str(path.relative_to(ROOT))
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        func = node.func
+        name = None
+        if isinstance(func, ast.Attribute):
+            name = func.attr
+        elif isinstance(func, ast.Name):
+            name = func.id
+        if name in ("transaction", "try_transaction"):
+            entries.append(
+                {
+                    "file": rel,
+                    "line": node.lineno,
+                    "function": enclosing_function(tree, node.lineno),
+                    "call": name,
+                    "receiver": ast.unparse(func.value) if isinstance(func, ast.Attribute) else "",
+                }
+            )
+
+entries.sort(key=lambda e: (e["file"], e["line"]))
+print(
+    json.dumps(
+        {
+            "scope": [str(p.relative_to(ROOT)) for p in SCOPE],
+            "count": len(entries),
+            "entries": entries,
+        },
+        ensure_ascii=False,
+        indent=2,
+    )
+)

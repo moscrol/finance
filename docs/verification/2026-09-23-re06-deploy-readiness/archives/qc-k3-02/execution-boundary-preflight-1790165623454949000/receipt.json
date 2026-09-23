@@ -1,0 +1,62 @@
+{
+  "status": "PASS",
+  "real_model_requests": 0,
+  "independent_candidate_tests": 0,
+  "runs": [
+    {
+      "role": "controller_preflight",
+      "exit_code": 1,
+      "log": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/execution-boundary-preflight-1790165623454949000/controller_preflight.log.txt",
+      "markers": [
+        {
+          "path": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/work/controller/runs/controller_preflight-1790165623489404000/receipt.json",
+          "sha256": "da3c1a0c8a40a467597065551ec049f49a108f7f014a8105edccf13c37145c52",
+          "exit_code": 1,
+          "counts": {
+            "tests": 5,
+            "passed": 4,
+            "failed": 1,
+            "errors": 0,
+            "skipped": 0,
+            "xfailed": 0,
+            "collected": 5,
+            "collected_source": "pytest_stdout"
+          },
+          "blocked": null
+        }
+      ]
+    },
+    {
+      "role": "ui_controller_preflight",
+      "exit_code": 1,
+      "log": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/execution-boundary-preflight-1790165623454949000/ui_controller_preflight.log.txt",
+      "markers": [
+        {
+          "path": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/work/controller/runs/ui_controller_preflight-1790165623906584000/receipt.json",
+          "sha256": "ce338f29bd341c2a34ff4a298a66628284e448cc8f4033d88d317d6834ce843d",
+          "exit_code": 1,
+          "counts": {
+            "tests": 2,
+            "passed": 1,
+            "failed": 1,
+            "errors": 0,
+            "skipped": 0,
+            "xfailed": 0,
+            "collected": 2,
+            "collected_source": "vitest_junit"
+          },
+          "blocked": null
+        }
+      ]
+    }
+  ],
+  "expected_host_control_failures": 2,
+  "not_the_independent_qc_positive_control": true,
+  "source_sha256": {
+    "run_probe_v2.py": "371a79b2122ae355bd7ff099d6816b34027e204583840664d51db38853a43beb",
+    "review_v2.mjs": "8f50d48b358865edd6cd96c786bb96e0a5ca99e175dfb98da2dc821936096013",
+    "tools.sb": "bb0797854306c34011d9d605035a4c7309e08116d5d5f518a6490022dc1564b6",
+    "resource_pytest.py": "d504da06f9351183ef0fd94ee4d8a4a02b28c4f541a6403c81d83426e5d82a06",
+    "inputs/ui.vitest-v2.config.mjs": "b4f5ae7dc9d9ffb23ab6dc5c315da99afc33c6fd4c67772d475777dcb2a89ebc"
+  }
+}

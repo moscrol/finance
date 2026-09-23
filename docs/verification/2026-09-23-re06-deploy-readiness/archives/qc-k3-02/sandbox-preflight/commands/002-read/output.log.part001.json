@@ -1,0 +1,9 @@
+{
+  "source": "sandbox-preflight/commands/002-read/output.log",
+  "raw_sha256": "fcce35b3e42f8c6dc129674a4b4e3ef255d3f8679769a1fa38b8c5576a7bcbfe",
+  "raw_bytes": 1399,
+  "chunk": 1,
+  "chunks": 1,
+  "encoding": "gzip-base64-chunk",
+  "data": "H4sIAAAAAAACE81UTW/bMAy9+1cIudjGLMnJgKbNkENQ5DB0a4q2w1AMQ6BYdCvYljxJ+QL240fZTtEe9nHoYfBBlEiRz3xPVE1rrCdgrTYZMS4jzhQV+Ki0piGt8E+12hDVR93gNhpspT3UtXoEXQBzYHeqAMdaa+S28OudqLfACqMdaB+183AzGfEvGOi4mE45K5UWeJXarfaqAW5hp2DvcM3PqIS2NkdqQUilwTk6ySdn+cXkPc3H/EdBKzQmfG9sxUVdmz1I5g9+lH4gLdtb5WHt4eCT2FQxngmHZT26Qr7ek87nwRmVxhIv7COEHyLf3hphIbRUUnjgp2QBs2sFWq1Vu+CRpnD8CQNNWToe0tD8gmKirk6obKkrTAt0wxo5ykj8EmRRi60E3igrnGpopRpFvalAM/cUv44t9y3d+z5twH2kAS9/SSQ/EclfEckHIll7jL/PIuLtcdaJIel7l/ad3Rw9uCSNCBwKaFEuYBvlnDJ6aa2xM5STc+itHcyIFcoBWXTUnCKSGPnYKClBk5BxRuJ3Q4X/gSmHMRtzoM8gaae1UfbWYH5X6Ln3pZwbx1ATemAgw+1q/fV2df3p4WdnX94uF/dZbs7y/B8ZwWtFbRwkpcRH8zd+OkRxGrl5PzBYvyD9HUIXHr+GwidJPJ5MWY7fOM7G59Pz8zSNBjyruy4vvlCCAIZ3CqybRoHmpLPY8mZ5+zkb7MXl5fIuzSD6k440+MAfGaYD4gy01HWPrPvLNBrqaeOJ0Mckvl9dLa/jULciCCpe3HxcXy0fhpMgwCqY2CfQO2WNTiOUhsY5MxBGNmarpbAKHGaU5FlUpwEa2t2h+QWA/VzLdwUAAA=="
+}

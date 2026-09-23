@@ -1,0 +1,9 @@
+{
+  "source": "execute-e2/model-failure.json",
+  "raw_sha256": "b17715122a18b3d029456aa220d0c32aa9cd658396efd56dcef2904654a12515",
+  "raw_bytes": 37,
+  "chunk": 1,
+  "chunks": 1,
+  "encoding": "gzip-base64-chunk",
+  "data": "H4sIAAAAAAACE6tWKi7JLwhKTSzOz1OyUkotKsovUtJRSkzJzSwuzgSJGRrXAgDSkqvNJQAAAA=="
+}

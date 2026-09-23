@@ -1,0 +1,9 @@
+{
+  "source": "execute-e2-v2/tool-denials.jsonl",
+  "raw_sha256": "9fe26a26b014ec73b555aff2193217051b9dfb729c01b4c7405908e1180f61f7",
+  "raw_bytes": 294,
+  "chunk": 1,
+  "chunks": 1,
+  "encoding": "gzip-base64-chunk",
+  "data": "H4sIAAAAAAACE61QSY4CMQy88wqUM8ZNkEDwD84odBsmottu7IRV/H088IU51SJVSVWvYCWdKGwD3amthcIsnFTq+OdEF0Wkd35I9uOqlWFI3LnR2xR3RmqY1mucHzMnbgm0cskDodI1080cmxV0NPbyAKXUZSYziE1cNZu4hGaBlxbOTiLeRM9IEf+7N/NYi+FR5UkMdPeMElCEa0Sf5GkT9kWfI/bfG7Lw/iCVu6SP8J78AunzKLwmAQAA"
+}

@@ -1,0 +1,49 @@
+import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { allowedExecutionCommand, install } from './review_v3.mjs';
+
+const root = path.dirname(fileURLToPath(import.meta.url));
+const config = JSON.parse(fs.readFileSync(path.join(root, 'config.json')));
+const command = (group, role) => `${config.python} -I ${root}/run_probe_v3.py ${group} ${role}`;
+assert(allowedExecutionCommand(command('e2', 'reviewer'), 'e2'));
+assert(allowedExecutionCommand(command('timer', 'ui_reviewer'), 'timer'));
+assert(allowedExecutionCommand(command('e2', 'reviewer') + ` --probe ${root}/work/e2/probes/test_reviewer_v3.py`, 'e2'));
+for (const value of [
+  command('e2', 'reviewer') + '; echo bad',
+  command('e2', 'reviewer') + ' | tail',
+  command('e2', 'reviewer') + ` --probe ${root}/work/timer/probes/other.py`,
+  command('e2', 'reviewer') + ` --probe ${root}/work/e2/probes/../../other.py`,
+  command('e2', 'reviewer') + ` --probe ${root}/work/e2/probes/$(echo bad).py`,
+  command('e2', 'author') + ` --probe ${root}/work/e2/probes/test_reviewer_v3.py`,
+  command('e2', 'ui_reviewer'),
+  `${config.python} -m pytest`,
+]) assert.equal(allowedExecutionCommand(value, 'e2'), false, value);
+
+const folder = path.join(root, 'stage-boundary-preflight-v3-' + Date.now());
+fs.mkdirSync(folder);
+const provider = JSON.parse(fs.readFileSync(path.join(root, 'provider-template.json')));
+const now = Math.floor(Date.now() / 1000);
+const token = 'fixture.' + Buffer.from(JSON.stringify({ plan: 'plus', exp: now + 4000, plan_exp: now + 4000 })).toString('base64url') + '.fixture';
+for (const stage of ['execute', 'report']) {
+  process.env.REVIEW_PHASE = stage;
+  process.env.REVIEW_GROUP = 'e2';
+  const out = path.join(folder, stage);
+  fs.mkdirSync(out);
+  const hooks = new Map(); const tools = new Map();
+  install({ on(name, callback) { hooks.set(name, callback); }, registerTool(tool) { tools.set(tool.name, tool); }, registerProvider() {} }, { out, token, terminate(code) { throw new Error('unexpected termination ' + code); } });
+  await assert.rejects(tools.get('bash').execute('denied', { command: 'echo bypass' }), /Stage command denied/);
+  if (stage === 'report') {
+    const payload = hooks.get('before_provider_request')({ payload: { model: 'kimi-k3', stream: true, messages: [], tools: ['read', 'write', 'bash'].map(name => ({ type: 'function', function: { name } })) } }, { model: { provider: 'mirasim-kimi', id: 'kimi-k3', baseUrl: provider.baseUrl, api: provider.api } });
+    assert.deepEqual(payload.tools.map(tool => tool.function.name), ['read', 'write']);
+    assert.equal(hooks.get('tool_call')({ toolName: 'bash' }).block, true);
+    assert.equal(hooks.get('tool_call')({ toolName: 'read' }), undefined);
+  }
+}
+const receipt = { status: 'PASS', real_model_requests: 0, pytest_invocations: 0, checks: ['exact wrapper allowlist', 'variant ownership', 'metacharacter rejection', 'execute dispatch denial', 'report schema restriction', 'report dispatch denial'] };
+fs.writeFileSync(path.join(folder, 'receipt.json'), JSON.stringify(receipt, null, 2), { flag: 'wx' });
+receipt.source_sha256 = { 'review_v3.mjs': createHash('sha256').update(fs.readFileSync(path.join(root, 'review_v3.mjs'))).digest('hex') };
+fs.writeFileSync(path.join(root, 'stage-boundary-preflight-v3-current.json'), JSON.stringify(receipt, null, 2), { flag: 'wx' });
+console.log(JSON.stringify(receipt));

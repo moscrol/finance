@@ -1,0 +1,49 @@
+"""Start one fresh acceptance only after admission; preserve the blocked attempt."""
+from datetime import datetime,timezone
+import json
+import os
+from pathlib import Path
+import re
+import shutil
+import subprocess
+import sys
+import time
+ROOT=Path(__file__).resolve().parent
+OLD=ROOT/'acceptance-04'; TARGET=ROOT/'acceptance-05'
+identity=json.loads((ROOT/'identity-02.json').read_text())
+STATE=ROOT/'acceptance-recovery.json'
+record={'complete':False,'status':'WAITING_FOR_RESOURCES','revision':identity['revision'],'admissions':[]}
+def save():
+    p=STATE.with_suffix('.tmp'); p.write_text(json.dumps(record,indent=2)+'\n'); p.replace(STATE)
+def tree_identity():
+    def git(*args): return subprocess.check_output(['git','-C',identity['author'],*args],text=True).strip()
+    return {'revision':git('rev-parse','HEAD'),'status':git('status','--porcelain')}
+old=json.loads((OLD/'receipt.json').read_text())
+assert old['status']=='BLOCKED_RESOURCE_GATE' and not old.get('active_command')
+assert all(not leaf.get('checks') for leaf in old['leaves'].values())
+assert not subprocess.run(['ps','-p','34773','-o','command='],capture_output=True,text=True).stdout.strip()
+closure={'complete':True,'status':'BLOCKED_RESOURCE_GATE','test_or_build_commands_started':0,'controller_running':False,'identity_after':tree_identity(),'source_receipt_complete':old['complete'],'finished_at':old['finished_at'],'recorded_at':datetime.now(timezone.utc).isoformat(),'model_requests':0}
+with (OLD/'closure.json').open('x') as f: json.dump(closure,f,indent=2)
+assert not STATE.exists() and not TARGET.exists(); save()
+started=datetime.fromisoformat(json.loads((ROOT/'qc-refresh-continuation.json').read_text())['started_at']).timestamp()
+deadline=started+1800
+pattern=re.compile(r'^\S*/(?:Python|python(?:3(?:\.\d+)?)?)\s+(?:-B\s+)?-m\s+pytest(?:\s|$)|^\S*/pytest(?:\s|$)')
+while True:
+    rows=subprocess.check_output(['ps','-axo','command='],text=True).splitlines()
+    count=sum(bool(pattern.search(row.strip())) for row in rows); load=os.getloadavg()[0]; free=shutil.disk_usage(ROOT).free/1024**3
+    allowed=load<=8 and count+1<=2 and free>=8
+    record['admissions'].append({'at':datetime.now(timezone.utc).isoformat(),'load_1m':load,'existing_pytest':count,'projected_pytest':count+1,'free_gib':free,'allowed':allowed}); save()
+    if allowed: break
+    if time.time()>=deadline:
+        record.update(complete=True,status='BLOCKED_RESOURCE_GATE',acceptance_created=False); save(); raise SystemExit(75)
+    time.sleep(15)
+TARGET.mkdir()
+for name in ['run.py','frontend_leaf.py']: shutil.copy2(OLD/name,TARGET/name)
+record.update(status='ACCEPTANCE_DISPATCHED',acceptance_created=True,started_at=datetime.now(timezone.utc).isoformat()); save()
+with (TARGET/'controller.log.txt').open('xb') as log:
+    p=subprocess.Popen([sys.executable,str(TARGET/'run.py')],stdin=subprocess.DEVNULL,stdout=log,stderr=subprocess.STDOUT)
+    record['pid']=p.pid; save(); code=p.wait()
+result=json.loads((TARGET/'receipt.json').read_text())
+record.update(complete=True,exit_code=code,status=result.get('status','BLOCKED_INCOMPLETE_RECEIPT'),finished_at=datetime.now(timezone.utc).isoformat()); save()
+with (TARGET/'closure.json').open('x') as f: json.dump({'complete':True,'status':record['status'],'exit_code':code,'controller_running':False,'identity_after':tree_identity(),'source_receipt_complete':result['complete'],'finished_at':record['finished_at']},f,indent=2)
+raise SystemExit(code)

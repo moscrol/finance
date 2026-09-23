@@ -1,0 +1,9 @@
+{
+  "source": "gateway/payload-shapes.jsonl",
+  "raw_sha256": "03969737515a9afaf360fb7c27881200f4edcd5e0f6916fccc6c6cdedc838db3",
+  "raw_bytes": 749,
+  "chunk": 1,
+  "chunks": 1,
+  "encoding": "gzip-base64-chunk",
+  "data": "H4sIAAAAAAACE+VRy07DMBC88xl7NofSqEH+FYQsN5kkVvwI3g20qvh37IiqouLKiZNXntmZ2d0LZbytYCG9UwRvF0ZvApNuD4pC6uFJ0+yCe5z3pIglwwbSklcoGhx8X7gvFOzJdCksHuJSNJJmRC78AGY7Yis3MUVLLjwxne0mmBnn+68MQawqBShmnKKLo8EwpCxbgpRxS3ItTFpqTzWSlDzT67Uo6QqhL8DR8lSej+wEFc/JY8P5zIKqtTLyhtz7ajpNbqzdv0+qd4f9c1MsERZkK2uug4T0jp70YD3j8+Fy2/XTz103Tdv+120rssyOxUb5VvuzA3wB5QDlSe0CAAA="
+}

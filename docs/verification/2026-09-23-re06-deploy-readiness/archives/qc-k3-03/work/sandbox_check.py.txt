@@ -1,0 +1,19 @@
+import errno, os, socket
+from pathlib import Path
+import intelligence.services.product_value.consent
+p=Path("/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-03/work/allowed.txt"); p.write_text('ok'); assert p.read_text()=='ok'
+for target in ["/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-03/candidate/finance-workspace-private/docs/handoffs/2026-09-23-re06-timer-scope-b.md", '/Users/a77/.claude/mirasim-kimi-token.sh', '/Users/a77/fwp-wt-re06-ready-refresh-0923/intelligence/services/product_value/consent.py']:
+ try: Path(target).read_bytes()
+ except PermissionError: pass
+ else: raise AssertionError('forbidden read: '+target)
+for target in ["/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-03/candidate/finance-workspace-private/sandbox-forbidden-write","/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-03/sandbox-forbidden-write"]:
+ try: fd=os.open(target,os.O_WRONLY|os.O_CREAT,0o600)
+ except PermissionError: pass
+ else: os.close(fd); raise AssertionError('forbidden write')
+s=socket.socket()
+try: s.connect(('127.0.0.1',18788))
+except OSError as e: assert e.errno in (errno.EPERM,errno.EACCES),e
+else: raise AssertionError('network allowed')
+finally: s.close()
+assert not any('TOKEN' in k or 'API_KEY' in k for k in os.environ)
+print('sandbox boundaries and candidate import passed')

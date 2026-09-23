@@ -1,0 +1,9 @@
+{
+  "source": "report-e2-v3/responses.jsonl",
+  "raw_sha256": "04303acf9b777e4d8229baecaf86544f4cdb3bad675a4d52653f9bba59556372",
+  "raw_bytes": 203,
+  "chunk": 1,
+  "chunks": 1,
+  "encoding": "gzip-base64-chunk",
+  "data": "H4sIAAAAAAACE6tWSkzJzSwuzszPU7Iy1FEqLkksKS1WsjIyMKjlqkaWNMInaYxP0gSfpCk+STN8kuZokgCm0PSGywAAAA=="
+}

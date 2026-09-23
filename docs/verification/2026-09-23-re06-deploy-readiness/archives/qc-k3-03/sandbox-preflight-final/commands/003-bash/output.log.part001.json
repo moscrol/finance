@@ -1,0 +1,9 @@
+{
+  "source": "sandbox-preflight-final/commands/003-bash/output.log",
+  "raw_sha256": "84d63cb9cd0efc87cf3347646f63091d20d94d4db501607d106a90dc6afb48dd",
+  "raw_bytes": 47,
+  "chunk": 1,
+  "chunks": 1,
+  "encoding": "gzip-base64-chunk",
+  "data": "H4sIAAAAAAACEytOzEtJyq9QSMovzUtJLMpMLVYAiigkA4nMlMSSVIXM3IL8ohKFgsTi4tQULgBV4sg4LwAAAA=="
+}

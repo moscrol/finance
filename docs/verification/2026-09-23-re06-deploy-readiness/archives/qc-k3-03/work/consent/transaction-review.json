@@ -1,0 +1,190 @@
+{
+  "stage": "explore",
+  "group": "consent",
+  "revision": "7ec9d022b14db46ac667accc08c7891f27f5a1a6",
+  "baseline": "626d8a508c1c988ff094110b371987e6afdcdd15",
+  "method": "independent AST enumeration (work/consent/ast_enum_transactions.py), no author counts consulted",
+  "scope": [
+    "intelligence/services/research_evolution/__init__.py",
+    "intelligence/services/research_evolution/access.py",
+    "intelligence/services/research_evolution/adapters.py",
+    "intelligence/services/research_evolution/contracts.py",
+    "intelligence/services/research_evolution/facade.py",
+    "intelligence/services/research_evolution/pilot_io.py",
+    "intelligence/services/research_evolution/run_observer.py",
+    "intelligence/services/research_evolution/store.py",
+    "intelligence/services/research_evolution/study_io.py",
+    "intelligence/api/research_evolution.py"
+  ],
+  "count": 18,
+  "entries": [
+    {
+      "file": "intelligence/services/research_evolution/facade.py",
+      "line": 727,
+      "function": "create_binding",
+      "call": "transaction",
+      "kind": "business",
+      "classification": "not_measurement_not_consent",
+      "reason": "维护绑定登记；锁内 append_binding 幂等。无锁外读决策，无需锁内复核。"
+    },
+    {
+      "file": "intelligence/services/research_evolution/facade.py",
+      "line": 792,
+      "function": "_maintenance_action",
+      "call": "transaction",
+      "kind": "business",
+      "classification": "not_measurement_not_consent",
+      "reason": "01 维护动作；锁内 find_action 幂等查重（同键异载荷 409）。不涉及测量/授权。"
+    },
+    {
+      "file": "intelligence/services/research_evolution/facade.py",
+      "line": 1220,
+      "function": "fold_run_terminal",
+      "call": "try_transaction",
+      "kind": "business",
+      "classification": "not_measurement_not_consent",
+      "reason": "run 终态维护折回；有界 0.5s 不堵被测 run；锁内幂等+状态复核。与观察器测量写并发但同锁族串行，写 actions 而非 product_value_events。"
+    },
+    {
+      "file": "intelligence/services/research_evolution/facade.py",
+      "line": 1335,
+      "function": "bind_pending_rejudge_run",
+      "call": "try_transaction",
+      "kind": "business",
+      "classification": "not_measurement_not_consent",
+      "reason": "重判 run 归属登记；锁内 _verify_launch_coordinate + 既有归属冲突检查（QC X2）。不涉及测量/授权。"
+    },
+    {
+      "file": "intelligence/services/research_evolution/facade.py",
+      "line": 1534,
+      "function": "pending_task_continuation",
+      "call": "try_transaction",
+      "kind": "business",
+      "classification": "not_measurement_not_consent",
+      "reason": "锁内读 action 台账还 continuation；纯读+比对，无写入决策依赖锁外快照。"
+    },
+    {
+      "file": "intelligence/services/research_evolution/facade.py",
+      "line": 1634,
+      "function": "_select_task",
+      "call": "transaction",
+      "kind": "business",
+      "classification": "writes_product_value_event_user_initiated",
+      "reason": "锁内直接 append task_selected（注释：_store_event 会再开锁，非重入自死锁）。用户发起事件，非三类自动测量事件，不走 I11 同意门——设计意图，列为边界观察而非缺陷。"
+    },
+    {
+      "file": "intelligence/services/research_evolution/facade.py",
+      "line": 1799,
+      "function": "_reveal_exercise",
+      "call": "transaction",
+      "kind": "business",
+      "classification": "not_measurement_not_consent",
+      "reason": "练习揭示流程收据 append_process_receipt。不涉及测量/授权。"
+    },
+    {
+      "file": "intelligence/services/research_evolution/facade.py",
+      "line": 2070,
+      "function": "_store_event",
+      "call": "transaction",
+      "kind": "business",
+      "classification": "consent_write_path",
+      "reason": "通用 product_value 事件追加；前端 consent_changed（含用户撤回）经 API post_events → ingest_events(1991) → _store_event 落台账。它是授权数据的 writer，本身不需同意门；与观察器 try_transaction 同一把 owner 锁，保证 _record 锁内复核能读到窗口期撤回。"
+    },
+    {
+      "file": "intelligence/services/research_evolution/facade.py",
+      "line": 2084,
+      "function": "register_artifact",
+      "call": "transaction",
+      "kind": "business",
+      "classification": "not_measurement_not_consent",
+      "reason": "不可变登记 publish_immutable。不涉及测量/授权。"
+    },
+    {
+      "file": "intelligence/services/research_evolution/facade.py",
+      "line": 2105,
+      "function": "record_process_receipt",
+      "call": "transaction",
+      "kind": "business",
+      "classification": "not_measurement_not_consent",
+      "reason": "流程收据登记，按 receipt_id 幂等。不涉及测量/授权。"
+    },
+    {
+      "file": "intelligence/services/research_evolution/facade.py",
+      "line": 2117,
+      "function": "store_protocol",
+      "call": "transaction",
+      "kind": "business",
+      "classification": "not_measurement_not_consent",
+      "reason": "冻结协议 publish_immutable。不涉及测量/授权。"
+    },
+    {
+      "file": "intelligence/services/research_evolution/pilot_io.py",
+      "line": 94,
+      "function": "cmd_register",
+      "call": "transaction",
+      "kind": "business",
+      "classification": "not_measurement_not_consent",
+      "reason": "CLI 登记 pilot_protocol。不涉及测量/授权。"
+    },
+    {
+      "file": "intelligence/services/research_evolution/pilot_io.py",
+      "line": 114,
+      "function": "cmd_register",
+      "call": "transaction",
+      "kind": "business",
+      "classification": "not_measurement_not_consent",
+      "reason": "CLI 登记 assignment（迟登照实标记）。不涉及测量/授权。"
+    },
+    {
+      "file": "intelligence/services/research_evolution/pilot_io.py",
+      "line": 124,
+      "function": "cmd_register",
+      "call": "transaction",
+      "kind": "business",
+      "classification": "not_measurement_not_consent",
+      "reason": "CLI 登记 diagnostics_policy / exercise_pack。不涉及测量/授权。"
+    },
+    {
+      "file": "intelligence/services/research_evolution/pilot_io.py",
+      "line": 167,
+      "function": "cmd_import_events",
+      "call": "transaction",
+      "kind": "business",
+      "classification": "consent_data_import_with_inlock_reconcile",
+      "reason": "M 渠道批量导入 product_value 事件（可含 consent_changed）；S2 模式：锁内先把整批与现有台账对账，冲突整批零写入，再逐条 append。自带锁内复核，非自动测量，无需 I11 门。"
+    },
+    {
+      "file": "intelligence/services/research_evolution/pilot_io.py",
+      "line": 231,
+      "function": "cmd_rebuild",
+      "call": "transaction",
+      "kind": "business",
+      "classification": "not_measurement_not_consent",
+      "reason": "重建 receipts/summaries 不可变产物；consent_changed 仅作为 summarize 的读取输入，不写授权决策。"
+    },
+    {
+      "file": "intelligence/services/research_evolution/run_observer.py",
+      "line": 218,
+      "function": "_record",
+      "call": "try_transaction",
+      "kind": "business",
+      "classification": "measurement_write_consent_gated_inlock_recheck_present",
+      "reason": "C6 核心：三类自动测量事件（run_started/run_finished/cost_recorded）共用此门。锁外快筛 _measurement_consented(now) → try_transaction(0.2) → 锁内 _measurement_consented(now, store=txn) 复核 → append。门关闭直接 return 不抢锁；StoreLockTimeout 只 stderr 跳过。锁内复核已存在且读 txn（同锁台账）。"
+    },
+    {
+      "file": "intelligence/services/research_evolution/store.py",
+      "line": 203,
+      "function": "_locked",
+      "call": "transaction",
+      "kind": "infrastructure",
+      "classification": "infrastructure_wrapper",
+      "reason": "基础包装：非事务上下文调用写方法时自保加锁；已在事务内则直接放行。不涉及测量/授权语义。"
+    }
+  ],
+  "notes": [
+    "intelligence/api/research_evolution.py 内 0 个直接 transaction/try_transaction 调用；API 全部经 facade 委托。",
+    "18 为本人 AST 独立分母；未参考作者数量，数量一致不等于全仓无竞态。",
+    "唯一涉及测量/授权且需要锁内复核的调用点是 run_observer.py:218，复核已存在（store=txn）。",
+    "consent_changed 的两条写入通道（_store_event 前端撤回、cmd_import_events M 渠道导入）与观察器同锁族，窗口期撤回可被锁内复核拦截。"
+  ]
+}

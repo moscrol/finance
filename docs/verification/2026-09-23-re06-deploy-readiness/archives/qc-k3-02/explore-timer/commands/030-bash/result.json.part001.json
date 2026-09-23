@@ -1,0 +1,9 @@
+{
+  "source": "explore-timer/commands/030-bash/result.json",
+  "raw_sha256": "a4dbc3480d4d864e991f618410fd0731264ebeef99ddc4c1e6784551c42996c0",
+  "raw_bytes": 16,
+  "chunk": 1,
+  "chunks": 1,
+  "encoding": "gzip-base64-chunk",
+  "data": "H4sIAAAAAAACE6tWSq3ILHHOT0lVsjI0Mq8FAPtdilEQAAAA"
+}

@@ -1,0 +1,33 @@
+{
+  "tree": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-03/candidate/finance-workspace-private",
+  "python": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "author": "/Users/a77/fwp-wt-re06-ready-refresh-0923",
+  "revision": "7ec9d022b14db46ac667accc08c7891f27f5a1a6",
+  "baseline": "626d8a508c1c988ff094110b371987e6afdcdd15",
+  "stage_work_request_limits": {
+    "explore": 3,
+    "execute": 13,
+    "report": 6
+  },
+  "group_stage_overrides": {
+    "explore-e2": 16
+  },
+  "artifact_first_explore": true,
+  "stage_group_work_request_limits": {
+    "explore": {
+      "e2": 3,
+      "timer": 3,
+      "consent": 3
+    },
+    "execute": {
+      "e2": 7,
+      "timer": 13,
+      "consent": 11
+    },
+    "report": {
+      "e2": 6,
+      "timer": 6,
+      "consent": 6
+    }
+  }
+}

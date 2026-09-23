@@ -1,0 +1,9 @@
+{
+  "source": "explore-timer/commands/030-bash/output.log",
+  "raw_sha256": "c8d33e7315531ecb4e4197d3e40c46027767deccfe644bc405af5c17f8117c33",
+  "raw_bytes": 66,
+  "chunk": 1,
+  "chunks": 1,
+  "encoding": "gzip-base64-chunk",
+  "data": "H4sIAAAAAAACE9NPyszTT0oszrBS0NPPy09Jjc/NTynNSS3W1wPJpBYnlWbmpFgp+OUrFJcmZyikZeakKuQXKaRkFqUml+QXVXIBAI+Snz9CAAAA"
+}

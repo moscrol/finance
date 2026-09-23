@@ -1,0 +1,9 @@
+{
+  "source": "qc-continuation.controller.log.txt",
+  "raw_sha256": "11f0a794d4b8e8c82323eab6a29314265b7fef886ec2f71b03357637ee618654",
+  "raw_bytes": 50,
+  "chunk": 1,
+  "chunks": 1,
+  "encoding": "gzip-base64-chunk",
+  "data": "H4sIAAAAAAACE6tWKi5JLCktVrJSUHLy8Xf2dnWJd41wdQ4NcY13NVLSUVAqSi0sTS0uAakwNLSs5QIAz415HTIAAAA="
+}

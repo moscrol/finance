@@ -1,0 +1,311 @@
+"""K3 e2 组独立审查探针（C1–C3），reviewer 自造，非作者测试复制。
+
+stage=explore 补交场：上一场只读码未落探针。本文件每条断言都针对当前实现
+（revision 7ec9d022b14db46ac667accc08c7891f27f5a1a6）的真实行为；
+作者测试 tests/test_e2_local_question_delivery.py 仅用于学习 API 形状，
+本文件的查询、答案、缺口文本与断言路径均为自造。
+
+覆盖：
+- C1 原题号冻结：用户从 2 开始编号 / q0 边界 / 跳号不重排 / 重复编号不塌缩；
+  重复小节、空正文、占位符、纯引用、memo 超限，即使绑定齐全也算缺答。
+- C2 material_only 豁免不外溢：local_only 无零读取豁免、无 legal_gap 结清、
+  冻结数据范围拒绝外呼证据、本地缺口只落 ordinary partial。
+- C3 恢复保护：已有 answer_q* 槽不可删/降可选/改推理；旧 direct_answer 形状
+  恢复不误伤；未编号本地题与 full 编号题不被强制改形。
+"""
+from __future__ import annotations
+
+import json
+from uuid import uuid4
+
+import pytest
+
+from intelligence.services.agent_research import AgentEvidence
+from intelligence.services.agent_runtime import (
+    AgentOutcome,
+    AgentUsage,
+    EpisodeEvent,
+    OutputEvidenceBinding,
+)
+from intelligence.services.episode_factory import build_episode_context
+from intelligence.services.episode_protocol import build_episode_input, validate_episode_finish
+from intelligence.services.episode_verifier import verify_episode_outcome
+from intelligence.services.material_delivery import (
+    material_delivery_missing_outputs,
+    material_input_output_ids,
+    material_question_outputs,
+    question_body,
+    question_sections,
+)
+from intelligence.services.material_grounding import claim_finish_format
+from intelligence.services.query_understanding import understand_query
+from intelligence.services.research_contract import ResearchContractError, ResearchTaskContract
+from intelligence.services.research_tool_registry import ResearchToolRegistry
+
+# 用户从 2 开始编号：q2 事实题 + q3 备忘录题（120 字上限），自造文本。
+QUERY_FROM_Q2 = (
+    "不要联网。\n\n"
+    "2. 2026年7月24日本地快照的成交额是多少？\n\n"
+    "3. 写一份不超过120字的备忘录，说明该快照口径。"
+)
+# 用户从 0 开始编号：_HEADER_RE 的 q0 边界（material_delivery.py:36-42 接受 q\d+）。
+QUERY_FROM_Q0 = (
+    "不要联网。\n\n"
+    "0. 本地快照里2026年7月24日成交额是多少？\n\n"
+    "1. 该快照的口径是什么？"
+)
+DRAFT_FROM_Q2 = (
+    "## q2\n当日成交额为22000亿元。[E1]\n\n"
+    "## q3\n口径仅为本地快照，不代表全市场。[E1]"
+)
+
+
+def _context(query):
+    """真实消费路径：understand_query → build_episode_context（与作者 setup 同 API）。"""
+    frame = understand_query(query).task_frame
+    context = build_episode_context(
+        frame,
+        task_id="k3-e2-probe-" + uuid4().hex,
+        capabilities=("finance_query",),
+        today="2026-07-24",
+        latest_data_date="2026-07-24",
+    )
+    return frame, context
+
+
+def _bindings(context):
+    """每个必填槽都给齐来源绑定：用于证明「绑定齐全也不掩盖正文缺失」。"""
+    return tuple(
+        OutputEvidenceBinding(item.output_id, ("reviewer-hash",), gap="", basis=item.grounding_mode)
+        for item in context.contract.required_outputs
+        if item.required
+    )
+
+
+def _outcome(context, *, draft, bindings, status="completed"):
+    return AgentOutcome(
+        task_frame_hash=context.contract.task_frame_hash,
+        status=status,
+        draft=draft,
+        evidence=(
+            AgentEvidence(
+                "finance_query", "本地市场快照", "2026-07-24 成交额22000亿元", "k3-reviewer-fixture",
+                content_hash="reviewer-hash", io_effect="local_read",
+            ),
+        ),
+        traces=(),
+        gaps=(),
+        stop_reason="model_finish",
+        usage=AgentUsage(),
+        events=(EpisodeEvent(1, "task", {"task_frame_hash": context.contract.task_frame_hash}),),
+        bindings=bindings,
+    )
+
+
+# ---------- C1：local_only 编号题按原题号冻结，绑定不掩盖缺答 ----------
+
+def test_c1_user_numbering_starting_at_2_is_frozen_not_rebased():
+    """用户编号从 2 开始：槽必须是 answer_q2/answer_q3，不得重排为 q1 起。"""
+    frame, context = _context(QUERY_FROM_Q2)
+    contract = context.contract
+    assert [q.question_id for q in frame.material_contract.questions] == ["q2", "q3"]
+    ids = [item.output_id for item in contract.required_outputs]
+    assert ids == ["answer_q2", "answer_q3", "evidence_boundary"]
+    specs = material_question_outputs(contract)
+    assert [(s.question_id, s.output_id) for s in specs] == [("q2", "answer_q2"), ("q3", "answer_q3")]
+    assert specs[1].delivery_kind == "memo" and specs[1].max_chars == 120
+    assert all(item.required and item.grounding_mode == "evidence" for item in contract.required_outputs)
+
+
+def test_c1_q0_is_a_valid_original_number_end_to_end():
+    """q0 边界：user_task._NUMBERED_ITEM_RE 接受 0.，_HEADER_RE 接受 ## q0。"""
+    frame, context = _context(QUERY_FROM_Q0)
+    contract = context.contract
+    assert [q.question_id for q in frame.material_contract.questions] == ["q0", "q1"]
+    assert [item.output_id for item in contract.required_outputs][:2] == ["answer_q0", "answer_q1"]
+    draft = "## q0\n当日成交额22000亿元。[E1]\n\n## q1\n口径仅为本地快照。[E1]"
+    assert set(question_sections(draft)) == {"q0", "q1"}
+    specs = {s.question_id: s for s in material_question_outputs(contract)}
+    assert question_body(specs["q0"], draft) and question_body(specs["q1"], draft)
+    assert material_delivery_missing_outputs(contract, draft, _bindings(context)) == ()
+
+
+def test_c1_complete_draft_with_bindings_has_no_missing():
+    """正控方向：正文齐全 + 绑定齐全 → 不缺任何题。"""
+    _, context = _context(QUERY_FROM_Q2)
+    assert material_delivery_missing_outputs(context.contract, DRAFT_FROM_Q2, _bindings(context)) == ()
+
+
+def test_c1_duplicate_section_still_missing_even_with_binding():
+    """重复 ## q3 小节：question_body 对 len(blocks)!=1 返回空，绑定救不回来。"""
+    _, context = _context(QUERY_FROM_Q2)
+    draft = DRAFT_FROM_Q2 + "\n\n## q3\n重复小节，不允许后者覆盖前者。"
+    assert material_delivery_missing_outputs(context.contract, draft, _bindings(context)) == ("answer_q3",)
+
+
+@pytest.mark.parametrize(
+    "draft,expected",
+    [
+        ("## q2\n\n## q3\n口径仅为本地快照。[E1]", ("answer_q2",)),  # q2 空正文
+        ("## q2\n待补\n\n## q3\n口径仅为本地快照。[E1]", ("answer_q2",)),  # q2 占位符
+        ("## q2\n> 转述旧答：成交额曾为22000亿元。\n\n## q3\n口径仅为本地快照。[E1]", ("answer_q2",)),  # q2 纯引用
+        ("## q2\n成交额22000亿元。[E1]\n\n## q3\n" + "长" * 121, ("answer_q3",)),  # q3 memo 超 120 字
+    ],
+    ids=["empty_body", "placeholder", "quoted_only", "memo_overflow"],
+)
+def test_c1_binding_cannot_hide_missing_or_invalid_body(draft, expected):
+    _, context = _context(QUERY_FROM_Q2)
+    assert material_delivery_missing_outputs(context.contract, draft, _bindings(context)) == expected
+
+
+def test_c1_skipped_numbering_is_never_rebased_to_q1():
+    """跳号输入「1. … 3. …」：题组断裂，q1 不保留，3 也绝不重排成 1。
+
+    user_task.py:966 的 expected=number+1 规则使第二个编号 3≠2 不进题组；
+    首题因后随编号不是 2 也不满足成组终点。无论解析结果为空还是仅 q3，
+    都不允许出现 q1（重排即 C1 破坏）。
+    """
+    frame, context = _context(
+        "不要联网。\n\n1. 本地快照2026年7月24日成交额是多少？\n\n3. 该快照口径与全市场口径有何差异？"
+    )
+    questions = frame.material_contract.questions if frame.material_contract else ()
+    ids = [q.question_id for q in questions]
+    assert len(ids) == len(set(ids))
+    assert "q1" not in ids
+    frozen = [item.output_id for item in context.contract.required_outputs]
+    for qid in ids:
+        assert f"answer_{qid}" in frozen
+
+
+def test_c1_duplicate_user_numbering_cannot_collapse_in_factory():
+    """旧疑点①（重复题号在 material_descriptions dict 塌缩）的可达性核查。
+
+    compile_material_contract（material_contract.py:149 起）不查重，而
+    from_dict:105 拒重——不对称存在。但 classify_top_level_regions
+    （user_task.py:966-1005）要求编号连续，重复编号「1. … 1. …」的首题
+    不成组、第二题以 expected=None 被收为唯一 q1：重复 qid 到不了
+    material.questions，塌缩路径不可达。本探针用真实解析路径钉死该不变量。
+    """
+    frame, context = _context("不要联网。\n\n1. 本地快照成交额是多少？\n\n1. 重复编号再问一次口径是什么？")
+    questions = frame.material_contract.questions if frame.material_contract else ()
+    ids = [q.question_id for q in questions]
+    assert ids.count("q1") <= 1 and len(ids) == len(set(ids))
+    output_ids = [item.output_id for item in context.contract.required_outputs]
+    assert len(output_ids) == len(set(output_ids))
+
+
+# ---------- C2：material_only 的零读取/legal_gap 豁免不外溢到 local_only ----------
+
+def test_c2_material_only_exemptions_do_not_reach_local_contract():
+    """material_input_output_ids 对 local_only 返回空集；交付规则不含 legal_gap。"""
+    frame, context = _context(QUERY_FROM_Q2)
+    contract = context.contract
+    assert material_input_output_ids(contract) == frozenset()
+    assert claim_finish_format(contract) is None
+    payload = json.loads(build_episode_input(frame, context, ResearchToolRegistry(())))
+    rules = payload["material_delivery"]["rules"]
+    assert "local_only" in rules and "legal_gap" not in rules
+
+
+def test_c2_local_gap_is_partial_never_legal_gap():
+    """本地题披露缺口：只落 ordinary partial，绝不结清为 legal_gap。"""
+    _, context = _context(QUERY_FROM_Q2)
+    gap = "缺少2026年7月24日的本地成交额快照，无法给出当日金额。"
+    draft = "## q2\n" + gap + "\n\n## q3\n口径仅为本地快照，不代表全市场。[E1]"
+    bindings = tuple(
+        OutputEvidenceBinding(
+            item.output_id,
+            () if item.output_id == "answer_q2" else ("reviewer-hash",),
+            gap=gap if item.output_id == "answer_q2" else "",
+            basis=item.grounding_mode,
+        )
+        for item in context.contract.required_outputs
+        if item.required
+    )
+    checked = verify_episode_outcome(
+        context.contract, _outcome(context, draft=draft, bindings=bindings, status="partial")
+    )
+    assert checked.verified_status == "partial"
+    assert "answer_q2" in checked.missing_outputs
+    assert not any(item.status == "legal_gap" for item in checked.completion.outputs)
+
+
+def test_c2_frozen_data_scope_rejects_external_evidence():
+    """编号交付不放宽来源 IO 纯度：外呼证据被拒，本地读证据放行。"""
+    _, context = _context(QUERY_FROM_Q2)
+    raw = {
+        "status": "completed",
+        "draft": DRAFT_FROM_Q2,
+        "gaps": [],
+        "bindings": [
+            {
+                "output_id": item.output_id,
+                "basis": item.grounding_mode,
+                "evidence_hashes": ["reviewer-hash"],
+                "gap": "",
+            }
+            for item in context.contract.required_outputs
+            if item.required
+        ],
+    }
+    external = AgentEvidence(
+        "finance_query", "外部接口回包", "外呼得到的成交额", "k3-reviewer-fixture",
+        content_hash="reviewer-hash", io_effect="external_or_mixed",
+    )
+    with pytest.raises(ValueError, match="frozen data scope"):
+        validate_episode_finish(raw, context=context, evidence=(external,))
+    local = AgentEvidence(
+        "finance_query", "本地市场快照", "2026-07-24 成交额22000亿元", "k3-reviewer-fixture",
+        content_hash="reviewer-hash", io_effect="local_read",
+    )
+    assert validate_episode_finish(raw, context=context, evidence=(local,)).status == "completed"
+
+
+# ---------- C3：恢复保护既有题号；未编号本地题/full 不强制改形 ----------
+
+def test_c3_frozen_contract_round_trips_with_original_numbers():
+    _, context = _context(QUERY_FROM_Q2)
+    restored = ResearchTaskContract.from_dict(context.contract.to_dict())
+    assert restored == context.contract
+    assert [item.output_id for item in restored.required_outputs][:2] == ["answer_q2", "answer_q3"]
+
+
+@pytest.mark.parametrize("mutation", ["drop", "optional", "reasoning"])
+def test_c3_restore_cannot_erase_or_weaken_frozen_question(mutation):
+    """已有 answer_q* 槽的契约恢复：删槽/降可选/改推理都必须被拒。"""
+    _, context = _context(QUERY_FROM_Q2)
+    raw = context.contract.to_dict()
+    if mutation == "drop":
+        raw["required_outputs"] = [
+            item for item in raw["required_outputs"] if item["output_id"] != "answer_q2"
+        ]
+    elif mutation == "optional":
+        raw["required_outputs"][0]["required"] = False
+    else:
+        raw["required_outputs"][0]["grounding_mode"] = "model_reasoning"
+    with pytest.raises(ResearchContractError, match="local_only"):
+        ResearchTaskContract.from_dict(raw)
+
+
+def test_c3_restore_accepts_legacy_direct_answer_shape():
+    """旧会话存的是 direct_answer 形状：恢复校验以「已有 answer_q* 槽」为判据，
+    无 answer_q 槽的 local_only 契约不得被强制改形或拒收。"""
+    _, context = _context(QUERY_FROM_Q2)
+    raw = context.contract.to_dict()
+    legacy = dict(raw["required_outputs"][0])
+    legacy["output_id"] = "direct_answer"
+    legacy["grounding_mode"] = "model_reasoning"
+    raw["required_outputs"] = [legacy]
+    restored = ResearchTaskContract.from_dict(raw)
+    assert [item.output_id for item in restored.required_outputs] == ["direct_answer"]
+
+
+def test_c3_unnumbered_local_and_full_numbered_keep_slot_shape():
+    """未编号本地题（questions 为空）与 full 模式编号题都不走冻结分支。"""
+    for query in (
+        "不要联网。本地快照今天表现如何？",
+        "可以查真实数据。\n\n1. 2026年7月24日成交额是多少？\n\n2. 与前一交易日相比如何？",
+    ):
+        _, context = _context(query)
+        assert not material_question_outputs(context.contract)
+        assert not any(item.output_id.startswith("answer_q") for item in context.contract.required_outputs)

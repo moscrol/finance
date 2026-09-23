@@ -1,0 +1,25 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
+const work = path.join(root, 'work');
+const config = JSON.parse(fs.readFileSync(path.join(root, 'config.json'), 'utf8'));
+const webapp = path.join(config.tree, 'intelligence', 'webapp');
+const author = process.env.REVIEW_UI_KIND === 'author';
+export default {
+  root: webapp,
+  cacheDir: path.join(work, 'vite-cache', author ? 'author' : 'reviewer'),
+  esbuild: { jsx: 'automatic' },
+  test: {
+    environment: 'jsdom',
+    setupFiles: [path.join(webapp, 'src/test/setup.ts')],
+    include: author
+      ? ['src/components/ResearchActivityControl.test.tsx', 'src/researchActivity.test.ts']
+      : [process.env.REVIEW_UI_PROBE ?? path.join(work, 'timer/probes/*.test.tsx')],
+    fileParallelism: false,
+    maxWorkers: 1,
+    pool: 'forks',
+    css: true,
+  },
+};

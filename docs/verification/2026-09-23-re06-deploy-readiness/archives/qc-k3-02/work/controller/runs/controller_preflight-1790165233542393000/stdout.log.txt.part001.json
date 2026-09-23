@@ -1,0 +1,9 @@
+{
+  "source": "work/controller/runs/controller_preflight-1790165233542393000/stdout.log.txt",
+  "raw_sha256": "af119711e98b1d028609c9d4bd3bbb409e0cfae8826187750abfa429c2d962aa",
+  "raw_bytes": 255,
+  "chunk": 1,
+  "chunks": 1,
+  "encoding": "gzip-base64-chunk",
+  "data": "H4sIAAAAAAACE0WPz07GIBDE7z4F4ao0C/1DW1/DmzENlv0IhkIDfGpjfHeXk8f9zexM5oebylfGFahJwCJU/yLVCnqVfTepGRZ4BFgB+BPjIRm7yYPsUnV6lMM0zEOvR5Lw25fqo9vOq2JpiYromdMH7hXtP+4J3zLi5vx7c0FHAeMilZ5BT1K3NxNC+kJL8s2Ego1k90nnKxfC5kvke+RvhH0sJ+X7FNsE41xGZyqyFMP1zKh9x1LYno7DRFuYychiqixjvedIBb8Pf1cgEmP/AAAA"
+}

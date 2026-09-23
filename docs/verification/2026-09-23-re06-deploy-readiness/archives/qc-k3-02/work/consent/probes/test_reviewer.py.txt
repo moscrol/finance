@@ -1,0 +1,403 @@
+"""K3 consent-group reviewer probes (stage=explore).
+
+Independent probes written by the reviewer, not copied from author tests.
+Target revision: 8eac9b3b55c563b1eb3be58686fcc0918464f69a.
+
+Coverage:
+- C5: scopes_at fold semantics — out-of-order input, same-timestamp
+  grant/withdraw priority, future-dated records, event-time boundary,
+  unknown actions, empty-input contract.
+- C4: shared fold with intentional read/write divergences — participant
+  filter, no-records semantics, bad-timestamp handling (read raises via
+  event_time, write skips the record).
+- C6: consent-gate TOCTOU — withdrawal landing between the unlocked screen
+  and the in-lock append is blocked by the in-lock recheck; a closed gate
+  never contends for the lock; all three automatic measurement event types
+  share the gate.
+
+Run (next session, execute stage):
+    CANDIDATE_ROOT=/path/to/finance-workspace-private \
+      python -m pytest work/consent/probes/test_reviewer.py -q
+
+No network, no real LLM, no production data. Stores are built on tmp_path;
+the consent ledger is stubbed via monkeypatch on the store instance.
+"""
+from __future__ import annotations
+
+import json
+import os
+import sys
+from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
+
+import pytest
+
+_CANDIDATE = os.environ.get(
+    "CANDIDATE_ROOT",
+    "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/"
+    "qc-k3-02/candidate/finance-workspace-private",
+)
+if _CANDIDATE not in sys.path:
+    sys.path.insert(0, _CANDIDATE)
+
+from intelligence.services.product_value.consent import (  # noqa: E402
+    ConsentEntry,
+    covers_measurement,
+    measurement_scopes,
+    scopes_at,
+)
+from intelligence.services.product_value.contracts import (  # noqa: E402
+    ACTIVITY_TIMER_SCOPE,
+    REQUIRED_MEASUREMENT_SCOPES,
+    SOURCE_FRONTEND,
+)
+from intelligence.services.product_value.measure import (  # noqa: E402
+    _consent_timeline,
+    _scopes_at,
+)
+from intelligence.services.research_evolution.run_observer import (  # noqa: E402
+    ObservingRunStore,
+)
+
+T0 = datetime(2026, 9, 1, 12, 0, 0, tzinfo=timezone.utc)
+R = REQUIRED_MEASUREMENT_SCOPES  # {"research", "logging"}
+OWNER = "owner1"
+
+
+def _entry(minutes: int, action: str, scopes) -> ConsentEntry:
+    return (T0 + timedelta(minutes=minutes), action, frozenset(scopes))
+
+
+# ---------------------------------------------------------------- C5: ordering
+
+
+def test_unordered_input_is_sorted_by_effective_at():
+    """Entries supplied out of order must fold as if time-ordered."""
+    entries = [
+        _entry(10, "withdraw", {"research"}),
+        _entry(0, "grant", {"research", "logging"}),
+    ]
+    assert scopes_at(entries, T0 + timedelta(minutes=10)) == frozenset({"logging"})
+    assert scopes_at(entries, T0 + timedelta(minutes=5)) == R
+
+
+def test_same_instant_withdraw_wins_regardless_of_input_order():
+    """Same-effective-time grant+withdraw nets to withdraw (conservative)."""
+    scopes = {"research", "logging"}
+    grant_first = [_entry(0, "grant", scopes), _entry(0, "withdraw", scopes)]
+    withdraw_first = [_entry(0, "withdraw", scopes), _entry(0, "grant", scopes)]
+    assert scopes_at(grant_first, T0) == frozenset()
+    assert scopes_at(withdraw_first, T0) == frozenset()
+
+
+def test_same_instant_partial_withdraw_keeps_untouched_scopes():
+    entries = [
+        _entry(0, "grant", {"research", "logging"}),
+        _entry(0, "withdraw", {"research"}),
+    ]
+    assert scopes_at(entries, T0) == frozenset({"logging"})
+
+
+def test_future_dated_grant_does_not_apply_early():
+    future_grant = [_entry(60, "grant", {"research", "logging"})]
+    assert scopes_at(future_grant, T0) == frozenset()
+    assert scopes_at(future_grant, T0 + timedelta(minutes=59)) == frozenset()
+    # Exactly at the effective time it becomes active (inclusive boundary).
+    assert scopes_at(future_grant, T0 + timedelta(minutes=60)) == R
+
+
+def test_future_dated_withdraw_does_not_revoke_early():
+    entries = [
+        _entry(0, "grant", {"research", "logging"}),
+        _entry(60, "withdraw", {"research", "logging"}),
+    ]
+    assert scopes_at(entries, T0 + timedelta(minutes=59)) == R
+    assert scopes_at(entries, T0 + timedelta(minutes=60)) == frozenset()
+
+
+def test_effective_at_equal_to_query_time_is_included():
+    entries = [_entry(0, "grant", {"research"})]
+    assert scopes_at(entries, T0) == frozenset({"research"})
+
+
+def test_unknown_action_leaves_set_unchanged():
+    entries = [
+        _entry(0, "grant", {"research", "logging"}),
+        _entry(5, "pause", {"research"}),  # not grant/withdraw -> ignored
+        _entry(6, "", {"research"}),
+    ]
+    assert scopes_at(entries, T0 + timedelta(minutes=10)) == R
+
+
+def test_empty_entries_returns_empty_set_not_none():
+    """Empty set must NOT be conflated with 'no records' (callers decide)."""
+    result = scopes_at([], T0)
+    assert result == frozenset()
+    assert result is not None
+
+
+def test_same_action_same_instant_is_stable_via_input_order():
+    entries = [_entry(0, "grant", {"research"}), _entry(0, "grant", {"logging"})]
+    assert scopes_at(entries, T0) == R
+
+
+# ------------------------------------------------- shared fold: measurement_scopes
+
+
+def _legacy_timer_event(**overrides):
+    event = {
+        "payload": {
+            "scopes": sorted(REQUIRED_MEASUREMENT_SCOPES),
+            "consent_version": "workbench-activity-v1",
+        },
+        "source_channel": SOURCE_FRONTEND,
+        "source_version": {"protocol_version": "workbench-self-use/v1"},
+        "pilot_id": "workbench:abc",
+        "participant_id": "u1",
+        "owner_user_id": "u1",
+        "task_id": None,
+    }
+    event.update(overrides)
+    return event
+
+
+def test_pure_timer_scope_returns_none_no_measurement_intent():
+    event = {"payload": {"scopes": [ACTIVITY_TIMER_SCOPE]}}
+    assert measurement_scopes(event) is None
+
+
+def test_empty_scope_set_is_not_none():
+    """Empty set = intent of nothing; must not be treated as 'no record'."""
+    event = {"payload": {"scopes": []}}
+    result = measurement_scopes(event)
+    assert result == frozenset()
+    assert result is not None
+
+
+def test_mixed_scope_strips_timer_but_keeps_measurement():
+    event = {"payload": {"scopes": [ACTIVITY_TIMER_SCOPE, "research", "logging"]}}
+    assert measurement_scopes(event) == R
+
+
+def test_legacy_v1_full_self_use_shape_aliased_to_timer():
+    assert measurement_scopes(_legacy_timer_event()) is None
+
+
+def test_legacy_v1_shape_mismatch_not_aliased():
+    """Break any one legacy-shape condition and the alias must not fire."""
+    assert measurement_scopes(_legacy_timer_event(participant_id="u2")) == R
+    assert measurement_scopes(_legacy_timer_event(task_id="t9")) == R
+    assert measurement_scopes(_legacy_timer_event(source_channel="server")) == R
+    e = _legacy_timer_event()
+    e["payload"] = dict(e["payload"], consent_version="workbench-activity-v2")
+    assert measurement_scopes(e) == R
+    # both None -> equality holds but owner falsy -> no alias
+    e2 = _legacy_timer_event(owner_user_id=None, participant_id=None)
+    assert measurement_scopes(e2) == R
+
+
+# ------------------------------------------------------- covers_measurement
+
+
+def test_covers_measurement_requires_both_scopes():
+    assert covers_measurement(["research", "logging"]) is True
+    assert covers_measurement(["research"]) is False
+    assert covers_measurement(["logging"]) is False
+    assert covers_measurement([]) is False
+    assert covers_measurement(["research", "logging", ACTIVITY_TIMER_SCOPE]) is True
+
+
+# ============================================================================
+# C4: shared fold, intentional read/write divergences
+# ============================================================================
+
+
+def _consent_event(
+    *,
+    action: str,
+    minutes: int | None,
+    participant: str | None,
+    scopes=("research", "logging"),
+    event_at: str | None = None,
+) -> dict:
+    """Synthetic consent_changed ledger row (owner's own ledger)."""
+    effective = T0 + timedelta(minutes=minutes) if minutes is not None else None
+    return {
+        "event_id": f"ce-{action}-{minutes}-{participant}",
+        "event_type": "consent_changed",
+        "owner_user_id": OWNER,
+        "participant_id": participant,
+        "source_channel": SOURCE_FRONTEND,
+        "event_at": event_at if event_at is not None else (effective or T0).isoformat(),
+        "payload": {
+            "action": action,
+            "scopes": list(scopes),
+            "effective_at": effective.isoformat() if effective is not None else None,
+        },
+    }
+
+
+def _make_observer(tmp_path, ledger):
+    """ObservingRunStore on tmp roots with a stubbed consent ledger read."""
+    obs = ObservingRunStore(
+        user_id=OWNER,
+        root=tmp_path / "runs",
+        evolution_root=tmp_path / "evo",
+        clock=lambda: T0,
+        code_sha="probe",
+    )
+    obs._evolution_store.list_product_value_events = lambda: ledger
+    return obs
+
+
+def test_no_records_read_side_none_write_side_default_true(tmp_path):
+    """C4 divergence 1: no records -> read None (unknown), write self-use default."""
+    assert _scopes_at({}, "p1", T0) is None
+    obs = _make_observer(tmp_path, [])
+    assert obs._measurement_consented(T0) is True
+
+
+def test_participant_filter_divergence(tmp_path):
+    """C4 divergence 2: read side only keeps participant records; write side
+    only keeps owner records (participant None or == owner)."""
+    other = _consent_event(action="grant", minutes=-10, participant="someone-else")
+    timeline = _consent_timeline([other])
+    assert _scopes_at(timeline, "someone-else", T0) == R
+    assert _scopes_at(timeline, OWNER, T0) is None
+    # Write side: another participant's record is not the owner's -> ignored.
+    obs = _make_observer(tmp_path, [other])
+    assert obs._measurement_consented(T0) is True
+
+
+def test_owner_self_record_gates_write_side_only(tmp_path):
+    """participant_id=None record: invisible to read side, gates write side."""
+    withdraw = _consent_event(action="withdraw", minutes=-1, participant=None)
+    assert _consent_timeline([withdraw]) == {}
+    obs = _make_observer(tmp_path, [withdraw])
+    # Owner expressed (a withdraw of measurement scopes) -> default flips off.
+    assert obs._measurement_consented(T0) is False
+
+
+def test_bad_timestamp_read_raises_write_skips(tmp_path, capsys):
+    """C4 divergence 3: read side lets event_time raise; write side skips.
+
+    NOTE (suspected issue, see EXPLORE.md): consent.py's module docstring says
+    the write side '跳过该条并留 stderr', but run_observer.py:165-166 skips
+    without any stderr trace. This probe asserts only the behavioral contract
+    (skip -> self-use default); the missing stderr is flagged for execute.
+    """
+    bad_for_read = _consent_event(
+        action="withdraw", minutes=None, participant="p1", event_at="not-a-timestamp"
+    )
+    with pytest.raises(ValueError):
+        _consent_timeline([bad_for_read])
+
+    bad_for_write = _consent_event(
+        action="withdraw", minutes=None, participant=None, event_at="garbage"
+    )
+    obs = _make_observer(tmp_path, [bad_for_write])
+    assert obs._measurement_consented(T0) is True  # skipped -> no entries -> default
+
+
+def test_read_side_judges_at_event_own_time():
+    """C5 read side: consent is evaluated at the event's own moment — a later
+    withdrawal must not retroactively exclude an earlier event."""
+    grant = _consent_event(action="grant", minutes=-10, participant="p1")
+    withdraw = _consent_event(action="withdraw", minutes=10, participant="p1")
+    timeline = _consent_timeline([grant, withdraw])
+    assert _scopes_at(timeline, "p1", T0) == R  # event at T0: still consented
+    assert _scopes_at(timeline, "p1", T0 + timedelta(minutes=20)) == frozenset()
+
+
+# ============================================================================
+# C6: consent-gate TOCTOU on the observer write path
+# ============================================================================
+
+
+def _fake_run():
+    return SimpleNamespace(run_id="run-probe-1", session_id="s1", status="running")
+
+
+def _run_payload():
+    return {
+        "run_id": "run-probe-1",
+        "attempt_id": "run-probe-1",
+        "status": "running",
+        "error_ref": None,
+        "initiator": "system",
+        "assistance_source": "workbench",
+    }
+
+
+def _ledger_rows(obs) -> list[dict]:
+    path = obs._evolution_store.product_value_events_path
+    if not path.exists():
+        return []
+    return [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
+
+
+def test_withdrawal_between_screen_and_append_is_blocked(tmp_path, capsys):
+    """TOCTOU: ledger gains a withdrawal after the unlocked screen but before
+    the in-lock append; the in-lock recheck (store=txn) must block the write."""
+    obs = _make_observer(tmp_path, [])  # replaced below by stateful stub
+    grant = _consent_event(action="grant", minutes=-10, participant=None)
+    withdraw = _consent_event(action="withdraw", minutes=-1, participant=None)
+    calls = {"n": 0}
+
+    def growing_ledger():
+        calls["n"] += 1
+        # First call = unlocked screen (no withdraw yet); later calls = in-lock.
+        return [grant] if calls["n"] == 1 else [grant, withdraw]
+
+    obs._evolution_store.list_product_value_events = growing_ledger
+    obs._record("run_started", _fake_run(), _run_payload())
+
+    assert calls["n"] == 2  # screen + in-lock recheck, no more
+    assert _ledger_rows(obs) == []  # nothing appended after withdrawal
+    assert "撤回" in capsys.readouterr().err
+
+
+def test_closed_gate_does_not_contend_lock(tmp_path, monkeypatch, capsys):
+    """Gate closed at the unlocked screen -> return before try_transaction."""
+    obs = _make_observer(tmp_path, [_consent_event(action="withdraw", minutes=-5, participant=None)])
+
+    def boom(*args, **kwargs):
+        raise AssertionError("try_transaction must not be entered when gate is closed")
+
+    monkeypatch.setattr(obs._evolution_store, "try_transaction", boom)
+    obs._record("run_started", _fake_run(), _run_payload())  # must not raise
+    assert _ledger_rows(obs) == []
+    assert "跳过" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("event_type", ["run_started", "run_finished", "cost_recorded"])
+def test_all_three_automatic_events_share_the_gate(tmp_path, event_type, capsys):
+    """Withdrawn consent blocks every automatic measurement event type."""
+    obs = _make_observer(tmp_path, [_consent_event(action="withdraw", minutes=-5, participant=None)])
+    payload = _run_payload() if event_type != "cost_recorded" else {"cost_item": {"cost_id": "c1"}}
+    obs._record(event_type, _fake_run(), payload)
+    assert _ledger_rows(obs) == []
+    assert "跳过" in capsys.readouterr().err
+
+
+def test_consented_ledger_appends_run_started(tmp_path):
+    """Positive direction: owner granted both scopes -> event is appended."""
+    obs = _make_observer(tmp_path, [_consent_event(action="grant", minutes=-10, participant=None)])
+    obs._record("run_started", _fake_run(), _run_payload())
+    rows = _ledger_rows(obs)
+    assert len(rows) == 1
+    assert rows[0]["event_type"] == "run_started"
+    assert rows[0]["event_at"]  # stamped with the event's own time
+
+
+def test_future_dated_withdrawal_does_not_block_current_event(tmp_path):
+    """A withdrawal effective AFTER the event's own time must not block it."""
+    obs = _make_observer(
+        tmp_path,
+        [
+            _consent_event(action="grant", minutes=-10, participant=None),
+            _consent_event(action="withdraw", minutes=60, participant=None),
+        ],
+    )
+    obs._record("run_started", _fake_run(), _run_payload())
+    assert len(_ledger_rows(obs)) == 1

@@ -1,0 +1,9 @@
+{
+  "source": "report-e2-v3/commands/015-write/output.log",
+  "raw_sha256": "a8fb84d7dca37427b2a5f52598f79f8f27c6c3d21c990aeda5159de2ff22e324",
+  "raw_bytes": 118,
+  "chunk": 1,
+  "chunks": 1,
+  "encoding": "gzip-base64-chunk",
+  "data": "H4sIAAAAAAACEw3MMQ7CMAxG4Z1T5AKugxGtGFmQkFA3xBzaHykUErBTqt6eTO+b3k1zgTvIbu/ua4G5kh1fDWocuo6bR0whDSCdU4lvsOIXsVitb2nE55VXUoQxJpiReGl9nZHf8negqUJ4yToxhE/n/nhpnpbT5g+h97/5dgAAAA=="
+}

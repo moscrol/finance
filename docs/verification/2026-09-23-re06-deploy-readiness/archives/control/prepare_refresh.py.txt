@@ -1,0 +1,87 @@
+"""Create a fresh integration identity and QC tree; preserve every prior attempt."""
+from datetime import datetime,timezone
+import ast
+import hashlib
+import json
+from pathlib import Path
+import re
+import shutil
+import subprocess
+ROOT=Path(__file__).resolve().parent
+OLD=ROOT/'qc-k3-02'; QC=ROOT/'qc-k3-03'
+REPO='/Users/a77/fwp-wt-re06-ready-0923'
+BASE='626d8a508c1c988ff094110b371987e6afdcdd15'
+SOURCE='b24c86f87aaef6244dc6a2c6cf80f74ae1918943'
+AUTHOR='/Users/a77/fwp-wt-re06-ready-refresh-0923'
+BRANCH='baseline/re06-ready-refresh-0923'
+TREE=QC/'candidate/finance-workspace-private'
+def git(*args): return subprocess.check_output(['git','-C',REPO,*args],text=True).strip()
+def sha(data): return hashlib.sha256(data).hexdigest()
+assert not QC.exists() and not Path(AUTHOR).exists()
+assert git('status','--porcelain')=='' and git('rev-parse','gitea/main')==BASE
+assert json.loads((OLD/'report-e2-v3/execution.json').read_text())['complete']
+prior=0
+for folder in [ROOT/'qc-k3-01',OLD]:
+    for stage in folder.iterdir():
+        if stage.is_dir() and (stage.name=='gateway' or re.fullmatch(r'(explore|execute|report)-(e2|timer|consent)(-v[23])?',stage.name)):
+            p=stage/'request-admissions.jsonl'
+            if p.exists(): prior+=len(p.read_text().splitlines())
+assert prior+69<=218
+merged=git('merge-tree','--write-tree',BASE,SOURCE)
+assert len(merged)==40
+rev=git('commit-tree',merged,'-p',BASE,'-p',SOURCE,'-m','Refresh local RE06 integration preview onto fixed main for bounded readiness validation')
+subprocess.run(['git','-C',REPO,'worktree','add','-b',BRANCH,AUTHOR,rev],check=True)
+subprocess.run(['git','-C',REPO,'worktree','add','--detach',str(TREE),rev],check=True)
+subprocess.run(['git','-C',REPO,'worktree','lock','--reason','RE06 refreshed independent QC fixed candidate',str(TREE)],check=True)
+old_config=json.loads((OLD/'config.json').read_text())
+identity={'created_at':datetime.now(timezone.utc).isoformat(),'revision':rev,'baseline':BASE,'source_candidate':SOURCE,'tree_hash':merged,'author':AUTHOR,'branch':BRANCH,'qc_tree':str(TREE),'main_modified':False,'pushed':False,'authorization_quote':'继续','prior_requests':prior,'total_request_ceiling':218,'planned_maximum_requests':prior+69,'supersedes_revision':old_config['revision']}
+(ROOT/'identity-02.json').write_text(json.dumps(identity,ensure_ascii=False,indent=2)+'\n')
+replacements={str(OLD):str(QC),old_config['author']:AUTHOR,old_config['revision']:rev,old_config['baseline']:BASE}
+def relocate(text):
+    for before,after in replacements.items(): text=text.replace(before,after)
+    return text
+names=['config.json','provider-template.json','credential-bootstrap.mjs','gateway.mjs','run_gateway.py','review_v3.mjs','run_stage_v3.py','run_probe_v3.py','stage_admission_v3.py','check_execution_v3.py','file_tool.py','tools-v3.sb','sandbox_preflight.mjs','stage_boundary_preflight_v3.mjs','execution_boundary_preflight_v3.py','group-plan.json','pi-config/settings.json','resource_pytest.py','verify_transaction_inventory.py','inputs/ui.vitest-v3.config.mjs','inputs/qc_userspace_isolation.py','inputs/claims.md']
+for name in names:
+    target=QC/name; target.parent.mkdir(parents=True,exist_ok=True)
+    target.write_text(relocate((OLD/name).read_text()))
+shutil.copy2(QC/'tools-v3.sb',QC/'tools.sb')
+shutil.copy2(QC/'review_v3.mjs',QC/'review.mjs')
+config=json.loads((QC/'config.json').read_text())
+config['stage_group_work_request_limits']={'explore':{g:3 for g in ['e2','timer','consent']},'execute':{'e2':7,'timer':13,'consent':11},'report':{g:6 for g in ['e2','timer','consent']}}
+config['stage_work_request_limits']={'explore':3,'execute':13,'report':6}
+(QC/'config.json').write_text(json.dumps(config,indent=2)+'\n')
+plan=json.loads((QC/'group-plan.json').read_text())
+plan.update(prior_requests=prior,total_request_limit=218,planned_cumulative_ceiling=prior+69,authorization_quote='继续',attempt=3,automatic_retries=0,budget_change_reason='Fresh main integration identity; bounded delta exploration plus independent re-execution, no inherited verdicts')
+(QC/'group-plan.json').write_text(json.dumps(plan,ensure_ascii=False,indent=2)+'\n')
+for name in ['work/tmp','work/users','work/e2/probes','work/timer/probes','work/consent/probes']:(QC/name).mkdir(parents=True,exist_ok=True)
+shutil.copytree(OLD/'work/controller-v3/probes',QC/'work/controller-v3/probes')
+for p in (QC/'work/controller-v3/probes').iterdir():
+    if p.is_file(): p.write_text(relocate(p.read_text()))
+provenance={}
+for group in ['e2','timer','consent']:
+    source=OLD/'work'/group; dest=QC/'work'/group; prior_dir=QC/'inputs/prior-explore'/group
+    prior_dir.mkdir(parents=True)
+    for name in ['EXPLORE.md','transaction-review.md','transaction-review.json']:
+        p=source/name
+        if p.exists():
+            shutil.copy2(p,prior_dir/name)
+            if name!='EXPLORE.md': (dest/name).write_text(relocate(p.read_text()))
+    for p in (source/'probes').iterdir():
+        if p.is_file() and (p.suffix in {'.py','.tsx'}):
+            old=p.read_bytes(); new=relocate(old.decode()).encode()
+            (prior_dir/p.name).write_bytes(old); (dest/'probes'/p.name).write_bytes(new)
+            provenance[str((dest/'probes'/p.name).relative_to(QC))]={'original_path':str(p),'original_sha256':sha(old),'relocated_sha256':sha(new),'host_change':'exact path/revision relocation only; requires independent acceptance before execution'}
+    for stage in ['execute','report']:
+        text=relocate((OLD/f'prompt-{stage}-{group}-v3.md').read_text())
+        (QC/f'prompt-{stage}-{group}-v3.md').write_text(text)
+(QC/'inputs/probe-relocation.json').write_text(json.dumps(provenance,indent=2)+'\n')
+changed=git('diff','--name-only',old_config['revision'],rev).splitlines()
+code=[p for p in changed if not p.startswith(('docs/','.claude/','.agent-memory/')) and p not in {'AGENTS.md','CLAUDE.md'}]
+(QC/'inputs/base-delta.patch').write_text(subprocess.check_output(['git','-C',REPO,'diff',old_config['revision'],rev,'--',*code],text=True))
+(QC/'inputs/base-delta.json').write_text(json.dumps({'previous_revision':old_config['revision'],'revision':rev,'baseline':BASE,'changed_paths_count':len(changed),'non_documentation_paths':code,'source_candidate':SOURCE,'no_prior_verdict_inherited':True},indent=2)+'\n')
+ACCEPT=ROOT/'acceptance-04'; ACCEPT.mkdir()
+for name in ['run.py','frontend_leaf.py']:
+    text=relocate((ROOT/'acceptance-03'/name).read_text())
+    text=text.replace('29801','29901').replace('29804','29904')
+    ast.parse(text); (ACCEPT/name).write_text(text)
+print(json.dumps(identity,ensure_ascii=False))

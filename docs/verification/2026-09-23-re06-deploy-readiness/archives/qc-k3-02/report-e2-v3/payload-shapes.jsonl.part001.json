@@ -1,0 +1,9 @@
+{
+  "source": "report-e2-v3/payload-shapes.jsonl",
+  "raw_sha256": "9c9954b619356783d0f5e932c870b0c2761810e79a9e61a80a6c03b68a0b1921",
+  "raw_bytes": 1663,
+  "chunk": 1,
+  "chunks": 1,
+  "encoding": "gzip-base64-chunk",
+  "data": "H4sIAAAAAAACE83UzW6EIBAA4HsfY85uouKi8ipNQ+g6ukQQC9hds+m7d7aHpgm3xgNHmN8vITxADVaHoN0CoiogRDUhCPC4Oh/heeFRWRDRb1iAdQMaCs/a6tPMKB6dMwHEK1Wogc43ryPCGwXQruhV3DxKj9Z94gBiVCZQG8oNbtHLJHEcn3ME3K96ulL9qnbj1CDf94jUlzcVo7EYAu0lL25bKLkuQPmoR3WJ8mdekG4x+2/7m/MzzfzYMERpaFWq6b5eHn+tdX7WuuGcJ9j2ACzLENv3LMVW5QHaJj8t6/uyTbXsAO05P+25Krs61fIDtDzDL4qxrkn/qCNecpuftq8Y71LtP1/yNza+s8Z/BgAA"
+}

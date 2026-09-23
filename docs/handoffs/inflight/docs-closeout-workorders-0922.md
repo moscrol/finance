@@ -1,30 +1,31 @@
 # docs/closeout-workorders-0922
 
 ## 这个分支做什么
-维护#58-#77，本轮续#73/#75。当前入口`docs/verification/2026-09-23-re06-timer-assets/README.md`；决策快照`docs/handoffs/2026-09-23-re06-shipping-assets-and-acceptance.md`。
+维护工单；当前#73/#75就绪续跑。入口`docs/verification/2026-09-23-re06-deploy-readiness/README.md`；决策快照`docs/handoffs/2026-09-23-re06-readiness-refresh-and-resource-block.md`。
 
 ## 决策与被否方案
-- B不变：计时独立scope，旧v1窄形状读取兼容，不迁移。
-- f9源码v2但已提交包v1，构建身份门拒收；另开b24只修产物，重跑四叶，不移签。
-- STAGE_COMPLETE不代文件/测试交付；后续阶段先验文件，再取凭据。
-- 原样恢复K3终稿中的探针，不代写、不把存在当通过；504不当业务FAIL。
+- B不变：计时独立scope/v2，旧v1窄读取兼容，不迁移。
+- 旧8eac全量绿但基座漂移15超上限5，另建7ec固定合流，否决豁免/移签。
+- 资源检查在可信wrapper，测试仍沙箱；只开目录元数据，默认users根也隔离。
+- 两条有界等待结束即停，不无限重跑，不结束别人任务。
 
 ## 当前状态
-代码已本地提交`b24c86f87aaef6244dc6a2c6cf80f74ae1918943`，作者`~/fwp-wt-re06-timer-assets-0923`，base`ffd1b7f1572067e9a4c7e3a5845e99cf7f876cfb`。作者/两棵新审查树均clean。旧`~/fwp-wt-wave2-re06-0923`仍clean@f9。证据与交接在本次文档提交中；未push/PR/合并/部署/生产写入/删树，所有本轮进程结束，29701/29704已关闭。
-新原件`~/.finance-runtime/reviews/re06-timer-scope-acceptance-20260923-03/`、`re06-timer-scope-qc-20260923-05/`及`...-06/`；审查树在各QC目录`candidate/finance-workspace-private`。INDEX/队列已指b24，旧包另留接替指针。
+本地代码`7ec9d022b14db46ac667accc08c7891f27f5a1a6`，base`626d8a508c1c988ff094110b371987e6afdcdd15`；作者`~/fwp-wt-re06-ready-refresh-0923`。R=`~/.finance-runtime/reviews/re06-deploy-readiness-20260923-01`；独审`R/qc-k3-03/candidate/finance-workspace-private`，两树clean。
+NOT_READY/BLOCKED_RESOURCE_GATE；新候选测试/build/模型请求0，acceptance-05未创建。所属进程结束，29801/29804/29901/29904无监听，无自动续跑。未push/PR/合并/部署/生产写入/改8792/删树；证据随本次文档收尾保存。
 
 ## 已验证
-四叶PASS：Python14673P/85S/2X（14760 collected，0F/0E）、前端122P、E2E自身build后34P/2S、registry五项；完整JUnit/收据一致、身份不变。pytest1654.98秒，最低空盘15.941GiB。
-K3预检过；timer/e2各23请求仅静态探索终稿；consent探索第10请求、timer执行第3请求HTTP504无终稿。06仅新预检2请求，补交未派发。本候选63、历史10、累计73请求，自动重试0/未换模型。宿主文件门真实拒绝与移除门变异通过，不算QC阳性对照。
+历史b24四叶PASS；旧8eac pytest14726P/85S/2X、其他三叶绿，但完整收据因漂移拒收。旧QC02 v3 E2正控1预期F、独立19P、作者20P，C1-C3 verified、Quality PASS_WITH_LIMITS，仅限旧版。
+新QC03只过宿主沙箱/命令边界及18事务点枚举，不是语义批准。两版intelligence树相同仅支持差分探索。归档原字节/请求账核验见入口verification.json。
 
 ## 未验证 / 已知边界
-C1-C10全not_verified，Quality未评估；两探针未经执行，E2缺探针，独审pytest/作者分账/必红对照/三组最终report均缺。17业务+1底层仍是作者分类。#76/P7及生产迁移/重算未做；四叶不签前向main。
-#69仍绑3b7e473575b0；#68/#71/#66未推进，共享脏主树源码未改。
+当前C1-C10全not_verified、Quality未评估；三组探针重定位待接纳，实际执行预检/gateway未跑。timer动态UI、consent独立事务分类/执行/报告仍缺。
+readiness累计147/218请求、余71，旧shipping73另账；K3/xhigh，自动重试0。218是宿主上限非用户原话。#76六行与P7 A1-A17另行协议/授权，禁止正式T2→T3/Knevo对照。
+#68/#71/#66未推进；#69仍绑3b7e473575b0，共享脏主树未改。
 
 ## 下一步
-1. 本轮不再重试，未授权继续QC。须另获用户授权、新实际载荷健康窗口及全新输出目录，才续三组独审；不改05/06原件。
-2. 通过阶段文件门后执行自造探针/必红对照，作者测试另账，再独立report及事务同族分类。
-3. 验收齐再申请push/PR/合main；部署/迁移另授权。#68另需load<=4。
+1. 先查资源并fetch验漂移，再用新状态/输出路径恢复；不覆写已结束控制器。必要时新固定合流，不继承结论。
+2. 准入后冻结依赖/实际预检/gateway，三组explore→execute→report及新四叶；作者/审查者分账，Python完整范围与base-drift-max5。
+3. 本地有界QC仍在本次授权内；勿沿用旧交接的“未授权继续”。自然质量与发布/生产动作仍另授权。
 
 ## 踩过的坑
-构建也改变候选；准入不是资源预留；HTTP200/exit0/结构终稿不代完整审查。脚本仍是固定本机的一次性证据，未晋升通用工具。归档保留原字节，不能让格式化钩子改原始收据。
+conftest会清环境，仅设users环境变量不足。正控能跑不代表作者收集能跑。acceptance-04旧complete假值由closure解释，不改原件。一次性脚本固定本机/白名单，未晋升通用工具；宿主PASS不代独审。项目记忆原已脏，仅定点回写、不提交整文件。

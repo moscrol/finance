@@ -1,0 +1,15 @@
+{
+  "revision": "8eac9b3b55c563b1eb3be58686fcc0918464f69a",
+  "stage": "qc-k3-02/explore-e2",
+  "classification": "EXPLORATION_PROTOCOL_DEVIATION",
+  "facts": [
+    "commands/018-bash imported candidate modules and printed signatures using ordinary python3.",
+    "commands/022-bash invoked work/e2/_smoke.py using ordinary python3; the immutable command result records exit zero.",
+    "The exploration contract required static review, not business smoke execution."
+  ],
+  "formal_pytest_evidence": false,
+  "counts_inherited": false,
+  "candidate_bug_inferred": false,
+  "raw_commands_and_outputs_preserved": true,
+  "handling": "Preserve the deviation and original logs. Formal evidence comes only from later isolated interpreter-bound runs, separately counted. Fresh delta exploration explicitly forbids domain smoke/import execution."
+}

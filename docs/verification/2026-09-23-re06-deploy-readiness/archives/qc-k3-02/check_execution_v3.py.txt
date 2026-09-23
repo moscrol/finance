@@ -1,0 +1,101 @@
+"""Check immutable tool logs against per-invocation receipts, without signing claims."""
+import hashlib
+import importlib.util
+import json
+from pathlib import Path
+import shlex
+import sys
+
+ROOT=Path(__file__).resolve().parent
+CONFIG=json.loads((ROOT/'config.json').read_text())
+spec=importlib.util.spec_from_file_location('review_execution_wrapper',ROOT/'run_probe_v3.py')
+wrapper=importlib.util.module_from_spec(spec)
+spec.loader.exec_module(wrapper)
+
+def sha(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+def check(group):
+    work=ROOT/'work'/group
+    stage=ROOT/('execute-'+group+'-v3')
+    errors=[]; observed=[]
+    execution=json.loads((stage/'execution.json').read_text())
+    if execution.get('status')!='STAGE_COMPLETE': errors.append('EXECUTE_STAGE_NOT_COMPLETE')
+    frozen=ROOT/'inputs'/('frozen-explore-'+group+'-v3')
+    manifest=json.loads((frozen/'manifest.json').read_text())
+    for name,expected in manifest['artifacts_sha256'].items():
+        if sha(frozen/name)!=expected: errors.append('FROZEN_PROBE_CHANGED:'+name)
+    for name,expected in manifest['execution_tools_sha256'].items():
+        if sha(ROOT/name)!=expected: errors.append('EXECUTION_HELPER_CHANGED:'+name)
+    for directory in sorted((stage/'commands').glob('*-bash')):
+        request=json.loads((directory/'request.json').read_text())
+        try: argv=shlex.split(request['params']['command'])
+        except ValueError: continue
+        if argv[:3]!=[CONFIG['python'],'-I',str(ROOT/'run_probe_v3.py')]: continue
+        argv=[argv[0],*argv[2:]]
+        if len(argv) not in {4,6} or argv[2]!=group or (len(argv)==6 and argv[4]!='--probe'):
+            errors.append('INVALID_WRAPPER_INVOCATION:'+directory.name); continue
+        output=(directory/'output.log').read_text()
+        markers=[json.loads(line.removeprefix('EXECUTION_RECEIPT ')) for line in output.splitlines() if line.startswith('EXECUTION_RECEIPT ')]
+        if len(markers)!=1:
+            errors.append('MISSING_OR_DUPLICATE_EXECUTION_MARKER:'+directory.name); continue
+        marker=markers[0]; receipt=Path(marker['path'])
+        if receipt.is_symlink() or not receipt.resolve().is_relative_to((work/'runs').resolve()):
+            errors.append('UNSAFE_EXECUTION_RECEIPT'); continue
+        record=json.loads(receipt.read_text())
+        result=json.loads((directory/'result.json').read_text())
+        if sha(receipt)!=marker['sha256']: errors.append('RECEIPT_CHANGED:'+str(receipt))
+        if record.get('revision')!=CONFIG['revision'] or record.get('group')!=group or record.get('role')!=argv[3]: errors.append('RUN_IDENTITY_MISMATCH')
+        if record.get('exit_code')!=result.get('exitCode') or record.get('exit_code')!=marker['exit_code']: errors.append('EXIT_CODE_DISAGREEMENT')
+        if record.get('wrapper_sha256')!=manifest['execution_tools_sha256']['run_probe_v3.py']: errors.append('WRAPPER_IDENTITY_MISMATCH')
+        if record.get('complete') is not True or record.get('sources_unchanged') is not True: errors.append('INCOMPLETE_OR_CHANGED_RUN')
+        log=Path(record['log']); junit=Path(record['junit'])
+        for artifact in [log,junit]:
+            if artifact.is_symlink() or not artifact.resolve().is_relative_to(receipt.parent.resolve()): errors.append('UNSAFE_RUN_ARTIFACT')
+        if sha(log)!=record['log_sha256']: errors.append('LOG_CHANGED')
+        if junit.exists() and sha(junit)!=record['junit_sha256']: errors.append('JUNIT_CHANGED')
+        counts=wrapper.junit_counts(junit,log.read_text(),record['role'].startswith('ui_'))
+        if counts!=record['counts'] or counts!=marker['counts']: errors.append('COUNTS_DISAGREE')
+        observed.append({'receipt':str(receipt),'receipt_sha256':sha(receipt),'command_log':str(directory),
+                         'role':record['role'],'exit_code':record['exit_code'],'blocked':record['blocked'],
+                         'counts':counts,'probe_variant':record['probe_variant']})
+    if group=='consent':
+        inventory=json.loads((ROOT/'transaction-inventory-check.json').read_text())
+        if inventory.get('enumeration_complete') is not True or inventory.get('revision')!=CONFIG['revision'] or inventory.get('reviewer_artifact_sha256')!=sha(work/'transaction-review.json'):
+            errors.append('TRANSACTION_ENUMERATION_NOT_CURRENT_OR_COMPLETE')
+    document=json.loads((work/'EXECUTE.json').read_text())
+    declared=[]
+    control=document.get('positive_control',{})
+    if control.get('runs'): declared.extend(run['receipt'] for run in control['runs'])
+    elif control.get('receipt'): declared.append(control['receipt'])
+    for bucket in ['reviewer_runs','author_runs']:
+        declared.extend(run['receipt'] for run in document.get(bucket,[]) if run.get('receipt'))
+    actual=[run['receipt'] for run in observed]
+    if sorted(declared)!=sorted(actual): errors.append('EXECUTE_JSON_DOES_NOT_ACCOUNT_FOR_EVERY_WRAPPER_RUN')
+    controls=[run for run in observed if run['role']=='positive_control']
+    good_control=any(run['exit_code']==1 and run['counts'] and run['counts']['collected']==1
+                     and run['counts']['failed']==1 and run['counts']['errors']==0
+                     and run['counts']['passed']==run['counts']['skipped']==run['counts']['xfailed']==0 for run in controls)
+    if not good_control: errors.append('EXPECTED_FAILING_POSITIVE_CONTROL_MISSING')
+    if control.get('classification')!='probe_bug/expected_positive_control': errors.append('POSITIVE_CONTROL_NOT_CLASSIFIED')
+    roles=['reviewer','author']+(['ui_reviewer','ui_author'] if group=='timer' else [])
+    for role in roles:
+        runs=[run for run in observed if run['role']==role]
+        if not any(run['counts'] and (run['counts']['collected'] or 0)>0 and run['exit_code'] in {0,1} for run in runs):
+            errors.append('NO_EXECUTED_TESTS:'+role)
+        if role in {'reviewer','ui_reviewer'} and not any(run['probe_variant']=='initial_frozen' for run in runs):
+            errors.append('INITIAL_REVIEWER_PROBE_NOT_ATTEMPTED:'+role)
+    record={'revision':CONFIG['revision'],'baseline':CONFIG['baseline'],'group':group,
+            'complete_execution_evidence':not errors,'errors':errors,'observed_runs':observed,
+            'execute_document_sha256':sha(work/'EXECUTE.json'),'candidate_semantic_verdict':None,
+            'generated_by':'host_evidence_checker_not_independent_reviewer',
+            'checker_sha256':sha(Path(__file__))}
+    target=ROOT/'stage-execution-checks-v3'/f'{group}.json'
+    target.parent.mkdir(exist_ok=True)
+    with target.open('x') as stream: json.dump(record,stream,indent=2)
+    print(json.dumps(record))
+    return 0 if not errors else 75
+
+if __name__=='__main__':
+    assert sys.argv[1] in {'e2','timer','consent'}
+    raise SystemExit(check(sys.argv[1]))

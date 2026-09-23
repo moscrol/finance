@@ -1,0 +1,9 @@
+{
+  "source": "work/e2/runs/positive_control-1790164083041170000/stdout.log.txt",
+  "raw_sha256": "a0a6785e8031862979e3881bd279a88355c61b78dd81a747410c0ffb485a336c",
+  "raw_bytes": 1049,
+  "chunk": 1,
+  "chunks": 1,
+  "encoding": "gzip-base64-chunk",
+  "data": "H4sIAAAAAAACE82TTW/bMAyG7/kVRC/5gG3FztKuwTIMGNrrcuh2KTpBlulGiCxppLw0/36y067bZacBmw4mKVOv+byw7khprJU+wKzzHIFQo4uglbVgFcf5ZgJwayzChfjMSCzU1ZUoWuOU05hT76LpUBB+N3jkFJeXeYPB+lNOqBrjkDmvltXl8rpa5ctSfNP5ISVVamXfk0YZThE5FuF0kYFNB6AsMzAO3nW+6S2+TwMABN5yXwfyOgkW6bOz+6mojROBp9k0V08+Be27TrlmO33ItAqxJ5S+j6GP2zvqMYv4dM7mo2RaX//eerXJhyj2vsOa8Cg+orWKRGLce/dhVZSVGB5FuZKVuCXV4dHTgcVubCjalx3xJXltvOOxXVhTP2uM5S9WvNq2fvN29C2ZM/IdTdzDzgd0s0UYgqJHzmCxOByHbA6K4Vll82LIHy3594hl+pFGRimNM1HKcW5G2xYSn1D3EaXeG9vMzqznPVVbzBIqDqVsXQbaekbZNpz9B0zX6/WZ6TeCkYyUYYSxTm81hpi0ZTwFnCGR89L1XaIkkh0/npM20bg0zXyyQ+oMD9PcEHnawP3NcAbKB/gUkNSgBc5HCENjjNhs4OedmvwACjS59hkEAAA="
+}

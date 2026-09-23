@@ -1,0 +1,59 @@
+"""Preserve v2 and prepare a metadata-only sandbox repair with fresh stage names."""
+import hashlib
+import json
+from pathlib import Path
+import shutil
+ROOT=Path(__file__).resolve().parent
+QC=ROOT/'qc-k3-02'
+CONFIG=json.loads((QC/'config.json').read_text())
+assert json.loads((ROOT/'qc-continuation-v2.json').read_text())['complete'] is True
+original=QC/'inputs/execute-e2-v2-original'
+original.mkdir()
+manifest={}
+for name in ['EXECUTE.md','EXECUTE.json']:
+    source=QC/'work/e2'/name
+    if source.exists():
+        shutil.copy2(source,original/name)
+        manifest[name]=hashlib.sha256(source.read_bytes()).hexdigest()
+(original/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
+qc_files=['run_probe_v2.py','review_v2.mjs','run_stage_v2.py','stage_admission_v2.py','check_execution_v2.py','stage_boundary_preflight_v2.mjs']
+for name in qc_files:
+    text=(QC/name).read_text().replace('_v2','_v3').replace('-v2','-v3')
+    text=text.replace("'tools.sb'","'tools-v3.sb'")
+    (QC/name.replace('_v2','_v3')).write_text(text)
+text=(ROOT/'continue_qc_v2.py').read_text().replace('_v2','_v3').replace('-v2','-v3')
+text=text.replace('(e2|timer|consent)(-v3)?','(e2|timer|consent)(-v[23])?')
+(ROOT/'continue_qc_v3.py').write_text(text)
+text=(ROOT/'resume_after_execution_preflight.py').read_text().replace('_v2','_v3').replace('-v2','-v3')
+text=text.replace('execution_boundary_preflight.py','execution_boundary_preflight_v3.py').replace("'execution-recovery.json'","'execution-recovery-v3.json'")
+(ROOT/'resume_after_execution_preflight_v3.py').write_text(text)
+text=(QC/'execution_boundary_preflight.py').read_text().replace('_v2','_v3').replace('-v2','-v3').replace("'tools.sb'","'tools-v3.sb'")
+text=text.replace("'execution-boundary-preflight.json'","'execution-boundary-preflight-v3.json'")
+text=text.replace("'execution-boundary-preflight-'","'execution-boundary-preflight-v3-'")
+(QC/'execution_boundary_preflight_v3.py').write_text(text)
+shutil.copy2(QC/'inputs/ui.vitest-v2.config.mjs',QC/'inputs/ui.vitest-v3.config.mjs')
+paths=[Path(CONFIG['tree'])/name for name in ['.agents','.claude','docs','db','intelligence/users','.git']]
+profile=(QC/'tools.sb').read_text()+'\n(allow file-read-metadata '+ ' '.join('(literal '+json.dumps(str(p))+')' for p in paths)+')\n'
+(QC/'tools-v3.sb').write_text(profile)
+for file in (QC/'work/controller/probes').iterdir():
+    if file.suffix in {'.py','.tsx'}:
+        target=QC/'work/controller-v3/probes'/file.name
+        target.parent.mkdir(parents=True,exist_ok=True)
+        shutil.copy2(file,target)
+for group in ['e2','timer','consent']:
+    for stage in ['execute','report']:
+        text=(QC/f'prompt-{stage}-{group}-v2.md').read_text()
+        text=text.replace('run_probe_v2.py','run_probe_v3.py').replace('stage-execution-checks-v2/','stage-execution-checks-v3/')
+        text=text.replace(f'frozen-explore-{group}-v2/',f'frozen-explore-{group}-v3/')
+        text=text.replace('这是v2执行/终审会话','这是v3执行/终审会话')
+        if stage=='execute':
+            text=text.replace('最多16次工作请求','最多12次工作请求') if group=='e2' else text.replace('最多24次工作请求','最多20次工作请求')
+        text+='\nv2 的 E2 独立探针19项通过、正控1项预期失败，但作者测试收集被.agents目录stat权限阻断，未取得作者测试结果。v3只放行列明受限目录本身的元数据，不开放内容；已补作者测试收集预检。旧结果保留，本场重新执行，不继承结论。\n'
+        (QC/f'prompt-{stage}-{group}-v3.md').write_text(text)
+record={'reason':'Allow only restricted directory metadata needed by pytest collection; contents remain denied',
+        'old_attempt_untouched':'execute-e2-v2','requests_before_v3':129,'request_ceiling':218,
+        'stage_request_ceilings':{'execute-e2':13,'execute-timer':21,'execute-consent':21,'report_each':9},
+        'maximum_remaining_requests':82,'planned_cumulative_ceiling':211,
+        'independent_assertions_modified_by_host':False,'provider_retry':False}
+(QC/'execution-v3-amendment.json').write_text(json.dumps(record,indent=2)+'\n')
+print(json.dumps(record))

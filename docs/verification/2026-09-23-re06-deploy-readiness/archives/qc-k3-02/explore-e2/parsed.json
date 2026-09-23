@@ -1,0 +1,20 @@
+{
+  "stage": "explore",
+  "group": "e2",
+  "revision": "8eac9b3b55c563b1eb3be58686fcc0918464f69a",
+  "baseline": "b59d6eed0356ae093b52bd291ab328628de8790e",
+  "complete": true,
+  "artifacts": [
+    "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/work/e2/probes/test_reviewer.py",
+    "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/work/e2/probes/test_positive_control.py",
+    "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/work/e2/EXPLORE.md"
+  ],
+  "suspected_issues": [],
+  "limits": [
+    "本场未运行 pytest：断言经解释器冒烟核对一致，正式执行/正控失败确认/通过计数属下一阶段；本探索不构成候选 PASS",
+    "episode_semantic_verifier.py（6720 行）未读，语义裁决层无探针",
+    "material_only 正向 legal_gap 结清未建对照探针；IO 纯度仅探 external_or_mixed；中文「第N题」小节形式未探",
+    "混绑（gap+hashes 同槽）与 stale answer_qN 槽恢复行为未探",
+    "收尾误执行一次只读 git status 触及 .git 元数据（无输出、未修改），已如实披露"
+  ]
+}

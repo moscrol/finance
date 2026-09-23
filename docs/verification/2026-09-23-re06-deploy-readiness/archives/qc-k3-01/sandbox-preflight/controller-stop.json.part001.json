@@ -1,0 +1,9 @@
+{
+  "source": "sandbox-preflight/controller-stop.json",
+  "raw_sha256": "1b19718643517784f9583952c0ae487a8d8975c04017da716e9dab4810697758",
+  "raw_bytes": 84,
+  "chunk": 1,
+  "chunks": 1,
+  "encoding": "gzip-base64-chunk",
+  "data": "H4sIAAAAAAACE6tWKkpNLM7PU7JSSipNSU8tic8vii9KLcgvKolPzAHKpVTGp2QWFySWJGekpijpKCWm5GaWlACZVkbGOkoQlY5wsZKi0tRaAGChhL1UAAAA"
+}

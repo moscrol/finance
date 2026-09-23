@@ -1,0 +1,9 @@
+{
+  "source": "report-e2-v3/request-admissions.jsonl",
+  "raw_sha256": "cfe31b0e1898185bd2a2f215d123db91a37e2e5938890b32310d5ae8b1ea6c1e",
+  "raw_bytes": 819,
+  "chunk": 1,
+  "chunks": 1,
+  "encoding": "gzip-base64-chunk",
+  "data": "H4sIAAAAAAACE6XPQQrDIBAF0H2P4TqKGWeS1HN01Z0QoUNiFQ2lEHr32l234nL+fHj8U7g1cCkcn8KOg0gPV7ywwr/THrMXgzg4+HK4kGoKGiaprxLMbQRrZguLmlDfay3l+OLV59oKnF3hIDcOXD8hrn6v8e+UmxGfy/mPQjOKpMD0oaYZJawodqHYiC4WjCLoW0rNqCGlsW/p1IzirEhTFzq3oTha0kqbpRX9AsPGXUczAwAA"
+}

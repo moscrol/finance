@@ -1,0 +1,9 @@
+{
+  "source": "work/allowed.txt",
+  "raw_sha256": "2689367b205c16ce32ed4200942b8b8b1e262dfc70d9bc9fbc77c49699a4f1df",
+  "raw_bytes": 2,
+  "chunk": 1,
+  "chunks": 1,
+  "encoding": "gzip-base64-chunk",
+  "data": "H4sIAAAAAAACE8vPBgBH3dx5AgAAAA=="
+}

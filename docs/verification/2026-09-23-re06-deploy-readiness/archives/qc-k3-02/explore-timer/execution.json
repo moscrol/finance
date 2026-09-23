@@ -1,0 +1,335 @@
+{
+  "stage": "explore",
+  "group": "timer",
+  "revision": "8eac9b3b55c563b1eb3be58686fcc0918464f69a",
+  "baseline": "b59d6eed0356ae093b52bd291ab328628de8790e",
+  "started_at": "2026-09-23T11:03:49.333947+00:00",
+  "complete": true,
+  "candidate_before": {
+    "revision": "8eac9b3b55c563b1eb3be58686fcc0918464f69a",
+    "status": ""
+  },
+  "author_before": {
+    "revision": "8eac9b3b55c563b1eb3be58686fcc0918464f69a",
+    "status": ""
+  },
+  "inputs_sha256": {
+    "config.json": "937d9d6f0e2edcf4d1e4a345a866553bcf6ed293f2b816663f8693e96e163da4",
+    "review.mjs": "5119a4832bcb7c92e6bd466e63b0843d728d4980f20cce633faf4fd55f9ba420",
+    "tools.sb": "bb0797854306c34011d9d605035a4c7309e08116d5d5f518a6490022dc1564b6",
+    "file_tool.py": "d172ccc3510efefa5ea69384601ea670a5d3c15b522371b85816f1aea9212472",
+    "provider-template.json": "d3030f00ab3ba2d67c27d1fba2fcbdf60af34ea0d0d675e8bba704dfc54094b4",
+    "pi-config/settings.json": "bcd27e52f5ffdd3a19890f35f71a586d6824ca259704c2a630d7ea7c59242f7f",
+    "prompt-explore-timer.md": "ea4893949e5aa8b3d25ee00592137571608952295a30bbc3a6ffe31078689fac"
+  },
+  "timeout_seconds": 1800,
+  "max_requests": 36,
+  "automatic_retries": 0,
+  "command": [
+    "/opt/homebrew/bin/pi",
+    "--provider",
+    "mirasim-kimi",
+    "--model",
+    "kimi-k3",
+    "--thinking",
+    "xhigh",
+    "--models",
+    "mirasim-kimi/kimi-k3",
+    "--no-session",
+    "--no-extensions",
+    "-e",
+    "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/review.mjs",
+    "--no-skills",
+    "--no-prompt-templates",
+    "--no-context-files",
+    "--no-themes",
+    "--no-approve",
+    "--offline",
+    "--tools",
+    "read,bash,write",
+    "--mode",
+    "json",
+    "-p",
+    "--",
+    "<stage prompt>"
+  ],
+  "pid": 88322,
+  "status": "STAGE_COMPLETE",
+  "exit_code": 0,
+  "elapsed_seconds": 1316.673,
+  "timed_out": false,
+  "requests": 30,
+  "responses": [
+    {
+      "admission": 1,
+      "status": 200
+    },
+    {
+      "admission": 2,
+      "status": 200
+    },
+    {
+      "admission": 3,
+      "status": 200
+    },
+    {
+      "admission": 4,
+      "status": 200
+    },
+    {
+      "admission": 5,
+      "status": 200
+    },
+    {
+      "admission": 6,
+      "status": 200
+    },
+    {
+      "admission": 7,
+      "status": 200
+    },
+    {
+      "admission": 8,
+      "status": 200
+    },
+    {
+      "admission": 9,
+      "status": 200
+    },
+    {
+      "admission": 10,
+      "status": 200
+    },
+    {
+      "admission": 11,
+      "status": 200
+    },
+    {
+      "admission": 12,
+      "status": 200
+    },
+    {
+      "admission": 13,
+      "status": 200
+    },
+    {
+      "admission": 14,
+      "status": 200
+    },
+    {
+      "admission": 15,
+      "status": 200
+    },
+    {
+      "admission": 16,
+      "status": 200
+    },
+    {
+      "admission": 17,
+      "status": 200
+    },
+    {
+      "admission": 18,
+      "status": 200
+    },
+    {
+      "admission": 19,
+      "status": 200
+    },
+    {
+      "admission": 20,
+      "status": 200
+    },
+    {
+      "admission": 21,
+      "status": 200
+    },
+    {
+      "admission": 22,
+      "status": 200
+    },
+    {
+      "admission": 23,
+      "status": 200
+    },
+    {
+      "admission": 24,
+      "status": 200
+    },
+    {
+      "admission": 25,
+      "status": 200
+    },
+    {
+      "admission": 26,
+      "status": 200
+    },
+    {
+      "admission": 27,
+      "status": 200
+    },
+    {
+      "admission": 28,
+      "status": 200
+    },
+    {
+      "admission": 29,
+      "status": 200
+    },
+    {
+      "admission": 30,
+      "status": 200
+    }
+  ],
+  "errors": [],
+  "candidate_after": {
+    "revision": "8eac9b3b55c563b1eb3be58686fcc0918464f69a",
+    "status": ""
+  },
+  "author_after": {
+    "revision": "8eac9b3b55c563b1eb3be58686fcc0918464f69a",
+    "status": ""
+  },
+  "inputs_unchanged": true,
+  "event_counts": {
+    "session": 1,
+    "agent_start": 1,
+    "turn_start": 30,
+    "message_start": 66,
+    "message_end": 66,
+    "message_update": 20582,
+    "tool_execution_start": 35,
+    "tool_execution_update": 58,
+    "tool_execution_end": 35,
+    "turn_end": 30,
+    "agent_end": 1,
+    "agent_settled": 1
+  },
+  "report_structural": true,
+  "model_identities": [
+    "mirasim-kimi/kimi-k3"
+  ],
+  "usage": {
+    "input": 118593,
+    "output": 25887,
+    "cacheRead": 536679,
+    "cacheWrite": 18432,
+    "totalTokens": 699591
+  },
+  "artifact_sha256": {
+    "payload-shapes.jsonl": "906a8651f16a47caf24d5bf1ec7a473b386c2eb4c9234791d0a632d879a63a81",
+    "stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "parsed.json": "9d87c5b1d63d91c66b1fb8b50316dd9ade16138fb6985cfe348eb639bfb7c33d",
+    "REPORT.md": "6d50ea6dc075dfa6e4254b256ff0ba6eeb541190b503b2884f2e68de73daa1c4",
+    "auth-reserved.json": "89d3a977d27d8a5032bbf88f303e090c5d2b24e52f34c59a7f97a56857472e04",
+    "credential.json": "b204a2f97607eb924258c065f4123b5b6181025301ed07ecbf5acc5d26c39fe6",
+    "request-admissions.jsonl": "ec850d249c54a684eab9116c111fa3e793bac3ced03466eab58be24d1aa7f023",
+    "responses.jsonl": "a798b9afab8cb96998b99b791c34776f4eb5154e451073e98ccca6030fb663e4",
+    "events.jsonl": "da19abe1677a5ad0ed9dc13320327ae1ac69192fcb2838350038e073b4618cc1",
+    "commands/009-read/request.json": "04622fa76f47c38c52699f74518a0c0e9605047e0353c2e2bf73a7e5705d4b93",
+    "commands/009-read/result.json": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "commands/009-read/output.log": "226079e2335ab461aa62ec6df21d60b7264d183dcc19cc18a79fd1086fbc7e3b",
+    "commands/011-write/request.json": "483a0feb54d3a42d10501915eff99cd14651f02b34a970151b7302b20fe3f338",
+    "commands/011-write/result.json": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "commands/011-write/output.log": "c5ac6e042530fd801e48fb7551e74789651b137ca858c5a10241a95c73db00fd",
+    "commands/032-bash/request.json": "8c0427679b59f1cd1254f3ea5106663981060b154d18a3f6f97e1cc7a5b48307",
+    "commands/032-bash/result.json": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "commands/032-bash/output.log": "a2e97575732aad5fc33c46883e251c24410bee12ce22b9f43b7f79747d0085b2",
+    "commands/028-read/request.json": "de3fefb84ff7087dcf21f3ae502c8be46b35e4af60e6d5aff91ca4c927590ee1",
+    "commands/028-read/result.json": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "commands/028-read/output.log": "d3f99cd95bc28ce623942be30bd80d6c25473ce514a1845963f1386f2d1a2817",
+    "commands/025-bash/request.json": "aa1ab615349d55cb48a1b738c33a14ea042a77f7175371e57f6bed1be4731561",
+    "commands/025-bash/result.json": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "commands/025-bash/output.log": "5deacbbafcb11b319366b44b28dda13e91eb3ef8ed89b99cc53caef298d34e72",
+    "commands/033-bash/request.json": "36d89f932d42b660dd39e2f2c3ce15f01af54ec85488b04507b624f2cd21159e",
+    "commands/033-bash/result.json": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "commands/033-bash/output.log": "d7ea528a14afac106cef6d570f3c3d4fa9b30a74960e65c855cba324a3c1ddd8",
+    "commands/004-read/request.json": "61a3063d151b8712246611f1b1c2f726ac25dd2b4cf7b75ba515844fcbb69aba",
+    "commands/004-read/result.json": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "commands/004-read/output.log": "2f0f9760e7106cf351bdfc7f109a0f29474e69995a447463cf4571c5c87f62e8",
+    "commands/013-bash/request.json": "97c991d1a636d67418458fb224f9138365dff2828c48e5093841c551fc864250",
+    "commands/013-bash/result.json": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "commands/013-bash/output.log": "e006c3dac4b472af5c57dcaadbe42328dec284d6e24a0ec299f9e33aeff022ea",
+    "commands/005-bash/request.json": "45e38338d17946de263fa6f52658dfea679bed00d79dec259b73a85925429388",
+    "commands/005-bash/result.json": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "commands/005-bash/output.log": "57a6279d30f2291c13a9852277aa426d700abb1045fff138468414c637331595",
+    "commands/029-bash/request.json": "de8b9d6196a979dedd198a47fd6c1c37afd364cad7dbf9dbaa4274a0c8252a7f",
+    "commands/029-bash/result.json": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "commands/029-bash/output.log": "bb9687fdac283c6b5a79718803c3e36cadd606589fb67c3eace1a24025a06cb0",
+    "commands/008-read/request.json": "93666202c66610a12e266f83224e5e697415af0295a7e4a646c7d15fc1cb0338",
+    "commands/008-read/result.json": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "commands/008-read/output.log": "cef1769f3787f76e6a41e753f40208689f9a43357795352d9b1f0c009dd5d06c",
+    "commands/012-write/request.json": "95db48d080c38a3cb1a469d983d833eec48dc58fabfc8b957c0b54c169f5816d",
+    "commands/012-write/result.json": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "commands/012-write/output.log": "cad5d5926dec261f53ebf6c2ad0eab230ae1040aa6fed3af0ea0a16548fd9ada",
+    "commands/022-bash/request.json": "3c09cfceef296efd3c0a1193c2029d6d81e261fa11f38b38b55594a40b4f47a9",
+    "commands/022-bash/result.json": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "commands/022-bash/output.log": "f67a3f2d185acb5ff3f8b9c4e343f5c646fd926bd841b041065a35493a14402e",
+    "commands/015-read/request.json": "ac62b698fe4c1e08215d727d4afa9577b6d00df9900350a68d5523554c49f57f",
+    "commands/015-read/result.json": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "commands/015-read/output.log": "59dc8a09f940c59e594bf898e7b185e6061add19a8f1825661cf6bd72c0ca600",
+    "commands/018-bash/request.json": "ca820d4838316decb0d455ac472a3be53038eedd324ef6858edc0efa40f2c466",
+    "commands/018-bash/result.json": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "commands/018-bash/output.log": "9bbf0018b291ed6153f3726298795517f2dac6d6da8f0f9b5d53ec8a01ad5899",
+    "commands/034-write/request.json": "f83c2fd829b85209173d44ef0e4d38cd70156dbdda6e27c1ca61e4564d04b4d0",
+    "commands/034-write/result.json": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "commands/034-write/output.log": "9cf0957a4dc8d496947013c45cc6c8ed863fdfff9123cbc74f980102e318cb38",
+    "commands/002-bash/request.json": "fe2ea2400daf052fd64d5e1b3b6e77484abb87c291698e7a6be4e02a5678bb3b",
+    "commands/002-bash/result.json": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "commands/002-bash/output.log": "de2d477a2c12d866c2974a8734d490e85992b8cf5b5e5408d2329a582c00282a",
+    "commands/014-bash/request.json": "5dbb58a49382623f993bbb6fdd384cb9724a26a139c4718c6785582e7d98838a",
+    "commands/014-bash/result.json": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "commands/014-bash/output.log": "56728d032f78a687a64818eed3e5027fc645a74a84a112a9fd43c29fd7c3911f",
+    "commands/003-bash/request.json": "11de671f782f6999dab5d8fd005487b156d52a522324b5dedcbd4b2b1aa79946",
+    "commands/003-bash/result.json": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "commands/003-bash/output.log": "63ac2ac87dca091657471338b647699f7fa43dc4bbf1f93ae529deeeeb6bb06e",
+    "commands/019-bash/request.json": "c12af419a9363f4ca4ffe8c6b34749da5c1da470af32ce1e09f2796bc286fd17",
+    "commands/019-bash/result.json": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "commands/019-bash/output.log": "164840ddf239beb75f0201bdbd6121e888d676e6a75ca372cddb19694139aff0",
+    "commands/023-bash/request.json": "27ca7d98c429ddc0e434aaa254d41a61839e035f0e3663520e4a5441d7c8f9f9",
+    "commands/023-bash/result.json": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "commands/023-bash/output.log": "e2a13f552372588b607fce4e0996148999269eb76f6503e7a505e767f016ac96",
+    "commands/035-bash/request.json": "31b90062641e0da963753bdf6a75ce7ba9372e4312f5c2569c5a47387f391288",
+    "commands/035-bash/result.json": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "commands/035-bash/output.log": "288da29ebc991e2c7dfd3b207805a78fd0cd98dc2c368d319a20c2a6cbdc1c7f",
+    "commands/001-read/request.json": "8f63543a9501e1ee66ea18f26d2b4a9e6ea56621d446272b967a51c86ae3e1f6",
+    "commands/001-read/result.json": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "commands/001-read/output.log": "0c4f821b6bdd707dfa192a2b3dff09abe59353371c299dbc3c019d646067c128",
+    "commands/021-read/request.json": "bf6f988390eb90471cc704d150f8a2968fdb705536d975de9cd58bb002ef2151",
+    "commands/021-read/result.json": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "commands/021-read/output.log": "ee466d634a08c280f944b3d7bfff74a019d609705309c8d8fcb5caa4d19da8de",
+    "commands/020-read/request.json": "280e6826d9d0e1fb500dea1f4b1bbea74a1e649fc57777d6fd3a768595b9a75e",
+    "commands/020-read/result.json": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "commands/020-read/output.log": "f5c9e8a000d85d60f6acb5b2508b49b497f4b76876bf3de610a6293747ccb868",
+    "commands/017-bash/request.json": "a4312efe4cc03a5ad5d78feaf6879fdea3a004a980403e24409a39a65ba87a7d",
+    "commands/017-bash/result.json": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "commands/017-bash/output.log": "2f411b5e8c29198e36481cb171d267e0745eb5dbc7ec0f423940fa697b80fd9f",
+    "commands/016-read/request.json": "86d38c6c06d054b5e2fadc1bedc2e08e7bdbaeec8db982fa1654fc32d013c0da",
+    "commands/016-read/result.json": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "commands/016-read/output.log": "ffdcb65326d120d803371bf0c47b26e279c44d55ad519cb7c9baa917aeeb9fb1",
+    "commands/010-bash/request.json": "2ff1337ac7dafade7e8a019b644a96b14eaab179cb7ba07b28179608bc6e2e32",
+    "commands/010-bash/result.json": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "commands/010-bash/output.log": "5ef3708decd4e724c507d4ecdb251c0cb2e28b928387dcd642c6ee50782a17d3",
+    "commands/024-write/request.json": "51fbc1f79ab3b296c510143cdc7e486842717e408636420b9863cf8889043334",
+    "commands/024-write/result.json": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "commands/024-write/output.log": "4a2864c425b90d1d529a191f666ac762d3304bb1c940ef849269d9f0b7bbf2cc",
+    "commands/026-bash/request.json": "c05f8d3a3ab134f750b1a499d1c3bcbabe084bdb6bd3ebbba0c3bdfa89def8aa",
+    "commands/026-bash/result.json": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "commands/026-bash/output.log": "edea291d75d16d1c8cfaecbfbe72713ae08752aa28506b5bd3c61f0f21a826c4",
+    "commands/030-bash/request.json": "412a6f743adb2ffa4fd4abd4642ff18f4530d56ee1aacf04cee407d278c39d73",
+    "commands/030-bash/result.json": "a4dbc3480d4d864e991f618410fd0731264ebeef99ddc4c1e6784551c42996c0",
+    "commands/030-bash/output.log": "c8d33e7315531ecb4e4197d3e40c46027767deccfe644bc405af5c17f8117c33",
+    "commands/007-read/request.json": "19359138882a097e0460bae08b7f260b8c415344091c558589305e1e4a9f11d1",
+    "commands/007-read/result.json": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "commands/007-read/output.log": "68bfbd2784ea0634c6f20b886cb1e7f72acb9615f1cd85f85b7739b286510d85",
+    "commands/006-read/request.json": "190d619d19eb7bbbfda41a6f1dd4a06bd078e8a0ffbb3fdcce4e5db161ea4916",
+    "commands/006-read/result.json": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "commands/006-read/output.log": "0f7b71c301bc9eccbdd3964244de211e6d88aa43acb5a1e1190376f4ecce6e4d",
+    "commands/031-bash/request.json": "ad11e622e02225d6874d64c93a84a93ce791d65226b8153168830a583b72e178",
+    "commands/031-bash/result.json": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "commands/031-bash/output.log": "909840f063181793df26a41def622c71bb2a73df359e67aff3cc0e72667f7e1a",
+    "commands/027-bash/request.json": "3d20111397a984bd00ee116d4456d92f5cd281b338f76c6ca1795be53ddb793e",
+    "commands/027-bash/result.json": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "commands/027-bash/output.log": "10dd33af4487db23ae83e16115b0e7d5233035cf8a5624d7b3f785689257d20f"
+  }
+}

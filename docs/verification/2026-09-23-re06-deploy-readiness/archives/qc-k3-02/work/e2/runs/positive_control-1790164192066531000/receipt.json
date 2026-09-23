@@ -1,0 +1,40 @@
+{
+  "revision": "8eac9b3b55c563b1eb3be58686fcc0918464f69a",
+  "baseline": "b59d6eed0356ae093b52bd291ab328628de8790e",
+  "group": "e2",
+  "role": "positive_control",
+  "started_at": "2026-09-23T11:49:52.066723+00:00",
+  "complete": true,
+  "command": [
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/resource_pytest.py",
+    "-o",
+    "addopts=",
+    "-ra",
+    "--color=no",
+    "-p",
+    "no:cacheprovider",
+    "--junitxml=/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/work/e2/runs/positive_control-1790164192066531000/junit.xml",
+    "--basetemp=/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/work/e2/runs/positive_control-1790164192066531000/tmp",
+    "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/inputs/frozen-explore-e2/probes/test_positive_control.py"
+  ],
+  "cwd": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/candidate/finance-workspace-private",
+  "sources_sha256": {
+    "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/inputs/frozen-explore-e2/probes/test_positive_control.py": "a85d03078ea430badfc8c38ceeb5287fdda86139210cda80fc77594cf14cf8f0"
+  },
+  "source_kind": "independent_reviewer",
+  "wrapper_sha256": "0f727f1f6f60c34b008a779d1dbbd244fe0a135bbef783dfeb43e3e910928af7",
+  "ui_config_sha256": null,
+  "junit": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/work/e2/runs/positive_control-1790164192066531000/junit.xml",
+  "log": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/work/e2/runs/positive_control-1790164192066531000/stdout.log.txt",
+  "probe_variant": "initial_frozen",
+  "pid": 69283,
+  "exit_code": 1,
+  "blocked": null,
+  "elapsed_seconds": 0.037,
+  "sources_unchanged": true,
+  "counts": null,
+  "log_sha256": "a0a6785e8031862979e3881bd279a88355c61b78dd81a747410c0ffb485a336c",
+  "junit_sha256": null,
+  "candidate_semantic_verdict": null
+}

@@ -1,0 +1,14 @@
+{
+  "revision": "8eac9b3b55c563b1eb3be58686fcc0918464f69a",
+  "baseline": "b59d6eed0356ae093b52bd291ab328628de8790e",
+  "reason": "The first E2 exploration consumed its read budget without writing artifacts; execute admission correctly rejected it.",
+  "source_report": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-01/explore-e2/REPORT.md",
+  "source_report_sha256": "42fb0577746aec8b1ad24372ac2b404fe83f22f5b7df68de0bcca8438c43b0ee",
+  "artifact_first_guard": "After 8 exploration requests, offer only the write tool until a nonempty test_reviewer.py exists; after 30 (12 for E2 follow-up), require EXPLORE.md and positive control too. The host never writes reviewer probes.",
+  "budget": "Prior 25 + fresh preflight 2 + E2 explore 17 + timer/consent explore 72 + three execute 75 + three report 27 = maximum 218.",
+  "candidate_changed": false,
+  "automatic_provider_retries": 0,
+  "model_changed": false,
+  "old_attempt_modified": false,
+  "no_test_results_inherited": true
+}

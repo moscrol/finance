@@ -1,0 +1,9 @@
+{
+  "source": "report-e2-v3/commands/006-read/request.json",
+  "raw_sha256": "f8d58b4f24f97d11c09ad5298d771d974dd9606be7cb462c59f3264d2a71c9b9",
+  "raw_bytes": 156,
+  "chunk": 1,
+  "chunks": 1,
+  "encoding": "gzip-base64-chunk",
+  "data": "H4sIAAAAAAACExWMQQ6CMBAA/7Jnl9YSIXL15AN8wKasUiktdgtqCH+3nmaSSWaDHKO/kPfXHjpITH13ggPMlGgS6LZieShF3YSTKGpbVd1doGAZ0xKym1glXh2/pVA32PPs4xf/JxdYBI02jT6bGvVRvSyORYySTA9G/rBdsosB7cB2FFxrxaZ6Sgyw7z+2EU02nAAAAA=="
+}

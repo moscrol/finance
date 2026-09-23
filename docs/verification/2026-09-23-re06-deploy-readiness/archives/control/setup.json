@@ -1,0 +1,33 @@
+{
+  "revision": "8eac9b3b55c563b1eb3be58686fcc0918464f69a",
+  "baseline": "b59d6eed0356ae093b52bd291ab328628de8790e",
+  "qc": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-01",
+  "acceptance": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/acceptance-01",
+  "old_runs_modified": false,
+  "model_requests": 0,
+  "total_request_limit": 218,
+  "prepared_files_sha256": {
+    "qc-k3-01/group-plan.json": "dee1cb5cb73b3342a279c53da0ff76c7a653197c93c6c1922c96b2c9472f3953",
+    "qc-k3-01/prompt-explore-timer.md": "bcd42c71d86e7fb51fd7bcddd25cbe18b8cc0845cce3fee8d85e134f52e2d63a",
+    "qc-k3-01/prompt-explore-consent.md": "635b38017116f921578122bfa1697d1ecbc713c47819b1c9a1d0e65b13fed783",
+    "qc-k3-01/sandbox_preflight.mjs": "db0b7966199376219274b3f2a1781ead87f4181bd09249a4dfc18f116e88d251",
+    "qc-k3-01/run_gateway.py": "6499864546ffafe701c1778ca95c02a0a39810878907a5c555106b91b3bbe33f",
+    "qc-k3-01/run_stage.py": "c40102dc729411d96c935da28de52067ade064d0ee1e51977ccdcb68e396646f",
+    "qc-k3-01/config.json": "19e59bf6f2d282098b14615d4d75e0c9bf1e8f8ab8f9b8ef35e88c1421c5f2b1",
+    "qc-k3-01/tools.sb": "1855cf49876c2b559f0f21ccc09e65153ce0eadcbb15052947d162e4fc22eceb",
+    "qc-k3-01/gateway.mjs": "7296e0a184517333c5400fb9785b76cff97170cf9954e62ecf46f4f120b8a244",
+    "qc-k3-01/credential-bootstrap.mjs": "dfea31540dd29010b14e0e3326b5620951eac18d6d4239bb52d83288765e8267",
+    "qc-k3-01/prompt-explore-e2.md": "770b2e71d6436de5c66c2c6ffc1013ca57aeac4e074febfe29410fa6ee57cd9e",
+    "qc-k3-01/stage_admission.py": "a93184e7c0e7022deeec25efe3d8fbc4ba401b18202b9108a5a3e0e4686c428d",
+    "qc-k3-01/caps_preflight.mjs": "56c9a341ab3a0d13cb252ce4f4feb866209d182ca4a83a98e37e4380c4de5195",
+    "qc-k3-01/resource_pytest.py": "d504da06f9351183ef0fd94ee4d8a4a02b28c4f541a6403c81d83426e5d82a06",
+    "qc-k3-01/file_tool.py": "d172ccc3510efefa5ea69384601ea670a5d3c15b522371b85816f1aea9212472",
+    "qc-k3-01/provider-template.json": "d3030f00ab3ba2d67c27d1fba2fcbdf60af34ea0d0d675e8bba704dfc54094b4",
+    "qc-k3-01/review.mjs": "611a50aaa65fc73b6ea665342a86f76da6c0cefef849ad1b851f1eee2966aabf",
+    "qc-k3-01/pi-config/settings.json": "bcd27e52f5ffdd3a19890f35f71a586d6824ca259704c2a630d7ea7c59242f7f",
+    "qc-k3-01/inputs/identity.json": "4cffcee5bffb02a13ba8a5bbf7a9ab9b92c98c02bac9c284a2cf6ebae0612eb8",
+    "qc-k3-01/inputs/claims.md": "0c4f821b6bdd707dfa192a2b3dff09abe59353371c299dbc3c019d646067c128",
+    "acceptance-01/run.py": "add78a667661fa0a88d6052325677b4f6cbf00431de82552c54a06461f8d63b6",
+    "acceptance-01/frontend_leaf.py": "e7b5e2e99c7903724c3a283e28ad16a0f69d2bee4596a359f6ff88a3785a7669"
+  }
+}

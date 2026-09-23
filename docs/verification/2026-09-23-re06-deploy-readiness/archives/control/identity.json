@@ -1,0 +1,13 @@
+{
+  "created_at": "2026-09-23T10:24:05.628457+00:00",
+  "revision": "8eac9b3b55c563b1eb3be58686fcc0918464f69a",
+  "baseline": "b59d6eed0356ae093b52bd291ab328628de8790e",
+  "source_candidate": "b24c86f87aaef6244dc6a2c6cf80f74ae1918943",
+  "tree_hash": "d624a4eae33c9ad59b509eddbd6e47d71bcd0faf",
+  "author": "/Users/a77/fwp-wt-re06-ready-0923",
+  "branch": "baseline/re06-ready-0923",
+  "main_modified": false,
+  "pushed": false,
+  "authorization_quote": "那你继续推进直到可以部署",
+  "authorized_scope": "Resume bounded QC and local deployment-readiness preparation; no production deployment, main merge, push, or PR creation."
+}

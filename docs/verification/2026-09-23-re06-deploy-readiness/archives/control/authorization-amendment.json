@@ -1,0 +1,19 @@
+{
+  "latest_user_verbatim": "继续",
+  "latest_user_source": "Current conversation user message, following the deployment-readiness progress update",
+  "prior_authorization_source": "Compacted conversation summary: continue preparing the finance project until deployable, without performing deployment",
+  "prior_quote_verification": "The authorization_quote field in the initial identity/setup records has not been checked against the pre-compaction raw message. Treat it as a summary paraphrase, not independently verified verbatim quotation.",
+  "authorized_work": "Continue bounded local engineering acceptance and independent QC for the fixed integration candidate",
+  "budget_owner": "The 218-request ceiling is a host-selected bound within the coding task, not a number quoted from the user",
+  "still_not_authorized": [
+    "push",
+    "PR creation",
+    "merge into main",
+    "deployment",
+    "production writes or migration",
+    "production 8792 changes",
+    "worktree deletion",
+    "separately gated natural-finance live acceptance"
+  ],
+  "historical_records_modified": false
+}

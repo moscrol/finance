@@ -1,0 +1,9 @@
+{
+  "source": "artifact-guard-preflight/request-admissions.jsonl",
+  "raw_sha256": "d7c86aa3a6b7b9be608ecf05cba2764dc2c4450b5b3df25cbfe25b8eafb845f4",
+  "raw_bytes": 1996,
+  "chunk": 1,
+  "chunks": 1,
+  "encoding": "gzip-base64-chunk",
+  "data": "H4sIAAAAAAACE8XUTQrCMBCG4b3HmHUjmaStNedw5S7QgEMbE5IiQvHuxl0vIN9yfuDZvTv5OUqtkp7kuKP88DWQo/DOayqBOtokhrr5mNvWaDMqfVXG3li7fnRan4fJ3ttbLuklcyjtK0rxVaJaJEq7xDSHta1/o1osfU77ETUI1CLQHoEOCHREoBcEOiHQKwJlDVEhTWJIlBhSJYZkiSFdYkiY+FCmEnIq23/QLwLFBfzMBwAA"
+}

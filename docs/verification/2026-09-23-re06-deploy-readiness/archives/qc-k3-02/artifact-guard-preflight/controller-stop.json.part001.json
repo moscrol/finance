@@ -1,0 +1,9 @@
+{
+  "source": "artifact-guard-preflight/controller-stop.json",
+  "raw_sha256": "d9d25bae4808b77154b6800b100689ae531ca8f69f1c61361aa9ec5d6e7a2c8c",
+  "raw_bytes": 84,
+  "chunk": 1,
+  "chunks": 1,
+  "encoding": "gzip-base64-chunk",
+  "data": "H4sIAAAAAAACE6tWKkpNLM7PU7JSSipNSU8tic8vii9KLcgvKolPzAHKpVTGp2QWFySWJGekpijpKCWm5GaWlACZVobmOkoQlY5wsZKi0tRaAGyJb+FUAAAA"
+}

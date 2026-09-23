@@ -1,0 +1,10 @@
+"""Positive control for the probe harness.
+
+This file MUST fail. It exists so the next (execute) session can prove the
+pytest harness actually executes assertions rather than silently passing an
+empty collection. Record the failure as expected_positive_control/probe_bug.
+"""
+
+
+def test_positive_control_fails():
+    assert 1 == 2

@@ -1,0 +1,9 @@
+{
+  "source": "explore-e2/commands/016-write/output.log",
+  "raw_sha256": "23850b6a662df529510aacf0d4f6b071615a658c20b5424906b3e5c4e1c89b81",
+  "raw_bytes": 118,
+  "chunk": 1,
+  "chunks": 1,
+  "encoding": "gzip-base64-chunk",
+  "data": "H4sIAAAAAAACEw3GQQrCMBAF0L2nyAWmE1NI8ADdCYoguo3NF0JtojPR0tvb1Xs3qQ3Gh9Cbx9qgplXDV4UoxxC4e+YSywiSb2l5Bgt+GYtuWk8J71ddSRBTLlAlZ523B9eT3fNnpGmL46XKxHA83M/H02Xo5rT7A9BaxLt2AAAA"
+}

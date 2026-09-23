@@ -1,0 +1,9 @@
+{
+  "source": "explore-consent/commands/035-write/output.log",
+  "raw_sha256": "20a5cfdead61b7eba81c781d63634122bd45163843471a99cb4973a63b13e852",
+  "raw_bytes": 123,
+  "chunk": 1,
+  "chunks": 1,
+  "encoding": "gzip-base64-chunk",
+  "data": "H4sIAAAAAAACEw3GQQrCMBAAwLuvyAe2G1NI8AG9CYpQ9BqTFULtRndTS39vTzN3qY1M8KE3z62RmlYNjkqiGEPA7lU4ciKQhVuZCYV+hVbdtR4yfd51A6GYC5MqOOu8Pbke7BG/CaY9DtcqE6bKStxweFzPl9vQzfnwB6MWtnZ7AAAA"
+}

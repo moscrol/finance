@@ -1,0 +1,33 @@
+"""Pin a local integration preview without touching existing trees or indexes."""
+from datetime import datetime, timezone
+import json
+from pathlib import Path
+import subprocess
+
+ROOT = Path(__file__).resolve().parent
+REPO = '/Users/a77/fwp-wt-re06-timer-assets-0923'
+BASE = 'b59d6eed0356ae093b52bd291ab328628de8790e'
+SOURCE = 'b24c86f87aaef6244dc6a2c6cf80f74ae1918943'
+TREE = '/Users/a77/fwp-wt-re06-ready-0923'
+BRANCH = 'baseline/re06-ready-0923'
+
+def git(*args):
+    return subprocess.check_output(['git', '-C', REPO, *args], text=True).strip()
+
+assert not (ROOT/'identity.json').exists()
+assert not Path(TREE).exists()
+assert git('status', '--porcelain') == ''
+assert git('rev-parse', 'HEAD') == SOURCE
+preview_tree = git('merge-tree', '--write-tree', BASE, SOURCE)
+assert len(preview_tree) == 40
+revision = git('commit-tree', preview_tree, '-p', BASE, '-p', SOURCE,
+               '-m', 'Local RE06 integration preview for independent QC and deployment readiness')
+subprocess.run(['git','-C',REPO,'worktree','add','-b',BRANCH,TREE,revision],check=True)
+assert git('rev-parse', revision+'^{tree}') == preview_tree
+record = {'created_at':datetime.now(timezone.utc).isoformat(),'revision':revision,
+          'baseline':BASE,'source_candidate':SOURCE,'tree_hash':preview_tree,
+          'author':TREE,'branch':BRANCH,'main_modified':False,'pushed':False,
+          'authorization_quote':'那你继续推进直到可以部署',
+          'authorized_scope':'Resume bounded QC and local deployment-readiness preparation; no production deployment, main merge, push, or PR creation.'}
+(ROOT/'identity.json').write_text(json.dumps(record,ensure_ascii=False,indent=2)+'\n')
+print(json.dumps(record,ensure_ascii=False))

@@ -1,0 +1,16 @@
+{
+  "reason": "Allow only restricted directory metadata needed by pytest collection; contents remain denied",
+  "old_attempt_untouched": "execute-e2-v2",
+  "requests_before_v3": 129,
+  "request_ceiling": 218,
+  "stage_request_ceilings": {
+    "execute-e2": 13,
+    "execute-timer": 21,
+    "execute-consent": 21,
+    "report_each": 9
+  },
+  "maximum_remaining_requests": 82,
+  "planned_cumulative_ceiling": 211,
+  "independent_assertions_modified_by_host": false,
+  "provider_retry": false
+}

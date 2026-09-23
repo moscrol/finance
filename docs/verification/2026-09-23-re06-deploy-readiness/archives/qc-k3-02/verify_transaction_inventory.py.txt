@@ -1,0 +1,36 @@
+"""Check the reviewer's enumerated denominator, not the semantic classifications."""
+import ast
+from collections import Counter
+import hashlib
+import json
+from pathlib import Path
+ROOT=Path(__file__).resolve().parent
+CONFIG=json.loads((ROOT/'config.json').read_text())
+TREE=Path(CONFIG['tree'])
+paths=sorted((TREE/'intelligence/services/research_evolution').glob('*.py'))+[TREE/'intelligence/api/research_evolution.py']
+expected=set()
+for file in paths:
+    for node in ast.walk(ast.parse(file.read_text())):
+        if not isinstance(node,ast.Call): continue
+        name=node.func.attr if isinstance(node.func,ast.Attribute) else node.func.id if isinstance(node.func,ast.Name) else None
+        if name in {'transaction','try_transaction'}: expected.add((str(file.relative_to(TREE)),node.lineno,name))
+file=ROOT/'work/consent/transaction-review.json'
+report=json.loads(file.read_text())
+rows=report['entries']
+actual={(row['file'],row['line'],row['call']) for row in rows}
+errors=[]
+if len(rows)!=len(actual): errors.append('DUPLICATE_ROWS')
+if expected-actual: errors.append('MISSING_DIRECT_CALLS')
+if actual-expected: errors.append('EXTRA_OR_MISLOCATED_ROWS')
+if any(row['kind'] not in {'business','infrastructure'} or not row.get('classification') or not row.get('reason') for row in rows): errors.append('INCOMPLETE_CLASSIFICATION_FIELDS')
+if set(report['scope'])!={str(p.relative_to(TREE)) for p in paths}: errors.append('SCOPE_DISAGREEMENT')
+record={'revision':CONFIG['revision'],'baseline':CONFIG['baseline'],'enumeration_complete':not errors,'errors':errors,
+        'direct_calls':len(expected),'reviewer_kinds':dict(Counter(row['kind'] for row in rows)),
+        'missing':sorted(expected-actual),'extra':sorted(actual-expected),
+        'scope':[str(p.relative_to(TREE)) for p in paths],
+        'reviewer_artifact_sha256':hashlib.sha256(file.read_bytes()).hexdigest(),
+        'semantic_classifications_verified_by_host':False,'whole_repository_race_claim':False,
+        'independent_test_passes':None,'not_a_candidate_verdict':True}
+with (ROOT/'transaction-inventory-check.json').open('x') as stream: json.dump(record,stream,indent=2)
+print(json.dumps(record))
+raise SystemExit(0 if not errors else 75)

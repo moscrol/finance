@@ -1,0 +1,44 @@
+"""File tools run under the same OS sandbox as bash, without credentials."""
+import json
+from pathlib import Path
+import sys
+
+ROOT = Path(__file__).resolve().parent
+config = json.loads((ROOT / 'config.json').read_text())
+request = json.load(sys.stdin)
+kind, params = request['kind'], request['params']
+tree = Path(config['tree']).resolve()
+work = ROOT / 'work'
+raw = params['path'].removeprefix('@')
+target = (tree / raw).resolve()
+if kind == 'write':
+    if not target.is_relative_to(work):
+        raise PermissionError('only review work is writable')
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(params['content'])
+    print(f'Wrote {len(params["content"].encode())} bytes to {target}')
+elif kind == 'read':
+    if not any(target.is_relative_to(Path(base).resolve()) for base in [str(ROOT), str(tree)]):
+        raise PermissionError('read outside review/source roots')
+    if target.name.startswith('.env') or target.name in {'auth.json', 'mcp_config.json', 'feishu_config.json'}:
+        raise PermissionError('credential file not readable')
+    lines = target.read_text().splitlines(keepends=True)
+    start = max(0, int(params.get('offset', 1)) - 1)
+    end = min(len(lines), start + min(int(params.get('limit', 120)), 120))
+    selected = []
+    size = 0
+    for line in lines[start:end]:
+        encoded = line.encode()
+        if size + len(encoded) > 6000:
+            break
+        selected.append(line)
+        size += len(encoded)
+    actual_end = start + len(selected)
+    if not selected and start < end:
+        print('[Single line exceeds 6000 bytes; inspect it with a targeted bash query.]')
+    else:
+        print(''.join(selected), end='')
+        if actual_end < len(lines):
+            print(f'\n[truncated; total lines={len(lines)}, selected={start + 1}:{actual_end}; next offset={actual_end + 1}]')
+else:
+    raise ValueError('unsupported file operation')

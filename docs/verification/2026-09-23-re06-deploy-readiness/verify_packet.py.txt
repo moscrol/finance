@@ -1,0 +1,69 @@
+"""Verify archival bytes and reported accounting, not semantic correctness."""
+import ast
+import hashlib
+import json
+from pathlib import Path
+import re
+import shutil
+import sys
+import xml.etree.ElementTree as ET
+import markdown
+from archive_evidence import decode,verify
+ROOT=Path(__file__).resolve().parent
+REPO=Path('/Users/a77/fwp-wt-closeout-workorders-0922')
+DOC=REPO/'docs/verification/2026-09-23-re06-deploy-readiness'
+results=[]
+for folder in sorted((DOC/'archives').iterdir()):
+    manifest=json.loads((folder/'manifest.json').read_text())
+    count=verify(folder)
+    for name,item in manifest['files'].items():
+        raw=decode(folder,item)
+        assert raw==(Path(manifest['source_root'])/name).read_bytes(),(folder,name)
+        if folder.name=='control' and name.endswith('.py'): ast.parse(raw,filename=name)
+    results.append({'archive':folder.name,'files':count,'manifest_sha256':hashlib.sha256((folder/'manifest.json').read_bytes()).hexdigest()})
+report=json.loads((DOC/'archives/control/readiness-report.json').read_text())
+assert report['identity']['revision']=='7ec9d022b14db46ac667accc08c7891f27f5a1a6'
+assert report['status']=='NOT_READY' and not report['mergeable'] and not report['deployable']
+assert report['current_qc_status']==report['current_acceptance_status']=='BLOCKED_RESOURCE_GATE'
+assert report['requests']['total']==sum(report['requests']['phases'].values())==147
+assert report['requests']['remaining']==71 and report['requests']['ceiling']==218
+assert set(report['current_claims'])=={f'C{i}' for i in range(1,11)}
+assert set(report['current_claims'].values())=={'not_verified'}
+assert not report['current_independent_reports']
+old=json.loads((DOC/'archives/qc-k3-02/work/e2/FINAL.json').read_text())
+assert old['revision']=='8eac9b3b55c563b1eb3be58686fcc0918464f69a'
+assert {x['id']:x['status'] for x in old['claims']}==dict.fromkeys(['C1','C2','C3'],'verified')
+assert old['quality']['status']=='PASS_WITH_LIMITS' and old['quality']['limits']
+for role,entries,passed,failed in [('control',[old['positive_control']],0,1),('reviewer',old['reviewer_runs'],19,0),('author',old['author_runs'],20,0)]:
+    assert len(entries)==1
+    entry=entries[0]; path=Path(entry['receipt']); receipt=json.loads(path.read_text())
+    assert hashlib.sha256(path.read_bytes()).hexdigest()==entry['receipt_sha256']
+    cases=list(ET.parse(path.parent/'junit.xml').iter('testcase'))
+    counts={'failed':sum(c.find('failure') is not None for c in cases),'errors':sum(c.find('error') is not None for c in cases),'skipped':sum(c.find('skipped') is not None for c in cases)}
+    assert len(cases)==passed+failed and counts=={'failed':failed,'errors':0,'skipped':0},role
+    assert receipt['exit_code']==entry['exit_code']==(1 if failed else 0)
+    if role=='control': assert 'assert 1 == 2' in (path.parent/'junit.xml').read_text()
+for path in DOC.rglob('*'):
+    if not path.is_file(): continue
+    raw=path.read_bytes()
+    assert not raw or (raw.endswith(b'\n') and not raw.endswith(b'\n\n')),(path,'EOF')
+    assert not re.search(rb'[ \t]+$',raw,re.M),(path,'trailing whitespace')
+    assert path.stat().st_size<500000,path
+    assert path.suffix not in {'.py','.mjs','.sb','.ts','.tsx','.sh','.pdf','.zip','.db','.duckdb','.sqlite'},path
+    if path.suffix=='.json': json.loads(raw)
+authored=[DOC/'README.md',DOC/'spec/CLAIMS.md',REPO/'docs/handoffs/2026-09-23-re06-readiness-refresh-and-resource-block.md',DOC.parent/'2026-09-23-re06-timer-assets/README.md']
+for path in authored:
+    html=ET.fromstring('<root>'+markdown.markdown(path.read_text(),extensions=['tables','fenced_code'])+'</root>')
+    for link in html.iter('a'):
+        target=link.get('href','').split('#',1)[0]
+        if target and '://' not in target: assert (path.parent/target).exists(),(path,target)
+table=ET.fromstring('<root>'+markdown.markdown((DOC/'spec/CLAIMS.md').read_text(),extensions=['tables'])+'</root>')
+claims={''.join(row[0].itertext()):''.join(row[-1].itertext()) for row in table.findall('.//tbody/tr')}
+assert claims==report['current_claims']
+handoff=REPO/'docs/handoffs/inflight/docs-closeout-workorders-0922.md'
+assert handoff.stat().st_size<=3000
+summary={'status':'PASS','scope':'Byte/identity/accounting integrity only; not independent semantic approval','revision':report['identity']['revision'],'archives':results,'original_files_verified':sum(x['files'] for x in results),'requests_readiness':147,'requests_prior_shipping':73,'requests_both_packets':220,'fresh_candidate_tests':0,'fresh_candidate_model_requests':0,'handoff_bytes':handoff.stat().st_size,'model_requests':0,'pytest_runs':0}
+if '--save' in sys.argv:
+    shutil.copyfile(Path(__file__),DOC/'verify_packet.py.txt')
+    (DOC/'verification.json').write_text(json.dumps(summary,indent=2)+'\n')
+print(json.dumps(summary))

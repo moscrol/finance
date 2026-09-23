@@ -1,0 +1,53 @@
+{
+  "revision": "8eac9b3b55c563b1eb3be58686fcc0918464f69a",
+  "baseline": "b59d6eed0356ae093b52bd291ab328628de8790e",
+  "group": "controller",
+  "role": "ui_controller_preflight",
+  "started_at": "2026-09-23T12:13:43.906692+00:00",
+  "complete": true,
+  "command": [
+    "/usr/bin/sandbox-exec",
+    "-f",
+    "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/tools.sb",
+    "/opt/homebrew/bin/node",
+    "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/candidate/finance-workspace-private/intelligence/webapp/node_modules/vitest/vitest.mjs",
+    "run",
+    "--config",
+    "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/inputs/ui.vitest-v2.config.mjs",
+    "--configLoader",
+    "native",
+    "--reporter=default",
+    "--reporter=junit",
+    "--outputFile=/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/work/controller/runs/ui_controller_preflight-1790165623906584000/junit.xml"
+  ],
+  "cwd": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/candidate/finance-workspace-private",
+  "sources_sha256": {
+    "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/work/controller/probes/controller.test.tsx": "ff6a7be14ca7adb23a866c7c28bd058e7e97b5bcc3e653734ff8c0356d8ba4f7"
+  },
+  "source_kind": "host_controller",
+  "wrapper_sha256": "371a79b2122ae355bd7ff099d6816b34027e204583840664d51db38853a43beb",
+  "ui_config_sha256": "b4f5ae7dc9d9ffb23ab6dc5c315da99afc33c6fd4c67772d475777dcb2a89ebc",
+  "junit": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/work/controller/runs/ui_controller_preflight-1790165623906584000/junit.xml",
+  "log": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-02/work/controller/runs/ui_controller_preflight-1790165623906584000/stdout.log.txt",
+  "probe_variant": "host_preflight",
+  "resource_admission_stdout": "{\"at\": \"2026-09-23T12:13:43.959520+00:00\", \"load_1m\": 4.68212890625, \"existing_pytest\": 1, \"projected_pytest\": 2, \"free_gib\": 21.17011260986328, \"allowed\": true, \"argv\": [\"--dry-run\"], \"inspection\": \"aggregate only; process commands are not returned\"}\n",
+  "resource_inspection_boundary": "trusted_host_before_sandboxed_test_child",
+  "pid": 8332,
+  "exit_code": 1,
+  "blocked": null,
+  "elapsed_seconds": 2.477,
+  "sources_unchanged": true,
+  "counts": {
+    "tests": 2,
+    "passed": 1,
+    "failed": 1,
+    "errors": 0,
+    "skipped": 0,
+    "xfailed": 0,
+    "collected": 2,
+    "collected_source": "vitest_junit"
+  },
+  "log_sha256": "38ee55cd48fa8ccd34e10614bfbe32758528ac3a0dd3883fe3719da3dff39a22",
+  "junit_sha256": "b45ea8439045f4e6eb5b2f9a05ef8fd7da26541449000c58c0982a63bdafe31b",
+  "candidate_semantic_verdict": null
+}

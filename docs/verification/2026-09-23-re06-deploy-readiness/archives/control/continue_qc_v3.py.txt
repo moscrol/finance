@@ -1,0 +1,97 @@
+"""Continue the already authorized bounded attempt, never retry a model stage."""
+from datetime import datetime, timezone
+import json
+import os
+from pathlib import Path
+import re
+import shutil
+import subprocess
+import sys
+import time
+
+ROOT=Path(__file__).resolve().parent
+QC=ROOT/'qc-k3-02'
+CONFIG=json.loads((QC/'config.json').read_text())
+STATE=ROOT/'qc-continuation-v3.json'
+record={'started_at':datetime.now(timezone.utc).isoformat(),'complete':False,'status':'WAITING_FOR_CONSENT_EXPLORE',
+        'request_ceiling':218,'automatic_model_retries':0,'steps':[],'resource_admissions':[]}
+
+def save():
+    temp=STATE.with_suffix('.tmp')
+    temp.write_text(json.dumps(record,indent=2)+'\n'); temp.replace(STATE)
+
+def request_count():
+    paths=[ROOT/'qc-k3-01'/stage/'request-admissions.jsonl' for stage in ['gateway','explore-e2']]
+    paths += [QC/'gateway/request-admissions.jsonl']
+    paths += [folder/'request-admissions.jsonl' for folder in QC.iterdir() if folder.is_dir() and re.fullmatch(r'(explore|execute|report)-(e2|timer|consent)(-v[23])?',folder.name)]
+    return sum(len(p.read_text().splitlines()) for p in paths if p.exists())
+
+def stop(reason):
+    record.update(complete=True,status=reason,requests=request_count(),finished_at=datetime.now(timezone.utc).isoformat())
+    save(); print(json.dumps({'status':reason,'requests':record['requests']}),flush=True)
+    raise SystemExit(75)
+
+def run(name,args):
+    log=ROOT/(name+'-v3.controller.log.txt')
+    with log.open('xb') as stream:
+        process=subprocess.Popen(args,stdin=subprocess.DEVNULL,stdout=stream,stderr=subprocess.STDOUT)
+        record['active']={'name':name,'pid':process.pid,'command':args}; save()
+        rc=process.wait()
+    record.pop('active',None)
+    record['steps'].append({'name':name,'exit_code':rc,'log':str(log)})
+    save()
+    return rc
+
+def resources(group):
+    deadline=time.monotonic()+1800
+    pattern=re.compile(r'^\S*/(?:Python|python(?:3(?:\.\d+)?)?)\s+(?:-B\s+)?-m\s+pytest(?:\s|$)|^\S*/pytest(?:\s|$)')
+    while True:
+        rows=subprocess.check_output(['ps','-axo','command='],text=True).splitlines()
+        count=sum(bool(pattern.search(row.strip())) for row in rows)
+        load=os.getloadavg()[0]; free=shutil.disk_usage(ROOT).free/1024**3
+        allowed=load<=8 and count+1<=2 and free>=8
+        record['resource_admissions'].append({'group':group,'at':datetime.now(timezone.utc).isoformat(),'load_1m':load,'existing_pytest':count,'projected_pytest':count+1,'free_gib':free,'allowed':allowed})
+        record['status']='WAITING_FOR_EXECUTION_RESOURCES'; save()
+        if allowed: return
+        if time.monotonic()>=deadline: stop('BLOCKED_RESOURCE_GATE')
+        time.sleep(15)
+
+assert not STATE.exists()
+save()
+try:
+    deadline=time.monotonic()+1900
+    while True:
+        status=json.loads((QC/'explore-consent/execution.json').read_text())
+        if status['complete']:
+            if status.get('status')!='STAGE_COMPLETE': stop('BLOCKED_CONSENT_EXPLORATION')
+            break
+        if time.monotonic()>=deadline: stop('BLOCKED_CONSENT_WAIT')
+        time.sleep(10)
+    for group in ['e2','timer','consent']:
+        if run('admit-execute-'+group,[sys.executable,str(QC/'stage_admission_v3.py'),'execute',group,'--check-only']):
+            stop('BLOCKED_EXPLORE_ARTIFACTS_'+group.upper())
+        resources(group)
+        for stage in ['execute','report']:
+            maximum=((12 if group=='e2' else 20) if stage=='execute' else CONFIG['stage_work_request_limits'][stage])+1
+            if request_count()+maximum>218: stop('BLOCKED_REQUEST_BUDGET')
+            if stage=='report' and run('check-execution-'+group,[sys.executable,str(QC/'check_execution_v3.py'),group]):
+                stop('BLOCKED_EXECUTION_EVIDENCE_'+group.upper())
+            record['status']='RUNNING_'+stage.upper()+'_'+group.upper(); save()
+            if run(stage+'-'+group,[sys.executable,str(QC/'stage_admission_v3.py'),stage,group]):
+                stop('BLOCKED_STAGE_DISPATCH_'+stage.upper()+'_'+group.upper())
+            result=json.loads((QC/f'{stage}-{group}-v3/execution.json').read_text())
+            if result.get('status')!='STAGE_COMPLETE': stop('BLOCKED_'+stage.upper()+'_'+group.upper())
+            if stage=='report':
+                folder=QC/'work'/group
+                if not (folder/'FINAL.md').is_file() or not (folder/'FINAL.json').is_file(): stop('BLOCKED_FINAL_ARTIFACTS_'+group.upper())
+                final=json.loads((folder/'FINAL.json').read_text())
+                if final.get('revision')!=CONFIG['revision'] or final.get('baseline')!=CONFIG['baseline']:
+                    stop('BLOCKED_FINAL_IDENTITY_'+group.upper())
+    record.update(complete=True,status='ALL_GROUP_STAGES_FINISHED_REQUIRES_HOST_AGGREGATION',requests=request_count(),finished_at=datetime.now(timezone.utc).isoformat())
+    save(); print(json.dumps({'status':record['status'],'requests':record['requests']}),flush=True)
+except SystemExit:
+    raise
+except Exception as exc:
+    record['exception_type']=type(exc).__name__
+    record['exception_message']=str(exc)
+    stop('BLOCKED_CONTROLLER')

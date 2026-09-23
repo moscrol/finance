@@ -1,0 +1,9 @@
+{
+  "source": "sandbox-preflight/request-admissions.jsonl",
+  "raw_sha256": "5a5cb5ee23f45a11d8ec3be9d0d6fdb06b910c9a94535a1a1db661f31e47fb9b",
+  "raw_bytes": 2704,
+  "chunk": 1,
+  "chunks": 1,
+  "encoding": "gzip-base64-chunk",
+  "data": "H4sIAAAAAAACE8XWMQrDMAyF4b3H0ByXSInT1Ofo1C0QQ0Xi2tihFELvXnfLBcobLQn+7cM7TXPQUjQ+yXFD6TEVT478O60xe2po0+DLNoVUp9LKYNqrke7G4qx1vT3bcbjXs5TjS2ef61XQPBUNZtGgdRPi7Nc6/j3N0tHntB+jgoh2iGiPiFpEdEBEL4joiIheEVFuIVWISQxBiSEqMYQlhrjEEJgYIhNDaGKITQKxSTD/JYhNcrAp+xTz9p/oF/rHy+uQCgAA"
+}
