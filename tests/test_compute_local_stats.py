@@ -1,7 +1,7 @@
 """本地加工层（不靠 fupanhui）：名单冻结、涨跌停统计、市场总览数字层。口径钉自 2026-09-07 双轨实测。"""
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
 import duckdb
 import pytest
@@ -202,6 +202,70 @@ def test_name_guard_is_scoped_to_the_requested_day():
         _stock(con, "2026-09-23", "920229.BJ", "世纪数码", 92.4, 132.)
         _stock(con, "2026-09-24", "920229.BJ", None, 92.4, 92.4)
         assert cls_.compute_market_overview_local("2026-09-23", con=con)["limit_down"] == 1
+
+
+@pytest.mark.parametrize("name", [None, "", "   ", "\u3000", "bad\x00name", "bad\tname", "bad\x7fname"],
+                         ids=["null", "empty", "spaces", "wide-space", "nul", "tab", "del"])
+@pytest.mark.parametrize("consumer", ["daily", "recovery", "high", "core-leader"])
+def test_consumed_history_name_refuses_before_derived_replacement(name, consumer, tmp_path, monkeypatch):
+    with _db() as con:
+        _seed_two_days(con)
+        _seed_universe_and_members(con)
+        _seed_mainline(con)
+        _seed_kb(tmp_path, monkeypatch, concepts={})
+        for offset in range(2, 34):
+            day = date(2026, 9, 2) - timedelta(days=offset)
+            if day.weekday() < 5:
+                _stock(con, str(day), "600001.SH", "ordinary", 10., 10.)
+        con.execute("UPDATE fact_stock_daily SET high=close")
+        cls_.compute_limit_stats_local("2026-09-02", con=con)
+        cls_.compute_stock_high_local("2026-09-02", con=con)
+        cls_.compute_core_leader_local("2026-09-02", con=con)
+        assert con.execute("SELECT limit_times FROM fact_stock_high_daily "
+                           "WHERE stock_ts_code='600001.SH'").fetchone() == (2,)
+        tables = ("fact_theme_limit_heat_daily", "fact_theme_limit_stock_daily", "fact_limit_advance_daily",
+                  "fact_leader_height_daily", "fact_stock_high_daily", "fact_core_leader_daily")
+        before = {table: con.execute(f"SELECT * FROM {table} ORDER BY ALL").fetchall() for table in tables}
+        con.execute("UPDATE fact_stock_daily SET stock_name=? "
+                    "WHERE trade_date='2026-09-01' AND stock_ts_code='600001.SH'", [name])
+        with pytest.raises(cls_.InvalidStockName, match="600001.SH @ 2026-09-01"):
+            if consumer == "high":
+                cls_.compute_stock_high_local("2026-09-02", con=con)
+            elif consumer == "core-leader":
+                cls_.compute_core_leader_local("2026-09-02", con=con)
+            else:
+                kwargs = {} if consumer == "daily" else {"recovery_members": {
+                    "990001.FP": ["600001.SH", "300001.SZ", "000001.SZ"], "990002.FP": ["002514.SZ"],
+                }}
+                cls_.compute_limit_stats_local("2026-09-02", con=con, **kwargs)
+        assert {table: con.execute(f"SELECT * FROM {table} ORDER BY ALL").fetchall() for table in tables} == before
+
+
+@pytest.mark.parametrize("scope", ["overview", "non-limit", "after-valid-break", "unrelated-stock"])
+def test_unconsumed_history_name_does_not_block_statistics(scope):
+    with _db() as con:
+        _seed_two_days(con)
+        _seed_universe_and_members(con)
+        if scope in {"overview", "non-limit"}:
+            con.execute("UPDATE fact_stock_daily SET stock_name=NULL "
+                        "WHERE trade_date='2026-09-01' AND stock_ts_code='600001.SH'")
+        if scope == "overview":
+            assert cls_.compute_market_overview_local("2026-09-02", con=con)["limit_up"] == 3
+            return
+        if scope == "non-limit":
+            con.execute("UPDATE fact_stock_daily SET close=pre_close,pct_chg=0 "
+                        "WHERE trade_date='2026-09-02' AND stock_ts_code='600001.SH'")
+        elif scope == "after-valid-break":
+            _stock(con, "2026-08-31", "600001.SH", None, 11., 10.)
+            con.execute("UPDATE fact_stock_daily SET close=pre_close,pct_chg=0 "
+                        "WHERE trade_date='2026-09-01' AND stock_ts_code='600001.SH'")
+        else:
+            _stock(con, "2026-09-01", "600002.SH", None, 11., 10.)
+        result = cls_.compute_limit_stats_local("2026-09-02", con=con)
+        assert result["market_limit_up"] == (2 if scope == "non-limit" else 3)
+        if scope == "after-valid-break":
+            assert con.execute("SELECT limit_times FROM fact_theme_limit_stock_daily "
+                               "WHERE stock_ts_code='600001.SH'").fetchone() == (1,)
 
 
 def test_limit_stats_refuses_to_overwrite_fupanhui_rows_unless_forced():

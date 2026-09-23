@@ -1,0 +1,23 @@
+[
+  {
+    "id": "historical-identity-unknown-collapsed-to-boolean",
+    "path": "market_feature_store/sync/compute_local_stats.py",
+    "old": "series[r[1]].append((d, None if invalid_name else bool(r[9])))",
+    "new": "series[r[1]].append((d, bool(r[9])))",
+    "targets": ["test_consumed_history_name_refuses_before_derived_replacement"]
+  },
+  {
+    "id": "stock-high-swallows-historical-identity-failure",
+    "path": "market_feature_store/sync/compute_local_stats.py",
+    "old": "except InvalidStockName:\n            raise\n        except Exception:",
+    "new": "except InvalidStockName:\n            streaks = {}\n        except Exception:",
+    "targets": ["test_consumed_history_name_refuses_before_derived_replacement"]
+  },
+  {
+    "id": "unconsumed-history-blocks-current-statistics",
+    "path": "market_feature_store/sync/compute_local_stats.py",
+    "old": "if d == td:\n            if invalid_name:",
+    "new": "if d == td or invalid_name:\n            if invalid_name:",
+    "targets": ["test_unconsumed_history_name_does_not_block_statistics"]
+  }
+]
