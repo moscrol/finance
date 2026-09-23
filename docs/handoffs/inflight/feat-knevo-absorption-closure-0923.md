@@ -4,30 +4,30 @@
 PR #877 WIP：沿原题/八问/原审稿闸修交付，不合main、不部署8792、不回补、不写生产画像。
 
 ## 决策与被否方案
-- 响应体沿原绝对时限shutdown连接，拒收晚稿；不加预算/重试、不遗留后台HTTP。
-- 判官首层失败也留阶段耗时；私有原返回不进公开稿/修复提示，不自动改报告或跨ID补引用。
-- 工程、completed、内部passed、作者接纳分账；不改冻结题/原件凑绿。
-- 展开：`docs/handoffs/2026-09-23-knevo-response-window.md`；旧协议快照保留。
+- 连续入口提前返回/异常/取消前保存既有LLM台账；只记流式时间/字符数，不存隐藏推理正文。
+- 原响应体绝对时限不撤，不加预算/重试；不自动改判官报告或跨ID补引用。
+- 工程、completed、内部passed、作者接纳分账，不改冻结题/原件凑绿。
+- 展开：`docs/handoffs/2026-09-23-knevo-writer-diagnostics.md`；旧两份续修快照保留。
 
 ## 当前状态
-代码7cfc51d524681e2b9a8740e6b16e064a32006ed1已提交：工具聊天流式/非流式响应读取窗口、首层审稿记录、inspect阶段耗时。
-新隔离包1/包3均failed，写手首发约75秒、终局补写约40秒后失败，未到材料判官，无有效八问稿。sidecar已停，8817无监听；两题不是新盲测分母，driver仍not_evaluated。
-证据：`~/.finance-runtime/knevo-absorption-20260923/response-window-7cfc51d52/current.json`。
-旧58f28c三包审稿预算耗尽/unsupported+[1]非法/超时仍保留。G1b旧答认领、包3 A/B改判不自洽未修。
+代码5beeeef3c8e3d4330a6011b635f92dca5b734750已提交：提前退出留台账、流式进度计数、inspect白名单摘要；写手/判官提示与接收规则未改。
+新隔离包1 run_20260923_193125_229673：首稿74.930秒，格式修复32.776秒后八问结构齐；判官两次75.008/74.990秒超时，仅收推理片段、无报告正文/工具参数。材料首层150.008秒，无非事实复核。
+请求completed、报告partial/judge unavailable，作者not_passed，driver not_evaluated；不是新盲测或质量增益。q6/q7把终端消耗与厂商出货混用、盈利判断及重复计算缺本句锚点仍错。
+sidecar已停、8817无监听。证据：`~/.finance-runtime/knevo-absorption-20260923/writer-diagnostics-20260923/current.json`。
 
 ## 已验证
-7cfc干净定向1768P/2S/1X/0F，Ruff/收据验签通过；两个撤保护各2F，恢复正向72P。真实本地慢流证明旧idle timeout会越窗，新guard拒收并退出线程；已吐正文不重播。
-两题原题保真/material_only/0 Episode工具请求，不等于全IO零。冻结原件未改。
+5beee干净定向1869P/2S/1X/0F，Ruff/收据验签通过；撤落盘4F、撤计数2F、恢复6P。测试含成功/断连/响应头前失败/慢流超时及私有字段过滤。
+原题逐字保真/material_only/0 Episode工具请求，七份原件hash不变；不是全IO零。
 
 ## 未验证 / 已知边界
-guard在urlopen返回后安装，不覆盖DNS/建连/响应头主动中断；本地TLS/其它HTTP实现未验。阶段elapsed含已有重试，不是单次HTTP耗时。
-新live两题都未到判官，错误扁平为流式失败，缺底层异常类，不能凭时长确认watchdog触发或签判官线上预算。
-无本版本全仓/前端/组合main门禁；旧8aadc收据不移签。旧f1fd 0/12、Q14语义漏判与真实Q18前置未补验。
+只有包1新live，单次近窗口成稿不证明稳定。阶段timeout/余额是最后一次尝试值，elapsed含两次调用；到期不单独证明watchdog回调触发。
+计数只覆盖已收流式字段，不是token/公开正文/内部思考。未兜全部legacy异常、崩溃或存储失败。DNS/建连/响应头主动中断、本地TLS仍未验。
+无本版全仓/前端/组合main门禁；旧收据不移签。旧f1fd 0/12、7cfc两题写手失败、G1b认领、包3自洽、Q14漏判、真实Q18前置均保留。
 
 ## 下一步
-1. 完整八问在原写手窗口内成稿，同时逐句绑全输入；不靠加预算/少答/恢复无限读取过关。
-2. 再验材料首层与非事实复核；分清阶段总耗时、单次调用、无预算和超时。
-3. 处理锚点互斥/历史认领/A-B/Q14；删句后重验八问。旧包1 c40的90>100也是内容错，不是补引用能修。
+1. 判官在原窗口内完整成报告，再验非事实复核；降思考量/换模型/强制解码未验证，不能直接算修复。
+2. 逐句绑全输入并核主体/基期；不能靠少答八问、补引用掩盖内容错。
+3. 续修互斥/历史认领/A-B/Q14，删句后重验八问；旧0/12不翻案。
 
 ## 踩过的坑
-用主树.venv-workbench/bin/python，run_main_gate从目标树cwd跑。重放带material_outputs，否则误诊report_keys。缺诊断是unknown。独立根非OS沙箱；共享harness-reference脏且旧，未接管。
+主树.venv-workbench/bin/python；run_main_gate从目标树cwd跑。重放须带material_outputs，缺诊断是unknown。独立根非OS沙箱；共享harness-reference脏且旧，未接管。
