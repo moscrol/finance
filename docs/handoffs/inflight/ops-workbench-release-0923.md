@@ -1,34 +1,35 @@
 # Workbench 发布执行
 
 ## 这个分支做什么
-用户「执行」后的发布准备：数据及固定版本检查全过才切 8792。本轮仅文档，基线 main `626d8a508c1c`。
+按用户连续「执行」推进恢复与发布；数据和固定版本门全过才切8792。仅改文档，基线main626d8a508c1c。
 
 ## 决策与被否方案
 | 选了什么 | 否了什么 / 原因 |
 |---|---|
-| 数据门失败保留现网 | 不直接换 staging：个股 0 行、市场 13 列 NULL |
-| 对接既有行情恢复 owner | 不搬在途补丁写生产：代码准入、五问/三合同仍待定 |
-| 原收据保留原 SHA | 不移签 preview 到 main：精确版本校验拒绝 |
-| 停在前置检查 | 不新增并行全仓或盲重跑：约 9GB 空间、今晚已重试失败 |
-详情：`../2026-09-23-workbench-release-blocked.md`。
+| 复用#861评论6463、#871评论6468的口径裁决 | 不再要求用户拍五问，旧交接已过期 |
+| 可信红收据仍阻发布 | 收据校验rc0不是测试绿；隔离2P不盖全量红 |
+| 接既有恢复/检索修复owner | 不改他人候选树或重复开全仓 |
+| 数据门红保留现网 | 不发残缺或过期staging，不造平盘bar/换手率 |
+展开：`../2026-09-23-workbench-release-resume.md`；上一轮原件见blocked快照。
 
 ## 当前状态
-BLOCKED；未切服务、未写生产或 staging、未合 main、未调真实模型。8792 仍 `3b7e473575b0`，readlink 未变。独立树 `/Users/a77/fwp-wt-workbench-release-0923`；检查后形成的两份交接随本次文档提交保存。无后台续跑器。
+HOLD；未写库/合main/部署/调用模型，无后台续跑器。现网仍3b7e473575b0；远端main仍626。**口径已获用户委托裁定，不再是待用户项。** 当前等候选修复及完整验收，不是等另一句发布口令。
 
 ## 已验证
-证据根 `~/.finance-runtime/reviews/workbench-release-20260923/`。
-- health HTTP 200、dirty=false、code_matches_repo=true；readiness HTTP 503，market_data_consistency=false（快照09-23/库09-22）。
-- 干净626树现有检查器读 production/staging：两者 data gate rc=2/INCOMPLETE；生产19表无09-23行，staging个股0行、市场13列NULL；09-22市场也有13列基线外NULL。
-- preview `53c51cfd` 收据完整范围/读数对平，但 expect-revision=626与基座校验rc=1；实际差异仅8份docs。不是main代码测试失败。
-- 远端main收尾仍626；夜跑日志已归档，18:46拒换库、21:06 finalize失败。
+- 22:21候选5213e9344b77全仓结束：14903P/4F/85S/2X，14994 collected，exit1。原树校验精确revision/全范围/依赖/干净/漂移0均通过，证明红结果可信。
+- 四个失败在RAG worker冷却、自愈、坏查询退役判定、关闭keepalive线程。不是已证明的机器负载问题。
+- 同候选前端完整118P/2F；隔离诊断2P/79S不能覆盖。lint/typecheck/build/E2E exit0仍不足放行。
+- 收尾health200、readiness503；快照09-23/库09-22；runtime干净、身份匹配。
+- 空间5.6→约21GiB由其他会话释放；清理预览45秒超时rc4，未删树。8GiB硬门槛说法未证已撤回。
+- 证据根`~/.finance-runtime/reviews/workbench-release-20260923/resume-2214/`。上轮生产/staging数据门rc2及626旧preview收据拒绝不冒称本轮重跑。
 
 ## 未验证 / 已知边界
-未跑main完整四叶、新数据恢复与部署后探针。行情恢复其他会话仍在验收，不能借其在途结果放行。现网存活不等于数据就绪。
+数据仍未恢复，main无新精确完整绿凭证。候选尚非main；全量收据有效不等于准入。原5565范围只属原恢复日期，不能套到09-23。
 
 ## 下一步
-1. 接行情恢复owner：`/Users/a77/fwp-wt-market-recovery-qc-fix-0923/docs/handoffs/inflight/fix-market-recovery-qc-0923.md`；五问页在contracts-0922树 `docs/handoffs/2026-09-22-market-recovery-decision-page.md`。
-2. 口径和修复准入完成后从新生产基线做正式staging恢复，逐列/跨日验收，不直接发布旧副本。
-3. readiness绿后，协调空间与测试时段，固定届时main补精确四叶，再按验收规程链切、探针与账本收尾。
+1. 恢复owner为`fwp-wt-market-recovery-qc-fix-0923`；RAG修复为`fwp-wt-rag-recovery-state-0923`。协调失败归因、组合新候选、全门验收后按已有合并授权收口。
+2. 按#861评论6463已定口径，从新生产基线走正式staging，逐日/逐列及跨日门过后换库，不直接发旧副本。
+3. 数据与最新main门全绿，再按验收规程部署、探针、唯一账本收尾。
 
 ## 踩过的坑
-默认daily-full包含停采的fupanhui路径；正式夜跑是local，不盲复跑。日期前进不证明字段完整。低空间不擅删他人测试现场。本轮复用现有门，无新增通用工具。
+旧inflight可能漏掉跨会话已拍口径，查工单原始授权。默认daily-full含停采源，夜跑用local；日期前进不证明字段完整。本轮复用工具，不新增通用件。
