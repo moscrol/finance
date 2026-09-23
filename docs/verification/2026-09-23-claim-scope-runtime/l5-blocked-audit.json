@@ -1,0 +1,29 @@
+{
+  "schema": "natural-quality-preflight/v1",
+  "workorder": 76,
+  "case_group": "L5",
+  "verdict": "BLOCKED_CANDIDATE_NOT_ACCEPTED",
+  "reason": "The advisory candidate has no completed independent K3 verdict; #75 explore timed out before probes/report. No live submission was made.",
+  "candidate_revision": "2be85e64eeaffc6e37b66898ecc1a740acd6a7fd",
+  "cases": [
+    {"original_run": "run_20260921_183219_280474", "initial_submissions": 0, "resubmissions": 0, "followups": 0, "verdict": "BLOCKED_CANDIDATE_NOT_ACCEPTED"},
+    {"original_run": "run_20260921_183642_325351", "initial_submissions": 0, "resubmissions": 0, "followups": 0, "verdict": "BLOCKED_CANDIDATE_NOT_ACCEPTED"}
+  ],
+  "fresh_financial_model_calls": 0,
+  "judge_receipt": null,
+  "marker_coverage": null,
+  "new_answer_claim_checks": null,
+  "old_answer_positive_controls": "../frozen-parity/manifest.json",
+  "old_replay_is_new_live_acceptance": false,
+  "data_cloned": false,
+  "sidecar_started": false,
+  "lock_acquired": false,
+  "production_modified": false,
+  "pending_protocol_corrections": [
+    "Condition-card SQL was corrected to canonical sector_ts_code/stock_ts_code in the documentation closeout. The actual scope total has not been queried: query only the frozen DB at the date actually used by the answer; never reuse the old total of 20.",
+    "Record the effective K3 route and credential resolver before a live run. The existing successful small-payload preflight is not proof that a full research request will complete.",
+    "The candidate's shared K3 HTTP payload builder already drops temperature; any decision to omit the historical external shim must be stated and evidenced before submission."
+  ],
+  "automatic_retry": false,
+  "historical_live_verdicts_unchanged": true
+}

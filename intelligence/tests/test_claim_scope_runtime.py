@@ -186,12 +186,23 @@ def test_deferred_synthesis_replaces_old_advisory_receipt(monkeypatch):
 
 
 def test_workbench_b_persists_review_of_delivered_text(monkeypatch, tmp_path):
+    from intelligence.runtime.conversation_orchestrator import TurnOrchestrator
     from intelligence.tests.test_conversation_orchestrator import (
         test_research_compose_revises_on_warn_and_keeps_review_as_appendix as exercise,
     )
 
+    claims = []
+    original_claim = TurnOrchestrator._claim_terminal_run
+
+    def claim_before_receipt(self, *args, **kwargs):
+        assert not list((tmp_path / "runs").rglob("claim-scope-review.json"))
+        original_claim(self, *args, **kwargs)
+        claims.append(args[0])
+
+    monkeypatch.setattr(TurnOrchestrator, "_claim_terminal_run", claim_before_receipt)
     monkeypatch.setenv("ASK_CLAIM_SCOPE_REVIEW", "advisory")
     exercise(tmp_path, monkeypatch)
+    assert len(claims) == 1
     paths = list((tmp_path / "runs").rglob("claim-scope-review.json"))
     assert len(paths) == 1
     receipt = json.loads(paths[0].read_text())

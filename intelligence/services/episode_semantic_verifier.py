@@ -796,7 +796,7 @@ def review_public_claim_scope(
     outcome: SemanticEpisodeOutcome,
     *,
     question: str,
-    public_answer: str | None = None,
+    delivered_answer: str | None = None,
     evidence_outcome: AgentOutcome | None = None,
     scope_total: int | None = None,
 ) -> SemanticEpisodeOutcome:
@@ -809,7 +809,7 @@ def review_public_claim_scope(
         "evidence": [asdict(item) for item in source.evidence],
     }
     receipt = review_runtime_claims(
-        answer=outcome.public_answer if public_answer is None else public_answer,
+        answer=outcome.public_answer if delivered_answer is None else delivered_answer,
         question=question,
         episode={"outcome": payload},
         scope_total=scope_total,

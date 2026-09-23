@@ -1181,7 +1181,7 @@ class ContinuousTurnAdapter:
         # 被钉住的不变量。异常（Live 漏进来 / kind 未登记）不静默，见下面那行。
         event_projection = project_durable_events(outcome.events)
         semantic = review_public_claim_scope(
-            semantic, question=frame.raw_question, public_answer=answer,
+            semantic, question=frame.raw_question, delivered_answer=answer,
             evidence_outcome=outcome,
         )
         artifact = {
@@ -1376,7 +1376,7 @@ class ContinuousTurnAdapter:
         )
         semantic = review_public_claim_scope(
             semantic, question=frame.raw_question,
-            public_answer=view(TerminalFacts(cause=CAUSE_VERIFIED, public=answer)),
+            delivered_answer=view(TerminalFacts(cause=CAUSE_VERIFIED, public=answer)),
             evidence_outcome=trusted,
         )
         artifact.update({

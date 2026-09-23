@@ -3750,13 +3750,7 @@ class TurnOrchestrator:
             )
             from intelligence.services.ask_claim_scope import review_ask_claim_scope
 
-            review_ask_claim_scope(result, public_answer=answer_text)
-            if result.review_gate is not None and result.review_gate.claim_scope is not None:
-                self.run_store.add_artifact(
-                    run_id, "claim-scope-review.json",
-                    json.dumps(result.review_gate.claim_scope, ensure_ascii=False, indent=2),
-                    renderer="json", title="口径越界检查（仅观察）", visibility="internal",
-                )
+            review_ask_claim_scope(result, delivered_answer=answer_text)
             if has_answer_snapshot:
                 text_chunks.append(answer_text)
                 self._emit(
@@ -3945,6 +3939,12 @@ class TurnOrchestrator:
                 report = public_report
             self._check_cancelled()
             self._claim_terminal_run(run_id, rs.STATUS_COMPLETED)
+            if result.review_gate is not None and result.review_gate.claim_scope is not None:
+                self.run_store.add_artifact(
+                    run_id, "claim-scope-review.json",
+                    json.dumps(result.review_gate.claim_scope, ensure_ascii=False, indent=2),
+                    renderer="json", title="口径越界检查（仅观察）", visibility="internal",
+                )
             assistant = self.conversation_store.revise_message(
                 conversation_id,
                 assistant_message_id,

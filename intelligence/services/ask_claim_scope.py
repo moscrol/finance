@@ -8,7 +8,7 @@ from intelligence.services.claim_scope_review import claim_scope_requested, revi
 from intelligence.services.output_review import OutputReviewGate, ReviewCheck
 
 
-def review_ask_claim_scope(result: AskResult, *, public_answer: str | None = None) -> AskResult:
+def review_ask_claim_scope(result: AskResult, *, delivered_answer: str | None = None) -> AskResult:
     if not claim_scope_requested():
         return result
     # Only source records are evidence. AnswerSpec claims and synthesis are model
@@ -24,7 +24,7 @@ def review_ask_claim_scope(result: AskResult, *, public_answer: str | None = Non
         if trace.status == "ok" and trace.source_trade_date
     )
     receipt = review_runtime_claims(
-        answer=render_conversation_answer(result) if public_answer is None else public_answer,
+        answer=render_conversation_answer(result) if delivered_answer is None else delivered_answer,
         question=result.query,
         episode={"outcome": {"events": [], "evidence": evidence}},
         mapping_limits=("engine_b_tool_requests_unavailable",),
