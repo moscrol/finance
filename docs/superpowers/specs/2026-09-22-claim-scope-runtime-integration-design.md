@@ -4,7 +4,7 @@
 |---|---|
 | 状态 | **设计稿，未实施**。本文只定接缝、开关、映射与验收；本批不改运行时接入点，离线判据模块可独立修改（#65 红线） |
 | 实施前置 | 用户对「接入运行时」单独授权 + 另立工单；每升一档再授权一次 |
-| 判据版本 | #850 `fix/answer-claim-scope-0922`@`1cf35f516` + #854 `fix/claim-scope-hardening-0922`@`5f5ce2d11` |
+| 判据版本 | #850 `fix/answer-claim-scope-0922`@`1cf35f516` + #854 `fix/claim-scope-hardening-0922`@`5f5ce2d11` + #872 `fix/claim-scope-ledger-negation-0923`@`0a258a098`（离线修复已合入 `bd2290c86`） |
 | 行号基准 | `gitea/main@8e79893729da`（含 #863）+ #854 的预览树。行号会漂，定位以符号名为准；`ask.py` 相关行在 `f24a61a8a` 与 `8e798937` 上相同，`episode_semantic_verifier.py` 被 #863 改过（`verify` 由 1315 → 1467） |
 | 证据等级 | 标 **[实测]** 的行在 `5f5ce2d11` 检出上读过代码或跑过命令；标 **[推断]** 的是设计判断 |
 
