@@ -150,6 +150,14 @@ def prepare(output: Path, suite: Path = DEFAULT_SUITE) -> dict:
     return report
 
 
+def _protocol_failure_summary(failure: dict | None) -> dict | None:
+    if failure is None:
+        return None
+    return {key: failure.get(key) for key in (
+        "reason_codes", "response_chars", "response_sha256", "response_truncated",
+    )}
+
+
 def inspect_run(directory: Path, case: RegressionCase) -> dict:
     """Read exact run artifacts; missing audit is unknown, never zero calls or a pass.
 
@@ -216,6 +224,24 @@ def inspect_run(directory: Path, case: RegressionCase) -> dict:
         "internal_semantic_status": semantic.get("status"),
         "internal_judge_status": semantic.get("judge_status"),
         "stop_reason": ((episode or {}).get("outcome") or {}).get("stop_reason"),
+        "invalid_actions": [
+            {key: event.get("payload", {}).get(key) for key in ("code", "kind", "disposition")}
+            for event in (events or []) if event.get("kind") == "invalid_action"
+        ] if audit_available else None,
+        "judge_protocol_failure": _protocol_failure_summary(semantic.get("judge_protocol_failure")),
+        "material_review_stages": [
+            {
+                "stage": call.get("stage"),
+                "unavailable": call.get("unavailable"),
+                "deadline_exhausted": call.get("issue") == "semantic judge deadline exhausted",
+                "timeout_asked": call.get("timeout_asked"),
+                "remaining_seconds_at_entry": call.get("remaining_seconds_at_entry"),
+                "report_passed": (call.get("report") or {}).get("passed"),
+                "rejected_sentence_indexes": (call.get("report") or {}).get("rejected_sentence_indexes"),
+                "protocol_failure": _protocol_failure_summary(call.get("protocol_failure")),
+            }
+            for call in semantic["material_review_calls"]
+        ] if isinstance(semantic.get("material_review_calls"), list) else None,
         "tool_audit_available": audit_available,
         "tool_requests": calls,
         "artifact_sha256": hashes,

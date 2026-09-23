@@ -194,6 +194,9 @@ def test_inspect_missing_audit_is_unknown_and_clarification_keeps_frame_change(t
     assert result["tool_audit_available"] is False
     assert result["tool_requests"] is None
     assert result["internal_judge_status"] is None
+    assert result["invalid_actions"] is None
+    assert result["judge_protocol_failure"] is None
+    assert result["material_review_stages"] is None
     assert result["frame_question_same_after_strip"] is False
     assert result["task_type"] == "clarify"
     assert result["frame_source"] == "public_report"
@@ -219,6 +222,67 @@ def test_inspect_zero_calls_requires_episode_event_audit(tmp_path):
     assert result["tool_audit_available"] is True
     assert result["tool_requests"] == []
     assert result["frame_question_same_after_strip"] is None
+
+
+def test_inspect_preserves_protocol_and_budget_diagnostics_without_private_text(tmp_path):
+    case = regression.load_suite()[0]
+    failure = {
+        "reason_codes": ["material_claim_checks"], "response_chars": 180,
+        "response_sha256": "a" * 64, "response_truncated": False,
+        "response_json": "PRIVATE_MODEL_RETURN", "future_private_field": "PRIVATE_FUTURE",
+    }
+    directory = _saved_run(tmp_path, case, episode={
+        "events": [{"kind": "invalid_action", "payload": {
+            "code": "bad_claim_binding", "kind": "format",
+            "disposition": "invalid_model_finish", "reason": "PRIVATE_WRITER_TEXT",
+        }}],
+        "semantic_verifier": {
+            "status": "partial", "judge_status": "unavailable",
+            "judge_protocol_failure": failure,
+            "material_review_calls": [
+                {"stage": "material_review", "unavailable": False,
+                 "timeout_asked": 75, "remaining_seconds_at_entry": 150,
+                 "request": {"text": "PRIVATE_REQUEST"},
+                 "report": {"passed": False, "rejected_sentence_indexes": [4],
+                            "issues": ["PRIVATE_JUDGE_REASON"]}},
+                {"stage": "nonfactual_review", "unavailable": True,
+                 "issue": "semantic judge deadline exhausted",
+                 "timeout_asked": 0, "remaining_seconds_at_entry": 0,
+                 "protocol_failure": failure},
+            ],
+        },
+    })
+    before = {path.name: path.read_bytes() for path in directory.iterdir()}
+    result = regression.inspect_run(directory, case)
+    assert result["invalid_actions"] == [{
+        "code": "bad_claim_binding", "kind": "format", "disposition": "invalid_model_finish",
+    }]
+    assert result["judge_protocol_failure"] == {
+        "reason_codes": ["material_claim_checks"], "response_chars": 180,
+        "response_sha256": "a" * 64, "response_truncated": False,
+    }
+    first, second = result["material_review_stages"]
+    assert first["report_passed"] is False
+    assert first["rejected_sentence_indexes"] == [4]
+    assert first["deadline_exhausted"] is False
+    assert second["unavailable"] is True
+    assert second["deadline_exhausted"] is True
+    assert second["remaining_seconds_at_entry"] == 0
+    assert second["report_passed"] is None
+    assert second["protocol_failure"] == result["judge_protocol_failure"]
+    assert result["semantic_verdict"] == "not_evaluated"
+    assert "PRIVATE_" not in json.dumps(result)
+    assert {path.name: path.read_bytes() for path in directory.iterdir()} == before
+
+
+def test_inspect_absent_diagnostics_do_not_mean_success(tmp_path):
+    case = regression.load_suite()[0]
+    directory = _saved_run(tmp_path, case, episode={"events": []})
+    result = regression.inspect_run(directory, case)
+    assert result["invalid_actions"] == []
+    assert result["judge_protocol_failure"] is None
+    assert result["material_review_stages"] is None
+    assert result["semantic_verdict"] == "not_evaluated"
 
 
 def test_inspect_refuses_artifact_symlink_outside_run(tmp_path):
