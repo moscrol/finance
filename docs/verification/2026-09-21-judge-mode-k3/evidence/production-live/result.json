@@ -1,0 +1,38 @@
+[
+  {
+    "case": "material",
+    "run_id": "run_20260921_183219_280474",
+    "checks": {
+      "run_completed": true,
+      "episode_completed": true,
+      "actual_k3": true,
+      "deterministic": true,
+      "zero_judge_calls": true,
+      "no_material_model_review": true,
+      "public_not_independent": true,
+      "eval_no_independent": true,
+      "nonempty_answer": true,
+      "q1_5_percent": true,
+      "q2_ratio": true
+    },
+    "ok": true
+  },
+  {
+    "case": "grounded",
+    "run_id": "run_20260921_183642_325351",
+    "checks": {
+      "run_completed": true,
+      "episode_completed": true,
+      "actual_k3": true,
+      "deterministic": true,
+      "zero_judge_calls": true,
+      "no_material_model_review": true,
+      "public_not_independent": true,
+      "eval_no_independent": true,
+      "nonempty_answer": true,
+      "stock_fact_used": true,
+      "no_no_data_disclaimer": true
+    },
+    "ok": true
+  }
+]

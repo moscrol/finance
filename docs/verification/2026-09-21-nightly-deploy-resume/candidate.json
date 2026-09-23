@@ -1,0 +1,9 @@
+{
+  "revision": "c097d712f9acfdd258709c7d0de054f978e0159c",
+  "base": "f2c3e9e1a24f42ae9b1d5a8cb9e501ababd1330a",
+  "tree": "/Users/a77/fwp-wt-nightly-deploy-closeout-0921",
+  "at": "2026-09-21T09:41:38.344150+00:00",
+  "authorization": "user 执行; conditional merge/scoped release; no manual collection",
+  "engineering": "fresh all leaves at exact candidate; sequential heavy gates",
+  "reviews": "historical Spec at 2ea6 and new Quality at b0cf; explicit scoped applicability proof required"
+}

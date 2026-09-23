@@ -1,0 +1,57 @@
+{
+  "status": "healthy",
+  "timestamp": "2026-09-21T19:00:55+08:00",
+  "dependencies": {
+    "repo_root": true,
+    "knowledge_wiki": true,
+    "relations": true,
+    "vector_index": true,
+    "rag_runtime": true,
+    "market_snapshot": true,
+    "frontend_built": true
+  },
+  "runtime": {
+    "source_revision": "f2c3e9e1a24f42ae9b1d5a8cb9e501ababd1330a",
+    "source_dirty": false,
+    "code_root": "/Users/a77/.finance-runtime/finance-workspace-f2c3e9e1a24f",
+    "loaded_code_root": "/Users/a77/.finance-runtime/finance-workspace-f2c3e9e1a24f/intelligence",
+    "loaded_tree_fingerprint": "20d02ebcde1a21a50641500383b647e87b2a570d1c298b9ed405665cff73adf5",
+    "loaded_module_count": 1132,
+    "repo_tree_fingerprint": "20d02ebcde1a21a50641500383b647e87b2a570d1c298b9ed405665cff73adf5",
+    "repo_module_count": 1132,
+    "code_matches_repo": true,
+    "python_executable": "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/bin/python3.12",
+    "python_version": "3.12.13",
+    "python_prefix": "/Users/a77/finance-workspace-private/.venv-workbench",
+    "dependency_fingerprint": "5806597184587c866b1bc17fcd6bb01492cab03727d32ab9197f85a182ad2bb6",
+    "dependencies": {
+      "fastapi": "0.139.0",
+      "pydantic": "2.13.4",
+      "httpx": "0.25.2",
+      "duckdb": "1.5.4",
+      "pytest": "8.3.5"
+    },
+    "finance_root": "/Users/a77/finance-workspace-private",
+    "continuous_agent": {
+      "mode": "on",
+      "canary_id": "",
+      "source_revision": "f2c3e9e1a24f42ae9b1d5a8cb9e501ababd1330a"
+    },
+    "auth_mode": "off",
+    "credits": {
+      "enabled": false,
+      "signup_gift": 0,
+      "pricing_source": "builtin-default",
+      "hold_points": 100
+    },
+    "agent_runtime": {
+      "backend": "continuous_glm",
+      "ready": true,
+      "reason": "ready",
+      "model": "kimi-k3",
+      "credential_available": true,
+      "benchmark_only": false
+    },
+    "users_dir": "/Users/a77/.local/share/finance-workbench/users"
+  }
+}

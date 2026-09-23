@@ -1,0 +1,20 @@
+{
+  "original_tree_count": 336,
+  "with_two_owned_test_trees": 338,
+  "removed_preexisting_dev": 28,
+  "removed_preexisting_snapshots": 16,
+  "removed_owned_frontend_tree": 1,
+  "retained_owned_tree": "python tree reused as docs/pr803-merge-closeout-0920",
+  "final_tree_count": 293,
+  "exact_path_delta_verified": true,
+  "remaining_snapshot_count": 21,
+  "retained_dirty_merged_dev": 23,
+  "retained_unknown_ignored_candidates": 74,
+  "additional_reflog_veto": "/Users/a77/fwp-wt-acceptance-tests",
+  "free_bytes_final_samples": [
+    31089729536,
+    31089709056,
+    31089729536
+  ],
+  "free_before_first_removal": 24125235200
+}

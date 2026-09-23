@@ -1,0 +1,7 @@
+{
+  "python_queue_pid": 46487,
+  "paused_at": "2026-09-21T09:49:18.579619+00:00",
+  "reason": "own frontend gate runs before own Python full gate; no simultaneous heavy leaf in this session",
+  "frontend_exit": 0,
+  "resumed_at": "2026-09-21T09:51:10.064065+00:00"
+}

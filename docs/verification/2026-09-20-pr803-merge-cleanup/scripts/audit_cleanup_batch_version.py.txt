@@ -1,0 +1,142 @@
+"""One-off audit for the user-authorized PR803 closeout; never removes files.
+
+Board is a candidate source, not authority. Unknown ignored content, special
+index flags, active references, non-ancestor heads and rollback roots all veto.
+No raw process arguments or launchd environments are persisted.
+"""
+from pathlib import Path
+from datetime import datetime, timezone
+import collections
+import json
+import os
+import subprocess
+import sys
+
+OUT = Path(__file__).resolve().parent
+REPO = Path('/Users/a77/finance-workspace-private')
+ENV = dict(os.environ, GIT_OPTIONAL_LOCKS='0')
+
+
+def run(args, cwd=None, allowed=(0,)):
+    p = subprocess.run(args, cwd=cwd, env=ENV, capture_output=True, timeout=90)
+    if p.returncode not in allowed:
+        raise RuntimeError(f'command failed rc={p.returncode}: {args[:3]}')
+    return p
+
+
+def git(path, *args):
+    return run(['git', '-C', str(path), *args]).stdout.decode()
+
+
+def save(path, value):
+    temp = path.with_suffix('.tmp')
+    temp.write_text(json.dumps(value, ensure_ascii=False, indent=2) + '\n')
+    temp.replace(path)
+
+
+def cache_file(name):
+    p = Path(name)
+    return (('__pycache__' in p.parts and p.suffix == '.pyc')
+            or p.parts[0] in {'.pytest_cache', '.ruff_cache'})
+
+
+def protected_refs(paths):
+    """Snapshot actual open files, commands, loaded launchd and launch files."""
+    refs = {str(p): [] for p in paths}
+    def matches(text, source):
+        for p in paths:
+            if str(p) in text or p.name in text:
+                refs[str(p)].append(source)
+    proc = run(['ps', '-axo', 'pid=,command='])
+    for line in proc.stdout.decode(errors='replace').splitlines():
+        if line.strip():
+            matches(line, 'process:' + line.split()[0])
+    proc = run(['lsof', '-nP', '-u', str(os.getuid()), '-F', 'pn'])
+    if proc.stderr.strip():
+        raise RuntimeError('incomplete lsof coverage')
+    pid = '?'
+    for line in proc.stdout.decode(errors='replace').splitlines():
+        if line.startswith('p'):
+            pid = line[1:]
+        elif line.startswith('n/'):
+            q = Path(os.path.realpath(line[1:]))
+            for p in paths:
+                if p == q or p in q.parents:
+                    refs[str(p)].append('open-file-or-cwd:' + pid)
+    for domain in (f'gui/{os.getuid()}', f'user/{os.getuid()}', 'system'):
+        proc = run(['launchctl', 'print', domain])
+        matches(proc.stdout.decode(errors='replace'), 'loaded-launchd:' + domain)
+    config_roots = [Path.home()/'Library/LaunchAgents', Path('/Library/LaunchAgents'),
+                    Path('/Library/LaunchDaemons'), Path.home()/'.local/bin', Path.home()/'.config']
+    for root in config_roots:
+        if not root.exists():
+            continue
+        for directory, dirs, files in os.walk(root, followlinks=False):
+            dirs[:] = [d for d in dirs if d not in {'node_modules', '.git', 'cache', 'Cache', 'CacheStorage'}]
+            for name in dirs + files:
+                f = Path(directory)/name
+                if f.is_symlink():
+                    matches(str(f.resolve()), 'symlink:' + str(f))
+                elif f.is_file() and f.stat().st_size < 2_000_000:
+                    matches(f.read_bytes().decode(errors='replace'), 'launcher-or-config:' + str(f))
+    # Top-level runtime config, symlinks, and symlinks in registered trees. Do
+    # not traverse node_modules or ignored data; this is a reference scan.
+    all_trees = [Path(r['path']) for r in json.loads((OUT/'board-before.json').read_text())['trees']]
+    for root in [Path.home(), Path.home()/'.finance-runtime', *all_trees]:
+        if not root.is_dir():
+            continue
+        for f in root.iterdir():
+            if f.is_symlink():
+                matches(str(f.resolve()), 'symlink:' + str(f))
+    return {p: sorted(set(v)) for p, v in refs.items()}
+
+
+def main():
+    board = json.loads((OUT/'board-before.json').read_text())
+    base = git(REPO, 'rev-parse', 'gitea/main').strip()
+    candidates = [r for r in board['trees'] if r['kind'] in {'dev-wt','prod-snapshot'} and r['in_main'] and not r['dirty']]
+    paths = [Path(r['path']).resolve() for r in candidates]
+    refs = protected_refs(paths)
+    # Preserve all current runtime roots and previous two chronological switch
+    # roots: the immediately previous record lacks port, so also keep last
+    # explicit 8792 rollback instead of silently assigning the unknown record.
+    switches = [json.loads(l) for l in (Path.home()/'.finance-runtime/deploy-ledger.jsonl').read_text().splitlines() if l.strip()]
+    switches = [r for r in switches if r.get('action')=='switch']
+    keep = {str(Path(r['snapshot_path']).resolve()) for r in switches[-2:] if r.get('snapshot_path')}
+    port = [r for r in switches if r.get('port')==8792]
+    keep.update(str(Path(r['snapshot_path']).resolve()) for r in port[-2:] if r.get('snapshot_path'))
+    rows = []
+    for r in candidates:
+        p = Path(r['path'])
+        row = dict(r, reasons=[], ignored_count=0, unknown_ignored=[], refs=refs[str(p.resolve())])
+        try:
+            if str(p.resolve()) in keep:row['reasons'].append('production-or-rollback-anchor')
+            if r['branch']=='main':row['reasons'].append('main-branch-checkout')
+            if row['refs']:row['reasons'].append('active-or-config-reference')
+            if p.is_symlink() or p.resolve()!=p:row['reasons'].append('symlink-root')
+            if git(p,'rev-parse','HEAD').strip()!=r['head']:row['reasons'].append('head-drift')
+            if git(p,'status','--porcelain=v1','--untracked-files=all'):row['reasons'].append('dirty-now')
+            anc=run(['git','merge-base','--is-ancestor',r['head'],base],cwd=REPO,allowed=(0,1))
+            if anc.returncode:row['reasons'].append('patch-equivalent-not-ancestor')
+            admin=Path(git(p,'rev-parse','--absolute-git-dir').strip())
+            row['admin']=str(admin)
+            if any((admin/n).exists() for n in ('locked','index.lock','MERGE_HEAD','rebase-merge','rebase-apply')):row['reasons'].append('git-operation-or-lock')
+            if (p/'.gitmodules').exists():row['reasons'].append('submodule-config')
+            flags=git(p,'ls-files','-v').splitlines()
+            if any(not l.startswith('H ') for l in flags):row['reasons'].append('special-index-flags')
+            ignored=[s for s in git(p,'ls-files','--others','--ignored','--exclude-standard','-z').split('\0') if s]
+            row['ignored_count']=len(ignored)
+            row['ignored_roots']=dict(collections.Counter(Path(s).parts[0] for s in ignored))
+            row['unknown_ignored']=[s for s in ignored if not cache_file(s)]
+            if row['unknown_ignored']:row['reasons'].append('unknown-ignored-content')
+            row['ignored_files']=ignored
+        except Exception as e:
+            row['reasons'].append('inspection-failed:'+type(e).__name__+':'+str(e))
+        row['eligible']=not row['reasons']
+        rows.append(row)
+        save(OUT/'cleanup-audit.json',{'base':base,'complete':False,'rows':rows,'rollback_keep':sorted(keep)})
+    result={'base':base,'complete':True,'rows':rows,'rollback_keep':sorted(keep),'time':datetime.now(timezone.utc).isoformat()}
+    save(OUT/'cleanup-audit.json',result)
+    print(json.dumps({'candidates':len(rows),'eligible':sum(r['eligible'] for r in rows),'reasons':dict(collections.Counter(x for r in rows for x in r['reasons']))},ensure_ascii=False))
+
+if __name__=='__main__':main()

@@ -1,0 +1,81 @@
+{
+  "revision": "c097d712f9acfdd258709c7d0de054f978e0159c",
+  "base": "f2c3e9e1a24f42ae9b1d5a8cb9e501ababd1330a",
+  "at": "2026-09-21T10:40:06.847380+00:00",
+  "status": "PASS",
+  "errors": [],
+  "leaves": {
+    "python": {
+      "exit_code": 0,
+      "checks": 2,
+      "receipt_sha256": "99777543c246cefb9e29b0bc071bd2c28a837dc1265f14869fe200deafa3f450"
+    },
+    "frontend": {
+      "exit_code": 0,
+      "checks": 1,
+      "receipt_sha256": "da8fa67d51f4e62df031ad4e3fab2d2f7749f603f00167b41c6d375236ae1819"
+    },
+    "registry": {
+      "exit_code": 0,
+      "checks": 5,
+      "receipt_sha256": "3dbd5a06bb9d150f68fd441a9b8459b2ce193138621a6ae87069ab7ee8ac5e05"
+    },
+    "boundaries": {
+      "exit_code": 0,
+      "checks": 3,
+      "receipt_sha256": "7a82d9b781108e22060c7aeec5ea18a6f9110ed4c970805cf45ae49a2b064cf8"
+    }
+  },
+  "merged": false,
+  "nightly_deployed": false,
+  "python": {
+    "passed": 12502,
+    "skipped": 85,
+    "xfail": 2,
+    "failed": 0,
+    "errors": 0,
+    "junit_cases": 12589,
+    "receipt": {
+      "source": "/Users/a77/.finance-runtime/test-receipts/20260921T103924Z-c097d712.json",
+      "sha256": "d5029c71714dde74f8f62b34a9c7e0bf5765a23d8a2535c45a2b7ca1f85cd093",
+      "counts": {
+        "passed": 12502,
+        "failed": 0,
+        "error": 0,
+        "skipped": 85
+      },
+      "exit_status": 0
+    }
+  },
+  "resource_guard": {
+    "admission": {
+      "at": "2026-09-21T10:20:02.812439+00:00",
+      "free_bytes": 9908670464,
+      "other_pytest_processes": []
+    },
+    "minimum_observed_free_bytes": 6472081408,
+    "samples": 388,
+    "retention": "pytest tmp_path_retention_policy=failed, count=1; no failure evidence deletion"
+  },
+  "frontend": {
+    "passed": 110,
+    "e2e_passed": 34,
+    "e2e_skipped": 2,
+    "six_commands_zero": true
+  },
+  "independent_reviews": {
+    "spec": {
+      "revision": "2ea6c3db01a062b9c623498df1b60edfbafe582b",
+      "verdict": "PASS"
+    },
+    "quality": {
+      "revision": "b0cf04fb446b8e87cb4a374b63d96b7c92824551",
+      "verdict": "PASS"
+    },
+    "boundary": "scoped installer review with explicit unchanged-input applicability; not a fresh review of upstream #830 or a transplanted revision signature"
+  },
+  "hooks": {
+    "exit": 0,
+    "log_sha256": "f0b65e9c8e965118dce16d8f85498bb5635937251a7c33882367c1d31e2574a3"
+  }
+}

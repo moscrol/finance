@@ -1,0 +1,14 @@
+{
+  "started_at": "2026-09-21T11:21:46.094990+00:00",
+  "finished_at": "2026-09-21T11:25:21.754333+00:00",
+  "archive": "/Users/a77/backups/gitea-20260921-post830-guarded.tar.gz",
+  "bytes": 4465571840,
+  "sha256": "9a5af3b3fecfae116033ed761beb9ad4c99d5d988462c0ca07f74f6e882c9fbd",
+  "tar_exit_code": 0,
+  "guard_reason": "",
+  "minimum_free_bytes": 13269016576,
+  "archive_created_without_tar_error": true,
+  "restore_tested": false,
+  "gitea_was_quiesced": false,
+  "limits": "File archive only. Live service was not stopped; no transactional-consistency or restore-success claim."
+}

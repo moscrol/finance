@@ -1,0 +1,54 @@
+"""One local Gitea archive with a disk-headroom guard; not a restore proof.
+
+Does not stop Gitea, so live-store consistency is not certified. A nonzero tar
+exit or <6 GiB free space is recorded and NOT accepted as a completed archive.
+Never reads backup content into logs; archive stays outside Git, mode 0600.
+"""
+import datetime
+import hashlib
+import json
+import os
+import shutil
+import subprocess
+import time
+from pathlib import Path
+
+root = Path(__file__).resolve().parent
+archive = Path.home() / "backups/gitea-20260921-post830-guarded.tar.gz"
+receipt = root / "post830-backup-result.json"
+assert not archive.exists() and not receipt.exists()
+assert shutil.disk_usage(archive.parent).free >= 12 * 2**30
+started = datetime.datetime.now(datetime.timezone.utc).isoformat()
+env = dict(os.environ, COPYFILE_DISABLE="1")
+with archive.open("xb") as dest, (root / "post830-backup.stderr.txt").open("x") as error:
+    archive.chmod(0o600)
+    process = subprocess.Popen(["/usr/bin/tar", "-czf", "-", "-C", "/opt/homebrew/var", "gitea"], stdout=dest, stderr=error, env=env, start_new_session=True)
+    deadline = time.monotonic() + 900
+    reason = ""
+    minimum_free = shutil.disk_usage(archive.parent).free
+    while process.poll() is None:
+        free = shutil.disk_usage(archive.parent).free
+        minimum_free = min(minimum_free, free)
+        if free < 6 * 2**30 or time.monotonic() > deadline:
+            reason = "disk_headroom_guard" if free < 6 * 2**30 else "backup_deadline"
+            import signal
+            os.killpg(process.pid, signal.SIGTERM)
+            break
+        time.sleep(3)
+    try:
+        code = process.wait(timeout=15)
+    except subprocess.TimeoutExpired:
+        import signal
+        os.killpg(process.pid, signal.SIGKILL)
+        code = process.wait()
+sha = hashlib.file_digest(archive.open("rb"), "sha256").hexdigest()
+payload = {"started_at": started, "finished_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+    "archive": str(archive), "bytes": archive.stat().st_size, "sha256": sha,
+    "tar_exit_code": code, "guard_reason": reason, "minimum_free_bytes": minimum_free,
+    "archive_created_without_tar_error": code == 0 and not reason,
+    "restore_tested": False, "gitea_was_quiesced": False,
+    "limits": "File archive only. Live service was not stopped; no transactional-consistency or restore-success claim."
+}
+receipt.write_text(json.dumps(payload, indent=2) + "\n")
+print(json.dumps(payload, indent=2))
+raise SystemExit(0 if code == 0 and not reason else 1)
