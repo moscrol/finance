@@ -1,0 +1,36 @@
+{
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "python_version": "3.12.13",
+  "dependency_fingerprint": "3328bed61f3e21ea",
+  "tree": "/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0011/candidate",
+  "revision": "5e6974d3946f48c4f27c8847830d1a17c0529b41",
+  "branch": "HEAD",
+  "dirty": false,
+  "dirty_paths": [],
+  "worktree_dirty_total": 0,
+  "dependency_gate_bypassed": false,
+  "target": "/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0011/candidate",
+  "scope": {
+    "ignore": [],
+    "ignore_glob": [],
+    "deselect": [],
+    "keyword": "",
+    "markexpr": "",
+    "maxfail": 0,
+    "last_failed": false,
+    "collected": 15412
+  },
+  "counts": {
+    "passed": 15324,
+    "failed": 1,
+    "error": 0,
+    "skipped": 85,
+    "xfailed": 2,
+    "xpassed": 0
+  },
+  "failed_ids": [
+    "tests/test_stalled_cancellation_probe.py::test_stalled_read_cancellation_is_prompt[synthesis_stream]"
+  ],
+  "exit_status": 1,
+  "finished_at": "2026-09-23T16:50:36+00:00"
+}

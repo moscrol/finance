@@ -1,0 +1,30 @@
+"""Add metadata-only access within candidate, leaving content denials intact."""
+import json
+from pathlib import Path
+import subprocess
+ROOT=Path(__file__).resolve().parent
+OUT=ROOT/'sandbox-metadata'
+TREE=ROOT/'candidate'
+WORK=OUT/'work'
+PY='/Users/a77/finance-workspace-private/.venv-workbench/bin/python'
+policy=(OUT/'after.sb').read_text()+'\n(allow file-read-metadata (subpath '+json.dumps(str(TREE))+'))\n'
+(OUT/'after-v2.sb').write_text(policy)
+env={'HOME':str(WORK),'PATH':'/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin','LANG':'C.UTF-8','TMPDIR':str(WORK),'PYTHONDONTWRITEBYTECODE':'1','PYTHONPATH':str(TREE),'FWP_TEST_RECEIPT':'0','FORESIGHT_USERS_DIR':str(WORK/'users')}
+cmd=['/usr/bin/sandbox-exec','-f',str(OUT/'after-v2.sb'),PY,'-B','-m','pytest','-q','-p','no:cacheprovider',str(TREE/'intelligence/tests/test_llm_timeout_diagnostic.py'),'-k','violation_uses or cli_strict or existing_receipt or rejects_unbounded or endpoint_guard','--basetemp='+str(WORK/'after-v2')]
+with (OUT/'after-v2.log.txt').open('xb') as f:
+ result=subprocess.run(cmd,cwd=TREE,env=env,stdout=f,stderr=subprocess.STDOUT,timeout=30)
+check='''from pathlib import Path
+import sys
+for p in sys.argv[1:]:
+ try: Path(p).read_bytes()
+ except PermissionError: pass
+ else: raise AssertionError('content read unexpectedly allowed: '+p)
+print('all protected content reads denied')
+'''
+cmd2=['/usr/bin/sandbox-exec','-f',str(OUT/'after-v2.sb'),PY,'-B','-c',check,str(TREE/'AGENTS.md').replace('/AGENTS.md','/docs/agent-product-door.md'),str(TREE/'.git'),'/Users/a77/.pi/agent/models.json','/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260924-0024/spec/report/parsed.json']
+with (OUT/'denials-v2.log.txt').open('xb') as f:
+ denied=subprocess.run(cmd2,cwd=TREE,env=env,stdout=f,stderr=subprocess.STDOUT,timeout=10)
+record={'author_test_exit':result.returncode,'content_denials_exit':denied.returncode,'scope':'host sandbox probe only','commands':[cmd,cmd2]}
+(OUT/'result-v2.json').write_text(json.dumps(record,indent=2)+'\n')
+print(json.dumps(record))
+assert result.returncode==denied.returncode==0
