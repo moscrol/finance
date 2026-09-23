@@ -13,7 +13,7 @@
 
 ## 当前状态
 
-全量已结束，整体 RED：`9a0227986` 上 14567P/1F/85S/2X，collected=14655；前端六步与 registry 五项均 0。失败是 `test_real_turn_terminal_claim_does_not_publish_an_incomplete_artifact_list` 第 160 行读到 queued 而非 completed；单独复跑 1P，根因未定位，不能抹掉全量红。文档保留 WIP，不合 main。
+全量已结束，整体 RED：`9a0227986` 上 14567P/1F/85S/2X，collected=14655；前端六步与 registry 五项均 0。失败是 `test_real_turn_terminal_claim_does_not_publish_an_incomplete_artifact_list` 第 160 行读到 queued 而非 completed；单独复跑 1P，根因未定位，不能抹掉全量红。文档已提交推送，PR [#883](http://127.0.0.1:3300/a77/finance-workspace-private/pulls/883) 保留 WIP，未合 main；与 `4315d9d5f` 的预览合并无冲突。
 
 证据根 `~/.finance-runtime/reviews/claim-scope-final-20260923/`；唯一全量收据 `receipts/gate-R2GxQOZc/pytest.json`，整体退出码在 `runner.log`。
 
