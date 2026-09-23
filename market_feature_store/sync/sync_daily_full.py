@@ -175,6 +175,42 @@ def run_hithink_stock_daily_step() -> dict:
     return sync_hithink_stock_daily(mode="incremental")
 
 
+def run_bridge_stock_daily_step(trade_date: str) -> dict:
+    """主源没写出当日 fact_stock_daily 时，用同花顺日线兜底补齐。
+
+    为什么需要它（2026-09-22 复盘）：fact_stock_daily 缺当日行会让 13 个
+    下游步骤连环坡、夜跑 rc=2 不换名，当晚已成功抓到的 6 类同花顺数据一并
+    被丢弃，次日重演（09-21 与 09-22 日志一字不差）。同花顺日线表当晚 6 个
+    步骤全绿，缺的只是搬运通道。
+
+    **它是兜底，不是主源**：能用东财快照就用东财（它有换手率与股名，
+    同花顺两样都不提供）。主源成功时本步骤自动跳过——不靠额外的先后判断，
+    而是靠 bridge 默认拒绝覆盖已有行这道守卫本身。
+
+    两个源都没数据时本步骤会报错，这是对的：那确实是当天没行情，
+    应该红在这里，而不是等到 compute-features 才爆。
+    """
+    from .bridge_hithink_stock_daily import apply_bridge_day, build_bridge_day
+
+    con = connect()
+    try:
+        existing = con.execute(
+            "SELECT count(*) FROM fact_stock_daily WHERE trade_date = ?",
+            [trade_date],
+        ).fetchone()[0]
+        if existing:
+            return {"skipped": True, "reason": f"主源已写入 {existing} 行", "rows": existing}
+        plan = build_bridge_day(con, trade_date)
+        applied = apply_bridge_day(con, plan)
+        return {
+            "bridged": True, "coverage": plan["coverage"],
+            "absent_count": plan["absent_count"], "gap_count": len(plan["gaps"]),
+            **applied,
+        }
+    finally:
+        con.close()
+
+
 def _run_compute_features(trade_date: str) -> dict:
     """fact 写入后的派生层。漏跑就是「有行情、门禁红在 feature_*」。"""
     if str(PROJECT_DIR) not in sys.path:
@@ -287,6 +323,8 @@ def run_daily_update(
         steps.append(_run_step("sync-stock-daily", sync_fact_stock_daily_snapshot, trade_date=td))
     # 同花顺官方 dump 并跑，不改 fact_stock_daily。缺 key 跳过，不让整条 daily-full 红。
     steps.append(_run_step("sync-hithink-stock-daily", run_hithink_stock_daily_step))
+    # 兜底必须排在同花顺日线之后（要用当晚刚落的 bar）、compute-features 之前。
+    steps.append(_run_step("bridge-stock-daily", run_bridge_stock_daily_step, td))
     steps.append(_run_step("sync-hithink-sector-kline", run_hithink_sector_kline_step, td))
     steps.append(_run_step("sync-hithink-limit-pools", run_hithink_limit_pools_step, td))
     steps.append(_run_step("sync-hithink-dragon-auction", run_hithink_dragon_auction_step, td))
