@@ -52,5 +52,5 @@
 ## 边界
 
 - 四叶收据在 #854 head 上取（超集）而非预览树；预览树只跑了 240 条定向。依据：main 漂移文件与本 PR 零重叠、`--base-drift-max 5` 内（4）。
-- **合入当时未跑**合后主干 tip 的全量批次门禁：机器磁盘 < 1 GB、swap 10.6/12 G、9 套 pytest 并发（#69 会话 01:10 告警）。这是历史缺口；09-23 后续补验见 `docs/handoffs/2026-09-23-claim-scope-final-state.md`，按其确切被测 SHA 判断可采信范围。
+- **合入当时未跑**合后主干 tip 的全量批次门禁：机器磁盘 < 1 GB、swap 10.6/12 G、9 套 pytest 并发（#69 会话 01:10 告警）。这是历史缺口；09-23 原始红项补验见 `docs/handoffs/2026-09-23-claim-scope-final-state.md`，测试隔离修复与授权收口见 `docs/handoffs/2026-09-23-claim-scope-authorized-closeout.md`。按各自确切被测 SHA 判断可采信范围，不改写旧失败。
 - 全量 python 叶带 `--ignore=scripts/archive`；零 live、不动 8792、不翻 `ASK_SEMANTIC_JUDGE`。
