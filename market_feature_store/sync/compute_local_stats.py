@@ -19,6 +19,7 @@ fact_sector_stock_daily 名单）写本地加工表，source 一律 ``local:*``�
 from __future__ import annotations
 
 import json
+import math
 from collections import defaultdict
 from datetime import date, datetime, timedelta, timezone
 
@@ -228,6 +229,11 @@ def compute_limit_stats_local(trade_date, *, con=None, force: bool = False, min_
             missing_bars = sorted({r[2] for r in members} - bar_codes)
             if missing_bars:
                 raise ValueError(f"sector member missing canonical stock bar: {missing_bars[:10]}")
+            # Market-wide counts also consume bars outside the declared sectors.
+            invalid_closes = sorted(r[1] for r in today
+                                    if r[3] is None or not math.isfinite(r[3]) or r[3] <= 0)
+            if invalid_closes:
+                raise ValueError(f"invalid canonical stock bar close: {invalid_closes[:10]}")
             observed = defaultdict(list)
             for sector, _name, stock, _sw in members:
                 observed[sector].append(stock)
