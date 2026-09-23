@@ -1,6 +1,6 @@
 {
   "schema": "adaptive-l6-natural-live-draft/v1",
-  "state": "AUTHORIZED_PREFLIGHT_PENDING",
+  "state": "BLOCKED_RETRIEVAL_DEPENDENCY",
   "can_execute": false,
   "workorder": "#76 L6",
   "candidate_pr": 868,
@@ -8,7 +8,7 @@
     "approved": true,
     "quote": "批准，判官不是可以关吗，你看下判官开关的区别",
     "source": "current user conversation, response to the L6 scope request recorded in PR #868 comment 6115",
-    "scope_note": "L6 candidate-first order, three initial submissions and read-only data copies approved; inspect judge modes before live execution. No instruction to change production or expand to a live on/off comparison.",
+    "scope_note": "L6 candidate-first order, three initial submissions and read-only data copies approved. User subsequently said 继续推进 after the recommendation to retain llm for this acceptance only. No production change or additional on/off live comparison authorized.",
     "judge_mode_comparison_completed": true,
     "judge_mode_override_requested": false,
     "required_scope": [
@@ -26,8 +26,9 @@
     "premerge_candidate_revision": "31f1b40dd788d36c71da249d59fb769c50d7cd30",
     "engineering_revision": "7ad61a0d3fd9ee63abe2089a4049a0a1b4a8bc16",
     "observed_main_revision": "ffd1b7f1572067e9a4c7e3a5845e99cf7f876cfb",
-    "runtime_revision": null,
-    "runtime_clean": null,
+    "runtime_revision": "31f1b40dd788d36c71da249d59fb769c50d7cd30",
+    "runtime_clean": true,
+    "runtime_identity_scope": "exclusive locked checkout and strict loopback probe; no live sidecar loaded yet",
     "require_exclusive_detached_checkout": true,
     "require_health_revision_and_fingerprint_match": true
   },
@@ -72,8 +73,9 @@
     "writer": "kimi-k3",
     "judge": "glm-5.3-flash",
     "semantic_judge_mode": "llm",
-    "semantic_judge_mode_note": "Original L6 proposal, not a mandatory product setting. No live run started; ASK_SEMANTIC_JUDGE=off is supported and leaves deterministic checks and writer repair active.",
-    "evidence_judge_mode": null,
+    "semantic_judge_mode_note": "Retain llm for authorized L6 acceptance, not a mandatory product setting or production change. No live run started.",
+    "evidence_judge_mode": "auto",
+    "evidence_judge_mode_note": "Explicitly retain the inherited retrieval-judge mode; terminal judge remains pinned to flash. No additional live on/off comparison.",
     "served_models_must_be_recorded": true,
     "remember_credentials": false,
     "credentials_in_files": false,
@@ -82,11 +84,12 @@
     "strict_historical_ab_comparison": false
   },
   "data": {
-    "frozen": false,
-    "market_database_copy": null,
-    "snapshot_copy": null,
-    "manifest": null,
-    "freshness": null,
+    "frozen": true,
+    "market_database_copy": "~/.finance-runtime/reviews/pr868-l6-natural-20260923-1315/preparation/data/db/market_feature_store.duckdb",
+    "snapshot_copy": "~/.finance-runtime/reviews/pr868-l6-natural-20260923-1315/preparation/data/market_snapshot",
+    "manifest": "~/.finance-runtime/reviews/pr868-l6-natural-20260923-1315/preparation/frozen-data-manifest.json",
+    "freshness": "~/.finance-runtime/reviews/pr868-l6-natural-20260923-1315/preparation/frozen-data.json",
+    "known_freshness_boundary": "market/stock and JSON snapshot through 2026-09-22; published sector/sector-stock views through 2026-09-18; KB and external inputs not frozen",
     "requirements": [
       "record each relevant canonical fact table max(trade_date) before running",
       "freeze canonical market database and matching snapshots, verify their contract",
@@ -137,7 +140,9 @@
       "captured_judge_status": "repaired",
       "captured_numeric_condition_deletions": 6,
       "expected_fixture_verdict": "NOT_PASSED",
-      "formal_adjudicator_replayed": false,
+      "formal_adjudicator_replayed": true,
+      "observed_verdict": "NOT_PASSED",
+      "audit": "~/.finance-runtime/reviews/pr868-l6-natural-20260923-1315/positive-control-audit-final.json",
       "limit": "historical dirty-tree fixture; citation binding alone does not prove numeric support; verify claim-level evidence first"
     }
   },
@@ -149,17 +154,19 @@
     "do not resume or overwrite any historical run"
   ],
   "readiness_blockers": [
-    "explicitly pin both semantic and retrieval evidence judge modes before starting; adaptive_arm=off is not judge-off",
-    "the compare_adaptive_research launcher selects forbidden ports and is not a frozen-data acceptance runner",
-    "claim-level positive-control adjudication and full acceptance runner validation are not complete"
+    "offline BGE-M3 load fails: snapshot lacks pytorch_model.bin/model.safetensors; another process owns an incomplete download, not modified by this run",
+    "the compare_adaptive_research launcher selects forbidden ports; a live controller using the prepared inputs still needs validated startup, single-submit reservation, 400/429 stop and closure controls"
   ],
   "this_preflight": {
-    "mode": "offline_historical_extraction_only",
-    "evidence_root": "~/.finance-runtime/reviews/pr868-l6-preflight-20260923-1220/",
+    "mode": "authorized_offline_preparation_and_source_audit",
+    "evidence_root": "~/.finance-runtime/reviews/pr868-l6-natural-20260923-1315/",
     "new_model_requests": 0,
     "new_financial_submissions": 0,
-    "production_db_copies": 0,
+    "production_db_copies": 1,
     "production_writes": 0,
-    "live_verdict": null
+    "live_verdict": "BLOCKED_RETRIEVAL_DEPENDENCY",
+    "live_verdict_scope": "pre-start environmental blocker, not a financial answer verdict",
+    "strict_probe": "~/.finance-runtime/reviews/pr868-l6-natural-20260923-1315/strict-deadline.json",
+    "preparation_closure": "~/.finance-runtime/reviews/pr868-l6-natural-20260923-1315/preparation/closure.json"
   }
 }

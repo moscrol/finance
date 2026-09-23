@@ -2,9 +2,9 @@
 
 ## 状态
 
-`AUTHORIZED_PREFLIGHT_PENDING`。用户回复「批准，判官不是可以关吗，你看下判官开关的区别」，批准上一轮三题预算、只读数据副本及候选先验顺序；当前先核对判官模式。不再等待同一授权，仍未发模型请求、冻结数据、启动旁车、合入或部署。启动/收尾控制与判定器未完成，故 `protocol.draft.json` 仍为 `can_execute=false`。
+`BLOCKED_RETRIEVAL_DEPENDENCY`。用户先批准三题预算、只读副本及候选先验顺序，核对判官差异后又说「继续推进」；本次继续按终稿判官 llm/flash、检索判官 auto 固定。现已冻结数据、重跑严格截止探针并完成失败阳性对照，但本地 BGE-M3 权重缺失，离线加载失败，故仍 `can_execute=false`。尚未发真实模型请求、启动旁车、合入或部署，不再重复索要已有授权。
 
-候选 PR #868：`31f1b40dd788d36c71da249d59fb769c50d7cd30`；完整工程收据仍绑定 `7ad61a0d3`。本次只是 docs 后续，不移绑原工程收据。
+候选 PR #868：`31f1b40dd788d36c71da249d59fb769c50d7cd30`；完整工程收据仍绑定 `7ad61a0d3`。既有工程收据不移绑。本轮新增的是验收工装和定向测试，运行候选仍固定不变；新分支 head 不冒充已过原九项全量门禁。
 
 ## 发现的前置问题
 
@@ -35,8 +35,8 @@
 - 候选固定为 `31f1b40dd788d36c71da249d59fb769c50d7cd30`，独占 detached 检出；代码若变化重新议定，不追着动态分支运行。
 - 三道原题逐字固定，SHA256 在 draft；各首发 1 次、重发 0、续问 0，串行运行。网关探针最多 1 次，HTTP 400/429 停批，不换模型/账号硬顶。
 - T900 / Episode 600 / 单发 75 / 修订 30 / 每次核验共享窗 150 秒不变。150 秒不是整个用户回合判官的总预算。
-- 原提案为 K3 写手、glm-5.3-flash 判官；开关差异见下节。用户要求核对差异，未明令改为 off，也未批准扩成两组真实对照。启动前显式固定两个判官开关，记实际 served model。Q2 保持 local_only 四只读能力，不开 derived_calculation。
-- 已授权复制只读市场库与匹配快照、写 manifest，当前尚未执行；KB/外部来源若未冻结要明确披露，不称全输入冻结。
+- K3 写手、glm-5.3-flash 判官；差异见下节。核对后用户要求继续，终稿判官固定 llm，检索判官显式保留继承值 auto；不改生产、不扩成两组真实对照。实际起跑仍须记录 served model。Q2 保持 local_only 四只读能力，不开 derived_calculation。
+- 已完成只读市场库和匹配快照的冻结及 manifest；KB/外部来源未冻结，不称全输入冻结。
 - 拟用 19897 / 19898（未启动、未预留），起跑时核实空闲；禁止回退到 8780--8830。独占 users / Episode / 待重核根，remember=false，不落密钥。
 - 保留原始回答与 trace，闭环核生产身份、冻结输入和进程/锁；不合 main、不部署、不覆盖旧样本。
 
@@ -64,8 +64,21 @@ L6 可在 off 下观察真实写手改稿与数值保真，但迟到判官回包
 
 离线回归 **113 passed**，无外呼：`test_judge_mode_off.py`、`test_judge_mode_receipt_independence.py`、`test_boundary_partial_delivery.py`、`test_financial_forward_seams.py`、`test_research_delivery_repair.py`、`test_evidence_judge.py`（均在 `intelligence/tests/`）。收据 `~/.finance-runtime/test-receipts/20260923T043519Z-9c9c0c0a-45899dbd697b.json` 校验通过：revision、解释器、依赖与干净树一致。这不是自然 A/B，不据此量化延迟、费用或质量收益。
 
+## 获批后的实际推进（2026-09-23）
+
+新证据根：`~/.finance-runtime/reviews/pr868-l6-natural-20260923-1315/`。
+
+- 独占、加锁候选检出：`finance-workspace-private/`，HEAD `31f1b40dd788d36c71da249d59fb769c50d7cd30`，首尾干净。
+- `strict-deadline.json`：候选原有诊断脚本 `--assert-deadline` exit 0，13 个本机模拟 HTTP 场景，`deadline_violations=[]`。迟到判官场景 `report_received=false`、`unavailable=true`，调用记录 `failed/timeout`。这是模拟证明，不是三题自然模型验收。
+- `positive-control-review.json` / `positive-control-audit-final.json`：历史固态电池答卷的一条条件句引用 E1；原始 09-10 行为 `成交额亿=1295.9673`，草稿写 `1295.97 亿`，实体、日期、窗口、单位与四舍五入均匹配，但该条件句被 `novel_numeric_condition` 删除。公开稿虽在关注列表保留数值，却未保留该条件。判定器正确返回 `NOT_PASSED`（exit 1 为预期），不把其余五条删除一并判成误删，也不认证这条策略的预测有效性。
+- `preparation/frozen-data.json`：数据库独立 inode 的写时复制，3,855,626,240 字节，SHA256 `75ff8d41eebf1a514140081c2899c9b4fd8df7287a0e5e3462fd52f3c975c941`。加上快照/导出文件，共 751 项只读 manifest；JSON 快照契约通过。市场与个股截至 09-22，published 板块/成分 VIEW 截至 09-18，后续作答必须披露并对齐比较窗口，不补库凑齐。
+- `preparation/retrieval-probe.log`：用知识库自己的 RAG 解释器和 `rag.embedder.get_embedder('bge-m3')` 离线加载，报 `OSError: no file named model.safetensors, or pytorch_model.bin`。没有下载、换模型或降级检索；观察到其他进程持有 `.incomplete` 文件，不干预它。
+- `preparation/closure.json`：生产七字段前后全一致，冻结 manifest 不变，候选仍干净；没有起旁车/占锁。旧字段 `processes_started=0` 指旁车为零，实际执行了一个已退出的本地检索探针子进程；最终根 `closure.json` 明确区分。没有消费网关探针或三题额度。
+
+工装归位：`scripts/review_probes/prepare_adaptive_l6.py`（授权与题面哈希、只读冻结、原始数据鲜度、离线依赖探测、前后身份核对）和 `audit_adaptive_l6.py`（绑定原件的逐句复核汇总，缺审计/缺实际改稿/缺迟到样本不签 PASS）。后者不是自动语义判官，也不是独立 QC。相关测试在 `tests/test_adaptive_l6_audit.py`；验证收据以本节后续记录和 Git 提交为准，脏树开发读数不作 clean-revision 证明。
+
 ## 仍需完成
 
-显式固定两个判官模式 -> 补齐独占启动/冻结/收尾控制，并先完成判定器的旧失败阳性对照 -> 三题各一次 -> 逐项审计 -> #75 独立终审。正文保留的语义审计不能由 activity counts 替代；没有发生迟到回包时，该自然分支标 NOT_EXERCISED，严格传输探针证据单列。单位错位仍归 #852，不能在批内顺手修后重跑刷绿。
+本机检索权重可用并复核 -> 补齐真正 live controller 的独占端口、单次提交预占、400/429 立即停批、启动/收尾验证 -> 使用已冻结输入三题各一次 -> 逐项审计 -> #75 独立终审。正文保留的语义审计不能由 activity counts 替代；没有发生迟到回包时，该自然分支标 NOT_EXERCISED，严格传输探针证据单列。单位错位仍归 #852，不能在批内顺手修后重跑刷绿。
 
-本轮未新增通用脚本：提取、开关对照及收据校验复用已有入口；JSON 记录已获授权的边界，执行前置尚未齐备，不是启动器。
+没有通过改运行时代码、换题、换数据或降级检索绕过阻塞。新增工装不发模型调用；正式 live controller 仍须围绕候选原有 Workbench 入口装配，不复活旧端口扫描入口。
