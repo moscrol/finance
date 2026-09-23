@@ -1678,29 +1678,54 @@ def test_skills_serializes_only_product_registry_definitions(
     assert all("skill_tools" not in name for name in imported)
 
 
-def test_cancel_missing_run_and_idempotence(client: TestClient) -> None:
-    assert client.post("/api/runs/run_missing/cancel").status_code == 404
-    run_id = client.post("/api/runs", json={"question": "q", "user": "alice"}).json()[
-        "run_id"
-    ]
-    assert (
-        client.post(f"/api/runs/{run_id}/cancel", params={"user": "bob"}).status_code
-        == 404
-    )
-    _wait_terminal(client, run_id, user="alice")
-    assert client.app.state.cancellation_registry == {}
-    first = client.post(f"/api/runs/{run_id}/cancel", params={"user": "alice"}).json()
-    second = client.post(f"/api/runs/{run_id}/cancel", params={"user": "alice"}).json()
-    assert (
-        first
-        == second
-        == {
-            "run_id": run_id,
-            "status": "completed",
-            "cancel_requested": True,
-        }
-    )
-    assert client.app.state.cancellation_registry == {}
+@pytest.mark.parametrize("hold_worker_open", [False, True])
+def test_cancel_missing_run_and_idempotence(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, hold_worker_open: bool
+) -> None:
+    supervisor = client.app.state.supervisor
+    original_execute = supervisor._execute
+    release_worker = threading.Event()
+
+    def execute_with_tail(*args, **kwargs) -> None:
+        original_execute(*args, **kwargs)
+        if hold_worker_open:
+            assert release_worker.wait(5), "worker tail was not released"
+
+    monkeypatch.setattr(supervisor, "_execute", execute_with_tail)
+    try:
+        assert client.post("/api/runs/run_missing/cancel").status_code == 404
+        run_id = client.post("/api/runs", json={"question": "q", "user": "alice"}).json()[
+            "run_id"
+        ]
+        assert (
+            client.post(f"/api/runs/{run_id}/cancel", params={"user": "bob"}).status_code
+            == 404
+        )
+        _wait_terminal(client, run_id, user="alice")
+        key = ("alice", run_id)
+        registry = client.app.state.cancellation_registry
+        if hold_worker_open:
+            assert key in registry
+        release_worker.set()
+        # A terminal run is visible before the Future's cleanup callback removes its signal.
+        deadline = time.monotonic() + 5.0
+        while key in registry and time.monotonic() < deadline:
+            time.sleep(0.01)
+        assert registry == {}
+        first = client.post(f"/api/runs/{run_id}/cancel", params={"user": "alice"}).json()
+        second = client.post(f"/api/runs/{run_id}/cancel", params={"user": "alice"}).json()
+        assert (
+            first
+            == second
+            == {
+                "run_id": run_id,
+                "status": "completed",
+                "cancel_requested": True,
+            }
+        )
+        assert client.app.state.cancellation_registry == {}
+    finally:
+        release_worker.set()
 
 
 def test_create_run_and_fetch_artifacts(client: TestClient) -> None:
