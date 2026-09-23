@@ -1,14 +1,14 @@
 # docs/claim-scope-65-design · #65 口径越界 lint（#850/#854）已合入 · 2026-09-23 凌晨（S5）
 
-**红线守住**：运行时一行未改；零 live；未动 8792；未翻 `ASK_SEMANTIC_JUDGE`。
+**口径说明**：运行时接入点一行未改；本批仍有离线判据模块、CLI 和测试改动；零 live；未动 8792；未翻 `ASK_SEMANTIC_JUDGE`。
 
 ## 状态
 
 - **已合入主干**：#850 → `a696c5e1d`（`gitea_pr.py merge --record`，回读三项全过）；#854（先 `PATCH` base → 主干）→ `6fc6bfa94`（POST 客户端超时但服务端已合：tip 树 == 预览树、`^2` == head；PR 对象滞后且 `manually-merged` 不允许，已关闭留指针评论）。记录 `~/.finance-runtime/reviews/claim-scope-merge-65-20260922/merge-85{0,4}.json`，含授权原话与出处（用户 16:11:39Z / 16:34:51Z 两条）。
 - 合前四叶（#854 head `5f5ce2d1`）：python 12576P/0F（`20260922T170400Z-5f5ce2d1.json`，可采信，漂移 4，带 `--ignore=scripts/archive`）；frontend+e2e exit 0（e2e 34P）；registry 5/5；预览树定向 240P；#850 head 定向 31P。
 - 合后：两冻结 run 在 `6fc6bfa94` 重放逐字段一致（`replay-on-main/`）。
-- 文档 PR **#869**（本分支，base 主干；#866 已关闭指向它）：接入点设计、`docs/verification/2026-09-22-claim-scope-merge-65/`（README / L5 条件卡已填候选 SHA / QC 候选包改事后审 / 第二方审查）。INDEX #65 行直接推在 `docs/closeout-workorders-0922`（#858 分支）。
-- 远端分支 `fix/answer-claim-scope-0922`、`fix/claim-scope-hardening-0922` 已删；本地同名已 `-d`；两 PR 的 worktree 与三棵门禁树已清。留 `fwp-gate-65-main`（合后主干 detached，供 #75 事后审）与本树。
+- 文档 PR **#869**（本分支，base 主干；#866 已关闭指向它）：接入点设计、`docs/verification/2026-09-22-claim-scope-merge-65/`（README / L5 条件卡已填候选 SHA / QC 候选包改事后审 / 第二方审查）。INDEX #65 行仍在开放 PR **#858** 的 `docs/closeout-workorders-0922` 分支，尚不能视为已落入主干。
+- 远端分支 `fix/answer-claim-scope-0922`、`fix/claim-scope-hardening-0922` 已删；本地同名已 `-d`；两 PR 的 worktree 与三棵门禁树已清。`fwp-gate-65-main` 是供 #75 事后审的只读 detached 审计树；本轮质检确认其 HEAD 为 `da761024e`（#878 后），不是旧文档所写的 `bd2290c86`，也不代表之后的 `gitea/main` tip。
 
 ## 未做 / 留给后续
 
@@ -20,4 +20,4 @@
 
 ## 接手怎么做
 
-合 #869 前 `merge-tree` 自探（纯文档）；INDEX #65 行终态在 closeout 分支（`✅ 已合入`），若 #858 已合则改主干上的行。
+#869 已合；INDEX #65 行目前仍由开放 PR #858 承载。#858 合入后，复核该行是否与最新主干和本收尾事实一致，再把“已合入”从分支事实升级为主干事实。
