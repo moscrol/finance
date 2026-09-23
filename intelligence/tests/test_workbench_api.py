@@ -3260,7 +3260,10 @@ def test_sse_emits_terminal_message_arriving_between_reads(
 
 
 def test_sse_rejects_negative_after(client: TestClient) -> None:
-    run_id = client.post("/api/runs", json={"question": "q"}).json()["run_id"]
+    # Cursor validation needs a stored run, not a background answer worker.
+    store = RunStore()
+    run_id = store.create_run("q", "ask").run_id
+    store.finish_run(run_id, rs.STATUS_COMPLETED)
     assert (
         client.get(f"/api/runs/{run_id}/events", params={"after": -1}).status_code
         == 422
