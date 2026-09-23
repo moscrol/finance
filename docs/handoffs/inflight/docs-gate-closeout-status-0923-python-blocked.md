@@ -9,10 +9,12 @@
 - 展开见 `docs/handoffs/2026-09-23-main-tip-gate-bbd5.md`。
 
 ## 当前状态
+文档已提交 `91eacae93` 并推送，PR #886 为 WIP，未合。15:40 CST 最终回读远程 main 已推进到 `27ca084f9ffc`（#856）；本轮未测该 SHA，下面 bbd5 也只作历史证据，续跑先核最新 tip。
 本轮固定 `bbd53487f4ce`（09-23 15:32 CST 的远程 main），Python full 与 frontend/E2E 因 load1=15.13 未启动，不能放行合并。文档树在证据根目录 `trees/finance-workspace-private-5f35`，已前向到 bbd5；目录名不代表 HEAD。独占 bbd5 定向测试树已正常移除，树外证据保留。
 #881 已留评论 6183 后关闭重复入口；API closed/merged=false，Git merge `4315d9d5` 事实另有核验，不再合一次。
 
 ## 已验证
+- 文档 `diff --check`、pre-commit 全部适用检查通过；不是四叶。
 - bbd5：registry 5/5、定向 74P，正确 SHA exit 0 / 错误 SHA exit 1；归档探针先红、删除后绿。
 - 历史 5f35：正式 frontend 六步绿（Vitest 120P、E2E 34P/2S）、registry 5/5；不覆盖 bbd5。
 - 证据根 `~/.finance-runtime/reviews/gate-closeout-qc-20260923/`，bbd5 日志在 `main-bbd5/`；74P 收据 `~/.finance-runtime/test-receipts/20260923T063034Z-bbd53487-d68615dd4b96.json`。
