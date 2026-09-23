@@ -322,7 +322,8 @@ _LABEL_ONLY_AFTER_REPAIR_RE = re.compile(
 )
 _SUBSTANTIVE_CHAR_RE = re.compile(r"[0-9A-Za-z一-鿿]")
 _CONDITION_DEFINITION_RE = re.compile(
-    r"^\s*(?:[-*]\s*)?(?:\*{2})?"
+    r"^\s*(?:(?:[-*+•]|\d+[.)）、]|[一二三四五六七八九十]+[.)）、]|"
+    r"[(（]\d{1,2}[)）]|[①-⑩])\s*)?(?:\*{2})?"
     r"(?P<label>升级条件|降级条件)"
     r"(?:\*{2})?\s*[:：]"
 )
