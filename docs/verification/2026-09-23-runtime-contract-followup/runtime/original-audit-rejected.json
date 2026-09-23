@@ -1,0 +1,19 @@
+{
+  "revision": "d542658a7e47bed58694c93be8ff9951a064f810",
+  "group": "runtime",
+  "role": "host replay of pre-existing author tests; not K3 independent acceptance",
+  "wrapper_sha256": "f712479c02b12dba84fca1b67eb3b97d8944d08b6ee2936ddd0de1ad281c739d",
+  "runner_sha256": "1103f039a54f76e2b479b0b03a24cf43796dbd2681f2dfed1fb8ca1495581209",
+  "before": {
+    "revision": "d542658a7e47bed58694c93be8ff9951a064f810",
+    "status": ""
+  },
+  "accepted": false,
+  "error": "AssertionError(('nonstream_finish_reason', ('intelligence.tests.test_model_turn_completion_boundary', 'test_transport_preserves_truncation_reason[False]'), \"KeyError: '_finish_reason'\"))",
+  "after": {
+    "revision": "d542658a7e47bed58694c93be8ff9951a064f810",
+    "status": ""
+  },
+  "candidate_unchanged": true,
+  "inputs_unchanged": true
+}

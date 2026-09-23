@@ -1,0 +1,50 @@
+"""Host acceptance of the unchanged K3-authored file; not a K3 verdict."""
+import hashlib
+import importlib.util
+import json
+from pathlib import Path
+import sys
+import xml.etree.ElementTree as ET
+
+ROOT = Path(__file__).resolve().parent
+SOURCE = ROOT.parent / "runtime-probe-k3-writer-20260923-03/k3/work/inbox_checks.py"
+CANDIDATE = ROOT / "candidate"
+RUNNER = Path("/Users/a77/fwp-wt-runtime-postmerge-qc-0923/scripts/review_probes/run_runtime_contract_checks.py")
+OUTPUT = ROOT / "runs/k3-host-acceptance"
+OUTPUT.mkdir(exist_ok=False)
+spec = importlib.util.spec_from_file_location("host", RUNNER)
+host = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(host)
+host.PROFILE = ROOT / "host.sb"
+before = host.identity(CANDIDATE)
+source_hash = hashlib.sha256(SOURCE.read_bytes()).hexdigest()
+assert before == {"revision": "5f35da1723f74663a4803c4d1490c402a1d6db40", "status": ""}
+expected_red = {
+    "test_c1_failed_insert_keeps_spool_file_and_blocks_claim[deferred_short_circuit]",
+    "test_c1_failed_insert_keeps_spool_file_and_blocks_claim[mid_insert_write]",
+}
+rows = []
+for label, shadow in [("baseline", "0"), ("shadow", "1"), ("restored", "0")]:
+    junit = OUTPUT / (label + ".xml")
+    command = [sys.executable, "-B", "-m", "pytest", "-q", "-p", "no:cacheprovider",
+               "--junitxml", str(junit), str(SOURCE)]
+    result = host.sandbox_run(command, cwd=CANDIDATE, env={
+        "PATH": "/opt/homebrew/bin:/usr/bin:/bin", "PYTHONPATH": str(CANDIDATE),
+        "PYTHONDONTWRITEBYTECODE": "1", "FWP_TEST_RECEIPT": "0", "K3_INBOX_SHADOW": shadow,
+    })
+    cases = list(ET.parse(junit).getroot().iter("testcase"))
+    failures = {c.get("name"): c.find("failure").get("message") for c in cases if c.find("failure") is not None}
+    errors = [c.get("name") for c in cases if c.find("error") is not None or c.find("skipped") is not None]
+    expected = expected_red if shadow == "1" else set()
+    accepted = len(cases) == 6 and set(failures) == expected and not errors and result.returncode == (1 if expected else 0)
+    accepted = accepted and all("insert 没落账就不许销毁运输副本" in m for m in failures.values())
+    rows.append({"label": label, "exit": result.returncode, "total": len(cases), "failures": failures,
+                 "errors_or_skips": errors, "accepted": accepted})
+    print(json.dumps(rows[-1], ensure_ascii=False), flush=True)
+after = host.identity(CANDIDATE)
+record = {"role": "host acceptance of K3 partial deliverable", "source": str(SOURCE),
+          "sha256": source_hash, "before": before, "after": after,
+          "source_unchanged": source_hash == hashlib.sha256(SOURCE.read_bytes()).hexdigest(), "rows": rows}
+record["accepted"] = before == after and record["source_unchanged"] and all(r["accepted"] for r in rows)
+host.dump(OUTPUT / "receipt.json", record)
+raise SystemExit(0 if record["accepted"] else 1)

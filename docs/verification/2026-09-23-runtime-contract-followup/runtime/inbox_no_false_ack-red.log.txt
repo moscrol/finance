@@ -1,0 +1,20 @@
+FF                                                                       [100%]
+=================================== FAILURES ===================================
+________ test_failed_inbox_write_is_not_acknowledged_or_deleted[memory] ________
+intelligence/tests/test_episode_persistence_failure.py:277: in test_failed_inbox_write_is_not_acknowledged_or_deleted
+    assert not receipt.accepted and receipt.reason == "storage_failed"
+E   AssertionError: assert (not True)
+E    +  where True = InboxReceipt(message_id='inbox-1', accepted=True, reason='').accepted
+________ test_failed_inbox_write_is_not_acknowledged_or_deleted[spool] _________
+intelligence/tests/test_episode_persistence_failure.py:280: in test_failed_inbox_write_is_not_acknowledged_or_deleted
+    assert rig.episode.inbox.ingest_spool() == 0
+E   AssertionError: assert 1 == 0
+E    +  where 1 = ingest_spool()
+E    +    where ingest_spool = <intelligence.services.episode_inbox.Inbox object at 0x10d20d4f0>.ingest_spool
+E    +      where <intelligence.services.episode_inbox.Inbox object at 0x10d20d4f0> = <intelligence.runtime.agent_episode.ContinuousAgentEpisode object at 0x10d22bcb0>.inbox
+E    +        where <intelligence.runtime.agent_episode.ContinuousAgentEpisode object at 0x10d22bcb0> = Rig(task_id='inbox-failure-spool', oracle=FailingStore(inner=<intelligence.services.episode_store.MemoryEpisodeStore o...deDrive object at 0x10d22bef0>, points=[StepPoint(phase='model_pending', llm_calls=0, tool_calls=0, turn_id='turn-1')]).episode
+- generated xml file: /Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/inbox_no_false_ack-red.xml -
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_episode_persistence_failure.py::test_failed_inbox_write_is_not_acknowledged_or_deleted[memory]
+FAILED intelligence/tests/test_episode_persistence_failure.py::test_failed_inbox_write_is_not_acknowledged_or_deleted[spool]
+2 failed, 69 deselected in 7.81s

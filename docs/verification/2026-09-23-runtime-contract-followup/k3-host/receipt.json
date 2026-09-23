@@ -1,0 +1,44 @@
+{
+  "role": "host acceptance of K3 partial deliverable",
+  "source": "/Users/a77/.finance-runtime/reviews/runtime-probe-k3-writer-20260923-03/k3/work/inbox_checks.py",
+  "sha256": "fca8f180a840be30f3950bf19c9897444289f90a97a921d65649c90632ec7024",
+  "before": {
+    "revision": "5f35da1723f74663a4803c4d1490c402a1d6db40",
+    "status": ""
+  },
+  "after": {
+    "revision": "5f35da1723f74663a4803c4d1490c402a1d6db40",
+    "status": ""
+  },
+  "source_unchanged": true,
+  "rows": [
+    {
+      "label": "baseline",
+      "exit": 0,
+      "total": 6,
+      "failures": {},
+      "errors_or_skips": [],
+      "accepted": true
+    },
+    {
+      "label": "shadow",
+      "exit": 1,
+      "total": 6,
+      "failures": {
+        "test_c1_failed_insert_keeps_spool_file_and_blocks_claim[deferred_short_circuit]": "AssertionError: insert 没落账就不许销毁运输副本\nassert 1 == 0\n +  where 1 = ingest_spool()\n +    where ingest_spool = <k3_shadow_episode_inbox.Inbox object at 0x106df8620>.ingest_spool",
+        "test_c1_failed_insert_keeps_spool_file_and_blocks_claim[mid_insert_write]": "AssertionError: insert 没落账就不许销毁运输副本\nassert 1 == 0\n +  where 1 = ingest_spool()\n +    where ingest_spool = <k3_shadow_episode_inbox.Inbox object at 0x106c65c40>.ingest_spool"
+      },
+      "errors_or_skips": [],
+      "accepted": true
+    },
+    {
+      "label": "restored",
+      "exit": 0,
+      "total": 6,
+      "failures": {},
+      "errors_or_skips": [],
+      "accepted": true
+    }
+  ],
+  "accepted": true
+}

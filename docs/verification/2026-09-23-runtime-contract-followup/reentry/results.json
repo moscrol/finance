@@ -1,0 +1,200 @@
+{
+  "revision": "d542658a7e47bed58694c93be8ff9951a064f810",
+  "suite": "custom",
+  "tree": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-reentry/scratch/contract-mutations-cnxt44_j/tree",
+  "python": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "tests": [
+    "intelligence/tests/test_episode_writer_reentry.py"
+  ],
+  "definitions": "scripts/review_probes/episode_writer_reentry_mutations.json",
+  "complete": true,
+  "runs": [
+    {
+      "label": "baseline",
+      "exit": 0,
+      "executed": 12,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "runner_control_not_exclusive-red",
+      "exit": 1,
+      "executed": 3,
+      "failures": 3,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_episode_writer_reentry",
+          "name": "test_one_runner_rejects_other_task_without_replacing_or_leaking_inbox[ephemeral]",
+          "message": "Failed: DID NOT RAISE <class 'intelligence.services.episode_store.EpisodeWriterBusy'>"
+        },
+        {
+          "class": "intelligence.tests.test_episode_writer_reentry",
+          "name": "test_one_runner_rejects_other_task_without_replacing_or_leaking_inbox[memory]",
+          "message": "Failed: DID NOT RAISE <class 'intelligence.services.episode_store.EpisodeWriterBusy'>"
+        },
+        {
+          "class": "intelligence.tests.test_episode_writer_reentry",
+          "name": "test_one_runner_rejects_other_task_without_replacing_or_leaking_inbox[disk]",
+          "message": "Failed: DID NOT RAISE <class 'intelligence.services.episode_store.EpisodeWriterBusy'>"
+        }
+      ]
+    },
+    {
+      "label": "runner_control_not_exclusive-green",
+      "exit": 0,
+      "executed": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "run_bypasses_instance_owner-red",
+      "exit": 1,
+      "executed": 1,
+      "failures": 1,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_episode_writer_reentry",
+          "name": "test_live_repair_blocks_fresh_run_on_same_runner",
+          "message": "Failed: DID NOT RAISE <class 'intelligence.services.episode_store.EpisodeWriterBusy'>"
+        }
+      ]
+    },
+    {
+      "label": "run_bypasses_instance_owner-green",
+      "exit": 0,
+      "executed": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "repair_bypasses_instance_owner-red",
+      "exit": 1,
+      "executed": 1,
+      "failures": 1,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_episode_writer_reentry",
+          "name": "test_live_run_blocks_repair_of_another_task_on_same_runner",
+          "message": "Failed: DID NOT RAISE <class 'intelligence.services.episode_store.EpisodeWriterBusy'>"
+        }
+      ]
+    },
+    {
+      "label": "repair_bypasses_instance_owner-green",
+      "exit": 0,
+      "executed": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "rejected_step_marks_finished-red",
+      "exit": 1,
+      "executed": 2,
+      "failures": 1,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_episode_writer_reentry",
+          "name": "test_rejected_concurrent_drive_operation_keeps_owner_live[step]",
+          "message": "assert (not True)\n +  where True = <intelligence.runtime.agent_episode.EpisodeDrive object at 0x1066fd520>.finished"
+        }
+      ]
+    },
+    {
+      "label": "rejected_step_marks_finished-green",
+      "exit": 0,
+      "executed": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "rejected_close_marks_finished-red",
+      "exit": 1,
+      "executed": 2,
+      "failures": 1,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_episode_writer_reentry",
+          "name": "test_rejected_concurrent_drive_operation_keeps_owner_live[close]",
+          "message": "assert (not True)\n +  where True = <intelligence.runtime.agent_episode.EpisodeDrive object at 0x1074e0440>.finished"
+        }
+      ]
+    },
+    {
+      "label": "rejected_close_marks_finished-green",
+      "exit": 0,
+      "executed": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "restored-full",
+      "exit": 0,
+      "executed": 12,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    }
+  ],
+  "mutations": [
+    {
+      "id": "runner_control_not_exclusive",
+      "path": "intelligence/runtime/agent_episode.py",
+      "before_sha256": "e65902af4f5c606c4dce666fe2bcfd92eca249d3d2f24b3879b5b08136d5bb62",
+      "mutated_sha256": "bbd179f7e1922107ef180947446f680a5efd909f068e446ad551150c67a67a1f",
+      "restored_sha256": "e65902af4f5c606c4dce666fe2bcfd92eca249d3d2f24b3879b5b08136d5bb62"
+    },
+    {
+      "id": "run_bypasses_instance_owner",
+      "path": "intelligence/runtime/agent_episode.py",
+      "before_sha256": "e65902af4f5c606c4dce666fe2bcfd92eca249d3d2f24b3879b5b08136d5bb62",
+      "mutated_sha256": "02dcd87a02d9aa3fb1e0e5dc6f08779e83db6de993177a4313180bda1fa941cb",
+      "restored_sha256": "e65902af4f5c606c4dce666fe2bcfd92eca249d3d2f24b3879b5b08136d5bb62"
+    },
+    {
+      "id": "repair_bypasses_instance_owner",
+      "path": "intelligence/runtime/agent_episode.py",
+      "before_sha256": "e65902af4f5c606c4dce666fe2bcfd92eca249d3d2f24b3879b5b08136d5bb62",
+      "mutated_sha256": "a0e672ea8b6e45af7f3efa74bdee985cafbc4c9f7cf89b26cffdf5237ca93199",
+      "restored_sha256": "e65902af4f5c606c4dce666fe2bcfd92eca249d3d2f24b3879b5b08136d5bb62"
+    },
+    {
+      "id": "rejected_step_marks_finished",
+      "path": "intelligence/runtime/agent_episode.py",
+      "before_sha256": "e65902af4f5c606c4dce666fe2bcfd92eca249d3d2f24b3879b5b08136d5bb62",
+      "mutated_sha256": "1d22b009a3445b93606981c9c8512ef1f747126ddad68e8df5f14b37ae8230bd",
+      "restored_sha256": "e65902af4f5c606c4dce666fe2bcfd92eca249d3d2f24b3879b5b08136d5bb62"
+    },
+    {
+      "id": "rejected_close_marks_finished",
+      "path": "intelligence/runtime/agent_episode.py",
+      "before_sha256": "e65902af4f5c606c4dce666fe2bcfd92eca249d3d2f24b3879b5b08136d5bb62",
+      "mutated_sha256": "28b9057f9f5254c6217306073eebb9991ee2285a58436dc8905a47e581b7e739",
+      "restored_sha256": "e65902af4f5c606c4dce666fe2bcfd92eca249d3d2f24b3879b5b08136d5bb62"
+    }
+  ],
+  "definitions_sha256": "1d7a5b5dfa449502a3b1fff71c156c93a77eadbfb613bb186429cc839275659c",
+  "final_status": ""
+}

@@ -1,0 +1,3 @@
+.....                                                                    [100%]
+- generated xml file: /Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/neutral_completion_boundary-green.xml -
+5 passed, 66 deselected in 16.90s

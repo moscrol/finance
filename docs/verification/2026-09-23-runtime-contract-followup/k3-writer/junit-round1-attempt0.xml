@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="6" time="1.425" timestamp="2026-09-23T13:28:39.669762+08:00" hostname="77deMacBook-Air.local"><testcase classname="inbox_checks" name="test_c1_failed_insert_keeps_spool_file_and_blocks_claim[deferred_short_circuit]" time="0.016" /><testcase classname="inbox_checks" name="test_c1_failed_insert_keeps_spool_file_and_blocks_claim[mid_insert_write]" time="0.005" /><testcase classname="inbox_checks" name="test_c2_durable_insert_then_unlink_single_claim_derives" time="0.004" /><testcase classname="inbox_checks" name="test_c3_late_spool_after_close_kept_and_not_written" time="0.003" /><testcase classname="inbox_checks" name="test_c4_crash_window_is_at_least_once_reconciled_by_spool_id" time="0.003" /><testcase classname="inbox_checks" name="test_c5_corrupt_spool_quarantined_without_fabricating" time="0.005"><failure message="FileNotFoundError: [Errno 2] No such file or directory: '/Users/a77/.finance-runtime/reviews/runtime-probe-k3-writer-20260923-03/k3/work/tmp/base-r1/test_c5_corrupt_spool_quaranti0/inbox-spool/00000000000000000002-shape.json'">inbox_mod = &lt;module 'intelligence.services.episode_inbox' from '/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/candidate/intelligence/services/episode_inbox.py'&gt;
+tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/runtime-probe-k3-writer-20260923-03/k3/work/tmp/base-r1/test_c5_corrupt_spool_quaranti0')
+
+    def test_c5_corrupt_spool_quarantined_without_fabricating(inbox_mod, tmp_path):
+        ledger = RecordingLedger()
+        inbox, spool = _make_inbox(inbox_mod, ledger, tmp_path)
+        spool.mkdir(parents=True, exist_ok=True)
+        # 撕裂 JSON：UTF-8 合法、JSON 不完整（文件名排到最前，先被处理）。
+        torn = spool / f"00000000000000000001-torn{inbox_mod.INBOX_SPOOL_SUFFIX}"
+        torn_bytes = '{"spool_id": "x", "content": "被截断的话'.encode("utf-8")
+        torn.write_bytes(torn_bytes)
+        # JSON 合法但形状不全（缺 content）。
+        shapeless = spool / f"00000000000000000002-shape{inbox_mod.INBOX_SPOOL_SUFFIX}"
+        shapeless.write_text(json.dumps({"spool_id": "y"}), encoding="utf-8")
+        good = inbox_mod.write_spool_record(
+            spool, inbox_mod.SpoolRecord("sp-good", "完好的话")
+        )
+    
+        assert inbox.ingest_spool() == 1, "只吞完好的那一条"
+&gt;       for bad, kept in ((torn, torn_bytes), (shapeless, shapeless.read_bytes())):
+
+inbox_checks.py:288: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/pathlib.py:1019: in read_bytes
+    with self.open(mode='rb') as f:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = PosixPath('/Users/a77/.finance-runtime/reviews/runtime-probe-k3-writer-20260923-03/k3/work/tmp/base-r1/test_c5_corrupt_spool_quaranti0/inbox-spool/00000000000000000002-shape.json')
+mode = 'rb', buffering = -1, encoding = None, errors = None, newline = None
+
+    def open(self, mode='r', buffering=-1, encoding=None,
+             errors=None, newline=None):
+        """
+        Open the file pointed to by this path and return a file object, as
+        the built-in open() function does.
+        """
+        if "b" not in mode:
+            encoding = io.text_encoding(encoding)
+&gt;       return io.open(self, mode, buffering, encoding, errors, newline)
+E       FileNotFoundError: [Errno 2] No such file or directory: '/Users/a77/.finance-runtime/reviews/runtime-probe-k3-writer-20260923-03/k3/work/tmp/base-r1/test_c5_corrupt_spool_quaranti0/inbox-spool/00000000000000000002-shape.json'
+
+/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/pathlib.py:1013: FileNotFoundError</failure></testcase></testsuite></testsuites>
