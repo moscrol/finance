@@ -9,12 +9,12 @@
     "bytes": 1292,
     "sha256": "b8f788ef6a2a7daea31542328d4ee54d2a23a577040c6174eb672dc62cdd771b"
   },
-  "controller.log": {
+  "controller.log.txt": {
     "source": "/Users/a77/.finance-runtime/reviews/pr868-admission-diagnostic-20260923-2218/controller.log",
     "bytes": 0,
     "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
   },
-  "mutation-exit_zero_only.log": {
+  "mutation-exit_zero_only.log.txt": {
     "source": "/Users/a77/.finance-runtime/reviews/pr868-admission-diagnostic-20260923-2218/mutation-exit_zero_only.log",
     "bytes": 7672,
     "sha256": "2c8b08ba44a742a2a3bece43ff3acb4c378c6398e7d625200ae9c4c8825a2438"
@@ -24,7 +24,7 @@
     "bytes": 7610,
     "sha256": "f4ecd4a6d24fdb29e47b6818f67f8d3abe6975a2db9f45074f77756984e4e1ca"
   },
-  "mutation-missing_coverage_guard.log": {
+  "mutation-missing_coverage_guard.log.txt": {
     "source": "/Users/a77/.finance-runtime/reviews/pr868-admission-diagnostic-20260923-2218/mutation-missing_coverage_guard.log",
     "bytes": 2046,
     "sha256": "892f56bf5e8f98981e79b5a573d903b41e43f0a78354d2e73e0a26d7b18722e7"
@@ -49,12 +49,12 @@
     "bytes": 1532,
     "sha256": "84e381b961d1f62eda54b2f97cc094f4f2d438e114114476f90f86058b7cc6fd"
   },
-  "pytest.log": {
+  "pytest.log.txt": {
     "source": "/Users/a77/.finance-runtime/reviews/pr868-admission-diagnostic-20260923-2218/pytest.log",
     "bytes": 611,
     "sha256": "794c1a5e29934e0336ca9f98a900741724c3f2fe8216bb52b5e81a6ac24a3919"
   },
-  "receipt-check.log": {
+  "receipt-check.log.txt": {
     "source": "/Users/a77/.finance-runtime/reviews/pr868-admission-diagnostic-20260923-2218/receipt-check.log",
     "bytes": 1213,
     "sha256": "985cba2165c40992980fd9805bd4fe8b6878906f193818fd2b1ca927f0335f56"
@@ -64,12 +64,12 @@
     "bytes": 1336,
     "sha256": "dc54fe8d878d021c8e28f8c0ecb9df33c47c1b5e2acf1b93c52c7845bc866ef2"
   },
-  "retrieval-probe.log": {
+  "retrieval-probe.log.txt": {
     "source": "/Users/a77/.finance-runtime/reviews/pr868-admission-diagnostic-20260923-2218/retrieval-probe.log",
     "bytes": 2477,
     "sha256": "1d5ba564be1479c231b890f97ea16a66890c96124fa88f6b0af95cf9e235ebf3"
   },
-  "ruff.log": {
+  "ruff.log.txt": {
     "source": "/Users/a77/.finance-runtime/reviews/pr868-admission-diagnostic-20260923-2218/ruff.log",
     "bytes": 19,
     "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
@@ -94,12 +94,12 @@
     "bytes": 20779,
     "sha256": "f2f3e3e5f93ad70fcfcd6c8d017c5960ba3ed84fd7f1e1d329bab8793794c413"
   },
-  "strict.log": {
+  "strict.log.txt": {
     "source": "/Users/a77/.finance-runtime/reviews/pr868-admission-diagnostic-20260923-2218/strict.log",
     "bytes": 152,
     "sha256": "748cdbd431bdd2a1796533609128f8b462af7c1d2fcaede22614dd14e30f3569"
   },
-  "tests-controller.log": {
+  "tests-controller.log.txt": {
     "source": "/Users/a77/.finance-runtime/reviews/pr868-admission-diagnostic-20260923-2218/tests-controller.log",
     "bytes": 0,
     "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"

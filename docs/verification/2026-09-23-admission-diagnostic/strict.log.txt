@@ -1,0 +1,1 @@
+{"receipt": "/Users/a77/.finance-runtime/reviews/pr868-admission-diagnostic-20260923-2218/strict.json", "deadline_violations": [], "coverage_gaps": []}

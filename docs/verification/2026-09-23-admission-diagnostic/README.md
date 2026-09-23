@@ -8,7 +8,7 @@
 - 新私有根：`/Users/a77/.finance-runtime/reviews/pr868-admission-diagnostic-20260923-2218/`。
 - 诊断运行于提交前工作树，`protocol.json` / `strict.json` 记录 dirty 身份及逐文件 SHA256。封存时核对四个诊断/运行模块与 `fe548838b` 逐字节一致；不能把诊断描述为干净固定 SHA 的正式准入。
 - 作者回归另在干净固定 `fe548838b` 执行，运行前后身份相同。新真实模型请求 0、自然金融问题 0、重试 0，未启动旁车，未操作生产 8792。
-- `archive-manifest.json` 记录 25 份原件及来源/hash；密钥模式扫描通过。通过测试的本批 basetemp 已删除，故意失败的变异原件保留。相关进程退出，19897/19898/19899 无监听。
+- `archive-manifest.json` 记录 25 份原件及来源/hash；密钥模式扫描通过。归档日志加 `.txt` 后缀以避开 `*.log` 忽略规则，原始字节不变；原始脚本仅作当时操作留证，不可直接重跑。通过测试的本批 basetemp 已删除，故意失败的变异原件保留。相关进程退出，19897/19898/19899 无监听。
 
 ## 修复范围
 
@@ -30,7 +30,7 @@
 | 全仓 Ruff / diff check | 通过 | 静态检查，不等于完整合入门禁 |
 | 新 #75 / #76 | 均未启动 | 没有新第二方或自然验收结论 |
 
-作者收据 `test-receipt.json` 来源 `20260923T142411Z-fe548838-63d172dd3cd2.json`，经 `check_test_receipt.py --expect-revision fe548838b21f5c0a605f73333593cbd1ce805c2f` 核验；见 `receipt-check.log`。两组变异只在独立进程内替换函数，不改磁盘代码，也不计入 411P。
+作者收据 `test-receipt.json` 来源 `20260923T142411Z-fe548838-63d172dd3cd2.json`，经 `check_test_receipt.py --expect-revision fe548838b21f5c0a605f73333593cbd1ce805c2f` 核验；见 `receipt-check.log.txt`。两组变异只在独立进程内替换函数，不改磁盘代码，也不计入 411P。
 
 ## 取消探针裁决与旧根因边界
 
