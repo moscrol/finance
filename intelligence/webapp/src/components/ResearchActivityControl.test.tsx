@@ -12,7 +12,16 @@ beforeEach(() => {
   vi.stubGlobal("crypto", webcrypto);
   post.mockResolvedValue(undefined);
 });
-afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); post.mockReset(); });
+afterEach(() => {
+  for (const [, events] of post.mock.calls) {
+    for (const event of events.filter((row) => row.event_type === "consent_changed")) {
+      expect(event.payload).toMatchObject({
+        consent_version: "workbench-activity-v2", scopes: ["activity-timer"],
+      });
+    }
+  }
+  vi.unstubAllGlobals(); vi.restoreAllMocks(); post.mockReset();
+});
 
 it("默认关闭，拒收同意不启动区间，也不影响其他研究控件", async () => {
   post.mockRejectedValueOnce(new Error("拒收同意"));
@@ -46,6 +55,19 @@ it("先同意再计时，停止写撤回并移除监听，不跨会话写区间"
   expect(post.mock.calls.every((c) => c[0] === "a")).toBe(true);
 });
 
+it("停止后可重新开始，计时同意不改变研究测量范围", async () => {
+  render(<ResearchActivityControl conversationId="a" user="default" />);
+  for (let cycle = 0; cycle < 2; cycle += 1) {
+    fireEvent.click(screen.getByText("同意并开始本次计时"));
+    await screen.findByText("停止使用计时");
+    await act(async () => { fireEvent.click(screen.getByText("停止使用计时")); });
+    await waitFor(() => expect(screen.getByText("同意并开始本次计时")).toBeEnabled());
+    expect(screen.getByRole("status")).toHaveTextContent("研究测量同意不变");
+  }
+  const consents = post.mock.calls.flatMap(([, events]) => events.filter((event) => event.event_type === "consent_changed"));
+  expect(consents).toHaveLength(4);
+});
+
 it("区间保存失败如实显示缺口，停止仍可用", async () => {
   render(<ResearchActivityControl conversationId="a" user="default" />);
   fireEvent.click(screen.getByText("同意并开始本次计时"));
@@ -69,6 +91,19 @@ it("切会话期间晚到同意回包只补旧会话撤回，不重启旧钟", a
   expect(post.mock.calls.every((call) => call[0] === "a")).toBe(true);
   expect(post.mock.calls[1][1][0].payload).toMatchObject({ action: "withdraw" });
   expect(screen.queryByText("停止使用计时")).not.toBeInTheDocument();
+});
+
+it("计时中切换会话或用户，只撤回旧会话的计时同意", async () => {
+  const { rerender } = render(<ResearchActivityControl key="a" conversationId="a" user="old-owner" />);
+  fireEvent.click(screen.getByText("同意并开始本次计时"));
+  await screen.findByText("停止使用计时");
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  rerender(<ResearchActivityControl key="b" conversationId="b" user="new-owner" />);
+  await waitFor(() => expect(post).toHaveBeenCalledTimes(2));
+  expect(post.mock.calls.every(([conversation, , user]) => conversation === "a" && user === "old-owner")).toBe(true);
+  const closing = post.mock.calls[1][1];
+  expect(closing.at(-1)).toMatchObject({ participant_id: "old-owner", payload: { action: "withdraw" } });
+  expect(screen.getByText("同意并开始本次计时")).toBeEnabled();
 });
 
 it("pagehide 立即发送末段与撤回，重复通知/bfcache 恢复不重开计时", async () => {
