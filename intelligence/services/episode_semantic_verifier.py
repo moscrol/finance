@@ -621,10 +621,48 @@ def compact_judge_payload(value: object) -> object:
     return value
 
 
-def dumps_judge_request(request: Mapping[str, object]) -> str:
-    """Wire JSON for the judge: compact separators, no default padding."""
+def _deduplicate_material_bindings(payload: dict[str, object]) -> dict[str, object]:
+    """Reference exact duplicate claims on the wire; retain the canonical audit input."""
+    grounding = payload.get("material_grounding")
+    claims = payload.get("material_claims")
+    bindings = payload.get("output_bindings")
+    if (not isinstance(grounding, dict) or grounding.get("data_scope") != "material_only"
+            or not isinstance(claims, list) or not isinstance(bindings, list)):
+        return payload
+    grouped: dict[str, list[dict[str, object]]] = {}
+    seen = set()
+    for row in claims:
+        if not isinstance(row, dict):
+            return payload
+        key, output_id = row.get("claim_id"), row.get("output_id")
+        if (not isinstance(key, str) or not key or key in seen
+                or not isinstance(output_id, str) or not output_id):
+            return payload
+        seen.add(key)
+        grouped.setdefault(output_id, []).append(row)
+    projected = []
+    for binding in bindings:
+        if not isinstance(binding, dict):
+            projected.append(binding)
+            continue
+        output_id = binding.get("output_id")
+        rows = grouped.get(output_id, []) if isinstance(output_id, str) else []
+        originals = [{key: value for key, value in row.items()
+                      if key not in {"claim_id", "sentence_index", "output_id"}} for row in rows]
+        # Order and every source field must match; ambiguous copies stay visible.
+        if rows and "claim_ids" not in binding and binding.get("claims") == originals:
+            projected.append({**{key: value for key, value in binding.items() if key != "claims"},
+                              "claim_ids": [row["claim_id"] for row in rows]})
+        else:
+            projected.append(binding)
+    return {**payload, "output_bindings": projected}
 
-    payload = compact_judge_payload(dict(request))
+
+def dumps_judge_request(request: Mapping[str, object]) -> str:
+    """Wire JSON only: compact defaults and losslessly reference duplicate claims."""
+
+    payload = cast(dict[str, object], compact_judge_payload(dict(request)))
+    payload = _deduplicate_material_bindings(payload)
     return json.dumps(payload, ensure_ascii=False, separators=_JUDGE_JSON_SEPARATORS)
 
 

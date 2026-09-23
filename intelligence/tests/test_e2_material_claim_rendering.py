@@ -25,6 +25,9 @@ def test_writer_receives_parseable_claim_template_with_exact_frozen_basis():
     frame, context = setup()
     registry = ResearchToolRegistry(())
     prompt = json.loads(build_episode_input(frame, context, registry))
+    format_rule = prompt["material_grounding"]["finish_format"]["rule"]
+    assert "所有claims.text合计" in format_rule and "1000" in format_rule
+    assert "不能省略子问、计算步骤或本句输入锚点" in format_rule
     template = json.loads(prompt["material_grounding"]["finish_format"]["wire_template"])
     assert template["draft"] == "" and template["render_from_claims"] is True
     assert {b["output_id"]: b["basis"] for b in template["bindings"]} == {
@@ -366,6 +369,8 @@ def test_repair_round_restates_the_frozen_wire_format_it_still_demands(reference
     restated = json.loads(repair[0]).get("finish_format")
     # 同一份冻结模板，逐字节相同：修复轮不得另起一套说法。
     assert restated == frozen
+    assert "所有claims.text合计" in restated["rule"]
+    assert "不能省略子问、计算步骤或本句输入锚点" in restated["rule"]
 
 
 def test_claim_rendering_keeps_wrong_quote_as_terminal_integrity_rejection():
