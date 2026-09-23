@@ -145,8 +145,9 @@ def attempt_uncovered_components(
 COVERAGE_SCOPES_COARSE_TO_FINE: tuple[str, ...] = ("pilot", "task", "run", "attempt", "span")
 COVERAGE_SCOPES: frozenset[str] = frozenset(COVERAGE_SCOPES_COARSE_TO_FINE)
 
+ACTIVITY_TIMER_SCOPE = "activity-timer"
 CONSENT_SCOPES: frozenset[str] = frozenset(
-    {"research", "logging", "blind_review", "team_share", "external_display"}
+    {"research", "logging", "blind_review", "team_share", "external_display", ACTIVITY_TIMER_SCOPE}
 )
 # 进入有效测量至少要这两项同意在事件发生时生效。
 REQUIRED_MEASUREMENT_SCOPES: frozenset[str] = frozenset({"research", "logging"})

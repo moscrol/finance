@@ -20,7 +20,7 @@
   （只有用量、没有费率；05 会把它聚成 usage_without_rate，不冒充金额）；
 - 自用事件的 ``protocol_version`` 是 ``workbench-self-use/v1``、``pilot_id`` 带会话前缀——
   05 ``summarize`` 按 pilot_id 分区，自用事件永远混不进真人试点读数；
-- 同意门（QC I11）：owner 一旦在台账里表达过同意范围，``research`` + ``logging``
+- 同意门（QC I11）：owner 一旦在台账里表达过非计时的同意范围，``research`` + ``logging``
   （05 的 ``REQUIRED_MEASUREMENT_SCOPES``）都在事件时刻生效才写这三类事件；撤回其一后
   研究照常跑，测量停。没有任何同意记录时保持自用默认（照写）——owner 观察自己，没人可问；
   注意首条只授部分范围（如只授 ``blind_review``）也算「表达过」，会把自用默认翻成不写（复核 T08）。
@@ -141,7 +141,8 @@ class ObservingRunStore(RunStore):
         只认 owner 自己的 ``consent_changed`` 记录（``participant_id`` 为空或等于 owner），按
         ``effective_at``（缺则 ``event_at``）折叠 grant / withdraw，得到 ``at`` 时刻生效的范围；
         排序与折叠本身由 05 读侧共用的 ``product_value.consent.scopes_at`` 拿主，两侧不得各留一份。
-        没有任何记录返回 True（自用默认，见模块说明）；有记录则必须覆盖 ``REQUIRED_MEASUREMENT_SCOPES``。
+        纯计时记录由共用的 ``measurement_scopes`` 排除（含旧控件读取兼容），不翻掉自用默认。
+        没有测量域记录返回 True（自用默认，见模块说明）；有记录则必须覆盖 ``REQUIRED_MEASUREMENT_SCOPES``。
         台账读不出来按「未知」处理并留 stderr 痕迹（门本身放行）；但同一份坏台账会让随后的
         锁内复核与 ``append_product_value_event`` 各抛一次，净效果是**不写 + 三行 stderr**
         （第九轮复核 T12 实测两行，加锁内复核后多一行）——同意门是测量的门，不是被测 run
@@ -165,7 +166,10 @@ class ObservingRunStore(RunStore):
             effective = parse_ts(payload.get("effective_at")) or parse_ts(event.get("event_at"))
             if effective is None:
                 continue
-            entries.append((effective, str(payload.get("action")), frozenset(str(s) for s in payload.get("scopes") or ())))
+            scopes = consent_fold.measurement_scopes(event)
+            if scopes is None:
+                continue
+            entries.append((effective, str(payload.get("action")), scopes))
         if not entries:
             return True
         return consent_fold.covers_measurement(consent_fold.scopes_at(entries, at))

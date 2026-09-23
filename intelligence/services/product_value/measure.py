@@ -24,7 +24,7 @@ from decimal import Decimal
 from typing import Any
 
 from intelligence.services.product_value import contracts as C
-from intelligence.services.product_value.consent import ConsentEntry, covers_measurement, scopes_at
+from intelligence.services.product_value.consent import ConsentEntry, covers_measurement, measurement_scopes, scopes_at
 from intelligence.services.product_value.evidence import (
     EVIDENCE_CROSS_OWNER,
     EVIDENCE_OK,
@@ -157,8 +157,11 @@ def _consent_timeline(events: Sequence[Mapping[str, Any]]) -> dict[str, list[Con
             continue
         payload = event["payload"]
         effective = parse_ts(payload.get("effective_at")) or event_time(event)
+        scopes = measurement_scopes(event)
+        if scopes is None:
+            continue
         timeline.setdefault(str(event["participant_id"]), []).append(
-            (effective, str(payload.get("action")), frozenset(str(s) for s in payload.get("scopes") or ()))
+            (effective, str(payload.get("action")), scopes)
         )
     return timeline
 

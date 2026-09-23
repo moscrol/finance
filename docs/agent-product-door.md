@@ -655,9 +655,11 @@ adapter 在语义删句后按**核验过的公开正文**重算表达缺件，�
 
 ### 会话使用计时（分支候选，非试点效果）
 
-研究检查器提供「同意并开始本次计时」，默认关闭。经既有 `research-evolution/events` 保存同意后，`ResearchActivityControl` / `startResearchActivity` 记录可见与隐藏区间；使用单调时钟量经过时间，前端不自报服务端时钟或任务完成。停止、切会话和 `pagehide` 结束采集并尽力保存末段与撤回；保存失败在当前页显示缺口，异常退出不能保证送达，也不自动恢复采集。该撤回记在 owner 名下、用的又是自用测量门所需的同一组范围（`research`+`logging`），所以**停一次计时会连带停掉自用测量**（`run_started` / `run_finished` / `cost_recorded`），直到再次授权；界面当前不提示这一点，用过一次计时因此比从没用过测得更少。口径与文案待定，现状见 `intelligence/tests/test_re06_activity_consent_gate_effect.py`。
+研究检查器提供「同意并开始本次计时」，默认关闭。经既有 `research-evolution/events` 保存同意后，`ResearchActivityControl` / `startResearchActivity` 记录可见与隐藏区间；使用单调时钟量经过时间，前端不自报服务端时钟或任务完成。停止、切会话和 `pagehide` 结束采集并尽力保存末段与撤回；保存失败在当前页显示缺口，异常退出不能保证送达，也不自动恢复采集。计时授权使用独立范围 `activity-timer`（`workbench-activity-v2`）：开始、停止、切会话和 `pagehide` 都不改变研究测量同意。测量门仍要求 `research`+`logging`，真正的撤回仍会停掉自用测量（`run_started` / `run_finished` / `cost_recorded`），计时按钮不能重新授予它们。写侧无测量域记录仍按自用默认放行，读侧仍判未知，不把计时授权充作试点授权。
 
 这里只产生 `workbench:<conversation_id>` 自用事件，`task_id=null`；优先队列候选不是冻结试点分配，不能拿它填身份。可见时间不等于键鼠操作时间；隐藏原因 `tab_hidden` 不代表获准扣减端到端时间，也不推断外部查阅。真正的配对效果仍需授权、冻结分配、任务终态和05测量收据，不由计时按钮创建。当前接线和隔离测试不等于生产部署。
+
+旧记录读取兼容集中在 `product_value/consent.py::measurement_scopes`，读写两侧共用：仅当 `workbench-activity-v1` 同时满足原范围恰为 `research`+`logging`、来源为前端、协议为 `workbench-self-use/v1`、`pilot_id` 为 `workbench:` 前缀、参与者是 owner 且无任务时，才把授权和撤回都解释为纯计时意愿。不同来源、协议、身份、任务或混合范围不套用别名。纯计时记录不翻掉自用默认，也不授予试点测量；其余部分授权、空范围和撤回仍按原规则折叠。只改读取解释，不改历史内容、事件哈希或生产台账；涉及旧计时记录的重新计算结果可能变化，旧收据不冒充新口径。用例见 `intelligence/tests/test_re06_activity_consent_gate_effect.py`。
 
 ### 历史发现研究
 

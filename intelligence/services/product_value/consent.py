@@ -16,15 +16,45 @@
 """
 from __future__ import annotations
 
+from collections.abc import Iterable, Mapping
 from datetime import datetime
-from typing import Iterable
+from typing import Any
 
-from intelligence.services.product_value.contracts import REQUIRED_MEASUREMENT_SCOPES
+from intelligence.services.product_value.contracts import (
+    ACTIVITY_TIMER_SCOPE,
+    REQUIRED_MEASUREMENT_SCOPES,
+    SOURCE_FRONTEND,
+)
 
-__all__ = ["ConsentEntry", "scopes_at", "covers_measurement"]
+__all__ = ["ConsentEntry", "measurement_scopes", "scopes_at", "covers_measurement"]
 
 # (生效时刻, action, 该条涉及的范围)
 ConsentEntry = tuple[datetime, str, frozenset[str]]
+
+
+def measurement_scopes(event: Mapping[str, Any]) -> frozenset[str] | None:
+    """测量域的同意范围；纯计时记录返回 None，不算「表达过测量意愿」。
+
+    旧计时控件错误地使用 research+logging，只对其完整自用记录形状做读取兼容，
+    等价解释为 activity-timer。授权与撤回对称转换，原台账和内容哈希均不改写。
+    其他部分授权（包括空集）仍表达了意愿，不能被误当作无记录而启用自用默认。
+    """
+    payload = event.get("payload") or {}
+    scopes = frozenset(str(s) for s in payload.get("scopes") or ())
+    if (
+        payload.get("consent_version") == "workbench-activity-v1"
+        and scopes == REQUIRED_MEASUREMENT_SCOPES
+        and event.get("source_channel") == SOURCE_FRONTEND
+        and (event.get("source_version") or {}).get("protocol_version") == "workbench-self-use/v1"
+        and str(event.get("pilot_id") or "").startswith("workbench:")
+        and event.get("participant_id") == event.get("owner_user_id")
+        and event.get("owner_user_id")
+        and event.get("task_id") is None
+    ):
+        scopes = frozenset({ACTIVITY_TIMER_SCOPE})
+    if scopes == {ACTIVITY_TIMER_SCOPE}:
+        return None
+    return scopes - {ACTIVITY_TIMER_SCOPE}
 
 
 def scopes_at(entries: Iterable[ConsentEntry], at: datetime) -> frozenset[str]:
