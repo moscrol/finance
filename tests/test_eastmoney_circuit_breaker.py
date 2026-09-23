@@ -39,6 +39,8 @@
 from __future__ import annotations
 
 import http.client
+import json
+from types import SimpleNamespace
 
 import pytest
 
@@ -125,6 +127,23 @@ class TestCircuitBreakerOnUpstreamRefusal:
         assert em._get_json(f"{em.EM_URL}?pn=1", timeout=5) == PAYLOAD
         assert len(urlopen.calls) == 3
 
+    @pytest.mark.parametrize("other_error", [
+        OSError("network unreachable"),
+        http.client.HTTPException("bad response"),
+        b"<html>blocked</html>",
+    ], ids=["network", "http", "non-json"])
+    def test_non_empty_reply_error_breaks_the_empty_reply_streak(
+        self, monkeypatch: pytest.MonkeyPatch, other_error
+    ) -> None:
+        """普通网络错误或非 JSON 内容打断空回应序列。"""
+        single_host = f"{em.EM_URL_FALLBACK}?pn=1"
+        urlopen = _counting_urlopen(_disc(), other_error, _disc(), _disc(), PAYLOAD)
+        monkeypatch.setattr(em.urllib.request, "urlopen", urlopen)
+
+        assert em._get_json(single_host, timeout=5) == PAYLOAD
+        assert len(urlopen.calls) == 5
+        assert em._refusing_hosts == set()
+
     def test_success_resets_the_streak_so_it_counts_consecutive_not_cumulative(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -144,6 +163,24 @@ class TestCircuitBreakerOnUpstreamRefusal:
         assert len(urlopen.calls) == 6
         assert em._refusing_hosts == set(), "连续计数没清零，把正常抖动误判成了上游拒绝"
 
+    def test_request_counts_group_by_host_and_endpoint_not_page_query(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        urlopen = _counting_urlopen(_disc(), PAYLOAD)
+        monkeypatch.setattr(em.urllib.request, "urlopen", urlopen)
+
+        assert em._get_json(f"{em.EM_URL}?pn=1&pz=100", timeout=5) == PAYLOAD
+        first_page = em.transport_request_counts()
+        assert first_page == {"push2delay.eastmoney.com/api/qt/clist/get": 2}
+        assert em._get_json(f"{em.EM_URL}?pn=2&pz=100", timeout=5) == PAYLOAD
+        assert em._get_json("https://push2delay.eastmoney.com/api/qt/ulist.np/get?secids=1.600000", 5) == PAYLOAD
+        assert len(urlopen.calls) == 4
+        assert em.transport_request_counts() == {
+            "push2delay.eastmoney.com/api/qt/clist/get": 3,
+            "push2delay.eastmoney.com/api/qt/ulist.np/get": 1,
+        }
+        assert first_page == {"push2delay.eastmoney.com/api/qt/clist/get": 2}
+
     def test_refusal_is_remembered_so_remaining_pages_fail_fast_without_requests(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -154,11 +191,21 @@ class TestCircuitBreakerOnUpstreamRefusal:
         with pytest.raises(em.UpstreamRefusing):
             em._get_json(f"{em.EM_URL}?pn=1", timeout=5)
         first_round = len(urlopen.calls)
+        counts = em.transport_request_counts()
+        assert counts == {
+            "push2.eastmoney.com/api/qt/clist/get": em.EMPTY_REPLY_STREAK_LIMIT,
+            "push2delay.eastmoney.com/api/qt/clist/get": em.EMPTY_REPLY_STREAK_LIMIT,
+        }
 
         with pytest.raises(em.UpstreamRefusing):
             em._get_json(f"{em.EM_URL}?pn=2", timeout=5)
 
         assert len(urlopen.calls) == first_round, "已判定被拒的 host 不该再发请求"
+        assert em.transport_request_counts() == counts
+        with pytest.raises(em.UpstreamRefusing):
+            em.fetch_snapshot()
+        assert em.transport_request_counts() == {}, "新一轮清计数但不能清熔断"
+        assert len(urlopen.calls) == first_round
 
     def test_refusal_error_is_distinguishable_but_still_a_runtime_error(
         self, monkeypatch: pytest.MonkeyPatch
@@ -222,6 +269,67 @@ class TestErrorShapesDoNotLeakAcrossLayers:
 
         assert em._get_json(f"{em.EM_URL}?pn=1", timeout=5) == PAYLOAD
         assert em._transport_cache.get("push2delay.eastmoney.com") == "direct"
+
+
+class TestSnapshotCliRequestCounts:
+    def test_success_logs_counts_from_sync_stats(self, monkeypatch, capsys) -> None:
+        from market_feature_store.cli import cmd_sync_stock_daily_snapshot
+
+        counts = {"push2delay.eastmoney.com/api/qt/clist/get": 2}
+        stats = {
+            "trade_date": "2026-09-22", "snapshot_trade_date": "2026-09-22",
+            "source": "eastmoney:snapshot", "fetched": 1, "rows_written": 1,
+            "skipped": 0, "day_rows": 1, "table_total": 1, "distinct_stocks": 1,
+            "distinct_dates": 1, "date_min": "2026-09-22", "date_max": "2026-09-22",
+            "transport_requests": counts, "transport_request_total": 2,
+        }
+        monkeypatch.setattr(em, "sync_fact_stock_daily_snapshot", lambda **kw: stats)
+        args = SimpleNamespace(trade_date="2026-09-22", page_size=100, allow_misdated=False)
+
+        assert cmd_sync_stock_daily_snapshot(args) == 0
+        captured = capsys.readouterr()
+        assert captured.err == ""
+        assert "东财请求计数: " + json.dumps(counts, sort_keys=True) + " | total=2" in captured.out
+
+    def test_refusal_logs_counts_and_preserves_the_exception(self, monkeypatch, capsys) -> None:
+        from market_feature_store.cli import cmd_sync_stock_daily_snapshot
+
+        urlopen = _counting_urlopen(_disc())
+        monkeypatch.setattr(em.urllib.request, "urlopen", urlopen)
+        monkeypatch.setattr(em, "sync_fact_stock_daily_snapshot", lambda **kw: em.fetch_snapshot())
+        args = SimpleNamespace(trade_date="2026-09-22", page_size=100, allow_misdated=False)
+
+        with pytest.raises(em.UpstreamRefusing):
+            cmd_sync_stock_daily_snapshot(args)
+        counts = json.loads(capsys.readouterr().err.removeprefix("东财请求计数: "))
+        assert counts == {
+            "push2.eastmoney.com/api/qt/clist/get": em.EMPTY_REPLY_STREAK_LIMIT,
+            "push2delay.eastmoney.com/api/qt/clist/get": em.EMPTY_REPLY_STREAK_LIMIT,
+        }
+        assert len(urlopen.calls) == sum(counts.values())
+
+        with pytest.raises(em.UpstreamRefusing):
+            cmd_sync_stock_daily_snapshot(args)
+        assert json.loads(capsys.readouterr().err.removeprefix("东财请求计数: ")) == {}
+        assert len(urlopen.calls) == sum(counts.values())
+
+    def test_failure_before_fetch_does_not_report_old_counts(self, monkeypatch, capsys) -> None:
+        from market_feature_store.cli import cmd_sync_stock_daily_snapshot
+
+        monkeypatch.setattr(em.urllib.request, "urlopen", _counting_urlopen(PAYLOAD))
+        em._get_json(em.EM_URL, timeout=5)
+        assert em.transport_request_counts()
+        error = OSError("database unavailable")
+
+        def fail(**kw):
+            raise error
+
+        monkeypatch.setattr(em, "sync_fact_stock_daily_snapshot", fail)
+        args = SimpleNamespace(trade_date="2026-09-22", page_size=100, allow_misdated=False)
+        with pytest.raises(OSError) as caught:
+            cmd_sync_stock_daily_snapshot(args)
+        assert caught.value is error
+        assert json.loads(capsys.readouterr().err.removeprefix("东财请求计数: ")) == {}
 
 
 class TestFailedDnsLookupIsNotCachedForever:

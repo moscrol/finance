@@ -149,7 +149,7 @@ TRANSIENT_FETCH_ERRORS = (OSError, http.client.HTTPException, ValueError)
 #: **重试无用, 且每多打一发都在扩大伤害面**。
 EMPTY_REPLY_ERRORS = (http.client.RemoteDisconnected,)
 #: 同一 host 连续这么多发都是空回应 → 判定被拒, 立刻停手。
-#: 取 3 = 容两次真抖动; 判据是「连续」不是「累计」, 成功一发即清零。
+#: 取 3 = 容两次真抖动; 判据是「连续」不是「累计」, 成功或其他错误即清零。
 EMPTY_REPLY_STREAK_LIMIT = 3
 
 
@@ -166,11 +166,26 @@ _ip_cache: dict[str, str | None] = {}
 _ip_lock = threading.Lock()
 #: 已知「系统解析这条路打不通」的 host。失败一次就记住——否则 60 页每页都白打一发。
 _transport_cache: dict[str, str] = {}
-#: host → 连续空回应次数 (成功即清零)
+#: host → 连续空回应次数 (成功或其他错误即清零)
 _empty_reply_streak: dict[str, int] = {}
 #: 本进程内已判定「上游在拒」的 host。进程级而非持久化:
 #: 夜跑每晚是新进程, 不会把一晚的封禁结论带到下一晚。
 _refusing_hosts: set[str] = set()
+#: host + endpoint path -> transport attempts since reset (query strings excluded).
+_transport_request_counts: dict[str, int] = {}
+
+
+def transport_request_counts() -> dict[str, int]:
+    """Copy transport attempt counts, including connection failures but not breaker skips.
+
+    These are not wire-level HTTP counts; DNS queries and redirects are not counted.
+    """
+    return dict(sorted(_transport_request_counts.items()))
+
+
+def reset_transport_request_counts() -> None:
+    """Reset only request counters, preserving transport routing and breaker state."""
+    _transport_request_counts.clear()
 
 
 def reset_transport_state() -> None:
@@ -186,6 +201,7 @@ def reset_transport_state() -> None:
     _transport_cache.clear()
     _empty_reply_streak.clear()
     _refusing_hosts.clear()
+    _transport_request_counts.clear()
 
 
 def _system_ip(host: str) -> str | None:
@@ -285,7 +301,9 @@ def _get_json(url: str, timeout: float, retries: int = 6, backoff: float = 1.2) 
         if host in _refusing_hosts:
             # 已判定被拒: 一发都不再打。否则 60 页 × 每页重试 = 给封禁计时器不断续命。
             continue
+        endpoint = f"{host}{parts.path}"
         for attempt in range(retries):
+            _transport_request_counts[endpoint] = _transport_request_counts.get(endpoint, 0) + 1
             try:
                 if _transport_cache.get(host) == "direct" or _looks_hijacked(host):
                     data = _direct_get_json(host, path, timeout)
@@ -302,11 +320,15 @@ def _get_json(url: str, timeout: float, retries: int = 6, backoff: float = 1.2) 
                 time.sleep(backoff * (attempt + 1))
             except ValueError as exc:
                 # 内容层: 上游回了非 JSON 的挡板页。链路可能完全正常,
-                # 所以既不改传输选路, 也不计入熔断——只走原有重试阶梯。
+                # 所以既不改传输选路, 也不计入熔断；同时打断空回应连续计数。
                 last_err = exc
+                _empty_reply_streak[host] = 0
                 time.sleep(backoff * (attempt + 1))
             except TRANSIENT_FETCH_ERRORS as exc:
                 last_err = exc
+                # 普通瞬时错误不是「连续空回应」，必须打断 streak；否则一次
+                # 网络抖动会把两次相隔很远的空回应错误地拼成熔断证据。
+                _empty_reply_streak[host] = 0
                 # 系统解析这条路这次没打通 → 下一发换直连, 不在同一条坏路上耗满重试。
                 _transport_cache[host] = "direct"
                 time.sleep(backoff * (attempt + 1))
@@ -328,6 +350,7 @@ def fetch_snapshot(page_size: int = EM_PAGE_MAX, timeout: float = 20.0,
     东财单页最多 100 条, 故实际 pz 取 min(page_size, 100); 翻页靠 pn 递增到 total。
     """
     pz = max(1, min(page_size, EM_PAGE_MAX))
+    reset_transport_request_counts()
     out: list[dict] = []
     pn = 1
     total: int | None = None
@@ -373,6 +396,7 @@ def sync_fact_stock_daily_snapshot(trade_date: str | None = None,
     try:
         ensure_stock_daily_columns(con)
         diff = fetch_snapshot(page_size=page_size, timeout=timeout)
+        request_counts = transport_request_counts()
         # 日期闸: 先于一切写入。快照是「最新」语义, 这里是它与所传日期唯一一次对账的机会。
         actual = snapshot_trade_date(diff)
         if actual != trade_date:
@@ -459,4 +483,6 @@ def sync_fact_stock_daily_snapshot(trade_date: str | None = None,
         "distinct_dates": agg[1],
         "date_min": str(agg[2]) if agg[2] else None,
         "date_max": str(agg[3]) if agg[3] else None,
+        "transport_requests": request_counts,
+        "transport_request_total": sum(request_counts.values()),
     }
