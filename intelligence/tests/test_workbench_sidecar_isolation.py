@@ -37,12 +37,19 @@ def test_sidecar_isolates_episode_store_after_loading_production_config(
     fake_python = tmp_path / "python"
     fake_python.write_text(
         f"#!{sys.executable}\n"
-        "import json, os\n"
+        "import json, os, sys\n"
         "from pathlib import Path\n"
+        f"sys.path.insert(0, {str(SCRIPT.parents[1])!r})\n"
+        "from intelligence.services.episode_store import JsonlEpisodeStore, resolve_episode_store_root\n"
         "keys = ('FINANCE_WS', 'WORKBENCH_REPO_ROOT', 'PYTHONPATH', "
         "'FORESIGHT_USERS_DIR', 'FORESIGHT_USER', 'FORESIGHT_EPISODE_STORE')\n"
         "values = {key: os.environ.get(key) for key in keys}\n"
-        "Path(os.environ['SIDECAR_TEST_OUTPUT']).write_text(json.dumps(values))\n"
+        "root = resolve_episode_store_root()\n"
+        "store = JsonlEpisodeStore(root)\n"
+        "with store.writer('sidecar-probe'):\n"
+        "    pass\n"
+        "payload = {'environment': values, 'episode_root': str(root)}\n"
+        "Path(os.environ['SIDECAR_TEST_OUTPUT']).write_text(json.dumps(payload))\n"
     )
     fake_python.chmod(0o755)
     fake_bin = tmp_path / "bin"
@@ -63,8 +70,10 @@ def test_sidecar_isolates_episode_store_after_loading_production_config(
         env=env, capture_output=True, text=True, timeout=10, check=False,
     )
     assert result.returncode == 0, result.stderr
-    actual = json.loads(observed.read_text())
-    assert actual == {
+    payload = json.loads(observed.read_text())
+    assert payload["episode_root"] == str(users / ".episodes")
+    assert list((users / ".episodes").glob("*/.writer.lock"))
+    assert payload["environment"] == {
         "FINANCE_WS": str(production),
         "WORKBENCH_REPO_ROOT": str(repo),
         "PYTHONPATH": str(repo),
