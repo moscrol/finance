@@ -10,9 +10,18 @@
 
 ## 作者测试与静态检查
 
-- #86 部署测试：24 passed；#87 IMA + 晨汇验收测试：14 passed。最终可采信收据存于 `/Users/a77/.finance-runtime/test-receipts/`，报告时必须用 `scripts/check_test_receipt.py --expect-revision "$(git rev-parse HEAD)"` 重新绑定具体文件。
+- #86 部署测试：24 passed；#87 IMA + 晨汇验收测试：14 passed。定向收据与最终四叶收据均存于 `/Users/a77/.finance-runtime/test-receipts/`，报告时必须用 `scripts/check_test_receipt.py --expect-revision "$(git rev-parse HEAD)"` 重新绑定具体文件。
 - 对 Python 文件的 ruff：通过；`zsh -n scripts/deploy_workbench_runtime.sh`：通过；`git diff --check`：通过。
-- 正式 `scripts/run_main_gate.sh` 的全量 Python 叶在 1200 秒截止，没有收据，不计为通过；并行机器负载存在，但不把它归因成测试缺陷。
+
+## 最终工程门禁
+
+最终候选 HEAD 上已完成并重新固定以下只读证据：
+
+- Python：`scripts/run_main_gate.sh`，14675 passed / 85 skipped / 2 xfailed / 0 failed，`--require-full-scope` 收据可采信。
+- Frontend：`/Users/a77/.finance-runtime/test-receipts/workorders-86-87-frontend-final-20260923/frontend.json`，install、lint、typecheck、Vitest、build、E2E 全部 exit 0，起止 revision/dirty 稳定。
+- Registry：`/Users/a77/.finance-runtime/test-receipts/workorders-86-87-registry-final-20260923/`，check-parseability、check、backfill-tables、generate-views、ledger-spec-crosswalk 全部 exit 0；反向 98 条仅为既有 warning。
+
+Python 收据目录与 registry 目录均要求用当前 `git rev-parse HEAD` 复核；任何文档或代码提交后，旧收据不得移签。
 
 ## 独立合成探针
 
