@@ -1,31 +1,33 @@
 # Knevo 材料吸收续修
 
 ## 这个分支做什么
-PR #877 WIP：沿原题和原审稿闸修材料出稿/判官，不合main、不部署8792、不回补、不写生产画像。
+PR #877 WIP：沿原题/八问/原审稿闸修交付，不合main、不部署8792、不回补、不写生产画像。
 
 ## 决策与被否方案
-- 私有原返回+哈希+原因码定位失败；不猜旧故障、不向公开稿或修复提示泄漏原返回。
-- 批量格式反馈与schema对齐；不自动改判官报告、跨ID补引用、放宽接收端或增加重试权。
-- 完成、内部passed、作者意见分账；不减八问义务，不改冻结题/原件凑绿。
-- 展开：`docs/handoffs/2026-09-23-knevo-protocol-repair.md`。
+- 响应体沿原绝对时限shutdown连接，拒收晚稿；不加预算/重试、不遗留后台HTTP。
+- 判官首层失败也留阶段耗时；私有原返回不进公开稿/修复提示，不自动改报告或跨ID补引用。
+- 工程、completed、内部passed、作者接纳分账；不改冻结题/原件凑绿。
+- 展开：`docs/handoffs/2026-09-23-knevo-response-window.md`；旧协议快照保留。
 
 ## 当前状态
-已提交：8eceac0f2诊断/批量反馈；58f28c237字段组合/引文规则；798ccefb7离线量具。两轮隔离live已停，原件100/88文件hash封存。
-第一轮6题：G1b捕获nonfactual+[1]非法；三包来源拒收。第二轮5题：G1b内部passed仍认领未核实旧答；G2b代理文本基本满足但未正式签收；三包进审稿后分别预算耗尽、unsupported+[1]非法、复核超时。包3公开草稿仍有A/B改判不自洽，整体未通过。
-索引：`~/.finance-runtime/knevo-absorption-20260923/protocol-repair-closeout/current.json`；作者意见与驱动not_evaluated分开，不是新11题通过率。
+代码7cfc51d524681e2b9a8740e6b16e064a32006ed1已提交：工具聊天流式/非流式响应读取窗口、首层审稿记录、inspect阶段耗时。
+新隔离包1/包3均failed，写手首发约75秒、终局补写约40秒后失败，未到材料判官，无有效八问稿。sidecar已停，8817无监听；两题不是新盲测分母，driver仍not_evaluated。
+证据：`~/.finance-runtime/knevo-absorption-20260923/response-window-7cfc51d52/current.json`。
+旧58f28c三包审稿预算耗尽/unsupported+[1]非法/超时仍保留。G1b旧答认领、包3 A/B改判不自洽未修。
 
 ## 已验证
-798ccefb7干净统一定向1519P/2S/1X/0F，Ruff/收据验签通过；两条撤保护反证见红。两份非法返回原生重放与schema均拒收，0模型调用。七原件hash不变。
-新live固定58f28c237，5题原文保真/material_only/0 Episode工具请求；不证明全IO为零。量具改动无新live。
+7cfc干净定向1768P/2S/1X/0F，Ruff/收据验签通过；两个撤保护各2F，恢复正向72P。真实本地慢流证明旧idle timeout会越窗，新guard拒收并退出线程；已吐正文不重播。
+两题原题保真/material_only/0 Episode工具请求，不等于全IO零。冻结原件未改。
 
 ## 未验证 / 已知边界
-旧f1fd整链0/12不翻案；Q14概率/因果漏判与真实Q18台账、空集、权限、身份、跨轮未补验。
-Schema是生成描述，不是供应商强制解码；包2仍违例。最新代码无全仓/前端/组合main门禁，旧8aadc全绿不可移签。历史diff-check原件空行、共享vault lint红保留。
+guard在urlopen返回后安装，不覆盖DNS/建连/响应头主动中断；本地TLS/其它HTTP实现未验。阶段elapsed含已有重试，不是单次HTTP耗时。
+新live两题都未到判官，错误扁平为流式失败，缺底层异常类，不能凭时长确认watchdog触发或签判官线上预算。
+无本版本全仓/前端/组合main门禁；旧8aadc收据不移签。旧f1fd 0/12、Q14语义漏判与真实Q18前置未补验。
 
 ## 下一步
-1. 原规则下追unsupported/nonfactual锚点互斥，不自动归一化。
-2. 派生计算逐句绑全输入，删句后重验八问；同时查首层耗时和共享绝对截止时间，分清无预算与服务超时。
-3. 修历史认领/A-B改判与Q14语义反例；再补真实Q18前置。获合并授权才固定组合跑全门禁。
+1. 完整八问在原写手窗口内成稿，同时逐句绑全输入；不靠加预算/少答/恢复无限读取过关。
+2. 再验材料首层与非事实复核；分清阶段总耗时、单次调用、无预算和超时。
+3. 处理锚点互斥/历史认领/A-B/Q14；删句后重验八问。旧包1 c40的90>100也是内容错，不是补引用能修。
 
 ## 踩过的坑
-用主树`.venv-workbench/bin/python`。run_main_gate从目标树cwd跑；量具用`python -m intelligence.eval.knevo_regression --inspect-run <目录> --case-id <原ID>`。重放要带material_outputs，漏传会误诊report_keys。独立数据根非OS沙箱；私有诊断摘要不泄漏原文。共享harness-reference脏且旧，未接管。
+用主树.venv-workbench/bin/python，run_main_gate从目标树cwd跑。重放带material_outputs，否则误诊report_keys。缺诊断是unknown。独立根非OS沙箱；共享harness-reference脏且旧，未接管。
