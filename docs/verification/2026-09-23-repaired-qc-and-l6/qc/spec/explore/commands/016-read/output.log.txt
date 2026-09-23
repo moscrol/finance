@@ -1,0 +1,47 @@
+
+@dataclass
+class LLMProvider:
+    name: str
+    api_key: str = field(repr=False)
+    base_url: str
+    model: str
+    transport: str = "http"
+    response_schema: dict | None = None
+
+
+_PROVIDER_OVERRIDE: ContextVar[LLMProvider | None] = ContextVar(
+    "llm_provider_override",
+    default=None,
+)
+_HTTP_TRANSPORT_OVERRIDE: ContextVar[Callable[..., object] | None] = ContextVar(
+    "llm_http_transport_override",
+    default=None,
+)
+
+
+@contextmanager
+def http_transport_override(opener: Callable[..., object]):
+    """Explicitly replace the HTTP boundary for tests or offline harnesses.
+
+    Production leaves this unset and always uses the cancellable worker. The
+    ContextVar keeps an injected opener scoped to the current turn/thread.
+    """
+
+    token = _HTTP_TRANSPORT_OVERRIDE.set(opener)
+    try:
+        yield
+    finally:
+        _HTTP_TRANSPORT_OVERRIDE.reset(token)
+
+
+class LLMStreamCancelled(llm_http_transport.HTTPStreamCancelled):
+    pass
+
+
+class LLMStreamingUnsupported(RuntimeError):
+    pass
+
+
+class LLMDeadlineExceeded(llm_http_transport.HTTPDeadlineExceeded):
+
+[truncated; total lines=2605, selected=118:162; request a later offset]
