@@ -7,7 +7,7 @@ from __future__ import annotations
 import json
 from collections import Counter, defaultdict
 
-from .db import connect
+from .db import connect, read_snapshot
 from .signals import DOUBLE_RED_SQL
 
 
@@ -20,74 +20,78 @@ def health() -> dict:
     """数据体检: 各表行数 / 覆盖交易日 / 空值 / 映射完整度。"""
     con = connect(read_only=True)
     try:
-        out = {}
-        # dim_sector
-        out["dim_sector"] = {
-            "total": con.execute("SELECT COUNT(*) FROM dim_sector").fetchone()[0],
-            "mapped_sw_l1": con.execute(
-                "SELECT COUNT(*) FROM dim_sector WHERE sw_l1 IS NOT NULL"
-            ).fetchone()[0],
-        }
-        # fact_sector_daily
-        d = con.execute(
-            "SELECT COUNT(*), COUNT(DISTINCT trade_date), MIN(trade_date), MAX(trade_date),"
-            " SUM(CASE WHEN diff_ratio IS NULL THEN 1 ELSE 0 END),"
-            " SUM(CASE WHEN sw_l1 IS NULL THEN 1 ELSE 0 END)"
-            " FROM fact_sector_daily"
-        ).fetchone()
-        out["fact_sector_daily"] = {
-            "rows": d[0], "dates": d[1], "date_min": str(d[2]) if d[2] else None,
-            "date_max": str(d[3]) if d[3] else None,
-            "null_diff_ratio": d[4] or 0, "null_sw_l1": d[5] or 0,
-        }
-        # fact_sector_stock_daily
-        s = con.execute(
-            "SELECT COUNT(*), COUNT(DISTINCT trade_date), COUNT(DISTINCT sector_ts_code),"
-            " COUNT(DISTINCT stock_ts_code), MAX(trade_date),"
-            " SUM(CASE WHEN stock_ts_code IS NULL THEN 1 ELSE 0 END),"
-            " SUM(CASE WHEN sw_l1 IS NULL THEN 1 ELSE 0 END)"
-            " FROM fact_sector_stock_daily"
-        ).fetchone()
-        out["fact_sector_stock_daily"] = {
-            "rows": s[0], "dates": s[1], "sectors": s[2], "stocks": s[3],
-            "date_max": str(s[4]) if s[4] else None,
-            "null_stock_code": s[5] or 0, "null_sw_l1": s[6] or 0,
-        }
-        # fact_market_daily
-        m = con.execute(
-            "SELECT COUNT(*), COUNT(DISTINCT trade_date), MIN(trade_date), MAX(trade_date),"
-            " SUM(CASE WHEN total_amount IS NULL THEN 1 ELSE 0 END)"
-            " FROM fact_market_daily"
-        ).fetchone()
-        out["fact_market_daily"] = {
-            "rows": m[0], "dates": m[1], "date_min": str(m[2]) if m[2] else None,
-            "date_max": str(m[3]) if m[3] else None, "null_total_amount": m[4] or 0,
-        }
-        # fact_stock_daily
-        sk = con.execute(
-            "SELECT COUNT(*), COUNT(DISTINCT trade_date), COUNT(DISTINCT stock_ts_code),"
-            " MIN(trade_date), MAX(trade_date),"
-            " SUM(CASE WHEN close IS NULL THEN 1 ELSE 0 END)"
-            " FROM fact_stock_daily"
-        ).fetchone()
-        out["fact_stock_daily"] = {
-            "rows": sk[0], "dates": sk[1], "stocks": sk[2],
-            "date_min": str(sk[3]) if sk[3] else None,
-            "date_max": str(sk[4]) if sk[4] else None, "null_close": sk[5] or 0,
-        }
-        # 完整度: 最新交易日 dim_sector 覆盖了多少板块有成分股
-        latest = out["fact_sector_stock_daily"]["date_max"]
-        if latest:
-            covered = con.execute(
-                "SELECT COUNT(DISTINCT sector_ts_code) FROM fact_sector_stock_daily WHERE trade_date = ?",
-                [latest],
-            ).fetchone()[0]
-            out["coverage_latest"] = {
-                "date": latest,
-                "sectors_with_stocks": covered,
-                "dim_sector_total": out["dim_sector"]["total"],
+        # 体检是一份由十来条 SELECT 拼出来的报告：自动提交下每条各取一次快照，
+        # 写者中途提交就会产出「旧维表 + 新事实表」的体检单——覆盖率能算出
+        # 「有成分股的板块比维表里存在的板块还多」这种不可能的数。绑定单快照。
+        with read_snapshot(con):
+            out = {}
+            # dim_sector
+            out["dim_sector"] = {
+                "total": con.execute("SELECT COUNT(*) FROM dim_sector").fetchone()[0],
+                "mapped_sw_l1": con.execute(
+                    "SELECT COUNT(*) FROM dim_sector WHERE sw_l1 IS NOT NULL"
+                ).fetchone()[0],
             }
-        return out
+            # fact_sector_daily
+            d = con.execute(
+                "SELECT COUNT(*), COUNT(DISTINCT trade_date), MIN(trade_date), MAX(trade_date),"
+                " SUM(CASE WHEN diff_ratio IS NULL THEN 1 ELSE 0 END),"
+                " SUM(CASE WHEN sw_l1 IS NULL THEN 1 ELSE 0 END)"
+                " FROM fact_sector_daily"
+            ).fetchone()
+            out["fact_sector_daily"] = {
+                "rows": d[0], "dates": d[1], "date_min": str(d[2]) if d[2] else None,
+                "date_max": str(d[3]) if d[3] else None,
+                "null_diff_ratio": d[4] or 0, "null_sw_l1": d[5] or 0,
+            }
+            # fact_sector_stock_daily
+            s = con.execute(
+                "SELECT COUNT(*), COUNT(DISTINCT trade_date), COUNT(DISTINCT sector_ts_code),"
+                " COUNT(DISTINCT stock_ts_code), MAX(trade_date),"
+                " SUM(CASE WHEN stock_ts_code IS NULL THEN 1 ELSE 0 END),"
+                " SUM(CASE WHEN sw_l1 IS NULL THEN 1 ELSE 0 END)"
+                " FROM fact_sector_stock_daily"
+            ).fetchone()
+            out["fact_sector_stock_daily"] = {
+                "rows": s[0], "dates": s[1], "sectors": s[2], "stocks": s[3],
+                "date_max": str(s[4]) if s[4] else None,
+                "null_stock_code": s[5] or 0, "null_sw_l1": s[6] or 0,
+            }
+            # fact_market_daily
+            m = con.execute(
+                "SELECT COUNT(*), COUNT(DISTINCT trade_date), MIN(trade_date), MAX(trade_date),"
+                " SUM(CASE WHEN total_amount IS NULL THEN 1 ELSE 0 END)"
+                " FROM fact_market_daily"
+            ).fetchone()
+            out["fact_market_daily"] = {
+                "rows": m[0], "dates": m[1], "date_min": str(m[2]) if m[2] else None,
+                "date_max": str(m[3]) if m[3] else None, "null_total_amount": m[4] or 0,
+            }
+            # fact_stock_daily
+            sk = con.execute(
+                "SELECT COUNT(*), COUNT(DISTINCT trade_date), COUNT(DISTINCT stock_ts_code),"
+                " MIN(trade_date), MAX(trade_date),"
+                " SUM(CASE WHEN close IS NULL THEN 1 ELSE 0 END)"
+                " FROM fact_stock_daily"
+            ).fetchone()
+            out["fact_stock_daily"] = {
+                "rows": sk[0], "dates": sk[1], "stocks": sk[2],
+                "date_min": str(sk[3]) if sk[3] else None,
+                "date_max": str(sk[4]) if sk[4] else None, "null_close": sk[5] or 0,
+            }
+            # 完整度: 最新交易日 dim_sector 覆盖了多少板块有成分股
+            latest = out["fact_sector_stock_daily"]["date_max"]
+            if latest:
+                covered = con.execute(
+                    "SELECT COUNT(DISTINCT sector_ts_code) FROM fact_sector_stock_daily WHERE trade_date = ?",
+                    [latest],
+                ).fetchone()[0]
+                out["coverage_latest"] = {
+                    "date": latest,
+                    "sectors_with_stocks": covered,
+                    "dim_sector_total": out["dim_sector"]["total"],
+                }
+            return out
     finally:
         con.close()
 

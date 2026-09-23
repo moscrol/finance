@@ -147,6 +147,33 @@ def test_failed_run_with_non_empty_stub_exits_nonzero(
     assert "未取得可公开答案" not in captured.out
 
 
+@pytest.mark.parametrize("status,expected_exit", [("completed", 0), ("failed", 2), ("cancelled", 2)])
+def test_terminal_claim_waits_for_matching_publication(monkeypatch, capsys, status, expected_exit):
+    published = {"status": status, "run_id": "run_abc123", "session_id": "conv_test",
+                 "publication": {"status": "published", "message_id": "msg_ours"}}
+    fake = _FakeServer([
+        {**published, "publication": {"status": "pending", "message_id": None}},
+        {**published, "publication": {"status": "published", "message_id": "other"}},
+        {**published, "run_id": "other"},
+        {**published, "session_id": "other"},
+        published,
+    ], [_our_message("本轮终稿")])
+    code, _ = _run_probe(monkeypatch, capsys, fake, "--timeout", "30")
+    assert code == expected_exit and fake.run_polls == 5
+    assert fake.message_fetches == int(status == "completed")
+
+
+def test_unpublished_terminal_run_times_out_without_returning_early_body(monkeypatch, capsys):
+    fake = _FakeServer([
+        {"status": "completed", "publication": {"status": "pending", "message_id": None}},
+    ], [_our_message("已写但未发布")])
+    clock = iter([0, 0, 0, 2])
+    monkeypatch.setattr(workbench_probe.time, "time", lambda: next(clock))
+    code, captured = _run_probe(monkeypatch, capsys, fake, "--timeout", "1")
+    assert code == 3 and fake.message_fetches == 0
+    assert "已写但未发布" not in captured.out
+
+
 def test_timeout_reports_run_id(monkeypatch, capsys):
     fake = _FakeServer([{"status": "running"}], [])
     code, captured = _run_probe(monkeypatch, capsys, fake, "--timeout", "0")

@@ -160,7 +160,8 @@ def classify_reference(query: str) -> ReferenceKind:
         return "entity_pronoun"
     if _CONTINUATION_RE.search(cleaned):
         return "continuation"
-    if re.search(r"上一轮「[^」]+」未完成核验", cleaned):
+    # The control projection masks quoted titles but keeps the live continuation.
+    if re.search(r"上一轮(?:「[^」]+」|[ \t]+)未完成核验", cleaned):
         return "continuation"
     return "none"
 

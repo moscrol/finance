@@ -1,0 +1,9 @@
+#!/bin/bash
+# Retired after #63 QC. Historical bytes are preserved in the immutable audit.
+# Do not rerun a fixed-path one-off against a worktree another agent may own.
+printf '%s\n' \
+  'RETIRED: this one-off only printed commit/tree failures without failing.' \
+  'Use scripts/preview_evidence_archive.py prepare, an explicit pathspec commit' \
+  '(stop on nonzero exit), then verify with the full real commit SHA.' \
+  'Implementation: fix/push-preservation-qc-0923; no commit or push was attempted.' >&2
+exit 2

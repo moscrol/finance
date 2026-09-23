@@ -10,8 +10,13 @@
 用法（在仓根，用 test-environment.json 指定的 Python）：
     python scripts/review_probes/run_extraction_mutations.py --output <新证据目录>
     python scripts/review_probes/run_extraction_mutations.py --revision <sha> --output <目录>
+    python scripts/review_probes/run_extraction_mutations.py --suite financial-r6 --output <新目录>
+    python scripts/review_probes/run_extraction_mutations.py --suite research-delivery --output <新目录>
+    python scripts/review_probes/run_extraction_mutations.py --suite publication --output <新目录>
+    python scripts/review_probes/run_extraction_mutations.py --suite rag-transport --output <新目录>
 
-只测试已提交 revision；未提交源码或定义不会被悄悄混进证据。证据目录必须新建。
+默认仍跑工单 #53；其他合同复用 --definitions <仓内 JSON> --tests <测试路径...>，
+不复制 runner。只测试已提交 revision；未提交源码或定义不会被悄悄混进证据。证据目录必须新建。
 临时 worktree 在成功后移除；失败则保留还原后的树用于诊断，路径写入 results.json。
 """
 
@@ -36,6 +41,32 @@ TESTS = [
     "intelligence/tests/test_extraction_closeout.py",
 ]
 DEFINITIONS = "scripts/review_probes/extraction_mutations.json"
+SUITES = {
+    "extraction": (TESTS, DEFINITIONS),
+    "financial-r6": ([
+        "intelligence/tests/test_financial_r6_regressions.py",
+    ], "scripts/review_probes/financial_r6_mutations.json"),
+    "financial-delivery": ([
+        "intelligence/tests/test_financial_delivery_integration.py",
+    ], "scripts/review_probes/financial_delivery_mutations.json"),
+    "publication": ([
+        "intelligence/tests/test_workbench_api.py",
+        "intelligence/tests/test_workbench_conversation_integration.py",
+        "intelligence/tests/test_financial_publication_integration.py",
+        "tests/test_workbench_probe.py",
+    ], "scripts/review_probes/publication_mutations.json"),
+    "rag-transport": ([
+        "intelligence/tests/test_rag_worker_transport.py",
+        "intelligence/tests/test_rag_worker.py",
+        "intelligence/tests/test_rag_worker_keepalive.py",
+    ], "scripts/review_probes/rag_transport_mutations.json"),
+    "research-delivery": ([
+        "intelligence/tests/test_calculation_result_delivery.py",
+        "intelligence/tests/test_research_delivery_checks.py",
+        "intelligence/tests/test_research_delivery_repair.py",
+        "intelligence/tests/test_frozen_research_delivery.py",
+    ], "scripts/review_probes/research_delivery_mutations.json"),
+}
 
 
 def git(root: Path, *args: str) -> str:
@@ -117,13 +148,16 @@ def _run_logged_command(
     return result
 
 
-def run_tests(root: Path, out: Path, label: str, targets: list[str] | None = None) -> dict:
+def run_tests(
+    root: Path, out: Path, label: str, tests: list[str],
+    targets: list[str] | None = None,
+) -> dict:
     junit = out / f"{label}.xml"
     if junit.exists() or (out / f"{label}.result.json").exists():
         raise FileExistsError(f"refusing to reuse JUnit/result evidence: {label}")
     cmd = [sys.executable, "-u", "-B", "-m", "pytest", "-vv", "--capture=tee-sys",
            "-p", "no:randomly", "-p", "no:cacheprovider", "--tb=short",
-           "-o", "faulthandler_timeout=45", "--junitxml", str(junit), *TESTS]
+           "-o", "faulthandler_timeout=45", "--junitxml", str(junit), *tests]
     if targets:
         cmd += ["-k", " or ".join(targets)]
     env = {
@@ -135,6 +169,7 @@ def run_tests(root: Path, out: Path, label: str, targets: list[str] | None = Non
         "FWP_TEST_RECEIPT": "0",
         "FORESIGHT_USERS_DIR": str(out / "isolated-users"),
         "FORESIGHT_LLM_KEYCHAIN": "0",
+        **{k: os.environ[k] for k in ("LANG", "TMPDIR", "KNOWLEDGE_WIKI") if k in os.environ},
     }
     result = _run_logged_command(root, out, label, cmd, env)
     try:
@@ -167,26 +202,43 @@ def check_result(result: dict, *, red: bool = False) -> None:
     assert (result["failures"] > 0) if red else (result["failures"] == 0), result
 
 
-def main() -> int:
+def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--revision", default="HEAD")
+    parser.add_argument("--suite", choices=tuple(SUITES), default="extraction")
     parser.add_argument("--output", type=Path, required=True)
-    args = parser.parse_args()
+    parser.add_argument("--definitions", help="仓内已提交的变异定义 JSON；优先于 --suite")
+    parser.add_argument("--tests", nargs="+", help="仓内已提交的测试路径；优先于 --suite")
+    args = parser.parse_args(argv)
+    suite_tests, suite_definitions = SUITES[args.suite]
+    overridden = args.tests is not None or args.definitions is not None
+    args.tests = args.tests if args.tests is not None else suite_tests
+    args.definitions = args.definitions if args.definitions is not None else suite_definitions
+    # 显式选择器覆盖了 --suite 时，results.json 的 suite 标签不能再冒充某个冻结套件。
+    args.suite = "custom" if overridden else args.suite
+    return args
+
+
+def main() -> int:
+    args = _parse_args()
+    tests, definitions = args.tests, args.definitions
+    os.umask(0o022)
     repo = Path(git(Path.cwd(), "rev-parse", "--show-toplevel"))
     revision = git(repo, "rev-parse", f"{args.revision}^{{commit}}")
     out = args.output.expanduser().resolve()
     out.mkdir(parents=True, exist_ok=False)
-    parent = Path(tempfile.mkdtemp(prefix="extraction-closeout-mutations-")).resolve()
+    parent = Path(tempfile.mkdtemp(prefix="contract-mutations-")).resolve()
     root = parent / "tree"
     subprocess.run(["git", "-C", str(repo), "worktree", "add", "--detach", str(root), revision], check=True)
-    report = {"revision": revision, "tree": str(root), "python": sys.executable,
+    report = {"revision": revision, "suite": args.suite, "tree": str(root), "python": sys.executable,
+              "tests": tests, "definitions": definitions,
               "complete": False, "runs": [], "mutations": []}
 
     def execute(label: str, targets: list[str] | None = None) -> dict:
         report["active_run"] = label
         save_json(out / "results.json", report)
         try:
-            return run_tests(root, out, label, targets)
+            return run_tests(root, out, label, tests, targets)
         finally:
             # 中断亦保留进程收据；没有最终JUnit只能记执行数未知，不能记0。
             for suffix in ("result.json", "process.json"):
@@ -199,7 +251,11 @@ def main() -> int:
 
     try:
         assert git(root, "status", "--porcelain") == ""
-        definitions_raw = (root / DEFINITIONS).read_bytes()
+        definitions_path = (root / definitions).resolve()
+        assert definitions_path.is_relative_to(root), "definitions must belong to the frozen tree"
+        for test_path in tests:
+            assert (root / test_path).resolve().is_relative_to(root), test_path
+        definitions_raw = definitions_path.read_bytes()
         mutations = json.loads(definitions_raw)
         assert mutations and len({m["id"] for m in mutations}) == len(mutations)
         (out / "definitions.json").write_bytes(definitions_raw)

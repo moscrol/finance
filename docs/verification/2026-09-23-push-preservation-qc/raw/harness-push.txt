@@ -1,0 +1,7 @@
+remote: 
+remote: Create a new pull request for 'docs/evidence-preview-qc-0923':        
+remote:   http://localhost:3300/a77/harness-reference/pulls/new/docs/evidence-preview-qc-0923        
+remote: 
+To http://127.0.0.1:3300/a77/harness-reference.git
+ * [new branch]      HEAD -> docs/evidence-preview-qc-0923
+branch 'docs/evidence-preview-qc-0923' set up to track 'gitea/docs/evidence-preview-qc-0923'.

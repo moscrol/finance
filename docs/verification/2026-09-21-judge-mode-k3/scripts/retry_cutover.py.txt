@@ -1,0 +1,210 @@
+"""Retry the one-shot production switch using launchctl kickstart.
+
+The first attempt booted out and immediately bootstrapped, which macOS launchd
+returned as EIO; it rolled back successfully. This retry keeps the loaded job and
+uses the already validated kickstart path. It accepts only the pre-existing market
+snapshot/database mismatch. On any other failure it restores the old launcher and
+runtime link, restarts the old job, and waits for the old health identity.
+"""
+from __future__ import annotations
+import argparse
+import hashlib
+import json
+import os
+import shutil
+import subprocess
+import time
+import urllib.error
+import urllib.request
+from pathlib import Path
+
+root = Path(__file__).resolve().parent
+home = Path.home()
+launcher = home / ".local/bin/start-finance-workbench"
+link = home / "finance-workspace-runtime"
+service = f"gui/{os.getuid()}/com.a77.finance-workbench"
+plist = home / "Library/LaunchAgents/com.a77.finance-workbench.plist"
+python = "/Users/a77/finance-workspace-private/.venv-workbench/bin/python"
+old_rev = "adcda94b5e401158f1c3aa51f210e1e8d0f0b713"
+
+
+def call(*args: str, check: bool = True, **kwargs):
+    return subprocess.run(list(args), check=check, **kwargs)
+
+
+def git(repo: Path, *args: str) -> str:
+    return subprocess.check_output(["git", "-C", str(repo), *args], text=True).strip()
+
+
+def http_json(path: str) -> dict:
+    try:
+        with urllib.request.urlopen("http://127.0.0.1:8792" + path, timeout=40) as response:
+            return json.load(response)
+    except urllib.error.HTTPError as exc:
+        if exc.code == 503:
+            return json.loads(exc.read())
+        raise
+
+
+def restart_loaded_job() -> None:
+    """Prefer the known-good loaded-job restart; bootstrap only as fallback."""
+    result = call("launchctl", "kickstart", "-k", service, check=False, capture_output=True, text=True)
+    if result.returncode == 0:
+        return
+    # This is a last-resort recovery path, kept separate from the normal retry.
+    call("launchctl", "bootout", service, check=False, capture_output=True)
+    time.sleep(4)
+    for _ in range(3):
+        result = call(
+            "launchctl", "bootstrap", f"gui/{os.getuid()}", str(plist),
+            check=False, capture_output=True, text=True,
+        )
+        if result.returncode == 0:
+            return
+        time.sleep(4)
+    raise RuntimeError(f"launchd restart failed: {result.stderr[-500:]}")
+
+
+def wait_for_revision(revision: str, timeout: int = 480) -> tuple[dict, dict]:
+    deadline = time.monotonic() + timeout
+    latest_health: dict = {}
+    latest_ready: dict = {}
+    while time.monotonic() < deadline:
+        try:
+            latest_health = http_json("/api/health")
+            runtime = latest_health.get("runtime", {})
+            if runtime.get("source_revision") != revision:
+                time.sleep(4)
+                continue
+            if runtime.get("source_dirty") is not False or runtime.get("code_matches_repo") is not True:
+                time.sleep(4)
+                continue
+            latest_ready = http_json("/api/readiness")
+            checks = latest_ready.get("checks", {})
+            failed = [key for key, value in checks.items() if value is not True]
+            if failed == [] or (
+                failed == ["market_data_consistency"]
+                and latest_ready.get("market_database") ==
+                json.loads((root / "pre-switch-readiness.json").read_text()).get("market_database")
+            ):
+                return latest_health, latest_ready
+        except (OSError, ValueError, KeyError):
+            pass
+        time.sleep(4)
+    raise RuntimeError(f"new runtime did not reach accepted health/readiness: {latest_health} / {latest_ready}")
+
+
+def wait_for_old(timeout: int = 480) -> dict:
+    deadline = time.monotonic() + timeout
+    latest = {}
+    while time.monotonic() < deadline:
+        try:
+            latest = http_json("/api/health")
+            runtime = latest.get("runtime", {})
+            if (
+                runtime.get("source_revision") == old_rev
+                and runtime.get("source_dirty") is False
+                and runtime.get("code_matches_repo") is True
+            ):
+                return latest
+        except (OSError, ValueError):
+            pass
+        time.sleep(4)
+    raise RuntimeError(f"rollback did not restore old runtime: {latest}")
+
+
+def record(revision: str, snapshot: Path) -> None:
+    call(
+        python, str(snapshot / "scripts/audit_deploy_ledger.py"), "record",
+        "--action", "switch", "--rev", revision,
+        "--snapshot-path", str(snapshot), "--port", "8792",
+        "--ledger", str(home / ".finance-runtime/deploy-ledger.jsonl"),
+        env=dict(os.environ, FINANCE_WS=str(home / "finance-workspace-private")),
+    )
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--revision", required=True)
+    args = parser.parse_args()
+    revision = args.revision
+    snapshot = home / ".finance-runtime" / f"finance-workspace-{revision[:12]}"
+    before = json.loads((root / "launcher-before-identity.json").read_text())
+    baseline_ready = json.loads((root / "pre-switch-readiness.json").read_text())
+    assert git(snapshot, "rev-parse", "HEAD") == revision
+    assert git(snapshot, "status", "--porcelain") == ""
+    assert git(snapshot, "rev-parse", "gitea/main") == revision
+    assert hashlib.sha256(launcher.read_bytes()).hexdigest() == before["sha256"]
+    assert str(link.resolve()) == before["runtime_target"]
+    prior = http_json("/api/health")
+    assert prior["runtime"]["source_revision"] == old_rev
+    ready = http_json("/api/readiness")
+    assert ready.get("workers", {}).get("active") == 0
+    assert ready.get("workers", {}).get("queued") == 0
+    assert ready.get("market_database") == baseline_ready.get("market_database")
+    call("/bin/zsh", "-n", str(root / "launcher-candidate.sh"))
+    attempt = root / "cutover-attempt-2.json"
+    attempt.write_text(json.dumps({
+        "revision": revision,
+        "previous": before,
+        "candidate_sha256": hashlib.sha256((root / "launcher-candidate.sh").read_bytes()).hexdigest(),
+        "method": "launchctl kickstart -k",
+        "started_at": time.time(),
+    }, indent=2) + "\n")
+    try:
+        staged = launcher.with_name(launcher.name + ".stage-judge-mode-k3-2")
+        if staged.exists():
+            staged.unlink()
+        shutil.copy2(root / "launcher-candidate.sh", staged)
+        staged.chmod(0o700)
+        os.replace(staged, launcher)
+        call("/bin/ln", "-sfh", str(snapshot), str(link))
+        record(revision, snapshot)
+        restart_loaded_job()
+        post_health, post_ready = wait_for_revision(revision)
+        reads = []
+        for index in range(3):
+            current = http_json("/api/health")
+            runtime = current["runtime"]
+            assert runtime["source_revision"] == revision
+            assert runtime["source_dirty"] is False
+            assert runtime["code_matches_repo"] is True
+            assert runtime["agent_runtime"]["model"] == "kimi-k3"
+            reads.append(current)
+            (root / f"post-switch-health-attempt2-{index + 1}.json").write_text(
+                json.dumps(current, ensure_ascii=False, indent=2) + "\n"
+            )
+            time.sleep(2)
+        (root / "post-switch-readiness-attempt2.json").write_text(
+            json.dumps(post_ready, ensure_ascii=False, indent=2) + "\n"
+        )
+        (root / "cutover-installed-attempt2.json").write_text(json.dumps({
+            "revision": revision,
+            "launcher_sha256": hashlib.sha256(launcher.read_bytes()).hexdigest(),
+            "runtime_target": str(link.resolve()),
+            "health_identity_verified": True,
+            "health_reads": len(reads),
+            "readiness_failed_checks": [
+                key for key, value in post_ready.get("checks", {}).items() if value is not True
+            ],
+        }, indent=2) + "\n")
+        print("cutover installed and health/readiness identity verified")
+    except BaseException as exc:
+        rollback_stage = launcher.with_name(launcher.name + ".rollback-judge-mode-k3-2")
+        shutil.copy2(root / "launcher-before.sh", rollback_stage)
+        rollback_stage.chmod(0o700)
+        os.replace(rollback_stage, launcher)
+        call("/bin/ln", "-sfh", before["runtime_target"], str(link))
+        restart_loaded_job()
+        old_health = wait_for_old()
+        (root / "cutover-attempt2-rolled-back.json").write_text(json.dumps({
+            "error": repr(exc),
+            "runtime_target": str(link.resolve()),
+            "old_health_revision": old_health["runtime"]["source_revision"],
+            "rolled_back_at": time.time(),
+        }, indent=2) + "\n")
+        raise
+
+
+if __name__ == "__main__":
+    main()

@@ -158,9 +158,9 @@ def test_keyboard_interrupt_cleans_up_and_still_raises(runner, tmp_path, monkeyp
 
 
 def _isolated_pytest(runner, root, monkeypatch, body, *, timeout=None, stack_timeout=None):
+    """Write one sample test file and return the ``tests`` list ``run_tests`` expects."""
     test = root / "test_sample.py"
     test.write_text(body, encoding="utf-8")
-    monkeypatch.setattr(runner, "TESTS", [str(test)])
     monkeypatch.setattr(runner, "git", lambda *args: "fixture-revision")
     original = runner._run_logged_command
 
@@ -174,6 +174,7 @@ def _isolated_pytest(runner, root, monkeypatch, body, *, timeout=None, stack_tim
         return original(root, out, label, command, env, **({"timeout": timeout} if timeout is not None else {}))
 
     monkeypatch.setattr(runner, "_run_logged_command", isolated)
+    return [str(test)]
 
 
 @pytest.mark.parametrize("body,red", [
@@ -181,8 +182,8 @@ def _isolated_pytest(runner, root, monkeypatch, body, *, timeout=None, stack_tim
     ("def test_bad():\n    assert False, 'broken-protection'\n", True),
 ])
 def test_real_pytest_success_and_assertion_failure(runner, tmp_path, monkeypatch, body, red):
-    _isolated_pytest(runner, tmp_path, monkeypatch, body)
-    result = runner.run_tests(tmp_path, tmp_path, "pytest")
+    tests = _isolated_pytest(runner, tmp_path, monkeypatch, body)
+    result = runner.run_tests(tmp_path, tmp_path, "pytest", tests)
     runner.check_result(result, red=red)
     assert result["executed"] == 1
     assert result["failures"] == int(red)
@@ -193,12 +194,12 @@ def test_real_pytest_success_and_assertion_failure(runner, tmp_path, monkeypatch
 
 
 def test_real_pytest_timeout_keeps_node_and_stack_without_junit(runner, tmp_path, monkeypatch):
-    _isolated_pytest(
+    tests = _isolated_pytest(
         runner, tmp_path, monkeypatch,
         "import time\ndef test_hang():\n    print('test-body-entered', flush=True)\n    time.sleep(60)\n",
         timeout=4, stack_timeout=0.2,
     )
-    result = runner.run_tests(tmp_path, tmp_path, "pytest-timeout")
+    result = runner.run_tests(tmp_path, tmp_path, "pytest-timeout", tests)
     assert result["timed_out"] and result["junit_status"] == "missing_or_invalid"
     assert result["executed"] is None
     log = (tmp_path / "pytest-timeout.log").read_text()
@@ -215,8 +216,8 @@ def test_real_pytest_timeout_keeps_node_and_stack_without_junit(runner, tmp_path
     "# no tests\n",
 ])
 def test_collection_error_skip_and_empty_are_never_mutation_success(runner, tmp_path, monkeypatch, body):
-    _isolated_pytest(runner, tmp_path, monkeypatch, body)
-    result = runner.run_tests(tmp_path, tmp_path, "not-red")
+    tests = _isolated_pytest(runner, tmp_path, monkeypatch, body)
+    result = runner.run_tests(tmp_path, tmp_path, "not-red", tests)
     for red in (False, True):
         with pytest.raises(AssertionError):
             runner.check_result(result, red=red)
@@ -224,11 +225,11 @@ def test_collection_error_skip_and_empty_are_never_mutation_success(runner, tmp_
 
 @pytest.mark.parametrize("existing", ["log", "process.json", "xml", "result.json"])
 def test_existing_run_evidence_is_never_overwritten(runner, tmp_path, monkeypatch, existing):
-    _isolated_pytest(runner, tmp_path, monkeypatch, "def test_ok():\n    assert True\n")
+    tests = _isolated_pytest(runner, tmp_path, monkeypatch, "def test_ok():\n    assert True\n")
     artifact = tmp_path / f"repeat.{existing}"
     artifact.write_bytes(b"sealed-old-evidence")
     with pytest.raises(FileExistsError):
-        runner.run_tests(tmp_path, tmp_path, "repeat")
+        runner.run_tests(tmp_path, tmp_path, "repeat", tests)
     assert artifact.read_bytes() == b"sealed-old-evidence"
 
 
@@ -293,9 +294,14 @@ def test_main_keeps_receipt_and_restores_source_when_a_run_never_finishes(
     blocked = [sys.executable, "-u", "-c", "import time; print('blocked', flush=True); time.sleep(60)"]
 
     def short_child(root, out, label, command, env):
+        # Only the phase under test gets the 2 s budget (its command blocks for 60 s or
+        # fails to spawn). The real pytest runs around it merely have to boot, which on
+        # a loaded shared box takes anywhere from 0.4 s to over 2 s; a baseline killed at
+        # 2 s would be misread as the failure under test.
+        budget = 2 if label == phase else 20
         if label == phase:
             command = [str(tmp_path / "missing-binary")] if failure == "spawn-error" else blocked
-        return original(root, out, label, command, {**env, "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1"}, timeout=2)
+        return original(root, out, label, command, {**env, "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1"}, timeout=budget)
 
     monkeypatch.setattr(runner, "_run_logged_command", short_child)
     try:

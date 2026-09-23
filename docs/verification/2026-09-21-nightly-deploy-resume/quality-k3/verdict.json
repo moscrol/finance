@@ -1,0 +1,31 @@
+{
+  "revision": "b0cf04fb446b8e87cb4a374b63d96b7c92824551",
+  "axis": "quality",
+  "verdict": "PASS",
+  "issues": [
+    {
+      "id": "QUALITY-827-01",
+      "severity": "low",
+      "path": "scripts/install_eval_launchd.sh",
+      "line": 88,
+      "description": "Preflight validates selected files only syntactically (zsh -n, plutil -lint, Label match, explicit RunAtLoad=false). It performs no semantic validation of plist payloads: a copied sync plist mutated to FINANCE_SYNC_CODE_ROOT=/Users/a77/.finance-runtime/finance-sync-deadbeef00 was accepted and installed (rc 0) in the fake-HOME rig. The mutation IS caught by the repo wiring suite (test_review_sync_plist_source_pins_dedicated_sync_code_root; 1 failed/32 passed on the mutated copy) and by the operator preflight/post-install content+loaded-value verification in release-plan steps 1/5. Gap is acceptable for a supervised release but must not be mistaken for installer coverage.",
+      "reproduction": "quality-k3/work/quality_rig.zsh scenario Q2-M3: mutate FINANCE_SYNC_CODE_ROOT in repo copy, run installer --nightly-only with fake HOME + stub launchctl -> rc 0 and wrong root installed; then pytest tests/test_eval_launchd_wiring.py on the mutated copy -> 1 failed, 32 passed (evidence: work/rig/m3-pytest.txt, evidence/quality-rig.log)"
+    },
+    {
+      "id": "QUALITY-827-02",
+      "severity": "low",
+      "path": "scripts/install_eval_launchd.sh",
+      "line": 124,
+      "description": "launchctl bootout is wrapped in '2>/dev/null || true', so a bootout failure is silent. It surfaces one step later as a loud bootstrap conflict (rc 17, set -e abort), but the residual state is loaded-old vs on-disk-new (file copies precede the launchctl phase), and a mid-install failure between the two jobs leaves sync loaded-new with finalize not loaded (demonstrated). Installer attempts no rollback and claims none. Bounded by loud failure, idempotent rerun (verified: rerun converges rc 0), and release-plan steps 3/5/6 (pre-bootout both, loaded-value postchecks, explicit backup/rollback). A disk-only postcheck would miss the divergence; post-release verification must read loaded launchd values (launchctl print), as required.",
+      "reproduction": "quality-k3/work/quality_rig.zsh scenarios Q1 (LAUNCHCTL_FAIL_BOOTSTRAP=finalize -> rc 5, sync loaded-new, finalize absent, operator rollback restores old state) and Q5 (LAUNCHCTL_FAIL_BOOTOUT=sync -> rc 17, sync loaded-old with on-disk-new, rerun converges); evidence/quality-rig.log 62/62 PASS"
+    }
+  ],
+  "limitations": [
+    "Bounded offline review only: no install against the live HOME, no real launchd, no live loaded-value (launchctl print) verification, no live sync, no collector/provider/API calls, no candidate mutation (mutations only in an extracted copy under quality-k3/work).",
+    "Spec PASS remains at 2ea6c3db01a062b9c623498df1b60edfbafe582b; candidate adds docs only. Six reviewed files re-hashed byte-identical at b0cf04fb (evidence/reviewed-files.sha256); tests (53/53: 20 installer + 33 wiring, run once) and the independent rig (62/62) were executed at the candidate SHA.",
+    "Stub launchctl is a faithful state model for the tested paths but is not launchd; calendar firing (18:30/20:40, RunAtLoad=false, no KeepAlive/WatchPaths/StartInterval/StartOnMount) was assessed from plist content, not observed.",
+    "Operator release preconditions (idle jobs, lock absent, hash preflight, clean adcda roots, preserved sync_akshare_index_daily.py patch and L2/method files, byte-exact backups, explicit rollback, loaded-value postchecks) assessed as sufficient and partially simulated; not performed. Data recovery, supplier completeness, and night-run acceptance are not signed.",
+    "First rig run had a harness-only bug (arg separator under set -u; 26 false FAILs) and its log was overwritten in place (disclosed); run-2 log preserved as evidence/quality-rig.run2.log (one wrong harness assertion about copy ordering); canonical evidence is the 62/62 run in evidence/quality-rig.log. No installer defect caused any false failure.",
+    "Author documentary evidence (docs/, verification logs, handoffs) not inspected per contract; conclusions rest on code, plist semantics, on-disk roots, and independent execution."
+  ]
+}

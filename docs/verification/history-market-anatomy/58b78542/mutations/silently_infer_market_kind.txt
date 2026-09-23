@@ -1,0 +1,10 @@
+F                                                                        [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260918T070746Z-58b78542.json
+
+=================================== FAILURES ===================================
+_______ test_omitted_kind_is_not_silently_inferred_from_code_or_features _______
+tests/test_history_argument_repair.py:34: in test_omitted_kind_is_not_silently_inferred_from_code_or_features
+    with pytest.raises(HistoryQueryError, match="entity_kind/code mismatch") as exc:
+E   Failed: DID NOT RAISE <class 'intelligence.services.historical_research.query.HistoryQueryError'>
+=========================== short test summary info ============================
+FAILED tests/test_history_argument_repair.py::test_omitted_kind_is_not_silently_inferred_from_code_or_features
+1 failed in 0.38s

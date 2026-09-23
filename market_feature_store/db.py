@@ -157,6 +157,48 @@ def init_db(con: duckdb.DuckDBPyConnection | None = None) -> None:
             con.close()
 
 
+class SnapshotUnavailableError(ValueError):
+    """调用方已持有事务，本次读取无法自持快照。"""
+
+
+@contextmanager
+def read_snapshot(con):
+    """把一组读取绑定到同一个数据库快照上。
+
+    为什么需要：自动提交模式下**每条 SELECT 各取一次快照**。预览类命令要读目录、
+    成员、指数、个股行情多张表，中途有写者提交就会产出「旧名单 + 新价格」的拼接
+    报告——里面每个数字都真实存在过，但它们从未同时成立。这种报告比直接报错更
+    危险：它看上去完全正常。
+
+    为什么用 READ ONLY 事务而不是普通事务：DuckDB 的 MVCC（多版本并发控制）下读
+    不加锁，所以它**不会阻塞写者**；同时它从引擎层面禁止写入，比「约定不写」更硬。
+
+    退出时一律 ROLLBACK：只读事务没有要提交的东西，ROLLBACK 表达的是「只释放快
+    照、不声称任何变更」。finally 兼顾 BaseException（如 KeyboardInterrupt），否则
+    一次中断就会把事务泄漏给后续调用方。
+
+    调用方已开事务时 fail-closed：那时本函数无法保证看到的是已提交状态，而预览结果
+    会被当成证据保存。不说话地复用外层事务，等于允许它读未提交、可能回滚的行。这里
+    不放任 duckdb.TransactionException 冒泡，因为它是 duckdb.Error 子类，会被 CLI
+    归因成「数据库不可用 / schema 不匹配」——错误的归因比没有归因更难排查。
+
+    **拒绝不是无副作用的**：DuckDB 的 Python API 没有暴露事务状态，只能试着 BEGIN；
+    而事务内任何语句报错都会把该事务置为 aborted，调用方必须 ROLLBACK 且未提交
+    改动会丢失。不写在这里的话，下一个人会把它当成「只是报个错」。
+    """
+    try:
+        con.execute("BEGIN TRANSACTION READ ONLY")
+    except duckdb.TransactionException as exc:
+        raise SnapshotUnavailableError(
+            "调用方已持有事务；本次读取需要自持只读快照，不复用可能含未提交行的外层事务；"
+            "该事务已被引擎置为 aborted，请先 ROLLBACK 再用独立连接重试"
+        ) from exc
+    try:
+        yield con
+    finally:
+        con.execute("ROLLBACK")
+
+
 def get_published_snapshot_id(con: duckdb.DuckDBPyConnection, trade_date: str) -> str:
     """获取某交易日已发布的 sector_universe_snapshot_id。
 
@@ -283,6 +325,12 @@ def clone_to_staging(source: Path, staging: Path) -> dict:
     优先 APFS clonefile (`cp -c`): 同卷 COW 克隆是单个 syscall, 秒级完成、
     初始零额外磁盘占用, 且相对文件系统是原子快照。非 APFS/非 macOS 退回
     shutil.copy2 (3.4G 实测约几十秒, 磁盘峰值 2×库大小)。
+
+    名字叫 staging, 但它是仓里**唯一**的整库快照原语: 换名前备份
+    (backup_before_swap)、基线导出 (scripts/db_baseline_export.py)、拉基线前的
+    回滚副本 (scripts/db_delta_pull.py) 都走这里。别处再写 shutil.copy2 整份拷
+    ——2026-09-23 盘上静置着 20 份 3.4 GB 的整库拷贝 (68 GB), 全是修库 / 门禁
+    的「改前快照」, 用 clonefile 这些几乎不占空间。
 
     source 若带 WAL (上一个写者崩溃留下), 一并按 staging 命名克隆——
     duckdb 打开 staging 时自动重放, 不丢已提交事务。

@@ -1,31 +1,28 @@
-# 夜跑部署差距收尾
+# 夜跑配置发布已完成，业务效果待验
 
 ## 这个分支做什么
-#827准备已合夜跑代码的窄发布，不接管#810/429、归属三单或Arena。
+#827已合并并切两个夜跑job；本枝只留收口指针，不接管#810/429等工作线。
 
 ## 决策与被否方案
-- 新建sync/生成/L2固定adcda94b三根；否reset旧根，补丁/产物/回退点保留。
-- 用户「执行」后先独立复核和最新合流全叶；否历史绿收据移签。
-- 最终全量磁盘耗尽、Quality无结论即停；否25P诊断拼绿、自动重开审查。
-- 只归档回收本轮pytest scratch，否删他人树/生产数据。展开见`../2026-09-21-nightly-deploy-execute-blocked.md`。
+- 等资源空档、成功夹具自动回收+3GiB运行底线；否删他人树或拼接诊断绿。
+- main漂移后合#830得c097；否旧全量移签，最终对象重验。
+- Spec@2ea6、Quality@b0cf原签名保留；8安装输入逐字一致，否冒称审过#830。
+- 快进合入保持受测SHA；备份/双job先卸载/loaded核验，否跨job事务承诺。
+展开：`../2026-09-21-nightly-deployment-complete.md`。
 
 ## 当前状态
-最终候选2ea6c3db（已合当时main f783f19c8）已推#827，仍open/WIP。后续文档不移签代码收据。用户条件式合入/夜跑发布授权已有，但前置未过，**未合main、未装机、未采集**。
-夜跑六装机文件仍原哈希，loaded旧根、runs3/4；三adcda候选干净未用。8792仍他会话adcda，health正常；readiness现503（快照9/21、DB9/18），别抄旧ready。
+#827于18:42合入，main精确c097d712f；18:43发布`CONFIG_DEPLOYED_NOT_EXECUTED`。sync/生成/L2三根adcda94b5；两个job复读idle/runs0。没有kickstart/手动采集/删旧根。六文件备份、自有锁已释放；生产库、其他四job、8792和旧根发布前后不变。证据文档另在`docs/nightly-deployment-receipt-0921`。
 
 ## 已验证
-2ea6：Spec PASS，33请求；安装20P/接线33P，自建21断言根复跑21/21，哈希已核。报告误比逐字保全对象已在qc勘误，原文保留。
-前端110P/E2E34P2S、registry五项0、Ruff0、生成7+4边界及hooks通过。
-Python原进程12454P/2F/8error/85S/2X，全部失败错误含ENOSPC；首尾同SHA干净。回收自有临时目录后仅两失败模块诊断25P，不替代全量。
-证据`docs/verification/2026-09-21-nightly-deploy-execute/manifest.json`；外部`~/.finance-runtime/reviews/nightly-deploy-execute-20260921/`。
+c097 Python12502P/0F/0error/85S/2X，Ruff0；前端110P/E2E34P2S；registry五项、生成7+4、hooks通过。main精确收据校验0。
+Quality单次24请求PASS/两个low；53P+62断言；最终树根复跑Spec21/Quality62。封存`docs/verification/2026-09-21-nightly-deploy-resume/manifest.json`。
 
 ## 未验证 / 已知边界
-Quality10请求/260秒exit1，stderr空、事件中断，无报告；同期磁盘耗尽但退出原因未证，无自动重开。独立整体未过。
-全量仍红，final-gate-qc=BLOCKED。自有3.1GiB scratch全项验档后回收；299MiB包留外部。空间仍紧，不能立即并发重跑。未签文档尖/后main。
-旧S7只验合成库非完整生产副本；同花顺目标日/关键值恢复、真实日报/L2/生成均未验。安装器无双job事务/自动回退；发布脚本仅准备未执行，绑定2ea6和红QC。
+旧配置18:30自然sync于18:36退出2：东财RemoteDisconnected、当日个股0行；staging拒换库，主库stat未变。不是新装根效果。今日真实采集/关键值/日报/L2/生成未通过。
+8792由他会话18:13切f2c3e9e1a；本轮未动，readiness仍503（快照9/21、库9/18）。独立签名非整个c097审查。安装器不验根语义、无跨job事务；实际loaded核验不可省。
 
 ## 下一步
-先协调磁盘/并发，固定最终对象重做全量；Quality另获一次明确有界补审。全过才合入并按release-plan备份/核漂移/锁/卸载两job/窄安装/loaded核验；不kickstart，效果另验。旧根/他人树不删。
+配置部署完成；按授权范围观察20:40及下次18:30真实收据。若要今日补采另确认，走canonical daily-full，不强制换失败staging。旧根/失败库/审查原件保留。收尾文档尖不继承c097全量。
 
 ## 踩过的坑
-JUnit的setup/teardown可同case多状态，不能按case互斥分类；看原进程/收据/元素。压缩包逐项随机getmember慢，顺序校验；只读fixture目录需先完整验档再定域回收。
+资源入场检查不是全机资源锁，后续会话仍可开测试；运行期采样不可省。部署等待期间主干、8792、定时job都会变化，发布前重采。安装后runs重置0不是业务成功。

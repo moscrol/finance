@@ -1,0 +1,292 @@
+{
+  "revision": "d06dc1e8d1adf6ba8b39bd02333af6299416dc1d",
+  "suite": "financial-delivery",
+  "tree": "/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/extraction-closeout-mutations-c2_bt2ac/tree",
+  "python": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "complete": true,
+  "runs": [
+    {
+      "label": "baseline",
+      "exit": 0,
+      "executed": 20,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "financial-final-text-check-red",
+      "exit": 1,
+      "executed": 11,
+      "failures": 11,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_financial_delivery_integration",
+          "name": "test_changed_public_projection_rechecks_financial_claims_without_upgrading[completed-\\u4e8c\\u5b63\\u5ea6\\u5355\\u5b63\\u7ecf\\u8425\\u73b0\\u91d1\\u6d41=18\\u221233.68=\\u221215.66\\u4ebf\\u5143\\u3002]",
+          "message": "AssertionError: assert '二季度单季经营现金流=...68=−15.66亿元。' not in '应收账款明细尚未取得，...68=−15.66亿元。'\n  \n  '二季度单季经营现金流=18−33.68=−15.66亿元。' is contained here:\n    应收账款明细尚未取得，回款变化原因仍待核实。[E1]。\n    二季度单季经营现金流=18−33.68=−15.66亿元。"
+        },
+        {
+          "class": "intelligence.tests.test_financial_delivery_integration",
+          "name": "test_changed_public_projection_rechecks_financial_claims_without_upgrading[completed-2026\\u4e2d\\u62a5\\u51c0\\u73b0\\u6bd40.133\\u3002]",
+          "message": "AssertionError: assert '2026中报净现比0.133。' not in '应收账款明细尚未取得，...6中报净现比0.133。'\n  \n  '2026中报净现比0.133。' is contained here:\n    应收账款明细尚未取得，回款变化原因仍待核实。[E1]。\n    2026中报净现比0.133。"
+        },
+        {
+          "class": "intelligence.tests.test_financial_delivery_integration",
+          "name": "test_changed_public_projection_rechecks_financial_claims_without_upgrading[completed-\\u672c\\u6b21\\u5b9e\\u9645\\u53d6\\u5f97\\u5e76\\u5f15\\u7528\\u7684\\u62a5\\u544a\\u4e3a\\u4e2d\\u9645\\u65ed\\u521b2026\\u5e74\\u534a\\u5e74\\u5ea6\\u62a5\\u544a\\u3002]",
+          "message": "AssertionError: assert '本次实际取得并引用的报...创2026年半年度报告。' not in '应收账款明细尚未取得，...创2026年半年度报告。'\n  \n  '本次实际取得并引用的报告为中际旭创2026年半年度报告。' is contained here:\n    应收账款明细尚未取得，回款变化原因仍待核实。[E1]。\n    本次实际取得并引用的报告为中际旭创2026年半年度报告。"
+        },
+        {
+          "class": "intelligence.tests.test_financial_delivery_integration",
+          "name": "test_changed_public_projection_rechecks_financial_claims_without_upgrading[partial-\\u4e8c\\u5b63\\u5ea6\\u5355\\u5b63\\u7ecf\\u8425\\u73b0\\u91d1\\u6d41=18\\u221233.68=\\u221215.66\\u4ebf\\u5143\\u3002]",
+          "message": "AssertionError: assert '二季度单季经营现金流=...68=−15.66亿元。' not in '应收账款明细尚未取得，...68=−15.66亿元。'\n  \n  '二季度单季经营现金流=18−33.68=−15.66亿元。' is contained here:\n    应收账款明细尚未取得，回款变化原因仍待核实。[E1]。\n    二季度单季经营现金流=18−33.68=−15.66亿元。"
+        },
+        {
+          "class": "intelligence.tests.test_financial_delivery_integration",
+          "name": "test_changed_public_projection_rechecks_financial_claims_without_upgrading[partial-2026\\u4e2d\\u62a5\\u51c0\\u73b0\\u6bd40.133\\u3002]",
+          "message": "AssertionError: assert '2026中报净现比0.133。' not in '应收账款明细尚未取得，...6中报净现比0.133。'\n  \n  '2026中报净现比0.133。' is contained here:\n    应收账款明细尚未取得，回款变化原因仍待核实。[E1]。\n    2026中报净现比0.133。"
+        },
+        {
+          "class": "intelligence.tests.test_financial_delivery_integration",
+          "name": "test_changed_public_projection_rechecks_financial_claims_without_upgrading[partial-\\u672c\\u6b21\\u5b9e\\u9645\\u53d6\\u5f97\\u5e76\\u5f15\\u7528\\u7684\\u62a5\\u544a\\u4e3a\\u4e2d\\u9645\\u65ed\\u521b2026\\u5e74\\u534a\\u5e74\\u5ea6\\u62a5\\u544a\\u3002]",
+          "message": "AssertionError: assert '本次实际取得并引用的报...创2026年半年度报告。' not in '应收账款明细尚未取得，...创2026年半年度报告。'\n  \n  '本次实际取得并引用的报告为中际旭创2026年半年度报告。' is contained here:\n    应收账款明细尚未取得，回款变化原因仍待核实。[E1]。\n    本次实际取得并引用的报告为中际旭创2026年半年度报告。"
+        },
+        {
+          "class": "intelligence.tests.test_financial_delivery_integration",
+          "name": "test_changed_public_projection_rechecks_financial_claims_without_upgrading[degraded-\\u4e8c\\u5b63\\u5ea6\\u5355\\u5b63\\u7ecf\\u8425\\u73b0\\u91d1\\u6d41=18\\u221233.68=\\u221215.66\\u4ebf\\u5143\\u3002]",
+          "message": "AssertionError: assert '二季度单季经营现金流=...68=−15.66亿元。' not in '应收账款明细尚未取得，...68=−15.66亿元。'\n  \n  '二季度单季经营现金流=18−33.68=−15.66亿元。' is contained here:\n    应收账款明细尚未取得，回款变化原因仍待核实。[E1]。\n    二季度单季经营现金流=18−33.68=−15.66亿元。"
+        },
+        {
+          "class": "intelligence.tests.test_financial_delivery_integration",
+          "name": "test_changed_public_projection_rechecks_financial_claims_without_upgrading[degraded-2026\\u4e2d\\u62a5\\u51c0\\u73b0\\u6bd40.133\\u3002]",
+          "message": "AssertionError: assert '2026中报净现比0.133。' not in '应收账款明细尚未取得，...6中报净现比0.133。'\n  \n  '2026中报净现比0.133。' is contained here:\n    应收账款明细尚未取得，回款变化原因仍待核实。[E1]。\n    2026中报净现比0.133。"
+        },
+        {
+          "class": "intelligence.tests.test_financial_delivery_integration",
+          "name": "test_changed_public_projection_rechecks_financial_claims_without_upgrading[degraded-\\u672c\\u6b21\\u5b9e\\u9645\\u53d6\\u5f97\\u5e76\\u5f15\\u7528\\u7684\\u62a5\\u544a\\u4e3a\\u4e2d\\u9645\\u65ed\\u521b2026\\u5e74\\u534a\\u5e74\\u5ea6\\u62a5\\u544a\\u3002]",
+          "message": "AssertionError: assert '本次实际取得并引用的报...创2026年半年度报告。' not in '应收账款明细尚未取得，...创2026年半年度报告。'\n  \n  '本次实际取得并引用的报告为中际旭创2026年半年度报告。' is contained here:\n    应收账款明细尚未取得，回款变化原因仍待核实。[E1]。\n    本次实际取得并引用的报告为中际旭创2026年半年度报告。"
+        },
+        {
+          "class": "intelligence.tests.test_financial_delivery_integration",
+          "name": "test_adapter_final_financial_projection_is_guarded_and_cited[off]",
+          "message": "AssertionError: assert ('completed' == 'partial'\n  \n  - partial\n  + completed)"
+        },
+        {
+          "class": "intelligence.tests.test_financial_delivery_integration",
+          "name": "test_adapter_final_financial_projection_is_guarded_and_cited[llm]",
+          "message": "AssertionError: assert ('completed' == 'partial'\n  \n  - partial\n  + completed)"
+        }
+      ]
+    },
+    {
+      "label": "financial-final-text-check-green",
+      "exit": 0,
+      "executed": 11,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "financial-debt-retained-citations-red",
+      "exit": 1,
+      "executed": 2,
+      "failures": 2,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_financial_delivery_integration",
+          "name": "test_both_guards_keep_local_debt_bound_citations_and_corrected_draft_clears_it[off]",
+          "message": "AssertionError: assert () == ('financial-2026-06-30',)\n  \n  Right contains one more item: 'financial-2026-06-30'\n  Use -v to get more diff"
+        },
+        {
+          "class": "intelligence.tests.test_financial_delivery_integration",
+          "name": "test_both_guards_keep_local_debt_bound_citations_and_corrected_draft_clears_it[llm]",
+          "message": "AssertionError: assert () == ('financial-2026-06-30',)\n  \n  Right contains one more item: 'financial-2026-06-30'\n  Use -v to get more diff"
+        }
+      ]
+    },
+    {
+      "label": "financial-debt-retained-citations-green",
+      "exit": 0,
+      "executed": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "financial-concrete-repair-note-red",
+      "exit": 1,
+      "executed": 2,
+      "failures": 2,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_financial_delivery_integration",
+          "name": "test_both_guards_keep_local_debt_bound_citations_and_corrected_draft_clears_it[off]",
+          "message": "assert False\n +  where False = any(<generator object test_both_guards_keep_local_debt_bound_citations_and_corrected_draft_clears_it.<locals>.<genexpr> at 0x108b057d0>)"
+        },
+        {
+          "class": "intelligence.tests.test_financial_delivery_integration",
+          "name": "test_both_guards_keep_local_debt_bound_citations_and_corrected_draft_clears_it[llm]",
+          "message": "assert False\n +  where False = any(<generator object test_both_guards_keep_local_debt_bound_citations_and_corrected_draft_clears_it.<locals>.<genexpr> at 0x10aee1d80>)"
+        }
+      ]
+    },
+    {
+      "label": "financial-concrete-repair-note-green",
+      "exit": 0,
+      "executed": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "recovery-final-projection-check-red",
+      "exit": 1,
+      "executed": 3,
+      "failures": 3,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_financial_delivery_integration",
+          "name": "test_exception_recovery_checks_after_calendar_and_keeps_citations[\\u4e8c\\u5b63\\u5ea6\\u5355\\u5b63\\u7ecf\\u8425\\u73b0\\u91d1\\u6d41=18\\u221233.68=\\u221215.66\\u4ebf\\u5143\\u3002]",
+          "message": "AssertionError: assert ('二季度单季经营现金流=...68=−15.66亿元。' not in '应收账款明细尚未取得，...采用本次未核验的新断言。'\n  \n  '二季度单季经营现金流=18−33.68=−15.66亿元。' is contained here:\n    相关分析仍需补齐。\n    二季度单季经营现金流=18−33.68=−15.66亿元。\n    \n    后续补全或复验未完成；以上保留此前已核验的内容，未采用本次未核验的新断言。)"
+        },
+        {
+          "class": "intelligence.tests.test_financial_delivery_integration",
+          "name": "test_exception_recovery_checks_after_calendar_and_keeps_citations[\\u7a97\\u53e3\\u5185\\u65e0\\u65b0\\u516c\\u544a\\u5373\\u65e0\\u65b0\\u589e\\u5b98\\u65b9\\u4fe1\\u606f\\u5dee\\u3002]",
+          "message": "AssertionError: assert ('二季度单季经营现金流=...68=−15.66亿元。' not in '应收账款明细尚未取得，...采用本次未核验的新断言。'\n  \n  '二季度单季经营现金流=18−33.68=−15.66亿元。' is contained here:\n    用本次未核验的新断言。 and '窗口内无新公告即无新增官方信息差。' not in '应收账款明细尚未取得，...采用本次未核验的新断言。'\n  \n  '窗口内无新公告即无新增官方信息差。' is contained here:\n    相关分析仍需补齐。\n    窗口内无新公告即无新增官方信息差。\n    \n    后续补全或复验未完成；以上保留此前已核验的内容，未采用本次未核验的新断言。)"
+        },
+        {
+          "class": "intelligence.tests.test_financial_delivery_integration",
+          "name": "test_true_exception_recovery_cannot_restore_postcheck_disclosure_inference",
+          "message": "AssertionError: assert '查询空白，因此公司没有公告' not in '需求仍待确认 E1。无...的指标、时间或触发条件。'\n  \n  '查询空白，因此公司没有公告' is contained here:\n    、不升格为已验证。\n    查询空白，因此公司没有公告。\n    \n    后续补全或复验未完成；以上保留此前已核验的内容，未采用本次未核验的新断言。\n    \n    跟踪输出未完成：下期关注的指标、时间或触发条件。"
+        }
+      ]
+    },
+    {
+      "label": "recovery-final-projection-check-green",
+      "exit": 0,
+      "executed": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "recovery-retained-cards-red",
+      "exit": 1,
+      "executed": 2,
+      "failures": 2,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_financial_delivery_integration",
+          "name": "test_exception_recovery_checks_after_calendar_and_keeps_citations[\\u4e8c\\u5b63\\u5ea6\\u5355\\u5b63\\u7ecf\\u8425\\u73b0\\u91d1\\u6d41=18\\u221233.68=\\u221215.66\\u4ebf\\u5143\\u3002]",
+          "message": "AssertionError: assert ('应收账款明细尚未取得，回款变化原因仍待核实。' in '应收账款明细尚未取得，回款变化原因仍待核实。[E1]。\\n【预取事实】300308.SZ 2026-06-30：ocf_cum_yi=18｜300308.SZ 2026-03-31：ocf_cum_yi=33.68\\n部分财务差值、期间或报告来源断言未通过核对；已保留其他内容，相关分析仍需补齐。\\n\\n后续补全或复验未完成；以上保留此前已核验的内容，未采用本次未核验的新断言。' and '[E1]' in '应收账款明细尚未取得，回款变化原因仍待核实。[E1]。\\n【预取事实】300308.SZ 2026-06-30：ocf_cum_yi=18｜300308.SZ 2026-03-31：ocf_cum_yi=33.68\\n部分财务差值、期间或报告来源断言未通过核对；已保留其他内容，相关分析仍需补齐。\\n\\n后续补全或复验未完成；以上保留此前已核验的内容，未采用本次未核验的新断言。' and ())\n +  where '应收账款明细尚未取得，回款变化原因仍待核实。[E1]。\\n【预取事实】300308.SZ 2026-06-30：ocf_cum_yi=18｜300308.SZ 2026-03-31：ocf_cum_yi=33.68\\n部分财务差值、期间或报告来源断言未通过核对；已保留其他内容，相关分析仍需补齐。\\n\\n后续补全或复验未完成；以上保留此前已核验的内容，未采用本次未核验的新断言。' = ContinuousTurnResult(handled=True, status='partial', answer='应收账款明细尚未取得，回款变化原因仍待核实。[E1]。\\n【预取事实】300308.SZ 2026-06-30：o...'已按核验结果形成回答。', 'status': 'completed'}), llm_provider=None, open_gaps=('财务依据', '后续补全或复验未完成；以上保留此前已核验的内容，未采用本次未核验的新断言。')).answer\n +  and   '应收账款明细尚未取得，回款变化原因仍待核实。[E1]。\\n【预取事实】300308.SZ 2026-06-30：ocf_cum_yi=18｜300308.SZ 2026-03-31：ocf_cum_yi=33.68\\n部分财务差值、期间或报告来源断言未通过核对；已保留其他内容，相关分析仍需补齐。\\n\\n后续补全或复验未完成；以上保留此前已核验的内容，未采用本次未核验的新断言。' = ContinuousTurnResult(handled=True, status='partial', answer='应收账款明细尚未取得，回款变化原因仍待核实。[E1]。\\n【预取事实】300308.SZ 2026-06-30：o...'已按核验结果形成回答。', 'status': 'completed'}), llm_provider=None, open_gaps=('财务依据', '后续补全或复验未完成；以上保留此前已核验的内容，未采用本次未核验的新断言。')).answer\n +  and   () = ContinuousTurnResult(handled=True, status='partial', answer='应收账款明细尚未取得，回款变化原因仍待核实。[E1]。\\n【预取事实】300308.SZ 2026-06-30：o...'已按核验结果形成回答。', 'status': 'completed'}), llm_provider=None, open_gaps=('财务依据', '后续补全或复验未完成；以上保留此前已核验的内容，未采用本次未核验的新断言。')).citations"
+        },
+        {
+          "class": "intelligence.tests.test_financial_delivery_integration",
+          "name": "test_exception_recovery_checks_after_calendar_and_keeps_citations[\\u7a97\\u53e3\\u5185\\u65e0\\u65b0\\u516c\\u544a\\u5373\\u65e0\\u65b0\\u589e\\u5b98\\u65b9\\u4fe1\\u606f\\u5dee\\u3002]",
+          "message": "AssertionError: assert ('应收账款明细尚未取得，回款变化原因仍待核实。' in '应收账款明细尚未取得，回款变化原因仍待核实。[E1]。\\n【预取事实】300308.SZ 2026-06-30：ocf_cum_yi=18｜300308.SZ 2026-03-31：ocf_cum_yi=33.68\\n部分财务差值、期间或报告来源断言未通过核对；已保留其他内容，相关分析仍需补齐。\\n\\n\\n后续补全或复验未完成；以上保留此前已核验的内容，未采用本次未核验的新断言。\\n\\n公告检索范围尚未核实完整；不能据此断言公司没有公告或尚未兑现。' and '[E1]' in '应收账款明细尚未取得，回款变化原因仍待核实。[E1]。\\n【预取事实】300308.SZ 2026-06-30：ocf_cum_yi=18｜300308.SZ 2026-03-31：ocf_cum_yi=33.68\\n部分财务差值、期间或报告来源断言未通过核对；已保留其他内容，相关分析仍需补齐。\\n\\n\\n后续补全或复验未完成；以上保留此前已核验的内容，未采用本次未核验的新断言。\\n\\n公告检索范围尚未核实完整；不能据此断言公司没有公告或尚未兑现。' and ())\n +  where '应收账款明细尚未取得，回款变化原因仍待核实。[E1]。\\n【预取事实】300308.SZ 2026-06-30：ocf_cum_yi=18｜300308.SZ 2026-03-31：ocf_cum_yi=33.68\\n部分财务差值、期间或报告来源断言未通过核对；已保留其他内容，相关分析仍需补齐。\\n\\n\\n后续补全或复验未完成；以上保留此前已核验的内容，未采用本次未核验的新断言。\\n\\n公告检索范围尚未核实完整；不能据此断言公司没有公告或尚未兑现。' = ContinuousTurnResult(handled=True, status='partial', answer='应收账款明细尚未取得，回款变化原因仍待核实。[E1]。\\n【预取事实】300308.SZ 2026-06-30：o...'已按核验结果形成回答。', 'status': 'completed'}), llm_provider=None, open_gaps=('财务依据', '后续补全或复验未完成；以上保留此前已核验的内容，未采用本次未核验的新断言。')).answer\n +  and   '应收账款明细尚未取得，回款变化原因仍待核实。[E1]。\\n【预取事实】300308.SZ 2026-06-30：ocf_cum_yi=18｜300308.SZ 2026-03-31：ocf_cum_yi=33.68\\n部分财务差值、期间或报告来源断言未通过核对；已保留其他内容，相关分析仍需补齐。\\n\\n\\n后续补全或复验未完成；以上保留此前已核验的内容，未采用本次未核验的新断言。\\n\\n公告检索范围尚未核实完整；不能据此断言公司没有公告或尚未兑现。' = ContinuousTurnResult(handled=True, status='partial', answer='应收账款明细尚未取得，回款变化原因仍待核实。[E1]。\\n【预取事实】300308.SZ 2026-06-30：o...'已按核验结果形成回答。', 'status': 'completed'}), llm_provider=None, open_gaps=('财务依据', '后续补全或复验未完成；以上保留此前已核验的内容，未采用本次未核验的新断言。')).answer\n +  and   () = ContinuousTurnResult(handled=True, status='partial', answer='应收账款明细尚未取得，回款变化原因仍待核实。[E1]。\\n【预取事实】300308.SZ 2026-06-30：o...'已按核验结果形成回答。', 'status': 'completed'}), llm_provider=None, open_gaps=('财务依据', '后续补全或复验未完成；以上保留此前已核验的内容，未采用本次未核验的新断言。')).citations"
+        }
+      ]
+    },
+    {
+      "label": "recovery-retained-cards-green",
+      "exit": 0,
+      "executed": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "delivery-keeps-earlier-verdict-ledger-red",
+      "exit": 1,
+      "executed": 1,
+      "failures": 1,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_financial_delivery_integration",
+          "name": "test_delivery_verdicts_do_not_mask_preflight_ledger",
+          "message": "AssertionError: assert ('preflight' in {'delivery'})"
+        }
+      ]
+    },
+    {
+      "label": "delivery-keeps-earlier-verdict-ledger-green",
+      "exit": 0,
+      "executed": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "restored-full",
+      "exit": 0,
+      "executed": 20,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    }
+  ],
+  "mutations": [
+    {
+      "id": "financial-final-text-check",
+      "path": "intelligence/services/episode_semantic_verifier.py",
+      "before_sha256": "36f139f09b106fcc27d3b4018bbd5ad16e9164987975c9e4eb52411de20910a8",
+      "mutated_sha256": "bd6f5f3983eecd2215196ed9b9277e203e4ff14996e1f55a0270cae5e8ef6718",
+      "restored_sha256": "36f139f09b106fcc27d3b4018bbd5ad16e9164987975c9e4eb52411de20910a8"
+    },
+    {
+      "id": "financial-debt-retained-citations",
+      "path": "intelligence/services/episode_semantic_verifier.py",
+      "before_sha256": "36f139f09b106fcc27d3b4018bbd5ad16e9164987975c9e4eb52411de20910a8",
+      "mutated_sha256": "6b67fab733c09c228fe69636c6087b41a80657c25bc7cc15ee23a0031b764a94",
+      "restored_sha256": "36f139f09b106fcc27d3b4018bbd5ad16e9164987975c9e4eb52411de20910a8"
+    },
+    {
+      "id": "financial-concrete-repair-note",
+      "path": "intelligence/services/episode_semantic_verifier.py",
+      "before_sha256": "36f139f09b106fcc27d3b4018bbd5ad16e9164987975c9e4eb52411de20910a8",
+      "mutated_sha256": "4bc4d1f0b78696df840d01abf775c1437d71601b535fcaea2388b1a7bac8803a",
+      "restored_sha256": "36f139f09b106fcc27d3b4018bbd5ad16e9164987975c9e4eb52411de20910a8"
+    },
+    {
+      "id": "recovery-final-projection-check",
+      "path": "intelligence/runtime/continuous_turn_adapter.py",
+      "before_sha256": "c36502d2f72727f65aece078726ae654b1832610865d8e37c5d6e96944316b1a",
+      "mutated_sha256": "a2b4a2bdc84f57fdaf6b03df3bdf88706e4524d2ff8cd24a0fc4beb6a12a5d73",
+      "restored_sha256": "c36502d2f72727f65aece078726ae654b1832610865d8e37c5d6e96944316b1a"
+    },
+    {
+      "id": "recovery-retained-cards",
+      "path": "intelligence/runtime/continuous_turn_adapter.py",
+      "before_sha256": "c36502d2f72727f65aece078726ae654b1832610865d8e37c5d6e96944316b1a",
+      "mutated_sha256": "ceeeb0d6aa0419bd7a4010b541e1890e7f77955a0223358fd65f306b17478fc6",
+      "restored_sha256": "c36502d2f72727f65aece078726ae654b1832610865d8e37c5d6e96944316b1a"
+    },
+    {
+      "id": "delivery-keeps-earlier-verdict-ledger",
+      "path": "intelligence/services/episode_semantic_verifier.py",
+      "before_sha256": "36f139f09b106fcc27d3b4018bbd5ad16e9164987975c9e4eb52411de20910a8",
+      "mutated_sha256": "5032800a22719277473c33cba1e25b4863d8be6f1febddce22074d99e9d634b7",
+      "restored_sha256": "36f139f09b106fcc27d3b4018bbd5ad16e9164987975c9e4eb52411de20910a8"
+    }
+  ],
+  "definitions_sha256": "a362c394eb5702e8776227f5a759d5e6ff2c862ab0c7f793ee85829ee2bffa65",
+  "final_status": ""
+}

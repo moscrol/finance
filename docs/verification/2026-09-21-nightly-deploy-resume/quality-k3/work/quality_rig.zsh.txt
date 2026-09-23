@@ -1,0 +1,246 @@
+#!/bin/zsh
+# Independent QUALITY rig for #827 candidate b0cf04fb.
+# Real candidate installer + repo COPY (mutations only in the copy) + fake HOME
+# + state-tracking stub launchctl. Never touches the live HOME or real launchd.
+set -u
+OUT=/Users/a77/.finance-runtime/reviews/nightly-deploy-resume-20260921/quality-k3
+WORK=$OUT/work
+CAND=/Users/a77/.finance-runtime/reviews/nightly-deploy-resume-20260921/quality-tree
+PY=/Users/a77/finance-workspace-private/.venv-workbench/bin/python
+RIG=$WORK/rig
+REPO_COPY=$RIG/repo
+BIN=$RIG/bin
+H=$RIG/home
+STATE=$RIG/launchd-state
+CALLS=$RIG/launchctl.calls
+BACKUP=$RIG/backup-home
+PASS=0; FAIL=0
+ok()  { print -r -- "PASS: $1"; PASS=$((PASS+1)); }
+bad() { print -r -- "FAIL: $1"; FAIL=$((FAIL+1)); }
+chk() { # chk <label> <actual> <expected>
+  if [[ "$2" == "$3" ]]; then ok "$1 ($2)"; else bad "$1 (got [$2] want [$3])"; fi
+}
+
+print "== setup =="
+rm -rf "$RIG"; mkdir -p "$RIG" "$BIN"
+(cd "$CAND" && git archive HEAD scripts intelligence skills tests) | tar -x -C "$RIG"
+mv "$RIG"/{scripts,intelligence,skills,tests} "$REPO_COPY" 2>/dev/null || { mkdir -p "$REPO_COPY"; mv "$RIG"/scripts "$RIG"/intelligence "$RIG"/skills "$RIG"/tests "$REPO_COPY"/; }
+# sanity: extracted copy matches candidate hashes
+for f in scripts/install_eval_launchd.sh intelligence/dream/com.financeworkspace.daily-full-review-sync.plist intelligence/dream/com.financeworkspace.daily-full-review-finalize.plist skills/daily-full-review/scripts/nightly_full_review_s7.sh; do
+  chk "copy hash $f" "$(shasum -a 256 "$REPO_COPY/$f" | cut -d' ' -f1)" "$(shasum -a 256 "$CAND/$f" | cut -d' ' -f1)"
+done
+
+# state-tracking stub launchctl
+cat > "$BIN/launchctl" <<'EOF'
+#!/bin/sh
+state="$LAUNCHCTL_STATE_DIR"; mkdir -p "$state"
+printf '%s\n' "$*" >> "$LAUNCHCTL_CALL_LOG"
+cmd="$1"
+case "$cmd" in
+  bootout)
+    label="${2##*/}"
+    if [ -n "${LAUNCHCTL_FAIL_BOOTOUT:-}" ] && [ "${LAUNCHCTL_FAIL_BOOTOUT:-}" = "$label" ]; then echo "Boot-out failed: 5" >&2; exit 5; fi
+    rm -f "$state/$label"; exit 0 ;;
+  bootstrap)
+    plist="$3"
+    label=$(/usr/libexec/PlistBuddy -c 'Print :Label' "$plist" 2>/dev/null) || label=$(basename "$plist" .plist)
+    if [ -n "${LAUNCHCTL_FAIL_BOOTSTRAP:-}" ] && [ "${LAUNCHCTL_FAIL_BOOTSTRAP:-}" = "$label" ]; then echo "Bootstrap failed: 5: I/O error" >&2; exit 5; fi
+    if [ -f "$state/$label" ]; then echo "Bootstrap failed: 17: service already loaded" >&2; exit 17; fi
+    printf '%s\n' "$plist" > "$state/$label"; exit 0 ;;
+  kickstart) exit 0 ;;
+  *) exit 0 ;;
+esac
+EOF
+chmod +x "$BIN/launchctl"
+
+mk_baseline() {
+  rm -rf "$H" "$STATE" "$CALLS" "$BACKUP"
+  mkdir -p "$H/.local/bin" "$H/Library/LaunchAgents" "$STATE"
+  cp "$REPO_COPY/scripts/lib/ops_python.sh" "$H/.local/bin/ops_python.sh"   # scoped precondition: identical helper
+  for w in nightly_full_review.sh nightly-full-review-s7.sh; do print -r -- "old $w" > "$H/.local/bin/$w"; done
+  sed 's/finance-sync-adcda94b5e40/finance-workspace-sync/g' \
+    "$REPO_COPY/intelligence/dream/com.financeworkspace.daily-full-review-sync.plist" \
+    > "$H/Library/LaunchAgents/com.financeworkspace.daily-full-review-sync.plist"
+  sed -e 's/finance-l2-adcda94b5e40/finance-l2-d433b90788c0/' \
+      -e 's/finance-generation-adcda94b5e40/finance-generation-387028b846a2/' \
+      -e 's/finance-sync-adcda94b5e40/finance-workspace-sync/' \
+    "$REPO_COPY/intelligence/dream/com.financeworkspace.daily-full-review-finalize.plist" \
+    > "$H/Library/LaunchAgents/com.financeworkspace.daily-full-review-finalize.plist"
+  for j in fidelity-daily-agent fidelity-forward-acceptance pit-snapshot checkpoint-recheck; do
+    cp "$REPO_COPY/intelligence/eval/com.financeworkspace.$j.plist" "$H/Library/LaunchAgents/com.financeworkspace.$j.plist"
+    print -- "<!-- old -->" >> "$H/Library/LaunchAgents/com.financeworkspace.$j.plist"
+  done
+  for j in fidelity-daily-agent fidelity-forward-acceptance pit-snapshot checkpoint-recheck daily-full-review-sync daily-full-review-finalize; do
+    print -r -- "$H/Library/LaunchAgents/com.financeworkspace.$j.plist" > "$STATE/com.financeworkspace.$j"
+  done
+}
+
+run_inst() { # extra-env... -- installer args
+  local kv=() ; while (( $# )) && [[ "$1" != -- ]]; do kv+=("$1"); shift; done; shift
+  env HOME="$H" PATH="$BIN:/usr/bin:/bin:/usr/sbin:/sbin" FINANCE_OPS_REPO="$REPO_COPY" \
+      LAUNCHCTL_STATE_DIR="$STATE" LAUNCHCTL_CALL_LOG="$CALLS" \
+      "${kv[@]}" /bin/zsh "$CAND/scripts/install_eval_launchd.sh" "$@"
+}
+snap() { (cd "$1" && find . -type f -exec shasum -a 256 {} + | sort) }
+snap_state() { (cd "$STATE" && find . -type f -exec shasum -a 256 {} + | sort) }
+
+SYNC=com.financeworkspace.daily-full-review-sync
+FIN=com.financeworkspace.daily-full-review-finalize
+
+print "== Q0 positive control: scoped install =="
+mk_baseline
+before_home=$(snap "$H"); before_state=$(snap_state)
+out=$(run_inst -- --nightly-only 2>&1); rc=$?
+chk "Q0 rc" "$rc" 0
+chk "Q0 launchctl calls" "$(wc -l < "$CALLS" | tr -d ' ')" 4
+chk "Q0 kickstarts" "$(grep -c kickstart "$CALLS" || true)" 0
+chk "Q0 sync loaded" "$([[ -f $STATE/$SYNC ]] && echo yes)" yes
+chk "Q0 finalize loaded" "$([[ -f $STATE/$FIN ]] && echo yes)" yes
+chk "Q0 installed sync plist == candidate" "$(shasum -a 256 "$H/Library/LaunchAgents/$SYNC.plist" | cut -d' ' -f1)" "$(shasum -a 256 "$CAND/intelligence/dream/$SYNC.plist" | cut -d' ' -f1)"
+chk "Q0 installed s7 wrapper == candidate" "$(shasum -a 256 "$H/.local/bin/nightly-full-review-s7.sh" | cut -d' ' -f1)" "$(shasum -a 256 "$CAND/skills/daily-full-review/scripts/nightly_full_review_s7.sh" | cut -d' ' -f1)"
+chk "Q0 s7 wrapper executable" "$([[ -x $H/.local/bin/nightly-full-review-s7.sh ]] && echo yes)" yes
+unchanged=1
+for j in fidelity-daily-agent fidelity-forward-acceptance pit-snapshot checkpoint-recheck; do
+  grep -q "old" "$H/Library/LaunchAgents/com.financeworkspace.$j.plist" || unchanged=0
+done
+chk "Q0 other four jobs' files untouched" "$unchanged" 1
+chk "Q0 other four jobs' loaded state untouched" "$(snap_state | grep -c 'com.financeworkspace')" 6
+chk "Q0 helper untouched" "$(shasum -a 256 "$H/.local/bin/ops_python.sh" | cut -d' ' -f1)" "$(shasum -a 256 "$REPO_COPY/scripts/lib/ops_python.sh" | cut -d' ' -f1)"
+chk "Q0 installed sync plist carries adcda root" "$(grep -c 'finance-sync-adcda94b5e40' "$H/Library/LaunchAgents/$SYNC.plist")" 2
+
+print "== Q1 mid-install fault: bootstrap of 2nd job fails =="
+mk_baseline
+cp -a "$H" "$BACKUP"   # operator step 1: byte-exact backups before invoking installer
+out=$(run_inst LAUNCHCTL_FAIL_BOOTSTRAP=$FIN -- --nightly-only 2>&1); rc=$?
+[[ $rc -ne 0 ]] && ok "Q1 installer fails loudly rc=$rc" || bad "Q1 rc=$rc (expected nonzero)"
+chk "Q1 calls before abort" "$(wc -l < "$CALLS" | tr -d ' ')" 4
+chk "Q1 MIXED STATE: sync loaded-new" "$([[ -f $STATE/$SYNC ]] && shasum -a 256 "$H/Library/LaunchAgents/$SYNC.plist" | cut -d' ' -f1)" "$(shasum -a 256 "$CAND/intelligence/dream/$SYNC.plist" | cut -d' ' -f1)"
+chk "Q1 MIXED STATE: finalize NOT loaded" "$([[ -f $STATE/$FIN ]] && echo loaded || echo absent)" absent
+chk "Q1 installer attempted no rollback (calls still 4)" "$(wc -l < "$CALLS" | tr -d ' ')" 4
+both_copied=0
+cmp -s "$H/.local/bin/nightly-full-review-s7.sh" "$CAND/skills/daily-full-review/scripts/nightly_full_review_s7.sh" && \
+cmp -s "$H/Library/LaunchAgents/$FIN.plist" "$CAND/intelligence/dream/$FIN.plist" && both_copied=1
+chk "Q1 files were copied before launchctl phase (mixed on-disk too)" "$both_copied" 1
+unchanged=1
+for j in fidelity-daily-agent fidelity-forward-acceptance pit-snapshot checkpoint-recheck; do
+  grep -q "old" "$H/Library/LaunchAgents/com.financeworkspace.$j.plist" || unchanged=0
+done
+chk "Q1 other four jobs untouched by failed install" "$unchanged" 1
+# operator rollback per release-plan step 6 (manual, not installer)
+env HOME="$H" PATH="$BIN:/usr/bin:/bin:/usr/sbin:/sbin" LAUNCHCTL_STATE_DIR="$STATE" LAUNCHCTL_CALL_LOG="$CALLS" LAUNCHCTL_FAIL_BOOTOUT= LAUNCHCTL_FAIL_BOOTSTRAP= launchctl bootout "gui/$(id -u)/$SYNC"
+env HOME="$H" PATH="$BIN:/usr/bin:/bin:/usr/sbin:/sbin" LAUNCHCTL_STATE_DIR="$STATE" LAUNCHCTL_CALL_LOG="$CALLS" LAUNCHCTL_FAIL_BOOTOUT= LAUNCHCTL_FAIL_BOOTSTRAP= launchctl bootout "gui/$(id -u)/$FIN"
+cp -a "$BACKUP/Library/LaunchAgents/$SYNC.plist" "$H/Library/LaunchAgents/$SYNC.plist"
+cp -a "$BACKUP/Library/LaunchAgents/$FIN.plist" "$H/Library/LaunchAgents/$FIN.plist"
+cp -a "$BACKUP/.local/bin/nightly_full_review.sh" "$BACKUP/.local/bin/nightly-full-review-s7.sh" "$H/.local/bin/"
+env HOME="$H" PATH="$BIN:/usr/bin:/bin:/usr/sbin:/sbin" LAUNCHCTL_STATE_DIR="$STATE" LAUNCHCTL_CALL_LOG="$CALLS" LAUNCHCTL_FAIL_BOOTOUT= LAUNCHCTL_FAIL_BOOTSTRAP= launchctl bootstrap "gui/$(id -u)" "$H/Library/LaunchAgents/$SYNC.plist"
+env HOME="$H" PATH="$BIN:/usr/bin:/bin:/usr/sbin:/sbin" LAUNCHCTL_STATE_DIR="$STATE" LAUNCHCTL_CALL_LOG="$CALLS" LAUNCHCTL_FAIL_BOOTOUT= LAUNCHCTL_FAIL_BOOTSTRAP= launchctl bootstrap "gui/$(id -u)" "$H/Library/LaunchAgents/$FIN.plist"
+rb=1
+[[ -f $STATE/$SYNC && -f $STATE/$FIN ]] || rb=0
+grep -q finance-workspace-sync "$H/Library/LaunchAgents/$SYNC.plist" || rb=0
+grep -q finance-l2-d433b90788c0 "$H/Library/LaunchAgents/$FIN.plist" || rb=0
+chk "Q1 operator rollback restores old loaded jobs + old files" "$rb" 1
+
+print "== Q2 mutations in repo COPY are caught =="
+mk_baseline
+PL=$REPO_COPY/intelligence/dream/com.financeworkspace.daily-full-review-finalize.plist
+cp "$PL" "$RIG/fin.pristine"
+"$PY" - "$PL" <<'EOF'
+import plistlib, sys
+p = sys.argv[1]
+d = plistlib.load(open(p, 'rb')); d['Label'] = 'com.financeworkspace.daily-full-review-sync'
+plistlib.dump(d, open(p, 'wb'))
+EOF
+before_home=$(snap "$H")
+out=$(run_inst -- --nightly-only 2>&1); rc=$?
+chk "Q2-M1 wrong-Label mutation: rc" "$rc" 2
+chk "Q2-M1 zero launchctl calls" "$([[ -f $CALLS ]] && wc -l < "$CALLS" | tr -d ' ' || echo 0)" 0
+chk "Q2-M1 zero file changes" "$(snap "$H")" "$before_home"
+cp "$RIG/fin.pristine" "$PL"
+
+PLS=$REPO_COPY/intelligence/dream/com.financeworkspace.daily-full-review-sync.plist
+cp "$PLS" "$RIG/sync.pristine"
+"$PY" - "$PLS" <<'EOF'
+import plistlib, sys
+p = sys.argv[1]
+d = plistlib.load(open(p, 'rb')); d['RunAtLoad'] = True
+plistlib.dump(d, open(p, 'wb'))
+EOF
+before_home=$(snap "$H")
+out=$(run_inst -- --nightly-only 2>&1); rc=$?
+chk "Q2-M2 RunAtLoad=true mutation: rc" "$rc" 2
+chk "Q2-M2 zero launchctl calls" "$([[ -f $CALLS ]] && wc -l < "$CALLS" | tr -d ' ' || echo 0)" 0
+chk "Q2-M2 zero file changes" "$(snap "$H")" "$before_home"
+cp "$RIG/sync.pristine" "$PLS"
+
+S7=$REPO_COPY/skills/daily-full-review/scripts/nightly_full_review_s7.sh
+cp "$S7" "$RIG/s7.pristine"
+print -- "if;" >> "$S7"
+before_home=$(snap "$H")
+out=$(run_inst -- --nightly-only 2>&1); rc=$?
+[[ $rc -ne 0 ]] && ok "Q2-M4 shell-syntax mutation: rc=$rc nonzero" || bad "Q2-M4 rc=0"
+chk "Q2-M4 zero launchctl calls" "$([[ -f $CALLS ]] && wc -l < "$CALLS" | tr -d ' ' || echo 0)" 0
+chk "Q2-M4 zero file changes" "$(snap "$H")" "$before_home"
+cp "$RIG/s7.pristine" "$S7"
+
+print "== Q2-M3 semantic root mutation: installer blind spot vs wiring test =="
+"$PY" - "$PLS" <<'EOF'
+import plistlib, sys
+p = sys.argv[1]
+d = plistlib.load(open(p, 'rb'))
+d['EnvironmentVariables']['FINANCE_SYNC_CODE_ROOT'] = '/Users/a77/.finance-runtime/finance-sync-deadbeef00'
+plistlib.dump(d, open(p, 'wb'))
+EOF
+out=$(run_inst -- --nightly-only 2>&1); rc=$?
+chk "Q2-M3 installer ACCEPTS wrong-root plist (no semantic check)" "$rc" 0
+chk "Q2-M3 installed (wrong) root present in fake HOME plist" "$(grep -c deadbeef "$H/Library/LaunchAgents/$SYNC.plist")" 1
+(cd "$REPO_COPY" && env FWP_TEST_RECEIPT=0 PYTHONDONTWRITEBYTECODE=1 "$PY" -m pytest -p no:cacheprovider --basetemp="$RIG/m3-base" tests/test_eval_launchd_wiring.py -q > "$RIG/m3-pytest.txt" 2>&1); m3rc=$?
+[[ $m3rc -ne 0 ]] && ok "Q2-M3 wiring tests CATCH root mutation (pytest rc=$m3rc)" || bad "Q2-M3 wiring tests passed on mutated repo"
+grep -E "FAILED|failed|passed" "$RIG/m3-pytest.txt" | tail -3 | while read -r l; do print -r -- "  m3: $l"; done
+cp "$RIG/sync.pristine" "$PLS"
+# confirm restored repo passes again
+out=$(run_inst -- --dry-run 2>&1); rc=$?
+chk "Q2 restore: dry-run rc after restore" "$rc" 0
+
+print "== Q3 dry-run: zero side effects incl. launchd state =="
+mk_baseline
+before_home=$(snap "$H"); before_state=$(snap_state)
+out=$(run_inst -- --nightly-only --dry-run 2>&1); rc=$?
+chk "Q3 rc" "$rc" 0
+chk "Q3 zero calls" "$([[ -f $CALLS ]] && wc -l < "$CALLS" | tr -d ' ' || echo 0)" 0
+chk "Q3 home unchanged" "$(snap "$H")" "$before_home"
+chk "Q3 state unchanged" "$(snap_state)" "$before_state"
+chk "Q3 no .finance-runtime created" "$([[ -e $H/.finance-runtime ]] && echo exists || echo absent)" absent
+
+print "== Q4 default full install unchanged (6 jobs / 12 calls) =="
+mk_baseline
+out=$(run_inst -- 2>&1); rc=$?
+chk "Q4 rc" "$rc" 0
+chk "Q4 calls" "$(wc -l < "$CALLS" | tr -d ' ')" 12
+chk "Q4 loaded jobs" "$(ls "$STATE" | wc -l | tr -d ' ')" 6
+[[ "$out" == *"installed 6 jobs"* ]] && ok "Q4 reports 6 jobs" || bad "Q4 output: $out"
+
+print "== Q5 bootout failure is swallowed but next bootstrap conflict is loud =="
+mk_baseline
+out=$(run_inst LAUNCHCTL_FAIL_BOOTOUT=$SYNC -- --nightly-only 2>&1); rc=$?
+[[ $rc -ne 0 ]] && ok "Q5 rc=$rc nonzero (bootstrap conflict surfaced)" || bad "Q5 rc=0 despite failed bootout"
+chk "Q5 sync still loaded (old def)" "$([[ -f $STATE/$SYNC ]] && echo loaded)" loaded
+chk "Q5 on-disk sync plist already new (loaded!=disk until re-bootstrap)" "$(shasum -a 256 "$H/Library/LaunchAgents/$SYNC.plist" | cut -d' ' -f1)" "$(shasum -a 256 "$CAND/intelligence/dream/$SYNC.plist" | cut -d' ' -f1)"
+chk "Q5 finalize loaded state untouched (old def)" "$([[ -f $STATE/$FIN ]] && echo loaded)" loaded
+chk "Q5 finalize on-disk plist also new (copies precede launchctl)" "$(shasum -a 256 "$H/Library/LaunchAgents/$FIN.plist" | cut -d' ' -f1)" "$(shasum -a 256 "$CAND/intelligence/dream/$FIN.plist" | cut -d' ' -f1)"
+chk "Q5 calls before abort (bootout+bootstrap sync only)" "$(wc -l < "$CALLS" | tr -d ' ')" 2
+# idempotent rerun converges
+out=$(run_inst -- --nightly-only 2>&1); rc=$?
+chk "Q5 rerun converges rc" "$rc" 0
+
+print "== Q6 contradictory/unknown options fail before side effects (order-independent) =="
+for args in "--dry-run --kickstart" "--kickstart --dry-run" "--nightly-onyl"; do
+  mk_baseline
+  before_home=$(snap "$H")
+  out=$(run_inst -- ${=args} 2>&1); rc=$?
+  chk "Q6 [$args] rc" "$rc" 2
+  chk "Q6 [$args] zero calls" "$([[ -f $CALLS ]] && wc -l < "$CALLS" | tr -d ' ' || echo 0)" 0
+  chk "Q6 [$args] home unchanged" "$(snap "$H")" "$before_home"
+done
+
+print "== RESULT: $PASS pass / $FAIL fail =="
+exit $(( FAIL > 0 ))

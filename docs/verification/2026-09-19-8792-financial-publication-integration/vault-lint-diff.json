@@ -1,0 +1,24 @@
+{
+  "before_errors": 20,
+  "before_warnings": 17,
+  "after_errors": 20,
+  "after_warnings": 17,
+  "exact_diagnostics_equal": false,
+  "added": [
+    "WARN  20_projects/finance-workspace-private.md: 项目笔记 420840 字节（>81920），新交接严格一行，正文放 repo 的 docs/handoffs/；存量按棘轮可不动"
+  ],
+  "removed": [
+    "WARN  20_projects/finance-workspace-private.md: 项目笔记 420524 字节（>81920），新交接严格一行，正文放 repo 的 docs/handoffs/；存量按棘轮可不动"
+  ],
+  "raw_diff": [
+    "--- before",
+    "+++ after",
+    "@@ -1,5 +1,5 @@",
+    " WARN  20_projects/knowledge-base-private.md: 项目笔记 89155 字节（>81920），新交接严格一行，正文放 repo 的 docs/handoffs/；存量按棘轮可不动",
+    "-WARN  20_projects/finance-workspace-private.md: 项目笔记 420524 字节（>81920），新交接严格一行，正文放 repo 的 docs/handoffs/；存量按棘轮可不动",
+    "+WARN  20_projects/finance-workspace-private.md: 项目笔记 420840 字节（>81920），新交接严格一行，正文放 repo 的 docs/handoffs/；存量按棘轮可不动",
+    " WARN  10_knowledge/ab-criterion-must-check-baseline-headroom.md: 缺 agent（2026-09-11 < 2026-09-14 存量豁免）——如果还记得是谁写的就补上，不记得别猜",
+    " WARN  10_knowledge/state-transition-identity-must-survive-dedup.md: 缺 agent（2026-09-13 < 2026-09-14 存量豁免）——如果还记得是谁写的就补上，不记得别猜",
+    " WARN  10_knowledge/seam-test-inflight-sibling-module.md: 缺 agent（2026-09-13 < 2026-09-14 存量豁免）——如果还记得是谁写的就补上，不记得别猜"
+  ]
+}

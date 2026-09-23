@@ -120,7 +120,9 @@ def emitter_files_by_kind(root: Path = REPO_ROOT) -> dict[str, list[str]]:
             kinds: list[str] = []
             if name == "_add_event":
                 kinds = _kinds_from_call(node, positional_index=0)
-            elif name == "add" and _receiver_root(node.func) in {"ledger", "self"}:
+            # ``synth`` = episode_restore 的合成器；漏掉它会让「只从恢复路径发出」的 kind
+            # （如 ``effects_unknown``）在目录里没有发射点，与 ``test_episode_event_lanes`` 同步修正。
+            elif name == "add" and _receiver_root(node.func) in {"ledger", "self", "synth"}:
                 kinds = _kinds_from_call(node, positional_index=0)
             elif name == "EpisodeEvent":
                 kinds = _kinds_from_call(node, positional_index=1)
