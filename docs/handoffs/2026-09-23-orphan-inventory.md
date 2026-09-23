@@ -73,4 +73,14 @@
 
 ## 五、合并批收据
 
-（执行后补写：每张 PR 的 `--record` JSON 路径、合前 `merge-tree`、合后 `git diff --name-only <before> gitea/main == PR 文件集` 核对。）
+预览树最终 tip `53c51cfdc`（在 `88d31911b` 上再合入本分支 #889 `785d67736`）。四叶（收据目录 `~/.finance-runtime/reviews/orphan-batch-0923/`）：
+
+| 叶 | 读数 | 原件 |
+|---|---|---|
+| registry | `build_registry.py check / check-parseability / backfill-tables --check / generate-views --check` 与 `audit_ledger_spec_crosswalk.py` 五项 exit 0 | `frontend-e2e.log` |
+| frontend | lint 0 / typecheck 0 / vitest 120P / build 0；build 后树 dirty=0（同 commit 另一棵树 `fwp-preview-batch-0923-fe`） | `frontend-e2e.log` |
+| e2e | 34P / 2S（首跑 33P/1F 是 `RE06_E2E_URL` 未与 `RE06_E2E_PORT` 成对设，`ERR_CONNECTION_REFUSED :8794`，非产品红；重跑成对设后绿） | `e2e-rerun.log` |
+| python | 19:00 准入（load1 11.09），ruff 0，全量进行中；结果看 `python-gate.log` 的 `GATE_EXIT=` 与 `receipts/gate-SFFAGzfL/pytest.json` | `python-gate.log` |
+
+主干核对：`f47d464eb`（19:1x）对预览基座 `b59d6eed0` 非文档漂移 0；#856 合并提交 `27ca084f9`（15:37）早于基座，不构成漂移。合入顺序与逐张核对由 `run-merge-batch.sh` 执行（`main6` → `807` → `one 889` → `verify`），每张写 `merge-<n>.json`；本节在合入后补「实际合并提交 / 文件集一致」两列。
+**截至本文件提交时未合入任何 PR。**
