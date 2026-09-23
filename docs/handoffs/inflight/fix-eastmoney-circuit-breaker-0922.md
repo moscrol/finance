@@ -1,23 +1,31 @@
-# 东财熔断 · #60 合并候选与部署预演（在途）
+# #60 / PR #856：代码候选，部署另验
 
-分支 `fix/eastmoney-circuit-breaker-0922` = PR #856，树 `~/fwp-wt-eastmoney-circuit-breaker-0922`。
-**未合、未装机。** 时限：09-23 18:30 前熔断须进夜跑 sync 代码根；用户 17:00 前给部署授权。
+## 这个分支做什么
+连续空回应熔断与传输尝试审计；不自动合入、装机或热补。
 
-## 已做（09-22 23:30 起，S3）
+## 当前状态
+代码已提交：东财修复 `82ce1bb54`、测试时钟 `b8415a377`、撤下旧候选根绑定 `faa480ec1`。远端仍 `ade0003c7`，本轮尚未推送或改 PR body。
+固定 base `bbd53487f4ce`。最终候选身份和每叶结果只认树外收据索引：
+`E=~/.finance-runtime/reviews/eastmoney-cb-deploy-20260922/closeout-20260923`
+`E/summary.json`。旧 `qc-final/` 一红是历史证据，不移签；无完整绿收据不放行。
 
-- 推了 `fix/eastmoney-snapshot-direct-ip-0922`，并入其根因修正交接；前向到 `gitea/main@f24a61a8a`，零冲突，两个代码文件未被前向改动。
-- `01e25264f` 只改文案：`UpstreamRefusing` 的 message/注释从「按出口 IP 封禁」改为「端点拒绝服务、连发拖垮同主机端点」；判据与逻辑未动，测试断言收紧。
-- `9876f0e60` 钉根，照 #827：两份 plist 的 sync 根键、s7 launcher 缺省、wiring 测试常量四处 → `finance-sync-01e25264f218`。
-- 已建代码根 `~/.finance-runtime/finance-sync-01e25264f218`（detached @`01e25264f`，干净）。干净 shell 导入探针 + 63 例定向测试在根内通过。**尚无 plist 指向它，非生产。**
-- 阳性对照：阈值 3→999 恰红熔断组 3 例，还原后 11 绿。
-- 证据 `~/.finance-runtime/reviews/eastmoney-cb-deploy-20260922/`：四叶收据 `gates/`、装机 dry-run、plist diff、B 方案补丁与 before/after sha256、明日 runbook `deploy-steps.md`。四叶结论以 PR #856 描述为准。
+## 决策与被否方案
+- 普通错误打断连续 streak；CLI 清计数不清熔断，失败记数后重抛。
+- 逻辑比较使用局部固定时钟，预算精确等于15秒；否决加大容差、改生产时钟。
+- 部署配置恢复与 base 相同的生产根 `adcda94b5e40`；否决指向不完整的 `01e25264f218` 或未合预览根。本 PR 不自动升级夜跑。
+- 背景与方案比较：`docs/handoffs/2026-09-23-eastmoney-closeout-candidate.md`；前轮证据在同日 `eastmoney-circuit-breaker-qc.md`。
 
-## 明日（每步一句授权）
+## 已验证
+旧测试受控启动延迟120ms稳定触发50ms断言；新测试相同延迟通过。相关回归62P；三次代码提交全部hook绿。四份部署绑定文件与固定base相同。
+完整门禁与最终版本读 `E/summary.json`，不在交接复制会漂的总数。全量额外保存JUnit失败详情；干预实验不当发布收据。
 
-- A 正门：用户确认 → `gitea_pr.py merge 856 --yes --expect-head <head> --record …` → 合后 main 干净检出跑 `install_eval_launchd.sh --nightly-only --dry-run` 贴出 → 授权 → 去 `--dry-run` → `plutil -p` 与 `launchctl print` 回读 `FINANCE_SYNC_CODE_ROOT`。
-- B 临时：17:00 仍未合 → 按 `plan-B-hotpatch/` 只热补 snapshot.py 进旧根（fund_flow 指纹未变），落 `deployment-circuit-breaker.json`。
-- 19:00 后回读 sync 日志：clist 请求数 ≤ 3×host；`UpstreamRefusing` 一条之后该 host 零请求。
+## 未验证 / 已知边界
+未合入/部署/热补/写库。旧全量失败现场不全，受控复现证明测试缺陷，不声称还原历史根因。
+代码合入后仍须独立部署绑定：从真实main创建新根、提交并验收四处配置、从干净合后main安装。当前生产根无本轮修复，不能将代码绿读成夜跑已恢复。
+计数是传输尝试，不是抓包HTTP数；熔断进程级。生产触发后零新增请求、跨进程行为和数据恢复未验。
 
-## 边界
+## 下一步
+先回读新索引与远端head/base，确认当前证据适用。PR发布/body更新、合入、安装按授权边界办理，合入须当前gitea_pr工具带锁定SHA与授权记录。#61同批另核最终联合main。
 
-未碰生产库、未装 plist、未动 8792 与旧根 `finance-sync-adcda94b5e40`（保留作回滚）。python 叶带 `--ignore=scripts/archive`（#58 未合，仓根收集仍 Interrupted）。#61 若要进同一根，需重钉到合后 main tip（四处同改）。
+## 踩过的坑
+/tmp检出影响沙箱读保护；旧runner只留末尾15行。旧候选根和Plan B不完整且已停用。不要把受控实验或dirty迭代收据当全量门禁。
