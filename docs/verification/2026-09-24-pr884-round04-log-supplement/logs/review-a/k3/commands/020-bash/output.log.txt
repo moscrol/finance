@@ -1,0 +1,29 @@
+test_branch_evidence_sink.py
+test_call_identity_contract.py
+test_episode_authorization_snapshot.py
+test_episode_effects.py
+test_episode_entry_identity.py
+test_episode_evidence_presentations.py
+test_episode_evidence_snapshot.py
+test_episode_persistence_failure.py
+test_episode_restore.py
+test_episode_restore_persistence.py
+test_episode_restore_repeatability.py
+test_evidence_bound_window.py
+test_evidence_capabilities.py
+test_evidence_freshness.py
+test_evidence_judge.py
+test_evidence_ledger.py
+test_evidence_providers.py
+test_evidence_registry.py
+test_evidence_search.py
+test_judge_evidence_projection.py
+test_l3_evidence.py
+test_prefetch_evidence_ordinal.py
+test_prior_evidence.py
+test_product_value_evidence.py
+27:def test_every_crash_prefix_keeps_its_next_action_until_execution(tmp_path, disk):
+55:def test_partial_batch_replay_then_dispatch_retains_unissued_calls(tmp_path, disk):
+80:def test_undispatched_application_call_is_settled_only_once(tmp_path, disk):
+104:def test_retry_after_lost_ack_keeps_one_settlement_and_the_same_plan(tmp_path, boundary, after_write):
+143:def test_fresh_processes_keep_synthesized_plan_snapshots_and_current_authority(tmp_path):

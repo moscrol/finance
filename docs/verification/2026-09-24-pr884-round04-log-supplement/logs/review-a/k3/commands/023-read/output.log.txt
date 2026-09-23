@@ -1,0 +1,152 @@
+"""INV-R3 Tier A：每个 phase × 每个 crash 前缀 → 丢弃对象 → ``restore`` → 断言下一动作。
+
+oracle 不是重抄一遍策略表，而是**不间断跑真实发生的下一件事**：跑一遍脚本化 episode，记下
+每一次 ``put_state`` 时的状态；然后对日志的**每一个前缀长度** L（配上 L 之前最后写下的那份
+状态）构造一个只见过这些字节的新 store，调 ``restore``，把它给的下一动作与不间断跑里紧接着
+L 之后发生的那个外部效果对照。三种切点（意图前 / 意图后结算前 / 结算后）自然都在前缀集合里。
+
+截止「已过 / 未过」两格靠可注入的 ``now``：未过 → 重发 / 重跑 / 回模型；已过 → 合成
+interrupted 结算 + finish 并闭合。Memory 与 Jsonl 同前缀字节同结果。
+"""
+
+from __future__ import annotations
+
+from datetime import datetime, timedelta
+import json
+from pathlib import Path
+
+import pytest
+
+from intelligence.runtime.agent_episode import ContinuousAgentEpisode
+from intelligence.runtime.glm_agent_runtime import GLMAgentRuntime
+from intelligence.services.agent_research import AgentEvidence, AgentToolContext
+from intelligence.services.agent_runtime import EpisodeEvent
+from intelligence.services.episode_messages import derive_messages
+from intelligence.services.episode_authorization import capture_authorization_snapshot
+from intelligence.services.evidence_ledger import EvidenceLedger
+from dataclasses import replace
+from intelligence.services.episode_restore import (
+    RestoreUnavailable,
+    restore_episode,
+)
+from intelligence.services.episode_store import (
+    EpisodeState,
+    JsonlEpisodeStore,
+    MemoryEpisodeStore,
+    UnknownRequiredKind,
+)
+from intelligence.services.provider_observability import ProviderTrace
+from intelligence.services.research_tool_registry import ResearchToolRegistry, ToolSpec
+from intelligence.tests.conformance.fixtures import (
+    AUTHORIZED_TOOL,
+    MARKET_EVIDENCE_HASH,
+    ScenarioProbe,
+    ScriptedModelClient,
+    ScriptedToolCall,
+    ScriptedTurn,
+    completed_finish,
+    make_context,
+    make_frame,
+    make_registry,
+)
+
+EPISODE_ID = "restore-tier-a"
+# 不间断跑在「现在」；恢复时的「现在」由测试给：未过 = 跑后一秒，已过 = 一年后。
+SOON = datetime.now().astimezone() + timedelta(seconds=1)
+MUCH_LATER = datetime.now().astimezone() + timedelta(days=365)
+
+
+class RecordingStore(MemoryEpisodeStore):
+    """记下每一份写下的状态（MemoryEpisodeStore 只留最后一份）。"""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.states: list[EpisodeState] = []
+
+    def put_state(self, episode_id: str, state: EpisodeState) -> None:
+        super().put_state(episode_id, state)
+        self.states.append(state)
+
+
+def _run_uninterrupted(
+    scenario: tuple[ScriptedTurn, ...],
+    *,
+    registry: ResearchToolRegistry | None = None,
+    task_id: str = EPISODE_ID,
+) -> tuple[RecordingStore, tuple[EpisodeEvent, ...]]:
+    store = RecordingStore()
+    probe = ScenarioProbe()
+    frame = make_frame()
+    context = make_context(frame, task_id=task_id, timeout=120.0)
+    runtime = GLMAgentRuntime(
+        client=ScriptedModelClient(list(scenario), probe), episode_store=store
+    )
+    # Current authorization comes from fixture inputs, never decoded from the
+    # saved snapshot (that would validate saved authority against itself).
+    store.context = context
+    store.registry = registry if registry is not None else make_registry(probe)
+    outcome = runtime.run(task_frame=frame, context=context, registry=store.registry)
+    assert outcome.stop_reason == "model_finish"
+    events, state = store.load(task_id)
+    assert state is not None and state.phase == "done"
+    assert [e.to_dict() for e in events] == [e.to_dict() for e in outcome.events]
+    return store, events
+
+
+def _store_at(
+    events: tuple[EpisodeEvent, ...], states: list[EpisodeState], length: int, *, jsonl_root: Path | None = None
+) -> tuple[MemoryEpisodeStore | JsonlEpisodeStore, EpisodeState]:
+    """崩溃现场：前 ``length`` 条事件 + 那时最后一份状态。"""
+
+    state = max(
+        (s for s in states if s.last_sequence <= length), key=lambda s: s.last_sequence
+    )
+    store: MemoryEpisodeStore | JsonlEpisodeStore
+    store = JsonlEpisodeStore(jsonl_root) if jsonl_root is not None else MemoryEpisodeStore()
+    store.append(EPISODE_ID, events[:length])
+    store.put_state(EPISODE_ID, state)
+    return store, state
+
+
+_INTENT_LIKE = frozenset({"model_intent", "tool_request", "finish"})
+
+
+def _expected_next(events: tuple[EpisodeEvent, ...], length: int, state: EpisodeState) -> tuple[str, tuple[str, ...]]:
+    """不间断跑里 L 之后**真实发生**的下一件外部效果，翻成恢复应给的动作。"""
+
+    prefix = events[:length]
+    # 意图后结算前：前缀里有没结算的意图 → 恢复必须重发同一意图（retry / replay）。
+    if state.phase == "model_pending" and state.reserved_ids:
+        turn_id = state.reserved_ids[0]
+        settled = any(
+            e.kind in {"model_turn", "model_error"} and e.payload.get("turn_id") == turn_id
+            for e in prefix
+        )
+        if not settled:
+            return "retry_model", ()
+    dangling = tuple(
+        e.payload["call_id"]
+        for e in prefix
+        if e.kind == "tool_request"
+        and "replay" in e.payload
+        and not any(
+            s.kind in {"tool_result", "tool_error"} and s.payload.get("call_id") == e.payload["call_id"]
+            for s in prefix
+        )
+    )
+    if dangling:
+        return "replay_tools", dangling
+    # 否则：L 之后下一件外部效果是什么，恢复就该说要做什么。
+    for event in events[length:]:
+        if event.kind == "model_intent":
+            return "model_turn", ()
+        if event.kind == "tool_request" and "replay" in event.payload:
+            call_ids = tuple(
+                e.payload["call_id"]
+                for e in events[length:]
+                if e.kind == "tool_request" and "replay" in e.payload
+                and e.payload.get("turn_id", None) is None
+            )
+            return "dispatch_tools", call_ids
+
+[truncated; total lines=638, selected=1:150; request a later offset]

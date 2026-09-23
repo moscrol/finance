@@ -1,0 +1,80 @@
+86:from intelligence.services.episode_inbox import (
+119:    EpisodeWriterBusy,
+121:    episode_writer,
+158:# closed，所以上限 2 只在「前两发都 stall 且余量还在」时才多花一笔。
+164:def budget_status_enabled() -> bool:
+187:def _token_usage_from_events(
+211:def _agent_usage(
+228:def _tool_branch_usage(events: Sequence[EpisodeEvent]) -> tuple[int, int]:
+242:def _consume_root_seconds(context: ResearchRunContext, seconds: float) -> bool:
+253:def _settle_batch_calls(
+261:    结算已经发生的工作不能 fail closed——工具批次执行完才记账，此刻抛
+294:def _wall_clock_after(seconds: float) -> str:
+303:    def __init__(
+352:        self.inbox: Inbox | None = None
+365:    def note_derive_mismatch(self, detail: str) -> None:
+373:    def store_failures(self) -> list[str]:
+380:    def _persist(self, event: EpisodeEvent) -> None:
+390:                    "finish", "inbox_inserted", "inbox_claimed", "inbox_discarded",
+396:    def _fail_store(self, detail: str) -> None:
+402:    def model_complete(self, model: AgentModelClient, **kwargs: object) -> ModelTurn:
+408:    def outcome(self, **kwargs: object) -> AgentOutcome:
+431:    def put_state(
+567:    def record_model_intent(
+601:    def record_dispatch_intent(self, intent: DispatchIntent) -> bool:
+629:    def settle_tool_request(self, call_id: str) -> bool:
+638:    def verify_model_visible(self, messages: list[EpisodeMessage]) -> bool:
+648:    def add(self, kind: str, payload: dict[str, object]) -> EpisodeEvent:
+652:            # INV-R5：收口前清箱。箱里没送到模型的话逐条落 inbox_discarded，reason 按终局分
+655:            inbox = self.inbox
+656:            if inbox is not None and not inbox.closed:
+657:                inbox.discard_all(
+715:    def record_plan(self, plan: ResearchPlan) -> EpisodeEvent:
+719:    def record_runtime_result(self) -> None:
+735:def _tool_timing_payload(result: ToolCallResult) -> dict[str, object]:
+750:def _tool_dispatch_clock_payload(result: ToolCallResult) -> dict[str, object]:
+771:def _public_tool_exception_detail(raw: str) -> str:
+805:    def __post_init__(self) -> None:
+809:    def consume(
+946:    def _append_tool_error(
+972:    def _extend_unique_gaps(self, values: tuple[str, ...]) -> None:
+978:    def consume_sub_research(self, result: SubResearchResult) -> None:
+1013:def _seed_prior_evidence(
+1056:def _seed_opening_prefetch(
+1098:    def __init__(self, value: ResearchRunContext) -> None:
+1101:    def __call__(self) -> ResearchRunContext:
+1152:    def __init__(self, generator: Generator[StepPoint, None, AgentOutcome]) -> None:
+1159:    def step(self) -> StepPoint | None:
+1161:            raise EpisodeWriterBusy("episode drive operation is active")
+1179:    def close(self) -> None:
+1182:            raise EpisodeWriterBusy("episode drive operation is active")
+1185:                self._generator.close()
+1191:    def run_until(self, phase: str) -> StepPoint | None:
+1201:    def run_to_end(self) -> AgentOutcome:
+1211:    def __init__(
+1268:        self._active_inbox: Inbox | None = None
+1269:        # The inbox and cancellation signal belong to this runner, not a task ID.
+1270:        self._control_lock = Lock()
+1273:    def _control_writer(self, episode_id: str) -> Iterator[None]:
+1274:        if not self._control_lock.acquire(blocking=False):
+1275:            raise EpisodeWriterBusy("episode runner already controls a task")
+1277:            with episode_writer(self._store, episode_id):
+1280:            self._control_lock.release()
+1285:    def inbox(self) -> Inbox | None:
+1288:        return self._active_inbox
+1290:    def steer(
+1301:        收不收由 ``ResearchHarness.admit_inbox_message`` 判；三个事实都进 durable 流。
+1306:        inbox = self._active_inbox
+1307:        if inbox is None:
+1309:        return inbox.send(
+1316:    def _claim_inbox(
+1325:        inbox = ledger.inbox
+1326:        if inbox is None:
+1328:        claimed = inbox.claim(target)
+1333:    def restore(
+1352:    def run(
+1369:    def manual_drive(
+1400:    def _drive_owned(
+1409:        with self._control_writer(episode_id):
+1420:                if self._active_inbox is not None:
+1421:                    self._active_inbox.suspend()

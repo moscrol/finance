@@ -1,0 +1,82 @@
+                    "",
+                    (),
+                    "",
+                    f"model_exception:{type(exc).__name__}",
+                    provider_attempts=1,
+                )
+            model_elapsed = max(0.0, monotonic() - model_started)
+            llm_calls += turn.provider_attempts
+            ledger.add("model_turn", {"phase": phase, "turn_id": turn_id, **turn.to_dict()})
+            budget_alive = _consume_root_seconds(repair_context, model_elapsed)
+            if ledger.store_failures:
+                if not budget_alive and repair_context.root_budget is not None:
+                    repair_context.root_budget.settle_seconds(seconds=model_elapsed)
+                return (turn, llm_calls, False, repair_deadline, repair_context, transient_retries_left)
+            if (
+                turn.error
+                and transient_retries_left > 0
+                and not self._is_cancelled()
+                and is_transient_model_error(turn.error)
+            ):
+                retry_timeout = (
+                    repair_deadline.stage_timeout(self._llm_timeout)
+                    if budget_alive
+                    else 0.0
+                )
+                retry_grant = None
+                if retry_timeout <= 0.001 and repair_context.root_budget is not None:
+                    if not budget_alive:
+                        # 记账失败 = 耗时超过残余，consume fail closed 一分未扣。
+                        # 先把残余结平再铸新窗；否则「恰好烧爆账本」的 turn 连
+                        # 重试闸门都进不去——2026-08-13 R4 的 A6/A7 就是这个
+                        # 形状，而那正是这条补救路径要救的时刻。
+                        repair_context.root_budget.settle_seconds(
+                            seconds=model_elapsed
+                        )
+                    retry_grant = grant_for_transient_model_retry(
+                        goal,
+                        root_budget=repair_context.root_budget,
+                        # 第几次补救：账本按 (goal, attempt) 幂等去重，
+                        # 不同 attempt 各铸各的满窗（帽随生效 provider p90）。
+                        attempt=(
+                            _TRANSIENT_RETRY_LIMIT - transient_retries_left + 1
+                        ),
+                        seconds_cap=self._repair_seconds_cap,
+                    )
+                    if retry_grant is not None:
+                        budget_alive = True
+                        repair_deadline = ResearchDeadline.from_timeout(
+                            retry_grant.seconds_granted
+                        )
+                        repair_context = replace(
+                            repair_context,
+                            deadline=repair_deadline,
+                        )
+                        retry_timeout = repair_deadline.stage_timeout(
+                            self._llm_timeout
+                        )
+                if retry_timeout > 0.001:
+                    transient_retries_left -= 1
+                    payload: dict[str, object] = {
+                        "reason": turn.error,
+                        "timeout_asked": retry_timeout,
+                        "retries_left": transient_retries_left,
+                    }
+                    if retry_grant is not None:
+                        payload["grant_id"] = retry_grant.grant_id
+                        payload["seconds_granted"] = retry_grant.seconds_granted
+                    ledger.add("repair_model_retry", payload)
+                    timeout = retry_timeout
+                    continue
+            return (
+                turn,
+                llm_calls,
+                budget_alive,
+                repair_deadline,
+                repair_context,
+                transient_retries_left,
+            )
+
+    def resume(
+
+[truncated; total lines=4151, selected=2405:2484; request a later offset]
