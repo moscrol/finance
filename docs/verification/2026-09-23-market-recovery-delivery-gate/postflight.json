@@ -1,0 +1,14 @@
+{
+  "status": "HOLD_BASE_DRIFT",
+  "reviewed_revision": "4dd5e66601084962697c5d78e9f6bb58eefc14c8",
+  "reviewed_base": "27ca084f9ffcb9d148b749944beca340e5f4fa6c",
+  "postflight_remote_main": "2edbe4c46595cbea3eb3abe04fe84a7bd5afd55e",
+  "receipt_check_exit_code": 1,
+  "receipt_check_base_drift_max": 0,
+  "reported_merge_drift": 4,
+  "receipt_valid_for_latest_main": false,
+  "test_failure_implied": false,
+  "original_evidence_rewritten": false,
+  "evidence": "postflight-drift-check.txt",
+  "next_step": "Recompose on the then-current main and rerun applicable gates; do not relabel the reviewed candidate or its receipts."
+}

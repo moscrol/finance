@@ -2,9 +2,11 @@
 
 **总体 HOLD。** 本轮完成独立探针落盘、隔离执行和两份正式报告；F1 报告被上游 504 阻塞。没有修改行情业务代码，没有合并、推送、部署、数据库 staging、换库或生产写入。
 
+**封存后的漂移补记：** main 已到 `2edbe4c46595cbea3eb3abe04fe84a7bd5afd55e`。重新 fetch 后以 `--base-drift-max 0` 校验同一收据，exit 1，报告基座落后 4 张合并。见 `postflight.json` / `postflight-drift-check.txt`。这不是新增测试失败，但旧组合结果不适用于最新主线准入。下面的基座漂移 0 和 `summary.json` 是封存时事实，不是当前 main 认证。
+
 ## 身份
 
-- 基座（远端复核一致）：`27ca084f9ffcb9d148b749944beca340e5f4fa6c`。
+- 本轮运行基座（运行期远端复核一致，收尾已漂移）：`27ca084f9ffcb9d148b749944beca340e5f4fa6c`。
 - 修复分支输入：`7466e3982dca9baf1f018bf5862f554b4e51432c`，包含收盘价保护 `3abb7a4d3`。
 - `merge-tree` 无冲突；组合 revision：`4dd5e66601084962697c5d78e9f6bb58eefc14c8`；tree：`49f280d13c459794435f9d52ddf90e3d81870f62`。
 - 验证引用：`refs/verification/market-recovery-delivery-20260923`。独占干净 candidate 检出保留供续审；未部署。
