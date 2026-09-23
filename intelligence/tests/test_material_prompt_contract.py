@@ -51,6 +51,33 @@ def test_numbered_material_contract_owns_prompt_without_dropping_questions(case,
     assert context.contract.allowed_capabilities == ()
 
 
+@pytest.mark.parametrize("case", PACKS, ids=lambda case: case.case_id)
+def test_writer_gets_sentence_construction_checks_without_changing_template(case):
+    frame, context = context_for(case)
+    payload = json.loads(build_episode_input(frame, context, ResearchToolRegistry(())))
+    format_payload = payload["material_grounding"]["finish_format"]
+    rule = format_payload["rule"]
+    for instruction in (
+        "先找齐本句使用的原始输入",
+        "即使输入来自同一材料或已在前句引用",
+        "数字、计算、事实比较或事实前提",
+        "同一主体、指标、单位及各自期间",
+        "厂商出货、渠道库存、终端消耗不能互换",
+        "缺少成本口径时不能把收入方向等同于利润方向",
+        "未给正常库存基准时不把库存增减直接定性为过剩或安全",
+    ):
+        assert instruction in rule
+    template = json.loads(format_payload["wire_template"])
+    assert template == {
+        "status": "completed", "render_from_claims": True, "draft": "", "gaps": [],
+        "bindings": [
+            {"output_id": spec.output_id, "basis": spec.grounding_mode,
+             "evidence_hashes": [], "gap": "", "claims": []}
+            for spec in context.contract.required_outputs if spec.required
+        ],
+    }
+
+
 @pytest.mark.parametrize("scope,clarify", [
     ("full", False), ("local_only", False), (None, True), ("material_only", True),
 ])

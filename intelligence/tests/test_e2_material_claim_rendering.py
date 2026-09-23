@@ -371,6 +371,9 @@ def test_repair_round_restates_the_frozen_wire_format_it_still_demands(reference
     assert restated == frozen
     assert "所有claims.text合计" in restated["rule"]
     assert "不能省略子问、计算步骤或本句输入锚点" in restated["rule"]
+    assert "先找齐本句使用的原始输入" in restated["rule"]
+    assert "数字、计算、事实比较或事实前提" in restated["rule"]
+    assert "同一主体、指标、单位及各自期间" in restated["rule"]
 
 
 def test_claim_rendering_keeps_wrong_quote_as_terminal_integrity_rejection():
