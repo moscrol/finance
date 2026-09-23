@@ -1,6 +1,8 @@
 """Keep stalled-read cancellation assertions in the ordinary test suite."""
 from __future__ import annotations
 
+import time
+
 import pytest
 
 from intelligence.services import llm_refine
@@ -12,6 +14,20 @@ from scripts.review_probes.probe_stalled_cancellation import remove_forwarding, 
 def test_stalled_read_cancellation_is_prompt(path):
     result = run_case(llm_refine, local_endpoint, path)
     assert result["passed"], result
+
+
+@pytest.mark.parametrize("path", ["wrapper", "tools_stream", "synthesis_stream"])
+def test_read_cancellation_waits_for_headers_even_when_open_is_slow(monkeypatch, path):
+    original = llm_refine._open_deadline_http_response
+
+    def slow_open(*args, **kwargs):
+        time.sleep(0.4)
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(llm_refine, "_open_deadline_http_response", slow_open)
+    result = run_case(llm_refine, local_endpoint, path)
+    assert result["passed"], result
+    assert result["requests"] == result["attempts"] == 1
 
 
 @pytest.mark.parametrize("path", ["wrapper", "tools_stream", "synthesis_stream"])

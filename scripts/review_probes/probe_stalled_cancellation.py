@@ -34,11 +34,31 @@ def run_case(llm, endpoint, name: str) -> dict:
     with endpoint("body_stall", 0.8) as (provider, requests, attempts):
         started = time.monotonic()
         cancelled = threading.Event()
-        timer = threading.Timer(0.3, cancelled.set)
-        timer.start()
+        timer = None
+        headers_at = None
+        cancelled_at = None
+        opener = llm._open_deadline_http_response
+
+        def cancel():
+            nonlocal cancelled_at
+            cancelled_at = time.monotonic()
+            cancelled.set()
+
+        def arm_after_headers(*args, **kwargs):
+            nonlocal timer, headers_at
+            response = opener(*args, **kwargs)
+            # This probe measures cancellation during a read, not before spawn.
+            headers_at = time.monotonic()
+            timer = threading.Timer(0.3, cancel)
+            timer.start()
+            return response
+
         error = None
         try:
-            with llm.call_ledger_scope(max_calls=1, reuse_existing=False):
+            with (
+                mock.patch.object(llm, "_open_deadline_http_response", arm_after_headers),
+                llm.call_ledger_scope(max_calls=1, reuse_existing=False),
+            ):
                 deadline = llm.Deadline.from_timeout(10)
                 messages = [{"role": "user", "content": "offline cancellation fixture"}]
                 if name == "wrapper":
@@ -60,12 +80,20 @@ def run_case(llm, endpoint, name: str) -> dict:
         except Exception as exc:
             error = type(exc).__name__
         finally:
-            elapsed = time.monotonic() - started
-            timer.cancel()
-            timer.join()
+            stopped_at = time.monotonic()
+            elapsed = stopped_at - started
+            if timer is not None:
+                timer.cancel()
+                timer.join()
+        read_elapsed = stopped_at - headers_at if headers_at is not None else None
+        cancel_latency = stopped_at - cancelled_at if cancelled_at is not None else None
         return {"path": name, "exception": error, "elapsed_seconds": elapsed,
+                "headers_observed": headers_at is not None,
+                "read_elapsed_seconds": read_elapsed, "cancel_to_stop_seconds": cancel_latency,
                 "requests": len(requests), "attempts": len(attempts),
-                "passed": error == "LLMStreamCancelled" and elapsed < 1.0
+                "passed": error == "LLMStreamCancelled"
+                and read_elapsed is not None and read_elapsed < 1.0
+                and cancel_latency is not None and 0 <= cancel_latency < 0.7
                 and len(requests) == len(attempts) == 1}
 
 
@@ -116,8 +144,9 @@ def main() -> int:
                   "probe_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
                   "mutation": "AST delete exactly one is_cancelled keyword at wrapper opener call",
                   "mutation_storage": "in process memory only; candidate files untouched",
-                  "call_budget_seconds": 10, "cancel_after_seconds": 0.3,
-                  "upstream_stall_seconds": 1.6, "assertion_max_seconds": 1.0,
+                  "call_budget_seconds": 10, "cancel_after_headers_seconds": 0.3,
+                  "upstream_stall_seconds": 1.6, "read_assertion_max_seconds": 1.0,
+                  "cancel_to_stop_max_seconds": 0.7,
                   "phases": phases}
         json.dump(record, stream, indent=2)
         stream.write("\n")
