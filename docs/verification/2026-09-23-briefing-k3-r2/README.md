@@ -8,8 +8,7 @@
 
 ## 作者测试与静态检查
 
-- #86 部署测试：24 passed，最终 head 收据 `/Users/a77/.finance-runtime/test-receipts/20260923T140520Z-4e62ee4b-c0232cf48954.json`。
-- #87 IMA + 晨汇验收测试：14 passed，最终 head 收据 `/Users/a77/.finance-runtime/test-receipts/20260923T140515Z-4e62ee4b-7a78531b8963.json`。
+- #86 部署测试：24 passed；#87 IMA + 晨汇验收测试：14 passed。最终可采信收据存于 `/Users/a77/.finance-runtime/test-receipts/`，报告时必须用 `scripts/check_test_receipt.py --expect-revision "$(git rev-parse HEAD)"` 重新绑定具体文件。
 - 对 Python 文件的 ruff：通过；`zsh -n scripts/deploy_workbench_runtime.sh`：通过；`git diff --check`：通过。
 - 正式 `scripts/run_main_gate.sh` 的全量 Python 叶在 1200 秒截止，没有收据，不计为通过；并行机器负载存在，但不把它归因成测试缺陷。
 

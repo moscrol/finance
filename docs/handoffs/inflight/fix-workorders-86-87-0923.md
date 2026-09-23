@@ -13,7 +13,7 @@
 业务修复已提交，随后只追加验证文档、QUEUE/INDEX 与交接；工作树当前 clean，未 push/合并/部署。用户确认前保持 WIP。K3 精确绑定业务代码 head `6f14ed215184d5c97fae3c03513468c6c9ee9cd4`，结果 `INCOMPLETE`（28 请求、1080s、无模型错误、无 REPORT/verdict），按 BLOCKED 处理。
 
 ## 已验证
-- #86 定向：24 passed；#87 IMA + 晨汇：14 passed；收据分别为 `/Users/a77/.finance-runtime/test-receipts/20260923T140520Z-4e62ee4b-c0232cf48954.json`、`20260923T140515Z-4e62ee4b-7a78531b8963.json`。
+- #86 定向：24 passed；#87 IMA + 晨汇：14 passed；最终可采信收据在 `/Users/a77/.finance-runtime/test-receipts/`，具体文件须用当前 HEAD 做 `check_test_receipt.py --expect-revision` 校验。
 - `zsh -n`、Python ruff、`git diff --check`、`merge-tree` 通过。
 - 真实 schema + `teaching_objects` + `slice_river` 合成探针：PASS；NULL/零 FAIL；早写 FAIL；日历不足 BLOCKED 且 labels DB SHA 不变。证据索引 `docs/verification/2026-09-23-briefing-k3-r2/README.md`。
 
