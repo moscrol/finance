@@ -1,0 +1,89 @@
+{
+  "record_kind": "host_source_acceptance_audit_not_independent_financial_qc",
+  "status": "NOT_PASSED",
+  "candidate_revision": "31f1b40dd788d36c71da249d59fb769c50d7cd30",
+  "initial_submissions": {
+    "L6-N1": 1,
+    "L6-N2": 1,
+    "L6-N3": 0
+  },
+  "resubmissions": 0,
+  "followups": 0,
+  "real_model_requests": 20,
+  "gateway_requests": 1,
+  "writer_requests": 14,
+  "judge_requests": 5,
+  "requests_by_model": {
+    "glm-5.3": 15,
+    "glm-5.3-flash": 5
+  },
+  "request_counts": {
+    "active": 0,
+    "cancelled": 5,
+    "completed": 15,
+    "dispatched": 20,
+    "dropped_temperature": 0,
+    "failed": 0,
+    "requests": 20,
+    "shutdown_complete": true,
+    "stopped_for": null
+  },
+  "questions": [
+    {
+      "id": "L6-N1",
+      "run_id": "run_20260923_195537_731357",
+      "status": "completed",
+      "elapsed_seconds": 393.61,
+      "quality_verdict": "NOT_PASSED",
+      "model_revision_observed": true,
+      "episode_repair_attempts": 1,
+      "successful_repair_phase_drafts": 2,
+      "reason": "evidence_supported_numeric_condition_deleted",
+      "judge_status": "unavailable",
+      "evidence_hash": "397ef6f396a29a538e339974d2ced10d8d633e4a798252023e43e3fb965b4b41"
+    },
+    {
+      "id": "L6-N2",
+      "run_id": "run_20260923_200211_404490",
+      "status": "cancelled",
+      "elapsed_seconds": 150.6,
+      "quality_verdict": "NOT_EXERCISED",
+      "reason": "host_cancelled_after_N1_source_failure",
+      "not_a_product_failure": true
+    },
+    {
+      "id": "L6-N3",
+      "status": "not_submitted",
+      "quality_verdict": "NOT_EXERCISED"
+    }
+  ],
+  "strict_deadline_probe": {
+    "scenarios": 13,
+    "violations": 0,
+    "scope": "loopback synthetic, not natural late-return proof"
+  },
+  "positive_control": "NOT_PASSED",
+  "natural_late_report_observed": false,
+  "natural_late_report_adopted": false,
+  "natural_late_report_branch": "NOT_EXERCISED",
+  "independent_financial_review": false,
+  "failure_is_not_only_judge_unavailability": true,
+  "data_preflight_amendment": "Production snapshot 09-23 was newer than canonical DB 09-22; rejected preflight retained. New coherent clone uses sealed 09-22 source matching predeclared question cutoff; no question changed.",
+  "data_as_of": "2026-09-22",
+  "sector_views_as_of": "2026-09-18",
+  "kb_external_inputs_frozen": false,
+  "controller_limit": "N2 was submitted on N1 run completion before host source audit; cancelled immediately after confirmed content failure. An audit barrier is still required before future next-question admission.",
+  "protocol_modified_during_live": false,
+  "inputs_unchanged": true,
+  "production_identity_unchanged": true,
+  "frozen_files_unchanged": 751,
+  "ports_released": [
+    19897,
+    19898
+  ],
+  "owned_lock_released": true,
+  "old_failed_batches_unchanged": true,
+  "merged": false,
+  "deployed": false,
+  "closed_at": "2026-09-23T12:09:54.039642+00:00"
+}

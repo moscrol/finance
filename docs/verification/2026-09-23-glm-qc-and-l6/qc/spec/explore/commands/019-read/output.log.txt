@@ -1,0 +1,32 @@
+class _JudgeCall:
+    report: answer_model.GroundingJudgeReport | None
+    unavailable: bool
+    correlated: bool
+    issue: str = ""
+    root_deadline_exhausted: bool = False
+    transient_provider_failure: bool = False
+    # Fail closed: only explicitly classified deadline/transient failures may
+    # opt into deletion-only candidate release. Malformed provider output must
+    # never inherit release eligibility from a dataclass default.
+    monotonic_release_safe: bool = False
+    timeout_asked: float | None = None
+    timeout_configured: float | None = None
+    remaining_seconds_at_entry: float | None = None
+    exc_class: str | None = None
+    http_status: int | None = None
+    judge_attempt_index: int | None = None
+    request: dict[str, object] | None = None
+    material_review_calls: tuple[dict[str, object], ...] = ()
+    last_dispatched_failure: dict[str, object] | None = None
+
+
+def _judge_failure_identity(value: object) -> tuple[str | None, int | None]:
+    """Capture the raw failure class before llm_refine flattens it.
+
+    ``_failure_reason`` maps TimeoutError → ``timeout``; this helper keeps
+    TimeoutError / HTTPError / ConnectionError distinguishable for H8/H9.
+    Exception messages are discarded so public artifacts stay sanitized.
+    """
+
+
+[truncated; total lines=7054, selected=1177:1206; request a later offset]

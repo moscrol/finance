@@ -1,0 +1,33 @@
+# Private sidecar exports. No credential value is stored in this file.
+export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+export FORESIGHT_LLM_KEYCHAIN=0
+export FORESIGHT_BUILTIN_LLM_API_KEY="$(security find-generic-password -a a77 -s finance-workbench-glm -w 2>/dev/null || true)"
+[[ -n "$FORESIGHT_BUILTIN_LLM_API_KEY" ]] || exit 1
+export OPENAI_API_KEY="$FORESIGHT_BUILTIN_LLM_API_KEY"
+export FORESIGHT_BUILTIN_LLM_BASE_URL="https://open.bigmodel.cn/api/coding/paas/v4"
+export FORESIGHT_BUILTIN_LLM_MODEL="glm-5.3-flash"
+export LLM_BASE_URL="https://open.bigmodel.cn/api/coding/paas/v4"
+export LLM_MODEL="glm-5.3"
+export LLM_JUDGE_BACKEND=""
+export LLM_JUDGE_API_KEY="$FORESIGHT_BUILTIN_LLM_API_KEY"
+export LLM_JUDGE_BASE_URL="https://open.bigmodel.cn/api/coding/paas/v4"
+export LLM_JUDGE_MODEL="glm-5.3-flash"
+export LLM_JUDGE_FALLBACK_API_KEY=""
+export ASK_SEMANTIC_JUDGE=llm
+export ASK_EVIDENCE_JUDGE=auto
+export AGENT_RUNTIME_BACKEND=continuous_glm
+export ASK_CONTINUOUS_RUNTIME=on
+export WORKBENCH_RESEARCH_TIER=max
+export WORKBENCH_TOOL_MENU_HIDE=off
+export WORKBENCH_CONTINUOUS_TURN_TIMEOUT_SECONDS=900
+export KNOWLEDGE_WIKI="/Users/a77/knowledge-base-private/wiki"
+export KB_RAG_PYTHON="/Users/a77/knowledge-base-private/.rag_venv/bin/python"
+export RAG_INDEX_DIR="/Users/a77/knowledge-base-private/.rag_index"
+export RAG_WORKER_PREWARM_TIMEOUT=360
+export RAG_MAX_INDEX_AGE_DAYS=14
+export FINANCE_L3_PYTHON="/Users/a77/finance-workspace-private/.venv-workbench/bin/python"
+export FINANCE_L3_PYTHONPATH="/Users/a77/finhot/finhot"
+export FINANCE_L3_CWD="/Users/a77/finhot/finhot"
+export FINANCE_L3_LOOKUP_DAYS=90
+export FINANCE_L3_LOOKUP_LIMIT=5
+export FINANCE_L3_CACHE_TTL_SECONDS=900

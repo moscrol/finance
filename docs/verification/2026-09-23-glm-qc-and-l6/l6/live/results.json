@@ -1,0 +1,14 @@
+[
+  {
+    "id": "L6-N1",
+    "run_id": "run_20260923_195537_731357",
+    "status": "completed",
+    "elapsed_seconds": 393.61
+  },
+  {
+    "id": "L6-N2",
+    "run_id": "run_20260923_200211_404490",
+    "status": "cancelled",
+    "elapsed_seconds": 150.6
+  }
+]
