@@ -20,7 +20,7 @@
   <key>EnvironmentVariables</key>
   <dict>
     <key>FINANCE_CODE_ROOT</key>
-    <string>/Users/a77/.finance-runtime/finance-sync-adcda94b5e40</string>
+    <string>/Users/a77/.finance-runtime/finance-sync-2edbe4c46595</string>
     <key>FINANCE_DATA_ROOT</key>
     <string>/Users/a77/finance-workspace-private</string>
     <!-- sync 使用已合 main 的完整固定检出，不跟随 8792 软链或共享数据树。
@@ -28,7 +28,7 @@
          升级另建版本目录，不在现用目录 checkout/reset，不把运行产物当代码提交。
          S7 staging 包装及其 FINANCE_S7_ROOT 此次不变，生产采集另行验收。 -->
     <key>FINANCE_SYNC_CODE_ROOT</key>
-    <string>/Users/a77/.finance-runtime/finance-sync-adcda94b5e40</string>
+    <string>/Users/a77/.finance-runtime/finance-sync-2edbe4c46595</string>
     <key>FINANCE_WS</key>
     <string>/Users/a77/finance-workspace-private</string>
     <key>FINANCE_PYTHON</key>
