@@ -1,0 +1,7 @@
+{"admission":1,"timestamp":"2026-09-23T07:12:13.250Z","provider":"mirasim-kimi","model":"kimi-k3","stream":true,"tools":3,"reasoning_effort":"xhigh","has_temperature":false}
+{"admission":2,"timestamp":"2026-09-23T07:12:50.325Z","provider":"mirasim-kimi","model":"kimi-k3","stream":true,"tools":3,"reasoning_effort":"xhigh","has_temperature":false}
+{"admission":3,"timestamp":"2026-09-23T07:13:02.557Z","provider":"mirasim-kimi","model":"kimi-k3","stream":true,"tools":3,"reasoning_effort":"xhigh","has_temperature":false}
+{"admission":4,"timestamp":"2026-09-23T07:15:03.457Z","provider":"mirasim-kimi","model":"kimi-k3","stream":true,"tools":3,"reasoning_effort":"xhigh","has_temperature":false}
+{"admission":5,"timestamp":"2026-09-23T07:15:57.614Z","provider":"mirasim-kimi","model":"kimi-k3","stream":true,"tools":3,"reasoning_effort":"xhigh","has_temperature":false}
+{"admission":6,"timestamp":"2026-09-23T07:17:13.514Z","provider":"mirasim-kimi","model":"kimi-k3","stream":true,"tools":3,"reasoning_effort":"xhigh","has_temperature":false}
+{"admission":7,"timestamp":"2026-09-23T07:18:52.397Z","provider":"mirasim-kimi","model":"kimi-k3","stream":true,"tools":3,"reasoning_effort":"xhigh","has_temperature":false}

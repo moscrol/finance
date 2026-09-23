@@ -1,0 +1,118 @@
+{
+  "session": "01b",
+  "prompt": "prompt-session-01b.md",
+  "seed_probes_sha256": {},
+  "revision": "45e752cfaf30929d15acbd0bcab0a667aef0e12e",
+  "baseline": "bbd53487f4cefdae97eae90f7322394d36e65462",
+  "identity_before": {
+    "revision": "45e752cfaf30929d15acbd0bcab0a667aef0e12e",
+    "status": ""
+  },
+  "author_before": {
+    "revision": "0e08dd5a872c9d8ed84f46f518d4981b49d8654c",
+    "status": ""
+  },
+  "inputs_sha256": {
+    "run.py": "3110494719870a421d79a1a6ffa90ed54802936a600dbb0af4b70c162a729156",
+    "prompt-session-01b.md": "08b85184ee608d088b991c5e56e74dd151c44a654ce86b83e95fc397a4b69be3",
+    "credential-bootstrap.mjs": "c68b1c422c7e9bd5b362436f971f9dcae3c71e60dd7fb8c54259762ad2d640aa",
+    "provider-template.json": "d3030f00ab3ba2d67c27d1fba2fcbdf60af34ea0d0d675e8bba704dfc54094b4",
+    "tools.mjs": "55981f8109370f24e76b51df1276ad706f8f248e7fbdd45f969cae2454c599c1",
+    "tools.sb": "3201ead74f662f4193fde71b88db10da5977015100d131fb7be6672eb9f35f62",
+    "source.diff": "4ca9bd321fc1ff4c756ede8e6808b0f4d91d08662fe6ea5a30c06c3efebfb312",
+    "pi-config/auth.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+    "pi-config/models.json": "72a5e4869c2367ea9231cf0948e9f792ceb620454328ad94343c9df93e3201ef",
+    "pi-config/settings.json": "179a8e23430a882ed27af93a2fa9a7d5ab4c60ff3a7b755ee5bbec1c9b750b15"
+  },
+  "time_before": "2026-09-23T07:12:10.251417+00:00",
+  "complete": true,
+  "timeout_seconds": 600,
+  "max_provider_requests": 40,
+  "billing": "existing Plus route only; zero model price metadata is not an invoice",
+  "authorization": "user asked to continue independent recovery QC and full gates; existing K3 subscription only, no merge, push, deployment, or production write",
+  "command": [
+    "/opt/homebrew/bin/pi",
+    "--provider",
+    "mirasim-kimi",
+    "--model",
+    "kimi-k3",
+    "--thinking",
+    "xhigh",
+    "--models",
+    "mirasim-kimi/kimi-k3",
+    "--no-session",
+    "--no-extensions",
+    "-e",
+    "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/independent-45e752c/credential-bootstrap.mjs",
+    "-e",
+    "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/independent-45e752c/tools.mjs",
+    "--no-skills",
+    "--no-prompt-templates",
+    "--no-context-files",
+    "--no-themes",
+    "--no-approve",
+    "--offline",
+    "--tools",
+    "read,bash,write",
+    "--mode",
+    "json",
+    "-p",
+    "--",
+    "<prompt-session-01b.md>"
+  ],
+  "import_preflight_rc": 0,
+  "preflight_write_ok": true,
+  "pid": 15725,
+  "exit_code": 143,
+  "stop_reason": "deadline",
+  "identity_after": {
+    "revision": "45e752cfaf30929d15acbd0bcab0a667aef0e12e",
+    "status": ""
+  },
+  "author_after": {
+    "revision": "0e08dd5a872c9d8ed84f46f518d4981b49d8654c",
+    "status": ""
+  },
+  "candidate_untouched": true,
+  "inputs_unchanged": true,
+  "elapsed_seconds": 600.419,
+  "time_after": "2026-09-23T07:22:10.838619+00:00",
+  "event_counts": {
+    "session": 1,
+    "agent_start": 1,
+    "turn_start": 7,
+    "message_start": 19,
+    "message_end": 18,
+    "message_update": 8815,
+    "tool_execution_start": 11,
+    "tool_execution_update": 9,
+    "tool_execution_end": 11,
+    "turn_end": 6
+  },
+  "provider_request_admissions": 7,
+  "admissions_valid": true,
+  "model_identities": [
+    "mirasim-kimi/kimi-k3"
+  ],
+  "model_errors": [],
+  "usage": {
+    "input": 9759,
+    "output": 7097,
+    "cacheRead": 100177,
+    "cacheWrite": 0,
+    "totalTokens": 117033
+  },
+  "sha256": {
+    "credential.json": "993e8ed178454e613d6afe010e19128200d864e01c59646abe288f59b692ff44",
+    "events.jsonl": "f8a52ca92965452542943e845b357b060be899b09b65e16b666d24144b68b1a0",
+    "http-responses.jsonl": "831e1119b5218496a8e4c387b4060adc60ad5f96de87f95a81d449e5f0837120",
+    "pi-config/auth.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+    "pi-config/models-store.json": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+    "pi-config/models.json": "72a5e4869c2367ea9231cf0948e9f792ceb620454328ad94343c9df93e3201ef",
+    "pi-config/settings.json": "179a8e23430a882ed27af93a2fa9a7d5ab4c60ff3a7b755ee5bbec1c9b750b15",
+    "preflight.log": "db626fe1624e3474bff10d399bd799ed0eab2ccf09f781fdb9e4aeab32d004f6",
+    "request-admissions.jsonl": "29067623d9f207436894c7d8fbc047055365e1b5f04f14b9ba9afd7a88bfd3e6",
+    "stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "work/preflight-write-check": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+}

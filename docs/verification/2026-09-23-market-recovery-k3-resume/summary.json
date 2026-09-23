@@ -1,0 +1,62 @@
+{
+  "revision": "45e752cfaf30929d15acbd0bcab0a667aef0e12e",
+  "baseline": "bbd53487f4cefdae97eae90f7322394d36e65462",
+  "tree": "3ea686889344ebbaaddeee2b3866bce9bd9a3733",
+  "status": "HOLD",
+  "controller_summary_not_reviewer_verdict": true,
+  "route": "mirasim-kimi/kimi-k3",
+  "transport_requests": 2,
+  "reviewer_requests": 11,
+  "total_requests": 13,
+  "total_http_200": 11,
+  "total_http_504": 2,
+  "independent_probe_count": 0,
+  "author_tests_run_this_turn": 0,
+  "execute_and_report_stages_started": false,
+  "prepared_execute_prompt_unused": true,
+  "claims": {
+    "F1": "not_verified",
+    "F2": "not_verified",
+    "F3": "not_verified"
+  },
+  "sessions": [
+    {
+      "session": "01",
+      "requests": 4,
+      "http_200": 3,
+      "completed_assistant_messages": 4,
+      "completed_tool_calls": 5,
+      "tool_errors": 0,
+      "model_write_calls": 0,
+      "independent_probe_files": 0,
+      "positive_control_executed": false,
+      "reviewer_report": false,
+      "exit_code": 0,
+      "elapsed_seconds": 172.263,
+      "status": "BLOCKED_PROVIDER_504",
+      "raw_events_sha256": "451d02014b73f934d2bffa12df048f253957fcb8a53c3946be9943436bea5303"
+    },
+    {
+      "session": "01b",
+      "requests": 7,
+      "http_200": 7,
+      "completed_assistant_messages": 6,
+      "completed_tool_calls": 11,
+      "tool_errors": 0,
+      "model_write_calls": 0,
+      "independent_probe_files": 0,
+      "positive_control_executed": false,
+      "reviewer_report": false,
+      "exit_code": 143,
+      "elapsed_seconds": 600.419,
+      "status": "BLOCKED_SESSION_DEADLINE",
+      "raw_events_sha256": "f8a52ca92965452542943e845b357b060be899b09b65e16b666d24144b68b1a0"
+    }
+  ],
+  "caveats": [
+    "HTTP 200 is not completed review",
+    "Pi exit 0 did not exclude a model HTTP 504 error",
+    "Last request of session 01b was interrupted; token usage is incomplete",
+    "No merge, push, deployment, staging, DB swap, or production write"
+  ]
+}

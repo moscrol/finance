@@ -1,0 +1,269 @@
+diff --git a/market_feature_store/cli.py b/market_feature_store/cli.py
+index 9351e7e89..ad14b1e61 100644
+--- a/market_feature_store/cli.py
++++ b/market_feature_store/cli.py
+@@ -1055,6 +1055,22 @@ def cmd_sync_stock_daily(args) -> int:
+     return 0
+ 
+ 
++def cmd_bridge_stock_daily(args) -> int:
++    from .sync.bridge_hithink_stock_daily import BridgeRefused
++    from .sync.sync_daily_full import run_bridge_stock_daily_step
++
++    refused = _refuse_production_write(False)
++    if refused is not None:
++        return refused
++    try:
++        stats = run_bridge_stock_daily_step(args.trade_date, skip_existing=False)
++    except BridgeRefused as exc:
++        print(f"同花顺日线桥拒绝写入: {exc}")
++        return 2
++    print(json.dumps(stats, ensure_ascii=False, default=str))
++    return 0 if stats.get("written_rows", 0) > 0 else 1
++
++
+ def cmd_fill_stock_daily_fallback(args) -> int:
+     from .sync.fill_stock_daily_fallback import fill_stock_daily_fallback
+ 
+@@ -2437,6 +2453,12 @@ def build_parser() -> argparse.ArgumentParser:
+     p_skd.add_argument("--progress-every", type=int, default=200, help="每处理多少只打一行心跳进度, 默认200; 0=关闭")
+     p_skd.set_defaults(func=cmd_sync_stock_daily)
+ 
++    p_bridge = sub.add_parser(
++        "bridge-stock-daily", help="同花顺日线补 canonical 当日缺口（仅副本，拒绝覆盖已有日线）",
++    )
++    p_bridge.add_argument("--trade-date", required=True, help="交易日 YYYY-MM-DD")
++    p_bridge.set_defaults(func=cmd_bridge_stock_daily)
++
+     p_fsf = sub.add_parser("fill-stock-daily-fallback",
+                            help="当日兜底: 用 fact_sector_stock_daily 行情聚合补 fact_stock_daily(标 fallback)")
+     p_fsf.add_argument("--trade-date", required=True, help="交易日 YYYY-MM-DD")
+diff --git a/market_feature_store/consumption_registry.yaml b/market_feature_store/consumption_registry.yaml
+index f611022c3..4d7f0ecfc 100644
+--- a/market_feature_store/consumption_registry.yaml
++++ b/market_feature_store/consumption_registry.yaml
+@@ -96,8 +96,8 @@ plans:
+   # 同花顺四步：缺 key 明确 skip，有 key 执行失败阻断发布；并跑表成功≠复盘旧表已换源。
+   local:
+     - db-lock
+-    - stock-daily
+     - hithink-stock-daily
++    - stock-daily
+     - hithink-sector-kline
+     - hithink-limit-pools
+     - hithink-dragon-auction
+@@ -223,6 +223,8 @@ datasets:
+       policy: >-
+         已是东财快照（sync-stock-daily-snapshot，非复盘会）。维持。失败兜底 fill-stock-daily-fallback
+         （source 带 fallback，来自成分表——cheap 日拼接器会拒绝这种源）。历史回填走 mootdx。
++        local 先同步同花顺日线；前两源失败且目标日无行时，在 stock-daily 内调用 bridge-stock-daily。
++        桥接不覆盖已有行；全部尝试失败即阻断下游与发布。
+     evidence: "东财值与复盘会成分表逐只完全一致（价/涨幅/成交额 p99 差=0.0）[回测]"
+ 
+   - key: hithink_stock_daily
+diff --git a/market_feature_store/sync/bridge_hithink_stock_daily.py b/market_feature_store/sync/bridge_hithink_stock_daily.py
+index 185c56c53..3a4d22be9 100644
+--- a/market_feature_store/sync/bridge_hithink_stock_daily.py
++++ b/market_feature_store/sync/bridge_hithink_stock_daily.py
+@@ -256,10 +256,13 @@ def apply_bridge_day(con: duckdb.DuckDBPyConnection, plan: dict[str, Any]) -> di
+     if not rows:
+         raise BridgeRefused(f"{td} 无可写行")
+ 
+-    before = _day_fingerprints(con)
+-    # 越界校验放在 COMMIT **之前**：放在之后就只能报警、回滚不了。
++    # 计划可能已过期；覆盖授权与目标状态必须在写入事务内重新核验。
+     con.execute("BEGIN TRANSACTION")
+     try:
++        before = _day_fingerprints(con)
++        existing = before.get(td, (0,))[0]
++        if existing and plan.get("policy", {}).get("allow_replace_existing") is not True:
++            raise BridgeRefused(f"{td} 已有 {existing} 行，默认桥接拒绝覆盖")
+         deleted = con.execute(
+             "DELETE FROM fact_stock_daily WHERE trade_date = ? RETURNING stock_ts_code",
+             [td],
+diff --git a/market_feature_store/sync/compute_local_stats.py b/market_feature_store/sync/compute_local_stats.py
+index 01011cce8..3d9799cd3 100644
+--- a/market_feature_store/sync/compute_local_stats.py
++++ b/market_feature_store/sync/compute_local_stats.py
+@@ -19,6 +19,7 @@ fact_sector_stock_daily 名单）写本地加工表，source 一律 ``local:*``
+ from __future__ import annotations
+ 
+ import json
++import math
+ from collections import defaultdict
+ from datetime import date, datetime, timedelta, timezone
+ 
+@@ -224,6 +225,15 @@ def compute_limit_stats_local(trade_date, *, con=None, force: bool = False, min_
+ 
+         coverage = None
+         if recovery_members is not None:
++            bar_codes = {r[1] for r in today}
++            missing_bars = sorted({r[2] for r in members} - bar_codes)
++            if missing_bars:
++                raise ValueError(f"sector member missing canonical stock bar: {missing_bars[:10]}")
++            # Market-wide counts also consume bars outside the declared sectors.
++            invalid_closes = sorted(r[1] for r in today
++                                    if r[3] is None or not math.isfinite(r[3]) or r[3] <= 0)
++            if invalid_closes:
++                raise ValueError(f"invalid canonical stock bar close: {invalid_closes[:10]}")
+             observed = defaultdict(list)
+             for sector, _name, stock, _sw in members:
+                 observed[sector].append(stock)
+@@ -234,7 +244,7 @@ def compute_limit_stats_local(trade_date, *, con=None, force: bool = False, min_
+             ).fetchall())
+             # Do not silently skip a suspended name that was synthesized into
+             # fact_stock_daily but dropped from the member projection.
+-            if set(recovery_nontrading) & {r[1] for r in today}:
++            if set(recovery_nontrading) & bar_codes:
+                 raise ValueError("nontrading identity has a stock bar")
+             coverage = sector_coverage(declared_members=recovery_members, expected_counts=expected,
+                                        observed_members=observed, suspended=recovery_nontrading)
+diff --git a/market_feature_store/sync/sync_daily_full.py b/market_feature_store/sync/sync_daily_full.py
+index 2bec4d63c..49c06ced2 100644
+--- a/market_feature_store/sync/sync_daily_full.py
++++ b/market_feature_store/sync/sync_daily_full.py
+@@ -162,7 +162,7 @@ def run_hithink_stock_daily_step() -> dict:
+     return sync_hithink_stock_daily(mode="incremental")
+ 
+ 
+-def run_bridge_stock_daily_step(trade_date: str) -> dict:
++def run_bridge_stock_daily_step(trade_date: str, *, skip_existing: bool = True) -> dict:
+     """主源没写出当日 fact_stock_daily 时，用同花顺日线兜底补齐。
+ 
+     为什么需要它（2026-09-22 复盘）：fact_stock_daily 缺当日行会让 13 个
+@@ -174,6 +174,7 @@ def run_bridge_stock_daily_step(trade_date: str) -> dict:
+     同花顺两样都不提供）。主源成功时本步骤自动跳过——不靠额外的先后判断，
+     而是靠 bridge 默认拒绝覆盖已有行这道守卫本身。
+ 
++    skip_existing=False 用于主源失败后的 CLI 兜底：残留行不等于主源成功，必须拒绝覆盖。
+     两个源都没数据时本步骤会报错，这是对的：那确实是当天没行情，
+     应该红在这里，而不是等到 compute-features 才爆。
+     """
+@@ -185,7 +186,7 @@ def run_bridge_stock_daily_step(trade_date: str) -> dict:
+             "SELECT count(*) FROM fact_stock_daily WHERE trade_date = ?",
+             [trade_date],
+         ).fetchone()[0]
+-        if existing:
++        if existing and skip_existing:
+             return {"skipped": True, "reason": f"主源已写入 {existing} 行", "rows": existing}
+         plan = build_bridge_day(con, trade_date)
+         applied = apply_bridge_day(con, plan)
+diff --git a/skills/daily-full-review/scripts/run_review_sync.py b/skills/daily-full-review/scripts/run_review_sync.py
+index b3c0e86f2..fb5d413c9 100644
+--- a/skills/daily-full-review/scripts/run_review_sync.py
++++ b/skills/daily-full-review/scripts/run_review_sync.py
+@@ -307,9 +307,9 @@ def sync_limit_heat(trade_date: str, timeout: int) -> dict:
+             "elapsed": res["elapsed"], "note": note}
+ 
+ 
+-def sync_stock_daily(trade_date: str, timeout: int) -> dict:
++def sync_stock_daily(trade_date: str, timeout: int, *, hithink_fallback: bool = False) -> dict:
+     """单日复盘默认走东财快照（snapshot，快，当日值与 mootdx 一致）；
+-    失败 → 当日 fallback（sector_stock 聚合）。
++    失败 → 当日 fallback（sector_stock 聚合）→ local 整日缺行时同花顺桥。
+     历史多日回填才用 mootdx（逐只慢，走 duckdb-backfill skill）。"""
+     res = run_step(
+         "stock-daily (snapshot)",
+@@ -317,14 +317,31 @@ def sync_stock_daily(trade_date: str, timeout: int) -> dict:
+         timeout,
+     )
+     if res["status"] == "ok" and _count("fact_stock_daily", trade_date) > 0:
+-        return {**res, "label": "stock-daily", "note": "eastmoney snapshot ok"}
++        return {**res, "label": "stock-daily", "note": "eastmoney snapshot ok", "attempts": [res]}
+     fb = run_step(
+         "stock-daily fallback",
+         CLI + ["fill-stock-daily-fallback", "--trade-date", trade_date],
+         timeout,
+     )
+-    return {"label": "stock-daily", "status": fb["status"], "code": fb["code"],
+-            "elapsed": res["elapsed"] + fb["elapsed"], "note": "used fill-stock-daily-fallback"}
++    if not hithink_fallback:
++        return {"label": "stock-daily", "status": fb["status"], "code": fb["code"],
++                "elapsed": res["elapsed"] + fb["elapsed"], "note": "used fill-stock-daily-fallback"}
++
++    attempts = [res, fb]
++    rows = _count("fact_stock_daily", trade_date)
++    if rows == 0:
++        attempts.append(run_step(
++            "bridge-stock-daily", CLI + ["bridge-stock-daily", "--trade-date", trade_date], timeout,
++        ))
++        rows = _count("fact_stock_daily", trade_date)
++    last = attempts[-1]
++    ok = last["status"] == "ok" and rows > 0
++    return {
++        "label": "stock-daily", "status": "ok" if ok else "fail",
++        "code": 0 if ok else (last["code"] or 1),
++        "elapsed": sum(attempt["elapsed"] for attempt in attempts),
++        "note": f"last source={last['label']}; canonical rows={rows}", "attempts": attempts,
++    }
+ 
+ 
+ def stitch_sector_members(trade_date: str, timeout: int) -> dict:
+@@ -390,16 +407,17 @@ def build_local_plan(trade_date: str, timeout: int, heavy_timeout: int):
+     stitch 用最后一份 fupanhui 成分 × 当日东财真值；加工层 limit-stats-local / market-overview-local
+     按 skills/duckdb-backfill 双轨实测的公开规则算。顺序依赖：stock-daily 先于 stitch（拼接要当日真值），
+     stitch 先于 sector-daily-local（成分求和），sector-daily-local 先于 limit-stats-local（题材涨停借名单），
+-    index/sw 先于 market-overview-local（周均线、前三行业）。同花顺四步更新并跑表，
+-    此片尚不投影到旧复盘表；名单可以换源，不要求复制复盘会，实际切换另验。"""
++    index/sw 先于 market-overview-local（周均线、前三行业）。同花顺日线先入并跑表，
++    stock-daily 主源与成分兜底无行时才桥接 canonical；其他同花顺表仍仅并跑。"""
+     hithink = [
+         (label, lambda label=label: sync_hithink_step(label, trade_date, heavy_timeout))
+         for label in HITHINK_STEPS
+     ]
+     return [
+         ("db-lock", lambda: run_step("db-lock", [PY, "scripts/check_db_lock.py"], 120)),
+-        ("stock-daily", lambda: sync_stock_daily(trade_date, heavy_timeout)),
+-        *hithink,
++        hithink[0],
++        ("stock-daily", lambda: sync_stock_daily(trade_date, heavy_timeout, hithink_fallback=True)),
++        *hithink[1:],
+         ("index-daily", lambda: run_step("index-daily", CLI + ["sync-index-daily", "--trade-date", trade_date, "--no-fupanhui-fallback"], timeout)),
+         ("sw-l1-daily", lambda: run_step("sw-l1-daily", CLI + ["sync-sw-l1-daily", "--trade-date", trade_date, "--days", "20"], heavy_timeout)),
+         ("carry-forward-universe", lambda: run_step("carry-forward-universe", CLI + ["carry-forward-universe", "--trade-date", trade_date], timeout)),
+@@ -483,6 +501,11 @@ def write_runlog(trade_date: str, results: list[dict], gate_ok: bool | None, pla
+     lines.append("|---|---|---:|---|")
+     for r in results:
+         lines.append(f"| {r['label']} | {r['status']} | {r['elapsed']:.0f} | {r.get('note','')} |")
++        for attempt in r.get("attempts", ()):
++            lines.append(
++                f"| {r['label']} / {attempt['label']} | {attempt['status']} | "
++                f"{attempt['elapsed']:.0f} | code={attempt['code']} |"
++            )
+     gate = "COMPLETE" if gate_ok else ("INCOMPLETE" if gate_ok is not None else "未检")
+     lines.append(f"| quality-gate | {gate} | - | check_daily_review_data.py |")
+     bad = [r["label"] for r in results if r["status"] in {"timeout", "fail", "partial"}]
+@@ -555,23 +578,28 @@ def main() -> int:
+     results: list[dict] = []
+     for name, fn in steps:
+         result = fn()
+-        if name in HITHINK_STEPS and result["status"] not in {"ok", "skip"}:
+-            # 后两步从 dump 取交易日历，不能先用旧日历跑，再到末尾仅重试 dump。
+-            # 有凭证但失败在本步原地重试；曾请求失败后 key 丢失也不能用 skip 洗绿。
++        critical = name in HITHINK_STEPS or (plan == "local" and name == "stock-daily")
++        accepted = {"ok", "skip"} if name in HITHINK_STEPS else {"ok"}
++        if critical and result["status"] not in accepted:
++            # 行情与 dump 日历都是下游依赖，失败须原地重试，不能在派生后才补偿。
++            # 曾请求失败后 key 丢失也不能用 skip 洗绿。
+             for round_no in range(1, max(args.retry_rounds, 0) + 1):
+                 retry = fn()
+                 if retry["status"] == "skip":
+                     result["note"] = f"retry r{round_no} skipped; original failure retained"
+                     break
++                if name == "stock-daily":
++                    retry["attempts"] = [*result.get("attempts", ()), *retry.get("attempts", ())]
++                    retry["elapsed"] += result["elapsed"]
+                 result = retry
+                 result["note"] = (str(result.get("note") or "") + f" [retry r{round_no}]").strip()
+                 if result["status"] == "ok":
+                     break
+             if result["status"] != "ok":
+                 results.append(result)
+-                _notify(f"同花顺并跑 {args.date} {name} 未成功，停止下游与发布")
++                _notify(f"行情依赖 {args.date} {name} 未成功，停止下游与发布")
+                 write_runlog(args.date, results, False, plan=plan)
+-                print("\n== 同花顺并跑步骤未成功：停止下游/导出/换名 ==", flush=True)
++                print("\n== 行情依赖步骤未成功：停止下游/导出/换名 ==", flush=True)
+                 return 1
+         results.append(result)
+ 

@@ -1,0 +1,47 @@
+{
+  "output": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/independent-d3abd670/stream-tools-preflight-TVG2mG",
+  "complete": true,
+  "usable": false,
+  "route": "mirasim-kimi/kimi-k3",
+  "attempts": [
+    {
+      "step": 1,
+      "started_at": "2026-09-23T07:04:28.576Z",
+      "has_temperature": false,
+      "stream": true,
+      "tool_count": 1,
+      "reasoning_effort": "xhigh",
+      "http_status": 200,
+      "headers_ms": 2940,
+      "first_data_ms": 2940,
+      "finish_reason": "tool_calls",
+      "usage": {
+        "completion_tokens": 91,
+        "cost": 0.002073,
+        "prompt_tokens": 236,
+        "total_tokens": 327
+      },
+      "elapsed_ms": 16224,
+      "tool_calls": 1,
+      "text_length": 0
+    },
+    {
+      "step": 2,
+      "started_at": "2026-09-23T07:04:44.800Z",
+      "has_temperature": false,
+      "stream": true,
+      "tool_count": 1,
+      "reasoning_effort": "xhigh",
+      "http_status": 504,
+      "headers_ms": 120170,
+      "error_body_sha256": "d3cdb7724c5a8173e49fef74925072ea9bda29955c9a7e1e7633e2a01d882e0a"
+    }
+  ],
+  "timeout_per_request_ms": 180000,
+  "retries": 0,
+  "tool_executed": true,
+  "expected_digest": "58e379d0cd0c83a53778f7f214b837fbd735aeba75c2c60257932a809fb2b523",
+  "error_type": "Error",
+  "error_code": "HTTP_504",
+  "elapsed_ms": 137778
+}

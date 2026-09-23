@@ -1,30 +1,32 @@
 # 行情恢复 QC 修复
 
 ## 这个分支做什么
-修PR #861/#871的F1接线/日志、F2假覆盖、F3过期覆盖；本轮补F2无效收盘价保护。新快照：`docs/handoffs/2026-09-23-market-recovery-close-guard.md`。
+修 PR #861/#871 的 F1 接线/日志、F2 假覆盖/无效收盘价、F3 过期覆盖。最新快照：`docs/handoffs/2026-09-23-market-recovery-k3-resume.md`。
 
 ## 当前状态
-代码提交4fa70046f、981c4d629、3abb7a4d3。整体HOLD：新候选仅扩大回归绿，完整pytest、独审、业务决策未闭合。未合并/推送/部署/数据库staging/换库/写生产。测试进程退出，新预览已移除，本地refs/verification保留身份；旧d3证据树既有锁未动。
+业务提交 4fa70046f、981c4d629、3abb7a4d3；本轮仅封存 K3 续跑证据和交接。整体 HOLD：新候选全仓、独审、业务决策未闭合。未合并/推送/部署/数据库 staging/换库/写生产。本轮进程已退出、独占 candidate 检出已清理；验证引用保留，旧 d3 锁树未动。
 
 ## 决策与被否方案
-- local先同步同花顺，再串行兜底；失败重试后停下游，每次尝试落runlog。
-- F2仅显式recovery_members：缺canonical行或当日任一消费行收盘价非有限/非正则在四张派生表写前拒绝；不删坏行凑覆盖、不改默认日更和分母。
-- F3事务内重验目标日与literal True授权；不自动清残留。
-- 不把作者测试冒充独审，不把旧全仓绿移签新补丁。
+- F1 同花顺先行、串行兜底、失败重试后停下游；尝试均落 runlog。
+- F2 仅显式 recovery_members；缺 canonical 行或当日消费行 close 非有限/非正，在四张派生表写前拒绝；不删坏行凑分母。
+- F3 事务内重验目标日与 literal True 授权。
+- 否定「一次 45 秒超时等于 K3 不可用」；真实工具往返已通。HTTP 200/Pi exit 0 不等于交付完成。
+- 不把作者测试冒充独审，不把旧全仓绿移签新候选。
 
 ## 未验证 / 已知边界
-本轮K3最小请求45秒超时，仅1次预占，无新审查/探针/报告；不能视为PASS。未知停牌、供应商全集、53只公司行动、mootdx部分flush、完整输入指纹/任意并发未认证。收盘价门不是其他字段/历史全质量认证。恢复CLI未启用，真实nightly/生产恢复未验。
+K3 explore 01 第4请求 CloudFront 504；01b 7次200但600秒无探针/终稿，分别记 PROVIDER_504 / SESSION_DEADLINE，不是 PASS。无独立探针、阳性对照、正式报告，execute/report未启动。
+未知停牌、全集、53只公司行动、mootdx部分flush、完整指纹/任意并发未认证。收盘价门不认证其他字段/历史质量；恢复CLI、真实nightly与生产验收未闭合。
 
 ## 下一步
-1. 用户明确决策页五问、三合同、5553/5565范围、53只处置。旧页“个股已齐”不是严格覆盖证明，生产仍5551。
-2. 独审须封存包含3abb7a4d3和届时最新main的新候选，从explore重开；旧runner固定d3abd670，不能直接续跑后移签。
-3. 最终候选补全仓门禁，校验revision、scope和target；合并/推送/生产写入另需授权。历史已授权换库不抹掉。
+1. 独审先按F2/F1/F3拆小任务，把先写探针做成工具/阶段门；只加提示本轮无效，勿重复最小活性探针或无限重试。
+2. 用户确认决策页五问、三合同、5553/5565范围与53只处置；生产5551不能写成严格齐备。
+3. 最新main+修复候选补全仓门禁，核revision/scope/target；合并、推送、生产写入仍需授权。
 
 ## 已验证
-- main bbd53487f + 修复组合45e752c：根目录tests/ 2639P/62S、0F/0E、收集2701，runner rc0；身份/解释器/依赖/对账通过，漂移0。Ruff/两类注册表/61份解析通过；webapp零diff，前端/E2E不适用。
-- 新24例修前全红、修后通过；四种角色乘六种坏值，逐列核四张派生表不变。旧d3全仓14798P/85S/2X只认证旧revision。
-- 只读生产09-21/22各5551，收盘价无异常；09-21两只缺前日bar，09-22两只缺前日bar、一只非现金事件不支持。不能由缺行推断停牌。
-- 证据：`docs/verification/2026-09-23-market-recovery-close-guard/`；旧full-gate目录原样保留。
+- 组合45e752c，main bbd53487f，tree 3ea68688；本轮merge-tree复核一致、远程无漂移。两个独审会话候选干净且输入未变。
+- 本轮13次请求：11次200（含未完成流）、2次504，正式会话工具16次成功，产品探针0。固定K3、无自动重试、未重启网关。
+- 既有新候选 tests/ 2639P/62S 非全仓；24坏值用例修前全红/修后绿。旧d3全仓14798P/85S/2X仅认证旧revision。
+- 证据：`docs/verification/2026-09-23-market-recovery-k3-resume/`；close-guard/full-gate旧证据保留。
 
 ## 踩过的坑
-测试树用/Users；scope只审过滤旋钮，target=tests不是全仓，单独--require-full-scope的rc0不够。新预览由refs/verification/market-recovery-close-20260923保留，可重新检出。保护已沉入正式24例，不另造通用工具。
+本轮证明通道可用，不证明独审完成。01返回exit0仍有模型504，01b的最后200流被预算打断。--require-full-scope只审过滤，target=tests仍不是全仓。验证引用：refs/verification/market-recovery-close-20260923。

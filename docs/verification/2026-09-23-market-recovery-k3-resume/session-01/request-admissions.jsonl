@@ -1,0 +1,4 @@
+{"admission":1,"timestamp":"2026-09-23T07:07:38.846Z","provider":"mirasim-kimi","model":"kimi-k3","stream":true,"tools":3,"reasoning_effort":"xhigh","has_temperature":false}
+{"admission":2,"timestamp":"2026-09-23T07:08:10.511Z","provider":"mirasim-kimi","model":"kimi-k3","stream":true,"tools":3,"reasoning_effort":"xhigh","has_temperature":false}
+{"admission":3,"timestamp":"2026-09-23T07:08:23.983Z","provider":"mirasim-kimi","model":"kimi-k3","stream":true,"tools":3,"reasoning_effort":"xhigh","has_temperature":false}
+{"admission":4,"timestamp":"2026-09-23T07:08:28.336Z","provider":"mirasim-kimi","model":"kimi-k3","stream":true,"tools":3,"reasoning_effort":"xhigh","has_temperature":false}

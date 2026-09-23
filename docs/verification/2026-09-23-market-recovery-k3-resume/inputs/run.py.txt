@@ -1,0 +1,215 @@
+"""Bounded K3 independent review of the pinned market-recovery candidate.
+
+Adapted from reviews/runtime-pr843-k3-20260922/run.py. Fresh output directory is
+reserved before any model side effect. No retries, no fallback, no model swap, no
+source edits. Existing subscription only; the trusted extension reserves every
+provider request before dispatch and stops at the request or wall-clock bound.
+"""
+from datetime import datetime, timezone
+import hashlib
+import json
+import os
+from pathlib import Path
+import shutil
+import signal
+import subprocess
+import time
+
+os.umask(0o022)
+ROOT = Path(__file__).resolve().parent
+TREE = ROOT / "candidate"
+AUTHOR = Path("/Users/a77/fwp-wt-market-recovery-qc-fix-0923")
+SESSION = os.environ.get("REVIEW_SESSION", "01")
+PROMPT = ROOT / f"prompt-session-{SESSION}.md"
+SEED = ROOT / os.environ.get("REVIEW_SEED", "k3-session-00") / "work"
+OUT = ROOT / f"k3-session-{SESSION}"
+WORK = OUT / "work"
+REV = "45e752cfaf30929d15acbd0bcab0a667aef0e12e"
+BASE = "bbd53487f4cefdae97eae90f7322394d36e65462"
+PYTHON = "/Users/a77/finance-workspace-private/.venv-workbench/bin/python"
+DEADLINE = 600
+MAX_REQUESTS = 40
+
+
+def git(tree, *args):
+    return subprocess.check_output(
+        ["git", "-C", str(tree), *args], text=True, env={**os.environ, "GIT_OPTIONAL_LOCKS": "0"}
+    ).strip()
+
+
+def digest(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def identity(tree):
+    return {
+        "revision": git(tree, "rev-parse", "HEAD"),
+        "status": git(tree, "status", "--porcelain", "--untracked-files=all"),
+    }
+
+
+def save(record):
+    (OUT / "execution.json").write_text(json.dumps(record, ensure_ascii=False, indent=2) + "\n")
+
+
+OUT.mkdir(exist_ok=False)
+for item in (WORK, WORK / "tmp", WORK / "users"):
+    item.mkdir()
+# pi locks and may rewrite files in its config dir, so it runs on a copy inside the
+# reserved output; the pristine originals stay hash-watched inputs and anything the
+# agent writes there is captured as evidence.
+AGENT_CONFIG = OUT / "pi-config"
+shutil.copytree(ROOT / "pi-config", AGENT_CONFIG)
+# Seed the probes this reviewer wrote in session 1 so the bounded budget goes to
+# running and triaging them, not to rediscovering fixture APIs. Working copies are
+# editable; their pre-run hashes are recorded so any edit stays visible.
+seed_probes = {}
+for pattern in ("probe_*.py", "positive_control.py", "*.log", "EXPLORE.md", "EXECUTE.md"): 
+    for probe in sorted(SEED.glob(pattern)):
+        shutil.copy2(probe, WORK / probe.name)
+        seed_probes[probe.name] = digest(probe)
+
+# macOS refuses sandbox_apply inside an already-sandboxed process, so the controller
+# itself is not wrapped: every reviewer command gets its own sandbox instead, and the
+# controller's file access stays bounded by the read/write guards in tools.mjs.
+# The reviewer's own shell: writes only inside its work directory, no network, and
+# no read access to credentials, production data, or the author's own reports.
+(ROOT / "tools.sb").write_text(f'''(version 1)
+(allow default)
+(deny file-write*)
+(allow file-write* (subpath "{WORK}") (literal "/dev/null"))
+(deny network*)
+(deny file-read* (subpath "/Users/a77/.claude") (subpath "/Users/a77/.pi") (subpath "/Users/a77/.ssh") (subpath "/Users/a77/Library/Keychains") (subpath "/Users/a77/Library/Application Support/mirasim-sidecar"))
+(deny file-read* (subpath "/Users/a77/agent-memory") (subpath "/Users/a77/finance-workspace-private/db") (subpath "/Users/a77/.local/share/finance-workbench"))
+(deny file-read* (subpath "{TREE}/docs/handoffs") (subpath "{TREE}/docs/verification") (subpath "{TREE}/.agent-memory") (subpath "{TREE}/intelligence/users") (subpath "{TREE}/db") (subpath "{AUTHOR}"))
+(deny file-read* (regex #"/docs/(handoffs|verification)/") (subpath "{ROOT.parent}/independent-d3abd670") (subpath "{ROOT.parent}/full-d3abd670") (subpath "{ROOT.parent}/offline-followup-qxS6vd"))
+''')
+
+inputs = [
+    ROOT / name
+    for name in (
+        "run.py", PROMPT.name, "credential-bootstrap.mjs", "provider-template.json",
+        "tools.mjs", "tools.sb", "source.diff",
+    )
+] + sorted((ROOT / "pi-config").iterdir())
+before = identity(TREE)
+author_before = identity(AUTHOR)
+assert before == {"revision": REV, "status": ""}, before
+watched = {str(p.relative_to(ROOT)): digest(p) for p in inputs}
+
+env = {
+    "HOME": "/Users/a77",
+    "PATH": "/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+    "LANG": "C.UTF-8",
+    "TMPDIR": str(WORK / "tmp"),
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "PYTHONPATH": str(TREE),
+    "FWP_TEST_RECEIPT": "0",
+    "GIT_OPTIONAL_LOCKS": "0",
+    "FORESIGHT_USERS_DIR": str(WORK / "users"),
+    "PI_CODING_AGENT_DIR": str(AGENT_CONFIG),
+    "PI_OFFLINE": "1",
+    "PI_TELEMETRY": "0",
+    "REVIEW_OUTPUT_DIR": str(OUT),
+    "REVIEW_WORK": str(WORK),
+}
+command = [
+    "/opt/homebrew/bin/pi",
+    "--provider", "mirasim-kimi", "--model", "kimi-k3", "--thinking", "xhigh",
+    "--models", "mirasim-kimi/kimi-k3", "--no-session", "--no-extensions",
+    "-e", str(ROOT / "credential-bootstrap.mjs"), "-e", str(ROOT / "tools.mjs"),
+    "--no-skills", "--no-prompt-templates", "--no-context-files", "--no-themes",
+    "--no-approve", "--offline", "--tools", "read,bash,write", "--mode", "json", "-p",
+    "--", PROMPT.read_text(),
+]
+record = {
+    "session": SESSION,
+    "prompt": PROMPT.name,
+    "seed_probes_sha256": seed_probes,
+    "revision": REV,
+    "baseline": BASE,
+    "identity_before": before,
+    "author_before": author_before,
+    "inputs_sha256": watched,
+    "time_before": datetime.now(timezone.utc).isoformat(),
+    "complete": False,
+    "timeout_seconds": DEADLINE,
+    "max_provider_requests": MAX_REQUESTS,
+    "billing": "existing Plus route only; zero model price metadata is not an invoice",
+    "authorization": "user asked to continue independent recovery QC and full gates; existing K3 subscription only, no merge, push, deployment, or production write", 
+    "command": command[:-1] + [f"<{PROMPT.name}>"],
+}
+save(record)
+
+# Prove the reviewer's exact command path works before spending any model request:
+# the same sandbox wrapper the bash tool uses must run a command and import the
+# pinned module from this candidate.
+probe = (
+    "/usr/bin/sandbox-exec -f " + str(ROOT / "tools.sb") + " /bin/bash --noprofile --norc -c "
+    + json.dumps(f"{PYTHON} -B -c 'from pathlib import Path; "
+                 "import market_feature_store.sync.bridge_hithink_stock_daily as m; "
+                 f"assert Path(m.__file__).resolve().is_relative_to(Path({json.dumps(str(TREE))})); "
+                 "print(m.__file__)' && : > " + str(WORK / "preflight-write-check"))
+)
+preflight = subprocess.run(probe, shell=True, cwd=TREE, env=env, capture_output=True, text=True, timeout=120)
+(OUT / "preflight.log").write_text(preflight.stdout + preflight.stderr)
+record["import_preflight_rc"] = preflight.returncode
+record["preflight_write_ok"] = (WORK / "preflight-write-check").exists()
+if preflight.returncode or not record["preflight_write_ok"]:
+    record.update(complete=True, stop_reason="preflight", exit_code=preflight.returncode or 3)
+    save(record)
+    raise SystemExit(2)
+
+started = time.monotonic()
+reason = None
+with (OUT / "events.jsonl").open("xb") as stdout, (OUT / "stderr.log").open("xb") as stderr:
+    proc = subprocess.Popen(command, cwd=TREE, env=env, stdin=subprocess.DEVNULL,
+                            stdout=stdout, stderr=stderr, start_new_session=True)
+    record["pid"] = proc.pid
+    save(record)
+    try:
+        proc.wait(timeout=DEADLINE)
+    except subprocess.TimeoutExpired:
+        reason = "deadline"
+        os.killpg(proc.pid, signal.SIGTERM)
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            os.killpg(proc.pid, signal.SIGKILL)
+            proc.wait()
+
+messages = []
+counts = {}
+for line in (OUT / "events.jsonl").read_text().splitlines():
+    try:
+        event = json.loads(line)
+    except ValueError:
+        counts["invalid_json_line"] = counts.get("invalid_json_line", 0) + 1
+        continue
+    kind = event.get("type", "unknown")
+    counts[kind] = counts.get(kind, 0) + 1
+    if kind == "message_end" and event.get("message", {}).get("role") == "assistant":
+        messages.append(event["message"])
+
+after = identity(TREE)
+admission_file = OUT / "request-admissions.jsonl"
+rows = [json.loads(line) for line in admission_file.read_text().splitlines()] if admission_file.exists() else []
+record.update(
+    complete=True, exit_code=proc.returncode, stop_reason=reason, identity_after=after,
+    author_after=identity(AUTHOR), candidate_untouched=before == after,
+    inputs_unchanged=watched == {str(p.relative_to(ROOT)): digest(p) for p in inputs},
+    elapsed_seconds=round(time.monotonic() - started, 3),
+    time_after=datetime.now(timezone.utc).isoformat(), event_counts=counts,
+    provider_request_admissions=len(rows),
+    admissions_valid=len(rows) <= MAX_REQUESTS and [r["admission"] for r in rows] == list(range(1, len(rows) + 1)),
+    model_identities=sorted({str(m.get("provider")) + "/" + str(m.get("model")) for m in messages}),
+    model_errors=[m.get("errorMessage", m.get("stopReason")) for m in messages if m.get("stopReason") in {"error", "aborted"}],
+    usage={k: sum(m.get("usage", {}).get(k, 0) or 0 for m in messages)
+           for k in ("input", "output", "cacheRead", "cacheWrite", "totalTokens")},
+)
+record["sha256"] = {str(p.relative_to(OUT)): digest(p) for p in sorted(OUT.rglob("*"))
+                    if p.is_file() and p.name != "execution.json"}
+save(record)
+print(json.dumps({k: record[k] for k in (
+    "complete", "exit_code", "stop_reason", "candidate_untouched", "inputs_unchanged",
+    "provider_request_admissions", "model_errors", "elapsed_seconds")}, ensure_ascii=False))
