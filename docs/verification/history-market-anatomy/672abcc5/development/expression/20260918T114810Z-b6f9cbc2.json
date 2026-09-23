@@ -1,0 +1,30 @@
+{
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "python_version": "3.12.13",
+  "dependency_fingerprint": "3328bed61f3e21ea",
+  "tree": "/Users/a77/fwp-wt-history-market-anatomy",
+  "revision": "b6f9cbc2e7522e7b9b787a886cb6bbf8f3e2443f",
+  "branch": "feat/history-market-anatomy",
+  "dirty": true,
+  "dirty_paths": [
+    "intelligence/runtime/continuous_turn_adapter.py",
+    "intelligence/runtime/conversation_orchestrator.py",
+    "intelligence/services/episode_protocol.py",
+    "intelligence/services/ranking_contract.py",
+    "intelligence/services/track_contract.py",
+    "scripts/review_probes/history_diagnostic_mutations.py",
+    "tests/test_history_expression_contract_boundary.py"
+  ],
+  "worktree_dirty_total": 9,
+  "dependency_gate_bypassed": false,
+  "target": "tests/test_history_anatomy_audit_independent.py tests/test_history_argument_repair.py tests/test_history_artifact_audit.py tests/test_history_artifact_scope.py tests/test_history_case_patch.py tests/test_history_comparison_completion.py tests/test_history_date_scope.py tests/test_history_expression_contract_boundary.py tests/test_history_live_seams.py tests/test_history_local_read_execution.py tests/test_history_market_anatomy.py tests/test_history_model_projection.py tests/test_history_product_refs.py tests/test_history_recovery_selection.py tests/test_history_succession_projection.py tests/test_history_tool_diagnostics.py tests/test_historical_episode_branching.py tests/test_historical_evidence_contract.py tests/test_historical_methodology_bridge.py tests/test_historical_research_query.py intelligence/tests/test_historical_research_episode.py intelligence/tests/test_e2_boundary_closeout.py intelligence/tests/test_e2_controller_material_history.py intelligence/tests/test_e2_cross_turn_inheritance.py intelligence/tests/test_e2_independent_review_round2.py intelligence/tests/test_e2_local_freeze.py intelligence/tests/test_e2_material_contract.py intelligence/tests/test_e2_material_delivery.py intelligence/tests/test_e2_material_freeze.py intelligence/tests/test_e2_material_source_binding.py intelligence/tests/test_e2_material_turn_delivery.py intelligence/tests/test_e2_numbered_case_blocks.py intelligence/tests/test_e2_query_resolver_reads.py intelligence/tests/test_e2_question_group_edges.py intelligence/tests/test_e2_runtime_ceiling.py intelligence/tests/test_e2_top_level_regions.py intelligence/tests/test_e2_turn_prior_reads.py intelligence/tests/test_episode_protocol.py intelligence/tests/test_continuous_turn_adapter.py intelligence/tests/test_conversation_orchestrator.py intelligence/tests/test_ranking_contract.py intelligence/tests/test_track_contract.py intelligence/tests/test_research_intent_boundaries.py intelligence/tests/test_track_slot_repair_binding.py",
+  "counts": {
+    "passed": 1041,
+    "failed": 0,
+    "error": 0,
+    "skipped": 4
+  },
+  "failed_ids": [],
+  "exit_status": 0,
+  "finished_at": "2026-09-18T11:48:10+00:00"
+}

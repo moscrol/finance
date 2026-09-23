@@ -1,0 +1,32 @@
+{
+  "revision": "f2c3e9e1a24f42ae9b1d5a8cb9e501ababd1330a",
+  "ok": true,
+  "merge_commit": "f2c3e9e1a24f42ae9b1d5a8cb9e501ababd1330a",
+  "python": {
+    "passed": 12480,
+    "failed": 0,
+    "skipped": 87,
+    "xfailed": 2,
+    "ruff_exit": 0,
+    "pytest_exit": 0,
+    "gate": "main-python/gate.json",
+    "receipt": "/Users/a77/.finance-runtime/test-receipts/20260921T093551Z-f2c3e9e1.json"
+  },
+  "frontend": {
+    "lint": 0,
+    "typecheck": 0,
+    "test": 0,
+    "build": 0,
+    "e2e": 0,
+    "e2e_passed": 34,
+    "e2e_skipped": 2,
+    "gate": "main-frontend/frontend.json"
+  },
+  "registry": {
+    "all_five_steps_exit_0": true,
+    "gate": "main-registry/gate.json"
+  },
+  "log_hashes_verified": true,
+  "source": "post-merge detached worktree with clean identity; no unrelated worktree receipt used",
+  "readiness_exception": "pre-existing market_data_consistency=false (snapshot 2026-09-21 vs DuckDB 2026-09-18), not introduced by this revision"
+}

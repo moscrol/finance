@@ -39,6 +39,8 @@ if str(REPO) not in sys.path:
 from intelligence.services.episode_semantic_verifier import (  # noqa: E402
     VERDICT_DELETED,
     VERDICT_DEMOTED,
+    VERDICT_REWRITTEN,
+    VERDICT_STAGE_JUDGE,
 )
 
 OUT_DIR = Path(os.environ.get("OFFLINE_CENSUS_OUT_DIR", str(REPO / "docs" / "verification")))
@@ -98,6 +100,12 @@ def census(paths: list[Path], *, since: str | None) -> dict[str, Any]:
     by_reason = Counter(code for v in verdicts for code in (v.get("reasons") or []))
     deleted = [v for v in verdicts if v.get("decision") == VERDICT_DELETED]
     demoted = [v for v in verdicts if v.get("decision") == VERDICT_DEMOTED]
+    rewritten = [v for v in verdicts if v.get("decision") == VERDICT_REWRITTEN]
+    # 2026-09-21 判官理由码：judge 阶段的拒句里判官吐了码的占比。这是「无码走槽位规则」
+    # 这条缺省要不要收紧的唯一量尺——吐码率低说明生产判官没接上新合同，先修判官别动判据。
+    judge_stage = [v for v in verdicts if v.get("stage") == VERDICT_STAGE_JUDGE]
+    judge_coded = [v for v in judge_stage if v.get("judge_reason_code")]
+    by_judge_reason_code = Counter(str(v.get("judge_reason_code")) for v in judge_coded)
     deleted_with_source = [v for v in deleted if v.get("bound_evidence_hashes")]
     deleted_unresolved_only = [
         v
@@ -155,6 +163,19 @@ def census(paths: list[Path], *, since: str | None) -> dict[str, Any]:
             "source_tiers": dict(tiers_demoted),
             "samples": _samples(demoted),
         },
+        "rewritten": {
+            "count": len(rewritten),
+            "samples": [
+                {**s, "rewritten_to": str(v.get("rewritten_to") or "")[:120]}
+                for s, v in zip(_samples(rewritten), rewritten[:SAMPLE_CAP])
+            ],
+        },
+        "judge_stage": {
+            "count": len(judge_stage),
+            "coded_count": len(judge_coded),
+            "coded_share": _share(len(judge_coded), len(judge_stage)),
+            "by_reason_code": dict(by_judge_reason_code),
+        },
         "verdict": (
             "不可判：没有任何 run 带 sentence_verdicts 字段（写侧尚未上线或未切流）"
             if runs_with_field == 0
@@ -170,9 +191,12 @@ def census(paths: list[Path], *, since: str | None) -> dict[str, Any]:
 def render_markdown(report: dict[str, Any]) -> str:
     d = report["deleted"]
     m = report["demoted"]
+    w = report.get("rewritten") or {"count": 0, "samples": []}
+    j = report.get("judge_stage") or {"count": 0, "coded_count": 0, "coded_share": None, "by_reason_code": {}}
     share_text = (
         "不可判" if d["with_source_share"] is None else f"{d['with_source_share']:.1%}"
     )
+    coded_text = "不可判" if j["coded_share"] is None else f"{j['coded_share']:.1%}"
     lines = [
         "# 判官拒句账普查",
         "",
@@ -192,6 +216,15 @@ def render_markdown(report: dict[str, Any]) -> str:
         "",
         f"- 共 {m['count']}；来源档分布：{m['source_tiers'] or '—'}",
         "",
+        "## 句级改写（没删、没原样保留）的句子",
+        "",
+        f"- 共 {w['count']}",
+        "",
+        "## 判官理由码",
+        "",
+        f"- judge 阶段拒句 {j['count']}；判官给了理由码 {j['coded_count']}，吐码率 {coded_text}；分布：{j['by_reason_code'] or '—'}",
+        "- 吐码率低先修判官合同，别动「无码走槽位规则」这条缺省。",
+        "",
         f"**结论**：{report['verdict']}",
         "",
         "阈值判定（spec §3.3 第 3 条）：`deleted.with_source_share` 中 `public_web` 等低档来源占比 ≥ 阈值才动判据；否则停在这里并把停下写进收据。",
@@ -204,6 +237,10 @@ def render_markdown(report: dict[str, Any]) -> str:
         lines += ["", "### 降级样本", ""]
         for s in m["samples"]:
             lines.append(f"- `{s['run_id']}` [{','.join(s['source_tiers'] or [])}] {s['sentence']} — {s['judge_issues']}")
+    if w["samples"]:
+        lines += ["", "### 改写样本", ""]
+        for s in w["samples"]:
+            lines.append(f"- `{s['run_id']}` {s['sentence']} → {s.get('rewritten_to', '')}")
     return "\n".join(lines) + "\n"
 
 

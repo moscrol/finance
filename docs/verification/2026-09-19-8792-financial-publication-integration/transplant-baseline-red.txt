@@ -1,0 +1,73 @@
+FFFFFFFFFFFFF                                                            [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260918T162647Z-0b16bc03.json
+
+=================================== FAILURES ===================================
+_ test_run_publication_waits_for_exact_terminal_message_event[completed-message.complete] _
+intelligence/tests/test_workbench_api.py:2971: in test_run_publication_waits_for_exact_terminal_message_event
+    assert early["publication"] == {"status": "pending", "message_id": None}
+E   KeyError: 'publication'
+_ test_run_publication_waits_for_exact_terminal_message_event[failed-message.error] _
+intelligence/tests/test_workbench_api.py:2971: in test_run_publication_waits_for_exact_terminal_message_event
+    assert early["publication"] == {"status": "pending", "message_id": None}
+E   KeyError: 'publication'
+_ test_run_publication_waits_for_exact_terminal_message_event[cancelled-message.error] _
+intelligence/tests/test_workbench_api.py:2971: in test_run_publication_waits_for_exact_terminal_message_event
+    assert early["publication"] == {"status": "pending", "message_id": None}
+E   KeyError: 'publication'
+__ test_publication_snapshot_reloads_artifacts_after_observing_commit_marker ___
+intelligence/tests/test_workbench_api.py:3029: in test_publication_snapshot_reloads_artifacts_after_observing_commit_marker
+    assert payload["publication"]["status"] == "published"
+E   KeyError: 'publication'
+_____ test_non_conversation_run_does_not_require_message_publication[None] _____
+intelligence/tests/test_workbench_api.py:3038: in test_non_conversation_run_does_not_require_message_publication
+    assert client.get(f"/api/runs/{run.run_id}").json()["publication"] == {
+E   KeyError: 'publication'
+_ test_non_conversation_run_does_not_require_message_publication[legacy-cli-session] _
+intelligence/tests/test_workbench_api.py:3038: in test_non_conversation_run_does_not_require_message_publication
+    assert client.get(f"/api/runs/{run.run_id}").json()["publication"] == {
+E   KeyError: 'publication'
+_ test_sse_waits_for_publication_or_times_out_without_faking_completion[True] __
+intelligence/tests/test_workbench_api.py:3066: in test_sse_waits_for_publication_or_times_out_without_faking_completion
+    assert body.index("event: message.complete") < body.index("event: run")
+E   ValueError: substring not found
+_ test_sse_waits_for_publication_or_times_out_without_faking_completion[False] _
+intelligence/tests/test_workbench_api.py:3071: in test_sse_waits_for_publication_or_times_out_without_faking_completion
+    assert "event: timeout" in body and "event: run" not in body
+E   assert ('event: timeout' in 'event: run\ndata: {"run_id": "run_20260919_002646_696035", "user": "default", "question": "publication boundary", "ta...reshness": null, "manifest_ref": null, "degrades": [], "error": null, "artifacts": [], "maintenance_launch": null}\n\n')
+__ test_real_turn_terminal_claim_does_not_publish_an_incomplete_artifact_list __
+intelligence/tests/test_workbench_conversation_integration.py:161: in test_real_turn_terminal_claim_does_not_publish_an_incomplete_artifact_list
+    assert run["publication"] == {"status": "pending", "message_id": None}
+E   KeyError: 'publication'
+_______ test_terminal_claim_waits_for_matching_publication[completed-0] ________
+tests/test_workbench_probe.py:162: in test_terminal_claim_waits_for_matching_publication
+    assert code == expected_exit and fake.run_polls == 5
+E   assert (0 == 0 and 1 == 5)
+E    +  where 1 = <tests.test_workbench_probe._FakeServer object at 0x10dd67650>.run_polls
+_________ test_terminal_claim_waits_for_matching_publication[failed-2] _________
+tests/test_workbench_probe.py:162: in test_terminal_claim_waits_for_matching_publication
+    assert code == expected_exit and fake.run_polls == 5
+E   assert (2 == 2 and 1 == 5)
+E    +  where 1 = <tests.test_workbench_probe._FakeServer object at 0x10dd66390>.run_polls
+_______ test_terminal_claim_waits_for_matching_publication[cancelled-2] ________
+tests/test_workbench_probe.py:162: in test_terminal_claim_waits_for_matching_publication
+    assert code == expected_exit and fake.run_polls == 5
+E   assert (2 == 2 and 1 == 5)
+E    +  where 1 = <tests.test_workbench_probe._FakeServer object at 0x10dd678f0>.run_polls
+_____ test_unpublished_terminal_run_times_out_without_returning_early_body _____
+tests/test_workbench_probe.py:173: in test_unpublished_terminal_run_times_out_without_returning_early_body
+    assert code == 3 and fake.message_fetches == 0
+E   assert (0 == 3)
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_workbench_api.py::test_run_publication_waits_for_exact_terminal_message_event[completed-message.complete]
+FAILED intelligence/tests/test_workbench_api.py::test_run_publication_waits_for_exact_terminal_message_event[failed-message.error]
+FAILED intelligence/tests/test_workbench_api.py::test_run_publication_waits_for_exact_terminal_message_event[cancelled-message.error]
+FAILED intelligence/tests/test_workbench_api.py::test_publication_snapshot_reloads_artifacts_after_observing_commit_marker
+FAILED intelligence/tests/test_workbench_api.py::test_non_conversation_run_does_not_require_message_publication[None]
+FAILED intelligence/tests/test_workbench_api.py::test_non_conversation_run_does_not_require_message_publication[legacy-cli-session]
+FAILED intelligence/tests/test_workbench_api.py::test_sse_waits_for_publication_or_times_out_without_faking_completion[True]
+FAILED intelligence/tests/test_workbench_api.py::test_sse_waits_for_publication_or_times_out_without_faking_completion[False]
+FAILED intelligence/tests/test_workbench_conversation_integration.py::test_real_turn_terminal_claim_does_not_publish_an_incomplete_artifact_list
+FAILED tests/test_workbench_probe.py::test_terminal_claim_waits_for_matching_publication[completed-0]
+FAILED tests/test_workbench_probe.py::test_terminal_claim_waits_for_matching_publication[failed-2]
+FAILED tests/test_workbench_probe.py::test_terminal_claim_waits_for_matching_publication[cancelled-2]
+FAILED tests/test_workbench_probe.py::test_unpublished_terminal_run_times_out_without_returning_early_body
+13 failed, 132 deselected in 5.51s

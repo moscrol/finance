@@ -75,6 +75,8 @@ class CallbackEpisodeSession:
     def resume(self, goal: RepairGoal) -> AgentOutcome:
         if self._closed:
             raise EpisodeSessionError("episode session is already closed")
+        if self.outcome.persistence == "failed":
+            raise EpisodeSessionError("episode persistence failed; repair is fenced")
         if self.runtime_handle is None:
             return self._resume_validated(goal)
         # resume 是**未派发的新工作**：cancel/close 之后必须被这道门挡住

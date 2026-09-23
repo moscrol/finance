@@ -1,0 +1,230 @@
+{
+  "scope": "Read-only failure-type audit of previously sealed 15527aad default extraction XML. No test rerun, source byte change or verdict promotion.",
+  "revision": "15527aad05efda1b42d8ffac107da94186760378",
+  "groups": [
+    {
+      "file": "/Users/a77/.finance-runtime/reviews/8792-financial-r6-repair/extraction-15527aad/M1-red.xml",
+      "failure_types": {
+        "KeyError": 2,
+        "AssertionError": 1
+      }
+    },
+    {
+      "file": "/Users/a77/.finance-runtime/reviews/8792-financial-r6-repair/extraction-15527aad/M10-red.xml",
+      "failure_types": {
+        "AssertionError": 1
+      }
+    },
+    {
+      "file": "/Users/a77/.finance-runtime/reviews/8792-financial-r6-repair/extraction-15527aad/M11-red.xml",
+      "failure_types": {
+        "AssertionError": 2
+      }
+    },
+    {
+      "file": "/Users/a77/.finance-runtime/reviews/8792-financial-r6-repair/extraction-15527aad/M12-red.xml",
+      "failure_types": {
+        "AssertionError": 1
+      }
+    },
+    {
+      "file": "/Users/a77/.finance-runtime/reviews/8792-financial-r6-repair/extraction-15527aad/M13-red.xml",
+      "failure_types": {
+        "AssertionError": 1
+      }
+    },
+    {
+      "file": "/Users/a77/.finance-runtime/reviews/8792-financial-r6-repair/extraction-15527aad/M14-red.xml",
+      "failure_types": {
+        "UnicodeDecodeError": 3
+      }
+    },
+    {
+      "file": "/Users/a77/.finance-runtime/reviews/8792-financial-r6-repair/extraction-15527aad/M15-red.xml",
+      "failure_types": {
+        "AssertionError": 1
+      }
+    },
+    {
+      "file": "/Users/a77/.finance-runtime/reviews/8792-financial-r6-repair/extraction-15527aad/M16-red.xml",
+      "failure_types": {
+        "AssertionError": 1
+      }
+    },
+    {
+      "file": "/Users/a77/.finance-runtime/reviews/8792-financial-r6-repair/extraction-15527aad/M17-red.xml",
+      "failure_types": {
+        "AssertionError": 2,
+        "KeyError": 1
+      }
+    },
+    {
+      "file": "/Users/a77/.finance-runtime/reviews/8792-financial-r6-repair/extraction-15527aad/M18-red.xml",
+      "failure_types": {
+        "AssertionError": 2
+      }
+    },
+    {
+      "file": "/Users/a77/.finance-runtime/reviews/8792-financial-r6-repair/extraction-15527aad/M19-red.xml",
+      "failure_types": {
+        "AssertionError": 1
+      }
+    },
+    {
+      "file": "/Users/a77/.finance-runtime/reviews/8792-financial-r6-repair/extraction-15527aad/M2-red.xml",
+      "failure_types": {
+        "KeyError": 1,
+        "AssertionError": 4
+      }
+    },
+    {
+      "file": "/Users/a77/.finance-runtime/reviews/8792-financial-r6-repair/extraction-15527aad/M20-red.xml",
+      "failure_types": {
+        "AssertionError": 1
+      }
+    },
+    {
+      "file": "/Users/a77/.finance-runtime/reviews/8792-financial-r6-repair/extraction-15527aad/M21-red.xml",
+      "failure_types": {
+        "AssertionError": 1
+      }
+    },
+    {
+      "file": "/Users/a77/.finance-runtime/reviews/8792-financial-r6-repair/extraction-15527aad/M22-red.xml",
+      "failure_types": {
+        "AssertionError": 1
+      }
+    },
+    {
+      "file": "/Users/a77/.finance-runtime/reviews/8792-financial-r6-repair/extraction-15527aad/M23-red.xml",
+      "failure_types": {
+        "UnicodeDecodeError": 1
+      }
+    },
+    {
+      "file": "/Users/a77/.finance-runtime/reviews/8792-financial-r6-repair/extraction-15527aad/M24-red.xml",
+      "failure_types": {
+        "AssertionError": 2
+      }
+    },
+    {
+      "file": "/Users/a77/.finance-runtime/reviews/8792-financial-r6-repair/extraction-15527aad/M25-red.xml",
+      "failure_types": {
+        "AssertionError": 1
+      }
+    },
+    {
+      "file": "/Users/a77/.finance-runtime/reviews/8792-financial-r6-repair/extraction-15527aad/M26-red.xml",
+      "failure_types": {
+        "AssertionError": 2
+      }
+    },
+    {
+      "file": "/Users/a77/.finance-runtime/reviews/8792-financial-r6-repair/extraction-15527aad/M27-red.xml",
+      "failure_types": {
+        "AssertionError": 1
+      }
+    },
+    {
+      "file": "/Users/a77/.finance-runtime/reviews/8792-financial-r6-repair/extraction-15527aad/M28-red.xml",
+      "failure_types": {
+        "AssertionError": 2
+      }
+    },
+    {
+      "file": "/Users/a77/.finance-runtime/reviews/8792-financial-r6-repair/extraction-15527aad/M29-red.xml",
+      "failure_types": {
+        "AssertionError": 6
+      }
+    },
+    {
+      "file": "/Users/a77/.finance-runtime/reviews/8792-financial-r6-repair/extraction-15527aad/M3-red.xml",
+      "failure_types": {
+        "AssertionError": 1
+      }
+    },
+    {
+      "file": "/Users/a77/.finance-runtime/reviews/8792-financial-r6-repair/extraction-15527aad/M30-red.xml",
+      "failure_types": {
+        "KeyError": 3
+      }
+    },
+    {
+      "file": "/Users/a77/.finance-runtime/reviews/8792-financial-r6-repair/extraction-15527aad/M31-red.xml",
+      "failure_types": {
+        "KeyError": 2
+      }
+    },
+    {
+      "file": "/Users/a77/.finance-runtime/reviews/8792-financial-r6-repair/extraction-15527aad/M32-red.xml",
+      "failure_types": {
+        "AssertionError": 1
+      }
+    },
+    {
+      "file": "/Users/a77/.finance-runtime/reviews/8792-financial-r6-repair/extraction-15527aad/M33-red.xml",
+      "failure_types": {
+        "AssertionError": 1
+      }
+    },
+    {
+      "file": "/Users/a77/.finance-runtime/reviews/8792-financial-r6-repair/extraction-15527aad/M34-red.xml",
+      "failure_types": {
+        "KeyError": 5
+      }
+    },
+    {
+      "file": "/Users/a77/.finance-runtime/reviews/8792-financial-r6-repair/extraction-15527aad/M35-red.xml",
+      "failure_types": {
+        "KeyError": 2
+      }
+    },
+    {
+      "file": "/Users/a77/.finance-runtime/reviews/8792-financial-r6-repair/extraction-15527aad/M4-red.xml",
+      "failure_types": {
+        "AssertionError": 2
+      }
+    },
+    {
+      "file": "/Users/a77/.finance-runtime/reviews/8792-financial-r6-repair/extraction-15527aad/M5-red.xml",
+      "failure_types": {
+        "AssertionError": 1
+      }
+    },
+    {
+      "file": "/Users/a77/.finance-runtime/reviews/8792-financial-r6-repair/extraction-15527aad/M6-red.xml",
+      "failure_types": {
+        "AssertionError": 1,
+        "KeyError": 1
+      }
+    },
+    {
+      "file": "/Users/a77/.finance-runtime/reviews/8792-financial-r6-repair/extraction-15527aad/M7-red.xml",
+      "failure_types": {
+        "KeyError": 1
+      }
+    },
+    {
+      "file": "/Users/a77/.finance-runtime/reviews/8792-financial-r6-repair/extraction-15527aad/M8-red.xml",
+      "failure_types": {
+        "AssertionError": 1
+      }
+    },
+    {
+      "file": "/Users/a77/.finance-runtime/reviews/8792-financial-r6-repair/extraction-15527aad/M9-red.xml",
+      "failure_types": {
+        "AssertionError": 1
+      }
+    }
+  ],
+  "assertion_groups": 28,
+  "exception_only_groups": [
+    "M14-red.xml",
+    "M23-red.xml",
+    "M30-red.xml",
+    "M31-red.xml",
+    "M34-red.xml",
+    "M35-red.xml",
+    "M7-red.xml"
+  ]
+}

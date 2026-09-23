@@ -249,6 +249,41 @@ def rewrite_unattempted_claims(
     return rewritten
 
 
+# 判官理由码 ``internal_process_leak`` 的确定性改写：只换措辞，不动事实。
+# 判官 prompt 禁止答案暴露工具 / provider / 哈希等内部标识，实测它用「拒句」执行
+# 这条文风规则（第 70 句「暴露『调用工具』等内部过程表述」），整句删掉的是一句
+# 事实无误的话。``_sanitize_public_answer`` 的 ``_CONTROL_FIELD_RE`` 只认「工具调用」
+# 这种写法且是整行丢弃——同样是删不是改。这里把「调用工具」一族换成自然语言
+# 「检索」，换完仍残留内部词就放弃（返回 None），让调用方退回原处置。
+_INTERNAL_PROCESS_REWRITES: tuple[tuple[re.Pattern[str], str], ...] = (
+    (re.compile(r"调用了?\w{0,12}?工具"), "检索"),
+    (re.compile(r"工具调用"), "检索"),
+    (re.compile(r"(?:通过|使用|借助|依靠)工具"), "通过检索"),
+)
+_INTERNAL_PROCESS_RESIDUE_RE = re.compile(
+    r"工具|provider|哈希|hash|系统提示|prompt|tool[_ ]?calls?",
+    re.IGNORECASE,
+)
+
+
+def scrub_internal_process_wording(sentence: str) -> str | None:
+    """Rewrite 「调用工具」-style process talk into plain retrieval language. No LLM.
+
+    Returns the rewritten sentence, or ``None`` when nothing changed or an
+    internal-process token survives the table (caller falls back to the
+    pre-existing disposition). Numbers, citations and everything else stay
+    byte-for-byte.
+    """
+
+    text = str(sentence or "")
+    rewritten = text
+    for pattern, replacement in _INTERNAL_PROCESS_REWRITES:
+        rewritten = pattern.sub(replacement, rewritten)
+    if rewritten == text or _INTERNAL_PROCESS_RESIDUE_RE.search(rewritten):
+        return None
+    return rewritten
+
+
 def traces_include_kb_query(traces: tuple[ProviderTrace, ...]) -> bool:
     """本轮是否调过 KB。与 V7 ``test_shape_i_called_uses_provider_not_capability`` 同口径。"""
 

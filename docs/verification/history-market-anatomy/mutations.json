@@ -1,0 +1,35 @@
+{
+  "scope": "in-memory single mutation per fresh process; source worktree not edited",
+  "results": [
+    {
+      "mutation": "membership_future_leak",
+      "module": "intelligence.services.historical_research.anatomy",
+      "old": "r[\"trade_date\"] == summary[\"signal_date\"]",
+      "new": "r[\"trade_date\"] == days[-1]",
+      "test": "test_trace_signal_features_peak_confirmation_and_actual_launch_members",
+      "exit_code": 1,
+      "killed": true,
+      "output": "F                                                                        [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260917T140451Z-0a1cb8c4.json\n\n=================================== FAILURES ===================================\n____ test_trace_signal_features_peak_confirmation_and_actual_launch_members ____\ntests/test_history_market_anatomy.py:166: in test_trace_signal_features_peak_confirmation_and_actual_launch_members\n    assert [r[\"entity_code\"] for r in leaders] == [\"S1\", \"S2\"]\nE   AssertionError: assert ['FUTURE', 'S1', 'S2'] == ['S1', 'S2']\nE     \nE     At index 0 diff: 'FUTURE' != 'S1'\nE     Left contains one more item: 'S2'\nE     Use -v to get more diff\n=========================== short test summary info ============================\nFAILED tests/test_history_market_anatomy.py::test_trace_signal_features_peak_confirmation_and_actual_launch_members\n1 failed in 0.38s\n"
+    },
+    {
+      "mutation": "confirmation_boundary",
+      "module": "intelligence.services.historical_research.anatomy",
+      "old": "DRAWDOWN_CONFIRM_PCT = 10",
+      "new": "DRAWDOWN_CONFIRM_PCT = 1",
+      "test": "test_trace_signal_features_peak_confirmation_and_actual_launch_members",
+      "exit_code": 1,
+      "killed": true,
+      "output": "F                                                                        [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260917T140452Z-0a1cb8c4.json\n\n=================================== FAILURES ===================================\n____ test_trace_signal_features_peak_confirmation_and_actual_launch_members ____\ntests/test_history_market_anatomy.py:161: in test_trace_signal_features_peak_confirmation_and_actual_launch_members\n    assert path[\"confirmation_date\"] == \"2026-01-15\"\nE   AssertionError: assert '2026-01-13' == '2026-01-15'\nE     \nE     - 2026-01-15\nE     ?          ^\nE     + 2026-01-13\nE     ?          ^\n=========================== short test summary info ============================\nFAILED tests/test_history_market_anatomy.py::test_trace_signal_features_peak_confirmation_and_actual_launch_members\n1 failed in 0.39s\n"
+    },
+    {
+      "mutation": "model_omits_peak",
+      "module": "intelligence.services.historical_research.episode",
+      "old": "\"peak_date\", \"peak_status\", \"peak_known_as_of\"",
+      "new": "\"peak_date\", \"omitted_peak_status\", \"peak_known_as_of\"",
+      "test": "test_full_trace_survives_actual_model_detail_budget",
+      "exit_code": 1,
+      "killed": true,
+      "output": "F                                                                        [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260917T140453Z-0a1cb8c4.json\n\n=================================== FAILURES ===================================\n_____________ test_full_trace_survives_actual_model_detail_budget ______________\ntests/test_history_market_anatomy.py:408: in test_full_trace_survives_actual_model_detail_budget\n    assert any(\nE   assert False\nE    +  where False = any(<generator object test_full_trace_survives_actual_model_detail_budget.<locals>.<genexpr> at 0x10cbbd2f0>)\n=========================== short test summary info ============================\nFAILED tests/test_history_market_anatomy.py::test_full_trace_survives_actual_model_detail_budget\n1 failed in 0.38s\n"
+    }
+  ]
+}

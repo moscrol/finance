@@ -14,27 +14,47 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path, PurePosixPath
 import re
 import subprocess
 
 
 MANIFEST = "sha256-manifest.txt"
+GIT_REDIRECT_VARS = (
+    "GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_COMMON_DIR",
+    "GIT_OBJECT_DIRECTORY", "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+)
+
+
+def reject_inherited_git_redirection() -> None:
+    redirected = [key for key in GIT_REDIRECT_VARS if key in os.environ]
+    if redirected:
+        raise ValueError(f"refusing inherited Git redirection: {', '.join(redirected)}")
+
+
+def literal_repo_path(value: str) -> str:
+    path = PurePosixPath(value)
+    if (
+        not path.parts or path.is_absolute() or path.as_posix() != value
+        or ".." in path.parts or ".git" in path.parts or value.startswith(":")
+    ):
+        raise ValueError(f"expected a literal repository-relative path: {value!r}")
+    return value
 
 
 def _git(repo: Path, *args: str) -> bytes:
+    # Replacement refs are local overlays, not bytes named by the SHA.
+    env = {**os.environ, "GIT_NO_REPLACE_OBJECTS": "1"}
     return subprocess.run(
-        ["git", "-C", str(repo), *args], check=True, capture_output=True, timeout=30,
+        ["git", "--no-replace-objects", "--literal-pathspecs", "-C", str(repo), *args],
+        check=True, capture_output=True, timeout=30, env=env,
     ).stdout
 
 
 def check_archive(repo: Path, archive: str, revision: str) -> dict[str, object]:
-    directory = PurePosixPath(archive)
-    if (
-        directory.is_absolute() or ".." in directory.parts
-        or directory.as_posix() != archive or not directory.parts
-    ):
-        raise ValueError("archive must be a normalized repository-relative directory")
+    reject_inherited_git_redirection()
+    archive = literal_repo_path(archive)
     # Resolve once: HEAD may move while validation is running.
     commit = _git(repo, "rev-parse", "--verify", "--end-of-options", f"{revision}^{{commit}}").decode().strip()
     prefix = archive + "/"

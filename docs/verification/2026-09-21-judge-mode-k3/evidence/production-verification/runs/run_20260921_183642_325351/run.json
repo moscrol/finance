@@ -1,0 +1,100 @@
+{
+  "run_id": "run_20260921_183642_325351",
+  "user": "linxiaoqi5111",
+  "question": "请复盘长电科技（600584）最近一个交易日的表现：涨跌幅、成交额、所属板块的表现，并明确说明数据日期。",
+  "task_type": "ask",
+  "status": "completed",
+  "schema_version": 1,
+  "session_id": "conv_c85ac80edfa84205b11afbb4133e1e64",
+  "parent_run_id": null,
+  "created_at": "2026-09-21T18:36:42+08:00",
+  "finished_at": "2026-09-21T18:39:10+08:00",
+  "source_date": "2026-09-18",
+  "duckdb_cutoff": null,
+  "kb_commit": null,
+  "kb_index_built_at": null,
+  "kb_index_freshness": null,
+  "manifest_ref": null,
+  "degrades": [],
+  "error": null,
+  "artifacts": [
+    {
+      "artifact_id": "artifact_answer_md",
+      "path": "answer.md",
+      "renderer": "markdown",
+      "title": "对话回答：请复盘长电科技（600584）最近一个交易日的表",
+      "sha256": "4cb7de32a5a32e9426f2985f376938f7cdd2b3fa5232894ace556d380570c6b0",
+      "bytes": 1581,
+      "previewable": true,
+      "downloadable": true,
+      "visibility": "public"
+    },
+    {
+      "artifact_id": "artifact_continuous-episode_json",
+      "path": "continuous-episode.json",
+      "renderer": "json",
+      "title": "连续研究私有审计",
+      "sha256": "a65dcfdac0b841f11782a989e3887e50fff62008b8f11507c5cfc3c8d62e0f5b",
+      "bytes": 955470,
+      "previewable": false,
+      "downloadable": false,
+      "visibility": "internal"
+    },
+    {
+      "artifact_id": "artifact_calc-c9ec877750497a20_json",
+      "path": "calc-c9ec877750497a20.json",
+      "renderer": "json",
+      "title": "计算记录：计算长电科技 2026-09-18 成交额相对前",
+      "sha256": "379d010b5ef8820d355276460a435a4dfba3830e5e863ad559cf7d4826cd7c88",
+      "bytes": 22680,
+      "previewable": true,
+      "downloadable": true,
+      "visibility": "public"
+    },
+    {
+      "artifact_id": "artifact_calc-c9ec877750497a20_html",
+      "path": "calc-c9ec877750497a20.html",
+      "renderer": "html",
+      "title": "计算报告：计算长电科技 2026-09-18 成交额相对前",
+      "sha256": "00c1b19857dbc297cdcbd14f0df9fcc0cc8b0a08ae95696ece4fdc26edc92c63",
+      "bytes": 8971,
+      "previewable": true,
+      "downloadable": true,
+      "visibility": "public"
+    },
+    {
+      "artifact_id": "artifact_calc-c9ec877750497a20-summary_csv",
+      "path": "calc-c9ec877750497a20-summary.csv",
+      "renderer": "table",
+      "title": "数据表：计算长电科技 2026-09-18 成交额相对前",
+      "sha256": "28a76aa9a00a8a80648cfaecbe8bf85a279e176feb4776c9e19f4a85b4c661ec",
+      "bytes": 93,
+      "previewable": true,
+      "downloadable": true,
+      "visibility": "public"
+    },
+    {
+      "artifact_id": "artifact_report_json",
+      "path": "report.json",
+      "renderer": "structured_report",
+      "title": "结构化对话报告",
+      "sha256": "11e314927df5d26a72266fe7ce583784b005f9e5cb5d19654b96e8d111d1943a",
+      "bytes": 3563,
+      "previewable": true,
+      "downloadable": true,
+      "visibility": "public"
+    },
+    {
+      "artifact_id": "artifact_followups_json",
+      "path": "followups.json",
+      "renderer": "json",
+      "title": "猜你想问",
+      "sha256": "528087c5604cd0968fbf61e2121e13352d5143087c1a9cf46f06f6a3432e7dfb",
+      "bytes": 2003,
+      "previewable": true,
+      "downloadable": true,
+      "visibility": "public"
+    }
+  ],
+  "maintenance_launch": null
+}

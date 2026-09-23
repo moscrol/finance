@@ -95,6 +95,7 @@ _EVENT_PROJECTIONS: dict[str, tuple[str, str, str]] = {
         "running",
     ),
     "finish": ("finalizing", "研究回答已形成，正在完成最终核验。", "completed"),
+    "persistence_failed": ("finalizing", "研究恢复记录保存失败，本轮已停止。", "failed"),
 }
 
 # 公开词表：UI 进度覆盖的 kind。是车道表的精选子集，不是第二套分类。
@@ -127,6 +128,12 @@ _TOOL_LABELS: dict[str, str] = {
     "read_history_result": "历史研究原件",
     "save_history_research": "研究假设草稿",
 }
+
+
+def public_tool_label(name: str) -> str | None:
+    """A public label for a known tool, never a provider-supplied fallback."""
+    return _TOOL_LABELS.get(name)
+
 
 # 三个 kind 的工具名落在不同键上：``tool_request`` 来自 ``call.to_dict()``
 # （``name``），``tool_result`` / ``tool_error`` 来自网关 payload（``tool``）。
@@ -227,7 +234,15 @@ def project_episode_progress(event: EpisodeEvent) -> EpisodeProgress | None:
             message=_tool_menu_message(event.payload.get("visible")),
             status="completed",
         )
-    projection = _EVENT_PROJECTIONS.get(event.kind)
+    projection_kind = event.kind
+    if event.kind == "branch_failed" and (
+        event.payload.get("persistence") == "failed"
+        or event.payload.get("error") == "storage_failed"
+        or event.payload.get("reason") == "storage_failed"
+    ):
+        # This is not an isolated missing source: the whole tree is fenced.
+        projection_kind = "persistence_failed"
+    projection = _EVENT_PROJECTIONS.get(projection_kind)
     if projection is None:
         return None
     stage, message, status = projection
@@ -309,5 +324,6 @@ __all__ = [
     "RunEpisodeProgressPublisher",
     "project_episode_progress",
     "public_progress_messages",
+    "public_tool_label",
     "is_public_progress_message",
 ]

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from uuid import uuid4
 
 from intelligence.eval.tool_hunger import (
     aggregate_hunger_runs,
@@ -61,7 +62,7 @@ def _finance_query_observation(tmp_path: Path):
     frame = _market_forecast_frame()
     context = build_episode_context(
         frame,
-        task_id="hunger-unknown-dataset",
+        task_id=f"hunger-unknown-dataset-{uuid4().hex}",
         capabilities=("market_data",),
         timeout=10.0,
         synthesis_reserve=0.0,
@@ -105,6 +106,7 @@ def _expected_unknown_dataset_observation() -> str:
     )
     error = FinanceQueryValidationError(f"unknown dataset: {spec.dataset}")
     return (
+        "工具诊断（非市场事实）[invalid_query]："
         f"结构化查询参数无效：{str(error)[:160]}；重试提示："
         f"{validation_retry_hint(spec, error)}"
     )
@@ -226,9 +228,11 @@ def test_finance_query_rejected_keeps_model_text_and_full_dataset(
     tmp_path: Path,
 ) -> None:
     expected = _expected_unknown_dataset_observation()
+    without_sink = _finance_query_observation(tmp_path)
     with bind_run_hunger(tmp_path, run_id="run_episode"):
         observation = _finance_query_observation(tmp_path)
-    assert observation.observation == expected
+    assert observation.observation == without_sink.observation == expected
+    assert observation.evidence == without_sink.evidence == ()
     events = _read_events(tmp_path / HUNGER_FILENAME)
     assert len(events) == 1
     event = events[0]
@@ -262,9 +266,11 @@ def test_hunger_write_failure_does_not_change_finance_query_observation(
             raise OSError("disk full")
 
     expected = _expected_unknown_dataset_observation()
+    without_sink = _finance_query_observation(tmp_path)
     with hunger_context(BoomSink(), run_id="run_boom"):
         observation = _finance_query_observation(tmp_path)
-    assert observation.observation == expected
+    assert observation.observation == without_sink.observation == expected
+    assert observation.evidence == without_sink.evidence == ()
 
 
 def test_record_hunger_swallows_sink_errors() -> None:

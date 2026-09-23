@@ -1,0 +1,53 @@
+{
+  "command": "pre-commit run --files <4 个改动文件>",
+  "revision": "50ffda9555208e0fbeea30b26c49259a7f73b859",
+  "hooks": [
+    {
+      "hook": "detect private key",
+      "result": "Passed"
+    },
+    {
+      "hook": "check for added large files",
+      "result": "Passed"
+    },
+    {
+      "hook": "check for merge conflicts",
+      "result": "Passed"
+    },
+    {
+      "hook": "ruff check",
+      "result": "Passed"
+    },
+    {
+      "hook": "工作区事实：你在哪棵树、用哪个解释器",
+      "result": "Passed"
+    },
+    {
+      "hook": "层级审计",
+      "result": "Passed"
+    },
+    {
+      "hook": "路径字面量：不得新增写死的家目录",
+      "result": "Passed"
+    },
+    {
+      "hook": "字段契约：不得新增「写了没人读」的字段",
+      "result": "Passed"
+    },
+    {
+      "hook": "dataset 注册：入库了的表 agent 要够得着",
+      "result": "Passed"
+    },
+    {
+      "hook": "工具可达性：声明了的工具生产装配必须够得着",
+      "result": "Passed"
+    },
+    {
+      "hook": "运行时目录保鲜：events / tools / harness-seams 与源码一致",
+      "result": "Passed"
+    }
+  ],
+  "failed": [],
+  "note": "提交时曾用 core.hooksPath 绕过钩子，此处对同一批文件补跑全部钩子作证",
+  "boundary": "钩子只覆盖改动文件；全量测试未在本分支跑，合流门在合并后 main tip 的批次门禁"
+}

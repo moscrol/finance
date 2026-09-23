@@ -1,0 +1,100 @@
+[
+  {
+    "id": "child_store_wiring",
+    "path": "intelligence/runtime/continuous_sub_research.py",
+    "old": "            store=request.episode_store,",
+    "new": "            store=None,",
+    "targets": ["test_real_runtime_persists_children_with_bidirectional_refs_and_unique_repeat_ids"]
+  },
+  {
+    "id": "unique_invocation_identity",
+    "path": "intelligence/runtime/sub_research.py",
+    "old": "episode_id=f\"{self.invocation_id}:{branch_id}\",",
+    "new": "episode_id=f\"{self.parent_episode_id}:{branch_id}\",",
+    "targets": ["test_real_runtime_persists_children_with_bidirectional_refs_and_unique_repeat_ids"]
+  },
+  {
+    "id": "branch_start_durable_before_effect",
+    "path": "intelligence/services/episode_store.py",
+    "old": "{\"model_intent\", \"tool_request\", \"finalization_recovery_started\", \"branch_started\"}",
+    "new": "{\"model_intent\", \"tool_request\", \"finalization_recovery_started\"}",
+    "targets": ["test_real_runtime_persists_children_with_bidirectional_refs_and_unique_repeat_ids"]
+  },
+  {
+    "id": "shared_tree_health",
+    "path": "intelligence/runtime/agent_episode.py",
+    "old": "        if not failures and self._store_fence is not None and self._store_fence.failure:",
+    "new": "        if False:",
+    "targets": ["test_sibling_failure_between_parent_intent_and_model_dispatch_stops_model"]
+  },
+  {
+    "id": "failed_branches_still_cost_tokens",
+    "path": "intelligence/runtime/agent_episode.py",
+    "old": "        if event.kind not in {\"model_turn\", \"branch_completed\", \"branch_failed\"}:",
+    "new": "        if event.kind not in {\"model_turn\", \"branch_completed\"}:",
+    "targets": ["test_child_storage_failure_fences_parent_and_keeps_received_usage"]
+  },
+  {
+    "id": "child_draft_publication_scope",
+    "path": "intelligence/runtime/glm_agent_runtime.py",
+    "old": "            if self._on_draft_delta and draft_publication_allowed()",
+    "new": "            if self._on_draft_delta",
+    "targets": ["test_child_scope_suppresses_real_glm_client_draft_stream_without_muting_parent"]
+  },
+  {
+    "id": "bounded_child_result_drain",
+    "path": "intelligence/runtime/episode_tool_batch.py",
+    "old": "                if draining:\n                    drained, _ = wait(draining, timeout=max(0.0, publish_cutoff - monotonic()))",
+    "new": "                if False:\n                    drained, _ = wait(draining, timeout=max(0.0, publish_cutoff - monotonic()))",
+    "targets": ["test_parent_batch_drains_received_child_result_inside_existing_window"]
+  },
+  {
+    "id": "late_parent_delivery_fence",
+    "path": "intelligence/runtime/tool_result_scope.py",
+    "old": "            yield self._open and self._clock() < self.cutoff",
+    "new": "            yield True",
+    "targets": ["test_child_beyond_parent_window_cannot_change_parent_events_or_evidence"]
+  },
+  {
+    "id": "child_absolute_deadline",
+    "path": "intelligence/runtime/sub_research.py",
+    "old": "            deadline=context.deadline.bounded_stage(seconds),",
+    "new": "            deadline=type(context.deadline).from_timeout(seconds),",
+    "targets": ["test_child_deadline_intersects_parent_even_after_admission_delay"]
+  },
+  {
+    "id": "raw_coordinator_store_fence",
+    "path": "intelligence/runtime/sub_research.py",
+    "old": "        if episode_store is not None and not isinstance(episode_store, FencedEpisodeStore):\n            episode_store = FencedEpisodeStore(episode_store)",
+    "new": "        # shared wrapper removed from direct coordinator entry",
+    "targets": ["test_raw_store_coordinator_shares_one_fence_and_absolute_deadline"]
+  },
+  {
+    "id": "reference_based_projection",
+    "path": "intelligence/services/episode_projection.py",
+    "old": "    if isinstance(reference, Mapping) and reference.get(\"episode_id\"):",
+    "new": "    if False:",
+    "targets": ["test_real_runtime_persists_children_with_bidirectional_refs_and_unique_repeat_ids"]
+  },
+  {
+    "id": "storage_failure_not_domain_gap",
+    "path": "intelligence/services/episode_progress.py",
+    "old": "        projection_kind = \"persistence_failed\"",
+    "new": "        projection_kind = \"branch_failed\"",
+    "targets": ["test_child_storage_failure_fences_parent_and_keeps_received_usage"]
+  },
+  {
+    "id": "linked_restore_requires_reconciliation",
+    "path": "intelligence/services/episode_restore.py",
+    "old": "        raise RestoreUnavailable(f\"{episode_id}: linked episode recovery requires child reconciliation\")",
+    "new": "        pass",
+    "targets": ["test_linked_nonterminal_restore_refuses_without_mutating_logs"]
+  },
+  {
+    "id": "no_blind_sub_research_replay",
+    "path": "intelligence/services/research_tool_registry.py",
+    "old": "            replay=\"never\" if name == \"sub_research\" else \"safe\",",
+    "new": "            replay=\"safe\",",
+    "targets": ["test_sub_research_is_not_blindly_replayable_after_an_interruption"]
+  }
+]

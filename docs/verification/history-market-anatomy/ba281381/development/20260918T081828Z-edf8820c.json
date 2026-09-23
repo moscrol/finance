@@ -1,0 +1,33 @@
+{
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "python_version": "3.12.13",
+  "dependency_fingerprint": "3328bed61f3e21ea",
+  "tree": "/Users/a77/fwp-wt-history-market-anatomy",
+  "revision": "edf8820c2a23391dd1799baf73c574151bf812f8",
+  "branch": "feat/history-market-anatomy",
+  "dirty": true,
+  "dirty_paths": [
+    "intelligence/services/historical_research/anatomy.py",
+    "intelligence/services/historical_research/episode.py",
+    "intelligence/services/historical_research/recovery.py",
+    "intelligence/services/historical_research/succession_projection.py",
+    "scripts/history_anatomy_arithmetic.py",
+    "scripts/review_probes/history_diagnostic_mutations.py",
+    "tests/test_history_anatomy_audit_independent.py",
+    "tests/test_history_succession_projection.py"
+  ],
+  "worktree_dirty_total": 10,
+  "dependency_gate_bypassed": false,
+  "target": "tests/test_history_succession_projection.py::test_saved_live_pairs_deliver_atomic_status_reason_and_actual_observation_dates",
+  "counts": {
+    "passed": 0,
+    "failed": 1,
+    "error": 0,
+    "skipped": 0
+  },
+  "failed_ids": [
+    "tests/test_history_succession_projection.py::test_saved_live_pairs_deliver_atomic_status_reason_and_actual_observation_dates"
+  ],
+  "exit_status": 1,
+  "finished_at": "2026-09-18T08:18:28+00:00"
+}

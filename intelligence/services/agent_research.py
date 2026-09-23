@@ -194,6 +194,9 @@ class AgentEvidence:
     # 不由工具名决定。判官按内容用它，这里只如实带出。
     publisher_kind: str = ""
     document_type: str = ""
+    # Stamped by the dispatch boundary from the actual runner's audited IO
+    # declaration, never inferred from tool/provider names or freshness.
+    io_effect: str = "unknown"
 
     def to_observation(self, evidence_id: str) -> EvidenceObservation:
         return EvidenceObservation(

@@ -1,0 +1,123 @@
+"""Copy selected read-only receipts into the docs archive, byte for byte.
+
+Scans with the existing production secret-shape scanner, records source
+hashes, and writes a manifest over every file in the archive directory
+(excluding itself). Collector sources are archived as non-executable
+``.py.txt`` audit originals. Writes only inside the archive directory.
+"""
+from __future__ import annotations
+
+import hashlib
+import importlib.util
+import json
+import os
+from datetime import datetime
+from pathlib import Path
+import shutil
+import sys
+
+PRIVATE = Path(__file__).resolve().parent
+REPO = Path.home() / "fwp-wt-k3-acceptance-0922"
+ARCHIVE_REL = "docs/verification/2026-09-22-k3-acceptance"
+ARCHIVE = REPO / ARCHIVE_REL
+RECEIPTS = (
+    "prior-archive-check.json",
+    "frozen-run-review.json",
+    "health-1.json",
+    "health-2.json",
+    "health-3.json",
+    "production-readonly-receipt.json",
+    "snapshot-contract.json",
+    "database-readonly.json",
+    "protected-files.json",
+    "backup-integrity.json",
+    "pr-status-readonly.json",
+)
+SCRIPTS = ("collect.py", "archive_evidence.py")
+os.umask(0o022)
+
+
+def load_scanner():
+    path = REPO / "scripts/smoke_workbench_self_use.py"
+    spec = importlib.util.spec_from_file_location("smoke_readonly", path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module.SecretScanner()
+
+
+def digest(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
+def main() -> None:
+    scanner = load_scanner()
+    (ARCHIVE / "evidence").mkdir(parents=True, exist_ok=False)
+    (ARCHIVE / "scripts").mkdir(parents=True, exist_ok=False)
+    sources = []
+    for name in RECEIPTS:
+        source = PRIVATE / name
+        body = source.read_bytes()
+        scanner.scan(json.loads(body), f"evidence/{name}")
+        destination = ARCHIVE / "evidence" / name
+        shutil.copyfile(source, destination)
+        if destination.read_bytes() != body:
+            raise RuntimeError(f"copy mismatch: {name}")
+        destination.chmod(0o644)
+        sources.append({
+            "source": str(source), "archived_as": f"evidence/{name}",
+            "sha256": digest(body), "redacted": False,
+        })
+    for name in SCRIPTS:
+        source = PRIVATE / name
+        body = source.read_bytes()
+        scanner.scan(body.decode(), f"scripts/{name}.txt")
+        destination = ARCHIVE / "scripts" / f"{name}.txt"
+        shutil.copyfile(source, destination)
+        if destination.read_bytes() != body:
+            raise RuntimeError(f"copy mismatch: {name}")
+        destination.chmod(0o644)
+        sources.append({
+            "source": str(source), "archived_as": f"scripts/{name}.txt",
+            "sha256": digest(body), "redacted": False,
+            "note": "audit original, not an executable entry point",
+        })
+    payload = {
+        "archived_at": datetime.now().astimezone().isoformat(),
+        "archive": ARCHIVE_REL, "file_count": len(sources), "sources": sources,
+        "excluded": [
+            "gitea backup archive itself (4.2 GiB, outside the repository)",
+            "launcher, LaunchAgent, credentials, raw process environment",
+            "DuckDB databases and market snapshot payloads",
+        ],
+        "boundary": "selective archive of this round's receipts, not a full backup of the private evidence root",
+    }
+    (ARCHIVE / "sources.json").write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
+    scan = {
+        "scanned_string_count": scanner.scanned_string_count,
+        "hit_count": len(scanner.hits), "hits": scanner.hits,
+        "boundary": "secret shape scan over archived bytes; not an absolute no-leak attestation",
+    }
+    if scanner.hits:
+        raise RuntimeError("secret shapes detected; archive left for inspection")
+    (ARCHIVE / "secret-scan.json").write_text(
+        json.dumps(scan, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
+    lines = []
+    for path in sorted(ARCHIVE.rglob("*")):
+        if not path.is_file() or path.name == "sha256-manifest.txt":
+            continue
+        relative = f"{ARCHIVE_REL}/{path.relative_to(ARCHIVE).as_posix()}"
+        lines.append(f"{digest(path.read_bytes())}  {relative}")
+    (ARCHIVE / "sha256-manifest.txt").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    print(json.dumps({
+        "archived_files": len(lines), "sources": len(sources),
+        "scanned_string_count": scan["scanned_string_count"],
+        "secret_hits": scan["hit_count"], "archive": str(ARCHIVE),
+    }, indent=2))
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,118 @@
+"""Freeze this cutover's selected non-secret evidence; no runtime action.
+
+Original files remain untouched. This case-specific copier is not a generic
+backup tool. Reuse scripts/check_evidence_archive.py for committed-byte checks.
+No launcher/key/database/fixture archive is copied. Scripts are inert .py.txt
+source evidence, not a new supported deployment interface.
+"""
+from __future__ import annotations
+
+import datetime
+import hashlib
+import json
+from pathlib import Path
+
+from scripts.smoke_workbench_self_use import SECRET_PATTERNS, SecretScanner
+
+ROOT = Path(__file__).resolve().parent
+REPO = Path.home() / "fwp-wt-judge-mode-k3-0921"
+DEST = REPO / "docs/verification/2026-09-21-judge-mode-k3"
+
+
+def main() -> None:
+    files: dict[str, Path] = {}
+    selected = [
+        "main-gates-recheck.json", "main-gates-verified.json", "main-receipt-check.log",
+        "main-receipt-check-correct-093551.log", "author2-receipt-check.log",
+        "author-python/gate.json", "author-python/failure-analysis.json",
+        "author2-python/gate.json", "author2-frontend/frontend.json", "author2-registry/gate.json",
+        "main-python/gate.json", "main-frontend/frontend.json", "main-registry/gate.json",
+        "targeted-pytest.log", "final-offline-review.log", "extra-wiring-tests.log", "mutations/receipt.json",
+        "merge-result.json", "merge-authorization.json", "production-process-config-public.json",
+        "production-live.log", "production-live.exit", "production-live/result.json",
+        "production-live/material-receipt.json", "production-live/grounded-receipt.json",
+        "cutover.log", "cutover-rolled-back.json", "cutover-installed-attempt2.json",
+        "post-switch-readiness-attempt2.json", "final-health.json", "final-readiness.json",
+        "rollback-final-precheck.json", "rollback-final-completed.json", "rollback-final-readiness.json",
+        "rollback-final-health-3.json", "rollback-final-process-config-public.json",
+        "rollback-final-ledger-check.log", "rollback-final-ledger-homes.log",
+        "resume-diagnosis-precheck.json", "rag-help-profile/receipt.json", "rag-process-env-profile/receipt.json",
+        "post830-backup-deferred.json", "post830-backup-result.json", "post830-backup.stderr.txt",
+        "canary-grounded-fact-check.json", "canary-secret-scan.json",
+    ]
+    recheck = json.loads((ROOT / "main-gates-recheck.json").read_text())
+    selected += [str(Path(path).relative_to(ROOT)) for path in recheck["logs_verified"]]
+    selected += [str(path.relative_to(ROOT)) for path in (ROOT / "production-verification").rglob("*") if path.is_file()]
+    for name in selected:
+        assert (ROOT / name).is_file(), name
+        archive_name = name + ".txt" if name.endswith(".log") else name
+        if name == "author-python/failure-analysis.json":
+            archive_name = "author-python/failure-analysis.redacted.json"
+        files[f"evidence/{archive_name}"] = ROOT / name
+    for name in (
+        "verify_first_production_runs.py", "verify_live_facts.py", "live_checks.py", "run_gates.py",
+        "mutation_checks.py", "archive_own_test_scratch.py", "cutover.py", "retry_cutover.py",
+        "rollback_after_final_readiness.py", "diagnose_rag_help.py", "diagnose_rag_process_env.py",
+        "backup_after830.py", "archive_selected_evidence.py",
+    ):
+        files[f"scripts/{name}.txt"] = ROOT / name
+    for name in ("20260921T091631Z-292bd557.json", "20260921T093551Z-f2c3e9e1.json"):
+        files[f"test-receipts/{name}"] = Path.home() / ".finance-runtime/test-receipts" / name
+    name = "20260921-post830-k3-first-runs-rolled-back.json"
+    files[f"traceability/{name}"] = Path.home() / ".finance-runtime/live-probe-traceability" / name
+    scanner = SecretScanner()
+    raw_files = {}
+    redactions = {}
+    for relative, source in sorted(files.items()):
+        raw = source.read_bytes()
+        text = raw.decode()
+        if relative.endswith("failure-analysis.redacted.json"):
+            source.chmod(0o600)
+            counts = {}
+            for marker, pattern in SECRET_PATTERNS:
+                text, count = pattern.subn(f"[REDACTED:{marker}]", text)
+                if count:
+                    counts[marker] = count
+            json.loads(text)  # Redaction must not silently corrupt the JSON.
+            redactions[relative] = counts
+            raw = text.encode()
+        raw_files[relative] = raw
+        if source.suffix == ".json":
+            scanner.scan(json.loads(text), relative)
+        elif source.suffix == ".jsonl":
+            for index, line in enumerate(text.splitlines(), 1):
+                if line.strip():
+                    scanner.scan(json.loads(line), f"{relative}:{index}")
+        else:
+            scanner.scan(text, relative)
+    if scanner.hits:
+        print(json.dumps({"copied": False, "secret_shape_hits": scanner.hits}, ensure_ascii=False, indent=2))
+        raise SystemExit(1)
+    DEST.mkdir(parents=True, exist_ok=False)
+    entries = []
+    for relative, content in sorted(raw_files.items()):
+        path = DEST / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("xb") as handle:
+            handle.write(content)
+        assert path.read_bytes() == content
+        if relative not in redactions:
+            assert content == files[relative].read_bytes()
+        entries.append({"source": str(files[relative]), "archive": relative,
+                        "bytes": len(content), "sha256": hashlib.sha256(content).hexdigest(),
+                        "source_sha256": hashlib.sha256(files[relative].read_bytes()).hexdigest(),
+                        "redactions": redactions.get(relative, {})})
+    receipt = {
+        "at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "scope": "selected original evidence; no proof of answer quality or current deployment acceptance",
+        "files": entries, "scanned_string_count": scanner.scanned_string_count,
+        "secret_shape_hit_count": len(scanner.hits),
+        "exclusions": ["launchers and credentials", "database files", "large failed fixture tarball", "scratch and cache", "unrelated runs", "unredacted failure-analysis (local 0600; only a marked derivative is copied)"],
+    }
+    (DEST / "sources.json").write_text(json.dumps(receipt, ensure_ascii=False, indent=2) + "\n")
+    print(json.dumps({"ok": True, "copied_files": len(entries), "bytes": sum(e["bytes"] for e in entries),
+                      "secret_shape_hit_count": 0, "scanned_string_count": scanner.scanned_string_count}, indent=2))
+
+
+if __name__ == "__main__":
+    main()

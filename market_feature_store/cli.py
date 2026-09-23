@@ -1063,18 +1063,34 @@ def cmd_fill_stock_daily_fallback(args) -> int:
         print(f"提示: {stats['note']}")
     return 0 if stats["stock_rows"] else 1
 def cmd_sync_stock_daily_snapshot(args) -> int:
-    from .sync.sync_eastmoney_stock_snapshot import sync_fact_stock_daily_snapshot
+    from .sync import sync_eastmoney_stock_snapshot as eastmoney_snapshot
 
-    stats = sync_fact_stock_daily_snapshot(
-        trade_date=args.trade_date,
-        page_size=args.page_size,
-        allow_misdated=args.allow_misdated,
-    )
+    eastmoney_snapshot.reset_transport_request_counts()
+    try:
+        stats = eastmoney_snapshot.sync_fact_stock_daily_snapshot(
+            trade_date=args.trade_date,
+            page_size=args.page_size,
+            allow_misdated=args.allow_misdated,
+        )
+    except Exception:
+        # 失败也保留本次传输尝试数；不计熔断跳过，含连接阶段失败。
+        print(
+            "东财请求计数: "
+            + json.dumps(eastmoney_snapshot.transport_request_counts(), ensure_ascii=False, sort_keys=True),
+            file=sys.stderr,
+            flush=True,
+        )
+        raise
     print(f"交易日: {stats['trade_date']} | 快照实际日期: {stats['snapshot_trade_date']} | 来源: {stats['source']}")
     print(f"快照拉取: {stats['fetched']} 行 | 写入: {stats['rows_written']} | 跳过: {stats['skipped']}")
     print(f"当日入库: {stats['day_rows']} 股")
     print(f"fact_stock_daily: {stats['table_total']} 行, {stats['distinct_stocks']} 股, "
           f"{stats['distinct_dates']} 交易日 ({stats['date_min']}~{stats['date_max']})")
+    print(
+        "东财请求计数: "
+        + json.dumps(stats["transport_requests"], ensure_ascii=False, sort_keys=True)
+        + f" | total={stats['transport_request_total']}"
+    )
     return 0
 
 

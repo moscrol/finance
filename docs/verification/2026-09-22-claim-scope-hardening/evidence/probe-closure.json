@@ -1,0 +1,54 @@
+{
+  "source": "真实首跑 run_20260921_183642_325351 的原文/原 episode 最小改写",
+  "baseline_rules": [
+    "latest_trading_day_unverified",
+    "scope_claim_exceeds_comparison",
+    "fund_flow_claim_without_flow_evidence"
+  ],
+  "probes": [
+    {
+      "id": "P1",
+      "变更": "「数据日期：」→「数据截至」，越界断言一字未改",
+      "硬化前": "latest_trading_day_unverified 静默",
+      "硬化后_rules": [
+        "latest_trading_day_unverified",
+        "scope_claim_exceeds_comparison",
+        "fund_flow_claim_without_flow_evidence"
+      ],
+      "closed": true
+    },
+    {
+      "id": "P3",
+      "变更": "板块不走 filters[].field=sector_code",
+      "硬化前": "范围规则静默且退出码 0",
+      "硬化后_rules": [
+        "latest_trading_day_unverified",
+        "fund_flow_claim_without_flow_evidence"
+      ],
+      "硬化后_degraded": [
+        "给了 --scope-total 却没从 episode 解出比较范围数（本轮只认filters 里的 ['sector_code', 'sector_name', 'sector_ts_code']）：范围规则本次没有真在跑"
+      ],
+      "硬化后_exit": 2,
+      "closed": true
+    },
+    {
+      "id": "P4",
+      "变更": "某工具参数写入「交易日历安排」",
+      "硬化前": "calendar_evidence=true → latest_trading_day_unverified 静默",
+      "硬化后_calendar_evidence": false,
+      "硬化后_rules": [
+        "latest_trading_day_unverified",
+        "scope_claim_exceeds_comparison",
+        "fund_flow_claim_without_flow_evidence"
+      ],
+      "closed": true
+    }
+  ],
+  "falsified_probe": {
+    "id": "P2",
+    "原判断": "页脚免责仍报警 = 误报",
+    "实测": "正文只说活跃度 + 页脚免责 → 本就不命中；仍报的两种正文都保留着越界断言",
+    "结论": "P2 不成立，已撤回；三种形状钉成回归防后人当误报修掉"
+  },
+  "boundary": "探针是对已知形状的闭合验证，不是覆盖率证明；关键词检出器仍可换说法绕过"
+}

@@ -19,6 +19,12 @@ export interface Run {
   status: RunStatus;
   // Optional for pre-barrier servers; true means terminal artifacts are still being written.
   delivery_pending?: boolean;
+  // Claiming terminal ownership is not yet message/artifact publication.
+  // Optional for old stored payloads; live completion requires positive proof.
+  publication?: {
+    status: "pending" | "published" | "not_applicable";
+    message_id: string | null;
+  };
   schema_version: number;
   session_id: string | null;
   parent_run_id: string | null;

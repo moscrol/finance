@@ -1,0 +1,1 @@
+{"attempt": 1, "command": ["/Users/a77/finance-workspace-private/.venv-workbench/bin/python", "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/run-review.py", "quality"], "spec_qc_sha256": "8f91110bc1b10c567ffd9519eae7932b6101f398fbfdd57b4e1f976918d8b5fb"}

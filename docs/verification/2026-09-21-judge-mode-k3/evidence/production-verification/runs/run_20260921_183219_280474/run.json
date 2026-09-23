@@ -1,0 +1,67 @@
+{
+  "run_id": "run_20260921_183219_280474",
+  "user": "linxiaoqi5111",
+  "question": "只依据以下材料回答，不要查询外部数据。\n\n「甲公司2026年上半年营业收入180亿元，同比增长20%；归母净利润9亿元，同比增长15%。公司拟投资50亿元建设先进封装产线，预计2027年投产。」\n\n1. 归母净利率是多少？\n2. 拟投资金额相当于上半年营业收入的多少倍？\n3. 材料没有给出哪些判断产能扩张合理性所需的信息？",
+  "task_type": "ask",
+  "status": "completed",
+  "schema_version": 1,
+  "session_id": "conv_74af21a802cf4c4e956d1296088b1dcb",
+  "parent_run_id": null,
+  "created_at": "2026-09-21T18:32:19+08:00",
+  "finished_at": "2026-09-21T18:36:37+08:00",
+  "source_date": null,
+  "duckdb_cutoff": null,
+  "kb_commit": null,
+  "kb_index_built_at": null,
+  "kb_index_freshness": null,
+  "manifest_ref": null,
+  "degrades": [],
+  "error": null,
+  "artifacts": [
+    {
+      "artifact_id": "artifact_answer_md",
+      "path": "answer.md",
+      "renderer": "markdown",
+      "title": "对话回答：只依据以下材料回答，不要查询外部数据。\n\n「甲公",
+      "sha256": "7edc9aa671d80e608ffb2e05c4ea8852cb1a857b14946501c5623ba7701eb64b",
+      "bytes": 1629,
+      "previewable": true,
+      "downloadable": true,
+      "visibility": "public"
+    },
+    {
+      "artifact_id": "artifact_continuous-episode_json",
+      "path": "continuous-episode.json",
+      "renderer": "json",
+      "title": "连续研究私有审计",
+      "sha256": "e324abff1ec21951db5701b8b9c2feb3ec06476a06a7b3b6d7b00b5ebc49a40d",
+      "bytes": 257513,
+      "previewable": false,
+      "downloadable": false,
+      "visibility": "internal"
+    },
+    {
+      "artifact_id": "artifact_report_json",
+      "path": "report.json",
+      "renderer": "structured_report",
+      "title": "结构化对话报告",
+      "sha256": "1e65a9da826048208964179c069aa54415e1bb7efde1dd0680c5240bc552361a",
+      "bytes": 5343,
+      "previewable": true,
+      "downloadable": true,
+      "visibility": "public"
+    },
+    {
+      "artifact_id": "artifact_followups_json",
+      "path": "followups.json",
+      "renderer": "json",
+      "title": "猜你想问",
+      "sha256": "839628032bcaec154e50b42e7495065cce55d846ec40c50d01b740d013b47842",
+      "bytes": 1152,
+      "previewable": true,
+      "downloadable": true,
+      "visibility": "public"
+    }
+  ],
+  "maintenance_launch": null
+}

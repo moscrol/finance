@@ -1,0 +1,15 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+______ test_original_four_turn_prompts_use_history_not_forward_contracts _______
+tests/test_history_expression_contract_boundary.py:85: in test_original_four_turn_prompts_use_history_not_forward_contracts
+    assert heading not in system + user, (n + 1, heading)
+E   AssertionError: (2, '【排序与情景表达契约】')
+E   assert '【排序与情景表达契约】' not in '你是连续运行的金融研究...ble": false}'
+E     
+E     '【排序与情景表达契约】' is contained here:
+E       ": "\n\n\n【排序与情景表达契约】本题为多对象研究优先级/排序题，draft 必须按此结构组织（表头逐字照抄，程序据此解析；这些是正文表达要求，不是可绑定的 output_id）：\n1. **主判断**（开头 ≤3 句）：谁优先、为什么、最大的不确定变量是什么。\n2. **公司矩阵**（Markdown 表，表头逐字为）：\n| 公司 | 优先级 | 需求暴露 | 收入/利润传导 | 兑现时间 | 已定价程度 | 关键分歧 |\n每家公司一行；「优先级」填 1..N 的整数（1 最优先，不并列）；每格写「取值（证据序号 E1、E2…）」或「缺数：需要什么数据」，禁止空格、禁止只写形容词；同一维度所有公司都要填，不能只输出产业链名单。\n3. **财务传导**：每家一行「需求变化 → 收入/成本/利润 → 兑现时间 → 市场预期差」；有数据的写幅度与口径（如「毛利率 +2pct，2026Q2 单季」），没数据写范围条件和优先补什么；禁止编造具体弹性、权重、胜率、概率。\n4. **竞争解释**（标题「竞争解释」）：≥2 条互斥解释，各自解释当前排序为什么成立/不成立；每条末尾写「区分变量：X；若 X … 则本解释成立」。\n5. **改判条件表**（Markdown 表，表头逐字为）：\...
+E     
+E     ...Full output truncated (4 lines hidden), use '-vv' to show
+=========================== short test summary info ============================
+FAILED tests/test_history_expression_contract_boundary.py::test_original_four_turn_prompts_use_history_not_forward_contracts
+1 failed in 0.53s

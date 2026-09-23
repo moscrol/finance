@@ -16,6 +16,7 @@ import hashlib
 import json
 import math
 
+from .db import read_snapshot
 from .signals import is_double_red
 from .hithink_sector_contract import (
     CATALOG_TAGS,
@@ -94,31 +95,34 @@ def preview_sector_calculation(
         raise ValueError(f"category 必须为 {CATALOG_TAGS}，不混入宽基指数")
     if pct_basis not in PCT_BASES:
         raise ValueError(f"pct_basis 必须显式选择 {PCT_BASES}")
-    index_returns = _index_returns(con, td, prev) if pct_basis == "index_close_return" else {}
+    # 名单、指数、行情必须取自同一快照：否则夜跑写者中途提交会拼出「旧名单 + 新价格」
+    # 的报告，而它不会报错。读完即释放，后续计算全在已物化的 list 上跑。
+    with read_snapshot(con):
+        index_returns = _index_returns(con, td, prev) if pct_basis == "index_close_return" else {}
 
-    capture_audit = None
-    if capture_id is not None:
-        from .hithink_sector_capture import capture_inputs
+        capture_audit = None
+        if capture_id is not None:
+            from .hithink_sector_capture import capture_inputs
 
-        sectors, members, capture_audit = capture_inputs(con, capture_id, category)
-    else:
-        sectors = con.execute(
-            "SELECT sector_ts_code, sector_name, updated_at, constituent_count, "
-            "constituents_captured_at, source FROM dim_sector_hithink "
-            "WHERE category=? ORDER BY sector_ts_code", [category],
-        ).fetchall()
-        members = con.execute(
-            "SELECT sector_ts_code, stock_ts_code, source, updated_at "
-            "FROM fact_sector_constituent_hithink "
-            "WHERE captured_at=? AND in_index=1 ORDER BY sector_ts_code, stock_ts_code", [md],
+            sectors, members, capture_audit = capture_inputs(con, capture_id, category)
+        else:
+            sectors = con.execute(
+                "SELECT sector_ts_code, sector_name, updated_at, constituent_count, "
+                "constituents_captured_at, source FROM dim_sector_hithink "
+                "WHERE category=? ORDER BY sector_ts_code", [category],
+            ).fetchall()
+            members = con.execute(
+                "SELECT sector_ts_code, stock_ts_code, source, updated_at "
+                "FROM fact_sector_constituent_hithink "
+                "WHERE captured_at=? AND in_index=1 ORDER BY sector_ts_code, stock_ts_code", [md],
+            ).fetchall()
+        daily = con.execute(
+            "SELECT trade_date, stock_ts_code, close, pct_chg, amount, source "
+            "FROM fact_stock_daily WHERE trade_date IN (?, ?) ORDER BY 1, 2", [prev, td],
         ).fetchall()
     by_sector: dict[str, list[tuple]] = {}
     for code, stock, source, updated in members:
         by_sector.setdefault(code, []).append((stock, source, updated))
-    daily = con.execute(
-        "SELECT trade_date, stock_ts_code, close, pct_chg, amount, source "
-        "FROM fact_stock_daily WHERE trade_date IN (?, ?) ORDER BY 1, 2", [prev, td],
-    ).fetchall()
     values: dict[tuple, tuple] = {}
     duplicates: set[tuple] = set()
     for day, code, close, pct, amount, source in daily:

@@ -74,7 +74,7 @@ launchd `com.financeworkspace.dual-blind-forecast`（工作日 09:10 跑 `script
 
 | 台账 | 最近落点 | 缺档 | 触发方式 | 断因 | 证据 |
 |---|---|---|---|---|---|
-| 晨汇 / 晨汇原料 | `wiki/briefings/2026-08-20.md`（`#5400`，2026-08-22 入库）；原料同日 `wiki/raw/briefings/2026-08-20/` | 库内缺 08-21 起。IMA 侧已有 08-21/22 合刊、0823–0825、0826–0828 | **IMA bridge**：`ima-desktop-bridge/scripts/ima-fetch.cjs` 搜浑水调研 → 拉 PDF → `morning-briefing` 入库。无 crontab。默认检索词是「路演调研日报 / 全量复盘 / 全量总结」 | 上游 PDF 还在；本地最后一次拉到 `~/Downloads/ima-briefings` 是 08-22。新文件改名「全市场路演调研…」，默认词搜不到；今晚 bridge `connected=false`（IMA 未开/插件未心跳），OpenAPI 能搜不能下 | `#5400` 来源写「IMA 浑水调研《路演调研全日汇总 0820.pdf》」；`ima-fetch search --kb 浑水调研 全市场路演` 命中 0828/0827/0826 等 |
+| 晨汇 / 晨汇原料（本行 2026-09-21 二次复核重写） | `wiki/briefings/2026-09-18.md`（`#6892`，2026-09-21 入库）；9 月已连续：09-01 / 03 / 06 / 07 / 08 / 14 / 15 / 18 | **当前无缺档**。09-15、09-18 于 2026-09-21 回填入库（`#6891`/`#6892`，知识库仓 PR #156）；09-16 / 09-17 / 09-19 上游确无 PDF（五词交叉验证：路演 / 预期差 / 复盘 / 汇总 / 总结） | **IMA bridge**：`ima-desktop-bridge/scripts/ima-fetch.cjs` 搜浑水调研 → 拉 PDF → `morning-briefing` 入库。无 crontab | 2026-09-21 实测推翻 08-28 的「OpenAPI 能搜不能下 / 待打开 IMA 再拉」：`status` 仍报 `IMA_BRIDGE_OFFLINE`，但 `get --media-id` **能正常下载**（status 与下载走不同通道，不必先开 IMA）。两个真实的坑：①**单关键词会漏**——09-18 那份标题是「电话会 总结」，默认词「路演」搜不到；②**IMA 文件名的日期会错**——`20260902_路演调研全量总结.pdf` 正文自称 2026-09-03，早已作为 `2026-09-03.md` 入库（`#6837`），按文件名判缺档会重复入库 | 09-21 实拉 `20260915_路演调研_预期差.pdf`(4.3MB)、`20260918_电话会_总结.pdf`(1.3MB) 均 `ok:true`；管线收据见知识库仓 PR #156（matcher 31/3/137 与 37/4/271、`extract_tier_events --check` exit 0、974 项测试通过）；08-28 原始诊断见本文件 git 历史 |
 | 卖方原文 | `wiki/raw/sellside/2026-08-17-调研纪要miracle.md`（`#5366`，2026-08-18 手贴入库） | 08-18 起无 miracle/原文。东方财富 RSSHub 快照更早停在 07-21 | **近月实写是手贴**，不是 launchd。`material-router` 已 frozen（2026-07 审计：日志零使用）。双盲 sellside/briefing plist 在 `~/Library/LaunchAgents/disabled-by-devin/`，属退役夜跑，不恢复 | 三层自动源都出不了货，手贴也停了 | 见下表 |
 
 卖方自动源（2026-08-28 实测）：
@@ -86,7 +86,23 @@ launchd `com.financeworkspace.dual-blind-forecast`（工作日 09:10 跑 `script
 | wechat2rss `:8090` | 已死（08-14 已登记，08-28 复核仍死） | 端口无响应；`com.finhot.wechat2rss-sync` 未加载；`~/wechat2rss-data/res.db` mtime 08-05 |
 | wechat-download-api `:5050` | 进程健康、库仍空 | `/api/health` healthy；`rss.db` `articles=0` / `subscriptions=39`（mtime 08-22）；`#5365/#5366` 写明频控，8/6 后抓不到，改手贴 |
 
-状态标签：**晨汇 = 上游仍有货、抓取词表/会话断了，待打开 IMA 再拉；卖方 = 微信频控，待用户决策**。不要把两条线当成同一个故障。晨汇缺档不是「无原文」——IMA 里有 PDF，只是还没拉进仓；卖方缺档仍是「无原文，禁止编造」。
+状态标签（2026-09-21 二次复核）：**晨汇 = 已补齐、无缺档；卖方 = 微信频控，待用户决策**。不要把两条线当成同一个故障。晨汇原料能自动拉（bridge `status` 报 offline 不影响 `get --media-id`），09-15 / 09-18 已于 2026-09-21 入库，9 月序列连续；卖方缺档仍是「无原文，禁止编造」。
+
+## IMA 缺口清单断档与回填（2026-09-21）
+
+`ima-gap-report` 自 2026-09-03 起静默停产，产物断在 `2026-09-02`。**断因不是脚本失败，是代码从没合进 main**：
+09-03 主检出树前移到 `gitea/main` 时，`intelligence/services/ima_gap_report.py` + 测试连同 `cli.py` /
+`daily_review.py` 的接线一起被保管进 `wip/mainline-move-footprints-20260903`（该 handoff 明写「不合 main，
+归属者认领后自己决定」），无人认领，主树切到 main 后这一步随之消失。上表照登记着它——**台账说有、代码里没有**，
+断了 19 天无人发现，下游一直吃 09-02 的旧清单（知识库仓 09-15 的入库提交仍写着「ima-gap 0902 积压」）。
+
+回填口径（`fix/restore-ima-gap-report`）：接线移植回 main 后补跑 **09-07 / 09-09 / 09-14～09-18 共 7 天**。
+
+- **回填清单不是当日快照**。`ima-gap-report` 拿当日 `research-queue.json` 去比**当前**知识库状态，补出来的是
+  「以今天的 wiki 看，那天的队列里还缺什么」。对「现在该去 IMA 跑什么」这个用途口径是对的（已入库的会正确判成
+  `skip_have_deepdive`），但**不能当作「当时该跑什么」的历史证据**。
+- **09-03～09-06 / 09-08 / 09-10～09-13 永久补不了**：这些日期没有 `<date>-research-queue.json`，缺的是上游
+  日报线，不是本步。
 
 ## 边界约定（去重复）
 
