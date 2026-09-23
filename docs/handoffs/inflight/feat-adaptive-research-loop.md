@@ -27,7 +27,7 @@
 3. 独审与正式准入均满足后才另建L6新根/新题；精确Episode审计PASS才下一题，重发/续问0。
 
 ## 已验证
-e7日志修复72P、旧反例4F+2F；对象交付离线15项含注册工具通过，0模型、未启用，不算独审。新530工件可逆归档 `docs/verification/2026-09-24-adaptive-e7-qc-closeout/`；历史208/51份仍保留。
+e7修复72P、旧反例4F+2F；对象交付离线15项含注册工具通过，0模型、未启用，不算独审。新530原件/本地/Git核验0差 `docs/verification/2026-09-24-adaptive-e7-qc-closeout/`；历史208/51份仍保留。
 
 ## 踩过的坑
 模型HTTP200与阶段完成不等于有效终审。metadata可逐目录放行，正文不能跟着开放。harness-reference/BUILD.md有他人改动，未碰。

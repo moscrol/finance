@@ -22,7 +22,7 @@ Spec原始四次探针执行分别为6/6、3/9、4/4、4/6子项；两个脚本e
 
 `archive-manifest.json`登记530个源工件，存储2730215字节。每项分别记录源路径/源字节数/SHA256，以及存储字节数/SHA256和编码方式。大文件用确定性gzip+base64，原有行尾空白或末尾空行用可逆base64封套；不裁剪任何原件。源脚本以`.txt`保存，防止被自动发现为可执行入口。按manifest定位编码后的实际文件名。
 
-首次提交`4f1e5bc93f56111f7d86399305ac97d18629ceaa`后的Git核验失败：85个`.log`被忽略规则跳过，本地存在但Git缺失。`first-git-verification-failure.json`记录对该固定提交计算的差集及忽略规则，不冒充首次终端输出的原字节。显式force-add的补交尝试又被裸`.log`后缀门禁拒绝，未使用no-verify。随后仅将这85个归档副本改名为`.log.txt`并更新manifest映射，原运行路径、源/存储字节、全局忽略与门禁均不变。失败输出与映射见`log-extension-hook-failure.encoded.json`、`archive-layout-repair.json`；最终通过以另存的Git核验收据为准。
+首次提交`4f1e5bc93f56111f7d86399305ac97d18629ceaa`后的Git核验失败：85个`.log`被忽略规则跳过，本地存在但Git缺失。`first-git-verification-failure.json`记录对该固定提交计算的差集及忽略规则，不冒充首次终端输出的原字节。显式force-add的补交尝试又被裸`.log`后缀门禁拒绝，未使用no-verify。随后仅将这85个归档副本改名为`.log.txt`并更新manifest映射，原运行路径、源/存储字节、全局忽略与门禁均不变。失败输出与映射见`log-extension-hook-failure.encoded.json`、`archive-layout-repair.json`；随后对`361b6b18c4ea12a83a41f30873a1bd44bb03b016`核验530/530原件、本地归档与Git字节一致，0差异，见`git-verification.json`；`verify-archive.py.txt`保存核验器。旧失败没有改判。`final-state.json`另证旧七个RAG失败ID及共享窗失败ID在e7本次XML中均实际通过，不证明历史根因已修；整PR格式仍exit2。
 
 `host/archive_e7.py.txt`保存选取与封装规则。归档含全部已执行阶段的原始事件、命令、退出码、探针源码、输入和计数；不含生成的庞大pytest夹具、虚拟环境或真实密钥。模式扫描零命中只证明所列模式未命中，不泛称全能密钥审计。
 
