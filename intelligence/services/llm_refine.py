@@ -998,12 +998,17 @@ def synthesis_thinking_disabled() -> bool:
 # 设了本 env 就压过 disable_thinking：thinking=enabled + reasoning_effort=值；没设则老行为一字不变。
 # 只在 GLM 出口的启动器里设；sol@cockpit 那条不设，请求体逐字节同前。
 REASONING_EFFORT_ENV = "LLM_REASONING_EFFORT"
+JUDGE_REASONING_EFFORT_ENV = "LLM_JUDGE_REASONING_EFFORT"
 
 
 def _apply_thinking_controls(payload: dict, *, disable_thinking: bool) -> None:
     """``thinking`` / ``reasoning_effort`` 两个键的唯一写入点。"""
 
-    effort = str(os.environ.get(REASONING_EFFORT_ENV) or "").strip()
+    # Reuse the call-purpose scope so nested writer repairs keep their own controls.
+    effort = ""
+    if current_call_purpose() == "judge":
+        effort = str(os.environ.get(JUDGE_REASONING_EFFORT_ENV) or "").strip()
+    effort = effort or str(os.environ.get(REASONING_EFFORT_ENV) or "").strip()
     if effort:
         payload["thinking"] = {"type": "enabled"}
         payload["reasoning_effort"] = effort

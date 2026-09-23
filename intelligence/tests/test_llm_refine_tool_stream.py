@@ -101,6 +101,43 @@ def test_reasoning_effort_env_forces_thinking_on_and_overrides_disable(monkeypat
     }
 
 
+@pytest.mark.parametrize("global_effort", [None, "max"])
+def test_judge_effort_is_scoped_and_preserves_writer_payload(monkeypatch, global_effort) -> None:
+    monkeypatch.delenv("LLM_JUDGE_REASONING_EFFORT", raising=False)
+    if global_effort is None:
+        monkeypatch.delenv("LLM_REASONING_EFFORT", raising=False)
+    else:
+        monkeypatch.setenv("LLM_REASONING_EFFORT", global_effort)
+    original = _captured_payload(monkeypatch)
+    monkeypatch.setenv("LLM_JUDGE_REASONING_EFFORT", " low ")
+    assert _captured_payload(monkeypatch) == original
+    with llm_refine.call_purpose("judge"):
+        judge = _captured_payload(monkeypatch)
+        assert judge["thinking"] == {"type": "enabled"}
+        assert judge["reasoning_effort"] == "low"
+        with llm_refine.call_purpose("writer"):
+            assert _captured_payload(monkeypatch) == original
+        assert _captured_payload(monkeypatch) == judge
+    assert _captured_payload(monkeypatch) == original
+    controls = {"thinking", "reasoning_effort"}
+    assert {k: v for k, v in judge.items() if k not in controls} == {
+        k: v for k, v in original.items() if k not in controls
+    }
+
+
+@pytest.mark.parametrize("judge_effort", [None, "", "  "])
+def test_unconfigured_judge_effort_keeps_global_controls(monkeypatch, judge_effort) -> None:
+    monkeypatch.setenv("LLM_REASONING_EFFORT", "high")
+    if judge_effort is None:
+        monkeypatch.delenv("LLM_JUDGE_REASONING_EFFORT", raising=False)
+    else:
+        monkeypatch.setenv("LLM_JUDGE_REASONING_EFFORT", judge_effort)
+    with llm_refine.call_purpose("judge"):
+        payload = _captured_payload(monkeypatch)
+    assert payload["thinking"] == {"type": "enabled"}
+    assert payload["reasoning_effort"] == "high"
+
+
 def test_content_reaches_the_callback_piece_by_piece() -> None:
     message, deltas = call_stream(
         sse(
