@@ -1,0 +1,61 @@
+{
+  "baseline_revision": "ea51078998e63579a9e7300a132ac4ad3786ccec",
+  "baseline_context": "Observed clean vault before this round writeback; no baseline tree checkout needed.",
+  "after_revision_at_lint": "4ba3af24fe1b8084b69fd809c048c8f7930dffa1",
+  "after_context": "Capability and project row edits uncommitted at lint; other agents may auto-sync unrelated notes.",
+  "before_counts": {
+    "ERROR": 20,
+    "WARN": 17
+  },
+  "after_counts": {
+    "ERROR": 20,
+    "WARN": 17
+  },
+  "normalization": "WARN byte sizes and elapsed inbox age only. Local midnight changed 11 elapsed-age messages by one day; exact delta retained. ERROR lines are verbatim. Both lint runs exit 1 (20 errors / 17 warnings); no new normalized finding, not a passing lint.",
+  "exact_delta": {
+    "added": {
+      "ERROR": [],
+      "WARN": [
+        "WARN  20_projects/finance-workspace-private.md: 项目笔记 419874 字节（>81920），新交接严格一行，正文放 repo 的 docs/handoffs/；存量按棘轮可不动",
+        "WARN  00_inbox/2026-08-28-fde-harness-bootstrap-p1-mount.md: inbox 条目已 22 天未提炼（>14 天）",
+        "WARN  00_inbox/2026-09-01-prime-agent-harness-eval.md: inbox 条目已 18 天未提炼（>14 天）",
+        "WARN  00_inbox/2026-08-22-v7-subagent-ping-timeout-triage.md: inbox 条目已 28 天未提炼（>14 天）",
+        "WARN  00_inbox/2026-08-22-zsxq-ai-design-language-cdp-audit.md: inbox 条目已 28 天未提炼（>14 天）",
+        "WARN  00_inbox/2026-08-22-awesome-design-md-upstream-audit.md: inbox 条目已 28 天未提炼（>14 天）",
+        "WARN  00_inbox/2026-08-18-dao-ay-terra-403-root-fix-handoff.md: inbox 条目已 32 天未提炼（>14 天）",
+        "WARN  00_inbox/2026-08-27-meta-asset-inventory-and-bootstrap-roadmap.md: inbox 条目已 23 天未提炼（>14 天）",
+        "WARN  00_inbox/2026-08-23-agent-loop-aab-mashu-comparison.md: inbox 条目已 27 天未提炼（>14 天）",
+        "WARN  00_inbox/2026-08-20-mashu-arch-review-close-read.md: inbox 条目已 30 天未提炼（>14 天）",
+        "WARN  00_inbox/2026-08-19-dao-same-model-pin-closeout.md: inbox 条目已 31 天未提炼（>14 天）",
+        "WARN  00_inbox/2026-08-20-harness-books-arch-review.md: inbox 条目已 30 天未提炼（>14 天）"
+      ]
+    },
+    "removed": {
+      "ERROR": [],
+      "WARN": [
+        "WARN  20_projects/finance-workspace-private.md: 项目笔记 419284 字节（>81920），新交接严格一行，正文放 repo 的 docs/handoffs/；存量按棘轮可不动",
+        "WARN  00_inbox/2026-08-28-fde-harness-bootstrap-p1-mount.md: inbox 条目已 21 天未提炼（>14 天）",
+        "WARN  00_inbox/2026-09-01-prime-agent-harness-eval.md: inbox 条目已 17 天未提炼（>14 天）",
+        "WARN  00_inbox/2026-08-22-v7-subagent-ping-timeout-triage.md: inbox 条目已 27 天未提炼（>14 天）",
+        "WARN  00_inbox/2026-08-22-zsxq-ai-design-language-cdp-audit.md: inbox 条目已 27 天未提炼（>14 天）",
+        "WARN  00_inbox/2026-08-22-awesome-design-md-upstream-audit.md: inbox 条目已 27 天未提炼（>14 天）",
+        "WARN  00_inbox/2026-08-18-dao-ay-terra-403-root-fix-handoff.md: inbox 条目已 31 天未提炼（>14 天）",
+        "WARN  00_inbox/2026-08-27-meta-asset-inventory-and-bootstrap-roadmap.md: inbox 条目已 22 天未提炼（>14 天）",
+        "WARN  00_inbox/2026-08-23-agent-loop-aab-mashu-comparison.md: inbox 条目已 26 天未提炼（>14 天）",
+        "WARN  00_inbox/2026-08-20-mashu-arch-review-close-read.md: inbox 条目已 29 天未提炼（>14 天）",
+        "WARN  00_inbox/2026-08-19-dao-same-model-pin-closeout.md: inbox 条目已 30 天未提炼（>14 天）",
+        "WARN  00_inbox/2026-08-20-harness-books-arch-review.md: inbox 条目已 29 天未提炼（>14 天）"
+      ]
+    }
+  },
+  "normalized_delta": {
+    "added": {
+      "ERROR": [],
+      "WARN": []
+    },
+    "removed": {
+      "ERROR": [],
+      "WARN": []
+    }
+  }
+}

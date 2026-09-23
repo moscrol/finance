@@ -356,11 +356,17 @@ _DATASETS: dict[str, _DatasetDefinition] = {
             "全市场每天 1 行的总量口径。涨停家数在这里是**全市合计**，不按板块拆——要板块分布用 "
             "theme_limit_heat_daily。下跌/平盘家数用 market_breadth_daily，"
             "它从同日个股截面聚合，不可用截断的 stock_daily 返回行数代替。"
+            "market_stage 与 cycle_stage 是不同标签族，分别核对专属 *_source；"
+            "来源未查/空值不能称为供应商标签，行级 source 不代替字段血缘；confidence 非校准准确率。"
+            "volume_ratio 为 total_amount/amount_ma20*100 的百分数，不是倍数。"
         ),
         time_field="trade_date",
         dimensions={
             "trade_date": _dimension("trade_date", "交易日", "date"),
             "market_stage": _dimension("market_stage", "市场阶段"),
+            "market_stage_source": _dimension("market_stage_source", "市场阶段来源"),
+            "cycle_stage": _dimension("cycle_stage", "供应商内层周期阶段"),
+            "cycle_stage_source": _dimension("cycle_stage_source", "内层周期阶段来源"),
             "stage_day": _dimension("stage_day", "阶段天数", "integer"),
             "volume_state": _dimension("volume_state", "量能状态"),
             "concentration_state": _dimension("concentration_state", "行业集中状态"),
@@ -369,6 +375,7 @@ _DATASETS: dict[str, _DatasetDefinition] = {
             "leading_industry_3": _dimension("industry_3", "成交第三行业"),
         },
         metrics={
+            "market_stage_confidence": _metric("market_stage_confidence", "阶段模型置信分数(非正确率)"),
             "index_close": _metric("sh_index_close", "上证收盘"),
             "index_return_pct": _metric("sh_index_pct_chg", "上证涨跌幅"),
             "total_amount": _metric("total_amount", "市场成交额亿"),
@@ -1823,18 +1830,13 @@ def dataset_physical_table(dataset: str) -> str:
 
 
 def _diagnostic_identifier(value: str) -> str:
-    # Only schema identifiers belong in diagnostic feedback, not arbitrary prose.
-    return (
-        value
-        if re.fullmatch(r"[a-z][a-z0-9_]{0,63}", value)
-        else "[invalid identifier omitted]"
-    )
+    # These are model-supplied schema identifiers, not source text. Do not echo
+    # arbitrary prose (possibly dated facts) into a trusted diagnostic channel.
+    return value if re.fullmatch(r"[a-z][a-z0-9_]{0,63}", value) else "[invalid identifier omitted]"
 
 
-def validation_diagnostic(
-    spec: FinanceQuerySpec, error: FinanceQueryValidationError
-) -> str:
-    """Render known validator messages and schema metadata, never raw IO errors."""
+def validation_diagnostic(spec: FinanceQuerySpec, error: FinanceQueryValidationError) -> str:
+    """Render only known validator messages and schema metadata, never raw IO errors."""
     message = str(error)
     safe_message = "查询参数未通过校验"
     for prefix in (

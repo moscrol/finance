@@ -1,0 +1,87 @@
+{
+  "before": {
+    "finance-workspace-private": {
+      "path": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/registry-pinned-d9657215/finance-workspace-private",
+      "revision": "d965721553741b7a1267b8541e7806d088083a8f",
+      "status": ""
+    },
+    "knowledge-base-private": {
+      "path": "/Users/a77/.finance-runtime/reviews/kb-retrieval-merge-20260918/knowledge-base-private",
+      "revision": "91725ea9ba0252a43665f9e3130142f946c289ae",
+      "status": ""
+    },
+    "finance-research-site": {
+      "path": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/registry-pinned-d9657215/finance-research-site",
+      "revision": "9f60bef076749cdba13cf228ffa6f22141876eb8",
+      "status": ""
+    }
+  },
+  "after": {
+    "finance-workspace-private": {
+      "path": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/registry-pinned-d9657215/finance-workspace-private",
+      "revision": "d965721553741b7a1267b8541e7806d088083a8f",
+      "status": ""
+    },
+    "knowledge-base-private": {
+      "path": "/Users/a77/.finance-runtime/reviews/kb-retrieval-merge-20260918/knowledge-base-private",
+      "revision": "91725ea9ba0252a43665f9e3130142f946c289ae",
+      "status": ""
+    },
+    "finance-research-site": {
+      "path": "/Users/a77/.finance-runtime/reviews/8792-financial-delivery-integration-20260918/registry-pinned-d9657215/finance-research-site",
+      "revision": "9f60bef076749cdba13cf228ffa6f22141876eb8",
+      "status": ""
+    }
+  },
+  "checks": [
+    {
+      "name": "parseability",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "check-parseability"
+      ],
+      "exit_code": 0
+    },
+    {
+      "name": "registry",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "check"
+      ],
+      "exit_code": 0
+    },
+    {
+      "name": "tables",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "backfill-tables",
+        "--check"
+      ],
+      "exit_code": 0
+    },
+    {
+      "name": "views",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "generate-views",
+        "--check"
+      ],
+      "exit_code": 0
+    },
+    {
+      "name": "ledger-crosswalk",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/audit_ledger_spec_crosswalk.py"
+      ],
+      "exit_code": 0
+    }
+  ],
+  "all_passed": true,
+  "finished_at": "2026-09-18T15:49:19.119055+00:00",
+  "scope": "Only native cross-repository registry checks at pinned clean inputs. Ambient red receipt is unchanged; Python/frontend run separately in the candidate tree."
+}

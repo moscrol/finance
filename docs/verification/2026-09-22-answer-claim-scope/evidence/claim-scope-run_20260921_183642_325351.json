@@ -1,0 +1,50 @@
+{
+  "clean": false,
+  "issue_count": 3,
+  "rules_hit": [
+    "latest_trading_day_unverified",
+    "scope_claim_exceeds_comparison",
+    "fund_flow_claim_without_flow_evidence"
+  ],
+  "sentences_scanned": 16,
+  "context": {
+    "question_length": 52,
+    "evidence_dates": [
+      "2026-09-14",
+      "2026-09-15",
+      "2026-09-16",
+      "2026-09-17",
+      "2026-09-18"
+    ],
+    "calendar_evidence": false,
+    "compared_scope_count": 5,
+    "known_scope_total": 20,
+    "fund_flow_evidence": false
+  },
+  "issues": [
+    {
+      "rule": "latest_trading_day_unverified",
+      "label": "库内日期冒充最近交易日",
+      "quote": "**数据日期：2026-09-18（最近一个已收盘交易日）**",
+      "reason": "本次未取交易日历证据（证据日期：2026-09-14、2026-09-15、2026-09-16）。库内最大交易日只能证明数据存到哪天，不能证明市场最近收盘在哪天",
+      "remedy": "改写成「库内最新可用交易日 X（数据截至…）」，或取交易日历后再断言"
+    },
+    {
+      "rule": "scope_claim_exceeds_comparison",
+      "label": "范围结论超出实际比较",
+      "quote": "长电科技 7.75% 的涨幅明显跑赢其所有归属板块，且封测板块本身边际量 +72.66% 为各板块中最高，显示资金当日集中流入封测方向。",
+      "reason": "本次只比较了 5 个，已知归属 20 个；全称结论的分母没取到",
+      "remedy": "限定为「已比较的 5 个中全部…」，或补齐全集再下全称结论"
+    },
+    {
+      "rule": "fund_flow_claim_without_flow_evidence",
+      "label": "无资金流证据推断资金方向",
+      "quote": "长电科技 7.75% 的涨幅明显跑赢其所有归属板块，且封测板块本身边际量 +72.66% 为各板块中最高，显示资金当日集中流入封测方向。",
+      "reason": "本次没有资金流向取数；成交额/量能放大是活跃度，推不出净买卖方向",
+      "remedy": "改写成成交活跃度描述，或取资金流数据后再谈流入流出"
+    }
+  ],
+  "boundary": "四个已知形状的关键词检出器；干净不代表内容正确，命中也需人读原句确认",
+  "run_id": "run_20260921_183642_325351",
+  "scope_total_source": "命令行显式传入"
+}

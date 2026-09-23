@@ -102,10 +102,14 @@ def test_validation_diagnostic_does_not_echo_arbitrary_prose(placement):
         finance_query.FinanceQueryValidationError(message),
     )
     assert not result.evidence
-    assert "forbidden-prose" not in result.observation
-    assert "secret/path" not in result.observation
-    assert "99%" not in result.observation
-    assert "重试提示" in result.observation
+    assert result.observation == ""
+    assert len(result.diagnostics) == 1
+    diagnostic = result.diagnostics[0]
+    assert diagnostic.code == "invalid_query"
+    assert "forbidden-prose" not in diagnostic.message
+    assert "secret/path" not in diagnostic.message
+    assert "99%" not in diagnostic.message
+    assert "重试提示" in diagnostic.message
 
 
 @pytest.mark.parametrize(("error_type", "expected"), [

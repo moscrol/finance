@@ -1,0 +1,12 @@
+{
+  "source": "/Users/a77/.finance-runtime/reviews/nightly-deploy-closeout-20260921/python/tmp",
+  "started_at": "2026-09-21T17:22:19.051916+08:00",
+  "free_before": 5941432320,
+  "state": "ARCHIVED_AND_TEMP_RECLAIMED",
+  "archive_sha256": "bd379b2f2f5bc777417041b0edc4544158538888bb0ecdc6eb9e162e0ad39e2a",
+  "archive_bytes": 313705315,
+  "free_after": 12318429184,
+  "finished_at": "2026-09-21T17:23:26.667910+08:00",
+  "entries": 83907,
+  "uncompressed_file_bytes": 3177397510
+}

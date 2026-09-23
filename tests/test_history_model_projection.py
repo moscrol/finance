@@ -176,7 +176,8 @@ def test_all_preview_samples_survive_without_equating_cards_to_returned_rows():
     assert any(row.get("returned_count") == 25 and row.get("total_matched") == 40 for row in details)
     assert "projected_evidence_count" in model["observation"]
     assert "read_history_result" in model["observation"]
-    assert "缩窄" in model["observation"]
+    assert "保持所选窗口" in model["observation"]
+    assert "缩窄日期" not in model["observation"]
 
 
 @pytest.mark.parametrize("offset,limit,next_offset", [
@@ -212,9 +213,39 @@ def test_query_pages_keep_absolute_sample_coordinates_and_navigation(
     assert page.telemetry["next_offset"] == next_offset
     assert f'"offset":{offset}' in model["observation"]
     assert f'"next_offset":{next_offset if next_offset is not None else "null"}' in model["observation"]
+    assert "保持所选窗口" in model["observation"]
+    assert "缩窄日期" not in model["observation"]
     assert session.read(ref) == original
     assert all(item.internal_locator == ref for item in page.evidence)
     assert {item.independent_key for item in page.evidence} == {first.telemetry["query_id"]}
+
+
+def test_failed_page_projection_does_not_record_success(tmp_path, monkeypatch):
+    registry, context, session = _registry(tmp_path)
+    first = registry.execute(
+        "history_query",
+        {"operation": "inspect_history", "start": "2026-08-03", "end": "2026-08-04",
+         "entity_codes": ["A.FP"], "preview_limit": 1},
+        context=context, step_id="query",
+    )
+    ref = first.telemetry["result_ref"]
+    original = deepcopy(session.read(ref))
+    before = deepcopy(context.history_results)
+
+    def fail_projection(payload, *, result_ref, tool, offset):
+        assert (result_ref, tool, offset) == (ref, "read_history_result", 1)
+        raise ValueError("projection failed")
+
+    monkeypatch.setattr(
+        "intelligence.services.historical_research.episode._result", fail_projection,
+    )
+    with pytest.raises(ValueError, match="projection failed"):
+        registry.execute(
+            "read_history_result", {"result_ref": ref, "offset": 1, "limit": 1},
+            context=context, step_id="failed-page",
+        )
+    assert context.history_results == before
+    assert session.read(ref) == original
 
 
 def test_query_initial_preview_advertises_the_next_page(tmp_path):

@@ -1,0 +1,21 @@
+{
+  "revision": "2ea6c3db01a062b9c623498df1b60edfbafe582b",
+  "axis": "spec",
+  "verdict": "PASS",
+  "issues": [
+    {
+      "id": "SPEC-827-01",
+      "severity": "low",
+      "path": "intelligence/dream/com.financeworkspace.daily-full-review-sync.plist",
+      "line": 27,
+      "description": "Comment claims the old finance-workspace-sync local-plan patch is '逐字一致' (byte-identical) with adcda94b. At whole-file level run_review_sync.py differs (PLANS/resolve_plan refactored into market_feature_store/consumption_registry.py on main). Functional substance verified: old sync HEAD 6382c13b7 is an ancestor of adcda94b, 'local' is in PLAN_CHOICES in all three adcda roots, and build_local_plan (zero fupanhui requests) is present. Wording imprecision only; no behavioral impact.",
+      "reproduction": "diff /Users/a77/finance-workspace-sync/skills/daily-full-review/scripts/run_review_sync.py /Users/a77/.finance-runtime/finance-sync-adcda94b5e40/skills/daily-full-review/scripts/run_review_sync.py  # shows refactor; grep PLAN_CHOICES in consumption_registry.py shows local preserved"
+    }
+  ],
+  "limitations": [
+    "Bounded offline review: no real install against the live HOME, no loaded launchd value (launchctl print) verification, no live sync, no collector/provider/API calls.",
+    "Author documentary evidence (docs/, verification logs, handoff claims) not inspected per contract; conclusions derived from code, plist semantics, on-disk roots, and independent execution with fake HOME + stub launchctl.",
+    "Operator release conditions (jobs idle, lock absent, hash preflight, backups, explicit rollback, post-release loaded-value checks) assessed as sufficient but not performed; installer intentionally provides no two-job transaction or auto-rollback, leaving a bounded mixed-state risk on mid-install failure that rerun + backups cover.",
+    "Data recovery, supplier completeness, and real 18:30/20:40 night-run acceptance are not signed by this review."
+  ]
+}

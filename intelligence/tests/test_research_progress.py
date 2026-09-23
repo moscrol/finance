@@ -34,6 +34,19 @@ def test_normalize_query_collapses_whitespace_and_reads_mapping_forms() -> None:
     assert len(normalize_query("x" * 500)) == 120
 
 
+@pytest.mark.parametrize("status", ["rejected", "error", "timeout", "empty"])
+def test_frozen_structured_call_can_be_recorded_after_failure(status) -> None:
+    from intelligence.services.agent_runtime import ModelToolCall
+
+    arguments = {"condition": {"feature": "return_pct", "value": 1}, "codes": ["a"]}
+    call = ModelToolCall("c", "history_query", arguments)
+    tracker = ResearchProgressTracker()
+    digest = ToolCallDigest(call.name, call.arguments, status)
+    assert digest.query == normalize_query(arguments)
+    assert _batch(tracker, digest).calls == (digest,)
+    assert call.to_dict()["arguments"] == arguments
+
+
 @pytest.mark.parametrize("arguments", [
     {"url": "file:///nonexistent"},
     {"operation": "read", "filters": {"periods": [{"as_of": "2026-06-30"}]}},

@@ -1,0 +1,7 @@
+script /Users/a77/fwp-wt-nightly-deploy-closeout-0921/skills/daily-full-review/scripts/nightly_full_review.sh -> /Users/a77/.local/bin/nightly_full_review.sh
+script /Users/a77/fwp-wt-nightly-deploy-closeout-0921/skills/daily-full-review/scripts/nightly_full_review_s7.sh -> /Users/a77/.local/bin/nightly-full-review-s7.sh
+plist /Users/a77/fwp-wt-nightly-deploy-closeout-0921/intelligence/dream/com.financeworkspace.daily-full-review-sync.plist -> /Users/a77/Library/LaunchAgents/com.financeworkspace.daily-full-review-sync.plist
+plist /Users/a77/fwp-wt-nightly-deploy-closeout-0921/intelligence/dream/com.financeworkspace.daily-full-review-finalize.plist -> /Users/a77/Library/LaunchAgents/com.financeworkspace.daily-full-review-finalize.plist
+job com.financeworkspace.daily-full-review-sync (kickstart=0)
+job com.financeworkspace.daily-full-review-finalize (kickstart=0)
+dry-run: 2 jobs validated; no files copied or services changed

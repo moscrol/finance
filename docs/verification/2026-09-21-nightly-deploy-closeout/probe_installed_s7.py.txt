@@ -1,0 +1,95 @@
+"""One-off compatibility rehearsal: installed S7 wrapper + new schema/db helpers.
+
+Only synthetic DBs below this evidence directory are opened for writing. A fake
+collector imports the candidate's real db helpers. No real pipeline, credential,
+provider or production DB is used. This is not a full frozen production copy.
+"""
+from pathlib import Path
+import hashlib
+import json
+import os
+import subprocess
+import sys
+import tempfile
+
+OUT = Path(__file__).resolve().parent / "s7-probe"
+OUT.mkdir(exist_ok=False)
+CANDIDATE = Path.home() / ".finance-runtime/finance-sync-adcda94b5e40"
+S7 = Path.home() / ".finance-runtime/finance-s7-sync"
+WRAPPER = Path.home() / ".local/bin/nightly-review-sync-staged.py"
+DAY = "2026-09-21"
+sys.path.insert(0, str(CANDIDATE))
+import duckdb
+
+CHILD = '''import os, sys
+from pathlib import Path
+sys.path.insert(0, os.environ["TEST_CANDIDATE"])
+from market_feature_store import db
+print("candidate_db=" + db.__file__, flush=True)
+assert db.DB_PATH == Path(os.environ["MARKET_FEATURE_STORE_DB"])
+assert db.DB_PATH.name.endswith(".staging")
+mode = os.environ["TEST_MODE"]
+con = db.connect()
+db.init_db(con)
+if mode == "schema_loss":
+    con.execute("DROP TABLE fixture_sentinel")
+elif mode == "date_regression":
+    con.execute("DELETE FROM fact_market_daily")
+    con.execute("INSERT INTO fact_market_daily(trade_date) VALUES ('2026-09-01')")
+else:
+    con.execute("INSERT INTO fact_market_daily(trade_date) VALUES ('2026-09-21')")
+con.close()
+if mode == "third_party":
+    import duckdb
+    with duckdb.connect(os.environ["TEST_TARGET"]) as other:
+        other.execute("INSERT INTO fixture_sentinel VALUES (2)")
+sys.exit(7 if mode == "child_failure" else 0)
+'''
+rows = []
+for mode in ("success", "child_failure", "schema_loss", "date_regression", "third_party"):
+    with tempfile.TemporaryDirectory(prefix=mode + "-", dir=OUT) as directory:
+        root = Path(directory)
+        target = root / "data/market.duckdb"
+        target.parent.mkdir()
+        with duckdb.connect(str(target)) as con:
+            con.execute((CANDIDATE / "market_feature_store/schema.sql").read_text())
+            con.execute("CREATE TABLE fixture_sentinel (value INTEGER)")
+            con.execute("INSERT INTO fixture_sentinel VALUES (1)")
+            con.execute("INSERT INTO fact_market_daily(trade_date) VALUES ('2026-09-18')")
+        before = hashlib.sha256(target.read_bytes()).hexdigest()
+        child = root / "fake-sync/skills/daily-full-review/scripts/run_review_sync.py"
+        child.parent.mkdir(parents=True)
+        child.write_text(CHILD)
+        env = {"HOME": str(root / "home"), "PATH": "/usr/bin:/bin:/usr/sbin:/sbin",
+               "PYTHONDONTWRITEBYTECODE": "1", "FINANCE_DATA_ROOT": str(target.parent),
+               "FINANCE_S7_ROOT": str(S7), "FINANCE_SYNC_CODE_ROOT": str(root / "fake-sync"),
+               "FINANCE_CODE_ROOT": str(CANDIDATE), "FINANCE_SYNC_PYTHON": sys.executable,
+               "MARKET_FEATURE_STORE_DB": str(target), "REVIEW_SYNC_PLAN": "local",
+               "TEST_CANDIDATE": str(CANDIDATE), "TEST_MODE": mode, "TEST_TARGET": str(target)}
+        proc = subprocess.run([sys.executable, str(WRAPPER), "--date", DAY],
+                              cwd=root, env=env, capture_output=True, text=True, timeout=60)
+        (OUT / (mode + ".stdout.txt")).write_text(proc.stdout)
+        (OUT / (mode + ".stderr.txt")).write_text(proc.stderr)
+        after = hashlib.sha256(target.read_bytes()).hexdigest()
+        with duckdb.connect(str(target), read_only=True) as con:
+            latest = str(con.execute("SELECT MAX(trade_date) FROM fact_market_daily").fetchone()[0])
+            sentinel = con.execute("SELECT COUNT(*) FROM fixture_sentinel").fetchone()[0]
+            receipts = con.execute("SELECT COUNT(*) FROM ops_sync_run WHERE kind='nightly-review-sync'").fetchone()[0]
+        staged = target.with_name(target.name + ".staging").exists()
+        imported_candidate = f"candidate_db={CANDIDATE}/market_feature_store/db.py" in proc.stdout
+        good = imported_candidate and (
+            (mode == "success" and proc.returncode == 0 and latest == DAY and receipts == 1 and not staged)
+            or (mode != "success" and proc.returncode == 2 and latest == "2026-09-18" and not receipts
+                and staged and (sentinel == 2 if mode == "third_party" else before == after))
+        )
+        rows.append({"mode": mode, "passed": good, "exit_code": proc.returncode,
+                     "before_sha256": before, "after_sha256": after, "latest": latest,
+                     "target_sentinel_rows": sentinel, "target_receipts": receipts,
+                     "staging_retained": staged, "imported_candidate": imported_candidate})
+result = {"candidate": str(CANDIDATE), "staging_root": str(S7), "wrapper": str(WRAPPER),
+          "wrapper_sha256": hashlib.sha256(WRAPPER.read_bytes()).hexdigest(), "cases": rows,
+          "passed": sum(r["passed"] for r in rows), "production_used": False,
+          "boundary": "synthetic new-schema database plus fake collector; not real provider/full-copy validation"}
+(OUT / "result.json").write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n")
+print(json.dumps(result, ensure_ascii=False))
+raise SystemExit(0 if all(r["passed"] for r in rows) else 1)

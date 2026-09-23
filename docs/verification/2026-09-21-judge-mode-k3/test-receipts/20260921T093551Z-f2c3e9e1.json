@@ -1,0 +1,22 @@
+{
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "python_version": "3.12.13",
+  "dependency_fingerprint": "3328bed61f3e21ea",
+  "tree": "/Users/a77/.finance-runtime/finance-workspace-f2c3e9e1a24f",
+  "revision": "f2c3e9e1a24f42ae9b1d5a8cb9e501ababd1330a",
+  "branch": "HEAD",
+  "dirty": false,
+  "dirty_paths": [],
+  "worktree_dirty_total": 0,
+  "dependency_gate_bypassed": false,
+  "target": "/Users/a77/.finance-runtime/finance-workspace-f2c3e9e1a24f",
+  "counts": {
+    "passed": 12480,
+    "failed": 0,
+    "error": 0,
+    "skipped": 87
+  },
+  "failed_ids": [],
+  "exit_status": 0,
+  "finished_at": "2026-09-21T09:35:51+00:00"
+}

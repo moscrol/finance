@@ -1,0 +1,55 @@
+{
+  "revision": "2ea6c3db01a062b9c623498df1b60edfbafe582b",
+  "status": "BLOCKED",
+  "python": {
+    "exit_status": 1,
+    "counts": {
+      "passed": 12454,
+      "failed": 2,
+      "error": 8,
+      "skipped": 85
+    },
+    "xfail_terminal": 2,
+    "junit_elements": {
+      "testcases": 12548,
+      "failure_elements": 2,
+      "error_elements": 8,
+      "skip_elements": 87
+    },
+    "raw_receipt": {
+      "source": "/Users/a77/.finance-runtime/test-receipts/20260921T084101Z-2ea6c3db.json",
+      "sha256": "293f872201ba61653d4fc1af79e0f29c50abb770e15a551a1a2a1afba604ad0f",
+      "counts": {
+        "passed": 12454,
+        "failed": 2,
+        "error": 8,
+        "skipped": 85
+      },
+      "exit_status": 1
+    },
+    "all_failure_error_elements_contain_enospc": true,
+    "initial_aggregator_exit": 1,
+    "aggregator_note": "failure lifecycle can create both failure and teardown error elements; initial one-case-one-status assertion failed. Preserve raw process rc1/receipt/JUnit; no override or green reconciliation."
+  },
+  "other_leaves": {
+    "frontend": {
+      "exit_code": 0,
+      "commands": 1
+    },
+    "registry": {
+      "exit_code": 0,
+      "commands": 5
+    },
+    "boundaries": {
+      "exit_code": 0,
+      "commands": 3
+    }
+  },
+  "spec": "PASS_WITH_ROOT_QC",
+  "quality": "BLOCKED_EXIT1_NO_REPORT",
+  "manual_collection": false,
+  "merged": false,
+  "nightly_deployed": false,
+  "diagnostic_only": "25P in two disk-failed modules after reclamation; does not replace failed full run",
+  "quality_note": "10 requests, 260.418s, process exit1, stderr empty, truncated at message_update. No report/verdict. Disk exhaustion correlated in time; cause NOT proven. No restart/fallback."
+}

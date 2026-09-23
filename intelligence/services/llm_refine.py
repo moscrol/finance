@@ -74,7 +74,7 @@ MIN_VIABLE_LLM_SECONDS = float(os.environ.get("LLM_MIN_VIABLE_SECONDS", "15"))
 # 因为一个不被兑现的值推不出任何东西。
 DEFAULT_SYNTHESIS_MAX_TOKENS = int(os.environ.get("LLM_SYNTHESIS_MAX_TOKENS", "3000"))
 DEFAULT_SYNTHESIS_MAX_CHARS = int(os.environ.get("LLM_SYNTHESIS_MAX_CHARS", "16000"))
-_ALLOWED_FINISH_REASONS = {"stop", "length", "content_filter", "tool_calls", "function_call"}
+_ALLOWED_FINISH_REASONS = {"stop", "length", "max_tokens", "content_filter", "tool_calls", "function_call"}
 
 # 每个出站请求都必须自报身份。不设时 urllib 会发 ``Python-urllib/3.12``，
 # 而中转/网关普遍把那个默认值当作脚本流量拦掉——实测同一把 key、同一个 URL、
@@ -1424,13 +1424,18 @@ def _post_chat_message_stream(
     assembled = calls.assembled()
     if assembled:
         message["tool_calls"] = assembled
-    if finish_reason is not None:
-        message["_finish_reason"] = finish_reason
+    # EOF / [DONE] closes transport, not model generation. Keep the received
+    # content and usage, but never pass a known-incomplete stream as legacy.
+    message["_finish_reason"] = finish_reason or "missing_finish_reason"
     if usage is not None:
         message["_usage"] = usage
     message["_served_model"] = served_model
     attempt.observe_result(message)
-    _record_llm_call("chat_tools_stream", provider, "success", started, attempt=attempt)
+    _record_llm_call(
+        "chat_tools_stream", provider, "success" if finish_reason else "failed", started,
+        "" if finish_reason else "incomplete_model_response:missing_finish_reason",
+        attempt=attempt,
+    )
     return message
 
 
@@ -1474,7 +1479,11 @@ def _post_chat_message(
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             body = json.loads(resp.read().decode("utf-8"))
             attempt.observe_response(body, resp)
-        message = dict(body["choices"][0]["message"])
+        choice = body["choices"][0]
+        message = dict(choice["message"])
+        finish_reason = _stable_finish_reason(choice.get("finish_reason"))
+        if finish_reason is not None:
+            message["_finish_reason"] = finish_reason
         attempt.observe_result(message)
     except Exception as exc:
         attempt.observe_response(response=exc)
