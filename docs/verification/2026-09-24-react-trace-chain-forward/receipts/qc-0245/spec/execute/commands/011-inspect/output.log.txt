@@ -1,0 +1,3 @@
+rg: def _model_projection: No such file or directory (os error 2)
+rg: offset: No such file or directory (os error 2)
+rg: next_offset: No such file or directory (os error 2)

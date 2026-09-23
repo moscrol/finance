@@ -1,0 +1,52 @@
+"""QC probe C2 (fixed): invalid date raises the designed typed error with a safe message.
+
+Original test_qc_c2_diagnostics.py::test_bad_time_range called ResearchToolRegistry.execute
+directly; invalid arguments are designed to raise InvalidResearchToolArguments from
+prepare(), which the episode runtime converts to structured tool feedback (see C3 probe).
+This fixed probe asserts the raise layer directly: typed error, safe message, no path leak.
+"""
+import sys
+from dataclasses import replace
+from uuid import uuid4
+
+sys.path.insert(0, "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/candidate/finance-workspace-private")
+
+import pytest
+
+from intelligence.services import episode_tools
+from intelligence.services.research_tool_registry import (
+    InvalidResearchToolArguments, ResearchToolRegistry,
+)
+from intelligence.tests.test_agent_episode import _context, _frame
+
+
+def _setup(tmp_path):
+    frame = _frame()
+    context = replace(
+        _context(frame, allowed_capabilities=("finance_query",)),
+        trace_parent_id=uuid4().hex,
+    )
+    registry = episode_tools.build_episode_registry(
+        frame, context, finance_root=tmp_path, knowledge_wiki=tmp_path / "wiki",
+    )
+    return ResearchToolRegistry((registry.resolve("finance_query"),)), context
+
+
+def test_bad_time_range_is_rejected_safely(tmp_path):
+    registry, context = _setup(tmp_path)
+    with pytest.raises(InvalidResearchToolArguments) as excinfo:
+        registry.execute(
+            "finance_query",
+            {
+                "dataset": "market_daily", "dimensions": ["trade_date"],
+                "metrics": ["stage_day"],
+                "time_range": {"start": "not-a-date", "end": "2026-07-21"},
+            },
+            context=context, step_id=uuid4().hex,
+        )
+    message = str(excinfo.value)
+    assert "ISO date" in message
+    # safe structured diagnostic: no filesystem path, no fabricated observation
+    assert str(tmp_path) not in message
+    assert "/" not in message
+    assert excinfo.value.code == "invalid_arguments"

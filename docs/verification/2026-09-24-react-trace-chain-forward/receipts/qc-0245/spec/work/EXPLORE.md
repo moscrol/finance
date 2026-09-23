@@ -1,0 +1,88 @@
+Explore stage for PR #832 / #81 spec review. Read claims.md and source.diff; confirmed by source read that C6's _repair_dangling_condition_references is wired into the real repair exit in SemanticEpisodeVerifier._repair, ordered after _drop_rejected_sentences and before _restore_lost_observations, and scoped to labels (升级条件/降级条件) actually deleted in the same pass with no surviving definition. Wrote 8 independent pytest probes under spec/work/probes covering C1 (strip_evidence_ordinals masks E refs but keeps numeric facts), C2 (finance_query validation_diagnostic sanitizes identifiers, no arbitrary text/paths), C3 (invalid finance_query args feed back into the same episode with sockets/DB denied; borrows author fixtures _frame/_context/_registry/_runner/_finish_turn/_tool_turn and ScriptedModel from intelligence/tests/test_agent_episode_progress.py — expectations derived from claims, not copied), C4 (frozen nested MappingProxyType recorded without mutation; unknown objects raise TypeError unconditionally), C5 (absolute sample row identity across pages via enumerate start=offset, offset/next_offset in metadata, final-page next_offset=None, truncated hint), C6 (unconditional asserts: orphaned count removed, surviving definition blocks removal, unrelated prose/numbers survive, regex label scope narrow). No tests executed in this stage per tool policy; all probes are written but unexecuted, so no claim is marked verified.
+
+```json
+{
+  "claims": [
+    {
+      "evidence": [
+        "probe written: spec/work/probes/test_c1_strip_ordinals.py (E2/E3 masked, numeric facts 12.5/3%/4 kept)"
+      ],
+      "id": "C1",
+      "note": "probe written from claim; execution deferred to execute stage",
+      "status": "not_verified"
+    },
+    {
+      "evidence": [
+        "probe written: spec/work/probes/test_c2_finance_query_diagnostics.py (sanitized identifier, known-message passthrough, no traceback/newline)"
+      ],
+      "id": "C2",
+      "note": "probe written; not executed in explore stage",
+      "status": "not_verified"
+    },
+    {
+      "evidence": [
+        "probe written: spec/work/probes/test_c3_repair_feedback.py (invalid finance_query args, sockets denied, same-episode completion)"
+      ],
+      "id": "C3",
+      "note": "borrows author fixtures _frame/_context/_registry/_runner/_finish_turn/_tool_turn/ScriptedModel from intelligence/tests/test_agent_episode_progress.py; not executed",
+      "status": "not_verified"
+    },
+    {
+      "evidence": [
+        "probes written: test_c4_research_progress_mapping.py (nested MappingProxyType recorded, no mutation) and test_c4b_unknown_object_rejected.py (pytest.raises TypeError)"
+      ],
+      "id": "C4",
+      "note": "probe written; not executed",
+      "status": "not_verified"
+    },
+    {
+      "evidence": [
+        "probe written: spec/work/probes/test_c5_history_paging.py (absolute row ids [2,3] on page 2, metadata offset/next_offset, final-page None)"
+      ],
+      "id": "C5",
+      "note": "probe written; not executed",
+      "status": "not_verified"
+    },
+    {
+      "evidence": [
+        "probes written: test_c6_dangling_repair_basic.py and test_c6_repair_pipeline_order.py (unconditional asserts: orphaned count removed, surviving definition blocks removal, label-scoped regex, pipeline order with _restore_lost_observations preserving 100.5)"
+      ],
+      "id": "C6",
+      "note": "wiring confirmed by source read: _repair calls _drop_rejected_sentences -> _repair_dangling_condition_references -> _restore_lost_observations; probes not executed",
+      "status": "not_verified"
+    }
+  ],
+  "findings": [
+    "Explore stage complete: read claims.md and source.diff in full, verified C6 wiring location and C5 projection code by source read, wrote 8 independent pytest probes covering all claims C1-C6.",
+    "C6 exemption is narrowly scoped to 升级条件/降级条件 labels and only when the definition was deleted in this repair and has no surviving definition (deleted_labels - surviving_labels); probe asserts other labels (判断/触发/条件) and bare counts do not match.",
+    "C5 paging: enumerate(..., start=payload['offset']) gives absolute row ids; next_offset=None on final page; _result metadata and read_history_result path carry offset.",
+    "All probes are qualification-level only: syntax + nontrivial assertions; no behavior proof until the execute stage runs pytest."
+  ],
+  "limits": [
+    "No tests executed in explore stage (tool policy); all claims remain not_verified pending execute-stage runs of the 8 probe files.",
+    "C3 probe borrows author fixtures from test_agent_episode_progress.py; this dependency is noted and the expected outcomes were derived from the claim, not copied from author assertions.",
+    "test_c6_repair_pipeline_order.py exercises the internal helper sequence, not the full SemanticEpisodeVerifier._repair entry; full-path verification deferred to execute stage (possibly via author tests test_condition_reference_seams.py).",
+    "Budget nearly exhausted (4 normal requests left at last host report); no author-suite baseline runs were attempted in this stage."
+  ],
+  "probe_files": [
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0245/spec/work/probes/test_c1_strip_ordinals.py",
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0245/spec/work/probes/test_c2_finance_query_diagnostics.py",
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0245/spec/work/probes/test_c3_repair_feedback.py",
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0245/spec/work/probes/test_c4_research_progress_mapping.py",
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0245/spec/work/probes/test_c4b_unknown_object_rejected.py",
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0245/spec/work/probes/test_c5_history_paging.py",
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0245/spec/work/probes/test_c6_dangling_repair_basic.py",
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0245/spec/work/probes/test_c6_repair_pipeline_order.py"
+  ],
+  "summary": "Explore stage for PR #832 / #81 spec review. Read claims.md and source.diff; confirmed by source read that C6's _repair_dangling_condition_references is wired into the real repair exit in SemanticEpisodeVerifier._repair, ordered after _drop_rejected_sentences and before _restore_lost_observations, and scoped to labels (升级条件/降级条件) actually deleted in the same pass with no surviving definition. Wrote 8 independent pytest probes under spec/work/probes covering C1 (strip_evidence_ordinals masks E refs but keeps numeric facts), C2 (finance_query validation_diagnostic sanitizes identifiers, no arbitrary text/paths), C3 (invalid finance_query args feed back into the same episode with sockets/DB denied; borrows author fixtures _frame/_context/_registry/_runner/_finish_turn/_tool_turn and ScriptedModel from intelligence/tests/test_agent_episode_progress.py — expectations derived from claims, not copied), C4 (frozen nested MappingProxyType recorded without mutation; unknown objects raise TypeError unconditionally), C5 (absolute sample row identity across pages via enumerate start=offset, offset/next_offset in metadata, final-page next_offset=None, truncated hint), C6 (unconditional asserts: orphaned count removed, surviving definition blocks removal, unrelated prose/numbers survive, regex label scope narrow). No tests executed in this stage per tool policy; all probes are written but unexecuted, so no claim is marked verified.",
+  "verdict": "STAGE_COMPLETE",
+  "stage": "explore",
+  "axis": "spec",
+  "revision": "f7d525ca0bdc33df2bbbed96bdb8a8af3b58ddf0",
+  "baseline": "3bb81b9638f97b4773ce0f338df3a505b7c0162f",
+  "complete": true,
+  "delivery_gaps": [],
+  "test_runs": [],
+  "host_bound": true
+}
+```

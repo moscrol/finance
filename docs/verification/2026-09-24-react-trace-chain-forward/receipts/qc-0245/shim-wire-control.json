@@ -1,0 +1,33 @@
+{
+  "status": "PASS",
+  "model_requests": 0,
+  "fake_upstream_requests": 1,
+  "checks": [
+    {
+      "label": "missing_thinking",
+      "status": 422
+    },
+    {
+      "label": "nominal_off",
+      "status": 422
+    },
+    {
+      "label": "default_max_effort",
+      "status": 422
+    },
+    {
+      "label": "wrong_token_field",
+      "status": 422
+    },
+    {
+      "label": "excess_tokens",
+      "status": 422
+    },
+    {
+      "label": "native_low",
+      "status": 200
+    }
+  ],
+  "original_body_preserved": true,
+  "rejected_before_quota_or_external_io": true
+}

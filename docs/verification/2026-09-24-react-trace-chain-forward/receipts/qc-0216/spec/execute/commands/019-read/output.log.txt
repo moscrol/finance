@@ -1,0 +1,98 @@
+"""PR832 spec probe 1 (C5): history pagination identity, offset/next_offset, hints.
+
+Independent assertions derived from claims, not from author test expectations.
+"""
+from __future__ import annotations
+
+import re
+
+from intelligence.services.historical_research.episode import _model_projection, _result
+
+
+def _payload(offset: int, preview: list[dict], *, total: int, returned: int) -> dict:
+    return {
+        "query_id": "qid-probe-c5",
+        "operation": "find_analogues",
+        "status": "ok",
+        "total_matched": total,
+        "returned_count": returned,
+        "truncated": True,
+        "offset": offset,
+        "preview": preview,
+        "spec": {"operation": "find_analogues", "start": "2025-01-01", "end": "2025-12-31"},
+    }
+
+
+def _sample_ids(projection) -> list:
+    """Absolute sample identity of every sample card, parsed from detail blocks."""
+    ids = []
+    for title, detail, _date in projection:
+        if not title.startswith("历史观察样本"):
+            continue
+        found = re.search(r'"sample":\s*("?[^,"}]+"?)', detail)
+        assert found is not None, f"sample card without sample identity: {title} :: {detail!r}"
+        ids.append(found.group(1).strip('"'))
+    return ids
+
+
+def test_projection_sample_identity_is_absolute_not_page_relative():
+    page2 = _payload(25, [{"entity_code": "801010.SI"}, {"entity_code": "801030.SI"}],
+                     total=60, returned=2)
+    ids = _sample_ids(_model_projection(page2, "ref-p2"))
+    # Claim: sample is a row in the immutable result, from 0, not reset per page.
+    assert ids == ["25", "26"], ids
+
+
+def test_same_row_keeps_identity_across_pages():
+    row = {"entity_code": "801050.SI", "trade_date": "2025-06-02"}
+    first = _sample_ids(_model_projection(_payload(0, [row], total=60, returned=1), "r"))
+    second = _sample_ids(_model_projection(_payload(1, [row], total=60, returned=1), "r"))
+    assert first == ["0"] and second == ["1"]
+    # The identity must not depend on which page carried the row.
+    proj_a = _model_projection(_payload(3, [row], total=60, returned=1), "r")
+    assert _sample_ids(proj_a) == ["3"]
+
+
+def test_denominator_card_exposes_offset_and_next_offset():
+    projection = _model_projection(_payload(25, [], total=60, returned=25), "ref")
+    head = projection[0][1]
+    assert re.search(r'"offset":\s*25', head), head
+    assert re.search(r'"next_offset":\s*50', head), head
+
+
+def test_result_next_offset_math_and_final_page_null():
+    mid = _result(_payload(5, [], total=60, returned=25), result_ref="ref", offset=5)
+    assert mid.telemetry["offset"] == 5
+    assert mid.telemetry["next_offset"] == 30
+    assert mid.trace.status == "success"
+
+    final = _result(_payload(50, [], total=60, returned=10), result_ref="ref", offset=50)
+    assert final.telemetry["next_offset"] is None
+
+    boundary = _result(_payload(35, [], total=60, returned=25), result_ref="ref", offset=35)
+    assert boundary.telemetry["next_offset"] is None  # page_end == total -> last page
+
+    empty = _result(_payload(58, [], total=60, returned=0), result_ref="ref", offset=58)
+    assert empty.telemetry["next_offset"] is None  # no rows -> not 0
+
+
+def test_observation_carries_pagination_and_window_hints():
+    res = _result(_payload(0, [], total=60, returned=25), result_ref="ref-h", offset=0)
+    obs = res.observation
+    assert "next_offset" in obs
+    assert "null" in obs and "末页" in obs
+    assert "跨页不重置" in obs  # absolute row numbering hint
+    assert re.search(r'"next_offset":\s*25', obs), obs
+
+
+def test_independent_key_stays_query_id_across_pages():
+    a = _result(_payload(0, [], total=60, returned=25), result_ref="ra", offset=0)
+    b = _result(_payload(25, [], total=60, returned=25), result_ref="rb", offset=25)
+    for res in (a, b):
+        assert res.evidence, "projection must yield evidence blocks"
+        assert {ev.independent_key for ev in res.evidence} == {"qid-probe-c5"}
+    # Page 2 blocks must cite absolute sample 25+, never restart at 0.
+    joined = "\n".join(ev.detail for ev in b.evidence)
+    assert re.search(r'"sample":\s*25', joined) or not any(
+        ev.title.startswith("历史观察样本") for ev in b.evidence
+    )

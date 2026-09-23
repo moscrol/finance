@@ -1,0 +1,77 @@
+            "spec",
+            "feature_definitions",
+            "analysis_definition",
+            "window_binding",
+        )
+        if key in payload
+    }
+    metadata.update(
+        result_ref=result_ref,
+        research_only=True,
+        decision_eligible=False,
+        promotion_eligible=False,
+    )
+    query_id = str(payload.get("query_id", ""))
+    projection = _model_projection(payload, result_ref)
+    metadata["projected_evidence_count"] = len(projection)
+    spec = payload.get("spec", {})
+    scope = " ".join(str(value) for value in (
+        ",".join(spec.get("entity_codes", [])[:2]), spec.get("start"), spec.get("end")
+    ) if value)
+    evidence = [
+        AgentEvidence(
+            tool=tool,
+            # Citation UI deduplicates by title/source/date. A block is a public
+            # observation, not an independent sample; independent_key stays qid.
+            title=f"{title}｜{query_id[:8]}·{index + 1}｜{scope}".rstrip("｜"),
+            detail=detail,
+            source="本地历史研究 · 可复算原件",
+            internal_locator=result_ref,
+            source_date=source_date,
+            evidence_tier="L4_market_signal",
+            freshness="historical",
+            independent_key=query_id,
+        )
+        for index, (title, detail, source_date) in enumerate(projection)
+    ]
+    return ToolRunResult(
+        evidence=tuple(evidence),
+        observation="探索结果，未认证规律；完整分母独立于投影条数。"
+        + _compact({"result_ref": result_ref, "query_id": query_id,
+                    "total_matched": payload.get("total_matched"), "returned_count": payload.get("returned_count"),
+                    "truncated": payload.get("truncated"),
+                    "offset": offset, "next_offset": payload["next_offset"],
+                    "projected_evidence_count": len(projection)})
+        + "样本以完整JSON语义块展示，同result_ref内sample是原件行号（从0起），跨页不重置；特征定义卡给出真实rule/unit/version。"
+        "大成员、覆盖明细和超长字段仅在完整artifact；需更多行用read_history_result按next_offset分页，null表示已到末页。"
+        "需未展示行请用read_history_result分页；补查字段可明确实体/特征但保持所选窗口，仍不足就说明缺口或由用户查看原件，不把null当0。",
+        trace=ProviderTrace(
+            provider="duckdb_history_query",
+            capability="finance_query",
+            status="success",
+            result_count=len(evidence),
+            detail=query_id,
+        ),
+        gaps=tuple(str(item) for item in payload.get("gaps", ())),
+        dataset="historical_research",
+        caliber="retrospective_research_only",
+        payload_field_names=tuple(sorted(payload)),
+        payload_sha256=query_id,
+        telemetry=metadata,
+    )
+
+
+def record_history_delivery(observation, model_content: str, *, context) -> None:
+    """Acknowledge a successful result only after its model message was appended.
+
+    Worker completion and artifact reads are not delivery. In particular, a
+    concurrent sibling cannot use an unread candidate from the same tool batch.
+    No new store: this annotates the Episode's existing execution metadata.
+    """
+    if observation.tool not in {"history_query", "read_history_result"}:
+        return
+    metadata = observation.telemetry or {}
+    ref, query_id = metadata.get("result_ref"), metadata.get("query_id")
+    if not ref or not query_id or observation.trace.status != "success":
+
+[truncated; total lines=971, selected=399:473; next_offset=474]

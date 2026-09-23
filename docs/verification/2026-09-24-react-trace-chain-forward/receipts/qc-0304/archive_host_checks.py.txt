@@ -1,0 +1,38 @@
+"""Freeze completed host checks without mixing them with reviewer receipts."""
+import hashlib
+import json
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent
+DOCS = Path('/Users/a77/fwp-wt-react-trace-chain-docs-0923')
+DEST = DOCS/'docs/verification/2026-09-24-react-trace-chain-forward/receipts/host-engineering'
+DEST.mkdir()
+prior = ROOT.parent/'pr832-glm-qc-20260924-0148'
+repair = ROOT.parent/'react-trace-c6-list-fix-20260924'
+selected = []
+for source, tag in [(ROOT/'engineering/light','current-light'),(ROOT/'engineering/mutations','current-mutations'),
+                    (prior/'engineering/light','prior-light'),(prior/'engineering/mutations','prior-mutations'),
+                    (repair/'red','repair-red'),(repair/'green','repair-green')]:
+    selected.extend((p,Path(tag)/p.name) for p in source.iterdir() if p.is_file())
+for base, tag, names in [(ROOT,'scripts',['prepare_engineering_checks.py','run_light_gates.py','mutate_seams_v3.py','run_engineering.py']),
+                          (repair,'scripts',['run_check.py']),
+                          (prior/'engineering','prior-resource',['status.json','resource-admission.jsonl','host-stop.json'])]:
+    selected.extend((base/name,Path(tag)/name) for name in names)
+entries = []
+for source, path in selected:
+    if path.suffix in {'.py','.log'}:
+        path = Path(str(path)+'.txt')
+    data = source.read_bytes()
+    dest = DEST/path
+    dest.parent.mkdir(parents=True,exist_ok=True)
+    with dest.open('xb') as stream:
+        stream.write(data)
+    entries.append({'path':str(path),'source':str(source),'bytes':len(data),'sha256':hashlib.sha256(data).hexdigest()})
+manifest = {'classification':'HOST_AUTHOR_ENGINEERING_NOT_INDEPENDENT_QC','revision':'27034ce44ed41b1af0a570c2ccc534066a1656f6',
+            'prior_revision':'f7d525ca0bdc33df2bbbed96bdb8a8af3b58ddf0','files':entries,
+            'limits':['repair-red/green are before the product commit on explicitly dirty author tree, not clean full-scope receipts.',
+                      'current-light and current-mutations bind the committed clean candidate.',
+                      'prior-resource is a stopped wait for superseded head; no heavy test was launched.',
+                      'No full Python/frontend/E2E verdict is claimed in this host package.']}
+(DEST/'MANIFEST.json').write_text(json.dumps(manifest,ensure_ascii=False,indent=2)+'\n')
+print(json.dumps({'files':len(entries),'bytes':sum(e['bytes'] for e in entries),'dest':str(DEST)}))

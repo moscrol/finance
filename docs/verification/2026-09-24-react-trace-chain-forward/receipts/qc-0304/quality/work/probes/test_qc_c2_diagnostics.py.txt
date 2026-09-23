@@ -1,0 +1,63 @@
+"""QC probe C2: finance_query validation errors are structured diagnostics."""
+import sys
+from dataclasses import replace
+from uuid import uuid4
+
+sys.path.insert(0, "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/candidate/finance-workspace-private")
+
+import duckdb
+
+from intelligence.services import episode_tools
+from intelligence.services.research_tool_registry import ResearchToolRegistry
+from intelligence.tests.test_agent_episode import _context, _frame
+
+
+def _setup(tmp_path):
+    path = tmp_path / "db" / "market_feature_store.duckdb"
+    path.parent.mkdir()
+    with duckdb.connect(str(path)) as con:
+        con.execute(
+            "CREATE TABLE fact_market_daily "
+            "(trade_date DATE, stage_day INTEGER)"
+        )
+    frame = _frame()
+    context = replace(
+        _context(frame, allowed_capabilities=("finance_query",)),
+        trace_parent_id=uuid4().hex,
+    )
+    registry = episode_tools.build_episode_registry(
+        frame, context, finance_root=tmp_path, knowledge_wiki=tmp_path / "wiki",
+    )
+    return ResearchToolRegistry((registry.resolve("finance_query"),)), context
+
+
+def _execute(registry, context, arguments):
+    return registry.execute(
+        "finance_query", arguments, context=context, step_id=uuid4().hex,
+    )
+
+
+def test_validation_error_is_structured_not_arbitrary(tmp_path):
+    registry, context = _setup(tmp_path)
+    # invalid: stage_day is a dimension, not a metric
+    res = _execute(registry, context, {
+        "dataset": "market_daily", "dimensions": ["trade_date"],
+        "metrics": ["stage_day"],
+        "time_range": {"start": "2026-07-21", "end": "2026-07-21"},
+    })
+    assert res.trace.status == "parse_error"
+    assert not res.evidence
+    assert "dimension" in res.observation
+    assert "/" not in res.observation.split("dimension")[0] or True  # no path leak check below
+    assert str(tmp_path) not in res.observation, res.observation
+
+
+def test_bad_time_range_is_rejected_safely(tmp_path):
+    registry, context = _setup(tmp_path)
+    res = _execute(registry, context, {
+        "dataset": "market_daily", "dimensions": ["trade_date"],
+        "metrics": ["stage_day"],
+        "time_range": {"start": "not-a-date", "end": "2026-07-21"},
+    })
+    assert res.trace.status == "parse_error"
+    assert not res.evidence

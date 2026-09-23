@@ -1,0 +1,29 @@
+{
+  "classification": "STOPPED_UNSTARTED_RESOURCE_WAIT_NOT_A_TEST_RESULT",
+  "files": [
+    {
+      "path": "status.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/engineering/status.json",
+      "bytes": 266,
+      "sha256": "5f8117b0b93118939df14ce8fd94647f161a94ac1be7b3f1996ca632cc4ac652"
+    },
+    {
+      "path": "resource-admission.jsonl",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/engineering/resource-admission.jsonl",
+      "bytes": 54890,
+      "sha256": "989dec5f025f54838aa9565c943b3a73a6172cc82e816aec7d47415816407c15"
+    },
+    {
+      "path": "host-stop.json",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/engineering/host-stop.json",
+      "bytes": 2000,
+      "sha256": "d46cf3f90601b847cb8970242b3a326f244243e11bef0738ed8dd7de0e4a61b3"
+    },
+    {
+      "path": "controller.log.txt",
+      "source": "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/engineering/controller.log.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ]
+}

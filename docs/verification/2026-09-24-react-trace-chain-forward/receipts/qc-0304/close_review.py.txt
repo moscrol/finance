@@ -1,0 +1,54 @@
+"""Record the root decision after every finite model phase has stopped."""
+from datetime import datetime, timezone
+import hashlib
+import json
+from pathlib import Path
+import subprocess
+
+ROOT = Path(__file__).resolve().parent
+batch = json.loads((ROOT/'batch.json').read_text())
+assert batch['status'] == 'BLOCKED_STAGE' and batch['finished_at'] and batch['requests'] == 85
+assert len(batch['stages']) == 7
+for stage in batch['stages']:
+    counts = stage['shim_counts']
+    assert counts['shutdown_complete'] and counts['active'] == 0
+    assert counts['completed'] == counts['dispatched'] == counts['requests'] and counts['failed'] == 0
+    for line in (ROOT/stage['axis']/(stage['stage']+'-shim')/'requests.jsonl').read_text().splitlines():
+        request = json.loads(line)
+        # The relay records multiple lifecycle rows; validate native shape on admissions.
+        if 'thinking' in request:
+            assert request['thinking'] == {'type':'enabled','clear_thinking':False}
+            assert request['reasoning_effort'] == 'low' and 1 <= request['max_tokens'] <= 8192
+            assert request['max_completion_tokens_present'] is False
+for tree in [ROOT/'candidate/finance-workspace-private',Path('/Users/a77/fwp-wt-react-trace-chain-0923')]:
+    assert subprocess.check_output(['git','-C',str(tree),'rev-parse','HEAD'],text=True).strip() == '27034ce44ed41b1af0a570c2ccc534066a1656f6'
+    assert not subprocess.check_output(['git','-C',str(tree),'status','--porcelain'])
+report = {
+    'recorded_at':datetime.now(timezone.utc).isoformat(),'revision':'27034ce44ed41b1af0a570c2ccc534066a1656f6',
+    'baseline':'3bb81b9638f97b4773ce0f338df3a505b7c0162f',
+    'verdict':'BLOCKED_QUALITY_C3_C5_COVERAGE_AND_STAGE_DELIVERY_WITH_SPEC_ERRATA',
+    'model_requests_in_batch':85,'model_requests_added':0,'current_authorization_dispatched_total':209,
+    'spec':{'model_verdict':'PASS_WITH_LIMITS','host_accepted_as_complete_independent_signoff':False,
+            'limits':['C1 file claimed fully green but includes one real E5x boundary failure; the model does mention this boundary in limits.',
+                      'Failure mapping mixes original005 with later019 truncated fixture error. Preserve the report and exact per-case errata.',
+                      'Actual C6 corrected independent probe has five passing tests, including the public verify exit with an author structural fixture.']},
+    'quality':{'model_execute_final_delivered':False,'report_stage_started':False,
+               'raw_last_submission':'quality/execute/commands/035-submit_report/request.json',
+               'limits':['Raw submission admits C3 not_verified and C5 full read/failure-registration path untested.',
+                         'C3 final probe never reaches its feedback assertion; host unchanged replay confirms both calls fail argument validation, zero tool dispatch, and malformed finish causes recovery failure.',
+                         'Execution submitted PASS_WITH_LIMITS even though the allowed stage verdicts are STAGE_COMPLETE/BLOCKED; guard rejected, then closeout budget refused more requests.',
+                         'The tool schema advertised final verdicts at execute despite its later guard; offline stage-specific schema control fixes this contradiction, not missing product coverage.']},
+    'three_accounts':{'spec_control_exit':1,'quality_control_exit':1,'spec_author_passed':232,'quality_author_passed':232,
+                      'probes':'See exact per-run/per-case host-probe-audit.json; no summed passing numerator across reruns.'},
+    'host_audit_sha256':hashlib.sha256((ROOT/'host-probe-audit.json').read_bytes()).hexdigest(),
+    'offline_next_tool_fix':str(ROOT.parent/'react-trace-stage-schema-control-20260924/result.json'),
+    'limits':['No new model batch automatically started; no budget restored.',
+              'This root verdict is not independent model approval and does not sign incomplete axes.',
+              'Provider native wire is verified for this batch and no stream failures occurred; n=2 is not reliability certification.',
+              'Full engineering controller is separate and its status is not promoted here.'],
+    'natural_finance_requests':0,'merged':False,'deployed':False,
+}
+with (ROOT/'host-review.json').open('x') as stream:
+    json.dump(report,stream,ensure_ascii=False,indent=2)
+    stream.write('\n')
+print(json.dumps({'verdict':report['verdict'],'requests':85,'authorization_total':209}))

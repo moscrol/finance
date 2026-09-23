@@ -1,0 +1,14 @@
+22:def _project(observation):
+51:def _payload(rows, *, operation="compute_history"):
+58:        "truncated": False,
+59:        "preview": rows,
+167:def test_all_preview_samples_survive_without_equating_cards_to_returned_rows():
+172:    payload.update(total_matched=40, truncated=True)
+193:         "entity_codes": ["A.FP"], "preview_limit": 1},
+211:    assert scope["truncated"] is (len(samples) < 2)
+228:         "entity_codes": ["A.FP"], "preview_limit": 1},
+251:def test_query_initial_preview_advertises_the_next_page(tmp_path):
+256:         "entity_codes": ["A.FP"], "preview_limit": 1},
+297:    page = dict(payload, preview=rows[2:], returned_count=1, truncated=True)
+314:    assert scope["truncated"] is False
+342:    later_page = dict(deepcopy(first), preview=[{"entity_code": "B.FP", "trade_date": "2026-08-04", "sector": {"pct_chg": 2}}])

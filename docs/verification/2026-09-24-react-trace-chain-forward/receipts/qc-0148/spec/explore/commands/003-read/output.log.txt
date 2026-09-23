@@ -1,0 +1,402 @@
++    assert outcome.status == "partial" and outcome.stop_reason == "model_finish"
++    assert payload["draft"] in outcome.draft
++    assert [item.content_hash for item in outcome.evidence] == ["hash-q1"]
++    assert outcome.bindings[0].evidence_hashes == ("hash-q1",)
++    assert len(model.calls) == 3 and outcome.usage.tool_calls == 1
++    assert context.history_results == [] and call.to_dict() == before
++    errors = [e for e in outcome.events if e.kind == "tool_error"]
++    assert len(errors) == 1 and errors[0].payload["error"] == "invalid_arguments"
++    feedback = next(
++        json.loads(m["content"]) for m in model.calls[-1]["messages"]
++        if m.get("role") == "tool" and m.get("tool_call_id") == call.call_id
++    )
++    assert feedback["ok"] is False and feedback["error"] == "invalid_arguments"
++    assert feedback["detail"] == "end requires ISO date"
++    progress = _budget_blocks(model)[-1]["research_progress"]
++    assert progress["last_batch"][0]["result"] == "rejected"
++    assert progress["evidence_total"] == 1 and progress["stalled_batches"] == 1
++
++
+ def test_tool_error_after_success_keeps_evidence_and_reports_error(monkeypatch: pytest.MonkeyPatch) -> None:
+     monkeypatch.delenv("WORKBENCH_RESEARCH_PROGRESS", raising=False)
+ 
+diff --git a/intelligence/tests/test_condition_reference_seams.py b/intelligence/tests/test_condition_reference_seams.py
+new file mode 100644
+index 000000000..5b52d835e
+--- /dev/null
++++ b/intelligence/tests/test_condition_reference_seams.py
+@@ -0,0 +1,127 @@
++"""Independent examples of deleting a reference, not its surviving observations.
++
++These are offline prose/verification contracts, not a natural-model quality gate.
++"""
++
++from __future__ import annotations
++
++import pytest
++
++from intelligence.services.episode_semantic_verifier import (
++    SemanticEpisodeVerifier,
++    _drop_rejected_sentences,
++    _numbered_sentences,
++    _repair_dangling_condition_references,
++)
++from intelligence.services.research_contract import ResearchDeadline
++from intelligence.tests.test_episode_semantic_verifier import _judge, _structural
++
++
++_DEFINITIONS = "升级条件：站稳20日线。降级条件：跌破前低。"
++
++
++def _repair(text: str) -> str:
++    return _repair_dangling_condition_references(
++        text, before=_DEFINITIONS, rejected_sentence_indexes=(1, 2)
++    )
++
++
++@pytest.mark.parametrize(
++    ("text", "expected"),
++    [
++        ("该股放量上攻，满足升级条件中的2条。", "该股放量上攻。"),
++        ("该股放量上攻；满足升级条件中的2条。", "该股放量上攻。"),
++        ("该股放量上攻，满足升级条件中的2条", "该股放量上攻"),
++        ("**满足升级条件中的2条**，量能配合。", "量能配合。"),
++        ("量能配合，**满足升级条件中的2条**。", "量能配合。"),
++        ("- **满足升级条件中的2条**，量能配合。", "- 量能配合。"),
++        ("满足升级条件中的2条；量能配合。", "量能配合。"),
++        ("量能配合，满足升级条件中的2条；值得跟踪。", "量能配合；值得跟踪。"),
++        ("目前不满足升级条件中的2条，需继续观察。", "需继续观察。"),
++        ("目前仍未满足升级条件中的2条，需继续观察。", "需继续观察。"),
++        ("目前并未满足升级条件中的2条，需继续观察。", "需继续观察。"),
++        ("当前满足升级条件中的2条，量能配合。", "量能配合。"),
++        ("当前仅已满足升级条件中的2条，量能配合。", "量能配合。"),
++        ("满足升级条件中的2条，但尚未满足降级条件中的1条，需观察。", "需观察。"),
++        ("量能配合，但尚未满足升级条件中的2条，需观察。", "量能配合，需观察。"),
++        ("**目前尚未满足升级条件中的2条**，需观察。", "需观察。"),
++        ("观察。满足升级条件中的2条。继续观察。", "观察。继续观察。"),
++        ("多头结构未破坏。目前尚未满足升级条件中的2条。", "多头结构未破坏。"),
++        ("多头结构未破坏。目前尚未满足升级条件中的2条，需继续观察。", "多头结构未破坏。需继续观察。"),
++        ("观察结果良好。当前满足升级条件中的2条。", "观察结果良好。"),
++        ("量能配合，暂时满足升级条件中的2条。", "量能配合。"),
++        ("量能配合；目前满足升级条件中的2条，需观察。", "量能配合；需观察。"),
++        ("- 量能配合。**目前尚未满足升级条件中的2条**。", "- 量能配合。"),
++        ("量能配合：目前满足升级条件中的2条，需观察。", "量能配合：需观察。"),
++        ("量能配合，截至目前满足升级条件中的2条。", "量能配合。"),
++        ("量能仅满足当前研究需要，满足升级条件中的2条。", "量能仅满足当前研究需要。"),
++        ("**当前观察良好**，满足升级条件中的2条。", "**当前观察良好**。"),
++        ("1. 满足升级条件中的2条，量能配合。", "1. 量能配合。"),
++        ("1. 满足升级条件中的2条。", ""),
++        ("**量能配合**，满足升级条件中的2条，**仍需观察**。", "**量能配合**，**仍需观察**。"),
++    ],
++)
++def test_removed_reference_heals_only_its_clause(text, expected):
++    assert _repair(text) == expected
++
++
++def test_surviving_definitions_use_the_same_sentence_boundaries_as_deletions():
++    retained = "升级条件：量能改善。降级条件：风险可控。已满足降级条件中的1条。"
++    before = _DEFINITIONS + "\n" + retained
++    assert [item["index"] for item in _numbered_sentences(before)] == [1, 2, 3, 4, 5]
++    draft = _drop_rejected_sentences(before, (1, 2))
++    assert draft == retained
++    assert _repair_dangling_condition_references(
++        draft, before=before, rejected_sentence_indexes=(1, 2)
++    ) == retained
++
++
++def test_retained_label_count_does_not_hide_later_orphaned_label_count():
++    retained = "降级条件：风险可控。\n已满足降级条件中的1条，且满足升级条件中的2条，需跟踪。"
++    assert _repair_dangling_condition_references(
++        retained, before=_DEFINITIONS + "\n" + retained, rejected_sentence_indexes=(1, 2)
++    ) == "降级条件：风险可控。\n已满足降级条件中的1条，需跟踪。"
++
++
++def test_untouched_lines_and_their_line_endings_are_preserved():
++    text = "# 观察\r\n\r\n该股放量上攻，满足升级条件中的2条。\r\n- **保留原文**\r\n"
++    assert _repair(text) == "# 观察\r\n\r\n该股放量上攻。\r\n- **保留原文**\r\n"
++
++
++@pytest.mark.parametrize(
++    "text",
++    [
++        "目前不满足升级条件中的2条，需观察。",
++        "**满足升级条件中的2条**，量能配合。",
++        "量能配合，满足升级条件中的2条。",
++    ],
++)
++def test_no_deleted_definition_means_no_prose_rewrite(text):
++    assert _repair_dangling_condition_references(
++        text, before=text, rejected_sentence_indexes=()
++    ) == text
++    assert _repair_dangling_condition_references(
++        text, before="普通条件：观察。" + text, rejected_sentence_indexes=(1,)
++    ) == text
++
++
++def test_repair_is_delivered_through_semantic_verifier_and_records_real_deletion():
++    judge = _judge(True)
++    frame, structural = _structural(
++        "升级条件：若涨停60家以上，则升级。\n"
++        "该股放量上攻。目前尚未**满足升级条件中的2条**。"
++    )
++    result = SemanticEpisodeVerifier(judge_fn=judge).verify(
++        frame=frame,
++        structurally_verified=structural,
++        deadline=ResearchDeadline.from_timeout(5),
++    )
++    assert result.judge_status == "repaired"
++    assert result.public_answer == "该股放量上攻。"
++    assert result.verified.outcome.draft == result.public_answer
++    assert len(judge.calls) == 1
++    assert result.sentence_verdicts
++    assert any(
++        row["sentence"].startswith("升级条件") and row["decision"] == "deleted"
++        for row in result.sentence_verdicts
++    )
+diff --git a/intelligence/tests/test_episode_semantic_verifier.py b/intelligence/tests/test_episode_semantic_verifier.py
+index 635d41ac8..0e1571933 100644
+--- a/intelligence/tests/test_episode_semantic_verifier.py
++++ b/intelligence/tests/test_episode_semantic_verifier.py
+@@ -34,6 +34,8 @@ from intelligence.services.episode_semantic_verifier import (
+     leftover_window_blocks_complete_attempt,
+     numeric_condition_unsupported,
+     semantic_judge_window_seconds,
++    _numbered_sentences,
++    _repair_dangling_condition_references,
+ )
+ from intelligence.services.episode_verifier import verify_episode_outcome
+ from intelligence.services.evidence_capabilities import (
+@@ -1254,6 +1256,112 @@ def test_local_gate_redacts_all_novel_numeric_conditions_in_one_pass() -> None:
+     ]
+ 
+ 
++def test_deleted_condition_definition_cannot_leave_a_count_backreference() -> None:
++    judge = _judge(True)
++    frame, structural = _structural(
++        "- 升级条件：若半导体连续2日保持双红且涨停60家以上，则升级。"
++        "- 当前满足：双红各1天、量能主线抱团——**满足升级条件中的2条，双红连续性尚未确立**。"
++    )
++
++    result = SemanticEpisodeVerifier(judge_fn=judge).verify(
++        frame=frame,
++        structurally_verified=structural,
++        deadline=ResearchDeadline.from_timeout(5),
++    )
++
++    assert result.status == "completed"
++    assert result.judge_status == "repaired"
++    assert "升级条件：" not in result.public_answer
++    assert "满足升级条件中的2条" not in result.public_answer
++    assert "当前满足：双红各1天、量能主线抱团，双红连续性尚未确立。" in result.public_answer
++    assert "满足升级条件中的2条" not in result.verified.outcome.draft
++
++
++def test_condition_count_backreference_is_unchanged_without_a_deleted_definition() -> None:
++    draft = "升级条件：若连续两日放量，则升级。当前满足升级条件中的1条。"
++
++    assert (
++        _repair_dangling_condition_references(
++            draft,
++            before=draft,
++            rejected_sentence_indexes=(),
++        )
++        == draft
++    )
++
++
++# 两条定义都被上游删掉，两个标签同时失联——同一行里先后出现两种计数的现实形状。
++_BOTH_CONDITIONS_DELETED = "升级条件：站稳20日线。降级条件：跌破前低。当前观察如下。"
++
++
++def _repair_with_both_conditions_deleted(draft: str) -> str:
++    rejected = tuple(
++        int(item["index"])  # type: ignore[arg-type]
++        for item in _numbered_sentences(_BOTH_CONDITIONS_DELETED)
++        if str(item["text"]).startswith(("升级条件", "降级条件"))
++    )
++    # 固定桩要自证前提：两条定义都得真被认出来，否则下面的断言测的是空集。
++    assert rejected == (1, 2)
++    return _repair_dangling_condition_references(
++        draft,
++        before=_BOTH_CONDITIONS_DELETED,
++        rejected_sentence_indexes=rejected,
++    )
++
++
++def test_dangling_count_is_removed_even_after_another_label_on_the_same_line() -> None:
++    # 按标签逐个 search 会在第一个不匹配的计数上停下，后面那个就永远删不掉。
++    repaired = _repair_with_both_conditions_deleted(
++        "已满足降级条件中的1条，且满足升级条件中的2条，需跟踪。"
++    )
++
++    assert "降级条件中的1条" not in repaired
++    assert "升级条件中的2条" not in repaired
++    assert repaired == "需跟踪。"
++
++
++def test_repair_drops_the_adverb_the_removed_count_left_stranded() -> None:
++    # 「尚未」的宾语就是那个计数，留着会读成「目前尚未，需继续观察」。
++    repaired = _repair_with_both_conditions_deleted(
++        "目前尚未满足升级条件中的3条，需继续观察。"
++    )
++
++    assert repaired == "需继续观察。"
++
++
++def test_repair_drops_a_line_whose_only_content_was_the_count() -> None:
++    # 删完只剩「结论：」和标点，整行丢弃比留个孤零零的冒号好。
++    repaired = _repair_with_both_conditions_deleted("结论：满足升级条件中的2条。")
++
++    assert repaired == ""
++
++
++def test_repair_keeps_the_list_marker_of_the_line_it_edits() -> None:
++    # ASCII 连字符在行首是列表符，不是破折号；吃掉它整条列表项就塌了。
++    repaired = _repair_with_both_conditions_deleted(
++        "- 满足升级条件中的2条，量能配合。"
++    )
++
++    assert repaired == "- 量能配合。"
++
++
++def test_repair_does_not_open_a_line_with_a_comma() -> None:
++    repaired = _repair_with_both_conditions_deleted(
++        "满足升级条件中的2条，量能配合。"
++    )
++
++    assert repaired == "量能配合。"
++
++
++def test_repair_does_not_double_a_comma_that_already_precedes_the_count() -> None:
++    # 主路径形状：计数夹在两个逗号之间，盲补逗号会得到「上攻，，值得跟踪」。
++    repaired = _repair_with_both_conditions_deleted(
++        "该股放量上攻，满足升级条件中的2条，值得跟踪。"
++    )
++
++    assert repaired == "该股放量上攻，值得跟踪。"
++
++
+ def test_meta_disclosure_rejection_is_exempted_and_sentence_survives() -> None:
+     # 2026-08-19 生产实锤：视角层按规则输出的披露句「KOL原文未覆盖8月盘面，
+     # 映射为推理层」被判成无证据外部事实，repair 把最有价值的边界声明删出
+diff --git a/intelligence/tests/test_finance_query_repair_feedback.py b/intelligence/tests/test_finance_query_repair_feedback.py
+new file mode 100644
+index 000000000..a87bd3d5f
+--- /dev/null
++++ b/intelligence/tests/test_finance_query_repair_feedback.py
+@@ -0,0 +1,204 @@
++"""Offline feedback delivery, not an autonomous model-quality acceptance test."""
++
++from dataclasses import replace
++import json
++from threading import Event
++from uuid import uuid4
++
++import duckdb
++import pytest
++
++from intelligence.runtime.agent_episode import ContinuousAgentEpisode
++from intelligence.services import episode_tools, finance_query
++from intelligence.services.agent_runtime import ModelToolCall, ModelTurn
++from intelligence.services.research_tool_registry import ResearchToolRegistry
++from intelligence.tests.test_agent_episode import _context, _finish_turn, _frame
++
++
++def _request(**overrides):
++    return {
++        "dataset": "market_daily",
++        "dimensions": ["trade_date"],
++        "metrics": ["stage_day"],
++        "time_range": {"start": "2026-07-21", "end": "2026-07-21"},
++        **overrides,
++    }
++
++
++def _setup(tmp_path, *, rows=True, table=True, max_steps=3):
++    path = tmp_path / "db" / "market_feature_store.duckdb"
++    path.parent.mkdir()
++    with duckdb.connect(str(path)) as con:
++        if table:
++            con.execute(
++                "CREATE TABLE fact_market_daily "
++                "(trade_date DATE, stage_day INTEGER, sh_index_pct_chg DOUBLE)"
++            )
++            if rows:
++                con.execute("INSERT INTO fact_market_daily VALUES ('2026-07-21', 3, 1.25)")
++    frame = _frame()
++    context = replace(
++        _context(frame, max_steps=max_steps, allowed_capabilities=("finance_query",)),
++        trace_parent_id=uuid4().hex,
++    )
++    registry = episode_tools.build_episode_registry(
++        frame, context, finance_root=tmp_path, knowledge_wiki=tmp_path / "wiki",
++    )
++    # Keep real query parsing, cutoff and runner, without unrelated prefetch/tools.
++    registry = ResearchToolRegistry((registry.resolve("finance_query"),))
++    return frame, context, registry, path
++
++
++def _execute(registry, context, arguments):
++    return registry.execute(
++        "finance_query", arguments, context=context, step_id=uuid4().hex,
++    )
++
++
++def test_error_empty_and_missing_table_are_distinct(tmp_path):
++    _, context, registry, path = _setup(tmp_path)
++    before = path.read_bytes()
++    invalid = _execute(registry, context, _request())
++    empty = _execute(registry, context, _request(
++        metrics=["index_return_pct"],
++        filters=[{"field": "stage_day", "op": "eq", "value": 99}],
++    ))
++    good = _execute(registry, context, _request(metrics=["index_return_pct"]))
++    assert invalid.trace.status == "parse_error"
++    assert "stage_day→market_daily.dimension" in invalid.observation
++    assert not invalid.evidence
++    assert empty.trace.status == "empty"
++    assert "重试提示" not in empty.observation
++    assert not empty.evidence
++    assert good.trace.status == "success"
++    assert len(good.evidence) == 1
++    assert "1.25" in good.observation
++    assert path.read_bytes() == before
++
++    missing_root = tmp_path / "missing"
++    missing_root.mkdir()
++    _, context, registry, _ = _setup(missing_root, table=False)
++    missing = _execute(registry, context, _request(metrics=["index_return_pct"]))
++    assert missing.trace.status == "request_error"
++    assert "数据源暂不可用" in missing.observation
++    assert "重试提示" not in missing.observation
++    assert "fact_market_daily" not in missing.observation
++    assert not missing.evidence
++
++
++@pytest.mark.parametrize("placement", ["metric", "dataset", "exception"])
++def test_validation_diagnostic_does_not_echo_arbitrary_prose(placement):
++    prose = "forbidden-prose: secret/path future market fact 99%"
++    arguments = _request()
++    message = prose
++    if placement == "metric":
++        arguments["metrics"] = [prose]
++        message = f"not a metric: {prose}"
++    elif placement == "dataset":
++        arguments["dataset"] = prose
++        message = f"unknown dataset: {prose}"
++    result = episode_tools._finance_query_failure_result(
++        finance_query.FinanceQuerySpec.from_arguments(arguments),
++        finance_query.FinanceQueryValidationError(message),
++    )
++    assert not result.evidence
++    assert result.observation == ""
++    assert len(result.diagnostics) == 1
++    diagnostic = result.diagnostics[0]
++    assert diagnostic.code == "invalid_query"
++    assert "forbidden-prose" not in diagnostic.message
++    assert "secret/path" not in diagnostic.message
++    assert "99%" not in diagnostic.message
++    assert "重试提示" in diagnostic.message
++
+
+[truncated; total lines=1050, selected=401:800; next_offset=801]

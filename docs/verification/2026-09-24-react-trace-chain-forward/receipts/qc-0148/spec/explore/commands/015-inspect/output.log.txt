@@ -1,0 +1,84 @@
+1548:                raise finance_query.FinanceQueryValidationError(
+1549-                    "finance query input was not parsed"
+1550-                )
+1551-            # 归一化要在所有判定之前，否则新鲜度判定读 spec.time_range 会读到 None。
+1552-            # normalize_spec 是幂等的，run() 内部还会再调一次，代价极小。
+1553-            normalized, normalization_notes = finance_query.normalize_spec(value)
+1554-            if frame.history_intent is not None and frame.history_intent.strict_window:
+1555-                from intelligence.services.historical_research.intent import assert_history_window
+1556-                intent = frame.history_intent
+1557-                window = normalized.time_range
+1558-                if window is None and intent.requested_start and intent.requested_end:
+1559-                    window = finance_query.TimeRange(date.fromisoformat(intent.requested_start), date.fromisoformat(intent.requested_end))
+1560-                    normalized = replace(normalized, time_range=window)
+1561-                    normalization_notes = (*normalization_notes, "已按用户明确限定的历史窗口查询")
+1562-                assert_history_window(intent, window.start if window else None, window.end if window else None)
+1563-            bounded_value = replace(
+1564-                normalized,
+1565-                limit=min(normalized.limit, _AGENT_FINANCE_QUERY_MAX_ROWS),
+1566-            )
+1567-            freshness_floor = _structured_freshness_floor(context)
+1568-            historical_authorized = _task_authorizes_historical_window(
+1569-                frame,
+1570-                floor=freshness_floor,
+1571-            ) or _window_anchored_on_episode_dates(
+1572-                bounded_value,
+1573-                context.authorized_trade_dates,
+--
+1614:                return _finance_query_failure_result(value, exc)
+1615-            # 用 bounded_value 而不是 value：这条判定读 spec.time_range，读未归一化
+1616-            # 的那份就会把「日期写进了 filters」误判成「没给时间窗口」，
+1617-            # historical_authorized 的授权也就跟着失效——正是归一化要修的那个失真。
+1618-            if _is_current_query_stale(
+1619-                bounded_value,
+1620-                served_date=result.served_date,
+1621-                floor=freshness_floor,
+1622-                historical_authorized=historical_authorized,
+1623-            ):
+1624-                assert freshness_floor is not None
+1625-                # 判 stale 之前先分一次因：被筛子集停在更早，可能是「该主体退出了
+1626-                # 集合」而不是「管道陈旧」。两者在 served_date 上同码，只有再读一次
+1627-                # 不加 filter 的 max 才分得开。探针只在这条（本就要拒的）路径上发。
+1628-                dataset_max = None
+1629-                if bounded_value.filters:
+1630-                    dataset_max = query_engine.dataset_max_date(
+1631-                        bounded_value,
+1632-                        information_cutoff=context.information_cutoff,
+1633-                        deadline=tool_context.deadline,
+1634-                        is_cancelled=tool_context.is_cancelled,
+1635-                    )
+1636-                if _subject_exited_universe(
+1637-                    served_date=result.served_date,
+1638-                    dataset_max_date=dataset_max,
+1639-                    floor=freshness_floor,
+--
+1999:def _finance_query_failure_result(
+2000-    spec: finance_query.FinanceQuerySpec,
+2001-    error: finance_query.FinanceQueryError,
+2002-) -> ToolRunResult:
+2003:    if isinstance(error, finance_query.FinanceQueryValidationError):
+2004-        failure_code = "invalid_query"
+2005-        status = "parse_error"
+2006-        observation = finance_query.validation_diagnostic(spec, error)
+2007-        gap = "结构化查询条件无效；请改写 dataset、字段、筛选或日期范围后重试"
+2008-        from intelligence.services.tool_hunger import record_finance_query_rejected
+2009-
+2010-        record_finance_query_rejected(spec, failure_code)
+2011-    elif isinstance(error, finance_query.FinanceQueryTimedOut):
+2012-        failure_code = "timeout"
+2013-        status = "request_error"
+2014-        observation = "结构化查询超时，未返回可发布的数据"
+2015-        gap = "结构化查询超时；请缩小时间范围、字段或结果数量后重试"
+2016-    elif isinstance(error, finance_query.FinanceQueryCancelled):
+2017-        failure_code = "cancelled"
+2018-        status = "request_error"
+2019-        observation = "结构化查询已取消，未返回可发布的数据"
+2020-        gap = "结构化查询被取消；如任务仍需该数据，请重新发起更窄的查询"
+2021-    elif isinstance(error, finance_query.FinanceQueryLimitExceeded):
+2022-        failure_code = "limit_exceeded"
+2023-        status = "request_error"
+2024-        observation = "结构化查询结果超过资源上限，未返回截断数据"
+2025-        gap = "结构化查询结果超过资源上限；请缩小时间范围、字段或结果数量后重试"
+2026-    else:
+2027-        failure_code = "request_error"
+2028-        status = "request_error"

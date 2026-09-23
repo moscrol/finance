@@ -1,0 +1,18 @@
+{
+  "command": [
+    "/usr/bin/sandbox-exec",
+    "-f",
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/tools.sb",
+    "/opt/homebrew/bin/rg",
+    "-n",
+    "def _judge|def _structural",
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/candidate/finance-workspace-private/intelligence/tests/test_episode_semantic_verifier.py"
+  ],
+  "shell": false,
+  "target_exit_code": 0,
+  "signal": null,
+  "killed": false,
+  "spawn_error": null,
+  "elapsed_ms": 81,
+  "output_sha256": "94a54cf05a84b71807046b59b8eba0cfab50bcf15a300131aa6b28b520311858"
+}

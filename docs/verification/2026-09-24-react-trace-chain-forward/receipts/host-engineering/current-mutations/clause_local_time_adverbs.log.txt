@@ -1,0 +1,783 @@
+.................FFFFFFFF.......................................FFFFFFFF [ 86%]
+FFFFFF....F                                                              [100%]
+=================================== FAILURES ===================================
+_ test_removed_reference_heals_only_its_clause[\u591a\u5934\u7ed3\u6784\u672a\u7834\u574f\u3002\u76ee\u524d\u5c1a\u672a\u6ee1\u8db3\u5347\u7ea7\u6761\u4ef6\u4e2d\u76842\u6761\u3002-\u591a\u5934\u7ed3\u6784\u672a\u7834\u574f\u3002] _
+
+text = '多头结构未破坏。目前尚未满足升级条件中的2条。', expected = '多头结构未破坏。'
+
+    @pytest.mark.parametrize(
+        ("text", "expected"),
+        [
+            ("该股放量上攻，满足升级条件中的2条。", "该股放量上攻。"),
+            ("该股放量上攻；满足升级条件中的2条。", "该股放量上攻。"),
+            ("该股放量上攻，满足升级条件中的2条", "该股放量上攻"),
+            ("**满足升级条件中的2条**，量能配合。", "量能配合。"),
+            ("量能配合，**满足升级条件中的2条**。", "量能配合。"),
+            ("- **满足升级条件中的2条**，量能配合。", "- 量能配合。"),
+            ("满足升级条件中的2条；量能配合。", "量能配合。"),
+            ("量能配合，满足升级条件中的2条；值得跟踪。", "量能配合；值得跟踪。"),
+            ("目前不满足升级条件中的2条，需继续观察。", "需继续观察。"),
+            ("目前仍未满足升级条件中的2条，需继续观察。", "需继续观察。"),
+            ("目前并未满足升级条件中的2条，需继续观察。", "需继续观察。"),
+            ("当前满足升级条件中的2条，量能配合。", "量能配合。"),
+            ("当前仅已满足升级条件中的2条，量能配合。", "量能配合。"),
+            ("满足升级条件中的2条，但尚未满足降级条件中的1条，需观察。", "需观察。"),
+            ("量能配合，但尚未满足升级条件中的2条，需观察。", "量能配合，需观察。"),
+            ("**目前尚未满足升级条件中的2条**，需观察。", "需观察。"),
+            ("观察。满足升级条件中的2条。继续观察。", "观察。继续观察。"),
+            ("多头结构未破坏。目前尚未满足升级条件中的2条。", "多头结构未破坏。"),
+            ("多头结构未破坏。目前尚未满足升级条件中的2条，需继续观察。", "多头结构未破坏。需继续观察。"),
+            ("观察结果良好。当前满足升级条件中的2条。", "观察结果良好。"),
+            ("量能配合，暂时满足升级条件中的2条。", "量能配合。"),
+            ("量能配合；目前满足升级条件中的2条，需观察。", "量能配合；需观察。"),
+            ("- 量能配合。**目前尚未满足升级条件中的2条**。", "- 量能配合。"),
+            ("量能配合：目前满足升级条件中的2条，需观察。", "量能配合：需观察。"),
+            ("量能配合，截至目前满足升级条件中的2条。", "量能配合。"),
+            ("量能仅满足当前研究需要，满足升级条件中的2条。", "量能仅满足当前研究需要。"),
+            ("**当前观察良好**，满足升级条件中的2条。", "**当前观察良好**。"),
+            ("1. 满足升级条件中的2条，量能配合。", "1. 量能配合。"),
+            ("1. 满足升级条件中的2条。", ""),
+            ("**量能配合**，满足升级条件中的2条，**仍需观察**。", "**量能配合**，**仍需观察**。"),
+        ],
+    )
+    def test_removed_reference_heals_only_its_clause(text, expected):
+>       assert _repair(text) == expected
+E       AssertionError: assert '多头结构未破坏。目前。' == '多头结构未破坏。'
+E         
+E         - 多头结构未破坏。
+E         + 多头结构未破坏。目前。
+E         ?         +++
+
+intelligence/tests/test_condition_reference_seams.py:65: AssertionError
+_ test_removed_reference_heals_only_its_clause[\u591a\u5934\u7ed3\u6784\u672a\u7834\u574f\u3002\u76ee\u524d\u5c1a\u672a\u6ee1\u8db3\u5347\u7ea7\u6761\u4ef6\u4e2d\u76842\u6761\uff0c\u9700\u7ee7\u7eed\u89c2\u5bdf\u3002-\u591a\u5934\u7ed3\u6784\u672a\u7834\u574f\u3002\u9700\u7ee7\u7eed\u89c2\u5bdf\u3002] _
+
+text = '多头结构未破坏。目前尚未满足升级条件中的2条，需继续观察。', expected = '多头结构未破坏。需继续观察。'
+
+    @pytest.mark.parametrize(
+        ("text", "expected"),
+        [
+            ("该股放量上攻，满足升级条件中的2条。", "该股放量上攻。"),
+            ("该股放量上攻；满足升级条件中的2条。", "该股放量上攻。"),
+            ("该股放量上攻，满足升级条件中的2条", "该股放量上攻"),
+            ("**满足升级条件中的2条**，量能配合。", "量能配合。"),
+            ("量能配合，**满足升级条件中的2条**。", "量能配合。"),
+            ("- **满足升级条件中的2条**，量能配合。", "- 量能配合。"),
+            ("满足升级条件中的2条；量能配合。", "量能配合。"),
+            ("量能配合，满足升级条件中的2条；值得跟踪。", "量能配合；值得跟踪。"),
+            ("目前不满足升级条件中的2条，需继续观察。", "需继续观察。"),
+            ("目前仍未满足升级条件中的2条，需继续观察。", "需继续观察。"),
+            ("目前并未满足升级条件中的2条，需继续观察。", "需继续观察。"),
+            ("当前满足升级条件中的2条，量能配合。", "量能配合。"),
+            ("当前仅已满足升级条件中的2条，量能配合。", "量能配合。"),
+            ("满足升级条件中的2条，但尚未满足降级条件中的1条，需观察。", "需观察。"),
+            ("量能配合，但尚未满足升级条件中的2条，需观察。", "量能配合，需观察。"),
+            ("**目前尚未满足升级条件中的2条**，需观察。", "需观察。"),
+            ("观察。满足升级条件中的2条。继续观察。", "观察。继续观察。"),
+            ("多头结构未破坏。目前尚未满足升级条件中的2条。", "多头结构未破坏。"),
+            ("多头结构未破坏。目前尚未满足升级条件中的2条，需继续观察。", "多头结构未破坏。需继续观察。"),
+            ("观察结果良好。当前满足升级条件中的2条。", "观察结果良好。"),
+            ("量能配合，暂时满足升级条件中的2条。", "量能配合。"),
+            ("量能配合；目前满足升级条件中的2条，需观察。", "量能配合；需观察。"),
+            ("- 量能配合。**目前尚未满足升级条件中的2条**。", "- 量能配合。"),
+            ("量能配合：目前满足升级条件中的2条，需观察。", "量能配合：需观察。"),
+            ("量能配合，截至目前满足升级条件中的2条。", "量能配合。"),
+            ("量能仅满足当前研究需要，满足升级条件中的2条。", "量能仅满足当前研究需要。"),
+            ("**当前观察良好**，满足升级条件中的2条。", "**当前观察良好**。"),
+            ("1. 满足升级条件中的2条，量能配合。", "1. 量能配合。"),
+            ("1. 满足升级条件中的2条。", ""),
+            ("**量能配合**，满足升级条件中的2条，**仍需观察**。", "**量能配合**，**仍需观察**。"),
+        ],
+    )
+    def test_removed_reference_heals_only_its_clause(text, expected):
+>       assert _repair(text) == expected
+E       AssertionError: assert '多头结构未破坏。目前，需继续观察。' == '多头结构未破坏。需继续观察。'
+E         
+E         - 多头结构未破坏。需继续观察。
+E         + 多头结构未破坏。目前，需继续观察。
+E         ?         +++
+
+intelligence/tests/test_condition_reference_seams.py:65: AssertionError
+_ test_removed_reference_heals_only_its_clause[\u89c2\u5bdf\u7ed3\u679c\u826f\u597d\u3002\u5f53\u524d\u6ee1\u8db3\u5347\u7ea7\u6761\u4ef6\u4e2d\u76842\u6761\u3002-\u89c2\u5bdf\u7ed3\u679c\u826f\u597d\u3002] _
+
+text = '观察结果良好。当前满足升级条件中的2条。', expected = '观察结果良好。'
+
+    @pytest.mark.parametrize(
+        ("text", "expected"),
+        [
+            ("该股放量上攻，满足升级条件中的2条。", "该股放量上攻。"),
+            ("该股放量上攻；满足升级条件中的2条。", "该股放量上攻。"),
+            ("该股放量上攻，满足升级条件中的2条", "该股放量上攻"),
+            ("**满足升级条件中的2条**，量能配合。", "量能配合。"),
+            ("量能配合，**满足升级条件中的2条**。", "量能配合。"),
+            ("- **满足升级条件中的2条**，量能配合。", "- 量能配合。"),
+            ("满足升级条件中的2条；量能配合。", "量能配合。"),
+            ("量能配合，满足升级条件中的2条；值得跟踪。", "量能配合；值得跟踪。"),
+            ("目前不满足升级条件中的2条，需继续观察。", "需继续观察。"),
+            ("目前仍未满足升级条件中的2条，需继续观察。", "需继续观察。"),
+            ("目前并未满足升级条件中的2条，需继续观察。", "需继续观察。"),
+            ("当前满足升级条件中的2条，量能配合。", "量能配合。"),
+            ("当前仅已满足升级条件中的2条，量能配合。", "量能配合。"),
+            ("满足升级条件中的2条，但尚未满足降级条件中的1条，需观察。", "需观察。"),
+            ("量能配合，但尚未满足升级条件中的2条，需观察。", "量能配合，需观察。"),
+            ("**目前尚未满足升级条件中的2条**，需观察。", "需观察。"),
+            ("观察。满足升级条件中的2条。继续观察。", "观察。继续观察。"),
+            ("多头结构未破坏。目前尚未满足升级条件中的2条。", "多头结构未破坏。"),
+            ("多头结构未破坏。目前尚未满足升级条件中的2条，需继续观察。", "多头结构未破坏。需继续观察。"),
+            ("观察结果良好。当前满足升级条件中的2条。", "观察结果良好。"),
+            ("量能配合，暂时满足升级条件中的2条。", "量能配合。"),
+            ("量能配合；目前满足升级条件中的2条，需观察。", "量能配合；需观察。"),
+            ("- 量能配合。**目前尚未满足升级条件中的2条**。", "- 量能配合。"),
+            ("量能配合：目前满足升级条件中的2条，需观察。", "量能配合：需观察。"),
+            ("量能配合，截至目前满足升级条件中的2条。", "量能配合。"),
+            ("量能仅满足当前研究需要，满足升级条件中的2条。", "量能仅满足当前研究需要。"),
+            ("**当前观察良好**，满足升级条件中的2条。", "**当前观察良好**。"),
+            ("1. 满足升级条件中的2条，量能配合。", "1. 量能配合。"),
+            ("1. 满足升级条件中的2条。", ""),
+            ("**量能配合**，满足升级条件中的2条，**仍需观察**。", "**量能配合**，**仍需观察**。"),
+        ],
+    )
+    def test_removed_reference_heals_only_its_clause(text, expected):
+>       assert _repair(text) == expected
+E       AssertionError: assert '观察结果良好。当前。' == '观察结果良好。'
+E         
+E         - 观察结果良好。
+E         + 观察结果良好。当前。
+E         ?        +++
+
+intelligence/tests/test_condition_reference_seams.py:65: AssertionError
+_ test_removed_reference_heals_only_its_clause[\u91cf\u80fd\u914d\u5408\uff0c\u6682\u65f6\u6ee1\u8db3\u5347\u7ea7\u6761\u4ef6\u4e2d\u76842\u6761\u3002-\u91cf\u80fd\u914d\u5408\u3002] _
+
+text = '量能配合，暂时满足升级条件中的2条。', expected = '量能配合。'
+
+    @pytest.mark.parametrize(
+        ("text", "expected"),
+        [
+            ("该股放量上攻，满足升级条件中的2条。", "该股放量上攻。"),
+            ("该股放量上攻；满足升级条件中的2条。", "该股放量上攻。"),
+            ("该股放量上攻，满足升级条件中的2条", "该股放量上攻"),
+            ("**满足升级条件中的2条**，量能配合。", "量能配合。"),
+            ("量能配合，**满足升级条件中的2条**。", "量能配合。"),
+            ("- **满足升级条件中的2条**，量能配合。", "- 量能配合。"),
+            ("满足升级条件中的2条；量能配合。", "量能配合。"),
+            ("量能配合，满足升级条件中的2条；值得跟踪。", "量能配合；值得跟踪。"),
+            ("目前不满足升级条件中的2条，需继续观察。", "需继续观察。"),
+            ("目前仍未满足升级条件中的2条，需继续观察。", "需继续观察。"),
+            ("目前并未满足升级条件中的2条，需继续观察。", "需继续观察。"),
+            ("当前满足升级条件中的2条，量能配合。", "量能配合。"),
+            ("当前仅已满足升级条件中的2条，量能配合。", "量能配合。"),
+            ("满足升级条件中的2条，但尚未满足降级条件中的1条，需观察。", "需观察。"),
+            ("量能配合，但尚未满足升级条件中的2条，需观察。", "量能配合，需观察。"),
+            ("**目前尚未满足升级条件中的2条**，需观察。", "需观察。"),
+            ("观察。满足升级条件中的2条。继续观察。", "观察。继续观察。"),
+            ("多头结构未破坏。目前尚未满足升级条件中的2条。", "多头结构未破坏。"),
+            ("多头结构未破坏。目前尚未满足升级条件中的2条，需继续观察。", "多头结构未破坏。需继续观察。"),
+            ("观察结果良好。当前满足升级条件中的2条。", "观察结果良好。"),
+            ("量能配合，暂时满足升级条件中的2条。", "量能配合。"),
+            ("量能配合；目前满足升级条件中的2条，需观察。", "量能配合；需观察。"),
+            ("- 量能配合。**目前尚未满足升级条件中的2条**。", "- 量能配合。"),
+            ("量能配合：目前满足升级条件中的2条，需观察。", "量能配合：需观察。"),
+            ("量能配合，截至目前满足升级条件中的2条。", "量能配合。"),
+            ("量能仅满足当前研究需要，满足升级条件中的2条。", "量能仅满足当前研究需要。"),
+            ("**当前观察良好**，满足升级条件中的2条。", "**当前观察良好**。"),
+            ("1. 满足升级条件中的2条，量能配合。", "1. 量能配合。"),
+            ("1. 满足升级条件中的2条。", ""),
+            ("**量能配合**，满足升级条件中的2条，**仍需观察**。", "**量能配合**，**仍需观察**。"),
+        ],
+    )
+    def test_removed_reference_heals_only_its_clause(text, expected):
+>       assert _repair(text) == expected
+E       AssertionError: assert '量能配合，暂时。' == '量能配合。'
+E         
+E         - 量能配合。
+E         + 量能配合，暂时。
+E         ?     +++
+
+intelligence/tests/test_condition_reference_seams.py:65: AssertionError
+_ test_removed_reference_heals_only_its_clause[\u91cf\u80fd\u914d\u5408\uff1b\u76ee\u524d\u6ee1\u8db3\u5347\u7ea7\u6761\u4ef6\u4e2d\u76842\u6761\uff0c\u9700\u89c2\u5bdf\u3002-\u91cf\u80fd\u914d\u5408\uff1b\u9700\u89c2\u5bdf\u3002] _
+
+text = '量能配合；目前满足升级条件中的2条，需观察。', expected = '量能配合；需观察。'
+
+    @pytest.mark.parametrize(
+        ("text", "expected"),
+        [
+            ("该股放量上攻，满足升级条件中的2条。", "该股放量上攻。"),
+            ("该股放量上攻；满足升级条件中的2条。", "该股放量上攻。"),
+            ("该股放量上攻，满足升级条件中的2条", "该股放量上攻"),
+            ("**满足升级条件中的2条**，量能配合。", "量能配合。"),
+            ("量能配合，**满足升级条件中的2条**。", "量能配合。"),
+            ("- **满足升级条件中的2条**，量能配合。", "- 量能配合。"),
+            ("满足升级条件中的2条；量能配合。", "量能配合。"),
+            ("量能配合，满足升级条件中的2条；值得跟踪。", "量能配合；值得跟踪。"),
+            ("目前不满足升级条件中的2条，需继续观察。", "需继续观察。"),
+            ("目前仍未满足升级条件中的2条，需继续观察。", "需继续观察。"),
+            ("目前并未满足升级条件中的2条，需继续观察。", "需继续观察。"),
+            ("当前满足升级条件中的2条，量能配合。", "量能配合。"),
+            ("当前仅已满足升级条件中的2条，量能配合。", "量能配合。"),
+            ("满足升级条件中的2条，但尚未满足降级条件中的1条，需观察。", "需观察。"),
+            ("量能配合，但尚未满足升级条件中的2条，需观察。", "量能配合，需观察。"),
+            ("**目前尚未满足升级条件中的2条**，需观察。", "需观察。"),
+            ("观察。满足升级条件中的2条。继续观察。", "观察。继续观察。"),
+            ("多头结构未破坏。目前尚未满足升级条件中的2条。", "多头结构未破坏。"),
+            ("多头结构未破坏。目前尚未满足升级条件中的2条，需继续观察。", "多头结构未破坏。需继续观察。"),
+            ("观察结果良好。当前满足升级条件中的2条。", "观察结果良好。"),
+            ("量能配合，暂时满足升级条件中的2条。", "量能配合。"),
+            ("量能配合；目前满足升级条件中的2条，需观察。", "量能配合；需观察。"),
+            ("- 量能配合。**目前尚未满足升级条件中的2条**。", "- 量能配合。"),
+            ("量能配合：目前满足升级条件中的2条，需观察。", "量能配合：需观察。"),
+            ("量能配合，截至目前满足升级条件中的2条。", "量能配合。"),
+            ("量能仅满足当前研究需要，满足升级条件中的2条。", "量能仅满足当前研究需要。"),
+            ("**当前观察良好**，满足升级条件中的2条。", "**当前观察良好**。"),
+            ("1. 满足升级条件中的2条，量能配合。", "1. 量能配合。"),
+            ("1. 满足升级条件中的2条。", ""),
+            ("**量能配合**，满足升级条件中的2条，**仍需观察**。", "**量能配合**，**仍需观察**。"),
+        ],
+    )
+    def test_removed_reference_heals_only_its_clause(text, expected):
+>       assert _repair(text) == expected
+E       AssertionError: assert '量能配合；目前，需观察。' == '量能配合；需观察。'
+E         
+E         - 量能配合；需观察。
+E         + 量能配合；目前，需观察。
+E         ?      +++
+
+intelligence/tests/test_condition_reference_seams.py:65: AssertionError
+_ test_removed_reference_heals_only_its_clause[- \u91cf\u80fd\u914d\u5408\u3002**\u76ee\u524d\u5c1a\u672a\u6ee1\u8db3\u5347\u7ea7\u6761\u4ef6\u4e2d\u76842\u6761**\u3002-- \u91cf\u80fd\u914d\u5408\u3002] _
+
+text = '- 量能配合。**目前尚未满足升级条件中的2条**。', expected = '- 量能配合。'
+
+    @pytest.mark.parametrize(
+        ("text", "expected"),
+        [
+            ("该股放量上攻，满足升级条件中的2条。", "该股放量上攻。"),
+            ("该股放量上攻；满足升级条件中的2条。", "该股放量上攻。"),
+            ("该股放量上攻，满足升级条件中的2条", "该股放量上攻"),
+            ("**满足升级条件中的2条**，量能配合。", "量能配合。"),
+            ("量能配合，**满足升级条件中的2条**。", "量能配合。"),
+            ("- **满足升级条件中的2条**，量能配合。", "- 量能配合。"),
+            ("满足升级条件中的2条；量能配合。", "量能配合。"),
+            ("量能配合，满足升级条件中的2条；值得跟踪。", "量能配合；值得跟踪。"),
+            ("目前不满足升级条件中的2条，需继续观察。", "需继续观察。"),
+            ("目前仍未满足升级条件中的2条，需继续观察。", "需继续观察。"),
+            ("目前并未满足升级条件中的2条，需继续观察。", "需继续观察。"),
+            ("当前满足升级条件中的2条，量能配合。", "量能配合。"),
+            ("当前仅已满足升级条件中的2条，量能配合。", "量能配合。"),
+            ("满足升级条件中的2条，但尚未满足降级条件中的1条，需观察。", "需观察。"),
+            ("量能配合，但尚未满足升级条件中的2条，需观察。", "量能配合，需观察。"),
+            ("**目前尚未满足升级条件中的2条**，需观察。", "需观察。"),
+            ("观察。满足升级条件中的2条。继续观察。", "观察。继续观察。"),
+            ("多头结构未破坏。目前尚未满足升级条件中的2条。", "多头结构未破坏。"),
+            ("多头结构未破坏。目前尚未满足升级条件中的2条，需继续观察。", "多头结构未破坏。需继续观察。"),
+            ("观察结果良好。当前满足升级条件中的2条。", "观察结果良好。"),
+            ("量能配合，暂时满足升级条件中的2条。", "量能配合。"),
+            ("量能配合；目前满足升级条件中的2条，需观察。", "量能配合；需观察。"),
+            ("- 量能配合。**目前尚未满足升级条件中的2条**。", "- 量能配合。"),
+            ("量能配合：目前满足升级条件中的2条，需观察。", "量能配合：需观察。"),
+            ("量能配合，截至目前满足升级条件中的2条。", "量能配合。"),
+            ("量能仅满足当前研究需要，满足升级条件中的2条。", "量能仅满足当前研究需要。"),
+            ("**当前观察良好**，满足升级条件中的2条。", "**当前观察良好**。"),
+            ("1. 满足升级条件中的2条，量能配合。", "1. 量能配合。"),
+            ("1. 满足升级条件中的2条。", ""),
+            ("**量能配合**，满足升级条件中的2条，**仍需观察**。", "**量能配合**，**仍需观察**。"),
+        ],
+    )
+    def test_removed_reference_heals_only_its_clause(text, expected):
+>       assert _repair(text) == expected
+E       AssertionError: assert '- 量能配合。**目前，**。' == '- 量能配合。'
+E         
+E         - - 量能配合。
+E         + - 量能配合。**目前，**。
+
+intelligence/tests/test_condition_reference_seams.py:65: AssertionError
+_ test_removed_reference_heals_only_its_clause[\u91cf\u80fd\u914d\u5408\uff1a\u76ee\u524d\u6ee1\u8db3\u5347\u7ea7\u6761\u4ef6\u4e2d\u76842\u6761\uff0c\u9700\u89c2\u5bdf\u3002-\u91cf\u80fd\u914d\u5408\uff1a\u9700\u89c2\u5bdf\u3002] _
+
+text = '量能配合：目前满足升级条件中的2条，需观察。', expected = '量能配合：需观察。'
+
+    @pytest.mark.parametrize(
+        ("text", "expected"),
+        [
+            ("该股放量上攻，满足升级条件中的2条。", "该股放量上攻。"),
+            ("该股放量上攻；满足升级条件中的2条。", "该股放量上攻。"),
+            ("该股放量上攻，满足升级条件中的2条", "该股放量上攻"),
+            ("**满足升级条件中的2条**，量能配合。", "量能配合。"),
+            ("量能配合，**满足升级条件中的2条**。", "量能配合。"),
+            ("- **满足升级条件中的2条**，量能配合。", "- 量能配合。"),
+            ("满足升级条件中的2条；量能配合。", "量能配合。"),
+            ("量能配合，满足升级条件中的2条；值得跟踪。", "量能配合；值得跟踪。"),
+            ("目前不满足升级条件中的2条，需继续观察。", "需继续观察。"),
+            ("目前仍未满足升级条件中的2条，需继续观察。", "需继续观察。"),
+            ("目前并未满足升级条件中的2条，需继续观察。", "需继续观察。"),
+            ("当前满足升级条件中的2条，量能配合。", "量能配合。"),
+            ("当前仅已满足升级条件中的2条，量能配合。", "量能配合。"),
+            ("满足升级条件中的2条，但尚未满足降级条件中的1条，需观察。", "需观察。"),
+            ("量能配合，但尚未满足升级条件中的2条，需观察。", "量能配合，需观察。"),
+            ("**目前尚未满足升级条件中的2条**，需观察。", "需观察。"),
+            ("观察。满足升级条件中的2条。继续观察。", "观察。继续观察。"),
+            ("多头结构未破坏。目前尚未满足升级条件中的2条。", "多头结构未破坏。"),
+            ("多头结构未破坏。目前尚未满足升级条件中的2条，需继续观察。", "多头结构未破坏。需继续观察。"),
+            ("观察结果良好。当前满足升级条件中的2条。", "观察结果良好。"),
+            ("量能配合，暂时满足升级条件中的2条。", "量能配合。"),
+            ("量能配合；目前满足升级条件中的2条，需观察。", "量能配合；需观察。"),
+            ("- 量能配合。**目前尚未满足升级条件中的2条**。", "- 量能配合。"),
+            ("量能配合：目前满足升级条件中的2条，需观察。", "量能配合：需观察。"),
+            ("量能配合，截至目前满足升级条件中的2条。", "量能配合。"),
+            ("量能仅满足当前研究需要，满足升级条件中的2条。", "量能仅满足当前研究需要。"),
+            ("**当前观察良好**，满足升级条件中的2条。", "**当前观察良好**。"),
+            ("1. 满足升级条件中的2条，量能配合。", "1. 量能配合。"),
+            ("1. 满足升级条件中的2条。", ""),
+            ("**量能配合**，满足升级条件中的2条，**仍需观察**。", "**量能配合**，**仍需观察**。"),
+        ],
+    )
+    def test_removed_reference_heals_only_its_clause(text, expected):
+>       assert _repair(text) == expected
+E       AssertionError: assert '量能配合：目前，需观察。' == '量能配合：需观察。'
+E         
+E         - 量能配合：需观察。
+E         + 量能配合：目前，需观察。
+E         ?      +++
+
+intelligence/tests/test_condition_reference_seams.py:65: AssertionError
+_ test_removed_reference_heals_only_its_clause[\u91cf\u80fd\u914d\u5408\uff0c\u622a\u81f3\u76ee\u524d\u6ee1\u8db3\u5347\u7ea7\u6761\u4ef6\u4e2d\u76842\u6761\u3002-\u91cf\u80fd\u914d\u5408\u3002] _
+
+text = '量能配合，截至目前满足升级条件中的2条。', expected = '量能配合。'
+
+    @pytest.mark.parametrize(
+        ("text", "expected"),
+        [
+            ("该股放量上攻，满足升级条件中的2条。", "该股放量上攻。"),
+            ("该股放量上攻；满足升级条件中的2条。", "该股放量上攻。"),
+            ("该股放量上攻，满足升级条件中的2条", "该股放量上攻"),
+            ("**满足升级条件中的2条**，量能配合。", "量能配合。"),
+            ("量能配合，**满足升级条件中的2条**。", "量能配合。"),
+            ("- **满足升级条件中的2条**，量能配合。", "- 量能配合。"),
+            ("满足升级条件中的2条；量能配合。", "量能配合。"),
+            ("量能配合，满足升级条件中的2条；值得跟踪。", "量能配合；值得跟踪。"),
+            ("目前不满足升级条件中的2条，需继续观察。", "需继续观察。"),
+            ("目前仍未满足升级条件中的2条，需继续观察。", "需继续观察。"),
+            ("目前并未满足升级条件中的2条，需继续观察。", "需继续观察。"),
+            ("当前满足升级条件中的2条，量能配合。", "量能配合。"),
+            ("当前仅已满足升级条件中的2条，量能配合。", "量能配合。"),
+            ("满足升级条件中的2条，但尚未满足降级条件中的1条，需观察。", "需观察。"),
+            ("量能配合，但尚未满足升级条件中的2条，需观察。", "量能配合，需观察。"),
+            ("**目前尚未满足升级条件中的2条**，需观察。", "需观察。"),
+            ("观察。满足升级条件中的2条。继续观察。", "观察。继续观察。"),
+            ("多头结构未破坏。目前尚未满足升级条件中的2条。", "多头结构未破坏。"),
+            ("多头结构未破坏。目前尚未满足升级条件中的2条，需继续观察。", "多头结构未破坏。需继续观察。"),
+            ("观察结果良好。当前满足升级条件中的2条。", "观察结果良好。"),
+            ("量能配合，暂时满足升级条件中的2条。", "量能配合。"),
+            ("量能配合；目前满足升级条件中的2条，需观察。", "量能配合；需观察。"),
+            ("- 量能配合。**目前尚未满足升级条件中的2条**。", "- 量能配合。"),
+            ("量能配合：目前满足升级条件中的2条，需观察。", "量能配合：需观察。"),
+            ("量能配合，截至目前满足升级条件中的2条。", "量能配合。"),
+            ("量能仅满足当前研究需要，满足升级条件中的2条。", "量能仅满足当前研究需要。"),
+            ("**当前观察良好**，满足升级条件中的2条。", "**当前观察良好**。"),
+            ("1. 满足升级条件中的2条，量能配合。", "1. 量能配合。"),
+            ("1. 满足升级条件中的2条。", ""),
+            ("**量能配合**，满足升级条件中的2条，**仍需观察**。", "**量能配合**，**仍需观察**。"),
+        ],
+    )
+    def test_removed_reference_heals_only_its_clause(text, expected):
+>       assert _repair(text) == expected
+E       AssertionError: assert '量能配合，截至目前。' == '量能配合。'
+E         
+E         - 量能配合。
+E         + 量能配合，截至目前。
+
+intelligence/tests/test_condition_reference_seams.py:65: AssertionError
+____________ test_list_definition_deletion_reaches_public_answer[] _____________
+
+prefix = ''
+
+    @pytest.mark.parametrize("prefix", _DEFINITION_PREFIXES)
+    def test_list_definition_deletion_reaches_public_answer(prefix):
+        closing = "**" if prefix.endswith("**") else ""
+        frame, structural = _structural(
+            f"{prefix}升级条件{closing}：若涨停60家以上，则升级。\n"
+            "该股放量上攻。目前尚未**满足升级条件中的2条**。"
+        )
+        result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+            frame=frame,
+            structurally_verified=structural,
+            deadline=ResearchDeadline.from_timeout(5),
+        )
+        assert result.judge_status == "repaired"
+>       assert result.public_answer == "该股放量上攻。"
+E       AssertionError: assert '该股放量上攻。目前。' == '该股放量上攻。'
+E         
+E         - 该股放量上攻。
+E         + 该股放量上攻。目前。
+E         ?        +++
+
+intelligence/tests/test_condition_reference_seams.py:150: AssertionError
+___________ test_list_definition_deletion_reaches_public_answer[- ] ____________
+
+prefix = '- '
+
+    @pytest.mark.parametrize("prefix", _DEFINITION_PREFIXES)
+    def test_list_definition_deletion_reaches_public_answer(prefix):
+        closing = "**" if prefix.endswith("**") else ""
+        frame, structural = _structural(
+            f"{prefix}升级条件{closing}：若涨停60家以上，则升级。\n"
+            "该股放量上攻。目前尚未**满足升级条件中的2条**。"
+        )
+        result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+            frame=frame,
+            structurally_verified=structural,
+            deadline=ResearchDeadline.from_timeout(5),
+        )
+        assert result.judge_status == "repaired"
+>       assert result.public_answer == "该股放量上攻。"
+E       AssertionError: assert '该股放量上攻。目前。' == '该股放量上攻。'
+E         
+E         - 该股放量上攻。
+E         + 该股放量上攻。目前。
+E         ?        +++
+
+intelligence/tests/test_condition_reference_seams.py:150: AssertionError
+___________ test_list_definition_deletion_reaches_public_answer[* ] ____________
+
+prefix = '* '
+
+    @pytest.mark.parametrize("prefix", _DEFINITION_PREFIXES)
+    def test_list_definition_deletion_reaches_public_answer(prefix):
+        closing = "**" if prefix.endswith("**") else ""
+        frame, structural = _structural(
+            f"{prefix}升级条件{closing}：若涨停60家以上，则升级。\n"
+            "该股放量上攻。目前尚未**满足升级条件中的2条**。"
+        )
+        result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+            frame=frame,
+            structurally_verified=structural,
+            deadline=ResearchDeadline.from_timeout(5),
+        )
+        assert result.judge_status == "repaired"
+>       assert result.public_answer == "该股放量上攻。"
+E       AssertionError: assert '该股放量上攻。目前。' == '该股放量上攻。'
+E         
+E         - 该股放量上攻。
+E         + 该股放量上攻。目前。
+E         ?        +++
+
+intelligence/tests/test_condition_reference_seams.py:150: AssertionError
+___________ test_list_definition_deletion_reaches_public_answer[+ ] ____________
+
+prefix = '+ '
+
+    @pytest.mark.parametrize("prefix", _DEFINITION_PREFIXES)
+    def test_list_definition_deletion_reaches_public_answer(prefix):
+        closing = "**" if prefix.endswith("**") else ""
+        frame, structural = _structural(
+            f"{prefix}升级条件{closing}：若涨停60家以上，则升级。\n"
+            "该股放量上攻。目前尚未**满足升级条件中的2条**。"
+        )
+        result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+            frame=frame,
+            structurally_verified=structural,
+            deadline=ResearchDeadline.from_timeout(5),
+        )
+        assert result.judge_status == "repaired"
+>       assert result.public_answer == "该股放量上攻。"
+E       AssertionError: assert '该股放量上攻。目前。' == '该股放量上攻。'
+E         
+E         - 该股放量上攻。
+E         + 该股放量上攻。目前。
+E         ?        +++
+
+intelligence/tests/test_condition_reference_seams.py:150: AssertionError
+_________ test_list_definition_deletion_reaches_public_answer[\u2022 ] _________
+
+prefix = '• '
+
+    @pytest.mark.parametrize("prefix", _DEFINITION_PREFIXES)
+    def test_list_definition_deletion_reaches_public_answer(prefix):
+        closing = "**" if prefix.endswith("**") else ""
+        frame, structural = _structural(
+            f"{prefix}升级条件{closing}：若涨停60家以上，则升级。\n"
+            "该股放量上攻。目前尚未**满足升级条件中的2条**。"
+        )
+        result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+            frame=frame,
+            structurally_verified=structural,
+            deadline=ResearchDeadline.from_timeout(5),
+        )
+        assert result.judge_status == "repaired"
+>       assert result.public_answer == "该股放量上攻。"
+E       AssertionError: assert '该股放量上攻。目前。' == '该股放量上攻。'
+E         
+E         - 该股放量上攻。
+E         + 该股放量上攻。目前。
+E         ?        +++
+
+intelligence/tests/test_condition_reference_seams.py:150: AssertionError
+___________ test_list_definition_deletion_reaches_public_answer[1. ] ___________
+
+prefix = '1. '
+
+    @pytest.mark.parametrize("prefix", _DEFINITION_PREFIXES)
+    def test_list_definition_deletion_reaches_public_answer(prefix):
+        closing = "**" if prefix.endswith("**") else ""
+        frame, structural = _structural(
+            f"{prefix}升级条件{closing}：若涨停60家以上，则升级。\n"
+            "该股放量上攻。目前尚未**满足升级条件中的2条**。"
+        )
+        result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+            frame=frame,
+            structurally_verified=structural,
+            deadline=ResearchDeadline.from_timeout(5),
+        )
+        assert result.judge_status == "repaired"
+>       assert result.public_answer == "该股放量上攻。"
+E       AssertionError: assert '该股放量上攻。目前。' == '该股放量上攻。'
+E         
+E         - 该股放量上攻。
+E         + 该股放量上攻。目前。
+E         ?        +++
+
+intelligence/tests/test_condition_reference_seams.py:150: AssertionError
+___________ test_list_definition_deletion_reaches_public_answer[2) ] ___________
+
+prefix = '2) '
+
+    @pytest.mark.parametrize("prefix", _DEFINITION_PREFIXES)
+    def test_list_definition_deletion_reaches_public_answer(prefix):
+        closing = "**" if prefix.endswith("**") else ""
+        frame, structural = _structural(
+            f"{prefix}升级条件{closing}：若涨停60家以上，则升级。\n"
+            "该股放量上攻。目前尚未**满足升级条件中的2条**。"
+        )
+        result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+            frame=frame,
+            structurally_verified=structural,
+            deadline=ResearchDeadline.from_timeout(5),
+        )
+        assert result.judge_status == "repaired"
+>       assert result.public_answer == "该股放量上攻。"
+E       AssertionError: assert '该股放量上攻。目前。' == '该股放量上攻。'
+E         
+E         - 该股放量上攻。
+E         + 该股放量上攻。目前。
+E         ?        +++
+
+intelligence/tests/test_condition_reference_seams.py:150: AssertionError
+________ test_list_definition_deletion_reaches_public_answer[3\uff09 ] _________
+
+prefix = '3） '
+
+    @pytest.mark.parametrize("prefix", _DEFINITION_PREFIXES)
+    def test_list_definition_deletion_reaches_public_answer(prefix):
+        closing = "**" if prefix.endswith("**") else ""
+        frame, structural = _structural(
+            f"{prefix}升级条件{closing}：若涨停60家以上，则升级。\n"
+            "该股放量上攻。目前尚未**满足升级条件中的2条**。"
+        )
+        result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+            frame=frame,
+            structurally_verified=structural,
+            deadline=ResearchDeadline.from_timeout(5),
+        )
+        assert result.judge_status == "repaired"
+>       assert result.public_answer == "该股放量上攻。"
+E       AssertionError: assert '该股放量上攻。目前。' == '该股放量上攻。'
+E         
+E         - 该股放量上攻。
+E         + 该股放量上攻。目前。
+E         ?        +++
+
+intelligence/tests/test_condition_reference_seams.py:150: AssertionError
+________ test_list_definition_deletion_reaches_public_answer[4\u3001 ] _________
+
+prefix = '4、 '
+
+    @pytest.mark.parametrize("prefix", _DEFINITION_PREFIXES)
+    def test_list_definition_deletion_reaches_public_answer(prefix):
+        closing = "**" if prefix.endswith("**") else ""
+        frame, structural = _structural(
+            f"{prefix}升级条件{closing}：若涨停60家以上，则升级。\n"
+            "该股放量上攻。目前尚未**满足升级条件中的2条**。"
+        )
+        result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+            frame=frame,
+            structurally_verified=structural,
+            deadline=ResearchDeadline.from_timeout(5),
+        )
+        assert result.judge_status == "repaired"
+>       assert result.public_answer == "该股放量上攻。"
+E       AssertionError: assert '该股放量上攻。目前。' == '该股放量上攻。'
+E         
+E         - 该股放量上攻。
+E         + 该股放量上攻。目前。
+E         ?        +++
+
+intelligence/tests/test_condition_reference_seams.py:150: AssertionError
+______ test_list_definition_deletion_reaches_public_answer[\u4e00\u3001] _______
+
+prefix = '一、'
+
+    @pytest.mark.parametrize("prefix", _DEFINITION_PREFIXES)
+    def test_list_definition_deletion_reaches_public_answer(prefix):
+        closing = "**" if prefix.endswith("**") else ""
+        frame, structural = _structural(
+            f"{prefix}升级条件{closing}：若涨停60家以上，则升级。\n"
+            "该股放量上攻。目前尚未**满足升级条件中的2条**。"
+        )
+        result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+            frame=frame,
+            structurally_verified=structural,
+            deadline=ResearchDeadline.from_timeout(5),
+        )
+        assert result.judge_status == "repaired"
+>       assert result.public_answer == "该股放量上攻。"
+E       AssertionError: assert '该股放量上攻。目前。' == '该股放量上攻。'
+E         
+E         - 该股放量上攻。
+E         + 该股放量上攻。目前。
+E         ?        +++
+
+intelligence/tests/test_condition_reference_seams.py:150: AssertionError
+__________ test_list_definition_deletion_reaches_public_answer[(1) ] ___________
+
+prefix = '(1) '
+
+    @pytest.mark.parametrize("prefix", _DEFINITION_PREFIXES)
+    def test_list_definition_deletion_reaches_public_answer(prefix):
+        closing = "**" if prefix.endswith("**") else ""
+        frame, structural = _structural(
+            f"{prefix}升级条件{closing}：若涨停60家以上，则升级。\n"
+            "该股放量上攻。目前尚未**满足升级条件中的2条**。"
+        )
+        result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+            frame=frame,
+            structurally_verified=structural,
+            deadline=ResearchDeadline.from_timeout(5),
+        )
+        assert result.judge_status == "repaired"
+>       assert result.public_answer == "该股放量上攻。"
+E       AssertionError: assert '该股放量上攻。目前。' == '该股放量上攻。'
+E         
+E         - 该股放量上攻。
+E         + 该股放量上攻。目前。
+E         ?        +++
+
+intelligence/tests/test_condition_reference_seams.py:150: AssertionError
+______ test_list_definition_deletion_reaches_public_answer[\uff082\uff09] ______
+
+prefix = '（2）'
+
+    @pytest.mark.parametrize("prefix", _DEFINITION_PREFIXES)
+    def test_list_definition_deletion_reaches_public_answer(prefix):
+        closing = "**" if prefix.endswith("**") else ""
+        frame, structural = _structural(
+            f"{prefix}升级条件{closing}：若涨停60家以上，则升级。\n"
+            "该股放量上攻。目前尚未**满足升级条件中的2条**。"
+        )
+        result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+            frame=frame,
+            structurally_verified=structural,
+            deadline=ResearchDeadline.from_timeout(5),
+        )
+        assert result.judge_status == "repaired"
+>       assert result.public_answer == "该股放量上攻。"
+E       AssertionError: assert '该股放量上攻。目前。' == '该股放量上攻。'
+E         
+E         - 该股放量上攻。
+E         + 该股放量上攻。目前。
+E         ?        +++
+
+intelligence/tests/test_condition_reference_seams.py:150: AssertionError
+_________ test_list_definition_deletion_reaches_public_answer[\u2460 ] _________
+
+prefix = '① '
+
+    @pytest.mark.parametrize("prefix", _DEFINITION_PREFIXES)
+    def test_list_definition_deletion_reaches_public_answer(prefix):
+        closing = "**" if prefix.endswith("**") else ""
+        frame, structural = _structural(
+            f"{prefix}升级条件{closing}：若涨停60家以上，则升级。\n"
+            "该股放量上攻。目前尚未**满足升级条件中的2条**。"
+        )
+        result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+            frame=frame,
+            structurally_verified=structural,
+            deadline=ResearchDeadline.from_timeout(5),
+        )
+        assert result.judge_status == "repaired"
+>       assert result.public_answer == "该股放量上攻。"
+E       AssertionError: assert '该股放量上攻。目前。' == '该股放量上攻。'
+E         
+E         - 该股放量上攻。
+E         + 该股放量上攻。目前。
+E         ?        +++
+
+intelligence/tests/test_condition_reference_seams.py:150: AssertionError
+_________ test_list_definition_deletion_reaches_public_answer[10. **] __________
+
+prefix = '10. **'
+
+    @pytest.mark.parametrize("prefix", _DEFINITION_PREFIXES)
+    def test_list_definition_deletion_reaches_public_answer(prefix):
+        closing = "**" if prefix.endswith("**") else ""
+        frame, structural = _structural(
+            f"{prefix}升级条件{closing}：若涨停60家以上，则升级。\n"
+            "该股放量上攻。目前尚未**满足升级条件中的2条**。"
+        )
+        result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+            frame=frame,
+            structurally_verified=structural,
+            deadline=ResearchDeadline.from_timeout(5),
+        )
+        assert result.judge_status == "repaired"
+>       assert result.public_answer == "该股放量上攻。"
+E       AssertionError: assert '该股放量上攻。目前。' == '该股放量上攻。'
+E         
+E         - 该股放量上攻。
+E         + 该股放量上攻。目前。
+E         ?        +++
+
+intelligence/tests/test_condition_reference_seams.py:150: AssertionError
+_ test_repair_is_delivered_through_semantic_verifier_and_records_real_deletion _
+
+    def test_repair_is_delivered_through_semantic_verifier_and_records_real_deletion():
+        judge = _judge(True)
+        frame, structural = _structural(
+            "升级条件：若涨停60家以上，则升级。\n"
+            "该股放量上攻。目前尚未**满足升级条件中的2条**。"
+        )
+        result = SemanticEpisodeVerifier(judge_fn=judge).verify(
+            frame=frame,
+            structurally_verified=structural,
+            deadline=ResearchDeadline.from_timeout(5),
+        )
+        assert result.judge_status == "repaired"
+>       assert result.public_answer == "该股放量上攻。"
+E       AssertionError: assert '该股放量上攻。目前。' == '该股放量上攻。'
+E         
+E         - 该股放量上攻。
+E         + 该股放量上攻。目前。
+E         ?        +++
+
+intelligence/tests/test_condition_reference_seams.py:178: AssertionError
+- generated xml file: /Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/engineering/mutations/clause_local_time_adverbs.xml -
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_condition_reference_seams.py::test_removed_reference_heals_only_its_clause[\u591a\u5934\u7ed3\u6784\u672a\u7834\u574f\u3002\u76ee\u524d\u5c1a\u672a\u6ee1\u8db3\u5347\u7ea7\u6761\u4ef6\u4e2d\u76842\u6761\u3002-\u591a\u5934\u7ed3\u6784\u672a\u7834\u574f\u3002]
+FAILED intelligence/tests/test_condition_reference_seams.py::test_removed_reference_heals_only_its_clause[\u591a\u5934\u7ed3\u6784\u672a\u7834\u574f\u3002\u76ee\u524d\u5c1a\u672a\u6ee1\u8db3\u5347\u7ea7\u6761\u4ef6\u4e2d\u76842\u6761\uff0c\u9700\u7ee7\u7eed\u89c2\u5bdf\u3002-\u591a\u5934\u7ed3\u6784\u672a\u7834\u574f\u3002\u9700\u7ee7\u7eed\u89c2\u5bdf\u3002]
+FAILED intelligence/tests/test_condition_reference_seams.py::test_removed_reference_heals_only_its_clause[\u89c2\u5bdf\u7ed3\u679c\u826f\u597d\u3002\u5f53\u524d\u6ee1\u8db3\u5347\u7ea7\u6761\u4ef6\u4e2d\u76842\u6761\u3002-\u89c2\u5bdf\u7ed3\u679c\u826f\u597d\u3002]
+FAILED intelligence/tests/test_condition_reference_seams.py::test_removed_reference_heals_only_its_clause[\u91cf\u80fd\u914d\u5408\uff0c\u6682\u65f6\u6ee1\u8db3\u5347\u7ea7\u6761\u4ef6\u4e2d\u76842\u6761\u3002-\u91cf\u80fd\u914d\u5408\u3002]
+FAILED intelligence/tests/test_condition_reference_seams.py::test_removed_reference_heals_only_its_clause[\u91cf\u80fd\u914d\u5408\uff1b\u76ee\u524d\u6ee1\u8db3\u5347\u7ea7\u6761\u4ef6\u4e2d\u76842\u6761\uff0c\u9700\u89c2\u5bdf\u3002-\u91cf\u80fd\u914d\u5408\uff1b\u9700\u89c2\u5bdf\u3002]
+FAILED intelligence/tests/test_condition_reference_seams.py::test_removed_reference_heals_only_its_clause[- \u91cf\u80fd\u914d\u5408\u3002**\u76ee\u524d\u5c1a\u672a\u6ee1\u8db3\u5347\u7ea7\u6761\u4ef6\u4e2d\u76842\u6761**\u3002-- \u91cf\u80fd\u914d\u5408\u3002]
+FAILED intelligence/tests/test_condition_reference_seams.py::test_removed_reference_heals_only_its_clause[\u91cf\u80fd\u914d\u5408\uff1a\u76ee\u524d\u6ee1\u8db3\u5347\u7ea7\u6761\u4ef6\u4e2d\u76842\u6761\uff0c\u9700\u89c2\u5bdf\u3002-\u91cf\u80fd\u914d\u5408\uff1a\u9700\u89c2\u5bdf\u3002]
+FAILED intelligence/tests/test_condition_reference_seams.py::test_removed_reference_heals_only_its_clause[\u91cf\u80fd\u914d\u5408\uff0c\u622a\u81f3\u76ee\u524d\u6ee1\u8db3\u5347\u7ea7\u6761\u4ef6\u4e2d\u76842\u6761\u3002-\u91cf\u80fd\u914d\u5408\u3002]
+FAILED intelligence/tests/test_condition_reference_seams.py::test_list_definition_deletion_reaches_public_answer[]
+FAILED intelligence/tests/test_condition_reference_seams.py::test_list_definition_deletion_reaches_public_answer[- ]
+FAILED intelligence/tests/test_condition_reference_seams.py::test_list_definition_deletion_reaches_public_answer[* ]
+FAILED intelligence/tests/test_condition_reference_seams.py::test_list_definition_deletion_reaches_public_answer[+ ]
+FAILED intelligence/tests/test_condition_reference_seams.py::test_list_definition_deletion_reaches_public_answer[\u2022 ]
+FAILED intelligence/tests/test_condition_reference_seams.py::test_list_definition_deletion_reaches_public_answer[1. ]
+FAILED intelligence/tests/test_condition_reference_seams.py::test_list_definition_deletion_reaches_public_answer[2) ]
+FAILED intelligence/tests/test_condition_reference_seams.py::test_list_definition_deletion_reaches_public_answer[3\uff09 ]
+FAILED intelligence/tests/test_condition_reference_seams.py::test_list_definition_deletion_reaches_public_answer[4\u3001 ]
+FAILED intelligence/tests/test_condition_reference_seams.py::test_list_definition_deletion_reaches_public_answer[\u4e00\u3001]
+FAILED intelligence/tests/test_condition_reference_seams.py::test_list_definition_deletion_reaches_public_answer[(1) ]
+FAILED intelligence/tests/test_condition_reference_seams.py::test_list_definition_deletion_reaches_public_answer[\uff082\uff09]
+FAILED intelligence/tests/test_condition_reference_seams.py::test_list_definition_deletion_reaches_public_answer[\u2460 ]
+FAILED intelligence/tests/test_condition_reference_seams.py::test_list_definition_deletion_reaches_public_answer[10. **]
+FAILED intelligence/tests/test_condition_reference_seams.py::test_repair_is_delivered_through_semantic_verifier_and_records_real_deletion
+23 failed, 60 passed in 1.84s

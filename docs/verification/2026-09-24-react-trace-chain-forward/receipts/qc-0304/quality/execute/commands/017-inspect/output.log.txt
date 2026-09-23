@@ -1,0 +1,73 @@
+    label_unlabelled_analytical_inferences,
+    judge_mode_label,
+_CONDITION_LABEL_RE = re.compile(
+    r"(?P<label>升级条件|降级条件)中的"
+    r"(?P<label>升级条件|降级条件)"
+_LEADING_CONDITION_LABEL_RE = re.compile(
+    r"(?P<label>依据|理由|原因|条件|要点|因素|信号|维度|方面)"
+    r"(?P<label>(?:周|星期)[一二三四五六日天])[）)]?"
+    "labelled_analytical_inference_allowed": True,
+    if any(code.startswith("calculation_value_") for code in codes):
+            judge_mode=judge_mode_label(self._judge_mode),
+            labeled = label_unlabelled_analytical_inferences(draft)
+            if labeled != draft:
+                    outcome=replace(structural.outcome, draft=labeled),
+                draft = labeled
+        labels = tuple(
+        annotated = _with_required_output_degrade_mark(public, labels)
+        labels = tuple(
+                _gap_label(item) for item in targets if _gap_label(item)
+            (_gap_label(item), bound_counts[item.output_id])
+        if cause != CAUSE_VERIFICATION_INCOMPLETE and labels:
+            parts.append("仍需核验：" + "、".join(labels[:3]) + "。")
+                    f"{label}（{count} 条证据）" for label, count in kept[:3]
+            unknown_slots = labels
+def _gap_label(item) -> str:
+def _required_output_degraded_note(labels: tuple[str, ...]) -> str:
+    if not labels:
+    labels: tuple[str, ...],
+    del labels
+def _numbered_sentences(draft: str) -> list[dict[str, object]]:
+    any evidence bound to the answer.  Dates, list labels, requested baseline
+def _semantic_degrade_labels(verified: VerifiedEpisodeOutcome) -> tuple[str, ...]:
+        # section must not inherit a condition label. Formatting is analysis-only.
+        labelled = _CONDITION_LABEL_RE.match(candidate) is not None
+        if candidate.startswith("|") and candidate.endswith("|"):
+        candidate = _LEADING_CONDITION_LABEL_RE.sub("", candidate)
+        if not (trigger or labelled or condition_section or _NUMERIC_COMPARATOR_RE.search(candidate)):
+            if labelled or condition_section:
+    """Reject date/weekday labels that contradict a bound calendar date."""
+            stated = _WEEKDAY_INDEX.get(match.group("label")[-1])
+                    not path_match.group(0).startswith("一路")
+        label = re.split(r"[：:]", text, maxsplit=1)[0]
+            len(label) <= 12 and label != text
+            probe = label if label != text else text
+def _repair_dangling_condition_references(
+    is still visible.  The repair is deliberately narrow: it targets labels that were
+    deleted_labels = {
+        match.group("label")
+    if not deleted_labels:
+    surviving_labels = {
+        match.group("label")
+    orphaned_labels = deleted_labels - surviving_labels
+    if not orphaned_labels:
+    orphaned = frozenset(orphaned_labels)
+    line: str, orphaned_labels: frozenset[str]
+                if found.group("label") in orphaned_labels
+        body = "**" if body.strip().startswith("**") else ""
+        if head.startswith(conjunction):
+    Accepted claim prose stays byte-for-byte unchanged.  Numeric list labels
+            label = match.groupdict().get("label") or ""
+                (after_start, after_end, label or descriptor)
+        label = match.groupdict().get("label")
+            f"{label}有{rendered_count}{match.group('unit')}"
+            if label
+    labels: tuple[str, ...],
+    body = context_prefix + "、".join(labels)
+    from intelligence.services.episode_progress import public_tool_label
+        name.casefold(): label
+        if (label := public_tool_label(name))
+        for name, label in aliases.items():
+                label, text, flags=re.IGNORECASE,
+        if line.startswith("{") and line.endswith("}"):
+            if sentence.startswith("{") and sentence.endswith("}"):

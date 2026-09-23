@@ -1,0 +1,1 @@
+{"admission":1,"stage":"execute","stream":true,"model":"glm-5.3","tools":["read","inspect","write","run_tests","submit_report"],"temperature_removed":false}

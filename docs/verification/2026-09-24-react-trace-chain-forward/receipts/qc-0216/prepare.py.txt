@@ -1,0 +1,38 @@
+"""Fresh continuation with phase-scoped progress prompts; retain prior failures."""
+from datetime import datetime, timezone
+import hashlib
+import json
+from pathlib import Path
+import subprocess
+
+ROOT = Path(__file__).resolve().parent
+SEED = ROOT.parent/'pr832-glm-qc-20260924-0210'
+AUTHOR = Path('/Users/a77/fwp-wt-react-trace-chain-0923')
+TREE = ROOT/'candidate/finance-workspace-private'
+REV = 'f7d525ca0bdc33df2bbbed96bdb8a8af3b58ddf0'
+assert subprocess.check_output(['git','-C',str(AUTHOR),'rev-parse','HEAD'],text=True).strip() == REV
+assert not subprocess.check_output(['git','-C',str(AUTHOR),'status','--porcelain'])
+subprocess.run(['git','-C',str(AUTHOR),'worktree','add','--detach',str(TREE),REV],check=True)
+lock = json.loads((SEED/'harness-lock.json').read_text())
+provenance = []
+for name, sha in lock['files'].items():
+    if '/sandbox-preflight/' in name:
+        continue
+    source = SEED/name
+    assert hashlib.sha256(source.read_bytes()).hexdigest() == sha
+    dest = ROOT/name
+    dest.parent.mkdir(parents=True,exist_ok=True)
+    dest.write_text(source.read_text().replace(str(SEED),str(ROOT)))
+    provenance.append({'source':str(source),'sha256':sha,'destination':name})
+(ROOT/'finish_setup.py').write_text((SEED/'finish_setup.py').read_text())
+for axis in ['spec','quality']:
+    for name in ['work/tmp','work/users','work/probes']:
+        (ROOT/axis/name).mkdir(parents=True)
+protocol = json.loads((ROOT/'protocol.json').read_text())
+protocol.update(created_at=datetime.now(timezone.utc).isoformat(),candidate_tree=str(TREE),previous_batch=str(SEED),
+                continuation='One new finite batch after fixing inappropriate exploration progress prompts in gateway/report phases. Exact nonce roundtrip and all budgets unchanged.',
+                previous_requests_in_current_authorization=33,maximum_total_requests_with_this_batch=185,
+                reviewer_artifacts_copied=False)
+(ROOT/'protocol.json').write_text(json.dumps(protocol,ensure_ascii=False,indent=2)+'\n')
+(ROOT/'tooling-provenance.json').write_text(json.dumps(provenance,indent=2)+'\n')
+print(json.dumps({'root':str(ROOT),'revision':REV,'model_requests':0}))

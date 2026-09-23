@@ -1,0 +1,14 @@
+121:        "question": question[:96], "question_truncated": len(question) > 96,
+123:        "returned_count": 0, "next_offset": None, "hypotheses": [],
+133:            "statement": statement[:120], "statement_truncated": len(statement) > 120,
+140:                next_offset=index + 1 if index + 1 < len(hypotheses) else None)
+150:                item["statement_truncated"] = True
+216:        for key in ("operation", "status", "total_matched", "returned_count", "truncated", "offset", "next_offset")
+372:        next_offset=(
+385:            "truncated",
+387:            "next_offset",
+440:                    "truncated": payload.get("truncated"),
+441:                    "offset": offset, "next_offset": payload["next_offset"],
+444:        "大成员、覆盖明细和超长字段仅在完整artifact；需更多行用read_history_result按next_offset分页，null表示已到末页。"
+757:                truncated=len(page) < len(rows),
+782:            description="读取同会话上一轮query/case原件的指定页；case返回未认证草稿摘要和hypotheses分页，按next_offset续读。旧完整引用由patch服务端保留。",

@@ -1,0 +1,1 @@
+{"toolCallId":"misleading-fixture","params":{"path":"/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0216/spec/work/probes/test_harness_misleading_output.py","content":"def test_red():\n    print(\"EXIT=0\")\n    assert 1 == 2, \"never trust printed status\"\n"}}

@@ -1,0 +1,59 @@
+"""Low-cost identity, lint, registry and existing mutation receipt checks."""
+from datetime import datetime, timezone
+import hashlib
+import json
+import os
+from pathlib import Path
+import subprocess
+
+ROOT = Path(__file__).resolve().parent
+OUT = ROOT/'engineering/light'
+TREE = Path('/Users/a77/fwp-wt-react-trace-chain-0923')
+REV = '27034ce44ed41b1af0a570c2ccc534066a1656f6'
+BASE = '3bb81b9638f97b4773ce0f338df3a505b7c0162f'
+PRIOR = 'f7d525ca0bdc33df2bbbed96bdb8a8af3b58ddf0'
+PY = '/Users/a77/finance-workspace-private/.venv-workbench/bin/python'
+ENV = {'HOME':'/Users/a77','PATH':'/opt/homebrew/bin:/usr/bin:/bin','LANG':'C.UTF-8','PYTHONDONTWRITEBYTECODE':'1','GIT_OPTIONAL_LOCKS':'0'}
+
+
+def git(*args):
+    return subprocess.check_output(['git','-C',str(TREE),*args],text=True,env=ENV).strip()
+
+
+def identity():
+    return {'revision':git('rev-parse','HEAD'),'status':git('status','--porcelain')}
+
+
+OUT.mkdir()
+before = identity()
+assert before == {'revision':REV,'status':''}
+commands = [('ruff',[PY,'-m','ruff','check','.']),
+            ('parseability',[PY,'scripts/build_registry.py','check-parseability']),
+            ('registry',[PY,'scripts/build_registry.py','check']),
+            ('tables',[PY,'scripts/build_registry.py','backfill-tables','--check']),
+            ('views',[PY,'scripts/build_registry.py','generate-views','--check']),
+            ('crosswalk',[PY,'scripts/audit_ledger_spec_crosswalk.py']),
+            ('product-diff-check',['git','diff','--check',BASE,REV,'--','intelligence','tests']),
+            ('merge-tree',['git','merge-tree','--write-tree','--name-only',BASE,REV])]
+rows = []
+for name, argv in commands:
+    with (OUT/(name+'.log.txt')).open('xb') as stream:
+        result = subprocess.run(argv,cwd=TREE,env=ENV,stdout=stream,stderr=subprocess.STDOUT,timeout=120,umask=0o022)
+    rows.append({'name':name,'argv':argv,'exit_code':result.returncode,'log_sha256':hashlib.sha256((OUT/(name+'.log.txt')).read_bytes()).hexdigest()})
+after = identity()
+assert before == after
+modules = ['intelligence/services/episode_protocol.py','intelligence/services/episode_tools.py',
+           'intelligence/services/finance_query.py','intelligence/runtime/research_progress.py',
+           'intelligence/services/historical_research/episode.py','intelligence/services/episode_semantic_verifier.py']
+unchanged = {name:git('rev-parse',PRIOR+':'+name) == git('rev-parse',REV+':'+name) for name in modules}
+mutation_path = ROOT/'engineering/mutations/summary.json'
+mutations = json.loads(mutation_path.read_text())
+assert len(mutations) == 11 and all(row['caught_or_baseline_green'] and row['tests'] == 83 and row['errors'] == 0 for row in mutations)
+result = {'revision':REV,'baseline':BASE,'identity_before':before,'identity_after':after,
+          'recorded_at':datetime.now(timezone.utc).isoformat(),'checks':rows,'modules_unchanged_from_prior':unchanged,'intentional_changed_module':'episode_semantic_verifier._CONDITION_DEFINITION_RE',
+          'mutation_summary_sha256':hashlib.sha256(mutation_path.read_bytes()).hexdigest(),
+          'mutation_interpreter':PY,'mutation_command_tree':str(TREE),'mutation_baseline_passed':83,'mutations_caught':10,
+          'full_python':'PENDING','frontend':'PENDING','independent_qc':'SEPARATE','exit_code':0 if all(r['exit_code']==0 for r in rows) else 1}
+(OUT/'receipt.json').write_text(json.dumps(result,indent=2)+'\n')
+print(json.dumps({'checks':[{k:r[k] for k in ['name','exit_code']} for r in rows],'unchanged_modules':all(unchanged.values()),'mutations_caught':10,'exit_code':result['exit_code']}))
+os.sys.exit(result['exit_code'])

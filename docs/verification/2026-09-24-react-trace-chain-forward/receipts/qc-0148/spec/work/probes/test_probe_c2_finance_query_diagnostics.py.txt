@@ -1,0 +1,69 @@
+"""Independent C2 probe: finance_query failures yield safe structured diagnostics only.
+
+Calls the failure renderer offline; no database, network or model is involved.
+"""
+from __future__ import annotations
+
+import pytest
+
+from intelligence.services import episode_tools, finance_query
+
+
+def _spec():
+    return finance_query.FinanceQuerySpec.from_arguments(
+        {
+            "dataset": "market_daily",
+            "dimensions": ["trade_date"],
+            "metrics": ["stage_day"],
+            "time_range": {"start": "2026-07-21", "end": "2026-07-21"},
+        }
+    )
+
+
+_SECRET = "forbidden-prose secret/path future-fact-99%"
+
+
+def _result(error):
+    return episode_tools._finance_query_failure_result(_spec(), error)
+
+
+def test_c2_unknown_validator_text_is_never_echoed():
+    result = _result(finance_query.FinanceQueryValidationError(_SECRET))
+    assert "查询参数未通过校验" in result.observation
+    assert "重试提示" in result.observation
+    for fragment in ("forbidden-prose", "secret/path", "99%", "future-fact"):
+        assert fragment not in result.observation
+    assert not result.evidence
+    assert len(result.diagnostics) == 1
+    diagnostic = result.diagnostics[0]
+    assert diagnostic.code == "invalid_query"
+    for fragment in ("forbidden-prose", "secret/path", "99%"):
+        assert fragment not in diagnostic.message
+
+
+@pytest.mark.parametrize("message", ["unknown dataset: " + _SECRET, "not a metric: " + _SECRET])
+def test_c2_known_prefixes_render_identifier_only(message):
+    result = _result(finance_query.FinanceQueryValidationError(message))
+    assert result.observation.startswith("结构化查询参数无效：")
+    assert "重试提示：" in result.observation
+    for fragment in ("forbidden-prose", "secret/path", "99%"):
+        assert fragment not in result.observation
+    assert not result.evidence
+
+
+@pytest.mark.parametrize(
+    ("error_type", "marker"),
+    [
+        (finance_query.FinanceQueryTimedOut, "结构化查询超时"),
+        (finance_query.FinanceQueryCancelled, "结构化查询已取消"),
+        (finance_query.FinanceQueryLimitExceeded, "结构化查询结果超过资源上限"),
+        (finance_query.FinanceQueryExecutionError, "结构化数据源暂不可用"),
+    ],
+)
+def test_c2_runtime_errors_use_fixed_safe_observations(error_type, marker):
+    result = _result(error_type("provider secret/path forbidden-provider-text 99%"))
+    assert marker in result.observation
+    for fragment in ("secret/path", "forbidden-provider-text", "99%", "provider"):
+        assert fragment not in result.observation
+    assert not result.evidence
+    assert "重试提示" not in result.observation

@@ -1,0 +1,52 @@
+    都不是引用），右界排除续位数字（``E41`` 不拆成 ``E4``）。
+    只识别、不校验：表外序号由消费方反解失败自然落回既有删除路径。
+    """
+
+    seen: dict[str, None] = {}
+    for match in _PROSE_EVIDENCE_REF_RE.finditer(str(text or "")):
+        seen.setdefault(f"E{match.group(1)}", None)
+    return tuple(seen)
+
+
+def strip_evidence_ordinals(text: str) -> str:
+    """Mask prose E references in an analysis-only copy, using the citation grammar.
+
+    Citation IDs are not quantities. Replace them with a space rather than
+    joining adjacent tokens. This neither validates references nor changes the
+    public draft: consumers must still check unknown ordinals in the original.
+    """
+
+    return _PROSE_EVIDENCE_REF_RE.sub(" ", str(text or ""))
+
+
+def resolve_evidence_refs(
+    raw_refs: list[object],
+    evidence: tuple[AgentEvidence, ...],
+) -> tuple[str, ...]:
+    """把绑定里的 E1..En（或精确哈希）解析成 ``content_hash``。
+
+    序号优先：``E1`` 永不按哈希解释。越界序号硬拒。精确哈希仍接受，
+    供旧夹具与偶发抄对的路径；抄错的哈希走既有 forged/truncated，
+    **不做模糊纠正**（拼接标本会同时近配两条真哈希）。
+    """
+
+    table = evidence_ordinal_table(evidence)
+    by_id = {eid: digest for digest, eid in table.items()}
+    resolved: list[str] = []
+    for raw in raw_refs:
+        if not isinstance(raw, str):
+            raise _reject(
+                "hashes_not_list",
+                "binding evidence_hashes must be a string list",
+            )
+        token = raw.strip()
+        ordinal = parse_evidence_ordinal(token)
+        if ordinal is not None:
+            eid = f"E{ordinal}"
+            digest = by_id.get(eid)
+            if digest is None:
+                raise _reject(
+                    "unknown_evidence_ref",
+                    f"unknown evidence ordinal: {eid}",
+
+[truncated; total lines=1372, selected=740:789; next_offset=790]

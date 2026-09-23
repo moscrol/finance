@@ -1,0 +1,88 @@
+报告阶段完成。核对 EXECUTE.md 及 execute/commands 原始 receipt：三套必需测试均有真实执行记录——control 必红对照 exit1/AssertionError(intentional_positive_control)（003）；作者七文件回归 run 006 exit0、232 passed（006-run_tests/result.json）；自造探针首跑 run 005 16 passed/4 failed（005-run_tests/result.json）。四项失败逐一抽核：①C5 单元分页表——原探针直调 _result 绕过 read_history_result 的 preview 切片与 returned_count 重算，同探针集成断言（绝对 sample、末页 next_offset=null、中间页 next_offset=1）已过；②C5 truncated——产品语义为投影样本<总行数（作者测试 tests/test_history_model_projection.py:211 同义），非页级截断；③C6 幸存定义前置条件数错（before 实有三条定义句）；④C6 圈号/序号前缀——探针 _rejected 用 startswith 而产品用 _CONDITION_DEFINITION_RE（支持 ①/一、/（2）/10.）。四项均判探针夹具问题，非产品缺陷。修正版单跑确认：c5_pagination_v4 run 025 exit0（1 passed，output.log 复核）；c6_condition_repair_v2 run 027 exit0（5 passed in 4.86s，output.log 复核），后者含真实 SemanticEpisodeVerifier.verify 出口（judge_status=repaired、公开答案=修复草稿、60家定义句 decision=deleted）及四种列表前缀识别、幸存定义保留计数、非定义不授权、CRLF/无关散文保留。C1-C6 全部 verified，无产品缺陷，verdict=PASS_WITH_LIMITS（残余限制见 limits，均不构成关键覆盖缺口）。
+
+```json
+{
+  "claims": [
+    {
+      "evidence": [
+        "spec/execute/commands/005-run_tests/output.log: test_probe_c1_c4_ordinals_progress 全部通过（16 passed 中含其全部用例）",
+        "spec/work/probes/test_probe_c1_c4_ordinals_progress.py 保留断言 EX1/E/1234",
+        "作者回归 run 006: test_episode_protocol.py, test_episode_numeric_citations.py 绿（232 passed, exit0，receipt 006-run_tests/result.json）"
+      ],
+      "id": "C1",
+      "note": "真实数字与词边界token保留；E5x 中 E5 被遮蔽属探针边界观察，不影响数字门，不计缺陷",
+      "status": "verified"
+    },
+    {
+      "evidence": [
+        "run 005 test_probe_c2_c3_finance_feedback 结构化诊断断言通过",
+        "作者 run 006: test_finance_query_repair_feedback.py 全绿"
+      ],
+      "id": "C2",
+      "note": "诊断不回显任意散文/路径",
+      "status": "verified"
+    },
+    {
+      "evidence": [
+        "run 005 同探针中同轮反馈/预算/取消断言通过",
+        "作者 run 006: test_agent_episode_progress.py 全绿"
+      ],
+      "id": "C3",
+      "note": "本地校验失败回灌同一Episode且不加铸预算",
+      "status": "verified"
+    },
+    {
+      "evidence": [
+        "run 005 C1/C4 探针冻结嵌套Mapping进度键与未知对象拒绝断言通过",
+        "作者 run 006: test_research_progress.py 全绿"
+      ],
+      "id": "C4",
+      "note": "无产品diff，行为复验通过",
+      "status": "verified"
+    },
+    {
+      "evidence": [
+        "run 005 test_probe_c5_pagination 集成断言（绝对sample、末页null、投影失败不登记成功）通过",
+        "run 025 test_probe_c5_pagination_v4 单独 exit0（receipt 025-run_tests/result.json，1 passed）"
+      ],
+      "id": "C5",
+      "note": "原失败为夹具绕过真实 read_history_result 分页切片并误读 truncated 语义（产品语义见 tests/test_history_model_projection.py:211），v4 修正后通过",
+      "status": "verified"
+    },
+    {
+      "evidence": [
+        "run 027 test_probe_c6_condition_repair_v2 单独 exit0（receipt 027-run_tests/result.json, 5 passed in 4.86s）",
+        "探针含真实 SemanticEpisodeVerifier.verify 出口：judge_status=repaired、公开答案=修复草稿、60家定义句 decision=deleted、①/一、/（2）/10. 前缀识别、幸存定义保留计数、CRLF与无关散文保留"
+      ],
+      "id": "C6",
+      "note": "真实 verify/repair 交付出口动态行为验证通过",
+      "status": "verified"
+    }
+  ],
+  "findings": [],
+  "limits": [
+    "三账核对结论：control 必红对照 exit1/AssertionError(intentional_positive_control) 按预期（receipt 003）；作者七文件回归 run 006 232 passed exit0；自造探针首跑 run 005 16 passed/4 failed，四项失败逐一抽核源码均定为夹具问题而非产品缺陷",
+    "must_red 对照仅在候选头通过，baseline 红未实际执行（只读环境无法检出 baseline checkout）",
+    "C5 v4 单元表探针的 payload 由探针手工组装 preview/returned_count/truncated，未完整走 read_history_result 的切片路径（该路径的集成断言在 run 005 原探针中已通过），属残余夹具痕迹",
+    "C1 边界观察：strip_evidence_ordinals 的 _PROSE_EVIDENCE_REF_RE 右界仅排除数字不排除字母，E5x 中的 E5 会被遮蔽；仅作用于分析副本且原文校验不受影响，未列为缺陷",
+    "未覆盖旧 refresh E2E 时序问题（主张明示范围外），无性能结论"
+  ],
+  "probe_files": [
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/spec/work/probes/test_probe_c1_c4_ordinals_progress.py",
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/spec/work/probes/test_probe_c2_c3_finance_feedback.py",
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/spec/work/probes/test_probe_c5_pagination_v4.py",
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/spec/work/probes/test_probe_c6_condition_repair_v2.py",
+    "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/spec/work/probes/test_probe_must_red_control.py"
+  ],
+  "summary": "报告阶段完成。核对 EXECUTE.md 及 execute/commands 原始 receipt：三套必需测试均有真实执行记录——control 必红对照 exit1/AssertionError(intentional_positive_control)（003）；作者七文件回归 run 006 exit0、232 passed（006-run_tests/result.json）；自造探针首跑 run 005 16 passed/4 failed（005-run_tests/result.json）。四项失败逐一抽核：①C5 单元分页表——原探针直调 _result 绕过 read_history_result 的 preview 切片与 returned_count 重算，同探针集成断言（绝对 sample、末页 next_offset=null、中间页 next_offset=1）已过；②C5 truncated——产品语义为投影样本<总行数（作者测试 tests/test_history_model_projection.py:211 同义），非页级截断；③C6 幸存定义前置条件数错（before 实有三条定义句）；④C6 圈号/序号前缀——探针 _rejected 用 startswith 而产品用 _CONDITION_DEFINITION_RE（支持 ①/一、/（2）/10.）。四项均判探针夹具问题，非产品缺陷。修正版单跑确认：c5_pagination_v4 run 025 exit0（1 passed，output.log 复核）；c6_condition_repair_v2 run 027 exit0（5 passed in 4.86s，output.log 复核），后者含真实 SemanticEpisodeVerifier.verify 出口（judge_status=repaired、公开答案=修复草稿、60家定义句 decision=deleted）及四种列表前缀识别、幸存定义保留计数、非定义不授权、CRLF/无关散文保留。C1-C6 全部 verified，无产品缺陷，verdict=PASS_WITH_LIMITS（残余限制见 limits，均不构成关键覆盖缺口）。",
+  "verdict": "PASS_WITH_LIMITS",
+  "stage": "report",
+  "axis": "spec",
+  "revision": "27034ce44ed41b1af0a570c2ccc534066a1656f6",
+  "baseline": "3bb81b9638f97b4773ce0f338df3a505b7c0162f",
+  "complete": true,
+  "delivery_gaps": [],
+  "test_runs": [],
+  "host_bound": true
+}
+```

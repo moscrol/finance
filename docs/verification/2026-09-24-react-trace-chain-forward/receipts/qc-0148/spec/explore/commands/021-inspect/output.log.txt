@@ -1,0 +1,21 @@
+47:def progress_enabled() -> bool:
+51:def stall_finalize_batches() -> int:
+62:def _mapping_for_json(value: object) -> dict:
+73:def normalize_query(value: object) -> str:
+102:    def __post_init__(self) -> None:
+111:    def result_label(self) -> str:
+123:    def new_evidence(self) -> int:
+127:    def executed(self) -> int:
+150:    def __init__(self, *, stall_finalize_batches: int | None = None) -> None:
+169:    def record_call(self, digest: ToolCallDigest) -> None:
+173:    def close_batch(self) -> BatchDigest | None:
+200:    def record_branches(
+223:    def note_external_input(self) -> None:
+232:    def last_batch(self) -> BatchDigest | None:
+236:    def repeated_queries(self) -> tuple[dict[str, object], ...]:
+246:    def empty_tools(self) -> tuple[tuple[str, int], ...]:
+259:    def should_finalize(self) -> bool:
+269:    def suggestions(self, *, available_tools: Sequence[str] = ()) -> tuple[str, ...]:
+300:    def model_view(
+360:    def _instruction(
+402:def stall_finalize_batches_default() -> int:

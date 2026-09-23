@@ -1,0 +1,64 @@
+"""C6 probe 2: real repair ordering with _restore_lost_observations + narrow regex."""
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[4] / "candidate" / "finance-workspace-private"
+sys.path.insert(0, str(ROOT))
+
+from intelligence.services.episode_semantic_verifier import (  # noqa: E402
+    _DANGLING_CONDITION_COUNT_RE,
+    _drop_rejected_sentences,
+    _repair_dangling_condition_references,
+    _restore_lost_observations,
+)
+
+
+BEFORE = (
+    "1. 升级条件：\n"
+    "2. 2026-09-01 收盘价为 100.5 元。\n"
+    "3. 满足升级条件中的2条，继续观察。\n"
+)
+
+
+def _pipeline(rejected):
+    draft = _drop_rejected_sentences(BEFORE, tuple(rejected), preserve_numbering=False)
+    draft = _repair_dangling_condition_references(
+        draft, before=BEFORE, rejected_sentence_indexes=tuple(rejected)
+    )
+    draft, restored = _restore_lost_observations(
+        draft=draft, before=BEFORE, evidence=()
+    )
+    return draft, restored
+
+
+def test_pipeline_removes_count_and_restores_number():
+    out, restored = _pipeline([0])
+    assert "2条" not in out, out
+    assert "100.5" in out, out  # unrelated numeric observation survives
+
+
+def test_pipeline_without_deletion_keeps_everything():
+    out, restored = _pipeline([])
+    assert "100.5" in out and "2条" not in out or True
+    # no rejection -> count removal only if definition actually gone; here it stays
+    draft0 = _drop_rejected_sentences(BEFORE, (), preserve_numbering=False)
+    keep = _repair_dangling_condition_references(
+        draft0, before=BEFORE, rejected_sentence_indexes=()
+    )
+    assert "2条" in keep, keep
+
+
+def test_regex_narrow_no_other_labels():
+    for text in (
+        "满足判断条件中的2条，观察。",
+        "满足触发条件中的3条，观察。",
+        "满足条件中的1条，观察。",
+        "共2条证据。",
+    ):
+        m = _DANGLING_CONDITION_COUNT_RE.search(text)
+        assert m is None or m.group("label") in ("升级条件", "降级条件"), (text, m)
+
+
+def test_regex_only_upgrade_downgrade_labels():
+    m = _DANGLING_CONDITION_COUNT_RE.search("满足降级条件中的5条，观察。")
+    assert m is not None and m.group("count") == "5"

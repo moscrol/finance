@@ -1,5 +1,7 @@
 # #81 / #832 前向合流验收
 
+> 本页及其原件仅绑定历史候选d1b30e1a0；当前产品已到27034ce44。09-24新组合、C6列表定义返修及五批独审终态见 [新验收页](../2026-09-24-react-trace-chain-forward/README.md)。旧收据不移签；下文“最新”为当时状态。
+
 最新结论（09-24 加固续轮）：工程四叶仍为 `ENGINEERING_PASS_WITH_E2E_TIMING_LIMITS`；用户「执行」授权机械加固及一个新 #75 有限批，实际 27 请求后为 `BLOCKED_EXPLORE_NO_PROBES`。结构化报告已成功交付，但探索额度用于源码阅读，零探针、零产品测试，Spec execute/report 及 Quality 未启动。旧49请求的 `BLOCKED_HARNESS_AND_INCOMPLETE_REPORT` 原件不变。工程旧两轮 E2E 红保留，不作稳定性认证；#76仍另授权，#832仍WIP。最新收口回读main为 `5bf47a5ae9aa`，不移动候选或将固定基线收据移签后来main。
 
 ## 固定身份与范围

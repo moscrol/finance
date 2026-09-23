@@ -1,0 +1,67 @@
+"""C5 probe (v2): offsets injected by _result; compact-JSON observation."""
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[4] / "candidate" / "finance-workspace-private"
+sys.path.insert(0, str(ROOT))
+
+from intelligence.services.historical_research.episode import (  # noqa: E402
+    _model_projection,
+    _result,
+)
+
+
+def _payload(rows, total, offset):
+    return {
+        "operation": "find_analogues", "status": "success",
+        "total_matched": total, "returned_count": len(rows[offset: offset + 2]),
+        "truncated": False, "preview": rows[offset: offset + 2],
+        "reference": {"k": "v"}, "coverage": [],
+    }
+
+
+def _samples(proj):
+    import json
+    out = set()
+    for _t, detail, _d in proj:
+        if isinstance(detail, dict) and "sample" in detail:
+            out.add(detail["sample"])
+        elif isinstance(detail, str):
+            try:
+                parsed = json.loads(detail)
+            except Exception:
+                continue
+            stack = [parsed]
+            while stack:
+                item = stack.pop()
+                if isinstance(item, dict):
+                    if "sample" in item:
+                        out.add(item["sample"])
+                    stack.extend(item.values())
+                elif isinstance(item, list):
+                    stack.extend(item)
+    return out
+
+
+def test_projection_absolute_ids_when_offset_in_payload():
+    rows = [{"i": i, "entity_code": f"E{i}"} for i in range(6)]
+    # _result injects offset into the payload before projecting; do the same
+    payload = dict(_payload(rows, 6, 2), offset=2)
+    proj = _model_projection(payload, "ref-1")
+    samples = _samples(proj)
+    assert {2, 3} <= samples, samples
+    assert 0 not in samples and 1 not in samples, samples
+
+
+def test_observation_offsets_mid_page():
+    rows = [{"i": i, "entity_code": f"E{i}"} for i in range(6)]
+    res = _result(_payload(rows, 6, 2), result_ref="ref-1", offset=2)
+    obs = str(res.observation)
+    assert '"offset":2' in obs and '"next_offset":4' in obs, obs
+
+
+def test_observation_offsets_final_page():
+    rows = [{"i": i, "entity_code": f"E{i}"} for i in range(3)]
+    res = _result(_payload(rows, 3, 2), result_ref="ref-1", offset=2)
+    obs = str(res.observation)
+    assert '"next_offset":null' in obs, obs

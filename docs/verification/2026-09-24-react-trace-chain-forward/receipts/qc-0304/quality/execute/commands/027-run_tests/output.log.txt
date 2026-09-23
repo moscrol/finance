@@ -1,0 +1,205 @@
+...F.F...FFFF..............                                              [ 81%]
+=================================== FAILURES ===================================
+____________________ test_bad_time_range_is_rejected_safely ____________________
+
+value = 'not-a-date', name = 'time_range.start'
+
+    def _parse_date(value: object, name: str) -> date | None:
+        if value is None or value == "":
+            return None
+        if not isinstance(value, str):
+            raise FinanceQueryValidationError(f"{name} must be an ISO date")
+        try:
+>           return date.fromisoformat(value[:10])
+E           ValueError: Invalid isoformat string: 'not-a-date'
+
+intelligence/services/finance_query.py:2853: ValueError
+
+The above exception was the direct cause of the following exception:
+
+self = <intelligence.services.research_tool_registry.ResearchToolRegistry object at 0x1089e70e0>
+name = 'finance_query'
+arguments = {'dataset': 'market_daily', 'dimensions': ['trade_date'], 'metrics': ['stage_day'], 'time_range': {'end': '2026-07-21', 'start': 'not-a-date'}}
+
+    def prepare(
+        self,
+        name: str,
+        arguments: str | Mapping[str, object] | PreparedToolArguments,
+    ) -> PreparedToolArguments:
+        spec = self.resolve(name)
+        if isinstance(arguments, PreparedToolArguments):
+            if arguments.tool != spec.name:
+                raise InvalidResearchToolArguments(
+                    "prepared arguments belong to another tool"
+                )
+            return arguments
+        if isinstance(arguments, str):
+            raw: dict[str, object] = {"query": arguments}
+        elif isinstance(arguments, Mapping):
+            copied = _copy_json(arguments)
+            if not isinstance(copied, dict):
+                raise InvalidResearchToolArguments("tool arguments must be an object")
+            raw = copied
+        else:
+            raise InvalidResearchToolArguments("tool arguments must be an object")
+        raw, normalization_note = unwrap_double_encoded_query(raw)
+        try:
+>           runner_input, display_query = spec.parse_arguments(raw)
+
+intelligence/services/research_tool_registry.py:1159: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+intelligence/services/episode_tools.py:1539: in parse_finance_arguments
+    spec = finance_query.FinanceQuerySpec.from_arguments(arguments)
+intelligence/services/finance_query.py:130: in from_arguments
+    time_range = _parse_time_range(arguments.get("time_range"))
+intelligence/services/finance_query.py:2825: in _parse_time_range
+    start=_parse_date(value.get("start"), "time_range.start"),
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+value = 'not-a-date', name = 'time_range.start'
+
+    def _parse_date(value: object, name: str) -> date | None:
+        if value is None or value == "":
+            return None
+        if not isinstance(value, str):
+            raise FinanceQueryValidationError(f"{name} must be an ISO date")
+        try:
+            return date.fromisoformat(value[:10])
+        except ValueError as exc:
+>           raise FinanceQueryValidationError(f"{name} must be an ISO date") from exc
+E           intelligence.services.finance_query.FinanceQueryValidationError: time_range.start must be an ISO date
+
+intelligence/services/finance_query.py:2855: FinanceQueryValidationError
+
+The above exception was the direct cause of the following exception:
+
+tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/work/tmp/execute-027-run_tests/test_bad_time_range_is_rejecte0')
+
+    def test_bad_time_range_is_rejected_safely(tmp_path):
+        registry, context = _setup(tmp_path)
+>       res = _execute(registry, context, {
+            "dataset": "market_daily", "dimensions": ["trade_date"],
+            "metrics": ["stage_day"],
+            "time_range": {"start": "not-a-date", "end": "2026-07-21"},
+        })
+
+../../quality/work/probes/test_qc_c2_diagnostics.py:57: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../../quality/work/probes/test_qc_c2_diagnostics.py:35: in _execute
+    return registry.execute(
+intelligence/services/research_tool_registry.py:1243: in execute
+    prepared = self.prepare(name, arguments)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <intelligence.services.research_tool_registry.ResearchToolRegistry object at 0x1089e70e0>
+name = 'finance_query'
+arguments = {'dataset': 'market_daily', 'dimensions': ['trade_date'], 'metrics': ['stage_day'], 'time_range': {'end': '2026-07-21', 'start': 'not-a-date'}}
+
+    def prepare(
+        self,
+        name: str,
+        arguments: str | Mapping[str, object] | PreparedToolArguments,
+    ) -> PreparedToolArguments:
+        spec = self.resolve(name)
+        if isinstance(arguments, PreparedToolArguments):
+            if arguments.tool != spec.name:
+                raise InvalidResearchToolArguments(
+                    "prepared arguments belong to another tool"
+                )
+            return arguments
+        if isinstance(arguments, str):
+            raw: dict[str, object] = {"query": arguments}
+        elif isinstance(arguments, Mapping):
+            copied = _copy_json(arguments)
+            if not isinstance(copied, dict):
+                raise InvalidResearchToolArguments("tool arguments must be an object")
+            raw = copied
+        else:
+            raise InvalidResearchToolArguments("tool arguments must be an object")
+        raw, normalization_note = unwrap_double_encoded_query(raw)
+        try:
+            runner_input, display_query = spec.parse_arguments(raw)
+        except InvalidResearchToolArguments:
+            raise
+        except (KeyError, TypeError, ValueError) as exc:
+>           raise InvalidResearchToolArguments(str(exc)) from exc
+E           intelligence.services.research_tool_registry.InvalidResearchToolArguments: time_range.start must be an ISO date
+
+intelligence/services/research_tool_registry.py:1163: InvalidResearchToolArguments
+___________ test_invalid_tool_call_feedback_returns_to_same_episode ____________
+
+tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/work/tmp/execute-027-run_tests/test_invalid_tool_call_feedbac0')
+
+    def test_invalid_tool_call_feedback_returns_to_same_episode(tmp_path):
+        frame = _frame()
+        context = replace(
+            _context(frame, allowed_capabilities=("finance_query",)),
+            trace_parent_id=uuid4().hex,
+        )
+        registry = episode_tools.build_episode_registry(
+            frame, context, finance_root=tmp_path, knowledge_wiki=tmp_path / "wiki",
+        )
+        call = ModelToolCall("bad-1", "finance_query", {
+            "dataset": "market_daily", "dimensions": ["trade_date"],
+            "metrics": ["stage_day"],
+            "time_range": {"start": "not-a-date", "end": "2026-07-21"},
+        })
+        finish = _finish_turn()
+        model = ScriptedModel([
+>           _tool_turn("q1", "c1"), ModelTurn("", (call,), "scripted"),
+            replace(finish, content='{"draft": "判断保留。", "status": "partial", "gaps": ["工具缺参"]}'),
+        ])
+E       TypeError: _tool_turn() takes 1 positional argument but 2 were given
+
+../../quality/work/probes/test_qc_c3_feedback_fixed2.py:38: TypeError
+__________________ test_sample_indexes_carry_absolute_offset ___________________
+
+    def test_sample_indexes_carry_absolute_offset():
+        payload = dict(_payload([{"a": 1}, {"a": 2}, {"a": 3}, {"a": 4}]), offset=10)
+        projected = _model_projection(payload, "ref-1")
+        # find the 范围与完整分母 block keys and sample index sequence
+        indexes = []
+        for name, _meta, records in projected:
+            if "分母" in name:
+>               keys = {r.get("key") for r in records if isinstance(r, dict)}
+E               TypeError: 'NoneType' object is not iterable
+
+../../quality/work/probes/test_qc_c5_pagination.py:29: TypeError
+______________________ test_result_next_offset_semantics _______________________
+
+    def test_result_next_offset_semantics():
+        rows = [{"a": i} for i in range(4)]
+        payload = _payload(rows, total=10)
+        r = _result(dict(payload), offset=2)
+>       md = r.metadata
+E       AttributeError: 'ToolRunResult' object has no attribute 'metadata'
+
+../../quality/work/probes/test_qc_c5_pagination.py:44: AttributeError
+__________________ test_truncation_flag_reflects_partial_page __________________
+
+    def test_truncation_flag_reflects_partial_page():
+        # read_history_result path: page smaller than rows -> truncated True
+        payload = _payload([{"a": 1}, {"a": 2}, {"a": 3}], total=3)
+        r = _result(dict(payload), offset=0)
+>       assert r.metadata["truncated"] is False
+E       AttributeError: 'ToolRunResult' object has no attribute 'metadata'
+
+../../quality/work/probes/test_qc_c5_pagination.py:58: AttributeError
+____________________ test_zero_return_sets_next_offset_none ____________________
+
+    def test_zero_return_sets_next_offset_none():
+        payload = _payload([], total=5)
+        r = _result(dict(payload), offset=0)
+>       assert r.metadata["next_offset"] is None
+E       AttributeError: 'ToolRunResult' object has no attribute 'metadata'
+
+../../quality/work/probes/test_qc_c5_pagination.py:64: AttributeError
+- generated xml file: /Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260924-0304/quality/work/tmp/execute-027-run_tests.xml -
+=========================== short test summary info ============================
+FAILED ::test_bad_time_range_is_rejected_safely - intelligence.services.resea...
+FAILED ::test_invalid_tool_call_feedback_returns_to_same_episode - TypeError:...
+FAILED ::test_sample_indexes_carry_absolute_offset - TypeError: 'NoneType' ob...
+FAILED ::test_result_next_offset_semantics - AttributeError: 'ToolRunResult' ...
+FAILED ::test_truncation_flag_reflects_partial_page - AttributeError: 'ToolRu...
+FAILED ::test_zero_return_sets_next_offset_none - AttributeError: 'ToolRunRes...
+6 failed, 21 passed in 6.38s

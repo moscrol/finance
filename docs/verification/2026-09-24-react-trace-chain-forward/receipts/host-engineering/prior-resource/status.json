@@ -1,0 +1,7 @@
+{
+  "revision": "f7d525ca0bdc33df2bbbed96bdb8a8af3b58ddf0",
+  "status": "WAIT_RESOURCE",
+  "started_at": "2026-09-23T18:03:33.794072+00:00",
+  "steps": [],
+  "limits": "Admission only, no global lock or resource isolation; no test scope/retry/timeout relaxation."
+}

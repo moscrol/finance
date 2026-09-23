@@ -1,0 +1,6 @@
+64:def test_removed_reference_heals_only_its_clause(text, expected):
+68:def test_surviving_definitions_use_the_same_sentence_boundaries_as_deletions():
+79:def test_retained_label_count_does_not_hide_later_orphaned_label_count():
+86:def test_untouched_lines_and_their_line_endings_are_preserved():
+99:def test_no_deleted_definition_means_no_prose_rewrite(text):
+108:def test_repair_is_delivered_through_semantic_verifier_and_records_real_deletion():
