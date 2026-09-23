@@ -1,0 +1,88 @@
+"""Private L6 harness proxy: remove only K3-incompatible temperature fields."""
+from __future__ import annotations
+
+import argparse
+import http.client
+import json
+import os
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+
+COUNTS = {"requests": 0, "dropped_temperature": 0}
+UPSTREAM_HOST = "127.0.0.1"
+UPSTREAM_PORT = 18788
+
+
+class Handler(BaseHTTPRequestHandler):
+    protocol_version = "HTTP/1.1"
+
+    def log_message(self, *_args):
+        return
+
+    def _proxy(self, method: str) -> None:
+        length = int(self.headers.get("Content-Length") or 0)
+        body = self.rfile.read(length) if length else b""
+        COUNTS["requests"] += 1
+        if body:
+            try:
+                payload = json.loads(body)
+            except (TypeError, ValueError):
+                payload = None
+            if isinstance(payload, dict) and "temperature" in payload:
+                payload.pop("temperature", None)
+                COUNTS["dropped_temperature"] += 1
+                body = json.dumps(payload, ensure_ascii=False).encode()
+        headers = {
+            key: value for key, value in self.headers.items()
+            if key.lower() not in {"host", "content-length", "connection"}
+        }
+        headers["Content-Length"] = str(len(body))
+        conn = http.client.HTTPConnection(UPSTREAM_HOST, UPSTREAM_PORT, timeout=900)
+        try:
+            conn.request(method, self.path, body=body, headers=headers)
+            response = conn.getresponse()
+            self.send_response(response.status)
+            for key, value in response.getheaders():
+                if key.lower() in {"transfer-encoding", "connection", "content-length"}:
+                    continue
+                self.send_header(key, value)
+            self.send_header("Transfer-Encoding", "chunked")
+            self.end_headers()
+            while chunk := response.read(65536):
+                self.wfile.write(b"%X\r\n%s\r\n" % (len(chunk), chunk))
+                self.wfile.flush()
+            self.wfile.write(b"0\r\n\r\n")
+            self.wfile.flush()
+        finally:
+            conn.close()
+
+    def do_GET(self):
+        self._proxy("GET")
+
+    def do_POST(self):
+        self._proxy("POST")
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--listen", type=int, required=True)
+    parser.add_argument("--counter-file", type=Path, required=True)
+    args = parser.parse_args()
+
+    def save_counts() -> None:
+        args.counter_file.write_text(
+            json.dumps(COUNTS, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+        )
+
+    args.counter_file.parent.mkdir(parents=True, exist_ok=True)
+    save_counts()
+    server = ThreadingHTTPServer(("127.0.0.1", args.listen), Handler)
+    try:
+        server.serve_forever()
+    finally:
+        server.server_close()
+        save_counts()
+
+
+if __name__ == "__main__":
+    main()

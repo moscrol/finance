@@ -156,6 +156,8 @@ PR #868 开出后 `conflict-check` 变红：`gitea/main@8e7989372`（#863 研究
 
 ## 交 #76（L6 自适应回路真实改稿复核）条件卡
 
+现态订正：用户已批准合前固定 `31f1b40dd` 先 L6 后 #75；本批已执行并以 NOT_PASSED 收尾，Q1判官不可用、Q2失败停批、Q3未提交，见 [L6 closure](../2026-09-23-adaptive-l6-closure/README.md)。下述为历史条件卡，不得据此重发。`cd520152f` 比冻结候选多预检/审计脚本与测试，不再是“PR head 仅 docs”；工程全量收据仍只绑定 `7ad61a0d3`。
+
 09-23 离线预检见 `../2026-09-23-adaptive-l6-preflight/README.md` 与 `protocol.draft.json`：#72/#75/#76 的合前/合后顺序存在冲突，候选预合入验收须用户批准修订；独立模型/数据授权尚未给出。下述历史旁车 8797 落在 #76 新禁用端口范围内，不能原样复用；正式执行需选择 8780--8830 之外的端口并完成冻结/收尾。当前只完成旧记录提取，不是自然验收通过。
 
 - **前置**：最新合流代码尖 `7ad61a0d3` 的严格探针 exit 0、0 越窗（早期 `aa0509d61` / `013eb5c4a` 读数仅为历史）；`judge_late_report` 类迟到回包由常规回归守为 `failed/timeout`，零采纳。
@@ -172,9 +174,9 @@ PR #868 开出后 `conflict-check` 变红：`gitea/main@8e7989372`（#863 研究
 
 ## 交 #75（第二方 Spec + Quality）需求
 
-- **候选**：PR #868 的当前 head 见 PR；被门禁的代码尖 `7ad61a0d3`；`git diff --name-only 7ad61a0d3..<head>` 应只有 `docs/`。main@9a0227986 已由文档合流 `a663ec524` 纳入。
+- **候选**：冻结运行候选 `31f1b40dd788d36c71da249d59fb769c50d7cd30`，与全量工程尖 `7ad61a0d3` 仅 docs 差异。其后分支新增验收工装及测试，不能再声称 PR head 仅 docs，详见 QUEUE #72 行与 L6 closure。
 - **候选检出路径（绝对）**：`/Users/a77/.finance-runtime/reviews/pr868-forward-20260923/finance-workspace-private`（加锁隔离树，只读引用；审查者应自建树）。
 - **证据目录**：最新四叶 `~/.finance-runtime/reviews/pr868-forward-20260923/gate-7ad61a0d3/`；历史复核与变异 `~/.finance-runtime/adaptive-deadline-0922/`；作者侧 `~/.finance-runtime/adaptive-advance-20260922/`；早期审计 `~/.finance-runtime/adaptive-closeout-20260922/`。
 - **主张清单来源**：PR 描述「主张清单」节（Spec 轴输入）。
 - **Quality 轴建议探针**：复跑本目录 `mutation-record.json` 的变异；对 `llm_http_transport.urlopen` 复跑作者 M1（父侧截止关）/ M2（子侧硬停关）/ M4（共享截止 `min` 忽略）确认仍被杀。
-- **本单未覆盖、请审查者留意**：`_open_deadline_http_response` 的 `is_cancelled=` 转发未做阳性对照；五处调用点的 `timeout` 片是否都经 `Deadline.slice()` 派生未逐点核。
+- **本单未覆盖、请审查者留意**：`is_cancelled=` 转发的旧变异已做但存活，尚无停顿期杀死/还原证明。五处 timeout 直接来源已由宿主逐点核对，表见 L6 closure；该模块 Deadline 没有 slice()，不能沿用旧提法。跨模块上游预算及独立行为探针仍未签。
