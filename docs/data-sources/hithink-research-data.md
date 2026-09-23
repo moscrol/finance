@@ -9,7 +9,7 @@
 - 默认取**目标日**历史热榜前30作为估值/轨迹采集范围，没有当日名单就报错，不能退到旧榜。CLI 可明确给最多100个完整代码。
 - 一轮逻辑请求数为 `股票数 + 2`：异动全榜一次、估值一次、每股热度一次；HTTP客户端可能按既有策略重试。默认热度窗口30个自然日。
 - 缺 key 返回可见 skip；空响应记 empty，热度rank为空、估值整行五指标全为空或少股票记 partial。个别估值指标为NULL时整行仍可能记 ok，NULL不补零；使用具体指标须另查该列非空，不能用行数或ok代表逐字段齐全。网络、格式、范围错误失败，不用旧表质量门洗成成功。
-- `complete_with_gaps` 仅表示声明请求完成且按上述行级规则存在空/缺值，不代表覆盖完整。热度也不以窗口天数强行补齐名次点。夜跑允许这种合法空/缺值，stdout 和请求表保留差别；失败仍阻断发布。
+- `complete_with_gaps` 仅表示声明请求完成且按上述行级规则存在空/缺值，不代表覆盖完整。热度也不以窗口天数强行补齐名次点。夜跑允许这种合法空/缺值，stdout 和请求表保留差别。429 耗尽时整轮记 `partial` 并列出 `missing`，不阻断其他研究请求；其他异常仍阻断该步骤。
 
 ## 时间与证据合同
 
@@ -29,7 +29,7 @@
 
 - 新写者拒绝 canonical 生产库（含从 worktree 指向主库、符号链接及硬链接别名）。硬链接是同一文件的另一个路径，共用守卫同时比较设备/文件身份；独立拷贝仍可作staging。身份解析/读取遇到权限等错误时失败，不当作普通库放行。锁冲突直接失败，不落会在换库时丢失的旁库。
 - 请求前持久化 `pending`；成功的事实写入与收据终态同事务提交；异常回滚该请求事实，收据保留错误类型，不存上游错误正文。
-- 一轮跨请求不做长事务：已经完成的请求仍在 staging；某请求失败会阻断该轮发布。被杀掉的 pending 不能当成功。
+- 一轮跨请求不做长事务：已经完成的请求仍在 staging；429 耗尽保留 failed 请求并继续，其他异常仍抛出。被杀掉的 pending 不能当成功；即使全部请求限流，`partial` 也不代表取得数据，须检查 `requests` 与 `missing`。
 - `ops_hithink_research_request` 的唯一写者已登记到 `docs/learning/ledger-map.md`。
 - 消费直接走现有 `finance_query`，三个 dataset 都声明 `population=subset`，模型工具目录会带范围及语义说明。不改变已有财务/估值主源。
 
@@ -91,20 +91,19 @@ MARKET_FEATURE_STORE_DB=/tmp/hithink-research-demo.duckdb \
 
 同轮暴露：`hithink_client.get_json` 只对 `code=4001` 退避，HTTP 429 立即失败并中止整轮；429 响应没有 `Retry-After`，10:24 三端点全部 429，02:05 的四个请求则全部成功。10:31 单次估值恢复；10:39:55–57 用新隔离库 `sample-round2.duckdb` 再跑完整一轮，四个请求全部 ok（异动 214 行、估值 2 行、热度 5+5 行，`status=ok`），三个数据集经 `FinanceQuery.run` 读回并受采集日截止门控，见同目录 `receipt-round2.json`。限流窗口约 7–9 分钟。
 
-**429 处置（本分支已改，未部署）**：`get_json` 把 HTTP 429 与业务码 429 并入 4001
-那条退避路径，**先判 HTTP 状态再判业务码**——网关限流时正文未必是 JSON，旧代码那种
-情况会抛「非 JSON 响应」，同样不重试。带 `Retry-After` 就听它的（秒数与 HTTP-date
-两种形态都解析，单次封顶 `MAX_RATE_LIMIT_SLEEP_SECONDS`=60 秒，防上游给离谱值把夜跑
-挂死）；实测不带，退回 `0.8×2ⁿ` 指数退避。
+**429 处置（#85 候选，未部署）**：`get_json` 对 HTTP / 业务码 429 单独退避，
+先判 HTTP 状态，非 JSON 的网关限流正文也能处理。`code=4001` 仍使用原有 `retries`
+次数及等待阶梯，不并入新预算。有效 `Retry-After` 优先（秒数 / HTTP-date），
+缺失、无效或非正数回退 `0.8×2ⁿ`；单次上限见 `MAX_RATE_LIMIT_SLEEP_SECONDS`，
+重试次数上限见 `MAX_RATE_LIMIT_RETRIES`，不会因 `Retry-After: 0` 无界循环。
 
-退避额度是**独立的墙钟预算**，不占 `retries`：`retries=4` 那套总共只等约 5.6 秒
-（0.8+1.6+3.2，封顶 8 秒），拿它兜一个 7–9 分钟的限流窗口只是把同一个失败推迟六秒。
-默认预算 `DEFAULT_RATE_LIMIT_BUDGET_SECONDS`=300 秒（约 10 次尝试，累计约 281 秒），
-可用 `rate_limit_budget_seconds` 参数或 `HITHINK_RATE_LIMIT_BUDGET_SECONDS` 覆盖；
-置 0 即恢复旧的「不退避」行为。预算耗尽仍失败关闭，错误消息带 `budget/spent/attempts`
-便于归因，且不含 key。**注意默认 300 秒短于实测窗口上沿**：它救的是瞬时限流，不保证
-救得了一次完整的全局窗口——要覆盖后者需把预算调到 600 秒以上，那是一次「夜跑愿意为此
-阻塞多久」的取舍，未替用户决定。
+429 预算用 `time.monotonic()`（不受系统时间校正影响的计时器）累计请求与等待耗时，
+截止后不再发起重试，并将剩余时间传给后续请求的 socket timeout。
+这不是中断在途响应读取的硬截止；也不是整个采集轮的总预算，每个逻辑请求独立计算。
+默认值见 `DEFAULT_RATE_LIMIT_BUDGET_SECONDS`，可由参数 `rate_limit_budget_seconds`
+或 `HITHINK_RATE_LIMIT_BUDGET_SECONDS` 覆盖，0 表示不重试，非有限值 / 负值拒绝。
+时间预算与次数上限任一耗尽均抛 `HithinkRateLimitError`，只回显安全诊断元数据。
+默认值不保证覆盖实测 7–9 分钟窗口；单独增大预算仍受次数上限约束，不代表夜跑已恢复。
 
 **编排层补齐**：`sync_hithink_research` 只对类型化的
 `HithinkRateLimitError` 做局部降级；一个端点耗尽限流预算后，该请求仍在

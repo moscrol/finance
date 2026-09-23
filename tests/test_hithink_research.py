@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import copy
 import json
+import io
+import urllib.error
+from urllib.parse import parse_qs, urlparse
 from datetime import date, datetime, timedelta
 
 import duckdb
@@ -230,39 +233,84 @@ def test_partial_valuation_reports_missing_codes_and_null_rows(capture):
     ) == [(1,)]
 
 
-def test_rate_limited_endpoint_leaves_gap_and_continues_capture(capture):
+@pytest.mark.parametrize("failed_kind", ["anomaly", "valuation", "heat_trend"])
+def test_rate_limited_endpoint_leaves_gap_and_continues_capture(capture, failed_kind):
     path, calls, run, getter = capture
 
     def limited(endpoint, *, params):
         kind = next(key for key, value in research.PATHS.items() if value == endpoint)
-        if kind == "valuation":
-            raise HithinkRateLimitError("synthetic budget exhausted")
+        if kind == failed_kind:
+            raise HithinkRateLimitError("fake-secret-never-persist")
         return getter(endpoint, params=params)
 
     result = run(getter=limited)
 
     assert result["status"] == "partial"
-    assert [kind for kind, _ in calls] == ["anomaly", "heat_trend"]
+    assert [kind for kind, _ in calls] == [
+        kind for kind in ("anomaly", "valuation", "heat_trend") if kind != failed_kind
+    ]
     assert [row["kind"] for row in result["requests"]] == [
         "anomaly",
         "valuation",
         "heat_trend",
     ]
+    failed = next(row for row in result["requests"] if row["kind"] == failed_kind)
     assert result["missing"] == [
-        {
-            "kind": "valuation",
-            "request_id": result["requests"][1]["request_id"],
-        }
+        {"kind": failed_kind, "request_id": failed["request_id"]}
     ]
-    assert result["requests"][1]["reason"] == "rate_limit"
+    assert failed["reason"] == "rate_limit"
     assert query(
         path,
-        "SELECT status, error_type FROM ops_hithink_research_request "
-        "WHERE kind='valuation'",
+        "SELECT status, error_type FROM ops_hithink_research_request WHERE kind=?",
+        [failed_kind],
     ) == [("failed", "HithinkRateLimitError")]
-    assert query(path, "SELECT count(*) FROM fact_stock_anomaly_hithink") == [(1,)]
-    assert query(path, "SELECT count(*) FROM fact_hot_stock_trend_hithink") == [(2,)]
-    assert query(path, "SELECT count(*) FROM fact_stock_valuation_hithink") == [(0,)]
+    for kind, table, count in (
+        ("anomaly", "fact_stock_anomaly_hithink", 1),
+        ("heat_trend", "fact_hot_stock_trend_hithink", 2),
+        ("valuation", "fact_stock_valuation_hithink", 1),
+    ):
+        assert query(path, f"SELECT count(*) FROM {table}") == [
+            (0 if kind == failed_kind else count,)
+        ]
+    assert "fake-secret" not in json.dumps(result)
+    assert "fake-secret" not in str(query(path, "SELECT * FROM ops_hithink_research_request"))
+
+
+def test_http_429_gap_reaches_next_stock_via_real_client(capture, monkeypatch):
+    from market_feature_store import hithink_client
+
+    path, _, run, _ = capture
+    attempts = []
+
+    def urlopen(request, **kwargs):
+        url = urlparse(request.full_url)
+        params = {key: values[0] for key, values in parse_qs(url.query).items()}
+        kind = next(key for key, value in research.PATHS.items() if value == url.path)
+        attempts.append((kind, params.get("thscode")))
+        if params.get("thscode") == CODE:
+            raise urllib.error.HTTPError(
+                request.full_url, 429, "fake-secret", {}, io.BytesIO(b"not json")
+            )
+        response = io.BytesIO(json.dumps(payload(kind, params)).encode())
+        response.status = 200
+        return response
+
+    def get(endpoint, *, params):
+        return hithink_client.get_json(
+            endpoint, params=params, gap_seconds=0, rate_limit_budget_seconds=0
+        )
+
+    monkeypatch.setenv("HITHINK_FINANCE_API_KEY", "fake-test-key")
+    monkeypatch.setattr(hithink_client.urllib.request, "urlopen", urlopen)
+    result = run(codes=[CODE, OTHER], getter=get)
+    assert attempts == [("anomaly", None), ("valuation", None), ("heat_trend", CODE), ("heat_trend", OTHER)]
+    assert result["status"] == "partial"
+    assert len(result["missing"]) == 1
+    assert query(path, "SELECT DISTINCT stock_ts_code FROM fact_hot_stock_trend_hithink") == [(OTHER,)]
+    failed_params = query(
+        path, "SELECT params_json FROM ops_hithink_research_request WHERE status='failed'"
+    )
+    assert json.loads(failed_params[0][0])["thscode"] == CODE
 
 
 @pytest.mark.parametrize(

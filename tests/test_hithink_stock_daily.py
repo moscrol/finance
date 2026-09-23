@@ -418,6 +418,11 @@ def _arm(monkeypatch, responses):
 
     calls = {"n": 0}
     slept: list[float] = []
+    elapsed = [0.0]
+
+    def sleep(seconds):
+        slept.append(seconds)
+        elapsed[0] += seconds
 
     def _urlopen(*a, **k):
         index = calls["n"]
@@ -430,19 +435,21 @@ def _arm(monkeypatch, responses):
     monkeypatch.setenv("HITHINK_FINANCE_API_KEY", "test-key-must-not-leak-xyz")
     monkeypatch.delenv(hithink_client.ENV_RATE_LIMIT_BUDGET, raising=False)
     monkeypatch.setattr(hithink_client, "_last_request_monotonic", 0.0)
-    monkeypatch.setattr(hithink_client.time, "sleep", slept.append)
+    monkeypatch.setattr(hithink_client.time, "sleep", sleep)
+    monkeypatch.setattr(hithink_client.time, "monotonic", lambda: elapsed[0])
     monkeypatch.setattr("urllib.request.urlopen", _urlopen)
     return calls, slept
 
 
 def test_http_429_retries_then_ok(monkeypatch) -> None:
     calls, slept = _arm(
-        monkeypatch, [_limit_error(), _OkResp({"code": 0, "data": {"item": []}})]
+        monkeypatch,
+        [_limit_error(), _limit_error(), _OkResp({"code": 0, "data": {"item": []}})],
     )
     payload = get_json("/api/a-share/valuations/snapshot", gap_seconds=0)
     assert payload["code"] == 0
-    assert calls["n"] == 2
-    assert slept == [0.8]  # 无 Retry-After 时走指数退避首档
+    assert calls["n"] == 3
+    assert slept == [0.8, 1.6]
 
 
 def test_http_429_with_non_json_body_retries(monkeypatch) -> None:
@@ -540,6 +547,57 @@ def test_rate_limit_budget_reads_environment(monkeypatch) -> None:
         get_json("/api/a-share/valuations/snapshot", gap_seconds=0)
     assert calls["n"] == 1
     assert slept == []
+
+
+def test_business_429_retries_then_ok(monkeypatch) -> None:
+    calls, slept = _arm(
+        monkeypatch, [_OkResp({"code": 429}), _OkResp({"code": 0})]
+    )
+    assert get_json("/api/x", gap_seconds=0)["code"] == 0
+    assert calls["n"] == 2 and slept == [0.8]
+
+
+def test_4001_preserves_legacy_attempt_budget(monkeypatch) -> None:
+    calls, slept = _arm(monkeypatch, [_OkResp({"code": 4001})])
+    with pytest.raises(HithinkAPIError) as exc:
+        get_json("/api/x", gap_seconds=0, retries=3, rate_limit_budget_seconds=0)
+    assert type(exc.value) is HithinkAPIError
+    assert calls["n"] == 3 and slept == [0.8, 1.6]
+
+
+def test_429_budget_counts_request_elapsed_time(monkeypatch) -> None:
+    calls, slept = _arm(monkeypatch, [_limit_error(), _OkResp({"code": 0})])
+    elapsed = iter([0.0, 0.0, 6.0, 6.0, 6.0, 6.0])
+    monkeypatch.setattr(hithink_client.time, "monotonic", lambda: next(elapsed))
+    with pytest.raises(HithinkRateLimitError):
+        get_json("/api/x", gap_seconds=0, rate_limit_budget_seconds=5)
+    assert calls["n"] == 1 and slept == []
+
+
+def test_zero_retry_after_is_bounded(monkeypatch) -> None:
+    responses = [
+        _limit_error(headers={"Retry-After": "0"}) for _ in range(20)
+    ] + [_OkResp({"code": 0})]
+    calls, _ = _arm(monkeypatch, responses)
+    with pytest.raises(HithinkRateLimitError):
+        get_json("/api/x", gap_seconds=0, rate_limit_budget_seconds=5)
+    assert calls["n"] <= 11
+
+
+def test_429_retry_count_is_bounded_independently_of_time(monkeypatch) -> None:
+    responses = [_limit_error() for _ in range(20)] + [_OkResp({"code": 0})]
+    calls, _ = _arm(monkeypatch, responses)
+    with pytest.raises(HithinkRateLimitError):
+        get_json("/api/x", gap_seconds=0, rate_limit_budget_seconds=10000)
+    assert calls["n"] <= 11
+
+
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), -1])
+def test_invalid_rate_limit_budget_fails_before_network(monkeypatch, value) -> None:
+    calls, _ = _arm(monkeypatch, [_OkResp({"code": 0})])
+    with pytest.raises(HithinkAPIError):
+        get_json("/api/x", gap_seconds=0, rate_limit_budget_seconds=value)
+    assert calls["n"] == 0
 
 
 def test_non_rate_limit_code_still_fails_fast(monkeypatch) -> None:
