@@ -1,0 +1,11 @@
+[
+  {
+    "id": "sse-drains-between-read-commit",
+    "path": "intelligence/api/app.py",
+    "old": "                        if pending:\n                            continue",
+    "new": "                        if False and pending:\n                            continue",
+    "targets": [
+      "test_sse_drains_commit_event_observed_between_reads"
+    ]
+  }
+]
