@@ -652,10 +652,11 @@ def test_refused_receipt_write_failure_cleans_partial(tmp_path, monkeypatch):
         def fileno(self):
             return self.fd
 
-    monkeypatch.setattr(mod.os, "fdopen",
-                        lambda fd, mode, encoding=None: Bomb(fd))
-    with pytest.raises(RepairRefused, match="收据写出失败"):
-        mod._guarded_write_json(target, {"x": 1})
+    with monkeypatch.context() as patch:
+        patch.setattr(mod.os, "fdopen",
+                      lambda fd, mode, encoding=None: Bomb(fd))
+        with pytest.raises(RepairRefused, match="收据写出失败"):
+            mod._guarded_write_json(target, {"x": 1})
     assert not target.exists()
 
 
@@ -677,11 +678,12 @@ def test_cli_parent_preflight_blocks_on_open_permission_error(tmp_path,
         raise PermissionError(13, "simulated")
 
     monkeypatch.setattr(sync_daily_full, "run_daily_full_staged", parent)
-    monkeypatch.setattr(mod.os, "open", bomb)
     monkeypatch.setenv("MARKET_FEATURE_STORE_DB", str(tmp_path / "fake.duckdb"))
     from types import SimpleNamespace
     args = SimpleNamespace(parquet=str(pq), child=False, db=None, report_path=None)
-    assert cli.cmd_repair_backfill_302132(args) == 2
+    with monkeypatch.context() as patch:
+        patch.setattr(mod.os, "open", bomb)
+        assert cli.cmd_repair_backfill_302132(args) == 2
     assert called == {}
 
 
@@ -732,9 +734,12 @@ def test_refused_receipt_eexist_race_keeps_other_writers_file(tmp_path,
             fh.write('{"winner": true}\n')
         raise FileExistsError(17, "File exists (simulated race)")
 
-    monkeypatch.setattr(mod.os, "open", racing_open)
-    with pytest.raises(RepairRefused, match="收据写出失败|已存在"):
-        mod._guarded_write_json(target, {"loser": 1})
+    # os is shared with pytest; restore the mock before temporary-directory cleanup.
+    with monkeypatch.context() as patch:
+        patch.setattr(mod.os, "open", racing_open)
+        with pytest.raises(RepairRefused, match="收据写出失败|已存在"):
+            mod._guarded_write_json(target, {"loser": 1})
+    assert _os.open is real_open
     assert target.read_text() == '{"winner": true}\n'
 
 
