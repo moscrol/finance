@@ -7,7 +7,7 @@
 | PR | head | 合并提交 | 记录 |
 |---|---|---|---|
 | #850 `fix/answer-claim-scope-0922` | `1cf35f5167ed3adebbb7d6ce60a37f8b92c79d0c` | `a696c5e1d0fdc2ebe230b76c9a51b9528178b996`（`gitea_pr.py merge` 回读：base 指向合并提交、head 是双亲、合并树 == 预览树） | `merge-850.json` |
-| #854 `fix/claim-scope-hardening-0922`（先 `PATCH` base → 主干） | `5f5ce2d114b238edd3f278504e5a25f35f31710d` | `6fc6bfa94070beba2fbb1f944863a25a8493cf94`（POST 客户端 30 s 超时，服务端已合；回读：tip 树 `cfaeb58c…` == 预览树，`^2` == head；PR 对象滞后，用 `manually-merged` 补标） | `merge-854.json`（手工补写） |
+| #854 `fix/claim-scope-hardening-0922`（先 `PATCH` base → 主干） | `5f5ce2d114b238edd3f278504e5a25f35f31710d` | `6fc6bfa94070beba2fbb1f944863a25a8493cf94`（POST 客户端 30 s 超时，服务端已合；回读：tip 树 `cfaeb58c…` == 预览树，`^2` == head；PR 对象滞后，后来关闭留指针；09-23 API 实读仍为 closed / merged=false，合入事实以 Git 拓扑与树回读为准） | `merge-854.json`（手工补写） |
 
 授权原话与出处（逐字，来自本会话用户消息）：`2026-09-22T16:11:39Z`「继续按照最优路径推进，然后可以合并的就合并」→ S5 按推荐案 A；`16:34:51Z`「继续按照最优方案推进，该合并的可以合并」。两条记录文件都带 `authorization_source`。
 
@@ -44,13 +44,13 @@
 
 ## 本目录文件
 
-- `k3-reverify-condition-card.md` — 交 #76 L5（候选 SHA 已填 `6fc6bfa94070beba2fbb1f944863a25a8493cf94`）
-- `qc-candidate.md` — 交 #75（候选已合入，改事后审）
+- `k3-reverify-condition-card.md` — 交 #76 L5（最低修复基线已提升到 #872 合并提交 `bd2290c861419b30b406633b1620d09d30de71e5`；开跑前另行冻结获批候选）
+- `qc-candidate.md` — 交 #75（事后审对象绑定审计树 `da761024e`，尚未完成审查）
 - `second-party-review.md` — 第二方确定性审查
 - 接入点设计：`docs/superpowers/specs/2026-09-22-claim-scope-runtime-integration-design.md`
 
 ## 边界
 
 - 四叶收据在 #854 head 上取（超集）而非预览树；预览树只跑了 240 条定向。依据：main 漂移文件与本 PR 零重叠、`--base-drift-max 5` 内（4）。
-- 合后主干 tip 的全量批次门禁**未跑**：合入时机器磁盘 < 1 GB、swap 10.6/12 G、9 套 pytest 并发（#69 会话 01:10 告警），新起全量会假红；留给主干下一轮批次门禁（#59 形态）。
+- **合入当时未跑**合后主干 tip 的全量批次门禁：机器磁盘 < 1 GB、swap 10.6/12 G、9 套 pytest 并发（#69 会话 01:10 告警）。这是历史缺口；09-23 后续补验见 `docs/handoffs/2026-09-23-claim-scope-final-state.md`，按其确切被测 SHA 判断可采信范围。
 - 全量 python 叶带 `--ignore=scripts/archive`；零 live、不动 8792、不翻 `ASK_SEMANTIC_JUDGE`。

@@ -10,13 +10,14 @@
 - 文档 PR **#869**（本分支，base 主干；#866 已关闭指向它）：接入点设计、`docs/verification/2026-09-22-claim-scope-merge-65/`（README / L5 条件卡已填候选 SHA / QC 候选包改事后审 / 第二方审查）。INDEX #65 行已随 PR **#858** 合入主干，合并提交为 `86d3e558e3b1`。
 - 远端分支 `fix/answer-claim-scope-0922`、`fix/claim-scope-hardening-0922` 已删；本地同名已 `-d`；两 PR 的 worktree 与三棵门禁树已清。`fwp-gate-65-main` 是供 #75 事后审的只读 detached 审计树；本轮质检确认其 HEAD 为 `da761024e`（#878 后），不是旧文档所写的 `bd2290c86`，也不代表之后的 `gitea/main` tip。
 
+- **判据缺陷已修复**：台账否定语境 fail-open 与「无法确认 / 无法核验」免责误报已由 #872 修复并合入 `bd2290c86`，不再是待修项。有效门禁对应 head `0a258a098`，不是漂移超限的首轮 `b058a0a1`；详见 `2026-09-23-claim-scope-ledger-negation-closeout.md`。
+
 ## 未做 / 留给后续
 
-1. **主干 tip 全量批次门禁未跑**：合入时机器磁盘 <1 GB、swap 10.6/12 G、9 套 pytest 并发（#69 告警），新起会假红。下一轮主干批次门禁（#59 形态）补。
-2. **后续单（判据缺陷）**：`check_answer_claims._ledger_has_fund_flow` 不辨否定语境（「未取得净流入数据」让资金流规则静默，fail-open，中）；`_LATEST_DAY_NEGATION` 缺「无法确认 / 无法核验」（误报，低）。夹具句在 `second-party-review.md`。L5 条件卡已加人工缓解。
-3. #75 K3 审查对合后主干事后审（候选包已改）；#76 L5 用条件卡（候选 SHA `6fc6bfa94…`）。
-4. 接入实施（advisory 档）需用户单独授权 + 另立单，按设计稿 §5 六条验收。
-5. 本地分支 `docs/claim-scope-merge-65`（#866 旧版）未删（`-d` 拒绝、内容已在 #869）。
+1. **合入当时未跑主干 tip 全量批次门禁**：机器磁盘 <1 GB、swap 10.6/12 G、9 套 pytest 并发。本段保留历史条件；09-23 后续补验状态见 `2026-09-23-claim-scope-final-state.md`，不得把旧 head 收据当作新 tip 收据。
+2. #75 K3 事后审仍待执行（审计树绑定 `da761024e`）；#76 L5 条件卡最低修复基线已提升到 #872 合并提交 `bd2290c86`，开跑前另行冻结获批候选。
+3. 接入实施（advisory 档）需用户单独授权 + 另立单，按设计稿 §5 六条验收。
+4. 本地分支 `docs/claim-scope-merge-65`（#866 旧版）未删（`-d` 拒绝、内容已在 #869）。
 
 ## 接手怎么做
 
