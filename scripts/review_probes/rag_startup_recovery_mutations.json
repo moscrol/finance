@@ -96,5 +96,19 @@
     "old": "                may_abandon = allow_abandon and sent == len(request)",
     "new": "                may_abandon = allow_abandon",
     "targets": ["partial_request_write"]
+  },
+  {
+    "id": "closed-stderr-error-escapes",
+    "path": "intelligence/services/rag_worker.py",
+    "old": "        except (ValueError, OSError):\n            # close() retires pipes before acquiring the in-flight query lock.\n            if process.stderr.closed:\n                return False\n            raise\n        self._stderr_tail.extend(chunk)",
+    "new": "        self._stderr_tail.extend(chunk)",
+    "targets": ["query_close_race", "stderr_closed_after_fileno"]
+  },
+  {
+    "id": "open-stderr-errors-suppressed",
+    "path": "intelligence/services/rag_worker.py",
+    "old": "            if process.stderr.closed:\n                return False\n            raise\n        self._stderr_tail.extend(chunk)",
+    "new": "            return False\n        self._stderr_tail.extend(chunk)",
+    "targets": ["stderr_open_stream_errors"]
   }
 ]

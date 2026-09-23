@@ -565,6 +565,11 @@ class PersistentRagWorker:
             chunk = os.read(process.stderr.fileno(), 65536)
         except BlockingIOError:
             return True
+        except (ValueError, OSError):
+            # close() retires pipes before acquiring the in-flight query lock.
+            if process.stderr.closed:
+                return False
+            raise
         self._stderr_tail.extend(chunk)
         del self._stderr_tail[:-_STDERR_TAIL_BYTES]
         return bool(chunk)

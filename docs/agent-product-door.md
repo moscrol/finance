@@ -225,7 +225,8 @@ worker 就绪；成功查询不能抹掉另一实例或启动配置的失败。�
 协议启动前的进程 stderr 与 stdout 同时非阻塞读取，私有尾部最多保留 4096 字节；
 公开 `workers.rag.last_error_diagnostic` 仅含阶段、固定原因、退出码、白名单异常类型，
 不输出原文、路径或查询。关闭进程清空尾部，成功恢复清空错误；管道注册失败也关闭 selector。
-常规查询响应合同不变。
+并发关闭 stderr 后的读取按流结束处理，避免 closed-file 异常越过检索错误边界；
+未关闭流的真实读取错误仍上抛，不用宽泛吞错伪装正常结束。常规查询响应合同不变。
 覆盖真实轻量子进程与应用 lifespan 的 503→200；不等于生产模型、金融质量或资源余量验收。
 回归 `test_rag_worker_startup_recovery.py`；撤保护复用 `scripts/review_probes/run_extraction_mutations.py`
 的 `--definitions scripts/review_probes/rag_startup_recovery_mutations.json --tests intelligence/tests/test_rag_worker_startup_recovery.py`。

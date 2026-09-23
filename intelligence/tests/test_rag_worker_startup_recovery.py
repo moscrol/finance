@@ -371,6 +371,81 @@ def test_process_exit_before_request_write_keeps_safe_diagnostic(tmp_path, monke
         process.stdout.close()
 
 
+def test_query_close_race_keeps_safe_process_error(tmp_path, monkeypatch):
+    args = _fixture(tmp_path)
+    worker = rag_worker._worker_for(args["python"], args["kb_root"], args["index_dir"])
+    process = subprocess.Popen(
+        [sys.executable, "-c", 'import os, time; os.write(2, b"noise"); time.sleep(10)'],
+        stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+    )
+    worker._process = process
+    monkeypatch.setattr(worker, "_ensure_process", lambda: process)
+    stopped = threading.Event()
+    original_stop = worker._stop_process
+    original_read = worker._read_stderr
+    closer = threading.Thread(target=worker.close)
+
+    def stop_and_signal():
+        original_stop()
+        if worker._closed:
+            stopped.set()
+
+    def read_after_close(child):
+        # Hold the query lock while close retires its pipes from another thread.
+        if not stopped.is_set():
+            closer.start()
+            assert stopped.wait(timeout=5)
+        return original_read(child)
+
+    monkeypatch.setattr(worker, "_stop_process", stop_and_signal)
+    monkeypatch.setattr(worker, "_read_stderr", read_after_close)
+    try:
+        with pytest.raises(rag_worker.WorkerExecutionError) as raised:
+            worker.query(args["argv"], timeout=5)
+        assert raised.value.diagnostic["reason"] == "exited_without_response"
+        assert "closed file" not in str(raised.value)
+        assert worker._recovery_thread is None
+    finally:
+        if closer.ident is not None:
+            closer.join(timeout=5)
+            assert not closer.is_alive()
+        worker.close()
+        with suppress(BrokenPipeError):
+            process.stdin.close()
+        process.stdout.close()
+    assert not worker.healthy()
+
+
+def test_stderr_closed_after_fileno_is_eof(tmp_path):
+    worker = rag_worker.PersistentRagWorker(sys.executable, tmp_path, tmp_path)
+    stream = (tmp_path / "stderr").open("wb")
+    stderr = Mock()
+    stderr.closed = False
+
+    def close_before_read():
+        descriptor = stream.fileno()
+        stream.close()
+        stderr.closed = True
+        return descriptor
+
+    stderr.fileno.side_effect = close_before_read
+    try:
+        assert worker._read_stderr(Mock(stderr=stderr)) is False
+    finally:
+        stream.close()
+        worker.close()
+
+
+@pytest.mark.parametrize("error", [ValueError("invalid descriptor"), OSError("read failed")])
+def test_stderr_open_stream_errors_are_not_suppressed(tmp_path, error):
+    worker = rag_worker.PersistentRagWorker(sys.executable, tmp_path, tmp_path)
+    stderr = Mock(closed=False)
+    stderr.fileno.side_effect = error
+    with pytest.raises(type(error)) as raised:
+        worker._read_stderr(Mock(stderr=stderr))
+    assert raised.value is error
+
+
 @pytest.mark.parametrize("registered", [1, 2])
 def test_pipe_registration_failure_closes_selector(tmp_path, monkeypatch, registered):
     args = _fixture(tmp_path)
