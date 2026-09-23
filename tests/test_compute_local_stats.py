@@ -196,7 +196,7 @@ def test_dated_ipo_name_and_beijing_name_produce_distinct_limit_flags():
         assert result["limit_up"] == 0
 
 
-def test_name_guard_is_scoped_to_the_requested_day():
+def test_name_guard_ignores_unconsumed_history_and_future_rows():
     with _db() as con:
         _stock(con, "2026-09-22", "920229.BJ", None, 132., 15.67)
         _stock(con, "2026-09-23", "920229.BJ", "世纪数码", 92.4, 132.)
