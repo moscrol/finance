@@ -24,6 +24,16 @@ import time
 from datetime import datetime
 
 from ..db import connect, init_db
+from ..mootdx_source import (
+    VERDICT_EMPTY_PAYLOAD,
+    MootdxSourceUnavailable,
+    SourceHealth,
+    open_checked_client,
+)
+
+#: 连续多少只取数失败判定为「源中途失效」并熔断。宇宙按代码排序, 退市/停牌是零散
+#: 分布的, 连续 50 只全败在正常运行下不可能出现——只可能是源整体挂了。
+DEFAULT_FAIL_STREAK = 50
 
 
 class _BarsTimeout(Exception):
@@ -209,7 +219,8 @@ def sync_fact_stock_daily(start_date: str | None = None, offset: int = 180,
                           sleep: float = 0.0, qfq: bool = False,
                           timeout: int = 0, progress_every: int = 200,
                           end_date: str | None = None, ohlc_only: bool = False,
-                          skip: int = 0) -> dict:
+                          skip: int = 0,
+                          fail_streak: int = DEFAULT_FAIL_STREAK) -> dict:
     """回补全A股日线到 fact_stock_daily。
 
     start_date: 起始交易日 (YYYY-MM-DD), 默认对齐 fact_market_daily 最早日。
@@ -225,9 +236,12 @@ def sync_fact_stock_daily(start_date: str | None = None, offset: int = 180,
     skip: 跳过宇宙前 N 只 (与 --refresh + --limit 配合做确定性分页: 第 i 批 skip=i*limit)。
           ohlc_only 的 only_missing 启发式 (区间内已有 high) 在「先补过单日」的库上会把所有股票都当已抓,
           2026-09-07 3 年回拉就是这样一行没拉; 分页模式不依赖它。
-    """
-    from mootdx.quotes import Quotes
+    fail_streak: 连续失败多少只就熔断中止 (0 关闭)。防止源挂掉后空转整个宇宙、
+          最后交出 rows_written=0 却报成功——2026-09-08~09-22 就是这么静默断供两周的。
 
+    源不可用时抛 ``MootdxSourceUnavailable``: 开工前体检不过则一行不写;
+    运行中熔断则先 flush 已取到的有效行再抛, 不丢已付出的抓取成本。
+    """
     source = "mootdx:qfq" if qfq else "mootdx"
     upsert_sql = BULK_UPSERT_OHLC_ONLY_SQL if ohlc_only else BULK_UPSERT_SQL
     init_db()
@@ -248,7 +262,9 @@ def sync_fact_stock_daily(start_date: str | None = None, offset: int = 180,
             params = [start_date] + ([end_date] if end_date else [])
             done = {r[0] for r in con.execute(done_sql, params).fetchall()}
 
-        client = Quotes.factory(market="std")
+        # 批量写入前先体检: 连得上 + 名单查得到 ≠ 行情可用 (见 mootdx_source 模块头)。
+        # 不健康直接抛, 一行都不写。
+        client, health = open_checked_client()
         universe = get_universe(client)
         universe_n = len(universe)
         pending = [(c, n) for c, n in universe if _ts_code(c) not in done]
@@ -278,18 +294,36 @@ def sync_fact_stock_daily(start_date: str | None = None, offset: int = 180,
             buf.clear()
 
         pending_n = len(pending)
+        bad_streak = 0
+
+        def _note_failure(code: str, kind: str) -> None:
+            """记一次失败并做熔断判定。连续失败达阈值 = 源已死, 别再磨完整个宇宙。"""
+            nonlocal bad_streak
+            failures.append((code, kind))
+            bad_streak += 1
+            if fail_streak and bad_streak >= fail_streak:
+                flush()  # 已取到的有效行先落盘, 熔断不该让它们白抓
+                raise MootdxSourceUnavailable(SourceHealth(
+                    ok=False, verdict=VERDICT_EMPTY_PAYLOAD,
+                    detail=(f"连续 {bad_streak} 只取数失败 (最近 {code}: {kind}), "
+                            f"判定源运行中失效; 已写入 {rows_written} 行后中止"),
+                    server=getattr(client, "server", None),
+                    probe_code=code,
+                ))
+
         for seen, (code, name) in enumerate(pending, start=1):
             try:
                 df = _fetch_bars(client, code, offset, qfq, timeout)
             except _BarsTimeout:
-                failures.append((code, f"timeout:{timeout}s"))
+                _note_failure(code, f"timeout:{timeout}s")
                 continue
             except Exception as e:  # noqa: BLE001
-                failures.append((code, f"bars:{type(e).__name__}"))
+                _note_failure(code, f"bars:{type(e).__name__}")
                 continue
             if df is None or len(df) == 0:
-                failures.append((code, "empty"))
+                _note_failure(code, "empty")
                 continue
+            bad_streak = 0
             recs = _build_rows(df, code, name, start_date, now, source, end_date=end_date)
             buf.extend(recs)
             processed += 1
@@ -327,4 +361,15 @@ def sync_fact_stock_daily(start_date: str | None = None, offset: int = 180,
         "date_min": str(agg[2]) if agg[2] else None,
         "date_max": str(agg[3]) if agg[3] else None,
         "failures": failures,
+        "failure_kinds": _failure_histogram(failures),
+        "health": health.as_dict(),
     }
+
+
+def _failure_histogram(failures: list[tuple[str, str]]) -> dict[str, int]:
+    """失败原因直方图。分类计数比一条条看更容易一眼看出「是源挂了还是零星退市」。"""
+    hist: dict[str, int] = {}
+    for _code, kind in failures:
+        key = kind.split(":", 1)[0]
+        hist[key] = hist.get(key, 0) + 1
+    return hist
