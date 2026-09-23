@@ -1,25 +1,30 @@
-# Runtime 合同量具补验
+# Runtime 合同量具与收尾验收
 
 ## 这个分支做什么
-修量具、验K3局部写手产物、补#884工程门禁；不改运行时产品行为。
+修量具、验K3局部产物及#884工程门禁；不改运行时产品行为。
 
 ## 决策与被否方案
-用户本轮“执行”授权对齐最新main后复验，不含合并/部署/追加K3。9e82314a已合入main 27ca084f9ffc，实际树等于merge-tree预览。先写交接再冻结；不在出收据后改tip。快照：`docs/handoffs/2026-09-23-pr884-main-refresh.md`。
+用户新授权“那你继续做到done，直到可以收尾部署”。继续修复与验证，不把就绪冒充已部署，不擅自合main。
+已合入main b59d6eed0356（75dfd08c2），补日志437202489。先冻结再验；否决给旧收据换revision。
+Python全量原生环境，前端/registry外层沙箱；有其他全量pytest不准入，磁盘至少12GiB。旧1800秒超时不是产品失败统计。
+独审按合同分批、固定K3、有限预算；宿主复跑和作者测试不代独立签字。部署与生产写入不在验证范围。
 
 ## 当前状态
-#884 WIP，未合main/部署。新轮唯一入口：`~/.finance-runtime/reviews/pr884-gates-20260923-03/verification.json`及PR最新门禁评论；缺失、叶子未齐、revision不匹配即未完成，不回退旧绿。验收后还须核对实际PR head/base与预览树；main再前进则新组合未验。
-旧c71本机命令绿在`../pr884-gates-20260923-02/`，含完整14712收集面，不移签新head；耗时超workflow 900秒，不称CI时限通过。
+#884仍WIP，未合main/部署。新轮入口：`~/.finance-runtime/reviews/pr884-closeout-20260923-04/`，授权在authorization.json。完整门禁及独审尚未执行完；缺verification.json或叶子不齐即BLOCKED。
+旧轮`pr884-gates-20260923-03` Python到1800秒中止，无终局收据/JUnit；前端与registry绿不能补齐。失败现场保留。
+磁盘清理已完成：`disk-cleanup-20260923-pr884/verification.json`，仅删6组成功闲置scratch，保留原始证据。
 
 ## 未验证 / 已知边界
-C1-C8独审仍BLOCKED；K3第三场只写6例及基线，deadline停，无完整终稿。宿主变异/还原不代独立签字。
-未验完整跨进程续跑driver、跨机锁、真实计费、全部入口异常收口；spool仅at-least-once。预检仅IPv4 TCP和security CLI，不等于全部主机/钥匙串隔离。
-Python原生主机全量，不套额外Seatbelt；清空凭证、独立用户目录，测试自身系统沙箱仍启用。前端/E2E与注册表使用已动态预检的外层策略。
+当前候选全量门禁待跑；C1-C8独审仍NOT_REVIEWED。未验完整跨进程续跑driver、跨机锁、真实计费、生产问答；spool仅at-least-once。
+本机全量不认证CI平台900秒预算。main继续前进须重做组合验收，不移签。
 
 ## 下一步
-先读新轮结果和PR实际身份；只对准确候选采信。不齐补验，齐后仍等明确合入授权，不自动去WIP。不重复合#865，不续K3/买额度/部署。其他agent的主树及harness-reference改动不碰。
+冻结干净候选，新目录跑完整Python/前端/E2E/registry及分批独审；核验PR真实head/base和merge-tree。全部通过后再请求合并/部署确认，不自动撤WIP。
+不重复合#865、不动别人的工作树、不中断他人测试、不买额度。
 
 ## 踩过的坑
-generic allow network*配local/remote曾漏放外连，首轮作废；改为按方向授权并动态预检。特定外层策略还会干扰被测系统沙箱/RSS：旧全量8红，同例原生8P，套回策略7F/1P；清理脚本那1红未复现，不全归同因。不跳测试、不拼局部数、不改原日志空白。
+旧tail只在pytest退出后吐末尾，超时无进度；现保留完整实时pytest.log.txt，tee/tail失败拒绿。日志不是最终收据。
+外层Seatbelt曾干扰被测沙箱/RSS；Python不套它。Ruff不检查Shell，脚本用bash -n。
 
 ## 已验证
-历史241件runtime原件、23件首轮门禁原件已对Git blob核验；旧28种源码撤保护均具名红且还原绿，另身份16P及撤保护、磁盘恢复178P。原始拒收及K3失败现场保留。新候选读数只看新轮入口，不复述旧分母作当前结论。
+日志回归60P，目标Ruff及bash -n通过，原件在新轮logging-regression.*。旧241+23件归档及28种变异仅属其原revision，不移签。
