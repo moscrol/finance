@@ -1,0 +1,57 @@
+
+> market-intelligence-workbench@0.1.0 test /Users/a77/fwp-wt-react-trace-chain-0923/intelligence/webapp
+> vitest run
+
+
+[1m[46m RUN [49m[22m [36mv3.2.4 [39m[90m/Users/a77/fwp-wt-react-trace-chain-0923/intelligence/webapp[39m
+
+ [32m✓[39m src/researchActivity.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 25[2mms[22m[39m
+ [32m✓[39m src/api.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 24[2mms[22m[39m
+ [32m✓[39m src/streamEventRegistry.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+ [32m✓[39m src/components/ResearchActivityControl.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[33m 601[2mms[22m[39m
+ [32m✓[39m src/components/ResearchProjectPanel.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[33m 782[2mms[22m[39m
+   [33m[2m✓[22m[39m ResearchProjectPanel[2m > [22mrenders judgment, open questions, triggers, prior note and rounds from the projection [33m 654[2mms[22m[39m
+ [32m✓[39m src/components/DailyReportView.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[33m 1275[2mms[22m[39m
+   [33m[2m✓[22m[39m DailyReportView[2m > [22mrenders the five report layers with reader-facing labels [33m 385[2mms[22m[39m
+   [33m[2m✓[22m[39m DailyReportView[2m > [22mkeeps glossary and the original report behind disclosure controls [33m 757[2mms[22m[39m
+ [32m✓[39m src/components/ResearchEvolutionPanel.test.tsx [2m([22m[2m18 tests[22m[2m)[22m[33m 2933[2mms[22m[39m
+   [33m[2m✓[22m[39m ResearchEvolutionPanel[2m > [22m动作带上当前项版本与管理修订，幂等键随之变化 [33m 418[2mms[22m[39m
+   [33m[2m✓[22m[39m ResearchEvolutionPanel · 第二轮复审合同[2m > [22mQ4：提交作答必须渲染嵌套 checks 与 missing_evidence_refs，并把勾选/选择发出去 [33m 549[2mms[22m[39m
+   [33m[2m✓[22m[39m ResearchEvolutionPanel 确认成果状态转换（QC 第六轮 P2）[2m > [22m表单打开时 run 还在跑，完成后投影刷新即可提交（不收起重开） [33m 376[2mms[22m[39m
+ [32m✓[39m src/components/components.test.tsx [2m([22m[2m81 tests[22m[2m)[22m[33m 50215[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench components[2m > [22mstarts a workflow preset and submits from the unified composer [33m 982[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench components[2m > [22mkeeps structured modules behind the explicit run inspector [33m 602[2mms[22m[39m
+   [33m[2m✓[22m[39m Chat-first conversation components[2m > [22mrestores, switches and archives conversations in the mobile drawer [33m 924[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mopens on today and navigates across the five product surfaces [33m 1610[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mrestores the latest conversation and submits in hybrid mode [33m 1106[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mseeds the credits line from bootstrap and refreshes it once a question is accepted [33m 1545[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22msubmits an explicit KOL perspective without mixing other profiles [33m 4499[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mrestores the perspective picker from the latest user message [33m 965[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mregenerates with the original user message perspective [33m 1085[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mkeeps polling a completed run until its exact message publication is visible [33m 1273[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mkeeps polling a failed run until its exact message publication is visible [33m 900[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mkeeps polling a cancelled run until its exact message publication is visible [33m 1252[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mdoes not close the stream when publication is missing-marker [33m 3889[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mdoes not close the stream when publication is wrong-message [33m 2676[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mdoes not close the stream when publication is wrong-conversation [33m 1366[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mdoes not close the stream when publication is load-failed [33m 1246[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mreconnects on reload when a terminal message is still awaiting publication [33m 509[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mrecovers a persisted terminal run after the stream disconnects [33m 3858[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mkeeps polling while completed ownership precedes delivery [33m 2529[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mkeeps polling while failed ownership precedes delivery [33m 1681[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mkeeps polling while cancelled ownership precedes delivery [33m 1655[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mreconnects a restored completed message whose artifacts are still being delivered [33m 506[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mdoes not let an old finalization snapshot erase the next submitted turn [33m 2673[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mkeeps cancel pending until polling confirms the cancelled state [33m 1398[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mcloses the event stream and polling timer when unmounted [33m 759[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mconfigures session-only BYOK without exposing the key [33m 1111[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mpersists BYOK only after opt-in and can explicitly forget it [33m 2707[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mregenerates as a new message without replacing the old answer [33m 612[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mdoes not let a late conversation response replace the current thread [33m 663[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mdoes not let a late artifact response replace the current selection [33m 1299[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m8 passed[39m[22m[90m (8)[39m
+[2m      Tests [22m [1m[32m120 passed[39m[22m[90m (120)[39m
+[2m   Start at [22m 21:13:42
+[2m   Duration [22m 60.77s[2m (transform 4.82s, setup 10.95s, collect 11.22s, tests 55.87s, environment 23.52s, prepare 4.77s)[22m
+

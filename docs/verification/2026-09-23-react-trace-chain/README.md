@@ -1,10 +1,12 @@
 # #81 / #832 前向合流验收
 
+结论：前向实现与六项对照已交付，工程准入仍 BLOCKED（E2E 复跑两红），不是可合入声明。Python / 前端静态与单测 / registry 通过，新候选独审仅排 #75，金融质量归 #76。
+
 ## 固定身份与范围
 
 - 候选：`d1b30e1a068ccd0559f091f3c664ca2ca82f1e7c`，已普通推送至唯一产品载体 PR #832（`fix/react-trace-qc-0921`）。
 - 双父：旧头 `0888ea98477bf07292f41336538d7b3b904b1248` + 本次 main `626d8a508c1c`（完整身份见 `git show --no-patch --format=raw d1b30e1a0`）。未合回 main。
-- 固定检出：`/Users/a77/fwp-wt-react-trace-chain-0923`。本验收文档在独立 `docs/react-trace-chain-0923`；不得把候选收据移签文档头。
+- 固定检出：`/Users/a77/fwp-wt-react-trace-chain-0923`。本验收文档在独立 `docs/react-trace-chain-0923`，文档 PR #892；不得把候选收据移签文档头。
 - 证据根：`/Users/a77/.finance-runtime/reviews/react-trace-chain-20260923/`。
 - 解释器：`/Users/a77/finance-workspace-private/.venv-workbench/bin/python`。
 - #841 仍归 #68；本轮无真实模型请求、无生产写入、无部署、无新增独立审查预算。
@@ -40,10 +42,20 @@
 - 九组内存撤保护全部被实际断言捕获，基线 37P，零 collection error；源码未写。复用既有 `docs/verification/2026-09-21-react-trace-qc/mutate_seams_v2.py.txt`，输出 `mutations/summary.json`。真实出口 `repair_wiring` 的红证人是 `test_repair_is_delivered_through_semantic_verifier_and_records_real_deletion`。
 - 固定候选全仓 Ruff 通过，提交钩子通过；`git merge-tree --write-tree --name-only 626d8a508 d1b30e1a0` exit 0。
 - 本次前向比旧 main `f2c3e9e1a` 有 250 个非 docs/非 Markdown 路径漂移；不能沿用 a140 的旧收据。
-- Python 全量：运行中，`python-gate.log` 与 `receipts/gate-RaovaPhZ/pytest.json`；未出完整收据前不算通过。
+- Python 全量：14710P/0F/0E/85S/2X，exit 0，5220.45 秒。原件 `python-gate.log` 与 `receipts/gate-RaovaPhZ/pytest.json`；仓内副本 `receipts/python.json`、`logs/python-gate.log.txt`。collected=14797 与读数对平，无 ignore/deselect/-k/-m/maxfail/last-failed 收窄，dirty=false、依赖门禁未绕过；`check_test_receipt.py ... --expect-revision d1b30e1a0 --require-full-scope` 与 `main_gate_receipt.py ... --pytest-exit 0` 均 exit 0。成功后门禁自动清理自有 basetemp。
 - 前端首轮：install/lint/typecheck/120 单测/build 均通过；E2E 31P/3F/2S，`frontend/frontend.json` 首尾同 SHA 且干净，整叶 exit 1。三红在刷新后 5 秒可见等待（tablet/mobile `workbench.spec.ts:232`、tablet `:310`）；失败快照里已有消息。负载从开跑 25 升至 290，但未做低负载对照，不能直接归为设施噪声。原件 `frontend/test-results/`（含 trace.zip）已外部保全。端口 19381/19384，未碰 8792。
 - 前端第二轮：同头、同命令和超时，install/lint/typecheck/120 单测/build 通过，E2E 32P/2F/2S（9.5 分钟），tablet/mobile 刷新恢复仍在 `workbench.spec.ts:232` 超时；`frontend-retry/frontend.json` exit 1，首尾同 SHA/clean，现场另存 `frontend-retry/test-results/`。不再重跑取绿、不改测试阈值。工程四叶未通过，#832 保持 WIP。
 - registry 五项：固定候选均 exit 0，首尾同 SHA/clean，`registry.json`；crosswalk 保留既有反向 98 行 warning，不是全方向零告警。
+
+## E2E 失败分诊与封存
+
+第二轮 `receipts/e2e-triage.json` 从 trace.zip 逐事件解析，带原件哈希及毫秒时序。tablet 的刷新后 `/api/workbench/bootstrap` 返回 200，但耗时 5418 ms；mobile 的同一请求在断言失败时仍未完成（trace 的 status=-1 不是 HTTP 错误码）。两例断言超时均为原 5000 ms，刷新前最后一次 messages 接口均返回 8 条。第二轮等待耗在初始化阶段，不能仅凭此定为数据丢失，也不能定为设施噪声。
+
+后续从 `intelligence/api/app.py:3630` 的初始化投影和页面恢复顺序定位；先取得负载可比的固定 main 对照，再决定是否是基础性能/测试同步问题。本轮不扩成前端改造，不加超时、不重复刷绿。完整 trace 与快照仍在外部 `frontend*/test-results/`，不把二进制 ZIP 提交到仓库。
+
+同目录 `receipts/` 收录原样复制的迭代红绿、最终 Python、两轮前端、registry 和变异摘要；前端各六步日志与所属 frontend.json 同目录，12 份日志的长度/哈希均与收据一致。`logs/` 收录 Python 门禁和完整性校验日志；`MANIFEST.json` 给所选封存件逐文件哈希。`candidate-identity.json` 再验固定身份、零增量文件和 merge-tree。收据有效性、测试通过与独立质量验收是三个独立判定。
+
+全量运行期间磁盘一度约 2.8 GB，停止检查开始时已恢复约 21 GB，未发中断信号；不能把资源波动直接当作 E2E 根因。测试进程与 19381/19384 测试服务已结束。
 
 ## 旧独立审查与剩余边界
 

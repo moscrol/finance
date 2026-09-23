@@ -1,0 +1,128 @@
+{
+  "schema": 1,
+  "candidate": "d1b30e1a068ccd0559f091f3c664ca2ca82f1e7c",
+  "verdict": "BLOCKED_E2E",
+  "scope": "Selected receipts and logs only. Browser ZIP traces remain in the external evidence root. Iteration evidence does not certify the final clean revision.",
+  "iteration_artifacts": [
+    "receipts/author-initial.json",
+    "receipts/author-expanded.json",
+    "receipts/mutations-iteration.json"
+  ],
+  "entries": [
+    {
+      "path": "receipts/author-expanded.json",
+      "bytes": 16576,
+      "sha256": "46fbb50820d74ca3c11e1e56ec03db26e7194c6f0f4fbfcad7ee96033d97467d"
+    },
+    {
+      "path": "receipts/author-initial.json",
+      "bytes": 14131,
+      "sha256": "2a8c6b8ec43d4e50e7c84bdfb0e618a050631ceb1c74e6d3f59ddb802273a5d8"
+    },
+    {
+      "path": "receipts/candidate-identity.json",
+      "bytes": 1046,
+      "sha256": "346755a5e601921bd6844a696bbeb7631625791f40af49387582779358cb032d"
+    },
+    {
+      "path": "receipts/e2e-triage.json",
+      "bytes": 3107,
+      "sha256": "17a3478d072d76c446db65cd47ce2811b03840c74ee24d4f89e60f5231d6bbc5"
+    },
+    {
+      "path": "receipts/frontend-initial/frontend-0.log.txt",
+      "bytes": 2173,
+      "sha256": "45a9b9d1c0cf2c593821757c5f3b601bada07f3cbefe08bc3856050eebec8823"
+    },
+    {
+      "path": "receipts/frontend-initial/frontend-1.log.txt",
+      "bytes": 117,
+      "sha256": "7ca9c49a9e36ec0bb617b3eb4add178f2c00d9f3911374951b0d81929f3c7b71"
+    },
+    {
+      "path": "receipts/frontend-initial/frontend-2.log.txt",
+      "bytes": 215,
+      "sha256": "8264250c4b2a8fa24cd797c739aa6b6848740a7051d9ce1ac8c09a9e87790b5c"
+    },
+    {
+      "path": "receipts/frontend-initial/frontend-3.log.txt",
+      "bytes": 6496,
+      "sha256": "41cedee8ed766937b18a67011692741b97d51722e67f4007b787f5177e68e0b8"
+    },
+    {
+      "path": "receipts/frontend-initial/frontend-4.log.txt",
+      "bytes": 921,
+      "sha256": "f04b91f8c845a4428f40f0f408f606d5ee2327a5b286027b4a1c2b0a80cc2292"
+    },
+    {
+      "path": "receipts/frontend-initial/frontend-5.log.txt",
+      "bytes": 19686,
+      "sha256": "73ce2a690984379810b15dd0107a750007c28fed92b77ce3687e99f6a60278af"
+    },
+    {
+      "path": "receipts/frontend-initial/frontend.json",
+      "bytes": 2506,
+      "sha256": "7047099a66a5c977202ceec356e15ff63bc83f874bb4a333aec302291f4631d0"
+    },
+    {
+      "path": "receipts/frontend-retry/frontend-0.log.txt",
+      "bytes": 994,
+      "sha256": "e119d5f542c75361b677821ccd8ef669412d213129aece746be58d80c4e495cb"
+    },
+    {
+      "path": "receipts/frontend-retry/frontend-1.log.txt",
+      "bytes": 117,
+      "sha256": "7ca9c49a9e36ec0bb617b3eb4add178f2c00d9f3911374951b0d81929f3c7b71"
+    },
+    {
+      "path": "receipts/frontend-retry/frontend-2.log.txt",
+      "bytes": 215,
+      "sha256": "8264250c4b2a8fa24cd797c739aa6b6848740a7051d9ce1ac8c09a9e87790b5c"
+    },
+    {
+      "path": "receipts/frontend-retry/frontend-3.log.txt",
+      "bytes": 7303,
+      "sha256": "6b2db2dfad4235fa1222ddda29b7dc4cc2a7ca84e8db753f472cea62879729a0"
+    },
+    {
+      "path": "receipts/frontend-retry/frontend-4.log.txt",
+      "bytes": 922,
+      "sha256": "63600c10a9746eeb1ef1c94aa8ba685c0c4f918b39321fce1ca4612f318d8097"
+    },
+    {
+      "path": "receipts/frontend-retry/frontend-5.log.txt",
+      "bytes": 17647,
+      "sha256": "99e4ff664d6108fae56d6e3c8bea69fcfd52ad01f2d0309c7c80c92eeefc3625"
+    },
+    {
+      "path": "receipts/frontend-retry/frontend.json",
+      "bytes": 2505,
+      "sha256": "b27845e70f5faf099640a777801cf0458967a1e64ef39a4060bef7210cc88a2e"
+    },
+    {
+      "path": "receipts/mutations-iteration.json",
+      "bytes": 20007,
+      "sha256": "57764347f56d48200c5f318bae138d34d53dfca56daf6bf0a4b0d269ff9e9e5f"
+    },
+    {
+      "path": "receipts/python.json",
+      "bytes": 857,
+      "sha256": "2fe613515d38bed439a3ea6555e398e22f592019cc7fa258976761127a2dc434"
+    },
+    {
+      "path": "receipts/registry.json",
+      "bytes": 3973,
+      "sha256": "bcf936616d46116b54ca1638ac72df062793bb169018ca2b631c222ad9688a1c"
+    },
+    {
+      "path": "logs/python-gate.log.txt",
+      "bytes": 2296,
+      "sha256": "d3ead1d0c3b114a9995ab22f445351960a9b81719c644b89f22b883617271087"
+    },
+    {
+      "path": "logs/receipt-check.log.txt",
+      "bytes": 967,
+      "sha256": "4c35fe92d65b6e9c0251b65decd5c4f275298215d4bbc6df477b4d7ba10fb48f"
+    }
+  ]
+}
