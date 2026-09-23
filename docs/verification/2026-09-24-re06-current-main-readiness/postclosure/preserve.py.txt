@@ -1,0 +1,44 @@
+"""Preserve a post-closure dry-run append and restore the already archived source bytes."""
+from datetime import datetime, timezone
+import hashlib
+import json
+from pathlib import Path
+from archive_evidence import archive, decode, verify
+
+ROOT = Path(__file__).resolve().parent
+DOC = Path('/Users/a77/fwp-wt-closeout-workorders-0922/docs/verification/2026-09-24-re06-current-main-readiness')
+PACKAGE = DOC / 'archives/qc-k3-04'
+NAME = 'work/reviewer-pytest-admissions.jsonl'
+manifest = json.loads((PACKAGE / 'manifest.json').read_text())
+original = decode(PACKAGE, manifest['files'][NAME])
+source = ROOT / 'qc-k3-04' / NAME
+combined = source.read_bytes()
+assert combined.startswith(original)
+extra = combined[len(original):]
+records = [json.loads(line) for line in extra.splitlines()]
+assert len(records) == 1 and records[0]['at'] == '2026-09-23T18:33:53.074462+00:00'
+assert records[0]['argv'] == ['--dry-run'] and records[0]['allowed'] is False
+assert records[0]['load_1m'] == 22.333984375 and records[0]['projected_pytest'] == 5
+SIDE = ROOT / 'postclosure-check-0924'
+SIDE.mkdir()
+(SIDE / 'combined-original-and-postclosure.jsonl').write_bytes(combined)
+(SIDE / 'postclosure-admission.json').write_text(json.dumps(records[0], indent=2) + '\n')
+(SIDE / 'preserve.py.txt').write_bytes(Path(__file__).read_bytes())
+record = {'at': datetime.now(timezone.utc).isoformat(), 'status': 'POST_CLOSURE_AUDIT_APPEND_PRESERVED',
+    'original_source': str(source), 'archived_source_sha256': hashlib.sha256(original).hexdigest(),
+    'combined_sha256': hashlib.sha256(combined).hexdigest(), 'appended_sha256': hashlib.sha256(extra).hexdigest(),
+    'postclosure_calls': 1, 'pytest_runs': 0, 'model_requests': 0,
+    'cause': 'resource_pytest.py --dry-run still appends an audit line; final read-only intent did not prevent its logging side effect',
+    'verification_failure': {'command': 'verify_0924_packet.py', 'exit_code': 1,
+        'error': 'AssertionError: work/reviewer-pytest-admissions.jsonl'},
+    'action': 'Combined log retained in full here; restore only the exact historical prefix after proving the one appended row belongs to this own post-closure check',
+    'other_agent_rows_removed': False, 'archival_package_rewritten': False,
+    'future_resource_observation': 'Use a non-writing host inspection after closure; never call the retired logger again'}
+(SIDE / 'amendment.json').write_text(json.dumps(record, indent=2) + '\n')
+assert (SIDE / 'combined-original-and-postclosure.jsonl').read_bytes() == combined
+source.write_bytes(original)
+assert hashlib.sha256(source.read_bytes()).hexdigest() == record['archived_source_sha256']
+result = archive(SIDE, DOC / 'postclosure', manifest['revision'], [p.name for p in SIDE.iterdir() if p.is_file()])
+assert verify(DOC / 'postclosure') == result['files']
+print(json.dumps({'status': 'PRESERVED_AND_RESTORED', 'historical_sha256': record['archived_source_sha256'],
+                  'postclosure_files': result['files'], 'real_model_requests': 0, 'pytest_runs': 0}))

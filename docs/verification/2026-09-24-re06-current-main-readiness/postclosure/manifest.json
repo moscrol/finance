@@ -1,0 +1,41 @@
+{
+  "schema": "reversible-evidence-v1",
+  "source_root": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/postclosure-check-0924",
+  "revision": "b027194f1039692b8c26cacf9310619d633c54b7",
+  "nonsecret_pattern_exemptions": {},
+  "files": {
+    "amendment.json": {
+      "sha256": "ab50ba15d84fb3012cc4c368b1e2b4c05545eb0c44c7b6a53bbd9a0fcb65a511",
+      "bytes": 1242,
+      "artifacts": [
+        "amendment.json"
+      ],
+      "encoding": "identity"
+    },
+    "combined-original-and-postclosure.jsonl": {
+      "sha256": "207b8bd24c50c608d34c3825a151a288969c5f9341bb1ffbfd9a3580f42c150e",
+      "bytes": 760,
+      "artifacts": [
+        "combined-original-and-postclosure.jsonl.part001.json"
+      ],
+      "encoding": "gzip-base64-chunks",
+      "compressed_sha256": "3bfe5d8b1fe041a18927498fd2b3a93a8d73adb04f01c1ae695ed0ccbcb8b1a8"
+    },
+    "postclosure-admission.json": {
+      "sha256": "51eed252743748687eb3cff3cab02e082f5636709fde213246a74e0964b07743",
+      "bytes": 278,
+      "artifacts": [
+        "postclosure-admission.json"
+      ],
+      "encoding": "identity"
+    },
+    "preserve.py.txt": {
+      "sha256": "9949874999bf0fca679c06d173403cc56516e5099ff15823fb3c11ebf98ffeb2",
+      "bytes": 3018,
+      "artifacts": [
+        "preserve.py.txt"
+      ],
+      "encoding": "identity"
+    }
+  }
+}

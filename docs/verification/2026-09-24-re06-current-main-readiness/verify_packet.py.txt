@@ -26,6 +26,24 @@ for folder in sorted((DOC / 'archives').iterdir()):
             ast.parse(raw, filename=name)
     results.append({'archive': folder.name, 'files': count,
                     'manifest_sha256': hashlib.sha256((folder / 'manifest.json').read_bytes()).hexdigest()})
+sidecar = DOC / 'postclosure'
+side_manifest = json.loads((sidecar / 'manifest.json').read_text())
+postclosure_files = helper['verify'](sidecar)
+side_raw = {}
+for name, item in side_manifest['files'].items():
+    side_raw[name] = helper['decode'](sidecar, item)
+    assert side_raw[name] == (Path(side_manifest['source_root']) / name).read_bytes()
+amendment = json.loads(side_raw['amendment.json'])
+combined = side_raw['combined-original-and-postclosure.jsonl']
+restored = Path(amendment['original_source']).read_bytes()
+assert combined.startswith(restored)
+assert hashlib.sha256(restored).hexdigest() == amendment['archived_source_sha256']
+assert hashlib.sha256(combined).hexdigest() == amendment['combined_sha256']
+extra = combined[len(restored):]
+assert hashlib.sha256(extra).hexdigest() == amendment['appended_sha256']
+assert [json.loads(line) for line in extra.splitlines()] == [json.loads(side_raw['postclosure-admission.json'])]
+assert amendment['pytest_runs'] == amendment['model_requests'] == 0
+
 def archived(package, name):
     folder = DOC / 'archives' / package
     manifest = json.loads((folder / 'manifest.json').read_text())
@@ -71,7 +89,7 @@ handoff = REPO / 'docs/handoffs/inflight/docs-closeout-workorders-0922.md'
 assert handoff.stat().st_size <= 3000
 summary = {'status': 'PASS', 'scope': 'Byte/identity/accounting/terminal-state integrity only; not independent semantic approval',
            'revision': identity['revision'], 'archives': results,
-           'original_files_verified': sum(result['files'] for result in results),
+           'original_files_verified': sum(result['files'] for result in results), 'postclosure_files_verified': postclosure_files,
            'requests_prior': 147, 'requests_new': 0, 'requests_remaining': 71,
            'candidate_tests': 0, 'candidate_builds': 0, 'candidate_model_requests': 0,
            'handoff_bytes': handoff.stat().st_size, 'model_requests': 0, 'pytest_runs': 0}

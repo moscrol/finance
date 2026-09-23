@@ -1,0 +1,21 @@
+{
+  "at": "2026-09-23T18:35:20.755810+00:00",
+  "status": "POST_CLOSURE_AUDIT_APPEND_PRESERVED",
+  "original_source": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-04/work/reviewer-pytest-admissions.jsonl",
+  "archived_source_sha256": "3dbfa4668cd179c51e893ed28f34dd30d98a2dea203ee0ebcf3e951b0dc6d6d6",
+  "combined_sha256": "207b8bd24c50c608d34c3825a151a288969c5f9341bb1ffbfd9a3580f42c150e",
+  "appended_sha256": "36d73a5d52f0b1f8372d92290dc1faea10404ffc89aaba58ba32864cb6701885",
+  "postclosure_calls": 1,
+  "pytest_runs": 0,
+  "model_requests": 0,
+  "cause": "resource_pytest.py --dry-run still appends an audit line; final read-only intent did not prevent its logging side effect",
+  "verification_failure": {
+    "command": "verify_0924_packet.py",
+    "exit_code": 1,
+    "error": "AssertionError: work/reviewer-pytest-admissions.jsonl"
+  },
+  "action": "Combined log retained in full here; restore only the exact historical prefix after proving the one appended row belongs to this own post-closure check",
+  "other_agent_rows_removed": false,
+  "archival_package_rewritten": false,
+  "future_resource_observation": "Use a non-writing host inspection after closure; never call the retired logger again"
+}
