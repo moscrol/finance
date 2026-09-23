@@ -58,3 +58,26 @@
 - 不 `--force`、不 `rm -rf`、不 `git branch -D`。
 - 不动主检出树、生产快照、sync 代码根、证据树、备份库。
 - 只用 pathspec 提交名单与 README；不写明文密钥。
+
+## 候选名单输入：#84（2026-09-23，只读）
+
+原始采样及完整路径：`docs/verification/2026-09-23-worktree-board/ownership.json`；复算脚本与去重说明在同目录 README。基准 `626d8a508c1c988ff094110b371987e6afdcdd15`。12 棵实际为 6 baseline、1 ops、5 detached。全部 dirty=2，且 HEAD 均非基准祖先；**本表没有可删除候选**，不改变删前用户授权要求。
+
+W = `/Users/a77/fwp-wt-ownership-`，R = `/Users/a77/.finance-runtime/reviews/`。每行 dirty 均为 ` D .code-review-graph/.gitignore` 和 ` D .code-review-graph/wiki-steering.json`（受跟踪文件删除，不是未跟踪文件）；下表记为 D1、D2。B2/B3/B4 是 `baseline/ownership-gates-{v2,v3,v4}-0921` 的精确 HEAD 锚点。
+
+| 树路径 | 分支 / 精确 HEAD 锚点 | 证据目录 | dirty | 可否拆及理由 |
+|---|---|---|---|---|
+| Warena-gates-0921 | baseline/ownership-arena-gates-0921 | Rarena-main-ready-20260921 | D1、D2 | 否：dirty、非祖先、证据保全 |
+| Warena-gates-v2-0921 | baseline/ownership-arena-gates-v2-0921 | Rarena-main-ready-v2-20260921 | D1、D2 | 否：dirty、非祖先、证据保全 |
+| Wcloseout-0921 | ops/worktree-ownership-closeout-0921；无 baseline 精确锚点 | Rownership-closeout-20260921；树内 docs/verification/2026-09-21-* | D1、D2 | 否：dirty、非祖先、#812 原件 |
+| Wgates-0921 | baseline/ownership-gates-0921 | Rownership-followup-20260921 | D1、D2 | 否：dirty、非祖先、证据保全 |
+| Wgates-v2-0921 | B2 | Rownership-followup-recheck-20260921 | D1、D2 | 否：dirty、非祖先、证据保全 |
+| Wgates-v3-0921 | B3 | Rownership-resume-20260921 | D1、D2 | 否：dirty、非祖先、证据保全 |
+| Wgates-v4-0921 | B4 | Rownership-integration-v4-20260921 | D1、D2 | 否：dirty、非祖先、证据保全 |
+| Wquality-v3-0921 | detached；B3 | Rownership-k3-v3-20260921/quality-k3 | D1、D2 | 否：dirty、非祖先、审查现场 |
+| Wquality-v4-0921 | detached；B4 | Rownership-k3-v4-20260921/quality-k3 | D1、D2 | 否：dirty、非祖先、K3 中断原件 |
+| Wresume-review-0921 | detached；B2 | Rownership-resume-20260921 | D1、D2 | 否：dirty、非祖先、审查现场 |
+| Wspec-v3-0921 | detached；B3 | Rownership-k3-v3-20260921/spec-k3 | D1、D2 | 否：dirty、非祖先、审查现场 |
+| Wspec-v4-0921 | detached；B4 | Rownership-k3-v4-20260921/spec-k3 | D1、D2 | 否：dirty、非祖先、ENOSPC 原件 |
+
+所有证据目录已核存在；分支只保 HEAD，不保未提交内容或 reflog。未重验这些树的 mtime/ignored/reflog/完整引用条件，不得视为这些条件通过；#64 执行前重算所有判据。#84 本次没有 remove/prune，也没有清除这两个删除状态。
