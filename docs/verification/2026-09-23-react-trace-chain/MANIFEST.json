@@ -233,11 +233,18 @@
       "path": "receipts/independent-qc/MANIFEST.json",
       "bytes": 111298,
       "sha256": "176930912f00c8122df14fddb56f6aa8203b67d6db9ac2e8c19a6babb83baae8"
+    },
+    {
+      "path": "receipts/independent-qc-hardened/MANIFEST.json",
+      "bytes": 105030,
+      "sha256": "87b216b5a77999db0dce7979fe5c839b4f63dea6db6474289e4429bdc36fbe55"
     }
   ],
   "previous_verdict": "BLOCKED_E2E",
   "control_summary": "receipts/frontend-control/control-summary.json",
-  "independent_qc": "BLOCKED_HARNESS_AND_INCOMPLETE_REPORT",
-  "independent_qc_summary": "receipts/independent-qc/SUMMARY.json",
+  "previous_independent_qc": "BLOCKED_HARNESS_AND_INCOMPLETE_REPORT",
+  "previous_independent_qc_summary": "receipts/independent-qc/SUMMARY.json",
+  "independent_qc": "BLOCKED_EXPLORE_NO_PROBES",
+  "independent_qc_summary": "receipts/independent-qc-hardened/SUMMARY.json",
   "natural_finance": "PENDING_AUTHORIZATION_76_PREVIOUS_NOT_PASSED_UNCHANGED"
 }

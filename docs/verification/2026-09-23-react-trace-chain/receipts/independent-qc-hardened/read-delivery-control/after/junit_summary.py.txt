@@ -1,0 +1,11 @@
+"""Count actual JUnit test cases, retaining collection errors as errors."""
+import json
+import sys
+import xml.etree.ElementTree as ET
+
+cases = list(ET.parse(sys.argv[1]).getroot().iter('testcase'))
+counts = {'tests': len(cases)}
+for field, tag in [('failed', 'failure'), ('errors', 'error'), ('skipped', 'skipped')]:
+    counts[field] = sum(case.find(tag) is not None for case in cases)
+counts['passed'] = counts['tests'] - sum(counts[k] for k in ['failed', 'errors', 'skipped'])
+print(json.dumps(counts))

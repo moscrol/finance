@@ -1,0 +1,10 @@
+373:_EXPLICIT_LIST_COUNT_RE = re.compile(
+379:_PREFIXED_LIST_COUNT_RE = re.compile(
+3929:        「仍可判 Y」的取材红线：**只用结构性事实**——契约里的槽位描述、
+4013:            # repair_model_unavailable、草稿空）。条数是结构性事实，说出来
+4740:    诚实声明，作用是降低断言强度；证据注册表里结构性不存在“语料覆盖范围”
+5496:def _normalize_quantity(value: object) -> str:
+5506:def _quantity_supported_by_evidence(
+5624:    与判官的分工由此变成结构性的，不再靠提示词自觉：
+5950:                *_EXPLICIT_LIST_COUNT_RE.finditer(before),
+5951:                *_PREFIXED_LIST_COUNT_RE.finditer(before),

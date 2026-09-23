@@ -1,0 +1,15 @@
+intelligence/services/episode_tools.py:1593:                        status="parse_error",
+intelligence/services/episode_tools.py:1999:def _finance_query_failure_result(
+intelligence/services/episode_tools.py:2004:        failure_code = "invalid_query"
+intelligence/services/episode_tools.py:2005:        status = "parse_error"
+intelligence/services/finance_query.py:28:class FinanceQueryError(RuntimeError):
+intelligence/services/finance_query.py:32:class FinanceQueryValidationError(FinanceQueryError, ValueError):
+intelligence/services/finance_query.py:36:class FinanceQueryExecutionError(FinanceQueryError):
+intelligence/services/finance_query.py:40:class FinanceQueryLimitExceeded(FinanceQueryError):
+intelligence/services/finance_query.py:44:class FinanceQueryCancelled(FinanceQueryError):
+intelligence/services/finance_query.py:48:class FinanceQueryTimedOut(FinanceQueryError, TimeoutError):
+intelligence/services/finance_query.py:110:    def from_arguments(
+intelligence/services/finance_query.py:1516:    为什么由 Harness 代偿而不是只靠重试提示：日期该放 time_range 是本引擎的
+intelligence/services/finance_query.py:1519:    trade_date → `date filters must use time_range`），重试提示写得很清楚但隔
+intelligence/services/finance_query.py:1629:    被拒、退回零证据，模型拿到重试提示后照样再犯（repairwin-8 连错两次）。
+intelligence/services/finance_query.py:1860:    return f"结构化查询参数无效：{safe_message}；重试提示：{validation_retry_hint(spec, error)}"

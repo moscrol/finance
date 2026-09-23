@@ -1,6 +1,6 @@
 # #81 / #832 前向合流验收
 
-最新结论（09-23 续轮）：固定候选的工程四叶保持 `ENGINEERING_PASS_WITH_E2E_TIMING_LIMITS`；用户「推进」后启动的一批 #75 独审为 `BLOCKED_HARNESS_AND_INCOMPLETE_REPORT`。共 49 次 GLM 请求，无重试；沙箱阻断与终稿结构错误使独审不能签字，未启动第二轴或自动加额。工程原两轮 E2E 红仍保留，不作稳定性认证；金融质量归 #76，#832 保持 WIP。续轮收口回读远端 main 为 `c9dd71dfd678`，本页工程收据只绑定候选及固定基线 `626d8a508c1c`，不证明与后来 main 的集成。
+最新结论（09-24 加固续轮）：工程四叶仍为 `ENGINEERING_PASS_WITH_E2E_TIMING_LIMITS`；用户「执行」授权机械加固及一个新 #75 有限批，实际 27 请求后为 `BLOCKED_EXPLORE_NO_PROBES`。结构化报告已成功交付，但探索额度用于源码阅读，零探针、零产品测试，Spec execute/report 及 Quality 未启动。旧49请求的 `BLOCKED_HARNESS_AND_INCOMPLETE_REPORT` 原件不变。工程旧两轮 E2E 红保留，不作稳定性认证；#76仍另授权，#832仍WIP。最新收口回读main为 `5bf47a5ae9aa`，不移动候选或将固定基线收据移签后来main。
 
 ## 固定身份与范围
 
@@ -96,7 +96,24 @@
 
 原件根 `/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/`；仓内 `receipts/independent-qc/SUMMARY.json` 和 `MANIFEST.json` 封存 371 件（字节与哈希逐项见清单），包括完整工具请求、输出、退出码、原失败、探针与运行配方。流式 events 原件留外部，已按 execution.json 复核 185 个阶段产物哈希。原 44 件工程证据不变，工程 MANIFEST 另锚定独审清单。原日志仅改归档扩展名为 `.log.txt`，临时目录中的诊断源码映射到 `diagnostic-probes/`，不改字节。完整暂存差异 `git diff --cached --check` exit 2，60 处空白告警均在 9 份冻结原件；不修原件或加豁免来刷绿，手写文档检查通过。
 
-下一轮需先落实退出码/交付结构的机械校验和真实执行准入，再单独授权新审查；不以宿主 3P、旧 a140 终稿或原工程全量替代独审。详见 `docs/handoffs/2026-09-23-react-trace-qc-blocked.md`。
+上述为旧批停止时的状态。随后用户「执行」已授权机械加固及一批新审查，实际结果见下节；旧原件不追溯修复，不以宿主3P或旧a140终稿补签。旧批快照 `docs/handoffs/2026-09-23-react-trace-qc-blocked.md`。
+
+## #75 机械加固后的新批
+
+新根 `~/.finance-runtime/reviews/pr832-glm-qc-20260923-2355/`。实际模型时段为09-24 CST 00:09:24至00:16:43；目录名是准备开始时间。产品与固定基线不变，新候选只读，两轴互不可读，不复制旧报告或探针。
+
+- 测试入口取消自由bash，固定解释器与pytest参数，通过直接argv启动；记录目标真实退出码、原始输出、输入哈希及JUnit用例计数。stdout打印EXIT=0不能掩盖exit1。
+- 终稿改为带结构约束的 `submit_report` 终止工具；宿主落REPORT.json、Markdown和必需阶段文件，缺实际执行/探针交付则阻止续阶段。结构合法不等于产品通过。
+- 两轴先实际跑pytest收集、嵌套tmp、文件SQLite/WAL、必红与误导stdout对照；各2P及两类真实exit1，零模型，越界/阶段权限对照通过。38份最终工具与输入封存，每阶段核哈希。准入夹具从reviewer目录移出，不计独立探针。
+- 新批实际仅27请求：Spec gateway4通过，explore22正常准入+1次强制结构提交。全部完成、无HTTP失败/重试/墙钟超时，账本对平，112个阶段产物哈希通过；不是152总帽或24阶段硬帽触发。
+- Spec写出有效REPORT.json/REPORT.md/EXPLORE.md，但探针目录为空，C1-C6全为not_verified。`report_structural=false`在此表示必需探针交付缺失，不是JSON语法错误。控制器按约停止整批；execute/report/Quality未开始，产品、作者回归及模型必红控制均零执行。离线准入不能补这些分母。
+- 进度缺口：第21次模型请求的正文自计「已用16次」；宿主按真实22次阈值收尾，但普通请求未下达权威剩余额度，也未设置较早的首探针里程碑。单有硬帽和合法BLOCKED报告，不能保障审查进展。
+- 读回缺口：公共输出尾截断叠在read的分页之上，请400行实际只送后350行；底层字节帽又可能截断某行而仍标记原选择终点。模型所称「完整读完1050行diff」不采信。停批后独立副本零模型对照确认并修正：read不再二次尾截断，按完整UTF-8行限字节，给实际next_offset，超长单行明确拒绝。短400行完整返回、长400行两次无缺重续读；修正仅在 `read-delivery-control-v2/after/`，未改封存工装或补模型签字，也不据此归因全部预算消耗。
+- 原 `inspect` 全目录检索触及受保护intelligence/users，真实exit2保留；部分命中不代表全树覆盖，不放宽权限求绿。
+
+新包 `receipts/independent-qc-hardened/` 封存342件、1246030字节；含运行器/配置/收据/报告/完整工具轨迹及停后读取对照，流式events与凭据指纹留外部哈希绑定。原44工程件与371旧独审件完全不变。批controller、模型进程和19899 relay均已退出。语义判定见新包 `host-review.json`，阶段原件见 `spec/explore/`。本次完整暂存diff-check仍exit2，42处空白告警只在两份原始diff及三份原始读回日志；手写文档检查通过，不改原件或豁免刷绿。归档另明确纳入7份读取对照的生成文本夹具，它们不是运行缓存或数据库。
+
+下一批须先把读取修正并入新封存配方，补权威预算提示及早期可运行探针检查点并离线反证，再另获有限审查授权；不直接扩大额度重试。当前没有完整独立签字，不合并、不部署、不启动#76。决策快照 `docs/handoffs/2026-09-24-react-trace-qc-hardened.md`。
 
 ## 旧独立审查与剩余边界
 

@@ -1,0 +1,182 @@
+from intelligence.services.episode_verifier import verify_episode_outcome
+from intelligence.services.evidence_capabilities import (
+    EvidencePlan,
+    EvidenceRequirement,
+)
+from intelligence.services.provider_observability import ProviderTrace
+from intelligence.services.research_contract import (
+    RequiredOutput,
+    ResearchTaskContract,
+)
+from intelligence.services.research_contract import ResearchDeadline
+from intelligence.services.task_frame import TaskFrame
+
+
+def _frame() -> TaskFrame:
+    return TaskFrame(
+        raw_question="当前市场怎么看？",
+        user_goal="判断当前市场结构",
+        question_type="market_forecast",
+        subject="A股市场",
+        subject_kind="market_pattern",
+        market_scope="A股",
+        timeframe="当前",
+        required_outputs=("direct_assessment",),
+        assumptions=(),
+        ambiguities=(),
+        clarification_question=None,
+        evidence_policy="current_market_scenarios",
+        confidence=0.95,
+    )
+
+
+def _structural(
+    draft: str,
+    *,
+    status: str = "completed",
+    detail: str = "市场成交额与结构观察",
+    title: str = "A股市场快照",
+    source: str = "行情快照",
+    gaps: tuple[str, ...] = (),
+    traces: tuple[ProviderTrace, ...] = (),
+    required_outputs: tuple[RequiredOutput, ...] | None = None,
+    research_tier: str = "standard",
+):
+    frame = _frame()
+    evidence = AgentEvidence(
+        tool="market_data",
+        title=title,
+        detail=detail,
+        source=source,
+        source_date="2026-07-22",
+        content_hash="HASH_PRIVATE_SENTINEL",
+    )
+    if required_outputs is None:
+        required_outputs = (
+            RequiredOutput("direct_assessment", "直接判断", ("market_data",), True),
+        )
+    contract = ResearchTaskContract(
+        task_id="semantic-test",
+        question=frame.raw_question,
+        subject=frame.subject,
+        subject_kind=frame.subject_kind,
+        question_type=frame.question_type,
+        required_outputs=required_outputs,
+        allowed_capabilities=("market_data",),
+        research_tier=research_tier,
+        evidence_plan=EvidencePlan(),
+        task_frame_hash=frame.task_frame_hash,
+    )
+    outcome = AgentOutcome(
+        task_frame_hash=frame.task_frame_hash,
+        status=status,
+        draft=draft,
+        evidence=(evidence,),
+        traces=traces,
+        gaps=gaps,
+        stop_reason="model_finish",
+        events=(
+            EpisodeEvent(
+                1,
+                "task",
+                {"task_frame_hash": frame.task_frame_hash},
+            ),
+        ),
+        bindings=tuple(
+            # 绑定跟着契约槽的 grounding_mode 走：evidence 槽绑住快照证据，
+            # 推理槽按协议规定空哈希 + basis=model_reasoning。
+            OutputEvidenceBinding(
+                item.output_id,
+                (evidence.content_hash,)
+                if item.grounding_mode == "evidence"
+                else (),
+                basis=item.grounding_mode,
+            )
+            for item in required_outputs
+        ),
+        usage=AgentUsage(llm_calls=1, tool_calls=1),
+    )
+    return frame, verify_episode_outcome(contract, outcome)
+
+
+def _valuation_structural(draft: str):
+    frame = replace(
+        _frame(),
+        raw_question="瑞华泰的合理估值",
+        user_goal="估算瑞华泰的合理估值区间",
+        question_type="valuation_estimate",
+        subject="瑞华泰",
+        subject_kind="company",
+        required_outputs=(
+            "valuation_assessment",
+            "scenario_range",
+            "evidence_boundary",
+        ),
+    )
+    evidence = AgentEvidence(
+        tool="market_data",
+        title="瑞华泰估值快照",
+        detail="当前PB为4.33倍；保守、中性、乐观情景对应3.5、4.5、5.5倍PB。",
+        source="结构化行情与财务快照",
+        source_date="2026-07-23",
+        content_hash="valuation-evidence",
+    )
+    contract = ResearchTaskContract(
+        task_id="valuation-output-substance-test",
+        question=frame.raw_question,
+        subject=frame.subject,
+        subject_kind=frame.subject_kind,
+        question_type=frame.question_type,
+        required_outputs=(
+            RequiredOutput(
+                "valuation_assessment",
+                "估值判断",
+                ("market_data",),
+                True,
+            ),
+            RequiredOutput(
+                "scenario_range",
+                "估值情景区间",
+                ("market_data",),
+                True,
+            ),
+            RequiredOutput(
+                "evidence_boundary",
+                "证据边界",
+                ("market_data",),
+                True,
+            ),
+        ),
+        allowed_capabilities=("market_data",),
+        evidence_plan=EvidencePlan(),
+        task_frame_hash=frame.task_frame_hash,
+    )
+    outcome = AgentOutcome(
+        task_frame_hash=frame.task_frame_hash,
+        status="completed",
+        draft=draft,
+        evidence=(evidence,),
+        traces=(),
+        gaps=(),
+        stop_reason="model_finish",
+        events=(
+            EpisodeEvent(1, "task", {"task_frame_hash": frame.task_frame_hash}),
+        ),
+        bindings=tuple(
+            OutputEvidenceBinding(output_id, (evidence.content_hash,))
+            for output_id in frame.required_outputs
+        ),
+        usage=AgentUsage(llm_calls=1, tool_calls=1),
+    )
+    return frame, verify_episode_outcome(contract, outcome)
+
+
+def _judge(
+    passed: bool, *, rejected: tuple[int, ...] = (), issues: tuple[str, ...] = ()
+):
+    calls: list[dict[str, object]] = []
+
+    def run(request):
+        calls.append(request)
+
+[truncated; total lines=5180, selected=40:219; request a later offset]
