@@ -86,8 +86,8 @@
   {
     "id": "sse_terminal_delivery_race",
     "path": "intelligence/api/app.py",
-    "old": "                    if any(event[\"seq\"] > current_cursor for event in terminal_snapshot):\n",
-    "new": "                    if False:\n",
+    "old": "                        pending = store.load_stream_events(run_id, after=current_cursor)\n                        if pending:\n",
+    "new": "                        pending = store.load_stream_events(run_id, after=current_cursor)\n                        if False:\n",
     "targets": ["test_sse_emits_terminal_message_arriving_between_reads"]
   }
 ]
