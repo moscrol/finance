@@ -22,7 +22,8 @@ import json
 from collections import defaultdict
 from datetime import date, datetime, timedelta, timezone
 
-from ..db import connect, init_db
+from ..db import connect, get_published_snapshot_id, init_db
+from ..recovery_coverage import sector_coverage
 from ..sector_universe import SectorDescriptor, SectorUniverseStore
 
 LOCAL_LIMIT_SOURCE = "local:limit-rule"
@@ -175,7 +176,18 @@ def _streak(seq: list[tuple[date, bool]], td: date) -> tuple[int, date | None]:
     return k, first
 
 
-def compute_limit_stats_local(trade_date, *, con=None, force: bool = False, min_boards: int = 2) -> dict:
+def compute_limit_stats_local(trade_date, *, con=None, force: bool = False, min_boards: int = 2,
+                              recovery_members: dict[str, list[str]] | None = None,
+                              recovery_nontrading: tuple[str, ...] = ()) -> dict:
+    """Compute limit statistics; explicit recovery keeps identity denominators.
+
+    recovery_members is the frozen, complete identity baseline for the published
+    universe, not just sectors with limit-ups. Nontrading identities require
+    upstream dated evidence. Unknown member gaps refuse before any write. Default
+    daily behavior is unchanged; this path does not authorize a recovery run.
+    """
+    if recovery_nontrading and recovery_members is None:
+        raise ValueError("nontrading declarations require recovery member identities")
     td = _as_date(trade_date)
     own = con is None
     if own:
@@ -209,6 +221,25 @@ def compute_limit_stats_local(trade_date, *, con=None, force: bool = False, min_
             sec["total"] += 1
             if stock in up_stocks:
                 sec["hits"].append((stock, sw))
+
+        coverage = None
+        if recovery_members is not None:
+            observed = defaultdict(list)
+            for sector, _name, stock, _sw in members:
+                observed[sector].append(stock)
+            snapshot = get_published_snapshot_id(con, str(td))
+            expected = dict(con.execute(
+                "SELECT sector_ts_code, expected_stock_count FROM fact_sector_universe_daily "
+                "WHERE trade_date = ? AND snapshot_id = ?", [td, snapshot],
+            ).fetchall())
+            # Do not silently skip a suspended name that was synthesized into
+            # fact_stock_daily but dropped from the member projection.
+            if set(recovery_nontrading) & {r[1] for r in today}:
+                raise ValueError("nontrading identity has a stock bar")
+            coverage = sector_coverage(declared_members=recovery_members, expected_counts=expected,
+                                       observed_members=observed, suspended=recovery_nontrading)
+            for sector, sec in by_sector.items():
+                sec["total"] = coverage[sector]["ratio_denominator"]
 
         now = datetime.now()
         con.execute("BEGIN TRANSACTION")
@@ -289,6 +320,8 @@ def compute_limit_stats_local(trade_date, *, con=None, force: bool = False, min_
             "sectors_with_limit_up": len(heat_rows), "detail_rows": len(detail_rows),
             "ladder_rows": len(ladder), "leader_height": leader[1][0] if leader else 0,
             "members_seen": len(members),
+            "denominator_basis": "frozen_identity" if coverage is not None else "observed_member_rows",
+            "recovery_member_coverage": coverage,
         }
     except Exception:
         try:
