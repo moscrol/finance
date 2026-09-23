@@ -1,0 +1,24 @@
+file:///opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent/dist/core/tools/bash.js:264
+                    throw new Error(appendStatus(outputText, `Command exited with code ${exitCode}`));
+                          ^
+
+Error: Traceback (most recent call last):
+  File "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/spec/work/sandbox_check.py", line 6, in <module>
+    try: Path(target).read_bytes()
+         ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/pathlib.py", line 1019, in read_bytes
+    with self.open(mode='rb') as f:
+         ^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/pathlib.py", line 1013, in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/candidate/finance-workspace-private/docs/handoffs/2026-09-22-adaptive-deadline-transport.md'
+
+
+Command exited with code 1
+    at Object.execute (file:///opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent/dist/core/tools/bash.js:264:27)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async Object.execute (file:///Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/spec/review.mjs:110:18)
+    at async file:///Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/spec/sandbox_preflight.mjs:49:1
+
+Node.js v26.0.0

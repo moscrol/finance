@@ -1,0 +1,1 @@
+/bin/bash: cannot create temp file for here document: Operation not permitted

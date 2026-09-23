@@ -1,0 +1,1 @@
+{"toolCallId":"call_f5a81cf0f4a8496193168355","params":{"command":"cd /Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/candidate/finance-workspace-private && grep -n \"_repair_dangling_condition_references\\|_drop_rejected_sentences(\" intelligence/services/episode_semantic_verifier.py | head -30"}}

@@ -1,0 +1,67 @@
+            aliases.update(payload.get("query_aliases", {}))
+            assert_dependency_scope(payload["draft"], aliases, visited=visited, check=check)
+        if check is not None:
+            check()
+
+    def parse(arguments):
+        spec = HistoryQuerySpec.from_arguments(arguments)
+        if spec.preview_limit > 25:
+            raise ValueError("history preview limit must be 1..25")
+        return spec, _compact(asdict(spec))
+
+    def execute_query(spec, tool_context, binding):
+        tool_context.remaining()
+        assert_history_window(frame.history_intent, spec.start, spec.end)
+        if spec.search_start is not None:
+            assert_history_window(frame.history_intent, spec.search_start, spec.search_end)
+        payload = HistoryQuery(db_path).run(
+            spec,
+            information_cutoff=context.information_cutoff,
+            deadline=tool_context.deadline,
+            is_cancelled=tool_context.is_cancelled,
+            **({"window_binding": binding} if binding is not None else {}),
+        )
+        payload["operation"] = spec.operation
+        payload["purpose"] = frame.history_intent.purpose
+        payload["knowledge_cutoff"] = context.information_cutoff.as_of_date.isoformat()
+        payload["authorized_scope"] = frame.history_intent.to_dict()
+        payload["pending_sources"] = [
+            {
+                "source": source,
+                "status": "pending_sync",
+                "scope": "user_declared_unsynced",
+                "scheduled": False,
+            }
+            for source in ("l2", "evening_sellside", "morning_brief")
+        ]
+        ref = session.save("query", payload) if session else ""
+        metadata = {
+            key: payload.get(key)
+            for key in (
+                "query_id",
+                "operation",
+                "purpose",
+                "status",
+                "total_matched",
+                "returned_count",
+                "coverage",
+                "definition_refs",
+            )
+        }
+        metadata["result_ref"] = ref
+        metadata["execution_status"] = "success"
+        result = _result(payload, result_ref=ref)
+        if binding is not None:
+            metadata["window_binding"] = binding
+        context.history_results.append(metadata)
+        return result
+
+    def run(spec, tool_context):
+        tool_context.remaining()
+        binding = None
+        if (spec.operation in ANALYSIS_OPERATIONS
+                and frame.history_intent.analysis_window_source != "none"
+                and spec.window_ref is None):
+            raise ValueError("history_window_reference_required: first read_history_result, then use window_ref; do not replace the requested historical reference with recent dates")
+
+[truncated; total lines=971, selected=590:654; request a later offset]

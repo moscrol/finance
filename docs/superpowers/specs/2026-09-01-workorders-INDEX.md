@@ -78,7 +78,7 @@
 
 | # | 工单 | 优先级 | 主仓 | 一句话 |
 |---|------|--------|------|--------|
-| 81 | `2026-09-23-react-trace-chain-closeout-workorder.md` | P1（中单，一到两天） | 金融 | 作者工程交付完成，独立验收待授权。#832 已普通推送 `d1b30e1a0`，前向固定 main `626d8a508`，六处冲突已解；六项中四项产品实现由 #863 覆盖，仅条件删句清理与历史绝对分页为增量。新 head 完整Python 14710P/85S/2X，collected14797对平且同SHA/干净；前端120单测/构建及registry通过；后续固定main→候选串行对照各E2E34P/2S，完整六步exit0，工程四叶齐绿但不作稳定性认证。原E2E两轮3F/2F保留，根因未证实。六项对照/全部收据/资源记录/交接由文档#892封存；1797P/8S定向与九组撤保护属迭代证据。#75 已排队，#76 自然质量另授权，旧 not_passed 不变；未合/部署/真实模型请求。证据 `docs/verification/2026-09-23-react-trace-chain/README.md`。#841 归 #68。 |
+| 81 | `2026-09-23-react-trace-chain-closeout-workorder.md` | P1（中单，一到两天） | 金融 | 作者工程完成，#75新头独审阻塞。#832固定 `d1b30e1a0` 前向基线 `626d8a508`；六项四项已在#863，仅计数清理/历史绝对分页有产品增量。完整Python14710P/85S/2X、前端120P及registry通过，固定main→候选各E2E34P/2S；原两轮3F/2F保留，不作稳定性或后来main集成认证。用户「推进」后有限GLM独审49请求（准入4/探查22/执行23），无重试；pytest/SQLite沙箱权限、echo包装退出码、非法终稿JSON使#75为BLOCKED_HARNESS_AND_INCOMPLETE_REPORT，C6/作者回归未跑、Quality未启动。零模型修工具对照通过、宿主复放3P不代签。文档#892封存原44工程件+371独审件。新审查/#76分别授权，旧not_passed不变；未合/部署/改产品。入口 `docs/verification/2026-09-23-react-trace-chain/README.md`。#841归#68。 |
 | 82 | `2026-09-23-finarena-candidate-disposition-workorder.md` | P2（先拍产品裁决，再定工程量） | 金融 | ⏳ 待派。FinArena：#811 已关（→ #816/#817），#817 修了 NO-GO 的 P1/P2 但无新组合四叶、无独立复审；对 main 0 冲突、0% 落地。先出两条路决策页（落地为 opt-in 模块 / 归档），拍完再动。 |
 | 83 | `2026-09-23-backfill-302132-acceptance-integration-workorder.md` | P1（中单；生产回填另需逐字授权） | 金融 | ⏳ 待派。302132 回填父子命令 #813（0 冲突、4% 落地）前向 + 四叶 + 库副本父子发布演练（clonefile）+ 抓值审计；#802 关闭留指针；生产回填只写出命令等授权。 |
 | 84 | `2026-09-23-worktree-board-hardening-pr812-workorder.md` | P1（小到中单；#64 的前置） | 金融 | ⏳ 待派。看板三类误判修复 + 9 反例测试（#812，`worktree_board.py` 1 处冲突）前向；与今日合入的 #876 拆树工具去重；输出加 `unknown_reason` / `blockers`；12 棵 ownership 证据树只出处置表，拆除归 #64。 |

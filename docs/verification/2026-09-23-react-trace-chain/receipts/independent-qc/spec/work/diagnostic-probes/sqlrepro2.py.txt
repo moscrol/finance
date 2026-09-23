@@ -1,0 +1,37 @@
+import os
+import sqlite3
+
+d = "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/spec/work/tmp/sqlrepro2"
+os.makedirs(d, exist_ok=True)
+
+# 1) plain file create + write
+p1 = os.path.join(d, "plain.txt")
+try:
+    with open(p1, "w") as f:
+        f.write("x")
+    print("PLAIN_OK")
+except Exception as e:
+    print("PLAIN_FAIL", type(e).__name__, e)
+
+# 2) sqlite without WAL
+p2 = os.path.join(d, "nowal.sqlite3")
+try:
+    conn = sqlite3.connect(p2, timeout=5)
+    conn.execute("CREATE TABLE t(x)")
+    conn.commit()
+    conn.close()
+    print("SQLITE_NOWAL_OK", sorted(os.listdir(d)))
+except Exception as e:
+    print("SQLITE_NOWAL_FAIL", type(e).__name__, e)
+
+# 3) sqlite in-memory sanity
+try:
+    conn = sqlite3.connect(":memory:")
+    conn.execute("CREATE TABLE t(x)")
+    conn.close()
+    print("SQLITE_MEM_OK")
+except Exception as e:
+    print("SQLITE_MEM_FAIL", type(e).__name__, e)
+
+# 4) tmpdir env influence
+print("TMPDIR=", os.environ.get("TMPDIR"), "SQLITE_TMPDIR=", os.environ.get("SQLITE_TMPDIR"))

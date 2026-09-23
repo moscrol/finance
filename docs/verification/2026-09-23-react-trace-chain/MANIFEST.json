@@ -228,10 +228,16 @@
       "path": "receipts/frontend-control/run_pair.py.txt",
       "bytes": 1972,
       "sha256": "372685456629304828ed10e28a4f1441a63ae0d1a2e327552c8a557a921b1388"
+    },
+    {
+      "path": "receipts/independent-qc/MANIFEST.json",
+      "bytes": 111298,
+      "sha256": "176930912f00c8122df14fddb56f6aa8203b67d6db9ac2e8c19a6babb83baae8"
     }
   ],
   "previous_verdict": "BLOCKED_E2E",
   "control_summary": "receipts/frontend-control/control-summary.json",
-  "independent_qc": "PENDING_AUTHORIZATION_75",
+  "independent_qc": "BLOCKED_HARNESS_AND_INCOMPLETE_REPORT",
+  "independent_qc_summary": "receipts/independent-qc/SUMMARY.json",
   "natural_finance": "PENDING_AUTHORIZATION_76_PREVIOUS_NOT_PASSED_UNCHANGED"
 }

@@ -1,0 +1,103 @@
+{
+  "status": "BLOCKED_OFFLINE_CONTROL",
+  "finished_at": "2026-09-23T15:18:31.316107+00:00",
+  "model_requests": 0,
+  "candidate": "d1b30e1a068ccd0559f091f3c664ca2ca82f1e7c",
+  "scope": "Host-authored harness controls only; not independent product QC.",
+  "change": "Allow metadata for exactly the batch root and candidate parent; no contents/write/network relaxation.",
+  "authoritative_review_rules_unchanged": "170075a5e1d2decff6e6c1f43c50f9e630a21d57e926548c1c351dfdfcb1ee6a",
+  "runs": [
+    {
+      "label": "before-pytest",
+      "command": [
+        "/usr/bin/sandbox-exec",
+        "-f",
+        "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/offline-repair/before.sb",
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-m",
+        "pytest",
+        "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/offline-repair/work/test_sandbox_controls.py",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "--rootdir=/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/candidate/finance-workspace-private",
+        "--basetemp=/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/offline-repair/work/tmp/before"
+      ],
+      "returncode": 2,
+      "expected_returncode": 2,
+      "matched": true,
+      "output_sha256": "231cee2d8e3d1606c2fa9f6a4e75b36daafd46f6f4a16f41736b29c588953114",
+      "output_bytes": 893
+    },
+    {
+      "label": "before-sqlite",
+      "command": [
+        "/usr/bin/sandbox-exec",
+        "-f",
+        "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/offline-repair/before.sb",
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-B",
+        "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/offline-repair/work/sqlite_direct.py"
+      ],
+      "returncode": 1,
+      "expected_returncode": 1,
+      "matched": true,
+      "output_sha256": "44b0433bffdf086d653e7a14ac6458b83c98ea61f27ebd4c3fb77ad829214206",
+      "output_bytes": 284
+    },
+    {
+      "label": "after-pytest",
+      "command": [
+        "/usr/bin/sandbox-exec",
+        "-f",
+        "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/offline-repair/after.sb",
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-m",
+        "pytest",
+        "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/offline-repair/work/test_sandbox_controls.py",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "--rootdir=/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/candidate/finance-workspace-private",
+        "--basetemp=/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/offline-repair/work/tmp/after"
+      ],
+      "returncode": 4,
+      "expected_returncode": 0,
+      "matched": false,
+      "output_sha256": "ccf930c334cb3c2180c37561440fd5014bc5fc55d54abf62b99380665cecb367",
+      "output_bytes": 1233
+    },
+    {
+      "label": "after-sqlite",
+      "command": [
+        "/usr/bin/sandbox-exec",
+        "-f",
+        "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/offline-repair/after.sb",
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-B",
+        "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/offline-repair/work/sqlite_direct.py"
+      ],
+      "returncode": 0,
+      "expected_returncode": 0,
+      "matched": true,
+      "output_sha256": "cc901741eb5110c03bcb909c97d3a50764d4801b7febd824379b339be707062c",
+      "output_bytes": 10
+    },
+    {
+      "label": "positive-control",
+      "command": [
+        "/usr/bin/sandbox-exec",
+        "-f",
+        "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/offline-repair/after.sb",
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-B",
+        "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/offline-repair/work/intentional_failure.py"
+      ],
+      "returncode": 1,
+      "expected_returncode": 1,
+      "matched": true,
+      "output_sha256": "b70a023e71fbb201ae337bf0595201ec89d432f3a84d9a475a5c6a088b2294fc",
+      "output_bytes": 284
+    }
+  ]
+}

@@ -1,0 +1,94 @@
+[
+  {
+    "label": "before-pytest",
+    "command": [
+      "/usr/bin/sandbox-exec",
+      "-f",
+      "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/offline-repair-v2/before.sb",
+      "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+      "-m",
+      "pytest",
+      "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/offline-repair-v2/work/test_sandbox_controls.py",
+      "-q",
+      "-p",
+      "no:cacheprovider",
+      "--rootdir=/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/candidate/finance-workspace-private",
+      "--basetemp=/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/offline-repair-v2/work/tmp/before"
+    ],
+    "returncode": 2,
+    "expected_returncode": 2,
+    "matched": true,
+    "output_sha256": "231cee2d8e3d1606c2fa9f6a4e75b36daafd46f6f4a16f41736b29c588953114",
+    "output_bytes": 893
+  },
+  {
+    "label": "before-sqlite",
+    "command": [
+      "/usr/bin/sandbox-exec",
+      "-f",
+      "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/offline-repair-v2/before.sb",
+      "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+      "-B",
+      "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/offline-repair-v2/work/sqlite_direct.py"
+    ],
+    "returncode": 1,
+    "expected_returncode": 1,
+    "matched": true,
+    "output_sha256": "0c2a9b795871ae195e509022fd3637ecc86d8e4b97e7fadb740792a1b38a2366",
+    "output_bytes": 287
+  },
+  {
+    "label": "after-pytest",
+    "command": [
+      "/usr/bin/sandbox-exec",
+      "-f",
+      "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/offline-repair-v2/after.sb",
+      "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+      "-m",
+      "pytest",
+      "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/offline-repair-v2/work/test_sandbox_controls.py",
+      "-q",
+      "-p",
+      "no:cacheprovider",
+      "--rootdir=/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/candidate/finance-workspace-private",
+      "--basetemp=/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/offline-repair-v2/work/tmp/after"
+    ],
+    "returncode": 0,
+    "expected_returncode": 0,
+    "matched": true,
+    "output_sha256": "cdf8d13a3f141b449c7d92c9b86d6fd681de17445a1d661236b92f93860eafac",
+    "output_bytes": 98
+  },
+  {
+    "label": "after-sqlite",
+    "command": [
+      "/usr/bin/sandbox-exec",
+      "-f",
+      "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/offline-repair-v2/after.sb",
+      "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+      "-B",
+      "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/offline-repair-v2/work/sqlite_direct.py"
+    ],
+    "returncode": 0,
+    "expected_returncode": 0,
+    "matched": true,
+    "output_sha256": "cc901741eb5110c03bcb909c97d3a50764d4801b7febd824379b339be707062c",
+    "output_bytes": 10
+  },
+  {
+    "label": "positive-control",
+    "command": [
+      "/usr/bin/sandbox-exec",
+      "-f",
+      "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/offline-repair-v2/after.sb",
+      "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+      "-B",
+      "/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/offline-repair-v2/work/intentional_failure.py"
+    ],
+    "returncode": 1,
+    "expected_returncode": 1,
+    "matched": true,
+    "output_sha256": "a6453bf15b5c12087a78ce3e073315d4b5e1e13219833f0fa0356302b58533e0",
+    "output_bytes": 287
+  }
+]

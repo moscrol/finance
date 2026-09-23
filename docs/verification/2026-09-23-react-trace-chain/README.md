@@ -1,6 +1,6 @@
 # #81 / #832 前向合流验收
 
-最新结论（09-23 22:40 CST）：固定候选的工程四叶已齐绿，状态为 `ENGINEERING_PASS_WITH_E2E_TIMING_LIMITS`。新增一次固定 main → 候选串行对照，两边完整前端门禁均 exit 0、E2E 均 34P/2S，未改代码、超时或测试范围。前两轮红仍保留，根因尚未证实；这不是稳定性认证或可合入声明。新候选独审仍待 #75 授权，金融质量归 #76，#832 保持 WIP。
+最新结论（09-23 续轮）：固定候选的工程四叶保持 `ENGINEERING_PASS_WITH_E2E_TIMING_LIMITS`；用户「推进」后启动的一批 #75 独审为 `BLOCKED_HARNESS_AND_INCOMPLETE_REPORT`。共 49 次 GLM 请求，无重试；沙箱阻断与终稿结构错误使独审不能签字，未启动第二轴或自动加额。工程原两轮 E2E 红仍保留，不作稳定性认证；金融质量归 #76，#832 保持 WIP。续轮收口回读远端 main 为 `c9dd71dfd678`，本页工程收据只绑定候选及固定基线 `626d8a508c1c`，不证明与后来 main 的集成。
 
 ## 固定身份与范围
 
@@ -9,7 +9,7 @@
 - 固定检出：`/Users/a77/fwp-wt-react-trace-chain-0923`。本验收文档在独立 `docs/react-trace-chain-0923`，文档 PR #892；不得把候选收据移签文档头。
 - 证据根：`/Users/a77/.finance-runtime/reviews/react-trace-chain-20260923/`。
 - 解释器：`/Users/a77/finance-workspace-private/.venv-workbench/bin/python`。
-- #841 仍归 #68；本轮无真实模型请求、无生产写入、无部署、无新增独立审查预算。
+- #841 仍归 #68；工程收口轮没有真实模型请求。随后 #75 续轮使用既有 GLM 路由，边界见下节；始终无产品修改、生产写入、合入或部署。
 
 ## 六项覆盖对照
 
@@ -75,10 +75,33 @@
 
 据此工程收据层齐绿；独立 QC、自然金融及合入授权仍是另外三道门。理由与被否方案见 `docs/handoffs/2026-09-23-react-trace-e2e-control.md`。
 
+## #75 独审续轮与工具诊断
+
+用户「推进」按本候选一批有限 #75 解读，未扩至 #76、合并或部署。复用既有 GLM 隔离运行器，Spec/Quality 两轴互不可读、每轴 explore/execute/report 独立会话；串行、整批最多 152 请求、每阶段 24 请求/600 秒、单请求 120 秒、重试 0。实际执行止于 Spec execute，未用完预算不等于可以自动续跑。
+
+| 阶段 | 请求 | 实际结果 |
+|---|---|---|
+| Spec gateway | 4 | 小请求及真实读写往返 PASS，非 QC |
+| Spec explore | 22 | 4 个自造探针文件，阶段交付完成；C1-C4 未深验 |
+| Spec execute | 23 | 第 23 发为预留终稿；JSON 尾部多一个引号，结构校验失败，EXECUTE.md 未落盘 |
+| Spec report / Quality 全部阶段 | 0 | NOT_STARTED，批次已停止 |
+
+- 49 请求全部完成，账本与派发数一致，无 HTTP 失败、自动重试或墙钟超时。执行会话达到工具关闭/预留终稿阶段，不是 24 发硬帽越界，也不是供应商不可用。
+- 原始工具日志显示 C5 纯函数 5P、registry 3F，后者都停在 SQLite 夹具建库；C6 与七个作者回归文件未运行。5P/3F 使用额外 `-c/--confcutdir`，不是原定入口的完整独审收据。
+- `execute/commands/005-bash` 用 `; echo` 包装正控，工具整体 exit 0、输出中的子脚本 EXIT=1。报告的「真实 exit 1」不得解读为工具返回 1；pytest 包装也有同类问题。不能只采信摘要或包装退出码。
+- 初版离线预检引用旧任务的缺失文件而失败，保留两轴 `sandbox-preflight-04` 原件；仅换成候选中真实存在的禁止读取文件，`-05` 才通过。这个预检仍漏掉真实 pytest/SQLite 操作所需的父目录元信息权限。
+- 停批后零模型诊断：独立复制规则，仅允许批根与 candidate 父目录的 metadata。对照前 pytest exit 2、SQLite exit 1；后两项控制 2P、SQLite exit 0、必红对照真实 exit 1，越界读写/符号链接/外网/8792 仍拒绝。诊断 v1 的对照符号链接放在收集根造成额外 exit 4，也原样保留；v2 将它放入 tmp，仍实测拒绝越界。
+- 原 3 个 registry 探针逐字节复制，在修补后的工具中由宿主执行 3P/exit 0，明确归 `HOST_TOOLING_DIAGNOSIS_NOT_REVIEWER_EXECUTION`。不替换原 3F，不补签模型执行或独立结论。原运行器、探针和执行收据未原地改写。
+- 自造探针借用了作者夹具；C6 幸存定义测试含条件式断言，单看绿数不能证明该分支执行。这些限制须留给后续审查者，不冒充完整独立覆盖。
+
+原件根 `/Users/a77/.finance-runtime/reviews/pr832-glm-qc-20260923-2255/`；仓内 `receipts/independent-qc/SUMMARY.json` 和 `MANIFEST.json` 封存 371 件（字节与哈希逐项见清单），包括完整工具请求、输出、退出码、原失败、探针与运行配方。流式 events 原件留外部，已按 execution.json 复核 185 个阶段产物哈希。原 44 件工程证据不变，工程 MANIFEST 另锚定独审清单。原日志仅改归档扩展名为 `.log.txt`，临时目录中的诊断源码映射到 `diagnostic-probes/`，不改字节。完整暂存差异 `git diff --cached --check` exit 2，60 处空白告警均在 9 份冻结原件；不修原件或加豁免来刷绿，手写文档检查通过。
+
+下一轮需先落实退出码/交付结构的机械校验和真实执行准入，再单独授权新审查；不以宿主 3P、旧 a140 终稿或原工程全量替代独审。详见 `docs/handoffs/2026-09-23-react-trace-qc-blocked.md`。
+
 ## 旧独立审查与剩余边界
 
 工单和 #832 旧正文遗漏了 09-22 后续终稿：`/Users/a77/.finance-runtime/reviews/react-trace-k3-20260922/STATUS.md` 及 `k3-session-03-report/work/REPORT.md`。它对旧 `a14005fc9` 给 Spec/Quality PASS_WITH_LIMITS，48 自造探针 + 356 作者相关测试；单审查者三会话，不是双盲，也没有全量/真实金融验收。原 09-21 的 600 秒超时记录仍真，后续终稿不抹掉它。本轮不重跑旧审查、不将其移签 d1b30e1a0。
 
-新候选登记 #75；自然金融按 #76 另行授权，旧 not_passed 不变。特别是 225/25、候选数值显式引用与判官消费不能由离线绿代替。
+新候选 #75 本批已执行并阻塞，不自动续预算；自然金融按 #76 另行授权，旧 not_passed 不变。特别是 225/25、候选数值显式引用与判官消费不能由离线绿代替。
 
 `fix/react-trace-runtime-0921@dda5895aa` 是 #832 原头的祖先（`merge-base --is-ancestor` exit 0，`git cherry` 空），没有待补推的独有提交。但其现有工作树有两项他人删除（`.code-review-graph/.gitignore`、`wiki-steering.json`），本轮不强删工作树或分支；不再开重复占位 PR。
