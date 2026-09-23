@@ -26,6 +26,8 @@ def harness(monkeypatch):
         run_monitor=False,
         cancel_at="",
         connected=False,
+        batches=[],
+        fetches=0,
     )
     clock = SimpleNamespace(monotonic=lambda: state.now)
     # Replace module bindings, not the process-wide time.monotonic function.
@@ -76,8 +78,9 @@ def harness(monkeypatch):
             return self
 
         def fetchmany(self, count):
+            state.fetches += 1
             advance("fetch")
-            return []
+            return state.batches.pop(0) if state.batches else []
 
         def interrupt(self):
             state.interrupted = True
@@ -216,5 +219,28 @@ def test_exhausted_root_never_opens_connection(harness):
     state, run = harness
     with pytest.raises(fq.FinanceQueryTimedOut):
         run(deadline=contract.ResearchDeadline(100.0))
+    assert not state.connected
+    assert not state.executed
+
+
+@pytest.mark.parametrize("cancel", [False, True], ids=["late-batch", "cancelled-batch"])
+def test_nonempty_fetch_cannot_publish_after_cutoff(harness, cancel):
+    state, run = harness
+    state.batches = [[(date(2026, 7, 24), 123.0, date(2026, 7, 24))]]
+    if cancel:
+        state.cancel_at = "fetch"
+    else:
+        state.delay_at = "fetch"
+    with pytest.raises(fq.FinanceQueryCancelled if cancel else fq.FinanceQueryTimedOut):
+        run()
+    assert state.fetches >= 1
+    assert state.closed
+
+
+def test_cancelled_before_setup_never_connects(harness):
+    state, run = harness
+    state.cancelled = True
+    with pytest.raises(fq.FinanceQueryCancelled):
+        run()
     assert not state.connected
     assert not state.executed
