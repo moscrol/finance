@@ -1,0 +1,148 @@
+{
+  "revision": "f9ce5c6b296492b423400ad66d333784a4be13bc",
+  "tree": "/Users/a77/fwp-wt-wave2-re06-0923",
+  "identity_stable": true,
+  "dirty": false,
+  "business_sites": 17,
+  "infrastructure_sites": 1,
+  "source_sha256": {
+    "intelligence/api/research_evolution.py": "d5afd7edb821330e5115703b22ee95beeb7cb5527eab81da3e59be98fa2cc350",
+    "intelligence/services/research_evolution/__init__.py": "9c0b745dc27f9fee53c75643c1230be7de5b86c0c88c9f8da6dec32e60541597",
+    "intelligence/services/research_evolution/access.py": "a7a6e9d28b10e81e8cd39470a59cdee9a8587b8c19eb19f41bea25960f585c46",
+    "intelligence/services/research_evolution/adapters.py": "0d46f3ea0c8a49f38919a5975bdce3107dc181830765623ddd5ac7671fe2f448",
+    "intelligence/services/research_evolution/contracts.py": "d3a17c6defc4a56184b436f4c58695cd5e62c0a9b283e7e19948b04a5945cb09",
+    "intelligence/services/research_evolution/facade.py": "3a99cfc0a0005b5f003bf0d447fcba32af5b84e486adf961f85474d7a8fbe62f",
+    "intelligence/services/research_evolution/pilot_io.py": "dd26da39620ecdcde35d6d34316e49df49d6057c6a6717c38d3d84d8b170a796",
+    "intelligence/services/research_evolution/run_observer.py": "069bde1aff83b2f239fd2ca4a2a5d3a7cc92e6caf25baac2d1342f75dc93c4fd",
+    "intelligence/services/research_evolution/store.py": "b4a4281deff9f976bfcfc3c55cbd4fdb0072be773b9c171d406026ba08e074d7",
+    "intelligence/services/research_evolution/study_io.py": "fd329abb865de71ca860f7cca777aeb3e04f586431a13d3c870255ec76c4960d"
+  },
+  "sites": [
+    {
+      "path": "intelligence/services/research_evolution/facade.py",
+      "line": 727,
+      "function": "create_binding",
+      "call": "store.transaction()",
+      "kind": "business"
+    },
+    {
+      "path": "intelligence/services/research_evolution/facade.py",
+      "line": 792,
+      "function": "_maintenance_action",
+      "call": "store.transaction()",
+      "kind": "business"
+    },
+    {
+      "path": "intelligence/services/research_evolution/facade.py",
+      "line": 1220,
+      "function": "fold_run_terminal",
+      "call": "store.try_transaction(timeout=0.5)",
+      "kind": "business"
+    },
+    {
+      "path": "intelligence/services/research_evolution/facade.py",
+      "line": 1335,
+      "function": "bind_pending_rejudge_run",
+      "call": "store.try_transaction(timeout=0.5)",
+      "kind": "business"
+    },
+    {
+      "path": "intelligence/services/research_evolution/facade.py",
+      "line": 1534,
+      "function": "pending_task_continuation",
+      "call": "store.try_transaction(timeout=0.5)",
+      "kind": "business"
+    },
+    {
+      "path": "intelligence/services/research_evolution/facade.py",
+      "line": 1634,
+      "function": "_select_task",
+      "call": "store.transaction()",
+      "kind": "business"
+    },
+    {
+      "path": "intelligence/services/research_evolution/facade.py",
+      "line": 1799,
+      "function": "_reveal_exercise",
+      "call": "store.transaction()",
+      "kind": "business"
+    },
+    {
+      "path": "intelligence/services/research_evolution/facade.py",
+      "line": 2070,
+      "function": "_store_event",
+      "call": "store.transaction()",
+      "kind": "business"
+    },
+    {
+      "path": "intelligence/services/research_evolution/facade.py",
+      "line": 2084,
+      "function": "register_artifact",
+      "call": "store.transaction()",
+      "kind": "business"
+    },
+    {
+      "path": "intelligence/services/research_evolution/facade.py",
+      "line": 2105,
+      "function": "record_process_receipt",
+      "call": "store.transaction()",
+      "kind": "business"
+    },
+    {
+      "path": "intelligence/services/research_evolution/facade.py",
+      "line": 2117,
+      "function": "store_protocol",
+      "call": "store.transaction()",
+      "kind": "business"
+    },
+    {
+      "path": "intelligence/services/research_evolution/pilot_io.py",
+      "line": 94,
+      "function": "cmd_register",
+      "call": "store.transaction()",
+      "kind": "business"
+    },
+    {
+      "path": "intelligence/services/research_evolution/pilot_io.py",
+      "line": 114,
+      "function": "cmd_register",
+      "call": "store.transaction()",
+      "kind": "business"
+    },
+    {
+      "path": "intelligence/services/research_evolution/pilot_io.py",
+      "line": 124,
+      "function": "cmd_register",
+      "call": "store.transaction()",
+      "kind": "business"
+    },
+    {
+      "path": "intelligence/services/research_evolution/pilot_io.py",
+      "line": 167,
+      "function": "cmd_import_events",
+      "call": "store.transaction()",
+      "kind": "business"
+    },
+    {
+      "path": "intelligence/services/research_evolution/pilot_io.py",
+      "line": 231,
+      "function": "cmd_rebuild",
+      "call": "store.transaction()",
+      "kind": "business"
+    },
+    {
+      "path": "intelligence/services/research_evolution/run_observer.py",
+      "line": 218,
+      "function": "_record",
+      "call": "self._evolution_store.try_transaction(timeout=0.2)",
+      "kind": "business"
+    },
+    {
+      "path": "intelligence/services/research_evolution/store.py",
+      "line": 203,
+      "function": "_locked",
+      "call": "self.transaction()",
+      "kind": "infrastructure"
+    }
+  ]
+}

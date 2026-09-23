@@ -1,0 +1,22 @@
+{
+  "revision": "f9ce5c6b296492b423400ad66d333784a4be13bc",
+  "started_at": "2026-09-23T04:39:36.968212+00:00",
+  "provider": "mirasim-kimi",
+  "model": "kimi-k3",
+  "endpoint": "http://127.0.0.1:18788/v1/chat/completions",
+  "status": "BLOCKED_PROVIDER_TRANSPORT",
+  "requests": [
+    {
+      "shape": "plain",
+      "admitted_at": "2026-09-23T04:39:39.091635+00:00",
+      "payload_sha256": "cd4004f7722bb07ca0dd021e63b55d4baa18bbcb0455070414ae888a2585c607",
+      "complete": true,
+      "error_type": "TimeoutError",
+      "elapsed_seconds": 90.034,
+      "status": "BLOCKED_PROVIDER_TRANSPORT"
+    }
+  ],
+  "scope": "transport preflight only; not an independent review",
+  "retry": false,
+  "finished_at": "2026-09-23T04:41:09.127647+00:00"
+}

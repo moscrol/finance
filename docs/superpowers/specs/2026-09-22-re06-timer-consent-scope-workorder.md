@@ -18,6 +18,8 @@
 
 用户原话 `b`。已在独立候选 `fix/re06-timer-scope-0923@4bb3bf0cb` 实施 B：`activity-timer`/v2，读写共用测量域分类；旧 v1 仅对原控件完整自用形状作对称读取兼容，不改台账或哈希。原任务树保留，固定基线 `ffd1b7f15720`。干净候选授权/API 89P、前端9P，完整四叶和独立QC仍待，不是合入/部署/迁移授权。详情 `~/fwp-wt-wave2-re06-0923/docs/handoffs/2026-09-23-re06-timer-scope-b.md`。
 
+09-23 本轮验收输入固定为 `f9ce5c6b296492b423400ad66d333784a4be13bc`，代码候选未改。17处业务事务逐项作者静态核对已落 `docs/verification/2026-09-23-re06-toctou-family.md`：分母是 RE06 服务/API 直接事务调用，另列底层 `_locked` 1处，不再表述成全仓仅17处。完整C1–C10主张已入#75；K3基础网关请求90.034秒超时，`BLOCKED_PROVIDER_TRANSPORT`，尚无独审终稿/探针。完整四叶仍受资源门阻塞；详情 `docs/verification/2026-09-23-re06-timer-scope/README.md`。
+
 原三选一比较保留：
 - A **只改文案**：界面明说「停止计时会撤回自用测量同意」。零代码风险，但用户每次停计时都在关测量。
 - B **计时同意换独立 scope 名**（如 `activity-timer`），测量门不再受它影响。**推荐**。代价：改 05 读数（测量门的历史同意记录里含旧 scope，需要一次迁移或双认）。
@@ -43,7 +45,7 @@
 | 文件 | 看什么 |
 |---|---|
 | `~/fwp-wt-e2-re06-resume-0922/docs/handoffs/inflight/fix-e2-re06-resume-0922.md` | 四件事、决策、读数、「跑全量前先看 uptime」 |
-| `intelligence/services/consent.py`（`scopes_at`、`covers_measurement`）、同意门写侧（`try_transaction` 内复核处） | 折叠共用件与 TOCTOU 修法 |
+| `intelligence/services/product_value/consent.py`（`scopes_at`、`covers_measurement`）、同意门写侧（`try_transaction` 内复核处） | 折叠共用件与 TOCTOU 修法 |
 | `intelligence/webapp/src/**/ResearchActivityControl.tsx` | withdraw 的 scope 与 `consent_version` |
 | `docs/agent-product-door.md` 约 383 行计时控件段 | 门页现状刻画 |
 | `intelligence/tests/`（E2 20 / 折叠 18 / TOCTOU 6 / 计时门 5 四份新测试） | 变异对象 |
@@ -62,7 +64,7 @@
 - [ ] PR head 四叶收据 revision == head。
 - [ ] 阳性对照：把锁内复核去掉、只保留锁外读，TOCTOU 用例（含 T2 伪修法守卫）必须红；还原后绿。
 - [ ] 决策有用户原话；所选方案的刻画测试更新且拆掉修法即红。
-- [ ] 同族筛查文档 17 行齐全。
+- [x] 同族筛查文档 17 行齐全（固定 f9ce5c6b2，作者静态核对；非独立QC或新行为测试）。
 - [ ] 前端 `pnpm test` 含 `ResearchActivityControl` 用例通过（若 B，scope 名断言更新）。
 
 ## 红线
