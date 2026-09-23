@@ -55,14 +55,23 @@ def _pipe_worker(monkeypatch, on_request):
             ended = True
             os.close(write_fd)
 
-    class RequestSink(io.StringIO):
-        def flush(self):
-            request = json.loads(self.getvalue())
-            self.seek(0)
-            self.truncate()
-            on_request(request, send, end)
+    request_read, request_write = os.pipe()
+    writer = io.FileIO(request_write, "w")
+    request_buffer = bytearray()
+    real_write = os.write
 
-    process = SimpleNamespace(stdin=RequestSink(), stdout=reader, stderr=None, pid=12345,
+    def write(fd, data):
+        if fd != request_write:
+            return real_write(fd, data)
+        request_buffer.extend(data)
+        if request_buffer.endswith(b"\n"):
+            request = json.loads(request_buffer)
+            request_buffer.clear()
+            on_request(request, send, end)
+        return len(data)
+
+    monkeypatch.setattr(rag_worker.os, "write", write)
+    process = SimpleNamespace(stdin=writer, stdout=reader, stderr=None, pid=12345,
                               poll=lambda: 0 if ended else None, terminate=end,
                               kill=end, wait=lambda **kwargs: 0)
     # Main now samples RSS after a response. This pipe double has no child
@@ -81,6 +90,96 @@ def _pipe_worker(monkeypatch, on_request):
         worker.close()
         end()
         reader.close()
+        writer.close()
+        os.close(request_read)
+
+
+@pytest.mark.parametrize("chunk_size", [1, 2, 7])
+def test_short_request_writes_preserve_utf8_and_one_frame(monkeypatch, chunk_size):
+    requests = []
+
+    def respond(request, send, end):
+        requests.append(request)
+        send(_reply(request["id"]))
+
+    with _pipe_worker(monkeypatch, respond) as worker:
+        real_write = os.write
+        stdin_fd = worker._process.stdin.fileno()
+
+        def write(fd, data):
+            return real_write(fd, data[:chunk_size] if fd == stdin_fd else data)
+
+        monkeypatch.setattr(rag_worker.os, "write", write)
+        argv = ["query", "液冷😀"]
+        assert worker.query(argv, timeout=1).returncode == 0
+        assert len(requests) == 1
+        assert requests[0]["argv"] == argv
+        assert worker.counters["queries_served"] == 1
+
+
+def test_spurious_writability_retries_without_failing_worker(monkeypatch):
+    attempts = 0
+
+    def respond(request, send, end):
+        send(_reply(request["id"]))
+
+    with _pipe_worker(monkeypatch, respond) as worker:
+        real_write = os.write
+        stdin_fd = worker._process.stdin.fileno()
+
+        def write(fd, data):
+            nonlocal attempts
+            if fd == stdin_fd:
+                attempts += 1
+                if attempts == 1:
+                    raise BlockingIOError()
+            return real_write(fd, data)
+
+        monkeypatch.setattr(rag_worker.os, "write", write)
+        assert worker.query(["query", "current"], timeout=1).returncode == 0
+        assert attempts == 2
+        assert worker.healthy()
+
+
+def test_request_send_and_response_share_deadline(monkeypatch):
+    clock = [0.0]
+    waits = []
+
+    class BudgetSelector:
+        sending = False
+
+        def register(self, fileobj, events, data):
+            if data == "stdin":
+                self.sending = True
+
+        def unregister(self, fileobj):
+            self.sending = False
+
+        def select(self, timeout):
+            waits.append(timeout)
+            if self.sending:
+                return [(SimpleNamespace(data="stdin"), 2)]
+            clock[0] += timeout
+            return []
+
+        def close(self):
+            pass
+
+    with _pipe_worker(monkeypatch, lambda *args: None) as worker:
+        real_write = os.write
+
+        def write(fd, data):
+            clock[0] += 0.06
+            return real_write(fd, data)
+
+        monkeypatch.setattr(rag_worker.os, "write", write)
+        monkeypatch.setattr(rag_worker.time, "monotonic", lambda: clock[0])
+        monkeypatch.setattr(rag_worker.selectors, "DefaultSelector", BudgetSelector)
+        with pytest.raises(rag_worker.WorkerRequestAbandoned):
+            worker.query(["query", "current"], timeout=0.1)
+        assert waits == pytest.approx([0.1, 0.04])
+        assert clock[0] == pytest.approx(0.1)
+        assert worker.healthy(), "a fully sent request keeps the warm-abandon policy"
 
 
 def test_coalesced_abandoned_and_current_responses_are_both_consumed(monkeypatch):
@@ -149,10 +248,18 @@ def test_fragmented_utf8_and_long_line_reassemble_before_decode(monkeypatch, chu
     clock = [0.0]
 
     class ChunkSelector:
-        def register(self, *args):
-            pass
+        sending = False
+
+        def register(self, fileobj, events, data):
+            if data == "stdin":
+                self.sending = True
+
+        def unregister(self, fileobj):
+            self.sending = False
 
         def select(self, timeout):
+            if self.sending:
+                return [(SimpleNamespace(data="stdin"), 2)]
             clock[0] += 0.000001
             return [(SimpleNamespace(data="stdout"), 1)] if payload else []
 
@@ -181,11 +288,19 @@ def test_stale_and_partial_chunks_do_not_extend_absolute_deadline(monkeypatch):
     selections = 0
 
     class TrickleSelector:
-        def register(self, *args):
-            pass
+        sending = False
+
+        def register(self, fileobj, events, data):
+            if data == "stdin":
+                self.sending = True
+
+        def unregister(self, fileobj):
+            self.sending = False
 
         def select(self, timeout):
             nonlocal selections
+            if self.sending:
+                return [(SimpleNamespace(data="stdin"), 2)]
             waits.append(timeout)
             clock[0] += min(0.03, timeout)
             selections += 1

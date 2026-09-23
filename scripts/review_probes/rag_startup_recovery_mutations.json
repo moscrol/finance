@@ -79,8 +79,22 @@
   {
     "id": "selector-registration-outside-cleanup",
     "path": "intelligence/services/rag_worker.py",
-    "old": "        try:\n            selector.register(process.stdout, selectors.EVENT_READ, \"stdout\")\n            if process.stderr is not None:\n                selector.register(process.stderr, selectors.EVENT_READ, \"stderr\")\n            search_from = 0",
-    "new": "        selector.register(process.stdout, selectors.EVENT_READ, \"stdout\")\n        if process.stderr is not None:\n            selector.register(process.stderr, selectors.EVENT_READ, \"stderr\")\n        try:\n            search_from = 0",
-    "targets": ["stderr_registration_failure"]
+    "old": "        try:\n            selector.register(process.stdout, selectors.EVENT_READ, \"stdout\")\n            if process.stderr is not None:\n                selector.register(process.stderr, selectors.EVENT_READ, \"stderr\")\n            selector.register(process.stdin, selectors.EVENT_WRITE, \"stdin\")\n            search_from = 0",
+    "new": "        selector.register(process.stdout, selectors.EVENT_READ, \"stdout\")\n        if process.stderr is not None:\n            selector.register(process.stderr, selectors.EVENT_READ, \"stderr\")\n        selector.register(process.stdin, selectors.EVENT_WRITE, \"stdin\")\n        try:\n            search_from = 0",
+    "targets": ["pipe_registration_failure"]
+  },
+  {
+    "id": "request-write-blocks-before-draining",
+    "path": "intelligence/services/rag_worker.py",
+    "old": "            selector.register(process.stdin, selectors.EVENT_WRITE, \"stdin\")",
+    "new": "            os.set_blocking(process.stdin.fileno(), True)\n            process.stdin.write(request.decode('utf-8'))\n            process.stdin.flush()\n            sent = len(request)",
+    "targets": ["large_request", "partial_request_write"]
+  },
+  {
+    "id": "partial-request-abandoned-kept-warm",
+    "path": "intelligence/services/rag_worker.py",
+    "old": "                may_abandon = allow_abandon and sent == len(request)",
+    "new": "                may_abandon = allow_abandon",
+    "targets": ["partial_request_write"]
   }
 ]

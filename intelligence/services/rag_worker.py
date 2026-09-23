@@ -461,6 +461,7 @@ class PersistentRagWorker:
         assert process.stdin is not None
         assert process.stdout is not None
         if self._response_process is not process:
+            os.set_blocking(process.stdin.fileno(), False)
             os.set_blocking(process.stdout.fileno(), False)
             if process.stderr is not None:
                 os.set_blocking(process.stderr.fileno(), False)
@@ -469,36 +470,45 @@ class PersistentRagWorker:
             self._stderr_tail = bytearray()
         # Local reference: close() may retire the process from another thread.
         buffer = self._response_buffer
-        try:
-            process.stdin.write(
-                json.dumps({"id": request_id, "argv": argv}, ensure_ascii=False)
-                + "\n"
-            )
-            process.stdin.flush()
-        except BrokenPipeError:
-            raise self._process_exit_error(process) from None
         started = time.monotonic()
         deadline = started + max(0.001, float(timeout))
+        request = (json.dumps({"id": request_id, "argv": argv}, ensure_ascii=False) + "\n").encode("utf-8")
+        sent = 0
         selector = selectors.DefaultSelector()
         try:
             selector.register(process.stdout, selectors.EVENT_READ, "stdout")
             if process.stderr is not None:
                 selector.register(process.stderr, selectors.EVENT_READ, "stderr")
+            selector.register(process.stdin, selectors.EVENT_WRITE, "stdin")
             search_from = 0
             while True:
+                # A partial request would corrupt the next JSON frame; only a
+                # fully sent request may be abandoned on a still-warm process.
+                may_abandon = allow_abandon and sent == len(request)
                 remaining = deadline - time.monotonic()
                 if remaining <= 0:
-                    self._on_query_timeout(request_id, allow_abandon=allow_abandon)
+                    self._on_query_timeout(request_id, allow_abandon=may_abandon)
                 # Drain complete buffered lines before asking the kernel for more.
                 # TextIO.readline() can prefetch a second reply behind select's back;
                 # it can also block past the deadline on a partial first line.
-                newline = buffer.find(b"\n", search_from)
+                newline = buffer.find(b"\n", search_from) if sent == len(request) else -1
                 if newline < 0:
-                    search_from = len(buffer)
+                    if sent == len(request):
+                        search_from = len(buffer)
                     events = selector.select(remaining)
                     if not events:
-                        self._on_query_timeout(request_id, allow_abandon=allow_abandon)
+                        self._on_query_timeout(request_id, allow_abandon=may_abandon)
                     for key, _ in events:
+                        if key.data == "stdin":
+                            try:
+                                sent += os.write(process.stdin.fileno(), request[sent:sent + 65536])
+                            except BlockingIOError:
+                                continue
+                            except BrokenPipeError:
+                                raise self._process_exit_error(process) from None
+                            if sent == len(request):
+                                selector.unregister(process.stdin)
+                            continue
                         if key.data == "stderr":
                             if not self._read_stderr(process):
                                 selector.unregister(key.fileobj)

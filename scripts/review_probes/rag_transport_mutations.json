@@ -61,5 +61,26 @@
     "old": "        self._response_process = None\n        self._response_buffer = bytearray()\n        self._abandoned.clear()\n        self._consecutive_timeouts = 0\n        if process is not None",
     "new": "        if process is not None",
     "targets": ["invalid_frame_is_not_mistaken"]
+  },
+  {
+    "id": "request-send-renews-deadline",
+    "path": "intelligence/services/rag_worker.py",
+    "old": "                            if sent == len(request):\n                                selector.unregister(process.stdin)",
+    "new": "                            if sent == len(request):\n                                deadline = time.monotonic() + timeout\n                                selector.unregister(process.stdin)",
+    "targets": ["request_send_and_response_share_deadline"]
+  },
+  {
+    "id": "short-write-discards-request-tail",
+    "path": "intelligence/services/rag_worker.py",
+    "old": "                                sent += os.write(process.stdin.fileno(), request[sent:sent + 65536])",
+    "new": "                                os.write(process.stdin.fileno(), request[sent:sent + 65536])\n                                sent = len(request)",
+    "targets": ["short_request_writes"]
+  },
+  {
+    "id": "spurious-write-readiness-fails-worker",
+    "path": "intelligence/services/rag_worker.py",
+    "old": "                                sent += os.write(process.stdin.fileno(), request[sent:sent + 65536])\n                            except BlockingIOError:\n                                continue",
+    "new": "                                sent += os.write(process.stdin.fileno(), request[sent:sent + 65536])\n                            except BlockingIOError:\n                                raise",
+    "targets": ["spurious_writability"]
   }
 ]

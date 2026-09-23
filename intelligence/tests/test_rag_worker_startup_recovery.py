@@ -281,6 +281,70 @@ def test_early_process_exit_preserves_safe_stderr_and_drains_full_pipe(tmp_path)
     assert not _only_worker().healthy()
 
 
+def test_large_request_drains_stderr_while_sending(tmp_path):
+    args = _fixture(tmp_path)
+    script = tmp_path / "scripts/rag_index.py"
+    script.write_text(
+        'import os\nos.write(2, b"private-startup-noise " * 65536)\n' + script.read_text()
+    )
+    worker = rag_worker._worker_for(args["python"], args["kb_root"], args["index_dir"])
+    watchdog_fired = threading.Event()
+
+    def stop_stalled_child():
+        watchdog_fired.set()
+        worker._stop_process()
+
+    watchdog = threading.Timer(5, stop_stalled_child)
+    watchdog.start()
+    try:
+        response = worker.prewarm(["query", "x" * (512 * 1024)], timeout=3)
+        assert not watchdog_fired.is_set(), "request send must not deadlock behind stderr"
+        assert response.returncode == 0
+        assert worker.healthy()
+        assert len(worker._stderr_tail) <= 4096
+        assert "private-startup-noise" not in json.dumps(worker.status())
+    finally:
+        watchdog.cancel()
+        watchdog.join(timeout=5)
+        worker.close()
+
+
+@pytest.mark.parametrize("warm", [False, True])
+def test_partial_request_write_has_deadline_and_retires_process(tmp_path, monkeypatch, warm):
+    args = _fixture(tmp_path)
+    worker = rag_worker._worker_for(args["python"], args["kb_root"], args["index_dir"])
+    process = subprocess.Popen(
+        [sys.executable, "-c", "import threading; threading.Event().wait(10)"],
+        stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+    )
+    worker._process = process
+    worker.model_load_count = int(warm)
+    monkeypatch.setattr(worker, "_ensure_process", lambda: process)
+    watchdog_fired = threading.Event()
+
+    def stop_stalled_child():
+        watchdog_fired.set()
+        worker._stop_process()
+
+    watchdog = threading.Timer(3, stop_stalled_child)
+    watchdog.start()
+    try:
+        with pytest.raises(TimeoutError) as raised:
+            worker.query(["query", "x" * (512 * 1024)], timeout=0.05)
+        assert not isinstance(raised.value, rag_worker.WorkerRequestAbandoned)
+        assert not watchdog_fired.is_set(), "stdin writes must obey the query deadline"
+        assert not worker.healthy(), "a partially sent JSON frame cannot be reused"
+        assert worker.counters["timeouts_killed"] == 1
+        assert worker.counters["timeouts_abandoned_kept_warm"] == 0
+    finally:
+        watchdog.cancel()
+        watchdog.join(timeout=5)
+        worker.close()
+        with suppress(BrokenPipeError):
+            process.stdin.close()
+        process.stdout.close()
+
+
 def test_process_exit_before_request_write_keeps_safe_diagnostic(tmp_path, monkeypatch):
     args = _fixture(tmp_path)
     worker = rag_worker._worker_for(args["python"], args["kb_root"], args["index_dir"])
@@ -307,10 +371,11 @@ def test_process_exit_before_request_write_keeps_safe_diagnostic(tmp_path, monke
         process.stdout.close()
 
 
-def test_stderr_registration_failure_closes_selector(tmp_path, monkeypatch):
+@pytest.mark.parametrize("registered", [1, 2])
+def test_pipe_registration_failure_closes_selector(tmp_path, monkeypatch, registered):
     args = _fixture(tmp_path)
     selector = Mock()
-    selector.register.side_effect = [None, OSError("private pipe details")]
+    selector.register.side_effect = [None] * registered + [OSError("private pipe details")]
     monkeypatch.setattr(rag_worker.selectors, "DefaultSelector", lambda: selector)
     with pytest.raises(OSError):
         rag_worker.prewarm(**args)
