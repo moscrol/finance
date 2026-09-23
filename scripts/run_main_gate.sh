@@ -8,6 +8,9 @@
 #   bash scripts/run_main_gate.sh --baseline <基线.json>  # 红集比较，不是合入门禁
 #   bash scripts/run_main_gate.sh --receipt <收据.json> --baseline <基线.json>
 # FWP_TEST_RECEIPT_DIR 指定收据根；每轮新建 gate-*/pytest.json，不读共享 latest.json。
+# --pytest-args 里显式给了 --basetemp=<dir> 时：门禁全绿即删该目录（红保留作证据）；GATE_KEEP_BASETEMP=1 强制保留。
+#   为什么：2026-09-23 盘上 pytest 临时区累计 30 GB，全是绿了也没人删的 basetemp；pytest 只保 3 个的自清理
+#   在并发跑 + 只读文件下失效。只认显式路径——默认编号目录（pytest-of-<user>/pytest-N）分不清是谁的。
 # 退出码：0 全过/显式基线比较无新增红；1 ruff/测试红；2 脏树；3 新增红；4 设施/身份失败。
 set -uo pipefail
 
@@ -41,6 +44,46 @@ if [ ! -x "$PY" ]; then
   exit 4
 fi
 cd "$REPO" || exit 4
+canonical_path() {
+  python3 -c 'import os, sys; print(os.path.realpath(sys.argv[1]))' "$1"
+}
+path_is_same_or_child() {
+  case "$1" in
+    "$2"|"$2"/*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+# 显式 --basetemp（"--basetemp=DIR" 或 "--basetemp DIR"）；没给就不管。
+BASETEMP="$(printf '%s\n' "$PYTEST_ARGS" | sed -nE 's/.*--basetemp[= ]+([^[:space:]]+).*/\1/p')"
+BASETEMP_REAL=""
+if [ -n "$BASETEMP" ]; then
+  BASETEMP_REAL="$(canonical_path "$BASETEMP")" || { echo "无法解析 basetemp: $BASETEMP" >&2; exit 4; }
+  case "$BASETEMP_REAL" in
+    /|"$HOME") echo "basetemp 是根目录或家目录，拒绝启动 pytest: $BASETEMP_REAL" >&2; exit 4 ;;
+  esac
+  if path_is_same_or_child "$BASETEMP_REAL" "$REPO" || path_is_same_or_child "$REPO" "$BASETEMP_REAL"; then
+    echo "basetemp 与仓库树有包含关系，拒绝启动 pytest: $BASETEMP_REAL" >&2
+    exit 4
+  fi
+fi
+PYTEST_EXIT=""
+cleanup_basetemp() {
+  local real
+  [ -d "$1" ] || return 0
+  real="$(canonical_path "$1")" || { echo "== 无法解析 basetemp，保留: $1" >&2; return 4; }
+  if [ "$real" != "$BASETEMP_REAL" ]; then
+    echo "== basetemp 路径在测试期间改变，保留: $real" >&2
+    return 4
+  fi
+  chmod -R u+w "$real" 2>/dev/null   # pytest 夹具常留只读文件，不加这步 rm 会失败一半
+  # 注意 ${real} 要带花括号：bash 3.2 在 UTF-8 下会把紧跟的全角括号当成变量名的一部分，set -u 直接报 unbound。
+  if rm -rf -- "${real}"; then
+    echo "== 门禁绿，basetemp 已清: ${real}（要保留请设 GATE_KEEP_BASETEMP=1）"
+    return 0
+  fi
+  echo "== basetemp 清理失败，保留: ${real}" >&2
+  return 4
+}
 REV="$(git rev-parse HEAD)" || exit 4
 STATUS="$(git status --porcelain)" || exit 4
 if [ -n "$STATUS" ] && [ "$ALLOW_DIRTY" != "1" ]; then
@@ -83,3 +126,12 @@ if [ ! -f "$LATEST" ]; then
   exit 4
 fi
 "$PY" "$GATE_DIR/main_gate_receipt.py" "$LATEST" "${CHECK_ARGS[@]}"
+GATE_EXIT=$?
+# 只有「本轮真跑了 pytest 且退出 0 且收据校验通过」才清；--receipt 只读回放、任何红、显式保留都不动。
+if [ "$GATE_EXIT" = 0 ] && [ -z "$RECEIPT_ONLY" ] && [ "$PYTEST_EXIT" = 0 ] \
+   && [ -n "$BASETEMP" ] && [ "${GATE_KEEP_BASETEMP:-0}" != "1" ]; then
+  if ! cleanup_basetemp "$BASETEMP"; then
+    GATE_EXIT=4
+  fi
+fi
+exit "$GATE_EXIT"
