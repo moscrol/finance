@@ -16,6 +16,7 @@
 - 解释器只用 `/Users/a77/finance-workspace-private/.venv-workbench/bin/python`（宿主 python3 无依赖）。
 - 测试壳：`env -i PATH="$PATH" HOME="$HOME" KNOWLEDGE_WIKI="$KNOWLEDGE_WIKI"` + `umask 022`。继承 launcher 变量 → 31 假红；umask 077 → 16 假红（2026-08-18 台账 02:25 行⑤实测）。
 - 每批用独立 worktree 验；`/Users/a77/fwp-wt-167-merge` 是现成验收树（webapp node_modules 已装）。
+- 真实会话用 `scripts/launch_workbench_sidecar.sh`；它在读取生产 launcher 后同时覆盖 `FORESIGHT_USERS_DIR` 与 `FORESIGHT_EPISODE_STORE=$USERS/.episodes`。只换用户目录不够：Episode 默认仍写 `$FINANCE_WS/state/episodes`。`FINANCE_WS` 保留用于读取正式行情，不为隔离会话伪造行情根；验收进程另用只读沙箱保护生产库、索引、配置和用户目录。
 - Gitea API token 在 Keychain：`security find-generic-password -s gitea-local -a a77-token -w`。scope 最小集 `write:issue,write:repository,write:user`（2026-08-18 已补；缺 `write:issue` 时评论 403）。
 
 **完成判据**：pytest 收据（`~/.finance-runtime/test-receipts/<ts>-<treesha>.json`）文件名里的树 SHA == 你正在验的树。
