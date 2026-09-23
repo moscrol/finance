@@ -1,0 +1,40 @@
+{
+  "verified_at": "2026-09-23T17:33:17.596Z",
+  "revision": "83d5ba168c2177d91d1a3ceb4a4e895aacbde352",
+  "scope": "targeted offline arithmetic verification only; no full repository gate or model acceptance",
+  "test_receipt": {
+    "path": "/Users/a77/.finance-runtime/test-receipts/20260923T173246Z-83d5ba16-085454ab2ed5.json",
+    "sha256": "e9cd851a32a271da068f712fc58e1949b97b9e5f124b8e0064ab40dbcf50c713",
+    "counts": {
+      "passed": 12,
+      "failed": 0,
+      "error": 0,
+      "skipped": 0,
+      "xfailed": 0,
+      "xpassed": 0
+    },
+    "collected": 12,
+    "dirty": false,
+    "exit_status": 0
+  },
+  "postcommit_reconciliation_matches": true,
+  "numeric_page_presence_checks": 137,
+  "previous_intake_artifacts_unchanged": 23,
+  "packet_files_sha256": {
+    "300604-pages.json": "4c24e10d882f2f97053a970978d2bf28609d08c885c5b31693403db6d26a7014",
+    "603986-pages.json": "f9f5c3b6c6241bf061616357efe648540a186f61216e0b9e73b761fe901b97c9",
+    "README.md": "3505055bde205fdf09ad0a2ceb66189294d95a6c39b8ba1eb3ce897bcf00f67f",
+    "facts.json": "52b872803a4278e27dc0a35eeefd667a8d57ab0aebe732369a577f41f0c104dd",
+    "reconciliation.json": "7fc49ed30f04b9665abefcbd6640af2957a3954f26ba53c1d9d6e66c5733dd7d",
+    "search-300604.json": "f5f99dc755d0a16a2376cc910fc46e74b9ea451079ef10669544ef265d5e8d10",
+    "search-603986.json": "cdda244ce2e99c4e217a464d2176d019fc55501effcfdf91e79a90d41e677d6d",
+    "sources.json": "d57b3d92dbbdde91d6a6719cea5fa5303f136cd448b372cd8b533d296418a0e4"
+  },
+  "source_files_sha256": {
+    "scripts/review_probes/reconcile_knevo_primary.py": "5896d71ef43dee15d16d54b84a1a0a939fb92eb660c60c3a3190231261552e80",
+    "tests/test_reconcile_knevo_primary.py": "4aeddc17a8c25a19c761b71c1e0fa7690ca6c530c96b008618eaeb4c4e0dea08",
+    "docs/learning/distill/2026-09-24-knevo-primary-source-followup.md": "da4069e08b0cc39f77b0dc17e9e650c1a42ec64d29a7ded2ec850dc5808b2623"
+  },
+  "new_model_calls": 0,
+  "production_writes": 0
+}
