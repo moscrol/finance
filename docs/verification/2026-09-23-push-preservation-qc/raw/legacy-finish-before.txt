@@ -1,0 +1,36 @@
+#!/bin/bash
+set -u
+WT=/Users/a77/fwp-wt-market-date-advisory-0921
+PY=/Users/a77/finance-workspace-private/.venv-workbench/bin/python
+ARCHIVE=docs/verification/2026-09-22-market-cutoff-followup
+FILES=(
+  docs/handoffs/2026-09-22-market-cutoff-followup.md
+  docs/handoffs/inflight/fix-market-date-advisory-0921.md
+  "$ARCHIVE/README.md"
+  "$ARCHIVE/manifest.json"
+  "$ARCHIVE/sha256-manifest.txt"
+  "$ARCHIVE/raw/53054bfd4/REVIEW.md"
+  "$ARCHIVE/raw/53054bfd4/independent-retry-01"
+)
+cd "$WT" || exit 9
+export GIT_INDEX_FILE=/tmp/s1_tmp_index2
+rm -f "$GIT_INDEX_FILE"
+git read-tree HEAD || exit 8
+git add -- "${FILES[@]}" || exit 7
+TREE=$(git write-tree) || exit 6
+TMPC=$(git commit-tree "$TREE" -p HEAD -m "tmp: archive check preview (unreferenced)") || exit 5
+unset GIT_INDEX_FILE
+echo "preview commit=$TMPC tree=$TREE"
+"$PY" scripts/check_evidence_archive.py "$ARCHIVE" --revision "$TMPC" --repo "$WT" > /tmp/s1_check_preview.json
+rc=$?
+echo "--- checker on preview (exit=$rc) ---"
+"$PY" -c "import json;d=json.load(open('/tmp/s1_check_preview.json'));print({k:d[k] for k in ('manifest_files','committed_files','ok')});print('errors:',d['errors'][:5])"
+if [ $rc -ne 0 ]; then echo "CHECKER RED - not committing"; exit 3; fi
+echo "--- real commit (pathspec) ---"
+git add -- "${FILES[@]}" || exit 4
+git commit -F /tmp/s1_msg1.txt -- "${FILES[@]}"
+crc=$?
+echo "commit exit=$crc"
+git log --oneline -1
+echo "remaining dirty lines: $(git status --short | wc -l)"
+echo "new HEAD tree == preview tree? $([ "$(git rev-parse HEAD^{tree})" = "$TREE" ] && echo yes || echo NO)"

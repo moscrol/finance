@@ -18,11 +18,13 @@
   <string>/Users/a77/finance-workspace-private</string>
   <key>EnvironmentVariables</key>
   <dict>
-    <!-- L2 / 质检 / 方法保持现行快照；生成单独冻结，禁止用旧生成整树覆盖 L2。 -->
+    <!-- 两个完整固定检出分别保留 L2/质检/方法与生成身份，可以独立回滚。
+         adcda94b 中 scripts/moneyflow 与原 d433b907 逐字一致，生成含已合 #796/#815。
+         这是部署候选模板；仓内合入不代表装机或真实夜跑验收完成。 -->
     <key>FINANCE_CODE_ROOT</key>
-    <string>/Users/a77/.finance-runtime/finance-l2-d433b90788c0</string>
+    <string>/Users/a77/.finance-runtime/finance-l2-adcda94b5e40</string>
     <key>FINANCE_GENERATION_CODE_ROOT</key>
-    <string>/Users/a77/.finance-runtime/finance-generation-387028b846a2</string>
+    <string>/Users/a77/.finance-runtime/finance-generation-adcda94b5e40</string>
     <key>FINANCE_DATA_ROOT</key>
     <string>/Users/a77/finance-workspace-private</string>
     <key>FINANCE_WS</key>
@@ -50,7 +52,7 @@
     <string>local</string>
     <!-- 与独立 S7 同步任务保持记录一致；finalize 不调用 sync / all。 -->
     <key>FINANCE_SYNC_CODE_ROOT</key>
-    <string>/Users/a77/finance-workspace-sync</string>
+    <string>/Users/a77/.finance-runtime/finance-sync-2edbe4c46595</string>
   </dict>
   <key>RunAtLoad</key>
   <false/>

@@ -1,0 +1,28 @@
+{
+  "valid": true,
+  "verdict": "PASS",
+  "revision": "2ea6c3db01a062b9c623498df1b60edfbafe582b",
+  "report_sha256": "b39316b685fdc85fb3f8e4f15b1a47b45bde3c00eaa4e13f1ef9d000b6595295",
+  "verdict_sha256": "af2eac820216e9b41c31f11c1f52b497148b474d9e4ec438af4166c3cc649e32",
+  "review_requests": 33,
+  "root_replay": {
+    "checks": 21,
+    "exit": 0,
+    "log": "qc-spec/probe.log.txt"
+  },
+  "reviewed_file_hashes_verified": 6,
+  "existing_tests_observed": {
+    "installer": 20,
+    "wiring": 33
+  },
+  "corrections": [
+    "SPEC-827-01 compared run_review_sync.py, but the referenced preserved uncommitted local/no-fupanhui patch is sync_akshare_index_daily.py: exact bytes match in old and new roots (sha256 3e3581ecd2d876bd1f8bb4685c3f479bf15544e992bfc0e8cbf5cd47972808f6). Treat this low issue as referent ambiguity, not a behavioral defect.",
+    "Report title mentions 8792; scope is night sync/finalize, not a UI deployment.",
+    "Spec rig had harness-only false failures; originals in event stream, repaired script rerun by root under separate output returned 21/21. Do not state no earlier red occurred."
+  ],
+  "limitations": [
+    "Not an OS sandbox; read/write tooling isolation plus candidate/input fingerprints",
+    "Does not sign live data recovery or actual deployment",
+    "Model-driven peer review and operator QC are not a human approval"
+  ]
+}

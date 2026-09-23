@@ -40,11 +40,19 @@ _GENERIC_INPUT_RE = re.compile(r"(?:相关|具体|必要|更多|足够|充分|�
 _ALL_GAP_NOTICE = "仅凭本轮材料，以下各题均暂不能得出结论；每题缺少的输入分别列在下方。"
 
 
-def material_question_outputs(contract: ResearchTaskContract) -> tuple[MaterialQuestionOutput, ...]:
+def material_input_output_ids(contract: ResearchTaskContract) -> frozenset[str]:
+    """Required deliveries reachable from settled input, regardless of numbering."""
     material = contract.material_contract
     if material is None or material.data_scope != "material_only" or material.needs_clarification:
+        return frozenset()
+    return frozenset(item.output_id for item in contract.required_outputs if item.required)
+
+
+def material_question_outputs(contract: ResearchTaskContract) -> tuple[MaterialQuestionOutput, ...]:
+    required_ids = material_input_output_ids(contract)
+    material = contract.material_contract
+    if not required_ids or material is None:
         return ()
-    required_ids = {item.output_id for item in contract.required_outputs if item.required}
     result = []
     for question in material.questions:
         output_id = f"answer_{question.question_id}"

@@ -1,0 +1,4 @@
+[staging] 克隆生产库 -> market.duckdb.staging (clonefile, 0.004s, 3420160 bytes)
+[staging] 子进程同步 pid=24434 (写锁只落在 staging, 生产库无锁)
+candidate_db=/Users/a77/.finance-runtime/finance-sync-adcda94b5e40/market_feature_store/db.py
+[staging] 夜跑 sync 未全绿 (rc=7), 不换名；生产库未动, staging 留作取证

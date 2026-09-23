@@ -74,7 +74,7 @@ MIN_VIABLE_LLM_SECONDS = float(os.environ.get("LLM_MIN_VIABLE_SECONDS", "15"))
 # 因为一个不被兑现的值推不出任何东西。
 DEFAULT_SYNTHESIS_MAX_TOKENS = int(os.environ.get("LLM_SYNTHESIS_MAX_TOKENS", "3000"))
 DEFAULT_SYNTHESIS_MAX_CHARS = int(os.environ.get("LLM_SYNTHESIS_MAX_CHARS", "16000"))
-_ALLOWED_FINISH_REASONS = {"stop", "length", "content_filter", "tool_calls", "function_call"}
+_ALLOWED_FINISH_REASONS = {"stop", "length", "max_tokens", "content_filter", "tool_calls", "function_call"}
 
 # 每个出站请求都必须自报身份。不设时 urllib 会发 ``Python-urllib/3.12``，
 # 而中转/网关普遍把那个默认值当作脚本流量拦掉——实测同一把 key、同一个 URL、
@@ -1088,6 +1088,20 @@ def _complete_cli_judge(
     return str(content)
 
 
+def _chat_payload(
+    provider: LLMProvider, messages: list[dict], temperature: float, **extra: object
+) -> dict:
+    """Shared wire options: K3 rejects temperature, other models keep it.
+
+    Omit rather than retry an invalid request or silently switch writers.
+    Match the exact model, not the provider slot (managed K3 is named zhipu).
+    """
+    payload = {"model": provider.model, "messages": messages, **extra}
+    if provider.model.strip().lower() != "kimi-k3":
+        payload["temperature"] = temperature
+    return payload
+
+
 def _post_chat(
     provider: LLMProvider,
     messages: list[dict],
@@ -1097,7 +1111,7 @@ def _post_chat(
 ) -> str:
     _reserve_llm_call()
     url = provider.base_url.rstrip("/") + "/chat/completions"
-    payload = {"model": provider.model, "messages": messages, "temperature": temperature}
+    payload = _chat_payload(provider, messages, temperature)
     if max_tokens is not None:
         payload["max_tokens"] = max_tokens
     _apply_thinking_controls(
@@ -1150,12 +1164,7 @@ def _post_chat_synthesis(
 ) -> tuple[str, str | None]:
     _reserve_llm_call()
     url = provider.base_url.rstrip("/") + "/chat/completions"
-    payload = {
-        "model": provider.model,
-        "messages": messages,
-        "temperature": temperature,
-        "max_tokens": max_tokens,
-    }
+    payload = _chat_payload(provider, messages, temperature, max_tokens=max_tokens)
     _apply_thinking_controls(payload, disable_thinking=synthesis_thinking_disabled())
     request = urllib.request.Request(
         url,
@@ -1319,15 +1328,12 @@ def _post_chat_message_stream(
 
     _reserve_llm_call()
     url = provider.base_url.rstrip("/") + "/chat/completions"
-    payload: dict = {
-        "model": provider.model,
-        "messages": messages,
-        "temperature": temperature,
-        "stream": True,
+    payload = _chat_payload(
+        provider, messages, temperature, stream=True,
         # 没有它就拿不到 usage：非流式响应里 usage 是顶层字段，流式下只在
         # 最后一个 chunk 出现，且要显式开。丢了它 episode 的 token 账会归零。
-        "stream_options": {"include_usage": True},
-    }
+        stream_options={"include_usage": True},
+    )
     _apply_thinking_controls(
         payload,
         disable_thinking=(
@@ -1418,13 +1424,18 @@ def _post_chat_message_stream(
     assembled = calls.assembled()
     if assembled:
         message["tool_calls"] = assembled
-    if finish_reason is not None:
-        message["_finish_reason"] = finish_reason
+    # EOF / [DONE] closes transport, not model generation. Keep the received
+    # content and usage, but never pass a known-incomplete stream as legacy.
+    message["_finish_reason"] = finish_reason or "missing_finish_reason"
     if usage is not None:
         message["_usage"] = usage
     message["_served_model"] = served_model
     attempt.observe_result(message)
-    _record_llm_call("chat_tools_stream", provider, "success", started, attempt=attempt)
+    _record_llm_call(
+        "chat_tools_stream", provider, "success" if finish_reason else "failed", started,
+        "" if finish_reason else "incomplete_model_response:missing_finish_reason",
+        attempt=attempt,
+    )
     return message
 
 
@@ -1443,7 +1454,7 @@ def _post_chat_message(
     in addition to / instead of ``content`` — needed to drive an agent loop."""
     _reserve_llm_call()
     url = provider.base_url.rstrip("/") + "/chat/completions"
-    payload: dict = {"model": provider.model, "messages": messages, "temperature": temperature}
+    payload = _chat_payload(provider, messages, temperature)
     _apply_thinking_controls(
         payload,
         disable_thinking=(
@@ -1468,7 +1479,11 @@ def _post_chat_message(
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             body = json.loads(resp.read().decode("utf-8"))
             attempt.observe_response(body, resp)
-        message = dict(body["choices"][0]["message"])
+        choice = body["choices"][0]
+        message = dict(choice["message"])
+        finish_reason = _stable_finish_reason(choice.get("finish_reason"))
+        if finish_reason is not None:
+            message["_finish_reason"] = finish_reason
         attempt.observe_result(message)
     except Exception as exc:
         attempt.observe_response(response=exc)
@@ -2202,13 +2217,9 @@ def _post_chat_stream_raw(
     attempt: _LLMCallAttempt | None = None,
 ) -> tuple[str, str | None]:
     url = provider.base_url.rstrip("/") + "/chat/completions"
-    payload = {
-        "model": provider.model,
-        "messages": messages,
-        "temperature": temperature,
-        "stream": True,
-        "max_tokens": max_tokens,
-    }
+    payload = _chat_payload(
+        provider, messages, temperature, stream=True, max_tokens=max_tokens,
+    )
     _apply_thinking_controls(payload, disable_thinking=synthesis_thinking_disabled())
     request = urllib.request.Request(
         url,

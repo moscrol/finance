@@ -1,0 +1,1 @@
+{"axis": "quality", "complete": true, "exit_code": 0, "stop_reason": null, "candidate_untouched": true, "author_untouched": true, "model_errors": [], "usage": {"input": 95150, "output": 23327, "cacheRead": 640708, "cacheWrite": 0, "totalTokens": 759185}}

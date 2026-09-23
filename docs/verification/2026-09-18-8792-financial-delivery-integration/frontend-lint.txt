@@ -1,0 +1,3 @@
+
+> market-intelligence-workbench@0.1.0 lint /Users/a77/fwp-wt-8792-financial-r6-repair/intelligence/webapp
+> eslint .

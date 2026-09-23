@@ -1,0 +1,4 @@
+............................................                             [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260922T165950Z-fdaf3525-5f1010728da5.json
+
+- generated xml file: /Users/a77/.finance-runtime/reviews/push-s1-63-followup-20260923/tool-targeted-junit.xml -
+44 passed in 33.08s

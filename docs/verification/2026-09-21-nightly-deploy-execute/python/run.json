@@ -1,0 +1,74 @@
+{
+  "leaf": "python",
+  "revision": "2ea6c3db01a062b9c623498df1b60edfbafe582b",
+  "base": "f783f19c8a01fbe8d0ed70d851df7ed14598c051",
+  "tree": "/Users/a77/fwp-wt-nightly-deploy-closeout-0921",
+  "pid": 62409,
+  "started_at": "2026-09-21T08:17:23.053895+00:00",
+  "before": {
+    "revision": "2ea6c3db01a062b9c623498df1b60edfbafe582b",
+    "tree_object": "239108f01b669a7bd68d421570a8c055300cb82d",
+    "status": ""
+  },
+  "checks": [
+    {
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-m",
+        "ruff",
+        "check",
+        "."
+      ],
+      "started_at": "2026-09-21T08:17:23.163494+00:00",
+      "exit_code": 0,
+      "log": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/python/0.log.txt",
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+      "elapsed_seconds": 0.19
+    },
+    {
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "--basetemp=/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/python/tmp",
+        "--junitxml=/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/python/junit.xml"
+      ],
+      "started_at": "2026-09-21T08:17:23.348986+00:00",
+      "exit_code": 1,
+      "log": "/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/python/1.log.txt",
+      "sha256": "60da07a35f1d45dfca8144d667ff191e250f09abbb072ea479390b18743b195f",
+      "elapsed_seconds": 1421.76
+    }
+  ],
+  "complete": false,
+  "pytest_receipt": {
+    "source": "/Users/a77/.finance-runtime/test-receipts/20260921T084101Z-2ea6c3db.json",
+    "sha256": "293f872201ba61653d4fc1af79e0f29c50abb770e15a551a1a2a1afba604ad0f",
+    "counts": {
+      "passed": 12454,
+      "failed": 2,
+      "error": 8,
+      "skipped": 85
+    },
+    "exit_status": 1
+  },
+  "junit_counts": {
+    "passed": 12454,
+    "failed": 2,
+    "error": 5,
+    "skipped": 85,
+    "xfail": 2
+  },
+  "error": "AssertionError: ",
+  "after": {
+    "revision": "2ea6c3db01a062b9c623498df1b60edfbafe582b",
+    "tree_object": "239108f01b669a7bd68d421570a8c055300cb82d",
+    "status": ""
+  },
+  "source_unchanged": true,
+  "finished_at": "2026-09-21T08:41:05.383195+00:00",
+  "exit_code": 1
+}

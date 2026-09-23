@@ -94,6 +94,9 @@ class WriteOrderOracle:
     def list_open(self) -> tuple[str, ...]:
         return self.inner.list_open()
 
+    def writer(self, episode_id: str):
+        return self.inner.writer(episode_id)
+
     # ── 效果侧钩子（假 model / 假 tool 在真正开始工作时调）─────────────────
 
     def effect_started(self, label: str, key: str = "") -> None:

@@ -8,7 +8,7 @@ import re
 from intelligence.services.user_task import (
     TopLevelRegions,
     _B_LOCAL_ONLY_PHRASES,
-    _B_MATERIAL_ONLY_PHRASES,
+    is_material_only_instruction,
     _B_RELAX_PHRASES,
     _FICTIONAL_SENT_RE,
     _HYPOTHESIS_STRONG_RE,
@@ -42,6 +42,7 @@ class MaterialContract:
     continuation_requested: bool = False
     uncertain_reasons: tuple[str, ...] = ()
     data_scope_declared: bool = False
+    premise_calculation: bool = False
 
     @property
     def needs_clarification(self) -> bool:
@@ -68,8 +69,11 @@ class MaterialContract:
             raise ValueError("unavailable base cannot restore resolved axes")
         continuation = value.get("continuation_requested", False)
         declared = value.get("data_scope_declared", False)
-        if not isinstance(continuation, bool) or not isinstance(declared, bool):
-            raise ValueError("invalid continuation flag")
+        calculation = value.get("premise_calculation", False)
+        if any(not isinstance(flag, bool) for flag in (continuation, declared, calculation)):
+            raise ValueError("invalid material contract flag")
+        if calculation and status in {"boundary_uncertain", "state_unavailable"}:
+            raise ValueError("unresolved material contract cannot authorize calculation basis")
         marks = value.get("premise_marks", ())
         questions = value.get("questions", ())
         reasons = value.get("uncertain_reasons", ())
@@ -102,7 +106,7 @@ class MaterialContract:
             raise ValueError("duplicate material question")
         if any(not isinstance(reason, str) or not reason for reason in reasons):
             raise ValueError("invalid material uncertainty reason")
-        return cls(status, authenticity, data_scope, tuple(parsed_marks), tuple(parsed_questions), continuation, tuple(reasons), declared)
+        return cls(status, authenticity, data_scope, tuple(parsed_marks), tuple(parsed_questions), continuation, tuple(reasons), declared, calculation)
 
 
 def blocks_contract_blind_pipelines(
@@ -123,7 +127,7 @@ def blocks_contract_blind_pipelines(
 
     if contract is None:
         return False
-    if contract.data_scope in {"material_only", "local_only"}:
+    if contract.data_scope in {"material_only", "local_only"} or contract.premise_calculation:
         return True
     if contract.classification == "boundary_uncertain":
         return True
@@ -135,14 +139,15 @@ def blocks_contract_blind_pipelines(
 def compile_material_contract(
     regions: TopLevelRegions, *, source_turn: int = 0,
     inherited_contract: MaterialContract | None = None,
+    history_continuation: bool = False,
 ) -> MaterialContract | None:
-    """解释D1可见指令；仅显式续轮继承调用方提供的可信用户指令基底。"""
-    if not regions.instructions and not regions.sub_questions and regions.classification == "no_constraint_confirmed":
+    """Compile visible controls; history continuation still requires a trusted base."""
+    if not history_continuation and not regions.instructions and not regions.sub_questions and regions.classification == "no_constraint_confirmed":
         return None
     if isinstance(source_turn, bool) or not isinstance(source_turn, int) or source_turn < 0:
         raise ValueError("source_turn must be a nonnegative integer")
     questions = tuple(MaterialQuestion(qid, text) for qid, text in zip(regions.question_ids, regions.sub_questions, strict=True))
-    continuation = any(s.kind == "continuation" and s.scope == "message" for s in regions.instructions)
+    continuation = history_continuation or any(s.kind == "continuation" and s.scope == "message" for s in regions.instructions)
     if regions.classification == "boundary_uncertain":
         return MaterialContract("boundary_uncertain", None, None, questions=questions,
                                 continuation_requested=continuation, uncertain_reasons=regions.uncertain_reasons)
@@ -153,19 +158,26 @@ def compile_material_contract(
     authenticity = base.authenticity if base else "real"
     data_scope = base.data_scope if base else "full"
     data_scope_declared = False
+    calculation = bool(base and base.premise_calculation)
+    requires_world_facts = False
     # 题级标注带原轮次，不能因续轮又出现q1就改成当前轮次的前提。
     marks = list(base.premise_marks) if base else []
     for span in regions.instructions:
         # text保留完整原文供锚定；识别必须读D1掩码，引用里的虚构/放宽不能变权限。
         text = span.visible_text
         head = _state_head(text)
-        if _FICTIONAL_SENT_RE.search(text) or _HYPOTHESIS_STRONG_RE.match(head):
+        if span.kind == "world_fact_request" or head.startswith(_B_RELAX_PHRASES):
+            requires_world_facts = True
+        if span.kind == "premise_calculation" and span.scope == "message":
+            calculation = True
+        if (_FICTIONAL_SENT_RE.search(text) or _HYPOTHESIS_STRONG_RE.match(head)
+                or (span.kind == "premise_calculation" and re.search(r"虚构|情景", head))):
             marks.append(PremiseMark("sha256:" + hashlib.sha256(span.text.encode()).hexdigest(), "fictional", source_turn, span.scope))
             if span.scope == "message":
                 authenticity = "fictional"
         if span.scope != "message":
             continue
-        if head.startswith(_B_MATERIAL_ONLY_PHRASES):
+        if is_material_only_instruction(head):
             data_scope, data_scope_declared = "material_only", True
         elif head.startswith(_B_RELAX_PHRASES):
             data_scope, data_scope_declared = "full", True
@@ -174,7 +186,8 @@ def compile_material_contract(
             if data_scope == "full":
                 data_scope = "local_only"
     return MaterialContract(regions.classification, authenticity, data_scope, _settled_marks(marks), questions,
-                            continuation_requested=continuation, data_scope_declared=data_scope_declared)
+                            continuation_requested=continuation, data_scope_declared=data_scope_declared,
+                            premise_calculation=calculation and not requires_world_facts)
 
 
 def _settled_marks(marks: list[PremiseMark]) -> tuple[PremiseMark, ...]:

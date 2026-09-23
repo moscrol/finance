@@ -4243,6 +4243,24 @@ def test_public_projection_hides_control_plane_fields_and_private_tokens() -> No
     assert "[REDACTED]" in str(result.private_artifact)
 
 
+def test_public_projection_preserves_markdown_boundaries_while_redacting() -> None:
+    from intelligence.tests.test_premise_financial_calculation import compile_case
+    from intelligence.runtime.conversation_orchestrator import sanitize_conversation_answer
+
+    table = compile_case().table
+    body = table + "\n\n**几点解读：**\n这些信息不足以判断便宜。"
+    result = _scripted_episode_result(
+        semantic_status="completed",
+        public_answer=body + "\n\nsystem_prompt=PRIVATE_PROMPT_SENTINEL",
+        evidence=(),
+        bindings=(),
+    )
+    assert result.answer == body
+    assert sanitize_conversation_answer(result.answer) == body
+    assert "| 20倍 |\n\n**几点解读：**" in result.answer
+    assert "PRIVATE_PROMPT_SENTINEL" not in result.answer
+
+
 def test_public_projection_removes_engineering_hash_keys_and_frame_hash() -> None:
     actual_frame_hash = _frame().task_frame_hash
     safe = AgentEvidence(
@@ -5498,8 +5516,9 @@ def test_numeric_unsupported_triggers_one_narrow_backfill_turn() -> None:
     assert "3870点" in result.answer
 
 
-def test_backfill_turn_rejects_candidate_that_adds_sentences() -> None:
-    """回填只许补证据或改写被阻断句，新增句子 fail closed。"""
+@pytest.mark.parametrize("persistence_failed", [False, True])
+def test_backfill_turn_rejects_candidate_that_adds_sentences(persistence_failed) -> None:
+    """回填只许补证据；即便候选被长度门拒绝，保存失败也必须传到产品终态。"""
 
     frame = _frame()
     control = _control(frame, capabilities=("market_data",))
@@ -5541,6 +5560,8 @@ def test_backfill_turn_rejects_candidate_that_adds_sentences() -> None:
     bloated = replace(
         initial,
         draft=draft + "另外再给一个新结论。",
+        status="failed" if persistence_failed else initial.status,
+        persistence="failed" if persistence_failed else initial.persistence,
         events=(
             *initial_events,
             EpisodeEvent(3, "model_turn", {"task_frame_hash": frame.task_frame_hash}),
@@ -5584,9 +5605,14 @@ def test_backfill_turn_rejects_candidate_that_adds_sentences() -> None:
         repair_seconds_cap=30.0,
     ).handle(frame=frame, control=control)
 
-    assert result.private_artifact["backfill_turns"] == 1
+    if persistence_failed:
+        assert result.status == "failed"
+        assert result.private_artifact["failure"]["type"] == "storage_failed"
+        assert result.private_artifact["outcome"]["draft"] == bloated.draft
+    else:
+        assert result.private_artifact["backfill_turns"] == 1
+        assert result.private_artifact["outcome"]["draft"] == draft
     assert "另外再给一个新结论" not in result.answer
-    assert result.private_artifact["outcome"]["draft"] == draft
 
 
 def _company_numeric_frame() -> TaskFrame:

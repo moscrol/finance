@@ -172,7 +172,7 @@ def _evidence(content_hash: str, *, title: str = "A股市场总览") -> AgentEvi
     )
 
 
-def _registry(evidence: tuple[AgentEvidence, ...], *, query_scope: str = "turn"):
+def _registry(evidence: tuple[AgentEvidence, ...], *, query_scope: str = "query"):
     def runner(query: str, _context: AgentToolContext):
         del query
         return (
@@ -381,7 +381,7 @@ def test_default_prompt_halt_and_retrieval_delegate_to_domain_functions() -> Non
     assert (
         harness.retrieval_complete(
             context=context,
-            registry=_registry(evidence, query_scope="turn"),
+            registry=_registry(evidence, query_scope="query"),
             successful_tools={"market_data"},
         )
         is False
@@ -1594,7 +1594,10 @@ def test_admit_repair_result_refuses_rejected_admission() -> None:
 class _CustomRepairHarness(FinanceResearchHarness):
     """修复轮的两段话与裁决都换掉：接缝有牙的对照物。"""
 
-    def repair_goal_message(self, goal, *, tools_open):
+    def repair_goal_message(self, goal, *, tools_open, finish_format=None):
+        # 接缝声明了 finish_format（修复轮重述成稿形状），实现方必须接得住；
+        # 这个对照物自己不用它，只证明文案真的来自 harness。
+        del finish_format
         return f"CUSTOM[REPAIR_GOAL]{goal.repair_goal_id}:{tools_open}"
 
     def steering_message(self, kind, *, detail):

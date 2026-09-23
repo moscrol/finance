@@ -1,0 +1,41 @@
+"""Mutate only a disposable QC tree; verify each fix is actually load-bearing."""
+import json
+import os
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+repo=Path('/Users/a77/fwp-qc-judge-mode-k3-0921')
+out=Path.home()/'.finance-runtime/reviews/judge-mode-k3-20260921/mutations'
+out.mkdir(exist_ok=False)
+env={k:os.environ[k] for k in ('HOME','PATH')}
+env.update(FWP_TEST_RECEIPT='0',PYTHONDONTWRITEBYTECODE='1')
+cases=[
+    ('public_projection','intelligence/services/gate_receipt.py','    if block.get("judge_mode") in (JUDGE_MODE_DETERMINISTIC, JUDGE_MODE_OFF):\n        return None\n','', 'intelligence/tests/test_judge_mode_receipt_independence.py'),
+    ('legacy_mode_extraction','intelligence/eval/variance_baseline.py','        judge_mode = semantic.get("judge_mode")','        judge_mode = None','intelligence/tests/test_judge_mode_receipt_independence.py'),
+    ('replay_mode_bucket','intelligence/eval/variance_baseline.py','    if judge_mode in (JUDGE_MODE_DETERMINISTIC, JUDGE_MODE_OFF):\n        return "no_judge"\n','','intelligence/tests/test_judge_mode_receipt_independence.py'),
+    ('k3_wire_parameter','intelligence/services/llm_refine.py','    if provider.model.strip().lower() != "kimi-k3":','    if True:','intelligence/tests/test_llm_k3_sampling.py'),
+]
+rows=[]
+for name,file,old,new,test in cases:
+    p=repo/file
+    before=p.read_text()
+    assert before.count(old)==1
+    try:
+        p.write_text(before.replace(old,new))
+        # Ensure source recompiles even if filesystem timestamp granularity is coarse.
+        for cache in (repo/'intelligence/services/__pycache__',repo/'intelligence/eval/__pycache__'):
+            if cache.exists(): shutil.rmtree(cache)
+        with (out/f'{name}.log').open('w') as f:
+            r=subprocess.run([sys.executable,'-m','pytest','-q',test],cwd=repo,env=env,stdout=f,stderr=subprocess.STDOUT)
+        rows.append({'case':name,'exit_code':r.returncode,'killed':r.returncode==1})
+    finally:
+        p.write_text(before)
+status=subprocess.check_output(['git','status','--porcelain'],cwd=repo,text=True)
+with (out/'restored.log').open('w') as f:
+    r=subprocess.run([sys.executable,'-m','pytest','-q','intelligence/tests/test_judge_mode_receipt_independence.py','intelligence/tests/test_llm_k3_sampling.py'],cwd=repo,env=env,stdout=f,stderr=subprocess.STDOUT)
+result={'mutations':rows,'restored_exit':r.returncode,'status':status,'ok':all(x['killed'] for x in rows) and r.returncode==0 and not status}
+(out/'receipt.json').write_text(json.dumps(result,indent=2)+'\n')
+print(json.dumps(result,indent=2))
+raise SystemExit(0 if result['ok'] else 1)

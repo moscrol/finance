@@ -1,0 +1,74 @@
+"""Read-only reconciliation of the completed fixed run; never rerun for green.
+
+The initial harness incorrectly assumed pytest's receipt starts a new line.
+Keep that failed apparatus record. Accept only the path actually printed in the
+saved stdout, bound to process exit, revision/tree, timestamps and full JUnit.
+"""
+from datetime import datetime
+import hashlib
+import json
+from pathlib import Path
+import re
+import xml.etree.ElementTree as ET
+
+ROOT = Path(__file__).resolve().parent
+SHA = "2137345daa44daefa0d029ba4c2de89e0f725b2a"
+runs = {}
+for leaf in ("python", "frontend", "registry", "boundaries"):
+    run = json.loads((ROOT / leaf / "run.json").read_text())
+    assert run["revision"] == SHA
+    assert run["before"] == run["after"] and not run["before"]["status"]
+    assert all(c["exit_code"] == 0 for c in run["checks"])
+    for check in run["checks"]:
+        assert hashlib.sha256(Path(check["log"]).read_bytes()).hexdigest() == check["sha256"]
+    if leaf != "python":
+        assert run["complete"] and run["exit_code"] == 0
+    runs[leaf] = run
+run = runs["python"]
+log = (ROOT / "python/1.log.txt").read_text()
+printed = re.findall(r"读数收据: ([^\r\n]+\.json)(?:\r?\n|$)", log)
+assert len(printed) == 1, printed
+receipt_path = Path(printed[0])
+raw = receipt_path.read_bytes()
+receipt = json.loads(raw)
+assert receipt["revision"] == SHA and receipt["tree"] == run["tree"] and not receipt["dirty"]
+assert not receipt["dependency_gate_bypassed"] and receipt["target"] == run["tree"]
+assert receipt["exit_status"] == run["checks"][1]["exit_code"] == 0
+assert datetime.fromisoformat(run["started_at"]) < datetime.fromisoformat(receipt["finished_at"]) < datetime.fromisoformat(run["finished_at"])
+cases = ET.parse(ROOT / "python/junit.xml").getroot().findall(".//testcase")
+counts = {"passed": 0, "failed": 0, "error": 0, "skipped": 0, "xfail": 0}
+for case in cases:
+    if case.find("failure") is not None:
+        counts["failed"] += 1
+    elif case.find("error") is not None:
+        counts["error"] += 1
+    elif case.find("skipped") is not None:
+        counts["xfail" if case.find("skipped").get("type") == "pytest.xfail" else "skipped"] += 1
+    else:
+        counts["passed"] += 1
+assert all(counts[k] == receipt["counts"][k] for k in receipt["counts"])
+assert f"{counts['passed']} passed, {counts['skipped']} skipped, {counts['xfail']} xfailed" in log
+(ROOT / "python/pytest-receipt.json").write_bytes(raw)
+frontend = json.loads((ROOT / "frontend/gate/frontend.json").read_text())
+assert frontend["exit_code"] == 0 and frontend["complete"] and frontend["identity_stable"]
+assert frontend["revision"] == SHA
+assert len(frontend["checks"]) == 6
+for check in frontend["checks"]:
+    assert check["exit_code"] == 0
+    assert hashlib.sha256((ROOT / "frontend/gate" / check["log"]).read_bytes()).hexdigest() == check["log_sha256"]
+result = {"revision": SHA, "base": run["base"], "status": "AUTHOR_ENGINEERING_PASS",
+          "independent_review": "NOT_RUN", "latest_main_integration": "NOT_RERUN_AFTER_DOC_ONLY_PR828",
+          "python": {"counts": counts, "receipt": str(receipt_path),
+                     "receipt_sha256": hashlib.sha256(raw).hexdigest(), "junit_cases": len(cases),
+                     "process_exit": 0, "initial_apparatus_exit": 1,
+                     "reconciliation": "receipt appears after [100%] on the same line; original run.json retained; no tests rerun"},
+          "frontend": {"receipt": "frontend/gate/frontend.json", "checks": 6,
+                       "unit_passed": 110, "e2e_passed": 34, "e2e_skipped": 2},
+          "registry_commands": len(runs["registry"]["checks"]),
+          "boundaries": "7 generation + 4 finalize predicates; installer dry-run",
+          "runtime_revision": "adcda94b5e401158f1c3aa51f210e1e8d0f0b713",
+          "deployed_by_this_session": False,
+          "notes": ["Later main f783f19c8 adds only PR828 deployment docs; not part of this fixed receipt",
+                    "8792 was switched to adcda94b by another session; not a result of this PR"]}
+(ROOT / "gate-qc.json").write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n")
+print(json.dumps(result, ensure_ascii=False, indent=2))

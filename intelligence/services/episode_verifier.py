@@ -8,6 +8,7 @@ public presentation.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Literal
 
@@ -19,6 +20,7 @@ from intelligence.services.episode_output_substance import (
 )
 from intelligence.services.evidence_capabilities import collect_satisfied_plan_capabilities
 from intelligence.services.generic_research_owner import CompletionReport
+from intelligence.services.material_grounding import binding_source_errors, grounding_scope
 from intelligence.services.material_delivery import (
     has_disclosed_material_gap,
     material_question_outputs,
@@ -109,6 +111,11 @@ def verify_episode_outcome(
         required.output_id: required for required in contract.required_outputs
     }
     bindings = {binding.output_id: binding for binding in outcome.bindings}
+    # #819 零读复核恢复的旧工具输入：从 durable 的 model_input(prior_tool_evidence) 事件读回
+    # 它们的 hash，冻结范围检查放行这一组，其余证据引用照旧受 P6 材料范围规则约束。
+    from intelligence.services.prior_evidence import restored_prior_hashes
+
+    frozen_prior_hashes = restored_prior_hashes(outcome.events)
     # 契约外的输出绑定不再连坐已完成的必需输出（2026-09-09 判官修复 01 第一刀）。
     # 复现：两个必需输出都 fulfilled、正文与证据完全一样，只多绑一个引用真实证据
     # 的 extra_analysis，旧判据就把整篇打成 partial 并拒绝部分放行，语义判官连核心
@@ -124,6 +131,13 @@ def verify_episode_outcome(
             for content_hash in binding.evidence_hashes
             if content_hash not in evidence_by_hash or content_hash in duplicate_hashes
         )
+        source_errors = binding_source_errors(
+            contract, binding, outcome.draft, outcome.evidence, frozen_prior_hashes=frozen_prior_hashes
+        )
+        if source_errors:
+            forged_extra_outputs.append(output_id)
+            issues.append(Issue(IssueCode.MATERIAL_SOURCE_VIOLATION, output_id, "; ".join(source_errors)))
+            continue
         if unverifiable:
             forged_extra_outputs.append(output_id)
             issues.append(
@@ -171,6 +185,11 @@ def verify_episode_outcome(
                 )
             continue
 
+        source_errors = binding_source_errors(
+            contract, binding, outcome.draft, outcome.evidence, frozen_prior_hashes=frozen_prior_hashes
+        )
+        if source_errors:
+            issues.append(Issue(IssueCode.MATERIAL_SOURCE_VIOLATION, required.output_id, "; ".join(source_errors)))
         basis_mismatch = binding.basis != required.grounding_mode
         if basis_mismatch:
             issues.append(
@@ -221,6 +240,8 @@ def verify_episode_outcome(
             legal_gap = bool(
                 spec is not None
                 and not basis_mismatch
+                and not source_errors
+                and not binding.claims
                 and not binding.evidence_hashes
                 and has_disclosed_material_gap(spec, outcome.draft, binding.gap)
             )
@@ -314,7 +335,9 @@ def verify_episode_outcome(
             (
                 required.grounding_mode != "evidence"
                 or bool(kept_hashes)
+                or (grounding_scope(contract) == "material_only" and bool(binding.claims))
             )
+            and not source_errors
             and not unknown_hashes
             and not collided_hashes
             and (not wrong_types or bool(kept_hashes))
@@ -322,7 +345,47 @@ def verify_episode_outcome(
             and not basis_mismatch
             and len(evidence_items) == len(binding.evidence_hashes)
         )
-        if valid:
+        financial_gaps: tuple[str, ...] = ()
+        if (
+            valid and contract.question_type == "financial_analysis"
+            and required.output_id == "metric_evidence"
+        ):
+            from intelligence.services.financial_claim_checks import calculation_ratio_gaps
+            from intelligence.services.financial_report_contract import (
+                calculation_binding_gaps, report_binding_gaps, report_document_binding_gaps,
+            )
+
+            selections = []
+            for event in outcome.events:
+                if event.kind != "tool_result" or event.payload.get("tool") != "financial_data":
+                    continue
+                telemetry = event.payload.get("telemetry")
+                if isinstance(telemetry, Mapping):
+                    selections.extend(
+                        item for item in telemetry.get("financial_report_selection", ())
+                        if isinstance(item, Mapping)
+                    )
+            financial_gaps = (
+                *report_binding_gaps(
+                    contract.question, outcome.evidence, kept_hashes, draft=outcome.draft,
+                    subject=contract.subject, selections=selections,
+                ),
+                *calculation_binding_gaps(
+                    contract.question, outcome.draft, outcome.evidence, kept_hashes,
+                ),
+                *report_document_binding_gaps(
+                    contract.question, outcome.evidence, kept_hashes, subject=contract.subject,
+                ),
+                *calculation_ratio_gaps(outcome.evidence, kept_hashes, subject=contract.subject),
+            )
+        if financial_gaps:
+            gap = "；".join(financial_gaps)
+            statuses.append(OutputStatus(
+                required.output_id, "missing" if required.required else "gap", kept_hashes, gap,
+            ))
+            if required.required:
+                issues.append(Issue(IssueCode.REQUIRED_OUTPUT_GAP, required.output_id, gap))
+        elif valid:
             statuses.append(
                 OutputStatus(
                     required.output_id,

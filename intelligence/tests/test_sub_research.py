@@ -159,10 +159,11 @@ def test_deep_coordinator_runs_explicit_goals_on_one_root_budget() -> None:
     assert context.root_budget is not None
     assert context.root_budget.remaining_calls == 22
     assert dict(ledger.snapshot().evidence_branch_owners) == {
-        "hash-branch-1": "branch-1",
-        "hash-branch-2": "branch-2",
+        f"hash-{branch.branch_id}": branch.episode_ref.episode_id
+        for branch in result.branches
     }
     assert all(not hasattr(branch, "answer") for branch in result.branches)
+    assert all(branch.episode_ref.parent_episode_id == context.contract.task_id for branch in result.branches)
 
 
 def test_quick_mode_and_excess_goals_fail_closed_without_launching_workers() -> None:

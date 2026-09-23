@@ -1,27 +1,40 @@
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 import hashlib
 import json
+import math
 import os
 import re
 import time
 from dataclasses import asdict, dataclass, field
 from datetime import date
 from threading import RLock
-from typing import Literal, Protocol, TypeAlias, cast
+from typing import TYPE_CHECKING, Literal, Protocol, TypeAlias, cast
 from weakref import WeakValueDictionary
 
 from intelligence.services.query_resolution import (
     QueryResolution,
     classify_reference,
 )
+from intelligence.services.episode_effects import unknown_effects_from_payload
 from intelligence.services.query_understanding import QueryEnvelope
 from intelligence.services.route_table import owner_skills_from_route_table
 from intelligence.services.evidence_capabilities import EvidencePlan, EvidenceRequirement
 from intelligence.services.task_frame import TaskFrame
 from intelligence.services.material_contract import MaterialContract
-from intelligence.services.material_permissions import restrict_read_capabilities
+from intelligence.services.material_grounding import MaterialGrounding
+from intelligence.services.premise_financial_calculation import PremiseCalculation
+from intelligence.services.material_permissions import LOCAL_EVIDENCE_PRODUCERS, restrict_read_capabilities
 from intelligence.services.historical_research.intent import HistoryIntent
+from intelligence.services.user_task import (
+    requests_previous_answer_review,
+    top_level_message_text,
+)
+
+if TYPE_CHECKING:
+    from intelligence.services.episode_entry_identity import EpisodeEntryIdentity
+    from intelligence.services.prior_evidence import PriorTurnEvidence
 
 AnswerOwner: TypeAlias = Literal[
     "stock-deep-dive",
@@ -175,7 +188,7 @@ _CONTEXT_DEPENDENT_RESEARCH_PREFIX_PATTERN = re.compile(
     r"下周|一阶|二阶|哪些反证|哪些风险)"
 )
 _EXPLICIT_SWITCH_PATTERN = re.compile(
-    r"(?:改看|换成|切换到|另外看|再分析|重新分析|转向)"
+    r"(?:改看|换成|切换到|另外看|再分析|重新分析|转向|换个话题|换个问题|另一个问题)"
 )
 _TASK_SWITCH_PATTERNS: dict[str, re.Pattern[str]] = {
     "financial_analysis": re.compile(
@@ -591,7 +604,11 @@ class InMemoryRootBudgetLedger:
         self.remaining_seconds = float(initial_seconds)
         self._allocated_calls = initial_calls
         self._allocated_seconds = float(initial_seconds)
-        self._grants: set[str] = set()
+        self._initial_hard_calls_cap = hard_calls_cap
+        self._initial_hard_seconds_cap = float(hard_seconds_cap)
+        # Keep accepted amounts with the dedup identity: recovery must not mint
+        # headroom by losing an ID or by reconstructing from today's policy.
+        self._grants: dict[str, tuple[int, float]] = {}
         self._promotions: dict[str, tuple[int, float]] = {}
         self._lock = RLock()
 
@@ -621,7 +638,7 @@ class InMemoryRootBudgetLedger:
                 return False
             if self._allocated_seconds + seconds > self.hard_seconds_cap:
                 return False
-            self._grants.add(grant_id)
+            self._grants[grant_id] = (calls, seconds)
             self._allocated_calls += calls
             self._allocated_seconds += seconds
             self.remaining_calls += calls
@@ -747,6 +764,146 @@ class InMemoryRootBudgetLedger:
                 "allocated_seconds": self._allocated_seconds,
             }
 
+    def to_snapshot(self) -> dict[str, object]:
+        """Detached recovery state, not the model-facing ``to_dict`` summary.
+
+        One lock covers counters AND dedup identities. This is only a local
+        checkpoint image, not reconciliation of effects after that checkpoint.
+        """
+        with self._lock:
+            return {
+                "schema_version": 1,
+                "kind": "root_budget",
+                **self.to_dict(),
+                "initial_hard_calls_cap": self._initial_hard_calls_cap,
+                "initial_hard_seconds_cap": self._initial_hard_seconds_cap,
+                "grants": {
+                    key: {"calls_granted": calls, "seconds_granted": seconds}
+                    for key, (calls, seconds) in sorted(self._grants.items())
+                },
+                "promotions": {
+                    key: {"hard_calls_cap": calls, "hard_seconds_cap": seconds}
+                    for key, (calls, seconds) in sorted(self._promotions.items())
+                },
+            }
+
+    @classmethod
+    def from_snapshot(
+        cls, payload: Mapping[str, object], *, episode_id: str,
+    ) -> InMemoryRootBudgetLedger:
+        """Validate a complete snapshot, without registering a live owner.
+
+        Legacy summaries lack dedup identities and cannot be upgraded by guess.
+        This reader is also used before persistence; it never normalizes corrupt
+        counters into valid-looking balances. Registration belongs to the factory
+        below, under the same lock as fresh allocation.
+        """
+        expected = {
+            "schema_version", "kind", "episode_id", "initial_calls", "initial_seconds",
+            "hard_calls_cap", "hard_seconds_cap", "remaining_calls", "remaining_seconds",
+            "allocated_calls", "allocated_seconds", "grants", "promotions",
+            "initial_hard_calls_cap", "initial_hard_seconds_cap",
+        }
+        if not isinstance(payload, Mapping) or set(payload) != expected:
+            raise ValueError("root budget snapshot fields are incomplete or unknown")
+        if type(payload["schema_version"]) is not int or payload["schema_version"] != 1:
+            raise ValueError("unsupported root budget snapshot version")
+        if payload["kind"] != "root_budget":
+            raise ValueError("snapshot is not a root budget")
+        if (
+            not isinstance(episode_id, str) or not episode_id.strip()
+            or payload["episode_id"] != episode_id
+            or episode_id != episode_id.strip()
+        ):
+            raise ValueError("root budget snapshot episode identity mismatch")
+
+        def integer(value: object) -> int:
+            if type(value) is not int or value < 0:
+                raise ValueError("snapshot call counts must be non-negative integers")
+            return value
+
+        def seconds(value: object) -> float:
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
+                raise ValueError("snapshot seconds must be finite non-negative numbers")
+            try:
+                result = float(value)
+            except (ValueError, OverflowError) as exc:
+                raise ValueError("snapshot seconds must be finite non-negative numbers") from exc
+            if not math.isfinite(result) or result < 0:
+                raise ValueError("snapshot seconds must be finite non-negative numbers")
+            return result
+
+        initial_calls = integer(payload["initial_calls"])
+        allocated_calls = integer(payload["allocated_calls"])
+        remaining_calls = integer(payload["remaining_calls"])
+        hard_calls = integer(payload["hard_calls_cap"])
+        initial_seconds = seconds(payload["initial_seconds"])
+        allocated_seconds = seconds(payload["allocated_seconds"])
+        remaining_seconds = seconds(payload["remaining_seconds"])
+        hard_seconds = seconds(payload["hard_seconds_cap"])
+        initial_hard_calls = integer(payload["initial_hard_calls_cap"])
+        initial_hard_seconds = seconds(payload["initial_hard_seconds_cap"])
+        if not (
+            initial_calls <= initial_hard_calls <= hard_calls
+            and initial_seconds <= initial_hard_seconds <= hard_seconds
+            and initial_calls <= allocated_calls <= hard_calls
+            and remaining_calls <= allocated_calls
+            and initial_seconds <= allocated_seconds <= hard_seconds
+            and remaining_seconds <= allocated_seconds
+        ):
+            raise ValueError("root budget snapshot balances exceed their allocation/caps")
+
+        def records(key: str, calls_key: str, seconds_key: str) -> dict[str, tuple[int, float]]:
+            entries = payload[key]
+            if not isinstance(entries, Mapping):
+                raise ValueError(f"snapshot {key} must be an object")
+            result = {}
+            for identity, entry in entries.items():
+                if not isinstance(identity, str) or not identity.strip() or identity != identity.strip():
+                    raise ValueError(f"snapshot {key} contains an invalid identity")
+                if not isinstance(entry, Mapping) or set(entry) != {calls_key, seconds_key}:
+                    raise ValueError(f"snapshot {key} contains incomplete records")
+                result[identity] = (integer(entry[calls_key]), seconds(entry[seconds_key]))
+            return result
+
+        grants = records("grants", "calls_granted", "seconds_granted")
+        promotions = records("promotions", "hard_calls_cap", "hard_seconds_cap")
+        if any(amount <= 0 for _, amount in grants.values()):
+            raise ValueError("snapshot grants require positive seconds")
+        if (
+            initial_calls + sum(calls for calls, _ in grants.values()) != allocated_calls
+            or not math.isclose(
+                initial_seconds + math.fsum(amount for _, amount in grants.values()),
+                allocated_seconds, rel_tol=1e-12, abs_tol=1e-8,
+            )
+        ):
+            raise ValueError("snapshot grant identities do not reconcile with allocations")
+        # Promotion records form a non-decreasing chain of ceilings. Their IDs
+        # may sort differently from application order, but the caps cannot cross.
+        previous_calls, previous_seconds = initial_hard_calls, initial_hard_seconds
+        for calls, amount in sorted(promotions.values()):
+            if not (
+                previous_calls <= calls <= hard_calls and previous_seconds <= amount <= hard_seconds
+                and calls <= PRODUCT_MAX_TOOL_CALLS and amount <= PRODUCT_MAX_SECONDS
+            ):
+                raise ValueError("snapshot promotions do not reconcile with caps")
+            previous_calls, previous_seconds = calls, amount
+        if (previous_calls, previous_seconds) != (hard_calls, hard_seconds):
+            raise ValueError("snapshot last promotion does not match current caps")
+        ledger = cls(
+            episode_id=episode_id, initial_calls=initial_calls, hard_calls_cap=hard_calls,
+            initial_seconds=initial_seconds, hard_seconds_cap=hard_seconds,
+        )
+        ledger.remaining_calls = remaining_calls
+        ledger.remaining_seconds = remaining_seconds
+        ledger._allocated_calls = allocated_calls
+        ledger._allocated_seconds = allocated_seconds
+        ledger._initial_hard_calls_cap = initial_hard_calls
+        ledger._initial_hard_seconds_cap = initial_hard_seconds
+        ledger._grants = grants
+        ledger._promotions = promotions
+        return ledger
+
 
 _LIVE_ROOT_BUDGETS: WeakValueDictionary[str, InMemoryRootBudgetLedger] = (
     WeakValueDictionary()
@@ -785,6 +942,41 @@ def root_budget_for_policy(
         )
         _LIVE_ROOT_BUDGETS[episode] = ledger
         return ledger
+
+
+def restore_root_budget(
+    payload: Mapping[str, object],
+    *,
+    episode_id: str,
+    unreconciled_effects: Sequence[Mapping[str, object]],
+) -> InMemoryRootBudgetLedger:
+    """Restore balances/identities, never allocate afresh from a tier policy.
+
+    The live registration is process-local, NOT a cross-process writer lease.
+
+    ``unreconciled_effects`` is **required**, not defaulted. A snapshot is taken
+    at a phase boundary while both accounting paths debit *after* the external
+    work finished, so the balance in it says an in-flight call cost zero. Handing
+    that balance to a spender is how the same money gets spent twice -- and under
+    a crash loop, N times. The caller must therefore state what it knows about
+    the window, and a non-empty list is refused here: recovering a ledger is not
+    the place to decide that an unknown charge can be ignored. Reconciling means
+    charging (``episode_effects.charge_unknown_effects``) and clearing the list
+    on the checkpoint, as one durable transition; the list is its own dedup
+    token, so reconciling twice is impossible rather than merely discouraged.
+    """
+    outstanding = unknown_effects_from_payload(list(unreconciled_effects))
+    if outstanding:
+        raise ValueError(
+            f"root budget for {episode_id} has {len(outstanding)} unreconciled effect(s); "
+            "reconcile them before spending this balance"
+        )
+    ledger = InMemoryRootBudgetLedger.from_snapshot(payload, episode_id=episode_id)
+    with _LIVE_ROOT_BUDGETS_LOCK:
+        if episode_id in _LIVE_ROOT_BUDGETS:
+            raise ValueError(f"root budget already exists for live episode: {episode_id}")
+        _LIVE_ROOT_BUDGETS[episode_id] = ledger
+    return ledger
 
 
 def release_root_budget(episode_id: str) -> None:
@@ -864,12 +1056,25 @@ class ResearchTaskContract:
     contract_version: str = "1"
     task_frame_hash: str = ""
     material_contract: MaterialContract | None = None
+    premise_calculation: PremiseCalculation | None = None
+    material_grounding: MaterialGrounding | None = None
 
     def __post_init__(self) -> None:
+        if isinstance(self.material_grounding, dict):
+            object.__setattr__(self, "material_grounding", MaterialGrounding.from_dict(self.material_grounding))
+        if self.material_grounding is not None and not isinstance(self.material_grounding, MaterialGrounding):
+            raise ResearchContractError("material_grounding 必须是 MaterialGrounding")
         if isinstance(self.material_contract, dict):
             object.__setattr__(self, "material_contract", MaterialContract.from_dict(self.material_contract))
         if self.material_contract is not None and not isinstance(self.material_contract, MaterialContract):
             raise ResearchContractError("material_contract 必须是 MaterialContract")
+        if isinstance(self.premise_calculation, dict):
+            object.__setattr__(self, "premise_calculation", PremiseCalculation.from_dict(self.premise_calculation))
+        if self.premise_calculation is not None and (
+            not isinstance(self.premise_calculation, PremiseCalculation)
+            or not self.material_contract or not self.material_contract.premise_calculation
+        ):
+            raise ResearchContractError("premise calculation requires the user premise contract")
         # Backwards compatibility for callers that expand ``to_dict()`` into
         # the constructor (older tests/integrations predate EvidencePlan).
         if isinstance(self.evidence_plan, dict):
@@ -922,7 +1127,8 @@ class ResearchTaskContract:
                 raise ResearchContractError("local_only 含未审定的读取能力")
             if any(item.capability not in self.allowed_capabilities for item in self.evidence_plan.requirements):
                 raise ResearchContractError("local_only 证据计划超出冻结读取授权")
-            if any(cap not in self.allowed_capabilities for output in self.required_outputs for cap in output.evidence_types):
+            if any(LOCAL_EVIDENCE_PRODUCERS.get(cap, cap) not in self.allowed_capabilities
+                   for output in self.required_outputs for cap in output.evidence_types):
                 raise ResearchContractError("local_only 输出工具证据超出冻结读取授权")
         mandatory = set(self.evidence_plan.mandatory_capabilities)
         if not mandatory.issubset(set(self.allowed_capabilities)):
@@ -947,6 +1153,8 @@ class ResearchTaskContract:
             "contract_version": self.contract_version,
             "task_frame_hash": self.task_frame_hash,
             **({"material_contract": self.material_contract.to_dict()} if self.material_contract is not None else {}),
+            **({"premise_calculation": self.premise_calculation.to_dict()} if self.premise_calculation is not None else {}),
+            **({"material_grounding": self.material_grounding.to_dict()} if self.material_grounding is not None else {}),
         }
 
     @classmethod
@@ -1025,6 +1233,8 @@ class ResearchTaskContract:
             contract_version=str(value.get("contract_version") or "1"),
             task_frame_hash=str(value.get("task_frame_hash") or ""),
             material_contract=(MaterialContract.from_dict(value["material_contract"]) if "material_contract" in value else None),
+            premise_calculation=(PremiseCalculation.from_dict(value["premise_calculation"]) if "premise_calculation" in value else None),
+            material_grounding=(MaterialGrounding.from_dict(value["material_grounding"]) if "material_grounding" in value else None),
         )
 
 
@@ -1086,6 +1296,11 @@ class ResearchRunContext:
     history_intent: HistoryIntent | None = None
     history_results: list[dict[str, object]] = field(default_factory=list)
     history_artifact_index: list[dict[str, object]] = field(default_factory=list)
+    prior_evidence: PriorTurnEvidence | None = None
+    # 入口身份（控制面，永不进提示词、永不作证据）：这一轮属于哪个用户 / 会话 /
+    # run / 助手消息。由入口在核对过 run 归属之后绑定；None = 没有可信入口
+    # （离线驱动、CLI、测试），恢复时按「未绑定」处理，不会与任何门匹配上。
+    entry_identity: EpisodeEntryIdentity | None = None
 
 
 @dataclass(frozen=True)
@@ -1235,8 +1450,15 @@ class StageArtifact:
             return None
 
 
+def _top_level_follow_up_query(query: str) -> tuple[str, bool]:
+    raw = str(query or "")
+    visible, _uncertain = top_level_message_text(raw)
+    cleaned = visible.strip()
+    return cleaned, cleaned != raw.strip()
+
+
 def is_follow_up(query: str) -> bool:
-    cleaned = query.strip()
+    cleaned, _protected = _top_level_follow_up_query(query)
     return bool(
         classify_reference(cleaned) != "none"
         or _COMPARISON_PATTERN.search(cleaned)
@@ -1252,9 +1474,17 @@ def is_contextual_follow_up(
 ) -> bool:
     if previous_intent is None:
         return False
-    cleaned = query.strip()
+    cleaned, protected_content_present = _top_level_follow_up_query(query)
+    if not cleaned:
+        return False
+    if requests_previous_answer_review(cleaned):
+        return not _EXPLICIT_SWITCH_PATTERN.search(cleaned) and (
+            envelope.subject is None or envelope.subject == previous_intent.primary_subject
+        )
     if is_follow_up(cleaned) or (
-        resolution is not None and resolution.context_dependent
+        resolution is not None
+        and resolution.context_dependent
+        and not protected_content_present
     ):
         return True
     if (
@@ -1284,12 +1514,12 @@ def build_turn_intent(
     resolution: QueryResolution | None = None,
     task_frame: TaskFrame | None = None,
 ) -> TurnIntent:
-    cleaned = query.strip()
+    cleaned, protected_content_present = _top_level_follow_up_query(query)
     follow_up = is_contextual_follow_up(
-        cleaned,
+        query,
         envelope,
         previous_intent,
-        resolution=resolution,
+        resolution=resolution if not protected_content_present else None,
     )
     explicit_task_type = _explicit_task_type(cleaned)
     explicit_task_switch = (

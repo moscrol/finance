@@ -1,0 +1,93 @@
+[
+  {
+    "id": "watch_disclaimer_not_removed",
+    "path": "intelligence/services/track_contract.py",
+    "old": "if not _WATCH_DISCLAIMER_RE.fullmatch(part.strip().strip(\"（）()\"))",
+    "new": "if True",
+    "targets": ["unbulleted_watch_does_not_absorb"]
+  },
+  {
+    "id": "new_watch_swallowed_by_previous",
+    "path": "intelligence/services/track_contract.py",
+    "old": "new_subject = _WATCH_NEW_SUBJECT_RE.match(plain) is not None",
+    "new": "new_subject = False",
+    "targets": ["footer_does_not_excuse"]
+  },
+  {
+    "id": "question_threshold_shape_removed",
+    "path": "intelligence/services/episode_semantic_verifier.py",
+    "old": "r\"(?:是否|能否|能不能|可否)(?:回到|恢复至|回升到|达到)|\"",
+    "new": "r\"(?!)|\"",
+    "targets": ["threshold_question_is_not"]
+  },
+  {
+    "id": "financial_semantic_wiring_removed",
+    "path": "intelligence/services/episode_semantic_verifier.py",
+    "old": "if contract is None or contract.question_type != \"financial_analysis\":",
+    "new": "if True:",
+    "targets": ["financial_contradiction_is_removed"]
+  },
+  {
+    "id": "arithmetic_comparison_disabled",
+    "path": "intelligence/services/financial_claim_checks.py",
+    "old": "return expected.quantize(Decimal(1).scaleb(actual.as_tuple().exponent), rounding=ROUND_HALF_UP) == actual",
+    "new": "return True",
+    "targets": ["financial_contradiction_is_removed", "result_ratio_is_recomputed"]
+  },
+  {
+    "id": "single_quarter_anchor_removed",
+    "path": "intelligence/services/financial_claim_checks.py",
+    "old": "if anchor and period[:4] != anchor[:4]:",
+    "new": "if False:",
+    "targets": ["financial_contradiction_is_removed"]
+  },
+  {
+    "id": "inventory_duration_disabled",
+    "path": "intelligence/services/financial_claim_checks.py",
+    "old": "bad |= actual_months != months",
+    "new": "bad |= False",
+    "targets": ["financial_contradiction_is_removed"]
+  },
+  {
+    "id": "cumulative_length_disabled",
+    "path": "intelligence/services/financial_claim_checks.py",
+    "old": "bad |= len(months) > 1",
+    "new": "bad |= False",
+    "targets": ["financial_contradiction_is_removed"]
+  },
+  {
+    "id": "deleted_claims_pretend_complete",
+    "path": "intelligence/services/episode_semantic_verifier.py",
+    "old": "outcome = _with_financial_repair_debt(outcome, self._sentence_verdicts)",
+    "new": "outcome = outcome",
+    "targets": ["financial_contradiction_is_removed", "financial_repair_debt_is_local"]
+  },
+  {
+    "id": "product_crosscheck_unwired",
+    "path": "intelligence/services/episode_verifier.py",
+    "old": "*calculation_ratio_gaps(outcome.evidence, kept_hashes, subject=contract.subject),",
+    "new": "*(),",
+    "targets": ["wrong_product_reopens"]
+  },
+  {
+    "id": "document_delivery_unwired",
+    "path": "intelligence/services/episode_verifier.py",
+    "old": "*report_document_binding_gaps(\n                    contract.question, outcome.evidence, kept_hashes, subject=contract.subject,\n                ),",
+    "new": "*(),",
+    "targets": ["structured_rows_cannot_fulfil"]
+  },
+  {
+    "id": "foreign_document_accepted",
+    "path": "intelligence/services/financial_report_contract.py",
+    "old": "and (not subject or _subject_key(subject) in item.title or _subject_key(subject) in item.detail)",
+    "new": "and True",
+    "targets": ["document_claim_does_not_borrow", "report_delivery_requires"]
+  },
+  {
+    "id": "conflicting_inputs_cherry_picked",
+    "path": "intelligence/services/financial_claim_checks.py",
+    "old": "if len(group) == 1}",
+    "new": "if group}",
+    "targets": ["conflicting_financial_inputs"]
+  }
+]
