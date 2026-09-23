@@ -7,13 +7,19 @@
 
 ## 09-23 后续入口修复
 
-代码 `f1fd8aa1a16bea4f3dd4e2ba0e5fd92114aea2c6` 已修复材料范围/虚构身份、编号题漏识别和材料型Q14题型投递；真实 `run_turn` 装配探针覆盖12题，干净定向580P/4S，均不代表答案语义验收。新隔离live首两题仍因判官无效工具报告降级，G1c仍有逐句来源核验缺口。新完整终态以 `~/.finance-runtime/knevo-absorption-20260923/material-repair-f1fd8aa1a/observations.json` 为准，缺文件不算通过；[修复快照](../../handoffs/2026-09-23-knevo-material-entry-repair.md)记范围和证据身份。下文第3节与旧observations继续作为修复前原件，不改判、不覆盖。后续文档固定候选工程结果单独见同根 `material-repair-closeout/current.json`，不移签旧全仓收据。
+代码 `f1fd8aa1a16bea4f3dd4e2ba0e5fd92114aea2c6` 已修复材料范围/虚构身份、编号题漏识别和材料型Q14题型投递；真实 `run_turn` 装配探针覆盖12题，干净定向580P/4S。新隔离live现已全部结束：12题私有原题保真、均material_only、0工具请求，三包八问完整进入合同；Q14为news_impact，离线重建提示hash与运行事件精确匹配，三层指导确已送达。受测入口证据不等于整轮全部IO认证。
+
+**新live仍9 completed/3 failed，端到端0/12**：判官协议失败3、来源核验拒绝3、无效出稿/漏答5、实质越界1。Q14内部judge passed，却无充分依据称订单小额、情绪很可能主导和大概率回吐，作者复核不接纳；条件措辞不是证据豁免。隔离服务已停，生产8792未动。逐题事实和作者意见见 `~/.finance-runtime/knevo-absorption-20260923/material-repair-f1fd8aa1a/observations.json`；179文件manifest已验哈希，驱动semantic_verdict仍为not_evaluated，不冒充独立验收。
+
+工程固定候选 `8aadc23d4873251ffb3b0ecf4f9355f111ba6253`：全仓14664P/85S/2X/0F，完整收集面14751，Ruff/收据验签通过；前端120P、E2E34P/2S及其余四步、registry五项通过。PR diff-check仍因冻结原件空行exit2（七份hash一致），附加共享vault lint仍exit1，不宣称所有检查全绿。索引在同根 `material-repair-closeout/current.json`，只签实际测试SHA，不代签本次后续文档提交。
+
+[最终快照](../../handoffs/2026-09-23-knevo-material-repair-closeout.md)记录逐题分桶、Q14漏判、完整收据及主干漂移；[阶段快照](../../handoffs/2026-09-23-knevo-material-entry-repair.md)保留修复过程。下文第3节与旧observations仍为修复前原件，不改判、不覆盖；新旧两轮都不能证明质量增益。
 
 ## 1. 材料 → 决定 → 实现/回归 → 证据
 
 | 材料 | 吸收决定 | 实现或回归 | 已知边界 |
 |---|---|---|---|
-| Q14 小作文 | 只吸收事实/解读/情绪的结构；不吸收现场数值权重、情绪溢价公式或交易窗口 | `research_workflow_guidance.py` 的 `news_impact` / `fact_check`，两条生成引擎共用；Q14 揭盲题纳入回归 | 旧live落general_finance_qa；f1fd已补真实入口装配投递并离线验证，后续live另记，不证明方法增益 |
+| Q14 小作文 | 只吸收事实/解读/情绪的结构；不吸收现场数值权重、情绪溢价公式或交易窗口 | `research_workflow_guidance.py` 的 `news_impact` / `fact_check`，两条生成引擎共用；Q14 揭盲题纳入回归 | 旧live落general_finance_qa；f1fd新live为news_impact且提示hash确认送达，但Q14判官漏判、作者不接纳，不证明方法增益 |
 | Q18 三组 | 吸收为揭盲材料代理题，不升级为真实存储/检索能力 | 8 个材料代理题 + `knevo_regression.py` + `workbench_probe.py` | 不验真实台账、空集、权限、身份隔离、跨轮继承；不改冻结 28 题 |
 | 09-17 三包 | 保留冻结原题及 7 个候选映射；三包是 3 个完整题包，不拆成 24 个样本 | `K260917-pack1/2/3` 回归题和 reviewer-only 判据 | 揭盲、单侧、A/B 同包，不是基准或独立盲测；原答不是金标 |
 | 44 轮早期问答 | 按自述、UI、工具回执分证据层；补第 1–14 轮处置 | `rounds01-14-disposition-2026-09-23.md` | 外部后端真相仍未知；`finance_memory_write` 单次回执不能证明所有写入都无审批 |
