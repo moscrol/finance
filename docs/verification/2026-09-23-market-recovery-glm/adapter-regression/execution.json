@@ -1,0 +1,19 @@
+{
+  "kind": "controller_adapter_regression_not_product_or_reviewer_probe",
+  "old_adapter_sha256": "e086242b82c9394adf37827ac9ce0676e33875be3d1e97adf7cf0772cadda34b",
+  "test_sha256": "f5c858caa968c2d6041ec36b68bb5e752cf03402dd3b3e3e7753180fe36eb73e",
+  "result": {
+    "exit_code": 1,
+    "deadline_hit": false,
+    "elapsed_seconds": 0.445,
+    "command": [
+      "node",
+      "--test",
+      "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/glm-50330cf/adapter-regression/credential-bootstrap.test.mjs"
+    ]
+  },
+  "new_adapter_selftest": "transport-diagnostics/adapter-and-delivery-selftests.stdout",
+  "live_model_calls": 0,
+  "driver_sha256": "1afc1fb290a373643afac980a410d8015cdee407a2894d641b23d5f596216721",
+  "failed_before_request_admission": true
+}

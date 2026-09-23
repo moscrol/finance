@@ -1,0 +1,42 @@
+"""Capture local adapter and transport failures separately from product verification."""
+import json
+from pathlib import Path
+
+import run
+
+out = run.make_out('transport-diagnostics')
+env = {'HOME': '/Users/a77', 'PATH': '/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin',
+       'LANG': 'C.UTF-8'}
+record = {'revision': run.REV, 'base': run.BASE, 'before': run.identity(),
+          'provider': 'fomo', 'model': 'glm-5.3', 'llm_retries': 0,
+          'gateway_restarted': False, 'production_writes': False, 'checks': {}}
+commands = {
+    'listener': ['lsof', '-nP', '-iTCP:54340', '-sTCP:LISTEN'],
+    'connection': ['curl', '--max-time', '5', '--silent', '--show-error', '--output', '/dev/null',
+                   '--write-out', 'http_status=%{http_code} connect_seconds=%{time_connect}\\n',
+                   'http://127.0.0.1:54340/v1/models'],
+    'adapter-and-delivery-selftests': ['node', '--test',
+        str(run.ROOT / 'adapter-v2/credential-bootstrap.test.mjs'),
+        str(run.ROOT / 'adapter-v2/delivery-gate.test.mjs')],
+    'frontend-diff': ['git', 'diff', '--name-only', run.BASE, run.REV, '--', 'intelligence/webapp'],
+}
+for name, command in commands.items():
+    record['checks'][name] = run.bounded(command, out, env, 30, name)
+record['classification'] = {
+    'initial_adapter': 'LOCAL_ADAPTER_SCHEMA_ERROR_BEFORE_DISPATCH',
+    'adapter_v2': 'LOCAL_CONFIGURED_GLM_ENDPOINT_CONNECTION_REFUSED',
+    'formal_deliveries': 0,
+    'product_defect_inferred': False,
+    'F3_expansion': 'NOT_STARTED_AFTER_CONNECTION_FAILURE',
+}
+record['source_packets_unchanged_between_adapter_attempts'] = {}
+for claim, stage in [('F1', 'report'), ('F2', 'explore')]:
+    name = f'{claim}-{stage}'
+    original = json.loads((run.ROOT / name / 'execution.json').read_text())
+    corrected = json.loads((run.ROOT / 'adapter-v2' / name / 'execution.json').read_text())
+    record['source_packets_unchanged_between_adapter_attempts'][name] = (
+        original['packet_sha256'] == corrected['packet_sha256'])
+record['after'] = run.identity()
+record['driver_sha256'] = run.sha(Path(__file__))
+run.save(out / 'execution.json', record)
+print(json.dumps(record, indent=2))

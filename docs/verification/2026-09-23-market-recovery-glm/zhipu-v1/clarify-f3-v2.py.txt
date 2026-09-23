@@ -1,0 +1,36 @@
+"""Fresh F3 reporting pass; call the controller's two-argument interface and preserve prior output."""
+import inspect
+from pathlib import Path
+import review
+import run
+
+original_make_out = run.make_out
+original_packet = review.source_packet
+constraints = '''
+
+HOST COVERAGE-AUDIT CONSTRAINTS (verify against supplied probe; no author verdict):
+- The fixture pre-seeds the target day, and _plan manually creates a dict. No probe calls build_bridge_day on an empty day then inserts intervening rows. Describe this as stale-plan simulation, not a witnessed build-then-stale workflow.
+- Tests do not instrument transaction boundaries or interleave two connections. Separate source-level reasoning about BEGIN/recheck order from dynamic evidence. Do not mark all transaction/rollback lines dynamically verified.
+- SELECT * / fetchall equality proves final logical SQL values only, never byte-for-byte preservation.
+- No exception is injected after DELETE or partial INSERT. Partial-write rollback is unverified by this independent probe.
+- The last stale-plan check after successful literal-True replacement compares only target-day rows; that test checks the other day before this last refusal. Describe precisely when other-day equality is checked.
+Report complete F3 scope again with verified/not_verified separation. No desired verdict is supplied. The first report is immutable and is not supplied to you.
+'''
+
+def make_out(name):
+    assert name == 'F3-report'
+    return original_make_out('F3-report-clarified')
+
+def packet(claim):
+    assert claim == 'F3'
+    return original_packet(claim) + constraints
+
+inspect.signature(run.model_stage).bind('F3', 'report')
+run.make_out = make_out
+run.source_packet = packet
+run.save(run.ROOT / 'F3-clarification-v2-provenance.json', {
+    'wrapper_sha256': run.sha(Path(__file__)), 'source_driver_sha256': run.sha(Path(review.__file__)),
+    'original_report_preserved': True, 'original_report_provided_to_reviewer': False,
+    'previous_wrapper_failure_before_model_request': True,
+    'scope': 'Same fixed candidate, unchanged independent probe and execution results; no new product test.'})
+run.model_stage('F3', 'report')

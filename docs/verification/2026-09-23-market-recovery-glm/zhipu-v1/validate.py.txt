@@ -1,0 +1,98 @@
+"""Reconcile delivered reviews with immutable execution evidence, never infer merge approval."""
+from collections import Counter
+import json
+from pathlib import Path
+import subprocess
+
+import run
+
+
+def load(path):
+    return json.loads(path.read_text())
+
+
+def main():
+    phases = ['F1-report', 'F2-explore', 'F3-explore', 'F2-report', 'F3-report', 'F3-report-clarified']
+    records = {}
+    responses = Counter()
+    requests = 0
+    key = subprocess.check_output(['/usr/bin/security', 'find-generic-password', '-a', 'a77',
+                                   '-s', 'finance-workbench-glm', '-w'], timeout=20,
+                                  stderr=subprocess.DEVNULL).strip()
+    assert len(key) > 10
+    scanned = 0
+    for phase in phases:
+        folder = run.ROOT / phase
+        data = load(folder / 'execution.json')
+        assert data['complete'] and data['delivered'] and data['inputs_unchanged']
+        assert all(data[when]['revision'] == run.REV and not data[when]['status']
+                   for when in ['before', 'after'])
+        assert data['exit_code'] == 0 and not data['deadline_hit'] and not data['model_errors']
+        assert data['model_identities'] == ['zhipu/glm-5.3']
+        admissions = [json.loads(line) for line in (folder / 'request-admissions.jsonl').read_text().splitlines()]
+        assert 0 < len(admissions) <= 4
+        assert [r['admission'] for r in admissions] == list(range(1, len(admissions) + 1))
+        assert all(r['provider'] == 'zhipu' and r['model'] == 'glm-5.3' and r['stream'] and
+                   not r['has_temperature'] and r['tools'] == 1 for r in admissions)
+        http = [json.loads(line) for line in (folder / 'http-responses.jsonl').read_text().splitlines()]
+        assert len(http) == len(admissions) and all(r['status'] == 200 for r in http)
+        manifest = load(folder / 'delivery/manifest.json')
+        assert all(run.sha(folder / 'delivery' / name) == digest for name, digest in manifest.items())
+        gate = [json.loads(line) for line in (folder / 'tool-gate.jsonl').read_text().splitlines()]
+        assert [r['action'] for r in gate] == ['read-admitted', 'submit-admitted', 'sealed']
+        for file in folder.rglob('*'):
+            assert not file.is_symlink()
+            if file.is_file() and not {'tmp', 'users'} & set(file.relative_to(folder).parts):
+                assert key not in file.read_bytes(), 'Credential persistence detected'
+                scanned += 1
+        requests += len(admissions)
+        responses.update(str(r['status']) for r in http)
+        records[phase] = {'status': data['status'], 'requests': len(admissions),
+                          'elapsed_seconds': data['elapsed_seconds'], 'manifest_verified': True,
+                          'main_before': data['before']['main'], 'main_after': data['after']['main']}
+    claims = {}
+    for claim in ['F1', 'F2', 'F3']:
+        phase = 'F3-report-clarified' if claim == 'F3' else f'{claim}-report'
+        report = load(run.ROOT / phase / 'delivery/report.json')
+        executed = load(run.ROOT / f'{claim}-execute/execution.json')
+        assert report.get('revision', report.get('candidate_revision')) == run.REV
+        assert report['verdict'] in {'PASS', 'PASS_WITH_LIMITS', 'FAIL', 'BLOCKED_PROBE'}
+        for field in ['verified_subclaims', 'not_verified_subclaims', 'findings', 'limitations']:
+            assert isinstance(report[field], list) and report[field]
+        for name, field in [('probe', 'independent_probe_counts'), ('author', 'author_test_counts')]:
+            counts = executed[name]['counts']
+            reported = report[field]
+            for key, value in counts.items():
+                alias = 'failed' if key == 'failures' else key
+                assert reported.get(key, reported.get(alias)) == value, (claim, field, key)
+                if key != alias and key in reported and alias in reported:
+                    assert reported[key] == reported[alias]
+        assert report['positive_control']['classification'] == 'probe_bug'
+        assert executed['complete'] and executed['positive_control_detected'] and executed['inputs_unchanged']
+        assert executed['probe']['exit_code'] == executed['author']['exit_code'] == 0
+        assert executed['before'] == executed['after'] and executed['before']['revision'] == run.REV
+        claims[claim] = {'report': f'{phase}/delivery/report.json', 'verdict': report['verdict'],
+                         'probe': executed['probe']['counts'], 'author': executed['author']['counts']}
+    sensitivity = load(run.ROOT / 'mutations/summary.json')
+    assert len(sensitivity) == 3
+    assert all(r['behavior_failures'] and not r['api_shape_failures'] and not r['other_failures'] and
+               r['checkout_removed'] for r in sensitivity.values())
+    assert load(run.ROOT / 'adapter-checks/execution.json')['exit_code'] == 0
+    result = {'status': 'FIXED_REVISION_EVIDENCE_RECONCILED', 'revision': run.REV,
+              'phases': records, 'request_admissions': requests, 'http_responses': dict(responses),
+              'probe_deliveries': 2, 'raw_report_deliveries': 4, 'selected_claim_reports': 3,
+              'claims': claims, 'report_probe_passed': sum(r['probe']['passed'] for r in claims.values()),
+              'author_related_passed': sum(r['author']['passed'] for r in claims.values()),
+              'historical_sensitivity': sensitivity,
+              'historical_behavior_failures': sum(r['behavior_failures'] for r in sensitivity.values()),
+              'credential_files_scanned': scanned, 'includes_pi_auth_models': True,
+              'exact_credential_occurrences': 0, 'merge_admission': False,
+              'superseded_F3_report_preserved': True,
+              'report_schema_aliases': {'candidate_revision': 'revision', 'failed': 'failures'},
+              'driver_sha256': run.sha(Path(__file__))}
+    run.save(run.ROOT / 'validated.json', result)
+    print(json.dumps(result, indent=2))
+
+
+if __name__ == '__main__':
+    main()

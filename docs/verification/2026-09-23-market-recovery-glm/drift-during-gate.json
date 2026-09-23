@@ -1,0 +1,8 @@
+{
+  "candidate": "50330cf4fa435292bbd555ccc817e62ca5cc45b4",
+  "tested_base": "b59d6eed0356ae093b52bd291ab328628de8790e",
+  "observed_remote_main": "f47d464eb7af32157c331bf2a6bf1b337acbb43f",
+  "observation": "git ls-remote gitea refs/heads/main while this candidate's pytest PID 22665 was still running, elapsed approximately 27 minutes",
+  "consequence": "Preserve completed candidate-specific test evidence; do not transfer it to the advanced main or claim merge admission.",
+  "additional_full_gate_in_this_batch": false
+}

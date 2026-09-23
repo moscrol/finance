@@ -1,0 +1,205 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="12" skipped="0" tests="16" time="3.541" timestamp="2026-09-23T19:15:57.314613+08:00" hostname="77deMacBook-Air.local"><testcase classname="execute.probe" name="test_control_written_with_frozen_denominator" time="1.066" /><testcase classname="execute.probe" name="test_control_nontrading_identity_kept_in_denominator" time="0.080" /><testcase classname="execute.probe" name="test_outside_sector_invalid_close_refuses_untouched[None]" time="0.093"><failure message="Failed: DID NOT RAISE &lt;class 'ValueError'&gt;">bad = None
+
+    @pytest.mark.parametrize("bad", BAD)
+    def test_outside_sector_invalid_close_refuses_untouched(bad):
+&gt;       _refuses_untouched(_con(out_close=bad))  # OUT bar feeds market-wide counts
+
+../execute/probe.py:100: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+con = &lt;_duckdb.DuckDBPyConnection object at 0x10dc39b30&gt;
+
+    def _refuses_untouched(con):
+        _seed(con)
+        before = _rows(con)
+&gt;       with pytest.raises(ValueError):
+E       Failed: DID NOT RAISE &lt;class 'ValueError'&gt;
+
+../execute/probe.py:73: Failed</failure></testcase><testcase classname="execute.probe" name="test_outside_sector_invalid_close_refuses_untouched[-1.0]" time="0.135"><failure message="Failed: DID NOT RAISE &lt;class 'ValueError'&gt;">bad = -1.0
+
+    @pytest.mark.parametrize("bad", BAD)
+    def test_outside_sector_invalid_close_refuses_untouched(bad):
+&gt;       _refuses_untouched(_con(out_close=bad))  # OUT bar feeds market-wide counts
+
+../execute/probe.py:100: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+con = &lt;_duckdb.DuckDBPyConnection object at 0x107f09230&gt;
+
+    def _refuses_untouched(con):
+        _seed(con)
+        before = _rows(con)
+&gt;       with pytest.raises(ValueError):
+E       Failed: DID NOT RAISE &lt;class 'ValueError'&gt;
+
+../execute/probe.py:73: Failed</failure></testcase><testcase classname="execute.probe" name="test_outside_sector_invalid_close_refuses_untouched[0.0]" time="0.165"><failure message="Failed: DID NOT RAISE &lt;class 'ValueError'&gt;">bad = 0.0
+
+    @pytest.mark.parametrize("bad", BAD)
+    def test_outside_sector_invalid_close_refuses_untouched(bad):
+&gt;       _refuses_untouched(_con(out_close=bad))  # OUT bar feeds market-wide counts
+
+../execute/probe.py:100: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+con = &lt;_duckdb.DuckDBPyConnection object at 0x10dc3bd70&gt;
+
+    def _refuses_untouched(con):
+        _seed(con)
+        before = _rows(con)
+&gt;       with pytest.raises(ValueError):
+E       Failed: DID NOT RAISE &lt;class 'ValueError'&gt;
+
+../execute/probe.py:73: Failed</failure></testcase><testcase classname="execute.probe" name="test_outside_sector_invalid_close_refuses_untouched[nan]" time="0.081"><failure message="Failed: DID NOT RAISE &lt;class 'ValueError'&gt;">bad = nan
+
+    @pytest.mark.parametrize("bad", BAD)
+    def test_outside_sector_invalid_close_refuses_untouched(bad):
+&gt;       _refuses_untouched(_con(out_close=bad))  # OUT bar feeds market-wide counts
+
+../execute/probe.py:100: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+con = &lt;_duckdb.DuckDBPyConnection object at 0x10dc93c30&gt;
+
+    def _refuses_untouched(con):
+        _seed(con)
+        before = _rows(con)
+&gt;       with pytest.raises(ValueError):
+E       Failed: DID NOT RAISE &lt;class 'ValueError'&gt;
+
+../execute/probe.py:73: Failed</failure></testcase><testcase classname="execute.probe" name="test_outside_sector_invalid_close_refuses_untouched[inf]" time="0.117"><failure message="Failed: DID NOT RAISE &lt;class 'ValueError'&gt;">bad = inf
+
+    @pytest.mark.parametrize("bad", BAD)
+    def test_outside_sector_invalid_close_refuses_untouched(bad):
+&gt;       _refuses_untouched(_con(out_close=bad))  # OUT bar feeds market-wide counts
+
+../execute/probe.py:100: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+con = &lt;_duckdb.DuckDBPyConnection object at 0x10dc77c70&gt;
+
+    def _refuses_untouched(con):
+        _seed(con)
+        before = _rows(con)
+&gt;       with pytest.raises(ValueError):
+E       Failed: DID NOT RAISE &lt;class 'ValueError'&gt;
+
+../execute/probe.py:73: Failed</failure></testcase><testcase classname="execute.probe" name="test_outside_sector_invalid_close_refuses_untouched[-inf]" time="0.106"><failure message="Failed: DID NOT RAISE &lt;class 'ValueError'&gt;">bad = -inf
+
+    @pytest.mark.parametrize("bad", BAD)
+    def test_outside_sector_invalid_close_refuses_untouched(bad):
+&gt;       _refuses_untouched(_con(out_close=bad))  # OUT bar feeds market-wide counts
+
+../execute/probe.py:100: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+con = &lt;_duckdb.DuckDBPyConnection object at 0x10dc61470&gt;
+
+    def _refuses_untouched(con):
+        _seed(con)
+        before = _rows(con)
+&gt;       with pytest.raises(ValueError):
+E       Failed: DID NOT RAISE &lt;class 'ValueError'&gt;
+
+../execute/probe.py:73: Failed</failure></testcase><testcase classname="execute.probe" name="test_declared_member_invalid_close_refuses_untouched[None]" time="0.169"><failure message="Failed: DID NOT RAISE &lt;class 'ValueError'&gt;">bad = None
+
+    @pytest.mark.parametrize("bad", BAD)
+    def test_declared_member_invalid_close_refuses_untouched(bad):
+&gt;       _refuses_untouched(_con(m2_close=bad))
+
+../execute/probe.py:105: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+con = &lt;_duckdb.DuckDBPyConnection object at 0x10dc68170&gt;
+
+    def _refuses_untouched(con):
+        _seed(con)
+        before = _rows(con)
+&gt;       with pytest.raises(ValueError):
+E       Failed: DID NOT RAISE &lt;class 'ValueError'&gt;
+
+../execute/probe.py:73: Failed</failure></testcase><testcase classname="execute.probe" name="test_declared_member_invalid_close_refuses_untouched[-1.0]" time="0.152"><failure message="Failed: DID NOT RAISE &lt;class 'ValueError'&gt;">bad = -1.0
+
+    @pytest.mark.parametrize("bad", BAD)
+    def test_declared_member_invalid_close_refuses_untouched(bad):
+&gt;       _refuses_untouched(_con(m2_close=bad))
+
+../execute/probe.py:105: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+con = &lt;_duckdb.DuckDBPyConnection object at 0x10dc91bf0&gt;
+
+    def _refuses_untouched(con):
+        _seed(con)
+        before = _rows(con)
+&gt;       with pytest.raises(ValueError):
+E       Failed: DID NOT RAISE &lt;class 'ValueError'&gt;
+
+../execute/probe.py:73: Failed</failure></testcase><testcase classname="execute.probe" name="test_declared_member_invalid_close_refuses_untouched[0.0]" time="0.132"><failure message="Failed: DID NOT RAISE &lt;class 'ValueError'&gt;">bad = 0.0
+
+    @pytest.mark.parametrize("bad", BAD)
+    def test_declared_member_invalid_close_refuses_untouched(bad):
+&gt;       _refuses_untouched(_con(m2_close=bad))
+
+../execute/probe.py:105: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+con = &lt;_duckdb.DuckDBPyConnection object at 0x10dc7f230&gt;
+
+    def _refuses_untouched(con):
+        _seed(con)
+        before = _rows(con)
+&gt;       with pytest.raises(ValueError):
+E       Failed: DID NOT RAISE &lt;class 'ValueError'&gt;
+
+../execute/probe.py:73: Failed</failure></testcase><testcase classname="execute.probe" name="test_declared_member_invalid_close_refuses_untouched[nan]" time="0.114"><failure message="Failed: DID NOT RAISE &lt;class 'ValueError'&gt;">bad = nan
+
+    @pytest.mark.parametrize("bad", BAD)
+    def test_declared_member_invalid_close_refuses_untouched(bad):
+&gt;       _refuses_untouched(_con(m2_close=bad))
+
+../execute/probe.py:105: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+con = &lt;_duckdb.DuckDBPyConnection object at 0x10dc91470&gt;
+
+    def _refuses_untouched(con):
+        _seed(con)
+        before = _rows(con)
+&gt;       with pytest.raises(ValueError):
+E       Failed: DID NOT RAISE &lt;class 'ValueError'&gt;
+
+../execute/probe.py:73: Failed</failure></testcase><testcase classname="execute.probe" name="test_declared_member_invalid_close_refuses_untouched[inf]" time="0.172"><failure message="Failed: DID NOT RAISE &lt;class 'ValueError'&gt;">bad = inf
+
+    @pytest.mark.parametrize("bad", BAD)
+    def test_declared_member_invalid_close_refuses_untouched(bad):
+&gt;       _refuses_untouched(_con(m2_close=bad))
+
+../execute/probe.py:105: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+con = &lt;_duckdb.DuckDBPyConnection object at 0x10dc88570&gt;
+
+    def _refuses_untouched(con):
+        _seed(con)
+        before = _rows(con)
+&gt;       with pytest.raises(ValueError):
+E       Failed: DID NOT RAISE &lt;class 'ValueError'&gt;
+
+../execute/probe.py:73: Failed</failure></testcase><testcase classname="execute.probe" name="test_declared_member_invalid_close_refuses_untouched[-inf]" time="0.127"><failure message="Failed: DID NOT RAISE &lt;class 'ValueError'&gt;">bad = -inf
+
+    @pytest.mark.parametrize("bad", BAD)
+    def test_declared_member_invalid_close_refuses_untouched(bad):
+&gt;       _refuses_untouched(_con(m2_close=bad))
+
+../execute/probe.py:105: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+con = &lt;_duckdb.DuckDBPyConnection object at 0x10dc60d70&gt;
+
+    def _refuses_untouched(con):
+        _seed(con)
+        before = _rows(con)
+&gt;       with pytest.raises(ValueError):
+E       Failed: DID NOT RAISE &lt;class 'ValueError'&gt;
+
+../execute/probe.py:73: Failed</failure></testcase><testcase classname="execute.probe" name="test_missing_member_bar_refuses_untouched" time="0.243" /><testcase classname="execute.probe" name="test_nontrading_identity_with_bar_refuses_untouched" time="0.209" /></testsuite></testsuites>

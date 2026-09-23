@@ -1,0 +1,8 @@
+{
+  "wrapper_sha256": "0bf1ebfec8415788450b1e9bb6eddbe58190ac38f56090000c41f90b7797fe50",
+  "source_packet_sha256": "b0ef08ec5ff1cd5d2659b7c413d00c44a8373b0ac1abb238a74b02caa12d7ae8",
+  "original_report_preserved": true,
+  "original_report_provided_to_reviewer": false,
+  "reason": "Distinguish simulated staleness and static transaction ordering from witnessed execution; prohibit byte-level and partial-rollback overclaims.",
+  "scope": "Same fixed candidate, unchanged independent probe and execution results; no new product test."
+}

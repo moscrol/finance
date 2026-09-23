@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="5" skipped="0" tests="9" time="2.193" timestamp="2026-09-23T18:33:18.113160+08:00" hostname="77deMacBook-Air.local"><testcase classname="execute.probe" name="test_control_frozen_denominator_writes" time="0.856" /><testcase classname="execute.probe" name="test_control_frozen_denominator_keeps_nontrading" time="0.092" /><testcase classname="execute.probe" name="test_outside_sector_invalid_close_refuses_untouched[None]" time="0.078"><failure message="Failed: DID NOT RAISE &lt;class 'ValueError'&gt;">bad = None
+
+    @pytest.mark.parametrize("bad", [None, -1.0, 0.0, float("nan"), float("inf")])
+    def test_outside_sector_invalid_close_refuses_untouched(bad):
+        # OUT is not a declared member, but market counts consume its bar.
+        con = _con(out_close=bad)
+        _seed(con)
+        before = _snap_all(con)
+&gt;       with pytest.raises(ValueError):
+E       Failed: DID NOT RAISE &lt;class 'ValueError'&gt;
+
+../execute/probe.py:98: Failed</failure></testcase><testcase classname="execute.probe" name="test_outside_sector_invalid_close_refuses_untouched[-1.0]" time="0.123"><failure message="Failed: DID NOT RAISE &lt;class 'ValueError'&gt;">bad = -1.0
+
+    @pytest.mark.parametrize("bad", [None, -1.0, 0.0, float("nan"), float("inf")])
+    def test_outside_sector_invalid_close_refuses_untouched(bad):
+        # OUT is not a declared member, but market counts consume its bar.
+        con = _con(out_close=bad)
+        _seed(con)
+        before = _snap_all(con)
+&gt;       with pytest.raises(ValueError):
+E       Failed: DID NOT RAISE &lt;class 'ValueError'&gt;
+
+../execute/probe.py:98: Failed</failure></testcase><testcase classname="execute.probe" name="test_outside_sector_invalid_close_refuses_untouched[0.0]" time="0.224"><failure message="Failed: DID NOT RAISE &lt;class 'ValueError'&gt;">bad = 0.0
+
+    @pytest.mark.parametrize("bad", [None, -1.0, 0.0, float("nan"), float("inf")])
+    def test_outside_sector_invalid_close_refuses_untouched(bad):
+        # OUT is not a declared member, but market counts consume its bar.
+        con = _con(out_close=bad)
+        _seed(con)
+        before = _snap_all(con)
+&gt;       with pytest.raises(ValueError):
+E       Failed: DID NOT RAISE &lt;class 'ValueError'&gt;
+
+../execute/probe.py:98: Failed</failure></testcase><testcase classname="execute.probe" name="test_outside_sector_invalid_close_refuses_untouched[nan]" time="0.178"><failure message="Failed: DID NOT RAISE &lt;class 'ValueError'&gt;">bad = nan
+
+    @pytest.mark.parametrize("bad", [None, -1.0, 0.0, float("nan"), float("inf")])
+    def test_outside_sector_invalid_close_refuses_untouched(bad):
+        # OUT is not a declared member, but market counts consume its bar.
+        con = _con(out_close=bad)
+        _seed(con)
+        before = _snap_all(con)
+&gt;       with pytest.raises(ValueError):
+E       Failed: DID NOT RAISE &lt;class 'ValueError'&gt;
+
+../execute/probe.py:98: Failed</failure></testcase><testcase classname="execute.probe" name="test_outside_sector_invalid_close_refuses_untouched[inf]" time="0.098"><failure message="Failed: DID NOT RAISE &lt;class 'ValueError'&gt;">bad = inf
+
+    @pytest.mark.parametrize("bad", [None, -1.0, 0.0, float("nan"), float("inf")])
+    def test_outside_sector_invalid_close_refuses_untouched(bad):
+        # OUT is not a declared member, but market counts consume its bar.
+        con = _con(out_close=bad)
+        _seed(con)
+        before = _snap_all(con)
+&gt;       with pytest.raises(ValueError):
+E       Failed: DID NOT RAISE &lt;class 'ValueError'&gt;
+
+../execute/probe.py:98: Failed</failure></testcase><testcase classname="execute.probe" name="test_missing_member_bar_refuses_untouched" time="0.170" /><testcase classname="execute.probe" name="test_nontrading_identity_with_bar_refuses" time="0.093" /></testsuite></testsuites>

@@ -1,0 +1,161 @@
+"""Archive failed routes, fixed-revision GLM deliveries and the failed full gate without transferring receipts."""
+from collections import Counter
+import json
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import xml.etree.ElementTree as ET
+
+import run
+
+DEST = Path('/Users/a77/fwp-wt-market-recovery-qc-fix-0923/docs/verification/2026-09-23-market-recovery-glm')
+
+
+def load(path):
+    return json.loads(path.read_text())
+
+
+def files(root):
+    for directory, dirs, names in os.walk(root):
+        dirs[:] = sorted(d for d in dirs if d not in {'candidate', 'tmp', 'users', '__pycache__'})
+        if Path(directory).name == 'pi-config':
+            dirs[:] = []
+            names = [name for name in names if name == 'settings.json']
+        for name in sorted(names):
+            yield Path(directory) / name
+
+
+def main():
+    full = load(run.ROOT / 'full-gate/execution.json')
+    post = load(run.ROOT / 'postflight/execution.json')
+    assert full['complete'] and full['driver_unchanged'] and full['controller_unchanged']
+    assert run.identity()['revision'] == run.REV and not run.identity()['status']
+    xml_path = run.ROOT / 'full-gate/pytest.xml'
+    if xml_path.exists():
+        failures = [{'classname': case.get('classname'), 'name': case.get('name'),
+                     'outcome': child.tag, 'message': child.get('message'), 'text': child.text}
+                    for case in ET.parse(xml_path).iter('testcase')
+                    for child in case if child.tag in {'failure', 'error'}]
+        run.save(run.ROOT / 'full-gate/failures.json', failures)
+    summary = {
+        'status': 'HOLD', 'revision': run.REV, 'base': run.BASE,
+        'tree': run.git('rev-parse', 'HEAD^{tree}'), 'raw_root': str(run.ROOT),
+        'final_identity': run.identity(), 'full_gate': full, 'postflight': post,
+        'full_repo_receipt_accepted': full['exit_code'] == 0 and
+            post.get('receipt_check', {}).get('exit_code') == 0 and post['fetch']['exit_code'] == 0 and
+            post['base_unchanged_at_remote'] and
+            post.get('receipt_target_matches_repo_root', False) and post.get('counts_reconciled', False),
+        'claims': {}, 'model_stages': {}, 'model_request_admissions': 0,
+        'new_formal_report_deliveries': 0, 'new_independent_probe_deliveries': 0,
+        'replayed_independent_passed': 0, 'author_related_passed': 0,
+        'production_writes': False, 'merge_push_deployment': False,
+        'F3_expansion': 'DELIVERED_AND_EXECUTED_ON_DIRECT_ZHIPU',
+        'qualifications': [
+            'The user authorized GLM as an alternative to unavailable K3; no K3 requests were made in this batch.',
+            'Initial adapter failures happened before request admission. Adapter-v2 supplied extension-required input/cost defaults and model-level compat.',
+            'GLM adapter-v2 failed connecting to configured local endpoint 127.0.0.1:54340. No HTTP response or reviewer delivery was received.',
+            'All 20 primary independent cases are unchanged prior-reviewer probes replayed on the new revision.',
+            'F1 replays in adapter-v2 and zhipu-v1 (5 probe and 28 author passes each) are duplicates, not additive test coverage.',
+            'Prior F2/F3 formal reports remain bound to 4dd5e6660; they are not re-signed to this candidate.',
+            'Direct Zhipu subsequently delivered F2 probes covering negative infinity, member invalid close and full logical rows on another seeded date.',
+            'Direct Zhipu delivered F3 full-row and missing-policy other-date probes. Clarified F3 report supersedes overstrong wording, not the original artifact.',
+            'Zhipu reviews bind the clean fixed candidate only; changing main during review is recorded and never grants merge admission.',
+            'Full gate has one timeout-assertion failure. One isolated diagnostic pass does not replace the red full receipt.',
+            'Twenty historical behavior failures are repeated runs against five reversions, not twenty new tests. Three old-API TypeErrors are excluded.',
+            'No live nightly, recovery CLI, staging, swap, production acceptance or business-contract approval.',
+            'No frontend diff from the base; frontend and E2E were not run.',
+        ],
+    }
+    if full.get('receipt'):
+        receipt = load(Path(full['receipt']))
+        summary['actual_receipt_scope'] = {'target': receipt['target'], **receipt['scope']}
+    summary['supplementary_checks'] = load(run.ROOT / 'supplementary-checks/execution.json')['checks']
+    summary['transport_diagnostics'] = load(run.ROOT / 'transport-diagnostics/execution.json')
+    summary['credential_persistence'] = load(run.ROOT / 'transport-diagnostics/credential-persistence.json')
+    summary['adapter_regression'] = load(run.ROOT / 'adapter-regression/execution.json')
+    summary['base_drift_observation'] = load(run.ROOT / 'drift-during-gate.json')
+    sensitivity = load(run.ROOT / 'mutations/summary.json')
+    assert len(sensitivity) == 5 and all(r['behavior_failures'] and r['checkout_removed'] for r in sensitivity.values())
+    summary['historical_reversion_sensitivity'] = sensitivity
+    summary['historical_behavior_failures'] = sum(r['behavior_failures'] for r in sensitivity.values())
+    summary['excluded_historical_api_shape_failures'] = sum(r['api_shape_failures'] for r in sensitivity.values())
+    http = Counter()
+    for relative in ['F1-report', 'F2-explore', 'adapter-v2/F1-report', 'adapter-v2/F2-explore']:
+        folder = run.ROOT / relative
+        record = load(folder / 'execution.json')
+        assert record['complete'] and record['inputs_unchanged'] and record['before'] == record['after']
+        assert record['before']['revision'] == run.REV and not record['delivered']
+        assert record['model_identities'] == ['fomo/glm-5.3']
+        summary['model_stages'][relative] = {'status': record['status'], 'errors': record['model_errors'],
+                                            'exit_code': record['exit_code']}
+        path = folder / 'request-admissions.jsonl'
+        admissions = [json.loads(line) for line in path.read_text().splitlines()] if path.exists() else []
+        assert [r['admission'] for r in admissions] == list(range(1, len(admissions) + 1))
+        assert len(admissions) <= 4
+        assert all(r['provider'] == 'fomo' and r['model'] == 'glm-5.3' and r['stream'] and
+                   not r['has_temperature'] and r['tools'] == 1 for r in admissions)
+        summary['model_request_admissions'] += len(admissions)
+        path = folder / 'http-responses.jsonl'
+        if path.exists():
+            http.update(str(json.loads(line)['status']) for line in path.read_text().splitlines())
+    zhipu = load(run.ROOT / 'zhipu-v1/validated.json')
+    assert zhipu['revision'] == run.REV and zhipu['selected_claim_reports'] == 3
+    summary['direct_zhipu_review'] = zhipu
+    summary['model_request_admissions'] += zhipu['request_admissions']
+    http.update(zhipu['http_responses'])
+    summary['new_formal_report_deliveries'] = zhipu['raw_report_deliveries']
+    summary['selected_claim_reports'] = zhipu['selected_claim_reports']
+    summary['new_independent_probe_deliveries'] = zhipu['probe_deliveries']
+    summary['report_probe_passed'] = zhipu['report_probe_passed']
+    summary['strengthened_historical_behavior_failures'] = zhipu['historical_behavior_failures']
+    summary['timeout_isolated_diagnostic'] = load(run.ROOT / 'timeout-diagnostic/execution.json')
+    summary['http_response_hook_counts'] = dict(http)
+    for claim in ['F1', 'F2', 'F3']:
+        parent = run.ROOT if claim == 'F1' else run.ROOT / 'replay'
+        record = load(parent / f'{claim}-execute/execution.json')
+        assert record['complete'] and record['before'] == record['after'] and record['inputs_unchanged']
+        assert record['before']['revision'] == run.REV and record['positive_control_detected']
+        assert record['probe']['exit_code'] == record['author']['exit_code'] == 0
+        summary['claims'][claim] = {'probe': record['probe']['counts'], 'author': record['author']['counts'],
+                                    'positive_control_detected': True, 'new_formal_report': True,
+                                    'selected_review': zhipu['claims'][claim]}
+        summary['replayed_independent_passed'] += record['probe']['counts']['passed']
+        summary['author_related_passed'] += record['author']['counts']['passed']
+    # The key is only used in memory to prevent accidentally archiving credential-bearing files.
+    private = [load(Path('/Users/a77/.pi/agent/models.json'))['providers']['fomo']['apiKey'].encode(),
+               subprocess.check_output(['/usr/bin/security', 'find-generic-password', '-a', 'a77',
+                                        '-s', 'finance-workbench-glm', '-w'], timeout=20,
+                                       stderr=subprocess.DEVNULL).strip()]
+    assert all(len(secret) > 10 for secret in private)
+    DEST.mkdir(exist_ok=False)
+    raw, renames = {}, {}
+    sources = [(run.ROOT, Path('.')), (run.ROOT.parent / 'glm-79089b0', Path('aborted-base-drift'))]
+    for root, prefix in sources:
+        for path in files(root):
+            relative = prefix / path.relative_to(root)
+            content = path.read_bytes()
+            assert all(secret not in content for secret in private), f'Credential-bearing artifact refused: {relative}'
+            raw[str(path)] = run.sha(path)
+            if path.name in {'events.stdout', 'packet.md', 'credential.json'} or relative == Path('full-gate/pytest.xml'):
+                continue
+            target = DEST / relative
+            if path.suffix in {'.py', '.mjs', '.log'}:
+                target = target.with_name(target.name + '.txt')
+                renames[str(relative)] = str(target.relative_to(DEST))
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(path, target)
+    run.save(DEST / 'raw-manifest.json', raw)
+    run.save(DEST / 'archive-renames.json', renames)
+    run.save(DEST / 'summary.json', summary)
+    run.save(DEST / 'manifest.json', {str(p.relative_to(DEST)): run.sha(p) for p in files(DEST)})
+    print(json.dumps({'status': summary['status'], 'full_repo_receipt_accepted': summary['full_repo_receipt_accepted'],
+                      'archived_files': len(list(files(DEST))), 'raw_files': len(raw),
+                      'requests': summary['model_request_admissions'],
+                      'raw_report_deliveries': summary['new_formal_report_deliveries'],
+                      'selected_claim_reports': summary['selected_claim_reports'],
+                      'probe_deliveries': summary['new_independent_probe_deliveries']}, indent=2))
+
+
+if __name__ == '__main__':
+    main()

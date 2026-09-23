@@ -1,0 +1,84 @@
+"""Continue isolated claims on the new preview with explicit seed provenance."""
+import argparse
+import json
+from pathlib import Path
+import shutil
+import sys
+
+import run
+
+PREVIOUS = run.ROOT.parent.parent / 'delivery-gate-4dd5e66'
+PACKET = run.source_packet
+SOURCES = {'F1': 'skills/daily-full-review/scripts/run_review_sync.py',
+           'F2': 'market_feature_store/sync/compute_local_stats.py',
+           'F3': 'market_feature_store/sync/bridge_hithink_stock_daily.py'}
+
+
+def source_packet(claim):
+    packet = PACKET(claim)
+    old_claim = 'F2R' if claim == 'F2' else claim
+    seed = PREVIOUS / f'{old_claim}-explore/delivery'
+    before_file = PREVIOUS / 'candidate' / SOURCES[claim]
+    after_file = run.TREE / SOURCES[claim]
+    provenance = {'previous_revision': '4dd5e66601084962697c5d78e9f6bb58eefc14c8',
+                  'current_revision': run.REV, 'seed_probe_sha256': run.sha(seed / 'probe.py'),
+                  'source_path': SOURCES[claim], 'previous_source_sha256': run.sha(before_file),
+                  'current_source_sha256': run.sha(after_file)}
+    packet += '\nSEED PROVENANCE (not a verdict)\n' + json.dumps(provenance, indent=2)
+    if claim in {'F2', 'F3'}:
+        import duckdb
+        sys.path.insert(0, str(run.TREE))
+        from market_feature_store.db import init_db
+        with duckdb.connect(':memory:') as con:
+            init_db(con)
+            for table in ['fact_stock_daily', 'fact_stock_daily_hithink', 'fact_stock_adjustment_hithink']:
+                packet += f'\nACTUAL INITIALIZED SCHEMA {table}\n{con.execute(f"DESCRIBE {table}").fetchall()}\n'
+        packet += '\nPRIOR INDEPENDENT PROBE (reuse or strengthen; not author tests)\n' + (seed / 'probe.py').read_text()
+    if claim == 'F2':
+        packet += ('\nExpanded scope for this delivery: explicitly test negative infinity and invalid close on a declared member, '
+                   'as well as outside-sector bars; seed a distinct non-target date in all four derived tables and compare '
+                   'complete logical row values before/after refusal. Preserve a valid and nontrading-denominator control. '
+                   'Do not describe Python row equality as physical byte equality. No concurrency claim.\n')
+    elif claim == 'F3':
+        packet += ('\nExpanded scope for this delivery: compare SELECT * logical row values, not just stock code/close, '
+                   'for both target and another seeded date on all refusal cases including missing policy. '
+                   'Keep stale default, truthy non-boolean, and literal True positive controls. '
+                   'Single-connection staleness does not prove concurrent transaction isolation.\n')
+    packet += '\nReporting constraint: cite exactly the columns, seeded dates and executed cases. Never infer physical byte preservation, unseen parameter cases, or concurrency from final row equality.\n'
+    return packet
+
+
+def seed_f1():
+    out = run.make_out('F1-explore')
+    source = PREVIOUS / 'F1-explore/delivery'
+    manifest = json.loads((source / 'manifest.json').read_text())
+    assert all(run.sha(source / name) == digest for name, digest in manifest.items())
+    shutil.copytree(source, out / 'delivery')
+    run.save(out / 'provenance.json', {
+        'kind': 'reused_independent_probe_no_new_model_generation',
+        'source_delivery': str(source), 'source_revision': '4dd5e66601084962697c5d78e9f6bb58eefc14c8',
+        'target_revision': run.REV, 'source_sha256': run.sha(PREVIOUS / 'candidate' / SOURCES['F1']),
+        'target_sha256': run.sha(run.TREE / SOURCES['F1']), 'manifest': manifest,
+    })
+    print('F1 seed copied byte-for-byte; not yet executed on new revision.')
+
+
+run.source_packet = source_packet
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('claim', choices=run.CLAIMS)
+    parser.add_argument('stage', choices=['seed', 'explore', 'execute', 'report'])
+    args = parser.parse_args()
+    driver_sha = run.sha(Path(__file__))
+    if args.stage == 'seed':
+        assert args.claim == 'F1'
+        seed_f1()
+    elif args.stage == 'execute':
+        run.execute(args.claim)
+        record_path = run.ROOT / f'{args.claim}-execute/execution.json'
+        record = json.loads(record_path.read_text())
+        record.update(driver_sha256=driver_sha, driver_unchanged=driver_sha == run.sha(Path(__file__)))
+        run.save(record_path, record)
+    else:
+        run.model_stage(args.claim, args.stage)

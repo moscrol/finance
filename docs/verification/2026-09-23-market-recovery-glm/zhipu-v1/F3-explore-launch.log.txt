@@ -1,0 +1,1 @@
+{"claim": "F3", "stage": "explore", "status": "DELIVERED", "exit_code": 0, "elapsed_seconds": 57.361, "model_errors": []}

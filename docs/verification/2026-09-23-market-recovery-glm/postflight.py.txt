@@ -1,0 +1,58 @@
+"""Revalidate the finished gate and clean only the recorded run-owned pytest directory."""
+import json
+import os
+from pathlib import Path
+import shutil
+import stat
+import subprocess
+
+import run
+
+full = json.loads((run.ROOT / 'full-gate/execution.json').read_text())
+assert full['complete'] and full['driver_unchanged'] and full['controller_unchanged']
+out = run.make_out('postflight')
+env = {'HOME': '/Users/a77', 'PATH': '/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin'}
+record = {'before': run.identity(), 'gate_exit': full['exit_code'],
+          'driver_sha256': run.sha(Path(__file__)), 'cleanup': {'removed': False}}
+record['fetch'] = run.bounded(['git', 'fetch', 'gitea', 'main'], out, env, 120, 'fetch')
+record['remote_main'] = subprocess.check_output(
+    ['git', '-C', str(run.TREE), 'ls-remote', 'gitea', 'refs/heads/main'], text=True).split()[0]
+record['base_unchanged_at_remote'] = record['remote_main'] == run.BASE
+if full.get('receipt'):
+    receipt = json.loads(Path(full['receipt']).read_text())
+    record['receipt_check'] = run.bounded([
+        run.PY, 'scripts/check_test_receipt.py', full['receipt'],
+        '--expect-revision', run.REV, '--base-drift-max', '0', '--require-full-scope',
+    ], out, env, 120, 'receipt-check')
+    record['receipt_target_matches_repo_root'] = Path(receipt['target']).resolve() == run.TREE.resolve()
+    record['counts_reconciled'] = receipt['scope']['collected'] == sum(receipt['counts'].values())
+    record['receipt_identity_matches'] = receipt['revision'] == run.REV and not receipt['dirty']
+    if full['exit_code'] == 0 and record['counts_reconciled'] and record['receipt_identity_matches']:
+        owner = json.loads((run.ROOT / 'full-gate/temp-owner.json').read_text())
+        temp = Path(owner['path'])
+        assert temp.parent == Path('/private/tmp/pytest-of-a77')
+        assert temp.name == 'pytest-1830' and not temp.is_symlink() and temp.resolve() == temp
+        assert temp.stat().st_ino == owner['inode']
+        try:
+            os.kill(owner['pid'], 0)
+        except ProcessLookupError:
+            pass
+        else:
+            raise AssertionError('Recorded PID is alive or reused; leave temp untouched')
+        assert not (temp / '.lock').exists(), 'Completed pytest did not release lock'
+
+        def make_removable(path):
+            mode = path.lstat().st_mode
+            if stat.S_ISDIR(mode):
+                path.chmod(mode | 0o700)
+                for child in path.iterdir():
+                    make_removable(child)
+
+        make_removable(temp)
+        shutil.rmtree(temp)
+        record['cleanup'] = {'path': str(temp), 'verified_inode': owner['inode'],
+                             'pid_absent': True, 'lock_absent': True,
+                             'removed': not temp.exists(), 'followed_symlinks': False}
+record['after'] = run.identity()
+run.save(out / 'execution.json', record)
+print(json.dumps(record, indent=2))

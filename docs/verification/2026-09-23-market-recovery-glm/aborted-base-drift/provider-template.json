@@ -1,0 +1,13 @@
+{
+  "provider": "fomo",
+  "model": "glm-5.3",
+  "baseUrl": "http://127.0.0.1:54340/v1",
+  "api": "openai-completions",
+  "config_source": "/Users/a77/.pi/agent/models.json",
+  "provider_config_sha256": "add90b2925207ab01a161ce85bcd776f8908cb62c2c30bf72baa514605d20d4d",
+  "credential_persistence": "existing user config only; never copied to review outputs",
+  "reasoning": false,
+  "max_requests_per_stage": 4,
+  "deadline_seconds": 600,
+  "automatic_retries": 0
+}

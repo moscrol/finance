@@ -1,0 +1,9 @@
+[
+  {
+    "classname": "intelligence.tests.test_finance_query",
+    "name": "test_timeout_interrupts_connection",
+    "outcome": "failure",
+    "message": "assert (1336723.811686125 - 1336722.706293916) < 0.5\n +  where 1336723.811686125 = <built-in function monotonic>()\n +    where <built-in function monotonic> = time.monotonic",
+    "text": "def test_timeout_interrupts_connection() -> None:\n        interrupted = Event()\n    \n        class BlockingConnection:\n            description = ()\n    \n            def execute(self, _sql, _parameters):\n                assert interrupted.wait(timeout=1.0)\n                raise RuntimeError(\"interrupted\")\n    \n            def interrupt(self) -> None:\n                interrupted.set()\n    \n            def close(self) -> None:\n                return None\n    \n        def connect(_path: str, *, read_only: bool):\n            assert read_only is True\n            return BlockingConnection()\n    \n        started = time.monotonic()\n        with pytest.raises(FinanceQueryTimedOut):\n            FinanceQuery(\n                Path(\"unused.duckdb\"),\n                connect=connect,\n                limits=FinanceQueryLimits(max_rows=20, max_bytes=10_000, timeout=0.03),\n            ).run(\n                _market_spec(),\n                information_cutoff=_cutoff(),\n                deadline=ResearchDeadline.from_timeout(2.0),\n            )\n        assert interrupted.is_set()\n>       assert time.monotonic() - started < 0.5\nE       assert (1336723.811686125 - 1336722.706293916) < 0.5\nE        +  where 1336723.811686125 = <built-in function monotonic>()\nE        +    where <built-in function monotonic> = time.monotonic\n\nintelligence/tests/test_finance_query.py:1778: AssertionError"
+  }
+]

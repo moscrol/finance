@@ -1,0 +1,11 @@
+{
+  "exit_code": 0,
+  "deadline_hit": false,
+  "elapsed_seconds": 0.556,
+  "command": [
+    "node",
+    "--test",
+    "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/glm-50330cf/zhipu-v1/credential-bootstrap.test.mjs",
+    "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/glm-50330cf/zhipu-v1/delivery-gate.test.mjs"
+  ]
+}

@@ -1,0 +1,23 @@
+== gate @ 50330cf4fa43 tree=/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/glm-50330cf/candidate py=/Users/a77/finance-workspace-private/.venv-workbench/bin/python receipt=/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/glm-50330cf/full-gate/gate-UtG3vrT9/pytest.json
+== ruff check .
+All checks passed!
+== pytest -q -p no:cacheprovider --junitxml=/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/glm-50330cf/full-gate/pytest.xml --durations=20
+17.18s call     intelligence/tests/test_methodology_backtest.py::test_synthetic_positive_control_supported_in_every_stage_with_own_baseline
+16.94s call     tests/test_money_effect_regime.py::test_load_regime_state_from_synthetic_db_and_as_of
+16.87s call     intelligence/tests/test_agent_review_gate.py::test_two_provisional_slices_allowed_but_third_denied
+16.50s call     tests/test_money_effect_regime.py::test_cli_json_outputs_today_and_replay
+16.00s call     tests/test_scripts_module_references.py::test_import_statement_module_references_resolve
+13.26s setup    intelligence/tests/test_methodology_dependence.py::TestPurge::test_窗末跨界事件被剔且如实计数
+13.23s call     tests/test_money_effect_regime.py::test_db_fixture_reproduces_vector_magnitudes
+12.89s call     intelligence/tests/test_graph_research_map_modes.py::test_legacy_mode_still_works_with_kb_present
+12.26s call     intelligence/tests/test_graph_research_map_modes.py::test_view_mode_does_not_write_research_map_db
+11.45s call     tests/test_scripts_module_references.py::test_scanner_ignores_imports_written_inside_string_fixtures
+9.59s call     tests/test_generation_code_root.py::test_nightly_callsite_real_regression_and_restore
+8.82s call     intelligence/tests/test_method_flywheel.py::test_daily_retries_data_insufficient_after_rebuild
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_finance_query.py::test_timeout_interrupts_connection
+1 failed, 14874 passed, 85 skipped, 2 xfailed, 17 warnings in 2034.61s (0:33:54)
+== receipt /Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/glm-50330cf/full-gate/gate-UtG3vrT9/pytest.json
+   revision=50330cf4fa43 dirty=False target=/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/glm-50330cf/candidate
+   passed=14874 failed=1 error=0 skipped=85 xfailed=2 xpassed=0
+   RED intelligence/tests/test_finance_query.py::test_timeout_interrupts_connection

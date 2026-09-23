@@ -1,0 +1,22 @@
+{
+  "exit_code": 0,
+  "deadline_hit": false,
+  "elapsed_seconds": 1.942,
+  "command": [
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "-B",
+    "-m",
+    "pytest",
+    "-q",
+    "-p",
+    "no:cacheprovider",
+    "intelligence/tests/test_finance_query.py::test_timeout_interrupts_connection",
+    "--junitxml=/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/glm-50330cf/timeout-diagnostic/p.xml"
+  ],
+  "kind": "isolated_diagnostic_not_full_gate_replacement",
+  "identity": {
+    "revision": "50330cf4fa435292bbd555ccc817e62ca5cc45b4",
+    "status": "",
+    "main": "f47d464eb7af32157c331bf2a6bf1b337acbb43f"
+  }
+}

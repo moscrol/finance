@@ -1,0 +1,67 @@
+{
+  "claim": "F3",
+  "stage": "report",
+  "before": {
+    "revision": "50330cf4fa435292bbd555ccc817e62ca5cc45b4",
+    "status": "",
+    "main": "f47d464eb7af32157c331bf2a6bf1b337acbb43f"
+  },
+  "started_at": "2026-09-23T11:13:43.699554+00:00",
+  "inputs_sha256": {
+    "run.py": "2c7b5b9b0865c5ea4f5888485caddd4bf55a5d0d077e5c366756ab5c0d6e2298",
+    "review.py": "841b822823a9be185ef98fa171184385711287eb740c7687b8309beca867e31c",
+    "delivery-gate.mjs": "637dcda9ebfbfbc831816d15016fcd197723aa7b79ac75f11387db193da17b5b",
+    "credential-bootstrap.mjs": "3ac219e330914525a0bd0b9b8f9385a8d0c57f4cd5bfefcc8705cf7aa5447880",
+    "provider-template.json": "d2e173caef38771c78451e8f0651da143fd5b58fb60c58efbd9d257008003b30",
+    "pi-config/settings.json": "179a8e23430a882ed27af93a2fa9a7d5ab4c60ff3a7b755ee5bbec1c9b750b15"
+  },
+  "packet_sha256": "b0ef08ec5ff1cd5d2659b7c413d00c44a8373b0ac1abb238a74b02caa12d7ae8",
+  "complete": true,
+  "composition_base": "b59d6eed0356ae093b52bd291ab328628de8790e",
+  "review_fixed_revision_only": true,
+  "merge_admission": false,
+  "exit_code": 0,
+  "deadline_hit": false,
+  "elapsed_seconds": 48.481,
+  "command": [
+    "/opt/homebrew/bin/pi",
+    "--provider",
+    "zhipu",
+    "--model",
+    "glm-5.3",
+    "--thinking",
+    "off",
+    "--models",
+    "zhipu/glm-5.3",
+    "--no-session",
+    "--no-extensions",
+    "-e",
+    "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/glm-50330cf/zhipu-v1/credential-bootstrap.mjs",
+    "-e",
+    "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/glm-50330cf/zhipu-v1/delivery-gate.mjs",
+    "--no-skills",
+    "--no-prompt-templates",
+    "--no-context-files",
+    "--no-themes",
+    "--no-approve",
+    "--offline",
+    "--no-builtin-tools",
+    "--mode",
+    "json",
+    "-p",
+    "--",
+    "<prompt.md>"
+  ],
+  "after": {
+    "revision": "50330cf4fa435292bbd555ccc817e62ca5cc45b4",
+    "status": "",
+    "main": "f47d464eb7af32157c331bf2a6bf1b337acbb43f"
+  },
+  "model_errors": [],
+  "delivered": true,
+  "status": "DELIVERED",
+  "model_identities": [
+    "zhipu/glm-5.3"
+  ],
+  "inputs_unchanged": true
+}

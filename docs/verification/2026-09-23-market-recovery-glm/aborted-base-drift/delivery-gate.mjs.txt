@@ -1,0 +1,88 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import { createHash } from 'node:crypto';
+
+export class DeliveryGate {
+  constructor(out, packet, stage) {
+    if (!['explore', 'report'].includes(stage)) throw new Error('Invalid stage');
+    this.out = fs.realpathSync(out);
+    this.packet = packet;
+    this.stage = stage;
+    this.state = 'read';
+    this.keys = stage === 'explore'
+      ? { probe_python: 'probe.py', explore_markdown: 'EXPLORE.md' }
+      : { report_json: 'report.json', spec_markdown: 'SPEC.md', quality_markdown: 'QUALITY.md' };
+    if (fs.existsSync(path.join(this.out, 'delivery'))) throw new Error('Delivery already exists');
+  }
+  log(action) {
+    fs.appendFileSync(path.join(this.out, 'tool-gate.jsonl'), JSON.stringify({
+      at: new Date().toISOString(), action, state: this.state,
+    }) + '\n');
+  }
+  read() {
+    if (this.state !== 'read') throw new Error('Read budget exhausted; submit delivery now');
+    this.log('read-admitted');
+    this.state = 'submit';
+    return this.packet;
+  }
+  submit(args) {
+    if (this.state !== 'submit') throw new Error('Read once before submitting; no duplicate delivery');
+    const keys = Object.keys(this.keys);
+    if (Object.keys(args).sort().join() !== keys.sort().join()) throw new Error('Unexpected fields');
+    for (const key of keys) {
+      if (typeof args[key] !== 'string' || !args[key].trim() || Buffer.byteLength(args[key]) > 50000)
+        throw new Error('Missing, empty or oversized delivery');
+    }
+    if (this.stage === 'report') {
+      const report = JSON.parse(args.report_json);
+      if (!['PASS', 'PASS_WITH_LIMITS', 'CHANGES_REQUIRED'].includes(report.verdict) &&
+          !String(report.verdict).startsWith('BLOCKED_')) throw new Error('Invalid verdict');
+    }
+    // Admission and closure precede all writes; partial failures cannot mint a second delivery.
+    this.log('submit-admitted');
+    this.state = 'sealed';
+    const pending = fs.mkdtempSync(path.join(this.out, '.delivery-'));
+    const hashes = {};
+    for (const key of keys) {
+      const content = args[key].endsWith('\n') ? args[key] : args[key] + '\n';
+      fs.writeFileSync(path.join(pending, this.keys[key]), content, { flag: 'wx' });
+      hashes[this.keys[key]] = createHash('sha256').update(content).digest('hex');
+    }
+    fs.writeFileSync(path.join(pending, 'manifest.json'), JSON.stringify(hashes, null, 2) + '\n', { flag: 'wx' });
+    fs.renameSync(pending, path.join(this.out, 'delivery'));
+    this.log('sealed');
+    return hashes;
+  }
+}
+
+export default async function (pi) {
+  const { Type } = await import('/opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent/node_modules/typebox/build/index.mjs');
+  const out = fs.realpathSync(process.env.REVIEW_OUTPUT_DIR);
+  const gate = new DeliveryGate(out, fs.readFileSync(path.join(out, 'packet.md'), 'utf8'), process.env.REVIEW_STAGE);
+  const text = value => [{ type: 'text', text: value }];
+  pi.registerTool({
+    name: 'read_packet', label: 'Read bounded review input',
+    description: 'Read the complete claim-specific source or evidence packet ONCE. After this, only submit_delivery is available.',
+    parameters: Type.Object({}),
+    async execute() {
+      const packet = gate.read();
+      pi.setActiveTools(['submit_delivery']);
+      return { content: text(packet), details: { remaining_reads: 0 } };
+    },
+  });
+  pi.registerTool({
+    name: 'submit_delivery', label: 'Submit immutable review artifact',
+    description: 'Save the required artifacts and terminate this session. Do not emit a chat-only answer.',
+    parameters: Type.Object(Object.fromEntries(Object.keys(gate.keys).map(key => [key, Type.String()]))),
+    async execute(_id, args) {
+      const hashes = gate.submit(args);
+      pi.setActiveTools([]);
+      return { content: text('Immutable delivery saved.'), details: hashes, terminate: true };
+    },
+  });
+  pi.on('session_start', () => pi.setActiveTools(['read_packet']));
+  pi.on('tool_call', event => {
+    const allowed = gate.state === 'read' ? 'read_packet' : gate.state === 'submit' ? 'submit_delivery' : null;
+    if (event.toolName !== allowed) return { block: true, reason: 'Stage gate rejects this tool.' };
+  });
+}

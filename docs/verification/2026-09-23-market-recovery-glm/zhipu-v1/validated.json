@@ -1,0 +1,174 @@
+{
+  "status": "FIXED_REVISION_EVIDENCE_RECONCILED",
+  "revision": "50330cf4fa435292bbd555ccc817e62ca5cc45b4",
+  "phases": {
+    "F1-report": {
+      "status": "DELIVERED",
+      "requests": 2,
+      "elapsed_seconds": 113.844,
+      "manifest_verified": true,
+      "main_before": "f47d464eb7af32157c331bf2a6bf1b337acbb43f",
+      "main_after": "f47d464eb7af32157c331bf2a6bf1b337acbb43f"
+    },
+    "F2-explore": {
+      "status": "DELIVERED",
+      "requests": 2,
+      "elapsed_seconds": 207.772,
+      "manifest_verified": true,
+      "main_before": "f47d464eb7af32157c331bf2a6bf1b337acbb43f",
+      "main_after": "f47d464eb7af32157c331bf2a6bf1b337acbb43f"
+    },
+    "F3-explore": {
+      "status": "DELIVERED",
+      "requests": 2,
+      "elapsed_seconds": 57.361,
+      "manifest_verified": true,
+      "main_before": "f47d464eb7af32157c331bf2a6bf1b337acbb43f",
+      "main_after": "f47d464eb7af32157c331bf2a6bf1b337acbb43f"
+    },
+    "F2-report": {
+      "status": "DELIVERED",
+      "requests": 2,
+      "elapsed_seconds": 69.655,
+      "manifest_verified": true,
+      "main_before": "f47d464eb7af32157c331bf2a6bf1b337acbb43f",
+      "main_after": "f47d464eb7af32157c331bf2a6bf1b337acbb43f"
+    },
+    "F3-report": {
+      "status": "DELIVERED",
+      "requests": 2,
+      "elapsed_seconds": 48.481,
+      "manifest_verified": true,
+      "main_before": "f47d464eb7af32157c331bf2a6bf1b337acbb43f",
+      "main_after": "f47d464eb7af32157c331bf2a6bf1b337acbb43f"
+    },
+    "F3-report-clarified": {
+      "status": "DELIVERED",
+      "requests": 2,
+      "elapsed_seconds": 97.498,
+      "manifest_verified": true,
+      "main_before": "917e15a8738dcb46cbbf57e4a06e2182fd5da405",
+      "main_after": "e926157d9dfa33336d71150d13fb7d9c387659e2"
+    }
+  },
+  "request_admissions": 12,
+  "http_responses": {
+    "200": 12
+  },
+  "probe_deliveries": 2,
+  "raw_report_deliveries": 4,
+  "selected_claim_reports": 3,
+  "claims": {
+    "F1": {
+      "report": "F1-report/delivery/report.json",
+      "verdict": "PASS_WITH_LIMITS",
+      "probe": {
+        "tests": 5,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 5
+      },
+      "author": {
+        "tests": 28,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 28
+      }
+    },
+    "F2": {
+      "report": "F2-report/delivery/report.json",
+      "verdict": "PASS_WITH_LIMITS",
+      "probe": {
+        "tests": 16,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 16
+      },
+      "author": {
+        "tests": 75,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 75
+      }
+    },
+    "F3": {
+      "report": "F3-report-clarified/delivery/report.json",
+      "verdict": "PASS_WITH_LIMITS",
+      "probe": {
+        "tests": 6,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 6
+      },
+      "author": {
+        "tests": 28,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 28
+      }
+    }
+  },
+  "report_probe_passed": 27,
+  "author_related_passed": 131,
+  "historical_sensitivity": {
+    "F2-before-member-guard": {
+      "revision": "790459f80323c1d38807e43ab0736971442161e7",
+      "counts": {
+        "tests": 16,
+        "failures": 13,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 3
+      },
+      "checkout_removed": true,
+      "behavior_failures": 13,
+      "api_shape_failures": 0,
+      "other_failures": 0
+    },
+    "F2-before-close-guard": {
+      "revision": "f6e63d66ff494b04dfa7b58a4fbc669afbd26539",
+      "counts": {
+        "tests": 16,
+        "failures": 12,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 4
+      },
+      "checkout_removed": true,
+      "behavior_failures": 12,
+      "api_shape_failures": 0,
+      "other_failures": 0
+    },
+    "F3-before-apply-guard": {
+      "revision": "70f1628caabba55aa3fb52c59307e77760058037",
+      "counts": {
+        "tests": 6,
+        "failures": 6,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 0
+      },
+      "checkout_removed": true,
+      "behavior_failures": 6,
+      "api_shape_failures": 0,
+      "other_failures": 0
+    }
+  },
+  "historical_behavior_failures": 31,
+  "credential_files_scanned": 100,
+  "includes_pi_auth_models": true,
+  "exact_credential_occurrences": 0,
+  "merge_admission": false,
+  "superseded_F3_report_preserved": true,
+  "report_schema_aliases": {
+    "candidate_revision": "revision",
+    "failed": "failures"
+  },
+  "driver_sha256": "ea975bfc32b6b2b352695724bb6eda21c7adb2d04066f569bba8d29284a4f640"
+}

@@ -1,0 +1,1 @@
+{"claim": "F2", "stage": "explore", "status": "BLOCKED_NO_DELIVERY", "exit_code": 0, "elapsed_seconds": 2.62, "model_errors": ["Connection error."]}

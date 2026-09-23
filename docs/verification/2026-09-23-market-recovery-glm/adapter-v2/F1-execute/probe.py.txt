@@ -1,0 +1,117 @@
+"""K3 probe for claim F1: local plan ordering, stock-daily fallback chain, retry blocking.
+All side effects (subprocess via run_step, DB via _count/connect, notify/runlog/release) monkeypatched.
+market_feature_store is stubbed in sys.modules before loading the candidate module: no real DB/network."""
+import importlib.util
+import sys
+import types
+from pathlib import Path
+
+SCRIPT = None
+for base in (Path.cwd(), *Path(__file__).resolve().parents):
+    cand = base / "skills" / "daily-full-review" / "scripts" / "run_review_sync.py"
+    if cand.exists():
+        SCRIPT = cand
+        break
+assert SCRIPT, "run_review_sync.py not found relative to probe/cwd"
+
+
+def _load():
+    pkg = types.ModuleType("market_feature_store")
+    db = types.ModuleType("market_feature_store.db")
+    db.connect = lambda read_only=True: (_ for _ in ()).throw(RuntimeError("real db forbidden"))
+    reg = types.ModuleType("market_feature_store.consumption_registry")
+    reg.PLAN_CHOICES = ("full", "cheap", "auto", "local")
+    reg.resolve_plan = lambda plan, date: plan or "full"
+    sys.modules["market_feature_store"] = pkg
+    sys.modules["market_feature_store.db"] = db
+    sys.modules["market_feature_store.consumption_registry"] = reg
+    spec = importlib.util.spec_from_file_location("run_review_sync_probe", SCRIPT)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+rs = _load()
+
+
+def _res(label, status="ok", code=0):
+    return {"label": label, "status": status, "code": code, "elapsed": 0.1}
+
+
+def _recorder(calls):
+    def fake_run_step(label, argv, timeout):
+        calls.append(label)
+        return _res(label)
+    return fake_run_step
+
+
+def test_local_plan_orders_hithink_then_stock_daily_then_consumers():
+    names = [n for n, _ in rs.build_local_plan("2026-09-23", 1, 1)]  # build only; lambdas not invoked
+    i_h, i_s = names.index("hithink-stock-daily"), names.index("stock-daily")
+    assert i_h < i_s, names
+    for consumer in ("stitch-sector-stocks", "sector-daily-local", "limit-stats-local",
+                     "market-overview-local", "features"):
+        assert names.index(consumer) > i_s, (consumer, names)
+
+
+def test_snapshot_success_short_circuits_control(monkeypatch):
+    calls = []
+    monkeypatch.setattr(rs, "run_step", _recorder(calls))
+    monkeypatch.setattr(rs, "_count", lambda table, date: 5000)
+    out = rs.sync_stock_daily("2026-09-23", 1, hithink_fallback=True)
+    assert out["status"] == "ok"
+    assert calls == ["stock-daily (snapshot)"]  # no fallback, no bridge
+    assert [a["label"] for a in out["attempts"]] == calls
+
+
+def test_bridge_runs_only_when_canonical_day_empty(monkeypatch):
+    calls = []
+    monkeypatch.setattr(rs, "run_step", _recorder(calls))
+    counts = iter([0, 0, 700])  # empty after snapshot, empty after fallback, filled by bridge
+    monkeypatch.setattr(rs, "_count", lambda table, date: next(counts))
+    out = rs.sync_stock_daily("2026-09-23", 1, hithink_fallback=True)
+    assert out["status"] == "ok"
+    assert calls == ["stock-daily (snapshot)", "stock-daily fallback", "bridge-stock-daily"]
+    assert [a["label"] for a in out["attempts"]] == calls
+
+
+def test_bridge_skipped_when_fallback_fills_rows_adversarial(monkeypatch):
+    # Adversarial: snapshot yields 0 rows, fallback fills them; a buggy impl would still bridge.
+    calls = []
+    monkeypatch.setattr(rs, "run_step", _recorder(calls))
+    counts = iter([0, 321])
+    monkeypatch.setattr(rs, "_count", lambda table, date: next(counts))
+    out = rs.sync_stock_daily("2026-09-23", 1, hithink_fallback=True)
+    assert out["status"] == "ok"
+    assert calls == ["stock-daily (snapshot)", "stock-daily fallback"]  # bridge NOT invoked
+
+
+def test_exhausted_stock_daily_retries_block_downstream_and_release(monkeypatch):
+    seen = {"runs": 0, "downstream": 0, "release": 0, "runlog": None}
+
+    def failing_stock():
+        seen["runs"] += 1
+        tag = "orig" if seen["runs"] == 1 else f"r{seen['runs'] - 1}"
+        return {"label": "stock-daily", "status": "fail", "code": 1, "elapsed": 0.1,
+                "attempts": [{"label": tag, "status": "fail", "code": 1, "elapsed": 0.1}]}
+
+    def downstream():
+        seen["downstream"] += 1
+        return _res("sector-daily-local")
+
+    monkeypatch.setattr(rs, "build_plan", lambda *a, **k: [("stock-daily", failing_stock),
+                                                           ("sector-daily-local", downstream)])
+    monkeypatch.setattr(rs, "_notify", lambda msg: None)
+    monkeypatch.setattr(rs, "run_release_steps",
+                        lambda *a, **k: (seen.__setitem__("release", seen["release"] + 1), ([], True))[1])
+    monkeypatch.setattr(rs, "write_runlog",
+                        lambda date, results, gate_ok, plan="full": seen.__setitem__("runlog", (results, gate_ok)))
+    monkeypatch.setattr(sys, "argv", ["x", "--date", "2026-09-23", "--plan", "local",
+                                      "--skip-preflight", "--retry-rounds", "2"])
+    rc = rs.main()
+    assert rc == 1
+    assert seen["runs"] == 3  # original + 2 exhausted retries
+    assert seen["downstream"] == 0 and seen["release"] == 0  # downstream + release blocked
+    results, gate_ok = seen["runlog"]
+    assert gate_ok is False
+    assert [a["label"] for a in results[0]["attempts"]] == ["orig", "r1", "r2"]  # records retained

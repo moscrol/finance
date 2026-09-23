@@ -1,0 +1,48 @@
+{
+  "before": {
+    "revision": "50330cf4fa435292bbd555ccc817e62ca5cc45b4",
+    "status": "",
+    "main": "f47d464eb7af32157c331bf2a6bf1b337acbb43f"
+  },
+  "gate_exit": 1,
+  "driver_sha256": "ee58928eb77ee6b38f2e88c48505764a10d76a971618178624ba80239ab0ed78",
+  "cleanup": {
+    "removed": false
+  },
+  "fetch": {
+    "exit_code": 0,
+    "deadline_hit": false,
+    "elapsed_seconds": 1.232,
+    "command": [
+      "git",
+      "fetch",
+      "gitea",
+      "main"
+    ]
+  },
+  "remote_main": "f47d464eb7af32157c331bf2a6bf1b337acbb43f",
+  "base_unchanged_at_remote": false,
+  "receipt_check": {
+    "exit_code": 1,
+    "deadline_hit": false,
+    "elapsed_seconds": 0.463,
+    "command": [
+      "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+      "scripts/check_test_receipt.py",
+      "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/glm-50330cf/full-gate/gate-UtG3vrT9/pytest.json",
+      "--expect-revision",
+      "50330cf4fa435292bbd555ccc817e62ca5cc45b4",
+      "--base-drift-max",
+      "0",
+      "--require-full-scope"
+    ]
+  },
+  "receipt_target_matches_repo_root": true,
+  "counts_reconciled": true,
+  "receipt_identity_matches": true,
+  "after": {
+    "revision": "50330cf4fa435292bbd555ccc817e62ca5cc45b4",
+    "status": "",
+    "main": "f47d464eb7af32157c331bf2a6bf1b337acbb43f"
+  }
+}

@@ -1,0 +1,24 @@
+"""Replay prior independent probes unchanged; this is not a new reviewer verdict."""
+import json
+from pathlib import Path
+import shutil
+
+import run
+
+original_root = run.ROOT
+previous = original_root.parent / 'delivery-gate-4dd5e66'
+run.ROOT = original_root / 'replay'
+run.ROOT.mkdir(exist_ok=False)
+for claim, seed_name in [('F2', 'F2R'), ('F3', 'F3')]:
+    source = previous / f'{seed_name}-explore/delivery'
+    manifest = json.loads((source / 'manifest.json').read_text())
+    assert all(run.sha(source / name) == digest for name, digest in manifest.items())
+    out = run.make_out(f'{claim}-explore')
+    shutil.copytree(source, out / 'delivery')
+    run.save(out / 'provenance.json', {
+        'kind': 'unchanged_independent_probe_replay_no_new_verdict',
+        'source_delivery': str(source), 'source_revision': '4dd5e66601084962697c5d78e9f6bb58eefc14c8',
+        'target_revision': run.REV, 'manifest': manifest,
+    })
+    run.execute(claim)
+run.save(run.ROOT / 'replay-driver.json', {'driver_sha256': run.sha(Path(__file__)), 'new_review_verdict': False})

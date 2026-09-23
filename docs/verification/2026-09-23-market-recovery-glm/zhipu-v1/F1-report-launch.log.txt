@@ -1,0 +1,1 @@
+{"claim": "F1", "stage": "report", "status": "DELIVERED", "exit_code": 0, "elapsed_seconds": 113.844, "model_errors": []}

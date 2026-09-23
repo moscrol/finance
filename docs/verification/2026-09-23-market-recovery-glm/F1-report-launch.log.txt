@@ -1,0 +1,1 @@
+{"claim": "F1", "stage": "report", "status": "BLOCKED_NO_DELIVERY", "exit_code": 0, "elapsed_seconds": 2.599, "model_errors": ["Cannot read properties of undefined (reading 'includes')"]}

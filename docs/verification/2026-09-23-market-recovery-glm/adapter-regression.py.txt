@@ -1,0 +1,27 @@
+"""Show the new adapter selftest rejects the original registration bug without any model call."""
+from pathlib import Path
+import shutil
+
+import run
+
+out = run.make_out('adapter-regression')
+for source, name in [(run.ROOT / 'credential-bootstrap.mjs', 'credential-bootstrap.mjs'),
+                     (run.ROOT / 'provider-template.json', 'provider-template.json'),
+                     (run.ROOT / 'adapter-v2/credential-bootstrap.test.mjs', 'credential-bootstrap.test.mjs')]:
+    shutil.copy2(source, out / name)
+env = {'HOME': '/Users/a77', 'PATH': '/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin'}
+result = run.bounded(['node', '--test', str(out / 'credential-bootstrap.test.mjs')],
+                     out, env, 30, 'old-adapter-selftest')
+record = {'kind': 'controller_adapter_regression_not_product_or_reviewer_probe',
+          'old_adapter_sha256': run.sha(out / 'credential-bootstrap.mjs'),
+          'test_sha256': run.sha(out / 'credential-bootstrap.test.mjs'),
+          'result': result, 'new_adapter_selftest': 'transport-diagnostics/adapter-and-delivery-selftests.stdout',
+          'live_model_calls': 0, 'driver_sha256': run.sha(Path(__file__))}
+assert result['exit_code'] == 1 and not result['deadline_hit']
+for folder in out.glob('bootstrap-selftest-*'):
+    assert not (folder / 'request-admissions.jsonl').exists()
+    assert not (folder / 'http-responses.jsonl').exists()
+    shutil.rmtree(folder)
+record['failed_before_request_admission'] = True
+run.save(out / 'execution.json', record)
+print('Original adapter rejected by normalized-model selftest; no model request admitted.')

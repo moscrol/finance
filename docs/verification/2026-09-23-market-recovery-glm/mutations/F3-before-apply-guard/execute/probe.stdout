@@ -1,0 +1,90 @@
+FFFFFF                                                                   [100%]
+=================================== FAILURES ===================================
+______________ test_stale_default_plan_refuses_and_preserves_rows ______________
+
+con = <_duckdb.DuckDBPyConnection object at 0x108be2ef0>
+
+    def test_stale_default_plan_refuses_and_preserves_rows(con):
+        # plan built when day was empty (default policy False); rows appeared before apply
+        before_t, before_o = _rows(con, TD), _rows(con, OD)
+>       with pytest.raises(BridgeRefused):
+E       Failed: DID NOT RAISE <class 'market_feature_store.sync.bridge_hithink_stock_daily.BridgeRefused'>
+
+../execute/probe.py:50: Failed
+______________________ test_truthy_non_boolean_refuses[1] ______________________
+
+con = <_duckdb.DuckDBPyConnection object at 0x109a535f0>, truthy = 1
+
+    @pytest.mark.parametrize("truthy", [1, "yes", [True]])
+    def test_truthy_non_boolean_refuses(con, truthy):
+        policy = BridgePolicy().as_dict()
+        policy["allow_replace_existing"] = truthy
+        before_t, before_o = _rows(con, TD), _rows(con, OD)
+>       with pytest.raises(BridgeRefused):
+E       Failed: DID NOT RAISE <class 'market_feature_store.sync.bridge_hithink_stock_daily.BridgeRefused'>
+
+../execute/probe.py:62: Failed
+_____________________ test_truthy_non_boolean_refuses[yes] _____________________
+
+con = <_duckdb.DuckDBPyConnection object at 0x108fdc0f0>, truthy = 'yes'
+
+    @pytest.mark.parametrize("truthy", [1, "yes", [True]])
+    def test_truthy_non_boolean_refuses(con, truthy):
+        policy = BridgePolicy().as_dict()
+        policy["allow_replace_existing"] = truthy
+        before_t, before_o = _rows(con, TD), _rows(con, OD)
+>       with pytest.raises(BridgeRefused):
+E       Failed: DID NOT RAISE <class 'market_feature_store.sync.bridge_hithink_stock_daily.BridgeRefused'>
+
+../execute/probe.py:62: Failed
+___________________ test_truthy_non_boolean_refuses[truthy2] ___________________
+
+con = <_duckdb.DuckDBPyConnection object at 0x10e94fcf0>, truthy = [True]
+
+    @pytest.mark.parametrize("truthy", [1, "yes", [True]])
+    def test_truthy_non_boolean_refuses(con, truthy):
+        policy = BridgePolicy().as_dict()
+        policy["allow_replace_existing"] = truthy
+        before_t, before_o = _rows(con, TD), _rows(con, OD)
+>       with pytest.raises(BridgeRefused):
+E       Failed: DID NOT RAISE <class 'market_feature_store.sync.bridge_hithink_stock_daily.BridgeRefused'>
+
+../execute/probe.py:62: Failed
+_____________________ test_plan_without_policy_key_refuses _____________________
+
+con = <_duckdb.DuckDBPyConnection object at 0x10ad2e0b0>
+
+    def test_plan_without_policy_key_refuses(con):
+        before_t = _rows(con, TD)
+>       with pytest.raises(BridgeRefused):
+E       Failed: DID NOT RAISE <class 'market_feature_store.sync.bridge_hithink_stock_daily.BridgeRefused'>
+
+../execute/probe.py:70: Failed
+____ test_literal_true_replaces_other_days_untouched_second_default_refuses ____
+
+con = <_duckdb.DuckDBPyConnection object at 0x10e94bcb0>
+
+    def test_literal_true_replaces_other_days_untouched_second_default_refuses(con):
+        policy = BridgePolicy().as_dict()
+        policy["allow_replace_existing"] = True
+        rep = apply_bridge_day(con, _plan(policy, [_row(TD, "600000.SH", 21.0),
+                                                   _row(TD, "600519.SH", 1800.0)]))
+        assert rep["deleted_replaced"] == 1
+        assert rep["written_rows"] == 2 and rep["final_rows"] == 2
+        assert rep["other_days_unchanged"] is True
+        assert _rows(con, TD) == [("600000.SH", 21.0), ("600519.SH", 1800.0)]
+        assert _rows(con, OD) == [("000001.SZ", 10.0)]
+        # second application of a stale default plan must refuse, data stays as written
+>       with pytest.raises(BridgeRefused):
+E       Failed: DID NOT RAISE <class 'market_feature_store.sync.bridge_hithink_stock_daily.BridgeRefused'>
+
+../execute/probe.py:87: Failed
+- generated xml file: /Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/glm-50330cf/mutations/F3-before-apply-guard/execute/probe.xml -
+=========================== short test summary info ============================
+FAILED ../execute/probe.py::test_stale_default_plan_refuses_and_preserves_rows
+FAILED ../execute/probe.py::test_truthy_non_boolean_refuses[1] - Failed: DID ...
+FAILED ../execute/probe.py::test_truthy_non_boolean_refuses[yes] - Failed: DI...
+FAILED ../execute/probe.py::test_truthy_non_boolean_refuses[truthy2] - Failed...
+FAILED ../execute/probe.py::test_plan_without_policy_key_refuses - Failed: DI...
+FAILED ../execute/probe.py::test_literal_true_replaces_other_days_untouched_second_default_refuses
+6 failed in 1.70s

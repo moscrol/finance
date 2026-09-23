@@ -1,0 +1,40 @@
+"""Run unfiltered full Python gate on this clean preview; never certify another revision."""
+import os
+from pathlib import Path
+import subprocess
+
+import run
+
+os.umask(0o022)
+out = run.make_out('full-gate')
+before = run.identity()
+assert before == {'revision': run.REV, 'status': '', 'main': run.BASE}, before
+env = {'HOME': '/Users/a77', 'PATH': '/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin',
+       'LANG': 'C.UTF-8', 'KNOWLEDGE_WIKI': '/Users/a77/knowledge-base-private/wiki',
+       'FWP_TEST_RECEIPT_DIR': str(out), 'PYTHONDONTWRITEBYTECODE': '1'}
+record = {'complete': False, 'before': before, 'driver_sha256': run.sha(Path(__file__)),
+          'controller_sha256': run.sha(run.ROOT / 'run.py'), 'full_repo': True,
+          'target': '', 'timeout_seconds': 7200}
+run.save(out / 'execution.json', record)
+args = f'-q -p no:cacheprovider --junitxml={out / "pytest.xml"} --durations=20'
+record.update(run.bounded(['bash', 'scripts/run_main_gate.sh', '--pytest-args', args],
+                          out, env, 7200, 'gate'))
+record.update(complete=True, after=run.identity())
+receipts = list(out.glob('gate-*/pytest.json'))
+if len(receipts) == 1:
+    record['receipt'] = str(receipts[0])
+    record['receipt_check'] = run.bounded([
+        run.PY, 'scripts/check_test_receipt.py', str(receipts[0]),
+        '--expect-revision', run.REV, '--base-drift-max', '0', '--require-full-scope',
+    ], out, env, 120, 'receipt-check')
+    import json
+    receipt = json.loads(receipts[0].read_text())
+    record['receipt_target_matches_repo_root'] = Path(receipt['target']).resolve() == run.TREE.resolve()
+    record['counts'] = receipt.get('counts')
+record['remote_main_at_end'] = subprocess.check_output(
+    ['git', '-C', str(run.TREE), 'ls-remote', 'gitea', 'refs/heads/main'], text=True).split()[0]
+record['base_unchanged_at_remote'] = record['remote_main_at_end'] == run.BASE
+record['driver_unchanged'] = record['driver_sha256'] == run.sha(Path(__file__))
+record['controller_unchanged'] = record['controller_sha256'] == run.sha(run.ROOT / 'run.py')
+run.save(out / 'execution.json', record)
+print(record, flush=True)

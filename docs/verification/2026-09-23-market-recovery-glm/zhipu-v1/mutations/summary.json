@@ -1,0 +1,44 @@
+{
+  "F2-before-member-guard": {
+    "revision": "790459f80323c1d38807e43ab0736971442161e7",
+    "counts": {
+      "tests": 16,
+      "failures": 13,
+      "errors": 0,
+      "skipped": 0,
+      "passed": 3
+    },
+    "checkout_removed": true,
+    "behavior_failures": 13,
+    "api_shape_failures": 0,
+    "other_failures": 0
+  },
+  "F2-before-close-guard": {
+    "revision": "f6e63d66ff494b04dfa7b58a4fbc669afbd26539",
+    "counts": {
+      "tests": 16,
+      "failures": 12,
+      "errors": 0,
+      "skipped": 0,
+      "passed": 4
+    },
+    "checkout_removed": true,
+    "behavior_failures": 12,
+    "api_shape_failures": 0,
+    "other_failures": 0
+  },
+  "F3-before-apply-guard": {
+    "revision": "70f1628caabba55aa3fb52c59307e77760058037",
+    "counts": {
+      "tests": 6,
+      "failures": 6,
+      "errors": 0,
+      "skipped": 0,
+      "passed": 0
+    },
+    "checkout_removed": true,
+    "behavior_failures": 6,
+    "api_shape_failures": 0,
+    "other_failures": 0
+  }
+}

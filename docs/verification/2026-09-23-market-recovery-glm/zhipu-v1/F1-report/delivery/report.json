@@ -1,0 +1,125 @@
+{
+  "claim_id": "F1",
+  "claim": "Local plan orders hithink-stock-daily before canonical stock-daily, then derived consumers. Canonical sync attempts snapshot, member fallback, then hithink bridge only when canonical day remains empty. Exhausted stock dependency retries block downstream and release. Attempt records remain available. No live network or subprocess allowed in probe: monkeypatch all side effects.",
+  "revision": "50330cf4fa435292bbd555ccc817e62ca5cc45b4",
+  "composition_base": "b59d6eed0356ae093b52bd291ab328628de8790e",
+  "verdict": "PASS_WITH_LIMITS",
+  "verdict_rationale": "All four F1 components were probed and passed at the orchestration-logic level with all side effects monkeypatched (per the claim's own probe constraint). Limits remain: runlog attempt rendering, release-gate internals, real CLI subprocess behavior, and hithink skip paths were not exercised; attempt records verified only up to the write_runlog call boundary.",
+  "verified_subclaims": [
+    "Local plan orders hithink-stock-daily before canonical stock-daily (build_local_plan structure, names only, lambdas not invoked)",
+    "Derived consumers stitch-sector-stocks, sector-daily-local, limit-stats-local, market-overview-local, features are ordered after canonical stock-daily in the local plan",
+    "Canonical stock-daily attempts snapshot first, then member fallback (fill-stock-daily-fallback), then hithink bridge (bridge-stock-daily)",
+    "Bridge runs only when the canonical day remains empty (rows==0 after fallback); adversarial case where fallback fills rows shows bridge correctly skipped",
+    "Snapshot success with rows>0 short-circuits the chain (exactly one attempt, ok)",
+    "Exhausted stock-daily retries (plan=local, --retry-rounds 2) block all downstream steps and the release path: rc==1, downstream spy 0, release spy 0",
+    "Blocked path records failure via write_runlog with gate_ok=False and notifies before stopping",
+    "Attempt records from original run and exhausted retries are merged and remain available as data handed to write_runlog (attempts labels ['orig','r1','r2'])"
+  ],
+  "not_verified_subclaims": [
+    "Runlog file rendering/persistence of the attempts rows (write_runlog stubbed; only its received arguments asserted)",
+    "run_release_steps gate semantics on the pass path (only its non-invocation on the blocked path tested)",
+    "Real CLI argv correctness and actual subprocess behavior of each step (run_step mocked; no subprocess spawned by design)",
+    "Hithink no-key skip contract and the skip-washing retry guard (has_api_key path, L388-394 and L588-590) — not exercised",
+    "Registry consistency of plan_step_names against consumption_registry.yaml (registry stubbed)",
+    "Behavior when the fallback step fails but canonical rows>0 (reasoned from L337-338, not probed)",
+    "Attempt retention through the end-of-run compensation retry loop (L607-616) — only the critical in-place retry path probed",
+    "full/cheap plan ordering (outside F1 scope)"
+  ],
+  "findings": [
+    {
+      "file": "skills/daily-full-review/scripts/run_review_sync.py",
+      "line": "412-439 (build_local_plan; hithink[0] at 418, stock-daily at 419)",
+      "trigger": "probe test_local_plan_orders_hithink_then_stock_daily_then_consumers (plan built for 2026-09-23; lambdas never invoked)",
+      "actual": "PASSED: index('hithink-stock-daily') < index('stock-daily'); stitch-sector-stocks, sector-daily-local, limit-stats-local, market-overview-local, features all after stock-daily"
+    },
+    {
+      "file": "skills/daily-full-review/scripts/run_review_sync.py",
+      "line": "314-320 (sync_stock_daily snapshot short-circuit)",
+      "trigger": "probe test_snapshot_success_short_circuits_control (run_step mocked ok, _count fact_stock_daily=5000)",
+      "actual": "PASSED: status ok; calls == ['stock-daily (snapshot)']; no fallback, no bridge; attempts list matches calls"
+    },
+    {
+      "file": "skills/daily-full-review/scripts/run_review_sync.py",
+      "line": "310-336 (snapshot -> fill-stock-daily-fallback -> bridge-stock-daily)",
+      "trigger": "probe test_bridge_runs_only_when_canonical_day_empty (_count sequence 0 -> 0 -> 700)",
+      "actual": "PASSED: calls == ['stock-daily (snapshot)', 'stock-daily fallback', 'bridge-stock-daily']; attempts in order; final status ok with canonical rows=700"
+    },
+    {
+      "file": "skills/daily-full-review/scripts/run_review_sync.py",
+      "line": "331-336 (bridge gated on rows==0)",
+      "trigger": "probe test_bridge_skipped_when_fallback_fills_rows_adversarial (_count sequence 0 -> 321, snapshot ok-status but zero rows)",
+      "actual": "PASSED (adversarial): bridge NOT invoked; calls == ['stock-daily (snapshot)', 'stock-daily fallback']; final status ok — greedy bridge implementation would have failed"
+    },
+    {
+      "file": "skills/daily-full-review/scripts/run_review_sync.py",
+      "line": "579-604 (main critical-step blocking; critical includes plan=local stock-daily at 581)",
+      "trigger": "probe test_exhausted_stock_daily_retries_block_downstream_and_release (main() with argv --date 2026-09-23 --plan local --skip-preflight --retry-rounds 2; failing stock-daily stub + downstream/release spies)",
+      "actual": "PASSED: rc==1; stock-daily fn invoked 3x (original + r1 + r2); downstream spy 0; release spy 0; write_runlog called with gate_ok=False"
+    },
+    {
+      "file": "skills/daily-full-review/scripts/run_review_sync.py",
+      "line": "591-593 (attempt merge on retry) and 504-508 (runlog attempts rows)",
+      "trigger": "same blocking test — attempts aggregation across exhausted retries",
+      "actual": "PASSED with limit: merged attempts ['orig','r1','r2'] present in the results handed to write_runlog; write_runlog itself stubbed, so file rendering of attempts not verified"
+    },
+    {
+      "file": "F1-execute/positive_control.py",
+      "line": "2 (assert 1 == 2, 'intentional positive control: probe_bug')",
+      "trigger": "sandboxed pytest run of positive_control.py",
+      "actual": "1 failed / exit_code 1 as designed; classified probe_bug (intentional red, validates failure detection; not a product bug)"
+    },
+    {
+      "file": "tests/test_review_sync_hithink_wiring.py",
+      "line": "whole file (author suite, executed independently in sandbox)",
+      "trigger": "sandboxed pytest run",
+      "actual": "28 passed, 0 failures, 0 errors, exit 0 (supporting evidence only; no author verdicts were provided)"
+    },
+    {
+      "file": "F1-explore/delivery/EXPLORE.md",
+      "line": "'Probe design (6 tests, ~120 lines)'",
+      "trigger": "cross-check of explore notes against delivered probe.py and execution.json",
+      "actual": "DISCREPANCY (documentation only): 5 test functions delivered and 5 executed; no impact on probe results or verdict"
+    }
+  ],
+  "independent_probe_counts": {
+    "file": "probe.py (sha256 8d86c437140984a4e0f1dc655266cd2abd1c40c7433c9ac449cb3786ae00561e, recorded unchanged in execution.json)",
+    "tests": 5,
+    "passed": 5,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "exit_code": 0,
+    "deadline_hit": false,
+    "elapsed_seconds": 0.515,
+    "sandbox": "sandbox-exec with tools.sb; production access denied by OS sandbox",
+    "side_effects": "market_feature_store stubbed in sys.modules pre-load; run_step/_count/_notify/run_release_steps/write_runlog monkeypatched; no live network, subprocess, or real DB"
+  },
+  "author_test_counts": {
+    "file": "tests/test_review_sync_hithink_wiring.py",
+    "tests": 28,
+    "passed": 28,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "exit_code": 0,
+    "elapsed_seconds": 1.98,
+    "deadline_hit": false,
+    "note": "no author verdict provided; green run treated as supporting evidence only"
+  },
+  "positive_control": {
+    "file": "F1-execute/positive_control.py",
+    "test": "test_intentional_red_probe_bug",
+    "result": "1 failed, exit_code 1 (assert 1 == 2)",
+    "classification": "probe_bug",
+    "rationale": "intentional red assertion embedded in the probe harness; its failure demonstrates the pipeline detects failing tests; not a defect in the candidate source"
+  },
+  "limitations": [
+    "All step execution verified through monkeypatched seams (run_step, _count, build_plan, _notify, run_release_steps, write_runlog); no subprocess, network, or real DB touched, per the claim's probe constraint",
+    "Attempt-record availability verified only up to the write_runlog call boundary; runlog file rendering (L504-508) not exercised",
+    "Release blocking verified only by non-invocation; run_release_steps gate internals untested",
+    "Single seeded date (2026-09-23) and only the columns asserted by the probe (label, status, code, elapsed, attempts labels); no inference drawn about unseen parameter cases, byte preservation, or concurrency",
+    "Hithink skip contract, registry consistency, full/cheap plan ordering, and fallback-fails-but-rows>0 behavior not probed (reasoned from code where noted)",
+    "EXPLORE.md claims 6 tests but 5 were delivered/executed; documentation drift only",
+    "Certification covers only the fixed candidate revision 50330cf... and the single reviewed file; main has advanced (f47d464... recorded in execution.json); no merge admission, full-repo acceptance, or production acceptance implied"
+  ]
+}

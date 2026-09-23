@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="6" skipped="0" tests="6" time="3.343" timestamp="2026-09-23T19:16:10.288602+08:00" hostname="77deMacBook-Air.local"><testcase classname="execute.probe" name="test_stale_default_plan_refuses_full_rows" time="1.849"><failure message="Failed: DID NOT RAISE &lt;class 'market_feature_store.sync.bridge_hithink_stock_daily.BridgeRefused'&gt;">con = &lt;_duckdb.DuckDBPyConnection object at 0x10688d8f0&gt;
+
+    def test_stale_default_plan_refuses_full_rows(con):
+&gt;       _refused_unchanged(con, _plan(BridgePolicy().as_dict(),
+                                      [_row(TD, "600000.SH", 21.0)]))
+
+../execute/probe.py:58: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+c = &lt;_duckdb.DuckDBPyConnection object at 0x10688d8f0&gt;
+plan = {'policy': {'allow_replace_existing': False, 'max_universe_drift': 0.03, 'min_coverage': 0.99, 'nontrading': 'absent_f...ominator', ...}, 'rows': [['2026-09-22', '600000.SH', 'N600000.SH', 21.0, 21.0, 0.5, ...]], 'trade_date': '2026-09-22'}
+
+    def _refused_unchanged(c, plan):
+        snap_t, snap_o = _snap(c, TD), _snap(c, OD)
+&gt;       with pytest.raises(BridgeRefused):
+E       Failed: DID NOT RAISE &lt;class 'market_feature_store.sync.bridge_hithink_stock_daily.BridgeRefused'&gt;
+
+../execute/probe.py:51: Failed</failure></testcase><testcase classname="execute.probe" name="test_truthy_non_boolean_refuses_full_rows[1]" time="0.195"><failure message="Failed: DID NOT RAISE &lt;class 'market_feature_store.sync.bridge_hithink_stock_daily.BridgeRefused'&gt;">con = &lt;_duckdb.DuckDBPyConnection object at 0x106ae2f70&gt;, truthy = 1
+
+    @pytest.mark.parametrize("truthy", [1, "yes", [True]])
+    def test_truthy_non_boolean_refuses_full_rows(con, truthy):
+        policy = BridgePolicy().as_dict()
+        policy["allow_replace_existing"] = truthy
+&gt;       _refused_unchanged(con, _plan(policy, [_row(TD, "600000.SH", 21.0)]))
+
+../execute/probe.py:66: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+c = &lt;_duckdb.DuckDBPyConnection object at 0x106ae2f70&gt;
+plan = {'policy': {'allow_replace_existing': 1, 'max_universe_drift': 0.03, 'min_coverage': 0.99, 'nontrading': 'absent_from_...ominator', ...}, 'rows': [['2026-09-22', '600000.SH', 'N600000.SH', 21.0, 21.0, 0.5, ...]], 'trade_date': '2026-09-22'}
+
+    def _refused_unchanged(c, plan):
+        snap_t, snap_o = _snap(c, TD), _snap(c, OD)
+&gt;       with pytest.raises(BridgeRefused):
+E       Failed: DID NOT RAISE &lt;class 'market_feature_store.sync.bridge_hithink_stock_daily.BridgeRefused'&gt;
+
+../execute/probe.py:51: Failed</failure></testcase><testcase classname="execute.probe" name="test_truthy_non_boolean_refuses_full_rows[yes]" time="0.150"><failure message="Failed: DID NOT RAISE &lt;class 'market_feature_store.sync.bridge_hithink_stock_daily.BridgeRefused'&gt;">con = &lt;_duckdb.DuckDBPyConnection object at 0x10c25d9f0&gt;, truthy = 'yes'
+
+    @pytest.mark.parametrize("truthy", [1, "yes", [True]])
+    def test_truthy_non_boolean_refuses_full_rows(con, truthy):
+        policy = BridgePolicy().as_dict()
+        policy["allow_replace_existing"] = truthy
+&gt;       _refused_unchanged(con, _plan(policy, [_row(TD, "600000.SH", 21.0)]))
+
+../execute/probe.py:66: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+c = &lt;_duckdb.DuckDBPyConnection object at 0x10c25d9f0&gt;
+plan = {'policy': {'allow_replace_existing': 'yes', 'max_universe_drift': 0.03, 'min_coverage': 0.99, 'nontrading': 'absent_f...ominator', ...}, 'rows': [['2026-09-22', '600000.SH', 'N600000.SH', 21.0, 21.0, 0.5, ...]], 'trade_date': '2026-09-22'}
+
+    def _refused_unchanged(c, plan):
+        snap_t, snap_o = _snap(c, TD), _snap(c, OD)
+&gt;       with pytest.raises(BridgeRefused):
+E       Failed: DID NOT RAISE &lt;class 'market_feature_store.sync.bridge_hithink_stock_daily.BridgeRefused'&gt;
+
+../execute/probe.py:51: Failed</failure></testcase><testcase classname="execute.probe" name="test_truthy_non_boolean_refuses_full_rows[truthy2]" time="0.478"><failure message="Failed: DID NOT RAISE &lt;class 'market_feature_store.sync.bridge_hithink_stock_daily.BridgeRefused'&gt;">con = &lt;_duckdb.DuckDBPyConnection object at 0x10c67bb30&gt;, truthy = [True]
+
+    @pytest.mark.parametrize("truthy", [1, "yes", [True]])
+    def test_truthy_non_boolean_refuses_full_rows(con, truthy):
+        policy = BridgePolicy().as_dict()
+        policy["allow_replace_existing"] = truthy
+&gt;       _refused_unchanged(con, _plan(policy, [_row(TD, "600000.SH", 21.0)]))
+
+../execute/probe.py:66: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+c = &lt;_duckdb.DuckDBPyConnection object at 0x10c67bb30&gt;
+plan = {'policy': {'allow_replace_existing': [True], 'max_universe_drift': 0.03, 'min_coverage': 0.99, 'nontrading': 'absent_...ominator', ...}, 'rows': [['2026-09-22', '600000.SH', 'N600000.SH', 21.0, 21.0, 0.5, ...]], 'trade_date': '2026-09-22'}
+
+    def _refused_unchanged(c, plan):
+        snap_t, snap_o = _snap(c, TD), _snap(c, OD)
+&gt;       with pytest.raises(BridgeRefused):
+E       Failed: DID NOT RAISE &lt;class 'market_feature_store.sync.bridge_hithink_stock_daily.BridgeRefused'&gt;
+
+../execute/probe.py:51: Failed</failure></testcase><testcase classname="execute.probe" name="test_plan_without_policy_key_refuses_full_rows" time="0.119"><failure message="Failed: DID NOT RAISE &lt;class 'market_feature_store.sync.bridge_hithink_stock_daily.BridgeRefused'&gt;">con = &lt;_duckdb.DuckDBPyConnection object at 0x10c637bb0&gt;
+
+    def test_plan_without_policy_key_refuses_full_rows(con):
+&gt;       _refused_unchanged(con, {"trade_date": TD, "rows": [_row(TD, "600000.SH", 21.0)]})
+
+../execute/probe.py:70: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+c = &lt;_duckdb.DuckDBPyConnection object at 0x10c637bb0&gt;
+plan = {'rows': [['2026-09-22', '600000.SH', 'N600000.SH', 21.0, 21.0, 0.5, ...]], 'trade_date': '2026-09-22'}
+
+    def _refused_unchanged(c, plan):
+        snap_t, snap_o = _snap(c, TD), _snap(c, OD)
+&gt;       with pytest.raises(BridgeRefused):
+E       Failed: DID NOT RAISE &lt;class 'market_feature_store.sync.bridge_hithink_stock_daily.BridgeRefused'&gt;
+
+../execute/probe.py:51: Failed</failure></testcase><testcase classname="execute.probe" name="test_literal_true_replaces_then_stale_default_refuses" time="0.109"><failure message="Failed: DID NOT RAISE &lt;class 'market_feature_store.sync.bridge_hithink_stock_daily.BridgeRefused'&gt;">con = &lt;_duckdb.DuckDBPyConnection object at 0x10c636170&gt;
+
+    def test_literal_true_replaces_then_stale_default_refuses(con):
+        snap_o = _snap(con, OD)
+        policy = BridgePolicy().as_dict()
+        policy["allow_replace_existing"] = True
+        rep = apply_bridge_day(con, _plan(policy, [_row(TD, "600000.SH", 21.0),
+                                                   _row(TD, "600519.SH", 1800.0)]))
+        assert rep["deleted_replaced"] == 1
+        assert rep["written_rows"] == 2 and rep["final_rows"] == 2
+        assert rep["other_days_unchanged"] is True
+        written = _snap(con, TD)
+        assert [r[1] for r in written] == ["600000.SH", "600519.SH"]
+        assert [r[3] for r in written] == [21.0, 1800.0]
+        assert _snap(con, OD) == snap_o
+        # second application of a stale default plan must refuse; written rows persist
+&gt;       with pytest.raises(BridgeRefused):
+E       Failed: DID NOT RAISE &lt;class 'market_feature_store.sync.bridge_hithink_stock_daily.BridgeRefused'&gt;
+
+../execute/probe.py:87: Failed</failure></testcase></testsuite></testsuites>

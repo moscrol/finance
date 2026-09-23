@@ -1,0 +1,5 @@
+Traceback (most recent call last):
+  File "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/glm-79089b0/full-gate.py", line 11, in <module>
+    assert before == {'revision': run.REV, 'status': '', 'main': run.BASE}, before
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: {'revision': '79089b0c620106768b0d40239c32e55175cb46f5', 'status': '', 'main': 'b59d6eed0356ae093b52bd291ab328628de8790e'}

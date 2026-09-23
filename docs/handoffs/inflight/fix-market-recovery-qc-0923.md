@@ -1,32 +1,35 @@
-# 行情恢复 QC 修复
+# 行情恢复 QC 在途
 
 ## 这个分支做什么
-修 #861/#871 的 F1 接线、F2 假覆盖/坏价、F3 过期覆盖。最新快照：`docs/handoffs/2026-09-23-market-recovery-continuation.md`。
-
-## 当前状态
-整体 HOLD。main 2edbe4c46 + 修复枝f3c99ab5b重组为257263f63，全仓绿；F1 report、F2补强explore仍被504阻塞，新探针/报告0。业务仍为4fa70046f、981c4d629、3abb7a4d3，本轮无业务代码改动。未合并/推送/部署/staging/换库/写生产。所有本轮进程退出；干净candidate保留。
+修复并独立验证 #871/#861 的 F1/F2/F3；当前整体 HOLD，不是生产恢复批准。
 
 ## 决策与被否方案
-- 最新main重组跑全仓，否定tests/或旧全仓收据移签：身份与范围必须同时匹配。
-- 原探针逐字节复跑，否定复跑=新独审裁决；旧F2/F3报告仍属4dd5。
-- 504后停止开会话，否定自动重试/换模型；Pi exit0不是交付。
-- 另建五个单文件历史回退版本，否定必红断言=回归敏感度；旧API的3个TypeError不算行为覆盖。
+| 选了什么 | 否了什么 / 原因 |
+|---|---|
+| 按较新授权改 GLM，复用智谱直连 | 不再等 K3；Pi 本地端口失败不等于所有 GLM 路线不可用 |
+| 固定候选独审，主线漂移另账 | 不将旧报告或收据移签最新 main |
+| 原 F3 报告保留，另出澄清版 | 不直接改 reviewer 原文；模拟/静态/动态证据强度不同 |
+| 全仓红保持红 | 隔离 1P 不能覆盖完整 1F |
+展开：`docs/handoffs/2026-09-23-market-recovery-glm.md`。
+
+## 当前状态
+业务修复已提交于 4fa70046f/981c4d629/3abb7a4d3；本轮只增证据和交接。
+候选 `50330cf4f`，基座 `b59d6eed0`，ref `refs/verification/market-recovery-glm-b59-20260923`。
+三项 GLM 报告已交付且均 PASS_WITH_LIMITS；F3 选澄清版。全仓 1F，零漂移检查也拒绝；收尾观察 main 已到 `e926157d9`。
+本轮进程全部结束，候选和 refs 保留。无合并、推送、部署或生产写入。
 
 ## 已验证
-- 组合257263f63，treedd731224；结束后fetch，main仍2edbe4c46，零漂移复核通过。
-- 全仓14874P/85S/2XFAIL，收集14961对账，0F/0E；2385.43秒。require-full-scope、revision、解释器、依赖、干净检查通过。target为候选仓根，非tests/。
-- 原独立探针20P（F1 5/F2 9/F3 6）；作者相关131P分账；3次必红对照均1F。
-- 5个历史回退版本均有行为失败：20次行为失败、3次API不兼容、0收集错误。是重复运行，不是新增独立用例。临时树已清，验证refs保留。
-- Ruff、注册表/解析、交付门5自测通过；无webapp改动，前端/E2E未跑。
+最终报告对应探针 5/16/6P（F1 重用），作者 28/75/28P；新探针历史回退检出 31 个行为失败，零 API/收集错误。旧探针 20P 与旧回退独立列账。
+完整 Python 14874P/1F/85S/2X，14962 collected；解释器/依赖/干净树/完整范围对账通过。Ruff、注册表、接入及交付门自测通过。390 个机器归档文件、417 个原件哈希已复核。
+证据：`docs/verification/2026-09-23-market-recovery-glm/README.md`。
 
 ## 未验证 / 已知边界
-F1无正式报告；F2/F3旧PASS_WITH_LIMITS不移签。F2未补-inf/成员坏close/其他日期独立覆盖；F3未补全列/缺policy其他日期覆盖；并发、完整指纹、部分写后回滚未认证。五问/三合同/5553-5565范围/53只公司行动未裁决。真实nightly、恢复CLI及生产验收未做。
+全仓失败：`intelligence/tests/test_finance_query.py::test_timeout_interrupts_connection`，约 1.105s 超过 0.5s；单次隔离 1P，原因未证。
+F1 无真实子进程/日志落盘；F2 只证最终 SQL 行，不证无中间写；F3 无双连接并发、完整输入指纹或部分写后回滚。无 frontend/E2E、真实 nightly、恢复 CLI、staging 或换库验收。
+五问 (a)-(e)、三合同、5553/5565 和 53 只公司行动处置仍待确认。
 
 ## 下一步
-1. 通道恢复后有界补F1 report和F2/F3缺口，不覆盖旧失败目录。
-2. 用户裁决业务口径；不要把「继续」当签字或生产授权。
-3. main/实现再变则重新判定收据适用性；获授权前不合并/推送/部署/写库。
+先分诊耗时断言；需准入时重新组合当时最新 main 并跑完整门禁，不能移签本轮。业务拍板题见 `2026-09-22-market-recovery-decision-page.md`，未确认不进入生产。
 
 ## 踩过的坑
-3请求只有1条HTTP200钩子记录，另2条504只在model_errors；两次Pi exit0均无交付。全仓target可为仓根，不要求空字符串。历史回退红与当前候选失败必须分账。
-证据：`docs/verification/2026-09-23-market-recovery-continuation/`；运行根 `~/.finance-runtime/reviews/market-recovery-qc-20260923/continuation-257263f/`；引用 `refs/verification/market-recovery-continuation-20260923`。
+现有智谱路线见项目记忆 Runtime 必读段；Keychain 凭据只读内存，勿复制。Pi 简写配置与扩展注册对象不是同一合同。F3 最终报告是 `zhipu-v1/F3-report-clarified/`，不是原报告。旧 pytest-1830 收尾已不存在，删除者未证，别记作本轮主动清理。

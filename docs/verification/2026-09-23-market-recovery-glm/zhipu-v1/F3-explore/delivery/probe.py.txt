@@ -1,0 +1,90 @@
+"""F3 explore probe — apply_bridge_day in-transaction recheck of existing target-day rows.
+
+Fresh in-memory DuckDB per test. Full 14-column SELECT * snapshots compared for the
+target day (TD=2026-09-22) and the seeded other day (OD=2026-09-21) on every refusal.
+Single connection only: no concurrency is proven here. Never imports author tests.
+"""
+from __future__ import annotations
+
+import duckdb
+import pytest
+
+from market_feature_store import db
+from market_feature_store.sync.bridge_hithink_stock_daily import (
+    BridgePolicy,
+    BridgeRefused,
+    apply_bridge_day,
+)
+
+TD, OD = "2026-09-22", "2026-09-21"
+COLS = ("trade_date, stock_ts_code, stock_name, close, pre_close, pct_chg, amount,"
+        " turnover, source, updated_at, open, high, low, volume")
+INS = f"INSERT INTO fact_stock_daily ({COLS}) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+
+
+def _row(td, code, close):
+    return [td, code, "N" + code, close, close, 0.5, 1000.0, None,
+            "hithink:daily-k", "2026-09-22 18:00:00", close, close, close, 10.0]
+
+
+def _plan(policy, rows):
+    return {"trade_date": TD, "rows": rows, "policy": policy}
+
+
+def _snap(c, td):
+    return c.execute("SELECT * FROM fact_stock_daily WHERE trade_date = ?"
+                     " ORDER BY stock_ts_code", [td]).fetchall()
+
+
+@pytest.fixture()
+def con():
+    c = duckdb.connect(":memory:")
+    db.init_db(c)
+    c.execute(INS, _row(OD, "000001.SZ", 10.0))
+    c.execute(INS, _row(TD, "600000.SH", 20.0))
+    yield c
+    c.close()
+
+
+def _refused_unchanged(c, plan):
+    snap_t, snap_o = _snap(c, TD), _snap(c, OD)
+    with pytest.raises(BridgeRefused):
+        apply_bridge_day(c, plan)
+    assert _snap(c, TD) == snap_t
+    assert _snap(c, OD) == snap_o
+
+
+def test_stale_default_plan_refuses_full_rows(con):
+    _refused_unchanged(con, _plan(BridgePolicy().as_dict(),
+                                  [_row(TD, "600000.SH", 21.0)]))
+
+
+@pytest.mark.parametrize("truthy", [1, "yes", [True]])
+def test_truthy_non_boolean_refuses_full_rows(con, truthy):
+    policy = BridgePolicy().as_dict()
+    policy["allow_replace_existing"] = truthy
+    _refused_unchanged(con, _plan(policy, [_row(TD, "600000.SH", 21.0)]))
+
+
+def test_plan_without_policy_key_refuses_full_rows(con):
+    _refused_unchanged(con, {"trade_date": TD, "rows": [_row(TD, "600000.SH", 21.0)]})
+
+
+def test_literal_true_replaces_then_stale_default_refuses(con):
+    snap_o = _snap(con, OD)
+    policy = BridgePolicy().as_dict()
+    policy["allow_replace_existing"] = True
+    rep = apply_bridge_day(con, _plan(policy, [_row(TD, "600000.SH", 21.0),
+                                               _row(TD, "600519.SH", 1800.0)]))
+    assert rep["deleted_replaced"] == 1
+    assert rep["written_rows"] == 2 and rep["final_rows"] == 2
+    assert rep["other_days_unchanged"] is True
+    written = _snap(con, TD)
+    assert [r[1] for r in written] == ["600000.SH", "600519.SH"]
+    assert [r[3] for r in written] == [21.0, 1800.0]
+    assert _snap(con, OD) == snap_o
+    # second application of a stale default plan must refuse; written rows persist
+    with pytest.raises(BridgeRefused):
+        apply_bridge_day(con, _plan(BridgePolicy().as_dict(),
+                                    [_row(TD, "600000.SH", 22.0)]))
+    assert _snap(con, TD) == written

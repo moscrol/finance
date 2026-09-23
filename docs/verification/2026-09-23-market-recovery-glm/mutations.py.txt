@@ -1,0 +1,90 @@
+"""Measure unchanged reviewer probes against one-file historical reversions, never the live candidate."""
+import json
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import xml.etree.ElementTree as ET
+
+import run
+
+ROOT, TREE, REV = run.ROOT, run.TREE, run.REV
+PREVIOUS = ROOT.parent / 'delivery-gate-4dd5e66'
+CASES = [
+    ('F1-before-wiring', 'F1', '4fa70046f^', 'skills/daily-full-review/scripts/run_review_sync.py'),
+    ('F1-before-attempt-history', 'F1', '981c4d629^', 'skills/daily-full-review/scripts/run_review_sync.py'),
+    ('F2-before-member-guard', 'F2', '4fa70046f^', 'market_feature_store/sync/compute_local_stats.py'),
+    ('F2-before-close-guard', 'F2', '3abb7a4d3^', 'market_feature_store/sync/compute_local_stats.py'),
+    ('F3-before-apply-guard', 'F3', '4fa70046f^', 'market_feature_store/sync/bridge_hithink_stock_daily.py'),
+]
+
+
+def git(*args, env=None):
+    return subprocess.check_output(['git', '-C', str(TREE), *args], env=env, text=True).strip()
+
+
+def main():
+    driver_sha = run.sha(Path(__file__))
+    root = ROOT / 'mutations'
+    root.mkdir(exist_ok=False)
+    results = {}
+    for name, claim, historical, source_path in CASES:
+        run.ROOT = root / name
+        run.ROOT.mkdir()
+        (run.ROOT / 'tmp').mkdir()
+        env_git = {**os.environ, 'GIT_INDEX_FILE': str(run.ROOT / 'tmp/index')}
+        historical_rev = git('rev-parse', historical)
+        blob = git('rev-parse', f'{historical_rev}:{source_path}')
+        git('read-tree', REV, env=env_git)
+        git('update-index', '--cacheinfo', f'100644,{blob},{source_path}', env=env_git)
+        tree = git('write-tree', env=env_git)
+        revision = git('commit-tree', tree, '-p', REV, '-m', f'QC historical reversion only: {name}')
+        changed = git('diff', '--name-only', REV, revision).splitlines()
+        assert changed == [source_path], changed
+        verification_ref = f'refs/verification/market-recovery-glm-sensitivity-20260923/{name}'
+        git('update-ref', verification_ref, revision)
+        run.TREE = run.ROOT / 'candidate'
+        run.REV = revision
+        git('worktree', 'add', '--detach', str(run.TREE), revision)
+        out = run.make_out('execute')
+        seed_name = 'F2R' if claim == 'F2' else claim
+        seed = PREVIOUS / f'{seed_name}-explore/delivery/probe.py'
+        manifest = json.loads((seed.parent / 'manifest.json').read_text())
+        assert run.sha(seed) == manifest['probe.py']
+        shutil.copy2(seed, out / 'probe.py')
+        run.sandbox_profile(out)
+        env = {**run.env_for(out), 'PYTEST_DISABLE_PLUGIN_AUTOLOAD': '1', 'PYTEST_ADDOPTS': ''}
+        record = {'kind': 'historical_reversion_sensitivity_not_new_reviewer_verdict', 'name': name,
+                  'claim': claim, 'corrected_revision': REV, 'mutation_revision': revision,
+                  'historical_source_revision': historical_rev, 'historical_blob': blob,
+                  'changed_paths': changed, 'verification_ref': verification_ref,
+                  'probe_source': str(seed), 'probe_sha256': run.sha(seed),
+                  'driver_sha256': driver_sha, 'controller_sha256': run.sha(ROOT / 'run.py'),
+                  'sandbox_sha256': run.sha(out / 'tools.sb'), 'before': run.identity(), 'complete': False}
+        run.save(run.ROOT / 'execution.json', record)
+        result = run.bounded([run.PY, '-B', '-m', 'pytest', '-q', '-o', 'addopts=', '-p', 'no:cacheprovider',
+                              '--confcutdir', str(out), str(out / 'probe.py'), f'--junitxml={out / "probe.xml"}'],
+                             out, env, 180, 'probe', True)
+        failures = [{'test': case.get('name'), 'outcome': child.tag, 'message': child.get('message'), 'text': child.text}
+                    for case in ET.parse(out / 'probe.xml').iter('testcase')
+                    for child in case if child.tag in {'failure', 'error'}]
+        record.update(result, counts=run.counts(out / 'probe.xml'), failures=failures,
+                      after=run.identity(), complete=True, probe_unchanged=run.sha(out / 'probe.py') == run.sha(seed))
+        record['driver_unchanged'] = driver_sha == run.sha(Path(__file__))
+        record['behavior_failures'] = sum(f['message'].startswith(('AssertionError', 'assert ', 'Failed: DID NOT RAISE')) for f in failures)
+        record['api_shape_failures'] = sum(f['message'].startswith('TypeError') for f in failures)
+        record['other_failures'] = len(failures) - record['behavior_failures'] - record['api_shape_failures']
+        run.save(run.ROOT / 'execution.json', record)
+        assert record['counts']['errors'] == 0 and result['exit_code'] == 1, record
+        assert record['before'] == record['after'] and record['probe_unchanged'] and record['driver_unchanged']
+        git('worktree', 'remove', str(run.TREE))
+        results[name] = {'revision': revision, 'counts': record['counts'], 'checkout_removed': True,
+                         'behavior_failures': record['behavior_failures'], 'api_shape_failures': record['api_shape_failures'],
+                         'other_failures': record['other_failures']}
+        print(name, results[name], flush=True)
+    run.save(root / 'summary.json', results)
+    assert git('rev-parse', 'HEAD') == REV and not git('status', '--porcelain')
+
+
+if __name__ == '__main__':
+    main()

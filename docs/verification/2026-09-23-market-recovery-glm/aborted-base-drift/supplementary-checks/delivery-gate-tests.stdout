@@ -1,0 +1,13 @@
+✔ one read, one atomic terminating delivery (16.206041ms)
+✔ reading cannot be extended after budget exhaustion (1.875666ms)
+✔ cannot submit before reading (0.843042ms)
+✔ empty, oversized and unexpected fields refuse without output (1.083292ms)
+✔ report requires valid structured verdict (4.058416ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 271.575125

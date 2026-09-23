@@ -1,0 +1,66 @@
+{
+  "claim": "F2",
+  "stage": "explore",
+  "before": {
+    "revision": "50330cf4fa435292bbd555ccc817e62ca5cc45b4",
+    "status": "",
+    "main": "b59d6eed0356ae093b52bd291ab328628de8790e"
+  },
+  "started_at": "2026-09-23T10:28:38.943483+00:00",
+  "inputs_sha256": {
+    "run.py": "d8e5a78b79143ac0cd0a664065414bb76016af24c444471147e30a1dcbf6e668",
+    "review.py": "841b822823a9be185ef98fa171184385711287eb740c7687b8309beca867e31c",
+    "delivery-gate.mjs": "637dcda9ebfbfbc831816d15016fcd197723aa7b79ac75f11387db193da17b5b",
+    "credential-bootstrap.mjs": "3ba65b8bc116e0f9df833bc626675d8660700ef73171f55a1e9d304f415a4941",
+    "provider-template.json": "a8cc7e90c8f7e85890bd00fbd52380f42db350ed1c5236a27f078df81ccd00a8",
+    "pi-config/settings.json": "179a8e23430a882ed27af93a2fa9a7d5ab4c60ff3a7b755ee5bbec1c9b750b15"
+  },
+  "packet_sha256": "80c7c5851cd50d394fe012c8822c58417d8fe2b8255309f7704fea27456197e6",
+  "complete": true,
+  "exit_code": 0,
+  "deadline_hit": false,
+  "elapsed_seconds": 2.62,
+  "command": [
+    "/opt/homebrew/bin/pi",
+    "--provider",
+    "fomo",
+    "--model",
+    "glm-5.3",
+    "--thinking",
+    "off",
+    "--models",
+    "fomo/glm-5.3",
+    "--no-session",
+    "--no-extensions",
+    "-e",
+    "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/glm-50330cf/adapter-v2/credential-bootstrap.mjs",
+    "-e",
+    "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/glm-50330cf/adapter-v2/delivery-gate.mjs",
+    "--no-skills",
+    "--no-prompt-templates",
+    "--no-context-files",
+    "--no-themes",
+    "--no-approve",
+    "--offline",
+    "--no-builtin-tools",
+    "--mode",
+    "json",
+    "-p",
+    "--",
+    "<prompt.md>"
+  ],
+  "after": {
+    "revision": "50330cf4fa435292bbd555ccc817e62ca5cc45b4",
+    "status": "",
+    "main": "b59d6eed0356ae093b52bd291ab328628de8790e"
+  },
+  "model_errors": [
+    "Connection error."
+  ],
+  "delivered": false,
+  "status": "BLOCKED_NO_DELIVERY",
+  "model_identities": [
+    "fomo/glm-5.3"
+  ],
+  "inputs_unchanged": true
+}

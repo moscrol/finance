@@ -1,0 +1,8 @@
+(version 1)
+(allow default)
+(deny network*)
+(deny file-write*)
+(allow file-write* (subpath "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/glm-50330cf/zhipu-v1/mutations/F2-before-close-guard/execute") (literal "/dev/null"))
+(deny file-read* (subpath "/Users/a77/.claude") (subpath "/Users/a77/.pi") (subpath "/Users/a77/.ssh") (subpath "/Users/a77/Library/Keychains") (subpath "/Users/a77/Library/Application Support/mirasim-sidecar") (subpath "/Users/a77/agent-memory") (subpath "/Users/a77/finance-workspace-private/db") (subpath "/Users/a77/.local/share/finance-workbench") (subpath "/Users/a77/fwp-wt-market-recovery-qc-fix-0923") (subpath "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/glm-50330cf/zhipu-v1/mutations/F2-before-close-guard/candidate/db") (subpath "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/glm-50330cf/zhipu-v1/mutations/F2-before-close-guard/candidate/intelligence/users") (subpath "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/glm-50330cf/zhipu-v1/mutations/F2-before-close-guard/candidate/.git") (subpath "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/glm-50330cf/zhipu-v1/mutations/independent-d3abd670") (subpath "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/glm-50330cf/zhipu-v1/mutations/independent-45e752c"))
+(deny file-read* (regex #"/docs/(handoffs|verification)/"))
+(allow file-read-metadata (literal "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/glm-50330cf/zhipu-v1/mutations/F2-before-close-guard/candidate/.git"))

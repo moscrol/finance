@@ -1,0 +1,10 @@
+{
+  "kind": "unchanged_independent_probe_replay_no_new_verdict",
+  "source_delivery": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/delivery-gate-4dd5e66/F3-explore/delivery",
+  "source_revision": "4dd5e66601084962697c5d78e9f6bb58eefc14c8",
+  "target_revision": "50330cf4fa435292bbd555ccc817e62ca5cc45b4",
+  "manifest": {
+    "EXPLORE.md": "bd9315636e7a195027188cc17ae8be3edbfd4d308758936966a9281b1c599126",
+    "probe.py": "24cd07a4e5ee62edc4f44d1e97c33e7651a84b86f0b78a4ccb9303c1d37d57c8"
+  }
+}

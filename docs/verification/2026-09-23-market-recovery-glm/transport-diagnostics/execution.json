@@ -1,0 +1,86 @@
+{
+  "revision": "50330cf4fa435292bbd555ccc817e62ca5cc45b4",
+  "base": "b59d6eed0356ae093b52bd291ab328628de8790e",
+  "before": {
+    "revision": "50330cf4fa435292bbd555ccc817e62ca5cc45b4",
+    "status": "",
+    "main": "b59d6eed0356ae093b52bd291ab328628de8790e"
+  },
+  "provider": "fomo",
+  "model": "glm-5.3",
+  "llm_retries": 0,
+  "gateway_restarted": false,
+  "production_writes": false,
+  "checks": {
+    "listener": {
+      "exit_code": 1,
+      "deadline_hit": false,
+      "elapsed_seconds": 0.143,
+      "command": [
+        "lsof",
+        "-nP",
+        "-iTCP:54340",
+        "-sTCP:LISTEN"
+      ]
+    },
+    "connection": {
+      "exit_code": 7,
+      "deadline_hit": false,
+      "elapsed_seconds": 0.049,
+      "command": [
+        "curl",
+        "--max-time",
+        "5",
+        "--silent",
+        "--show-error",
+        "--output",
+        "/dev/null",
+        "--write-out",
+        "http_status=%{http_code} connect_seconds=%{time_connect}\\n",
+        "http://127.0.0.1:54340/v1/models"
+      ]
+    },
+    "adapter-and-delivery-selftests": {
+      "exit_code": 0,
+      "deadline_hit": false,
+      "elapsed_seconds": 0.593,
+      "command": [
+        "node",
+        "--test",
+        "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/glm-50330cf/adapter-v2/credential-bootstrap.test.mjs",
+        "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/glm-50330cf/adapter-v2/delivery-gate.test.mjs"
+      ]
+    },
+    "frontend-diff": {
+      "exit_code": 0,
+      "deadline_hit": false,
+      "elapsed_seconds": 0.083,
+      "command": [
+        "git",
+        "diff",
+        "--name-only",
+        "b59d6eed0356ae093b52bd291ab328628de8790e",
+        "50330cf4fa435292bbd555ccc817e62ca5cc45b4",
+        "--",
+        "intelligence/webapp"
+      ]
+    }
+  },
+  "classification": {
+    "initial_adapter": "LOCAL_ADAPTER_SCHEMA_ERROR_BEFORE_DISPATCH",
+    "adapter_v2": "LOCAL_CONFIGURED_GLM_ENDPOINT_CONNECTION_REFUSED",
+    "formal_deliveries": 0,
+    "product_defect_inferred": false,
+    "F3_expansion": "NOT_STARTED_AFTER_CONNECTION_FAILURE"
+  },
+  "source_packets_unchanged_between_adapter_attempts": {
+    "F1-report": false,
+    "F2-explore": true
+  },
+  "after": {
+    "revision": "50330cf4fa435292bbd555ccc817e62ca5cc45b4",
+    "status": "",
+    "main": "b59d6eed0356ae093b52bd291ab328628de8790e"
+  },
+  "driver_sha256": "5a6e0bb67111a282c8feb28afdaf89b55538b274804b222b4f58f515acb0b7a8"
+}

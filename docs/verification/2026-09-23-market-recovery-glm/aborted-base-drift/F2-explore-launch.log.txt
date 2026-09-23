@@ -1,0 +1,7 @@
+Traceback (most recent call last):
+  File "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/glm-79089b0/review.py", line 84, in <module>
+    run.model_stage(args.claim, args.stage)
+  File "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/glm-79089b0/run.py", line 123, in model_stage
+    assert before == {'revision': REV, 'status': '', 'main': BASE}, before
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: {'revision': '79089b0c620106768b0d40239c32e55175cb46f5', 'status': '', 'main': 'b59d6eed0356ae093b52bd291ab328628de8790e'}

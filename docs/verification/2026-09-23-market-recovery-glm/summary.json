@@ -1,0 +1,744 @@
+{
+  "status": "HOLD",
+  "revision": "50330cf4fa435292bbd555ccc817e62ca5cc45b4",
+  "base": "b59d6eed0356ae093b52bd291ab328628de8790e",
+  "tree": "9b8d5d99baecd1fc6e48307e27ed46f14279e594",
+  "raw_root": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/glm-50330cf",
+  "final_identity": {
+    "revision": "50330cf4fa435292bbd555ccc817e62ca5cc45b4",
+    "status": "",
+    "main": "626d8a508c1c988ff094110b371987e6afdcdd15"
+  },
+  "full_gate": {
+    "complete": true,
+    "before": {
+      "revision": "50330cf4fa435292bbd555ccc817e62ca5cc45b4",
+      "status": "",
+      "main": "b59d6eed0356ae093b52bd291ab328628de8790e"
+    },
+    "driver_sha256": "a7032b58661ed54b6c2a2d9206fa192affa90d1f3bd291f3b8abbd9b6b9b806f",
+    "controller_sha256": "04448cfc968c1671cea4d69d86c5c83a2b657541e1997eaa472e38e6f1a09795",
+    "full_repo": true,
+    "target": "",
+    "timeout_seconds": 7200,
+    "exit_code": 1,
+    "deadline_hit": false,
+    "elapsed_seconds": 2039.225,
+    "command": [
+      "bash",
+      "scripts/run_main_gate.sh",
+      "--pytest-args",
+      "-q -p no:cacheprovider --junitxml=/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/glm-50330cf/full-gate/pytest.xml --durations=20"
+    ],
+    "after": {
+      "revision": "50330cf4fa435292bbd555ccc817e62ca5cc45b4",
+      "status": "",
+      "main": "f47d464eb7af32157c331bf2a6bf1b337acbb43f"
+    },
+    "receipt": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/glm-50330cf/full-gate/gate-UtG3vrT9/pytest.json",
+    "receipt_check": {
+      "exit_code": 1,
+      "deadline_hit": false,
+      "elapsed_seconds": 0.406,
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/check_test_receipt.py",
+        "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/glm-50330cf/full-gate/gate-UtG3vrT9/pytest.json",
+        "--expect-revision",
+        "50330cf4fa435292bbd555ccc817e62ca5cc45b4",
+        "--base-drift-max",
+        "0",
+        "--require-full-scope"
+      ]
+    },
+    "receipt_target_matches_repo_root": true,
+    "counts": {
+      "passed": 14874,
+      "failed": 1,
+      "error": 0,
+      "skipped": 85,
+      "xfailed": 2,
+      "xpassed": 0
+    },
+    "remote_main_at_end": "f47d464eb7af32157c331bf2a6bf1b337acbb43f",
+    "base_unchanged_at_remote": false,
+    "driver_unchanged": true,
+    "controller_unchanged": true
+  },
+  "postflight": {
+    "before": {
+      "revision": "50330cf4fa435292bbd555ccc817e62ca5cc45b4",
+      "status": "",
+      "main": "f47d464eb7af32157c331bf2a6bf1b337acbb43f"
+    },
+    "gate_exit": 1,
+    "driver_sha256": "ee58928eb77ee6b38f2e88c48505764a10d76a971618178624ba80239ab0ed78",
+    "cleanup": {
+      "removed": false
+    },
+    "fetch": {
+      "exit_code": 0,
+      "deadline_hit": false,
+      "elapsed_seconds": 1.232,
+      "command": [
+        "git",
+        "fetch",
+        "gitea",
+        "main"
+      ]
+    },
+    "remote_main": "f47d464eb7af32157c331bf2a6bf1b337acbb43f",
+    "base_unchanged_at_remote": false,
+    "receipt_check": {
+      "exit_code": 1,
+      "deadline_hit": false,
+      "elapsed_seconds": 0.463,
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/check_test_receipt.py",
+        "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/glm-50330cf/full-gate/gate-UtG3vrT9/pytest.json",
+        "--expect-revision",
+        "50330cf4fa435292bbd555ccc817e62ca5cc45b4",
+        "--base-drift-max",
+        "0",
+        "--require-full-scope"
+      ]
+    },
+    "receipt_target_matches_repo_root": true,
+    "counts_reconciled": true,
+    "receipt_identity_matches": true,
+    "after": {
+      "revision": "50330cf4fa435292bbd555ccc817e62ca5cc45b4",
+      "status": "",
+      "main": "f47d464eb7af32157c331bf2a6bf1b337acbb43f"
+    }
+  },
+  "full_repo_receipt_accepted": false,
+  "claims": {
+    "F1": {
+      "probe": {
+        "tests": 5,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 5
+      },
+      "author": {
+        "tests": 28,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 28
+      },
+      "positive_control_detected": true,
+      "new_formal_report": true,
+      "selected_review": {
+        "report": "F1-report/delivery/report.json",
+        "verdict": "PASS_WITH_LIMITS",
+        "probe": {
+          "tests": 5,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "passed": 5
+        },
+        "author": {
+          "tests": 28,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "passed": 28
+        }
+      }
+    },
+    "F2": {
+      "probe": {
+        "tests": 9,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 9
+      },
+      "author": {
+        "tests": 75,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 75
+      },
+      "positive_control_detected": true,
+      "new_formal_report": true,
+      "selected_review": {
+        "report": "F2-report/delivery/report.json",
+        "verdict": "PASS_WITH_LIMITS",
+        "probe": {
+          "tests": 16,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "passed": 16
+        },
+        "author": {
+          "tests": 75,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "passed": 75
+        }
+      }
+    },
+    "F3": {
+      "probe": {
+        "tests": 6,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 6
+      },
+      "author": {
+        "tests": 28,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 28
+      },
+      "positive_control_detected": true,
+      "new_formal_report": true,
+      "selected_review": {
+        "report": "F3-report-clarified/delivery/report.json",
+        "verdict": "PASS_WITH_LIMITS",
+        "probe": {
+          "tests": 6,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "passed": 6
+        },
+        "author": {
+          "tests": 28,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "passed": 28
+        }
+      }
+    }
+  },
+  "model_stages": {
+    "F1-report": {
+      "status": "BLOCKED_NO_DELIVERY",
+      "errors": [
+        "Cannot read properties of undefined (reading 'includes')"
+      ],
+      "exit_code": 0
+    },
+    "F2-explore": {
+      "status": "BLOCKED_NO_DELIVERY",
+      "errors": [
+        "Cannot read properties of undefined (reading 'includes')"
+      ],
+      "exit_code": 0
+    },
+    "adapter-v2/F1-report": {
+      "status": "BLOCKED_NO_DELIVERY",
+      "errors": [
+        "Connection error."
+      ],
+      "exit_code": 0
+    },
+    "adapter-v2/F2-explore": {
+      "status": "BLOCKED_NO_DELIVERY",
+      "errors": [
+        "Connection error."
+      ],
+      "exit_code": 0
+    }
+  },
+  "model_request_admissions": 14,
+  "new_formal_report_deliveries": 4,
+  "new_independent_probe_deliveries": 2,
+  "replayed_independent_passed": 20,
+  "author_related_passed": 131,
+  "production_writes": false,
+  "merge_push_deployment": false,
+  "F3_expansion": "DELIVERED_AND_EXECUTED_ON_DIRECT_ZHIPU",
+  "qualifications": [
+    "The user authorized GLM as an alternative to unavailable K3; no K3 requests were made in this batch.",
+    "Initial adapter failures happened before request admission. Adapter-v2 supplied extension-required input/cost defaults and model-level compat.",
+    "GLM adapter-v2 failed connecting to configured local endpoint 127.0.0.1:54340. No HTTP response or reviewer delivery was received.",
+    "All 20 primary independent cases are unchanged prior-reviewer probes replayed on the new revision.",
+    "F1 replays in adapter-v2 and zhipu-v1 (5 probe and 28 author passes each) are duplicates, not additive test coverage.",
+    "Prior F2/F3 formal reports remain bound to 4dd5e6660; they are not re-signed to this candidate.",
+    "Direct Zhipu subsequently delivered F2 probes covering negative infinity, member invalid close and full logical rows on another seeded date.",
+    "Direct Zhipu delivered F3 full-row and missing-policy other-date probes. Clarified F3 report supersedes overstrong wording, not the original artifact.",
+    "Zhipu reviews bind the clean fixed candidate only; changing main during review is recorded and never grants merge admission.",
+    "Full gate has one timeout-assertion failure. One isolated diagnostic pass does not replace the red full receipt.",
+    "Twenty historical behavior failures are repeated runs against five reversions, not twenty new tests. Three old-API TypeErrors are excluded.",
+    "No live nightly, recovery CLI, staging, swap, production acceptance or business-contract approval.",
+    "No frontend diff from the base; frontend and E2E were not run."
+  ],
+  "actual_receipt_scope": {
+    "target": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/glm-50330cf/candidate",
+    "ignore": [],
+    "ignore_glob": [],
+    "deselect": [],
+    "keyword": "",
+    "markexpr": "",
+    "maxfail": 0,
+    "last_failed": false,
+    "collected": 14962
+  },
+  "supplementary_checks": {
+    "delivery-gate-tests": {
+      "exit_code": 0,
+      "deadline_hit": false,
+      "elapsed_seconds": 0.475,
+      "command": [
+        "node",
+        "--test",
+        "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/glm-50330cf/delivery-gate.test.mjs"
+      ]
+    },
+    "consumption-registry": {
+      "exit_code": 0,
+      "deadline_hit": false,
+      "elapsed_seconds": 1.044,
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-m",
+        "market_feature_store.cli",
+        "registry-check"
+      ]
+    },
+    "skills-registry": {
+      "exit_code": 0,
+      "deadline_hit": false,
+      "elapsed_seconds": 0.19,
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "--check"
+      ]
+    },
+    "skills-parseability": {
+      "exit_code": 0,
+      "deadline_hit": false,
+      "elapsed_seconds": 0.237,
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "check-parseability"
+      ]
+    },
+    "remote-main": {
+      "exit_code": 0,
+      "deadline_hit": false,
+      "elapsed_seconds": 0.706,
+      "command": [
+        "git",
+        "ls-remote",
+        "gitea",
+        "refs/heads/main"
+      ]
+    }
+  },
+  "transport_diagnostics": {
+    "revision": "50330cf4fa435292bbd555ccc817e62ca5cc45b4",
+    "base": "b59d6eed0356ae093b52bd291ab328628de8790e",
+    "before": {
+      "revision": "50330cf4fa435292bbd555ccc817e62ca5cc45b4",
+      "status": "",
+      "main": "b59d6eed0356ae093b52bd291ab328628de8790e"
+    },
+    "provider": "fomo",
+    "model": "glm-5.3",
+    "llm_retries": 0,
+    "gateway_restarted": false,
+    "production_writes": false,
+    "checks": {
+      "listener": {
+        "exit_code": 1,
+        "deadline_hit": false,
+        "elapsed_seconds": 0.143,
+        "command": [
+          "lsof",
+          "-nP",
+          "-iTCP:54340",
+          "-sTCP:LISTEN"
+        ]
+      },
+      "connection": {
+        "exit_code": 7,
+        "deadline_hit": false,
+        "elapsed_seconds": 0.049,
+        "command": [
+          "curl",
+          "--max-time",
+          "5",
+          "--silent",
+          "--show-error",
+          "--output",
+          "/dev/null",
+          "--write-out",
+          "http_status=%{http_code} connect_seconds=%{time_connect}\\n",
+          "http://127.0.0.1:54340/v1/models"
+        ]
+      },
+      "adapter-and-delivery-selftests": {
+        "exit_code": 0,
+        "deadline_hit": false,
+        "elapsed_seconds": 0.593,
+        "command": [
+          "node",
+          "--test",
+          "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/glm-50330cf/adapter-v2/credential-bootstrap.test.mjs",
+          "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/glm-50330cf/adapter-v2/delivery-gate.test.mjs"
+        ]
+      },
+      "frontend-diff": {
+        "exit_code": 0,
+        "deadline_hit": false,
+        "elapsed_seconds": 0.083,
+        "command": [
+          "git",
+          "diff",
+          "--name-only",
+          "b59d6eed0356ae093b52bd291ab328628de8790e",
+          "50330cf4fa435292bbd555ccc817e62ca5cc45b4",
+          "--",
+          "intelligence/webapp"
+        ]
+      }
+    },
+    "classification": {
+      "initial_adapter": "LOCAL_ADAPTER_SCHEMA_ERROR_BEFORE_DISPATCH",
+      "adapter_v2": "LOCAL_CONFIGURED_GLM_ENDPOINT_CONNECTION_REFUSED",
+      "formal_deliveries": 0,
+      "product_defect_inferred": false,
+      "F3_expansion": "NOT_STARTED_AFTER_CONNECTION_FAILURE"
+    },
+    "source_packets_unchanged_between_adapter_attempts": {
+      "F1-report": false,
+      "F2-explore": true
+    },
+    "after": {
+      "revision": "50330cf4fa435292bbd555ccc817e62ca5cc45b4",
+      "status": "",
+      "main": "b59d6eed0356ae093b52bd291ab328628de8790e"
+    },
+    "driver_sha256": "5a6e0bb67111a282c8feb28afdaf89b55538b274804b222b4f58f515acb0b7a8"
+  },
+  "credential_persistence": {
+    "status": "PASS",
+    "completed_model_stages": 4,
+    "checked_files": 42,
+    "includes_pi_auth_and_models_files": true,
+    "persisted_exact_credential_occurrences": 0,
+    "credential_value_or_hash_recorded": false,
+    "provider_config_sha256": "add90b2925207ab01a161ce85bcd776f8908cb62c2c30bf72baa514605d20d4d",
+    "scope": "Completed model-stage files, excluding scratch and user fixture directories. Not a generic secret detector."
+  },
+  "adapter_regression": {
+    "kind": "controller_adapter_regression_not_product_or_reviewer_probe",
+    "old_adapter_sha256": "e086242b82c9394adf37827ac9ce0676e33875be3d1e97adf7cf0772cadda34b",
+    "test_sha256": "f5c858caa968c2d6041ec36b68bb5e752cf03402dd3b3e3e7753180fe36eb73e",
+    "result": {
+      "exit_code": 1,
+      "deadline_hit": false,
+      "elapsed_seconds": 0.445,
+      "command": [
+        "node",
+        "--test",
+        "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/glm-50330cf/adapter-regression/credential-bootstrap.test.mjs"
+      ]
+    },
+    "new_adapter_selftest": "transport-diagnostics/adapter-and-delivery-selftests.stdout",
+    "live_model_calls": 0,
+    "driver_sha256": "1afc1fb290a373643afac980a410d8015cdee407a2894d641b23d5f596216721",
+    "failed_before_request_admission": true
+  },
+  "base_drift_observation": {
+    "candidate": "50330cf4fa435292bbd555ccc817e62ca5cc45b4",
+    "tested_base": "b59d6eed0356ae093b52bd291ab328628de8790e",
+    "observed_remote_main": "f47d464eb7af32157c331bf2a6bf1b337acbb43f",
+    "observation": "git ls-remote gitea refs/heads/main while this candidate's pytest PID 22665 was still running, elapsed approximately 27 minutes",
+    "consequence": "Preserve completed candidate-specific test evidence; do not transfer it to the advanced main or claim merge admission.",
+    "additional_full_gate_in_this_batch": false
+  },
+  "historical_reversion_sensitivity": {
+    "F1-before-wiring": {
+      "revision": "54d49bd8dbf025fde7ff9437cdc67afee7a34751",
+      "counts": {
+        "tests": 5,
+        "failures": 5,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 0
+      },
+      "checkout_removed": true,
+      "behavior_failures": 2,
+      "api_shape_failures": 3,
+      "other_failures": 0
+    },
+    "F1-before-attempt-history": {
+      "revision": "b66f04ee4e8015d581587a05ebdd1e8539f8d9ca",
+      "counts": {
+        "tests": 5,
+        "failures": 1,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 4
+      },
+      "checkout_removed": true,
+      "behavior_failures": 1,
+      "api_shape_failures": 0,
+      "other_failures": 0
+    },
+    "F2-before-member-guard": {
+      "revision": "85f734c95f07cc79fbff9edeeb1ce3ab70da99e4",
+      "counts": {
+        "tests": 9,
+        "failures": 6,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 3
+      },
+      "checkout_removed": true,
+      "behavior_failures": 6,
+      "api_shape_failures": 0,
+      "other_failures": 0
+    },
+    "F2-before-close-guard": {
+      "revision": "6ca605099002c72148b252627996033e9aeea02f",
+      "counts": {
+        "tests": 9,
+        "failures": 5,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 4
+      },
+      "checkout_removed": true,
+      "behavior_failures": 5,
+      "api_shape_failures": 0,
+      "other_failures": 0
+    },
+    "F3-before-apply-guard": {
+      "revision": "75336a35bf2f9b59668c6575438dd2f05d1ab953",
+      "counts": {
+        "tests": 6,
+        "failures": 6,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 0
+      },
+      "checkout_removed": true,
+      "behavior_failures": 6,
+      "api_shape_failures": 0,
+      "other_failures": 0
+    }
+  },
+  "historical_behavior_failures": 20,
+  "excluded_historical_api_shape_failures": 3,
+  "direct_zhipu_review": {
+    "status": "FIXED_REVISION_EVIDENCE_RECONCILED",
+    "revision": "50330cf4fa435292bbd555ccc817e62ca5cc45b4",
+    "phases": {
+      "F1-report": {
+        "status": "DELIVERED",
+        "requests": 2,
+        "elapsed_seconds": 113.844,
+        "manifest_verified": true,
+        "main_before": "f47d464eb7af32157c331bf2a6bf1b337acbb43f",
+        "main_after": "f47d464eb7af32157c331bf2a6bf1b337acbb43f"
+      },
+      "F2-explore": {
+        "status": "DELIVERED",
+        "requests": 2,
+        "elapsed_seconds": 207.772,
+        "manifest_verified": true,
+        "main_before": "f47d464eb7af32157c331bf2a6bf1b337acbb43f",
+        "main_after": "f47d464eb7af32157c331bf2a6bf1b337acbb43f"
+      },
+      "F3-explore": {
+        "status": "DELIVERED",
+        "requests": 2,
+        "elapsed_seconds": 57.361,
+        "manifest_verified": true,
+        "main_before": "f47d464eb7af32157c331bf2a6bf1b337acbb43f",
+        "main_after": "f47d464eb7af32157c331bf2a6bf1b337acbb43f"
+      },
+      "F2-report": {
+        "status": "DELIVERED",
+        "requests": 2,
+        "elapsed_seconds": 69.655,
+        "manifest_verified": true,
+        "main_before": "f47d464eb7af32157c331bf2a6bf1b337acbb43f",
+        "main_after": "f47d464eb7af32157c331bf2a6bf1b337acbb43f"
+      },
+      "F3-report": {
+        "status": "DELIVERED",
+        "requests": 2,
+        "elapsed_seconds": 48.481,
+        "manifest_verified": true,
+        "main_before": "f47d464eb7af32157c331bf2a6bf1b337acbb43f",
+        "main_after": "f47d464eb7af32157c331bf2a6bf1b337acbb43f"
+      },
+      "F3-report-clarified": {
+        "status": "DELIVERED",
+        "requests": 2,
+        "elapsed_seconds": 97.498,
+        "manifest_verified": true,
+        "main_before": "917e15a8738dcb46cbbf57e4a06e2182fd5da405",
+        "main_after": "e926157d9dfa33336d71150d13fb7d9c387659e2"
+      }
+    },
+    "request_admissions": 12,
+    "http_responses": {
+      "200": 12
+    },
+    "probe_deliveries": 2,
+    "raw_report_deliveries": 4,
+    "selected_claim_reports": 3,
+    "claims": {
+      "F1": {
+        "report": "F1-report/delivery/report.json",
+        "verdict": "PASS_WITH_LIMITS",
+        "probe": {
+          "tests": 5,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "passed": 5
+        },
+        "author": {
+          "tests": 28,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "passed": 28
+        }
+      },
+      "F2": {
+        "report": "F2-report/delivery/report.json",
+        "verdict": "PASS_WITH_LIMITS",
+        "probe": {
+          "tests": 16,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "passed": 16
+        },
+        "author": {
+          "tests": 75,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "passed": 75
+        }
+      },
+      "F3": {
+        "report": "F3-report-clarified/delivery/report.json",
+        "verdict": "PASS_WITH_LIMITS",
+        "probe": {
+          "tests": 6,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "passed": 6
+        },
+        "author": {
+          "tests": 28,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "passed": 28
+        }
+      }
+    },
+    "report_probe_passed": 27,
+    "author_related_passed": 131,
+    "historical_sensitivity": {
+      "F2-before-member-guard": {
+        "revision": "790459f80323c1d38807e43ab0736971442161e7",
+        "counts": {
+          "tests": 16,
+          "failures": 13,
+          "errors": 0,
+          "skipped": 0,
+          "passed": 3
+        },
+        "checkout_removed": true,
+        "behavior_failures": 13,
+        "api_shape_failures": 0,
+        "other_failures": 0
+      },
+      "F2-before-close-guard": {
+        "revision": "f6e63d66ff494b04dfa7b58a4fbc669afbd26539",
+        "counts": {
+          "tests": 16,
+          "failures": 12,
+          "errors": 0,
+          "skipped": 0,
+          "passed": 4
+        },
+        "checkout_removed": true,
+        "behavior_failures": 12,
+        "api_shape_failures": 0,
+        "other_failures": 0
+      },
+      "F3-before-apply-guard": {
+        "revision": "70f1628caabba55aa3fb52c59307e77760058037",
+        "counts": {
+          "tests": 6,
+          "failures": 6,
+          "errors": 0,
+          "skipped": 0,
+          "passed": 0
+        },
+        "checkout_removed": true,
+        "behavior_failures": 6,
+        "api_shape_failures": 0,
+        "other_failures": 0
+      }
+    },
+    "historical_behavior_failures": 31,
+    "credential_files_scanned": 100,
+    "includes_pi_auth_models": true,
+    "exact_credential_occurrences": 0,
+    "merge_admission": false,
+    "superseded_F3_report_preserved": true,
+    "report_schema_aliases": {
+      "candidate_revision": "revision",
+      "failed": "failures"
+    },
+    "driver_sha256": "ea975bfc32b6b2b352695724bb6eda21c7adb2d04066f569bba8d29284a4f640"
+  },
+  "selected_claim_reports": 3,
+  "report_probe_passed": 27,
+  "strengthened_historical_behavior_failures": 31,
+  "timeout_isolated_diagnostic": {
+    "exit_code": 0,
+    "deadline_hit": false,
+    "elapsed_seconds": 1.942,
+    "command": [
+      "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+      "-B",
+      "-m",
+      "pytest",
+      "-q",
+      "-p",
+      "no:cacheprovider",
+      "intelligence/tests/test_finance_query.py::test_timeout_interrupts_connection",
+      "--junitxml=/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/glm-50330cf/timeout-diagnostic/p.xml"
+    ],
+    "kind": "isolated_diagnostic_not_full_gate_replacement",
+    "identity": {
+      "revision": "50330cf4fa435292bbd555ccc817e62ca5cc45b4",
+      "status": "",
+      "main": "f47d464eb7af32157c331bf2a6bf1b337acbb43f"
+    }
+  },
+  "http_response_hook_counts": {
+    "200": 12
+  }
+}

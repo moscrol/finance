@@ -1,0 +1,15 @@
+Review request admission blocked; no retry or fallback.
+✔ normalize models.json for extension and audit bounded streamed requests without credential copies (16.942875ms)
+✔ one read, one atomic terminating delivery (29.690042ms)
+✔ reading cannot be extended after budget exhaustion (2.10125ms)
+✔ cannot submit before reading (1.358583ms)
+✔ empty, oversized and unexpected fields refuse without output (2.36125ms)
+✔ report requires valid structured verdict (6.168375ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 353.268333

@@ -1,0 +1,15 @@
+Review request admission blocked; no retry or fallback.
+✔ direct Zhipu model contract, request admission and credential non-persistence (58.840417ms)
+✔ one read, one atomic terminating delivery (15.350792ms)
+✔ reading cannot be extended after budget exhaustion (3.214875ms)
+✔ cannot submit before reading (1.75425ms)
+✔ empty, oversized and unexpected fields refuse without output (1.237125ms)
+✔ report requires valid structured verdict (5.219709ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 284.858542

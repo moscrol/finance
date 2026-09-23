@@ -1,0 +1,7 @@
+{
+  "path": "/private/tmp/pytest-of-a77/pytest-1830",
+  "pid": 22665,
+  "inode": 240708008,
+  "ownership_evidence": "Observed .lock exact content 22665 while the run-specific pytest process was alive; stat inode 240708008.",
+  "cleanup_allowed_only_after_complete_receipt_and_absent_pid": true
+}

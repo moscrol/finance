@@ -1,0 +1,14 @@
+{
+  "baseUrl": "https://open.bigmodel.cn/api/coding/paas/v4",
+  "api": "openai-completions",
+  "models": [{
+    "id": "glm-5.3",
+    "name": "GLM 5.3 direct Zhipu review",
+    "reasoning": false,
+    "input": ["text"],
+    "contextWindow": 128000,
+    "maxTokens": 16384,
+    "cost": {"input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0},
+    "compat": {"supportsDeveloperRole": false, "supportsReasoningEffort": false, "maxTokensField": "max_tokens"}
+  }]
+}

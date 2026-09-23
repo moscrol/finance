@@ -1,0 +1,4 @@
+Traceback (most recent call last):
+  File "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/glm-50330cf/zhipu-v1/clarify-f3.py", line 28, in <module>
+    run.model_stage('F3', 'report', packet)
+TypeError: model_stage() takes 2 positional arguments but 3 were given
