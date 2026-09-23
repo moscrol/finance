@@ -35,3 +35,10 @@
 原只读质检保持原样：`~/.finance-runtime/reviews/push-s1-63-qc-20260923T001455/report.md`。
 本轮完整外置证据：`~/.finance-runtime/reviews/push-s1-63-followup-20260923/`。
 决定与下一步：`docs/handoffs/2026-09-23-push-preservation-qc.md`。
+
+## 合入终态（2026-09-23）
+
+工具与测试随 PR #873 已合入 `main`：合并提交
+`760248ecebc79fbe4f2686ddd42255c1a00ec862`，精确候选为
+`d18921e0f77ee6ee9de86ef00cc15e43841edbbe`。合入后 main tip 的全量门禁、合并 tree、PR 状态与部署边界见
+`docs/handoffs/2026-09-23-push-preservation-merge-closeout.md`；本证据包仍只证明本单范围，不扩展为产品验收或部署结论。
