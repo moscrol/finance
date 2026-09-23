@@ -78,7 +78,7 @@
 
 | # | 工单 | 优先级 | 主仓 | 一句话 |
 |---|------|--------|------|--------|
-| 81 | `2026-09-23-react-trace-chain-closeout-workorder.md` | P1（中单，一到两天） | 金融 | ⏳ 待派。ReAct trace 六项修复链：#809 已关（→ #832），#832 是唯一载体，对 main 6 处冲突、新增代码在 main 只见 44%；前向 + 对照 #863 已覆盖项 + 四叶 + #75/#76 登记；用户若裁定放弃则关 #832 留指针。#841 归 #68。 |
+| 81 | `2026-09-23-react-trace-chain-closeout-workorder.md` | P1（中单，一到两天） | 金融 | 已认领，Codex 执行中。#832 已普通推送 `d1b30e1a0`，前向固定 main `626d8a508`，六处冲突已解；六项中四项产品实现由 #863 覆盖，仅条件删句清理与历史绝对分页为增量。1797P/8S 定向与九组撤保护通过；新 head Python 全量运行中，前端120单测/构建及registry通过，E2E两轮3F/2F，工程准入阻塞。#75 已排队，#76 自然质量另授权，旧 not_passed 不变；未合/部署/真实模型请求。证据 `docs/verification/2026-09-23-react-trace-chain/README.md`。#841 归 #68。 |
 | 82 | `2026-09-23-finarena-candidate-disposition-workorder.md` | P2（先拍产品裁决，再定工程量） | 金融 | ⏳ 待派。FinArena：#811 已关（→ #816/#817），#817 修了 NO-GO 的 P1/P2 但无新组合四叶、无独立复审；对 main 0 冲突、0% 落地。先出两条路决策页（落地为 opt-in 模块 / 归档），拍完再动。 |
 | 83 | `2026-09-23-backfill-302132-acceptance-integration-workorder.md` | P1（中单；生产回填另需逐字授权） | 金融 | ⏳ 待派。302132 回填父子命令 #813（0 冲突、4% 落地）前向 + 四叶 + 库副本父子发布演练（clonefile）+ 抓值审计；#802 关闭留指针；生产回填只写出命令等授权。 |
 | 84 | `2026-09-23-worktree-board-hardening-pr812-workorder.md` | P1（小到中单；#64 的前置） | 金融 | ⏳ 待派。看板三类误判修复 + 9 反例测试（#812，`worktree_board.py` 1 处冲突）前向；与今日合入的 #876 拆树工具去重；输出加 `unknown_reason` / `blockers`；12 棵 ownership 证据树只出处置表，拆除归 #64。 |
