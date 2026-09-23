@@ -1,0 +1,127 @@
+{
+  "cleanup.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-admission-diagnostic-20260923-2218/cleanup.json",
+    "bytes": 249,
+    "sha256": "f2c84aac860111cd220d1acadb352ca5794d7b14f4f72ea72cdc2a47a0b7681a"
+  },
+  "closure.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-admission-diagnostic-20260923-2218/closure.json",
+    "bytes": 1292,
+    "sha256": "b8f788ef6a2a7daea31542328d4ee54d2a23a577040c6174eb672dc62cdd771b"
+  },
+  "controller.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-admission-diagnostic-20260923-2218/controller.log",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "mutation-exit_zero_only.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-admission-diagnostic-20260923-2218/mutation-exit_zero_only.log",
+    "bytes": 7672,
+    "sha256": "2c8b08ba44a742a2a3bece43ff3acb4c378c6398e7d625200ae9c4c8825a2438"
+  },
+  "mutation-exit_zero_only.xml": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-admission-diagnostic-20260923-2218/mutation-exit_zero_only.xml",
+    "bytes": 7610,
+    "sha256": "f4ecd4a6d24fdb29e47b6818f67f8d3abe6975a2db9f45074f77756984e4e1ca"
+  },
+  "mutation-missing_coverage_guard.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-admission-diagnostic-20260923-2218/mutation-missing_coverage_guard.log",
+    "bytes": 2046,
+    "sha256": "892f56bf5e8f98981e79b5a573d903b41e43f0a78354d2e73e0a26d7b18722e7"
+  },
+  "mutation-missing_coverage_guard.xml": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-admission-diagnostic-20260923-2218/mutation-missing_coverage_guard.xml",
+    "bytes": 1734,
+    "sha256": "4449cae9050eb1f19144a293a27d7089cc5c2aaf0c47671bcf7c36b240cc6286"
+  },
+  "mutations.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-admission-diagnostic-20260923-2218/mutations.json",
+    "bytes": 734,
+    "sha256": "69aeaf2e7117c6e61b0ee6d1b45ffc62bffd6270c2ab7309b13fe1a7e32128c1"
+  },
+  "mutations.py.txt": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-admission-diagnostic-20260923-2218/mutations.py",
+    "bytes": 3182,
+    "sha256": "3e323556026d37e581c6d900f12c20d2bab0ef6cb5513ed2bb5e20403b8d02e5"
+  },
+  "protocol.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-admission-diagnostic-20260923-2218/protocol.json",
+    "bytes": 1532,
+    "sha256": "84e381b961d1f62eda54b2f97cc094f4f2d438e114114476f90f86058b7cc6fd"
+  },
+  "pytest.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-admission-diagnostic-20260923-2218/pytest.log",
+    "bytes": 611,
+    "sha256": "794c1a5e29934e0336ca9f98a900741724c3f2fe8216bb52b5e81a6ac24a3919"
+  },
+  "receipt-check.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-admission-diagnostic-20260923-2218/receipt-check.log",
+    "bytes": 1213,
+    "sha256": "985cba2165c40992980fd9805bd4fe8b6878906f193818fd2b1ca927f0335f56"
+  },
+  "retrieval-probe.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-admission-diagnostic-20260923-2218/retrieval-probe.json",
+    "bytes": 1336,
+    "sha256": "dc54fe8d878d021c8e28f8c0ecb9df33c47c1b5e2acf1b93c52c7845bc866ef2"
+  },
+  "retrieval-probe.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-admission-diagnostic-20260923-2218/retrieval-probe.log",
+    "bytes": 2477,
+    "sha256": "1d5ba564be1479c231b890f97ea16a66890c96124fa88f6b0af95cf9e235ebf3"
+  },
+  "ruff.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-admission-diagnostic-20260923-2218/ruff.log",
+    "bytes": 19,
+    "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+  },
+  "run_diagnostics.py.txt": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-admission-diagnostic-20260923-2218/run_diagnostics.py",
+    "bytes": 2996,
+    "sha256": "8f95474e57220578160a2da01f98d02c6151bbced5f3768ef955406590b8f9e7"
+  },
+  "seal.py.txt": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-admission-diagnostic-20260923-2218/seal.py",
+    "bytes": 2884,
+    "sha256": "a892d0dd39845ec0deedbd2a2b732273d5a849fa833fea182b23f6f7f2c6d86e"
+  },
+  "strict-controller.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-admission-diagnostic-20260923-2218/strict-controller.json",
+    "bytes": 349,
+    "sha256": "759aed5fb1c6aa04cecc1fdb531f810d71918808c26925db6d2395349f2183cd"
+  },
+  "strict.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-admission-diagnostic-20260923-2218/strict.json",
+    "bytes": 20779,
+    "sha256": "f2f3e3e5f93ad70fcfcd6c8d017c5960ba3ed84fd7f1e1d329bab8793794c413"
+  },
+  "strict.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-admission-diagnostic-20260923-2218/strict.log",
+    "bytes": 152,
+    "sha256": "748cdbd431bdd2a1796533609128f8b462af7c1d2fcaede22614dd14e30f3569"
+  },
+  "tests-controller.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-admission-diagnostic-20260923-2218/tests-controller.log",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "tests-result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-admission-diagnostic-20260923-2218/tests-result.json",
+    "bytes": 843,
+    "sha256": "6a6bc9a3222452641a733b6ed03c50009df67ef4597263e8a64928b72258dafd"
+  },
+  "tests-start.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-admission-diagnostic-20260923-2218/tests-start.json",
+    "bytes": 714,
+    "sha256": "53dce60fa7c5300945551029235b4fe6a36bd507654e9e7914321bcbbcfacae3"
+  },
+  "verify_candidate.py.txt": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-admission-diagnostic-20260923-2218/verify_candidate.py",
+    "bytes": 1851,
+    "sha256": "d1000aeca6ff3686e617eca1c469fb8ba6729e2915e8a709068766e2af6ab9e2"
+  },
+  "test-receipt.json": {
+    "source": "/Users/a77/.finance-runtime/test-receipts/20260923T142411Z-fe548838-63d172dd3cd2.json",
+    "bytes": 1144,
+    "sha256": "cf5baa090bb8cd13f8513abf5a6e78a4f271d4642dc68d05ea64217f32b7930f"
+  }
+}

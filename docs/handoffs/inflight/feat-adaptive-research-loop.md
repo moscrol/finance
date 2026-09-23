@@ -1,35 +1,32 @@
 # feat/adaptive-research-loop 在途
 
 ## 这个分支做什么
-#72/PR #868，#75双轴独审及#76 L6。WIP，不合入、不部署。
+#72/PR #868、#75双轴独审、#76 L6。WIP，未push/合/部署。
 
 ## 决策与被否方案
-- 明确货币字段换算，否决裸数字泛化；身份归控制器，拒绝模型注入而非宽松归一。
-- 下一题必须等精确Episode内容审计PASS；completed不等于质量合格。
-- 旧失败批不可续跑；新准入红也不重跑洗绿、不扩大预算。
-- 详见 `../2026-09-23-adaptive-repaired-verification.md`。
+- 金额仅明确货币字段换算；身份归控制器；下一题须精确Episode内容审计PASS。
+- 旧失败不续跑/倒写，不扩deadline或检索120秒预算。
+- 本次补阶段观测、覆盖门和检索结果核验，不据一次绿归因旧超时。
+- 详见 `../2026-09-23-adaptive-admission-diagnostic.md`；上批见 `../2026-09-23-adaptive-repaired-verification.md`。
 
 ## 当前状态
-前向main626d8a508后，三修复已提交ac11027fa：金额单位、阶段身份、题间审计屏障。未push/合/部署。
-新批已结束并归档：`docs/verification/2026-09-23-repaired-qc-and-l6/README.md`。
-#75共65请求，Spec PASS_WITH_LIMITS、Quality BLOCKED_INCOMPLETE_EVIDENCE；宿主总态BLOCKED_INCOMPLETE_INDEPENDENT_EVIDENCE。两轴均有终稿但覆盖不足，不能合。
-新L6因严格deadline越窗与检索就绪超时停止，首发0/0/0、模型0、旁车0；自然质量NOT_EXERCISED。旧L6误删失败仍NOT_PASSED。
-私有根 `~/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/`、`pr868-l6-repaired-20260923-2118/`，均不可续跑。干净候选检出/绿测试临时目录已清，日志与失败数据保留。
-PR868评论6498、852评论6500及WIP阻塞标题已回读；远端head重查超时，不声称当前远端代码已同步。
+最新代码fe548838b：HTTP启动/发送/回收观测，严格探针拒未进入目标阶段，检索逐阶段日志/周期栈及有效shape核验；独审提示优先必红控制/作者测试。main最后fetch仍626d8a508。
+新离线根 `~/.finance-runtime/reviews/pr868-admission-diagnostic-20260923-2218/` 已封存25份原件；归档 `docs/verification/2026-09-23-admission-diagnostic/README.md`。无新#75/#76、付费模型0、自然题0；成功basetemp已清，进程/19897-19899无遗留。
+上批#75共65请求，Spec PASS_WITH_LIMITS、Quality BLOCKED_INCOMPLETE_EVIDENCE；总态BLOCKED_INCOMPLETE_INDEPENDENT_EVIDENCE。上批L6 BLOCKED_PREFLIGHT、首发0/0/0；旧自然NOT_PASSED不变。2115 QC/2118 L6封存根不可续跑。
 
 ## 未验证 / 已知边界
-两轴作者测试/必红控制未跑；Spec C3/C5/C6未验及C2第五调用点缺覆盖；Quality取消探针异常类型未裁决。三修复的完整独立正确性覆盖未闭合。
-严格body_stall输入0.8s、容差0.2s，实测1.378s且HTTP请求0，不能推断上游停滞；RAG离线120s超时亦未定位根因。高负载不能作免责。
-新题间屏障仅离线验证；自然修订保真、迟到判官未验。当前完整/联合main门禁未跑，历史全量7ad61a0d3不移签。
+两轴作者测试/必红控制未执行；Spec C3/C5/C6及第五HTTP调用点缺覆盖。取消探针宿主诊断为probe_bug（未触发cancel），不改原reviewer报告或代签。
+旧body_stall 1.378s且HTTP0、旧RAG120s超时均未重现，根因未证实；高负载不免责。本次dirty诊断四模块哈希等同fe548838b，不冒充正式干净准入。
+自然修订保真、迟到判官拒收与题间屏障未通过；当前完整/最新main联合门禁未跑。历史全量不移签。
 
 ## 下一步
-1. 新证据根诊断两项准入阻塞，完善独审有界覆盖与必红对照，不改已封存交付。
-2. 按新协议另开受限#75/L6；不补旧题、不续旧批、不以机械PASS代自然验收。
-3. 合前完整门禁、最新main联合树和用户确认仍必需。
+1. 固定新候选，以新根/输入/预算记录安排#75，实际执行作者测试与必红对照并补行为覆盖，两轴互不见结论。
+2. 新题/新正式准入再开#76；失败即停，重发/续问0，不能用本次诊断代自然验收。
+3. 补完整工程与最新main联合树门禁，合入仍需用户确认。
 
 ## 已验证
-ac11027fa干净定向328P/0F，指定revision收据可采信；全仓Ruff/diff check过。原件金额正反例零网络通过，原hash不变；题间失败反例下一题请求0、PASS允许继续。
-499份原件归档/密钥扫描；751冻结文件与生产七身份不变；19897/19898/19899释放、进程退出。main626d8a508合入预览无冲突，非联合测试。
+fe548838b干净七文件411P/0F/0E/0S，收据20260923T142411Z-fe548838-63d172dd3cd2经checker核验；全仓Ruff/diff check过。
+一次严格13场景无越窗/覆盖缺口；一次真实BGE-m3总墙钟38.41s、worker31.10s、shape(1,1024)。两次内存撤保护预期1F/5F、0error；不混计411P。原金额/屏障328P仅签ac11027fa。
 
 ## 踩过的坑
-审查脚本exit0可含失败子项；探针脚本数与子项数不加总。harness-reference/BUILD.md有他人改动，未碰。
+exit0不等于ready；无换行流不能在行迭代体内触发cancel。缓存只读避免每批强制冷编译。harness-reference/BUILD.md有他人改动，未碰。
