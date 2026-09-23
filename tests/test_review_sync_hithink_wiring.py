@@ -37,7 +37,8 @@ def _result(label, status="ok"):
 def test_local_plan_invokes_five_real_cli_commands_in_order(review, monkeypatch):
     recorded = []
 
-    def fake_run(label, argv, timeout):
+    def fake_run(label, argv, timeout, **kwargs):
+        assert kwargs == ({"partial_exit_codes": (3,)} if label == "hithink-research" else {})
         recorded.append((label, argv, timeout))
         return _result(label)
 
@@ -65,6 +66,18 @@ def test_local_plan_invokes_five_real_cli_commands_in_order(review, monkeypatch)
         if step != "hithink-stock-daily":
             assert argv[argv.index("--end-date") + 1] == TARGET
     assert "--skip-constituents" in recorded[1][1]  # 当前快照不冒充历史成员
+
+
+@pytest.mark.parametrize("code,status", [(0, "ok"), (3, "partial"), (2, "fail")])
+def test_research_child_exit_reaches_step_status(review, monkeypatch, code, status):
+    monkeypatch.setattr(
+        review.subprocess, "run", lambda *a, **kw: SimpleNamespace(returncode=code)
+    )
+    result = review.sync_hithink_step("hithink-research", TARGET, 99)
+    assert result["status"] == status
+    assert result["code"] == code
+    if code == 3:
+        assert review.sync_hithink_step(STEPS[0], TARGET, 99)["status"] == "fail"
 
 
 def test_no_key_is_visible_skip_and_never_starts_child(review, monkeypatch):
@@ -116,6 +129,20 @@ def _main_fakes(review, monkeypatch, statuses, retries):
         "--retry-rounds", str(retries),
     ])
     return calls, releases, logs
+
+
+def test_research_partial_from_child_blocks_publication(review, monkeypatch):
+    _, releases, logs = _main_fakes(review, monkeypatch, ["ok"], retries=0)
+    monkeypatch.setattr(
+        review.subprocess, "run", lambda *a, **kw: SimpleNamespace(returncode=3)
+    )
+    monkeypatch.setattr(review, "build_plan", lambda *a: [
+        ("hithink-research", lambda: review.sync_hithink_step("hithink-research", TARGET, 99)),
+    ])
+    assert review.main() == 1
+    assert releases == []
+    assert logs[0][0][1][0]["status"] == "partial"
+    assert logs[0][0][2] is False
 
 
 @pytest.mark.parametrize("status", ["fail", "timeout", "partial"])
@@ -184,6 +211,21 @@ def test_research_monolith_forwards_date(monkeypatch):
     monkeypatch.setattr(module, "sync_hithink_research", lambda **kw: calls.append(kw) or {"status": "ok"})
     sync_daily_full.run_hithink_research_step(TARGET)
     assert calls == [{"end_date": date(2026, 9, 2)}]
+
+
+def test_research_partial_cannot_be_success_in_monolith(monkeypatch):
+    from market_feature_store.sync import sync_hithink_research as module
+
+    missing = [{"kind": "valuation", "request_id": "synthetic-request"}]
+    monkeypatch.setattr(module, "sync_hithink_research", lambda **kw: {
+        "status": "partial", "missing": missing,
+    })
+    result = sync_daily_full._run_step(
+        "sync-hithink-research", sync_daily_full.run_hithink_research_step, TARGET
+    )
+    assert result["ok"] is False
+    assert "valuation" in result["error"]
+    assert "synthetic-request" in result["error"]
 
 
 @pytest.mark.parametrize("kind", ["sector_kline", "limit_pools", "dragon_auction"])

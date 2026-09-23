@@ -37,6 +37,7 @@ VALUATION_FIELDS = ("pe_ttm", "pe_mrq", "pb_mrq", "ps_ttm", "pcf_ttm")
 MAX_CODES = 100
 DEFAULT_SCOPE_SIZE = 30
 DEFAULT_LOOKBACK_DAYS = 30
+PARTIAL_EXIT_CODE = 3
 CODE = re.compile(r"[0-9]{6}\.(SH|SZ|BJ)\Z")
 GetJson = Callable[..., dict[str, Any]]
 

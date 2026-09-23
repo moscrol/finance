@@ -431,6 +431,27 @@ def test_request_crossing_midnight_is_rejected(capture):
     assert query(path, "SELECT count(*) FROM fact_stock_anomaly_hithink") == [(0,)]
 
 
+def test_cli_partial_is_visible_to_parent(capture, monkeypatch, capsys):
+    from market_feature_store import cli
+
+    path, calls, _, getter = capture
+
+    def limited(endpoint, *, params):
+        if endpoint == research.PATHS["valuation"]:
+            raise HithinkRateLimitError("synthetic limit")
+        return getter(endpoint, params=params)
+
+    monkeypatch.setattr(research, "DB_PATH", path)
+    monkeypatch.setattr(research, "has_api_key", lambda: True)
+    monkeypatch.setattr(research, "get_json", limited)
+    monkeypatch.setattr(research, "_now", lambda: NOW)
+    assert cli.main(["sync-hithink-research", "--thscodes", CODE]) == 3
+    result = json.loads(capsys.readouterr().out)
+    assert result["status"] == "partial"
+    assert result["missing"][0]["kind"] == "valuation"
+    assert calls[-1][0] == "heat_trend"
+
+
 def test_cli_prints_summary_and_refuses_production(capture, monkeypatch, capsys):
     from market_feature_store import cli
 

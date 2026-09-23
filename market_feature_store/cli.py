@@ -1289,7 +1289,11 @@ def cmd_sync_hithink_dragon_auction(args) -> int:
 def cmd_sync_hithink_research(args) -> int:
     from datetime import date as _date
 
-    from .sync.sync_hithink_research import HithinkResearchError, sync_hithink_research
+    from .sync.sync_hithink_research import (
+        PARTIAL_EXIT_CODE,
+        HithinkResearchError,
+        sync_hithink_research,
+    )
 
     try:
         stats = sync_hithink_research(
@@ -1302,7 +1306,7 @@ def cmd_sync_hithink_research(args) -> int:
         print(f"hithink-research: {exc}")
         return 2
     print(json.dumps(stats, ensure_ascii=False))
-    return 0
+    return PARTIAL_EXIT_CODE if stats.get("status") == "partial" else 0
 
 
 def _daily_preflight_or_exit() -> int | None:

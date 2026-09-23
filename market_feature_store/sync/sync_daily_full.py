@@ -152,11 +152,15 @@ def run_hithink_dragon_auction_step(trade_date: str | None = None) -> dict:
 
 
 def run_hithink_research_step(trade_date: str | None = None) -> dict:
-    from .sync_hithink_research import sync_hithink_research
+    from .sync_hithink_research import HithinkResearchError, sync_hithink_research
 
     result = sync_hithink_research(end_date=date.fromisoformat(trade_date) if trade_date else None)
     if result.get("status") == "skip":
         return {"skipped": True, "reason": result["reason"]}
+    if result.get("status") == "partial":
+        raise HithinkResearchError(
+            "hithink-research partial; missing=" + json.dumps(result["missing"])
+        )
     return result
 
 

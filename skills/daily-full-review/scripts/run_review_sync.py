@@ -186,7 +186,9 @@ def _notify(msg: str) -> None:
         pass
 
 
-def run_step(label: str, argv: list[str], timeout: int) -> dict:
+def run_step(
+    label: str, argv: list[str], timeout: int, *, partial_exit_codes: tuple[int, ...] = (),
+) -> dict:
     """跑一个子进程模块，stdout 继承到终端（看得到进度），返回结果。"""
     print(f"\n>>> {label}: {' '.join(argv)} (timeout={timeout}s)", flush=True)
     started = time.time()
@@ -195,7 +197,9 @@ def run_step(label: str, argv: list[str], timeout: int) -> dict:
     try:
         proc = subprocess.run(argv, cwd=str(ROOT), timeout=timeout)
         code = proc.returncode
-        if code != 0:
+        if code in partial_exit_codes:
+            status = "partial"
+        elif code != 0:
             status = "fail"
     except subprocess.TimeoutExpired:
         status = "timeout"
@@ -376,7 +380,12 @@ def sync_hithink_step(label: str, trade_date: str, timeout: int) -> dict:
         return {"label": label, "status": "skip", "code": None,
                 "elapsed": 0.0, "note": "no-key; 并跑源未更新，不代表换源完成"}
     if label == "hithink-research":
-        return run_step(label, CLI + ["sync-hithink-research", "--end-date", trade_date], timeout)
+        from market_feature_store.sync.sync_hithink_research import PARTIAL_EXIT_CODE
+
+        return run_step(
+            label, CLI + ["sync-hithink-research", "--end-date", trade_date], timeout,
+            partial_exit_codes=(PARTIAL_EXIT_CODE,),
+        )
     argv = CLI + [f"sync-{label}", "--incremental"]
     if label != "hithink-stock-daily":
         argv += ["--end-date", trade_date]
