@@ -1,0 +1,334 @@
+"""Independent quality probes (reviewer-built, continue-03 re-review + M1 adjudication).
+
+Fake network + controlled monotonic clock + temp DuckDB only. Asserts imported
+modules come from TREE (continue-03 candidate). No network, no production paths.
+
+M1 adjudication design (independent of prior report / author claims):
+- Controlled clock lets us see WHICH stopping condition actually fires:
+  ordinary attempt>=retries count bound vs the two typed 429 bounds
+  (throttled>=MAX_RATE_LIMIT_RETRIES, monotonic+wait>=deadline).
+- Compare: (M1) 4001x3 -> HTTP429 -> URLError; (control-a) 4001x3 -> URLError
+  (no 429); (control-b) pure 429 time/count exhaustion (genuine typed).
+"""
+import json
+import sys
+import urllib.error
+from datetime import date, datetime
+from email.utils import formatdate
+from pathlib import Path
+import time as _time
+from zoneinfo import ZoneInfo
+
+import pytest
+
+TREE = Path("/Users/a77/.finance-runtime/reviews/hithink-research-85-20260923/continue-03/qc/candidate/finance-workspace-private")
+sys.path.insert(0, str(TREE))
+
+from market_feature_store import hithink_client, write_path  # noqa: E402
+from market_feature_store.sync import sync_hithink_research as shr  # noqa: E402
+
+assert str(hithink_client.__file__).startswith(str(TREE)), hithink_client.__file__
+assert str(shr.__file__).startswith(str(TREE)), shr.__file__
+assert str(write_path.__file__).startswith(str(TREE)), write_path.__file__
+
+SH = ZoneInfo("Asia/Shanghai")
+CODE = "000001.SZ"
+
+
+class FakeResp:
+    def __init__(self, status, body, headers=None, read_advance=0.0, clock=None):
+        self.status = status
+        self._body = body
+        self.headers = headers
+        self._read_advance = read_advance
+        self._clock = clock
+
+    def read(self):
+        if self._clock is not None:
+            self._clock["now"] += self._read_advance
+        return self._body
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+
+def http_429(body=b"<html>throttled</html>", headers=None):
+    err = urllib.error.HTTPError("https://x/", 429, "Too Many", None, None)
+    err.read = lambda: body
+    err.headers = headers
+    return err
+
+
+@pytest.fixture
+def fake_net(monkeypatch):
+    """Scripted network + controlled monotonic clock (sleep advances time)."""
+    state = {"script": [], "sleeps": [], "calls": 0, "now": 0.0}
+    monkeypatch.setattr(hithink_client, "load_api_key", lambda: "fake-key")
+    monkeypatch.setattr(hithink_client, "_throttle", lambda gap: None)
+    monkeypatch.setattr(hithink_client, "_mark_request", lambda: None)
+    monkeypatch.setattr(hithink_client.time, "monotonic", lambda: state["now"])
+
+    def fake_sleep(s):
+        state["sleeps"].append(s)
+        state["now"] += s
+
+    monkeypatch.setattr(hithink_client.time, "sleep", fake_sleep)
+
+    def fake_urlopen(req, timeout=None):
+        state["calls"] += 1
+        outcome = state["script"].pop(0)
+        if isinstance(outcome, Exception):
+            raise outcome
+        return outcome
+
+    monkeypatch.setattr(hithink_client.urllib.request, "urlopen", fake_urlopen)
+    return state
+
+
+def ok_body(code=0, data=None):
+    return json.dumps({"code": code, "data": data or {}}).encode()
+
+
+# ------------------------------------------------------- M1 adjudication -----
+def test_m1_sequence_fires_ordinary_count_bound_not_429_bounds(fake_net):
+    """M1 input: 4001x3 -> HTTP429 -> URLError, retries=4, budget=300.
+
+    Observed: plain HithinkAPIError (NOT typed). Stopping condition: ordinary
+    attempt(4) >= retries(4) after the network error. Neither typed 429 bound
+    fired: throttled==1 < MAX_RATE_LIMIT_RETRIES, spent sleeps 6.4s << 300s.
+    """
+    fake_net["script"] = [
+        FakeResp(200, ok_body(code=4001)),
+        FakeResp(200, ok_body(code=4001)),
+        FakeResp(200, ok_body(code=4001)),
+        http_429(),
+        urllib.error.URLError("conn reset"),
+    ]
+    with pytest.raises(hithink_client.HithinkAPIError) as ei:
+        hithink_client.get_json("/api/x", retries=4, rate_limit_budget_seconds=300)
+    assert type(ei.value) is hithink_client.HithinkAPIError
+    assert not isinstance(ei.value, hithink_client.HithinkRateLimitError)
+    assert "限流" not in str(ei.value)  # generic retry exhaustion, not typed
+    # Which bound fired: 3 ordinary 4001 backoffs + one 429 backoff, then the
+    # network error consumed the 4th ordinary attempt -> attempt bound.
+    assert fake_net["calls"] == 5
+    assert fake_net["sleeps"] == [0.8, 1.6, 3.2, 0.8]
+    assert sum(fake_net["sleeps"]) < 300  # 429 TIME budget NOT exhausted
+    assert hithink_client.MAX_RATE_LIMIT_RETRIES > 1  # 429 COUNT bound NOT hit
+
+
+def test_same_exhaustion_without_intervening_429_is_identical_type(fake_net):
+    """Control A: 4001x3 -> URLError (no 429 at all). Same plain HithinkAPIError.
+    The intervening 429 changes nothing: classification follows the bound that
+    actually fired, not session history."""
+    fake_net["script"] = [
+        FakeResp(200, ok_body(code=4001)),
+        FakeResp(200, ok_body(code=4001)),
+        FakeResp(200, ok_body(code=4001)),
+        urllib.error.URLError("conn reset"),
+    ]
+    with pytest.raises(hithink_client.HithinkAPIError) as ei:
+        hithink_client.get_json("/api/x", retries=4, rate_limit_budget_seconds=300)
+    assert type(ei.value) is hithink_client.HithinkAPIError
+    assert not isinstance(ei.value, hithink_client.HithinkRateLimitError)
+    assert fake_net["calls"] == 4  # one fewer request than M1, same outcome type
+
+
+def test_genuine_429_time_bound_exhaustion_is_typed_controlled_clock(fake_net):
+    """Control B1: pure 429s, budget=5s. 3rd 429 would need wait 3.2s at t=2.4s
+    -> 2.4+3.2 >= 5 -> typed HithinkRateLimitError raised BEFORE sleeping."""
+    fake_net["script"] = [http_429() for _ in range(5)]
+    with pytest.raises(hithink_client.HithinkRateLimitError):
+        hithink_client.get_json("/api/x", rate_limit_budget_seconds=5.0)
+    assert fake_net["sleeps"] == [0.8, 1.6]  # stopped at admission, mid-window
+    assert fake_net["calls"] == 3
+
+
+def test_genuine_429_count_bound_exhaustion_is_typed(fake_net):
+    """Control B2: MAX_RATE_LIMIT_RETRIES 429s -> typed via the count bound,
+    independent of wall time (huge budget)."""
+    n = hithink_client.MAX_RATE_LIMIT_RETRIES
+    fake_net["script"] = [http_429() for _ in range(n + 1)]
+    with pytest.raises(hithink_client.HithinkRateLimitError) as ei:
+        hithink_client.get_json("/api/x", rate_limit_budget_seconds=1e6)
+    assert f"retries={n}" in str(ei.value)
+    assert len(fake_net["sleeps"]) == n
+
+
+# ------------------------------------------------- C1 retry-after / budget ---
+@pytest.mark.parametrize("raw", ["0", "-3", "nan", "inf", "garbage !!"])
+def test_invalid_retry_after_falls_back_to_exponential(fake_net, raw):
+    """C1: nonpositive/invalid Retry-After must not cause immediate/unbounded
+    retry; first backoff falls back to >= 0.8s exponential."""
+
+    class H:
+        def get(self, k):
+            return {"Retry-After": raw}.get(k)
+
+    fake_net["script"] = [http_429(headers=H()), FakeResp(200, ok_body())]
+    hithink_client.get_json("/api/x", rate_limit_budget_seconds=300)
+    assert fake_net["sleeps"] and fake_net["sleeps"][0] >= 0.8 - 1e-9
+
+
+def test_valid_retry_after_seconds_and_http_date_honored(fake_net):
+    class H2:
+        def get(self, k):
+            return {"Retry-After": "2"}.get(k)
+
+    class H3:
+        def get(self, k):
+            return {"Retry-After": formatdate(_time.time() + 2.0, usegmt=True)}.get(k)
+
+    fake_net["script"] = [http_429(headers=H2()), FakeResp(200, ok_body())]
+    hithink_client.get_json("/api/x", rate_limit_budget_seconds=300)
+    assert fake_net["sleeps"][0] == pytest.approx(2.0, abs=0.01)
+
+    fake_net["script"] = [http_429(headers=H3()), FakeResp(200, ok_body())]
+    fake_net["sleeps"].clear()
+    hithink_client.get_json("/api/x", rate_limit_budget_seconds=300)
+    assert 0.5 <= fake_net["sleeps"][0] <= 3.0
+
+
+def test_budget_admits_but_never_interrupts_in_flight_read(fake_net):
+    """C1: budget is retry ADMISSION, not forced interruption of in-flight reads.
+    A slow read (3s) with a 2s budget still returns its successful payload."""
+    slow_ok = FakeResp(200, ok_body(), read_advance=3.0, clock=fake_net)
+    fake_net["script"] = [slow_ok]
+    payload = hithink_client.get_json("/api/x", rate_limit_budget_seconds=2.0)
+    assert payload["code"] == 0 and fake_net["calls"] == 1
+
+
+def test_slow_in_flight_read_then_next_attempt_denied_admission(fake_net):
+    """A 429 whose in-flight read consumed the whole budget: after handling, the
+    next attempt is denied admission -> typed exhaustion, no sleep, no 2nd call."""
+    err = http_429()
+    orig_read = err.read
+    err.read = lambda: (fake_net.__setitem__("now", fake_net["now"] + 10.0), orig_read())[1]
+    fake_net["script"] = [err]
+    with pytest.raises(hithink_client.HithinkRateLimitError):
+        hithink_client.get_json("/api/x", rate_limit_budget_seconds=5.0)
+    assert fake_net["calls"] == 1 and fake_net["sleeps"] == []
+
+
+# --------------------------------------------------- taxonomy (pre-existing) --
+def test_non_dict_json_200_escapes_as_attribute_error(fake_net):
+    """Pre-existing (baseline same shape: baseline_hithink_client.py:158
+    payload.get on a list): HTTP 200 + JSON array -> bare AttributeError."""
+    fake_net["script"] = [FakeResp(200, b"[1,2,3]")]
+    with pytest.raises(AttributeError):
+        hithink_client.get_json("/api/x")
+
+
+# ------------------------------------------------------------ sync layer -----
+def heat_payload(day):
+    ms = hithink_client.shanghai_midnight_ms(day)
+    return {
+        "code": 0,
+        "request_id": "prov-1",
+        "data": {
+            "timestamp": ms,
+            "item": [
+                {"thscode": CODE, "date": day.isoformat(), "date_ms": ms, "rank": 5}
+            ],
+        },
+    }
+
+
+def valuation_payload():
+    item = {f: 1.0 for f in shr.VALUATION_FIELDS}
+    item["thscode"] = CODE
+    return {"code": 0, "request_id": "prov-2", "data": {"total": 1, "item": [item]}}
+
+
+def run_sync(tmp_db, getter):
+    today = datetime.now(SH).date()
+    clock = lambda: datetime(today.year, today.month, today.day, 10, 0, tzinfo=SH)
+    return shr.sync_hithink_research(
+        codes=[CODE], db_path=tmp_db, getter=getter, clock=clock
+    )
+
+
+def test_typed_429_exhaustion_leaves_gap_continues_partial_audited(tmp_path):
+    """C3 verified-shape probe: typed exhaustion -> failed audit w/ original
+    scope + traceable id, remaining requests attempted, overall partial."""
+    tmp_db = tmp_path / "probe.duckdb"
+    calls = []
+    today = datetime.now(SH).date()
+
+    def getter(path, params=None):
+        calls.append(path)
+        if "anomaly" in path:
+            raise hithink_client.HithinkRateLimitError("budget gone")
+        if "valuations" in path:
+            return valuation_payload()
+        return heat_payload(today)
+
+    result = run_sync(tmp_db, getter)
+    assert result["status"] == "partial"
+    assert len(calls) == 3  # anomaly + valuation + heat_trend all attempted
+    assert result["missing"] and result["missing"][0]["kind"] == "anomaly"
+    assert result["missing"][0]["request_id"]
+
+    import duckdb
+
+    con = duckdb.connect(str(tmp_db), read_only=True)
+    rows = con.execute(
+        "SELECT kind, status, params_json, error_type FROM ops_hithink_research_request"
+    ).fetchall()
+    con.close()
+    failed = [r for r in rows if r[1] == "failed"]
+    assert len(failed) == 1 and failed[0][0] == "anomaly"
+    assert json.loads(failed[0][2]) == {}  # original (empty) scope retained
+    assert failed[0][3] == "HithinkRateLimitError"
+
+
+def test_ordinary_error_after_run_start_aborts_fail_closed(tmp_path):
+    """C3 'Other errors still fail closed': plain HithinkAPIError on first
+    endpoint aborts the chain (rate_limited=False), remaining NOT attempted.
+    This is the contract-correct mapping of the M1 client outcome."""
+    tmp_db = tmp_path / "probe.duckdb"
+    calls = []
+
+    def getter(path, params=None):
+        calls.append(path)
+        raise hithink_client.HithinkAPIError("hithink /api/x 重试耗尽")
+
+    with pytest.raises(shr.HithinkCaptureError) as ei:
+        run_sync(tmp_db, getter)
+    assert ei.value.rate_limited is False
+    assert ei.value.error_type == "HithinkAPIError"
+    assert len(calls) == 1
+
+
+# -------------------------------------------------------- write_path guard ---
+def test_guard_stat_permission_error_now_propagates(monkeypatch):
+    """source.diff 960-963: baseline `except OSError: return False` narrowed to
+    `except FileNotFoundError`. Non-ENOENT OSError now propagates out of the
+    production-write guard instead of returning False. Fail direction: a write
+    crashes (blocked) rather than being allowed, so integrity-safe; still a
+    behavior delta vs baseline."""
+    monkeypatch.setattr(
+        write_path, "canonical_production_candidates", lambda: frozenset()
+    )
+
+    def boom(self, *a, **k):
+        raise PermissionError(13, "Permission denied")
+
+    monkeypatch.setattr(Path, "stat", boom)
+    with pytest.raises(PermissionError):
+        write_path.is_canonical_production(Path("/tmp/anywhere.duckdb"))
+
+
+def test_hardlink_to_production_detected(tmp_path, monkeypatch):
+    prod = tmp_path / "prod.duckdb"
+    prod.write_bytes(b"x" * 64)
+    link = tmp_path / "clone.duckdb"
+    link.hardlink_to(prod)
+    monkeypatch.setattr(
+        write_path, "canonical_production_candidates", lambda: frozenset({prod})
+    )
+    assert write_path.is_canonical_production(link) is True
+    assert write_path.is_canonical_production(tmp_path / "missing.duckdb") is False
