@@ -1,26 +1,26 @@
+# #84 看板集成候选
+
 ## 这个分支做什么
-#84：从 main@626d8a508 前向 #812 看板加固，与 #876 共用只读安全采样；ownership 12 树只盘点不删除。
+#812 看板修复与 #876 清理工具共用安全采样；已前向 main `3bb81b9638f9`（83ac274ea）并纳入 #903 文档（98c3ffea9）。本轮再补 macOS plist 只读兼容，不改仓外启动文件。
 
 ## 当前状态
-源码 `18bfc3af96731d2df1d172c3047c189f5a6303a0` 已推；WIP PR #895。#812 评论6514已回读，含12行处置表与#895接替指针；#895评论6522记录验证边界。未合并、部署、关闭旧PR或删真实树。#64附表、INDEX已改。
+实现载体 #895；#903 的报告已进入本枝。实际 PR head/开闭状态以 Gitea 为准，不从历史快照抄。用户要求「继续推进直到可以合并部署」，本轮推进到可合并/可发布，不扩成实际合主线或切 8792 授权。
+本轮固定候选及四叶状态只读 `~/.finance-runtime/reviews/worktree-board-hardening-20260924/integration-01/{README.md,result.json}`。缺文件、未完成、dirty 或 revision != 本枝 HEAD 都不放行；旧 b26 四叶不移签。把动态结果外置，避免为回填计数再次改变受测 head。
 
 ## 决策与被否方案
-- 采用 `scripts/worktree_safety.py` 共用状态/进程/plist/祖先采样；否仅改“不可删”文案，文案不能消除重复判据。
-- 撤 #876 对整个 `.code-review-graph` 的豁免；真实未提交文件也会被那条过滤吞掉。
-- 取#812两处代码增量而非整枝合入；旧组合含#813/#814及历史审查，不移签。
-- 详见 `docs/handoffs/2026-09-23-worktree-board-hardening.md` 与 `docs/verification/2026-09-23-worktree-board/README.md`。
+- main 与报告先整合，最后统一验；否沿用旧分支绿绕过漂移门。
+- 标准 plistlib 失败仅在 macOS 交系统 plutil 转二进制，stdin 用已读 bytes，stdout 再解析；否改原 plist、正则修 XML、吞异常。失败/超时/非字典仍 unknown。
+- 本单是仓内 CLI，发布完整提交与同版共享模块；否顺带重启金融服务或覆盖脏主检出。
+- 展开：`docs/handoffs/2026-09-24-worktree-board-integration.md`。
 
 ## 已验证
-源码18bfc3af干净树48P；registry五项exit0且首尾同SHA/dirty=false；全仓ruff、pre-commit、merge-tree对626d8a508通过。旧main九反例9F；内存撤dirty保护1F。
-树外收据根 `~/.finance-runtime/reviews/worktree-board-hardening-20260923/`；定向收据 `focused-receipts/20260923T140129Z-18bfc3af-fee7bf2202e4.json`，registry.json。这些只签源码提交，后续文档尖不移签。
-12树实为6 baseline+1 ops+5 detached；全部两个tracked删除，且非基准祖先。HEAD均有分支保留（ops那棵无baseline精确锚点）；证据目录均在。原始采样 ownership.json。
+开发态定向 59P；撤 native fallback 1F、撤 dirty 保护 1F、旧版九反例9F，源码未被变异脚本改写。实机 context errors=[]，原 plist 哈希未变。以上不代最终 head 四叶，最终读数以本轮目录为准。旧 b26 的14665P等四叶留在上一轮证据根。
 
 ## 未验证 / 已知边界
-BLOCKED_RESOURCE：磁盘约9.4GiB、多轮他人全量pytest并发，未启动本单全量Python/frontend/E2E。四叶未齐，不可合入。整仓看板120s/900s超时；低预算JSON返回trees=null未知；成功JSON契约已用隔离仓CLI测试验，未取得真实整仓成功收据。
-#64完整mtime/ignored/reflog/授权未验；命中dirty/非祖先即保留。未重开K3。
+12 棵 ownership 树仍各两项 tracked 删除，全部保留；#64 完整mtime/ignored/reflog/授权未重算。没有重开K3、删除真实树、关闭#812或实际合并/部署。真实库/模型/跨仓显式探针不因工程门禁绿而变成已验。
 
 ## 下一步
-协调空间与独占资源窗口；fetch后复核main漂移/merge-tree，在最终干净head跑全量Python、frontend、E2E、registry；重取完整看板JSON。合入仍等用户确认，拆树仅#64另行确认名单。
+核本轮 result.json 与候选身份，fetch 后核漂移和 merge-tree；全部放行且用户确认才合。#812在替代实现实际合入后留指针处理；#903已被本枝吸收，只能带接替指针收口。工具可在固定检出直接运行，不需要切8792。
 
 ## 踩过的坑
-所有命令先cd本隔离树，默认工具cwd仍是脏主树。Gitea本机请求用 `NO_PROXY=127.0.0.1,localhost`；超时POST可能已生效，先回读marker勿盲重发。只读Git显式GIT_OPTIONAL_LOCKS=0；本树一把无人持有的空index.lock已核验移除，未动其他树锁。
+XML注释里的 `--detach`：Expat拒绝、macOS接受。全局GATE_KEEP_BASETEMP会污染测试默认清理行为；本轮不设置。测试框架只释放本轮成功临时夹具，旧证据不动；磁盘3GiB止损。Gitea请求命令级NO_PROXY，超时写入先回读marker。

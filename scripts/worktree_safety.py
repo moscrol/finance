@@ -94,6 +94,24 @@ def _shell_paths(text: str, home: Path):
         yield raw
 
 
+def _load_launchd_plist(data: bytes, *, timeout: float) -> dict:
+    try:
+        value = plistlib.loads(data)
+    except (ValueError, plistlib.InvalidFileException, ExpatError):
+        if sys.platform != "darwin":
+            raise
+        # Use macOS semantics on the bytes already sampled, never rewrite the launcher.
+        converted = subprocess.run(
+            ["/usr/bin/plutil", "-convert", "binary1", "-o", "-", "--", "-"],
+            input=data, capture_output=True, timeout=timeout,
+        )
+        converted.check_returncode()
+        value = plistlib.loads(converted.stdout)
+    if not isinstance(value, dict):
+        raise ValueError("launchd plist root must be a dictionary")
+    return value
+
+
 def sample_context(*, timeout: float, home: Path | None = None) -> dict:
     home = home or Path.home()
     references, errors = [], []
@@ -131,7 +149,7 @@ def sample_context(*, timeout: float, home: Path | None = None) -> dict:
                 try:
                     data = file.read_bytes()
                     if is_plist:
-                        for value in _strings(plistlib.loads(data)):
+                        for value in _strings(_load_launchd_plist(data, timeout=timeout)):
                             if value.startswith("/"):
                                 add_reference(value, file)
                             else:
@@ -140,7 +158,8 @@ def sample_context(*, timeout: float, home: Path | None = None) -> dict:
                     elif b"\0" not in data:
                         for raw in _shell_paths(data.decode("utf-8"), home):
                             add_reference(raw, file)
-                except (OSError, ValueError, UnicodeError, plistlib.InvalidFileException, ExpatError) as exc:
+                except (OSError, ValueError, UnicodeError, plistlib.InvalidFileException,
+                        ExpatError, subprocess.SubprocessError) as exc:
                     errors.append(f"launcher unreadable: {file} ({type(exc).__name__})")
         except OSError as exc:
             errors.append(f"launcher directory unreadable: {directory} ({type(exc).__name__})")
