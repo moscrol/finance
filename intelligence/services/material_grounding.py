@@ -348,7 +348,9 @@ def material_grounding_payload(contract: ResearchTaskContract) -> dict[str, obje
         **(catalogue.to_dict() if catalogue else {}),
         "rule": (
             "纯度由 data_scope 决定，不由真实性决定：material_only 的每个市场事实/计算结果必须在对应 binding.claims 中"
-            "给出 text（逐句原文）、kind=material_fact、material_anchors=[{material_id,quote}]；quote 必须逐字来自用户材料，"
+            "给出 text（逐句原文）、kind=material_fact、material_anchors=[{material_id,quote}]；quote 必须逐字来自该material_id对应条目的text，"
+            "逐条核对坐标，不沿用首项或前一句的material_id；题目中的情景若单独编目，须引用该情景自己的条目。"
+            "quote不改写日期、数字或标点，不用省略号，不拼接原文中被换行或其它文字分开的片段；多个片段分别给锚点，正文可以解释。"
             "多材料计算列出全部输入锚点，正文交代推导。不得绑定工具证据。local_only 只接受实际本地 IO 来源；full 不作材料纯度限制。"
             "basis=user_premise 仅是范围声明标签，不替事实绑定；fictional 前提按给定假设推理，不要求证明它，也不取消 full 的真实检索。"
             "非事实推理可标 reasoning，范围声明可标 premise_declaration；标签不能掩盖未绑定的当前事实。"

@@ -18,9 +18,23 @@ CLAIM_CHECK_SCHEMA = {
             "supported": {"type": "boolean"},
             "reason": {"type": "string"},
             "support_kind": {"type": "string", "enum": ["bound_material", "historical_quote", "nonfactual", "unsupported", "contradicted"]},
-            "anchor_indexes": {"type": "array", "items": {"type": "integer", "minimum": 1}, "uniqueItems": True},
+            "anchor_indexes": {"type": "array", "items": {"type": "integer", "minimum": 1}, "uniqueItems": True,
+                               "description": "bound_material支持或contradicted拒绝须有本句锚点序号；nonfactual、historical_quote、unsupported必须为[]，即使本句附有锚点。"},
         },
         "required": ["claim_id", "supported", "reason", "support_kind", "anchor_indexes"],
+        # Mirror cross-field invariants already enforced by reconcile_claim_checks.
+        # This constrains generation; the receiving validator still rejects violations.
+        "anyOf": [
+            {"properties": {"support_kind": {"enum": ["bound_material"]}},
+             "anyOf": [{"properties": {"supported": {"enum": [False]}}},
+                       {"properties": {"anchor_indexes": {"minItems": 1}}}]},
+            {"properties": {"support_kind": {"enum": ["historical_quote", "nonfactual"]},
+                            "anchor_indexes": {"maxItems": 0}}},
+            {"properties": {"support_kind": {"enum": ["unsupported"]},
+                            "supported": {"enum": [False]}, "anchor_indexes": {"maxItems": 0}}},
+            {"properties": {"support_kind": {"enum": ["contradicted"]},
+                            "supported": {"enum": [False]}, "anchor_indexes": {"minItems": 1}}},
+        ],
     },
 }
 

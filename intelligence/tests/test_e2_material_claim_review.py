@@ -315,6 +315,49 @@ def test_contradiction_receipt_still_cannot_claim_support_or_invent_anchors(muta
     assert SemanticEpisodeVerifier._parse_report(payload, 2, material_claims=request["material_claims"]) is None
 
 
+@pytest.mark.parametrize("kind", ["bound_material", "historical_quote", "nonfactual", "unsupported", "contradicted"])
+@pytest.mark.parametrize("supported", [False, True])
+@pytest.mark.parametrize("indexes", [[], [1]])
+def test_generated_claim_schema_matches_existing_cross_field_rejections(kind, supported, indexes):
+    from jsonschema import Draft202012Validator
+    from intelligence.services.material_claim_review import CLAIM_CHECK_SCHEMA, reconcile_claim_checks
+
+    check = {"claim_id": "c1", "supported": supported, "reason": "Protocol matrix fixture.",
+             "support_kind": kind, "anchor_indexes": indexes}
+    claims = [{"claim_id": "c1", "sentence_index": 1,
+               "kind": "historical_assistant_statement" if kind == "historical_quote" else "reasoning",
+               "material_anchors": [{"quote": "Original material."}],
+               "old_answer_coordinate": "old", "historical_quote": "Old statement.", "basis": "assistant_judgment"}]
+    payload = {"passed": supported, "rejected_sentence_indexes": [] if supported else [1],
+               "issues": [], "material_claim_checks": [check]}
+    Draft202012Validator.check_schema(CLAIM_CHECK_SCHEMA)
+    schema_valid = Draft202012Validator(CLAIM_CHECK_SCHEMA).is_valid([check])
+    accepted = reconcile_claim_checks(payload, claims) is not None
+    assert schema_valid == accepted
+
+
+def test_nonfactual_anchor_regression_remains_rejected_by_schema_and_parser():
+    """G1b run_20260923_173253_422847 returned nonfactual + [1]; do not normalize it."""
+    from copy import deepcopy
+    from jsonschema import Draft202012Validator
+    from intelligence.services.material_claim_review import CLAIM_CHECK_SCHEMA
+
+    request = {"material_claims": [{"claim_id": "c1", "sentence_index": 1, "kind": "premise_declaration",
+                                     "material_anchors": [{"quote": "Only supplied materials."}]}]}
+    payload = {"passed": True, "rejected_sentence_indexes": [], "issues": [], "material_claim_checks": [
+        {"claim_id": "c1", "supported": True, "reason": "Scope only.", "support_kind": "nonfactual", "anchor_indexes": [1]},
+    ]}
+    saved = deepcopy(payload)
+    assert not Draft202012Validator(CLAIM_CHECK_SCHEMA).is_valid(payload["material_claim_checks"])
+    assert SemanticEpisodeVerifier._parse_report(payload, 1, material_claims=request["material_claims"]) is None
+    assert payload == saved
+    tool_schema = _judge_report_tools(request)[0]["function"]["parameters"]
+    assert not Draft202012Validator(tool_schema).is_valid(payload)
+    payload["material_claim_checks"][0]["anchor_indexes"] = []
+    assert Draft202012Validator(tool_schema).is_valid(payload)
+    assert SemanticEpisodeVerifier._parse_report(payload, 1, material_claims=request["material_claims"]).passed
+
+
 def test_contradiction_kind_is_offered_in_the_schema_and_explained_in_the_rule():
     from intelligence.services.material_claim_review import CLAIM_CHECK_RULE, CLAIM_CHECK_SCHEMA
 
