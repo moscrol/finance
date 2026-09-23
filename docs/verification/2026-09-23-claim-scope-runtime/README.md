@@ -1,54 +1,66 @@
 # Claim-Scope Runtime: #890
 
-## 身份与结论边界
+## 当前结论
 
-- 固定候选：`2be85e64eeaffc6e37b66898ecc1a740acd6a7fd`。
-- Git tree：`cd5ff0b865e823fd3cc5a26555cb25ce81d66ae0`。
-- 基线：`f47d464eb7af32157c331bf2a6bf1b337acbb43f`。
-- PR：[WIP #890](http://127.0.0.1:3300/a77/finance-workspace-private/pulls/890)。没有合入或部署。
-- 原件根：`~/.finance-runtime/reviews/claim-scope-runtime-20260923/`。
-- 授权：pi 会话 `01a0cbdf-8033-71c3-9314-9cf6c26bc033`，消息 `a7d8d0e6`；原话与此前有条件合并授权见原件 `protocol.json`。
+[WIP #890](http://127.0.0.1:3300/a77/finance-workspace-private/pulls/890) 未合入、未部署。产品候选 `14f885e01f4a538492b54a27f67ab5d33b58f875`，Git tree `b17c772944ff20c9fe5b0c5a8b642cf3c8c20ed6`。工程完整门禁已绿；续办的 **GLM 独立工程审查 PASS_WITH_LIMITS**；K3 专项金融验收未完成；L5 因数据一致性阻塞，两原题仍各首发0/重发0/续问0。
 
-**不能把文档后续提交、历史 #888 收据、作者工程测试、K3 独审、自然金融质量四者互相代签。** 以下完整门禁只绑定上述固定候选，不绑定本报告后续提交。
+原件根 `~/.finance-runtime/reviews/claim-scope-runtime-20260923/`。本轮只增加文档，不改产品代码；以下收据不覆盖后续文档提交或与新 main 的组合版本。旧 #883/#888、首轮红、返修绿、GLM 独审和真实金融质量分账。
+
+| 批次 | 固定候选 | 结论 | 原件 |
+|---|---|---|---|
+| 首轮 | `2be85e64eeaffc6e37b66898ecc1a740acd6a7fd` | 工程RED；K3独审无终稿 | 根目录 `audit.json`、`qc/` |
+| 返修 | `14f885e01f4a538492b54a27f67ab5d33b58f875` | 完整工程GREEN；当时独审未派 | `retry-01/audit.json` |
+| 本次续办 | 同上 `14f885e01` | GLM独审PASS_WITH_LIMITS；L5 BLOCKED_MARKET_DATA_CONSISTENCY | `continue-01/audit.json`、`artifact-manifest.json` |
+
+本目录 `continue-01/` 留审计与独立报告原样副本，完整事件流/JUnit/探针仍在树外原件根。历史两份 manifest 的39/33个成员已逐个复核不变，本次封存131成员。
 
 ## 工程验证
 
-首轮完整门禁 **RED**：Python 14641P/2F/85S/2X，Ruff通过；前端120P、E2E34P/2S、registry5/5与身份校验通过。原件为 `gates/`、`gate-runner.log`、`audit.json`、`artifact-manifest.json`，不覆盖。
+首轮完整门禁：14641 passed / 2 failed / 85 skipped / 2 xfailed；Ruff通过，前端120P、E2E34P/2S、registry5/5通过，整体验收RED。两红均为实际接入问题：B私有收据在终态认领前落盘；只读参数 `public_answer=` 被公开赋值棘轮抓到。
 
-两红均在本次接入面：`test_terminal_publish_paths_claim_before_public_artifacts` 抓到 B 私有收据在终态认领前落盘；`test_public_answer_assignments_all_go_through_view` 抓到只读观察参数也叫 `public_answer=`，与公开赋值门禁冲突。返修把落盘移至认领成功之后，只读参数改名 `delivered_answer`，没有放宽或白名单化门禁。增强后的真实 Workbench 测试在旧冻结代码上恰好1红，在返修相关7模块上483P，Ruff/diff通过。前者是作者回归阳性对照，不冒充 #75 独审阳性对照。
+返修把私有落盘移到 `_claim_terminal_run` 成功之后，只读参数改为 `delivered_answer`，不放宽门禁。加强的真实Workbench顺序断言在旧冻结版恰好1红，返修7模块483P。这是作者回归控制，不是独审探针。
 
-返修后的完整复验另起 `retry-01/`；其 revision、完整结果与依赖指纹只认该目录生成的收据，不借用首轮身份或预写通过。该目录的 `gate-runner.log`/`audit.json` 是本报告之后的活动检查落点。
+固定 `14f885e01` 完整工程：**14643 passed / 0 failed / 0 error / 85 skipped / 2 xfailed**，collected14730，无ignore/deselect、无last_failed、maxfail0；指定解释器与依赖指纹 `3328bed61f3e21ea`、clean身份通过。Ruff、前端install/lint/typecheck/test/build、Vitest120P、E2E34P/2S、registry5/5通过。本次用 `check_test_receipt.py --expect-revision ... --require-full-scope` 复核原收据，exit0，**没有重跑完整门禁**。
 
-开发期定向 110P、扩大相关模块 498P、专项 22P，只是作者开发读数，不替代当前 clean revision 完整门禁。
-
-固定候选的 `frozen-parity/manifest.json` 记录两份旧答卷重放：材料1条、行情3条；typed runtime 映射与 CLI 全字段一致，四个已知越界仍被检出。`claim_scope_census.py` 实际读入这2个显式产物，advisory 2、命中2、degraded 0、四类各1，见 `census-frozen-controls.json`；分母是两个已知失败控制，不是线上覆盖率或召回率。没有模型调用；这不是新金融答案验收。首轮开发夹具漏传 `task_frame_hash` 的失败保留，不改写成产品缺陷。
+两份历史失败答卷在首冻和返修均完成CLI/runtime逐字段重放：材料1条、行情3条；census显式产物2/advisory2/命中2/degraded0。零模型，这不是新金融答案验收，也不是线上召回率。开发夹具最初漏 `task_frame_hash` 的失败原件保留。
 
 ## #75 独立审查
 
-结论：`BLOCKED_REVIEW_NO_OUTPUT`，不是 PASS / 无发现 / CHANGES_REQUIRED。
+### 历史K3阻塞
 
-| 阶段 | 状态 | 原件 |
-|---|---|---|
-| explore | 208.492秒，第9次预占请求报 `Request timed out.`；未交付探针和终稿 | `qc/k3/execution.json`、`events.jsonl`、`request-admissions.jsonl` |
-| execute | 前置阻塞，未派发 | `qc/report.json` |
-| report | 前置阻塞，未派发 | `qc/report.json` |
+首冻的K3 explore在第9次预占后 `Request timed out.`，208.492秒，无探针/终稿；execute/report未派，阳性对照NOT_EXERCISED，结论保留 **BLOCKED_REVIEW_NO_OUTPUT**。CLI exit0不改变结论；没有HTTP状态码，不猜429/504，也不移签到返修候选。
 
-本轮上限600秒/40请求，未触总帽；未得到 HTTP 状态码，不猜测429/504。`pi exit=0` 与模型错误同时出现，以模型错误和缺少产物判阻塞。9次审查请求预占与1次网关小载荷探测分账；预探测200/READY约4.9秒不算审查通过。候选和输入前后未改。
+### 本次GLM替代审查
 
-作者测试与审查探针分账：审查探针执行 **0**，阳性对照 `assert 1 == 2` 未交付、未执行，`NOT_EXERCISED`。`qc/spec/`、`quality/`、`probes/` 内的 README 是控制器的缺失状态记录，不是假造的审查者报告。没有自动重试。
+用户“继续”后另开 `continue-01/`。K3单次预探测HTTP200但32-token上限下正文为空，记BLOCKED_EMPTY_OUTPUT，**不能据此认定K3通道不可用**。依既有可用通道切换偏好改用 `zhipu/glm-5.3`，修订协议保留通道差异和总预算。GLM单次预探测READY；初版控制器import preflight失败，审查模型请求0，失败现场保留；第二版采用经验证沙箱并加入作者旧证据拒读自检。
 
-## #76 L5
+| 独立会话 | 请求数 | 耗时 | 产物 |
+|---|---:|---:|---|
+| explore | 12 | 以execution.json为准 | 原创产品探针、故意失败对照、explore.md |
+| execute | 17 | 208.67秒 | 三组分账日志、JUnit、execute.json/md |
+| report | 27 | 347.67秒 | spec.md、quality.md、report.json |
 
-结论：`BLOCKED_CANDIDATE_NOT_ACCEPTED`。两道原题各首发0、重发0、续问0；未启动旁路实例、未冻结数据、未取得 judge/marker/new-answer 收据。原件 `l5/audit.json`。
+三段共56请求；加K3/GLM各一次预探测共58，均未自动重试；总帽121，每阶段600秒及独立请求帽见协议/控制器原件。候选源码只读且前后未变，作者审计/交接与生产数据隔离。控制器从原始HTTP/请求事件计数，不靠模型自报。
 
-本轮已按 schema 修正条件卡的旧列名为 `stock_ts_code / sector_ts_code`。实际全集数仍须按答案实际日期查冻结库，本轮未查询，不沿用旧20。K3实际路由和凭证解析方式、候选已内置剥除 temperature 是否代替旧外置 shim，均须在首发前明确写入协议，不能事后补签。
+- 独立探针：**15 passed**，只执行一次，修正0次。explore概述误写13，execute/report按XML纠正。
+- 故意红对照：**1 failed / 0 error**，恰为 `assert 1 == 2`，分类probe_bug，证明装置会报红，不是产品失败。
+- 作者测试：**22 passed**，不并入独立探针数。
+- 独立裁决：**PASS_WITH_LIMITS**，本范围产品缺陷0；控制器采纳有限工程结论，不将它改签为K3审查或自然金融质量通过。
 
-## 生产
+具体限制：C7只动态验证helper层文本hash，真实A恢复流未独立执行；C8只压到降级管道，B三个真实入口未独立跑全；C9终态落盘时序/败方不写仅独立静态复核，动态证据仍属作者测试。C2序列化条件键、C3零新增IO主要静态复核；C10只有合成产物探针。详细逐主张证据见独立spec报告。
 
-只读复查 `8792`：`source_revision=3b7e473575b0ff2dea3c1088ba7b5e330e95c8e4`、clean、`code_matches_repo=true`、`continuous_glm / glm-5.3-flash`。health healthy，但 readiness not_ready，唯一缺项 `market_data_consistency`：该接口报告主库日期2026-09-22、行情快照日期2026-09-23。快照自身合约PASS，不能替主库与快照日期一致性签字。
+非阻断观察：census遇mode=advisory但缺必需键的输入可能KeyError；独审仅静态推断、未动态触发，当前运行时恒产这些键。本次不改冻结候选。
 
-原件 `production-health-postcheck.json`、`production-readiness-postcheck.json`。本轮未改生产、未部署、未重启、未切模型、未改判官档位、未回填数据。这里只证明声明字段的观察，不声称全系统零副作用审计。数据一致性需独立恢复；不能靠换代码掩盖。
+## #76 L5 与生产
+
+当前 **BLOCKED_MARKET_DATA_CONSISTENCY**，不再是“没有工程独审终稿”。`continue-01/readiness-input-precheck.json` 直接执行候选 `health_ready` 的一致性表达式，使用只读fact_market_daily最新日期和快照校验结果：市场汇总最新2026-09-22、快照2026-09-23，判据false；读取前后DB文件元数据与快照哈希相同。没有冻结数据、没有完整验收readiness，也没有触发候选服务的RAG预热。
+
+两原题仍各首发0/重发0/续问0；未启动L5旁路、未获取L5锁、无judge/marker/new-answer收据。全集须按正式答案日期从冻结库查，不能沿用旧20；条件卡列名已是 `stock_ts_code / sector_ts_code`。
+
+生产8792仍为 `3b7e473575b0ff2dea3c1088ba7b5e330e95c8e4`、clean、`code_matches_repo=true`、continuous_glm/glm-5.3-flash。health healthy，readiness not_ready，缺market_data_consistency；前后七项身份字段一致。本次未改配置/代码、未重启、未回填、未部署；这些观察不声称全系统零副作用。
 
 ## 接手顺序
 
-先确认 `retry-01/` 固定返修候选的完整门禁，再在新的明确预算下完成 #75 三段；候选或主干漂移时仍须重验；再按 L5 条件卡执行两个原题；只有全部通过且生产 readiness 恢复，才允许按授权部署。任何阶段阻塞均不得带红合入或部署。#883/#888 历史收据与失败现场保留。
+先独立恢复并证明数据一致性，不能重贴日期或自行补生产事实。核对候选/依赖/主干变化；新组合版本须另冻另验，不能用本次14f收据移签。随后明确K3实际路由、凭证解析、temperature剥参路径与judge关闭证明，按L5条件卡两原题各首发1/重发0/续问0。工程、独审、自然质量、readiness、身份及回滚前置全部成立才合入和部署。
+
+授权及早期设计见根 `protocol.json`；本次 `continue-01/protocol.json`、`amendment-glm.json`、`amendment-sandbox.json`。决策背景见 `docs/handoffs/2026-09-23-claim-scope-glm-review-readiness-block.md`。封存脚本使用排他创建，不覆盖重跑。

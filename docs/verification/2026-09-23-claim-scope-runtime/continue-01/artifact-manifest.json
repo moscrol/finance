@@ -1,0 +1,536 @@
+{
+  "root": "/Users/a77/.finance-runtime/reviews/claim-scope-runtime-20260923/continue-01",
+  "files": {
+    "check-readiness-inputs.attempt-01.py": {
+      "bytes": 3621,
+      "sha256": "acd88317c4c41d286fe413b5e506ec24c56b583d07150469f14b6560b1a23050"
+    },
+    "audit.json": {
+      "bytes": 8576,
+      "sha256": "d7a595afddd7db8a9a4b2963d13c503e1b997a4f3d606db81797cccd8c5bcc22"
+    },
+    "seal.py": {
+      "bytes": 10298,
+      "sha256": "e7ec29b5408c103625c53216ca57f138d7b6ad2030ae4583d808bdfd1a64da8a"
+    },
+    "engineering-receipt-recheck.log": {
+      "bytes": 1112,
+      "sha256": "e7db4d4eb3d47c429b9855c525462e0f4e131a4d295887d5dcf2f3313619213d"
+    },
+    "production-readiness-after.json": {
+      "bytes": 2246,
+      "sha256": "eea5526ab36e396dd3f4bed3bcb83a28bbdc3ac775dbac3553d02ff88c5af5d7"
+    },
+    "readiness-input-precheck.json": {
+      "bytes": 4246,
+      "sha256": "507920ee9250cce6381858c53d28f584dbd4886673c8625ad34f3b2ff135ef3a"
+    },
+    "readiness-input-precheck-attempt-01.json": {
+      "bytes": 75,
+      "sha256": "a69b863ec5b2312f34f5d52d0e18941ec6878401d7525cb8c3382c463c5b3ae4"
+    },
+    "controller-diagnostics.json": {
+      "bytes": 1252,
+      "sha256": "0fdb1909f4ec9c6ba1335b66a32c023160e248f249aa99715e4ce8d84b59ca42"
+    },
+    "gateway-preflight.py": {
+      "bytes": 2386,
+      "sha256": "a4ecee54ff6161edb3ee8e1b731bd099b1a24a43ffe2510ab60b742a7ab69d0d"
+    },
+    "check-readiness-inputs.py": {
+      "bytes": 3756,
+      "sha256": "4cd72e4260e81636d5caa00e574a7008e3ec3846f0e3cc8907da487d4049f092"
+    },
+    "protocol.json": {
+      "bytes": 1724,
+      "sha256": "6fcf9dd418b26073758fb1b9afad8106ce0e0c45b7ae5182f13251d2e1f9b8a5"
+    },
+    "checkout.log": {
+      "bytes": 2097,
+      "sha256": "02dd9f5de620830ee99fd3a956a9480f2d4a701a9e681ff72fde5efe439f5eb9"
+    },
+    "production-health-after.json": {
+      "bytes": 1648,
+      "sha256": "55bd6065219c3bce98464f4947833604b1f6c5e702b21c37bc721f280712b52b"
+    },
+    "amendment-sandbox.json": {
+      "bytes": 898,
+      "sha256": "a24c5c9782ab21eb0f79dbf28012737f88750ca5b7ce51d600bf7f44a15fb753"
+    },
+    "production-readiness-before.json": {
+      "bytes": 2345,
+      "sha256": "20b2c340f67965664527962c65063a0ee83a6dbd491cf6fda3a2943347447018"
+    },
+    "amendment-glm.json": {
+      "bytes": 1287,
+      "sha256": "b4d698d0910687d4f59c9979d02c5f04c8d86f25b466d8f4bf04005eb1ae8340"
+    },
+    "gateway-preflight.json": {
+      "bytes": 527,
+      "sha256": "28cb7333a2fe1f958bd321ea516f6358edf0e98b62e8d68027bd2fff63ada444"
+    },
+    "production-health-before.json": {
+      "bytes": 1648,
+      "sha256": "2535502c3e3ec05511785a4e343a1d163fc9a6122cfe52b5dab14394bf996564"
+    },
+    "l5/audit.json": {
+      "bytes": 856,
+      "sha256": "5567a005d72432294b0a7ac66b2f04648ea37a0011e6b7f00991556eaa5bacb4"
+    },
+    "glm-qc/run.py": {
+      "bytes": 9825,
+      "sha256": "fbf49bdb5641fc43cdd29e1dc419150730fba6368839359d231fe9cff6bb7faf"
+    },
+    "glm-qc/prompt-session-01.md": {
+      "bytes": 3758,
+      "sha256": "ecd56c6f1c305cb96b66f8e082f8d85b51be98f907c4d08b145c983887034254"
+    },
+    "glm-qc/credential-bootstrap.mjs": {
+      "bytes": 3400,
+      "sha256": "9136a461f7ce0d1537b8bbeaabe219eaf95267d5a9f585182cdd1536730bbce8"
+    },
+    "glm-qc/gateway-preflight.py": {
+      "bytes": 2325,
+      "sha256": "7509c02af1793e218f1c3ea743ec3b8148ab66030fe062ee7803a272fce8a67a"
+    },
+    "glm-qc/source.diff": {
+      "bytes": 43989,
+      "sha256": "39222e8e02a24ba4b1c4335ed1aaf52510dcef03bf50d871157546213f934203"
+    },
+    "glm-qc/controller-01.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "glm-qc/provider-template.json": {
+      "bytes": 464,
+      "sha256": "d2e173caef38771c78451e8f0651da143fd5b58fb60c58efbd9d257008003b30"
+    },
+    "glm-qc/tools.mjs": {
+      "bytes": 2099,
+      "sha256": "b494d5fcfcfa9790cb230060b0be52061e289323222b9749027c09c3170e933c"
+    },
+    "glm-qc/gateway-preflight.json": {
+      "bytes": 615,
+      "sha256": "fd5ce0b00a5c41ee0a8c3f02816ccbb8021ffa6c842d1802265ca9a6ed011728"
+    },
+    "glm-qc/glm-session-01/preflight.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "glm-qc/glm-session-01/tools.sb": {
+      "bytes": 1621,
+      "sha256": "de5c8293931a97e3fb069cf32b2e91bfc9065b90682eaa80e5b96c1d0b7fd7d3"
+    },
+    "glm-qc/glm-session-01/execution.json": {
+      "bytes": 2607,
+      "sha256": "1767b121ea84397f32d93e22db85e935d991b4fe2db95f570b5d0836193e7d80"
+    },
+    "glm-qc/glm-session-01/pi-config/models.json": {
+      "bytes": 3,
+      "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+    },
+    "glm-qc/glm-session-01/pi-config/settings.json": {
+      "bytes": 348,
+      "sha256": "ea3b67cdee8eb32030f8e3b7acde1e3c4b4f9394ab399fd21b18b2aecc037b2d"
+    },
+    "glm-qc/glm-session-01/pi-config/auth.json": {
+      "bytes": 3,
+      "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+    },
+    "glm-qc/pi-config/models.json": {
+      "bytes": 3,
+      "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+    },
+    "glm-qc/pi-config/settings.json": {
+      "bytes": 348,
+      "sha256": "ea3b67cdee8eb32030f8e3b7acde1e3c4b4f9394ab399fd21b18b2aecc037b2d"
+    },
+    "glm-qc/pi-config/auth.json": {
+      "bytes": 3,
+      "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+    },
+    "qc/run.py": {
+      "bytes": 9793,
+      "sha256": "22d134283b6bc5ce89cdad36d75611f0cf1c09469fc8e6f06e906d8e158a6475"
+    },
+    "qc/prompt-session-01.md": {
+      "bytes": 3699,
+      "sha256": "2222e93985706a2c41d8c4d3a1a8d74d6f2c2c16de48f1fa717bdc7f9a52aa7e"
+    },
+    "qc/credential-bootstrap.mjs": {
+      "bytes": 5071,
+      "sha256": "dfea31540dd29010b14e0e3326b5620951eac18d6d4239bb52d83288765e8267"
+    },
+    "qc/source.diff": {
+      "bytes": 43989,
+      "sha256": "39222e8e02a24ba4b1c4335ed1aaf52510dcef03bf50d871157546213f934203"
+    },
+    "qc/provider-template.json": {
+      "bytes": 458,
+      "sha256": "d3030f00ab3ba2d67c27d1fba2fcbdf60af34ea0d0d675e8bba704dfc54094b4"
+    },
+    "qc/tools.mjs": {
+      "bytes": 2079,
+      "sha256": "4c7c424beb64377a280be5a93e885931032de18e141cf89b5ce6f528ed081b0f"
+    },
+    "qc/pi-config/models.json": {
+      "bytes": 3,
+      "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+    },
+    "qc/pi-config/settings.json": {
+      "bytes": 348,
+      "sha256": "ea3b67cdee8eb32030f8e3b7acde1e3c4b4f9394ab399fd21b18b2aecc037b2d"
+    },
+    "qc/pi-config/auth.json": {
+      "bytes": 3,
+      "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+    },
+    "glm-qc-r2/run.py": {
+      "bytes": 10400,
+      "sha256": "3b835f629999a1b560cd08f854f7ad344b5cc31ce518e11a13e2012f15e412cb"
+    },
+    "glm-qc-r2/report.json": {
+      "bytes": 3775,
+      "sha256": "332f790e8425f4d584c8b86030883318f925c4b99f2195e33f69bca75f9eca0b"
+    },
+    "glm-qc-r2/prompt-session-01.md": {
+      "bytes": 3877,
+      "sha256": "b412927dfcecc04005e8a7b77447ea1046f4630b99d14fa4e801c7d227f9a79b"
+    },
+    "glm-qc-r2/credential-bootstrap.mjs": {
+      "bytes": 3400,
+      "sha256": "9136a461f7ce0d1537b8bbeaabe219eaf95267d5a9f585182cdd1536730bbce8"
+    },
+    "glm-qc-r2/prompt-session-03.md": {
+      "bytes": 2915,
+      "sha256": "42b30bc287c440fe98be119a5aeff379f07bddebc3a11c358c1f31136f515dfe"
+    },
+    "glm-qc-r2/prompt-session-02.md": {
+      "bytes": 2806,
+      "sha256": "355a317050712a104e0e89763ebc466f33d44c065d702c291b1203cd6b997508"
+    },
+    "glm-qc-r2/controller-02.log": {
+      "bytes": 193,
+      "sha256": "e047a2bd64ab65e1456337f794f7c0128c7f901950ee31b08c12b61ed715baf8"
+    },
+    "glm-qc-r2/source.diff": {
+      "bytes": 43989,
+      "sha256": "39222e8e02a24ba4b1c4335ed1aaf52510dcef03bf50d871157546213f934203"
+    },
+    "glm-qc-r2/controller-03.log": {
+      "bytes": 193,
+      "sha256": "d8bc9f11d9ab938552188d6bbb97af542213edfaef48c2f223857f57d0cffc5f"
+    },
+    "glm-qc-r2/controller-01.log": {
+      "bytes": 194,
+      "sha256": "a0aa6a551ec0da8f5d074a465f4378d44f35891e8f9662857aac91d59efff0c3"
+    },
+    "glm-qc-r2/provider-template.json": {
+      "bytes": 464,
+      "sha256": "d2e173caef38771c78451e8f0651da143fd5b58fb60c58efbd9d257008003b30"
+    },
+    "glm-qc-r2/tools.mjs": {
+      "bytes": 2099,
+      "sha256": "b494d5fcfcfa9790cb230060b0be52061e289323222b9749027c09c3170e933c"
+    },
+    "glm-qc-r2/glm-session-01/stderr.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "glm-qc-r2/glm-session-01/isolation-preflight.log": {
+      "bytes": 23,
+      "sha256": "ead5cf803354ab71e442db4bb82fc41703485c3d62e28c816879f4ff48c815ae"
+    },
+    "glm-qc-r2/glm-session-01/preflight.log": {
+      "bytes": 141,
+      "sha256": "ae767fd61aa6532b75396719a54f0a09ac10c51ed0018f875477354121616a2d"
+    },
+    "glm-qc-r2/glm-session-01/tools.sb": {
+      "bytes": 3184,
+      "sha256": "84c804517cb37ce8e2bcbd5389a57b1b01af1a39970bdee22780384ac6cfe163"
+    },
+    "glm-qc-r2/glm-session-01/http-responses.jsonl": {
+      "bytes": 819,
+      "sha256": "e053643c0d7ea14a2427560e1fc05a69741c2c0b9aa11837474f20646763b14f"
+    },
+    "glm-qc-r2/glm-session-01/credential.json": {
+      "bytes": 291,
+      "sha256": "a9d69c1b3e85f8a0cf0a007a5ad2f630927f85695fcfbd55475869fb3dba139b"
+    },
+    "glm-qc-r2/glm-session-01/request-admissions.jsonl": {
+      "bytes": 1683,
+      "sha256": "688dd19e1b61e21f7f41a5268936a1283c940adc2a2fe58811e8b80c9bdd8c8c"
+    },
+    "glm-qc-r2/glm-session-01/events.jsonl": {
+      "bytes": 2833180,
+      "sha256": "7e73dd414daf49ea72f5b5a3b9f611af416d2231c6e851fa294deea5f3221d62"
+    },
+    "glm-qc-r2/glm-session-01/execution.json": {
+      "bytes": 5130,
+      "sha256": "c95ed448628de7ad3ef84aa91a48f506d88e72ce52001988480164186a88c119"
+    },
+    "glm-qc-r2/glm-session-01/work/explore.md": {
+      "bytes": 8152,
+      "sha256": "5c02cb11e9332469379e2f3a3f3dc171aed6bc26199fc29064aa103e52ae35fb"
+    },
+    "glm-qc-r2/glm-session-01/work/preflight-write-check": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "glm-qc-r2/glm-session-01/work/probe_positive_control.py": {
+      "bytes": 491,
+      "sha256": "4cf10525aa91f52c8c40ad967919f4adbe025c7db2dc3c0151ccd44da6d8aba8"
+    },
+    "glm-qc-r2/glm-session-01/work/probe_claim_scope.py": {
+      "bytes": 16169,
+      "sha256": "0366c0562541ee75a592998bd9b1a283c871bfa19ab1504b1569433e610119a3"
+    },
+    "glm-qc-r2/glm-session-01/pi-config/models.json": {
+      "bytes": 3,
+      "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+    },
+    "glm-qc-r2/glm-session-01/pi-config/settings.json": {
+      "bytes": 348,
+      "sha256": "ea3b67cdee8eb32030f8e3b7acde1e3c4b4f9394ab399fd21b18b2aecc037b2d"
+    },
+    "glm-qc-r2/glm-session-01/pi-config/models-store.json": {
+      "bytes": 2,
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+    },
+    "glm-qc-r2/glm-session-01/pi-config/auth.json": {
+      "bytes": 3,
+      "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+    },
+    "glm-qc-r2/pi-config/models.json": {
+      "bytes": 3,
+      "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+    },
+    "glm-qc-r2/pi-config/settings.json": {
+      "bytes": 348,
+      "sha256": "ea3b67cdee8eb32030f8e3b7acde1e3c4b4f9394ab399fd21b18b2aecc037b2d"
+    },
+    "glm-qc-r2/pi-config/auth.json": {
+      "bytes": 3,
+      "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+    },
+    "glm-qc-r2/glm-session-02/stderr.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "glm-qc-r2/glm-session-02/isolation-preflight.log": {
+      "bytes": 23,
+      "sha256": "ead5cf803354ab71e442db4bb82fc41703485c3d62e28c816879f4ff48c815ae"
+    },
+    "glm-qc-r2/glm-session-02/preflight.log": {
+      "bytes": 141,
+      "sha256": "ae767fd61aa6532b75396719a54f0a09ac10c51ed0018f875477354121616a2d"
+    },
+    "glm-qc-r2/glm-session-02/tools.sb": {
+      "bytes": 3184,
+      "sha256": "ef3611129f83a335d14c66a6790b8ee17d463210c22a152ad2a90e7d9c3863c3"
+    },
+    "glm-qc-r2/glm-session-02/http-responses.jsonl": {
+      "bytes": 1164,
+      "sha256": "6f8b565c289228792cd267a008ec08655cb49c7222f35506d89e464428132ef2"
+    },
+    "glm-qc-r2/glm-session-02/credential.json": {
+      "bytes": 291,
+      "sha256": "00f6b9d8725bda04e5997299cbd70b7f6963e589a149288cd31a688f1c611d28"
+    },
+    "glm-qc-r2/glm-session-02/request-admissions.jsonl": {
+      "bytes": 2388,
+      "sha256": "934474456cadc42d3ddfda9af2c0c4d91b6ca2bf126953986d4a6299e9bae20a"
+    },
+    "glm-qc-r2/glm-session-02/events.jsonl": {
+      "bytes": 1751956,
+      "sha256": "4e31a6969fb84cff3be14689f166f6439b36ddc50602b7aa8afa3779eca81ff1"
+    },
+    "glm-qc-r2/glm-session-02/execution.json": {
+      "bytes": 9328,
+      "sha256": "b9e5d8cf9ea64a581fcd8a0eb2de6f484e44d83ef31c1f51cda2f3479f95cb10"
+    },
+    "glm-qc-r2/glm-session-02/work/explore.md": {
+      "bytes": 8152,
+      "sha256": "5c02cb11e9332469379e2f3a3f3dc171aed6bc26199fc29064aa103e52ae35fb"
+    },
+    "glm-qc-r2/glm-session-02/work/author.log": {
+      "bytes": 241,
+      "sha256": "318adb667c23aee2e0be19c9bd1e10632d7c1c23f94bb6c55d479e8dc7c2d589"
+    },
+    "glm-qc-r2/glm-session-02/work/positive.log": {
+      "bytes": 960,
+      "sha256": "2bb38375965aaabbfe0c88a1d2e5f71f2347f97afd3b4fc3e62068f074a72c9c"
+    },
+    "glm-qc-r2/glm-session-02/work/preflight-write-check": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "glm-qc-r2/glm-session-02/work/probes.log": {
+      "bytes": 241,
+      "sha256": "35b6ffd892e27926dc1fdfa7ec16afed8e9baad7e6d03424b6c48b5df02ad9bb"
+    },
+    "glm-qc-r2/glm-session-02/work/probe_positive_control.py": {
+      "bytes": 491,
+      "sha256": "4cf10525aa91f52c8c40ad967919f4adbe025c7db2dc3c0151ccd44da6d8aba8"
+    },
+    "glm-qc-r2/glm-session-02/work/execute.json": {
+      "bytes": 6380,
+      "sha256": "ad62dcb8a300510c975024d4e6514ffa42d1803d7c913ba96c3478cf643d4347"
+    },
+    "glm-qc-r2/glm-session-02/work/probe_claim_scope.py": {
+      "bytes": 16169,
+      "sha256": "0366c0562541ee75a592998bd9b1a283c871bfa19ab1504b1569433e610119a3"
+    },
+    "glm-qc-r2/glm-session-02/work/probes.xml": {
+      "bytes": 2312,
+      "sha256": "8edb425ea8a9ba6a22438dedd3d85c09af50b9dac3fa6b5e56d3cb7b79793354"
+    },
+    "glm-qc-r2/glm-session-02/work/author.xml": {
+      "bytes": 4420,
+      "sha256": "91a75a3522ead7a597d1acd8dd4ab4ce3d726cdc62f33f4e20ca92f3e03333ea"
+    },
+    "glm-qc-r2/glm-session-02/work/positive.xml": {
+      "bytes": 896,
+      "sha256": "4a2299a19d649d73a59d873cf333dd6c88d913823624975c95649a931911d463"
+    },
+    "glm-qc-r2/glm-session-02/work/execute.md": {
+      "bytes": 7867,
+      "sha256": "6da02f53bead012aae2e9b342b2c322f37703d48977623a96d21a1ebc30bf543"
+    },
+    "glm-qc-r2/glm-session-02/pi-config/models.json": {
+      "bytes": 3,
+      "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+    },
+    "glm-qc-r2/glm-session-02/pi-config/settings.json": {
+      "bytes": 348,
+      "sha256": "ea3b67cdee8eb32030f8e3b7acde1e3c4b4f9394ab399fd21b18b2aecc037b2d"
+    },
+    "glm-qc-r2/glm-session-02/pi-config/models-store.json": {
+      "bytes": 2,
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+    },
+    "glm-qc-r2/glm-session-02/pi-config/auth.json": {
+      "bytes": 3,
+      "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+    },
+    "glm-qc-r2/glm-session-03/stderr.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "glm-qc-r2/glm-session-03/isolation-preflight.log": {
+      "bytes": 23,
+      "sha256": "ead5cf803354ab71e442db4bb82fc41703485c3d62e28c816879f4ff48c815ae"
+    },
+    "glm-qc-r2/glm-session-03/preflight.log": {
+      "bytes": 141,
+      "sha256": "ae767fd61aa6532b75396719a54f0a09ac10c51ed0018f875477354121616a2d"
+    },
+    "glm-qc-r2/glm-session-03/tools.sb": {
+      "bytes": 3184,
+      "sha256": "799d12af192d0b8d1fa8b0b59d4536e238c1bc54c0f070d079e92b6313f81a5c"
+    },
+    "glm-qc-r2/glm-session-03/http-responses.jsonl": {
+      "bytes": 1854,
+      "sha256": "04ae6299f06449271d12d9f724b2971c564d42d75f1c35efb6804ebe95b6a05f"
+    },
+    "glm-qc-r2/glm-session-03/credential.json": {
+      "bytes": 291,
+      "sha256": "3361626f5947cfd881483334be50d75953504f4f5a0d3c8085c439bf680f66a3"
+    },
+    "glm-qc-r2/glm-session-03/request-admissions.jsonl": {
+      "bytes": 3798,
+      "sha256": "bd302fa3aec306cbc1a542720f1539977cdbcf2faad6b830311ff4c32efd11ff"
+    },
+    "glm-qc-r2/glm-session-03/events.jsonl": {
+      "bytes": 3777489,
+      "sha256": "58fa9918afe4af0b06cc09ae71c810883af9b2ba725ff177229ef584bd98f69d"
+    },
+    "glm-qc-r2/glm-session-03/execution.json": {
+      "bytes": 7114,
+      "sha256": "5db08ba8097ee3d65f9eb7a5678d117c60cfd4f0bab8fa29bf7839d4f3dd0819"
+    },
+    "glm-qc-r2/glm-session-03/work/explore.md": {
+      "bytes": 8152,
+      "sha256": "5c02cb11e9332469379e2f3a3f3dc171aed6bc26199fc29064aa103e52ae35fb"
+    },
+    "glm-qc-r2/glm-session-03/work/author.log": {
+      "bytes": 241,
+      "sha256": "318adb667c23aee2e0be19c9bd1e10632d7c1c23f94bb6c55d479e8dc7c2d589"
+    },
+    "glm-qc-r2/glm-session-03/work/positive.log": {
+      "bytes": 960,
+      "sha256": "2bb38375965aaabbfe0c88a1d2e5f71f2347f97afd3b4fc3e62068f074a72c9c"
+    },
+    "glm-qc-r2/glm-session-03/work/report.json": {
+      "bytes": 7428,
+      "sha256": "7d83d6f79702663fb9fcb12b93424dbf2c1815daf8108243280ad3bdc6daae7a"
+    },
+    "glm-qc-r2/glm-session-03/work/preflight-write-check": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "glm-qc-r2/glm-session-03/work/quality.md": {
+      "bytes": 3534,
+      "sha256": "09303117e55a0074749c7debb9fdf217979fd34b703a9b429745f7ffa279e6c9"
+    },
+    "glm-qc-r2/glm-session-03/work/probes.log": {
+      "bytes": 241,
+      "sha256": "35b6ffd892e27926dc1fdfa7ec16afed8e9baad7e6d03424b6c48b5df02ad9bb"
+    },
+    "glm-qc-r2/glm-session-03/work/probe_positive_control.py": {
+      "bytes": 491,
+      "sha256": "4cf10525aa91f52c8c40ad967919f4adbe025c7db2dc3c0151ccd44da6d8aba8"
+    },
+    "glm-qc-r2/glm-session-03/work/execute.json": {
+      "bytes": 6380,
+      "sha256": "ad62dcb8a300510c975024d4e6514ffa42d1803d7c913ba96c3478cf643d4347"
+    },
+    "glm-qc-r2/glm-session-03/work/probe_claim_scope.py": {
+      "bytes": 16169,
+      "sha256": "0366c0562541ee75a592998bd9b1a283c871bfa19ab1504b1569433e610119a3"
+    },
+    "glm-qc-r2/glm-session-03/work/probes.xml": {
+      "bytes": 2312,
+      "sha256": "8edb425ea8a9ba6a22438dedd3d85c09af50b9dac3fa6b5e56d3cb7b79793354"
+    },
+    "glm-qc-r2/glm-session-03/work/spec.md": {
+      "bytes": 11529,
+      "sha256": "8a156a54a06ddd95a5838e6c1884b4e57f2f2d155cdc967417dfa31f4c40cd94"
+    },
+    "glm-qc-r2/glm-session-03/work/author.xml": {
+      "bytes": 4420,
+      "sha256": "91a75a3522ead7a597d1acd8dd4ab4ce3d726cdc62f33f4e20ca92f3e03333ea"
+    },
+    "glm-qc-r2/glm-session-03/work/positive.xml": {
+      "bytes": 896,
+      "sha256": "4a2299a19d649d73a59d873cf333dd6c88d913823624975c95649a931911d463"
+    },
+    "glm-qc-r2/glm-session-03/work/execute.md": {
+      "bytes": 7867,
+      "sha256": "6da02f53bead012aae2e9b342b2c322f37703d48977623a96d21a1ebc30bf543"
+    },
+    "glm-qc-r2/glm-session-03/pi-config/models.json": {
+      "bytes": 3,
+      "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+    },
+    "glm-qc-r2/glm-session-03/pi-config/settings.json": {
+      "bytes": 348,
+      "sha256": "ea3b67cdee8eb32030f8e3b7acde1e3c4b4f9394ab399fd21b18b2aecc037b2d"
+    },
+    "glm-qc-r2/glm-session-03/pi-config/models-store.json": {
+      "bytes": 2,
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+    },
+    "glm-qc-r2/glm-session-03/pi-config/auth.json": {
+      "bytes": 3,
+      "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+    }
+  },
+  "exclusions": [
+    "candidate checkout (identity checked separately)",
+    "reviewer tmp directories",
+    "__pycache__"
+  ],
+  "revision": "14f885e01f4a538492b54a27f67ab5d33b58f875",
+  "git_tree": "b17c772944ff20c9fe5b0c5a8b642cf3c8c20ed6"
+}

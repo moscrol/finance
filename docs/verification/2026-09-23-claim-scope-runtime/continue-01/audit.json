@@ -1,0 +1,228 @@
+{
+  "at": "2026-09-23T13:06:30.275023+00:00",
+  "revision": "14f885e01f4a538492b54a27f67ab5d33b58f875",
+  "git_tree": "b17c772944ff20c9fe5b0c5a8b642cf3c8c20ed6",
+  "engineering": {
+    "receipt": "/Users/a77/.finance-runtime/reviews/claim-scope-runtime-20260923/retry-01/gates/receipts/gate-Bawmw5Cv/pytest.json",
+    "recheck_exit": 0,
+    "recheck_command": [
+      "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+      "/Users/a77/.finance-runtime/reviews/claim-scope-runtime-20260923/continue-01/qc/candidate/scripts/check_test_receipt.py",
+      "/Users/a77/.finance-runtime/reviews/claim-scope-runtime-20260923/retry-01/gates/receipts/gate-Bawmw5Cv/pytest.json",
+      "--expect-revision",
+      "14f885e01f4a538492b54a27f67ab5d33b58f875",
+      "--require-full-scope"
+    ],
+    "rerun": false,
+    "counts": {
+      "passed": 14643,
+      "failed": 0,
+      "error": 0,
+      "skipped": 85,
+      "xfailed": 2,
+      "xpassed": 0
+    },
+    "scope": {
+      "ignore": [],
+      "ignore_glob": [],
+      "deselect": [],
+      "keyword": "",
+      "markexpr": "",
+      "maxfail": 0,
+      "last_failed": false,
+      "collected": 14730
+    }
+  },
+  "qc": {
+    "revision": "14f885e01f4a538492b54a27f67ab5d33b58f875",
+    "provider": "zhipu",
+    "model": "glm-5.3",
+    "verdict": "PASS_WITH_LIMITS",
+    "reviewer_report": "/Users/a77/.finance-runtime/reviews/claim-scope-runtime-20260923/continue-01/glm-qc-r2/glm-session-03/work/report.json",
+    "reviewer_report_sha256": "7d83d6f79702663fb9fcb12b93424dbf2c1815daf8108243280ad3bdc6daae7a",
+    "reviewer_verdict_unmodified": true,
+    "requests": 56,
+    "stages": [
+      {
+        "stage": "explore",
+        "requests": 12,
+        "http_responses": 12,
+        "seconds": 260.599,
+        "request_cap": 39,
+        "deadline_seconds": 600,
+        "cap_hit": false,
+        "execution_receipt": "/Users/a77/.finance-runtime/reviews/claim-scope-runtime-20260923/continue-01/glm-qc-r2/glm-session-01/execution.json",
+        "execution_sha256": "c95ed448628de7ad3ef84aa91a48f506d88e72ce52001988480164186a88c119"
+      },
+      {
+        "stage": "execute",
+        "requests": 17,
+        "http_responses": 17,
+        "seconds": 208.67,
+        "request_cap": 40,
+        "deadline_seconds": 600,
+        "cap_hit": false,
+        "execution_receipt": "/Users/a77/.finance-runtime/reviews/claim-scope-runtime-20260923/continue-01/glm-qc-r2/glm-session-02/execution.json",
+        "execution_sha256": "b9e5d8cf9ea64a581fcd8a0eb2de6f484e44d83ef31c1f51cda2f3479f95cb10"
+      },
+      {
+        "stage": "report",
+        "requests": 27,
+        "http_responses": 27,
+        "seconds": 347.67,
+        "request_cap": 40,
+        "deadline_seconds": 600,
+        "cap_hit": false,
+        "execution_receipt": "/Users/a77/.finance-runtime/reviews/claim-scope-runtime-20260923/continue-01/glm-qc-r2/glm-session-03/execution.json",
+        "execution_sha256": "5db08ba8097ee3d65f9eb7a5678d117c60cfd4f0bab8fa29bf7839d4f3dd0819"
+      }
+    ],
+    "counts": {
+      "probes": {
+        "tests": 15,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "positive": {
+        "tests": 1,
+        "failures": 1,
+        "errors": 0,
+        "skipped": 0
+      },
+      "author": {
+        "tests": 22,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      }
+    },
+    "independent_probe_repairs": 0,
+    "positive_control": "probe_bug_expected_failure",
+    "accepted_with_declared_limits": true,
+    "k3_independent_review_passed": false,
+    "limits": [
+      "C7: adapter-level integration of final and recovery delivery exits (real exception flow triggering evidence_outcome=trusted) not independently executed; only helper-level hash binding verified dynamically",
+      "C8: the three real B-side entry points (ask.py answer_query wrap, ask_synthesis deferred synthesis, orchestrator Workbench final) not independently executed; only the mapping-limit degradation pipeline verified; whether exits bypassing answer_query exist was not exhaustively enumerated",
+      "C9: private artifact write-timing race and loser-does-not-write behavior have no independent dynamic probe; static code order only (author tests green but not independent)",
+      "C10: census verified on synthetic fixtures only; not run against real production artifact directories (no production data access in this session, per constraints)",
+      "C2: serialization shape (conditional claim_scope keys) verified statically only; author tests corroborate",
+      "C3: 'no new model/data calls' verified via import-surface static review, not via call interception",
+      "This review does not run models, finance real tasks, or network; it does not prove K3 financial answer quality, production readiness, or authorize merge/deploy",
+      "Total requests/duration/input-hash are counted by the controller from raw events; not asserted here"
+    ],
+    "controller_note": "Review itself used real GLM requests. The reviewer's no-model/no-network language refers to product probes, not to this reviewer transport."
+  },
+  "k3_preflight": {
+    "at": "2026-09-23T12:36:08.075731+00:00",
+    "model": "kimi-k3",
+    "max_requests": 1,
+    "complete": true,
+    "authorization_message": "latest user: continue; prior scope a7d8d0e6",
+    "requests": 1,
+    "http_status": 200,
+    "response_model": "kimi-k3-eas",
+    "output_text": "",
+    "usage": {
+      "completion_tokens": 32,
+      "cost": 0.0005772,
+      "prompt_tokens": 90,
+      "prompt_tokens_details": {
+        "cached_tokens": 64
+      },
+      "total_tokens": 122
+    },
+    "verdict": "BLOCKED_EMPTY_OUTPUT",
+    "elapsed_seconds": 3.901
+  },
+  "glm_preflight": {
+    "at": "2026-09-23T12:40:42.832227+00:00",
+    "model": "glm-5.3",
+    "max_requests": 1,
+    "complete": true,
+    "requests": 1,
+    "automatic_retries": 0,
+    "max_tokens": 512,
+    "credential_source": "Keychain finance-workbench-glm/a77",
+    "http_status": 200,
+    "response_model": "glm-5.3",
+    "output_text": "READY",
+    "usage": {
+      "completion_tokens": 3,
+      "completion_tokens_details": {
+        "reasoning_tokens": 0
+      },
+      "prompt_tokens": 17,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "total_tokens": 20
+    },
+    "finish_reason": "stop",
+    "verdict": "PASS",
+    "elapsed_seconds": 1.1
+  },
+  "all_provider_requests": 58,
+  "total_cap": 121,
+  "automatic_model_retries": 0,
+  "l5": {
+    "revision": "14f885e01f4a538492b54a27f67ab5d33b58f875",
+    "verdict": "BLOCKED_MARKET_DATA_CONSISTENCY",
+    "candidate_engineering_qc": "PASS_WITH_LIMITS",
+    "model_specific_acceptance": "K3 / no judge",
+    "questions": [
+      {
+        "original_run": "run_20260921_183219_280474",
+        "initial_submissions": 0,
+        "resubmissions": 0,
+        "followups": 0
+      },
+      {
+        "original_run": "run_20260921_183642_325351",
+        "initial_submissions": 0,
+        "resubmissions": 0,
+        "followups": 0
+      }
+    ],
+    "readiness_evidence": "/Users/a77/.finance-runtime/reviews/claim-scope-runtime-20260923/continue-01/readiness-input-precheck.json",
+    "market_database_date": "2026-09-22",
+    "snapshot_date": "2026-09-23",
+    "data_frozen": false,
+    "sidecar_started": false,
+    "lock_acquired": false,
+    "judge_marker_new_answer_receipts": "NOT_EXERCISED"
+  },
+  "production_readiness": "not_ready",
+  "production_identity_unchanged": {
+    "source_revision": true,
+    "source_dirty": true,
+    "loaded_code_root": true,
+    "loaded_tree_fingerprint": true,
+    "code_matches_repo": true,
+    "users_dir": true,
+    "agent_runtime": true
+  },
+  "production_config_or_code_changed": false,
+  "merged": false,
+  "deployed": false,
+  "rollback_tested": false,
+  "credential_scan": {
+    "literal_runtime_key_matches": 0,
+    "scope": "continuation artifacts excluding candidate/tmp/__pycache__"
+  },
+  "historical_manifests": [
+    {
+      "manifest": "/Users/a77/.finance-runtime/reviews/claim-scope-runtime-20260923/artifact-manifest.json",
+      "sha256": "7a0f26a9da1c35252f05e1c3aed0ffe2013c2bcb4f0734db58468314ba8e45b3",
+      "members": 39,
+      "changed": []
+    },
+    {
+      "manifest": "/Users/a77/.finance-runtime/reviews/claim-scope-runtime-20260923/retry-01/artifact-manifest.json",
+      "sha256": "f5980cc4dbd23d4f4e6fa2d5fd79a247cb45d390347c44d2f287b07265527541",
+      "members": 33,
+      "changed": []
+    }
+  ],
+  "scope": "Fixed 14f885e01 candidate only. Later documentation or main integration revisions are not covered."
+}

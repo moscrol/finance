@@ -1,26 +1,26 @@
 # Claim-Scope Runtime
 
 ## 这个分支做什么
-默认off、仅advisory接入；推进#75独审、#76 L5和有门禁部署，不开启revise/block。
+默认off、仅advisory接入；推进独审、K3 L5与有门禁部署。
 
 ## 当前状态
-WIP PR #890，未合未部署。初冻2be85e64e完整门禁14641P/2F，原件保留；两处已返修，7模块483P。完整重验固定新revision，结果只认树外`~/.finance-runtime/reviews/claim-scope-runtime-20260923/retry-01/`的audit.json/gate-runner.log；本篇不预写通过。#75初冻explore第9次请求超时、零终稿，BLOCKED_REVIEW_NO_OUTPUT；execute/report未派。L5首发0，生产未动。
+WIP #890未合未部署。产品候选14f885e01完整工程已绿；本次GLM三段独审PASS_WITH_LIMITS。L5改为BLOCKED_MARKET_DATA_CONSISTENCY：市场汇总09-22、快照09-23，两题仍各首发0/重发0/续问0。生产身份七字段未变。本次仅文档回写，不把14f收据移签到后续head。
+证据根`~/.finance-runtime/reviews/claim-scope-runtime-20260923/continue-01/`，audit.json与131成员manifest已封存；旧红/旧绿39/33成员复核不变。过程无遗留审查进程。
 
 ## 决策与被否方案
-- CLI/在线共用映射；A最终/恢复稿、B早退/延后/最终稿盖文本hash，否了只查初稿。
-- B缺工具请求账显式degraded，否了模型claim自证与在线补全集。
-- 观察收据必须在终态认领成功后写；否了私有文件可先写，败方仍不能写产物。只读参数改delivered_answer，保留公开赋值门禁。
-- 超时无产物就是阻塞，否了exit0当通过；工程、独审、L5分别记账。
-- 详细背景/被否理由见`docs/handoffs/2026-09-23-claim-scope-runtime-blocked-review.md`。
+- K3小载荷200但32-token下空回，不判通道不可用；按既有偏好切GLM工程独审，不改签K3专项。
+- 独立15P、故意红控制1F、作者22P分账，不以作者测试补独立动态覆盖。
+- 直接求值候选readiness判据仍false，保留L5首发，不靠贴日期/自行回填推进。
+- 理由见`docs/handoffs/2026-09-23-claim-scope-glm-review-readiness-block.md`。
 
 ## 已验证
-初冻前端120P/E2E34P2S、registry5/5；两旧答卷CLI/runtime逐字段一致，仍报1/3条。返修实际Workbench顺序断言在旧版1红，修后相关483P；Ruff/diff过。上述不移签完整复验。原件及复验入口见`docs/verification/2026-09-23-claim-scope-runtime/README.md`。
+14f完整14643P/0F/85S/2X、前端120P/E2E34P2S/registry5项；本次仅重核完整收据，未重跑全量。GLM三段12/17/27请求，含两预探共58，无自动模型重试；独立报告三件齐全，候选只读/前后未变。入口`docs/verification/2026-09-23-claim-scope-runtime/README.md`。
 
 ## 未验证 / 已知边界
-K3双轴未完成，独立探针0，阳性对照未执行。新L5无judge/marker/正文收据。8792只读实见3b7e473575b0/GLM；主库日期09-22、快照09-23，readiness缺market_data_consistency。禁止自行回填。B降级不等于四规则完整通过。
+C7真实A恢复流、C8 B三个入口全链、C9终态竞争未独立动态压测；静态与作者证据不冒充独立动态。census缺键advisory可能KeyError，仅静态非阻断观察。K3专项/新L5无judge、marker、答案收据；未冻数据、无旁路/锁。生产readiness仍not_ready，回滚未验。
 
 ## 下一步
-先核retry-01真实结果；新有界安排完成K3三段。固定获准候选与数据后，两原题各首发1/重发0/续问0；全部绿且readiness恢复才部署。任何新head须新收据，旧#883/#888和本轮首红均不移签，不自动续跑模型。
+独立恢复数据一致性；先核代码/依赖/主干漂移，新组合另冻另验。明确K3路由/凭证/剥参及judge关闭证据，再两原题首发1/重发0/续问0。全部门禁含readiness/回滚通过才合入部署。封存脚本排他创建，勿覆盖重跑。
 
 ## 踩过的坑
-AgentOutcome回放需原task_frame_hash；pi exit0也可有模型timeout；创建PR超时须先回读，不重复POST。L5旧SQL列名已修，全集仍需按实际答案日期查冻结库，不能沿用20。
+pi exit0可有模型timeout；极短输出预算空回不等于通道失效。AST检查须限定health_ready作用域。PR写请求超时先回读；L5全集按正式日期查冻结库，不能沿用旧20。B缺工具请求账仍显式degraded。
