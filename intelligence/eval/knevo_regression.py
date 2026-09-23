@@ -204,6 +204,27 @@ def inspect_run(directory: Path, case: RegressionCase) -> dict:
                 raise ValueError(f"artifact escapes run directory: {name}")
             hashes[name] = sha256(path.read_bytes())
     semantic = (episode or {}).get("semantic_verifier") or {}
+    llm_calls = None
+    trace_path = directory / "trace.jsonl"
+    if trace_path.is_file():
+        for line in trace_path.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            step = json.loads(line)
+            if step.get("name") != "llm_call_ledger":
+                continue
+            summary = json.loads(step["output_summary"])
+            llm_calls = [
+                {
+                    **{key: record.get(key) for key in ("caller", "status", "reason", "elapsed_ms")},
+                    "stream_progress": {
+                        key: record["stream_progress"].get(key)
+                        for key in ("requested_timeout_ms", "headers_elapsed_ms", "first_content_elapsed_ms",
+                                    "content_chars", "reasoning_chars", "tool_argument_chars", "deadline_expired")
+                    } if isinstance(record.get("stream_progress"), dict) else None,
+                }
+                for record in summary["records"]
+            ]
     return {
         "case_id": case.case_id,
         "run_id": run["run_id"],
@@ -243,6 +264,7 @@ def inspect_run(directory: Path, case: RegressionCase) -> dict:
             }
             for call in semantic["material_review_calls"]
         ] if isinstance(semantic.get("material_review_calls"), list) else None,
+        "llm_call_diagnostics": llm_calls,
         "tool_audit_available": audit_available,
         "tool_requests": calls,
         "artifact_sha256": hashes,

@@ -136,6 +136,82 @@ def test_expiry_after_first_delta_keeps_no_replay_rule(monkeypatch):
     assert len(calls) == 1 and calls[0][2] == "failed"
 
 
+@pytest.mark.parametrize("emit_first", [False, True])
+def test_failed_stream_keeps_progress_without_partial_text(emit_first):
+    with local_provider(streaming=True, emit_first=emit_first) as provider:
+        with llm_refine.call_ledger_scope() as ledger:
+            with pytest.raises((TimeoutError, llm_refine.LLMStreamAlreadyEmitted)):
+                llm_refine._post_chat_message_stream(provider, [], 0.2, 0.0, [], "auto", True, lambda _: None)
+        record = ledger.summary()["records"][0]
+    progress = record["stream_progress"]
+    assert record["reason"] == "timeout"
+    assert progress["deadline_expired"] is True
+    assert 0 <= progress["headers_elapsed_ms"] <= record["elapsed_ms"]
+    assert progress["content_chars"] == (5 if emit_first else 0)
+    assert progress["reasoning_chars"] == 0
+    assert progress["tool_argument_chars"] == 0
+    if emit_first:
+        assert 0 <= progress["first_content_elapsed_ms"] <= record["elapsed_ms"]
+    else:
+        assert progress["first_content_elapsed_ms"] is None
+    assert "early" not in json.dumps(record) and "late" not in json.dumps(record)
+
+
+@pytest.mark.parametrize("disconnect", [False, True])
+def test_stream_progress_counts_hidden_reasoning_and_tool_fragments_only(monkeypatch, disconnect):
+    from intelligence.tests.test_llm_call_provenance import PROVIDER, Response, sse
+
+    clock = [0.0]
+    monkeypatch.setattr(llm_refine.time, "monotonic", lambda: clock[0])
+
+    class TimedResponse(Response):
+        def __iter__(self):
+            clock[0] = 1.0
+            yield sse({"choices": [{"delta": {"reasoning_content": "PRIVATE_REASONING"}}]}).splitlines()[0]
+            clock[0] = 2.0
+            yield sse({"choices": [{"delta": {"content": "PRIVATE_CONTENT", "tool_calls": [
+                {"index": 0, "function": {"name": "tool", "arguments": "PRIVATE_ARGUMENT"}},
+            ]}}]}).splitlines()[0]
+            if disconnect:
+                raise OSError("PRIVATE_ERROR")
+            yield sse({"choices": [{"delta": {}, "finish_reason": "tool_calls"}]}).splitlines()[0]
+
+    monkeypatch.setattr(llm_refine.urllib.request, "urlopen", lambda *_a, **_kw: TimedResponse({}))
+    with llm_refine.call_ledger_scope() as ledger:
+        if disconnect:
+            with pytest.raises(llm_refine.LLMStreamAlreadyEmitted):
+                llm_refine._post_chat_message_stream(PROVIDER, [], 5, 0, [], None, True, lambda _: None)
+        else:
+            result = llm_refine._post_chat_message_stream(PROVIDER, [], 5, 0, [], None, True, lambda _: None)
+            assert result["content"] == "PRIVATE_CONTENT"
+        record = ledger.summary()["records"][0]
+    assert record["stream_progress"] == {
+        "requested_timeout_ms": 5000, "headers_elapsed_ms": 0, "first_content_elapsed_ms": 2000,
+        "content_chars": len("PRIVATE_CONTENT"), "reasoning_chars": len("PRIVATE_REASONING"),
+        "tool_argument_chars": len("PRIVATE_ARGUMENT"), "deadline_expired": False,
+    }
+    assert record.get("reason") == ("OSError" if disconnect else None)
+    assert "PRIVATE_" not in json.dumps(record)
+
+
+def test_pre_header_failure_does_not_invent_first_content_time(monkeypatch):
+    from intelligence.tests.test_llm_call_provenance import PROVIDER
+
+    def fail(*_args, **_kwargs):
+        raise TimeoutError("PRIVATE_ERROR")
+
+    monkeypatch.setattr(llm_refine.urllib.request, "urlopen", fail)
+    with llm_refine.call_ledger_scope() as ledger:
+        with pytest.raises(TimeoutError):
+            llm_refine._post_chat_message_stream(PROVIDER, [], 5, 0, [], None, True, lambda _: None)
+        record = ledger.summary()["records"][0]
+    assert record["reason"] == "timeout"
+    assert record["stream_progress"]["headers_elapsed_ms"] is None
+    assert record["stream_progress"]["first_content_elapsed_ms"] is None
+    assert record["stream_progress"]["content_chars"] == 0
+    assert record["stream_progress"]["deadline_expired"] is False
+
+
 def test_late_result_without_socket_is_still_rejected(monkeypatch):
     clock = [0.0]
     monkeypatch.setattr(llm_refine.time, "monotonic", lambda: clock[0])

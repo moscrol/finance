@@ -2175,6 +2175,52 @@ def test_continuous_failed_turn_uses_same_message_and_run_identity(
     )
 
 
+@pytest.mark.parametrize("ending", ["completed", "failed", "exception", "cancelled"])
+def test_continuous_early_exit_persists_llm_ledger_before_terminal_event(tmp_path, ending):
+    query = "目前市场的主线是什么"
+    store, runs, conversation, run_id, message_id, _, _, controller = _continuous_forecast_fixture(tmp_path, query)
+    cancelled = Event()
+
+    class Adapter:
+        def handle(self, **_kwargs):
+            ledger = llm_refine.current_call_ledger()
+            assert ledger is not None
+            ledger.record(llm_refine.LLMCallRecord(
+                caller="chat_tools_stream", provider="fixture", model="fixture",
+                status="failed", elapsed_ms=75_000, reason="timeout",
+            ))
+            if ending == "exception":
+                raise RuntimeError("fixture adapter failed")
+            if ending == "cancelled":
+                cancelled.set()
+            return ContinuousTurnResult(
+                handled=True, status="failed" if ending == "failed" else "completed",
+                answer="" if ending == "failed" else "测试答案。", as_of=None,
+                citations=(), warnings=(), private_artifact=None, events=(),
+            )
+
+    result = TurnOrchestrator(
+        repo_root=tmp_path, conversation_store=store, run_store=runs,
+        turn_controller_fn=controller, continuous_turn_adapter=Adapter(),
+        is_cancelled=cancelled.is_set, cancellation_reason=lambda: "cancelled_by_user",
+    ).run_turn(
+        conversation_id=conversation.conversation_id, run_id=run_id,
+        assistant_message_id=message_id, query=query, skill_mode="auto", selected_skill_ids=[],
+    )
+    assert result.status == ("failed" if ending == "exception" else ending)
+    events = runs.load_stream_events(run_id)
+    ledgers = [event for event in events if event["event_type"] == "trace.step"
+               and event["payload"]["step"]["name"] == "llm_call_ledger"]
+    assert len(ledgers) == 1
+    summary = json.loads(ledgers[0]["payload"]["step"]["output_summary"])
+    assert len(summary["records"]) == 1
+    assert summary["records"][0]["reason"] == "timeout"
+    terminal = next(event for event in events if event["event_type"] in {
+        "message.complete", "message.error", "message.cancelled",
+    })
+    assert ledgers[0]["seq"] < terminal["seq"]
+
+
 def test_continuous_cancellation_keeps_same_message_and_run_identity(
     tmp_path,
 ) -> None:

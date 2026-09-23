@@ -277,11 +277,37 @@ def test_inspect_preserves_protocol_and_budget_diagnostics_without_private_text(
     assert {path.name: path.read_bytes() for path in directory.iterdir()} == before
 
 
+def test_inspect_llm_transport_counts_without_response_or_reasoning_text(tmp_path):
+    case = regression.load_suite()[0]
+    directory = _saved_run(tmp_path, case)
+    progress = {
+        "requested_timeout_ms": 75000, "headers_elapsed_ms": 100,
+        "first_content_elapsed_ms": 4000, "content_chars": 400,
+        "reasoning_chars": 500, "tool_argument_chars": 0, "deadline_expired": True,
+    }
+    (directory / "trace.jsonl").write_text(json.dumps({
+        "name": "llm_call_ledger", "output_summary": json.dumps({"records": [
+            {"caller": "chat_tools_stream", "status": "failed", "reason": "timeout", "elapsed_ms": 75001,
+             "stream_progress": {**progress, "private_future": "PRIVATE_REASONING"},
+             "raw_response": "PRIVATE_MODEL_RETURN"},
+            {"caller": "chat_tools", "status": "success", "elapsed_ms": 10},
+        ]}),
+    }) + "\n")
+    result = regression.inspect_run(directory, case)
+    first, second = result["llm_call_diagnostics"]
+    assert first["stream_progress"] == progress
+    assert first["reason"] == "timeout"
+    assert second["stream_progress"] is None and second["reason"] is None
+    assert "PRIVATE_" not in json.dumps(result)
+    assert result["semantic_verdict"] == "not_evaluated"
+
+
 def test_inspect_absent_diagnostics_do_not_mean_success(tmp_path):
     case = regression.load_suite()[0]
     directory = _saved_run(tmp_path, case, episode={"events": []})
     result = regression.inspect_run(directory, case)
     assert result["invalid_actions"] == []
+    assert result["llm_call_diagnostics"] is None
     assert result["judge_protocol_failure"] is None
     assert result["material_review_stages"] is None
     assert result["semantic_verdict"] == "not_evaluated"
