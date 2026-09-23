@@ -1,0 +1,19 @@
+{
+  "head": "8a1798e0285337b864d7e52ee48211ac32a37115",
+  "baseline": "3bb81b9638f97b4773ce0f338df3a505b7c0162f",
+  "command": [
+    "git",
+    "-C",
+    "/Users/a77/finance-worktrees/adaptive-research-loop",
+    "diff",
+    "--check",
+    "gitea/main...HEAD"
+  ],
+  "exit_code": 2,
+  "historical_sealed_files_with_whitespace": 8,
+  "old_bytes_modified": false,
+  "check_waived": false,
+  "new_history_archive_cached_diff_check": 0,
+  "non_docs_delta_since_candidate": [],
+  "scope": "whole PR formatting; not equivalent to required engineering leaves"
+}
