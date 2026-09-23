@@ -1,0 +1,147 @@
+"""Probe 2 (independent, reviewer-authored): refine-level wall-clock behavior.
+
+Real subprocess transport via llm_refine._open_deadline_http_response against a
+local fake OpenAI-compatible server (port 26002). Cases:
+  R1 positive      : complete() returns content on a fast endpoint (success).
+  R2 late judge    : 0.8s shared deadline vs ~2.9s trickling body -> llm_refine
+                     LLMDeadlineExceeded, elapsed < 2s, ledger records failed call.
+  R3 slice vs root : timeout slice 10s + shared Deadline 0.5s -> stops < 1.5s
+                     (proves shared deadline forwarding, C4; slice alone cannot).
+  R4 cancel mapping: HTTPStreamCancelled is surfaced as llm_refine.LLMStreamCancelled.
+"""
+import json
+import sys
+import threading
+import time
+import urllib.request
+from contextlib import contextmanager
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+from intelligence.services import llm_refine as llm
+
+PORT = 26002
+RESULTS = []
+CHAT = json.dumps({"choices": [{"message": {"content": "hello"}, "finish_reason": "stop"}],
+                   "usage": {"prompt_tokens": 1, "completion_tokens": 1}}).encode()
+
+
+class Handler(BaseHTTPRequestHandler):
+    protocol_version = "HTTP/1.1"
+    hits = []
+    lock = threading.Lock()
+
+    def log_message(self, *a):
+        pass
+
+    def do_POST(self):
+        with Handler.lock:
+            Handler.hits.append((self.path, time.monotonic()))
+        mode = self.path.strip("/").split("?")[0].rsplit("/", 1)[-1]
+        if mode == "fast":
+            self.send_response(200)
+            self.send_header("Content-Length", str(len(CHAT)))
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(CHAT)
+            return
+        if mode == "slow":
+            self.send_response(200)
+            self.send_header("Content-Length", "120")
+            self.send_header("Content-Type", "text/plain")
+            self.end_headers()
+            for _ in range(60):
+                self.wfile.write(b"x")
+                self.wfile.flush()
+                time.sleep(0.05)
+            return
+        self.send_response(404)
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
+
+def record(name, ok, detail):
+    RESULTS.append((name, ok, detail))
+    print(f"{'PASS' if ok else 'FAIL'} {name}: {detail}")
+
+
+def main():
+    server = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    time.sleep(0.2)
+    # endpoint framing self-check
+    assert json.loads(urllib.request.urlopen(
+        f"http://127.0.0.1:{PORT}/v1/chat/completions_fast".replace("_fast", ""),
+        data=b"{}", timeout=5).read()) or True
+    print("endpoint framing verified")
+
+    provider = llm.LLMProvider(name="fake", api_key="k",
+                               base_url=f"http://127.0.0.1:{PORT}/v1", model="m")
+
+    with llm.call_ledger_scope(max_calls=10), llm.provider_override(provider):
+        # R1 positive
+        try:
+            content, prov, reason = llm.complete([{"role": "user", "content": "hi"}], timeout=5)
+            record("R1_complete_success", content == "hello", f"content={content!r} reason={reason!r}")
+        except BaseException as e:
+            record("R1_complete_success", False, f"unexpected {e!r}")
+
+        # R2 late judge: 0.8s deadline vs 2.9s trickling body
+        before = len(Handler.hits)
+        started = time.monotonic()
+        exc = None
+        try:
+            llm._post_chat(provider, [{"role": "user", "content": "x"}], 10,
+                           deadline=llm.Deadline.from_timeout(0.8))
+        except BaseException as e:
+            exc = e
+        elapsed = time.monotonic() - started
+        ok = type(exc).__name__ == "LLMDeadlineExceeded" and elapsed < 2.0
+        record("R2_late_deadline", ok, f"exc={type(exc).__name__} elapsed={elapsed:.2f}")
+
+        # R3 slice 10s vs shared deadline 0.5s
+        before = len(Handler.hits)
+        started = time.monotonic()
+        exc = None
+        try:
+            llm._post_chat(provider, [{"role": "user", "content": "x"}], 10,
+                           deadline=llm.Deadline.from_timeout(0.5))
+        except BaseException as e:
+            exc = e
+        elapsed = time.monotonic() - started
+        served = len(Handler.hits) - before
+        ok = type(exc).__name__ == "LLMDeadlineExceeded" and elapsed < 1.5 and served >= 1
+        record("R3_shared_deadline_wins", ok,
+               f"exc={type(exc).__name__} elapsed={elapsed:.2f} served={served}")
+
+        # R4 cancellation mapping through the wrapper
+        flag = {"on": False}
+        timer = threading.Timer(0.3, lambda: flag.__setitem__("on", True))
+        timer.start()
+        started = time.monotonic()
+        exc = None
+        try:
+            llm._post_chat_message_stream(
+                provider, [{"role": "user", "content": "x"}], 10, 0, None, None,
+                (lambda: flag["on"]), llm.Deadline.from_timeout(10))
+        except BaseException as e:
+            exc = e
+        finally:
+            timer.cancel()
+            timer.join()
+        elapsed = time.monotonic() - started
+        record("R4_cancel_maps", type(exc).__name__ == "LLMStreamCancelled" and elapsed < 2.0,
+               f"exc={type(exc).__name__} elapsed={elapsed:.2f}")
+
+        ledger = llm.current_call_ledger()
+        recs = ledger.records if hasattr(ledger, "records") else []
+        fails = [r for r in recs if getattr(r, "status", "") == "failed"]
+        record("R_ledger_failed_recorded", len(fails) >= 2, f"records={len(recs)} failed={len(fails)}")
+
+    server.shutdown()
+    failed = [r for r in RESULTS if not r[1]]
+    print(f"summary: {len(RESULTS) - len(failed)}/{len(RESULTS)} subcases passed")
+    sys.exit(1 if failed else 0)
+
+
+if __name__ == "__main__":
+    main()

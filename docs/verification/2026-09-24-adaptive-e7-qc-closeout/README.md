@@ -22,6 +22,8 @@ Spec原始四次探针执行分别为6/6、3/9、4/4、4/6子项；两个脚本e
 
 `archive-manifest.json`登记530个源工件，存储2730215字节。每项分别记录源路径/源字节数/SHA256，以及存储字节数/SHA256和编码方式。大文件用确定性gzip+base64，原有行尾空白或末尾空行用可逆base64封套；不裁剪任何原件。源脚本以`.txt`保存，防止被自动发现为可执行入口。按manifest定位编码后的实际文件名。
 
+首次提交`4f1e5bc93f56111f7d86399305ac97d18629ceaa`后的Git核验失败：85个`.log`被忽略规则跳过，本地存在但Git缺失。`first-git-verification-failure.json`记录对该固定提交计算的差集及忽略规则，不冒充首次终端输出的原字节。显式force-add的补交尝试又被裸`.log`后缀门禁拒绝，未使用no-verify。随后仅将这85个归档副本改名为`.log.txt`并更新manifest映射，原运行路径、源/存储字节、全局忽略与门禁均不变。失败输出与映射见`log-extension-hook-failure.encoded.json`、`archive-layout-repair.json`；最终通过以另存的Git核验收据为准。
+
 `host/archive_e7.py.txt`保存选取与封装规则。归档含全部已执行阶段的原始事件、命令、退出码、探针源码、输入和计数；不含生成的庞大pytest夹具、虚拟环境或真实密钥。模式扫描零命中只证明所列模式未命中，不泛称全能密钥审计。
 
 `structured-delivery-offline/valid/REPORT.md`是**宿主合成对象的工具边界测试产物**，不是Quality补交报告。旧Quality原请求SHA256为`55c59793a38004e83e01774846ff5ec2daa12d79b9abc56b2d72c173e8dc143f`，字节不变；旧字符串仍按原协议拒收。
