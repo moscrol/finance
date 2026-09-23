@@ -1,15 +1,15 @@
-# #86/#87 验证收口（候选 head `6f14ed215184d5c97fae3c03513468c6c9ee9cd4`）
+# #86/#87 验证收口（隔离候选分支）
 
 ## 范围与结论
 
-本目录记录隔离分支 `fix/workorders-86-87-0923` 的工程验证。候选基线是 `gitea/main@626d8a508`，`git merge-tree --write-tree gitea/main HEAD` 成功，预览 tree 为 `501620c10d8a60c2baf0595e4332b4a0e1e9c6b6`。没有合并、push、部署、重启、切 8792、真实 IMA 抓取或生产写入。
+本目录记录隔离分支 `fix/workorders-86-87-0923` 的工程验证。候选基线是 `gitea/main@626d8a508`；本轮曾在业务代码 head `6f14ed215184d5c97fae3c03513468c6c9ee9cd4` 上完成 K3 和合并树检查，之后只追加本验证文档、QUEUE/INDEX 与交接，不改业务代码。K3 因此只对它的精确审查 head 成立，不能伪称审查了后续 docs head。最终 revision 以分支 `git rev-parse HEAD` 为准。没有合并、push、部署、重启、切 8792、真实 IMA 抓取或生产写入。
 
-本次独立 K3 finance 会话绑定同一 head，但在 1080 秒截止时为 `INCOMPLETE`：28 次已准入请求、模型错误 0、候选树首尾 revision/tree/status 一致，但未写出 `REPORT.md` 或 `verdict.json`。按工单纪律记为 `BLOCKED`，不是 PASS，也不是 `REVIEW_EVIDENCE_DISPUTED_NO_APPROVAL` 的批准替代。原始收据在树外：`/Users/a77/.finance-runtime/reviews/briefing-k3-r2-20260923/finance-review/execution.json`。
+本次独立 K3 finance 会话绑定代码 head `6f14ed215184d5c97fae3c03513468c6c9ee9cd4`，在 1080 秒截止时为 `INCOMPLETE`：28 次已准入请求、模型错误 0、候选树首尾 revision/tree/status 一致，但未写出 `REPORT.md` 或 `verdict.json`。按工单纪律记为 `BLOCKED`，不是 PASS，也不是 `REVIEW_EVIDENCE_DISPUTED_NO_APPROVAL` 的批准替代。原始收据在树外：`/Users/a77/.finance-runtime/reviews/briefing-k3-r2-20260923/finance-review/execution.json`。
 
 ## 作者测试与静态检查
 
-- #86 部署测试：24 passed，收据 `/Users/a77/.finance-runtime/test-receipts/20260923T133709Z-6f14ed21-fb3cf7a96e7b.json`。
-- #87 IMA + 晨汇验收测试：14 passed，收据 `/Users/a77/.finance-runtime/test-receipts/20260923T133716Z-6f14ed21-bdc65df01ad6.json`。
+- #86 部署测试：24 passed，最终 head 收据 `/Users/a77/.finance-runtime/test-receipts/20260923T140520Z-4e62ee4b-c0232cf48954.json`。
+- #87 IMA + 晨汇验收测试：14 passed，最终 head 收据 `/Users/a77/.finance-runtime/test-receipts/20260923T140515Z-4e62ee4b-7a78531b8963.json`。
 - 对 Python 文件的 ruff：通过；`zsh -n scripts/deploy_workbench_runtime.sh`：通过；`git diff --check`：通过。
 - 正式 `scripts/run_main_gate.sh` 的全量 Python 叶在 1200 秒截止，没有收据，不计为通过；并行机器负载存在，但不把它归因成测试缺陷。
 
