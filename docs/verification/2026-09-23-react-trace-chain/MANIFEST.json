@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "candidate": "d1b30e1a068ccd0559f091f3c664ca2ca82f1e7c",
-  "verdict": "BLOCKED_E2E",
+  "verdict": "ENGINEERING_PASS_WITH_E2E_TIMING_LIMITS",
   "scope": "Selected receipts and logs only. Browser ZIP traces remain in the external evidence root. Iteration evidence does not certify the final clean revision.",
   "iteration_artifacts": [
     "receipts/author-initial.json",
@@ -123,6 +123,115 @@
       "path": "logs/receipt-check.log.txt",
       "bytes": 967,
       "sha256": "4c35fe92d65b6e9c0251b65decd5c4f275298215d4bbc6df477b4d7ba10fb48f"
+    },
+    {
+      "path": "receipts/frontend-control/candidate/frontend-0.log.txt",
+      "bytes": 995,
+      "sha256": "f43690cdd9c7806960060f2e2afa80efbae7305771c6470581456c12674cdf10"
+    },
+    {
+      "path": "receipts/frontend-control/candidate/frontend-1.log.txt",
+      "bytes": 117,
+      "sha256": "7ca9c49a9e36ec0bb617b3eb4add178f2c00d9f3911374951b0d81929f3c7b71"
+    },
+    {
+      "path": "receipts/frontend-control/candidate/frontend-2.log.txt",
+      "bytes": 215,
+      "sha256": "8264250c4b2a8fa24cd797c739aa6b6848740a7051d9ce1ac8c09a9e87790b5c"
+    },
+    {
+      "path": "receipts/frontend-control/candidate/frontend-3.log.txt",
+      "bytes": 1860,
+      "sha256": "d2fd2a1b19de34920e076f560e1cb05cbb1f96efa05e385d38570100044bfe00"
+    },
+    {
+      "path": "receipts/frontend-control/candidate/frontend-4.log.txt",
+      "bytes": 921,
+      "sha256": "bed44e473dcf095e6a2e29a7481ec3719179ad2ad95901aa8305b2fbac920b4b"
+    },
+    {
+      "path": "receipts/frontend-control/candidate/frontend-5.log.txt",
+      "bytes": 12755,
+      "sha256": "3b1d7792f19d73ed1e168944cb0e66b3ea9ce8603ac55b0d39d35297532e5e1b"
+    },
+    {
+      "path": "receipts/frontend-control/candidate/frontend.json",
+      "bytes": 2500,
+      "sha256": "b8db809464f903db5c06c88a8d6817b3e4fd485776b1f79ddb240bf54442048e"
+    },
+    {
+      "path": "receipts/frontend-control/candidate-resources.jsonl",
+      "bytes": 3564,
+      "sha256": "930ab5af3ce093eb5cab210a300107837ac2816d132029bfeb46ae727c2da046"
+    },
+    {
+      "path": "receipts/frontend-control/check_control.py.txt",
+      "bytes": 3612,
+      "sha256": "25b02f3f9ba442a03ae0ac96fb162a6041c23a0ae404930b2684dfa425978366"
+    },
+    {
+      "path": "receipts/frontend-control/control-summary.json",
+      "bytes": 1764,
+      "sha256": "675f88b03fd8b6158cf2e75ea371faad6cbaf21eff2b21db82d3618c668b11dd"
+    },
+    {
+      "path": "receipts/frontend-control/main/frontend-0.log.txt",
+      "bytes": 1878,
+      "sha256": "a0b91476f6c9d3fd9ccf919ee8fbb1ddb7cda899f4fbf55606ed8f7f5e80fc4d"
+    },
+    {
+      "path": "receipts/frontend-control/main/frontend-1.log.txt",
+      "bytes": 124,
+      "sha256": "cfcba726609a4655fefaa398c0f6783d8d4d9c701b31d2aa0ec45f70b4cb432a"
+    },
+    {
+      "path": "receipts/frontend-control/main/frontend-2.log.txt",
+      "bytes": 222,
+      "sha256": "079263f68928f28aa7ef36eaad1618777cc719c6ca8bdf840af9357fda465fdf"
+    },
+    {
+      "path": "receipts/frontend-control/main/frontend-3.log.txt",
+      "bytes": 1762,
+      "sha256": "184e189de0c3ef109b111ecdcf34b444441f2b4f746a43bd28679d1e456c5425"
+    },
+    {
+      "path": "receipts/frontend-control/main/frontend-4.log.txt",
+      "bytes": 935,
+      "sha256": "7629696930a8392d397937b2896ca9026188d4be59d361c3e705d64ca8f331f9"
+    },
+    {
+      "path": "receipts/frontend-control/main/frontend-5.log.txt",
+      "bytes": 12762,
+      "sha256": "ac0d7e33152d520dcb1cab53243e7ae623d0b0756e715f3e79c9eb74f3a981fb"
+    },
+    {
+      "path": "receipts/frontend-control/main/frontend.json",
+      "bytes": 2509,
+      "sha256": "2629ce51c32d59d94ebf51f340adcf5ec87a916bbb8105e660c6803fe92b5ac4"
+    },
+    {
+      "path": "receipts/frontend-control/main-resources.jsonl",
+      "bytes": 4192,
+      "sha256": "b71e88c3778cad0df66d455e502bee76c54c4fd63dd9f8eb3c01a3fcdfcc038a"
+    },
+    {
+      "path": "receipts/frontend-control/pair.json",
+      "bytes": 1611,
+      "sha256": "6f7cc96e2c9c7d1380af5a502d882946dc7b7c2553f8e7a3dc2a2f4b6eed1fe6"
+    },
+    {
+      "path": "receipts/frontend-control/python-recheck.log.txt",
+      "bytes": 967,
+      "sha256": "4c35fe92d65b6e9c0251b65decd5c4f275298215d4bbc6df477b4d7ba10fb48f"
+    },
+    {
+      "path": "receipts/frontend-control/run_pair.py.txt",
+      "bytes": 1972,
+      "sha256": "372685456629304828ed10e28a4f1441a63ae0d1a2e327552c8a557a921b1388"
     }
-  ]
+  ],
+  "previous_verdict": "BLOCKED_E2E",
+  "control_summary": "receipts/frontend-control/control-summary.json",
+  "independent_qc": "PENDING_AUTHORIZATION_75",
+  "natural_finance": "PENDING_AUTHORIZATION_76_PREVIOUS_NOT_PASSED_UNCHANGED"
 }
