@@ -259,6 +259,9 @@ def render_material_claims(contract: ResearchTaskContract, raw_bindings: object)
     questions = {item.output_id: item.question_id for item in material_question_outputs(contract)}
     blocks = []
     seen = set()
+    sentence_errors = []
+    private_locations = []
+    private_tokens = material_private_tokens(contract)
     for raw in raw_bindings:
         if not isinstance(raw, Mapping):
             raise ValueError("claim rendering requires binding objects")
@@ -274,18 +277,31 @@ def render_material_claims(contract: ResearchTaskContract, raw_bindings: object)
             raise ValueError("a gap cannot carry answered claims")
         if not gap.strip() and not claims:
             raise ValueError("claim rendering requires sentences or a disclosed gap")
+        if any(token in gap.casefold() for token in private_tokens):
+            private_locations.append(f"{output_id}.gap")
         for index, claim in enumerate(claims):
+            if any(token in claim.text.casefold() for token in private_tokens):
+                private_locations.append(f"{output_id}.claims[{index}]")
             count = len(claim_sentences(claim.text))
             if count != 1:
-                # 病灶坐标进错误文本：作者要改的是哪一条，不能靠猜。修复轮把这句原样回灌，
-                # 只说「需要一句一条」时，作者只会把同一份 bindings 再发一次。
-                raise ValueError(
-                    "claim rendering requires one sentence per claim: "
-                    f"{output_id}.claims[{index}] has {count} sentences"
-                )
+                # 一次反馈各槽位的错误，避免有限续修机会逐个消耗在首错上；不改写正文或来源。
+                sentence_errors.append(f"{output_id}.claims[{index}] has {count} sentences")
         title = questions.get(output_id) or ("证据边界" if output_id == "evidence_boundary" else "")
         body = gap.strip() if gap else "\n\n".join(claim.text.strip() for claim in claims)
         blocks.append(("## " + title + "\n" if title else "") + body)
+    if sentence_errors:
+        locations = "; ".join(sentence_errors[:16])
+        remainder = len(sentence_errors) - 16
+        if remainder > 0:
+            locations += f"; {remainder} further invalid claims"
+        if private_locations:
+            locations += "; private material references in " + ", ".join(private_locations[:16])
+        raise ValueError(
+            "claim rendering requires one sentence per claim: " + locations
+            + ". Split at sentence punctuation (including semicolons) and line breaks; "
+            "recheck every binding and bind each resulting claim to its own supporting sources. "
+            "Keep material IDs and message coordinates in private bindings, never in public text."
+        )
     return "\n\n".join(blocks)
 
 
@@ -310,6 +326,9 @@ def claim_finish_format(contract: ResearchTaskContract) -> dict[str, object] | N
         "rule": "按 wire_template 的结构填写答案，保留顶层 render_from_claims=true、draft=空字符串，"
                 "逐项保留 output_id 与 basis，只在各 binding.claims 填入逐句正文（模板空 claims 不可直接提交）。"
                 "系统按 bindings 顺序排版，自动添加题号与证据边界标题；每条 claim 只含一句，不自写标题。"
+                "句号、问号、感叹号、分号和换行均为分句边界，不要在一条text里列多句或多行；"
+                "多个论点拆成多个claim，各自绑定支持本句的来源，不能只改已报错的第一条。"
+                "claims.text与gap就是公开正文，不能含material_id或消息坐标；这些只留在引用绑定字段。"
                 "无法回答时 claims=[]，原样写 binding.gap；有答案的 gap=空字符串。"
                 "每个必需 output 都须提供，basis 逐项复制 required_outputs 的 grounding_mode，不按材料真实性猜。"
                 "不得同时提交另一份 draft。旧格式 render_from_claims=false 时仍须严格逐句复制正文。",

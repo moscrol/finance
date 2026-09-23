@@ -21,6 +21,7 @@ is on; the default remains off.
 from __future__ import annotations
 
 from copy import deepcopy
+import hashlib
 import inspect
 import json
 import os
@@ -654,6 +655,7 @@ class SemanticEpisodeOutcome:
     http_status: int | None = None
     judge_attempt_index: int | None = None
     judge_request: dict[str, object] | None = None
+    judge_protocol_failure: dict[str, object] | None = None
     repair_withheld: bool = False
     unattempted_claim_count: int = 0
     asked_date_coverage: str = "not_applicable"
@@ -782,6 +784,8 @@ class SemanticEpisodeOutcome:
             payload["material_review_calls"] = [dict(row) for row in self.material_review_calls]
         if self.judge_request is not None:
             payload["judge_request"] = self.judge_request
+        if self.judge_protocol_failure is not None:
+            payload["judge_protocol_failure"] = self.judge_protocol_failure
         if self.premise_calculation_review is not None:
             payload["premise_calculation_review"] = dict(self.premise_calculation_review)
         return payload
@@ -1016,7 +1020,21 @@ class _JudgeCall:
     http_status: int | None = None
     judge_attempt_index: int | None = None
     request: dict[str, object] | None = None
+    protocol_failure: dict[str, object] | None = None
     material_review_calls: tuple[dict[str, object], ...] = ()
+
+
+def _judge_protocol_failure(value: ModelTurn | str | None, reasons: list[str]) -> dict[str, object]:
+    """Bounded private receipt, never returned as public issues or repair instructions."""
+    payload = value.to_dict() if isinstance(value, ModelTurn) else value
+    raw = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return {
+        "reason_codes": list(reasons),
+        "response_json": raw[:65536],
+        "response_chars": len(raw),
+        "response_sha256": hashlib.sha256(raw.encode("utf-8")).hexdigest(),
+        "response_truncated": len(raw) > 65536,
+    }
 
 
 def _judge_failure_identity(value: object) -> tuple[str | None, int | None]:
@@ -1078,6 +1096,7 @@ def _attach_judge_clock(
         http_status=call.http_status,
         judge_attempt_index=call.judge_attempt_index,
         judge_request=pending_request,
+        judge_protocol_failure=call.protocol_failure,
         material_review_calls=call.material_review_calls,
     )
 
@@ -2800,6 +2819,7 @@ class SemanticEpisodeVerifier:
         transient_provider_failure: bool = False,
         monotonic_release_safe: bool = False,
         judge_attempt_index: int | None = None,
+        protocol_failure: dict[str, object] | None = None,
     ) -> _JudgeCall:
         exc_class, http_status = (
             _judge_failure_identity(failure) if failure is not None else (None, None)
@@ -2818,6 +2838,7 @@ class SemanticEpisodeVerifier:
             exc_class=exc_class,
             http_status=http_status,
             judge_attempt_index=judge_attempt_index,
+            protocol_failure=protocol_failure,
         )
 
     def _judge_attempt_cap(self) -> float:
@@ -2868,7 +2889,8 @@ class SemanticEpisodeVerifier:
         second = self._run_judge_once(isolated, shared_deadline)
         calls = tuple({"stage": stage, "request": payload, "report": call.report.to_dict() if call.report else None,
                        "unavailable": call.unavailable, "issue": call.issue, "timeout_asked": call.timeout_asked,
-                       "remaining_seconds_at_entry": call.remaining_seconds_at_entry}
+                       "remaining_seconds_at_entry": call.remaining_seconds_at_entry,
+                       "protocol_failure": call.protocol_failure}
                       for stage, payload, call in (("material_review", request, first), ("nonfactual_review", isolated, second)))
         if second.report is None or shared_deadline.expired:
             return replace(second, report=None, unavailable=True, monotonic_release_safe=False,
@@ -3037,7 +3059,8 @@ class SemanticEpisodeVerifier:
                         ),
                         monotonic_release_safe=prior_failures_release_safe,
                     )
-                report = self._parse_report(content, len(request["sentences"]), material_claims=request.get("material_claims"), material_outputs=request.get("material_outputs"))
+                reasons: list[str] = []
+                report = self._parse_report(content, len(request["sentences"]), material_claims=request.get("material_claims"), material_outputs=request.get("material_outputs"), diagnostics=reasons)
                 if report is not None:
                     return self._clocked_judge_call(
                         asked=attempt_timeout,
@@ -3074,6 +3097,7 @@ class SemanticEpisodeVerifier:
                     unavailable=True,
                     issue=issue,
                     failure=reason or "invalid semantic judge output",
+                    protocol_failure=_judge_protocol_failure(content, reasons) if not reason else None,
                     transient_provider_failure=prior_failures_release_safe,
                     monotonic_release_safe=prior_failures_release_safe,
                 )
@@ -3222,11 +3246,13 @@ class SemanticEpisodeVerifier:
                     transient_provider_failure=prior_failures_release_safe,
                     monotonic_release_safe=prior_failures_release_safe,
                 )
+            reasons = []
             if turn.tool_calls:
                 report = self._parse_tool_report(
                     turn,
                     len(request["sentences"]),
                     material_claims=request.get("material_claims"), material_outputs=request.get("material_outputs"),
+                    diagnostics=reasons,
                 )
                 if report is None:
                     return self._clocked_judge_call(
@@ -3236,6 +3262,7 @@ class SemanticEpisodeVerifier:
                         correlated=True,
                         unavailable=True,
                         issue="semantic judge returned an invalid tool call",
+                        protocol_failure=_judge_protocol_failure(turn, reasons),
                     )
                 return self._clocked_judge_call(
                     asked=attempt_timeout,
@@ -3246,7 +3273,7 @@ class SemanticEpisodeVerifier:
                     report=report,
                     monotonic_release_safe=prior_failures_release_safe,
                 )
-            report = self._parse_report(turn.content, len(request["sentences"]), material_claims=request.get("material_claims"), material_outputs=request.get("material_outputs"))
+            report = self._parse_report(turn.content, len(request["sentences"]), material_claims=request.get("material_claims"), material_outputs=request.get("material_outputs"), diagnostics=reasons)
             if report is None:
                 return self._clocked_judge_call(
                     asked=attempt_timeout,
@@ -3255,6 +3282,7 @@ class SemanticEpisodeVerifier:
                     correlated=True,
                     unavailable=True,
                     issue="invalid semantic judge output",
+                    protocol_failure=_judge_protocol_failure(turn, reasons),
                 )
             return self._clocked_judge_call(
                 asked=attempt_timeout,
@@ -3279,16 +3307,22 @@ class SemanticEpisodeVerifier:
         sentence_count: int,
         *, material_claims: list[dict[str, object]] | None = None,
         material_outputs: list[dict[str, object]] | None = None,
+        diagnostics: list[str] | None = None,
     ) -> answer_model.GroundingJudgeReport | None:
         if len(turn.tool_calls) != 1:
+            if diagnostics is not None:
+                diagnostics.append("tool_call_count")
             return None
         call = turn.tool_calls[0]
         if call.name != _JUDGE_REPORT_TOOL_NAME:
+            if diagnostics is not None:
+                diagnostics.append("tool_name")
             return None
         return SemanticEpisodeVerifier._parse_report(
             call.to_dict()["arguments"],
             sentence_count,
             material_claims=material_claims, material_outputs=material_outputs,
+            diagnostics=diagnostics,
         )
 
     @staticmethod
@@ -3353,32 +3387,38 @@ class SemanticEpisodeVerifier:
         sentence_count: int,
         *, material_claims: list[dict[str, object]] | None = None,
         material_outputs: list[dict[str, object]] | None = None,
+        diagnostics: list[str] | None = None,
     ) -> answer_model.GroundingJudgeReport | None:
+        def reject(code: str) -> None:
+            if diagnostics is not None:
+                diagnostics.append(code)
+            return None
+
         try:
             if isinstance(value, answer_model.GroundingJudgeReport):
                 if material_claims or material_outputs:
-                    return None
+                    return reject("typed_report_missing_material_checks")
                 if not isinstance(value.passed, bool):
-                    return None
+                    return reject("passed_type")
                 rejected = value.rejected_sentence_indexes
                 issues = value.issues
                 if not isinstance(rejected, tuple) or any(
                     isinstance(index, bool) or not isinstance(index, int)
                     for index in rejected
                 ):
-                    return None
+                    return reject("rejected_indexes_type")
                 if not isinstance(issues, tuple) or any(
                     not isinstance(issue, str) for issue in issues
                 ):
-                    return None
+                    return reject("issues_type")
                 if value.passed == bool(rejected):
-                    return None
+                    return reject("verdict_consistency")
                 if any(index < 1 or index > sentence_count for index in rejected):
-                    return None
+                    return reject("sentence_index_bounds")
                 return _reconcile_issue_sentence_indexes(value, sentence_count)
             if isinstance(value, ModelTurn):
                 if value.error or value.tool_calls:
-                    return None
+                    return reject("unexpected_model_turn")
                 value = value.content
             elif isinstance(value, tuple) and value:
                 # Provider seams may return ``(content, provider, reason)``.
@@ -3396,9 +3436,9 @@ class SemanticEpisodeVerifier:
                     serialized = fenced.group("body")
                 payload = json.loads(serialized)
             else:
-                return None
+                return reject("report_type")
             if not isinstance(payload, dict):
-                return None
+                return reject("report_type")
             # 必填键一个不能少（材料题按请求各加一个），也不能多出未知键；
             # ``reason_codes`` 是唯一可选键。
             required_keys = set(_JUDGE_REPORT_REQUIRED_KEYS)
@@ -3408,26 +3448,26 @@ class SemanticEpisodeVerifier:
                 required_keys.add("material_output_checks")
             keys = set(payload)
             if not required_keys <= keys <= required_keys | _JUDGE_REPORT_OPTIONAL_KEYS:
-                return None
+                return reject("report_keys")
             passed = payload["passed"]
             rejected_raw = payload["rejected_sentence_indexes"]
             issues_raw = payload["issues"]
             if not isinstance(passed, bool):
-                return None
+                return reject("passed_type")
             if not isinstance(rejected_raw, list) or any(
                 isinstance(index, bool) or not isinstance(index, int)
                 for index in rejected_raw
             ):
-                return None
+                return reject("rejected_indexes_type")
             if not isinstance(issues_raw, list) or any(
                 not isinstance(issue, str) for issue in issues_raw
             ):
-                return None
+                return reject("issues_type")
             if any(index < 1 or index > sentence_count for index in rejected_raw):
-                return None
+                return reject("sentence_index_bounds")
             output_checks = reconcile_output_checks(payload, material_outputs) if material_outputs else ()
             if output_checks is None:
-                return None
+                return reject("material_output_checks")
             checks = ()
             if material_claims:
                 checks_by_id = {row["claim_id"]: row for row in material_claims}
@@ -3435,7 +3475,7 @@ class SemanticEpisodeVerifier:
                 raw_reason_codes = payload.get("reason_codes")
                 payload = reconcile_claim_checks(payload, material_claims)
                 if payload is None:
-                    return None
+                    return reject("material_claim_checks")
                 if raw_reason_codes is not None:
                     # reconcile_claim_checks 只重建三个必填键；理由码是可选键，原样带过。
                     # 它新增的拒句没有码（走无码缺省），越界的码由 parse_judge_reason_codes
@@ -3455,13 +3495,15 @@ class SemanticEpisodeVerifier:
                     json.dumps(payload, ensure_ascii=False), sentence_count=sentence_count,
                 )
             if report is None:
-                return None
+                return reject("verdict_consistency")
             if not material_claims and not material_outputs:
                 report = _reconcile_issue_sentence_indexes(report, sentence_count)
             return replace(report, passed=report.passed and not incomplete, material_claim_checks=checks,
                            material_output_checks=output_checks)
+        except json.JSONDecodeError:
+            return reject("invalid_json")
         except Exception:
-            return None
+            return reject("report_validation_exception")
 
     def _apply_unattempted_claim_rewrite(
         self,
