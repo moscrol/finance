@@ -30,6 +30,7 @@ import subprocess
 import sys
 import tempfile
 import zipfile
+from pathlib import Path
 
 import duckdb
 
@@ -37,6 +38,12 @@ try:
     from scripts import db_delta_import as delta_import
 except ImportError:  # pragma: no cover
     import db_delta_import as delta_import
+
+try:
+    from market_feature_store.db import clone_to_staging as _clone_db
+except ImportError:  # pragma: no cover  — 直跑 `python3 scripts/db_delta_pull.py` 时仓根不在 sys.path
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    from market_feature_store.db import clone_to_staging as _clone_db
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 IMPORT_SCRIPT = os.path.join(HERE, "db_delta_import.py")
@@ -100,7 +107,8 @@ def restore_baseline(zip_path: str, db_path: str) -> dict:
         os.makedirs(os.path.dirname(os.path.abspath(db_path)) or ".", exist_ok=True)
         if os.path.exists(db_path):
             backup = db_path + ".baseline-rollback"
-            shutil.copy2(db_path, backup)
+            # 回滚副本是只读快照：走 APFS clonefile（cp -c）秒级零占盘，非同卷自动退回整份拷贝。
+            _clone_db(Path(db_path), Path(backup))
         os.replace(src, db_path)
         replaced = True
         ledger_path = delta_import._append_schema_ledger(db_path, {

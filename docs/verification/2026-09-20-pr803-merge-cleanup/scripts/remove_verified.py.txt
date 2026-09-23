@@ -1,0 +1,143 @@
+"""Apply one explicitly selected audit batch; no force, no branch deletion.
+
+This receipt-bound one-off preserves admin/cache metadata and each tracked blob
+manifest. Every candidate is revalidated immediately before Git removes it.
+Unknown content, hidden index flags, recent writes, unreachable reflog entries,
+active processes/launchers and incomplete inspection fail closed.
+"""
+from pathlib import Path
+from datetime import datetime, timezone
+import hashlib
+import json
+import os
+import shutil
+import stat
+import subprocess
+import sys
+import tarfile
+import time
+from audit_cleanup import OUT, REPO, run, git, save, cache_file, protected_refs
+
+
+def require(ok, message):
+    if not ok:raise RuntimeError(message)
+
+
+def signature(path):
+    s=path.lstat()
+    return [s.st_dev,s.st_ino,s.st_mode,s.st_size,s.st_mtime_ns,s.st_ctime_ns]
+
+
+def validate(row, base):
+    p=Path(row['path'])
+    require(p.resolve()==p and not p.is_symlink(), 'root identity')
+    require(p.name.startswith(('fwp-wt-','finance-workspace-')), 'outside approved prefixes')
+    require(git(p,'rev-parse','HEAD').strip()==row['head'], 'head changed')
+    require(not git(p,'status','--porcelain=v1','--untracked-files=all'), 'dirty now')
+    branch=git(p,'branch','--show-current').strip() or '(detached)'
+    require(branch==row['branch'] and branch!='main','branch changed or main')
+    require(all(l.startswith('H ') for l in git(p,'ls-files','-v').splitlines()), 'hidden index flags')
+    require(not (p/'.gitmodules').exists(),'submodule configuration')
+    ignored=[s for s in git(p,'ls-files','--others','--ignored','--exclude-standard','-z').split('\0') if s]
+    require(sorted(ignored)==sorted(row['ignored_files']),'ignored file set changed')
+    require(all(cache_file(s) for s in ignored),'unknown ignored file')
+    admin=Path(git(p,'rev-parse','--absolute-git-dir').strip())
+    require(str(admin)==row['admin'],'admin path changed')
+    require(not any((admin/n).exists() for n in ('locked','index.lock','MERGE_HEAD','rebase-merge','rebase-apply')),'locked or ongoing operation')
+    run(['git','merge-base','--is-ancestor',row['head'],base],cwd=REPO)
+    commits={row['head']}
+    log=admin/'logs/HEAD'
+    if log.exists():
+        for line in log.read_text().splitlines():
+            prefix=line.split('\t',1)[0]
+            require(time.time()-int(prefix.rsplit(' ',2)[1])>2*3600,'recent git operation (<2h)')
+            commits.update(c for c in prefix.split(' ',2)[:2] if c!='0'*40)
+    for c in sorted(commits):run(['git','merge-base','--is-ancestor',c,base],cwd=REPO)
+    return admin,ignored,sorted(commits)
+
+
+def tracked_manifest(p):
+    rows=[]
+    for entry in run(['git','-C',str(p),'ls-files','-s','-z']).stdout.split(b'\0'):
+        if not entry:continue
+        meta,name=entry.split(b'\t',1);mode,oid,stage=meta.decode().split();name=os.fsdecode(name)
+        require(stage=='0' and mode in ('100644','100755','120000'),'nonregular index entry')
+        q=p/name;before=signature(q)
+        require(q.lstat().st_uid==os.getuid(),'unexpected owner')
+        require(time.time()-q.lstat().st_mtime>2*3600,'recent tracked write (<2h)')
+        if mode=='120000':data=os.fsencode(os.readlink(q))
+        else:
+            require(stat.S_ISREG(q.lstat().st_mode),'nonregular tracked path')
+            data=q.read_bytes()
+        actual=hashlib.sha1(b'blob '+str(len(data)).encode()+b'\0'+data).hexdigest()
+        require(actual==oid,'bytes differ: '+name)
+        require(signature(q)==before,'file changed during hash')
+        rows.append({'path':name,'blob':oid,'signature':before})
+    return rows
+
+
+def main():
+    kind=sys.argv[1]
+    require(kind in ('dev-wt','prod-snapshot'),'choose an explicit batch')
+    audit=json.loads((OUT/'cleanup-audit.json').read_text())
+    require(audit['complete'],'audit incomplete')
+    base=git(REPO,'rev-parse','gitea/main').strip()
+    run(['git','merge-base','--is-ancestor',audit['base'],base],cwd=REPO)
+    rows=[r for r in audit['rows'] if r['eligible'] and r['kind']==kind]
+    receipt=OUT/('removal-'+kind+'.json')
+    require(not receipt.exists(),'receipt already exists; do not rerun')
+    refs_before=git(REPO,'for-each-ref','--format=%(refname) %(objectname)')
+    worktrees_before=git(REPO,'worktree','list','--porcelain')
+    result={'kind':kind,'base':base,'audit_sha256':hashlib.sha256((OUT/'cleanup-audit.json').read_bytes()).hexdigest(),
+            'status':'preflight','free_before':shutil.disk_usage(Path.home()).free,
+            'planned_count':len(rows),'removed':[],'skipped':[],
+            'started_at':datetime.now(timezone.utc).isoformat()}
+    save(receipt,result)
+    (OUT/('refs-'+kind+'-before.txt')).write_text(refs_before)
+    (OUT/('worktrees-'+kind+'-before.txt')).write_text(worktrees_before)
+    archives=OUT/'worktree-metadata';archives.mkdir(exist_ok=True)
+    try:
+        references=protected_refs([Path(r['path']) for r in rows])
+        for row in rows:
+            p=Path(row['path'])
+            try:
+                require(not references[str(p)],'active or configuration reference')
+                admin,ignored,commits=validate(row,base)
+                manifest=tracked_manifest(p)
+                # Full reference scan again immediately before deletion.
+                require(not protected_refs([p])[str(p)],'new active reference')
+                require(git(REPO,'for-each-ref','--format=%(refname) %(objectname)')==refs_before,'concurrent ref mutation')
+                validate(row,base)
+                key=hashlib.sha256(str(p).encode()).hexdigest()[:16]
+                archive=archives/(key+'.tar.gz')
+                with tarfile.open(archive,'x:gz',dereference=False) as tf:
+                    tf.add(admin,arcname='git-worktree-admin')
+                    for cache in ('.pytest_cache','.ruff_cache'):
+                        if (p/cache).exists():tf.add(p/cache,arcname=cache)
+                mp=archives/(key+'-tracked.json');mp.write_text(json.dumps(manifest)+'\n')
+                detail={'path':str(p),'head':row['head'],'branch':row['branch'],'reflog_commits':commits,
+                        'metadata':str(archive),'metadata_sha256':hashlib.sha256(archive.read_bytes()).hexdigest(),
+                        'tracked_manifest':str(mp),'tracked_manifest_sha256':hashlib.sha256(mp.read_bytes()).hexdigest(),
+                        'tracked_count':len(manifest),'ignored_caches':len(ignored),
+                        'restore_command':['git','-C',str(REPO),'worktree','add','--detach',str(p),row['head']]}
+                for entry in manifest:require(signature(p/entry['path'])==entry['signature'],'changed after hash')
+                validate(row,base)
+            except (RuntimeError, subprocess.SubprocessError) as exc:
+                result['skipped'].append({'path':str(p),'reason':str(exc)})
+                save(receipt,result);print('SKIP',p,str(exc),flush=True);continue
+            result['in_progress']=detail;result['status']='removing';save(receipt,result)
+            run(['git','-C',str(REPO),'worktree','remove',str(p)])
+            require(not p.exists(),'tree still exists')
+            result['removed'].append(detail);result.pop('in_progress');save(receipt,result)
+            print('REMOVED',p,row['head'][:12],flush=True)
+        refs_after=git(REPO,'for-each-ref','--format=%(refname) %(objectname)')
+        require(refs_after==refs_before,'refs changed during batch')
+        (OUT/('worktrees-'+kind+'-after.txt')).write_text(git(REPO,'worktree','list','--porcelain'))
+        result.update(status='completed',refs_unchanged=True,free_after=shutil.disk_usage(Path.home()).free,finished_at=datetime.now(timezone.utc).isoformat())
+        save(receipt,result)
+        print('DONE',kind,len(result['removed']),'removed',len(result['skipped']),'skipped',flush=True)
+    except BaseException as exc:
+        result.update(status='stopped',error=type(exc).__name__+':'+str(exc));save(receipt,result);raise
+
+
+if __name__=='__main__':main()

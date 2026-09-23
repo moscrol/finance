@@ -1,0 +1,14 @@
+{
+  "user_message": "执行",
+  "at": "2026-09-21T09:20:28.899968+00:00",
+  "revision": "b0cf04fb446b8e87cb4a374b63d96b7c92824551",
+  "scope": "one new Quality session, sequential exact-version full gate under disk guard, conditional merge and scoped release",
+  "max_sessions": 1,
+  "max_requests": 40,
+  "timeout_seconds": 1200,
+  "retry": false,
+  "fallback": false,
+  "route": "existing mirasim-kimi/kimi-k3 Plus route; no account change or purchase",
+  "no_manual_collection": true,
+  "no_other_tree_deletion": true
+}

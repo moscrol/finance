@@ -1,0 +1,4 @@
+{
+  "removed": false,
+  "reason": "Reference matcher used generic basename finance-workspace-private and vetoed unrelated paths; full path remains required, basename shortcut now only for distinctive old-tree names. Original old-tree scan/removal behavior unchanged."
+}

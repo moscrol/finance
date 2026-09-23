@@ -1,0 +1,46 @@
+{
+  "probe_revision": "f2c3e9e1a24f42ae9b1d5a8cb9e501ababd1330a",
+  "current_revision": "adcda94b5e401158f1c3aa51f210e1e8d0f0b713",
+  "deployment_accepted": false,
+  "wiring_passed": true,
+  "answer_quality_accepted": false,
+  "reason": "new final-readiness failure retained; automatic recovery preceded guarded rollback, causality undetermined",
+  "artifacts": [
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/judge-mode-k3-20260921/production-live/material-receipt.json",
+      "sha256": "4bb1cea2a9b00ff233a7b4ef904bb07d49009cae2b3e32b5ee4f8ea74fe5d15e"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/judge-mode-k3-20260921/production-live/grounded-receipt.json",
+      "sha256": "edfc965dd0d2ba4a2c7eedf378a6dbdfd1ed43e69baf714fee2aea6b9df059bd"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/judge-mode-k3-20260921/production-verification/wiring.json",
+      "sha256": "7058e943335b8b578ceb7e70f498342d8c547b285e1ad51a1ab3d68e718b423f"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/judge-mode-k3-20260921/production-verification/evaluation.json",
+      "sha256": "94dd4300c082bf758ce5cfc9ac8e1951f3942288d5170ae82afc8ad23687c0c8"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/judge-mode-k3-20260921/production-verification/evaluation.md",
+      "sha256": "efb628269e3b78b7cebbcd4c6f3e5c2b4c57329f09239766e6f069b31d9ad7b5"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/judge-mode-k3-20260921/production-verification/fact-check.json",
+      "sha256": "e26ba1d077f97835fc318ca9daa90a4f84affa3488847b56ce08268a07d07790"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/judge-mode-k3-20260921/production-verification/secret-scan.json",
+      "sha256": "b3094618a74fbcb468c845ca9d182e4ad5b4e7e1a65727d9533a70bafd65e849"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/judge-mode-k3-20260921/final-readiness.json",
+      "sha256": "94978253e01b72cb6fa59834b402b72316ecd6a071312b3fe74e7339312bc003"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/judge-mode-k3-20260921/rollback-final-completed.json",
+      "sha256": "da309977e4fca524e633af2fd42ddb3b95b623b36441a2f4f5de30114b3f0868"
+    }
+  ]
+}

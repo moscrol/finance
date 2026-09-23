@@ -6,7 +6,7 @@
 
 | 项 | 要求 | 填法 |
 |---|---|---|
-| 候选代码 | #850 + #854 合入后的主干 SHA（完整 40 位） | **`6fc6bfa94070beba2fbb1f944863a25a8493cf94`**（#854 合并提交，2026-09-23 01:1x CST；含 #850 `a696c5e1d`）。后续主干再前进时用「含此提交的最新主干」并在 protocol 写明 |
+| 候选代码 | 必须含 #850 / #854 / #872 的获批主干 SHA（完整 40 位） | 最低修复基线 **`bd2290c861419b30b406633b1620d09d30de71e5`**（#872 合并提交）。开跑时冻结获批版本并写入 protocol；`6fc6bfa94` 仅为原合入历史，不包含 #872，不能作为本卡当前候选 |
 | 判据版本 | `intelligence/services/answer_claim_scope.py` 与 `scripts/check_answer_claims.py` 与候选 SHA 同源 | 冻结检出里跑 CLI，不用主检出树 |
 | 判官 | `ASK_SEMANTIC_JUDGE=off`（收据 `judge_mode=deterministic`） | 旁路实例启动参数写明 |
 | 写手 | `kimi-k3`，路由 `127.0.0.1:8080/v1`，钥匙照生产启动器同一 `client-keys.env` | 不写进任何文件 |
@@ -47,7 +47,7 @@
 | 5 | 收据 `judge_mode == deterministic`（确实无判官） | `semantic_verifier.judge_mode` |
 | 6 | 生产身份七字段与 manifest 前后不变；旁路实例已停、锁已释放 | `closure.json` |
 
-**失败即回滚判据**（#65 工单原话）：CLI 退出码 1，或 judge-off 下四类任一命中 → `NOT_PASSED`，生产保持回滚态（`adcda94b5e40` / `glm-5.3-flash`），不翻 `ASK_SEMANTIC_JUDGE`。
+**失败即不通过**：CLI 退出码 1，或 judge-off 下四类任一命中 → `NOT_PASSED`，停旁路实例，不部署、不改生产 `ASK_SEMANTIC_JUDGE`。生产身份以开跑前实际冻结的七字段为准，前后必须一致；`adcda94b5e40` / `glm-5.3-flash` 是 09-22 历史回滚记录，不是当前生产版本要求，更不是授权回滚到该提交。
 
 ## `--scope-total` 与 `--calendar-evidence-source` 的来源（人工给，写进 protocol）
 
@@ -63,7 +63,7 @@
 
 ## 阳性对照（正式跑之前必做）
 
-用 09-21 两个冻结 run（`~/.finance-runtime/reviews/k3-acceptance-20260922/frozen-runs/`）回放同一份 CLI：材料题必须退出 1 命中 `unit_gap_claim_contradicts_input`；行情题（`--scope-total 20`）必须退出 1 命中三条。**[实测 2026-09-22 于 `5f5ce2d11`]** 两者均如此。判据若在新版本上对旧答卷不再报红，先停手查判据，不开跑。
+用 09-21 两个冻结 run（`~/.finance-runtime/reviews/k3-acceptance-20260922/frozen-runs/`）回放同一份 CLI：材料题必须退出 1 命中 `unit_gap_claim_contradicts_input`；行情题（`--scope-total 20`）必须退出 1 命中三条。**[实测 2026-09-22 于 `5f5ce2d11`]** 两者均如此。09-23 在 `9a02279863733c9b9f60fd92fcc7e840fa83f878` 补验，两份完整 JSON 与 #872 修复后基线一致；带提交与文件哈希的原件见 `~/.finance-runtime/reviews/claim-scope-final-20260923/parity-manifest.json`。判据若在新版本上对旧答卷不再报红，先停手查判据，不开跑。
 
 ## 结论回写
 
