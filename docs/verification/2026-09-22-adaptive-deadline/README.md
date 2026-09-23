@@ -156,6 +156,8 @@ PR #868 开出后 `conflict-check` 变红：`gitea/main@8e7989372`（#863 研究
 
 ## 交 #76（L6 自适应回路真实改稿复核）条件卡
 
+09-23 离线预检见 `../2026-09-23-adaptive-l6-preflight/README.md` 与 `protocol.draft.json`：#72/#75/#76 的合前/合后顺序存在冲突，候选预合入验收须用户批准修订；独立模型/数据授权尚未给出。下述历史旁车 8797 落在 #76 新禁用端口范围内，不能原样复用；正式执行需选择 8780--8830 之外的端口并完成冻结/收尾。当前只完成旧记录提取，不是自然验收通过。
+
 - **前置**：最新合流代码尖 `7ad61a0d3` 的严格探针 exit 0、0 越窗（早期 `aa0509d61` / `013eb5c4a` 读数仅为历史）；`judge_late_report` 类迟到回包由常规回归守为 `failed/timeout`，零采纳。
 - **固定 SHA**：按 #76 表原文以「#72 合入后的 `gitea/main` SHA」为准；合入前候选 = 本 PR head，被门禁的代码尖 `7ad61a0d3`（当前相对代码尖仅有 docs 差异；开跑前重新核对）。开跑前冻结代码与数据，`protocol.json` 记 revision、`dirty=false`、各 canonical `fact_*` 的 `max(trade_date)`。
 - **三题冒烟原题**（逐字，来源 `~/.finance-runtime/adaptive-live-smoke-20260921{,-q2,-q3}/probe/protocol.json`）：

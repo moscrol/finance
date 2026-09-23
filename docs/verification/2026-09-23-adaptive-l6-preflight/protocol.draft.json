@@ -1,0 +1,160 @@
+{
+  "schema": "adaptive-l6-natural-live-draft/v1",
+  "state": "BLOCKED_AUTHORIZATION_AND_ORDER_DECISION",
+  "can_execute": false,
+  "workorder": "#76 L6",
+  "candidate_pr": 868,
+  "authorization": {
+    "approved": false,
+    "quote": null,
+    "source": null,
+    "required_scope": [
+      "three L6 questions, one initial submission each, no resubmissions or followups",
+      "frozen read-only market database and snapshot copies in an isolated evidence root",
+      "writer kimi-k3 and judge glm-5.3-flash under the fixed time budgets",
+      "use the pinned premerge candidate instead of the postmerge main required by the original workorder"
+    ]
+  },
+  "baseline": {
+    "original_rule": "main SHA after PR #868 is merged",
+    "original_rule_satisfied": false,
+    "proposed_amendment": "L6 on a pinned premerge candidate, then #75 independent review, then a separately authorized merge",
+    "amendment_approved": false,
+    "premerge_candidate_revision": "31f1b40dd788d36c71da249d59fb769c50d7cd30",
+    "engineering_revision": "7ad61a0d3fd9ee63abe2089a4049a0a1b4a8bc16",
+    "observed_main_revision": "ffd1b7f1572067e9a4c7e3a5845e99cf7f876cfb",
+    "runtime_revision": null,
+    "runtime_clean": null,
+    "require_exclusive_detached_checkout": true,
+    "require_health_revision_and_fingerprint_match": true
+  },
+  "entrypoint": {
+    "engine": "Workbench Episode",
+    "routes": ["POST /api/conversations", "POST /api/conversations/{id}/messages"],
+    "skill_mode": "hybrid",
+    "perspective_mode": "neutral",
+    "adaptive_arm": "off",
+    "existing_submitter": "scripts/workbench_probe.py",
+    "submitter_is_not_full_acceptance_runner": true,
+    "forbidden_port_range_inclusive": [8780, 8830],
+    "proposed_workbench_port": 19897,
+    "proposed_shim_port": 19898,
+    "ports_reserved": false,
+    "busy_port_policy": "stop; do not fall back into the forbidden range",
+    "sidecar_started": false,
+    "users_root": null,
+    "episode_root": null,
+    "pending_rejudge_root": null
+  },
+  "limits": {
+    "initial_submissions_per_question": 1,
+    "resubmissions": 0,
+    "followups": 0,
+    "question_count": 3,
+    "concurrency": 1,
+    "root_seconds": 900,
+    "episode_research_seconds": 600,
+    "single_call_cap_seconds": 75,
+    "repair_seconds": 30,
+    "judge_shared_window_seconds_per_verification": 150,
+    "judge_window_is_not_a_whole_session_total": true,
+    "gateway_preflight_requests_max": 1,
+    "gateway_http_400_or_429": "stop batch and record blocker; no account/model switch",
+    "derived_calculation": false,
+    "merge_main": false,
+    "deploy": false,
+    "change_production": false
+  },
+  "models": {
+    "writer": "kimi-k3",
+    "judge": "glm-5.3-flash",
+    "served_models_must_be_recorded": true,
+    "remember_credentials": false,
+    "credentials_in_files": false,
+    "gateway_preflight_done": false,
+    "historical_question_sources_requested_model": "glm-5.3-flash",
+    "strict_historical_ab_comparison": false
+  },
+  "data": {
+    "frozen": false,
+    "market_database_copy": null,
+    "snapshot_copy": null,
+    "manifest": null,
+    "freshness": null,
+    "requirements": [
+      "record each relevant canonical fact table max(trade_date) before running",
+      "freeze canonical market database and matching snapshots, verify their contract",
+      "record manifest hashes and require unchanged inputs at closure",
+      "declare unfrozen KB or external sources; never claim all inputs are frozen"
+    ]
+  },
+  "questions": [
+    {
+      "id": "L6-Q1",
+      "text": "寒武纪(688256.SH)这轮行情，给我一组可证伪的跟踪条件：需要哪些指标达到什么数值才算逻辑兑现，出现哪些数值算证伪。每个数值请标明它的来源和对应日期。",
+      "text_sha256": "dbd29b700848d0599053fe22320b3d4c590c62c3cdc7ad5742e397d903c68c42",
+      "source_protocol": "~/.finance-runtime/adaptive-live-smoke-20260921/probe/protocol.json",
+      "requested_capability_mode": "full_read_only",
+      "historical_dirty": false
+    },
+    {
+      "id": "L6-Q2",
+      "text": "只用本地已有资料，不联网：东阳光(600673.SH)9月以来的量价表现如何，与所属板块相比强弱如何？给出具体数值、日期和数据来源；本地没有的部分单独列出，不要补。",
+      "text_sha256": "93a092a07df78857f260304fae1997e9fc8d21e596b7bac4d83a13f5312427bf",
+      "source_protocol": "~/.finance-runtime/adaptive-live-smoke-20260921-q2/probe/protocol.json",
+      "requested_capability_mode": "local_only_four_read_only_capabilities",
+      "historical_dirty": false
+    },
+    {
+      "id": "L6-Q3",
+      "text": "固态电池题材这轮行情发酵到哪一步了？给我一组可证伪的跟踪条件，每个数值标明来源和日期。",
+      "text_sha256": "f7305834b6a4fc325695bdfd878b2e415e56919b3a4beab7c8be5e535f45f1f2",
+      "source_protocol": "~/.finance-runtime/adaptive-live-smoke-20260921-q3/probe/protocol.json",
+      "requested_capability_mode": "theme_track_full_read_only",
+      "historical_dirty": true
+    }
+  ],
+  "adjudication": {
+    "allowed_verdicts": ["PASS", "NOT_PASSED", "NOT_EXERCISED", "BLOCKED_<reason>"],
+    "criteria": [
+      "strict deadline probe exits zero on the frozen candidate",
+      "at least one actual model revision round occurs, with before/after drafts recorded",
+      "evidence-supported numeric condition sentences are not incorrectly removed; audit entity, date, window and units against original tool observations",
+      "observed late judge reports are unavailable/timeout and never adopted"
+    ],
+    "unexercised_mechanism_is_not_pass": true,
+    "no_late_judge_sample_policy": "mark the live late-report branch NOT_EXERCISED; keep strict transport probe evidence separate",
+    "judge_unavailable_policy": "report separately, not as financial content quality",
+    "unit_mismatch_policy": "BLOCKED_BY_852; retain the failed sample, do not repair it in this batch",
+    "known_failure_positive_control": {
+      "source": "~/.finance-runtime/adaptive-live-smoke-20260921-q3/probe/off/raw-run/continuous-episode.json",
+      "captured_judge_status": "repaired",
+      "captured_numeric_condition_deletions": 6,
+      "expected_fixture_verdict": "NOT_PASSED",
+      "formal_adjudicator_replayed": false,
+      "limit": "historical dirty-tree fixture; citation binding alone does not prove numeric support; verify claim-level evidence first"
+    }
+  },
+  "closure_requirements": [
+    "stop only this run's sidecar/shim and release only owned locks",
+    "read back production identity fields and show unchanged identity/configuration",
+    "verify frozen data manifests and source revision remain unchanged",
+    "preserve raw answers, request/usage records, audit.json and closure.json",
+    "do not resume or overwrite any historical run"
+  ],
+  "readiness_blockers": [
+    "explicit L6 model/data authorization is absent",
+    "postmerge baseline rule conflicts with premerge review ordering; amendment awaits user decision",
+    "the compare_adaptive_research launcher selects forbidden ports and is not a frozen-data acceptance runner",
+    "claim-level positive-control adjudication and full acceptance runner validation are not complete"
+  ],
+  "this_preflight": {
+    "mode": "offline_historical_extraction_only",
+    "evidence_root": "~/.finance-runtime/reviews/pr868-l6-preflight-20260923-1220/",
+    "new_model_requests": 0,
+    "new_financial_submissions": 0,
+    "production_db_copies": 0,
+    "production_writes": 0,
+    "live_verdict": null
+  }
+}
