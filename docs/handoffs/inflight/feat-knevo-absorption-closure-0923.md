@@ -4,30 +4,29 @@
 PR #877 WIP：沿原题/八问/原审稿闸修交付，不合main、不部署8792、不回补、不写生产画像。
 
 ## 决策与被否方案
-- 连续入口提前返回/异常/取消前保存既有LLM台账；只记流式时间/字符数，不存隐藏推理正文。
-- 原响应体绝对时限不撤，不加预算/重试；不自动改判官报告或跨ID补引用。
-- 工程、completed、内部passed、作者接纳分账，不改冻结题/原件凑绿。
-- 展开：`docs/handoffs/2026-09-23-knevo-writer-diagnostics.md`；旧两份续修快照保留。
+- 可选LLM_JUDGE_REASONING_EFFORT复用judge调用作用域；未设置不变，写手不动，不设生产默认。
+- 不加预算/重试，不关判官，不自动改报告或跨ID补引用；工程、报告合法、语义、作者接纳分账。
+- 相同low请求一次成功后两次超时，否决“降思考量已修复”。快照：`docs/handoffs/2026-09-23-knevo-judge-effort.md`。
 
 ## 当前状态
-代码5beeeef3c8e3d4330a6011b635f92dca5b734750已提交：提前退出留台账、流式进度计数、inspect白名单摘要；写手/判官提示与接收规则未改。
-新隔离包1 run_20260923_193125_229673：首稿74.930秒，格式修复32.776秒后八问结构齐；判官两次75.008/74.990秒超时，仅收推理片段、无报告正文/工具参数。材料首层150.008秒，无非事实复核。
-请求completed、报告partial/judge unavailable，作者not_passed，driver not_evaluated；不是新盲测或质量增益。q6/q7把终端消耗与厂商出货混用、盈利判断及重复计算缺本句锚点仍错。
-sidecar已停、8817无监听。证据：`~/.finance-runtime/knevo-absorption-20260923/writer-diagnostics-20260923/current.json`。
+代码6d472c523b963a33f2f8fd1519aca422f2a8b3b5已提交：判官专属可选参数、作用域测试、门页。
+冻结旧包1首审输入：low单次64.478秒返回合法报告（passed=false）；原配置75.208秒超时。随后真实_run_judge重放，两个low请求hash与成功调用完全相同，75.007/74.994秒仍只收推理片段、无报告；共享150秒耗尽，未到非事实复核。
+原入口新包1 run_20260923_204255_417562：failed/repair_model_unavailable，首稿75.014秒与补写39.870秒均到期，未到判官、无完整八问稿。已收content7961/3440字符不等于生成完成；作者not_passed、driver not_evaluated。
+服务/诊断进程均已停，8817无监听。证据：`~/.finance-runtime/knevo-absorption-20260923/judge-effort-20260923/current.json`。
 
 ## 已验证
-5beee干净定向1869P/2S/1X/0F，Ruff/收据验签通过；撤落盘4F、撤计数2F、恢复6P。测试含成功/断连/响应头前失败/慢流超时及私有字段过滤。
-原题逐字保真/material_only/0 Episode工具请求，七份原件hash不变；不是全IO零。
+6d472c干净定向1874P/2S/1X/0F，收集1877，Ruff/收据验签通过；局部58P，撤作用域2F。非全仓/前端/main组合。
+原题逐字保真/material_only/0 Episode工具请求，七份原件hash不变；不是全IO零。live health版本/干净状态匹配，独立根非OS沙箱。
 
 ## 未验证 / 已知边界
-只有包1新live，单次近窗口成稿不证明稳定。阶段timeout/余额是最后一次尝试值，elapsed含两次调用；到期不单独证明watchdog回调触发。
-计数只覆盖已收流式字段，不是token/公开正文/内部思考。未兜全部legacy异常、崩溃或存储失败。DNS/建连/响应头主动中断、本地TLS仍未验。
-无本版全仓/前端/组合main门禁；旧收据不移签。旧f1fd 0/12、7cfc两题写手失败、G1b认领、包3自洽、Q14漏判、真实Q18前置均保留。
+low仅可选实验参数，不保证供应商遵守或质量；三次low物理调用仅一次合法报告，不算成功率/盲测。写手稳定成稿、完整非事实复核、逐句输入/主体/基期及盈利方向未解决。
+旧5beee成稿但判官超时、7cfc两题写手失败、f1fd 0/12不翻案；G1b认领、包3自洽、Q14漏判、真实Q18前置保留。
+响应保护仍不覆盖DNS/建连/响应头主动中断与本地TLS；阶段elapsed含重试，timeout/余额是最后一次尝试。缺诊断不补零。
 
 ## 下一步
-1. 判官在原窗口内完整成报告，再验非事实复核；降思考量/换模型/强制解码未验证，不能直接算修复。
-2. 逐句绑全输入并核主体/基期；不能靠少答八问、补引用掩盖内容错。
-3. 续修互斥/历史认领/A-B/Q14，删句后重验八问；旧0/12不翻案。
+1. 原窗口写手完整生成与判官稳定报告分别定位；已有claims渲染/draft为空的去重机制，不凭猜测重造。
+2. 固定条件检验同low请求波动，再验非事实复核；不靠加时/少答八问凑绿。
+3. 续修全输入绑定、主体/基期/盈利方向及旧语义反例，删句后重验义务。
 
 ## 踩过的坑
-主树.venv-workbench/bin/python；run_main_gate从目标树cwd跑。重放须带material_outputs，缺诊断是unknown。独立根非OS沙箱；共享harness-reference脏且旧，未接管。
+主树.venv-workbench/bin/python；run_main_gate从目标树cwd跑。重放须带material_outputs；私有报告不进公开答案/修复提示。共享harness-reference脏且旧，未接管。
