@@ -1,0 +1,48 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { DeliveryGate } from './delivery-gate.mjs';
+
+function setup(t, stage = 'explore') {
+  const out = fs.mkdtempSync(path.join(os.tmpdir(), 'delivery-gate-test-'));
+  t.after(() => fs.rmSync(out, { recursive: true, force: true }));
+  return { out, gate: new DeliveryGate(out, 'immutable source', stage) };
+}
+const args = { probe_python: 'def test_probe():\n    assert True\n', explore_markdown: 'Narrow claim only.' };
+test('one read, one atomic terminating delivery', t => {
+  const { gate, out } = setup(t);
+  assert.equal(gate.read(), 'immutable source');
+  const hashes = gate.submit(args);
+  assert.equal(gate.state, 'sealed');
+  assert.equal(Object.keys(hashes).length, 2);
+  assert.equal(fs.readFileSync(path.join(out, 'delivery/probe.py'), 'utf8'), args.probe_python);
+  assert.throws(() => gate.submit(args));
+  assert.throws(() => new DeliveryGate(out, '', 'explore'));
+});
+test('reading cannot be extended after budget exhaustion', t => {
+  const { gate } = setup(t);
+  gate.read();
+  assert.throws(() => gate.read(), /exhausted/);
+});
+test('cannot submit before reading', t => {
+  const { gate } = setup(t);
+  assert.throws(() => gate.submit(args), /Read once/);
+});
+test('empty, oversized and unexpected fields refuse without output', t => {
+  const { gate, out } = setup(t);
+  gate.read();
+  for (const invalid of [{ ...args, path: '/tmp/no' }, { ...args, probe_python: '' },
+    { ...args, probe_python: 'x'.repeat(50001) }, { ...args, probe_python: null }]) {
+    assert.throws(() => gate.submit(invalid));
+    assert.equal(fs.existsSync(path.join(out, 'delivery')), false);
+  }
+});
+test('report requires valid structured verdict', t => {
+  const { gate } = setup(t, 'report');
+  gate.read();
+  assert.throws(() => gate.submit({ report_json: '{', spec_markdown: 's', quality_markdown: 'q' }));
+  assert.throws(() => gate.submit({ report_json: '{"verdict":"OK"}', spec_markdown: 's', quality_markdown: 'q' }));
+  gate.submit({ report_json: '{"verdict":"BLOCKED_PROBE"}', spec_markdown: 's', quality_markdown: 'q' });
+});

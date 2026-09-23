@@ -1,0 +1,48 @@
+"""Second bounded probe delivery; preserve first probe and all failing receipts."""
+import argparse
+import sys
+
+import run
+
+run.CLAIMS['F2R'] = run.CLAIMS['F2']
+run.AUTHOR_TESTS['F2R'] = run.AUTHOR_TESTS['F2']
+_original_packet = run.source_packet
+_original_sandbox = run.sandbox_profile
+
+
+def source_packet(claim):
+    packet = _original_packet('F2' if claim == 'F2R' else claim)
+    if claim in {'F2R', 'F3'}:
+        import duckdb
+        sys.path.insert(0, str(run.TREE))
+        from market_feature_store.db import init_db
+        with duckdb.connect(':memory:') as con:
+            init_db(con)
+            tables = ['fact_stock_daily', 'fact_stock_daily_hithink', 'fact_stock_adjustment_hithink']
+            for table in tables:
+                packet += f'\nACTUAL INITIALIZED SCHEMA {table}\n{con.execute(f"DESCRIBE {table}").fetchall()}\n'
+    if claim == 'F2R':
+        packet += '\nThis is a second independent delivery after fixture construction failed. Preserve adversarial assertions; diagnose using raw execution evidence. Row counts alone do not establish unchanged values. No controller edits to your probe were made.\n'
+        for path in [run.ROOT / 'F2-explore/delivery/probe.py', run.ROOT / 'F2-execute/probe.stdout']:
+            packet += f'\nPRIOR REVIEWER ARTIFACT {path.name}\n{path.read_text()}'
+    return packet
+
+
+def sandbox_profile(out):
+    _original_sandbox(out)
+    with (out / 'tools.sb').open('a') as stream:
+        stream.write(f'(allow file-read-metadata (literal "{run.TREE / ".git"}"))\n')
+
+
+run.source_packet = source_packet
+run.sandbox_profile = sandbox_profile
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('claim', choices=run.CLAIMS)
+    parser.add_argument('stage', choices=['explore', 'execute', 'report'])
+    args = parser.parse_args()
+    if args.stage == 'execute':
+        run.execute(args.claim)
+    else:
+        run.model_stage(args.claim, args.stage)

@@ -1,0 +1,109 @@
+{
+  "status": "HOLD",
+  "revision": "4dd5e66601084962697c5d78e9f6bb58eefc14c8",
+  "base": "27ca084f9ffcb9d148b749944beca340e5f4fa6c",
+  "tree": "49f280d13c459794435f9d52ddf90e3d81870f62",
+  "raw_root": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/delivery-gate-4dd5e66",
+  "final_identity": {
+    "revision": "4dd5e66601084962697c5d78e9f6bb58eefc14c8",
+    "status": "",
+    "main": "27ca084f9ffcb9d148b749944beca340e5f4fa6c"
+  },
+  "stage_records": {
+    "F2-explore": "DELIVERED",
+    "F2-execute": "executed",
+    "F2R-explore": "DELIVERED",
+    "F2R-execute": "executed",
+    "F2R-report": "DELIVERED",
+    "F1-explore": "DELIVERED",
+    "F1-execute": "executed",
+    "F1-report": "BLOCKED_PROVIDER_504",
+    "F3-explore": "DELIVERED",
+    "F3-execute": "executed",
+    "F3-report": "DELIVERED",
+    "author-scoped-gate": 0,
+    "supplementary-checks": "executed"
+  },
+  "model_requests": 14,
+  "http_status_counts": {
+    "200": 13
+  },
+  "claims": {
+    "F2": {
+      "verdict": "PASS_WITH_LIMITS",
+      "probe": {
+        "tests": 9,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 9
+      },
+      "author": {
+        "tests": 75,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 75
+      },
+      "positive_control_detected": true,
+      "controller_adoption": "narrowed_to_actual_probe_assertions"
+    },
+    "F1": {
+      "verdict": "BLOCKED_PROVIDER_504",
+      "probe": {
+        "tests": 5,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 5
+      },
+      "author": {
+        "tests": 28,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 28
+      },
+      "positive_control_detected": true,
+      "controller_adoption": "no_formal_report"
+    },
+    "F3": {
+      "verdict": "PASS_WITH_LIMITS",
+      "probe": {
+        "tests": 6,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 6
+      },
+      "author": {
+        "tests": 28,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 28
+      },
+      "positive_control_detected": true,
+      "controller_adoption": "narrowed_to_actual_probe_assertions"
+    }
+  },
+  "final_independent_probes": 20,
+  "final_author_tests": 131,
+  "initial_probe_failures": 7,
+  "initial_author_collection_errors": 1,
+  "production_write": false,
+  "merge_push_deployment": false,
+  "full_repo_receipt": false,
+  "execution_owner": "deterministic controller; probe and report artifacts authored by isolated K3 sessions",
+  "qualifications": [
+    "F2 original fixture failures and initial author collection error are retained, not product defects.",
+    "F2R snapshots compare logical row values, not physical database bytes; no other-date seed exists, so cross-date preservation is not independently established.",
+    "F3 unchanged assertions compare only stock_ts_code and close, not full rows or bytes. The missing-policy case does not assert the other-day row. Broader reviewer wording is not adopted.",
+    "Deliberate positive controls validate red-test detection, not mutation sensitivity of product guards.",
+    "Reviewer verdicts are claim-scoped, not production, full-repo, arbitrary concurrency, or business-contract acceptance.",
+    "run-v2.py is archived and hash-sealed at closeout; original stage input watch covered run.py but not this wrapper."
+  ],
+  "model_reported_provider_errors": {
+    "504": 1
+  }
+}

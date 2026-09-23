@@ -1,0 +1,24 @@
+{
+  "exit_code": 0,
+  "deadline_hit": false,
+  "elapsed_seconds": 653.272,
+  "command": [
+    "bash",
+    "scripts/run_main_gate.sh",
+    "--pytest-args",
+    "-q -p no:cacheprovider tests/"
+  ],
+  "before": {
+    "revision": "4dd5e66601084962697c5d78e9f6bb58eefc14c8",
+    "status": "",
+    "main": "27ca084f9ffcb9d148b749944beca340e5f4fa6c"
+  },
+  "after": {
+    "revision": "4dd5e66601084962697c5d78e9f6bb58eefc14c8",
+    "status": "",
+    "main": "27ca084f9ffcb9d148b749944beca340e5f4fa6c"
+  },
+  "full_repo": false,
+  "target": "tests/",
+  "driver_sha256": "7397c7310544f2175fa3dd1d0abce2259d87ef8ffa85a20ba7e3cf01d1524015"
+}

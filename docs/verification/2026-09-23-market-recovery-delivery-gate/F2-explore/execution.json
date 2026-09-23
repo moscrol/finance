@@ -1,0 +1,62 @@
+{
+  "claim": "F2",
+  "stage": "explore",
+  "before": {
+    "revision": "4dd5e66601084962697c5d78e9f6bb58eefc14c8",
+    "status": "",
+    "main": "27ca084f9ffcb9d148b749944beca340e5f4fa6c"
+  },
+  "started_at": "2026-09-23T07:47:07.414833+00:00",
+  "inputs_sha256": {
+    "run.py": "374ce5127f0027b96ce2878a6913fbbd8a6ec02e4ea2cfb4f0c25d144106a61c",
+    "delivery-gate.mjs": "637dcda9ebfbfbc831816d15016fcd197723aa7b79ac75f11387db193da17b5b",
+    "credential-bootstrap.mjs": "3cb5c96b66593914ae7e0ce41564951fcdd174a0ae8c8ee5b7761038301f562a",
+    "provider-template.json": "d3030f00ab3ba2d67c27d1fba2fcbdf60af34ea0d0d675e8bba704dfc54094b4"
+  },
+  "packet_sha256": "51903b58fe1e88e6488f8ab1db8dbcfb0c4116b13d1c4c033ff2a75651b1fd94",
+  "complete": true,
+  "exit_code": 0,
+  "deadline_hit": false,
+  "elapsed_seconds": 61.875,
+  "command": [
+    "/opt/homebrew/bin/pi",
+    "--provider",
+    "mirasim-kimi",
+    "--model",
+    "kimi-k3",
+    "--thinking",
+    "xhigh",
+    "--models",
+    "mirasim-kimi/kimi-k3",
+    "--no-session",
+    "--no-extensions",
+    "-e",
+    "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/delivery-gate-4dd5e66/credential-bootstrap.mjs",
+    "-e",
+    "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/delivery-gate-4dd5e66/delivery-gate.mjs",
+    "--no-skills",
+    "--no-prompt-templates",
+    "--no-context-files",
+    "--no-themes",
+    "--no-approve",
+    "--offline",
+    "--no-builtin-tools",
+    "--mode",
+    "json",
+    "-p",
+    "--",
+    "<prompt.md>"
+  ],
+  "after": {
+    "revision": "4dd5e66601084962697c5d78e9f6bb58eefc14c8",
+    "status": "",
+    "main": "27ca084f9ffcb9d148b749944beca340e5f4fa6c"
+  },
+  "model_errors": [],
+  "delivered": true,
+  "status": "DELIVERED",
+  "model_identities": [
+    "mirasim-kimi/kimi-k3"
+  ],
+  "inputs_unchanged": true
+}

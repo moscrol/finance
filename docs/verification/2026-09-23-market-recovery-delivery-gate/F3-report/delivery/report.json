@@ -1,0 +1,108 @@
+{
+  "verdict": "PASS_WITH_LIMITS",
+  "claim": "F3",
+  "claim_text": "apply_bridge_day must recheck existing target-day rows inside its transaction. A stale default plan or second application must refuse unchanged. Only literal boolean True authorizes replacing existing target day; truthy non-booleans refuse. Other dates remain unchanged. Full input fingerprints, concurrent scheduler and mootdx partial flush are out of scope.",
+  "revision": "4dd5e66601084962697c5d78e9f6bb58eefc14c8",
+  "base": "27ca084f9ffcb9d148b749944beca340e5f4fa6c",
+  "verified_subclaims": [
+    {
+      "subclaim": "apply_bridge_day rechecks existing target-day rows inside its transaction, before any write",
+      "evidence": "Static: bridge_hithink_stock_daily.py L260 BEGIN TRANSACTION -> L262 _day_fingerprints -> L263 existing=before.get(td,(0,))[0] -> L264-265 refusal guard, all inside try with L290 ROLLBACK. Dynamic: test_stale_default_plan_refuses_and_preserves_rows passed (rows present at apply time are seen and refused)."
+    },
+    {
+      "subclaim": "stale default plan (allow_replace_existing=False) refuses with BridgeRefused and leaves target-day and other-day rows byte-identical",
+      "evidence": "probe test_stale_default_plan_refuses_and_preserves_rows: PASSED"
+    },
+    {
+      "subclaim": "second application of a default-policy plan after an authorized replace refuses and preserves the first apply's rows",
+      "evidence": "second half of test_literal_true_replaces_other_days_untouched_second_default_refuses: PASSED"
+    },
+    {
+      "subclaim": "only literal boolean True authorizes replacement; truthy non-booleans refuse unchanged",
+      "evidence": "identity check `is not True` at L264; parametrized probe tests for 1, 'yes', [True]: 3/3 PASSED, rows unchanged in each"
+    },
+    {
+      "subclaim": "plan without a policy key refuses unchanged (default-deny)",
+      "evidence": "test_plan_without_policy_key_refuses: PASSED"
+    },
+    {
+      "subclaim": "with literal True, replacement succeeds with correct reporting (deleted_replaced=1, written_rows=2, final_rows=2, other_days_unchanged is True)",
+      "evidence": "control test: PASSED; target day shows exactly the new rows, old row gone"
+    },
+    {
+      "subclaim": "other dates remain unchanged on both the refuse and the replace paths",
+      "evidence": "other-day row (2026-09-21, 000001.SZ) asserted equal before/after in every probe test: 6/6 PASSED"
+    }
+  ],
+  "not_verified_subclaims": [
+    "True concurrent-writer isolation (racing scheduler interleaving): explicitly out of scope; staleness was simulated by pre-inserted rows on a single connection, which exercises the recheck logic but cannot prove DuckDB transaction-isolation behavior under concurrency",
+    "The internal drift/gone fingerprint guard (L277-283) was never triggered directly; only its end-to-end property (other-day row unchanged) was asserted",
+    "Rollback after a mid-transaction failure (e.g., final-count mismatch L284-287 after DELETE+INSERT) was not exercised; tested refusals all occur before any write",
+    "build_bridge_day's own gates (existing-row check L162-169, coverage MIN_COVERAGE, universe drift, preview_stock_calculation, real hithink fixtures): not exercised; plans were hand-built per claim scope",
+    "Empty-rows refusal (L256-257), name-resolution/turnover/source policy details, and policy=None (AttributeError instead of BridgeRefused, still rolled back): not exercised",
+    "Full input fingerprints, concurrent scheduler, mootdx partial flush: out of scope per claim"
+  ],
+  "findings": [
+    {
+      "file": "market_feature_store/sync/bridge_hithink_stock_daily.py",
+      "line": "243-247",
+      "trigger": "hypothetical/static only: a write that altered exclusively non-fingerprinted columns (open/high/low/volume/pct_chg/stock_name) on a non-target day",
+      "actual_result": "the drift/gone guard would not fire, because the per-day fingerprint hashes only stock_ts_code, close, amount, pre_close plus row count",
+      "severity": "info",
+      "impact_on_verdict": "none — not triggerable via any path exercised by the claim; the probe verified other-day unchanged by exact row comparison, not by relying on the fingerprint"
+    }
+  ],
+  "defects_found": 0,
+  "independent_probe_counts": {
+    "file": "delivery/probe.py",
+    "sha256": "24cd07a4e5ee62edc4f44d1e97c33e7651a84b86f0b78a4ccb9303c1d37d57c8",
+    "tests": 6,
+    "passed": 6,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "exit_code": 0,
+    "deadline_hit": false,
+    "elapsed_seconds": 1.624,
+    "collection_errors": 0
+  },
+  "author_test_counts": {
+    "file": "tests/test_bridge_hithink_stock_daily.py",
+    "tests": 28,
+    "passed": 28,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "exit_code": 0,
+    "deadline_hit": false,
+    "elapsed_seconds": 2.112,
+    "note": "author tests were withheld during probe design; executed afterwards in the same sandbox and agree with probe results"
+  },
+  "positive_control": {
+    "classification": "probe_bug",
+    "detected": true,
+    "exit_code": 1,
+    "tests": 1,
+    "passed": 0,
+    "failures": 1,
+    "errors": 0,
+    "detail": "test_intentional_red_probe_bug asserts 1 == 2 and failed as designed ('intentional positive control: probe_bug'). This is an intentional red assertion in the probe harness, classified as probe_bug, NOT a product defect. It confirms the execution harness runs assertions and surfaces failures.",
+    "sha256": "5aafcdf0a73fb7dc62edf5689f4949d31d1dfe552f7859031bf7e7907c549e5a"
+  },
+  "limitations": [
+    "Staleness was simulated on a single connection (rows pre-inserted before apply); the recheck's placement inside the transaction is confirmed statically (L260 before L262-265) and behaviorally, but true concurrent interleaving is out of scope and untested",
+    "Tests cannot distinguish in-transaction from pre-transaction recheck on one connection; the static ordering evidence carries that part of the claim",
+    "The drift/gone guard's fingerprint covers count + hash(code, close, amount, pre_close) only; columns open/high/low/volume/pct_chg/stock_name are outside the other-days guard (informational, not exercised by any tested path)",
+    "Rollback correctness after a partially-applied write (post-DELETE failure) is untested; all tested refusals happen before any write",
+    "No production database was touched (sandbox denies production access); all evidence is from fresh :memory: DuckDB fixtures with hand-built plans; build_bridge_day, preview_stock_calculation, real hithink data, staging/atomic swap (run_daily_full_staged) are outside this claim and unreviewed",
+    "This verdict covers claim F3 only; it is not a full-repo review, not a production acceptance, and not a concurrency guarantee"
+  ],
+  "scope_disclaimer": "Verdict applies solely to claim F3 as scoped. No full-repository correctness, no production acceptance, and no concurrent-scheduler behavior is claimed.",
+  "execution_environment": {
+    "python": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "sandbox": "sandbox-exec -f tools.sb (OS sandbox; production access denied)",
+    "fixture": "duckdb.connect(':memory:') + market_feature_store.db.init_db(con), fresh per test",
+    "inputs_unchanged": true,
+    "probe_provenance": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/delivery-gate-4dd5e66/F3-explore/delivery"
+  }
+}

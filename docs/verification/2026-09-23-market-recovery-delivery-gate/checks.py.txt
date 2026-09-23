@@ -1,0 +1,22 @@
+"""Capture supplementary checks separately from independent probes and full gates."""
+import os
+from pathlib import Path
+
+import run
+
+out = run.make_out('supplementary-checks')
+env = {**os.environ, 'PYTHONDONTWRITEBYTECODE': '1', 'FWP_TEST_RECEIPT': '0'}
+commands = {
+    'delivery-gate-tests': ['node', '--test', str(run.ROOT / 'delivery-gate.test.mjs')],
+    'consumption-registry': [run.PY, '-m', 'market_feature_store.cli', 'registry-check'],
+    'skills-registry': [run.PY, 'scripts/build_registry.py', '--check'],
+    'skills-parseability': [run.PY, 'scripts/build_registry.py', 'check-parseability'],
+    'remote-main': ['git', 'ls-remote', 'gitea', 'refs/heads/main'],
+}
+record = {'identity_before': run.identity(), 'checks': {}}
+for name, command in commands.items():
+    record['checks'][name] = run.bounded(command, out, env, 120, name)
+record['identity_after'] = run.identity()
+record['driver_sha256'] = run.sha(Path(__file__))
+run.save(out / 'execution.json', record)
+print({name: item['exit_code'] for name, item in record['checks'].items()})

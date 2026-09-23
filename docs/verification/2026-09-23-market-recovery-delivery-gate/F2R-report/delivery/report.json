@@ -1,0 +1,134 @@
+{
+  "verdict": "PASS_WITH_LIMITS",
+  "claim": "F2: Explicit recovery_members: missing canonical member bars or invalid closes (NULL, NaN, +/-infinity, zero, negative), including outside-sector bars consumed by market counts, must refuse before changing any of four derived tables. Frozen denominator keeps proven nontrading identities. Default daily behavior, other fields and concurrency are out of scope.",
+  "revision": "4dd5e66601084962697c5d78e9f6bb58eefc14c8",
+  "base_revision": "27ca084f9ffcb9d148b749944beca340e5f4fa6c",
+  "stage": "F2R",
+  "verified_subclaims": [
+    "Missing canonical member bar (declared/projected member M2 absent from fact_stock_daily) raises ValueError before any write; all four derived tables byte-identical to pre-call full-row snapshot (test_missing_member_bar_refuses_untouched PASSED)",
+    "Invalid canonical close NULL on an outside-sector bar consumed by market counts refuses before any write (param None PASSED)",
+    "Invalid canonical close NaN refuses before any write (param nan PASSED)",
+    "Invalid canonical close +infinity refuses before any write (param inf PASSED)",
+    "Invalid canonical close zero refuses before any write (param 0.0 PASSED)",
+    "Invalid canonical close negative (-1.0) refuses before any write (param -1.0 PASSED)",
+    "Outside-sector bars are inside the invalid-close scan: OUT is not a declared/projected member yet its bad bar triggers refusal, satisfying 'including outside-sector bars consumed by market counts'",
+    "Refusal happens before changing any of the four derived tables: probe seeds one local:seed row per table and asserts full-row (SELECT * ORDER BY ALL) equality after refusal, which also detects cross-date deletion and value mutation, not just count changes",
+    "Frozen denominator keeps proven nontrading identities: with M2 declared nontrading, no bar and no projection, run writes with ratio_denominator=2, observed_count=1, nontrading_codes=['600002.SH'] (test_control_frozen_denominator_keeps_nontrading PASSED)",
+    "Valid control path writes with denominator_basis='frozen_identity', market_limit_up=1, recovery_member_coverage ratio_denominator=2 (test_control_frozen_denominator_writes PASSED)",
+    "Nontrading identity that actually has a live bar refuses (synthetic suspension guard) with tables untouched (test_nontrading_identity_with_bar_refuses PASSED)"
+  ],
+  "not_verified_subclaims": [
+    "Invalid close = -infinity: claim enumerates '+/-infinity' but the probe parametrizes only +inf ([None, -1.0, 0.0, nan, inf]); math.isfinite() would reject -inf on the same code line, but this was never executed and per protocol unexecuted behavior is not_verified",
+    "Invalid close on a declared/projected member bar specifically: executed only via an outside-sector bar; the identical scan line covers members, but no member-bar-invalid-close case was run",
+    "Deep content correctness of rows written on the success path (heat/detail/ladder/leader row values beyond counters and result-dict fields)",
+    "Default daily behavior unchanged (recovery_members=None path), other fields (e.g. NaN amount, pre_close<=0), force=True, and concurrency: explicitly out of claim scope and not probed",
+    "Missing bars for identities neither declared nor projected: undetectable by design (no identity listing); claim scope is 'member bars' only"
+  ],
+  "findings": [
+    {
+      "file": "market_feature_store/sync/compute_local_stats.py",
+      "line": "228-231",
+      "trigger": "compute_limit_stats_local(TD, con=con, recovery_members={SEC:[M1,M2]}) with M2 projected in fact_sector_stock_daily(_generation) but no fact_stock_daily bar",
+      "actual_result": "ValueError('sector member missing canonical stock bar') raised at line 231, before BEGIN TRANSACTION (line 255); all four tables byte-identical post-call. PASSED."
+    },
+    {
+      "file": "market_feature_store/sync/compute_local_stats.py",
+      "line": "233-236",
+      "trigger": "outside-sector bar OUT close set to NULL / -1.0 / 0.0 / NaN / +inf, OUT not a declared member",
+      "actual_result": "ValueError('invalid canonical stock bar close') raised before any delete/write in 5/5 parametrized cases; full-row table equality held. PASSED. -inf not parametrized (coverage gap)."
+    },
+    {
+      "file": "market_feature_store/sync/compute_local_stats.py",
+      "line": "247-248",
+      "trigger": "recovery_nontrading=(M1,) while M1 has a live bar in fact_stock_daily",
+      "actual_result": "ValueError('nontrading identity has a stock bar'); four tables untouched. PASSED."
+    },
+    {
+      "file": "market_feature_store/recovery_coverage.py",
+      "line": "60-87",
+      "trigger": "M2 declared in recovery_members, declared nontrading, no bar, no member projection; expected_stock_count=2 equals declared identity count",
+      "actual_result": "sector_coverage returns ratio_denominator=2, observed_count=1, nontrading_codes=['600002.SH']; write proceeds; frozen denominator keeps the nontrading identity instead of dropping it. PASSED."
+    },
+    {
+      "file": "F2R-execute/positive_control.py",
+      "line": "2",
+      "trigger": "intentional red assertion: assert 1 == 2, 'intentional positive control: probe_bug'",
+      "actual_result": "AssertionError as designed; pytest exit_code=1, 1 failed / 0 passed; execution.json positive_control_detected=true. Classification: probe_bug (intentional). Confirms the sandboxed harness detects red probes and the 9/9 probe pass is not vacuous. Not a product defect."
+    },
+    {
+      "file": "prior artifact F2-execute/probe.py",
+      "line": "52",
+      "trigger": "INSERT INTO fact_stock_daily VALUES with 9 unnamed values into the 14-column initialized table",
+      "actual_result": "BinderException at fixture setup; 7/7 prior tests failed without executing any assertion. Diagnosed as fixture/probe bug (not a product bug, not a collection error); fixed in delivery/probe.py by naming columns explicitly. No behavioral conclusion carried over from that run."
+    },
+    {
+      "file": "market_feature_store/sync/compute_local_stats.py",
+      "line": "198-205",
+      "trigger": "probe fixture design review: seed rows use source='local:seed' so _has_foreign_rows returns 0",
+      "actual_result": "Confirms the exercised path is the recovery refusal logic, not the early 'skipped-has-foreign-rows' return; refusal-before-write assertions are attributable to the claimed checks."
+    }
+  ],
+  "independent_probe_counts": {
+    "tests": 9,
+    "passed": 9,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "exit_code": 0,
+    "elapsed_seconds": 5.22,
+    "deadline_hit": false,
+    "provenance": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/delivery-gate-4dd5e66/F2R-explore/delivery",
+    "evidence": ["F2R-execute/probe.stdout (9 passed in 4.56s)", "F2R-execute/execution.json"],
+    "breakdown": {
+      "control_frozen_denominator_writes": 1,
+      "control_frozen_denominator_keeps_nontrading": 1,
+      "outside_sector_invalid_close_refuses_untouched": 5,
+      "missing_member_bar_refuses_untouched": 1,
+      "nontrading_identity_with_bar_refuses": 1
+    }
+  },
+  "author_test_counts": {
+    "tests": 75,
+    "passed": 75,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "exit_code": 0,
+    "elapsed_seconds": 13.571,
+    "files": ["tests/test_compute_local_stats.py", "tests/test_recovery_coverage.py"],
+    "note": "Author verdicts withheld per phase; tests executed in the same sandbox but not independently audited line-by-line."
+  },
+  "positive_control": {
+    "classification": "probe_bug",
+    "intentional": true,
+    "detected": true,
+    "exit_code": 1,
+    "tests": 1,
+    "failures": 1,
+    "errors": 0,
+    "evidence": "F2R-execute/positive.stdout: AssertionError: intentional positive control: probe_bug (assert 1 == 2)",
+    "assessment": "The intentional red assertion failed exactly as designed and was surfaced by the harness (positive_control_detected=true). Classified probe_bug per protocol. Validates that the execution environment reports failures, so the independent probe's 9/9 pass carries signal. Not a product defect."
+  },
+  "environment": {
+    "python": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "fixture_api": "duckdb.connect(':memory:') + market_feature_store.db.init_db(con); con= always passed; no production DB",
+    "production_access": "OS sandbox denies",
+    "inputs_unchanged": true,
+    "inputs_sha256": {
+      "probe.py": "1195dff0edd84485d026bb412f46192e2dcde4e03abc1a7928a4d8b2483f1c20",
+      "positive_control.py": "5aafcdf0a73fb7dc62edf5689f4949d31d1dfe552f7859031bf7e7907c549e5a",
+      "tools.sb": "77d214bc38aaa0181779859a925895508efcbff71acce07cb81fda31276bd123"
+    },
+    "before_after_revisions_match": true
+  },
+  "limitations": [
+    "PASS_WITH_LIMITS rationale: the claim enumerates '+/-infinity' invalid closes; only +infinity was executed. -infinity is rejected by the same math.isfinite() check on the same line, but per protocol unexecuted behavior remains not_verified, so full PASS is not warranted.",
+    "Invalid-close refusal was executed on an outside-sector bar only; a bad close on a declared member bar shares the identical scan line but was not separately executed.",
+    "Success-path writes verified via result fields and counters only; written row contents (heat ratios, ladder, leader rows) not deeply asserted.",
+    "Probe exercises the recovery path only; default daily behavior (recovery_members=None), force=True, other-field validation, and concurrency are out of claim scope and untested.",
+    "recovery_nontrading upstream 'dated evidence' authenticity is trusted from the caller; the probe verifies consumption logic, not provenance.",
+    "Author suite (75 passed) corroborates but was not independently audited; author verdicts were withheld in this phase.",
+    "Sandbox denies production access; this verdict is scoped to the candidate revision's in-memory DuckDB behavior. No full-repo, integration, or production acceptance is claimed.",
+    "Second-delivery context: the prior 7-failure run was a probe fixture defect (9 unnamed values into 14-column fact_stock_daily), fully diagnosed as probe_bug; no product conclusion was carried over."
+  ]
+}

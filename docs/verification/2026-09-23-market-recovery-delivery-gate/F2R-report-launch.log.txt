@@ -1,0 +1,1 @@
+{"claim": "F2R", "stage": "report", "status": "DELIVERED", "exit_code": 0, "elapsed_seconds": 257.846, "model_errors": []}

@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="7" skipped="0" tests="7" time="1.414" timestamp="2026-09-23T15:48:48.606231+08:00" hostname="77deMacBook-Air.local"><testcase classname="F2-execute.probe" name="test_valid_control_writes_with_frozen_denominator" time="0.754"><failure message="_duckdb.BinderException: Binder Error: table fact_stock_daily has 14 columns but 9 values were supplied">def test_valid_control_writes_with_frozen_denominator():
+&gt;       con = _con()
+
+../F2-execute/probe.py:63: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def _con(*, out_close=10.0, drop_bar=None):
+        con = duckdb.connect(":memory:")
+        init_db(con)
+        con.execute("INSERT INTO ops_sector_universe_snapshot_daily VALUES (?,?,?,?,?,?,?)",
+                    [TD, SNAP, "test", 1, 2, "published", datetime.now(timezone.utc)])
+        con.execute("INSERT INTO fact_sector_universe_daily VALUES (?,?,?,?,?,?,?)",
+                    [TD, SNAP, SEC, "Sec", 2, "test", datetime.now(timezone.utc)])
+        for code, (close, pre) in {M1: (11.0, 10.0), M2: (9.0, 9.0), OUT: (out_close, 9.0)}.items():
+            if code == drop_bar:
+                continue
+&gt;           con.execute("INSERT INTO fact_stock_daily VALUES (?,?,?,?,?,?,?,?,?)",
+                        [TD, code, "A", close, pre, 1.0, 1000.0, "test", datetime.now()])
+E           _duckdb.BinderException: Binder Error: table fact_stock_daily has 14 columns but 9 values were supplied
+
+../F2-execute/probe.py:52: BinderException</failure></testcase><testcase classname="F2-execute.probe" name="test_invalid_outside_sector_close_refuses_before_any_write[None]" time="0.062"><failure message="_duckdb.BinderException: Binder Error: table fact_stock_daily has 14 columns but 9 values were supplied">bad = None
+
+    @pytest.mark.parametrize("bad", [None, -1.0, 0.0, float("nan"), float("inf")])
+    def test_invalid_outside_sector_close_refuses_before_any_write(bad):
+&gt;       con = _con(out_close=bad)
+
+../F2-execute/probe.py:76: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def _con(*, out_close=10.0, drop_bar=None):
+        con = duckdb.connect(":memory:")
+        init_db(con)
+        con.execute("INSERT INTO ops_sector_universe_snapshot_daily VALUES (?,?,?,?,?,?,?)",
+                    [TD, SNAP, "test", 1, 2, "published", datetime.now(timezone.utc)])
+        con.execute("INSERT INTO fact_sector_universe_daily VALUES (?,?,?,?,?,?,?)",
+                    [TD, SNAP, SEC, "Sec", 2, "test", datetime.now(timezone.utc)])
+        for code, (close, pre) in {M1: (11.0, 10.0), M2: (9.0, 9.0), OUT: (out_close, 9.0)}.items():
+            if code == drop_bar:
+                continue
+&gt;           con.execute("INSERT INTO fact_stock_daily VALUES (?,?,?,?,?,?,?,?,?)",
+                        [TD, code, "A", close, pre, 1.0, 1000.0, "test", datetime.now()])
+E           _duckdb.BinderException: Binder Error: table fact_stock_daily has 14 columns but 9 values were supplied
+
+../F2-execute/probe.py:52: BinderException</failure></testcase><testcase classname="F2-execute.probe" name="test_invalid_outside_sector_close_refuses_before_any_write[-1.0]" time="0.058"><failure message="_duckdb.BinderException: Binder Error: table fact_stock_daily has 14 columns but 9 values were supplied">bad = -1.0
+
+    @pytest.mark.parametrize("bad", [None, -1.0, 0.0, float("nan"), float("inf")])
+    def test_invalid_outside_sector_close_refuses_before_any_write(bad):
+&gt;       con = _con(out_close=bad)
+
+../F2-execute/probe.py:76: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def _con(*, out_close=10.0, drop_bar=None):
+        con = duckdb.connect(":memory:")
+        init_db(con)
+        con.execute("INSERT INTO ops_sector_universe_snapshot_daily VALUES (?,?,?,?,?,?,?)",
+                    [TD, SNAP, "test", 1, 2, "published", datetime.now(timezone.utc)])
+        con.execute("INSERT INTO fact_sector_universe_daily VALUES (?,?,?,?,?,?,?)",
+                    [TD, SNAP, SEC, "Sec", 2, "test", datetime.now(timezone.utc)])
+        for code, (close, pre) in {M1: (11.0, 10.0), M2: (9.0, 9.0), OUT: (out_close, 9.0)}.items():
+            if code == drop_bar:
+                continue
+&gt;           con.execute("INSERT INTO fact_stock_daily VALUES (?,?,?,?,?,?,?,?,?)",
+                        [TD, code, "A", close, pre, 1.0, 1000.0, "test", datetime.now()])
+E           _duckdb.BinderException: Binder Error: table fact_stock_daily has 14 columns but 9 values were supplied
+
+../F2-execute/probe.py:52: BinderException</failure></testcase><testcase classname="F2-execute.probe" name="test_invalid_outside_sector_close_refuses_before_any_write[0.0]" time="0.071"><failure message="_duckdb.BinderException: Binder Error: table fact_stock_daily has 14 columns but 9 values were supplied">bad = 0.0
+
+    @pytest.mark.parametrize("bad", [None, -1.0, 0.0, float("nan"), float("inf")])
+    def test_invalid_outside_sector_close_refuses_before_any_write(bad):
+&gt;       con = _con(out_close=bad)
+
+../F2-execute/probe.py:76: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def _con(*, out_close=10.0, drop_bar=None):
+        con = duckdb.connect(":memory:")
+        init_db(con)
+        con.execute("INSERT INTO ops_sector_universe_snapshot_daily VALUES (?,?,?,?,?,?,?)",
+                    [TD, SNAP, "test", 1, 2, "published", datetime.now(timezone.utc)])
+        con.execute("INSERT INTO fact_sector_universe_daily VALUES (?,?,?,?,?,?,?)",
+                    [TD, SNAP, SEC, "Sec", 2, "test", datetime.now(timezone.utc)])
+        for code, (close, pre) in {M1: (11.0, 10.0), M2: (9.0, 9.0), OUT: (out_close, 9.0)}.items():
+            if code == drop_bar:
+                continue
+&gt;           con.execute("INSERT INTO fact_stock_daily VALUES (?,?,?,?,?,?,?,?,?)",
+                        [TD, code, "A", close, pre, 1.0, 1000.0, "test", datetime.now()])
+E           _duckdb.BinderException: Binder Error: table fact_stock_daily has 14 columns but 9 values were supplied
+
+../F2-execute/probe.py:52: BinderException</failure></testcase><testcase classname="F2-execute.probe" name="test_invalid_outside_sector_close_refuses_before_any_write[nan]" time="0.061"><failure message="_duckdb.BinderException: Binder Error: table fact_stock_daily has 14 columns but 9 values were supplied">bad = nan
+
+    @pytest.mark.parametrize("bad", [None, -1.0, 0.0, float("nan"), float("inf")])
+    def test_invalid_outside_sector_close_refuses_before_any_write(bad):
+&gt;       con = _con(out_close=bad)
+
+../F2-execute/probe.py:76: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def _con(*, out_close=10.0, drop_bar=None):
+        con = duckdb.connect(":memory:")
+        init_db(con)
+        con.execute("INSERT INTO ops_sector_universe_snapshot_daily VALUES (?,?,?,?,?,?,?)",
+                    [TD, SNAP, "test", 1, 2, "published", datetime.now(timezone.utc)])
+        con.execute("INSERT INTO fact_sector_universe_daily VALUES (?,?,?,?,?,?,?)",
+                    [TD, SNAP, SEC, "Sec", 2, "test", datetime.now(timezone.utc)])
+        for code, (close, pre) in {M1: (11.0, 10.0), M2: (9.0, 9.0), OUT: (out_close, 9.0)}.items():
+            if code == drop_bar:
+                continue
+&gt;           con.execute("INSERT INTO fact_stock_daily VALUES (?,?,?,?,?,?,?,?,?)",
+                        [TD, code, "A", close, pre, 1.0, 1000.0, "test", datetime.now()])
+E           _duckdb.BinderException: Binder Error: table fact_stock_daily has 14 columns but 9 values were supplied
+
+../F2-execute/probe.py:52: BinderException</failure></testcase><testcase classname="F2-execute.probe" name="test_invalid_outside_sector_close_refuses_before_any_write[inf]" time="0.056"><failure message="_duckdb.BinderException: Binder Error: table fact_stock_daily has 14 columns but 9 values were supplied">bad = inf
+
+    @pytest.mark.parametrize("bad", [None, -1.0, 0.0, float("nan"), float("inf")])
+    def test_invalid_outside_sector_close_refuses_before_any_write(bad):
+&gt;       con = _con(out_close=bad)
+
+../F2-execute/probe.py:76: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def _con(*, out_close=10.0, drop_bar=None):
+        con = duckdb.connect(":memory:")
+        init_db(con)
+        con.execute("INSERT INTO ops_sector_universe_snapshot_daily VALUES (?,?,?,?,?,?,?)",
+                    [TD, SNAP, "test", 1, 2, "published", datetime.now(timezone.utc)])
+        con.execute("INSERT INTO fact_sector_universe_daily VALUES (?,?,?,?,?,?,?)",
+                    [TD, SNAP, SEC, "Sec", 2, "test", datetime.now(timezone.utc)])
+        for code, (close, pre) in {M1: (11.0, 10.0), M2: (9.0, 9.0), OUT: (out_close, 9.0)}.items():
+            if code == drop_bar:
+                continue
+&gt;           con.execute("INSERT INTO fact_stock_daily VALUES (?,?,?,?,?,?,?,?,?)",
+                        [TD, code, "A", close, pre, 1.0, 1000.0, "test", datetime.now()])
+E           _duckdb.BinderException: Binder Error: table fact_stock_daily has 14 columns but 9 values were supplied
+
+../F2-execute/probe.py:52: BinderException</failure></testcase><testcase classname="F2-execute.probe" name="test_missing_member_bar_refuses_before_any_write" time="0.057"><failure message="_duckdb.BinderException: Binder Error: table fact_stock_daily has 14 columns but 9 values were supplied">def test_missing_member_bar_refuses_before_any_write():
+&gt;       con = _con(drop_bar=M2)
+
+../F2-execute/probe.py:86: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def _con(*, out_close=10.0, drop_bar=None):
+        con = duckdb.connect(":memory:")
+        init_db(con)
+        con.execute("INSERT INTO ops_sector_universe_snapshot_daily VALUES (?,?,?,?,?,?,?)",
+                    [TD, SNAP, "test", 1, 2, "published", datetime.now(timezone.utc)])
+        con.execute("INSERT INTO fact_sector_universe_daily VALUES (?,?,?,?,?,?,?)",
+                    [TD, SNAP, SEC, "Sec", 2, "test", datetime.now(timezone.utc)])
+        for code, (close, pre) in {M1: (11.0, 10.0), M2: (9.0, 9.0), OUT: (out_close, 9.0)}.items():
+            if code == drop_bar:
+                continue
+&gt;           con.execute("INSERT INTO fact_stock_daily VALUES (?,?,?,?,?,?,?,?,?)",
+                        [TD, code, "A", close, pre, 1.0, 1000.0, "test", datetime.now()])
+E           _duckdb.BinderException: Binder Error: table fact_stock_daily has 14 columns but 9 values were supplied
+
+../F2-execute/probe.py:52: BinderException</failure></testcase></testsuite></testsuites>

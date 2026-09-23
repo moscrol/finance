@@ -1,0 +1,19 @@
+"""Supplementary author regression on the clean candidate; explicitly NOT full-repo."""
+import os
+from pathlib import Path
+
+import run
+
+os.umask(0o022)
+out = run.make_out('author-scoped-gate')
+before = run.identity()
+assert before == {'revision': run.REV, 'status': '', 'main': run.BASE}, before
+env = {'HOME': '/Users/a77', 'PATH': '/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin',
+       'LANG': 'C.UTF-8', 'KNOWLEDGE_WIKI': '/Users/a77/knowledge-base-private/wiki',
+       'FWP_TEST_RECEIPT_DIR': str(out), 'PYTHONDONTWRITEBYTECODE': '1'}
+result = run.bounded(['bash', 'scripts/run_main_gate.sh', '--pytest-args', '-q -p no:cacheprovider tests/'],
+                     out, env, 1200, 'scoped-gate')
+result.update(before=before, after=run.identity(), full_repo=False, target='tests/',
+              driver_sha256=run.sha(Path(__file__)))
+run.save(out / 'execution.json', result)
+print(result)

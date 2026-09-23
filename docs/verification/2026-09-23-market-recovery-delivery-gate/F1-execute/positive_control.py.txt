@@ -1,0 +1,2 @@
+def test_intentional_red_probe_bug():
+    assert 1 == 2, "intentional positive control: probe_bug"

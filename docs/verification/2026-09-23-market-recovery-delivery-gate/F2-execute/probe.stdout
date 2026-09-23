@@ -1,0 +1,188 @@
+FFFFFFF                                                                  [100%]
+=================================== FAILURES ===================================
+______________ test_valid_control_writes_with_frozen_denominator _______________
+
+    def test_valid_control_writes_with_frozen_denominator():
+>       con = _con()
+
+../F2-execute/probe.py:63: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def _con(*, out_close=10.0, drop_bar=None):
+        con = duckdb.connect(":memory:")
+        init_db(con)
+        con.execute("INSERT INTO ops_sector_universe_snapshot_daily VALUES (?,?,?,?,?,?,?)",
+                    [TD, SNAP, "test", 1, 2, "published", datetime.now(timezone.utc)])
+        con.execute("INSERT INTO fact_sector_universe_daily VALUES (?,?,?,?,?,?,?)",
+                    [TD, SNAP, SEC, "Sec", 2, "test", datetime.now(timezone.utc)])
+        for code, (close, pre) in {M1: (11.0, 10.0), M2: (9.0, 9.0), OUT: (out_close, 9.0)}.items():
+            if code == drop_bar:
+                continue
+>           con.execute("INSERT INTO fact_stock_daily VALUES (?,?,?,?,?,?,?,?,?)",
+                        [TD, code, "A", close, pre, 1.0, 1000.0, "test", datetime.now()])
+E           _duckdb.BinderException: Binder Error: table fact_stock_daily has 14 columns but 9 values were supplied
+
+../F2-execute/probe.py:52: BinderException
+_______ test_invalid_outside_sector_close_refuses_before_any_write[None] _______
+
+bad = None
+
+    @pytest.mark.parametrize("bad", [None, -1.0, 0.0, float("nan"), float("inf")])
+    def test_invalid_outside_sector_close_refuses_before_any_write(bad):
+>       con = _con(out_close=bad)
+
+../F2-execute/probe.py:76: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def _con(*, out_close=10.0, drop_bar=None):
+        con = duckdb.connect(":memory:")
+        init_db(con)
+        con.execute("INSERT INTO ops_sector_universe_snapshot_daily VALUES (?,?,?,?,?,?,?)",
+                    [TD, SNAP, "test", 1, 2, "published", datetime.now(timezone.utc)])
+        con.execute("INSERT INTO fact_sector_universe_daily VALUES (?,?,?,?,?,?,?)",
+                    [TD, SNAP, SEC, "Sec", 2, "test", datetime.now(timezone.utc)])
+        for code, (close, pre) in {M1: (11.0, 10.0), M2: (9.0, 9.0), OUT: (out_close, 9.0)}.items():
+            if code == drop_bar:
+                continue
+>           con.execute("INSERT INTO fact_stock_daily VALUES (?,?,?,?,?,?,?,?,?)",
+                        [TD, code, "A", close, pre, 1.0, 1000.0, "test", datetime.now()])
+E           _duckdb.BinderException: Binder Error: table fact_stock_daily has 14 columns but 9 values were supplied
+
+../F2-execute/probe.py:52: BinderException
+_______ test_invalid_outside_sector_close_refuses_before_any_write[-1.0] _______
+
+bad = -1.0
+
+    @pytest.mark.parametrize("bad", [None, -1.0, 0.0, float("nan"), float("inf")])
+    def test_invalid_outside_sector_close_refuses_before_any_write(bad):
+>       con = _con(out_close=bad)
+
+../F2-execute/probe.py:76: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def _con(*, out_close=10.0, drop_bar=None):
+        con = duckdb.connect(":memory:")
+        init_db(con)
+        con.execute("INSERT INTO ops_sector_universe_snapshot_daily VALUES (?,?,?,?,?,?,?)",
+                    [TD, SNAP, "test", 1, 2, "published", datetime.now(timezone.utc)])
+        con.execute("INSERT INTO fact_sector_universe_daily VALUES (?,?,?,?,?,?,?)",
+                    [TD, SNAP, SEC, "Sec", 2, "test", datetime.now(timezone.utc)])
+        for code, (close, pre) in {M1: (11.0, 10.0), M2: (9.0, 9.0), OUT: (out_close, 9.0)}.items():
+            if code == drop_bar:
+                continue
+>           con.execute("INSERT INTO fact_stock_daily VALUES (?,?,?,?,?,?,?,?,?)",
+                        [TD, code, "A", close, pre, 1.0, 1000.0, "test", datetime.now()])
+E           _duckdb.BinderException: Binder Error: table fact_stock_daily has 14 columns but 9 values were supplied
+
+../F2-execute/probe.py:52: BinderException
+_______ test_invalid_outside_sector_close_refuses_before_any_write[0.0] ________
+
+bad = 0.0
+
+    @pytest.mark.parametrize("bad", [None, -1.0, 0.0, float("nan"), float("inf")])
+    def test_invalid_outside_sector_close_refuses_before_any_write(bad):
+>       con = _con(out_close=bad)
+
+../F2-execute/probe.py:76: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def _con(*, out_close=10.0, drop_bar=None):
+        con = duckdb.connect(":memory:")
+        init_db(con)
+        con.execute("INSERT INTO ops_sector_universe_snapshot_daily VALUES (?,?,?,?,?,?,?)",
+                    [TD, SNAP, "test", 1, 2, "published", datetime.now(timezone.utc)])
+        con.execute("INSERT INTO fact_sector_universe_daily VALUES (?,?,?,?,?,?,?)",
+                    [TD, SNAP, SEC, "Sec", 2, "test", datetime.now(timezone.utc)])
+        for code, (close, pre) in {M1: (11.0, 10.0), M2: (9.0, 9.0), OUT: (out_close, 9.0)}.items():
+            if code == drop_bar:
+                continue
+>           con.execute("INSERT INTO fact_stock_daily VALUES (?,?,?,?,?,?,?,?,?)",
+                        [TD, code, "A", close, pre, 1.0, 1000.0, "test", datetime.now()])
+E           _duckdb.BinderException: Binder Error: table fact_stock_daily has 14 columns but 9 values were supplied
+
+../F2-execute/probe.py:52: BinderException
+_______ test_invalid_outside_sector_close_refuses_before_any_write[nan] ________
+
+bad = nan
+
+    @pytest.mark.parametrize("bad", [None, -1.0, 0.0, float("nan"), float("inf")])
+    def test_invalid_outside_sector_close_refuses_before_any_write(bad):
+>       con = _con(out_close=bad)
+
+../F2-execute/probe.py:76: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def _con(*, out_close=10.0, drop_bar=None):
+        con = duckdb.connect(":memory:")
+        init_db(con)
+        con.execute("INSERT INTO ops_sector_universe_snapshot_daily VALUES (?,?,?,?,?,?,?)",
+                    [TD, SNAP, "test", 1, 2, "published", datetime.now(timezone.utc)])
+        con.execute("INSERT INTO fact_sector_universe_daily VALUES (?,?,?,?,?,?,?)",
+                    [TD, SNAP, SEC, "Sec", 2, "test", datetime.now(timezone.utc)])
+        for code, (close, pre) in {M1: (11.0, 10.0), M2: (9.0, 9.0), OUT: (out_close, 9.0)}.items():
+            if code == drop_bar:
+                continue
+>           con.execute("INSERT INTO fact_stock_daily VALUES (?,?,?,?,?,?,?,?,?)",
+                        [TD, code, "A", close, pre, 1.0, 1000.0, "test", datetime.now()])
+E           _duckdb.BinderException: Binder Error: table fact_stock_daily has 14 columns but 9 values were supplied
+
+../F2-execute/probe.py:52: BinderException
+_______ test_invalid_outside_sector_close_refuses_before_any_write[inf] ________
+
+bad = inf
+
+    @pytest.mark.parametrize("bad", [None, -1.0, 0.0, float("nan"), float("inf")])
+    def test_invalid_outside_sector_close_refuses_before_any_write(bad):
+>       con = _con(out_close=bad)
+
+../F2-execute/probe.py:76: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def _con(*, out_close=10.0, drop_bar=None):
+        con = duckdb.connect(":memory:")
+        init_db(con)
+        con.execute("INSERT INTO ops_sector_universe_snapshot_daily VALUES (?,?,?,?,?,?,?)",
+                    [TD, SNAP, "test", 1, 2, "published", datetime.now(timezone.utc)])
+        con.execute("INSERT INTO fact_sector_universe_daily VALUES (?,?,?,?,?,?,?)",
+                    [TD, SNAP, SEC, "Sec", 2, "test", datetime.now(timezone.utc)])
+        for code, (close, pre) in {M1: (11.0, 10.0), M2: (9.0, 9.0), OUT: (out_close, 9.0)}.items():
+            if code == drop_bar:
+                continue
+>           con.execute("INSERT INTO fact_stock_daily VALUES (?,?,?,?,?,?,?,?,?)",
+                        [TD, code, "A", close, pre, 1.0, 1000.0, "test", datetime.now()])
+E           _duckdb.BinderException: Binder Error: table fact_stock_daily has 14 columns but 9 values were supplied
+
+../F2-execute/probe.py:52: BinderException
+_______________ test_missing_member_bar_refuses_before_any_write _______________
+
+    def test_missing_member_bar_refuses_before_any_write():
+>       con = _con(drop_bar=M2)
+
+../F2-execute/probe.py:86: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def _con(*, out_close=10.0, drop_bar=None):
+        con = duckdb.connect(":memory:")
+        init_db(con)
+        con.execute("INSERT INTO ops_sector_universe_snapshot_daily VALUES (?,?,?,?,?,?,?)",
+                    [TD, SNAP, "test", 1, 2, "published", datetime.now(timezone.utc)])
+        con.execute("INSERT INTO fact_sector_universe_daily VALUES (?,?,?,?,?,?,?)",
+                    [TD, SNAP, SEC, "Sec", 2, "test", datetime.now(timezone.utc)])
+        for code, (close, pre) in {M1: (11.0, 10.0), M2: (9.0, 9.0), OUT: (out_close, 9.0)}.items():
+            if code == drop_bar:
+                continue
+>           con.execute("INSERT INTO fact_stock_daily VALUES (?,?,?,?,?,?,?,?,?)",
+                        [TD, code, "A", close, pre, 1.0, 1000.0, "test", datetime.now()])
+E           _duckdb.BinderException: Binder Error: table fact_stock_daily has 14 columns but 9 values were supplied
+
+../F2-execute/probe.py:52: BinderException
+- generated xml file: /Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/delivery-gate-4dd5e66/F2-execute/probe.xml -
+=========================== short test summary info ============================
+FAILED ../F2-execute/probe.py::test_valid_control_writes_with_frozen_denominator
+FAILED ../F2-execute/probe.py::test_invalid_outside_sector_close_refuses_before_any_write[None]
+FAILED ../F2-execute/probe.py::test_invalid_outside_sector_close_refuses_before_any_write[-1.0]
+FAILED ../F2-execute/probe.py::test_invalid_outside_sector_close_refuses_before_any_write[0.0]
+FAILED ../F2-execute/probe.py::test_invalid_outside_sector_close_refuses_before_any_write[nan]
+FAILED ../F2-execute/probe.py::test_invalid_outside_sector_close_refuses_before_any_write[inf]
+FAILED ../F2-execute/probe.py::test_missing_member_bar_refuses_before_any_write
+7 failed in 1.41s

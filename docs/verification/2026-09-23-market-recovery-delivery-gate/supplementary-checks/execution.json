@@ -1,0 +1,67 @@
+{
+  "identity_before": {
+    "revision": "4dd5e66601084962697c5d78e9f6bb58eefc14c8",
+    "status": "",
+    "main": "27ca084f9ffcb9d148b749944beca340e5f4fa6c"
+  },
+  "checks": {
+    "delivery-gate-tests": {
+      "exit_code": 0,
+      "deadline_hit": false,
+      "elapsed_seconds": 0.444,
+      "command": [
+        "node",
+        "--test",
+        "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/delivery-gate-4dd5e66/delivery-gate.test.mjs"
+      ]
+    },
+    "consumption-registry": {
+      "exit_code": 0,
+      "deadline_hit": false,
+      "elapsed_seconds": 0.339,
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-m",
+        "market_feature_store.cli",
+        "registry-check"
+      ]
+    },
+    "skills-registry": {
+      "exit_code": 0,
+      "deadline_hit": false,
+      "elapsed_seconds": 0.181,
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "--check"
+      ]
+    },
+    "skills-parseability": {
+      "exit_code": 0,
+      "deadline_hit": false,
+      "elapsed_seconds": 0.182,
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "check-parseability"
+      ]
+    },
+    "remote-main": {
+      "exit_code": 0,
+      "deadline_hit": false,
+      "elapsed_seconds": 1.025,
+      "command": [
+        "git",
+        "ls-remote",
+        "gitea",
+        "refs/heads/main"
+      ]
+    }
+  },
+  "identity_after": {
+    "revision": "4dd5e66601084962697c5d78e9f6bb58eefc14c8",
+    "status": "",
+    "main": "27ca084f9ffcb9d148b749944beca340e5f4fa6c"
+  },
+  "driver_sha256": "dd331256a38b38e33145cf925c2ebf7e33336098ebf2b69b4aec36b999a71960"
+}

@@ -1,0 +1,91 @@
+"""F2 probe: explicit recovery_members must refuse on missing member bars /
+invalid canonical closes (incl. outside-sector bars) BEFORE touching the four
+derived tables. Fresh in-memory DuckDB fixtures; real candidate functions only.
+Author tests never imported. Not executed here; next host phase runs it.
+"""
+import math
+from datetime import date, datetime, timezone
+
+import duckdb
+import pytest
+
+from market_feature_store.db import init_db
+from market_feature_store.sync.compute_local_stats import compute_limit_stats_local
+
+TD = date(2026, 9, 3)
+SNAP = "snap-1"
+SEC = "801010.SH"
+M1, M2, OUT = "600001.SH", "600002.SH", "600003.SH"
+FOUR = ("fact_theme_limit_heat_daily", "fact_theme_limit_stock_daily",
+        "fact_limit_advance_daily", "fact_leader_height_daily")
+
+
+def _seed_local(con):
+    """One local-source row per derived table; a refusing call must not delete it."""
+    con.execute("INSERT INTO fact_theme_limit_heat_daily "
+                "(trade_date, sector_ts_code, dimension, scope, source) VALUES (?,?,?,?,?)",
+                [TD, "seed", "seed", "seed", "local:seed"])
+    con.execute("INSERT INTO fact_theme_limit_stock_daily "
+                "(trade_date, sector_ts_code, stock_ts_code, source) VALUES (?,?,?,?)",
+                [TD, "seed", "seed", "local:seed"])
+    con.execute("INSERT INTO fact_limit_advance_daily "
+                "(trade_date, stock_ts_code, source) VALUES (?,?,?)", [TD, "seed", "local:seed"])
+    con.execute("INSERT INTO fact_leader_height_daily "
+                "(trade_date, source) VALUES (?,?)", [TD, "local:seed"])
+
+
+def _counts(con):
+    return {t: con.execute(f"SELECT COUNT(*) FROM {t} WHERE trade_date = ?", [TD]).fetchone()[0]
+            for t in FOUR}
+
+
+def _con(*, out_close=10.0, drop_bar=None):
+    con = duckdb.connect(":memory:")
+    init_db(con)
+    con.execute("INSERT INTO ops_sector_universe_snapshot_daily VALUES (?,?,?,?,?,?,?)",
+                [TD, SNAP, "test", 1, 2, "published", datetime.now(timezone.utc)])
+    con.execute("INSERT INTO fact_sector_universe_daily VALUES (?,?,?,?,?,?,?)",
+                [TD, SNAP, SEC, "Sec", 2, "test", datetime.now(timezone.utc)])
+    for code, (close, pre) in {M1: (11.0, 10.0), M2: (9.0, 9.0), OUT: (out_close, 9.0)}.items():
+        if code == drop_bar:
+            continue
+        con.execute("INSERT INTO fact_stock_daily VALUES (?,?,?,?,?,?,?,?,?)",
+                    [TD, code, "A", close, pre, 1.0, 1000.0, "test", datetime.now()])
+    for code in (M1, M2):
+        con.execute("INSERT INTO fact_sector_stock_daily_generation "
+                    "(trade_date, sector_universe_snapshot_id, sector_ts_code, sector_name, "
+                    "stock_ts_code, amount) VALUES (?,?,?,?,?,?)",
+                    [TD, SNAP, SEC, "Sec", code, 1000.0])
+    return con
+
+
+def test_valid_control_writes_with_frozen_denominator():
+    con = _con()
+    res = compute_limit_stats_local(TD, con=con, recovery_members={SEC: [M1, M2]})
+    assert res["action"] == "written"
+    assert res["denominator_basis"] == "frozen_identity"
+    assert res["market_limit_up"] == 1  # only M1 hits a 10% limit-up
+    assert res["recovery_member_coverage"][SEC]["ratio_denominator"] == 2
+    assert _counts(con)["fact_theme_limit_heat_daily"] >= 1
+    assert _counts(con)["fact_theme_limit_stock_daily"] >= 1
+    assert _counts(con)["fact_leader_height_daily"] >= 1
+
+
+@pytest.mark.parametrize("bad", [None, -1.0, 0.0, float("nan"), float("inf")])
+def test_invalid_outside_sector_close_refuses_before_any_write(bad):
+    con = _con(out_close=bad)
+    _seed_local(con)
+    before = _counts(con)
+    assert before == {t: 1 for t in FOUR}
+    with pytest.raises(ValueError):
+        compute_limit_stats_local(TD, con=con, recovery_members={SEC: [M1, M2]})
+    assert _counts(con) == before  # no delete/write on any of the four tables
+
+
+def test_missing_member_bar_refuses_before_any_write():
+    con = _con(drop_bar=M2)
+    _seed_local(con)
+    before = _counts(con)
+    with pytest.raises(ValueError):
+        compute_limit_stats_local(TD, con=con, recovery_members={SEC: [M1, M2]})
+    assert _counts(con) == before
