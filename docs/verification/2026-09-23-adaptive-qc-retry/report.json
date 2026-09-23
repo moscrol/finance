@@ -1,0 +1,96 @@
+{
+  "schema_version": 1,
+  "record_kind": "host_preflight_closure_not_independent_verdict",
+  "verdict": "BLOCKED_GATEWAY_PREFLIGHT_DEADLINE",
+  "independent_review_complete": false,
+  "closed_at": "2026-09-23T08:20:06.861939+00:00",
+  "evidence_root": "/Users/a77/.finance-runtime/reviews/pr868-k3-qc-20260923-1607",
+  "candidate_revision": "31f1b40dd788d36c71da249d59fb769c50d7cd30",
+  "candidate_status_at_closure": "",
+  "baseline": "9a02279863733c9b9f60fd92fcc7e840fa83f878",
+  "provider": "mirasim-kimi",
+  "requested_model": "kimi-k3",
+  "thinking": "medium",
+  "attempt": 2,
+  "request_limit_seconds": 120,
+  "requests": 1,
+  "request_count_basis": "one durable gateway dispatch attempt; upstream billing and model execution unconfirmed",
+  "counts": {
+    "active": 0,
+    "cancelled": 0,
+    "completed": 0,
+    "dispatched": 1,
+    "dropped_temperature": 0,
+    "failed": 1,
+    "requests": 1,
+    "shutdown_complete": true,
+    "stopped_for": null
+  },
+  "request_counts_agree": true,
+  "gateway_elapsed_seconds": 121.89887170889415,
+  "request_elapsed_seconds": 120.003958,
+  "upstream_http_status": null,
+  "observed_upstream_headers": 0,
+  "client_http_status": 502,
+  "client_status_origin": "local private shim error response; not observed upstream 502",
+  "raw_gateway_status": "BLOCKED_PROVIDER_HTTP_502",
+  "pi_model_requests": 0,
+  "spec_review_requests": 0,
+  "quality_review_requests": 0,
+  "natural_finance_requests": 0,
+  "automatic_retries": 0,
+  "http_400_observed": 0,
+  "http_429_observed": 0,
+  "request_deadline_hits": 1,
+  "stage_cap_hits": 0,
+  "gateway_tool_roundtrip": "NOT_RUN",
+  "axes": {
+    "spec": {
+      "explore": "NOT_RUN",
+      "execute": "NOT_RUN",
+      "report": "NOT_RUN"
+    },
+    "quality": {
+      "explore": "NOT_RUN",
+      "execute": "NOT_RUN",
+      "report": "NOT_RUN"
+    }
+  },
+  "author_tests_this_batch": 0,
+  "reviewer_probes_written": 0,
+  "reviewer_probes_executed": 0,
+  "sandbox": {
+    "spec": "sandbox-preflight-04 PASS",
+    "quality_first": "sandbox-preflight-04 failed EADDRINUSE, no model request",
+    "quality_final": "sandbox-preflight-05 PASS; select available port from same allowlist"
+  },
+  "positive_control": {
+    "host_offline_preflight": "expected exit1 observed",
+    "independent_execute": "NOT_RUN"
+  },
+  "processes_exited": true,
+  "private_port_released": 19899,
+  "product_changes": false,
+  "merged": false,
+  "deployed": false,
+  "previous_batch": {
+    "root": "/Users/a77/.finance-runtime/reviews/pr868-k3-qc-20260923-1530",
+    "requests": 17,
+    "verdict": "BLOCKED_REVIEW_TRANSPORT_DEADLINE",
+    "unchanged": true
+  },
+  "cumulative_gateway_attempts": 18,
+  "limits": [
+    "No downstream model execution or billing confirmation for this request.",
+    "No independent correctness verdict, no probe and no final report.",
+    "Medium/8192/incremental delivery shape has not passed the new gateway roundtrip.",
+    "Single request without a paired comparison cannot isolate shape, service, credential or load as cause.",
+    "Prior L6 remains NOT_PASSED; historical full gates and 45P keep their original revision identities.",
+    "Second consecutive candidate attempt stopped; no automatic third attempt."
+  ],
+  "hashes": {
+    "shim": "b5dd3b1d37524fe8060ed7752f1aaf129aaf877f8799932fad313e7b30cd6055",
+    "protocol": "60cab155b64f34722ebdc42f3422a368ea50a5a0b314153c5fa8e62c78d8bb22",
+    "private_manifest": "195dca30a025e676c7b2992f06be08655788eaf38877f4e625bf860a93edb2b5"
+  }
+}
