@@ -1,0 +1,34 @@
+        return "empty_response"
+    return "provider_unavailable"
+
+
+@contextmanager
+def provider_override(provider: LLMProvider) -> Iterator[None]:
+    token = _PROVIDER_OVERRIDE.set(provider)
+    try:
+        yield
+    finally:
+        _PROVIDER_OVERRIDE.reset(token)
+
+
+# --- LLM 调用台账（P1-B 预算记账）------------------------------------------
+# 背景：turn 级预算此前只统计 skill 次数，一个 research turn 实际可触发十余次
+# LLM 调用（controller/judge/agent loop/planner/合成/修订/影子链）却没有任何
+232:def detect_providers(model_override: str | None = None) -> tuple[LLMProvider, ...]:
+286:def detect_provider(model_override: str | None = None) -> LLMProvider | None:
+790:def _insufficient_budget_reason(
+850:def _budget_rejection() -> str | None:
+858:def _reserve_llm_call() -> None:
+def _budget_rejection() -> str | None:
+    """入口预算检查：超额时返回拒发 reason，未超额/无台账返回 None。"""
+    ledger = _CALL_LEDGER.get()
+    if ledger is not None and ledger.over_budget():
+        return ledger.reject()
+    return None
+
+
+def _reserve_llm_call() -> None:
+    """Reserve one attempt at the actual HTTP boundary.
+
+    Public-entry checks remain a cheap fast path, but this reservation is the
+    authoritative guard because provider fallback, retries and concurrent

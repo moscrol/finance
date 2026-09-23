@@ -1,0 +1,161 @@
+            payload["material_claims"] = claims
+        outputs = material_output_rows(verified, sentences, claims)
+        if outputs:
+            payload["material_outputs"] = outputs
+            answer_ids = {row["output_id"] for row in outputs}
+            payload["required_outputs"] = [row for row in required_outputs if row["output_id"] in answer_ids]
+        if recheck_enabled():
+            draft = " ".join(str(item.get("text") or "") for item in sentences)
+            payload["source_recheck"] = recheck_draft(draft)
+        return cast(dict[str, object], compact_judge_payload(payload))
+
+    def _clocked_judge_call(
+        self,
+        *,
+        asked: float | None,
+        remaining: float | None,
+        correlated: bool,
+        unavailable: bool,
+        issue: str = "",
+        report: answer_model.GroundingJudgeReport | None = None,
+        failure: object | None = None,
+        root_deadline_exhausted: bool = False,
+        transient_provider_failure: bool = False,
+        monotonic_release_safe: bool = False,
+        judge_attempt_index: int | None = None,
+        last_dispatched_failure: _JudgeCall | None = None,
+    ) -> _JudgeCall:
+        exc_class, http_status = (
+            _judge_failure_identity(failure) if failure is not None else (None, None)
+        )
+        return _JudgeCall(
+            report,
+            unavailable,
+            correlated,
+            issue,
+            root_deadline_exhausted=root_deadline_exhausted,
+            transient_provider_failure=transient_provider_failure,
+            monotonic_release_safe=monotonic_release_safe,
+            timeout_asked=asked,
+            timeout_configured=self._judge_attempt_cap(),
+            remaining_seconds_at_entry=remaining,
+            exc_class=exc_class,
+            http_status=http_status,
+            judge_attempt_index=judge_attempt_index,
+            last_dispatched_failure=(
+                {
+                    "judge_attempt_index": last_dispatched_failure.judge_attempt_index,
+                    "timeout_asked": last_dispatched_failure.timeout_asked,
+                    "remaining_seconds_at_entry": last_dispatched_failure.remaining_seconds_at_entry,
+                    "issue": last_dispatched_failure.issue,
+                    "exc_class": last_dispatched_failure.exc_class,
+                    "http_status": last_dispatched_failure.http_status,
+                }
+                if last_dispatched_failure is not None else None
+            ),
+        )
+
+    def _judge_attempt_cap(self) -> float:
+        """构造时配置的单次帽，按本次 episode 的档位取地板（只有 max 档有）。"""
+
+        return judge_attempt_seconds(self._judge_timeout, self._active_policy)
+
+    @staticmethod
+    def _window_starved_issue(attempt: int, deadline: ResearchDeadline) -> str:
+        """0 秒尝试的归因。
+
+        根期限到点（``deadline.expired``）或首发就拿 0 → 根期限耗尽；
+        期限未到、后发拿 0 → 共享窗被前一发吃光（2026-09-07 D5：剩 415s、
+        attempt 1、asked 0.0）。``expired`` 用 getattr 读：测试替身是鸭子类型。
+        """
+
+        if attempt == 0 or bool(getattr(deadline, "expired", False)):
+            return ROOT_DEADLINE_EXHAUSTED_ISSUE
+        return WINDOW_EXHAUSTED_ISSUE
+
+    def _run_judge(
+        self,
+        request: dict[str, object],
+        deadline: ResearchDeadline,
+    ) -> _JudgeCall:
+        if self._judge_mode == JUDGE_MODE_OFF:
+            # #55：没有第二模型。合成一份全过报告，让判后机械门（数值 / 材料缺口 /
+            # 元陈述 / 表外 E）与 `_repair` 环照常跑；首判、复判、第三判都经这一缝。
+            # correlated=False（没人判就谈不上相关）、unavailable=False（不是掉线，
+            # 不得触发「判官不可用即扣稿」）。
+            return _JudgeCall(
+                report=answer_model.GroundingJudgeReport(passed=True),
+                unavailable=False,
+                correlated=False,
+            )
+        if not request.get("material_claims"):
+            return self._run_judge_once(request, deadline)
+        window = semantic_total_judge_window(deadline, configured_attempt_timeout=self._judge_attempt_cap(), policy=self._active_policy)
+        shared_deadline = ResearchDeadline.from_timeout(min(window, deadline.synthesis_timeout(window)))
+        if isinstance(deadline, ResearchDeadline):
+            shared_deadline = replace(shared_deadline, expires_at=min(shared_deadline.expires_at, deadline.expires_at))
+        first = self._run_judge_once(request, shared_deadline)
+        if first.report is None:
+            return first
+        isolated = nonfactual_review_request(first.report.material_claim_checks)
+        if isolated is None:
+            return first
+        second = self._run_judge_once(isolated, shared_deadline)
+        calls = tuple({"stage": stage, "request": payload, "report": call.report.to_dict() if call.report else None,
+                       "unavailable": call.unavailable, "issue": call.issue, "timeout_asked": call.timeout_asked,
+                       "remaining_seconds_at_entry": call.remaining_seconds_at_entry}
+                      for stage, payload, call in (("material_review", request, first), ("nonfactual_review", isolated, second)))
+        if second.report is None or shared_deadline.expired:
+            return replace(second, report=None, unavailable=True, monotonic_release_safe=False,
+                           material_review_calls=calls, issue="material nonfactual review unavailable")
+        original = {row["claim_id"]: row for row in first.report.material_claim_checks}
+        rejected = set(first.report.rejected_sentence_indexes)
+        receipts = []
+        for check in second.report.material_claim_checks:
+            prior = original[check["claim_id"]]
+            receipt = {**check, "sentence_index": prior["sentence_index"], "output_id": prior["output_id"]}
+            receipts.append(receipt)
+            if not check["supported"] or check["sentence_index"] in second.report.rejected_sentence_indexes:
+                rejected.add(prior["sentence_index"])
+        issues = (*first.report.issues, *(f"material_nonfactual {row['claim_id']}: {row['reason']}"
+                                          for row in receipts if row["sentence_index"] in rejected))
+        report = replace(first.report, passed=first.report.passed and second.report.passed and not rejected,
+                         rejected_sentence_indexes=tuple(sorted(rejected)), issues=tuple(issues),
+                         material_nonfactual_checks=tuple(receipts))
+        return replace(first, report=report, correlated=first.correlated or second.correlated, material_review_calls=calls)
+
+    def _run_judge_once(
+        self,
+        request: dict[str, object],
+        deadline: ResearchDeadline,
+    ) -> _JudgeCall:
+        policy = self._active_policy
+        attempt_cap = self._judge_attempt_cap()
+        total_window = semantic_total_judge_window(
+            deadline, configured_attempt_timeout=attempt_cap, policy=policy
+        )
+        attempt_timeouts = semantic_attempts_for_window(
+            total_window,
+            configured_attempt_timeout=attempt_cap,
+            policy=policy,
+        )
+        if not attempt_timeouts:
+            return self._clocked_judge_call(
+                asked=0.0,
+                remaining=_deadline_remaining_seconds(deadline),
+                correlated=False,
+                unavailable=True,
+                issue=ROOT_DEADLINE_EXHAUSTED_ISSUE,
+                root_deadline_exhausted=True,
+                monotonic_release_safe=True,
+            )
+
+        # R-20260829-03 判官备链：主判官 + 显式配置的备胎（永不自动追加合成
+        # 主链——「不静默退回相关自审」红线不变）。链退化为单主时行为与改动
+        # 前逐字节一致。
+        providers: tuple[object, ...] = ()
+        try:
+            providers = llm_refine.judge_provider_chain()
+        except Exception:
+            providers = ()
+        provider = providers[0] if providers else None

@@ -1,0 +1,168 @@
+{
+  "record_kind": "host_evidence_index_not_replacement_for_independent_reports",
+  "status": "BLOCKED_REPORT_TRANSPORT_DEADLINE",
+  "independent_review_complete": false,
+  "partial_execute_report": {
+    "stage": "execute",
+    "axis": "spec",
+    "revision": "31f1b40dd788d36c71da249d59fb769c50d7cd30",
+    "baseline": "9a02279863733c9b9f60fd92fcc7e840fa83f878",
+    "complete": true,
+    "author_tests": {
+      "passed": 0,
+      "failed": 0
+    },
+    "reviewer_probes": {
+      "passed": 3,
+      "failed": 3
+    },
+    "positive_control": {
+      "classification": "intentional_positive_control",
+      "observed_exit": 1
+    },
+    "product_findings": [],
+    "limits": [
+      "EXECUTE.md 未落盘（工具关闭），本交付为替代文本",
+      "作者测试未运行（0/0），不作独立验证",
+      "C3/C5/C6 无行为探针，仅部分静态阅读；代码无字面 report_received 字段",
+      "C2 五调用点枚举部分依赖探索期原始工具输出；探索 REPORT.md 存在虚假'未执行'记录已证实，不作收据",
+      "C7 依据宿主 diffstat 与读码，未运行 git",
+      "探针失败 3 例均为 probe_bug（初版C1瞬时死亡断言、初版C4零请求假设、变体C4互斥断言），未放宽任何时间阈值",
+      "探索期提前运行/就地改探针属流程偏差，单列不计正式通过数",
+      "仅用回环 26001-26004，无外网与生产端口"
+    ]
+  },
+  "partial_execute_report_is_not_final_verdict": true,
+  "closed_at": "2026-09-23T09:44:38.817479+00:00",
+  "evidence_root": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260923-1707",
+  "candidate_revision": "31f1b40dd788d36c71da249d59fb769c50d7cd30",
+  "baseline": "9a02279863733c9b9f60fd92fcc7e840fa83f878",
+  "candidate_clean": true,
+  "requested_model": "glm-5.3",
+  "provider": "glm-direct-review",
+  "upstream_url": "https://open.bigmodel.cn/api/coding/paas/v4",
+  "model_substitution_authorized_by_user": true,
+  "production_configuration_changed": false,
+  "gateway_requests": 73,
+  "request_count_basis": "durable private-shim admissions; not a billing receipt",
+  "stages": {
+    "spec": {
+      "gateway": {
+        "status": "PASS",
+        "counts": {
+          "active": 0,
+          "cancelled": 0,
+          "completed": 4,
+          "dispatched": 4,
+          "dropped_temperature": 0,
+          "failed": 0,
+          "requests": 4,
+          "shutdown_complete": true,
+          "stopped_for": null
+        },
+        "elapsed_seconds": 20.471703334013
+      },
+      "explore": {
+        "status": "STAGE_COMPLETE",
+        "counts": {
+          "active": 0,
+          "cancelled": 0,
+          "completed": 23,
+          "dispatched": 23,
+          "dropped_temperature": 0,
+          "failed": 0,
+          "requests": 23,
+          "shutdown_complete": true,
+          "stopped_for": null
+        },
+        "elapsed_seconds": 213.2093412920367
+      },
+      "execute": {
+        "status": "STAGE_COMPLETE",
+        "counts": {
+          "active": 0,
+          "cancelled": 0,
+          "completed": 23,
+          "dispatched": 23,
+          "dropped_temperature": 0,
+          "failed": 0,
+          "requests": 23,
+          "shutdown_complete": true,
+          "stopped_for": null
+        },
+        "elapsed_seconds": 265.78325908305123
+      },
+      "report": {
+        "status": "BLOCKED_STAGE_OR_PROVIDER",
+        "counts": {
+          "active": 0,
+          "cancelled": 0,
+          "completed": 22,
+          "dispatched": 23,
+          "dropped_temperature": 0,
+          "failed": 1,
+          "requests": 23,
+          "shutdown_complete": true,
+          "stopped_for": null
+        },
+        "elapsed_seconds": 307.0679053340573
+      }
+    },
+    "quality": {
+      "gateway": {
+        "status": "NOT_RUN"
+      },
+      "explore": {
+        "status": "NOT_RUN"
+      },
+      "execute": {
+        "status": "NOT_RUN"
+      },
+      "report": {
+        "status": "NOT_RUN"
+      }
+    }
+  },
+  "axes": {
+    "spec": {
+      "verdict": "NOT_DELIVERED"
+    },
+    "quality": {
+      "verdict": "NOT_DELIVERED"
+    }
+  },
+  "dual_axis_reports_delivered": false,
+  "merge_clearance": false,
+  "natural_finance_requests": 0,
+  "automatic_retries": 0,
+  "historical_l6": "NOT_PASSED unchanged",
+  "merged": false,
+  "deployed": false,
+  "private_port_released": 19899,
+  "report_failure": {
+    "axis": "spec",
+    "request": 23,
+    "request_elapsed_seconds": 120.021381,
+    "upstream_http_status": 200,
+    "pi_error": "terminated",
+    "valid_final_report": false,
+    "quality_started": false
+  },
+  "process_deviations": [
+    "Spec explore ran probes early and overwrote scratch probes; original write arguments and outputs preserved.",
+    "Spec explore summary incorrectly claimed C4 was not executed; execute session reproduced failures independently.",
+    "Spec execute wrapped commands with echo; wrapper exit0 and captured child EXIT=1 must remain distinct.",
+    "Spec EXPLORE.md and EXECUTE.md missing; completed terminal REPORT.md artifacts used explicitly, never forged."
+  ],
+  "earlier_k3_batches": {
+    "requests": 18,
+    "originals_unchanged": true,
+    "billing_not_inferred": true
+  },
+  "limits": [
+    "No new current-head complete gates or main union test.",
+    "Reviewer findings and claim coverage must be read from each report, not inferred from stage exit0.",
+    "Host bridge copied prior same-axis evidence only, never model reasoning or other-axis findings.",
+    "GLM provider metadata thinking=off does not establish server-side reasoning configuration."
+  ]
+}

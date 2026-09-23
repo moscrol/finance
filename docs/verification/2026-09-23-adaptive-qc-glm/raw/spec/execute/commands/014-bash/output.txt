@@ -1,0 +1,68 @@
+=== 014-bash ===
+{"toolCallId":"call_7c815e0de15746b282f5e329","params":{"command":"cd /Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260923-1707/spec/work/probes && /Users/a77/finance-workspace-private/.venv-workbench/bin/python probe_c1_stalled_parent.py","timeout":40}}--- output(tail) ---
+headers at 0.18s; parent now stalls 2.0s...
+worker returncode while parent stalled: 124
+after-resume outcome=deadline elapsed=2.18
+PROBE_C1_STALLED_PARENT: PASS
+--- result ---
+{"exitCode":0}
+=== 015-bash ===
+{"toolCallId":"call_06b5c8a38def4b63b6d8ce7a","params":{"command":"for n in 1167 1219 1424 1546 2304; do echo \"=== around $n ===\"; sed -n \"$((n-12)),$((n+6))p\" intelligence/services/llm_refine.py; done"}}--- output(tail) ---
+    finish_reason: str | None = None
+    with _open_deadline_http_response(
+        request, timeout=timeout, deadline=deadline, is_cancelled=is_cancelled,
+    ) as response:
+        if attempt is not None:
+            attempt.observe_response(response=response)
+        if on_connected is not None:
+            on_connected()
+--- result ---
+{"exitCode":0}
+=== 016-bash ===
+{"toolCallId":"call_80e6a0007ea64611b8671b58","params":{"command":"awk 'NR>=1000 && NR<=2320 && /^def |^    def /' intelligence/services/llm_refine.py; echo ---; sed -n '1120,1170p' intelligence/services/llm_refine.py | head -35; echo ---; grep -n \"_PROVIDER_OVERRIDE\\|_HTTP_TRANSPORT_OVERRIDE\" intelligence/services/llm_refine.py | head"}}--- output(tail) ---
+133:_HTTP_TRANSPORT_OVERRIDE: ContextVar[Callable[..., object] | None] = ContextVar(
+147:    token = _HTTP_TRANSPORT_OVERRIDE.set(opener)
+151:        _HTTP_TRANSPORT_OVERRIDE.reset(token)
+220:    opener = _HTTP_TRANSPORT_OVERRIDE.get() or llm_http_transport.urlopen
+234:    configured = _PROVIDER_OVERRIDE.get()
+476:    token = _PROVIDER_OVERRIDE.set(provider)
+480:        _PROVIDER_OVERRIDE.reset(token)
+877:# 与 ``_PROVIDER_OVERRIDE`` 同一套机制：跨线程由调用方 ``copy_context()`` 传播。
+--- result ---
+{"exitCode":0}
+=== 017-bash ===
+{"toolCallId":"call_275170a3d40a4bd9ba277fdc","params":{"command":"grep -n \"^def complete(\" intelligence/services/llm_refine.py && sed -n \"$(grep -n '^def complete(' intelligence/services/llm_refine.py | cut -d: -f1),+40p\" intelligence/services/llm_refine.py"}}--- output(tail) ---
+    failures: list[tuple[LLMProvider, str]] = []
+    from intelligence.services.grok_cli_judge import is_cli_judge_provider
+
+    for provider in providers:
+        try:
+            remaining = deadline.require_remaining(0.001)
+            if is_cli_judge_provider(provider):
+                content = _complete_cli_judge(provider, messages, remaining)
+--- result ---
+{"exitCode":0}
+=== 018-bash ===
+{"toolCallId":"call_d593b08f59154ebf91adcff5","params":{"command":"sed -n '2100,2170p' intelligence/services/llm_refine.py; echo =====; sed -n '2380,2415p' intelligence/services/llm_refine.py"}}--- output(tail) ---
+    streamed_chars = 0
+
+    def _tracked_delta(delta: str) -> None:
+        nonlocal streamed_chars
+        streamed_chars += len(delta)
+        on_delta(delta)
+
+    try:
+--- result ---
+{"exitCode":0}
+=== 019-bash ===
+{"toolCallId":"call_27ec9181a6e141e4950b455b","params":{"command":"sed -n '470,485p' intelligence/services/llm_refine.py; grep -n \"def detect_provider\\|def _budget_rejection\\|def _reserve_llm_call\\|def _insufficient_budget_reason\\|def _release_llm_call\" intelligence/services/llm_refine.py; sed -n \"$(grep -n 'def _budget_rejection' intelligence/services/llm_refine.py | cut -d: -f1),+12p\" intelligence/services/llm_refine.py"}}--- output(tail) ---
+    return None
+
+
+def _reserve_llm_call() -> None:
+    """Reserve one attempt at the actual HTTP boundary.
+
+    Public-entry checks remain a cheap fast path, but this reservation is the
+    authoritative guard because provider fallback, retries and concurrent
+--- result ---
+{"exitCode":0}
