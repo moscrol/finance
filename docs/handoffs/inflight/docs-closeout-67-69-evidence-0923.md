@@ -4,7 +4,7 @@
 修正 INDEX 与 #75 队列的合入状态、审查对象和测试收据归属；不改运行时代码。
 
 ## 当前状态
-正文提交 `0b3ad6d69bc7` 已推 Gitea，PR [#880](http://127.0.0.1:3300/a77/finance-workspace-private/pulls/880) open、WIP；未合 main。基座 `ffd1b7f15`；旧台账树未动。09-23 续推采用冻结提交验收，结果发布到 PR 评论及树外 `~/.finance-runtime/reviews/pr880-gates-20260923-r1/`，不为写跑数反复改 head。
+PR [#880](http://127.0.0.1:3300/a77/finance-workspace-private/pulls/880) open、WIP；未合 main。已无冲突前向 `main@5f35da1723f7`（#881/#882 仅文档），旧台账树未动。本轮冻结候选，结果发布到 PR 评论及树外 `~/.finance-runtime/reviews/pr880-gates-20260923-r2/`，不为写跑数再改 head。r1 原件保留：`897dafec4` 的 registry/frontend 通过，Python 等待超限未启动；不可移签。
 
 ## 决策与被否方案
 - 独立文档分支，不继续旧 #858：#858/#879 已合，整份移植旧 diff 会重放过期状态。
@@ -24,4 +24,4 @@
 Gitea PR refs 可能陈旧，以实时 API / ls-remote / Git 双父为准。`latest-*` 可被覆盖，快照引用编号收据和 SHA256。#870 的1361P来自 dirty 工作树；5/5变异在b674，三叶才在f5cfc。
 
 ## 已验证
-前轮正文 diff --check、提交钩子通过，merge-tree 对 ffd1b7f15 干净。历史完整 Python 收据：14515P/0F@3b7e、14568P/0F@760248，精确版本/收集面校验均 exit0；760248收据冒充9a0227986时exit1。#870三叶原件绑定f5cfc，变异b674到f5cfc仅文档差异。以上是证据复核，不是本轮重跑。
+前轮正文 diff --check、提交钩子通过；本轮前向 5f35da1723f7 无冲突。历史完整 Python 收据：14515P/0F@3b7e、14568P/0F@760248，精确版本/收集面校验均 exit0；760248收据冒充9a0227986时exit1。#870三叶原件绑定f5cfc，变异b674到f5cfc仅文档差异。以上是证据复核，不是本轮重跑。
