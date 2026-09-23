@@ -8,7 +8,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from market_feature_store import hithink_client
+from market_feature_store import cli, hithink_client, write_path
 from market_feature_store.consumption_registry import load_registry
 from market_feature_store.sync import sync_daily_full
 
@@ -46,7 +46,7 @@ def test_local_plan_invokes_four_real_cli_commands_in_order(review, monkeypatch)
     names = list(plan)
     positions = [names.index(step) for step in STEPS]
     assert positions == sorted(positions)
-    assert names.index("stock-daily") < positions[0]
+    assert positions[0] < names.index("stock-daily") < positions[1]
     assert positions[-1] < names.index("stitch-sector-stocks")
     for step in STEPS:
         assert plan[step]()["status"] == "ok"
@@ -93,17 +93,17 @@ def test_run_step_preserves_staging_environment(review, monkeypatch):
     assert captured[0][1]["cwd"] == str(ROOT)
 
 
-def _main_fakes(review, monkeypatch, statuses, retries):
+def _main_fakes(review, monkeypatch, statuses, retries, label=STEPS[0]):
     calls = []
     releases = []
     logs = []
 
     def step():
         index = min(len(calls), len(statuses) - 1)
-        calls.append(STEPS[0])
-        return _result(STEPS[0], statuses[index])
+        calls.append(label)
+        return _result(label, statuses[index])
 
-    monkeypatch.setattr(review, "build_plan", lambda *a: [(STEPS[0], step)])
+    monkeypatch.setattr(review, "build_plan", lambda *a: [(label, step)])
     monkeypatch.setattr(review, "_notify", lambda *a: None)
     monkeypatch.setattr(review, "write_runlog", lambda *a, **k: logs.append((a, k)))
     monkeypatch.setattr(review, "run_release_steps", lambda *a: (releases.append(a) or [], True))
@@ -159,6 +159,131 @@ def test_losing_key_on_retry_cannot_hide_attempted_failure(review, monkeypatch):
     _, releases, _ = _main_fakes(review, monkeypatch, ["fail", "skip"], retries=1)
     assert review.main() == 1
     assert releases == []
+
+
+@pytest.mark.parametrize("statuses,expected", [
+    (["fail", "ok"], 0), (["fail", "skip"], 1), (["timeout", "timeout"], 1),
+    (["partial", "fail"], 1), (["skip", "skip"], 1),
+])
+def test_local_stock_retry_finishes_before_derivatives(review, monkeypatch, statuses, expected):
+    calls, releases, logs = _main_fakes(review, monkeypatch, statuses, retries=1, label="stock-daily")
+    original = review.build_plan(TARGET, 11, 99, "local")[0]
+
+    def stock_step():
+        result = original[1]()
+        return {**result, "attempts": [{**result, "label": "snapshot"}]}
+
+    def consumer():
+        assert expected == 0
+        calls.append("stitch-sector-stocks")
+        return _result("stitch-sector-stocks")
+
+    monkeypatch.setattr(review, "build_plan", lambda *a: [("stock-daily", stock_step), ("stitch-sector-stocks", consumer)])
+    assert review.main() == expected
+    assert calls[:2] == ["stock-daily", "stock-daily"]
+    assert ("stitch-sector-stocks" in calls) == (expected == 0)
+    assert bool(releases) == (expected == 0)
+    if expected == 0:
+        assert [a["status"] for a in logs[0][0][1][0]["attempts"]] == statuses
+
+
+@pytest.mark.parametrize("scenario,expected", [
+    ("primary", 0), ("sector_fallback", 0), ("bridge", 0),
+    ("missing_vendor", 1), ("partial_primary", 1), ("empty_success", 1),
+])
+def test_local_main_stock_fallback_chain_uses_real_bridge_cli(review, monkeypatch, tmp_path, scenario, expected):
+    from tests import test_bridge_hithink_stock_daily as fixture
+
+    with fixture._con(fixture._codes(3)) as con:
+        fixture._seed_canonical(con, fixture._codes(3), fixture.PREV)
+        if scenario == "missing_vendor":
+            con.execute("DELETE FROM fact_stock_daily_hithink WHERE trade_date=?", [fixture.TD])
+        calls, releases, logs = [], [], []
+        monkeypatch.setattr(write_path, "is_canonical_production", lambda *a, **k: False)
+        monkeypatch.setattr(sync_daily_full, "connect", lambda: fixture._KeepOpen(con))
+        monkeypatch.setattr(review, "_count", lambda table, day: con.execute(
+            f"SELECT count(*) FROM {table} WHERE trade_date=?", [day],
+        ).fetchone()[0])
+
+        def child(label, argv, timeout):
+            command = argv[3] if argv[:3] == review.CLI else label
+            calls.append(command)
+            if command == "sync-stock-daily-snapshot":
+                if scenario in {"primary", "partial_primary"}:
+                    fixture._seed_canonical(con, fixture._codes(3 if scenario == "primary" else 1), fixture.TD)
+                return _result(label, "ok" if scenario == "primary" else "fail")
+            if command == "fill-stock-daily-fallback":
+                if scenario == "sector_fallback":
+                    fixture._seed_canonical(con, fixture._codes(3), fixture.TD)
+                return _result(label, "ok" if scenario == "sector_fallback" else "fail")
+            if command == "bridge-stock-daily":
+                rc = 0 if scenario == "empty_success" else cli.main(argv[3:])
+                return {**_result(label, "ok" if rc == 0 else "fail"), "code": rc}
+            if command == "stitch-sector-stocks":
+                assert expected == 0, "unrecovered stock failure must stop before derivatives"
+                assert con.execute("SELECT count(*) FROM fact_stock_daily WHERE trade_date=?", [fixture.TD]).fetchone()[0] == 3
+            return _result(label)
+
+        monkeypatch.setattr(review, "run_step", child)
+        monkeypatch.setattr(review, "_notify", lambda *a: None)
+        monkeypatch.setattr(review, "RUNLOG", tmp_path / "runlog.md")
+        write_runlog = review.write_runlog
+
+        def record_log(*args, **kwargs):
+            logs.append(args)
+            write_runlog(*args, **kwargs)
+
+        monkeypatch.setattr(review, "write_runlog", record_log)
+        monkeypatch.setattr(review, "run_release_steps", lambda *a: (releases.append(a) or [], True))
+        monkeypatch.setattr(review.sys, "argv", [
+            "review", "--date", fixture.TD, "--plan", "local", "--skip-preflight", "--retry-rounds", "0",
+        ])
+        assert review.main() == expected
+        assert bool(releases) == (expected == 0)
+        assert calls.index("sync-hithink-stock-daily") < calls.index("sync-stock-daily-snapshot")
+        if scenario in {"primary", "sector_fallback", "partial_primary"}:
+            assert "bridge-stock-daily" not in calls
+        elif scenario == "bridge":
+            stock = next(r for r in logs[0][1] if r["label"] == "stock-daily")
+            assert stock["status"] == "ok"
+            assert [attempt["status"] for attempt in stock["attempts"]] == ["fail", "fail", "ok"]
+            log = review.RUNLOG.read_text()
+            assert "stock-daily (snapshot) | fail" in log
+            assert "stock-daily fallback | fail" in log
+            assert "bridge-stock-daily | ok" in log
+            assert "quality-gate | COMPLETE" in log
+            assert con.execute("SELECT DISTINCT source FROM fact_stock_daily WHERE trade_date=?", [fixture.TD]).fetchall() == [("hithink:daily-k-10d",)]
+        else:
+            assert "stitch-sector-stocks" not in calls
+            assert con.execute("SELECT count(*) FROM fact_stock_daily WHERE trade_date=?", [fixture.TD]).fetchone()[0] == 0
+
+
+def test_bridge_cli_refuses_production_before_connect(monkeypatch):
+    monkeypatch.setattr(write_path, "is_canonical_production", lambda *a, **k: True)
+
+    def forbidden(*args, **kwargs):
+        pytest.fail("production connection must not be opened")
+
+    monkeypatch.setattr(sync_daily_full, "connect", forbidden)
+    assert cli.main(["bridge-stock-daily", "--trade-date", TARGET]) == 2
+
+
+def test_bridge_cli_refuses_existing_target(monkeypatch):
+    from tests import test_bridge_hithink_stock_daily as fixture
+
+    with fixture._con(fixture._codes(3)) as con:
+        fixture._seed_canonical(con, fixture._codes(1), fixture.TD, close=99.0)
+        before = con.execute("SELECT * FROM fact_stock_daily").fetchall()
+        monkeypatch.setattr(write_path, "is_canonical_production", lambda *a, **k: False)
+        monkeypatch.setattr(sync_daily_full, "connect", lambda: fixture._KeepOpen(con))
+        assert cli.main(["bridge-stock-daily", "--trade-date", fixture.TD]) == 2
+        assert con.execute("SELECT * FROM fact_stock_daily").fetchall() == before
+
+
+def test_bridge_cli_does_not_accept_direct_override():
+    with pytest.raises(SystemExit) as exc:
+        cli.build_parser().parse_args(["bridge-stock-daily", "--trade-date", TARGET, "--direct"])
+    assert exc.value.code == 2
 
 
 def test_registry_owns_parallel_tables_without_claiming_old_facts():
