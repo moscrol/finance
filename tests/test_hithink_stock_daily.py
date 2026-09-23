@@ -565,6 +565,26 @@ def test_4001_preserves_legacy_attempt_budget(monkeypatch) -> None:
     assert calls["n"] == 3 and slept == [0.8, 1.6]
 
 
+@pytest.mark.parametrize("terminal", ["network", "business", "4001"])
+def test_429_does_not_reclassify_later_ordinary_failure(monkeypatch, terminal) -> None:
+    last = (
+        urllib.error.URLError("synthetic connection reset")
+        if terminal == "network"
+        else _OkResp({"code": 4001 if terminal == "4001" else 2003})
+    )
+    calls, slept = _arm(
+        monkeypatch,
+        [_OkResp({"code": 4001}) for _ in range(3)] + [_limit_error(), last],
+    )
+    with pytest.raises(HithinkAPIError) as exc:
+        get_json("/api/x", gap_seconds=0, retries=4, rate_limit_budget_seconds=300)
+    assert type(exc.value) is HithinkAPIError
+    assert calls["n"] == 5
+    assert slept == [0.8, 1.6, 3.2, 0.8]
+    assert sum(slept) < 300
+    assert hithink_client.MAX_RATE_LIMIT_RETRIES > 1
+
+
 def test_429_budget_counts_request_elapsed_time(monkeypatch) -> None:
     calls, slept = _arm(monkeypatch, [_limit_error(), _OkResp({"code": 0})])
     elapsed = iter([0.0, 0.0, 6.0, 6.0, 6.0, 6.0])

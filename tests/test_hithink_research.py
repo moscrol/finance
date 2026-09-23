@@ -276,6 +276,31 @@ def test_rate_limited_endpoint_leaves_gap_and_continues_capture(capture, failed_
     assert "fake-secret" not in str(query(path, "SELECT * FROM ops_hithink_research_request"))
 
 
+def test_ordinary_failure_after_rate_limit_gap_still_aborts(capture):
+    path, _, run, _ = capture
+    attempted = []
+
+    def mixed(endpoint, *, params):
+        kind = next(key for key, value in research.PATHS.items() if value == endpoint)
+        attempted.append(kind)
+        if kind == "anomaly":
+            raise HithinkRateLimitError("synthetic rate limit exhaustion")
+        raise HithinkAPIError("synthetic ordinary failure")
+
+    with pytest.raises(research.HithinkCaptureError) as exc:
+        run(getter=mixed)
+    assert exc.value.kind == "valuation"
+    assert exc.value.rate_limited is False
+    assert attempted == ["anomaly", "valuation"]
+    assert query(
+        path,
+        "SELECT kind, status, error_type FROM ops_hithink_research_request ORDER BY kind",
+    ) == [
+        ("anomaly", "failed", "HithinkRateLimitError"),
+        ("valuation", "failed", "HithinkAPIError"),
+    ]
+
+
 def test_http_429_gap_reaches_next_stock_via_real_client(capture, monkeypatch):
     from market_feature_store import hithink_client
 
