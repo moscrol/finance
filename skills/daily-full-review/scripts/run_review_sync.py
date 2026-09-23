@@ -501,6 +501,11 @@ def write_runlog(trade_date: str, results: list[dict], gate_ok: bool | None, pla
     lines.append("|---|---|---:|---|")
     for r in results:
         lines.append(f"| {r['label']} | {r['status']} | {r['elapsed']:.0f} | {r.get('note','')} |")
+        for attempt in r.get("attempts", ()):
+            lines.append(
+                f"| {r['label']} / {attempt['label']} | {attempt['status']} | "
+                f"{attempt['elapsed']:.0f} | code={attempt['code']} |"
+            )
     gate = "COMPLETE" if gate_ok else ("INCOMPLETE" if gate_ok is not None else "未检")
     lines.append(f"| quality-gate | {gate} | - | check_daily_review_data.py |")
     bad = [r["label"] for r in results if r["status"] in {"timeout", "fail", "partial"}]
@@ -583,6 +588,9 @@ def main() -> int:
                 if retry["status"] == "skip":
                     result["note"] = f"retry r{round_no} skipped; original failure retained"
                     break
+                if name == "stock-daily":
+                    retry["attempts"] = [*result.get("attempts", ()), *retry.get("attempts", ())]
+                    retry["elapsed"] += result["elapsed"]
                 result = retry
                 result["note"] = (str(result.get("note") or "") + f" [retry r{round_no}]").strip()
                 if result["status"] == "ok":
