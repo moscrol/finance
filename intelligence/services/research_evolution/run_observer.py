@@ -135,21 +135,23 @@ class ObservingRunStore(RunStore):
             {"cost_item": cost_item, "initiator": "system", "assistance_source": "workbench"},
         )
 
-    def _measurement_consented(self, at: datetime) -> bool:
-        """自用测量的同意门（QC I11）。
+    def _measurement_consented(self, at: datetime, *, store: EvolutionStore | None = None) -> bool:
+        """自用测量的同意门（QC I11）。``store`` 给锁内复核用（见 ``_record``）。
 
         只认 owner 自己的 ``consent_changed`` 记录（``participant_id`` 为空或等于 owner），按
-        ``effective_at``（缺则 ``event_at``）排序折叠 grant / withdraw，得到 ``at`` 时刻生效的范围。
+        ``effective_at``（缺则 ``event_at``）折叠 grant / withdraw，得到 ``at`` 时刻生效的范围；
+        排序与折叠本身由 05 读侧共用的 ``product_value.consent.scopes_at`` 拿主，两侧不得各留一份。
         没有任何记录返回 True（自用默认，见模块说明）；有记录则必须覆盖 ``REQUIRED_MEASUREMENT_SCOPES``。
         台账读不出来按「未知」处理并留 stderr 痕迹（门本身放行）；但同一份坏台账会让随后的
-        ``append_product_value_event`` 重读时再抛一次，净效果是**不写 + 两行 stderr**（第九轮复核 T12 实测）——
-        同意门是测量的门，不是被测 run 的门，两处都不会阻断 run。
+        锁内复核与 ``append_product_value_event`` 各抛一次，净效果是**不写 + 三行 stderr**
+        （第九轮复核 T12 实测两行，加锁内复核后多一行）——同意门是测量的门，不是被测 run
+        的门，几处都不会阻断 run。
         """
         try:
-            from intelligence.services.product_value.contracts import REQUIRED_MEASUREMENT_SCOPES
+            from intelligence.services.product_value import consent as consent_fold
             from intelligence.services.product_value.events import parse_ts
 
-            events = self._evolution_store.list_product_value_events()
+            events = (store or self._evolution_store).list_product_value_events()
         except Exception as exc:  # noqa: BLE001 - 读台账失败不阻断被测对象
             print(f"[research-evolution] 读同意记录失败，按未知处理（继续写测量事件）：{exc}", file=sys.stderr)
             return True
@@ -166,16 +168,7 @@ class ObservingRunStore(RunStore):
             entries.append((effective, str(payload.get("action")), frozenset(str(s) for s in payload.get("scopes") or ())))
         if not entries:
             return True
-        entries.sort(key=lambda item: (item[0], item[1]))
-        active: set[str] = set()
-        for effective, action, scopes in entries:
-            if effective > at:
-                break
-            if action == "grant":
-                active |= scopes
-            elif action == "withdraw":
-                active -= scopes
-        return REQUIRED_MEASUREMENT_SCOPES <= active
+        return consent_fold.covers_measurement(consent_fold.scopes_at(entries, at))
 
     def _record(self, event_type: str, run: Run, payload: dict[str, Any]) -> None:
         """构造 + 05 校验 + 同 writer 落盘；任何失败只留 stderr 痕迹，不阻断 run 生命周期。"""
@@ -219,6 +212,16 @@ class ObservingRunStore(RunStore):
                 raise ValueError(f"05 校验未过：{[i.code for i in result.issues]}")
             # 有界事务（QC Q9）：拿不到测量锁就跳过本次事件——测量写入绝不把被测 run 堵在锁上。
             with self._evolution_store.try_transaction(timeout=0.2) as txn:
+                # 锁内复核（QC P3 TOCTOU）：上面那道门是无锁读的，从读到这里之间，API 侧
+                # （用户点撤回）完全可能已往同一份台账追加了 ``consent_changed``。不再看一眼
+                # 就会在撤回之后写下测量事件，而 05 读侧按事件自身 ``event_at`` 判定，那条
+                # 会被照常算进读数。``transaction()`` 的合同是「锁内读到的台账就是提交时的
+                # 台账」，所以复核必须读 ``txn`` 而不是再无锁读一遍（那只是把窗口缩小）。
+                # 外面那道门不删：它让「本就不该写」的情形根本不去抢锁。
+                # 时间语义不变：仍用事件自身时刻 ``now`` 判定，未来生效的撤回不追溯。
+                if not self._measurement_consented(now, store=txn):
+                    print(f"[research-evolution] 同意在构造与落盘之间被撤回，不写 {event_type}（{run.run_id}）", file=sys.stderr)
+                    return
                 txn.append_product_value_event(result.normalized or event, content_hash=result.content_hash or "")
         except StoreLockTimeout as exc:
             print(f"[research-evolution] 测量锁被占，跳过本次事件落盘（{event_type} {run.run_id}）：{exc}", file=sys.stderr)
