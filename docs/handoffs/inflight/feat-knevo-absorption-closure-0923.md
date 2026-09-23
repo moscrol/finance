@@ -4,29 +4,27 @@
 PR #877 WIP：原题/八问/原审稿闸修交付，不合main、不部署8792、不回补、不写生产画像。
 
 ## 决策与被否方案
-- 34902599f让已确认编号材料合同拥有提示形状，排除旧模板，不再叠“优先遵守”；保留专项纪律/原题/引用与接收规则。无编号/待澄清/full/local不变。
-- JSON模式只做隔离实验，未加生产开关；收到stop不等于合法JSON，合法JSON不等于支持关系正确。
-- 预算/重试不变，不限声明条数/截断正文。详情：`docs/handoffs/2026-09-23-knevo-writer-prompt-owner.md`。
+- 86692c7b5补首轮/修复共用逐句构造指引：全输入锚点、主体/指标/单位/期间、收入不等于利润；未改schema/预算/重试/闸门。指引送达不代表模型遵守。
+- 不自动改kind、拆句借锚点或截断，不加JSON模式，不再追加写手重试凑成功。详情`docs/handoffs/2026-09-24-knevo-claim-inputs.md`。
 
 ## 当前状态
-运行代码34902599fbc577f90eafb5c70b59a44427694eaf已提交。原首轮输入只删冲突question_type_rules，21195→19035字符，八问/来源/系统提示/终局模板逐字段保留。
-最新原入口run_20260923_230143_763221首稿60.061秒，格式续轮42.547秒（两轮上限均75秒，不是40秒补写）；首稿多句声明，续轮62条声明成结构完整稿。两次判官75.016/74.974秒超时，未到非事实复核；请求/结构completed，语义partial、judge unavailable，作者not_passed、driver not_evaluated。
-JSON实验在旧f2101ad51上也成稿后判官超时，不能签语法强制/稳定提速；更早基线首稿含.replace表达式，补写超时。均保留。
-服务与测试均结束，8817无监听。索引：`~/.finance-runtime/knevo-absorption-20260923/writer-wire-20260923/current.json`。
+运行代码86692c7b57dc06e73b48ed8d5d7ccc5e56fa9a71已提交。首轮仅material_grounding两处rule变化，载荷19035→19415字符，原题/八问/来源/系统/终局模板相同。
+原入口run_20260923_235628_399142：首稿63.967秒分句失败，格式续轮35.279秒缺evidence_boundary，有界补写38.691秒后44条声明结构完成。判官两次75秒超时、首层150.011秒无报告；请求/结构completed、语义partial、作者not_passed、driver not_evaluated。
+旧冻结稿重放150.031秒首层超时；两次HTTP哈希均5d091c4f…，与历史70.228秒成功首审相同，未到非事实复核。不证明稳定性。
+所有本轮进程已停，8817无监听。证据索引`~/.finance-runtime/knevo-absorption-20260923/claim-inputs-20260923/current.json`。
 
 ## 已验证
-34902599f干净扩大定向2151P/2S/1X/0F/0E，收集2154，Ruff/收据验签通过；相关338P，撤提示保护4F。不是全仓/前端/main组合门禁。
-三次原入口原题逐字保真/material_only/0 Episode工具请求，非全IO零；七份原件未改。live加载代码匹配，仓外shim单独留hash。
+86692c7b5干净定向2154P/2S/1X，收集2157，Ruff/收据验签通过；接线302P、撤保护5F/恢复5P。非全仓/前端/main组合。
+原题逐字保真/material_only/0 Episode工具请求，非全IO零；七份原件不变。writer-only采集不留隐藏推理，私有判词不进写手。
 
 ## 未验证 / 已知边界
-逐句全部输入、主体/基期、盈利方向仍错：q6厂商出货125→110却写量升，多项事实标reasoning无锚点；q7同句混用上季度/本季度基期。
-写手稳定一次成稿、两层判官回执稳定性与金融语义未验。旧同hash low超时、f1fd 0/12、G1b、包3、Q14、真实Q18及unsupported/nonfactual反例未翻案。
-low仍默认不启用、仅judge作用域；不认证网关。新材料提示保护只限已编成answer_qN，无编号路径另验。
+提示未修好生成：q6仍把厂商出货125→110写量增、40→30未绑40；q7库存60被写远超消耗100，价格/收入事实仍标reasoning无锚点，q8八成计算缺基期。
+一次正确分句/全输入、两层判官稳定性与金融语义未过。旧low同hash超时、f1fd 0/12、G1b、包3、Q14、真实Q18、unsupported/nonfactual反例未翻案。开工base落后93提交，不签最新main。
 
 ## 下一步
-1. 原窗口内正确分句/逐句绑定，核主体、基期和成本缺项；不靠合句或放松闸门。
-2. 固定稿检验判官重复性，冻结重放不补签Episode。
+1. 定位规则在场仍错的句子构造环节，别把继续堆提示当已验证修复；仍需原八问验收。
+2. 固定稿检验判官重复性/协议规模，不提高预算、不用重放代签Episode。
 3. 续修旧反例，删句后重验交付义务。
 
 ## 踩过的坑
-主树.venv-workbench/bin/python，从目标树cwd跑gate；新test_id用uuid。原题文件末尾换行与TaskFrame.strip分账。诊断argv须保留--port，停止器会拒绝身份不符的进程。私有判词不进公开答案/写手反馈。
+主树.venv-workbench/bin/python，从目标树cwd跑gate；test_id用uuid。撤保护脚本需保留future annotations，原NameError不算有效反证。采集argv须保留--port；字符不是token，stop/合法JSON/结构完成都不等于接纳。
