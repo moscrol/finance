@@ -1,0 +1,44 @@
+{
+  "work/e2/probes/test_positive_control.py": {
+    "original_path": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-03/work/e2/probes/test_positive_control.py",
+    "original_sha256": "a85d03078ea430badfc8c38ceeb5287fdda86139210cda80fc77594cf14cf8f0",
+    "relocated_sha256": "a85d03078ea430badfc8c38ceeb5287fdda86139210cda80fc77594cf14cf8f0",
+    "host_change": "path/revision relocation only; current reviewer must accept or reject"
+  },
+  "work/e2/probes/test_reviewer.py": {
+    "original_path": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-03/work/e2/probes/test_reviewer.py",
+    "original_sha256": "fa9b5db30fe88339aef8ee7aa3fb7fa177376bd904c6ca90a182a2ba090afdc4",
+    "relocated_sha256": "8c114a0ca9cb3deb074949c884fc0f14dcc544f1bba3c9250f3e3658a6e61977",
+    "host_change": "path/revision relocation only; current reviewer must accept or reject"
+  },
+  "work/timer/probes/test_positive_control.py": {
+    "original_path": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-03/work/timer/probes/test_positive_control.py",
+    "original_sha256": "e394ca72e59d9c939a0dfe87c18c9f15f139ffcb5ae0fe68efea56c6514b7e78",
+    "relocated_sha256": "e394ca72e59d9c939a0dfe87c18c9f15f139ffcb5ae0fe68efea56c6514b7e78",
+    "host_change": "path/revision relocation only; current reviewer must accept or reject"
+  },
+  "work/timer/probes/activity-reviewer.test.tsx": {
+    "original_path": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-03/work/timer/probes/activity-reviewer.test.tsx",
+    "original_sha256": "b557f435c62b6def1cdf9f8cd71eaa00ac5a040a894d293cb26fc6c354b16d53",
+    "relocated_sha256": "f4f507ae7a1cdfcd814b81c92a0ac44ea9ff18b148f441656be06b1feea273b9",
+    "host_change": "path/revision relocation only; current reviewer must accept or reject"
+  },
+  "work/timer/probes/test_reviewer.py": {
+    "original_path": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-03/work/timer/probes/test_reviewer.py",
+    "original_sha256": "380b0b035207d24deb53d9e6b7d0b530c17a6f4b8f6d21116111b54de5401dda",
+    "relocated_sha256": "3717d325650824e7a2962e7c7674ab4463df4dc06efe5c69f48123e622c4d6df",
+    "host_change": "path/revision relocation only; current reviewer must accept or reject"
+  },
+  "work/consent/probes/test_positive_control.py": {
+    "original_path": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-03/work/consent/probes/test_positive_control.py",
+    "original_sha256": "6e6459b453d3e81e4e9a06e8c66d748a4494285ef652b47aa5ed61e47515c04a",
+    "relocated_sha256": "6e6459b453d3e81e4e9a06e8c66d748a4494285ef652b47aa5ed61e47515c04a",
+    "host_change": "path/revision relocation only; current reviewer must accept or reject"
+  },
+  "work/consent/probes/test_reviewer.py": {
+    "original_path": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-03/work/consent/probes/test_reviewer.py",
+    "original_sha256": "3391bcc1137750ff18890426b280a44ec57ef729107b9bf11c00e2de392fd400",
+    "relocated_sha256": "d7976d0b3405769cbf055523436ef2fdb3e5e62087102986594b3e4516a0c267",
+    "host_change": "path/revision relocation only; current reviewer must accept or reject"
+  }
+}

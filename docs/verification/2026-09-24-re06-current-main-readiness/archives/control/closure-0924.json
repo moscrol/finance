@@ -1,0 +1,34 @@
+{
+  "complete": true,
+  "at": "2026-09-23T18:23:30.284708+00:00",
+  "status": "BLOCKED_RESOURCE_GATE",
+  "revision": "b027194f1039692b8c26cacf9310619d633c54b7",
+  "baseline": "3bb81b9638f97b4773ce0f338df3a505b7c0162f",
+  "controllers_ended": [
+    3166,
+    13220
+  ],
+  "ports_without_listeners": [
+    30001,
+    30004
+  ],
+  "author_and_qc_clean": true,
+  "latest_main": "3bb81b9638f97b4773ce0f338df3a505b7c0162f",
+  "base_drift_merges": 0,
+  "actual_candidate_tests": 0,
+  "actual_candidate_builds": 0,
+  "actual_model_requests": 0,
+  "acceptance_05": "prepared_runner_only_not_executed",
+  "automatic_followups": false,
+  "push_pr_merge_deploy_production_writes": false,
+  "worktrees_deleted": false,
+  "last_resource_admission": {
+    "name": "frozen-dependencies",
+    "at": "2026-09-23T18:20:15.984185+00:00",
+    "load_1m": 28.525390625,
+    "existing_pytest": 4,
+    "projected_pytest": 5,
+    "free_gib": 7.329338073730469,
+    "allowed": false
+  }
+}

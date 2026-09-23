@@ -1,0 +1,27 @@
+{
+  "at": "2026-09-23T18:12:15.047224+00:00",
+  "status": "PASS",
+  "runs": [
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/acceptance-04/run.py",
+      "sha256": "c457826ee98b21e8c8ad4066d456561e9804f9764907d93e9cf7d34657d0a1f1",
+      "observed_complete": false,
+      "expected_complete": false,
+      "exit_code": 75,
+      "business_tests_started": 0
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/acceptance-05/run.py",
+      "sha256": "b122b4cccff633777d157a58fa8912e90ace43e2b238bceb0711c5bc6ff5e69a",
+      "observed_complete": true,
+      "expected_complete": true,
+      "exit_code": 75,
+      "business_tests_started": 0
+    }
+  ],
+  "scope": "host resource-timeout bookkeeping only",
+  "candidate_semantic_verdict": null,
+  "old_failure_preserved": true,
+  "pytest_runs": 0,
+  "model_requests": 0
+}

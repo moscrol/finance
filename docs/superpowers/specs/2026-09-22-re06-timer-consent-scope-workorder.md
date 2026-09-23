@@ -18,9 +18,9 @@
 
 用户原话 `b`。B 已实现：`activity-timer`/v2，读写共用测量域分类；旧 v1 仅对原控件完整自用形状作对称读取兼容，不改台账或哈希。原 `4bb3bf0cb` 的89P/前端9P及反证属于历史作者证据，不移签；背景见原作者树 `docs/handoffs/2026-09-23-re06-timer-scope-b.md`。
 
-09-23当前固定合流为`baseline/re06-ready-refresh-0923@7ec9d022b14db46ac667accc08c7891f27f5a1a6`，base`626d8a508c1c988ff094110b371987e6afdcdd15`，作者树`~/fwp-wt-re06-ready-refresh-0923`。B业务代码未再改。历史shipping修复b24的四叶PASS保留；旧合流8eac在b59d基座跑出Python14726P/85S/2X、其他三叶绿，但完整收据因main漂移15次合并（上限5）拒收，故另建新合流，不移签。
+09-24当前固定合流为`baseline/re06-ready-current-0924@b027194f1039692b8c26cacf9310619d633c54b7`，base`3bb81b9638f97b4773ce0f338df3a505b7c0162f`，作者树`~/fwp-wt-re06-ready-current-0924`。完整b24功能树已前向；唯一INDEX冲突保留main，其余与Git合流树一致。历史b24四叶PASS；8eac的Python14726P/85S/2X与其他三叶绿，但完整收据因基座漂移15超上限5拒收。7ec亦已被当前候选替代，不移签。
 
-#75部分推进仅属旧8eac：QC02 v3 E2正控1次预期失败、独立19P与作者20P分账，终审C1-C3 verified、Quality PASS_WITH_LIMITS；timer/consent仍未完成。新7ec只完成宿主沙箱/命令边界预检与18事务点枚举（17业务+1底层，非全仓分母/语义批准），机械重定位探针待独审接受。两条有界资源等待均超时，新候选测试/build/模型请求0，acceptance-05未创建，当前C1-C10全not_verified、Quality未评估，NOT_READY。readiness运行根147/218请求、余71，早期shipping73另账；K3/xhigh、自动重试0。当前入口`docs/verification/2026-09-23-re06-deploy-readiness/README.md`，全部原件/失败保留；所属进程已结束，未push/PR/合main/部署/迁移/删树，#76/P7仍未执行。
+#75部分终审仍只属旧8eac：正控1预期F、独立19P、作者20P，C1-C3 verified、Quality PASS_WITH_LIMITS。QC04的当前intelligence子树相对7ec有4文件差分，不能再称全同；已冻结差分与重定位探针，宿主沙箱/命令边界及18事务点枚举通过，但独立语义分类和三组执行/终审未完成。新15分钟有界等待已资源超时，测试/build/模型0，acceptance-05仅runner准备未执行。C1-C10全not_verified，Quality未评估，NOT_READY。累计147/218请求、余71，shipping73另账，K3/xhigh重试0。入口`docs/verification/2026-09-24-re06-current-main-readiness/README.md`；旧1251原件再核验、新139原件归档。约6.6GiB通过pytest的临时夹具已清理，拒收结论/日志/收据不变。进程已结束，无自动续跑，未push/PR/合main/部署/迁移/删树，#76/P7另闸。
 
 原三选一比较保留：
 - A **只改文案**：界面明说「停止计时会撤回自用测量同意」。零代码风险，但用户每次停计时都在关测量。

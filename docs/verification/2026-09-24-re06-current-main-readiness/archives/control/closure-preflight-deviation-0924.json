@@ -1,0 +1,17 @@
+{
+  "status": "HOST_CHECK_SCOPE_CORRECTED",
+  "initial_script": "close_0924_initial.py.txt",
+  "initial_exit_code": 1,
+  "initial_error": "AssertionError at line 16: assert not list((ROOT / 'qc-k3-04').glob('*/request-admissions.jsonl'))",
+  "cause": "The unscoped glob included sandbox-preflight-final-02/request-admissions.jsonl, a simulated preflight ledger with real_model_requests=0",
+  "correction": "Check only real gateway/explore-/execute-/report- phase directories; separately require the sandbox and stage-boundary receipts to attest zero real model requests",
+  "closure_or_readiness_files_written_before_failure": false,
+  "candidate_or_business_test_changed": false,
+  "real_model_requests_added": 0,
+  "initial_failure_preserved": true,
+  "second_script": "close_0924_second.py.txt",
+  "second_exit_code": 1,
+  "second_error": "FileNotFoundError: stage-boundary-preflight-final.json",
+  "second_correction": "Use actual stage-boundary-preflight-v3-current.json output, not the old QC03 receipt filename",
+  "second_failure_wrote_no_closure": true
+}

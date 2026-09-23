@@ -1,0 +1,54 @@
+"""Remove passed test fixtures, retaining the stale-base acceptance rejection."""
+from datetime import datetime, timezone
+import hashlib
+import json
+import os
+from pathlib import Path
+import shutil
+import stat
+import subprocess
+import xml.etree.ElementTree as ET
+
+ROOT = Path(__file__).resolve().parent
+GATE = ROOT / 'acceptance-03'
+TARGET = GATE / 'basetemp-python'
+OUT = ROOT / 'stale-passed-pytest-cleanup-0924.json'
+assert not OUT.exists()
+receipt = json.loads((GATE / 'receipt.json').read_text())
+assert receipt['complete'] and receipt['status'] == 'NOT_PASS' and receipt['identity_stable']
+assert receipt['revision'] == '8eac9b3b55c563b1eb3be58686fcc0918464f69a'
+checks = receipt['leaves']['python']['checks']
+assert [check['exit_code'] for check in checks] == [0, 0, 0, 1]
+assert all(check.get('stop_reason') is None for check in checks)
+assert 'check_test_receipt.py' in checks[-1]['command'][1]
+assert all(receipt['leaves'][leaf]['status'] == 'PASS' for leaf in ['frontend', 'e2e', 'registry'])
+full_log = (GATE / 'python-full-scope-check.log.txt').read_text()
+assert '15' in full_log and '5' in full_log and '基座' in full_log
+cases = list(ET.parse(GATE / 'python-junit.xml').iter('testcase'))
+assert len(cases) == 14813
+assert not any(case.find('failure') is not None or case.find('error') is not None for case in cases)
+assert TARGET.is_dir() and not TARGET.is_symlink() and TARGET.resolve().parent == GATE
+commands = subprocess.check_output(['/bin/ps', '-axo', 'command='], text=True).splitlines()
+assert not any(str(TARGET) in command or str(GATE / 'run.py') in command for command in commands)
+protected = [p for p in GATE.iterdir() if p.is_file()] + [GATE / 'receipts/pytest.json']
+hashes = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in protected}
+record = {'started_at': datetime.now(timezone.utc).isoformat(), 'complete': False,
+          'removed': str(TARGET), 'acceptance_status_unchanged': 'NOT_PASS',
+          'removal_reason': 'pytest passed; rejection solely from base drift 15 over limit 5',
+          'collected': 14813, 'failed': 0, 'errors': 0,
+          'evidence_sha256_before': hashes, 'worktrees_deleted': False,
+          'free_gib_before': shutil.disk_usage(ROOT).free / 1024**3}
+with OUT.open('x') as stream:
+    json.dump(record, stream, indent=2)
+for directory, children, _files in os.walk(TARGET, followlinks=False):
+    path = Path(directory)
+    assert not path.is_symlink() and path.resolve().is_relative_to(TARGET)
+    path.chmod(stat.S_IMODE(path.stat().st_mode) | stat.S_IRWXU)
+    children[:] = [name for name in children if not (path / name).is_symlink()]
+shutil.rmtree(TARGET)
+assert not TARGET.exists()
+assert hashes == {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in protected}
+record.update(complete=True, evidence_hashes_unchanged=True,
+              free_gib_after=shutil.disk_usage(ROOT).free / 1024**3)
+OUT.write_text(json.dumps(record, indent=2) + '\n')
+print(json.dumps({k: v for k, v in record.items() if k != 'evidence_sha256_before'}))

@@ -1,0 +1,82 @@
+{
+  "revision": "b027194f1039692b8c26cacf9310619d633c54b7",
+  "baseline": "3bb81b9638f97b4773ce0f338df3a505b7c0162f",
+  "provider": "mirasim-kimi",
+  "model": "kimi-k3",
+  "thinking": "xhigh",
+  "request_timeout_ms": 300000,
+  "automatic_retries": 0,
+  "concurrent_model_sessions": 1,
+  "groups": [
+    {
+      "id": "timer",
+      "claims": [
+        "C7",
+        "C8",
+        "C9",
+        "C10"
+      ],
+      "focus": "timer lifecycle, scope classification, narrow legacy compatibility, genuine withdrawal"
+    },
+    {
+      "id": "e2",
+      "claims": [
+        "C1",
+        "C2",
+        "C3"
+      ],
+      "focus": "local_only original question numbering, delivery completeness, restore protection"
+    },
+    {
+      "id": "consent",
+      "claims": [
+        "C4",
+        "C5",
+        "C6"
+      ],
+      "focus": "shared fold with intentional differences, event-time semantics, locked recheck",
+      "additional_review": "RE06 service/API transaction and try_transaction family, business sites and infrastructure separately"
+    }
+  ],
+  "stages_per_group": [
+    "explore",
+    "execute",
+    "report"
+  ],
+  "read_limits": {
+    "lines": 120,
+    "body_bytes": 6000,
+    "next_offset_exact": true
+  },
+  "bash_result_limit": {
+    "body_characters": 6000,
+    "raw_output_preserved": true
+  },
+  "current_status": "PREPARED_AWAITING_FRESH_PREFLIGHT",
+  "test_policy": "No pytest, build or e2e starts while resource gate is red. Explore is static source review and probe authoring only.",
+  "final_acceptance": "Every claim requires a reviewed status and evidence. Any missing group, missing stage, missing positive control, or provider failure remains BLOCKED; never infer candidate PASS from one completed group.",
+  "stage_timeout_seconds": 1800,
+  "parent_candidate": "b24c86f87aaef6244dc6a2c6cf80f74ae1918943",
+  "budget_change_reason": "Current main integration after ten additional merges; no inherited verdicts",
+  "authorization_quote": "继续推进直到可以合并部署",
+  "total_request_limit": 218,
+  "attempt": 4,
+  "prior_requests": 147,
+  "remaining_requests": 71,
+  "retry_kind": "Fresh integration identity after main drift; no inherited verdict and no provider retry.",
+  "phase_work_request_limits": {
+    "explore": 3,
+    "execute": 13,
+    "report": 6
+  },
+  "phase_override": {
+    "execute-e2": 7,
+    "execute-consent": 11
+  },
+  "maximum_additional_requests": 69,
+  "total_maximum_including_prior": 216,
+  "planned_cumulative_ceiling": 216,
+  "tree": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-04/candidate/finance-workspace-private",
+  "author": "/Users/a77/fwp-wt-re06-ready-current-0924",
+  "authorization_scope": "Bounded local readiness validation; no publication or production operation"
+}

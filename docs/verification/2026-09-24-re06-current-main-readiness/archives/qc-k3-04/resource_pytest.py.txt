@@ -1,0 +1,28 @@
+"""Resource admission immediately before a reviewer pytest invocation."""
+from datetime import datetime, timezone
+import json
+import os
+from pathlib import Path
+import re
+import shutil
+import subprocess
+import sys
+ROOT=Path(__file__).resolve().parent
+ps=subprocess.run(['/bin/ps','-axo','command='],capture_output=True,text=True)
+if ps.returncode:
+    raise SystemExit('BLOCKED_RESOURCE_INSPECTION')
+pattern=re.compile(r'^\S*/(?:Python|python(?:3(?:\.\d+)?)?)\s+(?:-B\s+)?-m\s+pytest(?:\s|$)|^\S*/pytest(?:\s|$)')
+count=sum(bool(pattern.search(row.strip())) for row in ps.stdout.splitlines())
+load=os.getloadavg()[0]
+free=shutil.disk_usage(ROOT).free/1024**3
+admission={'at':datetime.now(timezone.utc).isoformat(),'load_1m':load,'existing_pytest':count,
+           'projected_pytest':count+1,'free_gib':free,'allowed':load<=8 and count+1<=2 and free>=8,
+           'argv':sys.argv[1:],'inspection':'aggregate only; process commands are not returned'}
+with (ROOT/'work/reviewer-pytest-admissions.jsonl').open('a') as stream:
+    stream.write(json.dumps(admission)+'\n')
+print(json.dumps(admission),flush=True)
+if not admission['allowed']:
+    raise SystemExit(75)
+if sys.argv[1:]==['--dry-run']:
+    raise SystemExit(0)
+os.execv(sys.executable,[sys.executable,'-m','pytest',*sys.argv[1:]])

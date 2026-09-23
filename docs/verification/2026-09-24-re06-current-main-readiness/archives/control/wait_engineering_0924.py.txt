@@ -1,0 +1,69 @@
+"""Admit at most one fresh gate, sharing QC04's bounded resource window."""
+from datetime import datetime, timezone
+import fcntl
+import json
+import os
+from pathlib import Path
+import re
+import shutil
+import subprocess
+import sys
+import time
+
+ROOT = Path(__file__).resolve().parent
+OUT = ROOT / 'engineering-wait-0924.json'
+ACCEPT = ROOT / 'acceptance-05'
+identity = json.loads((ROOT / 'identity-03.json').read_text())
+qc_state = json.loads((ROOT / 'qc-current-continuation-0924.json').read_text())
+deadline = datetime.fromisoformat(qc_state['started_at']).timestamp() + 900
+lock = (ROOT / 'engineering-wait-0924.lock').open('a')
+fcntl.flock(lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+assert not OUT.exists() and not (ACCEPT / 'receipt.json').exists()
+record = {'complete': False, 'status': 'WAITING_FOR_RESOURCES', 'revision': identity['revision'],
+          'baseline': identity['baseline'], 'started_at': datetime.now(timezone.utc).isoformat(),
+          'acceptance_run_started': False, 'resource_admissions': [],
+          'minimum_start_free_gib': 12, 'runtime_floor_gib': 8,
+          'headroom_reason': 'previous full pytest fixtures consumed 3.3 GiB',
+          'window_ends_at': datetime.fromtimestamp(deadline, timezone.utc).isoformat()}
+def save():
+    tmp = OUT.with_suffix('.tmp')
+    tmp.write_text(json.dumps(record, indent=2) + '\n')
+    tmp.replace(OUT)
+def git(*args):
+    return subprocess.check_output(['git', '-C', identity['author'], *args], text=True).strip()
+pattern = re.compile(r'^\S*/(?:Python|python(?:3(?:\.\d+)?)?)\s+(?:-B\s+)?-m\s+pytest(?:\s|$)|^\S*/pytest(?:\s|$)')
+save()
+try:
+    while True:
+        rows = subprocess.check_output(['/bin/ps', '-axo', 'command='], text=True).splitlines()
+        count = sum(bool(pattern.search(row.strip())) for row in rows)
+        load = os.getloadavg()[0]
+        free = shutil.disk_usage(ROOT).free / 1024**3
+        allowed = load <= 8 and count + 1 <= 2 and free >= 12
+        record['resource_admissions'].append({'at': datetime.now(timezone.utc).isoformat(),
+            'load_1m': load, 'existing_pytest': count, 'projected_pytest': count + 1,
+            'free_gib': free, 'allowed': allowed})
+        save()
+        if allowed:
+            assert git('rev-parse', 'HEAD') == identity['revision'] and git('status', '--porcelain') == ''
+            base = git('merge-base', identity['revision'], 'gitea/main')
+            assert int(git('rev-list', '--count', '--merges', base + '..gitea/main')) <= 5
+            with (ACCEPT / 'controller.log.txt').open('xb') as log:
+                process = subprocess.Popen([sys.executable, '-B', str(ACCEPT / 'run.py')],
+                    stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT)
+                record.update(status='RUNNING', acceptance_run_started=True, pid=process.pid)
+                save()
+                code = process.wait()
+            receipt = json.loads((ACCEPT / 'receipt.json').read_text())
+            record.update(status=receipt['status'], exit_code=code)
+            break
+        if time.time() >= deadline:
+            record.update(status='BLOCKED_RESOURCE_GATE', exit_code=75)
+            break
+        time.sleep(15)
+except Exception as exc:
+    record.update(status='BLOCKED_CONTROLLER', exception_type=type(exc).__name__, exception_message=str(exc), exit_code=75)
+record.update(complete=True, finished_at=datetime.now(timezone.utc).isoformat())
+save()
+print(json.dumps({k: v for k, v in record.items() if k != 'resource_admissions'}))
+raise SystemExit(record['exit_code'])

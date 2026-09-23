@@ -1,0 +1,32 @@
+{
+  "status": "PASS",
+  "scope": "Byte/identity/accounting/terminal-state integrity only; not independent semantic approval",
+  "revision": "b027194f1039692b8c26cacf9310619d633c54b7",
+  "archives": [
+    {
+      "archive": "acceptance-05",
+      "files": 2,
+      "manifest_sha256": "94431db677f0956c50f48c79c2257728d6096c7b99a7b0d086c5bd1fc5164e87"
+    },
+    {
+      "archive": "control",
+      "files": 27,
+      "manifest_sha256": "320700da19b94d4f1ee047b65407201aa4c0a5312142a5b816c15d06c0d9d77d"
+    },
+    {
+      "archive": "qc-k3-04",
+      "files": 110,
+      "manifest_sha256": "4a1447e084bba9eee9561f08146ec625aaaf347b3efc85d3a72a98071ccff98b"
+    }
+  ],
+  "original_files_verified": 139,
+  "requests_prior": 147,
+  "requests_new": 0,
+  "requests_remaining": 71,
+  "candidate_tests": 0,
+  "candidate_builds": 0,
+  "candidate_model_requests": 0,
+  "handoff_bytes": 2640,
+  "model_requests": 0,
+  "pytest_runs": 0
+}

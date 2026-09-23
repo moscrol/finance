@@ -1,0 +1,55 @@
+{
+  "at": "2026-09-23T18:09:27.263095+00:00",
+  "revision": "b027194f1039692b8c26cacf9310619d633c54b7",
+  "baseline": "3bb81b9638f97b4773ce0f338df3a505b7c0162f",
+  "status": "STATIC_FACTS_ONLY",
+  "candidate_semantic_verdict": null,
+  "merge_tree_matches_except_intentional_current_index": true,
+  "conflict_resolution": "Current main index retained; other merged paths match Git merge-tree",
+  "changed_python_parses": [
+    "intelligence/services/episode_factory.py",
+    "intelligence/services/episode_semantic_verifier.py",
+    "intelligence/services/episode_verifier.py",
+    "intelligence/services/material_delivery.py",
+    "intelligence/services/product_value/consent.py",
+    "intelligence/services/product_value/contracts.py",
+    "intelligence/services/product_value/measure.py",
+    "intelligence/services/research_contract.py",
+    "intelligence/services/research_evolution/run_observer.py",
+    "intelligence/tests/test_e2_local_question_delivery.py",
+    "intelligence/tests/test_re06_activity_consent_gate_effect.py",
+    "intelligence/tests/test_re06_consent_fold_shared.py",
+    "intelligence/tests/test_re06_consent_gate_toctou.py",
+    "intelligence/tests/test_research_evolution_i11_consent.py"
+  ],
+  "shipped_assets": {
+    "/assets/index-BobixB9S.js": {
+      "sha256": "a2ef2085b83b84a4242314fad75b30ce2d304a8fa71f49c497c0ed63fbef7c96",
+      "bytes": 411798,
+      "unchanged_from_shipping_fix": true
+    }
+  },
+  "entire_intelligence_subtree_identical_to_previous": false,
+  "changed_intelligence_paths_since_previous": [
+    "intelligence/api/structured_reports.py",
+    "intelligence/cli.py",
+    "intelligence/runtime/conversation_orchestrator.py",
+    "intelligence/tests/test_public_delivery_gate_status_rank.py"
+  ],
+  "data_quality_applicability": {
+    "status": "NOT_TRIGGERED",
+    "not_a_pass": true,
+    "workflow_sha256": "fe0fb2cbc8266c0323965bde16105d475ae0adbd367357eea2872869b879e26f",
+    "patterns": [
+      "scripts/db_delta_export.py",
+      "scripts/db_delta_import.py",
+      "tests/test_db_delta.py",
+      "skills/report-search/scripts/**",
+      ".github/workflows/data-quality-check.yml"
+    ],
+    "matched_paths": []
+  },
+  "model_requests": 0,
+  "pytest_runs": 0,
+  "builds": 0
+}

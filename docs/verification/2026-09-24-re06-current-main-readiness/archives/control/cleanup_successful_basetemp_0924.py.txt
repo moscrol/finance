@@ -1,0 +1,45 @@
+"""Remove only the completed b24 gate's disposable pytest fixtures."""
+from datetime import datetime, timezone
+import hashlib
+import json
+import os
+from pathlib import Path
+import shutil
+import stat
+import subprocess
+
+ROOT = Path(__file__).resolve().parent
+GATE = Path('/Users/a77/.finance-runtime/reviews/re06-timer-scope-acceptance-20260923-03')
+TARGET = GATE / 'basetemp-python'
+OUT = ROOT / 'successful-basetemp-cleanup-0924.json'
+assert not OUT.exists()
+receipt_path = GATE / 'receipt.json'
+receipt = json.loads(receipt_path.read_text())
+assert receipt['complete'] and receipt['status'] == 'PASS' and receipt['identity_stable']
+assert receipt['revision'] == 'b24c86f87aaef6244dc6a2c6cf80f74ae1918943'
+assert all(leaf['status'] == 'PASS' for leaf in receipt['leaves'].values())
+assert TARGET.is_dir() and not TARGET.is_symlink() and TARGET.resolve().parent == GATE
+commands = subprocess.check_output(['/bin/ps', '-axo', 'command='], text=True).splitlines()
+assert not any(str(TARGET) in command or str(GATE / 'run.py') in command for command in commands)
+protected = [receipt_path, GATE / 'receipts/pytest.json', GATE / 'python-junit.xml']
+hashes = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in protected}
+before = shutil.disk_usage(ROOT).free
+# Some successful permission tests deliberately leave read-only fixture directories.
+for directory, children, _files in os.walk(TARGET, followlinks=False):
+    path = Path(directory)
+    assert not path.is_symlink() and path.resolve().is_relative_to(TARGET)
+    path.chmod(stat.S_IMODE(path.stat().st_mode) | stat.S_IRWXU)
+    children[:] = [name for name in children if not (path / name).is_symlink()]
+shutil.rmtree(TARGET)
+assert not TARGET.exists()
+assert hashes == {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in protected}
+record = {'at': datetime.now(timezone.utc).isoformat(), 'removed': str(TARGET),
+          'scope': 'successful pytest disposable fixtures only', 'evidence_sha256_unchanged': hashes,
+          'initial_cleanup': 'PermissionError at test_fixture_input_hash_binds_2/prebuilt-index; partial cleanup preserved no evidence files',
+          'permission_fix': 'owner rwx for fixture directories only; symlinks never followed',
+          'free_gib_before': before / 1024**3, 'free_gib_after': shutil.disk_usage(ROOT).free / 1024**3,
+          'worktrees_deleted': False, 'failed_attempt_fixtures_removed': False}
+with OUT.open('x') as stream:
+    json.dump(record, stream, indent=2)
+    stream.write('\n')
+print(json.dumps(record))

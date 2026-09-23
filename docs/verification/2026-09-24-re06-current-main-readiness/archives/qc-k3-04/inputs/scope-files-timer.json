@@ -1,0 +1,14 @@
+{
+  "intelligence/services/product_value/__init__.py": {
+    "current_sha256": "efacfd3b9e29f666079d0ea14e77b85b758835c1be388db17bdf185c126c49af",
+    "revision": "b027194f1039692b8c26cacf9310619d633c54b7",
+    "before_sha256": "efacfd3b9e29f666079d0ea14e77b85b758835c1be388db17bdf185c126c49af",
+    "unchanged": true
+  },
+  "intelligence/services/product_value/contracts.py": {
+    "current_sha256": "a7564e8ef46c922b8b7c47eb405557197ed6fe2316bb6a85453bf75ee683b8ae",
+    "revision": "b027194f1039692b8c26cacf9310619d633c54b7",
+    "before_sha256": "a7564e8ef46c922b8b7c47eb405557197ed6fe2316bb6a85453bf75ee683b8ae",
+    "unchanged": true
+  }
+}

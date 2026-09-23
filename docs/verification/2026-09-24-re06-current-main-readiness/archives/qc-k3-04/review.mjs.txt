@@ -1,0 +1,206 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { execFileSync, spawn } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { createBashTool, createLocalBashOperations, createReadTool, createWriteTool } from '/opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent/dist/index.js';
+
+const ROOT = path.dirname(fileURLToPath(import.meta.url));
+const CONFIG = JSON.parse(fs.readFileSync(path.join(ROOT, 'config.json'), 'utf8'));
+const PYTHON = CONFIG.python;
+const hash = value => createHash('sha256').update(value).digest('hex');
+const quote = value => "'" + value.replaceAll("'", "'\\''") + "'";
+const finishPrompt = 'STAGE CLOSEOUT. Tools are now disabled. Output the Chinese final deliverable required by the initial stage prompt using only evidence actually observed. State missing work and limits. Do not claim unrun tests. Include complete:true in the requested JSON. This is the reserved final request, not permission to promote incomplete review to PASS.';
+
+export function phaseFor(admitted, elapsedMs, workLimit = 22) {
+  return admitted >= workLimit || elapsedMs >= 1440000 ? 'report' : 'explore';
+}
+
+export function artifactFirstPayload(payload, { stage, group, admitted, ready }) {
+  if (!['timer', 'e2', 'consent'].includes(group)) return payload;
+  const limit = CONFIG.stage_group_work_request_limits?.[stage]?.[group] ?? 22;
+  if (admitted < Math.max(2, stage === 'explore' ? limit : limit - 1)) return payload;
+  const required = stage === 'explore'
+    ? ['probes/test_reviewer.py', 'probes/test_positive_control.py', 'EXPLORE.md']
+    : stage === 'execute' ? ['EXECUTE.md', 'EXECUTE.json'] : ['FINAL.md', 'FINAL.json'];
+  const missing = required.filter(name => !ready(name));
+  if (!missing.length) return payload;
+  const tools = payload.tools.filter(tool => tool.function?.name === 'write');
+  if (tools.length !== 1) throw new Error('Artifact-first stage requires exactly one write tool');
+  return { ...payload, tools, tool_choice: 'auto', messages: [...payload.messages, {
+    role: 'user', content: `Artifact checkpoint at request ${admitted}. Read and bash tools are temporarily unavailable. Write the missing reviewer-authored artifacts now using the source already observed: ${missing.map(name => path.join(ROOT, 'work', group, name)).join(', ')}. Record only evidence actually observed. Explicitly mark missing coverage or blocked execution; never promote missing work to PASS. Empty/TODO artifacts are not acceptable. Further permitted inspection becomes available after these files exist.`,
+  }] };
+}
+
+export function allowedExecutionCommand(command, group) {
+  if (typeof command !== 'string' || !['e2', 'timer', 'consent'].includes(group)) return false;
+  const roles = ['positive_control', 'reviewer', 'author', ...(group === 'timer' ? ['ui_reviewer', 'ui_author'] : [])];
+  const base = role => `${PYTHON} -I ${path.join(ROOT, 'run_probe_v3.py')} ${group} ${role}`;
+  if (roles.some(role => command === base(role))) return true;
+  for (const role of roles.filter(role => ['reviewer', 'ui_reviewer'].includes(role))) {
+    const prefix = base(role) + ' --probe ';
+    if (!command.startsWith(prefix)) continue;
+    const file = command.slice(prefix.length);
+    if (file === path.resolve(file) && path.dirname(file) === path.join(ROOT, 'work', group, 'probes') && /^[A-Za-z0-9_.-]+\.(py|tsx)$/.test(path.basename(file))) return true;
+  }
+  return false;
+}
+
+export function reportPayload(payload) {
+  return { ...payload, tools: [], tool_choice: 'none', messages: [...payload.messages, { role: 'user', content: finishPrompt }] };
+}
+
+export function validateCredential(token, nowSeconds) {
+  const parts = token.split('.');
+  if (parts.length !== 3) throw new Error('credential shape');
+  const claims = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
+  const until = nowSeconds + 1920;
+  if (claims.plan !== 'plus' || !Number.isFinite(claims.exp) || claims.exp < until || !Number.isFinite(claims.plan_exp) || claims.plan_exp < until)
+    throw new Error('existing Plus credential cannot cover review deadline');
+  return { plan: claims.plan, expires_at: claims.exp, plan_expires_at: claims.plan_exp };
+}
+
+export function install(pi, { out, token, clock = Date.now, terminate = code => process.exit(code) }) {
+  const tree = fs.realpathSync(CONFIG.tree);
+  const work = path.join(ROOT, 'work');
+  const logs = path.join(out, 'commands');
+  const provider = JSON.parse(fs.readFileSync(path.join(ROOT, 'provider-template.json'), 'utf8'));
+  if (provider.baseUrl !== 'http://127.0.0.1:18788/v1' || provider.api !== 'openai-completions' || provider.models?.length !== 1 || provider.models[0].id !== 'kimi-k3')
+    throw new Error('fixed provider route mismatch');
+  const claims = validateCredential(token, clock() / 1000);
+  fs.writeFileSync(path.join(out, 'credential.json'), JSON.stringify({ status: 'READY', ...claims, claim_signature_locally_verified: false, prices_verified: false, token_sha256: hash(token), token_storage: 'host process memory only' }, null, 2), { flag: 'wx', mode: 0o600 });
+  pi.registerProvider('mirasim-kimi', { ...provider, apiKey: token });
+  let admitted = 0;
+  let report = false;
+  let reportAdmitted = false;
+  let sequence = 0;
+  let artifactWritesOnly = false;
+  const stage = process.env.REVIEW_PHASE;
+  const group = process.env.REVIEW_GROUP;
+  const workLimit = CONFIG.stage_group_work_request_limits?.[stage]?.[group] ?? CONFIG.stage_work_request_limits?.[stage] ?? 22;
+  const artifactReady = name => {
+    const file = path.join(work, group, name);
+    try { const stat = fs.lstatSync(file); return stat.isFile() && !stat.isSymbolicLink() && stat.size > 0; }
+    catch { return false; }
+  };
+  const started = clock();
+  const toolEnv = { HOME: work, PATH: '/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin', LANG: 'C.UTF-8', TMPDIR: path.join(work, 'tmp'), PYTHONDONTWRITEBYTECODE: '1', PYTHONPATH: tree, FWP_TEST_RECEIPT: '0', GIT_OPTIONAL_LOCKS: '0', FORESIGHT_USERS_DIR: path.join(work, 'users') };
+  const append = (name, value) => fs.appendFileSync(path.join(out, name), JSON.stringify(value) + '\n', { mode: 0o600 });
+  const deny = reason => {
+    fs.writeFileSync(path.join(out, 'controller-stop.json'), JSON.stringify({ reason, admitted, reportAdmitted }));
+    terminate(75);
+    throw new Error('admission denied: ' + reason);
+  };
+  pi.on('before_provider_request', (event, ctx) => {
+    if (ctx.model?.provider !== 'mirasim-kimi' || ctx.model?.id !== 'kimi-k3' || ctx.model?.baseUrl !== provider.baseUrl || ctx.model?.api !== provider.api || event.payload?.model !== 'kimi-k3') return deny('route');
+    if (admitted >= workLimit + 2 || clock() - started >= 1800000 || reportAdmitted) return deny('budget_or_report_already_dispatched');
+    report = phaseFor(admitted, clock() - started, workLimit) === 'report';
+    append('request-admissions.jsonl', { admission: ++admitted, phase: report ? 'report' : 'explore', timestamp: new Date(clock()).toISOString(), provider: 'mirasim-kimi', model: 'kimi-k3' });
+    const payload = { ...event.payload };
+    const temperatureRemoved = Object.hasOwn(payload, 'temperature');
+    delete payload.temperature;
+    if (stage === 'report') payload.tools = payload.tools.filter(tool => ['read', 'write'].includes(tool.function?.name));
+    const effective = report ? reportPayload(payload) : artifactFirstPayload(payload, { stage, group, admitted, ready: artifactReady });
+    artifactWritesOnly = !report && effective !== payload;
+    append('payload-shapes.jsonl', { admission: admitted, stage, stream: effective.stream, model: effective.model, tools: effective.tools?.map(t => t.function?.name), temperature_removed: temperatureRemoved, reasoning_effort: effective.reasoning_effort, payload_bytes: Buffer.byteLength(JSON.stringify(effective)), message_count: effective.messages?.length, artifact_writes_only: artifactWritesOnly, work_request_limit: workLimit });
+    if (report) reportAdmitted = true;
+    return effective;
+  });
+  pi.on('after_provider_response', event => append('responses.jsonl', { admission: admitted, status: event.status }));
+  pi.on('tool_call', event => {
+    if (report) return { block: true, terminate: true, reason: 'Report-only phase; no further tool execution.' };
+    if (!['read', 'write', 'bash'].includes(event.toolName)) return { block: true, terminate: true, reason: 'Tool not authorized.' };
+    if (stage === 'report' && event.toolName === 'bash') return { block: true, reason: 'Report stage is read/write only.' };
+    if (artifactWritesOnly && event.toolName !== 'write') return { block: true, reason: 'Artifact checkpoint: write the missing reviewer files before more exploration.' };
+  });
+  pi.on('message_end', event => {
+    const m = event.message;
+    if (m.role !== 'assistant') return;
+    if (m.stopReason === 'error' || m.stopReason === 'aborted') {
+      fs.writeFileSync(path.join(out, 'model-failure.json'), JSON.stringify({ stopReason: m.stopReason, admission: admitted }));
+      return;
+    }
+    if (m.content.some(item => item.type === 'toolCall')) return;
+    const text = m.content.filter(item => item.type === 'text').map(item => item.text).join('\n');
+    if (text) fs.writeFileSync(path.join(out, 'REPORT.md'), text + '\n', { flag: 'wx' });
+  });
+  const audit = (kind, id, params) => {
+    const dir = path.join(logs, String(++sequence).padStart(3, '0') + '-' + kind);
+    fs.mkdirSync(dir);
+    fs.writeFileSync(path.join(dir, 'request.json'), JSON.stringify({ toolCallId: id, params }));
+    return dir;
+  };
+  const bashTemplate = createBashTool(tree);
+  pi.registerTool({ ...bashTemplate, promptGuidelines: ['bash executes only in the review sandbox; use the supplied Python interpreter. Execute-stage commands must exactly match the supplied isolated-Python wrapper invocation; report-stage bash is disabled. Full raw output is captured automatically.'], async execute(id, params, signal, update) {
+    if (report) throw new Error('report-only');
+    if (stage === 'report' || (stage === 'execute' && !allowedExecutionCommand(params.command, group))) {
+      append('tool-denials.jsonl', { stage, group, tool: 'bash', command: params.command, reason: 'stage_execution_boundary' });
+      throw new Error('Stage command denied. Execute permits only the exact supplied trusted wrapper commands; report has no shell.');
+    }
+    const dir = audit('bash', id, params);
+    const fd = fs.openSync(path.join(dir, 'output.log'), 'wx');
+    const local = createLocalBashOperations({ shellPath: '/bin/bash' });
+    const tool = createBashTool(tree, {
+      exposeSessionEnvironment: false,
+      spawnHook: ({ command }) => ({
+        command: stage === 'execute' ? 'exec ' + command : 'exec /usr/bin/sandbox-exec -f ' + quote(path.join(ROOT, 'tools-v3.sb')) + ' /bin/bash --noprofile --norc -c ' + quote(command),
+        cwd: stage === 'execute' ? ROOT : tree,
+        env: { ...toolEnv, PYTHONNOUSERSITE: '1' },
+      }),
+      operations: { async exec(command, cwd, options) {
+        try {
+          const result = await local.exec(command, cwd, { ...options, onData(data) { fs.writeSync(fd, data); options.onData(data); } });
+          fs.writeFileSync(path.join(dir, 'result.json'), JSON.stringify(result));
+          return result;
+        } catch (error) {
+          fs.writeFileSync(path.join(dir, 'result.json'), JSON.stringify({ error: String(error) }));
+          throw error;
+        }
+      } },
+    });
+    try {
+      const result = await tool.execute(id, { ...params, timeout: Math.min(params.timeout || 120, 120) }, signal, update);
+      return { ...result, content: result.content.map(item => item.type === 'text' && item.text.length > 6000 ? { ...item, text: item.text.slice(0, 6000) + '\n[Response capped at 6000 characters; full raw output is in the command log. Use narrower queries.]' } : item) };
+    } finally { fs.closeSync(fd); }
+  } });
+  for (const kind of ['read', 'write']) {
+    const template = kind === 'read' ? createReadTool(tree) : createWriteTool(tree);
+    pi.registerTool({ ...template, async execute(id, params, signal) {
+      if (report) throw new Error('report-only');
+      const dir = audit(kind, id, params);
+      const output = await new Promise((resolve, reject) => {
+        const child = spawn('/usr/bin/sandbox-exec', ['-f', path.join(ROOT, 'tools-v3.sb'), PYTHON, '-B', path.join(ROOT, 'file_tool.py')], { cwd: tree, env: toolEnv, stdio: ['pipe', 'pipe', 'pipe'] });
+        const stdout = []; const stderr = [];
+        const abort = () => child.kill('SIGKILL');
+        const timer = setTimeout(abort, 30000);
+        signal?.addEventListener('abort', abort, { once: true });
+        child.stdout.on('data', d => stdout.push(d)); child.stderr.on('data', d => stderr.push(d));
+        child.on('error', reject);
+        child.on('close', code => {
+          clearTimeout(timer); signal?.removeEventListener('abort', abort);
+          const text = Buffer.concat(stdout).toString(); const error = Buffer.concat(stderr).toString();
+          fs.writeFileSync(path.join(dir, 'output.log'), text + error);
+          fs.writeFileSync(path.join(dir, 'result.json'), JSON.stringify({ exitCode: code }));
+          if (code !== 0) reject(new Error(error || 'sandbox file tool failed')); else resolve(text);
+        });
+        child.stdin.on('error', () => {});
+        child.stdin.end(JSON.stringify({ kind, params, out }));
+      });
+      return { content: [{ type: 'text', text: output }], details: {} };
+    } });
+  }
+}
+
+export default function (pi) {
+  const out = fs.realpathSync(process.env.REVIEW_OUTPUT_DIR || '/invalid-output');
+  try {
+    if (path.dirname(out) !== ROOT) throw new Error('unexpected output');
+    fs.writeFileSync(path.join(out, 'auth-reserved.json'), JSON.stringify({ status: 'RESERVED', model_requests: 0 }), { flag: 'wx', mode: 0o600 });
+    const token = execFileSync('/Users/a77/.claude/mirasim-kimi-token.sh', [], { encoding: 'utf8', timeout: 35000, maxBuffer: 65536, env: { HOME: '/Users/a77', PATH: '/opt/homebrew/bin:/usr/bin:/bin', LANG: 'C.UTF-8' }, stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+    install(pi, { out, token });
+  } catch {
+    fs.writeFileSync(path.join(out, 'bootstrap-failure.json'), JSON.stringify({ status: 'BLOCKED', provider_requests: 0 }));
+    process.stderr.write('Credential or extension preflight blocked; no retry.\n');
+    process.exit(70);
+  }
+}

@@ -1,0 +1,562 @@
+{
+  "started_at": "2026-09-23T18:05:05.197864+00:00",
+  "complete": true,
+  "status": "BLOCKED_RESOURCE_GATE",
+  "revision": "b027194f1039692b8c26cacf9310619d633c54b7",
+  "request_ceiling": 218,
+  "automatic_model_retries": 0,
+  "steps": [],
+  "resource_admissions": [
+    {
+      "name": "frozen-dependencies",
+      "at": "2026-09-23T18:05:05.395861+00:00",
+      "load_1m": 15.16455078125,
+      "existing_pytest": 4,
+      "projected_pytest": 5,
+      "free_gib": 7.982715606689453,
+      "allowed": false
+    },
+    {
+      "name": "frozen-dependencies",
+      "at": "2026-09-23T18:05:20.475605+00:00",
+      "load_1m": 16.39111328125,
+      "existing_pytest": 4,
+      "projected_pytest": 5,
+      "free_gib": 7.852138519287109,
+      "allowed": false
+    },
+    {
+      "name": "frozen-dependencies",
+      "at": "2026-09-23T18:05:35.535745+00:00",
+      "load_1m": 20.61767578125,
+      "existing_pytest": 3,
+      "projected_pytest": 4,
+      "free_gib": 7.80926513671875,
+      "allowed": false
+    },
+    {
+      "name": "frozen-dependencies",
+      "at": "2026-09-23T18:05:50.642759+00:00",
+      "load_1m": 20.65478515625,
+      "existing_pytest": 3,
+      "projected_pytest": 4,
+      "free_gib": 7.736053466796875,
+      "allowed": false
+    },
+    {
+      "name": "frozen-dependencies",
+      "at": "2026-09-23T18:06:05.839113+00:00",
+      "load_1m": 19.150390625,
+      "existing_pytest": 3,
+      "projected_pytest": 4,
+      "free_gib": 7.544116973876953,
+      "allowed": false
+    },
+    {
+      "name": "frozen-dependencies",
+      "at": "2026-09-23T18:06:20.977882+00:00",
+      "load_1m": 17.380859375,
+      "existing_pytest": 3,
+      "projected_pytest": 4,
+      "free_gib": 7.367031097412109,
+      "allowed": false
+    },
+    {
+      "name": "frozen-dependencies",
+      "at": "2026-09-23T18:06:36.204318+00:00",
+      "load_1m": 16.14697265625,
+      "existing_pytest": 3,
+      "projected_pytest": 4,
+      "free_gib": 7.318275451660156,
+      "allowed": false
+    },
+    {
+      "name": "frozen-dependencies",
+      "at": "2026-09-23T18:06:51.328109+00:00",
+      "load_1m": 14.26611328125,
+      "existing_pytest": 3,
+      "projected_pytest": 4,
+      "free_gib": 7.327766418457031,
+      "allowed": false
+    },
+    {
+      "name": "frozen-dependencies",
+      "at": "2026-09-23T18:07:06.419473+00:00",
+      "load_1m": 12.88916015625,
+      "existing_pytest": 4,
+      "projected_pytest": 5,
+      "free_gib": 7.225559234619141,
+      "allowed": false
+    },
+    {
+      "name": "frozen-dependencies",
+      "at": "2026-09-23T18:07:21.461945+00:00",
+      "load_1m": 14.93701171875,
+      "existing_pytest": 2,
+      "projected_pytest": 3,
+      "free_gib": 7.6428680419921875,
+      "allowed": false
+    },
+    {
+      "name": "frozen-dependencies",
+      "at": "2026-09-23T18:07:36.665809+00:00",
+      "load_1m": 13.44775390625,
+      "existing_pytest": 3,
+      "projected_pytest": 4,
+      "free_gib": 10.316326141357422,
+      "allowed": false
+    },
+    {
+      "name": "frozen-dependencies",
+      "at": "2026-09-23T18:07:51.715632+00:00",
+      "load_1m": 15.98583984375,
+      "existing_pytest": 3,
+      "projected_pytest": 4,
+      "free_gib": 10.166099548339844,
+      "allowed": false
+    },
+    {
+      "name": "frozen-dependencies",
+      "at": "2026-09-23T18:08:06.780455+00:00",
+      "load_1m": 14.7890625,
+      "existing_pytest": 4,
+      "projected_pytest": 5,
+      "free_gib": 10.151119232177734,
+      "allowed": false
+    },
+    {
+      "name": "frozen-dependencies",
+      "at": "2026-09-23T18:08:21.877044+00:00",
+      "load_1m": 13.31787109375,
+      "existing_pytest": 4,
+      "projected_pytest": 5,
+      "free_gib": 10.089153289794922,
+      "allowed": false
+    },
+    {
+      "name": "frozen-dependencies",
+      "at": "2026-09-23T18:08:36.949477+00:00",
+      "load_1m": 12.1259765625,
+      "existing_pytest": 3,
+      "projected_pytest": 4,
+      "free_gib": 10.784248352050781,
+      "allowed": false
+    },
+    {
+      "name": "frozen-dependencies",
+      "at": "2026-09-23T18:08:52.001468+00:00",
+      "load_1m": 11.1123046875,
+      "existing_pytest": 3,
+      "projected_pytest": 4,
+      "free_gib": 12.82431411743164,
+      "allowed": false
+    },
+    {
+      "name": "frozen-dependencies",
+      "at": "2026-09-23T18:09:07.073505+00:00",
+      "load_1m": 11.8984375,
+      "existing_pytest": 4,
+      "projected_pytest": 5,
+      "free_gib": 13.306816101074219,
+      "allowed": false
+    },
+    {
+      "name": "frozen-dependencies",
+      "at": "2026-09-23T18:09:22.167183+00:00",
+      "load_1m": 12.90478515625,
+      "existing_pytest": 4,
+      "projected_pytest": 5,
+      "free_gib": 13.123085021972656,
+      "allowed": false
+    },
+    {
+      "name": "frozen-dependencies",
+      "at": "2026-09-23T18:09:37.320415+00:00",
+      "load_1m": 13.85693359375,
+      "existing_pytest": 4,
+      "projected_pytest": 5,
+      "free_gib": 13.08026123046875,
+      "allowed": false
+    },
+    {
+      "name": "frozen-dependencies",
+      "at": "2026-09-23T18:09:52.706150+00:00",
+      "load_1m": 14.97216796875,
+      "existing_pytest": 4,
+      "projected_pytest": 5,
+      "free_gib": 13.061176300048828,
+      "allowed": false
+    },
+    {
+      "name": "frozen-dependencies",
+      "at": "2026-09-23T18:10:07.863053+00:00",
+      "load_1m": 23.689453125,
+      "existing_pytest": 5,
+      "projected_pytest": 6,
+      "free_gib": 13.070564270019531,
+      "allowed": false
+    },
+    {
+      "name": "frozen-dependencies",
+      "at": "2026-09-23T18:10:23.088038+00:00",
+      "load_1m": 31.06689453125,
+      "existing_pytest": 4,
+      "projected_pytest": 5,
+      "free_gib": 13.046947479248047,
+      "allowed": false
+    },
+    {
+      "name": "frozen-dependencies",
+      "at": "2026-09-23T18:10:38.227383+00:00",
+      "load_1m": 30.0400390625,
+      "existing_pytest": 4,
+      "projected_pytest": 5,
+      "free_gib": 12.011627197265625,
+      "allowed": false
+    },
+    {
+      "name": "frozen-dependencies",
+      "at": "2026-09-23T18:10:53.419379+00:00",
+      "load_1m": 27.17431640625,
+      "existing_pytest": 4,
+      "projected_pytest": 5,
+      "free_gib": 11.990718841552734,
+      "allowed": false
+    },
+    {
+      "name": "frozen-dependencies",
+      "at": "2026-09-23T18:11:08.581323+00:00",
+      "load_1m": 24.6669921875,
+      "existing_pytest": 4,
+      "projected_pytest": 5,
+      "free_gib": 11.996784210205078,
+      "allowed": false
+    },
+    {
+      "name": "frozen-dependencies",
+      "at": "2026-09-23T18:11:23.705783+00:00",
+      "load_1m": 25.580078125,
+      "existing_pytest": 5,
+      "projected_pytest": 6,
+      "free_gib": 11.980297088623047,
+      "allowed": false
+    },
+    {
+      "name": "frozen-dependencies",
+      "at": "2026-09-23T18:11:38.813448+00:00",
+      "load_1m": 28.52587890625,
+      "existing_pytest": 4,
+      "projected_pytest": 5,
+      "free_gib": 11.96805191040039,
+      "allowed": false
+    },
+    {
+      "name": "frozen-dependencies",
+      "at": "2026-09-23T18:11:53.901180+00:00",
+      "load_1m": 30.29150390625,
+      "existing_pytest": 4,
+      "projected_pytest": 5,
+      "free_gib": 11.965530395507812,
+      "allowed": false
+    },
+    {
+      "name": "frozen-dependencies",
+      "at": "2026-09-23T18:12:08.994145+00:00",
+      "load_1m": 29.3076171875,
+      "existing_pytest": 4,
+      "projected_pytest": 5,
+      "free_gib": 11.953605651855469,
+      "allowed": false
+    },
+    {
+      "name": "frozen-dependencies",
+      "at": "2026-09-23T18:12:24.060888+00:00",
+      "load_1m": 24.86474609375,
+      "existing_pytest": 4,
+      "projected_pytest": 5,
+      "free_gib": 11.961231231689453,
+      "allowed": false
+    },
+    {
+      "name": "frozen-dependencies",
+      "at": "2026-09-23T18:12:39.129705+00:00",
+      "load_1m": 21.20947265625,
+      "existing_pytest": 4,
+      "projected_pytest": 5,
+      "free_gib": 11.958080291748047,
+      "allowed": false
+    },
+    {
+      "name": "frozen-dependencies",
+      "at": "2026-09-23T18:12:54.264257+00:00",
+      "load_1m": 21.71875,
+      "existing_pytest": 4,
+      "projected_pytest": 5,
+      "free_gib": 11.958908081054688,
+      "allowed": false
+    },
+    {
+      "name": "frozen-dependencies",
+      "at": "2026-09-23T18:13:09.422406+00:00",
+      "load_1m": 20.4404296875,
+      "existing_pytest": 4,
+      "projected_pytest": 5,
+      "free_gib": 11.953971862792969,
+      "allowed": false
+    },
+    {
+      "name": "frozen-dependencies",
+      "at": "2026-09-23T18:13:24.541235+00:00",
+      "load_1m": 19.4580078125,
+      "existing_pytest": 4,
+      "projected_pytest": 5,
+      "free_gib": 11.946800231933594,
+      "allowed": false
+    },
+    {
+      "name": "frozen-dependencies",
+      "at": "2026-09-23T18:13:39.689970+00:00",
+      "load_1m": 17.9912109375,
+      "existing_pytest": 4,
+      "projected_pytest": 5,
+      "free_gib": 11.938770294189453,
+      "allowed": false
+    },
+    {
+      "name": "frozen-dependencies",
+      "at": "2026-09-23T18:13:54.854158+00:00",
+      "load_1m": 19.38720703125,
+      "existing_pytest": 4,
+      "projected_pytest": 5,
+      "free_gib": 11.934593200683594,
+      "allowed": false
+    },
+    {
+      "name": "frozen-dependencies",
+      "at": "2026-09-23T18:14:10.018206+00:00",
+      "load_1m": 17.8232421875,
+      "existing_pytest": 4,
+      "projected_pytest": 5,
+      "free_gib": 11.920883178710938,
+      "allowed": false
+    },
+    {
+      "name": "frozen-dependencies",
+      "at": "2026-09-23T18:14:25.169015+00:00",
+      "load_1m": 21.796875,
+      "existing_pytest": 5,
+      "projected_pytest": 6,
+      "free_gib": 11.717060089111328,
+      "allowed": false
+    },
+    {
+      "name": "frozen-dependencies",
+      "at": "2026-09-23T18:14:40.232780+00:00",
+      "load_1m": 20.5712890625,
+      "existing_pytest": 4,
+      "projected_pytest": 5,
+      "free_gib": 11.845008850097656,
+      "allowed": false
+    },
+    {
+      "name": "frozen-dependencies",
+      "at": "2026-09-23T18:14:55.386155+00:00",
+      "load_1m": 20.29931640625,
+      "existing_pytest": 4,
+      "projected_pytest": 5,
+      "free_gib": 11.88827133178711,
+      "allowed": false
+    },
+    {
+      "name": "frozen-dependencies",
+      "at": "2026-09-23T18:15:10.604002+00:00",
+      "load_1m": 20.23974609375,
+      "existing_pytest": 4,
+      "projected_pytest": 5,
+      "free_gib": 11.8612060546875,
+      "allowed": false
+    },
+    {
+      "name": "frozen-dependencies",
+      "at": "2026-09-23T18:15:25.681764+00:00",
+      "load_1m": 20.31982421875,
+      "existing_pytest": 4,
+      "projected_pytest": 5,
+      "free_gib": 11.758922576904297,
+      "allowed": false
+    },
+    {
+      "name": "frozen-dependencies",
+      "at": "2026-09-23T18:15:40.735177+00:00",
+      "load_1m": 17.7060546875,
+      "existing_pytest": 4,
+      "projected_pytest": 5,
+      "free_gib": 11.762882232666016,
+      "allowed": false
+    },
+    {
+      "name": "frozen-dependencies",
+      "at": "2026-09-23T18:15:55.979901+00:00",
+      "load_1m": 15.443359375,
+      "existing_pytest": 4,
+      "projected_pytest": 5,
+      "free_gib": 11.515811920166016,
+      "allowed": false
+    },
+    {
+      "name": "frozen-dependencies",
+      "at": "2026-09-23T18:16:11.197979+00:00",
+      "load_1m": 15.27783203125,
+      "existing_pytest": 4,
+      "projected_pytest": 5,
+      "free_gib": 11.504619598388672,
+      "allowed": false
+    },
+    {
+      "name": "frozen-dependencies",
+      "at": "2026-09-23T18:16:26.324660+00:00",
+      "load_1m": 14.70703125,
+      "existing_pytest": 4,
+      "projected_pytest": 5,
+      "free_gib": 11.47426986694336,
+      "allowed": false
+    },
+    {
+      "name": "frozen-dependencies",
+      "at": "2026-09-23T18:16:41.462400+00:00",
+      "load_1m": 19.46630859375,
+      "existing_pytest": 5,
+      "projected_pytest": 6,
+      "free_gib": 10.345787048339844,
+      "allowed": false
+    },
+    {
+      "name": "frozen-dependencies",
+      "at": "2026-09-23T18:16:56.553118+00:00",
+      "load_1m": 20.48583984375,
+      "existing_pytest": 4,
+      "projected_pytest": 5,
+      "free_gib": 10.213550567626953,
+      "allowed": false
+    },
+    {
+      "name": "frozen-dependencies",
+      "at": "2026-09-23T18:17:11.710834+00:00",
+      "load_1m": 22.37646484375,
+      "existing_pytest": 5,
+      "projected_pytest": 6,
+      "free_gib": 10.206562042236328,
+      "allowed": false
+    },
+    {
+      "name": "frozen-dependencies",
+      "at": "2026-09-23T18:17:26.923313+00:00",
+      "load_1m": 21.2509765625,
+      "existing_pytest": 4,
+      "projected_pytest": 5,
+      "free_gib": 10.156505584716797,
+      "allowed": false
+    },
+    {
+      "name": "frozen-dependencies",
+      "at": "2026-09-23T18:17:42.197644+00:00",
+      "load_1m": 20.01953125,
+      "existing_pytest": 5,
+      "projected_pytest": 6,
+      "free_gib": 9.13375473022461,
+      "allowed": false
+    },
+    {
+      "name": "frozen-dependencies",
+      "at": "2026-09-23T18:17:57.827347+00:00",
+      "load_1m": 29.32958984375,
+      "existing_pytest": 5,
+      "projected_pytest": 6,
+      "free_gib": 8.118152618408203,
+      "allowed": false
+    },
+    {
+      "name": "frozen-dependencies",
+      "at": "2026-09-23T18:18:13.283526+00:00",
+      "load_1m": 30.224609375,
+      "existing_pytest": 4,
+      "projected_pytest": 5,
+      "free_gib": 8.097156524658203,
+      "allowed": false
+    },
+    {
+      "name": "frozen-dependencies",
+      "at": "2026-09-23T18:18:28.479749+00:00",
+      "load_1m": 29.82666015625,
+      "existing_pytest": 4,
+      "projected_pytest": 5,
+      "free_gib": 8.09354019165039,
+      "allowed": false
+    },
+    {
+      "name": "frozen-dependencies",
+      "at": "2026-09-23T18:18:44.015144+00:00",
+      "load_1m": 28.1533203125,
+      "existing_pytest": 4,
+      "projected_pytest": 5,
+      "free_gib": 6.611778259277344,
+      "allowed": false
+    },
+    {
+      "name": "frozen-dependencies",
+      "at": "2026-09-23T18:18:59.282333+00:00",
+      "load_1m": 27.34912109375,
+      "existing_pytest": 4,
+      "projected_pytest": 5,
+      "free_gib": 10.046775817871094,
+      "allowed": false
+    },
+    {
+      "name": "frozen-dependencies",
+      "at": "2026-09-23T18:19:14.434371+00:00",
+      "load_1m": 27.59130859375,
+      "existing_pytest": 4,
+      "projected_pytest": 5,
+      "free_gib": 9.045330047607422,
+      "allowed": false
+    },
+    {
+      "name": "frozen-dependencies",
+      "at": "2026-09-23T18:19:30.003883+00:00",
+      "load_1m": 29.38427734375,
+      "existing_pytest": 4,
+      "projected_pytest": 5,
+      "free_gib": 8.04257583618164,
+      "allowed": false
+    },
+    {
+      "name": "frozen-dependencies",
+      "at": "2026-09-23T18:19:45.405336+00:00",
+      "load_1m": 30.70458984375,
+      "existing_pytest": 4,
+      "projected_pytest": 5,
+      "free_gib": 8.04339599609375,
+      "allowed": false
+    },
+    {
+      "name": "frozen-dependencies",
+      "at": "2026-09-23T18:20:00.697123+00:00",
+      "load_1m": 28.32080078125,
+      "existing_pytest": 4,
+      "projected_pytest": 5,
+      "free_gib": 6.838737487792969,
+      "allowed": false
+    },
+    {
+      "name": "frozen-dependencies",
+      "at": "2026-09-23T18:20:15.984185+00:00",
+      "load_1m": 28.525390625,
+      "existing_pytest": 4,
+      "projected_pytest": 5,
+      "free_gib": 7.329338073730469,
+      "allowed": false
+    }
+  ],
+  "requests": 147,
+  "finished_at": "2026-09-23T18:20:16.271708+00:00"
+}

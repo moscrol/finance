@@ -1,0 +1,9 @@
+{
+  "source": "qc-current-0924-controller.log.txt",
+  "raw_sha256": "f11bc4c9766308c4187743ecf7e58c6d314f74357cbb4a5c5ecc62d5b186be34",
+  "raw_bytes": 53,
+  "chunk": 1,
+  "chunks": 1,
+  "encoding": "gzip-base64-chunk",
+  "data": "H4sIAAAAAAACE6tWKi5JLCktVrJSUHLy8Xf2dnWJD3IN9g8NcnaNd3cMcVXSUVAqSi0sTS0uASkyNDGv5QIArRjXDjUAAAA="
+}

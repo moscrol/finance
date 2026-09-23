@@ -1,0 +1,59 @@
+"""Bind existing v3 execution protocol to fresh QC04, with no inherited results."""
+import ast
+import hashlib
+import json
+from pathlib import Path
+import shutil
+import subprocess
+
+ROOT = Path(__file__).resolve().parent
+QC = ROOT / 'qc-k3-04'
+OLD = ROOT / 'qc-k3-03'
+identity = json.loads((ROOT / 'identity-03.json').read_text())
+assert not (QC / 'setup-complete.json').exists()
+assert not (QC / 'gateway').exists()
+(QC / 'pi-config').mkdir()
+shutil.copy2(OLD / 'pi-config/settings.json', QC / 'pi-config/settings.json')
+
+for group in ['e2', 'timer', 'consent']:
+    for stage in ['explore', 'execute', 'report']:
+        path = QC / f'prompt-{stage}-{group}-v4.md'
+        text = path.read_text()
+        if stage != 'explore':
+            text = text.split('\n这是v3执行/终审会话。', 1)[0]
+            text += '\n本轮为QC04新合流，使用v3受信执行协议。旧候选通过数与结论未提供，不得继承。正式测试由资源检查后的沙箱子进程运行；用户默认根由只读插件隔离。尽早写本阶段工件；如缺覆盖，请如实记录。\n'
+        else:
+            text += '\n本轮intelligence子树并非完全相同。四个变化文件是api/structured_reports.py、runtime/conversation_orchestrator.py、cli.py、tests/test_public_delivery_gate_status_rank.py；前两者使用同一worse_status，禁止交付降级后把gap/blocked升成partial。请自行核查间接影响，不把宿主摘要视为审查结果。\n'
+        # Stage filenames describe the already-tested execution protocol, not the QC attempt.
+        target = QC / f'prompt-{stage}-{group}-v3.md'
+        with target.open('x') as stream:
+            stream.write(text)
+
+config_path = QC / 'config.json'
+config = json.loads(config_path.read_text())
+config.pop('group_stage_overrides', None)
+config_path.write_text(json.dumps(config, indent=2) + '\n')
+plan_path = QC / 'group-plan.json'
+plan = json.loads(plan_path.read_text())
+plan['authorization_quote'] = '继续推进直到可以合并部署'
+plan['authorization_scope'] = 'Bounded local readiness validation; no publication or production operation'
+plan_path.write_text(json.dumps(plan, ensure_ascii=False, indent=2) + '\n')
+for group in ['e2', 'timer', 'consent']:
+    path = QC / f'inputs/scope-files-{group}.json'
+    data = json.loads(path.read_text())
+    for name, item in data.items():
+        raw = subprocess.check_output(['git', '-C', identity['author'], 'show', identity['supersedes_revision'] + ':' + name])
+        item['before_sha256'] = hashlib.sha256(raw).hexdigest()
+        item['unchanged'] = item['before_sha256'] == item['current_sha256']
+    path.write_text(json.dumps(data, indent=2) + '\n')
+for path in QC.glob('*.py'):
+    ast.parse(path.read_bytes(), filename=str(path))
+record = {'status': 'SETUP_ONLY', 'revision': identity['revision'], 'baseline': identity['baseline'],
+          'prior_requests': 147, 'maximum_additional_requests': 69, 'total_request_ceiling': 218,
+          'actual_model_calls': 0, 'candidate_test_runs': 0, 'protocol_version': 'v3', 'attempt': 4,
+          'source_sha256': {str(p.relative_to(QC)): hashlib.sha256(p.read_bytes()).hexdigest()
+                            for p in QC.iterdir() if p.is_file()}}
+with (QC / 'setup-complete.json').open('x') as stream:
+    json.dump(record, stream, indent=2)
+    stream.write('\n')
+print(json.dumps({k: v for k, v in record.items() if k != 'source_sha256'}))

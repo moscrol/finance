@@ -1,0 +1,21 @@
+{
+  "latest_user_verbatim": "继续推进直到可以合并部署",
+  "source": "Current conversation user message",
+  "authorized_scope": "Continue bounded local engineering and independent QC to readiness for merge and deployment",
+  "publication_boundary": "Readiness request is not an instruction to push, open PR, merge main, or switch production now",
+  "request_budget": {
+    "owner": "host-selected continuation ceiling, not a user-quoted number",
+    "readiness_root_prior": 147,
+    "ceiling": 218,
+    "planned_additional": 69,
+    "automatic_provider_retries": 0
+  },
+  "separate_gates": [
+    "#76 line-specific model budget and data-freezing authorization",
+    "P7 A1-A17 protocol and original-input acceptance; formal T2/T3/Knevo comparison remains prohibited at current stage",
+    "push, PR, main merge, production deployment or writes",
+    "production 8792 changes, migrations, recomputation, worktree deletion"
+  ],
+  "temporary_data_cleanup": "Only inactive, passed pytest fixtures with unchanged logs/JUnit/receipts; no worktrees, failed tests, or production data removed",
+  "historical_authorization_records_modified": false
+}

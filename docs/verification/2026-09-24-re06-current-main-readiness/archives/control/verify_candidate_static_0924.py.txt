@@ -1,0 +1,72 @@
+"""Identity, merge preservation, asset references, and workflow applicability only."""
+import ast
+from datetime import datetime, timezone
+import fnmatch
+import hashlib
+from html.parser import HTMLParser
+import json
+from pathlib import Path
+import subprocess
+import yaml
+
+ROOT = Path(__file__).resolve().parent
+identity = json.loads((ROOT / 'identity-03.json').read_text())
+TREE = Path(identity['author'])
+QC = Path(identity['qc_tree'])
+OUT = ROOT / 'candidate-static-validation-0924.json'
+assert not OUT.exists()
+def git(*args):
+    return subprocess.check_output(['git', '-C', str(TREE), *args], text=True).strip()
+assert git('rev-parse', 'HEAD') == identity['revision']
+assert git('status', '--porcelain') == ''
+assert subprocess.check_output(['git', '-C', str(QC), 'rev-parse', 'HEAD'], text=True).strip() == identity['revision']
+assert subprocess.check_output(['git', '-C', str(QC), 'status', '--porcelain'], text=True).strip() == ''
+assert git('merge-base', identity['revision'], identity['baseline']) == identity['baseline']
+expected_merge = 'b08f1d523a5f416d4808fd15c4ef0ed9f3ebdb7c'
+assert git('diff', '--name-only', expected_merge, identity['revision']).splitlines() == ['docs/superpowers/specs/2026-09-01-workorders-INDEX.md']
+assert git('rev-parse', identity['revision'] + ':docs/superpowers/specs/2026-09-01-workorders-INDEX.md') == git('rev-parse', identity['baseline'] + ':docs/superpowers/specs/2026-09-01-workorders-INDEX.md')
+changed = git('diff', '--name-only', identity['baseline'], identity['revision']).splitlines()
+parsed = []
+for name in changed:
+    path = TREE / name
+    if path.is_file() and path.suffix == '.py':
+        ast.parse(path.read_bytes(), filename=name)
+        parsed.append(name)
+class Scripts(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.paths = []
+    def handle_starttag(self, tag, attrs):
+        if tag == 'script' and (src := dict(attrs).get('src')):
+            self.paths.append(src)
+parser = Scripts()
+parser.feed((TREE / 'intelligence/api/static/index.html').read_text())
+assert parser.paths == ['/assets/index-BobixB9S.js']
+assets = {}
+for src in parser.paths:
+    path = TREE / 'intelligence/api/static' / src.lstrip('/')
+    raw = path.read_bytes()
+    original = subprocess.check_output(['git', '-C', str(TREE), 'show', identity['source_candidate'] + ':' + str(path.relative_to(TREE))])
+    assert original == raw
+    assets[src] = {'sha256': hashlib.sha256(raw).hexdigest(), 'bytes': len(raw), 'unchanged_from_shipping_fix': True}
+workflow = TREE / '.github/workflows/data-quality-check.yml'
+# BaseLoader keeps GitHub's 'on' key a string instead of YAML 1.1's boolean.
+parsed_yaml = yaml.load(workflow.read_text(), Loader=yaml.BaseLoader)
+patterns = parsed_yaml['on']['pull_request']['paths']
+matched = sorted({name for name in changed for pattern in patterns if fnmatch.fnmatchcase(name, pattern)})
+record = {'at': datetime.now(timezone.utc).isoformat(), 'revision': identity['revision'], 'baseline': identity['baseline'],
+          'status': 'STATIC_FACTS_ONLY', 'candidate_semantic_verdict': None,
+          'merge_tree_matches_except_intentional_current_index': True,
+          'conflict_resolution': 'Current main index retained; other merged paths match Git merge-tree',
+          'changed_python_parses': parsed, 'shipped_assets': assets,
+          'entire_intelligence_subtree_identical_to_previous': False,
+          'changed_intelligence_paths_since_previous': git('diff', '--name-only', identity['supersedes_revision'], identity['revision'], '--', 'intelligence').splitlines(),
+          'data_quality_applicability': {'status': 'TRIGGERED' if matched else 'NOT_TRIGGERED', 'not_a_pass': True,
+              'workflow_sha256': hashlib.sha256(workflow.read_bytes()).hexdigest(), 'patterns': patterns, 'matched_paths': matched},
+          'model_requests': 0, 'pytest_runs': 0, 'builds': 0}
+with OUT.open('x') as stream:
+    json.dump(record, stream, indent=2)
+    stream.write('\n')
+print(json.dumps({'revision': identity['revision'], 'static_status': record['status'], 'python_syntax_files': len(parsed),
+                  'intelligence_delta': record['changed_intelligence_paths_since_previous'],
+                  'data_quality': record['data_quality_applicability']['status']}))

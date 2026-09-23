@@ -1,0 +1,328 @@
+{
+  "complete": true,
+  "status": "BLOCKED_RESOURCE_GATE",
+  "revision": "b027194f1039692b8c26cacf9310619d633c54b7",
+  "baseline": "3bb81b9638f97b4773ce0f338df3a505b7c0162f",
+  "started_at": "2026-09-23T18:10:30.490356+00:00",
+  "acceptance_run_started": false,
+  "resource_admissions": [
+    {
+      "at": "2026-09-23T18:10:30.684131+00:00",
+      "load_1m": 31.7021484375,
+      "existing_pytest": 4,
+      "projected_pytest": 5,
+      "free_gib": 13.047050476074219,
+      "allowed": false
+    },
+    {
+      "at": "2026-09-23T18:10:45.907402+00:00",
+      "load_1m": 29.15576171875,
+      "existing_pytest": 4,
+      "projected_pytest": 5,
+      "free_gib": 12.00332260131836,
+      "allowed": false
+    },
+    {
+      "at": "2026-09-23T18:11:01.110991+00:00",
+      "load_1m": 26.439453125,
+      "existing_pytest": 4,
+      "projected_pytest": 5,
+      "free_gib": 11.979816436767578,
+      "allowed": false
+    },
+    {
+      "at": "2026-09-23T18:11:16.246166+00:00",
+      "load_1m": 23.33203125,
+      "existing_pytest": 4,
+      "projected_pytest": 5,
+      "free_gib": 11.983409881591797,
+      "allowed": false
+    },
+    {
+      "at": "2026-09-23T18:11:31.465611+00:00",
+      "load_1m": 27.615234375,
+      "existing_pytest": 5,
+      "projected_pytest": 6,
+      "free_gib": 11.969108581542969,
+      "allowed": false
+    },
+    {
+      "at": "2026-09-23T18:11:46.804970+00:00",
+      "load_1m": 28.9638671875,
+      "existing_pytest": 4,
+      "projected_pytest": 5,
+      "free_gib": 11.970500946044922,
+      "allowed": false
+    },
+    {
+      "at": "2026-09-23T18:12:01.903004+00:00",
+      "load_1m": 30.1181640625,
+      "existing_pytest": 4,
+      "projected_pytest": 5,
+      "free_gib": 11.957473754882812,
+      "allowed": false
+    },
+    {
+      "at": "2026-09-23T18:12:17.031299+00:00",
+      "load_1m": 26.68115234375,
+      "existing_pytest": 5,
+      "projected_pytest": 6,
+      "free_gib": 11.944969177246094,
+      "allowed": false
+    },
+    {
+      "at": "2026-09-23T18:12:32.121497+00:00",
+      "load_1m": 22.0986328125,
+      "existing_pytest": 4,
+      "projected_pytest": 5,
+      "free_gib": 11.960617065429688,
+      "allowed": false
+    },
+    {
+      "at": "2026-09-23T18:12:47.256490+00:00",
+      "load_1m": 22.826171875,
+      "existing_pytest": 4,
+      "projected_pytest": 5,
+      "free_gib": 11.959426879882812,
+      "allowed": false
+    },
+    {
+      "at": "2026-09-23T18:13:02.383110+00:00",
+      "load_1m": 21.69775390625,
+      "existing_pytest": 4,
+      "projected_pytest": 5,
+      "free_gib": 11.954849243164062,
+      "allowed": false
+    },
+    {
+      "at": "2026-09-23T18:13:17.606804+00:00",
+      "load_1m": 18.9755859375,
+      "existing_pytest": 4,
+      "projected_pytest": 5,
+      "free_gib": 11.94632339477539,
+      "allowed": false
+    },
+    {
+      "at": "2026-09-23T18:13:32.671655+00:00",
+      "load_1m": 17.46826171875,
+      "existing_pytest": 5,
+      "projected_pytest": 6,
+      "free_gib": 11.94527816772461,
+      "allowed": false
+    },
+    {
+      "at": "2026-09-23T18:13:47.766453+00:00",
+      "load_1m": 20.29150390625,
+      "existing_pytest": 4,
+      "projected_pytest": 5,
+      "free_gib": 11.946651458740234,
+      "allowed": false
+    },
+    {
+      "at": "2026-09-23T18:14:02.960358+00:00",
+      "load_1m": 18.41748046875,
+      "existing_pytest": 4,
+      "projected_pytest": 5,
+      "free_gib": 11.924446105957031,
+      "allowed": false
+    },
+    {
+      "at": "2026-09-23T18:14:18.058101+00:00",
+      "load_1m": 17.94921875,
+      "existing_pytest": 5,
+      "projected_pytest": 6,
+      "free_gib": 11.721904754638672,
+      "allowed": false
+    },
+    {
+      "at": "2026-09-23T18:14:33.213128+00:00",
+      "load_1m": 21.40478515625,
+      "existing_pytest": 5,
+      "projected_pytest": 6,
+      "free_gib": 11.714954376220703,
+      "allowed": false
+    },
+    {
+      "at": "2026-09-23T18:14:48.586920+00:00",
+      "load_1m": 18.9326171875,
+      "existing_pytest": 4,
+      "projected_pytest": 5,
+      "free_gib": 11.89389419555664,
+      "allowed": false
+    },
+    {
+      "at": "2026-09-23T18:15:03.747968+00:00",
+      "load_1m": 19.99951171875,
+      "existing_pytest": 4,
+      "projected_pytest": 5,
+      "free_gib": 11.865543365478516,
+      "allowed": false
+    },
+    {
+      "at": "2026-09-23T18:15:18.874777+00:00",
+      "load_1m": 19.6513671875,
+      "existing_pytest": 4,
+      "projected_pytest": 5,
+      "free_gib": 11.77804183959961,
+      "allowed": false
+    },
+    {
+      "at": "2026-09-23T18:15:33.979971+00:00",
+      "load_1m": 18.8994140625,
+      "existing_pytest": 4,
+      "projected_pytest": 5,
+      "free_gib": 11.759319305419922,
+      "allowed": false
+    },
+    {
+      "at": "2026-09-23T18:15:49.043766+00:00",
+      "load_1m": 16.091796875,
+      "existing_pytest": 4,
+      "projected_pytest": 5,
+      "free_gib": 11.708415985107422,
+      "allowed": false
+    },
+    {
+      "at": "2026-09-23T18:16:04.187053+00:00",
+      "load_1m": 15.12841796875,
+      "existing_pytest": 5,
+      "projected_pytest": 6,
+      "free_gib": 11.51358413696289,
+      "allowed": false
+    },
+    {
+      "at": "2026-09-23T18:16:19.852702+00:00",
+      "load_1m": 15.02978515625,
+      "existing_pytest": 4,
+      "projected_pytest": 5,
+      "free_gib": 11.495437622070312,
+      "allowed": false
+    },
+    {
+      "at": "2026-09-23T18:16:34.978108+00:00",
+      "load_1m": 17.24365234375,
+      "existing_pytest": 4,
+      "projected_pytest": 5,
+      "free_gib": 10.417438507080078,
+      "allowed": false
+    },
+    {
+      "at": "2026-09-23T18:16:50.219642+00:00",
+      "load_1m": 20.44140625,
+      "existing_pytest": 4,
+      "projected_pytest": 5,
+      "free_gib": 10.219902038574219,
+      "allowed": false
+    },
+    {
+      "at": "2026-09-23T18:17:05.335865+00:00",
+      "load_1m": 20.9296875,
+      "existing_pytest": 4,
+      "projected_pytest": 5,
+      "free_gib": 10.212444305419922,
+      "allowed": false
+    },
+    {
+      "at": "2026-09-23T18:17:20.493639+00:00",
+      "load_1m": 22.83740234375,
+      "existing_pytest": 5,
+      "projected_pytest": 6,
+      "free_gib": 10.180583953857422,
+      "allowed": false
+    },
+    {
+      "at": "2026-09-23T18:17:35.687878+00:00",
+      "load_1m": 20.26953125,
+      "existing_pytest": 4,
+      "projected_pytest": 5,
+      "free_gib": 9.148929595947266,
+      "allowed": false
+    },
+    {
+      "at": "2026-09-23T18:17:50.868717+00:00",
+      "load_1m": 20.73828125,
+      "existing_pytest": 5,
+      "projected_pytest": 6,
+      "free_gib": 8.104400634765625,
+      "allowed": false
+    },
+    {
+      "at": "2026-09-23T18:18:06.006310+00:00",
+      "load_1m": 30.0234375,
+      "existing_pytest": 5,
+      "projected_pytest": 6,
+      "free_gib": 8.11474609375,
+      "allowed": false
+    },
+    {
+      "at": "2026-09-23T18:18:21.389310+00:00",
+      "load_1m": 31.96826171875,
+      "existing_pytest": 4,
+      "projected_pytest": 5,
+      "free_gib": 7.094879150390625,
+      "allowed": false
+    },
+    {
+      "at": "2026-09-23T18:18:36.774712+00:00",
+      "load_1m": 29.76025390625,
+      "existing_pytest": 4,
+      "projected_pytest": 5,
+      "free_gib": 7.078224182128906,
+      "allowed": false
+    },
+    {
+      "at": "2026-09-23T18:18:51.978529+00:00",
+      "load_1m": 27.29296875,
+      "existing_pytest": 4,
+      "projected_pytest": 5,
+      "free_gib": 8.049510955810547,
+      "allowed": false
+    },
+    {
+      "at": "2026-09-23T18:19:07.405537+00:00",
+      "load_1m": 26.33740234375,
+      "existing_pytest": 4,
+      "projected_pytest": 5,
+      "free_gib": 10.0462646484375,
+      "allowed": false
+    },
+    {
+      "at": "2026-09-23T18:19:22.628731+00:00",
+      "load_1m": 29.06982421875,
+      "existing_pytest": 4,
+      "projected_pytest": 5,
+      "free_gib": 8.046688079833984,
+      "allowed": false
+    },
+    {
+      "at": "2026-09-23T18:19:37.747771+00:00",
+      "load_1m": 28.76416015625,
+      "existing_pytest": 4,
+      "projected_pytest": 5,
+      "free_gib": 8.039653778076172,
+      "allowed": false
+    },
+    {
+      "at": "2026-09-23T18:19:53.133767+00:00",
+      "load_1m": 29.56787109375,
+      "existing_pytest": 4,
+      "projected_pytest": 5,
+      "free_gib": 6.960102081298828,
+      "allowed": false
+    },
+    {
+      "at": "2026-09-23T18:20:08.594202+00:00",
+      "load_1m": 26.22119140625,
+      "existing_pytest": 4,
+      "projected_pytest": 5,
+      "free_gib": 7.342597961425781,
+      "allowed": false
+    }
+  ],
+  "minimum_start_free_gib": 12,
+  "runtime_floor_gib": 8,
+  "headroom_reason": "previous full pytest fixtures consumed 3.3 GiB",
+  "window_ends_at": "2026-09-23T18:20:05.197864+00:00",
+  "exit_code": 75,
+  "finished_at": "2026-09-23T18:20:11.175973+00:00"
+}

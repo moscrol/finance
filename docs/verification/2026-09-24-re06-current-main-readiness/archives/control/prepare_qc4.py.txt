@@ -1,0 +1,182 @@
+"""Prepare a fresh independent QC tree for the current-main integration.
+No tests, builds, provider calls, or verdicts are produced here.
+"""
+from datetime import datetime, timezone
+import ast
+import hashlib
+import json
+from pathlib import Path
+import re
+import shutil
+import subprocess
+
+ROOT = Path(__file__).resolve().parent
+OLD = ROOT / "qc-k3-03"
+QC = ROOT / "qc-k3-04"
+REPO = "/Users/a77/fwp-wt-re06-ready-current-0924"
+AUTHOR = Path(REPO)
+BASE = "3bb81b9638f97b4773ce0f338df3a505b7c0162f"
+REV = "b027194f1039692b8c26cacf9310619d633c54b7"
+PREVIOUS = "7ec9d022b14db46ac667accc08c7891f27f5a1a6"
+OLD_REV = "7ec9d022b14db46ac667accc08c7891f27f5a1a6"
+OLD_BASE = "626d8a508c1c988ff094110b371987e6afdcdd15"
+OLD_ROOT = str(OLD)
+NEW_ROOT = str(QC)
+OLD_AUTHOR = "/Users/a77/fwp-wt-re06-ready-refresh-0923"
+NEW_AUTHOR = str(AUTHOR)
+TREE = QC / "candidate" / "finance-workspace-private"
+BRANCH = "baseline/re06-ready-current-0924"
+
+def sha(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+def git(*args: str) -> str:
+    return subprocess.check_output(["git", "-C", REPO, *args], text=True).strip()
+
+def replace_text(text: str) -> str:
+    for before, after in [
+        (OLD_ROOT, NEW_ROOT),
+        (OLD_AUTHOR, NEW_AUTHOR),
+        (OLD_REV, REV),
+        (OLD_BASE, BASE),
+        ("qc-k3-03", "qc-k3-04"),
+        ("re06-ready-refresh-0923", "re06-ready-current-0924"),
+        ("baseline/re06-ready-refresh-0923", BRANCH),
+    ]:
+        text = text.replace(before, after)
+    return text
+
+def copy_relocated(source: Path, target: Path) -> None:
+    target.parent.mkdir(parents=True, exist_ok=True)
+    if source.suffix in {".py", ".mjs", ".sb", ".json", ".md", ".tsx"}:
+        target.write_text(replace_text(source.read_text()))
+    else:
+        shutil.copy2(source, target)
+
+assert not QC.exists()
+assert git("rev-parse", "HEAD") == REV
+assert git("rev-parse", "HEAD^1") == "f73dce00a81fa12e28dd5d14f18bca6ae5b4c513"
+assert git("status", "--porcelain") == ""
+assert OLD.exists()
+assert json.loads((ROOT / "qc-refresh-continuation.json").read_text())["requests"] == 147
+
+subprocess.run(["git", "-C", REPO, "worktree", "add", "--detach", str(TREE), REV], check=True)
+subprocess.run(["git", "-C", REPO, "worktree", "lock", "--reason", "RE06 current-main independent QC fixed candidate", str(TREE)], check=True)
+
+for name in [
+    "config.json", "credential-bootstrap.mjs", "gateway.mjs", "run_gateway.py",
+    "review_v3.mjs", "run_stage_v3.py", "run_probe_v3.py", "stage_admission_v3.py",
+    "check_execution_v3.py", "file_tool.py", "tools-v3.sb", "sandbox_preflight.mjs",
+    "stage_boundary_preflight_v3.mjs", "execution_boundary_preflight_v3.py",
+    "provider-template.json", "resource_pytest.py", "verify_transaction_inventory.py",
+    "inputs/ui.vitest-v3.config.mjs", "inputs/qc_userspace_isolation.py",
+]:
+    copy_relocated(OLD / name, QC / name)
+shutil.copy2(QC / "tools-v3.sb", QC / "tools.sb")
+shutil.copy2(QC / "review_v3.mjs", QC / "review.mjs")
+
+config = json.loads((QC / "config.json").read_text())
+config.update({"revision": REV, "baseline": BASE, "tree": str(TREE), "author": NEW_AUTHOR})
+config["stage_group_work_request_limits"] = {"explore": {g: 3 for g in ["e2", "timer", "consent"]}, "execute": {"e2": 7, "timer": 13, "consent": 11}, "report": {g: 6 for g in ["e2", "timer", "consent"]}}
+config["stage_work_request_limits"] = {"explore": 3, "execute": 13, "report": 6}
+(QC / "config.json").write_text(json.dumps(config, ensure_ascii=False, indent=2) + "\n")
+plan = json.loads((OLD / "group-plan.json").read_text())
+plan.update({"revision": REV, "baseline": BASE, "tree": str(TREE), "author": NEW_AUTHOR,
+             "prior_requests": 147, "total_request_limit": 218, "planned_cumulative_ceiling": 216,
+             "authorization_quote": "继续", "attempt": 4, "automatic_retries": 0,
+             "budget_change_reason": "Current main integration after ten additional merges; no inherited verdicts"})
+(QC / "group-plan.json").write_text(json.dumps(plan, ensure_ascii=False, indent=2) + "\n")
+
+for name in ["tmp", "users", "controller-v3/probes"]:
+    (QC / "work" / name).mkdir(parents=True, exist_ok=True)
+for group in ["e2", "timer", "consent"]:
+    (QC / "work" / group / "probes").mkdir(parents=True, exist_ok=True)
+
+# Preserve the prior exploration bytes and mechanically relocate probe inputs into a new work root.
+for group in ["e2", "timer", "consent"]:
+    prior = QC / "inputs" / "prior-explore" / group
+    prior.mkdir(parents=True, exist_ok=True)
+    for source in (OLD / "inputs" / "prior-explore" / group).iterdir():
+        target = prior / source.name
+        shutil.copy2(source, target)
+    for source in (OLD / "work" / group / "probes").iterdir():
+        target = QC / "work" / group / "probes" / source.name
+        copy_relocated(source, target)
+    for name in ["EXPLORE.md", "transaction-review.md", "transaction-review.json"]:
+        source = OLD / "work" / group / name
+        if source.exists():
+            copy_relocated(source, QC / "work" / group / name)
+for source in (OLD / "work" / "controller-v3" / "probes").iterdir():
+    copy_relocated(source, QC / "work" / "controller-v3" / "probes" / source.name)
+
+provenance = {}
+for group in ["e2", "timer", "consent"]:
+    for source in (QC / "work" / group / "probes").iterdir():
+        old = OLD / "work" / group / "probes" / source.name
+        provenance[str(source.relative_to(QC))] = {
+            "original_path": str(old),
+            "original_sha256": sha(old.read_bytes()),
+            "relocated_sha256": sha(source.read_bytes()),
+            "host_change": "path/revision relocation only; current reviewer must accept or reject",
+        }
+(QC / "inputs" / "probe-relocation.json").write_text(json.dumps(provenance, ensure_ascii=False, indent=2) + "\n")
+
+changed = git("diff", "--name-only", PREVIOUS, REV).splitlines()
+non_docs = [p for p in changed if not p.startswith(("docs/", ".claude/", ".agent-memory/")) and p not in {"AGENTS.md", "CLAUDE.md"}]
+patch_args = ["git", "-C", REPO, "diff", PREVIOUS, REV, "--"] + non_docs
+(QC / "inputs" / "base-delta.patch").write_text(subprocess.check_output(patch_args, text=True))
+old_intelligence = git("rev-parse", PREVIOUS + ":intelligence")
+new_intelligence = git("rev-parse", REV + ":intelligence")
+(QC / "inputs" / "base-delta.json").write_text(json.dumps({
+    "previous_revision": PREVIOUS, "revision": REV, "baseline": BASE,
+    "changed_paths_count": len(changed), "non_documentation_paths": non_docs,
+    "source_candidate": "b24c86f87aaef6244dc6a2c6cf80f74ae1918943",
+    "intelligence_git_tree_before": old_intelligence,
+    "intelligence_git_tree_after": new_intelligence,
+    "entire_tracked_intelligence_subtree_identical": old_intelligence == new_intelligence,
+    "no_prior_verdict_inherited": True,
+}, ensure_ascii=False, indent=2) + "\n")
+
+for group in ["e2", "timer", "consent"]:
+    paths = set()
+    for probe in (QC / "work" / group / "probes").glob("*.py"):
+        for node in ast.walk(ast.parse(probe.read_text())):
+            if isinstance(node, ast.ImportFrom) and (node.module or "").startswith("intelligence"):
+                base = Path(node.module.replace(".", "/"))
+                for candidate in [base.with_suffix(".py"), base / "__init__.py"]:
+                    if (TREE / candidate).is_file():
+                        paths.add(str(candidate))
+    files = {}
+    for name in sorted(paths):
+        raw = (TREE / name).read_bytes()
+        files[name] = {"current_sha256": sha(raw), "revision": REV}
+    (QC / f"inputs/scope-files-{group}.json").write_text(json.dumps(files, indent=2) + "\n")
+
+claims = (OLD / "inputs" / "claims.md").read_text()
+(QC / "inputs" / "claims.md").write_text(replace_text(claims))
+
+for group in ["e2", "timer", "consent"]:
+    work = QC / "work" / group
+    focus = {"e2": "C1-C3 local_only题号/交付/恢复", "timer": "C7-C10计时生命周期、scope、旧v1兼容、真实撤回", "consent": "C4-C6共用折叠、事件时刻、锁内复核及18个事务点分类"}[group]
+    extra = "consent必须保留或重新核对transaction-review.md/json中的18处指定事务点（17业务/1基础设施），不得写成全仓保证。" if group == "consent" else ""
+    prompt = f"""你是独立增量探索审查者，只负责{group}组，重点{focus}。候选revision={REV}，baseline={BASE}，代码根={TREE}，产物目录={work}。
+这是当前main前向后的全新合流，不继承旧结论。旧探针原件在{QC}/inputs/prior-explore/{group}/，机械重定位副本在{work}/probes；哈希在inputs/probe-relocation.json。你必须静态核对并独立接受、拒绝或修订探针。当前main差分见inputs/base-delta.patch和base-delta.json；不要因为局部文件相同而继承旧verdict。
+最多3次工作请求和1次无工具收尾。只可静态read/AST/哈希检查，不得pytest、Vitest、业务smoke、API导入或网络。第3次必须写{work}/EXPLORE.md，说明当前身份、差分影响、探针接受/修改、覆盖缺口和执行阶段必红对照。{extra}
+读取120行/6000字节，bash返回6000字符，完整原始日志保留。静态Python用{config['python']} -B。缺证据必须写BLOCKED，不能签PASS。"""
+    (QC / f"prompt-explore-{group}-v4.md").write_text(prompt)
+    for stage in ["execute", "report"]:
+        old_prompt = OLD / f"prompt-{stage}-{group}-v3.md"
+        text = replace_text(old_prompt.read_text())
+        text += f"\n本轮是revision={REV}/baseline={BASE}的新合流。旧候选所有通过数和结论均不继承；先核对当前fresh EXPLORE与身份，再正式执行。工作目录已重定位，不得调用旧路径。\n"
+        (QC / f"prompt-{stage}-{group}-v4.md").write_text(text)
+
+identity = {
+    "created_at": datetime.now(timezone.utc).isoformat(), "revision": REV, "baseline": BASE,
+    "source_candidate": "b24c86f87aaef6244dc6a2c6cf80f74ae1918943", "tree_hash": git("rev-parse", REV + "^{tree}"),
+    "author": NEW_AUTHOR, "branch": BRANCH, "qc_tree": str(TREE), "main_modified": False,
+    "pushed": False, "authorization_quote": "继续", "prior_requests": 147,
+    "total_request_ceiling": 218, "planned_maximum_requests": 216, "supersedes_revision": PREVIOUS,
+    "intelligence_tree_before": old_intelligence, "intelligence_tree_after": new_intelligence,
+}
+(ROOT / "identity-03.json").write_text(json.dumps(identity, ensure_ascii=False, indent=2) + "\n")
+print(json.dumps(identity, ensure_ascii=False))

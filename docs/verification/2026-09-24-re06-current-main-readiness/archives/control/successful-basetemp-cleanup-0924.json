@@ -1,0 +1,16 @@
+{
+  "at": "2026-09-23T18:01:56.478203+00:00",
+  "removed": "/Users/a77/.finance-runtime/reviews/re06-timer-scope-acceptance-20260923-03/basetemp-python",
+  "scope": "successful pytest disposable fixtures only",
+  "evidence_sha256_unchanged": {
+    "/Users/a77/.finance-runtime/reviews/re06-timer-scope-acceptance-20260923-03/receipt.json": "bd8385ab70e917c497782ae629c60abee23f5a171d875e0dcae63ba70b0b09c7",
+    "/Users/a77/.finance-runtime/reviews/re06-timer-scope-acceptance-20260923-03/receipts/pytest.json": "93c0860d2c21c02f7359ddd31558edac26aea53163cdf327f2975bcb6258d951",
+    "/Users/a77/.finance-runtime/reviews/re06-timer-scope-acceptance-20260923-03/python-junit.xml": "5002222525708d2a04acf22459444f718362e748d98d3ec803793bfa9e2a415d"
+  },
+  "initial_cleanup": "PermissionError at test_fixture_input_hash_binds_2/prebuilt-index; partial cleanup preserved no evidence files",
+  "permission_fix": "owner rwx for fixture directories only; symlinks never followed",
+  "free_gib_before": 5.858737945556641,
+  "free_gib_after": 8.615005493164062,
+  "worktrees_deleted": false,
+  "failed_attempt_fixtures_removed": false
+}

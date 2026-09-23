@@ -1,0 +1,29 @@
+"""Archive only this completed continuation, without rewriting older packets."""
+import hashlib
+import json
+from pathlib import Path
+from archive_evidence import archive, verify
+from archive_readiness import names
+
+ROOT = Path(__file__).resolve().parent
+DOC = Path('/Users/a77/fwp-wt-closeout-workorders-0922/docs/verification/2026-09-24-re06-current-main-readiness')
+identity = json.loads((ROOT / 'identity-03.json').read_text())
+for filename in ['qc-current-continuation-0924.json', 'engineering-wait-0924.json', 'closure-0924.json']:
+    assert json.loads((ROOT / filename).read_text())['complete'], filename
+selected = [p.name for p in ROOT.iterdir() if p.is_file() and (
+    '0924' in p.name or p.name in {'identity-03.json', 'prepare_qc4.py', 'complete_qc4_setup.py', 'qc4-setup-receipt.json'})
+    and p.suffix in {'.py', '.json', '.txt'}]
+packages = [('control', ROOT, selected), ('qc-k3-04', ROOT / 'qc-k3-04', list(names(ROOT / 'qc-k3-04'))),
+            ('acceptance-05', ROOT / 'acceptance-05', list(names(ROOT / 'acceptance-05')))]
+receipts = []
+for label, source, files in packages:
+    destination = DOC / 'archives' / label
+    result = archive(source, destination, identity['revision'], files)
+    assert verify(destination) == result['files']
+    receipts.append({'archive': label, 'revision': identity['revision'], 'source': str(source), **result})
+(DOC / 'archive-verification.json').write_text(json.dumps({'status': 'PASS', 'scope': 'byte integrity only, not independent semantic QC',
+    'revision': identity['revision'], 'packages': receipts, 'model_requests': 0, 'pytest_runs': 0}, indent=2) + '\n')
+helper = ROOT / 'archive_evidence.py'
+(DOC / 'archive_evidence.py.txt').write_bytes(helper.read_bytes())
+(DOC / 'archive-helper-sha256.json').write_text(json.dumps({'source': str(helper), 'sha256': hashlib.sha256(helper.read_bytes()).hexdigest()}, indent=2) + '\n')
+print(json.dumps({'files': sum(item['files'] for item in receipts), 'raw_bytes': sum(item['raw_bytes'] for item in receipts), 'status': 'PASS'}))

@@ -1,0 +1,51 @@
+"""Exercise only the resource-timeout bookkeeping with controlled host fixtures."""
+import ast
+import copy
+from datetime import datetime, timezone
+import hashlib
+import json
+from pathlib import Path
+import re
+from types import SimpleNamespace
+
+ROOT = Path(__file__).resolve().parent
+OUT = ROOT / 'blocked-completion-preflight-0924.json'
+assert not OUT.exists()
+runs = []
+for folder, expected_complete in [('acceptance-04', False), ('acceptance-05', True)]:
+    source = ROOT / folder / 'run.py'
+    tree = ast.parse(source.read_text())
+    function = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == 'admit')
+    isolated = ast.Module(body=[function], type_ignores=[])
+    record = {'complete': False, 'leaves': {'frontend': {'status': 'NOT_STARTED'}}, 'resource_admissions': []}
+    times = iter([0, 1000])
+    snapshots = []
+    identity = {'revision': 'fixture', 'status': ''}
+    scope = {'ROOT': ROOT, 'REVISION': 'fixture', 'record': record, 're': re,
+             'subprocess': SimpleNamespace(check_output=lambda *a, **kw: ''),
+             'os': SimpleNamespace(getloadavg=lambda: (100, 100, 100)),
+             'shutil': SimpleNamespace(disk_usage=lambda _path: SimpleNamespace(free=7 * 1024**3)),
+             'time': SimpleNamespace(monotonic=lambda: next(times), sleep=lambda _: (_ for _ in ()).throw(AssertionError('unexpected sleep'))),
+             'now': lambda: 'fixture-time', 'identity': lambda: identity,
+             'save': lambda: snapshots.append(copy.deepcopy(record))}
+    exec(compile(isolated, str(source), 'exec'), scope)
+    try:
+        scope['admit']('frontend')
+    except SystemExit as exc:
+        assert exc.code == 75
+    else:
+        raise AssertionError('resource refusal did not stop')
+    assert record['complete'] is expected_complete
+    assert record['status'] == 'BLOCKED_RESOURCE_GATE'
+    assert record['leaves']['frontend']['status'] == 'BLOCKED_RESOURCE_GATE'
+    assert snapshots[-1] == record
+    runs.append({'source': str(source), 'sha256': hashlib.sha256(source.read_bytes()).hexdigest(),
+                 'observed_complete': record['complete'], 'expected_complete': expected_complete,
+                 'exit_code': 75, 'business_tests_started': 0})
+result = {'at': datetime.now(timezone.utc).isoformat(), 'status': 'PASS', 'runs': runs,
+          'scope': 'host resource-timeout bookkeeping only', 'candidate_semantic_verdict': None,
+          'old_failure_preserved': True, 'pytest_runs': 0, 'model_requests': 0}
+with OUT.open('x') as stream:
+    json.dump(result, stream, indent=2)
+    stream.write('\n')
+print(json.dumps(result))

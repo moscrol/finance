@@ -1,0 +1,24 @@
+{
+  "schema": "reversible-evidence-v1",
+  "source_root": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/acceptance-05",
+  "revision": "b027194f1039692b8c26cacf9310619d633c54b7",
+  "nonsecret_pattern_exemptions": {},
+  "files": {
+    "frontend_leaf.py": {
+      "sha256": "6a0dbc2cc223de6363306d06b2b0dd7e03fb5341db4af697f1927340e2775d59",
+      "bytes": 815,
+      "artifacts": [
+        "frontend_leaf.py.txt"
+      ],
+      "encoding": "identity"
+    },
+    "run.py": {
+      "sha256": "b122b4cccff633777d157a58fa8912e90ace43e2b238bceb0711c5bc6ff5e69a",
+      "bytes": 8010,
+      "artifacts": [
+        "run.py.txt"
+      ],
+      "encoding": "identity"
+    }
+  }
+}

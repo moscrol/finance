@@ -1,0 +1,33 @@
+{
+  "status": "PASS",
+  "scope": "byte integrity only, not independent semantic QC",
+  "revision": "b027194f1039692b8c26cacf9310619d633c54b7",
+  "packages": [
+    {
+      "archive": "control",
+      "revision": "b027194f1039692b8c26cacf9310619d633c54b7",
+      "source": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01",
+      "files": 27,
+      "raw_bytes": 92347,
+      "encoded_files": 27
+    },
+    {
+      "archive": "qc-k3-04",
+      "revision": "b027194f1039692b8c26cacf9310619d633c54b7",
+      "source": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-04",
+      "files": 110,
+      "raw_bytes": 527422,
+      "encoded_files": 110
+    },
+    {
+      "archive": "acceptance-05",
+      "revision": "b027194f1039692b8c26cacf9310619d633c54b7",
+      "source": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/acceptance-05",
+      "files": 2,
+      "raw_bytes": 8825,
+      "encoded_files": 2
+    }
+  ],
+  "model_requests": 0,
+  "pytest_runs": 0
+}

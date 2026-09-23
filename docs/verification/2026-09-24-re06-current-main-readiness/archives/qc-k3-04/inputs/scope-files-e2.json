@@ -1,0 +1,62 @@
+{
+  "intelligence/services/agent_research.py": {
+    "current_sha256": "78860f556a8230faf34cfd9afae52edcb71f044f783a6b1cd44a256d50aab3d9",
+    "revision": "b027194f1039692b8c26cacf9310619d633c54b7",
+    "before_sha256": "78860f556a8230faf34cfd9afae52edcb71f044f783a6b1cd44a256d50aab3d9",
+    "unchanged": true
+  },
+  "intelligence/services/agent_runtime.py": {
+    "current_sha256": "070d46c61abda1abb0a086490b3d27299799a8bd02eae0f96fd4247d504cde12",
+    "revision": "b027194f1039692b8c26cacf9310619d633c54b7",
+    "before_sha256": "070d46c61abda1abb0a086490b3d27299799a8bd02eae0f96fd4247d504cde12",
+    "unchanged": true
+  },
+  "intelligence/services/episode_factory.py": {
+    "current_sha256": "49b54e3baa4feac60c0760d4c9878b308d7b6343cd300c8918cc15dd99d83d05",
+    "revision": "b027194f1039692b8c26cacf9310619d633c54b7",
+    "before_sha256": "49b54e3baa4feac60c0760d4c9878b308d7b6343cd300c8918cc15dd99d83d05",
+    "unchanged": true
+  },
+  "intelligence/services/episode_protocol.py": {
+    "current_sha256": "3e8477ff109ec2fe4bd12c9d7e53f122a1c3502ebe17a301d8e0814a18b00e40",
+    "revision": "b027194f1039692b8c26cacf9310619d633c54b7",
+    "before_sha256": "3e8477ff109ec2fe4bd12c9d7e53f122a1c3502ebe17a301d8e0814a18b00e40",
+    "unchanged": true
+  },
+  "intelligence/services/episode_verifier.py": {
+    "current_sha256": "f4db3816c91a66a03c250a4679837f879dff81604eb5c2be26687c82288dd069",
+    "revision": "b027194f1039692b8c26cacf9310619d633c54b7",
+    "before_sha256": "f4db3816c91a66a03c250a4679837f879dff81604eb5c2be26687c82288dd069",
+    "unchanged": true
+  },
+  "intelligence/services/material_delivery.py": {
+    "current_sha256": "aba6ff3b61131ff8c625b4fbe387da9b75c437cc05f5621903951b72d25bfe79",
+    "revision": "b027194f1039692b8c26cacf9310619d633c54b7",
+    "before_sha256": "aba6ff3b61131ff8c625b4fbe387da9b75c437cc05f5621903951b72d25bfe79",
+    "unchanged": true
+  },
+  "intelligence/services/material_grounding.py": {
+    "current_sha256": "24f19c720c8c0a96a73cbd705902b643de02f2decf031637ce16700a4f7bc800",
+    "revision": "b027194f1039692b8c26cacf9310619d633c54b7",
+    "before_sha256": "24f19c720c8c0a96a73cbd705902b643de02f2decf031637ce16700a4f7bc800",
+    "unchanged": true
+  },
+  "intelligence/services/query_understanding.py": {
+    "current_sha256": "6642887bfc9e3004b43667496651204952be67140a5abe7c433fe855ea1eaf34",
+    "revision": "b027194f1039692b8c26cacf9310619d633c54b7",
+    "before_sha256": "6642887bfc9e3004b43667496651204952be67140a5abe7c433fe855ea1eaf34",
+    "unchanged": true
+  },
+  "intelligence/services/research_contract.py": {
+    "current_sha256": "233fa8ff8870fd3566f830f1f528bbdde563a6cf2dee99c3d303499621560014",
+    "revision": "b027194f1039692b8c26cacf9310619d633c54b7",
+    "before_sha256": "233fa8ff8870fd3566f830f1f528bbdde563a6cf2dee99c3d303499621560014",
+    "unchanged": true
+  },
+  "intelligence/services/research_tool_registry.py": {
+    "current_sha256": "01170a84216144bb3fe8ab4de55c4886cd8f0e495a1c5145378e6b5ca1068d75",
+    "revision": "b027194f1039692b8c26cacf9310619d633c54b7",
+    "before_sha256": "01170a84216144bb3fe8ab4de55c4886cd8f0e495a1c5145378e6b5ca1068d75",
+    "unchanged": true
+  }
+}

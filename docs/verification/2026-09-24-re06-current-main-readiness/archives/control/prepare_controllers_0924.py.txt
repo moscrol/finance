@@ -1,0 +1,43 @@
+"""Prepare fresh bounded dispatchers; historical runners and receipts remain untouched."""
+import ast
+import json
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent
+identity = json.loads((ROOT / 'identity-03.json').read_text())
+ACCEPT = ROOT / 'acceptance-05'
+assert not ACCEPT.exists()
+ACCEPT.mkdir()
+for name in ['run.py', 'frontend_leaf.py']:
+    text = (ROOT / 'acceptance-03' / name).read_text()
+    for before, after in [('/Users/a77/fwp-wt-re06-ready-0923', identity['author']),
+                          ('8eac9b3b55c563b1eb3be58686fcc0918464f69a', identity['revision']),
+                          ('b59d6eed0356ae093b52bd291ab328628de8790e', identity['baseline']),
+                          ('29801', '30001'), ('29804', '30004')]:
+        text = text.replace(before, after)
+    if name == 'run.py':
+        text = text.replace("record.update(status='BLOCKED_RESOURCE_GATE',finished_at=now())",
+                            "record.update(complete=True,status='BLOCKED_RESOURCE_GATE',finished_at=now(),identity_after=identity())")
+        # Finish evidence serialization before the exit status is returned to the dispatcher.
+        text += "\nraise SystemExit(0 if record['status']=='PASS' else 1)\n"
+    ast.parse(text)
+    (ACCEPT / name).write_text(text)
+text = (ROOT / 'continue_qc_refresh.py').read_text()
+text = text.replace("QC=ROOT/'qc-k3-03'", "QC=ROOT/'qc-k3-04'")
+text = text.replace("STATE=ROOT/'qc-refresh-continuation.json'", "STATE=ROOT/'qc-current-continuation-0924.json'")
+text = text.replace("[ROOT/'qc-k3-01',ROOT/'qc-k3-02',QC]", "[ROOT/'qc-k3-01',ROOT/'qc-k3-02',ROOT/'qc-k3-03',QC]")
+text = text.replace("time.monotonic()+1800", "time.monotonic()+900")
+text = text.replace("'-refresh-'", "'-current-0924-'")
+text = text.replace("    resources('frozen-dependencies')", "    resources('frozen-dependencies')\n    assert subprocess.check_output(['git','-C',CONFIG['author'],'rev-parse','HEAD'],text=True).strip()==CONFIG['revision']\n    base=subprocess.check_output(['git','-C',CONFIG['author'],'merge-base',CONFIG['revision'],'gitea/main'],text=True).strip()\n    assert int(subprocess.check_output(['git','-C',CONFIG['author'],'rev-list','--count','--merges',base+'..gitea/main'],text=True))<=5")
+ast.parse(text)
+with (ROOT / 'continue_qc_current_0924.py').open('x') as stream:
+    stream.write(text)
+record = {'revision': identity['revision'], 'baseline': identity['baseline'],
+          'qc_state': 'qc-current-continuation-0924.json', 'engineering': 'acceptance-05',
+          'resource_wait_seconds': 900, 'engineering_not_started': True,
+          'historical_runner_bug': 'acceptance-04 resource timeout complete=false retained; new runner writes complete=true',
+          'model_retry_policy': 'none', 'request_budget': {'prior': 147, 'planned_additional': 69, 'ceiling': 218}}
+with (ROOT / 'dispatch-plan-0924.json').open('x') as stream:
+    json.dump(record, stream, indent=2)
+    stream.write('\n')
+print(json.dumps(record))

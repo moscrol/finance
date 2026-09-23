@@ -1,0 +1,173 @@
+/**
+ * K3 reviewer-authored UI probe, group=timer, claim C7.
+ * Revision: b027194f1039692b8c26cacf9310619d633c54b7
+ *
+ * Independently constructed lifecycle tests for ResearchActivityControl:
+ * start / stop / conversation switch / pagehide / unmount must all speak
+ * consent_version "workbench-activity-v2" with scopes exactly ["activity-timer"]
+ * and must never emit the measurement scopes ("research" / "logging").
+ *
+ * Written from the component source + shipped bundle, not copied from the
+ * author's ResearchActivityControl.test.tsx: scenarios here (pagehide stop
+ * with no auto-resume, unmount-while-running withdrawal, global scope-token
+ * scan, interval task_id nullness) are reviewer-chosen.
+ *
+ * Run (next stage, host provides locked deps):
+ *   REVIEW_UI_PROBE=<this file> npx vitest run --configLoader native \
+ *     --config <work-root>/inputs/ui.vitest.config.mjs
+ */
+import { webcrypto } from "node:crypto";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { beforeEach, expect, it, vi } from "vitest";
+
+import { postResearchEvolutionEvents } from "../../../candidate/finance-workspace-private/intelligence/webapp/src/api";
+import { ResearchActivityControl } from "../../../candidate/finance-workspace-private/intelligence/webapp/src/components/ResearchActivityControl";
+
+vi.mock("../../../candidate/finance-workspace-private/intelligence/webapp/src/api", () => ({
+  postResearchEvolutionEvents: vi.fn(),
+}));
+const post = vi.mocked(postResearchEvolutionEvents);
+
+const START_LABEL = "同意并开始本次计时";
+const STOP_LABEL = "停止使用计时";
+const MEASUREMENT_SCOPES = ["research", "logging"];
+
+beforeEach(() => {
+  vi.stubGlobal("crypto", webcrypto);
+  post.mockReset();
+  post.mockResolvedValue(undefined);
+});
+
+function postedEvents(): Array<Record<string, any>> {
+  return post.mock.calls.flatMap(([, events]) => events as Array<Record<string, any>>);
+}
+
+function consentEvents(): Array<Record<string, any>> {
+  return postedEvents().filter((event) => event.event_type === "consent_changed");
+}
+
+/** 全局不变量：本控件发出的每条同意记录都是 v2 + 仅 activity-timer。 */
+function expectEveryConsentIsTimerV2() {
+  for (const event of consentEvents()) {
+    expect(event.payload.consent_version).toBe("workbench-activity-v2");
+    expect(event.payload.scopes).toEqual(["activity-timer"]);
+    expect(event.payload.effective_at).toBe(event.event_at);
+  }
+}
+
+/** 全局不变量：任何已发事件的 scopes 里都不出现测量 scope。 */
+function expectNoMeasurementScopeAnywhere() {
+  for (const event of postedEvents()) {
+    const scopes = (event.payload?.scopes ?? []) as string[];
+    for (const token of MEASUREMENT_SCOPES) {
+      expect(scopes).not.toContain(token);
+    }
+  }
+}
+
+async function startTimer() {
+  fireEvent.click(screen.getByRole("button", { name: START_LABEL }));
+  await screen.findByText(STOP_LABEL);
+}
+
+const tick = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+it("开始：只发 v2/activity-timer 授权，effective_at 等于 event_at，不夹带测量 scope", async () => {
+  render(<ResearchActivityControl conversationId="conv-x" user="owner-x" />);
+  expect(post).not.toHaveBeenCalled(); // 默认关闭，不预发任何同意
+  await startTimer();
+  const consents = consentEvents();
+  expect(consents).toHaveLength(1);
+  expect(consents[0].payload.action).toBe("grant");
+  expect(consents[0].participant_id).toBe("owner-x");
+  expectEveryConsentIsTimerV2();
+  expectNoMeasurementScopeAnywhere();
+});
+
+it("停止：末段区间先于撤回，撤回同为 v2/activity-timer 且严格晚于末段", async () => {
+  render(<ResearchActivityControl conversationId="conv-x" user="owner-x" />);
+  await startTimer();
+  await tick(5); // 让区间钟走出一段
+  fireEvent.click(screen.getByRole("button", { name: STOP_LABEL }));
+  await waitFor(() => expect(screen.getByRole("button", { name: START_LABEL })).toBeEnabled());
+  const closing = post.mock.calls.map(([, events]) => events as Array<Record<string, any>>)
+    .find((events) => events.some((event) => event.payload?.action === "withdraw"));
+  expect(closing).toBeDefined();
+  const withdraw = closing!.at(-1)!;
+  expect(withdraw.event_type).toBe("consent_changed");
+  expect(withdraw.payload.action).toBe("withdraw");
+  const intervals = closing!.filter((event) => event.event_type === "time_interval");
+  for (const interval of intervals) {
+    // 计时区间不得冒充冻结试点任务分配
+    expect(interval.task_id).toBeNull();
+    expect(interval.participant_id).toBe("owner-x");
+    expect(Date.parse(withdraw.event_at)).toBeGreaterThan(Date.parse(interval.event_at));
+  }
+  expectEveryConsentIsTimerV2();
+  expectNoMeasurementScopeAnywhere();
+});
+
+it("计时中切会话：只对旧会话/旧用户补 v2/activity-timer 撤回，新会话不自动授权", async () => {
+  const { rerender } = render(<ResearchActivityControl key="a" conversationId="conv-a" user="owner-a" />);
+  await startTimer();
+  await tick(5);
+  rerender(<ResearchActivityControl key="b" conversationId="conv-b" user="owner-b" />);
+  await waitFor(() => {
+    expect(consentEvents().some((event) => event.payload.action === "withdraw")).toBe(true);
+  });
+  // 所有请求都发往旧会话、以旧用户身份
+  for (const [conversation, , user] of post.mock.calls) {
+    expect(conversation).toBe("conv-a");
+    expect(user).toBe("owner-a");
+  }
+  // 新会话/新用户没有任何授权记录，控件回到默认关闭
+  expect(consentEvents().filter((event) => event.participant_id === "owner-b")).toHaveLength(0);
+  expect(screen.getByRole("button", { name: START_LABEL })).toBeEnabled();
+  expectEveryConsentIsTimerV2();
+  expectNoMeasurementScopeAnywhere();
+});
+
+it("pagehide：停止并补 v2/activity-timer 撤回，不自动恢复，之后可见性变化不再发事件", async () => {
+  render(<ResearchActivityControl conversationId="conv-x" user="owner-x" />);
+  await startTimer();
+  await tick(5);
+  fireEvent(window, new Event("pagehide"));
+  await waitFor(() => {
+    expect(consentEvents().some((event) => event.payload.action === "withdraw")).toBe(true);
+  });
+  await waitFor(() => expect(screen.getByRole("button", { name: START_LABEL })).toBeEnabled());
+  const countAfterPagehide = post.mock.calls.length;
+  document.dispatchEvent(new Event("visibilitychange")); // 钟已停，监听已移除
+  await tick(5);
+  expect(post.mock.calls).toHaveLength(countAfterPagehide);
+  // 不自动恢复：再次开始必须是用户显式点击，且是新的 v2/activity-timer 授权
+  await startTimer();
+  const grants = consentEvents().filter((event) => event.payload.action === "grant");
+  expect(grants).toHaveLength(2);
+  expectEveryConsentIsTimerV2();
+  expectNoMeasurementScopeAnywhere();
+});
+
+it("卸载运行中的控件：仍补发 v2/activity-timer 撤回", async () => {
+  const { unmount } = render(<ResearchActivityControl conversationId="conv-x" user="owner-x" />);
+  await startTimer();
+  await tick(5);
+  unmount();
+  await waitFor(() => {
+    expect(consentEvents().some((event) => event.payload.action === "withdraw")).toBe(true);
+  });
+  expectEveryConsentIsTimerV2();
+  expectNoMeasurementScopeAnywhere();
+});
+
+it("授权被拒：尽力补发的撤回同样是 v2/activity-timer，不升级为测量 scope", async () => {
+  post.mockRejectedValueOnce(new Error("拒收同意"));
+  render(<ResearchActivityControl conversationId="conv-x" user="owner-x" />);
+  fireEvent.click(screen.getByRole("button", { name: START_LABEL }));
+  await screen.findByRole("alert");
+  await waitFor(() => {
+    expect(consentEvents().some((event) => event.payload.action === "withdraw")).toBe(true);
+  });
+  expectEveryConsentIsTimerV2();
+  expectNoMeasurementScopeAnywhere();
+});

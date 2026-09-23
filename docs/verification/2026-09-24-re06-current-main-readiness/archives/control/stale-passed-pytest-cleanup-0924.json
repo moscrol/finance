@@ -1,0 +1,33 @@
+{
+  "started_at": "2026-09-23T18:07:12.931300+00:00",
+  "complete": true,
+  "removed": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/acceptance-03/basetemp-python",
+  "acceptance_status_unchanged": "NOT_PASS",
+  "removal_reason": "pytest passed; rejection solely from base drift 15 over limit 5",
+  "collected": 14813,
+  "failed": 0,
+  "errors": 0,
+  "evidence_sha256_before": {
+    "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/acceptance-03/run.py": "9d0c771dfd33e89fe6a442efa44295bf11bf61598b100293a388704161f87aee",
+    "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/acceptance-03/registry-4.log.txt": "9730a43a0a4535867153d7ac0afd888b1feaaa96f3846b2922c39a16ad068e89",
+    "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/acceptance-03/registry-5.log.txt": "8eaf18bf15386b5249b8203ed0ad1b097fb08d6c7fbcd42ebb2a2dc9325d20cf",
+    "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/acceptance-03/e2e.log.txt": "e057885a87129733d18f9a7e82d2f0fc9a1e89eae4924d6d6c7238800580e374",
+    "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/acceptance-03/controller.log.txt": "3a837998d550636a6c16bccc7c102ed0858802edda11902876a70d2d8f7de9fb",
+    "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/acceptance-03/registry-3.log.txt": "362c2b566827eb15434ae230b1ce60edad2006c45ff08836d0a24fc744447261",
+    "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/acceptance-03/frontend.log.txt": "67cf77c07ecc4c84473c197902b8e1bc3ffd64b51c3b47b6fbca088331d677b1",
+    "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/acceptance-03/frontend_leaf.py": "856ea0a22c4a698a5b6ff48416f474b21f28b1aef7630386b07a8c90800d41fa",
+    "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/acceptance-03/pytest.log.txt": "8815e88492d6ec886203943f22fd1c4fb7dfcb2918c163fabf1ffe2365a19e8a",
+    "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/acceptance-03/python-receipt-check.log.txt": "64c07a3bb8aa9bbc41b5e3af6e114b13b6cd99a933f456027c4475bbeae9226a",
+    "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/acceptance-03/registry-2.log.txt": "8c996aaec0fcd03defec5afb55f6ebb96935c7a5bc571e1811410de6339fe0df",
+    "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/acceptance-03/python-junit.xml": "7afe2bbb74a7aee964cb7c4032f30778ab8a89b644cc51d2cf33051f89e425ef",
+    "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/acceptance-03/python-full-scope-check.log.txt": "88444e327d1a37a1b49fd237ecb33c533b75154a13fd6026cc376365efb3d673",
+    "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/acceptance-03/registry-1.log.txt": "b2d7a8d77df0fdc0f638e93d711f397b07859eb91e6aa5d45d793a52f2abef60",
+    "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/acceptance-03/ruff.log.txt": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+    "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/acceptance-03/receipt.json": "547220b61a339223b867853c49367372265f7b7be6fa977a74509b65432f01c8",
+    "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/acceptance-03/receipts/pytest.json": "4dc8b6e277416265c2ac70b910043901496ec17c853c44fe676800dbb4ba32a1"
+  },
+  "worktrees_deleted": false,
+  "free_gib_before": 7.194332122802734,
+  "evidence_hashes_unchanged": true,
+  "free_gib_after": 10.397571563720703
+}

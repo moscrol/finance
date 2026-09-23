@@ -1,0 +1,93 @@
+"""Fresh identity, incremental exploration, exact accounting, no model retries."""
+from datetime import datetime,timezone
+import fcntl
+import json
+import os
+from pathlib import Path
+import re
+import shutil
+import subprocess
+import sys
+import time
+ROOT=Path(__file__).resolve().parent
+QC=ROOT/'qc-k3-04'; CONFIG=json.loads((QC/'config.json').read_text())
+STATE=ROOT/'qc-current-continuation-0924.json'
+record={'started_at':datetime.now(timezone.utc).isoformat(),'complete':False,'status':'PREPARING','revision':CONFIG['revision'],'request_ceiling':218,'automatic_model_retries':0,'steps':[],'resource_admissions':[]}
+def save():
+    p=STATE.with_suffix('.tmp'); p.write_text(json.dumps(record,indent=2)+'\n'); p.replace(STATE)
+def requests():
+    count=0
+    for q in [ROOT/'qc-k3-01',ROOT/'qc-k3-02',ROOT/'qc-k3-03',QC]:
+        for folder in q.iterdir():
+            if folder.is_dir() and (folder.name=='gateway' or re.fullmatch(r'(explore|execute|report)-(e2|timer|consent)(-v[23])?',folder.name)):
+                p=folder/'request-admissions.jsonl'
+                if p.exists(): count+=len(p.read_text().splitlines())
+    return count
+def stop(reason):
+    record.update(complete=True,status=reason,requests=requests(),finished_at=datetime.now(timezone.utc).isoformat()); save(); print(json.dumps({'status':reason,'requests':record['requests']}),flush=True); raise SystemExit(75)
+def run(name,args,cwd=None):
+    p=ROOT/(name+'-current-0924-'+str(time.time_ns())+'.log.txt')
+    with p.open('xb') as log:
+        process=subprocess.Popen(args,cwd=cwd,env={**os.environ,'CI':'1','PYTHONDONTWRITEBYTECODE':'1'},stdin=subprocess.DEVNULL,stdout=log,stderr=subprocess.STDOUT)
+        record['active']={'name':name,'pid':process.pid,'command':args}; save(); code=process.wait()
+    record.pop('active',None); record['steps'].append({'name':name,'exit_code':code,'log':str(p)}); save(); return code
+def resources(name,deadline=None):
+    deadline=deadline or time.monotonic()+900
+    pattern=re.compile(r'^\S*/(?:Python|python(?:3(?:\.\d+)?)?)\s+(?:-B\s+)?-m\s+pytest(?:\s|$)|^\S*/pytest(?:\s|$)')
+    while True:
+        rows=subprocess.check_output(['ps','-axo','command='],text=True).splitlines(); count=sum(bool(pattern.search(p.strip())) for p in rows)
+        load=os.getloadavg()[0]; free=shutil.disk_usage(ROOT).free/1024**3
+        allowed=load<=8 and count+1<=2 and free>=8
+        record['resource_admissions'].append({'name':name,'at':datetime.now(timezone.utc).isoformat(),'load_1m':load,'existing_pytest':count,'projected_pytest':count+1,'free_gib':free,'allowed':allowed})
+        record['status']='WAITING_FOR_RESOURCES'; save()
+        if allowed: return
+        if time.monotonic()>=deadline: stop('BLOCKED_RESOURCE_GATE')
+        time.sleep(15)
+lock=(ROOT/'qc-current-0924.lock').open('a')
+fcntl.flock(lock.fileno(),fcntl.LOCK_EX|fcntl.LOCK_NB)
+assert not STATE.exists(); save()
+try:
+    assert json.loads((ROOT/'qc-k3-02/report-e2-v3/execution.json').read_text())['complete']
+    assert requests()+69<=218
+    resources('frozen-dependencies')
+    assert subprocess.check_output(['git','-C',CONFIG['author'],'rev-parse','HEAD'],text=True).strip()==CONFIG['revision']
+    base=subprocess.check_output(['git','-C',CONFIG['author'],'merge-base',CONFIG['revision'],'gitea/main'],text=True).strip()
+    assert int(subprocess.check_output(['git','-C',CONFIG['author'],'rev-list','--count','--merges',base+'..gitea/main'],text=True))<=5
+    if run('frozen-dependencies',['pnpm','install','--frozen-lockfile'],str(Path(CONFIG['tree'])/'intelligence/webapp')): stop('BLOCKED_DEPENDENCIES')
+    modules=Path(CONFIG['tree'])/'intelligence/webapp/node_modules'
+    for path in [QC/'inputs/node_modules',QC/'work/node_modules']: path.symlink_to(modules,target_is_directory=True)
+    deadline=time.monotonic()+900
+    while True:
+        resources('execution-preflight',deadline)
+        code=run('execution-preflight',[sys.executable,'-B',str(QC/'execution_boundary_preflight_v3.py')])
+        if code==0: break
+        if code!=75: stop('BLOCKED_EXECUTION_PREFLIGHT')
+        if time.monotonic()>=deadline: stop('BLOCKED_PREFLIGHT_RESOURCE_GATE')
+        time.sleep(15)
+    if run('gateway',[sys.executable,str(QC/'run_gateway.py')]): stop('BLOCKED_GATEWAY')
+    if json.loads((QC/'gateway/receipt.json').read_text()).get('status')!='PASS': stop('BLOCKED_GATEWAY_RESULT')
+    for group in ['e2','timer','consent']:
+        for stage in ['explore','execute','report']:
+            maximum=CONFIG['stage_group_work_request_limits'][stage][group]+1
+            if requests()+maximum>218: stop('BLOCKED_REQUEST_BUDGET')
+            if stage=='execute':
+                if group=='consent' and run('inventory-before',[sys.executable,str(QC/'verify_transaction_inventory.py')]): stop('BLOCKED_TRANSACTION_INVENTORY')
+                if run('admit-execute-'+group,[sys.executable,str(QC/'stage_admission_v3.py'),'execute',group,'--check-only']): stop('BLOCKED_EXPLORE_ARTIFACTS_'+group.upper())
+                resources('execute-'+group)
+            if stage=='report':
+                if group=='consent' and run('inventory-after',[sys.executable,str(QC/'verify_transaction_inventory.py')]): stop('BLOCKED_TRANSACTION_INVENTORY')
+                if run('check-execution-'+group,[sys.executable,str(QC/'check_execution_v3.py'),group]): stop('BLOCKED_EXECUTION_EVIDENCE_'+group.upper())
+            runner='run_stage_v3.py' if stage=='explore' else 'stage_admission_v3.py'
+            record['status']='RUNNING_'+stage.upper()+'_'+group.upper(); save()
+            if run(stage+'-'+group,[sys.executable,str(QC/runner),stage,group]): stop('BLOCKED_STAGE_DISPATCH_'+stage.upper()+'_'+group.upper())
+            result=json.loads((QC/f'{stage}-{group}-v3/execution.json').read_text())
+            if result.get('status')!='STAGE_COMPLETE': stop('BLOCKED_'+stage.upper()+'_'+group.upper())
+            if stage=='report':
+                final=QC/'work'/group/'FINAL.json'
+                if not final.is_file() or not (final.with_suffix('.md')).is_file(): stop('BLOCKED_FINAL_ARTIFACTS_'+group.upper())
+                data=json.loads(final.read_text())
+                if data.get('revision')!=CONFIG['revision'] or data.get('baseline')!=CONFIG['baseline']: stop('BLOCKED_FINAL_IDENTITY_'+group.upper())
+    record.update(complete=True,status='ALL_GROUP_STAGES_FINISHED_REQUIRES_HOST_AGGREGATION',requests=requests(),finished_at=datetime.now(timezone.utc).isoformat()); save()
+except SystemExit: raise
+except Exception as exc:
+    record.update(exception_type=type(exc).__name__,exception_message=str(exc)); stop('BLOCKED_CONTROLLER')

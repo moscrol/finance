@@ -1,0 +1,356 @@
+"""K3 reviewer-authored probes, group=timer, claims C8/C9/C10 (C7 ships separately as TSX).
+
+Revision under review: b027194f1039692b8c26cacf9310619d633c54b7
+Baseline:              3bb81b9638f97b4773ce0f338df3a505b7c0162f
+
+Scope of these probes
+---------------------
+They exercise the *candidate* ``intelligence/services/product_value/consent.py``
+functions ``measurement_scopes`` / ``scopes_at`` / ``covers_measurement`` with
+reviewer-built consent ledgers (written to ``tmp_path`` first, then loaded back,
+so no production data is touched and no real LLM is involved).
+
+What is mirrored vs. imported:
+- ``measurement_scopes`` / ``scopes_at`` / ``covers_measurement`` are imported
+  from the candidate tree (read-only import, no writes).
+- The write-side gate composition (run_observer.ObservingRunStore._measurement_consented)
+  and the read-side timeline composition (measure._consent_timeline) are
+  *re-implemented* here as tiny mirrors, because constructing the real
+  ObservingRunStore needs a Run/store fixture stack. The mirrors follow the
+  exact call sequence observed in the source at:
+    - run_observer.py lines ~155-175 (skip non-consent, skip non-owner,
+      skip unparseable effective_at, skip measurement_scopes is None,
+      default True when no entries, else covers_measurement(scopes_at(...)))
+    - measure.py lines ~146-166 (participant_id required, None scopes skipped)
+  If the candidate changes that sequence, these mirrors stop being faithful;
+  that residual risk is recorded in EXPLORE.md.
+
+NOT covered here (honest limits):
+- C7 frontend lifecycle (covered by probes/activity-reviewer.test.tsx, and the
+  committed-bundle check in EXPLORE.md).
+- content_hash pipeline inside events.py/summarize.py beyond a no-mutation
+  check on the event dict passed through measurement_scopes.
+"""
+
+from __future__ import annotations
+
+import copy
+import json
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+
+import pytest
+
+CANDIDATE_ROOT = Path(
+    "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/"
+    "qc-k3-02/candidate/finance-workspace-private"
+)
+if str(CANDIDATE_ROOT) not in sys.path:
+    sys.path.insert(0, str(CANDIDATE_ROOT))
+
+from intelligence.services.product_value import consent as consent_fold  # noqa: E402
+from intelligence.services.product_value.contracts import (  # noqa: E402
+    ACTIVITY_TIMER_SCOPE,
+    REQUIRED_MEASUREMENT_SCOPES,
+)
+
+T0 = datetime(2026, 9, 1, 0, 0, 0, tzinfo=timezone.utc)
+T1 = datetime(2026, 9, 1, 1, 0, 0, tzinfo=timezone.utc)
+T2 = datetime(2026, 9, 1, 2, 0, 0, tzinfo=timezone.utc)
+T3 = datetime(2026, 9, 1, 3, 0, 0, tzinfo=timezone.utc)
+
+
+# ---------------------------------------------------------------------------
+# ledger construction helpers (reviewer-authored)
+# ---------------------------------------------------------------------------
+
+def _event(
+    *,
+    scopes,
+    action="grant",
+    consent_version="workbench-activity-v2",
+    source_channel="frontend",
+    protocol_version="workbench-activity/v2",
+    pilot_id="pilot-1",
+    participant_id="u1",
+    owner_user_id="u1",
+    task_id="task-1",
+    effective_at="2026-09-01T00:00:00+00:00",
+    event_at="2026-09-01T00:00:00+00:00",
+    content_hash="ch_deadbeef",
+):
+    return {
+        "event_id": f"ev-{action}-{effective_at}",
+        "event_type": "consent_changed",
+        "event_at": event_at,
+        "source_channel": source_channel,
+        "source_version": {"protocol_version": protocol_version},
+        "pilot_id": pilot_id,
+        "participant_id": participant_id,
+        "owner_user_id": owner_user_id,
+        "task_id": task_id,
+        "payload": {
+            "action": action,
+            "scopes": list(scopes),
+            "effective_at": effective_at,
+            "consent_version": consent_version,
+        },
+        "content_hash": content_hash,
+    }
+
+
+def _legacy_timer_event(**overrides):
+    """The old v1 control's full self-use shape (research+logging misused as timer)."""
+    base = dict(
+        scopes=sorted(REQUIRED_MEASUREMENT_SCOPES),
+        consent_version="workbench-activity-v1",
+        source_channel="frontend",
+        protocol_version="workbench-self-use/v1",
+        pilot_id="workbench:self-use",
+        participant_id="u1",
+        owner_user_id="u1",
+        task_id=None,
+    )
+    base.update(overrides)
+    return _event(**base)
+
+
+def _write_ledger(tmp_path: Path, events) -> list[dict]:
+    path = tmp_path / "consent_ledger.json"
+    path.write_text(json.dumps(events, ensure_ascii=False, indent=1), encoding="utf-8")
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+# ---------------------------------------------------------------------------
+# mirrors of the two observed call-site compositions
+# ---------------------------------------------------------------------------
+
+def _write_side_gate(events, owner: str, at: datetime) -> bool:
+    """Mirror of run_observer._measurement_consented lines ~155-175."""
+    entries = []
+    for event in events:
+        if event.get("event_type") != "consent_changed":
+            continue
+        if event.get("participant_id") not in (None, owner):
+            continue
+        effective = datetime.fromisoformat(event["payload"]["effective_at"])
+        scopes = consent_fold.measurement_scopes(event)
+        if scopes is None:
+            continue
+        entries.append((effective, str(event["payload"].get("action")), scopes))
+    if not entries:
+        return True  # self-use default: no measurement-domain records
+    return consent_fold.covers_measurement(consent_fold.scopes_at(entries, at))
+
+
+def _read_side_scopes(events, participant: str, at: datetime):
+    """Mirror of measure._consent_timeline + _scopes_at (None == unknown)."""
+    entries = []
+    for event in events:
+        if event.get("event_type") != "consent_changed" or not event.get("participant_id"):
+            continue
+        effective = datetime.fromisoformat(event["payload"]["effective_at"])
+        scopes = consent_fold.measurement_scopes(event)
+        if scopes is None:
+            continue
+        entries.append((effective, str(event["payload"].get("action")), scopes))
+    if not entries:
+        return None
+    return consent_fold.scopes_at(entries, at)
+
+
+# ---------------------------------------------------------------------------
+# C8: pure timer is not measurement intent; empty/partial/mixed must not
+#     fall back to the self-use default
+# ---------------------------------------------------------------------------
+
+def test_c8_pure_timer_scope_returns_none(tmp_path):
+    (event,) = _write_ledger(tmp_path, [
+        _event(scopes=[ACTIVITY_TIMER_SCOPE], task_id=None, pilot_id="workbench:self-use"),
+    ])
+    assert consent_fold.measurement_scopes(event) is None
+
+
+def test_c8_empty_scope_set_is_intent_not_absence(tmp_path):
+    (event,) = _write_ledger(tmp_path, [_event(scopes=[])])
+    scopes = consent_fold.measurement_scopes(event)
+    assert scopes is not None, "empty scope set must not be treated as 'no record'"
+    assert scopes == frozenset()
+    # write side: an empty-scope record still counts as a measurement-domain
+    # record, so the self-use default (True) must NOT kick in.
+    assert _write_side_gate([event], owner="u1", at=T1) is False
+
+
+def test_c8_partial_scope_does_not_fall_back_to_default(tmp_path):
+    (event,) = _write_ledger(tmp_path, [_event(scopes=["research"])])
+    assert consent_fold.measurement_scopes(event) == frozenset({"research"})
+    assert _write_side_gate([event], owner="u1", at=T1) is False
+
+
+def test_c8_mixed_timer_plus_partial_keeps_partial(tmp_path):
+    (event,) = _write_ledger(tmp_path, [_event(scopes=[ACTIVITY_TIMER_SCOPE, "research"])])
+    scopes = consent_fold.measurement_scopes(event)
+    assert scopes == frozenset({"research"})
+    assert _write_side_gate([event], owner="u1", at=T1) is False
+
+
+def test_c8_full_measurement_grant_passes_gate(tmp_path):
+    (event,) = _write_ledger(tmp_path, [_event(scopes=sorted(REQUIRED_MEASUREMENT_SCOPES))])
+    assert consent_fold.measurement_scopes(event) == REQUIRED_MEASUREMENT_SCOPES
+    assert _write_side_gate([event], owner="u1", at=T1) is True
+
+
+# ---------------------------------------------------------------------------
+# C9: legacy v1 read-compat only for the complete self-use timer shape,
+#     symmetric for grant/withdraw
+# ---------------------------------------------------------------------------
+
+def test_c9_legacy_full_self_use_shape_converts_to_timer(tmp_path):
+    (event,) = _write_ledger(tmp_path, [_legacy_timer_event()])
+    assert consent_fold.measurement_scopes(event) is None
+
+
+def test_c9_legacy_conversion_symmetric_grant_and_withdraw(tmp_path):
+    grant, withdraw = _write_ledger(tmp_path, [
+        _legacy_timer_event(action="grant"),
+        _legacy_timer_event(action="withdraw", effective_at="2026-09-01T01:00:00+00:00"),
+    ])
+    assert consent_fold.measurement_scopes(grant) is None
+    assert consent_fold.measurement_scopes(withdraw) is None
+
+
+@pytest.mark.parametrize(
+    "override",
+    [
+        {"source_channel": "server"},                      # 来源不匹配
+        {"protocol_version": "workbench-self-use/v2"},     # 协议不匹配
+        {"participant_id": "someone-else"},                # 参与者不匹配
+        {"owner_user_id": ""},                             # 无 owner
+        {"task_id": "task-9"},                             # 带任务
+        {"pilot_id": "pilot-42"},                          # 非 workbench: 试点
+        {"scopes": ["research"]},                          # scope 不匹配（仅部分）
+        {"consent_version": "workbench-activity-v2"},      # 仅版本不同
+    ],
+    ids=[
+        "wrong_source",
+        "wrong_protocol",
+        "participant_mismatch",
+        "missing_owner",
+        "task_bound",
+        "non_workbench_pilot",
+        "partial_scopes",
+        "version_alone",
+    ],
+)
+def test_c9_legacy_shape_mismatch_is_not_converted(tmp_path, override):
+    (event,) = _write_ledger(tmp_path, [_legacy_timer_event(**override)])
+    scopes = consent_fold.measurement_scopes(event)
+    assert scopes is not None, f"legacy shape with {override} must not be read as timer"
+    if override.get("scopes") == ["research"]:
+        assert scopes == frozenset({"research"})
+    else:
+        assert scopes == REQUIRED_MEASUREMENT_SCOPES
+
+
+def test_c9_version_alone_does_not_convert(tmp_path):
+    """consent_version v1 + 正确 scope 但其余形状不符 → 不转换。"""
+    (event,) = _write_ledger(tmp_path, [
+        _event(
+            scopes=sorted(REQUIRED_MEASUREMENT_SCOPES),
+            consent_version="workbench-activity-v1",
+            protocol_version="workbench-pilot/v3",
+            pilot_id="pilot-7",
+            participant_id="pilot-user-1",
+            owner_user_id="u1",
+            task_id="task-1",
+        )
+    ])
+    assert consent_fold.measurement_scopes(event) == REQUIRED_MEASUREMENT_SCOPES
+
+
+# ---------------------------------------------------------------------------
+# C10: real measurement withdrawal is not overridden by re-starting the timer;
+#      timer-only records never grant pilot measurement; raw record untouched
+# ---------------------------------------------------------------------------
+
+def test_c10_real_withdrawal_not_overridden_by_timer_restart(tmp_path):
+    events = _write_ledger(tmp_path, [
+        _event(scopes=sorted(REQUIRED_MEASUREMENT_SCOPES), action="grant",
+               effective_at="2026-09-01T00:00:00+00:00"),
+        _event(scopes=sorted(REQUIRED_MEASUREMENT_SCOPES), action="withdraw",
+               effective_at="2026-09-01T01:00:00+00:00"),
+        # user re-starts the activity timer afterwards (v2, activity-timer only)
+        _event(scopes=[ACTIVITY_TIMER_SCOPE], action="grant", task_id=None,
+               pilot_id="workbench:self-use",
+               effective_at="2026-09-01T02:00:00+00:00"),
+    ])
+    # write side: gate must stay closed at T3
+    assert _write_side_gate(events, owner="u1", at=T3) is False
+    # read side: folded scopes at T3 must not cover measurement
+    scopes = _read_side_scopes(events, participant="u1", at=T3)
+    assert scopes is not None
+    assert not consent_fold.covers_measurement(scopes)
+
+
+def test_c10_legacy_timer_restart_does_not_override_real_withdrawal(tmp_path):
+    events = _write_ledger(tmp_path, [
+        _event(scopes=sorted(REQUIRED_MEASUREMENT_SCOPES), action="withdraw",
+               effective_at="2026-09-01T01:00:00+00:00"),
+        _legacy_timer_event(action="grant", effective_at="2026-09-01T02:00:00+00:00"),
+    ])
+    assert _write_side_gate(events, owner="u1", at=T3) is False
+
+
+def test_c10_timer_only_records_never_grant_measurement(tmp_path):
+    events = _write_ledger(tmp_path, [
+        _event(scopes=[ACTIVITY_TIMER_SCOPE], action="grant", task_id=None,
+               pilot_id="workbench:self-use"),
+    ])
+    # write side: no measurement-domain records -> self-use default True,
+    # but that is the *self-use* default, not a pilot grant...
+    assert _write_side_gate(events, owner="u1", at=T1) is True
+    # ...while the read side must report *unknown* (None), never a grant.
+    assert _read_side_scopes(events, participant="u1", at=T1) is None
+    # and a pilot participant with only timer records has no measurement scope
+    assert _read_side_scopes(events, participant="pilot-user-1", at=T1) is None
+
+
+def test_c10_measurement_scopes_does_not_mutate_raw_event(tmp_path):
+    (event,) = _write_ledger(tmp_path, [_legacy_timer_event()])
+    snapshot = copy.deepcopy(event)
+    consent_fold.measurement_scopes(event)
+    assert event == snapshot, "read-compat must not rewrite the raw ledger record"
+    assert event["content_hash"] == "ch_deadbeef"
+    assert event["payload"]["scopes"] == sorted(REQUIRED_MEASUREMENT_SCOPES)
+
+
+def test_c10_read_side_unknown_vs_empty_distinction(tmp_path):
+    """空集授权 ≠ 无记录：读侧对空集授权返回空集而非 None。"""
+    events = _write_ledger(tmp_path, [_event(scopes=[], action="grant")])
+    scopes = _read_side_scopes(events, participant="u1", at=T1)
+    assert scopes == frozenset()
+    assert not consent_fold.covers_measurement(scopes)
+
+
+def test_c10_read_side_uses_real_measure_implementation(tmp_path):
+    """同一台账直接喂给候选 measure._consent_timeline / _scopes_at（非镜像）。
+
+    作者测试表明 measure 在本解释器下可导入；若环境变化则 importorskip 如实跳过。
+    """
+    M = pytest.importorskip("intelligence.services.product_value.measure")
+    events = _write_ledger(tmp_path, [
+        _event(scopes=sorted(REQUIRED_MEASUREMENT_SCOPES), action="grant",
+               effective_at="2026-09-01T00:00:00+00:00", event_at="2026-09-01T00:00:00+00:00"),
+        _event(scopes=sorted(REQUIRED_MEASUREMENT_SCOPES), action="withdraw",
+               effective_at="2026-09-01T01:00:00+00:00", event_at="2026-09-01T01:00:00+00:00"),
+        _event(scopes=[ACTIVITY_TIMER_SCOPE], action="grant", task_id=None,
+               pilot_id="workbench:self-use",
+               effective_at="2026-09-01T02:00:00+00:00", event_at="2026-09-01T02:00:00+00:00"),
+    ])
+    timeline = M._consent_timeline(events)
+    scopes = M._scopes_at(timeline, "u1", T3)
+    assert scopes is not None, "有测量域记录时不得返回未知(None)"
+    assert not consent_fold.covers_measurement(scopes), "重新计时不得覆盖真实测量撤回"
+    # 纯计时参与者：时间线里根本没有测量域条目 -> 读侧未知而非授权
+    assert M._scopes_at(timeline, "ghost", T3) is None

@@ -1,6 +1,9 @@
 # RE06 / E2 Deployment Readiness
 
-## 当前结论
+> 本包为09-23历史快照，原件不改。当前候选已更新为b027/QC04，见
+> [09-24接续证据](../2026-09-24-re06-current-main-readiness/README.md)。下列“当前”均指本包封存时刻；acceptance-05在后续仅完成runner准备，尚未执行。
+
+## 封存时结论
 
 **NOT_READY / BLOCKED_RESOURCE_GATE，不可合入或部署。** 最新候选
 `7ec9d022b14db46ac667accc08c7891f27f5a1a6`，base

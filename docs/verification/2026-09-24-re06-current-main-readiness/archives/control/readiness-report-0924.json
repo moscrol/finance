@@ -1,0 +1,61 @@
+{
+  "at": "2026-09-23T18:23:30.284708+00:00",
+  "status": "NOT_READY",
+  "mergeable": false,
+  "deployable": false,
+  "identity": {
+    "created_at": "2026-09-23T17:59:02.063646+00:00",
+    "revision": "b027194f1039692b8c26cacf9310619d633c54b7",
+    "baseline": "3bb81b9638f97b4773ce0f338df3a505b7c0162f",
+    "source_candidate": "b24c86f87aaef6244dc6a2c6cf80f74ae1918943",
+    "tree_hash": "42343b30c704260847a65395345694e889161e2b",
+    "author": "/Users/a77/fwp-wt-re06-ready-current-0924",
+    "branch": "baseline/re06-ready-current-0924",
+    "qc_tree": "/Users/a77/.finance-runtime/reviews/re06-deploy-readiness-20260923-01/qc-k3-04/candidate/finance-workspace-private",
+    "main_modified": false,
+    "pushed": false,
+    "authorization_quote": "\u7ee7\u7eed",
+    "prior_requests": 147,
+    "total_request_ceiling": 218,
+    "planned_maximum_requests": 216,
+    "supersedes_revision": "7ec9d022b14db46ac667accc08c7891f27f5a1a6",
+    "intelligence_tree_before": "38563f3da4481ab2e17132f2b737c14191dd63ca",
+    "intelligence_tree_after": "63b670fa50b3ab6716998fbceb823f011e6740e9"
+  },
+  "closure": "closure-0924.json",
+  "current_engineering": "BLOCKED_RESOURCE_GATE",
+  "current_qc": "BLOCKED_RESOURCE_GATE",
+  "current_claims": {
+    "C1": "not_verified",
+    "C2": "not_verified",
+    "C3": "not_verified",
+    "C4": "not_verified",
+    "C5": "not_verified",
+    "C6": "not_verified",
+    "C7": "not_verified",
+    "C8": "not_verified",
+    "C9": "not_verified",
+    "C10": "not_verified"
+  },
+  "quality": "not_evaluated",
+  "natural_financial_quality": "not_evaluated",
+  "p7": "not_executed_not_authorized",
+  "requests": {
+    "prior": 147,
+    "new": 0,
+    "total": 147,
+    "ceiling": 218,
+    "remaining": 71,
+    "shipping_prior_separate": 73
+  },
+  "business_delta": [
+    "intelligence/api/structured_reports.py",
+    "intelligence/cli.py",
+    "intelligence/runtime/conversation_orchestrator.py",
+    "intelligence/tests/test_public_delivery_gate_status_rank.py"
+  ],
+  "historical_verdicts_inherited": false,
+  "new_runtime_changes": false,
+  "resource_window_seconds": 900,
+  "old_1251_file_archive_reverified": true
+}

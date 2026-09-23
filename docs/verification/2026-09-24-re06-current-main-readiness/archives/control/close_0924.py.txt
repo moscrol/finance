@@ -1,0 +1,57 @@
+"""Seal resource-blocked work without inheriting earlier acceptance or QC verdicts."""
+from datetime import datetime, timezone
+import json
+from pathlib import Path
+import subprocess
+
+ROOT = Path(__file__).resolve().parent
+identity = json.loads((ROOT / 'identity-03.json').read_text())
+qc = json.loads((ROOT / 'qc-current-continuation-0924.json').read_text())
+engineering = json.loads((ROOT / 'engineering-wait-0924.json').read_text())
+assert qc['complete'] and engineering['complete']
+assert qc['status'] == engineering['status'] == 'BLOCKED_RESOURCE_GATE'
+assert qc['steps'] == [] and qc['requests'] == 147
+assert not engineering['acceptance_run_started']
+assert not (ROOT / 'acceptance-05/receipt.json').exists()
+real_phases = [p for p in (ROOT / 'qc-k3-04').iterdir() if p.is_dir() and
+               (p.name == 'gateway' or p.name.startswith(('explore-', 'execute-', 'report-')))]
+assert not real_phases
+for relative in ['sandbox-preflight-final-02/receipt.json', 'stage-boundary-preflight-v3-current.json']:
+    preflight = json.loads((ROOT / 'qc-k3-04' / relative).read_text())
+    assert preflight['status'] == 'PASS' and preflight['real_model_requests'] == 0
+assert not list((ROOT / 'qc-k3-04/work').glob('*/runs/*/receipt.json'))
+assert subprocess.run(['/bin/ps', '-p', '3166,13220', '-o', 'pid='], capture_output=True).returncode == 1
+ports = [30001, 30004]
+for port in ports:
+    check = subprocess.run(['/usr/sbin/lsof', '-nP', f'-iTCP:{port}', '-sTCP:LISTEN'], capture_output=True)
+    assert check.returncode == 1 and not check.stdout
+for tree in [identity['author'], identity['qc_tree']]:
+    assert subprocess.check_output(['git', '-C', tree, 'rev-parse', 'HEAD'], text=True).strip() == identity['revision']
+    assert subprocess.check_output(['git', '-C', tree, 'status', '--porcelain'], text=True).strip() == ''
+def git(*args):
+    return subprocess.check_output(['git', '-C', identity['author'], *args], text=True).strip()
+main = git('rev-parse', 'gitea/main')
+base = git('merge-base', identity['revision'], main)
+drift = int(git('rev-list', '--count', '--merges', base + '..' + main))
+closure = {'complete': True, 'at': datetime.now(timezone.utc).isoformat(), 'status': 'BLOCKED_RESOURCE_GATE',
+           'revision': identity['revision'], 'baseline': identity['baseline'],
+           'controllers_ended': [3166, 13220], 'ports_without_listeners': ports,
+           'author_and_qc_clean': True, 'latest_main': main, 'base_drift_merges': drift,
+           'actual_candidate_tests': 0, 'actual_candidate_builds': 0, 'actual_model_requests': 0,
+           'acceptance_05': 'prepared_runner_only_not_executed', 'automatic_followups': False,
+           'push_pr_merge_deploy_production_writes': False, 'worktrees_deleted': False,
+           'last_resource_admission': qc['resource_admissions'][-1]}
+report = {'at': closure['at'], 'status': 'NOT_READY', 'mergeable': False, 'deployable': False,
+          'identity': identity, 'closure': 'closure-0924.json', 'current_engineering': engineering['status'],
+          'current_qc': qc['status'], 'current_claims': {f'C{i}': 'not_verified' for i in range(1, 11)},
+          'quality': 'not_evaluated', 'natural_financial_quality': 'not_evaluated', 'p7': 'not_executed_not_authorized',
+          'requests': {'prior': 147, 'new': 0, 'total': 147, 'ceiling': 218, 'remaining': 71,
+                       'shipping_prior_separate': 73},
+          'business_delta': json.loads((ROOT / 'candidate-static-validation-0924.json').read_text())['changed_intelligence_paths_since_previous'],
+          'historical_verdicts_inherited': False, 'new_runtime_changes': False,
+          'resource_window_seconds': 900, 'old_1251_file_archive_reverified': True}
+for name, value in [('closure-0924.json', closure), ('readiness-report-0924.json', report)]:
+    with (ROOT / name).open('x') as stream:
+        json.dump(value, stream, indent=2)
+        stream.write('\n')
+print(json.dumps(closure))

@@ -1,0 +1,15 @@
+{
+  "revision": "b027194f1039692b8c26cacf9310619d633c54b7",
+  "baseline": "3bb81b9638f97b4773ce0f338df3a505b7c0162f",
+  "qc_state": "qc-current-continuation-0924.json",
+  "engineering": "acceptance-05",
+  "resource_wait_seconds": 900,
+  "engineering_not_started": true,
+  "historical_runner_bug": "acceptance-04 resource timeout complete=false retained; new runner writes complete=true",
+  "model_retry_policy": "none",
+  "request_budget": {
+    "prior": 147,
+    "planned_additional": 69,
+    "ceiling": 218
+  }
+}
