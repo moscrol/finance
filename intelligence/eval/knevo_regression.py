@@ -236,6 +236,7 @@ def inspect_run(directory: Path, case: RegressionCase) -> dict:
                 "deadline_exhausted": call.get("issue") == "semantic judge deadline exhausted",
                 "timeout_asked": call.get("timeout_asked"),
                 "remaining_seconds_at_entry": call.get("remaining_seconds_at_entry"),
+                "elapsed_seconds": call.get("elapsed_seconds"),
                 "report_passed": (call.get("report") or {}).get("passed"),
                 "rejected_sentence_indexes": (call.get("report") or {}).get("rejected_sentence_indexes"),
                 "protocol_failure": _protocol_failure_summary(call.get("protocol_failure")),

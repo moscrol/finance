@@ -1306,6 +1306,43 @@ class _ToolCallAssembler:
         return [self._calls[index] for index in self._order]
 
 
+@contextmanager
+def _tool_response_window(response: object, deadline: Deadline) -> Iterator[None]:
+    """Interrupt urllib body reads at the call deadline, not the idle timeout.
+
+    urllib exposes the connected socket through HTTPResponse.fp.raw. Shutdown
+    wakes a blocked buffered read; response.close alone can wait on its lock.
+    This starts after urlopen: DNS/connect/header blocking is not preempted here.
+    """
+    if deadline.remaining() <= 0:
+        raise TimeoutError("tool response deadline exhausted")
+    raw = getattr(getattr(response, "fp", None), "raw", None)
+    sock = getattr(raw, "_sock", None)
+    timer = None
+    if sock is not None:
+        def interrupt() -> None:
+            try:
+                sock.shutdown(socket.SHUT_RDWR)
+            except OSError:
+                pass  # The reader may already have closed the connection.
+
+        timer = threading.Timer(deadline.remaining(), interrupt)
+        timer.daemon = True
+        timer.start()
+    try:
+        yield
+        if deadline.remaining() <= 0:
+            raise TimeoutError("tool response deadline exhausted")
+    except Exception as exc:
+        if deadline.remaining() <= 0:
+            raise TimeoutError("tool response deadline exhausted") from exc
+        raise
+    finally:
+        if timer is not None:
+            timer.cancel()
+            timer.join()
+
+
 def _post_chat_message_stream(
     provider: LLMProvider,
     messages: list[dict],
@@ -1360,10 +1397,16 @@ def _post_chat_message_stream(
     usage: dict | None = None
     served_model = ""
     saw_any_chunk = False
+    deadline = Deadline(started + max(0.0, float(timeout)))
     try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:
+        with (
+            urllib.request.urlopen(request, timeout=timeout) as response,
+            _tool_response_window(response, deadline),
+        ):
             attempt.observe_response(response=response)
             for raw_line in response:
+                if deadline.remaining() <= 0:
+                    raise TimeoutError("tool response deadline exhausted")
                 if is_cancelled is not None and is_cancelled():
                     raise LLMStreamCancelled()
                 line = raw_line.decode("utf-8", "replace").strip()
@@ -1475,8 +1518,12 @@ def _post_chat_message(
     )
     started = time.monotonic()
     attempt = _new_call_attempt(provider, messages)
+    deadline = Deadline(started + max(0.0, float(timeout)))
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
+        with (
+            urllib.request.urlopen(req, timeout=timeout) as resp,
+            _tool_response_window(resp, deadline),
+        ):
             body = json.loads(resp.read().decode("utf-8"))
             attempt.observe_response(body, resp)
         choice = body["choices"][0]

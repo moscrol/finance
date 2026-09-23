@@ -26,6 +26,7 @@ import inspect
 import json
 import os
 import re
+import time
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import date
@@ -2880,18 +2881,30 @@ class SemanticEpisodeVerifier:
         shared_deadline = ResearchDeadline.from_timeout(min(window, deadline.synthesis_timeout(window)))
         if isinstance(deadline, ResearchDeadline):
             shared_deadline = replace(shared_deadline, expires_at=min(shared_deadline.expires_at, deadline.expires_at))
-        first = self._run_judge_once(request, shared_deadline)
+        stages: list[dict[str, object]] = []
+
+        def run_stage(payload: dict[str, object], stage: str) -> _JudgeCall:
+            started = time.monotonic()
+            call = self._run_judge_once(payload, shared_deadline)
+            stages.append({
+                "stage": stage, "request": payload,
+                "report": call.report.to_dict() if call.report else None,
+                "unavailable": call.unavailable, "issue": call.issue,
+                "timeout_asked": call.timeout_asked,
+                "remaining_seconds_at_entry": call.remaining_seconds_at_entry,
+                "elapsed_seconds": max(0.0, time.monotonic() - started),
+                "protocol_failure": call.protocol_failure,
+            })
+            return call
+
+        first = run_stage(request, "material_review")
         if first.report is None:
-            return first
+            return replace(first, material_review_calls=tuple(stages))
         isolated = nonfactual_review_request(first.report.material_claim_checks)
         if isolated is None:
-            return first
-        second = self._run_judge_once(isolated, shared_deadline)
-        calls = tuple({"stage": stage, "request": payload, "report": call.report.to_dict() if call.report else None,
-                       "unavailable": call.unavailable, "issue": call.issue, "timeout_asked": call.timeout_asked,
-                       "remaining_seconds_at_entry": call.remaining_seconds_at_entry,
-                       "protocol_failure": call.protocol_failure}
-                      for stage, payload, call in (("material_review", request, first), ("nonfactual_review", isolated, second)))
+            return replace(first, material_review_calls=tuple(stages))
+        second = run_stage(isolated, "nonfactual_review")
+        calls = tuple(stages)
         if second.report is None or shared_deadline.expired:
             return replace(second, report=None, unavailable=True, monotonic_release_safe=False,
                            material_review_calls=calls, issue="material nonfactual review unavailable")

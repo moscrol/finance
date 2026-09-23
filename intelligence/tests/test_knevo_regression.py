@@ -241,7 +241,7 @@ def test_inspect_preserves_protocol_and_budget_diagnostics_without_private_text(
             "judge_protocol_failure": failure,
             "material_review_calls": [
                 {"stage": "material_review", "unavailable": False,
-                 "timeout_asked": 75, "remaining_seconds_at_entry": 150,
+                 "timeout_asked": 75, "remaining_seconds_at_entry": 150, "elapsed_seconds": 74.5,
                  "request": {"text": "PRIVATE_REQUEST"},
                  "report": {"passed": False, "rejected_sentence_indexes": [4],
                             "issues": ["PRIVATE_JUDGE_REASON"]}},
@@ -263,6 +263,8 @@ def test_inspect_preserves_protocol_and_budget_diagnostics_without_private_text(
     }
     first, second = result["material_review_stages"]
     assert first["report_passed"] is False
+    assert first["elapsed_seconds"] == 74.5
+    assert second["elapsed_seconds"] is None  # Legacy absence stays unknown.
     assert first["rejected_sentence_indexes"] == [4]
     assert first["deadline_exhausted"] is False
     assert second["unavailable"] is True
