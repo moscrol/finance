@@ -1,0 +1,214 @@
+{
+  "at": "2026-09-21T10:43:55.655013+00:00",
+  "operator_triggered_collection": false,
+  "checks": {
+    "sync": {
+      "loaded": "gui/501/com.financeworkspace.daily-full-review-sync = {\n\tactive count = 0\n\tpath = /Users/a77/Library/LaunchAgents/com.financeworkspace.daily-full-review-sync.plist\n\ttype = LaunchAgent\n\tstate = not running\n\n\tprogram = /bin/zsh\n\targuments = {\n\t\t/bin/zsh\n\t\t/Users/a77/.local/bin/nightly-full-review-s7.sh\n\t\tsync\n\t}\n\n\tworking directory = /Users/a77/finance-workspace-private\n\n\tstdout path = /Users/a77/finance-workspace-private/logs/daily-full-review.out.log\n\tstderr path = /Users/a77/finance-workspace-private/logs/daily-full-review.err.log\n\tinherited environment = {\n\t\tSSH_AUTH_SOCK => /var/run/com.apple.launchd.wE72UADeq2/Listeners\n\t}\n\n\tdefault environment = {\n\t\tPATH => /usr/bin:/bin:/usr/sbin:/sbin\n\t}\n\n\tenvironment = {\n\t\tOSLogRateLimit => 64\n\t\tREVIEW_GATE_LOCK_ATTEMPTS => 36\n\t\tMARKET_FEATURE_STORE_DB => /Users/a77/finance-workspace-private/db/market_feature_store.duckdb\n\t\tFINANCE_SYNC_PYTHON => /Users/a77/finance-workspace-private/.venv-workbench/bin/python\n\t\tFINANCE_PYTHON => /Users/a77/finance-workspace-private/.venv-workbench/bin/python\n\t\tFINANCE_SYNC_CODE_ROOT => /Users/a77/.finance-runtime/finance-sync-adcda94b5e40\n\t\tREVIEW_GATE_LOCK_DELAY_SECONDS => 10\n\t\tFINANCE_OPS_HEALTH_LOG => /Users/a77/.finance-runtime/ops-health.log\n\t\tREVIEW_SYNC_PLAN => local\n\t\tFINANCE_DATA_ROOT => /Users/a77/finance-workspace-private\n\t\tFINANCE_WS => /Users/a77/finance-workspace-private\n\t\tFINANCE_CODE_ROOT => /Users/a77/.finance-runtime/finance-sync-adcda94b5e40\n\t\tXPC_SERVICE_NAME => com.financeworkspace.daily-full-review-sync\n\t}\n\n\tdomain = gui/501 [100002]\n\tasid = 100002\n\tminimum runtime = 10\n\texit timeout = 5\n\truns = 0\n\tlast exit code = (never exited)\n\n\tevent triggers = {\n\t\tcom.financeworkspace.daily-full-review-sync.268435500 => {\n\t\t\tkeepalive = 0\n\t\t\tservice = com.financeworkspace.daily-full-review-sync\n\t\t\tstream = com.apple.launchd.calendarinterval\n\t\t\tmonitor = com.apple.UserEventAgent-Aqua\n\t\t\tdescriptor = {\n\t\t\t\t\"Minute\" => 30\n\t\t\t\t\"Hour\" => 18\n\t\t\t}\n\t\t}\n\t}\n\n\tevent channels = {\n\t\t\"com.apple.launchd.calendarinterval\" = {\n\t\t\tport = 0x0\n\t\t\tactive = 0\n\t\t\tmanaged = 1\n\t\t\treset = 0\n\t\t\thide = 0\n\t\t\twatching = 1\n\t\t}\n\t}\n\n\tspawn type = daemon (3)\n\tjetsam priority = 40\n\tjetsam memory limit (active) = (unlimited)\n\tjetsam memory limit (inactive) = (unlimited)\n\tjetsamproperties category = daemon\n\tjetsam thread limit = 32\n\tcpumon = default\n\n\tproperties = inferred program\n}\n",
+      "plist_sha256": "1921f278d3e5fe088f81fa87faba11dc844a024e8b0e25043a9bdaa0e52eabe5"
+    },
+    "finalize": {
+      "loaded": "gui/501/com.financeworkspace.daily-full-review-finalize = {\n\tactive count = 0\n\tpath = /Users/a77/Library/LaunchAgents/com.financeworkspace.daily-full-review-finalize.plist\n\ttype = LaunchAgent\n\tstate = not running\n\n\tprogram = /bin/zsh\n\targuments = {\n\t\t/bin/zsh\n\t\t/Users/a77/.local/bin/nightly_full_review.sh\n\t\tfinalize\n\t}\n\n\tworking directory = /Users/a77/finance-workspace-private\n\n\tstdout path = /Users/a77/finance-workspace-private/logs/daily-full-review.out.log\n\tstderr path = /Users/a77/finance-workspace-private/logs/daily-full-review.err.log\n\tinherited environment = {\n\t\tSSH_AUTH_SOCK => /var/run/com.apple.launchd.wE72UADeq2/Listeners\n\t}\n\n\tdefault environment = {\n\t\tPATH => /usr/bin:/bin:/usr/sbin:/sbin\n\t}\n\n\tenvironment = {\n\t\tOSLogRateLimit => 64\n\t\tFINANCE_SYNC_CODE_ROOT => /Users/a77/.finance-runtime/finance-sync-adcda94b5e40\n\t\tREVIEW_GATE_LOCK_ATTEMPTS => 36\n\t\tMARKET_FEATURE_STORE_DB => /Users/a77/finance-workspace-private/db/market_feature_store.duckdb\n\t\tFINANCE_PYTHON => /Users/a77/finance-workspace-private/.venv-workbench/bin/python\n\t\tFINANCE_GENERATION_CODE_ROOT => /Users/a77/.finance-runtime/finance-generation-adcda94b5e40\n\t\tREVIEW_GATE_LOCK_DELAY_SECONDS => 10\n\t\tFINANCE_OPS_HEALTH_LOG => /Users/a77/.finance-runtime/ops-health.log\n\t\tREVIEW_SYNC_PLAN => local\n\t\tFORESIGHT_USERS_DIR => /Users/a77/.local/share/finance-workbench/users\n\t\tFINANCE_DATA_ROOT => /Users/a77/finance-workspace-private\n\t\tFINANCE_WS => /Users/a77/finance-workspace-private\n\t\tFINANCE_CODE_ROOT => /Users/a77/.finance-runtime/finance-l2-adcda94b5e40\n\t\tFORESIGHT_USER => linxiaoqi5111\n\t\tXPC_SERVICE_NAME => com.financeworkspace.daily-full-review-finalize\n\t}\n\n\tdomain = gui/501 [100002]\n\tasid = 100002\n\tminimum runtime = 10\n\texit timeout = 5\n\truns = 0\n\tlast exit code = (never exited)\n\n\tevent triggers = {\n\t\tcom.financeworkspace.daily-full-review-finalize.268435501 => {\n\t\t\tkeepalive = 0\n\t\t\tservice = com.financeworkspace.daily-full-review-finalize\n\t\t\tstream = com.apple.launchd.calendarinterval\n\t\t\tmonitor = com.apple.UserEventAgent-Aqua\n\t\t\tdescriptor = {\n\t\t\t\t\"Minute\" => 40\n\t\t\t\t\"Hour\" => 20\n\t\t\t}\n\t\t}\n\t}\n\n\tevent channels = {\n\t\t\"com.apple.launchd.calendarinterval\" = {\n\t\t\tport = 0x0\n\t\t\tactive = 0\n\t\t\tmanaged = 1\n\t\t\treset = 0\n\t\t\thide = 0\n\t\t\twatching = 1\n\t\t}\n\t}\n\n\tspawn type = daemon (3)\n\tjetsam priority = 40\n\tjetsam memory limit (active) = (unlimited)\n\tjetsam memory limit (inactive) = (unlimited)\n\tjetsamproperties category = daemon\n\tjetsam thread limit = 32\n\tcpumon = default\n\n\tproperties = inferred program\n}\n",
+      "plist_sha256": "71fe78623f56129e08f93b183e531ad9fadc9d270f0e07e9d15500f50ee2ecbe"
+    }
+  },
+  "roots": {
+    "sync": {
+      "head": "adcda94b5e401158f1c3aa51f210e1e8d0f0b713",
+      "status": ""
+    },
+    "generation": {
+      "head": "adcda94b5e401158f1c3aa51f210e1e8d0f0b713",
+      "status": ""
+    },
+    "l2": {
+      "head": "adcda94b5e401158f1c3aa51f210e1e8d0f0b713",
+      "status": ""
+    }
+  },
+  "health": {
+    "http_status": 200,
+    "body": {
+      "status": "healthy",
+      "timestamp": "2026-09-21T18:43:55+08:00",
+      "dependencies": {
+        "repo_root": true,
+        "knowledge_wiki": true,
+        "relations": true,
+        "vector_index": true,
+        "rag_runtime": true,
+        "market_snapshot": true,
+        "frontend_built": true
+      },
+      "runtime": {
+        "source_revision": "f2c3e9e1a24f42ae9b1d5a8cb9e501ababd1330a",
+        "source_dirty": false,
+        "code_root": "/Users/a77/.finance-runtime/finance-workspace-f2c3e9e1a24f",
+        "loaded_code_root": "/Users/a77/.finance-runtime/finance-workspace-f2c3e9e1a24f/intelligence",
+        "loaded_tree_fingerprint": "20d02ebcde1a21a50641500383b647e87b2a570d1c298b9ed405665cff73adf5",
+        "loaded_module_count": 1132,
+        "repo_tree_fingerprint": "20d02ebcde1a21a50641500383b647e87b2a570d1c298b9ed405665cff73adf5",
+        "repo_module_count": 1132,
+        "code_matches_repo": true,
+        "python_executable": "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/bin/python3.12",
+        "python_version": "3.12.13",
+        "python_prefix": "/Users/a77/finance-workspace-private/.venv-workbench",
+        "dependency_fingerprint": "5806597184587c866b1bc17fcd6bb01492cab03727d32ab9197f85a182ad2bb6",
+        "dependencies": {
+          "fastapi": "0.139.0",
+          "pydantic": "2.13.4",
+          "httpx": "0.25.2",
+          "duckdb": "1.5.4",
+          "pytest": "8.3.5"
+        },
+        "finance_root": "/Users/a77/finance-workspace-private",
+        "continuous_agent": {
+          "mode": "on",
+          "canary_id": "",
+          "source_revision": "f2c3e9e1a24f42ae9b1d5a8cb9e501ababd1330a"
+        },
+        "auth_mode": "off",
+        "credits": {
+          "enabled": false,
+          "signup_gift": 0,
+          "pricing_source": "builtin-default",
+          "hold_points": 100
+        },
+        "agent_runtime": {
+          "backend": "continuous_glm",
+          "ready": true,
+          "reason": "ready",
+          "model": "kimi-k3",
+          "credential_available": true,
+          "benchmark_only": false
+        },
+        "users_dir": "/Users/a77/.local/share/finance-workbench/users"
+      }
+    }
+  },
+  "readiness": {
+    "http_status": 503,
+    "body": {
+      "status": "not_ready",
+      "timestamp": "2026-09-21T18:43:55+08:00",
+      "checks": {
+        "repo_root": true,
+        "knowledge_wiki": true,
+        "relations": true,
+        "vector_index": true,
+        "rag_runtime": true,
+        "market_snapshot": true,
+        "frontend_built": true,
+        "rag_query_protocol": true,
+        "rag_worker": true,
+        "run_store_writable": true,
+        "market_snapshot_contract": true,
+        "market_data_consistency": false,
+        "code_snapshot_matches_repo": true
+      },
+      "critical": {
+        "repo_root": true,
+        "run_store_writable": true,
+        "knowledge_wiki": true,
+        "relations": true,
+        "vector_index": true,
+        "rag_query_protocol": true,
+        "rag_worker": true,
+        "market_snapshot": true,
+        "market_data_consistency": false
+      },
+      "missing_critical": [
+        "market_data_consistency"
+      ],
+      "rag": {
+        "available": true,
+        "query_protocol_compatible": true,
+        "supported_options": [
+          "--json",
+          "--k",
+          "--mode",
+          "--evidence-chars"
+        ],
+        "missing_required_options": [],
+        "missing_optional_options": [
+          "--evidence-layer",
+          "--fact-hardness",
+          "--source-type",
+          "--as-of",
+          "--receipt"
+        ],
+        "warning": "RAG CLI 使用 legacy query 协议"
+      },
+      "market_snapshot": {
+        "status": "PASS",
+        "ready": true,
+        "date": "2026-09-21",
+        "requested_date": "2026-09-21",
+        "provider": "akshare_exact",
+        "source": "AkShare",
+        "summary": {
+          "theme_count": 52,
+          "strong_stock_count": 103,
+          "market_stage": "上涨阶段",
+          "latest_trade_date": "2026-09-21",
+          "requested_trade_date": "2026-09-21",
+          "served_trade_date": "2026-09-21",
+          "provider": "akshare_exact",
+          "source": "AkShare",
+          "source_updated_at": null,
+          "quality": "complete",
+          "freshness": "fresh"
+        },
+        "errors": [],
+        "warnings": []
+      },
+      "market_database": {
+        "date": "2026-09-18",
+        "snapshot_date": "2026-09-21",
+        "consistent_with_snapshot": false,
+        "required_by_continuous_runtime": true
+      },
+      "workers": {
+        "active": 0,
+        "queued": 0,
+        "capacity": 4,
+        "max_active_per_user": 1,
+        "max_queued": 4,
+        "timeout_sec": 900,
+        "rag": {
+          "enabled": true,
+          "state": "ready",
+          "active": 1,
+          "configured_workers": 1,
+          "model_load_count": 1,
+          "prewarm_latency_ms": 73957,
+          "last_error_type": null,
+          "lifecycle": "startup_prewarm",
+          "counters": {
+            "queries_served": 1,
+            "timeouts_abandoned_kept_warm": 0,
+            "timeouts_killed": 0,
+            "stale_responses_drained": 0,
+            "recoveries": 0,
+            "keepalive_sent": 0,
+            "keepalive_timeouts": 0,
+            "keepalive_skipped_busy": 0
+          },
+          "abandoned_in_flight": 0,
+          "rss_bytes": 1032929280,
+          "idle_seconds": 1764.4,
+          "keepalive_interval_seconds": 0.0
+        }
+      },
+      "recovered_runs": 0,
+      "open_episodes": {
+        "count": 2,
+        "episode_ids": [
+          "run_20260917_202956_828111:msg_aeafc1152bb04f31ae2ad1ffb918c8b6",
+          "run_20260917_234112_374567:msg_67af05100a464b3f8cb82f16ac9a2d94"
+        ],
+        "truncated": false
+      }
+    }
+  },
+  "lock_absent": true
+}
