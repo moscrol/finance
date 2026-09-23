@@ -16,10 +16,12 @@
 
 ## 合流后的工程证据
 
-- 已 fetch 最新 `gitea/main=bbd53487f4cefdae97eae90f7322394d36e65462`，连续六次无冲突前向整合；本次快照提交完成后的 HEAD 才是最终门禁候选，`merge-tree --write-tree` 与实际 merge 均 exit 0，具体完整 revision 只以最终收据为准。
-- 最新 main 的 #879/#873/#881/#882/#876 收口提交清理了基线中的 Knevo 回归/材料文件、更新门禁指针，并改动门禁/数据库快照代码；本枝在合流时保留本 PR 自己的实现、题面和证据（因此本枝不是 main 的同树快照，不能把 main 的删除误报为本枝缺证）。
-- 先前合流候选 `8b3a1cd07` 的 Python 全仓为 **14606 passed / 85 skipped / 2 xfailed / 0 failed**，Ruff、前端六步、registry 四项及 ledger/spec crosswalk 均通过；这些只作过程证据，不能冒充最终候选。
-- 本次快照提交完成后，最终证据统一写入 `~/.finance-runtime/knevo-absorption-20260923/final-closure/`：`python-targeted.json`、`python-full.json`、`frontend/frontend.json`、`registry.log`、`diff-check.txt`，另保留各步原始日志。各收据 JSON 的 `revision` 字段是唯一可信的最终候选身份；收据完成后不再改 tracked 文件。
+- 已无冲突整合 `gitea/main=bbd53487f4cefdae97eae90f7322394d36e65462`；实际合流提交 `11727a1a9`，之后文档提交 `2bdc62222`。本次勘误提交后固定候选运行门禁，完整 revision 以收据为准。
+- 勘误：此前把 `git diff HEAD..gitea/main` 中本枝新增文件的 `D` 误写成主干删除。该端点比较不能证明删除历史。#879 的实际变化（`86d3e558e..9a0227986`）只有四份 claim-scope 文档；#876（`5f35da172..bbd53487f`）实际改动 13 个门禁/数据库快照及相关文件。本枝的 Knevo 实现、题面、观察文件未丢失。
+- 历史固定候选 `537c4c4c4fbc8171b4480068cf9003891b27edf6`：Python 全仓 **14606 passed / 85 skipped / 2 xfailed / 0 failed**、定向 335P；前端六步通过（单元 120P、E2E 34P/2S）；registry 四项及 crosswalk 通过、98 条 warning。这些保留在 `final-closure/` 原路径，不覆盖、不改签给后续候选。
+- 本次勘误后的证据放 `~/.finance-runtime/knevo-absorption-20260923/final-closure/runs/<完整revision>/`，逐步保留收据、原始日志与退出码；完成后由 `final-closure/current.json` 索引具体结果，缺文件不视作已跑。此处是运行前快照，不预写成功；后续结果和推送状态以该索引及 PR #877 回读为准，不再为了更新计数改动已测 tracked 文件。
+- 主干再次移动只记录差异与 merge-tree 结果，不自动反复合流重跑。WIP 推送交付的是固定审查候选，不是合入批准；真正合 main 前仍须对届时的组合候选验全门禁。
+- 状态来源勘误：runtime 根的 `execution.json` 是四条实际运行记录（`semantic_verdict=not_evaluated`）；`final-prepare-85bff6326.json` 才是 `prepared_not_run/cases=12`。后续语义判断来自仓内 `batches/2026-09-23-regression/observations.json`，不是准备包或执行退出码。
 
 ## 失败归因与重开顺序
 
