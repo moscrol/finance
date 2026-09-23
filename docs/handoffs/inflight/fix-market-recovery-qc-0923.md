@@ -1,27 +1,27 @@
 # 行情恢复 QC 续验
 
 ## 这个分支做什么
-修复#871/#861的F1/F2/F3与FinanceQuery截止；工程叶子已绿，恢复整体仍HOLD。
+修复#871/#861与查询截止，整体HOLD；本轮新增代码，不再沿用旧完整绿。
 
 ## 决策与被否方案
 | 选了什么 | 否了什么 / 理由 |
 | --- | --- |
-| 固定候选串行完整门禁 | 不用定向绿覆盖旧红，不放宽超时；六项旧失败根因未证 |
-| GLM独立澄清原报告 | 不由作者改原文；静态代码和作者151P不增加独立覆盖 |
-| 有界资源准入与观测 | worktree非资源隔离；不杀别人任务、不追main循环重跑 |
-展开：`docs/handoffs/2026-09-23-market-recovery-suite.md`。
+| 整行hash与日期并集 | 不追加字符串字段/NULL哨兵，防漏列和新增日期 |
+| 资源准入不足即BLOCKED | 不降门槛、不杀他人任务、不删失败证据 |
+| 原报告旁注、新原件可逆封套 | 不修改reviewer字节或裁旧空白凑绿 |
+展开：`docs/handoffs/2026-09-23-market-recovery-acceptance.md`。
 
 ## 当前状态
-代码仍f22cd22b6，本轮无产品改动。固定1de68567e740（tree de67ee72b9e，base c9dd71dfd）完成全部工程叶子；15:48 UTC收尾零漂移、两树净、执行进程/测试服务已退出。未push/合入/部署/写生产。证据入口`docs/verification/2026-09-23-market-recovery-suite/README.md`，179机器归档/180原件。此前5213完整4F与前端2F保留，不改判。
+代码已提交0d3f562cb；固定合流6b43ac82a059，base3bb81b9638f9，tree94cfa97e84e。新候选396P/Ruff/注册表五项过；完整门禁等待604.6秒资源不足，Python与前端均未启动。独审F3为PASS_WITH_LIMITS，旧1de全量绿不移签。未push/合入/部署/生产恢复或换库。证据入口`docs/verification/2026-09-23-market-recovery-acceptance/README.md`，118原件/116封套。旧归档未动，完整差异空白仍exit2。
 
 ## 未验证 / 已知边界
-F1真实CLI/subprocess/release/夜跑；F2默认daily、其他字段、并发、严格写前时序；F3真实build-then-stale、完整指纹、并发、部分写后回滚仍缺。旧F1/F2/F3独审只签50330cf；新截止独审仅签1de。main已有受托业务决策文档，不再说五问无人决定，但本会话没有真实恢复/换库/发布授权。
+F1完整夜跑至成功发布；F2默认daily坏数据/其他字段/并发源变化；F3完整build输入新鲜度、任意并发；FQ真实DuckDB中断与阻塞IO抢占。旧独审不重签；新F3仅apply侧3探针，手工计划不能称真实build。main业务决策已存在，不等于本会话生产授权。
 
 ## 下一步
-补上述隔离边界，工程绿不等于恢复准入；冻结原件空白使完整文档差异检查exit2，未改字节/加豁免。新代码或基座需重组候选重验，不移签本轮结果。原件在`~/.finance-runtime/reviews/market-recovery-qc-20260923/suite-followup/`，候选/ref和失败scratch保留。
+协调磁盘及并发后新目录重跑完整门禁；先核最终候选/基座，勿改此轮收据。原件根`~/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/`；两detached树/ref保留。控制器已退出，不会自动重试。补合同边界与旧归档格式裁决后再谈合入。
 
 ## 踩过的坑
-macOS comm截断导致漏数pytest，非UTF参数会解码失败；v2错误放行仅停本轮进程，98秒中断保留，v3解析7项自测通过。作者收集被目录metadata挡住，补该目录元数据后151P且内容仍拒读。核验v1猜错positive_control.xml，被断言拦住，实际positive.xml。一次性脚本未推广为通用隔离工具。
+`--require-full-scope`只拒-k/ignore等过滤，不要求仓根目标；396P始终定向。独审旧模板main漂移句与手工build过述均另附勘误。worktree不隔离资源，原件不可为格式绿裁剪。
 
 ## 已验证
-完整Python14911P/85S/2X、14998 collected、0F/0E；前端120P、E2E34P/2S，lint/typecheck/build和注册表五项绿；全范围收据校验exit0。GLM三阶段6请求全200，独立4P、1阳性对照检出、旧版2行为失败/2P，澄清PASS_WITH_LIMITS；作者151P另账。原截止测试本次JUnit0.032秒，不证明实时保证或旧红归因。旧候选RAG三文件诊断90P、52观测子进程退出，不累加到完整覆盖。
+旧代码新反例11F/7P；新候选14文件396P。作者实际CLI临时库/写前DML观察/部分写入四表回滚/真实build变旧/一组双连接竞争/非空迟到fetch通过。GLM4请求全200，独立3P、作者46P另账、阳性对照1F检出；原探针旧桥模块1F/2P不增独立分母。68审查文件凭证精确值扫描0；封套解码与原件逐字节一致。

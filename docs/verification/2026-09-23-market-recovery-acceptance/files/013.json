@@ -1,0 +1,9 @@
+{
+  "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/credential-audit.json",
+  "relative_path": "credential-audit.json",
+  "sha256": "34a31f9ba5b08f7becac27283b555fe6492ff06f3b394a2aec0a2ceedb043ae5",
+  "bytes": 257,
+  "archive": null,
+  "encoding": "base64",
+  "data": "ewogICJzdGF0dXMiOiAiUEFTUyIsCiAgImNoZWNrZWRfZmlsZXMiOiA2OCwKICAiZXhhY3RfY3JlZGVudGlhbF9vY2N1cnJlbmNlcyI6IDAsCiAgImNyZWRlbnRpYWxfdmFsdWVfb3JfaGFzaF9yZWNvcmRlZCI6IGZhbHNlLAogICJzY29wZSI6ICJDb21wbGV0ZWQgaW5kZXBlbmRlbnQgcmV2aWV3IGZpbGVzIGluY2x1ZGluZyBwaSBjb25maWd1cmF0aW9uOyBzY3JhdGNoL3VzZXJzIGV4Y2x1ZGVkLiBOb3QgYSBnZW5lcmljIHNlY3JldCBzY2FuLiIKfQo="
+}

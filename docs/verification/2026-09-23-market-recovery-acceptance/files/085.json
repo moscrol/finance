@@ -1,0 +1,9 @@
+{
+  "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/independent/provider-template.json",
+  "relative_path": "independent/provider-template.json",
+  "sha256": "d2e173caef38771c78451e8f0651da143fd5b58fb60c58efbd9d257008003b30",
+  "bytes": 464,
+  "archive": null,
+  "encoding": "base64",
+  "data": "ewogICJiYXNlVXJsIjogImh0dHBzOi8vb3Blbi5iaWdtb2RlbC5jbi9hcGkvY29kaW5nL3BhYXMvdjQiLAogICJhcGkiOiAib3BlbmFpLWNvbXBsZXRpb25zIiwKICAibW9kZWxzIjogW3sKICAgICJpZCI6ICJnbG0tNS4zIiwKICAgICJuYW1lIjogIkdMTSA1LjMgZGlyZWN0IFpoaXB1IHJldmlldyIsCiAgICAicmVhc29uaW5nIjogZmFsc2UsCiAgICAiaW5wdXQiOiBbInRleHQiXSwKICAgICJjb250ZXh0V2luZG93IjogMTI4MDAwLAogICAgIm1heFRva2VucyI6IDE2Mzg0LAogICAgImNvc3QiOiB7ImlucHV0IjogMCwgIm91dHB1dCI6IDAsICJjYWNoZVJlYWQiOiAwLCAiY2FjaGVXcml0ZSI6IDB9LAogICAgImNvbXBhdCI6IHsic3VwcG9ydHNEZXZlbG9wZXJSb2xlIjogZmFsc2UsICJzdXBwb3J0c1JlYXNvbmluZ0VmZm9ydCI6IGZhbHNlLCAibWF4VG9rZW5zRmllbGQiOiAibWF4X3Rva2VucyJ9CiAgfV0KfQo="
+}

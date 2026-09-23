@@ -1,0 +1,828 @@
+[
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/admission-v3.jsonl",
+    "relative_path": "admission-v3.jsonl",
+    "sha256": "b82b5f0a21d459c9e364d5b62981f18f930f9434c38f49c5aa260ff0f7ae5ee4",
+    "bytes": 6673,
+    "archive": "files/000.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/candidate-regression/20260923T174401Z-6b43ac82-2109b4492bb8.json",
+    "relative_path": "candidate-regression/20260923T174401Z-6b43ac82-2109b4492bb8.json",
+    "sha256": "773acbd3b34cdb1795aafd86d0ae3b40caee603ca76ef96fa685df3b0ff53685",
+    "bytes": 1441,
+    "archive": "files/001.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/candidate-regression/execution.json",
+    "relative_path": "candidate-regression/execution.json",
+    "sha256": "b5f8ac22ca0416d4afe7ddbf529d3d6c2585ea76a39cc27235a918c61bfaf402",
+    "bytes": 1784,
+    "archive": "files/002.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/candidate-regression/latest-_Users_a77_.finance-runtime_reviews_market-recovery-qc-20260923_acceptance-followup_candidate.json",
+    "relative_path": "candidate-regression/latest-_Users_a77_.finance-runtime_reviews_market-recovery-qc-20260923_acceptance-followup_candidate.json",
+    "sha256": "773acbd3b34cdb1795aafd86d0ae3b40caee603ca76ef96fa685df3b0ff53685",
+    "bytes": 1441,
+    "archive": "files/003.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/candidate-regression/latest.json",
+    "relative_path": "candidate-regression/latest.json",
+    "sha256": "773acbd3b34cdb1795aafd86d0ae3b40caee603ca76ef96fa685df3b0ff53685",
+    "bytes": 1441,
+    "archive": "files/004.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/candidate-regression/pytest.xml",
+    "relative_path": "candidate-regression/pytest.xml",
+    "sha256": "b758de317a4bffa7b0395e92e7c53713c4258e7f252e46fecab6b477af2c3c61",
+    "bytes": 58131,
+    "archive": "files/005.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/candidate-regression/stderr.txt",
+    "relative_path": "candidate-regression/stderr.txt",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "archive": "files/006.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/candidate-regression/stdout.txt",
+    "relative_path": "candidate-regression/stdout.txt",
+    "sha256": "53e8d5723b91c2ae8832c8198a2f5789832c654d237edad8b98fad10666f9c2e",
+    "bytes": 804,
+    "archive": "files/007.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/candidate-ruff/execution.json",
+    "relative_path": "candidate-ruff/execution.json",
+    "sha256": "72a6a5dd120e2688e6a97899e0724d8377f70701d77609c476d0c1a60df638c0",
+    "bytes": 983,
+    "archive": "files/008.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/candidate-ruff/stderr.txt",
+    "relative_path": "candidate-ruff/stderr.txt",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "archive": "files/009.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/candidate-ruff/stdout.txt",
+    "relative_path": "candidate-ruff/stdout.txt",
+    "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+    "bytes": 19,
+    "archive": "files/010.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/candidate-whitespace.log",
+    "relative_path": "candidate-whitespace.log",
+    "sha256": "fa094d50e05fc345777d310f03b228702cc3f9d29a08740597e78b51ba4e497d",
+    "bytes": 53877,
+    "archive": "files/011.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/candidate.json",
+    "relative_path": "candidate.json",
+    "sha256": "3f7d9560c407563779358c8eb47f2b52c99c477637736a05c7eaa9763c10b515",
+    "bytes": 293,
+    "archive": "files/012.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/credential-audit.json",
+    "relative_path": "credential-audit.json",
+    "sha256": "34a31f9ba5b08f7becac27283b555fe6492ff06f3b394a2aec0a2ceedb043ae5",
+    "bytes": 257,
+    "archive": "files/013.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/credential_audit.mjs",
+    "relative_path": "credential_audit.mjs",
+    "sha256": "296b4670c2e89fde65d3e4f2c77e6b6f49750d793e4b7c52bbb20a1e4d777ed7",
+    "bytes": 1495,
+    "archive": "files/014.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/f3-before.log",
+    "relative_path": "f3-before.log",
+    "sha256": "1d176be87028f6a8058c5bf89e5f45f7b53fab08c4c580db6ec4f156d0558767",
+    "bytes": 21997,
+    "archive": "files/015.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/f3-before.xml",
+    "relative_path": "f3-before.xml",
+    "sha256": "597c66bf6fbbb03786cde10bc2994deca651a689bbb48d91be1241b8e76f52f3",
+    "bytes": 24208,
+    "archive": "files/016.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/focused-v1.log",
+    "relative_path": "focused-v1.log",
+    "sha256": "f724195365d9fd9eca693c094490b7b0fc14240f1995a09c18347231e1f0be46",
+    "bytes": 323,
+    "archive": "files/017.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/focused-v1.xml",
+    "relative_path": "focused-v1.xml",
+    "sha256": "d22c209076105ce851440b4be9a02ba873fbc7451ef1e784aa3d8180e0698077",
+    "bytes": 6898,
+    "archive": "files/018.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/full-scope-negative-check.log",
+    "relative_path": "full-scope-negative-check.log",
+    "sha256": "e9ea344125810f73cb22e852b3d44c382f6e045667e5e313ec22bced2cbe6e89",
+    "bytes": 1623,
+    "archive": "files/019.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/independent/F3-execute/author.stderr",
+    "relative_path": "independent/F3-execute/author.stderr",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "archive": "files/020.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/independent/F3-execute/author.stdout",
+    "relative_path": "independent/F3-execute/author.stdout",
+    "sha256": "9d26b9b0ad3a8b321e19e04c881d55edc8a3f5526bf2cc4499af1c43993e134d",
+    "bytes": 241,
+    "archive": "files/021.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/independent/F3-execute/author.xml",
+    "relative_path": "independent/F3-execute/author.xml",
+    "sha256": "1d4306ff27840fdbb088def33e6ae9f6fff89c98657dfef183b676e053de7b45",
+    "bytes": 6503,
+    "archive": "files/022.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/independent/F3-execute/execution.json",
+    "relative_path": "independent/F3-execute/execution.json",
+    "sha256": "1d97e70c1a4f0b00f3b94af1b852fa69670eed8f0e571bc40d8292cb1bedd378",
+    "bytes": 3962,
+    "archive": "files/023.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/independent/F3-execute/positive.stderr",
+    "relative_path": "independent/F3-execute/positive.stderr",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "archive": "files/024.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/independent/F3-execute/positive.stdout",
+    "relative_path": "independent/F3-execute/positive.stdout",
+    "sha256": "c33a4253aebbd204a359cc935de18cbaac4e7b6f0b40f1cbe37fc0ae24e0eb37",
+    "bytes": 829,
+    "archive": "files/025.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/independent/F3-execute/positive.xml",
+    "relative_path": "independent/F3-execute/positive.xml",
+    "sha256": "cc9aab29b73b58d3830640ddb925f76a701abe7b5c3e30c1e3d292d502cbf098",
+    "bytes": 720,
+    "archive": "files/026.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/independent/F3-execute/positive_control.py",
+    "relative_path": "independent/F3-execute/positive_control.py",
+    "sha256": "5aafcdf0a73fb7dc62edf5689f4949d31d1dfe552f7859031bf7e7907c549e5a",
+    "bytes": 99,
+    "archive": "files/027.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/independent/F3-execute/preflight.stderr",
+    "relative_path": "independent/F3-execute/preflight.stderr",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "archive": "files/028.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/independent/F3-execute/preflight.stdout",
+    "relative_path": "independent/F3-execute/preflight.stdout",
+    "sha256": "bf4768eecb49c63f63b63d16c92a074df7321e9a6bd10d647dacc3512b58cbaa",
+    "bytes": 133,
+    "archive": "files/029.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/independent/F3-execute/probe.py",
+    "relative_path": "independent/F3-execute/probe.py",
+    "sha256": "1e821a751968d77558c5ef185db2804f48956982e229d01cf81b651d97f9d879",
+    "bytes": 4953,
+    "archive": "files/030.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/independent/F3-execute/probe.stderr",
+    "relative_path": "independent/F3-execute/probe.stderr",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "archive": "files/031.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/independent/F3-execute/probe.stdout",
+    "relative_path": "independent/F3-execute/probe.stdout",
+    "sha256": "4dae142ff2fa7b515a8ba4af6172beada68713b7c3eb9abc7e264a506696923a",
+    "bytes": 239,
+    "archive": "files/032.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/independent/F3-execute/probe.xml",
+    "relative_path": "independent/F3-execute/probe.xml",
+    "sha256": "6536d03974a8edbe366edca23576e72ca952eb0c108d0d80e6630054215c2659",
+    "bytes": 604,
+    "archive": "files/033.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/independent/F3-execute/tools.sb",
+    "relative_path": "independent/F3-execute/tools.sb",
+    "sha256": "7e31f1c453f114ad766a594ca43c9e53c77dd0b5f6c3bee8e8f3eebe9c2c9710",
+    "bytes": 1564,
+    "archive": "files/034.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/independent/F3-explore/credential.json",
+    "relative_path": "independent/F3-explore/credential.json",
+    "sha256": "05cded9e16b33aa79e518824b7b9aaf4249aac5f07f53911aa282f4ee2b19f8d",
+    "bytes": 291,
+    "archive": "files/035.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/independent/F3-explore/delivery/EXPLORE.md",
+    "relative_path": "independent/F3-explore/delivery/EXPLORE.md",
+    "sha256": "25c16cc94848c6d3458fbaa813f47b17fd888ef093954ea3e492e9fcf4886041",
+    "bytes": 5623,
+    "archive": "files/036.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/independent/F3-explore/delivery/manifest.json",
+    "relative_path": "independent/F3-explore/delivery/manifest.json",
+    "sha256": "b0ecad2b20220f2705425a5d82537bbacc2da1b48a5cca4f3d76779874e41de1",
+    "bytes": 169,
+    "archive": "files/037.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/independent/F3-explore/delivery/probe.py",
+    "relative_path": "independent/F3-explore/delivery/probe.py",
+    "sha256": "1e821a751968d77558c5ef185db2804f48956982e229d01cf81b651d97f9d879",
+    "bytes": 4953,
+    "archive": "files/038.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/independent/F3-explore/events.stderr",
+    "relative_path": "independent/F3-explore/events.stderr",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "archive": "files/039.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/independent/F3-explore/events.stdout",
+    "relative_path": "independent/F3-explore/events.stdout",
+    "sha256": "251be2e87fcfacd8411d5e1e6a454bf23d26045844a05e2026158124aeb4f3be",
+    "bytes": 3472942,
+    "archive": null
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/independent/F3-explore/execution.json",
+    "relative_path": "independent/F3-explore/execution.json",
+    "sha256": "646d8200d3cc516f7a95c4ed2b2ca0c10fa445f3d13723e830a4d28eaa6f1736",
+    "bytes": 2143,
+    "archive": "files/041.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/independent/F3-explore/http-responses.jsonl",
+    "relative_path": "independent/F3-explore/http-responses.jsonl",
+    "sha256": "f4349e88bc941d3ef42c5b316ecb5e35157a695a5dadd38f852824e45a667ef6",
+    "bytes": 136,
+    "archive": "files/042.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/independent/F3-explore/packet.md",
+    "relative_path": "independent/F3-explore/packet.md",
+    "sha256": "6253748e229bd7aa4030891af4777b97e343b23bb997f627c46fe7a9370843de",
+    "bytes": 26422,
+    "archive": "files/043.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/independent/F3-explore/pi-config/auth.json",
+    "relative_path": "independent/F3-explore/pi-config/auth.json",
+    "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+    "bytes": 3,
+    "archive": "files/044.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/independent/F3-explore/pi-config/models-store.json",
+    "relative_path": "independent/F3-explore/pi-config/models-store.json",
+    "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+    "bytes": 2,
+    "archive": "files/045.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/independent/F3-explore/pi-config/models.json",
+    "relative_path": "independent/F3-explore/pi-config/models.json",
+    "sha256": "72a5e4869c2367ea9231cf0948e9f792ceb620454328ad94343c9df93e3201ef",
+    "bytes": 18,
+    "archive": "files/046.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/independent/F3-explore/pi-config/settings.json",
+    "relative_path": "independent/F3-explore/pi-config/settings.json",
+    "sha256": "179a8e23430a882ed27af93a2fa9a7d5ab4c60ff3a7b755ee5bbec1c9b750b15",
+    "bytes": 348,
+    "archive": "files/047.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/independent/F3-explore/prompt.md",
+    "relative_path": "independent/F3-explore/prompt.md",
+    "sha256": "ad39f2b8b0c80167cb8b1469397b673b66975438b2e7e35bfe40ae589784b667",
+    "bytes": 691,
+    "archive": "files/048.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/independent/F3-explore/request-admissions.jsonl",
+    "relative_path": "independent/F3-explore/request-admissions.jsonl",
+    "sha256": "0f4a109876bc332dbadb4a5a903c86e1704f8c7b38b6135678616baeea47107a",
+    "bytes": 280,
+    "archive": "files/049.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/independent/F3-explore/tool-gate.jsonl",
+    "relative_path": "independent/F3-explore/tool-gate.jsonl",
+    "sha256": "bdbd11baa4f7bacbcf620cf0c343d0a63f4e806d5e70d178109dd67748942b0f",
+    "bytes": 221,
+    "archive": "files/050.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/independent/F3-historical/execution.json",
+    "relative_path": "independent/F3-historical/execution.json",
+    "sha256": "0c04302e00ce89081e6d6c7cc49de32fcf6bbc3dd7df8aa00917f2f225555267",
+    "bytes": 1497,
+    "archive": "files/051.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/independent/F3-historical/launch.py",
+    "relative_path": "independent/F3-historical/launch.py",
+    "sha256": "ae8071ac86ac239e8ab110b1bfec0a62d918d2c975471fdda94b9cc9f68c02f4",
+    "bytes": 276,
+    "archive": "files/052.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/independent/F3-historical/legacy.py",
+    "relative_path": "independent/F3-historical/legacy.py",
+    "sha256": "2435c35039d38894b9b23f26dad82530d5ba28da646ef8dd8337c4b0c0b9c119",
+    "bytes": 13676,
+    "archive": "files/053.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/independent/F3-historical/probe.py",
+    "relative_path": "independent/F3-historical/probe.py",
+    "sha256": "1e821a751968d77558c5ef185db2804f48956982e229d01cf81b651d97f9d879",
+    "bytes": 4953,
+    "archive": "files/054.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/independent/F3-historical/probe.stderr",
+    "relative_path": "independent/F3-historical/probe.stderr",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "archive": "files/055.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/independent/F3-historical/probe.stdout",
+    "relative_path": "independent/F3-historical/probe.stdout",
+    "sha256": "c7cb35deabb6d26c4c9f45a6504d3dc42208b28ee10efb1f2cb2bb047d20db95",
+    "bytes": 1349,
+    "archive": "files/056.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/independent/F3-historical/probe.xml",
+    "relative_path": "independent/F3-historical/probe.xml",
+    "sha256": "66ee5e7218f9892a7297ec67974970c8c10853785d7e2106216243a22baff869",
+    "bytes": 1514,
+    "archive": "files/057.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/independent/F3-historical/tools.sb",
+    "relative_path": "independent/F3-historical/tools.sb",
+    "sha256": "c663c21e970ff96961cb9c11c1407f69db82f275900d0771c6888019f5fdbaa4",
+    "bytes": 1567,
+    "archive": "files/058.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/independent/F3-report/credential.json",
+    "relative_path": "independent/F3-report/credential.json",
+    "sha256": "2a67b2adf7c577cf28fdb4b75c44dbe47f1a8106703159ac82607e704a9fca92",
+    "bytes": 291,
+    "archive": "files/059.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/independent/F3-report/delivery/QUALITY.md",
+    "relative_path": "independent/F3-report/delivery/QUALITY.md",
+    "sha256": "6ba969bbee1e35ff3a0fe534e962bbc1396f586d17fa2d87364933d37cc6351c",
+    "bytes": 3806,
+    "archive": "files/060.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/independent/F3-report/delivery/SPEC.md",
+    "relative_path": "independent/F3-report/delivery/SPEC.md",
+    "sha256": "e76483487234de7f1595551400c4e17fe25c9e63acb1957099a29667bee2e9cd",
+    "bytes": 3916,
+    "archive": "files/061.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/independent/F3-report/delivery/manifest.json",
+    "relative_path": "independent/F3-report/delivery/manifest.json",
+    "sha256": "53b03314b8bff7c0e04691211c913cccbb71ef076e97d916f15a440e6124688e",
+    "bytes": 253,
+    "archive": "files/062.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/independent/F3-report/delivery/report.json",
+    "relative_path": "independent/F3-report/delivery/report.json",
+    "sha256": "f8c719e6c2b51a39360a8b7b2a4511f891cf7e3f163b41a1a639146e5eb9f2f3",
+    "bytes": 8375,
+    "archive": "files/063.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/independent/F3-report/events.stderr",
+    "relative_path": "independent/F3-report/events.stderr",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "archive": "files/064.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/independent/F3-report/events.stdout",
+    "relative_path": "independent/F3-report/events.stdout",
+    "sha256": "0479ddde525db3aee50d85be2fd22cf2ebb3bbb11c90a31f1be0a8de950b27ae",
+    "bytes": 1760559,
+    "archive": null
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/independent/F3-report/execution.json",
+    "relative_path": "independent/F3-report/execution.json",
+    "sha256": "031173526fb318e8e0386313ec4cbf9dc9e3ca0091aa4d31b33c3c812741d1d8",
+    "bytes": 2142,
+    "archive": "files/066.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/independent/F3-report/http-responses.jsonl",
+    "relative_path": "independent/F3-report/http-responses.jsonl",
+    "sha256": "c68099cdd3165a1cb17b87acbc3493c755c3566060d3c3cb629a31939f50c7c3",
+    "bytes": 136,
+    "archive": "files/067.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/independent/F3-report/packet.md",
+    "relative_path": "independent/F3-report/packet.md",
+    "sha256": "74e26ee0ddc781c926bd8ff3e2fccde37879b8e580deb8f3fe593818dfac9a0d",
+    "bytes": 42575,
+    "archive": "files/068.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/independent/F3-report/pi-config/auth.json",
+    "relative_path": "independent/F3-report/pi-config/auth.json",
+    "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+    "bytes": 3,
+    "archive": "files/069.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/independent/F3-report/pi-config/models-store.json",
+    "relative_path": "independent/F3-report/pi-config/models-store.json",
+    "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+    "bytes": 2,
+    "archive": "files/070.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/independent/F3-report/pi-config/models.json",
+    "relative_path": "independent/F3-report/pi-config/models.json",
+    "sha256": "72a5e4869c2367ea9231cf0948e9f792ceb620454328ad94343c9df93e3201ef",
+    "bytes": 18,
+    "archive": "files/071.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/independent/F3-report/pi-config/settings.json",
+    "relative_path": "independent/F3-report/pi-config/settings.json",
+    "sha256": "179a8e23430a882ed27af93a2fa9a7d5ab4c60ff3a7b755ee5bbec1c9b750b15",
+    "bytes": 348,
+    "archive": "files/072.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/independent/F3-report/prompt.md",
+    "relative_path": "independent/F3-report/prompt.md",
+    "sha256": "b64dbe64b261c99d74f3006f698513e2e1d310f906c108ccc36b2d1e73c651d0",
+    "bytes": 863,
+    "archive": "files/073.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/independent/F3-report/request-admissions.jsonl",
+    "relative_path": "independent/F3-report/request-admissions.jsonl",
+    "sha256": "48fc1115311013028014030c15e08a697a55a472830df8a0ea0c3e0ea2e8fe40",
+    "bytes": 280,
+    "archive": "files/074.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/independent/F3-report/tool-gate.jsonl",
+    "relative_path": "independent/F3-report/tool-gate.jsonl",
+    "sha256": "04fe99de99043c847dec415d54e5acb1f78fd7b27d8c7bbeade08b7eff4adf1c",
+    "bytes": 221,
+    "archive": "files/075.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/independent/controller.json",
+    "relative_path": "independent/controller.json",
+    "sha256": "540841767200d87d943ea898da9420d135481061dbb97dab519f16ecd9eb199b",
+    "bytes": 233,
+    "archive": "files/076.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/independent/controller.log",
+    "relative_path": "independent/controller.log",
+    "sha256": "3e560a4aedafbc31d7e8de430b077dde5a4fa6677570016e3448a189bd28c22f",
+    "bytes": 296,
+    "archive": "files/077.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/independent/credential-bootstrap.mjs",
+    "relative_path": "independent/credential-bootstrap.mjs",
+    "sha256": "3ac219e330914525a0bd0b9b8f9385a8d0c57f4cd5bfefcc8705cf7aa5447880",
+    "bytes": 3370,
+    "archive": "files/078.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/independent/delivery-gate.mjs",
+    "relative_path": "independent/delivery-gate.mjs",
+    "sha256": "637dcda9ebfbfbc831816d15016fcd197723aa7b79ac75f11387db193da17b5b",
+    "bytes": 4213,
+    "archive": "files/079.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/independent/historical.py",
+    "relative_path": "independent/historical.py",
+    "sha256": "4a962011697b17bcd224172f3b4a9d2da9745dcfd9c9f5de08efa862c21a6b02",
+    "bytes": 1826,
+    "archive": "files/080.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/independent/launch.py",
+    "relative_path": "independent/launch.py",
+    "sha256": "b5ef09941cf8152ca133300ece91dd71275707d9e825a56913855e2846b9106d",
+    "bytes": 1565,
+    "archive": "files/081.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/independent/pi-config/auth.json",
+    "relative_path": "independent/pi-config/auth.json",
+    "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+    "bytes": 3,
+    "archive": "files/082.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/independent/pi-config/models.json",
+    "relative_path": "independent/pi-config/models.json",
+    "sha256": "72a5e4869c2367ea9231cf0948e9f792ceb620454328ad94343c9df93e3201ef",
+    "bytes": 18,
+    "archive": "files/083.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/independent/pi-config/settings.json",
+    "relative_path": "independent/pi-config/settings.json",
+    "sha256": "179a8e23430a882ed27af93a2fa9a7d5ab4c60ff3a7b755ee5bbec1c9b750b15",
+    "bytes": 348,
+    "archive": "files/084.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/independent/provider-template.json",
+    "relative_path": "independent/provider-template.json",
+    "sha256": "d2e173caef38771c78451e8f0651da143fd5b58fb60c58efbd9d257008003b30",
+    "bytes": 464,
+    "archive": "files/085.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/independent/review.py",
+    "relative_path": "independent/review.py",
+    "sha256": "9b6c28176db4111580612d446a9cc423103d78f2961fb618e53fc19703581a8b",
+    "bytes": 1929,
+    "archive": "files/086.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/independent/run.py",
+    "relative_path": "independent/run.py",
+    "sha256": "9a3e4f67603cce0d05afef82c26fc75f3ea2e2900403585c75b65daab22aa102",
+    "bytes": 16014,
+    "archive": "files/087.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/ledger-crosswalk/execution.json",
+    "relative_path": "ledger-crosswalk/execution.json",
+    "sha256": "fee2392c5bb24ebb532b5edb2f0b27ace96b2b299b6cd0a9f133f6add9573c6f",
+    "bytes": 996,
+    "archive": "files/088.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/ledger-crosswalk/stderr.txt",
+    "relative_path": "ledger-crosswalk/stderr.txt",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "archive": "files/089.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/ledger-crosswalk/stdout.txt",
+    "relative_path": "ledger-crosswalk/stdout.txt",
+    "sha256": "4c4a1ef473eb2b8608d9d0730612851f99cc0b97723dfdf2d1a3064dabbc08c6",
+    "bytes": 2065,
+    "archive": "files/090.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/operator-review-notes.md",
+    "relative_path": "operator-review-notes.md",
+    "sha256": "939a55efd9da7998e6b9bd1b26a66a0b212647065e41a0138f95d68e53d192d4",
+    "bytes": 2749,
+    "archive": "files/091.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/parseability/execution.json",
+    "relative_path": "parseability/execution.json",
+    "sha256": "082ed802ef524555795c6a99ec654069e3e4d2a1d6be94f5cb5298fb1d4aacb8",
+    "bytes": 1009,
+    "archive": "files/092.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/parseability/stderr.txt",
+    "relative_path": "parseability/stderr.txt",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "archive": "files/093.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/parseability/stdout.txt",
+    "relative_path": "parseability/stdout.txt",
+    "sha256": "b51e9381db04ba38043f910bb96bef5b2fa938766a50778afad648b006d47abe",
+    "bytes": 95,
+    "archive": "files/094.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/pipeline-v3.json",
+    "relative_path": "pipeline-v3.json",
+    "sha256": "8a46b9c58e51d7f5e41d2094e0ce0e19fb717e9d63347f7433e7b2742a9967e9",
+    "bytes": 727,
+    "archive": "files/095.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/pipeline-v3.log",
+    "relative_path": "pipeline-v3.log",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "archive": "files/096.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/prepare.py",
+    "relative_path": "prepare.py",
+    "sha256": "f6d2c0b3ba335c6d7a8b45355850f7f6c16461f8a82c781b45f0261439080311",
+    "bytes": 1313,
+    "archive": "files/097.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/prepare_review.py",
+    "relative_path": "prepare_review.py",
+    "sha256": "e580ffac73c27ed5faadb9419a36decf5fc6a72fbb4a838d31074349c3808680",
+    "bytes": 472,
+    "archive": "files/098.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/registry/execution.json",
+    "relative_path": "registry/execution.json",
+    "sha256": "e4cc6ead2b719e8d67721a7677da294d5aced6a008ae50da1b3f06edb44bb94e",
+    "bytes": 996,
+    "archive": "files/099.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/registry/stderr.txt",
+    "relative_path": "registry/stderr.txt",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "archive": "files/100.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/registry/stdout.txt",
+    "relative_path": "registry/stdout.txt",
+    "sha256": "cd23fc68109e09614cda1546571454ec5b5cfc79323009e7435c563b71047b3a",
+    "bytes": 121,
+    "archive": "files/101.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/registry.json",
+    "relative_path": "registry.json",
+    "sha256": "c44dd22afe078cf9a25659a34598d55129c54d4be732a6f9c4085bc74a0c17e8",
+    "bytes": 94,
+    "archive": "files/102.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/registry.py",
+    "relative_path": "registry.py",
+    "sha256": "325d1b437f8fe6591d0cdeb2ebc1989d32b86fa43fb2b30e2828d318a6d624bb",
+    "bytes": 1003,
+    "archive": "files/103.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/regression-v1.log",
+    "relative_path": "regression-v1.log",
+    "sha256": "7199cb15d57241a16b84a7cb49526f917da88c841c3b8c3ed7d0e18cd27e6ecb",
+    "bytes": 737,
+    "archive": "files/104.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/regression-v1.xml",
+    "relative_path": "regression-v1.xml",
+    "sha256": "6caddc4ae50ea4390d4484c02ac09168cc7808c243a06851ee2c756378c261f8",
+    "bytes": 58131,
+    "archive": "files/105.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/resource_probe.py",
+    "relative_path": "resource_probe.py",
+    "sha256": "26c6d9d8266b17253f7a31e4c64eb335af07c3d4f097015cecb46ed5baf6afb7",
+    "bytes": 1049,
+    "archive": "files/106.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/run_step.py",
+    "relative_path": "run_step.py",
+    "sha256": "5634aacc209fe0286fac98a6931d73a4032c5ff632bbeeac5582dae14dc6b974",
+    "bytes": 2960,
+    "archive": "files/107.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/seal.py",
+    "relative_path": "seal.py",
+    "sha256": "3aa147ef57761f52611c26e7c5b665fce4c03cf90d1a77811a9aa466a6fef022",
+    "bytes": 6373,
+    "archive": "files/108.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/serial_gates_v3.py",
+    "relative_path": "serial_gates_v3.py",
+    "sha256": "ac8353197cff481671f07a04031a2ca874f6d1b320f1f220f166572f21423bed",
+    "bytes": 4244,
+    "archive": "files/109.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/summary.json",
+    "relative_path": "summary.json",
+    "sha256": "3521718595cdb370475e7815ed1b4648586631ef5b3b86d98a712d0e691372a0",
+    "bytes": 2351,
+    "archive": "files/110.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/tables/execution.json",
+    "relative_path": "tables/execution.json",
+    "sha256": "053708b4240b604ed5b1f44230598fd7cb250bf4726e9b7de4b7a13278386698",
+    "bytes": 1021,
+    "archive": "files/111.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/tables/stderr.txt",
+    "relative_path": "tables/stderr.txt",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "archive": "files/112.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/tables/stdout.txt",
+    "relative_path": "tables/stdout.txt",
+    "sha256": "362c2b566827eb15434ae230b1ce60edad2006c45ff08836d0a24fc744447261",
+    "bytes": 116,
+    "archive": "files/113.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/targeted-receipt-check.log",
+    "relative_path": "targeted-receipt-check.log",
+    "sha256": "e9ea344125810f73cb22e852b3d44c382f6e045667e5e313ec22bced2cbe6e89",
+    "bytes": 1623,
+    "archive": "files/114.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/views/execution.json",
+    "relative_path": "views/execution.json",
+    "sha256": "41bb72e560f2911eedc5b313fcf8302d52c651eb986147b5abd46d4d1e1446d2",
+    "bytes": 1020,
+    "archive": "files/115.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/views/stderr.txt",
+    "relative_path": "views/stderr.txt",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "archive": "files/116.json"
+  },
+  {
+    "original": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/acceptance-followup/views/stdout.txt",
+    "relative_path": "views/stdout.txt",
+    "sha256": "9730a43a0a4535867153d7ac0afd888b1feaaa96f3846b2922c39a16ad068e89",
+    "bytes": 68,
+    "archive": "files/117.json"
+  }
+]
