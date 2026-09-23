@@ -230,7 +230,6 @@ def test_real_cli_gateway_protocol(runtime, peer, mode):
 
 def stage_fixture(runtime, stage, axis):
     folder = runtime / axis
-    config = load(folder / "config.json")
     # Test-only fixtures satisfy the runner's prerequisite checks; not real admission.
     dump(folder / "gateway/receipt.json", {"status": "PASS", "synthetic_fixture": True})
     dump(folder / "sandbox-preflight-04/receipt.json", {"status": "PASS", "synthetic_fixture": True})
@@ -241,8 +240,7 @@ def stage_fixture(runtime, stage, axis):
     probe.write_text("# Synthetic plumbing fixture; not a product probe.\n")
     if stage == "report":
         (folder / "report-packet.md").write_text("Synthetic plumbing fixture only.\n")
-    data = {"stage": stage, "axis": axis, "revision": config["revision"], "baseline": config["baseline"],
-            "complete": True, "probe_files": [str(probe)], "verdict": "BLOCKED_INCOMPLETE_EVIDENCE",
+    data = {"complete": True, "probe_files": [str(probe)], "verdict": "BLOCKED_INCOMPLETE_EVIDENCE",
             "claims": [{"id": f"C{i}", "status": "not_verified"} for i in range(1, 8)]}
     return folder, data
 
@@ -258,9 +256,47 @@ def test_real_stage_runner_delivers_without_followup(runtime, peer, stage, axis)
     assert load(out / "tool-menu.json")["status"] == "PASS"
     execution = load(out / "execution.json")
     assert execution["status"] == "STAGE_COMPLETE", execution
-    assert load(out / "submission.json") == data
+    config = load(folder / "config.json")
+    assert load(out / "submission.json") == {
+        **data, "stage": stage, "axis": axis,
+        "revision": config["revision"], "baseline": config["baseline"],
+    }
     assert len(peer["requests"]) == 1
     assert {t["function"]["name"] for t in peer["requests"][0]["tools"]} == set(STAGE_TOOLS[stage])
+
+
+@pytest.mark.parametrize("field,value", [
+    ("stage", "EXECUTE"), ("stage", "execute"), ("axis", "quality"),
+    ("revision", "0" * 40), ("baseline", "0" * 40),
+])
+def test_reviewer_identity_injection_stops_without_followup(runtime, peer, field, value):
+    folder, data = stage_fixture(runtime, "execute", "spec")
+    data[field] = value
+    peer["reply"] = lambda *_: [tool("deliver_stage", {"result": json.dumps(data)})]
+    run([sys.executable, "-B", str(folder / "run_stage.py"), "execute"], folder)
+    out = folder / "execute"
+    assert load(out / "execution.json")["status"] == "BLOCKED_STAGE_OR_PROVIDER"
+    assert "controller identity" in load(out / "controller-stop.json")["reason"]
+    assert not (out / "submission.json").exists()
+    assert len(peer["requests"]) == 1
+
+
+@pytest.mark.parametrize("budget", ["reserved_used", "hard_limit", "deadline"])
+def test_exhausted_stage_rejects_before_any_provider_request(runtime, peer, budget):
+    folder, _ = stage_fixture(runtime, "execute", "spec")
+    extension = folder / "review.mjs"
+    original = extension.read_text()
+    old, new = {
+        "reserved_used": ("let reportAdmitted = false;", "let reportAdmitted = true;"),
+        "hard_limit": ("let admitted = 0;", "let admitted = 24;"),
+        "deadline": ("const started = clock();", "const started = clock() - 600001;"),
+    }[budget]
+    assert original.count(old) == 1
+    extension.write_text(original.replace(old, new))
+    run([sys.executable, "-B", str(folder / "run_stage.py"), "execute"], folder)
+    assert peer["requests"] == []
+    assert not (folder / "execute/submission.json").exists()
+    assert load(folder / "execute/controller-stop.json")["reason"] == "budget_or_report_already_dispatched"
 
 
 @pytest.mark.parametrize("stage", ["explore", "execute", "report"])

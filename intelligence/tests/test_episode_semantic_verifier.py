@@ -2148,6 +2148,60 @@ def test_local_gate_accepts_units_the_model_attaches_to_structured_observations(
     assert "1800 亿" not in result.public_answer
 
 
+@pytest.mark.parametrize(
+    ("detail", "quantity", "supported"),
+    [
+        ("成交额元=11226516458.33", "112.27亿元", True),
+        ("成交额元=11226516458.33", "112.26亿元", False),
+        ("成交额元=11226516458.33", "112.28亿元", False),
+        ("成交额元=11226516458.33", "112.27万元", False),
+        ("成交额元=11226516458.33", "112.27万亿元", False),
+        ("成交额元=11226516458.33", "112.27元", False),
+        ("成交额元=11226516458.33", "1122651.65万元", True),
+        ("成交额元=11226516458.33", "112.27%", False),
+        ("成交额元=11226516458.33", "112.27家", False),
+        ("成交额亿元=112.2651645833", "112.27亿元", True),
+        ("成交额万元=1122651.645833", "112.27亿元", True),
+        ("成交额亿=1295.9673", "1295.97亿", True),
+        ("成交额亿=1295.9673", "1800亿", False),
+        ("成交额（元）=11,226,516,458.33", "112.27亿元", True),
+        ("成交额元=2194997000000", "2.19万亿元", True),
+        ("成交量股=11226516458.33", "112.27亿元", False),
+        ("未知字段元=11226516458.33", "112.27亿元", False),
+        ("成交额元=11226516458.33%", "112.27亿元", False),
+        ("成交额元=11226516458.33美元", "112.27亿元", False),
+    ],
+)
+def test_numeric_gate_currency_field_units(detail, quantity, supported):
+    _, structural = _structural(
+        f"若成交额跌破{quantity}，则行情失效。",
+        detail=f"交易日=2026-09-22；{detail}；成交量股=42733900",
+    )
+    assert numeric_condition_unsupported(structural) is (not supported)
+
+
+def test_numeric_gate_does_not_authorize_unbound_currency_field():
+    _, structural = _structural(
+        "若成交额跌破112.27亿元，则行情失效。", detail="成交额元=11226516458.33",
+    )
+    structural = replace(structural, outcome=replace(structural.outcome, bindings=()))
+    assert numeric_condition_unsupported(structural)
+
+
+def test_local_gate_keeps_natural_l6_currency_condition():
+    condition = "证伪条件：成交额萎缩至112.27亿元的三分之一以下，且收盘跌回246.45元下方。"
+    frame, structural = _structural(
+        condition,
+        detail="成交额元=11226516458.33；收盘价=246.45",
+    )
+    result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+        frame=frame, structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+    assert condition in result.public_answer
+    assert result.judge_status == "passed"
+
+
 @pytest.mark.parametrize("existing_ceiling", ["completed", "partial"])
 def test_unreviewed_revision_caps_publication_without_touching_review(existing_ceiling) -> None:
     """终局修复改了稿却来不及复核：公开旧稿必须压 partial 并告知（冒烟 2 的丢稿形状）。"""

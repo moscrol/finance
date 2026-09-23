@@ -1,12 +1,17 @@
 """L6 must reject known lost claims and refuse incomplete acceptance evidence."""
 
 from copy import deepcopy
+import ast
 import hashlib
 import json
 from pathlib import Path
+import threading
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import urllib.request
 
 import pytest
 
+from scripts.review_probes.adaptive_l6_batch import await_source_audit, run_audited_batch
 from scripts.review_probes.audit_adaptive_l6 import audit
 from scripts.review_probes.prepare_adaptive_l6 import (
     clone,
@@ -127,6 +132,104 @@ def test_adopted_late_report_fails_even_without_repair():
     assert audit(episode, review, episode_sha256="hash")["verdict"] == "NOT_PASSED"
 
 
+@pytest.mark.parametrize("mode", [
+    "pass", "lost_condition", "judge_unavailable", "not_exercised", "missing_review",
+    "wrong_episode", "malformed_review", "late_pass", "failed_run", "pending_delivery",
+])
+def test_content_gate_controls_real_loopback_submissions(tmp_path, mode):
+    requests = []
+    events = []
+    clock = [0.0]
+
+    class Peer(BaseHTTPRequestHandler):
+        def log_message(self, *_args):
+            pass
+
+        def do_POST(self):
+            question = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+            requests.append(question["id"])
+            self.send_response(200)
+            self.send_header("Content-Length", "2")
+            self.end_headers()
+            self.wfile.write(b"{}")
+
+    def submit(question):
+        req = urllib.request.Request(
+            f"http://127.0.0.1:{server.server_port}/submit",
+            data=json.dumps(question).encode(), method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=2) as response:
+            assert response.status == 200
+        return {"id": question["id"], "status": "failed" if mode == "failed_run" else "completed",
+                "delivery_pending": mode == "pending_delivery"}
+
+    def check(question, result, deadline):
+        assert requests[-1] == result["id"] == question["id"]
+        episode, review = sample()
+        episode["semantic_verifier"]["sentence_verdicts"] = []
+        review["claims"][0]["condition_retained_in_public"] = True
+        review["late_reports"] = [{"adopted": False, "artifact_pointer": "fixture:late"}]
+        if mode == "lost_condition":
+            episode["semantic_verifier"]["sentence_verdicts"] = sample()[0]["semantic_verifier"]["sentence_verdicts"]
+            review["claims"][0]["condition_retained_in_public"] = False
+        elif mode == "judge_unavailable":
+            episode["semantic_verifier"]["judge_status"] = "unavailable"
+        elif mode == "not_exercised":
+            review["late_reports"] = []
+        ep = tmp_path / f"{question['id']}.episode.json"
+        source = tmp_path / f"{question['id']}.review.json"
+        ep.write_text(json.dumps(episode))
+        review["episode_sha256"] = hashlib.sha256(ep.read_bytes()).hexdigest()
+        if mode == "wrong_episode":
+            review["episode_sha256"] = "wrong"
+        if mode != "missing_review":
+            source.write_text("{" if mode == "malformed_review" else json.dumps(review))
+
+        def advance(seconds):
+            clock[0] += seconds
+
+        checked = await_source_audit(ep, source, deadline=deadline, clock=lambda: clock[0], sleep=advance)
+        if mode == "late_pass":
+            assert checked["verdict"] == "PASS"
+            clock[0] = deadline
+        return checked
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Peer)
+    thread = threading.Thread(target=server.serve_forever, kwargs={"poll_interval": 0.01})
+    thread.start()
+    try:
+        result = run_audited_batch(
+            [{"id": "N1"}, {"id": "N2"}], submit=submit, audit_question=check,
+            record=events.append, audit_seconds=1, clock=lambda: clock[0],
+        )
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
+    assert requests == (["N1", "N2"] if mode == "pass" else ["N1"])
+    assert result["all_passed"] is (mode == "pass")
+    if mode == "pass":
+        assert [(e["event"], e["question"]) for e in events] == [
+            (event, question) for question in ("N1", "N2")
+            for event in ("submit_admitted", "awaiting_source_audit", "source_audit_complete")
+        ]
+    else:
+        assert events[-1]["event"] == "batch_stopped"
+        assert result["stopped_for"]["question"] == "N1"
+
+
+@pytest.mark.parametrize("seconds", [0, -1, 301, float("inf"), float("nan")])
+def test_content_gate_invalid_budget_sends_nothing(seconds):
+    dispatched = []
+    with pytest.raises(ValueError):
+        run_audited_batch(
+            [{"id": "N1"}], submit=dispatched.append,
+            audit_question=lambda *_: {"verdict": "PASS"}, record=lambda _: None,
+            audit_seconds=seconds,
+        )
+    assert not dispatched
+
+
 def test_manifest_refuses_symlinks(tmp_path):
     (tmp_path / "link").symlink_to("/does-not-exist")
     with pytest.raises(ValueError):
@@ -160,6 +263,30 @@ def protocol():
         for i in range(3)
     ]
     return result
+
+
+def test_fresh_runner_wires_source_audit_and_inherits_no_receipts(tmp_path):
+    from scripts.review_probes.prepare_adaptive_l6_runner import ARCHIVE, prepare
+
+    original = {p: p.read_bytes() for p in ARCHIVE.rglob("*") if p.is_file()}
+    root = tmp_path / "fresh"
+    receipt = prepare(root, protocol())
+    assert receipt["real_model_requests"] == 0
+    assert receipt["receipts_inherited"] is False
+    tree = ast.parse((root / "run_live_l6.py").read_text())
+    compile(tree, "run_live_l6.py", "exec")
+    calls = [node for node in ast.walk(tree) if isinstance(node, ast.Call)]
+    assert sum(isinstance(c.func, ast.Name) and c.func.id == "run_audited_batch" for c in calls) == 1
+    assert sum(isinstance(c.func, ast.Name) and c.func.id == "await_source_audit" for c in calls) == 1
+    assert not any(isinstance(node, ast.For) and isinstance(node.iter, ast.Name) and node.iter.id == "QUESTIONS"
+                   for node in ast.walk(tree))
+    assert not (root / "source-regression.json").exists()
+    assert not (root / "proxy-offline-check.json").exists()
+    with pytest.raises(FileExistsError):
+        prepare(root, protocol())
+    with pytest.raises(ValueError, match="sealed evidence"):
+        prepare(ARCHIVE / "must-not-exist", protocol())
+    assert original == {p: p.read_bytes() for p in original}
 
 
 def test_authorized_original_scope_is_valid():

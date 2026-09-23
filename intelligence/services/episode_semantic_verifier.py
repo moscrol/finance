@@ -21,6 +21,7 @@ is on; the default remains off.
 from __future__ import annotations
 
 from copy import deepcopy
+from decimal import Decimal
 import inspect
 import json
 import os
@@ -317,7 +318,7 @@ _SHORT_DATE_HEADING_RE = re.compile(
 _ARABIC_QUANTITY_RE = re.compile(
     r"[+-]?\d[\d,]*(?:\.\d+)?"
     r"(?:\s*(?:至|到|~|～|—|→|-)\s*[+-]?\d[\d,]*(?:\.\d+)?)?"
-    r"\s*(?:万亿元|万亿|亿元|亿|个百分点|%|点|家|只|个|天|日|周|月|年|倍|成)?"
+    r"\s*(?:万亿元|万亿|亿元|万元|亿|个百分点|%|点|家|只|个|天|日|周|月|年|倍|成)?"
 )
 _CHINESE_QUANTITY_RE = re.compile(
     r"(?!万亿元)[一二两三四五六七八九十百千万亿]+"
@@ -326,8 +327,18 @@ _CHINESE_QUANTITY_RE = re.compile(
 _QUANTITY_PARSE_RE = re.compile(
     r"\A(?P<first>[+-]?\d+(?:\.\d+)?)"
     r"(?:(?:至|到|-)(?P<second>[+-]?\d+(?:\.\d+)?))?"
-    r"(?P<unit>万亿元|万亿|亿元|亿|个百分点|%|点|家|只|个|天|日|周|月|年|倍|成)?\Z"
+    r"(?P<unit>万亿元|万亿|亿元|万元|亿|个百分点|%|点|家|只|个|天|日|周|月|年|倍|成)?\Z"
 )
+_CURRENCY_FIELD_RE = re.compile(
+    r"(?:^|[；;\n])\s*(?:成交额|成交金额|总市值|流通市值)\s*"
+    r"(?:[（(]\s*)?(?P<unit>万亿元|万亿|亿元|万元|亿|元)(?:\s*[）)])?"
+    r"\s*[=:：]\s*(?P<value>[+-]?\d[\d,]*(?:\.\d+)?)\s*(?=$|[；;\n])"
+)
+_CURRENCY_FIELD_SCALE = {
+    "元": Decimal("0.00000001"), "万元": Decimal("0.0001"),
+    "亿": Decimal(1), "亿元": Decimal(1),
+    "万亿": Decimal(10000), "万亿元": Decimal(10000),
+}
 _NEGATIVE_CONTEXT_RE = re.compile(
     r"(?:下降|下滑|减少|缩(?:量|约|减)?|回落|下跌|跌幅|负增长)"
 )
@@ -5628,9 +5639,16 @@ def _bound_evidence_quantities(outcome: AgentOutcome) -> frozenset[str]:
         for content_hash in binding.evidence_hashes
     }
     fields: list[str] = []
+    currency_quantities: set[str] = set()
     for item in outcome.evidence:
         if item.content_hash not in bound_hashes:
             continue
+        # Bind the field's explicit currency unit before normalizing its value.
+        # Bare numbers, unknown fields and share counts cannot authorize money.
+        for match in _CURRENCY_FIELD_RE.finditer(item.detail):
+            value = Decimal(match["value"].replace(",", ""))
+            amount_yi = value * _CURRENCY_FIELD_SCALE[match["unit"]]
+            currency_quantities.add(f"{amount_yi:f}亿元")
         fields.extend(
             (
                 item.title,
@@ -5650,6 +5668,7 @@ def _bound_evidence_quantities(outcome: AgentOutcome) -> frozenset[str]:
         )
         if _normalize_quantity(quantity)
     }
+    quantities.update(currency_quantities)
     # 结构化观察值**不受 binding 约束**。上面那段只认被 binding 引用过的证据，
     # 是引用卫生；而 observations 是 harness 自己投递上桌的事实，它是不是真的
     # 与模型有没有记得绑引用无关。少了这一段，模型写对了数却忘了绑，真话会被
@@ -5760,6 +5779,8 @@ def _quantity_dimension(unit: str) -> tuple[str, float]:
         return "currency_yi", 10000.0
     if unit in {"亿元", "亿"}:
         return "currency_yi", 1.0
+    if unit == "万元":
+        return "currency_yi", 0.0001
     return unit, 1.0
 
 

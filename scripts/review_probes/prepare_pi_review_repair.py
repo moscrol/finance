@@ -1,7 +1,7 @@
 """Build fresh PR868 review inputs; never edit a sealed batch or start a model.
 
 The archived runner is deliberately retained as a hash-checked migration source.
-Only the CLI tool wiring and causal gateway protocol are replaced. Historical
+CLI wiring, causal gateway protocol and controller-owned identity are replaced. Historical
 receipts, model outputs, and authorization are not inherited.
 """
 from __future__ import annotations
@@ -69,7 +69,7 @@ def prepare(destination: Path, archive: Path = ARCHIVE) -> dict:
         inputs[f"{axis}/gateway.mjs"] = "export { default } from './review.mjs';\n"
         name = f"{axis}/review.mjs"
         inputs[name] = replace_once(inputs[name], "import fs from 'node:fs';",
-                                   "import { installStageGuard, installGateway } from './pi_review_protocol.mjs';\nimport fs from 'node:fs';")
+                                   "import { installStageGuard, installGateway, bindStageResult } from './pi_review_protocol.mjs';\nimport fs from 'node:fs';")
         inputs[name] = replace_once(inputs[name], "  const stage = process.env.REVIEW_PHASE;",
                                    "  const stage = process.env.REVIEW_PHASE;\n"
                                    "  installStageGuard(pi, {out, stage, tools: CONFIG.stage_tools, terminate});\n"
@@ -77,6 +77,33 @@ def prepare(destination: Path, archive: Path = ARCHIVE) -> dict:
         inputs[name] = replace_once(inputs[name],
                                    "const allowed = stage === 'report' ? ['deliver_stage'] : stage === 'explore' ? ['read', 'write', 'deliver_stage'] : ['read', 'write', 'bash', 'deliver_stage'];",
                                    "const allowed = CONFIG.stage_tools[stage];")
+        inputs[name] = replace_once(
+            inputs[name], "      const data = JSON.parse(params.result);",
+            "      let data;\n"
+            "      try { data = bindStageResult(params.result, {...CONFIG, stage}); }\n"
+            "      catch (error) { return deny('delivery_content_invalid: ' + error.message); }",
+        )
+        inputs[name] = replace_once(
+            inputs[name],
+            "Complete JSON object required by the stage prompt, serialized as a string. Never fabricate evidence.",
+            "Stage content JSON as a string: complete=true and the required evidence fields. "
+            "Do NOT include stage, axis, revision or baseline; the controller owns these fields. Never fabricate evidence.",
+        )
+        for stage in ("explore", "execute", "report"):
+            prompt = f"{axis}/prompt-{stage}.md"
+            inputs[prompt] = replace_once(
+                inputs[prompt],
+                f"It must contain stage, axis='{axis}', revision, baseline, complete=true;",
+                "Submit content only: complete=true and required evidence fields. "
+                "Do NOT supply stage, axis, revision or baseline; those fields are controller-owned. "
+                "Identity injection is rejected, never normalized;",
+            )
+            if stage == "report":
+                inputs[prompt] = replace_once(
+                    inputs[prompt],
+                    "Return required fields stage='report', axis, revision, baseline, complete=true, verdict",
+                    "Return required content fields complete=true, verdict",
+                )
         name = f"{axis}/run_stage.py"
         inputs[name] = replace_once(inputs[name], "'--tools', 'read,bash,write'",
                                    "'--tools', ','.join(CONFIG['stage_tools'][STAGE])")
@@ -108,6 +135,7 @@ def prepare(destination: Path, archive: Path = ARCHIVE) -> dict:
         "sealed_inputs_checked": len(frozen), "real_model_requests": 0,
         "prior_stage_receipts_inherited": False, "prior_model_outputs_inherited": False,
         "historical_author_inputs_preserved": True,
+        "delivery_identity_owner": "controller; reviewer identity fields are forbidden",
         "stage_tools": STAGE_TOOLS,
         "inputs_sha256": {name: digest(body.encode()) for name, body in inputs.items()},
     }
