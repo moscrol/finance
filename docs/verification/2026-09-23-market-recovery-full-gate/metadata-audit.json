@@ -1,0 +1,3650 @@
+{
+  "capture": {
+    "trade_date": "2026-09-21",
+    "declared_scope_count": 5556,
+    "validated_quote_count": 5556,
+    "validated_batches": 70,
+    "volume_units": {
+      "hands": 4938,
+      "shares": 618
+    },
+    "zero_activity_codes": [
+      "300082.SZ",
+      "300585.SZ",
+      "688496.SH"
+    ],
+    "capture_validated": true,
+    "independent_market_universe_verified": false,
+    "official_suspension_status_verified": false,
+    "production_ready": false,
+    "database_writes": false,
+    "publication_attempted": false,
+    "extra_evidence_files": 1
+  },
+  "trade_date": "2026-09-21",
+  "partition": {
+    "declared_count": 5565,
+    "observed_count": 5553,
+    "nontrading_count": 12,
+    "bar_coverage_denominator": 5565,
+    "observed_bar_fraction": 0.997843665768194,
+    "disposition_coverage_fraction": 1.0,
+    "official_historical_universe_verified": false
+  },
+  "name_contract": "dated_provider_display_name_not_legal_name_or_official_status",
+  "name_differences": [
+    {
+      "code": "000002.SZ",
+      "dated_display_name": "万  科Ａ",
+      "undated_comparison_name": "万 科Ａ",
+      "whitespace_only": true,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "000012.SZ",
+      "dated_display_name": "南  玻Ａ",
+      "undated_comparison_name": "南 玻Ａ",
+      "whitespace_only": true,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "000025.SZ",
+      "dated_display_name": "特  力Ａ",
+      "undated_comparison_name": "特 力Ａ",
+      "whitespace_only": true,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "000528.SZ",
+      "dated_display_name": "柳    工",
+      "undated_comparison_name": "柳 工",
+      "whitespace_only": true,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "000726.SZ",
+      "dated_display_name": "鲁  泰Ａ",
+      "undated_comparison_name": "鲁 泰Ａ",
+      "whitespace_only": true,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "000869.SZ",
+      "dated_display_name": "张  裕Ａ",
+      "undated_comparison_name": "张 裕Ａ",
+      "whitespace_only": true,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "001248.SZ",
+      "dated_display_name": "华润新能源",
+      "undated_comparison_name": "华润新能",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "300295.SZ",
+      "dated_display_name": "*ST三六五",
+      "undated_comparison_name": "*ST三六",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "301666.SZ",
+      "dated_display_name": "大普微-UW",
+      "undated_comparison_name": "大普微",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "600032.SH",
+      "dated_display_name": "XD浙江新",
+      "undated_comparison_name": "浙江新能",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": true
+    },
+    {
+      "code": "600096.SH",
+      "dated_display_name": "XD云天化",
+      "undated_comparison_name": "云天化",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": true
+    },
+    {
+      "code": "600177.SH",
+      "dated_display_name": "雅戈尔",
+      "undated_comparison_name": "XD雅戈尔",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": true
+    },
+    {
+      "code": "600236.SH",
+      "dated_display_name": "XD桂冠电",
+      "undated_comparison_name": "桂冠电力",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": true
+    },
+    {
+      "code": "600420.SH",
+      "dated_display_name": "国药现代",
+      "undated_comparison_name": "XD国药现代",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": true
+    },
+    {
+      "code": "600820.SH",
+      "dated_display_name": "隧道股份",
+      "undated_comparison_name": "XD隧道股份",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": true
+    },
+    {
+      "code": "600930.SH",
+      "dated_display_name": "华电新能",
+      "undated_comparison_name": "华电新能源集团",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "601026.SH",
+      "dated_display_name": "道生天合",
+      "undated_comparison_name": "道生天合材料科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "601065.SH",
+      "dated_display_name": "江盐集团",
+      "undated_comparison_name": "江西省盐业集团",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "601091.SH",
+      "dated_display_name": "C沈鼓",
+      "undated_comparison_name": "C沈鼓集团",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "601096.SH",
+      "dated_display_name": "宏盛华源",
+      "undated_comparison_name": "XD宏盛华源铁塔集团",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": true
+    },
+    {
+      "code": "601133.SH",
+      "dated_display_name": "XD柏诚股",
+      "undated_comparison_name": "柏诚系统股份公司",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": true
+    },
+    {
+      "code": "601607.SH",
+      "dated_display_name": "上海医药",
+      "undated_comparison_name": "XD上海医药",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": true
+    },
+    {
+      "code": "601838.SH",
+      "dated_display_name": "成都银行",
+      "undated_comparison_name": "XD成都银行",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": true
+    },
+    {
+      "code": "601886.SH",
+      "dated_display_name": "XD江河集",
+      "undated_comparison_name": "江河集团",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": true
+    },
+    {
+      "code": "603018.SH",
+      "dated_display_name": "XD华设集",
+      "undated_comparison_name": "华设集团",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": true
+    },
+    {
+      "code": "603039.SH",
+      "dated_display_name": "泛微网络",
+      "undated_comparison_name": "XD泛微网络",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": true
+    },
+    {
+      "code": "603057.SH",
+      "dated_display_name": "紫燕食品",
+      "undated_comparison_name": "上海紫燕食品",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "603061.SH",
+      "dated_display_name": "金海通",
+      "undated_comparison_name": "金海通股份",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "603072.SH",
+      "dated_display_name": "天和磁材",
+      "undated_comparison_name": "天和磁材科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "603075.SH",
+      "dated_display_name": "热威股份",
+      "undated_comparison_name": "热威科技股份",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "603082.SH",
+      "dated_display_name": "北自科技",
+      "undated_comparison_name": "北自科技股份",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "603092.SH",
+      "dated_display_name": "德力佳",
+      "undated_comparison_name": "德力佳传动",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "603111.SH",
+      "dated_display_name": "康尼机电",
+      "undated_comparison_name": "XD康尼机电",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": true
+    },
+    {
+      "code": "603119.SH",
+      "dated_display_name": "浙江荣泰",
+      "undated_comparison_name": "浙江荣泰股份",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "603120.SH",
+      "dated_display_name": "肯特催化",
+      "undated_comparison_name": "肯特催化材料",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "603125.SH",
+      "dated_display_name": "常青科技",
+      "undated_comparison_name": "江苏常青树科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "603130.SH",
+      "dated_display_name": "云中马",
+      "undated_comparison_name": "云中马股份",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "603151.SH",
+      "dated_display_name": "邦基科技",
+      "undated_comparison_name": "邦基科技股份",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "603153.SH",
+      "dated_display_name": "上海建科",
+      "undated_comparison_name": "上海建科集团",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "603163.SH",
+      "dated_display_name": "圣晖集成",
+      "undated_comparison_name": "XD圣晖系统集成集团",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": true
+    },
+    {
+      "code": "603170.SH",
+      "dated_display_name": "宝立食品",
+      "undated_comparison_name": "宝立食品科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "603172.SH",
+      "dated_display_name": "万丰股份",
+      "undated_comparison_name": "浙江万丰股份",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "603173.SH",
+      "dated_display_name": "福斯达",
+      "undated_comparison_name": "福斯达深冷",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "603182.SH",
+      "dated_display_name": "嘉华股份",
+      "undated_comparison_name": "嘉华生物科技股份",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "603190.SH",
+      "dated_display_name": "亚通精工",
+      "undated_comparison_name": "烟台亚通精工机械",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "603193.SH",
+      "dated_display_name": "XD润本股",
+      "undated_comparison_name": "润本生物技术股份",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": true
+    },
+    {
+      "code": "603207.SH",
+      "dated_display_name": "小方制药",
+      "undated_comparison_name": "上海小方制药",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "603211.SH",
+      "dated_display_name": "晋拓股份",
+      "undated_comparison_name": "晋拓科技股份",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "603237.SH",
+      "dated_display_name": "五芳斋",
+      "undated_comparison_name": "五芳斋实业",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "603255.SH",
+      "dated_display_name": "鼎际得",
+      "undated_comparison_name": "鼎际得股份",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "603270.SH",
+      "dated_display_name": "金帝股份",
+      "undated_comparison_name": "金帝精密科技股份",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "603271.SH",
+      "dated_display_name": "永杰新材",
+      "undated_comparison_name": "永杰新材料",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "603275.SH",
+      "dated_display_name": "众辰科技",
+      "undated_comparison_name": "上海众辰科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "603276.SH",
+      "dated_display_name": "恒兴新材",
+      "undated_comparison_name": "恒兴新材料科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "603280.SH",
+      "dated_display_name": "南方路机",
+      "undated_comparison_name": "南方路面机械",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "603282.SH",
+      "dated_display_name": "亚光股份",
+      "undated_comparison_name": "亚光科技股份",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "603293.SH",
+      "dated_display_name": "埃泰克",
+      "undated_comparison_name": "埃泰克汽车电子",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "603319.SH",
+      "dated_display_name": "美湖股份",
+      "undated_comparison_name": "XD美湖股份",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": true
+    },
+    {
+      "code": "603344.SH",
+      "dated_display_name": "星德胜",
+      "undated_comparison_name": "星德胜科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "603373.SH",
+      "dated_display_name": "安邦护卫",
+      "undated_comparison_name": "安邦护卫集团股份",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "603375.SH",
+      "dated_display_name": "盛景微",
+      "undated_comparison_name": "盛景微电子",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "603387.SH",
+      "dated_display_name": "基蛋生物",
+      "undated_comparison_name": "XD基蛋生物",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": true
+    },
+    {
+      "code": "603395.SH",
+      "dated_display_name": "红四方",
+      "undated_comparison_name": "中盐红四方",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "603448.SH",
+      "dated_display_name": "天博智能",
+      "undated_comparison_name": "天博智能科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "603698.SH",
+      "dated_display_name": "航天工程",
+      "undated_comparison_name": "XD航天工程",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": true
+    },
+    {
+      "code": "603757.SH",
+      "dated_display_name": "大元泵业",
+      "undated_comparison_name": "XD大元泵业",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": true
+    },
+    {
+      "code": "603867.SH",
+      "dated_display_name": "新化股份",
+      "undated_comparison_name": "XD新化股份",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": true
+    },
+    {
+      "code": "603927.SH",
+      "dated_display_name": "中科软",
+      "undated_comparison_name": "XD中科软",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": true
+    },
+    {
+      "code": "605123.SH",
+      "dated_display_name": "XD派克新",
+      "undated_comparison_name": "派克新材",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": true
+    },
+    {
+      "code": "605228.SH",
+      "dated_display_name": "XD神通科",
+      "undated_comparison_name": "神通科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": true
+    },
+    {
+      "code": "688001.SH",
+      "dated_display_name": "华兴源创",
+      "undated_comparison_name": "XD苏州华兴源创科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": true
+    },
+    {
+      "code": "688002.SH",
+      "dated_display_name": "睿创微纳",
+      "undated_comparison_name": "XD睿创微纳",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": true
+    },
+    {
+      "code": "688004.SH",
+      "dated_display_name": "博汇科技",
+      "undated_comparison_name": "北京博汇科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688006.SH",
+      "dated_display_name": "杭可科技",
+      "undated_comparison_name": "XD浙江杭可科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": true
+    },
+    {
+      "code": "688011.SH",
+      "dated_display_name": "新光光电",
+      "undated_comparison_name": "新光光电科技股份",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688012.SH",
+      "dated_display_name": "中微公司",
+      "undated_comparison_name": "中微半导体设备",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688013.SH",
+      "dated_display_name": "天臣医疗",
+      "undated_comparison_name": "天臣国际医疗科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688022.SH",
+      "dated_display_name": "ST瀚川",
+      "undated_comparison_name": "ST瀚川智能",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688025.SH",
+      "dated_display_name": "杰普特",
+      "undated_comparison_name": "杰普特光电",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688026.SH",
+      "dated_display_name": "洁特生物",
+      "undated_comparison_name": "洁特生物股份",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688027.SH",
+      "dated_display_name": "国盾量子",
+      "undated_comparison_name": "科大国盾量子",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688028.SH",
+      "dated_display_name": "沃尔德",
+      "undated_comparison_name": "沃尔德金刚石",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688029.SH",
+      "dated_display_name": "南微医学",
+      "undated_comparison_name": "南微医学科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688031.SH",
+      "dated_display_name": "星环科技-U",
+      "undated_comparison_name": "星环科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688033.SH",
+      "dated_display_name": "*ST天宜",
+      "undated_comparison_name": "*ST天宜新材",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688035.SH",
+      "dated_display_name": "德邦科技",
+      "undated_comparison_name": "德邦科技股份",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688037.SH",
+      "dated_display_name": "芯源微",
+      "undated_comparison_name": "芯源微电子",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688038.SH",
+      "dated_display_name": "中科通达",
+      "undated_comparison_name": "武汉中科通达",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688045.SH",
+      "dated_display_name": "必易微",
+      "undated_comparison_name": "必易微电子",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688050.SH",
+      "dated_display_name": "爱博医疗",
+      "undated_comparison_name": "爱博诺德医疗",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688051.SH",
+      "dated_display_name": "佳华科技",
+      "undated_comparison_name": "罗克佳华科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688052.SH",
+      "dated_display_name": "纳芯微",
+      "undated_comparison_name": "纳芯微电子",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688053.SH",
+      "dated_display_name": "ST思科瑞",
+      "undated_comparison_name": "ST思科瑞微电子",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688055.SH",
+      "dated_display_name": "龙腾光电",
+      "undated_comparison_name": "昆山龙腾光电",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688056.SH",
+      "dated_display_name": "莱伯泰科",
+      "undated_comparison_name": "莱伯泰科仪器",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688057.SH",
+      "dated_display_name": "金达莱",
+      "undated_comparison_name": "金达莱环保",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688058.SH",
+      "dated_display_name": "宝兰德",
+      "undated_comparison_name": "宝兰德软件",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688059.SH",
+      "dated_display_name": "华锐精密",
+      "undated_comparison_name": "株洲华锐精密",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688060.SH",
+      "dated_display_name": "云涌科技",
+      "undated_comparison_name": "江苏云涌电子科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688062.SH",
+      "dated_display_name": "迈威生物-U",
+      "undated_comparison_name": "迈威生物",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688066.SH",
+      "dated_display_name": "*ST航图",
+      "undated_comparison_name": "*ST航天宏图",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688069.SH",
+      "dated_display_name": "德林海",
+      "undated_comparison_name": "德林海环保",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688070.SH",
+      "dated_display_name": "纵横股份",
+      "undated_comparison_name": "成都纵横",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688071.SH",
+      "dated_display_name": "华依科技",
+      "undated_comparison_name": "华依科技集团",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688073.SH",
+      "dated_display_name": "毕得医药",
+      "undated_comparison_name": "毕得医药科技股份",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688076.SH",
+      "dated_display_name": "ST诺泰",
+      "undated_comparison_name": "ST诺泰生物",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688077.SH",
+      "dated_display_name": "大地熊",
+      "undated_comparison_name": "大地熊新材料",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688079.SH",
+      "dated_display_name": "美迪凯",
+      "undated_comparison_name": "美迪凯股份",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688080.SH",
+      "dated_display_name": "映翰通",
+      "undated_comparison_name": "映翰通网络",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688082.SH",
+      "dated_display_name": "盛美上海",
+      "undated_comparison_name": "盛美上海半导体",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688089.SH",
+      "dated_display_name": "ST嘉必优",
+      "undated_comparison_name": "ST嘉必优生物",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688091.SH",
+      "dated_display_name": "上海谊众",
+      "undated_comparison_name": "上海谊众药业",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688092.SH",
+      "dated_display_name": "爱科科技",
+      "undated_comparison_name": "爱科科技股份",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688095.SH",
+      "dated_display_name": "福昕软件",
+      "undated_comparison_name": "福昕软件开发",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688096.SH",
+      "dated_display_name": "京源环保",
+      "undated_comparison_name": "江苏京源环保",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688097.SH",
+      "dated_display_name": "博众精工",
+      "undated_comparison_name": "博众精工科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688098.SH",
+      "dated_display_name": "申联生物",
+      "undated_comparison_name": "申联生物医药",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688099.SH",
+      "dated_display_name": "晶晨股份",
+      "undated_comparison_name": "晶晨半导体",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688101.SH",
+      "dated_display_name": "三达膜",
+      "undated_comparison_name": "三达膜环境技术",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688102.SH",
+      "dated_display_name": "斯瑞新材",
+      "undated_comparison_name": "陕西斯瑞新材股份",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688105.SH",
+      "dated_display_name": "诺唯赞",
+      "undated_comparison_name": "诺唯赞生物",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688108.SH",
+      "dated_display_name": "赛诺医疗",
+      "undated_comparison_name": "赛诺医疗科学",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688115.SH",
+      "dated_display_name": "思林杰",
+      "undated_comparison_name": "思林杰科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688121.SH",
+      "dated_display_name": "*ST卓然",
+      "undated_comparison_name": "*ST卓然技术",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688123.SH",
+      "dated_display_name": "聚辰股份",
+      "undated_comparison_name": "聚辰半导体",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688126.SH",
+      "dated_display_name": "沪硅产业",
+      "undated_comparison_name": "上海硅产业集团",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688128.SH",
+      "dated_display_name": "中国电研",
+      "undated_comparison_name": "中国电器研究院",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688129.SH",
+      "dated_display_name": "东来技术",
+      "undated_comparison_name": "东来涂料技术股份",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688130.SH",
+      "dated_display_name": "晶华微",
+      "undated_comparison_name": "晶华微电子",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688131.SH",
+      "dated_display_name": "XD皓元医",
+      "undated_comparison_name": "皓元医药",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": true
+    },
+    {
+      "code": "688132.SH",
+      "dated_display_name": "邦彦技术",
+      "undated_comparison_name": "邦彦技术股份",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688133.SH",
+      "dated_display_name": "泰坦科技",
+      "undated_comparison_name": "泰坦股份",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688136.SH",
+      "dated_display_name": "科兴制药",
+      "undated_comparison_name": "科兴生物制药",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688141.SH",
+      "dated_display_name": "杰华特",
+      "undated_comparison_name": "杰华特微电子",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688143.SH",
+      "dated_display_name": "长盈通",
+      "undated_comparison_name": "长盈通光电",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688146.SH",
+      "dated_display_name": "中船特气",
+      "undated_comparison_name": "中船派瑞特气",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688147.SH",
+      "dated_display_name": "微导纳米",
+      "undated_comparison_name": "微导纳米科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688150.SH",
+      "dated_display_name": "莱特光电",
+      "undated_comparison_name": "莱特光电股份",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688157.SH",
+      "dated_display_name": "松井股份",
+      "undated_comparison_name": "松井新材料",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688158.SH",
+      "dated_display_name": "优刻得-W",
+      "undated_comparison_name": "优刻得科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688160.SH",
+      "dated_display_name": "步科股份",
+      "undated_comparison_name": "步科自动化",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688165.SH",
+      "dated_display_name": "埃夫特-U",
+      "undated_comparison_name": "埃夫特智能",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688166.SH",
+      "dated_display_name": "博瑞医药",
+      "undated_comparison_name": "博瑞生物医药",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688167.SH",
+      "dated_display_name": "炬光科技",
+      "undated_comparison_name": "西安炬光科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688168.SH",
+      "dated_display_name": "安博通",
+      "undated_comparison_name": "北京安博通",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688172.SH",
+      "dated_display_name": "燕东微",
+      "undated_comparison_name": "燕东微电子股份",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688173.SH",
+      "dated_display_name": "希荻微",
+      "undated_comparison_name": "希荻微电子",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688175.SH",
+      "dated_display_name": "高凌信息",
+      "undated_comparison_name": "珠海高凌信息",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688176.SH",
+      "dated_display_name": "亚虹医药-U",
+      "undated_comparison_name": "亚虹医药科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688177.SH",
+      "dated_display_name": "百奥泰",
+      "undated_comparison_name": "百奥泰生物",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688178.SH",
+      "dated_display_name": "万德斯",
+      "undated_comparison_name": "万德斯环保",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688179.SH",
+      "dated_display_name": "阿拉丁",
+      "undated_comparison_name": "阿拉丁科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688180.SH",
+      "dated_display_name": "君实生物-U",
+      "undated_comparison_name": "君实生物",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688181.SH",
+      "dated_display_name": "八亿时空",
+      "undated_comparison_name": "八亿时空液晶股份",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688184.SH",
+      "dated_display_name": "ST帕瓦",
+      "undated_comparison_name": "ST帕瓦股份",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688185.SH",
+      "dated_display_name": "康希诺",
+      "undated_comparison_name": "康希诺生物",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688186.SH",
+      "dated_display_name": "广大特材",
+      "undated_comparison_name": "张家港广大特材",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688188.SH",
+      "dated_display_name": "柏楚电子",
+      "undated_comparison_name": "上海柏楚电子科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688189.SH",
+      "dated_display_name": "ST南新",
+      "undated_comparison_name": "ST南新制药",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688190.SH",
+      "dated_display_name": "云路股份",
+      "undated_comparison_name": "云路先进材料股份",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688191.SH",
+      "dated_display_name": "智洋创新",
+      "undated_comparison_name": "智洋创新科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688192.SH",
+      "dated_display_name": "迪哲医药-U",
+      "undated_comparison_name": "迪哲医药",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688197.SH",
+      "dated_display_name": "首药控股-U",
+      "undated_comparison_name": "首药控股",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688198.SH",
+      "dated_display_name": "佰仁医疗",
+      "undated_comparison_name": "佰仁医疗科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688199.SH",
+      "dated_display_name": "久日新材",
+      "undated_comparison_name": "久日新材料",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688201.SH",
+      "dated_display_name": "ST信安",
+      "undated_comparison_name": "ST信安世纪",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688202.SH",
+      "dated_display_name": "美迪西",
+      "undated_comparison_name": "美迪西生物医药",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688203.SH",
+      "dated_display_name": "海正生材",
+      "undated_comparison_name": "海正生物材料",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688205.SH",
+      "dated_display_name": "德科立",
+      "undated_comparison_name": "德科立光电子",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688209.SH",
+      "dated_display_name": "英集芯",
+      "undated_comparison_name": "英集芯科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688210.SH",
+      "dated_display_name": "统联精密",
+      "undated_comparison_name": "泛海统联精密制造",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688213.SH",
+      "dated_display_name": "思特威-W",
+      "undated_comparison_name": "思特威电子科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688215.SH",
+      "dated_display_name": "瑞晟智能",
+      "undated_comparison_name": "瑞晟智能科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688217.SH",
+      "dated_display_name": "睿昂基因",
+      "undated_comparison_name": "上海睿昂基因",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688220.SH",
+      "dated_display_name": "翱捷科技-U",
+      "undated_comparison_name": "翱捷科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688221.SH",
+      "dated_display_name": "前沿生物-U",
+      "undated_comparison_name": "前沿生物",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688226.SH",
+      "dated_display_name": "威腾电气",
+      "undated_comparison_name": "威腾电气集团股份",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688228.SH",
+      "dated_display_name": "开普云",
+      "undated_comparison_name": "开普云信息科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688229.SH",
+      "dated_display_name": "博睿数据",
+      "undated_comparison_name": "博睿宏远数据",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688231.SH",
+      "dated_display_name": "隆达股份",
+      "undated_comparison_name": "隆达超合金股份",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688232.SH",
+      "dated_display_name": "新点软件",
+      "undated_comparison_name": "国泰新点软件",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688233.SH",
+      "dated_display_name": "神工股份",
+      "undated_comparison_name": "神工半导体",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688236.SH",
+      "dated_display_name": "春立医疗",
+      "undated_comparison_name": "春立正达医疗",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688239.SH",
+      "dated_display_name": "航宇科技",
+      "undated_comparison_name": "贵州航宇科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688246.SH",
+      "dated_display_name": "嘉和美康",
+      "undated_comparison_name": "嘉和美康科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688248.SH",
+      "dated_display_name": "南网科技",
+      "undated_comparison_name": "南方电网电力科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688251.SH",
+      "dated_display_name": "井松智能",
+      "undated_comparison_name": "井松智能科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688252.SH",
+      "dated_display_name": "天德钰",
+      "undated_comparison_name": "天德钰科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688253.SH",
+      "dated_display_name": "英诺特",
+      "undated_comparison_name": "英诺特生物股份",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688255.SH",
+      "dated_display_name": "凯尔达",
+      "undated_comparison_name": "凯尔达机器人",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688256.SH",
+      "dated_display_name": "寒武纪",
+      "undated_comparison_name": "寒武纪科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688258.SH",
+      "dated_display_name": "卓易信息",
+      "undated_comparison_name": "江苏卓易信息科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688259.SH",
+      "dated_display_name": "创耀科技",
+      "undated_comparison_name": "创耀通信科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688261.SH",
+      "dated_display_name": "东微半导",
+      "undated_comparison_name": "东微半导体",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688262.SH",
+      "dated_display_name": "国芯科技",
+      "undated_comparison_name": "苏州国芯科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688265.SH",
+      "dated_display_name": "南模生物",
+      "undated_comparison_name": "南方模式生物",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688266.SH",
+      "dated_display_name": "泽璟制药-U",
+      "undated_comparison_name": "泽璟制药",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688267.SH",
+      "dated_display_name": "中触媒",
+      "undated_comparison_name": "中触媒股份",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688268.SH",
+      "dated_display_name": "华特气体",
+      "undated_comparison_name": "广东华特气体",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688269.SH",
+      "dated_display_name": "凯立新材",
+      "undated_comparison_name": "西安凯立新材",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688270.SH",
+      "dated_display_name": "ST臻镭",
+      "undated_comparison_name": "ST臻镭科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688272.SH",
+      "dated_display_name": "富吉瑞",
+      "undated_comparison_name": "富吉瑞光电",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688273.SH",
+      "dated_display_name": "麦澜德",
+      "undated_comparison_name": "麦澜德医疗",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688275.SH",
+      "dated_display_name": "万润新能",
+      "undated_comparison_name": "万润新能源",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688276.SH",
+      "dated_display_name": "百克生物",
+      "undated_comparison_name": "长春百克生物科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688277.SH",
+      "dated_display_name": "天智航-U",
+      "undated_comparison_name": "天智航医疗",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688280.SH",
+      "dated_display_name": "精进电动-W",
+      "undated_comparison_name": "精进电动",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688281.SH",
+      "dated_display_name": "华秦科技",
+      "undated_comparison_name": "华秦科技实业",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688291.SH",
+      "dated_display_name": "金橙子",
+      "undated_comparison_name": "金橙子科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688292.SH",
+      "dated_display_name": "浩瀚深度",
+      "undated_comparison_name": "浩瀚深度信息技术",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688293.SH",
+      "dated_display_name": "奥浦迈",
+      "undated_comparison_name": "奥浦迈生物",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688295.SH",
+      "dated_display_name": "中复神鹰",
+      "undated_comparison_name": "中复神鹰碳纤维",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688297.SH",
+      "dated_display_name": "中无人机",
+      "undated_comparison_name": "中航无人机",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688298.SH",
+      "dated_display_name": "东方生物",
+      "undated_comparison_name": "东方基因生物",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688301.SH",
+      "dated_display_name": "奕瑞科技",
+      "undated_comparison_name": "奕瑞科技股份",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688302.SH",
+      "dated_display_name": "海创药业-U",
+      "undated_comparison_name": "海创药业",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688306.SH",
+      "dated_display_name": "均普智能",
+      "undated_comparison_name": "均普智能制造",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688308.SH",
+      "dated_display_name": "欧科亿",
+      "undated_comparison_name": "欧科亿数控刀具",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688315.SH",
+      "dated_display_name": "诺禾致源",
+      "undated_comparison_name": "诺禾致源科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688316.SH",
+      "dated_display_name": "青云科技-U",
+      "undated_comparison_name": "青云科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688317.SH",
+      "dated_display_name": "之江生物",
+      "undated_comparison_name": "上海之江生物",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688322.SH",
+      "dated_display_name": "奥比中光-W",
+      "undated_comparison_name": "奥比中光",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688323.SH",
+      "dated_display_name": "瑞华泰",
+      "undated_comparison_name": "瑞华泰薄膜科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688325.SH",
+      "dated_display_name": "赛微微电",
+      "undated_comparison_name": "赛微微电子",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688326.SH",
+      "dated_display_name": "经纬恒润-W",
+      "undated_comparison_name": "经纬恒润",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688327.SH",
+      "dated_display_name": "云从科技-UW",
+      "undated_comparison_name": "云从科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688328.SH",
+      "dated_display_name": "深科达",
+      "undated_comparison_name": "深科达智能装备",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688329.SH",
+      "dated_display_name": "艾隆科技",
+      "undated_comparison_name": "苏州艾隆科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688330.SH",
+      "dated_display_name": "宏力达",
+      "undated_comparison_name": "宏力达信息",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688333.SH",
+      "dated_display_name": "铂力特",
+      "undated_comparison_name": "西安铂力特",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688339.SH",
+      "dated_display_name": "亿华通-U",
+      "undated_comparison_name": "亿华通科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688343.SH",
+      "dated_display_name": "云天励飞-U",
+      "undated_comparison_name": "云天励飞股份",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688347.SH",
+      "dated_display_name": "华虹宏力",
+      "undated_comparison_name": "华虹宏力半导体",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688351.SH",
+      "dated_display_name": "微电生理",
+      "undated_comparison_name": "微创电生理股份",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688358.SH",
+      "dated_display_name": "祥生医疗",
+      "undated_comparison_name": "祥生医疗科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688359.SH",
+      "dated_display_name": "三孚新科",
+      "undated_comparison_name": "三孚新材料科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688366.SH",
+      "dated_display_name": "昊海生科",
+      "undated_comparison_name": "XD昊海生物科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": true
+    },
+    {
+      "code": "688368.SH",
+      "dated_display_name": "晶丰明源",
+      "undated_comparison_name": "晶丰明源半导体",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688370.SH",
+      "dated_display_name": "丛麟科技",
+      "undated_comparison_name": "丛麟环保科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688371.SH",
+      "dated_display_name": "菲沃泰",
+      "undated_comparison_name": "菲沃泰纳米科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688373.SH",
+      "dated_display_name": "盟科药业-U",
+      "undated_comparison_name": "盟科药业",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688377.SH",
+      "dated_display_name": "迪威尔",
+      "undated_comparison_name": "迪威尔高端制造",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688378.SH",
+      "dated_display_name": "奥来德",
+      "undated_comparison_name": "奥来德光电",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688381.SH",
+      "dated_display_name": "帝奥微",
+      "undated_comparison_name": "帝奥微电子",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688382.SH",
+      "dated_display_name": "益方生物-U",
+      "undated_comparison_name": "益方生物科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688383.SH",
+      "dated_display_name": "新益昌",
+      "undated_comparison_name": "新益昌科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688387.SH",
+      "dated_display_name": "信科移动-U",
+      "undated_comparison_name": "中信科移动",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688389.SH",
+      "dated_display_name": "普门科技",
+      "undated_comparison_name": "深圳普门科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688390.SH",
+      "dated_display_name": "固德威",
+      "undated_comparison_name": "固德威电源",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688392.SH",
+      "dated_display_name": "骄成超声",
+      "undated_comparison_name": "骄成超声波",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688393.SH",
+      "dated_display_name": "安必平",
+      "undated_comparison_name": "安必平医药",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688395.SH",
+      "dated_display_name": "正弦电气",
+      "undated_comparison_name": "深圳正弦电气股份",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688396.SH",
+      "dated_display_name": "华润微",
+      "undated_comparison_name": "华润微电子",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688400.SH",
+      "dated_display_name": "凌云光",
+      "undated_comparison_name": "凌云光技术",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688408.SH",
+      "dated_display_name": "中信博",
+      "undated_comparison_name": "中信博新能源",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688410.SH",
+      "dated_display_name": "山外山",
+      "undated_comparison_name": "山外山血液净化",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688420.SH",
+      "dated_display_name": "美腾科技",
+      "undated_comparison_name": "天津美腾科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688426.SH",
+      "dated_display_name": "康为世纪",
+      "undated_comparison_name": "康为世纪生物科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688443.SH",
+      "dated_display_name": "智翔金泰-U",
+      "undated_comparison_name": "智翔金泰",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688448.SH",
+      "dated_display_name": "磁谷科技",
+      "undated_comparison_name": "南京磁谷科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688458.SH",
+      "dated_display_name": "美芯晟",
+      "undated_comparison_name": "美芯晟科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688469.SH",
+      "dated_display_name": "芯联集成-U",
+      "undated_comparison_name": "芯联集成",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688472.SH",
+      "dated_display_name": "阿特斯",
+      "undated_comparison_name": "阿特斯阳光电力",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688479.SH",
+      "dated_display_name": "友车科技",
+      "undated_comparison_name": "用友汽车信息科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688480.SH",
+      "dated_display_name": "赛恩斯",
+      "undated_comparison_name": "赛恩斯环保",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688485.SH",
+      "dated_display_name": "九州一轨",
+      "undated_comparison_name": "九州一轨环科",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688499.SH",
+      "dated_display_name": "利元亨",
+      "undated_comparison_name": "广东利元亨",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688500.SH",
+      "dated_display_name": "慧辰股份",
+      "undated_comparison_name": "慧辰资讯股份公司",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688501.SH",
+      "dated_display_name": "青达环保",
+      "undated_comparison_name": "青岛达能环保",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688503.SH",
+      "dated_display_name": "聚和材料",
+      "undated_comparison_name": "聚和材料股份公司",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688505.SH",
+      "dated_display_name": "复旦张江",
+      "undated_comparison_name": "复旦张江股份",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688506.SH",
+      "dated_display_name": "百利天恒",
+      "undated_comparison_name": "百利天恒药业",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688508.SH",
+      "dated_display_name": "芯朋微",
+      "undated_comparison_name": "芯朋微电子",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688512.SH",
+      "dated_display_name": "慧智微-U",
+      "undated_comparison_name": "慧智微电子",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688515.SH",
+      "dated_display_name": "裕太微-U",
+      "undated_comparison_name": "裕太微电子",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688516.SH",
+      "dated_display_name": "奥特维",
+      "undated_comparison_name": "奥特维科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688518.SH",
+      "dated_display_name": "联赢激光",
+      "undated_comparison_name": "联赢激光股份",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688519.SH",
+      "dated_display_name": "南亚新材",
+      "undated_comparison_name": "南亚新材料",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688520.SH",
+      "dated_display_name": "神州细胞",
+      "undated_comparison_name": "神州细胞集团公司",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688521.SH",
+      "dated_display_name": "芯原股份",
+      "undated_comparison_name": "芯原微电子",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688522.SH",
+      "dated_display_name": "纳睿雷达",
+      "undated_comparison_name": "纳睿雷达科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688523.SH",
+      "dated_display_name": "航天环宇",
+      "undated_comparison_name": "航天环宇科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688525.SH",
+      "dated_display_name": "佰维存储",
+      "undated_comparison_name": "XD佰维存储",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": true
+    },
+    {
+      "code": "688526.SH",
+      "dated_display_name": "科前生物",
+      "undated_comparison_name": "武汉科前生物",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688528.SH",
+      "dated_display_name": "秦川物联",
+      "undated_comparison_name": "秦川物联网",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688529.SH",
+      "dated_display_name": "豪森智能",
+      "undated_comparison_name": "豪森智能股份",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688531.SH",
+      "dated_display_name": "日联科技",
+      "undated_comparison_name": "日联科技股份",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688533.SH",
+      "dated_display_name": "上声电子",
+      "undated_comparison_name": "上声电子股份",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688535.SH",
+      "dated_display_name": "华海诚科",
+      "undated_comparison_name": "华海诚科新材料",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688536.SH",
+      "dated_display_name": "思瑞浦",
+      "undated_comparison_name": "思瑞浦股份",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688538.SH",
+      "dated_display_name": "和辉光电-U",
+      "undated_comparison_name": "和辉光电",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688548.SH",
+      "dated_display_name": "广钢气体",
+      "undated_comparison_name": "广钢气体股份",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688549.SH",
+      "dated_display_name": "中巨芯-U",
+      "undated_comparison_name": "中巨芯科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688550.SH",
+      "dated_display_name": "瑞联新材",
+      "undated_comparison_name": "瑞联新材料",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688551.SH",
+      "dated_display_name": "科威尔",
+      "undated_comparison_name": "科威尔股份",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688553.SH",
+      "dated_display_name": "汇宇制药-W",
+      "undated_comparison_name": "汇宇制药",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688556.SH",
+      "dated_display_name": "高测股份",
+      "undated_comparison_name": "高测科技股份",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688558.SH",
+      "dated_display_name": "国盛智科",
+      "undated_comparison_name": "国盛智科股份",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688559.SH",
+      "dated_display_name": "海目星",
+      "undated_comparison_name": "海目星激光",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688560.SH",
+      "dated_display_name": "明冠新材",
+      "undated_comparison_name": "明冠新材料",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688561.SH",
+      "dated_display_name": "奇安信-U",
+      "undated_comparison_name": "奇安信集团",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688562.SH",
+      "dated_display_name": "航天软件",
+      "undated_comparison_name": "航天软件股份",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688563.SH",
+      "dated_display_name": "航材股份",
+      "undated_comparison_name": "航空材料股份",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688566.SH",
+      "dated_display_name": "吉贝尔",
+      "undated_comparison_name": "吉贝尔药业",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688568.SH",
+      "dated_display_name": "中科星图",
+      "undated_comparison_name": "中科星图公司",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688571.SH",
+      "dated_display_name": "杭华股份",
+      "undated_comparison_name": "杭华油墨股份",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688575.SH",
+      "dated_display_name": "亚辉龙",
+      "undated_comparison_name": "亚辉龙生物",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688577.SH",
+      "dated_display_name": "浙海德曼",
+      "undated_comparison_name": "海德曼装备",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688578.SH",
+      "dated_display_name": "艾力斯",
+      "undated_comparison_name": "艾力斯医药科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688581.SH",
+      "dated_display_name": "安杰思",
+      "undated_comparison_name": "安杰思医学",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688583.SH",
+      "dated_display_name": "思看科技",
+      "undated_comparison_name": "杭州思看科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688584.SH",
+      "dated_display_name": "上海合晶",
+      "undated_comparison_name": "上海合晶硅材料",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688586.SH",
+      "dated_display_name": "江航装备",
+      "undated_comparison_name": "江航飞机装备",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688589.SH",
+      "dated_display_name": "力合微",
+      "undated_comparison_name": "力合微电子",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688598.SH",
+      "dated_display_name": "金博股份",
+      "undated_comparison_name": "金博碳素股份",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688601.SH",
+      "dated_display_name": "力芯微",
+      "undated_comparison_name": "力芯微股份",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688607.SH",
+      "dated_display_name": "康众科技",
+      "undated_comparison_name": "康众数字医疗科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688609.SH",
+      "dated_display_name": "九联科技",
+      "undated_comparison_name": "广东九联科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688611.SH",
+      "dated_display_name": "杭州柯林",
+      "undated_comparison_name": "杭州柯林股份",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688619.SH",
+      "dated_display_name": "罗普特",
+      "undated_comparison_name": "罗普特科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688620.SH",
+      "dated_display_name": "安凯微",
+      "undated_comparison_name": "安凯微电子",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688622.SH",
+      "dated_display_name": "*ST禾信",
+      "undated_comparison_name": "*ST禾信仪器",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688627.SH",
+      "dated_display_name": "精智达",
+      "undated_comparison_name": "精智达技术",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688628.SH",
+      "dated_display_name": "优利德",
+      "undated_comparison_name": "优利德科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688629.SH",
+      "dated_display_name": "华丰科技",
+      "undated_comparison_name": "四川华丰科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688636.SH",
+      "dated_display_name": "智明达",
+      "undated_comparison_name": "智明达电子",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688651.SH",
+      "dated_display_name": "盛邦安全",
+      "undated_comparison_name": "远江盛邦安全",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688655.SH",
+      "dated_display_name": "迅捷兴",
+      "undated_comparison_name": "迅捷兴科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688656.SH",
+      "dated_display_name": "浩欧博",
+      "undated_comparison_name": "浩欧博生物",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688661.SH",
+      "dated_display_name": "和林微纳",
+      "undated_comparison_name": "和林微纳科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688662.SH",
+      "dated_display_name": "富信科技",
+      "undated_comparison_name": "广东富信科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688663.SH",
+      "dated_display_name": "新风光",
+      "undated_comparison_name": "新风光科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688665.SH",
+      "dated_display_name": "四方光电",
+      "undated_comparison_name": "四方光电股份",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688669.SH",
+      "dated_display_name": "聚石化学",
+      "undated_comparison_name": "聚石化学股份",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688670.SH",
+      "dated_display_name": "金迪克",
+      "undated_comparison_name": "金迪克生物",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688676.SH",
+      "dated_display_name": "金盘科技",
+      "undated_comparison_name": "海南金盘智能科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688677.SH",
+      "dated_display_name": "海泰新光",
+      "undated_comparison_name": "青岛海泰新光",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688678.SH",
+      "dated_display_name": "福立旺",
+      "undated_comparison_name": "福立旺精密",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688681.SH",
+      "dated_display_name": "科汇股份",
+      "undated_comparison_name": "科汇电力自动化",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688682.SH",
+      "dated_display_name": "霍莱沃",
+      "undated_comparison_name": "霍莱沃技术",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688685.SH",
+      "dated_display_name": "迈信林",
+      "undated_comparison_name": "迈信林航空股份",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688686.SH",
+      "dated_display_name": "奥普特",
+      "undated_comparison_name": "奥普特科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688687.SH",
+      "dated_display_name": "凯因科技",
+      "undated_comparison_name": "北京凯因科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688689.SH",
+      "dated_display_name": "银河微电",
+      "undated_comparison_name": "常州银河微电",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688691.SH",
+      "dated_display_name": "灿芯股份",
+      "undated_comparison_name": "灿芯半导体股份",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688697.SH",
+      "dated_display_name": "纽威数控",
+      "undated_comparison_name": "纽威数控装备",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688701.SH",
+      "dated_display_name": "卓锦股份",
+      "undated_comparison_name": "浙江卓锦股份",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688702.SH",
+      "dated_display_name": "盛科通信-U",
+      "undated_comparison_name": "盛科通信",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688707.SH",
+      "dated_display_name": "振华新材",
+      "undated_comparison_name": "振华新材料",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688710.SH",
+      "dated_display_name": "益诺思",
+      "undated_comparison_name": "益诺思生物",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688711.SH",
+      "dated_display_name": "宏微科技",
+      "undated_comparison_name": "江苏宏微科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688718.SH",
+      "dated_display_name": "唯赛勃",
+      "undated_comparison_name": "唯赛勃科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688722.SH",
+      "dated_display_name": "同益中",
+      "undated_comparison_name": "同益中新材料",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688728.SH",
+      "dated_display_name": "格科微",
+      "undated_comparison_name": "格科微有限公司",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688729.SH",
+      "dated_display_name": "屹唐股份",
+      "undated_comparison_name": "屹唐半导体股份",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688750.SH",
+      "dated_display_name": "金天钛业",
+      "undated_comparison_name": "湘投金天钛业",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688759.SH",
+      "dated_display_name": "必贝特-U",
+      "undated_comparison_name": "必贝特",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688765.SH",
+      "dated_display_name": "禾元生物-U",
+      "undated_comparison_name": "武汉禾元生物",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688766.SH",
+      "dated_display_name": "普冉股份",
+      "undated_comparison_name": "普冉半导体",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688767.SH",
+      "dated_display_name": "博拓生物",
+      "undated_comparison_name": "杭州博拓生物科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688772.SH",
+      "dated_display_name": "珠海冠宇",
+      "undated_comparison_name": "珠海冠宇电池",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688778.SH",
+      "dated_display_name": "厦钨新能",
+      "undated_comparison_name": "厦钨新能源",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688781.SH",
+      "dated_display_name": "视涯科技-UW",
+      "undated_comparison_name": "视涯科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688783.SH",
+      "dated_display_name": "西安奕材-U",
+      "undated_comparison_name": "西安奕材",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688785.SH",
+      "dated_display_name": "恒运昌",
+      "undated_comparison_name": "恒运昌股份",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688789.SH",
+      "dated_display_name": "宏华数科",
+      "undated_comparison_name": "杭州宏华数码科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688790.SH",
+      "dated_display_name": "昂瑞微-UW",
+      "undated_comparison_name": "昂瑞微",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688793.SH",
+      "dated_display_name": "倍轻松",
+      "undated_comparison_name": "倍轻松科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688795.SH",
+      "dated_display_name": "摩尔线程-U",
+      "undated_comparison_name": "摩尔线程",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688799.SH",
+      "dated_display_name": "华纳药厂",
+      "undated_comparison_name": "华纳大药厂",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688800.SH",
+      "dated_display_name": "瑞可达",
+      "undated_comparison_name": "瑞可达连接系统",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688801.SH",
+      "dated_display_name": "燧原科技-U",
+      "undated_comparison_name": "燧原科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688802.SH",
+      "dated_display_name": "沐曦股份-U",
+      "undated_comparison_name": "沐曦股份",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688806.SH",
+      "dated_display_name": "泰诺麦博-U",
+      "undated_comparison_name": "泰诺麦博",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688807.SH",
+      "dated_display_name": "优迅股份",
+      "undated_comparison_name": "优迅芯片股份",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688811.SH",
+      "dated_display_name": "有研复材",
+      "undated_comparison_name": "有研金属复材",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688818.SH",
+      "dated_display_name": "电科蓝天",
+      "undated_comparison_name": "中电科蓝天科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688819.SH",
+      "dated_display_name": "天能股份",
+      "undated_comparison_name": "天能电池集团股份",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688828.SH",
+      "dated_display_name": "国仪公司-U",
+      "undated_comparison_name": "国仪公司",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    },
+    {
+      "code": "688836.SH",
+      "dated_display_name": "宇树科技-W",
+      "undated_comparison_name": "宇树科技",
+      "whitespace_only": false,
+      "classification_flags_differ": false,
+      "ex_prefix_differs": false
+    }
+  ],
+  "name_classification_difference_count": 0,
+  "turnover_contract": "null_not_zero_not_carried_not_inferred",
+  "turnover_missing_count": 5553,
+  "turnover_differences": [
+    {
+      "code": "001376.SZ",
+      "dated_quote_pct": 7.71,
+      "undated_comparison_pct": 7.74959,
+      "comparison_implied_denominator": 214015313.00000003,
+      "comparison_calculated_pct": 7.749587993266631,
+      "raw_quote_denominators": {
+        "72": {
+          "raw_denominator": 214990313.0,
+          "calculated_pct": 7.714440603656407,
+          "matches_quoted_pct": true
+        },
+        "73": {
+          "raw_denominator": 488600000.0,
+          "calculated_pct": 3.3944535407286125,
+          "matches_quoted_pct": false
+        },
+        "76": {
+          "raw_denominator": 214990313.0,
+          "calculated_pct": 7.714440603656407,
+          "matches_quoted_pct": true
+        }
+      },
+      "both_internally_reproducible": true,
+      "official_denominator_verified": false
+    },
+    {
+      "code": "002023.SZ",
+      "dated_quote_pct": 3.13,
+      "undated_comparison_pct": 3.15513,
+      "comparison_implied_denominator": 734160281.0,
+      "comparison_calculated_pct": 3.155132414470676,
+      "raw_quote_denominators": {
+        "72": {
+          "raw_denominator": 740860235.0,
+          "calculated_pct": 3.1265951262723664,
+          "matches_quoted_pct": true
+        },
+        "73": {
+          "raw_denominator": 740860235.0,
+          "calculated_pct": 3.1265951262723664,
+          "matches_quoted_pct": true
+        },
+        "76": {
+          "raw_denominator": 740860235.0,
+          "calculated_pct": 3.1265951262723664,
+          "matches_quoted_pct": true
+        }
+      },
+      "both_internally_reproducible": true,
+      "official_denominator_verified": false
+    },
+    {
+      "code": "002282.SZ",
+      "dated_quote_pct": 0.67,
+      "undated_comparison_pct": 0.70232,
+      "comparison_implied_denominator": 483311104.0,
+      "comparison_calculated_pct": 0.7023227837943488,
+      "raw_quote_denominators": {
+        "72": {
+          "raw_denominator": 509536318.0,
+          "calculated_pct": 0.6661743000623559,
+          "matches_quoted_pct": true
+        },
+        "73": {
+          "raw_denominator": 526838348.0,
+          "calculated_pct": 0.64429630319925,
+          "matches_quoted_pct": false
+        },
+        "76": {
+          "raw_denominator": 509536318.0,
+          "calculated_pct": 0.6661743000623559,
+          "matches_quoted_pct": true
+        }
+      },
+      "both_internally_reproducible": true,
+      "official_denominator_verified": false
+    },
+    {
+      "code": "002385.SZ",
+      "dated_quote_pct": 2.81,
+      "undated_comparison_pct": 2.91066,
+      "comparison_implied_denominator": 3443890807.000001,
+      "comparison_calculated_pct": 2.910656075281308,
+      "raw_quote_denominators": {
+        "72": {
+          "raw_denominator": 3565612571.0,
+          "calculated_pct": 2.8112925340031283,
+          "matches_quoted_pct": true
+        },
+        "73": {
+          "raw_denominator": 4280371965.0,
+          "calculated_pct": 2.3418478772323237,
+          "matches_quoted_pct": false
+        },
+        "76": {
+          "raw_denominator": 3565612571.0,
+          "calculated_pct": 2.8112925340031283,
+          "matches_quoted_pct": true
+        }
+      },
+      "both_internally_reproducible": true,
+      "official_denominator_verified": false
+    },
+    {
+      "code": "002683.SZ",
+      "dated_quote_pct": 1.11,
+      "undated_comparison_pct": 1.15032,
+      "comparison_implied_denominator": 666725371.0,
+      "comparison_calculated_pct": 1.1503187569563782,
+      "raw_quote_denominators": {
+        "72": {
+          "raw_denominator": 692561159.0,
+          "calculated_pct": 1.1074112228693438,
+          "matches_quoted_pct": true
+        },
+        "73": {
+          "raw_denominator": 759885063.0,
+          "calculated_pct": 1.0092973758058987,
+          "matches_quoted_pct": false
+        },
+        "76": {
+          "raw_denominator": 692561159.0,
+          "calculated_pct": 1.1074112228693438,
+          "matches_quoted_pct": true
+        }
+      },
+      "both_internally_reproducible": true,
+      "official_denominator_verified": false
+    },
+    {
+      "code": "002860.SZ",
+      "dated_quote_pct": 7.13,
+      "undated_comparison_pct": 7.17148,
+      "comparison_implied_denominator": 343944217.99999994,
+      "comparison_calculated_pct": 7.171478893708283,
+      "raw_quote_denominators": {
+        "72": {
+          "raw_denominator": 345938390.0,
+          "calculated_pct": 7.130142451087895,
+          "matches_quoted_pct": true
+        },
+        "73": {
+          "raw_denominator": 352145116.0,
+          "calculated_pct": 7.004470282075416,
+          "matches_quoted_pct": false
+        },
+        "76": {
+          "raw_denominator": 345938390.0,
+          "calculated_pct": 7.130142451087895,
+          "matches_quoted_pct": true
+        }
+      },
+      "both_internally_reproducible": true,
+      "official_denominator_verified": false
+    },
+    {
+      "code": "300007.SZ",
+      "dated_quote_pct": 4.42,
+      "undated_comparison_pct": 4.47502,
+      "comparison_implied_denominator": 282759613.00000006,
+      "comparison_calculated_pct": 4.47501602712973,
+      "raw_quote_denominators": {
+        "72": {
+          "raw_denominator": 286312803.0,
+          "calculated_pct": 4.419467054010854,
+          "matches_quoted_pct": true
+        },
+        "73": {
+          "raw_denominator": 327445619.0,
+          "calculated_pct": 3.8643057856883405,
+          "matches_quoted_pct": false
+        },
+        "76": {
+          "raw_denominator": 286312803.0,
+          "calculated_pct": 4.419467054010854,
+          "matches_quoted_pct": true
+        }
+      },
+      "both_internally_reproducible": true,
+      "official_denominator_verified": false
+    },
+    {
+      "code": "300084.SZ",
+      "dated_quote_pct": 1.8,
+      "undated_comparison_pct": 1.92228,
+      "comparison_implied_denominator": 471501544.0,
+      "comparison_calculated_pct": 1.9222842672175853,
+      "raw_quote_denominators": {
+        "72": {
+          "raw_denominator": 502217849.0,
+          "calculated_pct": 1.8047148300378308,
+          "matches_quoted_pct": true
+        },
+        "73": {
+          "raw_denominator": 548759899.0,
+          "calculated_pct": 1.6516512989590737,
+          "matches_quoted_pct": false
+        },
+        "76": {
+          "raw_denominator": 502217849.0,
+          "calculated_pct": 1.8047148300378308,
+          "matches_quoted_pct": true
+        }
+      },
+      "both_internally_reproducible": true,
+      "official_denominator_verified": false
+    },
+    {
+      "code": "300148.SZ",
+      "dated_quote_pct": 3.07,
+      "undated_comparison_pct": 3.17716,
+      "comparison_implied_denominator": 814062502.0,
+      "comparison_calculated_pct": 3.177155063211596,
+      "raw_quote_denominators": {
+        "72": {
+          "raw_denominator": 842721321.0,
+          "calculated_pct": 3.0691047390742354,
+          "matches_quoted_pct": true
+        },
+        "73": {
+          "raw_denominator": 843159343.0,
+          "calculated_pct": 3.0675103365367087,
+          "matches_quoted_pct": true
+        },
+        "76": {
+          "raw_denominator": 842721321.0,
+          "calculated_pct": 3.0691047390742354,
+          "matches_quoted_pct": true
+        }
+      },
+      "both_internally_reproducible": true,
+      "official_denominator_verified": false
+    },
+    {
+      "code": "300171.SZ",
+      "dated_quote_pct": 5.77,
+      "undated_comparison_pct": 5.84888,
+      "comparison_implied_denominator": 560697223.0,
+      "comparison_calculated_pct": 5.848879868627421,
+      "raw_quote_denominators": {
+        "72": {
+          "raw_denominator": 568537752.0,
+          "calculated_pct": 5.768218536875631,
+          "matches_quoted_pct": true
+        },
+        "73": {
+          "raw_denominator": 765828040.0,
+          "calculated_pct": 4.2822276395103005,
+          "matches_quoted_pct": false
+        },
+        "76": {
+          "raw_denominator": 568537752.0,
+          "calculated_pct": 5.768218536875631,
+          "matches_quoted_pct": true
+        }
+      },
+      "both_internally_reproducible": true,
+      "official_denominator_verified": false
+    },
+    {
+      "code": "300263.SZ",
+      "dated_quote_pct": 3.8,
+      "undated_comparison_pct": 3.74828,
+      "comparison_implied_denominator": 975529146.0,
+      "comparison_calculated_pct": 3.7482841132867595,
+      "raw_quote_denominators": {
+        "72": {
+          "raw_denominator": 962203672.0,
+          "calculated_pct": 3.8001933544897137,
+          "matches_quoted_pct": true
+        },
+        "73": {
+          "raw_denominator": 1021681672.0,
+          "calculated_pct": 3.5789621172728645,
+          "matches_quoted_pct": false
+        },
+        "76": {
+          "raw_denominator": 962203672.0,
+          "calculated_pct": 3.8001933544897137,
+          "matches_quoted_pct": true
+        }
+      },
+      "both_internally_reproducible": true,
+      "official_denominator_verified": false
+    },
+    {
+      "code": "300270.SZ",
+      "dated_quote_pct": 2.93,
+      "undated_comparison_pct": 3.45818,
+      "comparison_implied_denominator": 256811704.00000003,
+      "comparison_calculated_pct": 3.4581757223962035,
+      "raw_quote_denominators": {
+        "72": {
+          "raw_denominator": 302806028.0,
+          "calculated_pct": 2.932900662070043,
+          "matches_quoted_pct": true
+        },
+        "73": {
+          "raw_denominator": 302806028.0,
+          "calculated_pct": 2.932900662070043,
+          "matches_quoted_pct": true
+        },
+        "76": {
+          "raw_denominator": 302806028.0,
+          "calculated_pct": 2.932900662070043,
+          "matches_quoted_pct": true
+        }
+      },
+      "both_internally_reproducible": true,
+      "official_denominator_verified": false
+    },
+    {
+      "code": "300480.SZ",
+      "dated_quote_pct": 3.97,
+      "undated_comparison_pct": 3.80728,
+      "comparison_implied_denominator": 270091376.0,
+      "comparison_calculated_pct": 3.807279281660589,
+      "raw_quote_denominators": {
+        "72": {
+          "raw_denominator": 258998292.0,
+          "calculated_pct": 3.970335063059026,
+          "matches_quoted_pct": true
+        },
+        "73": {
+          "raw_denominator": 370222600.0,
+          "calculated_pct": 2.7775451849779023,
+          "matches_quoted_pct": false
+        },
+        "76": {
+          "raw_denominator": 258998292.0,
+          "calculated_pct": 3.970335063059026,
+          "matches_quoted_pct": true
+        }
+      },
+      "both_internally_reproducible": true,
+      "official_denominator_verified": false
+    },
+    {
+      "code": "300513.SZ",
+      "dated_quote_pct": 1.91,
+      "undated_comparison_pct": 2.08505,
+      "comparison_implied_denominator": 287155781.00000006,
+      "comparison_calculated_pct": 2.0850494387226,
+      "raw_quote_denominators": {
+        "72": {
+          "raw_denominator": 313488312.0,
+          "calculated_pct": 1.909895766704055,
+          "matches_quoted_pct": true
+        },
+        "73": {
+          "raw_denominator": 313691155.0,
+          "calculated_pct": 1.9086607653951864,
+          "matches_quoted_pct": true
+        },
+        "76": {
+          "raw_denominator": 313488312.0,
+          "calculated_pct": 1.909895766704055,
+          "matches_quoted_pct": true
+        }
+      },
+      "both_internally_reproducible": true,
+      "official_denominator_verified": false
+    },
+    {
+      "code": "300839.SZ",
+      "dated_quote_pct": 3.22,
+      "undated_comparison_pct": 3.23814,
+      "comparison_implied_denominator": 283181398.0,
+      "comparison_calculated_pct": 3.2381364258961676,
+      "raw_quote_denominators": {
+        "72": {
+          "raw_denominator": 284745329.0,
+          "calculated_pct": 3.2203513336648975,
+          "matches_quoted_pct": true
+        },
+        "73": {
+          "raw_denominator": 288133941.0,
+          "calculated_pct": 3.182478248891893,
+          "matches_quoted_pct": false
+        },
+        "76": {
+          "raw_denominator": 284745329.0,
+          "calculated_pct": 3.2203513336648975,
+          "matches_quoted_pct": true
+        }
+      },
+      "both_internally_reproducible": true,
+      "official_denominator_verified": false
+    },
+    {
+      "code": "300887.SZ",
+      "dated_quote_pct": 2.92,
+      "undated_comparison_pct": 2.90053,
+      "comparison_implied_denominator": 364267514.0,
+      "comparison_calculated_pct": 2.9005279345333,
+      "raw_quote_denominators": {
+        "72": {
+          "raw_denominator": 362197220.0,
+          "calculated_pct": 2.91711239528564,
+          "matches_quoted_pct": true
+        },
+        "73": {
+          "raw_denominator": 545733413.0,
+          "calculated_pct": 1.9360551779152289,
+          "matches_quoted_pct": false
+        },
+        "76": {
+          "raw_denominator": 364267514.0,
+          "calculated_pct": 2.9005331504801717,
+          "matches_quoted_pct": false
+        }
+      },
+      "both_internally_reproducible": true,
+      "official_denominator_verified": false
+    },
+    {
+      "code": "300904.SZ",
+      "dated_quote_pct": 7.17,
+      "undated_comparison_pct": 3.42362,
+      "comparison_implied_denominator": 72383231.99999999,
+      "comparison_calculated_pct": 3.4236161214796272,
+      "raw_quote_denominators": {
+        "72": {
+          "raw_denominator": 34583232.0,
+          "calculated_pct": 7.165611357550388,
+          "matches_quoted_pct": true
+        },
+        "73": {
+          "raw_denominator": 72383232.0,
+          "calculated_pct": 3.4235829646291562,
+          "matches_quoted_pct": false
+        },
+        "76": {
+          "raw_denominator": 34583232.0,
+          "calculated_pct": 7.165611357550388,
+          "matches_quoted_pct": true
+        }
+      },
+      "both_internally_reproducible": true,
+      "official_denominator_verified": false
+    },
+    {
+      "code": "301050.SZ",
+      "dated_quote_pct": 1.14,
+      "undated_comparison_pct": 1.33921,
+      "comparison_implied_denominator": 210489977.0,
+      "comparison_calculated_pct": 1.3392062843923442,
+      "raw_quote_denominators": {
+        "72": {
+          "raw_denominator": 246437713.0,
+          "calculated_pct": 1.1438590164160467,
+          "matches_quoted_pct": true
+        },
+        "73": {
+          "raw_denominator": 247579192.0,
+          "calculated_pct": 1.1385851844932107,
+          "matches_quoted_pct": true
+        },
+        "76": {
+          "raw_denominator": 246437713.0,
+          "calculated_pct": 1.1438590164160467,
+          "matches_quoted_pct": true
+        }
+      },
+      "both_internally_reproducible": true,
+      "official_denominator_verified": false
+    },
+    {
+      "code": "301285.SZ",
+      "dated_quote_pct": 1.85,
+      "undated_comparison_pct": 2.91052,
+      "comparison_implied_denominator": 131235568.00000001,
+      "comparison_calculated_pct": 2.910524226176245,
+      "raw_quote_denominators": {
+        "72": {
+          "raw_denominator": 206670000.0,
+          "calculated_pct": 1.8481637392945276,
+          "matches_quoted_pct": true
+        },
+        "73": {
+          "raw_denominator": 206670000.0,
+          "calculated_pct": 1.8481637392945276,
+          "matches_quoted_pct": true
+        },
+        "76": {
+          "raw_denominator": 131235567.0,
+          "calculated_pct": 2.9104914828462625,
+          "matches_quoted_pct": false
+        }
+      },
+      "both_internally_reproducible": true,
+      "official_denominator_verified": false
+    },
+    {
+      "code": "301368.SZ",
+      "dated_quote_pct": 1.59,
+      "undated_comparison_pct": 1.60945,
+      "comparison_implied_denominator": 118860294.99999999,
+      "comparison_calculated_pct": 1.609452508930758,
+      "raw_quote_denominators": {
+        "72": {
+          "raw_denominator": 120100000.0,
+          "calculated_pct": 1.5928393005828476,
+          "matches_quoted_pct": true
+        },
+        "73": {
+          "raw_denominator": 141149596.0,
+          "calculated_pct": 1.3552996637694947,
+          "matches_quoted_pct": false
+        },
+        "76": {
+          "raw_denominator": 118860295.0,
+          "calculated_pct": 1.6094525089307576,
+          "matches_quoted_pct": false
+        }
+      },
+      "both_internally_reproducible": true,
+      "official_denominator_verified": false
+    },
+    {
+      "code": "920608.BJ",
+      "dated_quote_pct": 2.36,
+      "undated_comparison_pct": 1.92742,
+      "comparison_implied_denominator": 48218888.00000001,
+      "comparison_calculated_pct": 1.9274169076648966,
+      "raw_quote_denominators": {
+        "72": {
+          "raw_denominator": 39411965.0,
+          "calculated_pct": 2.3581671200611285,
+          "matches_quoted_pct": true
+        },
+        "73": {
+          "raw_denominator": 62240000.0,
+          "calculated_pct": 1.4932519280205656,
+          "matches_quoted_pct": false
+        },
+        "76": {
+          "raw_denominator": 48218888.0,
+          "calculated_pct": 1.9274604590632616,
+          "matches_quoted_pct": false
+        }
+      },
+      "both_internally_reproducible": true,
+      "official_denominator_verified": false
+    }
+  ],
+  "internal_denominator_mismatches": [],
+  "comparison_has_target_date": false,
+  "comparison_missing_codes": [
+    "689009.SH"
+  ],
+  "breadth": {
+    "advancers": 4536,
+    "decliners": 936,
+    "unchanged_traded": 81,
+    "nontrading_not_flat": 12,
+    "observed_denominator": 5553
+  },
+  "production_ready": false,
+  "database_writes": false,
+  "publication_attempted": false,
+  "remaining_gates": [
+    "official_historical_universe",
+    "adjustment_completeness",
+    "official_turnover_denominator_if_required",
+    "downstream_same_day_cross_day_l2",
+    "write_and_publish_authorization"
+  ]
+}

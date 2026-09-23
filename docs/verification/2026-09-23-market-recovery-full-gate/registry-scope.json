@@ -1,0 +1,20 @@
+[
+  {
+    "repo": "finance-workspace-private",
+    "short": "ws",
+    "root": "/Users/a77/fwp-wt-market-recovery-qc-preview-0923",
+    "skill_files": 39
+  },
+  {
+    "repo": "knowledge-base-private",
+    "short": "kb",
+    "root": "/Users/a77/knowledge-base-private",
+    "skill_files": 22
+  },
+  {
+    "repo": "finance-research-site",
+    "short": "site",
+    "root": "/Users/a77/finance-research-site",
+    "skill_files": 0
+  }
+]

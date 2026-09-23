@@ -1,0 +1,4 @@
+revision=d3abd6703368c668405e74a7e50beacd49b7581b
+tree=fde4d4931d2735143daa9b42b0480c1a8c35290f
+parents=5f35da1723f74663a4803c4d1490c402a1d6db40 bb8e207e6f368d409427a5cc98daec54117b0423
+subject=QC full-gate preview: current main plus market recovery fixes and evidence

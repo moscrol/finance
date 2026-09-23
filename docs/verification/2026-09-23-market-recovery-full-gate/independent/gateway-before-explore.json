@@ -1,0 +1,9 @@
+{
+  "complete": true,
+  "requests": 1,
+  "route": "mirasim-kimi/kimi-k3",
+  "http_status": 200,
+  "has_choices": true,
+  "usable": true,
+  "elapsed_ms": 3270
+}

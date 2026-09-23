@@ -1,0 +1,24 @@
+{
+  "trade_date": "2026-09-21",
+  "partition": {
+    "declared_count": 5565,
+    "observed_count": 5553,
+    "nontrading_count": 12,
+    "bar_coverage_denominator": 5565,
+    "observed_bar_fraction": 0.997843665768194,
+    "disposition_coverage_fraction": 1.0,
+    "official_historical_universe_verified": false
+  },
+  "production_ready": false,
+  "database_writes": false,
+  "publication_attempted": false,
+  "remaining_gates": [
+    "official_historical_universe",
+    "adjustment_completeness",
+    "official_turnover_denominator_if_required",
+    "downstream_same_day_cross_day_l2",
+    "write_and_publish_authorization"
+  ],
+  "name_difference_count": 380,
+  "turnover_difference_count": 21
+}
