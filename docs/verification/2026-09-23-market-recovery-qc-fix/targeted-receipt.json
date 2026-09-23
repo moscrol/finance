@@ -1,0 +1,34 @@
+{
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "python_version": "3.12.13",
+  "dependency_fingerprint": "3328bed61f3e21ea",
+  "tree": "/Users/a77/fwp-wt-market-recovery-qc-preview-0923",
+  "revision": "44a82a4eb883e5e71dec60baa2e4ad82e17eae3a",
+  "branch": "HEAD",
+  "dirty": false,
+  "dirty_paths": [],
+  "worktree_dirty_total": 0,
+  "dependency_gate_bypassed": false,
+  "target": "tests/test_bridge_hithink_stock_daily.py tests/test_compute_local_stats.py tests/test_review_sync_hithink_wiring.py tests/test_consumption_registry.py tests/test_review_plan_alignment.py tests/test_recovery_refresh_integration.py tests/test_recovery_coverage.py tests/test_audit_recovery_metadata.py tests/test_hithink_recovery_candidate.py tests/test_hithink_stock_preview.py tests/test_mootdx_source_health.py tests/test_write_path_guard.py tests/test_daily_full_preflight.py tests/test_review_sync_export_release.py tests/test_review_sync_sw_l1_timeout.py intelligence/tests/test_codex_headless_runtime.py",
+  "scope": {
+    "ignore": [],
+    "ignore_glob": [],
+    "deselect": [],
+    "keyword": "",
+    "markexpr": "",
+    "maxfail": 0,
+    "last_failed": false,
+    "collected": 430
+  },
+  "counts": {
+    "passed": 429,
+    "failed": 0,
+    "error": 0,
+    "skipped": 1,
+    "xfailed": 0,
+    "xpassed": 0
+  },
+  "failed_ids": [],
+  "exit_status": 0,
+  "finished_at": "2026-09-23T04:58:28+00:00"
+}

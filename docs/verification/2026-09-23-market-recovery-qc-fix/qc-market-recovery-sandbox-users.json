@@ -1,0 +1,13 @@
+{
+  "status": "proven",
+  "public_tcp": "denied",
+  "loopback": "denied",
+  "unix_socket": "denied",
+  "live_root_read": "denied",
+  "codex_version": "codex-cli 0.155.0-alpha.9.2",
+  "command_sha256": "10fcdeb9edfcfad3b113b7cdccd014a9f3bcf15ace1b315b5adeb8d928c7bcf2",
+  "python_executable": "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/bin/python3.12",
+  "probe_returncode": 0,
+  "probe_stdout": "{\"live_root_read\": \"denied\", \"loopback\": \"denied\", \"public_tcp\": \"denied\", \"unix_socket\": \"denied\"}\n",
+  "probe_stderr": ""
+}

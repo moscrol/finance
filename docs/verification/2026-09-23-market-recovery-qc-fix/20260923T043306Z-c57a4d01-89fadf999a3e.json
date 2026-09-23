@@ -1,0 +1,57 @@
+{
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "python_version": "3.12.13",
+  "dependency_fingerprint": "3328bed61f3e21ea",
+  "tree": "/Users/a77/fwp-wt-market-recovery-qc-fix-0923",
+  "revision": "c57a4d019bd0bfa0a8f552590ec13f8ef4349de0",
+  "branch": "fix/market-recovery-qc-0923",
+  "dirty": true,
+  "dirty_paths": [
+    "tests/test_bridge_hithink_stock_daily.py",
+    "tests/test_compute_local_stats.py",
+    "tests/test_review_sync_hithink_wiring.py"
+  ],
+  "worktree_dirty_total": 3,
+  "dependency_gate_bypassed": false,
+  "target": "tests/test_bridge_hithink_stock_daily.py tests/test_compute_local_stats.py tests/test_review_sync_hithink_wiring.py",
+  "scope": {
+    "ignore": [],
+    "ignore_glob": [],
+    "deselect": [],
+    "keyword": "",
+    "markexpr": "",
+    "maxfail": 0,
+    "last_failed": false,
+    "collected": 73
+  },
+  "counts": {
+    "passed": 55,
+    "failed": 18,
+    "error": 0,
+    "skipped": 0,
+    "xfailed": 0,
+    "xpassed": 0
+  },
+  "failed_ids": [
+    "tests/test_bridge_hithink_stock_daily.py::test_apply_default_plan_cannot_be_replayed",
+    "tests/test_bridge_hithink_stock_daily.py::test_apply_refuses_rows_added_after_default_plan",
+    "tests/test_bridge_hithink_stock_daily.py::test_apply_requires_boolean_true_to_replace[1]",
+    "tests/test_bridge_hithink_stock_daily.py::test_apply_requires_boolean_true_to_replace[False]",
+    "tests/test_bridge_hithink_stock_daily.py::test_apply_requires_boolean_true_to_replace[None]",
+    "tests/test_bridge_hithink_stock_daily.py::test_apply_requires_boolean_true_to_replace[false]",
+    "tests/test_bridge_hithink_stock_daily.py::test_apply_requires_boolean_true_to_replace[true]",
+    "tests/test_compute_local_stats.py::test_recovery_member_rows_cannot_prove_missing_canonical_bars[000001.SZ]",
+    "tests/test_compute_local_stats.py::test_recovery_member_rows_cannot_prove_missing_canonical_bars[002514.SZ]",
+    "tests/test_compute_local_stats.py::test_recovery_member_rows_cannot_prove_missing_canonical_bars[600001.SH]",
+    "tests/test_review_sync_hithink_wiring.py::test_bridge_cli_refuses_production_before_connect",
+    "tests/test_review_sync_hithink_wiring.py::test_local_main_stock_fallback_chain_uses_real_bridge_cli[bridge-0]",
+    "tests/test_review_sync_hithink_wiring.py::test_local_main_stock_fallback_chain_uses_real_bridge_cli[empty_success-1]",
+    "tests/test_review_sync_hithink_wiring.py::test_local_main_stock_fallback_chain_uses_real_bridge_cli[missing_vendor-1]",
+    "tests/test_review_sync_hithink_wiring.py::test_local_main_stock_fallback_chain_uses_real_bridge_cli[partial_primary-1]",
+    "tests/test_review_sync_hithink_wiring.py::test_local_main_stock_fallback_chain_uses_real_bridge_cli[primary-0]",
+    "tests/test_review_sync_hithink_wiring.py::test_local_main_stock_fallback_chain_uses_real_bridge_cli[sector_fallback-0]",
+    "tests/test_review_sync_hithink_wiring.py::test_local_plan_invokes_four_real_cli_commands_in_order"
+  ],
+  "exit_status": 1,
+  "finished_at": "2026-09-23T04:33:06+00:00"
+}

@@ -1,0 +1,112 @@
+........................................................................ [  2%]
+..................................................sssssssssssss......... [  5%]
+........................................................................ [  8%]
+..............s......................................................... [ 10%]
+........................................................................ [ 13%]
+........................................................................ [ 16%]
+........................................................................ [ 18%]
+........................................................................ [ 21%]
+........................................................................ [ 24%]
+........................................................................ [ 26%]
+........................................................................ [ 29%]
+........................................................................ [ 32%]
+........................................................................ [ 34%]
+........................................................................ [ 37%]
+........................................................................ [ 40%]
+........................................................................ [ 42%]
+........................................................................ [ 45%]
+........................................................................ [ 48%]
+........................................................................ [ 50%]
+........................................................................ [ 53%]
+........................................................................ [ 56%]
+...................................sssss................................ [ 58%]
+........................................................................ [ 61%]
+........................................................................ [ 64%]
+........................................................................ [ 66%]
+........................................................................ [ 69%]
+........................................................................ [ 72%]
+........................................................................ [ 74%]
+.....................................ssssss.........sssssssss........... [ 77%]
+....................ssssssssssssssssssssssssssss........................ [ 80%]
+........................................................................ [ 82%]
+........................................................................ [ 85%]
+........................................................................ [ 88%]
+........................................................................ [ 90%]
+........................................................................ [ 93%]
+........................................................................ [ 96%]
+........................................................................ [ 98%]
+.............FF...........s.....                                         [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260923T050246Z-a7a9635d-5f90f1c36d27.json
+
+=================================== FAILURES ===================================
+______ test_installed_codex_sandbox_denies_network_and_unix_socket[False] ______
+intelligence/tests/test_codex_headless_runtime.py:738: in test_installed_codex_sandbox_denies_network_and_unix_socket
+    assert receipt.status == "proven"
+E   AssertionError: assert 'unproven' == 'proven'
+E     
+E     - proven
+E     + unproven
+E     ? ++
+______ test_installed_codex_sandbox_denies_network_and_unix_socket[True] _______
+intelligence/tests/test_codex_headless_runtime.py:738: in test_installed_codex_sandbox_denies_network_and_unix_socket
+    assert receipt.status == "proven"
+E   AssertionError: assert 'unproven' == 'proven'
+E     
+E     - proven
+E     + unproven
+E     ? ++
+=============================== warnings summary ===============================
+tests/test_market_stage_model.py::test_fit_learns_separable_toy_problem
+  /private/tmp/qc-market-recovery-fix-4315d9d5/market_feature_store/models/market_stage.py:146: RuntimeWarning: divide by zero encountered in matmul
+    S = Z @ W
+
+tests/test_market_stage_model.py::test_fit_learns_separable_toy_problem
+  /private/tmp/qc-market-recovery-fix-4315d9d5/market_feature_store/models/market_stage.py:146: RuntimeWarning: overflow encountered in matmul
+    S = Z @ W
+
+tests/test_market_stage_model.py::test_fit_learns_separable_toy_problem
+  /private/tmp/qc-market-recovery-fix-4315d9d5/market_feature_store/models/market_stage.py:146: RuntimeWarning: invalid value encountered in matmul
+    S = Z @ W
+
+tests/test_market_stage_model.py::test_fit_learns_separable_toy_problem
+  /private/tmp/qc-market-recovery-fix-4315d9d5/market_feature_store/models/market_stage.py:149: RuntimeWarning: divide by zero encountered in matmul
+    G = Z.T @ ((P - Y) * cw[:, None]) / len(Z) + l2 * np.vstack([W[:-1], np.zeros((1, k))]) / len(Z)
+
+tests/test_market_stage_model.py::test_fit_learns_separable_toy_problem
+  /private/tmp/qc-market-recovery-fix-4315d9d5/market_feature_store/models/market_stage.py:149: RuntimeWarning: overflow encountered in matmul
+    G = Z.T @ ((P - Y) * cw[:, None]) / len(Z) + l2 * np.vstack([W[:-1], np.zeros((1, k))]) / len(Z)
+
+tests/test_market_stage_model.py::test_fit_learns_separable_toy_problem
+  /private/tmp/qc-market-recovery-fix-4315d9d5/market_feature_store/models/market_stage.py:149: RuntimeWarning: invalid value encountered in matmul
+    G = Z.T @ ((P - Y) * cw[:, None]) / len(Z) + l2 * np.vstack([W[:-1], np.zeros((1, k))]) / len(Z)
+
+tests/test_market_stage_model.py::test_fit_learns_separable_toy_problem
+  /private/tmp/qc-market-recovery-fix-4315d9d5/market_feature_store/models/market_stage.py:157: RuntimeWarning: divide by zero encountered in matmul
+    S = Z @ W
+
+tests/test_market_stage_model.py::test_fit_learns_separable_toy_problem
+  /private/tmp/qc-market-recovery-fix-4315d9d5/market_feature_store/models/market_stage.py:157: RuntimeWarning: overflow encountered in matmul
+    S = Z @ W
+
+tests/test_market_stage_model.py::test_fit_learns_separable_toy_problem
+  /private/tmp/qc-market-recovery-fix-4315d9d5/market_feature_store/models/market_stage.py:157: RuntimeWarning: invalid value encountered in matmul
+    S = Z @ W
+
+tests/test_pipeline_p0.py::test_mainline_complete_snapshot_is_atomic_and_idempotent
+tests/test_pipeline_p0.py::test_mainline_complete_snapshot_is_atomic_and_idempotent
+tests/test_pipeline_p0.py::test_mainline_partial_writes_succeeded_themes_as_degraded[exception]
+tests/test_pipeline_p0.py::test_mainline_partial_writes_succeeded_themes_as_degraded[empty_groups]
+tests/test_pipeline_p0.py::test_mainline_partial_writes_succeeded_themes_as_degraded[empty_stocks]
+tests/test_pipeline_p0.py::test_mainline_empty_theme_list_is_failed_without_writing
+  /private/tmp/qc-market-recovery-fix-4315d9d5/market_feature_store/sync/sync_fupanhui_mainline_daily.py:66: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = datetime.utcnow().isoformat()
+
+tests/test_pipeline_p0.py::test_mainline_sector_failure_keeps_previous_snapshot[response0]
+tests/test_pipeline_p0.py::test_mainline_sector_failure_keeps_previous_snapshot[response1]
+  /private/tmp/qc-market-recovery-fix-4315d9d5/market_feature_store/sync/sync_fupanhui_mainline_sector_daily.py:121: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = datetime.utcnow().isoformat()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_codex_headless_runtime.py::test_installed_codex_sandbox_denies_network_and_unix_socket[False]
+FAILED intelligence/tests/test_codex_headless_runtime.py::test_installed_codex_sandbox_denies_network_and_unix_socket[True]
+2 failed, 2631 passed, 63 skipped, 17 warnings in 742.39s (0:12:22)
