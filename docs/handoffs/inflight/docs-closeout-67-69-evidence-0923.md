@@ -4,7 +4,7 @@
 修正 INDEX 与 #75 队列的合入状态、审查对象和测试收据归属；不改运行时代码。
 
 ## 当前状态
-PR [#880](http://127.0.0.1:3300/a77/finance-workspace-private/pulls/880) open、WIP，未合 main。已无冲突前向 `main@27ca084f9ffc`（#856），自有增量仍四份文档。第四轮证据入口 `~/.finance-runtime/reviews/pr880-gates-20260923-r4/README.md`；冻结 SHA 与实际进度以该目录 `state.json`、逐叶收据及 PR 最新裁决为准，不为写读数再改 head。
+PR [#880](http://127.0.0.1:3300/a77/finance-workspace-private/pulls/880) open、WIP，未合 main。已无冲突前向 `main@b59d6eed0356`（含#883/#887/#888），自有增量仍四份文档。第六轮证据入口 `~/.finance-runtime/reviews/pr880-gates-20260923-r6/README.md`；冻结 SHA 与实际进度以该目录 `state.json`、逐叶收据及 PR 最新裁决为准，不为写读数再改 head。
 
 ## 决策与被否方案
 - 独立文档分支，不重放已合 #858/#879 的旧 diff；前向用普通合并，不改写既有历史。
@@ -16,7 +16,7 @@ PR [#880](http://127.0.0.1:3300/a77/finance-workspace-private/pulls/880) open、
 新候选三片只认本轮收据；指针存在不代表通过，缺收据/退出非零/版本不符均不放行。资源等待有上限，未准入记 BLOCKED_RESOURCES，不记测试失败。#75 Spec/Quality、#76 自然八题、#66 前向 #855 另账；跨进程续跑、费用对账执行者与真实金融质量未验。未授权合入、部署、重启、回填或清理。
 
 ## 下一步
-1. 回读 PR 与 r4 证据，核对同一 SHA 的 registry/frontend（含 E2E）/Python 完整收集面。准入后及收尾重查 live refs；主干漂移不能靠旧收据放行。未准入叶另开目录，不覆盖原件。
+1. 回读 PR 与 r6 证据，核对同一 SHA 的 registry/frontend（含 E2E）/Python 完整收集面。准入后及收尾重查 live refs；主干漂移不能靠旧收据放行。未准入叶另开目录，不覆盖原件。
 2. 三片全绿、合并树适用且用户明确授权后才摘 WIP / 合入。
 3. #75 固定审 #863=`8e79893729da`、#870=`99c2ff28ba5f`、#865=`3b7e473575b0`；不跟随 main。#843/#864 已由 #865 吸收。
 
@@ -24,4 +24,4 @@ PR [#880](http://127.0.0.1:3300/a77/finance-workspace-private/pulls/880) open、
 PR 缓存 refs 与进度文字会旧，使用实时 API / ls-remote。保留开关不可盲目 export 给测试。`latest-*` 可覆盖，使用唯一编号收据及 SHA256；未授权不删树、basetemp、缓存。
 
 ## 已验证
-前向27ca084f9ffc无冲突。r3两片PASS、18份日志一致；Python等602秒未启动，续排队发现#856基座漂移，记录在r3/closeout.json。r2候选完整收集14655，14568P/85S/2X、Ruff/registry/frontend全过，20份日志核验一致；只对旧候选成立。历史正文和收据分账核验见快照，不冒充本轮重跑。
+前向b59d6eed0356无冲突。r6资源预检查稳定60秒通过，三叶待本轮收据。r5等待1806秒未准入，无新候选/测试；r4两叶及Ruff通过、Python未启动。r2旧候选完整收集14655、14568P/85S/2X，三叶通过但基座漂移。各轮closeout原件保留，不冒充本轮重跑。
