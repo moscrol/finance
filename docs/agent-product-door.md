@@ -211,6 +211,26 @@ SSE 沿原总时限等待，超时不伪造完成。
 回归见 `test_rag_worker_transport.py`；撤保护复用 `run_extraction_mutations.py --suite rag-transport`。
 既有金融partial/引用/拒句账与最终发布门保持，不把检索修复等同整题质量通过。
 
+### RAG 启动失败与恢复（候选，未部署）
+
+启动前配置/实例构造失败由启动层记账；实例已注册后的失败由该 worker 独占，
+API 生命周期不再重复保存一份无法随自愈清除的全局错误。readiness 仍须所有已注册
+worker 就绪；成功查询不能抹掉另一实例或启动配置的失败。无实例的配置错误不自动重试。
+预热成功仍要求 `returncode=0` 且 `model_load_count>0`，不放宽 hybrid / 代际门禁。
+代际检查、恢复配方转换与保活启动异常同属实例失败；配方完整校验后才替换，保活启动完成后
+才标记 ready。关闭后的旧实例拒绝查询及预热，已调度的恢复也不能重新拉起已退役进程。
+请求 stdin 写入与 stdout/stderr 读取共用非阻塞 selector 及同一截止时间，避免长请求与
+启动错误输出互相堵住管道。部分请求超时必须终止进程，不能让下一条 JSON 接到残帧上；
+完整请求发出后的热进程首次超时仍按原策略保留。
+协议启动前的进程 stderr 与 stdout 同时非阻塞读取，私有尾部最多保留 4096 字节；
+公开 `workers.rag.last_error_diagnostic` 仅含阶段、固定原因、退出码、白名单异常类型，
+不输出原文、路径或查询。关闭进程清空尾部，成功恢复清空错误；管道注册失败也关闭 selector。
+并发关闭 stderr 后的读取按流结束处理，保留类型化退出错误，而非让检索层通用兜底处理 closed-file 异常；
+未关闭流的真实读取错误仍上抛，不用宽泛吞错伪装正常结束。常规查询响应合同不变。
+覆盖真实轻量子进程与应用 lifespan 的 503→200；不等于生产模型、金融质量或资源余量验收。
+回归 `test_rag_worker_startup_recovery.py`；撤保护复用 `scripts/review_probes/run_extraction_mutations.py`
+的 `--definitions scripts/review_probes/rag_startup_recovery_mutations.json --tests intelligence/tests/test_rag_worker_startup_recovery.py`。
+
 ### 专项研究纪律（Knevo 增量，2026-09-17 已合 main）
 
 `research_workflow_guidance.workflow_guidance` 给财报、事件推演、观点审查、事实核对、历史类比
