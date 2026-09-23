@@ -24,9 +24,15 @@
 """
 from __future__ import annotations
 
+import http.client
 import json
+import socket
+import ssl
+import subprocess
+import threading
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from datetime import date, datetime
 
@@ -119,24 +125,221 @@ def _num(x):
         return None
 
 
+# ── 传输层 ────────────────────────────────────────────────────────────
+#
+# 2026-09-22 夜跑事故（09-21 同形）: 一次取数失败拖垮整晚复盘, 主库停在 09-18。
+# 两个独立缺陷与实测证据见 tests/test_eastmoney_transport.py 模块头。
+
+#: 绕开本机代理 fake-IP 劫持用的公共 DNS
+PUBLIC_DNS = ("223.5.5.5", "119.29.29.29", "8.8.8.8")
+#: 代理 fake-IP 模式的伪地址段 (RFC 2544 基准测试段, 真实公网不会用)
+PROXY_FAKE_IP_PREFIX = "198.18."
+#: 这一发没打通 → 重试。URLError / TimeoutError 本身就是 OSError;
+#: RemoteDisconnected 同时是 ConnectionResetError(OSError) 与 HTTPException——
+#: 旧版只写 URLError **接不住它**, 因为 urllib 只把「发请求阶段」的 OSError 包成
+#: URLError, 而连接是在 getresponse() 阶段断的, 异常原样穿透整个调用栈。
+#: ValueError 收 JSON 解析失败 (上游偶尔回非 JSON 的挡板页)。
+TRANSIENT_FETCH_ERRORS = (OSError, http.client.HTTPException, ValueError)
+#: 「连上即空回应」的形状: TCP 连得上、TLS 握手成功、证书验证通过,
+#: 对端接下连接却一个字节响应体都不给。2026-09-22 19:2x 东财对 `/api/qt/clist/get`
+#: 拒绝服务时就是这个形状 (curl 侧为 `52 Empty reply from server`)。
+#: 21:55 根因修正: 不是按出口 IP 封禁——同一主机、同一 IP 上 `/` 返 404、
+#: `ulist.np/get` 返 200, 被针对的是端点; 且连发 clist 会把同主机其他端点一起
+#: 拖成空回应 (冷却 45–75s 不恢复)。所以它与瞬时抖动的区别在于
+#: **重试无用, 且每多打一发都在扩大伤害面**。
+EMPTY_REPLY_ERRORS = (http.client.RemoteDisconnected,)
+#: 同一 host 连续这么多发都是空回应 → 判定被拒, 立刻停手。
+#: 取 3 = 容两次真抖动; 判据是「连续」不是「累计」, 成功或其他错误即清零。
+EMPTY_REPLY_STREAK_LIMIT = 3
+
+
+class UpstreamRefusing(RuntimeError):
+    """上游在应用层拒绝服务 (连上即空回应)——重试解决不了, 继续打只会扩大伤害面。
+
+    继承 ``RuntimeError`` 是为了不破坏既有 ``except RuntimeError`` 的调用方;
+    单独的类型是为了让调用方**能够**区分「上游不让我们取」与「重试耗尽」
+    ——前者该停手换源/换时间窗口, 后者可以等一会儿再试。
+    """
+
+
+_ip_cache: dict[str, str | None] = {}
+_ip_lock = threading.Lock()
+#: 已知「系统解析这条路打不通」的 host。失败一次就记住——否则 60 页每页都白打一发。
+_transport_cache: dict[str, str] = {}
+#: host → 连续空回应次数 (成功或其他错误即清零)
+_empty_reply_streak: dict[str, int] = {}
+#: 本进程内已判定「上游在拒」的 host。进程级而非持久化:
+#: 夜跑每晚是新进程, 不会把一晚的封禁结论带到下一晚。
+_refusing_hosts: set[str] = set()
+#: host + endpoint path -> transport attempts since reset (query strings excluded).
+_transport_request_counts: dict[str, int] = {}
+
+
+def transport_request_counts() -> dict[str, int]:
+    """Copy transport attempt counts, including connection failures but not breaker skips.
+
+    These are not wire-level HTTP counts; DNS queries and redirects are not counted.
+    """
+    return dict(sorted(_transport_request_counts.items()))
+
+
+def reset_transport_request_counts() -> None:
+    """Reset only request counters, preserving transport routing and breaker state."""
+    _transport_request_counts.clear()
+
+
+def reset_transport_state() -> None:
+    """清空进程级传输状态 (解析缓存 / 选路 / 熔断)。
+
+    有了进程级可变状态就必须有重置入口, 否则两头出事:
+    长驻进程换网络环境后无法自愈; 测试用例之间串味。
+    本补丁开发时先踩了后者: 新增 ``_refusing_hosts`` 后, 既有 9 个用例
+    单独跑绿、一起跑红——因为前面的用例把 host 标进了熔断集。
+    """
+    with _ip_lock:
+        _ip_cache.clear()
+    _transport_cache.clear()
+    _empty_reply_streak.clear()
+    _refusing_hosts.clear()
+    _transport_request_counts.clear()
+
+
+def _system_ip(host: str) -> str | None:
+    """系统解析结果 (urllib 真正会用的那条路径); 解析不出来返回 None。"""
+    try:
+        return socket.gethostbyname(host)
+    except OSError:
+        return None
+
+
+def _looks_hijacked(host: str) -> bool:
+    """系统解析落进代理伪地址段 = 这条路一定不通, 别等它断连再学。"""
+    ip = _system_ip(host)
+    return bool(ip and ip.startswith(PROXY_FAKE_IP_PREFIX))
+
+
+def _direct_ip(host: str) -> str | None:
+    """用公共 DNS 取真实 IP (绕代理 fake-IP)。拿不到返回 None → 退回系统解析。"""
+    with _ip_lock:
+        if host in _ip_cache:
+            return _ip_cache[host]
+    ip = None
+    for ns in PUBLIC_DNS:
+        try:
+            out = subprocess.run(
+                ["dig", "+short", f"@{ns}", host, "A"],
+                capture_output=True, text=True, timeout=8,
+            ).stdout
+            ip = next(
+                (ln.strip() for ln in out.splitlines()
+                 if ln.strip() and ln.strip()[0].isdigit()
+                 and not ln.startswith(PROXY_FAKE_IP_PREFIX)),  # 首行常是 CNAME
+                None,
+            )
+            if ip:
+                break
+        except Exception:  # noqa: BLE001 — dig 不存在/超时都退回系统解析
+            continue
+    # 只缓存成功结果。把 None 也写进去等于 negative caching without TTL:
+    # 公共 DNS 首次全超时 → 本进程此后每一发都退回被劫持的系统解析,
+    # 失败形态与修复前同形, 排查时极易误以为补丁没生效。
+    if ip:
+        with _ip_lock:
+            _ip_cache[host] = ip
+    return ip
+
+
+def _tls_connection(ip: str, host: str, timeout: float) -> http.client.HTTPSConnection:
+    """连真实 IP, 但 TLS SNI 与 Host 仍填域名 (等价 curl --resolve)。"""
+    sock = socket.create_connection((ip, 443), timeout)
+    try:
+        ssock = ssl.create_default_context().wrap_socket(sock, server_hostname=host)
+    except Exception:
+        sock.close()
+        raise
+    conn = http.client.HTTPSConnection(host, timeout=timeout)
+    conn.sock = ssock
+    return conn
+
+
+def _urllib_get_json(url: str, timeout: float) -> dict:
+    req = urllib.request.Request(url, headers=EM_HEADERS)
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        return json.loads(resp.read().decode("utf-8"))
+
+
+def _direct_get_json(host: str, path: str, timeout: float) -> dict:
+    """直连真实 IP + SNI 保持域名; 没有真实 IP 时退回系统解析。"""
+    ip = _direct_ip(host)
+    if not ip:
+        return _urllib_get_json(f"https://{host}{path}", timeout)
+    conn = _tls_connection(ip, host, timeout)
+    try:
+        conn.request("GET", path, headers={**EM_HEADERS, "Host": host})
+        return json.loads(conn.getresponse().read().decode("utf-8"))
+    finally:
+        conn.close()
+
+
 def _get_json(url: str, timeout: float, retries: int = 6, backoff: float = 1.2) -> dict:
-    """GET + json 解析, 对 502/超时等瞬时错误退避重试 (翻页几十次难免偶发 502)。
+    """GET + json 解析, 对断连/超时/502 等瞬时错误退避重试 (翻页几十次难免偶发)。
 
     默认打 push2delay; 若重试耗尽 (如该 host 偶发不可达), 自动把 host 换成 push2
-    再试一轮, 双 host 兜底。"""
+    再试一轮, 双 host 兜底。被本机代理 fake-IP 劫持的 host 直接走真实 IP 直连;
+    系统解析看着正常、实际却打不通的, 失败一次后也降级到直连。
+    """
     targets = [url]
     if EM_URL in url:
         targets.append(url.replace(EM_URL, EM_URL_FALLBACK))
     last_err: Exception | None = None
+    hosts: list[str] = []
     for target in targets:
+        parts = urllib.parse.urlsplit(target)
+        host = parts.netloc
+        hosts.append(host)
+        path = parts.path + (f"?{parts.query}" if parts.query else "")
+        if host in _refusing_hosts:
+            # 已判定被拒: 一发都不再打。否则 60 页 × 每页重试 = 给封禁计时器不断续命。
+            continue
+        endpoint = f"{host}{parts.path}"
         for attempt in range(retries):
+            _transport_request_counts[endpoint] = _transport_request_counts.get(endpoint, 0) + 1
             try:
-                req = urllib.request.Request(target, headers=EM_HEADERS)
-                with urllib.request.urlopen(req, timeout=timeout) as resp:
-                    return json.loads(resp.read().decode("utf-8"))
-            except (urllib.error.URLError, TimeoutError, ValueError) as exc:
+                if _transport_cache.get(host) == "direct" or _looks_hijacked(host):
+                    data = _direct_get_json(host, path, timeout)
+                else:
+                    data = _urllib_get_json(target, timeout)
+            except EMPTY_REPLY_ERRORS as exc:
+                # 连上即空回应。单发可能是抖动, 连续多发就是上游在拒。
                 last_err = exc
+                _empty_reply_streak[host] = _empty_reply_streak.get(host, 0) + 1
+                if _empty_reply_streak[host] >= EMPTY_REPLY_STREAK_LIMIT:
+                    _refusing_hosts.add(host)
+                    break
+                _transport_cache[host] = "direct"
                 time.sleep(backoff * (attempt + 1))
+            except ValueError as exc:
+                # 内容层: 上游回了非 JSON 的挡板页。链路可能完全正常,
+                # 所以既不改传输选路, 也不计入熔断；同时打断空回应连续计数。
+                last_err = exc
+                _empty_reply_streak[host] = 0
+                time.sleep(backoff * (attempt + 1))
+            except TRANSIENT_FETCH_ERRORS as exc:
+                last_err = exc
+                # 普通瞬时错误不是「连续空回应」，必须打断 streak；否则一次
+                # 网络抖动会把两次相隔很远的空回应错误地拼成熔断证据。
+                _empty_reply_streak[host] = 0
+                # 系统解析这条路这次没打通 → 下一发换直连, 不在同一条坏路上耗满重试。
+                _transport_cache[host] = "direct"
+                time.sleep(backoff * (attempt + 1))
+            else:
+                _empty_reply_streak[host] = 0
+                return data
+    if hosts and all(h in _refusing_hosts for h in hosts):
+        raise UpstreamRefusing(
+            f"东财在应用层拒绝服务 (连上即空回应, 已试 {', '.join(hosts)}): {url}\n"
+            "重试不会解决, 只会把同主机其他端点一起拖垮。停本轮/等窗口过去/换数据源再来。"
+        ) from last_err
     raise RuntimeError(f"东财快照请求失败: {url}") from last_err
 
 
@@ -147,6 +350,7 @@ def fetch_snapshot(page_size: int = EM_PAGE_MAX, timeout: float = 20.0,
     东财单页最多 100 条, 故实际 pz 取 min(page_size, 100); 翻页靠 pn 递增到 total。
     """
     pz = max(1, min(page_size, EM_PAGE_MAX))
+    reset_transport_request_counts()
     out: list[dict] = []
     pn = 1
     total: int | None = None
@@ -192,6 +396,7 @@ def sync_fact_stock_daily_snapshot(trade_date: str | None = None,
     try:
         ensure_stock_daily_columns(con)
         diff = fetch_snapshot(page_size=page_size, timeout=timeout)
+        request_counts = transport_request_counts()
         # 日期闸: 先于一切写入。快照是「最新」语义, 这里是它与所传日期唯一一次对账的机会。
         actual = snapshot_trade_date(diff)
         if actual != trade_date:
@@ -278,4 +483,6 @@ def sync_fact_stock_daily_snapshot(trade_date: str | None = None,
         "distinct_dates": agg[1],
         "date_min": str(agg[2]) if agg[2] else None,
         "date_max": str(agg[3]) if agg[3] else None,
+        "transport_requests": request_counts,
+        "transport_request_total": sum(request_counts.values()),
     }

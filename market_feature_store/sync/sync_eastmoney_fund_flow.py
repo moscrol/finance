@@ -36,22 +36,18 @@ em 0.64亿 vs fph 2.21亿；中际旭创 em -30.66亿 vs fph -25.99亿。两种�
    RemoteDisconnected、耗时 0.12s（不是超时，也不是 429）。当时误判为「IP 被
    限流、进了惩罚窗」，实际是本地代理规则。解法：用公共 DNS 拿真实 IP、直连
    该 IP，TLS SNI 仍填域名（curl --resolve 的等价物），实测 120 天 /0.07s 秒回。
-   因此 history 路径走 _direct_get_json，不走 urllib 默认解析。
+   因此 history 路径走 _direct_get_json，不走 urllib 默认解析。2026-09-22 起劫持范围
+   扩到 push2delay/push2（快照也中招、连挂两晚），这套绕法已上移到
+   sync_eastmoney_stock_snapshot 供两条路径共用，本模块从那里导入。
 
 单位统一亿（元 / 1e8），与 fupanhui 行同量纲。
 """
 from __future__ import annotations
 
-import http.client
 import json
 import os
 import random
-import socket
-import ssl
-import subprocess
-import threading
 import time
-import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
@@ -60,9 +56,9 @@ from zoneinfo import ZoneInfo
 from ..db import connect, init_db
 from .sync_eastmoney_stock_snapshot import (
     EM_FS,
-    EM_HEADERS,
     EM_PAGE_MAX,
     EM_URL,
+    _direct_get_json,
     _get_json,
     _num,
 )
@@ -87,9 +83,6 @@ FFLOW_PATH = (
     "/api/qt/stock/fflow/daykline/get?lmt=0&klt=101"
     "&fields1=f1,f2,f3,f7&fields2=f51,f52,f53,f54,f55,f56&secid={secid}"
 )
-# 绕开本机代理 fake-IP 劫持用的公共 DNS
-PUBLIC_DNS = ("8.8.8.8", "1.1.1.1", "223.5.5.5")
-
 STITCH_SOURCE = "local:stitch"
 
 
@@ -104,59 +97,6 @@ def _secid(ts_code: str) -> str:
     code, _, suffix = ts_code.partition(".")
     market = "1" if suffix.upper() == "SH" else "0"
     return f"{market}.{code}"
-
-
-_ip_cache: dict[str, str | None] = {}
-_ip_lock = threading.Lock()
-
-
-def _direct_ip(host: str) -> str | None:
-    """用公共 DNS 取真实 IP（绕代理 fake-IP）。拿不到返回 None → 退回系统解析。"""
-    with _ip_lock:
-        if host in _ip_cache:
-            return _ip_cache[host]
-    ip = None
-    for ns in PUBLIC_DNS:
-        try:
-            out = subprocess.run(
-                ["dig", "+short", f"@{ns}", host, "A"],
-                capture_output=True, text=True, timeout=8,
-            ).stdout
-            ip = next(
-                (ln.strip() for ln in out.splitlines()
-                 if ln.strip() and ln.strip()[0].isdigit()
-                 and not ln.startswith("198.18.")),  # 198.18/15 = 代理伪地址
-                None,
-            )
-            if ip:
-                break
-        except Exception:  # noqa: BLE001 — dig 不存在/超时都退回系统解析
-            continue
-    with _ip_lock:
-        _ip_cache[host] = ip
-    return ip
-
-
-def _direct_get_json(host: str, path: str, timeout: float) -> dict:
-    """直连真实 IP + SNI 保持域名（等价 curl --resolve）；无真实 IP 时退回 urllib。"""
-    ip = _direct_ip(host)
-    if not ip:
-        req = urllib.request.Request(f"https://{host}{path}", headers=EM_HEADERS)
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            return json.loads(resp.read().decode("utf-8"))
-    sock = socket.create_connection((ip, 443), timeout)
-    try:
-        ssock = ssl.create_default_context().wrap_socket(sock, server_hostname=host)
-    except Exception:
-        sock.close()
-        raise
-    conn = http.client.HTTPSConnection(host, timeout=timeout)
-    conn.sock = ssock
-    try:
-        conn.request("GET", path, headers={**EM_HEADERS, "Host": host})
-        return json.loads(conn.getresponse().read().decode("utf-8"))
-    finally:
-        conn.close()
 
 
 # ── 路径1: 全市场快照 (当日盘后) ──────────────────────────────
