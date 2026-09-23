@@ -5,6 +5,8 @@
 解释器 `~/finance-workspace-private/.venv-workbench/bin/python`，独占 `basetemp`，开跑时 load 5.18。
 原始日志根 `~/.finance-runtime/adaptive-deadline-0922/`。
 
+当前读数以「`7ad61a0d3` 三次前向」节为准，早期读数保留为历史。文档合流 `a663ec524` 已包含 main@9a0227986；全量收据仍绑定 `7ad61a0d3`，不是在文档 head 上重跑取得。
+
 ## 目标 1：严格探针（13 场景）
 
 `PYTHONPATH=. python scripts/review_probes/diagnose_llm_timeout.py --assert-deadline --output strict-deadline.json`
@@ -81,7 +83,7 @@ sha256 见 `llm_refine.head.sha256` / `llm_refine.restored.sha256`，结构化�
 | registry ×4 + ledger-spec-crosswalk | 五项 exit 0 | `registry-*.run.json`、`ledger-crosswalk.run.json` |
 | 严格探针（合流尖） | exit 0，`deadline_violations: []` | `strict-deadline.json`（副本：本目录 `strict-deadline-013eb5c4a.json`） |
 
-PR head 若在 `013eb5c4a` 之上，只允许 docs 提交（`git diff --stat 013eb5c4a..<head>` 应只有 `docs/`）。
+当轮验收文档 head 相对 `013eb5c4a` 只有 docs；后续代码前向已另跑门禁，见下文，不沿用这张旧收据。
 
 ## 二次前向（00:31 main 合入 #863 之后）
 
@@ -140,6 +142,10 @@ PR #868 开出后 `conflict-check` 变红：`gitea/main@8e7989372`（#863 研究
 
 最新代码核对还发现 `_open_deadline_http_response` 实际有 **5 处**调用（`llm_refine.py:1167,1219,1424,1546,2304`），均带 `deadline`；其中流式路径另带 `is_cancelled`。此前 PR 描述的「四处」已在更新后的主张清单中改正。该合流尖之后若再产生提交，只允许 docs；门禁读数不自动外推到新的代码提交。
 
+### `a663ec524` 后续文档前向：main@9a0227986
+
+门禁完成后，`gitea/main` 又前进到 `9a0227986`（#858 工单收口与 #879 文字修订）。本枝以 `--no-ff` 前向；唯一冲突是共享 `QUEUE.md` 的 add/add，已保留 main 的 #67/#69 行与本枝的 #72 行，得到本地合流提交 `a663ec524747351531f6d567d860596fdd6f6551`。`git diff --name-only 7ad61a0d3..a663ec524` 全部为 `docs/`，没有代码变化，因此 `7ad61a0d3` 的四叶收据仍是当前代码尖的收据；最新 PR head 只会再多 docs 提交。
+
 ## 附加变异（非验收项）：`is_cancelled=` 转发也无人守
 
 同法把包装函数的 `is_cancelled=is_cancelled` 改为 `is_cancelled=None`，跑 `test_llm_timeout_diagnostic.py`、`test_llm_refine_tool_stream.py`、
@@ -150,8 +156,8 @@ PR #868 开出后 `conflict-check` 变红：`gitea/main@8e7989372`（#863 研究
 
 ## 交 #76（L6 自适应回路真实改稿复核）条件卡
 
-- **前置**：严格探针 exit 0 已在 `aa0509d61` 与合流尖 `013eb5c4a` 各独立跑一次，均 0 越窗；`judge_late_report` 类迟到回包由常规回归守为 `failed/timeout`，零采纳。
-- **固定 SHA**：按 #76 表原文以「#72 合入后的 `gitea/main` SHA」为准；合入前候选 = 本 PR head，被门禁的代码尖 `013eb5c4a`（其上只允许 docs 提交）。开跑前冻结代码与数据，`protocol.json` 记 revision、`dirty=false`、各 canonical `fact_*` 的 `max(trade_date)`。
+- **前置**：最新合流代码尖 `7ad61a0d3` 的严格探针 exit 0、0 越窗（早期 `aa0509d61` / `013eb5c4a` 读数仅为历史）；`judge_late_report` 类迟到回包由常规回归守为 `failed/timeout`，零采纳。
+- **固定 SHA**：按 #76 表原文以「#72 合入后的 `gitea/main` SHA」为准；合入前候选 = 本 PR head，被门禁的代码尖 `7ad61a0d3`（当前相对代码尖仅有 docs 差异；开跑前重新核对）。开跑前冻结代码与数据，`protocol.json` 记 revision、`dirty=false`、各 canonical `fact_*` 的 `max(trade_date)`。
 - **三题冒烟原题**（逐字，来源 `~/.finance-runtime/adaptive-live-smoke-20260921{,-q2,-q3}/probe/protocol.json`）：
   1. 寒武纪(688256.SH)这轮行情，给我一组可证伪的跟踪条件：需要哪些指标达到什么数值才算逻辑兑现，出现哪些数值算证伪。每个数值请标明它的来源和对应日期。（全工具）
   2. 只用本地已有资料，不联网：东阳光(600673.SH)9月以来的量价表现如何，与所属板块相比强弱如何？给出具体数值、日期和数据来源；本地没有的部分单独列出，不要补。（`local_only` 四只读能力）
@@ -164,9 +170,9 @@ PR #868 开出后 `conflict-check` 变红：`gitea/main@8e7989372`（#863 研究
 
 ## 交 #75（第二方 Spec + Quality）需求
 
-- **候选**：PR 号与 head 见 PR / 交接；被门禁的代码尖 `013eb5c4a`；`git diff --stat 013eb5c4a..<head>` 应只有 `docs/`。
-- **候选检出路径（绝对）**：`/Users/a77/fwp-wt-adaptive-deadline-0922`（隔离树，只读引用；审查者应自建树）。
-- **证据目录**：本单 `~/.finance-runtime/adaptive-deadline-0922/`（复核、变异、四叶 `gate-013eb5c4a/`）；作者侧 `~/.finance-runtime/adaptive-advance-20260922/`；上一轮审计 `~/.finance-runtime/adaptive-closeout-20260922/`。
+- **候选**：PR #868 的当前 head 见 PR；被门禁的代码尖 `7ad61a0d3`；`git diff --name-only 7ad61a0d3..<head>` 应只有 `docs/`。main@9a0227986 已由文档合流 `a663ec524` 纳入。
+- **候选检出路径（绝对）**：`/Users/a77/.finance-runtime/reviews/pr868-forward-20260923/finance-workspace-private`（加锁隔离树，只读引用；审查者应自建树）。
+- **证据目录**：最新四叶 `~/.finance-runtime/reviews/pr868-forward-20260923/gate-7ad61a0d3/`；历史复核与变异 `~/.finance-runtime/adaptive-deadline-0922/`；作者侧 `~/.finance-runtime/adaptive-advance-20260922/`；早期审计 `~/.finance-runtime/adaptive-closeout-20260922/`。
 - **主张清单来源**：PR 描述「主张清单」节（Spec 轴输入）。
 - **Quality 轴建议探针**：复跑本目录 `mutation-record.json` 的变异；对 `llm_http_transport.urlopen` 复跑作者 M1（父侧截止关）/ M2（子侧硬停关）/ M4（共享截止 `min` 忽略）确认仍被杀。
 - **本单未覆盖、请审查者留意**：`_open_deadline_http_response` 的 `is_cancelled=` 转发未做阳性对照；五处调用点的 `timeout` 片是否都经 `Deadline.slice()` 派生未逐点核。
