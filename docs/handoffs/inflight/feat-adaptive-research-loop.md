@@ -13,19 +13,19 @@
 
 ## 当前状态
 
-PR #868（base main）head = 代码尖 `b7a479e6a`，其上只允许 docs 提交。WIP 守卫按「二次前向 + 重门禁完成」去掉。**合 main 等用户确认；未部署、未碰 8792。** 作者树与隔离树 `~/fwp-wt-adaptive-deadline-0922` 均干净。
+本地功能分支已三次前向到 `7ad61a0d3`，父提交为 `24ada4f80` 与最新 `gitea/main@760248ece`；树干净。PR #868 远端仍指向旧 head `7deedffba`，且临时加了 WIP 守卫（只防误合，不是合入）。未部署、未碰 8792。推送新 head 前需再核 remote main 与本机 merge-tree；**合 main 等用户确认**。
 
 ## 已验证
 
-`b7a479e6a` 九项全绿：ruff；pytest **14616P/85S/2X**（收据 `--expect-revision` ✅）；前端六步（118 单测、E2E 34P/2S）；registry×4 + crosswalk；严格探针 0 越窗。变异 `deadline=None`：新用例 RED→GREEN，sha256 核。收据根 `~/.finance-runtime/adaptive-deadline-0922/gate-b7a479e6a/`。
+`7ad61a0d3` 隔离树四叶全绿：ruff；pytest **14921P/85S/2X/0F**（收据可采信）；前端六步（120 单测、E2E 34P/2S）；registry×4 + crosswalk；严格探针 `deadline_violations=[]`；冲突相关定向 63P。实际 wrapper 调用点 5 处（1167/1219/1424/1546/2304），均带 deadline。收据根 `~/.finance-runtime/reviews/pr868-forward-20260923/gate-7ad61a0d3/`。
 
 ## 未验证 / 已知边界
 
-真实模型改稿复核（#76 L6）未跑；第二方 Spec/Quality（#75）未做；`absence-live` 三个内容未过项仍成立。`is_cancelled=` 转发无人守（15 条 cancel 测试在变异下全绿）。main 再动就要重 `conflict-check`（00:31 漂过一次）。
+真实模型改稿复核（#76 L6）未跑；第二方 Spec/Quality（#75）未做；`absence-live` 三个内容未过项仍成立；`is_cancelled=` 转发无人守（15 条 cancel 测试在变异下全绿）。新 head 尚未推送，PR body/QUEUE 已待同步；守卫不要在用户确认前解除。
 
 ## 下一步
 
-1 用户确认后合 #868（先 `gitea_pr.py conflict-check`，红了再前向）；2 #76 按条件卡跑三题；3 #75 消费 QUEUE 行；4 内容层三项；5 可选补 `is_cancelled` 用例；6 #858 合后把 INDEX #72 行落主干。
+1. 提交 README/QUEUE/交接 docs；2. 推送功能分支，跑 `gitea_pr.py conflict-check`；3. 回读 PR head 与 WIP 状态，门禁一致后保持 WIP 等用户拍合；4. #76/#75/内容层继续按条件卡处理；5. #858 合后再落 INDEX #72 行。
 
 ## 踩过的坑
 

@@ -5,4 +5,4 @@
 
 | 工单 | PR | head SHA | 候选检出路径 | 证据目录 | 主张清单来源 | 状态 |
 |---|---|---|---|---|---|---|
-| #72 | #868 | `b7a479e6a`（= `013eb5c4a` + 二次前向合 main@8e7989372 `3020e42df` + 两处语义冲突收尾；PR head 若更高只多 docs 提交） | `/Users/a77/fwp-wt-adaptive-deadline-0922`（只读引用，审查者应自建树） | `~/.finance-runtime/adaptive-deadline-0922/`（`gate-b7a479e6a/` 九项全绿：pytest 14616P/85S/2X、前端六步、registry×4+crosswalk、探针 0 越窗；复核 / 变异记录见 `docs/verification/2026-09-22-adaptive-deadline/`）；作者侧 `~/.finance-runtime/adaptive-advance-20260922/` | PR #868 描述「主张清单」C1–C7（C7 的读数以 README「`b7a479e6a` 四叶」节为准） | 待审（作者工程绿已齐；合 main 等用户确认） |
+| #72 | #868 | `7ad61a0d3`（最新代码尖；由 `24ada4f80` 前向 `gitea/main@760248ece` 得到；PR head 若更高只多 docs 提交） | `/Users/a77/.finance-runtime/reviews/pr868-forward-20260923/finance-workspace-private`（只读引用，审查者应自建树） | `~/.finance-runtime/reviews/pr868-forward-20260923/gate-7ad61a0d3/`（九项全绿：pytest 14921P/85S/2X、前端六步、registry×4+crosswalk、探针 0 越窗）；旧复核 / 变异记录仍见 `docs/verification/2026-09-22-adaptive-deadline/` | PR #868 描述「主张清单」C1–C7（C2 已更正为 5 处 wrapper 调用，C7 以 README「`7ad61a0d3` 三次前向」节为准） | 待审（最新前向工程绿已齐；PR 保持 WIP，合 main 等用户确认） |

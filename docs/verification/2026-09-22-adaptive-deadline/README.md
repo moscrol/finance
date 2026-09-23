@@ -124,6 +124,22 @@ PR #868 开出后 `conflict-check` 变红：`gitea/main@8e7989372`（#863 研究
 `registry-tables` / `registry-views` 第一次 exit 2 是我的 shell 把 `backfill-tables --check` 当成一个词传给 argparse（zsh 不分词，同 `~/agent-memory` 的 `zsh-no-word-split-fakes-a-gate-red`），不是树红；拆词重跑 exit 0，两个日志都留了。
 `3020e42df..b7a479e6a` 只改 `episode_semantic_verifier.py` 一行常量 + 一处剔除、以及一个 Python 测试，前端叶在两尖都独立跑过。
 
+### `7ad61a0d3` 三次前向：最新 main + 合流尖四叶重门禁
+
+在 `24ada4f80`（父提交 `7deedffba` 与 `gitea/main@3b7e473575`）之后，`gitea/main` 又前进到 `760248ece`（#873 证据归档收口）。本机 `git merge-tree --write-tree` 预检无冲突，再以 `--no-ff` 前向得到 `7ad61a0d3fd9ee63abe2089a4049a0a1b4a8bc16`。冲突测试同时保留 main 的 `complete=False/True` 覆盖与本枝的 `llm_http_transport.urlopen` mock seam；合流相关定向回归 **63 passed**。
+
+隔离树 `/Users/a77/.finance-runtime/reviews/pr868-forward-20260923/finance-workspace-private` 首尾干净，收据根 `~/.finance-runtime/reviews/pr868-forward-20260923/gate-7ad61a0d3/`，九项均 exit 0，所有叶首尾 revision/status 稳定：
+
+| 叶 | 读数 | 收据 |
+|---|---|---|
+| ruff | exit 0 | `ruff.run.json` |
+| pytest 全量 | **14921 passed / 85 skipped / 2 xfailed**，17 warnings，1108 s | `pytest-full.pytest-receipt.json`（revision == `7ad61a0d3`，解释器 / 依赖指纹 / 干净树 ✅） |
+| 前端六步 | 全 exit 0：单测 **120 passed**（8 文件），E2E **34 passed / 2 skipped** | `frontend/frontend.json` |
+| registry ×4 + ledger-spec-crosswalk | 五项 exit 0 | `registry-*.run.json`、`ledger-crosswalk.run.json` |
+| 严格探针 | exit 0，`deadline_violations: []` | `strict-deadline.json` |
+
+最新代码核对还发现 `_open_deadline_http_response` 实际有 **5 处**调用（`llm_refine.py:1167,1219,1424,1546,2304`），均带 `deadline`；其中流式路径另带 `is_cancelled`。此前 PR 描述的「四处」已在更新后的主张清单中改正。该合流尖之后若再产生提交，只允许 docs；门禁读数不自动外推到新的代码提交。
+
 ## 附加变异（非验收项）：`is_cancelled=` 转发也无人守
 
 同法把包装函数的 `is_cancelled=is_cancelled` 改为 `is_cancelled=None`，跑 `test_llm_timeout_diagnostic.py`、`test_llm_refine_tool_stream.py`、
@@ -153,4 +169,4 @@ PR #868 开出后 `conflict-check` 变红：`gitea/main@8e7989372`（#863 研究
 - **证据目录**：本单 `~/.finance-runtime/adaptive-deadline-0922/`（复核、变异、四叶 `gate-013eb5c4a/`）；作者侧 `~/.finance-runtime/adaptive-advance-20260922/`；上一轮审计 `~/.finance-runtime/adaptive-closeout-20260922/`。
 - **主张清单来源**：PR 描述「主张清单」节（Spec 轴输入）。
 - **Quality 轴建议探针**：复跑本目录 `mutation-record.json` 的变异；对 `llm_http_transport.urlopen` 复跑作者 M1（父侧截止关）/ M2（子侧硬停关）/ M4（共享截止 `min` 忽略）确认仍被杀。
-- **本单未覆盖、请审查者留意**：`_open_deadline_http_response` 的 `is_cancelled=` 转发未做阳性对照；四处调用点的 `timeout` 片是否都经 `Deadline.slice()` 派生未逐点核。
+- **本单未覆盖、请审查者留意**：`_open_deadline_http_response` 的 `is_cancelled=` 转发未做阳性对照；五处调用点的 `timeout` 片是否都经 `Deadline.slice()` 派生未逐点核。
