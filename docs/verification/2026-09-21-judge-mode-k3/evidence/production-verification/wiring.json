@@ -1,0 +1,65 @@
+{
+  "revision": "f2c3e9e1a24f42ae9b1d5a8cb9e501ababd1330a",
+  "runs": [
+    {
+      "case": "material",
+      "run_id": "run_20260921_183219_280474",
+      "writer_turns": 2,
+      "reported_models": [
+        "kimi-k3",
+        "kimi-k3"
+      ],
+      "provider_attempts": 2,
+      "fallback_observed": false,
+      "terminal_judge_calls": 0,
+      "retrieval_judge_mode_from_process": "off",
+      "retrieval_judge_candidate_path_exercised": false,
+      "tool_requests": {},
+      "invalid_actions": [
+        {
+          "reason": "claim rendering requires one sentence per claim: evidence_boundary.claims[1] has 2 sentences",
+          "code": "bad_claim_binding",
+          "kind": "format",
+          "disposition": "invalid_model_finish",
+          "task_frame_hash": "788bf707e2b75cbf38876b5e9f420a9e72d3c8c174edb7b6148f0e05d218772e",
+          "at": "2026-09-21T18:36:04.608+08:00"
+        }
+      ],
+      "v11_skip_reason": "passed",
+      "source_dates": {}
+    },
+    {
+      "case": "grounded",
+      "run_id": "run_20260921_183642_325351",
+      "writer_turns": 5,
+      "reported_models": [
+        "kimi-k3",
+        "kimi-k3",
+        "kimi-k3",
+        "kimi-k3",
+        "kimi-k3"
+      ],
+      "provider_attempts": 5,
+      "fallback_observed": false,
+      "terminal_judge_calls": 0,
+      "retrieval_judge_mode_from_process": "off",
+      "retrieval_judge_candidate_path_exercised": false,
+      "tool_requests": {
+        "market_data": 1,
+        "finance_query": 4,
+        "derived_calculation": 1
+      },
+      "invalid_actions": [],
+      "v11_skip_reason": "passed",
+      "source_dates": {
+        "2026-09-18": 34,
+        "2026-09-17": 1,
+        "2026-09-16": 1,
+        "2026-09-15": 1,
+        "2026-09-14": 2
+      }
+    }
+  ],
+  "model_identity_boundary": "served_model is the provider response declaration, not independent attestation of the upstream model",
+  "evidence_judge_boundary": "production environment off + these runs have no KB/relevance tool path; populated KB-candidate off behavior was tested offline, not naturally exercised here"
+}

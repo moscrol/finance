@@ -1,0 +1,14 @@
+Bootstrap failed: 5: Input/output error
+Try re-running the command as root for richer errors.
+Traceback (most recent call last):
+  File "/Users/a77/.finance-runtime/reviews/judge-mode-k3-20260921/cutover.py", line 108, in <module>
+    if __name__=='__main__':main()
+                            ^^^^^^
+  File "/Users/a77/.finance-runtime/reviews/judge-mode-k3-20260921/cutover.py", line 73, in main
+    run('launchctl','bootstrap',f'gui/{os.getuid()}',str(plist))
+  File "/Users/a77/.finance-runtime/reviews/judge-mode-k3-20260921/cutover.py", line 26, in run
+    def run(*args,**kw): return subprocess.run(list(args),check=True,**kw)
+                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/subprocess.py", line 571, in run
+    raise CalledProcessError(retcode, process.args,
+subprocess.CalledProcessError: Command '['launchctl', 'bootstrap', 'gui/501', '/Users/a77/Library/LaunchAgents/com.a77.finance-workbench.plist']' returned non-zero exit status 5.
