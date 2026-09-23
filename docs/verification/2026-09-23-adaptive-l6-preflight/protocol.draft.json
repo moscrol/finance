@@ -1,13 +1,16 @@
 {
   "schema": "adaptive-l6-natural-live-draft/v1",
-  "state": "BLOCKED_AUTHORIZATION_AND_ORDER_DECISION",
+  "state": "AUTHORIZED_PREFLIGHT_PENDING",
   "can_execute": false,
   "workorder": "#76 L6",
   "candidate_pr": 868,
   "authorization": {
-    "approved": false,
-    "quote": null,
-    "source": null,
+    "approved": true,
+    "quote": "批准，判官不是可以关吗，你看下判官开关的区别",
+    "source": "current user conversation, response to the L6 scope request recorded in PR #868 comment 6115",
+    "scope_note": "L6 candidate-first order, three initial submissions and read-only data copies approved; inspect judge modes before live execution. No instruction to change production or expand to a live on/off comparison.",
+    "judge_mode_comparison_completed": true,
+    "judge_mode_override_requested": false,
     "required_scope": [
       "three L6 questions, one initial submission each, no resubmissions or followups",
       "frozen read-only market database and snapshot copies in an isolated evidence root",
@@ -19,7 +22,7 @@
     "original_rule": "main SHA after PR #868 is merged",
     "original_rule_satisfied": false,
     "proposed_amendment": "L6 on a pinned premerge candidate, then #75 independent review, then a separately authorized merge",
-    "amendment_approved": false,
+    "amendment_approved": true,
     "premerge_candidate_revision": "31f1b40dd788d36c71da249d59fb769c50d7cd30",
     "engineering_revision": "7ad61a0d3fd9ee63abe2089a4049a0a1b4a8bc16",
     "observed_main_revision": "ffd1b7f1572067e9a4c7e3a5845e99cf7f876cfb",
@@ -68,6 +71,9 @@
   "models": {
     "writer": "kimi-k3",
     "judge": "glm-5.3-flash",
+    "semantic_judge_mode": "llm",
+    "semantic_judge_mode_note": "Original L6 proposal, not a mandatory product setting. No live run started; ASK_SEMANTIC_JUDGE=off is supported and leaves deterministic checks and writer repair active.",
+    "evidence_judge_mode": null,
     "served_models_must_be_recorded": true,
     "remember_credentials": false,
     "credentials_in_files": false,
@@ -143,8 +149,7 @@
     "do not resume or overwrite any historical run"
   ],
   "readiness_blockers": [
-    "explicit L6 model/data authorization is absent",
-    "postmerge baseline rule conflicts with premerge review ordering; amendment awaits user decision",
+    "explicitly pin both semantic and retrieval evidence judge modes before starting; adaptive_arm=off is not judge-off",
     "the compare_adaptive_research launcher selects forbidden ports and is not a frozen-data acceptance runner",
     "claim-level positive-control adjudication and full acceptance runner validation are not complete"
   ],
