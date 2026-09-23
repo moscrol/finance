@@ -10,7 +10,7 @@
 
 ## 当前状态
 
-基座 main@2edbe4c46595。代码仅改会话集成测试，另两份交接；原 #883 已合/#885 承接关闭，不重复操作。开发期回归已完成，下一步冻结提交并完整验证。最终结果从树外原件回读，不把此冻结快照当实时看板。
+#888@ad3b176564a4 完整门禁全绿，但期间 main 合 #887 至 0525e780e，零漂移校验及 expect-base 拒合，未发合入 POST。已前向收入该基座（1608806b9），相对新 main 仍只有原测试与两份交接；不操作其部署。现冻结第二轮组合，最终看树外原件，不把此快照当实时状态。#883/#885 不重复操作。
 
 ## 已验证
 
@@ -18,12 +18,12 @@
 
 ## 未验证 / 已知边界
 
-完整门禁和本分支合入尚未预填。仅测试与文档，不改生产状态机、超时、取消、shutdown；#75/#76/运行时接入和 8792 均不操作。
+ad3 首轮：14621P/0F/85S/2X（收集14708），前端120P、E2E34P/2S、registry5/5（98 warning），七个回归实跑。85S 对应本树无代码地图，3个空图用例实跑、1个有图探针跳过；未缩范围。第二轮尚无预填结果，旧绿不移签。仅测试与文档，#75/#76/运行时接入和 8792 均不操作。
 
 ## 下一步
 
 证据根 `~/.finance-runtime/reviews/claim-scope-postmerge-closeout-20260923/`。原红 `targeted-receipts/gate-l0sKrbus/pytest.json`、`basetemp/` 和 `checkout/finance-workspace-private/` 不动；受控对照 `controlled-red-02.*`，模块 `modules.*`。
-冻结后完整门禁写 `gates/`，只签确切 head/tree/范围/解释器/依赖；结果及合入回读写 `closeout.json` / `merge.json` 和 PR，不为填数改 head。若 main 漂移，重新核验组合，不移签。全绿且具授权才合；结束后只清理自有已完成 clean 树，保留红现场。
+首轮 `gates/` 和 `gate-summary.json` 只签ad3，拒合原件 `merge-aborted-base-drift.json`。第二轮只读 `retry-02/gates/` 与 `retry-02/runner.log`，只签确切head/tree/范围/解释器/依赖；最终 `closeout.json` / `merge.json` 和PR回读。全绿、零基座漂移且具授权才合；不要为填数改被测head。已合则只清理自有已完成clean树，保留红现场。
 
 ## 踩过的坑
 
