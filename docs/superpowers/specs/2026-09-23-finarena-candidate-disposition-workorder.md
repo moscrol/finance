@@ -3,6 +3,12 @@
 可独立分发。执行方无需读聊天记录，本单自带背景、证据路径、步骤、验收与红线。
 来源：`docs/handoffs/2026-09-23-orphan-inventory.md`。无前置单；与其他单可并行。
 
+## 09-23 接手状态
+
+已完成[两路决策页](2026-09-23-finarena-decision.md)，执行方建议本期归档，**等待用户确认，未关闭 #816/#817、未进入工程合流**。本轮只读确认：#817 与 `ops/arena-recovery-gates-0921` 完整文件树相同；对固定 main `626d8a508` 合并预览无冲突，不代表验收通过。旧 NO-GO 报告自述为同一执行上下文离线复核，不是不同执行者的独立签字。
+
+[三条旧真实样本逐条移交 #76](../../handoffs/2026-09-23-finarena-quality-transfer.md)，18/18 原件哈希复验一致；仅登记待授权补充，不扩原六行预算，尤其追问须另批两轮会话协议。最终产品裁决原话待用户确认后回填。
+
 ## 背景与动机
 
 FinArena 是「多个金融 agent 同题作答、公开裁判」的邀请试运行模块（`intelligence/arena/` + `intelligence/webapp/src/arena/`），09-20 由 PR #811 引入，09-21 前向为 #816（三处边界修复：loopback 端点校验、远端 run_id 关联、SQLite 榜单读事务），离线 Spec/Quality 复核判 **NO-GO**（P1：`runner.py` 先 `finish_run(status=completed)` 再单独 `add_match()`，中途失败留下 completed run 却 0 个 Match；P2：stale running 无恢复闭环、publish 审核无持久审计）。同日 #817 修了 P1/P2（单事务、`recover-run`、审计事件 + 故障注入测试），作者叶：Arena Python 45P、前端六步、Arena E2E 8P；**没有新组合的完整四叶，没有独立复审，之后无人接手**。
