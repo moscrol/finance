@@ -1,6 +1,6 @@
 # #65 口径越界 lint（#850 / #854）合入 — 证据索引
 
-执行会话 S5（2026-09-22 夜 → 09-23 凌晨）。本目录只放可提交的文档；收据与日志原件在私有证据根 `~/.finance-runtime/reviews/claim-scope-merge-65-20260922/`（不进仓）。**运行时（`intelligence/`）零改动。**
+执行会话 S5（2026-09-22 夜 → 09-23 凌晨）。本目录只放可提交的文档；收据与日志原件在私有证据根 `~/.finance-runtime/reviews/claim-scope-merge-65-20260922/`（不进仓）。**运行时接入点零改动；离线判据模块、CLI 和测试有改动。**
 
 ## 结果 [实测]
 
@@ -27,6 +27,8 @@
 
 两冻结 run 在合后主干 detached 检出重放，与合前 `5f5ce2d1` 裁决**逐字段一致**（`rules_hit / issue_count / clean / context / issues[rule,quote,reason] / degraded`）：材料题 exit 1 命中 `unit_gap_claim_contradicts_input`；行情题（`--scope-total 20`）exit 1 命中三条。原件 `replay-on-main/`，脚本 `replay-on-main.sh`。
 
+> 证据限制：上述 JSON 本身不写 revision/tree；提交绑定来自重放脚本的检出路径、外部 pytest 收据和 merge record。后续若扩展收据，建议把被测 SHA 直接写入 JSON。
+
 ## 阳性对照（验收第 2 条）[实测 @ `5f5ce2d1`]
 
 | 变异（从 `_RULE_CHECKS` 删一条） | 冻结 run | 变异后 | 还原后 |
@@ -38,7 +40,7 @@
 
 ## 第二方审查
 
-`second-party-review.md`：S5 确定性探针（零模型请求）`PASS_WITH_LIMITS`。发现 1（中）证据台账正则不辨否定语境 → 资金流规则可被「未取得净流入数据」静默（fail-open）；发现 2（低）「无法确认」免责句触发日期规则（误报）。**两条均已由 PR #872 修复并合入 `bd2290c86`**（台账按子句判否定语境、免责须紧跟断言；四叶齐绿 14383P/0F、e2e 34P；合后两冻结 run 重放仍逐字段一致，见 `docs/handoffs/2026-09-23-claim-scope-ledger-negation-closeout.md`）。#75 K3 通道审查未开队列，合入依用户授权不等它；#75 可对合后主干事后审。
+`second-party-review.md`：S5 确定性探针（零模型请求）`PASS_WITH_LIMITS`。发现 1（中）证据台账正则不辨否定语境 → 资金流规则可被「未取得净流入数据」静默（fail-open）；发现 2（低）「无法确认」免责句触发日期规则（误报）。**两条均已由 PR #872 修复并合入 `bd2290c86`**（台账按子句判否定语境、免责须紧跟断言；四叶齐绿 14383P/0F、e2e 34P；合后两冻结 run 重放仍逐字段一致，见 `docs/handoffs/2026-09-23-claim-scope-ledger-negation-closeout.md`）。这里的“运行时零改动”只指接入点未改；#872 修改了离线模块 `intelligence/services/answer_claim_scope.py`，且静态扫描未发现生产作答路径 import。#75 K3 通道审查未开队列，合入依用户授权不等它；#75 可对合后主干事后审。
 
 ## 本目录文件
 
