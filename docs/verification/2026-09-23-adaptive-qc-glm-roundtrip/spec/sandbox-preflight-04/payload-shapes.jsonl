@@ -1,0 +1,17 @@
+{"admission":1,"stream":true,"model":"glm-5.3","tools":["bash","deliver_stage"],"temperature_removed":false,"reasoning_effort":"low"}
+{"admission":2,"stream":true,"model":"glm-5.3","tools":["bash","deliver_stage"],"temperature_removed":false,"reasoning_effort":"low"}
+{"admission":3,"stream":true,"model":"glm-5.3","tools":["bash","deliver_stage"],"temperature_removed":false,"reasoning_effort":"low"}
+{"admission":4,"stream":true,"model":"glm-5.3","tools":["bash","deliver_stage"],"temperature_removed":false,"reasoning_effort":"low"}
+{"admission":5,"stream":true,"model":"glm-5.3","tools":["bash","deliver_stage"],"temperature_removed":false,"reasoning_effort":"low"}
+{"admission":6,"stream":true,"model":"glm-5.3","tools":["bash","deliver_stage"],"temperature_removed":false,"reasoning_effort":"low"}
+{"admission":7,"stream":true,"model":"glm-5.3","tools":["bash","deliver_stage"],"temperature_removed":false,"reasoning_effort":"low"}
+{"admission":8,"stream":true,"model":"glm-5.3","tools":["bash","deliver_stage"],"temperature_removed":false,"reasoning_effort":"low"}
+{"admission":9,"stream":true,"model":"glm-5.3","tools":["bash","deliver_stage"],"temperature_removed":false,"reasoning_effort":"low"}
+{"admission":10,"stream":true,"model":"glm-5.3","tools":["bash","deliver_stage"],"temperature_removed":false,"reasoning_effort":"low"}
+{"admission":11,"stream":true,"model":"glm-5.3","tools":["bash","deliver_stage"],"temperature_removed":false,"reasoning_effort":"low"}
+{"admission":12,"stream":true,"model":"glm-5.3","tools":["bash","deliver_stage"],"temperature_removed":false,"reasoning_effort":"low"}
+{"admission":13,"stream":true,"model":"glm-5.3","tools":["bash","deliver_stage"],"temperature_removed":false,"reasoning_effort":"low"}
+{"admission":14,"stream":true,"model":"glm-5.3","tools":["bash","deliver_stage"],"temperature_removed":false,"reasoning_effort":"low"}
+{"admission":15,"stream":true,"model":"glm-5.3","tools":["bash","deliver_stage"],"temperature_removed":false,"reasoning_effort":"low"}
+{"admission":16,"stream":true,"model":"glm-5.3","tools":["bash","deliver_stage"],"temperature_removed":false,"reasoning_effort":"low"}
+{"admission":17,"stream":true,"model":"glm-5.3","tools":["bash","deliver_stage"],"temperature_removed":false,"reasoning_effort":"low"}

@@ -1,0 +1,110 @@
+"""Seal a failed gateway batch; no model calls, verdict replacement or deployment."""
+from datetime import datetime, timezone
+import hashlib
+import json
+from pathlib import Path
+import re
+import shutil
+import subprocess
+
+ROOT = Path(__file__).resolve().parent
+TREE = Path('/Users/a77/finance-worktrees/adaptive-research-loop')
+DEST = TREE / 'docs/verification/2026-09-23-adaptive-qc-glm-roundtrip'
+PYTHON = '/Users/a77/finance-workspace-private/.venv-workbench/bin/python'
+
+def save(path, value):
+    with path.open('x') as stream:
+        json.dump(value, stream, ensure_ascii=False, indent=2)
+        stream.write('\n')
+
+def load(path):
+    return json.loads(path.read_text())
+
+def sha(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+def git(*args):
+    return subprocess.check_output(['git', '-C', str(TREE), *args], text=True).strip()
+
+cfg = load(ROOT / 'spec/config.json')
+controller = load(ROOT / 'spec/gateway.controller.json')
+receipt = load(ROOT / 'spec/gateway/receipt.json')
+counts = controller['shim_counts']
+assert counts['requests'] == counts['completed'] == 4 and counts['failed'] == counts['active'] == 0
+assert counts['shutdown_complete'] and controller['request_counts_agree'] and controller['shim_exit'] == 0
+assert receipt['status'] == 'BLOCKED_PROVIDER_OR_ROUNDTRIP' and not receipt['written_copy_matches']
+assert subprocess.run(['/usr/sbin/lsof', '-nP', '-iTCP:19899', '-sTCP:LISTEN'], capture_output=True).returncode == 1
+assert not any((ROOT / a / s).exists() for a in ['spec','quality'] for s in ['explore','execute','report'])
+candidate = cfg['tree']
+assert subprocess.check_output(['git', '-C', candidate, 'rev-parse', 'HEAD'], text=True).strip() == cfg['revision']
+assert not subprocess.check_output(['git', '-C', candidate, 'status', '--porcelain'], text=True).strip()
+frozen = load(ROOT / 'frozen-inputs.json')
+assert all(sha(ROOT / name) == value for name, value in frozen.items())
+head, main = git('rev-parse', 'HEAD'), git('rev-parse', 'gitea/main')
+merge = subprocess.run(['git', '-C', str(TREE), 'merge-tree', '--write-tree', '--name-only', head, main], capture_output=True, text=True)
+save(ROOT / 'merge-check.json', {'head': head, 'main': main, 'exit_code': merge.returncode,
+     'stdout': merge.stdout, 'stderr': merge.stderr, 'conflict_free': merge.returncode == 0,
+     'joint_tree_tests_run': False, 'checked_at': datetime.now(timezone.utc).isoformat()})
+observations = []
+for line in (ROOT / 'spec/gateway/events.jsonl').read_text().splitlines():
+    event = json.loads(line)
+    if event.get('type') == 'message_end' and event.get('message', {}).get('role') == 'assistant':
+        msg = event['message']
+        observations.append({'stop_reason': msg.get('stopReason'), 'provider': msg.get('provider'),
+                             'model': msg.get('model'), 'tool_calls': [c for c in msg['content'] if c.get('type') == 'toolCall']})
+save(ROOT / 'gateway-observations.json', {'reasoning_excluded': True, 'messages': observations})
+record = {'record_kind': 'host_evidence_index_not_independent_verdict',
+          'status': 'BLOCKED_GATEWAY_TOOL_ROUNDTRIP', 'raw_gateway_status': receipt['status'],
+          'candidate_revision': cfg['revision'], 'baseline': cfg['baseline'], 'branch_head_at_check': head,
+          'model': 'glm-5.3', 'provider': 'glm-direct-review', 'reasoning_effort_sent': 'low',
+          'upstream': cfg['upstream_url'], 'request_counts': counts,
+          'model_requests': 4, 'spec_review_requests': 0, 'quality_review_requests': 0,
+          'author_tests': 0, 'reviewer_product_probes': 0, 'natural_finance_requests': 0,
+          'automatic_retries': 0, 'independent_review_complete': False,
+          'spec_verdict': 'NOT_DELIVERED', 'quality_verdict': 'NOT_DELIVERED',
+          'failure': {'transport_timeout': False, 'exit_code': receipt['exit_code'],
+                      'sentinel_returned': True, 'written_copy_matches': False,
+                      'first_response_batched_read_and_guessed_write': True,
+                      'second_write_rejected_create_only': True, 'observed_tool_executions': 3},
+          'harness_limit': 'run_stage.py --tools read,bash,write omits deliver_stage; offline mocks did not verify CLI allowlist. Formal stages NOT_RUN; repair in a new input snapshot before future model use.',
+          'frozen_input_hashes_match': True, 'candidate_clean': True, 'port_19899_released': True,
+          'main_conflict_free': merge.returncode == 0, 'current_head_full_gates_run': False,
+          'joint_main_tests_run': False, 'historical_l6': 'NOT_PASSED (1/1/0), unchanged',
+          'historical_receipts_reassigned': False, 'merged': False, 'deployed': False,
+          'closed_at': datetime.now(timezone.utc).isoformat()}
+save(ROOT / 'report.json', record)
+patterns = [re.compile(rb'(?i)bearer\s+[a-z0-9_.-]{24,}'), re.compile(rb'\bsk-[A-Za-z0-9_-]{16,}')]
+key = subprocess.check_output([PYTHON, '-B', str(ROOT / 'glm_credential.py'), '--emit'])
+private, copies, hits = {}, {}, []
+for path in sorted(ROOT.rglob('*')):
+    rel = path.relative_to(ROOT)
+    if not path.is_file() or path.is_symlink() or 'tmp' in rel.parts or '__pycache__' in rel.parts:
+        continue
+    data = path.read_bytes()
+    private[str(rel)] = {'sha256': sha(path), 'bytes': len(data)}
+    if key in data or any(p.search(data) for p in patterns):
+        hits.append(str(rel))
+    if path.name == 'events.jsonl':
+        continue
+    target = str(rel)
+    if path.suffix in {'.py', '.mjs', '.sb', '.log'}:
+        target += '.txt'
+    copies[path] = target
+assert not hits, hits
+del key
+save(ROOT / 'private-manifest.json', private)
+save(ROOT / 'key-scan.json', {'status': 'PASS', 'files_scanned': len(private), 'hits': []})
+copies[ROOT / 'private-manifest.json'] = 'private-manifest.json'
+copies[ROOT / 'key-scan.json'] = 'key-scan.json'
+assert not DEST.exists()
+DEST.mkdir(parents=True)
+archive = {}
+for source, target in copies.items():
+    destination = DEST / target
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(source, destination)
+    assert sha(source) == sha(destination)
+    archive[target] = {'source': str(source), 'sha256': sha(source)}
+save(DEST / 'archive-manifest.json', archive)
+print(json.dumps({'status': record['status'], 'archived_files': len(archive), 'model_requests': 4,
+                  'main': main, 'conflict_free': merge.returncode == 0, 'key_scan': 'PASS'}))
