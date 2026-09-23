@@ -1,0 +1,10 @@
+{
+  "base": "e51c5157c9ea9aa86491c486663700e7d7696a6f",
+  "request": {
+    "do": "fast-forward-only",
+    "head_commit_id": "728f327160bbd2485cb635e7ef09d040d718d7b5",
+    "force_merge": false,
+    "delete_branch_after_merge": false
+  },
+  "merge_tree": "d2dcd90433993fb4ea4b0cda07cea9cabf221088"
+}

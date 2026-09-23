@@ -21,10 +21,12 @@ from copy import deepcopy
 from dataclasses import replace
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 from intelligence.runtime.agent_episode import ContinuousAgentEpisode
 from intelligence.runtime.episode_tool_batch import stage_timeout_granted_detail
 from intelligence.runtime.harness_reference_loop import HarnessReferenceLoop
+from intelligence.services import research_contract
 from intelligence.services.agent_research import AgentEvidence, AgentToolContext
 from intelligence.services.agent_runtime import ModelToolCall, ModelTurn
 from intelligence.services.episode_protocol import finish_rejection_fields
@@ -404,10 +406,11 @@ def test_tool_hidden_for_too_small_window_is_the_same_machine(monkeypatch) -> No
     ``min_window_seconds``；两条 loop 必须同一格同一字，否则模型看到的菜单随 loop 而变。
     """
 
-    from intelligence.services import research_contract as contract_module
-
+    # Freeze only the deadline module's clock, not the shared time module or worker clocks.
     now = [1000.0]
-    monkeypatch.setattr(contract_module.time, "monotonic", lambda: now[0])
+    monkeypatch.setattr(
+        research_contract, "time", SimpleNamespace(monotonic=lambda: now[0])
+    )
     frame = _frame()
 
     class AdvancingModel(_ScriptedModel):

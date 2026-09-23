@@ -831,6 +831,34 @@ def ask_result_modules(result: AskResult) -> list[dict[str, Any]]:
     return modules
 
 
+# 业务终态从好到坏的唯一排序。complete_report 与 runtime 侧的交付门接线都用它
+# 取「更差的那个」——两处各抄一份排序，迟早有一处把 gap 抬成 partial
+#（2026-09-23 独立 QC 对 PR #862 的 M1 发现就是这个形状）。
+STATUS_RANK: dict[str, int] = {
+    "complete": 0,
+    "partial": 1,
+    "gap": 2,
+    "missing": 2,
+    "blocked": 3,
+}
+
+
+def worse_status(*statuses: str | None) -> str | None:
+    """返回给定业务状态里更差的那个；未知 / 空值忽略；全空返回 None。
+
+    同级（gap 与 missing 同为 2）时保留先出现的那个，这样调用方把「已有状态」
+    放在前面、把「新降级」放在后面，就不会被同级的新值无端改写。
+    """
+
+    best: str | None = None
+    for status in statuses:
+        if status not in STATUS_RANK:
+            continue
+        if best is None or STATUS_RANK[status] > STATUS_RANK[best]:
+            best = status
+    return best
+
+
 def complete_report(
     report: dict[str, Any],
     *,
@@ -843,16 +871,12 @@ def complete_report(
 ) -> dict[str, Any]:
     # status 是用户报告的业务状态；transport_status 保留“请求已结束”的
     # 旧语义，避免把 partial/gap 伪装成 completed。
-    allowed_statuses = {"complete", "partial", "gap", "blocked", "missing"}
+    allowed_statuses = set(STATUS_RANK)
     research_status = business_status if business_status in allowed_statuses else "complete"
     normalized_answer_status = (
         answer_status if answer_status in allowed_statuses else research_status
     )
-    status_rank = {"complete": 0, "partial": 1, "gap": 2, "missing": 2, "blocked": 3}
-    normalized_status = max(
-        (research_status, normalized_answer_status),
-        key=lambda value: status_rank[value],
-    )
+    normalized_status = worse_status(research_status, normalized_answer_status) or "complete"
     report["status"] = "completed" if normalized_status == "complete" else normalized_status
     report["transport_status"] = "completed"
     report["research_status"] = research_status

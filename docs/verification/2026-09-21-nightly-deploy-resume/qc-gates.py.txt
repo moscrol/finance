@@ -1,0 +1,97 @@
+"""Read-only adjudication of exact-version native leaves; never changes receipts."""
+from datetime import datetime, timezone
+import hashlib
+import json
+from pathlib import Path
+import re
+import subprocess
+import xml.etree.ElementTree as ET
+
+ROOT = Path(__file__).resolve().parent
+CANDIDATE = json.loads((ROOT / 'candidate.json').read_text())
+SHA = CANDIDATE['revision']
+TREE = Path(CANDIDATE['tree'])
+
+
+def digest(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+qc = {'revision': SHA, 'base': CANDIDATE['base'], 'at': datetime.now(timezone.utc).isoformat(),
+      'status': 'BLOCKED', 'errors': [], 'leaves': {}, 'merged': False, 'nightly_deployed': False}
+for leaf in ('python', 'frontend', 'registry', 'boundaries'):
+    try:
+        row = json.loads((ROOT / leaf / 'run.json').read_text())
+        assert row['complete'] and row['exit_code'] == 0 and row['source_unchanged'], leaf
+        assert row['revision'] == SHA
+        for key in ('before', 'after'):
+            assert row[key]['revision'] == SHA and not row[key]['status']
+        assert row['before'] == row['after']
+        assert all(check['exit_code'] == 0 for check in row['checks'])
+        for check in row['checks']:
+            assert digest(Path(check['log'])) == check['sha256']
+        qc['leaves'][leaf] = {'exit_code': row['exit_code'], 'checks': len(row['checks']), 'receipt_sha256': digest(ROOT / leaf / 'run.json')}
+    except (AssertionError, KeyError, FileNotFoundError) as error:
+        qc['errors'].append(f'{leaf}: {type(error).__name__}: {error}')
+try:
+    row = json.loads((ROOT / 'python/run.json').read_text())
+    receipt = json.loads((ROOT / 'python/pytest-receipt.json').read_text())
+    assert receipt['revision'] == SHA and receipt['tree'] == str(TREE) and not receipt['dirty']
+    assert receipt['exit_status'] == 0 and row['checks'][1]['exit_code'] == 0
+    exact = row['pytest_receipt']
+    assert digest(Path(exact['source'])) == exact['sha256'] == digest(ROOT / 'python/pytest-receipt.json')
+    assert receipt['counts']['failed'] == receipt['counts']['error'] == 0
+    text = (ROOT / 'python/1.log.txt').read_text()
+    match = re.findall(r'(\d+) passed, (\d+) skipped, (\d+) xfailed', text)
+    assert len(match) == 1, match
+    passed, skipped, xfailed = map(int, match[0])
+    assert passed == receipt['counts']['passed'] and skipped == receipt['counts']['skipped']
+    cases = ET.parse(ROOT / 'python/junit.xml').getroot().findall('.//testcase')
+    assert not any(c.find('error') is not None or c.find('failure') is not None for c in cases)
+    assert len(cases) == passed + skipped + xfailed
+    assert sum(c.find('skipped') is not None for c in cases) == skipped + xfailed
+    qc['python'] = {'passed': passed, 'skipped': skipped, 'xfail': xfailed, 'failed': 0, 'errors': 0, 'junit_cases': len(cases), 'receipt': exact}
+    samples = [json.loads(line) for line in (ROOT / 'python/resource-monitor.jsonl').read_text().splitlines()]
+    qc['resource_guard'] = {'admission': row['resource_admission'], 'minimum_observed_free_bytes': min(v['free_bytes'] for v in samples), 'samples': len(samples), 'retention': 'pytest tmp_path_retention_policy=failed, count=1; no failure evidence deletion'}
+except (AssertionError, KeyError, FileNotFoundError, ValueError) as error:
+    qc['errors'].append(f'python cross-check: {type(error).__name__}: {error}')
+try:
+    frontend = json.loads((ROOT / 'frontend/gate/frontend.json').read_text())
+    assert frontend['revision'] == SHA and frontend['complete'] and frontend['identity_stable'] and not frontend['dirty'] and frontend['exit_code'] == 0
+    assert len(frontend['checks']) == 6
+    for key in ('identity_before', 'identity_after'):
+        assert frontend[key]['revision'] == SHA and not frontend[key]['dirty']
+    for check in frontend['checks']:
+        assert check['exit_code'] == 0 and digest(ROOT / 'frontend/gate' / check['log']) == check['log_sha256']
+    clean = lambda s: re.sub(r'\x1b\[[0-9;]*m', '', s)
+    unit = clean((ROOT / 'frontend/gate/frontend-3.log.txt').read_text())
+    e2e = clean((ROOT / 'frontend/gate/frontend-5.log.txt').read_text())
+    assert re.search(r'Tests\s+110 passed', unit)
+    assert '34 passed' in e2e and '2 skipped' in e2e
+    qc['frontend'] = {'passed': 110, 'e2e_passed': 34, 'e2e_skipped': 2, 'six_commands_zero': True}
+except (AssertionError, KeyError, FileNotFoundError) as error:
+    qc['errors'].append(f'frontend cross-check: {type(error).__name__}: {error}')
+try:
+    proof = json.loads((ROOT / 'review-applicability-final.json').read_text())
+    assert proof['revision'] == SHA and proof['valid']
+    for row in proof['byte_identical_inputs']:
+        assert len(set(row['sha256_by_revision'].values())) == 1
+        assert digest(TREE / row['path']) == row['sha256_by_revision'][SHA]
+    qc['independent_reviews'] = {}
+    for axis in ('spec', 'quality'):
+        audit = json.loads((ROOT / f'{axis}-k3/qc.json').read_text())
+        assert audit['valid'] and audit['verdict'] == 'PASS' and audit['revision'] == proof[f'{axis}_revision']
+        for name, key in [('REPORT.md', 'report_sha256'), ('verdict.json', 'verdict_sha256')]:
+            assert digest(ROOT / f'{axis}-k3' / name) == audit[key]
+        qc['independent_reviews'][axis] = {'revision': audit['revision'], 'verdict': audit['verdict']}
+    qc['independent_reviews']['boundary'] = 'scoped installer review with explicit unchanged-input applicability; not a fresh review of upstream #830 or a transplanted revision signature'
+    assert (ROOT / 'hooks.exit').read_text().strip() == '0'
+    assert subprocess.check_output(['git', '-C', str(TREE), 'rev-parse', 'HEAD'], text=True).strip() == SHA
+    assert not subprocess.check_output(['git', '-C', str(TREE), 'status', '--porcelain'], text=True)
+    qc['hooks'] = {'exit': 0, 'log_sha256': digest(ROOT / 'hooks.log.txt')}
+except (AssertionError, KeyError, FileNotFoundError) as error:
+    qc['errors'].append(f'reviews/hooks/identity: {type(error).__name__}: {error}')
+qc['status'] = 'PASS' if not qc['errors'] else 'BLOCKED'
+(ROOT / 'final-gate-qc.json').write_text(json.dumps(qc, ensure_ascii=False, indent=2) + '\n')
+print(json.dumps(qc, ensure_ascii=False, indent=2))
+raise SystemExit(0 if qc['status'] == 'PASS' else 1)

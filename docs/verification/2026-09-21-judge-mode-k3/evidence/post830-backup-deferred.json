@@ -1,0 +1,10 @@
+{
+  "checked_at": "2026-09-21T11:09:10.985104+00:00",
+  "attempted": false,
+  "reason": "Insufficient stable disk headroom; prior archive about 4.1 GiB, available space fell to 2.2 GiB during closeout. No unrelated cleanup authorized.",
+  "free_bytes": 4580626432,
+  "prior_archive": "/Users/a77/backups/gitea-20260921-post826.tar.gz",
+  "prior_archive_bytes": 4451500519,
+  "prior_archive_not_post830": true,
+  "restore_validated": false
+}
