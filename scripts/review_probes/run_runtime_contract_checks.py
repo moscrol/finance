@@ -34,6 +34,9 @@ GROUPS = {
     ]),
     "writer": ("episode_writer_mutations.json", [TEST_ROOT + "test_episode_writer.py"]),
     "reentry": ("episode_writer_reentry_mutations.json", [TEST_ROOT + "test_episode_writer_reentry.py"]),
+    "inbox": ("episode_inbox_mutations.json", [
+        "scripts/review_probes/runtime_identity_effects/probe/inbox_checks.py",
+    ]),
 }
 
 
@@ -133,7 +136,12 @@ def audit(output):
                 message = failure.get("message", "")
                 assertion = message.startswith(("AssertionError:", "assert ", "Failed: DID NOT RAISE "))
                 explicit_failure = ident == "tool_intent_fence" and message == "Failed: unpersisted intent reached executor"
-                assert assertion or explicit_failure, (ident, key, message)
+                missing_finish_reason = (
+                    ident == "nonstream_finish_reason"
+                    and key[1] == "test_transport_preserves_truncation_reason[False]"
+                    and message == "KeyError: '_finish_reason'"
+                )
+                assert assertion or explicit_failure or missing_finish_reason, (ident, key, message)
                 if ident == "inbox_suspend_does_not_drain_delivery":
                     assert message == "Failed: DID NOT RAISE <class 'TimeoutError'>", (ident, "not a semantic witness", message)
                 failures.append({"classname": key[0], "name": key[1], "message": message})

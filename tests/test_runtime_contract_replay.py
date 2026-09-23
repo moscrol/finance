@@ -90,6 +90,25 @@ def test_preflight_rejects_stale_duplicate_or_invalid_mutation(tmp_path, source,
         runner.validate_definitions(tmp_path, definitions)
 
 
+def test_required_finish_reason_key_is_a_scoped_semantic_witness(sample):
+    ident = "nonstream_finish_reason"
+    name = "test_transport_preserves_truncation_reason"
+    (sample / "definitions.json").write_text(json.dumps([{"id": ident, "targets": [name]}]))
+    for path in sample.glob("*.xml"):
+        tree = ET.parse(path)
+        for case in tree.getroot().iter("testcase"):
+            if case.get("name") == "test_guard":
+                case.set("name", name + "[False]")
+        tree.write(path)
+    (sample / "fence-green.xml").rename(sample / (ident + "-green.xml"))
+    red = sample / (ident + "-red.xml")
+    xml(red, [(name + "[False]", "failure", "KeyError: '_finish_reason'")])
+    assert runner.audit(sample)["accepted"]
+    xml(red, [(name + "[False]", "failure", "KeyError: 'unrelated_key'")])
+    with pytest.raises(AssertionError):
+        runner.audit(sample)
+
+
 def test_output_refuses_candidate_overlap(tmp_path, monkeypatch):
     monkeypatch.setattr("sys.argv", ["replay", "--candidate", str(tmp_path),
                                    "--expect-revision", "sha", "--group", "writer",
