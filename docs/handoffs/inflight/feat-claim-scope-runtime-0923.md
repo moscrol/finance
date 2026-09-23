@@ -6,6 +6,7 @@
 ## 当前状态
 WIP #890未合未部署。产品候选14f885e01完整工程已绿；本次GLM三段独审PASS_WITH_LIMITS。L5改为BLOCKED_MARKET_DATA_CONSISTENCY：市场汇总09-22、快照09-23，两题仍各首发0/重发0/续问0。生产身份七字段未变。本次仅文档回写，不把14f收据移签到后续head。
 证据根`~/.finance-runtime/reviews/claim-scope-runtime-20260923/continue-01/`，audit.json与131成员manifest已封存；旧红/旧绿39/33成员复核不变。过程无遗留审查进程。
+续轮只读预检仍09-22/09-23不一致；夜跑东财快照失败，同花顺并行表成功不等于正式表恢复。证据`../recovery-preflight-01/`；详见`docs/handoffs/2026-09-23-claim-scope-recovery-preflight.md`。未重跑复盘或写生产。
 
 ## 决策与被否方案
 - K3小载荷200但32-token下空回，不判通道不可用；按既有偏好切GLM工程独审，不改签K3专项。
@@ -20,7 +21,7 @@ WIP #890未合未部署。产品候选14f885e01完整工程已绿；本次GLM三
 C7真实A恢复流、C8 B三个入口全链、C9终态竞争未独立动态压测；静态与作者证据不冒充独立动态。census缺键advisory可能KeyError，仅静态非阻断观察。K3专项/新L5无judge、marker、答案收据；未冻数据、无旁路/锁。生产readiness仍not_ready，回滚未验。
 
 ## 下一步
-独立恢复数据一致性；先核代码/依赖/主干漂移，新组合另冻另验。明确K3路由/凭证/剥参及judge关闭证据，再两原题首发1/重发0/续问0。全部门禁含readiness/回滚通过才合入部署。封存脚本排他创建，勿覆盖重跑。
+生产复盘须用户手动`/daily-full-review 2026-09-23`；勿绕调脚本或清理失败staging。恢复线他人已推进f22，旧HOLD不是新头验收。先核代码/依赖/主干漂移，新组合另冻另验。明确K3路由/凭证/剥参及judge关闭证据，再两原题首发1/重发0/续问0。全部门禁含readiness/回滚通过才合入部署。封存脚本排他创建，勿覆盖重跑。
 
 ## 踩过的坑
 pi exit0可有模型timeout；极短输出预算空回不等于通道失效。AST检查须限定health_ready作用域。PR写请求超时先回读；L5全集按正式日期查冻结库，不能沿用旧20。B缺工具请求账仍显式degraded。
