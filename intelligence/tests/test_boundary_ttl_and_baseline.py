@@ -188,7 +188,11 @@ def test_conditions_without_a_relative_baseline_are_not_flagged(text):
 def _context(**contract_fields):
     fields = {"question": QUERY, "question_type": "financial_analysis",
               "required_outputs": (), "material_contract": None, "subject_kind": "company"}
-    return SimpleNamespace(contract=SimpleNamespace(**{**fields, **contract_fields}), today="2026-09-18")
+    # main 的 _track_public_delivery 把 history_intent 一并交给 contract_receipt（联合候选接缝）；
+    # 这里没有历史意图，按生产里非历史回合的取值传 None，不让替身把接缝藏起来。
+    return SimpleNamespace(
+        contract=SimpleNamespace(**{**fields, **contract_fields}), today="2026-09-18", history_intent=None,
+    )
 
 
 def test_conflicting_ttl_is_disclosed_rather_than_silently_accepted():
