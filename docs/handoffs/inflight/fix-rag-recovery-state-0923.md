@@ -1,37 +1,39 @@
-# RAG 启动恢复与安全诊断
+# RAG 启动恢复与生命周期边界
 
 ## 这个分支做什么
-修复 worker 已自愈而全局启动失败仍阻断 readiness；保留安全的预热/子进程退出原因。
+修复失败状态重复锁存、安全子进程诊断，以及预热错误漏记、退役实例重生、管道注册漏清理。
 
 ## 当前状态
-独立树 `~/fwp-wt-rag-recovery-state-0923`，基线 `gitea/main@bbd53487f`。
-代码提交 `6c26041cb6600e43264603e6df8b56e20e44f4f5`；本篇与日期快照为后续文档。
-未推送、未开 PR、未合 main、未部署。主脏树和冻结 runtime 均未改。
-8792 15:17 附近复核仍为 `3b7e473575b0`，health/readiness 200、无关键缺项、任务为空。
+独立树 `~/fwp-wt-rag-recovery-state-0923`；已 rebase 到本轮 main `27ca084f9`。
+代码候选 `52a9bceb62390212e41d6c31786d660161ad5463`，本交接为后续文档提交。
+未推送、开 PR、合 main 或部署；主脏树、冻结 runtime、生产索引未动。
+8792 仍指向 `3b7e473575b0`。15:58 左右一次 readiness 15s 超时，复查 health/readiness 200、
+关键缺项为空，PID 58014/58612 未变；已记本机告警。超时根因未明，不代表资源有余量。
 
 ## 决策与被否方案
-- 配置/构造错误留启动层；已注册实例独占运行失败，API 不重复记账。否掉任一成功就清全局，防掩盖其他错误。
-- 原 selector 同时排空 stdout/stderr，私有尾部限 4096 字节；公开仅阶段/固定原因/退出码/白名单类型，不透出原文。
-- 保持混合检索、代际绑定、保活和超时策略；不放宽 readiness、不改索引、不自动修无实例配置。
-- 详细背景/方案与命令见 `docs/handoffs/2026-09-23-rag-recovery-state.md`。
+- 配置/构造错误归启动层；实例独占整段预热失败，API 不重复锁存。否掉任一成功清全局。
+- stderr 与 stdout 共用 selector；私有尾部4096字节，仅公开固定原因/阶段/退出码/白名单类型。
+- 保活启动完成才 ready；配方完整转换后替换。关闭在执行锁内复查，拒绝旧实例重生；允许新实例。
+- 注册管道也受 finally 清理保护。不放宽混合检索/代际/readiness，不改超时策略或索引。
+- 细节见 `docs/handoffs/2026-09-23-rag-recovery-state-followup.md`；初版同日快照保留。
 
 ## 下一步
-独立审查，按最新 main 重验组合及完整合入门禁，用户确认后才合并。
-部署须另取固定候选收据及真实探针；不得把本次假 KB 的 HTTP 恢复当生产模型验收。
-#874、#858/#867、Engine B answer_status 另案，未收口。
+独立审查，固定届时 main 组合候选，跑完整合入门禁；用户确认后才合 main。
+部署另取真实模型/会话及 readiness/PID/cwd/账本证据。不要重复旧 cutover 或跑 rag update。
+#874、#858/#867、Engine B answer_status 另案。
 
 ## 未验证 / 已知边界
-本候选全量 Python、前端/E2E/完整 registry 未跑；无独立审查、真实 BGE 模型或自然会话验收。
-未知异常类型/被截断错误行诊断为 null；普通查询响应合同不变，stderr 仅请求等待时排空。
-未部署，不改变此前线上历史失败或金融质量结论。
+作者复核不是独审。全量 Python、前端/E2E、完整 registry 未跑；本机有其他任务全仓门禁。
+无新候选真实 BGE、自然会话、部署效果或资源余量验收；本轮未重做生产任务队列验收。
+未知/截断异常诊断为 null；stderr 仅等待请求时排空。假 KB 的 HTTP 恢复不能当生产模型验收。
 
 ## 已验证
-固定干净 `6c26041cb`：413 passed（新增17），0失败/错误/跳过；全仓 Ruff、提交钩子通过。
-收据 `~/.finance-runtime/test-receipts/20260923T071402Z-6c26041c-53033ec65c38.json`。
-新增7组、旧管道9组撤保护均红→绿；各基线/还原整套17P、78P。
-原件 `~/.finance-runtime/reviews/rag-recovery-state-0923/6c26041cb/{startup,transport}-mutations/`，complete=true。
+固定干净 `52a9bceb6`：421P，0失败/错误/跳过，本次新增8条；全仓 Ruff、提交钩子通过。
+证据根 `~/.finance-runtime/reviews/rag-recovery-state-0923/52a9bceb6/`：
+`related-receipt.json` 身份校验通过；startup/transport-mutations 各12/9组红→绿，
+基线/还原整套25P/78P，均 complete=true。临时变异树已清理。
 
 ## 踩过的坑
-同时改 module 与 API 的重复失败锁存，否则内部 ready 仍会 HTTP 503。
-管道测试替身必须返回 selector 事件结构；循环缩进变化需更新旧变异锚点。
-真实 BrokenPipe 测试关闭 stdin 可再抛同类错误，仅测试清理容忍。无本轮残留子进程。
+测试文件是 `test_rag_worker_generation.py`；误写路径的零执行收据不得计入通过。
+竞争测试用事件屏障，不靠 sleep；闭环必须同时验实例和真实 HTTP。
+整合前旧 SHA 收据只属历史，不能改签新提交。共享记忆的无关并发改动不纳入本分支。
