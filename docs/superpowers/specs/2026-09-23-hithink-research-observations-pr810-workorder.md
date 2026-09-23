@@ -48,10 +48,16 @@ PR **#810**（`feat/hithink-research-data`）在抓取侧之上加「当日异�
 ## 验收
 
 - [ ] `merge-tree` 干净；四叶收据 revision == head、`dirty=false`、failed=0。
-- [ ] 阳性对照：把 429 退避常量改为 0 次，新测试红。
-- [ ] 生产库与 8792 的 revision / mtime 前后一致。
-- [ ] QUEUE.md 有本单行或用户豁免原话贴在 PR。
-- [ ] INDEX #85 行已改。
+- [x] 阳性对照：最终代码进程内将429重试常量设0，两针2F；新进程恢复2P，源码未改。
+- [x] 定向验收窗口内，生产库stat、plist、runtime链接与8792身份前后相同；未补造开工前快照。
+- [x] QUEUE.md 有本单行，独审仍待#75，不代表已有签字或豁免。
+- [x] INDEX #85 已记工程完成、验收阻塞。
+
+## 09-23 执行回写
+
+`fix/hithink-research-85` 承接#810，最终代码 `0f0231553acf788e7d42440ce54d3d101fdca187` 已推。main基座 `626d8a508`，merge-tree干净。冻结干净定向130P、全仓Ruff、registry五项通过（跨仓跳过，台账98 warning）；CLI partial返回3，夜跑重试后仍partial不发布，旧单体也不报成功。其他研究请求继续，4001旧语义保留。
+
+原件 `~/.finance-runtime/reviews/hithink-research-85-20260923/`，最终收据 `final-receipts/gate-3GXIgpu2/pytest.json`。完整Python/前端/E2E未跑，主机高负载下不叠加；无独审结论，不能合入。Gitea创建接口超时后回读确认新WIP PR **#894** 已生成，承接#810，原PR未关闭。下一步、被否方案及仅供后续授权的部署命令见 `docs/handoffs/2026-09-23-hithink-research-observations-85.md` 和 `inflight/fix-hithink-research-85.md`。未采集/写生产/重载launchd/切8792。
 
 ## 红线
 
