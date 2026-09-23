@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import sys
 from argparse import Namespace
 from pathlib import Path
 
@@ -20,13 +21,20 @@ def inputs(tmp_path: Path, monkeypatch) -> Namespace:
     projection.write_text(json.dumps({"briefing_date": "2026-09-18", "available_from": "2026-09-19",
                                       "recorded_at": "2026-09-21", "tier": 2, "dimensions": 2}) + "\n")
     with duckdb.connect(str(db)) as con:
-        con.execute("CREATE TABLE fact_market_daily (trade_date DATE)")
-        con.execute("INSERT INTO fact_market_daily VALUES ('2026-09-18')")
+        schema = Path(__file__).resolve().parents[1] / "market_feature_store" / "schema.sql"
+        con.execute(schema.read_text(encoding="utf-8"))
+        con.execute("INSERT INTO fact_market_daily (trade_date) VALUES ('2026-09-18')")
+        con.execute(
+            "INSERT INTO fact_sector_daily_generation "
+            "(trade_date, sector_universe_snapshot_id, sector_ts_code, sector_name, pct_chg, amount, "
+            "diff_ratio, source, updated_at) "
+            "VALUES ('2026-09-19', 'legacy', 'test', 'test', 1.0, 100.0, 11.0, 'fixture', '2026-09-19 08:00:00')"
+        )
     with duckdb.connect(str(labels)) as con:
         con.execute(
             "CREATE TABLE history_teaching_labels ("
             "trade_date DATE, entity_type VARCHAR, entity_id VARCHAR, label VARCHAR, value_num DOUBLE, "
-            "framework_version VARCHAR, status VARCHAR, computed_at TIMESTAMP)"
+            "value_text VARCHAR, framework_version VARCHAR, status VARCHAR, computed_at TIMESTAMP)"
         )
     monkeypatch.setattr("sys.argv", ["verify", "--db-path", str(db), "--labels-db", str(labels),
                                     "--kb-wiki", str(wiki), "--briefing-date", "2026-09-18", "--entity", "test"])
@@ -35,16 +43,17 @@ def inputs(tmp_path: Path, monkeypatch) -> Namespace:
 
 def _add_landing_day(inputs: Namespace) -> None:
     with duckdb.connect(str(inputs.db)) as con:
-        con.execute("INSERT INTO fact_market_daily VALUES ('2026-09-19')")
+        con.execute("INSERT INTO fact_market_daily (trade_date) VALUES ('2026-09-19')")
 
 
 def _add_briefing_labels(
-    inputs: Namespace, *, hit_value: float | None = None, early_label: str | None = None,
+    inputs: Namespace, *, hit_value: float | None = None, tier3_value: float = 0.0,
+    early_label: str | None = None,
 ) -> None:
     values = {
         "tf.briefing_tier1_items": 0.0,
         "tf.briefing_tier2_items": 1.0,
-        "tf.briefing_tier3_items": 0.0,
+        "tf.briefing_tier3_items": tier3_value,
         "tf.briefing_market_confirmed": None,
         "tf.briefing_dimensions": 2.0,
         "tf.briefing_hit_rps5_pct": hit_value,
@@ -76,7 +85,7 @@ def test_invalid_inputs_never_report_success(inputs, case, capsys):
             con.execute("DELETE FROM fact_market_daily")
     else:
         with duckdb.connect(str(inputs.db)) as con:
-            con.execute("INSERT INTO fact_market_daily VALUES ('2026-09-21')")
+            con.execute("INSERT INTO fact_market_daily (trade_date) VALUES ('2026-09-21')")
     assert main() == 1
     assert json.loads(capsys.readouterr().out)["status"] == "FAIL"
 
@@ -106,3 +115,34 @@ def test_one_backdated_label_cannot_be_hidden_by_later_labels(inputs, capsys):
     result = json.loads(capsys.readouterr().out)
     assert result["status"] == "FAIL"
     assert "Label computed_at before source recorded_at: 2026-09-19 tf.briefing_tier1_items" in result["error"]
+
+
+def test_valid_consumption_reaches_teaching_object_and_river(inputs, capsys):
+    _add_landing_day(inputs)
+    _add_briefing_labels(inputs)
+    assert main() == 0
+    result = json.loads(capsys.readouterr().out)
+    assert result["status"] == "PASS"
+    briefing = result["briefings"][0]
+    assert briefing["disabled_sidecar_unchanged"] is True
+    assert briefing["late_teaching_objects_filtered"] == 1
+    assert briefing["river_ref"].startswith("history_teaching_labels:")
+
+
+def test_same_landing_uses_complete_material_day_aggregation(inputs, capsys, monkeypatch):
+    inputs.projection.write_text(
+        "\n".join([
+            json.dumps({"briefing_date": "2026-09-18", "available_from": "2026-09-19",
+                        "recorded_at": "2026-09-21", "tier": 2, "dimensions": 2}),
+            json.dumps({"briefing_date": "2026-09-19", "available_from": "2026-09-19",
+                        "recorded_at": "2026-09-21", "tier": 3, "dimensions": 2}),
+        ]) + "\n"
+    )
+    _add_landing_day(inputs)
+    _add_briefing_labels(inputs, tier3_value=1.0)
+    monkeypatch.setattr(sys, "argv", [*sys.argv, "--briefing-date", "2026-09-19"])
+    assert main() == 0
+    result = json.loads(capsys.readouterr().out)
+    assert result["status"] == "PASS"
+    assert result["briefings"][0]["source_rows"] == 2
+    assert result["briefings"][0]["landing_briefing_dates"] == ["2026-09-18", "2026-09-19"]

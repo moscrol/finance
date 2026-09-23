@@ -41,6 +41,17 @@ def verify(args: argparse.Namespace) -> dict:
         calendar = [r[0] for r in source.execute("SELECT trade_date FROM fact_market_daily ORDER BY trade_date").fetchall()]
     require(bool(calendar), "Empty market calendar")
     daily = briefing_daily(events, calendar)
+    # ``briefing_daily`` aggregates every material day that lands on the same trading day
+    # (for example, a Friday/weekend pair). Keep the verification result on that same
+    # landing-day basis instead of reporting only the requested material day's row count.
+    landing_rows: dict[date, list[dict]] = {}
+    landing_material_days: dict[date, set[str]] = {}
+    for event in events:
+        available = date.fromisoformat(event["available_from"])
+        landing = next((day for day in calendar if day >= available), None)
+        if landing is not None:
+            landing_rows.setdefault(landing, []).append(event)
+            landing_material_days.setdefault(landing, set()).add(str(event.get("briefing_date")))
     results = []
     with tempfile.TemporaryDirectory(prefix="briefing-verify-") as temp:
         for material_day in args.briefing_date:
@@ -54,6 +65,9 @@ def verify(args: argparse.Namespace) -> dict:
             if landing is None:
                 results.append({**result, "status": "BLOCKED", "reason": "market_calendar_ends_before_availability"})
                 continue
+            result = {**result,
+                      "source_rows": len(landing_rows[landing]),
+                      "landing_briefing_dates": sorted(landing_material_days[landing])}
             day = str(landing)
             expected = daily[landing]
             with duckdb.connect(str(args.labels_db), read_only=True) as labels:
