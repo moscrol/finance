@@ -127,8 +127,9 @@ def _stream_payloads(response_text: str) -> list[dict[str, object]]:
     ]
 
 
+@pytest.mark.parametrize("unrelated_report_first", [False, True])
 def test_real_turn_terminal_claim_does_not_publish_an_incomplete_artifact_list(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, unrelated_report_first: bool,
 ) -> None:
     repo_root = Path(__file__).parent / "fixtures" / "chat_workbench_repo"
     monkeypatch.setenv("FORESIGHT_USERS_DIR", str(tmp_path / "users"))
@@ -139,16 +140,40 @@ def test_real_turn_terminal_claim_does_not_publish_an_incomplete_artifact_list(
     for key in _LLM_KEY_NAMES:
         monkeypatch.delenv(key, raising=False)
     reached, release = threading.Event(), threading.Event()
-    original = RunStore.add_artifact
+    app = create_app(repo_root=repo_root)
+    original_submit = app.state.supervisor.submit_conversation
 
-    def blocked_report(self, run_id, name, *args, **kwargs):
-        if name == "report.json":
-            reached.set()
-            assert release.wait(10), "test must release report publication"
-        return original(self, run_id, name, *args, **kwargs)
+    def submit_with_publication_barrier(store, run_id, **kwargs):
+        original_add_artifact = store.add_artifact
 
-    monkeypatch.setattr(RunStore, "add_artifact", blocked_report)
-    with TestClient(create_app(repo_root=repo_root)) as client:
+        def blocked_report(artifact_run_id, name, *args, **artifact_kwargs):
+            if artifact_run_id == run_id and name == "report.json":
+                reached.set()
+                assert release.wait(10), "test must release report publication"
+            return original_add_artifact(artifact_run_id, name, *args, **artifact_kwargs)
+
+        # Bind before enqueueing; another run's report must not release this wait.
+        monkeypatch.setattr(store, "add_artifact", blocked_report)
+        return original_submit(store, run_id, **kwargs)
+
+    monkeypatch.setattr(app.state.supervisor, "submit_conversation", submit_with_publication_barrier)
+    other_report_written = threading.Event()
+    if unrelated_report_first:
+        other_store = RunStore("alice", root=tmp_path / "other-runs")
+        other_run = other_store.create_run("unrelated report", "ask")
+        other_store.finish_run(other_run.run_id, "completed")
+        original_execute = app.state.supervisor._execute
+
+        def execute_after_unrelated_report(*args, **kwargs):
+            # Reproduce a previous worker finishing while this run is queued.
+            other_store.add_artifact(
+                other_run.run_id, "report.json", "{}", renderer="json", title="Other",
+            )
+            other_report_written.set()
+            return original_execute(*args, **kwargs)
+
+        monkeypatch.setattr(app.state.supervisor, "_execute", execute_after_unrelated_report)
+    with TestClient(app) as client:
         conv = client.post("/api/conversations", json={"user": "alice"}).json()["conversation_id"]
         created = client.post(f"/api/conversations/{conv}/messages", json={
             "user": "alice", "content": "今天研究什么", "skill_mode": "manual",
@@ -160,6 +185,8 @@ def test_real_turn_terminal_claim_does_not_publish_an_incomplete_artifact_list(
             assert run["status"] == "completed"
             assert run["publication"] == {"status": "pending", "message_id": None}
             assert "report.json" not in [a["path"] for a in run["artifacts"]]
+            if unrelated_report_first:
+                assert other_report_written.is_set()
             message = _wait_message_terminal(client, conv)[-1]
             assert message["message_id"] == created["assistant_message_id"]
             assert message["content"]  # 消息先写也不能冒充所有产物已发布。
