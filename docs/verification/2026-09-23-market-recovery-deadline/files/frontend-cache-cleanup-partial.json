@@ -1,0 +1,17 @@
+{
+  "script": "cleanup_frontend_cache.py",
+  "script_exit_code": 1,
+  "complete": false,
+  "failure": "CalledProcessError: git check-ignore --quiet frontend-candidate/intelligence/webapp/.next returned 1",
+  "failure_point": "Second loop iteration, before any .next deletion",
+  "node_modules_absent_confirmed": true,
+  "frontend_git_status_after": "",
+  "build_output": "frontend-candidate/intelligence/api/static",
+  "build_output_retained": true,
+  "source_of_actual_build_path": "frontend-receipt/frontend-4.log.txt",
+  "logs_and_reports_removed": false,
+  "memory_of_action": "The first iteration processed this run's ignored node_modules. The .next assumption was wrong; the ignore guard stopped that iteration. No further cleanup was attempted.",
+  "global_free_space_at_later_sample_GiB": 20.36,
+  "free_space_increase_attributed_to_this_cleanup": false,
+  "script_not_a_reusable_cleanup_tool": true
+}

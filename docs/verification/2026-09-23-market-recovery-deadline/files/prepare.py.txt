@@ -1,0 +1,29 @@
+"""Build a verification-only merge object; never update main or push."""
+import json
+from pathlib import Path
+import subprocess
+
+ROOT = Path(__file__).resolve().parent
+SOURCE = Path('/Users/a77/fwp-wt-market-recovery-qc-fix-0923')
+
+def git(*args, input=None):
+    return subprocess.check_output(['git', '-C', str(SOURCE), *args], text=True, input=input).strip()
+
+assert git('status', '--porcelain') == ''
+head = git('rev-parse', 'HEAD')
+assert head.startswith('f22cd22b6')
+base = git('rev-parse', 'gitea/main')
+assert git('ls-remote', 'gitea', 'refs/heads/main').split()[0] == base
+tree = git('merge-tree', '--write-tree', base, head)
+assert len(tree) == 40
+revision = git('commit-tree', tree, '-p', base, '-p', head,
+               input='Verification only: market recovery plus query absolute deadline\n')
+ref = f'refs/verification/market-recovery-deadline-{base[:9]}-20260923'
+git('update-ref', ref, revision, '0' * 40)
+for name in ['candidate', 'frontend-candidate']:
+    git('worktree', 'add', '--detach', str(ROOT / name), revision)
+record = {'revision': revision, 'tree': tree, 'base': base, 'fix_head': head, 'ref': ref,
+          'source': str(SOURCE), 'merge_admission': False}
+with (ROOT / 'candidate.json').open('x') as stream:
+    json.dump(record, stream, indent=2)
+print(json.dumps(record))

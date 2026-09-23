@@ -1,0 +1,4 @@
+
+> market-intelligence-workbench@0.1.0 lint /Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/timeout-followup/frontend-candidate/intelligence/webapp
+> eslint .
+

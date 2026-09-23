@@ -1,0 +1,26 @@
+== gate @ 5213e9344b77 tree=/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/timeout-followup/candidate py=/Users/a77/finance-workspace-private/.venv-workbench/bin/python receipt=/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/timeout-followup/full-gate/gate-zfvXYYlB/pytest.json
+== ruff check .
+All checks passed!
+== pytest -q -p no:cacheprovider --basetemp=/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/timeout-followup/full-pytest-tmp --junitxml=/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/timeout-followup/full-gate/pytest.xml --durations=20
+31.03s setup    intelligence/tests/test_methodology_dependence.py::TestPurge::test_窗末跨界事件被剔且如实计数
+30.44s call     intelligence/tests/test_exposure_ranking.py::test_evidence_coverage_reaches_the_trace_telemetry
+29.37s call     intelligence/tests/test_graph_research_map_modes.py::test_package_does_not_append_access_log
+29.28s call     intelligence/tests/test_exposure_ranking.py::test_truncation_reaches_the_answer_not_just_the_adapter
+29.23s call     tests/test_money_effect_regime.py::test_cli_json_outputs_today_and_replay
+25.71s call     intelligence/tests/test_agent_review_gate.py::test_narrow_repair_does_not_seal_older_unreviewed_milestone
+25.42s setup    intelligence/tests/test_replay_engine.py::test_select_nodes_forces_reconciliation_dates_only_in_strict
+24.35s call     tests/test_money_effect_regime.py::test_load_regime_state_from_synthetic_db_and_as_of
+24.09s call     intelligence/tests/test_ask_clarify_planner.py::AskIntegrationTest::test_no_clarify_flag_disables_gate
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_rag_worker.py::test_second_consecutive_timeout_kills_and_self_heals
+FAILED intelligence/tests/test_rag_worker.py::test_recovery_respects_cooldown
+FAILED intelligence/tests/test_rag_worker_generation.py::test_single_bad_query_does_not_reclassify_worker_as_retired
+FAILED intelligence/tests/test_rag_worker_keepalive.py::test_close_stops_keepalive_thread
+4 failed, 14903 passed, 85 skipped, 2 xfailed, 17 warnings in 4997.85s (1:23:17)
+== receipt /Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/timeout-followup/full-gate/gate-zfvXYYlB/pytest.json
+   revision=5213e9344b77 dirty=False target=/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/timeout-followup/candidate
+   passed=14903 failed=4 error=0 skipped=85 xfailed=2 xpassed=0
+   RED intelligence/tests/test_rag_worker.py::test_recovery_respects_cooldown
+   RED intelligence/tests/test_rag_worker.py::test_second_consecutive_timeout_kills_and_self_heals
+   RED intelligence/tests/test_rag_worker_generation.py::test_single_bad_query_does_not_reclassify_worker_as_retired
+   RED intelligence/tests/test_rag_worker_keepalive.py::test_close_stops_keepalive_thread

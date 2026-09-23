@@ -1,0 +1,285 @@
+{
+  "at": "2026-09-23T14:25:09.184590+00:00",
+  "revision": "5213e9344b77e4094221734722b478705611a865",
+  "tree": "97070f9b4da710185f743e6891df9dc2c5da70ef",
+  "base": "626d8a508c1c988ff094110b371987e6afdcdd15",
+  "fix_head": "f22cd22b63a9278ff7d631f10f9efbac1c69899d",
+  "ref": "refs/verification/market-recovery-deadline-626d8a508-20260923",
+  "source": "/Users/a77/fwp-wt-market-recovery-qc-fix-0923",
+  "merge_admission": false,
+  "python": {
+    "receipt": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/timeout-followup/full-gate/gate-zfvXYYlB/pytest.json",
+    "exit_code": 1,
+    "counts": {
+      "passed": 14903,
+      "failed": 4,
+      "error": 0,
+      "skipped": 85,
+      "xfailed": 2,
+      "xpassed": 0
+    },
+    "collected": 14994,
+    "failures": [
+      {
+        "classname": "intelligence.tests.test_rag_worker",
+        "name": "test_second_consecutive_timeout_kills_and_self_heals",
+        "time": "2.072",
+        "failure": "<testcase classname=\"intelligence.tests.test_rag_worker\" name=\"test_second_consecutive_timeout_kills_and_self_heals\" time=\"2.072\"><failure message=\"TimeoutError: rag worker query timeout\">tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/timeout-followup/full-pytest-tmp/test_second_consecutive_timeou0')\nmonkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x11cf52360&gt;\n\n    def test_second_consecutive_timeout_kills_and_self_heals(\n        tmp_path: Path, monkeypatch: pytest.MonkeyPatch\n    ) -&gt; None:\n        \"\"\"热 worker 连续两次超窗才算卡死：第二次杀进程并按预热配方后台重生。\n    \n        生产失败形状（2026-08-13）：预热窗 240s &gt; 查询窗 90s，模型加载 ~145s。\n        杀进程后「下次查询自然重启」必然二次超时，readiness 永久红——自愈必须用预热的窗口。\n        这一段保活改动一个字没碰。\n        \"\"\"\n        monkeypatch.setenv(\"RAG_WORKER_RECOVERY_COOLDOWN_SECONDS\", \"0\")\n        _write_fake_rag(tmp_path)\n        index = tmp_path / \".rag_index\"\n        index.mkdir()\n        worker = PersistentRagWorker(sys.executable, tmp_path, index)\n        try:\n&gt;           worker.prewarm([\"query\", \"warmup\", \"--json\"], timeout=2)\n\nintelligence/tests/test_rag_worker.py:491: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \nintelligence/services/rag_worker.py:218: in prewarm\n    response = self._query_locked(argv, timeout, allow_abandon=False)\nintelligence/services/rag_worker.py:443: in _query_locked\n    self._on_query_timeout(request_id, allow_abandon=allow_abandon)\n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nself = &lt;intelligence.services.rag_worker.PersistentRagWorker object at 0x11cf52180&gt;\nrequest_id = '8eb0054e427c4bc78e6e785267ce168d'\n\n    def _on_query_timeout(self, request_id: str, *, allow_abandon: bool) -&gt; None:\n        \"\"\"超窗处置：热 worker 第一次放弃请求；冷 worker 或连续第二次才杀。\"\"\"\n    \n        warm = self.model_load_count &gt; 0 and self.healthy()\n        if allow_abandon and warm and self._consecutive_timeouts == 0:\n            self._abandoned.add(request_id)\n            self._consecutive_timeouts = 1\n            self.counters[\"timeouts_abandoned_kept_warm\"] += 1\n            raise WorkerRequestAbandoned(\n                \"rag worker query timeout; request abandoned, worker kept warm\"\n            )\n        self._consecutive_timeouts = 0\n        self._abandoned.clear()\n        self.counters[\"timeouts_killed\"] += 1\n        self._stop_process()\n&gt;       raise TimeoutError(\"rag worker query timeout\")\nE       TimeoutError: rag worker query timeout\n\nintelligence/services/rag_worker.py:505: TimeoutError</failure></testcase>"
+      },
+      {
+        "classname": "intelligence.tests.test_rag_worker",
+        "name": "test_recovery_respects_cooldown",
+        "time": "2.119",
+        "failure": "<testcase classname=\"intelligence.tests.test_rag_worker\" name=\"test_recovery_respects_cooldown\" time=\"2.119\"><failure message=\"TimeoutError: rag worker query timeout\">tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/timeout-followup/full-pytest-tmp/test_recovery_respects_cooldow0')\nmonkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x11cf8ab70&gt;\n\n    def test_recovery_respects_cooldown(\n        tmp_path: Path, monkeypatch: pytest.MonkeyPatch\n    ) -&gt; None:\n        \"\"\"冷却期内的连续失败不重复起自愈线程——索引真坏时不能烧 CPU 循环重载。\"\"\"\n        monkeypatch.setenv(\"RAG_WORKER_RECOVERY_COOLDOWN_SECONDS\", \"3600\")\n        _write_fake_rag(tmp_path)\n        index = tmp_path / \".rag_index\"\n        index.mkdir()\n        worker = PersistentRagWorker(sys.executable, tmp_path, index)\n    \n        def _kill_via_two_timeouts() -&gt; None:\n            # 保活契约：热 worker 第一次超时只放弃，连续第二次才杀——杀一次要两发。\n            with pytest.raises(rag_worker.WorkerRequestAbandoned):\n                worker.query([\"query\", \"slow\", \"--json\"], timeout=0.02)\n            with pytest.raises(TimeoutError):\n                worker.query([\"query\", \"slow\", \"--json\"], timeout=0.02)\n    \n        try:\n&gt;           worker.prewarm([\"query\", \"warmup\", \"--json\"], timeout=2)\n\nintelligence/tests/test_rag_worker.py:552: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \nintelligence/services/rag_worker.py:218: in prewarm\n    response = self._query_locked(argv, timeout, allow_abandon=False)\nintelligence/services/rag_worker.py:443: in _query_locked\n    self._on_query_timeout(request_id, allow_abandon=allow_abandon)\n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nself = &lt;intelligence.services.rag_worker.PersistentRagWorker object at 0x11cf88ec0&gt;\nrequest_id = '58c0f1fe212f4e928ef1e1f0d5509bb8'\n\n    def _on_query_timeout(self, request_id: str, *, allow_abandon: bool) -&gt; None:\n        \"\"\"超窗处置：热 worker 第一次放弃请求；冷 worker 或连续第二次才杀。\"\"\"\n    \n        warm = self.model_load_count &gt; 0 and self.healthy()\n        if allow_abandon and warm and self._consecutive_timeouts == 0:\n            self._abandoned.add(request_id)\n            self._consecutive_timeouts = 1\n            self.counters[\"timeouts_abandoned_kept_warm\"] += 1\n            raise WorkerRequestAbandoned(\n                \"rag worker query timeout; request abandoned, worker kept warm\"\n            )\n        self._consecutive_timeouts = 0\n        self._abandoned.clear()\n        self.counters[\"timeouts_killed\"] += 1\n        self._stop_process()\n&gt;       raise TimeoutError(\"rag worker query timeout\")\nE       TimeoutError: rag worker query timeout\n\nintelligence/services/rag_worker.py:505: TimeoutError</failure></testcase>"
+      },
+      {
+        "classname": "intelligence.tests.test_rag_worker_generation",
+        "name": "test_single_bad_query_does_not_reclassify_worker_as_retired",
+        "time": "3.360",
+        "failure": "<testcase classname=\"intelligence.tests.test_rag_worker_generation\" name=\"test_single_bad_query_does_not_reclassify_worker_as_retired\" time=\"3.360\"><failure message=\"TimeoutError: rag worker query timeout\">tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/timeout-followup/full-pytest-tmp/test_single_bad_query_does_not0')\n\n    def test_single_bad_query_does_not_reclassify_worker_as_retired(tmp_path: Path) -&gt; None:\n        code = tmp_path / \"code\"\n        index = tmp_path / \"index\"\n        _write_fake_rag(code)\n        index.mkdir()\n        worker = PersistentRagWorker(sys.executable, code, index)\n        try:\n&gt;           worker.prewarm([\"query\", \"warmup\", \"--json\"], timeout=3)\n\nintelligence/tests/test_rag_worker_generation.py:712: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \nintelligence/services/rag_worker.py:218: in prewarm\n    response = self._query_locked(argv, timeout, allow_abandon=False)\nintelligence/services/rag_worker.py:443: in _query_locked\n    self._on_query_timeout(request_id, allow_abandon=allow_abandon)\n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nself = &lt;intelligence.services.rag_worker.PersistentRagWorker object at 0x11d056390&gt;\nrequest_id = 'be01521f23054113af4bf56c337f91df'\n\n    def _on_query_timeout(self, request_id: str, *, allow_abandon: bool) -&gt; None:\n        \"\"\"超窗处置：热 worker 第一次放弃请求；冷 worker 或连续第二次才杀。\"\"\"\n    \n        warm = self.model_load_count &gt; 0 and self.healthy()\n        if allow_abandon and warm and self._consecutive_timeouts == 0:\n            self._abandoned.add(request_id)\n            self._consecutive_timeouts = 1\n            self.counters[\"timeouts_abandoned_kept_warm\"] += 1\n            raise WorkerRequestAbandoned(\n                \"rag worker query timeout; request abandoned, worker kept warm\"\n            )\n        self._consecutive_timeouts = 0\n        self._abandoned.clear()\n        self.counters[\"timeouts_killed\"] += 1\n        self._stop_process()\n&gt;       raise TimeoutError(\"rag worker query timeout\")\nE       TimeoutError: rag worker query timeout\n\nintelligence/services/rag_worker.py:505: TimeoutError</failure></testcase>"
+      },
+      {
+        "classname": "intelligence.tests.test_rag_worker_keepalive",
+        "name": "test_close_stops_keepalive_thread",
+        "time": "2.101",
+        "failure": "<testcase classname=\"intelligence.tests.test_rag_worker_keepalive\" name=\"test_close_stops_keepalive_thread\" time=\"2.101\"><failure message=\"TimeoutError: rag worker query timeout\">tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/timeout-followup/full-pytest-tmp/test_close_stops_keepalive_thr0')\nmonkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x11cf897c0&gt;\n\n    def test_close_stops_keepalive_thread(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -&gt; None:\n        monkeypatch.setenv(\"RAG_WORKER_KEEPALIVE_SECONDS\", \"0.1\")\n        worker = _worker(tmp_path)\n&gt;       worker.prewarm([\"query\", \"warmup\", \"--json\"], timeout=2)\n\nintelligence/tests/test_rag_worker_keepalive.py:162: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \nintelligence/services/rag_worker.py:218: in prewarm\n    response = self._query_locked(argv, timeout, allow_abandon=False)\nintelligence/services/rag_worker.py:443: in _query_locked\n    self._on_query_timeout(request_id, allow_abandon=allow_abandon)\n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nself = &lt;intelligence.services.rag_worker.PersistentRagWorker object at 0x11cf8a690&gt;\nrequest_id = 'a959e91b2cfb43fb817bad3392a88d4f'\n\n    def _on_query_timeout(self, request_id: str, *, allow_abandon: bool) -&gt; None:\n        \"\"\"超窗处置：热 worker 第一次放弃请求；冷 worker 或连续第二次才杀。\"\"\"\n    \n        warm = self.model_load_count &gt; 0 and self.healthy()\n        if allow_abandon and warm and self._consecutive_timeouts == 0:\n            self._abandoned.add(request_id)\n            self._consecutive_timeouts = 1\n            self.counters[\"timeouts_abandoned_kept_warm\"] += 1\n            raise WorkerRequestAbandoned(\n                \"rag worker query timeout; request abandoned, worker kept warm\"\n            )\n        self._consecutive_timeouts = 0\n        self._abandoned.clear()\n        self.counters[\"timeouts_killed\"] += 1\n        self._stop_process()\n&gt;       raise TimeoutError(\"rag worker query timeout\")\nE       TimeoutError: rag worker query timeout\n\nintelligence/services/rag_worker.py:505: TimeoutError</failure></testcase>"
+      }
+    ],
+    "original_timeout_test": [
+      "<testcase classname=\"intelligence.tests.test_finance_query\" name=\"test_timeout_interrupts_connection\" time=\"0.037\" />"
+    ],
+    "elapsed_seconds": 5006.787,
+    "dependency_fingerprint": "3328bed61f3e21ea",
+    "python_version": "3.12.13"
+  },
+  "frontend": {
+    "schema": 1,
+    "leaf": "frontend",
+    "tree": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/timeout-followup/frontend-candidate",
+    "revision": "5213e9344b77e4094221734722b478705611a865",
+    "runner_sha256": "4fa9fd9a8e40507eb7a26e90f46928ac066551225cd6abb91d84370d3c427f32",
+    "started_at": "2026-09-23T12:58:32.548453+00:00",
+    "identity_before": {
+      "recorded_at": "2026-09-23T12:58:33.157524+00:00",
+      "revision": "5213e9344b77e4094221734722b478705611a865",
+      "dirty": false,
+      "status_porcelain_z": ""
+    },
+    "identity_after": {
+      "recorded_at": "2026-09-23T13:07:52.062379+00:00",
+      "revision": "5213e9344b77e4094221734722b478705611a865",
+      "dirty": false,
+      "status_porcelain_z": ""
+    },
+    "dirty": false,
+    "identity_stable": true,
+    "complete": true,
+    "checks": [
+      {
+        "command": [
+          "pnpm",
+          "install",
+          "--frozen-lockfile"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 14.03,
+        "log": "frontend-0.log.txt",
+        "log_bytes": 2115,
+        "log_sha256": "ca9d21e980dbdcd7a3035591ae64bec8e99a91df35a304e3ea04988b3937f8a6"
+      },
+      {
+        "command": [
+          "pnpm",
+          "lint"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 17.11,
+        "log": "frontend-1.log.txt",
+        "log_bytes": 176,
+        "log_sha256": "ac478a67109cfde627d1b9c4207aa204125befb4b9a1f341afa3a97fdd27dbf1"
+      },
+      {
+        "command": [
+          "pnpm",
+          "typecheck"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 37.36,
+        "log": "frontend-2.log.txt",
+        "log_bytes": 274,
+        "log_sha256": "a8cfabc190afdcfd6e27268bd0d728e8f2f9addc93d3fa702d9da73a74c3444a"
+      },
+      {
+        "command": [
+          "pnpm",
+          "test"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 96.59,
+        "log": "frontend-3.log.txt",
+        "log_bytes": 18210,
+        "log_sha256": "830da7f5e136f4cabe39f797f203368de08e19bc76212f4166bf05058f9a64d3"
+      },
+      {
+        "command": [
+          "pnpm",
+          "build"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 96.8,
+        "log": "frontend-4.log.txt",
+        "log_bytes": 1040,
+        "log_sha256": "546814496ae4979a9c9ef0a477dd14787fb7ae4c7a55bb01f27e0d1590d8b3cb"
+      },
+      {
+        "command": [
+          "pnpm",
+          "test:e2e"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 296.6,
+        "log": "frontend-5.log.txt",
+        "log_bytes": 12817,
+        "log_sha256": "89cc848f71d5f567276255211bf0d3108664033b8f3aafa6d24a297d4af85804"
+      }
+    ],
+    "exit_code": 1,
+    "finished_at": "2026-09-23T13:07:52.062484+00:00"
+  },
+  "frontend_diagnostic": {
+    "execution": {
+      "started_at": "2026-09-23T13:43:30.307791+00:00",
+      "before": {
+        "revision": "5213e9344b77e4094221734722b478705611a865",
+        "tree": "97070f9b4da710185f743e6891df9dc2c5da70ef",
+        "status": "",
+        "main": "626d8a508c1c988ff094110b371987e6afdcdd15"
+      },
+      "cwd": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/timeout-followup/frontend-candidate",
+      "command": [
+        "pnpm",
+        "--dir",
+        "intelligence/webapp",
+        "exec",
+        "vitest",
+        "run",
+        "src/components/components.test.tsx",
+        "-t",
+        "keeps polling a cancelled run until its exact message publication is visible|keeps polling while completed ownership precedes delivery",
+        "--maxWorkers=1",
+        "--reporter=default",
+        "--reporter=junit",
+        "--outputFile=/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/timeout-followup/frontend-two-diagnostic/junit.xml"
+      ],
+      "complete": true,
+      "controller_pid": 81666,
+      "deadline_seconds": 90,
+      "driver_sha256": "5634aacc209fe0286fac98a6931d73a4032c5ff632bbeeac5582dae14dc6b974",
+      "pid": 81692,
+      "exit_code": 0,
+      "stopped_for": null,
+      "elapsed_seconds": 28.23,
+      "after": {
+        "revision": "5213e9344b77e4094221734722b478705611a865",
+        "tree": "97070f9b4da710185f743e6891df9dc2c5da70ef",
+        "status": "",
+        "main": "626d8a508c1c988ff094110b371987e6afdcdd15"
+      },
+      "free_bytes": 10108035072
+    },
+    "counts": {
+      "failed": 0,
+      "error": 0,
+      "skipped": 79,
+      "passed": 2
+    },
+    "replaces_full_gate": false
+  },
+  "receipt_check_exit": 0,
+  "recovery_replays": {
+    "F1": {
+      "probe": {
+        "tests": 5,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 5
+      },
+      "author": {
+        "tests": 28,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 28
+      },
+      "positive": {
+        "tests": 1,
+        "failures": 1,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 0
+      }
+    },
+    "F2": {
+      "probe": {
+        "tests": 16,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 16
+      },
+      "author": {
+        "tests": 75,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 75
+      },
+      "positive": {
+        "tests": 1,
+        "failures": 1,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 0
+      }
+    },
+    "F3": {
+      "probe": {
+        "tests": 6,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 6
+      },
+      "author": {
+        "tests": 28,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 28
+      },
+      "positive": {
+        "tests": 1,
+        "failures": 1,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 0
+      }
+    }
+  },
+  "registry": {
+    "fixed-focused": 0,
+    "historical-deadline": 1,
+    "parseability": 0,
+    "registry": 0,
+    "tables": 0,
+    "views": 0,
+    "ledger-crosswalk": 0
+  },
+  "main_at_end": "626d8a508c1c988ff094110b371987e6afdcdd15",
+  "new_model_requests": 0,
+  "new_reviewer_verdict": null,
+  "overall": "HOLD",
+  "base_unchanged": true,
+  "candidate_clean": true
+}

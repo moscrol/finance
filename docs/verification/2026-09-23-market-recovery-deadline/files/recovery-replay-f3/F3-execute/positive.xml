@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="0.286" timestamp="2026-09-23T21:06:21.633106+08:00" hostname="77deMacBook-Air.local"><testcase classname="recovery-replay-f3.F3-execute.positive_control" name="test_intentional_red_probe_bug" time="0.001"><failure message="AssertionError: intentional positive control: probe_bug&#10;assert 1 == 2">def test_intentional_red_probe_bug():
+&gt;       assert 1 == 2, "intentional positive control: probe_bug"
+E       AssertionError: intentional positive control: probe_bug
+E       assert 1 == 2
+
+../recovery-replay-f3/F3-execute/positive_control.py:2: AssertionError</failure></testcase></testsuite></testsuites>

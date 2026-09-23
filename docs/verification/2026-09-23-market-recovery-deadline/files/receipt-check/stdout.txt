@@ -1,0 +1,27 @@
+========================================================================
+读数收据校验 — 判「能不能采信」，不重跑测试
+========================================================================
+  收据     /Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/timeout-followup/full-gate/gate-zfvXYYlB/pytest.json
+  产生于   2026-09-23T14:21:54+00:00
+  来自树   /Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/timeout-followup/candidate
+  目标     /Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/timeout-followup/candidate
+  读数     passed=14903 failed=4 error=0 skipped=85
+
+  ✓ 执行读数 14907 条（passed+failed+error）
+  ✓ 收集面未被收窄（collected=14994）
+  ✓ 收执对账平：collected=14994 == 读数合计=14994
+  ✓ revision 一致
+  ✓ 解释器一致
+  ✓ python 版本一致
+  ✓ 依赖指纹一致
+  ✓ 收据来自干净树
+  ✓ 依赖门禁未被绕过
+  ✓ 收据 revision == 5213e9344b77
+  ✓ 基座漂移 0 ≤ 0
+
+✅ 可采信 —— 收据成立的条件与当前环境一致，无需重跑。
+   注意收据里有 4 条失败，按名字逐条对待：
+     - intelligence/tests/test_rag_worker.py::test_recovery_respects_cooldown
+     - intelligence/tests/test_rag_worker.py::test_second_consecutive_timeout_kills_and_self_heals
+     - intelligence/tests/test_rag_worker_generation.py::test_single_bad_query_does_not_reclassify_worker_as_retired
+     - intelligence/tests/test_rag_worker_keepalive.py::test_close_stops_keepalive_thread

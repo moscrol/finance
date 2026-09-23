@@ -1,0 +1,10 @@
+{
+  "new_model_requests": 0,
+  "new_reviewer_verdict": null,
+  "revision": "5213e9344b77e4094221734722b478705611a865",
+  "origin": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/glm-50330cf/zhipu-v1/F3-explore/delivery",
+  "probe_sha256": "f9262a297d3f233b8279b16f42076cecccdf179c66482c9c4186dc0cd04b144c",
+  "runner_path": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/glm-50330cf/run.py",
+  "runner_sha256": "04448cfc968c1671cea4d69d86c5c83a2b657541e1997eaa472e38e6f1a09795",
+  "earlier_interrupted_output": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/timeout-followup/recovery-replay/F3-execute"
+}

@@ -1,0 +1,4 @@
+....                                                                     [100%]读数收据: /Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/timeout-followup/rag-diagnostic/20260923T142633Z-5213e934-1ba42170f060.json
+
+- generated xml file: /Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/timeout-followup/rag-diagnostic/junit.xml -
+4 passed in 2.57s

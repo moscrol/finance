@@ -1,0 +1,164 @@
+FFFFFFF..FFF..                                                           [100%]
+=================================== FAILURES ===================================
+_______________ test_exhausted_setup_never_executes_sql[connect] _______________
+
+harness = (namespace(now=100.2, delay_at='connect', delay=0.2, executed=True, interrupted=False, closed=True, cancelled=False, t...itor at 0x109a81c60>, run_monitor=False, cancel_at='', connected=True), <function harness.<locals>.run at 0x109a81bc0>)
+phase = 'connect'
+
+    @pytest.mark.parametrize("phase", ["connect", "thread_start"])
+    def test_exhausted_setup_never_executes_sql(harness, phase):
+        state, run = harness
+        state.delay_at = phase
+>       with pytest.raises(fq.FinanceQueryTimedOut):
+E       Failed: DID NOT RAISE <class 'intelligence.services.finance_query.FinanceQueryTimedOut'>
+
+../../timeout-followup/deadline_probe.py:126: Failed
+____________ test_exhausted_setup_never_executes_sql[thread_start] _____________
+
+harness = (namespace(now=100.2, delay_at='thread_start', delay=0.2, executed=True, interrupted=False, closed=True, cancelled=Fal...itor at 0x109a6a8e0>, run_monitor=False, cancel_at='', connected=True), <function harness.<locals>.run at 0x109a6a840>)
+phase = 'thread_start'
+
+    @pytest.mark.parametrize("phase", ["connect", "thread_start"])
+    def test_exhausted_setup_never_executes_sql(harness, phase):
+        state, run = harness
+        state.delay_at = phase
+>       with pytest.raises(fq.FinanceQueryTimedOut):
+E       Failed: DID NOT RAISE <class 'intelligence.services.finance_query.FinanceQueryTimedOut'>
+
+../../timeout-followup/deadline_probe.py:126: Failed
+__________________ test_late_monitor_does_not_restart_timeout __________________
+
+harness = (namespace(now=100.23000000000002, delay_at='execute', delay=0.2, executed=True, interrupted=True, closed=True, cancel...nitor at 0x109a6b4c0>, run_monitor=True, cancel_at='', connected=True), <function harness.<locals>.run at 0x109a6b380>)
+
+    def test_late_monitor_does_not_restart_timeout(harness):
+        state, run = harness
+        state.delay_at = "execute"
+        state.run_monitor = True
+        with pytest.raises(fq.FinanceQueryTimedOut):
+            run()
+        assert state.interrupted
+        assert state.closed
+>       assert state.now == pytest.approx(100.2)
+E       assert 100.23000000000002 == 100.2 ± 1.0e-04
+E         
+E         comparison failed
+E         Obtained: 100.23000000000002
+E         Expected: 100.2 ± 1.0e-04
+
+../../timeout-followup/deadline_probe.py:140: AssertionError
+___ test_late_result_is_not_success_even_without_monitor_scheduling[execute] ___
+
+harness = (namespace(now=100.2, delay_at='execute', delay=0.2, executed=True, interrupted=False, closed=True, cancelled=False, t...itor at 0x109a6b880>, run_monitor=False, cancel_at='', connected=True), <function harness.<locals>.run at 0x109b140e0>)
+phase = 'execute'
+
+    @pytest.mark.parametrize("phase", ["execute", "fetch", "close"])
+    def test_late_result_is_not_success_even_without_monitor_scheduling(harness, phase):
+        state, run = harness
+        state.delay_at = phase
+>       with pytest.raises(fq.FinanceQueryTimedOut):
+E       Failed: DID NOT RAISE <class 'intelligence.services.finance_query.FinanceQueryTimedOut'>
+
+../../timeout-followup/deadline_probe.py:147: Failed
+____ test_late_result_is_not_success_even_without_monitor_scheduling[fetch] ____
+
+harness = (namespace(now=100.2, delay_at='fetch', delay=0.2, executed=True, interrupted=False, closed=True, cancelled=False, tar...itor at 0x109b14180>, run_monitor=False, cancel_at='', connected=True), <function harness.<locals>.run at 0x109b14ea0>)
+phase = 'fetch'
+
+    @pytest.mark.parametrize("phase", ["execute", "fetch", "close"])
+    def test_late_result_is_not_success_even_without_monitor_scheduling(harness, phase):
+        state, run = harness
+        state.delay_at = phase
+>       with pytest.raises(fq.FinanceQueryTimedOut):
+E       Failed: DID NOT RAISE <class 'intelligence.services.finance_query.FinanceQueryTimedOut'>
+
+../../timeout-followup/deadline_probe.py:147: Failed
+____ test_late_result_is_not_success_even_without_monitor_scheduling[close] ____
+
+harness = (namespace(now=100.2, delay_at='close', delay=0.2, executed=True, interrupted=False, closed=True, cancelled=False, tar...itor at 0x109b14680>, run_monitor=False, cancel_at='', connected=True), <function harness.<locals>.run at 0x109b15b20>)
+phase = 'close'
+
+    @pytest.mark.parametrize("phase", ["execute", "fetch", "close"])
+    def test_late_result_is_not_success_even_without_monitor_scheduling(harness, phase):
+        state, run = harness
+        state.delay_at = phase
+>       with pytest.raises(fq.FinanceQueryTimedOut):
+E       Failed: DID NOT RAISE <class 'intelligence.services.finance_query.FinanceQueryTimedOut'>
+
+../../timeout-followup/deadline_probe.py:147: Failed
+_________________ test_root_synthesis_reserve_is_not_regranted _________________
+
+harness = (namespace(now=100.02, delay_at='connect', delay=0.02, executed=True, interrupted=False, closed=True, cancelled=False,...itor at 0x109b16840>, run_monitor=False, cancel_at='', connected=True), <function harness.<locals>.run at 0x109b16700>)
+
+    def test_root_synthesis_reserve_is_not_regranted(harness):
+        state, run = harness
+        state.delay_at = "connect"
+        state.delay = 0.02
+>       with pytest.raises(fq.FinanceQueryTimedOut):
+E       Failed: DID NOT RAISE <class 'intelligence.services.finance_query.FinanceQueryTimedOut'>
+
+../../timeout-followup/deadline_probe.py:156: Failed
+_____________ test_connection_time_is_deducted_from_monitor_budget _____________
+
+harness = (namespace(now=100.05000000000001, delay_at='connect', delay=0.02, executed=True, interrupted=True, closed=True, cance...nitor at 0x109b107c0>, run_monitor=True, cancel_at='', connected=True), <function harness.<locals>.run at 0x109b10720>)
+
+    def test_connection_time_is_deducted_from_monitor_budget(harness):
+        state, run = harness
+        state.delay_at = "connect"
+        state.delay = 0.02
+        state.run_monitor = True
+        with pytest.raises(fq.FinanceQueryTimedOut):
+            run()
+        assert state.interrupted
+        assert state.closed
+>       assert state.now == pytest.approx(100.03)
+E       assert 100.05000000000001 == 100.03 ± 1.0e-04
+E         
+E         comparison failed
+E         Obtained: 100.05000000000001
+E         Expected: 100.03 ± 1.0e-04
+
+../../timeout-followup/deadline_probe.py:192: AssertionError
+___________ test_cancelled_during_setup_never_executes_sql[connect] ____________
+
+harness = (namespace(now=100.0, delay_at='', delay=0.2, executed=True, interrupted=False, closed=True, cancelled=True, target=<f... 0x109b17240>, run_monitor=False, cancel_at='connect', connected=True), <function harness.<locals>.run at 0x109b172e0>)
+phase = 'connect'
+
+    @pytest.mark.parametrize("phase", ["connect", "thread_start"])
+    def test_cancelled_during_setup_never_executes_sql(harness, phase):
+        state, run = harness
+        state.cancel_at = phase
+        with pytest.raises(fq.FinanceQueryCancelled):
+            run()
+>       assert not state.executed
+E       AssertionError: assert not True
+E        +  where True = namespace(now=100.0, delay_at='', delay=0.2, executed=True, interrupted=False, closed=True, cancelled=True, target=<function FinanceQuery.run.<locals>.monitor at 0x109b17240>, run_monitor=False, cancel_at='connect', connected=True).executed
+
+../../timeout-followup/deadline_probe.py:201: AssertionError
+_________ test_cancelled_during_setup_never_executes_sql[thread_start] _________
+
+harness = (namespace(now=100.0, delay_at='', delay=0.2, executed=True, interrupted=False, closed=True, cancelled=True, target=<f...9a6b1a0>, run_monitor=False, cancel_at='thread_start', connected=True), <function harness.<locals>.run at 0x109a6b240>)
+phase = 'thread_start'
+
+    @pytest.mark.parametrize("phase", ["connect", "thread_start"])
+    def test_cancelled_during_setup_never_executes_sql(harness, phase):
+        state, run = harness
+        state.cancel_at = phase
+        with pytest.raises(fq.FinanceQueryCancelled):
+            run()
+>       assert not state.executed
+E       AssertionError: assert not True
+E        +  where True = namespace(now=100.0, delay_at='', delay=0.2, executed=True, interrupted=False, closed=True, cancelled=True, target=<function FinanceQuery.run.<locals>.monitor at 0x109a6b1a0>, run_monitor=False, cancel_at='thread_start', connected=True).executed
+
+../../timeout-followup/deadline_probe.py:201: AssertionError
+=========================== short test summary info ============================
+FAILED ../../timeout-followup/deadline_probe.py::test_exhausted_setup_never_executes_sql[connect]
+FAILED ../../timeout-followup/deadline_probe.py::test_exhausted_setup_never_executes_sql[thread_start]
+FAILED ../../timeout-followup/deadline_probe.py::test_late_monitor_does_not_restart_timeout
+FAILED ../../timeout-followup/deadline_probe.py::test_late_result_is_not_success_even_without_monitor_scheduling[execute]
+FAILED ../../timeout-followup/deadline_probe.py::test_late_result_is_not_success_even_without_monitor_scheduling[fetch]
+FAILED ../../timeout-followup/deadline_probe.py::test_late_result_is_not_success_even_without_monitor_scheduling[close]
+FAILED ../../timeout-followup/deadline_probe.py::test_root_synthesis_reserve_is_not_regranted
+FAILED ../../timeout-followup/deadline_probe.py::test_connection_time_is_deducted_from_monitor_budget
+FAILED ../../timeout-followup/deadline_probe.py::test_cancelled_during_setup_never_executes_sql[connect]
+FAILED ../../timeout-followup/deadline_probe.py::test_cancelled_during_setup_never_executes_sql[thread_start]
+10 failed, 4 passed in 7.72s

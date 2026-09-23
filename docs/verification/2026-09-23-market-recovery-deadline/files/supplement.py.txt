@@ -1,0 +1,32 @@
+"""Separate author regressions, historical sensitivity and registry checks."""
+import json
+from pathlib import Path
+import subprocess
+
+ROOT = Path(__file__).resolve().parent
+PY = '/Users/a77/finance-workspace-private/.venv-workbench/bin/python'
+TREE = ROOT / 'candidate'
+OLD = ROOT.parent / 'glm-50330cf/candidate'
+steps = [
+    ('fixed-focused', TREE, [PY, '-m', 'pytest', '-q', '-p', 'no:cacheprovider',
+        'intelligence/tests/test_finance_query_deadline.py', 'intelligence/tests/test_finance_query.py',
+        'intelligence/tests/test_research_contract.py', 'intelligence/tests/test_episode_tools.py']),
+    ('historical-deadline', OLD, [PY, '-m', 'pytest', '-q', '-p', 'no:cacheprovider',
+        '--confcutdir', str(ROOT), str(ROOT / 'deadline_probe.py')]),
+]
+for name, args in [
+    ('parseability', ['scripts/build_registry.py', 'check-parseability']),
+    ('registry', ['scripts/build_registry.py', 'check']),
+    ('tables', ['scripts/build_registry.py', 'backfill-tables', '--check']),
+    ('views', ['scripts/build_registry.py', 'generate-views', '--check']),
+    ('ledger-crosswalk', ['scripts/audit_ledger_spec_crosswalk.py']),
+]:
+    steps.append((name, TREE, [PY, '-B', *args]))
+results = {}
+for name, tree, command in steps:
+    result = subprocess.run([PY, '-B', str(ROOT / 'run_step.py'), '--tree', str(tree),
+        '--name', name, '--clean', '--', *command], check=False)
+    results[name] = result.returncode
+with (ROOT / 'supplement.json').open('x') as stream:
+    json.dump(results, stream, indent=2)
+print(json.dumps(results))

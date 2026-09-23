@@ -1,0 +1,149 @@
+
+> market-intelligence-workbench@0.1.0 test /Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/timeout-followup/frontend-candidate/intelligence/webapp
+> vitest run
+
+
+[1m[46m RUN [49m[22m [36mv3.2.4 [39m[90m/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/timeout-followup/frontend-candidate/intelligence/webapp[39m
+
+ [32m✓[39m src/researchActivity.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 93[2mms[22m[39m
+ [32m✓[39m src/api.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 94[2mms[22m[39m
+ [32m✓[39m src/streamEventRegistry.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 40[2mms[22m[39m
+ [32m✓[39m src/components/ResearchActivityControl.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[33m 1351[2mms[22m[39m
+   [33m[2m✓[22m[39m 默认关闭，拒收同意不启动区间，也不影响其他研究控件 [33m 1023[2mms[22m[39m
+ [32m✓[39m src/components/ResearchProjectPanel.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[33m 1722[2mms[22m[39m
+   [33m[2m✓[22m[39m ResearchProjectPanel[2m > [22mrenders judgment, open questions, triggers, prior note and rounds from the projection [33m 953[2mms[22m[39m
+   [33m[2m✓[22m[39m ResearchProjectPanel[2m > [22morders next questions as given and sends continuation of the last completed round on click [33m 724[2mms[22m[39m
+ [32m✓[39m src/components/DailyReportView.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[33m 2529[2mms[22m[39m
+   [33m[2m✓[22m[39m DailyReportView[2m > [22mrenders the five report layers with reader-facing labels [33m 664[2mms[22m[39m
+   [33m[2m✓[22m[39m DailyReportView[2m > [22mkeeps glossary and the original report behind disclosure controls [33m 1393[2mms[22m[39m
+   [33m[2m✓[22m[39m DailyReportView[2m > [22mrenders canonical review tables, folding wide matrices by default [33m 434[2mms[22m[39m
+ [32m✓[39m src/components/ResearchEvolutionPanel.test.tsx [2m([22m[2m18 tests[22m[2m)[22m[33m 4894[2mms[22m[39m
+   [33m[2m✓[22m[39m ResearchEvolutionPanel[2m > [22m哈希变化显示为需复核，不出现已证伪 [33m 561[2mms[22m[39m
+   [33m[2m✓[22m[39m ResearchEvolutionPanel[2m > [22m哈希与内部版本只在详情里出现，不上主屏 [33m 525[2mms[22m[39m
+   [33m[2m✓[22m[39m ResearchEvolutionPanel[2m > [22m动作带上当前项版本与管理修订，幂等键随之变化 [33m 388[2mms[22m[39m
+   [33m[2m✓[22m[39m ResearchEvolutionPanel[2m > [22m未入选的关键项要点名，不能只显示入选的三条 [33m 306[2mms[22m[39m
+   [33m[2m✓[22m[39m ResearchEvolutionPanel[2m > [22mR4：未绑定记录可以「从现在开始跟踪」，从受控目录勾选证据后提交绑定 [33m 834[2mms[22m[39m
+   [33m[2m✓[22m[39m ResearchEvolutionPanel[2m > [22mR5：练习先作答再评分，收据可以查看原件 [33m 626[2mms[22m[39m
+   [33m[2m✓[22m[39m ResearchEvolutionPanel · 第二轮复审合同[2m > [22mQ4：揭示答案必须渲染嵌套 answer_key 的正确选项与正确引用 [33m 370[2mms[22m[39m
+ [31m❯[39m src/components/components.test.tsx [2m([22m[2m81 tests[22m[2m | [22m[31m2 failed[39m[2m)[22m[33m 63858[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench components[2m > [22mstarts a workflow preset and submits from the unified composer [33m 1204[2mms[22m[39m
+   [32m✓[39m Workbench components[2m > [22mkeeps degraded state, evidence and followups visible[32m 117[2mms[22m[39m
+   [32m✓[39m Workbench components[2m > [22mtranslates internal failures and stages into user-facing language[32m 3[2mms[22m[39m
+   [32m✓[39m Workbench components[2m > [22mcounts only evidence records bound to verifiable citations[32m 31[2mms[22m[39m
+   [32m✓[39m Workbench components[2m > [22mkeeps structured modules behind the explicit run inspector[32m 162[2mms[22m[39m
+   [32m✓[39m Workbench components[2m > [22msanitizes markdown before rendering an artifact[32m 70[2mms[22m[39m
+   [32m✓[39m Workbench components[2m > [22mshows a readable artifact date and source before technical metadata[32m 55[2mms[22m[39m
+   [32m✓[39m Workbench components[2m > [22mkeeps workflow summaries in their native JSON viewer[32m 13[2mms[22m[39m
+   [32m✓[39m Workbench components[2m > [22mfilters the artifact registry by date[32m 191[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench components[2m > [22mkeeps internal tool names out of the user-facing trace [33m 436[2mms[22m[39m
+   [32m✓[39m Workbench components[2m > [22mshows the structured report inside the explicit run inspector[32m 68[2mms[22m[39m
+   [32m✓[39m Workbench components[2m > [22mshows report degradation warnings and the bound KB snapshot[32m 32[2mms[22m[39m
+   [32m✓[39m Workbench components[2m > [22mshows only allowlisted provider and model metadata[32m 7[2mms[22m[39m
+   [32m✓[39m Workbench components[2m > [22mhides credential-shaped provider and model metadata[32m 7[2mms[22m[39m
+   [32m✓[39m Workbench components[2m > [22mshows aggregate self-use maturity without private event details[32m 288[2mms[22m[39m
+   [32m✓[39m Workbench components[2m > [22mdoes not start final self-use judgement during the demo stage[32m 24[2mms[22m[39m
+   [32m✓[39m Chat-first conversation components[2m > [22mrestores, switches and archives conversations in the mobile drawer[32m 242[2mms[22m[39m
+   [32m✓[39m Chat-first conversation components[2m > [22mfilters conversation history without changing the active conversation[32m 203[2mms[22m[39m
+   [32m✓[39m Chat-first conversation components[2m > [22mstarts a guided research workflow from the empty conversation[32m 53[2mms[22m[39m
+   [32m✓[39m Chat-first conversation components[2m > [22mselects and removes product skills while keeping hybrid as default[32m 157[2mms[22m[39m
+   [32m✓[39m Chat-first conversation components[2m > [22mswitches from data neutral to a selected KOL perspective[32m 55[2mms[22m[39m
+   [32m✓[39m Chat-first conversation components[2m > [22mdistinguishes manual skills from automatically invoked skills[32m 3[2mms[22m[39m
+   [32m✓[39m Chat-first conversation components[2m > [22moffers stop while a message is running[32m 20[2mms[22m[39m
+   [32m✓[39m Chat-first conversation components[2m > [22mmarks template answers and regenerates without hiding the old answer[32m 102[2mms[22m[39m
+   [32m✓[39m Chat-first conversation components[2m > [22mwarns when a completed ask answer has no verifiable evidence[32m 15[2mms[22m[39m
+   [32m✓[39m Chat-first conversation components[2m > [22mwarns when a completed research answer has no verifiable evidence[32m 20[2mms[22m[39m
+   [32m✓[39m Chat-first conversation components[2m > [22mwarns when a completed workflow answer has no verifiable evidence[32m 26[2mms[22m[39m
+   [32m✓[39m Chat-first conversation components[2m > [22mdoes not show the company evidence warning for an index technical answer[32m 14[2mms[22m[39m
+   [32m✓[39m Chat-first conversation components[2m > [22mdoes not show the company evidence warning for chat answers[32m 20[2mms[22m[39m
+   [32m✓[39m Chat-first conversation components[2m > [22mdoes not show the company evidence warning for meta answers[32m 14[2mms[22m[39m
+   [32m✓[39m Chat-first conversation components[2m > [22mdoes not show the company evidence warning for clarify answers[32m 13[2mms[22m[39m
+   [32m✓[39m Chat-first conversation components[2m > [22mdoes not show the company evidence warning for static knowledge answers[32m 15[2mms[22m[39m
+   [32m✓[39m Chat-first conversation components[2m > [22mdoes not show the company evidence warning for fresh knowledge answers[32m 10[2mms[22m[39m
+   [32m✓[39m Chat-first conversation components[2m > [22mreplaces loading with a persistent cancelled message[32m 14[2mms[22m[39m
+   [32m✓[39m Chat-first conversation components[2m > [22mshows the latest real Episode progress while the answer is pending[32m 18[2mms[22m[39m
+   [32m✓[39m Chat-first conversation components[2m > [22mshows every episode milestone, not only the newest one[32m 18[2mms[22m[39m
+   [32m✓[39m Chat-first conversation components[2m > [22mshows the actual tool menu before any call, including on a failed run[32m 16[2mms[22m[39m
+   [32m✓[39m Chat-first conversation components[2m > [22mkeeps the timeline available after the answer lands[32m 27[2mms[22m[39m
+   [32m✓[39m Chat-first conversation components[2m > [22mreplays and upserts public trace steps in live message state[32m 1[2mms[22m[39m
+   [32m✓[39m Chat-first conversation components[2m > [22mapplies identity-checked deltas, module upserts and replay deduplication[32m 10[2mms[22m[39m
+   [32m✓[39m Chat-first conversation components[2m > [22mapplies answer snapshots with monotonic overwrite semantics[32m 7[2mms[22m[39m
+   [32m✓[39m Chat-first conversation components[2m > [22mshows the verified_draft answer phase[32m 64[2mms[22m[39m
+   [32m✓[39m Chat-first conversation components[2m > [22mshows the validated_synthesis answer phase[32m 60[2mms[22m[39m
+   [32m✓[39m Chat-first conversation components[2m > [22mshows the verified_fallback answer phase[32m 18[2mms[22m[39m
+   [32m✓[39m Chat-first conversation components[2m > [22mshows the decision_brief_fallback answer phase[32m 27[2mms[22m[39m
+   [32m✓[39m Chat-first conversation components[2m > [22mshows the evidence_gap_fallback answer phase[32m 19[2mms[22m[39m
+   [32m✓[39m Chat-first conversation components[2m > [22mloads and displays the selected owner workflow[32m 13[2mms[22m[39m
+   [32m✓[39m Chat-first conversation components[2m > [22mtracks skill results and ends loading on complete or cancel[32m 1[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mopens on today and navigates across the five product surfaces [33m 1247[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mrestores the latest conversation and submits in hybrid mode [33m 468[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mseeds the credits line from bootstrap and refreshes it once a question is accepted [33m 2032[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22msubmits an explicit KOL perspective without mixing other profiles [33m 3271[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mrestores the perspective picker from the latest user message [33m 514[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mregenerates with the original user message perspective [33m 2000[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mkeeps polling a completed run until its exact message publication is visible [33m 2656[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mkeeps polling a failed run until its exact message publication is visible [33m 2920[2mms[22m[39m
+[31m   [31m×[31m Workbench navigation reliability[2m > [22mkeeps polling a cancelled run until its exact message publication is visible[39m[33m 5171[2mms[22m[39m
+[31m     → Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mdoes not close the stream when publication is missing-marker [33m 1834[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mdoes not close the stream when publication is wrong-message [33m 1343[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mdoes not close the stream when publication is wrong-conversation [33m 2955[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mdoes not close the stream when publication is load-failed [33m 1877[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mreconnects on reload when a terminal message is still awaiting publication [33m 2149[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mrecovers a persisted terminal run after the stream disconnects [33m 2154[2mms[22m[39m
+[31m   [31m×[31m Workbench navigation reliability[2m > [22mkeeps polling while completed ownership precedes delivery[39m[33m 5719[2mms[22m[39m
+[31m     → Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mkeeps polling while failed ownership precedes delivery [33m 4428[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mkeeps polling while cancelled ownership precedes delivery [33m 4002[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mreconnects a restored completed message whose artifacts are still being delivered [33m 368[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mdoes not let an old finalization snapshot erase the next submitted turn [33m 1544[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mkeeps cancel pending until polling confirms the cancelled state [33m 1125[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mcloses the event stream and polling timer when unmounted [33m 626[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mconfigures session-only BYOK without exposing the key [33m 1404[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mpersists BYOK only after opt-in and can explicitly forget it [33m 4641[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mregenerates as a new message without replacing the old answer [33m 545[2mms[22m[39m
+   [32m✓[39m Workbench navigation reliability[2m > [22mupserts replayed report modules by module_id[32m 4[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mdoes not let a late conversation response replace the current thread [33m 890[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mdoes not let a late artifact response replace the current selection [33m 1577[2mms[22m[39m
+   [32m✓[39m Workbench navigation reliability[2m > [22mupserts replayed trace steps by step_id[32m 67[2mms[22m[39m
+   [32m✓[39m DigestSnapshotView（P1b 证据快照页）[2m > [22mexposes the snapshot as a clickable read-only evidence page[32m 57[2mms[22m[39m
+   [32m✓[39m DigestSnapshotView（P1b 证据快照页）[2m > [22mstays absent when the report has no digest snapshot[32m 9[2mms[22m[39m
+   [32m✓[39m DigestSnapshotView（P1b 证据快照页）[2m > [22mfails closed when only the redacted path string key is present[32m 13[2mms[22m[39m
+   [32m✓[39m DigestSnapshotView（P1b 证据快照页）[2m > [22mshows remaining credits only for metered users and warns at zero[32m 232[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 2 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m src/components/components.test.tsx[2m > [22mWorkbench navigation reliability[2m > [22mkeeps polling a cancelled run until its exact message publication is visible
+[31m[1mError[22m: Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".[39m
+[36m [2m❯[22m src/components/components.test.tsx:[2m2093:56[22m[39m
+    [90m2091| [39m  })[33m;[39m
+    [90m2092| [39m
+    [90m2093| [39m  it[33m.[39m[34meach[39m([[32m"completed"[39m[33m,[39m [32m"failed"[39m[33m,[39m [32m"cancelled"[39m] [35mas[39m [35mconst[39m)(
+    [90m   | [39m                                                       [31m^[39m
+    [90m2094| [39m    "keeps polling a %s run until its exact message publication is vis…
+    [90m2095| [39m    [35masync[39m (status) [33m=>[39m {
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/components/components.test.tsx[2m > [22mWorkbench navigation reliability[2m > [22mkeeps polling while completed ownership precedes delivery
+[31m[1mError[22m: Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".[39m
+[36m [2m❯[22m src/components/components.test.tsx:[2m2262:56[22m[39m
+    [90m2260| [39m  })[33m;[39m
+    [90m2261| [39m
+    [90m2262| [39m  it.each(["completed", "failed", "cancelled"] as const)("keeps pollin…
+    [90m   | [39m                                                       [31m^[39m
+    [90m2263| [39m    apiMocks[33m.[39mlistConversations[33m.[39m[34mmockResolvedValue[39m(conversations)[33m;[39m
+    [90m2264| [39m    apiMocks[33m.[39mgetConversationMessages[33m.[39m[34mmockResolvedValue[39m([])[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m7 passed[39m[22m[90m (8)[39m
+[2m      Tests [22m [1m[31m2 failed[39m[22m[2m | [22m[1m[32m118 passed[39m[22m[90m (120)[39m
+[2m   Start at [22m 20:59:52
+[2m   Duration [22m 83.63s[2m (transform 7.78s, setup 21.89s, collect 21.99s, tests 74.58s, environment 41.30s, prepare 7.53s)[22m
+
+ ELIFECYCLE  Test failed. See above for more details.

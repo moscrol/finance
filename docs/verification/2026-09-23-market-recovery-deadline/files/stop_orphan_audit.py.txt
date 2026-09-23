@@ -1,0 +1,37 @@
+"""Stop only the audit child whose bounded controller was killed by the host."""
+from datetime import datetime, timezone
+import json
+import os
+from pathlib import Path
+import signal
+import subprocess
+import time
+
+ROOT = Path(__file__).resolve().parent
+original = json.loads((ROOT / 'capability-graph/execution.json').read_text())
+pid = original['pid']
+result = {'at': datetime.now(timezone.utc).isoformat(), 'pid': pid,
+          'original_complete': original['complete'], 'host_timeout_seconds': 80,
+          'audit_exit_status': None, 'audit_admission': False}
+proc = subprocess.run(['ps', '-p', str(pid), '-o', 'command='], capture_output=True, text=True)
+result['observed_command'] = proc.stdout.strip()
+if proc.returncode == 0:
+    assert '/Users/a77/agent-memory/scripts/graph_audit.py' in proc.stdout
+    assert os.getpgid(pid) == pid
+    os.killpg(pid, signal.SIGTERM)
+    result['signal'] = 'SIGTERM'
+    for _ in range(50):
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            break
+        time.sleep(0.1)
+    else:
+        raise RuntimeError('owned audit has not exited after SIGTERM')
+else:
+    result['signal'] = None
+result['process_absent'] = subprocess.run(['ps', '-p', str(pid)], capture_output=True).returncode != 0
+assert result['process_absent']
+with (ROOT / 'capability-graph-interruption.json').open('x') as stream:
+    json.dump(result, stream, indent=2)
+print(json.dumps(result))

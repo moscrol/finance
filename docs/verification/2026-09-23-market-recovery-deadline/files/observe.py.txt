@@ -1,0 +1,34 @@
+"""Read-only gate progress and host pressure samples, with no process control."""
+import argparse
+from datetime import datetime, timezone
+import json
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import time
+
+p = argparse.ArgumentParser()
+p.add_argument('--wait', type=int, default=0)
+p.add_argument('--compact', action='store_true')
+a = p.parse_args()
+time.sleep(a.wait)
+r = Path(__file__).resolve().parent
+record = {'at': datetime.now(timezone.utc).isoformat(), 'load_average': os.getloadavg(),
+          'free_GiB': round(shutil.disk_usage(r).free / 1024**3, 3)}
+for name in ['full-gate', 'frontend-gate', 'f3-controller']:
+    path = r / name / 'execution.json'
+    if path.exists():
+        data = json.loads(path.read_text())
+        record[name] = {k: data.get(k) for k in ['complete', 'exit_code', 'elapsed_seconds', 'pid']}
+front = r / 'frontend-receipt/frontend.json'
+if front.exists():
+    data = json.loads(front.read_text())
+    record['frontend_checks'] = [(c['command'], c['exit_code']) for c in data['checks']]
+record['own_processes'] = subprocess.run(
+    ['ps', '-p', '37899,37900,37949,37986,43955', '-o', 'pid,ppid,etime,time,%cpu,rss,state'],
+    text=True, capture_output=True).stdout
+with (r / 'host-observations.jsonl').open('a') as stream:
+    stream.write(json.dumps(record) + '\n')
+keys = ['at', 'load_average', 'free_GiB', 'full-gate', 'own_processes']
+print(json.dumps({k: record[k] for k in keys} if a.compact else record, indent=2))

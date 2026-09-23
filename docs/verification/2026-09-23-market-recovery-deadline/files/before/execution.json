@@ -1,0 +1,34 @@
+{
+  "started_at": "2026-09-23T12:51:32.130854+00:00",
+  "before": {
+    "revision": "e327a35f1dd5261ac8d10ba77d0fb9a6dc749bde",
+    "tree": "edd4c6d974bd2c28dc128d330663f0ae1f583315",
+    "status": "?? intelligence/tests/test_finance_query_deadline.py",
+    "main": "626d8a508c1c988ff094110b371987e6afdcdd15"
+  },
+  "cwd": "/Users/a77/fwp-wt-market-recovery-qc-fix-0923",
+  "command": [
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "-p",
+    "no:cacheprovider",
+    "intelligence/tests/test_finance_query_deadline.py"
+  ],
+  "complete": true,
+  "controller_pid": 32549,
+  "deadline_seconds": 300,
+  "driver_sha256": "5634aacc209fe0286fac98a6931d73a4032c5ff632bbeeac5582dae14dc6b974",
+  "pid": 32555,
+  "exit_code": 1,
+  "stopped_for": null,
+  "elapsed_seconds": 3.021,
+  "after": {
+    "revision": "e327a35f1dd5261ac8d10ba77d0fb9a6dc749bde",
+    "tree": "edd4c6d974bd2c28dc128d330663f0ae1f583315",
+    "status": "?? intelligence/tests/test_finance_query_deadline.py",
+    "main": "626d8a508c1c988ff094110b371987e6afdcdd15"
+  },
+  "free_bytes": 17564033024
+}

@@ -1,0 +1,51 @@
+{
+  "full-gate": {
+    "pid": 37899,
+    "command": [
+      "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+      "-B",
+      "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/timeout-followup/run_step.py",
+      "--tree",
+      "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/timeout-followup/candidate",
+      "--name",
+      "full-gate",
+      "--seconds",
+      "7200",
+      "--clean",
+      "--",
+      "bash",
+      "scripts/run_main_gate.sh",
+      "--pytest-args",
+      "-q -p no:cacheprovider --basetemp=/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/timeout-followup/full-pytest-tmp --junitxml=/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/timeout-followup/full-gate/pytest.xml --durations=20"
+    ]
+  },
+  "frontend-gate": {
+    "pid": 37900,
+    "command": [
+      "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+      "-B",
+      "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/timeout-followup/run_step.py",
+      "--tree",
+      "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/timeout-followup/frontend-candidate",
+      "--name",
+      "frontend-gate",
+      "--seconds",
+      "1800",
+      "--clean",
+      "--",
+      "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+      "-B",
+      "scripts/run_frontend_gate.py",
+      "--tree",
+      "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/timeout-followup/frontend-candidate",
+      "--expect-revision",
+      "5213e9344b77e4094221734722b478705611a865",
+      "--output",
+      "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/timeout-followup/frontend-receipt",
+      "--workbench-port",
+      "19871",
+      "--re06-port",
+      "19874"
+    ]
+  }
+}

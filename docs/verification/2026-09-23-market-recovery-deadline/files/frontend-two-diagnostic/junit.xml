@@ -1,0 +1,246 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<testsuites name="vitest tests" tests="81" failures="0" errors="0" time="5.613351625">
+    <testsuite name="src/components/components.test.tsx" timestamp="2026-09-23T13:43:56.579Z" hostname="77deMacBook-Air.local" tests="81" failures="0" errors="0" skipped="79" time="5.613351625">
+        <testcase classname="src/components/components.test.tsx" name="Workbench components &gt; starts a workflow preset and submits from the unified composer" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="Workbench components &gt; keeps degraded state, evidence and followups visible" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="Workbench components &gt; translates internal failures and stages into user-facing language" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="Workbench components &gt; counts only evidence records bound to verifiable citations" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="Workbench components &gt; keeps structured modules behind the explicit run inspector" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="Workbench components &gt; sanitizes markdown before rendering an artifact" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="Workbench components &gt; shows a readable artifact date and source before technical metadata" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="Workbench components &gt; keeps workflow summaries in their native JSON viewer" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="Workbench components &gt; filters the artifact registry by date" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="Workbench components &gt; keeps internal tool names out of the user-facing trace" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="Workbench components &gt; shows the structured report inside the explicit run inspector" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="Workbench components &gt; shows report degradation warnings and the bound KB snapshot" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="Workbench components &gt; shows only allowlisted provider and model metadata" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="Workbench components &gt; hides credential-shaped provider and model metadata" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="Workbench components &gt; shows aggregate self-use maturity without private event details" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="Workbench components &gt; does not start final self-use judgement during the demo stage" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="Chat-first conversation components &gt; restores, switches and archives conversations in the mobile drawer" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="Chat-first conversation components &gt; filters conversation history without changing the active conversation" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="Chat-first conversation components &gt; starts a guided research workflow from the empty conversation" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="Chat-first conversation components &gt; selects and removes product skills while keeping hybrid as default" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="Chat-first conversation components &gt; switches from data neutral to a selected KOL perspective" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="Chat-first conversation components &gt; distinguishes manual skills from automatically invoked skills" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="Chat-first conversation components &gt; offers stop while a message is running" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="Chat-first conversation components &gt; marks template answers and regenerates without hiding the old answer" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="Chat-first conversation components &gt; warns when a completed ask answer has no verifiable evidence" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="Chat-first conversation components &gt; warns when a completed research answer has no verifiable evidence" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="Chat-first conversation components &gt; warns when a completed workflow answer has no verifiable evidence" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="Chat-first conversation components &gt; does not show the company evidence warning for an index technical answer" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="Chat-first conversation components &gt; does not show the company evidence warning for chat answers" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="Chat-first conversation components &gt; does not show the company evidence warning for meta answers" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="Chat-first conversation components &gt; does not show the company evidence warning for clarify answers" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="Chat-first conversation components &gt; does not show the company evidence warning for static knowledge answers" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="Chat-first conversation components &gt; does not show the company evidence warning for fresh knowledge answers" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="Chat-first conversation components &gt; replaces loading with a persistent cancelled message" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="Chat-first conversation components &gt; shows the latest real Episode progress while the answer is pending" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="Chat-first conversation components &gt; shows every episode milestone, not only the newest one" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="Chat-first conversation components &gt; shows the actual tool menu before any call, including on a failed run" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="Chat-first conversation components &gt; keeps the timeline available after the answer lands" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="Chat-first conversation components &gt; replays and upserts public trace steps in live message state" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="Chat-first conversation components &gt; applies identity-checked deltas, module upserts and replay deduplication" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="Chat-first conversation components &gt; applies answer snapshots with monotonic overwrite semantics" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="Chat-first conversation components &gt; shows the verified_draft answer phase" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="Chat-first conversation components &gt; shows the validated_synthesis answer phase" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="Chat-first conversation components &gt; shows the verified_fallback answer phase" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="Chat-first conversation components &gt; shows the decision_brief_fallback answer phase" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="Chat-first conversation components &gt; shows the evidence_gap_fallback answer phase" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="Chat-first conversation components &gt; loads and displays the selected owner workflow" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="Chat-first conversation components &gt; tracks skill results and ends loading on complete or cancel" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="Workbench navigation reliability &gt; opens on today and navigates across the five product surfaces" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="Workbench navigation reliability &gt; restores the latest conversation and submits in hybrid mode" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="Workbench navigation reliability &gt; seeds the credits line from bootstrap and refreshes it once a question is accepted" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="Workbench navigation reliability &gt; submits an explicit KOL perspective without mixing other profiles" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="Workbench navigation reliability &gt; restores the perspective picker from the latest user message" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="Workbench navigation reliability &gt; regenerates with the original user message perspective" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="Workbench navigation reliability &gt; keeps polling a completed run until its exact message publication is visible" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="Workbench navigation reliability &gt; keeps polling a failed run until its exact message publication is visible" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="Workbench navigation reliability &gt; keeps polling a cancelled run until its exact message publication is visible" time="2.982302083">
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="Workbench navigation reliability &gt; does not close the stream when publication is missing-marker" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="Workbench navigation reliability &gt; does not close the stream when publication is wrong-message" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="Workbench navigation reliability &gt; does not close the stream when publication is wrong-conversation" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="Workbench navigation reliability &gt; does not close the stream when publication is load-failed" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="Workbench navigation reliability &gt; reconnects on reload when a terminal message is still awaiting publication" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="Workbench navigation reliability &gt; recovers a persisted terminal run after the stream disconnects" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="Workbench navigation reliability &gt; keeps polling while completed ownership precedes delivery" time="2.628283667">
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="Workbench navigation reliability &gt; keeps polling while failed ownership precedes delivery" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="Workbench navigation reliability &gt; keeps polling while cancelled ownership precedes delivery" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="Workbench navigation reliability &gt; reconnects a restored completed message whose artifacts are still being delivered" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="Workbench navigation reliability &gt; does not let an old finalization snapshot erase the next submitted turn" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="Workbench navigation reliability &gt; keeps cancel pending until polling confirms the cancelled state" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="Workbench navigation reliability &gt; closes the event stream and polling timer when unmounted" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="Workbench navigation reliability &gt; configures session-only BYOK without exposing the key" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="Workbench navigation reliability &gt; persists BYOK only after opt-in and can explicitly forget it" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="Workbench navigation reliability &gt; regenerates as a new message without replacing the old answer" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="Workbench navigation reliability &gt; upserts replayed report modules by module_id" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="Workbench navigation reliability &gt; does not let a late conversation response replace the current thread" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="Workbench navigation reliability &gt; does not let a late artifact response replace the current selection" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="Workbench navigation reliability &gt; upserts replayed trace steps by step_id" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="DigestSnapshotView（P1b 证据快照页） &gt; exposes the snapshot as a clickable read-only evidence page" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="DigestSnapshotView（P1b 证据快照页） &gt; stays absent when the report has no digest snapshot" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="DigestSnapshotView（P1b 证据快照页） &gt; fails closed when only the redacted path string key is present" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="src/components/components.test.tsx" name="DigestSnapshotView（P1b 证据快照页） &gt; shows remaining credits only for metered users and warns at zero" time="0">
+            <skipped/>
+        </testcase>
+    </testsuite>
+</testsuites>

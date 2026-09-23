@@ -1,0 +1,13 @@
+{
+  "kind": "HOST_TOOL_TIMEOUT",
+  "command": "python -B replay_recovery.py",
+  "host_timeout_seconds": 120,
+  "completed_claims": ["F1", "F2"],
+  "incomplete_output": "recovery-replay/F3-execute/execution.json",
+  "incomplete_claim_counts_credited": false,
+  "process_observation": "No replay_recovery or F3-execute child remained in the subsequent process listing",
+  "replacement_output": "recovery-replay-f3/F3-execute/execution.json",
+  "replacement_outer_deadline_seconds": 720,
+  "new_model_requests": 0,
+  "original_output_preserved": true
+}

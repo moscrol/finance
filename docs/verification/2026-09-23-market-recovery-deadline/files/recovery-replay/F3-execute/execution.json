@@ -1,0 +1,17 @@
+{
+  "claim": "F3",
+  "before": {
+    "revision": "5213e9344b77e4094221734722b478705611a865",
+    "status": "",
+    "main": "626d8a508c1c988ff094110b371987e6afdcdd15"
+  },
+  "python": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "inputs_sha256": {
+    "probe.py": "f9262a297d3f233b8279b16f42076cecccdf179c66482c9c4186dc0cd04b144c",
+    "positive_control.py": "5aafcdf0a73fb7dc62edf5689f4949d31d1dfe552f7859031bf7e7907c549e5a",
+    "tools.sb": "e9ce577b050ea655d8c4d902d16178f0e54d07b88928bc0421ff317062da418a"
+  },
+  "independent_probe_provenance": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/timeout-followup/recovery-replay/F3-explore/delivery",
+  "production_access": "OS sandbox denies",
+  "complete": false
+}

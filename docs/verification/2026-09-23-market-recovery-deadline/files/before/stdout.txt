@@ -1,0 +1,109 @@
+FFFFFFF..                                                                [100%]读数收据: /Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/timeout-followup/before/20260923T125133Z-e327a35f-58ccfe1b9cfb.json
+
+=================================== FAILURES ===================================
+_______________ test_exhausted_setup_never_executes_sql[connect] _______________
+
+harness = (namespace(now=100.2, delay_at='connect', delay=0.2, executed=True, interrupted=False, closed=True, cancelled=False, t... FinanceQuery.run.<locals>.monitor at 0x1098bd8a0>, run_monitor=False), <function harness.<locals>.run at 0x1098bd800>)
+phase = 'connect'
+
+    @pytest.mark.parametrize("phase", ["connect", "thread_start"])
+    def test_exhausted_setup_never_executes_sql(harness, phase):
+        state, run = harness
+        state.delay_at = phase
+>       with pytest.raises(fq.FinanceQueryTimedOut):
+E       Failed: DID NOT RAISE <class 'intelligence.services.finance_query.FinanceQueryTimedOut'>
+
+intelligence/tests/test_finance_query_deadline.py:109: Failed
+____________ test_exhausted_setup_never_executes_sql[thread_start] _____________
+
+harness = (namespace(now=100.2, delay_at='thread_start', delay=0.2, executed=True, interrupted=False, closed=True, cancelled=Fal... FinanceQuery.run.<locals>.monitor at 0x1098dd4e0>, run_monitor=False), <function harness.<locals>.run at 0x1098ddf80>)
+phase = 'thread_start'
+
+    @pytest.mark.parametrize("phase", ["connect", "thread_start"])
+    def test_exhausted_setup_never_executes_sql(harness, phase):
+        state, run = harness
+        state.delay_at = phase
+>       with pytest.raises(fq.FinanceQueryTimedOut):
+E       Failed: DID NOT RAISE <class 'intelligence.services.finance_query.FinanceQueryTimedOut'>
+
+intelligence/tests/test_finance_query_deadline.py:109: Failed
+__________________ test_late_monitor_does_not_restart_timeout __________________
+
+harness = (namespace(now=100.23000000000002, delay_at='execute', delay=0.2, executed=True, interrupted=True, closed=True, cancel...n FinanceQuery.run.<locals>.monitor at 0x1098dec00>, run_monitor=True), <function harness.<locals>.run at 0x1098deac0>)
+
+    def test_late_monitor_does_not_restart_timeout(harness):
+        state, run = harness
+        state.delay_at = "execute"
+        state.run_monitor = True
+        with pytest.raises(fq.FinanceQueryTimedOut):
+            run()
+        assert state.interrupted
+        assert state.closed
+>       assert state.now == pytest.approx(100.2)
+E       assert 100.23000000000002 == 100.2 ± 1.0e-04
+E         
+E         comparison failed
+E         Obtained: 100.23000000000002
+E         Expected: 100.2 ± 1.0e-04
+
+intelligence/tests/test_finance_query_deadline.py:123: AssertionError
+___ test_late_result_is_not_success_even_without_monitor_scheduling[execute] ___
+
+harness = (namespace(now=100.2, delay_at='execute', delay=0.2, executed=True, interrupted=False, closed=True, cancelled=False, t... FinanceQuery.run.<locals>.monitor at 0x1098df9c0>, run_monitor=False), <function harness.<locals>.run at 0x1098df920>)
+phase = 'execute'
+
+    @pytest.mark.parametrize("phase", ["execute", "fetch", "close"])
+    def test_late_result_is_not_success_even_without_monitor_scheduling(harness, phase):
+        state, run = harness
+        state.delay_at = phase
+>       with pytest.raises(fq.FinanceQueryTimedOut):
+E       Failed: DID NOT RAISE <class 'intelligence.services.finance_query.FinanceQueryTimedOut'>
+
+intelligence/tests/test_finance_query_deadline.py:130: Failed
+____ test_late_result_is_not_success_even_without_monitor_scheduling[fetch] ____
+
+harness = (namespace(now=100.2, delay_at='fetch', delay=0.2, executed=True, interrupted=False, closed=True, cancelled=False, tar... FinanceQuery.run.<locals>.monitor at 0x10992c5e0>, run_monitor=False), <function harness.<locals>.run at 0x10992c4a0>)
+phase = 'fetch'
+
+    @pytest.mark.parametrize("phase", ["execute", "fetch", "close"])
+    def test_late_result_is_not_success_even_without_monitor_scheduling(harness, phase):
+        state, run = harness
+        state.delay_at = phase
+>       with pytest.raises(fq.FinanceQueryTimedOut):
+E       Failed: DID NOT RAISE <class 'intelligence.services.finance_query.FinanceQueryTimedOut'>
+
+intelligence/tests/test_finance_query_deadline.py:130: Failed
+____ test_late_result_is_not_success_even_without_monitor_scheduling[close] ____
+
+harness = (namespace(now=100.2, delay_at='close', delay=0.2, executed=True, interrupted=False, closed=True, cancelled=False, tar... FinanceQuery.run.<locals>.monitor at 0x10992d260>, run_monitor=False), <function harness.<locals>.run at 0x10992d1c0>)
+phase = 'close'
+
+    @pytest.mark.parametrize("phase", ["execute", "fetch", "close"])
+    def test_late_result_is_not_success_even_without_monitor_scheduling(harness, phase):
+        state, run = harness
+        state.delay_at = phase
+>       with pytest.raises(fq.FinanceQueryTimedOut):
+E       Failed: DID NOT RAISE <class 'intelligence.services.finance_query.FinanceQueryTimedOut'>
+
+intelligence/tests/test_finance_query_deadline.py:130: Failed
+_________________ test_root_synthesis_reserve_is_not_regranted _________________
+
+harness = (namespace(now=100.02, delay_at='connect', delay=0.02, executed=True, interrupted=False, closed=True, cancelled=False,... FinanceQuery.run.<locals>.monitor at 0x10992df80>, run_monitor=False), <function harness.<locals>.run at 0x10992de40>)
+
+    def test_root_synthesis_reserve_is_not_regranted(harness):
+        state, run = harness
+        state.delay_at = "connect"
+        state.delay = 0.02
+>       with pytest.raises(fq.FinanceQueryTimedOut):
+E       Failed: DID NOT RAISE <class 'intelligence.services.finance_query.FinanceQueryTimedOut'>
+
+intelligence/tests/test_finance_query_deadline.py:139: Failed
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_finance_query_deadline.py::test_exhausted_setup_never_executes_sql[connect]
+FAILED intelligence/tests/test_finance_query_deadline.py::test_exhausted_setup_never_executes_sql[thread_start]
+FAILED intelligence/tests/test_finance_query_deadline.py::test_late_monitor_does_not_restart_timeout
+FAILED intelligence/tests/test_finance_query_deadline.py::test_late_result_is_not_success_even_without_monitor_scheduling[execute]
+FAILED intelligence/tests/test_finance_query_deadline.py::test_late_result_is_not_success_even_without_monitor_scheduling[fetch]
+FAILED intelligence/tests/test_finance_query_deadline.py::test_late_result_is_not_success_even_without_monitor_scheduling[close]
+FAILED intelligence/tests/test_finance_query_deadline.py::test_root_synthesis_reserve_is_not_regranted
+7 failed, 2 passed in 1.47s

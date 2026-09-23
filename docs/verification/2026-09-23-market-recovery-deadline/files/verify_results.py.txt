@@ -1,0 +1,86 @@
+"""Reconcile all gate leaves without treating a diagnostic or replay as admission."""
+from datetime import datetime, timezone
+import hashlib
+import json
+from pathlib import Path
+import subprocess
+import xml.etree.ElementTree as ET
+
+ROOT = Path(__file__).resolve().parent
+PY = '/Users/a77/finance-workspace-private/.venv-workbench/bin/python'
+TREE = ROOT / 'candidate'
+info = json.loads((ROOT / 'candidate.json').read_text())
+rev = info['revision']
+
+def load(path):
+    return json.loads(path.read_text())
+
+def sha(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+def git(*args):
+    return subprocess.check_output(['git', '-C', str(TREE), *args], text=True, timeout=30).strip()
+
+full = load(ROOT / 'full-gate/execution.json')
+front = load(ROOT / 'frontend-receipt/frontend.json')
+assert full['complete'] and front['complete']
+assert full['before']['revision'] == full['after']['revision'] == rev
+assert full['before']['status'] == full['after']['status'] == ''
+assert front['identity_stable'] and not front['dirty'] and front['revision'] == rev
+for check in front['checks']:
+    assert sha(ROOT / 'frontend-receipt' / check['log']) == check['log_sha256']
+paths = list((ROOT / 'full-gate').glob('gate-*/pytest.json'))
+assert len(paths) == 1
+receipt = load(paths[0])
+assert receipt['revision'] == rev and not receipt['dirty']
+assert Path(receipt['target']).resolve() == TREE.resolve()
+assert receipt['scope']['collected'] == sum(receipt['counts'].values())
+scope = receipt['scope']
+assert not any(scope[k] for k in ['ignore', 'ignore_glob', 'deselect', 'keyword', 'markexpr', 'maxfail', 'last_failed'])
+assert receipt['interpreter'] == PY and not receipt['dependency_gate_bypassed']
+xml = ET.parse(ROOT / 'full-gate/pytest.xml').getroot()
+cases = list(xml.iter('testcase'))
+assert len(cases) == receipt['scope']['collected']
+failures = [{'classname': c.get('classname'), 'name': c.get('name'), 'time': c.get('time'),
+             'failure': ET.tostring(c, encoding='unicode')}
+            for c in cases if c.find('failure') is not None or c.find('error') is not None]
+original_test = [ET.tostring(c, encoding='unicode') for c in cases if c.get('name') == 'test_timeout_interrupts_connection']
+assert len(original_test) == 1
+subprocess.run(['git', '-C', str(TREE), 'fetch', 'gitea', 'main'], check=True, timeout=30)
+check_exit = subprocess.run([PY, '-B', str(ROOT / 'run_step.py'), '--tree', str(TREE),
+    '--name', 'receipt-check', '--seconds', '120', '--clean', '--', PY, 'scripts/check_test_receipt.py', str(paths[0]),
+    '--expect-revision', rev, '--base-drift-max', '0', '--require-full-scope']).returncode
+replays = {}
+for claim, folder in [('F1', 'recovery-replay'), ('F2', 'recovery-replay'), ('F3', 'recovery-replay-f3')]:
+    path = ROOT / folder / f'{claim}-execute'
+    data = load(path / 'execution.json')
+    assert data['complete'] and data['inputs_unchanged'] and data['positive_control_detected']
+    assert data['before']['revision'] == data['after']['revision'] == rev
+    assert data['before']['status'] == data['after']['status'] == ''
+    for name, digest in data['inputs_sha256'].items():
+        assert sha(path / name) == digest
+    for field in ['probe', 'author']:
+        assert data[field]['exit_code'] == 0 and not data[field]['deadline_hit']
+    replays[claim] = {field: data[field]['counts'] for field in ['probe', 'author', 'positive']}
+diagnostic_cases = list(ET.parse(ROOT / 'frontend-two-diagnostic/junit.xml').getroot().iter('testcase'))
+diagnostic_counts = {key: sum(c.find(tag) is not None for c in diagnostic_cases)
+                     for key, tag in [('failed', 'failure'), ('error', 'error'), ('skipped', 'skipped')]}
+diagnostic_counts['passed'] = len(diagnostic_cases) - sum(diagnostic_counts.values())
+assert diagnostic_counts == {'failed': 0, 'error': 0, 'skipped': 79, 'passed': 2}
+summary = {'at': datetime.now(timezone.utc).isoformat(), **info,
+    'python': {'receipt': str(paths[0]), 'exit_code': full['exit_code'], 'counts': receipt['counts'],
+               'collected': receipt['scope']['collected'], 'failures': failures,
+               'original_timeout_test': original_test, 'elapsed_seconds': full['elapsed_seconds'],
+               'dependency_fingerprint': receipt['dependency_fingerprint'], 'python_version': receipt['python_version']},
+    'frontend': front,
+    'frontend_diagnostic': {'execution': load(ROOT / 'frontend-two-diagnostic/execution.json'),
+                            'counts': diagnostic_counts, 'replaces_full_gate': False},
+    'receipt_check_exit': check_exit, 'recovery_replays': replays,
+    'registry': load(ROOT / 'supplement.json'),
+    'main_at_end': git('ls-remote', 'gitea', 'refs/heads/main').split()[0],
+    'new_model_requests': 0, 'new_reviewer_verdict': None, 'overall': 'HOLD'}
+summary['base_unchanged'] = summary['main_at_end'] == info['base']
+summary['candidate_clean'] = git('rev-parse', 'HEAD') == rev and not git('status', '--porcelain')
+with (ROOT / 'summary.json').open('x') as stream:
+    json.dump(summary, stream, indent=2, ensure_ascii=False)
+print(json.dumps({k: summary[k] for k in ['revision', 'overall', 'base_unchanged', 'receipt_check_exit']}))

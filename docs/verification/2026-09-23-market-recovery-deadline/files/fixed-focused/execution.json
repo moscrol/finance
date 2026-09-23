@@ -1,0 +1,37 @@
+{
+  "started_at": "2026-09-23T12:59:40.751682+00:00",
+  "before": {
+    "revision": "5213e9344b77e4094221734722b478705611a865",
+    "tree": "97070f9b4da710185f743e6891df9dc2c5da70ef",
+    "status": "",
+    "main": "626d8a508c1c988ff094110b371987e6afdcdd15"
+  },
+  "cwd": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/timeout-followup/candidate",
+  "command": [
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "-p",
+    "no:cacheprovider",
+    "intelligence/tests/test_finance_query_deadline.py",
+    "intelligence/tests/test_finance_query.py",
+    "intelligence/tests/test_research_contract.py",
+    "intelligence/tests/test_episode_tools.py"
+  ],
+  "complete": true,
+  "controller_pid": 38475,
+  "deadline_seconds": 300,
+  "driver_sha256": "5634aacc209fe0286fac98a6931d73a4032c5ff632bbeeac5582dae14dc6b974",
+  "pid": 38484,
+  "exit_code": 0,
+  "stopped_for": null,
+  "elapsed_seconds": 44.694,
+  "after": {
+    "revision": "5213e9344b77e4094221734722b478705611a865",
+    "tree": "97070f9b4da710185f743e6891df9dc2c5da70ef",
+    "status": "",
+    "main": "626d8a508c1c988ff094110b371987e6afdcdd15"
+  },
+  "free_bytes": 15095119872
+}

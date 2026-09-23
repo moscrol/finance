@@ -1,0 +1,54 @@
+"""Record post-diagnostic boundaries without replacing either red full gate."""
+from datetime import datetime, timezone
+import json
+import os
+from pathlib import Path
+import subprocess
+import xml.etree.ElementTree as ET
+
+ROOT = Path(__file__).resolve().parent
+info = json.loads((ROOT / 'candidate.json').read_text())
+TREE = ROOT / 'candidate'
+
+def git(*args):
+    return subprocess.check_output(['git', '-C', str(TREE), *args], text=True, timeout=30).strip()
+
+def unchanged(base, paths):
+    return subprocess.run(['git', '-C', str(TREE), 'diff', '--quiet', base, info['revision'], '--', *paths]).returncode == 0
+
+record = {'at': datetime.now(timezone.utc).isoformat(), 'revision': info['revision'],
+          'overall': 'HOLD', 'new_model_requests': 0, 'new_independent_review': False,
+          'diagnostics_replace_full_gate': False}
+rag = json.loads((ROOT / 'rag-diagnostic/execution.json').read_text())
+assert rag['complete'] and rag['exit_code'] == 0
+assert rag['before']['revision'] == rag['after']['revision'] == info['revision']
+assert rag['before']['status'] == rag['after']['status'] == ''
+cases = list(ET.parse(ROOT / 'rag-diagnostic/junit.xml').getroot().iter('testcase'))
+assert len(cases) == 4 and all(not list(c) for c in cases)
+record['rag_diagnostic'] = {'passed': 4, 'elapsed_seconds': rag['elapsed_seconds'],
+    'cases': [{'name': c.get('name'), 'time': c.get('time')} for c in cases],
+    'full_gate_failure_stage': 'prewarm', 'full_gate_prewarm_limits_seconds': [2, 2, 3, 2]}
+record['frontend_matches_base'] = unchanged(info['base'], ['intelligence/webapp'])
+record['rag_matches_base'] = unchanged(info['base'], [
+    'intelligence/services/rag_worker.py', 'intelligence/tests/test_rag_worker.py',
+    'intelligence/tests/test_rag_worker_generation.py', 'intelligence/tests/test_rag_worker_keepalive.py'])
+record['recovery_files_match_prior_reviewed_revision'] = unchanged(
+    '50330cf4fa435292bbd555ccc817e62ca5cc45b4', [
+    'skills/daily-full-review/scripts/run_review_sync.py', 'market_feature_store/cli.py',
+    'market_feature_store/sync/compute_local_stats.py', 'market_feature_store/sync/bridge_hithink_stock_daily.py'])
+for directory in ['candidate', 'frontend-candidate']:
+    tree = ROOT / directory
+    assert subprocess.check_output(['git', '-C', str(tree), 'rev-parse', 'HEAD'], text=True).strip() == info['revision']
+    assert not subprocess.check_output(['git', '-C', str(tree), 'status', '--porcelain'], text=True).strip()
+processes = subprocess.check_output(['ps', '-axo', 'pid,ppid,pgid,command'], text=True)
+remaining = [line for line in processes.splitlines() if str(ROOT) in line
+             and int(line.split()[0]) not in {os.getpid(), os.getppid()}]
+record['remaining_processes_matching_this_run_root'] = remaining
+assert not remaining, remaining
+record['remote_main'] = git('ls-remote', 'gitea', 'refs/heads/main').split()[0]
+record['base_unchanged_at_closeout'] = record['remote_main'] == info['base']
+record['full_pytest_temp_retained_for_failure_triage'] = (ROOT / 'full-pytest-tmp').is_dir()
+record['candidate_trees_retained'] = True
+with (ROOT / 'closeout.json').open('x') as stream:
+    json.dump(record, stream, indent=2)
+print(json.dumps(record, indent=2))

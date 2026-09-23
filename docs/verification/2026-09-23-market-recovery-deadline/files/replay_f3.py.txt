@@ -1,0 +1,30 @@
+"""Finish F3 in a new output after the host interrupted the 120-second batch."""
+import hashlib
+import importlib.util
+import json
+from pathlib import Path
+import shutil
+
+ROOT = Path(__file__).resolve().parent
+OLD = ROOT.parent / 'glm-50330cf'
+spec = importlib.util.spec_from_file_location('prior_probe_runner', OLD / 'run.py')
+runner = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(runner)
+identity = json.loads((ROOT / 'candidate.json').read_text())
+runner.ROOT = ROOT / 'recovery-replay-f3'
+runner.TREE = ROOT / 'candidate'
+runner.REV = identity['revision']
+runner.BASE = identity['base']
+runner.ROOT.mkdir(exist_ok=False)
+origin = OLD / 'zhipu-v1/F3-explore/delivery'
+manifest = json.loads((origin / 'manifest.json').read_text())
+assert all(hashlib.sha256((origin / name).read_bytes()).hexdigest() == digest
+           for name, digest in manifest.items())
+shutil.copytree(origin, runner.ROOT / 'F3-explore/delivery')
+with (runner.ROOT / 'provenance.json').open('x') as stream:
+    json.dump({'new_model_requests': 0, 'new_reviewer_verdict': None,
+               'revision': runner.REV, 'origin': str(origin), 'probe_sha256': manifest['probe.py'],
+               'runner_path': str(OLD / 'run.py'),
+               'runner_sha256': hashlib.sha256((OLD / 'run.py').read_bytes()).hexdigest(),
+               'earlier_interrupted_output': str(ROOT / 'recovery-replay/F3-execute')}, stream, indent=2)
+runner.execute('F3')

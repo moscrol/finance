@@ -1,0 +1,40 @@
+{
+  "started_at": "2026-09-23T13:43:30.307791+00:00",
+  "before": {
+    "revision": "5213e9344b77e4094221734722b478705611a865",
+    "tree": "97070f9b4da710185f743e6891df9dc2c5da70ef",
+    "status": "",
+    "main": "626d8a508c1c988ff094110b371987e6afdcdd15"
+  },
+  "cwd": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/timeout-followup/frontend-candidate",
+  "command": [
+    "pnpm",
+    "--dir",
+    "intelligence/webapp",
+    "exec",
+    "vitest",
+    "run",
+    "src/components/components.test.tsx",
+    "-t",
+    "keeps polling a cancelled run until its exact message publication is visible|keeps polling while completed ownership precedes delivery",
+    "--maxWorkers=1",
+    "--reporter=default",
+    "--reporter=junit",
+    "--outputFile=/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/timeout-followup/frontend-two-diagnostic/junit.xml"
+  ],
+  "complete": true,
+  "controller_pid": 81666,
+  "deadline_seconds": 90,
+  "driver_sha256": "5634aacc209fe0286fac98a6931d73a4032c5ff632bbeeac5582dae14dc6b974",
+  "pid": 81692,
+  "exit_code": 0,
+  "stopped_for": null,
+  "elapsed_seconds": 28.23,
+  "after": {
+    "revision": "5213e9344b77e4094221734722b478705611a865",
+    "tree": "97070f9b4da710185f743e6891df9dc2c5da70ef",
+    "status": "",
+    "main": "626d8a508c1c988ff094110b371987e6afdcdd15"
+  },
+  "free_bytes": 10108035072
+}

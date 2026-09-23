@@ -1,0 +1,1 @@
+{"claim": "F3", "positive_control_detected": true}

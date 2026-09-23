@@ -1,0 +1,13 @@
+
+ RUN  v3.2.4 /Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/timeout-followup/frontend-candidate/intelligence/webapp
+
+ ✓ src/components/components.test.tsx (81 tests | 79 skipped) 5613ms
+   ✓ Workbench navigation reliability > keeps polling a cancelled run until its exact message publication is visible  2982ms
+   ✓ Workbench navigation reliability > keeps polling while completed ownership precedes delivery  2628ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed | 79 skipped (81)
+   Start at  21:43:37
+   Duration  18.59s (transform 3.79s, setup 1.85s, collect 5.76s, tests 5.61s, environment 2.82s, prepare 566ms)
+
+JUNIT report written to /Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/timeout-followup/frontend-two-diagnostic/junit.xml

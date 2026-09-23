@@ -1,0 +1,45 @@
+{
+  "at": "2026-09-23T14:29:06.112449+00:00",
+  "revision": "5213e9344b77e4094221734722b478705611a865",
+  "overall": "HOLD",
+  "new_model_requests": 0,
+  "new_independent_review": false,
+  "diagnostics_replace_full_gate": false,
+  "rag_diagnostic": {
+    "passed": 4,
+    "elapsed_seconds": 3.021,
+    "cases": [
+      {
+        "name": "test_recovery_respects_cooldown",
+        "time": "0.668"
+      },
+      {
+        "name": "test_second_consecutive_timeout_kills_and_self_heals",
+        "time": "0.635"
+      },
+      {
+        "name": "test_single_bad_query_does_not_reclassify_worker_as_retired",
+        "time": "0.233"
+      },
+      {
+        "name": "test_close_stops_keepalive_thread",
+        "time": "0.272"
+      }
+    ],
+    "full_gate_failure_stage": "prewarm",
+    "full_gate_prewarm_limits_seconds": [
+      2,
+      2,
+      3,
+      2
+    ]
+  },
+  "frontend_matches_base": true,
+  "rag_matches_base": true,
+  "recovery_files_match_prior_reviewed_revision": true,
+  "remaining_processes_matching_this_run_root": [],
+  "remote_main": "626d8a508c1c988ff094110b371987e6afdcdd15",
+  "base_unchanged_at_closeout": true,
+  "full_pytest_temp_retained_for_failure_triage": true,
+  "candidate_trees_retained": true
+}

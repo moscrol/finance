@@ -1,0 +1,12 @@
+{
+  "path": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/timeout-followup/full-pytest-tmp",
+  "inode": 244563840,
+  "uid": 501,
+  "pytest_pid": 37986,
+  "parent_shell_pid": 37949,
+  "controller_pid": 37899,
+  "ownership_basis": "Dedicated --basetemp under this newly created run root; matching live pytest command and parent process",
+  "lock_file_present_when_observed": false,
+  "lock_note": "Explicit pytest basetemp does not use the numbered-directory lock; absence is not evidence that this process exited",
+  "observation_window": "2026-09-23T13:37:26Z/2026-09-23T13:37:57Z"
+}

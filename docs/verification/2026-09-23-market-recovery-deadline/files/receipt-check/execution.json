@@ -1,0 +1,35 @@
+{
+  "started_at": "2026-09-23T14:25:07.990496+00:00",
+  "before": {
+    "revision": "5213e9344b77e4094221734722b478705611a865",
+    "tree": "97070f9b4da710185f743e6891df9dc2c5da70ef",
+    "status": "",
+    "main": "626d8a508c1c988ff094110b371987e6afdcdd15"
+  },
+  "cwd": "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/timeout-followup/candidate",
+  "command": [
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "scripts/check_test_receipt.py",
+    "/Users/a77/.finance-runtime/reviews/market-recovery-qc-20260923/timeout-followup/full-gate/gate-zfvXYYlB/pytest.json",
+    "--expect-revision",
+    "5213e9344b77e4094221734722b478705611a865",
+    "--base-drift-max",
+    "0",
+    "--require-full-scope"
+  ],
+  "complete": true,
+  "controller_pid": 33590,
+  "deadline_seconds": 120,
+  "driver_sha256": "5634aacc209fe0286fac98a6931d73a4032c5ff632bbeeac5582dae14dc6b974",
+  "pid": 33597,
+  "exit_code": 0,
+  "stopped_for": null,
+  "elapsed_seconds": 1.008,
+  "after": {
+    "revision": "5213e9344b77e4094221734722b478705611a865",
+    "tree": "97070f9b4da710185f743e6891df9dc2c5da70ef",
+    "status": "",
+    "main": "626d8a508c1c988ff094110b371987e6afdcdd15"
+  },
+  "free_bytes": 28568387584
+}
