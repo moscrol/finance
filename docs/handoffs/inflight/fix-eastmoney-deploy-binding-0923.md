@@ -1,28 +1,27 @@
-# #60 固定f47已验，发布范围待确认，未部署
+# #60 固定f47准备完成，未安装
 
 ## 这个分支做什么
-#856修复与#887绑定已合入；本轮推进到部署准备，尚未授权正式安装。
+#856修复与#887绑定已合入；本轮按用户“继续推进”承接上一条固定f47建议，只到部署准备，不含实际安装。
 
 ## 当前状态
-固定装机源 `~/.finance-runtime/finance-nightly-installer-f47d464eb7af` 的完整四叶、native/JUnit、最终dry-run及loaded回读通过。但main继续合入其他批次，19:46核验时已至626d8a508c1c988ff094110b371987e6afdcdd15；含新报表代码/门禁，不仅是文档。当前main准入exit1，ready=false。
-已结束本会话门禁并清理临时验收树/绿色basetemp，固定源和运行根保留。未对后续main继续自动重跑。远端候选仍99bd31c97630，交接只作本地提交、不推送。
-证据 `~/.finance-runtime/reviews/eastmoney-cb-deploy-20260922/current-main-f47d464e-20260923/summary.json`；正文 `docs/handoffs/2026-09-23-eastmoney-release-scope-blocked.md`。
+固定发布版技术准入通过：ready_for_deployment=true，但ready_to_install_now=false、installed=false。后续main不自动纳入，不声明最新main全绿；原规程/校验器与历史拒绝未改。
+20:46只读观察finalize正在运行(PID24960)、夜跑锁存在；sync未运行。不得打断任务或删锁腾窗口。两固定根干净且锁定，六个安装配置hash/mode未变。
+新证据 `~/.finance-runtime/reviews/eastmoney-cb-deploy-20260922/release-f47-20260923T1243/summary.json`，原话/范围见同目录authorization.json；正文 `docs/handoffs/2026-09-23-eastmoney-fixed-release-ready.md`。记录只作本地文档提交，不推送。
 
 ## 决策与被否方案
-- 收据只证明固定revision；不移签、不因base-drift上限而免除current-main SHA全等。旧0525/b59各自通过，只作各自证据。
-- 暂停自动追tip：连续多次并发推进改变对象，后续又有运行代码，需用户明确发布范围或协调窗口。
-- 装机源f47与运行根2ed分开：运行根 `~/.finance-runtime/finance-sync-2edbe4c46595` 模板旧，不能从它安装。
+- 固定装机源f47，运行根2ed，#887实际merge0525分开；运行根模板旧，不可从运行根安装。
+- 同版本/同依赖复核原全量，不重复追移动main，也不改旧收据身份；完整范围、精确SHA及固定发布基线零漂移保留。对最新main负向对照仍exit1。
+- 技术准备与安装授权/窗口分开：不因ready而自动安装或停夜跑。
 
 ## 下一步
-请用户选择：明确固定f47为#60本次发布版（建议，后续main不自动纳入），或暂停并发合入后验选定的新main。不得擅自改变原current-main准入条件。版本冻结确认仍不等于安装授权。
-实际安装另需明确授权，重核身份/依赖/hash、空闲窗口与写者、逐目标新备份；计划在证据目录 `install-runbook.md`。
+单独获得安装授权后，等自然空闲窗口，重新核两job/锁/其他写者及身份、依赖、hash，制作并验证两plist/两launcher逐目标新备份，按新证据目录install-runbook.md执行。不能沿用20:46观察；不自动kickstart。
+装机源 `~/.finance-runtime/finance-nightly-installer-f47d464eb7af`，精确SHA f47d464eb7af32157c331bf2a6bf1b337acbb43f；运行根 `~/.finance-runtime/finance-sync-2edbe4c46595`。
 
 ## 已验证
-f47 SHA f47d464eb7af32157c331bf2a6bf1b337acbb43f：14621P/0F/0E/85S/2X、collected14708；前端120P、E2E34P/2S、registry5项及98非阻断warning。相关96项/timeout两态均实跑。
-fixed-revision-verification.json只签f47；current-main-admission-rejection.log保留拒绝。两任务四目标dry-run零复制/服务变更；六个生产文件hash/mode跨三轮相同。19:44观察任务idle/无锁，只是当时状态。
+原88份证据哈希全过；原完整14621P/0F/0E/85S/2X、collected14708复核有效，非本轮重跑。解释器/依赖/干净树/原运行结构/JUnit、前端120P/E2E34P及2跳过/六日志hash、registry5项与98非阻断warning对平。新跑离线探针、真实模板隔离模拟、两任务四目标dry-run均过。
 
 ## 未验证 / 已知边界
-无安装/重载/kickstart/热补/8792切换/生产写库。真实时序、跨进程、行情恢复未验，#61未捆绑，#60不可标生产验收完成。
+无安装/重载/kickstart/热补/8792切换/生产DB打开或写入。自然夜跑可自行改业务数据，本轮只认证安装配置未变。真实时序/跨进程/行情恢复未验，#61不捆绑，#60不标生产验收完成。
 
 ## 踩过的坑
-准备快照非安装回滚点，禁旧Plan B；时间到点不是授权。最新main增加了代码，不可用f47的绿代表它；也不可反过来否认f47本身已完成的验证。
+显式check_test_receipt支持同版本跨树复核，别为适配路径改收据；原shell gate树身份仍保留。准备快照非回滚备份，禁止旧Plan B；后续main不能自动替换固定源。
