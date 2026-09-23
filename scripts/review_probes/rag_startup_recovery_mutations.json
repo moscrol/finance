@@ -1,0 +1,114 @@
+[
+  {
+    "id": "worker-failure-global-latch",
+    "path": "intelligence/services/rag_worker.py",
+    "old": "    return worker.prewarm(argv, timeout)",
+    "new": "    try:\n        return worker.prewarm(argv, timeout)\n    except Exception as exc:\n        record_startup_failure(exc)\n        raise",
+    "targets": ["startup_failure_then_probe_recovery", "real_lifespan_readiness"]
+  },
+  {
+    "id": "api-duplicates-worker-failure",
+    "path": "intelligence/api/app.py",
+    "old": "            except Exception:  # noqa: BLE001 - fail closed at readiness\n                # prewarm records setup failures; registered workers own their\n                # failure/recovery state. Do not latch the same failure twice.\n                pass",
+    "new": "            except Exception as exc:\n                kb_rag.rag_worker.record_startup_failure(exc)",
+    "targets": ["real_lifespan_readiness"]
+  },
+  {
+    "id": "configuration-failure-not-recorded",
+    "path": "intelligence/services/kb_rag.py",
+    "old": "        rag_worker.record_startup_failure(exc)",
+    "new": "        pass",
+    "targets": ["configuration_failure_cannot", "real_lifespan_readiness"]
+  },
+  {
+    "id": "child-stderr-discarded",
+    "path": "intelligence/services/rag_worker.py",
+    "old": "            stderr=subprocess.PIPE,",
+    "new": "            stderr=subprocess.DEVNULL,",
+    "targets": ["early_process_exit_preserves"]
+  },
+  {
+    "id": "stderr-tail-unbounded",
+    "path": "intelligence/services/rag_worker.py",
+    "old": "        del self._stderr_tail[:-_STDERR_TAIL_BYTES]",
+    "new": "        pass",
+    "targets": ["stderr_noise_does_not_block"]
+  },
+  {
+    "id": "untrusted-error-class-disclosed",
+    "path": "intelligence/services/rag_worker.py",
+    "old": "    return next((name for name in reversed(names) if name in _CHILD_ERROR_TYPES), None)",
+    "new": "    return names[-1] if names else None",
+    "targets": ["child_error_parser_only"]
+  },
+  {
+    "id": "prewarm-response-cause-discarded",
+    "path": "intelligence/services/rag_worker.py",
+    "old": "                        response.stderr,",
+    "new": "                        '',",
+    "targets": ["prewarm_response_preserves", "real_lifespan_readiness"]
+  },
+  {
+    "id": "prewarm-failure-state-unrecorded",
+    "path": "intelligence/services/rag_worker.py",
+    "old": "                self._mark_failed(exc)\n                raise\n            self._prewarm_latency_ms",
+    "new": "                raise\n            self._prewarm_latency_ms",
+    "targets": ["whole_prewarm_failure"]
+  },
+  {
+    "id": "closed-query-admitted",
+    "path": "intelligence/services/rag_worker.py",
+    "old": "        if self._closed:\n            raise RuntimeError(\"rag worker is closed\")\n        try:",
+    "new": "        try:",
+    "targets": ["closed_instance"]
+  },
+  {
+    "id": "closed-prewarm-admitted",
+    "path": "intelligence/services/rag_worker.py",
+    "old": "            if self._closed:\n                raise RuntimeError(\"rag worker is closed\")\n            started = time.monotonic()",
+    "new": "            started = time.monotonic()",
+    "targets": ["closed_instance", "recovery_admitted"]
+  },
+  {
+    "id": "recovery-recipe-partially-replaced",
+    "path": "intelligence/services/rag_worker.py",
+    "old": "                self._recovery_argv, self._recovery_timeout = list(argv), float(timeout)",
+    "new": "                self._recovery_argv = list(argv)\n                self._recovery_timeout = float(timeout)",
+    "targets": ["whole_prewarm_failure"]
+  },
+  {
+    "id": "selector-registration-outside-cleanup",
+    "path": "intelligence/services/rag_worker.py",
+    "old": "        try:\n            selector.register(process.stdout, selectors.EVENT_READ, \"stdout\")\n            if process.stderr is not None:\n                selector.register(process.stderr, selectors.EVENT_READ, \"stderr\")\n            selector.register(process.stdin, selectors.EVENT_WRITE, \"stdin\")\n            search_from = 0",
+    "new": "        selector.register(process.stdout, selectors.EVENT_READ, \"stdout\")\n        if process.stderr is not None:\n            selector.register(process.stderr, selectors.EVENT_READ, \"stderr\")\n        selector.register(process.stdin, selectors.EVENT_WRITE, \"stdin\")\n        try:\n            search_from = 0",
+    "targets": ["pipe_registration_failure"]
+  },
+  {
+    "id": "request-write-blocks-before-draining",
+    "path": "intelligence/services/rag_worker.py",
+    "old": "            selector.register(process.stdin, selectors.EVENT_WRITE, \"stdin\")",
+    "new": "            os.set_blocking(process.stdin.fileno(), True)\n            process.stdin.write(request.decode('utf-8'))\n            process.stdin.flush()\n            sent = len(request)",
+    "targets": ["large_request", "partial_request_write"]
+  },
+  {
+    "id": "partial-request-abandoned-kept-warm",
+    "path": "intelligence/services/rag_worker.py",
+    "old": "                may_abandon = allow_abandon and sent == len(request)",
+    "new": "                may_abandon = allow_abandon",
+    "targets": ["partial_request_write"]
+  },
+  {
+    "id": "closed-stderr-error-escapes",
+    "path": "intelligence/services/rag_worker.py",
+    "old": "        except (ValueError, OSError):\n            # close() retires pipes before acquiring the in-flight query lock.\n            if process.stderr.closed:\n                return False\n            raise\n        self._stderr_tail.extend(chunk)",
+    "new": "        self._stderr_tail.extend(chunk)",
+    "targets": ["query_close_race", "stderr_closed_after_fileno"]
+  },
+  {
+    "id": "open-stderr-errors-suppressed",
+    "path": "intelligence/services/rag_worker.py",
+    "old": "            if process.stderr.closed:\n                return False\n            raise\n        self._stderr_tail.extend(chunk)",
+    "new": "            return False\n        self._stderr_tail.extend(chunk)",
+    "targets": ["stderr_open_stream_errors"]
+  }
+]
