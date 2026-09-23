@@ -58,23 +58,39 @@ def verify(args: argparse.Namespace) -> dict:
             expected = daily[landing]
             with duckdb.connect(str(args.labels_db), read_only=True) as labels:
                 rows = labels.execute(
-                    "SELECT label, value_num FROM history_teaching_labels "
+                    "SELECT label, value_num, computed_at FROM history_teaching_labels "
                     "WHERE trade_date = ? AND entity_type = 'market' AND entity_id = 'market' AND label LIKE 'tf.briefing_%'",
                     [landing],
                 ).fetchall()
-            values = {label.removeprefix("tf."): value for label, value in rows}
-            require(len(rows) == len(values), f"Duplicate label versions on {day}")
+            require(all(isinstance(label, str) for label, _value, _computed_at in rows), f"Invalid briefing label name on {day}")
+            expected_labels = {f"tf.{field}" for field in BRIEFING_FIELDS}
+            actual_labels = {label for label, _value, _computed_at in rows}
+            require(len(rows) == len(actual_labels), f"Duplicate label versions on {day}")
+            require(actual_labels == expected_labels, f"Briefing label set mismatch: {day}")
+            values = {label.removeprefix("tf."): value for label, value, _computed_at in rows}
             for field in BRIEFING_FIELDS:
-                if field == "briefing_hit_rps5_pct":
-                    continue  # This audit does not recompute the independent price-ranking comparison.
+                # NULL is meaningful here: a two-dimensional briefing cannot claim market confirmation
+                # or a price-ranking comparison. A numeric zero is not an equivalent representation.
                 require(field in values and values[field] == expected[field], f"Label mismatch: {day} {field}")
+
+            source_recorded_at = expected.get("recorded_at")
+            require(source_recorded_at, f"Missing source recorded_at: {day}")
+            source_recorded_day = date.fromisoformat(str(source_recorded_at)[:10])
+            for label, _value, computed_at in rows:
+                require(computed_at is not None, f"Missing label computed_at: {day} {label}")
+                computed_day = date.fromisoformat(str(computed_at)[:10])
+                # The projection records only a date, so this is deliberately a date-level lower bound;
+                # it does not claim to prove intraday ordering on the same date.
+                require(computed_day >= source_recorded_day,
+                        f"Label computed_at before source recorded_at: {day} {label}")
+
             briefs = [o for o in teaching_objects(args.labels_db, day) if o.object_type == "teaching_briefing"]
             require(len(briefs) == 1, f"Expected one briefing object on {day}")
             obj = briefs[0]
             for field, value in values.items():
                 require((field not in obj.payload) if value is None else obj.payload.get(field) == value,
                         f"River payload mismatch: {day} {field}")
-            require(bool(obj.recorded_at) and obj.recorded_at[:10] >= expected["recorded_at"][:10], "Backdated computed_at")
+            require(bool(obj.recorded_at) and obj.recorded_at[:10] >= str(source_recorded_at)[:10], "Backdated computed_at")
             common = {"db_path": args.db_path, "checkpoints_path": Path(temp) / "absent-checkpoints.jsonl"}
             plain = slice_river(day, args.entity, **common).to_dict()
             off = slice_river(day, args.entity, teaching_labels_db=None, **common).to_dict()
