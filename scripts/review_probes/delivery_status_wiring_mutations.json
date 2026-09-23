@@ -1,0 +1,16 @@
+[
+  {
+    "id": "failed-research-reaches-normal-delivery",
+    "path": "intelligence/runtime/conversation_orchestrator.py",
+    "old": "if projected.run == rs.STATUS_FAILED or not answer_text:",
+    "new": "if not answer_text:",
+    "targets": ["test_delivery_gate_preserves_reachable_statuses"]
+  },
+  {
+    "id": "delivery-degradation-not-applied",
+    "path": "intelligence/runtime/conversation_orchestrator.py",
+    "old": "if delivery.applied:\n            answer_text = delivery.text",
+    "new": "if False and delivery.applied:\n            answer_text = delivery.text",
+    "targets": ["test_delivery_gate_preserves_reachable_statuses"]
+  }
+]
