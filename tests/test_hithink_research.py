@@ -10,7 +10,11 @@ import duckdb
 import pytest
 
 from market_feature_store import db
-from market_feature_store.hithink_client import HithinkAPIError, shanghai_midnight_ms
+from market_feature_store.hithink_client import (
+    HithinkAPIError,
+    HithinkRateLimitError,
+    shanghai_midnight_ms,
+)
 from market_feature_store.sync import sync_hithink_research as research
 
 DAY = date(2026, 9, 21)
@@ -224,6 +228,41 @@ def test_partial_valuation_reports_missing_codes_and_null_rows(capture):
     assert query(
         path, "SELECT count(*) FROM fact_stock_valuation_hithink WHERE pe_ttm IS NULL"
     ) == [(1,)]
+
+
+def test_rate_limited_endpoint_leaves_gap_and_continues_capture(capture):
+    path, calls, run, getter = capture
+
+    def limited(endpoint, *, params):
+        kind = next(key for key, value in research.PATHS.items() if value == endpoint)
+        if kind == "valuation":
+            raise HithinkRateLimitError("synthetic budget exhausted")
+        return getter(endpoint, params=params)
+
+    result = run(getter=limited)
+
+    assert result["status"] == "partial"
+    assert [kind for kind, _ in calls] == ["anomaly", "heat_trend"]
+    assert [row["kind"] for row in result["requests"]] == [
+        "anomaly",
+        "valuation",
+        "heat_trend",
+    ]
+    assert result["missing"] == [
+        {
+            "kind": "valuation",
+            "request_id": result["requests"][1]["request_id"],
+        }
+    ]
+    assert result["requests"][1]["reason"] == "rate_limit"
+    assert query(
+        path,
+        "SELECT status, error_type FROM ops_hithink_research_request "
+        "WHERE kind='valuation'",
+    ) == [("failed", "HithinkRateLimitError")]
+    assert query(path, "SELECT count(*) FROM fact_stock_anomaly_hithink") == [(1,)]
+    assert query(path, "SELECT count(*) FROM fact_hot_stock_trend_hithink") == [(2,)]
+    assert query(path, "SELECT count(*) FROM fact_stock_valuation_hithink") == [(0,)]
 
 
 @pytest.mark.parametrize(

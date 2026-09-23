@@ -51,6 +51,10 @@ class HithinkAPIError(RuntimeError):
     """上游返回非 0 业务码或 HTTP 失败。消息里不得带 key / 预签名 query。"""
 
 
+class HithinkRateLimitError(HithinkAPIError):
+    """限流退避预算耗尽；编排层可安全地把本次请求记为 partial。"""
+
+
 def has_api_key() -> bool:
     """只回答有没有 key，不回值。daily-full 缺 key 时靠这个 skip，不让整条链失败。"""
 
@@ -246,7 +250,7 @@ def get_json(
                 wait = 0.8 * (2**throttled)
             wait = min(wait, MAX_RATE_LIMIT_SLEEP_SECONDS)
             if throttled_spent + wait > budget:
-                raise HithinkAPIError(
+                raise HithinkRateLimitError(
                     f"hithink {path} 限流退避耗尽 http={status} code={code} "
                     f"budget={budget:g}s spent={throttled_spent:g}s "
                     f"attempts={throttled + 1}"

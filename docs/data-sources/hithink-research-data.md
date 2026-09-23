@@ -106,9 +106,11 @@ MARKET_FEATURE_STORE_DB=/tmp/hithink-research-demo.duckdb \
 救得了一次完整的全局窗口——要覆盖后者需把预算调到 600 秒以上，那是一次「夜跑愿意为此
 阻塞多久」的取舍，未替用户决定。
 
-尚未处理（编排层，非本次授权范围）：`sync_hithink_research._capture` 单请求失败即
-`raise`，整轮中止，已有的 `complete_with_gaps` 分支对抛出型失败够不到——所以估值失败
-时热度请求根本不会发出。退避只降低触发概率，不改变这个形状。
+**编排层补齐**：`sync_hithink_research` 只对类型化的
+`HithinkRateLimitError` 做局部降级；一个端点耗尽限流预算后，该请求仍在
+`ops_hithink_research_request` 留 `failed` 审计行，后续端点继续执行，整轮返回
+`status=partial`，并在 `missing` 列出缺失端点及 `request_id`。解析错误、日期越界和写入
+错误仍然抛出，不会被误报成 partial 成功。
 
 离线测试覆盖日期/代码范围、非数值/重复行/空集/缺值、失败回滚、失败消息不泄密、无key不建库、生产写入拒绝、跨午夜、采集日期截止、CLI、两条编排接线、读取真实临时库。专门删除热度的采集日截止配置后，前视测试按预期失败（未来采集值泄入历史截止）；恢复配置后复验。
 

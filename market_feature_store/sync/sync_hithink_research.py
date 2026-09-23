@@ -19,7 +19,12 @@ from zoneinfo import ZoneInfo
 import duckdb
 
 from ..db import DB_PATH, init_db
-from ..hithink_client import get_json, has_api_key, ms_to_shanghai_date
+from ..hithink_client import (
+    HithinkRateLimitError,
+    get_json,
+    has_api_key,
+    ms_to_shanghai_date,
+)
 from ..write_path import is_canonical_production
 
 SHANGHAI = ZoneInfo("Asia/Shanghai")
@@ -38,6 +43,26 @@ GetJson = Callable[..., dict[str, Any]]
 
 class HithinkResearchError(RuntimeError):
     """Safe error text: no upstream message, credentials or response body."""
+
+
+class HithinkCaptureError(HithinkResearchError):
+    """A failed request with safe metadata for the enclosing capture run."""
+
+    def __init__(
+        self,
+        *,
+        kind: str,
+        request_id: str,
+        error_type: str,
+        rate_limited: bool,
+    ) -> None:
+        self.kind = kind
+        self.request_id = request_id
+        self.error_type = error_type
+        self.rate_limited = rate_limited
+        super().__init__(
+            f"{kind} failed ({error_type}); see request {request_id}"
+        )
 
 
 def _now() -> datetime:
@@ -275,9 +300,33 @@ def _capture(
             "UPDATE ops_hithink_research_request SET status='failed', error_type=? WHERE request_id=?",
             [type(exc).__name__, request_id],
         )
-        raise HithinkResearchError(
-            f"{kind} failed ({type(exc).__name__}); see request {request_id}"
+        raise HithinkCaptureError(
+            kind=kind,
+            request_id=request_id,
+            error_type=type(exc).__name__,
+            rate_limited=isinstance(exc, HithinkRateLimitError),
         ) from None
+
+
+def _capture_allow_rate_limit_gap(
+    con, kind: str, params: dict, target: date, getter: GetJson, clock
+) -> dict:
+    """Keep the rest of a run alive when one endpoint exhausts rate-limit backoff."""
+
+    try:
+        return _capture(con, kind, params, target, getter, clock)
+    except HithinkCaptureError as exc:
+        if not exc.rate_limited:
+            raise
+        return {
+            "kind": exc.kind,
+            "status": "failed",
+            "rows": 0,
+            "value_rows": 0,
+            "request_id": exc.request_id,
+            "error_type": exc.error_type,
+            "reason": "rate_limit",
+        }
 
 
 def sync_hithink_research(
@@ -344,28 +393,44 @@ def sync_hithink_research(
             scope = normalize_codes(scope)
         requests = []
         get = getter or get_json
-        if not history_only:
-            requests.append(_capture(con, "anomaly", {}, target, get, clock))
+
+        def capture(kind: str, params: dict) -> None:
             requests.append(
-                _capture(
-                    con, "valuation", {"thscodes": ",".join(scope)}, target, get, clock
+                _capture_allow_rate_limit_gap(
+                    con, kind, params, target, get, clock
                 )
             )
+
+        if not history_only:
+            capture("anomaly", {})
+            capture("valuation", {"thscodes": ",".join(scope)})
         for code in scope:
-            params = {
-                "thscode": code,
-                "start_date": start.isoformat(),
-                "end_date": target.isoformat(),
-            }
-            requests.append(_capture(con, "heat_trend", params, target, get, clock))
+            capture(
+                "heat_trend",
+                {
+                    "thscode": code,
+                    "start_date": start.isoformat(),
+                    "end_date": target.isoformat(),
+                },
+            )
+        missing = [
+            {"kind": row["kind"], "request_id": row["request_id"]}
+            for row in requests
+            if row["status"] == "failed"
+        ]
+        if missing:
+            status = "partial"
+        elif any(row["status"] != "ok" for row in requests):
+            status = "complete_with_gaps"
+        else:
+            status = "ok"
         return {
-            "status": "complete_with_gaps"
-            if any(r["status"] != "ok" for r in requests)
-            else "ok",
+            "status": status,
             "target_date": target.isoformat(),
             "history_only": history_only,
             "scope": scope,
             "requests": requests,
+            "missing": missing,
             "coverage": "declared scope only; historical rows are not point-in-time versions",
         }
     finally:

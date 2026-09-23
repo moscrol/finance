@@ -16,6 +16,7 @@ import pytest
 from market_feature_store import hithink_client
 from market_feature_store.hithink_client import (
     HithinkAPIError,
+    HithinkRateLimitError,
     get_json,
     ms_to_shanghai_date,
     shanghai_midnight_ms,
@@ -507,7 +508,7 @@ def test_retry_after_is_capped(monkeypatch) -> None:
 
 def test_rate_limit_budget_exhausts_and_fails_closed(monkeypatch) -> None:
     calls, slept = _arm(monkeypatch, [_limit_error()])
-    with pytest.raises(HithinkAPIError) as excinfo:
+    with pytest.raises(HithinkRateLimitError) as excinfo:
         get_json(
             "/api/a-share/valuations/snapshot",
             gap_seconds=0,
