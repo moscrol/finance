@@ -1,26 +1,33 @@
 # feat/adaptive-research-loop 在途
 
-## 目标与边界
-#72/PR #868、#75双轴独审、#76 L6。尚不可合入；未push/合main/部署。固定候选签收据，文档HEAD不移签；作者探针/复制测试不算独审。旧失败不续跑、不倒改，0.8秒+0.2容差及离线检索120秒不放宽。
+## 这个分支做什么
+#72/PR #868、#75双轴独审、#76 L6。工程绿，独审/自然未闭合，尚不可合入。未push/合main/部署。
 
-## 最新工程
-受测e7a6cb412865fdd189cf51a17f93622fa3d4fe55，已联合main3bb81b963。0326七叶全绿：Python15396P/85S/2X，collected15483、无筛选，前端六步及五个registry/ledger叶均过。唯一收据 `python-receipts/gate-Pq59hxEb/pytest.json`，完整pytest.log/XML已留。仅修日志留存/管道失败/收据与basetemp重叠；不宣称修复旧RAG或阶段覆盖根因。
-运行根前缀 `~/.finance-runtime/reviews/`：工程 `pr868-merge-ready-20260924-0326/`，干净detached候选在其candidate。
+## 决策与被否方案
+- 固定候选签证，文档HEAD不移签。旧失败不续跑/倒改；0.8秒+0.2容差及检索120秒不放宽。
+- 否掉宿主修JSON补签旧Quality；对象交付仅新设施候选，不能替reviewer作结论。
+- 余额不足原批准完整双轴方案，不启动半轮、不借L6额度。
+- 背景/方案比较：`../2026-09-24-adaptive-e7-qc-budget-boundary.md`。
 
-## 正在进行的独审
-新批 `pr868-glm-qc-20260924-0415/`，绑定e7。控制器 `0326/run_qc_0415.py` 已启动，首查batch.json及各阶段controller/counts。目前执行Spec轴；阶段COMPLETE不是verdict PASS。
-**历史74/152必须累加当前实耗及在途预占，不能把74当最新总账。** 本批上限78，阶段4/17/17/1，两轴串行；失败不重试。driver在副作用前记录预占，缺失消费数按预占保守扣账。
-0400新批因两轴原路径测试各10P/6个git-init setup error零消费封存，不得续；0415只增批次父目录metadata后，宿主原路径16P/81 deselected各通过。security CLI仅help拒绝自测通过；两轴隔离预检PASS，均不算独审。
+## 当前状态
+受测e7a6cb412，基线main3bb81b963，末次远程复核未漂移。0326七叶全绿：15396P/85S/2X、collected15483，无筛选；前端六步及五个registry/ledger叶过。e7只修日志链，不宣称旧RAG/覆盖根因已修。
+根均在 `~/.finance-runtime/reviews/`：工程 `pr868-merge-ready-20260924-0326/`，独审 `pr868-glm-qc-20260924-0415/`，均结束、无后台。收据为0326下 `python-receipts/gate-Pq59hxEb/pytest.json`，完整log/XML已存。
+0415已封存BLOCKED：Spec PASS_WITH_LIMITS但C3/C7未验证；Quality执行交付内部JSON字符串语法错误，exit75、无report/最终verdict。两轴原路径作者各16P，不能补独立缺口。原始探针失败及解释均保留。
+**模型总账131/152，剩21；不得从旧74重新起算。** 本批Spec30+Quality27=57，历史74；所有已起shim计数一致、active=0、shutdown_complete=true。原每轴4/17/17/1方案不能以21完成。保持完整新批78上限需总授权至少209，尚未获准，不自动启动。
 
-## 历史与未闭合项
-c315工程0205仍RED：15383P/7F/85S/2X，7F全为RAG keepalive，原完整堆栈丢失。定向绿不改判；原序前缀实际7165P/1F/20S/2X，未到RAG先遇判官两尝试只收到一请求。新e7仅记录未复现，不归因为负载。
-旧QC0015+0024的Spec证据不足、Quality CHANGES_REQUIRED不改；0145/0208/0400零消费封存。L60210因工程红零消费阻断；旧严格覆盖/检索失败与自然NOT_PASSED仍在。新自然题、检索、旁车尚未启动，不宣称比较过生产身份。
-整PR diff-check仍exit2，8份旧封存文本空白问题；未裁剪或豁免。新归档自身检查与整PR不是同一范围。
+## 未验证 / 已知边界
+旧c315的7个RAG失败及前缀判官共享窗覆盖红根因仍未定，新绿不翻案。
+0145/0208/0400零消费封存；0400原路径10P/6个git-init setup error后另起0415，只补父目录metadata，宿主16P各过。原exit120空日志原因未定，简单文件/管道对照均0。
+新L6未准备/提交，旧0210零消费阻断、严格覆盖/检索失败及自然NOT_PASSED不改。生产身份未比较。
+整PR diff-check仍exit2，8份旧封存文本空白问题；未裁剪/豁免。新归档自身检查不是整PR。
 
 ## 下一步
-1. 等0415终态，按原始命令/源码/退出码核算两轴覆盖与真实消费；宿主不代签。
-2. 独审与正式准入均满足后，另建L6新根/新题；精确Episode审计PASS才下一题，不重发/续问。
-3. 终态证据和交接再落盘，实际合main/部署仍等授权。
+1. 先读0415的batch、host-evidence-audit与closure-current-turn；旧批不得续。
+2. 待预算/方案确认，另建独审根。对象协议须新批验证，C3语义结果、C7身份/收据及探针签名/端点核对不能省。
+3. 独审与正式准入均满足后才另建L6新根/新题；精确Episode审计PASS才下一题，重发/续问0。
 
-## 证据与方法
-c315作者111P、准入两层撤保护5F/1F及恢复25P；e7日志旧反例4F+2F、修后72P。历史208份/本轮51份可逆归档：`docs/verification/2026-09-24-adaptive-merge-history/`、`2026-09-24-adaptive-c315-engineering/`，51份原件/本地/Git核对0差异。理由见 `../2026-09-24-adaptive-joint-engineering-and-evidence.md`。harness-reference/BUILD.md有他人改动，未碰。
+## 已验证
+e7日志修复72P、旧反例4F+2F；对象交付离线15项含注册工具通过，0模型、未启用，不算独审。新530工件可逆归档 `docs/verification/2026-09-24-adaptive-e7-qc-closeout/`；历史208/51份仍保留。
+
+## 踩过的坑
+模型HTTP200与阶段完成不等于有效终审。metadata可逐目录放行，正文不能跟着开放。harness-reference/BUILD.md有他人改动，未碰。

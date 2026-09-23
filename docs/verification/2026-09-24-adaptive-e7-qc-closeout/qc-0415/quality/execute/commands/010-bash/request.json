@@ -1,0 +1,1 @@
+{"toolCallId":"call_de23e7893f334498a5f3fdd6","params":{"command":"grep -n \"def urlopen\" -A 40 /Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0326/candidate/intelligence/services/llm_http_transport.py"}}

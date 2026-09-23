@@ -1,0 +1,1 @@
+{"toolCallId":"call_baac9c6b8a1341a398476dc7","params":{"command":"grep -n \"def _post_chat_message_stream\" -A 25 /Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0326/candidate/intelligence/services/llm_refine.py"}}

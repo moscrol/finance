@@ -1,0 +1,30 @@
+```json
+{
+  "complete": true,
+  "claims_examined": [
+    "C1",
+    "C2",
+    "C3",
+    "C4",
+    "C5",
+    "C6",
+    "C7"
+  ],
+  "probe_files": [
+    "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260924-0415/quality/work/probes/probe1_transport.py",
+    "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260924-0415/quality/work/probes/probe3_callsites.py",
+    "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260924-0415/quality/work/probes/probe2_refine.py"
+  ],
+  "limits": "仅静态阅读+探针编写，未运行任何代码。已核对 llm_http_transport.urlopen/HTTPResponse 与 llm_refine._open_deadline_http_response、_post_chat、_post_chat_synthesis、complete 的真实签名；_post_chat_message/_post_chat_stream 参数通过 inspect 动态绑定，避免臆测。C3 判官窗口为 refine 层行为等价验证（0.8s deadline vs 2.9s 慢体），未直接驱动 episode_semantic_verifier；C5 的『根窗口耗尽 vs 判官子窗口耗尽』区分未单独覆盖（需 verifier 内部状态），如实报告为缺口。C7 属流程/收据身份断言，本轴不做行为验证。本阶段无产品改动、无运行、无网络请求。",
+  "next_stage_commands": [
+    "PYTHONPATH=/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0326/candidate /Users/a77/finance-workspace-private/.venv-workbench/bin/python /Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260924-0415/quality/work/probes/probe1_transport.py",
+    "PYTHONPATH=/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0326/candidate /Users/a77/finance-workspace-private/.venv-workbench/bin/python /Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260924-0415/quality/work/probes/probe3_callsites.py",
+    "PYTHONPATH=/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0326/candidate /Users/a77/finance-workspace-private/.venv-workbench/bin/python /Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260924-0415/quality/work/probes/probe2_refine.py"
+  ],
+  "notes": "探针设计（作者测试之外的独立探针，各含端点自检）：probe1 直连 transport，覆盖 T1 正向成功、T2 0.8s 绝对 deadline 对 2.9s 慢体的 HTTPDeadlineExceeded（真实子进程、验证回收）、T3 0.3s 取消→HTTPStreamCancelled 停止延迟<0.7s（与 deadline 路径区分）、T4 已过期 deadline 在 spawn 之前拒绝（observer 无 spawn_started）、T5 spawn 后、headers 前 deadline 到期（子进程启动计入预算，elapsed≈剩余预算而非 3s 慢 headers 时长）——对应 C1/C6。probe2 经 llm_refine 包装走真实子进程：R1 complete() 正向、R2 0.8s 共享 deadline 迟到判官负载→LLMDeadlineExceeded（C3 行为等价）、R3 10s 时间片+0.5s 共享 deadline 提前停止且服务端确实收到请求（C4，缺失转发则会被该探针检出）、R4 流式取消映射为 LLMStreamCancelled、ledger 记录 failed。probe3 用 inspect 绑定补齐五个调用点（_post_chat、_post_chat_synthesis、_post_chat_message_stream、_post_chat_message、_post_chat_stream）的 deadline/is_cancelled 转发捕获（触发到达与下游解析成败分开报告），以及 Z1 零剩余预算→无任何 HTTP 请求命中服务器（C5 无请求部分）。本地假服务仅使用端口 26001-26003。任何非控制断言失败即 exit 1。未运行，故此处不给出任何 PASS 结论。",
+  "stage": "explore",
+  "axis": "quality",
+  "revision": "e7a6cb412865fdd189cf51a17f93622fa3d4fe55",
+  "baseline": "3bb81b9638f97b4773ce0f338df3a505b7c0162f"
+}
+```
