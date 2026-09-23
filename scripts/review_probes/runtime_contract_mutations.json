@@ -30,7 +30,7 @@
   {
     "id": "neutral_completion_boundary",
     "path": "intelligence/services/agent_runtime.py",
-    "old": "            if reason in {\"length\", \"max_tokens\", \"content_filter\"}:\n",
+    "old": "            if reason in {\"length\", \"max_tokens\", \"content_filter\", \"missing_finish_reason\"}:\n",
     "new": "            if False:\n",
     "targets": ["test_direct_model_turn_cannot_bypass_completion_boundary", "test_truncated_finalizer_cannot_publish_parseable_finish"]
   },
