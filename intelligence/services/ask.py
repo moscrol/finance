@@ -98,6 +98,7 @@ from intelligence.services.answer_orchestrator import (
     plan_answer_question,
 )
 from intelligence.services.provider_observability import ProviderTrace
+from intelligence.services.ask_claim_scope import review_ask_claim_scope
 from intelligence.services.query_understanding import market_review_requested_date
 from intelligence.services.research_state import ResearchGap
 from intelligence.services import event_transmission, evidence_gap_radar, market_structure, output_review, recall_audit, theme_lifecycle, valuation_gap
@@ -1561,7 +1562,7 @@ def answer_query(options: AskOptions) -> AskResult:
     # 已开账本时嵌套复用；CLI 单跑时在本层兜底开启）。
     with _progress_stage(options, "ask_root"):
         with retrieval_cache.duckdb_run_pool(), query_ledger.query_ledger_scope():
-            return _answer_query_impl(options)
+            return review_ask_claim_scope(_answer_query_impl(options))
 
 
 def _market_cause_fallback_assessment(

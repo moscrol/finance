@@ -707,6 +707,14 @@ adapter 在语义删句后按**核验过的公开正文**重算表达缺件，�
 
 A 与 B 的门禁不对等：语义判官（`episode_semantic_verifier`）、结构门、修复轮**只在 A**；B 有 `gate_receipt` / `CompletionReport` / `evidence_judge` / 输出质检。差的成因是分层——判官在 `runtime/`，B 在 `services/`，不得反向 import。现状与并轨计划见 `docs/superpowers/specs/2026-08-30-engine-b-into-a-strangler-design.md` §1.3。
 
+### 口径越界观察（接入候选，默认关闭）
+
+`ASK_CLAIM_SCOPE_REVIEW=advisory` 使用与离线 `check_answer_claims` 共用的证据解析和四条规则，只写私有收据，不改答案、不加模型调用、不触发修订、不改变完成状态。未设或 `off` 不新增序列化字段；非法值有效回落 off 并记原值，`revise/block` 当前未实施，记 unsupported，不能当成已硬拦。
+
+A 的 `semantic_verifier.claim_scope` 在核验出口及最终交付/异常恢复出口盖章，`answer_sha256` 绑定最终文本；恢复出口只用此前已核验答案的证据。B 的 `OutputReviewGate` 挂 advisory checks，`answer_query` 的早退和延后合成均覆盖，Workbench 最终交付另落内部 `claim-scope-review.json`。B 只读来源记录，不把模型生成的 claim 当作证据；现有结构无等价工具请求账，因此明确记录 `engine_b_tool_requests_unavailable`，不得解释成四规则完整通过。线上不预取板块全集；全称范围句缺分母/比较数写 degraded，不静默 clean。现有规则在比较数已知、全集未知时仍可命中越界。
+
+离线观察用 `scripts/claim_scope_census.py <明确指定的产物文件...>`，分母是输入产物数，不是质量样本通过率。实现单见 `2026-09-23-claim-scope-advisory-runtime-workorder.md`；工程、独立 QC、L5 及生产部署各自验收，本段不证明已上线。
+
 ### 判官模式：`ASK_SEMANTIC_JUDGE=llm|off`（工单 #55）
 
 用户 2026-09-12 撤掉独立 Grok 判官（改 kimi-k3 自审）、2026-09-17 进一步决定**不用 LLM 判官**。一个共享开关（`intelligence/services/judge_mode.py::semantic_judge_mode`）同时管两条引擎：

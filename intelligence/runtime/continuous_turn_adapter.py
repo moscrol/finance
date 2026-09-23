@@ -38,6 +38,7 @@ from intelligence.services.episode_semantic_verifier import (
     draft_sentence_count,
     numeric_condition_unsupported,
     recheck_material_public_delivery,
+    review_public_claim_scope,
 )
 from intelligence.services.rejudge_pending import append_pending_from_artifact
 from intelligence.services.episode_tools import (
@@ -1179,6 +1180,10 @@ class ContinuousTurnAdapter:
         # 读的就是这个数组，形状与此前逐字段一致，多出来的只有「只投 Durable」这条
         # 被钉住的不变量。异常（Live 漏进来 / kind 未登记）不静默，见下面那行。
         event_projection = project_durable_events(outcome.events)
+        semantic = review_public_claim_scope(
+            semantic, question=frame.raw_question, public_answer=answer,
+            evidence_outcome=outcome,
+        )
         artifact = {
             "schema_version": 1,
             # 事件日志的 schema 版本（运行底座 P2 G9）：与 store 里 state.json 的同一个数。
@@ -1368,6 +1373,11 @@ class ContinuousTurnAdapter:
         notices = tuple(dict.fromkeys((*notices, *final_track_notices)))
         fulfilled = _fulfilled_output_ids(
             semantic.verified, excluded_output_ids=frozenset(semantic.gap_output_ids),
+        )
+        semantic = review_public_claim_scope(
+            semantic, question=frame.raw_question,
+            public_answer=view(TerminalFacts(cause=CAUSE_VERIFIED, public=answer)),
+            evidence_outcome=trusted,
         )
         artifact.update({
             "contract": context.contract.to_dict(),

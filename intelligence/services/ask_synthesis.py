@@ -1052,6 +1052,12 @@ def _quality_gate_diagnostic_reason(
 
 
 def synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
+    from intelligence.services.ask_claim_scope import review_ask_claim_scope
+
+    return review_ask_claim_scope(_synthesize_prepared_answer(prepared))
+
+
+def _synthesize_prepared_answer(prepared: PreparedAnswer) -> AskResult:
     options = prepared.options
     result = prepared.result
     messages = result.prepared_synthesis_messages

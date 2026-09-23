@@ -26,11 +26,12 @@ import json
 import os
 import re
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass, field, replace
+from dataclasses import asdict, dataclass, field, replace
 from datetime import date
 from typing import Literal, Protocol, cast, runtime_checkable
 
 from intelligence.services import answer_model, llm_refine
+from intelligence.services.claim_scope_review import claim_scope_requested, review_runtime_claims
 from intelligence.services.agent_research import (
     AgentEvidence,
     StructuredObservation,
@@ -660,6 +661,7 @@ class SemanticEpisodeOutcome:
     repair_collapsed_to_stub: bool = False
     repair_rollback_mode: str | None = None
     premise_calculation_review: dict[str, object] | None = None
+    claim_scope: dict[str, object] | None = None
     # P2 第一步（spec 2026-09-02 §3.3「先量后改」）：判官每条拒句的结构化账——
     # 删了还是降成 issue、机械还是语义、句子引了哪些 E / 绑到哪些哈希 / 来源档。
     # 只记不改任何判据；读侧 ``scripts/offline_judge_verdict_census.py``。
@@ -784,7 +786,35 @@ class SemanticEpisodeOutcome:
             payload["judge_request"] = self.judge_request
         if self.premise_calculation_review is not None:
             payload["premise_calculation_review"] = dict(self.premise_calculation_review)
+        if self.claim_scope is not None:
+            payload["claim_scope_mode"] = self.claim_scope["mode"]
+            payload["claim_scope"] = self.claim_scope
         return payload
+
+
+def review_public_claim_scope(
+    outcome: SemanticEpisodeOutcome,
+    *,
+    question: str,
+    public_answer: str | None = None,
+    evidence_outcome: AgentOutcome | None = None,
+    scope_total: int | None = None,
+) -> SemanticEpisodeOutcome:
+    """Stamp the exact delivered text, including post-verification projections."""
+    if not claim_scope_requested():
+        return outcome if outcome.claim_scope is None else replace(outcome, claim_scope=None)
+    source = evidence_outcome if evidence_outcome is not None else outcome.verified.outcome
+    payload = {
+        "events": [event.to_dict() for event in source.events],
+        "evidence": [asdict(item) for item in source.evidence],
+    }
+    receipt = review_runtime_claims(
+        answer=outcome.public_answer if public_answer is None else public_answer,
+        question=question,
+        episode={"outcome": payload},
+        scope_total=scope_total,
+    )
+    return replace(outcome, claim_scope=receipt)
 
 
 def _retained_delivery_hashes(outcome: SemanticEpisodeOutcome, public: str) -> tuple[str, ...]:
@@ -1538,9 +1568,9 @@ class SemanticEpisodeVerifier:
         # Preserve both stages rather than letting the newer tuple mask history.
         verdicts = list(self._sentence_verdicts)
         verdicts.extend(row for row in outcome.sentence_verdicts if row not in verdicts)
-        if tuple(verdicts) == outcome.sentence_verdicts:
-            return outcome
-        return replace(outcome, sentence_verdicts=tuple(verdicts))
+        if tuple(verdicts) != outcome.sentence_verdicts:
+            outcome = replace(outcome, sentence_verdicts=tuple(verdicts))
+        return review_public_claim_scope(outcome, question=frame.raw_question)
 
     def _guided_retrieve_and_rejudge(
         self,

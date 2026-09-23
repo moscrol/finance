@@ -281,10 +281,16 @@ def _latest_trading_day_issue(
     )
 
 
+def scope_comparison_needed(answer: str) -> bool:
+    """Whether this answer contains an unbounded universal scope claim."""
+    return any(
+        _SCOPE_UNIVERSAL.search(sentence) and not _SCOPE_BOUNDED.search(sentence)
+        for sentence in split_sentences(answer)
+    )
+
+
 def _scope_issue(sentence: str, context: ClaimEvidenceContext) -> ClaimIssue | None:
-    if not _SCOPE_UNIVERSAL.search(sentence):
-        return None
-    if _SCOPE_BOUNDED.search(sentence):
+    if not scope_comparison_needed(sentence):
         return None
     compared = context.compared_scope_count
     total = context.known_scope_total
