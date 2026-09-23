@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import threading
 import time
+from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -14,12 +15,14 @@ from fastapi.testclient import TestClient  # noqa: E402
 
 from intelligence.api import app as app_module  # noqa: E402
 from intelligence.api.app import create_app  # noqa: E402
+from intelligence.runtime import conversation_orchestrator as orchestrator_module  # noqa: E402
 from intelligence.runtime.continuous_turn_adapter import (  # noqa: E402
     ContinuousTurnResult,
 )
 from intelligence.runtime.conversation_orchestrator import (  # noqa: E402
     TurnOrchestrator,
 )
+from intelligence.services.ask import AskResult  # noqa: E402
 from intelligence.services.conversation_store import ConversationStore  # noqa: E402
 from intelligence.services.run_store import RunStore  # noqa: E402
 from intelligence.workbench_skills.contracts import (  # noqa: E402
@@ -642,10 +645,11 @@ def test_terminal_claim_and_message_revise_are_adjacent_writes(
 
 @dataclass
 class _SlowSkill:
+    release: threading.Event
     skill_id: str = "slow-skill"
 
     def execute(self, context: SkillExecutionContext) -> SkillOutput:
-        time.sleep(1.2)
+        assert self.release.wait(timeout=10.0), "slow skill was not released"
         return SkillOutput(
             skill_id=self.skill_id,
             modules=[],
@@ -754,9 +758,27 @@ def test_send_waits_for_message_after_run_terminal_claim(
             release.set()
 
 
+@pytest.mark.parametrize("finish_before_timeout_event", [False, True])
 def test_skill_timeout_degrades_one_module_and_continues(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    finish_before_timeout_event: bool,
 ) -> None:
+    for name in _LLM_KEY_NAMES:
+        monkeypatch.delenv(name, raising=False)
+    release = threading.Event()
+    slow_skill = _SlowSkill(release)
+    slow_futures: list[Future[SkillOutput]] = []
+
+    class ObservedPool(ThreadPoolExecutor):
+        def submit(self, fn, /, *args, **kwargs):
+            future = super().submit(fn, *args, **kwargs)
+            # The pool submits copy_context().run with the skill method first.
+            if args and getattr(args[0], "__self__", None) is slow_skill:
+                slow_futures.append(future)
+            return future
+
+    monkeypatch.setattr(orchestrator_module, "ThreadPoolExecutor", ObservedPool)
     conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
     run_store = RunStore("alice", root=tmp_path / "runs")
     conversation = conversation_store.create_conversation()
@@ -800,16 +822,36 @@ def test_skill_timeout_degrades_one_module_and_continues(
     registry = SkillRegistry(
         definitions,
         {
-            "slow-skill": _SlowSkill(),
+            "slow-skill": slow_skill,
             "fast-skill": _FastSkill(),
         },
     )
+    original_add_degrade = run_store.add_degrade
 
-    result = TurnOrchestrator(
+    def record_timeout(run_id: str, warning: str) -> None:
+        if run_id == run.run_id and warning == "Skill slow-skill 执行超时":
+            assert len(slow_futures) == 1
+            assert not slow_futures[0].done()
+            if finish_before_timeout_event:
+                release.set()
+                slow_futures[0].result(timeout=5.0)
+        original_add_degrade(run_id, warning)
+
+    monkeypatch.setattr(run_store, "add_degrade", record_timeout)
+    orchestrator = TurnOrchestrator(
         repo_root=tmp_path,
         conversation_store=conversation_store,
         run_store=run_store,
         skill_registry=registry,
+        answer_query_fn=lambda options: AskResult(
+            query=options.query,
+            trade_date="2026-07-11",
+            matched_theme="timeout-fixture",
+            candidate_tier="A",
+            priority_score=1.0,
+            sections={"结论": ["其他模块继续完成。"]},
+            found_market=False,
+        ),
         route_skills_fn=lambda *_args, **_kwargs: SkillRouteResult(
             (
                 SkillSelection("slow-skill", "manual", "超时测试"),
@@ -817,35 +859,51 @@ def test_skill_timeout_degrades_one_module_and_continues(
             ),
             False,
         ),
-    ).run_turn(
-        conversation_id=conversation.conversation_id,
-        run_id=run.run_id,
-        assistant_message_id=assistant.message_id,
-        query=user_message.content,
-        skill_mode="manual",
-        selected_skill_ids=["slow-skill", "fast-skill"],
     )
+    original_emit = orchestrator._emit
 
-    events = run_store.load_stream_events(run.run_id)
-    report = json.loads(
-        (run_store.run_dir(run.run_id) / "report.json").read_text(encoding="utf-8")
-    )
-    assert result.status == "completed"
-    assert any("slow-skill 执行超时" in warning for warning in report["warnings"])
-    assert any(
-        module["module_id"] == "fast_result" for module in report["modules"]
-    )
-    assert any(
-        event["event_type"] == "skill.result"
-        and event["payload"]["skill_id"] == "slow-skill"
-        and event["payload"]["status"] == "degraded"
-        and event["payload"]["task_may_continue"] is True
-        for event in events
-    )
-    retrieve_step = next(
-        step
-        for step in run_store.load_trace(run.run_id)
-        if step["step_id"] == "retrieve"
-    )
-    retrieve_summary = json.loads(retrieve_step["output_summary"])
-    assert retrieve_summary["elapsed_ms"] >= 0
+    def emit_and_release(
+        run_id, message_id, event_id, event_type, payload, conversation_id,
+    ):
+        original_emit(run_id, message_id, event_id, event_type, payload, conversation_id)
+        if run_id == run.run_id and event_id == "skill:slow-skill:result":
+            release.set()
+            slow_futures[0].result(timeout=5.0)
+
+    monkeypatch.setattr(orchestrator, "_emit", emit_and_release)
+    try:
+        result = orchestrator.run_turn(
+            conversation_id=conversation.conversation_id,
+            run_id=run.run_id,
+            assistant_message_id=assistant.message_id,
+            query=user_message.content,
+            skill_mode="manual",
+            selected_skill_ids=["slow-skill", "fast-skill"],
+        )
+        events = run_store.load_stream_events(run.run_id)
+        report = json.loads(
+            (run_store.run_dir(run.run_id) / "report.json").read_text(encoding="utf-8")
+        )
+        assert result.status == "completed"
+        assert any("slow-skill 执行超时" in warning for warning in report["warnings"])
+        assert any(
+            module["module_id"] == "fast_result" for module in report["modules"]
+        )
+        assert any(
+            event["event_type"] == "skill.result"
+            and event["payload"]["skill_id"] == "slow-skill"
+            and event["payload"]["status"] == "degraded"
+            and event["payload"]["task_may_continue"] is (not finish_before_timeout_event)
+            for event in events
+        )
+        retrieve_step = next(
+            step
+            for step in run_store.load_trace(run.run_id)
+            if step["step_id"] == "retrieve"
+        )
+        retrieve_summary = json.loads(retrieve_step["output_summary"])
+        assert retrieve_summary["elapsed_ms"] >= 0
+    finally:
+        release.set()
+        for future in slow_futures:
+            future.result(timeout=5.0)

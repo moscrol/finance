@@ -1,6 +1,6 @@
 # 在途交接 · main
 
-更新：2026-09-23 12:31 CST（**#881 文档合入已核验，#58/#59 当前 tip 四叶仍未冒充完成**）。当前 `gitea/main@4315d9d5fbf2`；PR #881 head `45415eab02a2` 已由 merge commit `4315d9d5fbf2` 合入，双亲和 merge tree 已与预演一致。因两次 API 请求超时，正常 `merge --record` 文件未生成，独立 Git 核验见 `~/.finance-runtime/reviews/gate-closeout-qc-20260923/merge-881-timeout-verification.json`。此前 `ffd1b7` 树 registry 5/5 已过；当前 tip 只有文档 merge，Python/frontend/E2E 及 revision/正负对照仍待资源恢复后按 `4315d9d5` 完成。当前机器仍有多会话 pytest，未读取共享 latest 指针，也未中断其他会话。
+验收快照：2026-09-23 16:05 CST（**#59 的 main 批次 `27ca084f9ffc` 四叶齐绿，只对该 SHA 成立**）。Python 14618P/0F/0E/85S/2X，收集 14705 对平；完整覆盖面与精确 revision 校验通过，错误 SHA 被拒。frontend 正式六步绿（Vitest 120P、E2E 34P/2S），起止身份与日志哈希独立复核通过；reviewer 重跑 registry 5/5、守卫 11P、归档探针先红后绿。原始 Python/frontend 来自 #856 合后同 SHA 干净独占树，复核不移签。详情 `docs/handoffs/2026-09-23-main-tip-gate-27ca.md`；后续 main/PR 候选须另有绑定自身 SHA 的收据。此处记观察时点，不追文档自身 merge SHA。
 
 更新：2026-09-23 12:18 CST（**#58/#59 旧 tip 口径质检修正进行中**）。当前 `gitea/main@ffd1b7f15720`，PR #858 已通过 merge commit `86d3e558e3b1` 合入，随后 #879 与 PR873 收口文档已合入；因此 `72be60059f2e` / `760248ecebc7` 的收据只作历史证据，不能冒充当前 tip。已在独占分支 `docs/gate-closeout-status-0923-latest` 更新 INDEX；当前 tip registry 五项已过，Python/frontend/E2E 及 revision/正负对照待资源恢复后按目标 SHA 完成。并发 pytest 已使 load 达约 45，未读取共享 latest 指针作本树结论，也未中断其他会话。
 
