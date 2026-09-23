@@ -224,6 +224,10 @@ def compute_limit_stats_local(trade_date, *, con=None, force: bool = False, min_
 
         coverage = None
         if recovery_members is not None:
+            bar_codes = {r[1] for r in today}
+            missing_bars = sorted({r[2] for r in members} - bar_codes)
+            if missing_bars:
+                raise ValueError(f"sector member missing canonical stock bar: {missing_bars[:10]}")
             observed = defaultdict(list)
             for sector, _name, stock, _sw in members:
                 observed[sector].append(stock)
@@ -234,7 +238,7 @@ def compute_limit_stats_local(trade_date, *, con=None, force: bool = False, min_
             ).fetchall())
             # Do not silently skip a suspended name that was synthesized into
             # fact_stock_daily but dropped from the member projection.
-            if set(recovery_nontrading) & {r[1] for r in today}:
+            if set(recovery_nontrading) & bar_codes:
                 raise ValueError("nontrading identity has a stock bar")
             coverage = sector_coverage(declared_members=recovery_members, expected_counts=expected,
                                        observed_members=observed, suspended=recovery_nontrading)
