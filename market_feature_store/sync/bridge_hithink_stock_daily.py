@@ -256,10 +256,13 @@ def apply_bridge_day(con: duckdb.DuckDBPyConnection, plan: dict[str, Any]) -> di
     if not rows:
         raise BridgeRefused(f"{td} 无可写行")
 
-    before = _day_fingerprints(con)
-    # 越界校验放在 COMMIT **之前**：放在之后就只能报警、回滚不了。
+    # 计划可能已过期；覆盖授权与目标状态必须在写入事务内重新核验。
     con.execute("BEGIN TRANSACTION")
     try:
+        before = _day_fingerprints(con)
+        existing = before.get(td, (0,))[0]
+        if existing and plan.get("policy", {}).get("allow_replace_existing") is not True:
+            raise BridgeRefused(f"{td} 已有 {existing} 行，默认桥接拒绝覆盖")
         deleted = con.execute(
             "DELETE FROM fact_stock_daily WHERE trade_date = ? RETURNING stock_ts_code",
             [td],

@@ -1055,6 +1055,22 @@ def cmd_sync_stock_daily(args) -> int:
     return 0
 
 
+def cmd_bridge_stock_daily(args) -> int:
+    from .sync.bridge_hithink_stock_daily import BridgeRefused
+    from .sync.sync_daily_full import run_bridge_stock_daily_step
+
+    refused = _refuse_production_write(False)
+    if refused is not None:
+        return refused
+    try:
+        stats = run_bridge_stock_daily_step(args.trade_date, skip_existing=False)
+    except BridgeRefused as exc:
+        print(f"同花顺日线桥拒绝写入: {exc}")
+        return 2
+    print(json.dumps(stats, ensure_ascii=False, default=str))
+    return 0 if stats.get("written_rows", 0) > 0 else 1
+
+
 def cmd_fill_stock_daily_fallback(args) -> int:
     from .sync.fill_stock_daily_fallback import fill_stock_daily_fallback
 
@@ -2452,6 +2468,12 @@ def build_parser() -> argparse.ArgumentParser:
     p_skd.add_argument("--timeout", type=int, default=10, help="单只 bars 请求超时秒数(SIGALRM 兜底), 超时跳过不卡死整批, 默认10; 0=关闭")
     p_skd.add_argument("--progress-every", type=int, default=200, help="每处理多少只打一行心跳进度, 默认200; 0=关闭")
     p_skd.set_defaults(func=cmd_sync_stock_daily)
+
+    p_bridge = sub.add_parser(
+        "bridge-stock-daily", help="同花顺日线补 canonical 当日缺口（仅副本，拒绝覆盖已有日线）",
+    )
+    p_bridge.add_argument("--trade-date", required=True, help="交易日 YYYY-MM-DD")
+    p_bridge.set_defaults(func=cmd_bridge_stock_daily)
 
     p_fsf = sub.add_parser("fill-stock-daily-fallback",
                            help="当日兜底: 用 fact_sector_stock_daily 行情聚合补 fact_stock_daily(标 fallback)")

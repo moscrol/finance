@@ -117,6 +117,23 @@ def test_recovery_member_failure_precedes_delete_or_write(change):
         assert con.execute("SELECT * FROM fact_theme_limit_heat_daily").fetchall() == before
 
 
+@pytest.mark.parametrize("missing", ["600001.SH", "000001.SZ", "002514.SZ"])
+def test_recovery_member_rows_cannot_prove_missing_canonical_bars(missing):
+    with _db() as con:
+        _seed_two_days(con)
+        _seed_universe_and_members(con)
+        declared = {"990001.FP": ["600001.SH", "300001.SZ", "000001.SZ"],
+                    "990002.FP": ["002514.SZ"]}
+        cls_.compute_limit_stats_local("2026-09-02", con=con, recovery_members=declared)
+        tables = ("fact_theme_limit_heat_daily", "fact_theme_limit_stock_daily",
+                  "fact_limit_advance_daily", "fact_leader_height_daily")
+        before = {table: con.execute(f"SELECT * FROM {table} ORDER BY ALL").fetchall() for table in tables}
+        con.execute("DELETE FROM fact_stock_daily WHERE trade_date='2026-09-02' AND stock_ts_code=?", [missing])
+        with pytest.raises(ValueError, match="canonical stock bar"):
+            cls_.compute_limit_stats_local("2026-09-02", con=con, recovery_members=declared)
+        assert {table: con.execute(f"SELECT * FROM {table} ORDER BY ALL").fetchall() for table in tables} == before
+
+
 def test_limit_stats_refuses_to_overwrite_fupanhui_rows_unless_forced():
     con = _db()
     _seed_two_days(con)
