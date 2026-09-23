@@ -1,0 +1,15 @@
+{
+  "observed_at": "2026-09-23T06:07:48.173863+00:00",
+  "load_averages": [
+    8.78466796875,
+    11.29296875,
+    23.86962890625
+  ],
+  "pytest_processes": 0,
+  "pytest_rows": [],
+  "free_disk_gib": 39.154,
+  "full_test_load_limit": 8,
+  "full_test_pytest_limit": 2,
+  "minimum_disk_gib": 8,
+  "gate_passed": false
+}

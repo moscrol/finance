@@ -1,28 +1,30 @@
 # docs/closeout-workorders-0922
 
 ## 这个分支做什么
-维护#58-#77；本轮推进#73/#75 K3独审。最新回执`docs/verification/2026-09-23-re06-timer-scope/README.md`；决策快照`docs/handoffs/2026-09-23-re06-k3-payload-review.md`。
+维护#58-#77，本轮续#73/#75。入口`docs/verification/2026-09-23-re06-timer-scope/README.md`；决策快照`docs/handoffs/2026-09-23-re06-grouped-qc-and-gates.md`。
 
 ## 决策与被否方案
-- #73用户选B：计时独立scope，旧v1窄形状读取兼容，不迁移台账。
-- 候选冻结f9ce5c6b2，证据只写本枝；否移动候选后沿用收据。
-- 实际Pi工具/流式往返通过，不再由旧plain超时外推K3不可用；也不以小载荷成功代完整独审。
-- 第三审查请求超时即BLOCKED；否以Pi exit0签字，未自动重试/换模型/重启网关。
+- #73选B：计时独立scope，旧v1窄形状读取兼容，不迁移。
+- 固定候选f9ce5c6b2，证据仅本枝；不改候选后沿用收据。
+- 设备会话恢复后另开一次预检；失败另账，不盲目循环、不换模型。
+- Pi exit0/小往返成功不代终稿；pytest 93%不代完整收据。
+- 下轮E2E自己build，不依赖前端叶先成功；原执行器不回改。
 
 ## 当前状态
-作者`~/fwp-wt-wave2-re06-0923`和独占detached审查树首尾clean，均`f9ce5c6b296492b423400ad66d333784a4be13bc`，base ffd1b7f15720。新运行原件`~/.finance-runtime/reviews/re06-timer-scope-qc-20260923-02/`，候选在其`candidate/finance-workspace-private/`且已lock保留。本枝归档新尝试、更新INDEX/#75队列/主张状态；旧01回执保留。未push/PR/合main/部署/写生产。
-#69仍绑3b7e473575b0；#68/#71/#66本轮未推进；共享脏主树未改。
+作者`~/fwp-wt-wave2-re06-0923`与locked独占审查树均clean，固定`f9ce5c6b296492b423400ad66d333784a4be13bc`，base ffd1b7f15720。审查树仍在`~/.finance-runtime/reviews/re06-timer-scope-qc-20260923-02/candidate/finance-workspace-private`。03/04新模型尝试和acceptance-01已归档，INDEX/队列同步。全部本轮进程已退出；未push/PR/合并/部署/生产写入/删树。
+#69仍绑3b7e473575b0；#68/#71/#66未推进；共享脏主树未动。
 
 ## 已验证
-真实Pi预检2请求HTTP200，read往返成功，9.860秒。沙箱边界自检通过。独审explore3请求中前2成功、4次工具exit0，第3请求120秒超时，总137.147秒，无终稿/探针。Pi exit0被事件流门正确拒签。本次5请求、累计6请求。RE06作者清单17业务+1底层，非独立复核。
+第三次预检首请求超时。第四次工具往返2请求HTTP200、158.502秒；timer组首请求6366字节即120秒超时，总124.656秒，0工具/终稿/探针。累计10请求，SDK重试0。74份核心证据、两树各16源码及7阶段输入哈希核对。分组覆盖/限额/阶段拒绝检查通过，非QC。
+14:11资源准入后Ruff过；pytest到1800秒上限（最后93%、exit -15），无完整收据，校验器拒收。14:45 load11.69、pytest4，剩余三叶未跑。E2E新计划的旧切片变异/模拟构建失败检查通过，非真实前端验收。
 
 ## 未验证 / 已知边界
-C1-C10全not_verified、Quality未评估；execute/report、审查探针和pytest必红对照未开始。13:28 load85.16/51.33/37.69、pytest5、空闲54.96GiB，四叶未过资源门未跑。本轮行为测试0；旧89P/前端9P仍属4bb3bf0cb。#76/P7、生产迁移/旧读数重算均未做。
+四叶INCOMPLETE，无新增可采信全量测试数；旧89P/前端9P仍属4bb3bf0cb。C1-C10全not_verified，Quality未评估，独立探针/pytest必红对照/execute/report全缺。17业务+1底层仍是作者分类。#76/P7与生产迁移/重算未做。
 
 ## 下一步
-1. 先重验固定SHA/clean和资源；load<=8、已有pytest<=2、磁盘>=8GiB后跑四叶。
-2. 新独审用新目录/会话/实际载荷预检；可讨论分组和限制读取量，不静默降覆盖。须取得三段终稿及分账探针。
-3. 验收齐再申请推送/PR/合main；部署/迁移另授权。#68复跑另需load<=4。
+1. 新资源窗口中整轮重跑四叶，明确足够预算；新目录，E2E自己先build，不拼接93%尾部。
+2. K3新预检、新会话；timer/e2/consent三组全覆盖与三段终稿、分账探针缺一不可。
+3. 验收齐再申请push/PR/合main；部署/迁移另授权。#68另需load<=4。
 
 ## 踩过的坑
-通道活性依赖载荷；超时不证明额度尽。Pi exit0不代表审查完成。沙箱自检不是独立探针或pytest阳性对照。执行器仅以文本快照存证，未晋升通用工具。旧tmux存活不是健康证明。
+准入不是资源预留；超时不等于代码错或额度尽。设备会话恢复不是模型完成证明。执行器仍是一次性封存材料，未晋升通用工具。

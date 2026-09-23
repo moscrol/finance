@@ -1,0 +1,6 @@
+{
+  "format": "utf8-text-envelope/v1",
+  "runtime_relative_path": "python-receipt-check.log.txt",
+  "original_sha256": "321dba9ce968a1d4b000737b89e587c1e368b4104a349ef7081219947926e227",
+  "text": "gate receipt refused: [Errno 2] No such file or directory: '/Users/a77/.finance-runtime/reviews/re06-timer-scope-acceptance-20260923-01/receipts/pytest.json'\n"
+}

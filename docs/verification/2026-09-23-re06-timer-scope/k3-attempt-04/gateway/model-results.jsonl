@@ -1,0 +1,2 @@
+{"request":1,"stop_reason":"toolUse","error":null,"provider":"mirasim-kimi","model":"kimi-k3"}
+{"request":2,"stop_reason":"stop","error":null,"provider":"mirasim-kimi","model":"kimi-k3"}

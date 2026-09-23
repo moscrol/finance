@@ -1,0 +1,41 @@
+"""Offline controller check only; no pytest, pnpm, browser or model calls."""
+import ast
+import hashlib
+import importlib.util
+import json
+from pathlib import Path
+import sys
+ROOT = Path(__file__).resolve().parent
+TREE = Path('/Users/a77/fwp-wt-wave2-re06-0923')
+REV = 'f9ce5c6b296492b423400ad66d333784a4be13bc'
+spec = importlib.util.spec_from_file_location('fixed_frontend_gate', TREE/'scripts/run_frontend_gate.py')
+gate = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(gate)
+
+def e2e_plan(source):
+    node = ast.parse(source)
+    row = next(item for item in ast.walk(node) if isinstance(item,ast.Tuple)
+               and len(item.elts)==2 and isinstance(item.elts[0],ast.Constant) and item.elts[0].value=='e2e')
+    index = ast.literal_eval(row.elts[1].slice.lower)
+    return gate.COMMANDS[index:]
+
+source = (ROOT/'run_next.py').read_text()
+expected = (('pnpm','build'),('pnpm','test:e2e'))
+assert e2e_plan(source) == expected
+mutated = source.replace("('e2e', gate.COMMANDS[4:])", "('e2e', gate.COMMANDS[5:])")
+assert e2e_plan(mutated) != expected
+marker = ROOT/'must-not-run-e2e.txt'
+code = gate.run_gate(TREE,ROOT/'next-plan-failed-build',REV,commands=(
+    (sys.executable,'-c','raise SystemExit(7)'),
+    (sys.executable,'-c',f'from pathlib import Path; Path({str(marker)!r}).write_text("unexpected")'),
+))
+assert code == 1 and not marker.exists()
+receipt = json.loads((ROOT/'next-plan-failed-build/frontend.json').read_text())
+assert len(receipt['checks'])==1 and receipt['checks'][0]['exit_code']==7 and not receipt['complete']
+result = {'status':'PASS','kind':'host controller self-check, not product acceptance or independent QC',
+          'real_model_requests':0,'pytest_processes_started':0,'frontend_or_browser_commands_started':0,
+          'prepared_runner_sha256':hashlib.sha256((ROOT/'run_next.py').read_bytes()).hexdigest(),
+          'checks':['E2E plan owns build then test','old slice excluding build rejected','failed build suppresses E2E command'],
+          'current_attempt_retroactively_changed':False,'next_full_acceptance_executed':False}
+(ROOT/'next-plan-check.json').write_text(json.dumps(result,ensure_ascii=False,indent=2)+'\n')
+print(json.dumps(result,ensure_ascii=False))

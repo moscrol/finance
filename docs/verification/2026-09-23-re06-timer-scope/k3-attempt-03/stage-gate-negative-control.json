@@ -1,0 +1,8 @@
+{
+  "status": "PASS",
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "Traceback (most recent call last):\n  File \"/Users/a77/.finance-runtime/reviews/re06-timer-scope-qc-20260923-03/run_stage.py\", line 125, in <module>\n    main()\n  File \"/Users/a77/.finance-runtime/reviews/re06-timer-scope-qc-20260923-03/run_stage.py\", line 30, in main\n    assert json.loads((ROOT / 'gateway/receipt.json').read_text())['status'] == 'PASS'\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+  "model_requests": 0,
+  "meaning": "Prepared grouped stage refuses failed gateway preflight before credential access or dispatch."
+}

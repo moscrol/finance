@@ -1,0 +1,129 @@
+{
+  "schema_version": "independent-qc-attempt/v1",
+  "attempt": 3,
+  "workorder": 73,
+  "service_workorder": 75,
+  "revision": "f9ce5c6b296492b423400ad66d333784a4be13bc",
+  "baseline": "ffd1b7f1572067e9a4c7e3a5845e99cf7f876cfb",
+  "author_tree": "/Users/a77/fwp-wt-wave2-re06-0923",
+  "reviewer_tree": "/Users/a77/.finance-runtime/reviews/re06-timer-scope-qc-20260923-02/candidate/finance-workspace-private",
+  "verdict": "BLOCKED_PROVIDER_TIMEOUT",
+  "verdict_author": "host controller, not reviewer",
+  "independent_review_started": false,
+  "independent_review_completed": false,
+  "historical_review_started_attempt": 2,
+  "provider": "mirasim-kimi",
+  "model": "kimi-k3",
+  "thinking": "xhigh",
+  "requests": 1,
+  "gateway_requests": 1,
+  "review_requests": 0,
+  "previous_attempt_requests": 6,
+  "all_attempts_requests": 7,
+  "gateway_status": "BLOCKED_PROVIDER_TIMEOUT",
+  "gateway_elapsed_seconds": 122.945,
+  "provider_request_timeout_ms": 120000,
+  "gateway_wall_deadline_seconds": 270,
+  "gateway_wall_deadline_hit": false,
+  "gateway_exit_code": 0,
+  "gateway_errors": [
+    "Request timed out."
+  ],
+  "gateway_http_statuses": [],
+  "gateway_tool_executions": 0,
+  "retries": 0,
+  "fallbacks": 0,
+  "reviewer_terminal_report": false,
+  "reviewer_probe_files": 0,
+  "reviewer_tests": null,
+  "author_current_revision_tests": null,
+  "positive_control_executed": false,
+  "reviewer_spec": "not_verified",
+  "reviewer_quality": "not_evaluated",
+  "grouping": {
+    "timer": [
+      "C7",
+      "C8",
+      "C9",
+      "C10"
+    ],
+    "e2": [
+      "C1",
+      "C2",
+      "C3"
+    ],
+    "consent": [
+      "C4",
+      "C5",
+      "C6"
+    ]
+  },
+  "grouped_review_status": "PREPARED_NOT_STARTED",
+  "host_self_checks": [
+    "sandbox boundaries",
+    "read caps and exact continuation",
+    "bash response cap retains raw output",
+    "group coverage C1-C10 exactly once",
+    "failed gateway refuses stage start"
+  ],
+  "candidate_four_leaf": "BLOCKED_RESOURCE_GATE",
+  "resource_snapshot": {
+    "observed_at": "2026-09-23T05:54:24.168706+00:00",
+    "load_averages": [
+      16.77587890625,
+      29.39697265625,
+      44.41650390625
+    ],
+    "pytest_processes": 4,
+    "pytest_rows": [
+      "3991  3965       41:54 /opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -m pytest -q -p no:cacheprovider",
+      "20682 20624       31:37 /opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -m pytest -q -p no:cacheprovider",
+      "22279 22234       30:36 /opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -m pytest -q -p no:cacheprovider",
+      "27711 27650       28:00 /opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -m pytest -q -p no:cacheprovider --junitxml=/Users/a77/.finance-runtime/reviews/run-queued-regression-20260923/gates/python-junit.xml --basetemp=/Users/a77/.finance-runtime/reviews/run-queued-regression-20260923/gates/basetemp-python"
+    ],
+    "free_disk_gib": 40.421,
+    "full_test_load_limit": 8,
+    "full_test_pytest_limit": 2,
+    "minimum_disk_gib": 8,
+    "gate_passed": false
+  },
+  "candidate_unchanged": true,
+  "author_unchanged": true,
+  "identities": {
+    "tree": {
+      "revision": "f9ce5c6b296492b423400ad66d333784a4be13bc",
+      "status": ""
+    },
+    "author": {
+      "revision": "f9ce5c6b296492b423400ad66d333784a4be13bc",
+      "status": ""
+    }
+  },
+  "runtime_evidence": "/Users/a77/.finance-runtime/reviews/re06-timer-scope-qc-20260923-03",
+  "production_modified": false,
+  "merge_authorized": false,
+  "gateway_diagnostic": {
+    "observed_at": "2026-09-23T05:54:24.174180+00:00",
+    "listener": "COMMAND   PID USER   FD   TYPE             DEVICE SIZE/OFF NODE NAME\nbun     95055  a77    7u  IPv4 0x3fc779a9ea93a042      0t0  TCP 127.0.0.1:18788 (LISTEN)\n",
+    "service_log_path": "/Users/a77/Library/Application Support/mirasim-sidecar/logs/sidecar.stderr.log",
+    "service_log_mtime": "2026-09-23T05:53:02.816505+00:00",
+    "sampled_tail_lines": 200,
+    "observed_message": "device session mint rejected (HTTP 503)",
+    "occurrences_in_sample": 0,
+    "request_correlation": "UNKNOWN: service-wide lines have no matching request ID; not proof of this timeout cause",
+    "gateway_changed_or_restarted": false
+  },
+  "limits": [
+    "Attempt 2 small payload success remains historical evidence, not admission for attempt 3.",
+    "Device-session 503 is service-wide diagnostic evidence, not this request HTTP status.",
+    "Grouped prompts and output caps are prepared; no successful grouped review demonstrated.",
+    "Host self-checks do not count as reviewer probes or required pytest positive control."
+  ],
+  "artifacts": {
+    "attempt": "k3-attempt-03/README.md",
+    "gateway": "k3-attempt-03/gateway/receipt.json",
+    "manifest": "k3-attempt-03/manifest.json",
+    "prior": "attempt-02-report.json",
+    "claims": "spec/CLAIMS.md"
+  }
+}

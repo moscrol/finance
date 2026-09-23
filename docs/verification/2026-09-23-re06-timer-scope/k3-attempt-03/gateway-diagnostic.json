@@ -1,0 +1,11 @@
+{
+  "observed_at": "2026-09-23T05:54:24.174180+00:00",
+  "listener": "COMMAND   PID USER   FD   TYPE             DEVICE SIZE/OFF NODE NAME\nbun     95055  a77    7u  IPv4 0x3fc779a9ea93a042      0t0  TCP 127.0.0.1:18788 (LISTEN)\n",
+  "service_log_path": "/Users/a77/Library/Application Support/mirasim-sidecar/logs/sidecar.stderr.log",
+  "service_log_mtime": "2026-09-23T05:53:02.816505+00:00",
+  "sampled_tail_lines": 200,
+  "observed_message": "device session mint rejected (HTTP 503)",
+  "occurrences_in_sample": 0,
+  "request_correlation": "UNKNOWN: service-wide lines have no matching request ID; not proof of this timeout cause",
+  "gateway_changed_or_restarted": false
+}

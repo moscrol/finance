@@ -1,0 +1,24 @@
+"""One fresh probe after an observed device-session state transition."""
+from datetime import datetime, timezone
+import json
+from pathlib import Path
+import subprocess
+ROOT = Path(__file__).resolve().parent
+log = Path('/Users/a77/Library/Application Support/mirasim-sidecar/logs/sidecar.stderr.log')
+lines = log.read_text(errors='replace').splitlines()
+rejected = [i + 1 for i, line in enumerate(lines) if 'device session mint rejected (HTTP 503)' in line]
+established = [i + 1 for i, line in enumerate(lines) if 'device session established' in line]
+assert rejected and established and established[-1] > rejected[-1]
+record = {'observed_at': datetime.now(timezone.utc).isoformat(), 'previous_attempt': 're06-timer-scope-qc-20260923-03',
+          'reason': 'Observed device-session rejection followed by establishment; one new bounded probe, not SDK automatic retry.',
+          'service_log_path': str(log), 'log_mtime': datetime.fromtimestamp(log.stat().st_mtime, timezone.utc).isoformat(),
+          'last_503_line': rejected[-1], 'last_established_line': established[-1],
+          'last_relevant_state': 'device session established', 'request_correlation': 'UNKNOWN; recovery hint, not proof of provider availability',
+          'new_probe_limit': 1, 'automatic_retries': 0, 'gateway_changes': 0, 'gateway_restarts': 0}
+with (ROOT / 'recovery-admission.json').open('x') as stream:
+    json.dump(record, stream, ensure_ascii=False, indent=2)
+    stream.write('\n')
+python = '/Users/a77/finance-workspace-private/.venv-workbench/bin/python'
+with (ROOT / 'gateway-runner.log').open('xb') as output:
+    proc = subprocess.Popen([python, str(ROOT / 'run_gateway.py')], stdout=output, stderr=subprocess.STDOUT, start_new_session=True)
+print(json.dumps({'controller_pid': proc.pid, 'recovery_signal': record['last_relevant_state']}))

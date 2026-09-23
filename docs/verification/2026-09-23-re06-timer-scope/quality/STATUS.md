@@ -1,9 +1,11 @@
 # Quality 轴状态
 
-`BLOCKED_PROVIDER_TIMEOUT`，不是“无发现”，不是`PASS_WITH_LIMITS`。
+`BLOCKED_PROVIDER_TIMEOUT`，未评估，不是“无发现”或`PASS_WITH_LIMITS`。
 
-第二次尝试的真实Pi工具/流式往返已通过：2请求均HTTP200、9.860秒。随后独占固定候选的K3 explore启动，前2请求成功，第三请求在120秒单请求期限内未完成；事件流记录`Request timed out.`，没有终稿或自造探针。Pi进程exit0不被采作审查完成。
+第三次实际工具预检首请求超时；观察到设备会话重新建立后，第四次真实Pi工具/流式往返完整通过（2请求HTTP200、158.502秒）。但timer组explore的首请求6366字节，在读取源码前120秒超时，总124.656秒；0工具、无终稿/探针，Pi exit0未获签字。
 
-本次未自动重试、换模型/账号或重启网关；execute/report未启动。不能据此判断K3永久不可用、冷却中或额度耗尽，也不能将小载荷通过扩写为完整审查完成。
+C1-C10已拆timer/e2/consent三组但没有减覆盖。其他组及execute/report未开始，17业务+1底层事务清单仍只是作者静态核对。宿主的沙箱/限额/阶段拒绝检查不顶替审查者探针或pytest必红对照，四叶工程测试也不顶替独审。
 
-审查发现：未评估。审查者探针：未生成、未执行。作者17处业务事务分类未得到本轮独立复核。新证据见`../k3-attempt-02/README.md`；第一次plain超时在`../attempt-01-report.json`与`../gateway-preflight.json`保留。
+本轮新增4、累计10次宿主模型请求；SDK自动重试0、模型/账号替换0、网关重启0。新的恢复预检依据和前次失败分开保留，不断言服务503与模型超时的因果关系。
+
+见`../k3-attempt-03/README.md`、`../k3-attempt-04/README.md`及最新`../report.json`；旧01/02不覆盖。

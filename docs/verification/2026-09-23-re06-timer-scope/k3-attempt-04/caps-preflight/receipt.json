@@ -1,0 +1,12 @@
+{
+  "status": "PASS",
+  "real_model_requests": 0,
+  "checks": [
+    "read line cap 120",
+    "read byte cap 6000",
+    "continuation offset exact",
+    "oversized single line explicitly refused",
+    "bash response capped with raw output unchanged",
+    "C1-C10 grouped exactly once"
+  ]
+}

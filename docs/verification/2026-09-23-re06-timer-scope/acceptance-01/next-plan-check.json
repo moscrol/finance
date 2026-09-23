@@ -1,0 +1,15 @@
+{
+  "status": "PASS",
+  "kind": "host controller self-check, not product acceptance or independent QC",
+  "real_model_requests": 0,
+  "pytest_processes_started": 0,
+  "frontend_or_browser_commands_started": 0,
+  "prepared_runner_sha256": "330ae49d55f35f64575103729994dd14c5f7072bed20defe64a351b0a563bf28",
+  "checks": [
+    "E2E plan owns build then test",
+    "old slice excluding build rejected",
+    "failed build suppresses E2E command"
+  ],
+  "current_attempt_retroactively_changed": false,
+  "next_full_acceptance_executed": false
+}

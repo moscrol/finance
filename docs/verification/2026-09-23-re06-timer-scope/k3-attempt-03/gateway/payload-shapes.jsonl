@@ -1,0 +1,1 @@
+{"request":1,"elapsed_ms":98,"model":"kimi-k3","stream":true,"fields":["max_completion_tokens","messages","model","prompt_cache_key","prompt_cache_retention","reasoning_effort","store","stream","stream_options","tools"],"tools":["read","bash","write"],"roles":["system","user"],"reasoning_effort":"xhigh","max_completion_tokens":16384,"temperature_removed":false}

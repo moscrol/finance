@@ -1,0 +1,39 @@
+{
+  "schema": 1,
+  "leaf": "frontend",
+  "tree": "/Users/a77/fwp-wt-wave2-re06-0923",
+  "revision": "f9ce5c6b296492b423400ad66d333784a4be13bc",
+  "runner_sha256": "4fa9fd9a8e40507eb7a26e90f46928ac066551225cd6abb91d84370d3c427f32",
+  "started_at": "2026-09-23T06:47:05.042828+00:00",
+  "identity_before": {
+    "recorded_at": "2026-09-23T06:47:05.260452+00:00",
+    "revision": "f9ce5c6b296492b423400ad66d333784a4be13bc",
+    "dirty": false,
+    "status_porcelain_z": ""
+  },
+  "identity_after": {
+    "recorded_at": "2026-09-23T06:47:05.448348+00:00",
+    "revision": "f9ce5c6b296492b423400ad66d333784a4be13bc",
+    "dirty": false,
+    "status_porcelain_z": ""
+  },
+  "dirty": false,
+  "identity_stable": true,
+  "complete": false,
+  "checks": [
+    {
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-c",
+        "raise SystemExit(7)"
+      ],
+      "exit_code": 7,
+      "elapsed_seconds": 0.03,
+      "log": "frontend-0.log.txt",
+      "log_bytes": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "exit_code": 1,
+  "finished_at": "2026-09-23T06:47:05.448406+00:00"
+}

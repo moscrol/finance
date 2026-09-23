@@ -1,0 +1,6 @@
+{
+  "format": "utf8-text-envelope/v1",
+  "runtime_relative_path": "ruff.log.txt",
+  "original_sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+  "text": "All checks passed!\n"
+}

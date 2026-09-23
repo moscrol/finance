@@ -1,0 +1,217 @@
+{
+  "runtime_source": "/Users/a77/.finance-runtime/reviews/re06-timer-scope-qc-20260923-04",
+  "scope": "selected essential receipts and controller snapshots; full original runtime retained",
+  "archive_naming": "Code scripts and .log gain .txt; byte-identical.",
+  "files": {
+    "config.json": {
+      "runtime_relative_path": "config.json",
+      "sha256": "36aea245ba639242ba9206faac6e87ce539719c523f63f20a026bbe5ac70d828",
+      "bytes": 364
+    },
+    "provider-template.json": {
+      "runtime_relative_path": "provider-template.json",
+      "sha256": "d3030f00ab3ba2d67c27d1fba2fcbdf60af34ea0d0d675e8bba704dfc54094b4",
+      "bytes": 458
+    },
+    "pi-config/settings.json": {
+      "runtime_relative_path": "pi-config/settings.json",
+      "sha256": "cda612a59b9d61dc644867021e8a5284dc7a6040e65eadab9b883ae78406b417",
+      "bytes": 340
+    },
+    "group-plan.json": {
+      "runtime_relative_path": "group-plan.json",
+      "sha256": "115421dc1408d14140bfddfa1477a43f1087723e4f8ffdc798be5747b3edff8c",
+      "bytes": 1770
+    },
+    "review.mjs.txt": {
+      "runtime_relative_path": "review.mjs",
+      "sha256": "7fc37eaf311dc4e357aa1955e30054fa41f571bacca1be246e2fe079c2dd9425",
+      "bytes": 10429
+    },
+    "run_stage.py.txt": {
+      "runtime_relative_path": "run_stage.py",
+      "sha256": "c07a060104131816f22716057e3a4b467fb61558173fd2c683d4f2266fe30abd",
+      "bytes": 6987
+    },
+    "file_tool.py.txt": {
+      "runtime_relative_path": "file_tool.py",
+      "sha256": "d172ccc3510efefa5ea69384601ea670a5d3c15b522371b85816f1aea9212472",
+      "bytes": 1912
+    },
+    "tools.sb.txt": {
+      "runtime_relative_path": "tools.sb",
+      "sha256": "a6b37b47a23e803db3b1e98707e53cdc40fb48a0c4b893e5dd2282667dc6bb81",
+      "bytes": 1630
+    },
+    "gateway.mjs.txt": {
+      "runtime_relative_path": "gateway.mjs",
+      "sha256": "7296e0a184517333c5400fb9785b76cff97170cf9954e62ecf46f4f120b8a244",
+      "bytes": 1891
+    },
+    "run_gateway.py.txt": {
+      "runtime_relative_path": "run_gateway.py",
+      "sha256": "15287f764d34f47f8c6b7011598be4a5b13faba038f2fdbbbb7ac8a41dd66564",
+      "bytes": 4448
+    },
+    "credential-bootstrap.mjs.txt": {
+      "runtime_relative_path": "credential-bootstrap.mjs",
+      "sha256": "dfea31540dd29010b14e0e3326b5620951eac18d6d4239bb52d83288765e8267",
+      "bytes": 5071
+    },
+    "sandbox_preflight.mjs.txt": {
+      "runtime_relative_path": "sandbox_preflight.mjs",
+      "sha256": "e12231f6abdcf68252d7e6edb8fd0ebcdb5ced27937587474ee5160eeba0c196",
+      "bytes": 4558
+    },
+    "caps_preflight.mjs.txt": {
+      "runtime_relative_path": "caps_preflight.mjs",
+      "sha256": "56c9a341ab3a0d13cb252ce4f4feb866209d182ca4a83a98e37e4380c4de5195",
+      "bytes": 3170
+    },
+    "launch_recovery.py.txt": {
+      "runtime_relative_path": "launch_recovery.py",
+      "sha256": "3733ef180519cdad15d31f888170e3e74718b87bda0415213b14cc92f378157a",
+      "bytes": 1833
+    },
+    "prompt-explore-timer.md": {
+      "runtime_relative_path": "prompt-explore-timer.md",
+      "sha256": "c68fe8185d25b6471a2eecc781157738f4eda3f3af350f480ceba8ee521ed706",
+      "bytes": 2381
+    },
+    "prompt-explore-e2.md": {
+      "runtime_relative_path": "prompt-explore-e2.md",
+      "sha256": "e7ff2290038e6d2d306ae4d066bbc00ba9c74f3db7b02d47b23f80d7c24dcffe",
+      "bytes": 2174
+    },
+    "prompt-explore-consent.md": {
+      "runtime_relative_path": "prompt-explore-consent.md",
+      "sha256": "c07e5e562d081489742663bc0a74b5cc6eccca38bdf4a340c3521c9073f6c9bc",
+      "bytes": 2378
+    },
+    "inputs/identity.json": {
+      "runtime_relative_path": "inputs/identity.json",
+      "sha256": "91215037a8eeafb551e7fb22b57135980a89795f43fe291df182ccad8e0d9887",
+      "bytes": 2425
+    },
+    "inputs/claims.md": {
+      "runtime_relative_path": "inputs/claims.md",
+      "sha256": "5752e0521c18b2f817643f911364eed097fcba93f79e926e030c52fd9abb09c8",
+      "bytes": 2669
+    },
+    "sandbox-preflight/receipt.json": {
+      "runtime_relative_path": "sandbox-preflight/receipt.json",
+      "sha256": "dcc1ea1b8425ee43401f6d3387bfb54ac9b5b8a536f1432acf1606cdb2f7b8b9",
+      "bytes": 477
+    },
+    "caps-preflight/receipt.json": {
+      "runtime_relative_path": "caps-preflight/receipt.json",
+      "sha256": "19bcdac49084eb6a316ab7c22449dab4ca87d2a663386aec90e34e502980f2bb",
+      "bytes": 289
+    },
+    "resource-snapshot.json": {
+      "runtime_relative_path": "resource-snapshot.json",
+      "sha256": "4517fc35bd284d64ce79de5223e9689f8a2fb3dbaf38eb3f3c0e49cfb875ed23",
+      "bytes": 319
+    },
+    "recovery-admission.json": {
+      "runtime_relative_path": "recovery-admission.json",
+      "sha256": "4c0fc710556eb908687fa163b94234398b98745ce3dd22cc691a4ec437476ce6",
+      "bytes": 693
+    },
+    "stage-gate-negative-control.json": {
+      "runtime_relative_path": "stage-gate-negative-control.json",
+      "sha256": "9151446ae7a870e2501600d59962dd1f8cb1a8c9c9a8a63c2a4005eaa65a467d",
+      "bytes": 622
+    },
+    "gateway/credential.json": {
+      "runtime_relative_path": "gateway/credential.json",
+      "sha256": "35fc1be08dc24238585230b734c18c7d8a71ef716104c762b1167a89eb02988a",
+      "bytes": 460
+    },
+    "gateway/events.jsonl": {
+      "runtime_relative_path": "gateway/events.jsonl",
+      "sha256": "2c02318dde4100d1892363e2c01b1a621736468ea676d89ea070bcf1bb7499c5",
+      "bytes": 17477
+    },
+    "gateway/model-results.jsonl": {
+      "runtime_relative_path": "gateway/model-results.jsonl",
+      "sha256": "375f2cc50af40ad987c4114a355d532761b81aff971a08924440a8de2416689f",
+      "bytes": 187
+    },
+    "gateway/payload-shapes.jsonl": {
+      "runtime_relative_path": "gateway/payload-shapes.jsonl",
+      "sha256": "e2ba0eb4dc99355b0ce66d42655ab3a4d9ccfa26823da03917669f796312f816",
+      "bytes": 750
+    },
+    "gateway/receipt.json": {
+      "runtime_relative_path": "gateway/receipt.json",
+      "sha256": "4d11d9270188e9471338e5fec9b9ae487799f00b5d5285c858cc1fe0d8003564",
+      "bytes": 2008
+    },
+    "gateway/request-admissions.jsonl": {
+      "runtime_relative_path": "gateway/request-admissions.jsonl",
+      "sha256": "4f2ae40ea1099ce7d0b792887652c2f08c0d1547f353ea78ed6add2f0f444351",
+      "bytes": 198
+    },
+    "gateway/responses.jsonl": {
+      "runtime_relative_path": "gateway/responses.jsonl",
+      "sha256": "94df910ab0f6d85fe590cae7bb001bd8a55cd2321ce16e0a9d1c9d419750aaaf",
+      "bytes": 93
+    },
+    "gateway/stderr.log.txt": {
+      "runtime_relative_path": "gateway/stderr.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "gateway/work/fixture.txt": {
+      "runtime_relative_path": "gateway/work/fixture.txt",
+      "sha256": "7885f5503abcce185f42dec4895347aa7899ef7067e9024e2a58a27fe9272f7e",
+      "bytes": 35
+    },
+    "explore-timer/auth-reserved.json": {
+      "runtime_relative_path": "explore-timer/auth-reserved.json",
+      "sha256": "89d3a977d27d8a5032bbf88f303e090c5d2b24e52f34c59a7f97a56857472e04",
+      "bytes": 40
+    },
+    "explore-timer/credential.json": {
+      "runtime_relative_path": "explore-timer/credential.json",
+      "sha256": "edc095443f765d96f6c3ad8b438a221110dc8a20f6fea443fb5adb334922aa0c",
+      "bytes": 308
+    },
+    "explore-timer/events.jsonl": {
+      "runtime_relative_path": "explore-timer/events.jsonl",
+      "sha256": "6b2ec2070359d78f4e7a94629670461c1385d9d09fad457eb5ba90ceaa5a9568",
+      "bytes": 9357
+    },
+    "explore-timer/execution.json": {
+      "runtime_relative_path": "explore-timer/execution.json",
+      "sha256": "93ed83984fe1ff14eb2c210530974fbab8fff64d4afc8b424629d0f4ff08c961",
+      "bytes": 3258
+    },
+    "explore-timer/model-failure.json": {
+      "runtime_relative_path": "explore-timer/model-failure.json",
+      "sha256": "fe7d46ffdb7c3e985f0a68cb02f4cf940f2c8326be5db4f2877808680a9ec17f",
+      "bytes": 36
+    },
+    "explore-timer/payload-shapes.jsonl": {
+      "runtime_relative_path": "explore-timer/payload-shapes.jsonl",
+      "sha256": "502288a4279d492cd89c98de213a34a9f37f215893d49c631916eca54beb9587",
+      "bytes": 192
+    },
+    "explore-timer/request-admissions.jsonl": {
+      "runtime_relative_path": "explore-timer/request-admissions.jsonl",
+      "sha256": "b88ccb99e1dc3d9dadcedc5435b9d6334547b6c743c704e24d9c9e8fa479ea89",
+      "bytes": 117
+    },
+    "explore-timer/stderr.log.txt": {
+      "runtime_relative_path": "explore-timer/stderr.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "report.json": {
+      "runtime_relative_path": null,
+      "sha256": "82000ca20ca874b779ded1786b11a68e19b62f934c375b08b6def819f49ad2c8",
+      "bytes": 4191
+    }
+  }
+}

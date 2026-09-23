@@ -18,7 +18,7 @@
 
 用户原话 `b`。已在独立候选 `fix/re06-timer-scope-0923@4bb3bf0cb` 实施 B：`activity-timer`/v2，读写共用测量域分类；旧 v1 仅对原控件完整自用形状作对称读取兼容，不改台账或哈希。原任务树保留，固定基线 `ffd1b7f15720`。干净候选授权/API 89P、前端9P，完整四叶和独立QC仍待，不是合入/部署/迁移授权。详情 `~/fwp-wt-wave2-re06-0923/docs/handoffs/2026-09-23-re06-timer-scope-b.md`。
 
-09-23 本轮验收输入固定为 `f9ce5c6b296492b423400ad66d333784a4be13bc`，代码候选未改。17处业务事务逐项作者静态核对已落 `docs/verification/2026-09-23-re06-toctou-family.md`：分母是 RE06 服务/API 直接事务调用，另列底层 `_locked` 1处，不再表述成全仓仅17处。完整C1–C10主张已入#75。第二次尝试真实Pi工具/流式往返2请求HTTP200（9.86秒），独占detached explore前2请求成功、第3请求120秒超时，总137.147秒，无终稿/探针，`BLOCKED_PROVIDER_TIMEOUT`；Pi exit0不算完成。本次5请求、累计6请求，无自动重试/换模型，旧plain 90.034秒超时保留但不外推通道不可用。完整四叶仍受资源门阻塞（13:28负载85.16、pytest5）；详情 `docs/verification/2026-09-23-re06-timer-scope/README.md`。
+09-23 本轮验收输入固定为 `f9ce5c6b296492b423400ad66d333784a4be13bc`，代码候选未改。17处业务事务逐项作者静态核对已落 `docs/verification/2026-09-23-re06-toctou-family.md`：分母是 RE06 服务/API 直接事务调用，另列底层 `_locked` 1处，不再表述成全仓仅17处。完整C1–C10主张已入#75。第三次实际预检首请求超时；观察设备会话恢复后第四次往返2请求HTTP200（158.502秒），timer组explore首请求6366字节即120秒超时（总124.656秒），0工具/终稿/探针，`BLOCKED_PROVIDER_TIMEOUT`；Pi exit0不算完成。三组覆盖C1-C10的准备与输出限额离线检查已完成，不代QC；累计10请求，SDK自动重试0/未换模型，旧失败与成功分别留账。四叶尝试未完成：Ruff过，pytest到30分钟上限（最后93%、exit -15），无完整收据；14:45资源仍红，前端/E2E/registry未跑。下轮E2E改为自身先build的计划已作离线反证，不代真实E2E；详情 `docs/verification/2026-09-23-re06-timer-scope/README.md`。
 
 原三选一比较保留：
 - A **只改文案**：界面明说「停止计时会撤回自用测量同意」。零代码风险，但用户每次停计时都在关测量。

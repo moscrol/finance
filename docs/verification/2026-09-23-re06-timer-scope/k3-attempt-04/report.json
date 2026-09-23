@@ -1,0 +1,152 @@
+{
+  "schema_version": "independent-qc-attempt/v1",
+  "attempt": 4,
+  "workorder": 73,
+  "service_workorder": 75,
+  "revision": "f9ce5c6b296492b423400ad66d333784a4be13bc",
+  "baseline": "ffd1b7f1572067e9a4c7e3a5845e99cf7f876cfb",
+  "author_tree": "/Users/a77/fwp-wt-wave2-re06-0923",
+  "reviewer_tree": "/Users/a77/.finance-runtime/reviews/re06-timer-scope-qc-20260923-02/candidate/finance-workspace-private",
+  "verdict": "BLOCKED_PROVIDER_TIMEOUT",
+  "verdict_author": "host controller, not reviewer",
+  "independent_review_started": true,
+  "independent_review_completed": false,
+  "provider": "mirasim-kimi",
+  "model": "kimi-k3",
+  "thinking": "xhigh",
+  "requests": 3,
+  "gateway_requests": 2,
+  "review_requests": 1,
+  "previous_attempt_requests": 7,
+  "all_attempts_requests": 10,
+  "attempt_history": [
+    {
+      "attempt": 1,
+      "requests": 1,
+      "kind": "plain preflight timeout"
+    },
+    {
+      "attempt": 2,
+      "requests": 5,
+      "kind": "tool roundtrip pass; third explore request timeout"
+    },
+    {
+      "attempt": 3,
+      "requests": 1,
+      "kind": "first tool-preflight request timeout"
+    },
+    {
+      "attempt": 4,
+      "requests": 3,
+      "kind": "recovery tool roundtrip pass; first grouped explore request timeout"
+    }
+  ],
+  "gateway_status": "PASS",
+  "gateway_elapsed_seconds": 158.502,
+  "gateway_http_statuses": [
+    200,
+    200
+  ],
+  "gateway_tool_executions": 1,
+  "review_stage": "explore-timer",
+  "review_elapsed_seconds": 124.656,
+  "review_payload_bytes": 6366,
+  "review_message_count": 2,
+  "review_http_statuses": [],
+  "review_tool_executions": 0,
+  "review_exit_code": 0,
+  "provider_request_timeout_ms": 120000,
+  "review_wall_deadline_seconds": 600,
+  "review_wall_deadline_hit": false,
+  "review_errors": [
+    "Request timed out."
+  ],
+  "automatic_retries": 0,
+  "fallbacks": 0,
+  "reviewer_terminal_report": false,
+  "reviewer_probe_files": 0,
+  "reviewer_tests": null,
+  "author_current_revision_tests": null,
+  "positive_control_executed": false,
+  "reviewer_spec": "not_verified",
+  "reviewer_quality": "not_evaluated",
+  "claims": {
+    "C1": "not_verified",
+    "C2": "not_verified",
+    "C3": "not_verified",
+    "C4": "not_verified",
+    "C5": "not_verified",
+    "C6": "not_verified",
+    "C7": "not_verified",
+    "C8": "not_verified",
+    "C9": "not_verified",
+    "C10": "not_verified"
+  },
+  "grouping": {
+    "timer": [
+      "C7",
+      "C8",
+      "C9",
+      "C10"
+    ],
+    "e2": [
+      "C1",
+      "C2",
+      "C3"
+    ],
+    "consent": [
+      "C4",
+      "C5",
+      "C6"
+    ]
+  },
+  "group_status": {
+    "timer": "BLOCKED_PROVIDER_TIMEOUT",
+    "e2": "NOT_STARTED",
+    "consent": "NOT_STARTED"
+  },
+  "host_self_checks": [
+    "sandbox boundaries",
+    "read caps and exact continuation",
+    "bash response cap retains raw output",
+    "group coverage C1-C10 exactly once",
+    "failed explore refuses execute"
+  ],
+  "candidate_four_leaf": "BLOCKED_RESOURCE_GATE",
+  "resource_snapshot": {
+    "observed_at": "2026-09-23T06:07:48.173863+00:00",
+    "load_averages": [
+      8.78466796875,
+      11.29296875,
+      23.86962890625
+    ],
+    "pytest_processes": 0,
+    "pytest_rows": [],
+    "free_disk_gib": 39.154,
+    "full_test_load_limit": 8,
+    "full_test_pytest_limit": 2,
+    "minimum_disk_gib": 8,
+    "gate_passed": false
+  },
+  "candidate_unchanged": true,
+  "author_unchanged": true,
+  "identities": {
+    "tree": {
+      "revision": "f9ce5c6b296492b423400ad66d333784a4be13bc",
+      "status": ""
+    },
+    "author": {
+      "revision": "f9ce5c6b296492b423400ad66d333784a4be13bc",
+      "status": ""
+    }
+  },
+  "runtime_evidence": "/Users/a77/.finance-runtime/reviews/re06-timer-scope-qc-20260923-04",
+  "production_modified": false,
+  "merge_authorized": false,
+  "limits": [
+    "Successful recovery tool roundtrip is not completed QC.",
+    "First grouped request timed out before reading source, so large source reads alone do not explain this observation.",
+    "Service device-session state is a recovery signal, not proof of this request failure cause.",
+    "No successful grouped review or reviewer probe exists; host checks do not replace reviewer tests."
+  ]
+}

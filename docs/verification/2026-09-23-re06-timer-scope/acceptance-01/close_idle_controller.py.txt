@@ -1,0 +1,42 @@
+"""Close only our idle controller; preserve its raw incomplete receipt."""
+from datetime import datetime, timezone
+import json
+import os
+from pathlib import Path
+import signal
+import subprocess
+import time
+ROOT = Path(__file__).resolve().parent
+PID = 91724
+receipt = json.loads((ROOT/'receipt.json').read_text())
+assert not receipt.get('finished_at')
+assert receipt['leaves']['python']['checks'][1]['timed_out'] is True
+assert not receipt['resource_admissions'][-1]['allowed']
+assert not (ROOT/'frontend').exists() and not (ROOT/'e2e').exists()
+process = subprocess.check_output(['ps','-p',str(PID),'-o','pid=,pgid=,command='],text=True).strip()
+assert str(ROOT/'run.py') in process
+assert process.split()[0:2] == [str(PID),str(PID)]
+children = subprocess.run(['pgrep','-P',str(PID)],capture_output=True,text=True)
+assert children.returncode == 1, 'Do not close a controller with active test children.'
+record = {'at':datetime.now(timezone.utc).isoformat(),'controller_pid':PID,'command':process,
+          'reason':'No active test child; Python timed out and remaining resource admissions remain red. Close idle wait, preserve incomplete receipt. Future E2E must own a fresh build.',
+          'last_resource_admission':receipt['resource_admissions'][-1],
+          'active_test_children':0,'unrelated_processes_signaled':0,
+          'unrun_leaves':{'frontend':'BLOCKED_RESOURCE_GATE','e2e':'BLOCKED_RESOURCE_GATE','registry':'BLOCKED_RESOURCE_GATE'}}
+os.killpg(PID,signal.SIGTERM)
+for _ in range(50):
+    result = subprocess.run(['ps','-p',str(PID),'-o','stat='],capture_output=True,text=True)
+    if result.returncode or result.stdout.strip().startswith('Z'):
+        break
+    time.sleep(0.1)
+else:
+    raise RuntimeError('Controller did not exit; inspect, do not force-kill unrelated processes.')
+record['controller_exited'] = True
+record['identity_after'] = {'revision':subprocess.check_output(['git','-C',receipt['tree'],'rev-parse','HEAD'],text=True).strip(),
+                          'status':subprocess.check_output(['git','-C',receipt['tree'],'status','--porcelain'],text=True).strip()}
+assert record['identity_after'] == receipt['identity_before']
+record['identity_stable'] = True
+with (ROOT/'controller-closeout.json').open('x') as stream:
+    json.dump(record,stream,ensure_ascii=False,indent=2)
+    stream.write('\n')
+print(json.dumps(record,ensure_ascii=False,indent=2))

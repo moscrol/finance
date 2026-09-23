@@ -1,0 +1,15 @@
+{
+  "observed_at": "2026-09-23T05:57:17.110637+00:00",
+  "previous_attempt": "re06-timer-scope-qc-20260923-03",
+  "reason": "Observed device-session rejection followed by establishment; one new bounded probe, not SDK automatic retry.",
+  "service_log_path": "/Users/a77/Library/Application Support/mirasim-sidecar/logs/sidecar.stderr.log",
+  "log_mtime": "2026-09-23T05:53:02.816505+00:00",
+  "last_503_line": 11593,
+  "last_established_line": 13611,
+  "last_relevant_state": "device session established",
+  "request_correlation": "UNKNOWN; recovery hint, not proof of provider availability",
+  "new_probe_limit": 1,
+  "automatic_retries": 0,
+  "gateway_changes": 0,
+  "gateway_restarts": 0
+}

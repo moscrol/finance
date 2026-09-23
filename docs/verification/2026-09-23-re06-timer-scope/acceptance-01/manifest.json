@@ -1,0 +1,101 @@
+{
+  "files": {
+    "run.py.txt": {
+      "runtime_relative_path": "run.py",
+      "original_sha256": "611747225dcf0516875121ff4b50821ea99efec379d51995facf4a2fd849a8fa",
+      "original_bytes": 6818,
+      "archive_sha256": "611747225dcf0516875121ff4b50821ea99efec379d51995facf4a2fd849a8fa",
+      "envelope": false
+    },
+    "receipt.json": {
+      "runtime_relative_path": "receipt.json",
+      "original_sha256": "2ed94a75a50fbd3f2da1e3162486957aea246313843ebb342b76ebca6f3c0ae3",
+      "original_bytes": 8909,
+      "archive_sha256": "2ed94a75a50fbd3f2da1e3162486957aea246313843ebb342b76ebca6f3c0ae3",
+      "envelope": false
+    },
+    "runner.log.txt.json": {
+      "runtime_relative_path": "runner.log.txt",
+      "original_sha256": "0bea371f6c6af0e42c75049d782c4ce323fff4f5e00191ea1a9f201c154037b8",
+      "original_bytes": 1437,
+      "archive_sha256": "92d9274d96534a7527359d90465e6d3dc5bda70416e664055da718547d223a76",
+      "envelope": true
+    },
+    "controller-closeout.json": {
+      "runtime_relative_path": "controller-closeout.json",
+      "original_sha256": "31de9f69e5dcd194ee0578ffa69cf724fb4081b52e9e81f0899255d5f45bd522",
+      "original_bytes": 1131,
+      "archive_sha256": "31de9f69e5dcd194ee0578ffa69cf724fb4081b52e9e81f0899255d5f45bd522",
+      "envelope": false
+    },
+    "close_idle_controller.py.txt": {
+      "runtime_relative_path": "close_idle_controller.py",
+      "original_sha256": "cccd9c0e1c37b5f2a898a58e33c1cec0bb52cb2c72d2d50843f6140b7aa9c63b",
+      "original_bytes": 2389,
+      "archive_sha256": "cccd9c0e1c37b5f2a898a58e33c1cec0bb52cb2c72d2d50843f6140b7aa9c63b",
+      "envelope": false
+    },
+    "run_next.py.txt": {
+      "runtime_relative_path": "run_next.py",
+      "original_sha256": "330ae49d55f35f64575103729994dd14c5f7072bed20defe64a351b0a563bf28",
+      "original_bytes": 6894,
+      "archive_sha256": "330ae49d55f35f64575103729994dd14c5f7072bed20defe64a351b0a563bf28",
+      "envelope": false
+    },
+    "check_next_plan.py.txt": {
+      "runtime_relative_path": "check_next_plan.py",
+      "original_sha256": "8517a2d2337d5eae19a2fddf010e19e9e56cb89748942f00398efba4605cd85a",
+      "original_bytes": 2226,
+      "archive_sha256": "8517a2d2337d5eae19a2fddf010e19e9e56cb89748942f00398efba4605cd85a",
+      "envelope": false
+    },
+    "next-plan-check.json": {
+      "runtime_relative_path": "next-plan-check.json",
+      "original_sha256": "e243866ffe242b07956b0793419a9e8edbb071010e30fb2583f2f209f9061c12",
+      "original_bytes": 539,
+      "archive_sha256": "e243866ffe242b07956b0793419a9e8edbb071010e30fb2583f2f209f9061c12",
+      "envelope": false
+    },
+    "next-plan-failed-build/frontend.json": {
+      "runtime_relative_path": "next-plan-failed-build/frontend.json",
+      "original_sha256": "ab7a7a6cb0913acf14cbecb73287e8aa98158765e98c0e0be51cc5a11f46d67c",
+      "original_bytes": 1179,
+      "archive_sha256": "ab7a7a6cb0913acf14cbecb73287e8aa98158765e98c0e0be51cc5a11f46d67c",
+      "envelope": false
+    },
+    "next-plan-failed-build/frontend-0.log.txt.json": {
+      "runtime_relative_path": "next-plan-failed-build/frontend-0.log.txt",
+      "original_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "original_bytes": 0,
+      "archive_sha256": "01fb53ac7e9dce7a45bdf232115cc6ca33214c975592970a9b56adf4cad8ce62",
+      "envelope": true
+    },
+    "ruff.log.txt.json": {
+      "runtime_relative_path": "ruff.log.txt",
+      "original_sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+      "original_bytes": 19,
+      "archive_sha256": "ba4364ae035eda7a0af76a3bfc29499b6cf75b7ed147ad69802c5cddf2fe85d6",
+      "envelope": true
+    },
+    "pytest.log.txt.json": {
+      "runtime_relative_path": "pytest.log.txt",
+      "original_sha256": "4f316c071589c28ddbb84df6bd571ee75182b99649c14d1a9ef83222db2800aa",
+      "original_bytes": 15338,
+      "archive_sha256": "6d31c3fa812cbf15e2b522d02a2b20558b6c8d9a706aebc664775cdc62521922",
+      "envelope": true
+    },
+    "python-receipt-check.log.txt.json": {
+      "runtime_relative_path": "python-receipt-check.log.txt",
+      "original_sha256": "321dba9ce968a1d4b000737b89e587c1e368b4104a349ef7081219947926e227",
+      "original_bytes": 158,
+      "archive_sha256": "f0db5ecc34feb73bb47c69e999ee3b65f983f50f4b1f5d4a6909a3167fee87c0",
+      "envelope": true
+    },
+    "summary.json": {
+      "runtime_relative_path": null,
+      "archive_sha256": "e811f41cf36ccb2afd08b355fa1abe08b83ba5f7435e8ba68d2744ee3162fb8b"
+    }
+  },
+  "runtime_source": "/Users/a77/.finance-runtime/reviews/re06-timer-scope-acceptance-20260923-01",
+  "note": "Log envelopes reconstruct original UTF-8 bytes, including trailing whitespace. No fixtures, databases or browser binaries archived."
+}

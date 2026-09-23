@@ -1,0 +1,94 @@
+{
+  "schema_version": "independent-qc-attempt/v1",
+  "workorder": 73,
+  "service_workorder": 75,
+  "attempt": 2,
+  "revision": "f9ce5c6b296492b423400ad66d333784a4be13bc",
+  "baseline": "ffd1b7f1572067e9a4c7e3a5845e99cf7f876cfb",
+  "author_tree": "/Users/a77/fwp-wt-wave2-re06-0923",
+  "reviewer_tree": "/Users/a77/.finance-runtime/reviews/re06-timer-scope-qc-20260923-02/candidate/finance-workspace-private",
+  "verdict": "BLOCKED_PROVIDER_TIMEOUT",
+  "verdict_author": "host controller, not reviewer",
+  "independent_review_started": true,
+  "independent_review_completed": false,
+  "provider": "mirasim-kimi",
+  "model": "kimi-k3",
+  "thinking": "xhigh",
+  "requests": 5,
+  "gateway_requests": 2,
+  "review_requests": 3,
+  "previous_attempt_requests": 1,
+  "all_attempts_requests": 6,
+  "gateway_status": "PASS",
+  "gateway_elapsed_seconds": 9.86,
+  "gateway_shapes_verified": [
+    "actual_pi_stream",
+    "tools",
+    "tool_result_roundtrip"
+  ],
+  "review_elapsed_seconds": 137.147,
+  "provider_request_timeout_ms": 120000,
+  "review_wall_deadline_seconds": 600,
+  "review_wall_deadline_hit": false,
+  "review_exit_code": 0,
+  "review_errors": [
+    "Request timed out."
+  ],
+  "review_http_statuses": [
+    200,
+    200
+  ],
+  "failed_request_http_status": null,
+  "observed_400_count": 0,
+  "observed_429_count": 0,
+  "retries": 0,
+  "fallbacks": 0,
+  "reviewer_terminal_report": false,
+  "reviewer_probe_files": 0,
+  "reviewer_tests": null,
+  "author_current_revision_tests": null,
+  "positive_control_executed": false,
+  "reviewer_spec": "not_verified",
+  "reviewer_quality": "not_evaluated",
+  "candidate_four_leaf": "BLOCKED_RESOURCE_GATE",
+  "resource_snapshot": {
+    "observed_at": "2026-09-23T05:28:35.493951+00:00",
+    "load_averages": [
+      85.1611328125,
+      51.33056640625,
+      37.68994140625
+    ],
+    "pytest_processes": 5,
+    "pytest_rows": [
+      "3991  3965       16:05 /opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -m pytest -q -p no:cacheprovider",
+      "4844  4827       14:59 /opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -m pytest -q -p no:cacheprovider",
+      "20682 20624       05:48 /opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -m pytest -q -p no:cacheprovider",
+      "22279 22234       04:47 /opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -m pytest -q -p no:cacheprovider",
+      "27711 27650       02:11 /opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -m pytest -q -p no:cacheprovider --junitxml=/Users/a77/.finance-runtime/reviews/run-queued-regression-20260923/gates/python-junit.xml --basetemp=/Users/a77/.finance-runtime/reviews/run-queued-regression-20260923/gates/basetemp-python"
+    ],
+    "free_disk_gib": 54.956,
+    "full_test_load_limit": 8,
+    "full_test_pytest_limit": 2,
+    "minimum_disk_gib": 8,
+    "gate_passed": false
+  },
+  "candidate_unchanged": true,
+  "author_unchanged": true,
+  "runtime_evidence": "/Users/a77/.finance-runtime/reviews/re06-timer-scope-qc-20260923-02",
+  "production_modified": false,
+  "merge_authorized": false,
+  "limits": [
+    "A passing small round trip is not proof of sustained full-review availability.",
+    "Timeout does not establish quota exhaustion, cooldown, or permanent unavailability.",
+    "Four successful tool executions are not four verified claims.",
+    "Sandbox self-test is host evidence, not reviewer probes or the required pytest positive control."
+  ],
+  "artifacts": {
+    "gateway": "k3-attempt-02/gateway/receipt.json",
+    "explore": "k3-attempt-02/explore/execution.json",
+    "sandbox": "k3-attempt-02/sandbox-preflight-02/receipt.json",
+    "model_failure": "k3-attempt-02/explore/model-failure.json",
+    "manifest": "k3-attempt-02/manifest.json"
+  },
+  "previous_attempt_report": "attempt-01-report.json"
+}

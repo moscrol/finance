@@ -1,0 +1,31 @@
+{
+  "at": "2026-09-23T06:45:26.083447+00:00",
+  "controller_pid": 91724,
+  "command": "91724 91724 /opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python /Users/a77/.finance-runtime/reviews/re06-timer-scope-acceptance-20260923-01/run.py",
+  "reason": "No active test child; Python timed out and remaining resource admissions remain red. Close idle wait, preserve incomplete receipt. Future E2E must own a fresh build.",
+  "last_resource_admission": {
+    "leaf": "frontend",
+    "at": "2026-09-23T06:45:21.172054+00:00",
+    "load": [
+      11.69482421875,
+      14.30810546875,
+      18.56103515625
+    ],
+    "pytest_processes": 4,
+    "free_disk_gib": 34.784,
+    "allowed": false
+  },
+  "active_test_children": 0,
+  "unrelated_processes_signaled": 0,
+  "unrun_leaves": {
+    "frontend": "BLOCKED_RESOURCE_GATE",
+    "e2e": "BLOCKED_RESOURCE_GATE",
+    "registry": "BLOCKED_RESOURCE_GATE"
+  },
+  "controller_exited": true,
+  "identity_after": {
+    "revision": "f9ce5c6b296492b423400ad66d333784a4be13bc",
+    "status": ""
+  },
+  "identity_stable": true
+}

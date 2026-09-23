@@ -1,0 +1,31 @@
+{
+  "revision": "f9ce5c6b296492b423400ad66d333784a4be13bc",
+  "baseline": "ffd1b7f1572067e9a4c7e3a5845e99cf7f876cfb",
+  "status": "INCOMPLETE",
+  "complete": false,
+  "identity_stable": true,
+  "leaves": {
+    "python": "BLOCKED_FULL_TEST_TIMEOUT",
+    "frontend": "BLOCKED_RESOURCE_GATE",
+    "e2e": "BLOCKED_RESOURCE_GATE",
+    "registry": "BLOCKED_RESOURCE_GATE"
+  },
+  "raw_python_leaf_status": "FAIL",
+  "ruff_exit_code": 0,
+  "pytest_exit_code": -15,
+  "pytest_timed_out": true,
+  "pytest_elapsed_seconds": 1800.085,
+  "pytest_last_reported_progress_percent": 93,
+  "progress_is_not_a_pass_count": true,
+  "notes": [
+    "Raw gate FAIL is a gate failure, not a count or attribution of failed business tests.",
+    "No immutable pytest receipt exists; no full-suite pass or fail count can be accepted.",
+    "Original runner preserved; unexecuted next runner makes E2E own a fresh build."
+  ],
+  "pytest_counts": null,
+  "pytest_failed_ids": null,
+  "pytest_scope": null,
+  "independent_qc": "BLOCKED_PROVIDER_TIMEOUT",
+  "mergeable": false,
+  "runtime_source": "/Users/a77/.finance-runtime/reviews/re06-timer-scope-acceptance-20260923-01"
+}

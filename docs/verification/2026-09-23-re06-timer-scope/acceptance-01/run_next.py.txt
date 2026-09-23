@@ -1,0 +1,133 @@
+"""Fixed-revision four-leaf acceptance; sequential, resource-gated, no production keys."""
+from datetime import datetime, timezone
+import hashlib
+import importlib.util
+import json
+import os
+from pathlib import Path
+import shutil
+import signal
+import socket
+import subprocess
+import time
+
+ROOT = Path(__file__).resolve().parent
+TREE = Path('/Users/a77/fwp-wt-wave2-re06-0923')
+PYTHON = '/Users/a77/finance-workspace-private/.venv-workbench/bin/python'
+REVISION = 'f9ce5c6b296492b423400ad66d333784a4be13bc'
+BASELINE = 'ffd1b7f1572067e9a4c7e3a5845e99cf7f876cfb'
+ENV = {key: os.environ[key] for key in ['PATH', 'HOME', 'LANG', 'TMPDIR'] if key in os.environ}
+ENV.update({'CI': '1', 'PYTHONDONTWRITEBYTECODE': '1', 'WORKBENCH_PYTHON': PYTHON,
+            'WORKBENCH_E2E_PORT': '29501', 'RE06_E2E_PORT': '29504',
+            'RE06_E2E_URL': 'http://127.0.0.1:29504',
+            'FWP_TEST_RECEIPT_DIR': str(ROOT / 'receipts'),
+            'FWP_TEST_RECEIPT_PATH': str(ROOT / 'receipts/pytest.json'),
+            'FWP_TEST_RECEIPT_OWNER_PID': ''})
+
+def now():
+    return datetime.now(timezone.utc).isoformat()
+
+def sha(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+def identity():
+    def git(*args):
+        return subprocess.check_output(['git', '-C', str(TREE), *args], text=True).strip()
+    return {'revision': git('rev-parse', 'HEAD'), 'status': git('status', '--porcelain')}
+
+record = {'revision': REVISION, 'baseline': BASELINE, 'tree': str(TREE), 'started_at': now(),
+          'runner_sha256': sha(Path(__file__)), 'complete': False, 'leaves': {},
+          'resource_admissions': [], 'identity_before': identity(),
+          'model_requests_authorized': False, 'production_writes_authorized': False,
+          'ports': [29501,29504]}
+assert record['identity_before'] == {'revision': REVISION, 'status': ''}
+(ROOT / 'receipts').mkdir(exist_ok=False)
+
+def save():
+    tmp = ROOT / 'receipt.json.tmp'
+    tmp.write_text(json.dumps(record, ensure_ascii=False, indent=2) + '\n')
+    tmp.replace(ROOT / 'receipt.json')
+
+def admit(leaf):
+    deadline = time.monotonic() + 300
+    while True:
+        ps = subprocess.check_output(['ps', '-axo', 'pid=,command='], text=True)
+        processes = [line.strip() for line in ps.splitlines() if '-m pytest' in line and ('/Python ' in line or '/python ' in line)]
+        load = list(os.getloadavg())
+        free = shutil.disk_usage(ROOT).free / 1024**3
+        allowed = load[0] <= 8 and len(processes) <= 2 and free >= 8
+        obs = {'leaf': leaf, 'at': now(), 'load': load, 'pytest_processes': len(processes), 'free_disk_gib': round(free,3), 'allowed': allowed}
+        record['resource_admissions'].append(obs)
+        save()
+        if allowed:
+            assert identity() == {'revision': REVISION, 'status': ''}
+            return True
+        if time.monotonic() >= deadline:
+            record['leaves'][leaf] = {'status': 'BLOCKED_RESOURCE_GATE'}
+            save()
+            return False
+        time.sleep(10)
+
+def command(name, args, timeout=1800):
+    log = ROOT / (name + '.log.txt')
+    start = time.monotonic()
+    timed_out = False
+    with log.open('xb') as stream:
+        proc = subprocess.Popen(args, cwd=TREE, env=ENV, stdout=stream, stderr=subprocess.STDOUT, start_new_session=True)
+        try:
+            code = proc.wait(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            timed_out = True
+            os.killpg(proc.pid, signal.SIGTERM)
+            try:
+                code = proc.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                os.killpg(proc.pid, signal.SIGKILL)
+                code = proc.wait()
+    result = {'command': args, 'exit_code': code, 'timed_out': timed_out, 'elapsed_seconds': round(time.monotonic()-start,3),
+              'log': log.name, 'log_sha256': sha(log), 'log_bytes': log.stat().st_size}
+    print(json.dumps({'step': name, **result}), flush=True)
+    return result
+
+save()
+if admit('python'):
+    ruff = command('ruff', [PYTHON, '-m', 'ruff', 'check', '.'], 180)
+    pytest = command('pytest', [PYTHON, '-m', 'pytest', '-q', '-p', 'no:cacheprovider',
+        '--junitxml=' + str(ROOT/'python-junit.xml'), '--basetemp=' + str(ROOT/'basetemp-python')])
+    check = command('python-receipt-check', [PYTHON, 'scripts/main_gate_receipt.py', str(ROOT/'receipts/pytest.json'),
+        '--revision', REVISION, '--tree', str(TREE), '--pytest-exit', str(pytest['exit_code'])], 60)
+    record['leaves']['python'] = {'status': 'PASS' if all(x['exit_code']==0 and not x['timed_out'] for x in [ruff,pytest,check]) else 'FAIL',
+                                'checks': [ruff, pytest, check]}
+    save()
+spec = importlib.util.spec_from_file_location('candidate_frontend_gate', TREE/'scripts/run_frontend_gate.py')
+gate = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(gate)
+# E2E owns a fresh build even when the frontend leaf was blocked or failed.
+for leaf, commands in [('frontend', gate.COMMANDS[:5]), ('e2e', gate.COMMANDS[4:])]:
+    if not admit(leaf):
+        continue
+    if leaf == 'e2e':
+        for port in [29501,29504]:
+            with socket.socket() as sock:
+                sock.bind(('127.0.0.1',port))
+    code = gate.run_gate(TREE, ROOT/leaf, REVISION, commands=commands, env=ENV)
+    receipt = json.loads((ROOT/leaf/'frontend.json').read_text())
+    record['leaves'][leaf] = {'status': 'PASS' if code==0 else 'FAIL', 'exit_code': code,
+                            'receipt': leaf+'/frontend.json', 'receipt_sha256': sha(ROOT/leaf/'frontend.json'),
+                            'checks': receipt['checks']}
+    save()
+if admit('registry'):
+    commands = [[PYTHON, 'scripts/build_registry.py', 'check-parseability'],
+                [PYTHON, 'scripts/build_registry.py', 'check'],
+                [PYTHON, 'scripts/build_registry.py', 'backfill-tables', '--check'],
+                [PYTHON, 'scripts/build_registry.py', 'generate-views', '--check'],
+                [PYTHON, 'scripts/audit_ledger_spec_crosswalk.py']]
+    checks = [command('registry-'+str(i), args, 180) for i,args in enumerate(commands,1)]
+    record['leaves']['registry'] = {'status': 'PASS' if all(c['exit_code']==0 for c in checks) else 'FAIL', 'checks': checks}
+record['identity_after'] = identity()
+record['identity_stable'] = record['identity_before'] == record['identity_after'] == {'revision': REVISION, 'status': ''}
+record['complete'] = set(record['leaves']) == {'python','frontend','e2e','registry'} and all(v['status'] in ['PASS','FAIL'] for v in record['leaves'].values())
+record['status'] = 'PASS' if record['complete'] and record['identity_stable'] and all(v['status']=='PASS' for v in record['leaves'].values()) else 'NOT_PASS'
+record['finished_at'] = now()
+save()
+print(json.dumps({'status': record['status'], 'complete': record['complete'], 'leaves': {k:v['status'] for k,v in record['leaves'].items()}}), flush=True)

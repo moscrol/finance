@@ -1,0 +1,21 @@
+{
+  "revision": "f9ce5c6b296492b423400ad66d333784a4be13bc",
+  "baseline": "ffd1b7f1572067e9a4c7e3a5845e99cf7f876cfb",
+  "provider": "mirasim-kimi",
+  "model": "kimi-k3",
+  "thinking": "xhigh",
+  "request_timeout_ms": 120000,
+  "automatic_retries": 0,
+  "concurrent_model_sessions": 1,
+  "groups": [
+    {"id": "timer", "claims": ["C7", "C8", "C9", "C10"], "focus": "timer lifecycle, scope classification, narrow legacy compatibility, genuine withdrawal"},
+    {"id": "e2", "claims": ["C1", "C2", "C3"], "focus": "local_only original question numbering, delivery completeness, restore protection"},
+    {"id": "consent", "claims": ["C4", "C5", "C6"], "focus": "shared fold with intentional differences, event-time semantics, locked recheck", "additional_review": "RE06 service/API transaction and try_transaction family, business sites and infrastructure separately"}
+  ],
+  "stages_per_group": ["explore", "execute", "report"],
+  "read_limits": {"lines": 120, "body_bytes": 6000, "next_offset_exact": true},
+  "bash_result_limit": {"body_characters": 6000, "raw_output_preserved": true},
+  "current_status": "PREPARED_NOT_STARTED_GATEWAY_PREFLIGHT_FAILED",
+  "test_policy": "No pytest, build or e2e starts while resource gate is red. Explore is static source review and probe authoring only.",
+  "final_acceptance": "Every claim requires a reviewed status and evidence. Any missing group, missing stage, missing positive control, or provider failure remains BLOCKED; never infer candidate PASS from one completed group."
+}

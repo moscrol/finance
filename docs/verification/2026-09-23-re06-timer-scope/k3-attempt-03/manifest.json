@@ -1,0 +1,167 @@
+{
+  "runtime_source": "/Users/a77/.finance-runtime/reviews/re06-timer-scope-qc-20260923-03",
+  "scope": "selected essential receipts and controller snapshots; full original runtime retained",
+  "archive_naming": "Code scripts and .log gain .txt; byte-identical.",
+  "files": {
+    "config.json": {
+      "runtime_relative_path": "config.json",
+      "sha256": "36aea245ba639242ba9206faac6e87ce539719c523f63f20a026bbe5ac70d828",
+      "bytes": 364
+    },
+    "provider-template.json": {
+      "runtime_relative_path": "provider-template.json",
+      "sha256": "d3030f00ab3ba2d67c27d1fba2fcbdf60af34ea0d0d675e8bba704dfc54094b4",
+      "bytes": 458
+    },
+    "pi-config/settings.json": {
+      "runtime_relative_path": "pi-config/settings.json",
+      "sha256": "cda612a59b9d61dc644867021e8a5284dc7a6040e65eadab9b883ae78406b417",
+      "bytes": 340
+    },
+    "group-plan.json": {
+      "runtime_relative_path": "group-plan.json",
+      "sha256": "5ba70e6421e49295a770856a976b8cdd2743d452cf6b64910ed78611939f6993",
+      "bytes": 1523
+    },
+    "review.mjs.txt": {
+      "runtime_relative_path": "review.mjs",
+      "sha256": "7fc37eaf311dc4e357aa1955e30054fa41f571bacca1be246e2fe079c2dd9425",
+      "bytes": 10429
+    },
+    "run_stage.py.txt": {
+      "runtime_relative_path": "run_stage.py",
+      "sha256": "c07a060104131816f22716057e3a4b467fb61558173fd2c683d4f2266fe30abd",
+      "bytes": 6987
+    },
+    "file_tool.py.txt": {
+      "runtime_relative_path": "file_tool.py",
+      "sha256": "d172ccc3510efefa5ea69384601ea670a5d3c15b522371b85816f1aea9212472",
+      "bytes": 1912
+    },
+    "tools.sb.txt": {
+      "runtime_relative_path": "tools.sb",
+      "sha256": "0da61549537927d8e71a73137213c51f194c2577da361168f32aca88d9f914f7",
+      "bytes": 1630
+    },
+    "gateway.mjs.txt": {
+      "runtime_relative_path": "gateway.mjs",
+      "sha256": "7296e0a184517333c5400fb9785b76cff97170cf9954e62ecf46f4f120b8a244",
+      "bytes": 1891
+    },
+    "run_gateway.py.txt": {
+      "runtime_relative_path": "run_gateway.py",
+      "sha256": "15287f764d34f47f8c6b7011598be4a5b13faba038f2fdbbbb7ac8a41dd66564",
+      "bytes": 4448
+    },
+    "credential-bootstrap.mjs.txt": {
+      "runtime_relative_path": "credential-bootstrap.mjs",
+      "sha256": "dfea31540dd29010b14e0e3326b5620951eac18d6d4239bb52d83288765e8267",
+      "bytes": 5071
+    },
+    "sandbox_preflight.mjs.txt": {
+      "runtime_relative_path": "sandbox_preflight.mjs",
+      "sha256": "e12231f6abdcf68252d7e6edb8fd0ebcdb5ced27937587474ee5160eeba0c196",
+      "bytes": 4558
+    },
+    "caps_preflight.mjs.txt": {
+      "runtime_relative_path": "caps_preflight.mjs",
+      "sha256": "56c9a341ab3a0d13cb252ce4f4feb866209d182ca4a83a98e37e4380c4de5195",
+      "bytes": 3170
+    },
+    "prompt-explore-timer.md": {
+      "runtime_relative_path": "prompt-explore-timer.md",
+      "sha256": "c359974fd96da677e9bd6331ab1abb423d24377f697f1b3adb9379daa7efe7b6",
+      "bytes": 2381
+    },
+    "prompt-explore-e2.md": {
+      "runtime_relative_path": "prompt-explore-e2.md",
+      "sha256": "cbb5416d80820b013ca2a0ee05fd36360a259c70b531da0de10317d3c4d692bc",
+      "bytes": 2174
+    },
+    "prompt-explore-consent.md": {
+      "runtime_relative_path": "prompt-explore-consent.md",
+      "sha256": "8838997ee08c35607655c9fc89b442a249f61ecb954be6234e66571d887511d8",
+      "bytes": 2378
+    },
+    "inputs/identity.json": {
+      "runtime_relative_path": "inputs/identity.json",
+      "sha256": "91215037a8eeafb551e7fb22b57135980a89795f43fe291df182ccad8e0d9887",
+      "bytes": 2425
+    },
+    "inputs/claims.md": {
+      "runtime_relative_path": "inputs/claims.md",
+      "sha256": "5752e0521c18b2f817643f911364eed097fcba93f79e926e030c52fd9abb09c8",
+      "bytes": 2669
+    },
+    "sandbox-preflight/receipt.json": {
+      "runtime_relative_path": "sandbox-preflight/receipt.json",
+      "sha256": "dcc1ea1b8425ee43401f6d3387bfb54ac9b5b8a536f1432acf1606cdb2f7b8b9",
+      "bytes": 477
+    },
+    "caps-preflight-02/receipt.json": {
+      "runtime_relative_path": "caps-preflight-02/receipt.json",
+      "sha256": "19bcdac49084eb6a316ab7c22449dab4ca87d2a663386aec90e34e502980f2bb",
+      "bytes": 289
+    },
+    "resource-snapshot.json": {
+      "runtime_relative_path": "resource-snapshot.json",
+      "sha256": "2245debd0e3e520bb948bc1b68702e5870510d95f6c25dd1abad3b399e334763",
+      "bytes": 1293
+    },
+    "gateway-diagnostic.json": {
+      "runtime_relative_path": "gateway-diagnostic.json",
+      "sha256": "89de4f04bd44dce922177d3cf837637e8d1d1ec9f8f9f08976484ef101433327",
+      "bytes": 679
+    },
+    "stage-gate-negative-control.json": {
+      "runtime_relative_path": "stage-gate-negative-control.json",
+      "sha256": "b6ae0cee2654a484699e1fd6d6945be2762c2c3454446e2c0ffbed89e3aee12d",
+      "bytes": 673
+    },
+    "gateway/credential.json": {
+      "runtime_relative_path": "gateway/credential.json",
+      "sha256": "72088bcdb1d660d81de96663e9ec3a2e68a3c5baf233f3673c64047c7b8399d7",
+      "bytes": 460
+    },
+    "gateway/events.jsonl": {
+      "runtime_relative_path": "gateway/events.jsonl",
+      "sha256": "67af39b277854e27d0427322122e6b27952c000418860dc28ffcd8a7a448aaa0",
+      "bytes": 2781
+    },
+    "gateway/model-results.jsonl": {
+      "runtime_relative_path": "gateway/model-results.jsonl",
+      "sha256": "b6c4c5418a2498b9e4171021de1f6033cfeeb9fb529b14b32f1d4e06fad471a7",
+      "bytes": 109
+    },
+    "gateway/payload-shapes.jsonl": {
+      "runtime_relative_path": "gateway/payload-shapes.jsonl",
+      "sha256": "cbe8e9be36eb98d1a2519b6831023a36aff86bf9f7113f27771ad969a0f8e3c9",
+      "bytes": 364
+    },
+    "gateway/receipt.json": {
+      "runtime_relative_path": "gateway/receipt.json",
+      "sha256": "4ef7ef49330a48b2aa9b668c8548987ec008dce5676d064aa5175f006728b298",
+      "bytes": 1951
+    },
+    "gateway/request-admissions.jsonl": {
+      "runtime_relative_path": "gateway/request-admissions.jsonl",
+      "sha256": "89533476f6d38fbb8ea9fb891c755f08526d0efc530153a3278f587d7bbe54f5",
+      "bytes": 99
+    },
+    "gateway/stderr.log.txt": {
+      "runtime_relative_path": "gateway/stderr.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "gateway/work/fixture.txt": {
+      "runtime_relative_path": "gateway/work/fixture.txt",
+      "sha256": "1b833198385bdeba295e14e788746baf827b314b0b47d270e6b9b819b962111c",
+      "bytes": 35
+    },
+    "report.json": {
+      "runtime_relative_path": null,
+      "sha256": "dd8ebf97695399d2c4bbd812bb1082a0e5c309a2874b6c6d1e2248315dc9ece2",
+      "bytes": 4899
+    }
+  }
+}
