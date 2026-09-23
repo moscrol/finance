@@ -1,0 +1,27 @@
+17:47:28 positive rc=0 changed:
+./.local/bin/nightly-full-review-s7.sh
+./.local/bin/nightly_full_review.sh
+./Library/LaunchAgents/com.financeworkspace.daily-full-review-finalize.plist
+./Library/LaunchAgents/com.financeworkspace.daily-full-review-sync.plist
+17:47:28 PASS: nightly-only changes exactly 2 plists + 2 wrappers
+17:47:28 PASS: 4 launchctl calls, bootout+bootstrap x2, no kickstart
+17:47:28 PASS: calls scoped to the two night jobs
+17:47:28 PASS: installed s7 wrapper matches candidate bytes
+17:47:28 PASS: installed sync plist carries adcda root
+17:47:28 PASS: A: ops_python drift -> rc=2, zero writes, zero launchctl
+17:47:28 PASS: B: dry-run [--dry-run] side-effect free
+17:47:29 PASS: B: dry-run [--nightly-only --dry-run] side-effect free
+17:47:29 PASS: B: dry-run [--dry-run --nightly-only] side-effect free
+17:47:29 PASS: B2: dry-run creates no dirs on empty HOME (rc=0)
+17:47:29 PASS: C: [--dry-run --kickstart] rc=2 before side effects
+17:47:29 PASS: C: [--kickstart --dry-run] rc=2 before side effects
+17:47:29 PASS: D: unknown option rc=2 before side effects
+17:47:29 PASS: E: RunAtLoad=true on selected plist stops before any copy (rc=2)
+17:47:30 PASS: F: broken unselected plist does not block nightly-only (scoping exact)
+17:47:30 PASS: F2: same broken plist blocks full install preflight (rc=2)
+17:47:30 PASS: G: default install 6 jobs, 12 launchctl calls
+17:47:30 PASS: G: bootout+bootstrap for all six
+17:47:30 PASS: H: missing selected script stops before writes (rc=127)
+17:47:31 PASS: I: [--nightly-only --kickstart] kickstarts exactly the two night jobs
+17:47:31 PASS: I: [--kickstart --nightly-only] kickstarts exactly the two night jobs
+17:47:31 == totals: PASS=21 FAIL=0 ==

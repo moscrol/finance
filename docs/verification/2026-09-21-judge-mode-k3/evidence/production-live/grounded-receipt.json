@@ -1,0 +1,85 @@
+{
+  "question": "请复盘长电科技（600584）最近一个交易日的表现：涨跌幅、成交额、所属板块的表现，并明确说明数据日期。",
+  "run_id": "run_20260921_183642_325351",
+  "conversation_id": "conv_c85ac80edfa84205b11afbb4133e1e64",
+  "run_dir": "/Users/a77/.local/share/finance-workbench/users/linxiaoqi5111/runs/run_20260921_183642_325351",
+  "elapsed_s": 151.69,
+  "run_status": "completed",
+  "outcome_status": "completed",
+  "stop_reason": "model_finish",
+  "model_turn_served_models": [
+    "kimi-k3",
+    "kimi-k3",
+    "kimi-k3",
+    "kimi-k3",
+    "kimi-k3"
+  ],
+  "report_llm": {
+    "used": true,
+    "provider": "zhipu",
+    "model": "kimi-k3"
+  },
+  "judge_mode": "deterministic",
+  "judge_calls": 0,
+  "material_review_calls": 0,
+  "readiness_status": "not_ready",
+  "readiness_checks": {
+    "repo_root": true,
+    "knowledge_wiki": true,
+    "relations": true,
+    "vector_index": true,
+    "rag_runtime": true,
+    "market_snapshot": true,
+    "frontend_built": true,
+    "rag_query_protocol": true,
+    "rag_worker": true,
+    "run_store_writable": true,
+    "market_snapshot_contract": true,
+    "market_data_consistency": false,
+    "code_snapshot_matches_repo": true
+  },
+  "gate_receipt": {
+    "schema_version": 1,
+    "engine": "episode",
+    "rev": "f2c3e9e1a24f42ae9b1d5a8cb9e501ababd1330a",
+    "verified_status": "completed",
+    "judge_status": "passed",
+    "issues": [],
+    "judge_unavailable_count": 0,
+    "content_degraded_count": 0,
+    "timings": {
+      "elapsed_seconds": null,
+      "retrieve_seconds": null,
+      "judge_seconds": null,
+      "timeout_asked": null
+    },
+    "correlated_judge": null
+  },
+  "independent_n": 0,
+  "no_judge_rate": 1.0,
+  "calibers": {
+    "": 8,
+    "fact_stock_daily": 8,
+    "fact_sector_stock_daily": 4,
+    "fact_sector_daily": 4
+  },
+  "data_dates": {
+    "2026-09-21": 2
+  },
+  "degrades": [],
+  "answer": "**数据日期：2026-09-18（最近一个已收盘交易日）**\n\n**长电科技（600584.SH）当日复盘**\n\n- 收盘价 73 元，较前收盘 67.75 元 **上涨 7.75%**；成交额 **114.9025 亿元**，换手率 9%。\n- 成交额环比前一交易日（2026-09-17 的 49.3146 亿元）**放大 133%**（计算编号 c9ec877750497a20），属显著放量上涨。\n\n**所属板块当日表现（复盘会板块口径）**\n\n- 半导体封测：涨 4.08%，成交额 411.197 亿元，边际量 +72.66%；\n- 半导体：涨 3.97%，成交额 3385.168 亿元；\n- 先进封装：涨 2.95%，成交额 3080.0643 亿元；\n- 电子：涨 2.75%，成交额 6499.1619 亿元；\n- 芯片：涨 2.62%，成交额 9277.2314 亿元。\n\n长电科技 7.75% 的涨幅明显跑赢其所有归属板块，且封测板块本身边际量 +72.66% 为各板块中最高，显示资金当日集中流入封测方向。\n\n**市场背景**：当日全市场成交额 20764.84 亿元（较前一日 +13.92%），上涨 4234 家、涨停 79 家、跌停 0 家，上证指数涨 0.94%；市场处于反弹阶段第 1 天，量能状态为主线抱团，领先行业为电子（31.20%）、通信（9.50%）、机械设备（7.50%），主线题材含半导体、AI算力、电子、电力设备。\n\n**未发现足以推翻主判断的反证。** 需提示的竞争性解释：当日为市场普涨反弹日（4234 家上涨、电子为最强行业），长电科技的大涨部分属于板块与大盘共振，个股超额收益中有多大比例来自公司自身因素，仅凭单日盘面无法区分。",
+  "checks": {
+    "run_completed": true,
+    "episode_completed": true,
+    "actual_k3": true,
+    "deterministic": true,
+    "zero_judge_calls": true,
+    "no_material_model_review": true,
+    "public_not_independent": true,
+    "eval_no_independent": true,
+    "nonempty_answer": true,
+    "stock_fact_used": true,
+    "no_no_data_disclaimer": true
+  },
+  "ok": true
+}

@@ -1,0 +1,129 @@
+{
+  "read_only": true,
+  "snapshot_date": "2026-09-22",
+  "tables": {
+    "fact_market_daily": {
+      "max_date": "2026-09-18",
+      "snapshot_date_rows": 0,
+      "2026-09-21_rows": 0
+    },
+    "fact_stock_daily": {
+      "max_date": "2026-09-18",
+      "snapshot_date_rows": 0,
+      "2026-09-21_rows": 0
+    },
+    "fact_sector_daily": {
+      "max_date": "2026-09-18",
+      "snapshot_date_rows": 0,
+      "2026-09-21_rows": 0
+    },
+    "fact_sector_stock_daily": {
+      "max_date": "2026-09-18",
+      "snapshot_date_rows": 0,
+      "2026-09-21_rows": 0
+    },
+    "fact_mainline_sector_daily": {
+      "max_date": "2026-09-18",
+      "snapshot_date_rows": 0,
+      "2026-09-21_rows": 0
+    }
+  },
+  "stock_0917_0918": [
+    {
+      "trade_date": "2026-09-17",
+      "close": 67.75,
+      "pct_chg": -2.59,
+      "amount": 49.3146
+    },
+    {
+      "trade_date": "2026-09-18",
+      "close": 73.0,
+      "pct_chg": 7.75,
+      "amount": 114.9025
+    }
+  ],
+  "memberships_0918": [
+    {
+      "sector_ts_code": "990013.FP",
+      "sector_name": "CPO概念"
+    },
+    {
+      "sector_ts_code": "990048.FP",
+      "sector_name": "人工智能"
+    },
+    {
+      "sector_ts_code": "990068.FP",
+      "sector_name": "先进封装"
+    },
+    {
+      "sector_ts_code": "990122.FP",
+      "sector_name": "半导体"
+    },
+    {
+      "sector_ts_code": "990123.FP",
+      "sector_name": "半导体封测"
+    },
+    {
+      "sector_ts_code": "990127.FP",
+      "sector_name": "华为海思"
+    },
+    {
+      "sector_ts_code": "990159.FP",
+      "sector_name": "存储芯片"
+    },
+    {
+      "sector_ts_code": "990192.FP",
+      "sector_name": "数据中心"
+    },
+    {
+      "sector_ts_code": "990204.FP",
+      "sector_name": "无人驾驶"
+    },
+    {
+      "sector_ts_code": "990214.FP",
+      "sector_name": "智能穿戴"
+    },
+    {
+      "sector_ts_code": "990220.FP",
+      "sector_name": "机器人概念"
+    },
+    {
+      "sector_ts_code": "990228.FP",
+      "sector_name": "毫米波雷达"
+    },
+    {
+      "sector_ts_code": "990243.FP",
+      "sector_name": "汽车芯片"
+    },
+    {
+      "sector_ts_code": "990263.FP",
+      "sector_name": "物联网"
+    },
+    {
+      "sector_ts_code": "990269.FP",
+      "sector_name": "玻璃基板"
+    },
+    {
+      "sector_ts_code": "990276.FP",
+      "sector_name": "电子"
+    },
+    {
+      "sector_ts_code": "990305.FP",
+      "sector_name": "第三代半导体"
+    },
+    {
+      "sector_ts_code": "990314.FP",
+      "sector_name": "绿色电力"
+    },
+    {
+      "sector_ts_code": "990325.FP",
+      "sector_name": "芯片"
+    },
+    {
+      "sector_ts_code": "990327.FP",
+      "sector_name": "苹果概念"
+    }
+  ],
+  "membership_count": 20,
+  "boundary": "current DB query is not a reconstruction of historical DB contents; compare immutable prior-run evidence separately"
+}

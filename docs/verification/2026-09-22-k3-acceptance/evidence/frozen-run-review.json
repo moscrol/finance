@@ -1,0 +1,99 @@
+{
+  "reviewed_at": "2026-09-22T18:00:46.711370+08:00",
+  "source_commit": "f2f20e4c60d35fc22c32a6b755c128c993c8f910",
+  "runs": [
+    {
+      "case": "material",
+      "run_id": "run_20260921_183219_280474",
+      "artifact_sha256": {
+        "run.json": "87d1f60be0ac141c0b663fdddd8d3105842a2beae121c3f50b83b7c9bb1b51a0",
+        "continuous-episode.json": "e324abff1ec21951db5701b8b9c2feb3ec06476a06a7b3b6d7b00b5ebc49a40d",
+        "report.json": "1e65a9da826048208964179c069aa54415e1bb7efde1dd0680c5240bc552361a",
+        "answer.md": "7edc9aa671d80e608ffb2e05c4ea8852cb1a857b14946501c5623ba7701eb64b"
+      },
+      "question": "只依据以下材料回答，不要查询外部数据。\n\n「甲公司2026年上半年营业收入180亿元，同比增长20%；归母净利润9亿元，同比增长15%。公司拟投资50亿元建设先进封装产线，预计2027年投产。」\n\n1. 归母净利率是多少？\n2. 拟投资金额相当于上半年营业收入的多少倍？\n3. 材料没有给出哪些判断产能扩张合理性所需的信息？",
+      "outer_status": "completed",
+      "episode_status": "completed",
+      "gate_revision": "f2c3e9e1a24f42ae9b1d5a8cb9e501ababd1330a",
+      "writer_models": [
+        "kimi-k3",
+        "kimi-k3"
+      ],
+      "provider_attempts_per_turn": [
+        1,
+        1
+      ],
+      "judge_mode": "deterministic",
+      "terminal_judge_calls": 0,
+      "public_correlated_judge": null,
+      "tools": {},
+      "source_dates": {},
+      "independent_arithmetic": {
+        "profit_margin_pct": 5.0,
+        "investment_revenue_ratio": 0.2777777777777778
+      },
+      "problem_quotes": [
+        "材料未注明公告日期、是否审计、合并或分部口径及币种单位，故精确性以该段文字为限。"
+      ]
+    },
+    {
+      "case": "grounded",
+      "run_id": "run_20260921_183642_325351",
+      "artifact_sha256": {
+        "run.json": "7665f17a6c11dde547f8ccb0eac112f2beb06b99d7f360716a96821dbe105e9b",
+        "continuous-episode.json": "a65dcfdac0b841f11782a989e3887e50fff62008b8f11507c5cfc3c8d62e0f5b",
+        "report.json": "11e314927df5d26a72266fe7ce583784b005f9e5cb5d19654b96e8d111d1943a",
+        "answer.md": "4cb7de32a5a32e9426f2985f376938f7cdd2b3fa5232894ace556d380570c6b0"
+      },
+      "question": "请复盘长电科技（600584）最近一个交易日的表现：涨跌幅、成交额、所属板块的表现，并明确说明数据日期。",
+      "outer_status": "completed",
+      "episode_status": "completed",
+      "gate_revision": "f2c3e9e1a24f42ae9b1d5a8cb9e501ababd1330a",
+      "writer_models": [
+        "kimi-k3",
+        "kimi-k3",
+        "kimi-k3",
+        "kimi-k3",
+        "kimi-k3"
+      ],
+      "provider_attempts_per_turn": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "judge_mode": "deterministic",
+      "terminal_judge_calls": 0,
+      "public_correlated_judge": null,
+      "tools": {
+        "market_data": 1,
+        "finance_query": 4,
+        "derived_calculation": 1
+      },
+      "source_dates": {
+        "2026-09-18": 34,
+        "2026-09-17": 1,
+        "2026-09-16": 1,
+        "2026-09-15": 1,
+        "2026-09-14": 2
+      },
+      "queried_sector_codes": [
+        "990068.FP",
+        "990122.FP",
+        "990123.FP",
+        "990276.FP",
+        "990325.FP"
+      ],
+      "queried_sector_count": 5,
+      "problem_quotes": [
+        "**数据日期：2026-09-18（最近一个已收盘交易日）**",
+        "长电科技 7.75% 的涨幅明显跑赢其所有归属板块，且封测板块本身边际量 +72.66% 为各板块中最高，显示资金当日集中流入封测方向。"
+      ]
+    }
+  ],
+  "new_model_calls": 0,
+  "new_production_runs": 0,
+  "verdict": "content_quality_not_accepted",
+  "scope": "post-hoc factual review of two existing first runs, n=1 per question; not a statistical comparison or independent external QC"
+}

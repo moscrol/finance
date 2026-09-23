@@ -1,0 +1,8 @@
+{
+  "revision": "c097d712f9acfdd258709c7d0de054f978e0159c",
+  "original_spec_revision": "2ea6c3db01a062b9c623498df1b60edfbafe582b",
+  "assertions": 21,
+  "exit_code": 0,
+  "log_sha256": "ee0a73a07350a9ca09c6117b781048721c60a5cc6e7daf4d11a2d8493bea2cb7",
+  "boundary": "root replay of unchanged independent probe; not another independent review"
+}

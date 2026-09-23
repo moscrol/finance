@@ -1,0 +1,26 @@
+{
+  "before": {
+    "/Users/a77/.local/bin/start-finance-workbench": "b736771770e67e5d73d1c222c5e5658108628921b28bf8dc554808d9f603dda3",
+    "/Users/a77/Library/LaunchAgents/com.a77.finance-workbench.plist": "e2f6f3653cce55044a05c1867c2694bc1524db13dc5936000b32044bad47acb9",
+    "/Users/a77/finance-workspace-private/market_snapshot/meta.json": "ac002d47ffa3fd75b0a35e0760c3e2a67b5af38c5f7c637ebe5df9a4cc83a79c",
+    "/Users/a77/finance-workspace-private/market_snapshot/latest.json": "fce24f71111dd06dce74acb8891c9b9ed7f177dcb3edad9ed164dfac336ad044",
+    "/Users/a77/finance-workspace-private/market_snapshot/2026-09-22.json": "fce24f71111dd06dce74acb8891c9b9ed7f177dcb3edad9ed164dfac336ad044"
+  },
+  "after": {
+    "/Users/a77/.local/bin/start-finance-workbench": "b736771770e67e5d73d1c222c5e5658108628921b28bf8dc554808d9f603dda3",
+    "/Users/a77/Library/LaunchAgents/com.a77.finance-workbench.plist": "e2f6f3653cce55044a05c1867c2694bc1524db13dc5936000b32044bad47acb9",
+    "/Users/a77/finance-workspace-private/market_snapshot/meta.json": "ac002d47ffa3fd75b0a35e0760c3e2a67b5af38c5f7c637ebe5df9a4cc83a79c",
+    "/Users/a77/finance-workspace-private/market_snapshot/latest.json": "fce24f71111dd06dce74acb8891c9b9ed7f177dcb3edad9ed164dfac336ad044",
+    "/Users/a77/finance-workspace-private/market_snapshot/2026-09-22.json": "fce24f71111dd06dce74acb8891c9b9ed7f177dcb3edad9ed164dfac336ad044"
+  },
+  "database_stat_before": {
+    "size": 3703320576,
+    "mtime_ns": 1790035722793114583,
+    "inode": 167445509
+  },
+  "database_stat_after": {
+    "size": 3703320576,
+    "mtime_ns": 1790035722793114583,
+    "inode": 167445509
+  }
+}

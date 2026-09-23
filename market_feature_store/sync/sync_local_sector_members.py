@@ -177,7 +177,7 @@ def _today_values(con, trade_date: date) -> dict[str, dict]:
     rows = con.execute(
         f"""
         WITH hist AS (
-            SELECT stock_ts_code, trade_date, close, pct_chg, amount, source,
+            SELECT stock_ts_code, trade_date, stock_name, close, pct_chg, amount, source,
                    LAG(close, 3)  OVER w AS c3,
                    LAG(close, 5)  OVER w AS c5,
                    LAG(close, 10) OVER w AS c10,
@@ -186,7 +186,7 @@ def _today_values(con, trade_date: date) -> dict[str, dict]:
             WHERE trade_date >= ? AND trade_date <= ?
             WINDOW w AS (PARTITION BY stock_ts_code ORDER BY trade_date)
         )
-        SELECT stock_ts_code, close, pct_chg, amount, c3, c5, c10, c20
+        SELECT stock_ts_code, close, pct_chg, amount, c3, c5, c10, c20, stock_name
         FROM hist
         WHERE ({like_clauses}) AND trade_date = ?
           AND close IS NOT NULL AND pct_chg IS NOT NULL AND amount IS NOT NULL
@@ -200,8 +200,9 @@ def _today_values(con, trade_date: date) -> dict[str, dict]:
         return round((float(close) / float(base) - 1.0) * 100.0, 4)
 
     out: dict[str, dict] = {}
-    for code, close, pct, amt, c3, c5, c10, c20 in rows:
+    for code, close, pct, amt, c3, c5, c10, c20, name in rows:
         out[code] = {
+            "stock_name": name,
             "price": float(close),
             "pct_chg": float(pct),
             "amount": float(amt),
@@ -336,7 +337,9 @@ def build_rows(
         rows.append(
             {
                 "ts_code": code,
-                "name": m.get("stock_name"),
+                # Identity baselines can be months old. Prefer the same-day
+                # provider display name (including ST/IPO/ex-date prefixes).
+                "name": v.get("stock_name") or m.get("stock_name"),
                 "price": v["price"],
                 "pct_chg": v["pct_chg"],
                 "amount": v["amount"],

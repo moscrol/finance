@@ -1,0 +1,10 @@
+{
+  "revision": "f2c3e9e1a24f42ae9b1d5a8cb9e501ababd1330a",
+  "launcher_sha256": "8ed9eadf1d7e03649996e4fcc84d31df6f000208db6876f60fc84b81f9fc753c",
+  "runtime_target": "/Users/a77/.finance-runtime/finance-workspace-f2c3e9e1a24f",
+  "health_identity_verified": true,
+  "health_reads": 3,
+  "readiness_failed_checks": [
+    "market_data_consistency"
+  ]
+}
