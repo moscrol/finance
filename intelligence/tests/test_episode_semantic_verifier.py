@@ -3766,10 +3766,12 @@ def test_late_rejudge_rejection_is_redacted_before_release() -> None:
     assert "据E98显示资金变化。" not in result.public_answer
 
 
-def test_late_final_rejudge_preserves_twice_judged_monotonic_redaction() -> None:
+def test_late_final_rejudge_preserves_twice_judged_monotonic_redaction(monkeypatch) -> None:
     frame, structural = _structural(
         "市场下跌。据E99显示下跌。据E98显示资金变化。"
     )
+    now = [1000.0]
+    monkeypatch.setattr(research_contract_module.time, "monotonic", lambda: now[0])
     calls = 0
 
     def reject_twice_then_late_pass(_request):
@@ -3785,7 +3787,7 @@ def test_late_final_rejudge_preserves_twice_judged_monotonic_redaction() -> None
                     f"cited evidence ordinal is not in this episode's evidence table #{calls}"
                 ],
             }
-        time.sleep(0.03)
+        now[0] += 0.03
         return {"passed": True, "rejected_sentence_indexes": [], "issues": []}
 
     result = SemanticEpisodeVerifier(

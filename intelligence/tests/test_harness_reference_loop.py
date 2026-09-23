@@ -396,7 +396,7 @@ def _registry_with_slow_kb() -> ResearchToolRegistry:
     )
 
 
-def test_tool_hidden_for_too_small_window_is_the_same_machine() -> None:
+def test_tool_hidden_for_too_small_window_is_the_same_machine(monkeypatch) -> None:
     """本轮工具窗装不下的工具，两条 loop 都不摆给模型，且记同一条 ``tool_menu`` 事件。
 
     2026-09-03 生产读数：kb_search 66% 的调用以 tool_timeout 收场、每次烧掉约 23s
@@ -404,7 +404,16 @@ def test_tool_hidden_for_too_small_window_is_the_same_machine() -> None:
     ``min_window_seconds``；两条 loop 必须同一格同一字，否则模型看到的菜单随 loop 而变。
     """
 
+    from intelligence.services import research_contract as contract_module
+
+    now = [1000.0]
+    monkeypatch.setattr(contract_module.time, "monotonic", lambda: now[0])
     frame = _frame()
+
+    class AdvancingModel(_ScriptedModel):
+        def complete(self, **kwargs):
+            now[0] += 0.01
+            return super().complete(**kwargs)
 
     def narrow_window_context() -> ResearchRunContext:
         # 总窗 30s、reserve 15s → 本轮工具窗 15s < kb_search 的 20s。
@@ -418,8 +427,8 @@ def test_tool_hidden_for_too_small_window_is_the_same_machine() -> None:
         )
 
     script = [_tool_turn(), _finish_turn()]
-    episode_model = _ScriptedModel(list(script))
-    reference_model = _ScriptedModel(list(script))
+    episode_model = AdvancingModel(list(script))
+    reference_model = AdvancingModel(list(script))
     episode = ContinuousAgentEpisode(episode_model).run(
         task_frame=frame, context=narrow_window_context(), registry=_registry_with_slow_kb()
     )
@@ -432,11 +441,7 @@ def test_tool_hidden_for_too_small_window_is_the_same_machine() -> None:
         assert names == ["market_data"], names
     assert episode_model.calls[0]["tools"] == reference_model.calls[0]["tools"]
 
-    # Episode 的账本给每条事件盖 task_frame_hash / at（其它同机用例同样摘掉），
-    # 菜单本身的四个裁决键两边必须一字不差；``would_grant`` 单独按容差比——它由
-    # ``ResearchDeadline.remaining()`` 的墙钟推导，两条 loop 各建一个 deadline、到 ``menu()``
-    # 之间各走了几毫秒，round(…, 3) 后 14.999 对 15.0 是时钟抖动不是机器差
-    #（2026-09-03 在 gitea/main 干净树上 6/6 复现红）。
+    # 菜单与额度都逐项比较；每次模型调用固定消耗10ms，不依赖两条loop的机器调度差。
     menu_keys = ("visible", "hidden", "min_window_seconds", "reason")
 
     def menu_events(outcome):
@@ -453,8 +458,7 @@ def test_tool_hidden_for_too_small_window_is_the_same_machine() -> None:
     assert left and left == right
     left_grants, right_grants = menu_grants(episode), menu_grants(reference)
     assert len(left_grants) == len(right_grants) == len(left)
-    for left_grant, right_grant in zip(left_grants, right_grants, strict=True):
-        assert abs(left_grant - right_grant) < 0.05, (left_grants, right_grants)
+    assert left_grants == right_grants == [15.0, 14.99]
     first = {**left[0], "would_grant": left_grants[0]}
     assert first["hidden"] == ["kb_search"]
     assert first["visible"] == ["market_data"]
