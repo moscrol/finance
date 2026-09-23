@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 import hashlib
 import json
 import math
@@ -17,6 +17,7 @@ from intelligence.services.query_resolution import (
     QueryResolution,
     classify_reference,
 )
+from intelligence.services.episode_effects import unknown_effects_from_payload
 from intelligence.services.query_understanding import QueryEnvelope
 from intelligence.services.route_table import owner_skills_from_route_table
 from intelligence.services.evidence_capabilities import EvidencePlan, EvidenceRequirement
@@ -32,6 +33,7 @@ from intelligence.services.user_task import (
 )
 
 if TYPE_CHECKING:
+    from intelligence.services.episode_entry_identity import EpisodeEntryIdentity
     from intelligence.services.prior_evidence import PriorTurnEvidence
 
 AnswerOwner: TypeAlias = Literal[
@@ -943,13 +945,32 @@ def root_budget_for_policy(
 
 
 def restore_root_budget(
-    payload: Mapping[str, object], *, episode_id: str,
+    payload: Mapping[str, object],
+    *,
+    episode_id: str,
+    unreconciled_effects: Sequence[Mapping[str, object]],
 ) -> InMemoryRootBudgetLedger:
     """Restore balances/identities, never allocate afresh from a tier policy.
 
     The live registration is process-local, NOT a cross-process writer lease.
-    A future driver must reconcile unknown effects before using this ledger.
+
+    ``unreconciled_effects`` is **required**, not defaulted. A snapshot is taken
+    at a phase boundary while both accounting paths debit *after* the external
+    work finished, so the balance in it says an in-flight call cost zero. Handing
+    that balance to a spender is how the same money gets spent twice -- and under
+    a crash loop, N times. The caller must therefore state what it knows about
+    the window, and a non-empty list is refused here: recovering a ledger is not
+    the place to decide that an unknown charge can be ignored. Reconciling means
+    charging (``episode_effects.charge_unknown_effects``) and clearing the list
+    on the checkpoint, as one durable transition; the list is its own dedup
+    token, so reconciling twice is impossible rather than merely discouraged.
     """
+    outstanding = unknown_effects_from_payload(list(unreconciled_effects))
+    if outstanding:
+        raise ValueError(
+            f"root budget for {episode_id} has {len(outstanding)} unreconciled effect(s); "
+            "reconcile them before spending this balance"
+        )
     ledger = InMemoryRootBudgetLedger.from_snapshot(payload, episode_id=episode_id)
     with _LIVE_ROOT_BUDGETS_LOCK:
         if episode_id in _LIVE_ROOT_BUDGETS:
@@ -1276,6 +1297,10 @@ class ResearchRunContext:
     history_results: list[dict[str, object]] = field(default_factory=list)
     history_artifact_index: list[dict[str, object]] = field(default_factory=list)
     prior_evidence: PriorTurnEvidence | None = None
+    # 入口身份（控制面，永不进提示词、永不作证据）：这一轮属于哪个用户 / 会话 /
+    # run / 助手消息。由入口在核对过 run 归属之后绑定；None = 没有可信入口
+    # （离线驱动、CLI、测试），恢复时按「未绑定」处理，不会与任何门匹配上。
+    entry_identity: EpisodeEntryIdentity | None = None
 
 
 @dataclass(frozen=True)

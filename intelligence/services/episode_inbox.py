@@ -264,9 +264,9 @@ class Inbox:
         self.keep_on_cancel = False
         # 跨进程投递槽（见模块顶部注释）。None = 这个 episode 只有进程内的门。
         self._spool = Path(spool) if spool is not None else None
-        # 吞槽发生在认领点（驱动线程），但 ``pending`` 也可能被别的线程读；锁住
-        # 「列目录 → 逐个 send → 删」整段，两个吞话方不会看见同一个文件。
-        self._spool_lock = threading.Lock()
+        # 吞槽与直接投递共用可重入锁，关闭时等待所有投递完成；不要另套一把
+        # delivery 锁，send 的回调若读 pending 会与 spool -> send 形成反序死锁。
+        self._spool_lock = threading.RLock()
 
     # ── 观测 ─────────────────────────────────────────────────────────────
 
@@ -344,10 +344,18 @@ class Inbox:
         wakeup: bool = False,
         spool_id: str = "",
     ) -> InboxReceipt:
-        """入箱。返回回执；拒收 / 已收口都不抛——递话方不该能把研究主路径打断。
-        ``spool_id`` 只在话来自投递槽时非空，进 ``inbox_inserted`` payload 让递话方对回执；
-        进程内 ``send`` 的 payload 形状不变。"""
+        """入箱；整次投递与写者退出互斥，避免释放所有权后旧投递继续落账。"""
+        with self._spool_lock:
+            return self._send(message, target=target, wakeup=wakeup, spool_id=spool_id)
 
+    def _send(
+        self,
+        message: EpisodeMessage,
+        *,
+        target: InboxTarget,
+        wakeup: bool,
+        spool_id: str,
+    ) -> InboxReceipt:
         if message.role != "user":
             # 只有 user 角色能从外部进对话：system 是宪法、assistant 是模型、tool 要配对。
             raise ValueError(f"收件箱只收 user 角色消息，收到 {message.role!r}")
@@ -472,6 +480,12 @@ class Inbox:
                         self._queues[pending.target].append(pending)
                 return index
         return len(entries)
+
+    def suspend(self) -> None:
+        """Drain in-flight sends and close without changing pending message facts."""
+        with self._spool_lock:
+            with self._lock:
+                self._closed = True
 
     def reopen(self) -> None:
         """修复轮（``resume``）重开箱子：``finish`` 之后 episode 又活了，外部输入面随之恢复。

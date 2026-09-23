@@ -2,14 +2,15 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Generator, Mapping, Sequence
+from collections.abc import Callable, Generator, Iterator, Mapping, Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta
 import hashlib
 import json
 import os
 import re
-from threading import RLock
+from threading import Lock, RLock
 from time import monotonic
 
 from intelligence.services.agent_research import AgentEvidence
@@ -108,8 +109,9 @@ from intelligence.services.episode_messages import (
     unreported_invalid_finish,
     user_message,
 )
-from intelligence.services.episode_restore import RestoreResult, restore_episode
+from intelligence.services.episode_restore import RestoreResult, RestoreUnavailable, restore_episode
 from intelligence.services.episode_authorization import capture_authorization_snapshot
+from intelligence.services.episode_entry_identity import capture_entry_identity
 from intelligence.services.episode_evidence import capture_evidence_snapshot
 from intelligence.services.episode_scope import EpisodeScope
 from intelligence.services.episode_store import (
@@ -118,7 +120,9 @@ from intelligence.services.episode_store import (
     EpisodePhase,
     EpisodeState,
     EpisodeStore,
+    EpisodeWriterBusy,
     FencedEpisodeStore,
+    episode_writer,
     now_iso,
 )
 from intelligence.services.research_harness import (
@@ -469,6 +473,12 @@ class _EpisodeLedger:
                 cancel=carried_cancel,
                 last_sequence=len(self.events),
                 updated_at=now_iso(),
+                # 热路径不产生未知效果（本进程内的意图都能看到自己的结算），但也没资格
+                # **抹掉**上一次恢复留下的未对账凭证：只有对账能清空它。不带它往下传，
+                # 等于用下一个检查点把「有笔账没对」静默改写成「无账可对」。
+                unreconciled_effects=(
+                    tuple(previous.unreconciled_effects) if previous is not None else ()
+                ),
             )
             if not self.store_failures:
                 try:
@@ -508,6 +518,24 @@ class _EpisodeLedger:
                     if self._store_fence is not None:
                         self._store_fence.fail(self.episode_id, f"state:{phase}:authorization", exc)
                     self._fail_store(f"state:{phase}:authorization:{type(exc).__name__}")
+            if not self.store_failures:
+                try:
+                    identity = previous.entry_identity if previous is not None else None
+                    if source is not None:
+                        captured = capture_entry_identity(source)
+                        # One episode, one owner. A door that changes mid-run (or
+                        # disappears) is not a fallback to "unbound" -- it means the
+                        # context we are checkpointing is no longer the one that started.
+                        if identity is not None and captured != identity:
+                            raise ValueError("episode entry identity must not change mid-run")
+                        identity = captured
+                    state = replace(state, entry_identity=identity)
+                except Exception as exc:
+                    if self.persistence_mode != "durable":
+                        raise
+                    if self._store_fence is not None:
+                        self._store_fence.fail(self.episode_id, f"state:{phase}:identity", exc)
+                    self._fail_store(f"state:{phase}:identity:{type(exc).__name__}")
             if not self.store_failures:
                 try:
                     evidence = previous.evidence_snapshot if previous is not None else None
@@ -1130,18 +1158,39 @@ class EpisodeDrive:
         self.outcome: AgentOutcome | None = None
         self.finished = False
         self.steps: list[StepPoint] = []
+        self._operation_lock = Lock()
 
     def step(self) -> StepPoint | None:
-        if self.finished:
-            return None
+        if not self._operation_lock.acquire(blocking=False):
+            raise EpisodeWriterBusy("episode drive operation is active")
         try:
-            point = next(self._generator)
-        except StopIteration as stop:
-            self.outcome = stop.value
-            self.finished = True
-            return None
-        self.steps.append(point)
-        return point
+            if self.finished:
+                return None
+            try:
+                point = next(self._generator)
+            except StopIteration as stop:
+                self.outcome = stop.value
+                self.finished = True
+                return None
+            except BaseException:
+                self.finished = True
+                raise
+            self.steps.append(point)
+            return point
+        finally:
+            self._operation_lock.release()
+
+    def close(self) -> None:
+        """Abandon a paused drive; an executing step must finish before closing."""
+        if not self._operation_lock.acquire(blocking=False):
+            raise EpisodeWriterBusy("episode drive operation is active")
+        try:
+            try:
+                self._generator.close()
+            finally:
+                self.finished = True
+        finally:
+            self._operation_lock.release()
 
     def run_until(self, phase: str) -> StepPoint | None:
         """跑到下一个 ``phase`` 步点；先到终态就回 ``None``。"""
@@ -1221,6 +1270,18 @@ class ContinuousAgentEpisode:
         # P3：当前在跑的 episode 的收件箱（INV-R5）。``steer()`` 从这里递话；run() 进门时换新。
         # 没在跑时是 None——递话方拿到 ``no_active_episode`` 回执，不是异常。
         self._active_inbox: Inbox | None = None
+        # The inbox and cancellation signal belong to this runner, not a task ID.
+        self._control_lock = Lock()
+
+    @contextmanager
+    def _control_writer(self, episode_id: str) -> Iterator[None]:
+        if not self._control_lock.acquire(blocking=False):
+            raise EpisodeWriterBusy("episode runner already controls a task")
+        try:
+            with episode_writer(self._store, episode_id):
+                yield
+        finally:
+            self._control_lock.release()
 
     # ── 收件箱：外部输入的唯一入口（INV-R5）───────────────────────────────
 
@@ -1332,13 +1393,41 @@ class ContinuousAgentEpisode:
         """
 
         return EpisodeDrive(
-            self._drive(
+            self._drive_owned(
                 task_frame=task_frame,
                 context=context,
                 registry=registry,
                 _continuation_sink=_continuation_sink,
             )
         )
+
+    def _drive_owned(
+        self,
+        *,
+        task_frame: TaskFrame,
+        context: ResearchRunContext,
+        registry: ResearchToolRegistry,
+        _continuation_sink: list[_EpisodeContinuationState] | None = None,
+    ) -> Generator[StepPoint, None, AgentOutcome]:
+        episode_id = context.contract.task_id.strip()
+        with self._control_writer(episode_id):
+            if self._store is not None:
+                events, state = self._store.load(episode_id)
+                if events or state is not None:
+                    raise RestoreUnavailable(f"{episode_id}: existing episode requires recovery, not a fresh run")
+            try:
+                return (yield from self._drive(
+                    task_frame=task_frame, context=context, registry=registry,
+                    _continuation_sink=_continuation_sink,
+                ))
+            except BaseException:
+                if self._active_inbox is not None:
+                    self._active_inbox.suspend()
+                self._active_inbox = None
+                raise
+            finally:
+                if self._active_inbox is not None:
+                    self._active_inbox.suspend()
 
     def _drive(
         self,
@@ -2429,6 +2518,36 @@ class ContinuousAgentEpisode:
     ) -> AgentOutcome:
         """Continue one captured provider history for a verifier repair goal."""
 
+        if state.ledger.store_failures:
+            return previous
+        episode_id = state.ledger.episode_id
+        if (state.ledger._store is not self._store
+                or state.context.contract.task_id.strip() != episode_id
+                or goal.episode_id != episode_id
+                or previous.task_frame_hash != state.task_frame.task_frame_hash):
+            raise RestoreUnavailable("repair continuation owner or task identity mismatch")
+        with self._control_writer(episode_id):
+            if self._store is not None:
+                events, checkpoint = self._store.load(state.ledger.episode_id)
+                if events != tuple(state.ledger.events) or checkpoint != state.ledger.state:
+                    raise RestoreUnavailable("repair continuation no longer matches the stored episode")
+            try:
+                return self._resume_owned(state, previous, goal)
+            except BaseException:
+                if self._active_inbox is not None:
+                    self._active_inbox.suspend()
+                self._active_inbox = None
+                raise
+            finally:
+                if self._active_inbox is not None:
+                    self._active_inbox.suspend()
+
+    def _resume_owned(
+        self,
+        state: _EpisodeContinuationState,
+        previous: AgentOutcome,
+        goal: RepairGoal,
+    ) -> AgentOutcome:
         if state.ledger.store_failures:
             return previous
         context = state.context

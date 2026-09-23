@@ -3,8 +3,10 @@
 A saved declaration is NOT a grant. Recovery compares it with authority supplied
 by the owning entry point before synthesizing anything. It does not deserialize
 runners, bind user identity, allocate budgets or restore a complete run context.
-The registry digest covers declarations, not executable code/closures; a future
-driver still needs identity binding, single-writer ownership and effect reconciliation.
+The registry digest covers declarations, not executable code/closures. Who the
+episode belongs to is a separate question, answered by ``episode_entry_identity``
+(same-owner check) and ``episode_store.writer`` (single-writer ownership); a
+future driver still needs effect/cost reconciliation on top of both.
 """
 from __future__ import annotations
 

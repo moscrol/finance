@@ -92,6 +92,7 @@ from intelligence.services.draft_publisher import (
     RunDraftDeltaPublisher,
     draft_streaming_enabled,
 )
+from intelligence.services.episode_entry_identity import EntryIdentity
 from intelligence.services.episode_progress import (
     EpisodeProgress,
     RunEpisodeProgressPublisher,
@@ -451,6 +452,23 @@ def _build_continuous_turn_adapter(
     ``episode_tools``.
     """
 
+    entry_identity: EntryIdentity | None = None
+    if run_store is not None:
+        # 入口身份在这里盖章，而且只能在这里：服务端已存的 run 记录说了算，调用方
+        # 传什么不算。跨用户、跨会话的组合在这一步就被拒，而不是等到恢复时才发现。
+        run = run_store.load_run(run_id)
+        if run.user != run_store.user_id:
+            raise ValueError("run belongs to another user")
+        if (run.session_id or "") != conversation_id:
+            raise ValueError("run belongs to another conversation")
+        entry_identity = EntryIdentity(
+            entry="workbench_conversation",
+            user_id=run_store.user_id,
+            conversation_id=conversation_id,
+            run_id=run_id,
+            assistant_message_id=assistant_message_id,
+        )
+
     progress_publisher = None
     if run_store is not None:
         if not conversation_id.strip():
@@ -621,6 +639,9 @@ def _build_continuous_turn_adapter(
         tier=_research_tier_from_env(),
         registry_factory=registry_factory,
         task_id_factory=lambda: task_id,
+        # 未绑定的入口声明：episode 号由 ``task_id_factory`` 现场铸，身份到那时才绑。
+        # 预先绑好传进来，就会在注入式 task_id 下把旧编号盖在新 episode 上。
+        entry_identity=entry_identity,
         timeout=timeout,
         # 组合根这里已经握着生效链。只靠 adapter 问 runtime 会落空：
         # GLMAgentRuntime 没有 _providers，帽会静默回到 30。
@@ -801,8 +822,13 @@ def _public_run_payload(run: rs.Run, *, store: rs.RunStore) -> dict[str, object]
             messages = ConversationStore(user_id=store.user_id).load_messages(
                 run.session_id
             )
-        except FileNotFoundError:
-            messages = []  # Legacy /api/runs may carry an arbitrary session label.
+        except json.JSONDecodeError:
+            # Corrupt conversation metadata is not an absent conversation.
+            raise
+        except (FileNotFoundError, ValueError):
+            # Legacy /api/runs may carry an arbitrary session label, and
+            # non-chat callers may supply a session that is not a conversation.
+            messages = []
         target = next(
             (m for m in messages if m.role == "assistant" and m.run_id == run.run_id),
             None,
@@ -3272,10 +3298,16 @@ def create_app(
         # pair an old run snapshot with a newly-finished future and claim ready.
         active = supervisor.is_active(store.user_id, run_id)
         run = store.load_run(run_id)
-        return {
-            **_public_run_payload(run, store=store),
-            "delivery_pending": active and run.status == rs.STATUS_COMPLETED,
-        }
+        payload = _public_run_payload(run, store=store)
+        # A supervisor can publish failure/cancellation while the worker is
+        # still blocked. Delivery then waits for the exact durable message
+        # event (``publication``), not for that worker. Completed runs also
+        # wait for the worker's own artifact writes to land.
+        delivery_pending = (active and run.status == rs.STATUS_COMPLETED) or (
+            run.status in (rs.STATUS_FAILED, rs.STATUS_CANCELLED)
+            and payload["publication"]["status"] == "pending"
+        )
+        return {**payload, "delivery_pending": delivery_pending}
 
     @app.get("/api/runs")
     def list_runs(user: str | None = None) -> list[dict[str, object]]:

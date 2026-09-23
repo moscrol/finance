@@ -43,6 +43,22 @@ AST 看到的是 `Constant` 不是 `Import`，天然分得开。
 同理排除掉的正则噪声：``scripts.mkdir()``（变量名恰好叫 scripts）、
 ``market_feature_store.scripts.verify_mainline_sector_daily``（另一个包的尾巴）、
 注释里的 ``import scripts.x`` 举例。
+
+## 第四轮（2026-09-22）：被归档的就是测试本身
+
+上面两条量的是「活代码 → 归档模块」的断链。同一次 sweep 还抉走了
+``scripts/test_kb_freshness_fix.py``（活脚本 ``check_kb_freshness.py`` 的验收测试）。
+它不被任何 import 或 ``-m`` 引用——**引用它的是 pytest 收集器**，所以前两条
+判据天然看不见。后果是双向的：
+
+- 它随文件一起搬走，``sys.path.insert(自己目录)`` 再也找不到 ``check_kb_freshness``；
+- 于是全树 ``pytest -q``（AGENTS.md 的等价 CI、``workbench-check.yml`` 的 python 叶）
+  每次停在 ``Interrupted: 1 error during collection``，**一条测试都跑不到**；
+- 2026-08-20 到 09-22 共 33 天无人发现，因为大家都改跑子集（``pytest intelligence/tests``
+  之类），Gitea 又不跑 Actions。
+
+所以判据要扩一句：**pytest 收得到的文件不是孤儿**，归档区里不得有它们。
+这条只管归档区，**不**声称全树收集无错；那件事只有真跑那条命令能证。
 """
 
 from __future__ import annotations
@@ -148,6 +164,51 @@ def test_import_statement_module_references_resolve() -> None:
     assert references, "未扫到任何 scripts.X import——AST 扫描面失效"
     missing = _missing(references)
     assert not missing, "活代码 import 了不存在的模块：\n" + "\n".join(missing)
+
+
+# pytest 默认收集面（本仓 pytest.ini 未改 python_files）；归档区也不该有
+# conftest.py——它不需要被收集就会被加载。
+_COLLECTED_GLOBS = ("test_*.py", "*_test.py", "conftest.py")
+
+
+def _archive_dirs() -> list[Path]:
+    """归档区 = pytest 仍会走进去的 ``archive/`` 目录。"""
+    skip = _SKIP_PARTS - {"archive"}
+    return [
+        path
+        for path in REPO.rglob("archive")
+        if path.is_dir() and not (skip & set(path.relative_to(REPO).parts))
+    ]
+
+
+def test_archive_holds_nothing_pytest_would_collect() -> None:
+    """归档区不得有 pytest 收得到的文件（第四类复发）。
+
+    收集器也是一种引用。归档一个 pytest 还在收的文件，不是「没人用所以收起来」，
+    而是两种坏结果二选一：导入断了 → 整棵树收集中断（实发生过 33 天）；
+    导入没断 → 覆盖静静停在归档区里装活着。要么移回去修好，要么真删。
+    """
+    found = [
+        str(path.relative_to(REPO))
+        for directory in _archive_dirs()
+        for pattern in _COLLECTED_GLOBS
+        for path in directory.rglob(pattern)
+        if path.is_file()
+    ]
+    assert not found, (
+        "归档区里有 pytest 会收集的文件，全树 `pytest -q` 随时会断在收集期：\n"
+        + "\n".join(sorted(found))
+    )
+
+
+def test_archive_scan_actually_looks_somewhere() -> None:
+    """反向锁：扫不到归档目录就是一道假门禁。
+
+    上一条的断言是「没找到就绿」；若 ``_archive_dirs()`` 因路径改名或过滤
+    写反而返回空列表，它会永远绿。这里钉住至少扰到 scripts/archive。
+    """
+    names = {str(path.relative_to(REPO)) for path in _archive_dirs()}
+    assert "scripts/archive" in names, f"归档区扫描面失效，实际扫到：{sorted(names)}"
 
 
 def test_scanner_ignores_imports_written_inside_string_fixtures() -> None:

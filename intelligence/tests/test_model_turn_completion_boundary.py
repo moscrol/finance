@@ -15,7 +15,7 @@ from intelligence.tests.conformance.fixtures import (
     AUTHORIZED_TOOL, ScenarioProbe, completed_finish, make_context, make_frame, make_registry,
 )
 from intelligence.tests.test_glm_agent_runtime import _provider
-from intelligence.tests.test_llm_refine_tool_stream import _FakeResponse, sse
+from intelligence.tests.test_llm_refine_tool_stream import PROVIDER, _FakeResponse, call_stream, sse
 
 
 def envelope(reason):
@@ -28,7 +28,7 @@ def envelope(reason):
     }
 
 
-@pytest.mark.parametrize("reason", ["length", "max_tokens", "content_filter"])
+@pytest.mark.parametrize("reason", ["length", "max_tokens", "content_filter", "missing_finish_reason"])
 @pytest.mark.parametrize("providers", [None, (_provider("a"), _provider("b"))])
 def test_incomplete_envelope_is_not_executed_or_silently_retried(reason, providers):
     calls = []
@@ -47,12 +47,13 @@ def test_incomplete_envelope_is_not_executed_or_silently_retried(reason, provide
 
 
 @pytest.mark.parametrize("has_tools", [False, True])
-def test_direct_model_turn_cannot_bypass_completion_boundary(has_tools):
+@pytest.mark.parametrize("reason", ["length", "missing_finish_reason"])
+def test_direct_model_turn_cannot_bypass_completion_boundary(has_tools, reason):
     probe = ScenarioProbe()
     turn = ModelTurn(
         json.dumps(completed_finish()),
         (ModelToolCall("c1", AUTHORIZED_TOOL, {"query": "市场宽度"}),) if has_tools else (),
-        finish_reason="length",
+        finish_reason=reason,
     )
     class Model:
         def complete(self, **_kwargs):
@@ -66,7 +67,7 @@ def test_direct_model_turn_cannot_bypass_completion_boundary(has_tools):
     assert outcome.usage.llm_calls == 1
     assert not outcome.draft
     events = [e for e in outcome.events if e.kind == "model_turn"]
-    assert events[0].payload["finish_reason"] == "length"
+    assert events[0].payload["finish_reason"] == reason
 
 
 @pytest.mark.parametrize("reason", ["stop", "tool_calls", None])
@@ -75,6 +76,60 @@ def test_complete_and_legacy_envelopes_keep_calls(reason):
     assert not error and not turn.error
     assert len(turn.tool_calls) == 1
     assert turn.finish_reason == reason
+
+
+@pytest.mark.parametrize("tail", ["eof", "done_without_finish", "unknown_reason", "normal"])
+@pytest.mark.parametrize("has_tools", [False, True])
+def test_stream_completion_is_required_before_dispatch_or_final_publication(tail, has_tools):
+    delta = ({"tool_calls": [{
+        "index": 0, "id": "c1", "type": "function",
+        "function": {"name": AUTHORIZED_TOOL, "arguments": '{"query":"review"}'},
+    }]} if has_tools else {"content": json.dumps(completed_finish())})
+    choice = {"delta": delta}
+    if tail == "normal":
+        choice["finish_reason"] = "tool_calls" if has_tools else "stop"
+    elif tail == "unknown_reason":
+        choice["finish_reason"] = "unrecognized_provider_reason"
+    body = ("data: " + json.dumps({"choices": [choice]}) + "\n\n").encode()
+    body += b'data: {"usage":{"prompt_tokens":10,"completion_tokens":20}}\n\n'
+    if tail != "eof":
+        body += b"data: [DONE]\n\n"
+    message, deltas = call_stream(body)
+    attempts = []
+
+    def complete(**_kwargs):
+        attempts.append(1)
+        if not has_tools and len(attempts) == 1:
+            initial = envelope("tool_calls")
+            initial["_usage"] = {}
+            return initial, PROVIDER, ""
+        if tail != "normal" or len(attempts) == (1 if has_tools else 2):
+            return message, PROVIDER, ""
+        return {"content": json.dumps(completed_finish()), "_finish_reason": "stop"}, PROVIDER, ""
+
+    frame = make_frame()
+    probe = ScenarioProbe()
+    outcome = ContinuousAgentEpisode(GLMModelClient(
+        providers=(PROVIDER, _provider("fallback")), complete_fn=complete,
+    )).run(task_frame=frame, context=make_context(frame), registry=make_registry(probe))
+    if tail == "normal":
+        assert outcome.status == "completed"
+        assert len(probe.executed) == 1
+    else:
+        assert probe.executed == ([] if has_tools else [(AUTHORIZED_TOOL, "市场宽度")])
+        assert outcome.status != "completed" and not outcome.draft
+        # Evidence allows a no-tools finalization turn, then one compact recovery.
+        # Neither stage may publish the incomplete response or retry a provider.
+        assert len(attempts) == (1 if has_tools else 4)
+        multiplier = 1 if has_tools else 3
+        assert outcome.usage.input_tokens == 10 * multiplier
+        assert outcome.usage.output_tokens == 20 * multiplier
+        events = [e for e in outcome.events if e.kind == "model_turn"]
+        assert all(e.payload["provider_attempts"] == 1 for e in events)
+        event = events[-1]
+        assert event.payload["error"] == "incomplete_model_response:missing_finish_reason"
+        assert event.payload["finish_reason"] == "missing_finish_reason"
+        assert bool(deltas) is not has_tools
 
 
 @pytest.mark.parametrize("stream", [False, True])

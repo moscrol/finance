@@ -92,7 +92,7 @@ RACES: tuple[Race, ...] = (
         module="test_race_restore_vs_inflight_drive",
         order_a="restore 在驱动停在 model_pending（意图已落、结算未落）时被调用",
         order_b="restore 在驱动结束之后被调用",
-        legal_history_a="restore 只回 ResumePlan(retry_model)、一字不写；驱动继续后该 turn_id 恰一条结算；终态 done",
+        legal_history_a="活驱动持锁，restore 抛 EpisodeWriterBusy、一字不写；驱动继续后该 turn_id 恰一条结算；终态 done",
         legal_history_b="restore 回 already_terminal、一字不写；store 与 outcome 事件逐条同形",
     ),
 )

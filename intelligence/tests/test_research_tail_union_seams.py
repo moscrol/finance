@@ -13,14 +13,18 @@ from intelligence.runtime.continuous_turn_adapter import (
     ContinuousTurnAdapter, _track_public_delivery,
 )
 from intelligence.services.agent_runtime import EpisodeEvent
+from intelligence.services.episode_factory import build_episode_context
 from intelligence.services.episode_semantic_verifier import SemanticEpisodeOutcome
 from intelligence.services.episode_verifier import verify_episode_outcome
-from intelligence.services.historical_research.intent import HistoryIntent
+from intelligence.services.historical_research.intent import (
+    HistoryIntent, explicit_information_cutoff, infer_history_intent,
+)
 from intelligence.services.honesty_gates import requested_information_cutoff
 from intelligence.services.research_contract import (
     InformationCutoff, ResearchDeadline, ResearchPolicy, ResearchRunContext,
 )
 from intelligence.services.track_contract import CONTRACT_STUB_HEADING
+from intelligence.services.turn_controller import decide_turn
 from intelligence.tests.test_boundary_partial_delivery import FACT, _delivery
 from intelligence.tests.test_continuous_turn_adapter import _control
 from intelligence.tests.test_episode_semantic_verifier import _structural
@@ -163,3 +167,47 @@ def test_material_cutoff_cannot_override_independent_top_level_cutoff():
     assert requested_information_cutoff(query, today="2026-09-22") == InformationCutoff(
         date(2026, 9, 11), "requested",
     )
+
+
+# History intent and Episode cutoff assembly must read one parser: a negated or
+# role-bound date that the Episode refuses cannot re-enter via `HistoryIntent`
+# and win the `min()` in `build_episode_context` (#863 independent review, F1).
+HISTORY_TAIL = "，历史上有没有类似情况，找出共同特征"
+
+
+@pytest.mark.parametrize("instruction, expected", [
+    ("以2026-09-11为信息截止日", date(2026, 9, 11)),
+    ("截至2026-09-11", date(2026, 9, 11)),
+    ("信息截止日：2026年9月11日", date(2026, 9, 11)),
+    ("不要以2026-09-11为信息截止日", None),
+    ("报告期截至2026-09-11", None),
+    ("复查日截至2026-09-11", None),
+    ("截至2026-09-11至2026-09-18的观察窗口", None),
+])
+def test_history_intent_and_episode_cutoff_read_one_truth(instruction, expected):
+    query = instruction + HISTORY_TAIL
+    intent = infer_history_intent(query)
+    assert intent is not None and intent.window_error is None
+    requested = requested_information_cutoff(query, today="2026-09-22")
+    assert explicit_information_cutoff(query) == expected
+    assert (requested.as_of_date if requested else None) == expected
+    assert intent.information_cutoff == (expected.isoformat() if expected else None)
+
+
+def test_conflicting_explicit_cutoffs_clarify_history_and_never_guess_episode():
+    query = "截至2026-09-11；信息截止日为2026-09-18" + HISTORY_TAIL
+    assert requested_information_cutoff(query, today="2026-09-22") is None
+    with pytest.raises(ValueError):
+        explicit_information_cutoff(query)
+    assert infer_history_intent(query).window_error
+
+
+def test_negated_cutoff_does_not_reach_episode_through_history_intent():
+    query = "不要以2026-09-11为信息截止日" + HISTORY_TAIL
+    frame = decide_turn(query).task_frame
+    assert frame.history_intent is not None
+    assert frame.history_intent.information_cutoff is None
+    context = build_episode_context(
+        frame, task_id="union-cutoff-e2e", today="2026-09-22", latest_data_date="2026-09-19",
+    )
+    assert context.information_cutoff.as_of_date == date(2026, 9, 22)

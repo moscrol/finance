@@ -27,9 +27,11 @@ dsh 追加式 ``SessionEvent`` 日志。搬的是不变量，不搬 SQLite 事�
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
+from contextlib import AbstractContextManager, contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime
+import fcntl
 import hashlib
 import json
 import os
@@ -41,6 +43,11 @@ from typing import Literal, Protocol
 
 from intelligence.services.agent_runtime import EpisodeEvent, _json_copy, _json_freeze
 from intelligence.services.episode_authorization import EpisodeAuthorizationSnapshot
+from intelligence.services.episode_effects import (
+    merge_unknown_effects,
+    unknown_effects_from_payload,
+)
+from intelligence.services.episode_entry_identity import EpisodeEntryIdentity
 from intelligence.services.episode_event_lanes import DURABLE_EVENT_KINDS
 from intelligence.services.episode_evidence import EpisodeEvidenceSnapshot
 from intelligence.services.research_contract import InMemoryRootBudgetLedger
@@ -55,6 +62,8 @@ __all__ = [
     "EpisodeStore",
     "FencedEpisodeStore",
     "EpisodeStoreFailed",
+    "EpisodeWriterBusy",
+    "episode_writer",
     "INTENT_KINDS",
     "JsonlEpisodeStore",
     "MemoryEpisodeStore",
@@ -128,6 +137,14 @@ class EpisodeState:
       来源。None仍可load诊断，但非终态restore必须拒绝，不能降级为只信configure。
     - ``evidence_snapshot`` / ``evidence_snapshot_sequence``：完整私有证据账及独立模型引用顺序、
       捕获前缀；不等于完整执行现场，也不证明前缀后收到的工具原件/费用已经归齐。
+    - ``entry_identity``：这一轮是从哪个入口、属于哪个用户/会话/run 起的。**不是**身份证明，
+      是当时的记录：恢复由入口重新提供同一身份并精确比对才算同一主人。None = 起跑时没有
+      可信入口（离线/CLI/测试），它只能与同样未绑定的入口对上，不能被任何一扇门接管。
+    - ``unreconciled_effects``：崩溃窗口里「意图已落、结算未落」的外部效果凭证
+      （``episode_effects.UnknownEffect``）。那次请求是否已执行、是否已计费，在本进程里
+      答不出来，所以持久化的是**问题本身**而不是某个方便的假设。非空 = 这份
+      ``budget_snapshot`` 尚未对账，``restore_root_budget`` 据此拒绝放行；对账（扣账 +
+      清空）是一次原子跃迁，清单本身就是去重凭证，因此重复恢复不会重复扣费。
     """
 
     episode_id: str
@@ -151,6 +168,12 @@ class EpisodeState:
     # citation order. Capture position is not an effects reconciliation mark.
     evidence_snapshot: Mapping[str, object] | None = None
     evidence_snapshot_sequence: int | None = None
+    # Who this episode belongs to, as recorded by the entry point that started
+    # it. Saved identity is a record, not a credential: recovery re-asks the door.
+    entry_identity: Mapping[str, object] | None = None
+    # In-flight external effects whose settlement never landed. Empty is a claim
+    # ("nothing outstanding"), not a default: only reconciliation may empty it.
+    unreconciled_effects: tuple[Mapping[str, object], ...] = ()
 
     def __post_init__(self) -> None:
         episode_id = str(self.episode_id or "").strip()
@@ -205,6 +228,21 @@ class EpisodeState:
             validated = EpisodeEvidenceSnapshot.from_dict(self.evidence_snapshot, episode_id=episode_id)
             object.__setattr__(self, "evidence_snapshot", _json_freeze(validated.to_dict(), path="evidence_snapshot"))
 
+        if self.entry_identity is not None:
+            identity = EpisodeEntryIdentity.from_dict(self.entry_identity, episode_id=episode_id)
+            object.__setattr__(self, "entry_identity", _json_freeze(identity.to_dict(), path="entry_identity"))
+
+        # Validate-and-canonicalize: a damaged receipt must fail loudly here, not
+        # be skipped later. Merge also dedups, so restoring twice cannot inflate.
+        effects = merge_unknown_effects(
+            unknown_effects_from_payload(list(self.unreconciled_effects)), ()
+        )
+        object.__setattr__(
+            self,
+            "unreconciled_effects",
+            tuple(_json_freeze(item.to_dict(), path="unreconciled_effects") for item in effects),
+        )
+
     @property
     def terminal(self) -> bool:
         return self.phase == "done"
@@ -228,6 +266,10 @@ class EpisodeState:
             "authorization_snapshot": _json_copy(self.authorization_snapshot, path="authorization_snapshot"),
             "evidence_snapshot": _json_copy(self.evidence_snapshot, path="evidence_snapshot"),
             "evidence_snapshot_sequence": self.evidence_snapshot_sequence,
+            "entry_identity": _json_copy(self.entry_identity, path="entry_identity"),
+            "unreconciled_effects": [
+                _json_copy(item, path="unreconciled_effects") for item in self.unreconciled_effects
+            ],
         }
 
     @classmethod
@@ -253,11 +295,19 @@ class EpisodeState:
             authorization_snapshot=payload.get("authorization_snapshot"),  # type: ignore[arg-type]
             evidence_snapshot=payload.get("evidence_snapshot"),  # type: ignore[arg-type]
             evidence_snapshot_sequence=payload.get("evidence_snapshot_sequence"),  # type: ignore[arg-type]
+            entry_identity=payload.get("entry_identity"),  # type: ignore[arg-type]
+            unreconciled_effects=tuple(payload.get("unreconciled_effects") or ()),  # type: ignore[arg-type]
         )
 
 
 class EpisodeStore(Protocol):
-    """四个动作，够 loop 落账、够 restore 读回。多进程写者 / 跨机复制是非目标。"""
+    """日志/检查点与控制入口的独占写者；不支持跨机复制。
+
+    ``writer`` 覆盖读取、判定、效果与写入的整个控制操作。低层 append/put_state
+    仍供导入及测试使用，不自行取得/释放所有权；生产调用方必须走受保护的入口。
+    """
+
+    def writer(self, episode_id: str) -> AbstractContextManager[None]: ...
 
     def append(
         self, episode_id: str, events: Sequence[EpisodeEvent], *, sync: bool = False
@@ -274,13 +324,28 @@ class EpisodeStoreFailed(RuntimeError):
     """A related episode lost write acknowledgement; no more writes are safe."""
 
 
+class EpisodeWriterBusy(RuntimeError):
+    """Another run, repair or recovery currently owns this episode."""
+
+
+@contextmanager
+def episode_writer(store: EpisodeStore | None, episode_id: str) -> Iterator[None]:
+    """No store means ephemeral; an unsupported durable store must not bypass ownership."""
+    if store is None:
+        yield
+        return
+    with store.writer(episode_id):
+        yield
+
+
 class FencedEpisodeStore:
     """One live parent/child tree shares a fail-closed write boundary.
 
     The lock serializes only storage operations, never model/tool IO. Failure
     callbacks run after releasing it and must not acquire episode-ledger locks.
-    Reads remain available for diagnosis. This is not a cross-process lease or
-    a durable failure receipt: acknowledgement loss remains uncertain on disk.
+    Reads remain available for diagnosis. The per-episode writer guard delegates
+    to the backend, without holding this tree-wide lock across model/tool IO.
+    This fence is not a durable failure receipt: ACK loss is uncertain on disk.
     """
 
     def __init__(self, store: EpisodeStore) -> None:
@@ -354,6 +419,9 @@ class FencedEpisodeStore:
     def put_state(self, episode_id: str, state: EpisodeState) -> None:
         self._write(episode_id, f"state:{state.phase}", lambda: self._store.put_state(episode_id, state))
 
+    def writer(self, episode_id: str) -> AbstractContextManager[None]:
+        return self._store.writer(episode_id)
+
     def load(self, episode_id: str) -> tuple[tuple[EpisodeEvent, ...], EpisodeState | None]:
         return self._store.load(episode_id)
 
@@ -406,6 +474,7 @@ class MemoryEpisodeStore:
         self._lock = threading.RLock()
         self._events: dict[str, list[EpisodeEvent]] = {}
         self._states: dict[str, EpisodeState] = {}
+        self._writers: set[str] = set()
         # 写序 oracle 与「意图 fsync、结算不 fsync」的断言靶：记录每次 append 的 sync 标记。
         self.append_log: list[tuple[str, tuple[int, ...], bool]] = []
 
@@ -444,6 +513,18 @@ class MemoryEpisodeStore:
                 )
             )
 
+    @contextmanager
+    def writer(self, episode_id: str) -> Iterator[None]:
+        with self._lock:
+            if episode_id in self._writers:
+                raise EpisodeWriterBusy(f"{episode_id}: episode writer is active")
+            self._writers.add(episode_id)
+        try:
+            yield
+        finally:
+            with self._lock:
+                self._writers.remove(episode_id)
+
     def truncate(self, episode_id: str, *, keep: int) -> None:
         """测试用：模拟崩溃——只保留前 ``keep`` 条事件（状态另由测试决定保留哪份）。"""
 
@@ -479,7 +560,38 @@ class JsonlEpisodeStore:
         self._lock = threading.RLock()
 
     def episode_dir(self, episode_id: str) -> Path:
-        return self.root / _directory_name(str(episode_id))
+        name = _directory_name(str(episode_id))
+        if name in {"", ".", ".."}:
+            raise ValueError("episode_id must name a child directory")
+        return self.root / name
+
+    @contextmanager
+    def writer(self, episode_id: str) -> Iterator[None]:
+        """Local POSIX single-writer guard, held even while a drive is paused.
+
+        Never unlink/replace the lock inode: that would let a second process
+        lock a different inode for the same episode. Kernel ownership, not file
+        contents or elapsed time, decides when takeover is possible. This is
+        advisory: all runtime/recovery entry points must cooperate; raw imports
+        and older processes are not fenced. No network-filesystem guarantee.
+        """
+        directory = self.episode_dir(episode_id)
+        directory.mkdir(parents=True, exist_ok=True)
+        fd = os.open(directory / ".writer.lock", os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+        acquired = False
+        try:
+            try:
+                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError as exc:
+                raise EpisodeWriterBusy(f"{episode_id}: episode writer is active") from exc
+            acquired = True
+            yield
+        finally:
+            try:
+                if acquired:
+                    fcntl.flock(fd, fcntl.LOCK_UN)
+            finally:
+                os.close(fd)
 
     def append(
         self, episode_id: str, events: Sequence[EpisodeEvent], *, sync: bool = False

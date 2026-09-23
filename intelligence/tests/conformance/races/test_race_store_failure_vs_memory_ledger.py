@@ -90,4 +90,9 @@ def test_order_b_store_fails_on_a_settlement_append() -> None:
     assert result.disposition == "resumable"
     assert result.plan is not None and result.plan.action == "retry_model"
     assert result.plan.turn_id == stored[-1].payload["turn_id"]
-    assert len(rig.stored_events()) == len(stored), "restore 一字不写"
+    # 「不保证前次未计费」不再只是这句注释：那段未知窗口落成一条凭证。恢复仍不写
+    # **结算**、不推进位置；它写的是一个答不了的问题，而不是一个方便的假设。
+    after = rig.stored_events()
+    assert [e.kind for e in after[len(stored):]] == ["effects_unknown"]
+    assert [e.reserved_id for e in result.unreconciled_effects] == [stored[-1].payload["turn_id"]]
+    assert result.unreconciled_effects[0].disposition == "retry_proposed"

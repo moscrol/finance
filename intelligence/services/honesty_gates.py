@@ -137,9 +137,11 @@ def _cutoff_instruction_text(query: str) -> str:
     return visible
 
 
-def _explicit_information_date(query: str) -> str | None:
+def _explicit_cutoff_candidates(text: str) -> list[str]:
+    """Raw explicit cutoff dates in already-partitioned text, after the negation,
+    date-role and range-start rules. One loop for every reader of this boundary."""
     candidates: list[str] = []
-    for clause in re.findall(r"[^，,。；;\n]+", query):
+    for clause in re.findall(r"[^，,。；;\n]+", text):
         for match in _EXPLICIT_CUTOFF_RE.finditer(clause):
             prefix = clause[:match.start()].strip()
             if re.search(r"(?:不要|不得|不应|并非|不是|不能|无需|别).*$", prefix):
@@ -155,8 +157,24 @@ def _explicit_information_date(query: str) -> str | None:
                 match.group("until") or match.group("asof")
                 or match.group("label") or match.group("history")
             )
+    return candidates
+
+
+def explicit_information_cutoff_dates(query: str) -> tuple[date | None, ...]:
+    """Explicit information-cutoff dates named in the top-level user text.
+
+    Single source for Episode cutoff assembly (``requested_information_cutoff``)
+    and history intent recovery (``historical_research.intent``): same forms,
+    same provenance partition, same negation / date-role / range-start rules.
+    Invalid calendars stay ``None`` so callers refuse instead of guess.
+    """
+    text = _cutoff_instruction_text(str(query or ""))
+    return tuple(_cutoff_date(raw) for raw in _explicit_cutoff_candidates(text))
+
+
+def _explicit_information_date(query: str) -> str | None:
     # Equivalent ISO/Chinese dates agree. Conflicts/invalid calendars never guess.
-    normalized = {_cutoff_date(raw) for raw in candidates}
+    normalized = {_cutoff_date(raw) for raw in _explicit_cutoff_candidates(query)}
     if len(normalized) != 1 or None in normalized:
         return None
     return next(iter(normalized)).isoformat()

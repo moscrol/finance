@@ -24,6 +24,9 @@ def test_explicit_selectors_override_suite_without_mutating_defaults():
     ])
     assert args.tests == ["intelligence/tests/test_research_tail_union_seams.py"]
     assert args.definitions == "scripts/review_probes/research_tail_union_mutations.json"
+    # The report label must not claim a frozen suite the run did not execute.
+    assert args.suite == "custom"
     assert SUITES == before
     later = _parse_args(["--suite", "financial-r6", "--output", "unused-output"])
     assert (later.tests, later.definitions) == SUITES["financial-r6"]
+    assert later.suite == "financial-r6"

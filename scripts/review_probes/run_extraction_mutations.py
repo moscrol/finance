@@ -153,8 +153,11 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--tests", nargs="+", help="仓内已提交的测试路径；优先于 --suite")
     args = parser.parse_args(argv)
     suite_tests, suite_definitions = SUITES[args.suite]
+    overridden = args.tests is not None or args.definitions is not None
     args.tests = args.tests if args.tests is not None else suite_tests
     args.definitions = args.definitions if args.definitions is not None else suite_definitions
+    # 显式选择器覆盖了 --suite 时，results.json 的 suite 标签不能再冒充某个冻结套件。
+    args.suite = "custom" if overridden else args.suite
     return args
 
 

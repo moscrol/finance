@@ -694,7 +694,7 @@ def _turn_from_message(
     """Check completion before parsing calls, preserving the provider receipt."""
     reason = message.get("_finish_reason") if isinstance(message, dict) else None
     reason = reason.strip().lower() if isinstance(reason, str) else None
-    if reason in {"length", "max_tokens", "content_filter"}:
+    if reason in {"length", "max_tokens", "content_filter", "missing_finish_reason"}:
         input_tokens, output_tokens = _message_token_usage(message)
         content = message.get("content")
         turn = ModelTurn(
