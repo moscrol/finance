@@ -166,26 +166,32 @@ def test_losing_key_on_retry_cannot_hide_attempted_failure(review, monkeypatch):
     (["partial", "fail"], 1), (["skip", "skip"], 1),
 ])
 def test_local_stock_retry_finishes_before_derivatives(review, monkeypatch, statuses, expected):
-    calls, releases, _ = _main_fakes(review, monkeypatch, statuses, retries=1, label="stock-daily")
+    calls, releases, logs = _main_fakes(review, monkeypatch, statuses, retries=1, label="stock-daily")
     original = review.build_plan(TARGET, 11, 99, "local")[0]
+
+    def stock_step():
+        result = original[1]()
+        return {**result, "attempts": [{**result, "label": "snapshot"}]}
 
     def consumer():
         assert expected == 0
         calls.append("stitch-sector-stocks")
         return _result("stitch-sector-stocks")
 
-    monkeypatch.setattr(review, "build_plan", lambda *a: [original, ("stitch-sector-stocks", consumer)])
+    monkeypatch.setattr(review, "build_plan", lambda *a: [("stock-daily", stock_step), ("stitch-sector-stocks", consumer)])
     assert review.main() == expected
     assert calls[:2] == ["stock-daily", "stock-daily"]
     assert ("stitch-sector-stocks" in calls) == (expected == 0)
     assert bool(releases) == (expected == 0)
+    if expected == 0:
+        assert [a["status"] for a in logs[0][0][1][0]["attempts"]] == statuses
 
 
 @pytest.mark.parametrize("scenario,expected", [
     ("primary", 0), ("sector_fallback", 0), ("bridge", 0),
     ("missing_vendor", 1), ("partial_primary", 1), ("empty_success", 1),
 ])
-def test_local_main_stock_fallback_chain_uses_real_bridge_cli(review, monkeypatch, scenario, expected):
+def test_local_main_stock_fallback_chain_uses_real_bridge_cli(review, monkeypatch, tmp_path, scenario, expected):
     from tests import test_bridge_hithink_stock_daily as fixture
 
     with fixture._con(fixture._codes(3)) as con:
@@ -220,7 +226,14 @@ def test_local_main_stock_fallback_chain_uses_real_bridge_cli(review, monkeypatc
 
         monkeypatch.setattr(review, "run_step", child)
         monkeypatch.setattr(review, "_notify", lambda *a: None)
-        monkeypatch.setattr(review, "write_runlog", lambda *a, **k: logs.append(a))
+        monkeypatch.setattr(review, "RUNLOG", tmp_path / "runlog.md")
+        write_runlog = review.write_runlog
+
+        def record_log(*args, **kwargs):
+            logs.append(args)
+            write_runlog(*args, **kwargs)
+
+        monkeypatch.setattr(review, "write_runlog", record_log)
         monkeypatch.setattr(review, "run_release_steps", lambda *a: (releases.append(a) or [], True))
         monkeypatch.setattr(review.sys, "argv", [
             "review", "--date", fixture.TD, "--plan", "local", "--skip-preflight", "--retry-rounds", "0",
@@ -234,6 +247,11 @@ def test_local_main_stock_fallback_chain_uses_real_bridge_cli(review, monkeypatc
             stock = next(r for r in logs[0][1] if r["label"] == "stock-daily")
             assert stock["status"] == "ok"
             assert [attempt["status"] for attempt in stock["attempts"]] == ["fail", "fail", "ok"]
+            log = review.RUNLOG.read_text()
+            assert "stock-daily (snapshot) | fail" in log
+            assert "stock-daily fallback | fail" in log
+            assert "bridge-stock-daily | ok" in log
+            assert "quality-gate | COMPLETE" in log
             assert con.execute("SELECT DISTINCT source FROM fact_stock_daily WHERE trade_date=?", [fixture.TD]).fetchall() == [("hithink:daily-k-10d",)]
         else:
             assert "stitch-sector-stocks" not in calls
