@@ -1,0 +1,13 @@
+diff --git a/intelligence/services/research_delivery_checks.py b/intelligence/services/research_delivery_checks.py
+index 29f81996..3ad1f04b 100644
+--- a/intelligence/services/research_delivery_checks.py
++++ b/intelligence/services/research_delivery_checks.py
+@@ -359,7 +359,7 @@ def calculation_copy_findings(
+                         # Finite ranking preface: '3年新高，实际为1.587'. Don't
+                         # search arbitrary later numbers (revenue/another period).
+                         preface = re.match(r"\s*(?:创)?\d+(?:年|个?季|个?月)(?:新高|新低|高点|低点)[,，]\s*(?:实际|本期|比率)为", remainder)
+-                        if preface:
++                        if False and preface:
+                             number = _prose_number(value, remainder_start + preface.end())
+                     values = products.get(_period(period_match.group()) or "", set())
+                     if number is None and (values or require_product):

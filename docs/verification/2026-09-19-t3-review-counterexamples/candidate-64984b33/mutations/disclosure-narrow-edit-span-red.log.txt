@@ -1,0 +1,124 @@
+{"command": ["/Users/a77/finance-workspace-private/.venv-workbench/bin/python", "-B", "-m", "pytest", "-q", "-p", "no:randomly", "-p", "no:cacheprovider", "--tb=short", "--junitxml", "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/candidate-64984b33/mutations/disclosure-narrow-edit-span-red.xml", "intelligence/tests/test_calculation_result_delivery.py", "intelligence/tests/test_research_delivery_checks.py", "intelligence/tests/test_research_delivery_retention.py", "intelligence/tests/test_research_delivery_review_regressions.py", "intelligence/tests/test_research_delivery_repair.py", "intelligence/tests/test_frozen_research_delivery.py", "-k", "test_disclosure_edit_spans_preserve_unrelated_raw_text or test_real_verifier_retains_fact_and_citation_for_equivalent_punctuation"], "cwd": "/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/extraction-closeout-mutations-10fzbkhv/tree", "revision": "64984b33e6f38eccc50c004b7b79120f1f45a775"}
+FFFFF.FFFFFF..FFFF..FFFF                                                 [100%]
+=================================== FAILURES ===================================
+_ test_disclosure_edit_spans_preserve_unrelated_raw_text[\u4e2d\u62a5\u539f\u6587\u62ab\u9732\u4e86\u6536\u5165[E1]\uff0c\u4f46\u67e5\u8be2\u8fd4\u56de\u7a7a\u767d\uff0c\u56e0\u6b64\u516c\u53f8\u6ca1\u6709\u516c\u544a\u3002-good0-bad0] _
+intelligence/tests/test_research_delivery_retention.py:90: in test_disclosure_edit_spans_preserve_unrelated_raw_text
+    assert all(item in kept for item in good)
+E   assert False
+E    +  where False = all(<generator object test_disclosure_edit_spans_preserve_unrelated_raw_text.<locals>.<genexpr> at 0x1057c3370>)
+_ test_disclosure_edit_spans_preserve_unrelated_raw_text[\u6536\u5165\u5df2\u62ab\u9732[E1],\u4f46\u67e5\u8be2\u4e3a\u7a7a,\u6240\u4ee5\u516c\u53f8\u6ca1\u6709\u516c\u544a,\u5229\u6da6\u53ef\u6838[E2]\u3002-good1-bad1] _
+intelligence/tests/test_research_delivery_retention.py:90: in test_disclosure_edit_spans_preserve_unrelated_raw_text
+    assert all(item in kept for item in good)
+E   assert False
+E    +  where False = all(<generator object test_disclosure_edit_spans_preserve_unrelated_raw_text.<locals>.<genexpr> at 0x107c0ef60>)
+_ test_disclosure_edit_spans_preserve_unrelated_raw_text[\u67e5\u8be2\u7a7a\u767d\u56e0\u6b64\u6ca1\u6709\u516c\u544a[E9]\uff0c\u6536\u5165\u5df2\u62ab\u9732[E1]\u3002-good2-bad2] _
+intelligence/tests/test_research_delivery_retention.py:90: in test_disclosure_edit_spans_preserve_unrelated_raw_text
+    assert all(item in kept for item in good)
+E   assert False
+E    +  where False = all(<generator object test_disclosure_edit_spans_preserve_unrelated_raw_text.<locals>.<genexpr> at 0x1086b3b90>)
+_ test_disclosure_edit_spans_preserve_unrelated_raw_text[\u6536\u5165\u5df2\u62ab\u9732[E1]\u4f46\u7a97\u53e3\u5185\u65e0\u65b0\u516c\u544a\u5373\u65e0\u65b0\u589e\u5b98\u65b9\u4fe1\u606f\u5dee\u3002-good3-bad3] _
+intelligence/tests/test_research_delivery_retention.py:90: in test_disclosure_edit_spans_preserve_unrelated_raw_text
+    assert all(item in kept for item in good)
+E   assert False
+E    +  where False = all(<generator object test_disclosure_edit_spans_preserve_unrelated_raw_text.<locals>.<genexpr> at 0x107bfa260>)
+_ test_disclosure_edit_spans_preserve_unrelated_raw_text[\u6536\u5165\u5df2\u62ab\u9732[E1]\u4f46\u662f\u7a97\u53e3\u5185\u65e0\u65b0\u516c\u544a\u5373\u65e0\u65b0\u589e\u5b98\u65b9\u4fe1\u606f\u5dee\u3002-good4-bad4] _
+intelligence/tests/test_research_delivery_retention.py:90: in test_disclosure_edit_spans_preserve_unrelated_raw_text
+    assert all(item in kept for item in good)
+E   assert False
+E    +  where False = all(<generator object test_disclosure_edit_spans_preserve_unrelated_raw_text.<locals>.<genexpr> at 0x107c0f370>)
+_ test_disclosure_edit_spans_preserve_unrelated_raw_text[\u4f46\u662f\u7a97\u53e3\u5185\u65e0\u65b0\u516c\u544a\u5373\u65e0\u65b0\u589e\u5b98\u65b9\u4fe1\u606f\u5dee\uff0c\u5229\u6da6\u53ef\u6838[E1]\u3002-good6-bad6] _
+intelligence/tests/test_research_delivery_retention.py:90: in test_disclosure_edit_spans_preserve_unrelated_raw_text
+    assert all(item in kept for item in good)
+E   assert False
+E    +  where False = all(<generator object test_disclosure_edit_spans_preserve_unrelated_raw_text.<locals>.<genexpr> at 0x107bf9560>)
+_ test_disclosure_edit_spans_preserve_unrelated_raw_text[**\u6536\u5165**\u5df2\u62ab\u9732[E1]\uff0c\u67e5\u8be2\u7a7a\u767d\uff0c\u56e0\u6b64__\u516c\u53f8\u6ca1\u6709\u516c\u544a__[E9]\uff0c\u5229\u6da6\u4ecd\u53ef\u6838[E2]\u3002-good7-bad7] _
+intelligence/tests/test_research_delivery_retention.py:90: in test_disclosure_edit_spans_preserve_unrelated_raw_text
+    assert all(item in kept for item in good)
+E   assert False
+E    +  where False = all(<generator object test_disclosure_edit_spans_preserve_unrelated_raw_text.<locals>.<genexpr> at 0x1086b2740>)
+_ test_disclosure_edit_spans_preserve_unrelated_raw_text[\u6536\u5165\u53ef\u6838[E1]\uff0c\u67e5\u8be2\u7a7a\u767d\uff0c\u56e0\u6b64\u6ca1\u6709\u516c\u544a\uff0c\u6240\u4ee5\u5c1a\u672a\u5151\u73b0\u3002-good8-bad8] _
+intelligence/tests/test_research_delivery_retention.py:90: in test_disclosure_edit_spans_preserve_unrelated_raw_text
+    assert all(item in kept for item in good)
+E   assert False
+E    +  where False = all(<generator object test_disclosure_edit_spans_preserve_unrelated_raw_text.<locals>.<genexpr> at 0x107bf8ee0>)
+_ test_disclosure_edit_spans_preserve_unrelated_raw_text[\u56e0\u6b64\u6ca1\u6709\u516c\u544a\uff0c\u67e5\u8be2\u7a7a\u767d\uff0c\u6240\u4ee5\u5c1a\u672a\u5151\u73b0\uff0c\u5229\u6da6\u53ef\u6838[E2]\u3002-good9-bad9] _
+intelligence/tests/test_research_delivery_retention.py:90: in test_disclosure_edit_spans_preserve_unrelated_raw_text
+    assert all(item in kept for item in good)
+E   assert False
+E    +  where False = all(<generator object test_disclosure_edit_spans_preserve_unrelated_raw_text.<locals>.<genexpr> at 0x107bf31d0>)
+_ test_disclosure_edit_spans_preserve_unrelated_raw_text[\u65e0\u6cd5\u5b8c\u6574\u67e5\u8be2\uff0c\u4f46\u7a97\u53e3\u5185\u65e0\u65b0\u516c\u544a\u5373\u65e0\u65b0\u589e\u5b98\u65b9\u4fe1\u606f\u5dee\uff0c\u5229\u6da6\u53ef\u6838[E1]\u3002-good10-bad10] _
+intelligence/tests/test_research_delivery_retention.py:90: in test_disclosure_edit_spans_preserve_unrelated_raw_text
+    assert all(item in kept for item in good)
+E   assert False
+E    +  where False = all(<generator object test_disclosure_edit_spans_preserve_unrelated_raw_text.<locals>.<genexpr> at 0x107c0fd30>)
+_ test_disclosure_edit_spans_preserve_unrelated_raw_text[\u67e5\u8be2\u7a7a\u767d\uff0c\u56e0\u6b64\u6ca1\u6709\u516c\u544a\uff0c\u4e0d\u80fd\u636e\u6b64\u8bc1\u660e\u5c1a\u672a\u5151\u73b0\u3002-good11-bad11] _
+intelligence/tests/test_research_delivery_retention.py:90: in test_disclosure_edit_spans_preserve_unrelated_raw_text
+    assert all(item in kept for item in good)
+E   assert False
+E    +  where False = all(<generator object test_disclosure_edit_spans_preserve_unrelated_raw_text.<locals>.<genexpr> at 0x107bf3ac0>)
+_ test_real_verifier_retains_fact_and_citation_for_equivalent_punctuation[off-\uff0c] _
+intelligence/tests/test_research_delivery_retention.py:130: in test_real_verifier_retains_fact_and_citation_for_equivalent_punctuation
+    assert "中报原文披露了收入[E1]" in result.public_answer
+E   AssertionError: assert '中报原文披露了收入[E1]' in '公告检索范围尚未核实完整；不能据此断言公司没有公告或尚未兑现。'
+E    +  where '公告检索范围尚未核实完整；不能据此断言公司没有公告或尚未兑现。' = SemanticEpisodeOutcome(verified=VerifiedEpisodeOutcome(outcome=AgentOutcome(task_frame_hash='30b122e0a034c3611a7ce46d4...count=None, rejudge_called=False, outcome='skipped', lifted_count=None, still_doubted_count=None, support_evidence=())).public_answer
+_ test_real_verifier_retains_fact_and_citation_for_equivalent_punctuation[off-,] _
+intelligence/tests/test_research_delivery_retention.py:130: in test_real_verifier_retains_fact_and_citation_for_equivalent_punctuation
+    assert "中报原文披露了收入[E1]" in result.public_answer
+E   AssertionError: assert '中报原文披露了收入[E1]' in '公告检索范围尚未核实完整；不能据此断言公司没有公告或尚未兑现。'
+E    +  where '公告检索范围尚未核实完整；不能据此断言公司没有公告或尚未兑现。' = SemanticEpisodeOutcome(verified=VerifiedEpisodeOutcome(outcome=AgentOutcome(task_frame_hash='30b122e0a034c3611a7ce46d4...count=None, rejudge_called=False, outcome='skipped', lifted_count=None, still_doubted_count=None, support_evidence=())).public_answer
+_ test_real_verifier_retains_fact_and_citation_for_equivalent_punctuation[off-\u4f46] _
+intelligence/tests/test_research_delivery_retention.py:130: in test_real_verifier_retains_fact_and_citation_for_equivalent_punctuation
+    assert "中报原文披露了收入[E1]" in result.public_answer
+E   AssertionError: assert '中报原文披露了收入[E1]' in '公告检索范围尚未核实完整；不能据此断言公司没有公告或尚未兑现。'
+E    +  where '公告检索范围尚未核实完整；不能据此断言公司没有公告或尚未兑现。' = SemanticEpisodeOutcome(verified=VerifiedEpisodeOutcome(outcome=AgentOutcome(task_frame_hash='30b122e0a034c3611a7ce46d4...count=None, rejudge_called=False, outcome='skipped', lifted_count=None, still_doubted_count=None, support_evidence=())).public_answer
+_ test_real_verifier_retains_fact_and_citation_for_equivalent_punctuation[off-\u4f46\u662f] _
+intelligence/tests/test_research_delivery_retention.py:130: in test_real_verifier_retains_fact_and_citation_for_equivalent_punctuation
+    assert "中报原文披露了收入[E1]" in result.public_answer
+E   AssertionError: assert '中报原文披露了收入[E1]' in '公告检索范围尚未核实完整；不能据此断言公司没有公告或尚未兑现。'
+E    +  where '公告检索范围尚未核实完整；不能据此断言公司没有公告或尚未兑现。' = SemanticEpisodeOutcome(verified=VerifiedEpisodeOutcome(outcome=AgentOutcome(task_frame_hash='30b122e0a034c3611a7ce46d4...count=None, rejudge_called=False, outcome='skipped', lifted_count=None, still_doubted_count=None, support_evidence=())).public_answer
+_ test_real_verifier_retains_fact_and_citation_for_equivalent_punctuation[llm-\uff0c] _
+intelligence/tests/test_research_delivery_retention.py:130: in test_real_verifier_retains_fact_and_citation_for_equivalent_punctuation
+    assert "中报原文披露了收入[E1]" in result.public_answer
+E   AssertionError: assert '中报原文披露了收入[E1]' in '公告检索范围尚未核实完整；不能据此断言公司没有公告或尚未兑现。'
+E    +  where '公告检索范围尚未核实完整；不能据此断言公司没有公告或尚未兑现。' = SemanticEpisodeOutcome(verified=VerifiedEpisodeOutcome(outcome=AgentOutcome(task_frame_hash='30b122e0a034c3611a7ce46d4...count=None, rejudge_called=False, outcome='skipped', lifted_count=None, still_doubted_count=None, support_evidence=())).public_answer
+_ test_real_verifier_retains_fact_and_citation_for_equivalent_punctuation[llm-,] _
+intelligence/tests/test_research_delivery_retention.py:130: in test_real_verifier_retains_fact_and_citation_for_equivalent_punctuation
+    assert "中报原文披露了收入[E1]" in result.public_answer
+E   AssertionError: assert '中报原文披露了收入[E1]' in '公告检索范围尚未核实完整；不能据此断言公司没有公告或尚未兑现。'
+E    +  where '公告检索范围尚未核实完整；不能据此断言公司没有公告或尚未兑现。' = SemanticEpisodeOutcome(verified=VerifiedEpisodeOutcome(outcome=AgentOutcome(task_frame_hash='30b122e0a034c3611a7ce46d4...count=None, rejudge_called=False, outcome='skipped', lifted_count=None, still_doubted_count=None, support_evidence=())).public_answer
+_ test_real_verifier_retains_fact_and_citation_for_equivalent_punctuation[llm-\u4f46] _
+intelligence/tests/test_research_delivery_retention.py:130: in test_real_verifier_retains_fact_and_citation_for_equivalent_punctuation
+    assert "中报原文披露了收入[E1]" in result.public_answer
+E   AssertionError: assert '中报原文披露了收入[E1]' in '公告检索范围尚未核实完整；不能据此断言公司没有公告或尚未兑现。'
+E    +  where '公告检索范围尚未核实完整；不能据此断言公司没有公告或尚未兑现。' = SemanticEpisodeOutcome(verified=VerifiedEpisodeOutcome(outcome=AgentOutcome(task_frame_hash='30b122e0a034c3611a7ce46d4...count=None, rejudge_called=False, outcome='skipped', lifted_count=None, still_doubted_count=None, support_evidence=())).public_answer
+_ test_real_verifier_retains_fact_and_citation_for_equivalent_punctuation[llm-\u4f46\u662f] _
+intelligence/tests/test_research_delivery_retention.py:130: in test_real_verifier_retains_fact_and_citation_for_equivalent_punctuation
+    assert "中报原文披露了收入[E1]" in result.public_answer
+E   AssertionError: assert '中报原文披露了收入[E1]' in '公告检索范围尚未核实完整；不能据此断言公司没有公告或尚未兑现。'
+E    +  where '公告检索范围尚未核实完整；不能据此断言公司没有公告或尚未兑现。' = SemanticEpisodeOutcome(verified=VerifiedEpisodeOutcome(outcome=AgentOutcome(task_frame_hash='30b122e0a034c3611a7ce46d4...count=None, rejudge_called=False, outcome='skipped', lifted_count=None, still_doubted_count=None, support_evidence=())).public_answer
+- generated xml file: /Users/a77/.finance-runtime/convergence-20260919/retention-repair/candidate-64984b33/mutations/disclosure-narrow-edit-span-red.xml -
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_research_delivery_retention.py::test_disclosure_edit_spans_preserve_unrelated_raw_text[\u4e2d\u62a5\u539f\u6587\u62ab\u9732\u4e86\u6536\u5165[E1]\uff0c\u4f46\u67e5\u8be2\u8fd4\u56de\u7a7a\u767d\uff0c\u56e0\u6b64\u516c\u53f8\u6ca1\u6709\u516c\u544a\u3002-good0-bad0]
+FAILED intelligence/tests/test_research_delivery_retention.py::test_disclosure_edit_spans_preserve_unrelated_raw_text[\u6536\u5165\u5df2\u62ab\u9732[E1],\u4f46\u67e5\u8be2\u4e3a\u7a7a,\u6240\u4ee5\u516c\u53f8\u6ca1\u6709\u516c\u544a,\u5229\u6da6\u53ef\u6838[E2]\u3002-good1-bad1]
+FAILED intelligence/tests/test_research_delivery_retention.py::test_disclosure_edit_spans_preserve_unrelated_raw_text[\u67e5\u8be2\u7a7a\u767d\u56e0\u6b64\u6ca1\u6709\u516c\u544a[E9]\uff0c\u6536\u5165\u5df2\u62ab\u9732[E1]\u3002-good2-bad2]
+FAILED intelligence/tests/test_research_delivery_retention.py::test_disclosure_edit_spans_preserve_unrelated_raw_text[\u6536\u5165\u5df2\u62ab\u9732[E1]\u4f46\u7a97\u53e3\u5185\u65e0\u65b0\u516c\u544a\u5373\u65e0\u65b0\u589e\u5b98\u65b9\u4fe1\u606f\u5dee\u3002-good3-bad3]
+FAILED intelligence/tests/test_research_delivery_retention.py::test_disclosure_edit_spans_preserve_unrelated_raw_text[\u6536\u5165\u5df2\u62ab\u9732[E1]\u4f46\u662f\u7a97\u53e3\u5185\u65e0\u65b0\u516c\u544a\u5373\u65e0\u65b0\u589e\u5b98\u65b9\u4fe1\u606f\u5dee\u3002-good4-bad4]
+FAILED intelligence/tests/test_research_delivery_retention.py::test_disclosure_edit_spans_preserve_unrelated_raw_text[\u4f46\u662f\u7a97\u53e3\u5185\u65e0\u65b0\u516c\u544a\u5373\u65e0\u65b0\u589e\u5b98\u65b9\u4fe1\u606f\u5dee\uff0c\u5229\u6da6\u53ef\u6838[E1]\u3002-good6-bad6]
+FAILED intelligence/tests/test_research_delivery_retention.py::test_disclosure_edit_spans_preserve_unrelated_raw_text[**\u6536\u5165**\u5df2\u62ab\u9732[E1]\uff0c\u67e5\u8be2\u7a7a\u767d\uff0c\u56e0\u6b64__\u516c\u53f8\u6ca1\u6709\u516c\u544a__[E9]\uff0c\u5229\u6da6\u4ecd\u53ef\u6838[E2]\u3002-good7-bad7]
+FAILED intelligence/tests/test_research_delivery_retention.py::test_disclosure_edit_spans_preserve_unrelated_raw_text[\u6536\u5165\u53ef\u6838[E1]\uff0c\u67e5\u8be2\u7a7a\u767d\uff0c\u56e0\u6b64\u6ca1\u6709\u516c\u544a\uff0c\u6240\u4ee5\u5c1a\u672a\u5151\u73b0\u3002-good8-bad8]
+FAILED intelligence/tests/test_research_delivery_retention.py::test_disclosure_edit_spans_preserve_unrelated_raw_text[\u56e0\u6b64\u6ca1\u6709\u516c\u544a\uff0c\u67e5\u8be2\u7a7a\u767d\uff0c\u6240\u4ee5\u5c1a\u672a\u5151\u73b0\uff0c\u5229\u6da6\u53ef\u6838[E2]\u3002-good9-bad9]
+FAILED intelligence/tests/test_research_delivery_retention.py::test_disclosure_edit_spans_preserve_unrelated_raw_text[\u65e0\u6cd5\u5b8c\u6574\u67e5\u8be2\uff0c\u4f46\u7a97\u53e3\u5185\u65e0\u65b0\u516c\u544a\u5373\u65e0\u65b0\u589e\u5b98\u65b9\u4fe1\u606f\u5dee\uff0c\u5229\u6da6\u53ef\u6838[E1]\u3002-good10-bad10]
+FAILED intelligence/tests/test_research_delivery_retention.py::test_disclosure_edit_spans_preserve_unrelated_raw_text[\u67e5\u8be2\u7a7a\u767d\uff0c\u56e0\u6b64\u6ca1\u6709\u516c\u544a\uff0c\u4e0d\u80fd\u636e\u6b64\u8bc1\u660e\u5c1a\u672a\u5151\u73b0\u3002-good11-bad11]
+FAILED intelligence/tests/test_research_delivery_retention.py::test_real_verifier_retains_fact_and_citation_for_equivalent_punctuation[off-\uff0c]
+FAILED intelligence/tests/test_research_delivery_retention.py::test_real_verifier_retains_fact_and_citation_for_equivalent_punctuation[off-,]
+FAILED intelligence/tests/test_research_delivery_retention.py::test_real_verifier_retains_fact_and_citation_for_equivalent_punctuation[off-\u4f46]
+FAILED intelligence/tests/test_research_delivery_retention.py::test_real_verifier_retains_fact_and_citation_for_equivalent_punctuation[off-\u4f46\u662f]
+FAILED intelligence/tests/test_research_delivery_retention.py::test_real_verifier_retains_fact_and_citation_for_equivalent_punctuation[llm-\uff0c]
+FAILED intelligence/tests/test_research_delivery_retention.py::test_real_verifier_retains_fact_and_citation_for_equivalent_punctuation[llm-,]
+FAILED intelligence/tests/test_research_delivery_retention.py::test_real_verifier_retains_fact_and_citation_for_equivalent_punctuation[llm-\u4f46]
+FAILED intelligence/tests/test_research_delivery_retention.py::test_real_verifier_retains_fact_and_citation_for_equivalent_punctuation[llm-\u4f46\u662f]
+19 failed, 5 passed, 281 deselected in 0.98s
+
+STDERR:
+
+EXIT=1

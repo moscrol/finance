@@ -1,0 +1,15 @@
+{"command": ["/Users/a77/finance-workspace-private/.venv-workbench/bin/python", "-B", "-m", "pytest", "-q", "-p", "no:randomly", "-p", "no:cacheprovider", "--tb=short", "--junitxml", "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/candidate-746b716f/mutations/disclosure-new-announcement-wording-red.xml", "intelligence/tests/test_calculation_result_delivery.py", "intelligence/tests/test_research_delivery_checks.py", "intelligence/tests/test_research_delivery_retention.py", "intelligence/tests/test_research_delivery_review_regressions.py", "intelligence/tests/test_research_delivery_ratio_scope.py", "intelligence/tests/test_research_delivery_repair.py", "intelligence/tests/test_frozen_research_delivery.py", "-k", "test_review_disclosure_residue_is_not_republished"], "cwd": "/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/extraction-closeout-mutations-porli7ba/tree", "revision": "746b716ff95d40898697628e197fd266a9473bf6"}
+F.........                                                               [100%]
+=================================== FAILURES ===================================
+_ test_review_disclosure_residue_is_not_republished[\u6536\u5165\u53ef\u6838[E1]\uff0c\u516c\u544a\u68c0\u7d22\u63a5\u53e3\u8fd4\u56de\u7a7a\u767d\uff0c\u56e0\u6b64\u53ef\u4ee5\u8ba4\u5b9a\u6ca1\u6709\u65b0\u516c\u544a\uff0c\u5373\u516c\u53f8\u65e0\u65b0\u589e\u516c\u544a\u3002-good0-bad0] _
+intelligence/tests/test_research_delivery_review_regressions.py:78: in test_review_disclosure_residue_is_not_republished
+    assert findings
+E   assert ()
+- generated xml file: /Users/a77/.finance-runtime/convergence-20260919/retention-repair/candidate-746b716f/mutations/disclosure-new-announcement-wording-red.xml -
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_research_delivery_review_regressions.py::test_review_disclosure_residue_is_not_republished[\u6536\u5165\u53ef\u6838[E1]\uff0c\u516c\u544a\u68c0\u7d22\u63a5\u53e3\u8fd4\u56de\u7a7a\u767d\uff0c\u56e0\u6b64\u53ef\u4ee5\u8ba4\u5b9a\u6ca1\u6709\u65b0\u516c\u544a\uff0c\u5373\u516c\u53f8\u65e0\u65b0\u589e\u516c\u544a\u3002-good0-bad0]
+1 failed, 9 passed, 406 deselected in 0.97s
+
+STDERR:
+
+EXIT=1

@@ -1,0 +1,29 @@
+{
+  "status": "hold",
+  "business_revision": "746b716ff95d40898697628e197fd266a9473bf6",
+  "branch": "q/research-data-readiness",
+  "business_pushed_to_gitea": true,
+  "full_engineering_receipt": "20260919T085036Z-746b716f.json",
+  "python": {"passed": 11988, "failed": 0, "errors": 0, "skipped": 87, "xfailed": 2},
+  "original_fact_retention_probe": {"passed": 6, "failed": 0},
+  "original_ratio_hedge_probe": {"passed": 4, "failed": 0},
+  "mutation_groups": 36,
+  "mutation_baseline_and_restored_passed": 416,
+  "prior_valid_external_verdicts": ["ARL-0001:CHANGES_REQUIRED", "ARL-0002:CHANGES_REQUIRED", "ARL-0003:CHANGES_REQUIRED"],
+  "review_id": "ARL-0004",
+  "request_sha256": "ed52088dda5b401ec1289bbe225cfa2bbd8c3191ec67baa9b4ef1a768495b84f",
+  "attempts": [
+    {"state_root": "qc-repair-746b716f", "status": "REVIEWER_INACTIVE", "actual_failure": "local CLI Prompt is too long", "api_duration_ms": 0, "reported_input_tokens": 0, "reported_output_tokens": 0, "reported_cost_usd": 0, "valid_verdict": false},
+    {"state_root": "qc-retry-746b716f-01", "status": "INVALID_VERDICT", "raw_verdict_status": "PASS", "required_partial_checks": 5, "validation_error": "failed_check_for_pass", "authority": "none", "cli_cost_estimate_usd": 2.1568412500000003, "valid_verdict": false}
+  ],
+  "independent_mechanical_preflight_passed": 1116,
+  "new_scope_probe": {"revision": "746b716ff95d40898697628e197fd266a9473bf6", "passed": 4, "failed": 12, "exit": 1, "target_unchanged": true, "model_calls": 0, "new_regression_classes": 3, "preexisting_blind_spot_classes": 3, "positive_control_classes": 2},
+  "prior_scope_probe": {"revision": "79dba348bb2f4e76aa6be0d692a34baae1b6ddbe", "passed": 8, "failed": 8, "exit": 1, "target_unchanged": true, "model_calls": 0},
+  "post_verdict_gate": {"completed": false, "tool_timeout_seconds": 120, "stdout_bytes": 0, "exit_code": null, "note": "No gate decision inferred. No process remains. Direct verdict validation exited 1/authority none."},
+  "new_live_finance_conversations": 0,
+  "new_market_fetches": 0,
+  "main_merged": false,
+  "deployed": false,
+  "automatic_retry": false,
+  "next_action": "Fix forward only with the new red cases and preservation controls; freeze a new SHA, rerun gates, then obtain a valid independent verdict. Natural finance acceptance and any merge/deploy remain separate."
+}

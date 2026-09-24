@@ -1,0 +1,253 @@
+{
+  "scope": "T3 convergence QC, not runtime deployment or natural model quality",
+  "revision": "d12bd0b1f5be2f242a1275fd51162f0e46cf5e3b",
+  "base": "b22ddf8b0285a952de1e6e18c04db0f4abe448e7",
+  "files": [
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/t3-d12bd0b1/e2e-deploy-ledger.jsonl",
+      "archive": "t3-d12bd0b1/e2e-deploy-ledger.jsonl",
+      "bytes": 846,
+      "sha256": "ef779939181cb11f8cc5d40e15ccfdfa96d7ffe523218abcd1fdfb881f9a1119"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/t3-d12bd0b1/e2e-result.json",
+      "archive": "t3-d12bd0b1/e2e-result.json",
+      "bytes": 288,
+      "sha256": "6323a4deef99cbfce69c3fff3c6899d71aa5c96c504fa2bb3acba5289bd3375e"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/t3-d12bd0b1/e2e.log",
+      "archive": "t3-d12bd0b1/e2e.log.txt",
+      "bytes": 12746,
+      "sha256": "8222f744a793aa888215ac8d7222981ac9b3f44d9065598d6a06505cb96f37b1"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/t3-d12bd0b1/frontend-build-result.json",
+      "archive": "t3-d12bd0b1/frontend-build-result.json",
+      "bytes": 295,
+      "sha256": "df86de9b5925e78a78be1da9d36eb2b9396875ac6aa3bccd7b8951e0a0b37687"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/t3-d12bd0b1/frontend-build.log",
+      "archive": "t3-d12bd0b1/frontend-build.log.txt",
+      "bytes": 713,
+      "sha256": "8e094047c9c84b883d9609bf2d2b3e0e7d430c6beddf1c66add31af879c94698"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/t3-d12bd0b1/frontend-lint-result.json",
+      "archive": "t3-d12bd0b1/frontend-lint-result.json",
+      "bytes": 293,
+      "sha256": "5244c040a49219fa44e0875149ca4aca567fb9156bcd68786d9b9ed483269bcd"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/t3-d12bd0b1/frontend-lint.log",
+      "archive": "t3-d12bd0b1/frontend-lint.log.txt",
+      "bytes": 117,
+      "sha256": "1f06ed0f6f2491b26cb854104debc25de5e3f3e9cf54878c57edb7e3fec0624b"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/t3-d12bd0b1/frontend-test-result.json",
+      "archive": "t3-d12bd0b1/frontend-test-result.json",
+      "bytes": 293,
+      "sha256": "e80c3045db358d547f127040a8a6bc331a9583d4e8b6da6d9d99d61a7a122396"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/t3-d12bd0b1/frontend-test.log",
+      "archive": "t3-d12bd0b1/frontend-test.log.txt",
+      "bytes": 842,
+      "sha256": "af772aa094a19d07fd73b6a58a8b99740fcb481f7c2bc29b5fcb29b175f734d6"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/t3-d12bd0b1/frontend-typecheck-result.json",
+      "archive": "t3-d12bd0b1/frontend-typecheck-result.json",
+      "bytes": 303,
+      "sha256": "a070e8a0d70f50b9999db93922484eb892a02fea57427b604e09d153eaa4d608"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/t3-d12bd0b1/frontend-typecheck.log",
+      "archive": "t3-d12bd0b1/frontend-typecheck.log.txt",
+      "bytes": 215,
+      "sha256": "18286fecd9c512fdfc12ed215b5bf25e5891e7b107a3b0242cca6a83e2b16911"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/t3-d12bd0b1/ledger-crosswalk-result.json",
+      "archive": "t3-d12bd0b1/ledger-crosswalk-result.json",
+      "bytes": 369,
+      "sha256": "3bb54d943eb36650e08caf5eaf06409705eda2e8a1e6fd344b4e3ee4a890bd56"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/t3-d12bd0b1/ledger-crosswalk.log",
+      "archive": "t3-d12bd0b1/ledger-crosswalk.log.txt",
+      "bytes": 2012,
+      "sha256": "bfc4bfd5fafdda34fae52ff50281ec33c9ab78bb516f1de6c6f9a26ff6e34e60"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/t3-d12bd0b1/prior-full-pytest.log",
+      "archive": "t3-d12bd0b1/prior-full-pytest.log.txt",
+      "bytes": 17192,
+      "sha256": "333f13a2a13054200b0ba6b4cb71e5d2acc047f0ee3390726d28ee037c34a08a"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/t3-d12bd0b1/prior-python-gate.log",
+      "archive": "t3-d12bd0b1/prior-python-gate.log.txt",
+      "bytes": 678,
+      "sha256": "bb74ad71bc5b8fb62f02b3ab7c1f6272978108356903a9557b1689fe8a4a2236"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/t3-d12bd0b1/prior-python-receipt.json",
+      "archive": "t3-d12bd0b1/prior-python-receipt.json",
+      "bytes": 657,
+      "sha256": "32e230c2e63192ee279663aa8e09442c313b88385af989312081cdebebc867de"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/t3-d12bd0b1/prior-ruff.log",
+      "archive": "t3-d12bd0b1/prior-ruff.log.txt",
+      "bytes": 19,
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/t3-d12bd0b1/receipt-validation-result.json",
+      "archive": "t3-d12bd0b1/receipt-validation-result.json",
+      "bytes": 633,
+      "sha256": "ec39124bbaf015fc78a5c8e4940826b1465ca0b452d82427209f9a3d2ebcbccb"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/t3-d12bd0b1/receipt-validation.log",
+      "archive": "t3-d12bd0b1/receipt-validation.log.txt",
+      "bytes": 763,
+      "sha256": "030e8084f2a2e61a2ad709e92d4ebb11c5935dbe76bc573642a22fbd06a453ee"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/t3-d12bd0b1/registry-check-result.json",
+      "archive": "t3-d12bd0b1/registry-check-result.json",
+      "bytes": 367,
+      "sha256": "96c209af2333e2a9270e41b960b28999f3ce57f57e99ee15fcc068093a52960c"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/t3-d12bd0b1/registry-check.log",
+      "archive": "t3-d12bd0b1/registry-check.log.txt",
+      "bytes": 1105,
+      "sha256": "aaf5dfa001820fdd23d9398d803e3e1b7a2692298d01c8b9adbfdc04d84b680c"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/t3-d12bd0b1/registry-parseability-result.json",
+      "archive": "t3-d12bd0b1/registry-parseability-result.json",
+      "bytes": 387,
+      "sha256": "4bf663ce999d6b7c7e70d5cc37096d7c704c96b93402ba61c5d42e2e04132b5e"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/t3-d12bd0b1/registry-parseability.log",
+      "archive": "t3-d12bd0b1/registry-parseability.log.txt",
+      "bytes": 95,
+      "sha256": "b2d7a8d77df0fdc0f638e93d711f397b07859eb91e6aa5d45d793a52f2abef60"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/t3-d12bd0b1/registry-tables-result.json",
+      "archive": "t3-d12bd0b1/registry-tables-result.json",
+      "bytes": 393,
+      "sha256": "bb91a96fda443745dced6c3ad139230c2d1b711e2bd558765ecaa65b8b9cd6a8"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/t3-d12bd0b1/registry-tables.log",
+      "archive": "t3-d12bd0b1/registry-tables.log.txt",
+      "bytes": 116,
+      "sha256": "362c2b566827eb15434ae230b1ce60edad2006c45ff08836d0a24fc744447261"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/t3-d12bd0b1/registry-views-result.json",
+      "archive": "t3-d12bd0b1/registry-views-result.json",
+      "bytes": 391,
+      "sha256": "cb0845a7e01afc2827e3afe9f6f1eb41567dbd74b8522f34f73c63bd2ca9fd7c"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/t3-d12bd0b1/registry-views.log",
+      "archive": "t3-d12bd0b1/registry-views.log.txt",
+      "bytes": 68,
+      "sha256": "9730a43a0a4535867153d7ac0afd888b1feaaa96f3846b2922c39a16ad068e89"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/t3-d12bd0b1/result.json",
+      "archive": "t3-d12bd0b1/result.json",
+      "bytes": 5925,
+      "sha256": "34f716d6fc5b65578580d86d44ac2abf0324683d91a1ae6267cd5d47a6a95db2"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/t3-d12bd0b1/review-targets-result.json",
+      "archive": "t3-d12bd0b1/review-targets-result.json",
+      "bytes": 780,
+      "sha256": "f869eb2787630ee88366ecd1d06d6c6b9079b2446a34835ea2f5c4e905af42d0"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/t3-d12bd0b1/review-targets.log",
+      "archive": "t3-d12bd0b1/review-targets.log.txt",
+      "bytes": 347,
+      "sha256": "9fe3c05dda5f47a5032ec12f24e0daad3f296098ec5eaee506cb8ae982d41a5b"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/t3-d12bd0b1/started.json",
+      "archive": "t3-d12bd0b1/started.json",
+      "bytes": 128,
+      "sha256": "9e83bb47ef205c3a3422caea685266cd62a422b9242ae7886b8c2e100f66c5c4"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/registry-fixed-results/check.log",
+      "archive": "registry-fixed-results/check.log.txt",
+      "bytes": 33,
+      "sha256": "8c996aaec0fcd03defec5afb55f6ebb96935c7a5bc571e1811410de6339fe0df"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/registry-fixed-results/ledger.log",
+      "archive": "registry-fixed-results/ledger.log.txt",
+      "bytes": 2062,
+      "sha256": "93f0a5371a6741b2c4587f2f7959f88e402b56aa7b4acbfa124dfe7e9b06b6f7"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/registry-fixed-results/parseability.log",
+      "archive": "registry-fixed-results/parseability.log.txt",
+      "bytes": 95,
+      "sha256": "b2d7a8d77df0fdc0f638e93d711f397b07859eb91e6aa5d45d793a52f2abef60"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/registry-fixed-results/result.json",
+      "archive": "registry-fixed-results/result.json",
+      "bytes": 1445,
+      "sha256": "4ad16ed8800baffedbe6cd763278fd2b2c5d214eb781ee64b410c99c8130cb9e"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/registry-fixed-results/tables.log",
+      "archive": "registry-fixed-results/tables.log.txt",
+      "bytes": 116,
+      "sha256": "362c2b566827eb15434ae230b1ce60edad2006c45ff08836d0a24fc744447261"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/registry-fixed-results/views.log",
+      "archive": "registry-fixed-results/views.log.txt",
+      "bytes": 68,
+      "sha256": "9730a43a0a4535867153d7ac0afd888b1feaaa96f3846b2922c39a16ad068e89"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/registry-pins.json",
+      "archive": "registry-pins.json",
+      "bytes": 967,
+      "sha256": "e28cd94d315ccb9605328690271d9dc6253e48e4919e7d446ca4c18af5de10d1"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/fact-retention-probe.json",
+      "archive": "fact-retention-probe.json",
+      "bytes": 6576,
+      "sha256": "dced8492afbe56249a2748d4331a56ade5fd0adf1f821b6f6043c1c2001c3b43"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/fact-retention-probe.exit",
+      "archive": "fact-retention-probe.exit",
+      "bytes": 2,
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/convergence-20260919/run_t3_remaining_checks.py",
+      "archive": "run_t3_remaining_checks.py.txt",
+      "bytes": 5131,
+      "sha256": "cb91d5b80842a3f07fba726fce40f6bfd073a2f3880f2c806b0e4b28e94b3708"
+    }
+  ]
+}

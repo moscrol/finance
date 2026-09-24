@@ -1,0 +1,291 @@
+{
+  "scope": "two uncovered disclosure leads; finite engineering counterexample, not natural answer acceptance",
+  "model_calls": 0,
+  "network_calls": 0,
+  "probe_sha256": "379069b5a422f2cef5d937726434ffe0dad2ca0b0eca3cab6b0e8e9ad7c352b2",
+  "before": {
+    "code_root": "/Users/a77/fwp-wt-research-data-acceptance-0922",
+    "revision": "332b50782b6b0843e7a16d3333c0368c753dea11",
+    "status": "",
+    "source_sha256": {
+      "intelligence/services/research_delivery_checks.py": "cf81516431dfe65c4146ecb581fcdd4171ef5a11b5b7029bac41029f48ff4752",
+      "intelligence/services/episode_semantic_verifier.py": "dd7f6d312a0a6ac8d5ba3aa6e163e1dab3b7873198b1501a88ae507bba61afe6",
+      "intelligence/tests/test_episode_semantic_verifier.py": "68f090bf247a36886b4546930b948263beeec53f661f6d658fff81eb6ee53bff"
+    }
+  },
+  "fixture_sha256": "74cc6f1788cd5443713cc007b59ac5fc2a8290a942719200d3f94fdd79956e91",
+  "after": {
+    "code_root": "/Users/a77/fwp-wt-research-data-acceptance-0922",
+    "revision": "332b50782b6b0843e7a16d3333c0368c753dea11",
+    "status": "",
+    "source_sha256": {
+      "intelligence/services/research_delivery_checks.py": "cf81516431dfe65c4146ecb581fcdd4171ef5a11b5b7029bac41029f48ff4752",
+      "intelligence/services/episode_semantic_verifier.py": "dd7f6d312a0a6ac8d5ba3aa6e163e1dab3b7873198b1501a88ae507bba61afe6",
+      "intelligence/tests/test_episode_semantic_verifier.py": "68f090bf247a36886b4546930b948263beeec53f661f6d658fff81eb6ee53bff"
+    }
+  },
+  "target_unchanged": true,
+  "cases": [
+    {
+      "name": "unlisted-venue-attribution",
+      "kind": "attributed",
+      "input_origin": "review-fragment-completed-by-producer",
+      "control": false,
+      "draft": "收入可核[E1]，查询返回空白，因此公司没有公告，深交所互动易显示本期没有公告[E2]。",
+      "judge_mode": "off",
+      "judge_stubbed": false,
+      "local_codes": [
+        "disclosure_absence_inference"
+      ],
+      "public_answer": "收入可核[E1]，查询返回空白，深交所互动易显示本期没有公告[E2]。\n\n公告检索范围尚未核实完整；不能据此断言公司没有公告或尚未兑现。",
+      "status": "partial",
+      "checks": {
+        "fixture_structurally_complete": true,
+        "independent_income_retained": true,
+        "draft_and_evidence_unchanged": true,
+        "final_recheck_idempotent": true,
+        "local_check_exercised": true,
+        "unverified_not_completed": true,
+        "same_turn_repair_requested": true,
+        "rejected_inference_removed": true,
+        "attributed_fact_and_citation_retained": true
+      },
+      "passed": true
+    },
+    {
+      "name": "listed-venue-control",
+      "kind": "attributed",
+      "input_origin": "control-listed-venue",
+      "control": true,
+      "draft": "收入可核[E1]，查询返回空白，因此公司没有公告，巨潮资讯网显示本期没有公告[E2]。",
+      "judge_mode": "off",
+      "judge_stubbed": false,
+      "local_codes": [
+        "disclosure_absence_inference"
+      ],
+      "public_answer": "收入可核[E1]，查询返回空白，巨潮资讯网显示本期没有公告[E2]。\n\n公告检索范围尚未核实完整；不能据此断言公司没有公告或尚未兑现。",
+      "status": "partial",
+      "checks": {
+        "fixture_structurally_complete": true,
+        "independent_income_retained": true,
+        "draft_and_evidence_unchanged": true,
+        "final_recheck_idempotent": true,
+        "local_check_exercised": true,
+        "unverified_not_completed": true,
+        "same_turn_repair_requested": true,
+        "rejected_inference_removed": true,
+        "attributed_fact_and_citation_retained": true
+      },
+      "passed": true
+    },
+    {
+      "name": "borrowed-citation-control",
+      "kind": "borrowed",
+      "input_origin": "control-citation-from-another-channel",
+      "control": true,
+      "draft": "收入可核[E1]，查询返回空白，因此公司没有公告，深交所互动易显示本期没有公告[E2]。",
+      "judge_mode": "off",
+      "judge_stubbed": false,
+      "local_codes": [
+        "disclosure_absence_inference"
+      ],
+      "public_answer": "收入可核[E1]，查询返回空白。\n\n公告检索范围尚未核实完整；不能据此断言公司没有公告或尚未兑现。",
+      "status": "partial",
+      "checks": {
+        "fixture_structurally_complete": true,
+        "independent_income_retained": true,
+        "draft_and_evidence_unchanged": true,
+        "final_recheck_idempotent": true,
+        "local_check_exercised": true,
+        "unverified_not_completed": true,
+        "same_turn_repair_requested": true,
+        "rejected_inference_removed": true,
+        "borrowed_attribution_not_retained": true
+      },
+      "passed": true
+    },
+    {
+      "name": "unlisted-absence-wording",
+      "kind": "absence",
+      "input_origin": "review-fragment-completed-by-producer",
+      "control": false,
+      "draft": "收入可核[E1]，查询返回空白，因此本期无任何披露文件。",
+      "judge_mode": "off",
+      "judge_stubbed": false,
+      "local_codes": [
+        "disclosure_absence_inference"
+      ],
+      "public_answer": "收入可核[E1]，查询返回空白。\n\n公告检索范围尚未核实完整；不能据此断言公司没有公告或尚未兑现。",
+      "status": "partial",
+      "checks": {
+        "fixture_structurally_complete": true,
+        "independent_income_retained": true,
+        "draft_and_evidence_unchanged": true,
+        "final_recheck_idempotent": true,
+        "local_check_exercised": true,
+        "unverified_not_completed": true,
+        "same_turn_repair_requested": true,
+        "absence_inference_removed": true
+      },
+      "passed": true
+    },
+    {
+      "name": "listed-absence-control",
+      "kind": "absence",
+      "input_origin": "control-listed-wording",
+      "control": true,
+      "draft": "收入可核[E1]，查询返回空白，因此本期为零披露。",
+      "judge_mode": "off",
+      "judge_stubbed": false,
+      "local_codes": [
+        "disclosure_absence_inference"
+      ],
+      "public_answer": "收入可核[E1]，查询返回空白。\n\n公告检索范围尚未核实完整；不能据此断言公司没有公告或尚未兑现。",
+      "status": "partial",
+      "checks": {
+        "fixture_structurally_complete": true,
+        "independent_income_retained": true,
+        "draft_and_evidence_unchanged": true,
+        "final_recheck_idempotent": true,
+        "local_check_exercised": true,
+        "unverified_not_completed": true,
+        "same_turn_repair_requested": true,
+        "absence_inference_removed": true
+      },
+      "passed": true
+    },
+    {
+      "name": "unlisted-venue-attribution",
+      "kind": "attributed",
+      "input_origin": "review-fragment-completed-by-producer",
+      "control": false,
+      "draft": "收入可核[E1]，查询返回空白，因此公司没有公告，深交所互动易显示本期没有公告[E2]。",
+      "judge_mode": "llm",
+      "judge_stubbed": true,
+      "local_codes": [
+        "disclosure_absence_inference"
+      ],
+      "public_answer": "收入可核[E1]，查询返回空白，深交所互动易显示本期没有公告[E2]。\n\n公告检索范围尚未核实完整；不能据此断言公司没有公告或尚未兑现。",
+      "status": "partial",
+      "checks": {
+        "fixture_structurally_complete": true,
+        "independent_income_retained": true,
+        "draft_and_evidence_unchanged": true,
+        "final_recheck_idempotent": true,
+        "local_check_exercised": true,
+        "unverified_not_completed": true,
+        "same_turn_repair_requested": true,
+        "rejected_inference_removed": true,
+        "attributed_fact_and_citation_retained": true
+      },
+      "passed": true
+    },
+    {
+      "name": "listed-venue-control",
+      "kind": "attributed",
+      "input_origin": "control-listed-venue",
+      "control": true,
+      "draft": "收入可核[E1]，查询返回空白，因此公司没有公告，巨潮资讯网显示本期没有公告[E2]。",
+      "judge_mode": "llm",
+      "judge_stubbed": true,
+      "local_codes": [
+        "disclosure_absence_inference"
+      ],
+      "public_answer": "收入可核[E1]，查询返回空白，巨潮资讯网显示本期没有公告[E2]。\n\n公告检索范围尚未核实完整；不能据此断言公司没有公告或尚未兑现。",
+      "status": "partial",
+      "checks": {
+        "fixture_structurally_complete": true,
+        "independent_income_retained": true,
+        "draft_and_evidence_unchanged": true,
+        "final_recheck_idempotent": true,
+        "local_check_exercised": true,
+        "unverified_not_completed": true,
+        "same_turn_repair_requested": true,
+        "rejected_inference_removed": true,
+        "attributed_fact_and_citation_retained": true
+      },
+      "passed": true
+    },
+    {
+      "name": "borrowed-citation-control",
+      "kind": "borrowed",
+      "input_origin": "control-citation-from-another-channel",
+      "control": true,
+      "draft": "收入可核[E1]，查询返回空白，因此公司没有公告，深交所互动易显示本期没有公告[E2]。",
+      "judge_mode": "llm",
+      "judge_stubbed": true,
+      "local_codes": [
+        "disclosure_absence_inference"
+      ],
+      "public_answer": "收入可核[E1]，查询返回空白。\n\n公告检索范围尚未核实完整；不能据此断言公司没有公告或尚未兑现。",
+      "status": "partial",
+      "checks": {
+        "fixture_structurally_complete": true,
+        "independent_income_retained": true,
+        "draft_and_evidence_unchanged": true,
+        "final_recheck_idempotent": true,
+        "local_check_exercised": true,
+        "unverified_not_completed": true,
+        "same_turn_repair_requested": true,
+        "rejected_inference_removed": true,
+        "borrowed_attribution_not_retained": true
+      },
+      "passed": true
+    },
+    {
+      "name": "unlisted-absence-wording",
+      "kind": "absence",
+      "input_origin": "review-fragment-completed-by-producer",
+      "control": false,
+      "draft": "收入可核[E1]，查询返回空白，因此本期无任何披露文件。",
+      "judge_mode": "llm",
+      "judge_stubbed": true,
+      "local_codes": [
+        "disclosure_absence_inference"
+      ],
+      "public_answer": "收入可核[E1]，查询返回空白。\n\n公告检索范围尚未核实完整；不能据此断言公司没有公告或尚未兑现。",
+      "status": "partial",
+      "checks": {
+        "fixture_structurally_complete": true,
+        "independent_income_retained": true,
+        "draft_and_evidence_unchanged": true,
+        "final_recheck_idempotent": true,
+        "local_check_exercised": true,
+        "unverified_not_completed": true,
+        "same_turn_repair_requested": true,
+        "absence_inference_removed": true
+      },
+      "passed": true
+    },
+    {
+      "name": "listed-absence-control",
+      "kind": "absence",
+      "input_origin": "control-listed-wording",
+      "control": true,
+      "draft": "收入可核[E1]，查询返回空白，因此本期为零披露。",
+      "judge_mode": "llm",
+      "judge_stubbed": true,
+      "local_codes": [
+        "disclosure_absence_inference"
+      ],
+      "public_answer": "收入可核[E1]，查询返回空白。\n\n公告检索范围尚未核实完整；不能据此断言公司没有公告或尚未兑现。",
+      "status": "partial",
+      "checks": {
+        "fixture_structurally_complete": true,
+        "independent_income_retained": true,
+        "draft_and_evidence_unchanged": true,
+        "final_recheck_idempotent": true,
+        "local_check_exercised": true,
+        "unverified_not_completed": true,
+        "same_turn_repair_requested": true,
+        "absence_inference_removed": true
+      },
+      "passed": true
+    }
+  ],
+  "passed": 10,
+  "failed": 0,
+  "status": "passed",
+  "controls_passed": 6,
+  "controls_total": 6
+}

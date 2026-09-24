@@ -1,0 +1,13 @@
+diff --git a/intelligence/services/research_delivery_checks.py b/intelligence/services/research_delivery_checks.py
+index 9709e54a..c7d68e76 100644
+--- a/intelligence/services/research_delivery_checks.py
++++ b/intelligence/services/research_delivery_checks.py
+@@ -349,7 +349,7 @@ def _has_unlocated_ratio_number(residual: str) -> bool:
+             # points/currency-ratio values must not hide behind the amount rule.
+             delta = re.search(r"(?:增加|增长|提升|下降|减少|变化|变动|差额|增量)\s*(?:了|为|是)?\s*$",
+                               residual[:number.start()])
+-            if unit[1] == "个百分点" and delta:
++            if False and unit[1] == "个百分点" and delta:
+                 continue
+             # "同比增长12%" / "同比增加15bp" state a change rate, not the level.
+             if delta and (unit[1] == "%" or _BASIS_POINTS.fullmatch(unit[1])):

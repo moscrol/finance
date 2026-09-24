@@ -1,0 +1,19 @@
+{"command": ["/Users/a77/finance-workspace-private/.venv-workbench/bin/python", "-B", "-m", "pytest", "-q", "-p", "no:randomly", "-p", "no:cacheprovider", "--tb=short", "--junitxml", "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/candidate-746b716f/mutations/disclosure-nonadjacent-dependent-red.xml", "intelligence/tests/test_calculation_result_delivery.py", "intelligence/tests/test_research_delivery_checks.py", "intelligence/tests/test_research_delivery_retention.py", "intelligence/tests/test_research_delivery_review_regressions.py", "intelligence/tests/test_research_delivery_ratio_scope.py", "intelligence/tests/test_research_delivery_repair.py", "intelligence/tests/test_frozen_research_delivery.py", "-k", "test_review_second_round_disclosure_controls"], "cwd": "/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/extraction-closeout-mutations-porli7ba/tree", "revision": "746b716ff95d40898697628e197fd266a9473bf6"}
+.F.....                                                                  [100%]
+=================================== FAILURES ===================================
+_ test_review_second_round_disclosure_controls[\u6536\u5165\u53ef\u6838[E1]\uff0c\u67e5\u8be2\u7a7a\u767d\u56e0\u6b64\u6ca1\u6709\u516c\u544a\uff0c\u5229\u6da6\u53ef\u6838[E2]\uff0c\u636e\u6b64\u5efa\u8bae\u89c2\u671b\u3002-\u5229\u6da6\u53ef\u6838[E2]-\u636e\u6b64\u5efa\u8bae\u89c2\u671b] _
+intelligence/tests/test_research_delivery_review_regressions.py:258: in test_review_second_round_disclosure_controls
+    assert good in kept and bad not in kept
+E   AssertionError: assert ('利润可核[E2]' in '收入可核[E1]，利润可核[E2]，据此建议观望。' and '据此建议观望' not in '收入可核[E1]，利润可核[E2]，据此建议观望。'
+E     
+E     '据此建议观望' is contained here:
+E       收入可核[E1]，利润可核[E2]，据此建议观望。
+E     ?                   ++++++)
+- generated xml file: /Users/a77/.finance-runtime/convergence-20260919/retention-repair/candidate-746b716f/mutations/disclosure-nonadjacent-dependent-red.xml -
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_research_delivery_review_regressions.py::test_review_second_round_disclosure_controls[\u6536\u5165\u53ef\u6838[E1]\uff0c\u67e5\u8be2\u7a7a\u767d\u56e0\u6b64\u6ca1\u6709\u516c\u544a\uff0c\u5229\u6da6\u53ef\u6838[E2]\uff0c\u636e\u6b64\u5efa\u8bae\u89c2\u671b\u3002-\u5229\u6da6\u53ef\u6838[E2]-\u636e\u6b64\u5efa\u8bae\u89c2\u671b]
+1 failed, 6 passed, 409 deselected in 0.95s
+
+STDERR:
+
+EXIT=1

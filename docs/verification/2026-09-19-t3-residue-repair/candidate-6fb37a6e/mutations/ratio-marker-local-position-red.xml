@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="4" skipped="0" tests="4" time="1.053" timestamp="2026-09-19T22:49:33.780688+08:00" hostname="77deMacBook-Air.local"><testcase classname="intelligence.tests.test_research_delivery_ratio_scope" name="test_unlocated_marker_scopes_to_ratio_not_independent_fact[2026\u4e2d\u62a5\u542b\u91d1\u91cf3\u5e74\u6700\u9ad8\uff0c\u4e3a1.587]" time="0.001"><failure message="AssertionError: assert '〔比率对应关系待核对〕*...5中报含金量为0.289。' == '**收入可核**[E1]...5中报含金量为0.289。'&#10;  &#10;  - **收入可核**[E1]，〔比率对应关系待核对〕2026中报含金量3年最高，为1.587，2025中报含金量为0.289。&#10;  ?              -----------&#10;  + 〔比率对应关系待核对〕**收入可核**[E1]，2026中报含金量3年最高，为1.587，2025中报含金量为0.289。&#10;  ? +++++++++++">intelligence/tests/test_research_delivery_ratio_scope.py:80: in test_unlocated_marker_scopes_to_ratio_not_independent_fact
+    assert kept == f"**收入可核**[E1]，{MARK}{ratio}，2025中报含金量为0.289。"
+E   AssertionError: assert '〔比率对应关系待核对〕*...5中报含金量为0.289。' == '**收入可核**[E1]...5中报含金量为0.289。'
+E     
+E     - **收入可核**[E1]，〔比率对应关系待核对〕2026中报含金量3年最高，为1.587，2025中报含金量为0.289。
+E     ?              -----------
+E     + 〔比率对应关系待核对〕**收入可核**[E1]，2026中报含金量3年最高，为1.587，2025中报含金量为0.289。
+E     ? +++++++++++</failure></testcase><testcase classname="intelligence.tests.test_research_delivery_ratio_scope" name="test_unlocated_marker_scopes_to_ratio_not_independent_fact[**2026\u4e2d\u62a5**\u542b\u91d1\u91cf3\u5e74\u6700\u9ad8\uff0c\u4e3a1.587]" time="0.000"><failure message="AssertionError: assert '〔比率对应关系待核对〕*...5中报含金量为0.289。' == '**收入可核**[E1]...5中报含金量为0.289。'&#10;  &#10;  - **收入可核**[E1]，〔比率对应关系待核对〕**2026中报**含金量3年最高，为1.587，2025中报含金量为0.289。&#10;  ?              -----------&#10;  + 〔比率对应关系待核对〕**收入可核**[E1]，**2026中报**含金量3年最高，为1.587，2025中报含金量为0.289。&#10;  ? +++++++++++">intelligence/tests/test_research_delivery_ratio_scope.py:80: in test_unlocated_marker_scopes_to_ratio_not_independent_fact
+    assert kept == f"**收入可核**[E1]，{MARK}{ratio}，2025中报含金量为0.289。"
+E   AssertionError: assert '〔比率对应关系待核对〕*...5中报含金量为0.289。' == '**收入可核**[E1]...5中报含金量为0.289。'
+E     
+E     - **收入可核**[E1]，〔比率对应关系待核对〕**2026中报**含金量3年最高，为1.587，2025中报含金量为0.289。
+E     ?              -----------
+E     + 〔比率对应关系待核对〕**收入可核**[E1]，**2026中报**含金量3年最高，为1.587，2025中报含金量为0.289。
+E     ? +++++++++++</failure></testcase><testcase classname="intelligence.tests.test_research_delivery_ratio_scope" name="test_unlocated_marker_scopes_to_ratio_not_independent_fact[2026\u4e2d\u62a5\u542b\u91d1\u91cf3\u5e74\u6700\u9ad8\uff0c\u4e3a1.588]" time="0.000"><failure message="AssertionError: assert '〔比率对应关系待核对〕*...5中报含金量为0.289。' == '**收入可核**[E1]...5中报含金量为0.289。'&#10;  &#10;  - **收入可核**[E1]，〔比率对应关系待核对〕2026中报含金量3年最高，为1.588，2025中报含金量为0.289。&#10;  ?              -----------&#10;  + 〔比率对应关系待核对〕**收入可核**[E1]，2026中报含金量3年最高，为1.588，2025中报含金量为0.289。&#10;  ? +++++++++++">intelligence/tests/test_research_delivery_ratio_scope.py:80: in test_unlocated_marker_scopes_to_ratio_not_independent_fact
+    assert kept == f"**收入可核**[E1]，{MARK}{ratio}，2025中报含金量为0.289。"
+E   AssertionError: assert '〔比率对应关系待核对〕*...5中报含金量为0.289。' == '**收入可核**[E1]...5中报含金量为0.289。'
+E     
+E     - **收入可核**[E1]，〔比率对应关系待核对〕2026中报含金量3年最高，为1.588，2025中报含金量为0.289。
+E     ?              -----------
+E     + 〔比率对应关系待核对〕**收入可核**[E1]，2026中报含金量3年最高，为1.588，2025中报含金量为0.289。
+E     ? +++++++++++</failure></testcase><testcase classname="intelligence.tests.test_research_delivery_ratio_scope" name="test_each_unlocated_period_gets_its_own_marker" time="0.000"><failure message="AssertionError: assert False&#10; +  where False = &lt;built-in method startswith of str object at 0x10ae729a0&gt;('收入可核[E1]，')&#10; +    where &lt;built-in method startswith of str object at 0x10ae729a0&gt; = '〔比率对应关系待核对〕收入可核[E1]，〔比率对应关系待核对〕2026中报含金量3年最高，为1.587，2025中报含金量3年最高，为0.288。'.startswith">intelligence/tests/test_research_delivery_ratio_scope.py:106: in test_each_unlocated_period_gets_its_own_marker
+    assert kept.startswith("收入可核[E1]，")
+E   AssertionError: assert False
+E    +  where False = &lt;built-in method startswith of str object at 0x10ae729a0&gt;('收入可核[E1]，')
+E    +    where &lt;built-in method startswith of str object at 0x10ae729a0&gt; = '〔比率对应关系待核对〕收入可核[E1]，〔比率对应关系待核对〕2026中报含金量3年最高，为1.587，2025中报含金量3年最高，为0.288。'.startswith</failure></testcase></testsuite></testsuites>

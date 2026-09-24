@@ -27,6 +27,7 @@ from intelligence.services import (
     finance_query,
     kb_rag,
     l3_evidence,
+    market_capital,
     market_financials,
     market_news,
     market_technical,
@@ -130,7 +131,7 @@ def attach_financial_observations(
     evidence: list[agent_research.AgentEvidence],
     bundle: market_financials.FinancialsBundle,
 ) -> list[agent_research.AgentEvidence]:
-    """给 D7 数据行证据挂结构化观察值：按行文本查表，不解析单元格。
+    """同批 D7 数据行投影为机器观察值与自解释文本，不解析单元格。
 
     键是规范渲染行，不解析单元格。沿 research-data-readiness/a9a7ce92、d77383ac
     的已提交修复给模型补主体/报告期/指标口径；本片另保留披露日。标签改变后重算哈希，
@@ -288,6 +289,7 @@ class SealedFixturePolicy:
     external_search_enabled: bool = False
     external_valuation_enabled: bool = False
     external_financials_enabled: bool = False
+    external_capital_enabled: bool = False
     require_fresh_kb: bool = True
     market_db_path: Path | None = None
     knowledge_index_dir: Path | None = None
@@ -1328,6 +1330,12 @@ def build_episode_registry(
                         (*_NON_EVIDENCE_PREFIXES, "口径说明：")
                     )
                 )
+                qualifiers = [
+                    line.strip().removeprefix("- ") for line in bundle.block.splitlines()
+                    if line.strip().removeprefix("- ").startswith((*_NON_EVIDENCE_PREFIXES, "口径说明："))
+                ]
+                if qualifiers:
+                    notes.extend(qualifiers)
                 evidence.extend(attach_financial_observations(items, bundle))
                 hint = structured_observation_hint(bundle)
                 if hint:
@@ -1362,6 +1370,81 @@ def build_episode_registry(
             ),
             gaps=tuple(gaps),
             telemetry={"financial_report_selection": selections},
+        )
+
+    def capital_data_runner(
+        query: str,
+        tool_context: agent_research.AgentToolContext,
+    ):
+        tool_context.check_cancelled()
+        cutoff = tool_context.information_cutoff or context.information_cutoff
+        bundle = market_capital.capital_bundle_for_llm(
+            query,
+            market_db_path,
+            task_query=f"{frame.raw_question} {frame.timeframe or ''}",
+            as_of=cutoff.as_of_date.isoformat(),
+            timeout=8.0,
+            deadline=tool_context.deadline,
+            check_cancelled=tool_context.check_cancelled,
+        )
+        evidence = []
+        gaps = [bundle.diagnostic] if bundle.diagnostic else []
+        # 只把真实数据行变成证据。标题、表头、错误文案和空结果都不能充当命中数。
+        for item in bundle.slices:
+            if item.detail:
+                gaps.append(f"{item.kind} [{item.status}]：{item.detail}")
+            elif item.status == "empty":
+                gaps.append(f"{item.kind}：本次来源未返回记录，不是否定证据")
+            for row in item.rows:
+                if isinstance(row, market_capital.MarginRow):
+                    source_date = row.trade_date
+                    title = f"{bundle.name} 两融 {source_date}"
+                    detail = (
+                        f"融资余额 {row.financing_yi} 亿元；融资买入 {row.financing_buy_yi} 亿元；"
+                        f"融券余额 {row.short_yi} 亿元"
+                    )
+                    metrics = {"financing_balance_yi": row.financing_yi,
+                               "financing_buy_yi": row.financing_buy_yi, "short_balance_yi": row.short_yi}
+                    report = "RPTA_WEB_RZRQ_GGMX"
+                elif isinstance(row, market_capital.BlockTradeRow):
+                    source_date = row.trade_date
+                    title = f"{bundle.name} 大宗 {source_date}"
+                    detail = (
+                        f"成交价 {row.price} 元；溢价 {row.premium_pct}%；成交额 {row.amount_wan} 万元；"
+                        f"买方 {row.buyer}；卖方 {row.seller}"
+                    )
+                    metrics = {"block_price_yuan": row.price, "block_premium_pct": row.premium_pct,
+                               "block_amount_wan": row.amount_wan}
+                    report = "RPT_DATA_BLOCKTRADE"
+                else:
+                    source_date = bundle.fetched_date
+                    title = f"{bundle.name} 解禁日程 {row.free_date}"
+                    detail = (
+                        f"抓取日 {bundle.fetched_date}（非披露日）；计划解禁日 {row.free_date}；"
+                        f"类型 {row.share_type}；数量 {row.shares_wan} 万股；占比 {row.ratio_pct}%；"
+                        "日程不是实际减持或涨跌预测"
+                    )
+                    metrics = {"unlock_shares_wan": row.shares_wan, "unlock_ratio_pct": row.ratio_pct}
+                    report = "RPT_LIFT_STAGE"
+                evidence.append(agent_research.AgentEvidence(
+                    tool="capital_data", title=title, detail=detail.replace("None", "缺"),
+                    source=f"东财 datacenter · {report}", source_date=source_date,
+                    evidence_tier="L2_structured", freshness="current",
+                    observations=tuple(
+                        agent_research.StructuredObservation(bundle.ts_code, source_date, metric, value)
+                        for metric, value in metrics.items() if value is not None
+                    ),
+                ))
+        tool_context.check_cancelled()
+        return ToolRunResult(
+            evidence=tuple(evidence), observation=bundle.block,
+            trace=ProviderTrace(
+                provider="agent:capital_data", capability="capital_data", status=bundle.status,
+                detail="; ".join(f"{item.kind}={item.status}" for item in bundle.slices) or bundle.diagnostic,
+                requested_date=bundle.as_of, result_count=len(evidence),
+                reason_code=bundle.reason_code,
+            ),
+            gaps=tuple(gaps),
         )
 
     def mainline_runner(
@@ -1454,7 +1537,7 @@ def build_episode_registry(
             ProviderTrace(
                 provider="+".join(providers) or "l3_lookup",
                 capability="l3_lookup",
-                status="success" if evidence else "empty",
+                status=bundle.status,
                 detail="；".join(bundle.warnings) or "official disclosure lookup",
                 result_count=len(evidence),
             ),
@@ -1464,6 +1547,12 @@ def build_episode_registry(
         tools["market_data"] = market_data_runner
     if "financial_data" in context.contract.allowed_capabilities:
         tools["financial_data"] = financial_data_runner
+    if (
+        "capital_data" in context.contract.allowed_capabilities
+        and not local_only
+        and (fixture_policy is None or fixture_policy.external_capital_enabled)
+    ):
+        tools["capital_data"] = capital_data_runner
     if "mainline_context" in context.contract.allowed_capabilities:
         tools["mainline_context"] = mainline_runner
     selected_l3_runner = (

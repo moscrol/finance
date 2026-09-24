@@ -1,0 +1,68 @@
+{
+  "artifact_tests": {
+    ".claude/lessons_learned.md": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py"
+    ],
+    "docs/agent-product-door.md": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py"
+    ],
+    "docs/handoffs/inflight/q-research-data-readiness.md": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py"
+    ],
+    "intelligence/services/research_delivery_checks.py": [
+      "intelligence/tests/test_frozen_research_delivery.py",
+      "intelligence/tests/test_research_delivery_checks.py",
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py"
+    ],
+    "intelligence/tests/test_research_delivery_repair.py": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py"
+    ],
+    "intelligence/tests/test_research_delivery_retention.py": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py"
+    ],
+    "scripts/review_probes/research_delivery_mutations.json": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py"
+    ],
+    "scripts/review_probes/run_extraction_mutations.py": [
+      "intelligence/tests/test_research_delivery_repair.py",
+      "intelligence/tests/test_research_delivery_retention.py"
+    ]
+  },
+  "artifacts": [
+    ".claude/lessons_learned.md",
+    "docs/agent-product-door.md",
+    "docs/handoffs/inflight/q-research-data-readiness.md",
+    "intelligence/services/research_delivery_checks.py",
+    "intelligence/tests/test_research_delivery_repair.py",
+    "intelligence/tests/test_research_delivery_retention.py",
+    "scripts/review_probes/research_delivery_mutations.json",
+    "scripts/review_probes/run_extraction_mutations.py"
+  ],
+  "branch": "q/research-data-readiness",
+  "commit": "a2a3301963d11a073f511e1552b53daee7ecd704",
+  "created_at": "2026-09-19T13:16:31.863558+08:00",
+  "depends_on": [],
+  "intensity": "milestone",
+  "parent_commit": "d38dab3fea578f957794249a39d6b880d52f71f2",
+  "producer": "codex:producer",
+  "required_checks": [
+    "scripts/review_probes/check_delivery_fact_retention.py:6-unchanged-cases",
+    "scripts/review_probes/run_extraction_mutations.py:research-delivery",
+    "reject_false_inference_and_retain_independent_fact",
+    "keep_raw_markdown_coordinates_and_ratio_neighbors",
+    "same_turn_repair_and_final_projection",
+    "no_gate_weakening_no_natural_quality_overclaim"
+  ],
+  "review_id": "ARL-0001",
+  "schema_version": 3,
+  "scope": "T3 finite repair: sentence-context detection and narrow rejected-claim edits; preserve independently sourced facts/citations and ratio prose neighbors. Not natural model-answer acceptance, not deployment.",
+  "status": "ready",
+  "supersedes": null
+}

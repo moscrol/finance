@@ -1,0 +1,65 @@
+"""One-time byte-preserving archive of T3 ratio-scope checks and invalid review.
+
+Not another installed runner. Reject pre-existing destination, symlinks, binary
+or secret-like content; prior archive/attempt manifests are verified unchanged.
+"""
+from datetime import datetime, timezone
+from pathlib import Path
+import hashlib
+import json
+import re
+
+SRC = Path(__file__).parent
+REPO = Path('/Users/a77/fwp-q-research-data-readiness')
+DEST = REPO / 'docs/verification/2026-09-19-t3-ratio-scope'
+ROOT_NAMES = ('hedge-repair-01', 'candidate-746b716f', 'qc-repair-746b716f', 'qc-retry-746b716f-01')
+TOP_NAMES = ('run_frozen_checks_746b716f.py', 'frozen-driver-746b716f.log', 'frozen-driver-746b716f.exit',
+             'hedge-closeout-outcome.json', 'archive_hedge_closeout.py')
+EXCLUDED = {'registry-pinned', 'locks', 'worktrees', '__pycache__'}
+SECRET = re.compile(
+    r'(?:sk-[A-Za-z0-9_-]{20,}|-----BEGIN (?:RSA |OPENSSH )?PRIVATE KEY-----'
+    r'|Authorization:\s*Bearer\s+[A-Za-z0-9_-]{16,}'
+    r'|["\'](?:ANTHROPIC_API_KEY|ANTHROPIC_AUTH_TOKEN|api_key|access_token)["\']\s*:\s*["\'][A-Za-z0-9_+/=-]{16,})'
+)
+for name in ('2026-09-19-t3-retention-repair', '2026-09-19-t3-review-counterexamples'):
+    archive = REPO / 'docs/verification' / name
+    for row in json.loads((archive / 'manifest.json').read_text())['files']:
+        data = (archive / row['archive']).read_bytes()
+        assert len(data) == row['bytes'] and hashlib.sha256(data).hexdigest() == row['sha256']
+sealed = SRC / 'qc-repair-746b716f'
+for row in json.loads((sealed / 'sealed-attempt-manifest.json').read_text())['files']:
+    data = (sealed / row['path']).read_bytes()
+    assert len(data) == row['bytes'] and hashlib.sha256(data).hexdigest() == row['sha256']
+selected = [SRC / name for name in TOP_NAMES]
+for name in ROOT_NAMES:
+    root = SRC / name
+    selected.extend(p for p in root.rglob('*') if p.is_file()
+                    and not EXCLUDED.intersection(p.relative_to(root).parts))
+payloads = []
+for path in sorted(selected):
+    assert not path.is_symlink(), path
+    data = path.read_bytes()
+    text = data.decode('utf-8')
+    assert '\x00' not in text and not SECRET.search(text), 'binary or secret-like data in ' + str(path)
+    relative = path.relative_to(SRC)
+    if path.suffix in {'.py', '.log', '.diff'}:
+        relative = relative.with_name(relative.name + '.txt')
+    payloads.append((path, relative, data))
+DEST.mkdir(exist_ok=False)
+rows = []
+for source, relative, data in payloads:
+    target = DEST / relative
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(data)
+    rows.append({'source': str(source), 'archive': str(relative), 'bytes': len(data),
+                 'sha256': hashlib.sha256(data).hexdigest()})
+manifest = {'created_at': datetime.now(timezone.utc).isoformat(),
+            'scope': '746 engineering gates pass; original hedge 4P; ARL-0004 invalid PASS/PARTIAL, no external authority; new scope probe 4P12F; hold, not natural QA or release',
+            'business_revision': '746b716ff95d40898697628e197fd266a9473bf6',
+            'excluded_directory_names': sorted(EXCLUDED), 'raw_bytes_preserved': True, 'files': rows}
+(DEST / 'manifest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n')
+for row in rows:
+    data = (DEST / row['archive']).read_bytes()
+    assert data == Path(row['source']).read_bytes()
+    assert len(data) == row['bytes'] and hashlib.sha256(data).hexdigest() == row['sha256']
+print(json.dumps({'files': len(rows), 'bytes': sum(r['bytes'] for r in rows), 'verified': True}))

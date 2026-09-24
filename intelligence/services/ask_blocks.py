@@ -1602,9 +1602,9 @@ def _valuation_block_for_llm(
     as_of: str | None = None,
     snapshot_date_hint: str | None = None,
 ) -> str:
-    """Build the D5 valuation block: target snapshot + same-theme peer band.
+    """Build D5: target snapshot + candidates in the same detailed industry.
 
-    目标/可比标的从本地 DuckDB 解析（可比取同板块成交额前排），估值快照走东财
+    目标/候选从本地 DuckDB 解析（细分行业一致，按成交额排序），估值快照走东财
     免费接口（valuation_estimate）；网络或库不可用时返回带显式缺口的块或空串。
     """
     fetch = fetcher or valuation_estimate.fetch_eastmoney_snapshot
@@ -1639,31 +1639,33 @@ def _valuation_block_for_llm(
                         )
                         if local_target is not None:
                             local_snapshots[target_code] = local_target
-                        sector_rows = con.execute(
+                        # 概念共现不等于业务可比：茅台曾因「乡村振兴」被配到科技股。
+                        # 只认同日唯一非空细分行业；缺列/冲突/缺身份宁缺，不降到宽泛题材。
+                        industries = con.execute(
                             """
-                            select sector_name from fact_sector_stock_daily
+                            select distinct trim(sw_industry) from fact_sector_stock_daily
                             where trade_date=? and stock_ts_code=?
-                            order by amount desc limit 4
+                              and nullif(trim(sw_industry), '') is not null
                             """,
                             [latest_date, target_code],
                         ).fetchall()
-                        sectors = _prioritize_sector_names([str(r[0]) for r in sector_rows if r and r[0]], theme)
-                        if sectors:
+                        if len(industries) == 1:
                             rows = con.execute(
                                 """
-                                select stock_ts_code, stock_name from fact_sector_stock_daily
-                                where trade_date=? and sector_name=? and stock_ts_code<>?
-                                order by amount desc nulls last limit 4
+                                select stock_ts_code, max(stock_name) as stock_name
+                                from fact_sector_stock_daily
+                                where trade_date=? and stock_ts_code<>?
+                                group by stock_ts_code
+                                having count(distinct nullif(trim(sw_industry), ''))=1
+                                   and max(nullif(trim(sw_industry), ''))=?
+                                order by max(amount) desc nulls last, stock_ts_code limit 4
                                 """,
-                                [latest_date, sectors[0], target_code],
+                                [latest_date, target_code, industries[0][0]],
                             ).fetchall()
                             peer_codes = [(str(c), str(n or c)) for c, n in rows]
                             for peer_code, peer_name in peer_codes:
                                 local_peer = _local_valuation_snapshot(
-                                    con,
-                                    peer_code,
-                                    peer_name,
-                                    str(latest_date),
+                                    con, peer_code, peer_name, str(latest_date),
                                 )
                                 if local_peer is not None:
                                     local_snapshots[peer_code] = local_peer
@@ -1689,7 +1691,7 @@ def _valuation_block_for_llm(
         candidate = fetch(peer_code, peer_name) if use_live_snapshot else None
         if not _valuation_snapshot_within_as_of(candidate, as_of):
             candidate = local_snapshots.get(peer_code)
-        if candidate is not None:
+        if candidate is not None and target is not None and candidate.source_date == target.source_date:
             peers.append(candidate)
     return valuation_estimate.build_valuation_block(target, peers)
 

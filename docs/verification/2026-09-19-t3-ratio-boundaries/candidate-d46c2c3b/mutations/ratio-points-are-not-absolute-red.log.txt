@@ -1,0 +1,23 @@
+{"command": ["/Users/a77/finance-workspace-private/.venv-workbench/bin/python", "-B", "-m", "pytest", "-q", "-p", "no:randomly", "-p", "no:cacheprovider", "--tb=short", "--junitxml", "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/candidate-d46c2c3b/mutations/ratio-points-are-not-absolute-red.xml", "intelligence/tests/test_calculation_result_delivery.py", "intelligence/tests/test_research_delivery_checks.py", "intelligence/tests/test_research_delivery_retention.py", "intelligence/tests/test_research_delivery_review_regressions.py", "intelligence/tests/test_research_delivery_ratio_scope.py", "intelligence/tests/test_research_delivery_ratio_boundaries.py", "intelligence/tests/test_research_delivery_repair.py", "intelligence/tests/test_frozen_research_delivery.py", "-k", "test_percentage_points_cannot_certify_absolute_ratio or test_table_units_use_the_same_dimension_contract"], "cwd": "/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/extraction-closeout-mutations-yckwbe8x/tree", "revision": "d46c2c3b10221483c811426e99ad379314289871"}
+F...F                                                                    [100%]
+=================================== FAILURES ===================================
+_________ test_percentage_points_cannot_certify_absolute_ratio[1.588] __________
+intelligence/tests/test_research_delivery_ratio_boundaries.py:86: in test_percentage_points_cannot_certify_absolute_ratio
+    assert findings and all(f.code == "calculation_value_mismatch" for f in findings)
+E   assert (())
+__ test_table_units_use_the_same_dimension_contract[\u4e2a\u767e\u5206\u70b9] __
+intelligence/tests/test_research_delivery_ratio_boundaries.py:141: in test_table_units_use_the_same_dimension_contract
+    assert bool(findings) == (unit == "个百分点")
+E   AssertionError: assert False == ('\u4e2a\u767e\u5206\u70b9' == '\u4e2a\u767e\u5206\u70b9'
+E    +  where False = bool(())
+E     
+E       个百分点)
+- generated xml file: /Users/a77/.finance-runtime/convergence-20260919/retention-repair/candidate-d46c2c3b/mutations/ratio-points-are-not-absolute-red.xml -
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_research_delivery_ratio_boundaries.py::test_percentage_points_cannot_certify_absolute_ratio[1.588]
+FAILED intelligence/tests/test_research_delivery_ratio_boundaries.py::test_table_units_use_the_same_dimension_contract[\u4e2a\u767e\u5206\u70b9]
+2 failed, 3 passed, 596 deselected in 1.07s
+
+STDERR:
+
+EXIT=1

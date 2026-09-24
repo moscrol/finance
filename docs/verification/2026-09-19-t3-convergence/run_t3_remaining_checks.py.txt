@@ -1,0 +1,104 @@
+"""One-shot completion of existing T3 candidate checks; no deploy or model calls.
+
+Keeps the existing full-Python receipt separate; every command/return code is
+recorded, even when another leaf fails. Not a new application entry point.
+"""
+from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timezone
+import json
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import time
+
+ROOT = Path('/Users/a77/fwp-q-research-data-readiness')
+REV = 'd12bd0b1f5be2f242a1275fd51162f0e46cf5e3b'
+OUT = Path(__file__).parent / 't3-d12bd0b1'
+OUT.mkdir(exist_ok=False)
+PY = '/Users/a77/finance-workspace-private/.venv-workbench/bin/python'
+ENV = {k: os.environ[k] for k in ('HOME', 'PATH', 'LANG', 'TMPDIR') if k in os.environ}
+ENV.update(FORESIGHT_LLM_KEYCHAIN='0', FWP_TEST_RECEIPT_DIR=str(OUT / 'receipts'))
+os.umask(0o022)
+
+
+def state():
+    return {
+        'revision': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
+        'status': subprocess.check_output(['git', 'status', '--porcelain'], cwd=ROOT, text=True),
+    }
+
+
+before = state()
+if before != {'revision': REV, 'status': ''}:
+    raise SystemExit(f'candidate changed: {before}')
+(OUT / 'started.json').write_text(json.dumps({'started_at': datetime.now(timezone.utc).isoformat(), **before}, indent=2))
+for name, src in {
+    'prior-full-pytest.log': Path('/private/tmp/q-t3-pytest.log'),
+    'prior-ruff.log': Path('/private/tmp/q-t3-ruff.log'),
+    'prior-python-gate.log': Path('/private/tmp/q-t3-gate.log'),
+    'prior-python-receipt.json': Path('/Users/a77/.finance-runtime/test-receipts/20260919T025205Z-d12bd0b1.json'),
+}.items():
+    shutil.copyfile(src, OUT / name)
+
+
+def check(name, args, *, cwd=ROOT, timeout=900, extra=None):
+    started = time.monotonic()
+    with (OUT / f'{name}.log').open('w') as log:
+        try:
+            rc = subprocess.run(args, cwd=cwd, env=ENV | (extra or {}), stdout=log,
+                                stderr=subprocess.STDOUT, timeout=timeout).returncode
+        except subprocess.TimeoutExpired:
+            rc = 124
+    row = {'name': name, 'command': args, 'cwd': str(cwd), 'exit_code': rc,
+           'seconds': round(time.monotonic() - started, 2), 'revision': REV,
+           'finished_at': datetime.now(timezone.utc).isoformat()}
+    (OUT / f'{name}-result.json').write_text(json.dumps(row, ensure_ascii=False, indent=2))
+    print(json.dumps(row, ensure_ascii=False), flush=True)
+    return row
+
+
+def frontend():
+    cwd = ROOT / 'intelligence/webapp'
+    rows = [check('frontend-' + name, ['pnpm', name], cwd=cwd) for name in ('lint', 'typecheck', 'test', 'build')]
+    rows.append(check('e2e', ['pnpm', 'test:e2e'], cwd=cwd, timeout=1200, extra={
+        'WORKBENCH_PYTHON': PY, 'WORKBENCH_E2E_PORT': '8914', 'RE06_E2E_PORT': '8915',
+        'RE06_E2E_URL': 'http://127.0.0.1:8915', 'FINANCE_DEPLOY_LEDGER': str(OUT / 'e2e-deploy-ledger.jsonl'),
+    }))
+    return rows
+
+
+def registry():
+    rows = [check('registry-' + name, [PY, 'scripts/build_registry.py', *args]) for name, args in (
+        ('parseability', ['check-parseability']), ('check', ['check']),
+        ('tables', ['backfill-tables', '--check']), ('views', ['generate-views', '--check']),
+    )]
+    rows.append(check('ledger-crosswalk', [PY, 'scripts/audit_ledger_spec_crosswalk.py']))
+    return rows
+
+
+def review_targets():
+    return [check('receipt-validation', [PY, 'scripts/check_test_receipt.py', str(OUT / 'prior-python-receipt.json'),
+                                       '--expect-revision', REV, '--require-target', str(ROOT), '--base-drift-max', '0']),
+            check('review-targets', [PY, '-m', 'pytest', '-q', '--tb=short',
+                                    'intelligence/tests/test_research_delivery_checks.py',
+                                    'intelligence/tests/test_research_delivery_repair.py',
+                                    'intelligence/tests/test_frozen_research_delivery.py',
+                                    'intelligence/tests/test_calculation_result_delivery.py',
+                                    'intelligence/tests/test_capital_data_safety.py',
+                                    'intelligence/tests/test_capital_episode_tool.py',
+                                    'intelligence/tests/test_research_data_boundaries.py'])]
+
+
+with ThreadPoolExecutor(max_workers=3) as pool:
+    futures = [pool.submit(fn) for fn in (frontend, registry, review_targets)]
+    results = [row for future in futures for row in future.result()]
+after = state()
+result = {'before': before, 'after': after, 'candidate_unchanged': before == after,
+          'finished_at': datetime.now(timezone.utc).isoformat(), 'checks': results,
+          'all_passed': before == after and all(row['exit_code'] == 0 for row in results),
+          'full_python': 'prior-python-receipt.json (existing exact revision, not rerun by this script)',
+          'live_model_calls': 0}
+(OUT / 'result.json').write_text(json.dumps(result, ensure_ascii=False, indent=2))
+print(json.dumps(result, ensure_ascii=False), flush=True)
+raise SystemExit(0 if result['all_passed'] else 1)

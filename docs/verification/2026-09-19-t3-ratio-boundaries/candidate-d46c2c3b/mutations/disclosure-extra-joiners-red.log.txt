@@ -1,0 +1,55 @@
+{"command": ["/Users/a77/finance-workspace-private/.venv-workbench/bin/python", "-B", "-m", "pytest", "-q", "-p", "no:randomly", "-p", "no:cacheprovider", "--tb=short", "--junitxml", "/Users/a77/.finance-runtime/convergence-20260919/retention-repair/candidate-d46c2c3b/mutations/disclosure-extra-joiners-red.xml", "intelligence/tests/test_calculation_result_delivery.py", "intelligence/tests/test_research_delivery_checks.py", "intelligence/tests/test_research_delivery_retention.py", "intelligence/tests/test_research_delivery_review_regressions.py", "intelligence/tests/test_research_delivery_ratio_scope.py", "intelligence/tests/test_research_delivery_ratio_boundaries.py", "intelligence/tests/test_research_delivery_repair.py", "intelligence/tests/test_frozen_research_delivery.py", "-k", "test_review_more_joiners_preserve_raw_fact"], "cwd": "/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/extraction-closeout-mutations-yckwbe8x/tree", "revision": "d46c2c3b10221483c811426e99ad379314289871"}
+FFFFFFFFF                                                                [100%]
+=================================== FAILURES ===================================
+___________ test_review_more_joiners_preserve_raw_fact[\u2014\u2014] ___________
+intelligence/tests/test_research_delivery_review_regressions.py:91: in test_review_more_joiners_preserve_raw_fact
+    assert "**收入可核**[E1]" in kept
+E   AssertionError: assert '**收入可核**[E1]' in ''
+______________ test_review_more_joiners_preserve_raw_fact[\u2014] ______________
+intelligence/tests/test_research_delivery_review_regressions.py:91: in test_review_more_joiners_preserve_raw_fact
+    assert "**收入可核**[E1]" in kept
+E   AssertionError: assert '**收入可核**[E1]' in ''
+________________ test_review_more_joiners_preserve_raw_fact[--] ________________
+intelligence/tests/test_research_delivery_review_regressions.py:91: in test_review_more_joiners_preserve_raw_fact
+    assert "**收入可核**[E1]" in kept
+E   AssertionError: assert '**收入可核**[E1]' in ''
+______________ test_review_more_joiners_preserve_raw_fact[\u3001] ______________
+intelligence/tests/test_research_delivery_review_regressions.py:91: in test_review_more_joiners_preserve_raw_fact
+    assert "**收入可核**[E1]" in kept
+E   AssertionError: assert '**收入可核**[E1]' in ''
+______________ test_review_more_joiners_preserve_raw_fact[\u800c] ______________
+intelligence/tests/test_research_delivery_review_regressions.py:91: in test_review_more_joiners_preserve_raw_fact
+    assert "**收入可核**[E1]" in kept
+E   AssertionError: assert '**收入可核**[E1]' in ''
+___________ test_review_more_joiners_preserve_raw_fact[\u7136\u800c] ___________
+intelligence/tests/test_research_delivery_review_regressions.py:91: in test_review_more_joiners_preserve_raw_fact
+    assert "**收入可核**[E1]" in kept
+E   AssertionError: assert '**收入可核**[E1]' in ''
+___________ test_review_more_joiners_preserve_raw_fact[\u4e0d\u8fc7] ___________
+intelligence/tests/test_research_delivery_review_regressions.py:91: in test_review_more_joiners_preserve_raw_fact
+    assert "**收入可核**[E1]" in kept
+E   AssertionError: assert '**收入可核**[E1]' in ''
+________________ test_review_more_joiners_preserve_raw_fact[ ] _________________
+intelligence/tests/test_research_delivery_review_regressions.py:91: in test_review_more_joiners_preserve_raw_fact
+    assert "**收入可核**[E1]" in kept
+E   AssertionError: assert '**收入可核**[E1]' in ''
+________________ test_review_more_joiners_preserve_raw_fact[  ] ________________
+intelligence/tests/test_research_delivery_review_regressions.py:91: in test_review_more_joiners_preserve_raw_fact
+    assert "**收入可核**[E1]" in kept
+E   AssertionError: assert '**收入可核**[E1]' in ''
+- generated xml file: /Users/a77/.finance-runtime/convergence-20260919/retention-repair/candidate-d46c2c3b/mutations/disclosure-extra-joiners-red.xml -
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_research_delivery_review_regressions.py::test_review_more_joiners_preserve_raw_fact[\u2014\u2014]
+FAILED intelligence/tests/test_research_delivery_review_regressions.py::test_review_more_joiners_preserve_raw_fact[\u2014]
+FAILED intelligence/tests/test_research_delivery_review_regressions.py::test_review_more_joiners_preserve_raw_fact[--]
+FAILED intelligence/tests/test_research_delivery_review_regressions.py::test_review_more_joiners_preserve_raw_fact[\u3001]
+FAILED intelligence/tests/test_research_delivery_review_regressions.py::test_review_more_joiners_preserve_raw_fact[\u800c]
+FAILED intelligence/tests/test_research_delivery_review_regressions.py::test_review_more_joiners_preserve_raw_fact[\u7136\u800c]
+FAILED intelligence/tests/test_research_delivery_review_regressions.py::test_review_more_joiners_preserve_raw_fact[\u4e0d\u8fc7]
+FAILED intelligence/tests/test_research_delivery_review_regressions.py::test_review_more_joiners_preserve_raw_fact[ ]
+FAILED intelligence/tests/test_research_delivery_review_regressions.py::test_review_more_joiners_preserve_raw_fact[  ]
+9 failed, 592 deselected in 1.03s
+
+STDERR:
+
+EXIT=1

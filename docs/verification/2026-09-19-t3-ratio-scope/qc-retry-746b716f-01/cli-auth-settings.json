@@ -1,0 +1,12 @@
+{
+  "apiKeyHelper": "/Users/a77/.claude/mirasim-claude-token.sh",
+  "env": {
+    "ANTHROPIC_BASE_URL": "http://127.0.0.1:8080",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL": "claude-opus-5",
+    "ANTHROPIC_SMALL_FAST_MODEL": "claude-opus-5",
+    "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS": "1",
+    "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "true"
+  },
+  "disableAllHooks": true,
+  "enabledPlugins": {}
+}

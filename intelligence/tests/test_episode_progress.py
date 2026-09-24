@@ -88,7 +88,7 @@ def test_tool_events_render_distinct_labels_not_one_repeated_sentence() -> None:
         EpisodeEvent(6, "tool_request", {"name": "mainline_context", "arguments": {}})
     )
     result = project_episode_progress(
-        EpisodeEvent(5, "tool_result", {"ok": True, "tool": "market_data"})
+        EpisodeEvent(5, "tool_result", {"ok": True, "tool": "market_data", "evidence": [{"title": "snapshot"}]})
     )
 
     assert market is not None and mainline is not None and result is not None
