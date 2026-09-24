@@ -222,7 +222,32 @@ class HistoryQuerySpec:
         condition = arguments.get("condition")
         outcome = arguments.get("outcome")
         if condition is not None:
-            if (
+            from intelligence.services.historical_research.anatomy import (
+                LAUNCH_RULE,
+                WARMUP,
+            )
+
+            if isinstance(condition, dict) and set(condition) == {"rule"}:
+                # 规则型条件：X 是「当时是否按同一套规则启动」，不是某个特征过线。
+                if condition["rule"] != LAUNCH_RULE:
+                    raise HistoryQueryError(
+                        f"unsupported_definition: the only rule condition is {LAUNCH_RULE}"
+                    )
+                if operation != "compare_cases":
+                    raise HistoryQueryError(
+                        "unsupported_definition: the launch rule condition belongs to compare_cases; "
+                        "trace_history already dates the launch of declared entities"
+                    )
+                if entity_kind == "market":
+                    raise HistoryQueryError(
+                        "unsupported_definition: the launch rule applies to sector/stock, not market"
+                    )
+                if _integer(arguments.get("window_days", 20), "window_days", 2, 60) <= WARMUP:
+                    raise HistoryQueryError(
+                        "unsupported_definition: the launch rule needs window_days greater than the "
+                        f"{WARMUP} warmup dates inside each candidate window"
+                    )
+            elif (
                 not isinstance(condition, dict)
                 or set(condition) != {"feature", "op", "value"}
                 or not isinstance(condition.get("feature"), str)
@@ -233,7 +258,8 @@ class HistoryQuerySpec:
                 or not math.isfinite(condition["value"])
             ):
                 raise HistoryQueryError(
-                    "unsupported_definition: condition requires one built-in feature, gte/lte, and numeric value"
+                    "unsupported_definition: condition requires one built-in feature with gte/lte and a "
+                    f'numeric value, or {{"rule": "{LAUNCH_RULE}"}}'
                 )
         if outcome is not None:
             if (
@@ -259,7 +285,7 @@ class HistoryQuerySpec:
         ):
             raise HistoryQueryError("trace_history has fixed versioned features; use compute_history/compare_cases for custom requests")
         selected_features = set(features) | (
-            {condition["feature"]} if condition else set()
+            {condition["feature"]} if condition and "feature" in condition else set()
         )
         allowed = _MARKET_FEATURES if entity_kind == "market" else _STOCK_FEATURES if entity_kind == "stock" else set(FEATURES) - _MARKET_ONLY
         if selected_features - allowed:
@@ -394,11 +420,15 @@ def history_query_parameters() -> dict[str, Any]:
             "condition": {
                 "type": "object",
                 "additionalProperties": False,
-                "required": ["feature", "op", "value"],
+                "description": "两种写法二选一，不得混写：{feature,op,value} 是特征阀值条件；"
+                               "{rule:'launch_signal'} 按与 trace_history 同版本的启动规则判定每个候选窗当时是否启动，"
+                               "未启动窗口就是控制组，缺数/历史不足的窗口保留在分母里且不算未启动；"
+                               "该写法要求 entity_kind 为 sector/stock 且 window_days 大于 5 天预热。",
                 "properties": {
                     "feature": {"type": "string", "enum": list(FEATURES)},
                     "op": {"type": "string", "enum": ["gte", "lte"]},
                     "value": {"type": "number"},
+                    "rule": {"type": "string", "enum": ["launch_signal"]},
                 },
             },
             "outcome": {
@@ -713,7 +743,11 @@ class HistoryQuery:
             dict.fromkeys(
                 (
                     *spec.features,
-                    *((spec.condition["feature"],) if spec.condition else ()),
+                    *(
+                        (spec.condition["feature"],)
+                        if spec.condition and "feature" in spec.condition
+                        else ()
+                    ),
                     *(("return_pct",) if spec.operation == "compare_cases" else ()),
                 )
             )
@@ -735,6 +769,10 @@ class HistoryQuery:
                 definition["input_mapping"] = {"pct_chg": "fact_market_daily.sh_index_pct_chg", "amount": "fact_market_daily.total_amount"}
         if spec.operation == "trace_history":
             definitions["trace_history"] = extra["analysis_definition"]
+        elif "analysis_definition" in extra:
+            # The rule that labelled X travels with the artifact, like a feature
+            # definition, so a later reader cannot relabel what "launch" meant.
+            definitions[extra["analysis_definition"]["name"]] = extra["analysis_definition"]
         coverage["calendar"] = {
             "basis": "union of canonical stock and market fact dates; not inferred from selected sector",
             "reads": reader.calendars,
@@ -1051,7 +1089,11 @@ class HistoryQuery:
             dict.fromkeys(
                 (
                     *spec.features,
-                    *((spec.condition["feature"],) if spec.condition else ()),
+                    *(
+                        (spec.condition["feature"],)
+                        if spec.condition and "feature" in spec.condition
+                        else ()
+                    ),
                 )
             )
         )
@@ -1121,7 +1163,10 @@ class HistoryQuery:
                     feature_row(code, search_days[i - spec.window_days + 1 : i + 1])
                 )
         if spec.operation == "compare_cases":
-            return self._compare(spec, reader, check, cutoff, candidates)
+            return self._compare(
+                spec, reader, check, cutoff, candidates,
+                calendar_days=days, entity_rows=entity_rows,
+            )
         reference_days = [d for d in days if spec.start <= d <= spec.end]
         if len(reference_days) != spec.window_days:
             raise HistoryQueryError(
@@ -1212,7 +1257,17 @@ class HistoryQuery:
         check: Callable[[], None],
         cutoff: InformationCutoff,
         candidates: list[dict[str, Any]],
+        *,
+        calendar_days: list[date] | None = None,
+        entity_rows: list[dict[str, Any]] | None = None,
     ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+        from intelligence.services.historical_research.anatomy import (
+            LAUNCHED_STATES,
+            LAUNCH_RULE,
+            LAUNCH_RULE_DEFINITION,
+            launch_state,
+        )
+
         assert (
             spec.condition is not None
             and spec.outcome is not None
@@ -1220,8 +1275,38 @@ class HistoryQuery:
         )
         condition, outcome = spec.condition, spec.outcome
         table, code_field, _ = _ENTITY_FIELDS[spec.entity_kind]
+        by_rule = condition.get("rule") == LAUNCH_RULE
+        launch_states: dict[str, int] = {}
         frozen = []
         for row in candidates:
+            check()
+            if by_rule:
+                assert calendar_days is not None and entity_rows is not None
+                window = [d for d in calendar_days if row["start"] <= d <= row["end"]]
+                chosen = set(window)
+                judged = launch_state(
+                    spec.entity_kind,
+                    window,
+                    [
+                        r
+                        for r in entity_rows
+                        if r[code_field] == row["entity_code"]
+                        and r["trade_date"] in chosen
+                    ],
+                    check,
+                )
+                status = judged["launch_state"]
+                launch_states[status] = launch_states.get(status, 0) + 1
+                # Undecidable stays undecidable: it is not evidence of no launch.
+                x = (
+                    True
+                    if status in LAUNCHED_STATES
+                    else False
+                    if status == "not_observed"
+                    else None
+                )
+                frozen.append({**row, **judged, "x": x})
+                continue
             value = row["features"][condition["feature"]]
             x = (
                 None
@@ -1235,7 +1320,10 @@ class HistoryQuery:
             frozen.append({**row, "x": x})
         # Freeze the entire declared population and all X labels before any Y
         # calculation. Preview/ranking cannot remove negative or unknown cases.
-        selection_fingerprint = _hash([frozen, condition, FEATURE_VERSION])
+        selection_fingerprint = _hash(
+            [frozen, condition, FEATURE_VERSION]
+            + ([LAUNCH_RULE_DEFINITION["version"]] if by_rule else [])
+        )
         horizon = outcome["horizon_days"]
         future_end = min(
             cutoff.as_of_date, spec.search_end + timedelta(days=3 * horizon + 14)
@@ -1313,6 +1401,7 @@ class HistoryQuery:
         return rows, {
             "selection_fingerprint": selection_fingerprint,
             "execution_phases": ["features_read", "selection_frozen", "outcomes_read"],
+            **({"analysis_definition": LAUNCH_RULE_DEFINITION} if by_rule else {}),
             "comparison": {
                 "four_cells": cells,
                 "missing": missing,
@@ -1321,6 +1410,11 @@ class HistoryQuery:
                 "overlap_clusters": cluster,
                 "independence_status": "not_established",
                 "certification_eligible": False,
+                # 控制组分母显式留痕：未启动与不可判定分开计数，不得合并。
+                **({"launch_states": dict(sorted(launch_states.items())),
+                    "x_definition": f"x=true launched by {LAUNCH_RULE}; x=false control (no launch in that window); "
+                                    "x=null undecidable and excluded from the four cells but kept in enumerated"}
+                   if by_rule else {}),
             },
             "universe": {
                 "entity_kind": spec.entity_kind,

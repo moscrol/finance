@@ -147,7 +147,9 @@ class _MarketRepairModel:
             gap = "脚本只验证类型诊断可恢复；相似窗口不是规律，完整条件比较未完成。"
             return ModelTurn(json.dumps({
                 "status": "partial", "draft": gap, "gaps": [gap],
-                "bindings": [{"output_id": item.output_id, "evidence_hashes": [], "gap": gap}
+                # basis 跟随合同的 grounding_mode：假设槽不得伪装成证据。
+                "bindings": [{"output_id": item.output_id, "evidence_hashes": [],
+                              "basis": item.grounding_mode, "gap": gap}
                              for item in self.context.contract.required_outputs],
                 "history_research": {
                     "purpose": self.context.history_intent.purpose, "result_refs": [self.result_ref],

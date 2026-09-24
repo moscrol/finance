@@ -1295,6 +1295,29 @@ def cmd_sync_hithink_dragon_auction(args) -> int:
     return 0
 
 
+def cmd_sync_hithink_research(args) -> int:
+    from datetime import date as _date
+
+    from .sync.sync_hithink_research import (
+        PARTIAL_EXIT_CODE,
+        HithinkResearchError,
+        sync_hithink_research,
+    )
+
+    try:
+        stats = sync_hithink_research(
+            end_date=_date.fromisoformat(args.end_date) if args.end_date else None,
+            codes=args.thscodes.split(",") if args.thscodes is not None else None,
+            lookback_days=args.lookback_days,
+            history_only=args.history_only,
+        )
+    except (HithinkResearchError, ValueError) as exc:
+        print(f"hithink-research: {exc}")
+        return 2
+    print(json.dumps(stats, ensure_ascii=False))
+    return PARTIAL_EXIT_CODE if stats.get("status") == "partial" else 0
+
+
 def _daily_preflight_or_exit() -> int | None:
     """开跑前拦下「这个环境注定跑不完」的情况，exit 2 并说清缺什么、会挂哪几步。
 
@@ -2545,6 +2568,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="不拉竞价终态（全市场约 56 次）",
     )
     p_htd.set_defaults(func=cmd_sync_hithink_dragon_auction)
+
+    p_htr = sub.add_parser(
+        "sync-hithink-research",
+        help="同花顺异动、热度轨迹、估值观察值；仅 staging/隔离库，非历史估值回填",
+    )
+    p_htr.add_argument("--end-date", default=None, help="自然日窗口末日，默认上海今天")
+    p_htr.add_argument("--thscodes", default=None, help="显式代码，逗号分隔；默认目标日热榜前30")
+    p_htr.add_argument("--lookback-days", type=int, default=30, help="热度自然日窗口，1..365")
+    p_htr.add_argument("--history-only", action="store_true", help="只取可回溯的热度，不取最新快照")
+    p_htr.set_defaults(func=cmd_sync_hithink_research)
 
     p_du = sub.add_parser("daily-update", help="一键日更同步+补字段+质检")
     p_du.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD, 留空取最新")

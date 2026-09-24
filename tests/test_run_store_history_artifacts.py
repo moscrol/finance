@@ -2,6 +2,7 @@ import hashlib
 import json
 import multiprocessing
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+from contextlib import contextmanager
 from dataclasses import asdict
 from pathlib import Path
 from threading import Event
@@ -42,6 +43,109 @@ def test_history_original_is_complete_and_same_content_is_idempotent(store: RunS
     assert path.stat().st_mtime_ns == original_stat.st_mtime_ns
     assert store.read_history_artifact(run.run_id, artifact.path) == original
     assert payload == original
+
+
+@pytest.mark.parametrize("conversation_id", ["conversation-a", "conversation-b"])
+def test_history_read_enforces_requested_conversation_before_opening_content(
+    store, monkeypatch, conversation_id,
+):
+    run = store.create_run("q", "history", session_id="conversation-a")
+    artifact = store.add_history_artifact(run.run_id, "query", {"rows": []})
+    original_verify = store._verified_history_bytes
+    reads = []
+
+    def verify(path, registered):
+        reads.append(path)
+        return original_verify(path, registered)
+
+    monkeypatch.setattr(store, "_verified_history_bytes", verify)
+    if conversation_id == "conversation-a":
+        assert store.read_history_artifact(
+            run.run_id, artifact.path, conversation_id=conversation_id,
+        ) == {"rows": []}
+        assert len(reads) == 1
+    else:
+        with pytest.raises(ValueError, match="outside this conversation"):
+            store.read_history_artifact(
+                run.run_id, artifact.path, conversation_id=conversation_id,
+            )
+        assert reads == []
+
+
+@pytest.mark.parametrize("mutation", ["conversation", "user", "visibility"])
+def test_history_read_rechecks_metadata_after_waiting_for_writer(
+    store, monkeypatch, mutation,
+):
+    run = store.create_run("q", "history", session_id="conversation-a")
+    artifact = store.add_history_artifact(run.run_id, "query", {"rows": []})
+    peer = RunStore(user_id=store.user_id, root=store.root)
+    waiting = Event()
+    lock = store._run_state_lock
+
+    @contextmanager
+    def signal_lock(run_id):
+        waiting.set()
+        with lock(run_id):
+            yield
+
+    monkeypatch.setattr(store, "_run_state_lock", signal_lock)
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        with peer._run_state_lock(run.run_id):
+            future = pool.submit(
+                store.read_history_artifact, run.run_id, artifact.path,
+                conversation_id="conversation-a",
+            )
+            assert waiting.wait(5)
+            updated = peer.load_run(run.run_id)
+            if mutation == "conversation":
+                updated.session_id = "conversation-b"
+            elif mutation == "user":
+                updated.user = "other-user"
+            else:
+                updated.artifacts[0]["visibility"] = "internal"
+            peer._write_run(updated)
+        if mutation == "visibility":
+            with pytest.raises(FileNotFoundError):
+                future.result(timeout=5)
+        else:
+            with pytest.raises(ValueError, match="outside this conversation"):
+                future.result(timeout=5)
+
+
+def test_history_read_holds_run_lock_through_byte_verification(store, monkeypatch):
+    run = store.create_run("q", "history", session_id="conversation-a")
+    artifact = store.add_history_artifact(run.run_id, "query", {"rows": []})
+    peer = RunStore(user_id=store.user_id, root=store.root)
+    verifying, release, writer_started, writer_done = Event(), Event(), Event(), Event()
+    original_verify = store._verified_history_bytes
+
+    def verify(path, registered):
+        verifying.set()
+        assert release.wait(5)
+        return original_verify(path, registered)
+
+    def writer():
+        writer_started.set()
+        peer.finish_run(run.run_id, STATUS_CANCELLED)
+        writer_done.set()
+
+    monkeypatch.setattr(store, "_verified_history_bytes", verify)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        reader = pool.submit(
+            store.read_history_artifact, run.run_id, artifact.path,
+            conversation_id="conversation-a",
+        )
+        try:
+            assert verifying.wait(5)
+            updating = pool.submit(writer)
+            assert writer_started.wait(5)
+            completed_during_read = writer_done.wait(0.1)
+        finally:
+            release.set()
+        assert reader.result(timeout=5) == {"rows": []}
+        updating.result(timeout=5)
+    assert not completed_during_read
+    assert store.load_run(run.run_id).status == STATUS_CANCELLED
 
 
 def test_revision_and_kind_each_get_a_new_reference(store: RunStore):
