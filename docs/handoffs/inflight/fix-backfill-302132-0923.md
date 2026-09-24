@@ -1,28 +1,28 @@
 # #83 / PR #813
 
 ## 这个分支做什么
-整合 302132 固定范围回填，只到 PR 就绪。合入、生产均未授权；不动 8792/launchd/他股。
+302132 固定范围回填整合，只到工程送审；合入与生产另行授权，不动 8792/launchd/他股。
 
 ## 决策与被否方案
-- 窗外全列零差，不要求窗外无行；并跑来源上界固定，冻结 parquet 独占尾两日。
-- 中性 basetemp + pytest 失败保留，不筛测试或删运行中目录。三处系统函数模拟限定作用域，额外断言已恢复，不放宽业务断言。
-- 交接只推进任务分支，不推进 #813，避免文档提交再次改变被验版本。
-- 背景/被否方案/收据：`docs/handoffs/2026-09-24-backfill-302132-gate-continuation.md`。
+- main 有源码前进，从 fd6 前向到 ca4 并重验；旧绿不移签。
+- INDEX/QUEUE 冲突保留 main 其它工单行，只补 #83，避免旧表覆盖新事实。
+- 文档留本分支，被验代码另树固定；作者工程绿不代 #75 独审。WIP 保留防误合。
+- 发现顺序/理由：`docs/handoffs/2026-09-24-backfill-302132-engineering-ready.md`。
 
 ## 当前状态
-**BLOCKED_RESOURCE，#813 仍 WIP**。正式候选 `fd6d8cc5be24c6f3a85af5c960be7766f88deaa7` 已推，基线 main `3bb81b96`。#802 已关，评论 6446 → #813，分支保留。
-证据根 `~/.finance-runtime/reviews/backfill-302132-0923/`，动态入口 `CURRENT.json`；被验树是其 `candidate/`。本文所在任务分支的文档提交不是候选 SHA。本轮验收进程已全部退出。
+**ENGINEERING_READY_PENDING_QC**。#813 head `ca4b33316c47862ecd3ec71a535a51d540ada986`，base `a54fed0d065ffdf025734a69420c1fe530615eb1`，已推。作者四叶及整库验收全绿，自有进程均退出。#802 已关，评论 6446 → #813。
+证据根 `~/.finance-runtime/reviews/backfill-302132-0923/`，动态入口 `CURRENT.json`。唯一被验树 `forward-01/tree`；本任务分支的代码仍旧，不能从这里运行验收/生产命令。归仓小收据 `docs/verification/2026-09-24-backfill-302132-ready/`。
 
 ## 未验证 / 已知边界
-fd6 的 Python 全量 307 秒后因整机磁盘跌破 4 GiB 中断，无完整收据；临停前自有临时目录仅约 112 KiB。fd6 整库演练因不足 8 GiB 在复制前拒绝。旧 c2 的 37 项演练绿不能移签；独立 QC 未完成。生产未执行。
+#75 独审未完成；未合 main、未执行生产。副本证据只对本轮冻结数据成立，生产前重新冻结。中性 basetemp 不代表修了来源路径股票代码误判。此前中断/红收据及旧版本绿均保留。
 
 ## 下一步
-1. 协调稳定容量窗口（演练至少 8 GiB），读取 CURRENT，核对 PR head/候选干净状态/main 漂移。
-2. 新输出目录 + 中性 basetemp 补完整 Python；保持 `-o tmp_path_retention_policy=failed`，无筛选。完整收据再过 `check_test_receipt.py --expect-revision <候选SHA> --require-full-scope`。
-3. 同 head 用现有 rehearsal 量具重跑整库闭环。四叶及数据证据全绿后更新 #75、解除 WIP、请用户决定合入。生产命令/日期/本轮父备份回滚点另行逐字授权，模板见证据根 `production-authorization-draft.md`。
+1. #75 以 ca4 开独审；按 CURRENT/PR head/当前 main 核身份，勿拿文档 HEAD 或 fd6 旧收据。
+2. 独审通过后请用户确认合入。候选或 main 变化先评估并重验，不把本文视为滚动许可。
+3. 生产命令、日期及本轮真实父备份回滚点另行逐字授权；模板见上述归仓目录 `production-authorization-draft.md`。CLI 无 --record，授权另存 JSON；WAL/后续业务写入先停下。
 
 ## 已验证
-fd6 干净树定向 118P、前端 120P/E2E 34P+2 原有跳过、注册表 CI 五项全0、ruff 通过。撤模拟作用域在仓外测试副本触发新增恢复断言。main 3bb 与 fd6 的 merge-tree 无冲突。全部原件在 `continue-04/`。
+ca4 定向118P；ruff/全量15400P、0F/0E、85S/2X，collected15487，完整范围/身份校验0、基座漂移0；前端120P、E2E34P+2既有跳过；registry五项0。37项副本验收全绿，异常金额仅命中预期项，恢复摘要=基线，生产未变；64行三项值全非空。a54+ca4 merge-tree 无冲突。原件 `continue-07/`。
 
 ## 踩过的坑
-目录名 302132 会进入带读文本并触发股票检查；只换中性路径不等于修了产品边界。旧 trace 归档晚于清理而丢失，后续两轮已先归档。registry check 一条不代表五项全叶。恢复只认本轮父收据，WAL 出现即停；不停止他人任务，不把定向/中断/旧版本读数拼绿。
+临时路径含302132会触发业务扫描，必须用中性 basetemp；成功夹具原生清理，失败保留，系统函数模拟先于框架清理恢复。旧trace曾归档过晚丢失，后续轮先归档。恢复只认本轮父收据，不用演练备份；不停止他人任务、不累计部分测试凑全量。

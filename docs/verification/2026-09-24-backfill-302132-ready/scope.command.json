@@ -1,0 +1,27 @@
+{
+  "label": "scope",
+  "argv": [
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "scripts/check_test_receipt.py",
+    "/Users/a77/.finance-runtime/reviews/backfill-302132-0923/continue-07/python-receipts/gate-QOq3gEkV/pytest.json",
+    "--expect-revision",
+    "ca4b33316c47862ecd3ec71a535a51d540ada986",
+    "--require-full-scope",
+    "--base-drift-max",
+    "5"
+  ],
+  "identity_before": {
+    "revision": "ca4b33316c47862ecd3ec71a535a51d540ada986",
+    "status": ""
+  },
+  "disk_floor_bytes": 4294967296,
+  "timeout_seconds": 120,
+  "min_free_bytes": 79685763072,
+  "pid": 45387,
+  "exit_code": 0,
+  "seconds": 2.006,
+  "identity_after": {
+    "revision": "ca4b33316c47862ecd3ec71a535a51d540ada986",
+    "status": ""
+  }
+}
