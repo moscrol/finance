@@ -1,0 +1,41 @@
+{
+  "scope": "Selected raw writer failures and host repair evidence; not the full review archives",
+  "files": {
+    "baseline.log.txt": {
+      "sha256": "87bebfb57548fdc092bb165756af774f1547cd28805add3289777ae713054d68",
+      "bytes": 227
+    },
+    "budget-mutant.log.txt": {
+      "sha256": "ed741cfb86340fced7e511f3ba75fd52a449923f2f5f8b91a81746b5e0fbc832",
+      "bytes": 3341
+    },
+    "host-first-baseline-red.log.txt": {
+      "sha256": "b667099e466c81d2c41509f6bf860916ea5ac979bbf16c201599e942d0c0c7fe",
+      "bytes": 3222
+    },
+    "host-portable-receipt.json": {
+      "sha256": "eb9ab886225b6c44f05cc36d16e7c68efe26f63de1df0a12850209332c0dd3f1",
+      "bytes": 20009
+    },
+    "identity-mutant.log.txt": {
+      "sha256": "cabd9ef4e13b93c06667d55252d63b14c0226be0d2a9892319151b0e6d025430",
+      "bytes": 8626
+    },
+    "k3-writer-01-execution.json": {
+      "sha256": "5ab1055e2c009b2dfbf4041aced2a868114cca407234739897dc32eb3b05b451",
+      "bytes": 4686
+    },
+    "k3-writer-02-execution.json": {
+      "sha256": "7a21965360c0b85177fb68386467fec642f0554377956282c5b420d545c9794f",
+      "bytes": 5643
+    },
+    "restored-baseline.log.txt": {
+      "sha256": "fa80580ce45c19875c515a463ff8e0a7ac4b563121ec7d5560fbe25e1c8c7d33",
+      "bytes": 236
+    },
+    "runner-unit.xml": {
+      "sha256": "31c7b0eab48d6c3a5f920fee010c52e284c5863dcc2946b3f7c296fc93054ffb",
+      "bytes": 2377
+    }
+  }
+}

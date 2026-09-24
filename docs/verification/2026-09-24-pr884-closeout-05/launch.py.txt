@@ -1,0 +1,22 @@
+"""Start one bounded admission/gate controller; never relaunch a completed round."""
+import hashlib
+import json
+from pathlib import Path
+import subprocess
+
+ROOT = Path(__file__).resolve().parent
+PY = '/Users/a77/finance-workspace-private/.venv-workbench/bin/python'
+TREE = Path('/Users/a77/fwp-wt-runtime-postmerge-qc-0923')
+REV = 'ddc0d35b053f25ac74b10a3e4c62ab5502bae5ea'
+assert subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=TREE, text=True).strip() == REV
+assert not subprocess.check_output(['git', 'status', '--porcelain'], cwd=TREE, text=True).strip()
+with (ROOT / 'launch.json').open('x') as receipt:
+    with (ROOT / 'controller.log.txt').open('xb') as log:
+        process = subprocess.Popen([PY, '-B', str(ROOT / 'run.py'), 'start'], cwd=ROOT,
+                                   stdin=subprocess.DEVNULL, stdout=log, stderr=log,
+                                   start_new_session=True)
+    json.dump({'pid': process.pid, 'revision': REV, 'tree': str(TREE),
+               'status': 'started; awaiting resource admission, not a gate verdict',
+               'driver_sha256': hashlib.sha256((ROOT / 'run.py').read_bytes()).hexdigest()}, receipt, indent=2)
+    receipt.write('\n')
+    print(process.pid)

@@ -1,0 +1,123 @@
+{
+  "leaf": "registry",
+  "revision": "480cad07057c243fad2e948b6c33dc160f9412b6",
+  "before": {
+    "revision": "480cad07057c243fad2e948b6c33dc160f9412b6",
+    "status": ""
+  },
+  "checks": [
+    {
+      "name": "registry-0",
+      "command": [
+        "/usr/bin/sandbox-exec",
+        "-p",
+        "(version 1) (allow default) (deny network*) (allow network* (local ip \"localhost:*\") (remote ip \"localhost:*\")) (deny process-exec (literal \"/usr/bin/security\"))",
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "check-parseability"
+      ],
+      "cwd": "/Users/a77/.finance-runtime/reviews/pr884-gates-20260923-01/finance-workspace-private",
+      "timeout": 120,
+      "pid": 4036,
+      "exit_code": 0,
+      "elapsed_seconds": 0.187,
+      "log_sha256": "b51e9381db04ba38043f910bb96bef5b2fa938766a50778afad648b006d47abe",
+      "log_bytes": 95
+    },
+    {
+      "name": "registry-1",
+      "command": [
+        "/usr/bin/sandbox-exec",
+        "-p",
+        "(version 1) (allow default) (deny network*) (allow network* (local ip \"localhost:*\") (remote ip \"localhost:*\")) (deny process-exec (literal \"/usr/bin/security\"))",
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "check"
+      ],
+      "cwd": "/Users/a77/.finance-runtime/reviews/pr884-gates-20260923-01/finance-workspace-private",
+      "timeout": 120,
+      "pid": 4054,
+      "exit_code": 0,
+      "elapsed_seconds": 0.234,
+      "log_sha256": "cd23fc68109e09614cda1546571454ec5b5cfc79323009e7435c563b71047b3a",
+      "log_bytes": 121
+    },
+    {
+      "name": "registry-2",
+      "command": [
+        "/usr/bin/sandbox-exec",
+        "-p",
+        "(version 1) (allow default) (deny network*) (allow network* (local ip \"localhost:*\") (remote ip \"localhost:*\")) (deny process-exec (literal \"/usr/bin/security\"))",
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "backfill-tables",
+        "--check"
+      ],
+      "cwd": "/Users/a77/.finance-runtime/reviews/pr884-gates-20260923-01/finance-workspace-private",
+      "timeout": 120,
+      "pid": 4069,
+      "exit_code": 0,
+      "elapsed_seconds": 0.351,
+      "log_sha256": "362c2b566827eb15434ae230b1ce60edad2006c45ff08836d0a24fc744447261",
+      "log_bytes": 116
+    },
+    {
+      "name": "registry-3",
+      "command": [
+        "/usr/bin/sandbox-exec",
+        "-p",
+        "(version 1) (allow default) (deny network*) (allow network* (local ip \"localhost:*\") (remote ip \"localhost:*\")) (deny process-exec (literal \"/usr/bin/security\"))",
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "generate-views",
+        "--check"
+      ],
+      "cwd": "/Users/a77/.finance-runtime/reviews/pr884-gates-20260923-01/finance-workspace-private",
+      "timeout": 120,
+      "pid": 4083,
+      "exit_code": 0,
+      "elapsed_seconds": 0.123,
+      "log_sha256": "9730a43a0a4535867153d7ac0afd888b1feaaa96f3846b2922c39a16ad068e89",
+      "log_bytes": 68
+    },
+    {
+      "name": "ledger-crosswalk",
+      "command": [
+        "/usr/bin/sandbox-exec",
+        "-p",
+        "(version 1) (allow default) (deny network*) (allow network* (local ip \"localhost:*\") (remote ip \"localhost:*\")) (deny process-exec (literal \"/usr/bin/security\"))",
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/audit_ledger_spec_crosswalk.py"
+      ],
+      "cwd": "/Users/a77/.finance-runtime/reviews/pr884-gates-20260923-01/finance-workspace-private",
+      "timeout": 120,
+      "pid": 4087,
+      "exit_code": 0,
+      "elapsed_seconds": 0.452,
+      "log_sha256": "cfcfcdcbdfc19c07a81c124f3e0467fad4f88c25bb69477feae3c0e26f47cfbf",
+      "log_bytes": 2057
+    }
+  ],
+  "complete": true,
+  "started_at": "2026-09-23T06:17:03.575390+00:00",
+  "env": {
+    "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+    "HOME": "/Users/a77",
+    "LANG": "en_US.UTF-8",
+    "TMPDIR": "/Users/a77/.finance-runtime/reviews/pr884-gates-20260923-01/registry/tmp",
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "FORESIGHT_LLM_KEYCHAIN": "0",
+    "FORESIGHT_USERS_DIR": "/Users/a77/.finance-runtime/reviews/pr884-gates-20260923-01/registry/users",
+    "FWP_TEST_RECEIPT_DIR": "/Users/a77/.finance-runtime/reviews/pr884-gates-20260923-01/registry/receipts",
+    "CI": "1"
+  },
+  "profile": "(version 1) (allow default) (deny network*) (allow network* (local ip \"localhost:*\") (remote ip \"localhost:*\")) (deny process-exec (literal \"/usr/bin/security\"))",
+  "driver_sha256": "9f7024e752d695d12aae9a1923be96e470a800b685147cc2eb4b111f2494d4e8",
+  "after": {
+    "revision": "480cad07057c243fad2e948b6c33dc160f9412b6",
+    "status": ""
+  },
+  "identity_stable": true,
+  "accepted": true,
+  "finished_at": "2026-09-23T06:17:05.118015+00:00"
+}

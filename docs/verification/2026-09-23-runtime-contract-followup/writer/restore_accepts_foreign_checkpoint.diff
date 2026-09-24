@@ -1,0 +1,13 @@
+diff --git a/intelligence/services/episode_restore.py b/intelligence/services/episode_restore.py
+index 5f45fa3a6..1e5d063dd 100644
+--- a/intelligence/services/episode_restore.py
++++ b/intelligence/services/episode_restore.py
+@@ -391,7 +391,7 @@ def _restore_owned(
+     loaded_events, state = store.load(episode_id)
+     if state is None:
+         raise RestoreUnavailable(f"{episode_id}: 没有 EpisodeState，拒绝从事件流推断位置")
+-    if state.episode_id != episode_id:
++    if False:
+         raise RestoreUnavailable(f"{episode_id}: checkpoint episode identity mismatch")
+     if state.log_version != EPISODE_LOG_VERSION:
+         raise RestoreUnavailable(

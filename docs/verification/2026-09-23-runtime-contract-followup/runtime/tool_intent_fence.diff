@@ -1,0 +1,13 @@
+diff --git a/intelligence/runtime/episode_tool_batch.py b/intelligence/runtime/episode_tool_batch.py
+index b0e4d299d..36edd3867 100644
+--- a/intelligence/runtime/episode_tool_batch.py
++++ b/intelligence/runtime/episode_tool_batch.py
+@@ -664,7 +664,7 @@ class EpisodeToolBatchSession:
+                     },
+                 )
+             )
+-            if dispatch_allowed is False:
++            if False:
+                 # Required intent/checkpoint failed: no task may enter the pool.
+                 self._seen_queries.difference_update(candidate.key for candidate in selected)
+                 for candidate in selected:

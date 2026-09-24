@@ -1,0 +1,157 @@
+"""Read completed native receipts; never infer missing leaves from another run."""
+from pathlib import Path
+import datetime
+import hashlib
+import json
+import re
+import subprocess
+import sys
+import xml.etree.ElementTree as ET
+
+ROOT = Path(__file__).resolve().parent
+TREE = ROOT / "finance-workspace-private"
+REV = "db2605d1b1a6a929d9bac468c84ef6aeaddce9ff"
+BASE = "b59d6eed0356ae093b52bd291ab328628de8790e"
+PY = "/Users/a77/finance-workspace-private/.venv-workbench/bin/python"
+proof = {}
+
+
+def load(path):
+    data = path.read_bytes()
+    proof[str(path.relative_to(ROOT))] = hashlib.sha256(data).hexdigest()
+    return json.loads(data)
+
+
+def log(path, expected):
+    raw = path.read_bytes()
+    digest = hashlib.sha256(raw).hexdigest()
+    assert digest == expected, path
+    proof[str(path.relative_to(ROOT))] = digest
+    return raw.decode()
+
+
+records = {}
+expected_checks = {
+    "python": ["sandbox-preflight", "toolchain", "main-gate"],
+    "frontend": ["sandbox-preflight", "toolchain", "dependency-install", "frontend-gate"],
+    "registry": ["sandbox-preflight", "toolchain", "registry-0", "registry-1", "registry-2", "registry-3", "ledger-crosswalk"],
+}
+for leaf in ("python", "frontend", "registry"):
+    directory = "python-native" if leaf == "python" else leaf
+    record = load(ROOT / directory / "receipt.json")
+    assert record["complete"] is True and record["accepted"] is True, record
+    assert record["identity_stable"] is True
+    assert record["before"] == record["after"] == {"revision": REV, "status": ""}
+    assert record["revision"] == REV
+    driver = "run.py"
+    assert record["driver_sha256"] == hashlib.sha256((ROOT / driver).read_bytes()).hexdigest()
+    if leaf == "python":
+        assert record["outer_sandbox_on_main_gate"] is False
+    assert [row["name"] for row in record["checks"]] == expected_checks[leaf]
+    for row in record["checks"]:
+        assert row["exit_code"] == 0 and not row.get("timed_out") and not row.get("resource_stop")
+        assert not row.get("remaining_after_cleanup")
+        text = log(ROOT / directory / (row["name"] + ".log.txt"), row["log_sha256"])
+        if row["name"] == "sandbox-preflight":
+            preflight = json.loads(text)
+            assert preflight["accepted"] is True and preflight["profile"] == record["profile"]
+        if row["name"] == "toolchain":
+            toolchain = json.loads(text)
+            assert toolchain["node"] == "v22.23.2" and toolchain["python"] == "3.12.13"
+    records[leaf] = record
+
+py_paths = list((ROOT / "python-native/receipts").glob("gate-*/pytest.json"))
+assert len(py_paths) == 1, py_paths
+py = load(py_paths[0])
+assert py["revision"] == REV and py["dirty"] is False
+assert py["counts"]["failed"] == py["counts"]["error"] == py["counts"]["xpassed"] == 0
+prior_root = ROOT.parent / "pr884-gates-20260923-02"
+prior_manifest_raw = (prior_root / "MANIFEST.json").read_bytes()
+assert hashlib.sha256(prior_manifest_raw).hexdigest() == "c0b23d8498f0916699eb4a57f955fcf705f8551b3299f0baef8bc459ebead896"
+prior_entry = next(item for item in json.loads(prior_manifest_raw)["artifacts"] if item["path"] == "python-native/pytest.xml")
+prior_xml = (prior_root / prior_entry["path"]).read_bytes()
+assert hashlib.sha256(prior_xml).hexdigest() == prior_entry["sha256"]
+current_xml = (ROOT / "python-native/pytest.xml").read_bytes()
+proof["python-native/pytest.xml"] = hashlib.sha256(current_xml).hexdigest()
+def inventory(payload):
+    cases = list(ET.fromstring(payload).iter("testcase"))
+    ids = {case.attrib["classname"] + "::" + case.attrib["name"] for case in cases}
+    assert len(ids) == len(cases)
+    return ids
+old_ids, new_ids = inventory(prior_xml), inventory(current_xml)
+assert len(new_ids) == py["scope"]["collected"]
+delta = {"prior_revision": "c71e3c8221be387aae8bd98babac538c15614135", "revision": REV,
+         "old_collected": len(old_ids), "new_collected": len(new_ids),
+         "added": sorted(new_ids - old_ids), "removed": sorted(old_ids - new_ids),
+         "prior_junit_sha256": prior_entry["sha256"], "scope": "Inventory comparison only; all current outcomes are newly executed"}
+with (ROOT / "inventory-delta.json").open("x") as stream:
+    json.dump(delta, stream, indent=2)
+    stream.write("\n")
+assert not delta["removed"], delta
+check = subprocess.run([PY, "scripts/check_test_receipt.py", str(py_paths[0]),
+                        "--expect-revision", REV, "--require-full-scope"], cwd=TREE, capture_output=True, text=True)
+(ROOT / "full-scope-check.log.txt").write_text(check.stdout + check.stderr)
+assert check.returncode == 0, check.stdout + check.stderr
+
+front = load(ROOT / "frontend/gate/frontend.json")
+assert front["complete"] is True and front["identity_stable"] is True and front["dirty"] is False
+assert front["revision"] == REV and front["exit_code"] == 0
+assert [row["command"] for row in front["checks"]] == [
+    ["pnpm", "install", "--frozen-lockfile"], ["pnpm", "lint"], ["pnpm", "typecheck"],
+    ["pnpm", "test"], ["pnpm", "build"], ["pnpm", "test:e2e"]]
+counts = {}
+for row in front["checks"]:
+    assert row["exit_code"] == 0
+    text = log(ROOT / "frontend/gate" / row["log"], row["log_sha256"])
+    clean = re.sub(r"\x1b\[[0-9;]*m", "", text)
+    if row["command"][-1] == "test":
+        matches = re.findall(r"(?m)^\s*Tests\s+(\d+) passed", clean)
+        assert len(matches) == 1
+        counts["unit_passed"] = int(matches[0])
+    if row["command"][-1] == "test:e2e":
+        for label in ("passed", "skipped"):
+            matches = re.findall(r"(?m)^\s*(\d+) " + label + r"(?:\s|$)", clean)
+            assert len(matches) == 1
+            counts["e2e_" + label] = int(matches[0])
+
+assert counts == {"unit_passed": 120, "e2e_passed": 34, "e2e_skipped": 2}, counts
+
+archives = load(ROOT / "archive-verification.json")
+assert archives["revision"] == REV and all(a["accepted"] is True for a in archives["archives"])
+assert subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=TREE, text=True).strip() == REV
+assert not subprocess.check_output(["git", "status", "--porcelain"], cwd=TREE, text=True).strip()
+changed = subprocess.check_output(["git", "diff", "--name-only", BASE, REV, "--", "intelligence", "market_feature_store"], cwd=TREE, text=True).splitlines()
+assert changed == ["intelligence/tests/test_episode_writer.py"], changed
+
+preview = load(ROOT / "merge-preview-pinned.json")
+assert preview["base"] == BASE and preview["head"] == REV and preview["clean"] is True
+assert preview["tree"] == subprocess.check_output(["git", "rev-parse", "HEAD^{tree}"], cwd=TREE, text=True).strip()
+
+sys.path.insert(0, str(TREE / "scripts"))
+import gitea_pr
+pr = gitea_pr._api("GET", "/pulls/884")
+assert pr["head"]["sha"] == REV and not pr["merged"] and pr["state"] == "open"
+assert pr["title"].startswith("WIP:")
+result = {"revision": REV, "integrated_base": BASE, "accepted": True,
+          "verified_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+          "kind": "Host local engineering gates; NOT independent runtime review or merge authorization",
+          "python_execution_context": "Native host, clean credential environment and isolated user data; no outer Seatbelt. Per-test sandbox tests remain enabled. NOT blanket OS network isolation.",
+          "inventory_delta": {"old_collected": len(old_ids), "new_collected": len(new_ids), "added": len(delta["added"]), "removed": len(delta["removed"])},
+          "historical_runs": "All prior runs retained; no counts or verdicts transferred to this revision",
+          "local_python_timeout_seconds": 1800, "workflow_python_timeout_seconds": 900,
+          "python_gate_elapsed_seconds": records["python"]["checks"][-1]["elapsed_seconds"],
+          "within_workflow_python_time_budget_on_this_host": records["python"]["checks"][-1]["elapsed_seconds"] <= 900,
+          "ci_platform_executed": False,
+          "python": py["counts"], "collected": py["scope"]["collected"],
+          "frontend": counts, "registry_checks": 5, "environment": toolchain,
+          "merge_authorized": False, "merge_ready": False,
+          "runtime_independent_verdict": "BLOCKED",
+          "merge_preview": preview, "current_base_matches_tested_base": pr["base"]["sha"] == BASE,
+          "pr": {"number": 884, "head": pr["head"]["sha"], "base": pr["base"]["sha"],
+                 "merged": False, "title": pr["title"]}, "archive_verification": archives,
+          "artifacts_sha256": proof}
+path = ROOT / "engineering-verification.json"
+with path.open("x") as stream:
+    json.dump(result, stream, ensure_ascii=False, indent=2)
+    stream.write("\n")
+print(json.dumps({k: v for k, v in result.items() if k != "artifacts_sha256"}, ensure_ascii=False, indent=2))

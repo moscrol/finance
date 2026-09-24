@@ -1,0 +1,125 @@
+{
+  "revision": "db2605d1b1a6a929d9bac468c84ef6aeaddce9ff",
+  "group": "writer",
+  "role": "host replay of pre-existing author tests; not K3 independent acceptance",
+  "wrapper_sha256": "ec95c9b571ec55eb688f10f3105fd0db732bfa60fb94e8f9e5d42f6435be3aad",
+  "runner_sha256": "1103f039a54f76e2b479b0b03a24cf43796dbd2681f2dfed1fb8ca1495581209",
+  "before": {
+    "revision": "db2605d1b1a6a929d9bac468c84ef6aeaddce9ff",
+    "status": ""
+  },
+  "accepted": true,
+  "baseline": 23,
+  "mutations": [
+    {
+      "mutation": "disk_writer_not_exclusive",
+      "collected": 1,
+      "failures": [
+        {
+          "classname": "intelligence.tests.test_episode_writer",
+          "name": "test_separate_process_cannot_restore_until_owner_releases",
+          "message": "AssertionError: assert {'busy': Fals...ox': [], ...}} == {'busy': True}\n  \n  Differing items:\n  {'busy': False} != {'busy': True}\n  Left contains 1 more item:\n  {'result': {'disposition': 'resumable',\n              'entry_identity_bound': False,\n              'episode_id': 'restore-write-confirmation',...\n  \n  ...Full output truncated (36 lines hidden), use '-vv' to show"
+        }
+      ]
+    },
+    {
+      "mutation": "restore_bypasses_writer",
+      "collected": 1,
+      "failures": [
+        {
+          "classname": "intelligence.tests.test_episode_writer",
+          "name": "test_separate_process_cannot_restore_until_owner_releases",
+          "message": "AssertionError: assert {'busy': Fals...ox': [], ...}} == {'busy': True}\n  \n  Differing items:\n  {'busy': False} != {'busy': True}\n  Left contains 1 more item:\n  {'result': {'disposition': 'resumable',\n              'entry_identity_bound': False,\n              'episode_id': 'restore-write-confirmation',...\n  \n  ...Full output truncated (36 lines hidden), use '-vv' to show"
+        }
+      ]
+    },
+    {
+      "mutation": "drive_bypasses_writer",
+      "collected": 1,
+      "failures": [
+        {
+          "classname": "intelligence.tests.test_episode_writer",
+          "name": "test_killing_real_drive_releases_lock_but_keeps_unexecuted_intent",
+          "message": "Failed: DID NOT RAISE <class 'intelligence.services.episode_store.EpisodeWriterBusy'>"
+        }
+      ]
+    },
+    {
+      "mutation": "new_run_restarts_existing_log",
+      "collected": 1,
+      "failures": [
+        {
+          "classname": "intelligence.tests.test_episode_writer",
+          "name": "test_successful_drive_releases_but_never_restarts_existing_log",
+          "message": "Failed: DID NOT RAISE <class 'intelligence.services.episode_restore.RestoreUnavailable'>"
+        }
+      ]
+    },
+    {
+      "mutation": "repair_bypasses_writer",
+      "collected": 1,
+      "failures": [
+        {
+          "classname": "intelligence.tests.test_episode_writer",
+          "name": "test_repair_owns_entire_operation_and_releases_on_exception",
+          "message": "Failed: DID NOT RAISE <class 'intelligence.services.episode_store.EpisodeWriterBusy'>"
+        }
+      ]
+    },
+    {
+      "mutation": "repair_accepts_stale_prefix",
+      "collected": 2,
+      "failures": [
+        {
+          "classname": "intelligence.tests.test_episode_writer",
+          "name": "test_stale_repair_never_appends_or_calls_model[event]",
+          "message": "Failed: DID NOT RAISE <class 'intelligence.services.episode_restore.RestoreUnavailable'>"
+        },
+        {
+          "classname": "intelligence.tests.test_episode_writer",
+          "name": "test_stale_repair_never_appends_or_calls_model[state]",
+          "message": "Failed: DID NOT RAISE <class 'intelligence.services.episode_restore.RestoreUnavailable'>"
+        }
+      ]
+    },
+    {
+      "mutation": "repair_locks_foreign_store",
+      "collected": 4,
+      "failures": [
+        {
+          "classname": "intelligence.tests.test_episode_writer",
+          "name": "test_repair_rejects_foreign_owner_or_task_before_any_effect[store]",
+          "message": "Failed: DID NOT RAISE <class 'intelligence.services.episode_restore.RestoreUnavailable'>"
+        }
+      ]
+    },
+    {
+      "mutation": "inbox_suspend_does_not_drain_delivery",
+      "collected": 1,
+      "failures": [
+        {
+          "classname": "intelligence.tests.test_episode_writer",
+          "name": "test_close_drains_inflight_delivery_before_releasing_writer",
+          "message": "Failed: DID NOT RAISE <class 'TimeoutError'>"
+        }
+      ]
+    },
+    {
+      "mutation": "restore_accepts_foreign_checkpoint",
+      "collected": 1,
+      "failures": [
+        {
+          "classname": "intelligence.tests.test_episode_writer",
+          "name": "test_restore_refuses_checkpoint_for_another_episode_even_when_terminal",
+          "message": "Failed: DID NOT RAISE <class 'intelligence.services.episode_restore.RestoreUnavailable'>"
+        }
+      ]
+    }
+  ],
+  "after": {
+    "revision": "db2605d1b1a6a929d9bac468c84ef6aeaddce9ff",
+    "status": ""
+  },
+  "candidate_unchanged": true,
+  "inputs_unchanged": true
+}

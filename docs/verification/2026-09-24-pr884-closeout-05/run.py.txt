@@ -1,0 +1,199 @@
+"""Fixed-head host gates, sequential to limit this run's resource demand.
+
+Python is native with credential clearing and isolated user data. Its per-test
+sandboxes stay enabled. Other gates use the verified loopback policy.
+"""
+import datetime
+import hashlib
+import json
+import os
+from pathlib import Path
+import signal
+import shutil
+import subprocess
+import sys
+import time
+
+ROOT = Path(__file__).resolve().parent
+TREE = Path("/Users/a77/fwp-wt-runtime-postmerge-qc-0923")
+REV = "ddc0d35b053f25ac74b10a3e4c62ab5502bae5ea"
+PY = "/Users/a77/finance-workspace-private/.venv-workbench/bin/python"
+sys.path.insert(0, str(TREE))
+from scripts.review_probes.check_loopback_sandbox import PROFILE
+from scripts.review_probes.gate_resources import observe
+os.umask(0o22)
+NODE_BIN = ROOT.parent / "pr884-toolchain-20260923/node_modules/.bin"
+
+
+def save(path, data):
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n")
+    tmp.replace(path)
+
+
+def identity():
+    def git(*args):
+        return subprocess.check_output(["git", *args], cwd=TREE, text=True).strip()
+    return {"revision": git("rev-parse", "HEAD"), "status": git("status", "--porcelain")}
+
+
+def wait_admission(leaf, seconds=1800):
+    deadline = time.monotonic() + seconds
+    while True:
+        state = observe(ROOT)
+        state["leaf"] = leaf
+        with (ROOT / "admission-history.jsonl").open("a") as stream:
+            stream.write(json.dumps(state) + "\n")
+        save(ROOT / "admission.json", state)
+        if state["admitted"]:
+            return
+        if time.monotonic() >= deadline:
+            raise RuntimeError("resource admission timeout; leaf not launched")
+        time.sleep(min(15, max(0, deadline - time.monotonic())))
+
+
+def group_members(group):
+    text = subprocess.check_output(["ps", "-axo", "pid=,pgid=,stat="], text=True)
+    return [int(pid) for pid, pgid, state in (line.split() for line in text.splitlines())
+            if int(pgid) == group and not state.startswith("Z")]
+
+
+def worker(leaf):
+    output = ROOT / leaf
+    output.mkdir(exist_ok=False)
+    for name in ("tmp", "users", "receipts"):
+        (output / name).mkdir()
+    env = {"PATH": str(NODE_BIN) + ":/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin", "HOME": str(Path.home()),
+           "LANG": "en_US.UTF-8", "TMPDIR": str(output / "tmp"), "PYTHONDONTWRITEBYTECODE": "1",
+           "FORESIGHT_LLM_KEYCHAIN": "0", "FORESIGHT_USERS_DIR": str(output / "users"),
+           "FWP_TEST_RECEIPT_DIR": str(output / "receipts"), "CI": "1"}
+    record = {"leaf": leaf, "revision": REV, "before": identity(), "checks": [], "complete": False,
+              "started_at": datetime.datetime.now(datetime.timezone.utc).isoformat(), "env": env,
+              "profile": PROFILE, "outer_sandbox_on_main_gate": False if leaf == "python-native" else None,
+              "profile_scope": "preflight/toolchain only" if leaf == "python-native" else "gates except dependency acquisition", "driver_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest()}
+    save(output / "receipt.json", record)
+    if record["before"] != {"revision": REV, "status": ""}:
+        raise RuntimeError("candidate changed or dirty")
+
+    def run(name, cmd, *, cwd=TREE, sandbox=True, timeout=900):
+        actual = ["/usr/bin/sandbox-exec", "-p", PROFILE, *cmd] if sandbox else cmd
+        start = time.monotonic()
+        row = {"name": name, "command": actual, "cwd": str(cwd), "timeout": timeout,
+               "disk_free_before": shutil.disk_usage(ROOT).free}
+        if row["disk_free_before"] < 12 * 1024**3:
+            record["admission_denied"] = {"name": name, "disk_free": row["disk_free_before"], "floor_gib": 12}
+            raise RuntimeError("insufficient disk for gate admission")
+        with (output / (name + ".log.txt")).open("xb") as log:
+            process = subprocess.Popen(actual, cwd=cwd, env=env, stdout=log, stderr=log,
+                                       stdin=subprocess.DEVNULL, start_new_session=True)
+            row["pid"] = process.pid
+            try:
+                deadline = start + timeout
+                while process.poll() is None:
+                    observation = observe(ROOT, minimum_free=8 * 1024**3,
+                                          excluded_groups=frozenset({process.pid}))
+                    observation.update(leaf=leaf, check=name, owned_pgid=process.pid)
+                    with (output / "resource-monitor.jsonl").open("a") as monitor:
+                        monitor.write(json.dumps(observation) + "\n")
+                    row["disk_free_last"] = observation["disk_free_bytes"]
+                    if row["disk_free_last"] < 8 * 1024**3:
+                        row["resource_stop"] = "disk below 8 GiB"
+                        break
+                    remaining_seconds = deadline - time.monotonic()
+                    if remaining_seconds <= 0:
+                        row["timed_out"] = True
+                        break
+                    try:
+                        process.wait(timeout=min(5, remaining_seconds))
+                    except subprocess.TimeoutExpired:
+                        pass
+            finally:
+                remaining = group_members(process.pid)
+                row["remaining_before_cleanup"] = remaining
+                if remaining:
+                    try:
+                        os.killpg(process.pid, signal.SIGKILL)
+                    except (ProcessLookupError, PermissionError) as error:
+                        row["cleanup_signal_error"] = repr(error)
+                process.wait(timeout=15)
+                row["remaining_after_cleanup"] = group_members(process.pid)
+            row["exit_code"] = process.returncode
+        row["elapsed_seconds"] = round(time.monotonic() - start, 3)
+        data = (output / (name + ".log.txt")).read_bytes()
+        row.update(log_sha256=hashlib.sha256(data).hexdigest(), log_bytes=len(data))
+        record["checks"].append(row)
+        save(output / "receipt.json", record)
+        print(json.dumps({"leaf": leaf, **row}), flush=True)
+        return process.returncode
+
+    try:
+        if run("sandbox-preflight", [PY, "scripts/review_probes/check_loopback_sandbox.py"], sandbox=False, timeout=30):
+            raise RuntimeError("sandbox boundary preflight failed")
+        run("toolchain", [PY, "-c", "import json,platform,subprocess; print(json.dumps({'python':platform.python_version(),'node':subprocess.check_output(['node','--version'],text=True).strip(),'pnpm':subprocess.check_output(['pnpm','--version'],text=True).strip(),'platform':platform.platform()}))"], timeout=30)
+        if leaf == "python-native":
+            run("main-gate", ["bash", "scripts/run_main_gate.sh", "--pytest-args",
+                f"-vv -p no:cacheprovider --durations=30 -o faulthandler_timeout=60 --basetemp={output / 'pytest'} --junitxml={output / 'pytest.xml'}"], timeout=1800, sandbox=False)
+        elif leaf == "frontend":
+            # Dependency acquisition is the sole network-enabled step; no model credentials.
+            installed = run("dependency-install", ["pnpm", "install", "--frozen-lockfile"],
+                            cwd=TREE / "intelligence/webapp", sandbox=False, timeout=300)
+            if installed:
+                raise RuntimeError("frontend dependencies unavailable")
+            run("frontend-gate", [PY, "scripts/run_frontend_gate.py", "--tree", str(TREE),
+                "--expect-revision", REV, "--output", str(output / "gate"),
+                "--python", PY, "--workbench-port", "19181", "--re06-port", "19184"], timeout=1200)
+        elif leaf == "registry":
+            for index, args in enumerate((("check-parseability",), ("check",),
+                                         ("backfill-tables", "--check"), ("generate-views", "--check"))):
+                run(f"registry-{index}", [PY, "scripts/build_registry.py", *args], timeout=120)
+            run("ledger-crosswalk", [PY, "scripts/audit_ledger_spec_crosswalk.py"], timeout=120)
+        else:
+            raise ValueError(leaf)
+        record["complete"] = True
+    except Exception as error:
+        record["error"] = repr(error)
+        raise
+    finally:
+        record["after"] = identity()
+        record["identity_stable"] = record["before"] == record["after"] == {"revision": REV, "status": ""}
+        record["accepted"] = record["complete"] and record["identity_stable"] and all(
+            c["exit_code"] == 0 and not c.get("timed_out") and not c.get("resource_stop") and not c.get("remaining_after_cleanup") for c in record["checks"])
+        record["finished_at"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        save(output / "receipt.json", record)
+    return 0 if record["accepted"] else 1
+
+
+def main():
+    if sys.argv[1:] != ["start"]:
+        return worker(sys.argv[1])
+    with (ROOT / "started.json").open("x") as marker:
+        json.dump({"revision": REV, "identity": identity(), "pid": os.getpid()}, marker)
+    runs = []
+    result = {"revision": REV, "status": "WAITING_FOR_ADMISSION", "leaves": runs,
+              "model_requests": 0, "merge_or_deployment": False}
+    save(ROOT / "controller-result.json", result)
+    try:
+        remaining_wait = 1800.0
+        for leaf in ("registry", "frontend", "python-native"):
+            began_wait = time.monotonic()
+            wait_admission(leaf, max(0, remaining_wait))
+            remaining_wait -= time.monotonic() - began_wait
+            with (ROOT / (leaf + "-controller.log.txt")).open("xb") as stream:
+                process = subprocess.Popen([PY, "-B", str(Path(__file__)), leaf], stdout=stream,
+                                           stderr=stream, stdin=subprocess.DEVNULL, start_new_session=True)
+                row = {"leaf": leaf, "pid": process.pid}
+                runs.append(row)
+                save(ROOT / "processes.json", runs)
+                row["exit_code"] = process.wait()
+            save(ROOT / "processes.json", runs)
+        result["status"] = "ENGINEERING_COMPLETE" if all(row["exit_code"] == 0 for row in runs) else "BLOCKED"
+    except Exception as error:
+        result.update(status="BLOCKED_RESOURCE_OR_CONTROLLER", error=repr(error))
+    finally:
+        result["finished_at"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        save(ROOT / "controller-result.json", result)
+    return 0 if result["status"] == "ENGINEERING_COMPLETE" else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

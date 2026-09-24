@@ -1,0 +1,530 @@
+{
+  "revision": "d542658a7e47bed58694c93be8ff9951a064f810",
+  "suite": "custom",
+  "tree": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/scratch/contract-mutations-aqhz89le/tree",
+  "python": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "tests": [
+    "intelligence/tests/test_episode_persistence_failure.py",
+    "intelligence/tests/test_model_turn_completion_boundary.py",
+    "intelligence/tests/test_workbench_api.py::test_sse_emits_terminal_message_arriving_between_reads"
+  ],
+  "definitions": "scripts/review_probes/runtime_contract_mutations.json",
+  "complete": true,
+  "runs": [
+    {
+      "label": "baseline",
+      "exit": 0,
+      "executed": 71,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "terminal_completion_fence-red",
+      "exit": 1,
+      "executed": 12,
+      "failures": 12,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_episode_persistence_failure",
+          "name": "test_failed_write_stops_new_effects[configure-0-0]",
+          "message": "AssertionError: assert 'durable' == 'failed'\n  \n  - failed\n  + durable"
+        },
+        {
+          "class": "intelligence.tests.test_episode_persistence_failure",
+          "name": "test_failed_write_stops_new_effects[task-0-0]",
+          "message": "AssertionError: assert 'durable' == 'failed'\n  \n  - failed\n  + durable"
+        },
+        {
+          "class": "intelligence.tests.test_episode_persistence_failure",
+          "name": "test_failed_write_stops_new_effects[prompt_assembled-0-0]",
+          "message": "AssertionError: assert 'durable' == 'failed'\n  \n  - failed\n  + durable"
+        },
+        {
+          "class": "intelligence.tests.test_episode_persistence_failure",
+          "name": "test_failed_write_stops_new_effects[state:planning-0-0]",
+          "message": "AssertionError: assert 'durable' == 'failed'\n  \n  - failed\n  + durable"
+        },
+        {
+          "class": "intelligence.tests.test_episode_persistence_failure",
+          "name": "test_failed_write_stops_new_effects[model_intent-0-0]",
+          "message": "AssertionError: assert 'durable' == 'failed'\n  \n  - failed\n  + durable"
+        },
+        {
+          "class": "intelligence.tests.test_episode_persistence_failure",
+          "name": "test_failed_write_stops_new_effects[state:model_pending-0-0]",
+          "message": "AssertionError: assert 'durable' == 'failed'\n  \n  - failed\n  + durable"
+        },
+        {
+          "class": "intelligence.tests.test_episode_persistence_failure",
+          "name": "test_failed_write_stops_new_effects[model_turn-1-0]",
+          "message": "AssertionError: assert 'durable' == 'failed'\n  \n  - failed\n  + durable"
+        },
+        {
+          "class": "intelligence.tests.test_episode_persistence_failure",
+          "name": "test_failed_write_stops_new_effects[tool_request-1-0]",
+          "message": "AssertionError: assert 'durable' == 'failed'\n  \n  - failed\n  + durable"
+        },
+        {
+          "class": "intelligence.tests.test_episode_persistence_failure",
+          "name": "test_failed_write_stops_new_effects[state:tools_pending-1-0]",
+          "message": "AssertionError: assert 'durable' == 'failed'\n  \n  - failed\n  + durable"
+        },
+        {
+          "class": "intelligence.tests.test_episode_persistence_failure",
+          "name": "test_failed_write_stops_new_effects[tool_result-1-1]",
+          "message": "AssertionError: assert 'durable' == 'failed'\n  \n  - failed\n  + durable"
+        },
+        {
+          "class": "intelligence.tests.test_episode_persistence_failure",
+          "name": "test_failed_write_stops_new_effects[finish-2-1]",
+          "message": "AssertionError: assert 'completed' == 'failed'\n  \n  - failed\n  + completed"
+        },
+        {
+          "class": "intelligence.tests.test_episode_persistence_failure",
+          "name": "test_failed_write_stops_new_effects[state:done-2-1]",
+          "message": "AssertionError: assert 'completed' == 'failed'\n  \n  - failed\n  + completed"
+        }
+      ]
+    },
+    {
+      "label": "terminal_completion_fence-green",
+      "exit": 0,
+      "executed": 12,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "pre_model_dispatch_fence-red",
+      "exit": 1,
+      "executed": 12,
+      "failures": 2,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_episode_persistence_failure",
+          "name": "test_failed_write_stops_new_effects[model_intent-0-0]",
+          "message": "AssertionError: assert 1 == 0\n +  where 1 = <intelligence.tests.conformance.races._drive.EffectAwareModel object at 0x10d5a0e90>.calls\n +    where <intelligence.tests.conformance.races._drive.EffectAwareModel object at 0x10d5a0e90> = Rig(task_id='failure-model_intent', oracle=FailingStore(inner=<intelligence.services.episode_store.MemoryEpisodeStore ...lls=0, tool_calls=0, turn_id='turn-1'), StepPoint(phase='model_settled', llm_calls=1, tool_calls=0, turn_id='turn-1')]).model"
+        },
+        {
+          "class": "intelligence.tests.test_episode_persistence_failure",
+          "name": "test_failed_write_stops_new_effects[state:model_pending-0-0]",
+          "message": "AssertionError: assert 1 == 0\n +  where 1 = <intelligence.tests.conformance.races._drive.EffectAwareModel object at 0x10d5954c0>.calls\n +    where <intelligence.tests.conformance.races._drive.EffectAwareModel object at 0x10d5954c0> = Rig(task_id='failure-state-model_pending', oracle=FailingStore(inner=<intelligence.services.episode_store.MemoryEpisod...lls=0, tool_calls=0, turn_id='turn-1'), StepPoint(phase='model_settled', llm_calls=1, tool_calls=0, turn_id='turn-1')]).model"
+        }
+      ]
+    },
+    {
+      "label": "pre_model_dispatch_fence-green",
+      "exit": 0,
+      "executed": 12,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "tool_intent_fence-red",
+      "exit": 1,
+      "executed": 1,
+      "failures": 1,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_episode_persistence_failure",
+          "name": "test_tool_intent_rejection_never_submits_to_executor",
+          "message": "Failed: unpersisted intent reached executor"
+        }
+      ]
+    },
+    {
+      "label": "tool_intent_fence-green",
+      "exit": 0,
+      "executed": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "terminal_flush-red",
+      "exit": 1,
+      "executed": 1,
+      "failures": 1,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_episode_persistence_failure",
+          "name": "test_successful_durable_completion_is_explicit_and_flushed",
+          "message": "AssertionError: assert ([TimelineEntry(kind='append', label='finish', key='', alt='', sync=False, sequence=13)] and False)\n +  where False = all(<generator object test_successful_durable_completion_is_explicit_and_flushed.<locals>.<genexpr> at 0x10b323700>)"
+        }
+      ]
+    },
+    {
+      "label": "terminal_flush-green",
+      "exit": 0,
+      "executed": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "neutral_completion_boundary-red",
+      "exit": 1,
+      "executed": 5,
+      "failures": 3,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_model_turn_completion_boundary",
+          "name": "test_direct_model_turn_cannot_bypass_completion_boundary[length-True]",
+          "message": "AssertionError: assert 1 == 0\n +  where 1 = AgentUsage(llm_calls=5, tool_calls=1, invalid_actions=4, input_tokens=None, output_tokens=None).tool_calls\n +    where AgentUsage(llm_calls=5, tool_calls=1, invalid_actions=4, input_tokens=None, output_tokens=None) = AgentOutcome(task_frame_hash='771106cac1d71005f0e33352af1869afba4562a3817c3344d224de28c9533c98', status='partial', dra...m_calls=5, tool_calls=1, invalid_actions=4, input_tokens=None, output_tokens=None), plan=None, persistence='ephemeral').usage"
+        },
+        {
+          "class": "intelligence.tests.test_model_turn_completion_boundary",
+          "name": "test_direct_model_turn_cannot_bypass_completion_boundary[missing_finish_reason-True]",
+          "message": "AssertionError: assert 1 == 0\n +  where 1 = AgentUsage(llm_calls=5, tool_calls=1, invalid_actions=4, input_tokens=None, output_tokens=None).tool_calls\n +    where AgentUsage(llm_calls=5, tool_calls=1, invalid_actions=4, input_tokens=None, output_tokens=None) = AgentOutcome(task_frame_hash='771106cac1d71005f0e33352af1869afba4562a3817c3344d224de28c9533c98', status='partial', dra...m_calls=5, tool_calls=1, invalid_actions=4, input_tokens=None, output_tokens=None), plan=None, persistence='ephemeral').usage"
+        },
+        {
+          "class": "intelligence.tests.test_model_turn_completion_boundary",
+          "name": "test_truncated_finalizer_cannot_publish_parseable_finish",
+          "message": "AssertionError: assert ('completed' != 'completed')\n +  where 'completed' = AgentOutcome(task_frame_hash='771106cac1d71005f0e33352af1869afba4562a3817c3344d224de28c9533c98', status='completed', d...e(llm_calls=3, tool_calls=1, invalid_actions=0, input_tokens=11, output_tokens=12), plan=None, persistence='ephemeral').status"
+        }
+      ]
+    },
+    {
+      "label": "neutral_completion_boundary-green",
+      "exit": 0,
+      "executed": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "nonstream_finish_reason-red",
+      "exit": 1,
+      "executed": 2,
+      "failures": 1,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_model_turn_completion_boundary",
+          "name": "test_transport_preserves_truncation_reason[False]",
+          "message": "KeyError: '_finish_reason'"
+        }
+      ]
+    },
+    {
+      "label": "nonstream_finish_reason-green",
+      "exit": 0,
+      "executed": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "provider_no_hidden_retry-red",
+      "exit": 1,
+      "executed": 8,
+      "failures": 4,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_model_turn_completion_boundary",
+          "name": "test_incomplete_envelope_is_not_executed_or_silently_retried[providers1-length]",
+          "message": "AssertionError: assert None == 'length'\n +  where None = ModelTurn(content='', tool_calls=(), provider_name='b', error='incomplete_model_response:length', provider_attempts=2, input_tokens=None, output_tokens=None, served_model=None, finish_reason=None).finish_reason"
+        },
+        {
+          "class": "intelligence.tests.test_model_turn_completion_boundary",
+          "name": "test_incomplete_envelope_is_not_executed_or_silently_retried[providers1-max_tokens]",
+          "message": "AssertionError: assert None == 'max_tokens'\n +  where None = ModelTurn(content='', tool_calls=(), provider_name='b', error='incomplete_model_response:max_tokens', provider_attempts=2, input_tokens=None, output_tokens=None, served_model=None, finish_reason=None).finish_reason"
+        },
+        {
+          "class": "intelligence.tests.test_model_turn_completion_boundary",
+          "name": "test_incomplete_envelope_is_not_executed_or_silently_retried[providers1-content_filter]",
+          "message": "AssertionError: assert None == 'content_filter'\n +  where None = ModelTurn(content='', tool_calls=(), provider_name='b', error='incomplete_model_response:content_filter', provider_attempts=2, input_tokens=None, output_tokens=None, served_model=None, finish_reason=None).finish_reason"
+        },
+        {
+          "class": "intelligence.tests.test_model_turn_completion_boundary",
+          "name": "test_incomplete_envelope_is_not_executed_or_silently_retried[providers1-missing_finish_reason]",
+          "message": "AssertionError: assert None == 'missing_finish_reason'\n +  where None = ModelTurn(content='', tool_calls=(), provider_name='b', error='incomplete_model_response:missing_finish_reason', provider_attempts=2, input_tokens=None, output_tokens=None, served_model=None, finish_reason=None).finish_reason"
+        }
+      ]
+    },
+    {
+      "label": "provider_no_hidden_retry-green",
+      "exit": 0,
+      "executed": 8,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "inbox_no_false_ack-red",
+      "exit": 1,
+      "executed": 2,
+      "failures": 2,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_episode_persistence_failure",
+          "name": "test_failed_inbox_write_is_not_acknowledged_or_deleted[memory]",
+          "message": "AssertionError: assert (not True)\n +  where True = InboxReceipt(message_id='inbox-1', accepted=True, reason='').accepted"
+        },
+        {
+          "class": "intelligence.tests.test_episode_persistence_failure",
+          "name": "test_failed_inbox_write_is_not_acknowledged_or_deleted[spool]",
+          "message": "AssertionError: assert 1 == 0\n +  where 1 = ingest_spool()\n +    where ingest_spool = <intelligence.services.episode_inbox.Inbox object at 0x10d20d4f0>.ingest_spool\n +      where <intelligence.services.episode_inbox.Inbox object at 0x10d20d4f0> = <intelligence.runtime.agent_episode.ContinuousAgentEpisode object at 0x10d22bcb0>.inbox\n +        where <intelligence.runtime.agent_episode.ContinuousAgentEpisode object at 0x10d22bcb0> = Rig(task_id='inbox-failure-spool', oracle=FailingStore(inner=<intelligence.services.episode_store.MemoryEpisodeStore o...deDrive object at 0x10d22bef0>, points=[StepPoint(phase='model_pending', llm_calls=0, tool_calls=0, turn_id='turn-1')]).episode"
+        }
+      ]
+    },
+    {
+      "label": "inbox_no_false_ack-green",
+      "exit": 0,
+      "executed": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "inbox_flush_before_ack-red",
+      "exit": 1,
+      "executed": 1,
+      "failures": 1,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_episode_persistence_failure",
+          "name": "test_inbox_ack_flushes_insert_before_deleting_spool",
+          "message": "AssertionError: assert ([TimelineEntry(kind='append', label='inbox_inserted', key='', alt='', sync=False, sequence=6)] and False)\n +  where False = all(<generator object test_inbox_ack_flushes_insert_before_deleting_spool.<locals>.<genexpr> at 0x1082ba740>)"
+        }
+      ]
+    },
+    {
+      "label": "inbox_flush_before_ack-green",
+      "exit": 0,
+      "executed": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "assembly_cancel_propagation-red",
+      "exit": 1,
+      "executed": 1,
+      "failures": 1,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_episode_persistence_failure",
+          "name": "test_real_assembly_shares_local_failure_with_inflight_model",
+          "message": "AssertionError: assert ('failed' == 'failed'\n  \n    failed and '')\n +  where '' = AgentOutcome(task_frame_hash='771106cac1d71005f0e33352af1869afba4562a3817c3344d224de28c9533c98', status='failed', draf...sage(llm_calls=2, tool_calls=1, invalid_actions=0, input_tokens=10, output_tokens=20), plan=None, persistence='failed').draft"
+        }
+      ]
+    },
+    {
+      "label": "assembly_cancel_propagation-green",
+      "exit": 0,
+      "executed": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "received_tool_result_retention-red",
+      "exit": 1,
+      "executed": 1,
+      "failures": 1,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_episode_persistence_failure",
+          "name": "test_parallel_failure_keeps_received_result_and_fences_queued_runner",
+          "message": "AssertionError: assert ('failed' == 'failed'\n  \n    failed and 0 == 1)\n +  where 0 = len(())\n +    where () = AgentOutcome(task_frame_hash='771106cac1d71005f0e33352af1869afba4562a3817c3344d224de28c9533c98', status='failed', draf...(llm_calls=1, tool_calls=2, invalid_actions=2, input_tokens=None, output_tokens=None), plan=None, persistence='failed').evidence"
+        }
+      ]
+    },
+    {
+      "label": "received_tool_result_retention-green",
+      "exit": 0,
+      "executed": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "queued_runner_fence-red",
+      "exit": 1,
+      "executed": 1,
+      "failures": 1,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_episode_persistence_failure",
+          "name": "test_parallel_failure_keeps_received_result_and_fences_queued_runner",
+          "message": "Failed: DID NOT RAISE <class 'RuntimeError'>"
+        }
+      ]
+    },
+    {
+      "label": "queued_runner_fence-green",
+      "exit": 0,
+      "executed": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "sse_terminal_delivery_race-red",
+      "exit": 1,
+      "executed": 1,
+      "failures": 1,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_workbench_api",
+          "name": "test_sse_emits_terminal_message_arriving_between_reads",
+          "message": "assert 0 == 1\n +  where 0 = <built-in method count of str object at 0x95c926700>('event: message.error')\n +    where <built-in method count of str object at 0x95c926700> = 'event: run\\ndata: {\"run_id\": \"run_20260923_134315_522041\", \"user\": \"default\", \"question\": \"terminal race\", \"task_type...tenance_launch\": null, \"publication\": {\"status\": \"not_applicable\", \"message_id\": null}, \"delivery_pending\": false}\\n\\n'.count"
+        }
+      ]
+    },
+    {
+      "label": "sse_terminal_delivery_race-green",
+      "exit": 0,
+      "executed": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "restored-full",
+      "exit": 0,
+      "executed": 71,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    }
+  ],
+  "mutations": [
+    {
+      "id": "terminal_completion_fence",
+      "path": "intelligence/runtime/agent_episode.py",
+      "before_sha256": "e65902af4f5c606c4dce666fe2bcfd92eca249d3d2f24b3879b5b08136d5bb62",
+      "mutated_sha256": "18c9b5ee53d53a2a30a2f95f01f71e2cf1ee9b0db1fc079c9cc51c20cfc36b7d",
+      "restored_sha256": "e65902af4f5c606c4dce666fe2bcfd92eca249d3d2f24b3879b5b08136d5bb62"
+    },
+    {
+      "id": "pre_model_dispatch_fence",
+      "path": "intelligence/runtime/agent_episode.py",
+      "before_sha256": "e65902af4f5c606c4dce666fe2bcfd92eca249d3d2f24b3879b5b08136d5bb62",
+      "mutated_sha256": "275433dc6c11f6dafa7a1aa6f04c6c3f7d3bc20731ef770eeab373758577eeea",
+      "restored_sha256": "e65902af4f5c606c4dce666fe2bcfd92eca249d3d2f24b3879b5b08136d5bb62"
+    },
+    {
+      "id": "tool_intent_fence",
+      "path": "intelligence/runtime/episode_tool_batch.py",
+      "before_sha256": "e397ff7258170fffa91f1c46c278b65f16c8bc3406b29a205cd80e88cb92ec9e",
+      "mutated_sha256": "2fd14bca370caef592baf2c7420ba738318986a7f6d626920b9d5dc6d1332344",
+      "restored_sha256": "e397ff7258170fffa91f1c46c278b65f16c8bc3406b29a205cd80e88cb92ec9e"
+    },
+    {
+      "id": "terminal_flush",
+      "path": "intelligence/runtime/agent_episode.py",
+      "before_sha256": "e65902af4f5c606c4dce666fe2bcfd92eca249d3d2f24b3879b5b08136d5bb62",
+      "mutated_sha256": "dd2426909993a8fb090163e7e7d219dd467130063ad09dbd446f9a72c2bf2c1f",
+      "restored_sha256": "e65902af4f5c606c4dce666fe2bcfd92eca249d3d2f24b3879b5b08136d5bb62"
+    },
+    {
+      "id": "neutral_completion_boundary",
+      "path": "intelligence/services/agent_runtime.py",
+      "before_sha256": "070d46c61abda1abb0a086490b3d27299799a8bd02eae0f96fd4247d504cde12",
+      "mutated_sha256": "4bd2fc644cd8979afc62b966a571217ea8f69966a2437d4ca09cdb7262754ba2",
+      "restored_sha256": "070d46c61abda1abb0a086490b3d27299799a8bd02eae0f96fd4247d504cde12"
+    },
+    {
+      "id": "nonstream_finish_reason",
+      "path": "intelligence/services/llm_refine.py",
+      "before_sha256": "175e0625eefc8999eefd97c33efbe506d76c3f549bc47a52699af7d39ddba7a9",
+      "mutated_sha256": "1473d87d46ff0d18d185ff5fd0a86cb3869f7ff7e90bb9888e8b61f5725e3d66",
+      "restored_sha256": "175e0625eefc8999eefd97c33efbe506d76c3f549bc47a52699af7d39ddba7a9"
+    },
+    {
+      "id": "provider_no_hidden_retry",
+      "path": "intelligence/runtime/glm_agent_runtime.py",
+      "before_sha256": "fc2ed6dd316322147e5e29f9d3cf28e87b4cf8c2e3c4ec7c04d45f747b66840c",
+      "mutated_sha256": "2a8d2f12b8909a410d2a4f8d4c2a48254f0012a0e62ed79a175fc1b2e8c517e9",
+      "restored_sha256": "fc2ed6dd316322147e5e29f9d3cf28e87b4cf8c2e3c4ec7c04d45f747b66840c"
+    },
+    {
+      "id": "inbox_no_false_ack",
+      "path": "intelligence/runtime/agent_episode.py",
+      "before_sha256": "e65902af4f5c606c4dce666fe2bcfd92eca249d3d2f24b3879b5b08136d5bb62",
+      "mutated_sha256": "2f1b918f4ac9698a9984ddd134181449b0b49d2347759fbcd18085a03a3547a5",
+      "restored_sha256": "e65902af4f5c606c4dce666fe2bcfd92eca249d3d2f24b3879b5b08136d5bb62"
+    },
+    {
+      "id": "inbox_flush_before_ack",
+      "path": "intelligence/runtime/agent_episode.py",
+      "before_sha256": "e65902af4f5c606c4dce666fe2bcfd92eca249d3d2f24b3879b5b08136d5bb62",
+      "mutated_sha256": "39589853d41eddfbff33e3849b6f79fdad57ee10badc31594cba630d900e47c1",
+      "restored_sha256": "e65902af4f5c606c4dce666fe2bcfd92eca249d3d2f24b3879b5b08136d5bb62"
+    },
+    {
+      "id": "assembly_cancel_propagation",
+      "path": "intelligence/api/app.py",
+      "before_sha256": "cbc420399639bbcc90183d3c0c377eea840b068f75503b20ad75239314b700a7",
+      "mutated_sha256": "4e8426a9805ca22c03a189cb7ee2b5e0e29db26e64d56b9410e9f027e723e520",
+      "restored_sha256": "cbc420399639bbcc90183d3c0c377eea840b068f75503b20ad75239314b700a7"
+    },
+    {
+      "id": "received_tool_result_retention",
+      "path": "intelligence/runtime/episode_tool_batch.py",
+      "before_sha256": "e397ff7258170fffa91f1c46c278b65f16c8bc3406b29a205cd80e88cb92ec9e",
+      "mutated_sha256": "59387b683c0b849f129f869c56e99d7471e36f75830ebbdc29b11b486a23560d",
+      "restored_sha256": "e397ff7258170fffa91f1c46c278b65f16c8bc3406b29a205cd80e88cb92ec9e"
+    },
+    {
+      "id": "queued_runner_fence",
+      "path": "intelligence/services/research_tool_registry.py",
+      "before_sha256": "01170a84216144bb3fe8ab4de55c4886cd8f0e495a1c5145378e6b5ca1068d75",
+      "mutated_sha256": "bb39c072f331b60fd0abfa9ff406aa452597682b6c69324fc33601daf065f0dd",
+      "restored_sha256": "01170a84216144bb3fe8ab4de55c4886cd8f0e495a1c5145378e6b5ca1068d75"
+    },
+    {
+      "id": "sse_terminal_delivery_race",
+      "path": "intelligence/api/app.py",
+      "before_sha256": "cbc420399639bbcc90183d3c0c377eea840b068f75503b20ad75239314b700a7",
+      "mutated_sha256": "603de068f7d0b0c5061b2853aab2dfa02e3f34fd51211643c4c4b6ce6ea1ba07",
+      "restored_sha256": "cbc420399639bbcc90183d3c0c377eea840b068f75503b20ad75239314b700a7"
+    }
+  ],
+  "definitions_sha256": "c03ff006cbc68285c1f2f5b7a0db2db565860fb1738002948f83f703fab8da2e",
+  "final_status": ""
+}

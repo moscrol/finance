@@ -1,0 +1,112 @@
+    "verification": "正在核验证据绑定与回答完整性。",
+    "finalizing": "正在基于核验结果形成公开回答。",
+}
+_PUBLIC_HIDDEN_CONTROL_KEYS = frozenset(
+    {
+        "task_frame_hash",
+        "turn_intent",
+        "research_plan",
+        "pending_task_frame",
+        "legacy_query_envelope",
+    }
+)
+
+
+def _public_degrades(values: list[str]) -> list[str]:
+    return list(
+        dict.fromkeys(
+            sanitize_user_visible_artifact_text(value)
+            for value in values
+            if isinstance(value, str) and value.strip()
+        )
+    )
+
+
+def _public_run_payload(run: rs.Run, *, store: rs.RunStore) -> dict[str, object]:
+    # Claiming terminal ownership precedes message/artifact writes. Only the
+    # matching final message event is a publication barrier; a report file alone
+    # is neither sufficient nor required (failure/cancellation can lack one).
+    publication: dict[str, object] = {"status": "pending", "message_id": None}
+    target = None
+    if run.session_id:
+        try:
+            messages = ConversationStore(user_id=store.user_id).load_messages(
+                run.session_id
+            )
+        except json.JSONDecodeError:
+            # Corrupt conversation metadata is not an absent conversation.
+            raise
+        except (FileNotFoundError, ValueError):
+            # Legacy /api/runs may carry an arbitrary session label, and
+            # non-chat callers may supply a session that is not a conversation.
+            messages = []
+        target = next(
+            (m for m in messages if m.role == "assistant" and m.run_id == run.run_id),
+            None,
+        )
+    if target is None:
+        publication["status"] = "not_applicable"
+    elif (
+        run.status in {rs.STATUS_COMPLETED, rs.STATUS_FAILED, rs.STATUS_CANCELLED}
+        and target.status == run.status
+    ):
+        expected_type = (
+            "message.complete" if run.status == rs.STATUS_COMPLETED else "message.error"
+        )
+        for event in store.load_stream_events(run.run_id):
+            message = event.get("payload", {}).get("message")
+            if (
+                event.get("event_type") == expected_type
+                and event.get("run_id") == run.run_id
+                and event.get("conversation_id") == run.session_id
+                and isinstance(message, dict)
+                and message.get("role") == "assistant"
+                and message.get("status") == run.status
+                and message.get("run_id") == run.run_id
+                and message.get("conversation_id") == run.session_id
+                and isinstance(event.get("message_id"), str)
+                and event["message_id"] == target.message_id
+                and message.get("message_id") == event["message_id"]
+            ):
+                publication = {"status": "published", "message_id": event["message_id"]}
+                # Do not label a pre-event snapshot published: an artifact may
+                # have been registered between load_run and the event read.
+                run = store.load_run(run.run_id)
+                break
+    payload = asdict(run)
+    payload["publication"] = publication
+    payload["artifacts"] = [
+        artifact
+        for artifact in run.artifacts
+        if rs.artifact_visibility(artifact) == "public"
+    ]
+    payload["degrades"] = _public_degrades(run.degrades)
+    if run.error:
+        payload["error"] = sanitize_user_visible_artifact_text(run.error)
+    return payload
+
+
+def _is_public_machine_enum(path: tuple[str, ...], value: str) -> bool:
+    return (
+        len(path) >= 3
+        and path[-3:] == ("report", "llm", "fallback_reason")
+        and value in _STABLE_MACHINE_FALLBACK_REASONS
+    )
+
+
+def _is_public_metadata_string(path: tuple[str, ...]) -> bool:
+    return bool(path) and (
+        path[-1] in _PUBLIC_METADATA_STRING_FIELDS
+        or (len(path) >= 2 and path[-2] in _PUBLIC_METADATA_STRING_LIST_FIELDS)
+    )
+
+
+def _public_value(
+    value: object,
+    *,
+    path: tuple[str, ...] = (),
+    preserve_text_paths: frozenset[tuple[str, ...]] = frozenset(),
+) -> object:
+    if isinstance(value, str):
+
+[truncated; total lines=3773, selected=790:899; request a later offset]

@@ -1,0 +1,21 @@
+FF                                                                       [100%]
+=================================== FAILURES ===================================
+_ test_c1_failed_insert_keeps_spool_file_and_blocks_claim[deferred_short_circuit] _
+scripts/review_probes/runtime_identity_effects/probe/inbox_checks.py:137: in test_c1_failed_insert_keeps_spool_file_and_blocks_claim
+    assert inbox.ingest_spool() == 0, "insert 没落账就不许销毁运输副本"
+E   AssertionError: insert 没落账就不许销毁运输副本
+E   assert 1 == 0
+E    +  where 1 = ingest_spool()
+E    +    where ingest_spool = <intelligence.services.episode_inbox.Inbox object at 0x106fae540>.ingest_spool
+__ test_c1_failed_insert_keeps_spool_file_and_blocks_claim[mid_insert_write] ___
+scripts/review_probes/runtime_identity_effects/probe/inbox_checks.py:137: in test_c1_failed_insert_keeps_spool_file_and_blocks_claim
+    assert inbox.ingest_spool() == 0, "insert 没落账就不许销毁运输副本"
+E   AssertionError: insert 没落账就不许销毁运输副本
+E   assert 1 == 0
+E    +  where 1 = ingest_spool()
+E    +    where ingest_spool = <intelligence.services.episode_inbox.Inbox object at 0x107966e70>.ingest_spool
+- generated xml file: /Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-inbox/mutations/inbox_storage_failure_deletes_spool-red.xml -
+=========================== short test summary info ============================
+FAILED scripts/review_probes/runtime_identity_effects/probe/inbox_checks.py::test_c1_failed_insert_keeps_spool_file_and_blocks_claim[deferred_short_circuit]
+FAILED scripts/review_probes/runtime_identity_effects/probe/inbox_checks.py::test_c1_failed_insert_keeps_spool_file_and_blocks_claim[mid_insert_write]
+2 failed, 4 deselected in 0.80s

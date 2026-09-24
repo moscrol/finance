@@ -1,0 +1,12 @@
+{
+  "tree": "/Users/a77/.finance-runtime/reviews/pr884-closeout-20260923-04/finance-workspace-private",
+  "prior": "/Users/a77/.finance-runtime/reviews/pr884-closeout-20260923-04/review-a",
+  "revision": "db2605d1b1a6a929d9bac468c84ef6aeaddce9ff",
+  "baseline": "da761024ed54c46b8e650d1b86076e1f9d261ed2",
+  "python": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "contracts": [
+    "C1",
+    "C2",
+    "C3"
+  ]
+}

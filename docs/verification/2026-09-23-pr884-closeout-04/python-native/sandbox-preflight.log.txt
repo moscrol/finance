@@ -1,0 +1,22 @@
+{
+  "profile": "(version 1) (allow default) (deny network*) (allow network-inbound (local ip \"localhost:*\")) (allow network-outbound (remote ip \"localhost:*\")) (deny process-exec (literal \"/usr/bin/security\"))",
+  "profile_sha256": "f2d5369e05b1625a0b7af478336eaddadb462d2234cb6a88ecad6fb6912d7b33",
+  "accepted": true,
+  "command": [
+    "/usr/bin/sandbox-exec",
+    "-p",
+    "(version 1) (allow default) (deny network*) (allow network-inbound (local ip \"localhost:*\")) (allow network-outbound (remote ip \"localhost:*\")) (deny process-exec (literal \"/usr/bin/security\"))",
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "-B",
+    "/Users/a77/.finance-runtime/reviews/pr884-closeout-20260923-04/finance-workspace-private/scripts/review_probes/check_loopback_sandbox.py",
+    "--child"
+  ],
+  "exit_code": 0,
+  "stdout": "{\"external_denied\": true, \"keychain_exec_denied\": true, \"loopback_connect\": true}\n",
+  "stderr": "",
+  "observations": {
+    "external_denied": true,
+    "keychain_exec_denied": true,
+    "loopback_connect": true
+  }
+}

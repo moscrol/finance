@@ -1,0 +1,11 @@
+816:    # matching final message event is a publication barrier; a report file alone
+818:    publication: dict[str, object] = {"status": "pending", "message_id": None}
+837:        publication["status"] = "not_applicable"
+860:                publication = {"status": "published", "message_id": event["message_id"]}
+866:    payload["publication"] = publication
+3304:        # event (``publication``), not for that worker. Completed runs also
+3306:        delivery_pending = (active and run.status == rs.STATUS_COMPLETED) or (
+3308:            and payload["publication"]["status"] == "pending"
+3310:        return {**payload, "delivery_pending": delivery_pending}
+3403:                if not run_payload["delivery_pending"] and run_payload["status"] in (
+3408:                    if run_payload["publication"]["status"] != "pending":

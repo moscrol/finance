@@ -1,0 +1,72 @@
+                    invalid_actions=invalid_actions,
+                    carried_draft=carried_draft,
+                    carried_bindings=carried_bindings,
+                )
+            if self._is_cancelled():
+                return self._cancelled_outcome(
+                    task_frame=task_frame,
+                    ledger=ledger,
+                    accumulator=accumulator,
+                    llm_calls=llm_calls,
+                    tool_calls=tool_calls,
+                    invalid_actions=invalid_actions,
+                )
+            if turn.error:
+                ledger.add("model_error", {"reason": turn.error, "turn_id": turn_id})
+                if (
+                    not finalization_started
+                    and self._can_recover_finalization(
+                        context=context,
+                        evidence=accumulator.evidence,
+                    )
+                ):
+                    finalization_started = True
+                    self._begin_finalization(
+                        messages=messages,
+                        ledger=ledger,
+                        reason="planning_model_unavailable",
+                    )
+                    continue
+                if self._can_recover_finalization(
+                    context=context,
+                    evidence=accumulator.evidence,
+                ):
+                    return self._recover_finalization(
+                        task_frame=task_frame,
+                        context=context,
+                        ledger=ledger,
+                        accumulator=accumulator,
+                        registry=registry,
+                        failure_reason=turn.error,
+                        llm_calls=llm_calls,
+                        tool_calls=tool_calls,
+                        invalid_actions=invalid_actions,
+                    )
+                return self._stopped_outcome(
+                    task_frame=task_frame,
+                    status="partial" if accumulator.evidence else "failed",
+                    stop_reason="model_unavailable",
+                    gap=turn.error,
+                    ledger=ledger,
+                    evidence=accumulator.evidence,
+                    traces=accumulator.traces,
+                    gaps=accumulator.gaps,
+                    llm_calls=llm_calls,
+                    tool_calls=tool_calls,
+                    invalid_actions=invalid_actions,
+                )
+
+            messages.append(self._assistant_message(turn))
+            # Once finalization starts, PLAN is no longer a valid model
+            # response.  Let the existing terminal validator/recovery path
+            # handle it as an invalid finish instead of accepting it and
+            # silently skipping the recovery state machine.
+            # PLAN 识别与修订合法性归 harness；PLAN-only 轮的次数闸归 loop。
+            plan_result = (
+                self._harness.interpret_plan(
+                    turn.content,
+                    previous_plan=ledger.plan,
+                    task_id=context.contract.task_id,
+                )
+
+[truncated; total lines=4151, selected=1870:1939; request a later offset]

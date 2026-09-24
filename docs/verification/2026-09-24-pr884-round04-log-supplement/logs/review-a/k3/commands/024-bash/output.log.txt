@@ -1,0 +1,24 @@
+16:class FailingStore(WriteOrderOracle):
+50:def test_failed_write_stops_new_effects(boundary, model_calls, tool_calls):
+78:def test_successful_durable_completion_is_explicit_and_flushed():
+90:def test_ephemeral_mode_and_broken_progress_sink_are_not_storage_failures():
+105:def test_failure_on_second_turn_keeps_cost_and_existing_evidence(boundary):
+119:def test_repair_write_failure_keeps_previous_draft_and_fences_further_resume(boundary):
+157:def test_compact_finalizer_obeys_the_same_persistence_fence(boundary, occurrence, expected_calls):
+178:def test_workbench_does_not_judge_or_retry_a_storage_failure(during_repair):
+204:def test_cancel_and_save_failure_preserve_first_cause_without_new_dispatch(cancel_first):
+220:def test_write_then_raise_is_uncertain_not_rolled_back(tmp_path, failure_kind):
+223:    class AmbiguousStore(JsonlEpisodeStore):
+249:def test_failed_artifact_uses_the_same_prompt_projection():
+266:def test_failed_inbox_write_is_not_acknowledged_or_deleted(tmp_path, transport):
+289:def test_inbox_ack_flushes_insert_before_deleting_spool(tmp_path):
+303:def test_failed_inbox_settlement_preserves_pending_for_diagnosis(boundary):
+319:def test_inflight_model_settles_usage_and_draft_after_inbox_save_failure(providers):
+357:def test_real_workbench_entry_reports_failed_not_completed(tmp_path, monkeypatch):
+420:def test_real_assembly_shares_local_failure_with_inflight_model(tmp_path, monkeypatch):
+459:def test_tool_intent_rejection_never_submits_to_executor():
+463:    class NeverSubmit:
+478:def test_parallel_failure_keeps_received_result_and_fences_queued_runner():
+485:    class HeldExecutor:
+524:def test_inflight_tool_received_after_failure_is_retained_but_not_published():
+530:    class ImmediateExecutor:

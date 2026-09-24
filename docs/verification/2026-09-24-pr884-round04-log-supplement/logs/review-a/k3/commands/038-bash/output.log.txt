@@ -1,0 +1,121 @@
+
+
+class _EpisodeLedger:
+    def __init__(
+        self,
+        task_frame: TaskFrame,
+        *,
+        event_sink: Callable[[EpisodeEvent], None] | None = None,
+        store: EpisodeStore | None = None,
+        episode_id: str = "",
+        configure: Mapping[str, object] | None = None,
+        on_store_failure: Callable[[], None] | None = None,
+    ) -> None:
+        self._on_store_failure = on_store_failure
+        self._task_frame_hash = task_frame.task_frame_hash
+        self._event_sink = event_sink
+        # 见 add() 里的临界区注释：序号是「读长度 → 追加」两步，不锁就会重号。
+        # RLock 而非 Lock：同线程重入（将来若有 sink 回调再发事件）不该自锁死。
+        self._lock = RLock()
+        self.events: list[EpisodeEvent] = []
+        self.plan: ResearchPlan | None = None
+        self.time_budget_injected = False
+        # INV-R1 对账失败的落账点。run() 在 Scope 建好后把它接到
+        # ``EpisodeScope.record_derive_mismatch``；接线前（或没有 Scope 的调用方）
+        # 落在本地列表，收据不因接线时机而丢。
+        self.derive_mismatches: list[str] = []
+        self.derive_mismatch_sink: Callable[[str], None] | None = None
+        # 历史折叠（spec 2026-09-07 §3.2）的累计账，随 finish 事件落盘让 eval 分得开臂。
+        self.history_compaction_folded = 0
+        self.history_compaction_saved = 0
+        # ── P2 durable（INV-R2 / INV-R3）───────────────────────────────────
+        # store 是可选的：不传的调用方（参考 loop 的替身、旧测试）事件流逐字节不变——
+        # 多出来的只有 ``configure`` 首条与 ``model_intent``，它们与 store 无关。
+        self._store = store
+        self.episode_id = str(episode_id or "").strip() or task_frame.task_frame_hash
+        # OPT-08：可靠存储与进度通知是两份合同。关键写失败后停止新效果，
+        # 仅内存继续收集已发生的结果；不能静默退化为正常完成的临时模式。
+        self.persistence_mode = "durable" if store is not None else "ephemeral"
+        self._local_store_failures: list[str] = []
+        self._store_fence = store if isinstance(store, FencedEpisodeStore) else None
+        # 已落意图、等结算的工具调用；``consume`` 对它们不再补事后 ``tool_request``。
+        self.intended_call_ids: set[str] = set()
+        self.contract_snapshot: Mapping[str, object] = dict(configure or {})
+        self.state: EpisodeState | None = None
+        # 状态写入要算「截止还剩多久」；loop 在换 context（深度裁决 / 修复轮）时更新它。
+        self.active_context: ResearchRunContext | None = None
+class FencedEpisodeStore:
+    """One live parent/child tree shares a fail-closed write boundary.
+
+    The lock serializes only storage operations, never model/tool IO. Failure
+    callbacks run after releasing it and must not acquire episode-ledger locks.
+    Reads remain available for diagnosis. The per-episode writer guard delegates
+    to the backend, without holding this tree-wide lock across model/tool IO.
+    This fence is not a durable failure receipt: ACK loss is uncertain on disk.
+    """
+
+    def __init__(self, store: EpisodeStore) -> None:
+        self._store = store
+        self._lock = threading.RLock()
+        self._failure = ""
+        self._callbacks: list[Callable[[], None]] = []
+
+    def __getattr__(self, name: str) -> object:
+        # Forward just this optional capability, including late-bound test stores.
+        # A memory store still has no episode_dir and cannot acquire a disk spool.
+        if name == "episode_dir":
+            return getattr(self._store, name)
+        raise AttributeError(name)
+
+    @property
+    def failure(self) -> str:
+        with self._lock:
+            return self._failure
+
+    def on_failure(self, callback: Callable[[], None]) -> None:
+        with self._lock:
+            self._callbacks.append(callback)
+            failed = bool(self._failure)
+        if failed:
+            callback()
+
+    @staticmethod
+    def _notify_failure(callbacks: Sequence[Callable[[], None]]) -> None:
+        for callback in callbacks:
+            try:
+                callback()
+            except Exception:
+                # A broken observer cannot hide failure or starve other signals.
+                continue
+
+    def fail(self, episode_id: str, boundary: str, error: Exception) -> None:
+        """Latch a required checkpoint's encoding failure, before storage IO.
+
+        Invalid snapshots must fence siblings too, not silently become a valid
+        checkpoint without a budget. Notifications use the same lock discipline
+        as an append/put_state failure.
+        """
+        with self._lock:
+            if self._failure:
+                return
+            self._failure = f"{episode_id}:{boundary}:{type(error).__name__}"
+            callbacks = tuple(self._callbacks)
+        self._notify_failure(callbacks)
+
+    def _write(self, episode_id: str, boundary: str, write: Callable[[], None]) -> None:
+        callbacks: tuple[Callable[[], None], ...] = ()
+        try:
+            with self._lock:
+                if self._failure:
+                    raise EpisodeStoreFailed(self._failure)
+                try:
+                    write()
+                except Exception as exc:
+                    self._failure = f"{episode_id}:{boundary}:{type(exc).__name__}"
+                    callbacks = tuple(self._callbacks)
+                    raise
+        finally:
+            self._notify_failure(callbacks)
+
+    def append(
+        self, episode_id: str, events: Sequence[EpisodeEvent], *, sync: bool = False

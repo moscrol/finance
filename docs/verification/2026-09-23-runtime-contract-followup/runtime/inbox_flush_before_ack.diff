@@ -1,0 +1,13 @@
+diff --git a/intelligence/runtime/agent_episode.py b/intelligence/runtime/agent_episode.py
+index 195021fb6..2de94defb 100644
+--- a/intelligence/runtime/agent_episode.py
++++ b/intelligence/runtime/agent_episode.py
+@@ -387,7 +387,7 @@ class _EpisodeLedger:
+             store.append(
+                 self.episode_id, (event,),
+                 sync=event.kind in INTENT_KINDS or event.kind in {
+-                    "finish", "inbox_inserted", "inbox_claimed", "inbox_discarded",
++                    "finish", "inbox_claimed", "inbox_discarded",
+                 },
+             )
+         except Exception as exc:  # noqa: BLE001 - 熔断新派发，保留内存结果

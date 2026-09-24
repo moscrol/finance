@@ -1,0 +1,120 @@
+"""竞态夹具共用件：带 oracle store 与取消信号的单步驱动，外加几把读事件流的尺子。
+
+不叫 ``test_*``：pytest 不收集；八个竞态文件都从这里取同一套替身，改一处全表生效。
+"""
+
+from __future__ import annotations
+
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass, field
+
+from intelligence.runtime.agent_episode import (
+    ContinuousAgentEpisode,
+    EpisodeDrive,
+    StepPoint,
+)
+from intelligence.services.agent_research import AgentEvidence, AgentToolContext
+from intelligence.services.agent_runtime import AgentOutcome, EpisodeEvent, ModelTurn
+from intelligence.services.cancel_signal import CancelSignal
+from intelligence.services.provider_observability import ProviderTrace
+from intelligence.services.research_contract import ResearchRunContext
+from intelligence.services.research_tool_registry import ResearchToolRegistry, ToolSpec
+from intelligence.services.task_frame import TaskFrame
+from intelligence.tests.conformance.fixtures import (
+    AUTHORIZED_TOOL,
+    MARKET_EVIDENCE_HASH,
+    ScenarioProbe,
+    ScriptedModelClient,
+    ScriptedToolCall,
+    ScriptedTurn,
+    completed_finish,
+    make_context,
+    make_frame,
+)
+from intelligence.tests.conformance.oracle import WriteOrderOracle
+
+MODEL_SETTLEMENTS = frozenset({"model_turn", "model_error"})
+TOOL_SETTLEMENTS = frozenset({"tool_result", "tool_error"})
+
+Hook = Callable[[], None]
+
+
+class EffectAwareModel:
+    """脚本化 client 外包一层：向 provider 开口那一刻告诉 oracle，并可在请求期间执行钩子。
+
+    ``on_call[n]`` 在第 n 次（从 1 起）请求**进行中**执行——这就是「取消在模型请求在飞时到达」。
+    """
+
+    def __init__(self, inner: ScriptedModelClient, oracle: WriteOrderOracle) -> None:
+        self._inner = inner
+        self._oracle = oracle
+        self.calls = 0
+        self.on_call: dict[int, Hook] = {}
+
+    def complete(self, *, messages, tools, timeout) -> ModelTurn:
+        self.calls += 1
+        self._oracle.effect_started("model")
+        hook = self.on_call.get(self.calls)
+        if hook is not None:
+            hook()
+        return self._inner.complete(messages=messages, tools=tools, timeout=timeout)
+
+
+def effect_registry(
+    oracle: WriteOrderOracle, *, during_tool: Hook | None = None
+) -> ResearchToolRegistry:
+    """一个授权工具；``during_tool`` 在 runner 执行期间被调（取消在工具执行中到达）。"""
+
+    def runner(query: str, _context: AgentToolContext):
+        oracle.effect_started("tool", key=query)
+        if during_tool is not None:
+            during_tool()
+        return (
+            [
+                AgentEvidence(
+                    tool=AUTHORIZED_TOOL,
+                    title="A股市场总览",
+                    detail=f"{query}：上涨家数增加",
+                    source="本地行情",
+                    source_date="2026-07-24",
+                    evidence_tier="L4",
+                    content_hash=MARKET_EVIDENCE_HASH,
+                )
+            ],
+            "上涨家数增加",
+            ProviderTrace(
+                provider="test:market",
+                capability="market_data",
+                status="success",
+                source_trade_date="2026-07-24",
+                result_count=1,
+            ),
+        )
+
+    return ResearchToolRegistry(
+        (
+            ToolSpec(
+                name=AUTHORIZED_TOOL,
+                capability="market_data",
+                description="结构化行情",
+                cost="local",
+                freshness="current",
+                runner=runner,
+            ),
+        )
+    )
+
+
+def tool_then_finish() -> list[ScriptedTurn]:
+    """两轮脚本：一轮点工具、一轮给终局——够走完 planning → tools → finish 全路径。"""
+
+    return [
+        ScriptedTurn(tool_calls=(ScriptedToolCall(AUTHORIZED_TOOL, "市场宽度"),)),
+        ScriptedTurn(finish=completed_finish()),
+    ]
+
+
+@dataclass
+class Rig:
+    """一次竞态实验的全部把手。"""
+

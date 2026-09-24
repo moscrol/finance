@@ -1,0 +1,98 @@
+def make_frame(question: str = "目前市场怎么看") -> TaskFrame:
+    return TaskFrame(
+        raw_question=question,
+        user_goal="判断当前市场结构",
+        question_type="market_forecast",
+        subject="A股市场",
+        subject_kind="market_pattern",
+        market_scope="A股",
+        timeframe="最近交易日",
+        required_outputs=("direct_assessment",),
+        assumptions=("按A股市场理解",),
+        ambiguities=(),
+        clarification_question=None,
+        evidence_policy="current_market_scenarios",
+        confidence=0.95,
+    )
+
+
+def make_context(
+    frame: TaskFrame,
+    *,
+    task_id: str = "conformance-test",
+    allowed_capabilities: tuple[str, ...] = ("market_data",),
+    max_steps: int = 3,
+    timeout: float = 30.0,
+    synthesis_reserve: float = 0.0,
+    root_budget: object | None = None,
+) -> ResearchRunContext:
+    context = ResearchRunContext(
+        contract=ResearchTaskContract(
+            task_id=task_id,
+            question=frame.raw_question,
+            subject=frame.subject,
+            subject_kind=frame.subject_kind,
+            question_type=frame.question_type,
+            required_outputs=(
+                RequiredOutput(
+                    "direct_assessment",
+                    "直接判断",
+                    ("market_data",),
+                    True,
+                ),
+            ),
+            allowed_capabilities=allowed_capabilities,
+            research_tier="quick",
+            freshness="current",
+            evidence_plan=EvidencePlan(),
+            task_frame_hash=frame.task_frame_hash,
+        ),
+        deadline=ResearchDeadline.from_timeout(
+            timeout,
+            synthesis_reserve=synthesis_reserve,
+        ),
+        policy=ResearchPolicy("quick", max_steps, timeout, synthesis_reserve),
+        trace_parent_id=task_id,
+        today="2026-07-25",
+        latest_data_date="2026-07-24",
+    )
+    if root_budget is not None:
+        from dataclasses import replace
+
+        context = replace(context, root_budget=root_budget)
+    return context
+
+
+def make_registry(probe: ScenarioProbe) -> ResearchToolRegistry:
+    """两个工具：授权的 market_data + 未授权的 forbidden_news。
+
+    contract 只授 ``market_data`` capability；``forbidden_news`` 挂在
+    ``news_search`` 上，用于断言「未授权工具不可见/不可调」。两个 runner
+    都把执行记进 ``probe.executed``——它是「工具真的被执行」的唯一事实源。
+    """
+
+    def market_runner(query: str, _context: AgentToolContext):
+        probe.executed.append((AUTHORIZED_TOOL, query))
+        evidence = AgentEvidence(
+            tool=AUTHORIZED_TOOL,
+            title="A股市场总览",
+            detail=f"{query}：上涨家数增加",
+            source="本地行情",
+            source_date="2026-07-24",
+            evidence_tier="L4",
+            content_hash=MARKET_EVIDENCE_HASH,
+        )
+        return (
+            [evidence],
+            "上涨家数增加",
+            ProviderTrace(
+                provider="test:market",
+                capability="market_data",
+                status="success",
+                source_trade_date="2026-07-24",
+                result_count=1,
+            ),
+        )
+
+    def forbidden_runner(query: str, _context: AgentToolContext):
+        probe.executed.append((FORBIDDEN_TOOL, query))
