@@ -1,0 +1,71 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import assert from 'node:assert/strict';
+import { fileURLToPath } from 'node:url';
+import { install, phaseFor } from './review.mjs';
+const root = path.dirname(fileURLToPath(import.meta.url));
+const out = path.join(root, process.argv[2] || 'sandbox-preflight');
+fs.mkdirSync(out);
+fs.mkdirSync(path.join(out, 'commands'));
+const config = JSON.parse(fs.readFileSync(path.join(root, 'config.json')));
+const now = Date.now();
+const token = 'fake.' + Buffer.from(JSON.stringify({plan: 'plus', exp: now / 1000 + 3000, plan_exp: now / 1000 + 3000})).toString('base64url') + '.fake';
+const hooks = {}; const tools = {};
+install({registerProvider() {}, on(n, fn) {hooks[n] = fn;}, registerTool(t) {tools[t.name] = t;}}, {out, token, clock: () => now, terminate: () => {throw new Error('stopped');}});
+const work = path.join(root, 'work');
+const forbidden = path.join(config.tree, 'docs/handoffs/2026-09-21-backfill-main-ready.md');
+const script = path.join(work, 'sandbox_check.py');
+const probe = `import errno, os, socket
+from pathlib import Path
+import intelligence.services.llm_refine
+p=Path(${JSON.stringify(path.join(work, 'allowed.txt'))}); p.write_text('ok'); assert p.read_text()=='ok'
+for target in [${JSON.stringify(forbidden)}, '/Users/a77/.claude/mirasim-kimi-token.sh', '/Users/a77/.finance-runtime/reviews/backfill-302132-0923/forward-02/tree/intelligence/services/llm_refine.py']:
+ try: Path(target).read_bytes()
+ except PermissionError: pass
+ else: raise AssertionError('forbidden read: '+target)
+for target in [${JSON.stringify(path.join(config.tree, 'sandbox-forbidden-write'))},${JSON.stringify(path.join(root, 'sandbox-forbidden-write'))}]:
+ try: fd=os.open(target,os.O_WRONLY|os.O_CREAT,0o600)
+ except PermissionError: pass
+ else: os.close(fd); raise AssertionError('forbidden write')
+for host,port in [('127.0.0.1',18788),('127.0.0.1',19899),('127.0.0.1',8792),('192.0.2.1',443)]:
+ s=socket.socket(); s.settimeout(0.2)
+ try: s.connect((host,port))
+ except OSError as e: assert e.errno in (errno.EPERM,errno.EACCES),e
+ else: raise AssertionError('network allowed: '+str((host,port)))
+ finally: s.close()
+s=socket.socket(); s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+for port in range(26001,26009):
+ try: s.bind(('127.0.0.1',port)); break
+ except OSError as e:
+  if e.errno != errno.EADDRINUSE: raise
+else: raise AssertionError('all authorized fake-service ports unavailable')
+s.listen(1)
+c=socket.create_connection(s.getsockname(), timeout=1); peer,_=s.accept(); peer.close(); c.close(); s.close()
+assert not any('TOKEN' in k or 'API_KEY' in k for k in os.environ)
+print('sandbox boundaries, offline loopback and candidate import passed')
+`;
+await tools.write.execute('w1', {path: script, content: probe});
+await tools.read.execute('r1', {path: script, limit: 80});
+await tools.bash.execute('b1', {command: config.python + ' -B ' + script, timeout: 30});
+await assert.rejects(tools.read.execute('denyread', {path: forbidden}));
+await assert.rejects(tools.write.execute('denywrite', {path: path.join(root, 'blocked.txt'), content: 'bad'}));
+fs.symlinkSync(path.join(root, 'config.json'), path.join(work, 'escape.json'));
+await assert.rejects(tools.write.execute('denylink', {path: path.join(work, 'escape.json'), content: 'bad'}));
+await tools.write.execute('positive', {path: path.join(work, 'positive_control.py'), content: 'assert 1 == 2, "intentional probe_bug control"\n'});
+await assert.rejects(tools.bash.execute('first-red', {command: config.python + ' -B ' + path.join(work, 'positive_control.py'), timeout: 10}));
+const last = fs.readdirSync(path.join(out, 'commands')).sort().at(-1);
+assert.equal(JSON.parse(fs.readFileSync(path.join(out, 'commands', last, 'result.json'))).exitCode, 1);
+assert.match(fs.readFileSync(path.join(out, 'commands', last, 'output.log'), 'utf8'), /intentional probe_bug control/);
+assert.equal(phaseFor(21, 449999), 'explore');
+assert.equal(phaseFor(22, 0), 'report');
+assert.equal(phaseFor(0, 450000), 'report');
+const ctx = {model: {provider: 'mirasim-kimi', id: 'kimi-k3', baseUrl: 'http://127.0.0.1:19899/v1', api: 'openai-completions'}};
+const payload = {model: 'kimi-k3', stream: true, temperature: 0, reasoning_effort: 'medium', messages: [], tools: [{function: {name: 'bash'}}]};
+for (let i = 0; i < 22; i++) assert.equal(Object.hasOwn(hooks.before_provider_request({payload}, ctx), 'temperature'), false);
+const final = hooks.before_provider_request({payload}, ctx);
+assert.deepEqual(final.tools, []);
+assert.equal(hooks.tool_call({toolName: 'bash'}).block, true);
+assert.throws(() => hooks.before_provider_request({payload}, ctx));
+const receipt = {status: 'PASS', real_model_requests: 0, checks: ['candidate import', 'work writes', 'author/source docs read denied', 'credential read denied', 'source/outside write denied', 'symlink write escape denied', 'external network and gateway/8792 denied', 'offline loopback allowed', 'credential-free tool environment', 'assert 1==2 full output and exit 1', 'temperature stripping', 'phase request/time limit', 'one reserved closeout', 'post-closeout request denied']};
+fs.writeFileSync(path.join(out, 'receipt.json'), JSON.stringify(receipt, null, 2));
+console.log(JSON.stringify(receipt));

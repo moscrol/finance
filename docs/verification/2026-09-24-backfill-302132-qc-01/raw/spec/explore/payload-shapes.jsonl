@@ -1,0 +1,6 @@
+{"admission":1,"stage":"explore","stream":true,"model":"kimi-k3","tools":["read","write"],"temperature_removed":false,"reasoning_effort":"medium","max_completion_tokens":8192}
+{"admission":2,"stage":"explore","stream":true,"model":"kimi-k3","tools":["read","write"],"temperature_removed":false,"reasoning_effort":"medium","max_completion_tokens":8192}
+{"admission":3,"stage":"explore","stream":true,"model":"kimi-k3","tools":["read","write"],"temperature_removed":false,"reasoning_effort":"medium","max_completion_tokens":8192}
+{"admission":4,"stage":"explore","stream":true,"model":"kimi-k3","tools":["read","write"],"temperature_removed":false,"reasoning_effort":"medium","max_completion_tokens":8192}
+{"admission":5,"stage":"explore","stream":true,"model":"kimi-k3","tools":["read","write"],"temperature_removed":false,"reasoning_effort":"medium","max_completion_tokens":8192}
+{"admission":6,"stage":"explore","stream":true,"model":"kimi-k3","tools":["read","write"],"temperature_removed":false,"reasoning_effort":"medium","max_completion_tokens":8192}

@@ -1,0 +1,115 @@
+"""Seal a stopped QC batch; never manufacture a reviewer verdict."""
+from datetime import datetime, timezone
+import hashlib
+import json
+from pathlib import Path
+import subprocess
+
+ROOT = Path(__file__).resolve().parent
+PRIOR = ROOT.parent / 'backfill-302132-0923'
+REV = '3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59'
+BASE = '4cc15e703f81bce8abadee00f68caacdb0c72b4d'
+
+
+def load(path):
+    return json.loads(path.read_text())
+
+
+def rows(path):
+    return [json.loads(line) for line in path.read_text().splitlines()]
+
+
+def sha(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def git(tree, *args):
+    return subprocess.check_output(['git', '-C', str(tree), *args], text=True).strip()
+
+
+def main():
+    out = ROOT / 'report.json'
+    assert not out.exists()
+    execution = load(ROOT / 'spec/explore/execution.json')
+    controller = load(ROOT / 'spec/explore.controller.json')
+    gateway = load(ROOT / 'spec/gateway.controller.json')
+    assert execution['complete'] and execution['errors'] == ['terminated'] and not execution['report_structural']
+    assert execution['revision'] == REV and not execution['probe_sha256']
+    assert controller['request_counts_agree'] and controller['shim_counts']['shutdown_complete']
+    assert gateway['status'] == 'COMPLETE' and gateway['request_counts_agree']
+    assert gateway['shim_counts']['shutdown_complete']
+    assert not (ROOT / 'quality/gateway').exists()
+    assert not (ROOT / 'spec/execute').exists() and not (ROOT / 'spec/report').exists()
+    for rel, digest in execution['artifact_sha256'].items():
+        assert sha(ROOT / 'spec/explore' / rel) == digest, rel
+    for rel, digest in execution['inputs_sha256'].items():
+        assert sha(ROOT / 'spec' / rel) == digest, rel
+    events = rows(ROOT / 'spec/explore/events.jsonl')
+    tools = [e for e in events if e.get('type') == 'tool_execution_end']
+    assert len(tools) == 10 and all(e['toolName'] == 'read' and not e.get('isError') for e in tools)
+    ledger = rows(ROOT / 'spec/explore-shim/requests.jsonl')
+    last = [r for r in ledger if r['event'] == 'finished' and r['request'] == 6][0]
+    assert last['status'] == 200 and last['outcome'] == 'failed' and 120 <= last['elapsed_seconds'] < 121
+    assert not (ROOT / 'spec/explore/REPORT.md').exists()
+    small = load(ROOT / 'gateway-preflight.json')['requests']
+    requests = small + gateway['shim_counts']['dispatched'] + controller['shim_counts']['dispatched']
+    assert requests == 11
+    identities = {}
+    for label, tree in [('reviewer', ROOT / 'candidate/finance-workspace-private'), ('author', PRIOR / 'forward-02/tree')]:
+        identities[label] = {'revision': git(tree, 'rev-parse', 'HEAD'), 'status': git(tree, 'status', '--porcelain')}
+        assert identities[label] == {'revision': REV, 'status': ''}
+    for pid in (47330, execution['pid']):
+        check = subprocess.run(['ps', '-p', str(pid), '-o', 'pid='], capture_output=True, text=True)
+        assert check.returncode == 1 and not check.stdout.strip(), pid
+    listeners = subprocess.run(['lsof', '-nP', '-iTCP:19899', '-sTCP:LISTEN'], capture_output=True, text=True)
+    assert listeners.returncode == 1 and not listeners.stdout.strip()
+    refs = git(PRIOR / 'forward-02/tree', 'ls-remote', 'gitea', 'refs/heads/main', 'refs/heads/fix/backfill-main-ready-0921')
+    remote = {line.split()[1]: line.split()[0] for line in refs.splitlines()}
+    assert remote == {'refs/heads/main': BASE, 'refs/heads/fix/backfill-main-ready-0921': REV}
+    status = 'BLOCKED_PROVIDER_REQUEST_DEADLINE_NO_FINAL_REPORT'
+    record = {'schema': 'wo83-independent-qc/v1', 'record_author': 'host controller, not independent reviewer',
+              'status': status, 'batch_complete': True, 'qc_complete': False, 'reviewer_verdict': None,
+              'revision': REV, 'baseline': BASE, 'sealed_at': datetime.now(timezone.utc).isoformat(),
+              'provider': 'mirasim-kimi/kimi-k3', 'root': str(ROOT), 'requests': requests,
+              'request_breakdown': {'small_gateway': small, 'tool_gateway': 4, 'spec_explore': 6, 'quality': 0},
+              'request_cap': 153, 'automatic_retries': 0, 'model_swaps': 0,
+              'elapsed_seconds': {'small_gateway': load(ROOT / 'gateway-preflight.json')['elapsed_seconds'],
+                                  'tool_gateway': gateway['elapsed_seconds'], 'spec_explore': controller['elapsed_seconds']},
+              'cap_hits': {'stage_request_cap': False, 'stage_600_seconds': False, 'request_120_seconds': True},
+              'provider_400_or_429_interruptions': 0, 'last_request': last,
+              'spec': {'status': status, 'stage': 'explore', 'read_tool_calls': 10, 'probe_files': 0,
+                       'product_probe_executions': 0, 'author_test_reruns': 0, 'final_report': None},
+              'quality': {'status': 'NOT_STARTED_AFTER_SPEC_BLOCK', 'model_requests': 0, 'final_report': None},
+              'harness_controls': {'spec': load(ROOT / 'spec/sandbox-preflight-04/receipt.json'),
+                                   'quality': load(ROOT / 'quality/sandbox-preflight-04/receipt.json'),
+                                   'scope': 'Host controls only, NOT independent product probes or review verdicts'},
+              'claims': [{'id': f'C{i}', 'status': 'not_verified', 'reason': 'No independent final report'} for i in range(1, 8)],
+              'identities': identities, 'remote': remote, 'owned_processes_stopped': True,
+              'engineering_ready': True, 'merge_ready': False, 'merge_authorized': False,
+              'production_authorized': False, 'production_executed': False,
+              'limits': ['HTTP 200 proves headers only, not a completed stream.',
+                         'Exit 0 from pi/controller does not prove delivery; no REPORT or probes exist.',
+                         'No independent product finding or PASS is established.',
+                         'Previous author engineering receipts remain unchanged; no full suite rerun here.',
+                         'Quality preparation/sandbox controls do not mean Quality model review ran.',
+                         'A fresh bounded retry must preserve this failed batch; do not resume or amend its evidence.']}
+    out.write_text(json.dumps(record, ensure_ascii=False, indent=2) + '\n')
+    current_path = PRIOR / 'CURRENT.json'
+    current = load(current_path)
+    assert current['test_revision'] == REV and current['independent_qc']['root'] == str(ROOT)
+    current.update(status='ENGINEERING_READY_QC_BLOCKED', updated_at=record['sealed_at'], owned_checks_running=False,
+                   merge_ready=False)
+    current['independent_qc'] = {'status': status, 'queue': 75, 'root': str(ROOT), 'revision': REV,
+                               'report': str(out), 'requests': requests, 'complete': False,
+                               'spec': 'No final report; request 6 stream interrupted at 120 seconds',
+                               'quality': 'not_started', 'pr_start_comment': 6810}
+    current['blockers'] = ['Independent QC #75 blocked by request deadline; no final Spec/Quality verdict.',
+                           'No merge or production authorization.']
+    current['note'] = 'Author gates/rehearsal still bind to 3c5. QC attempted and stopped without probes/final report; no verdict manufactured. No owned background job remains.'
+    current_path.write_text(json.dumps(current, ensure_ascii=False, indent=2) + '\n')
+    (ROOT / 'final-current.json').write_text(json.dumps(current, ensure_ascii=False, indent=2) + '\n')
+    print(json.dumps({'status': status, 'requests': requests, 'identities': identities, 'owned_processes_stopped': True}))
+
+
+if __name__ == '__main__':
+    main()

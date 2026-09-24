@@ -1,0 +1,23 @@
+{
+  "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+  "baseline": "4cc15e703f81bce8abadee00f68caacdb0c72b4d",
+  "status": "PREPARED",
+  "provider": "mirasim-kimi/kimi-k3",
+  "authorization": "User: continue; scoped #75 independent QC, no merge/production",
+  "max_requests_including_small_probe": 153,
+  "used_small_probe": 1,
+  "axes": [
+    "spec",
+    "quality"
+  ],
+  "stage_cap": 24,
+  "stage_seconds": 600,
+  "concurrency": 1,
+  "automatic_retries": 0,
+  "stop_on_provider_400_or_429": true,
+  "separation": "fresh sessions for explore/execute/report, other axis and production inaccessible",
+  "changes_to_reused_controller": [
+    "runner CLI tool allowlist: explore read/write, execute read/bash/write, report read only",
+    "paths/config/input claims retargeted; request accounting and sandbox protocol unchanged"
+  ]
+}

@@ -1,0 +1,54 @@
+"""Publish the bounded QC start without moving either product branch."""
+from datetime import datetime, timezone
+import hashlib
+import json
+from pathlib import Path
+import subprocess
+import sys
+
+ROOT = Path(__file__).resolve().parent
+EVIDENCE = ROOT.parent / 'backfill-302132-0923'
+sys.path.insert(0, '/Users/a77/fwp-wt-backfill-302132-0923')
+from scripts import gitea_pr
+
+REV = '3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59'
+BASE = '4cc15e703f81bce8abadee00f68caacdb0c72b4d'
+assert not (ROOT / 'pr-started.json').exists()
+execution = json.loads((ROOT / 'spec/explore/execution.json').read_text())
+assert execution['revision'] == REV
+refs = subprocess.check_output(['git', '-C', str(EVIDENCE / 'forward-02/tree'), 'ls-remote', 'gitea',
+                               'refs/heads/main', 'refs/heads/fix/backfill-main-ready-0921'], text=True)
+assert {line.split()[1]: line.split()[0] for line in refs.splitlines()} == {
+    'refs/heads/main': BASE, 'refs/heads/fix/backfill-main-ready-0921': REV}
+pr = gitea_pr._api('GET', '/pulls/813')
+assert pr['head']['sha'] == REV and pr['state'] == 'open' and not pr.get('merged') and pr['title'].startswith('WIP:')
+body = f'''<!-- wo83-qc-started-3c5-20260924-01 -->
+## #75 独立 QC 已启动，尚无审查结论
+
+固定候选 `{REV}`，基线 `{BASE}`。独占只读检出：`{ROOT}/candidate/finance-workspace-private`。
+
+使用 #75 指定的 `mirasim-kimi/kimi-k3` 既有通道。小载荷及带 read/write 的流式往返均通过；两轴沙箱预检通过，阳性对照实际退出1，未调用产品生产路径。Spec explore 已启动，之后按 explore/execute/report 三个独立会话顺序推进；Quality 看不到 Spec 输出。
+
+本批有限上界153请求（含预检）、并发1、每阶段24请求/600秒、每发120秒、无自动重试；400/429立即停，不换通道补签。审查者自造探针、作者测试和故意失败对照分开计数。
+
+原件 `{ROOT}/`。作者工程证据仍见评论6795；目前没有独审PASS，不合main、不写生产、不动8792或launchd，WIP保留。
+'''
+(ROOT / 'pr-started.md').write_text(body)
+comments = gitea_pr._api('GET', '/issues/813/comments?limit=100')
+found = [c for c in comments if '<!-- wo83-qc-started-3c5-20260924-01 -->' in c.get('body', '')]
+assert len(found) <= 1
+comment = found[0] if found else gitea_pr._api('POST', '/issues/813/comments', {'body': body})
+assert comment['body'] == body
+receipt = {'comment_id': comment['id'], 'url': comment.get('html_url'), 'body_sha256': hashlib.sha256(body.encode()).hexdigest(),
+           'revision': REV, 'baseline': BASE, 'published_at': datetime.now(timezone.utc).isoformat()}
+(ROOT / 'pr-started.json').write_text(json.dumps(receipt, ensure_ascii=False, indent=2) + '\n')
+path = EVIDENCE / 'CURRENT.json'
+current = json.loads(path.read_text())
+assert current['test_revision'] == REV and current['engineering_ready'] and not current['merge_ready']
+current.update(status='ENGINEERING_READY_QC_RUNNING', updated_at=receipt['published_at'], owned_checks_running=True)
+current['independent_qc'] = {'status': 'in_progress', 'queue': 75, 'root': str(ROOT),
+                           'candidate': str(ROOT / 'candidate/finance-workspace-private'), 'revision': REV,
+                           'phase': 'spec/explore', 'max_requests': 153, 'pr_start_comment': receipt['comment_id']}
+current['blockers'] = ['Independent QC #75 in progress; no merge or production authorization.']
+path.write_text(json.dumps(current, ensure_ascii=False, indent=2) + '\n')
+print(json.dumps(receipt, ensure_ascii=False))

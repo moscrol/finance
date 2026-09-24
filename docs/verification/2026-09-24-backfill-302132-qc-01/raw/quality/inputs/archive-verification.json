@@ -1,0 +1,14 @@
+{
+  "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+  "bundle": "/Users/a77/fwp-wt-backfill-302132-0923/docs/verification/2026-09-24-backfill-302132-current-main-ready",
+  "receipt_hashes_valid": 14,
+  "step_logs_valid": 11,
+  "encoded_logs": [
+    "frontend/frontend-1.log.txt",
+    "frontend/frontend-2.log.txt",
+    "frontend/frontend-3.log.txt"
+  ],
+  "python_log_sha256": "00524189fb0635cf3e19e053a644617bd7b20f9394fe7403f31772f21c2fae2c",
+  "authorization_template_matches": true,
+  "ok": true
+}

@@ -1,0 +1,23 @@
+{
+  "stage": "explore",
+  "status": "BLOCKED_STAGE_OR_ACCOUNTING",
+  "max_requests": 24,
+  "automatic_retries": 0,
+  "shim_sha256": "b5dd3b1d37524fe8060ed7752f1aaf129aaf877f8799932fad313e7b30cd6055",
+  "stage_runner_exit": 0,
+  "shim_exit": 0,
+  "shim_counts": {
+    "active": 0,
+    "cancelled": 0,
+    "completed": 5,
+    "dispatched": 6,
+    "dropped_temperature": 0,
+    "failed": 1,
+    "requests": 6,
+    "shutdown_complete": true,
+    "stopped_for": null
+  },
+  "elapsed_seconds": 172.88234220794402,
+  "stage_status": "BLOCKED_STAGE_OR_PROVIDER",
+  "request_counts_agree": true
+}

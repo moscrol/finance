@@ -1,0 +1,128 @@
+"""Retarget the existing #75 K3 controller without changing its protocol."""
+import ast
+import hashlib
+import json
+from pathlib import Path
+import shutil
+import subprocess
+
+ROOT = Path(__file__).resolve().parent
+SRC = ROOT.parent / 'pr868-k3-qc-20260923-1607'
+CAND = ROOT / 'candidate/finance-workspace-private'
+AUTHOR = ROOT.parent / 'backfill-302132-0923/forward-02/tree'
+EVIDENCE = ROOT.parent / 'backfill-302132-0923/continue-08'
+DOCS = Path('/Users/a77/fwp-wt-backfill-302132-0923')
+REV = '3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59'
+BASE = '4cc15e703f81bce8abadee00f68caacdb0c72b4d'
+PYTHON = '/Users/a77/finance-workspace-private/.venv-workbench/bin/python'
+FILES = ['market_feature_store/cli.py', 'market_feature_store/sync/repair_backfill_stock_history.py',
+         'scripts/verify_302132_backfill_acceptance.py', 'scripts/review_probes/rehearse_302132_backfill.py',
+         'tests/test_repair_backfill_stock_history.py', 'tests/test_rehearse_302132_backfill.py']
+CLAIMS = '''# PR #813 / Workorder #83: claims to challenge, not established conclusions
+
+C1 Fixed mutation contract: only 302132.SZ, 2026-06-15..2026-09-11; 53 INSERTs (51 parallel dates plus frozen parquet 09-09/09-10), UPDATE the 06-23 shell; preserve pinned 09-11. No widened keys or substituted source.
+C2 Source guard: parallel history upper boundary is max(spec.gap_parallel), h.adjusted='none'; valid later history does not cause false refusal or enter the authorized source. Bad, partial or mismatched input refuses before publication.
+C3 Acceptance oracle: preserved rows are evaluated inside the authorized window, while target rows outside it and other stocks retain ALL columns with multiset semantics. Detect amount, deletion, insertion and timestamp mutations, not just row counts. Window after apply: 64 rows, close/pct_chg/amount each 64 nonnull; technical39/window161.
+C4 Parent command owns staging/publication/backup and verify-only semantics. Locks, identity, input hash, published target, refusal receipts and recovery guards must be internally coherent; no second production writer path. Assess correctness in scope, not a full unrelated security audit.
+C5 Rehearsal is isolated and resource bounded: reject unsafe identity/WAL/low-space state before side effects; apply, verify, 37 acceptance checks, wrong parquet rejection, amount=1e15 negative control, restore matching baseline, production read-only/unchanged. Author's archived full-copy run is an evidence claim, NOT a fresh reviewer run.
+C6 Shared OS mocks in three tests are confined to monkeypatch.context(); real open is restored before pytest cleanup. Restoring the old scope must be caught by a regression witness. Neutral temp path avoids E_STOCK_SCOPE interference, not a product fix for that separate known limitation.
+C7 Evidence is bound to this clean 3c5 revision/base4cc, never transferred from old fd6/ca4. Author gates are 15457P/85S/2X (15544 collected), focused118P, frontend120P/E2E34P+2S, registry5 green, rehearsal37PASS. This means engineering ready only: independent QC, merge consent, and production command/backup authorization are separate; no production use is authorized.
+
+Source pointers and raw evidence are in this inputs directory. All counts above are author assertions to verify against artifacts. Do not claim you independently reran the full suite or production-copy rehearsal. No live vendor calls, production reads/writes, merge, deployment or service restart.
+'''
+
+
+def dump(path, value):
+    path.write_text(json.dumps(value, ensure_ascii=False, indent=2) + '\n')
+
+
+def sha(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def main():
+    assert json.loads((ROOT / 'gateway-preflight.json').read_text())['status'] == 'PASS_SMALL_PAYLOAD_ONLY'
+    assert subprocess.check_output(['git', '-C', str(AUTHOR), 'rev-parse', 'HEAD'], text=True).strip() == REV
+    assert not subprocess.check_output(['git', '-C', str(AUTHOR), 'status', '--porcelain'], text=True).strip()
+    assert not any((ROOT / axis / stage).exists() for axis in ('spec', 'quality') for stage in ('gateway', 'explore', 'execute', 'report'))
+    if CAND.exists():
+        assert subprocess.check_output(['git', '-C', str(CAND), 'rev-parse', 'HEAD'], text=True).strip() == REV
+        assert not subprocess.check_output(['git', '-C', str(CAND), 'status', '--porcelain'], text=True).strip()
+    else:
+        subprocess.run(['git', '-C', str(AUTHOR), 'worktree', 'add', '--detach', str(CAND), REV], check=True)
+    manifest = {'revision': REV, 'baseline': BASE, 'candidate': str(CAND), 'author': str(AUTHOR),
+                'controller_source': str(SRC), 'files': {}}
+    shutil.copyfile(SRC / 'k3_review_shim.py', ROOT / 'k3_review_shim.py')
+    diff = subprocess.check_output(['git', '-C', str(CAND), 'diff', BASE, REV, '--', *FILES], text=True)
+    symbols = []
+    for name in FILES:
+        source = (CAND / name).read_text()
+        symbols.append('\n## ' + name)
+        for node in ast.walk(ast.parse(source)):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                symbols.append(f'{node.name}: {node.lineno}-{node.end_lineno}')
+    for axis in ('spec', 'quality'):
+        dst = ROOT / axis
+        for name in ('work/tmp', 'work/users', 'work/probes', 'pi-config', 'inputs'):
+            (dst / name).mkdir(parents=True, exist_ok=True)
+        for name in ('review.mjs', 'gateway.mjs', 'file_tool.py', 'provider-template.json', 'run_control.py', 'run_stage.py',
+                     'sandbox_preflight.mjs', 'pi-config/settings.json', 'tools.sb'):
+            text = (SRC / axis / name).read_text()
+            if name == 'tools.sb':
+                text = text.replace(str(SRC), str(ROOT))
+            if name == 'run_stage.py':
+                text = text.replace("'--offline', '--tools', 'read,bash,write'", "'--offline', '--tools', {'explore': 'read,write', 'execute': 'read,bash,write', 'report': 'read'}[STAGE]")
+            (dst / name).write_text(text)
+            manifest['files'][axis + '/' + name] = {'source_sha256': sha(SRC / axis / name), 'sha256': sha(dst / name)}
+        config = json.loads((SRC / axis / 'config.json').read_text())
+        config.update(tree=str(CAND), author=str(AUTHOR), revision=REV, baseline=BASE)
+        dump(dst / 'config.json', config)
+        inp = dst / 'inputs'
+        (inp / 'claims.md').write_text(CLAIMS)
+        (inp / 'source.diff').write_text(diff)
+        (inp / 'source-map.md').write_text('\n'.join(symbols) + '\n')
+        for rel in ['verified-closeout.json', 'archive-verification.json', 'focused-receipt.json', 'python.command.json',
+                    'python-receipts/gate-47iUwvcM/pytest.json', 'scope.command.json', 'scope.log.txt',
+                    'frontend/frontend.json', 'registry-complete/receipt.json', 'rehearsal/summary.json',
+                    'rehearsal/acceptance.json', 'rehearsal/amount-control.json']:
+            shutil.copyfile(EVIDENCE / rel, inp / rel.replace('/', '--'))
+        shutil.copyfile(DOCS / 'docs/handoffs/2026-09-24-backfill-302132-current-main-ready.md', inp / 'author-handoff.md')
+        shutil.copyfile(ROOT.parent / 'backfill-302132-0923/production-authorization-draft.md', inp / 'production-authorization-draft.md')
+        common = f'''You are the independent {axis} reviewer for #75, reviewing #83 / PR #813 only. You do not know the other axis result. Return Chinese summaries. Do not fix product code.
+Candidate/cwd: {CAND}
+revision: {REV}
+baseline: {BASE}
+Python: {PYTHON}
+Your only writable work: {dst}/work
+Inputs: {inp}/claims.md, source-map.md, source.diff, raw author receipts and author-handoff.md.
+Source focus: {', '.join(FILES)}; market_feature_store/schema.sql when necessary.
+Read the claims first, then use source-map.md for precise reads. Do not read the whole repository. No source writes, real DB access, network, vendor queries, credentials, git operations, deploy, merge or restart. Do not run real parent backfill commands; isolated synthetic DB fixtures in your work are allowed. Candidate docs are denied; selected claim/evidence copies are in inputs.
+Budget: <=24 model requests and 600 seconds for this stage; each request <=120 seconds; no retry. Finish early once useful evidence is delivered; incomplete claims stay not_verified. Counts: reviewer probes, author tests and deliberate probe_bug controls MUST be separate. Existing author greens are not independent reruns.
+Use absolute paths. Do not nest sandbox-exec. Tool environment is credential-free; writes confined to work, source is read-only. For external pytest probes use --confcutdir={dst}/work -p no:cacheprovider --basetemp={dst}/work/tmp/pytest; import modules from candidate using PYTHONPATH or sys.path. If importing dataclass modules via importlib, register in sys.modules BEFORE exec_module. Do not mistake sandbox/fixture errors for product bugs. Do not pipe tests to tail; raw tool logs are captured.
+'''
+        explore = f'''This is explore only: read code, design and WRITE small independent probes in {dst}/work/probes. Do not execute or deliver PASS yet. Write your first runnable probe by request 3-4; prioritize high-risk boundary cases over broad reading. Prefer 2-4 small focused probes with behavior assertions and a failure control. Cover C1-C7 as far as feasible; static-only and unverified claims must be explicit. Do not merely copy author tests or use their result as your new probe. You may reuse fixtures but assertions must be your own. Record probe intent and exact commands in {dst}/work/EXPLORE.md. Stop after a useful bounded set; reserve final output.
+Final text <=500 Chinese characters plus fenced JSON with stage="explore", axis="{axis}", revision="{REV}", baseline="{BASE}", complete=true, probe_files=[existing absolute paths], claims_examined, limits, next_stage_commands. complete means delivered, not all claims passed.
+'''
+        execute = f'''This is execute only. Read {dst}/explore/parsed.json and {dst}/work/EXPLORE.md. Run the reviewer's probes from the previous independent session. Run the deliberate {dst}/work/positive_control.py and classify its expected assertion failure as probe_bug control, NEVER a product defect. Keep raw results. Run the relevant author tests separately if budget allows, with -p no:cacheprovider and --basetemp inside work; no whole-suite rerun is requested. Investigate failures using source, recording unchanged-original and any corrected probe version with separate output. Do not edit candidate. A probe repair must explain why it is a fixture/probe bug rather than hiding product behavior. Write {dst}/work/EXECUTE.md with commands, exit codes, own probe counts, author counts, control, suspected findings, limits and evidence paths. Finish before the cap.
+Final text <=500 Chinese characters plus fenced JSON with stage="execute", axis="{axis}", revision="{REV}", baseline="{BASE}", complete=true, probe_results, author_test_results, positive_control, findings, limits. No unobserved counts.
+'''
+        report = f'''This is report only; no tests or code changes. Read {dst}/explore/parsed.json, {dst}/execute/parsed.json and {dst}/work/EXECUTE.md. Read exact source lines or existing command logs only when needed. Deliver a final verdict without re-exploration. Every claim C1-C7 must be verified/not_verified/out_of_scope with concrete observed evidence and limits. For quality defects include severity, exact file/line, triggering input and wrong output; no findings is valid but only within actually checked scope. Distinguish new PR defects from pre-existing baseline issues. Author full-suite and full-copy evidence can be audited, never labelled independently rerun. Report the deliberate red control as probe_bug.
+Final Chinese report with one fenced JSON object: stage="report", axis="{axis}", revision="{REV}", baseline="{BASE}", complete=true, verdict in PASS/PASS_WITH_LIMITS/CHANGES_REQUIRED/BLOCKED_INCOMPLETE_EVIDENCE, claims (exact C1-C7 each id/status/evidence), findings, reviewer_probe_counts, author_test_counts, positive_control, limits. Only deliver verdict justified by evidence; no merge or production authorization.
+'''
+        for stage, extra in [('explore', explore), ('execute', execute), ('report', report)]:
+            (dst / f'prompt-{stage}.md').write_text(common + '\n' + extra)
+        manifest['files'][axis + '/inputs'] = {p.name: sha(p) for p in inp.iterdir()}
+    dump(ROOT / 'prepare-manifest.json', manifest)
+    dump(ROOT / 'plan.json', {'revision': REV, 'baseline': BASE, 'status': 'PREPARED',
+         'provider': 'mirasim-kimi/kimi-k3', 'authorization': 'User: continue; scoped #75 independent QC, no merge/production',
+         'max_requests_including_small_probe': 153, 'used_small_probe': 1,
+         'axes': ['spec', 'quality'], 'stage_cap': 24, 'stage_seconds': 600, 'concurrency': 1,
+         'automatic_retries': 0, 'stop_on_provider_400_or_429': True,
+         'separation': 'fresh sessions for explore/execute/report, other axis and production inaccessible',
+         'changes_to_reused_controller': ['runner CLI tool allowlist: explore read/write, execute read/bash/write, report read only',
+                                          'paths/config/input claims retargeted; request accounting and sandbox protocol unchanged']})
+    print(json.dumps({'candidate': str(CAND), 'revision': REV, 'prepared': True}))
+
+
+if __name__ == '__main__':
+    main()

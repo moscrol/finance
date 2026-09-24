@@ -1,0 +1,10 @@
+{
+  "tree": "/Users/a77/.finance-runtime/reviews/pr813-k3-qc-20260924-01/candidate/finance-workspace-private",
+  "python": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "author": "/Users/a77/.finance-runtime/reviews/backfill-302132-0923/forward-02/tree",
+  "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+  "baseline": "4cc15e703f81bce8abadee00f68caacdb0c72b4d",
+  "axis": "spec",
+  "thinking": "medium",
+  "max_output_tokens": 8192
+}

@@ -1,0 +1,68 @@
+"""Copy bounded QC artifacts losslessly and verify every archived byte."""
+import base64
+import hashlib
+import json
+from pathlib import Path
+import re
+
+ROOT = Path(__file__).resolve().parent
+DEST = Path('/Users/a77/fwp-wt-backfill-302132-0923/docs/verification/2026-09-24-backfill-302132-qc-01')
+
+
+def sha(data):
+    return hashlib.sha256(data).hexdigest()
+
+
+def main():
+    report = json.loads((ROOT / 'report.json').read_text())
+    assert report['batch_complete'] and not report['qc_complete'] and report['owned_processes_stopped']
+    DEST.mkdir(exist_ok=False)
+    selected = []
+    for path in sorted(ROOT.rglob('*')):
+        rel = path.relative_to(ROOT)
+        if path.is_symlink() or not path.is_file() or rel.parts[0] == 'candidate':
+            continue
+        if any(x in rel.parts for x in ('__pycache__', 'tmp', 'users')):
+            continue
+        if 'pi-config' in rel.parts and path.name != 'settings.json':
+            continue
+        if path.suffix not in {'.py', '.json', '.jsonl', '.mjs', '.md', '.log', '.sb', '.txt'}:
+            continue
+        selected.append((path, rel))
+    entries = []
+    for path, rel in selected:
+        data = path.read_bytes()
+        assert not re.search(rb'eyJ[A-Za-z0-9_-]{15,}\.[A-Za-z0-9_-]{15,}\.[A-Za-z0-9_-]{15,}', data), 'JWT-like content: ' + str(rel)
+        encoded = path.suffix == '.log' or bool(re.search(rb'[ \t]+\r?\n|\n\n\Z', data))
+        target_rel = Path('raw') / rel
+        if encoded:
+            target_rel = target_rel.with_name(target_rel.name + '.b64')
+            stored = base64.encodebytes(data)
+        else:
+            if path.suffix in {'.py', '.mjs', '.sb'}:
+                target_rel = target_rel.with_name(target_rel.name + '.txt')
+            stored = data
+        target = DEST / target_rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(stored)
+        entries.append({'source': str(rel), 'archive': str(target_rel), 'encoding': 'base64' if encoded else 'identity',
+                        'bytes': len(data), 'sha256': sha(data), 'archive_sha256': sha(stored)})
+    for entry in entries:
+        stored = (DEST / entry['archive']).read_bytes()
+        decoded = base64.b64decode(stored) if entry['encoding'] == 'base64' else stored
+        assert sha(stored) == entry['archive_sha256'] and sha(decoded) == entry['sha256']
+        assert decoded == (ROOT / entry['source']).read_bytes()
+    manifest = {'schema': 'lossless-qc-archive/v1', 'source_root': str(ROOT), 'revision': report['revision'],
+                'status': report['status'], 'verified_files': len(entries), 'entries': entries,
+                'excluded': ['candidate checkout', 'pi runtime auth/model stores', 'temporary/user directories', 'symlinks'],
+                'note': 'Scripts archived as text; raw logs/whitespace-sensitive files use reversible Base64. No trimmed evidence.'}
+    (DEST / 'manifest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n')
+    verification = {'ok': True, 'files': len(entries), 'bytes': sum(e['bytes'] for e in entries),
+                    'manifest_sha256': sha((DEST / 'manifest.json').read_bytes()), 'destination': str(DEST)}
+    (ROOT / 'archive-verification.json').write_text(json.dumps(verification, indent=2) + '\n')
+    (DEST / 'archive-verification.json').write_text(json.dumps(verification, indent=2) + '\n')
+    print(json.dumps(verification))
+
+
+if __name__ == '__main__':
+    main()

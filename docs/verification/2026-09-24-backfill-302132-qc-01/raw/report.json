@@ -1,0 +1,164 @@
+{
+  "schema": "wo83-independent-qc/v1",
+  "record_author": "host controller, not independent reviewer",
+  "status": "BLOCKED_PROVIDER_REQUEST_DEADLINE_NO_FINAL_REPORT",
+  "batch_complete": true,
+  "qc_complete": false,
+  "reviewer_verdict": null,
+  "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+  "baseline": "4cc15e703f81bce8abadee00f68caacdb0c72b4d",
+  "sealed_at": "2026-09-24T14:26:06.701857+00:00",
+  "provider": "mirasim-kimi/kimi-k3",
+  "root": "/Users/a77/.finance-runtime/reviews/pr813-k3-qc-20260924-01",
+  "requests": 11,
+  "request_breakdown": {
+    "small_gateway": 1,
+    "tool_gateway": 4,
+    "spec_explore": 6,
+    "quality": 0
+  },
+  "request_cap": 153,
+  "automatic_retries": 0,
+  "model_swaps": 0,
+  "elapsed_seconds": {
+    "small_gateway": 6.292,
+    "tool_gateway": 17.05990470899269,
+    "spec_explore": 172.88234220794402
+  },
+  "cap_hits": {
+    "stage_request_cap": false,
+    "stage_600_seconds": false,
+    "request_120_seconds": true
+  },
+  "provider_400_or_429_interruptions": 0,
+  "last_request": {
+    "elapsed_seconds": 120.011838,
+    "event": "finished",
+    "monotonic": 1408583.356997875,
+    "outcome": "failed",
+    "request": 6,
+    "status": 200
+  },
+  "spec": {
+    "status": "BLOCKED_PROVIDER_REQUEST_DEADLINE_NO_FINAL_REPORT",
+    "stage": "explore",
+    "read_tool_calls": 10,
+    "probe_files": 0,
+    "product_probe_executions": 0,
+    "author_test_reruns": 0,
+    "final_report": null
+  },
+  "quality": {
+    "status": "NOT_STARTED_AFTER_SPEC_BLOCK",
+    "model_requests": 0,
+    "final_report": null
+  },
+  "harness_controls": {
+    "spec": {
+      "status": "PASS",
+      "real_model_requests": 0,
+      "checks": [
+        "candidate import",
+        "work writes",
+        "author/source docs read denied",
+        "credential read denied",
+        "source/outside write denied",
+        "symlink write escape denied",
+        "external network and gateway/8792 denied",
+        "offline loopback allowed",
+        "credential-free tool environment",
+        "assert 1==2 full output and exit 1",
+        "temperature stripping",
+        "phase request/time limit",
+        "one reserved closeout",
+        "post-closeout request denied"
+      ]
+    },
+    "quality": {
+      "status": "PASS",
+      "real_model_requests": 0,
+      "checks": [
+        "candidate import",
+        "work writes",
+        "author/source docs read denied",
+        "credential read denied",
+        "source/outside write denied",
+        "symlink write escape denied",
+        "external network and gateway/8792 denied",
+        "offline loopback allowed",
+        "credential-free tool environment",
+        "assert 1==2 full output and exit 1",
+        "temperature stripping",
+        "phase request/time limit",
+        "one reserved closeout",
+        "post-closeout request denied"
+      ]
+    },
+    "scope": "Host controls only, NOT independent product probes or review verdicts"
+  },
+  "claims": [
+    {
+      "id": "C1",
+      "status": "not_verified",
+      "reason": "No independent final report"
+    },
+    {
+      "id": "C2",
+      "status": "not_verified",
+      "reason": "No independent final report"
+    },
+    {
+      "id": "C3",
+      "status": "not_verified",
+      "reason": "No independent final report"
+    },
+    {
+      "id": "C4",
+      "status": "not_verified",
+      "reason": "No independent final report"
+    },
+    {
+      "id": "C5",
+      "status": "not_verified",
+      "reason": "No independent final report"
+    },
+    {
+      "id": "C6",
+      "status": "not_verified",
+      "reason": "No independent final report"
+    },
+    {
+      "id": "C7",
+      "status": "not_verified",
+      "reason": "No independent final report"
+    }
+  ],
+  "identities": {
+    "reviewer": {
+      "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+      "status": ""
+    },
+    "author": {
+      "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+      "status": ""
+    }
+  },
+  "remote": {
+    "refs/heads/fix/backfill-main-ready-0921": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+    "refs/heads/main": "4cc15e703f81bce8abadee00f68caacdb0c72b4d"
+  },
+  "owned_processes_stopped": true,
+  "engineering_ready": true,
+  "merge_ready": false,
+  "merge_authorized": false,
+  "production_authorized": false,
+  "production_executed": false,
+  "limits": [
+    "HTTP 200 proves headers only, not a completed stream.",
+    "Exit 0 from pi/controller does not prove delivery; no REPORT or probes exist.",
+    "No independent product finding or PASS is established.",
+    "Previous author engineering receipts remain unchanged; no full suite rerun here.",
+    "Quality preparation/sandbox controls do not mean Quality model review ran.",
+    "A fresh bounded retry must preserve this failed batch; do not resume or amend its evidence."
+  ]
+}

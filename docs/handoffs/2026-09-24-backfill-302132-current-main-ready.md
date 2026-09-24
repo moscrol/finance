@@ -2,6 +2,8 @@
 
 ## 最新结论
 
+后续更新：#75已实际启动，但K3第6次正式请求流式输出触120秒截止，无探针或终稿，Quality未启动。本批11请求已封存，当前 **ENGINEERING_READY_QC_BLOCKED**；详见 `2026-09-24-backfill-302132-qc-blocked.md`。下文保留作者工程完成时的收据，工程结论未失效，不能充作独审结论。
+
 2026-09-24，作者四叶与整库副本验收全部通过，**ENGINEERING_READY_PENDING_QC**。#75 独立审查尚未完成，#813 保留 WIP；未合 main、未执行生产回填、未动 8792/launchd/其它股票，也未停止其它任务。
 
 - 唯一候选：`3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59`，已推 #813 的 `fix/backfill-main-ready-0921`。

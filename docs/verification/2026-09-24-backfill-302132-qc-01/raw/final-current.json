@@ -1,0 +1,162 @@
+{
+  "workorder": 83,
+  "pr": 813,
+  "status": "ENGINEERING_READY_QC_BLOCKED",
+  "updated_at": "2026-09-24T14:26:06.701857+00:00",
+  "test_revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+  "remote_pr_head": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+  "integrated_main": "4cc15e703f81bce8abadee00f68caacdb0c72b4d",
+  "remote_main_at_freeze": "4cc15e703f81bce8abadee00f68caacdb0c72b4d",
+  "previous_candidate": "ca4b33316c47862ecd3ec71a535a51d540ada986",
+  "candidate": "/Users/a77/.finance-runtime/reviews/backfill-302132-0923/forward-02/tree",
+  "ready": true,
+  "merge_authorized": false,
+  "production_authorized": false,
+  "production_executed": false,
+  "prior_status": "continue-03/final-status-c2.json",
+  "current_checks": {
+    "python": {
+      "status": "pass",
+      "command_receipt": "continue-08/python.command.json",
+      "receipt": "continue-08/python-receipts/gate-47iUwvcM/pytest.json",
+      "counts": {
+        "passed": 15457,
+        "failed": 0,
+        "error": 0,
+        "skipped": 85,
+        "xfailed": 2,
+        "xpassed": 0
+      },
+      "collected": 15544,
+      "scope_receipt": "continue-08/scope.command.json",
+      "full_scope_verified": true,
+      "temp_retention_policy": "failed"
+    },
+    "focused": {
+      "status": "pass",
+      "receipt": "continue-08/focused-receipt.json",
+      "counts": {
+        "passed": 118,
+        "failed": 0,
+        "error": 0,
+        "skipped": 0,
+        "xfailed": 0,
+        "xpassed": 0
+      }
+    },
+    "frontend": {
+      "status": "pass",
+      "evidence": "continue-08/frontend/frontend.json"
+    },
+    "e2e": {
+      "status": "pass",
+      "evidence": "continue-08/frontend/frontend.json",
+      "artifacts": "continue-08/e2e-results"
+    },
+    "registry": {
+      "status": "pass_finance_only",
+      "evidence": "continue-08/registry-complete/receipt.json",
+      "checks": 5
+    },
+    "rehearsal": {
+      "status": "pass",
+      "evidence": "continue-08/rehearsal/summary.json",
+      "checks_passed": 37,
+      "production_unchanged": true,
+      "rollback_matches_baseline": true
+    }
+  },
+  "isolation_fix": {
+    "commit": "fd6d8cc5be24c6f3a85af5c960be7766f88deaa7",
+    "file": "tests/test_repair_backfill_stock_history.py",
+    "reason": "Bound three global OS mocks to the tested call; restore real OS functions before pytest fixture teardown. Existing refusal and file-preservation assertions are unchanged.",
+    "red": "continue-03/osmock-red.log.txt",
+    "green_diagnostic": "continue-03/osmock-green.log.txt",
+    "green_diagnostic_scope": "Three targeted tests on the dirty pre-commit tree; not a merge receipt.",
+    "mutant": "continue-04/osmock-mutant.log.txt",
+    "mutant_result": "With the scope removed only in an external copy, the new restoration assertion fails under default retention. The candidate remains unchanged."
+  },
+  "merge_preview": {
+    "base": "4cc15e703f81bce8abadee00f68caacdb0c72b4d",
+    "head": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+    "tree": "20101d9ea85cb3f732483aa0747a8233d2c0ae5c",
+    "exit_code": 0,
+    "evidence": "continue-08/verified-closeout.json"
+  },
+  "data_quality_workflow": {
+    "status": "not_triggered",
+    "reason": "No PR diff intersects paths in .github/workflows/data-quality-check.yml."
+  },
+  "owned_checks_running": false,
+  "previous_python_status": "continue-06/python.command.json",
+  "previous_main_drift": "a54fed0d065ffdf025734a69420c1fe530615eb1 -> 4cc15e703f81bce8abadee00f68caacdb0c72b4d",
+  "previous_fd6_status": "continue-04/final-status-fd6-blocked.json",
+  "closed_predecessor": {
+    "pr": 802,
+    "state": "closed",
+    "successor": 813,
+    "pointer_comment": 6446
+  },
+  "cleanup": {
+    "continue_03_failed_fixture": "continue-03/failing-osmock-fixture",
+    "continue_03_other_temporary_fixtures_removed": true
+  },
+  "blockers": [
+    "Independent QC #75 blocked by request deadline; no final Spec/Quality verdict.",
+    "No merge or production authorization."
+  ],
+  "documentation": {
+    "branch": "fix/backfill-302132-0923",
+    "revision": "a6af0d9413556daa76b3d963093a7bd8a69c82fa",
+    "pushed": true,
+    "candidate_unchanged_by_docs": true,
+    "handoff": "docs/handoffs/2026-09-24-backfill-302132-current-main-ready.md",
+    "evidence_bundle": "docs/verification/2026-09-24-backfill-302132-current-main-ready/",
+    "queue_state": "pending_independent_review",
+    "archive_verification": "continue-08/archive-verification.json"
+  },
+  "pr_update": {
+    "comment_id": 6795,
+    "url": "http://127.0.0.1:3300/a77/finance-workspace-private/pulls/813#issuecomment-6795",
+    "body_sha256": "f34f3b3fe6a887d1730d4150e3d84262d93a9e4f8a9ce745203f141bc21e387a",
+    "head": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+    "base": "4cc15e703f81bce8abadee00f68caacdb0c72b4d",
+    "documentation_revision": "a6af0d9413556daa76b3d963093a7bd8a69c82fa",
+    "wip_retained": true,
+    "body_updated": true,
+    "state": "open",
+    "merged": false,
+    "verified_at": "2026-09-24T13:48:23+00:00",
+    "receipt": "continue-08/pr813-ready-comment.json"
+  },
+  "memory_writeback": {
+    "auto_sync_commit": "1ba54c6c",
+    "knowledge": "10_knowledge/pytest-temp-paths-and-mock-lifetime.md",
+    "vault_lint_exit_code": 1,
+    "vault_lint_errors": 44,
+    "vault_lint_warnings": 17,
+    "vault_lint_log": "continue-04/vault-lint.log.txt",
+    "project_writeback": "Updated on disk to 3c5 engineering-ready/pending-QC, PR comment 6795 and documentation a6af0d941; final two project-note edits are awaiting the existing auto-sync.",
+    "last_observed_project_auto_sync_commit": "46f13347fe94993005c95692f3dcf265f67750fb",
+    "note": "The earlier global vault lint found issues in unchanged files or pre-existing project links; the new knowledge note was not reported as erroneous. It was not rerun for this final note update and is not a finance CI result."
+  },
+  "driver": "continue-08/run_checks.py",
+  "driver_log": "continue-08/driver.log.txt",
+  "note": "Author gates/rehearsal still bind to 3c5. QC attempted and stopped without probes/final report; no verdict manufactured. No owned background job remains.",
+  "readiness_scope": "author engineering and full-copy rehearsal; independent QC and merge authorization pending",
+  "engineering_ready": true,
+  "merge_ready": false,
+  "independent_qc": {
+    "status": "BLOCKED_PROVIDER_REQUEST_DEADLINE_NO_FINAL_REPORT",
+    "queue": 75,
+    "root": "/Users/a77/.finance-runtime/reviews/pr813-k3-qc-20260924-01",
+    "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+    "report": "/Users/a77/.finance-runtime/reviews/pr813-k3-qc-20260924-01/report.json",
+    "requests": 11,
+    "complete": false,
+    "spec": "No final report; request 6 stream interrupted at 120 seconds",
+    "quality": "not_started",
+    "pr_start_comment": 6810
+  },
+  "verified_closeout": "continue-08/verified-closeout.json"
+}

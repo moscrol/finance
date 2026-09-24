@@ -1,0 +1,35 @@
+{
+  "recorded_at": "2026-09-24T13:38:21+00:00",
+  "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+  "base": "4cc15e703f81bce8abadee00f68caacdb0c72b4d",
+  "merge_tree": "20101d9ea85cb3f732483aa0747a8233d2c0ae5c",
+  "engineering_ready": true,
+  "independent_qc": "pending",
+  "merge_ready": false,
+  "counts": {
+    "passed": 15457,
+    "failed": 0,
+    "error": 0,
+    "skipped": 85,
+    "xfailed": 2,
+    "xpassed": 0
+  },
+  "collected": 15544,
+  "receipts_sha256": {
+    "summary.json": "ca2b46a632a080c0281db1c024dad6fc713cd62753cc1f80d5a07ccd665647d4",
+    "focused-receipt.json": "23fe4a5b14a7e56bc58bc875a2624b121e50eac1059a562d7156d009b9ba12e5",
+    "frontend/frontend.json": "ed23151ebbcb2edbd827cf46403230104bbe2d49a986349b01ac52ef0bd26c7a",
+    "registry-complete/receipt.json": "568ce5611a2145329220db1f12ec8a9837557e27fcb0a382740cc765b50d89b9",
+    "rehearsal/summary.json": "6c6123020b949f22ac9bc08e5a04c07af8634948086b849c59e1543a645e0901",
+    "rehearsal/acceptance.json": "b3a37f9464fbd103e2e5dff4db41e9109959b8a24defffb8d6d566a5de66c012",
+    "rehearsal/amount-control.json": "ed67d879d59277a82e60a64f7723c256ad303e20b458592598f13ea2c1f96225",
+    "scope.log.txt": "f5c247435f0f369fb59c3cca355301c30ac50112e2aa49c761ff5f458e21552d",
+    "python-receipts/gate-47iUwvcM/pytest.json": "588330dfa51685ee3cf4b391a7d01ac911e1ce976549e21ef0ba240437cae743",
+    "focused.command.json": "79c569570a63f91736445b53e29bc35e832e852a94ec91376e357ba091ec95fc",
+    "frontend.command.json": "438798484a98e7d3602282f819d13b4e2eae962ad3b0d0de6bc327c4850317d5",
+    "rehearsal.command.json": "683613fa7b133e68f683dce1e0a39fe1553b2b4be20fcf1cf65b8838533e1e3e",
+    "python.command.json": "00a3e8b0b6ff564d012baff8a0fd09e43dae5a59d905d851b3476f52fddf99b6",
+    "scope.command.json": "a05d480f07945d1bcd32c6ac9ff5a7ac9b84a94cfd840bfe21670a0c5db4a653"
+  },
+  "data_quality_triggered": false
+}
