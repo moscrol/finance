@@ -17,7 +17,13 @@ from typing import Any, Callable
 import duckdb
 
 from ..db import DB_PATH, init_db, is_lock_conflict
-from ..hithink_client import get_json, has_api_key, ms_to_shanghai_date, shanghai_midnight_ms
+from ..hithink_client import (
+    HithinkAPIError,
+    get_json,
+    has_api_key,
+    ms_to_shanghai_date,
+    shanghai_midnight_ms,
+)
 
 TRADE_DATE_SQL = (
     "CAST(to_timestamp(date_ms/1000) AT TIME ZONE 'UTC' + INTERVAL 8 HOUR AS DATE)"
@@ -31,6 +37,10 @@ INDEX_CODES = (
     "000300.SH",
     "000905.SH",
     "000852.SH",
+    "000688.SH",  # 科创50
+    "000016.SH",  # 上证50
+    # 899050.BJ 北证50：tickers/search 只有 .OF 基金，historical 报
+    # Unknown thscode。不写进清单，避免每次 --resume 白打一次并污染 dim。
 )
 # 闭区间天数。1500 是上游静默空的实测线，请求必须严格小于它。
 MAX_WINDOW_DAYS = 1500
@@ -129,15 +139,23 @@ def fetch_catalog(tag: str, getter: GetJson) -> list[dict[str, Any]]:
 def fetch_historical(
     thscode: str, start_ms: int, end_ms: int, getter: GetJson
 ) -> list[dict[str, Any]]:
-    payload = getter(
-        "/api/a-share-index/prices/historical",
-        params={
-            "thscode": thscode,
-            "interval": "1d",
-            "start": start_ms,
-            "end": end_ms,
-        },
-    )
+    try:
+        payload = getter(
+            "/api/a-share-index/prices/historical",
+            params={
+                "thscode": thscode,
+                "interval": "1d",
+                "start": start_ms,
+                "end": end_ms,
+            },
+        )
+    except HithinkAPIError as exc:
+        # 单码不认识不能让整批中断：--resume 会重拉行数<100 的新板块，
+        # 再叠一个未知指数码就会在 flush 前把已拉到的 K 线丢掉。
+        if "Unknown thscode" in str(exc):
+            print(f"skip unknown thscode {thscode}", flush=True)
+            return []
+        raise
     bars = []
     for item in _items(payload):
         bar = {field: item.get(field) for field in HISTORICAL_BAR_FIELDS}
@@ -171,7 +189,7 @@ def _upsert_dim(con: duckdb.DuckDBPyConnection, rows: list[dict[str, Any]]) -> i
             (sector_ts_code, sector_name, category, source, updated_at)
         VALUES (?, ?, ?, ?, now())
         ON CONFLICT (sector_ts_code) DO UPDATE SET
-            sector_name = excluded.sector_name,
+            sector_name = COALESCE(excluded.sector_name, dim_sector_hithink.sector_name),
             category = excluded.category,
             source = excluded.source,
             updated_at = now()

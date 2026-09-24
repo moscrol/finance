@@ -8,7 +8,7 @@ from datetime import date
 import duckdb
 import pytest
 
-from market_feature_store.hithink_client import shanghai_midnight_ms
+from market_feature_store.hithink_client import HithinkAPIError, shanghai_midnight_ms
 from market_feature_store.sync import sync_daily_full
 from market_feature_store.sync import sync_hithink_sector_kline as htb
 
@@ -126,6 +126,19 @@ def _getter(end: date):
         raise AssertionError(path)
 
     return get_json
+
+
+def test_unknown_thscode_is_empty_not_abort() -> None:
+    def getter(path, params=None, **_k):
+        params = params or {}
+        if path.endswith("/historical"):
+            raise HithinkAPIError(
+                "hithink /api/a-share-index/prices/historical "
+                "http=200 code=1002 Unknown thscode: 899050.BJ"
+            )
+        raise AssertionError(path)
+
+    assert htb.fetch_historical("899050.BJ", 1, 2, getter) == []
 
 
 def test_window_rejects_1500_days() -> None:
