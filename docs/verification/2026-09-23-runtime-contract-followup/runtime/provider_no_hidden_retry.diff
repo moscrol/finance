@@ -1,0 +1,13 @@
+diff --git a/intelligence/runtime/glm_agent_runtime.py b/intelligence/runtime/glm_agent_runtime.py
+index 7c04ec700..41728d51f 100644
+--- a/intelligence/runtime/glm_agent_runtime.py
++++ b/intelligence/runtime/glm_agent_runtime.py
+@@ -431,7 +431,7 @@ class GLMModelClient:
+                         reason=parse_error,
+                     )
+                 )
+-                if turn.error.startswith("incomplete_model_response:"):
++                if False:
+                     # Not a transport outage. Keep usage/stop reason and let the
+                     # episode make a budgeted recovery decision, not a hidden retry.
+                     return self._with_provider_trace(turn, tuple(trace))

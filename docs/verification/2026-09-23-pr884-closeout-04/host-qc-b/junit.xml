@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="2" time="12.582" timestamp="2026-09-23T19:16:43.955611+08:00" hostname="77deMacBook-Air.local"><testcase classname="test_c5" name="test_same_instance_reused_after_setup_exception" time="0.058" /><testcase classname="test_c5" name="test_step_close_contenders_leave_running_step_usable" time="10.024"><failure message="assert False&#10; +  where False = wait(10)&#10; +    where wait = &lt;threading.Event at 0x10b010bc0: unset&gt;.wait">../host-qc-b/test_c5.py:50: in test_step_close_contenders_leave_running_step_usable
+    assert entered.wait(10)
+E   assert False
+E    +  where False = wait(10)
+E    +    where wait = &lt;threading.Event at 0x10b010bc0: unset&gt;.wait</failure></testcase></testsuite></testsuites>

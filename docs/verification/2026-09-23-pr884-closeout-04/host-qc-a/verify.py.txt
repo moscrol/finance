@@ -1,0 +1,51 @@
+"""Accept named host witnesses without rewriting the independent review verdict."""
+import hashlib
+import json
+from pathlib import Path
+import subprocess
+import xml.etree.ElementTree as ET
+
+root = Path(__file__).resolve().parent
+tree = root.parent / 'finance-workspace-private'
+revision = 'db2605d1b1a6a929d9bac468c84ef6aeaddce9ff'
+proof = {}
+
+
+def cases(label):
+    path = root / label / 'junit.xml'
+    raw = path.read_bytes()
+    proof[str(path.relative_to(root))] = hashlib.sha256(raw).hexdigest()
+    result = {c.get('name'): c for c in ET.fromstring(raw).iter('testcase')}
+    assert len(result) == 17
+    assert all(c.find('error') is None and c.find('skipped') is None for c in result.values())
+    return result
+
+
+for label in ('baseline-2', 'restored', 'baseline-3', 'restored-3'):
+    assert all(c.find('failure') is None for c in cases(label).values()), label
+expected = {'mutation-c1': ('test_k3_c1_repair_and_tool_entries_share_the_fence', 'AssertionError: [C1-REPAIR-FENCE]'),
+            'mutation-c2-strong': ('test_k3_c2_evidence_v3_roundtrip_and_tamper', "Failed: DID NOT RAISE <class 'ValueError'>")}
+for label, (name, prefix) in expected.items():
+    failures = [(n, c.find('failure')) for n, c in cases(label).items() if c.find('failure') is not None]
+    assert len(failures) == 1 and failures[0][0] == name
+    assert failures[0][1].get('message', '').startswith(prefix)
+for path in root.glob('*.log.txt'):
+    proof[path.name] = hashlib.sha256(path.read_bytes()).hexdigest()
+for path in (root / 'entry.py', *root.glob('test_k3_*.py')):
+    proof[path.name] = hashlib.sha256(path.read_bytes()).hexdigest()
+summary = json.loads((root.parent / 'review-a/summary.json').read_text())
+report = root.parent / 'review-a/k3/REPORT.md'
+assert hashlib.sha256(report.read_bytes()).hexdigest() == summary['report_sha256']
+assert subprocess.check_output(['git', '-C', str(tree), 'rev-parse', 'HEAD'], text=True).strip() == revision
+assert not subprocess.check_output(['git', '-C', str(tree), 'status', '--porcelain'], text=True).strip()
+result = {'revision': revision, 'role': 'host-modified K3 probes; NOT independent acceptance', 'accepted': True,
+          'baseline': 17, 'restored': 17, 'mutations': expected, 'source_unchanged': True,
+          'original_k3_report_unchanged': True, 'independent_verdict_unchanged': 'BLOCKED',
+          'rejected_intermediate': {'baseline-1': 'Host forgot TMPDIR under write-denying sandbox; no tests ran',
+                                    'mutation-c2': 'Only error text changed; another validation still rejected the data, not an accepted withdrawal witness'},
+          'strengthening': 'Tamper both admitted and presented titles consistently; withdrawing digest protection now accepts tampered data and triggers DID NOT RAISE',
+          'artifacts_sha256': proof}
+with (root / 'verification.json').open('x') as stream:
+    json.dump(result, stream, ensure_ascii=False, indent=2)
+    stream.write('\n')
+print(json.dumps({key: value for key, value in result.items() if key != 'artifacts_sha256'}, ensure_ascii=False, indent=2))

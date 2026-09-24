@@ -1,0 +1,7 @@
+{
+  "revision": "5f35da1723f74663a4803c4d1490c402a1d6db40",
+  "role": "host replay of pre-existing author tests; not K3 independent acceptance",
+  "wrapper_sha256": "7d3fba551693fbaeaeee484fb2723eda5676b40ac8419ec328849f11c2dc7f1f",
+  "accepted": false,
+  "error": "AssertionError(('neutral_completion_boundary', 'anchor must match exactly once'))"
+}

@@ -1,0 +1,14 @@
+intelligence/tests/conformance/races/test_race_restore_vs_inflight_drive.py
+intelligence/tests/conformance/races/test_race_steer_vs_model_stop.py
+intelligence/tests/conformance/test_inv5_repair_reentry.py
+intelligence/tests/conformance/test_inv_r5_inbox.py
+intelligence/tests/conformance/test_inv_r3_restore.py
+intelligence/tests/test_episode_restore_persistence.py
+intelligence/tests/test_episode_entry_identity.py
+intelligence/tests/test_episode_inbox.py
+docs/verification/2026-09-21-nightly-deploy-execute/test-release-restore.py.txt
+intelligence/tests/test_episode_writer_reentry.py
+intelligence/tests/test_episode_writer.py
+intelligence/tests/test_episode_restore_repeatability.py
+intelligence/tests/test_episode_steer.py
+intelligence/tests/test_episode_restore.py

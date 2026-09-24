@@ -1,0 +1,20 @@
+{
+  "status": "PASS",
+  "model_requests": 0,
+  "mocked_admissions": 33,
+  "tests": [
+    "credential plan/expiry",
+    "phase count/time boundary",
+    "tool phase enforcement",
+    "reserved report payload without tools",
+    "next dispatch denied",
+    "file read/write sandbox",
+    "symlink escape rejected",
+    "source/outside write denied",
+    "network denied",
+    "no tool credential",
+    "raw first-red and exit7 preserved",
+    "isolated persistence44",
+    "report saved verbatim"
+  ]
+}

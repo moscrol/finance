@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="7.318" timestamp="2026-09-23T13:38:29.550840+08:00" hostname="77deMacBook-Air.local"><testcase classname="intelligence.tests.test_episode_writer" name="test_separate_process_cannot_restore_until_owner_releases" time="4.004"><failure message="AssertionError: assert {'busy': Fals...ox': [], ...}} == {'busy': True}&#10;  &#10;  Differing items:&#10;  {'busy': False} != {'busy': True}&#10;  Left contains 1 more item:&#10;  {'result': {'disposition': 'resumable',&#10;              'entry_identity_bound': False,&#10;              'episode_id': 'restore-write-confirmation',...&#10;  &#10;  ...Full output truncated (36 lines hidden), use '-vv' to show">intelligence/tests/test_episode_writer.py:114: in test_separate_process_cannot_restore_until_owner_releases
+    assert _child(RESTORE_CHILD, tmp_path) == {"busy": True}
+E   AssertionError: assert {'busy': Fals...ox': [], ...}} == {'busy': True}
+E     
+E     Differing items:
+E     {'busy': False} != {'busy': True}
+E     Left contains 1 more item:
+E     {'result': {'disposition': 'resumable',
+E                 'entry_identity_bound': False,
+E                 'episode_id': 'restore-write-confirmation',...
+E     
+E     ...Full output truncated (36 lines hidden), use '-vv' to show</failure></testcase></testsuite></testsuites>

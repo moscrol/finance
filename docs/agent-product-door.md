@@ -2,6 +2,8 @@
 
 评接口深浅、找「入口」、宣称「我们没有 X」之前读本页。
 能力有哪些节点仍以能力图谱为准，本页不抄工具表、不写死个数。
+本页描述代码合同；带日期的部署段只对所记版本成立，当前生产需查部署账本与实际收据。
+搭建环境走 [开发基线](workflows/agent-foundation.md)；六图维护合同见 `docs/agent-maps.json`。
 
 **深模块** = 调用方每学一单位接口能驱动多少行为。接口包括签名、不变量、必须知道的配置。数参数个数当深浅，会把测试旋钮当成生产门。
 
@@ -27,7 +29,7 @@
 | 维护旧判断 / 选下一项研究 / 看个人诊断 | `GET /api/conversations/{id}/research-evolution`（+ `POST` 的 `bindings` / `actions` / `events`） | 挂在**既有会话**下的内容区，不是第三条问答引擎：判定全部回调 01–05 的真函数，本层只取数与授权。`?user=` 不是认证——未配认证层时只认服务配置用户与 `RESEARCH_EVOLUTION_ALLOWED_USERS` 白名单。管理动作**不能冒充新判断**：关闭维护项要指到原写入者写下的新判断行 |
 | 研究跑到一半插一句话 | `python3 -m intelligence.cli steer <episode_id> "<文本>"` | 运行底座 P3 收件箱（INV-R5）的跨进程门：写 durable 目录投递槽 `<episode_dir>/inbox-spool/`，loop 下一次模型请求前认领；`--list` 看在跑的、`--wait N` 等回执。store 根必须与 Workbench 进程同一套 `FINANCE_WS` / `FORESIGHT_EPISODE_STORE`，否则是另一个家（CLI 会拒投并打出看过的路径）。Workbench 端点等 Alpha（母单 §12 第 4 题） |
 | 复盘写入（另一条面） | `python3 -m market_feature_store.cli daily-full` | 飞书 Bitable 写入已退役 |
-| 飞书 IM（已退役，不是门） | `python3 -m intelligence.cli feishu-bot` | exit 2，不连 WebSocket。与 Bitable 写入退役是两件事 |
+| 飞书（已退役，不是门） | 无现役 IM 入口 | 2026-09-11 起 IM、自建应用与 Bitable 写入整体退役；旧 `feishu-bot` 子命令和实现已删除 |
 
 夜跑收尾的运维入口仍是 `nightly_full_review.sh finalize`，不新增问答门或事实写入链。
 生成段从 `FINANCE_GENERATION_CODE_ROOT` 的双根 launcher 调用原 `intelligence.cli daily --skip-sync`；
@@ -734,7 +736,7 @@ adapter 在语义删句后按**核验过的公开正文**重算表达缺件，�
 1. **确定性题型 → D 块流水线**：`DETERMINISTIC_OWNER_TYPES` 实为**五条**——`external_market` / `dated_market_review` / `market_watch` / `watchlist_digest` / `disclosure_scan`（`continuous_turn_adapter.py:111`，个数以该常量为准，勿写死）。**`quick_fact` 已被明确移出**（`:108`，R-20260828-05：排名/过滤/区间取值必须进 episode 才碰得到 `finance_query`）。
 2. **ownerless 长尾 → `generic_research_owner` 循环**：`research_task_contract` 非空时 `_answer_query_impl` **整条早退**、D 块一次不跑（`ask.py:3055-3059`）；契约只在 `conversation_orchestrator.py:2809` 设上，条件是「研究题 + 无专属椅子」（`:2245`）。这一条是 `run_agent_loop`，**不是写死流程**——把 B 整体说成「写死流程」会把它接长尾的能力漏掉。
 
-A 与 B 的门禁不对等：语义判官（`episode_semantic_verifier`）、结构门、修复轮**只在 A**；B 有 `gate_receipt` / `CompletionReport` / `evidence_judge` / 输出质检。差的成因是分层——判官在 `runtime/`，B 在 `services/`，不得反向 import。现状与并轨计划见 `docs/superpowers/specs/2026-08-30-engine-b-into-a-strangler-design.md` §1.3。
+A 与 B 的门禁接线不对等：A 的结构门、`episode_semantic_verifier` 与修复循环由 `runtime/continuous_turn_adapter.py` 装配；B 有 `gate_receipt` / `CompletionReport` / `evidence_judge` / 输出质检。判官实现已位于 `services/episode_semantic_verifier.py`，不能再用「判官在 runtime 所以 B 不能引用」解释现状；模块可引用不等于两条引擎已接通同一门禁。历史并轨方案见 `docs/superpowers/specs/2026-08-30-engine-b-into-a-strangler-design.md` §1.3，现状以源码及对应测试为准。
 
 ### 判官模式：`ASK_SEMANTIC_JUDGE=llm|off`（工单 #55）
 
@@ -763,7 +765,7 @@ A 与 B 的门禁不对等：语义判官（`episode_semantic_verifier`）、结
 |---|---|---|
 | `cli ask` | `AskWorkflowOptions` → `run_ask` → 再填 `AskOptions`（浅拷贝还在） | 否，经 CLI 默认填充 |
 | `cli chat` / `cli agent` | 直接 `AskOptions` | 否 |
-| 飞书 IM | `feishu-bot` **exit 2**；文件里还留着 `_run_ask_workflow`，`run()` 到不了 | 已退役，不是门 |
+| 飞书 IM | 旧 `feishu-bot` 子命令与实现已删除，不再构造 `AskOptions` | 已退役，不是门 |
 | `research_owner.py` | 直接 `AskOptions`，带 `compose` / `deadline` / `question_type_override` 等 | 否，策略调用方 |
 | Workbench `app.py` `_run_ask` | 直接 `AskOptions` + `answer_query`，走 run/store | 否，UI 合同 |
 
@@ -829,4 +831,4 @@ worker 的资料根按调用参数传递且纳入进程复用键，不继承无�
 
 对着积木的公开方法数打「浅」、建议再包一层工厂、建议把超时重试塞进注册表——都是把积木当成了门。先问：调用方是人、是调度器、还是引擎内部？
 
-把 `feishu-bot` 当问答正门，或把「飞书 Bitable 写入已退役」写成连 IM 长连接也没了——两扇门不是同一件事。IM 入口现在 exit 2。
+把历史飞书 IM 文档当现役入口，或仍按旧的 exit 2 stub 判断当前代码。2026-09-11 后飞书整体退役；退出方式的历史记录不能覆盖当前 CLI 与源码。

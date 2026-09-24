@@ -1,0 +1,34 @@
+"""Read-only host replay of disk prefix, recovery, budget and projection tests."""
+import importlib.util
+from pathlib import Path
+import sys
+import xml.etree.ElementTree as ET
+
+ROOT = Path(__file__).resolve().parent
+TREE = ROOT / "candidate"
+script = Path("/Users/a77/fwp-wt-runtime-postmerge-qc-0923/scripts/review_probes/run_runtime_contract_checks.py")
+spec = importlib.util.spec_from_file_location("host", script)
+host = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(host)
+host.PROFILE = ROOT / "host.sb"
+output = ROOT / "runs/remaining-regressions"
+output.mkdir(exist_ok=False)
+tests = ["test_episode_store.py", "test_episode_restore.py", "test_episode_restore_persistence.py",
+         "test_episode_restore_repeatability.py", "test_episode_entry_identity.py", "test_episode_effects.py",
+         "test_root_budget_snapshot.py", "test_episode_progress.py"]
+before = host.identity(TREE)
+assert before == {"revision": "5f35da1723f74663a4803c4d1490c402a1d6db40", "status": ""}
+junit = output / "regression.xml"
+cmd = [sys.executable, "-B", "-m", "pytest", "-q", "-p", "no:cacheprovider", "--junitxml", str(junit),
+       *["intelligence/tests/" + p for p in tests]]
+result = host.sandbox_run(cmd, cwd=TREE, env={"PATH": "/opt/homebrew/bin:/usr/bin:/bin", "PYTHONPATH": str(TREE),
+                         "PYTHONDONTWRITEBYTECODE": "1", "FWP_TEST_RECEIPT": "0"})
+cases = list(ET.parse(junit).getroot().iter("testcase"))
+failed = [c.attrib for c in cases if any(c.find(t) is not None for t in ("failure", "error", "skipped"))]
+after = host.identity(TREE)
+record = {"role": "host replay; not independent K3 acceptance", "before": before, "after": after,
+          "tests": tests, "total": len(cases), "nonpass": failed, "exit": result.returncode,
+          "accepted": bool(cases) and not failed and result.returncode == 0 and before == after}
+host.dump(output / "receipt.json", record)
+print(record)
+raise SystemExit(0 if record["accepted"] else 1)

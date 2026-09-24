@@ -1,0 +1,231 @@
+{
+  "author": "host-repaired K3-derived probes; not K3 independent acceptance",
+  "before": {
+    "revision": "5f35da1723f74663a4803c4d1490c402a1d6db40",
+    "status": ""
+  },
+  "after": {
+    "revision": "5f35da1723f74663a4803c4d1490c402a1d6db40",
+    "status": ""
+  },
+  "source_hashes": {
+    "run_checks.py": "57ab61a37d27c6c40874e4a0c1979b3a398071c7fe8660e68047de1570ff7028",
+    "probe/effects_checks.py": "b33694899b2daf034d7ca11b11335bdccda10e843588ba3be93a04e153ffa2d9",
+    "probe/identity_checks.py": "880df8aaed874799bf6c333c01e054adb357629bfc41dbb34130ebbd709e62fc",
+    "probe/k3_fixtures.py": "c17da48882c057863a96bf8910a6b1c2fd50083f4283b63508d87544218c83e0"
+  },
+  "candidate_unchanged": true,
+  "probes_unchanged": true,
+  "accepted": true,
+  "results": [
+    {
+      "label": "baseline",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-B",
+        "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/identity-effects-5f35/baseline/entry.py",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "--basetemp=/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/identity-effects-5f35/baseline/pytest",
+        "--junitxml=/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/identity-effects-5f35/baseline/junit.xml",
+        "/Users/a77/fwp-wt-runtime-postmerge-qc-0923/scripts/review_probes/runtime_identity_effects/probe/identity_checks.py",
+        "/Users/a77/fwp-wt-runtime-postmerge-qc-0923/scripts/review_probes/runtime_identity_effects/probe/effects_checks.py"
+      ],
+      "env": {
+        "HOME": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/identity-effects-5f35/baseline",
+        "PATH": "/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+        "LANG": "C.UTF-8",
+        "PYTHONPATH": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/candidate",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "K3_CANDIDATE": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/candidate",
+        "K3_MUTATION": "",
+        "FORESIGHT_USERS_DIR": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/identity-effects-5f35/baseline/users",
+        "FWP_TEST_RECEIPT": "0",
+        "GIT_OPTIONAL_LOCKS": "0",
+        "TMPDIR": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/identity-effects-5f35/baseline/tmp"
+      },
+      "started_at": "2026-09-23T05:27:02.117628+00:00",
+      "exit_code": 0,
+      "elapsed_seconds": 4.779,
+      "junit": {
+        "collected": 16,
+        "passed": 16,
+        "failures": {},
+        "errors": [],
+        "skipped": [],
+        "accepted": true
+      },
+      "accepted": true,
+      "output_sha256": "19620cf237bc79c186b27c34b840f9aa9aea41ef008bf43bdb03ac86adae1eaf"
+    },
+    {
+      "label": "identity-mutant",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-B",
+        "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/identity-effects-5f35/identity-mutant/entry.py",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "--basetemp=/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/identity-effects-5f35/identity-mutant/pytest",
+        "--junitxml=/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/identity-effects-5f35/identity-mutant/junit.xml",
+        "/Users/a77/fwp-wt-runtime-postmerge-qc-0923/scripts/review_probes/runtime_identity_effects/probe/identity_checks.py"
+      ],
+      "env": {
+        "HOME": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/identity-effects-5f35/identity-mutant",
+        "PATH": "/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+        "LANG": "C.UTF-8",
+        "PYTHONPATH": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/candidate",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "K3_CANDIDATE": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/candidate",
+        "K3_MUTATION": "identity",
+        "FORESIGHT_USERS_DIR": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/identity-effects-5f35/identity-mutant/users",
+        "FWP_TEST_RECEIPT": "0",
+        "GIT_OPTIONAL_LOCKS": "0",
+        "TMPDIR": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/identity-effects-5f35/identity-mutant/tmp"
+      },
+      "started_at": "2026-09-23T05:27:06.898458+00:00",
+      "exit_code": 1,
+      "elapsed_seconds": 4.618,
+      "junit": {
+        "collected": 11,
+        "passed": 4,
+        "failures": {
+          "test_wrong_user_refused_and_nothing_is_written": {
+            "type": null,
+            "message": "Failed: DID NOT RAISE <class 'k3_shadow_episode_restore.RestoreUnavailable'>",
+            "text": "tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/identity-effects-5f35/identity-mutant/pytest/test_wrong_user_refused_and_no0')\n\n    def test_wrong_user_refused_and_nothing_is_written(tmp_path) -> None:\n        episode, store, context, registry = dangling_model_episode(tmp_path, bound=True, with_budget=True)\n        before = dir_bytes(store.episode_dir(episode))\n        intruder = replace(context, entry_identity=make_owner_identity(episode, user_id=\"mallory-k3qc\"))\n>       with pytest.raises(RestoreUnavailable, match=\"entry identity does not match the recorded owner\"):\nE       Failed: DID NOT RAISE <class 'k3_shadow_episode_restore.RestoreUnavailable'>\n\n/Users/a77/fwp-wt-runtime-postmerge-qc-0923/scripts/review_probes/runtime_identity_effects/probe/identity_checks.py:40: Failed"
+          },
+          "test_wrong_conversation_run_and_message_refused[conversation_id]": {
+            "type": null,
+            "message": "Failed: DID NOT RAISE <class 'k3_shadow_episode_restore.RestoreUnavailable'>",
+            "text": "tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/identity-effects-5f35/identity-mutant/pytest/test_wrong_conversation_run_an0')\nfield = 'conversation_id'\n\n    @pytest.mark.parametrize(\"field\", [\"conversation_id\", \"run_id\", \"assistant_message_id\"])\n    def test_wrong_conversation_run_and_message_refused(tmp_path, field) -> None:\n        episode, store, context, registry = dangling_model_episode(tmp_path, bound=True, with_budget=True)\n        before = dir_bytes(store.episode_dir(episode))\n        intruder = replace(context, entry_identity=make_owner_identity(episode, **{field: \"other-owner\"}))\n>       with pytest.raises(RestoreUnavailable, match=\"entry identity does not match the recorded owner\"):\nE       Failed: DID NOT RAISE <class 'k3_shadow_episode_restore.RestoreUnavailable'>\n\n/Users/a77/fwp-wt-runtime-postmerge-qc-0923/scripts/review_probes/runtime_identity_effects/probe/identity_checks.py:50: Failed"
+          },
+          "test_wrong_conversation_run_and_message_refused[run_id]": {
+            "type": null,
+            "message": "Failed: DID NOT RAISE <class 'k3_shadow_episode_restore.RestoreUnavailable'>",
+            "text": "tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/identity-effects-5f35/identity-mutant/pytest/test_wrong_conversation_run_an1')\nfield = 'run_id'\n\n    @pytest.mark.parametrize(\"field\", [\"conversation_id\", \"run_id\", \"assistant_message_id\"])\n    def test_wrong_conversation_run_and_message_refused(tmp_path, field) -> None:\n        episode, store, context, registry = dangling_model_episode(tmp_path, bound=True, with_budget=True)\n        before = dir_bytes(store.episode_dir(episode))\n        intruder = replace(context, entry_identity=make_owner_identity(episode, **{field: \"other-owner\"}))\n>       with pytest.raises(RestoreUnavailable, match=\"entry identity does not match the recorded owner\"):\nE       Failed: DID NOT RAISE <class 'k3_shadow_episode_restore.RestoreUnavailable'>\n\n/Users/a77/fwp-wt-runtime-postmerge-qc-0923/scripts/review_probes/runtime_identity_effects/probe/identity_checks.py:50: Failed"
+          },
+          "test_wrong_conversation_run_and_message_refused[assistant_message_id]": {
+            "type": null,
+            "message": "Failed: DID NOT RAISE <class 'k3_shadow_episode_restore.RestoreUnavailable'>",
+            "text": "tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/identity-effects-5f35/identity-mutant/pytest/test_wrong_conversation_run_an2')\nfield = 'assistant_message_id'\n\n    @pytest.mark.parametrize(\"field\", [\"conversation_id\", \"run_id\", \"assistant_message_id\"])\n    def test_wrong_conversation_run_and_message_refused(tmp_path, field) -> None:\n        episode, store, context, registry = dangling_model_episode(tmp_path, bound=True, with_budget=True)\n        before = dir_bytes(store.episode_dir(episode))\n        intruder = replace(context, entry_identity=make_owner_identity(episode, **{field: \"other-owner\"}))\n>       with pytest.raises(RestoreUnavailable, match=\"entry identity does not match the recorded owner\"):\nE       Failed: DID NOT RAISE <class 'k3_shadow_episode_restore.RestoreUnavailable'>\n\n/Users/a77/fwp-wt-runtime-postmerge-qc-0923/scripts/review_probes/runtime_identity_effects/probe/identity_checks.py:50: Failed"
+          },
+          "test_malformed_episode_identity_refused_and_nothing_written": {
+            "type": null,
+            "message": "Failed: DID NOT RAISE <class 'ValueError'>",
+            "text": "tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/identity-effects-5f35/identity-mutant/pytest/test_malformed_episode_identit0')\n\n    def test_malformed_episode_identity_refused_and_nothing_written(tmp_path) -> None:\n        episode, store, context, registry = dangling_model_episode(tmp_path, bound=True, with_budget=True)\n        before = dir_bytes(store.episode_dir(episode))\n        malformed = replace(context, entry_identity=make_owner_identity(\"someone-elses-episode\"))\n>       with pytest.raises(ValueError, match=\"^entry identity episode mismatch$\"):\nE       Failed: DID NOT RAISE <class 'ValueError'>\n\n/Users/a77/fwp-wt-runtime-postmerge-qc-0923/scripts/review_probes/runtime_identity_effects/probe/identity_checks.py:59: Failed"
+          },
+          "test_binding_asymmetry_refuses_without_writing[bound_checkpoint]": {
+            "type": null,
+            "message": "Failed: DID NOT RAISE <class 'k3_shadow_episode_restore.RestoreUnavailable'>",
+            "text": "tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/identity-effects-5f35/identity-mutant/pytest/test_binding_asymmetry_refuses0')\nbound = True\n\n    @pytest.mark.parametrize(\"bound\", [True, False], ids=[\"bound_checkpoint\", \"unbound_checkpoint\"])\n    def test_binding_asymmetry_refuses_without_writing(tmp_path, bound) -> None:\n        episode, store, context, registry = dangling_model_episode(tmp_path, bound=bound, with_budget=True)\n        before = dir_bytes(store.episode_dir(episode))\n        intruder = replace(context, entry_identity=None if bound else make_owner_identity(episode))\n>       with pytest.raises(RestoreUnavailable, match=\"entry identity does not match the recorded owner\"):\nE       Failed: DID NOT RAISE <class 'k3_shadow_episode_restore.RestoreUnavailable'>\n\n/Users/a77/fwp-wt-runtime-postmerge-qc-0923/scripts/review_probes/runtime_identity_effects/probe/identity_checks.py:69: Failed"
+          },
+          "test_binding_asymmetry_refuses_without_writing[unbound_checkpoint]": {
+            "type": null,
+            "message": "Failed: DID NOT RAISE <class 'k3_shadow_episode_restore.RestoreUnavailable'>",
+            "text": "tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/identity-effects-5f35/identity-mutant/pytest/test_binding_asymmetry_refuses1')\nbound = False\n\n    @pytest.mark.parametrize(\"bound\", [True, False], ids=[\"bound_checkpoint\", \"unbound_checkpoint\"])\n    def test_binding_asymmetry_refuses_without_writing(tmp_path, bound) -> None:\n        episode, store, context, registry = dangling_model_episode(tmp_path, bound=bound, with_budget=True)\n        before = dir_bytes(store.episode_dir(episode))\n        intruder = replace(context, entry_identity=None if bound else make_owner_identity(episode))\n>       with pytest.raises(RestoreUnavailable, match=\"entry identity does not match the recorded owner\"):\nE       Failed: DID NOT RAISE <class 'k3_shadow_episode_restore.RestoreUnavailable'>\n\n/Users/a77/fwp-wt-runtime-postmerge-qc-0923/scripts/review_probes/runtime_identity_effects/probe/identity_checks.py:69: Failed"
+          }
+        },
+        "errors": [],
+        "skipped": [],
+        "accepted": true
+      },
+      "accepted": true,
+      "output_sha256": "be83101d883da42800105d5438718cf3dc92b62c326f655e4808a3ec0f01882f"
+    },
+    {
+      "label": "budget-mutant",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-B",
+        "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/identity-effects-5f35/budget-mutant/entry.py",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "--basetemp=/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/identity-effects-5f35/budget-mutant/pytest",
+        "--junitxml=/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/identity-effects-5f35/budget-mutant/junit.xml",
+        "/Users/a77/fwp-wt-runtime-postmerge-qc-0923/scripts/review_probes/runtime_identity_effects/probe/effects_checks.py"
+      ],
+      "env": {
+        "HOME": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/identity-effects-5f35/budget-mutant",
+        "PATH": "/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+        "LANG": "C.UTF-8",
+        "PYTHONPATH": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/candidate",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "K3_CANDIDATE": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/candidate",
+        "K3_MUTATION": "budget",
+        "FORESIGHT_USERS_DIR": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/identity-effects-5f35/budget-mutant/users",
+        "FWP_TEST_RECEIPT": "0",
+        "GIT_OPTIONAL_LOCKS": "0",
+        "TMPDIR": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/identity-effects-5f35/budget-mutant/tmp"
+      },
+      "started_at": "2026-09-23T05:27:11.518100+00:00",
+      "exit_code": 1,
+      "elapsed_seconds": 2.942,
+      "junit": {
+        "collected": 5,
+        "passed": 3,
+        "failures": {
+          "test_spend_gate_refuses_unreconciled_and_has_no_forgetful_default": {
+            "type": null,
+            "message": "Failed: DID NOT RAISE <class 'ValueError'>",
+            "text": "def test_spend_gate_refuses_unreconciled_and_has_no_forgetful_default() -> None:\n        episode = f\"k3-gate-{uuid4().hex[:8]}\"\n        snap = budget_snapshot(episode, calls=3)\n        effects = (_model_effect(),)\n>       with pytest.raises(ValueError, match=\"unreconciled\"):\nE       Failed: DID NOT RAISE <class 'ValueError'>\n\n/Users/a77/fwp-wt-runtime-postmerge-qc-0923/scripts/review_probes/runtime_identity_effects/probe/effects_checks.py:62: Failed"
+          },
+          "test_restore_registers_the_window_once_and_never_spends_the_balance": {
+            "type": null,
+            "message": "Failed: DID NOT RAISE <class 'ValueError'>",
+            "text": "tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/identity-effects-5f35/budget-mutant/pytest/test_restore_registers_the_win0')\n\n    def test_restore_registers_the_window_once_and_never_spends_the_balance(tmp_path) -> None:\n        import intelligence.services.episode_restore as restore_mod\n    \n        episode, store, context, registry = dangling_model_episode(tmp_path, retries=2, with_budget=True)\n        first = restore_mod.restore_episode(episode, store, now=NOW, context=context, registry=registry)\n        assert first.plan is not None and first.plan.action == \"retry_model\"\n        assert [e.kind for e in first.synthesized] == [\"effects_unknown\"]\n        assert len(first.unreconciled_effects) == 1\n        effect = first.unreconciled_effects[0]\n        assert effect.disposition == \"retry_proposed\"\n        assert (effect.effect, effect.reserved_id) == (\"model\", \"turn-1\")\n    \n        for _ in range(3):\n            again = restore_mod.restore_episode(episode, store, now=NOW, context=context, registry=registry)\n            assert again.plan == first.plan\n            assert again.synthesized == (), \"repeated restores must not inflate the receipt list\"\n            assert len(again.unreconciled_effects) == 1\n    \n        # Cross-instance reread from disk: exactly one receipt persisted; restore did\n        # NOT settle it (balance still at the pre-crash value - no charge smuggled in).\n        reread = JsonlEpisodeStore(tmp_path).load(episode)[1]\n        assert reread is not None\n        assert len(reread.unreconciled_effects) == 1\n        assert reread.budget_snapshot is not None and reread.budget_snapshot[\"remaining_calls\"] == 3\n    \n>       with pytest.raises(ValueError, match=\"unreconciled\"):\nE       Failed: DID NOT RAISE <class 'ValueError'>\n\n/Users/a77/fwp-wt-runtime-postmerge-qc-0923/scripts/review_probes/runtime_identity_effects/probe/effects_checks.py:101: Failed"
+          }
+        },
+        "errors": [],
+        "skipped": [],
+        "accepted": true
+      },
+      "accepted": true,
+      "output_sha256": "f13e98697da8ff3f159aa648abe97d9a86ea4d3d88ce2ab1a37003aa1306a744"
+    },
+    {
+      "label": "restored-baseline",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-B",
+        "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/identity-effects-5f35/restored-baseline/entry.py",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "--basetemp=/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/identity-effects-5f35/restored-baseline/pytest",
+        "--junitxml=/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/identity-effects-5f35/restored-baseline/junit.xml",
+        "/Users/a77/fwp-wt-runtime-postmerge-qc-0923/scripts/review_probes/runtime_identity_effects/probe/identity_checks.py",
+        "/Users/a77/fwp-wt-runtime-postmerge-qc-0923/scripts/review_probes/runtime_identity_effects/probe/effects_checks.py"
+      ],
+      "env": {
+        "HOME": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/identity-effects-5f35/restored-baseline",
+        "PATH": "/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+        "LANG": "C.UTF-8",
+        "PYTHONPATH": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/candidate",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "K3_CANDIDATE": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/candidate",
+        "K3_MUTATION": "",
+        "FORESIGHT_USERS_DIR": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/identity-effects-5f35/restored-baseline/users",
+        "FWP_TEST_RECEIPT": "0",
+        "GIT_OPTIONAL_LOCKS": "0",
+        "TMPDIR": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/identity-effects-5f35/restored-baseline/tmp"
+      },
+      "started_at": "2026-09-23T05:27:14.464308+00:00",
+      "exit_code": 0,
+      "elapsed_seconds": 2.518,
+      "junit": {
+        "collected": 16,
+        "passed": 16,
+        "failures": {},
+        "errors": [],
+        "skipped": [],
+        "accepted": true
+      },
+      "accepted": true,
+      "output_sha256": "f30296cd7293d15471a2d2f13ac3be2e7d9e739ab2a4461d54ac8b06a20c003f"
+    }
+  ]
+}

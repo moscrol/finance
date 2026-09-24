@@ -1,0 +1,13 @@
+.........................................                                [100%]
+=============================== warnings summary ===============================
+../../../../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/cacheprovider.py:475
+  /Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/cacheprovider.py:475: PytestCacheWarning: could not create cache path /Users/a77/.finance-runtime/reviews/pr884-closeout-20260923-04/finance-workspace-private/.pytest_cache/v/cache/nodeids: [Errno 1] Operation not permitted: '/Users/a77/.finance-runtime/reviews/pr884-closeout-20260923-04/finance-workspace-private/pytest-cache-files-k16mtznc'
+    config.cache.set("cache/nodeids", sorted(self.cached_nodeids))
+
+../../../../finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/stepwise.py:51
+  /Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/stepwise.py:51: PytestCacheWarning: could not create cache path /Users/a77/.finance-runtime/reviews/pr884-closeout-20260923-04/finance-workspace-private/.pytest_cache/v/cache/stepwise: [Errno 1] Operation not permitted: '/Users/a77/.finance-runtime/reviews/pr884-closeout-20260923-04/finance-workspace-private/pytest-cache-files-2ib9fjfi'
+    session.config.cache.set(STEPWISE_CACHE_DIR, [])
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+- generated xml file: /Users/a77/.finance-runtime/reviews/pr884-closeout-20260923-04/review-c/k3/work/junit_baseline1.xml -
+41 passed, 2 warnings in 3.01s

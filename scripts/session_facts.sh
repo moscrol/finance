@@ -136,11 +136,7 @@ done
 # ── 2. 用哪个解释器 ────────────────────────────────────────────────────
 # 从 test-environment.json 读（与 conftest.py / check_agent_workspace_facts.py
 # 同一份真本源），不在这里写第二份路径。
-spec="$REPO/test-environment.json"
-py=""
-if [ -f "$spec" ]; then
-  py="$(sed -n 's/.*"interpreter"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$spec" | head -1)"
-fi
+py="$(python3 "$REPO/scripts/workspace_env.py" --repo "$REPO" 2>/dev/null || true)"
 [ -z "$py" ] && py="$REPO/.venv-workbench/bin/python"
 if [ -x "$py" ]; then
   LINES+=("解释器: ${py}  ← 用它跑 pytest/ruff。宿主 python3 缺依赖，用错会得到偏高的失败数（实测 71 vs 14），那个数字看起来完全合理")
@@ -166,7 +162,7 @@ LINES+=("$map_line")
 dirty_total="$(git status --porcelain 2>/dev/null | grep -c . || true)"
 code_dirty="$(git status --porcelain 2>/dev/null \
   | sed 's/^...//' | sed 's/^"//;s/"$//' | sed 's/.* -> //' \
-  | grep -E '^(intelligence/|evolution/|market_feature_store/|scripts/|tests/|conftest\.py|pytest\.ini|ruff\.toml|test-environment\.json|requirements-consumer\.lock)' \
+  | grep -E '^(intelligence/|evolution/|market_feature_store/|scripts/|tests/|conftest\.py|pytest\.ini|ruff\.toml|test-environment\.json|requirements-consumer\.lock|requirements-dev\.lock)' \
   | grep -v '^market_feature_store/exports/' || true)"
 code_n="$(printf '%s' "$code_dirty" | grep -c . || true)"
 if [ "${code_n:-0}" -gt 0 ]; then

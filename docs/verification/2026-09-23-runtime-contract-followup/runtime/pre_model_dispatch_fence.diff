@@ -1,0 +1,13 @@
+diff --git a/intelligence/runtime/agent_episode.py b/intelligence/runtime/agent_episode.py
+index 195021fb6..57b313283 100644
+--- a/intelligence/runtime/agent_episode.py
++++ b/intelligence/runtime/agent_episode.py
+@@ -401,8 +401,6 @@ class _EpisodeLedger:
+ 
+     def model_complete(self, model: AgentModelClient, **kwargs: object) -> ModelTurn:
+         """Every model entry (including repair) must pass the durable fence."""
+-        if self.store_failures:
+-            return ModelTurn("", (), error="storage_failed", provider_attempts=0)
+         return model.complete(**kwargs)
+ 
+     def outcome(self, **kwargs: object) -> AgentOutcome:
