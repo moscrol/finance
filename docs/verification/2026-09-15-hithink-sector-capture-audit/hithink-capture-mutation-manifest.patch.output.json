@@ -1,0 +1,20 @@
+{
+  "original_path": "/tmp/hithink-capture-mutation-manifest.patch",
+  "raw_sha256": "c69a3a58788410801e365b812db07084369e1e6e4f84fec0d4be921c9e80a27a",
+  "encoding": "utf-8",
+  "lines": [
+    "diff --git a/market_feature_store/hithink_sector_capture.py b/market_feature_store/hithink_sector_capture.py\n",
+    "index 1f07b0c9..fc0080b1 100644\n",
+    "--- a/market_feature_store/hithink_sector_capture.py\n",
+    "+++ b/market_feature_store/hithink_sector_capture.py\n",
+    "@@ -121,7 +121,7 @@ def _read_capture(con, capture_id: str) -> tuple[dict, dict]:\n",
+    "         \"started_at\": _stamp(started), \"finished_at\": _stamp(finished), \"requests\": requests,\n",
+    "     }\n",
+    "     manifest = _hash(document)\n",
+    "-    if status != \"running\" and (finished is None or finished < started or sealed != manifest):\n",
+    "+    if status != \"running\" and (finished is None or finished < started):\n",
+    "         gaps.append(\"capture-manifest-mismatch\")\n",
+    "     dates = sorted({r[\"received_at\"][:10] for r in requests if r[\"received_at\"] is not None})\n",
+    "     return {\n"
+  ]
+}

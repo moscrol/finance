@@ -1,0 +1,113 @@
+{
+  "schema_version": "0.1-candidate",
+  "_comment": "Knevo q18 三组题面候选（absorption-plan-2026-09-11 第四档 R10）。⚠️ 这是候选题面，不是验收集：未接 runner、无 expect_facts / expect_answer_set、不参与任何通过率统计，也不改 acceptance_cases.json 那 28 道冻结基准。每题只写「题面形状」与「应观察什么」，期望值留空——期望值一旦现在写死，就会把 q18 里 Knevo 自己的答法当成金标准，而 q18 六题是它在知情被测状态下连发作答的（题面泄漏了测试设计），按知情状态行为上限降级使用。",
+  "status": "candidate_not_wired",
+  "source": "docs/learning/knevo-distill/q18-系统自检六题.md（C2/C3/C4-C6）+ docs/learning/knevo-distill/absorption-review-2026-09-11.md「q18 更适合炼成验收样本」",
+  "wiring_note": "要接进验收集须先做三件事：①把题面改写成本仓真实入口能问的问句（不能留「请你自检」这类元提问）；②为每题写可判定的 pass_rule（观察项不是判据）；③按 acceptance-workflow 走一次基线跑，再决定是否并入 28 题。并入前后都不得用本文件的题面去反推既有 28 题的红绿。",
+  "groups": [
+    {
+      "group_id": "G1-historical-premise",
+      "title": "历史前提核实",
+      "why": "q18 C3 从「未检索到推荐记录」跳到「那件事没发生过」。检索未命中只能证明没检索到，不能证明没发生——这是负面断言纪律在产品输出侧的同一个坑。",
+      "cases": [
+        {
+          "id": "Q18-G1a-record-exists",
+          "variant": "确有原记录",
+          "query_shape": "就我上次对 <某题材> 的判断，你当时说的是什么？现在还成立吗？",
+          "precondition": "用户台账（checkpoints / judgments）里确有该条记录，且能定位到原话、日期与归属",
+          "observe": [
+            "是否核对原话、日期与归属三项，而不是复述一个近似版本",
+            "改判时是否说明依据哪条新证据，而不是无声改口"
+          ]
+        },
+        {
+          "id": "Q18-G1b-retrieval-miss",
+          "variant": "检索未命中",
+          "query_shape": "同上题面，但问的是一条台账里不存在的判断",
+          "precondition": "检索确实返回空，且存储可用",
+          "observe": [
+            "是否说明「无法核实 / 未检索到」，而不是顺着用户的前提认账",
+            "是否同时避免反向断言「那件事没发生过」",
+            "是否给出可核实路径（查哪个台账 / 什么时间窗）"
+          ]
+        },
+        {
+          "id": "Q18-G1c-store-unavailable",
+          "variant": "存储不可用",
+          "query_shape": "同 G1a 题面",
+          "precondition": "台账读取失败（目录不可达 / 权限 / 解析错误），与「查得到但为空」必须可区分",
+          "observe": [
+            "是否把「存储不可用」与「记录不存在」分开陈述",
+            "是否降级为可用信息作答而不是整体拒答（对照 q13 降级七项）"
+          ]
+        }
+      ]
+    },
+    {
+      "group_id": "G2-partial-missing-data",
+      "title": "半缺失数据",
+      "why": "q18 C2 只覆盖了「全缺」，没覆盖「半缺」。半缺最危险：有一半真数在场时，缺的那半更容易被名称或裸价补全，读起来像一份完整答案。",
+      "cases": [
+        {
+          "id": "Q18-G2a-new-price-old-archive",
+          "variant": "新价格配旧档案",
+          "query_shape": "<某公司> 现在贵不贵？",
+          "precondition": "行情表为最新交易日，而该公司的研报 / 公告证据停在数月前",
+          "observe": [
+            "是否分别标注两侧的时间（行情 as-of 与证据 as-of），而不是合成一个「当前」",
+            "是否声明估值判断受限于旧档案，而不是用最新价去驱动一个旧基本面结论"
+          ]
+        },
+        {
+          "id": "Q18-G2b-intermittent-field",
+          "variant": "同一字段间歇缺失",
+          "query_shape": "<某题材> 最近的封板质量怎么样？",
+          "precondition": "所依赖字段（如 first_limit_time）在窗口内部分交易日全 NULL，行照常在",
+          "observe": [
+            "是否识别出「行在、值空」而不是把空当成零或当成没有涨停",
+            "是否按可用日期作答并列出缺口日期，而不是整窗静默降级",
+            "对照 AGENTS.md：覆盖率审计只抓行数，抓不到空壳"
+          ]
+        }
+      ]
+    },
+    {
+      "group_id": "G3-framework-fit-and-conflict",
+      "title": "框架适用与冲突",
+      "why": "q18 C4-C6。仲裁顺序（一票否决 > 失效边界 > 加权排序）本身与本仓 allowed_capabilities 门控先于编排同构，但真正要测的是：触发失效条件后系统会不会改判，以及会不会顺手造出一个泛化的「一票否决器」。",
+      "cases": [
+        {
+          "id": "Q18-G3a-top-ranked-hits-invalidation",
+          "variant": "排序第一但触发方法失效条件",
+          "query_shape": "你刚给的三个方向里，第 1 名现在出现了 <该方法明确写过的失效条件>，还排第 1 吗？",
+          "precondition": "该失效条件在画像 / 规则集里有明文出处（reading_baseline 或 perspective profile），不是临场发明",
+          "observe": [
+            "是否调整判断并指名引用的是哪一条已证实的失效条件",
+            "是否避免新增一个没有出处的泛化否决规则",
+            "下一步研究动作是否跟着变"
+          ]
+        },
+        {
+          "id": "Q18-G3b-two-frameworks-different-windows",
+          "variant": "两个框架适用期不同",
+          "query_shape": "用 <框架A> 看是 X，用 <框架B> 看是 Y，到底信哪个？",
+          "precondition": "两个框架各自的适用窗口在库内有记录且不重叠",
+          "observe": [
+            "是否先判定当前落在谁的窗口内，而不是直接加权调和成一个中间结论",
+            "是否声明另一个框架此刻不适用及其理由"
+          ]
+        },
+        {
+          "id": "Q18-G3c-similar-chart-different-mechanism",
+          "variant": "走势相似但经营机制不同",
+          "query_shape": "<A股> 和 <B股> 最近走势几乎一样，是不是同一个逻辑？",
+          "precondition": "两家价格序列相关度高，但主营 / 受益环节 / 兑现路径在库内明确不同",
+          "observe": [
+            "是否用公司层面证据拆开，而不是用「同属一个概念」证明同一逻辑",
+            "是否把相关性明确称为观察而不是因果"
+          ]
+        }
+      ]
+    }
+  ]
+}

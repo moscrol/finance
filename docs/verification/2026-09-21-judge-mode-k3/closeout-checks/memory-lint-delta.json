@@ -1,0 +1,15 @@
+{
+  "baseline_note_revision": "94fb8acf",
+  "notes": [
+    "20_projects/finance-workspace-private.md",
+    "10_knowledge/finance-agent-capability-graph.md",
+    "10_knowledge/evidence-hygiene-three-failure-shapes.md"
+  ],
+  "current_exit": 1,
+  "baseline_exit": 1,
+  "new_errors_from_note_edits": [],
+  "removed_errors": [],
+  "current_error_count": 26,
+  "baseline_error_count": 26,
+  "scope": "only three note texts substituted; other vault state is current; this is not a full-vault pass"
+}

@@ -1,0 +1,8 @@
+{
+  "pid": 72687,
+  "kb_code_identity": "30de1c024b219bace0013ced71eb228fc980fca8bf54b9f4fb391649b315f2a6",
+  "kb_wiki": "/Users/a77/.finance-runtime/kb-dual-index-20260918/source/wiki",
+  "index_dir": "/Users/a77/.finance-runtime/kb-dual-index-20260918/staging-v4/.rag_index",
+  "data_root_separates_pool": true,
+  "model_loads_after_queries": 1
+}

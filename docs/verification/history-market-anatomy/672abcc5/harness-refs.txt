@@ -1,0 +1,30 @@
+姊妹仓读取面：finance←gitea/main、agent-memory←gitea/main（本仓读工作树）
+跳过 agent-run-triage-skill：仓不在本机（8 条引用未核；--root agent-run-triage-skill=PATH 可补）
+跳过 fde-os：仓不在本机（3 条引用未核；--root fde-os=PATH 可补）
+DRIFT   KIT.md:130: `finance/.claude/hooks/load-memory.sh` 写 203 实 208
+DRIFT   KIT.md:146: `agent-memory/scripts/vault_lint.py` 写 271 实 361
+DRIFT   KIT.md:148: `finance/scripts/audit_tool_reachability.py` 写 184 实 313
+DRIFT   KIT.md:149: `finance/.pre-commit-config.yaml` 写 95 实 107
+DRIFT   KIT.md:158: `finance/conftest.py` 写 416 实 422
+DRIFT   KIT.md:163: `finance/scripts/audit_deploy_ledger.py` 写 160 实 286
+DRIFT   KIT.md:164: `finance/intelligence/services/runtime_handle.py` 写 406 实 425
+DRIFT   BUILD.md:201: `runtime/repair_budget.py` 写 530 实 535
+DRIFT   BUILD.md:203: `runtime/tier_promotion.py` 写 181 实 206
+DRIFT   BUILD.md:218: `finance/.claude/hooks/load-memory.sh` 写 203 实 208
+DRIFT   BUILD.md:331: `agent-memory/scripts/vault_lint.py` 写 271 实 361
+DRIFT   BUILD.md:333: `finance/scripts/audit_tool_reachability.py` 写 184 实 313
+DRIFT   BUILD.md:334: `finance/.pre-commit-config.yaml` 写 95 实 107
+DRIFT   BUILD.md:387: `finance/conftest.py` 写 416 实 422
+DRIFT   BUILD.md:391: `finance/scripts/audit_deploy_ledger.py` 写 160 实 286
+DRIFT   BUILD.md:752: `services/rag_worker.py` 写 470 实 654
+DRIFT   TOOLKIT.md:28: `scripts/validate_marketing_contracts.py` 写 142 实 155
+DRIFT   TOOLKIT.md:31: `agent-memory/scripts/vault_lint.py` 写 271 实 361
+DRIFT   TOOLKIT.md:32: `scripts/check_unread_fields.py` 写 236 实 245
+DRIFT   TOOLKIT.md:33: `finance/scripts/audit_deploy_ledger.py` 写 160 实 286
+DRIFT   TOOLKIT.md:80: `intelligence/eval/normalize_harness_trace.py` 写 1052 实 1070
+DRIFT   TOOLKIT.md:86: `scripts/probe_tool_arguments.py` 写 807 实 811
+DRIFT   TOOLKIT.md:129: `intelligence/eval/acceptance.py` 写 1505 实 1557
+DRIFT   TOOLKIT.md:199: `intelligence/eval/synthesis_health.py` 写 351 实 359
+DRIFT   TOOLKIT.md:204: `intelligence/eval/fidelity_replay.py` 写 1144 实 1188
+DRIFT   TOOLKIT.md:208: `finance/scripts/audit_ceiling_sensors.py` 写 688 实 785
+核对 234 条跨仓引用：缺失 0，行数漂移 26，未解析 8，未核数 1（-v 列出）

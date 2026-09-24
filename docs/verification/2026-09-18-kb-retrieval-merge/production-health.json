@@ -1,0 +1,8 @@
+{
+  "status": "healthy",
+  "runtime": {
+    "source_revision": "bf662e9310ff751a4c31763815ee78fb7d6d5122",
+    "source_dirty": false,
+    "code_matches_repo": true
+  }
+}

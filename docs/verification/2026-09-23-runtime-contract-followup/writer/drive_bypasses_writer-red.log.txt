@@ -1,0 +1,10 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+______ test_killing_real_drive_releases_lock_but_keeps_unexecuted_intent _______
+intelligence/tests/test_episode_writer.py:153: in test_killing_real_drive_releases_lock_but_keeps_unexecuted_intent
+    with pytest.raises(EpisodeWriterBusy):
+E   Failed: DID NOT RAISE <class 'intelligence.services.episode_store.EpisodeWriterBusy'>
+- generated xml file: /Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/mutations/drive_bypasses_writer-red.xml -
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_episode_writer.py::test_killing_real_drive_releases_lock_but_keeps_unexecuted_intent
+1 failed, 22 deselected in 5.71s

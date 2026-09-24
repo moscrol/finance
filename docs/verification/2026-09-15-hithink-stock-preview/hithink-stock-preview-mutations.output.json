@@ -1,0 +1,23 @@
+{
+  "original_path": "/tmp/hithink-stock-preview-mutations.log",
+  "raw_sha256": "06fc1afbd2bfeb048c6de1d799ca812522924767d5ba1edb4ff4193658bcbc71",
+  "encoding": "utf-8",
+  "lines": [
+    "BASELINE exit=0 95 passed in 5.22s\n",
+    "M1 整数股约束: 红 exit=1 2 failed, 93 passed in 4.68s | 红的测试 2 条\n",
+    "M2 非现金事件拒绝: 红 exit=1 3 failed, 92 passed in 4.64s | 红的测试 3 条\n",
+    "M3 固定 Decimal Context: 红 exit=1 3 failed, 92 passed in 5.10s | 红的测试 3 条\n",
+    "M4 参考价先按分舍入: 红 exit=1 1 failed, 94 passed in 6.14s | 红的测试 1 条\n",
+    "M5 零成交不当平盘: 红 exit=1 4 failed, 91 passed in 6.01s | 红的测试 4 条\n",
+    "M6 缺前日/重复行不猜: 红 exit=1 6 failed, 89 passed in 7.03s | 红的测试 6 条\n",
+    "M7 显式分母不缩: 红 exit=1 1 failed, 94 passed in 10.90s | 红的测试 1 条\n",
+    "M8 production_ready 恒 false: 红 exit=1 56 failed, 39 passed in 9.62s | 红的测试 56 条\n",
+    "M9 元→亿元换算: 红 exit=1 3 failed, 92 passed in 8.00s | 红的测试 3 条\n",
+    "M10 前一计划交易日: 红 exit=1 1 failed, 94 passed in 9.67s | 红的测试 1 条\n",
+    "M11 行情来源标签: 红 exit=1 6 failed, 89 passed in 5.19s | 红的测试 6 条\n",
+    "M12 分价（两位小数）校验: 红 exit=1 2 failed, 93 passed in 5.63s | 红的测试 2 条\n",
+    "RESTORED exit=0 95 passed in 6.91s\n",
+    "\n",
+    "落盘成功的变异 12 个，其中仍绿 0 个：无\n"
+  ]
+}

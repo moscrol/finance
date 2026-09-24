@@ -41,13 +41,35 @@ import argparse
 import hashlib
 import importlib.metadata as md
 import json
+import os
 import platform
+import re
 import subprocess
 import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
-RECEIPT_DIR = Path.home() / ".finance-runtime" / "test-receipts"
+RECEIPT_DIR = Path(
+    os.environ.get("FWP_TEST_RECEIPT_DIR") or Path.home() / ".finance-runtime" / "test-receipts"
+)
+
+
+def latest_pointer(tree: Path) -> Path:
+    """本树专属的 latest 指针（与 conftest.latest_pointer_name 同一规则）。"""
+
+    slug = re.sub(r"[^A-Za-z0-9._-]", "_", str(tree))
+    return RECEIPT_DIR / f"latest-{slug}.json"
+
+
+def default_receipt(tree: Path) -> Path:
+    """默认验哪张收据：本树的最新一张，没有才回落到全机 latest.json。
+
+    latest.json 是全机单个文件，多棵树并跑时谁后结束谁覆盖——默认去读它，
+    等于默认可能验的是别人的读数。
+    """
+
+    mine = latest_pointer(tree)
+    return mine if mine.exists() else RECEIPT_DIR / "latest.json"
 _SPEC_PATH = REPO / "test-environment.json"
 _LOCK = REPO / "requirements-consumer.lock"
 
@@ -137,13 +159,14 @@ def _fingerprint() -> str:
     except (OSError, ValueError):
         spec = {}
     names = tuple(spec.get("required_modules") or ())
-    if _LOCK.is_file():
-        pinned = [
-            line.split("==")[0].strip()
-            for line in _LOCK.read_text(encoding="utf-8").splitlines()
-            if "==" in line and not line.startswith("#")
-        ]
-        names = tuple(sorted({*names, *pinned}))
+    for lock in (_LOCK, REPO / str(spec.get("development_lock", "requirements-dev.lock"))):
+        if lock.is_file():
+            pinned = [
+                line.split("==")[0].strip()
+                for line in lock.read_text(encoding="utf-8").splitlines()
+                if "==" in line and not line.startswith("#")
+            ]
+            names = tuple(sorted({*names, *pinned}))
     parts = []
     for name in names:
         try:
@@ -216,13 +239,91 @@ def check_base_drift(
     return True, f"基座漂移 {drift} ≤ {max_merges}"
 
 
+def check_executed_counts(counts: dict | None) -> tuple[bool, str]:
+    """passed+failed+error 为 0 的收据不是读数 → 拒绝。
+
+    治的形状（2026-09-19 实测 `20260919T105310Z-d46c2c3b.json`）：collect-only 或
+    一次什么都没选中的 `-k` 也会经 sessionfinish 写收据，counts 全 0、exit 0、
+    干净树、revision 全等——每道既有门都过，却什么都没跑。有 failed/error 的
+    红读数仍是读数，按名字逐条对待，不在这里拒。
+    """
+
+    counts = counts or {}
+    executed = sum(int(counts.get(key) or 0) for key in ("passed", "failed", "error"))
+    if executed <= 0:
+        return False, (
+            "零执行读数——passed/failed/error 全为 0，这张收据没有跑过任何用例"
+            "（collect-only 或空选择），exit 0 也不能采信"
+        )
+    return True, f"执行读数 {executed} 条（passed+failed+error）"
+
+
+_NARROWING = ("ignore", "ignore_glob", "deselect", "keyword", "markexpr", "last_failed")
+
+
+def describe_collection_scope(receipt: dict) -> tuple[bool | None, str]:
+    """收据是不是一次**没被收窄**的读数。
+
+    治的形状：``target`` 只记位置参数，`pytest -q` 与
+    `pytest -q --ignore=scripts/archive` 写出来的收据逐字相同。
+    `docs/verification/re06-*/REVIEW.md` 两份复核都只能从交接正文里找回
+    「命令含 --ignore=...」——收据自身证不了收集面，于是「全量绿」不可审计。
+
+    返回 ``None`` 表示旧格式收据（没有 scope 段）：不是绿也不是红，是**不知道**。
+    """
+
+    scope = receipt.get("scope")
+    if not isinstance(scope, dict):
+        return None, "收据无 scope 段（旧格式）——收集面不可审计，别当全量结论用"
+    used = []
+    for key in _NARROWING:
+        value = scope.get(key)
+        if value:
+            used.append(f"{key}={value}")
+    if int(scope.get("maxfail") or 0):
+        used.append(f"maxfail={scope['maxfail']}")
+    if used:
+        return False, "收集面被收窄：" + "；".join(used)
+    return True, f"收集面未被收窄（collected={scope.get('collected', '?')}）"
+
+
+def check_collected_matches_counts(receipt: dict) -> tuple[bool | None, str]:
+    """收了 N 条就该有 N 条读数——对不上就是跑了一半。
+
+    绿收据尤其要对账：``-x`` / ``--maxfail`` 在**没有失败**时不会截断，所以
+    一张 exit 0 却「收 12000 跑 6000」的收据，只能是收集后中途停了。
+    """
+
+    scope = receipt.get("scope")
+    if not isinstance(scope, dict) or "collected" not in scope:
+        return None, "收据无 collected（旧格式）——跑没跑完不可对账"
+    collected = int(scope.get("collected") or 0)
+    counts = receipt.get("counts") or {}
+    reported = sum(
+        int(counts.get(key) or 0)
+        for key in ("passed", "failed", "error", "skipped", "xfailed", "xpassed")
+    )
+    if collected == reported:
+        return True, f"收执对账平：collected={collected} == 读数合计={reported}"
+    return False, (
+        f"收执对账不平：collected={collected}，读数合计={reported}"
+        f"（差 {collected - reported}）——这张收据没跑完它收集的用例"
+    )
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__ and __doc__.splitlines()[0])
     ap.add_argument(
         "receipt",
         nargs="?",
-        default=str(RECEIPT_DIR / "latest.json"),
-        help=f"收据路径，默认 {RECEIPT_DIR / 'latest.json'}",
+        default=None,
+        help="收据路径，默认取本树最新一张（latest-<树>.json），没有才回落 latest.json",
+    )
+    ap.add_argument(
+        "--require-full-scope",
+        action="store_true",
+        help="要求收据是一次未被 --ignore/-k/-m/--deselect 收窄的读数；"
+        "旧格式收据（无 scope 段）按 fail closed 拒绝",
     )
     ap.add_argument(
         "--require-target",
@@ -250,6 +351,9 @@ def main() -> int:
         help="--base-drift-max 的主干引用（默认 gitea/main）",
     )
     args = ap.parse_args()
+    used_default = args.receipt is None
+    if used_default:
+        args.receipt = str(default_receipt(REPO))
 
     path = Path(args.receipt).expanduser()
     if not path.is_file():
@@ -272,6 +376,7 @@ def main() -> int:
     print("=" * 72)
     print(f"  收据     {path}")
     print(f"  产生于   {receipt.get('finished_at', '?')}")
+    print(f"  来自树   {receipt.get('tree', '(未记)')}")
     print(f"  目标     {receipt.get('target') or '(全量)'}")
     counts = receipt.get("counts") or {}
     print(
@@ -281,6 +386,36 @@ def main() -> int:
     )
 
     blockers: list[str] = []
+
+    executed_ok, executed_message = check_executed_counts(receipt.get("counts"))
+    print(f"  {'✓' if executed_ok else '✗'} {executed_message}")
+    if not executed_ok:
+        blockers.append("零执行读数")
+
+    # 收集面与收执对账：默认只报，不拦——验子集读数是正当用法（见
+    # --require-target）。要把一张收据当「全量绿」用时，才用 --require-full-scope
+    # 把它升成拦截项。
+    scope_ok, scope_message = describe_collection_scope(receipt)
+    print(f"  {'✓' if scope_ok else '?' if scope_ok is None else '✗'} {scope_message}")
+    if args.require_full_scope and scope_ok is not True:
+        blockers.append("收集面被收窄或不可审计")
+
+    # 只在**没显式给路径**时拦跨树：跨树采信本身是收据制度的目的（复核者在自己的
+    # 树上验执行方的收据），要拦的是「默认去读全机 latest.json，结果读到别人的」。
+    if used_default:
+        their_tree = receipt.get("tree")
+        same_tree = str(their_tree) == str(REPO)
+        print(f"  {'✓' if same_tree else '✗'} 默认收据来自本树")
+        if not same_tree:
+            print(f"      收据 : {their_tree}")
+            print(f"      当前 : {REPO}")
+            print("      latest.json 是全机单个文件，多棵树并跑时谁后结束谁覆盖。")
+            blockers.append("默认收据来自别的树")
+
+    recon_ok, recon_message = check_collected_matches_counts(receipt)
+    print(f"  {'✓' if recon_ok else '?' if recon_ok is None else '✗'} {recon_message}")
+    if recon_ok is False:
+        blockers.append("收执对账不平")
 
     def compare(field: str, label: str) -> None:
         theirs, mine = receipt.get(field), here[field]

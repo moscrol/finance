@@ -1,0 +1,12 @@
+{
+  "requested_at": "2026-09-21T08:17:23.018288+00:00",
+  "user_message": "执行",
+  "scope": "one Spec, then one Quality only if Spec passes, final candidate gates, conditional merge and scoped nighttime deployment; no manual collection or tree deletion",
+  "revision": "2ea6c3db01a062b9c623498df1b60edfbafe582b",
+  "max_sessions_per_axis": 1,
+  "max_provider_requests_per_session": 40,
+  "timeout_seconds_per_session": 1200,
+  "retry": false,
+  "fallback": false,
+  "route": "existing mirasim-kimi/kimi-k3 Plus credential; no purchase or account change"
+}

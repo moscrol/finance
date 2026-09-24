@@ -1,0 +1,786 @@
+{
+  "kind": "append-only archive repair, not rerun or approval",
+  "original_manifest": "docs/verification/2026-09-23-pr884-closeout-04/MANIFEST.json",
+  "original_manifest_sha256": "7b528c677c4d286a855bfa637f3633660e2233bf5497dcbe3b51c0a92fc55b25",
+  "discovery_revision": "ddc0d35b053f25ac74b10a3e4c62ab5502bae5ea",
+  "original_published_docs_revision": "10a21cff7f094fbf4d8cae81a5048aa659db5158",
+  "files": 129,
+  "bytes": 403320,
+  "credential_value_scan": "No matches to the round-04 tool credential values; no values archived",
+  "mappings": [
+    {
+      "original_archived_path": "review-a/k3/commands/001-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-a/k3/commands/001-bash/output.log.txt",
+      "bytes": 296,
+      "sha256": "e5d0df6d20f7a95f7ff6698c0ce87edadc8ccdf8624f0734675f54a6a6bfa9b4"
+    },
+    {
+      "original_archived_path": "review-a/k3/commands/002-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-a/k3/commands/002-bash/output.log.txt",
+      "bytes": 1053,
+      "sha256": "5020767e15bd404995f5f75cbb0a9dede66e7fc6f33158682d4c6cb779aee563"
+    },
+    {
+      "original_archived_path": "review-a/k3/commands/003-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-a/k3/commands/003-bash/output.log.txt",
+      "bytes": 10,
+      "sha256": "db6717512d60d4c33143744bac6b3d8c3e1cdfd59c48d19fd5e1348f15315038"
+    },
+    {
+      "original_archived_path": "review-a/k3/commands/004-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-a/k3/commands/004-bash/output.log.txt",
+      "bytes": 7212,
+      "sha256": "0e4861897537662388119ba8cd545aced8e83e1306994fcc8db7473262a2a27b"
+    },
+    {
+      "original_archived_path": "review-a/k3/commands/005-read/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-a/k3/commands/005-read/output.log.txt",
+      "bytes": 16047,
+      "sha256": "355cb8804e407741ad7871b8805542bef29d5372fc0db863d2af8651c4b04c1b"
+    },
+    {
+      "original_archived_path": "review-a/k3/commands/006-read/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-a/k3/commands/006-read/output.log.txt",
+      "bytes": 20312,
+      "sha256": "44f5de16a08fdae80297b6ad20e91ee467cf5810e1b0e84d65eeb7de387f936a"
+    },
+    {
+      "original_archived_path": "review-a/k3/commands/007-read/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-a/k3/commands/007-read/output.log.txt",
+      "bytes": 12744,
+      "sha256": "07653c52bccdf180c31d4f3940149114aeb0ab9bf8a385d539b291fbc56fd1ef"
+    },
+    {
+      "original_archived_path": "review-a/k3/commands/008-read/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-a/k3/commands/008-read/output.log.txt",
+      "bytes": 2691,
+      "sha256": "27190f6b9b9440765fce5f9a6d458eb0ebb867fbc2dccd8fb8f5ccae76e97dc4"
+    },
+    {
+      "original_archived_path": "review-a/k3/commands/009-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-a/k3/commands/009-bash/output.log.txt",
+      "bytes": 579,
+      "sha256": "348407db182a52758853b3c1d45be0a10f2693b872d8a917540295dd9fd6126b"
+    },
+    {
+      "original_archived_path": "review-a/k3/commands/010-read/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-a/k3/commands/010-read/output.log.txt",
+      "bytes": 6002,
+      "sha256": "8126669e7da1691cef3aa94cc065534f3dc358a63225b7121ea41b4ae0f71236"
+    },
+    {
+      "original_archived_path": "review-a/k3/commands/011-read/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-a/k3/commands/011-read/output.log.txt",
+      "bytes": 7250,
+      "sha256": "7d504c8c8ba3bd8a0a6e29acb896f7427716b5a0150f28b9bc7f9b553bac5648"
+    },
+    {
+      "original_archived_path": "review-a/k3/commands/012-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-a/k3/commands/012-bash/output.log.txt",
+      "bytes": 4670,
+      "sha256": "278119026976c34bc0b34ccdd8c8abea1ddfb54ef783bbf12bf37c2ea47c79a8"
+    },
+    {
+      "original_archived_path": "review-a/k3/commands/013-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-a/k3/commands/013-bash/output.log.txt",
+      "bytes": 343,
+      "sha256": "f47a722c0e17388703c9a5e1c44eb1b492fd3ade126863f73a1fdf982d2dcc00"
+    },
+    {
+      "original_archived_path": "review-a/k3/commands/014-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-a/k3/commands/014-bash/output.log.txt",
+      "bytes": 989,
+      "sha256": "ab3fe2c84dc5ca97c6239ff9190845e468d81fc75b0c0de886fa96321399d5f2"
+    },
+    {
+      "original_archived_path": "review-a/k3/commands/015-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-a/k3/commands/015-bash/output.log.txt",
+      "bytes": 436,
+      "sha256": "41b6556495a3e43b63fb0ab2cdc59d003f72b4dc1aabb59cc656c0245ac7a5c2"
+    },
+    {
+      "original_archived_path": "review-a/k3/commands/016-read/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-a/k3/commands/016-read/output.log.txt",
+      "bytes": 11864,
+      "sha256": "8e2880f4a284c79bb0c6fbe112f8c80de7212447e00408abdf80d02e824b861f"
+    },
+    {
+      "original_archived_path": "review-a/k3/commands/017-read/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-a/k3/commands/017-read/output.log.txt",
+      "bytes": 15923,
+      "sha256": "7276e4b1008bf1078c7431e7e67504964e5caa54e2c64bcc1ca83068e98172dd"
+    },
+    {
+      "original_archived_path": "review-a/k3/commands/018-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-a/k3/commands/018-bash/output.log.txt",
+      "bytes": 1622,
+      "sha256": "ead91553d89641ce32192d727fb27861e09ce4da833b064c7526a0505c9fe0c6"
+    },
+    {
+      "original_archived_path": "review-a/k3/commands/019-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-a/k3/commands/019-bash/output.log.txt",
+      "bytes": 2409,
+      "sha256": "5efb5add653390e70772dac44e74de5b168956493c570a90f7c210b1b50aa8e9"
+    },
+    {
+      "original_archived_path": "review-a/k3/commands/020-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-a/k3/commands/020-bash/output.log.txt",
+      "bytes": 1168,
+      "sha256": "ea8bfb50cd45c4aa1f9569a853b824b3b99251d6bb88be3f194c17556c193287"
+    },
+    {
+      "original_archived_path": "review-a/k3/commands/021-write/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-a/k3/commands/021-write/output.log.txt",
+      "bytes": 113,
+      "sha256": "2148fd0c30d89809a4746caaf75c34d2b0ebe0276a487e73e4f5d4e979c8f104"
+    },
+    {
+      "original_archived_path": "review-a/k3/commands/022-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-a/k3/commands/022-bash/output.log.txt",
+      "bytes": 623,
+      "sha256": "d4cece48d9586ea152707519e4008ef3d4d1b1cfccd6a0e31a7291fb7cfbd319"
+    },
+    {
+      "original_archived_path": "review-a/k3/commands/023-read/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-a/k3/commands/023-read/output.log.txt",
+      "bytes": 6294,
+      "sha256": "0f39752022fa5a6ea1ccf238d0aaa9ef0efd119f3ad259c04f181296f6af1d98"
+    },
+    {
+      "original_archived_path": "review-a/k3/commands/024-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-a/k3/commands/024-bash/output.log.txt",
+      "bytes": 1735,
+      "sha256": "6c9a0b61bfa218a3dcb3a3a5f0a95d7871abfc23bb9fcec7764dc12d0da59a55"
+    },
+    {
+      "original_archived_path": "review-a/k3/commands/025-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-a/k3/commands/025-bash/output.log.txt",
+      "bytes": 523,
+      "sha256": "045d68ef134dce052f724495ca20cea2829fa2d2b1fb3c4a92aa5a8dde463171"
+    },
+    {
+      "original_archived_path": "review-a/k3/commands/026-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-a/k3/commands/026-bash/output.log.txt",
+      "bytes": 3376,
+      "sha256": "c5b53bb85b059c6f5d4a35a4bc123c528c6536ce72fe5f88bed138091bf78bd6"
+    },
+    {
+      "original_archived_path": "review-a/k3/commands/027-read/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-a/k3/commands/027-read/output.log.txt",
+      "bytes": 11570,
+      "sha256": "fc4ee2cc9189d18bf2add216e48e86844085bd4a8c7bc3642ad5445daaf1a03e"
+    },
+    {
+      "original_archived_path": "review-a/k3/commands/028-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-a/k3/commands/028-bash/output.log.txt",
+      "bytes": 4078,
+      "sha256": "cde7f44b454e427e33071463377e5ab7e1395114aeb57db2179c11b9344fca81"
+    },
+    {
+      "original_archived_path": "review-a/k3/commands/029-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-a/k3/commands/029-bash/output.log.txt",
+      "bytes": 1222,
+      "sha256": "f8330413a9711a9c3318d29aa1460aad2432d6f808f7defa9cf59bc2a469f408"
+    },
+    {
+      "original_archived_path": "review-a/k3/commands/030-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-a/k3/commands/030-bash/output.log.txt",
+      "bytes": 3478,
+      "sha256": "8be6171d0e9c985996683ee7833afb9990f9e8794447fb4f57122e8237104b40"
+    },
+    {
+      "original_archived_path": "review-a/k3/commands/031-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-a/k3/commands/031-bash/output.log.txt",
+      "bytes": 3367,
+      "sha256": "d0cdfbb2809084c9abf0b275893efc2590666bb72035d5061881dca1b5c4f050"
+    },
+    {
+      "original_archived_path": "review-a/k3/commands/032-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-a/k3/commands/032-bash/output.log.txt",
+      "bytes": 104,
+      "sha256": "0531297bad8c56474c73bc6899882939fcbfe9ed8279de123891ecc8d5d0bb41"
+    },
+    {
+      "original_archived_path": "review-a/k3/commands/033-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-a/k3/commands/033-bash/output.log.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "original_archived_path": "review-a/k3/commands/034-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-a/k3/commands/034-bash/output.log.txt",
+      "bytes": 348,
+      "sha256": "e9faa1c60b340cf72bd9ac66a32ff40f99664594835060aded22ccf8df6c1a2b"
+    },
+    {
+      "original_archived_path": "review-a/k3/commands/035-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-a/k3/commands/035-bash/output.log.txt",
+      "bytes": 969,
+      "sha256": "d1a6cded7a5169794b53060b8a6255c5146d7ccce0f2b51673852e57f80c9ab8"
+    },
+    {
+      "original_archived_path": "review-a/k3/commands/036-read/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-a/k3/commands/036-read/output.log.txt",
+      "bytes": 14357,
+      "sha256": "c70acca7102e7feb0becb3e24df797b39a36ca5ef742b587c00fec2b133fc068"
+    },
+    {
+      "original_archived_path": "review-a/k3/commands/037-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-a/k3/commands/037-bash/output.log.txt",
+      "bytes": 8822,
+      "sha256": "8093c8d7e28d87a88aa35aadb98c9a6dbd930044ba480db8c3c70c7087c2a8be"
+    },
+    {
+      "original_archived_path": "review-a/k3/commands/038-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-a/k3/commands/038-bash/output.log.txt",
+      "bytes": 5796,
+      "sha256": "83e4585ac7ee0a520fc48d31f48389ed4fc2bede9c42c01070544b7b9804ecd9"
+    },
+    {
+      "original_archived_path": "review-a/k3/commands/039-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-a/k3/commands/039-bash/output.log.txt",
+      "bytes": 189,
+      "sha256": "23ac4e66640be35490034cd881137e507b6ea169048434ec3523fb1db11872f7"
+    },
+    {
+      "original_archived_path": "review-a/k3/commands/040-write/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-a/k3/commands/040-write/output.log.txt",
+      "bytes": 114,
+      "sha256": "1864281eff695d8f61e7e8b6fee165422ade97fa800e3acb97c1d14395fdfd7f"
+    },
+    {
+      "original_archived_path": "review-a/k3/commands/041-write/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-a/k3/commands/041-write/output.log.txt",
+      "bytes": 115,
+      "sha256": "1fd1525f20a60fbba34f21eaaa1a87de30725758e7d7c95e276ac06fbd6ec9a8"
+    },
+    {
+      "original_archived_path": "review-a/k3/commands/042-write/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-a/k3/commands/042-write/output.log.txt",
+      "bytes": 115,
+      "sha256": "aea007621894307de20d200f52daef27aa385de994c4a34f001c4015dc10a834"
+    },
+    {
+      "original_archived_path": "review-a/k3/commands/043-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-a/k3/commands/043-bash/output.log.txt",
+      "bytes": 1460,
+      "sha256": "493772064af1e230f2ab0bef9ce856d55ac39cd04ae08dc57f560b1eb645abbc"
+    },
+    {
+      "original_archived_path": "review-a/k3/commands/044-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-a/k3/commands/044-bash/output.log.txt",
+      "bytes": 994,
+      "sha256": "8a82461dceb701467ccac2a23d961a3879e3af6636091535f062d4775157a5b8"
+    },
+    {
+      "original_archived_path": "review-a/k3/commands/045-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-a/k3/commands/045-bash/output.log.txt",
+      "bytes": 2099,
+      "sha256": "7cdb88f36c2d4e416b065ccf0d84881a3f4ccbcd43cec6ad37d1fdec635250bd"
+    },
+    {
+      "original_archived_path": "review-a/k3/commands/046-write/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-a/k3/commands/046-write/output.log.txt",
+      "bytes": 114,
+      "sha256": "f4d2a1791600e1315eb18f5e5ea54fc6ef6048d4e5fb26be7c39f0e2c538e522"
+    },
+    {
+      "original_archived_path": "review-a/k3/commands/047-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-a/k3/commands/047-bash/output.log.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "original_archived_path": "review-a/k3/commands/048-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-a/k3/commands/048-bash/output.log.txt",
+      "bytes": 166,
+      "sha256": "e15c49157d8242fc5a85f3695d27906cf36d1ac54acc70866d9f9e4a2b351cd4"
+    },
+    {
+      "original_archived_path": "review-a/k3/commands/049-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-a/k3/commands/049-bash/output.log.txt",
+      "bytes": 1587,
+      "sha256": "292f630805c97d9f5d9af3f83d88cc6b746830b0ac3074a0ad23829e5692d145"
+    },
+    {
+      "original_archived_path": "review-a/k3/commands/050-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-a/k3/commands/050-bash/output.log.txt",
+      "bytes": 8,
+      "sha256": "1094f4a608520e6cd87446d714acc1d2a9fab625af2e03e561bfa50639443eae"
+    },
+    {
+      "original_archived_path": "review-a/k3/commands/051-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-a/k3/commands/051-bash/output.log.txt",
+      "bytes": 8,
+      "sha256": "1094f4a608520e6cd87446d714acc1d2a9fab625af2e03e561bfa50639443eae"
+    },
+    {
+      "original_archived_path": "review-a/k3/commands/052-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-a/k3/commands/052-bash/output.log.txt",
+      "bytes": 1649,
+      "sha256": "b7616903dd0e1a2b754a5dd13a9279ae9f5314c1c6c6805a92124963a8ec1732"
+    },
+    {
+      "original_archived_path": "review-a/model.stderr.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-a/model.stderr.log.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "original_archived_path": "review-a/preflight-run.stderr.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-a/preflight-run.stderr.log.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "original_archived_path": "review-a/preflight-run.stdout.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-a/preflight-run.stdout.log.txt",
+      "bytes": 34,
+      "sha256": "dad39607bed437a64987f6585fa07f1f0e807a9d02593e149e2ed61ab00a9f2f"
+    },
+    {
+      "original_archived_path": "review-b/k3/commands/001-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-b/k3/commands/001-bash/output.log.txt",
+      "bytes": 41,
+      "sha256": "89e06a5619357085e5b720e6e110d5e662ca0210f6db900d28bd6e171994d489"
+    },
+    {
+      "original_archived_path": "review-b/k3/commands/002-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-b/k3/commands/002-bash/output.log.txt",
+      "bytes": 1792,
+      "sha256": "f9754340833bde06a331aed976e6a7d7a6864c172afe51591172b045a09377fb"
+    },
+    {
+      "original_archived_path": "review-b/k3/commands/003-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-b/k3/commands/003-bash/output.log.txt",
+      "bytes": 9500,
+      "sha256": "717cbeac8bffcc48a36f8115cc566fbb502488dbd61c818fe4a5860aa56ec677"
+    },
+    {
+      "original_archived_path": "review-b/k3/commands/004-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-b/k3/commands/004-bash/output.log.txt",
+      "bytes": 301,
+      "sha256": "d3a89a57b7579e856c378e4ee8ccb6ebdd203a01e2811a0759bd08fb3948e379"
+    },
+    {
+      "original_archived_path": "review-b/k3/commands/005-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-b/k3/commands/005-bash/output.log.txt",
+      "bytes": 5742,
+      "sha256": "11488d0097fe7d1d5948bc710cc78d4e529013a27ae065dfe50bd4ded40dae12"
+    },
+    {
+      "original_archived_path": "review-b/k3/commands/006-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-b/k3/commands/006-bash/output.log.txt",
+      "bytes": 37,
+      "sha256": "a7888be840b22d17597530390c8f8691a36ae168cf828ca10e4688b8d243a01c"
+    },
+    {
+      "original_archived_path": "review-b/k3/commands/007-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-b/k3/commands/007-bash/output.log.txt",
+      "bytes": 770,
+      "sha256": "995624cdca946162163b4c960bd07516f8938b5310d87064dc4e3ff629a51dcf"
+    },
+    {
+      "original_archived_path": "review-b/k3/commands/008-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-b/k3/commands/008-bash/output.log.txt",
+      "bytes": 3895,
+      "sha256": "863e696b5d9791a59bb5f1ec9929f5b9f89809dc5de8cc860836ee04835787f5"
+    },
+    {
+      "original_archived_path": "review-b/k3/commands/009-read/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-b/k3/commands/009-read/output.log.txt",
+      "bytes": 20740,
+      "sha256": "e53c02de4ec56d4887a4e15fedf435b8e327f97a28eebb6e8bab5d90332d04e1"
+    },
+    {
+      "original_archived_path": "review-b/k3/commands/010-read/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-b/k3/commands/010-read/output.log.txt",
+      "bytes": 12733,
+      "sha256": "edcb69b11f3b9e788cca4bdc5e91c0b427cf8a4ae3afc1ef52d956cb1da74b56"
+    },
+    {
+      "original_archived_path": "review-b/k3/commands/011-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-b/k3/commands/011-bash/output.log.txt",
+      "bytes": 1923,
+      "sha256": "42c1faaf217816df206b18a3a11591535ee11f603fb49c7e902a582cffb37da3"
+    },
+    {
+      "original_archived_path": "review-b/k3/commands/012-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-b/k3/commands/012-bash/output.log.txt",
+      "bytes": 4228,
+      "sha256": "54ba0b9ebd2623cd55591e2b786fc1b030263e47df00a4e11543696b4ebe3fec"
+    },
+    {
+      "original_archived_path": "review-b/k3/commands/013-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-b/k3/commands/013-bash/output.log.txt",
+      "bytes": 19521,
+      "sha256": "9a38e8d10d430ebe43ad17a22efbe7ca5715011319bd948c5ef6142810511a2f"
+    },
+    {
+      "original_archived_path": "review-b/k3/commands/014-read/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-b/k3/commands/014-read/output.log.txt",
+      "bytes": 17541,
+      "sha256": "eafc457dd7bbbadf0185a02618e3cf42fa836ed195d3235cda1ffb6f1ff9fc9b"
+    },
+    {
+      "original_archived_path": "review-b/k3/commands/015-read/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-b/k3/commands/015-read/output.log.txt",
+      "bytes": 5738,
+      "sha256": "598c7544c97051d2cab7787990d79126aafafce205fe25dad24debd82fc6815e"
+    },
+    {
+      "original_archived_path": "review-b/k3/commands/016-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-b/k3/commands/016-bash/output.log.txt",
+      "bytes": 81,
+      "sha256": "3cdc9e00ec02e7b6aa64fa9de9dcc02389ed41f57db30bfe4e3c86c57ba4ae94"
+    },
+    {
+      "original_archived_path": "review-b/k3/commands/017-write/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-b/k3/commands/017-write/output.log.txt",
+      "bytes": 112,
+      "sha256": "2b443c98d981cffd29dcfab7f7eee60ad5eecb7e63c7276eea27157890102da5"
+    },
+    {
+      "original_archived_path": "review-b/k3/commands/018-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-b/k3/commands/018-bash/output.log.txt",
+      "bytes": 179,
+      "sha256": "9c6a85544364d6042f33bdbb2e0c052ea06d2ba540bd0483a7b114e2ca9007ae"
+    },
+    {
+      "original_archived_path": "review-b/k3/commands/019-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-b/k3/commands/019-bash/output.log.txt",
+      "bytes": 3551,
+      "sha256": "76cde6f86c42d2d38e198a67906f2f8e9efe8251dcf282b5cbf94c5c92e7bb9b"
+    },
+    {
+      "original_archived_path": "review-b/k3/commands/020-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-b/k3/commands/020-bash/output.log.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "original_archived_path": "review-b/k3/commands/021-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-b/k3/commands/021-bash/output.log.txt",
+      "bytes": 3586,
+      "sha256": "17f2d90779355840aa7d383c3cf433f1bfd46ef379cb2d1c8de23ae924b8c1eb"
+    },
+    {
+      "original_archived_path": "review-b/k3/commands/022-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-b/k3/commands/022-bash/output.log.txt",
+      "bytes": 3102,
+      "sha256": "ceecd94c97dafe59a292c3f1010204ff39500ad41883e893cd77b088ab9481fd"
+    },
+    {
+      "original_archived_path": "review-b/k3/commands/023-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-b/k3/commands/023-bash/output.log.txt",
+      "bytes": 5583,
+      "sha256": "f2b2c0a5cd1c69006245cc5d3892a32a2077c1b6de05bbe97db6373f619fa537"
+    },
+    {
+      "original_archived_path": "review-b/k3/commands/024-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-b/k3/commands/024-bash/output.log.txt",
+      "bytes": 3555,
+      "sha256": "44cd574f58e4afd7eeba08dcaa129a3bd7f9dfdf576bdef692a5148ac0fbec53"
+    },
+    {
+      "original_archived_path": "review-b/k3/commands/025-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-b/k3/commands/025-bash/output.log.txt",
+      "bytes": 3407,
+      "sha256": "ffc0a2ea0adfdce408bbbb2c2ddb78e4e1b83f64e3f23351a23f7db3ad251aed"
+    },
+    {
+      "original_archived_path": "review-b/k3/commands/026-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-b/k3/commands/026-bash/output.log.txt",
+      "bytes": 4812,
+      "sha256": "c5b1f3cbac03af382822738f24fece2e69ca8caf98402b7d7a28f17203b3dc3a"
+    },
+    {
+      "original_archived_path": "review-b/k3/commands/027-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-b/k3/commands/027-bash/output.log.txt",
+      "bytes": 1871,
+      "sha256": "d9dd0149b718537ba81cdaa148fb82c02145a76454a85ff64b81bdb802b65ff6"
+    },
+    {
+      "original_archived_path": "review-b/k3/commands/028-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-b/k3/commands/028-bash/output.log.txt",
+      "bytes": 410,
+      "sha256": "e511611174f63ad4608dcd1b1be807102eabbb0d97eff35fd3f4badc9aaefa1e"
+    },
+    {
+      "original_archived_path": "review-b/k3/commands/029-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-b/k3/commands/029-bash/output.log.txt",
+      "bytes": 3396,
+      "sha256": "160b6942bc7ef74a8af756b76ee51aadf122fd4a6d496d59562f765ca38b8571"
+    },
+    {
+      "original_archived_path": "review-b/k3/commands/030-write/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-b/k3/commands/030-write/output.log.txt",
+      "bytes": 119,
+      "sha256": "2e25f9f01019f75fb7f7d0bf5b0ed8e761ff707ea1f4d1c6d4dbb526c368be46"
+    },
+    {
+      "original_archived_path": "review-b/k3/commands/031-write/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-b/k3/commands/031-write/output.log.txt",
+      "bytes": 131,
+      "sha256": "b9e34032cae75776b730a81ee9a9a7b982354f1b7839363945e47af0219972b1"
+    },
+    {
+      "original_archived_path": "review-b/k3/commands/032-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-b/k3/commands/032-bash/output.log.txt",
+      "bytes": 1077,
+      "sha256": "5ea441f549a694a4e3cf6694b3db064128adb5f7e68c280430300e560704b202"
+    },
+    {
+      "original_archived_path": "review-b/k3/commands/033-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-b/k3/commands/033-bash/output.log.txt",
+      "bytes": 98,
+      "sha256": "959ee198029c8a3be4759528c17383c65b8f42a0e4727d9c72583cce76f41f55"
+    },
+    {
+      "original_archived_path": "review-b/k3/commands/034-write/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-b/k3/commands/034-write/output.log.txt",
+      "bytes": 127,
+      "sha256": "117500eedd0afccaf7ce624dcd9d2a6a019d3552632b318d25e396f4f796cdbe"
+    },
+    {
+      "original_archived_path": "review-b/k3/commands/035-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-b/k3/commands/035-bash/output.log.txt",
+      "bytes": 829,
+      "sha256": "ec303e8f47d86bd2a7811b61d5c3ec5751c59f2962d38ac3fdf431c413700fa1"
+    },
+    {
+      "original_archived_path": "review-b/k3/commands/036-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-b/k3/commands/036-bash/output.log.txt",
+      "bytes": 752,
+      "sha256": "2fc21db10e446651aed891c6b5d9913e88f5f09661f897c86a1a2f2d7f5b82ad"
+    },
+    {
+      "original_archived_path": "review-b/k3/commands/037-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-b/k3/commands/037-bash/output.log.txt",
+      "bytes": 19,
+      "sha256": "bab36e2f844a4c9e8811fe12b1fb769dc5ddec8efcb9347b2cd743d6b48706f5"
+    },
+    {
+      "original_archived_path": "review-b/k3/commands/038-write/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-b/k3/commands/038-write/output.log.txt",
+      "bytes": 129,
+      "sha256": "8ad1104d928312b3291fc74f26ee7c455f1bd14a278dbf7154ad84eee7086173"
+    },
+    {
+      "original_archived_path": "review-b/model.stderr.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-b/model.stderr.log.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "original_archived_path": "review-b/preflight-run.stderr.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-b/preflight-run.stderr.log.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "original_archived_path": "review-b/preflight-run.stdout.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-b/preflight-run.stdout.log.txt",
+      "bytes": 34,
+      "sha256": "dad39607bed437a64987f6585fa07f1f0e807a9d02593e149e2ed61ab00a9f2f"
+    },
+    {
+      "original_archived_path": "review-c/k3/commands/001-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-c/k3/commands/001-bash/output.log.txt",
+      "bytes": 45,
+      "sha256": "7b93e37afb5d398a4da3fbc0d39e502a051c42bb540b5fc29869dd70228b4d10"
+    },
+    {
+      "original_archived_path": "review-c/k3/commands/002-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-c/k3/commands/002-bash/output.log.txt",
+      "bytes": 622,
+      "sha256": "b6321c7c489f712fed6a91460ca201f71e003e00fb24cc0745e07b9fe95a28cc"
+    },
+    {
+      "original_archived_path": "review-c/k3/commands/003-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-c/k3/commands/003-bash/output.log.txt",
+      "bytes": 398,
+      "sha256": "2ed339467ccfd666a034a7b8dbb8bf7c0dcb24a713b85e6adefb1983077b6323"
+    },
+    {
+      "original_archived_path": "review-c/k3/commands/004-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-c/k3/commands/004-bash/output.log.txt",
+      "bytes": 4570,
+      "sha256": "d428e892dd888164e099cf490c39c4abd82dac0f831ecf513cfaa7a8e396f92d"
+    },
+    {
+      "original_archived_path": "review-c/k3/commands/005-read/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-c/k3/commands/005-read/output.log.txt",
+      "bytes": 15198,
+      "sha256": "42c0669a913dd51e4027ac2cb516300bce9d570ff987482c44d5ac3609c87fda"
+    },
+    {
+      "original_archived_path": "review-c/k3/commands/006-read/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-c/k3/commands/006-read/output.log.txt",
+      "bytes": 9898,
+      "sha256": "26695b0c2ad4cfad03c4a37233801f6ebd50bf3e95d0d099e2732327961a11c2"
+    },
+    {
+      "original_archived_path": "review-c/k3/commands/007-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-c/k3/commands/007-bash/output.log.txt",
+      "bytes": 831,
+      "sha256": "52a528531b91643007a1284bcb3eac302f4b3b7df79974093f787d5c6bd6f9a2"
+    },
+    {
+      "original_archived_path": "review-c/k3/commands/008-read/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-c/k3/commands/008-read/output.log.txt",
+      "bytes": 825,
+      "sha256": "047d7e1510766af8311c8685096b908d9f3d2fad06dac840b604764142a741b9"
+    },
+    {
+      "original_archived_path": "review-c/k3/commands/009-read/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-c/k3/commands/009-read/output.log.txt",
+      "bytes": 4221,
+      "sha256": "69503542746d68262d1805a9550d8e3f140483852f51450a91c49e8501369a12"
+    },
+    {
+      "original_archived_path": "review-c/k3/commands/010-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-c/k3/commands/010-bash/output.log.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "original_archived_path": "review-c/k3/commands/011-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-c/k3/commands/011-bash/output.log.txt",
+      "bytes": 357,
+      "sha256": "12e1145b2f3db71232c16887660e1c53e16be68d1d7e4ca720d5dfaf78656674"
+    },
+    {
+      "original_archived_path": "review-c/k3/commands/012-read/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-c/k3/commands/012-read/output.log.txt",
+      "bytes": 7213,
+      "sha256": "8e5927dd29aa8299c4b6ca916767253af5ba35689e659a626eeabcf9faeace15"
+    },
+    {
+      "original_archived_path": "review-c/k3/commands/013-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-c/k3/commands/013-bash/output.log.txt",
+      "bytes": 317,
+      "sha256": "4ad306066022fec5d22a2e2971ee67ec537fd461ad39d4642bec9b3752598d07"
+    },
+    {
+      "original_archived_path": "review-c/k3/commands/014-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-c/k3/commands/014-bash/output.log.txt",
+      "bytes": 1986,
+      "sha256": "29f4d34a9f714780b425442dd09458c0d96c7710e692f07a7fdabc027d566cbc"
+    },
+    {
+      "original_archived_path": "review-c/k3/commands/015-read/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-c/k3/commands/015-read/output.log.txt",
+      "bytes": 2629,
+      "sha256": "ab3ed4c291a2accef90fce3d87a34adff533318fb0873992a3bec778f0890200"
+    },
+    {
+      "original_archived_path": "review-c/k3/commands/016-read/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-c/k3/commands/016-read/output.log.txt",
+      "bytes": 4914,
+      "sha256": "3200daa816d5266108e617d766a87f0d2095d3d8da7e3b34f81b74ce35b86d32"
+    },
+    {
+      "original_archived_path": "review-c/k3/commands/017-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-c/k3/commands/017-bash/output.log.txt",
+      "bytes": 823,
+      "sha256": "eb6adf1bfbd00952a9e6debb321f3d6f9fa43396621e02747bd54dd34d6c6c09"
+    },
+    {
+      "original_archived_path": "review-c/k3/commands/018-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-c/k3/commands/018-bash/output.log.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "original_archived_path": "review-c/k3/commands/019-read/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-c/k3/commands/019-read/output.log.txt",
+      "bytes": 3224,
+      "sha256": "10a9a2fb1e1f70bc738ea44dda631731514865f7660f8bc3c8305d2ae063cc88"
+    },
+    {
+      "original_archived_path": "review-c/k3/commands/020-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-c/k3/commands/020-bash/output.log.txt",
+      "bytes": 1085,
+      "sha256": "7e6bb7dd8658a93ad9936e51ccfbfea6416676e35cf85485a3842618b22e2bb2"
+    },
+    {
+      "original_archived_path": "review-c/k3/commands/021-read/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-c/k3/commands/021-read/output.log.txt",
+      "bytes": 3173,
+      "sha256": "8da531888fad9e0b43329c2e53c53f4467eb19f3733e2b8792756fbcfa62efb3"
+    },
+    {
+      "original_archived_path": "review-c/k3/commands/022-read/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-c/k3/commands/022-read/output.log.txt",
+      "bytes": 3964,
+      "sha256": "1786260bc0c5924fcf1b6282d63d9ca2bac2e415d0bfcda2c88a956e5bd4722a"
+    },
+    {
+      "original_archived_path": "review-c/k3/commands/023-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-c/k3/commands/023-bash/output.log.txt",
+      "bytes": 614,
+      "sha256": "3bf52f69163f56e15ba5e40256ec342b60ef9b8c2e7dfc84a53411faebf141cc"
+    },
+    {
+      "original_archived_path": "review-c/k3/commands/024-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-c/k3/commands/024-bash/output.log.txt",
+      "bytes": 547,
+      "sha256": "6814c3ea25075d09c2186325c0cfb6db6196d479e9a1530dd0c366183b29ee96"
+    },
+    {
+      "original_archived_path": "review-c/k3/commands/025-write/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-c/k3/commands/025-write/output.log.txt",
+      "bytes": 113,
+      "sha256": "2643d7acabe44487ee2aa27e2966a690cd16672e53ba60416832fd5739a62edb"
+    },
+    {
+      "original_archived_path": "review-c/k3/commands/026-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-c/k3/commands/026-bash/output.log.txt",
+      "bytes": 1595,
+      "sha256": "ac416817a0c23ad72b5c41650e9521223de000f931bc60ccc1802fd05c8ef08a"
+    },
+    {
+      "original_archived_path": "review-c/k3/commands/027-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-c/k3/commands/027-bash/output.log.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "original_archived_path": "review-c/k3/commands/028-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-c/k3/commands/028-bash/output.log.txt",
+      "bytes": 100,
+      "sha256": "c962ddd7606d446797ee0c71e3eb1204e97c0ded7abca278fcee16ccef973c25"
+    },
+    {
+      "original_archived_path": "review-c/k3/commands/029-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-c/k3/commands/029-bash/output.log.txt",
+      "bytes": 1218,
+      "sha256": "491a9c36ac3149e9456b77ef36ff5d3b68fea9ceb2470bb2194a4ec8d092db9d"
+    },
+    {
+      "original_archived_path": "review-c/k3/commands/030-bash/output.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-c/k3/commands/030-bash/output.log.txt",
+      "bytes": 2297,
+      "sha256": "97a913a797dc0033c7244a65406230e9fedf0daa53e9356ce608f752a3472fea"
+    },
+    {
+      "original_archived_path": "review-c/model.stderr.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-c/model.stderr.log.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "original_archived_path": "review-c/preflight-run.stderr.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-c/preflight-run.stderr.log.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "original_archived_path": "review-c/preflight-run.stdout.log",
+      "supplement_path": "docs/verification/2026-09-24-pr884-round04-log-supplement/logs/review-c/preflight-run.stdout.log.txt",
+      "bytes": 34,
+      "sha256": "dad39607bed437a64987f6585fa07f1f0e807a9d02593e149e2ed61ab00a9f2f"
+    }
+  ]
+}

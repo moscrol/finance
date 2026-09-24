@@ -1,0 +1,421 @@
+    llm_calls: int
+    tool_calls: int
+    turn_id: str = ""
+
+
+class EpisodeDrive:
+    """一次性的单步驱动器：包着 ``ContinuousAgentEpisode._drive`` 生成器。
+
+    ``step()`` 跑到下一个 ``StepPoint``（终态时回 ``None`` 并填好 ``outcome``）；
+    ``run_until(phase)`` 连跑到某类步点；``run_to_end()`` 排空。生成器抛过异常后不可再驱动。
+    """
+
+    def __init__(self, generator: Generator[StepPoint, None, AgentOutcome]) -> None:
+        self._generator = generator
+        self.outcome: AgentOutcome | None = None
+        self.finished = False
+        self.steps: list[StepPoint] = []
+        self._operation_lock = Lock()
+
+    def step(self) -> StepPoint | None:
+        if not self._operation_lock.acquire(blocking=False):
+            raise EpisodeWriterBusy("episode drive operation is active")
+        try:
+            if self.finished:
+                return None
+            try:
+                point = next(self._generator)
+            except StopIteration as stop:
+                self.outcome = stop.value
+                self.finished = True
+                return None
+            except BaseException:
+                self.finished = True
+                raise
+            self.steps.append(point)
+            return point
+        finally:
+            self._operation_lock.release()
+
+    def close(self) -> None:
+        """Abandon a paused drive; an executing step must finish before closing."""
+        if not self._operation_lock.acquire(blocking=False):
+            raise EpisodeWriterBusy("episode drive operation is active")
+        try:
+            try:
+                self._generator.close()
+            finally:
+                self.finished = True
+        finally:
+            self._operation_lock.release()
+
+    def run_until(self, phase: str) -> StepPoint | None:
+        """跑到下一个 ``phase`` 步点；先到终态就回 ``None``。"""
+
+        if phase not in STEP_PHASES:
+            raise ValueError(f"unknown step phase: {phase!r}")
+        while True:
+            point = self.step()
+            if point is None or point.phase == phase:
+                return point
+
+    def run_to_end(self) -> AgentOutcome:
+        while not self.finished:
+            self.step()
+        assert self.outcome is not None
+        return self.outcome
+
+
+class ContinuousAgentEpisode:
+    """Run a task without rebuilding the model's observable message history."""
+
+    def __init__(
+        self,
+        model: AgentModelClient,
+        *,
+        llm_timeout: float = DEFAULT_LLM_TIMEOUT,
+        tool_executor: ToolBatchExecutor | None = None,
+        finalizer: EpisodeFinalizer | None = None,
+        is_cancelled: Callable[[], bool] | CancelSignal | None = None,
+        sub_research_coordinator: SubResearchCoordinator | None = None,
+        event_sink: Callable[[EpisodeEvent], None] | None = None,
+        repair_seconds_cap: float | None = None,
+        harness: ResearchHarness | None = None,
+        store: EpisodeStore | None = None,
+        runtime_config: Mapping[str, object] | None = None,
+    ) -> None:
+        self._model = model
+        # P2：durable store（INV-R2 / R3）。None = 只在内存记账，事件流形状仍与落盘时相同。
+        # ``runtime_config`` 是装配根（GLMAgentRuntime）知道、Episode 不知道的配置
+        # （模型名 / provider 链），只进 ``configure`` 快照，不参与任何判断。
+        self._store = (
+            FencedEpisodeStore(store)
+            if store is not None and not isinstance(store, FencedEpisodeStore)
+            else store
+        )
+        self._runtime_config: dict[str, object] = dict(runtime_config or {})
+        # 领域门（prompt / 批后停机 / 取证面 / 终局准入 / 深度裁决）由 harness 回答，
+        # loop 只调。默认金融 harness 是对既有函数的纯委托；传别的实现进来就是换领域。
+        # 深度裁决的两个注入件（mode_governor / mode_signals）归 harness 构造器：
+        # #529 把它们搬过去时这里留了一层转交壳兼容既有调用方，调用方全部改直传
+        # harness 后即删（本刀）。Episode 从此不认识 ModeGovernor / ModeSignals。
+        self._harness: ResearchHarness = (
+            harness if harness is not None else FinanceResearchHarness()
+        )
+        self._llm_timeout = max(0.1, float(llm_timeout))
+        self._repair_seconds_cap = (
+            float(repair_seconds_cap)
+            if repair_seconds_cap is not None
+            else repair_seconds_cap_for(provider_name_from(model))
+        )
+        self._tool_executor = (
+            tool_executor if tool_executor is not None else ToolBatchExecutor()
+        )
+        self._finalizer = (
+            finalizer
+            if finalizer is not None
+            else EpisodeFinalizer(model, llm_timeout=self._llm_timeout)
+        )
+        # 取消信号类型化（INV-R4）：裸谓词包成 CancelSignal，原因默认 user。
+        # ``_is_cancelled`` 仍是可调用的——所有既有检查点零改动，多出来的是 ``.cause``。
+        self._cancel = CancelSignal.coerce(is_cancelled)
+        self._is_cancelled: Callable[[], bool] = self._cancel
+        if isinstance(self._store, FencedEpisodeStore):
+            self._store.on_failure(lambda: self._cancel.request("hook", "storage_failed"))
+        self._sub_research_coordinator = sub_research_coordinator
+        self._event_sink = event_sink
+        # P3：当前在跑的 episode 的收件箱（INV-R5）。``steer()`` 从这里递话；run() 进门时换新。
+        # 没在跑时是 None——递话方拿到 ``no_active_episode`` 回执，不是异常。
+        self._active_inbox: Inbox | None = None
+        # The inbox and cancellation signal belong to this runner, not a task ID.
+        self._control_lock = Lock()
+
+    @contextmanager
+    def _control_writer(self, episode_id: str) -> Iterator[None]:
+        if not self._control_lock.acquire(blocking=False):
+            raise EpisodeWriterBusy("episode runner already controls a task")
+        try:
+            with episode_writer(self._store, episode_id):
+                yield
+        finally:
+            self._control_lock.release()
+
+    # ── 收件箱：外部输入的唯一入口（INV-R5）───────────────────────────────
+
+    @property
+    def inbox(self) -> Inbox | None:
+        """当前 episode 的收件箱；run() 之外为 None。测试与装配审计用。"""
+
+        return self._active_inbox
+
+    def steer(
+        self,
+        content: str,
+        *,
+        target: InboxTarget = "next_step",
+        source: str = "steer",
+        wakeup: bool = False,
+    ) -> InboxReceipt:
+        """外部给正在跑的 episode 递一句话（user 角色）。
+
+        ``next_step``：下一次模型请求前送达；``next_turn``：模型停下时送达并让它再跑一轮。
+        收不收由 ``ResearchHarness.admit_inbox_message`` 判；三个事实都进 durable 流。
+        没有在跑的 episode 时回 ``accepted=False, reason="no_active_episode"``——不抛：
+        递话方不该能把研究主路径打断。
+        """
+
+        inbox = self._active_inbox
+        if inbox is None:
+            return InboxReceipt(message_id="", accepted=False, reason="no_active_episode")
+        return inbox.send(
+            user_message(str(content), source=str(source or "steer")),
+            target=target,
+            wakeup=wakeup,
+        )
+
+    @staticmethod
+    def _claim_inbox(
+        *,
+        messages: list[EpisodeMessage],
+        ledger: _EpisodeLedger,
+        target: InboxTarget,
+    ) -> int:
+        """把该队列的话取出来 append 进 messages。认领事件先落、消息后进——与
+        ``append_model_input`` 同一个「事件在前、派生物在后」的写序。"""
+
+        inbox = ledger.inbox
+        if inbox is None:
+            return 0
+        claimed = inbox.claim(target)
+        messages.extend(claimed)
+        return len(claimed)
+
+    @staticmethod
+    def restore(
+        episode_id: str,
+        store: EpisodeStore,
+        *,
+        registry: ResearchToolRegistry | None = None,
+        harness: ResearchHarness | None = None,
+        now: datetime | None = None,
+        context: ResearchRunContext | None = None,
+    ) -> RestoreResult:
+        """崩溃后恢复（INV-R3）：读 ``EpisodeState``、按预留 id 点查结算、给下一动作或直接闭合。
+
+        策略与合成全在 ``services.episode_restore``——它不需要模型、不需要 loop，能对着产物
+        事后重跑。本单只给 ``ResumePlan``，不重新驱动 loop（P4 ``step()``）。
+        """
+
+        return restore_episode(
+            episode_id, store, registry=registry, harness=harness, now=now, context=context,
+        )
+
+    def run(
+        self,
+        *,
+        task_frame: TaskFrame,
+        context: ResearchRunContext,
+        registry: ResearchToolRegistry,
+        _continuation_sink: list[_EpisodeContinuationState] | None = None,
+    ) -> AgentOutcome:
+        """跑到终态。控制流全在 ``_drive`` 里；这里只是把生成器排空（P4 ``step()``）。"""
+
+        return self.manual_drive(
+            task_frame=task_frame,
+            context=context,
+            registry=registry,
+            _continuation_sink=_continuation_sink,
+        ).run_to_end()
+
+    def manual_drive(
+        self,
+        *,
+        task_frame: TaskFrame,
+        context: ResearchRunContext,
+        registry: ResearchToolRegistry,
+        _continuation_sink: list[_EpisodeContinuationState] | None = None,
+    ) -> EpisodeDrive:
+        """单步驱动（运行底座 P4 / 工单 #31）：每次 ``step()`` 跑到下一个效果边界停下。
+
+        与 ``run()`` 是**同一段代码**——``run()`` 就是把这个生成器排空。停下的点只有五种
+        （``STEP_PHASES``）：模型意图已 durable、结算未发（``model_pending``）；模型结算刚落
+        （``model_settled``）；工具意图将落、批次未派发（``before_tool_dispatch``）；批次结算
+        刚落（``tools_settled``）；终局 ``finish`` 将落（``before_finish``）。竞态目录
+        （``conformance/races/``）就是在这些点上把取消 / steer / restore 插进去，两种顺序各跑一遍。
+
+        为什么是生成器而不是状态机重写：run() 有几十个局部变量与十来个 return 点，改成
+        显式状态对象等于重写一遍控制流、再靠测试证明它没变；生成器让**同一份代码**在
+        ``yield`` 处暂停，局部变量原地保留，事件序、写序、消息序逐字节不变（全量套件在
+        严格派生下就是证明）。代价是驱动对象一次性：生成器抛过异常就不能再 ``step()``。
+        """
+
+        return EpisodeDrive(
+            self._drive_owned(
+                task_frame=task_frame,
+                context=context,
+                registry=registry,
+                _continuation_sink=_continuation_sink,
+            )
+        )
+
+    def _drive_owned(
+        self,
+        *,
+        task_frame: TaskFrame,
+        context: ResearchRunContext,
+        registry: ResearchToolRegistry,
+        _continuation_sink: list[_EpisodeContinuationState] | None = None,
+    ) -> Generator[StepPoint, None, AgentOutcome]:
+        episode_id = context.contract.task_id.strip()
+        with self._control_writer(episode_id):
+            if self._store is not None:
+                events, state = self._store.load(episode_id)
+                if events or state is not None:
+                    raise RestoreUnavailable(f"{episode_id}: existing episode requires recovery, not a fresh run")
+            try:
+                return (yield from self._drive(
+                    task_frame=task_frame, context=context, registry=registry,
+                    _continuation_sink=_continuation_sink,
+                ))
+            except BaseException:
+                if self._active_inbox is not None:
+                    self._active_inbox.suspend()
+                self._active_inbox = None
+                raise
+            finally:
+                if self._active_inbox is not None:
+                    self._active_inbox.suspend()
+
+    def _drive(
+        self,
+        *,
+        task_frame: TaskFrame,
+        context: ResearchRunContext,
+        registry: ResearchToolRegistry,
+        _continuation_sink: list[_EpisodeContinuationState] | None = None,
+    ) -> Generator[StepPoint, None, AgentOutcome]:
+        # EpisodeScope 在这里构造——这是 Episode 的入口，contract、注册表、
+        # 身份都齐了。第 3 步把接缝接到了执行路径上，但生产链路一直没人构造 Scope，
+        # 于是事件、调用登记和 dump 收据在生产里都不发生（机制休眠）。
+        #
+        # episode_id 用 context.contract.task_id：这是仓内既有约定
+        # （glm_agent_runtime.py:481、openai_agents_runtime.py:1006 都这么取），
+        # 不另发明第二种 Episode 身份。
+        #
+        # event_sink 接 Live 车道（第 5 步第 2 条，检阅裁定 D3）：工具阶段事件
+        # ``tool/*`` 走实时出口，**不进 ledger.events、不占 durable sequence**，
+        # 分类由 ``episode_event_lanes`` 那张单表说了算。durable 侧的
+        # ``tool_request``/``tool_result``/``tool_error`` 一字未动，仍是对账权威。
+        #
+        # 只在真有下游 sink 时才挂：否则 ``dump()`` 的 ``event_sink_attached``
+        # 会在没人接收时报 True——收据不说谎优先于形式上"接线了"。
+        #
+        # Scope 内的副本不能约束还持有原 registry 的消费者；先绑定本地引用，
+        # 再生成配置快照、绑 episode 工具、拼提示词与播种账本。
+        registry = registry.for_context(context)
+        # 证据账本要在绑 sub_research 之前建：分支证据经它的 branch_sink 进父账本。
+        # 建得早不改任何事件——它只依赖 context。
+        evidence_ledger = EvidenceLedger(
+            information_cutoff=context.information_cutoff.as_of_date,
+        )
+        for required in context.contract.required_outputs:
+            if required.required and required.grounding_mode == "evidence":
+                evidence_ledger.open_gap(required.output_id)
+        context_ref = _ContextRef(context)
+        # 配置快照先于 task（G6）：恢复只读它，不读活对象。快照在绑 sub_research 之前
+        # 算——那一步需要 ledger 已存在；sub_research 的在场只记一个布尔位。
+        ledger = _EpisodeLedger(
+            task_frame,
+            event_sink=self._event_sink,
+            store=self._store,
+            episode_id=context.contract.task_id,
+            configure=self._configure_snapshot(context=context, registry=registry),
+            on_store_failure=lambda: self._cancel.request("hook", "storage_failed"),
+        )
+        ledger.active_context = context
+        # INV-R5：收件箱在账本之后、任何模型请求之前建好——从此外部输入只有这一扇门。
+        # 收不收由 harness 判（§5 第 2 条接触点）；子研究回灌也走它（§6.4 第 3 条）。
+        # 落盘的 store 顺带给箱子一个跨进程投递槽（CLI steer，工单 #30 第 5 条）；内存 store 没有。
+        inbox = Inbox(
+            ledger,
+            admit=self._harness.admit_inbox_message,
+            spool=spool_dir_for(self._store, ledger.episode_id),
+            persistence_failed=lambda: bool(ledger.store_failures),
+        )
+        ledger.inbox = inbox
+        self._active_inbox = inbox
+        # 研究进展账要在绑 episode 工具之前建：分支结果在批执行器线程里回来时直接记进它。
+        progress = ResearchProgressTracker()
+        registry = self._with_episode_bound_tools(
+            task_frame=task_frame,
+            context_ref=context_ref,
+            registry=registry,
+            evidence_ledger=evidence_ledger,
+            ledger=ledger,
+            progress=progress,
+        )
+        # Dynamic tools are now bound; configure intentionally predates them.
+        # Recovery authority must describe this actual registry, not its summary.
+        ledger.active_registry = registry
+        episode_scope = EpisodeScope(
+            episode_id=context.contract.task_id,
+            # 用户身份不在本层：memory 身份是装配期输入（build_episode_registry
+            # 的 memory_user），运行器拿不到也不该拿。留空是如实陈述，不是占位。
+            user_id="",
+            context=context,
+            registry=registry,
+            event_sink=(
+                LiveEventSink(self._event_sink)
+                if self._event_sink is not None
+                else None
+            ),
+        )
+        tool_session = self._tool_executor.new_session(scope=episode_scope)
+        # INV-R2：工具意图出口。批次执行器在 ``_dispatch`` 之前把真要跑的调用整批交给它，
+        # ledger 落 ``tool_request{replay}`` 并把程序计数器推到 ``tools_pending``。
+        tool_session.on_dispatch = ledger.record_dispatch_intent
+        tool_session.execution_failed = lambda: bool(ledger.store_failures)
+        # INV-R1 对账失败落进 Scope 收据（dump()["derive_mismatches"]）。
+        ledger.derive_mismatch_sink = episode_scope.record_derive_mismatch
+        if (
+            context.contract.task_frame_hash
+            and context.contract.task_frame_hash != task_frame.task_frame_hash
+        ):
+            raise ValueError("research contract task frame hash mismatch")
+
+        llm_calls = 0
+        tool_calls = 0
+        invalid_actions = 0
+        finish_failures = 0
+        plan_failures = 0
+        plan_turns = 0
+        system, user = self._harness.assemble_prompt(task_frame, context, registry)
+        # SYSTEM_PROMPT_DYNAMIC_BOUNDARY: system is byte-stable; user/tool
+        # rebuild each turn. cache_control is not implemented this increment.
+        _ = SYSTEM_PROMPT_DYNAMIC_BOUNDARY
+        # 模型可见即已落账：system 与首轮 user 先进 durable 事件，再进 messages。
+        record_prompt_assembled(ledger, system=system, user=user)
+        messages: list[EpisodeMessage] = [system_message(system), user_message(user)]
+        initial_evidence_snapshot = evidence_ledger.snapshot()
+        accumulator = _EpisodeToolAccumulator(
+            messages=messages,
+            ledger=ledger,
+            evidence_ledger=evidence_ledger,
+            harness=self._harness,
+            progress=progress,
+        )
+        ledger.active_evidence_ledger = evidence_ledger
+        ledger.presented_evidence = accumulator.evidence
+        _seed_prior_evidence(accumulator, messages, context)
+        _seed_opening_prefetch(accumulator, messages, registry)
+        # First checkpoint includes opening evidence before any model effect.
+        ledger.put_state(phase="planning", context=context)
+        continuation_state: _EpisodeContinuationState | None = None
+        if _continuation_sink is not None:
+            continuation_state = _EpisodeContinuationState(
+                task_frame=task_frame,
+                context=context,
+                registry=registry,
+                tool_session=tool_session,
+                messages=messages,
+                ledger=ledger,

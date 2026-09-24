@@ -18,7 +18,13 @@ B 方案（``judgments.jsonl``）让 foresight 站在你旧判断上往前推；
         - ``kb_evidence``    注册后是否出现新证据（``target`` 主题/公司，``target`` 条数阈值）→ 知识库 resolver；
         - ``manual``         人工判定；
     - ``source_judgment_ts`` 反链 B 的核心判断（可选）；
-    - ``session_id``         来源会话（可选）。
+    - ``session_id``         来源会话（可选）；
+    - ``rule_id``            判断依据的方法论规则（``methodology/rules/<rule_id>.v<n>.json``，可选，
+      只由人在 CLI 上给；与经验卡 ``experience_cards.rule_id`` 同名同口径）；
+    - ``rule_verdict`` / ``rule_receipt`` 登记当时该规则最近一次回测收据的四态与路径（可选，
+      随 ``rule_id`` 一起由调用方从 ``methodology_backtest.receipts.latest_receipt`` 读来）；
+    - ``bias_flags``         登记时偏差目录扫描命中的 ``code`` 列表（可选；目录与算法在
+      ``checkpoint_bias``，**只提示不拦截**——任何 flag 都不会让登记失败）。
 - ``verdicts.jsonl``    回检打分：``id`` / ``verdict``(hit|miss|partial|unverifiable) /
     ``score``(1|0|0.5|None) / ``observed`` / ``data_source`` / ``reason`` / ``auto`` / ``checked_at``。
 
@@ -27,6 +33,7 @@ B 方案（``judgments.jsonl``）让 foresight 站在你旧判断上往前推；
 
 本模块只用标准库，不依赖 duckdb / 联网，可离线运行、可独立单测；真正拉数的 resolver
 在 ``checkpoint_resolvers`` 里且**优雅降级**（缺数→unverifiable，绝不编造）。
+偏差目录需要旁路库与规则编译器，所以放在 ``checkpoint_bias`` 而不是这里。
 """
 
 from __future__ import annotations
@@ -56,20 +63,27 @@ VALID_OPS = (">=", ">", "<=", "<", "==")
 # 用户自己下的判断、agent 下的判断、系统生成经用户确认的观察剧本。
 # 三类混进同一个胜率分母，会让「用户决策」的读数被另外两类稀释——G-09 的胜率面板
 # 要按这个维度分列，所以字段必须在**登记时**就写下，事后从 category 反推是猜。
-# 第四类 ``method_observation``（能力升级任务包 07）：固定方法协议在 D0 收盘后冻结的前向观察，
-# 到期按原协议回检。单列一类是为了它的命中率**不进**用户判断 / agent 判断的分母（G-09 分列）。
-OBJECT_TYPES = ("judgment", "agent_judgment", "observation_script", "method_observation")
+# 判断轨五类对象：用户判断 / agent 判断 / 观察剧本（09-06 spec §2）、情景树（§3.3，#37）、
+# ``method_observation``（能力升级任务包 07：固定方法协议在 D0 收盘后冻结的前向观察，到期按
+# 原协议回检）。后两类各自单列是为了命中率**不进**用户判断 / agent 判断的分母（G-09 分列）。
+OBJECT_TYPES = ("judgment", "agent_judgment", "observation_script", "scenario_tree", "method_observation")
 DEFAULT_OBJECT_TYPE = "judgment"
+# ``projection_hash_missing`` 的唯一合法取值：用户在产品外手写、本来就没有上下文投影。
+USER_AUTHORED = "user_authored"
 OBJECT_TYPE_CN = {
     "judgment": "用户判断",
     "agent_judgment": "agent 判断",
     "observation_script": "观察剧本",
+    "scenario_tree": "情景树",
     "method_observation": "方法观察",
     "unknown_legacy": "存量未标类型",
 }
 
 # market_daily 条件字段名：只允许安全标识符（真实列名在查询时再校验，查不到→unverifiable）。
 _FIELD_RE = re.compile(r"^[a-z][a-z0-9_]*$")
+# 方法论规则 id 的合法形状。与 ``methodology_backtest.rules.RULE_ID_RE`` 逐字相同——那边的包会
+# 拉进 duckdb，这里为守住「只用标准库」的承诺抄一份，由 test_checkpoints 断言两处一致。
+RULE_ID_RE = re.compile(r"^[a-z][a-z0-9_]{2,63}$")
 
 DEFAULT_WINDOW_DAYS = 60
 # 一个类别至少要有多少条终态判定，才给它贴「靠谱 / 参半 / 偏差大」并注入提示词。
@@ -209,8 +223,17 @@ def _make_id(claim: str, ts: str, due: str = "") -> str:
     return f"ck-{ts[:10]}-{digest}"
 
 
-def register_checkpoint(
-    path: str | Path,
+def normalize_rule_id(rule_id: Any) -> str | None:
+    """规整 ``rule_id``：空 → ``None``；非法形状抛 ``ValueError``（与规则文件名 / 收据目录同一正则）。"""
+    rid = str(rule_id or "").strip()
+    if not rid:
+        return None
+    if not RULE_ID_RE.match(rid):
+        raise ValueError(f"非法 rule_id={rule_id!r}（需匹配 {RULE_ID_RE.pattern}，即规则文件名 <rule_id>.v<n>.json 的前缀）")
+    return rid
+
+
+def build_checkpoint_record(
     *,
     claim: str,
     due: str,
@@ -225,19 +248,66 @@ def register_checkpoint(
     object_type: str = DEFAULT_OBJECT_TYPE,
     hindsight: bool = False,
     ts: str | None = None,
-) -> tuple[Path, dict[str, Any]]:
-    """登记一个可证伪点到 ``checkpoints.jsonl``，返回 ``(path, record)``。
+    projection_hash: str | None = None,
+    model_id: str | None = None,
+    user_authored: bool = False,
+    rule_id: str | None = None,
+    rule_verdict: str | None = None,
+    rule_receipt: str | None = None,
+    bias_flags: list[str] | None = None,
+) -> dict[str, Any]:
+    """把登记参数规整成**将要落盘的那条记录**（纯函数，不写文件）。
+
+    拆出来是为了让 CLI 能先对同一条记录跑偏差目录扫描，再把 ``bias_flags`` 连同记录一起
+    落盘——id / ts 与最终写入的完全一致。``rule_id`` 非法抛 ``ValueError``；``rule_verdict`` /
+    ``rule_receipt`` 只在带 ``rule_id`` 时有意义，单独给了视为调用方 bug，同样抛。
+    三个 rule 字段与 ``bias_flags`` 为空时**不写出**（与 ``session_id`` 同样处理），旧记录形状不变。
 
     ``claim`` 为空或 ``due`` 非法日期时抛 ``ValueError``——可证伪点至少要有陈述与到期日。
     ``object_type`` 非法同样抛错：认不出类型就 fail closed，不默默按「用户判断」记。
+
+    **投影门禁（工单 #34；09-06 spec §4.2 / §4.5 第 5 条）**：agent 产物必须带它生成时看到的
+    上下文哈希，否则台账拒收——
+
+    - ``agent_judgment`` / ``scenario_tree``：``projection_hash`` 与 ``model_id`` 都必须有；
+    - ``observation_script``：``projection_hash`` 必须有，除非显式 ``user_authored=True``
+      （用户在产品外手写、本来就没有投影）——此时记 ``projection_hash=None`` 并写
+      ``projection_hash_missing=user_authored``，校准里单列；
+    - ``judgment``（用户自己的判断）：可空，有就记。
+
+    「忘了传」与「本来就没有」在这里被分开：前者抛错，后者要显式声明。
+    **门禁在纯函数这一侧**：拆分之后若只在 ``register_checkpoint`` 里挡，CLI 的
+    「先 build 再扫偏差」那条路径就绕开了门（工单 #24 与 #34 的合并点）。
     """
     text = str(claim or "").strip()
     if not text:
         raise ValueError("claim 不能为空：可证伪点至少要有陈述")
     if object_type not in OBJECT_TYPES:
         raise ValueError(f"非法 object_type={object_type!r}（允许 {OBJECT_TYPES}）")
+    ph = (str(projection_hash).strip() or None) if projection_hash else None
+    mid = (str(model_id).strip() or None) if model_id else None
+    missing_reason: str | None = None
+    if object_type in ("agent_judgment", "scenario_tree"):
+        lacking = [name for name, v in (("projection_hash", ph), ("model_id", mid)) if v is None]
+        if lacking:
+            raise ValueError(
+                f"object_type={object_type} 缺 {'/'.join(lacking)}：agent 产物必须带生成时的上下文投影哈希与模型号"
+                "（09-06 spec §4.2），台账拒收"
+            )
+    elif object_type == "observation_script" and ph is None:
+        if not user_authored:
+            raise ValueError(
+                "object_type=observation_script 缺 projection_hash：从切片派生的剧本必须带投影哈希；"
+                "用户产品外手写的剧本请显式传 user_authored=True（09-06 spec §4.2）"
+            )
+        missing_reason = USER_AUTHORED
     due_norm = _parse_date(due)
     metric_norm = normalize_metric(metric)
+    rid = normalize_rule_id(rule_id)
+    verdict = str(rule_verdict or "").strip() or None
+    receipt = str(rule_receipt or "").strip() or None
+    if rid is None and (verdict or receipt):
+        raise ValueError("rule_verdict / rule_receipt 必须与 rule_id 一起给")
     ts_norm = ts or _now().isoformat(timespec="seconds")
     record: dict[str, Any] = {
         "id": _make_id(text, ts_norm, due_norm),
@@ -256,12 +326,81 @@ def register_checkpoint(
     }
     if metric_norm:
         record["metric"] = metric_norm
+    # 投影哈希对所有类型都落字段（有就记）；缺席原因只在显式声明时写，不用默认值遮住「忘了」。
+    record["projection_hash"] = ph
+    if mid:
+        record["model_id"] = mid
+    if missing_reason:
+        record["projection_hash_missing"] = missing_reason
     if framework_version and str(framework_version).strip():
         record["framework_version"] = str(framework_version).strip()
     if source_judgment_ts and str(source_judgment_ts).strip():
         record["source_judgment_ts"] = str(source_judgment_ts).strip()
     if session_id and str(session_id).strip():
         record["session_id"] = str(session_id).strip()
+    if rid:
+        record["rule_id"] = rid
+        if verdict:
+            record["rule_verdict"] = verdict
+        if receipt:
+            record["rule_receipt"] = receipt
+    if bias_flags is not None:
+        # 空列表也写：它的含义是「扫过了、没命中」，与「没扫」（键缺失）不同。
+        record["bias_flags"] = [str(c).strip() for c in bias_flags if str(c).strip()]
+    return record
+
+
+def register_checkpoint(
+    path: str | Path,
+    *,
+    claim: str,
+    due: str,
+    category: str | None = None,
+    source: str | None = None,
+    themes: list[str] | None = None,
+    stocks: list[str] | None = None,
+    metric: dict[str, Any] | None = None,
+    source_judgment_ts: str | None = None,
+    session_id: str | None = None,
+    framework_version: str | None = None,
+    object_type: str = DEFAULT_OBJECT_TYPE,
+    hindsight: bool = False,
+    ts: str | None = None,
+    projection_hash: str | None = None,
+    model_id: str | None = None,
+    user_authored: bool = False,
+    rule_id: str | None = None,
+    rule_verdict: str | None = None,
+    rule_receipt: str | None = None,
+    bias_flags: list[str] | None = None,
+) -> tuple[Path, dict[str, Any]]:
+    """登记一个可证伪点到 ``checkpoints.jsonl``，返回 ``(path, record)``。
+
+    ``claim`` 为空、``due`` 非法日期、``object_type`` 非法、``rule_id`` 不合法、或未过投影门禁时
+    抛 ``ValueError`` 且不落盘——判据全在 :func:`build_checkpoint_record`，本函数只负责追加写。
+    """
+    record = build_checkpoint_record(
+        claim=claim,
+        due=due,
+        category=category,
+        source=source,
+        themes=themes,
+        stocks=stocks,
+        metric=metric,
+        source_judgment_ts=source_judgment_ts,
+        session_id=session_id,
+        framework_version=framework_version,
+        object_type=object_type,
+        hindsight=hindsight,
+        ts=ts,
+        projection_hash=projection_hash,
+        model_id=model_id,
+        user_authored=user_authored,
+        rule_id=rule_id,
+        rule_verdict=rule_verdict,
+        rule_receipt=rule_receipt,
+        bias_flags=bias_flags,
+    )
     p = Path(path).expanduser()
     p.parent.mkdir(parents=True, exist_ok=True)
     with p.open("a", encoding="utf-8") as fh:
@@ -421,6 +560,9 @@ class CategoryStat:
     miss: int = 0
     score_sum: float = 0.0
     samples: list[str] = field(default_factory=list)
+    # 这一格里有多少条带上下文投影哈希（工单 #34）。只是计数，不进任何率：
+    # 它回答「这格的判断有几条能回放出当时看到了什么」，不回答准不准。
+    with_projection_hash: int = 0
 
     @property
     def hit_rate(self) -> float:
@@ -442,6 +584,8 @@ class CategoryStat:
 class Calibration:
     by_category: list[CategoryStat] = field(default_factory=list)
     by_source: list[CategoryStat] = field(default_factory=list)
+    # key = rule_id；没带 rule_id 的判断不进这一维（它们不是「按某条规则做的判断」）。
+    by_rule: list[CategoryStat] = field(default_factory=list)
     # 判断轨对象分三类（用户决策 / agent 判断 / 观察剧本）。不分列的话，
     # 「观察剧本这类判断准不准」这个问题**问不出来**：系统生成经确认的剧本
     # 会和用户自己下的判断混在同一个分母里，互相稀释。
@@ -453,6 +597,8 @@ class Calibration:
     # 因 hindsight 被挡在校准之外的条数。**必须报出来**：静默剔除会让样本
     # 莫名其妙变少，而「样本少」和「样本被规则挡了」是两件事，后者是产品在守纪律。
     hindsight_excluded: int = 0
+    # 用户产品外手写、显式声明没有投影的条数（09-06 spec §4.2「产品外补录的标 null 并在校准里单列」）。
+    projection_hash_missing: int = 0
 
     @property
     def overall_rate(self) -> float:
@@ -466,16 +612,20 @@ def calibrate(
     verdicts: list[dict[str, Any]],
     today: str | None = None,
 ) -> Calibration:
-    """按 ``category``（二阶推演类型）与 ``source``（判断产出模块）两个维度聚合终态打分→胜率。
+    """按 ``category``（二阶推演类型）、``source``（判断产出模块）、``rule_id``（引用的方法论规则）
+    三个维度聚合终态打分→胜率。
 
-    category 回答「哪类推演靠谱」；source 回答「哪个模块在产真信号」——命中率长期不达标的模块应降级为资料工具。
-    两个列表均按命中率升序（最该质疑的在前）。"""
+    category 回答「哪类推演靠谱」；source 回答「哪个模块在产真信号」——命中率长期不达标的模块应降级为资料工具；
+    rule 回答「你按规则 X 做的判断命中率多少」——与规则自己的回测收据并排看（收据由 ``render_report`` 的调用方传入，
+    本函数是纯函数、不读文件系统）。三个列表均按命中率升序（最该质疑的在前）。"""
     by_id = {str(c.get("id")): c for c in checkpoints if c.get("id")}
     terminal = _latest_terminal_verdicts(verdicts)
     stats: dict[str, CategoryStat] = {}
     src_stats: dict[str, CategoryStat] = {}
+    rule_stats: dict[str, CategoryStat] = {}
     obj_stats: dict[str, CategoryStat] = {}
     hindsight_excluded = 0
+    projection_hash_missing = 0
     for cid, v in terminal.items():
         ck = by_id.get(cid)
         if ck is None:
@@ -488,16 +638,25 @@ def calibrate(
             continue
         cat = str(ck.get("category") or "未分类").strip() or "未分类"
         src = str(ck.get("source") or "未标来源").strip() or "未标来源"
+        rid = str(ck.get("rule_id") or "").strip()
         # 对象类型从 checkpoint 记录回连取，**不在 verdict 里再存一份**：
         # 同一事实存两处必漂，而漂的时候胜率面板会按过期那份分列。
         obj = object_type_of(ck)
         verdict = str(v.get("verdict"))
         score = v.get("score")
         score = SCORE_MAP.get(verdict, 0.0) if score is None else float(score)
-        for key, bucket in ((cat, stats), (src, src_stats), (obj, obj_stats)):
+        has_projection = bool(ck.get("projection_hash"))
+        if ck.get("projection_hash_missing") == USER_AUTHORED:
+            projection_hash_missing += 1
+        buckets: list[tuple[str, dict[str, CategoryStat]]] = [(cat, stats), (src, src_stats), (obj, obj_stats)]
+        if rid:
+            buckets.append((rid, rule_stats))
+        for key, bucket in buckets:
             st = bucket.setdefault(key, CategoryStat(category=key))
             st.n += 1
             st.score_sum += score
+            if has_projection:
+                st.with_projection_hash += 1
             if verdict == "hit":
                 st.hits += 1
             elif verdict == "partial":
@@ -511,11 +670,13 @@ def calibrate(
     return Calibration(
         by_category=sorted(stats.values(), key=lambda s: (s.hit_rate, -s.n)),
         by_source=sorted(src_stats.values(), key=lambda s: (s.hit_rate, -s.n)),
+        by_rule=sorted(rule_stats.values(), key=lambda s: (s.hit_rate, -s.n)),
         by_object_type=sorted(obj_stats.values(), key=lambda s: (s.hit_rate, -s.n)),
         scored=sum(s.n for s in stats.values()),
         pending=pending,
         unverifiable=unverifiable,
         hindsight_excluded=hindsight_excluded,
+        projection_hash_missing=projection_hash_missing,
     )
 
 
@@ -539,8 +700,46 @@ def render_calibration_for_prompt(cal: Calibration, min_n: int = DEFAULT_CALIBRA
     return "\n".join(lines)
 
 
-def render_report(cal: Calibration) -> str:
-    """CLI 人读的校准报告。"""
+# 回测收据四态 → 中文（与 methodology_backtest.receipts._VERDICT_CN 同表；那边的包会拉进 duckdb，这里抄一份）。
+RULE_VERDICT_CN = {
+    "insufficient_n": "样本不足",
+    "not_distinguishable": "与基准不可区分",
+    "supported": "支持",
+    "refuted": "证伪",
+}
+
+
+def _pct(x: Any, digits: int = 1) -> str:
+    try:
+        return "—" if x is None else f"{float(x) * 100:.{digits}f}%"
+    except (TypeError, ValueError):
+        return "—"
+
+
+def summarize_rule_receipt(receipt: dict[str, Any] | None) -> str:
+    """把一份 ``latest_receipt`` 返回值压成一行：``<四态中文> N=.. p=.. p0=.. Wilson[..,..]（日期）``；无收据 → ``无收据``。
+
+    收据结构以 ``methodology_backtest.receipts.build_receipt`` 为准（``verdict`` / ``stats{n,p,p0,wilson_lo,wilson_hi}`` /
+    ``generated_at``）；这里只读键、不 import 那个包，缺哪个键就显示 ``—``。
+    """
+    if not receipt or not isinstance(receipt, dict):
+        return "无收据"
+    verdict = str(receipt.get("verdict") or "")
+    stats = receipt.get("stats") if isinstance(receipt.get("stats"), dict) else {}
+    cn = str(receipt.get("verdict_label") or RULE_VERDICT_CN.get(verdict, verdict or "—"))
+    day = str(receipt.get("generated_at") or "")[:10] or "—"
+    return (
+        f"{cn}（{verdict or '—'}） N={stats.get('n', '—')} p={_pct(stats.get('p'))} p0={_pct(stats.get('p0'))} "
+        f"Wilson[{_pct(stats.get('wilson_lo'))},{_pct(stats.get('wilson_hi'))}]（{day}）"
+    )
+
+
+def render_report(cal: Calibration, rule_receipts: dict[str, dict[str, Any]] | None = None) -> str:
+    """CLI 人读的校准报告。
+
+    ``rule_receipts``：``{rule_id: latest_receipt(...)}``，由调用方读文件系统后传入；「按规则」段把你按该规则做的
+    判断命中率与规则自己的最近收据并排放在同一行——两处读到的是同一份收据（同源同口径）。
+    """
     lines = ["# 二阶推演校准（哪类判断靠谱）"]
     lines.append(
         f"> 已回检 {cal.scored} 条 · 待回检 {cal.pending} 条 · "
@@ -580,6 +779,21 @@ def render_report(cal: Calibration) -> str:
                 f"- {OBJECT_TYPE_CN.get(st.category, st.category)}："
                 f"命中率 {round(st.hit_rate * 100)}%（{st.reliability}）"
                 f"，样本 {st.n}：命中 {st.hits} / 半对 {st.partial} / 落空 {st.miss}"
+                f"；带上下文投影 {st.with_projection_hash}/{st.n}"
+            )
+        if cal.projection_hash_missing:
+            lines.append(
+                f"- 另有 {cal.projection_hash_missing} 条为用户产品外手写、显式无投影（projection_hash_missing=user_authored），"
+                "已计入以上各格，单列在此"
+            )
+    if cal.by_rule:
+        receipts = rule_receipts or {}
+        lines.append("")
+        lines.append("# 按规则（你按规则 X 做的判断 vs 规则 X 自己的回测收据）")
+        for st in cal.by_rule:
+            lines.append(
+                f"- {st.category}：n={st.n} · 命中率 {round(st.hit_rate * 100)}%（{st.reliability}）"
+                f"｜最近收据：{summarize_rule_receipt(receipts.get(st.category))}"
             )
     return "\n".join(lines) + "\n"
 

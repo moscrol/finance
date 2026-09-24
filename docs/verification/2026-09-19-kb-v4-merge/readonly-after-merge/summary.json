@@ -1,0 +1,17 @@
+{
+  "observed_at": "2026-09-18T17:21:13.168190+00:00",
+  "status": "pass_readonly_observation",
+  "production_switched": false,
+  "fenced_regular_files": 24,
+  "frozen_source_unchanged": true,
+  "live_source_changes": {
+    "observed_at": "2026-09-18T17:21:13.145759+00:00",
+    "file_count": 21819,
+    "added": [],
+    "removed": [],
+    "changed": [
+      "wiki/relations/access_log.jsonl"
+    ]
+  },
+  "limits": "Not a long-term writer guard or production retrieval/answer acceptance"
+}

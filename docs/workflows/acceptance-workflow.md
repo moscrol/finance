@@ -58,9 +58,22 @@ exit 0 只对「命令里那个 `gitea/main` 解析出的 SHA」成立；报告�
 `--base-drift-max` 治「分支基座落后主干 N 张合并仍拿分支绿冒充合流绿」。
 收据不在 main tip 上 → 先在 main tip 重跑全量，不许拿旧收据凑数。
 
+前端四项及 E2E 用 `scripts/run_frontend_gate.py` 生成独立收据：
+
+```bash
+.venv-workbench/bin/python scripts/run_frontend_gate.py \
+  --tree <独占的固定检出根> --expect-revision <完整提交SHA> \
+  --output <树外的新运行目录> \
+  --workbench-port 18981 --re06-port 18984
+```
+
+该入口顺序执行依赖安装、lint、typecheck、test、build、test:e2e，使用当前 Python 解释器启动测试服务；端口与配套 URL 一起设置。收据保存每步退出码、日志哈希和首尾 Git 身份。只有 `exit_code=0`、`complete=true`、`identity_stable=true` 且 `dirty=false` 才可采信；首尾 revision 都必须等于要求的完整 SHA。Git 查询失败不能解释为干净。任一命令失败或身份变化均返回非零，已有输出目录拒绝覆盖。
+
+首尾采样不能证明期间没有发生又恢复的改动，因此仍要用独占检出。历史收据缺字段时保留原件，另起目录重跑；不得把今天的干净状态补写成过去的观测。`git status` 相同也不等于内容相同，复核既有脏树时还要比较二进制 diff 与未跟踪文件内容哈希。
+
 ## 4. 切 8792（链切五步）
 
-链切用下面五步。`scripts/deploy_workbench_runtime.sh` 面向的是「rsync 进现有快照」的旧形态，只在快照目录不换时用。
+链切用下面五步。`scripts/deploy_workbench_runtime.sh` 仅面向不受 Git 管理的旧式 standalone 目录：必须显式设置 `WORKBENCH_REPO_ROOT=<干净源树>` 并传入 `--apply --expect-revision <完整SHA>`。它拒绝覆盖 Git worktree 快照，也拒绝 `intelligence/` 为软链的运行目标；版本快照只能新建再切链；无参数、未知参数和不匹配的版本均拒绝执行，`--help` 只显示帮助。旧版本没有参数解析，连 `--help` 都可能执行真实部署，禁止以运行旧脚本的方式探测用法，先读源码。
 
 ```bash
 # ⚠️ 这条 fetch 不能省（2026-08-18 实测补入）：验收 session 总是刚合完 PR 才切，
@@ -77,7 +90,11 @@ launchctl bootout "gui/$(id -u)/com.a77.finance-workbench"
 # 那个分支不一定有 scripts/audit_deploy_ledger.py（本次停在 feat/reading-rules-baseline-batch1，就没有），
 # 结果是账本静默漏记一次 switch——而切换本身已经生效，事后没人看得出来漏了。
 # FINANCE_WS 仍指主仓（数据仓），只有解释器和脚本路径跟着快照走。
-# ⚠️ `--port 8792` 不能省：理由见 PR #572（`infer_port` 认不出就 None，账本那行无从归属，看板回落到上一版 rev）。
+# ⚠️ `--port 8792` 不能省：`infer_port` 认不出就 None（写入侧明写不猜），账本那行无从归属。
+# 读取侧现在会报「账本判不出」而不是回落到上一版 rev（`worktree_board.last_switch_for_port`
+# 返回 `(matched, unattributed)`，判据锁在 `tests/test_worktree_board.py` 的
+# `test_newer_switch_without_port_is_not_masked_by_older_matched_row`）——但那只是不再骗人，
+# 漏了 `--port` 这次切换仍然**判不出来**。账本里已有 16 行是这么来的（09-03 f4c03b9a 被报成 c88c81da）。
 # 账本只有一个家 `~/.finance-runtime/deploy-ledger.jsonl`（2026-09-09 工单 #44 起，FINANCE_WS 与代码根不再影响它写到哪）。
 # 下面的 `--ledger` 在新快照上是冗余的，保留是为了回滚到 #44 之前的旧快照时仍写对地方——旧代码不带它会写进
 # `$FINANCE_WS/state/deploy-ledger.jsonl`（2026-09-07 0907g 实测的坑：切换生效了、看板判不出 8792 在哪个 rev）。

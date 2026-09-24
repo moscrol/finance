@@ -32,7 +32,13 @@ from typing import Any
 from intelligence.paths import default_market_db_path
 from intelligence.services import retrieval_cache
 from intelligence.services import reading_baseline
-from market_feature_store.signals import DOUBLE_RED_SQL
+# 取数层 2026-09-05 下沉到 market_feature_store（赚钱效应 regime 与 D10 共用），
+# 这里 re-export 保住既有 import 路径与 `_AUX_QUERIES` 的棘轮测试。
+from market_feature_store.market_regime_vectors import (  # noqa: F401
+    _AUX_QUERIES,
+    FEATURES,
+    load_market_regime_vectors,
+)
 
 DEFAULT_MARKET_DB_PATH = default_market_db_path()
 
@@ -41,20 +47,6 @@ STRIDE = 5
 TOP_K = 3
 FORWARD_HORIZONS = (5, 10, 20)
 MIN_HISTORY_MULTIPLE = 3  # 与 D8 一致：历史至少 3 个窗口长度才谈得上找类比
-
-# 每日情绪向量的特征维（键名 = loader 产出的字段名）
-FEATURES: tuple[str, ...] = (
-    "total_amount",            # 两市成交额（亿）
-    "advancers",               # 涨家数
-    "limit_up",                # 涨停家数
-    "limit_down",              # 跌停家数
-    "sh_deviation_pct",        # 上证对周均线偏离度（%）
-    "sh_index_pct_chg",        # 上证日涨跌（%）
-    "max_boards",              # 连板最高度
-    "double_red_theme_count",  # 严格双红题材数（pct>0 & diff>10 & amount>500）
-    "top1_theme_share",        # 第一题材涨停份额
-    "new_high_count",          # 新高家数
-)
 
 # 展示层用的中文标签（渲染当前/历史窗口摘要时用原始量纲，可读性优先）
 _DISPLAY_FEATURES: tuple[tuple[str, str, str], ...] = (
@@ -125,6 +117,10 @@ class MarketRegimeArtifact:
     missing_features: tuple[str, ...]
     evidence_id: str = "D10"
     degrade_reason: str | None = None
+    # 工单 #35：区间读数带 PIT 档位。strict = 当前窗与每段类比窗的每一天都在 knowledge_cutoff 前刷过；
+    # 否则 trade_date_only——两档分开报，不出混合平均（#25 已定口径）。None = 调用方没给 cutoff（老路径）。
+    knowledge_cutoff: str | None = None
+    pit_grade: str | None = None
 
     @property
     def available(self) -> bool:
@@ -133,6 +129,8 @@ class MarketRegimeArtifact:
     def to_payload(self) -> dict[str, object]:
         return {
             "evidence_id": self.evidence_id,
+            "knowledge_cutoff": self.knowledge_cutoff,
+            "pit_grade": self.pit_grade,
             "window": self.window,
             "available": self.available,
             "current_summary": dict(self.current_summary),
@@ -254,6 +252,14 @@ def _forward_facts(rows: list[dict[str, Any]], horizon: int) -> dict[str, Any] |
     }
 
 
+def window_pit_grade(rows: list[dict[str, Any]]) -> str | None:
+    """一段逐日向量的 PIT 档位：每行都 strict 才 strict；任一行 trade_date_only 整段降档；行上没带 → None。"""
+    grades = [r.get("pit_grade") for r in rows]
+    if not rows or any(g is None for g in grades):
+        return None
+    return "strict" if all(g == "strict" for g in grades) else "trade_date_only"
+
+
 def find_regime_analogs(
     vectors: list[dict[str, Any]],
     window: int = DEFAULT_WINDOW,
@@ -297,6 +303,8 @@ def find_regime_analogs(
                 "distance": round(d, 3),
                 "raw_summary": _raw_window_summary(seg),
                 "forwards": forwards,
+                # 段级 PIT：窗内任一天不是 strict 整段降档（#35；污点传播）。向量没带 pit_grade 时为 None。
+                "pit_grade": window_pit_grade(seg),
             }
         )
         used.append((start, end))
@@ -306,90 +314,19 @@ def find_regime_analogs(
 
 
 # ---------------------------------------------------------------------------
-# 取数层：从主库现有表拼每日情绪向量。基表 fact_market_daily 缺失 → 整体降级；
-# 辅表缺失 → 对应维度整体缺失（进 missing_features，匹配时按覆盖率降权）。
+# 取数层（FEATURES / _AUX_QUERIES / load_market_regime_vectors）已下沉到
+# market_feature_store.market_regime_vectors，本模块顶部 re-export；这里只留装配。
 # ---------------------------------------------------------------------------
-
-_AUX_QUERIES: dict[str, str] = {
-    "max_boards": (
-        "select trade_date, max(boards) from fact_limit_advance_daily group by trade_date"
-    ),
-    # 谓词按名引用，不再写死字面量：这一份此前既不看 signals 也不看
-    # theme_lifecycle，改阈值时 D10 的情绪向量会静默留在旧口径，而它同时
-    # 供 Engine A 预取和 Engine B compose——两边一起错，且读数自洽。
-    "double_red_theme_count": (
-        "select trade_date, count(*) from fact_sector_daily "
-        f"where {DOUBLE_RED_SQL} group by trade_date"
-    ),
-    "top1_theme_share": (
-        "select trade_date, max(market_share) from fact_theme_limit_heat_daily group by trade_date"
-    ),
-    "new_high_count": (
-        "select trade_date, count(*) from fact_stock_high_daily group by trade_date"
-    ),
-}
-
-
-def load_market_regime_vectors(
-    con: Any, as_of: date | str | None = None
-) -> tuple[list[dict[str, Any]], list[str]]:
-    """从只读连接拼每日情绪向量。返回 (升序向量列表, 缺失特征名列表)。
-
-    ``as_of`` 非空时只取 ``trade_date <= as_of``。这是 D10 唯一的截断点：
-    当前窗口签名、z 标准化系数、候选窗口、后续 5/10/20 日事实全部只消费本函数
-    的返回值，因此截在这里即可杜绝未来数据。辅表不必再加同一条件——辅表值按
-    日期键回查 base 行，as_of 之后的辅表行不可达。
-    """
-    base_sql = (
-        "select trade_date, total_amount, advancers, limit_up, limit_down, "
-        "sh_deviation_pct, sh_index_pct_chg "
-        "from fact_market_daily"
-    )
-    params: list[Any] = []
-    if as_of is not None:
-        base_sql += " where trade_date <= ?"
-        params.append(str(as_of))
-    base_sql += " order by trade_date asc"
-    try:
-        base = con.execute(base_sql, params).fetchall()
-    except Exception:
-        return [], list(FEATURES)
-    if not base:
-        return [], list(FEATURES)
-    missing: list[str] = []
-    aux_maps: dict[str, dict[str, float]] = {}
-    for feat, sql in _AUX_QUERIES.items():
-        try:
-            rows = con.execute(sql).fetchall()
-        except Exception:
-            missing.append(feat)
-            continue
-        aux_maps[feat] = {
-            str(r[0]): float(r[1]) for r in rows if r[1] is not None
-        }
-    vectors: list[dict[str, Any]] = []
-    for row in base:
-        day = str(row[0])
-        vec: dict[str, Any] = {
-            "trade_date": day,
-            "total_amount": row[1],
-            "advancers": row[2],
-            "limit_up": row[3],
-            "limit_down": row[4],
-            "sh_deviation_pct": row[5],
-            "sh_index_pct_chg": row[6],
-        }
-        for feat in _AUX_QUERIES:
-            vec[feat] = aux_maps.get(feat, {}).get(day) if feat in aux_maps else None
-        vectors.append(vec)
-    return vectors, missing
 
 
 def load_market_regime_artifact(
     market_db_path: str | Path | None,
     window: int = DEFAULT_WINDOW,
     as_of: date | str | None = None,
+    knowledge_cutoff: date | str | None = None,
 ) -> MarketRegimeArtifact:
+    """``knowledge_cutoff`` 缺省 = ``as_of``（站在 as_of 那天回看）；两者都空 → 不判 PIT（``pit_grade=None``，老路径）。"""
+    cutoff = knowledge_cutoff if knowledge_cutoff is not None else as_of
     db_path = (
         Path(market_db_path).expanduser() if market_db_path else DEFAULT_MARKET_DB_PATH
     )
@@ -404,7 +341,7 @@ def load_market_regime_artifact(
         )
     con = db_result.connection
     try:
-        vectors, missing = load_market_regime_vectors(con, as_of=as_of)
+        vectors, missing = load_market_regime_vectors(con, as_of=as_of, knowledge_cutoff=cutoff)
         if not vectors:
             return MarketRegimeArtifact(
                 window, {}, (), tuple(missing),
@@ -417,11 +354,20 @@ def load_market_regime_artifact(
                 window, {}, (), all_missing,
                 degrade_reason="D10 历史不足或无可比情绪窗口",
             )
+        current_pit = window_pit_grade(vectors[-window:])
+        analog_pits = [a.get("pit_grade") for a in analogs]
+        overall: str | None
+        if current_pit is None or any(p is None for p in analog_pits):
+            overall = None
+        else:
+            overall = "strict" if current_pit == "strict" and all(p == "strict" for p in analog_pits) else "trade_date_only"
         return MarketRegimeArtifact(
             window,
             _raw_window_summary(vectors[-window:]),
             tuple(analogs),
             all_missing,
+            knowledge_cutoff=(str(cutoff)[:10] if cutoff is not None else None),
+            pit_grade=overall,
         )
     except Exception:
         return MarketRegimeArtifact(
@@ -501,6 +447,12 @@ def regime_block_for_llm(
         lines.append(
             f"- 数据缺口：{labels} 维缺失（对应表无数据），匹配时已按覆盖率降权，"
             "该缺口不得由其他来源臆补。"
+        )
+    if artifact.pit_grade is not None and artifact.pit_grade != "strict":
+        # 只加一行限定语，其余文案逐字节不动（#35 刀 3）。
+        lines.append(
+            f"- PIT 档位：{artifact.pit_grade}（knowledge_cutoff={artifact.knowledge_cutoff}）——"
+            "当前窗或类比窗里有交易日在 cutoff 之后被重写过，本块可读不可进回放与方法校准。"
         )
     lines.append("")
     lines.append(

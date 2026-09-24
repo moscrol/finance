@@ -207,6 +207,12 @@ def _check_stale_mislabel(
     判定：答案在榜单/扫描类词 ±40 字内出现盘面日期或「当日/今日」，且全篇
     不含真实扫描日 → 疑似错标。列名「当日名次」豁免。观察一段在场率后再议
     是否升格进修订轮（同 KC-13 五元素 lint 的推进方式）。
+
+    管辖边界：本检查是**有真值可比**时的事实核对（块层扫描日 vs 答案写的日期）。
+    「答案断言某日是最近一个已收盘交易日、但无从核验」属另一条规则
+    `answer_claim_scope.latest_trading_day_unverified`（无真值可比的口径越界）。
+    两边都在往「日期标注正确性」长，边界由
+    `intelligence/tests/test_date_claim_jurisdiction.py` 钉住：谁越界谁红。
     """
 
     checks: list[ReviewCheck] = []

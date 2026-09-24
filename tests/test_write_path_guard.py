@@ -1,8 +1,12 @@
 """生产库写入守卫：无 --direct 必须 fail closed；有旗标必须留收据。"""
 from __future__ import annotations
 
+from pathlib import Path
+from shutil import copyfile
 from types import SimpleNamespace
 from unittest.mock import patch
+
+import pytest
 
 from market_feature_store import write_path
 from market_feature_store.cli import cmd_daily_full_exec, cmd_daily_update
@@ -117,3 +121,108 @@ def test_daily_full_exec_refuses_canonical_production_without_direct():
         rc = cmd_daily_full_exec(args)
     assert rc == 2
     full.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# QC G1（2026-09-13）：生产库身份不得随代码检出位置改变
+# ---------------------------------------------------------------------------
+
+
+def test_worktree_code_recognizes_main_tree_production(tmp_path, monkeypatch):
+    """代码在附属 worktree 跑、真库在主检出树：仍必须认出并拦下。"""
+    fake_main = tmp_path / "main-checkout"
+    prod = fake_main / "db" / "market_feature_store.duckdb"
+    prod.parent.mkdir(parents=True)
+    prod.touch()
+    monkeypatch.setattr(write_path, "_main_checkout_dir", lambda: fake_main)
+    monkeypatch.delenv("MARKET_FEATURE_STORE_PRODUCTION_DB", raising=False)
+    assert write_path.is_canonical_production(prod) is True
+    reason = write_path.production_write_blocked(False, prod)
+    assert reason is not None and "--direct" in reason
+    # staging 副本与无关路径仍不误判
+    assert write_path.is_canonical_production(
+        prod.with_name(prod.name + ".staging")
+    ) is False
+    assert write_path.is_canonical_production(tmp_path / "other.duckdb") is False
+
+
+def test_env_pin_recognizes_production_across_clones(tmp_path, monkeypatch):
+    """独立 clone 场景（git common dir 帮不到）用 env 显式钉。"""
+    prod = tmp_path / "elsewhere" / "market_feature_store.duckdb"
+    prod.parent.mkdir(parents=True)
+    prod.touch()
+    monkeypatch.setattr(write_path, "_main_checkout_dir", lambda: None)
+    monkeypatch.setenv("MARKET_FEATURE_STORE_PRODUCTION_DB", str(prod))
+    assert write_path.is_canonical_production(prod) is True
+    assert write_path.production_write_blocked(False, prod) is not None
+
+
+@pytest.mark.parametrize("alias_kind", ["hardlink", "symlink"])
+def test_production_file_alias_is_refused(tmp_path, monkeypatch, alias_kind):
+    prod = tmp_path / "production.duckdb"
+    prod.write_bytes(b"fake production sentinel")
+    alias = tmp_path / "unrelated-name.duckdb"
+    if alias_kind == "hardlink":
+        alias.hardlink_to(prod)
+        assert alias.resolve() != prod.resolve()
+    else:
+        alias.symlink_to(prod)
+    monkeypatch.setattr(
+        write_path, "canonical_production_candidates", lambda: frozenset({prod})
+    )
+    assert alias.samefile(prod)
+    assert write_path.is_canonical_production(alias) is True
+    assert write_path.production_write_blocked(False, alias) is not None
+
+
+def test_existing_copy_remains_a_non_production_target(tmp_path, monkeypatch):
+    prod = tmp_path / "production.duckdb"
+    prod.write_bytes(b"fake production sentinel")
+    staging = tmp_path / "copy.duckdb.staging"
+    copyfile(prod, staging)
+    monkeypatch.setattr(
+        write_path,
+        "canonical_production_candidates",
+        lambda: frozenset({prod, tmp_path / "missing-canonical.duckdb"}),
+    )
+    assert staging.read_bytes() == prod.read_bytes()
+    assert not staging.samefile(prod)
+    assert write_path.is_canonical_production(staging) is False
+    assert write_path.is_canonical_production(tmp_path / "new-staging.duckdb") is False
+
+
+@pytest.mark.parametrize("failure_at", ["resolve", "target-stat", "candidate-stat"])
+def test_unknown_file_identity_does_not_allow_writing(tmp_path, monkeypatch, failure_at):
+    prod = tmp_path / "production.duckdb"
+    other = tmp_path / "other.duckdb"
+    prod.touch()
+    other.touch()
+    monkeypatch.setattr(
+        write_path, "canonical_production_candidates", lambda: frozenset({prod})
+    )
+    original_stat = Path.stat
+
+    def denied_resolve(self, *args, **kwargs):
+        raise PermissionError("identity unavailable")
+
+    def guarded_stat(self, *args, **kwargs):
+        blocked = other if failure_at == "target-stat" else prod
+        if self == blocked:
+            raise PermissionError("identity unavailable")
+        return original_stat(self, *args, **kwargs)
+
+    with monkeypatch.context() as identity_failure:
+        if failure_at == "resolve":
+            identity_failure.setattr(Path, "resolve", denied_resolve)
+        else:
+            identity_failure.setattr(Path, "stat", guarded_stat)
+        with pytest.raises(PermissionError, match="identity unavailable"):
+            write_path.production_write_blocked(False, other)
+
+
+def test_candidates_degrade_to_package_relative_without_git(monkeypatch):
+    """git 解析失败 → 候选集退化但不误判非生产路径。"""
+    monkeypatch.setattr(write_path, "_main_checkout_dir", lambda: None)
+    monkeypatch.delenv("MARKET_FEATURE_STORE_PRODUCTION_DB", raising=False)
+    cands = write_path.canonical_production_candidates()
+    assert write_path.canonical_production_path() in cands

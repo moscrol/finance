@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -133,6 +134,77 @@ def cmd_sector_universe_preview(args) -> int:
     return 0
 
 
+def cmd_hithink_sector_preview(args) -> int:
+    """只读换池验算；exit 0 仅代表 calculation_ready，不授予生产发布资格。"""
+    import duckdb
+
+    from .hithink_sector_capture import CaptureNotReadyError
+    from .hithink_sector_preview import CONTRACT_VERSION, preview_sector_calculation
+
+    # 失败路径也带合同版本，下游才能对 fallback 报告做版本核对；
+    # 范围/输入指纹不补——失败时范围未验证、输入未读到，伪造指纹即冒充「验证过」。
+    report: dict[str, object] = {
+        "contract_version": CONTRACT_VERSION,
+        "trade_date": args.trade_date,
+        "member_date": args.member_date,
+        "capture_id": args.capture_id,
+        "request_complete": None,
+        "provider_completeness": "unverified",
+        "calculation_ready": False,
+        "production_ready": False,
+        "rows": [],
+        "double_red_codes": [],
+    }
+    try:
+        con = connect(read_only=True)
+        try:
+            report = preview_sector_calculation(
+                con, args.trade_date, member_date=args.member_date,
+                category=args.category, pct_basis=args.pct_basis,
+                max_member_age_days=args.max_member_age_days, capture_id=args.capture_id,
+            )
+        finally:
+            con.close()
+    except CaptureNotReadyError as exc:
+        report["request_complete"] = exc.audit["request_complete"]
+        report["capture_audit"] = exc.audit
+        report["gaps"] = [{"reason": "capture-not-ready"}]
+    except ValueError as exc:
+        report["gaps"] = [{"reason": "invalid-preview-options", "detail": str(exc)}]
+    except duckdb.Error:
+        # 不自动 init、不落 sidecar；拒绝猜测缺表/缺库意味着「今日无板块」。
+        report["gaps"] = [{"reason": "database-unavailable-or-schema-mismatch"}]
+    print(json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True, allow_nan=False))
+    return 0 if report["calculation_ready"] else 2
+
+
+def cmd_hithink_stock_preview(args) -> int:
+    """个股标准化只读预演，显式股票分母；不建库、不取 key、不写 canonical。"""
+    import duckdb
+
+    from .hithink_stock_preview import CONTRACT_VERSION, preview_stock_calculation
+
+    report = {
+        "contract_version": CONTRACT_VERSION,
+        "trade_date": args.trade_date, "stock_codes": args.stock_code,
+        "calculation_ready": False, "production_ready": False,
+        "request_complete": None, "provider_completeness": "unverified",
+        "adjustment_coverage": "unverified", "rows": [],
+    }
+    try:
+        con = connect(read_only=True)
+        try:
+            report = preview_stock_calculation(con, args.trade_date, stock_codes=args.stock_code)
+        finally:
+            con.close()
+    except ValueError as exc:
+        report["gaps"] = [{"reason": "invalid-preview-options", "detail": str(exc)}]
+    except duckdb.Error:
+        report["gaps"] = [{"reason": "database-unavailable-or-schema-mismatch"}]
+    print(json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True, allow_nan=False))
+    return 0 if report["calculation_ready"] else 2
+
+
 def cmd_sync_sectors(args) -> int:
     from .sync.sync_fupanhui_sectors import sync_dim_sector
 
@@ -229,6 +301,7 @@ def cmd_sync_index_daily(args) -> int:
         start_date=args.start_date,
         end_date=args.end_date,
         symbol=args.symbol,
+        allow_fupanhui_fallback=not args.no_fupanhui_fallback,
     )
     print(f"指数: {stats['symbol']} | 写入: {stats['rows_written']} 行")
     print(f"指数点位覆盖: {stats['close_count']} 行 ({stats['date_min']} ~ {stats['date_max']})")
@@ -399,6 +472,103 @@ def cmd_sync_mainline_daily(args) -> int:
     return 0 if s["status"] in {"complete", "degraded"} else 2
 
 
+def cmd_sync_fund_flow(args) -> int:
+    """东财主力净额补 local:stitch 行资金流 + 板块篮子聚合题材资金面板。
+
+    与其他写库命令同规: 默认拒绝直写 canonical 生产库（须 --direct 且落审计收据），
+    正常路径由 daily-full 的 staging 子进程调用——先写副本、校验后换库。
+    """
+    from datetime import datetime as _dt
+
+    from .sync.sync_eastmoney_fund_flow import sync, sync_history
+    from .write_path import write_direct_receipt
+
+    direct = bool(getattr(args, "direct", False))
+    refused = _refuse_production_write(direct)
+    if refused is not None:
+        return refused
+    started = _dt.now()
+
+    def _receipt(td: str | None, ok: bool, extra: dict | None = None) -> None:
+        if direct:
+            write_direct_receipt(trade_date=td, command="sync-fund-flow", ok=ok,
+                                 started_at=started, extra=extra)
+
+    if args.start_date and args.end_date:
+        con = connect(read_only=True)
+        try:
+            rows = con.execute(
+                "SELECT DISTINCT trade_date FROM fact_sector_stock_daily_generation "
+                "WHERE trade_date BETWEEN ? AND ? ORDER BY 1",
+                [args.start_date, args.end_date],
+            ).fetchall()
+        finally:
+            con.close()
+        dates = [str(r[0]) for r in rows]
+        if not dates:
+            print(f"{args.start_date}~{args.end_date} 无成分行, 无可回补日")
+            return 0
+        try:
+            s = sync_history(dates, concurrency=args.concurrency, limit=args.limit)
+        except Exception as exc:  # noqa: BLE001 — 失败必须留痕后再抛
+            _receipt(dates[-1], False, {"reason": f"{type(exc).__name__}: {exc}"})
+            raise
+        print(
+            f"回补 {len(s['days'])} 日 | 拉取 {s['fetched']}/{s['codes']} 只 "
+            f"fail={s['failed']} empty={s.get('empty', 0)}"
+        )
+        if s["codes"] and not s["fetched"]:
+            print("上游全部失败(0 成功), 未写入任何资金流", file=sys.stderr)
+            _receipt(dates[-1], False, {"reason": "upstream_all_failed"})
+            return 2
+        _receipt(dates[-1], True, {"days": len(s["days"]), "fetched": s["fetched"]})
+        return 0
+
+    td = args.trade_date
+    if not td:
+        con = connect(read_only=True)
+        try:
+            row = con.execute("SELECT MAX(trade_date) FROM fact_market_daily").fetchone()
+        finally:
+            con.close()
+        td = str(row[0]) if row and row[0] is not None else None
+    if not td:
+        print("无法确定交易日")
+        return 2
+    try:
+        s = sync(td, mode=args.mode, concurrency=args.concurrency, limit=args.limit)
+    except Exception as exc:  # noqa: BLE001 — 聚合等步骤抛错时也必须落失败收据
+        _receipt(td, False, {"reason": f"{type(exc).__name__}: {exc}"})
+        raise
+    if s.get("days"):
+        d = s["days"][0]
+        print(
+            f"交易日: {td} | mode={s['mode']} 填充 {d['filled_rows']} 行 "
+            f"panels={d['panels']} coverage={d['coverage']} "
+            f"5日覆盖={d.get('coverage_5d', '')} "
+            f"拉取={s['fetched']}/{s['codes']} fail={s['failed']} empty={s.get('empty', 0)}"
+        )
+        # 全部拉取失败 ≠ 无事可做: 不能让网络断伐静默成功。
+        if s["codes"] and not s["fetched"]:
+            print("上游全部失败(0 成功), 未写入任何资金流", file=sys.stderr)
+            _receipt(td, False, {"reason": "upstream_all_failed"})
+            return 2
+    else:
+        print(
+            f"交易日: {td} | mode={s['mode']} 填充 {s.get('filled_rows', 0)} 行 "
+            f"panels={s.get('panels', 0)} coverage={s.get('coverage', '')}"
+            + (f" 5日覆盖={s['coverage_5d']}" if s.get("coverage_5d") else "")
+        )
+        if s.get("written") is False:
+            # 盘中/条数不足: 已存证未写库, 必须让调用方看见并可重试, 不能算成功
+            print(f"快照不合格({s.get('archive_status')}), 未写库: {s.get('note','')}",
+                  file=sys.stderr)
+            _receipt(td, False, {"reason": f"archive_{s.get('archive_status')}"})
+            return 2
+    _receipt(td, True, {"coverage": s.get("coverage")})
+    return 0
+
+
 def cmd_sync_theme_flow_daily(args) -> int:
     from .sync.sync_fupanhui_theme_flow_daily import sync as sync_theme_flow_daily
 
@@ -411,7 +581,23 @@ def cmd_sync_theme_flow_daily(args) -> int:
             con.close()
         td = str(row[0]) if row and row[0] is not None else None
     s = sync_theme_flow_daily(td)
-    print(f"交易日: {td} | 题材资金面板: {s['panels']}")
+    print(
+        f"交易日: {td} | 题材资金面板: {s['panels']} "
+        f"source={s.get('source', '')}"
+    )
+    if s.get("fupanhui_error"):
+        print(f"复盘会面板: {s['fupanhui_error']}")
+    return 0
+
+
+def cmd_sync_polymarket_macro_odds(args) -> int:
+    from .sync.sync_polymarket_macro_odds import sync as sync_polymarket_macro_odds
+
+    s = sync_polymarket_macro_odds(args.trade_date)
+    flag = "（部分快照，上游中断）" if s.get("truncated") else ""
+    print(f"Polymarket 宏观/地缘/加密概率: {s['rows']} 行{flag}")
+    for tag, count in sorted(s["tags_hit"].items(), key=lambda x: -x[1]):
+        print(f"  {tag}: {count}")
     return 0
 
 
@@ -497,6 +683,7 @@ def cmd_stitch_sector_stocks(args) -> int:
         args.trade_date,
         fetch_caps=not args.no_caps,
         dry_run=args.dry_run,
+        include_completed=getattr(args, 'include_completed', False),
         **kwargs,
     )
     print(f"交易日: {s['trade_date']} | snapshot={s['snapshot_id'][:12]} | {s['identity']}")
@@ -512,6 +699,14 @@ def cmd_stitch_sector_stocks(args) -> int:
     if s.get("audit"):
         print(f"完成度审计: {s['audit']}")
     print(brief(s))
+    if getattr(args, "include_completed", False):
+        if args.dry_run:
+            print("刷新预览：未写入，不认证本轮刷新完成")
+        elif s.get("refresh_complete") is not True:
+            print("刷新未完成：本轮候选未全部写入、仍有待补或审计不完整；旧成功记录不能替代本轮刷新")
+            return 2
+        else:
+            print(f"刷新完成：本轮写入 {s['stitched']} 个板块，无待补且审计完整")
     return 0
 
 
@@ -687,6 +882,89 @@ def cmd_registry_check(_args) -> int:
     return 0
 
 
+def cmd_money_effect_regime(args) -> int:
+    """赚钱效应 regime（D 档、只读、不落表）：今日/昨日簇名、是否切换、四轴值 vs 冻结阈值；
+    ``--replay-since`` 出整段回放，``--cluster-labels`` 给实验目录里的簇标签 JSON 时附一致率与混淆矩阵；
+    ``--recalibration`` 只出到期检查与建议阈值（不改任何东西，换阈值是人的决定）。"""
+    from . import money_effect_regime as mer
+    from .market_regime_vectors import load_market_regime_vectors
+
+    con = connect(read_only=True)
+    try:
+        vectors, missing = load_market_regime_vectors(con, as_of=args.as_of)
+    finally:
+        con.close()
+    if not vectors:
+        print("fact_market_daily 无数据或不可读", file=sys.stderr)
+        return 2
+
+    if args.recalibration:
+        days = mer.available_days(vectors)
+        report = mer.recalibration_report(mer.trailing_windows(days))
+        if args.json:
+            print(json.dumps(report, ensure_ascii=False, indent=2))
+            return 0
+        print(f"阈值校准日 {report['calibrated_on']}（样本 {mer.CALIBRATION_SAMPLE}）；"
+              f"此后新增 {report['windows_since_calibration']} 个窗口 / 到期线 {report['due_after_windows']} → "
+              + ("**已到期，建议重校准**" if report["due"] else "未到期"))
+        if report["proposed_thresholds"]:
+            print(f"  若现在按同一组分位在全样本（{report['sample_windows']} 窗口）重取：")
+            for key, d in report["proposed_thresholds"].items():
+                print(f"    {key}: 冻结 {d['frozen']:,.0f} → 建议 {d['proposed']:,.0f}（{d['delta_pct']:+.1f}%）")
+            print("  换阈值要连同新校准日一起改源码与 registry decisions——本命令只报不改。")
+        else:
+            print(f"  样本 {report['sample_windows']} 个窗口 < {mer.CALIBRATION_MIN_WINDOWS}，拒绝在短样本上重校准。")
+        return 0
+
+    if args.replay_since:
+        labels = None
+        if args.cluster_labels:
+            labels = json.loads(Path(args.cluster_labels).expanduser().read_text(encoding="utf-8"))
+        series = mer.compute_regime_series(vectors)
+        result = mer.replay(series, labels, since=args.replay_since)
+        if args.json:
+            payload = dict(result)
+            payload["series"] = [rd.to_dict() for rd in series if rd.regime is not None and rd.trade_date >= args.replay_since]
+            print(json.dumps(payload, ensure_ascii=False, indent=2))
+            return 0
+        print(f"赚钱效应回放 since {args.replay_since}：{result['windows']} 个窗口 "
+              f"{result['first_date']} ~ {result['last_date']}")
+        print(f"  切换：去抖前 {result['raw_switches']} 次，{mer.DEBOUNCE_DAYS} 日去抖后 {result['switches']} 次"
+              f"（≈ 每 {result['windows_per_switch']} 个窗口一次，同簇连续中位 {result['median_run']:.0f}）")
+        print("  簇分布：" + "，".join(f"{k} {v}" for k, v in result["regime_counts"].items()))
+        cmp = result.get("cluster_comparison")
+        if cmp:
+            print(f"  与簇标签配对 {cmp['paired_windows']} 个窗口：一致率 去抖前 {cmp['agreement_raw']:.1%}，"
+                  f"去抖后 {cmp['agreement_debounced']:.1%}")
+            print("  混淆（行=簇标签，列=规则去抖前）：")
+            for c, row in cmp["confusion_cluster_rows_rule_cols"].items():
+                print(f"    {c}: " + "，".join(f"{r} {n}" for r, n in row.items()))
+        print("  最近 10 个窗口（原始 / 去抖）：")
+        for rd in [x for x in series if x.regime is not None][-10:]:
+            flag = " ⚠切换" if rd.switched else ""
+            print(f"    {rd.trade_date}: {rd.raw_regime} / {rd.regime}{flag}")
+        return 0
+
+    state = mer.regime_state_from_vectors(vectors, missing)
+    if args.json:
+        print(json.dumps(state.to_dict(), ensure_ascii=False, indent=2))
+        return 0 if state.available else 2
+    if not state.available:
+        print(mer.one_line(state))
+        return 2
+    headline = mer.switch_headline(state)
+    if headline:
+        print(headline)
+    print(mer.one_line(state))
+    assert state.today is not None
+    print(f"  窗口 {state.today.window_dates[0]} ~ {state.today.window_dates[-1]}；昨日簇 {state.today.prev_regime or '-'}；"
+          f"原始规则标签 {state.today.raw_regime}")
+    for row in mer.axis_rows(state.today):
+        print("  " + " | ".join(row))
+    print("  " + mer.forward_facts_text(state.today.regime, state.forward_facts))
+    return 0
+
+
 def cmd_sync_limit_advance_feishu(_args) -> int:
     from .sync.sync_feishu_limit_advance import sync_limit_advance
 
@@ -742,21 +1020,29 @@ def cmd_sync_limit_advance_range(args) -> int:
 
 
 def cmd_sync_stock_daily(args) -> int:
+    from .mootdx_source import MootdxSourceUnavailable
     from .sync.sync_mootdx_stock_daily import sync_fact_stock_daily
 
-    stats = sync_fact_stock_daily(
-        start_date=args.start_date,
-        offset=args.offset,
-        limit=args.limit,
-        only_missing=not args.refresh,
-        sleep=args.sleep,
-        qfq=args.qfq,
-        timeout=args.timeout,
-        progress_every=args.progress_every,
-        end_date=args.end_date,
-        ohlc_only=args.ohlc_only,
-        skip=args.skip,
-    )
+    try:
+        stats = sync_fact_stock_daily(
+            start_date=args.start_date,
+            offset=args.offset,
+            limit=args.limit,
+            only_missing=not args.refresh,
+            sleep=args.sleep,
+            qfq=args.qfq,
+            timeout=args.timeout,
+            progress_every=args.progress_every,
+            end_date=args.end_date,
+            ohlc_only=args.ohlc_only,
+            skip=args.skip,
+        )
+    except MootdxSourceUnavailable as exc:
+        # 源不可用必须退非零码: 以前无论写了多少行都 return 0,
+        # 夜跑编排看不到红灯, 断供两周无人发现。
+        print(f"源不可用, 未写入(或已部分写入后中止): {exc}")
+        print(f"诊断: {json.dumps(exc.health.as_dict(), ensure_ascii=False)}")
+        return 2
     mode = " | 模式: 只补 OHLC" if args.ohlc_only else ""
     print(f"起始日: {stats['start_date']}{' ~ ' + args.end_date if args.end_date else ''} | 全A股池: {stats['universe']}{mode}")
     print(f"本次抓取: {stats['processed']} 只 | 写入行: {stats['rows_written']}")
@@ -765,6 +1051,7 @@ def cmd_sync_stock_daily(args) -> int:
           f"{stats['distinct_dates']} 交易日 ({stats['date_min']}~{stats['date_max']})")
     if stats["failures"]:
         print(f"失败 {len(stats['failures'])}: " + ", ".join(c for c, _ in stats['failures'][:10]))
+        print(f"失败分类: {stats['failure_kinds']}")
     return 0
 
 
@@ -785,19 +1072,250 @@ def cmd_fill_stock_daily_fallback(args) -> int:
         print(f"提示: {stats['note']}")
     return 0 if stats["stock_rows"] else 1
 def cmd_sync_stock_daily_snapshot(args) -> int:
-    from .sync.sync_eastmoney_stock_snapshot import sync_fact_stock_daily_snapshot
+    from .sync import sync_eastmoney_stock_snapshot as eastmoney_snapshot
 
-    stats = sync_fact_stock_daily_snapshot(
-        trade_date=args.trade_date,
-        page_size=args.page_size,
-        allow_misdated=args.allow_misdated,
-    )
+    eastmoney_snapshot.reset_transport_request_counts()
+    try:
+        stats = eastmoney_snapshot.sync_fact_stock_daily_snapshot(
+            trade_date=args.trade_date,
+            page_size=args.page_size,
+            allow_misdated=args.allow_misdated,
+        )
+    except Exception:
+        # 失败也保留本次传输尝试数；不计熔断跳过，含连接阶段失败。
+        print(
+            "东财请求计数: "
+            + json.dumps(eastmoney_snapshot.transport_request_counts(), ensure_ascii=False, sort_keys=True),
+            file=sys.stderr,
+            flush=True,
+        )
+        raise
     print(f"交易日: {stats['trade_date']} | 快照实际日期: {stats['snapshot_trade_date']} | 来源: {stats['source']}")
     print(f"快照拉取: {stats['fetched']} 行 | 写入: {stats['rows_written']} | 跳过: {stats['skipped']}")
     print(f"当日入库: {stats['day_rows']} 股")
     print(f"fact_stock_daily: {stats['table_total']} 行, {stats['distinct_stocks']} 股, "
           f"{stats['distinct_dates']} 交易日 ({stats['date_min']}~{stats['date_max']})")
+    print(
+        "东财请求计数: "
+        + json.dumps(stats["transport_requests"], ensure_ascii=False, sort_keys=True)
+        + f" | total={stats['transport_request_total']}"
+    )
     return 0
+
+
+def cmd_sync_hithink_stock_daily(args) -> int:
+    from .sync.sync_hithink_stock_daily import sync_hithink_stock_daily
+
+    mode = "full" if args.full else "incremental"
+    stats = sync_hithink_stock_daily(
+        mode=mode,
+        parquet=args.parquet,
+        adjustments_parquet=args.adjustments_parquet,
+        skip_adjustments=args.skip_adjustments,
+        compare_days=args.compare_days,
+    )
+    daily = stats["daily"]
+    print(
+        f"mode={stats['mode']} source={stats['source']} "
+        f"rows={daily['rows']} codes={daily['codes']} "
+        f"dates={daily['date_min']}~{daily['date_max']} "
+        f"ohlc_nulls={daily['ohlc_nulls']}"
+    )
+    adj = stats.get("adjustments")
+    if adj:
+        print(
+            f"adjustments source=hithink:adjustment-factors "
+            f"rows={adj['rows']} codes={adj['codes']} "
+            f"dates={adj['date_min']}~{adj['date_max']}"
+        )
+    if stats.get("sidecar"):
+        print("wrote sidecar (production db locked)")
+    compare = stats.get("compare")
+    if compare and compare.get("rate") is not None:
+        print(
+            f"close_match {compare['matched']}/{compare['compared']} "
+            f"rate={compare['rate']:.6f} "
+            f"old_only={compare['old_only']} new_only={compare['new_only']} "
+            f"days={compare['days']}"
+        )
+    print(f"fingerprint={stats['fingerprint']}")
+    return 0
+
+
+def cmd_sync_hithink_sector_kline(args) -> int:
+    from datetime import date as _date
+
+    from .sync.sync_hithink_sector_kline import sync_hithink_sector_kline
+
+    mode = "full" if args.full else "incremental"
+    end = _date.fromisoformat(args.end_date) if args.end_date else None
+    stats = sync_hithink_sector_kline(
+        mode=mode,
+        skip_constituents=args.skip_constituents,
+        resume=args.resume,
+        limit=args.limit,
+        end_date=end,
+        compare=args.compare,
+        mapping_path=args.mapping,
+    )
+    k = stats["kline"]
+    print(
+        f"mode={stats['mode']} window_days={stats['window_days']} "
+        f"dim={stats['dim_rows']} "
+        f"kline_rows={k['rows']} codes={k['codes']} "
+        f"dates={k['date_min']}~{k['date_max']} "
+        f"ohlc_nulls={k['ohlc_nulls']} empty_codes={stats['empty_codes']}"
+    )
+    print(f"constituent_rows={stats['constituent_rows']}")
+    old = stats["old_ti"]
+    print(
+        f"old_ti {old['covered']}/{old['old_ti']} "
+        f"through_as_of={old['through_as_of']}"
+    )
+    bc = stats["bc_battery"]
+    print(
+        f"886053.TI rows={bc['rows']} dates={bc['min']}~{bc['max']} "
+        f"starts_on_publish={bc['starts_on_publish']}"
+    )
+    pct = stats.get("pct_compare")
+    if pct and pct.get("rate") is not None:
+        print(
+            f"pct_match {pct['matched']}/{pct['compared']} "
+            f"rate={pct['rate']:.6f} "
+            f"median_rel_diff={pct['median_rel_diff']}"
+        )
+    fp_map = stats.get("fp_map")
+    if fp_map:
+        print(
+            f"fp_map matched={fp_map['matched']} gaps={fp_map['gaps']} "
+            f"ti_name_diff={fp_map['ti_name_diff']}"
+        )
+    if stats.get("sidecar"):
+        print("wrote sidecar (production db locked)")
+    print(f"fingerprint={stats['fingerprint']}")
+    audit = stats["capture_audit"]
+    print(
+        f"capture_id={audit['capture_id']} status={audit['status']} scope={audit['scope']} "
+        f"request_complete={str(audit['request_complete']).lower()} "
+        f"provider_completeness={audit['provider_completeness']}"
+    )
+    return 0 if audit["request_complete"] else 2
+
+
+def cmd_sync_hithink_limit_pools(args) -> int:
+    from datetime import date as _date
+
+    from .sync.sync_hithink_limit_pools import sync_hithink_limit_pools
+
+    mode = "full" if args.full else "incremental"
+    start = _date.fromisoformat(args.start) if args.start else None
+    end = _date.fromisoformat(args.end_date) if args.end_date else None
+    stats = sync_hithink_limit_pools(
+        mode=mode,
+        start=start,
+        end_date=end,
+        resume=args.resume,
+        compare=args.compare,
+    )
+    print(
+        f"mode={stats['mode']} rows={stats['rows_written']} "
+        f"empty_days={stats['empty_days']} requests={stats['requests']}"
+    )
+    for pool, info in (stats.get("pools") or {}).items():
+        print(
+            f"{pool} rows={info['rows']} days={info['days']} "
+            f"dates={info['date_min']}~{info['date_max']}"
+        )
+    yearly = stats.get("yearly_up") or {}
+    if yearly:
+        parts = " ".join(f"{year}={count}" for year, count in sorted(yearly.items()))
+        print(f"yearly_up {parts}")
+    count = stats.get("count_compare")
+    if count and count.get("rate") is not None:
+        print(
+            f"limit_up_count {count['matched']}/{count['compared']} "
+            f"rate={count['rate']:.6f} "
+            f"median_abs_diff={count['median_abs_diff']} "
+            f"min_diff={count['min_diff']} max_diff={count['max_diff']}"
+        )
+    boards = stats.get("boards_compare")
+    if boards and boards.get("rate") is not None:
+        print(
+            f"boards {boards['matched']}/{boards['compared']} "
+            f"rate={boards['rate']:.6f} days={boards['days']}"
+        )
+    if stats.get("sidecar"):
+        print("wrote sidecar (production db locked)")
+    print(f"fingerprint={stats['fingerprint']}")
+    return 0
+
+
+def cmd_sync_hithink_dragon_auction(args) -> int:
+    from datetime import date as _date
+
+    from .sync.sync_hithink_dragon_auction import sync_hithink_dragon_auction
+
+    mode = "full" if args.full else "incremental"
+    end = _date.fromisoformat(args.end_date) if args.end_date else None
+    stats = sync_hithink_dragon_auction(
+        mode=mode,
+        end_date=end,
+        resume=args.resume,
+        compare=args.compare,
+        skip_auction_snapshot=args.skip_auction_snapshot,
+    )
+    written = stats.get("rows_written") or {}
+    print(
+        f"mode={stats['mode']} "
+        f"dragon={written.get('dragon')} hot_money={written.get('hot_money')} "
+        f"hot_rank={written.get('hot_rank')} "
+        f"benchmark={written.get('benchmark')} snapshot={written.get('snapshot')} "
+        f"empty_days={stats['empty_days']} requests={stats['requests']}"
+    )
+    for name, info in (stats.get("tables") or {}).items():
+        print(
+            f"{name} rows={info['rows']} days={info['days']} "
+            f"dates={info['date_min']}~{info['date_max']}"
+        )
+    net = stats.get("net_compare")
+    if net and net.get("rate") is not None:
+        print(
+            f"net {net['matched']}/{net['compared']} rate={net['rate']:.6f} "
+            f"unit={net['unit']}"
+        )
+    groups = stats.get("hot_money_compare")
+    if groups and groups.get("rate") is not None:
+        print(
+            f"hot_money_groups {groups['matched']}/{groups['compared']} "
+            f"rate={groups['rate']:.6f} median_abs_diff={groups['median_abs_diff']}"
+        )
+    if stats.get("sidecar"):
+        print("wrote sidecar (production db locked)")
+    print(f"fingerprint={stats['fingerprint']}")
+    return 0
+
+
+def cmd_sync_hithink_research(args) -> int:
+    from datetime import date as _date
+
+    from .sync.sync_hithink_research import (
+        PARTIAL_EXIT_CODE,
+        HithinkResearchError,
+        sync_hithink_research,
+    )
+
+    try:
+        stats = sync_hithink_research(
+            end_date=_date.fromisoformat(args.end_date) if args.end_date else None,
+            codes=args.thscodes.split(",") if args.thscodes is not None else None,
+            lookback_days=args.lookback_days,
+            history_only=args.history_only,
+        )
+    except (HithinkResearchError, ValueError) as exc:
+        print(f"hithink-research: {exc}")
+        return 2
+    print(json.dumps(stats, ensure_ascii=False))
+    return PARTIAL_EXIT_CODE if stats.get("status") == "partial" else 0
 
 
 def _daily_preflight_or_exit() -> int | None:
@@ -840,9 +1358,7 @@ def cmd_daily_update(args) -> int:
         return refused
     result = run_daily_update(
         trade_date=args.trade_date,
-        chart_table=args.chart_table,
         skip_long=args.skip_long,
-        with_chart=not args.no_chart,
         stock_source=args.stock_source,
     )
     if getattr(args, "direct", False):
@@ -910,7 +1426,6 @@ def cmd_daily_full(args) -> int:
         return blocked
     result = run_daily_full_staged(
         trade_date=args.trade_date,
-        chart_table=args.chart_table,
         skip_long=args.skip_long,
         stock_source=args.stock_source,
     )
@@ -919,6 +1434,112 @@ def cmd_daily_full(args) -> int:
     else:
         print(f"全流程状态: BLOCKED | 生产库未动 | {result['reason']}")
     return result["rc"]
+
+
+def cmd_repair_stock_daily_hithink(args) -> int:
+    """同花顺 dump 修复 canonical 个股日行情单日 (审查见仓外 db-repair/hithink-20260911)。
+
+    父进程走 run_daily_full_staged 编排 (克隆→子进程→校验→第三方写者守卫→
+    换名前备份→收据→原子换名), 不跑 daily 管道预检 (修复只读本地 parquet, 不需要 CDP)。
+    子进程一次完成主表修复 + 受影响派生表重算 (QC S2: technical + window,
+    新增票历史缺口置缺并声明), 与主表修复同一次原子换库交付。
+    换名前备份是 QC S4 执行前提: 带 sha256 指纹与恢复步骤, 不换名不备份。
+    --child 是 staging 子进程模式: 写 MARKET_FEATURE_STORE_DB (或 --db) 指向的
+    副本, 直写 canonical 生产库被 write_path 闸门拦死 (检出位置无关, QC G1)。
+    """
+    from .sync.repair_hithink_stock_day import (
+        SPEC_20260911,
+        RepairRefused,
+        run_repair,
+    )
+    from .sync.sync_daily_full import run_daily_full_staged
+
+    specs = {s.trade_date.isoformat(): s for s in (SPEC_20260911,)}
+    spec = specs.get(args.trade_date)
+    if spec is None:
+        print(f"没有 {args.trade_date} 的 RepairSpec——每个修复日一份名单断言, 拒跑")
+        return 2
+    parquet = Path(args.parquet)
+    if not parquet.exists():
+        print(f"parquet 不存在: {parquet}")
+        return 2
+
+    if args.child:
+        # 目标解析与 run_repair 同一顺序: --db > MARKET_FEATURE_STORE_DB > 包默认。
+        # 状态文件缺省落在 "<目标库>.status.json"——正是编排层读的那个路径。
+        env_db = os.environ.get("MARKET_FEATURE_STORE_DB")
+        target = Path(args.db or env_db) if (args.db or env_db) else None
+        refused = _refuse_production_write_direct(target)
+        if refused is not None:
+            return refused
+        status_json = (
+            Path(args.status_json)
+            if args.status_json
+            else (Path(str(target) + ".status.json") if target else None)
+        )
+        try:
+            report = run_repair(
+                spec,
+                parquet,
+                db_path=target,
+                status_json=status_json,
+                report_path=Path(args.report_path) if args.report_path else None,
+                with_derived=True,
+            )
+        except RepairRefused as exc:
+            print(f"修复断言不通过, 未写入: {exc}")
+            return 2
+        derived_note = ""
+        if report.get("derived"):
+            derived_note = (
+                f", 派生重算 {report['derived']['recomputed_tables']}"
+                f", 新增票置缺 {sorted(report['derived']['new_codes_unavailable'])}"
+            )
+        print(
+            f"修复完成: {report['trade_date']} "
+            f"写 {report['evidence']['counts']['written_rows']} 行 "
+            f"(保留 {len(report['post']['kept_rows_identical'])}), "
+            f"当日共 {report['post']['final_rows']} 行, 其他日期指纹不变"
+            f"{derived_note}"
+        )
+        return 0
+
+    child_argv = [
+        sys.executable, "-m", "market_feature_store.cli",
+        "repair-stock-daily-hithink", "--child",
+        "--trade-date", args.trade_date,
+        "--parquet", str(parquet),
+    ]
+    if args.report_path:
+        child_argv += ["--report-path", args.report_path]
+    result = run_daily_full_staged(
+        trade_date=args.trade_date,
+        child_argv=child_argv,
+        kind="repair-stock-daily-hithink",
+        pre_swap_backup=True,
+    )
+    if result["swapped"]:
+        print(f"修复状态: {'OK' if result['rc'] == 0 else 'CHECK'} | 已原子换库")
+        if result.get("backup"):
+            print(
+                f"换库前备份: {result['backup']['backup_path']} "
+                f"(sha256={result['backup']['backup_sha256'][:16]}…, "
+                "恢复步骤见同级 .receipt.json)"
+            )
+    else:
+        print(f"修复状态: BLOCKED | 生产库未动 | {result['reason']}")
+    return result["rc"]
+
+
+def _refuse_production_write_direct(target) -> int | None:
+    """修复子进程没有 --direct 逃生舱: 目标是 canonical 生产库就拒。"""
+    from .write_path import production_write_blocked
+
+    reason = production_write_blocked(False, target)
+    if reason is None:
+        return None
+    print(reason)
+    return 2
 
 
 def cmd_daily_full_exec(args) -> int:
@@ -934,7 +1555,6 @@ def cmd_daily_full_exec(args) -> int:
         return refused
     result = run_daily_full(
         trade_date=args.trade_date,
-        chart_table=args.chart_table,
         skip_long=args.skip_long,
         stock_source=args.stock_source,
     )
@@ -957,6 +1577,7 @@ def cmd_daily_full_exec(args) -> int:
     _write_status_json(args.status_json, {
         "trade_date": str(result["trade_date"]),
         "ok": bool(result["ok"]),
+        "run_id": os.environ.get("MARKET_FEATURE_STORE_RUN_ID"),
         "validation_ok": bool(result["update"]["validation"]["ok"]),
         "cross_day_ok": bool(cross_day["ok"]),
         "sector_gate_ok": bool(result["sector_gate"]["ok"]),
@@ -986,12 +1607,6 @@ def cmd_interval_gainers(args) -> int:
     res = interval_gainers(args.start, args.end, top=args.top, min_amount=args.min_amount)
     _print_interval_stock_rank(res, args.top, "区间涨幅排行", "interval_gain")
     return 0
-
-
-def _fmt_num(value, digits=2):
-    if value is None:
-        return "-"
-    return f"{float(value):.{digits}f}"
 
 
 def _short_text(value, max_len=18):
@@ -1046,7 +1661,7 @@ def cmd_check_daily(args) -> int:
     from .quality import check_daily
 
     res = check_daily(trade_date=args.trade_date, window=args.window, plan=args.plan)
-    print(f"跨日质检 @{res['trade_date']} (日历窗口={args.window}" + (f", plan={args.plan}" if args.plan else "") + ")")
+    print(f"跨日质检 @{res['trade_date']} (日历窗口={args.window}, plan={res.get('plan')})")
     for g in res["gaps"]:
         print(f"  [\u65ad\u6863] {g['table']}: {', '.join(g['missing_dates'])}" + (f" ({g['note']})" if g.get("note") else ""))
     for a in res["row_anomalies"]:
@@ -1066,7 +1681,14 @@ def cmd_sector_stocks(args) -> int:
     from .query import sector_stocks
 
     res = sector_stocks(args.sector, trade_date=args.trade_date, top=args.top, order_by=args.order_by)
+    resolution = res.get("resolution") or {}
+    resolved = resolution.get("resolved_sector_ts_code")
     print(f"{res['sector']} 成分股 @{res['trade_date']} (按{args.order_by}排序, Top{args.top})")
+    if resolved and resolved != res["sector"]:
+        print(f"  解析: {res['sector']} -> {resolved} (按 {resolution.get('matched_by')} 命中)")
+    if resolution.get("ambiguous"):
+        others = [c for c in resolution.get("codes", []) if c != resolved]
+        print(f"  ⚠ 同名歧义: 还有 {', '.join(others)} 也叫这个名, 本次只取 {resolved}")
     for s in res["stocks"]:
         print(f"  {s['stock_name']:<8} {s['stock_ts_code']:<11} 涨{s['pct_chg']} 额{s['amount']}亿 "
               f"5日{s['pct_chg_5d']} {s['sw_industry']} 资金1d{s['fund_flow_1d']}")
@@ -1085,6 +1707,102 @@ def cmd_stock_sectors(args) -> int:
     if not res["sectors"]:
         print("  (无数据, 检查个股名/代码或先同步该日成分股)")
     return 0
+
+
+def cmd_sector_alias(args) -> int:
+    """板块维度一致化: plan 只读预览 / apply 写映射 / resolve 排查解析结果。"""
+    from . import sector_alias
+
+    action = args.action
+    if action == "plan":
+        con = connect(read_only=True)
+        try:
+            summary = sector_alias.plan_provider_migration(con).summary()
+        finally:
+            con.close()
+        if args.json:
+            print(json.dumps(summary, ensure_ascii=False, indent=2))
+            return 0
+        print(f"退役码→现行码 同名唯一匹配: {summary['mapped']} 条可写")
+        print(f"无同名现行码 (待人工): {summary['unmapped']} 条")
+        for line in summary["unmapped_codes"]:
+            print(f"    - {line}")
+        print(f"同名多个现行码 (歧义, 不写): {summary['ambiguous']} 条")
+        for line in summary["ambiguous_codes"]:
+            print(f"    - {line}")
+        return 0
+
+    if action == "resolve":
+        if not args.sector:
+            print("resolve 需要给板块名或码")
+            return 2
+        con = connect(read_only=True)
+        try:
+            res = sector_alias.resolve_sector_codes(con, args.sector)
+            payload = res.to_dict()
+            if args.trade_date and res.codes:
+                payload["picked_for_date"] = sector_alias.pick_code_with_rows(
+                    con, "fact_sector_daily", args.trade_date, res.codes
+                )
+        finally:
+            con.close()
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+        return 0
+
+    if action == "apply":
+        if args.staged:
+            result = sector_alias.apply_provider_migration_staged()
+            print(json.dumps(result, ensure_ascii=False, indent=2, default=str))
+            return 0 if result.get("swapped") else 2
+        refused = _refuse_production_write(bool(args.direct))
+        if refused is not None:
+            print("  或者加 --staged: 克隆到 staging 应用后原子换名, 不占生产库写锁。")
+            return refused
+        con = connect()
+        try:
+            result = sector_alias.apply_provider_migration(
+                con, plan_name="direct-prod" if args.direct else "direct"
+            )
+        finally:
+            con.close()
+        if args.direct:
+            from .write_path import write_direct_receipt
+
+            receipt = write_direct_receipt(
+                trade_date=None, command="sector-alias apply --direct", ok=True,
+                extra={"written": result["written"]},
+            )
+            print(f"direct 收据: {receipt}")
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        return 0
+
+    print(f"未知动作: {action}")
+    return 2
+
+
+def cmd_maintenance(args) -> int:
+    """库级维护: 成分股表空壳行清除 (装 CHECK) + 整库压缩; 默认只读 dry-run。"""
+    from . import maintenance
+
+    if not args.staged:
+        report = maintenance.dry_run_report()
+        shell = report["shell"]
+        f = report["file"]
+        print(f"目标库: {report['target']}")
+        print(f"  {shell['table']}: 共 {shell['rows_total']:,} 行, 空壳 {shell['rows_shell']:,} 行 "
+              f"({100.0 * shell['rows_shell'] / max(shell['rows_total'], 1):.1f}%), 保留 {shell['rows_keep']:,}")
+        for item in shell["shell_by_source"]:
+            print(f"    - source={item['source']}: {item['rows']:,} 行 {item['first']}~{item['last']}")
+        print(f"  CHECK(至少一个行情值) 已装: {'是' if shell['has_quote_check'] else '否'}")
+        print(f"  文件 {f['bytes'] / 1e9:.2f} GB, 在用 {f['used_bytes'] / 1e9:.2f} GB, 空闲块 {f['free_bytes'] / 1e9:.2f} GB")
+        print(f"  对象: 表 {report['shape']['tables']} / 视图 {report['shape']['views']} / "
+              f"索引 {report['shape']['indexes']} / 约束 {report['shape']['constraints']}")
+        print("  (这是 dry-run; 加 --staged 才会克隆→重建→压缩→换名)")
+        return 0
+
+    result = maintenance.run_maintenance_staged(purge=not args.no_purge, compact=not args.no_compact)
+    print(json.dumps(result, ensure_ascii=False, indent=2, default=str))
+    return 0 if result.get("swapped") else 2
 
 
 def _fmt_num(value, digits=2):
@@ -1277,11 +1995,99 @@ def cmd_strong_subtheme_trace(args) -> int:
 def cmd_top_sectors(args) -> int:
     from .query import top_sectors
 
-    res = top_sectors(trade_date=args.trade_date, top=args.top, order_by=args.order_by)
-    print(f"板块排行 @{res['trade_date']} (按{res['order_by']}排序, Top{args.top})")
+    res = top_sectors(trade_date=args.trade_date, top=args.top, order_by=args.order_by,
+                      min_amount=args.min_amount, min_pct_chg=args.min_pct_chg,
+                      min_diff_ratio=args.min_diff_ratio)
+    note = ""
+    if res.get("filters"):
+        note = " 筛选 " + " ".join(f"{k.removeprefix('min_')}>={v}" for k, v in res["filters"].items())
+    print(f"板块排行 @{res['trade_date']} (按{res['order_by']}排序, Top{args.top}){note}")
     for s in res["sectors"]:
         print(f"  {s['sector_name']:<12} ({s['sw_l1']}) 涨{s['pct_chg']} 边际{s['diff_ratio']} 额{s['amount']}亿")
     return 0
+
+
+def cmd_stock_technicals(args) -> int:
+    """个股技术位：均线、UP 线、回踩状态。原飞书三件套（watchlist-ma /
+    top-gainers-feishu / up-line）的本地统一入口。"""
+    import json as _json
+
+    from .query import SCREENS, screen_stock_technicals
+    from .watchlist import load_watchlist, list_watchlists
+
+    terms: list[str] = list(args.codes or [])
+    if args.watchlist:
+        loaded = load_watchlist(args.watchlist)
+        if not loaded:
+            available = list_watchlists()
+            print(f"清单 {args.watchlist!r} 为空或不存在", file=sys.stderr)
+            print(f"已有清单: {', '.join(available) if available else '（无）'}", file=sys.stderr)
+            return 1
+        terms.extend(loaded)
+    if not terms:
+        print("请用 --codes 或 --watchlist 指定股票", file=sys.stderr)
+        return 1
+
+    res = screen_stock_technicals(terms, screen=args.screen, as_of=args.as_of)
+    if args.json:
+        print(_json.dumps(res, ensure_ascii=False, indent=2))
+        return 0
+
+    shown = res.get("matched") if args.screen else res["rows"]
+    label = f"（{SCREENS[args.screen][1]}）" if args.screen else ""
+    date_note = f"截至 {res['as_of']}" if res.get("as_of") else "最新交易日"
+    print(f"个股技术位 @{res.get('data_date') or '-'}  {date_note}{label}")
+    print(f"  {'股票':<10} {'现价':>9} {'MA5':>9} {'MA10':>9} {'MA20':>9} "
+          f"{'UP':>9} {'偏离%':>8}  状态")
+    for r in shown or []:
+        marks = []
+        if r.get("pullback_ma10_ma20"):
+            marks.append("中期回踩")
+        if r.get("pullback_ma5_ma10"):
+            marks.append("短线回踩")
+        if r.get("above_up"):
+            marks.append("UP上方")
+        print(f"  {str(r.get('stock_name') or r['term']):<10} "
+              f"{_fmt_num(r.get('close')):>9} {_fmt_num(r.get('ma5')):>9} "
+              f"{_fmt_num(r.get('ma10')):>9} {_fmt_num(r.get('ma20')):>9} "
+              f"{_fmt_num(r.get('up_value')):>9} {_fmt_num(r.get('up_deviation_pct')):>8}  "
+              f"{'/'.join(marks) or '-'}")
+    if args.screen:
+        print(f"  命中 {len(shown)}/{len(res['rows'])} 只")
+    if res["missing"]:
+        print(f"  缺数据: {', '.join(res['missing'])}", file=sys.stderr)
+    return 0
+
+
+def cmd_watchlist(args) -> int:
+    from .watchlist import list_watchlists, load_watchlist, save_watchlist, watchlist_path
+
+    if args.action == "show":
+        items = load_watchlist(args.name)
+        if not items:
+            print(f"清单 {args.name!r} 为空或不存在（{watchlist_path(args.name)}）")
+            return 1
+        print(f"{args.name}（{len(items)} 只）: {watchlist_path(args.name)}")
+        for item in items:
+            print(f"  {item}")
+        return 0
+    if args.action == "list":
+        names = list_watchlists()
+        print("\n".join(names) if names else "（还没有任何清单）")
+        return 0
+    if args.action in {"add", "remove"}:
+        if not args.items:
+            print("请给出要增删的股票", file=sys.stderr)
+            return 1
+        items = load_watchlist(args.name)
+        if args.action == "add":
+            items.extend(i for i in args.items if i not in items)
+        else:
+            items = [i for i in items if i not in set(args.items)]
+        path = save_watchlist(items, args.name)
+        print(f"{args.name} 现有 {len(items)} 只 -> {path}")
+        return 0
+    return 1
 
 
 def cmd_info(_args) -> int:
@@ -1319,6 +2125,40 @@ def build_parser() -> argparse.ArgumentParser:
         "--trade-date", default=None, help="目标交易日 YYYY-MM-DD, 留空取最新已发布代际"
     )
     p_preview.set_defaults(func=cmd_sector_universe_preview)
+
+    from .hithink_sector_preview import CATALOG_TAGS, PCT_BASES
+
+    p_ht_preview = sub.add_parser(
+        "hithink-sector-preview",
+        help="只读验算同花顺名单的成交额/边际量/双红，不外呼、不写库、不代表生产就绪",
+    )
+    p_ht_preview.add_argument("--trade-date", required=True, help="目标交易日 YYYY-MM-DD")
+    p_ht_preview.add_argument("--member-date", required=True, help="真实名单采集日 YYYY-MM-DD")
+    p_ht_preview.add_argument("--category", required=True, choices=CATALOG_TAGS)
+    p_ht_preview.add_argument(
+        "--capture-id", default=None,
+        help="显式选不可覆盖的目录/成员采集批；缺批/不完整拒绝，不回退最新名单",
+    )
+    p_ht_preview.add_argument(
+        "--pct-basis", required=True, choices=PCT_BASES,
+        help="member_equal_weight=成员等权；index_close_return=官方指数收盘收益，不相互兜底",
+    )
+    p_ht_preview.add_argument(
+        "--max-member-age-days", type=int, default=0,
+        help="允许的名单/目录最大年龄（自然日），默认只认当日；承接旧名单必须显式给值",
+    )
+    p_ht_preview.set_defaults(func=cmd_hithink_sector_preview)
+
+    p_ht_stock = sub.add_parser(
+        "hithink-stock-preview",
+        help="只读预演同花顺个股元/股换算和参考涨幅；不是日更或生产发布器",
+    )
+    p_ht_stock.add_argument("--trade-date", required=True, help="目标交易日 YYYY-MM-DD")
+    p_ht_stock.add_argument(
+        "--stock-code", required=True, action="append",
+        help="显式待验 A 股代码，可重复传不同股票；缺行情不缩小分母",
+    )
+    p_ht_stock.set_defaults(func=cmd_hithink_stock_preview)
 
     p_sectors = sub.add_parser("sync-sectors", help="同步复盘会板块清单到 dim_sector")
     p_sectors.add_argument("--trade-date", default=None, help="交易日期 YYYY-MM-DD, 留空取最新")
@@ -1371,6 +2211,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_idx.add_argument("--start-date", default=None, help="起始日期 YYYY-MM-DD")
     p_idx.add_argument("--end-date", default=None, help="结束日期 YYYY-MM-DD；留空取 fact_market_daily 最新日")
     p_idx.add_argument("--symbol", default="sh000001", help="AkShare 指数代码, 默认 sh000001")
+    p_idx.add_argument("--no-fupanhui-fallback", action="store_true", help="主源失败时拒绝请求复盘会（local 计划必带）")
     p_idx.set_defaults(func=cmd_sync_index_daily)
 
     p_sw = sub.add_parser("sync-sw-l1-daily", help="同步申万一级行业指数涨跌幅与复盘会成交占比")
@@ -1443,7 +2284,6 @@ def build_parser() -> argparse.ArgumentParser:
     p_lar.add_argument("--sleep", type=float, default=0.2, help="日期间隔秒数, 默认0.2")
     p_lar.set_defaults(func=cmd_sync_limit_advance_range)
 
-    sub.add_parser("sync-limit-advance-feishu", help="同步飞书连板晋级表到 fact_limit_advance_presence").set_defaults(func=cmd_sync_limit_advance_feishu)
 
     p_ml = sub.add_parser("sync-mainline-daily", help="同步复盘会主线题材+主线个股到 fact_mainline_theme_daily / fact_mainline_stock_daily")
     p_ml.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD, 留空取 fact_market_daily 最新日")
@@ -1452,6 +2292,27 @@ def build_parser() -> argparse.ArgumentParser:
     p_tf = sub.add_parser("sync-theme-flow-daily", help="同步复盘会题材资金面板到 fact_theme_flow_daily")
     p_tf.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD, 留空取 fact_market_daily 最新日")
     p_tf.set_defaults(func=cmd_sync_theme_flow_daily)
+
+    p_pm = sub.add_parser("sync-polymarket-macro-odds", help="同步 Polymarket 宏观/地缘/加密类市场概率到 fact_polymarket_macro_odds_daily")
+    p_pm.add_argument("--trade-date", default=None, help="快照标注日 YYYY-MM-DD, 留空取今天（该接口本身只有当前快照，无历史参数）")
+    p_pm.set_defaults(func=cmd_sync_polymarket_macro_odds)
+    p_ff = sub.add_parser(
+        "sync-fund-flow",
+        help="东财主力净额补 local:stitch 成分行 fund_flow_1d/5d, 并按板块篮子聚合 fact_theme_flow_daily",
+    )
+    p_ff.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD, 留空取 fact_market_daily 最新日")
+    p_ff.add_argument("--mode", choices=("auto", "snapshot", "history"), default="auto",
+                      help="auto=当天盘后走快照, 历史日走逐股 daykline 回补")
+    p_ff.add_argument("--start-date", default=None, help="范围回补起始日 (与 --end-date 同用)")
+    p_ff.add_argument("--end-date", default=None, help="范围回补结束日")
+    p_ff.add_argument("--concurrency", type=int, default=4, help="history 模式并发, 默认4")
+    p_ff.add_argument("--limit", type=int, default=None, help="只拉前 N 只 (调试/试跑)")
+    p_ff.add_argument(
+        "--direct",
+        action="store_true",
+        help="允许直写 canonical 生产库（默认拒绝）。会写 ops_sync_run / state/direct-write-*.json",
+    )
+    p_ff.set_defaults(func=cmd_sync_fund_flow)
 
     p_pa = sub.add_parser(
         "sync-fupanhui-public-assets",
@@ -1486,6 +2347,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_st.add_argument("--trade-date", required=True, help="交易日 YYYY-MM-DD（需已 sync-sectors 且 stock-daily 为东财源）")
     p_st.add_argument("--no-caps", action="store_true", help="不拉腾讯市值现值，按基线缩放")
     p_st.add_argument("--dry-run", action="store_true", help="只算不写")
+    p_st.add_argument("--include-completed", action="store_true",
+                      help="底行情修正后重建已完成板块；恢复任务仅在 staging 中使用")
     p_st.add_argument("--max-baseline-age-days", type=int, default=None,
                       help="identity 基线最多多旧（日历日），默认 10；名单冻结（fupanhui 停抓）时放宽到 120+")
     p_st.set_defaults(func=cmd_stitch_sector_stocks)
@@ -1586,6 +2449,19 @@ def build_parser() -> argparse.ArgumentParser:
         help="校验 consumption_registry.yaml：档位合法、表在 schema、计划步骤有归属",
     ).set_defaults(func=cmd_registry_check)
 
+    p_mer = sub.add_parser(
+        "money-effect-regime",
+        help="赚钱效应 regime（D 档只读、不落表）：今日/昨日簇名、是否切换、四轴 vs 分位阈值；--replay-since 出回放",
+    )
+    p_mer.add_argument("--as-of", default=None, help="截止交易日 YYYY-MM-DD（默认库内最新日）")
+    p_mer.add_argument("--json", action="store_true", help="输出 JSON")
+    p_mer.add_argument("--replay-since", default=None, metavar="YYYY-MM-DD", help="输出该日起的整段回放统计")
+    p_mer.add_argument("--recalibration", action="store_true",
+                       help="只出阈值重校准到期检查与建议值（不改任何东西）")
+    p_mer.add_argument("--cluster-labels", default=None, metavar="PATH",
+                       help="实验目录里的簇标签 JSON（{trade_date: 簇名}），配合 --replay-since 出一致率与混淆矩阵")
+    p_mer.set_defaults(func=cmd_money_effect_regime)
+
     p_skd = sub.add_parser("sync-stock-daily", help="mootdx 全A股日线回补到 fact_stock_daily (历史日的日期参数化源; 含 open/high/low/volume)")
     p_skd.add_argument("--start-date", default=None, help="起始交易日 YYYY-MM-DD, 留空对齐 fact_market_daily 最早日")
     p_skd.add_argument("--end-date", default=None, help="截止交易日(含); 与 --start-date 相同即只重写单日, 如东财快照写坏的那天")
@@ -1614,11 +2490,98 @@ def build_parser() -> argparse.ArgumentParser:
                             "补历史日请用 sync-stock-daily (mootdx), 07-20/08-06 两次事故都是这里写坏的")
     p_sks.set_defaults(func=cmd_sync_stock_daily_snapshot)
 
+    p_htk = sub.add_parser(
+        "sync-hithink-stock-daily",
+        help="同花顺官方 dump 写入 fact_stock_daily_hithink（并跑，不改旧表）",
+    )
+    mode = p_htk.add_mutually_exclusive_group(required=True)
+    mode.add_argument("--full", action="store_true", help="十年 daily-k dump")
+    mode.add_argument("--incremental", action="store_true", help="近 10 日 daily-k-10d")
+    p_htk.add_argument("--parquet", default=None, help="本地日 K parquet；有则不签 URL")
+    p_htk.add_argument(
+        "--adjustments-parquet",
+        default=None,
+        help="本地复权事件 parquet；有则不签 URL",
+    )
+    p_htk.add_argument(
+        "--skip-adjustments",
+        action="store_true",
+        help="只写日 K，不拉复权事件",
+    )
+    p_htk.add_argument(
+        "--compare-days",
+        type=int,
+        default=0,
+        help="与 fact_stock_daily 最近 N 个交易日逐只 close 比；0=不比",
+    )
+    p_htk.set_defaults(func=cmd_sync_hithink_stock_daily)
+
+    p_htb = sub.add_parser(
+        "sync-hithink-sector-kline",
+        help="同花顺官方板块/指数日 K 写入 fact_sector_kline_daily（并跑，不改旧表）",
+    )
+    mode_b = p_htb.add_mutually_exclusive_group(required=True)
+    mode_b.add_argument("--full", action="store_true", help="约三年窗口（<1500 天）")
+    mode_b.add_argument("--incremental", action="store_true", help="近 5 天窗口")
+    p_htb.add_argument("--resume", action="store_true", help="跳过已有当日行的代码")
+    p_htb.add_argument("--skip-constituents", action="store_true", help="不拉当前成分")
+    p_htb.add_argument("--limit", type=int, default=None, help="最多拉多少个码（续跑/自测）")
+    p_htb.add_argument("--end-date", default=None, help="窗口末日 YYYY-MM-DD，默认今天")
+    p_htb.add_argument("--compare", action="store_true", help="与 fact_sector_daily.pct_chg 对数 + 写映射")
+    p_htb.add_argument(
+        "--mapping",
+        default=None,
+        help="``.FP`` 名字对照表输出路径（需同时 --compare）",
+    )
+    p_htb.set_defaults(func=cmd_sync_hithink_sector_kline)
+
+    p_htc = sub.add_parser(
+        "sync-hithink-limit-pools",
+        help="同花顺官方涨停/跌停/炸板池写入 fact_limit_pool_hithink（并跑，不改旧表）",
+    )
+    mode_c = p_htc.add_mutually_exclusive_group(required=True)
+    mode_c.add_argument("--full", action="store_true", help="涨停 2020 起，跌停/炸板近一年")
+    mode_c.add_argument("--incremental", action="store_true", help="近 3 个交易日三池")
+    p_htc.add_argument("--start", default=None, help="涨停起始日 YYYY-MM-DD，默认 2020-01-01")
+    p_htc.add_argument("--end-date", default=None, help="窗口末日 YYYY-MM-DD，默认今天")
+    p_htc.add_argument("--resume", action="store_true", help="跳过该池已有行的日期")
+    p_htc.add_argument(
+        "--compare",
+        action="store_true",
+        help="与 fact_market_daily.limit_up / fact_limit_advance_daily.boards 对数",
+    )
+    p_htc.set_defaults(func=cmd_sync_hithink_limit_pools)
+
+    p_htd = sub.add_parser(
+        "sync-hithink-dragon-auction",
+        help="同花顺龙虎榜/热榜/竞价写入并跑表（不改旧表）",
+    )
+    mode_d = p_htd.add_mutually_exclusive_group(required=True)
+    mode_d.add_argument("--full", action="store_true", help="龙虎/热榜一年，风向标 2026-01 起")
+    mode_d.add_argument("--incremental", action="store_true", help="近 3 个交易日 + 当日竞价终态")
+    p_htd.add_argument("--end-date", default=None, help="窗口末日 YYYY-MM-DD，默认今天")
+    p_htd.add_argument("--resume", action="store_true", help="跳过该表已有行的日期")
+    p_htd.add_argument("--compare", action="store_true", help="与旧龙虎榜净额 / 游资组数对数")
+    p_htd.add_argument(
+        "--skip-auction-snapshot",
+        action="store_true",
+        help="不拉竞价终态（全市场约 56 次）",
+    )
+    p_htd.set_defaults(func=cmd_sync_hithink_dragon_auction)
+
+    p_htr = sub.add_parser(
+        "sync-hithink-research",
+        help="同花顺异动、热度轨迹、估值观察值；仅 staging/隔离库，非历史估值回填",
+    )
+    p_htr.add_argument("--end-date", default=None, help="自然日窗口末日，默认上海今天")
+    p_htr.add_argument("--thscodes", default=None, help="显式代码，逗号分隔；默认目标日热榜前30")
+    p_htr.add_argument("--lookback-days", type=int, default=30, help="热度自然日窗口，1..365")
+    p_htr.add_argument("--history-only", action="store_true", help="只取可回溯的热度，不取最新快照")
+    p_htr.set_defaults(func=cmd_sync_hithink_research)
+
     p_du = sub.add_parser("daily-update", help="一键日更同步+补字段+质检")
     p_du.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD, 留空取最新")
-    p_du.add_argument("--chart-table", default=None, help="涨家数走势飞书表 table_id, 可选")
     p_du.add_argument("--skip-long", action="store_true", help="跳过板块成分股和全A日线等长任务")
-    p_du.add_argument("--no-chart", action="store_true", help="不生成/同步涨家数 MA5 图")
     p_du.add_argument("--stock-source", choices=["snapshot", "mootdx"], default="snapshot",
                       help="全A日线取数: snapshot=东财快照(默认,快); mootdx=通达信逐只(慢,可拉历史)")
     p_du.add_argument("--status-json", default=None, help="写出结构化执行状态，供上层编排判断 PASS/WARN/FAIL")
@@ -1638,7 +2601,6 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_df = sub.add_parser("daily-full", help="一键日更后生成完整每日复盘 (staging 写+原子换库, 生产库无写锁)")
     p_df.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD, 留空取最新")
-    p_df.add_argument("--chart-table", default=None, help="涨家数走势飞书表 table_id, 可选")
     p_df.add_argument("--skip-long", action="store_true", help="跳过板块成分股和全A日线等长任务")
     p_df.add_argument("--stock-source", choices=["snapshot", "mootdx"], default="snapshot",
                       help="全A日线取数: snapshot=东财快照(默认,快); mootdx=通达信逐只(慢,可拉历史)")
@@ -1647,7 +2609,6 @@ def build_parser() -> argparse.ArgumentParser:
     p_dfe = sub.add_parser("daily-full-exec",
                            help="(内部) daily-full 的 staging 子进程入口, 勿直接使用")
     p_dfe.add_argument("--trade-date", default=None)
-    p_dfe.add_argument("--chart-table", default=None)
     p_dfe.add_argument("--skip-long", action="store_true")
     p_dfe.add_argument("--stock-source", choices=["snapshot", "mootdx"], default="snapshot")
     p_dfe.add_argument("--status-json", default=None,
@@ -1659,13 +2620,31 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_dfe.set_defaults(func=cmd_daily_full_exec)
 
+    p_rsd = sub.add_parser(
+        "repair-stock-daily-hithink",
+        help="(修复) 用同花顺 dump 重建 canonical 个股日行情单日 (staging 写+原子换库)",
+    )
+    p_rsd.add_argument("--trade-date", required=True, help="修复日 YYYY-MM-DD, 须有对应 RepairSpec")
+    p_rsd.add_argument("--parquet", required=True, help="同花顺 daily-k dump parquet 路径")
+    p_rsd.add_argument("--report-path", default=None,
+                       help="修复报告 JSON 落盘路径 (写前写后逐字段 diff + 指纹证据)")
+    p_rsd.add_argument("--child", action="store_true",
+                       help="(内部) staging 子进程模式, 勿直接使用")
+    p_rsd.add_argument("--status-json", default=None, help="(内部) 子进程结构化结果落盘")
+    p_rsd.add_argument("--db", default=None,
+                       help="(内部/干跑) 子进程显式目标库; 缺省读 MARKET_FEATURE_STORE_DB")
+    p_rsd.set_defaults(func=cmd_repair_stock_daily_hithink)
+
     sub.add_parser("check", help="数据体检 (行数/交易日/空值/覆盖度)").set_defaults(func=cmd_check)
 
     p_cd = sub.add_parser("check-daily", help="跨日质检 (历史断档/行数异常/值域越界); rc=2 表示未通过")
     p_cd.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD, 留空取最新")
     p_cd.add_argument("--window", type=int, default=20, help="交易日历窗口, 默认20")
     p_cd.add_argument("--json", default=None, help="质检报告 JSON 落盘路径, 可选")
-    p_cd.add_argument("--plan", default=None, help="计划档位 full/cheap/local；local 按 registry 裁剪期望表（自算链路不产 fupanhui 独有表）")
+    from .consumption_registry import PLAN_CHOICES
+
+    p_cd.add_argument("--plan", choices=PLAN_CHOICES, default=None,
+                      help="计划档位 full/cheap/local/auto；默认 REVIEW_SYNC_PLAN 或 full；auto 按交易日解析")
     p_cd.set_defaults(func=cmd_check_daily)
 
     p_wg = sub.add_parser("weighted-gainers", help="区间加权涨幅排行 (本地计算)")
@@ -1694,6 +2673,31 @@ def build_parser() -> argparse.ArgumentParser:
     p_q2.add_argument("stock", help="个股代码或名称, 如 300620.SZ 或 寒武纪")
     p_q2.add_argument("--trade-date", default=None, help="交易日, 留空取最新")
     p_q2.set_defaults(func=cmd_stock_sectors)
+
+    p_sa = sub.add_parser(
+        "sector-alias",
+        help="板块维度一致化: 退役码(.TI)→现行码(.FP) 映射的预览/写入, 及名/码解析排查",
+    )
+    p_sa.add_argument("action", choices=["plan", "apply", "resolve"],
+                      help="plan=只读预览映射; apply=写 config_sector_alias(+建视图); resolve=看某名/码怎么解析")
+    p_sa.add_argument("sector", nargs="?", default=None, help="resolve 用: 板块名或码")
+    p_sa.add_argument("--trade-date", default=None, help="resolve 用: 看该日会落到哪个码")
+    p_sa.add_argument("--json", action="store_true", help="plan 输出 JSON")
+    p_sa.add_argument("--staged", action="store_true",
+                      help="apply 用: 克隆生产库到 staging 应用后原子换名 (生产库正门)")
+    p_sa.add_argument("--direct", action="store_true",
+                      help="apply 用: 急救直写生产库 (短暂持写锁, 落 direct 收据)")
+    p_sa.set_defaults(func=cmd_sector_alias)
+
+    p_mt = sub.add_parser(
+        "maintenance",
+        help="库级维护: 成分股表空壳行清除(装 CHECK) + 整库压缩; 默认 dry-run, --staged 才动库",
+    )
+    p_mt.add_argument("--staged", action="store_true",
+                      help="克隆生产库到 staging → 重建+压缩 → 校验 → 原子换名 (唯一会改库的模式)")
+    p_mt.add_argument("--no-purge", action="store_true", help="跳过空壳行清除/CHECK 重建, 只压缩")
+    p_mt.add_argument("--no-compact", action="store_true", help="跳过压缩, 只重建")
+    p_mt.set_defaults(func=cmd_maintenance)
 
     p_qh = sub.add_parser("query-stock-high", help="按一级行业回溯查询某日新高个股")
     p_qh.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD, 留空取最新")
@@ -1747,10 +2751,31 @@ def build_parser() -> argparse.ArgumentParser:
     p_trace.add_argument("--top", type=int, default=50, help="每类最多展示 N 条, 默认50")
     p_trace.set_defaults(func=cmd_strong_subtheme_trace)
 
+    p_st = sub.add_parser("stock-technicals",
+                          help="个股技术位: 均线/UP线/回踩筛选 (本地计算, 支持 --as-of 回溯)")
+    p_st.add_argument("--codes", nargs="*", default=None, help="股票代码或名称, 可混写")
+    p_st.add_argument("--watchlist", default=None, help="本地清单名, 如 default")
+    p_st.add_argument("--screen", default=None,
+                      choices=["pullback", "short-pullback", "above-up"],
+                      help="筛选口径: pullback=MA20<价<MA10, short-pullback=MA10<价<MA5, above-up=站上UP线")
+    p_st.add_argument("--as-of", default=None,
+                      help="截止交易日, 留空取库尾; 回答历史某天的问题必须传")
+    p_st.add_argument("--json", action="store_true", help="输出 JSON")
+    p_st.set_defaults(func=cmd_stock_technicals)
+
+    p_wl = sub.add_parser("watchlist", help="本地自选股清单: show/list/add/remove")
+    p_wl.add_argument("action", choices=["show", "list", "add", "remove"])
+    p_wl.add_argument("items", nargs="*", help="add/remove 时的股票代码或名称")
+    p_wl.add_argument("--name", default="default", help="清单名, 默认 default")
+    p_wl.set_defaults(func=cmd_watchlist)
+
     p_q3 = sub.add_parser("top-sectors", help="板块排行: 按边际量/涨幅/成交额")
     p_q3.add_argument("--trade-date", default=None, help="交易日, 留空取最新")
     p_q3.add_argument("--top", type=int, default=20, help="返回前 N 个, 默认20")
     p_q3.add_argument("--order-by", default="diff_ratio", help="排序字段: diff_ratio/pct_chg/amount")
+    p_q3.add_argument("--min-amount", type=float, default=None, help="成交额下限(亿), 量价齐升口径常用 500")
+    p_q3.add_argument("--min-pct-chg", type=float, default=None, help="涨幅下限(%%), 量价齐升口径常用 0")
+    p_q3.add_argument("--min-diff-ratio", type=float, default=None, help="边际量下限(%%), 量价齐升口径常用 10")
     p_q3.set_defaults(func=cmd_top_sectors)
 
     return parser

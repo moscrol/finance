@@ -6,11 +6,19 @@ gitea/main 上 `daily-full` 已走 staging 换名；剩下的逃生舱是
 
 本模块只回答两件事：这是不是 canonical 生产库？有没有 --direct？
 提醒写在 skill 里拦不住人，必须在副作用前 fail closed。
+
+2026-09-13 加固（QC G1）：生产库身份不得随代码检出位置改变。旧实现
+用包所在目录推导 canonical 路径——从独立 worktree 跑代码时，主检出树
+里的真生产库被误判成普通副本，--child --db <真库> 能直达写入函数
+（替换写入函数探针实证，未写生产）。现在 canonical 身份取候选集：
+包相对路径 ∪ 主检出树路径（git common dir 解析，worktree 共享同一
+.git）∕ env 显式钉（MARKET_FEATURE_STORE_PRODUCTION_DB）。
 """
 from __future__ import annotations
 
 import json
 import os
+import subprocess
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -45,13 +53,66 @@ def canonical_production_path() -> Path:
     return (PROJECT_DIR / "db" / CANONICAL_DB_NAME).resolve()
 
 
-def is_canonical_production(path: Path | str | None = None) -> bool:
-    """目标是否为仓内那份生产库（不是 .staging、不是测试库、不是 env 另指）。"""
-    target = Path(path) if path is not None else DB_PATH
+def _main_checkout_dir() -> Path | None:
+    """本 clone 家族的主检出树：worktree 共享同一个 git common dir。
+
+    生产库住在主检出树的 db/ 下（AGENTS.md 数据契约），而代码可以在任何
+    附属 worktree 里跑。`git rev-parse --git-common-dir` 从任何 worktree
+    都解析回主树的 .git，dirname 即主树根——生产库身份由此与检出位置
+    脱钩。解析失败（非 git 环境 / 无 git）返回 None，候选集退化为
+    包相对路径 ∪ env 钉，不会让非生产路径被误判成生产。
+    """
     try:
-        return target.expanduser().resolve() == canonical_production_path()
-    except OSError:
+        out = subprocess.run(
+            ["git", "rev-parse", "--path-format=absolute", "--git-common-dir"],
+            cwd=str(PROJECT_DIR),
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+    except (subprocess.CalledProcessError, FileNotFoundError, OSError):
+        return None
+    if not out:
+        return None
+    return Path(out).resolve().parent
+
+
+def canonical_production_candidates() -> frozenset[Path]:
+    """canonical 生产库的全部候选绝对路径（检出位置无关）。
+
+    - 包相对路径：代码就在主检出树里跑时的常态。
+    - 主检出树路径：代码在附属 worktree 里跑时，真生产库仍被认出（G1）。
+    - MARKET_FEATURE_STORE_PRODUCTION_DB：跨 clone（独立克隆跑代码写主仓
+      库）时的显式钉；调用期读 env，不做 import 期捕获。
+    """
+    candidates = {canonical_production_path()}
+    main = _main_checkout_dir()
+    if main is not None:
+        candidates.add((main / "db" / CANONICAL_DB_NAME).resolve())
+    pinned = os.environ.get("MARKET_FEATURE_STORE_PRODUCTION_DB")
+    if pinned:
+        candidates.add(Path(pinned).expanduser().resolve())
+    return frozenset(candidates)
+
+
+def is_canonical_production(path: Path | str | None = None) -> bool:
+    """目标是否为 canonical 生产库（不是 .staging、不是测试库、不是克隆）。"""
+    target = (Path(path) if path is not None else DB_PATH).expanduser().resolve()
+    candidates = canonical_production_candidates()
+    if target in candidates:
+        return True
+    try:
+        target_stat = target.stat()
+    except FileNotFoundError:
         return False
+    # Hard links have different resolved paths but share the production file.
+    for candidate in candidates:
+        try:
+            if os.path.samestat(target_stat, candidate.stat()):
+                return True
+        except FileNotFoundError:
+            continue
+    return False
 
 
 def production_write_blocked(direct: bool, path: Path | str | None = None) -> str | None:

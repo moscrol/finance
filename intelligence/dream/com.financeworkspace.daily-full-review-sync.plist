@@ -20,9 +20,15 @@
   <key>EnvironmentVariables</key>
   <dict>
     <key>FINANCE_CODE_ROOT</key>
-    <string>/Users/a77/finance-workspace-runtime</string>
+    <string>/Users/a77/.finance-runtime/finance-sync-2edbe4c46595</string>
     <key>FINANCE_DATA_ROOT</key>
     <string>/Users/a77/finance-workspace-private</string>
+    <!-- sync 使用已合 main 的完整固定检出，不跟随 8792 软链或共享数据树。
+         旧 finance-workspace-sync 的 local 禁复盘会补丁与此提交逐字一致；旧树及产物保留。
+         升级另建版本目录，不在现用目录 checkout/reset，不把运行产物当代码提交。
+         S7 staging 包装及其 FINANCE_S7_ROOT 此次不变，生产采集另行验收。 -->
+    <key>FINANCE_SYNC_CODE_ROOT</key>
+    <string>/Users/a77/.finance-runtime/finance-sync-2edbe4c46595</string>
     <key>FINANCE_WS</key>
     <string>/Users/a77/finance-workspace-private</string>
     <key>FINANCE_PYTHON</key>
@@ -37,10 +43,17 @@
     <string>36</string>
     <key>REVIEW_GATE_LOCK_DELAY_SECONDS</key>
     <string>10</string>
-    <!-- 分档同步（2026-09-04 切档）：auto = 周五 full、其余交易日 cheap；
-         run_review_sync.py 读此变量，未设则 full。改档只改这里，装机副本由安装脚本生成。 -->
+    <!-- 分档同步。run_review_sync.py 与 check_daily_review_data.py 都读此变量，
+         未设则 full。改档只改这里，装机副本由安装脚本生成。
+         2026-09-04 切 auto（周五 full、其余 cheap）。
+         2026-09-12 固定 local：local 是零复盘会请求的本地计划，16 步用 *-local 替身
+         覆盖标签需要的全部七张表。选它不是因为登录坏了——历史上出现过 403 次板块
+         请求 29 秒内发出、随后匿名与登录请求同样 429，所以恢复登录既不解决抓取量
+         也不保证解除风控。复盘会恢复后作少量对照源，不作日更主源。
+         注意 auto 的隐患：非周五 = cheap，cheap 仍要 fupanhui 登录态，登录一旦失效
+         周一就 rc=3 停在 preflight。 -->
     <key>REVIEW_SYNC_PLAN</key>
-    <string>auto</string>
+    <string>local</string>
   </dict>
   <key>RunAtLoad</key>
   <false/>

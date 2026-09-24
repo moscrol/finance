@@ -1,0 +1,17 @@
+
+> market-intelligence-workbench@0.1.0 build /Users/a77/.finance-runtime/kb-dual-index-20260918/gate-99fb9304/finance-workspace-private/intelligence/webapp
+> pnpm typecheck && vite build
+
+
+> market-intelligence-workbench@0.1.0 typecheck /Users/a77/.finance-runtime/kb-dual-index-20260918/gate-99fb9304/finance-workspace-private/intelligence/webapp
+> tsc --noEmit -p tsconfig.app.json --pretty false && tsc --noEmit -p tsconfig.node.json --pretty false
+
+vite v6.3.5 building for production...
+transforming...
+✓ 1615 modules transformed.
+rendering chunks...
+computing gzip size...
+../api/static/index.html                   0.47 kB │ gzip:   0.31 kB
+../api/static/assets/index-D80DtDZY.css   76.92 kB │ gzip:  15.10 kB
+../api/static/assets/index-DH207EFA.js   411.27 kB │ gzip: 126.23 kB
+✓ built in 687ms

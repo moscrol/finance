@@ -231,6 +231,15 @@ Episode 臂：   kb_search✗ → financial_data✓ → l3_lookup✗ → evidenc
 > 4 条 issue 全是**降级标注**（`decision=demoted_to_issue` 那一类，V8 语义降级已把「必需槽内的语义拒句」改成只记 issue），
 > 见 `docs/verification/2026-09-03-web-chain-two-arm-live.md` §3。所以第 2 步要数的是两个数：`deleted` 里有出处的占比（判据是否过严），
 > 以及 `demoted` 里低档来源的条数（标注是否被展示层吃掉——§3.3 那条「前提是展示层真的把标注展示出来」）。
+>
+> **状态（2026-09-21）**：第 2 步量了（`docs/verification/2026-09-21-judge-verdict-census-pre-reason-codes.md`，生产 113 个带字段 run）：
+> `deleted` 有出处占比 10.5%，但 4 条全是 preflight 数值闸，judge 阶段有出处被删 **0 条**；「引了 E 且被拒」39 条全部 demoted，
+> 来源档 L4_structured 25 条，判官原话里 7 条写明「数字本身有证据、不是拒绝原因」。量出来的结论是**判据不该按来源档或引用与否改**——
+> 判官拒绝理由异质，要按理由分流。落地：判官报告加可选 `reason_codes`（`answer_model.JUDGE_REASON_CODES` 四码），`_plan_repair_indexes`
+> 按码路由——`fact_beyond_evidence` 删、`unsupported_ranking` 改写矩阵「优先级」格为「N（研判）」、`internal_process_leak` 改写措辞、
+> 其余与无码走原槽位规则；账本新增 `decision=rewritten` / `judge_reason_code` / `rewritten_to`，读侧 census 加 `judge_stage.coded_share`。
+> 「标注写进正文」第一处真落地是矩阵行的「（研判）」；展示层的句级标注仍只在 issues。判官侧另加 `ranking_contract` 送判块，
+> 让检查方知道「优先级」列是契约要求的研判（生产方与检查方的缝，不是删句判据的问题）。
 
 ### 3.4 P3：沙箱按 `derived_calculation` 落地
 

@@ -1,0 +1,10 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_________ test_close_drains_inflight_delivery_before_releasing_writer __________
+intelligence/tests/test_episode_writer.py:239: in test_close_drains_inflight_delivery_before_releasing_writer
+    with pytest.raises(FutureTimeout):
+E   Failed: DID NOT RAISE <class 'TimeoutError'>
+- generated xml file: /Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/mutations/inbox_suspend_does_not_drain_delivery-red.xml -
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_episode_writer.py::test_close_drains_inflight_delivery_before_releasing_writer
+1 failed, 22 deselected in 4.19s

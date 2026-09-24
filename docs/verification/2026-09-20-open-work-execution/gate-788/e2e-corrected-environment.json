@@ -1,0 +1,6 @@
+{
+  "exit_code": 0,
+  "elapsed_seconds": 77.48,
+  "revision": "becb68c0dd3105abbbcc1f92a917dbde224de24b",
+  "environment_fix": "RE06_E2E_URL now matches RE06_E2E_PORT; test code unchanged; original failure retained"
+}

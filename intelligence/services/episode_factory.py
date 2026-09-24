@@ -36,7 +36,9 @@ from intelligence.services.research_contract import (
 from intelligence.services.research_tool_registry import (
     DEFAULT_RESEARCH_CAPABILITIES,
 )
+from intelligence.services.material_permissions import restrict_read_capabilities
 from intelligence.services.task_frame import TaskFrame, task_frame_requires_retrieval
+from intelligence.services.premise_financial_calculation import calculation_for_frame
 from intelligence.services.user_task import (
     MaterialRef,
     MethodCandidate,
@@ -94,6 +96,7 @@ _OUTPUT_DESCRIPTIONS: dict[str, str] = {
     "financial_assessment": "公司财务表现的直接判断",
     "metric_evidence": "支撑财务判断的指标证据",
     "comparison_dimensions": "列出比较维度与各自的观察口径",
+    "comparison_assumptions": "列出待验证的类比假设，并明确哪些只是解释而非已验证规律",
     "key_differences": "说明候选之间的关键差异",
     "transmission_chain": "说明情景向结果的传导链",
     "direct_explanation": "解释所问方法或概念的要点",
@@ -344,8 +347,77 @@ def _references_prior_judgement(frame: TaskFrame) -> bool:
     return bool(detect_stance_kinds(frame.raw_question))
 
 
+def _has_owned_premise_calculation(frame: TaskFrame) -> bool:
+    """Only the finite static-PE contract may open the evidence-free lane."""
+
+    return calculation_for_frame(frame) is not None
+
+
+_COMPARISON_ANALOG_OUTPUT_IDS: tuple[str, ...] = (
+    "comparison_dimensions",
+    "comparison_assumptions",
+    "analog_similarities",
+    "key_differences",
+    "limits_of_analogy",
+    "counterpoint",
+    "evidence_boundary",
+)
+# 兑不出的白名单比没有白名单更坏：漏掉一个算子，模型做对了也交不出去。
+# 参数只能是引擎声明的那六个（tests/test_history_operation_eligibility.py 盯漂移）。
+_ALL_HISTORY_OPERATIONS = (
+    "inspect_history",
+    "compute_history",
+    "find_analogues",
+    "compare_cases",
+    "trace_history",
+    "rank_history",
+)
+# 作用域仍然有效：哪个提问靠哪种观察支撑。只在题目真的需要时放行
+# 同窗排名（rank_history）与启动到峰值路径（trace_history）。
+_COMPARISON_ANALOG_HISTORY_OPERATIONS: dict[str, tuple[str, ...]] = {
+    "direct_assessment": (
+        "compare_cases",
+        "find_analogues",
+        "rank_history",
+        "trace_history",
+    ),
+    "comparison_dimensions": (
+        "inspect_history",
+        "compute_history",
+        "compare_cases",
+        "rank_history",
+        "trace_history",
+    ),
+    # 相似点必须来自真做过的类比检索，不得用排名或路径冗代。
+    "analog_similarities": ("find_analogues",),
+    "key_differences": (
+        "find_analogues",
+        "compare_cases",
+        "rank_history",
+        "trace_history",
+    ),
+    "limits_of_analogy": (
+        "find_analogues",
+        "compare_cases",
+        "rank_history",
+        "trace_history",
+    ),
+    "counterpoint": (
+        "find_analogues",
+        "compare_cases",
+        "rank_history",
+        "trace_history",
+    ),
+    "evidence_boundary": _ALL_HISTORY_OPERATIONS,
+}
+
+
 def _required_output_ids(frame: TaskFrame) -> tuple[str, ...]:
+    if _has_owned_premise_calculation(frame):
+        return ("direct_answer", "evidence_boundary")
     outputs = frame.required_outputs
+    if frame.question_type == "comparison_analog":
+        outputs = tuple(dict.fromkeys((*outputs, *_COMPARISON_ANALOG_OUTPUT_IDS)))
     if frame.question_type == "valuation_estimate":
         outputs = tuple(dict.fromkeys((*outputs, *_VALUATION_REQUIRED_OUTPUTS)))
     from intelligence.services.research_contract import compile_research_program
@@ -447,28 +519,24 @@ def _with_residual_prime(
 def _required_output_evidence_types(
     output_id: str,
     capabilities: tuple[str, ...],
+    *,
+    history_comparison: bool = False,
 ) -> tuple[str, ...]:
+    if history_comparison and output_id in _COMPARISON_ANALOG_HISTORY_OPERATIONS:
+        return (
+            ("history_query", "read_history_result")
+            if "finance_query" in capabilities
+            else ()
+        )
+    if output_id == "comparison_assumptions":
+        return ()
     if output_id in {"prior_recall", "prime_memory"}:
-        # 这一格只有 memory_lookup 的产出能填：它装的是用户自己的历史判断，
-        # 市场侧工具（kb_search / graph_lookup / news_search ...）返回的都是
-        # 当前世界事实，格式与 grounding_mode=user_premise 不兼容。
-        #
-        # 为什么收窄而不是加强提示词：上一轮决证（run_20260808_102708）里
-        # prior_recall 槽位、memory_lookup 授权、"必须优先调用"的提示词三样
-        # 都在，模型仍在第一轮把 7 次工具预算全投给市场侧检索。原因是这格的
-        # evidence_types 是全量能力列表——模型从契约里读不出"哪个工具能填它"，
-        # 而其余三格都是 evidence，市场侧工具对它们的贡献是确定的。
-        #
-        # 收窄后契约自身就携带了工具→槽位的映射，模型靠自主推理即可选中
-        # memory_lookup，不需要任何强制调用顺序。这保住了 agentic RAG：
-        # 其余槽位的 evidence_types 不变，市场侧工具照常参与竞争。
         return tuple(
-            capability for capability in ("memory_lookup",)
-            if capability in capabilities
+            capability for capability in ("memory_lookup",) if capability in capabilities
         )
     if output_id == "prime_quote":
         return tuple(
-            capability for capability in ("market_data",)
+            capability for capability in ("market_data", "finance_query")
             if capability in capabilities
         )
     if output_id == "prime_news":
@@ -506,18 +574,43 @@ def _required_output_evidence_types(
     return capabilities
 
 
+def _material_restricted(contract: object | None) -> bool:
+    """material_only OR a contract still awaiting clarification.
+
+    Unconfirmed axes are None and must never execute as full (A13): when the
+    interview budget is spent with the scope undeclared, assembly and prompt
+    rules both fall back to the strictest material treatment.
+    """
+
+    if contract is None:
+        return False
+    return bool(
+        getattr(contract, "data_scope", None) == "material_only"
+        or getattr(contract, "needs_clarification", False)
+    )
+
+
 def _grounding_mode(frame: TaskFrame, output_id: str) -> str:
     """Project question semantics into the output grounding contract."""
 
-    if output_id in {"prior_recall", "prime_memory"}:
-        # 这一格装的是用户自己的历史判断，按定义不是当前世界事实，所以既不能
-        # 要求它有市场证据支撑，也不能让它被当成证据去支撑别的结论。语义裁判
-        # 已有对应契约：user_premise 题「用户明确给出的前提视为真的假设，不能
-        # 要求先证明前提」——正是这份先验需要的待遇。
+    if _has_owned_premise_calculation(frame):
+        return "user_premise"
+    if output_id == "evidence_boundary" and frame.material_contract is not None:
+        if frame.material_contract.authenticity == "fictional" or frame.material_contract.data_scope == "material_only":
+            # 只给范围声明前提资格；其它事实槽仍需证据，A轴不能取消B轴检索。
+            return "user_premise"
+    if output_id in {"prior_recall", "prime_memory", "comparison_assumptions"}:
+        # 用户先验和比较题的待验证解释都不是当前世界事实。比较假设
+        # 允许模型推理，但不能通过证据绑定伪装成已验证规律。
+        if output_id == "comparison_assumptions":
+            return "model_reasoning"
+        # 这格装的是用户自己的历史判断，不能让它被当成当前事实证据。
         return "user_premise"
     if frame.question_type == "methodology_discussion" or "method" in frame.required_outputs:
         return "model_reasoning"
-    if frame.user_goal.startswith("判断反事实条件"):
+    if frame.user_goal.startswith("判断反事实条件") and not (
+        frame.material_contract and frame.material_contract.data_scope_declared
+    ):
         return "user_premise"
     if (
         frame.question_type == "market_cause"
@@ -548,6 +641,12 @@ def _grounding_mode(frame: TaskFrame, output_id: str) -> str:
 
 
 def _is_evidence_free_task(frame: TaskFrame) -> bool:
+    if _has_owned_premise_calculation(frame):
+        return True
+    if frame.material_contract is not None and frame.material_contract.data_scope_declared:
+        # 两轴独立：显式fictional×full仍要真实检索；材料权限在P3统一冻结，
+        # 不借旧evidence_free快捷通道把前提标签当授权。
+        return False
     return (
         frame.question_type == "methodology_discussion"
         or "method" in frame.required_outputs
@@ -620,6 +719,10 @@ def build_episode_context(
 ) -> ResearchRunContext:
     """Freeze control output into one immutable research run contract."""
 
+    from intelligence.services.material_grounding import freeze_material_grounding
+
+    material = frame.material_contract
+    material_only = _material_restricted(material)
     output_ids = _required_output_ids(frame)
     grounding_modes = tuple(
         _grounding_mode(frame, output_id) for output_id in output_ids
@@ -642,7 +745,19 @@ def build_episode_context(
             raise ValueError(f"unknown runtime capability: {capability}")
         if capability not in authorized:
             authorized.append(capability)
-    capability_tuple = tuple(authorized)
+    # 限制最后施加，题型的 mandatory 下限不能把已禁止的读能力加回来。
+    # local_only 白名单来自实际 runner 审计，不借 cost/freshness 猜权限。
+    # 待澄清合同（轴仍是 None）按 material_only 收窄，不能当 full 用。
+    capability_tuple = restrict_read_capabilities(
+        tuple(authorized),
+        "material_only" if material_only else (material.data_scope if material else None),
+    )
+    if material_only:
+        evidence_plan = EvidencePlan(profile="material_only", requirements=(), freshness="stable")
+    elif material is not None and material.data_scope == "local_only":
+        evidence_plan = replace(evidence_plan, requirements=tuple(
+            item for item in evidence_plan.requirements if item.capability in capability_tuple
+        ))
 
     # 必须在 capability_tuple 定稿之后：`_with_prior_recall` 的前置条件是
     # 「memory_lookup 真的在这次的授权里」，而授权到这一行才算最终确定
@@ -653,6 +768,13 @@ def build_episode_context(
     # 挂在最后：交集判据要看**定稿后**的 output_ids（含 valuation_estimate 在
     # `_required_output_ids` 里追加的 invalidation_conditions），否则会重复挂槽。
     output_ids, forward_slots = _with_forward_hypothesis_slots(output_ids, frame)
+    material_descriptions: dict[str, str] = {}
+    if material_only:
+        assert material is not None
+        material_descriptions = {f"answer_{q.question_id}": q.text for q in material.questions}
+        if material_descriptions:
+            output_ids = (*material_descriptions, "evidence_boundary")
+        forward_slots = frozenset()
 
     base_policy = ResearchPolicy.for_tier(tier)
     effective_timeout = base_policy.total_seconds
@@ -686,7 +808,7 @@ def build_episode_context(
         required_outputs=tuple(
             RequiredOutput(
                 output_id=output_id,
-                description=_require_output_description(output_id),
+                description=(material_descriptions[output_id] if output_id in material_descriptions else _require_output_description(output_id)),
                 # 前瞻信号挂上的槽 evidence_types 必须是**空**：这几格由推理
                 # 填、没有任何工具能填。`_required_output_evidence_types` 对不
                 # 认识的 output_id 会回全量能力列表，那正是 prior_recall 踩过
@@ -695,10 +817,14 @@ def build_episode_context(
                 # 比挂空更糟——它在暗示这格该去检索。
                 evidence_types=(
                     ()
-                    if output_id in forward_slots
+                    if material_only or output_id in forward_slots
                     else _required_output_evidence_types(
                         output_id,
                         capability_tuple,
+                        history_comparison=(
+                            frame.history_intent is not None
+                            and frame.question_type == "comparison_analog"
+                        ),
                     )
                 ),
                 # prior_recall 是**可选**槽位，这一点是设计核心而不是保守：
@@ -731,9 +857,25 @@ def build_episode_context(
                 # 按题型/问句判签法，让它再去感知「这个槽是不是本次挂上来的」
                 # 会把两件事揉进一个判据。
                 grounding_mode=(
-                    "model_reasoning"
+                    "evidence"
+                    if output_id in material_descriptions
+                    else "model_reasoning"
                     if output_id in forward_slots
                     else _grounding_mode(frame, output_id)
+                ),
+                allowed_history_operations=(
+                    _COMPARISON_ANALOG_HISTORY_OPERATIONS.get(output_id, ())
+                    if frame.history_intent is not None
+                    and frame.question_type == "comparison_analog"
+                    else (
+                        _ALL_HISTORY_OPERATIONS
+                        if frame.history_intent is not None
+                        and "finance_query" in _required_output_evidence_types(
+                            output_id,
+                            capability_tuple,
+                        )
+                        else ()
+                    )
                 ),
             )
             for output_id in output_ids
@@ -748,6 +890,9 @@ def build_episode_context(
         timeframe=frame.timeframe,
         evidence_plan=evidence_plan,
         task_frame_hash=frame.task_frame_hash,
+        material_contract=material,
+        premise_calculation=calculation_for_frame(frame, today=today),
+        material_grounding=freeze_material_grounding(frame) if material is not None else None,
     )
     if frame.history_intent is not None and "finance_query" in capability_tuple:
         # Capability authorizes execution; evidence_types admits the actual
@@ -764,12 +909,15 @@ def build_episode_context(
                         )
                     ),
                 )
-                if "finance_query" in output.evidence_types
+                if "finance_query" in output.evidence_types and output.output_id != "prime_quote"
                 else output
                 for output in contract.required_outputs
             ),
         )
-    contract = apply_static_chain_mapping_precheck(contract, knowledge=knowledge)
+    if material is None or material.data_scope == "full":
+        # 自动 KB 预检不走工具授权，且 knowledge 可由调用方替换；受限轮不运行。
+        # 本地证据仍由已审定 runner 获取，不把未分类读取当作预置缺口依据。
+        contract = apply_static_chain_mapping_precheck(contract, knowledge=knowledge)
     cutoff = (
         information_cutoff
         or requested_information_cutoff(frame.raw_question, today=today)
@@ -778,6 +926,11 @@ def build_episode_context(
             latest_data_date=latest_data_date,
         )
     )
+    if frame.history_intent is not None and frame.history_intent.information_cutoff:
+        cutoff = InformationCutoff(
+            min(cutoff.as_of_date, date.fromisoformat(frame.history_intent.information_cutoff)),
+            "requested",
+        )
     if frame.history_intent is not None and frame.history_intent.strict_window and frame.history_intent.requested_end:
         cutoff = InformationCutoff(
             min(cutoff.as_of_date, date.fromisoformat(frame.history_intent.requested_end)),
@@ -795,14 +948,15 @@ def build_episode_context(
         latest_data_date=latest_data_date,
         conversation_context=assemble_input_understanding_context(
             frame,
-            str(conversation_context or "").strip(),
+            "" if material_only else str(conversation_context or "").strip(),
         ),
         information_cutoff=cutoff,
         root_budget=root_budget_for_policy(policy, episode_id=task_id),
-        perspective_context=str(perspective_context or "").strip(),
-        stance_pack=stance_pack,
-        retrieval_stages=tuple(retrieval_stages or ()),
-        history_intent=frame.history_intent,
+        # 未分型的旧答/视角/研究背景可能含材料外事实；可信续轮在P5恢复，不猜。
+        perspective_context="" if material_only else str(perspective_context or "").strip(),
+        stance_pack=None if material_only else stance_pack,
+        retrieval_stages=() if material_only else tuple(retrieval_stages or ()),
+        history_intent=None if material_only else frame.history_intent,
     )
 
 
@@ -843,7 +997,31 @@ def assemble_input_understanding_context(frame: TaskFrame, conversation_context:
     """
 
     blocks: list[str] = []
-    earlier = materials_in_conversation(conversation_context)
+    if frame.material_contract is not None:
+        contract = frame.material_contract
+        lines = ["## 本轮材料任务语义", f"前提真实性={contract.authenticity}；数据范围={contract.data_scope}；状态={contract.classification}"]
+        for mark in contract.premise_marks:
+            # 题级标注写成裸「q3」时，续轮里本轮的 q3 是另一道题，模型会读成
+            # 「本轮第 3 题有虚构前提」。作用域自带轮次才唯一（D7.2）。
+            scope = "消息级" if mark.scope == "message" else f"轮次{mark.source_turn}的{mark.scope}"
+            lines.append(f"前提标注：{scope} / {mark.authenticity} / 轮次{mark.source_turn} / {mark.text_ref}")
+        if contract.premise_marks:
+            lines.append("虚构前提不是待证伪信念；前提域声明仅证明结论范围，不能替事实背书。")
+        for question in contract.questions:
+            lines.append(f"{question.question_id}：{question.text}")
+        blocks.append("\n".join(lines))
+    typed = frame.conversation_materials
+    material_only = _material_restricted(frame.material_contract)
+    if typed is not None:
+        earlier = tuple((item.ref, item.text) for item in typed.items)
+        if material_only:
+            # Do not parse this typed block with the legacy role-text parser.
+            # Source coordinates, complete bodies and context-only old answers
+            # travel together, including after TaskFrame serialization/restore.
+            conversation_context = ""
+            blocks.append("## 可信历史材料与旧答来源\n" + typed.to_prompt_block())
+    else:
+        earlier = () if material_only else materials_in_conversation(conversation_context)
     earlier_refs = tuple(ref for ref, _text in earlier)
     referent: MaterialRef | None = None
     compact_question = re.sub(r"\s+", "", frame.raw_question)
@@ -866,7 +1044,13 @@ def assemble_input_understanding_context(frame: TaskFrame, conversation_context:
     if frame.materials or referent is not None or short_follow_up or (
         earlier_refs and frame.referenced_material_ids
     ):
-        lines = ["## 用户提供的材料（身份表）", _MATERIAL_RULE]
+        material_only = _material_restricted(frame.material_contract)
+        rule = (
+            "本轮只以用户材料为前提作答；事实和计算须标材料 id 与片段，不调用材料外检索；"
+            "材料未提供的量写明缺口，范围声明不能替事实背书。"
+            if material_only else _MATERIAL_RULE
+        )
+        lines = ["## 用户提供的材料（身份表）", rule]
         # I2 收口：对话块被截断时，本轮重贴的材料的「此前对话」身份无法从窗口里恢复；
         # 但用户重贴的正文 hash 与窗口外那一轮的 hash 相同，内容等同。如实标注
         # 「本轮重贴」与「对话块已被截断，此前同一份材料的记录不在窗口内」，让模型
@@ -965,7 +1149,9 @@ def method_validation_note(candidate: MethodCandidate, *, root: Path | None = No
         if not rules_dir.is_dir():
             return "未找到已登记规则目录；状态 candidate_unverified，登记入口 scripts/methodology_backtest.py propose"
         wanted = _cjk_bigrams(candidate.condition + candidate.expectation)
-        best: tuple[int, dict] | None = None
+        # 记住匹配到的**文件路径**，不只是解析出来的 doc：认证与展示都要用这一份，
+        # 否则「按标题匹配到 v1、拿 v2 的状态去展示 v1」（09-12 复核实测）。
+        best: tuple[int, dict, Path] | None = None
         for path in sorted(rules_dir.glob("*.json")):
             try:
                 doc = json.loads(path.read_text(encoding="utf-8"))
@@ -975,16 +1161,27 @@ def method_validation_note(candidate: MethodCandidate, *, root: Path | None = No
                 continue
             overlap = len(wanted & _cjk_bigrams(str(doc.get("title") or "") + str(doc.get("notes") or "")))
             if overlap >= 3 and (best is None or overlap > best[0]):
-                best = (overlap, doc)
+                best = (overlap, doc, path)
         if best is None:
             return (
                 "未登记为可回测规则；状态 candidate_unverified，"
                 "登记入口 scripts/methodology_backtest.py propose（谓词需用白名单标签短句）"
             )
-        doc = best[1]
+        doc, rule_path = best[1], best[2]
         rule_id = str(doc.get("rule_id") or "")
         steps = lifecycle.load_steps(receipts_dir, rule_id)
-        state = lifecycle.derive_state(doc, steps)
+        # 走 state_for_file：身份锁在**匹配到的那一份**规则文件的字节上，并拿当前生效的
+        # label_version 做绝对比对。
+        #   - 直接调 derive_state 会两样都不传 → 标签口径升版后旧收据照样成链，
+        #     同一组收据 queue / 经验卡门说 candidate、这里说 personal_method；
+        #   - 调 state_for_rule 会让它自己挑「version 最大那份」→ 展示的是匹配到的 v1，
+        #     状态却是 v2 的。两处都在 09-12 的两轮复核里实测到。
+        state = lifecycle.state_for_file(rule_path, receipts_dir)
+        if state is None:  # 规则文件读得到却解析不出身份：不猜，按未验证候选走
+            return (
+                f"疑似对应已登记规则 {rule_id}，但规则文件身份解析不出；"
+                "状态 candidate_unverified，本轮按未验证候选使用"
+            )
         return (
             f"疑似对应已登记规则 {rule_id}@v{doc.get('version')}（{doc.get('title')}），"
             f"生命周期状态 {state.state}，历史收据 {len(steps)} 份"

@@ -1,0 +1,44 @@
+"""Capture process provenance, completed writer logs and gate status; no writes to services."""
+import datetime as dt
+import hashlib
+import json
+from pathlib import Path
+import subprocess
+
+ROOT = Path(__file__).resolve().parent
+KB = Path.home() / 'knowledge-base-private'
+rows = subprocess.check_output(['ps', '-axo', 'pid=,ppid=,lstart=,command='], text=True).splitlines()
+# Only exact script invocations; never infer an application from its shell template.
+writers = [r.strip() for r in rows if '/bin/' not in r and any(
+    name in r for name in ('scripts/publish_rag_index.py', 'scripts/rag_build_full.py', 'scripts/rag_index.py update'))]
+parent = subprocess.check_output(['ps', '-p', '22475,30493', '-o',
+                                  'pid=,ppid=,lstart=,command='], text=True).splitlines()
+logs = []
+for name in ('rag-publish-day-20260918-212318.log', 'rag-publish-full-20260918-212456.log'):
+    path = KB / 'logs' / name
+    text = path.read_text()
+    assert 'exit=0' in text and '[publish] OK' in text
+    logs.append({'path': str(path), 'sha256': hashlib.sha256(path.read_bytes()).hexdigest(),
+                 'publication_receipt_lines': [line for line in text.splitlines()
+                                              if line.startswith(('[publish] OK', '=== END', 'http://localhost:3300/'))]})
+report = {
+    'observed_at': dt.datetime.now(dt.timezone.utc).isoformat(),
+    'user_authorized_coordination': True,
+    'prior_cursor_attribution': 'incorrect; shell marker was insufficient',
+    'former_writer_parent_processes': [line.strip() for line in parent],
+    'former_writer_pids': [41444, 41453, 41455],
+    'former_writer_pids_now_present': [line.strip() for line in rows
+                                     if int(line.split()[0]) in (41444, 41453, 41455)],
+    'completed_publish_logs': logs,
+    'current_index_writer_processes': writers,
+    'processes_stopped_by_this_session': [],
+    'fence': 'production-file-fence.json',
+    'protected_scope': 'two local index directories and all 24 files; not Gitea assets',
+    'gate_revision': (ROOT / 'gate-receipts/revision.txt').read_text().splitlines()[0],
+    'gate_exits': {path.stem: int(path.read_text()) for path in sorted((ROOT / 'gate-receipts').glob('*.exit'))},
+    'promotion_allowed': False,
+    'remaining_blockers': ['full migration not finished', 'browser E2E 3 failed',
+                           'new code unmerged', 'no migrated-index consumer acceptance'],
+}
+(ROOT / 'evidence/coordination-resolution.json').write_text(json.dumps(report, ensure_ascii=False, indent=2))
+print(json.dumps(report, ensure_ascii=False, indent=2))

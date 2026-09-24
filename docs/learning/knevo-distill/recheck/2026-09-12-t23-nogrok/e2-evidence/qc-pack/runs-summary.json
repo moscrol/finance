@@ -1,0 +1,1133 @@
+{
+  "observed_at": "2026-09-13T12:05:56.514332+08:00",
+  "runs": [
+    {
+      "run": "run_20260913_034456_704436",
+      "path": "~/.local/share/finance-workbench/users/recheck-t23-0912/runs/run_20260913_034456_704436",
+      "sha256": {
+        "answer.md": "95c72f5a4d49ee1a8f67dfbf6946a91bd6726e4c93ffe3a30353dbc442c4974d",
+        "report.json": "acc28b5fe6c612fa560b9f5f34e1231b1c558eeb74796f05d0a0a1663fea8479",
+        "continuous-episode.json": "0cd6ceff031bffd034151fb97ffefdd0d3b7f4e35715102491a8c8be3fd0769d"
+      },
+      "report": {
+        "status": "completed",
+        "answer_status": "complete",
+        "llm": {
+          "used": true,
+          "provider": "zhipu",
+          "model": "kimi-k3"
+        },
+        "warnings": []
+      },
+      "semantic": {
+        "judge_status": "repaired",
+        "correlated_judge": true,
+        "timeout_asked": 75.0,
+        "timeout_configured": 75.0,
+        "judge_attempt_index": 0,
+        "exc_class": null,
+        "http_status": null,
+        "degrade_class": null
+      },
+      "semantic_issues": [
+        "code=evidence_type_unsupported subject=prime_quote :: unsupported evidence type for prime_quote: finance_query",
+        "第1句：E1直接支持2026-09-11的涨停家数为40，但未直接证明主体限定为“A股全市场”或日期为“周五”。",
+        "第3句：E1支持“市场日频总览”、数据日期和涨停家数，但未直接支持“本地结构化行情库”、 “全市场每日一行”以及“不按板块拆分”等口径描述。",
+        "第4句：E1直接支持跌停21家、成交额19710.64亿元和上证涨跌幅-1.1766%，但未支持“涨停家数处于偏低水平”的比较判断；句中“即”使该判断成为由现有指标推出的结论，而证据没有提供比较基准。",
+        "第5句：E1未直接支持该计数“未按板块或题材拆分”的口径说明。",
+        "第7句：E1未支持盘中或周末查询时会回退到最近收盘日、2026-09-11为周五以及提问日为2026-09-13且周日无交易等事实。"
+      ],
+      "structural_outputs": [
+        {
+          "output_id": "direct_answer",
+          "status": "fulfilled",
+          "evidence_ids": [
+            "7361b32f9fb90046"
+          ],
+          "gap": ""
+        },
+        {
+          "output_id": "evidence_boundary",
+          "status": "fulfilled",
+          "evidence_ids": [
+            "7361b32f9fb90046"
+          ],
+          "gap": ""
+        },
+        {
+          "output_id": "aggregate_count",
+          "status": "fulfilled",
+          "evidence_ids": [
+            "7361b32f9fb90046"
+          ],
+          "gap": ""
+        },
+        {
+          "output_id": "prime_quote",
+          "status": "gap",
+          "evidence_ids": [],
+          "gap": "给出本次问答所依据的最新可用行情要点与数据日期；取不到则在证据边界中写明缺口未绑定可验证证据"
+        },
+        {
+          "output_id": "prime_news",
+          "status": "gap",
+          "evidence_ids": [],
+          "gap": "仍缺少：给出与问题相关的最新财经消息要点；未检索到则写明未取得"
+        },
+        {
+          "output_id": "prime_memory",
+          "status": "gap",
+          "evidence_ids": [],
+          "gap": "仍缺少：复述用户此前对该主体的判断或纠偏原则；台账为空则跳过，不编造"
+        }
+      ],
+      "contract": [
+        {
+          "output_id": "direct_answer",
+          "grounding_mode": "evidence",
+          "required": true
+        },
+        {
+          "output_id": "evidence_boundary",
+          "grounding_mode": "evidence",
+          "required": true
+        },
+        {
+          "output_id": "aggregate_count",
+          "grounding_mode": "evidence",
+          "required": false
+        },
+        {
+          "output_id": "prime_quote",
+          "grounding_mode": "evidence",
+          "required": false
+        },
+        {
+          "output_id": "prime_news",
+          "grounding_mode": "evidence",
+          "required": false
+        },
+        {
+          "output_id": "prime_memory",
+          "grounding_mode": "user_premise",
+          "required": false
+        }
+      ],
+      "task_frame": {
+        "user_goal": "形成条件化判断",
+        "question_type": "general_finance_qa",
+        "evidence_policy": "general_finance_evidence",
+        "required_outputs": [
+          "direct_answer",
+          "evidence_boundary"
+        ]
+      },
+      "events": [
+        {
+          "sequence": 5,
+          "kind": "model_turn",
+          "provider_name": "zhipu",
+          "served_model": "kimi-k3",
+          "error": "",
+          "timeout_asked": 75.0,
+          "timeout_configured": 75.0,
+          "provider_attempts": 1
+        },
+        {
+          "sequence": 10,
+          "kind": "model_turn",
+          "provider_name": "zhipu",
+          "served_model": "kimi-k3",
+          "error": "",
+          "timeout_asked": 75.0,
+          "timeout_configured": 75.0,
+          "provider_attempts": 1
+        },
+        {
+          "sequence": 12,
+          "kind": "finish",
+          "status": "completed",
+          "stop_reason": "model_finish",
+          "rejection_code": "none"
+        }
+      ]
+    },
+    {
+      "run": "run_20260913_034847_516840",
+      "path": "~/.local/share/finance-workbench/users/recheck-t23-0912/runs/run_20260913_034847_516840",
+      "sha256": {
+        "answer.md": "cc6eef2e9bdb23bc3982855a5c931a25bbb82ad4e215d6b1e22dcb40959606df",
+        "report.json": "261bacc76c919e858a821cf1a37b238cf3f61f5d43b301d56562ecad5f0bd161",
+        "continuous-episode.json": "81e66edc65f2c786d391ad3dfa14e87a1799b96b2a527058228fd4a88126fffe"
+      },
+      "report": {
+        "status": "partial",
+        "answer_status": "partial",
+        "llm": {
+          "used": true,
+          "provider": "zhipu",
+          "model": "kimi-k3"
+        },
+        "warnings": [
+          "证据或语义核验未完全通过，已按证据边界降级。"
+        ]
+      },
+      "semantic": {
+        "judge_status": "unavailable",
+        "correlated_judge": false,
+        "timeout_asked": null,
+        "timeout_configured": null,
+        "judge_attempt_index": null,
+        "exc_class": null,
+        "http_status": null,
+        "degrade_class": "judge_unavailable"
+      },
+      "semantic_issues": [
+        "code=missing_required_output subject=direct_assessment :: missing required output: direct_assessment",
+        "code=missing_required_output subject=chain_mapping :: missing required output: chain_mapping",
+        "code=missing_required_output subject=counterpoint :: missing required output: counterpoint",
+        "code=missing_required_output subject=scenario_tree :: missing required output: scenario_tree"
+      ],
+      "structural_outputs": [
+        {
+          "output_id": "direct_assessment",
+          "status": "missing",
+          "evidence_ids": [],
+          "gap": "仍缺少：直接回答用户问题并说明判断强度"
+        },
+        {
+          "output_id": "chain_mapping",
+          "status": "missing",
+          "evidence_ids": [],
+          "gap": "仍缺少：产业链层级、角色与关键环节"
+        },
+        {
+          "output_id": "counterpoint",
+          "status": "missing",
+          "evidence_ids": [],
+          "gap": "仍缺少：提供主要反证或竞争性解释"
+        },
+        {
+          "output_id": "scenario_tree",
+          "status": "missing",
+          "evidence_ids": [],
+          "gap": "仍缺少：给出条件化情景树：路径分支 + 同一现象的互斥因果假说（裁决须带证据编号，裁不了写并立）"
+        },
+        {
+          "output_id": "aggregate_count",
+          "status": "gap",
+          "evidence_ids": [],
+          "gap": "仍缺少：给出问句所要的精确计数，并标明口径与日期"
+        }
+      ],
+      "contract": [
+        {
+          "output_id": "direct_assessment",
+          "grounding_mode": "evidence",
+          "required": true
+        },
+        {
+          "output_id": "chain_mapping",
+          "grounding_mode": "evidence",
+          "required": true
+        },
+        {
+          "output_id": "counterpoint",
+          "grounding_mode": "evidence",
+          "required": true
+        },
+        {
+          "output_id": "scenario_tree",
+          "grounding_mode": "evidence",
+          "required": true
+        },
+        {
+          "output_id": "aggregate_count",
+          "grounding_mode": "evidence",
+          "required": false
+        }
+      ],
+      "task_frame": {
+        "user_goal": "形成条件化判断",
+        "question_type": "theme_analysis",
+        "evidence_policy": "theme_multi_layer_evidence",
+        "required_outputs": [
+          "direct_assessment",
+          "chain_mapping",
+          "counterpoint",
+          "scenario_tree"
+        ]
+      },
+      "events": [
+        {
+          "sequence": 7,
+          "kind": "model_turn",
+          "provider_name": "zhipu",
+          "error": "LLM 调用失败（TimeoutError）",
+          "timeout_asked": 75.0,
+          "timeout_configured": 75.0,
+          "provider_attempts": 1
+        },
+        {
+          "sequence": 8,
+          "kind": "model_error",
+          "reason": "LLM 调用失败（TimeoutError）"
+        },
+        {
+          "sequence": 12,
+          "kind": "model_turn",
+          "provider_name": "zhipu",
+          "served_model": "kimi-k3",
+          "error": "",
+          "timeout_asked": 75.0,
+          "timeout_configured": 75.0,
+          "provider_attempts": 1
+        },
+        {
+          "sequence": 13,
+          "kind": "invalid_action",
+          "reason": "grounding basis mismatch for direct_assessment: expected evidence, got user_premise"
+        },
+        {
+          "sequence": 16,
+          "kind": "model_turn",
+          "phase": "finalization_recovery",
+          "provider_name": "zhipu",
+          "error": "LLM 调用失败（TimeoutError）",
+          "provider_attempts": 1
+        },
+        {
+          "sequence": 17,
+          "kind": "model_error",
+          "reason": "LLM 调用失败（TimeoutError）"
+        },
+        {
+          "sequence": 18,
+          "kind": "finalization_recovery_outcome",
+          "reason": "LLM 调用失败（TimeoutError）",
+          "status": "failed"
+        },
+        {
+          "sequence": 20,
+          "kind": "finish",
+          "status": "partial",
+          "stop_reason": "finalization_recovery_failed",
+          "rejection_code": "none"
+        }
+      ]
+    },
+    {
+      "run": "run_20260913_035722_162700",
+      "path": "~/.local/share/finance-workbench/users/recheck-t23-0912/runs/run_20260913_035722_162700",
+      "sha256": {
+        "answer.md": "ad501176187443d2772cd27e89a7fddbd869e49c940b0d4ed6132afe81f2a25e",
+        "report.json": "c5bdba3ab0247481f3d3305dda8c996836dd4b1811e227213db6999897215a51",
+        "continuous-episode.json": "fd8df35617c2121fd01d2a3c6c720c69f9dab8890c47bd6a0719507dffded255"
+      },
+      "report": {
+        "status": "partial",
+        "answer_status": "partial",
+        "llm": {
+          "used": true,
+          "provider": "openai",
+          "model": "kimi-k3"
+        },
+        "warnings": []
+      },
+      "semantic": {
+        "judge_status": "repaired",
+        "correlated_judge": true,
+        "timeout_asked": 75.0,
+        "timeout_configured": 75.0,
+        "judge_attempt_index": 0,
+        "exc_class": null,
+        "http_status": null,
+        "degrade_class": null
+      },
+      "semantic_issues": [
+        "code=numeric_unsupported subject=numeric_condition :: unsupported numeric condition without bound evidence"
+      ],
+      "structural_outputs": [
+        {
+          "output_id": "direct_assessment",
+          "status": "fulfilled",
+          "evidence_ids": [
+            "18e5d75cdce120b0",
+            "210232a1bdb58e44"
+          ],
+          "gap": ""
+        },
+        {
+          "output_id": "chain_mapping",
+          "status": "fulfilled",
+          "evidence_ids": [
+            "18e5d75cdce120b0",
+            "210232a1bdb58e44"
+          ],
+          "gap": ""
+        },
+        {
+          "output_id": "counterpoint",
+          "status": "fulfilled",
+          "evidence_ids": [
+            "18e5d75cdce120b0",
+            "210232a1bdb58e44"
+          ],
+          "gap": ""
+        },
+        {
+          "output_id": "scenario_tree",
+          "status": "fulfilled",
+          "evidence_ids": [
+            "18e5d75cdce120b0",
+            "210232a1bdb58e44"
+          ],
+          "gap": ""
+        },
+        {
+          "output_id": "aggregate_count",
+          "status": "gap",
+          "evidence_ids": [],
+          "gap": "仍缺少：给出问句所要的精确计数，并标明口径与日期"
+        }
+      ],
+      "contract": [
+        {
+          "output_id": "direct_assessment",
+          "grounding_mode": "evidence",
+          "required": true
+        },
+        {
+          "output_id": "chain_mapping",
+          "grounding_mode": "evidence",
+          "required": true
+        },
+        {
+          "output_id": "counterpoint",
+          "grounding_mode": "evidence",
+          "required": true
+        },
+        {
+          "output_id": "scenario_tree",
+          "grounding_mode": "evidence",
+          "required": true
+        },
+        {
+          "output_id": "aggregate_count",
+          "grounding_mode": "evidence",
+          "required": false
+        }
+      ],
+      "task_frame": {
+        "user_goal": "形成条件化判断",
+        "question_type": "theme_analysis",
+        "evidence_policy": "theme_multi_layer_evidence",
+        "required_outputs": [
+          "direct_assessment",
+          "chain_mapping",
+          "counterpoint",
+          "scenario_tree"
+        ]
+      },
+      "events": [
+        {
+          "sequence": 7,
+          "kind": "model_turn",
+          "provider_name": "openai",
+          "served_model": "gpt-5.6-sol",
+          "error": "",
+          "timeout_asked": 75.0,
+          "timeout_configured": 75.0,
+          "provider_attempts": 2
+        },
+        {
+          "sequence": 8,
+          "kind": "invalid_action",
+          "reason": "required output lacks evidence: chain_mapping"
+        },
+        {
+          "sequence": 11,
+          "kind": "model_turn",
+          "provider_name": "zhipu",
+          "served_model": "kimi-k3",
+          "error": "",
+          "timeout_asked": 75.0,
+          "timeout_configured": 75.0,
+          "provider_attempts": 1
+        },
+        {
+          "sequence": 13,
+          "kind": "finish",
+          "status": "partial",
+          "stop_reason": "model_finish",
+          "rejection_code": "none"
+        },
+        {
+          "sequence": 18,
+          "kind": "model_turn",
+          "phase": "repair",
+          "provider_name": "zhipu",
+          "served_model": "kimi-k3",
+          "error": "",
+          "provider_attempts": 1
+        },
+        {
+          "sequence": 20,
+          "kind": "finish",
+          "status": "partial",
+          "stop_reason": "repair_model_stop",
+          "rejection_code": "none"
+        }
+      ]
+    },
+    {
+      "run": "run_20260913_040353_712567",
+      "path": "~/.local/share/finance-workbench/users/recheck-t23-0912/runs/run_20260913_040353_712567",
+      "sha256": {
+        "answer.md": "84771a9426937847b995eb22c1f8b109f4d68b539bc83f2d50b342136b5cf3ad",
+        "report.json": "8b79f561ec88c580c00c5c7b81e97bf063d458ca2d3ac853e57c3ca0e69a70d4",
+        "continuous-episode.json": "f722caf057acbb3801e20025b408598b40ec05025c38ac64b6a142d26aeab411"
+      },
+      "report": {
+        "status": "blocked",
+        "answer_status": "missing",
+        "llm": {
+          "used": false,
+          "provider": null,
+          "model": null
+        },
+        "warnings": [
+          "证据或语义核验未完全通过，已按证据边界降级。"
+        ]
+      },
+      "semantic": {
+        "judge_status": "unavailable",
+        "correlated_judge": false,
+        "timeout_asked": null,
+        "timeout_configured": null,
+        "judge_attempt_index": null,
+        "exc_class": null,
+        "http_status": null,
+        "degrade_class": "judge_unavailable"
+      },
+      "semantic_issues": [
+        "code=missing_required_output subject=scenario_tree :: missing required output: scenario_tree",
+        "code=missing_required_output subject=relation_map :: missing required output: relation_map",
+        "code=missing_required_output subject=financial_assessment :: missing required output: financial_assessment",
+        "code=missing_required_output subject=metric_evidence :: missing required output: metric_evidence",
+        "code=missing_required_output subject=counterpoint :: missing required output: counterpoint",
+        "code=missing_required_output subject=claim_summary :: missing required output: claim_summary",
+        "code=missing_required_output subject=evidence_assessment :: missing required output: evidence_assessment",
+        "code=missing_required_output subject=biases_and_gaps :: missing required output: biases_and_gaps"
+      ],
+      "structural_outputs": [
+        {
+          "output_id": "scenario_tree",
+          "status": "missing",
+          "evidence_ids": [],
+          "gap": "仍缺少：给出条件化情景树：路径分支 + 同一现象的互斥因果假说（裁决须带证据编号，裁不了写并立）"
+        },
+        {
+          "output_id": "relation_map",
+          "status": "missing",
+          "evidence_ids": [],
+          "gap": "仍缺少：说明主体之间的关系与传导"
+        },
+        {
+          "output_id": "financial_assessment",
+          "status": "missing",
+          "evidence_ids": [],
+          "gap": "仍缺少：公司财务表现的直接判断"
+        },
+        {
+          "output_id": "metric_evidence",
+          "status": "missing",
+          "evidence_ids": [],
+          "gap": "仍缺少：支撑财务判断的指标证据"
+        },
+        {
+          "output_id": "counterpoint",
+          "status": "missing",
+          "evidence_ids": [],
+          "gap": "仍缺少：提供主要反证或竞争性解释"
+        },
+        {
+          "output_id": "claim_summary",
+          "status": "missing",
+          "evidence_ids": [],
+          "gap": "仍缺少：概括被评述观点的主张"
+        },
+        {
+          "output_id": "evidence_assessment",
+          "status": "missing",
+          "evidence_ids": [],
+          "gap": "仍缺少：评估主张的证据支撑"
+        },
+        {
+          "output_id": "biases_and_gaps",
+          "status": "missing",
+          "evidence_ids": [],
+          "gap": "仍缺少：指出偏见与证据缺口"
+        },
+        {
+          "output_id": "aggregate_count",
+          "status": "gap",
+          "evidence_ids": [],
+          "gap": "仍缺少：给出问句所要的精确计数，并标明口径与日期"
+        }
+      ],
+      "contract": [
+        {
+          "output_id": "scenario_tree",
+          "grounding_mode": "evidence",
+          "required": true
+        },
+        {
+          "output_id": "relation_map",
+          "grounding_mode": "evidence",
+          "required": true
+        },
+        {
+          "output_id": "financial_assessment",
+          "grounding_mode": "evidence",
+          "required": true
+        },
+        {
+          "output_id": "metric_evidence",
+          "grounding_mode": "evidence",
+          "required": true
+        },
+        {
+          "output_id": "counterpoint",
+          "grounding_mode": "evidence",
+          "required": true
+        },
+        {
+          "output_id": "claim_summary",
+          "grounding_mode": "evidence",
+          "required": true
+        },
+        {
+          "output_id": "evidence_assessment",
+          "grounding_mode": "evidence",
+          "required": true
+        },
+        {
+          "output_id": "biases_and_gaps",
+          "grounding_mode": "evidence",
+          "required": true
+        },
+        {
+          "output_id": "aggregate_count",
+          "grounding_mode": "evidence",
+          "required": false
+        }
+      ],
+      "task_frame": {
+        "user_goal": "用户只提供了材料未提问：提取要点，分开硬事实与推测，并核对可核验项",
+        "question_type": "financial_analysis",
+        "evidence_policy": "company_financial_evidence",
+        "required_outputs": [
+          "scenario_tree",
+          "relation_map",
+          "financial_assessment",
+          "metric_evidence",
+          "counterpoint",
+          "claim_summary",
+          "evidence_assessment",
+          "biases_and_gaps"
+        ]
+      },
+      "events": [
+        {
+          "sequence": 5,
+          "kind": "model_turn",
+          "provider_name": "openai",
+          "error": "LLM 调用 HTTP 502",
+          "timeout_asked": 75.0,
+          "timeout_configured": 75.0,
+          "provider_attempts": 2
+        },
+        {
+          "sequence": 6,
+          "kind": "model_error",
+          "reason": "LLM 调用 HTTP 502"
+        },
+        {
+          "sequence": 7,
+          "kind": "finish",
+          "status": "failed",
+          "stop_reason": "model_unavailable",
+          "rejection_code": "none"
+        },
+        {
+          "sequence": 12,
+          "kind": "model_turn",
+          "phase": "repair",
+          "provider_name": "openai",
+          "served_model": "gpt-5.6-sol",
+          "error": "",
+          "provider_attempts": 2
+        },
+        {
+          "sequence": 13,
+          "kind": "invalid_action",
+          "reason": "required output lacks evidence: scenario_tree,relation_map,financial_assessment,metric_evidence,counterpoint,claim_summary,evidence_assessment,biases_and_gaps"
+        },
+        {
+          "sequence": 15,
+          "kind": "finish",
+          "status": "failed",
+          "stop_reason": "invalid_repair_finish",
+          "rejection_code": "missing_evidence"
+        }
+      ]
+    },
+    {
+      "run": "run_20260913_040721_190946",
+      "path": "~/.local/share/finance-workbench/users/recheck-t23-0912/runs/run_20260913_040721_190946",
+      "sha256": {
+        "answer.md": "84771a9426937847b995eb22c1f8b109f4d68b539bc83f2d50b342136b5cf3ad",
+        "report.json": "7a0af9fbd1f2bcd31a04358788817519e10494d86df3e95962ee3459b31356b5",
+        "continuous-episode.json": "d8697dc1ddee90e4481c274d20f22a7080a1edc1e98102c45647afa80a5ef3c1"
+      },
+      "report": {
+        "status": "partial",
+        "answer_status": "partial",
+        "llm": {
+          "used": true,
+          "provider": "openai",
+          "model": "kimi-k3"
+        },
+        "warnings": [
+          "证据或语义核验未完全通过，已按证据边界降级。"
+        ]
+      },
+      "semantic": {
+        "judge_status": "unavailable",
+        "correlated_judge": false,
+        "timeout_asked": null,
+        "timeout_configured": null,
+        "judge_attempt_index": null,
+        "exc_class": null,
+        "http_status": null,
+        "degrade_class": "judge_unavailable"
+      },
+      "semantic_issues": [
+        "code=required_output_gap subject=scenario_tree :: required output reports gap: scenario_tree",
+        "code=required_output_gap subject=relation_map :: required output reports gap: relation_map",
+        "code=required_output_gap subject=financial_assessment :: required output reports gap: financial_assessment",
+        "code=required_output_gap subject=metric_evidence :: required output reports gap: metric_evidence",
+        "code=required_output_gap subject=counterpoint :: required output reports gap: counterpoint",
+        "code=required_output_gap subject=claim_summary :: required output reports gap: claim_summary",
+        "code=required_output_gap subject=evidence_assessment :: required output reports gap: evidence_assessment",
+        "code=required_output_gap subject=biases_and_gaps :: required output reports gap: biases_and_gaps"
+      ],
+      "structural_outputs": [
+        {
+          "output_id": "scenario_tree",
+          "status": "missing",
+          "evidence_ids": [],
+          "gap": "仅有用户提供的虚构材料，缺外部证据序号。"
+        },
+        {
+          "output_id": "relation_map",
+          "status": "missing",
+          "evidence_ids": [],
+          "gap": "主体关系来自用户材料，未获可绑定的工具证据。"
+        },
+        {
+          "output_id": "financial_assessment",
+          "status": "missing",
+          "evidence_ids": [],
+          "gap": "财务判断依赖用户材料，未独立核验。"
+        },
+        {
+          "output_id": "metric_evidence",
+          "status": "missing",
+          "evidence_ids": [],
+          "gap": "0.4/5和0.4/0.5的计算基于用户材料，未形成可绑定派生证据。"
+        },
+        {
+          "output_id": "counterpoint",
+          "status": "missing",
+          "evidence_ids": [],
+          "gap": "反方变量均来自材料缺口，未有外部证据。"
+        },
+        {
+          "output_id": "claim_summary",
+          "status": "missing",
+          "evidence_ids": [],
+          "gap": "上轮主张来自对话文本而非当前工具证据。"
+        },
+        {
+          "output_id": "evidence_assessment",
+          "status": "missing",
+          "evidence_ids": [],
+          "gap": "只能评估材料内部证据层级，不能完成外部核验。"
+        },
+        {
+          "output_id": "biases_and_gaps",
+          "status": "missing",
+          "evidence_ids": [],
+          "gap": "缺独立公告、毛利率、替代关系及供应份额证据。"
+        },
+        {
+          "output_id": "aggregate_count",
+          "status": "gap",
+          "evidence_ids": [],
+          "gap": "仍缺少：给出问句所要的精确计数，并标明口径与日期"
+        }
+      ],
+      "contract": [
+        {
+          "output_id": "scenario_tree",
+          "grounding_mode": "evidence",
+          "required": true
+        },
+        {
+          "output_id": "relation_map",
+          "grounding_mode": "evidence",
+          "required": true
+        },
+        {
+          "output_id": "financial_assessment",
+          "grounding_mode": "evidence",
+          "required": true
+        },
+        {
+          "output_id": "metric_evidence",
+          "grounding_mode": "evidence",
+          "required": true
+        },
+        {
+          "output_id": "counterpoint",
+          "grounding_mode": "evidence",
+          "required": true
+        },
+        {
+          "output_id": "claim_summary",
+          "grounding_mode": "evidence",
+          "required": true
+        },
+        {
+          "output_id": "evidence_assessment",
+          "grounding_mode": "evidence",
+          "required": true
+        },
+        {
+          "output_id": "biases_and_gaps",
+          "grounding_mode": "evidence",
+          "required": true
+        },
+        {
+          "output_id": "aggregate_count",
+          "grounding_mode": "evidence",
+          "required": false
+        }
+      ],
+      "task_frame": {
+        "user_goal": "用户只提供了材料未提问：提取要点，分开硬事实与推测，并核对可核验项",
+        "question_type": "financial_analysis",
+        "evidence_policy": "company_financial_evidence",
+        "required_outputs": [
+          "scenario_tree",
+          "relation_map",
+          "financial_assessment",
+          "metric_evidence",
+          "counterpoint",
+          "claim_summary",
+          "evidence_assessment",
+          "biases_and_gaps"
+        ]
+      },
+      "events": [
+        {
+          "sequence": 5,
+          "kind": "model_turn",
+          "provider_name": "openai",
+          "served_model": "gpt-5.6-sol",
+          "error": "",
+          "timeout_asked": 75.0,
+          "timeout_configured": 75.0,
+          "provider_attempts": 2
+        },
+        {
+          "sequence": 7,
+          "kind": "finish",
+          "status": "partial",
+          "stop_reason": "model_finish",
+          "rejection_code": "none"
+        }
+      ]
+    },
+    {
+      "run": "run_20260913_041146_035132",
+      "path": "~/.local/share/finance-workbench/users/recheck-t23-0912/runs/run_20260913_041146_035132",
+      "sha256": {
+        "answer.md": "e3c9cd9ef1dab5ab3b35aa25058d6f8df2fdcfaf34d96055a6a1a99f6e99a636",
+        "report.json": "65ac229205c98c828a3e76755981c0b3dae892f6505f9516d2ea853e0dee737b",
+        "continuous-episode.json": "2b6315d1961e08f0be1fb06649f7a888dc49fc21d1b1243d9790864334f50976"
+      },
+      "report": {
+        "status": "partial",
+        "answer_status": "partial",
+        "llm": {
+          "used": true,
+          "provider": "openai",
+          "model": "kimi-k3"
+        },
+        "warnings": []
+      },
+      "semantic": {
+        "judge_status": "repaired",
+        "correlated_judge": true,
+        "timeout_asked": 75.0,
+        "timeout_configured": 75.0,
+        "judge_attempt_index": 0,
+        "exc_class": null,
+        "http_status": null,
+        "degrade_class": null
+      },
+      "semantic_issues": [
+        "code=required_output_gap subject=relation_map :: required output reports gap: relation_map",
+        "code=required_output_gap subject=financial_assessment :: required output reports gap: financial_assessment",
+        "code=required_output_gap subject=metric_evidence :: required output reports gap: metric_evidence",
+        "code=required_output_gap subject=claim_summary :: required output reports gap: claim_summary",
+        "句1：受益证据硬度及乙、甲、丙排序仅依据用户材料A—D；answer_grounding_mode为evidence，但绑定证据E1只支持数据中心板块2026-09-11行情，不直接支持三家公司订单或证据硬度。",
+        "句2：关于潜在业绩弹性不能完整排序的判断没有对应直接证据；E1不涉及三家公司业绩弹性。",
+        "句3：乙订单验收、毛利率、替代关系和客户份额等事实均未由绑定证据直接支持。",
+        "句7：乙订单金额、验收状态及收入传导判断未由绑定证据直接支持。",
+        "句8：乙利润缺毛利率、原答涨3%及相关情形未由E1支持。",
+        "句9：甲旧订单金额、安排和收入路径未由E1支持。",
+        "句10：甲新增催化、今明各0.5及原答涨32%未由E1支持。",
+        "句11：丙框架终止、金额、未下单、收入基础及原答涨18%未由E1支持。",
+        "句12：原答排序及本轮调整未由绑定证据支持。",
+        "句13：关于乙没有商业订单、丙可快速转单的撤回未由E1支持。",
+        "句14：订单到利润的传导链及弹性判断未由E1支持。",
+        "句15：关于甲新增催化、未来收入路径和研究优先级的判断未由E1支持。",
+        "句16：0.4、5、0.5及8%、80%的数字和口径未在evidence_registry中直接证实；verified_quantities为空。",
+        "句17：验收消除交付疑点以及关于净利润、毛利率、替代、持续订单和份额的判断未由E1支持。",
+        "句18：甲后续收入路径和实际确认判断未由E1支持。",
+        "句19：丙终止改变未来机会、今年不减少3亿及此前未下单未确认收入未由E1支持。",
+        "句21：六篇报道及其共同来源的证据独立性判断未由E1支持。",
+        "句22：乙有0.4订单并已验收、且不能证明核心供应商的判断未由E1支持。",
+        "句23：关于证明核心供应商所需材料的具体主张未由E1支持。",
+        "句24：升级条件下乙无法确定、验收条件满足及毛利率未知均未由E1支持。",
+        "句26：乙毛利达标、非替代及保持第一的条件化排序未由E1支持。",
+        "句27：毛利披露、客户份额材料和未来1—2季领先信号未由E1支持。",
+        "句28：材料B、D并非证据注册表中的证据，E1不能支持该依据。",
+        "句29：甲按计划交付确认收入及与乙差距收窄的情景未由E1支持。",
+        "句30：发货、验收、季度收入及未来两季信号未由E1支持。",
+        "句31：材料A并非证据注册表中的证据，E1不能支持该依据。",
+        "句32：乙一次性或低毛利导致降级的情景未由E1支持。",
+        "句33：后续无订单、毛利偏低及未来12个月信号未由E1支持。",
+        "句35：乙订单性质及客户关系升级的竞争解释未由E1支持。",
+        "句36：后续订单、客户份额及持续采购与关系升级之间的因果区分未由E1支持。",
+        "句37：甲旧订单未来收入及市场定价判断未由E1支持。",
+        "句38：实际确认收入、新增订单与新增催化之间的解释未由E1支持。",
+        "句41：乙订单毛利率情景、影响方向及毛利披露时间窗未由E1支持。",
+        "句42：乙客户份额、持续订单、甲相对排序和12个月观察指标未由E1支持。",
+        "句43：甲交付验收、甲乙相对方向及未来两季指标未由E1支持。",
+        "句44：乙毛利率及替代关系属于待查事项，但其作为当前研究缺口未由绑定证据直接支持。",
+        "句45：客户R份额和定点证明的比较检验未由E1支持。",
+        "句46：甲验收及收入确认检验未由E1支持。",
+        "句47：乙毛利达标且非替代将上调的条件化判断未由E1支持。",
+        "句48：低毛利、替代或无持续订单将降级的条件化判断未由E1支持。",
+        "句49：原优先级和新优先级表未由E1支持。",
+        "句50：表格表头本身虽无事实，但与句49构成未获证据支持的排序断言。",
+        "句51：甲原、新优先级及旧消息导致新增催化撤回未由E1支持。",
+        "句52：丙原、新优先级及框架终止未由E1支持。",
+        "句53：乙原、新优先级及正式订单已验收未由E1支持。",
+        "句54：原答基线排序未由E1支持。",
+        "句55：本轮命中方向、订单验收、定点份额缺失及弹性排序结论未由E1支持。"
+      ],
+      "structural_outputs": [
+        {
+          "output_id": "scenario_tree",
+          "status": "fulfilled",
+          "evidence_ids": [
+            "6324081c2e2126c3"
+          ],
+          "gap": ""
+        },
+        {
+          "output_id": "relation_map",
+          "status": "missing",
+          "evidence_ids": [],
+          "gap": "主体关系与传导仅来自用户材料，缺一手核验。"
+        },
+        {
+          "output_id": "financial_assessment",
+          "status": "missing",
+          "evidence_ids": [],
+          "gap": "公司财务判断缺可绑定财务证据。"
+        },
+        {
+          "output_id": "metric_evidence",
+          "status": "missing",
+          "evidence_ids": [],
+          "gap": "8%和80%由用户材料数字计算，未有结构化财务证据。"
+        },
+        {
+          "output_id": "counterpoint",
+          "status": "fulfilled",
+          "evidence_ids": [
+            "6324081c2e2126c3"
+          ],
+          "gap": ""
+        },
+        {
+          "output_id": "claim_summary",
+          "status": "missing",
+          "evidence_ids": [],
+          "gap": "主张来自用户材料及上一轮原答，非工具观察。"
+        },
+        {
+          "output_id": "evidence_assessment",
+          "status": "fulfilled",
+          "evidence_ids": [
+            "6324081c2e2126c3"
+          ],
+          "gap": ""
+        },
+        {
+          "output_id": "biases_and_gaps",
+          "status": "fulfilled",
+          "evidence_ids": [
+            "6324081c2e2126c3"
+          ],
+          "gap": ""
+        },
+        {
+          "output_id": "aggregate_count",
+          "status": "gap",
+          "evidence_ids": [],
+          "gap": "仍缺少：给出问句所要的精确计数，并标明口径与日期"
+        }
+      ],
+      "contract": [
+        {
+          "output_id": "scenario_tree",
+          "grounding_mode": "evidence",
+          "required": true
+        },
+        {
+          "output_id": "relation_map",
+          "grounding_mode": "evidence",
+          "required": true
+        },
+        {
+          "output_id": "financial_assessment",
+          "grounding_mode": "evidence",
+          "required": true
+        },
+        {
+          "output_id": "metric_evidence",
+          "grounding_mode": "evidence",
+          "required": true
+        },
+        {
+          "output_id": "counterpoint",
+          "grounding_mode": "evidence",
+          "required": true
+        },
+        {
+          "output_id": "claim_summary",
+          "grounding_mode": "evidence",
+          "required": true
+        },
+        {
+          "output_id": "evidence_assessment",
+          "grounding_mode": "evidence",
+          "required": true
+        },
+        {
+          "output_id": "biases_and_gaps",
+          "grounding_mode": "evidence",
+          "required": true
+        },
+        {
+          "output_id": "aggregate_count",
+          "grounding_mode": "evidence",
+          "required": false
+        }
+      ],
+      "task_frame": {
+        "user_goal": "用户只提供了材料未提问：提取要点，分开硬事实与推测，并核对可核验项",
+        "question_type": "financial_analysis",
+        "evidence_policy": "company_financial_evidence",
+        "required_outputs": [
+          "scenario_tree",
+          "relation_map",
+          "financial_assessment",
+          "metric_evidence",
+          "counterpoint",
+          "claim_summary",
+          "evidence_assessment",
+          "biases_and_gaps"
+        ]
+      },
+      "events": [
+        {
+          "sequence": 5,
+          "kind": "model_turn",
+          "provider_name": "openai",
+          "served_model": "gpt-5.6-sol",
+          "error": "",
+          "timeout_asked": 75.0,
+          "timeout_configured": 75.0,
+          "provider_attempts": 2
+        },
+        {
+          "sequence": 7,
+          "kind": "finish",
+          "status": "partial",
+          "stop_reason": "model_finish",
+          "rejection_code": "none"
+        },
+        {
+          "sequence": 12,
+          "kind": "model_turn",
+          "phase": "repair",
+          "provider_name": "zhipu",
+          "served_model": "kimi-k3",
+          "error": "",
+          "provider_attempts": 1
+        },
+        {
+          "sequence": 17,
+          "kind": "model_turn",
+          "phase": "repair_finalize",
+          "provider_name": "openai",
+          "served_model": "gpt-5.6-sol",
+          "error": "",
+          "provider_attempts": 2
+        },
+        {
+          "sequence": 19,
+          "kind": "finish",
+          "status": "partial",
+          "stop_reason": "repair_model_finish",
+          "rejection_code": "none"
+        },
+        {
+          "sequence": 24,
+          "kind": "model_turn",
+          "phase": "repair",
+          "provider_name": "openai",
+          "served_model": "gpt-5.6-sol",
+          "error": "",
+          "provider_attempts": 2
+        },
+        {
+          "sequence": 26,
+          "kind": "finish",
+          "status": "partial",
+          "stop_reason": "repair_model_stop",
+          "rejection_code": "none"
+        }
+      ]
+    }
+  ]
+}

@@ -17,7 +17,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date
 from typing import Any, Sequence
 
@@ -27,10 +27,13 @@ from .compiler import STAGE_LABEL, CompiledRule, compile_rule
 from .labels import MARKET_ENTITY_ID
 from .rules import BASELINE_KINDS, Rule
 from .stats import (
+    DependenceReadout,
     Readout,
     StageBucket,
     apply_bh_downgrade,
     benjamini_hochberg,
+    block_bootstrap_readout,
+    combined_verdict,
     four_state,
     readout,
     stage_matched_p0,
@@ -99,6 +102,14 @@ class RunResult:
     conditions: dict[str, Any]
     events_sample: list[dict[str, Any]]
     sql: dict[str, Any] = field(default_factory=dict)
+    # 规则声明了 windows 时：本对象是 validation 窗的读数（顶层结论只认它），discovery 窗的读数挂在这里作对照。
+    # 没声明 windows 时恒为 None，收据不多任何键。
+    discovery: "RunResult | None" = None
+    # OPT-05：依赖感知读数（日期块重采样）与跨窗 purge 计数。dependence 为 None 只发生在
+    # 无 ok 事件时；readout.verdict 已是「独立假设 × 依赖感知」的保守合成。
+    dependence: DependenceReadout | None = None
+    n_purged: int = 0
+    purge_cut_date: str | None = None
 
 
 @dataclass
@@ -280,6 +291,27 @@ def stage_matched_baseline(stages: Sequence[StageBucket], rd: Readout, min_n: in
     )
 
 
+def _purge_cut_date(con: duckdb.DuckDBPyConnection, end: str, horizon: int) -> str | None:
+    """窗内最后一个「outcome 不跨窗」的事件日：日历（history_labels 的唯一交易日）上
+    ``end`` 往前数第 ``horizon`` 个交易日。日历不足 horizon+1 天 → None（全窗事件的
+    outcome 都伸出窗外，一个都不能要——窗口比 outcome 还短本来就不该出统计）。"""
+    rows = con.execute(
+        "SELECT trade_date FROM ("
+        "  SELECT DISTINCT trade_date FROM history_labels"
+        "  WHERE CAST(trade_date AS DATE) <= CAST(? AS DATE)"
+        "  ORDER BY trade_date DESC LIMIT ?"
+        ") ORDER BY trade_date LIMIT 1",
+        [end, int(horizon) + 1],
+    ).fetchall()
+    count = con.execute(
+        "SELECT COUNT(DISTINCT trade_date) FROM history_labels WHERE CAST(trade_date AS DATE) <= CAST(? AS DATE)",
+        [end],
+    ).fetchone()[0]
+    if int(count or 0) < int(horizon) + 1:
+        return None
+    return str(rows[0][0])[:10] if rows else None
+
+
 def execute_compiled(
     con: duckdb.DuckDBPyConnection,
     rule: Rule,
@@ -293,6 +325,13 @@ def execute_compiled(
     ok_events = [(eid, d, bool(s), metric) for eid, d, status, s, metric in events if status == "ok"]
     n_pending = sum(1 for e in events if e[2] == "pending")
     n_missing = sum(1 for e in events if e[2] not in ("ok", "pending"))
+
+    # OPT-05 purge：窗末最后 horizon 个交易日内的事件，其 outcome 落在窗外——发现窗
+    # 用它等于读了下一窗（验证窗）的价格，跨窗标签泄漏。按日历剔除并如实计数。
+    cut_date = _purge_cut_date(con, window[1], rule.success.horizon)
+    kept = [e for e in ok_events if cut_date is not None and str(e[1])[:10] <= cut_date]
+    n_purged = len(ok_events) - len(kept)
+    ok_events = kept
 
     baseline_window: tuple[str, str] | None = None
     baseline_n = baseline_k = 0
@@ -311,6 +350,20 @@ def execute_compiled(
         baseline_k=int(baseline_k or 0),
         min_n=rule.min_n,
     )
+    # OPT-05 依赖感知：事件不展平（保留 entity × date 身份），按日期块重采样出第二道
+    # 区间。最终 verdict 是两道的保守合成——Wilson 读数降为描述性，同日共振与重叠
+    # outcome 不再靠「事件数 = N」冒充统计力量。
+    dependence: DependenceReadout | None = None
+    if ok_events:
+        dependence = block_bootstrap_readout(
+            [(str(e), str(d)[:10], bool(s)) for e, d, s, _m in ok_events],
+            p0=rd.p0,
+            block_len=rule.success.horizon,
+        )
+        final, note = combined_verdict(rd.verdict, dependence.verdict)
+        if final != rd.verdict or note:
+            notes = rd.notes + ((note,) if note else ())
+            rd = replace(rd, verdict=final, notes=notes)
     if ok_events:
         # 另一种口径只作对照：同一事件集换个 p0，看结论会不会变——变了说明读数受择时 / 选择的混杂
         other = next(k for k in BASELINE_KINDS if k != compiled.baseline_kind)
@@ -351,6 +404,9 @@ def execute_compiled(
         rule=rule,
         window=window,
         baseline_window=baseline_window,
+        dependence=dependence,
+        n_purged=n_purged,
+        purge_cut_date=cut_date,
         readout=rd,
         baseline_alt=alt,
         baseline_stage_matched=stage_matched,
@@ -383,6 +439,20 @@ def run_rule(
 ) -> RunResult:
     conditions = conditions or load_conditions(con)
     _check_horizons(rule, conditions)
+    if rule.windows:
+        # 双窗（设计稿 §10.2 第二条）：discovery / validation 各跑一次，同一编译器、同一执行器；调用方给的 start / end
+        # 只作夹紧（与各窗取交集），不会把两窗合成一窗。顶层结论 = validation 窗；discovery 挂在 .discovery 作对照。
+        results: dict[str, RunResult] = {}
+        for name in ("discovery", "validation"):
+            w_start, w_end = rule.windows[name]
+            clamped_start = max(w_start, str(start)) if start else w_start
+            clamped_end = min(w_end, str(end)) if end else w_end
+            window = resolve_window(conditions, clamped_start, clamped_end)
+            compiled = compile_rule(rule, start=window[0], end=window[1])
+            results[name] = execute_compiled(con, rule, compiled, window=window, conditions=conditions, q=q)
+        validation = results["validation"]
+        validation.discovery = results["discovery"]
+        return validation
     window = resolve_window(conditions, start, end)
     compiled = compile_rule(rule, start=window[0], end=window[1])
     return execute_compiled(con, rule, compiled, window=window, conditions=conditions, q=q)

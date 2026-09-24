@@ -1,0 +1,316 @@
+# Page snapshot
+
+```yaml
+- complementary "会话列表":
+  - text: F
+  - strong: Foresight
+  - text: Research Agent
+  - button "关闭会话列表"
+  - text: 工作区
+  - strong: 市场研究
+  - navigation "工作台一级导航":
+    - button "今日"
+    - button "主题"
+    - button "信号"
+    - button "验证"
+    - button "问答"
+  - button "新对话"
+  - text: 搜索会话
+  - searchbox "搜索会话"
+  - heading "研究线程" [level=2]
+  - text: "25"
+  - button "E2E-mobile-1789740164596 请复盘 2026/9/18":
+    - strong: E2E-mobile-1789740164596 请复盘
+    - text: 2026/9/18
+  - button "归档E2E-mobile-1789740164596 请复盘"
+  - button "未命名研究 2026/9/18":
+    - strong: 未命名研究
+    - text: 2026/9/18
+  - button "归档未命名研究"
+  - button "R8 针 2026/9/18":
+    - strong: R8 针
+    - text: 2026/9/18
+  - button "归档R8 针"
+  - button "R1 针 2026/9/18":
+    - strong: R1 针
+    - text: 2026/9/18
+  - button "归档R1 针"
+  - button "本人的 2026/9/18":
+    - strong: 本人的
+    - text: 2026/9/18
+  - button "归档本人的"
+  - button "制冷剂配额 2026/9/18":
+    - strong: 制冷剂配额
+    - text: 2026/9/18
+  - button "归档制冷剂配额"
+  - button "I14计时 2026/9/18":
+    - strong: I14计时
+    - text: 2026/9/18
+  - button "归档I14计时"
+  - button "E2E-cancel-tablet 请完整分析今天研究什 2026/9/18":
+    - strong: E2E-cancel-tablet 请完整分析今天研究什
+    - text: 2026/9/18
+  - button "归档E2E-cancel-tablet 请完整分析今天研究什"
+  - button "请个股深挖英维克的液冷业务 2026/9/18":
+    - strong: 请个股深挖英维克的液冷业务
+    - text: 2026/9/18
+  - button "归档请个股深挖英维克的液冷业务"
+  - button "E2E-tablet-1789740043513 请复盘 2026/9/18":
+    - strong: E2E-tablet-1789740043513 请复盘
+    - text: 2026/9/18
+  - button "归档E2E-tablet-1789740043513 请复盘"
+  - button "未命名研究 2026/9/18":
+    - strong: 未命名研究
+    - text: 2026/9/18
+  - button "归档未命名研究"
+  - button "R8 针 2026/9/18":
+    - strong: R8 针
+    - text: 2026/9/18
+  - button "归档R8 针"
+  - button "R1 针 2026/9/18":
+    - strong: R1 针
+    - text: 2026/9/18
+  - button "归档R1 针"
+  - button "本人的 2026/9/18":
+    - strong: 本人的
+    - text: 2026/9/18
+  - button "归档本人的"
+  - button "制冷剂配额 2026/9/18":
+    - strong: 制冷剂配额
+    - text: 2026/9/18
+  - button "归档制冷剂配额"
+  - button "I14计时 2026/9/18":
+    - strong: I14计时
+    - text: 2026/9/18
+  - button "归档I14计时"
+  - button "E2E-cancel-desktop 请完整分析今天研究 2026/9/18":
+    - strong: E2E-cancel-desktop 请完整分析今天研究
+    - text: 2026/9/18
+  - button "归档E2E-cancel-desktop 请完整分析今天研究"
+  - button "请个股深挖英维克的液冷业务 2026/9/18":
+    - strong: 请个股深挖英维克的液冷业务
+    - text: 2026/9/18
+  - button "归档请个股深挖英维克的液冷业务"
+  - button "E2E-desktop-1789739986290 请复 2026/9/18":
+    - strong: E2E-desktop-1789739986290 请复
+    - text: 2026/9/18
+  - button "归档E2E-desktop-1789739986290 请复"
+  - button "未命名研究 2026/9/18":
+    - strong: 未命名研究
+    - text: 2026/9/18
+  - button "归档未命名研究"
+  - button "R8 针 2026/9/18":
+    - strong: R8 针
+    - text: 2026/9/18
+  - button "归档R8 针"
+  - button "R1 针 2026/9/18":
+    - strong: R1 针
+    - text: 2026/9/18
+  - button "归档R1 针"
+  - button "本人的 2026/9/18":
+    - strong: 本人的
+    - text: 2026/9/18
+  - button "归档本人的"
+  - button "制冷剂配额 2026/9/18":
+    - strong: 制冷剂配额
+    - text: 2026/9/18
+  - button "归档制冷剂配额"
+  - button "I14计时 2026/9/18":
+    - strong: I14计时
+    - text: 2026/9/18
+  - button "归档I14计时"
+  - button "产物库": 研究产物
+  - text: 本地执行 · 私有数据
+- main:
+  - button "打开会话列表"
+  - text: 研究线程
+  - strong: E2E-mobile-1789740164596 请复盘
+  - text: 每轮重新检索当前证据
+  - button "配置模型": 默认模型
+  - status: 空闲
+  - text: Demo · 非计分 · Day 1 未开始
+  - button "打开研究检查器"
+  - region "消息记录":
+    - article "你的消息":
+      - paragraph: E2E-mobile-1789740164596 请复盘今天市场怎么样
+    - article "研究助手消息":
+      - strong: Foresight
+      - text: 已完成 已自动选择 · 每日复盘
+      - paragraph: 当前视角：数据中立 来源范围：数据提供方、公开来源与本轮检索证据
+      - heading "每日市场复盘" [level=1]
+      - heading "结论" [level=2]
+      - paragraph:
+        - strong: 直接定性：
+        - text: 截至 2026-07-10，修复阶段；修复延续，下一交易日验证量能。
+        - strong: 最强证据：
+        - text: 修复阶段；修复延续，下一交易日验证量能。
+        - strong: 主要风险：
+        - text: 还缺：当前结论只覆盖本轮专项资料，未覆盖的信息保持未知。
+        - strong: 条件边界：
+        - text: 若核心指标、风险项或资料日期出现反向变化，当前判断应降级。
+        - strong: 下一步验证：
+        - text: 下一验证窗口复核核心指标、风险项和资料日期是否发生变化。
+      - heading "支撑依据" [level=2]
+      - list:
+        - listitem: 哪些方向在放量上涨：上涨且成交同步放大的方向：算力
+        - listitem: 市场判断：修复延续，下一交易日验证量能。
+        - listitem: 市场性质：修复阶段
+        - listitem: 指数表现：上证上涨 0.8%
+        - listitem: 成交情况：成交额 18000 亿
+      - group: 展开来源和数据边界
+      - group:
+        - text: 运行详情 已完成 已降级
+        - term: 数据截止
+        - definition: 2026-07-10
+        - status: 本轮存在限制：自然语言综合暂时不可用；已保留可核验数据与结构化产物。
+        - region "运行轨迹":
+          - heading "运行轨迹" [level=3]
+          - list:
+            - listitem:
+              - group: 核对研究证据 已完成
+            - listitem:
+              - group: 理解问题 已完成
+            - listitem:
+              - group: 核对研究证据 已完成
+            - listitem:
+              - group: 形成研究计划 已完成
+            - listitem:
+              - group: 核对研究证据 已完成
+            - listitem:
+              - group: 核对研究证据 已完成
+            - listitem:
+              - group: 核对研究证据 已完成
+            - listitem:
+              - group: 核对研究证据 已完成
+            - listitem:
+              - group: 核对研究证据 已完成
+            - listitem:
+              - group: 核对研究证据 已完成
+            - listitem:
+              - group: 核对研究证据 已完成
+        - group: 高级详情
+        - region "产物":
+          - heading "产物" [level=3]
+          - button "Daily Review Skill 原始结果"
+          - button "对话回答：E2E-mobile-1789740164596"
+          - button "回答事实边界"
+          - button "猜你想问"
+          - button "影子论证计划"
+          - button "Grounded Composer 影子实验"
+          - button "结构化对话报告"
+        - region "继续研究":
+          - heading "继续研究" [level=3]
+          - button "补齐：当前结论只覆盖本轮专项资料，未覆盖"
+          - button "同链下一跳"
+          - button "下一验证窗口复核核心指标、风险项和资料日"
+    - article "你的消息":
+      - paragraph: E2E-mobile-1789740164596 第二轮请看今天研究什么
+    - article "研究助手消息":
+      - strong: Foresight
+      - text: 已完成 已指定工具 · Daily Agent
+      - paragraph: 当前视角：数据中立 来源范围：数据提供方、公开来源与本轮检索证据
+      - heading "研究雷达" [level=1]
+      - heading "当前判断" [level=2]
+      - paragraph: 截至 2026-07-10，研究雷达结构：旧逻辑重新活跃 1 个；今日研究队列共 1 项；补官方证据 1 项
+      - heading "主要依据" [level=2]
+      - list:
+        - listitem: 氢能源：分类=旧逻辑重新活跃；生命周期=旧逻辑唤醒；证据现状=旧逻辑被重新炒作，但尚未被新证据确认；强势股=金宏气体
+      - heading "证据边界" [level=2]
+      - list:
+        - listitem: 氢能源目前还缺：公告、调研等官方硬证据
+        - listitem: 只读研究入口，不自动交易。
+      - heading "下一验证" [level=2]
+      - list:
+        - listitem: 补官方证据｜氢能源：查公告和订单。
+      - group:
+        - text: 运行详情 已完成 已降级
+        - term: 数据截止
+        - definition: 2026-07-10
+        - status: 本轮存在限制：只读研究入口，不自动交易。；自然语言综合暂时不可用；已保留可核验数据与结构化产物。
+        - region "运行轨迹":
+          - heading "运行轨迹" [level=3]
+          - list:
+            - listitem:
+              - group: 核对研究证据 已完成
+            - listitem:
+              - group: 理解问题 已完成
+            - listitem:
+              - group: 核对研究证据 已完成
+            - listitem:
+              - group: 形成研究计划 已完成
+            - listitem:
+              - group: 核对研究证据 已完成
+            - listitem:
+              - group: 核对研究证据 已完成
+            - listitem:
+              - group: 核对研究证据 已完成
+            - listitem:
+              - group: 核对研究证据 已完成
+            - listitem:
+              - group: 核对研究证据 已完成
+            - listitem:
+              - group: 核对研究证据 已完成
+        - group: 高级详情
+        - region "产物":
+          - heading "产物" [level=3]
+          - button "Daily Agent Skill 原始结果"
+          - button "对话回答：E2E-mobile-1789740164596"
+          - button "回答事实边界"
+          - button "猜你想问"
+          - button "影子论证计划"
+        - region "继续研究":
+          - heading "继续研究" [level=3]
+          - button "补齐：氢能源目前还缺：公告、调研等官方硬"
+          - button "补齐：只读研究入口，不自动交易"
+          - button "同链下一跳"
+          - button "补官方证据｜氢能源：查公告和订单"
+      - button "重新生成回答": 重新生成
+  - form "研究提问":
+    - text: 输入研究问题
+    - textbox "输入研究问题"
+    - button "选择研究工具": 手动指定研究工具 · 1
+    - text: 研究工具选择方式
+    - combobox "研究工具选择方式":
+      - option "自动选择并补充指定工具"
+      - option "手动指定研究工具" [selected]
+      - option "自动选择研究工具"
+    - button "选择分析视角": 数据中立
+    - button "发送研究问题" [disabled]
+- complementary "研究检查器":
+  - text: 研究状态
+  - strong: 研究上下文
+  - button "关闭检查器"
+  - tablist "检查器视图":
+    - tab "证据" [selected]
+    - tab "项目"
+    - tab "维护"
+    - tab "运行"
+    - tab "记忆"
+    - tab "回检"
+  - region "当前任务摘要":
+    - text: 当前任务
+    - strong: 已完成
+    - term: 步骤
+    - definition: "10"
+    - term: 证据
+    - definition: "1"
+    - term: 产物
+    - definition: "5"
+  - group "自用成熟度预览": 自用成熟度预览（Demo 非计分）
+  - region "使用计时":
+    - paragraph: 仅记录本次会话的应用内可见区间和隐藏区间，不记录输入内容。可见不等于一直在操作；隐藏不扣端到端耗时，不推断外部查阅时间。关闭页面或切会话会停止，异常退出可能缺测。自用记录不计入配对任务效果。
+    - button "同意并开始本次计时"
+    - status: 使用计时已关闭；研究功能不受影响
+  - region "证据与边界":
+    - heading "证据与边界" [level=2]
+    - strong: Canonical Daily Agent
+    - paragraph: market_feature_store/exports/2026-07-10-daily-agent.json
+    - text: 可验证引用
+    - strong: K 类证据
+    - paragraph: 1 条引用
+    - text: 引用汇总
+    - strong: 数据缺口或降级
+    - paragraph: 只读研究入口，不自动交易。
+    - strong: 数据缺口或降级
+    - paragraph: 自然语言综合暂时不可用；已保留可核验数据与结构化产物。
+```

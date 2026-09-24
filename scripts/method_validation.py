@@ -32,6 +32,7 @@ if str(ROOT) not in sys.path:
 import duckdb  # noqa: E402
 
 from intelligence.services.method_validation import (  # noqa: E402
+    active_study,
     build_protocol,
     compare,
     list_records,
@@ -39,8 +40,12 @@ from intelligence.services.method_validation import (  # noqa: E402
     protocol_id_for,
     read_features,
     read_outcomes,
+    active_binding,
+    is_superseded,
     read_record,
     register,
+    set_active,
+    supersede,
     validate_capture,
     write_record,
 )
@@ -137,6 +142,7 @@ def cmd_register(args) -> int:
 
 
 def cmd_history(args) -> int:
+    _refuse_if_superseded(Path(args.study_dir))
     protocol = load_protocol(args.study_dir)
     features = read_features(args.labels_db, protocol, **protocol["history"])
     outcomes = read_outcomes(args.labels_db, protocol, features, now=current_time())
@@ -148,7 +154,27 @@ def cmd_history(args) -> int:
     return 0
 
 
+def _refuse_if_superseded(study_dir: Path) -> None:
+    """封存协议**不接受新观察**。
+
+    「退出枚举」只挡住了按 root 枚举的消费者；`daily` / `capture` / `history` 直接吃
+    --study-dir, 根本不过 `list_studies`——质检实测对已封存协议跑真实 daily 仍 rc=0
+    且新增 1 份 capture；`history` 同样 rc=0、写入记录**并刷新 standing**（自查补上）。
+    停用必须落在产生副作用之前。
+
+    闸内：所有产生**新观察**的入口（凡是调用 `write_record` 的函数）。
+    闸外：只读审计（report / status）与既有待验对象的结算（recheck）——怎么结算存量是
+    另一个决定, 不该被一刀切破坏；`status --refresh` 只从既有收据派生摘要, 不造新证据。
+    """
+    if is_superseded(study_dir):
+        raise ValueError(
+            f"协议已封存, 拒绝写入新观察：{study_dir}。"
+            f"先 `activate` 到继任协议再跑；只读审计与 recheck 结算不受影响"
+        )
+
+
 def _capture_once(study_dir: Path, labels_db: Path, args) -> dict:
+    _refuse_if_superseded(Path(study_dir))
     protocol = load_protocol(study_dir)
     with _capture_lock(study_dir):
         now = current_time()
@@ -164,13 +190,19 @@ def _capture_once(study_dir: Path, labels_db: Path, args) -> dict:
             record = _observation(study_dir, existing[0], protocol)
             if record["payload"]["features"]["end"] != day:
                 raise ValueError("观察分区与 D0 不一致")
-            return {"observation": str(existing[0]), "status": "already_captured", "trade_date": day,
-                    "members": len(record["payload"]["features"]["rows"]), "checkpoint": None}
-        features = read_features(labels_db, protocol, start=day, end=day)
-        captured_at = current_time()
-        validate_capture(protocol, features, now=captured_at)
-        captured_iso = captured_at.astimezone(timezone.utc).isoformat()
-        path = write_record(study_dir, "capture", {**_payload(protocol, features), "captured_at": captured_iso})
+            # 中断恢复点①（集成 spec I5）：capture 已落盘、checkpoint 尚未登记时中断，
+            # 重跑不重做 capture、不改捕获时间，落到下面同一段幂等登记补齐唯一 checkpoint。
+            status = "already_captured"
+            path = existing[0]
+            features = record["payload"]["features"]
+            captured_iso = record["payload"]["captured_at"]
+        else:
+            status = "captured"
+            features = read_features(labels_db, protocol, start=day, end=day)
+            captured_at = current_time()
+            validate_capture(protocol, features, now=captured_at)
+            captured_iso = captured_at.astimezone(timezone.utc).isoformat()
+            path = write_record(study_dir, "capture", {**_payload(protocol, features), "captured_at": captured_iso})
     checkpoint = None
     cpath, _vpath = _ledgers(args)
     if cpath is not None:
@@ -190,7 +222,7 @@ def _capture_once(study_dir: Path, labels_db: Path, args) -> dict:
     streak3 = sum(1 for row in features["rows"] if "streak3" in row["arms"])
     return {
         "observation": str(path),
-        "status": "captured",
+        "status": status,
         "trade_date": day,
         "members": len(features["rows"]),
         "streak3": streak3,
@@ -418,6 +450,7 @@ def _labels_watermarks(labels_db: Path) -> dict:
 def cmd_daily(args) -> int:
     """一条命令把当天该做的都做了；每步都只在条件成立时动作，不成立就把原因写进输出。"""
     study_dir = Path(args.study_dir)
+    _refuse_if_superseded(study_dir)
     labels_db = Path(args.labels_db).expanduser()
     db_path = Path(args.db_path).expanduser()
     if not db_path.is_file():
@@ -470,11 +503,19 @@ def cmd_daily(args) -> int:
             report["steps"].append({"step": "capture", "status": "refused", "reason": str(exc)})
 
     rechecks = []
-    settled = {
-        read_record(path)["payload"].get("observation_sha256")
-        for path in list_records(study_dir, "recheck")
-        if (read_record(path)["payload"].get("flywheel") or {}).get("classification") not in (None, "pending")
-    }
+    settled = set()
+    for path in list_records(study_dir, "recheck"):
+        payload = read_record(path)["payload"]
+        classification = (payload.get("flywheel") or {}).get("classification")
+        if classification in (None, "pending"):
+            continue
+        if classification == "data_insufficient" and rebuilt:
+            # 中断恢复点②（集成 spec I5）：可恢复的数据不足不能永久列为已结算。
+            # 本次重建把旁路库推到了新水位，补数可能已到——沿同一观察再次回检；
+            # 旧的不足记录与 unverifiable verdict 都保留在案（append-only），
+            # checkpoint 台账那侧 unverifiable 本就非终态、会重新排队。
+            continue
+        settled.add(payload.get("observation_sha256"))
     for observation in list_records(study_dir, "capture"):
         record = read_record(observation)
         if record["content_sha256"] in settled:
@@ -491,6 +532,90 @@ def cmd_daily(args) -> int:
     report["selection"] = standing["selection"] if standing else None
     _print(report)
     return 0
+
+
+def _root_of(args) -> Path:
+    return Path(args.root).expanduser() if args.root else user_space(args.user).root / "method_validation"
+
+
+def cmd_activate(args) -> int:
+    """把消费者（夜跑等）的绑定切到指定协议。登记 ≠ 切换，切换要单独做。"""
+    root = _root_of(args)
+    study = Path(args.study_dir).expanduser()
+    pointer = set_active(root, study)
+    protocol = load_protocol(study)
+    binding = active_binding(root)          # 读回核对：写成功 ≠ 消费者读得到
+    if binding["state"] != "ok" or binding["study_dir"] != study.resolve():
+        raise ValueError(f"切换后读回不一致：{binding}")
+    _print({"active_pointer": str(pointer), "study_dir": str(study.resolve()),
+            "protocol_id": protocol["protocol_id"], "forward_start": protocol["forward_start"],
+            "readback_state": binding["state"]})
+    return 0
+
+
+def cmd_supersede(args) -> int:
+    """封存一份协议：留档但退出活跃消费（`list_studies` 默认不再枚举它）。
+
+    **`--user` / `--root` 是变更边界, 不只是「读哪个根的 active」。** 上一版只拿它选根,
+    封存标记却直接按 `--study-dir` 写下去——`supersede --user u1 --study-dir <别人的协议>`
+    照样 rc=0 把别人的协议封了（09-12 质检实测）。这与 `set_active` 的归属校验是同一条
+    规则：**声明了在谁的范围内操作, 就不能动范围之外的东西**。要封存别的根, 显式把
+    `--user`/`--root` 指过去。
+    """
+    root = _root_of(args)
+    study = Path(args.study_dir).expanduser()
+    resolved, parent = study.resolve(), Path(root).expanduser().resolve()
+    if resolved.parent != parent:
+        raise ValueError(
+            f"study_dir 不属于该 root, 拒绝跨根封存：study_dir={resolved} root={parent}。"
+            f"要封存这一份, 请把 --user/--root 指向它所在的根"
+        )
+    marker = supersede(study, successor_id=args.successor, reason=args.reason or "")
+    current = active_study(root)
+    _print({"superseded_marker": str(marker), "study_dir": str(study.resolve()),
+            "successor_id": args.successor,
+            "active_study_dir": str(current) if current else None,
+            "warning": None if current else "当前无活跃绑定，请先 activate 新协议再让夜跑运行"})
+    return 0
+
+
+# active 的业务退出码。**刻意避开 1 和 2**：Python 未捕获异常退 1、argparse 用法
+# 错误退 2，若把「从未配置」定成 1，进程崩溃就会被夜跑读成「没配过」而静默回退旧协议
+# （09-12 质检用 `active.json` 写成 `[]` 复现：doc.get 抛 AttributeError → exit 1）。
+ACTIVE_OK = 0
+ACTIVE_BROKEN = 3        # 配置过但失效：损坏 / 目标缺失 / 协议坏 / 已封存
+ACTIVE_UNSET = 4         # 确实没配过——只有这一个码允许回退内置默认
+
+
+def cmd_active(args) -> int:
+    """打印当前活跃绑定。**退出码**（见上方常量）：
+
+    - 0：有效绑定；
+    - 4：从未配置过指针 → 允许兼容内置默认；
+    - 3：配置过但失效，或本命令自身出错 → **不许静默回退**, 必须停下来喊人。
+
+    两种输出模式（``--print-dir`` 与 JSON）共用同一份 ``active_binding`` 判定，
+    不允许出现「--print-dir 说有效、普通模式说损坏」这种由展示格式决定有效性的分歧。
+    """
+    root = _root_of(args)
+    try:
+        binding = active_binding(root)
+    except Exception as exc:  # noqa: BLE001 — 查询失败必须保留原因, 不能冒充「没配过」
+        print(f"active 查询失败：{type(exc).__name__}: {exc}", file=sys.stderr)
+        if args.print_dir:
+            print("")
+        return ACTIVE_BROKEN
+    state, current = binding["state"], binding["study_dir"]
+    rc = ACTIVE_OK if state == "ok" else (ACTIVE_UNSET if state == "unset" else ACTIVE_BROKEN)
+    if rc == ACTIVE_BROKEN:
+        print(f"active 指针失效（{state}）：{binding['detail']}", file=sys.stderr)
+    if args.print_dir:
+        print(str(current) if current else "")
+        return rc
+    _print({"root": str(root), "state": state, "detail": binding["detail"],
+            "study_dir": str(current) if current else None,
+            "protocol_id": load_protocol(current)["protocol_id"] if current else None})
+    return rc
 
 
 def _add_ledger_args(command: argparse.ArgumentParser) -> None:
@@ -510,6 +635,23 @@ def build_parser() -> argparse.ArgumentParser:
     reg.add_argument("--user", default=None)
     reg.add_argument("--root", type=Path, help="明确指定离线研究收据目录；默认走用户应用态")
     reg.set_defaults(func=cmd_register)
+    act = commands.add_parser("activate", help="把夜跑等消费者的绑定切到指定协议（登记不等于切换）")
+    act.add_argument("--study-dir", required=True, type=Path)
+    act.add_argument("--user", default=None)
+    act.add_argument("--root", type=Path)
+    act.set_defaults(func=cmd_activate)
+    sup = commands.add_parser("supersede", help="封存旧协议：留档但退出活跃消费")
+    sup.add_argument("--study-dir", required=True, type=Path)
+    sup.add_argument("--successor", default=None, help="继任协议 id")
+    sup.add_argument("--reason", default=None)
+    sup.add_argument("--user", default=None)
+    sup.add_argument("--root", type=Path)
+    sup.set_defaults(func=cmd_supersede)
+    cur = commands.add_parser("active", help="打印当前活跃绑定（0 有效 / 4 从未配置 / 3 配置过但失效）")
+    cur.add_argument("--print-dir", action="store_true", help="只打印目录，便于脚本取值")
+    cur.add_argument("--user", default=None)
+    cur.add_argument("--root", type=Path)
+    cur.set_defaults(func=cmd_active)
     for name, title, function in (
         ("history", "运行固定历史窗口三组对照", cmd_history),
         ("capture", "收盘后冻结今天的前瞻观察（有信号则登记待验对象）", cmd_capture),

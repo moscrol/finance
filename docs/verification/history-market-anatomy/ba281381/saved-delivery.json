@@ -1,0 +1,138 @@
+{
+  "scope": "saved original -> actual writer and cited-only reviewer projection; no real model, DB, new calculation or QC",
+  "tested_revision": "ba28138189ff231b19b61561644594ab9a44b041",
+  "source": "/Users/a77/.finance-runtime/history-anatomy-live-20260918-fbd8f2a6/users/history-anatomy-acceptance-v2/runs/run_20260918_092551_590812/history-query-461de0b134934e8e572c5b2677581da6f63992c43fcb255633f1e04531a227f4.json",
+  "source_sha256": "461de0b134934e8e572c5b2677581da6f63992c43fcb255633f1e04531a227f4",
+  "source_bytes": 1387169,
+  "query_id": "09985a6d9c186e0bcd2f2ccf48876e0368e093ba90a0aeda503e8f9e1fc3f7a5",
+  "source_unchanged": true,
+  "reduced_fixture_matches_source": true,
+  "original_rows": 138,
+  "original_preview_rows": 25,
+  "projected_evidence_count": 294,
+  "projection_omissions": [],
+  "states": [
+    {
+      "sample": 6,
+      "record_kind": "sector_succession",
+      "source_sector": "990026.FP",
+      "entity_code": "990065.FP",
+      "succession_status": "immature",
+      "observed_days": 0,
+      "required_days": 5,
+      "meaning": "源峰后不足5交易日，尚不能判成败；无需先回撤确认。"
+    },
+    {
+      "sample": 7,
+      "record_kind": "sector_succession",
+      "source_sector": "990026.FP",
+      "entity_code": "990078.FP",
+      "succession_status": "immature",
+      "observed_days": 0,
+      "required_days": 5,
+      "meaning": "源峰后不足5交易日，尚不能判成败；无需先回撤确认。"
+    },
+    {
+      "sample": 8,
+      "record_kind": "sector_succession",
+      "source_sector": "990065.FP",
+      "entity_code": "990026.FP",
+      "succession_status": "immature",
+      "observed_days": 0,
+      "required_days": 5,
+      "meaning": "源峰后不足5交易日，尚不能判成败；无需先回撤确认。"
+    },
+    {
+      "sample": 9,
+      "record_kind": "sector_succession",
+      "source_sector": "990065.FP",
+      "entity_code": "990078.FP",
+      "succession_status": "immature",
+      "observed_days": 0,
+      "required_days": 5,
+      "meaning": "源峰后不足5交易日，尚不能判成败；无需先回撤确认。"
+    },
+    {
+      "sample": 10,
+      "record_kind": "sector_succession",
+      "source_sector": "990078.FP",
+      "entity_code": "990026.FP",
+      "succession_status": "immature",
+      "observed_days": 2,
+      "required_days": 5,
+      "meaning": "源峰后不足5交易日，尚不能判成败；无需先回撤确认。"
+    },
+    {
+      "sample": 11,
+      "record_kind": "sector_succession",
+      "source_sector": "990078.FP",
+      "entity_code": "990065.FP",
+      "succession_status": "immature",
+      "observed_days": 2,
+      "required_days": 5,
+      "meaning": "源峰后不足5交易日，尚不能判成败；无需先回撤确认。"
+    }
+  ],
+  "cited_only_review": [
+    {
+      "evidence_id": "E70",
+      "tool": "history_query",
+      "source_date": "2026-09-15",
+      "evidence_tier": "L4_market_signal",
+      "title": "历史接力配对 990026.FP→990065.FP｜09985a6d·70｜990026.FP,990065.FP 2026-08-24 2026-09-15",
+      "detail": "{\"sample\":6,\"record_kind\":\"sector_succession\",\"source_sector\":\"990026.FP\",\"entity_code\":\"990065.FP\",\"succession_status\":\"immature\",\"observed_days\":0,\"required_days\":5,\"meaning\":\"源峰后不足5交易日，尚不能判成败；无需先回撤确认。\"}",
+      "freshness": "historical",
+      "independent_key": "09985a6d9c186e0bcd2f2ccf48876e0368e093ba90a0aeda503e8f9e1fc3f7a5"
+    },
+    {
+      "evidence_id": "E83",
+      "tool": "history_query",
+      "source_date": "2026-09-15",
+      "evidence_tier": "L4_market_signal",
+      "title": "历史接力配对 990026.FP→990078.FP｜09985a6d·83｜990026.FP,990065.FP 2026-08-24 2026-09-15",
+      "detail": "{\"sample\":7,\"record_kind\":\"sector_succession\",\"source_sector\":\"990026.FP\",\"entity_code\":\"990078.FP\",\"succession_status\":\"immature\",\"observed_days\":0,\"required_days\":5,\"meaning\":\"源峰后不足5交易日，尚不能判成败；无需先回撤确认。\"}",
+      "freshness": "historical",
+      "independent_key": "09985a6d9c186e0bcd2f2ccf48876e0368e093ba90a0aeda503e8f9e1fc3f7a5"
+    },
+    {
+      "evidence_id": "E96",
+      "tool": "history_query",
+      "source_date": "2026-09-15",
+      "evidence_tier": "L4_market_signal",
+      "title": "历史接力配对 990065.FP→990026.FP｜09985a6d·96｜990026.FP,990065.FP 2026-08-24 2026-09-15",
+      "detail": "{\"sample\":8,\"record_kind\":\"sector_succession\",\"source_sector\":\"990065.FP\",\"entity_code\":\"990026.FP\",\"succession_status\":\"immature\",\"observed_days\":0,\"required_days\":5,\"meaning\":\"源峰后不足5交易日，尚不能判成败；无需先回撤确认。\"}",
+      "freshness": "historical",
+      "independent_key": "09985a6d9c186e0bcd2f2ccf48876e0368e093ba90a0aeda503e8f9e1fc3f7a5"
+    },
+    {
+      "evidence_id": "E109",
+      "tool": "history_query",
+      "source_date": "2026-09-15",
+      "evidence_tier": "L4_market_signal",
+      "title": "历史接力配对 990065.FP→990078.FP｜09985a6d·109｜990026.FP,990065.FP 2026-08-24 2026-09-15",
+      "detail": "{\"sample\":9,\"record_kind\":\"sector_succession\",\"source_sector\":\"990065.FP\",\"entity_code\":\"990078.FP\",\"succession_status\":\"immature\",\"observed_days\":0,\"required_days\":5,\"meaning\":\"源峰后不足5交易日，尚不能判成败；无需先回撤确认。\"}",
+      "freshness": "historical",
+      "independent_key": "09985a6d9c186e0bcd2f2ccf48876e0368e093ba90a0aeda503e8f9e1fc3f7a5"
+    },
+    {
+      "evidence_id": "E122",
+      "tool": "history_query",
+      "source_date": "2026-09-15",
+      "evidence_tier": "L4_market_signal",
+      "title": "历史接力配对 990078.FP→990026.FP｜09985a6d·122｜990026.FP,990065.FP 2026-08-24 2026-09-15",
+      "detail": "{\"sample\":10,\"record_kind\":\"sector_succession\",\"source_sector\":\"990078.FP\",\"entity_code\":\"990026.FP\",\"succession_status\":\"immature\",\"observed_days\":2,\"required_days\":5,\"meaning\":\"源峰后不足5交易日，尚不能判成败；无需先回撤确认。\"}",
+      "freshness": "historical",
+      "independent_key": "09985a6d9c186e0bcd2f2ccf48876e0368e093ba90a0aeda503e8f9e1fc3f7a5"
+    },
+    {
+      "evidence_id": "E135",
+      "tool": "history_query",
+      "source_date": "2026-09-15",
+      "evidence_tier": "L4_market_signal",
+      "title": "历史接力配对 990078.FP→990065.FP｜09985a6d·135｜990026.FP,990065.FP 2026-08-24 2026-09-15",
+      "detail": "{\"sample\":11,\"record_kind\":\"sector_succession\",\"source_sector\":\"990078.FP\",\"entity_code\":\"990065.FP\",\"succession_status\":\"immature\",\"observed_days\":2,\"required_days\":5,\"meaning\":\"源峰后不足5交易日，尚不能判成败；无需先回撤确认。\"}",
+      "freshness": "historical",
+      "independent_key": "09985a6d9c186e0bcd2f2ccf48876e0368e093ba90a0aeda503e8f9e1fc3f7a5"
+    }
+  ]
+}

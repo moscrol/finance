@@ -1,0 +1,21 @@
+
+> market-intelligence-workbench@0.1.0 test /Users/a77/.finance-runtime/kb-v4-merge-20260919/pre/finance-workspace-private/intelligence/webapp
+> vitest run
+
+
+ RUN  v3.2.4 /Users/a77/.finance-runtime/kb-v4-merge-20260919/pre/finance-workspace-private/intelligence/webapp
+
+ ✓ src/researchActivity.test.ts (2 tests) 6ms
+ ✓ src/streamEventRegistry.test.ts (2 tests) 6ms
+ ✓ src/api.test.ts (3 tests) 12ms
+ ✓ src/components/ResearchProjectPanel.test.tsx (5 tests) 152ms
+ ✓ src/components/ResearchActivityControl.test.tsx (5 tests) 284ms
+ ✓ src/components/DailyReportView.test.tsx (4 tests) 265ms
+ ✓ src/components/ResearchEvolutionPanel.test.tsx (18 tests) 535ms
+ ✓ src/components/components.test.tsx (71 tests) 2202ms
+
+ Test Files  8 passed (8)
+      Tests  110 passed (110)
+   Start at  00:57:12
+   Duration  4.38s (transform 1.34s, setup 3.20s, collect 2.68s, tests 3.46s, environment 4.59s, prepare 665ms)
+

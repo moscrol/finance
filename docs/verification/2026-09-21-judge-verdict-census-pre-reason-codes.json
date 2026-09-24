@@ -1,0 +1,173 @@
+{
+  "generated_at": "2026-09-21T11:40:15+08:00",
+  "since": "2026-09-03",
+  "runs_scanned": 928,
+  "runs_with_field": 113,
+  "runs_without_field": 6,
+  "runs_unreadable": 0,
+  "runs_skipped_by_date": 809,
+  "verdict_count": 300,
+  "by_stage": {
+    "preflight": 36,
+    "judge": 206,
+    "guided_rejudge": 58
+  },
+  "by_decision": {
+    "deleted": 38,
+    "demoted_to_issue": 204,
+    "lifted": 58
+  },
+  "by_reason": {
+    "novel_numeric_condition": 36,
+    "judge": 206,
+    "guided_retrieval_evidence": 58
+  },
+  "deleted": {
+    "count": 38,
+    "with_source_count": 4,
+    "with_source_share": 0.1053,
+    "unresolved_ordinal_only_count": 0,
+    "no_citation_count": 34,
+    "with_source_tiers": {
+      "public_web": 2,
+      "L4_structured": 1,
+      "news": 1
+    },
+    "with_source_samples": [
+      {
+        "run_id": "run_20260916_224237_327389",
+        "sentence": "若E78所引应收激增（Q1末95.36亿→Q2末150.01亿、单季大增54.65亿、存货同步走高）属实，将削弱经营质量改善判断；",
+        "reasons": [
+          "novel_numeric_condition"
+        ],
+        "source_tiers": [
+          "public_web"
+        ],
+        "judge_issues": []
+      },
+      {
+        "run_id": "run_20260916_224237_327389",
+        "sentence": "③若单季净利率回落至30%以下或毛利率跌破43%（知识库跟踪阈值，E38/E39，属外部阈值线索），景气叙事将需重估。",
+        "reasons": [
+          "novel_numeric_condition"
+        ],
+        "source_tiers": [],
+        "judge_issues": []
+      },
+      {
+        "run_id": "run_20260917_203230_060027",
+        "sentence": "- 储能链收跌但涨停家数高，是「涨停集中但板块指数走弱」的分歧组合，若后续出现利多不涨+连板高标走坏，按抱团踩踏前兆判读应降级（E27）；",
+        "reasons": [
+          "novel_numeric_condition"
+        ],
+        "source_tiers": [
+          "L4_structured"
+        ],
+        "judge_issues": []
+      },
+      {
+        "run_id": "run_20260905_015850_546597",
+        "sentence": "9-02财联社报道CPO龙头（中际旭创）市值跌破万亿、两个半月回撤40%，当日成交220.60亿仍居市场首位，新易盛137.37亿第二（E19、E30）；",
+        "reasons": [
+          "novel_numeric_condition"
+        ],
+        "source_tiers": [
+          "news",
+          "public_web"
+        ],
+        "judge_issues": []
+      }
+    ]
+  },
+  "demoted": {
+    "count": 204,
+    "source_tiers": {
+      "news": 7,
+      "L4_structured": 25,
+      "public_web": 3,
+      "L2_structured": 1
+    },
+    "samples": [
+      {
+        "run_id": "run_20260920_202713_271264",
+        "sentence": "- 中际旭创（300308）：CPO大票锚，成交270.8亿，偏离+0.17（刚站上UP线）",
+        "reasons": [
+          "judge"
+        ],
+        "source_tiers": [],
+        "judge_issues": [
+          "第12句：称中际旭创为「CPO大票锚」，但对应证据E39明确标注其所属题材=未知（仅申万行业=通信），题材归属为无直接证据的外部事实断言。"
+        ]
+      },
+      {
+        "run_id": "run_20260920_202713_271264",
+        "sentence": "- 新易盛（300502）：CPO，成交185.1亿，+4.87%，偏离+3.28",
+        "reasons": [
+          "judge"
+        ],
+        "source_tiers": [],
+        "judge_issues": [
+          "第13句：称新易盛属于「CPO」，但对应证据E40标注其所属题材=未知，题材标签缺乏直接证据支持。"
+        ]
+      },
+      {
+        "run_id": "run_20260920_202713_271264",
+        "sentence": "- 兆易创新（603986）：存储大票，+4.95%，偏离-4.75（十只中唯一低于UP线，相对低位）",
+        "reasons": [
+          "judge"
+        ],
+        "source_tiers": [],
+        "judge_issues": [
+          "第14句：称兆易创新为「存储大票」，但对应证据E42标注其所属题材=未知（仅行业=电子），存储题材归属无直接证据。"
+        ]
+      },
+      {
+        "run_id": "run_20260920_202713_271264",
+        "sentence": "**不确定性**：该名单是「主线×人气×正宗度」口径，历史消融显示正宗度加权不提升前瞻收益，即它回答「谁是正宗龙头」而非「谁会涨」；",
+        "reasons": [
+          "judge"
+        ],
+        "source_tiers": [],
+        "judge_issues": [
+          "第17句：「历史消融显示正宗度加权不提升前瞻收益」为历史统计/因果性结论，证据注册表中无任何消融实验或前瞻收益数据支持，属于无证据的外部统计断言。"
+        ]
+      },
+      {
+        "run_id": "run_20260917_140155_334420",
+        "sentence": "多家媒体报道当日「市值单日蒸发70亿」、相关芯片指数盘中跌超1%【E34、E37、E38】。",
+        "reasons": [
+          "judge"
+        ],
+        "source_tiers": [
+          "news"
+        ],
+        "judge_issues": [
+          "第9句：『相关芯片指数盘中跌超1%』在证据 E34/E37/E38 中无对应内容——E34 仅标题含「市值单日蒸发70亿」，未见任何芯片指数盘中跌幅数据，属证据外行情事实，予以拒绝。其余句子核查通过：财务数字（第4、5句）与 verifie"
+        ]
+      },
+      {
+        "run_id": "run_20260917_140155_334420",
+        "sentence": "个股层面最近收盘价、5/10日涨跌幅等结构化行情数据在本地库未能取到（多个行情表对该代码返回空），具体近期点位涨幅为证据缺口。",
+        "reasons": [
+          "judge"
+        ],
+        "source_tiers": [],
+        "judge_issues": [
+          "第9句：『相关芯片指数盘中跌超1%』在证据 E34/E37/E38 中无对应内容——E34 仅标题含「市值单日蒸发70亿」，未见任何芯片指数盘中跌幅数据，属证据外行情事实，予以拒绝。其余句子核查通过：财务数字（第4、5句）与 verifie"
+        ]
+      }
+    ]
+  },
+  "rewritten": {
+    "count": 0,
+    "samples": []
+  },
+  "judge_stage": {
+    "count": 206,
+    "coded_count": 0,
+    "coded_share": 0.0,
+    "by_reason_code": {}
+  },
+  "verdict": "可判：见 deleted.with_source_share 与 with_source_tiers",
+  "runs_root": "/Users/a77/.local/share/finance-workbench/users"
+}

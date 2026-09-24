@@ -1,0 +1,148 @@
+FFFF.F..F                                                                [100%]
+=================================== FAILURES ===================================
+_ test_non_mapping_frontmatter_preserves_original_body[# \u6f14\u8bb2\u7a3f\n\n\u6b63\u6587\u4e0d\u53ef\u4e22\u5931\u3002] _
+
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2661/test_non_mapping_frontmatter_p0')
+middle = '# 演讲稿\n\n正文不可丢失。'
+
+    @pytest.mark.parametrize("middle", [
+        "# 演讲稿\n\n正文不可丢失。",
+        "# 演讲稿\n\n正文含有：不合法的 YAML\n: [",
+        "- 第一段正文\n- 第二段正文",
+        "# 演讲稿\n\n> 正文说明\n\n口语化的说明和事实。",
+    ])
+    def test_non_mapping_frontmatter_preserves_original_body(tmp_path, middle):
+        raw = f"---\n\n{middle}\n\n---\n"
+        fm, body = _parse_frontmatter(raw)
+        assert fm == {}
+>       assert body == raw
+E       AssertionError: assert '' == '---\n\n# 演讲稿...可丢失。\n\n---\n'
+E         
+E         - ---
+E         - 
+E         - # 演讲稿
+E         - 
+E         - 正文不可丢失。
+E         - 
+E         - ---
+
+skills/lib/rag/tests/test_frontmatter_body.py:24: AssertionError
+_ test_non_mapping_frontmatter_preserves_original_body[# \u6f14\u8bb2\u7a3f\n\n\u6b63\u6587\u542b\u6709\uff1a\u4e0d\u5408\u6cd5\u7684 YAML\n: [] _
+
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2661/test_non_mapping_frontmatter_p1')
+middle = '# 演讲稿\n\n正文含有：不合法的 YAML\n: ['
+
+    @pytest.mark.parametrize("middle", [
+        "# 演讲稿\n\n正文不可丢失。",
+        "# 演讲稿\n\n正文含有：不合法的 YAML\n: [",
+        "- 第一段正文\n- 第二段正文",
+        "# 演讲稿\n\n> 正文说明\n\n口语化的说明和事实。",
+    ])
+    def test_non_mapping_frontmatter_preserves_original_body(tmp_path, middle):
+        raw = f"---\n\n{middle}\n\n---\n"
+        fm, body = _parse_frontmatter(raw)
+        assert fm == {}
+>       assert body == raw
+E       AssertionError: assert '' == '---\n\n# 演讲稿...n: [\n\n---\n'
+E         
+E         - ---
+E         - 
+E         - # 演讲稿
+E         - 
+E         - 正文含有：不合法的 YAML
+E         - : [
+E         - 
+E         - ---
+
+skills/lib/rag/tests/test_frontmatter_body.py:24: AssertionError
+_ test_non_mapping_frontmatter_preserves_original_body[- \u7b2c\u4e00\u6bb5\u6b63\u6587\n- \u7b2c\u4e8c\u6bb5\u6b63\u6587] _
+
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2661/test_non_mapping_frontmatter_p2')
+middle = '- 第一段正文\n- 第二段正文'
+
+    @pytest.mark.parametrize("middle", [
+        "# 演讲稿\n\n正文不可丢失。",
+        "# 演讲稿\n\n正文含有：不合法的 YAML\n: [",
+        "- 第一段正文\n- 第二段正文",
+        "# 演讲稿\n\n> 正文说明\n\n口语化的说明和事实。",
+    ])
+    def test_non_mapping_frontmatter_preserves_original_body(tmp_path, middle):
+        raw = f"---\n\n{middle}\n\n---\n"
+        fm, body = _parse_frontmatter(raw)
+        assert fm == {}
+>       assert body == raw
+E       AssertionError: assert '' == '---\n\n- 第一段...二段正文\n\n---\n'
+E         
+E         - ---
+E         - 
+E         - - 第一段正文
+E         - - 第二段正文
+E         - 
+E         - ---
+
+skills/lib/rag/tests/test_frontmatter_body.py:24: AssertionError
+_ test_non_mapping_frontmatter_preserves_original_body[# \u6f14\u8bb2\u7a3f\n\n> \u6b63\u6587\u8bf4\u660e\n\n\u53e3\u8bed\u5316\u7684\u8bf4\u660e\u548c\u4e8b\u5b9e\u3002] _
+
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2661/test_non_mapping_frontmatter_p3')
+middle = '# 演讲稿\n\n> 正文说明\n\n口语化的说明和事实。'
+
+    @pytest.mark.parametrize("middle", [
+        "# 演讲稿\n\n正文不可丢失。",
+        "# 演讲稿\n\n正文含有：不合法的 YAML\n: [",
+        "- 第一段正文\n- 第二段正文",
+        "# 演讲稿\n\n> 正文说明\n\n口语化的说明和事实。",
+    ])
+    def test_non_mapping_frontmatter_preserves_original_body(tmp_path, middle):
+        raw = f"---\n\n{middle}\n\n---\n"
+        fm, body = _parse_frontmatter(raw)
+        assert fm == {}
+>       assert body == raw
+E       AssertionError: assert '' == '---\n\n# 演讲稿...和事实。\n\n---\n'
+E         
+E         - ---
+E         - 
+E         - # 演讲稿
+E         - 
+E         - > 正文说明
+E         - ...
+E         
+E         ...Full output truncated (3 lines hidden), use '-vv' to show
+
+skills/lib/rag/tests/test_frontmatter_body.py:24: AssertionError
+________ test_empty_frontmatter_can_be_removed[---\n---\n\u6b63\u6587] _________
+
+raw = '---\n---\n正文'
+
+    @pytest.mark.parametrize("raw", ["---\n---\n正文", "---\n\n---\n正文", "---\n# 仅注释\n---\n正文"])
+    def test_empty_frontmatter_can_be_removed(raw):
+>       assert _parse_frontmatter(raw) == ({}, "正文")
+E       AssertionError: assert ({}, '---\n---\n正文') == ({}, '正文')
+E         
+E         At index 1 diff: '---\n---\n正文' != '正文'
+E         Use -v to get more diff
+
+skills/lib/rag/tests/test_frontmatter_body.py:42: AssertionError
+_______ test_old_chunk_profile_is_stale_even_when_source_did_not_change ________
+
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2661/test_old_chunk_profile_is_stal0')
+
+    def test_old_chunk_profile_is_stale_even_when_source_did_not_change(tmp_path):
+        old = {**config.chunk_profile(), "chunking_version": "rag-chunking-v3"}
+        store = RagStore(chunks=[], dense=np.zeros((0, 0), dtype=np.float32),
+                         meta={"chunk_profile": old})
+        status, reasons = store.freshness_report(tmp_path)
+>       assert status == "stale"
+E       AssertionError: assert 'unknown' == 'stale'
+E         
+E         - stale
+E         + unknown
+
+skills/lib/rag/tests/test_frontmatter_body.py:50: AssertionError
+=========================== short test summary info ============================
+FAILED skills/lib/rag/tests/test_frontmatter_body.py::test_non_mapping_frontmatter_preserves_original_body[# \u6f14\u8bb2\u7a3f\n\n\u6b63\u6587\u4e0d\u53ef\u4e22\u5931\u3002]
+FAILED skills/lib/rag/tests/test_frontmatter_body.py::test_non_mapping_frontmatter_preserves_original_body[# \u6f14\u8bb2\u7a3f\n\n\u6b63\u6587\u542b\u6709\uff1a\u4e0d\u5408\u6cd5\u7684 YAML\n: []
+FAILED skills/lib/rag/tests/test_frontmatter_body.py::test_non_mapping_frontmatter_preserves_original_body[- \u7b2c\u4e00\u6bb5\u6b63\u6587\n- \u7b2c\u4e8c\u6bb5\u6b63\u6587]
+FAILED skills/lib/rag/tests/test_frontmatter_body.py::test_non_mapping_frontmatter_preserves_original_body[# \u6f14\u8bb2\u7a3f\n\n> \u6b63\u6587\u8bf4\u660e\n\n\u53e3\u8bed\u5316\u7684\u8bf4\u660e\u548c\u4e8b\u5b9e\u3002]
+FAILED skills/lib/rag/tests/test_frontmatter_body.py::test_empty_frontmatter_can_be_removed[---\n---\n\u6b63\u6587]
+FAILED skills/lib/rag/tests/test_frontmatter_body.py::test_old_chunk_profile_is_stale_even_when_source_did_not_change
+6 failed, 3 passed in 0.12s

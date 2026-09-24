@@ -26,7 +26,7 @@ import hashlib
 import math
 import re
 from collections.abc import Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, replace, field
 from types import MappingProxyType
 from typing import TYPE_CHECKING
 
@@ -432,6 +432,665 @@ class MessageParts:
     question: str
     materials: tuple[MaterialRef, ...] = ()
     material_texts: tuple[str, ...] = field(default=(), repr=False)
+    # E2/P1：顶层三分区结果（classify_top_level_regions）。默认 None 时与旧行为
+    # 完全一致；消费方（两轴/继承/冻结点）在后续阶段接线。
+    regions: "TopLevelRegions | None" = None
+
+    # ── E2 消费 API（P2+ 的消费方从这里读；P1 先定义，保证字段写读同仓）──
+    @property
+    def classification(self) -> str:
+        """三态分类；未启用三分区时等同 no_constraint_confirmed。"""
+        if self.regions is None:
+            return "no_constraint_confirmed"
+        return self.regions.classification
+
+    @property
+    def sub_questions(self) -> tuple[str, ...]:
+        """编号题组（question_id = 用户原编号序）；无题组返回空。"""
+        if self.regions is None:
+            return ()
+        return self.regions.sub_questions
+
+    @property
+    def question_ids(self) -> tuple[str, ...]:
+        """与 sub_questions 并行的原编号；消费者不得自行从1重新编号。"""
+        if self.regions is None:
+            return ()
+        return self.regions.question_ids
+
+    @property
+    def uncertain_reasons(self) -> tuple[str, ...]:
+        """boundary_uncertain 的确定性原因码（供澄清提问与审计）。"""
+        if self.regions is None:
+            return ()
+        return self.regions.uncertain_reasons
+
+    @property
+    def boundary_uncertain(self) -> bool:
+        """True = 任何后续状态操作前必须先澄清（设计稿 v10 §3.1 三态）。"""
+        return self.classification == "boundary_uncertain"
+
+
+# ── E2 材料题边界（设计稿 v10，docs/learning/knevo-distill/recheck/
+# 2026-09-12-t23-nogrok/E2-DESIGN-material-contract-2026-09-13.md）─────────────
+#
+# 两类状态操作共用词表与共用探测器（QC 守则 1 + 退修 R3：第 1 步内容复核与第 2
+# 步指令识别不仅共用词表，还必须共用同一个句级识别函数 find_state_ops）。
+# ① 轴值更新（B 轴 / A 轴 / 显式放宽）：
+_B_MATERIAL_ONLY_PHRASES: tuple[str, ...] = (
+    "只依据", "仅根据", "不读取任何材料外", "不读取材料外",
+    "只分析以下材料", "仅分析以下材料", "只分析以下虚构材料", "仅分析以下虚构材料",
+    "不查其他资料", "不查其它资料",
+)
+_B_PREVIOUS_EVIDENCE_ONLY_HEAD = (
+    r"(?:只|仅)(?:用|使用|依据)(?:已取得|已获得|刚才查到|上轮查到)的"
+    r"(?:本地)?(?:数据|资料|证据)"
+)
+_B_PREVIOUS_EVIDENCE_ONLY_RE = re.compile("^" + _B_PREVIOUS_EVIDENCE_ONLY_HEAD)
+_B_LOCAL_ONLY_PHRASES: tuple[str, ...] = (
+    "不要联网", "不联网", "别查实时", "不读外部",
+)
+_B_RELAX_PHRASES: tuple[str, ...] = ("可以查真实数据", "结合最新行情", "结合当前行情")
+# ② 基底继承（续轮声明）：
+_CONTINUATION_HEAD_PHRASES: tuple[str, ...] = ("继续", "接着", "同上", "沿用上一轮", "沿用上轮")
+_PREVIOUS_ANSWER_REVIEW_RE = re.compile(
+    r"^(?:复核|复查|重新审视|检查|重新检查|审查)(?:一下)?(?:你)?"
+    r"(?:刚才|上轮|上一轮|上次|前面)的?(?:解释|回答|判断|结论|分析)"
+    r"(?=$|[：:，,。；;！？!?])"
+)
+# Explicit retention of a prior permission is a continuation, not fresh full
+# access. This detector sees the existing quote/material-masked instructions.
+_SCOPE_CONTINUATION_RE = re.compile(
+    r"(?:沿用|遵守)上一轮.{0,24}(?:范围|截止)|"
+    r"(?:范围|截止日).{0,12}(?:继续)?不变|之前授权的(?:日期|研究)?范围内"
+)
+# 切句与句首归一化共用前缀，避免礼貌用语令第二个状态操作漏检。
+_STATE_PREFIX_ATOM = r"(?:请|麻烦|烦请|本轮|这次|此次|仍)\s*"
+
+# 同句多轴操作不仅以标点分开，也可用「且/并」连接。只在后面确有
+# 状态操作时切分，不能把公司名/普通叙述里的「并」拆碎；偏移仍对应原文。
+_SENT_SPLIT_RE = re.compile(
+    r"[。！？；，,\n]|(?:并且|而且|且|并|同时)(?=\s*(?:" + _STATE_PREFIX_ATOM + r")*(?:"
+    + "|".join(re.escape(p) for p in (
+        *_B_MATERIAL_ONLY_PHRASES, *_B_LOCAL_ONLY_PHRASES, *_B_RELAX_PHRASES,
+        *_CONTINUATION_HEAD_PHRASES, "其余条件不变", "假设", "如果",
+    ))
+    + "|" + _B_PREVIOUS_EVIDENCE_ONLY_HEAD + r"))"
+)
+# 虚构前提声明：「以下是完全虚构的研究案例」「均为虚构」「纯属虚构」等（句中即算，
+# 这类措辞极少出现在叙述句里；出现在复核块里时走 boundary_uncertain 保守分支）。
+_FICTIONAL_SENT_RE = re.compile(
+    r"以下\s*[是为][^。；，]{0,12}虚构|均为虚构|纯属虚构|完全虚构|虚构案例|以下虚构材料|(?<!不)[是为]虚构的?"
+)
+# A8 的「假设 X，结合当前行情」不要求额外的「成立」。是否顶层由区域复核决定，
+# 而不是把明确假设漏成无约束；材料内同形态仍走 uncertain，强保护内不可见。
+_HYPOTHESIS_STRONG_RE = re.compile(
+    r"^(?:假设|如果)\s*"
+    # Neither research procedure nor missing-input instructions fabricate facts.
+    r"(?!(?:当前)?(?:分析|观察|研究)?窗(?:口)?(?:太短|不足)|"
+    r"(?:要|需要|想)(?:说|声称|证明|验证)|(?:无法|不能|做不到)(?:验证|计算|比较))"
+    r"(?!(?:某项|某些|任何|所需|这项)?(?:数据|资料|证据|来源|信息|材料|输入)"
+    r"[^。；，]{0,24}(?:无法|不能|没有|缺失|不足|未|取不|找不))\S.{1,}"
+)
+# 题内使用同一识别器；数据缺失处理指令不是金融世界的反事实前提。
+_HYPOTHESIS_IN_QUESTION_RE = _HYPOTHESIS_STRONG_RE
+# A calculation declaration describes the answer's basis, not permission to read.
+# The same protected-region scanner handles declarations and explicit fact requests.
+_PREMISE_CALCULATION_RE = re.compile(
+    r"^(?:(?:这|以下|本题|本轮)(?:是|为))?(?:独立的|一个|一道|纯)?"
+    r"(?:虚构的?(?:财务|金融)?(?:算例|计算题)|情景计算|按给定(?:数据|条件)计算)"
+)
+_WORLD_FACT_REQUEST_RE = re.compile(
+    r"^(?:再|同时|另外)?(?:查询|查证|核实|检索|查|结合|使用|参考)"
+    r"[^。；\n]*(?:真实|实际|最新|当前|今日|行情|财报|公告)"
+)
+
+_FENCE_RE = re.compile(r"^\s*(```|~~~)")
+_QUOTE_PAIRS: tuple[tuple[str, str], ...] = (
+    ("「", "」"), ("『", "』"), ("“", "”"), ("‘", "’"), ('"', '"'), ("'", "'"),
+)
+_LEADIN_RE = re.compile(
+    r"(?:材料|材料内容|报告原文|报告|原文|案例|资料)"
+    r"(?:如下|全文)?[^\n]{0,24}[:：]\s*$"
+)
+_QUESTION_LEAD_RE = re.compile(r"按以下|逐项|回答以下|以下\s*\d+\s*题")
+_NUMBERED_ITEM_RE = re.compile(r"^\s*(\d{1,2})[.、\)）](?!\d)\s*(\S.*)$")
+# 题/请求形态（区别于「1. 行业概览」式研报小节标题）。
+_QUESTIONISH_RE = re.compile(
+    r"[？?]|吗\b|什么|怎么|多少|哪些|如何|为何|是否|请|如果|假设|选哪|排序|指出|说明"
+)
+# 「行业空间说明」是标题而非请求；题首证明必须比正文关键词更强。
+_QUESTION_START_RE = re.compile(
+    r"[？?]|什么|怎么|多少|哪些|如何|为何|是否|选哪|"
+    r"^(?:请|假设|如果|排序|指出|说明|计算|分析|比较|判断)"
+)
+_STATE_PREFIX_RE = re.compile(r"^(?:" + _STATE_PREFIX_ATOM + r")+")
+
+
+def _state_head(text: str) -> str:
+    return _STATE_PREFIX_RE.sub("", text.strip())
+
+
+def _sentences(text: str) -> list[str]:
+    return [s.strip() for s in _SENT_SPLIT_RE.split(text) if s.strip()]
+
+
+def _sentence_spans(text: str) -> list[tuple[int, int, str]]:
+    """按句边界切分，返回 (start, end, stripped_sentence)；start/end 为原文偏移。
+
+    掩码是按字符等长替换的，掩码文本上算出的偏移可直接切回原始行取原文。
+    """
+    out: list[tuple[int, int, str]] = []
+    pos = 0
+    for m in _SENT_SPLIT_RE.finditer(text):
+        seg = text[pos : m.start()]
+        if seg.strip():
+            lead = len(seg) - len(seg.lstrip())
+            out.append((pos + lead, m.start(), seg.strip()))
+        pos = m.end()
+    seg = text[pos:]
+    if seg.strip():
+        lead = len(seg) - len(seg.lstrip())
+        out.append((pos + lead, len(text), seg.strip()))
+    return out
+
+
+def _state_op_in_sentence(sent: str) -> str | None:
+    """句级状态操作识别（内容复核与指令识别共用的唯一入口，退修 R3）。
+
+    返回顶层状态操作种类；引用和材料正文不能发出这些操作。
+    """
+    s = sent.strip()
+    if not s:
+        return None
+    head = _state_head(s)
+    if (is_material_only_instruction(head)
+            or head.startswith(_B_LOCAL_ONLY_PHRASES + _B_RELAX_PHRASES)):
+        return "constraint_b"
+    if (head.startswith(_CONTINUATION_HEAD_PHRASES) or "其余条件不变" in s
+            or _PREVIOUS_ANSWER_REVIEW_RE.match(head) or _SCOPE_CONTINUATION_RE.search(s)):
+        return "continuation"
+    if _PREMISE_CALCULATION_RE.match(head):
+        return "premise_calculation"
+    if _WORLD_FACT_REQUEST_RE.match(head):
+        return "world_fact_request"
+    if _FICTIONAL_SENT_RE.search(s):
+        return "premise_declaration"
+    if _HYPOTHESIS_STRONG_RE.match(s):
+        return "premise_declaration"
+    return None
+
+
+def is_material_only_instruction(head: str) -> bool:
+    """Previously obtained data is an input ceiling, not permission to query again."""
+    return head.startswith(_B_MATERIAL_ONLY_PHRASES) or bool(_B_PREVIOUS_EVIDENCE_ONLY_RE.match(head))
+
+
+def requests_previous_answer_review(text: str) -> bool:
+    """Recognize a top-level review request, not a quotation or pasted instruction."""
+    regions = classify_top_level_regions(text)
+    return regions.classification != "boundary_uncertain" and any(
+        span.scope == "message"
+        and span.kind == "continuation"
+        and _PREVIOUS_ANSWER_REVIEW_RE.match(_state_head(span.visible_text))
+        for span in regions.instructions
+    )
+
+
+def requests_previous_evidence_only(text: str) -> bool:
+    """Only an explicit final, top-level frozen-input instruction authorizes reuse."""
+    regions = classify_top_level_regions(text)
+    constraints = [span for span in regions.instructions
+                   if span.scope == "message" and span.kind == "constraint_b"]
+    return bool(
+        regions.classification != "boundary_uncertain" and constraints
+        and _B_PREVIOUS_EVIDENCE_ONLY_RE.match(_state_head(constraints[-1].visible_text))
+    )
+
+
+def find_state_ops(text: str) -> tuple[tuple[str, str], ...]:
+    """对一段（已按强保护掩码的）文本做句级状态操作扫描，返回 (kind, 原句) 列表。"""
+    out: list[tuple[str, str]] = []
+    for sent in _sentences(text):
+        kind = _state_op_in_sentence(sent)
+        if kind:
+            out.append((kind, sent))
+    return tuple(out)
+
+
+def _protected_layout(lines: list[str]) -> tuple[list[str], list[str], set[int]]:
+    """按文本次序冻结最外层闭合容器，同时保留容器内空行的身份。
+
+    引号查找跳过完整围栏（围栏里的闭引号不能配对外层），但不清空外层栈；
+    外层引用若能在围栏外闭合，引用整体拥有内部围栏，反向嵌套不泄漏。
+    """
+    text = "\n".join(lines)
+    offsets: list[int] = []
+    offset = 0
+    for line in lines:
+        offsets.append(offset)
+        offset += len(line) + 1
+    fences = {
+        offsets[i]: (match.group(1), offsets[i] + len(line))
+        for i, line in enumerate(lines)
+        if (match := _FENCE_RE.match(line))
+    }
+    blockquote_ends = {
+        offsets[i]: offsets[i] + len(line)
+        for i, line in enumerate(lines)
+        if re.match(r" {0,3}>", line)
+    }
+    fence_ends: dict[int, int] = {}
+    markers = list(fences)
+    for i, start in enumerate(markers):
+        for end in markers[i + 1:]:
+            if fences[start][0] == fences[end][0]:
+                fence_ends[start] = fences[end][1]
+                break
+    escaped: set[int] = set()
+    backslashes = 0
+    for pos, char in enumerate(text):
+        if backslashes % 2 or (
+            char in {"'", "’"} and 0 < pos < len(text) - 1
+            and all(c.isascii() and c.isalnum() for c in (text[pos - 1], text[pos + 1]))
+        ):
+            escaped.add(pos)
+        backslashes = backslashes + 1 if char == "\\" else 0
+    quote_pairs = dict(_QUOTE_PAIRS)
+
+    def quote_end(start: int) -> int | None:
+        opener = text[start]
+        closer = quote_pairs[opener]
+        depth = 1
+        pos = start + 1
+        while pos < len(text):
+            if pos in blockquote_ends:
+                pos = blockquote_ends[pos]
+                continue
+            if pos in fence_ends:
+                pos = fence_ends[pos]
+                continue
+            char = text[pos]
+            if pos not in escaped:
+                if char == closer:
+                    depth -= 1
+                    if depth == 0:
+                        return pos + 1
+                elif char == opener:
+                    depth += 1
+            pos += 1
+        return None
+
+    chars = list(text)
+    uncertain: list[str] = []
+    unclosed: list[int] = []
+    intervals: list[tuple[int, int]] = []
+    pos = 0
+    while pos < len(text):
+        end = None
+        if pos in blockquote_ends:
+            end = blockquote_ends[pos]
+        elif pos in fences:
+            end = fence_ends.get(pos)
+            if end is None:
+                uncertain.append("unclosed_fence")
+        elif pos not in escaped and text[pos] in quote_pairs:
+            end = quote_end(pos)
+            if end is None:
+                unclosed.append(pos)
+        if end is None:
+            pos += 1
+            continue
+        intervals.append((pos, end))
+        for index in range(pos, end):
+            if chars[index] != "\n":
+                chars[index] = " "
+        pos = end
+    visible = "".join(chars)
+    for start in unclosed:
+        # 不跨越后续冻结容器借用闭符，也不把已保护内容拿来复核。
+        end = min((a for a, _ in intervals if a > start), default=len(text))
+        if find_state_ops(visible[start + 1:end]):
+            uncertain.append("unclosed_quote_with_state_op")
+        else:
+            uncertain.append("unclosed_quote")
+    protected_blank_lines = {
+        li for li, offset in enumerate(offsets)
+        if not lines[li].strip() and any(a <= offset < b for a, b in intervals)
+    }
+    return visible.split("\n"), uncertain, protected_blank_lines
+
+
+def _visible_lines(lines: list[str]) -> tuple[list[str], list[str]]:
+    masked, uncertain, _ = _protected_layout(lines)
+    return masked, uncertain
+
+
+def top_level_message_text(text: str) -> tuple[str, tuple[str, ...]]:
+    """Return only text outside protected user-message regions.
+
+    Permission-bearing consumers must share this source partition instead of
+    scanning the raw message and treating quoted instructions as live controls.
+    An uncertain boundary yields no visible text so callers fail closed.
+    """
+    raw = str(text or "").replace("\r\n", "\n").replace("\r", "\n")
+    regions = classify_top_level_regions(raw)
+    return (regions.control_text if not regions.uncertain_reasons else "", regions.uncertain_reasons)
+
+
+@dataclass(frozen=True)
+class InstructionSpan:
+    """指令区片段（D1）：行为指令 / 前提声明 / 续轮声明。
+
+    scope="message" 为消息级；题内检出的状态操作 scope="q{用户原编号}"（退修 R6）。
+    """
+
+    kind: str  # constraint_b, premise_declaration, continuation, premise_calculation, world_fact_request
+    text: str
+    line_index: int
+    scope: str = "message"
+    visible_text: str = ""
+    start_offset: int = 0
+    end_offset: int = 0
+
+
+@dataclass(frozen=True)
+class TopLevelRegions:
+    """D1 顶层三分区 + 三态分类结果（设计稿 v10 §3.1）。"""
+
+    classification: str  # constraint_confirmed | no_constraint_confirmed | boundary_uncertain
+    instructions: tuple[InstructionSpan, ...] = ()
+    sub_questions: tuple[str, ...] = ()
+    uncertain_reasons: tuple[str, ...] = ()
+    # 保留用户原编号，不让从7开始的题被消费者重新编号为1。
+    question_ids: tuple[str, ...] = ()
+    question_line_ranges: tuple[tuple[int, int], ...] = ()
+    # Derived control projection, not a replacement for the original question/material.
+    control_text: str = ""
+
+
+def _question_candidate_end(
+    lines: list[str], masked: list[str], claimed: list[bool],
+    protected_blanks: set[int], start: int,
+) -> int | None:
+    """题首可先给案例、续行才提问；弱材料识别不得抢走这种完整题体。
+
+    只检查强保护之外、未被外层材料认领的连续段，最终编号连续性仍由题组扫描检查。
+    不以「案例/材料如下」词表开后门；请求句法须在完整候选中实际出现。
+    """
+    item = None if claimed[start] else _NUMBERED_ITEM_RE.match(masked[start])
+    if item is None:
+        return None
+    end = start + 1
+    while (
+        end < len(lines) and (lines[end].strip() or end in protected_blanks)
+        and not claimed[end] and not _NUMBERED_ITEM_RE.match(masked[end])
+    ):
+        end += 1
+    body_lines = [item.group(2), *masked[start + 1:end]]
+    if any(_QUESTION_START_RE.search(line.strip()) for line in body_lines):
+        return end
+    return None
+
+
+def classify_top_level_regions(text: str) -> TopLevelRegions:
+    """E2 设计稿 v10 §3.1：先保护、后解释、三态分类（全部确定性）。
+
+    有序步骤：①强保护掩码（围栏整行 / >引用行 / 闭合引号字符区间；未闭合→uncertain）
+    ②引导块/缩进块/长文块内容复核（掩码后文本，命中状态操作→uncertain）
+    ③题组区识别（编号连续、保留原文续行；题内状态操作 scope=qN）
+    ④指令区识别（句级，行内第二句也算，退修 R1）⑤邻接规则（与叙述无空行相连
+    的疑似指令→uncertain，退修 R4）⑥三态分类。
+    """
+    raw = str(text or "").replace("\r\n", "\n").replace("\r", "\n").strip("\n")
+    if not raw.strip():
+        return TopLevelRegions(classification="no_constraint_confirmed")
+    lines = raw.split("\n")
+    n = len(lines)
+    masked, uncertain, protected_blanks = _protected_layout(lines)
+    claimed = [False] * n  # 已归材料区（保护/复核通过块）或题组区
+
+    # 第 2 步：引导块 / 缩进块（内容复核类；复核在掩码后文本上做，R5）
+    li = 0
+    while li < n:
+        if claimed[li] or not masked[li].strip():
+            li += 1
+            continue
+        question_end = _question_candidate_end(lines, masked, claimed, protected_blanks, li)
+        if question_end is not None:
+            # 引导行/缩进位于编号题内时属于题文；外层材料若已认领则不会进入这里。
+            li = question_end
+            continue
+        begin, end, why = -1, -1, ""
+        body_from = begin
+        if _LEADIN_RE.search(masked[li]):
+            begin = li
+            end = n
+            for j in range(li + 1, n):
+                if not lines[j].strip():
+                    nxt = j + 1
+                    while nxt < n and not lines[nxt].strip():
+                        nxt += 1
+                    if nxt < n and (
+                        _NUMBERED_ITEM_RE.match(masked[nxt])
+                        or _QUESTION_LEAD_RE.search(masked[nxt])
+                        or _looks_like_question(masked[nxt])
+                        or find_state_ops(masked[nxt])
+                    ):
+                        end = j
+                        break
+            why = "leadin_block_with_state_op"
+            body_from = begin + 1  # 引导行本身不进复核，其状态操作走第 4 步指令区
+        elif lines[li].startswith("  ") and masked[li].strip():
+            previous = li - 1
+            while previous >= 0 and lines[previous].startswith("  "):
+                previous -= 1
+            question_start = (
+                _NUMBERED_ITEM_RE.match(masked[previous]) if previous >= 0 else None
+            )
+            if (
+                question_start and not claimed[previous]
+                and _QUESTION_START_RE.search(question_start.group(2))
+            ):
+                # 已有明确题首的缩进是题文，不抢作独立材料候选。
+                li += 1
+                continue
+            begin, end = li, li
+            while end < n and lines[end].startswith("  ") and masked[end].strip():
+                end += 1
+            why = "indent_block_with_state_op"
+            body_from = begin
+        if begin >= 0:
+            if find_state_ops("\n".join(masked[body_from:end])):
+                uncertain.append(why)
+            # 复核失败的候选也不可被后续题组/指令扫描重新认领为已确认。
+            for j in range(body_from, end):
+                claimed[j] = True
+            li = max(end, li + 1)
+            continue
+        li += 1
+
+    # 长文候选先于题组认领。仅从叙述起点进入：已确认题首的长限定不因长度
+    # 变材料；但「叙述+编号小节」不能先认成题组免检。逐片段检查整行角色，
+    # 一行含状态操作不代表其余叙述也变成指令。
+    li = 0
+    while li < n:
+        visible = masked[li].strip()
+        fragments = _sentences(visible)
+        state_only = bool(fragments) and all(_state_op_in_sentence(s) for s in fragments)
+        question_end = _question_candidate_end(lines, masked, claimed, protected_blanks, li)
+        if question_end is not None:
+            # 与引导块/缩进识别共用完整题体边界，不能从题内案例另起长文候选。
+            li = question_end
+            continue
+        if (
+            claimed[li] or not visible or state_only
+            or _QUESTION_LEAD_RE.search(visible)
+            or _looks_like_question(visible)
+        ):
+            li += 1
+            continue
+        end = li + 1
+        while end < n and lines[end].strip() and not claimed[end]:
+            candidate = masked[end].strip()
+            # 编号小节即使含「说明」也不是独立短问句；留在候选共同复核。
+            if not _NUMBERED_ITEM_RE.match(candidate) and (
+                _QUESTION_LEAD_RE.search(candidate)
+                or (not find_state_ops(candidate) and _looks_like_question(candidate))
+            ):
+                break
+            end += 1
+        if end - li > 1 and len("\n".join(lines[li:end])) >= _MATERIAL_MIN_CHARS:
+            if find_state_ops("\n".join(masked[li:end])):
+                uncertain.extend(("long_block_with_state_op", "adjacent_state_op"))
+            for j in range(li, end):
+                claimed[j] = True
+        li = end
+
+    # Freeze material ownership before question recognition adds its own claims.
+    control_text = "\n".join(
+        " " * len(line) if claimed[index] else line
+        for index, line in enumerate(masked)
+    )
+
+    # 第 3 步：题组区。检测看可见文本，段落边界和存储看原文。
+    # 已认定题体的长续行/全引用续行不是材料阈值或空行。
+    sub_questions: list[str] = []
+    question_ids: list[str] = []
+    question_line_ranges: list[tuple[int, int]] = []
+    q_spans: list[InstructionSpan] = []
+    expected: int | None = None
+    li = 0
+    while li < n:
+        m = None if claimed[li] else _NUMBERED_ITEM_RE.match(masked[li])
+        if m and (expected is None or int(m.group(1)) == expected):
+            number = int(m.group(1))
+            j = li + 1
+            while (
+                j < n
+                and (lines[j].strip() or j in protected_blanks)
+                and not claimed[j]
+                and not _NUMBERED_ITEM_RE.match(masked[j])
+            ):
+                j += 1
+            # j = 题体之后首个空行/编号/已占行；向前看下一个非空行
+            nxt = j
+            while nxt < n and not lines[nxt].strip():
+                nxt += 1
+            followed_by_next_item = (
+                nxt < n
+                and _NUMBERED_ITEM_RE.match(masked[nxt]) is not None
+                and int(_NUMBERED_ITEM_RE.match(masked[nxt]).group(1)) == number + 1
+            )
+            # 空行后的独立状态指令也是明确终点；不能因此把最后一题扔回材料。
+            tail_sentences = _sentences(masked[nxt]) if nxt < n else []
+            followed_by_instruction = bool(tail_sentences) and all(
+                _state_op_in_sentence(s) for s in tail_sentences
+            )
+            body = "\n".join(
+                [m.group(2).strip(), *(masked[k].strip() for k in range(li + 1, j))]
+            ).strip()
+            # 组在文末、下一编号或独立指令前结束；叙述正文仍不能证明题组终点。
+            if _QUESTIONISH_RE.search(body) and (
+                nxt >= n or followed_by_next_item or followed_by_instruction
+            ):
+                # 存储用原文（掩码仅供检测），保留题内引号内容
+                original_body = "\n".join(
+                    [
+                        _NUMBERED_ITEM_RE.match(lines[li]).group(2).strip(),
+                        *(lines[k].strip() for k in range(li + 1, j)),
+                    ]
+                ).strip()
+                sub_questions.append(original_body)
+                question_ids.append(f"q{number}")
+                question_line_ranges.append((li, j))
+                for k in range(li, j):
+                    claimed[k] = True
+                    # 题内状态操作：检测在掩码句上做，文本按同偏移切回原文（R6）；
+                    # 首行跳过编号前缀，否则「8. 如果…」的句首形态被编号挡住
+                    base = m.start(2) if k == li else 0
+                    for s_off, e_off, sent in _sentence_spans(masked[k][base:]):
+                        kind = _state_op_in_sentence(sent)
+                        if kind is None and _HYPOTHESIS_IN_QUESTION_RE.match(sent):
+                            kind = "premise_declaration"
+                        if kind:
+                            q_spans.append(
+                                InstructionSpan(
+                                    kind,
+                                    lines[k][base + s_off : base + e_off].strip(),
+                                    k,
+                                    scope=f"q{number}",
+                                    visible_text=sent,
+                                    start_offset=base + s_off,
+                                    end_offset=base + e_off,
+                                )
+                            )
+                expected = number + 1
+        li += 1
+
+    # 第 4 步：指令区识别（句级；未占行；行内第二句同样检出，R1；
+    # 检测在掩码句上做，span 文本按同偏移切回原文，保留引用内容）
+    instructions: list[InstructionSpan] = []
+    instruction_lines: set[int] = set()
+    for li in range(n):
+        if claimed[li] or not masked[li].strip():
+            continue
+        for s_off, e_off, sent in _sentence_spans(masked[li]):
+            kind = _state_op_in_sentence(sent)
+            if kind:
+                instructions.append(
+                    InstructionSpan(kind, lines[li][s_off:e_off].strip(), li,
+                                    visible_text=sent, start_offset=s_off, end_offset=e_off)
+                )
+                instruction_lines.add(li)
+
+    # 第 5 步：邻接规则——疑似指令行与叙述行无空行相连 → 归属不明 → uncertain
+    # （长研报里混入的禁令字样不升级为指令，R4；顶层消息首行/空行分隔不受影响）
+    for span in instructions:
+        li = span.line_index
+        for neighbor in (li - 1, li + 1):
+            if (
+                0 <= neighbor < n
+                and not claimed[neighbor]
+                and neighbor not in instruction_lines
+                and masked[neighbor].strip()
+                and not _LEADIN_RE.search(masked[neighbor])
+            ):
+                uncertain.append("adjacent_state_op")
+                break
+
+    # D2/D7.3：题级B不能静默局部化。只有消息级最终已 material_only 才作备注；
+    # 单独续轮的基底本层不可知，保守留歧义供载体层处理，不能猜权限。
+    message_scope = "full"
+    for span in instructions:
+        if span.kind != "constraint_b":
+            continue
+        head = _state_head(span.text)
+        if head.startswith(_B_MATERIAL_ONLY_PHRASES):
+            message_scope = "material_only"
+        elif head.startswith(_B_RELAX_PHRASES):
+            message_scope = "full"
+        elif head.startswith(_B_LOCAL_ONLY_PHRASES) and message_scope == "full":
+            message_scope = "local_only"
+    if message_scope != "material_only" and any(s.kind == "constraint_b" for s in q_spans):
+        uncertain.append("question_scoped_data_scope")
+
+    # 第 6 步：三态分类
+    if uncertain:
+        classification = "boundary_uncertain"
+    elif instructions or q_spans:
+        classification = "constraint_confirmed"
+    else:
+        classification = "no_constraint_confirmed"
+    return TopLevelRegions(
+        classification=classification,
+        instructions=tuple(instructions) + tuple(q_spans),
+        sub_questions=tuple(sub_questions),
+        uncertain_reasons=tuple(dict.fromkeys(uncertain)),
+        question_ids=tuple(question_ids),
+        question_line_ranges=tuple(question_line_ranges),
+        control_text=control_text,
+    )
 
 
 _URL_RE = re.compile(r"https?://[^\s<>\"'）)】\]]+", re.IGNORECASE)
@@ -460,6 +1119,16 @@ _MATERIAL_REFERENCE_RE = re.compile(
 _LONG_SINGLE_LINE_MIN = 160
 _MATERIAL_MIN_CHARS = 40
 _QUESTION_MAX_CHARS = 120
+# 请求语气与文档来源分开认：编号/方括号只是排版，不能自行把整段问题变成材料。
+_REQUEST_HEAD_RE = re.compile(r"^(?:请|帮我|麻烦|烦请|看看|分析一下|判断一下|解读一下|研究一下)")
+_LAYOUT_PREFIX_RE = re.compile(r"^(?:#{1,6}\s*|(?:\d+|[一二三四五六七八九十]+)[、.．)）]\s*)")
+_INSTRUCTION_HEADING_RE = re.compile(
+    r"^(?:【(?:输出|回答|研究|格式|任务)(?:要求|格式|问题)?】\s*"
+    r"|(?:输出|回答|研究|格式|任务)(?:要求|格式|问题|任务)[:：]?$)"
+)
+_DOCUMENT_START_RE = re.compile(
+    r"^(?:【[^】]*(?:摘要|研报|纪要|公告|报告|原文)[^】]*】|(?:来源|作者)[:：])"
+)
 
 
 def material_id_for(text: str) -> str:
@@ -544,7 +1213,71 @@ def _looks_like_question(text: str) -> bool:
     return bool(compact) and len(compact) <= _QUESTION_MAX_CHARS and _QUESTION_MARKER_RE.search(compact) is not None
 
 
+def _request_line(text: str) -> str:
+    """仅去布局前缀供角色识别；question/material 保存的原文不作改写。"""
+    return _INSTRUCTION_HEADING_RE.sub("", _LAYOUT_PREFIX_RE.sub("", text.strip()))
+
+
+def _first_role_line(text: str) -> str:
+    # 只含「【输出要求】」的行是标签，身份由其后的正文决定。
+    return next((_request_line(line) for line in text.splitlines() if _request_line(line)), "")
+
+
+def _starts_with_request(text: str) -> bool:
+    return _REQUEST_HEAD_RE.match(_first_role_line(text)) is not None
+
+
+def _reads_like_document(head: str) -> bool:
+    """先看区域起点的角色，不以长度或格式标记证明「用户贴了材料」。
+
+    明确请求开头没有 120/400 字材料化上限；从来源/文档标题开头的正文则不因
+    内部出现「请」或问号升级成用户指令。原无标记短问句语义保持兼容。
+    """
+    body = str(head or "").strip()
+    first = _first_role_line(body)
+    if _DOCUMENT_START_RE.search(first):
+        return True
+    if _starts_with_request(body):
+        return False
+    # 对明确叙述/章节起点仍保留材料身份；不扫描后面的输出要求反推整块身份。
+    if _MATERIAL_MARKER_RE.search(first) and not _QUESTION_MARKER_RE.search(_request_line(first)):
+        return True
+    return _QUESTION_MARKER_RE.search(_request_line(first)) is None
+
+
 def split_user_message(text: str) -> MessageParts:
+    """Separate the question from pasted materials in one user message.
+
+    E2/P2：已确认题组接入正式question字段；原编号和完整题文保留。
+    材料由原文扣除已确认指令/题区产生，不拿最后一题冒充整个问题。
+    无新增语义的普通问答/纯贴研报仍走原抽取。
+    """
+    parts = _split_user_message_core(text)
+    regions = classify_top_level_regions(text)
+    if regions.sub_questions and regions.classification != "boundary_uncertain":
+        lines = str(text or "").replace("\r\n", "\n").replace("\r", "\n").strip("\n").split("\n")
+        for start, end in regions.question_line_ranges:
+            for index in range(start, end):
+                lines[index] = ""
+        for span in sorted(regions.instructions, key=lambda s: (s.line_index, s.start_offset), reverse=True):
+            if span.scope == "message":
+                line = lines[span.line_index]
+                lines[span.line_index] = line[:span.start_offset] + line[span.end_offset:]
+        residual = "\n".join(line for line in lines if line.strip(" 。！？；，,\t"))
+        # 编号输出要求也可能被题组扫描识别；若前文是完整用户请求而非材料，
+        # 不准扣掉主体再把余文塞成 material。真正的材料+题组仍走原合同。
+        if residual.strip() and not parts.materials and not _reads_like_document(residual):
+            return replace(parts, regions=regions)
+        material = material_from_text(residual)
+        parts = MessageParts(
+            question="\n\n".join(f"{qid[1:]}. {body}" for qid, body in zip(regions.question_ids, regions.sub_questions, strict=True)),
+            materials=(material,) if material else (),
+            material_texts=(residual,) if material else (),
+        )
+    return replace(parts, regions=regions)
+
+
+def _split_user_message_core(text: str) -> MessageParts:
     """Separate the question from pasted materials in one user message.
 
     Shapes handled (all deterministic):
@@ -604,6 +1337,25 @@ def split_user_message(text: str) -> MessageParts:
     remaining_lines = [line for index, line in enumerate(lines) if index not in consumed]
     rest = "\n".join(remaining_lines).strip()
 
+    # 明确请求后接独立文档标题：分开角色，不能因请求很长把后面的真材料吞进问题，
+    # 也不能因材料里有「请」将其升级。仅来源字段可能是输出字段，不能单独触发这里。
+    rest_lines = rest.splitlines()
+    for index, line in enumerate(rest_lines):
+        if index == 0 or not line.strip().startswith("【") or not _DOCUMENT_START_RE.match(line.strip()):
+            continue
+        prefix = "\n".join(rest_lines[:index]).strip()
+        if _reads_like_document(prefix):
+            break
+        suffix = _split_user_message_core("\n".join(rest_lines[index:]))
+        if suffix.materials:
+            for ref, body in zip(suffix.materials, suffix.material_texts, strict=True):
+                add(body, ref.kind)
+            return MessageParts(
+                question="\n\n".join(p for p in (prefix, suffix.question) if p),
+                materials=tuple(materials), material_texts=tuple(texts),
+            )
+        break
+
     # 2. 段落：空行分块；首/末短问句是问题，其余长文是材料。
     blocks = [block.strip() for block in re.split(r"\n\s*\n", rest) if block.strip()]
     question = rest
@@ -614,7 +1366,13 @@ def split_user_message(text: str) -> MessageParts:
             question, body = blocks[0], "\n\n".join(blocks[1:])
         else:
             question, body = "", rest
-        if body and (len(body) >= _MATERIAL_MIN_CHARS or _MATERIAL_MARKER_RE.search(body)):
+        # 「其余段落读起来像文档」是这条规则的前提（见 _reads_like_document）：一句带问号的
+        # 长研究问题，只因用空行隔开了末行排版指令，题面本身不该沦为材料。
+        if (
+            body
+            and _reads_like_document(body)
+            and (len(body) >= _MATERIAL_MIN_CHARS or _MATERIAL_MARKER_RE.search(body))
+        ):
             add(body, "pasted_text")
         else:
             question = rest
@@ -625,10 +1383,22 @@ def split_user_message(text: str) -> MessageParts:
         elif "\n" in block and len(block) >= _MATERIAL_MIN_CHARS:
             # 多行但无空行：末行是短问句 → 前面是材料；整块像文档且没有问句 → 全是材料。
             block_lines = [line.strip() for line in block.split("\n") if line.strip()]
-            if len(block_lines) >= 2 and _looks_like_question(block_lines[-1]) and not _looks_like_question("\n".join(block_lines[:-1])):
+            head = "\n".join(block_lines[:-1])
+            if (
+                len(block_lines) >= 2
+                and _looks_like_question(block_lines[-1])
+                and not _looks_like_question(head)
+                and _reads_like_document(head)
+            ):
                 question = block_lines[-1]
-                add("\n".join(block_lines[:-1]), "pasted_text")
-            elif _MATERIAL_MARKER_RE.search(block) and not _looks_like_question(block_lines[-1]):
+                add(head, "pasted_text")
+            elif (
+                _MATERIAL_MARKER_RE.search(block)
+                and not _looks_like_question(block_lines[-1])
+                and _reads_like_document(block)
+            ):
+                # 同一个前提：词面命中「公告 / 研报」不等于这是份文档。末行不是问句的研究题
+                # 原本会整段变材料、问题变空串。
                 question = ""
                 add(block, "pasted_text")
             else:
@@ -636,7 +1406,11 @@ def split_user_message(text: str) -> MessageParts:
         elif "\n" not in block and len(block) >= _LONG_SINGLE_LINE_MIN:
             # 单行长文 + 句尾短问句。
             sentences = [part for part in re.split(r"(?<=[。！？!?])", block) if part.strip()]
-            if len(sentences) >= 2 and _looks_like_question(sentences[-1]) and len("".join(sentences[:-1])) >= 100:
+            if (
+                len(sentences) >= 2 and _looks_like_question(sentences[-1])
+                and len("".join(sentences[:-1])) >= 100
+                and _reads_like_document("".join(sentences[:-1]))
+            ):
                 question = sentences[-1].strip()
                 add("".join(sentences[:-1]), "pasted_text")
             else:
@@ -655,11 +1429,86 @@ def split_user_message(text: str) -> MessageParts:
     )
 
 
-def references_material(text: str) -> bool:
-    """「这篇 / 这份材料 / 上面这段 / 附件」——题面引用了一份材料。"""
+_SOURCE_NOUN_RE = re.compile(r"定期报告|年度报告|半年度报告|报告|年报|半年报|季报|公告|研报|纪要|文章|证据|来源")
+_SOURCE_ACQUIRE_RE = re.compile(r"检索|查找|查阅|搜索")
+_SUPPLIED_OWNER_RE = re.compile(r"(?:我|用户)(?:刚|已|所)?(?:上传|提供|提交|贴|发|给)|附件|刚(?:贴|发|给)|上传的")
+_REFERENCE_OBJECT_RE = re.compile(
+    r"^(?:这[篇份段]?|这个|该)(?:你(?:确实|实际|自行)?(?:检索|查找|查阅|搜索)到的?)?"
+    r"(?:真实|本次|刚刚|检索到的?|找到的?)*(?P<noun>"
+    + _SOURCE_NOUN_RE.pattern + r"|研究|分析|回答|答复)"
+)
 
-    compact = re.sub(r"\s+", "", str(text or ""))
-    return bool(compact) and _MATERIAL_REFERENCE_RE.search(compact) is not None
+
+def _source_family(noun: str) -> str:
+    return "报告" if noun.endswith("报告") or noun in {"年报", "半年报", "季报"} else noun
+
+
+def _requested_source_families(text: str) -> dict[str, int]:
+    """First acquisition position per source family, scanned once per question.
+
+    Quoted instructions have already been masked. An unrelated search anywhere
+    in the question must not cancel a missing attachment or a different document.
+    """
+    families: dict[str, int] = {}
+    for span in re.finditer(r"[^。！？!?；;\n，,]+", text):
+        clause = span.group()
+        if not re.match(r"^(?:请|帮我|麻烦|选用|选择|使用|采用|先|再|并|同时|自行|你)", clause):
+            continue
+        for acquisition in _SOURCE_ACQUIRE_RE.finditer(clause):
+            if re.search(r"不要|不用|无需|禁止|不必|别|勿", clause[:acquisition.start()]):
+                continue
+            target = clause[acquisition.end():]
+            # 「检索这份报告里的错误」要求已有文档，不是在请求发现一份来源。
+            if _MATERIAL_REFERENCE_RE.search(target):
+                continue
+            for noun in _SOURCE_NOUN_RE.finditer(target):
+                position = span.start() + acquisition.end() + noun.end()
+                families.setdefault(_source_family(noun.group()), position)
+    return families
+
+
+def references_material(text: str) -> bool:
+    """Whether a reference needs user-supplied material, not a future research output.
+
+    Resolve each reference independently: explicit user/attachment references
+    remain binding requests; an acquired source can resolve a subsequent same-
+    kind reference. This is bounded syntax, not general pronoun resolution.
+    """
+    compact = re.sub(r"[^\S\r\n]+", "", str(text or ""))
+    visible = "\n".join(_visible_lines(compact.split("\n"))[0])
+    requested = _requested_source_families(visible)
+    # Index clause boundaries once rather than rescanning the complete prefix
+    # for every pronoun in a long multi-part request.
+    clauses = list(re.finditer(r"[^，,。；;\n]+", compact))
+    clause_index = 0
+    for reference in _MATERIAL_REFERENCE_RE.finditer(compact):
+        while clause_index < len(clauses) - 1 and clauses[clause_index].end() <= reference.start():
+            clause_index += 1
+        clause = clauses[clause_index]
+        tail = compact[reference.start():clause.end()]
+        prefix = compact[clause.start():reference.start()]
+        if reference.group().startswith(("附件", "刚", "上面")) or _SUPPLIED_OWNER_RE.search(prefix + tail):
+            return True
+        obj = _REFERENCE_OBJECT_RE.match(tail)
+        if obj is None:
+            return True
+        noun = obj.group("noun")
+        if noun in {"研究", "分析", "回答", "答复"}:
+            # 「给这份研究列缺口」is an output instruction; 「解读这份研究」
+            # still needs the research text. A noun alone is not proof of origin.
+            if re.search(r"(?:给|为|在|对)$", prefix) and re.match(
+                r"(?:列|写|附|标注|补充|给出|整理)", tail[obj.end():],
+            ):
+                continue
+            return True
+        # Explicit future provenance (「这份你检索到的报告」) is local to this noun.
+        if _SOURCE_ACQUIRE_RE.search(obj.group()):
+            continue
+        families = {family for family, end in requested.items() if end <= reference.start()}
+        if _source_family(noun) in families or (families and noun in {"证据", "来源"}):
+            continue
+        return True
+    return False
 
 
 _PROMPT_BLOCK_ROLE_RE = re.compile(r"^(user|assistant|system)[:：]\s?", re.MULTILINE)

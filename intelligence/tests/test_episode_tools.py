@@ -2624,8 +2624,33 @@ def test_memory_lookup_recalls_user_judgements_as_prior_not_fact(tmp_path) -> No
     assert {item.evidence_tier for item in result.evidence} == {"user_memory"}
     # The source label has to self-declare: it is the only semantics the model sees.
     assert all("非市场事实" in item.source for item in result.evidence)
+    # W1：记忆证据不得携带事实级新鲜度——全部自报 historical。
+    assert {item.freshness for item in result.evidence} == {"historical"}
+    # W2：出处逐条自持——台账归属名进 source，日期进 source_date。
+    by_title = {item.title: item for item in result.evidence}
+    assert "台账 judgments" in by_title["用户历史判断"].source
+    assert "台账 corrections" in by_title["用户纠偏原则"].source
+    assert by_title["用户历史判断"].source_date == "2026-07-01"
+    assert by_title["用户纠偏原则"].source_date == "2026-07-02"
     # Locators point at the fixture, never the real ledger.
     assert all(str(users_root) in item.internal_locator for item in result.evidence)
+
+
+def test_memory_evidence_tier_is_pinned_to_prior_grade() -> None:
+    """W1 防线主体：错误升级证据等级（user_memory → 事实级）必须在这里变红。
+
+    来源白名单只是辅助：来源全对也不证明条目正文不含旧价格/旧订单，
+    所以防线落在证据分级：记忆证据永远是独立一档，不得冒充事实档。
+    """
+    assert episode_tools._USER_MEMORY_EVIDENCE_TIER == "user_memory"
+    assert episode_tools._USER_MEMORY_EVIDENCE_TIER not in {
+        "public_web",
+        "news",
+        "official",
+        "local_db",
+    }
+    # 召回池来源清单与 user_memory 侧契约一致（双侧各钉一半，防单侧改掉）。
+    assert user_memory.RECALL_SOURCES == ("judgments", "corrections", "methods")
 
 
 def test_memory_lookup_appends_peer_hit_when_category_has_enough_verdicts(tmp_path) -> None:

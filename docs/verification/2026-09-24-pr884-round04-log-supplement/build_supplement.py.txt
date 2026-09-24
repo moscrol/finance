@@ -1,0 +1,93 @@
+"""Append missing historical blobs under permitted suffixes; never rewrite round 04."""
+import hashlib
+import json
+from pathlib import Path
+import shutil
+
+ROOT = Path(__file__).resolve().parent
+TREE = Path('/Users/a77/fwp-wt-runtime-postmerge-qc-0923')
+OLD = TREE / 'docs/verification/2026-09-23-pr884-closeout-04'
+SOURCE = ROOT.parent / 'pr884-closeout-20260923-04'
+DEST = TREE / 'docs/verification/2026-09-24-pr884-round04-log-supplement'
+raw_manifest = (OLD / 'MANIFEST.json').read_bytes()
+assert hashlib.sha256(raw_manifest).hexdigest() == '7b528c677c4d286a855bfa637f3633660e2233bf5497dcbe3b51c0a92fc55b25'
+assert (SOURCE / 'MANIFEST.json').read_bytes() == raw_manifest
+manifest = json.loads(raw_manifest)
+entries = {item['archived_path']: item for item in manifest['artifacts']}
+missing = json.loads((ROOT / 'archive-verification.json').read_text())['missing']
+assert len(missing) == len(set(missing)) == 129
+
+secrets = set()
+def inspect(value):
+    if isinstance(value, dict):
+        for key, item in value.items():
+            if key.lower() in {'token', 'nonce', 'secret', 'api_key', 'apikey', 'password', 'access_token'} and isinstance(item, str) and len(item) >= 16:
+                secrets.add(item.encode())
+            inspect(item)
+    elif isinstance(value, list):
+        for item in value:
+            inspect(item)
+for source in SOURCE.glob('review-*/k3/credential.json'):
+    inspect(json.loads(source.read_text()))
+
+prepared = []
+for path in missing:
+    old_path = TREE / path
+    relative = old_path.relative_to(OLD).as_posix()
+    assert old_path.suffix == '.log'
+    entry = entries[relative]
+    raw = (SOURCE / entry['path']).read_bytes()
+    assert old_path.read_bytes() == raw
+    assert len(raw) == entry['bytes'] and hashlib.sha256(raw).hexdigest() == entry['sha256']
+    assert not any(secret in raw for secret in secrets), relative
+    prepared.append((relative, entry, raw))
+DEST.mkdir(exist_ok=False)
+mappings = []
+for relative, entry, raw in prepared:
+    target = DEST / 'logs' / (relative + '.txt')
+    target.parent.mkdir(parents=True, exist_ok=True)
+    with target.open('xb') as stream:
+        stream.write(raw)
+    mappings.append({'original_archived_path': relative,
+                     'supplement_path': target.relative_to(TREE).as_posix(),
+                     'bytes': entry['bytes'], 'sha256': entry['sha256']})
+result = {'kind': 'append-only archive repair, not rerun or approval',
+          'original_manifest': (OLD / 'MANIFEST.json').relative_to(TREE).as_posix(),
+          'original_manifest_sha256': hashlib.sha256(raw_manifest).hexdigest(),
+          'discovery_revision': 'ddc0d35b053f25ac74b10a3e4c62ab5502bae5ea',
+          'original_published_docs_revision': '10a21cff7f094fbf4d8cae81a5048aa659db5158',
+          'files': len(mappings), 'bytes': sum(item['bytes'] for item in mappings),
+          'credential_value_scan': 'No matches to the round-04 tool credential values; no values archived',
+          'mappings': mappings}
+with (DEST / 'MAPPING.json').open('x') as stream:
+    json.dump(result, stream, indent=2)
+    stream.write('\n')
+shutil.copyfile(ROOT / 'archive-verification.json', DEST / 'discovery.json')
+shutil.copyfile(Path(__file__), DEST / 'build_supplement.py.txt')
+(DEST / 'README.md').write_text('''# Round 04 Log Supplement
+
+Round 04's filesystem archive contained 421 selected artifacts. At published
+commit 10a21cff and discovery commit ddc0d35b, 129 listed .log files were absent
+from Git: .gitignore ignores them and the commit hook forbids that suffix.
+The prior filesystem hash check did not establish a complete committed archive.
+The older 241-file and 23-file archives passed the discovery Git-blob check.
+
+This append-only supplement preserves those 129 original payloads under .log.txt.
+MAPPING.json binds their new repository paths to the unchanged original manifest
+(hash 7b528c677c4d286a855bfa637f3633660e2233bf5497dcbe3b51c0a92fc55b25).
+No old manifest, report, failure, model session or original byte was rewritten.
+This does not recreate the complete model stdout sessions or change the BLOCKED
+engineering/independent result. Original paths still do not exist in a clean Git
+checkout: consumers must resolve them with this mapping, not pretend the old
+archive alone is complete.
+
+Verify this supplement with scripts/check_evidence_archive.py against an exact
+commit. The round-05 closure verifier additionally checks all 421 old manifest
+entries through Git data plus this mapping. Do not force-add ignored logs or
+relax the repository-wide forbidden-file hook.
+''')
+files = sorted(p for p in DEST.rglob('*') if p.is_file())
+with (DEST / 'sha256-manifest.txt').open('x') as stream:
+    for path in files:
+        stream.write(hashlib.sha256(path.read_bytes()).hexdigest() + '  ' + path.relative_to(TREE).as_posix() + '\n')
+print(json.dumps({key: value for key, value in result.items() if key != 'mappings'}, indent=2))

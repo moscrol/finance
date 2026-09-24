@@ -1,0 +1,11 @@
+{
+  "original_path": "/Users/a77/.finance-runtime/reviews/hithink-stock-preview-40317d78-qc-20260915/probes/qc_probes_output-20260915T184202.txt",
+  "raw_sha256": "284e8defb5596137616318cc26f3f242de45f633bfcae22442213e5147ecdaeb",
+  "encoding": "utf-8",
+  "lines": [
+    "Traceback (most recent call last):\n",
+    "  File \"/Users/a77/.finance-runtime/reviews/hithink-stock-preview-40317d78-qc-20260915/finance-workspace-private/../probes/qc_probes.py\", line 24, in <module>\n",
+    "    from market_feature_store.db import SCHEMA_PATH\n",
+    "ModuleNotFoundError: No module named 'market_feature_store'\n"
+  ]
+}

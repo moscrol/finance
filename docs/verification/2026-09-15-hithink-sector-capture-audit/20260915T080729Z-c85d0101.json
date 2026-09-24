@@ -1,0 +1,31 @@
+{
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "python_version": "3.12.13",
+  "dependency_fingerprint": "3328bed61f3e21ea",
+  "tree": "/Users/a77/fwp-wt-hithink-capture-mutation-c85d0101",
+  "revision": "c85d01017fa239aa3b2101b1585e8f5c07e005b3",
+  "branch": "HEAD",
+  "dirty": true,
+  "dirty_paths": [
+    "market_feature_store/hithink_sector_preview.py"
+  ],
+  "worktree_dirty_total": 1,
+  "dependency_gate_bypassed": false,
+  "target": "tests/test_hithink_sector_capture.py tests/test_hithink_sector_capture_integration.py",
+  "counts": {
+    "passed": 49,
+    "failed": 6,
+    "error": 0,
+    "skipped": 0
+  },
+  "failed_ids": [
+    "tests/test_hithink_sector_capture_integration.py::test_real_sync_records_scope_new_ids_overlap_and_old_version_replay",
+    "tests/test_hithink_sector_capture_integration.py::test_sync_failure_retains_actual_prior_successes_and_unexecuted_plan[886053.TI-5-0-1]",
+    "tests/test_hithink_sector_capture_integration.py::test_sync_failure_retains_actual_prior_successes_and_unexecuted_plan[kline-4-2-0]",
+    "tests/test_hithink_sector_capture_integration.py::test_sync_failure_retains_actual_prior_successes_and_unexecuted_plan[region-2-1-1]",
+    "tests/test_hithink_sector_capture_integration.py::test_versioned_preview_real_cli_is_readonly_and_never_falls_back[partial]",
+    "tests/test_hithink_sector_capture_integration.py::test_versioned_preview_real_cli_is_readonly_and_never_falls_back[tampered]"
+  ],
+  "exit_status": 1,
+  "finished_at": "2026-09-15T08:07:29+00:00"
+}

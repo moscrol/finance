@@ -1,0 +1,457 @@
+FFF..                                                                    [100%]
+=================================== FAILURES ===================================
+_______ test_failure_alert_respects_generation_code_boundary[file-link] ________
+
+rig = (PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2888/test_failure_alert_resp...RRIDE': 'Codex Desktop', 'CODEX_MCP_NODE_PATH': '/Applications/ChatGPT.app/Contents/Resources/cua_node/bin/node', ...})
+destination = 'file-link'
+
+    @pytest.mark.parametrize("destination", ["file-link", "directory-link", "home-in-code", "external", "disabled"])
+    def test_failure_alert_respects_generation_code_boundary(rig, destination):
+        code, data, elsewhere, env = rig
+        env["TEST_GATE_RC"] = "3"
+        bindir = data / "notification-stub"
+        bindir.mkdir()
+        stub = bindir / "osascript"
+        stub.write_text("#!/bin/sh\nexit 0\n")
+        stub.chmod(0o755)
+        env["PATH"] = str(bindir) + os.pathsep + env.get("PATH", "")
+        if destination == "home-in-code":
+            env["HOME"] = str(code / "home")
+        alert = Path(env["HOME"]) / ".finance-runtime/alerts.log"
+        if destination in {"file-link", "disabled"}:
+            alert.parent.mkdir(parents=True)
+            alert.symlink_to(code / "alert.log")
+        elif destination == "directory-link":
+            target = code / "alert-dir"
+            target.mkdir()
+            alert.parent.parent.mkdir(parents=True)
+            alert.parent.symlink_to(target, target_is_directory=True)
+        before = inventory(code)
+        command = [sys.executable, "-P", str(code / "scripts/run_daily_generation.py"),
+                   "--date", DAY, "--plan", "local", "--skip-sync", "--only-step", "daily-review"]
+        if destination == "disabled":
+            command.append("--no-alert")
+        result = subprocess.run(command, cwd=elsewhere, env=env, text=True,
+                                capture_output=True, timeout=45)
+>       assert inventory(code) == before, result.stdout + result.stderr
+E       AssertionError: {
+E           "workflow": "daily",
+E           "status": "FAIL",
+E           "started_at": "2026-09-20T01:18:17+08:00",
+E           "finished_at": "2026-09-20T01:18:18+08:00",
+E           "inputs": {
+E             "date": "2026-09-11",
+E             "plan": "local",
+E             "user": null,
+E             "skip_sync": true,
+E             "skip_long": false,
+E             "skip_theme": false,
+E             "skip_agent": false,
+E             "skip_legacy_theme": false,
+E             "skip_workbench": false,
+E             "start_date": null,
+E             "from_step": null,
+E             "only_step": "daily-review",
+E             "continue_on_warn": false,
+E             "kb_wiki": null,
+E             "step_timeout_sec": 1800,
+E             "alerts_enabled": true,
+E             "alert_on_warn": false,
+E             "dry_run": false
+E           },
+E           "steps": [
+E             {
+E               "name": "quality-gate",
+E               "status": "FAIL",
+E               "command": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python -P /private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2888/test_failure_alert_respects_ge0/code snapshot/scripts/check_daily_review_data.py 2026-09-11 --phase data --plan local",
+E               "returncode": 3,
+E               "duration_sec": 0.036,
+E               "stdout_tail": [],
+E               "stderr_tail": [],
+E               "outputs": [],
+E               "warnings": [],
+E               "errors": [
+E                 "command failed with returncode 3"
+E               ],
+E               "structured_result": null
+E             },
+E             {
+E               "name": "cross-day-quality-gate",
+E               "status": "SKIP",
+E               "command": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python -P -m market_feature_store.cli check-daily --trade-date 2026-09-11 --json /private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2888/test_failure_alert_respects_ge0/data/skills/daily-full-review/state/quality-2026-09-11.json --plan local",
+E               "returncode": null,
+E               "duration_sec": null,
+E               "stdout_tail": [],
+E               "stderr_tail": [],
+E               "outputs": [],
+E               "warnings": [
+E                 "skipped because a previous required step failed"
+E               ],
+E               "errors": [],
+E               "structured_result": null
+E             },
+E             {
+E               "name": "export-increment",
+E               "status": "SKIP",
+E               "command": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python -P /private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2888/test_failure_alert_respects_ge0/code snapshot/skills/daily-full-review/scripts/export_increment.py --date 2026-09-11 --db /private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2888/test_failure_alert_respects_ge0/data/db/market_feature_store.duckdb --out-root /private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2888/test_failure_alert_respects_ge0/data/db/snapshots",
+E               "returncode": null,
+E               "duration_sec": null,
+E               "stdout_tail": [],
+E               "stderr_tail": [],
+E               "outputs": [],
+E               "warnings": [
+E                 "skipped because a previous required step failed"
+E               ],
+E               "errors": [],
+E               "structured_result": null
+E             },
+E             {
+E               "name": "daily-review",
+E               "status": "SKIP",
+E               "command": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python -P -m market_feature_store.cli daily-review --trade-date 2026-09-11 --output /private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2888/test_failure_alert_respects_ge0/data/market_feature_store/exports/2026-09-11-daily-review.md --chart-output /private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2888/test_failure_alert_respects_ge0/data/market_feature_store/exports/2026-09-11-advancers-ma5.png",
+E               "returncode": null,
+E               "duration_sec": null,
+E               "stdout_tail": [],
+E               "stderr_tail": [],
+E               "outputs": [
+E                 "/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2888/test_failure_alert_respects_ge0/data/market_feature_store/exports/2026-09-11-daily-review.json",
+E                 "/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2888/test_failure_alert_respects_ge0/data/market_feature_store/exports/2026-09-11-daily-review.md",
+E                 "/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2888/test_failure_alert_respects_ge0/data/market_feature_store/exports/2026-09-11-advancers-ma5.png"
+E               ],
+E               "warnings": [
+E                 "skipped because a previous required step failed"
+E               ],
+E               "errors": [],
+E               "structured_result": null
+E             }
+E           ],
+E           "outputs": [],
+E           "warnings": [
+E             "running only step: daily-review",
+E             "pre-report quality gates and export were prepended; downstream steps cannot bypass them",
+E             "skipped because a previous required step failed",
+E             "skipped because a previous required step failed",
+E             "skipped because a previous required step failed"
+E           ],
+E           "errors": [
+E             "command failed with returncode 3"
+E           ],
+E           "next_actions": [
+E             "Fix the failed step, then re-run the workflow from the appropriate point."
+E           ]
+E         }
+E         generation_import=/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2888/test_failure_alert_respects_ge0/code snapshot/intelligence/__init__.py cli=/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2888/test_failure_alert_respects_ge0/code snapshot/intelligence/cli.py data_root=/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2888/test_failure_alert_respects_ge0/data users=/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2888/test_failure_alert_respects_ge0/data/app/users episodes=/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2888/test_failure_alert_respects_ge0/data/state/episodes
+E         
+E       assert {'alert.log':...4b75a3b', ...} == {'evolution/_...19af7ca', ...}
+E         
+E         Omitting 667 identical items, use -vv to show
+E         Left contains 1 more item:
+E         {'alert.log': '80cdda566381178c796696e4cd3c591de8d4530464e020ce54386b71085d5a8f'}
+E         Use -v to get more diff
+
+tests/test_generation_code_root.py:135: AssertionError
+_____ test_failure_alert_respects_generation_code_boundary[directory-link] _____
+
+rig = (PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2888/test_failure_alert_resp...RRIDE': 'Codex Desktop', 'CODEX_MCP_NODE_PATH': '/Applications/ChatGPT.app/Contents/Resources/cua_node/bin/node', ...})
+destination = 'directory-link'
+
+    @pytest.mark.parametrize("destination", ["file-link", "directory-link", "home-in-code", "external", "disabled"])
+    def test_failure_alert_respects_generation_code_boundary(rig, destination):
+        code, data, elsewhere, env = rig
+        env["TEST_GATE_RC"] = "3"
+        bindir = data / "notification-stub"
+        bindir.mkdir()
+        stub = bindir / "osascript"
+        stub.write_text("#!/bin/sh\nexit 0\n")
+        stub.chmod(0o755)
+        env["PATH"] = str(bindir) + os.pathsep + env.get("PATH", "")
+        if destination == "home-in-code":
+            env["HOME"] = str(code / "home")
+        alert = Path(env["HOME"]) / ".finance-runtime/alerts.log"
+        if destination in {"file-link", "disabled"}:
+            alert.parent.mkdir(parents=True)
+            alert.symlink_to(code / "alert.log")
+        elif destination == "directory-link":
+            target = code / "alert-dir"
+            target.mkdir()
+            alert.parent.parent.mkdir(parents=True)
+            alert.parent.symlink_to(target, target_is_directory=True)
+        before = inventory(code)
+        command = [sys.executable, "-P", str(code / "scripts/run_daily_generation.py"),
+                   "--date", DAY, "--plan", "local", "--skip-sync", "--only-step", "daily-review"]
+        if destination == "disabled":
+            command.append("--no-alert")
+        result = subprocess.run(command, cwd=elsewhere, env=env, text=True,
+                                capture_output=True, timeout=45)
+>       assert inventory(code) == before, result.stdout + result.stderr
+E       AssertionError: {
+E           "workflow": "daily",
+E           "status": "FAIL",
+E           "started_at": "2026-09-20T01:18:19+08:00",
+E           "finished_at": "2026-09-20T01:18:19+08:00",
+E           "inputs": {
+E             "date": "2026-09-11",
+E             "plan": "local",
+E             "user": null,
+E             "skip_sync": true,
+E             "skip_long": false,
+E             "skip_theme": false,
+E             "skip_agent": false,
+E             "skip_legacy_theme": false,
+E             "skip_workbench": false,
+E             "start_date": null,
+E             "from_step": null,
+E             "only_step": "daily-review",
+E             "continue_on_warn": false,
+E             "kb_wiki": null,
+E             "step_timeout_sec": 1800,
+E             "alerts_enabled": true,
+E             "alert_on_warn": false,
+E             "dry_run": false
+E           },
+E           "steps": [
+E             {
+E               "name": "quality-gate",
+E               "status": "FAIL",
+E               "command": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python -P /private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2888/test_failure_alert_respects_ge1/code snapshot/scripts/check_daily_review_data.py 2026-09-11 --phase data --plan local",
+E               "returncode": 3,
+E               "duration_sec": 0.024,
+E               "stdout_tail": [],
+E               "stderr_tail": [],
+E               "outputs": [],
+E               "warnings": [],
+E               "errors": [
+E                 "command failed with returncode 3"
+E               ],
+E               "structured_result": null
+E             },
+E             {
+E               "name": "cross-day-quality-gate",
+E               "status": "SKIP",
+E               "command": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python -P -m market_feature_store.cli check-daily --trade-date 2026-09-11 --json /private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2888/test_failure_alert_respects_ge1/data/skills/daily-full-review/state/quality-2026-09-11.json --plan local",
+E               "returncode": null,
+E               "duration_sec": null,
+E               "stdout_tail": [],
+E               "stderr_tail": [],
+E               "outputs": [],
+E               "warnings": [
+E                 "skipped because a previous required step failed"
+E               ],
+E               "errors": [],
+E               "structured_result": null
+E             },
+E             {
+E               "name": "export-increment",
+E               "status": "SKIP",
+E               "command": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python -P /private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2888/test_failure_alert_respects_ge1/code snapshot/skills/daily-full-review/scripts/export_increment.py --date 2026-09-11 --db /private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2888/test_failure_alert_respects_ge1/data/db/market_feature_store.duckdb --out-root /private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2888/test_failure_alert_respects_ge1/data/db/snapshots",
+E               "returncode": null,
+E               "duration_sec": null,
+E               "stdout_tail": [],
+E               "stderr_tail": [],
+E               "outputs": [],
+E               "warnings": [
+E                 "skipped because a previous required step failed"
+E               ],
+E               "errors": [],
+E               "structured_result": null
+E             },
+E             {
+E               "name": "daily-review",
+E               "status": "SKIP",
+E               "command": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python -P -m market_feature_store.cli daily-review --trade-date 2026-09-11 --output /private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2888/test_failure_alert_respects_ge1/data/market_feature_store/exports/2026-09-11-daily-review.md --chart-output /private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2888/test_failure_alert_respects_ge1/data/market_feature_store/exports/2026-09-11-advancers-ma5.png",
+E               "returncode": null,
+E               "duration_sec": null,
+E               "stdout_tail": [],
+E               "stderr_tail": [],
+E               "outputs": [
+E                 "/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2888/test_failure_alert_respects_ge1/data/market_feature_store/exports/2026-09-11-daily-review.json",
+E                 "/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2888/test_failure_alert_respects_ge1/data/market_feature_store/exports/2026-09-11-daily-review.md",
+E                 "/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2888/test_failure_alert_respects_ge1/data/market_feature_store/exports/2026-09-11-advancers-ma5.png"
+E               ],
+E               "warnings": [
+E                 "skipped because a previous required step failed"
+E               ],
+E               "errors": [],
+E               "structured_result": null
+E             }
+E           ],
+E           "outputs": [],
+E           "warnings": [
+E             "running only step: daily-review",
+E             "pre-report quality gates and export were prepended; downstream steps cannot bypass them",
+E             "skipped because a previous required step failed",
+E             "skipped because a previous required step failed",
+E             "skipped because a previous required step failed"
+E           ],
+E           "errors": [
+E             "command failed with returncode 3"
+E           ],
+E           "next_actions": [
+E             "Fix the failed step, then re-run the workflow from the appropriate point."
+E           ]
+E         }
+E         generation_import=/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2888/test_failure_alert_respects_ge1/code snapshot/intelligence/__init__.py cli=/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2888/test_failure_alert_respects_ge1/code snapshot/intelligence/cli.py data_root=/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2888/test_failure_alert_respects_ge1/data users=/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2888/test_failure_alert_respects_ge1/data/app/users episodes=/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2888/test_failure_alert_respects_ge1/data/state/episodes
+E         
+E       assert {'alert-dir/a...4b75a3b', ...} == {'evolution/_...19af7ca', ...}
+E         
+E         Omitting 667 identical items, use -vv to show
+E         Left contains 1 more item:
+E         {'alert-dir/alerts.log': '4534e6d10fc21d0c290d9ec521ab287aa8d3a67e972d7b7db681546546b7c575'}
+E         Use -v to get more diff
+
+tests/test_generation_code_root.py:135: AssertionError
+______ test_failure_alert_respects_generation_code_boundary[home-in-code] ______
+
+rig = (PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2888/test_failure_alert_resp...RRIDE': 'Codex Desktop', 'CODEX_MCP_NODE_PATH': '/Applications/ChatGPT.app/Contents/Resources/cua_node/bin/node', ...})
+destination = 'home-in-code'
+
+    @pytest.mark.parametrize("destination", ["file-link", "directory-link", "home-in-code", "external", "disabled"])
+    def test_failure_alert_respects_generation_code_boundary(rig, destination):
+        code, data, elsewhere, env = rig
+        env["TEST_GATE_RC"] = "3"
+        bindir = data / "notification-stub"
+        bindir.mkdir()
+        stub = bindir / "osascript"
+        stub.write_text("#!/bin/sh\nexit 0\n")
+        stub.chmod(0o755)
+        env["PATH"] = str(bindir) + os.pathsep + env.get("PATH", "")
+        if destination == "home-in-code":
+            env["HOME"] = str(code / "home")
+        alert = Path(env["HOME"]) / ".finance-runtime/alerts.log"
+        if destination in {"file-link", "disabled"}:
+            alert.parent.mkdir(parents=True)
+            alert.symlink_to(code / "alert.log")
+        elif destination == "directory-link":
+            target = code / "alert-dir"
+            target.mkdir()
+            alert.parent.parent.mkdir(parents=True)
+            alert.parent.symlink_to(target, target_is_directory=True)
+        before = inventory(code)
+        command = [sys.executable, "-P", str(code / "scripts/run_daily_generation.py"),
+                   "--date", DAY, "--plan", "local", "--skip-sync", "--only-step", "daily-review"]
+        if destination == "disabled":
+            command.append("--no-alert")
+        result = subprocess.run(command, cwd=elsewhere, env=env, text=True,
+                                capture_output=True, timeout=45)
+>       assert inventory(code) == before, result.stdout + result.stderr
+E       AssertionError: {
+E           "workflow": "daily",
+E           "status": "FAIL",
+E           "started_at": "2026-09-20T01:18:20+08:00",
+E           "finished_at": "2026-09-20T01:18:20+08:00",
+E           "inputs": {
+E             "date": "2026-09-11",
+E             "plan": "local",
+E             "user": null,
+E             "skip_sync": true,
+E             "skip_long": false,
+E             "skip_theme": false,
+E             "skip_agent": false,
+E             "skip_legacy_theme": false,
+E             "skip_workbench": false,
+E             "start_date": null,
+E             "from_step": null,
+E             "only_step": "daily-review",
+E             "continue_on_warn": false,
+E             "kb_wiki": null,
+E             "step_timeout_sec": 1800,
+E             "alerts_enabled": true,
+E             "alert_on_warn": false,
+E             "dry_run": false
+E           },
+E           "steps": [
+E             {
+E               "name": "quality-gate",
+E               "status": "FAIL",
+E               "command": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python -P /private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2888/test_failure_alert_respects_ge2/code snapshot/scripts/check_daily_review_data.py 2026-09-11 --phase data --plan local",
+E               "returncode": 3,
+E               "duration_sec": 0.022,
+E               "stdout_tail": [],
+E               "stderr_tail": [],
+E               "outputs": [],
+E               "warnings": [],
+E               "errors": [
+E                 "command failed with returncode 3"
+E               ],
+E               "structured_result": null
+E             },
+E             {
+E               "name": "cross-day-quality-gate",
+E               "status": "SKIP",
+E               "command": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python -P -m market_feature_store.cli check-daily --trade-date 2026-09-11 --json /private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2888/test_failure_alert_respects_ge2/data/skills/daily-full-review/state/quality-2026-09-11.json --plan local",
+E               "returncode": null,
+E               "duration_sec": null,
+E               "stdout_tail": [],
+E               "stderr_tail": [],
+E               "outputs": [],
+E               "warnings": [
+E                 "skipped because a previous required step failed"
+E               ],
+E               "errors": [],
+E               "structured_result": null
+E             },
+E             {
+E               "name": "export-increment",
+E               "status": "SKIP",
+E               "command": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python -P /private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2888/test_failure_alert_respects_ge2/code snapshot/skills/daily-full-review/scripts/export_increment.py --date 2026-09-11 --db /private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2888/test_failure_alert_respects_ge2/data/db/market_feature_store.duckdb --out-root /private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2888/test_failure_alert_respects_ge2/data/db/snapshots",
+E               "returncode": null,
+E               "duration_sec": null,
+E               "stdout_tail": [],
+E               "stderr_tail": [],
+E               "outputs": [],
+E               "warnings": [
+E                 "skipped because a previous required step failed"
+E               ],
+E               "errors": [],
+E               "structured_result": null
+E             },
+E             {
+E               "name": "daily-review",
+E               "status": "SKIP",
+E               "command": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python -P -m market_feature_store.cli daily-review --trade-date 2026-09-11 --output /private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2888/test_failure_alert_respects_ge2/data/market_feature_store/exports/2026-09-11-daily-review.md --chart-output /private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2888/test_failure_alert_respects_ge2/data/market_feature_store/exports/2026-09-11-advancers-ma5.png",
+E               "returncode": null,
+E               "duration_sec": null,
+E               "stdout_tail": [],
+E               "stderr_tail": [],
+E               "outputs": [
+E                 "/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2888/test_failure_alert_respects_ge2/data/market_feature_store/exports/2026-09-11-daily-review.json",
+E                 "/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2888/test_failure_alert_respects_ge2/data/market_feature_store/exports/2026-09-11-daily-review.md",
+E                 "/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2888/test_failure_alert_respects_ge2/data/market_feature_store/exports/2026-09-11-advancers-ma5.png"
+E               ],
+E               "warnings": [
+E                 "skipped because a previous required step failed"
+E               ],
+E               "errors": [],
+E               "structured_result": null
+E             }
+E           ],
+E           "outputs": [],
+E           "warnings": [
+E             "running only step: daily-review",
+E             "pre-report quality gates and export were prepended; downstream steps cannot bypass them",
+E             "skipped because a previous required step failed",
+E             "skipped because a previous required step failed",
+E             "skipped because a previous required step failed"
+E           ],
+E           "errors": [
+E             "command failed with returncode 3"
+E           ],
+E           "next_actions": [
+E             "Fix the failed step, then re-run the workflow from the appropriate point."
+E           ]
+E         }
+E         generation_import=/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2888/test_failure_alert_respects_ge2/code snapshot/intelligence/__init__.py cli=/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2888/test_failure_alert_respects_ge2/code snapshot/intelligence/cli.py data_root=/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2888/test_failure_alert_respects_ge2/data users=/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2888/test_failure_alert_respects_ge2/data/app/users episodes=/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2888/test_failure_alert_respects_ge2/data/state/episodes
+E         
+E       assert {'evolution/_...19af7ca', ...} == {'evolution/_...19af7ca', ...}
+E         
+E         Omitting 667 identical items, use -vv to show
+E         Left contains 1 more item:
+E         {'home/.finance-runtime/alerts.log': 'b9ecfd124a1ffcd8b2a2fa7a45d09f347d099e671b458981944eebace379c164'}
+E         Use -v to get more diff
+
+tests/test_generation_code_root.py:135: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_generation_code_root.py::test_failure_alert_respects_generation_code_boundary[file-link]
+FAILED tests/test_generation_code_root.py::test_failure_alert_respects_generation_code_boundary[directory-link]
+FAILED tests/test_generation_code_root.py::test_failure_alert_respects_generation_code_boundary[home-in-code]
+3 failed, 2 passed, 47 deselected in 5.80s

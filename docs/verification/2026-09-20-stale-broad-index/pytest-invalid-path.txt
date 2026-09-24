@@ -1,0 +1,5 @@
+ERROR: file or directory not found: tests/test_hithink_sector_contract.py
+
+读数收据: /Users/a77/.finance-runtime/reviews/stale-work-closeout-20260920/results/broad-index/green/receipts/20260920T150819Z-728f3271.json
+
+no tests ran in 0.12s

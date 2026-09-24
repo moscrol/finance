@@ -59,6 +59,7 @@ from typing import Literal, Protocol
 from intelligence.services.agent_runtime import EpisodeEvent, ModelToolCall, ModelTurn
 
 __all__ = [
+    "unreported_invalid_finish",
     "APPLICATION_TOOL_CALL_KIND",
     "APPLICATION_TOOL_CALL_SOURCES",
     "ApplicationToolCallSource",
@@ -125,6 +126,7 @@ ProviderDialect = Literal["openai"]
 # 再在发射点用——``append_model_input`` 对不在表里的 source 抛错，防止字面量漂移。
 ModelInputSource = Literal[
     "opening_prefetch",
+    "prior_tool_evidence",
     "steering_invalid_plan",
     "steering_invalid_finish",
     "steering_repair_finalize",
@@ -132,10 +134,13 @@ ModelInputSource = Literal[
     "mode_decision",
     "sub_research",
     "repair_goal",
+    # 修复轮开场补发的「上一集最后一次拒收原因」（仅当它从未回灌过）。
+    "repair_last_rejection",
 ]
 MODEL_INPUT_SOURCES: frozenset[str] = frozenset(
     {
         "opening_prefetch",
+        "prior_tool_evidence",
         "steering_invalid_plan",
         "steering_invalid_finish",
         "steering_repair_finalize",
@@ -143,6 +148,7 @@ MODEL_INPUT_SOURCES: frozenset[str] = frozenset(
         "mode_decision",
         "sub_research",
         "repair_goal",
+        "repair_last_rejection",
     }
 )
 
@@ -591,6 +597,51 @@ def derive_messages(events: Iterable[EpisodeEvent]) -> list[EpisodeMessage]:
                     )
                 messages[target] = replace(messages[target], content=str(item["model_content"]))
     return messages
+
+
+# 终局拒收「已送达作者」的两条通道：首次失败的即时回灌，与修复轮开场的补发。
+# 清零集合必须包含补发通道自己——否则 max 档三轮修复里，第二轮会把第一轮已送达、
+# 作者也已改对的那条再发一遍（2026-09-17 QC 四向探测复现）。
+_INVALID_FINISH_DELIVERY_SOURCES: frozenset[str] = frozenset(
+    {"steering_invalid_finish", "repair_last_rejection"}
+)
+
+
+def unreported_invalid_finish(events: Iterable[EpisodeEvent]) -> str:
+    """上一集里作者**没听过**的那次终局拒收原因。
+
+    loop 只在第一次 finish 失败时回灌 steering（``steering_invalid_finish``）：
+    再失败就停机。于是最后一次、也往往是最具体的那条病因只落在账上，修复轮的作者
+    看不到，只能对着「缺某个输出」重发同一份结构——2026-09-16 的真实 run
+    （invalid_repair_finish / 三次 invalid_action）就是这么打转的。
+
+    这里不改回灌次数、不多花一次模型调用：只是把账上尚未送达的那一条取出来，
+    由调用方在修复轮开场一并交给作者。已回灌过的不再重复。
+
+    扫账本找欠账是两个集合的问题：
+
+    - **置位集合**只收终局拒收——两条 loop 的六个 finish 驳回点（``admit_finish`` 与
+      修复轮驳回）都写 ``code``（rejection_code）；计划错误、终局阶段调工具等
+      ``invalid_action`` 不带 ``code``，各有自己的回灌与处置，套进 invalid_finish 文案
+      只会误导作者。``code`` 缺失一律不欠：宁少发不误发。
+    - **清零集合**是 ``_INVALID_FINISH_DELIVERY_SOURCES``：包含本通道自己的补发。
+    """
+
+    pending = ""
+    for event in events:
+        payload = _payload_dict(event)
+        if event.kind == "invalid_action":
+            code = payload.get("code")
+            if not isinstance(code, str) or not code.strip():
+                continue
+            reason = payload.get("reason")
+            pending = reason.strip() if isinstance(reason, str) else ""
+        elif (
+            event.kind == "model_input"
+            and payload.get("source") in _INVALID_FINISH_DELIVERY_SOURCES
+        ):
+            pending = ""
+    return pending
 
 
 def _last_tool_message_index(messages: Sequence[EpisodeMessage], call_id: str) -> int | None:

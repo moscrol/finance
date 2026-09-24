@@ -1,0 +1,137 @@
+{
+  "schema_version": 1,
+  "report_id": "run_20260922_191550_067475",
+  "title": "截至2026年9月18日，这里的行情哪个板块更有机会，历史上有相似的阶段吗？",
+  "task_type": "research",
+  "status": "partial",
+  "as_of": "2026-09-18",
+  "llm": {
+    "used": true,
+    "provider": "zhipu",
+    "model": "glm-5.3-flash"
+  },
+  "modules": [],
+  "warnings": [],
+  "task_frame": {
+    "raw_question": "截至2026年9月18日，这里的行情哪个板块更有机会，历史上有相似的阶段吗？",
+    "user_goal": "形成条件化判断",
+    "question_type": "comparison_analog",
+    "subject": null,
+    "subject_kind": "unknown",
+    "market_scope": "A股",
+    "timeframe": "2026-09-18",
+    "required_outputs": [
+      "direct_assessment",
+      "counterpoint",
+      "evidence_boundary"
+    ],
+    "assumptions": [
+      "用户未明确市场范围，按A股市场理解"
+    ],
+    "ambiguities": [],
+    "clarification_question": null,
+    "evidence_policy": "comparable_multi_source_evidence",
+    "confidence": 0.4,
+    "history_intent": {
+      "purpose": "historical_comparison",
+      "requested_start": null,
+      "requested_end": null,
+      "scope": "historical_research",
+      "strict_window": false,
+      "window_error": null
+    },
+    "task_frame_hash": "8eadef92dd85ec9bb374382c7226fa8ae443d05558bfd31febb5f1a752d87aca"
+  },
+  "task_frame_hash": "8eadef92dd85ec9bb374382c7226fa8ae443d05558bfd31febb5f1a752d87aca",
+  "execution_kind": "continuous_episode",
+  "turn_intent": {
+    "primary_subject": null,
+    "secondary_topics": [],
+    "question_type": "comparison_analog",
+    "answer_owner": null,
+    "comparison_entities": [],
+    "inherited_from_turn": null,
+    "evidence_atom_ids": [],
+    "skill_ids": [],
+    "stage_artifact_ids": [],
+    "time_horizon": "long",
+    "operators": [
+      "history_analog"
+    ],
+    "required_outputs": [
+      "direct_assessment",
+      "counterpoint",
+      "evidence_boundary"
+    ],
+    "timeframe": "2026-09-18",
+    "task_frame_hash": "8eadef92dd85ec9bb374382c7226fa8ae443d05558bfd31febb5f1a752d87aca",
+    "pending_task_frame": null,
+    "clarification_rounds": 0,
+    "history_intent": {
+      "purpose": "historical_comparison",
+      "requested_start": null,
+      "requested_end": null,
+      "scope": "historical_research",
+      "strict_window": false,
+      "window_error": null
+    }
+  },
+  "answer_marker_coverage": {
+    "task_frame_hash": "8eadef92dd85ec9bb374382c7226fa8ae443d05558bfd31febb5f1a752d87aca",
+    "question_type": "comparison_analog",
+    "required_output_count": 3,
+    "checked_count": 3,
+    "present": [
+      "counterpoint"
+    ],
+    "absent": [
+      "direct_assessment",
+      "evidence_boundary"
+    ],
+    "uncheckable": [],
+    "marker_coverage": "incomplete",
+    "observation_only": true,
+    "warnings": []
+  },
+  "context_growth": {
+    "sub_agent_provenance": "unavailable",
+    "sub_agent_branch_count": 0,
+    "sub_agent_input_tokens": null,
+    "provenance": "per_turn",
+    "turn_count": 6,
+    "per_turn_input_tokens": [
+      28144,
+      32622,
+      33294,
+      35665,
+      41392,
+      46761
+    ],
+    "max_turn_input_tokens": 46761,
+    "cumulative_input_tokens": 217878,
+    "growth_ratio": 1.661,
+    "observation_only": true
+  },
+  "transport_status": "completed",
+  "research_status": "partial",
+  "answer_status": "partial",
+  "business_status": "partial",
+  "completed_at": "2026-09-22T11:17:32+00:00",
+  "gate_receipt": {
+    "schema_version": 1,
+    "engine": "episode",
+    "rev": "cdcbc5a82b37e0cecc0640f3c8da77d3a6f64881",
+    "verified_status": "partial",
+    "judge_status": "passed",
+    "issues": [],
+    "judge_unavailable_count": 0,
+    "content_degraded_count": 0,
+    "timings": {
+      "elapsed_seconds": null,
+      "retrieve_seconds": null,
+      "judge_seconds": null,
+      "timeout_asked": 75.0
+    },
+    "correlated_judge": true
+  }
+}

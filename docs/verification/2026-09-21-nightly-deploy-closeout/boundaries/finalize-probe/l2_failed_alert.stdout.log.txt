@@ -1,0 +1,4 @@
+[2026-09-21 15:37:01] === 全量复盘开始 phase=finalize date=2026-09-11 l2_code=/Users/a77/.finance-runtime/reviews/nightly-deploy-closeout-20260921/boundaries/finalize-probe/l2_failed_alert-j30c1sjv/elsewhere/ops-code l2_rev=unknown workspace=/Users/a77/.finance-runtime/reviews/nightly-deploy-closeout-20260921/boundaries/finalize-probe/l2_failed_alert-j30c1sjv/data workspace_rev=unknown db=/Users/a77/.finance-runtime/reviews/nightly-deploy-closeout-20260921/boundaries/finalize-probe/l2_failed_alert-j30c1sjv/data/db/market_feature_store.duckdb moneyflow_out=/Users/a77/.finance-runtime/reviews/nightly-deploy-closeout-20260921/boundaries/finalize-probe/l2_failed_alert-j30c1sjv/data/scripts/moneyflow/outputs ===
+[2026-09-21 15:37:02] 资金流段失败 rc=3
+[2026-09-21 15:37:03] L2 段失败 date=2026-09-11 资金流 rc=3 L2门 rc=0；继续查同步守卫（生成段另行守门）
+[2026-09-21 15:37:03] === 全量复盘失败 date=2026-09-11 资金流 rc=3 L2门 rc=0 ===

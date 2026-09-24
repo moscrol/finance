@@ -1,0 +1,42 @@
+{
+  "candidate": "1bd5e1dc8d48f59461c79f35ea553e1cda71a6ec",
+  "tree": "/Users/a77/.finance-runtime/open-work-execution-20260920/kb-maintenance/quality-1bd5e1dc/knowledge-base-private",
+  "network": false,
+  "cases": [
+    {
+      "fault": "root_replaced_after_validation",
+      "replacement_lock_is_independently_acquirable": true,
+      "activate_returned_success": true,
+      "result": {
+        "generation": "one",
+        "manifest_sha256": "4da2f07b0507a5493ea3b03f44b00ad000a217ca205132e250cf8fd47bb68698",
+        "schema": 1,
+        "activated_at": "2026-09-19T18:43:59.352686+00:00"
+      },
+      "current_written": true,
+      "new_current_bytes_differ": true,
+      "original_current_preserved": true,
+      "new_current_resolves": false,
+      "consumer_error": "FileNotFoundError: [Errno 2] No such file or directory: '/Users/a77/.finance-runtime/open-work-execution-20260920/kb-maintenance/quality-1bd5e1dc-evidence/root_replaced_after_validation/generations-root/generations'",
+      "replacement_root_files": [
+        ".writer.lock",
+        "current.json",
+        "unknown-owner"
+      ]
+    },
+    {
+      "fault": "lock_replaced_after_validation",
+      "replacement_lock_is_independently_acquirable": true,
+      "activate_returned_success": true,
+      "result": {
+        "generation": "one",
+        "manifest_sha256": "29df32cb5ec9a28836274c893529dbb0d2c2ee7df94a8f96c3e0b1782de72fa3",
+        "schema": 1,
+        "activated_at": "2026-09-19T18:43:59.980856+00:00"
+      },
+      "current_written": true,
+      "new_current_bytes_differ": true
+    }
+  ],
+  "reproduced": true
+}

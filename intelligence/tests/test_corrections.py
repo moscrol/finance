@@ -169,6 +169,31 @@ class RenderForPromptTests(unittest.TestCase):
         self.assertIn("（铜箔）", lines[0])
         self.assertIn("原则：原则A", lines[1])
 
+    def test_render_carries_per_item_date(self) -> None:
+        """W2b 续：五个生产调用方都只把这段塞进一个小标题下，日期必须逐条带。
+
+        正文自带语义标签（原则 / 别再说 / 应为），「谁说的」不缺；缺的是「什么时候
+        说的」——三个月前的原则和昨天的在提示词里长得一模一样。
+        """
+        out = corrections.render_for_prompt(
+            [
+                {
+                    "ts": "2026-06-01T10:00:00",
+                    "correction": "看渗透率数据",
+                    "original": "看情绪",
+                    "principle": "拿数说话",
+                    "themes": ["液冷"],
+                }
+            ]
+        )
+        self.assertEqual(
+            out,
+            "- [你的纠偏 2026-06-01] 原则：拿数说话；别再说「看情绪」；应为：看渗透率数据（液冷）",
+        )
+        # 无 ts 的历史记录不能因此丢条，降级成不带日期的归属
+        bare = corrections.render_for_prompt([{"correction": "没有时间戳"}])
+        self.assertEqual(bare, "- [你的纠偏] 应为：没有时间戳")
+
     def test_render_empty_records(self) -> None:
         self.assertEqual(corrections.render_for_prompt([]), "")
 

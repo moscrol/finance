@@ -1,0 +1,16 @@
+38790c09e1b24fda83f9a8a009d50c7b9808c1a80098bc1e92c440a78b4af135  docs/verification/e2-boundary-closeout/p3f1-a819ecde-committed-recheck/README.md
+9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa  docs/verification/e2-boundary-closeout/p3f1-a819ecde-committed-recheck/archive-checks-shell.exit
+e89012f9b6e7f74dfa6f73610205641b988025f9d069fd689c7d43d3ea4a70e9  docs/verification/e2-boundary-closeout/p3f1-a819ecde-committed-recheck/archive-p3e-check.json
+6ea98b225a60e36d3c0c5cb22fd0dad856c84ab77365666adff2c5179f4e325d  docs/verification/e2-boundary-closeout/p3f1-a819ecde-committed-recheck/archive-p3f-rejected-check.json
+0d08ecbc3826fb27f292a52390d3f597f423003b6630bbffea762a8bee227c66  docs/verification/e2-boundary-closeout/p3f1-a819ecde-committed-recheck/archive-p3f1-check.json
+3a12a07571f2f010b86dd5dc857b1728cad2562a26e27f3e1d3ecf43e3ca77f4  docs/verification/e2-boundary-closeout/p3f1-a819ecde-committed-recheck/archive-tests-v1-receipt.json
+9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa  docs/verification/e2-boundary-closeout/p3f1-a819ecde-committed-recheck/archive-tests-v1-shell.exit
+8c81010cec6392c64f638bb2e71f7449cfbf1f510f512e611fdbf923fa29dc50  docs/verification/e2-boundary-closeout/p3f1-a819ecde-committed-recheck/archive-tests-v1.log.txt
+15e0e17490084a17413eb5e1789cd283db8c3e0d54e3094e557a15fc96e699fe  docs/verification/e2-boundary-closeout/p3f1-a819ecde-committed-recheck/committed-regression-v1-io.json
+9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa  docs/verification/e2-boundary-closeout/p3f1-a819ecde-committed-recheck/committed-regression-v1-pytest.exit
+9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa  docs/verification/e2-boundary-closeout/p3f1-a819ecde-committed-recheck/committed-regression-v1-shell.exit
+a1db31c831577a6a93d3dbeb7df8817f0f22014e1d385cac7faa3e45a6f42260  docs/verification/e2-boundary-closeout/p3f1-a819ecde-committed-recheck/committed-regression-v1.log.txt
+9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa  docs/verification/e2-boundary-closeout/p3f1-a819ecde-committed-recheck/ruff-v1-shell.exit
+82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18  docs/verification/e2-boundary-closeout/p3f1-a819ecde-committed-recheck/ruff-v1.log.txt
+1a0d143737d58ceb77002cd3f4a1bd7bb581d03813f6ca1a29fc73c6f7c98d8f  docs/verification/e2-boundary-closeout/p3f1-a819ecde-committed-recheck/source-state.json
+09ab75aadf44779fb3ce57b57c12435a7923ab27fc1a8d8ffeeaaa877d9646ec  docs/verification/e2-boundary-closeout/p3f1-a819ecde-committed-recheck/status-after.json

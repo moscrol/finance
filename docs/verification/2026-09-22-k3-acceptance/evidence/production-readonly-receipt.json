@@ -1,0 +1,66 @@
+{
+  "started_at": "2026-09-22T18:00:46.712259+08:00",
+  "finished_at": "2026-09-22T18:00:47.950467+08:00",
+  "server_pid": 3095,
+  "health_statuses": [
+    "healthy",
+    "healthy",
+    "healthy"
+  ],
+  "runtime_revision": "adcda94b5e401158f1c3aa51f210e1e8d0f0b713",
+  "runtime_path": "/Users/a77/.finance-runtime/finance-workspace-adcda94b5e40-recovery-20260921",
+  "runtime_model_config": "glm-5.3-flash",
+  "runtime_backend": "continuous_glm",
+  "settings_allowlist": {
+    "ASK_SEMANTIC_JUDGE": null,
+    "ASK_EVIDENCE_JUDGE": "auto",
+    "ASK_CONTINUOUS_RUNTIME": "on",
+    "FINANCE_WS": "/Users/a77/finance-workspace-private",
+    "MARKET_FEATURE_STORE_DB": null,
+    "MARKET_SNAPSHOT_DIR": null
+  },
+  "semantic_judge_effective": "llm",
+  "runtime_current_fingerprint": "4b805e583533ef529bfcdbccb4c40b20710143b0e33a5dc4a2e44e3fc0481c1b",
+  "module_count": 1129,
+  "current_fingerprint_matches_startup": true,
+  "runtime_tracked_clean": true,
+  "runtime_symlink_unchanged": true,
+  "production_judge_module_sha256": "4de4801983b3acb913a370dd0eca410a085209aac1d8515c903e941b2bb3f4a8",
+  "market_data_consistency_recomputed": false,
+  "market_snapshot_ready": true,
+  "market_snapshot_date": "2026-09-22",
+  "database_dates": {
+    "fact_market_daily": {
+      "max_date": "2026-09-18",
+      "snapshot_date_rows": 0,
+      "2026-09-21_rows": 0
+    },
+    "fact_stock_daily": {
+      "max_date": "2026-09-18",
+      "snapshot_date_rows": 0,
+      "2026-09-21_rows": 0
+    },
+    "fact_sector_daily": {
+      "max_date": "2026-09-18",
+      "snapshot_date_rows": 0,
+      "2026-09-21_rows": 0
+    },
+    "fact_sector_stock_daily": {
+      "max_date": "2026-09-18",
+      "snapshot_date_rows": 0,
+      "2026-09-21_rows": 0
+    },
+    "fact_mainline_sector_daily": {
+      "max_date": "2026-09-18",
+      "snapshot_date_rows": 0,
+      "2026-09-21_rows": 0
+    }
+  },
+  "protected_hashes_unchanged": true,
+  "database_stat_unchanged": true,
+  "http_readiness_called": false,
+  "rag_help_called": false,
+  "real_query_called": false,
+  "model_calls": 0,
+  "boundary": "health/config/current-file identity only, not actual writer invocation or RAG retrieval/recovery acceptance; hashes/stat samples do not exclude concurrent change-and-revert"
+}

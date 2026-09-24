@@ -1,0 +1,63 @@
+{
+  "purpose": "Root-session QC of the K3 independent Quality review; PASS accepted only because every item below held.",
+  "reviewed_report": {
+    "path": "/Users/a77/.finance-runtime/reviews/research-closeout-resume-20260920/nightly-independent/quality-k3/REPORT.md",
+    "sha256": "86589b99c30c1f2032a81b51109d23579d1571e83ed608bb062f9b1918af5f93",
+    "verdict": "PASS",
+    "issues": []
+  },
+  "execution_receipt": {
+    "exit_code": 0,
+    "timed_out": false,
+    "candidate_untouched": true,
+    "shared_refs_unchanged": true,
+    "author_tree_unchanged": true,
+    "vault_unchanged": true,
+    "spec_report_unchanged": true,
+    "identity_after": "d95b706edc6e44f3dfa54d7b8837dfdd36b16cf2",
+    "spec_report_sha256_pinned": "644ba90db91652a9f8aa77410b620a419bf7916b2994989c6f67bd8388b76f1e"
+  },
+  "file_hash_claims_verified": {
+    "market_feature_store/cli.py": "0a77292f887740869d42149dda73f9eb70b5621c25eac940cc3f77052c5137a1",
+    "market_feature_store/sync/sync_local_sector_members.py": "335f3a4ea8139da311b6b85b92bd455aefa3b1438eae68d2fbbf24e6b8829c0a",
+    "scripts/recover_local_review.py": "15ef02384841f160ef0da6757f7d219a34c149f7a4344f38e3eed05270f8920f",
+    "tests/test_stitch_refresh_completion.py": "2b85aa0f5f5388a7d84e8490b0838b2c7094f4b2c79f3c544502b1e724cda2ec",
+    "tests/test_recovery_refresh_integration.py": "32b26a480dad2edc39e0b68faa821b5e60fbadf6e9adcde4166ff243187b3102"
+  },
+  "diff_identity_claim_verified": {
+    "diff_34f49ce1...HEAD_equals_git_show_d95b706e": true,
+    "patch_lines": 409
+  },
+  "numstat_verified": [
+    "8\t0\tmarket_feature_store/cli.py",
+    "11\t0\tmarket_feature_store/sync/sync_local_sector_members.py",
+    "5\t1\tscripts/recover_local_review.py",
+    "127\t0\ttests/test_recovery_refresh_integration.py",
+    "205\t0\ttests/test_stitch_refresh_completion.py"
+  ],
+  "no_new_home_path_literals_in_diff": true,
+  "dynamic_claims_traced_to_tool_outputs": {
+    "author_tests_29_passed": {
+      "tool_call_index": 19,
+      "summary_line": "29 passed in 2.18s"
+    },
+    "mutation1_drop_return2": {
+      "tool_call_index": 27,
+      "summary_line": "12 failed, 17 passed in 2.57s"
+    },
+    "mutation2_widen_optional_skip": {
+      "tool_call_index": 28,
+      "summary_line": "2 failed, 27 passed in 2.14s"
+    },
+    "ruff_changed_files": {
+      "tool_call_index": 29,
+      "summary_line": "All checks passed!"
+    },
+    "collect_only": {
+      "tool_call_index": 31,
+      "summary_line": "29 tests collected"
+    }
+  },
+  "note": "Reviewer deleted its external mutation copy (quality-k3/mut); the pytest summaries above live in the tool results of events.jsonl and survive in the sealed events.compact.jsonl.",
+  "not_covered": "No third independent review; this only checks the reviewer's evidence is real, reproducible and traceable."
+}

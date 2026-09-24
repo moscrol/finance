@@ -151,6 +151,24 @@ def test_stitch_writes_true_values_drops_missing_and_leaves_changed_pending(con)
     assert shortfall == 1  # 缺口记录在台账上，不是静默丢
 
 
+def test_refresh_completed_members_after_base_quote_repair(con):
+    _seed_day1(con)
+    _publish(con, D2, [('990001.FP', 'MLCC', 3), ('990002.FP', '6G', 2), ('990003.FP', '机器人', 2)])
+    _eastmoney(con, D2, [(c, 10.0, 1.0, 2.0) for c in
+                         ('000001.SZ', '000002.SZ', '600000.SH', '600001.SH', '300001.SZ', '300002.SZ')])
+    assert stitch.stitch_sector_members(D2, con=con, fetch_caps=False)['stitched'] == 3
+    _eastmoney(con, D2, [('000003.SZ', 12.0, 20.0, 4.0)])
+    assert stitch.stitch_sector_members(D2, con=con, fetch_caps=False)['stitched'] == 0
+    refreshed = stitch.stitch_sector_members(D2, con=con, fetch_caps=False, include_completed=True)
+    assert refreshed['stitched'] == 3
+    assert refreshed['dropped_members'] == 0
+    assert con.execute('SELECT price, pct_chg, amount FROM fact_sector_stock_daily '
+                       'WHERE trade_date=? AND stock_ts_code=?', [D2, '000003.SZ']).fetchone() == (12.0, 20.0, 4.0)
+    local_daily.sync_sector_daily_local(D2, con=con)
+    assert con.execute('SELECT amount FROM fact_sector_daily WHERE trade_date=? AND sector_ts_code=?',
+                       [D2, '990001.FP']).fetchone()[0] == 8.0
+
+
 def test_stitch_rejects_fallback_value_source(con):
     _seed_day1(con)
     _publish(con, D2, [("990001.FP", "MLCC", 3), ("990002.FP", "6G", 2), ("990003.FP", "机器人", 2)])
@@ -172,6 +190,27 @@ def test_stitch_accepts_ifind_value_source(con):
 
     assert summary["stitched"] == 3 and summary["skipped"] == {}
     assert summary["dropped_members"] == 1  # 000003 退市股仍无值被剔
+    row = con.execute(
+        "select price, pct_chg, amount from fact_sector_stock_daily where trade_date = ? and stock_ts_code = '000001.SZ'",
+        [D2],
+    ).fetchone()
+    assert row == (11.0, 10.0, 3.0)
+
+
+def test_stitch_accepts_sina_value_source(con):
+    """新浪同为独立外部供应商（2026-09-11 补 09-08：mootdx 全服务器空返、东财 push2his
+    整站拒连、iFinD 无 token，只剩它能取到带成交额的历史日线）；循环源仍被拒。"""
+    _seed_day1(con)
+    _publish(con, D2, [("990001.FP", "MLCC", 3), ("990002.FP", "6G", 2), ("990003.FP", "\u673a\u5668\u4eba", 2)])
+    _eastmoney(con, D2, [("000001.SZ", 11.0, 10.0, 3.0), ("000002.SZ", 9.0, -10.0, 1.5)],
+               source="sina:stock_zh_a_daily")
+    _eastmoney(con, D2, [("600000.SH", 10.5, 5.0, 2.5), ("600001.SH", 10.0, 0.0, 2.0),
+                         ("300001.SZ", 12.0, 20.0, 4.0), ("300002.SZ", 8.0, -20.0, 1.0)])
+
+    summary = stitch.stitch_sector_members(D2, con=con, fetch_caps=False)
+
+    assert summary["stitched"] == 3 and summary["skipped"] == {}
+    assert summary["dropped_members"] == 1
     row = con.execute(
         "select price, pct_chg, amount from fact_sector_stock_daily where trade_date = ? and stock_ts_code = '000001.SZ'",
         [D2],

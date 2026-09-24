@@ -1,0 +1,21 @@
+........F........                                                        [100%]
+=================================== FAILURES ===================================
+_________________ test_k3_c2_evidence_v3_roundtrip_and_tamper __________________
+../.finance-runtime/reviews/pr884-closeout-20260923-04/host-qc-a/test_k3_c2.py:200: in test_k3_c2_evidence_v3_roundtrip_and_tamper
+    EpisodeEvidenceSnapshot.from_dict(tampered, episode_id=TASK + "-evidence")
+<host-c2-withdrawal>:61: in from_dict
+    ???
+../.finance-runtime/reviews/pr884-closeout-20260923-04/finance-workspace-private/intelligence/services/episode_evidence.py:171: in classify_presentation
+    raise ValueError("presented evidence differs from its admitted original")
+E   ValueError: presented evidence differs from its admitted original
+
+During handling of the above exception, another exception occurred:
+../.finance-runtime/reviews/pr884-closeout-20260923-04/host-qc-a/test_k3_c2.py:199: in test_k3_c2_evidence_v3_roundtrip_and_tamper
+    with pytest.raises(ValueError, match="digest"):
+E   AssertionError: Regex pattern did not match.
+E    Regex: 'digest'
+E    Input: 'presented evidence differs from its admitted original'
+- generated xml file: /Users/a77/.finance-runtime/reviews/pr884-closeout-20260923-04/host-qc-a/mutation-c2/junit.xml -
+=========================== short test summary info ============================
+FAILED ../.finance-runtime/reviews/pr884-closeout-20260923-04/host-qc-a/test_k3_c2.py::test_k3_c2_evidence_v3_roundtrip_and_tamper
+1 failed, 16 passed in 6.36s

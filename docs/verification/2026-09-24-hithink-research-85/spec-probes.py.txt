@@ -1,0 +1,656 @@
+"""独立 spec 探针 —— 本轮（continue-03 / revision 62777a76d）审查者所有，非作者测试。
+
+- 只导入候选树 TREE（本轮 62777a76d 独占候选目录）下的模块，并断言模块文件确实来自 TREE。
+- 全部使用假的 urllib 响应与临时 DuckDB：无网络、无生产库、无凭证读取（load_api_key 被替换）。
+- 设计与作者 tests/ 分账：夹具与断言为本审查者独立编写；同组上一候选原件仅作
+  已核对过的底稿，TREE 已改指本轮候选目录并重新执行计数，不移用旧计数。
+- 本轮新增自设计用例：Retry-After 零值/过去 HTTP-date 回落、退避准入+timeout 收紧、
+  429 后普通错误不重分类、非 JSON 200 不重分类、混合失败（限流耗尽后普通错熔断且
+  两类审计行分账）、编排层直接生产写拒绝。
+"""
+from __future__ import annotations
+
+import io
+import json
+import os
+import sys
+import time
+import urllib.error
+from datetime import date, datetime, timedelta
+from email.utils import format_datetime
+from pathlib import Path
+from types import SimpleNamespace
+from zoneinfo import ZoneInfo
+
+import pytest
+
+TREE = Path(
+    "/Users/a77/.finance-runtime/reviews/hithink-research-85-20260923/"
+    "continue-03/qc/candidate/finance-workspace-private"
+).resolve()
+if str(TREE) not in sys.path:
+    sys.path.insert(0, str(TREE))
+
+SH = ZoneInfo("Asia/Shanghai")
+
+
+def _from_tree(module) -> None:
+    path = Path(module.__file__).resolve()
+    assert path.is_relative_to(TREE), f"{module.__name__} 不来自候选树: {path}"
+
+
+def _ms_of(d: date) -> int:
+    return int(datetime(d.year, d.month, d.day, tzinfo=SH).timestamp() * 1000)
+
+
+# ---------------------------------------------------------------------------
+# 夹具：假 HTTP 层（无任何真实网络）
+# ---------------------------------------------------------------------------
+
+
+class _OkResp:
+    """模拟 200 JSON 响应（可选 headers）。"""
+
+    def __init__(self, payload, headers=None):
+        self.status = 200
+        self._raw = json.dumps(payload).encode("utf-8")
+        self.headers = headers or {}
+
+    def read(self):
+        return self._raw
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+
+class _RawResp:
+    """模拟任意原始正文的 HTTP 响应（用于非 JSON 正文用例）。"""
+
+    def __init__(self, body: bytes, status: int = 200, headers=None):
+        self.status = status
+        self._raw = body
+        self.headers = headers or {}
+
+    def read(self):
+        return self._raw
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+
+class _FakeWire:
+    """按队列返回响应/抛 HTTPError，记录请求次数、睡眠时间与传入 timeout。"""
+
+    def __init__(self, monkeypatch, events):
+        self.events = list(events)
+        self.calls = 0
+        self.sleeps: list[float] = []
+        self.timeouts: list[float] = []
+        monkeypatch.setattr(
+            "market_feature_store.hithink_client.load_api_key",
+            lambda: "probe-key",
+        )
+        monkeypatch.setattr("urllib.request.urlopen", self._urlopen)
+        monkeypatch.setattr(time, "sleep", self.sleeps.append)
+
+    def _urlopen(self, req, timeout=None):
+        self.calls += 1
+        self.timeouts.append(timeout)
+        event = self.events.pop(0)
+        if isinstance(event, Exception):
+            raise event
+        return event
+
+
+def _http429(body=b"<html><body>429 Too Many Requests</body></html>", headers=None):
+    return urllib.error.HTTPError(
+        "https://probe.invalid/api", 429, "Too Many", headers or {}, io.BytesIO(body)
+    )
+
+
+# ---------------------------------------------------------------------------
+# C1：429 双形态、Retry-After 双形态、独立次数/时间界、准入而非强杀
+# ---------------------------------------------------------------------------
+
+
+def test_module_identity():
+    import market_feature_store.hithink_client as hc
+    import market_feature_store.write_path as wp
+    from market_feature_store.sync import sync_hithink_research as s
+
+    _from_tree(hc)
+    _from_tree(wp)
+    _from_tree(s)
+
+
+def test_http_429_non_json_body_retries_then_ok(monkeypatch):
+    """HTTP 429 + 非 JSON 正文：不能误判成解析错误，退避后成功。"""
+    import market_feature_store.hithink_client as hc
+
+    wire = _FakeWire(monkeypatch, [_http429(), _OkResp({"code": 0, "data": {"x": 1}})])
+    out = hc.get_json("/api/probe", gap_seconds=0.0)
+    assert out["data"] == {"x": 1}
+    assert wire.calls == 2
+    assert wire.sleeps == [pytest.approx(0.8)]  # 无 Retry-After → 指数退避基准
+
+
+def test_business_code_429_retries_then_ok(monkeypatch):
+    import market_feature_store.hithink_client as hc
+
+    wire = _FakeWire(
+        monkeypatch,
+        [_OkResp({"code": 429, "message": "limited"}), _OkResp({"code": 0, "data": 1})],
+    )
+    assert hc.get_json("/api/probe", gap_seconds=0.0)["data"] == 1
+    assert wire.calls == 2
+    assert wire.sleeps == [pytest.approx(0.8)]
+
+
+def test_retry_after_seconds_and_http_date_forms(monkeypatch):
+    """Retry-After 秒数与 HTTP-date 两种合法形态都被采用（封顶 60s）。"""
+    import market_feature_store.hithink_client as hc
+
+    wire = _FakeWire(
+        monkeypatch,
+        [_http429(headers={"Retry-After": "2"}), _OkResp({"code": 0, "data": 1})],
+    )
+    hc.get_json("/api/probe", gap_seconds=0.0)
+    assert wire.sleeps == [pytest.approx(2.0)]
+
+    future = datetime.now(tz=SH).astimezone() + timedelta(seconds=5)
+    wire = _FakeWire(
+        monkeypatch,
+        [
+            _http429(headers={"Retry-After": format_datetime(future)}),
+            _OkResp({"code": 0, "data": 1}),
+        ],
+    )
+    hc.get_json("/api/probe", gap_seconds=0.0)
+    assert wire.sleeps[0] == pytest.approx(5.0, abs=1.5)
+
+    wire = _FakeWire(
+        monkeypatch,
+        [_http429(headers={"Retry-After": "86400"}), _OkResp({"code": 0, "data": 1})],
+    )
+    hc.get_json("/api/probe", gap_seconds=0.0)
+    assert wire.sleeps[0] <= hc.MAX_RATE_LIMIT_SLEEP_SECONDS
+
+
+def test_retry_after_zero_or_past_date_falls_back(monkeypatch):
+    """本轮新增：Retry-After=0 与已过期的 HTTP-date 一律回落有界指数退避。"""
+    import market_feature_store.hithink_client as hc
+
+    wire = _FakeWire(
+        monkeypatch,
+        [_http429(headers={"Retry-After": "0"}), _OkResp({"code": 0, "data": 1})],
+    )
+    hc.get_json("/api/probe", gap_seconds=0.0)
+    assert wire.sleeps == [pytest.approx(0.8)]  # wait<=0 不被采纳，不会 0 睡眠忙重试
+
+    past = datetime.now(tz=SH).astimezone() - timedelta(seconds=30)
+    wire = _FakeWire(
+        monkeypatch,
+        [
+            _http429(headers={"Retry-After": format_datetime(past)}),
+            _OkResp({"code": 0, "data": 1}),
+        ],
+    )
+    hc.get_json("/api/probe", gap_seconds=0.0)
+    assert wire.sleeps == [pytest.approx(0.8)]
+
+
+def test_invalid_retry_after_falls_back_and_retry_count_bounded(monkeypatch):
+    """负值 Retry-After 退化为有界指数退避；重试次数有常数上界（与时间无关）。"""
+    import market_feature_store.hithink_client as hc
+
+    wire = _FakeWire(
+        monkeypatch,
+        [_http429(headers={"Retry-After": "-3"}) for _ in range(50)],
+    )
+    with pytest.raises(hc.HithinkRateLimitError):
+        hc.get_json("/api/probe", gap_seconds=0.0, rate_limit_budget_seconds=10**9)
+    assert wire.calls == 1 + hc.MAX_RATE_LIMIT_RETRIES
+    assert len(wire.sleeps) == hc.MAX_RATE_LIMIT_RETRIES
+    assert min(wire.sleeps) >= 0.8  # 没有 0 睡眠的忙重试
+    assert max(wire.sleeps) <= hc.MAX_RATE_LIMIT_SLEEP_SECONDS
+
+
+def test_time_budget_bound_independent_of_retry_count(monkeypatch):
+    """时间预算独立生效：预算近乎 0 时第一次 429 即耗尽。"""
+    import market_feature_store.hithink_client as hc
+
+    wire = _FakeWire(monkeypatch, [_http429() for _ in range(50)])
+    with pytest.raises(hc.HithinkRateLimitError):
+        hc.get_json("/api/probe", gap_seconds=0.0, rate_limit_budget_seconds=0.001)
+    assert wire.calls == 1
+    assert wire.sleeps == []
+
+
+def test_budget_is_admission_not_midread_interrupt_and_timeout_tightened(
+    monkeypatch,
+):
+    """本轮新增：预算是发起前准入（wait 超 deadline 直接耗尽、不再睡眠），
+
+    且准入后的在途读取只是把 timeout 收紧到剩余预算，而非强制中断。
+    """
+    import market_feature_store.hithink_client as hc
+
+    # 预算 1s、Retry-After 5s：安排这次睡眠必然越过 deadline → 立即耗尽
+    wire = _FakeWire(monkeypatch, [_http429(headers={"Retry-After": "5"})])
+    with pytest.raises(hc.HithinkRateLimitError):
+        hc.get_json("/api/probe", gap_seconds=0.0, rate_limit_budget_seconds=1.0)
+    assert wire.calls == 1 and wire.sleeps == []
+
+    # 预算 10s 时，退避后重发的请求 timeout 被收紧到 ≤ 剩余预算（首发不受限）
+    wire = _FakeWire(monkeypatch, [_http429(), _OkResp({"code": 0, "data": 1})])
+    hc.get_json("/api/probe", gap_seconds=0.0, rate_limit_budget_seconds=10.0)
+    assert wire.timeouts[0] == 60.0
+    assert wire.timeouts[1] <= 10.0 + 1e-6
+
+
+# ---------------------------------------------------------------------------
+# C2：4001 旧语义；普通错误不重分类；错误文本不含上游正文/密钥
+# ---------------------------------------------------------------------------
+
+
+def test_4001_keeps_baseline_retry_count_and_backoff(monkeypatch):
+    import market_feature_store.hithink_client as hc
+
+    wire = _FakeWire(
+        monkeypatch,
+        [
+            _OkResp({"code": 4001, "message": "qps"}),
+            _OkResp({"code": 4001, "message": "qps"}),
+            _OkResp({"code": 4001, "message": "qps"}),
+            _OkResp({"code": 0, "data": 1}),
+        ],
+    )
+    assert hc.get_json("/api/probe", gap_seconds=0.0, retries=4)["data"] == 1
+    assert wire.calls == 4  # baseline: 最多 retries=4 次尝试
+    assert wire.sleeps == [pytest.approx(x) for x in (0.8, 1.6, 3.2)]
+
+    wire = _FakeWire(
+        monkeypatch,
+        [_OkResp({"code": 4001, "message": "qps"}) for _ in range(10)],
+    )
+    with pytest.raises(hc.HithinkAPIError) as err:
+        hc.get_json("/api/probe", gap_seconds=0.0, retries=2)
+    assert wire.calls == 2  # baseline 同样是 retries=2 次尝试
+    assert type(err.value) is hc.HithinkAPIError
+    assert "code=4001" in str(err.value)
+
+
+def test_ordinary_error_not_reclassified_and_no_secret_leak(monkeypatch):
+    """普通业务错不走进 429 预算路径；报错不带上游 message/正文。"""
+    import market_feature_store.hithink_client as hc
+
+    wire = _FakeWire(
+        monkeypatch,
+        [_OkResp({"code": 500, "message": "probe-UPSTREAM-SECRET"}) for _ in range(10)],
+    )
+    with pytest.raises(hc.HithinkAPIError) as err:
+        hc.get_json("/api/probe", gap_seconds=0.0)
+    assert wire.calls == 1  # 不重试 = 未被归入限流预算
+    assert wire.sleeps == []
+    assert type(err.value) is hc.HithinkAPIError
+    assert "probe-UPSTREAM-SECRET" not in str(err.value)
+    assert "code=500" in str(err.value)
+
+
+def test_non_json_200_body_not_reclassified(monkeypatch):
+    """本轮新增：非 JSON 的 200 正文 → 解析失败、不重试、不进限流路径。"""
+    import market_feature_store.hithink_client as hc
+
+    wire = _FakeWire(monkeypatch, [_RawResp(b"<html>oops probe-BODY-SECRET</html>")])
+    with pytest.raises(hc.HithinkAPIError) as err:
+        hc.get_json("/api/probe", gap_seconds=0.0)
+    assert wire.calls == 1 and wire.sleeps == []
+    assert "非 JSON" in str(err.value)
+    assert "probe-BODY-SECRET" not in str(err.value)
+
+
+def test_429_does_not_reclassify_later_4001(monkeypatch):
+    """本轮新增：429 退避之后到来的 4001 仍是普通 HithinkAPIError，计旧 retries 预算。"""
+    import market_feature_store.hithink_client as hc
+
+    wire = _FakeWire(
+        monkeypatch,
+        [
+            _OkResp({"code": 4001}),
+            _OkResp({"code": 429}),
+            _OkResp({"code": 4001}),
+            _OkResp({"code": 4001}),
+            _OkResp({"code": 4001}),
+        ],
+    )
+    with pytest.raises(hc.HithinkAPIError) as err:
+        hc.get_json("/api/probe", gap_seconds=0.0, retries=4, rate_limit_budget_seconds=300)
+    assert type(err.value) is hc.HithinkAPIError  # 不是 HithinkRateLimitError
+    assert wire.calls == 5
+    # 4001(attempt1)→0.8；429(throttled0)→0.8；4001(attempt2)→1.6；4001(attempt3)→3.2
+    assert wire.sleeps == [pytest.approx(x) for x in (0.8, 0.8, 1.6, 3.2)]
+
+
+def test_rate_limit_exhaustion_error_carries_no_body(monkeypatch):
+    import market_feature_store.hithink_client as hc
+
+    wire = _FakeWire(
+        monkeypatch,
+        [_http429(body=b"body-with-probe-SECRET") for _ in range(30)],
+    )
+    with pytest.raises(hc.HithinkRateLimitError) as err:
+        hc.get_json("/api/probe", gap_seconds=0.0, rate_limit_budget_seconds=10**9)
+    assert "probe-SECRET" not in str(err.value)
+
+
+# ---------------------------------------------------------------------------
+# C3：typed 429 耗尽 → 失败审计留档、继续后续请求、整体 partial + missing
+# ---------------------------------------------------------------------------
+
+
+def _payload_for(kind, code, day):
+    if kind == "anomaly":
+        return {
+            "code": 0,
+            "data": {
+                "item": [
+                    {
+                        "thscode": "600000.SH",
+                        "analysis_content": "供应商文本",
+                        "tag_name": "涨停",
+                        "keyword_list": ["k"],
+                    }
+                ],
+                "timestamp": _ms_of(day),
+            },
+        }
+    if kind == "heat_trend":
+        return {
+            "code": 0,
+            "data": {
+                "item": [
+                    {
+                        "thscode": code,
+                        "date": day.isoformat(),
+                        "date_ms": _ms_of(day),
+                        "rank": 3,
+                    }
+                ]
+            },
+        }
+    return {
+        "code": 0,
+        "data": {
+            "total": 2,
+            "item": [
+                {
+                    "thscode": c,
+                    "pe_ttm": 9.0,
+                    "pe_mrq": None,
+                    "pb_mrq": 1.0,
+                    "ps_ttm": 2.0,
+                    "pcf_ttm": None,
+                }
+                for c in ("600000.SH", "600519.SH")
+            ],
+        },
+    }
+
+
+def _run_sync(tmp_path, getter, **kwargs):
+    pytest.importorskip("duckdb")
+    from market_feature_store.sync import sync_hithink_research as s
+
+    return s.sync_hithink_research(
+        db_path=tmp_path / "probe.duckdb", getter=getter, **kwargs
+    )
+
+
+def _audit_rows(tmp_path):
+    import duckdb
+
+    con = duckdb.connect(str(tmp_path / "probe.duckdb"), read_only=True)
+    rows = {
+        r[0]: r[1:]
+        for r in con.execute(
+            "SELECT kind, status, error_type, payload_json, params_json "
+            "FROM ops_hithink_research_request"
+        ).fetchall()
+    }
+    con.close()
+    return rows
+
+
+def test_rate_limit_gap_leaves_failed_audit_and_continues(tmp_path):
+    import market_feature_store.hithink_client as hc
+    from market_feature_store.sync import sync_hithink_research as s
+
+    today = date.today()
+    calls: list[str] = []
+
+    def getter(path, *, params):
+        calls.append(path)
+        if path == s.PATHS["valuation"]:
+            raise hc.HithinkRateLimitError("budget gone")
+        code = params.get("thscode") or "600000.SH"
+        kind = next(k for k, v in s.PATHS.items() if v == path)
+        return _payload_for(kind, code, today)
+
+    result = _run_sync(tmp_path, getter, codes=["600000.SH", "600519.SH"])
+    assert result["status"] == "partial"
+    assert [m["kind"] for m in result["missing"]] == ["valuation"]
+    assert result["missing"][0]["request_id"]
+    # 失败之后仍尝试了其余请求（anomaly 在前，热度在后）
+    heat_calls = [c for c in calls if c == s.PATHS["heat_trend"]]
+    assert len(heat_calls) == 2
+    assert calls.index(s.PATHS["heat_trend"]) > calls.index(s.PATHS["valuation"])
+
+    rows = _audit_rows(tmp_path)
+    assert rows["valuation"][0] == "failed"
+    assert rows["valuation"][1] == "HithinkRateLimitError"
+    assert rows["valuation"][2] is None  # 失败档不留上游正文
+    assert "600519.SH" in rows["valuation"][3]  # 原始请求范围可溯
+    assert rows["heat_trend"][0] == "ok"
+    assert rows["anomaly"][0] == "ok"
+
+
+def test_empty_result_distinct_from_failed_request(tmp_path):
+    """空有效数据 → empty/complete_with_gaps，不混入失败口径。"""
+    from market_feature_store.sync import sync_hithink_research as s
+
+    today = date.today()
+
+    def getter(path, *, params):
+        if path == s.PATHS["anomaly"]:
+            return {"code": 0, "data": {"item": [], "timestamp": _ms_of(today)}}
+        kind = next(k for k, v in s.PATHS.items() if v == path)
+        return _payload_for(kind, params.get("thscode") or "600000.SH", today)
+
+    result = _run_sync(tmp_path, getter, codes=["600000.SH", "600519.SH"])
+    assert result["status"] == "complete_with_gaps"
+    assert result["missing"] == []
+
+
+def test_non_rate_limit_error_fails_closed(tmp_path):
+    import market_feature_store.hithink_client as hc
+    from market_feature_store.sync import sync_hithink_research as s
+
+    today = date.today()
+    heat_calls: list[str] = []
+
+    def getter(path, *, params):
+        if path == s.PATHS["heat_trend"]:
+            heat_calls.append(params["thscode"])
+            raise hc.HithinkAPIError("upstream broke")
+        kind = next(k for k, v in s.PATHS.items() if v == path)
+        return _payload_for(kind, params.get("thscode") or "600000.SH", today)
+
+    with pytest.raises(s.HithinkCaptureError):
+        _run_sync(tmp_path, getter, codes=["600000.SH", "600519.SH"])
+    assert heat_calls == ["600000.SH"]  # 中止：第二只股票不再请求
+
+
+def test_rate_limit_gap_then_ordinary_error_aborts_with_distinct_audit(tmp_path):
+    """本轮新增（对应候选新增回归场景的独立复现）：限流耗尽可被容忍，
+
+    但其后的普通错误必须熔断；两类失败的审计行完全分账。
+    """
+    import market_feature_store.hithink_client as hc
+    from market_feature_store.sync import sync_hithink_research as s
+
+    attempted: list[str] = []
+
+    def getter(path, *, params):
+        kind = next(k for k, v in s.PATHS.items() if v == path)
+        attempted.append(kind)
+        if kind == "anomaly":
+            raise hc.HithinkRateLimitError("synthetic rate limit exhaustion")
+        raise hc.HithinkAPIError("synthetic ordinary failure")
+
+    with pytest.raises(s.HithinkCaptureError) as exc:
+        _run_sync(tmp_path, getter, codes=["600000.SH"])
+    assert exc.value.kind == "valuation"
+    assert exc.value.rate_limited is False
+    assert exc.value.request_id
+    assert attempted == ["anomaly", "valuation"]  # 热度请求不再发起
+
+    rows = _audit_rows(tmp_path)
+    assert rows["anomaly"][:2] == ("failed", "HithinkRateLimitError")
+    assert rows["valuation"][:2] == ("failed", "HithinkAPIError")
+    assert rows["anomaly"][2] is None and rows["valuation"][2] is None  # 无上游正文
+
+
+# ---------------------------------------------------------------------------
+# C4：partial 退出码 → 阶梯夜跑状态 / 单体发布保护
+# ---------------------------------------------------------------------------
+
+
+def _load_run_review_sync():
+    import importlib.util
+
+    script = TREE / "skills" / "daily-full-review" / "scripts" / "run_review_sync.py"
+    spec = importlib.util.spec_from_file_location("run_review_sync_probe", script)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    _from_tree(module)
+    return module
+
+
+def test_nightly_step_maps_partial_exit_code_to_partial_status(monkeypatch):
+    rr = _load_run_review_sync()
+
+    def fake_run(argv, cwd=None, timeout=None):
+        return SimpleNamespace(returncode=3)  # PARTIAL_EXIT_CODE
+
+    monkeypatch.setattr(rr.subprocess, "run", fake_run)
+    res = rr.run_step("hithink-research", ["x"], timeout=1, partial_exit_codes=(3,))
+    assert res["status"] == "partial"
+    res = rr.run_step("other-step", ["x"], timeout=1)
+    assert res["status"] == "fail"  # 未注册 partial 的步骤语义不变
+
+
+def test_monolithic_daily_step_fails_on_partial(monkeypatch):
+    sdf = pytest.importorskip(
+        "market_feature_store.sync.sync_daily_full",
+        reason="单体编排模块不可导入时跳过",
+    )
+    _from_tree(sdf)
+    from market_feature_store.sync import sync_hithink_research as s
+
+    monkeypatch.setattr(
+        s,
+        "sync_hithink_research",
+        lambda **kw: {"status": "partial", "missing": [{"kind": "valuation"}]},
+    )
+    with pytest.raises(s.HithinkResearchError):
+        sdf.run_hithink_research_step(None)
+
+
+def test_cli_exit_code_tracks_partial(monkeypatch):
+    cli = pytest.importorskip(
+        "market_feature_store.cli", reason="CLI 模块不可导入时跳过"
+    )
+    _from_tree(cli)
+    from market_feature_store.sync import sync_hithink_research as s
+
+    monkeypatch.setattr(
+        s, "sync_hithink_research", lambda **kw: {"status": "partial", "missing": []}
+    )
+    args = SimpleNamespace(
+        end_date=None, thscodes="600000.SH", lookback_days=30, history_only=False
+    )
+    assert cli.cmd_sync_hithink_research(args) == s.PARTIAL_EXIT_CODE
+    monkeypatch.setattr(
+        s, "sync_hithink_research", lambda **kw: {"status": "ok", "missing": []}
+    )
+    assert cli.cmd_sync_hithink_research(args) == 0
+
+
+# ---------------------------------------------------------------------------
+# C5：上海采集日限制 / 历史回补排除 latest-only / 生产写身份防护
+# ---------------------------------------------------------------------------
+
+
+def test_latest_only_requires_shanghai_today_and_history_excludes_latest(tmp_path):
+    from market_feature_store.sync import sync_hithink_research as s
+
+    yesterday = date.today() - timedelta(days=1)
+
+    def getter(path, *, params):
+        raise AssertionError("不应发起任何请求")
+
+    with pytest.raises(s.HithinkResearchError):
+        _run_sync(tmp_path, getter, codes=["600000.SH"], end_date=yesterday)
+
+    calls: list[str] = []
+
+    def hist_getter(path, *, params):
+        calls.append(path)
+        return {"code": 0, "data": {"item": []}}
+
+    _run_sync(
+        tmp_path,
+        hist_getter,
+        codes=["600000.SH"],
+        end_date=yesterday,
+        history_only=True,
+    )
+    assert calls and set(calls) == {s.PATHS["heat_trend"]}  # anomaly/valuation 被排除
+
+
+def test_write_path_guard_catches_hardlink_identity(tmp_path, monkeypatch):
+    import market_feature_store.write_path as wp
+
+    prod = tmp_path / "canonical-prod.duckdb"
+    prod.write_bytes(b"probe")
+    link = tmp_path / "disguised-clone.duckdb"
+    os.link(prod, link)  # 同 inode 的硬链接：resolve 后路径不同
+    monkeypatch.setattr(
+        wp, "canonical_production_candidates", lambda: frozenset({prod})
+    )
+    assert wp.is_canonical_production(link) is True  # 硬链接被 samestat 识破
+    other = tmp_path / "other.duckdb"
+    other.write_bytes(b"x")
+    assert wp.is_canonical_production(other) is False
+    assert wp.is_canonical_production(tmp_path / "missing.duckdb") is False
+    assert wp.production_write_blocked(False, link) is not None  # 非 direct 被拦
+    assert wp.production_write_blocked(True, link) is None  # 显式 direct 放行
+
+
+def test_sync_refuses_direct_production_write_before_any_request(tmp_path, monkeypatch):
+    """本轮新增：编排层在任何请求发起之前拒绝直写 canonical 生产库。"""
+    from market_feature_store.sync import sync_hithink_research as s
+
+    monkeypatch.setattr(s, "is_canonical_production", lambda p: True)
+
+    def getter(path, *, params):
+        raise AssertionError("不应发起任何请求")
+
+    with pytest.raises(s.HithinkResearchError, match="production"):
+        _run_sync(tmp_path, getter, codes=["600000.SH"])

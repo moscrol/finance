@@ -1,0 +1,7 @@
+Traceback (most recent call last):
+  File "/Users/a77/.finance-runtime/kb-dual-index-20260918/probe_v4_consumers.py", line 79, in <module>
+    save_and_assert(f'{name[1:]}-cli-bm25', result, name, 'bm25', True)
+  File "/Users/a77/.finance-runtime/kb-dual-index-20260918/probe_v4_consumers.py", line 54, in save_and_assert
+    assert result.ok and result.hits, (label, result.warning)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: ('rag_index-cli-bm25', 'wiki-rag 无可用 chunk 命中')

@@ -1,0 +1,48 @@
+{
+  "revision": "dca1bd6e73f443ca09d08ef0a6c8b9b2bb0018a9",
+  "cases": [
+    {
+      "case": "safe_external_alert_log",
+      "returncode": 1,
+      "changed_code_files": [],
+      "alert_written": true,
+      "alert_text": "2026-09-20T01:46:05\t[daily-review FAIL] date=2026-09-11 | failed=quality-gate | warn=- | error=command failed with returncode 3\n",
+      "root_diagnostic": false,
+      "no_desktop_notification": "temporary osascript stub; notify_ops has no network code",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-P",
+        "/Users/a77/.finance-runtime/open-work-execution-20260920/generation-spec-dca1bd6e/safe_external_alert_log-67552axe/code snapshot/scripts/run_daily_generation.py",
+        "--date",
+        "2026-09-11",
+        "--plan",
+        "local",
+        "--skip-sync",
+        "--only-step",
+        "daily-review"
+      ]
+    },
+    {
+      "case": "alert_log_symlink_to_code",
+      "returncode": 2,
+      "changed_code_files": [],
+      "alert_written": false,
+      "alert_text": null,
+      "root_diagnostic": true,
+      "no_desktop_notification": "temporary osascript stub; notify_ops has no network code",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-P",
+        "/Users/a77/.finance-runtime/open-work-execution-20260920/generation-spec-dca1bd6e/alert_log_symlink_to_code-6fo96fnh/code snapshot/scripts/run_daily_generation.py",
+        "--date",
+        "2026-09-11",
+        "--plan",
+        "local",
+        "--skip-sync",
+        "--only-step",
+        "daily-review"
+      ]
+    }
+  ],
+  "invalid_config_refused_before_write": true
+}

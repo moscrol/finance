@@ -77,6 +77,7 @@ ERROR_SANDBOX_TIMEOUT = "sandbox_timeout"
 ERROR_SANDBOX_VIOLATION = "sandbox_violation"
 ERROR_SCRIPT_ERROR = "script_error"
 ERROR_NO_RESULT = "no_result_emitted"
+ERROR_INVALID_RESULT = "invalid_result_contract"
 ERROR_SANDBOX_UNAVAILABLE = "sandbox_unavailable"
 ERROR_BASE_CALC_NOT_FOUND = "base_calc_not_found"
 
@@ -156,6 +157,7 @@ class CalculationError:
             ERROR_SANDBOX_VIOLATION,
             ERROR_SCRIPT_ERROR,
             ERROR_NO_RESULT,
+            ERROR_INVALID_RESULT,
         }
 
 
@@ -391,6 +393,16 @@ def run_derived_calculation(
             enforcement=run.enforcement,
             stderr_tail=run.stderr_tail,
         )
+    result_errors = artifacts.result_contract_errors(run.result)
+    if result_errors:
+        return CalculationError(
+            ERROR_INVALID_RESULT,
+            "; ".join(result_errors)
+            + "；summary 只接标量；逐期数据请用 tables=[table(name, columns, rows)]，"
+            "每行与列对应、缺值用 None；不能把嵌套对象塞入 summary。",
+            enforcement=run.enforcement,
+            stderr_tail=run.stderr_tail,
+        )
     return DerivedCalculation(
         calc_id=compute_calc_id(
             script, hashes, db_fingerprint_value=fingerprint, params_json=params_json
@@ -498,7 +510,14 @@ def error_observation(error: CalculationError) -> str:
     if error.code == ERROR_BASE_CALC_NOT_FOUND:
         hint = "检查 inputs_from_calc 的计算编号（回答正文与产物文件名 calc-<id> 里那 16 位），或改为重新取数再算。"
     elif error.retryable_by_rewriting:
-        hint = "改脚本后可重试。"
+        hint = "在本轮剩余预算内改脚本后可重试；未修好时保留独立可信事实并列明计算缺口。"
+        if "table()" in error.detail:
+            hint += (
+                "接口为 table(name, columns, rows, *, unit=None, note=None)："
+                "name/columns/rows 必填，表名用 name，不接受 title。"
+            )
+        elif "chart()" in error.detail:
+            hint += "接口为 chart(name, kind, x, series_by_label, *, unit=None, y_label=None)。"
     else:
         hint = "先用取证工具拿到证据再来计算。"
     return (
@@ -529,6 +548,11 @@ def to_tool_result(outcome: DerivedCalculation | CalculationError) -> ToolRunRes
                 )[:400],
                 result_count=0,
             ),
+            gaps=(error_observation(outcome),),
+            telemetry={"calculation_error": {
+                "code": outcome.code, "detail": outcome.detail,
+                "retryable_by_rewriting": outcome.retryable_by_rewriting,
+            }},
         )
     return ToolRunResult(
         evidence=(derived_evidence(outcome),),
@@ -555,10 +579,15 @@ def to_tool_result(outcome: DerivedCalculation | CalculationError) -> ToolRunRes
 def load_calculation_record(
     calc_id: str, *, runs_root: str | os.PathLike[str] | None = None
 ) -> dict[str, object] | None:
-    """按计算编号找上一轮落盘的 ``calc-<id>.json``（默认在当前用户的 runs 目录里找）。
+    """按计算编号找上一轮落盘的 ``calc-<id>.json``。
 
     产物是 run 收口时由 orchestrator 写的，所以只能找到**已完成**回合的计算；同一编号可能
     出现在多个 run（同脚本同输入同参数），内容相同，取任意一份。找不到回 None。
+
+    ``runs_root`` 缺省时退回 ``RunStore()`` 的环境解析（``FORESIGHT_USER``）。那只在
+    「生产恰好钉了单一身份」时碰巧落对人——身份靠环境巧合而不是靠接线。真实身份要走
+    ``calc_loader_for_runs_root``：装配层用该轮 run 的 ``RunStore.root`` 折一个闭包出来，
+    见 ``ResearchToolRegistry.calc_loader``。
     """
 
     if not artifacts.is_calc_id(calc_id):
@@ -582,6 +611,26 @@ def load_calculation_record(
     return None
 
 
+def calc_loader_for_runs_root(
+    runs_root: str | os.PathLike[str] | None,
+) -> CalcLoader | None:
+    """把「这一轮属于谁」折成 ``derived_calculation`` 能直接用的记录加载器。
+
+    ``runs_root`` 为空回 None（= 调用方没有身份，沿用默认解析），这样装配层可以无条件
+    调用它而不必自己写 if。绑出来的闭包只认这一个 runs 目录：A 用户的 episode 永远
+    读不到 B 用户的计算记录，也不再依赖 ``FORESIGHT_USER`` 恰好等于当轮用户。
+    """
+
+    if not runs_root:
+        return None
+    root = Path(runs_root)
+
+    def loader(calc_id: str) -> dict[str, object] | None:
+        return load_calculation_record(calc_id, runs_root=root)
+
+    return loader
+
+
 # --------------------------------------------------------------------------- binding
 
 
@@ -600,6 +649,10 @@ def bind_derived_calculation_tool(
     """
 
     loader = calc_loader or load_calculation_record
+    # Run artifacts are written only when the turn closes. Keep successful
+    # products in this episode's binding, so inputs_from_calc can work *before*
+    # then. No global/user cache, no new fetch, no change to the granted budget.
+    records: dict[str, dict[str, object]] = {}
 
     def runner(args_json: str, tool_context: AgentToolContext) -> ToolRunResult:
         args = json.loads(args_json)
@@ -611,12 +664,14 @@ def bind_derived_calculation_tool(
         prior_inputs: Sequence[Mapping[str, object]] = ()
         base_calc_id = str(args.get("inputs_from_calc") or "").strip() or None
         if base_calc_id:
-            record = loader(base_calc_id)
+            record = records.get(base_calc_id)
+            if record is None:
+                record = loader(base_calc_id)
             if record is None:
                 return to_tool_result(
                     CalculationError(
                         ERROR_BASE_CALC_NOT_FOUND,
-                        f"找不到计算编号 {base_calc_id} 的记录（只有已完成回合落盘的计算能沿用）",
+                        f"找不到计算编号 {base_calc_id} 的记录（本研究会话成功产物及本用户已落盘计算均未命中）",
                     )
                 )
             if not script:
@@ -643,6 +698,8 @@ def bind_derived_calculation_tool(
             base_calc_id=base_calc_id,
         )
         tool_context.check_cancelled()
+        if isinstance(outcome, DerivedCalculation):
+            records[outcome.calc_id] = calculation_record(outcome)
         return to_tool_result(outcome)
 
     return derived_calculation_tool_spec(runner)

@@ -13,7 +13,7 @@ daily-full 里请求量最大的一步；而 5 日 Jaccard 0.999 说明名单几
   ``source='local:stitch'``。
 
 三条硬约束（都来自门禁 / 深模块的既有契约，不是本模块自设）：
-1. 值只接受独立外部供应商源（东财/mootdx/腾讯/iFinD，见 ``VALUE_SOURCE_PREFIXES``）。
+1. 值只接受独立外部供应商源（东财/mootdx/腾讯/iFinD/新浪/同花顺，见 ``VALUE_SOURCE_PREFIXES``）。
    ``fill-stock-daily-fallback`` 的行来自成分表本身，拿它拼接是循环。
 2. 东财无当日值的成员（停牌/退市）**剔除**，不留 NULL——``check_daily_review_data`` 不容
    price/pct_chg/amount 为空；``fast_daily_sync.py`` 被禁正是因为拷旧行留空值。
@@ -44,7 +44,16 @@ PROVIDER_SOURCE = "fupanhui"
 # fallback 源（fupanhui:sector_stock_daily:*）来自成分表自身，拿它拼接是循环。
 # ifind 于 2026-09-09 加入：工单 #32 北交所七天回补走 iFinD MCP（东财 push2his 被封），
 # 真值已与东财逐值对照（920000/920001/920002 @09-03 一致到第 4 位）。
-VALUE_SOURCE_PREFIXES = ("eastmoney", "mootdx", "tencent", "ifind")
+# 2026-09-11 补 09-08 时加 sina：本机 mootdx 全部 14 台服务器返回 0 根、东财 push2his
+# 对本机 IP 整站拒连、iFinD 无 token，唯一还能取到带成交额的历史日线的独立供应商是
+# 新浪（akshare.stock_zh_a_daily）。白名单的本意是「值必须来自独立外部供应商，不能拿
+# 自家派生值回灌」，新浪与既有四家同类；语义上 pre_close 是裸价前收（与 mootdx 同基，
+# 非东财的除息调整基），qa_backfill_align 对这类差异按 WARN 处理。
+# hithink 于 2026-09-13 加入：09-11 主表由同花顺官方 daily-k-10d dump 重建
+# （repair-stock-daily-hithink，source=hithink:daily-k-10d）。同花顺是独立外部供应商；
+# 换源值经独立 QC 逐值核验（pct 5,530/5,530 复现旧值、18 条除息校准逐行相等、
+# 共同行 OHLC 一致、其他日期指纹全等）。不接它，修后重跑拼接会从 403 板块掉到 0。
+VALUE_SOURCE_PREFIXES = ("eastmoney", "mootdx", "tencent", "ifind", "sina", "hithink")
 # 基线最多回看多少个日历日；再旧说明该板块长期抓不到，交回复盘会。
 DEFAULT_MAX_BASELINE_AGE_DAYS = 10
 # N 日涨幅复算需要的历史窗口（日历日；20 个交易日约 28~30 个日历日）。
@@ -168,7 +177,7 @@ def _today_values(con, trade_date: date) -> dict[str, dict]:
     rows = con.execute(
         f"""
         WITH hist AS (
-            SELECT stock_ts_code, trade_date, close, pct_chg, amount, source,
+            SELECT stock_ts_code, trade_date, stock_name, close, pct_chg, amount, source,
                    LAG(close, 3)  OVER w AS c3,
                    LAG(close, 5)  OVER w AS c5,
                    LAG(close, 10) OVER w AS c10,
@@ -177,7 +186,7 @@ def _today_values(con, trade_date: date) -> dict[str, dict]:
             WHERE trade_date >= ? AND trade_date <= ?
             WINDOW w AS (PARTITION BY stock_ts_code ORDER BY trade_date)
         )
-        SELECT stock_ts_code, close, pct_chg, amount, c3, c5, c10, c20
+        SELECT stock_ts_code, close, pct_chg, amount, c3, c5, c10, c20, stock_name
         FROM hist
         WHERE ({like_clauses}) AND trade_date = ?
           AND close IS NOT NULL AND pct_chg IS NOT NULL AND amount IS NOT NULL
@@ -191,8 +200,9 @@ def _today_values(con, trade_date: date) -> dict[str, dict]:
         return round((float(close) / float(base) - 1.0) * 100.0, 4)
 
     out: dict[str, dict] = {}
-    for code, close, pct, amt, c3, c5, c10, c20 in rows:
+    for code, close, pct, amt, c3, c5, c10, c20, name in rows:
         out[code] = {
+            "stock_name": name,
             "price": float(close),
             "pct_chg": float(pct),
             "amount": float(amt),
@@ -327,7 +337,9 @@ def build_rows(
         rows.append(
             {
                 "ts_code": code,
-                "name": m.get("stock_name"),
+                # Identity baselines can be months old. Prefer the same-day
+                # provider display name (including ST/IPO/ex-date prefixes).
+                "name": v.get("stock_name") or m.get("stock_name"),
                 "price": v["price"],
                 "pct_chg": v["pct_chg"],
                 "amount": v["amount"],
@@ -367,7 +379,9 @@ def stitch_sector_members(
     """对 identity 未动且尚未完成的板块做本地拼接。返回可进 runlog 的摘要。
 
     ``dry_run`` 只算不写，摘要里带 ``rows``（按板块）供对账；``include_completed``
-    连已 success 的板块也算（仅供在历史快照上回测拼接精度，生产路径不用）。
+    连已 success 的板块也算（历史回测，或 staging 恢复中底行情修正后的重建；日更默认不用）。
+    ``refresh_complete`` 只证明本轮显式刷新已写完且审计完整；普通日更为 None，
+    dry-run 即使算出了所有行也为 False，旧 success 不能替未完成的刷新作证。
     """
     td = _as_date(trade_date)
     own = con is None
@@ -468,6 +482,15 @@ def stitch_sector_members(
         "caps_fetched": len(caps),
         "audit": audit.brief() if audit is not None else None,
         "audit_complete": bool(audit.complete) if audit is not None else None,
+        "refresh_complete": (
+            not dry_run
+            and len(stitched) == len(candidates)
+            and not skipped_count
+            and not failed
+            and pending_for_provider == 0
+            and audit is not None
+            and bool(audit.complete)
+        ) if include_completed else None,
         "dry_run": dry_run,
     }
     if dry_run:

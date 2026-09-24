@@ -5,18 +5,19 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable
 from contextvars import copy_context
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from threading import RLock
 from typing import Literal, Protocol
+from uuid import uuid4
 
 from intelligence.runtime.episode_tool_batch import batch_call_cap
 from intelligence.services.agent_research import AgentEvidence
 from intelligence.services.agent_runtime import EpisodeEvent
 from intelligence.services.evidence_ledger import BranchEvidenceSink
+from intelligence.services.episode_store import EpisodeStore, FencedEpisodeStore
 from intelligence.services.llm_refine import current_call_ledger
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.research_contract import (
-    ResearchDeadline,
     ResearchPolicy,
     ResearchRunContext,
     RootBudgetLedger,
@@ -192,6 +193,42 @@ class _BranchBudgetView:
 
 
 @dataclass(frozen=True)
+class BranchEpisodeRef:
+    """Store identity is unique per invocation; branch_id stays a display label."""
+
+    episode_id: str
+    parent_episode_id: str
+    invocation_id: str
+    branch_id: str
+    origin: str
+
+    def to_dict(self) -> dict[str, str]:
+        return {
+            "episode_id": self.episode_id,
+            "parent_episode_id": self.parent_episode_id,
+            "invocation_id": self.invocation_id,
+            "branch_id": self.branch_id,
+            "origin": self.origin,
+        }
+
+
+@dataclass(frozen=True)
+class BranchRun:
+    parent_episode_id: str
+    origin: str
+    invocation_id: str = field(default_factory=lambda: f"branches-{uuid4().hex}")
+
+    def reference(self, branch_id: str) -> BranchEpisodeRef:
+        return BranchEpisodeRef(
+            episode_id=f"{self.invocation_id}:{branch_id}",
+            parent_episode_id=self.parent_episode_id,
+            invocation_id=self.invocation_id,
+            branch_id=branch_id,
+            origin=self.origin,
+        )
+
+
+@dataclass(frozen=True)
 class BranchRequest:
     branch_id: str
     goal: str
@@ -200,6 +237,8 @@ class BranchRequest:
     registry: ResearchToolRegistry
     evidence_sink: BranchEvidenceSink
     is_cancelled: Callable[[], bool]
+    episode_ref: BranchEpisodeRef
+    episode_store: EpisodeStore | None = None
 
 
 def _non_negative_int(value: object, *, field_name: str) -> None:
@@ -239,6 +278,9 @@ class BranchBatch:
     remaining_slots_at_dispatch: int | None = None
     stage_timeout_granted: float | None = None
     episode_remaining_at_dispatch: float | None = None
+    # 本批里等全局工具线程池等得最久的那条（工单 #39 §2.3）：``tool_result / tool_error.queued_ms`` 的最大值。
+    # 分支 ×3 与父臂共用 8 个 worker，池被占满时它会涨；没测到留 None，不写 0。
+    queue_wait_ms_max: float | None = None
 
     def __post_init__(self) -> None:
         if isinstance(self.index, bool) or not isinstance(self.index, int) or self.index < 1:
@@ -271,6 +313,7 @@ class BranchBatch:
             "remaining_slots_at_dispatch",
             "stage_timeout_granted",
             "episode_remaining_at_dispatch",
+            "queue_wait_ms_max",
         ):
             value = getattr(self, field_name)
             if value is not None:
@@ -407,8 +450,16 @@ def branch_batches_from_events(
                 remaining_slots_at_dispatch=current["remaining_slots_at_dispatch"],  # type: ignore[arg-type]
                 stage_timeout_granted=current["stage_timeout_granted"],  # type: ignore[arg-type]
                 episode_remaining_at_dispatch=current["episode_remaining_at_dispatch"],  # type: ignore[arg-type]
+                queue_wait_ms_max=current["queue_wait_ms_max"],  # type: ignore[arg-type]
             )
         )
+
+    def note_queue_wait(payload: dict[str, object]) -> None:
+        raw = payload.get("queued_ms")
+        if isinstance(raw, bool) or not isinstance(raw, (int, float)):
+            return
+        prev = current["queue_wait_ms_max"] if current is not None else None
+        current["queue_wait_ms_max"] = float(raw) if prev is None else max(float(prev), float(raw))  # type: ignore[index]
 
     for event in events:
         if event.kind == "model_turn":
@@ -424,6 +475,7 @@ def branch_batches_from_events(
                 "remaining_slots_at_dispatch": None,
                 "stage_timeout_granted": None,
                 "episode_remaining_at_dispatch": None,
+                "queue_wait_ms_max": None,
             }
             continue
         if current is None:
@@ -439,7 +491,9 @@ def branch_batches_from_events(
                     current[field_name] = payload[field_name]
         elif event.kind == "tool_result":
             current["succeeded"] = int(current["succeeded"]) + 1
+            note_queue_wait(payload)
         elif event.kind == "tool_error":
+            note_queue_wait(payload)
             error = str(payload.get("error") or "").strip()
             if error == _TOOL_ERROR_REJECTED_BY_CAP:
                 key = "rejected_by_cap"
@@ -475,10 +529,16 @@ class BranchResult:
     budget: BranchBudgetReceipt | None = None
     # 分支 Episode 里的 invalid_action（终局被拒的码在这里），同样从事件重算。
     invalid_actions: tuple[BranchInvalidAction, ...] = ()
+    episode_ref: BranchEpisodeRef | None = None
+    persistence: Literal["unknown", "ephemeral", "durable", "failed"] = "unknown"
 
     def __post_init__(self) -> None:
         if self.status not in _BRANCH_STATUSES:
             raise ValueError("unsupported branch status")
+        if self.persistence not in {"unknown", "ephemeral", "durable", "failed"}:
+            raise ValueError("unsupported branch persistence")
+        if self.persistence == "failed" and self.status != "failed":
+            raise ValueError("failed branch persistence must fail the branch")
         if not self.branch_id.strip() or not self.goal.strip():
             raise ValueError("branch identity and goal must be non-empty")
         if any(not isinstance(item, AgentEvidence) for item in self.evidence):
@@ -676,6 +736,8 @@ class SubResearchCoordinator:
         context: ResearchRunContext,
         registry: ResearchToolRegistry,
         evidence_sink_factory: Callable[[str], BranchEvidenceSink],
+        branch_run: BranchRun | None = None,
+        episode_store: EpisodeStore | None = None,
     ) -> SubResearchResult:
         """把每个分支跑到终态再返回。
 
@@ -689,20 +751,26 @@ class SubResearchCoordinator:
         或模块级、``shutdown(wait=False)`` 后不消费、把分支挪进后台队列——谁就必须
         重开 spec §4.2.4，并在 RuntimeHandle 上补分支粒度 drain；台账
         ``docs/handoffs/2026-08-15-dsh-absorption-p0-execution-handoff.md`` §4.1 的
-        四条证据届时全部作废。**仓内没有测试直接钉住它**：test 侧四处 ``is_alive()``
-        断言（``test_sub_research.py`` / ``test_headless_tool_gateway.py`` ×2 /
-        ``test_rag_worker.py``）钉的都不是协调器排空——本文件那处测的是
-        ``_BranchBudgetView`` 并发结算的辅助线程。
+        四条证据届时全部作废。同步排空由
+        ``test_coordinator_run_does_not_return_while_branch_threads_are_alive`` 钉住。
+        父工具批次保存失败时只在原授窗内等待本协调器；超窗仍报结果不确定，不声称强杀线程。
 
         取消语义（spec §7.3）：入口整体早退 + ``_run_one`` 里每个分支启动前各查一次，
         两处用的都是 ``self._is_cancelled``——与 RuntimeHandle 折叠的是同一个上游
         callable（见 ``glm_agent_runtime.GLMAgentRuntime.__init__`` 里的
         ``_upstream_cancelled`` 注释）。已进入 worker 的分支不打断，由上面那条同步
-        消费排空。**这两处守卫同样没有测试钉住**：2026-08-15 抽掉它们跑全量，
-        4982 passed / 0 红。
+        消费排空。入口/逐支取消与保存失败见 ``test_sub_research`` 和
+        ``test_sub_research_persistence``；分支共享存储健康状态，但不扩父预算。
         """
 
         normalized = _clean_goals(goals)
+        if episode_store is not None and not isinstance(episode_store, FencedEpisodeStore):
+            episode_store = FencedEpisodeStore(episode_store)
+        branch_run = branch_run or BranchRun(context.contract.task_id, "coordinator")
+        if branch_run.parent_episode_id != context.contract.task_id:
+            raise ValueError("branch parent identity mismatch")
+        if isinstance(episode_store, FencedEpisodeStore) and episode_store.failure:
+            return SubResearchResult((), "storage_failed")
         if not normalized:
             return SubResearchResult(())
         # deep 之上的档位（max，2026-09-06）同样够起分支：判据是「不低于 deep」，
@@ -743,6 +811,8 @@ class SubResearchCoordinator:
                 root=root,
                 calls=admission.calls_per_branch,
                 seconds=admission.seconds_per_branch,
+                branch_run=branch_run,
+                episode_store=episode_store,
             )
             for index, goal in enumerate(normalized, start=1)
         )
@@ -764,6 +834,7 @@ class SubResearchCoordinator:
                 try:
                     result = future.result()
                 except Exception as exc:  # failure isolation at the worker seam
+                    storage_failed = isinstance(episode_store, FencedEpisodeStore) and bool(episode_store.failure)
                     result = BranchResult(
                         branch_id=request.branch_id,
                         goal=request.goal,
@@ -773,7 +844,9 @@ class SubResearchCoordinator:
                         gaps=("分支研究未完成",),
                         llm_calls=0,
                         tool_calls=self._consumed_tool_calls(request),
-                        error=f"branch_worker_exception:{type(exc).__name__}",
+                        error="storage_failed" if storage_failed else f"branch_worker_exception:{type(exc).__name__}",
+                        episode_ref=request.episode_ref,
+                        persistence="failed" if storage_failed else "unknown",
                     )
                 results[request.branch_id] = result
         return SubResearchResult(
@@ -793,19 +866,29 @@ class SubResearchCoordinator:
         root: RootBudgetLedger,
         calls: int,
         seconds: float,
+        branch_run: BranchRun | None = None,
+        episode_store: EpisodeStore | None = None,
     ) -> BranchRequest:
         branch_id = f"branch-{index}"
+        branch_run = branch_run or BranchRun(context.contract.task_id, "coordinator")
+        reference = branch_run.reference(branch_id)
         budget = _BranchBudgetView(
             parent=root,
-            episode_id=f"{context.contract.task_id}:{branch_id}",
+            episode_id=reference.episode_id,
             calls=calls,
             seconds=seconds,
         )
         branch_context = replace(
             context,
-            deadline=ResearchDeadline.from_timeout(seconds),
+            contract=replace(
+                context.contract,
+                allowed_capabilities=tuple(
+                    name for name in context.contract.allowed_capabilities if name != "sub_research"
+                ),
+            ),
+            deadline=context.deadline.bounded_stage(seconds),
             policy=ResearchPolicy("quick", calls, seconds, 0.0),
-            trace_parent_id=f"{context.trace_parent_id}:{branch_id}",
+            trace_parent_id=reference.episode_id,
             root_budget=budget,
         )
         return BranchRequest(
@@ -813,13 +896,19 @@ class SubResearchCoordinator:
             goal=goal,
             task_frame=task_frame,
             context=branch_context,
-            registry=registry,
-            evidence_sink=evidence_sink_factory(branch_id),
+            registry=registry.without("sub_research"),
+            evidence_sink=evidence_sink_factory(reference.episode_id),
             is_cancelled=self._is_cancelled,
+            episode_ref=reference,
+            episode_store=episode_store,
         )
 
     def _run_one(self, request: BranchRequest) -> BranchResult:
-        if request.is_cancelled():
+        storage_failed = (
+            isinstance(request.episode_store, FencedEpisodeStore)
+            and bool(request.episode_store.failure)
+        )
+        if storage_failed or request.is_cancelled():
             return BranchResult(
                 branch_id=request.branch_id,
                 goal=request.goal,
@@ -829,22 +918,32 @@ class SubResearchCoordinator:
                 gaps=("分支研究已取消",),
                 llm_calls=0,
                 tool_calls=0,
-                error="cancelled",
+                error="storage_failed" if storage_failed else "cancelled",
+                stop_reason="storage_failed" if storage_failed else "cancelled",
+                episode_ref=request.episode_ref,
+                persistence="failed" if storage_failed else "unknown",
             )
         result = self._worker.run(request)
-        if result.branch_id != request.branch_id or result.goal != request.goal:
+        if (
+            result.branch_id != request.branch_id or result.goal != request.goal
+            or (result.episode_ref is not None and result.episode_ref != request.episode_ref)
+        ):
             raise ValueError("branch worker changed branch identity")
+        if isinstance(request.episode_store, FencedEpisodeStore) and request.episode_store.failure:
+            result = replace(result, status="failed", persistence="failed",
+                             error="storage_failed", stop_reason="storage_failed")
         result = replace(
             result,
             tool_calls=self._consumed_tool_calls(request),
             budget=self._budget_receipt(request),
+            episode_ref=request.episode_ref,
         )
         request.evidence_sink.append(result.evidence)
         owners = dict(request.evidence_sink.snapshot().evidence_branch_owners)
         accepted_evidence = tuple(
             item
             for item in result.evidence
-            if owners.get(item.content_hash) == request.branch_id
+            if owners.get(item.content_hash) == request.evidence_sink.branch_id
         )
         return replace(result, evidence=accepted_evidence)
 
@@ -876,6 +975,8 @@ __all__ = [
     "BranchBudgetReceipt",
     "BranchInvalidAction",
     "BranchRequest",
+    "BranchRun",
+    "BranchEpisodeRef",
     "PARENT_TAIL_LLM_RESERVE",
     "admit_branches",
     "branch_batches_from_events",

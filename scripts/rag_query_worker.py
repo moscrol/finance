@@ -14,6 +14,9 @@ import sys
 import hashlib
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from intelligence.services.kb_code_identity import code_identity  # noqa: E402
+
 
 def main() -> int:
     parser = argparse.ArgumentParser()
@@ -28,7 +31,10 @@ def main() -> int:
             sys.path.insert(0, resolved)
     os.chdir(root)
     os.environ["RAG_INDEX_DIR"] = str(Path(args.index_dir).resolve())
+    loaded_identity = code_identity(root)
     module = _load_module(script_dir / "rag_index.py")
+    if code_identity(root) != loaded_identity:
+        raise RuntimeError("rag code changed during startup; restart required")
     _install_shared_embedder(module)
     store_cache = _install_store_cache(module)
     original_loader = module._load_retriever
@@ -107,6 +113,8 @@ def main() -> int:
             stdout = io.StringIO()
             stderr = io.StringIO()
             with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+                if code_identity(root) != loaded_identity:
+                    raise RuntimeError("rag code changed; restart required")
                 try:
                     returncode = int(module.main(argv))
                 except SystemExit as exc:
@@ -114,6 +122,8 @@ def main() -> int:
             output = stdout.getvalue()
             if returncode == 0 and argv and argv[0] == "query":
                 output = _enrich_query_output(output, state, module)
+            if code_identity(root) != loaded_identity:
+                raise RuntimeError("rag code changed during query; discard response")
             response = {
                 "id": request_id,
                 "returncode": returncode,
@@ -129,12 +139,14 @@ def main() -> int:
                 "stderr": f"{type(exc).__name__}: {exc}",
                 "model_load_count": load_count,
             }
+        response["code_identity"] = loaded_identity
         print(json.dumps(response, ensure_ascii=False), flush=True)
     return 0
 
 
 def _enrich_query_output(output: str, state: dict[str, object], module=None) -> str:
-    rows = json.loads(output or "[]")
+    payload = json.loads(output or "[]")
+    rows = payload.get("hits") if isinstance(payload, dict) else payload
     if not isinstance(rows, list):
         return output
     chunks = state.get("chunks")
@@ -150,13 +162,16 @@ def _enrich_query_output(output: str, state: dict[str, object], module=None) -> 
         row.update(
             {
                 "index_built_at": built_at,
-                "index_source_revision": str(state.get("revision") or ""),
+                "index_source_revision": str(row.get("index_source_revision") or state.get("revision") or ""),
                 "index_freshness": page_verdicts.get(
                     str(row.get("file_path") or ""),
                     str(state.get("freshness") or "unknown"),
                 ),
             }
         )
+        # 新协议已裁切过证据上下文，不能再用原始单块覆盖预算/邻块/过滤边界。
+        if isinstance(payload, dict) or "applied_filters" in row:
+            continue
         chunk = _chunk_by_id(state, retriever, str(row.get("best_chunk_id") or ""))
         if chunk is None:
             continue
@@ -170,7 +185,7 @@ def _enrich_query_output(output: str, state: dict[str, object], module=None) -> 
                 "evidence_chunk_ids": [str(chunk.get("id") or "")],
             }
         )
-    return json.dumps(rows, ensure_ascii=False)
+    return json.dumps(payload, ensure_ascii=False)
 
 
 def _chunk_by_id(state: dict, retriever, chunk_id: str):

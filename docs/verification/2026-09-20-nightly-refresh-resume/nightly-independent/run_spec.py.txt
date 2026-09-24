@@ -1,0 +1,55 @@
+"""One bounded independent Spec session; no automatic retries or privilege escalation."""
+from datetime import datetime, timezone
+import hashlib
+import json
+import os
+from pathlib import Path
+import signal
+import subprocess
+
+root = Path(__file__).resolve().parent
+out = root / 'spec'
+out.mkdir(exist_ok=False)
+tree = root / 'spec-tree'
+prompt = root / 'spec-prompt.md'
+command = ['/Users/a77/.local/bin/codex', 'exec', '-C', str(tree),
+           '-s', 'workspace-write', '--add-dir', str(out),
+           '-c', 'approval_policy="never"', '--json', '--color', 'never',
+           '-o', str(out / 'final.md'), '-']
+env = {key: os.environ[key] for key in ('HOME', 'PATH', 'TMPDIR', 'LANG') if key in os.environ}
+env.update(PYTHONDONTWRITEBYTECODE='1', FWP_TEST_RECEIPT='0')
+
+def identity():
+    return {'revision': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=tree, text=True).strip(),
+            'status': subprocess.check_output(['git', 'status', '--porcelain'], cwd=tree, text=True)}
+
+before = identity()
+assert before == {'revision': 'd95b706edc6e44f3dfa54d7b8837dfdd36b16cf2', 'status': ''}
+receipt = {'command': command, 'time_before': datetime.now(timezone.utc).isoformat(),
+           'timeout_seconds': 600, 'prompt_sha256': hashlib.sha256(prompt.read_bytes()).hexdigest(),
+           'identity_before': before, 'complete': False}
+path = out / 'execution.json'
+path.write_text(json.dumps(receipt, ensure_ascii=False, indent=2) + '\n')
+with (out / 'events.jsonl').open('xb') as stdout, (out / 'stderr.log').open('xb') as stderr:
+    process = subprocess.Popen(command, cwd=tree, env=env, stdin=subprocess.PIPE,
+                               stdout=stdout, stderr=stderr, start_new_session=True)
+    receipt['pid'] = process.pid
+    try:
+        process.communicate(prompt.read_bytes(), timeout=600)
+        receipt['timed_out'] = False
+    except subprocess.TimeoutExpired:
+        receipt['timed_out'] = True
+        os.killpg(process.pid, signal.SIGTERM)
+        try:
+            process.communicate(timeout=5)
+        except subprocess.TimeoutExpired:
+            os.killpg(process.pid, signal.SIGKILL)
+            process.communicate()
+    receipt['exit_code'] = process.returncode
+receipt.update(identity_after=identity(), time_after=datetime.now(timezone.utc).isoformat(), complete=True)
+for name in ('events.jsonl', 'stderr.log', 'final.md', 'REPORT.md'):
+    file = out / name
+    if file.exists():
+        receipt.setdefault('sha256', {})[name] = hashlib.sha256(file.read_bytes()).hexdigest()
+path.write_text(json.dumps(receipt, ensure_ascii=False, indent=2) + '\n')
+print(json.dumps(receipt, ensure_ascii=False), flush=True)

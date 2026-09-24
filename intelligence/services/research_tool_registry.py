@@ -102,7 +102,7 @@ _DEFAULT_TOOL_METADATA: dict[str, tuple[str, str, str, frozenset[str]]] = {
     ),
     "web_search": (
         "web_search",
-        "全网网页检索",
+        "全网网页检索（摘要是线索；核对原文时用已授权的 web_fetch，未取到正文须披露）",
         "current",
         frozenset({"supporting_evidence", "event_facts", "impact_transmission"}),
     ),
@@ -130,7 +130,7 @@ _DEFAULT_TOOL_METADATA: dict[str, tuple[str, str, str, frozenset[str]]] = {
     ),
     "graph_lookup": (
         "graph_lookup",
-        "知识图谱实体与关系",
+        "知识图谱实体与关系（关系是检索线索，不自动证明因果或受益强度；空结果不代表不存在关联）",
         "stable",
         frozenset({"chain_mapping", "company_mapping", "relation_map"}),
     ),
@@ -170,7 +170,7 @@ _DEFAULT_TOOL_METADATA: dict[str, tuple[str, str, str, frozenset[str]]] = {
     ),
     "financial_data": (
         "financial_data",
-        "结构化逐季财务指标（每行带机器可读观察值；可一次取多家公司）",
+        "结构化逐季财务指标（每行带机器可读观察值；可一次取多家公司；实际财报不等于一致预期，缺值不是零）",
         "current",
         frozenset({"financial_assessment", "metric_evidence", "supporting_evidence"}),
     ),
@@ -484,7 +484,12 @@ DERIVED_CALCULATION_PARAMETERS: dict[str, object] = {
                 "财务助手 fincalc 已内置：series(subject, metric) 取某公司某指标按报告期升序的序列；"
                 "to_single_quarter(累计序列) 累计→单季（缺上一期就 None 并写 note）；yoy / qoq / "
                 "ratio_series / safe_div / pct / pct_change / to_yi(值, 单位) / growth_path / "
-                "scenario_table / sensitivity_grid / table / chart。"
+                "scenario_table / sensitivity_grid。"
+                "表的完整签名 table(name, columns, rows, *, unit=None, note=None)，前三项必填；"
+                "name 是表名（不接受 title），columns 是列名列表，rows 是行列表；rows 行长须与 columns 一致。"
+                "例：table('核对', ['报告期', '金额'], [['2025FY', 12]], unit='亿元')。"
+                "图的签名 chart(name, kind, x, series_by_label, *, unit=None, y_label=None)，"
+                "series_by_label 是 {系列名: 数值列表}。"
                 "结果用 emit_result(summary={标量}, tables=[table(...)], charts=[chart(...)], "
                 "formulas=[...], notes=[...]) 输出（表格会成为可下载 CSV / HTML 产物）；"
                 "简单结果也可 emit({...})。不 emit 视为没有结果。可 import 标准库与 numpy / pandas；"
@@ -753,6 +758,28 @@ ToolCutoffResolver = Callable[
 
 
 @dataclass(frozen=True)
+class ToolDiagnostic:
+    """Trusted runner control feedback, never retrieved facts or raw provider text.
+
+    Only an audited producer may construct this from validation/operational state.
+    A provider name, failure status or empty evidence list does not confer trust.
+    It is delivered outside date filtering, but never becomes citable evidence.
+    """
+
+    code: str
+    message: str
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.code, str) or not re.fullmatch(r"[a-z][a-z0-9_]*", self.code):
+            raise ValueError("diagnostic code must be a machine-readable identifier")
+        if not isinstance(self.message, str) or not self.message.strip():
+            raise ValueError("diagnostic message must be non-empty")
+
+    def render(self) -> str:
+        return f"工具诊断（非市场事实）[{self.code}]：{self.message}"
+
+
+@dataclass(frozen=True)
 class ToolRunResult:
     evidence: tuple[agent_research.AgentEvidence, ...]
     observation: str
@@ -763,8 +790,13 @@ class ToolRunResult:
     payload_field_names: tuple[str, ...] = ()
     payload_sha256: str = ""
     telemetry: dict[str, object] = field(default_factory=dict)
+    diagnostics: tuple[ToolDiagnostic, ...] = ()
 
     def __post_init__(self) -> None:
+        diagnostics = tuple(self.diagnostics)
+        if any(not isinstance(item, ToolDiagnostic) for item in diagnostics):
+            raise TypeError("tool diagnostics must contain ToolDiagnostic values")
+        object.__setattr__(self, "diagnostics", diagnostics)
         evidence = tuple(self.evidence)
         if any(not isinstance(item, agent_research.AgentEvidence) for item in evidence):
             raise TypeError("tool evidence must contain AgentEvidence values")
@@ -880,6 +912,23 @@ class ToolObservation:
     payload_sha256: str = ""
     telemetry: dict[str, object] = field(default_factory=dict)
 
+    def result_status_fields(self) -> dict[str, object]:
+        """Domain failure is not transport success; empty lookup remains distinct.
+
+        Keep this at the domain projection seam, not by throwing away the
+        observation in the batch executor. Gaps and prior evidence must survive.
+        """
+        error = self.telemetry.get("calculation_error")
+        if self.tool == "derived_calculation" and isinstance(error, Mapping):
+            return {"ok": False, "error": str(error["code"]), "status": self.trace.status}
+        failed = self.trace.status in {
+            "error", "timeout", "request_error", "parse_error", "proxy_unavailable",
+            "fallback_failed", "disabled", "not_attempted",
+        }
+        if failed:
+            return {"ok": False, "error": self.trace.status, "status": self.trace.status}
+        return {"ok": True}
+
 
 @dataclass(frozen=True)
 class ToolSpec:
@@ -923,6 +972,9 @@ class ToolSpec:
     # （下单、落库、发消息）必须显式 ``never``，恢复时对它只合成 ``tool_error{interrupted}``、
     # 绝不重跑。底座读它，不改任何执行行为。
     replay: Literal["safe", "never"] = "safe"
+    # Actual runner effect, certified at the owning assembly seam. Unknown is
+    # denied under local_only, even when cost="local" or freshness="stable".
+    io_effect: Literal["local_read", "external_or_mixed", "unknown"] = "unknown"
 
     def __post_init__(self) -> None:
         if not isinstance(self.runner, ToolRunnerAdapter):
@@ -933,6 +985,8 @@ class ToolSpec:
         object.__setattr__(self, "parameters", frozen_parameters)
         if not isinstance(self.produces, frozenset):
             object.__setattr__(self, "produces", frozenset(self.produces))
+        if self.io_effect not in {"local_read", "external_or_mixed", "unknown"}:
+            raise ValueError("invalid tool IO effect")
         if self.replay not in ("safe", "never"):
             raise ValueError(f"tool replay declaration must be safe|never: {self.replay!r}")
 
@@ -943,9 +997,22 @@ class ResearchToolRegistry:
         specs: tuple[ToolSpec, ...],
         *,
         opening_prefetch: tuple[agent_research.AgentEvidence, ...] = (),
+        calc_loader: object | None = None,
+        read_scope: str = "full",
     ) -> None:
+        if read_scope not in {"full", "local_only", "material_only"}:
+            raise ValueError("invalid registry read scope")
+        self.read_scope = read_scope
         self._specs = {spec.name: spec for spec in specs}
-        self.opening_prefetch = tuple(opening_prefetch)
+        # 自动注入/恢复加载器还没有逐项实际 IO 认证；收窄时不带入旁路。
+        self.opening_prefetch = tuple(opening_prefetch) if read_scope == "full" else ()
+        # ``derived_calculation`` 的 runner 只有 episode 期绑得出（要那一轮的证据账本），
+        # 但「上一轮的计算记录在谁的 runs 目录里」是**装配期**才知道的身份问题
+        # ——运行器刻意不认识用户（agent_episode 的 EpisodeScope.user_id 恒为 ""）。
+        # 与 memory_lookup 同一条经验：授权与身份穿透必须成对出现，只做一半不报错。
+        # 这一格就是装配层把已解析的身份折成一个闭包带进 episode 的通道；
+        # None = 调用方没给身份，沿用 load_calculation_record 的默认解析。
+        self.calc_loader = calc_loader if read_scope == "full" else None
 
     def resolve(self, name: str) -> ToolSpec:
         spec = self._specs.get(str(name).strip())
@@ -963,6 +1030,8 @@ class ResearchToolRegistry:
         return ResearchToolRegistry(
             tuple(merged.values()),
             opening_prefetch=self.opening_prefetch,
+            calc_loader=self.calc_loader,
+            read_scope=self.read_scope,
         )
 
     def without(self, *names: str) -> "ResearchToolRegistry":
@@ -972,7 +1041,42 @@ class ResearchToolRegistry:
         return ResearchToolRegistry(
             tuple(spec for spec in self._specs.values() if spec.name not in dropped),
             opening_prefetch=self.opening_prefetch,
+            calc_loader=self.calc_loader,
+            read_scope=self.read_scope,
         )
+
+    def with_read_scope(self, read_scope: str) -> "ResearchToolRegistry":
+        """A derived registry may narrow but never relax its existing IO ceiling."""
+        ranks = {"full": 0, "local_only": 1, "material_only": 2}
+        if read_scope not in ranks:
+            raise ValueError("invalid registry read scope")
+        effective = max((self.read_scope, read_scope), key=ranks.__getitem__)
+        return ResearchToolRegistry(
+            tuple(self._specs.values()),
+            opening_prefetch=self.opening_prefetch,
+            calc_loader=self.calc_loader,
+            read_scope=effective,
+        )
+
+    def for_context(self, context: ResearchRunContext) -> "ResearchToolRegistry":
+        """Bind once before any menu/prompt/prefetch consumer, not only dispatch."""
+        material = context.contract.material_contract
+        if material is not None and material.data_scope in {"local_only", "material_only"}:
+            return self.with_read_scope(material.data_scope)
+        # 未决语义的预取前澄清仍由入口负责；这里不猜测/复位已有上限。
+        return self
+
+    def authorization_denial(self, spec: ToolSpec, context: ResearchRunContext) -> str:
+        """One decision shared by dispatch and EpisodeScope; no side effects."""
+        if spec.capability not in context.contract.allowed_capabilities:
+            return f"能力未授权：{spec.capability}"
+        material = context.contract.material_contract
+        scopes = {self.read_scope, material.data_scope if material else "full"}
+        if "material_only" in scopes:
+            return "material_only 禁止读取工具"
+        if "local_only" in scopes and spec.io_effect != "local_read":
+            return f"local_only 未审定工具实际 IO：{spec.name}"
+        return ""
 
     def names(self) -> tuple[str, ...]:
         return tuple(self._specs)
@@ -1000,6 +1104,10 @@ class ResearchToolRegistry:
                 for spec in self._specs.values()
                 if spec.capability in allowed_set
             )
+        if self.read_scope == "material_only":
+            specs = ()
+        elif self.read_scope == "local_only":
+            specs = tuple(spec for spec in specs if spec.io_effect == "local_read")
         return tuple(sorted(specs, key=lambda spec: spec.name))
 
     def tool_definitions(
@@ -1096,6 +1204,7 @@ class ResearchToolRegistry:
         is_cancelled: Callable[[], bool] | None = None,
         scope: EpisodeScope | None = None,
         tool_call_id: str = "",
+        retain_received_result: Callable[[], bool] | None = None,
     ) -> ToolObservation:
         """执行一个工具。
 
@@ -1105,7 +1214,8 @@ class ResearchToolRegistry:
         """
 
         spec = self.resolve(name)
-        if spec.capability not in context.contract.allowed_capabilities:
+        denial = self.authorization_denial(spec, context)
+        if denial:
             # 错误契约保持不变（仍抛 UnknownResearchTool、消息逐字不变）：
             # ``unknown_or_unauthorized_tool`` 这个串有 4 个生产者、1 个分支消费者
             # （agent_episode.py:311），并且进了模型可见的消息文本。拆它是一次
@@ -1114,7 +1224,6 @@ class ResearchToolRegistry:
             # 但**区分**不用等：它落进阶段事件（新增，无存量消费者），
             # 于是诊断拿到了区分，契约一点没动。
             if scope is not None:
-                decision = scope.authorize(name)
                 scope.emit(
                     TOOL_ERROR,
                     {
@@ -1123,12 +1232,12 @@ class ResearchToolRegistry:
                         "step_id": step_id,
                         "stage": "authorize",
                         # 与 wire 上那个压扁的串不同，这里是分开的
-                        "reason": decision.reason,
-                        "capability": decision.capability,
+                        "reason": denial,
+                        "capability": spec.capability,
                     },
                 )
             raise UnknownResearchTool(
-                f"能力未授权：{spec.capability}（工具 {spec.name}）"
+                f"{denial}（工具 {spec.name}）"
             )
 
         prepared = self.prepare(name, arguments)
@@ -1186,6 +1295,10 @@ class ResearchToolRegistry:
             )
 
         def fetch() -> ToolObservation:
+            # A queued task may start after cancellation/storage failure. Checking
+            # only after runner() would prevent publication, but not the effect.
+            if is_cancelled is not None and is_cancelled():
+                raise RuntimeError("agent tool cancelled before execution")
             if scope is not None:
                 # 登记必须在 runner 真的被调起时发生，不在「决定要调」时。
                 # 这个闭包由 query_ledger.executed 决定跑不跑——被去重挡掉的调用
@@ -1212,7 +1325,9 @@ class ResearchToolRegistry:
                     effective_context.information_cutoff,
                 ),
             )
-            evidence = list(run_result.evidence)
+            # The runner cannot self-certify local provenance. Stamp the same
+            # trusted IO declaration used by authorization, before caching.
+            evidence = [replace(item, io_effect=spec.io_effect) for item in run_result.evidence]
             observation = run_result.observation
             # 代偿必须让模型看见：输入被改过而不说，模型下一轮还会照原样写，
             # 且它无法自行诊断为什么检索总是空手（ch4「参数传递的保真性」）。
@@ -1222,8 +1337,13 @@ class ResearchToolRegistry:
                 )
             trace = run_result.trace
             gaps = run_result.gaps
-            if is_cancelled is not None and is_cancelled():
+            if (
+                is_cancelled is not None and is_cancelled()
+                and not (retain_received_result is not None and retain_received_result())
+            ):
                 raise RuntimeError("agent tool cancelled")
+            # Retention is private settlement, not publication permission. The
+            # existing QueryPublishGuard still rejects shared-cache publication.
             served_date = closed_loop_retrieval.latest_served_date(
                 evidence,
                 date_getter=lambda item: item.source_date,
@@ -1237,6 +1357,27 @@ class ResearchToolRegistry:
                     if parsed_trade_date is not None
                     else None
                 )
+            history = effective_context.history_intent
+            if history is not None and history.strict_window and spec.name not in {
+                "history_query", "read_history_result", "save_history_research",
+            }:
+                # History originals have their own recursive scope gate, including
+                # undated formula metadata. Other tools may not launder unknown or
+                # pre-authorisation dates through a prose observation.
+                kept = [item for item in evidence if (
+                    (d := closed_loop_retrieval.parse_source_date(item.source_date)) is not None
+                    and (not history.requested_start or d.isoformat() >= history.requested_start)
+                    and (not history.requested_end or d.isoformat() <= history.requested_end)
+                )]
+                # A diagnostic-only result carries no facts to date. Do not erase
+                # the repair hint or falsely report that its facts were withheld.
+                # An untyped prose observation is still filtered, even on errors.
+                if len(kept) != len(evidence) or (
+                    not evidence and (observation or not run_result.diagnostics)
+                ):
+                    gaps = (*gaps, "未取得历史授权范围内可交付的有日期材料；越界或日期未知内容未交付")
+                    evidence = kept
+                    observation = "；".join(f"{item.title}：{item.detail}" for item in kept) or gaps[-1]
             evidence, rejected = closed_loop_retrieval.filter_future_dated(
                 evidence,
                 information_cutoff=effective_context.information_cutoff,
@@ -1254,6 +1395,12 @@ class ResearchToolRegistry:
             ):
                 rejected.extend(evidence)
                 evidence = []
+            if (
+                history is not None and not evidence and trace_trade_date is not None
+                and trace_trade_date > effective_context.information_cutoff.as_of_date
+            ):
+                observation = "源已检索但日期晚于信息截止日，未交付内容；不是源里没有。"
+                gaps = (*gaps, observation)
             remaining_after_cutoff_filter = list(evidence)
             if rejected:
                 cutoff_iso = effective_context.information_cutoff.as_of_date.isoformat()
@@ -1265,6 +1412,11 @@ class ResearchToolRegistry:
                         )
                         or observation
                     )
+                elif history is not None:
+                    # Explicit history research is not a latest-news request.
+                    # A warning label cannot grant permission to consume future facts.
+                    observation = "已取得材料但全部晚于信息截止日，未交付内容；不是源里没有。"
+                    gaps = (*gaps, observation)
                 else:
                     # T2-a：全滤时空手会让模型以为「源里没有」。把越界条目标注后交还。
                     evidence = [
@@ -1296,6 +1448,14 @@ class ResearchToolRegistry:
                         f"源返回 {len(evidence)} 条，全部晚于问句日 {cutoff_iso}，"
                         f"已标注后交付；不是源里没有。{listed}"
                     )
+            # Render only the explicit trusted control channel after fact gates.
+            # Never restore the original prose when its evidence was withheld.
+            if run_result.diagnostics:
+                observation = "；".join(
+                    part for part in (
+                        observation, *(item.render() for item in run_result.diagnostics),
+                    ) if part
+                )
             evidence = [
                 item
                 if item.content_hash
@@ -1443,9 +1603,15 @@ _TOOL_CONTRACTS: dict[str, str] = {
     # 依据：runner ``agent_research._web_fetch`` 与 ``web_research.fetch_web_page`` 的
     # 分状态返回；「二手不升一手」复述 web_search 那条与 CLAUDE.md 的分层红线。
     "web_fetch": (
-        "取回的是网页正文原文，属二手公开材料（与 web_search 同档）：数字可以读、可以引，"
-        "但公司级硬事实仍以 l3_lookup 公告或 financial_data 一手数据为准，"
-        "只有网页来源时写成「待验证线索」并点明缺的一手材料。"
+        "档位按真实发布主体定，不按取页工具名定。判据就在返回里：观察值首行"
+        "「来源分类：发布主体=…，文档类型=…」后面跟着该档的使用提示，证据标题也带"
+        "〔发布主体·文档类型〕。官方披露平台（巨潮等）、监管/政府机构、交易所互动平台"
+        "三类是官方原文，发布主体即信息源，日期与数字可按原文直接引用，不要因为是 "
+        "web_fetch 取的就降成「待验证线索」。行业协会/机构页面居中：行业口径可引，"
+        "公司级事实仍需公告确认。财经媒体/门户、百科/参考、其他网站（发布主体未识别）"
+        "才按二手用：公司级硬事实以 l3_lookup 公告或 financial_data 一手数据为准，"
+        "只有这类来源时写成「待验证线索」并点明缺的一手材料。媒体转载的官方文件，"
+        "事实以原发布主体的版本为准，转载不构成第二来源；同一消息多家媒体转载也不是交叉验证。"
         "证据日期取页面自述的发布/更新日；页面没有日期时记为抓取日并在观察值里标明，"
         "引用时不要把抓取日说成数据日期。"
         "「取页失败」（HTTP 错误 / 超时 / 无法解析）是工具故障，不是页面没有该信息，"
@@ -1540,6 +1706,13 @@ _TOOL_CONTRACTS: dict[str, str] = {
         "返回文本明确说「检索未能执行完成」时那是工具故障，不是知识库为空，"
         "此时既不能写成证据缺口也不能下否定结论，应改写检索词重试或换工具；"
         "只有在确实「无命中」时，才说明知识库没有回填过，且仍不等于该事实不存在。"
+        # 02 深读落地后返回的形状变了：命中页整节按段送成独立证据，并在观察值里给出
+        # 「同页其余章节」目录。模型从证据正文读不出「还能再读哪一节、怎么读」，
+        # 所以这条动作必须写在契约里。
+        "返回里除命中片段外还带「深读《章节名》N/M」的整节段落（每段都是完整段落，"
+        "不是被截的片段），以及观察值里的「同页其余章节」目录。"
+        "某节没送到而你需要它时，就用 kb_search 检索「页名 章节名」把那节读出来，"
+        "不要重复同一个检索词——重查得到的是同一批命中。"
     ),
     # 两条依据都直接来自 ``agent_research.build_graph_tools._graph_lookup`` 的构造：
     # 概念项 detail 逐字是 f"匹配分 {score}"（文本匹配分，不是业务关联度）；
@@ -1612,6 +1785,8 @@ _TOOL_CONTRACTS: dict[str, str] = {
         "财务数用 financial_data 每行 observations 里的结构化值算（metric 名带口径与单位，如 "
         "revenue_cum_yi 是累计亿元），不要解析表格文本；累计口径转单季必须用 to_single_quarter，"
         "不要把中报 / 三季报的累计数当单季数。"
+        "summary 仅接标量，不接逐期嵌套字典；逐期结果用 tables=[table(name, columns, rows)]。"
+        "格式错误或无可展示结果会返回 invalid_result_contract，不是成功计算。"
         "结果用 emit_result(summary, tables, charts, params, formulas, notes) 组织：表格里的每个数都会"
         "进这条派生证据的 observations，正文引用它们时逐字照抄（不四舍五入成别的数）；"
         "表格 / 图表 / 完整记录会作为本次回答的产物落盘为 calc-<计算编号>.csv / .html / .json，"
@@ -1672,9 +1847,23 @@ def require_tool_contracts(specs: Iterable[ToolSpec]) -> None:
 #   kb_search       成功 30 / 真超时 57，成功耗时 p50 9.5s、80% 在 20s 内（一次检索 + 一次相关性裁判）
 #   evidence_search 成功  3 / 真超时 66，成功耗时 32–40s（narrow→broad→counter 多轮检索 + 语义裁判）
 # 数字是成功样本的分位，被 ~23s 的实授窗右截断，只会低估不会高估。改数字要重跑那份脚本。
+#
+# 2026-09-03 补登三条网络工具。上面那句「9 个 p95 < 9s，任何授予都够，不登记」有个
+# 洞：**零授予也是一种授予**。同一份收据里 `web_search` 就有 1 次零授权，当日 live
+# 三次复现——`would_grant=0` 时它因无地板照旧留在菜单上，模型点了、授 0 秒、
+# 立即 `tool_timeout`，白烧一整轮。地板在这里防的不是「窗太小」而是「窗是零」，
+# 与 kb/evidence 两条「这活本来就要那么久」的地板用途不同。
+#   web_search  成功 8   p50 2.72 / p95 4.76 → 5.0 正好压住 p95
+#   news_search 成功 64  p50 1.53 / p95 8.68 → 同给 5.0：p95 未被覆盖是**有意的**，
+#               它 p50 只要 1.53s，按 p95 设 9s 会把大量本可成功的窗也遮掉；
+#               5s 是零授予护栏，不是 p95 保证
+#   web_fetch   成功 0（无实测样本）→ 按同族一次往返给 5.0，[推断] 非实测
 MIN_WINDOW_SECONDS: dict[str, float] = {
     "kb_search": 20.0,
     "evidence_search": 30.0,
+    "web_search": 5.0,
+    "news_search": 5.0,
+    "web_fetch": 5.0,
     # 设计常数而非实测：一支分支的时间上限（见 SUB_RESEARCH_MIN_WINDOW_SECONDS）。
     "sub_research": SUB_RESEARCH_MIN_WINDOW_SECONDS,
 }
@@ -1727,6 +1916,9 @@ def default_registry(tools: dict[str, agent_research.ToolRunner]) -> ResearchToo
                 else parse_query_arguments
             ),
             produces=produces,
+            # A nested research run can have paid/settled children even if the
+            # parent tool result was lost. Reconcile those refs, never rerun it.
+            replay="never" if name == "sub_research" else "safe",
         )
         for name, (capability, description, freshness, produces) in _DEFAULT_TOOL_METADATA.items()
         if name in tools

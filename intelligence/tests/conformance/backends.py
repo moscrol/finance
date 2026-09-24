@@ -62,11 +62,13 @@ INVARIANT_IDS: tuple[str, ...] = (
     "INV-8",
     # 运行底座终态稿 R 系列（2026-09-07 §3）：只对生产臂 continuous 与参考 loop 要求成立，
     # 其余臂声明 UNSUPPORTED_DECLARED（母单 §3 末段），断言只验「确实不在场」。
-    # R2 效果三明治 / R3 程序计数器恢复（P2）；R4 取消类型化（P1）；R5 收件箱三事实（P3）。
+    # R2 效果三明治 / R3 程序计数器恢复（P2）；R4 取消类型化（P1）；R5 收件箱三事实（P3）；
+    # R6 竞态目录两序 + 写序 oracle（P4，``conformance/races/``）。
     "INV-R2",
     "INV-R3",
     "INV-R4",
     "INV-R5",
+    "INV-R6",
 )
 
 # R 系列在非适用臂上的统一理由（每个非 SUPPORTED 声明都必须带 notes）。
@@ -85,15 +87,22 @@ _R_INBOX_NOT_APPLICABLE_ARM = (
     "_EpisodeLedger 上，只有 ContinuousAgentEpisode 认领）；本臂事件流里没有 "
     "inbox_inserted / inbox_claimed / inbox_discarded，断言验证「确实不在场」，不要求实现。"
 )
+_R_RACES_NOT_APPLICABLE_ARM = (
+    "运行底座 R6 竞态目录只对 continuous_glm 要求成立（母单 §6.5 P4：单步驱动 "
+    "manual_drive / step() 只有 ContinuousAgentEpisode 有，竞态在它的五个步点上构造）；"
+    "本臂没有步点也没有 durable store，两序无从构造，断言验证「确实不在场」，不要求实现。"
+)
 _R_DURABLE_DECLARED: dict[str, Verdict] = {
     "INV-R2": Verdict.UNSUPPORTED_DECLARED,
     "INV-R3": Verdict.UNSUPPORTED_DECLARED,
     "INV-R5": Verdict.UNSUPPORTED_DECLARED,
+    "INV-R6": Verdict.UNSUPPORTED_DECLARED,
 }
 _R_DURABLE_NOTES: dict[str, str] = {
     "INV-R2": _R_DURABLE_NOT_APPLICABLE_ARM,
     "INV-R3": _R_DURABLE_NOT_APPLICABLE_ARM,
     "INV-R5": _R_INBOX_NOT_APPLICABLE_ARM,
+    "INV-R6": _R_RACES_NOT_APPLICABLE_ARM,
 }
 
 

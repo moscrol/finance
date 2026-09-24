@@ -18,7 +18,8 @@
           expected 变动的板块打复盘会，其余用最近 fupanhui 名单 × 当日东财真值本地拼接；
           板块日行情本地派生；公开资产里竞价停、席位走 akshare、研报增量翻页（≈30~45 请求/日）。
 - auto  ：周五 full（兜「一进一出数量不变」的成分换血盲区），其余交易日 cheap。
-两档的步骤名与 registry `plans` 段逐项一致，tests/test_consumption_registry.py 强制。
+- local ：零复盘会请求；同花顺五步并跑更新独立表，缺 key 明确 skip；旧复盘表仍走本地计算。
+各档的步骤名与 registry `plans` 段逐项一致，tests/test_consumption_registry.py 强制。
 """
 from __future__ import annotations
 
@@ -29,7 +30,7 @@ import subprocess
 import sys
 import time
 import urllib.request
-from datetime import datetime, date
+from datetime import datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -37,6 +38,10 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from market_feature_store.db import connect  # noqa: E402
+from market_feature_store.consumption_registry import (  # noqa: E402
+    PLAN_CHOICES as PLANS,
+    resolve_plan,
+)
 
 SKILL_DIR = Path(__file__).resolve().parents[1]
 RUNLOG = SKILL_DIR / "state" / "runlog.md"
@@ -109,17 +114,18 @@ def narrative_freshness_warnings(trade_date: str) -> list[str]:
         return [f"叙事源时效检查失败: {e}"]
 
 
-def preflight() -> list[str]:
+def preflight(require_fupanhui: bool = True) -> list[str]:
     """开跑前环境自检：把环境问题在第一时间报清楚，不等跑到一半才发现。
 
-    检查项：CDP proxy 存活、fupanhui 登录态、shared 软链。返回问题列表。"""
+    检查项：CDP proxy 存活、fupanhui 登录态。返回问题列表。
+    ``require_fupanhui=False``（plan=local，零复盘会请求）时跳过 CDP / 登录态检查，
+    直接返回空——否则 local 计划会被一个它根本不用的依赖卡死（0909 夜跑实测）。
+    原来还探一下 ``shared/`` 里那个飞书工具模块在不在，以此判断软链活没活；
+    那条软链只为飞书那套脚本存在，2026-09-11 自建应用退役后一并去掉。"""
     problems: list[str] = []
 
-    shared = ROOT / "shared"
-    if not (shared / "feishu_utils.py").exists():
-        problems.append(
-            "shared 软链缺失或失效: 修复 `ln -sfn ~/.claude/shared shared`"
-        )
+    if not require_fupanhui:
+        return problems
 
     from market_feature_store.sources.fupanhui_source import CDP_PROXY
     try:
@@ -164,7 +170,7 @@ def preflight() -> list[str]:
 
 def _notify(msg: str) -> None:
     """告警双通道（与 nightly_full_review.sh 的 notify() 同款）：Mac 系统通知必达本机，
-    飞书可选；告警自身失败静默，不影响同步流程。"""
+    告警自身失败静默，不影响同步流程。"""
     try:
         subprocess.run(
             ["osascript", "-e",
@@ -174,13 +180,15 @@ def _notify(msg: str) -> None:
     except Exception:  # noqa: BLE001
         pass
     try:
-        subprocess.run([PY, str(ROOT / "scripts" / "notify_feishu.py"), msg],
+        subprocess.run([PY, str(ROOT / "scripts" / "notify_ops.py"), msg],
                        timeout=30, capture_output=True)
     except Exception:  # noqa: BLE001
         pass
 
 
-def run_step(label: str, argv: list[str], timeout: int) -> dict:
+def run_step(
+    label: str, argv: list[str], timeout: int, *, partial_exit_codes: tuple[int, ...] = (),
+) -> dict:
     """跑一个子进程模块，stdout 继承到终端（看得到进度），返回结果。"""
     print(f"\n>>> {label}: {' '.join(argv)} (timeout={timeout}s)", flush=True)
     started = time.time()
@@ -189,7 +197,9 @@ def run_step(label: str, argv: list[str], timeout: int) -> dict:
     try:
         proc = subprocess.run(argv, cwd=str(ROOT), timeout=timeout)
         code = proc.returncode
-        if code != 0:
+        if code in partial_exit_codes:
+            status = "partial"
+        elif code != 0:
             status = "fail"
     except subprocess.TimeoutExpired:
         status = "timeout"
@@ -348,16 +358,40 @@ def _count_by_source(table: str, trade_date: str, source: str) -> int:
         con.close()
 
 
-PLANS = ("full", "cheap", "local", "auto")
+HITHINK_STEPS = (
+    "hithink-stock-daily", "hithink-sector-kline",
+    "hithink-limit-pools", "hithink-dragon-auction", "hithink-research",
+)
 
 
-def resolve_plan(plan: str, trade_date: str) -> str:
-    """auto → 周五 full（周全量兜换血盲区），其余 cheap。"""
-    if plan not in PLANS:
-        raise ValueError(f"unknown plan {plan!r}; expected one of {PLANS}")
-    if plan != "auto":
-        return plan
-    return "full" if date.fromisoformat(trade_date).isoweekday() == 5 else "cheap"
+def sync_hithink_step(label: str, trade_date: str, timeout: int) -> dict:
+    """同花顺并跑也走独立子进程；保留缺 key 跳过合同，不把 skip 记成已更新。
+
+    有日期参数的端点必须传目标日；stock dump 是供应商当前近 10 日包，不能伪造
+    --end-date。日更暂不拉当前成员，避免把采集时点的名单写成历史快照。
+    不传显式 db_path，子进程继承 staging 环境，也就不会悄悄写到 sidecar。
+    """
+    from market_feature_store.hithink_client import has_api_key
+
+    if label not in HITHINK_STEPS:
+        raise ValueError(f"unknown hithink step {label!r}")
+    if not has_api_key():
+        print(f"<<< {label}: skip (no-key; 并跑源未更新)", flush=True)
+        return {"label": label, "status": "skip", "code": None,
+                "elapsed": 0.0, "note": "no-key; 并跑源未更新，不代表换源完成"}
+    if label == "hithink-research":
+        from market_feature_store.sync.sync_hithink_research import PARTIAL_EXIT_CODE
+
+        return run_step(
+            label, CLI + ["sync-hithink-research", "--end-date", trade_date], timeout,
+            partial_exit_codes=(PARTIAL_EXIT_CODE,),
+        )
+    argv = CLI + [f"sync-{label}", "--incremental"]
+    if label != "hithink-stock-daily":
+        argv += ["--end-date", trade_date]
+    if label == "hithink-sector-kline":
+        argv += ["--skip-constituents"]
+    return run_step(label, argv, timeout)
 
 
 def build_local_plan(trade_date: str, timeout: int, heavy_timeout: int):
@@ -367,11 +401,17 @@ def build_local_plan(trade_date: str, timeout: int, heavy_timeout: int):
     stitch 用最后一份 fupanhui 成分 × 当日东财真值；加工层 limit-stats-local / market-overview-local
     按 skills/duckdb-backfill 双轨实测的公开规则算。顺序依赖：stock-daily 先于 stitch（拼接要当日真值），
     stitch 先于 sector-daily-local（成分求和），sector-daily-local 先于 limit-stats-local（题材涨停借名单），
-    index/sw 先于 market-overview-local（周均线、前三行业）。"""
+    index/sw 先于 market-overview-local（周均线、前三行业）。同花顺五步更新并跑表，
+    此片尚不投影到旧复盘表；名单可以换源，不要求复制复盘会，实际切换另验。"""
+    hithink = [
+        (label, lambda label=label: sync_hithink_step(label, trade_date, heavy_timeout))
+        for label in HITHINK_STEPS
+    ]
     return [
         ("db-lock", lambda: run_step("db-lock", [PY, "scripts/check_db_lock.py"], 120)),
         ("stock-daily", lambda: sync_stock_daily(trade_date, heavy_timeout)),
-        ("index-daily", lambda: run_step("index-daily", CLI + ["sync-index-daily", "--trade-date", trade_date], timeout)),
+        *hithink,
+        ("index-daily", lambda: run_step("index-daily", CLI + ["sync-index-daily", "--trade-date", trade_date, "--no-fupanhui-fallback"], timeout)),
         ("sw-l1-daily", lambda: run_step("sw-l1-daily", CLI + ["sync-sw-l1-daily", "--trade-date", trade_date, "--days", "20"], heavy_timeout)),
         ("carry-forward-universe", lambda: run_step("carry-forward-universe", CLI + ["carry-forward-universe", "--trade-date", trade_date], timeout)),
         ("stitch-sector-stocks", lambda: run_step(
@@ -480,23 +520,28 @@ def main() -> int:
     ap.add_argument(
         "--plan",
         choices=PLANS,
-        default=os.environ.get("REVIEW_SYNC_PLAN", "full"),
-        help="分档：full=全量打复盘会；cheap=identity/value 分层省配额；auto=周五 full 其余 cheap。"
+        default=None,
+        help="分档：full=全量打复盘会；cheap=分层省配额；local=零复盘会请求+同花顺并跑；auto=周五 full 其余 cheap。"
              "默认取环境变量 REVIEW_SYNC_PLAN，未设则 full（launchd 包装脚本不改也能切档）",
     )
     args = ap.parse_args()
-    plan = resolve_plan(args.plan, args.date)
+    try:
+        plan = resolve_plan(args.plan, args.date)
+    except ValueError as exc:
+        ap.error(str(exc))
     print(f"== plan={plan} (requested={args.plan}) date={args.date} ==", flush=True)
 
     if not args.skip_preflight:
-        problems = preflight()
+        require_fupanhui = plan != "local"
+        problems = preflight(require_fupanhui=require_fupanhui)
         if problems:
             print("== preflight 发现环境问题 ==", flush=True)
             for p in problems:
                 print(f"  - {p}", flush=True)
             print("(修复后重跑, 或加 --skip-preflight 强制继续)", flush=True)
             return 3
-        print("== preflight 通过: CDP proxy / 登录态 / shared 软链 ==", flush=True)
+        scope = "CDP proxy / 登录态" if require_fupanhui else "无（local 计划零复盘会请求，跳过 CDP/登录检查）"
+        print(f"== preflight 通过: {scope} ==", flush=True)
         warnings = narrative_freshness_warnings(args.date)
         if warnings:
             print("== preflight 告警: 叙事源时效（不阻断，但催化归因会缺档） ==", flush=True)
@@ -519,8 +564,27 @@ def main() -> int:
         steps = steps[names.index(args.from_step):]
 
     results: list[dict] = []
-    for _name, fn in steps:
-        results.append(fn())
+    for name, fn in steps:
+        result = fn()
+        if name in HITHINK_STEPS and result["status"] not in {"ok", "skip"}:
+            # 后两步从 dump 取交易日历，不能先用旧日历跑，再到末尾仅重试 dump。
+            # 有凭证但失败在本步原地重试；曾请求失败后 key 丢失也不能用 skip 洗绿。
+            for round_no in range(1, max(args.retry_rounds, 0) + 1):
+                retry = fn()
+                if retry["status"] == "skip":
+                    result["note"] = f"retry r{round_no} skipped; original failure retained"
+                    break
+                result = retry
+                result["note"] = (str(result.get("note") or "") + f" [retry r{round_no}]").strip()
+                if result["status"] == "ok":
+                    break
+            if result["status"] != "ok":
+                results.append(result)
+                _notify(f"同花顺并跑 {args.date} {name} 未成功，停止下游与发布")
+                write_runlog(args.date, results, False, plan=plan)
+                print("\n== 同花顺并跑步骤未成功：停止下游/导出/换名 ==", flush=True)
+                return 1
+        results.append(result)
 
     # 收尾补偿：CDP 500 等瞬态故障到末尾往往已自愈，统一重跑 fail/timeout 模块
     for round_no in range(1, max(args.retry_rounds, 0) + 1):
@@ -550,7 +614,7 @@ def main() -> int:
     print("\n== 同步段结束 ==", flush=True)
     print("下一步生成段：", flush=True)
     print(f"  python3 -m intelligence.cli daily --date {args.date} --skip-sync --from-step daily-review \\", flush=True)
-    print(f"    --summary-json market_feature_store/exports/{args.date}-daily-workflow-summary.json", flush=True)
+    print(f"    --plan {plan} --summary-json market_feature_store/exports/{args.date}-daily-workflow-summary.json", flush=True)
     return 0 if gate_ok else 1
 
 

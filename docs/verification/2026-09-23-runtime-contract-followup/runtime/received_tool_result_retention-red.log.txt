@@ -1,0 +1,14 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_____ test_parallel_failure_keeps_received_result_and_fences_queued_runner _____
+intelligence/tests/test_episode_persistence_failure.py:508: in test_parallel_failure_keeps_received_result_and_fences_queued_runner
+    assert outcome.persistence == "failed" and len(outcome.evidence) == 1
+E   AssertionError: assert ('failed' == 'failed'
+E     
+E       failed and 0 == 1)
+E    +  where 0 = len(())
+E    +    where () = AgentOutcome(task_frame_hash='771106cac1d71005f0e33352af1869afba4562a3817c3344d224de28c9533c98', status='failed', draf...(llm_calls=1, tool_calls=2, invalid_actions=2, input_tokens=None, output_tokens=None), plan=None, persistence='failed').evidence
+- generated xml file: /Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/received_tool_result_retention-red.xml -
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_episode_persistence_failure.py::test_parallel_failure_keeps_received_result_and_fences_queued_runner
+1 failed, 70 deselected in 6.97s

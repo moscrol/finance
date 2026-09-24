@@ -1,0 +1,1266 @@
+{
+  "revision": "d965721553741b7a1267b8541e7806d088083a8f",
+  "suite": "extraction",
+  "tree": "/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/extraction-closeout-mutations-dn6l52ha/tree",
+  "python": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "complete": true,
+  "runs": [
+    {
+      "label": "baseline",
+      "exit": 0,
+      "executed": 165,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "M1-red",
+      "exit": 1,
+      "executed": 5,
+      "failures": 3,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_observation_extraction_first.A5DiffContent",
+          "name": "test_added_variable_only_shows_on_the_user_side",
+          "message": "KeyError: 'variables'"
+        },
+        {
+          "class": "intelligence.tests.test_observation_extraction_first.A5DiffContent",
+          "name": "test_changing_the_abandon_condition_shows_up",
+          "message": "KeyError: 'downgrade_or_abandon_conditions'"
+        },
+        {
+          "class": "intelligence.tests.test_observation_extraction_first.A5DiffContent",
+          "name": "test_read_after_draft_shows_both_directions",
+          "message": "AssertionError: '你写了「题材轨：题材所处阶段是否推进」，系统未列' not found in '# 今日带读｜算力租赁｜2026-09-02\\n（knowledge_cutoff=2026-09-02｜pit_grade=strict｜projection=cp:5344faa04b88e18e）\\n\\n## 限制\\n- （无）\\n\\n## 缺口（缺轨不用别的轨补）\\n- （无）\\n\\n## 事实（逐轨，只搬不解释；轨序 = 盘面 → 题材 → 舆论 → 资金 → 个股 → 判断）\\n- **market**\\n  - label｜pct_chg=3.2｜ref=fact_sector_daily:990306.FP@2026-09-02｜hash=abc\\n\\n## 判读\\n- 待授课框架 v0（G-01）落地；母本由人写，此处不生成推断。\\n\\n## 明天要看什么（待你确认 / 修改 / 跳过）\\n- 变量：盘面轨：指数阶段、成交与边际量是否延续\\n- 降级或放弃：盘面轨该实体的量价对象消失或转为缺口\\n- 本条为观察项，不构成投资建议。\\n\\n## 你写的 vs 系统列的（只列字段差异；不评分、不判谁对）\\n- 所比较字段无差异。\\n'"
+        }
+      ]
+    },
+    {
+      "label": "M1-green",
+      "exit": 0,
+      "executed": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "M2-red",
+      "exit": 1,
+      "executed": 14,
+      "failures": 5,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_observation_extraction_first.A3ReadIsBlockedWithoutDraft",
+          "name": "test_json_output_leaks_no_skeleton",
+          "message": "KeyError: 'blocked'"
+        },
+        {
+          "class": "intelligence.tests.test_observation_extraction_first.A3ReadIsBlockedWithoutDraft",
+          "name": "test_text_output_is_blocked_and_build_not_called",
+          "message": "AssertionError: 1 != 0 : 门没过时系统构建函数一次都不该被调用"
+        },
+        {
+          "class": "intelligence.tests.test_observation_extraction_first.A7AllExitsShareTheGate",
+          "name": "test_confirm_from_slice_is_gated",
+          "message": "AssertionError: 1 != 0"
+        },
+        {
+          "class": "intelligence.tests.test_observation_extraction_first.A7AllExitsShareTheGate",
+          "name": "test_system_skip_is_gated",
+          "message": "AssertionError: 1 != 0"
+        },
+        {
+          "class": "intelligence.tests.test_observation_extraction_first.A8DailySeam",
+          "name": "test_no_draft_only_adds_the_entry_hint",
+          "message": "AssertionError: GuidedReading(as_of='2026-09-02', entity_id='990306.FP', entity_name='算力租赁', knowledge_cutoff='2026-09-02', pit_grade='strict', facts={'market': ['label｜pct_chg=3.2｜ref=fact_sector_daily:990306.FP@2026-09-02｜hash=abc']}, limits=[], gaps=[], draft=ObservationScript(as_of='2026-09-02', scope='theme', entity_ids=('算力租赁',), variables=('盘面轨：指数阶段、成交与边际量是否延续',), downgrade_or_abandon_conditions=('盘面轨该实体的量价对象消失或转为缺口',), upgrade_conditions=(), evidence_refs=('fact_sector_daily:990306.FP@2026-09-02',), machine_conditions=(), user_id='default', visibility='private', scope_note='由数据面派生的骨架，待用户改写；未经授课框架判读', framework_version=None, knowledge_cutoff='2026-09-02', status='drafted', recorded_at=None, checkpoint_id=None, id=None, hindsight=False, projection_hash='cp:5344faa04b88e18e', model_id='deterministic'), projection_hash='cp:5344faa04b88e18e', omitted={}, teaching=[], teaching_card=None) is not None"
+        }
+      ]
+    },
+    {
+      "label": "M2-green",
+      "exit": 0,
+      "executed": 14,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "M3-red",
+      "exit": 1,
+      "executed": 9,
+      "failures": 1,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_observation_extraction_first.A1DraftAndIdentity",
+          "name": "test_system_drafted_row_is_not_a_user_draft",
+          "message": "AssertionError: {'id': 'os-old', 'status': 'drafted', 'as_of': '2026-09-02', 'user_id': 'u1', 'canonical_entity_id': '990306.FP', 'variables': ['盘面轨：指数阶段、成交与边际量是否延续']} is not None"
+        }
+      ]
+    },
+    {
+      "label": "M3-green",
+      "exit": 0,
+      "executed": 9,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "M4-red",
+      "exit": 1,
+      "executed": 8,
+      "failures": 2,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_observation_extraction_first.A9AttemptLifecycle",
+          "name": "test_read_then_draft_then_read_is_one_attempt",
+          "message": "AssertionError: 'abandoned' unexpectedly found in ['abandoned', 'draft_submitted', 'read_completed']"
+        },
+        {
+          "class": "intelligence.tests.test_observation_extraction_first.A9AttemptLifecycle",
+          "name": "test_waiting_is_not_leaving",
+          "message": "AssertionError: Lists differ: [{'record_kind': 'event', 'id': 'oe-e5f90a[305 chars]FP'}] != []\n\nFirst list contains 1 additional elements.\nFirst extra element 0:\n{'record_kind': 'event', 'id': 'oe-e5f90a502d48', 'event_id': 'oe-e5f90a502d48', 'event': 'abandoned', 'occurred_at': '2026-09-18T23:49:35+08:00', 'entrypoint': 'read', 'attempt_id': 'oa-0c5f296de868', 'action_key': 'abandoned|oa-0c5f296de868|', 'user_id': 'u1', 'as_of': '2026-09-02', 'extraction_scope': 'theme', 'canonical_entity_id': '990306.FP'}\n\n+ []\n- [{'action_key': 'abandoned|oa-0c5f296de868|',\n-   'as_of': '2026-09-02',\n-   'attempt_id': 'oa-0c5f296de868',\n-   'canonical_entity_id': '990306.FP',\n-   'entrypoint': 'read',\n-   'event': 'abandoned',\n-   'event_id': 'oe-e5f90a502d48',\n-   'extraction_scope': 'theme',\n-   'id': 'oe-e5f90a502d48',\n-   'occurred_at': '2026-09-18T23:49:35+08:00',\n-   'record_kind': 'event',\n-   'user_id': 'u1'}]"
+        }
+      ]
+    },
+    {
+      "label": "M4-green",
+      "exit": 0,
+      "executed": 8,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "M5-red",
+      "exit": 1,
+      "executed": 9,
+      "failures": 1,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_observation_extraction_first.A1DraftAndIdentity",
+          "name": "test_key_is_per_user_per_day_per_scope_per_entity",
+          "message": "AssertionError: {'as_of': '2026-09-02', 'scope': 'theme', 'entity_ids': ['算力租赁'], 'variables': ['题材轨：题材所处阶段是否推进'], 'downgrade_or_abandon_conditions': ['题材轨阶段标签回退或转为缺口'], 'upgrade_conditions': [], 'evidence_refs': [], 'machine_conditions': [], 'user_id': 'u1', 'visibility': 'private', 'scope_note': '', 'framework_version': None, 'knowledge_cutoff': None, 'status': 'drafted', 'recorded_at': '2026-09-18T23:49:38+08:00', 'checkpoint_id': None, 'id': 'od-2026-09-02-001-782637be', 'hindsight': False, 'projection_hash': None, 'model_id': None, 'record_kind': 'script', 'draft_id': 'od-2026-09-02-001-782637be', 'draft_version': 1, 'draft_content_hash': '782637be1251a9eea488643c8c2cce46a6e28c07', 'author_origin': 'user', 'canonical_entity_id': '990306.FP', 'extraction_attempt_id': 'oa-f2bec196790e', 'entrypoint': 'draft', 'submitted_at': '2026-09-18T23:49:38+08:00', 'late': False, 'due': '2026-09-03', 'object_type': 'observation_script', 'action_event': {'event': 'draft_submitted', 'event_id': 'oe-fdb81d2b31e2', 'action_key': 'draft_submitted|oa-f2bec196790e|782637be1251a9eea488643c8c2cce46a6e28c07#1', 'occurred_at': '2026-09-18T23:49:38+08:00', 'entrypoint': 'draft', 'attempt_id': 'oa-f2bec196790e'}} is not None : ExtractionKey(user_id='u2', as_of='2026-09-02', scope='theme', canonical_entity_id='990306.FP')"
+        }
+      ]
+    },
+    {
+      "label": "M5-green",
+      "exit": 0,
+      "executed": 9,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "M6-red",
+      "exit": 1,
+      "executed": 2,
+      "failures": 2,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_extraction_first_review_fixes.S5ConfirmedRowIsNotADraftVersion",
+          "name": "test_confirmation_does_not_bump_the_next_draft_version",
+          "message": "AssertionError: 3 != 2"
+        },
+        {
+          "class": "intelligence.tests.test_extraction_first_review_fixes.S5ConfirmedRowIsNotADraftVersion",
+          "name": "test_confirmed_row_does_not_become_the_latest_draft",
+          "message": "KeyError: 'draft_id'"
+        }
+      ]
+    },
+    {
+      "label": "M6-green",
+      "exit": 0,
+      "executed": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "M7-red",
+      "exit": 1,
+      "executed": 2,
+      "failures": 1,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_extraction_first_review_fixes.S8ExpiryDoesNotUnlockTheRedaction",
+          "name": "test_past_due_system_draft_is_still_redacted",
+          "message": "KeyError: 'redacted'"
+        }
+      ]
+    },
+    {
+      "label": "M7-green",
+      "exit": 0,
+      "executed": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "M8-red",
+      "exit": 1,
+      "executed": 2,
+      "failures": 1,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_extraction_first_review_fixes.N2TornLineDoesNotSwallowTheNextWrite",
+          "name": "test_next_append_survives_a_partial_tail",
+          "message": "AssertionError: 'oa-fa4c4d16f2ea' not found in {} : 重开读取必须还能看到这条记录"
+        }
+      ]
+    },
+    {
+      "label": "M8-green",
+      "exit": 0,
+      "executed": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "M9-red",
+      "exit": 1,
+      "executed": 2,
+      "failures": 1,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_extraction_first_review_fixes.S9ClosedAttemptRefusesASubmission",
+          "name": "test_draft_interleaved_with_close_is_refused_at_write_time",
+          "message": "AssertionError: ValueError not raised"
+        }
+      ]
+    },
+    {
+      "label": "M9-green",
+      "exit": 0,
+      "executed": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "M10-red",
+      "exit": 1,
+      "executed": 3,
+      "failures": 1,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_extraction_first_review_fixes.S6ConfirmRetryIsDeduped",
+          "name": "test_dedup_adds_neither_a_script_row_nor_a_checkpoint",
+          "message": "AssertionError: Lists differ: ['os-[16 chars]40d69a1f048631053bc', 'os-2026-09-02-9c65a40d69a1f048631053bc'] != ['os-[16 chars]40d69a1f048631053bc']\n\nFirst list contains 1 additional elements.\nFirst extra element 1:\n'os-2026-09-02-9c65a40d69a1f048631053bc'\n\n- ['os-2026-09-02-9c65a40d69a1f048631053bc',\n?                                          ^\n\n+ ['os-2026-09-02-9c65a40d69a1f048631053bc']\n?                                          ^\n\n-  'os-2026-09-02-9c65a40d69a1f048631053bc'] : 重复确认不许再追加一条剧本行"
+        }
+      ]
+    },
+    {
+      "label": "M10-green",
+      "exit": 0,
+      "executed": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "M11-red",
+      "exit": 1,
+      "executed": 2,
+      "failures": 2,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_extraction_first_review_fixes.S1ConfirmFromDraftKeepsUserConditions",
+          "name": "test_cli_values_still_override_the_draft",
+          "message": "AssertionError: Lists differ: [] != ['advancers>=3000']\n\nSecond list contains 1 additional elements.\nFirst extra element 0:\n'advancers>=3000'\n\n- []\n+ ['advancers>=3000'] : 只覆盖给了的那个"
+        },
+        {
+          "class": "intelligence.tests.test_extraction_first_review_fixes.S1ConfirmFromDraftKeepsUserConditions",
+          "name": "test_upgrade_and_machine_conditions_survive_confirm",
+          "message": "AssertionError: Lists differ: [] != ['advancers>=3000']\n\nSecond list contains 1 additional elements.\nFirst extra element 0:\n'advancers>=3000'\n\n- []\n+ ['advancers>=3000']"
+        }
+      ]
+    },
+    {
+      "label": "M11-green",
+      "exit": 0,
+      "executed": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "M12-red",
+      "exit": 1,
+      "executed": 2,
+      "failures": 1,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_extraction_first_review_fixes.S7RepointDoesNotForgeASecondConfirmation",
+          "name": "test_repoint_keeps_exactly_one_confirmation_event",
+          "message": "AssertionError: 'action_event' unexpectedly found in {'as_of': '2026-09-02', 'scope': 'theme', 'entity_ids': ['算力租赁'], 'variables': ['题材轨：题材所处阶段是否推进'], 'downgrade_or_abandon_conditions': ['题材轨阶段标签回退或转为缺口'], 'upgrade_conditions': [], 'evidence_refs': [], 'machine_conditions': [], 'user_id': 'u1', 'visibility': 'private', 'scope_note': '', 'framework_version': None, 'knowledge_cutoff': None, 'status': 'confirmed', 'recorded_at': '2026-09-03T08:00:00+08:00', 'checkpoint_id': 'ck-2026-09-18-96f2a3', 'id': 'os-2026-09-02-059f17e53333f25a4ce1d976-rp20260904', 'hindsight': False, 'projection_hash': None, 'model_id': None, 'late': False, 'due': '2026-09-04', 'object_type': 'observation_script', 'projection_hash_missing': 'user_authored', 'canonical_entity_id': '990306.FP', 'record_kind': 'script', 'entrypoint': 'confirm', 'action_event': {'event': 'script_confirmed', 'event_id': 'oe-15e9d1a7f1a0', 'action_key': 'script_confirmed|manual_confirm|0513d42378441cb60f819e452aed49f3f7b6f194', 'occurred_at': '2026-09-03T08:00:00+08:00', 'entrypoint': 'confirm', 'attempt_id': None, 'script_status': 'confirmed', 'checkpoint_id': 'ck-2026-09-18-98d3c1'}, 'repointed_from': {'id': 'os-2026-09-02-059f17e53333f25a4ce1d976', 'due': '2026-09-03', 'checkpoint_id': 'ck-2026-09-18-98d3c1'}} : 改点行不该带着原确认的动作元数据"
+        }
+      ]
+    },
+    {
+      "label": "M12-green",
+      "exit": 0,
+      "executed": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "M13-red",
+      "exit": 1,
+      "executed": 2,
+      "failures": 1,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_extraction_first_review_fixes.S7RepointDoesNotForgeASecondConfirmation",
+          "name": "test_projection_dedups_even_if_a_duplicate_row_slips_in",
+          "message": "AssertionError: 2 != 1"
+        }
+      ]
+    },
+    {
+      "label": "M13-green",
+      "exit": 0,
+      "executed": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "M14-red",
+      "exit": 1,
+      "executed": 3,
+      "failures": 3,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_extraction_first_review_fixes.R1TornMultibyteDoesNotBrickTheLedger",
+          "name": "test_load_raw_survives_a_torn_multibyte_tail",
+          "message": "UnicodeDecodeError: 'utf-8' codec can't decode bytes in position 108-109: unexpected end of data"
+        },
+        {
+          "class": "intelligence.tests.test_extraction_first_review_fixes.R1TornMultibyteDoesNotBrickTheLedger",
+          "name": "test_next_append_still_lands_and_is_readable",
+          "message": "UnicodeDecodeError: 'utf-8' codec can't decode bytes in position 108-109: unexpected end of data"
+        },
+        {
+          "class": "intelligence.tests.test_extraction_first_review_fixes.R1TornMultibyteDoesNotBrickTheLedger",
+          "name": "test_the_torn_bytes_are_kept_on_disk",
+          "message": "UnicodeDecodeError: 'utf-8' codec can't decode bytes in position 108-109: unexpected end of data"
+        }
+      ]
+    },
+    {
+      "label": "M14-green",
+      "exit": 0,
+      "executed": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "M15-red",
+      "exit": 1,
+      "executed": 2,
+      "failures": 1,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_extraction_first_review_fixes.R2CloseFailureIsHealedOnRetry",
+          "name": "test_retry_closes_the_attempt_left_open_by_a_failed_close",
+          "message": "AssertionError: Lists differ: [{'record_kind': 'attempt', 'id': 'oa-c05f[235 chars]FP'}] != []\n\nFirst list contains 1 additional elements.\nFirst extra element 0:\n{'record_kind': 'attempt', 'id': 'oa-c05f130cb8b2#open', 'attempt_id': 'oa-c05f130cb8b2', 'status': 'pending', 'entrypoint': 'draft', 'opened_at': '2026-09-18T23:49:56+08:00', 'user_id': 'u1', 'as_of': '2026-09-02', 'extraction_scope': 'theme', 'canonical_entity_id': '990306.FP'}\n\n+ []\n- [{'as_of': '2026-09-02',\n-   'attempt_id': 'oa-c05f130cb8b2',\n-   'canonical_entity_id': '990306.FP',\n-   'entrypoint': 'draft',\n-   'extraction_scope': 'theme',\n-   'id': 'oa-c05f130cb8b2#open',\n-   'opened_at': '2026-09-18T23:49:56+08:00',\n-   'record_kind': 'attempt',\n-   'status': 'pending',\n-   'user_id': 'u1'}] : 重试必须把这个终态补上"
+        }
+      ]
+    },
+    {
+      "label": "M15-green",
+      "exit": 0,
+      "executed": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "M16-red",
+      "exit": 1,
+      "executed": 1,
+      "failures": 1,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_extraction_first_review_fixes.R3AttemptSelectsTheDraftItActuallyRead",
+          "name": "test_reused_draft_is_found_via_the_completion_receipt",
+          "message": "AssertionError: 1 != 0 : 提取尝试 oa-087f2e2a5ba0 里没有提交过草稿"
+        }
+      ]
+    },
+    {
+      "label": "M16-green",
+      "exit": 0,
+      "executed": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "M17-red",
+      "exit": 1,
+      "executed": 4,
+      "failures": 3,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_extraction_first_review_fixes.R4ManualConfirmValidatesTheAttempt",
+          "name": "test_attempt_of_another_target_is_refused",
+          "message": "AssertionError: 0 != 2 : 已登记观察剧本 os-2026-09-02-018ab25d24f83e0cbab94a8c（status=late｜到期 2026-09-03）\n  ⚠ 晚于次日开盘登记，标记 late：入台账但不进方法校准（避免前视污染）\n  本条为观察项，不构成投资建议。"
+        },
+        {
+          "class": "intelligence.tests.test_extraction_first_review_fixes.R4ManualConfirmValidatesTheAttempt",
+          "name": "test_unknown_attempt_is_refused",
+          "message": "AssertionError: 0 != 2 : 已登记观察剧本 os-2026-09-02-018ab25d24f83e0cbab94a8c（status=late｜到期 2026-09-03）\n  ⚠ 晚于次日开盘登记，标记 late：入台账但不进方法校准（避免前视污染）\n  本条为观察项，不构成投资建议。"
+        },
+        {
+          "class": "intelligence.tests.test_extraction_first_review_fixes.R4ManualConfirmValidatesTheAttempt",
+          "name": "test_valid_attempt_is_carried_into_the_record",
+          "message": "KeyError: 'extraction_attempt_id'"
+        }
+      ]
+    },
+    {
+      "label": "M17-green",
+      "exit": 0,
+      "executed": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "M18-red",
+      "exit": 1,
+      "executed": 2,
+      "failures": 2,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_extraction_first_review_fixes.R5ConfirmAndSkipRespectAConcurrentClose",
+          "name": "test_confirm_from_slice_is_refused_after_a_racing_close",
+          "message": "AssertionError: 0 != 2 : 已登记观察剧本 os-2026-09-02-194e46eab41048574152148c（status=late｜到期 2026-09-03）\n  ⚠ 晚于次日开盘登记，标记 late：入台账但不进方法校准（避免前视污染）\n  本条为观察项，不构成投资建议。"
+        },
+        {
+          "class": "intelligence.tests.test_extraction_first_review_fixes.R5ConfirmAndSkipRespectAConcurrentClose",
+          "name": "test_skip_is_refused_after_a_racing_close",
+          "message": "AssertionError: 0 != 2 : 已记跳过 os-2026-09-02-d90c3c——跳过是有效行为，不计失败，只进负担指标"
+        }
+      ]
+    },
+    {
+      "label": "M18-green",
+      "exit": 0,
+      "executed": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "M19-red",
+      "exit": 1,
+      "executed": 2,
+      "failures": 1,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_extraction_first_review_fixes.R6DueIsPartOfTheConfirmActionIdentity",
+          "name": "test_changing_the_due_date_is_a_new_action",
+          "message": "AssertionError: '2026-09-04' != '2026-09-07'\n- 2026-09-04\n?          ^\n+ 2026-09-07\n?          ^\n : 改了到期日就不能沿用旧记录"
+        }
+      ]
+    },
+    {
+      "label": "M19-green",
+      "exit": 0,
+      "executed": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "M20-red",
+      "exit": 1,
+      "executed": 2,
+      "failures": 1,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_extraction_first_review_fixes.T1ConfirmIsAttributedToTheAttemptYouNamed",
+          "name": "test_event_is_attributed_to_the_named_attempt",
+          "message": "AssertionError: 'oa-4f85920877b8' != 'oa-718c2696db59'\n- oa-4f85920877b8\n+ oa-718c2696db59\n : 算在你指名的那次尝试名下"
+        }
+      ]
+    },
+    {
+      "label": "M20-green",
+      "exit": 0,
+      "executed": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "M21-red",
+      "exit": 1,
+      "executed": 1,
+      "failures": 1,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_extraction_first_review_fixes.T2AutoResumeAlsoHonoursTheReceipt",
+          "name": "test_bare_rerun_returns_the_receipt_without_rebuilding",
+          "message": "AssertionError: 1 != 0 : 不该重新构建骨架"
+        }
+      ]
+    },
+    {
+      "label": "M21-green",
+      "exit": 0,
+      "executed": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "M22-red",
+      "exit": 1,
+      "executed": 3,
+      "failures": 1,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_extraction_first_review_fixes.T3RevertingToAnEarlierDraftIsANewVersion",
+          "name": "test_a_then_b_then_a_leaves_a_effective",
+          "message": "AssertionError: Lists differ: [['题材轨：题材所处阶段是否推进'], ['资金轨：板块 / 题材资金流是否延续']] != [['题材轨：题材所处阶段是否推进'], ['资金轨：板块 / 题材资金流是否延续'], ['题材轨：题材所处阶段是否推进']]\n\nSecond list contains 1 additional elements.\nFirst extra element 2:\n['题材轨：题材所处阶段是否推进']\n\n- [['题材轨：题材所处阶段是否推进'], ['资金轨：板块 / 题材资金流是否延续']]\n+ [['题材轨：题材所处阶段是否推进'], ['资金轨：板块 / 题材资金流是否延续'], ['题材轨：题材所处阶段是否推进']]\n?                                            +++++++++++++++++++ +"
+        }
+      ]
+    },
+    {
+      "label": "M22-green",
+      "exit": 0,
+      "executed": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "M23-red",
+      "exit": 1,
+      "executed": 1,
+      "failures": 1,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_extraction_first_review_fixes.T4PersonalExportSurvivesTheSameTornLine",
+          "name": "test_export_reads_a_ledger_with_a_torn_multibyte_tail",
+          "message": "UnicodeDecodeError: 'utf-8' codec can't decode bytes in position 83-84: unexpected end of data"
+        }
+      ]
+    },
+    {
+      "label": "M23-green",
+      "exit": 0,
+      "executed": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "M24-red",
+      "exit": 1,
+      "executed": 2,
+      "failures": 2,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_extraction_first_review_fixes.Q2CompletedReceiptWinsOverLaterDraft",
+          "name": "test_receipt_source_wins_over_a_later_unread_version",
+          "message": "AssertionError: 'od-2026-09-02-002-1a55a3be' != 'od-2026-09-02-001-782637be'\n- od-2026-09-02-002-1a55a3be\n?                  ^^^^^^\n+ od-2026-09-02-001-782637be\n?                 ++++ ^ +\n : 完成收据指向哪一版，确认就是哪一版；后提交的未读版本不许顶替"
+        },
+        {
+          "class": "intelligence.tests.test_extraction_first_review_fixes.Q2CompletedReceiptWinsOverLaterDraft",
+          "name": "test_receipt_without_source_is_not_silently_replaced",
+          "message": "AssertionError: {'as_of': '2026-09-02', 'scope': 'theme', 'entity_ids': ['算力租赁'], 'variables': ['题材轨：题材所处阶段是否推进'], 'downgrade_or_abandon_conditions': ['题材轨阶段标签回退或转为缺口'], 'upgrade_conditions': [], 'evidence_refs': [], 'machine_conditions': [], 'user_id': 'u1', 'visibility': 'private', 'scope_note': '', 'framework_version': None, 'knowledge_cutoff': None, 'status': 'drafted', 'recorded_at': '2026-09-18T23:50:17+08:00', 'checkpoint_id': None, 'id': 'od-2026-09-02-001-782637be', 'hindsight': False, 'projection_hash': None, 'model_id': None, 'record_kind': 'script', 'draft_id': 'od-2026-09-02-001-782637be', 'draft_version': 1, 'draft_content_hash': '782637be1251a9eea488643c8c2cce46a6e28c07', 'author_origin': 'user', 'canonical_entity_id': '990306.FP', 'extraction_attempt_id': 'oa-c93868d39697', 'entrypoint': 'draft', 'submitted_at': '2026-09-18T23:50:17+08:00', 'late': False, 'due': '2026-09-03', 'object_type': 'observation_script', 'action_event': {'event': 'draft_submitted', 'event_id': 'oe-4e43213cd856', 'action_key': 'draft_submitted|oa-c93868d39697|782637be1251a9eea488643c8c2cce46a6e28c07#1', 'occurred_at': '2026-09-18T23:50:17+08:00', 'entrypoint': 'draft', 'attempt_id': 'oa-c93868d39697'}} is not None"
+        }
+      ]
+    },
+    {
+      "label": "M24-green",
+      "exit": 0,
+      "executed": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "M25-red",
+      "exit": 1,
+      "executed": 2,
+      "failures": 1,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_extraction_first_review_fixes.Q3ManualConfirmCannotWriteToAnAbandonedAttempt",
+          "name": "test_abandoned_attempt_rejects_manual_confirm_without_side_effects",
+          "message": "AssertionError: 0 != 2 : 已登记观察剧本 os-2026-09-02-4182c7797f4835860b4b36b4（status=confirmed｜到期 2026-09-03｜checkpoint ck-2026-09-18-46dcb2）\n  本条为观察项，不构成投资建议。"
+        }
+      ]
+    },
+    {
+      "label": "M25-green",
+      "exit": 0,
+      "executed": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "M26-red",
+      "exit": 1,
+      "executed": 3,
+      "failures": 2,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_extraction_first_review_fixes.U1RevertedDraftGetsItsOwnEventIdentity",
+          "name": "test_event_ids_line_up_with_the_draft_rows",
+          "message": "AssertionError: Lists differ: ['od-[22 chars]e', 'od-2026-09-02-002-1a55a3be', 'od-2026-09-02-003-782637be'] != ['od-[22 chars]e', 'od-2026-09-02-002-1a55a3be']\n\nFirst list contains 1 additional elements.\nFirst extra element 2:\n'od-2026-09-02-003-782637be'\n\n+ ['od-2026-09-02-001-782637be', 'od-2026-09-02-002-1a55a3be']\n- ['od-2026-09-02-001-782637be',\n-  'od-2026-09-02-002-1a55a3be',\n-  'od-2026-09-02-003-782637be']"
+        },
+        {
+          "class": "intelligence.tests.test_extraction_first_review_fixes.U1RevertedDraftGetsItsOwnEventIdentity",
+          "name": "test_three_submissions_yield_three_events",
+          "message": "AssertionError: 2 != 3 : 三次成功提交就该有三条提交事件"
+        }
+      ]
+    },
+    {
+      "label": "M26-green",
+      "exit": 0,
+      "executed": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "M27-red",
+      "exit": 1,
+      "executed": 2,
+      "failures": 1,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_extraction_first_review_fixes.U2ConfirmIdentityIncludesTheSourceVersion",
+          "name": "test_third_confirm_points_at_the_third_version",
+          "message": "AssertionError: 'od-2026-09-02-001-782637be' != 'od-2026-09-02-003-782637be'\n- od-2026-09-02-001-782637be\n?                 ^\n+ od-2026-09-02-003-782637be\n?                 ^\n : 确认的是当前这一版，不是内容相同的那个老版本"
+        }
+      ]
+    },
+    {
+      "label": "M27-green",
+      "exit": 0,
+      "executed": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "M28-red",
+      "exit": 1,
+      "executed": 3,
+      "failures": 2,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_extraction_first_review_fixes.U3ExportPreservesTornBytesReversibly",
+          "name": "test_different_bad_bytes_stay_distinguishable",
+          "message": "AssertionError: '{\"n\":\"�' == '{\"n\":\"�' : 不同坏字节压成同一个替换符 = 证据有损"
+        },
+        {
+          "class": "intelligence.tests.test_extraction_first_review_fixes.U3ExportPreservesTornBytesReversibly",
+          "name": "test_the_original_bytes_can_be_recovered",
+          "message": "AssertionError: '\\\\xe7' not found in '{\"n\":\"�'"
+        }
+      ]
+    },
+    {
+      "label": "M28-green",
+      "exit": 0,
+      "executed": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "M29-red",
+      "exit": 1,
+      "executed": 6,
+      "failures": 6,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_extraction_closeout",
+          "name": "test_distinct_confirmation_actions_have_distinct_record_ids[source_version-on-time]",
+          "message": "AssertionError: 不同确认动作不能共享 script_id\nassert 'os-2026-09-02-972b9b' != 'os-2026-09-02-972b9b'"
+        },
+        {
+          "class": "intelligence.tests.test_extraction_closeout",
+          "name": "test_distinct_confirmation_actions_have_distinct_record_ids[source_version-late]",
+          "message": "AssertionError: 不同确认动作不能共享 script_id\nassert 'os-2026-09-02-cd8996' != 'os-2026-09-02-cd8996'"
+        },
+        {
+          "class": "intelligence.tests.test_extraction_closeout",
+          "name": "test_distinct_confirmation_actions_have_distinct_record_ids[conditions-on-time]",
+          "message": "AssertionError: 不同确认动作不能共享 script_id\nassert 'os-2026-09-02-972b9b' != 'os-2026-09-02-972b9b'"
+        },
+        {
+          "class": "intelligence.tests.test_extraction_closeout",
+          "name": "test_distinct_confirmation_actions_have_distinct_record_ids[conditions-late]",
+          "message": "AssertionError: 不同确认动作不能共享 script_id\nassert 'os-2026-09-02-cd8996' != 'os-2026-09-02-cd8996'"
+        },
+        {
+          "class": "intelligence.tests.test_extraction_closeout",
+          "name": "test_distinct_confirmation_actions_have_distinct_record_ids[attempt-on-time]",
+          "message": "AssertionError: 不同确认动作不能共享 script_id\nassert 'os-2026-09-02-972b9b' != 'os-2026-09-02-972b9b'"
+        },
+        {
+          "class": "intelligence.tests.test_extraction_closeout",
+          "name": "test_distinct_confirmation_actions_have_distinct_record_ids[attempt-late]",
+          "message": "AssertionError: 不同确认动作不能共享 script_id\nassert 'os-2026-09-02-cd8996' != 'os-2026-09-02-cd8996'"
+        }
+      ]
+    },
+    {
+      "label": "M29-green",
+      "exit": 0,
+      "executed": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "M30-red",
+      "exit": 1,
+      "executed": 5,
+      "failures": 3,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_extraction_closeout",
+          "name": "test_bad_line_round_trips_exact_bytes_through_export[torn-utf8]",
+          "message": "KeyError: '_unparsed_bytes_hex'"
+        },
+        {
+          "class": "intelligence.tests.test_extraction_closeout",
+          "name": "test_bad_line_round_trips_exact_bytes_through_export[mixed-text-and-byte]",
+          "message": "KeyError: '_unparsed_bytes_hex'"
+        },
+        {
+          "class": "intelligence.tests.test_extraction_closeout",
+          "name": "test_bad_line_round_trips_exact_bytes_through_export[all-non-lf-bytes]",
+          "message": "KeyError: '_unparsed_bytes_hex'"
+        }
+      ]
+    },
+    {
+      "label": "M30-green",
+      "exit": 0,
+      "executed": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "M31-red",
+      "exit": 1,
+      "executed": 5,
+      "failures": 2,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_extraction_closeout",
+          "name": "test_bad_line_round_trips_exact_bytes_through_export[literal-escape]",
+          "message": "KeyError: '_unparsed_bytes_hex'"
+        },
+        {
+          "class": "intelligence.tests.test_extraction_closeout",
+          "name": "test_bad_line_round_trips_exact_bytes_through_export[json-whitespace]",
+          "message": "KeyError: '_unparsed_bytes_hex'"
+        }
+      ]
+    },
+    {
+      "label": "M31-green",
+      "exit": 0,
+      "executed": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "M32-red",
+      "exit": 1,
+      "executed": 1,
+      "failures": 1,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_extraction_closeout",
+          "name": "test_legacy_confirmed_row_without_action_event_is_not_duplicated",
+          "message": "AssertionError: assert {'action_even...退或转为缺口'], ...} == {'as_of': '20...6-09-03', ...}\n  \n  Omitting 19 identical items, use -vv to show\n  Differing items:\n  {'late': True} != {'late': False}\n  {'id': 'os-2026-09-02-c6fece3c3f5d5c313cc9eb63'} != {'id': 'os-2026-09-02-abcdef'}\n  {'recorded_at': '2026-09-05T09:00:00+08:00'} != {'recorded_at': '2026-09-02T18:00:00+08:00'}\n  {'status': 'late'} != {'status': 'confirmed'}...\n  \n  ...Full output truncated (16 lines hidden), use '-vv' to show"
+        }
+      ]
+    },
+    {
+      "label": "M32-green",
+      "exit": 0,
+      "executed": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "M33-red",
+      "exit": 1,
+      "executed": 8,
+      "failures": 1,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_extraction_closeout",
+          "name": "test_legacy_match_requires_full_content_identity[due]",
+          "message": "AssertionError: 改 due 仍被遗留行吞掉\nassert 'os-2026-09-02-abcdef' != 'os-2026-09-02-abcdef'"
+        }
+      ]
+    },
+    {
+      "label": "M33-green",
+      "exit": 0,
+      "executed": 8,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "M34-red",
+      "exit": 1,
+      "executed": 7,
+      "failures": 5,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_extraction_closeout",
+          "name": "test_non_record_line_is_carried_not_dropped[array]",
+          "message": "KeyError: '_unparsed_bytes_hex'"
+        },
+        {
+          "class": "intelligence.tests.test_extraction_closeout",
+          "name": "test_non_record_line_is_carried_not_dropped[string]",
+          "message": "KeyError: '_unparsed_bytes_hex'"
+        },
+        {
+          "class": "intelligence.tests.test_extraction_closeout",
+          "name": "test_non_record_line_is_carried_not_dropped[number]",
+          "message": "KeyError: '_unparsed_bytes_hex'"
+        },
+        {
+          "class": "intelligence.tests.test_extraction_closeout",
+          "name": "test_non_record_line_is_carried_not_dropped[null]",
+          "message": "KeyError: '_unparsed_bytes_hex'"
+        },
+        {
+          "class": "intelligence.tests.test_extraction_closeout",
+          "name": "test_non_record_line_is_carried_not_dropped[bool]",
+          "message": "KeyError: '_unparsed_bytes_hex'"
+        }
+      ]
+    },
+    {
+      "label": "M34-green",
+      "exit": 0,
+      "executed": 7,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "M35-red",
+      "exit": 1,
+      "executed": 7,
+      "failures": 2,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_extraction_closeout",
+          "name": "test_non_record_line_is_carried_not_dropped[spaces]",
+          "message": "KeyError: '_unparsed_bytes_hex'"
+        },
+        {
+          "class": "intelligence.tests.test_extraction_closeout",
+          "name": "test_non_record_line_is_carried_not_dropped[blank-cr]",
+          "message": "KeyError: '_unparsed_bytes_hex'"
+        }
+      ]
+    },
+    {
+      "label": "M35-green",
+      "exit": 0,
+      "executed": 7,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "restored-full",
+      "exit": 0,
+      "executed": 165,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    }
+  ],
+  "mutations": [
+    {
+      "id": "M1",
+      "path": "intelligence/services/observation_extraction.py",
+      "before_sha256": "411df38469980f2728e3d3622b36c73be6f184b77f74a8832105a4f0ea4bb8a9",
+      "mutated_sha256": "c8caa6b071041e2fa9dfb98b7506f4a88ff6ea928015501e0f9b7fa1e714b04f",
+      "restored_sha256": "411df38469980f2728e3d3622b36c73be6f184b77f74a8832105a4f0ea4bb8a9"
+    },
+    {
+      "id": "M2",
+      "path": "intelligence/services/guided_reading.py",
+      "before_sha256": "a5fb9bd73c12d922c227a987123bef532c30d02e12eb31a2f7adf08880b543b9",
+      "mutated_sha256": "ac232f56ab71410850705018901faf3c65d50dcf05f088dff9ae72cd13a87f0e",
+      "restored_sha256": "a5fb9bd73c12d922c227a987123bef532c30d02e12eb31a2f7adf08880b543b9"
+    },
+    {
+      "id": "M3",
+      "path": "intelligence/services/observation_script.py",
+      "before_sha256": "e3bea3ef334c2faf6c179e068c72b626dc4667529411d91fece9a37f7ca9f3c6",
+      "mutated_sha256": "fcecbfc4d080a26bcb35747c832109081346d684d1861f12abb13609b55898dd",
+      "restored_sha256": "e3bea3ef334c2faf6c179e068c72b626dc4667529411d91fece9a37f7ca9f3c6"
+    },
+    {
+      "id": "M4",
+      "path": "intelligence/cli.py",
+      "before_sha256": "738efa88282dd36d71aeae73d3497877c1c50c3967038b82a3823d4c1db3699e",
+      "mutated_sha256": "15e5c373ee0eec55a349063e03211e52b5851f207e68bc54b6f86dcbc02294b5",
+      "restored_sha256": "738efa88282dd36d71aeae73d3497877c1c50c3967038b82a3823d4c1db3699e"
+    },
+    {
+      "id": "M5",
+      "path": "intelligence/services/observation_script.py",
+      "before_sha256": "e3bea3ef334c2faf6c179e068c72b626dc4667529411d91fece9a37f7ca9f3c6",
+      "mutated_sha256": "c902b511e23bf67a6881b3f918b9eca3796b5bf02242d8ea4c79bf6b4c3b64b4",
+      "restored_sha256": "e3bea3ef334c2faf6c179e068c72b626dc4667529411d91fece9a37f7ca9f3c6"
+    },
+    {
+      "id": "M6",
+      "path": "intelligence/services/observation_script.py",
+      "before_sha256": "e3bea3ef334c2faf6c179e068c72b626dc4667529411d91fece9a37f7ca9f3c6",
+      "mutated_sha256": "1d9d47648a8ce9b54de3b400c814daaaf52565b2b1dc22fd81e651214d5bf845",
+      "restored_sha256": "e3bea3ef334c2faf6c179e068c72b626dc4667529411d91fece9a37f7ca9f3c6"
+    },
+    {
+      "id": "M7",
+      "path": "intelligence/services/observation_extraction.py",
+      "before_sha256": "411df38469980f2728e3d3622b36c73be6f184b77f74a8832105a4f0ea4bb8a9",
+      "mutated_sha256": "efad6c48bf635e11355ed8b73bf8cb4f04d0eaa8c3c53a9e0026fe6874521b88",
+      "restored_sha256": "411df38469980f2728e3d3622b36c73be6f184b77f74a8832105a4f0ea4bb8a9"
+    },
+    {
+      "id": "M8",
+      "path": "intelligence/services/observation_script.py",
+      "before_sha256": "e3bea3ef334c2faf6c179e068c72b626dc4667529411d91fece9a37f7ca9f3c6",
+      "mutated_sha256": "d054c13f5d94440e8383366743dc8fa843bdc7af54537186f6b5c1504a6d723d",
+      "restored_sha256": "e3bea3ef334c2faf6c179e068c72b626dc4667529411d91fece9a37f7ca9f3c6"
+    },
+    {
+      "id": "M9",
+      "path": "intelligence/services/observation_script.py",
+      "before_sha256": "e3bea3ef334c2faf6c179e068c72b626dc4667529411d91fece9a37f7ca9f3c6",
+      "mutated_sha256": "8bed6bb03b0dcd1335318e4e02f7992ba08ac73c07dcf286be930db213f3d2d5",
+      "restored_sha256": "e3bea3ef334c2faf6c179e068c72b626dc4667529411d91fece9a37f7ca9f3c6"
+    },
+    {
+      "id": "M10",
+      "path": "intelligence/services/observation_script.py",
+      "before_sha256": "e3bea3ef334c2faf6c179e068c72b626dc4667529411d91fece9a37f7ca9f3c6",
+      "mutated_sha256": "6348d62d1c4bf946c1f5a532b194bda7fed36df8886558ba1142696bc6378f41",
+      "restored_sha256": "e3bea3ef334c2faf6c179e068c72b626dc4667529411d91fece9a37f7ca9f3c6"
+    },
+    {
+      "id": "M11",
+      "path": "intelligence/cli.py",
+      "before_sha256": "738efa88282dd36d71aeae73d3497877c1c50c3967038b82a3823d4c1db3699e",
+      "mutated_sha256": "1b63c429c2fe241f797082d01bfd031f7de4e533a3538edae3907574d0d75238",
+      "restored_sha256": "738efa88282dd36d71aeae73d3497877c1c50c3967038b82a3823d4c1db3699e"
+    },
+    {
+      "id": "M12",
+      "path": "intelligence/services/observation_script.py",
+      "before_sha256": "e3bea3ef334c2faf6c179e068c72b626dc4667529411d91fece9a37f7ca9f3c6",
+      "mutated_sha256": "101273eac599ab882bac9f6e2625f87ae6834098adc83c83dbfd5dd9730e46b3",
+      "restored_sha256": "e3bea3ef334c2faf6c179e068c72b626dc4667529411d91fece9a37f7ca9f3c6"
+    },
+    {
+      "id": "M13",
+      "path": "intelligence/services/observation_script.py",
+      "before_sha256": "e3bea3ef334c2faf6c179e068c72b626dc4667529411d91fece9a37f7ca9f3c6",
+      "mutated_sha256": "057350480e18a330d47c0293d8403baf4ddba1348e271cb43198b05ef45d0a45",
+      "restored_sha256": "e3bea3ef334c2faf6c179e068c72b626dc4667529411d91fece9a37f7ca9f3c6"
+    },
+    {
+      "id": "M14",
+      "path": "intelligence/services/observation_script.py",
+      "before_sha256": "e3bea3ef334c2faf6c179e068c72b626dc4667529411d91fece9a37f7ca9f3c6",
+      "mutated_sha256": "2c0bbcc7e1fdff532a9910684b8de08faec206c1b2fabb4c987299c50079d25c",
+      "restored_sha256": "e3bea3ef334c2faf6c179e068c72b626dc4667529411d91fece9a37f7ca9f3c6"
+    },
+    {
+      "id": "M15",
+      "path": "intelligence/cli.py",
+      "before_sha256": "738efa88282dd36d71aeae73d3497877c1c50c3967038b82a3823d4c1db3699e",
+      "mutated_sha256": "18f24df76705b092bc259a3b562d9f22fee6fbaba04a25efb95ce35b428b7096",
+      "restored_sha256": "738efa88282dd36d71aeae73d3497877c1c50c3967038b82a3823d4c1db3699e"
+    },
+    {
+      "id": "M16",
+      "path": "intelligence/services/observation_script.py",
+      "before_sha256": "e3bea3ef334c2faf6c179e068c72b626dc4667529411d91fece9a37f7ca9f3c6",
+      "mutated_sha256": "b62b70bc0d7965d5b1cc027c1c9430a565c2e702bd26b03771cde48e36a87737",
+      "restored_sha256": "e3bea3ef334c2faf6c179e068c72b626dc4667529411d91fece9a37f7ca9f3c6"
+    },
+    {
+      "id": "M17",
+      "path": "intelligence/cli.py",
+      "before_sha256": "738efa88282dd36d71aeae73d3497877c1c50c3967038b82a3823d4c1db3699e",
+      "mutated_sha256": "b5ba7ed366bcf3e19d1ef9d2c7840d369becb9f83fae8917fef3cd908f7a93cf",
+      "restored_sha256": "738efa88282dd36d71aeae73d3497877c1c50c3967038b82a3823d4c1db3699e"
+    },
+    {
+      "id": "M18",
+      "path": "intelligence/services/observation_script.py",
+      "before_sha256": "e3bea3ef334c2faf6c179e068c72b626dc4667529411d91fece9a37f7ca9f3c6",
+      "mutated_sha256": "97b056287183285f4895cf78705d5770f3f471ee503e067d61f89ab2399dd71f",
+      "restored_sha256": "e3bea3ef334c2faf6c179e068c72b626dc4667529411d91fece9a37f7ca9f3c6"
+    },
+    {
+      "id": "M19",
+      "path": "intelligence/services/observation_script.py",
+      "before_sha256": "e3bea3ef334c2faf6c179e068c72b626dc4667529411d91fece9a37f7ca9f3c6",
+      "mutated_sha256": "57d7703c0f5d293477fc3edd88585f220d2d8317e4c483a22135fce2e4a03f55",
+      "restored_sha256": "e3bea3ef334c2faf6c179e068c72b626dc4667529411d91fece9a37f7ca9f3c6"
+    },
+    {
+      "id": "M20",
+      "path": "intelligence/cli.py",
+      "before_sha256": "738efa88282dd36d71aeae73d3497877c1c50c3967038b82a3823d4c1db3699e",
+      "mutated_sha256": "1cadcb5efc7526e6b8ee2056eca453067c908a5d2808ddeccceed1f29adbed19",
+      "restored_sha256": "738efa88282dd36d71aeae73d3497877c1c50c3967038b82a3823d4c1db3699e"
+    },
+    {
+      "id": "M21",
+      "path": "intelligence/cli.py",
+      "before_sha256": "738efa88282dd36d71aeae73d3497877c1c50c3967038b82a3823d4c1db3699e",
+      "mutated_sha256": "a4d806611ad886fc62e70d97b8ba90dc5cc26fd8de1e11d789699b048856fd58",
+      "restored_sha256": "738efa88282dd36d71aeae73d3497877c1c50c3967038b82a3823d4c1db3699e"
+    },
+    {
+      "id": "M22",
+      "path": "intelligence/services/observation_script.py",
+      "before_sha256": "e3bea3ef334c2faf6c179e068c72b626dc4667529411d91fece9a37f7ca9f3c6",
+      "mutated_sha256": "5dbf13b8eec4d8b04d9ab20e45fd08e5df6634445416546cd406e40c3b0551b3",
+      "restored_sha256": "e3bea3ef334c2faf6c179e068c72b626dc4667529411d91fece9a37f7ca9f3c6"
+    },
+    {
+      "id": "M23",
+      "path": "intelligence/services/personal_export.py",
+      "before_sha256": "7653751d87532c069cc0bc52933fe0f87814c5b3e41c78a08802979d8236d2d4",
+      "mutated_sha256": "a9aeedbe65cdcc6aa8dd31d8fad0e199100534c5e1f932a9f0104ec6bd572f27",
+      "restored_sha256": "7653751d87532c069cc0bc52933fe0f87814c5b3e41c78a08802979d8236d2d4"
+    },
+    {
+      "id": "M24",
+      "path": "intelligence/services/observation_script.py",
+      "before_sha256": "e3bea3ef334c2faf6c179e068c72b626dc4667529411d91fece9a37f7ca9f3c6",
+      "mutated_sha256": "47177b700fb2e83e969f29ac91741d4dad98ca9a46109493f6bc384cac131e0b",
+      "restored_sha256": "e3bea3ef334c2faf6c179e068c72b626dc4667529411d91fece9a37f7ca9f3c6"
+    },
+    {
+      "id": "M25",
+      "path": "intelligence/cli.py",
+      "before_sha256": "738efa88282dd36d71aeae73d3497877c1c50c3967038b82a3823d4c1db3699e",
+      "mutated_sha256": "ed1dd7cda1f5c7ed3be949b38190cba089e363189000375fd999bc07d7b74395",
+      "restored_sha256": "738efa88282dd36d71aeae73d3497877c1c50c3967038b82a3823d4c1db3699e"
+    },
+    {
+      "id": "M26",
+      "path": "intelligence/services/observation_script.py",
+      "before_sha256": "e3bea3ef334c2faf6c179e068c72b626dc4667529411d91fece9a37f7ca9f3c6",
+      "mutated_sha256": "22351197ca635d27a09b956b25b26c46f6bdc24922ed0b05f390755b020124cf",
+      "restored_sha256": "e3bea3ef334c2faf6c179e068c72b626dc4667529411d91fece9a37f7ca9f3c6"
+    },
+    {
+      "id": "M27",
+      "path": "intelligence/services/observation_script.py",
+      "before_sha256": "e3bea3ef334c2faf6c179e068c72b626dc4667529411d91fece9a37f7ca9f3c6",
+      "mutated_sha256": "c79e5feac59dfab7897ff1f27f47a6614a7ebcb9ac66735a77d59abfb95a16ce",
+      "restored_sha256": "e3bea3ef334c2faf6c179e068c72b626dc4667529411d91fece9a37f7ca9f3c6"
+    },
+    {
+      "id": "M28",
+      "path": "intelligence/services/personal_export.py",
+      "before_sha256": "7653751d87532c069cc0bc52933fe0f87814c5b3e41c78a08802979d8236d2d4",
+      "mutated_sha256": "8197126e2c83a34f043e66726a1f33567be9c5b2624187d93a1887af58b10d71",
+      "restored_sha256": "7653751d87532c069cc0bc52933fe0f87814c5b3e41c78a08802979d8236d2d4"
+    },
+    {
+      "id": "M29",
+      "path": "intelligence/services/observation_script.py",
+      "before_sha256": "e3bea3ef334c2faf6c179e068c72b626dc4667529411d91fece9a37f7ca9f3c6",
+      "mutated_sha256": "6e211735b1ec0112f04bb072810147183cf7f49ce907f4dfc269567c85773304",
+      "restored_sha256": "e3bea3ef334c2faf6c179e068c72b626dc4667529411d91fece9a37f7ca9f3c6"
+    },
+    {
+      "id": "M30",
+      "path": "intelligence/services/personal_export.py",
+      "before_sha256": "7653751d87532c069cc0bc52933fe0f87814c5b3e41c78a08802979d8236d2d4",
+      "mutated_sha256": "0db5f4e9137a5523ebfd0803920eca11000acd9c1850209b451daa0665228e0a",
+      "restored_sha256": "7653751d87532c069cc0bc52933fe0f87814c5b3e41c78a08802979d8236d2d4"
+    },
+    {
+      "id": "M31",
+      "path": "intelligence/services/personal_export.py",
+      "before_sha256": "7653751d87532c069cc0bc52933fe0f87814c5b3e41c78a08802979d8236d2d4",
+      "mutated_sha256": "7bde956a21b62d34aad0e0a4096180d3a7fc9db3f74daa88db57408b17a89989",
+      "restored_sha256": "7653751d87532c069cc0bc52933fe0f87814c5b3e41c78a08802979d8236d2d4"
+    },
+    {
+      "id": "M32",
+      "path": "intelligence/services/observation_script.py",
+      "before_sha256": "e3bea3ef334c2faf6c179e068c72b626dc4667529411d91fece9a37f7ca9f3c6",
+      "mutated_sha256": "f6a18f32dd6c47cf9cabae371077a86b50d84ba8d1f842eb5405447e80a39909",
+      "restored_sha256": "e3bea3ef334c2faf6c179e068c72b626dc4667529411d91fece9a37f7ca9f3c6"
+    },
+    {
+      "id": "M33",
+      "path": "intelligence/services/observation_script.py",
+      "before_sha256": "e3bea3ef334c2faf6c179e068c72b626dc4667529411d91fece9a37f7ca9f3c6",
+      "mutated_sha256": "6947e226a3b1efe9b6d04052edcab4e3a4f0f68e3db72fb707cd459f7c792de9",
+      "restored_sha256": "e3bea3ef334c2faf6c179e068c72b626dc4667529411d91fece9a37f7ca9f3c6"
+    },
+    {
+      "id": "M34",
+      "path": "intelligence/services/personal_export.py",
+      "before_sha256": "7653751d87532c069cc0bc52933fe0f87814c5b3e41c78a08802979d8236d2d4",
+      "mutated_sha256": "1e361fd4227a7b262d0d09306667bbe0d6352201a6840201bfb2399390156860",
+      "restored_sha256": "7653751d87532c069cc0bc52933fe0f87814c5b3e41c78a08802979d8236d2d4"
+    },
+    {
+      "id": "M35",
+      "path": "intelligence/services/personal_export.py",
+      "before_sha256": "7653751d87532c069cc0bc52933fe0f87814c5b3e41c78a08802979d8236d2d4",
+      "mutated_sha256": "8cfb7290ffa0118feb64d2894140be38a6ca9cbbc5971fa01599e68346ea36cb",
+      "restored_sha256": "7653751d87532c069cc0bc52933fe0f87814c5b3e41c78a08802979d8236d2d4"
+    }
+  ],
+  "definitions_sha256": "6d1e55296fc6a594f0d6a825b0e547bdd7d7ee9a5f0fa8bd06262e7a3b467cde",
+  "final_status": ""
+}

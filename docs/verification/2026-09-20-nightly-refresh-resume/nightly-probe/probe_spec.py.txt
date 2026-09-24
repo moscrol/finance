@@ -1,0 +1,235 @@
+"""Offline Spec probes: real recovery/control flow and small DuckDB fixtures.
+
+Leaf subprocess work is deterministic in child-flow cases; no full data-quality
+or production-readiness claim follows from those cases. Existing publisher
+tests separately cover actual process failure/status/run mutex/backup behavior.
+"""
+from __future__ import annotations
+
+import argparse
+import ast
+from contextlib import ExitStack, contextmanager
+from datetime import datetime
+import hashlib
+import importlib.util
+import json
+import os
+from pathlib import Path
+import socket
+import subprocess
+import sys
+import tempfile
+import types
+from unittest.mock import patch
+
+ROOT = Path('/Users/a77/.finance-runtime/reviews/research-closeout-resume-20260920/nightly-gate/finance-workspace-private')
+OUT = Path(__file__).resolve().parent
+MAIN = '4ace5ec2e9b7735d90eb15bc2351fa193c1120b8'
+sys.path.insert(0, str(ROOT))
+os.environ['PYTHONDONTWRITEBYTECODE'] = '1'
+
+
+def deny_network(*args, **kwargs):
+    raise AssertionError('Spec review: real network is forbidden')
+
+
+socket.socket.connect = deny_network
+socket.create_connection = deny_network
+
+import duckdb
+from market_feature_store import db
+from market_feature_store.cli import build_parser, cmd_stitch_sector_stocks
+from market_feature_store.sync import sync_eastmoney_stock_snapshot as em
+from market_feature_store.sync import sync_local_sector_members as stitch
+from market_feature_store import hithink_client
+from scripts import recover_local_review as recovery
+
+
+def load(path, name):
+    spec = importlib.util.spec_from_file_location(name, ROOT / path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+SYNC_PATH = 'skills/daily-full-review/scripts/run_review_sync.py'
+MAIN_SOURCE = subprocess.check_output(['git', 'show', f'{MAIN}:{SYNC_PATH}'], cwd=ROOT, text=True)
+(OUT / 'main-run_review_sync.py.txt').write_text(MAIN_SOURCE)
+start, end = MAIN_SOURCE.index('def build_local_plan('), MAIN_SOURCE.index('def build_plan(')
+local = MAIN_SOURCE[start:end]
+old = 'CLI + ["sync-index-daily", "--trade-date", trade_date], timeout)'
+new = 'CLI + ["sync-index-daily", "--trade-date", trade_date, "--no-fupanhui-fallback"], timeout)'
+assert local.count(old) == 1
+INTEGRATED_SOURCE = MAIN_SOURCE[:start] + local.replace(old, new) + MAIN_SOURCE[end:]
+(OUT / 'integration-plan-simulation.py.txt').write_text(INTEGRATED_SOURCE)
+
+
+def integrated_sync():
+    module = load(SYNC_PATH, 'simulated_integrated_review_sync')
+    # This is a bounded callable-level integration probe, not a whole merged tree:
+    # take the exact main leaf list and helpers, keeping candidate dependencies.
+    tree = ast.parse(INTEGRATED_SOURCE)
+    selected = [node for node in tree.body if (
+        isinstance(node, ast.FunctionDef) and node.name in {'sync_hithink_step', 'build_local_plan'}
+    ) or (
+        isinstance(node, ast.Assign) and any(isinstance(t, ast.Name) and t.id == 'HITHINK_STEPS' for t in node.targets)
+    )]
+    assert len(selected) == 3
+    exec(compile(ast.Module(body=selected, type_ignores=[]), module.__file__, 'exec'), module.__dict__)
+    return module
+
+
+def captured_inputs(work):
+    row = dict(trade_date='2026-09-16', stock_ts_code='000001.SZ', stock_name='样本',
+               source='sina:stock_zh_a_daily', close=11.0, pre_close=10.0, pct_chg=10.0,
+               amount=.011, turnover=1.0, open=10.0, high=11.0, low=10.0, volume=1000.0)
+    raw = [dict(f297=20260917, f12='000001', f14='样本', f2=12.0, f18=11.0,
+                f3=9.09, f6=1200000, f8=1.0, f17=11.0, f15=12.0, f16=11.0, f5=1000.0)]
+    history, snapshot = work / 'history.jsonl', work / 'snapshot.json'
+    history.write_text(json.dumps(row) + '\n')
+    snapshot.write_text(json.dumps(raw))
+    return argparse.Namespace(history_day='2026-09-16', snapshot_day='2026-09-17',
+                              history=history, snapshot=snapshot, receipt=work / 'receipt.json'), raw
+
+
+def child_flow(case, *, integrated=False, key=True, fail_label=None):
+    with tempfile.TemporaryDirectory(prefix=case + '-', dir=OUT) as temp:
+        work = Path(temp)
+        target = work / 'sample.duckdb.staging'
+        with duckdb.connect(str(target)) as con:
+            db.init_db(con)
+            con.execute("INSERT INTO fact_stock_daily (trade_date, stock_ts_code, stock_name, close, pre_close, amount, turnover, source) VALUES ('2026-09-15','000001.SZ','样本',10,9,.01,1,'sina:stock_zh_a_daily')")
+        args, _ = captured_inputs(work)
+        sync = integrated_sync() if integrated else load(SYNC_PATH, 'candidate_review_sync')
+        history = load('skills/duckdb-backfill/scripts/backfill_stock_daily_sina.py', 'candidate_history')
+        calls = []
+
+        def run_step(label, argv, timeout):
+            calls.append({'label': label, 'argv': argv})
+            failed = label == fail_label
+            return dict(label=label, status='fail' if failed else 'ok', code=2 if failed else 0, elapsed=0)
+
+        with ExitStack() as stack:
+            stack.enter_context(patch.dict(os.environ, {'FINANCE_WS': str(work), 'MARKET_FEATURE_STORE_DB': str(target), 'MARKET_FEATURE_STORE_RUN_ID': case, 'REVIEW_SYNC_PLAN': 'local'}))
+            stack.enter_context(patch.object(db, 'DB_PATH', target))
+            stack.enter_context(patch.object(db, 'DB_DIR', work))
+            stack.enter_context(patch.object(sync, 'run_step', run_step))
+            stack.enter_context(patch.object(hithink_client, 'has_api_key', lambda: key))
+            stack.enter_context(patch.object(recovery, 'load_script', lambda path: history if 'backfill_stock_daily_sina.py' in path else sync))
+            error, rc = None, None
+            try:
+                rc = recovery.child(args)
+            except RuntimeError as exc:
+                error = str(exc)
+            status_path = Path(str(target) + '.status.json')
+            status = json.loads(status_path.read_text()) if status_path.exists() else None
+            result = dict(case=case, integrated_plan=integrated, key_stub=key, failed_leaf=fail_label,
+                          rc=rc, error=error, wrote_success_status=status is not None, calls=calls)
+            if error:
+                assert status is None
+            else:
+                assert rc == 0 and status['run_id'] == case and status['ok'] is True
+                for call in calls:
+                    if call['label'] == 'index-daily':
+                        assert '--no-fupanhui-fallback' in call['argv']
+            return result
+
+
+def dated_replay():
+    qa = load('skills/duckdb-backfill/scripts/qa_backfill_align.py', 'qa_replay')
+    result = []
+    with tempfile.TemporaryDirectory(prefix='dated-replay-', dir=OUT) as temp:
+        work = Path(temp)
+        args, raw = captured_inputs(work)
+        recovery.validate_inputs(args.history_day, args.snapshot_day, args.history, args.snapshot)
+        snapshot_bytes = args.snapshot.read_bytes()
+        (OUT / 'dated-replay-snapshot.json').write_bytes(snapshot_bytes)
+        (OUT / 'dated-replay-history.jsonl').write_bytes(args.history.read_bytes())
+        snapshot_sha256 = hashlib.sha256(snapshot_bytes).hexdigest()
+        for actual_now in (datetime(2026, 9, 17, 22), datetime(2026, 9, 18, 0, 1)):
+            target = work / f'replay-{actual_now.day}.duckdb.staging'
+
+            class Clock(datetime):
+                @classmethod
+                def now(cls, tz=None):
+                    return actual_now
+
+            with patch.object(db, 'DB_PATH', target), patch.object(db, 'DB_DIR', work), patch.object(em, 'datetime', Clock), patch.object(em, 'fetch_snapshot', return_value=raw):
+                replay = em.sync_fact_stock_daily_snapshot(args.snapshot_day)
+                rep = qa.Report()
+                with duckdb.connect(str(target), read_only=True) as con:
+                    qa.check_latest_snapshot_sources(con, rep, args.snapshot_day)
+                failed = [item for item in rep.items if item['level'] == 'FAIL']
+                assert args.snapshot.read_bytes() == snapshot_bytes
+                result.append(dict(replay_clock=actual_now.isoformat(), input_date_validated=True,
+                                   snapshot_sha256=snapshot_sha256,
+                                   actual_snapshot_date=replay['snapshot_trade_date'], failures=failed,
+                                   snapshot_stitch_argv=recovery.recovery_stitch_command(types.SimpleNamespace(CLI=['python', '-m', 'market_feature_store.cli']), args.snapshot_day, args.history_day)))
+    assert result[0]['failures'] == []
+    assert len(result[1]['failures']) == 1
+    return result
+
+
+def completed_refresh_no_baseline():
+    fixture = load('tests/test_tiered_sync_local.py', 'tiered_fixture')
+    fixture.D1, fixture.D2 = '2026-03-01', '2026-09-17'
+    fixture.CAPTURED = {d: d + 'T16:00:00+08:00' for d in (fixture.D1, fixture.D2)}
+    with contextmanager(fixture.con.__wrapped__)() as con:
+        fixture._seed_day1(con)
+        pub = fixture._publish(con, fixture.D2, [('990001.FP','MLCC',3), ('990002.FP','6G',2), ('990003.FP','机器人',2)])
+        members = {'990001.FP': ['000001.SZ','000002.SZ','000003.SZ'], '990002.FP': ['600000.SH','600001.SH'], '990003.FP': ['300001.SZ','300002.SZ']}
+        for sector, codes in members.items():
+            fixture._record(con, pub.snapshot_id, sector, fixture.D2, [fixture._provider_member(code, source='local:stitch') for code in codes])
+        fixture.SectorUniverseStore(con).replace_sector_daily(pub.snapshot_id, [
+            {'sector_ts_code': sector, 'pct_chg': 1.0, 'amount': len(codes) * 2.0, 'diff_ratio': 0.0}
+            for sector, codes in members.items()
+        ])
+        fixture._eastmoney(con, fixture.D2, [(code, 12 if code == '000001.SZ' else 10, 20 if code == '000001.SZ' else 0, 4 if code == '000001.SZ' else 2) for codes in members.values() for code in codes])
+        original = stitch.stitch_sector_members
+        summaries = []
+
+        def with_fixture(*args, **kwargs):
+            result = original(*args, con=con, **kwargs)
+            summaries.append(result)
+            return result
+
+        command = recovery.recovery_stitch_command(types.SimpleNamespace(CLI=['python', '-m', 'market_feature_store.cli']), fixture.D2, fixture.D2)
+        args = build_parser().parse_args(command[3:])
+        with patch.object(stitch, 'stitch_sector_members', with_fixture):
+            cli_rc = cmd_stitch_sector_stocks(args)
+        stale = con.execute('SELECT price FROM fact_sector_stock_daily WHERE trade_date=? AND stock_ts_code=?', [fixture.D2, '000001.SZ']).fetchone()[0]
+        normal = original(fixture.D2, con=con, fetch_caps=False, include_completed=True, max_baseline_age_days=365)
+        fresh = con.execute('SELECT price FROM fact_sector_stock_daily WHERE trade_date=? AND stock_ts_code=?', [fixture.D2, '000001.SZ']).fetchone()[0]
+        result = dict(command=command, cli_rc=cli_rc, summary=summaries[0], stale_member_price=stale,
+                      base_fact_price=12, normal_control_age=365, normal_stitched=normal['stitched'], refreshed_member_price=fresh)
+        assert cli_rc == 2 and summaries[0]['stitched'] == 0 and summaries[0]['audit_complete'] is True
+        assert summaries[0]['refresh_complete'] is False
+        assert summaries[0]['skipped'] == {'no_baseline': 3}
+        assert stale == 10 and fresh == 12 and normal['stitched'] == 3
+        return result
+
+
+def main():
+    results = {}
+    results['candidate_good'] = child_flow('candidate-good')
+    results['required_step_failure'] = child_flow('required-step-failure', fail_label='index-daily')
+    results['same_day_failure'] = child_flow('same-day-failure', fail_label='same-day-gate')
+    results['cross_day_failure'] = child_flow('cross-day-failure', fail_label='cross-day-gate')
+    results['alignment_failure'] = child_flow('alignment-failure', fail_label='backfill-alignment')
+    results['integrated_hithink_no_key'] = child_flow('integrated-hithink-no-key', integrated=True, key=False)
+    results['integrated_hithink_good'] = child_flow('integrated-hithink-good', integrated=True, key=True)
+    results['dated_replay'] = dated_replay()
+    results['completed_refresh_no_baseline'] = completed_refresh_no_baseline()
+    assert results['integrated_hithink_no_key']['error'] is None
+    assert results['integrated_hithink_no_key']['wrote_success_status'] is True
+    assert all(results[k]['wrote_success_status'] is False for k in ('required_step_failure','same_day_failure','cross_day_failure','alignment_failure'))
+    results['identity'] = dict(candidate=subprocess.check_output(['git','rev-parse','HEAD'], cwd=ROOT, text=True).strip(),
+                               main=MAIN, main_source_sha256=hashlib.sha256(MAIN_SOURCE.encode()).hexdigest(),
+                               integration_source_sha256=hashlib.sha256(INTEGRATED_SOURCE.encode()).hexdigest(),
+                               integration_change='Exact main HITHINK_STEPS/sync_hithink_step/build_local_plan copied as AST into candidate sync module; candidate local index flag retained. Callable-level integration only; original checkout unchanged.')
+    (OUT / 'probe-results.json').write_text(json.dumps(results, ensure_ascii=False, indent=2, default=str))
+    print('SPEC PROBES FINISHED: candidate normal and failure controls; dated replay; stale successful refresh; Hithink integration skip.')
+
+
+if __name__ == '__main__':
+    main()

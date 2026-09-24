@@ -1,0 +1,3 @@
+.                                                                        [100%]
+- generated xml file: /Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/mutations/repair_bypasses_writer-green.xml -
+1 passed, 22 deselected in 2.70s

@@ -1,0 +1,11 @@
+F                                                                        [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260918T082053Z-ba281381.json
+
+=================================== FAILURES ===================================
+_______ test_real_strict_history_validation_diagnostic_can_repair_query ________
+tests/test_history_tool_diagnostics.py:55: in test_real_strict_history_validation_diagnostic_can_repair_query
+    assert "stage_day→market_daily.dimension" in result.observation
+E   AssertionError: assert 'stage_day→market_daily.dimension' in ''
+E    +  where '' = ToolObservation(tool='finance_query', query='market_daily:trade_date,stage_day', evidence=(), observation='', trace=Pr...e_date', 'stage_day'), payload_sha256='fbbca26a0893aa5551465e7bebaa33068798bf96759b0da1f8786c6d55aa799f', telemetry={}).observation
+=========================== short test summary info ============================
+FAILED tests/test_history_tool_diagnostics.py::test_real_strict_history_validation_diagnostic_can_repair_query
+1 failed in 0.48s

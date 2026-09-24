@@ -1,0 +1,882 @@
+{
+  "revision": "c097d712f9acfdd258709c7d0de054f978e0159c",
+  "runtime_revision": "adcda94b5e401158f1c3aa51f210e1e8d0f0b713",
+  "started_at": "2026-09-21T18:42:58.766134+08:00",
+  "commands": [
+    {
+      "argv": [
+        "launchctl",
+        "print",
+        "gui/501/com.financeworkspace.daily-full-review-sync"
+      ],
+      "exit_code": 0,
+      "stdout": "gui/501/com.financeworkspace.daily-full-review-sync = {\n\tactive count = 0\n\tpath = /Users/a77/Library/LaunchAgents/com.financeworkspace.daily-full-review-sync.plist\n\ttype = LaunchAgent\n\tstate = not running\n\n\tprogram = /bin/zsh\n\targuments = {\n\t\t/bin/zsh\n\t\t/Users/a77/.local/bin/nightly-full-review-s7.sh\n\t\tsync\n\t}\n\n\tworking directory = /Users/a77/finance-workspace-private\n\n\tstdout path = /Users/a77/finance-workspace-private/logs/daily-full-review.out.log\n\tstderr path = /Users/a77/finance-workspace-private/logs/daily-full-review.err.log\n\tinherited environment = {\n\t\tSSH_AUTH_SOCK => /var/run/com.apple.launchd.wE72UADeq2/Listeners\n\t}\n\n\tdefault environment = {\n\t\tPATH => /usr/bin:/bin:/usr/sbin:/sbin\n\t}\n\n\tenvironment = {\n\t\tOSLogRateLimit => 64\n\t\tREVIEW_GATE_LOCK_ATTEMPTS => 36\n\t\tMARKET_FEATURE_STORE_DB => /Users/a77/finance-workspace-private/db/market_feature_store.duckdb\n\t\tFINANCE_SYNC_PYTHON => /Users/a77/finance-workspace-private/.venv-workbench/bin/python\n\t\tFINANCE_SYNC_CODE_ROOT => /Users/a77/finance-workspace-sync\n\t\tFINANCE_PYTHON => /Users/a77/finance-workspace-private/.venv-workbench/bin/python\n\t\tREVIEW_GATE_LOCK_DELAY_SECONDS => 10\n\t\tFINANCE_OPS_HEALTH_LOG => /Users/a77/.finance-runtime/ops-health.log\n\t\tREVIEW_SYNC_PLAN => local\n\t\tFINANCE_DATA_ROOT => /Users/a77/finance-workspace-private\n\t\tFINANCE_WS => /Users/a77/finance-workspace-private\n\t\tFINANCE_CODE_ROOT => /Users/a77/finance-workspace-runtime\n\t\tXPC_SERVICE_NAME => com.financeworkspace.daily-full-review-sync\n\t}\n\n\tdomain = gui/501 [100002]\n\tasid = 100002\n\tminimum runtime = 10\n\texit timeout = 5\n\truns = 4\n\tlast exit code = 2\n\n\tevent triggers = {\n\t\tcom.financeworkspace.daily-full-review-sync.268435497 => {\n\t\t\tkeepalive = 0\n\t\t\tservice = com.financeworkspace.daily-full-review-sync\n\t\t\tstream = com.apple.launchd.calendarinterval\n\t\t\tmonitor = com.apple.UserEventAgent-Aqua\n\t\t\tdescriptor = {\n\t\t\t\t\"Minute\" => 30\n\t\t\t\t\"Hour\" => 18\n\t\t\t}\n\t\t}\n\t}\n\n\tevent channels = {\n\t\t\"com.apple.launchd.calendarinterval\" = {\n\t\t\tport = 0x11f783\n\t\t\tactive = 0\n\t\t\tmanaged = 1\n\t\t\treset = 0\n\t\t\thide = 0\n\t\t\twatching = 1\n\t\t}\n\t}\n\n\tresource coalition = {\n\t\tID = 294768\n\t\ttype = resource\n\t\tstate = active\n\t\tactive count = 1\n\t\tname = com.financeworkspace.daily-full-review-sync\n\t}\n\n\tjetsam coalition = {\n\t\tID = 294769\n\t\ttype = jetsam\n\t\tstate = active\n\t\tactive count = 1\n\t\tname = com.financeworkspace.daily-full-review-sync\n\t}\n\n\tspawn type = daemon (3)\n\tjetsam priority = 40\n\tjetsam memory limit (active) = (unlimited)\n\tjetsam memory limit (inactive) = (unlimited)\n\tjetsamproperties category = daemon\n\tjetsam thread limit = 32\n\tcpumon = default\n\n\tproperties = inferred program\n}\n",
+      "stderr": "",
+      "at": "2026-09-21T18:42:59.415590+08:00"
+    },
+    {
+      "argv": [
+        "launchctl",
+        "print",
+        "gui/501/com.financeworkspace.daily-full-review-finalize"
+      ],
+      "exit_code": 0,
+      "stdout": "gui/501/com.financeworkspace.daily-full-review-finalize = {\n\tactive count = 0\n\tpath = /Users/a77/Library/LaunchAgents/com.financeworkspace.daily-full-review-finalize.plist\n\ttype = LaunchAgent\n\tstate = not running\n\n\tprogram = /bin/zsh\n\targuments = {\n\t\t/bin/zsh\n\t\t/Users/a77/.local/bin/nightly_full_review.sh\n\t\tfinalize\n\t}\n\n\tworking directory = /Users/a77/finance-workspace-private\n\n\tstdout path = /Users/a77/finance-workspace-private/logs/daily-full-review.out.log\n\tstderr path = /Users/a77/finance-workspace-private/logs/daily-full-review.err.log\n\tinherited environment = {\n\t\tSSH_AUTH_SOCK => /var/run/com.apple.launchd.wE72UADeq2/Listeners\n\t}\n\n\tdefault environment = {\n\t\tPATH => /usr/bin:/bin:/usr/sbin:/sbin\n\t}\n\n\tenvironment = {\n\t\tOSLogRateLimit => 64\n\t\tREVIEW_GATE_LOCK_ATTEMPTS => 36\n\t\tMARKET_FEATURE_STORE_DB => /Users/a77/finance-workspace-private/db/market_feature_store.duckdb\n\t\tFINANCE_SYNC_CODE_ROOT => /Users/a77/finance-workspace-sync\n\t\tFINANCE_PYTHON => /Users/a77/finance-workspace-private/.venv-workbench/bin/python\n\t\tFINANCE_GENERATION_CODE_ROOT => /Users/a77/.finance-runtime/finance-generation-387028b846a2\n\t\tREVIEW_GATE_LOCK_DELAY_SECONDS => 10\n\t\tFINANCE_OPS_HEALTH_LOG => /Users/a77/.finance-runtime/ops-health.log\n\t\tREVIEW_SYNC_PLAN => local\n\t\tFORESIGHT_USERS_DIR => /Users/a77/.local/share/finance-workbench/users\n\t\tFINANCE_DATA_ROOT => /Users/a77/finance-workspace-private\n\t\tFINANCE_WS => /Users/a77/finance-workspace-private\n\t\tFINANCE_CODE_ROOT => /Users/a77/.finance-runtime/finance-l2-d433b90788c0\n\t\tFORESIGHT_USER => linxiaoqi5111\n\t\tXPC_SERVICE_NAME => com.financeworkspace.daily-full-review-finalize\n\t}\n\n\tdomain = gui/501 [100002]\n\tasid = 100002\n\tminimum runtime = 10\n\texit timeout = 5\n\truns = 4\n\tlast exit code = 0\n\n\tevent triggers = {\n\t\tcom.financeworkspace.daily-full-review-finalize.268435499 => {\n\t\t\tkeepalive = 0\n\t\t\tservice = com.financeworkspace.daily-full-review-finalize\n\t\t\tstream = com.apple.launchd.calendarinterval\n\t\t\tmonitor = com.apple.UserEventAgent-Aqua\n\t\t\tdescriptor = {\n\t\t\t\t\"Minute\" => 40\n\t\t\t\t\"Hour\" => 20\n\t\t\t}\n\t\t}\n\t}\n\n\tevent channels = {\n\t\t\"com.apple.launchd.calendarinterval\" = {\n\t\t\tport = 0xaa0c3\n\t\t\tactive = 0\n\t\t\tmanaged = 1\n\t\t\treset = 0\n\t\t\thide = 0\n\t\t\twatching = 1\n\t\t}\n\t}\n\n\tresource coalition = {\n\t\tID = 283935\n\t\ttype = resource\n\t\tstate = active\n\t\tactive count = 1\n\t\tname = com.financeworkspace.daily-full-review-finalize\n\t}\n\n\tjetsam coalition = {\n\t\tID = 283936\n\t\ttype = jetsam\n\t\tstate = active\n\t\tactive count = 1\n\t\tname = com.financeworkspace.daily-full-review-finalize\n\t}\n\n\tspawn type = daemon (3)\n\tjetsam priority = 40\n\tjetsam memory limit (active) = (unlimited)\n\tjetsam memory limit (inactive) = (unlimited)\n\tjetsamproperties category = daemon\n\tjetsam thread limit = 32\n\tcpumon = default\n\n\tproperties = inferred program\n}\n",
+      "stderr": "",
+      "at": "2026-09-21T18:42:59.419242+08:00"
+    },
+    {
+      "argv": [
+        "launchctl",
+        "print",
+        "gui/501/com.financeworkspace.fidelity-daily-agent"
+      ],
+      "exit_code": 0,
+      "stdout": "gui/501/com.financeworkspace.fidelity-daily-agent = {\n\tactive count = 0\n\tpath = /Users/a77/Library/LaunchAgents/com.financeworkspace.fidelity-daily-agent.plist\n\ttype = LaunchAgent\n\tstate = not running\n\n\tprogram = /bin/zsh\n\targuments = {\n\t\t/bin/zsh\n\t\t/Users/a77/.local/bin/run_fidelity_daily_agent.sh\n\t}\n\n\tworking directory = /Users/a77/finance-workspace-runtime\n\n\tstdout path = /Users/a77/fidelity-runtime/logs/fidelity-daily-agent.out.log\n\tstderr path = /Users/a77/fidelity-runtime/logs/fidelity-daily-agent.err.log\n\tinherited environment = {\n\t\tSSH_AUTH_SOCK => /var/run/com.apple.launchd.wE72UADeq2/Listeners\n\t}\n\n\tdefault environment = {\n\t\tPATH => /usr/bin:/bin:/usr/sbin:/sbin\n\t}\n\n\tenvironment = {\n\t\tOSLogRateLimit => 64\n\t\tMARKET_FEATURE_STORE_DB => /Users/a77/finance-workspace-private/db/market_feature_store.duckdb\n\t\tFINANCE_PYTHON => /Users/a77/finance-workspace-private/.venv-workbench/bin/python\n\t\tFINANCE_OPS_HEALTH_LOG => /Users/a77/.finance-runtime/ops-health.log\n\t\tFIDELITY_RUNTIME_ROOT => /Users/a77/fidelity-runtime\n\t\tFINANCE_WS => /Users/a77/finance-workspace-private\n\t\tFINANCE_CODE_ROOT => /Users/a77/finance-workspace-runtime\n\t\tKNOWLEDGE_WIKI => /Users/a77/knowledge-base-private/wiki\n\t\tXPC_SERVICE_NAME => com.financeworkspace.fidelity-daily-agent\n\t}\n\n\tdomain = gui/501 [100002]\n\tasid = 100002\n\tminimum runtime = 10\n\texit timeout = 5\n\truns = 14\n\tlast exit code = 0\n\n\tevent triggers = {\n\t\tcom.financeworkspace.fidelity-daily-agent.268435473 => {\n\t\t\tkeepalive = 0\n\t\t\tservice = com.financeworkspace.fidelity-daily-agent\n\t\t\tstream = com.apple.launchd.calendarinterval\n\t\t\tmonitor = com.apple.UserEventAgent-Aqua\n\t\t\tdescriptor = {\n\t\t\t\t\"Minute\" => 5\n\t\t\t\t\"Hour\" => 20\n\t\t\t}\n\t\t}\n\t}\n\n\tevent channels = {\n\t\t\"com.apple.launchd.calendarinterval\" = {\n\t\t\tport = 0x5f203\n\t\t\tactive = 0\n\t\t\tmanaged = 1\n\t\t\treset = 0\n\t\t\thide = 0\n\t\t\twatching = 1\n\t\t}\n\t}\n\n\tresource coalition = {\n\t\tID = 25260\n\t\ttype = resource\n\t\tstate = active\n\t\tactive count = 1\n\t\tname = com.financeworkspace.fidelity-daily-agent\n\t}\n\n\tjetsam coalition = {\n\t\tID = 25261\n\t\ttype = jetsam\n\t\tstate = active\n\t\tactive count = 1\n\t\tname = com.financeworkspace.fidelity-daily-agent\n\t}\n\n\tspawn type = daemon (3)\n\tjetsam priority = 40\n\tjetsam memory limit (active) = (unlimited)\n\tjetsam memory limit (inactive) = (unlimited)\n\tjetsamproperties category = daemon\n\tjetsam thread limit = 32\n\tcpumon = default\n\n\tproperties = inferred program | managed LWCR | has LWCR\n}\n",
+      "stderr": "",
+      "at": "2026-09-21T18:42:59.638064+08:00"
+    },
+    {
+      "argv": [
+        "launchctl",
+        "print",
+        "gui/501/com.financeworkspace.fidelity-forward-acceptance"
+      ],
+      "exit_code": 0,
+      "stdout": "gui/501/com.financeworkspace.fidelity-forward-acceptance = {\n\tactive count = 0\n\tpath = /Users/a77/Library/LaunchAgents/com.financeworkspace.fidelity-forward-acceptance.plist\n\ttype = LaunchAgent\n\tstate = not running\n\n\tprogram = /bin/zsh\n\targuments = {\n\t\t/bin/zsh\n\t\t/Users/a77/.local/bin/run_fidelity_forward_acceptance.sh\n\t}\n\n\tworking directory = /Users/a77/finance-workspace-runtime\n\n\tstdout path = /Users/a77/fidelity-runtime/logs/fidelity-forward-acceptance.out.log\n\tstderr path = /Users/a77/fidelity-runtime/logs/fidelity-forward-acceptance.err.log\n\tinherited environment = {\n\t\tSSH_AUTH_SOCK => /var/run/com.apple.launchd.wE72UADeq2/Listeners\n\t}\n\n\tdefault environment = {\n\t\tPATH => /usr/bin:/bin:/usr/sbin:/sbin\n\t}\n\n\tenvironment = {\n\t\tOSLogRateLimit => 64\n\t\tMARKET_FEATURE_STORE_DB => /Users/a77/finance-workspace-private/db/market_feature_store.duckdb\n\t\tFINANCE_PYTHON => /Users/a77/finance-workspace-private/.venv-workbench/bin/python\n\t\tFINANCE_OPS_HEALTH_LOG => /Users/a77/.finance-runtime/ops-health.log\n\t\tFIDELITY_RUNTIME_ROOT => /Users/a77/fidelity-runtime\n\t\tPIT_SNAPSHOT_DIR => /Users/a77/fidelity-replay/pit-snapshots\n\t\tFINANCE_WS => /Users/a77/finance-workspace-private\n\t\tFINANCE_CODE_ROOT => /Users/a77/finance-workspace-runtime\n\t\tXPC_SERVICE_NAME => com.financeworkspace.fidelity-forward-acceptance\n\t}\n\n\tdomain = gui/501 [100002]\n\tasid = 100002\n\tminimum runtime = 10\n\texit timeout = 5\n\truns = 14\n\tlast exit code = 0\n\n\tevent triggers = {\n\t\tcom.financeworkspace.fidelity-forward-acceptance.268435470 => {\n\t\t\tkeepalive = 0\n\t\t\tservice = com.financeworkspace.fidelity-forward-acceptance\n\t\t\tstream = com.apple.launchd.calendarinterval\n\t\t\tmonitor = com.apple.UserEventAgent-Aqua\n\t\t\tdescriptor = {\n\t\t\t\t\"Minute\" => 45\n\t\t\t\t\"Hour\" => 20\n\t\t\t}\n\t\t}\n\t}\n\n\tevent channels = {\n\t\t\"com.apple.launchd.calendarinterval\" = {\n\t\t\tport = 0x51b4b\n\t\t\tactive = 0\n\t\t\tmanaged = 1\n\t\t\treset = 0\n\t\t\thide = 0\n\t\t\twatching = 1\n\t\t}\n\t}\n\n\tresource coalition = {\n\t\tID = 26362\n\t\ttype = resource\n\t\tstate = active\n\t\tactive count = 1\n\t\tname = com.financeworkspace.fidelity-forward-acceptance\n\t}\n\n\tjetsam coalition = {\n\t\tID = 26363\n\t\ttype = jetsam\n\t\tstate = active\n\t\tactive count = 1\n\t\tname = com.financeworkspace.fidelity-forward-acceptance\n\t}\n\n\tspawn type = daemon (3)\n\tjetsam priority = 40\n\tjetsam memory limit (active) = (unlimited)\n\tjetsam memory limit (inactive) = (unlimited)\n\tjetsamproperties category = daemon\n\tjetsam thread limit = 32\n\tcpumon = default\n\n\tproperties = inferred program | managed LWCR | has LWCR\n}\n",
+      "stderr": "",
+      "at": "2026-09-21T18:42:59.642122+08:00"
+    },
+    {
+      "argv": [
+        "launchctl",
+        "print",
+        "gui/501/com.financeworkspace.pit-snapshot"
+      ],
+      "exit_code": 0,
+      "stdout": "gui/501/com.financeworkspace.pit-snapshot = {\n\tactive count = 0\n\tpath = /Users/a77/Library/LaunchAgents/com.financeworkspace.pit-snapshot.plist\n\ttype = LaunchAgent\n\tstate = not running\n\n\tprogram = /bin/zsh\n\targuments = {\n\t\t/bin/zsh\n\t\t/Users/a77/.local/bin/freeze_daily_pit_snapshot.sh\n\t}\n\n\tworking directory = /Users/a77/finance-workspace-runtime\n\n\tstdout path = /Users/a77/fidelity-runtime/logs/pit-snapshot.out.log\n\tstderr path = /Users/a77/fidelity-runtime/logs/pit-snapshot.err.log\n\tinherited environment = {\n\t\tSSH_AUTH_SOCK => /var/run/com.apple.launchd.wE72UADeq2/Listeners\n\t}\n\n\tdefault environment = {\n\t\tPATH => /usr/bin:/bin:/usr/sbin:/sbin\n\t}\n\n\tenvironment = {\n\t\tOSLogRateLimit => 64\n\t\tPIT_DAILY_AGENT_DIR => /Users/a77/finance-workspace-private/market_feature_store/exports\n\t\tPIT_SNAPSHOT_DB => /Users/a77/finance-workspace-private/db/market_feature_store.duckdb\n\t\tFINANCE_PYTHON => /Users/a77/finance-workspace-private/.venv-workbench/bin/python\n\t\tPIT_KNOWLEDGE_ROOT => /Users/a77/knowledge-base-private\n\t\tFINANCE_OPS_HEALTH_LOG => /Users/a77/.finance-runtime/ops-health.log\n\t\tPIT_SNAPSHOT_DIR => /Users/a77/fidelity-replay/pit-snapshots\n\t\tFINANCE_WS => /Users/a77/finance-workspace-private\n\t\tFINANCE_CODE_ROOT => /Users/a77/finance-workspace-runtime\n\t\tXPC_SERVICE_NAME => com.financeworkspace.pit-snapshot\n\t}\n\n\tdomain = gui/501 [100002]\n\tasid = 100002\n\tminimum runtime = 10\n\texit timeout = 5\n\truns = 14\n\tlast exit code = 0\n\n\tevent triggers = {\n\t\tcom.financeworkspace.pit-snapshot.268435476 => {\n\t\t\tkeepalive = 0\n\t\t\tservice = com.financeworkspace.pit-snapshot\n\t\t\tstream = com.apple.launchd.calendarinterval\n\t\t\tmonitor = com.apple.UserEventAgent-Aqua\n\t\t\tdescriptor = {\n\t\t\t\t\"Minute\" => 30\n\t\t\t\t\"Hour\" => 20\n\t\t\t}\n\t\t}\n\t}\n\n\tevent channels = {\n\t\t\"com.apple.launchd.calendarinterval\" = {\n\t\t\tport = 0x9ad03\n\t\t\tactive = 0\n\t\t\tmanaged = 1\n\t\t\treset = 0\n\t\t\thide = 0\n\t\t\twatching = 1\n\t\t}\n\t}\n\n\tresource coalition = {\n\t\tID = 25884\n\t\ttype = resource\n\t\tstate = active\n\t\tactive count = 1\n\t\tname = com.financeworkspace.pit-snapshot\n\t}\n\n\tjetsam coalition = {\n\t\tID = 25885\n\t\ttype = jetsam\n\t\tstate = active\n\t\tactive count = 1\n\t\tname = com.financeworkspace.pit-snapshot\n\t}\n\n\tspawn type = daemon (3)\n\tjetsam priority = 40\n\tjetsam memory limit (active) = (unlimited)\n\tjetsam memory limit (inactive) = (unlimited)\n\tjetsamproperties category = daemon\n\tjetsam thread limit = 32\n\tcpumon = default\n\n\tproperties = inferred program | managed LWCR | has LWCR\n}\n",
+      "stderr": "",
+      "at": "2026-09-21T18:42:59.645548+08:00"
+    },
+    {
+      "argv": [
+        "launchctl",
+        "print",
+        "gui/501/com.financeworkspace.checkpoint-recheck"
+      ],
+      "exit_code": 0,
+      "stdout": "gui/501/com.financeworkspace.checkpoint-recheck = {\n\tactive count = 0\n\tpath = /Users/a77/Library/LaunchAgents/com.financeworkspace.checkpoint-recheck.plist\n\ttype = LaunchAgent\n\tstate = not running\n\n\tprogram = /bin/zsh\n\targuments = {\n\t\t/bin/zsh\n\t\t/Users/a77/.local/bin/run_checkpoint_recheck.sh\n\t}\n\n\tworking directory = /Users/a77/finance-workspace-runtime\n\n\tstdout path = /Users/a77/.finance-runtime/logs/checkpoint-recheck.out.log\n\tstderr path = /Users/a77/.finance-runtime/logs/checkpoint-recheck.err.log\n\tinherited environment = {\n\t\tSSH_AUTH_SOCK => /var/run/com.apple.launchd.wE72UADeq2/Listeners\n\t}\n\n\tdefault environment = {\n\t\tPATH => /usr/bin:/bin:/usr/sbin:/sbin\n\t}\n\n\tenvironment = {\n\t\tOSLogRateLimit => 64\n\t\tSUBCONSCIOUS_VAULT => /Users/a77/agent-memory\n\t\tMARKET_FEATURE_STORE_DB => /Users/a77/finance-workspace-private/db/market_feature_store.duckdb\n\t\tFINANCE_PYTHON => /Users/a77/finance-workspace-private/.venv-workbench/bin/python\n\t\tFINANCE_OPS_HEALTH_LOG => /Users/a77/.finance-runtime/ops-health.log\n\t\tFORESIGHT_USERS_DIR => /Users/a77/.local/share/finance-workbench/users\n\t\tFINANCE_WS => /Users/a77/finance-workspace-private\n\t\tFINANCE_CODE_ROOT => /Users/a77/finance-workspace-runtime\n\t\tFORESIGHT_USER => linxiaoqi5111\n\t\tKNOWLEDGE_WIKI => /Users/a77/knowledge-base-private/wiki\n\t\tXPC_SERVICE_NAME => com.financeworkspace.checkpoint-recheck\n\t}\n\n\tdomain = gui/501 [100002]\n\tasid = 100002\n\tminimum runtime = 10\n\texit timeout = 5\n\truns = 15\n\tlast exit code = 0\n\n\tevent triggers = {\n\t\tcom.financeworkspace.checkpoint-recheck.268435487 => {\n\t\t\tkeepalive = 0\n\t\t\tservice = com.financeworkspace.checkpoint-recheck\n\t\t\tstream = com.apple.launchd.calendarinterval\n\t\t\tmonitor = com.apple.UserEventAgent-Aqua\n\t\t\tdescriptor = {\n\t\t\t\t\"Minute\" => 50\n\t\t\t\t\"Hour\" => 3\n\t\t\t}\n\t\t}\n\t}\n\n\tevent channels = {\n\t\t\"com.apple.launchd.calendarinterval\" = {\n\t\t\tport = 0xf6cd3\n\t\t\tactive = 0\n\t\t\tmanaged = 1\n\t\t\treset = 0\n\t\t\thide = 0\n\t\t\twatching = 1\n\t\t}\n\t}\n\n\tresource coalition = {\n\t\tID = 11378\n\t\ttype = resource\n\t\tstate = active\n\t\tactive count = 1\n\t\tname = com.financeworkspace.checkpoint-recheck\n\t}\n\n\tjetsam coalition = {\n\t\tID = 11379\n\t\ttype = jetsam\n\t\tstate = active\n\t\tactive count = 1\n\t\tname = com.financeworkspace.checkpoint-recheck\n\t}\n\n\tspawn type = daemon (3)\n\tjetsam priority = 40\n\tjetsam memory limit (active) = (unlimited)\n\tjetsam memory limit (inactive) = (unlimited)\n\tjetsamproperties category = daemon\n\tjetsam thread limit = 32\n\tcpumon = default\n\n\tproperties = inferred program | managed LWCR | has LWCR\n}\n",
+      "stderr": "",
+      "at": "2026-09-21T18:42:59.649100+08:00"
+    },
+    {
+      "argv": [
+        "launchctl",
+        "print",
+        "gui/501/com.a77.finance-workbench"
+      ],
+      "exit_code": 0,
+      "stdout": "gui/501/com.a77.finance-workbench = {\n\tactive count = 1\n\tpath = /Users/a77/Library/LaunchAgents/com.a77.finance-workbench.plist\n\ttype = LaunchAgent\n\tstate = running\n\n\tprogram = /Users/a77/.local/bin/start-finance-workbench\n\targuments = {\n\t\t/Users/a77/.local/bin/start-finance-workbench\n\t}\n\n\tstdout path = /Users/a77/.local/share/finance-workbench/workbench.log\n\tstderr path = /Users/a77/.local/share/finance-workbench/workbench.err.log\n\tinherited environment = {\n\t\tSSH_AUTH_SOCK => /var/run/com.apple.launchd.wE72UADeq2/Listeners\n\t}\n\n\tdefault environment = {\n\t\tPATH => /usr/bin:/bin:/usr/sbin:/sbin\n\t}\n\n\tenvironment = {\n\t\tOSLogRateLimit => 64\n\t\tXPC_SERVICE_NAME => com.a77.finance-workbench\n\t}\n\n\tdomain = gui/501 [100002]\n\tasid = 100002\n\tminimum runtime = 10\n\texit timeout = 5\n\truns = 2\n\tpid = 97914\n\timmediate reason = inefficient\n\tforks = 15\n\texecs = 3\n\tinitialized = 1\n\ttrampolined = 1\n\tstarted suspended = 0\n\tproxy started suspended = 0\n\tchecked allocations = 0 (queried = 1)\n\tchecked allocations reason = no host\n\tchecked allocations flags = 0x0\n\tlast terminating signal = Terminated: 15\n\n\tresource coalition = {\n\t\tID = 361011\n\t\ttype = resource\n\t\tstate = active\n\t\tactive count = 1\n\t\tname = com.a77.finance-workbench\n\t}\n\n\tjetsam coalition = {\n\t\tID = 361012\n\t\ttype = jetsam\n\t\tstate = active\n\t\tactive count = 1\n\t\tname = com.a77.finance-workbench\n\t}\n\n\tspawn type = daemon (3)\n\tjetsam priority = 40\n\tjetsam memory limit (active) = (unlimited)\n\tjetsam memory limit (inactive) = (unlimited)\n\tjetsamproperties category = daemon\n\tjetsam thread limit = 32\n\tcpumon = default\n\n\tproperties = keepalive | runatload | inferred program\n}\n",
+      "stderr": "",
+      "at": "2026-09-21T18:42:59.652723+08:00"
+    },
+    {
+      "argv": [
+        "/bin/zsh",
+        "/Users/a77/fwp-wt-nightly-deploy-closeout-0921/scripts/install_eval_launchd.sh",
+        "--nightly-only",
+        "--dry-run"
+      ],
+      "exit_code": 0,
+      "stdout": "script /Users/a77/fwp-wt-nightly-deploy-closeout-0921/skills/daily-full-review/scripts/nightly_full_review.sh -> /Users/a77/.local/bin/nightly_full_review.sh\nscript /Users/a77/fwp-wt-nightly-deploy-closeout-0921/skills/daily-full-review/scripts/nightly_full_review_s7.sh -> /Users/a77/.local/bin/nightly-full-review-s7.sh\nplist /Users/a77/fwp-wt-nightly-deploy-closeout-0921/intelligence/dream/com.financeworkspace.daily-full-review-sync.plist -> /Users/a77/Library/LaunchAgents/com.financeworkspace.daily-full-review-sync.plist\nplist /Users/a77/fwp-wt-nightly-deploy-closeout-0921/intelligence/dream/com.financeworkspace.daily-full-review-finalize.plist -> /Users/a77/Library/LaunchAgents/com.financeworkspace.daily-full-review-finalize.plist\njob com.financeworkspace.daily-full-review-sync (kickstart=0)\njob com.financeworkspace.daily-full-review-finalize (kickstart=0)\ndry-run: 2 jobs validated; no files copied or services changed\n",
+      "stderr": "",
+      "at": "2026-09-21T18:43:00.217412+08:00"
+    },
+    {
+      "argv": [
+        "launchctl",
+        "print",
+        "gui/501/com.financeworkspace.daily-full-review-sync"
+      ],
+      "exit_code": 0,
+      "stdout": "gui/501/com.financeworkspace.daily-full-review-sync = {\n\tactive count = 0\n\tpath = /Users/a77/Library/LaunchAgents/com.financeworkspace.daily-full-review-sync.plist\n\ttype = LaunchAgent\n\tstate = not running\n\n\tprogram = /bin/zsh\n\targuments = {\n\t\t/bin/zsh\n\t\t/Users/a77/.local/bin/nightly-full-review-s7.sh\n\t\tsync\n\t}\n\n\tworking directory = /Users/a77/finance-workspace-private\n\n\tstdout path = /Users/a77/finance-workspace-private/logs/daily-full-review.out.log\n\tstderr path = /Users/a77/finance-workspace-private/logs/daily-full-review.err.log\n\tinherited environment = {\n\t\tSSH_AUTH_SOCK => /var/run/com.apple.launchd.wE72UADeq2/Listeners\n\t}\n\n\tdefault environment = {\n\t\tPATH => /usr/bin:/bin:/usr/sbin:/sbin\n\t}\n\n\tenvironment = {\n\t\tOSLogRateLimit => 64\n\t\tREVIEW_GATE_LOCK_ATTEMPTS => 36\n\t\tMARKET_FEATURE_STORE_DB => /Users/a77/finance-workspace-private/db/market_feature_store.duckdb\n\t\tFINANCE_SYNC_PYTHON => /Users/a77/finance-workspace-private/.venv-workbench/bin/python\n\t\tFINANCE_SYNC_CODE_ROOT => /Users/a77/finance-workspace-sync\n\t\tFINANCE_PYTHON => /Users/a77/finance-workspace-private/.venv-workbench/bin/python\n\t\tREVIEW_GATE_LOCK_DELAY_SECONDS => 10\n\t\tFINANCE_OPS_HEALTH_LOG => /Users/a77/.finance-runtime/ops-health.log\n\t\tREVIEW_SYNC_PLAN => local\n\t\tFINANCE_DATA_ROOT => /Users/a77/finance-workspace-private\n\t\tFINANCE_WS => /Users/a77/finance-workspace-private\n\t\tFINANCE_CODE_ROOT => /Users/a77/finance-workspace-runtime\n\t\tXPC_SERVICE_NAME => com.financeworkspace.daily-full-review-sync\n\t}\n\n\tdomain = gui/501 [100002]\n\tasid = 100002\n\tminimum runtime = 10\n\texit timeout = 5\n\truns = 4\n\tlast exit code = 2\n\n\tevent triggers = {\n\t\tcom.financeworkspace.daily-full-review-sync.268435497 => {\n\t\t\tkeepalive = 0\n\t\t\tservice = com.financeworkspace.daily-full-review-sync\n\t\t\tstream = com.apple.launchd.calendarinterval\n\t\t\tmonitor = com.apple.UserEventAgent-Aqua\n\t\t\tdescriptor = {\n\t\t\t\t\"Minute\" => 30\n\t\t\t\t\"Hour\" => 18\n\t\t\t}\n\t\t}\n\t}\n\n\tevent channels = {\n\t\t\"com.apple.launchd.calendarinterval\" = {\n\t\t\tport = 0x11f783\n\t\t\tactive = 0\n\t\t\tmanaged = 1\n\t\t\treset = 0\n\t\t\thide = 0\n\t\t\twatching = 1\n\t\t}\n\t}\n\n\tresource coalition = {\n\t\tID = 294768\n\t\ttype = resource\n\t\tstate = active\n\t\tactive count = 1\n\t\tname = com.financeworkspace.daily-full-review-sync\n\t}\n\n\tjetsam coalition = {\n\t\tID = 294769\n\t\ttype = jetsam\n\t\tstate = active\n\t\tactive count = 1\n\t\tname = com.financeworkspace.daily-full-review-sync\n\t}\n\n\tspawn type = daemon (3)\n\tjetsam priority = 40\n\tjetsam memory limit (active) = (unlimited)\n\tjetsam memory limit (inactive) = (unlimited)\n\tjetsamproperties category = daemon\n\tjetsam thread limit = 32\n\tcpumon = default\n\n\tproperties = inferred program\n}\n",
+      "stderr": "",
+      "at": "2026-09-21T18:43:00.222171+08:00"
+    },
+    {
+      "argv": [
+        "launchctl",
+        "print",
+        "gui/501/com.financeworkspace.daily-full-review-finalize"
+      ],
+      "exit_code": 0,
+      "stdout": "gui/501/com.financeworkspace.daily-full-review-finalize = {\n\tactive count = 0\n\tpath = /Users/a77/Library/LaunchAgents/com.financeworkspace.daily-full-review-finalize.plist\n\ttype = LaunchAgent\n\tstate = not running\n\n\tprogram = /bin/zsh\n\targuments = {\n\t\t/bin/zsh\n\t\t/Users/a77/.local/bin/nightly_full_review.sh\n\t\tfinalize\n\t}\n\n\tworking directory = /Users/a77/finance-workspace-private\n\n\tstdout path = /Users/a77/finance-workspace-private/logs/daily-full-review.out.log\n\tstderr path = /Users/a77/finance-workspace-private/logs/daily-full-review.err.log\n\tinherited environment = {\n\t\tSSH_AUTH_SOCK => /var/run/com.apple.launchd.wE72UADeq2/Listeners\n\t}\n\n\tdefault environment = {\n\t\tPATH => /usr/bin:/bin:/usr/sbin:/sbin\n\t}\n\n\tenvironment = {\n\t\tOSLogRateLimit => 64\n\t\tREVIEW_GATE_LOCK_ATTEMPTS => 36\n\t\tMARKET_FEATURE_STORE_DB => /Users/a77/finance-workspace-private/db/market_feature_store.duckdb\n\t\tFINANCE_SYNC_CODE_ROOT => /Users/a77/finance-workspace-sync\n\t\tFINANCE_PYTHON => /Users/a77/finance-workspace-private/.venv-workbench/bin/python\n\t\tFINANCE_GENERATION_CODE_ROOT => /Users/a77/.finance-runtime/finance-generation-387028b846a2\n\t\tREVIEW_GATE_LOCK_DELAY_SECONDS => 10\n\t\tFINANCE_OPS_HEALTH_LOG => /Users/a77/.finance-runtime/ops-health.log\n\t\tREVIEW_SYNC_PLAN => local\n\t\tFORESIGHT_USERS_DIR => /Users/a77/.local/share/finance-workbench/users\n\t\tFINANCE_DATA_ROOT => /Users/a77/finance-workspace-private\n\t\tFINANCE_WS => /Users/a77/finance-workspace-private\n\t\tFINANCE_CODE_ROOT => /Users/a77/.finance-runtime/finance-l2-d433b90788c0\n\t\tFORESIGHT_USER => linxiaoqi5111\n\t\tXPC_SERVICE_NAME => com.financeworkspace.daily-full-review-finalize\n\t}\n\n\tdomain = gui/501 [100002]\n\tasid = 100002\n\tminimum runtime = 10\n\texit timeout = 5\n\truns = 4\n\tlast exit code = 0\n\n\tevent triggers = {\n\t\tcom.financeworkspace.daily-full-review-finalize.268435499 => {\n\t\t\tkeepalive = 0\n\t\t\tservice = com.financeworkspace.daily-full-review-finalize\n\t\t\tstream = com.apple.launchd.calendarinterval\n\t\t\tmonitor = com.apple.UserEventAgent-Aqua\n\t\t\tdescriptor = {\n\t\t\t\t\"Minute\" => 40\n\t\t\t\t\"Hour\" => 20\n\t\t\t}\n\t\t}\n\t}\n\n\tevent channels = {\n\t\t\"com.apple.launchd.calendarinterval\" = {\n\t\t\tport = 0xaa0c3\n\t\t\tactive = 0\n\t\t\tmanaged = 1\n\t\t\treset = 0\n\t\t\thide = 0\n\t\t\twatching = 1\n\t\t}\n\t}\n\n\tresource coalition = {\n\t\tID = 283935\n\t\ttype = resource\n\t\tstate = active\n\t\tactive count = 1\n\t\tname = com.financeworkspace.daily-full-review-finalize\n\t}\n\n\tjetsam coalition = {\n\t\tID = 283936\n\t\ttype = jetsam\n\t\tstate = active\n\t\tactive count = 1\n\t\tname = com.financeworkspace.daily-full-review-finalize\n\t}\n\n\tspawn type = daemon (3)\n\tjetsam priority = 40\n\tjetsam memory limit (active) = (unlimited)\n\tjetsam memory limit (inactive) = (unlimited)\n\tjetsamproperties category = daemon\n\tjetsam thread limit = 32\n\tcpumon = default\n\n\tproperties = inferred program\n}\n",
+      "stderr": "",
+      "at": "2026-09-21T18:43:00.225879+08:00"
+    },
+    {
+      "argv": [
+        "launchctl",
+        "bootout",
+        "gui/501/com.financeworkspace.daily-full-review-sync"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "at": "2026-09-21T18:43:00.229975+08:00"
+    },
+    {
+      "argv": [
+        "launchctl",
+        "bootout",
+        "gui/501/com.financeworkspace.daily-full-review-finalize"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "at": "2026-09-21T18:43:00.233521+08:00"
+    },
+    {
+      "argv": [
+        "/bin/zsh",
+        "/Users/a77/fwp-wt-nightly-deploy-closeout-0921/scripts/install_eval_launchd.sh",
+        "--nightly-only"
+      ],
+      "exit_code": 0,
+      "stdout": "script /Users/a77/fwp-wt-nightly-deploy-closeout-0921/skills/daily-full-review/scripts/nightly_full_review.sh -> /Users/a77/.local/bin/nightly_full_review.sh\nscript /Users/a77/fwp-wt-nightly-deploy-closeout-0921/skills/daily-full-review/scripts/nightly_full_review_s7.sh -> /Users/a77/.local/bin/nightly-full-review-s7.sh\nplist /Users/a77/fwp-wt-nightly-deploy-closeout-0921/intelligence/dream/com.financeworkspace.daily-full-review-sync.plist -> /Users/a77/Library/LaunchAgents/com.financeworkspace.daily-full-review-sync.plist\nplist /Users/a77/fwp-wt-nightly-deploy-closeout-0921/intelligence/dream/com.financeworkspace.daily-full-review-finalize.plist -> /Users/a77/Library/LaunchAgents/com.financeworkspace.daily-full-review-finalize.plist\njob com.financeworkspace.daily-full-review-sync (kickstart=0)\njob com.financeworkspace.daily-full-review-finalize (kickstart=0)\ninstalled 2 jobs from /Users/a77/fwp-wt-nightly-deploy-closeout-0921 (kickstart=0); 8792 untouched\n",
+      "stderr": "",
+      "at": "2026-09-21T18:43:00.294351+08:00"
+    },
+    {
+      "argv": [
+        "launchctl",
+        "print",
+        "gui/501/com.financeworkspace.daily-full-review-sync"
+      ],
+      "exit_code": 0,
+      "stdout": "gui/501/com.financeworkspace.daily-full-review-sync = {\n\tactive count = 0\n\tpath = /Users/a77/Library/LaunchAgents/com.financeworkspace.daily-full-review-sync.plist\n\ttype = LaunchAgent\n\tstate = not running\n\n\tprogram = /bin/zsh\n\targuments = {\n\t\t/bin/zsh\n\t\t/Users/a77/.local/bin/nightly-full-review-s7.sh\n\t\tsync\n\t}\n\n\tworking directory = /Users/a77/finance-workspace-private\n\n\tstdout path = /Users/a77/finance-workspace-private/logs/daily-full-review.out.log\n\tstderr path = /Users/a77/finance-workspace-private/logs/daily-full-review.err.log\n\tinherited environment = {\n\t\tSSH_AUTH_SOCK => /var/run/com.apple.launchd.wE72UADeq2/Listeners\n\t}\n\n\tdefault environment = {\n\t\tPATH => /usr/bin:/bin:/usr/sbin:/sbin\n\t}\n\n\tenvironment = {\n\t\tOSLogRateLimit => 64\n\t\tREVIEW_GATE_LOCK_ATTEMPTS => 36\n\t\tMARKET_FEATURE_STORE_DB => /Users/a77/finance-workspace-private/db/market_feature_store.duckdb\n\t\tFINANCE_SYNC_PYTHON => /Users/a77/finance-workspace-private/.venv-workbench/bin/python\n\t\tFINANCE_PYTHON => /Users/a77/finance-workspace-private/.venv-workbench/bin/python\n\t\tFINANCE_SYNC_CODE_ROOT => /Users/a77/.finance-runtime/finance-sync-adcda94b5e40\n\t\tREVIEW_GATE_LOCK_DELAY_SECONDS => 10\n\t\tFINANCE_OPS_HEALTH_LOG => /Users/a77/.finance-runtime/ops-health.log\n\t\tREVIEW_SYNC_PLAN => local\n\t\tFINANCE_DATA_ROOT => /Users/a77/finance-workspace-private\n\t\tFINANCE_WS => /Users/a77/finance-workspace-private\n\t\tFINANCE_CODE_ROOT => /Users/a77/.finance-runtime/finance-sync-adcda94b5e40\n\t\tXPC_SERVICE_NAME => com.financeworkspace.daily-full-review-sync\n\t}\n\n\tdomain = gui/501 [100002]\n\tasid = 100002\n\tminimum runtime = 10\n\texit timeout = 5\n\truns = 0\n\tlast exit code = (never exited)\n\n\tevent triggers = {\n\t\tcom.financeworkspace.daily-full-review-sync.268435500 => {\n\t\t\tkeepalive = 0\n\t\t\tservice = com.financeworkspace.daily-full-review-sync\n\t\t\tstream = com.apple.launchd.calendarinterval\n\t\t\tmonitor = com.apple.UserEventAgent-Aqua\n\t\t\tdescriptor = {\n\t\t\t\t\"Minute\" => 30\n\t\t\t\t\"Hour\" => 18\n\t\t\t}\n\t\t}\n\t}\n\n\tevent channels = {\n\t\t\"com.apple.launchd.calendarinterval\" = {\n\t\t\tport = 0x0\n\t\t\tactive = 0\n\t\t\tmanaged = 1\n\t\t\treset = 0\n\t\t\thide = 0\n\t\t\twatching = 1\n\t\t}\n\t}\n\n\tspawn type = daemon (3)\n\tjetsam priority = 40\n\tjetsam memory limit (active) = (unlimited)\n\tjetsam memory limit (inactive) = (unlimited)\n\tjetsamproperties category = daemon\n\tjetsam thread limit = 32\n\tcpumon = default\n\n\tproperties = inferred program\n}\n",
+      "stderr": "",
+      "at": "2026-09-21T18:43:00.298148+08:00"
+    },
+    {
+      "argv": [
+        "launchctl",
+        "print",
+        "gui/501/com.financeworkspace.daily-full-review-finalize"
+      ],
+      "exit_code": 0,
+      "stdout": "gui/501/com.financeworkspace.daily-full-review-finalize = {\n\tactive count = 0\n\tpath = /Users/a77/Library/LaunchAgents/com.financeworkspace.daily-full-review-finalize.plist\n\ttype = LaunchAgent\n\tstate = not running\n\n\tprogram = /bin/zsh\n\targuments = {\n\t\t/bin/zsh\n\t\t/Users/a77/.local/bin/nightly_full_review.sh\n\t\tfinalize\n\t}\n\n\tworking directory = /Users/a77/finance-workspace-private\n\n\tstdout path = /Users/a77/finance-workspace-private/logs/daily-full-review.out.log\n\tstderr path = /Users/a77/finance-workspace-private/logs/daily-full-review.err.log\n\tinherited environment = {\n\t\tSSH_AUTH_SOCK => /var/run/com.apple.launchd.wE72UADeq2/Listeners\n\t}\n\n\tdefault environment = {\n\t\tPATH => /usr/bin:/bin:/usr/sbin:/sbin\n\t}\n\n\tenvironment = {\n\t\tOSLogRateLimit => 64\n\t\tFINANCE_SYNC_CODE_ROOT => /Users/a77/.finance-runtime/finance-sync-adcda94b5e40\n\t\tREVIEW_GATE_LOCK_ATTEMPTS => 36\n\t\tMARKET_FEATURE_STORE_DB => /Users/a77/finance-workspace-private/db/market_feature_store.duckdb\n\t\tFINANCE_PYTHON => /Users/a77/finance-workspace-private/.venv-workbench/bin/python\n\t\tFINANCE_GENERATION_CODE_ROOT => /Users/a77/.finance-runtime/finance-generation-adcda94b5e40\n\t\tREVIEW_GATE_LOCK_DELAY_SECONDS => 10\n\t\tFINANCE_OPS_HEALTH_LOG => /Users/a77/.finance-runtime/ops-health.log\n\t\tREVIEW_SYNC_PLAN => local\n\t\tFORESIGHT_USERS_DIR => /Users/a77/.local/share/finance-workbench/users\n\t\tFINANCE_DATA_ROOT => /Users/a77/finance-workspace-private\n\t\tFINANCE_WS => /Users/a77/finance-workspace-private\n\t\tFINANCE_CODE_ROOT => /Users/a77/.finance-runtime/finance-l2-adcda94b5e40\n\t\tFORESIGHT_USER => linxiaoqi5111\n\t\tXPC_SERVICE_NAME => com.financeworkspace.daily-full-review-finalize\n\t}\n\n\tdomain = gui/501 [100002]\n\tasid = 100002\n\tminimum runtime = 10\n\texit timeout = 5\n\truns = 0\n\tlast exit code = (never exited)\n\n\tevent triggers = {\n\t\tcom.financeworkspace.daily-full-review-finalize.268435501 => {\n\t\t\tkeepalive = 0\n\t\t\tservice = com.financeworkspace.daily-full-review-finalize\n\t\t\tstream = com.apple.launchd.calendarinterval\n\t\t\tmonitor = com.apple.UserEventAgent-Aqua\n\t\t\tdescriptor = {\n\t\t\t\t\"Minute\" => 40\n\t\t\t\t\"Hour\" => 20\n\t\t\t}\n\t\t}\n\t}\n\n\tevent channels = {\n\t\t\"com.apple.launchd.calendarinterval\" = {\n\t\t\tport = 0x0\n\t\t\tactive = 0\n\t\t\tmanaged = 1\n\t\t\treset = 0\n\t\t\thide = 0\n\t\t\twatching = 1\n\t\t}\n\t}\n\n\tspawn type = daemon (3)\n\tjetsam priority = 40\n\tjetsam memory limit (active) = (unlimited)\n\tjetsam memory limit (inactive) = (unlimited)\n\tjetsamproperties category = daemon\n\tjetsam thread limit = 32\n\tcpumon = default\n\n\tproperties = inferred program\n}\n",
+      "stderr": "",
+      "at": "2026-09-21T18:43:00.301733+08:00"
+    },
+    {
+      "argv": [
+        "launchctl",
+        "print",
+        "gui/501/com.financeworkspace.fidelity-daily-agent"
+      ],
+      "exit_code": 0,
+      "stdout": "gui/501/com.financeworkspace.fidelity-daily-agent = {\n\tactive count = 0\n\tpath = /Users/a77/Library/LaunchAgents/com.financeworkspace.fidelity-daily-agent.plist\n\ttype = LaunchAgent\n\tstate = not running\n\n\tprogram = /bin/zsh\n\targuments = {\n\t\t/bin/zsh\n\t\t/Users/a77/.local/bin/run_fidelity_daily_agent.sh\n\t}\n\n\tworking directory = /Users/a77/finance-workspace-runtime\n\n\tstdout path = /Users/a77/fidelity-runtime/logs/fidelity-daily-agent.out.log\n\tstderr path = /Users/a77/fidelity-runtime/logs/fidelity-daily-agent.err.log\n\tinherited environment = {\n\t\tSSH_AUTH_SOCK => /var/run/com.apple.launchd.wE72UADeq2/Listeners\n\t}\n\n\tdefault environment = {\n\t\tPATH => /usr/bin:/bin:/usr/sbin:/sbin\n\t}\n\n\tenvironment = {\n\t\tOSLogRateLimit => 64\n\t\tMARKET_FEATURE_STORE_DB => /Users/a77/finance-workspace-private/db/market_feature_store.duckdb\n\t\tFINANCE_PYTHON => /Users/a77/finance-workspace-private/.venv-workbench/bin/python\n\t\tFINANCE_OPS_HEALTH_LOG => /Users/a77/.finance-runtime/ops-health.log\n\t\tFIDELITY_RUNTIME_ROOT => /Users/a77/fidelity-runtime\n\t\tFINANCE_WS => /Users/a77/finance-workspace-private\n\t\tFINANCE_CODE_ROOT => /Users/a77/finance-workspace-runtime\n\t\tKNOWLEDGE_WIKI => /Users/a77/knowledge-base-private/wiki\n\t\tXPC_SERVICE_NAME => com.financeworkspace.fidelity-daily-agent\n\t}\n\n\tdomain = gui/501 [100002]\n\tasid = 100002\n\tminimum runtime = 10\n\texit timeout = 5\n\truns = 14\n\tlast exit code = 0\n\n\tevent triggers = {\n\t\tcom.financeworkspace.fidelity-daily-agent.268435473 => {\n\t\t\tkeepalive = 0\n\t\t\tservice = com.financeworkspace.fidelity-daily-agent\n\t\t\tstream = com.apple.launchd.calendarinterval\n\t\t\tmonitor = com.apple.UserEventAgent-Aqua\n\t\t\tdescriptor = {\n\t\t\t\t\"Minute\" => 5\n\t\t\t\t\"Hour\" => 20\n\t\t\t}\n\t\t}\n\t}\n\n\tevent channels = {\n\t\t\"com.apple.launchd.calendarinterval\" = {\n\t\t\tport = 0x5f203\n\t\t\tactive = 0\n\t\t\tmanaged = 1\n\t\t\treset = 0\n\t\t\thide = 0\n\t\t\twatching = 1\n\t\t}\n\t}\n\n\tresource coalition = {\n\t\tID = 25260\n\t\ttype = resource\n\t\tstate = active\n\t\tactive count = 1\n\t\tname = com.financeworkspace.fidelity-daily-agent\n\t}\n\n\tjetsam coalition = {\n\t\tID = 25261\n\t\ttype = jetsam\n\t\tstate = active\n\t\tactive count = 1\n\t\tname = com.financeworkspace.fidelity-daily-agent\n\t}\n\n\tspawn type = daemon (3)\n\tjetsam priority = 40\n\tjetsam memory limit (active) = (unlimited)\n\tjetsam memory limit (inactive) = (unlimited)\n\tjetsamproperties category = daemon\n\tjetsam thread limit = 32\n\tcpumon = default\n\n\tproperties = inferred program | managed LWCR | has LWCR\n}\n",
+      "stderr": "",
+      "at": "2026-09-21T18:43:00.557725+08:00"
+    },
+    {
+      "argv": [
+        "launchctl",
+        "print",
+        "gui/501/com.financeworkspace.fidelity-forward-acceptance"
+      ],
+      "exit_code": 0,
+      "stdout": "gui/501/com.financeworkspace.fidelity-forward-acceptance = {\n\tactive count = 0\n\tpath = /Users/a77/Library/LaunchAgents/com.financeworkspace.fidelity-forward-acceptance.plist\n\ttype = LaunchAgent\n\tstate = not running\n\n\tprogram = /bin/zsh\n\targuments = {\n\t\t/bin/zsh\n\t\t/Users/a77/.local/bin/run_fidelity_forward_acceptance.sh\n\t}\n\n\tworking directory = /Users/a77/finance-workspace-runtime\n\n\tstdout path = /Users/a77/fidelity-runtime/logs/fidelity-forward-acceptance.out.log\n\tstderr path = /Users/a77/fidelity-runtime/logs/fidelity-forward-acceptance.err.log\n\tinherited environment = {\n\t\tSSH_AUTH_SOCK => /var/run/com.apple.launchd.wE72UADeq2/Listeners\n\t}\n\n\tdefault environment = {\n\t\tPATH => /usr/bin:/bin:/usr/sbin:/sbin\n\t}\n\n\tenvironment = {\n\t\tOSLogRateLimit => 64\n\t\tMARKET_FEATURE_STORE_DB => /Users/a77/finance-workspace-private/db/market_feature_store.duckdb\n\t\tFINANCE_PYTHON => /Users/a77/finance-workspace-private/.venv-workbench/bin/python\n\t\tFINANCE_OPS_HEALTH_LOG => /Users/a77/.finance-runtime/ops-health.log\n\t\tFIDELITY_RUNTIME_ROOT => /Users/a77/fidelity-runtime\n\t\tPIT_SNAPSHOT_DIR => /Users/a77/fidelity-replay/pit-snapshots\n\t\tFINANCE_WS => /Users/a77/finance-workspace-private\n\t\tFINANCE_CODE_ROOT => /Users/a77/finance-workspace-runtime\n\t\tXPC_SERVICE_NAME => com.financeworkspace.fidelity-forward-acceptance\n\t}\n\n\tdomain = gui/501 [100002]\n\tasid = 100002\n\tminimum runtime = 10\n\texit timeout = 5\n\truns = 14\n\tlast exit code = 0\n\n\tevent triggers = {\n\t\tcom.financeworkspace.fidelity-forward-acceptance.268435470 => {\n\t\t\tkeepalive = 0\n\t\t\tservice = com.financeworkspace.fidelity-forward-acceptance\n\t\t\tstream = com.apple.launchd.calendarinterval\n\t\t\tmonitor = com.apple.UserEventAgent-Aqua\n\t\t\tdescriptor = {\n\t\t\t\t\"Minute\" => 45\n\t\t\t\t\"Hour\" => 20\n\t\t\t}\n\t\t}\n\t}\n\n\tevent channels = {\n\t\t\"com.apple.launchd.calendarinterval\" = {\n\t\t\tport = 0x51b4b\n\t\t\tactive = 0\n\t\t\tmanaged = 1\n\t\t\treset = 0\n\t\t\thide = 0\n\t\t\twatching = 1\n\t\t}\n\t}\n\n\tresource coalition = {\n\t\tID = 26362\n\t\ttype = resource\n\t\tstate = active\n\t\tactive count = 1\n\t\tname = com.financeworkspace.fidelity-forward-acceptance\n\t}\n\n\tjetsam coalition = {\n\t\tID = 26363\n\t\ttype = jetsam\n\t\tstate = active\n\t\tactive count = 1\n\t\tname = com.financeworkspace.fidelity-forward-acceptance\n\t}\n\n\tspawn type = daemon (3)\n\tjetsam priority = 40\n\tjetsam memory limit (active) = (unlimited)\n\tjetsam memory limit (inactive) = (unlimited)\n\tjetsamproperties category = daemon\n\tjetsam thread limit = 32\n\tcpumon = default\n\n\tproperties = inferred program | managed LWCR | has LWCR\n}\n",
+      "stderr": "",
+      "at": "2026-09-21T18:43:00.561624+08:00"
+    },
+    {
+      "argv": [
+        "launchctl",
+        "print",
+        "gui/501/com.financeworkspace.pit-snapshot"
+      ],
+      "exit_code": 0,
+      "stdout": "gui/501/com.financeworkspace.pit-snapshot = {\n\tactive count = 0\n\tpath = /Users/a77/Library/LaunchAgents/com.financeworkspace.pit-snapshot.plist\n\ttype = LaunchAgent\n\tstate = not running\n\n\tprogram = /bin/zsh\n\targuments = {\n\t\t/bin/zsh\n\t\t/Users/a77/.local/bin/freeze_daily_pit_snapshot.sh\n\t}\n\n\tworking directory = /Users/a77/finance-workspace-runtime\n\n\tstdout path = /Users/a77/fidelity-runtime/logs/pit-snapshot.out.log\n\tstderr path = /Users/a77/fidelity-runtime/logs/pit-snapshot.err.log\n\tinherited environment = {\n\t\tSSH_AUTH_SOCK => /var/run/com.apple.launchd.wE72UADeq2/Listeners\n\t}\n\n\tdefault environment = {\n\t\tPATH => /usr/bin:/bin:/usr/sbin:/sbin\n\t}\n\n\tenvironment = {\n\t\tOSLogRateLimit => 64\n\t\tPIT_DAILY_AGENT_DIR => /Users/a77/finance-workspace-private/market_feature_store/exports\n\t\tPIT_SNAPSHOT_DB => /Users/a77/finance-workspace-private/db/market_feature_store.duckdb\n\t\tFINANCE_PYTHON => /Users/a77/finance-workspace-private/.venv-workbench/bin/python\n\t\tPIT_KNOWLEDGE_ROOT => /Users/a77/knowledge-base-private\n\t\tFINANCE_OPS_HEALTH_LOG => /Users/a77/.finance-runtime/ops-health.log\n\t\tPIT_SNAPSHOT_DIR => /Users/a77/fidelity-replay/pit-snapshots\n\t\tFINANCE_WS => /Users/a77/finance-workspace-private\n\t\tFINANCE_CODE_ROOT => /Users/a77/finance-workspace-runtime\n\t\tXPC_SERVICE_NAME => com.financeworkspace.pit-snapshot\n\t}\n\n\tdomain = gui/501 [100002]\n\tasid = 100002\n\tminimum runtime = 10\n\texit timeout = 5\n\truns = 14\n\tlast exit code = 0\n\n\tevent triggers = {\n\t\tcom.financeworkspace.pit-snapshot.268435476 => {\n\t\t\tkeepalive = 0\n\t\t\tservice = com.financeworkspace.pit-snapshot\n\t\t\tstream = com.apple.launchd.calendarinterval\n\t\t\tmonitor = com.apple.UserEventAgent-Aqua\n\t\t\tdescriptor = {\n\t\t\t\t\"Minute\" => 30\n\t\t\t\t\"Hour\" => 20\n\t\t\t}\n\t\t}\n\t}\n\n\tevent channels = {\n\t\t\"com.apple.launchd.calendarinterval\" = {\n\t\t\tport = 0x9ad03\n\t\t\tactive = 0\n\t\t\tmanaged = 1\n\t\t\treset = 0\n\t\t\thide = 0\n\t\t\twatching = 1\n\t\t}\n\t}\n\n\tresource coalition = {\n\t\tID = 25884\n\t\ttype = resource\n\t\tstate = active\n\t\tactive count = 1\n\t\tname = com.financeworkspace.pit-snapshot\n\t}\n\n\tjetsam coalition = {\n\t\tID = 25885\n\t\ttype = jetsam\n\t\tstate = active\n\t\tactive count = 1\n\t\tname = com.financeworkspace.pit-snapshot\n\t}\n\n\tspawn type = daemon (3)\n\tjetsam priority = 40\n\tjetsam memory limit (active) = (unlimited)\n\tjetsam memory limit (inactive) = (unlimited)\n\tjetsamproperties category = daemon\n\tjetsam thread limit = 32\n\tcpumon = default\n\n\tproperties = inferred program | managed LWCR | has LWCR\n}\n",
+      "stderr": "",
+      "at": "2026-09-21T18:43:00.565420+08:00"
+    },
+    {
+      "argv": [
+        "launchctl",
+        "print",
+        "gui/501/com.financeworkspace.checkpoint-recheck"
+      ],
+      "exit_code": 0,
+      "stdout": "gui/501/com.financeworkspace.checkpoint-recheck = {\n\tactive count = 0\n\tpath = /Users/a77/Library/LaunchAgents/com.financeworkspace.checkpoint-recheck.plist\n\ttype = LaunchAgent\n\tstate = not running\n\n\tprogram = /bin/zsh\n\targuments = {\n\t\t/bin/zsh\n\t\t/Users/a77/.local/bin/run_checkpoint_recheck.sh\n\t}\n\n\tworking directory = /Users/a77/finance-workspace-runtime\n\n\tstdout path = /Users/a77/.finance-runtime/logs/checkpoint-recheck.out.log\n\tstderr path = /Users/a77/.finance-runtime/logs/checkpoint-recheck.err.log\n\tinherited environment = {\n\t\tSSH_AUTH_SOCK => /var/run/com.apple.launchd.wE72UADeq2/Listeners\n\t}\n\n\tdefault environment = {\n\t\tPATH => /usr/bin:/bin:/usr/sbin:/sbin\n\t}\n\n\tenvironment = {\n\t\tOSLogRateLimit => 64\n\t\tSUBCONSCIOUS_VAULT => /Users/a77/agent-memory\n\t\tMARKET_FEATURE_STORE_DB => /Users/a77/finance-workspace-private/db/market_feature_store.duckdb\n\t\tFINANCE_PYTHON => /Users/a77/finance-workspace-private/.venv-workbench/bin/python\n\t\tFINANCE_OPS_HEALTH_LOG => /Users/a77/.finance-runtime/ops-health.log\n\t\tFORESIGHT_USERS_DIR => /Users/a77/.local/share/finance-workbench/users\n\t\tFINANCE_WS => /Users/a77/finance-workspace-private\n\t\tFINANCE_CODE_ROOT => /Users/a77/finance-workspace-runtime\n\t\tFORESIGHT_USER => linxiaoqi5111\n\t\tKNOWLEDGE_WIKI => /Users/a77/knowledge-base-private/wiki\n\t\tXPC_SERVICE_NAME => com.financeworkspace.checkpoint-recheck\n\t}\n\n\tdomain = gui/501 [100002]\n\tasid = 100002\n\tminimum runtime = 10\n\texit timeout = 5\n\truns = 15\n\tlast exit code = 0\n\n\tevent triggers = {\n\t\tcom.financeworkspace.checkpoint-recheck.268435487 => {\n\t\t\tkeepalive = 0\n\t\t\tservice = com.financeworkspace.checkpoint-recheck\n\t\t\tstream = com.apple.launchd.calendarinterval\n\t\t\tmonitor = com.apple.UserEventAgent-Aqua\n\t\t\tdescriptor = {\n\t\t\t\t\"Minute\" => 50\n\t\t\t\t\"Hour\" => 3\n\t\t\t}\n\t\t}\n\t}\n\n\tevent channels = {\n\t\t\"com.apple.launchd.calendarinterval\" = {\n\t\t\tport = 0xf6cd3\n\t\t\tactive = 0\n\t\t\tmanaged = 1\n\t\t\treset = 0\n\t\t\thide = 0\n\t\t\twatching = 1\n\t\t}\n\t}\n\n\tresource coalition = {\n\t\tID = 11378\n\t\ttype = resource\n\t\tstate = active\n\t\tactive count = 1\n\t\tname = com.financeworkspace.checkpoint-recheck\n\t}\n\n\tjetsam coalition = {\n\t\tID = 11379\n\t\ttype = jetsam\n\t\tstate = active\n\t\tactive count = 1\n\t\tname = com.financeworkspace.checkpoint-recheck\n\t}\n\n\tspawn type = daemon (3)\n\tjetsam priority = 40\n\tjetsam memory limit (active) = (unlimited)\n\tjetsam memory limit (inactive) = (unlimited)\n\tjetsamproperties category = daemon\n\tjetsam thread limit = 32\n\tcpumon = default\n\n\tproperties = inferred program | managed LWCR | has LWCR\n}\n",
+      "stderr": "",
+      "at": "2026-09-21T18:43:00.569544+08:00"
+    },
+    {
+      "argv": [
+        "launchctl",
+        "print",
+        "gui/501/com.a77.finance-workbench"
+      ],
+      "exit_code": 0,
+      "stdout": "gui/501/com.a77.finance-workbench = {\n\tactive count = 1\n\tpath = /Users/a77/Library/LaunchAgents/com.a77.finance-workbench.plist\n\ttype = LaunchAgent\n\tstate = running\n\n\tprogram = /Users/a77/.local/bin/start-finance-workbench\n\targuments = {\n\t\t/Users/a77/.local/bin/start-finance-workbench\n\t}\n\n\tstdout path = /Users/a77/.local/share/finance-workbench/workbench.log\n\tstderr path = /Users/a77/.local/share/finance-workbench/workbench.err.log\n\tinherited environment = {\n\t\tSSH_AUTH_SOCK => /var/run/com.apple.launchd.wE72UADeq2/Listeners\n\t}\n\n\tdefault environment = {\n\t\tPATH => /usr/bin:/bin:/usr/sbin:/sbin\n\t}\n\n\tenvironment = {\n\t\tOSLogRateLimit => 64\n\t\tXPC_SERVICE_NAME => com.a77.finance-workbench\n\t}\n\n\tdomain = gui/501 [100002]\n\tasid = 100002\n\tminimum runtime = 10\n\texit timeout = 5\n\truns = 2\n\tpid = 97914\n\timmediate reason = inefficient\n\tforks = 16\n\texecs = 3\n\tinitialized = 1\n\ttrampolined = 1\n\tstarted suspended = 0\n\tproxy started suspended = 0\n\tchecked allocations = 0 (queried = 1)\n\tchecked allocations reason = no host\n\tchecked allocations flags = 0x0\n\tlast terminating signal = Terminated: 15\n\n\tresource coalition = {\n\t\tID = 361011\n\t\ttype = resource\n\t\tstate = active\n\t\tactive count = 1\n\t\tname = com.a77.finance-workbench\n\t}\n\n\tjetsam coalition = {\n\t\tID = 361012\n\t\ttype = jetsam\n\t\tstate = active\n\t\tactive count = 1\n\t\tname = com.a77.finance-workbench\n\t}\n\n\tspawn type = daemon (3)\n\tjetsam priority = 40\n\tjetsam memory limit (active) = (unlimited)\n\tjetsam memory limit (inactive) = (unlimited)\n\tjetsamproperties category = daemon\n\tjetsam thread limit = 32\n\tcpumon = default\n\n\tproperties = keepalive | runatload | inferred program\n}\n",
+      "stderr": "",
+      "at": "2026-09-21T18:43:00.573719+08:00"
+    }
+  ],
+  "status": "CONFIG_DEPLOYED_NOT_EXECUTED",
+  "manual_collection": false,
+  "kickstart": false,
+  "roots_before": {
+    "sync": {
+      "path": "/Users/a77/.finance-runtime/finance-sync-adcda94b5e40",
+      "revision": "adcda94b5e401158f1c3aa51f210e1e8d0f0b713",
+      "status": ""
+    },
+    "generation": {
+      "path": "/Users/a77/.finance-runtime/finance-generation-adcda94b5e40",
+      "revision": "adcda94b5e401158f1c3aa51f210e1e8d0f0b713",
+      "status": ""
+    },
+    "l2": {
+      "path": "/Users/a77/.finance-runtime/finance-l2-adcda94b5e40",
+      "revision": "adcda94b5e401158f1c3aa51f210e1e8d0f0b713",
+      "status": ""
+    }
+  },
+  "preservation_before": {
+    "l2_files": {
+      "scripts/method_validation.py": "883e2c864f104948940a6738741a28570e07a1fea98a9312bb767caa88d3f708",
+      "scripts/moneyflow/README.md": "cb52fcfff5e375abcda4e382bc9df59d7dd6e1e63c6b58e990af5d438e656ea1",
+      "scripts/moneyflow/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "scripts/moneyflow/baidu_share.py": "692d3f0b8e7c1c7b5ce55cdbda3829bae2af167212557f8e49fd75b4d926111f",
+      "scripts/moneyflow/cdn_chunks.py": "d1d7ed810cecc1559b7f724152bbeb3dccc2da70e73846f717680351197b4cf5",
+      "scripts/moneyflow/config.py": "6b90b946492eb3171dd78d8db83ebdbe632d86be570d308bcea391fed9fbed47",
+      "scripts/moneyflow/l2_paths.py": "d7d73126521e14d57f44dfb76f2b74b40451c221b7d55414cef675d26f1a33b9",
+      "scripts/moneyflow/moneyflow.py": "53ffdc1ff13dc4027408fe609af95c30cb50a0f88369f36b90542564430d8b2c",
+      "scripts/moneyflow/probe_intraday_write.py": "7bf6288d7feb2bc44bb0b87bb05725d0605b1ea059ed3fdd60c3901342c90eb9",
+      "scripts/moneyflow/process_l2_archive.py": "c37a08e6df88688a4f1a5e9a87d4ceb39fb2d3793d03ce32b1dc246c93eb598e",
+      "scripts/moneyflow/quant_finish_remaining.py": "d049c7fff111e3f2c18b3db532fccec77e4037c2e25dd955dc3a64e8fc2e0ce1",
+      "scripts/moneyflow/run_l2_from_share.py": "0a22fa3da1c20b9116de2a3c3d9d8e4dbc64157be5df53145c51aa22fb333741",
+      "scripts/moneyflow/run_l2_pipeline.sh": "79910785a886d611bc2ee0a628d475f3488d0812f5d88f56d33c8723cb7f4e72",
+      "scripts/moneyflow/scan_limitup.py": "af2882ed60586472e2877b8dcce2413b4932483dfa47010509f94bc8a4f53d73",
+      "scripts/moneyflow/scan_quant.py": "b156f226d9ab7cbebfe88ec033a663a487135ec66492011a89a6ec2ebe3f3d47",
+      "scripts/moneyflow/scan_top100.py": "897f69cf8d9d7e417a4b974236c7e29e04f01314044b283bf5628fc894a3871d",
+      "scripts/moneyflow/server_aggregation.py": "70ec6ea24fd9894dfa9a6c68bb9d8f07a2c799d8f72d132db7f642eb4d912fed",
+      "scripts/moneyflow/write_to_duckdb.py": "eba55f7acc6e019b496d5b2fd2f17bed956202a794d606c322ee55ea32c92bba"
+    },
+    "old_sync_modified_files": {
+      "skills/daily-full-review/state/quality-2026-09-14.json": "067da7820a82d0368ab958ee65fd182d742e30f90ba7fb4a1b2a25683e556a08",
+      "skills/daily-full-review/state/quality-2026-09-15.json": "d5bd176865e32c48f9813768e637aaecb7f58d4d00185bed54a7acbd325e7c1d",
+      "skills/daily-full-review/state/quality-2026-09-17.json": "78900aa4182868dbb0d4c71550957ac4bfacec6216cb84b0db6133fd6a652e56",
+      "skills/daily-full-review/state/quality-2026-09-18.json": "31153a4436de840b51c3d60ea62becb8b70be841d9867d25a23b7f3eebc648d1",
+      "market_feature_store/sync/sync_akshare_index_daily.py": "3e3581ecd2d876bd1f8bb4685c3f479bf15544e992bfc0e8cbf5cd47972808f6",
+      "skills/daily-full-review/state/runlog.md": "11b250508cab1c76a1e39aaa17b29017c0f23df4e8e84b717aada3fd9b255b67"
+    },
+    "sync": {
+      "revision": "6382c13b7a869114727439a43f0004ab67bb36ef",
+      "status": " M market_feature_store/sync/sync_akshare_index_daily.py\n M skills/daily-full-review/state/runlog.md\n?? skills/daily-full-review/state/quality-2026-09-14.json\n?? skills/daily-full-review/state/quality-2026-09-15.json\n?? skills/daily-full-review/state/quality-2026-09-17.json\n?? skills/daily-full-review/state/quality-2026-09-18.json"
+    },
+    "l2": {
+      "revision": "d433b90788c0727d71043a992e69c20f34203257",
+      "status": ""
+    },
+    "generation": {
+      "revision": "387028b846a21a1327d964af8c4b428367f88fcf",
+      "status": ""
+    },
+    "s7": {
+      "revision": "418515c0383334558a8dd44a0e741f39085115fa",
+      "status": ""
+    }
+  },
+  "database_before": {
+    "bytes": 3703320576,
+    "mtime_ns": 1789735613821826041,
+    "inode": 167445509
+  },
+  "other_before": {
+    "com.financeworkspace.fidelity-daily-agent": {
+      "plist_sha256": "eadc0b0c70b37073adbb1f3be12e421f55c6fadb4e3ddbc251f62618c0d8587e",
+      "fields": [
+        "\tstate = not running",
+        "\tprogram = /bin/zsh",
+        "\tworking directory = /Users/a77/finance-workspace-runtime",
+        "\truns = 14",
+        "\tlast exit code = 0"
+      ],
+      "environment": "\t\tOSLogRateLimit => 64\n\t\tMARKET_FEATURE_STORE_DB => /Users/a77/finance-workspace-private/db/market_feature_store.duckdb\n\t\tFINANCE_PYTHON => /Users/a77/finance-workspace-private/.venv-workbench/bin/python\n\t\tFINANCE_OPS_HEALTH_LOG => /Users/a77/.finance-runtime/ops-health.log\n\t\tFIDELITY_RUNTIME_ROOT => /Users/a77/fidelity-runtime\n\t\tFINANCE_WS => /Users/a77/finance-workspace-private\n\t\tFINANCE_CODE_ROOT => /Users/a77/finance-workspace-runtime\n\t\tKNOWLEDGE_WIKI => /Users/a77/knowledge-base-private/wiki\n\t\tXPC_SERVICE_NAME => com.financeworkspace.fidelity-daily-agent"
+    },
+    "com.financeworkspace.fidelity-forward-acceptance": {
+      "plist_sha256": "f46fe718115f6690f33fa11075d3bba04d08c50a06791477d7975b3ae098e11e",
+      "fields": [
+        "\tstate = not running",
+        "\tprogram = /bin/zsh",
+        "\tworking directory = /Users/a77/finance-workspace-runtime",
+        "\truns = 14",
+        "\tlast exit code = 0"
+      ],
+      "environment": "\t\tOSLogRateLimit => 64\n\t\tMARKET_FEATURE_STORE_DB => /Users/a77/finance-workspace-private/db/market_feature_store.duckdb\n\t\tFINANCE_PYTHON => /Users/a77/finance-workspace-private/.venv-workbench/bin/python\n\t\tFINANCE_OPS_HEALTH_LOG => /Users/a77/.finance-runtime/ops-health.log\n\t\tFIDELITY_RUNTIME_ROOT => /Users/a77/fidelity-runtime\n\t\tPIT_SNAPSHOT_DIR => /Users/a77/fidelity-replay/pit-snapshots\n\t\tFINANCE_WS => /Users/a77/finance-workspace-private\n\t\tFINANCE_CODE_ROOT => /Users/a77/finance-workspace-runtime\n\t\tXPC_SERVICE_NAME => com.financeworkspace.fidelity-forward-acceptance"
+    },
+    "com.financeworkspace.pit-snapshot": {
+      "plist_sha256": "26a5996d59f06c9bb14564e4a856f427f2a8032d50de9a2bc06b009468d79b59",
+      "fields": [
+        "\tstate = not running",
+        "\tprogram = /bin/zsh",
+        "\tworking directory = /Users/a77/finance-workspace-runtime",
+        "\truns = 14",
+        "\tlast exit code = 0"
+      ],
+      "environment": "\t\tOSLogRateLimit => 64\n\t\tPIT_DAILY_AGENT_DIR => /Users/a77/finance-workspace-private/market_feature_store/exports\n\t\tPIT_SNAPSHOT_DB => /Users/a77/finance-workspace-private/db/market_feature_store.duckdb\n\t\tFINANCE_PYTHON => /Users/a77/finance-workspace-private/.venv-workbench/bin/python\n\t\tPIT_KNOWLEDGE_ROOT => /Users/a77/knowledge-base-private\n\t\tFINANCE_OPS_HEALTH_LOG => /Users/a77/.finance-runtime/ops-health.log\n\t\tPIT_SNAPSHOT_DIR => /Users/a77/fidelity-replay/pit-snapshots\n\t\tFINANCE_WS => /Users/a77/finance-workspace-private\n\t\tFINANCE_CODE_ROOT => /Users/a77/finance-workspace-runtime\n\t\tXPC_SERVICE_NAME => com.financeworkspace.pit-snapshot"
+    },
+    "com.financeworkspace.checkpoint-recheck": {
+      "plist_sha256": "a7807c8aadc1d0151d01ffa3b7056c3a091233cbb9d08a54a0b63373506d0c29",
+      "fields": [
+        "\tstate = not running",
+        "\tprogram = /bin/zsh",
+        "\tworking directory = /Users/a77/finance-workspace-runtime",
+        "\truns = 15",
+        "\tlast exit code = 0"
+      ],
+      "environment": "\t\tOSLogRateLimit => 64\n\t\tSUBCONSCIOUS_VAULT => /Users/a77/agent-memory\n\t\tMARKET_FEATURE_STORE_DB => /Users/a77/finance-workspace-private/db/market_feature_store.duckdb\n\t\tFINANCE_PYTHON => /Users/a77/finance-workspace-private/.venv-workbench/bin/python\n\t\tFINANCE_OPS_HEALTH_LOG => /Users/a77/.finance-runtime/ops-health.log\n\t\tFORESIGHT_USERS_DIR => /Users/a77/.local/share/finance-workbench/users\n\t\tFINANCE_WS => /Users/a77/finance-workspace-private\n\t\tFINANCE_CODE_ROOT => /Users/a77/finance-workspace-runtime\n\t\tFORESIGHT_USER => linxiaoqi5111\n\t\tKNOWLEDGE_WIKI => /Users/a77/knowledge-base-private/wiki\n\t\tXPC_SERVICE_NAME => com.financeworkspace.checkpoint-recheck"
+    },
+    "com.a77.finance-workbench": {
+      "plist_sha256": "e2f6f3653cce55044a05c1867c2694bc1524db13dc5936000b32044bad47acb9",
+      "fields": [
+        "\tstate = running",
+        "\tprogram = /Users/a77/.local/bin/start-finance-workbench",
+        "\truns = 2",
+        "\tpid = 97914"
+      ],
+      "environment": "\t\tOSLogRateLimit => 64\n\t\tXPC_SERVICE_NAME => com.a77.finance-workbench"
+    }
+  },
+  "service_before": {
+    "health": {
+      "http_status": 200,
+      "body": {
+        "status": "healthy",
+        "timestamp": "2026-09-21T18:42:59+08:00",
+        "dependencies": {
+          "repo_root": true,
+          "knowledge_wiki": true,
+          "relations": true,
+          "vector_index": true,
+          "rag_runtime": true,
+          "market_snapshot": true,
+          "frontend_built": true
+        },
+        "runtime": {
+          "source_revision": "f2c3e9e1a24f42ae9b1d5a8cb9e501ababd1330a",
+          "source_dirty": false,
+          "code_root": "/Users/a77/.finance-runtime/finance-workspace-f2c3e9e1a24f",
+          "loaded_code_root": "/Users/a77/.finance-runtime/finance-workspace-f2c3e9e1a24f/intelligence",
+          "loaded_tree_fingerprint": "20d02ebcde1a21a50641500383b647e87b2a570d1c298b9ed405665cff73adf5",
+          "loaded_module_count": 1132,
+          "repo_tree_fingerprint": "20d02ebcde1a21a50641500383b647e87b2a570d1c298b9ed405665cff73adf5",
+          "repo_module_count": 1132,
+          "code_matches_repo": true,
+          "python_executable": "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/bin/python3.12",
+          "python_version": "3.12.13",
+          "python_prefix": "/Users/a77/finance-workspace-private/.venv-workbench",
+          "dependency_fingerprint": "5806597184587c866b1bc17fcd6bb01492cab03727d32ab9197f85a182ad2bb6",
+          "dependencies": {
+            "fastapi": "0.139.0",
+            "pydantic": "2.13.4",
+            "httpx": "0.25.2",
+            "duckdb": "1.5.4",
+            "pytest": "8.3.5"
+          },
+          "finance_root": "/Users/a77/finance-workspace-private",
+          "continuous_agent": {
+            "mode": "on",
+            "canary_id": "",
+            "source_revision": "f2c3e9e1a24f42ae9b1d5a8cb9e501ababd1330a"
+          },
+          "auth_mode": "off",
+          "credits": {
+            "enabled": false,
+            "signup_gift": 0,
+            "pricing_source": "builtin-default",
+            "hold_points": 100
+          },
+          "agent_runtime": {
+            "backend": "continuous_glm",
+            "ready": true,
+            "reason": "ready",
+            "model": "kimi-k3",
+            "credential_available": true,
+            "benchmark_only": false
+          },
+          "users_dir": "/Users/a77/.local/share/finance-workbench/users"
+        }
+      }
+    },
+    "readiness": {
+      "http_status": 503,
+      "body": {
+        "status": "not_ready",
+        "timestamp": "2026-09-21T18:42:59+08:00",
+        "checks": {
+          "repo_root": true,
+          "knowledge_wiki": true,
+          "relations": true,
+          "vector_index": true,
+          "rag_runtime": true,
+          "market_snapshot": true,
+          "frontend_built": true,
+          "rag_query_protocol": true,
+          "rag_worker": true,
+          "run_store_writable": true,
+          "market_snapshot_contract": true,
+          "market_data_consistency": false,
+          "code_snapshot_matches_repo": true
+        },
+        "critical": {
+          "repo_root": true,
+          "run_store_writable": true,
+          "knowledge_wiki": true,
+          "relations": true,
+          "vector_index": true,
+          "rag_query_protocol": true,
+          "rag_worker": true,
+          "market_snapshot": true,
+          "market_data_consistency": false
+        },
+        "missing_critical": [
+          "market_data_consistency"
+        ],
+        "rag": {
+          "available": true,
+          "query_protocol_compatible": true,
+          "supported_options": [
+            "--json",
+            "--k",
+            "--mode",
+            "--evidence-chars"
+          ],
+          "missing_required_options": [],
+          "missing_optional_options": [
+            "--evidence-layer",
+            "--fact-hardness",
+            "--source-type",
+            "--as-of",
+            "--receipt"
+          ],
+          "warning": "RAG CLI 使用 legacy query 协议"
+        },
+        "market_snapshot": {
+          "status": "PASS",
+          "ready": true,
+          "date": "2026-09-21",
+          "requested_date": "2026-09-21",
+          "provider": "akshare_exact",
+          "source": "AkShare",
+          "summary": {
+            "theme_count": 52,
+            "strong_stock_count": 103,
+            "market_stage": "上涨阶段",
+            "latest_trade_date": "2026-09-21",
+            "requested_trade_date": "2026-09-21",
+            "served_trade_date": "2026-09-21",
+            "provider": "akshare_exact",
+            "source": "AkShare",
+            "source_updated_at": null,
+            "quality": "complete",
+            "freshness": "fresh"
+          },
+          "errors": [],
+          "warnings": []
+        },
+        "market_database": {
+          "date": "2026-09-18",
+          "snapshot_date": "2026-09-21",
+          "consistent_with_snapshot": false,
+          "required_by_continuous_runtime": true
+        },
+        "workers": {
+          "active": 0,
+          "queued": 0,
+          "capacity": 4,
+          "max_active_per_user": 1,
+          "max_queued": 4,
+          "timeout_sec": 900,
+          "rag": {
+            "enabled": true,
+            "state": "ready",
+            "active": 1,
+            "configured_workers": 1,
+            "model_load_count": 1,
+            "prewarm_latency_ms": 73957,
+            "last_error_type": null,
+            "lifecycle": "startup_prewarm",
+            "counters": {
+              "queries_served": 1,
+              "timeouts_abandoned_kept_warm": 0,
+              "timeouts_killed": 0,
+              "stale_responses_drained": 0,
+              "recoveries": 0,
+              "keepalive_sent": 0,
+              "keepalive_timeouts": 0,
+              "keepalive_skipped_busy": 0
+            },
+            "abandoned_in_flight": 0,
+            "rss_bytes": 1032929280,
+            "idle_seconds": 1708.4,
+            "keepalive_interval_seconds": 0.0
+          }
+        },
+        "recovered_runs": 0,
+        "open_episodes": {
+          "count": 2,
+          "episode_ids": [
+            "run_20260917_202956_828111:msg_aeafc1152bb04f31ae2ad1ffb918c8b6",
+            "run_20260917_234112_374567:msg_67af05100a464b3f8cb82f16ac9a2d94"
+          ],
+          "truncated": false
+        }
+      }
+    }
+  },
+  "8792_link_before": "/Users/a77/.finance-runtime/finance-workspace-f2c3e9e1a24f",
+  "backups": {
+    "/Users/a77/.local/bin/nightly_full_review.sh": {
+      "backup": "/Users/a77/.finance-runtime/reviews/nightly-deploy-resume-20260921/deployment/backups/0-nightly_full_review.sh",
+      "sha256": "c75ec93934343e3b59435907d0e96bcd05e1409e7cf28384cdc2a5ab413cc33c",
+      "mode": 448
+    },
+    "/Users/a77/.local/bin/nightly-full-review-s7.sh": {
+      "backup": "/Users/a77/.finance-runtime/reviews/nightly-deploy-resume-20260921/deployment/backups/1-nightly-full-review-s7.sh",
+      "sha256": "8703b5ab936c4d2499196546620c01dc44bf3335ad7750e504bda1dc7bd00560",
+      "mode": 448
+    },
+    "/Users/a77/Library/LaunchAgents/com.financeworkspace.daily-full-review-sync.plist": {
+      "backup": "/Users/a77/.finance-runtime/reviews/nightly-deploy-resume-20260921/deployment/backups/4-com.financeworkspace.daily-full-review-sync.plist",
+      "sha256": "2799497e2f4f98a8d522b08da90dec7508a06d9a70cbc3f90de6f41dac82d8bf",
+      "mode": 420
+    },
+    "/Users/a77/Library/LaunchAgents/com.financeworkspace.daily-full-review-finalize.plist": {
+      "backup": "/Users/a77/.finance-runtime/reviews/nightly-deploy-resume-20260921/deployment/backups/5-com.financeworkspace.daily-full-review-finalize.plist",
+      "sha256": "73f4ded2745aaa1ccfdb220243fa8a5888f573de3e0d47f8d9f78c77c6c8afcd",
+      "mode": 384
+    }
+  },
+  "loaded_after": {
+    "com.financeworkspace.daily-full-review-sync": "gui/501/com.financeworkspace.daily-full-review-sync = {\n\tactive count = 0\n\tpath = /Users/a77/Library/LaunchAgents/com.financeworkspace.daily-full-review-sync.plist\n\ttype = LaunchAgent\n\tstate = not running\n\n\tprogram = /bin/zsh\n\targuments = {\n\t\t/bin/zsh\n\t\t/Users/a77/.local/bin/nightly-full-review-s7.sh\n\t\tsync\n\t}\n\n\tworking directory = /Users/a77/finance-workspace-private\n\n\tstdout path = /Users/a77/finance-workspace-private/logs/daily-full-review.out.log\n\tstderr path = /Users/a77/finance-workspace-private/logs/daily-full-review.err.log\n\tinherited environment = {\n\t\tSSH_AUTH_SOCK => /var/run/com.apple.launchd.wE72UADeq2/Listeners\n\t}\n\n\tdefault environment = {\n\t\tPATH => /usr/bin:/bin:/usr/sbin:/sbin\n\t}\n\n\tenvironment = {\n\t\tOSLogRateLimit => 64\n\t\tREVIEW_GATE_LOCK_ATTEMPTS => 36\n\t\tMARKET_FEATURE_STORE_DB => /Users/a77/finance-workspace-private/db/market_feature_store.duckdb\n\t\tFINANCE_SYNC_PYTHON => /Users/a77/finance-workspace-private/.venv-workbench/bin/python\n\t\tFINANCE_PYTHON => /Users/a77/finance-workspace-private/.venv-workbench/bin/python\n\t\tFINANCE_SYNC_CODE_ROOT => /Users/a77/.finance-runtime/finance-sync-adcda94b5e40\n\t\tREVIEW_GATE_LOCK_DELAY_SECONDS => 10\n\t\tFINANCE_OPS_HEALTH_LOG => /Users/a77/.finance-runtime/ops-health.log\n\t\tREVIEW_SYNC_PLAN => local\n\t\tFINANCE_DATA_ROOT => /Users/a77/finance-workspace-private\n\t\tFINANCE_WS => /Users/a77/finance-workspace-private\n\t\tFINANCE_CODE_ROOT => /Users/a77/.finance-runtime/finance-sync-adcda94b5e40\n\t\tXPC_SERVICE_NAME => com.financeworkspace.daily-full-review-sync\n\t}\n\n\tdomain = gui/501 [100002]\n\tasid = 100002\n\tminimum runtime = 10\n\texit timeout = 5\n\truns = 0\n\tlast exit code = (never exited)\n\n\tevent triggers = {\n\t\tcom.financeworkspace.daily-full-review-sync.268435500 => {\n\t\t\tkeepalive = 0\n\t\t\tservice = com.financeworkspace.daily-full-review-sync\n\t\t\tstream = com.apple.launchd.calendarinterval\n\t\t\tmonitor = com.apple.UserEventAgent-Aqua\n\t\t\tdescriptor = {\n\t\t\t\t\"Minute\" => 30\n\t\t\t\t\"Hour\" => 18\n\t\t\t}\n\t\t}\n\t}\n\n\tevent channels = {\n\t\t\"com.apple.launchd.calendarinterval\" = {\n\t\t\tport = 0x0\n\t\t\tactive = 0\n\t\t\tmanaged = 1\n\t\t\treset = 0\n\t\t\thide = 0\n\t\t\twatching = 1\n\t\t}\n\t}\n\n\tspawn type = daemon (3)\n\tjetsam priority = 40\n\tjetsam memory limit (active) = (unlimited)\n\tjetsam memory limit (inactive) = (unlimited)\n\tjetsamproperties category = daemon\n\tjetsam thread limit = 32\n\tcpumon = default\n\n\tproperties = inferred program\n}\n",
+    "com.financeworkspace.daily-full-review-finalize": "gui/501/com.financeworkspace.daily-full-review-finalize = {\n\tactive count = 0\n\tpath = /Users/a77/Library/LaunchAgents/com.financeworkspace.daily-full-review-finalize.plist\n\ttype = LaunchAgent\n\tstate = not running\n\n\tprogram = /bin/zsh\n\targuments = {\n\t\t/bin/zsh\n\t\t/Users/a77/.local/bin/nightly_full_review.sh\n\t\tfinalize\n\t}\n\n\tworking directory = /Users/a77/finance-workspace-private\n\n\tstdout path = /Users/a77/finance-workspace-private/logs/daily-full-review.out.log\n\tstderr path = /Users/a77/finance-workspace-private/logs/daily-full-review.err.log\n\tinherited environment = {\n\t\tSSH_AUTH_SOCK => /var/run/com.apple.launchd.wE72UADeq2/Listeners\n\t}\n\n\tdefault environment = {\n\t\tPATH => /usr/bin:/bin:/usr/sbin:/sbin\n\t}\n\n\tenvironment = {\n\t\tOSLogRateLimit => 64\n\t\tFINANCE_SYNC_CODE_ROOT => /Users/a77/.finance-runtime/finance-sync-adcda94b5e40\n\t\tREVIEW_GATE_LOCK_ATTEMPTS => 36\n\t\tMARKET_FEATURE_STORE_DB => /Users/a77/finance-workspace-private/db/market_feature_store.duckdb\n\t\tFINANCE_PYTHON => /Users/a77/finance-workspace-private/.venv-workbench/bin/python\n\t\tFINANCE_GENERATION_CODE_ROOT => /Users/a77/.finance-runtime/finance-generation-adcda94b5e40\n\t\tREVIEW_GATE_LOCK_DELAY_SECONDS => 10\n\t\tFINANCE_OPS_HEALTH_LOG => /Users/a77/.finance-runtime/ops-health.log\n\t\tREVIEW_SYNC_PLAN => local\n\t\tFORESIGHT_USERS_DIR => /Users/a77/.local/share/finance-workbench/users\n\t\tFINANCE_DATA_ROOT => /Users/a77/finance-workspace-private\n\t\tFINANCE_WS => /Users/a77/finance-workspace-private\n\t\tFINANCE_CODE_ROOT => /Users/a77/.finance-runtime/finance-l2-adcda94b5e40\n\t\tFORESIGHT_USER => linxiaoqi5111\n\t\tXPC_SERVICE_NAME => com.financeworkspace.daily-full-review-finalize\n\t}\n\n\tdomain = gui/501 [100002]\n\tasid = 100002\n\tminimum runtime = 10\n\texit timeout = 5\n\truns = 0\n\tlast exit code = (never exited)\n\n\tevent triggers = {\n\t\tcom.financeworkspace.daily-full-review-finalize.268435501 => {\n\t\t\tkeepalive = 0\n\t\t\tservice = com.financeworkspace.daily-full-review-finalize\n\t\t\tstream = com.apple.launchd.calendarinterval\n\t\t\tmonitor = com.apple.UserEventAgent-Aqua\n\t\t\tdescriptor = {\n\t\t\t\t\"Minute\" => 40\n\t\t\t\t\"Hour\" => 20\n\t\t\t}\n\t\t}\n\t}\n\n\tevent channels = {\n\t\t\"com.apple.launchd.calendarinterval\" = {\n\t\t\tport = 0x0\n\t\t\tactive = 0\n\t\t\tmanaged = 1\n\t\t\treset = 0\n\t\t\thide = 0\n\t\t\twatching = 1\n\t\t}\n\t}\n\n\tspawn type = daemon (3)\n\tjetsam priority = 40\n\tjetsam memory limit (active) = (unlimited)\n\tjetsam memory limit (inactive) = (unlimited)\n\tjetsamproperties category = daemon\n\tjetsam thread limit = 32\n\tcpumon = default\n\n\tproperties = inferred program\n}\n"
+  },
+  "roots_after": {
+    "sync": {
+      "path": "/Users/a77/.finance-runtime/finance-sync-adcda94b5e40",
+      "revision": "adcda94b5e401158f1c3aa51f210e1e8d0f0b713",
+      "status": ""
+    },
+    "generation": {
+      "path": "/Users/a77/.finance-runtime/finance-generation-adcda94b5e40",
+      "revision": "adcda94b5e401158f1c3aa51f210e1e8d0f0b713",
+      "status": ""
+    },
+    "l2": {
+      "path": "/Users/a77/.finance-runtime/finance-l2-adcda94b5e40",
+      "revision": "adcda94b5e401158f1c3aa51f210e1e8d0f0b713",
+      "status": ""
+    }
+  },
+  "preservation_after": {
+    "l2_files": {
+      "scripts/method_validation.py": "883e2c864f104948940a6738741a28570e07a1fea98a9312bb767caa88d3f708",
+      "scripts/moneyflow/README.md": "cb52fcfff5e375abcda4e382bc9df59d7dd6e1e63c6b58e990af5d438e656ea1",
+      "scripts/moneyflow/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "scripts/moneyflow/baidu_share.py": "692d3f0b8e7c1c7b5ce55cdbda3829bae2af167212557f8e49fd75b4d926111f",
+      "scripts/moneyflow/cdn_chunks.py": "d1d7ed810cecc1559b7f724152bbeb3dccc2da70e73846f717680351197b4cf5",
+      "scripts/moneyflow/config.py": "6b90b946492eb3171dd78d8db83ebdbe632d86be570d308bcea391fed9fbed47",
+      "scripts/moneyflow/l2_paths.py": "d7d73126521e14d57f44dfb76f2b74b40451c221b7d55414cef675d26f1a33b9",
+      "scripts/moneyflow/moneyflow.py": "53ffdc1ff13dc4027408fe609af95c30cb50a0f88369f36b90542564430d8b2c",
+      "scripts/moneyflow/probe_intraday_write.py": "7bf6288d7feb2bc44bb0b87bb05725d0605b1ea059ed3fdd60c3901342c90eb9",
+      "scripts/moneyflow/process_l2_archive.py": "c37a08e6df88688a4f1a5e9a87d4ceb39fb2d3793d03ce32b1dc246c93eb598e",
+      "scripts/moneyflow/quant_finish_remaining.py": "d049c7fff111e3f2c18b3db532fccec77e4037c2e25dd955dc3a64e8fc2e0ce1",
+      "scripts/moneyflow/run_l2_from_share.py": "0a22fa3da1c20b9116de2a3c3d9d8e4dbc64157be5df53145c51aa22fb333741",
+      "scripts/moneyflow/run_l2_pipeline.sh": "79910785a886d611bc2ee0a628d475f3488d0812f5d88f56d33c8723cb7f4e72",
+      "scripts/moneyflow/scan_limitup.py": "af2882ed60586472e2877b8dcce2413b4932483dfa47010509f94bc8a4f53d73",
+      "scripts/moneyflow/scan_quant.py": "b156f226d9ab7cbebfe88ec033a663a487135ec66492011a89a6ec2ebe3f3d47",
+      "scripts/moneyflow/scan_top100.py": "897f69cf8d9d7e417a4b974236c7e29e04f01314044b283bf5628fc894a3871d",
+      "scripts/moneyflow/server_aggregation.py": "70ec6ea24fd9894dfa9a6c68bb9d8f07a2c799d8f72d132db7f642eb4d912fed",
+      "scripts/moneyflow/write_to_duckdb.py": "eba55f7acc6e019b496d5b2fd2f17bed956202a794d606c322ee55ea32c92bba"
+    },
+    "old_sync_modified_files": {
+      "skills/daily-full-review/state/quality-2026-09-14.json": "067da7820a82d0368ab958ee65fd182d742e30f90ba7fb4a1b2a25683e556a08",
+      "skills/daily-full-review/state/quality-2026-09-15.json": "d5bd176865e32c48f9813768e637aaecb7f58d4d00185bed54a7acbd325e7c1d",
+      "skills/daily-full-review/state/quality-2026-09-17.json": "78900aa4182868dbb0d4c71550957ac4bfacec6216cb84b0db6133fd6a652e56",
+      "skills/daily-full-review/state/quality-2026-09-18.json": "31153a4436de840b51c3d60ea62becb8b70be841d9867d25a23b7f3eebc648d1",
+      "market_feature_store/sync/sync_akshare_index_daily.py": "3e3581ecd2d876bd1f8bb4685c3f479bf15544e992bfc0e8cbf5cd47972808f6",
+      "skills/daily-full-review/state/runlog.md": "11b250508cab1c76a1e39aaa17b29017c0f23df4e8e84b717aada3fd9b255b67"
+    },
+    "sync": {
+      "revision": "6382c13b7a869114727439a43f0004ab67bb36ef",
+      "status": " M market_feature_store/sync/sync_akshare_index_daily.py\n M skills/daily-full-review/state/runlog.md\n?? skills/daily-full-review/state/quality-2026-09-14.json\n?? skills/daily-full-review/state/quality-2026-09-15.json\n?? skills/daily-full-review/state/quality-2026-09-17.json\n?? skills/daily-full-review/state/quality-2026-09-18.json"
+    },
+    "l2": {
+      "revision": "d433b90788c0727d71043a992e69c20f34203257",
+      "status": ""
+    },
+    "generation": {
+      "revision": "387028b846a21a1327d964af8c4b428367f88fcf",
+      "status": ""
+    },
+    "s7": {
+      "revision": "418515c0383334558a8dd44a0e741f39085115fa",
+      "status": ""
+    }
+  },
+  "database_after": {
+    "bytes": 3703320576,
+    "mtime_ns": 1789735613821826041,
+    "inode": 167445509
+  },
+  "other_after": {
+    "com.financeworkspace.fidelity-daily-agent": {
+      "plist_sha256": "eadc0b0c70b37073adbb1f3be12e421f55c6fadb4e3ddbc251f62618c0d8587e",
+      "fields": [
+        "\tstate = not running",
+        "\tprogram = /bin/zsh",
+        "\tworking directory = /Users/a77/finance-workspace-runtime",
+        "\truns = 14",
+        "\tlast exit code = 0"
+      ],
+      "environment": "\t\tOSLogRateLimit => 64\n\t\tMARKET_FEATURE_STORE_DB => /Users/a77/finance-workspace-private/db/market_feature_store.duckdb\n\t\tFINANCE_PYTHON => /Users/a77/finance-workspace-private/.venv-workbench/bin/python\n\t\tFINANCE_OPS_HEALTH_LOG => /Users/a77/.finance-runtime/ops-health.log\n\t\tFIDELITY_RUNTIME_ROOT => /Users/a77/fidelity-runtime\n\t\tFINANCE_WS => /Users/a77/finance-workspace-private\n\t\tFINANCE_CODE_ROOT => /Users/a77/finance-workspace-runtime\n\t\tKNOWLEDGE_WIKI => /Users/a77/knowledge-base-private/wiki\n\t\tXPC_SERVICE_NAME => com.financeworkspace.fidelity-daily-agent"
+    },
+    "com.financeworkspace.fidelity-forward-acceptance": {
+      "plist_sha256": "f46fe718115f6690f33fa11075d3bba04d08c50a06791477d7975b3ae098e11e",
+      "fields": [
+        "\tstate = not running",
+        "\tprogram = /bin/zsh",
+        "\tworking directory = /Users/a77/finance-workspace-runtime",
+        "\truns = 14",
+        "\tlast exit code = 0"
+      ],
+      "environment": "\t\tOSLogRateLimit => 64\n\t\tMARKET_FEATURE_STORE_DB => /Users/a77/finance-workspace-private/db/market_feature_store.duckdb\n\t\tFINANCE_PYTHON => /Users/a77/finance-workspace-private/.venv-workbench/bin/python\n\t\tFINANCE_OPS_HEALTH_LOG => /Users/a77/.finance-runtime/ops-health.log\n\t\tFIDELITY_RUNTIME_ROOT => /Users/a77/fidelity-runtime\n\t\tPIT_SNAPSHOT_DIR => /Users/a77/fidelity-replay/pit-snapshots\n\t\tFINANCE_WS => /Users/a77/finance-workspace-private\n\t\tFINANCE_CODE_ROOT => /Users/a77/finance-workspace-runtime\n\t\tXPC_SERVICE_NAME => com.financeworkspace.fidelity-forward-acceptance"
+    },
+    "com.financeworkspace.pit-snapshot": {
+      "plist_sha256": "26a5996d59f06c9bb14564e4a856f427f2a8032d50de9a2bc06b009468d79b59",
+      "fields": [
+        "\tstate = not running",
+        "\tprogram = /bin/zsh",
+        "\tworking directory = /Users/a77/finance-workspace-runtime",
+        "\truns = 14",
+        "\tlast exit code = 0"
+      ],
+      "environment": "\t\tOSLogRateLimit => 64\n\t\tPIT_DAILY_AGENT_DIR => /Users/a77/finance-workspace-private/market_feature_store/exports\n\t\tPIT_SNAPSHOT_DB => /Users/a77/finance-workspace-private/db/market_feature_store.duckdb\n\t\tFINANCE_PYTHON => /Users/a77/finance-workspace-private/.venv-workbench/bin/python\n\t\tPIT_KNOWLEDGE_ROOT => /Users/a77/knowledge-base-private\n\t\tFINANCE_OPS_HEALTH_LOG => /Users/a77/.finance-runtime/ops-health.log\n\t\tPIT_SNAPSHOT_DIR => /Users/a77/fidelity-replay/pit-snapshots\n\t\tFINANCE_WS => /Users/a77/finance-workspace-private\n\t\tFINANCE_CODE_ROOT => /Users/a77/finance-workspace-runtime\n\t\tXPC_SERVICE_NAME => com.financeworkspace.pit-snapshot"
+    },
+    "com.financeworkspace.checkpoint-recheck": {
+      "plist_sha256": "a7807c8aadc1d0151d01ffa3b7056c3a091233cbb9d08a54a0b63373506d0c29",
+      "fields": [
+        "\tstate = not running",
+        "\tprogram = /bin/zsh",
+        "\tworking directory = /Users/a77/finance-workspace-runtime",
+        "\truns = 15",
+        "\tlast exit code = 0"
+      ],
+      "environment": "\t\tOSLogRateLimit => 64\n\t\tSUBCONSCIOUS_VAULT => /Users/a77/agent-memory\n\t\tMARKET_FEATURE_STORE_DB => /Users/a77/finance-workspace-private/db/market_feature_store.duckdb\n\t\tFINANCE_PYTHON => /Users/a77/finance-workspace-private/.venv-workbench/bin/python\n\t\tFINANCE_OPS_HEALTH_LOG => /Users/a77/.finance-runtime/ops-health.log\n\t\tFORESIGHT_USERS_DIR => /Users/a77/.local/share/finance-workbench/users\n\t\tFINANCE_WS => /Users/a77/finance-workspace-private\n\t\tFINANCE_CODE_ROOT => /Users/a77/finance-workspace-runtime\n\t\tFORESIGHT_USER => linxiaoqi5111\n\t\tKNOWLEDGE_WIKI => /Users/a77/knowledge-base-private/wiki\n\t\tXPC_SERVICE_NAME => com.financeworkspace.checkpoint-recheck"
+    },
+    "com.a77.finance-workbench": {
+      "plist_sha256": "e2f6f3653cce55044a05c1867c2694bc1524db13dc5936000b32044bad47acb9",
+      "fields": [
+        "\tstate = running",
+        "\tprogram = /Users/a77/.local/bin/start-finance-workbench",
+        "\truns = 2",
+        "\tpid = 97914"
+      ],
+      "environment": "\t\tOSLogRateLimit => 64\n\t\tXPC_SERVICE_NAME => com.a77.finance-workbench"
+    }
+  },
+  "service_after": {
+    "health": {
+      "http_status": 200,
+      "body": {
+        "status": "healthy",
+        "timestamp": "2026-09-21T18:43:00+08:00",
+        "dependencies": {
+          "repo_root": true,
+          "knowledge_wiki": true,
+          "relations": true,
+          "vector_index": true,
+          "rag_runtime": true,
+          "market_snapshot": true,
+          "frontend_built": true
+        },
+        "runtime": {
+          "source_revision": "f2c3e9e1a24f42ae9b1d5a8cb9e501ababd1330a",
+          "source_dirty": false,
+          "code_root": "/Users/a77/.finance-runtime/finance-workspace-f2c3e9e1a24f",
+          "loaded_code_root": "/Users/a77/.finance-runtime/finance-workspace-f2c3e9e1a24f/intelligence",
+          "loaded_tree_fingerprint": "20d02ebcde1a21a50641500383b647e87b2a570d1c298b9ed405665cff73adf5",
+          "loaded_module_count": 1132,
+          "repo_tree_fingerprint": "20d02ebcde1a21a50641500383b647e87b2a570d1c298b9ed405665cff73adf5",
+          "repo_module_count": 1132,
+          "code_matches_repo": true,
+          "python_executable": "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/bin/python3.12",
+          "python_version": "3.12.13",
+          "python_prefix": "/Users/a77/finance-workspace-private/.venv-workbench",
+          "dependency_fingerprint": "5806597184587c866b1bc17fcd6bb01492cab03727d32ab9197f85a182ad2bb6",
+          "dependencies": {
+            "fastapi": "0.139.0",
+            "pydantic": "2.13.4",
+            "httpx": "0.25.2",
+            "duckdb": "1.5.4",
+            "pytest": "8.3.5"
+          },
+          "finance_root": "/Users/a77/finance-workspace-private",
+          "continuous_agent": {
+            "mode": "on",
+            "canary_id": "",
+            "source_revision": "f2c3e9e1a24f42ae9b1d5a8cb9e501ababd1330a"
+          },
+          "auth_mode": "off",
+          "credits": {
+            "enabled": false,
+            "signup_gift": 0,
+            "pricing_source": "builtin-default",
+            "hold_points": 100
+          },
+          "agent_runtime": {
+            "backend": "continuous_glm",
+            "ready": true,
+            "reason": "ready",
+            "model": "kimi-k3",
+            "credential_available": true,
+            "benchmark_only": false
+          },
+          "users_dir": "/Users/a77/.local/share/finance-workbench/users"
+        }
+      }
+    },
+    "readiness": {
+      "http_status": 503,
+      "body": {
+        "status": "not_ready",
+        "timestamp": "2026-09-21T18:43:00+08:00",
+        "checks": {
+          "repo_root": true,
+          "knowledge_wiki": true,
+          "relations": true,
+          "vector_index": true,
+          "rag_runtime": true,
+          "market_snapshot": true,
+          "frontend_built": true,
+          "rag_query_protocol": true,
+          "rag_worker": true,
+          "run_store_writable": true,
+          "market_snapshot_contract": true,
+          "market_data_consistency": false,
+          "code_snapshot_matches_repo": true
+        },
+        "critical": {
+          "repo_root": true,
+          "run_store_writable": true,
+          "knowledge_wiki": true,
+          "relations": true,
+          "vector_index": true,
+          "rag_query_protocol": true,
+          "rag_worker": true,
+          "market_snapshot": true,
+          "market_data_consistency": false
+        },
+        "missing_critical": [
+          "market_data_consistency"
+        ],
+        "rag": {
+          "available": true,
+          "query_protocol_compatible": true,
+          "supported_options": [
+            "--json",
+            "--k",
+            "--mode",
+            "--evidence-chars"
+          ],
+          "missing_required_options": [],
+          "missing_optional_options": [
+            "--evidence-layer",
+            "--fact-hardness",
+            "--source-type",
+            "--as-of",
+            "--receipt"
+          ],
+          "warning": "RAG CLI 使用 legacy query 协议"
+        },
+        "market_snapshot": {
+          "status": "PASS",
+          "ready": true,
+          "date": "2026-09-21",
+          "requested_date": "2026-09-21",
+          "provider": "akshare_exact",
+          "source": "AkShare",
+          "summary": {
+            "theme_count": 52,
+            "strong_stock_count": 103,
+            "market_stage": "上涨阶段",
+            "latest_trade_date": "2026-09-21",
+            "requested_trade_date": "2026-09-21",
+            "served_trade_date": "2026-09-21",
+            "provider": "akshare_exact",
+            "source": "AkShare",
+            "source_updated_at": null,
+            "quality": "complete",
+            "freshness": "fresh"
+          },
+          "errors": [],
+          "warnings": []
+        },
+        "market_database": {
+          "date": "2026-09-18",
+          "snapshot_date": "2026-09-21",
+          "consistent_with_snapshot": false,
+          "required_by_continuous_runtime": true
+        },
+        "workers": {
+          "active": 0,
+          "queued": 0,
+          "capacity": 4,
+          "max_active_per_user": 1,
+          "max_queued": 4,
+          "timeout_sec": 900,
+          "rag": {
+            "enabled": true,
+            "state": "ready",
+            "active": 1,
+            "configured_workers": 1,
+            "model_load_count": 1,
+            "prewarm_latency_ms": 73957,
+            "last_error_type": null,
+            "lifecycle": "startup_prewarm",
+            "counters": {
+              "queries_served": 1,
+              "timeouts_abandoned_kept_warm": 0,
+              "timeouts_killed": 0,
+              "stale_responses_drained": 0,
+              "recoveries": 0,
+              "keepalive_sent": 0,
+              "keepalive_timeouts": 0,
+              "keepalive_skipped_busy": 0
+            },
+            "abandoned_in_flight": 0,
+            "rss_bytes": 1032929280,
+            "idle_seconds": 1709.2,
+            "keepalive_interval_seconds": 0.0
+          }
+        },
+        "recovered_runs": 0,
+        "open_episodes": {
+          "count": 2,
+          "episode_ids": [
+            "run_20260917_202956_828111:msg_aeafc1152bb04f31ae2ad1ffb918c8b6",
+            "run_20260917_234112_374567:msg_67af05100a464b3f8cb82f16ac9a2d94"
+          ],
+          "truncated": false
+        }
+      }
+    }
+  },
+  "own_lock_released": true,
+  "finished_at": "2026-09-21T18:43:00.716815+08:00"
+}

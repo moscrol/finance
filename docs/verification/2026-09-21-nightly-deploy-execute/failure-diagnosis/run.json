@@ -1,0 +1,21 @@
+{
+  "command": [
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "-p",
+    "no:cacheprovider",
+    "--basetemp=/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/failure-diagnosis/tmp",
+    "--junitxml=/Users/a77/.finance-runtime/reviews/nightly-deploy-execute-20260921/failure-diagnosis/junit.xml",
+    "tests/test_sync_fupanhui_public_assets.py",
+    "tests/test_sync_polymarket_macro_odds.py"
+  ],
+  "scope": "diagnosis only: two previously disk-failing modules after owned temp reclamation; NOT a rerun or replacement of full gate",
+  "revision": "2ea6c3db01a062b9c623498df1b60edfbafe582b",
+  "started_at": "2026-09-21T08:49:39.278152+00:00",
+  "exit_code": 0,
+  "finished_at": "2026-09-21T08:49:45.053202+00:00",
+  "log_sha256": "e1e17a325ab90714f2f66c67b7219af4b66c1a92ee5e0f86db1d1fd7abfa751e",
+  "tree_clean_after": true
+}

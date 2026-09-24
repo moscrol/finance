@@ -1,0 +1,12 @@
+{
+  "repo": "finance-workspace-private",
+  "number": 784,
+  "request_result": {
+    "http_status": 200
+  },
+  "main": "e0467e3a5f6fb431a415c56f500556685cefbf6e",
+  "merged": true,
+  "merge_commit_sha": "e0467e3a5f6fb431a415c56f500556685cefbf6e",
+  "head": "e0467e3a5f6fb431a415c56f500556685cefbf6e",
+  "url": "http://127.0.0.1:3300/a77/finance-workspace-private/pulls/784"
+}

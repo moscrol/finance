@@ -7,7 +7,7 @@ from __future__ import annotations
 import json
 from collections import Counter, defaultdict
 
-from .db import connect
+from .db import connect, read_snapshot
 from .signals import DOUBLE_RED_SQL
 
 
@@ -20,81 +20,109 @@ def health() -> dict:
     """数据体检: 各表行数 / 覆盖交易日 / 空值 / 映射完整度。"""
     con = connect(read_only=True)
     try:
-        out = {}
-        # dim_sector
-        out["dim_sector"] = {
-            "total": con.execute("SELECT COUNT(*) FROM dim_sector").fetchone()[0],
-            "mapped_sw_l1": con.execute(
-                "SELECT COUNT(*) FROM dim_sector WHERE sw_l1 IS NOT NULL"
-            ).fetchone()[0],
-        }
-        # fact_sector_daily
-        d = con.execute(
-            "SELECT COUNT(*), COUNT(DISTINCT trade_date), MIN(trade_date), MAX(trade_date),"
-            " SUM(CASE WHEN diff_ratio IS NULL THEN 1 ELSE 0 END),"
-            " SUM(CASE WHEN sw_l1 IS NULL THEN 1 ELSE 0 END)"
-            " FROM fact_sector_daily"
-        ).fetchone()
-        out["fact_sector_daily"] = {
-            "rows": d[0], "dates": d[1], "date_min": str(d[2]) if d[2] else None,
-            "date_max": str(d[3]) if d[3] else None,
-            "null_diff_ratio": d[4] or 0, "null_sw_l1": d[5] or 0,
-        }
-        # fact_sector_stock_daily
-        s = con.execute(
-            "SELECT COUNT(*), COUNT(DISTINCT trade_date), COUNT(DISTINCT sector_ts_code),"
-            " COUNT(DISTINCT stock_ts_code), MAX(trade_date),"
-            " SUM(CASE WHEN stock_ts_code IS NULL THEN 1 ELSE 0 END),"
-            " SUM(CASE WHEN sw_l1 IS NULL THEN 1 ELSE 0 END)"
-            " FROM fact_sector_stock_daily"
-        ).fetchone()
-        out["fact_sector_stock_daily"] = {
-            "rows": s[0], "dates": s[1], "sectors": s[2], "stocks": s[3],
-            "date_max": str(s[4]) if s[4] else None,
-            "null_stock_code": s[5] or 0, "null_sw_l1": s[6] or 0,
-        }
-        # fact_market_daily
-        m = con.execute(
-            "SELECT COUNT(*), COUNT(DISTINCT trade_date), MIN(trade_date), MAX(trade_date),"
-            " SUM(CASE WHEN total_amount IS NULL THEN 1 ELSE 0 END)"
-            " FROM fact_market_daily"
-        ).fetchone()
-        out["fact_market_daily"] = {
-            "rows": m[0], "dates": m[1], "date_min": str(m[2]) if m[2] else None,
-            "date_max": str(m[3]) if m[3] else None, "null_total_amount": m[4] or 0,
-        }
-        # fact_stock_daily
-        sk = con.execute(
-            "SELECT COUNT(*), COUNT(DISTINCT trade_date), COUNT(DISTINCT stock_ts_code),"
-            " MIN(trade_date), MAX(trade_date),"
-            " SUM(CASE WHEN close IS NULL THEN 1 ELSE 0 END)"
-            " FROM fact_stock_daily"
-        ).fetchone()
-        out["fact_stock_daily"] = {
-            "rows": sk[0], "dates": sk[1], "stocks": sk[2],
-            "date_min": str(sk[3]) if sk[3] else None,
-            "date_max": str(sk[4]) if sk[4] else None, "null_close": sk[5] or 0,
-        }
-        # 完整度: 最新交易日 dim_sector 覆盖了多少板块有成分股
-        latest = out["fact_sector_stock_daily"]["date_max"]
-        if latest:
-            covered = con.execute(
-                "SELECT COUNT(DISTINCT sector_ts_code) FROM fact_sector_stock_daily WHERE trade_date = ?",
-                [latest],
-            ).fetchone()[0]
-            out["coverage_latest"] = {
-                "date": latest,
-                "sectors_with_stocks": covered,
-                "dim_sector_total": out["dim_sector"]["total"],
+        # 体检是一份由十来条 SELECT 拼出来的报告：自动提交下每条各取一次快照，
+        # 写者中途提交就会产出「旧维表 + 新事实表」的体检单——覆盖率能算出
+        # 「有成分股的板块比维表里存在的板块还多」这种不可能的数。绑定单快照。
+        with read_snapshot(con):
+            out = {}
+            # dim_sector
+            out["dim_sector"] = {
+                "total": con.execute("SELECT COUNT(*) FROM dim_sector").fetchone()[0],
+                "mapped_sw_l1": con.execute(
+                    "SELECT COUNT(*) FROM dim_sector WHERE sw_l1 IS NOT NULL"
+                ).fetchone()[0],
             }
-        return out
+            # fact_sector_daily
+            d = con.execute(
+                "SELECT COUNT(*), COUNT(DISTINCT trade_date), MIN(trade_date), MAX(trade_date),"
+                " SUM(CASE WHEN diff_ratio IS NULL THEN 1 ELSE 0 END),"
+                " SUM(CASE WHEN sw_l1 IS NULL THEN 1 ELSE 0 END)"
+                " FROM fact_sector_daily"
+            ).fetchone()
+            out["fact_sector_daily"] = {
+                "rows": d[0], "dates": d[1], "date_min": str(d[2]) if d[2] else None,
+                "date_max": str(d[3]) if d[3] else None,
+                "null_diff_ratio": d[4] or 0, "null_sw_l1": d[5] or 0,
+            }
+            # fact_sector_stock_daily
+            s = con.execute(
+                "SELECT COUNT(*), COUNT(DISTINCT trade_date), COUNT(DISTINCT sector_ts_code),"
+                " COUNT(DISTINCT stock_ts_code), MAX(trade_date),"
+                " SUM(CASE WHEN stock_ts_code IS NULL THEN 1 ELSE 0 END),"
+                " SUM(CASE WHEN sw_l1 IS NULL THEN 1 ELSE 0 END)"
+                " FROM fact_sector_stock_daily"
+            ).fetchone()
+            out["fact_sector_stock_daily"] = {
+                "rows": s[0], "dates": s[1], "sectors": s[2], "stocks": s[3],
+                "date_max": str(s[4]) if s[4] else None,
+                "null_stock_code": s[5] or 0, "null_sw_l1": s[6] or 0,
+            }
+            # fact_market_daily
+            m = con.execute(
+                "SELECT COUNT(*), COUNT(DISTINCT trade_date), MIN(trade_date), MAX(trade_date),"
+                " SUM(CASE WHEN total_amount IS NULL THEN 1 ELSE 0 END)"
+                " FROM fact_market_daily"
+            ).fetchone()
+            out["fact_market_daily"] = {
+                "rows": m[0], "dates": m[1], "date_min": str(m[2]) if m[2] else None,
+                "date_max": str(m[3]) if m[3] else None, "null_total_amount": m[4] or 0,
+            }
+            # fact_stock_daily
+            sk = con.execute(
+                "SELECT COUNT(*), COUNT(DISTINCT trade_date), COUNT(DISTINCT stock_ts_code),"
+                " MIN(trade_date), MAX(trade_date),"
+                " SUM(CASE WHEN close IS NULL THEN 1 ELSE 0 END)"
+                " FROM fact_stock_daily"
+            ).fetchone()
+            out["fact_stock_daily"] = {
+                "rows": sk[0], "dates": sk[1], "stocks": sk[2],
+                "date_min": str(sk[3]) if sk[3] else None,
+                "date_max": str(sk[4]) if sk[4] else None, "null_close": sk[5] or 0,
+            }
+            # 完整度: 最新交易日 dim_sector 覆盖了多少板块有成分股
+            latest = out["fact_sector_stock_daily"]["date_max"]
+            if latest:
+                covered = con.execute(
+                    "SELECT COUNT(DISTINCT sector_ts_code) FROM fact_sector_stock_daily WHERE trade_date = ?",
+                    [latest],
+                ).fetchone()[0]
+                out["coverage_latest"] = {
+                    "date": latest,
+                    "sectors_with_stocks": covered,
+                    "dim_sector_total": out["dim_sector"]["total"],
+                }
+            return out
     finally:
         con.close()
 
 
+def _sector_filter(con, sector: str, trade_date, table: str) -> tuple[str, list, dict]:
+    """把用户给的板块名/码解析成事实表的**单个码**, 返回 (where 片段, 参数, 解析回执)。
+
+    为什么不再 `sector_ts_code = ? OR sector_name = ?`: 供应商换码系后同名板块有两套码
+    (2025-10 ~ 2026-07 并存), 按名字过滤会把两个供应商的成分股混成一张表; `国防军工`
+    至今仍是两个 .FP 码同名。解析器 (sector_alias) 先定到码, 再按日期在候选里回退
+    (退役码只在现行码当日无数据时才用)。维表里查不到的名字保留旧行为, 不静默吞掉。
+    """
+    from .sector_alias import pick_code_with_rows, resolve_sector_codes
+
+    res = resolve_sector_codes(con, sector)
+    receipt = res.to_dict()
+    if res.codes:
+        code = pick_code_with_rows(con, table, trade_date, res.codes) or res.codes[0]
+        receipt["resolved_sector_ts_code"] = code
+        return "sector_ts_code = ?", [code], receipt
+    receipt["resolved_sector_ts_code"] = None
+    return "(sector_ts_code = ? OR sector_name = ?)", [sector, sector], receipt
+
+
 def sector_stocks(sector: str, trade_date: str | None = None, top: int = 20,
                   order_by: str = "amount") -> dict:
-    """板块 → 个股: 某板块某日成分股, 按字段排序。"""
+    """板块 → 个股: 某板块某日成分股, 按字段排序。
+
+    返回里的 `resolution` 是解析回执: 用了哪个码、按什么命中、是否同名歧义——
+    歧义时调用方必须把它说出来, 不能当成唯一答案。
+    """
     allowed = {"amount", "pct_chg", "pct_chg_5d", "pct_chg_10d", "pct_chg_20d",
                "fund_flow_1d", "fund_flow_5d", "price"}
     if order_by not in allowed:
@@ -102,29 +130,57 @@ def sector_stocks(sector: str, trade_date: str | None = None, top: int = 20,
     con = connect(read_only=True)
     try:
         td = trade_date or _latest_date(con, "fact_sector_stock_daily")
+        where, params, resolution = _sector_filter(con, sector, td, "fact_sector_stock_daily")
         rows = con.execute(
             f"""
             SELECT stock_name, stock_ts_code, price, pct_chg, amount,
                    pct_chg_5d, pct_chg_20d, sw_industry, leader_plate,
                    fund_flow_1d, fund_flow_5d, sector_name
             FROM fact_sector_stock_daily
-            WHERE trade_date = ? AND (sector_ts_code = ? OR sector_name = ?)
+            WHERE trade_date = ? AND {where}
             ORDER BY {order_by} DESC NULLS LAST
             LIMIT ?
             """,
-            [td, sector, sector, top],
+            [td, *params, top],
         ).fetchall()
         cols = ["stock_name", "stock_ts_code", "price", "pct_chg", "amount",
                 "pct_chg_5d", "pct_chg_20d", "sw_industry", "leader_plate",
                 "fund_flow_1d", "fund_flow_5d", "sector_name"]
         return {"trade_date": str(td), "sector": sector,
+                "resolution": resolution,
                 "stocks": [dict(zip(cols, r)) for r in rows]}
     finally:
         con.close()
 
 
+def _merge_alias_rows(con, rows: list[dict]) -> tuple[list[dict], int]:
+    """个股 → 板块结果里, 同一条线的退役码与现行码只留现行那一行。
+
+    并存日一只股会同时挂 `云计算.TI` 与 `云计算.FP`, 那是同一个板块的两个供应商
+    版本, 不是两个板块。按 canonical 分组, 组内留 canonical 本身 (没有就留第一行)。
+    真歧义 (国防军工 两个 .FP) canonical 不同, 两行都保留。视图不存在时原样返回。
+    """
+    from .sector_alias import load_canonical_map
+
+    dim = load_canonical_map(con)
+    if dim is None:
+        return rows, 0
+    kept: dict[str, dict] = {}
+    order: list[str] = []
+    for row in rows:
+        code = row["sector_ts_code"]
+        canonical = dim[code].canonical_sector_ts_code if code in dim else code
+        if canonical not in kept:
+            kept[canonical] = row
+            order.append(canonical)
+        elif code == canonical:
+            kept[canonical] = row
+    merged = [kept[c] for c in order]
+    return merged, len(rows) - len(merged)
+
+
 def stock_sectors(stock: str, trade_date: str | None = None) -> dict:
-    """个股 → 板块: 某个股某日归属的所有复盘会板块。"""
+    """个股 → 板块: 某个股某日归属的所有复盘会板块 (同一板块的两套供应商码合并为一行)。"""
     con = connect(read_only=True)
     try:
         td = trade_date or _latest_date(con, "fact_sector_stock_daily")
@@ -138,8 +194,10 @@ def stock_sectors(stock: str, trade_date: str | None = None) -> dict:
             [td, stock, stock],
         ).fetchall()
         cols = ["sector_name", "sector_ts_code", "sw_l1", "pct_chg", "amount"]
+        sectors, merged = _merge_alias_rows(con, [dict(zip(cols, r)) for r in rows])
         return {"trade_date": str(td), "stock": stock,
-                "sectors": [dict(zip(cols, r)) for r in rows]}
+                "alias_rows_merged": merged,
+                "sectors": sectors}
     finally:
         con.close()
 
@@ -777,27 +835,50 @@ def advancers_extrema(delta: float = 1500, smooth: int = 1,
 
 
 def top_sectors(trade_date: str | None = None, top: int = 20,
-                order_by: str = "diff_ratio") -> dict:
-    """板块排行: 某日按边际量/涨幅/成交额排序。"""
+                order_by: str = "diff_ratio",
+                min_amount: float | None = None,
+                min_pct_chg: float | None = None,
+                min_diff_ratio: float | None = None) -> dict:
+    """板块排行: 某日按边际量/涨幅/成交额排序, 可加阈值筛选。
+
+    三个 ``min_*`` 是原 sector-data skill 的「量价齐升」口径
+    (成交额>500亿 且 涨幅>0 且 边际量>10%)，那时要靠飞书电子表格的条件格式来看，
+    现在直接在库里筛。留空则不限。
+    """
     allowed = {"diff_ratio", "pct_chg", "amount"}
     if order_by not in allowed:
         order_by = "diff_ratio"
     con = connect(read_only=True)
     try:
         td = trade_date or _latest_date(con, "fact_sector_daily")
+        conds = ["trade_date = ?"]
+        params: list = [td]
+        for col, value in (("amount", min_amount), ("pct_chg", min_pct_chg),
+                           ("diff_ratio", min_diff_ratio)):
+            if value is not None:
+                conds.append(f"{col} >= ?")
+                params.append(float(value))
+        # 一天只有几百个板块, 全取后再按 canonical 合并同名双码 (并存日 云计算.TI/.FP
+        # 会各占一行), 最后截 top——先 LIMIT 再合并会少给, 所以不带 LIMIT。
         rows = con.execute(
             f"""
-            SELECT sector_name, sw_l1, pct_chg, diff_ratio, amount
+            SELECT sector_name, sector_ts_code, sw_l1, pct_chg, diff_ratio, amount
             FROM fact_sector_daily
-            WHERE trade_date = ?
+            WHERE {' AND '.join(conds)}
             ORDER BY {order_by} DESC NULLS LAST
-            LIMIT ?
             """,
-            [td, top],
+            params,
         ).fetchall()
-        cols = ["sector_name", "sw_l1", "pct_chg", "diff_ratio", "amount"]
-        return {"trade_date": str(td), "order_by": order_by,
-                "sectors": [dict(zip(cols, r)) for r in rows]}
+        cols = ["sector_name", "sector_ts_code", "sw_l1", "pct_chg", "diff_ratio", "amount"]
+        sectors, merged = _merge_alias_rows(con, [dict(zip(cols, r)) for r in rows])
+        # 合并可能用 canonical 行替换了排在前面的退役码行, 重排一次保证名次按值。
+        sectors.sort(key=lambda r: (r[order_by] is None, -(r[order_by] or 0.0)))
+        filters = {k: v for k, v in (("min_amount", min_amount),
+                                     ("min_pct_chg", min_pct_chg),
+                                     ("min_diff_ratio", min_diff_ratio)) if v is not None}
+        return {"trade_date": str(td), "order_by": order_by, "filters": filters,
+                "alias_rows_merged": merged,
+                "sectors": sectors[:top]}
     finally:
         con.close()
 
@@ -935,3 +1016,213 @@ def weighted_gainers(start: str, end: str, top: int = 20,
 def interval_gainers(start: str, end: str, top: int = 20,
                      min_amount: float = 1.0) -> dict:
     return _interval_stock_rank(start, end, top, min_amount, "interval_gain")
+
+
+# --- 个股技术位 -------------------------------------------------------------
+# 原先散在四个飞书 skill 里（watchlist-ma / top-gainers-feishu / up-line 各算各的，
+# 清单存在飞书表、计算靠逐只 iFinD 问答）。这里收成一个本地函数：
+# 清单由调用方给，数据来自 fact_stock_daily，一条 SQL 批量算完。
+
+_UP_STD_MULTIPLIER = 0.764  # UP = MA26 + 0.764 * STD26
+
+
+def _resolve_stock_terms(con, terms, as_of=None):
+    """把「代码/名称」混合的清单解析成 stock_ts_code。
+
+    三种写法都认：`601127.SH`、`601127`、`赛力斯`。一次扫表解析整个清单——
+    逐只查会把 375 万行的表扫 N 遍，13 只自选股就要十几秒。
+    """
+    uniq = list(dict.fromkeys(str(t).strip() for t in terms if str(t).strip()))
+    if not uniq:
+        return {}, []
+    ph = ",".join("?" for _ in uniq)
+    params: list = uniq * 3
+    date_clause = ""
+    if as_of:
+        date_clause = "AND trade_date <= ?"
+        params.append(as_of)
+    rows = con.execute(
+        f"""
+        SELECT stock_ts_code, stock_name, trade_date
+        FROM fact_stock_daily
+        WHERE (stock_name IN ({ph})
+               OR stock_ts_code IN ({ph})
+               OR split_part(stock_ts_code, '.', 1) IN ({ph}))
+          {date_clause}
+        QUALIFY ROW_NUMBER() OVER (PARTITION BY stock_ts_code
+                                   ORDER BY trade_date DESC) = 1
+        ORDER BY trade_date DESC
+        """,
+        params,
+    ).fetchall()
+    index: dict[str, str] = {}
+    for code, name, _td in rows:  # 已按最新日期排序，同名冲突取更近的那只
+        for key in (name, code, str(code).split(".")[0]):
+            if key and key not in index:
+                index[key] = code
+    resolved = {t: index[t] for t in uniq if t in index}
+    unknown = [t for t in uniq if t not in index]
+    return resolved, unknown
+
+
+def stock_technicals(terms, as_of: str | None = None,
+                     windows=(5, 10, 20, 26)) -> dict:
+    """一批股票的均线/UP 线/回踩状态。
+
+    Args:
+        terms: 股票代码或名称的清单，可混写。
+        as_of: 截止交易日（含）。**留空才取库尾**——问的是历史某天就传那天，
+            否则拿今天的均线去答那天的问题，是最容易犯又最难发现的错。
+        windows: 需要的均线周期。26 日恒定包含（UP 线依赖它）。
+
+    Returns:
+        dict：``as_of`` 为实际数据日，``rows`` 每只一行，``missing`` 是
+        查不到或样本不足的（不足期不给数，宁缺毋滥）。
+    """
+    wins = sorted({int(w) for w in windows} | {26})
+    if any(w < 2 or w > 500 for w in wins):
+        raise ValueError(f"均线周期须在 2..500 之间: {wins}")
+    terms = [str(t).strip() for t in terms if str(t).strip()]
+    if not terms:
+        return {"as_of": as_of, "requested": 0, "rows": [], "missing": []}
+
+    con = connect(read_only=True)
+    try:
+        resolved, unknown = _resolve_stock_terms(con, terms, as_of)
+        if not resolved:
+            return {"as_of": as_of, "requested": len(terms),
+                    "rows": [], "missing": unknown}
+
+        codes = sorted(set(resolved.values()))
+        ma_cols = ",\n".join(
+            f"""AVG(close) OVER w{w} AS ma{w},
+                COUNT(close) OVER w{w} AS n{w}"""
+            for w in wins
+        )
+        win_defs = ",\n".join(
+            f"w{w} AS (PARTITION BY stock_ts_code ORDER BY trade_date "
+            f"ROWS BETWEEN {w - 1} PRECEDING AND CURRENT ROW)"
+            for w in wins
+        )
+        placeholders = ",".join("?" for _ in codes)
+        params: list = list(codes)
+        date_clause = ""
+        if as_of:
+            date_clause = "AND trade_date <= ?"
+            params.append(as_of)
+
+        rows = con.execute(
+            f"""
+            WITH base AS (
+                SELECT trade_date, stock_ts_code, stock_name, close, pct_chg,
+                       {ma_cols},
+                       STDDEV_POP(close) OVER w26 AS std26,
+                       ROW_NUMBER() OVER (PARTITION BY stock_ts_code
+                                          ORDER BY trade_date DESC) AS rn
+                FROM fact_stock_daily
+                WHERE stock_ts_code IN ({placeholders})
+                  AND close IS NOT NULL
+                  {date_clause}
+                WINDOW {win_defs}
+            )
+            SELECT * FROM base WHERE rn = 1
+            """,
+            params,
+        ).fetchall()
+        cols = [d[0] for d in con.description]
+        by_code = {r[cols.index("stock_ts_code")]: dict(zip(cols, r)) for r in rows}
+
+        out_rows = []
+        missing = list(unknown)
+        for term in terms:
+            code = resolved.get(term)
+            rec = by_code.get(code) if code else None
+            if rec is None:
+                if term not in missing:
+                    missing.append(term)
+                continue
+            close = _as_float(rec.get("close"))
+            row = {
+                "term": term,
+                "stock_ts_code": rec["stock_ts_code"],
+                "stock_name": rec.get("stock_name"),
+                "trade_date": str(rec["trade_date"]),
+                "close": close,
+                "pct_chg": _as_float(rec.get("pct_chg")),
+            }
+            for w in wins:
+                enough = rec.get(f"n{w}") == w  # 不足期就是 None，不拿短样本冒充
+                row[f"ma{w}"] = _round(_as_float(rec.get(f"ma{w}"))) if enough else None
+            std26 = _as_float(rec.get("std26")) if rec.get("n26") == 26 else None
+            ma26 = row.get("ma26")
+            row["std26"] = _round(std26)
+            up_value = None
+            if ma26 is not None and std26 is not None:
+                up_value = ma26 + _UP_STD_MULTIPLIER * std26
+            row["up_value"] = _round(up_value)
+            row["up_deviation_pct"] = (
+                _round((close / up_value - 1) * 100)
+                if close is not None and up_value else None
+            )
+            row["above_up"] = (
+                None if row["up_deviation_pct"] is None
+                else row["up_deviation_pct"] > 0
+            )
+            row.update(_pullback_flags(close, row))
+            out_rows.append(row)
+
+        actual = max((r["trade_date"] for r in out_rows), default=None)
+        return {"as_of": as_of, "data_date": actual, "requested": len(terms),
+                "rows": out_rows, "missing": missing}
+    finally:
+        con.close()
+
+
+def _as_float(value):
+    return None if value is None else float(value)
+
+
+def _round(value, digits: int = 2):
+    return None if value is None else round(value, digits)
+
+
+def _pullback_flags(close, row) -> dict:
+    """回踩口径。两条都来自原飞书 skill，原样保留语义。
+
+    ``pullback_ma10_ma20``：MA20 < 价 < MA10，中期回踩（watchlist-ma / top-gainers 主口径）
+    ``pullback_ma5_ma10``：MA10 < 价 < MA5，短线回踩（top-gainers 次口径）
+    """
+    flags: dict = {}
+    pairs = (("pullback_ma10_ma20", "ma10", "ma20"), ("pullback_ma5_ma10", "ma5", "ma10"))
+    for key, fast_key, slow_key in pairs:
+        fast, slow = row.get(fast_key), row.get(slow_key)
+        if close is None or fast is None or slow is None:
+            flags[key] = None
+            continue
+        flags[key] = slow < close < fast
+    slow_ma = row.get("ma20")
+    flags["above_ma20_pct"] = (
+        _round((close - slow_ma) / slow_ma * 100)
+        if close is not None and slow_ma else None
+    )
+    return flags
+
+
+SCREENS = {
+    "pullback": ("pullback_ma10_ma20", "中期回踩：MA20 < 现价 < MA10"),
+    "short-pullback": ("pullback_ma5_ma10", "短线回踩：MA10 < 现价 < MA5"),
+    "above-up": ("above_up", "站上 UP 线：现价 > MA26 + 0.764×STD26"),
+}
+
+
+def screen_stock_technicals(terms, screen: str | None = None,
+                            as_of: str | None = None, windows=(5, 10, 20, 26)) -> dict:
+    """`stock_technicals` + 按口径过滤。screen 留空则不过滤，只返回全部技术位。"""
+    if screen and screen not in SCREENS:
+        raise ValueError(f"未知筛选口径 {screen!r}，可选: {', '.join(SCREENS)}")
+    result = stock_technicals(terms, as_of=as_of, windows=windows)
+    result["screen"] = screen
+    if screen:
+        flag = SCREENS[screen][0]
+        result["matched"] = [r for r in result["rows"] if r.get(flag) is True]
+    return result

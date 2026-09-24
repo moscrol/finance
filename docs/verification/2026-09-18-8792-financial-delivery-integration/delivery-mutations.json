@@ -1,0 +1,654 @@
+{
+  "revision": "d965721553741b7a1267b8541e7806d088083a8f",
+  "suite": "research-delivery",
+  "tree": "/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/extraction-closeout-mutations-m1aema4a/tree",
+  "python": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "complete": true,
+  "runs": [
+    {
+      "label": "baseline",
+      "exit": 0,
+      "executed": 107,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "result-success-admission-red",
+      "exit": 1,
+      "executed": 2,
+      "failures": 2,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_calculation_result_delivery",
+          "name": "test_frozen_nested_summary_is_not_success_or_derived_evidence",
+          "message": "assert False\n +  where False = isinstance(DerivedCalculation(calc_id='9a9f370288ff86ec', purpose='现金流含金量', script=\"emit({'schema': 'derived_calculation.result/v...vations': [{'subject': '600519', 'as_of': '2025-05-01', 'metric': 'net_profit', 'value': 1740.0}]}), base_calc_id=None), <class 'intelligence.services.derived_calculation.CalculationError'>)\n +    where <class 'intelligence.services.derived_calculation.CalculationError'> = dc.CalculationError"
+        },
+        {
+          "class": "intelligence.tests.test_frozen_research_delivery",
+          "name": "test_original_script_no_longer_claims_renderable_success",
+          "message": "assert (False)\n +  where False = isinstance(DerivedCalculation(calc_id='e2d4544cb8e50188', purpose='计算茅台六期OCF/归母净利含金量比率（简化emit格式）', script='rows=[(\"2025Q1\",\"2025-....88}, {'subject': '600519.SH', 'as_of': '2025-03-31', 'metric': 'inventory_yi', 'value': 547.98}]}), base_calc_id=None), <class 'intelligence.services.derived_calculation.CalculationError'>)\n +    where <class 'intelligence.services.derived_calculation.CalculationError'> = dc.CalculationError"
+        }
+      ]
+    },
+    {
+      "label": "result-success-admission-green",
+      "exit": 0,
+      "executed": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "strict-table-width-red",
+      "exit": 1,
+      "executed": 16,
+      "failures": 1,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_calculation_result_delivery",
+          "name": "test_invalid_result_has_stable_codes_without_private_values[result8-table_row_width]",
+          "message": "AssertionError: assert 'table_row_width' in ()"
+        }
+      ]
+    },
+    {
+      "label": "strict-table-width-green",
+      "exit": 0,
+      "executed": 16,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "domain-error-status-red",
+      "exit": 1,
+      "executed": 1,
+      "failures": 1,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_research_delivery_checks",
+          "name": "test_actual_failure_flag_reaches_model_and_audit_not_transport_ok",
+          "message": "assert (True is False)"
+        }
+      ]
+    },
+    {
+      "label": "domain-error-status-green",
+      "exit": 0,
+      "executed": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "harness-status-delivery-red",
+      "exit": 1,
+      "executed": 1,
+      "failures": 1,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_research_delivery_checks",
+          "name": "test_actual_failure_flag_reaches_model_and_audit_not_transport_ok",
+          "message": "assert (True is False)"
+        }
+      ]
+    },
+    {
+      "label": "harness-status-delivery-green",
+      "exit": 0,
+      "executed": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "public-disclosure-check-red",
+      "exit": 1,
+      "executed": 10,
+      "failures": 10,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_research_delivery_checks",
+          "name": "test_success_exit_also_checks_absence_and_preserves_neighbors[request_error-off]",
+          "message": "AssertionError: assert '窗口内无新公告即' not in '已取得中报原文，收入数...息差。仍需补全窗口查询。'\n  \n  '窗口内无新公告即' is contained here:\n    已取得中报原文，收入数据可核。[E1]。窗口内无新公告即无新增官方信息差。仍需补全窗口查询。\n  ?                     ++++++++"
+        },
+        {
+          "class": "intelligence.tests.test_research_delivery_checks",
+          "name": "test_success_exit_also_checks_absence_and_preserves_neighbors[request_error-llm]",
+          "message": "AssertionError: assert '窗口内无新公告即' not in '已取得中报原文，收入数...息差。仍需补全窗口查询。'\n  \n  '窗口内无新公告即' is contained here:\n    已取得中报原文，收入数据可核。[E1]。窗口内无新公告即无新增官方信息差。仍需补全窗口查询。\n  ?                     ++++++++"
+        },
+        {
+          "class": "intelligence.tests.test_research_delivery_checks",
+          "name": "test_success_exit_also_checks_absence_and_preserves_neighbors[partial-off]",
+          "message": "AssertionError: assert '窗口内无新公告即' not in '已取得中报原文，收入数...息差。仍需补全窗口查询。'\n  \n  '窗口内无新公告即' is contained here:\n    已取得中报原文，收入数据可核。[E1]。窗口内无新公告即无新增官方信息差。仍需补全窗口查询。\n  ?                     ++++++++"
+        },
+        {
+          "class": "intelligence.tests.test_research_delivery_checks",
+          "name": "test_success_exit_also_checks_absence_and_preserves_neighbors[partial-llm]",
+          "message": "AssertionError: assert '窗口内无新公告即' not in '已取得中报原文，收入数...息差。仍需补全窗口查询。'\n  \n  '窗口内无新公告即' is contained here:\n    已取得中报原文，收入数据可核。[E1]。窗口内无新公告即无新增官方信息差。仍需补全窗口查询。\n  ?                     ++++++++"
+        },
+        {
+          "class": "intelligence.tests.test_research_delivery_checks",
+          "name": "test_success_exit_also_checks_absence_and_preserves_neighbors[empty-off]",
+          "message": "AssertionError: assert '窗口内无新公告即' not in '已取得中报原文，收入数...息差。仍需补全窗口查询。'\n  \n  '窗口内无新公告即' is contained here:\n    已取得中报原文，收入数据可核。[E1]。窗口内无新公告即无新增官方信息差。仍需补全窗口查询。\n  ?                     ++++++++"
+        },
+        {
+          "class": "intelligence.tests.test_research_delivery_checks",
+          "name": "test_success_exit_also_checks_absence_and_preserves_neighbors[empty-llm]",
+          "message": "AssertionError: assert '窗口内无新公告即' not in '已取得中报原文，收入数...息差。仍需补全窗口查询。'\n  \n  '窗口内无新公告即' is contained here:\n    已取得中报原文，收入数据可核。[E1]。窗口内无新公告即无新增官方信息差。仍需补全窗口查询。\n  ?                     ++++++++"
+        },
+        {
+          "class": "intelligence.tests.test_research_delivery_checks",
+          "name": "test_success_exit_also_checks_absence_and_preserves_neighbors[not_attempted-off]",
+          "message": "AssertionError: assert '窗口内无新公告即' not in '已取得中报原文，收入数...息差。仍需补全窗口查询。'\n  \n  '窗口内无新公告即' is contained here:\n    已取得中报原文，收入数据可核。[E1]。窗口内无新公告即无新增官方信息差。仍需补全窗口查询。\n  ?                     ++++++++"
+        },
+        {
+          "class": "intelligence.tests.test_research_delivery_checks",
+          "name": "test_success_exit_also_checks_absence_and_preserves_neighbors[not_attempted-llm]",
+          "message": "AssertionError: assert '窗口内无新公告即' not in '已取得中报原文，收入数...息差。仍需补全窗口查询。'\n  \n  '窗口内无新公告即' is contained here:\n    已取得中报原文，收入数据可核。[E1]。窗口内无新公告即无新增官方信息差。仍需补全窗口查询。\n  ?                     ++++++++"
+        },
+        {
+          "class": "intelligence.tests.test_frozen_research_delivery",
+          "name": "test_frozen_disclosure_answer_through_real_verifier_exit[off]",
+          "message": "AssertionError: assert '窗口内无新公告即无新增官方信息差' not in '以披露日 2026-0...改革阵痛」叙事是否延续。'\n  \n  '窗口内无新公告即无新增官方信息差' is contained here:\n    标题，属外部观点）；窗口内无新公告即无新增官方信息差。股吧「机构退出」等评论未经公告证实，不作事实。反证：现有清单是抓取时点切片，接口未完整返回，不能据此断定9月确实零公告。裁判变量：1）补关键缺口：在上交所/巨潮公告检索接口正常时按披露日筛选 2026-08-19 至 09-18 重查一次，若返回空白则可坐实窗口内无公告；2）比较替代解释：等公司 2026 年三季度经营数据公告（预计 10 月中下旬）验证「改革阵痛」叙事是否延续。\n  ?           ++++++++++++++++"
+        },
+        {
+          "class": "intelligence.tests.test_frozen_research_delivery",
+          "name": "test_frozen_disclosure_answer_through_real_verifier_exit[llm]",
+          "message": "AssertionError: assert '窗口内无新公告即无新增官方信息差' not in '以披露日 2026-0...改革阵痛」叙事是否延续。'\n  \n  '窗口内无新公告即无新增官方信息差' is contained here:\n    标题，属外部观点）；窗口内无新公告即无新增官方信息差。股吧「机构退出」等评论未经公告证实，不作事实。反证：现有清单是抓取时点切片，接口未完整返回，不能据此断定9月确实零公告。裁判变量：1）补关键缺口：在上交所/巨潮公告检索接口正常时按披露日筛选 2026-08-19 至 09-18 重查一次，若返回空白则可坐实窗口内无公告；2）比较替代解释：等公司 2026 年三季度经营数据公告（预计 10 月中下旬）验证「改革阵痛」叙事是否延续。\n  ?           ++++++++++++++++"
+        }
+      ]
+    },
+    {
+      "label": "public-disclosure-check-green",
+      "exit": 0,
+      "executed": 10,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "public-calculation-check-red",
+      "exit": 1,
+      "executed": 4,
+      "failures": 4,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_research_delivery_checks",
+          "name": "test_ratio_error_reaches_real_verifier_exit_without_losing_input_facts[off]",
+          "message": "AssertionError: assert ('1.587' not in '收入数据可核。[E1]...03 | 0.289 |'\n  \n  '1.587' is contained here:\n     445.17 | 1.587 |\n  ?           +++++\n    | 2025中报 | 2025-08-13 | 131.19 | 454.03 | 0.289 |)"
+        },
+        {
+          "class": "intelligence.tests.test_research_delivery_checks",
+          "name": "test_ratio_error_reaches_real_verifier_exit_without_losing_input_facts[llm]",
+          "message": "AssertionError: assert ('1.587' not in '收入数据可核。[E1]...03 | 0.289 |'\n  \n  '1.587' is contained here:\n     445.17 | 1.587 |\n  ?           +++++\n    | 2025中报 | 2025-08-13 | 131.19 | 454.03 | 0.289 |)"
+        },
+        {
+          "class": "intelligence.tests.test_frozen_research_delivery",
+          "name": "test_old_empty_product_cannot_support_claimed_calculator_ratios[off]",
+          "message": "AssertionError: assert '1.587' not in '**贵州茅台（6005...方法论判断而非本轮证据。'\n  \n  '1.587' is contained here:\n     445.17 | 1.587 |\n  ?           +++++\n    **判断**：从已披露硬数据看，2025年内三个报告期含金量偏低（中报仅0.289），年报回升至0.747；但这是**条件化判断**——需注意茅台回款/打款节奏本身高度季节性：一季报和三季报的OCF天然受经销商打款时点影响，比率跨报告期不可直接同权比较，只应与上年同期对照：2026中报1.587 vs 2025中报0.289，2026一季报0.988 vs 2025一季报0.328，同期对照均大幅改善；2025年报0.747相对此前年份（未在本轮取数范围内）无法比较。\n    **反证/竞争性解释**：含金量同比骤升更可能反映基数效应——2025年OCF基数极低（2025中报仅131.19亿，同期净利454.03亿），而非现金创造能力发生质变；同时2026中报归母净利同比-1.95%（E1），在利润下滑背景下OCF比率被动抬升，不宜单凭比率判断「利润质量提升」。2025年报净利同比-4.53%、营收-1.2%（E5），六期整体盈利在收缩通道。\n    **缺口**：未取得2024年及更早报告期数据作同期基数对照；OCF明细（销售回款、税费缴付节奏）未取数，季节性归因属方法论判断而非本轮证据。"
+        },
+        {
+          "class": "intelligence.tests.test_frozen_research_delivery",
+          "name": "test_old_empty_product_cannot_support_claimed_calculator_ratios[llm]",
+          "message": "AssertionError: assert '1.587' not in '**贵州茅台（6005...方法论判断而非本轮证据。'\n  \n  '1.587' is contained here:\n     445.17 | 1.587 |\n  ?           +++++\n    **判断**：从已披露硬数据看，2025年内三个报告期含金量偏低（中报仅0.289），年报回升至0.747；但这是**条件化判断**——需注意茅台回款/打款节奏本身高度季节性：一季报和三季报的OCF天然受经销商打款时点影响，比率跨报告期不可直接同权比较，只应与上年同期对照：2026中报1.587 vs 2025中报0.289，2026一季报0.988 vs 2025一季报0.328，同期对照均大幅改善；2025年报0.747相对此前年份（未在本轮取数范围内）无法比较。\n    **反证/竞争性解释**：含金量同比骤升更可能反映基数效应——2025年OCF基数极低（2025中报仅131.19亿，同期净利454.03亿），而非现金创造能力发生质变；同时2026中报归母净利同比-1.95%（E1），在利润下滑背景下OCF比率被动抬升，不宜单凭比率判断「利润质量提升」。2025年报净利同比-4.53%、营收-1.2%（E5），六期整体盈利在收缩通道。\n    **缺口**：未取得2024年及更早报告期数据作同期基数对照；OCF明细（销售回款、税费缴付节奏）未取数，季节性归因属方法论判断而非本轮证据。"
+        }
+      ]
+    },
+    {
+      "label": "public-calculation-check-green",
+      "exit": 0,
+      "executed": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "period-not-bag-of-numbers-red",
+      "exit": 1,
+      "executed": 7,
+      "failures": 3,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_research_delivery_checks",
+          "name": "test_copy_guard_binds_period_and_column_not_a_bag_of_numbers",
+          "message": "AssertionError: assert 2 == 1\n +  where 2 = len((DeliveryFinding(start=100, end=107, code='calculation_value_unverified', replacement=' 待核对 '), DeliveryFinding(start=150, end=157, code='calculation_value_unverified', replacement=' 待核对 ')))"
+        },
+        {
+          "class": "intelligence.tests.test_research_delivery_checks",
+          "name": "test_correct_rounding_percent_and_unrelated_numbers_not_rejected[| \\u62a5\\u544a\\u671f | \\u62ab\\u9732\\u65e5 | OCF\\u7d2f\\u8ba1 | \\u5f52\\u6bcd\\u51c0\\u5229\\u7d2f\\u8ba1 | \\u542b\\u91d1\\u91cf |\\n|---|---|---|---|---|\\n| 2026\\u4e2d\\u62a5 | 2026-08-15 | 706.91 | 445.17 | 1.588 |\\n| 2025\\u4e2d\\u62a5 | 2025-08-13 | 131.19 | 454.03 | 0.289 |\\n]",
+          "message": "AssertionError: assert (DeliveryFind...ment=' 待核对 ')) == ()\n  \n  Left contains 2 more items, first extra item: DeliveryFinding(start=100, end=107, code='calculation_value_unverified', replacement=' 待核对 ')\n  Use -v to get more diff"
+        },
+        {
+          "class": "intelligence.tests.test_research_delivery_checks",
+          "name": "test_correct_rounding_percent_and_unrelated_numbers_not_rejected[| \\u62a5\\u544a\\u671f | \\u62ab\\u9732\\u65e5 | OCF\\u7d2f\\u8ba1 | \\u5f52\\u6bcd\\u51c0\\u5229\\u7d2f\\u8ba1 | \\u542b\\u91d1\\u91cf |\\n|---|---|---|---|---|\\n| 2026\\u4e2d\\u62a5 | 2026-08-15 | 706.91 | 445.17 | 1.59 |\\n| 2025\\u4e2d\\u62a5 | 2025-08-13 | 131.19 | 454.03 | 0.289 |\\n]",
+          "message": "AssertionError: assert (DeliveryFind...ment=' 待核对 ')) == ()\n  \n  Left contains 2 more items, first extra item: DeliveryFinding(start=100, end=106, code='calculation_value_unverified', replacement=' 待核对 ')\n  Use -v to get more diff"
+        }
+      ]
+    },
+    {
+      "label": "period-not-bag-of-numbers-green",
+      "exit": 0,
+      "executed": 7,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "metric-column-not-table-purpose-red",
+      "exit": 1,
+      "executed": 6,
+      "failures": 3,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_research_delivery_checks",
+          "name": "test_correct_rounding_percent_and_unrelated_numbers_not_rejected[| \\u62a5\\u544a\\u671f | \\u62ab\\u9732\\u65e5 | OCF\\u7d2f\\u8ba1 | \\u5f52\\u6bcd\\u51c0\\u5229\\u7d2f\\u8ba1 | \\u542b\\u91d1\\u91cf |\\n|---|---|---|---|---|\\n| 2026\\u4e2d\\u62a5 | 2026-08-15 | 706.91 | 445.17 | 1.588 |\\n| 2025\\u4e2d\\u62a5 | 2025-08-13 | 131.19 | 454.03 | 0.289 |\\n]",
+          "message": "AssertionError: assert (DeliveryFind...ent=' 待核对 '),) == ()\n  \n  Left contains one more item: DeliveryFinding(start=100, end=107, code='calculation_value_unverified', replacement=' 待核对 ')\n  Use -v to get more diff"
+        },
+        {
+          "class": "intelligence.tests.test_research_delivery_checks",
+          "name": "test_correct_rounding_percent_and_unrelated_numbers_not_rejected[| \\u62a5\\u544a\\u671f | \\u62ab\\u9732\\u65e5 | OCF\\u7d2f\\u8ba1 | \\u5f52\\u6bcd\\u51c0\\u5229\\u7d2f\\u8ba1 | \\u542b\\u91d1\\u91cf |\\n|---|---|---|---|---|\\n| 2026\\u4e2d\\u62a5 | 2026-08-15 | 706.91 | 445.17 | 1.59 |\\n| 2025\\u4e2d\\u62a5 | 2025-08-13 | 131.19 | 454.03 | 0.289 |\\n]",
+          "message": "AssertionError: assert (DeliveryFind...ent=' 待核对 '),) == ()\n  \n  Left contains one more item: DeliveryFinding(start=100, end=106, code='calculation_value_unverified', replacement=' 待核对 ')\n  Use -v to get more diff"
+        },
+        {
+          "class": "intelligence.tests.test_research_delivery_checks",
+          "name": "test_correct_rounding_percent_and_unrelated_numbers_not_rejected[2026\\u4e2d\\u62a5\\u542b\\u91d1\\u91cf\\u4e3a158.8%\\u3002]",
+          "message": "AssertionError: assert (DeliveryFind...lacement=''),) == ()\n  \n  Left contains one more item: DeliveryFinding(start=0, end=17, code='calculation_value_unverified', replacement='')\n  Use -v to get more diff"
+        }
+      ]
+    },
+    {
+      "label": "metric-column-not-table-purpose-green",
+      "exit": 0,
+      "executed": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "cell-local-preservation-red",
+      "exit": 1,
+      "executed": 3,
+      "failures": 3,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_research_delivery_checks",
+          "name": "test_copy_guard_binds_period_and_column_not_a_bag_of_numbers",
+          "message": "AssertionError: assert '2026中报 | 2026-08-15 | 706.91 | 445.17 | 待核对 |' in '| 报告期 | 披露日 | OCF累计 | 归母净利累计 | 含金量 |\\n|---|---|---|---|---|\\n 待核对 | 2025中报 | 2025-08-13 | 131.19 | 454.03 | 0.289 |'"
+        },
+        {
+          "class": "intelligence.tests.test_research_delivery_checks",
+          "name": "test_ratio_error_reaches_real_verifier_exit_without_losing_input_facts[off]",
+          "message": "AssertionError: assert ('706.91' in '收入数据可核。[E1]。\\n| 报告期 | 披露日 | OCF累计 | 归母净利累计 | 含金量 |\\n|---|---|---|---|---|\\n 待核对 | 2025中报 | 2025-08-13 | 131.19 | 454.03 | 0.289 |\\n\\n部分逐期比率与本次计算产物不一致，已保留其他数据；对应比率仍需核对。')\n +  where '收入数据可核。[E1]。\\n| 报告期 | 披露日 | OCF累计 | 归母净利累计 | 含金量 |\\n|---|---|---|---|---|\\n 待核对 | 2025中报 | 2025-08-13 | 131.19 | 454.03 | 0.289 |\\n\\n部分逐期比率与本次计算产物不一致，已保留其他数据；对应比率仍需核对。' = SemanticEpisodeOutcome(verified=VerifiedEpisodeOutcome(outcome=AgentOutcome(task_frame_hash='30b122e0a034c3611a7ce46d4...count=None, rejudge_called=False, outcome='skipped', lifted_count=None, still_doubted_count=None, support_evidence=())).public_answer"
+        },
+        {
+          "class": "intelligence.tests.test_research_delivery_checks",
+          "name": "test_ratio_error_reaches_real_verifier_exit_without_losing_input_facts[llm]",
+          "message": "AssertionError: assert ('706.91' in '收入数据可核。[E1]。\\n| 报告期 | 披露日 | OCF累计 | 归母净利累计 | 含金量 |\\n|---|---|---|---|---|\\n 待核对 | 2025中报 | 2025-08-13 | 131.19 | 454.03 | 0.289 |\\n\\n部分逐期比率与本次计算产物不一致，已保留其他数据；对应比率仍需核对。')\n +  where '收入数据可核。[E1]。\\n| 报告期 | 披露日 | OCF累计 | 归母净利累计 | 含金量 |\\n|---|---|---|---|---|\\n 待核对 | 2025中报 | 2025-08-13 | 131.19 | 454.03 | 0.289 |\\n\\n部分逐期比率与本次计算产物不一致，已保留其他数据；对应比率仍需核对。' = SemanticEpisodeOutcome(verified=VerifiedEpisodeOutcome(outcome=AgentOutcome(task_frame_hash='30b122e0a034c3611a7ce46d4...count=None, rejudge_called=False, outcome='skipped', lifted_count=None, still_doubted_count=None, support_evidence=())).public_answer"
+        }
+      ]
+    },
+    {
+      "label": "cell-local-preservation-green",
+      "exit": 0,
+      "executed": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "same-turn-repair-note-red",
+      "exit": 1,
+      "executed": 36,
+      "failures": 12,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_research_delivery_repair",
+          "name": "test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure-reserved-unchanged-off]",
+          "message": "assert False\n +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10e0aec20>)"
+        },
+        {
+          "class": "intelligence.tests.test_research_delivery_repair",
+          "name": "test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure-reserved-unchanged-llm]",
+          "message": "assert False\n +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10e5ab440>)"
+        },
+        {
+          "class": "intelligence.tests.test_research_delivery_repair",
+          "name": "test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure-reserved-corrected-off]",
+          "message": "assert False\n +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10e5ab780>)"
+        },
+        {
+          "class": "intelligence.tests.test_research_delivery_repair",
+          "name": "test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure-reserved-corrected-llm]",
+          "message": "assert False\n +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10e42e9b0>)"
+        },
+        {
+          "class": "intelligence.tests.test_research_delivery_repair",
+          "name": "test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure-reserved-timeout-off]",
+          "message": "assert False\n +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10cb5c5f0>)"
+        },
+        {
+          "class": "intelligence.tests.test_research_delivery_repair",
+          "name": "test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure-reserved-timeout-llm]",
+          "message": "assert False\n +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10e42ca00>)"
+        },
+        {
+          "class": "intelligence.tests.test_research_delivery_repair",
+          "name": "test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation-reserved-unchanged-off]",
+          "message": "assert False\n +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10e5ab440>)"
+        },
+        {
+          "class": "intelligence.tests.test_research_delivery_repair",
+          "name": "test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation-reserved-unchanged-llm]",
+          "message": "assert False\n +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10e46ee90>)"
+        },
+        {
+          "class": "intelligence.tests.test_research_delivery_repair",
+          "name": "test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation-reserved-corrected-off]",
+          "message": "assert False\n +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10e5aa8e0>)"
+        },
+        {
+          "class": "intelligence.tests.test_research_delivery_repair",
+          "name": "test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation-reserved-corrected-llm]",
+          "message": "assert False\n +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10e4d85f0>)"
+        },
+        {
+          "class": "intelligence.tests.test_research_delivery_repair",
+          "name": "test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation-reserved-timeout-off]",
+          "message": "assert False\n +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10e47de50>)"
+        },
+        {
+          "class": "intelligence.tests.test_research_delivery_repair",
+          "name": "test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation-reserved-timeout-llm]",
+          "message": "assert False\n +  where False = any(<generator object test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference.<locals>.<genexpr> at 0x10e5a9490>)"
+        }
+      ]
+    },
+    {
+      "label": "same-turn-repair-note-green",
+      "exit": 0,
+      "executed": 36,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "nonmaterial-final-projection-red",
+      "exit": 1,
+      "executed": 1,
+      "failures": 1,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_research_delivery_repair",
+          "name": "test_adapter_rechecks_nonmaterial_final_projection",
+          "message": "AssertionError: {'backfill_turns': 0, 'contract': {'allowed_capabilities': ['market_data', 'finance_query', 'evidence_search'], 'contr...cc85f5cfb8b58bdeffcc75a7f3eeb95314c680e992afa2c904dc3f'}, 'sequence': 1}], 'execution_kind': 'continuous_episode', ...}\nassert 'completed' == 'partial'\n  \n  - partial\n  + completed"
+        }
+      ]
+    },
+    {
+      "label": "nonmaterial-final-projection-green",
+      "exit": 0,
+      "executed": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "retained-bound-citations-red",
+      "exit": 1,
+      "executed": 37,
+      "failures": 13,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_research_delivery_checks",
+          "name": "test_retained_citations_do_not_resurrect_unbound_or_already_gapped_evidence",
+          "message": "AssertionError: assert () == ('HASH_PRIVATE_SENTINEL',)\n  \n  Right contains one more item: 'HASH_PRIVATE_SENTINEL'\n  Use -v to get more diff"
+        },
+        {
+          "class": "intelligence.tests.test_research_delivery_repair",
+          "name": "test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure-exhausted-unchanged-off]",
+          "message": "AssertionError: assert set() == {'已取得的独立事实'}\n  \n  Extra items in the right set:\n  '已取得的独立事实'\n  Use -v to get more diff"
+        },
+        {
+          "class": "intelligence.tests.test_research_delivery_repair",
+          "name": "test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure-exhausted-unchanged-llm]",
+          "message": "AssertionError: assert set() == {'已取得的独立事实'}\n  \n  Extra items in the right set:\n  '已取得的独立事实'\n  Use -v to get more diff"
+        },
+        {
+          "class": "intelligence.tests.test_research_delivery_repair",
+          "name": "test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure-exhausted-corrected-off]",
+          "message": "AssertionError: assert set() == {'已取得的独立事实'}\n  \n  Extra items in the right set:\n  '已取得的独立事实'\n  Use -v to get more diff"
+        },
+        {
+          "class": "intelligence.tests.test_research_delivery_repair",
+          "name": "test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure-exhausted-corrected-llm]",
+          "message": "AssertionError: assert set() == {'已取得的独立事实'}\n  \n  Extra items in the right set:\n  '已取得的独立事实'\n  Use -v to get more diff"
+        },
+        {
+          "class": "intelligence.tests.test_research_delivery_repair",
+          "name": "test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure-exhausted-timeout-off]",
+          "message": "AssertionError: assert set() == {'已取得的独立事实'}\n  \n  Extra items in the right set:\n  '已取得的独立事实'\n  Use -v to get more diff"
+        },
+        {
+          "class": "intelligence.tests.test_research_delivery_repair",
+          "name": "test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[disclosure-exhausted-timeout-llm]",
+          "message": "AssertionError: assert set() == {'已取得的独立事实'}\n  \n  Extra items in the right set:\n  '已取得的独立事实'\n  Use -v to get more diff"
+        },
+        {
+          "class": "intelligence.tests.test_research_delivery_repair",
+          "name": "test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation-exhausted-unchanged-off]",
+          "message": "AssertionError: assert set() == {'已取得的独立事实'}\n  \n  Extra items in the right set:\n  '已取得的独立事实'\n  Use -v to get more diff"
+        },
+        {
+          "class": "intelligence.tests.test_research_delivery_repair",
+          "name": "test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation-exhausted-unchanged-llm]",
+          "message": "AssertionError: assert set() == {'已取得的独立事实'}\n  \n  Extra items in the right set:\n  '已取得的独立事实'\n  Use -v to get more diff"
+        },
+        {
+          "class": "intelligence.tests.test_research_delivery_repair",
+          "name": "test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation-exhausted-corrected-off]",
+          "message": "AssertionError: assert set() == {'已取得的独立事实'}\n  \n  Extra items in the right set:\n  '已取得的独立事实'\n  Use -v to get more diff"
+        },
+        {
+          "class": "intelligence.tests.test_research_delivery_repair",
+          "name": "test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation-exhausted-corrected-llm]",
+          "message": "AssertionError: assert set() == {'已取得的独立事实'}\n  \n  Extra items in the right set:\n  '已取得的独立事实'\n  Use -v to get more diff"
+        },
+        {
+          "class": "intelligence.tests.test_research_delivery_repair",
+          "name": "test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation-exhausted-timeout-off]",
+          "message": "AssertionError: assert set() == {'已取得的独立事实'}\n  \n  Extra items in the right set:\n  '已取得的独立事实'\n  Use -v to get more diff"
+        },
+        {
+          "class": "intelligence.tests.test_research_delivery_repair",
+          "name": "test_same_turn_repairs_without_extra_fetch_or_restoring_false_inference[calculation-exhausted-timeout-llm]",
+          "message": "AssertionError: assert set() == {'已取得的独立事实'}\n  \n  Extra items in the right set:\n  '已取得的独立事实'\n  Use -v to get more diff"
+        }
+      ]
+    },
+    {
+      "label": "retained-bound-citations-green",
+      "exit": 0,
+      "executed": 37,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "missing-product-not-certified-red",
+      "exit": 1,
+      "executed": 3,
+      "failures": 3,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_research_delivery_checks",
+          "name": "test_missing_and_conflicting_products_are_not_certified_by_numeric_presence",
+          "message": "AssertionError: assert 0 == 2\n +  where 0 = len(())\n +    where () = calculation_copy_findings('| 报告期 | 披露日 | OCF累计 | 归母净利累计 | 含金量 |\\n|---|---|---|---|---|\\n| 2026中报 | 2026-08-15 | 706.91 | 445.17 | 1.587 |\\n| 2025中报 | 2025-08-13 | 131.19 | 454.03 | 0.289 |\\n', (AgentEvidence(tool='financial_data', title='财报', detail='财报输入', source='F10', internal_locator='', source_date=None, ...d=None, pointer_dropped=None, structural_neighbor_demoted=None, deep_read=False, publisher_kind='', document_type=''),), calculation_required=True)"
+        },
+        {
+          "class": "intelligence.tests.test_frozen_research_delivery",
+          "name": "test_old_empty_product_cannot_support_claimed_calculator_ratios[off]",
+          "message": "AssertionError: assert '1.587' not in '**贵州茅台（6005...方法论判断而非本轮证据。'\n  \n  '1.587' is contained here:\n     445.17 | 1.587 |\n  ?           +++++\n    **判断**：从已披露硬数据看，2025年内三个报告期含金量偏低（中报仅0.289），年报回升至0.747；但这是**条件化判断**——需注意茅台回款/打款节奏本身高度季节性：一季报和三季报的OCF天然受经销商打款时点影响，比率跨报告期不可直接同权比较，只应与上年同期对照：2026中报1.587 vs 2025中报0.289，2026一季报0.988 vs 2025一季报0.328，同期对照均大幅改善；2025年报0.747相对此前年份（未在本轮取数范围内）无法比较。\n    **反证/竞争性解释**：含金量同比骤升更可能反映基数效应——2025年OCF基数极低（2025中报仅131.19亿，同期净利454.03亿），而非现金创造能力发生质变；同时2026中报归母净利同比-1.95%（E1），在利润下滑背景下OCF比率被动抬升，不宜单凭比率判断「利润质量提升」。2025年报净利同比-4.53%、营收-1.2%（E5），六期整体盈利在收缩通道。\n    **缺口**：未取得2024年及更早报告期数据作同期基数对照；OCF明细（销售回款、税费缴付节奏）未取数，季节性归因属方法论判断而非本轮证据。"
+        },
+        {
+          "class": "intelligence.tests.test_frozen_research_delivery",
+          "name": "test_old_empty_product_cannot_support_claimed_calculator_ratios[llm]",
+          "message": "AssertionError: assert '1.587' not in '**贵州茅台（6005...方法论判断而非本轮证据。'\n  \n  '1.587' is contained here:\n     445.17 | 1.587 |\n  ?           +++++\n    **判断**：从已披露硬数据看，2025年内三个报告期含金量偏低（中报仅0.289），年报回升至0.747；但这是**条件化判断**——需注意茅台回款/打款节奏本身高度季节性：一季报和三季报的OCF天然受经销商打款时点影响，比率跨报告期不可直接同权比较，只应与上年同期对照：2026中报1.587 vs 2025中报0.289，2026一季报0.988 vs 2025一季报0.328，同期对照均大幅改善；2025年报0.747相对此前年份（未在本轮取数范围内）无法比较。\n    **反证/竞争性解释**：含金量同比骤升更可能反映基数效应——2025年OCF基数极低（2025中报仅131.19亿，同期净利454.03亿），而非现金创造能力发生质变；同时2026中报归母净利同比-1.95%（E1），在利润下滑背景下OCF比率被动抬升，不宜单凭比率判断「利润质量提升」。2025年报净利同比-4.53%、营收-1.2%（E5），六期整体盈利在收缩通道。\n    **缺口**：未取得2024年及更早报告期数据作同期基数对照；OCF明细（销售回款、税费缴付节奏）未取数，季节性归因属方法论判断而非本轮证据。"
+        }
+      ]
+    },
+    {
+      "label": "missing-product-not-certified-green",
+      "exit": 0,
+      "executed": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "restored-full",
+      "exit": 0,
+      "executed": 107,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    }
+  ],
+  "mutations": [
+    {
+      "id": "result-success-admission",
+      "path": "intelligence/services/derived_calculation.py",
+      "before_sha256": "8f7961f7104ee6f42d337582907244f4c07e1d059d3915dd2270a44b0ed93c23",
+      "mutated_sha256": "adcc978540e1f2f11633b5e4cbbca9a04785f4eaa0efc7b3774bbad8c501857b",
+      "restored_sha256": "8f7961f7104ee6f42d337582907244f4c07e1d059d3915dd2270a44b0ed93c23"
+    },
+    {
+      "id": "strict-table-width",
+      "path": "intelligence/services/derived_calculation_artifacts.py",
+      "before_sha256": "81d56a1279a7326bb805d3aaf14318f26d5e9fb3e5780a1b18f6342bbd4cd0a1",
+      "mutated_sha256": "4a790c417c6f6f2d77e727b5ea6da974b6f20dad4fa186fcea8515e20b4679d2",
+      "restored_sha256": "81d56a1279a7326bb805d3aaf14318f26d5e9fb3e5780a1b18f6342bbd4cd0a1"
+    },
+    {
+      "id": "domain-error-status",
+      "path": "intelligence/services/research_tool_registry.py",
+      "before_sha256": "dc5ac5857b7eac0ad03764b35ced64f518300786340caa08ee87ffcd2e636804",
+      "mutated_sha256": "43c8a5cd09133ef1c298347adef5299194ca9620aa692ad18f0ee64aa20dce3d",
+      "restored_sha256": "dc5ac5857b7eac0ad03764b35ced64f518300786340caa08ee87ffcd2e636804"
+    },
+    {
+      "id": "harness-status-delivery",
+      "path": "intelligence/services/research_harness.py",
+      "before_sha256": "82a10eaf17e879cbcefef0b15808e1bc8fbe44f02526bdaa669841b2201dd2cc",
+      "mutated_sha256": "6bca03826193376ef8987878c5fafbbb8629b334e219b9d15e192e30f076e375",
+      "restored_sha256": "82a10eaf17e879cbcefef0b15808e1bc8fbe44f02526bdaa669841b2201dd2cc"
+    },
+    {
+      "id": "public-disclosure-check",
+      "path": "intelligence/services/episode_semantic_verifier.py",
+      "before_sha256": "36f139f09b106fcc27d3b4018bbd5ad16e9164987975c9e4eb52411de20910a8",
+      "mutated_sha256": "44e2e0219d1ef83854409fcceaaddbc1c923681e798ddcc37fa5637991ca6010",
+      "restored_sha256": "36f139f09b106fcc27d3b4018bbd5ad16e9164987975c9e4eb52411de20910a8"
+    },
+    {
+      "id": "public-calculation-check",
+      "path": "intelligence/services/episode_semantic_verifier.py",
+      "before_sha256": "36f139f09b106fcc27d3b4018bbd5ad16e9164987975c9e4eb52411de20910a8",
+      "mutated_sha256": "d321390649ec21b9925fa7980ca77746c64bf28f5837229703203b5cd83247b6",
+      "restored_sha256": "36f139f09b106fcc27d3b4018bbd5ad16e9164987975c9e4eb52411de20910a8"
+    },
+    {
+      "id": "period-not-bag-of-numbers",
+      "path": "intelligence/services/research_delivery_checks.py",
+      "before_sha256": "64bd0656de210adf33801a122e123773a564008d390aabf424f90c932f5059fd",
+      "mutated_sha256": "16f6d31acd6dea342700723d1b7858dcdac999510d0842ac8c4989859e1f5dfe",
+      "restored_sha256": "64bd0656de210adf33801a122e123773a564008d390aabf424f90c932f5059fd"
+    },
+    {
+      "id": "metric-column-not-table-purpose",
+      "path": "intelligence/services/research_delivery_checks.py",
+      "before_sha256": "64bd0656de210adf33801a122e123773a564008d390aabf424f90c932f5059fd",
+      "mutated_sha256": "b903f0e9144bce0ddb82d92d91b4431384e521000363484ef028320ccadcea8a",
+      "restored_sha256": "64bd0656de210adf33801a122e123773a564008d390aabf424f90c932f5059fd"
+    },
+    {
+      "id": "cell-local-preservation",
+      "path": "intelligence/services/research_delivery_checks.py",
+      "before_sha256": "64bd0656de210adf33801a122e123773a564008d390aabf424f90c932f5059fd",
+      "mutated_sha256": "1fd611188519825b21fa39e3bd1557e3466ab0d995356e2677705a9e0d403a0d",
+      "restored_sha256": "64bd0656de210adf33801a122e123773a564008d390aabf424f90c932f5059fd"
+    },
+    {
+      "id": "same-turn-repair-note",
+      "path": "intelligence/runtime/continuous_turn_adapter.py",
+      "before_sha256": "c36502d2f72727f65aece078726ae654b1832610865d8e37c5d6e96944316b1a",
+      "mutated_sha256": "df053d5b61490a484615dff9f7cfc2773bb439262a4ceafcd88057995714d232",
+      "restored_sha256": "c36502d2f72727f65aece078726ae654b1832610865d8e37c5d6e96944316b1a"
+    },
+    {
+      "id": "nonmaterial-final-projection",
+      "path": "intelligence/runtime/continuous_turn_adapter.py",
+      "before_sha256": "c36502d2f72727f65aece078726ae654b1832610865d8e37c5d6e96944316b1a",
+      "mutated_sha256": "f4b5587fccae955aed2a3e738cc96b94d02049ee8930260906fea64e80111d83",
+      "restored_sha256": "c36502d2f72727f65aece078726ae654b1832610865d8e37c5d6e96944316b1a"
+    },
+    {
+      "id": "retained-bound-citations",
+      "path": "intelligence/services/episode_semantic_verifier.py",
+      "before_sha256": "36f139f09b106fcc27d3b4018bbd5ad16e9164987975c9e4eb52411de20910a8",
+      "mutated_sha256": "19390f3f23f003e133342725961882811b2234244b91a3fcefa81ba82ae506c5",
+      "restored_sha256": "36f139f09b106fcc27d3b4018bbd5ad16e9164987975c9e4eb52411de20910a8"
+    },
+    {
+      "id": "missing-product-not-certified",
+      "path": "intelligence/services/research_delivery_checks.py",
+      "before_sha256": "64bd0656de210adf33801a122e123773a564008d390aabf424f90c932f5059fd",
+      "mutated_sha256": "88bed29e7718ccef4f9f2349dabb67f8c11b76c4631be4b5fd3cabf900c87a51",
+      "restored_sha256": "64bd0656de210adf33801a122e123773a564008d390aabf424f90c932f5059fd"
+    }
+  ],
+  "definitions_sha256": "3392d4ba1915f46c4f6dceef5ce24ae8f57db25f2a4cf8062736ebca11d25dd9",
+  "final_status": ""
+}

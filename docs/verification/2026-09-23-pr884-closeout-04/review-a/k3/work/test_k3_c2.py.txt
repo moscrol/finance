@@ -1,0 +1,343 @@
+"""K3 独立探针 C2：预算/授权/私有证据快照；v3 io_effect 与 v1/v2 保守兼容；未知效果/费用闸；服务端入口身份。
+
+夹具复用仓内 conformance 构造件；探针场景与全部断言由本审查独立编写。
+"""
+from __future__ import annotations
+
+from dataclasses import replace
+from types import SimpleNamespace
+import copy
+import hashlib
+import json
+
+import pytest
+
+from intelligence.services.episode_authorization import (
+    capture_authorization_snapshot,
+    validate_current_authorization,
+)
+from intelligence.services.episode_effects import (
+    UnknownEffect,
+    charge_unknown_effects,
+    unknown_effects_from_payload,
+)
+from intelligence.services.episode_evidence import EpisodeEvidenceSnapshot
+from intelligence.services.episode_entry_identity import (
+    EntryIdentity,
+    capture_entry_identity,
+    entry_identities_match,
+)
+from intelligence.services.episode_restore import RestoreUnavailable, restore_episode
+from intelligence.services.episode_store import MemoryEpisodeStore
+from intelligence.services.research_contract import (
+    release_root_budget,
+    restore_root_budget,
+    root_budget_for_policy,
+)
+from intelligence.services.research_tool_registry import ToolSpec
+from intelligence.tests.conformance.fixtures import (
+    ScenarioProbe,
+    make_context,
+    make_frame,
+    make_registry,
+)
+from intelligence.tests.conformance.races._drive import build_rig
+
+TASK = "k3-c2-episode"
+
+
+def _digest(body: dict) -> str:
+    return hashlib.sha256(
+        json.dumps(body, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False).encode()
+    ).hexdigest()
+
+
+def _run_with_root_budget(task_id: str):
+    """跑一个带根预算的完整 episode，返回 (store, context, registry, probe, events, state)。"""
+    rig = build_rig(task_id)
+    context = rig.context
+    root = root_budget_for_policy(context.policy, episode_id=task_id)
+    rig.context = replace(context, root_budget=root)
+    rig.start()
+    outcome = rig.finish()
+    assert outcome.status == "completed", outcome.stop_reason
+    events, state = rig.oracle.load(task_id)
+    assert state is not None and state.budget_snapshot, "[C2-BUDGET] 检查点必须带预算快照"
+    return rig, events, state
+
+
+# ── 预算快照 + 未知效果费用闸 ──────────────────────────────────────────
+
+
+def test_k3_c2_budget_gate_and_unknown_effect_charge():
+    rig, events, state = _run_with_root_budget(TASK + "-budget")
+    snapshot = dict(state.budget_snapshot)
+    episode_id = TASK + "-budget"
+    effect = {
+        "effect": "tool", "reserved_id": "call-x", "intent_sequence": 3,
+        "disposition": "settled_interrupted", "name": "market_data",
+        "cost": "unknown", "io_effect": "unknown", "replay": "unknown",
+    }
+    # 未对账清单非空 →  restore_root_budget 必须拒绝放出可花余额
+    with pytest.raises(ValueError, match="unreconciled"):
+        restore_root_budget(snapshot, episode_id=episode_id, unreconciled_effects=[effect])
+    # 空清单 → 允许恢复；余额与快照一致
+    release_root_budget(episode_id)
+    ledger = restore_root_budget(snapshot, episode_id=episode_id, unreconciled_effects=[])
+    assert ledger.to_snapshot()["remaining_calls"] == snapshot["remaining_calls"], (
+        "[C2-BUDGET-EXACT] 恢复余额必须等于快照，不得重铸"
+    )
+    release_root_budget(episode_id)
+    # 对账：只扣调用格，不扣秒；格数不够记 slots_unavailable，绝不写负余额
+    effects = unknown_effects_from_payload([effect, {**effect, "reserved_id": "call-y", "intent_sequence": 4}])
+    debited, receipt = charge_unknown_effects(snapshot, effects)
+    assert debited["remaining_calls"] == snapshot["remaining_calls"] - 2, (
+        "[C2-CHARGE-EXACT] 每条未清效果恰扣一格"
+    )
+    assert debited["remaining_seconds"] == snapshot["remaining_seconds"], (
+        "[C2-CHARGE-NO-SECONDS] 对账不得扣秒（伪造测量值）"
+    )
+    assert receipt["slots_charged"] == 2 and receipt["slots_unavailable"] == 0
+    many = tuple(list(effects) * (snapshot["remaining_calls"] + 1))
+    debited2, receipt2 = charge_unknown_effects(snapshot, many[: snapshot["remaining_calls"] + 2])
+    assert debited2["remaining_calls"] == 0, "[C2-NO-NEGATIVE] 余额不得为负"
+    assert receipt2["slots_unavailable"] == 2, "[C2-SLOTS-UNAVAILABLE] 超额必须如实登记"
+    # 无快照却有未清效果 → 抛错，不得归还一份"已对账"的空快照
+    with pytest.raises(ValueError):
+        charge_unknown_effects(None, effects)
+
+
+def test_k3_c2_unknown_effect_semantics_and_corrupt_payload():
+    model_eff = UnknownEffect(
+        effect="model", reserved_id="turn-1", intent_sequence=2, disposition="retry_proposed",
+    )
+    assert model_eff.may_have_been_billed, "[C2-MODEL-BILLED] 模型窗口一律按可能已计费"
+    local_tool = UnknownEffect(
+        effect="tool", reserved_id="c1", intent_sequence=3, disposition="settled_interrupted",
+        cost="local", io_effect="local_read",
+    )
+    assert not local_tool.may_have_been_billed
+    unknown_tool = UnknownEffect(
+        effect="tool", reserved_id="c2", intent_sequence=4, disposition="settled_interrupted",
+        cost="local", io_effect="unknown",
+    )
+    assert unknown_tool.may_have_been_billed, "[C2-UNKNOWN-BILLED] unknown 必须按可能已计费（fail closed）"
+    # 损坏/携带未知键的凭证必须抛错，不得跳过
+    bad = dict(model_eff.to_dict())
+    bad["surprise_field"] = 1
+    with pytest.raises(ValueError):
+        unknown_effects_from_payload([bad])
+    with pytest.raises(ValueError):
+        UnknownEffect(effect="tool", reserved_id="c", intent_sequence=1,
+                      disposition="settled_interrupted", io_effect="local_read", cost="maybe")
+
+
+# ── 授权快照 ──────────────────────────────────────────────────────────
+
+
+def test_k3_c2_authorization_snapshot_exact_match_and_tamper():
+    probe = ScenarioProbe()
+    frame = make_frame()
+    context = make_context(frame, task_id=TASK + "-authz")
+    registry = make_registry(probe)
+    snapshot = capture_authorization_snapshot(context, registry)
+    # 正例：同 context 同 registry 精确匹配
+    validate_current_authorization(snapshot, context=context, registry=registry)
+    # 反例1：篡改工具 io_effect 声明（unknown→local_read 是提权方向）
+    tampered = copy.deepcopy(snapshot)
+    tampered["registry"]["tools"][0]["io_effect"] = "local_read"
+    with pytest.raises(ValueError):
+        validate_current_authorization(tampered, context=context, registry=registry)
+    # 反例2：修好摘要只改 policy max_steps（放宽步数）
+    tampered2 = copy.deepcopy(snapshot)
+    tampered2["policy"]["max_steps"] += 10
+    with pytest.raises(ValueError):
+        validate_current_authorization(tampered2, context=context, registry=registry)
+    # 反例3：换掉当前 registry（空注册表）→ 当前授权与快照不符
+    from intelligence.services.research_tool_registry import ResearchToolRegistry
+    with pytest.raises(ValueError):
+        validate_current_authorization(snapshot, context=context, registry=ResearchToolRegistry(()))
+    # 反例4：换 episodes（授权不是可移植令牌）
+    other_context = make_context(frame, task_id=TASK + "-authz-other")
+    with pytest.raises(ValueError):
+        validate_current_authorization(snapshot, context=other_context, registry=registry)
+
+
+def test_k3_c2_tool_spec_io_effect_domain():
+    with pytest.raises(ValueError):
+        ToolSpec(
+            name="t", capability="market_data", description="d", cost="local",
+            freshness="current", runner=lambda q, c: ([], "", None),
+            io_effect="read_only",  # 域外值
+        )
+
+
+# ── 私有证据快照 v3 / v1-v2 保守兼容 ──────────────────────────────────
+
+
+def _evidence_snapshot_from_run():
+    rig = build_rig(TASK + "-evidence")
+    rig.start()
+    outcome = rig.finish()
+    assert outcome.status == "completed"
+    _events, state = rig.oracle.load(TASK + "-evidence")
+    assert state.evidence_snapshot, "[C2-EVIDENCE] 检查点必须带私有证据快照"
+    return state.evidence_snapshot
+
+
+def test_k3_c2_evidence_v3_roundtrip_and_tamper():
+    snap = _evidence_snapshot_from_run()
+    assert snap["schema_version"] == 3
+    restored = EpisodeEvidenceSnapshot.from_dict(snap, episode_id=TASK + "-evidence")
+    assert restored.entries, "[C2-EVIDENCE-ENTRIES] v3 快照必须还原私有条目"
+    assert any(e.atom.internal_locator is not None or True for e in restored.entries)
+    # 摘要篡改必须炸
+    tampered = copy.deepcopy(snap)
+    tampered["entries"][0]["atom"]["title"] = "被改过的标题"
+    with pytest.raises(ValueError, match="digest"):
+        EpisodeEvidenceSnapshot.from_dict(tampered, episode_id=TASK + "-evidence")
+    # 换 episode 身份必须炸
+    with pytest.raises(ValueError):
+        EpisodeEvidenceSnapshot.from_dict(snap, episode_id=TASK + "-evidence-other")
+
+
+def test_k3_c2_evidence_legacy_v1_v2_conservative():
+    snap = _evidence_snapshot_from_run()
+
+    def downgrade(version: int) -> dict:
+        body = {k: copy.deepcopy(v) for k, v in snap.items() if k != "sha256"}
+        body["schema_version"] = version
+        for entry in body["entries"]:
+            assert entry["atom"].pop("io_effect") == "unknown"  # 本仓工具证据均为 unknown
+        for pres in body.get("presentations", []):
+            pres["atom"].pop("io_effect", None)
+        if version == 1:
+            body["presented_hashes"] = [p["atom"]["content_hash"] for p in body.pop("presentations")]
+        body["sha256"] = _digest(body)
+        return body
+
+    for version in (1, 2):
+        legacy = downgrade(version)
+        restored = EpisodeEvidenceSnapshot.from_dict(legacy, episode_id=TASK + "-evidence")
+        assert restored.schema_version == version
+        for entry in restored.entries:
+            assert entry.atom.io_effect == "unknown", (
+                f"[C2-LEGACY-UNKNOWN] v{version} 旧快照恢复后 io_effect 必须是 unknown，不得发明 local_read 权威"
+            )
+    # v2 字节里仍夹带 io_effect 键 → 字段域不符，必须拒
+    body = {k: copy.deepcopy(v) for k, v in snap.items() if k != "sha256"}
+    body["schema_version"] = 2
+    body["sha256"] = _digest(body)
+    with pytest.raises(ValueError):
+        EpisodeEvidenceSnapshot.from_dict(body, episode_id=TASK + "-evidence")
+    # v3 字节里 io_effect 域外值 → 拒
+    body3 = copy.deepcopy(snap)
+    body3["entries"][0]["atom"]["io_effect"] = "read_only"
+    del body3["sha256"]
+    body3["sha256"] = _digest(body3)
+    with pytest.raises(ValueError, match="IO effect"):
+        EpisodeEvidenceSnapshot.from_dict(body3, episode_id=TASK + "-evidence")
+
+
+def test_k3_c2_evidence_legacy_write_side_refuses_to_drop_provenance():
+    """写侧：v3 条目带 local_read 时，要求落 v2 字节必须抛错（不得静默剥掉 IO 来源）。"""
+    snap = _evidence_snapshot_from_run()
+    restored = EpisodeEvidenceSnapshot.from_dict(snap, episode_id=TASK + "-evidence")
+    entry = restored.entries[0]
+    local_atom = replace(entry.atom, io_effect="local_read")
+    local_entry = replace(entry, atom=local_atom)
+    legacy_view = replace(restored, entries=(local_entry,), schema_version=2)
+    with pytest.raises(ValueError, match="IO provenance"):
+        legacy_view.to_dict()
+
+
+# ── 服务端入口身份 ─────────────────────────────────────────────────────
+
+
+def test_k3_c2_door_identity_from_server_run_record_not_client():
+    """入口身份只认服务端 run 记录：跨用户/跨会话在门内即被拒。"""
+    from intelligence.api.app import _build_continuous_turn_adapter
+
+    class FakeRunStore:
+        def __init__(self, user_id, run_user, session_id):
+            self.user_id = user_id
+            self._run = SimpleNamespace(user=run_user, session_id=session_id)
+
+        def load_run(self, run_id):
+            return self._run
+
+    with pytest.raises(ValueError, match="another user"):
+        _build_continuous_turn_adapter(
+            providers=(), run_id="r1", assistant_message_id="m1",
+            run_store=FakeRunStore("alice", "bob", "conv-1"), conversation_id="conv-1",
+        )
+    with pytest.raises(ValueError, match="another conversation"):
+        _build_continuous_turn_adapter(
+            providers=(), run_id="r1", assistant_message_id="m1",
+            run_store=FakeRunStore("alice", "alice", "conv-OTHER"), conversation_id="conv-1",
+        )
+
+
+def test_k3_c2_recovery_entry_identity_both_directions():
+    """恢复门：绑定↔未绑定两个方向都算不匹配；同一无门现场无门恢复方才放行。"""
+    import datetime as _dt
+
+    from intelligence.runtime.glm_agent_runtime import GLMAgentRuntime
+    from intelligence.services.episode_store import EpisodeState
+    from intelligence.tests.conformance.fixtures import (
+        ScriptedModelClient, ScriptedToolCall, ScriptedTurn, AUTHORIZED_TOOL, completed_finish,
+    )
+
+    class RecStore(MemoryEpisodeStore):
+        def __init__(self):
+            super().__init__()
+            self.states: list[EpisodeState] = []
+
+        def put_state(self, episode_id, state):
+            super().put_state(episode_id, state)
+            self.states.append(state)
+
+    ep = TASK + "-noident"
+    store = RecStore()
+    probe = ScenarioProbe()
+    frame = make_frame()
+    context = make_context(frame, task_id=ep, timeout=120.0)
+    registry = make_registry(probe)
+    scenario = [
+        ScriptedTurn(tool_calls=(ScriptedToolCall(AUTHORIZED_TOOL, "市场宽度"),)),
+        ScriptedTurn(finish=completed_finish()),
+    ]
+    runtime = GLMAgentRuntime(client=ScriptedModelClient(scenario, probe), episode_store=store)
+    outcome = runtime.run(task_frame=frame, context=context, registry=registry)
+    assert outcome.stop_reason == "model_finish"
+    events, done_state = store.load(ep)
+    assert done_state.entry_identity is None, "本现场是无门（离线）episode"
+
+    # 崩溃现场：model_intent 落下、结算未落
+    intent_seq = next(e.sequence for e in events if e.kind == "model_intent")
+    mid_state = max((s for s in store.states if s.last_sequence <= intent_seq),
+                    key=lambda s: s.last_sequence)
+    assert mid_state.phase == "model_pending" and mid_state.reserved_ids
+    crash = MemoryEpisodeStore()
+    crash.append(ep, tuple(events[:intent_seq]))
+    crash.put_state(ep, mid_state)
+    soon = _dt.datetime.now().astimezone() + _dt.timedelta(seconds=30)
+
+    # 方向A：恢复方带着门身份来认领一个无门现场 → 拒（缺席不得替在场补上）
+    door_identity = EntryIdentity(
+        entry="workbench_conversation", user_id="alice",
+        conversation_id="conv-1", run_id="r1", assistant_message_id="m1",
+    ).bind(ep)
+    context_with_door = replace(context, entry_identity=door_identity)
+    with pytest.raises(RestoreUnavailable, match="entry identity"):
+        restore_episode(ep, crash, now=soon, context=context_with_door, registry=registry)
+    # 方向B：同一现场、同样的无门恢复方 → 放行（None↔None 才一致）
+    ok = restore_episode(ep, crash, now=soon, context=context, registry=registry)
+    assert ok.disposition == "resumable" and ok.plan is not None, (
+        "[C2-IDENTITY-SYMMETRIC] 无门现场应由无门调用方恢复"
+    )
+    assert not ok.entry_identity_bound
+    # 纯函数层：缺席↔在场两个方向都为假
+    assert not entry_identities_match(None, capture_entry_identity(context_with_door))
+    assert not entry_identities_match(capture_entry_identity(context_with_door), None)
+    assert entry_identities_match(None, None)

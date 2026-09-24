@@ -1,0 +1,19 @@
+....FF......                                                             [100%]
+=================================== FAILURES ===================================
+____________ test_failed_write_stops_new_effects[model_intent-0-0] _____________
+intelligence/tests/test_episode_persistence_failure.py:61: in test_failed_write_stops_new_effects
+    assert rig.model.calls == model_calls
+E   AssertionError: assert 1 == 0
+E    +  where 1 = <intelligence.tests.conformance.races._drive.EffectAwareModel object at 0x10d5a0e90>.calls
+E    +    where <intelligence.tests.conformance.races._drive.EffectAwareModel object at 0x10d5a0e90> = Rig(task_id='failure-model_intent', oracle=FailingStore(inner=<intelligence.services.episode_store.MemoryEpisodeStore ...lls=0, tool_calls=0, turn_id='turn-1'), StepPoint(phase='model_settled', llm_calls=1, tool_calls=0, turn_id='turn-1')]).model
+_________ test_failed_write_stops_new_effects[state:model_pending-0-0] _________
+intelligence/tests/test_episode_persistence_failure.py:61: in test_failed_write_stops_new_effects
+    assert rig.model.calls == model_calls
+E   AssertionError: assert 1 == 0
+E    +  where 1 = <intelligence.tests.conformance.races._drive.EffectAwareModel object at 0x10d5954c0>.calls
+E    +    where <intelligence.tests.conformance.races._drive.EffectAwareModel object at 0x10d5954c0> = Rig(task_id='failure-state-model_pending', oracle=FailingStore(inner=<intelligence.services.episode_store.MemoryEpisod...lls=0, tool_calls=0, turn_id='turn-1'), StepPoint(phase='model_settled', llm_calls=1, tool_calls=0, turn_id='turn-1')]).model
+- generated xml file: /Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/pre_model_dispatch_fence-red.xml -
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_episode_persistence_failure.py::test_failed_write_stops_new_effects[model_intent-0-0]
+FAILED intelligence/tests/test_episode_persistence_failure.py::test_failed_write_stops_new_effects[state:model_pending-0-0]
+2 failed, 10 passed, 59 deselected in 10.40s

@@ -1,0 +1,23 @@
+{
+  "observed_at": "2026-09-18T17:18:49.895753+00:00",
+  "repository": "knowledge-base-private",
+  "pr": 153,
+  "revision": "c141a424a16faed2cc959c0839e6b0ea29ced481",
+  "base": "91725ea9ba0252a43665f9e3130142f946c289ae",
+  "branch": "fix/rag-frontmatter-body",
+  "acceptance": {
+    "receipt": "/Users/a77/.finance-runtime/test-receipts/20260918T171255Z-2b4948a4.json",
+    "counts": {
+      "passed": 11491,
+      "failed": 0,
+      "error": 0,
+      "skipped": 73
+    },
+    "receipt_check": "========================================================================\n读数收据校验 — 判「能不能采信」，不重跑测试\n========================================================================\n  收据     /Users/a77/.finance-runtime/test-receipts/20260918T171255Z-2b4948a4.json\n  产生于   2026-09-18T17:12:55+00:00\n  目标     /Users/a77/.finance-runtime/kb-v4-merge-20260919/pre/finance-workspace-private\n  读数     passed=11491 failed=0 error=0 skipped=73\n\n  ✓ revision 一致\n  ✓ 解释器一致\n  ✓ python 版本一致\n  ✓ 依赖指纹一致\n  ✓ 收据来自干净树\n  ✓ 依赖门禁未被绕过\n  ✓ 收据 revision == 2b4948a4015e\n\n✅ 可采信 —— 收据成立的条件与当前环境一致，无需重跑。\n",
+    "frontend_passed": 110,
+    "e2e_passed": 34,
+    "kb_passed": 837
+  },
+  "strategy": "fast-forward-only",
+  "production_switched": false
+}

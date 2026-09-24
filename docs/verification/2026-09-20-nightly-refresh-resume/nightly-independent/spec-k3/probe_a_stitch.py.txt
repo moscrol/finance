@@ -1,0 +1,195 @@
+"""独立探针 A：R1 刷新完成性（spec-k3 自有 fixture，不 import 作者测试模块）。
+
+场景（自建）：D1=2026-03-01 与 D2=2026-09-17 相隔 200 天 > 恢复 180 日基线。
+D2 已有旧 local:stitch 成功行（price=10），当日东财真值 000001.SZ 已变 12。
+只用生产 API（SectorUniverseStore / cli）与内存 DuckDB，不读生产库、不外呼。
+"""
+from __future__ import annotations
+
+import io
+import json
+from contextlib import redirect_stdout
+from dataclasses import replace
+from types import SimpleNamespace
+
+import duckdb
+
+from market_feature_store.cli import build_parser, cmd_stitch_sector_stocks
+from market_feature_store.sector_universe import (
+    MemberResult,
+    SectorDescriptor,
+    SectorUniverseStore,
+)
+from market_feature_store.sync import sync_local_sector_members as stitch
+
+D1, D2 = "2026-03-01", "2026-09-17"  # 200 天
+SECTORS = [("980001.FP", "光模块", 2), ("980002.FP", "液冷", 2)]
+MEMBERS = {
+    "980001.FP": ["000001.SZ", "000002.SZ"],
+    "980002.FP": ["600000.SH", "600001.SH"],
+}
+results = []
+
+
+def check(name, cond, detail=""):
+    results.append({"check": name, "pass": bool(cond), "detail": detail})
+    print(("PASS" if cond else "FAIL"), name, detail)
+
+
+def build_fixture():
+    con = duckdb.connect(":memory:")
+    SectorUniverseStore.ensure_schema(con)
+    store = SectorUniverseStore(con)
+    for d in (D1, D2):
+        con.execute("insert into fact_market_daily (trade_date) values (?)", [d])
+    # D1：fupanhui 名单基线 + 板块日行情
+    pub1 = store.publish_snapshot(
+        trade_date=D1, provider_source="fupanhui",
+        sectors=tuple(SectorDescriptor(c, n, k) for c, n, k in SECTORS),
+        captured_at=D1 + "T16:00:00+08:00",
+    )
+    for sector, codes in MEMBERS.items():
+        store.record_member_result(pub1.snapshot_id, sector, MemberResult.success(
+            served_date=D1,
+            stocks=[{"ts_code": c, "name": "股", "price": 10.0, "pct_chg": 1.0, "amount": 2.0,
+                     "sw_industry": "电子", "leader_plate": "AI", "role_tags_json": "[]",
+                     "circ_mv": 100.0, "float_mcap_yi": 50.0, "total_mcap_yi": 80.0,
+                     "mcap_source": "tencent", "source": "fupanhui"} for c in codes]))
+    store.replace_sector_daily(pub1.snapshot_id, [
+        {"sector_ts_code": s, "pct_chg": 1.0, "amount": 4.0, "diff_ratio": 0.0} for s, _, _ in SECTORS])
+    # D2：同名单宇宙（identity 未变）+ 旧 stitch 成功行(price=10) + 板块日行情 + 当日真值(000001.SZ=12)
+    pub2 = store.publish_snapshot(
+        trade_date=D2, provider_source="fupanhui",
+        sectors=tuple(SectorDescriptor(c, n, k) for c, n, k in SECTORS),
+        captured_at=D2 + "T16:00:00+08:00",
+    )
+    for sector, codes in MEMBERS.items():
+        store.record_member_result(pub2.snapshot_id, sector, MemberResult.success(
+            served_date=D2,
+            stocks=[{"ts_code": c, "name": "股", "price": 10.0, "pct_chg": 1.0, "amount": 2.0,
+                     "sw_industry": "电子", "leader_plate": "AI", "role_tags_json": "[]",
+                     "circ_mv": 100.0, "float_mcap_yi": 50.0, "total_mcap_yi": 80.0,
+                     "mcap_source": "tencent", "source": "local:stitch"} for c in codes]))
+    store.replace_sector_daily(pub2.snapshot_id, [
+        {"sector_ts_code": s, "pct_chg": 1.0, "amount": 4.0, "diff_ratio": 0.0} for s, _, _ in SECTORS])
+    all_codes = [c for codes in MEMBERS.values() for c in codes]
+    for d, px in ((D1, 10.0), (D2, 10.0)):
+        con.executemany(
+            "insert into fact_stock_daily (trade_date, stock_ts_code, close, pct_chg, amount, source) "
+            "values (?,?,?,?,?,?)",
+            [(d, c, 12.0 if (d == D2 and c == "000001.SZ") else px, 1.0, 2.0, "eastmoney:snapshot")
+             for c in all_codes])
+    return con
+
+
+def price_of(con):
+    return con.execute(
+        "SELECT price FROM fact_sector_stock_daily WHERE trade_date=? AND stock_ts_code=?",
+        [D2, "000001.SZ"]).fetchone()[0]
+
+
+def call_cli(con, *, refresh=True, age=180, dry_run=False):
+    original = stitch.stitch_sector_members
+    box = {}
+
+    def inject(*args, **kwargs):
+        box["s"] = original(*args, con=con, **kwargs)
+        return box["s"]
+
+    stitch.stitch_sector_members = inject
+    try:
+        argv = ["stitch-sector-stocks", "--trade-date", D2, "--no-caps",
+                "--max-baseline-age-days", str(age)]
+        if refresh:
+            argv.append("--include-completed")
+        if dry_run:
+            argv.append("--dry-run")
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            rc = cmd_stitch_sector_stocks(build_parser().parse_args(argv))
+        return rc, box["s"], buf.getvalue()
+    finally:
+        stitch.stitch_sector_members = original
+
+
+# --- 1. 反例核心：旧完成 + 200 天前基线 + 180 日窗 → 必须非零且不改写 ---
+con = build_fixture()
+rc, s, out = call_cli(con)
+check("R1.expired_baseline_rc2", rc == 2, f"rc={rc}")
+check("R1.expired_baseline_refresh_false", s["refresh_complete"] is False, str(s["refresh_complete"]))
+check("R1.expired_baseline_skip_no_baseline", s["skipped"] == {"no_baseline": 2}, str(s["skipped"]))
+check("R1.expired_baseline_old_value_kept", price_of(con) == 10.0, f"price={price_of(con)}")
+check("R1.expired_baseline_audit_untouched", s["audit_complete"] is True, str(s["audit_complete"]))
+check("R1.expired_baseline_msg", "刷新未完成" in out)
+
+# --- 2. fixture 对照：365 日窗（仅 fixture，生产仍 180）→ 真改写成功 ---
+con = build_fixture()
+rc, s, out = call_cli(con, age=365)
+check("R1.control365_rc0", rc == 0, f"rc={rc}")
+check("R1.control365_refresh_true", s["refresh_complete"] is True)
+check("R1.control365_value_rewritten", price_of(con) == 12.0, f"price={price_of(con)}")
+check("R1.control365_all_stitched", s["stitched"] == s["candidates"] == 2)
+
+# --- 3. dry-run：预览可 rc=0，但绝不认证、不写入 ---
+con = build_fixture()
+rc, s, out = call_cli(con, age=365, dry_run=True)
+check("R1.dryrun_rc0", rc == 0, f"rc={rc}")
+check("R1.dryrun_not_certified", s["refresh_complete"] is False)
+check("R1.dryrun_no_write", price_of(con) == 10.0, f"price={price_of(con)}")
+check("R1.dryrun_msg", "预览" in out and "不认证" in out)
+
+# --- 4. 普通日更（无 --include-completed）：skip→provider 补齐合同维持 ---
+con = build_fixture()
+con.execute("UPDATE ops_sector_member_sync_daily SET status='pending' WHERE trade_date=?", [D2])
+rc, s, out = call_cli(con, refresh=False)
+check("R1.nonrefresh_rc0", rc == 0, f"rc={rc}")
+check("R1.nonrefresh_refresh_none", s["refresh_complete"] is None)
+check("R1.nonrefresh_pending_kept", s["pending_for_provider"] == 2, str(s["pending_for_provider"]))
+
+# --- 5. 空候选：0==0 不够；有 pending 或审计不完整都拒 ---
+orig_delta, orig_audit = stitch.identity_delta, SectorUniverseStore.completion_audit
+for pend, audit_ok, expect_ok in ((None, True, True), ("changed", True, False),
+                                  ("new", True, False), (None, False, False)):
+    con = build_fixture()
+    delta = orig_delta(con, D2)
+    delta = replace(delta, unchanged=(), changed=(), new=())
+    if pend:
+        delta = replace(delta, **{pend: ("980099.FP",)})
+    stitch.identity_delta = lambda *a, _d=delta: _d
+    SectorUniverseStore.completion_audit = lambda *a, _ok=audit_ok, **k: SimpleNamespace(
+        complete=_ok, brief=lambda: "probe audit")
+    try:
+        rc, s, _ = call_cli(con)
+    finally:
+        stitch.identity_delta = orig_delta
+        SectorUniverseStore.completion_audit = orig_audit
+    check(f"R1.zero_cand[{pend},{audit_ok}]", (rc == 0) == expect_ok
+          and s["refresh_complete"] is expect_ok,
+          f"rc={rc} refresh_complete={s['refresh_complete']}")
+
+# --- 6. writer 失败：旧审计不能替本轮作证 ---
+con = build_fixture()
+orig_record = SectorUniverseStore.record_member_result
+SectorUniverseStore.record_member_result = lambda *a, **k: SimpleNamespace(
+    status="error", last_error_code="writer_failed")
+try:
+    rc, s, _ = call_cli(con, age=365)
+finally:
+    SectorUniverseStore.record_member_result = orig_record
+check("R1.writer_fail_rc2", rc == 2 and s["refresh_complete"] is False, f"rc={rc}")
+check("R1.writer_fail_failed_list", len(s["failed"]) == 2, str(s["failed"]))
+
+# --- 7. 恢复命令本身：--include-completed + 180 日基线 ---
+from scripts import recover_local_review as recovery
+
+cmd = recovery.recovery_stitch_command(SimpleNamespace(CLI=[]), D2, "2026-09-16")
+args = build_parser().parse_args(cmd)
+check("R1.recovery_cmd_include_completed", args.include_completed is True)
+check("R1.recovery_cmd_180_kept", args.max_baseline_age_days == 180)
+check("R1.recovery_cmd_no_caps_only_history", "--no-caps" not in cmd)
+cmd_h = recovery.recovery_stitch_command(SimpleNamespace(CLI=[]), "2026-09-16", "2026-09-16")
+check("R1.recovery_cmd_history_no_caps", "--no-caps" in cmd_h)
+
+print(json.dumps({"total": len(results), "failed": [r for r in results if not r["pass"]]},
+                 ensure_ascii=False, indent=1))
+raise SystemExit(1 if any(not r["pass"] for r in results) else 0)

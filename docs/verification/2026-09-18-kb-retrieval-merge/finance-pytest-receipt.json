@@ -1,0 +1,22 @@
+{
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "python_version": "3.12.13",
+  "dependency_fingerprint": "3328bed61f3e21ea",
+  "tree": "/Users/a77/.finance-runtime/reviews/kb-retrieval-merge-20260918/finance-workspace-private",
+  "revision": "e0467e3a5f6fb431a415c56f500556685cefbf6e",
+  "branch": "HEAD",
+  "dirty": false,
+  "dirty_paths": [],
+  "worktree_dirty_total": 0,
+  "dependency_gate_bypassed": false,
+  "target": "/Users/a77/.finance-runtime/reviews/kb-retrieval-merge-20260918/finance-workspace-private",
+  "counts": {
+    "passed": 11481,
+    "failed": 0,
+    "error": 0,
+    "skipped": 73
+  },
+  "failed_ids": [],
+  "exit_status": 0,
+  "finished_at": "2026-09-18T10:56:56+00:00"
+}

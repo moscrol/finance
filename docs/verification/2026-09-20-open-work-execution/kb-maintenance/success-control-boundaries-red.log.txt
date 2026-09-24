@@ -1,0 +1,386 @@
+FFFF.F.FFF                                                               [100%]
+=================================== FAILURES ===================================
+__ test_success_control_writes_recheck_writer_after_validation[activate-root] __
+
+case = {'full': PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2912/test_success_co...s/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2912/test_success_control_writes_re0/legacy-standard'), ...}
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x106532420>
+operation = 'activate', fault = 'root'
+
+    @pytest.mark.parametrize("fault", ["root", "lock"])
+    @pytest.mark.parametrize("operation", ["activate", "approve", "validated", "consumer_receipt"])
+    def test_success_control_writes_recheck_writer_after_validation(case, monkeypatch, operation, fault):
+        from rag import generation as generation_module
+        root = case["root"]
+        old = published(case)
+        pointer = (root / "current.json").read_bytes()
+        target = ready(case, "next") if operation in {"activate", "approve"} else None
+        if operation == "activate":
+            approve(target, approved_by="test operator")
+    
+        def wrap(function):
+            def after(*args, **kwargs):
+                result = function(*args, **kwargs)
+                substitute_writer_path(root, fault)
+                return result
+            return after
+    
+        if operation == "activate":
+            monkeypatch.setattr(generation_module, "resolve_startup", wrap(generation_module.resolve_startup))
+        elif operation == "approve":
+            monkeypatch.setattr(generation_module, "verify_manifest", wrap(generation_module.verify_manifest))
+        elif operation == "validated":
+            monkeypatch.setattr(maintenance, "_seal", wrap(maintenance._seal))
+        else:
+            original = maintenance.subprocess.run
+            def after_consumer(argv, **kwargs):
+                result = original(argv, **kwargs)
+                if "_probe" in argv:
+                    substitute_writer_path(root, fault)
+                return result
+            monkeypatch.setattr(maintenance.subprocess, "run", after_consumer)
+    
+>       with pytest.raises(MaintenanceError, match="identity changed"):
+E       Failed: DID NOT RAISE <class 'rag.maintenance_io.MaintenanceError'>
+
+skills/lib/rag/tests/test_guarded_maintenance.py:401: Failed
+__ test_success_control_writes_recheck_writer_after_validation[activate-lock] __
+
+case = {'full': PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2912/test_success_co...s/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2912/test_success_control_writes_re1/legacy-standard'), ...}
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1065681a0>
+operation = 'activate', fault = 'lock'
+
+    @pytest.mark.parametrize("fault", ["root", "lock"])
+    @pytest.mark.parametrize("operation", ["activate", "approve", "validated", "consumer_receipt"])
+    def test_success_control_writes_recheck_writer_after_validation(case, monkeypatch, operation, fault):
+        from rag import generation as generation_module
+        root = case["root"]
+        old = published(case)
+        pointer = (root / "current.json").read_bytes()
+        target = ready(case, "next") if operation in {"activate", "approve"} else None
+        if operation == "activate":
+            approve(target, approved_by="test operator")
+    
+        def wrap(function):
+            def after(*args, **kwargs):
+                result = function(*args, **kwargs)
+                substitute_writer_path(root, fault)
+                return result
+            return after
+    
+        if operation == "activate":
+            monkeypatch.setattr(generation_module, "resolve_startup", wrap(generation_module.resolve_startup))
+        elif operation == "approve":
+            monkeypatch.setattr(generation_module, "verify_manifest", wrap(generation_module.verify_manifest))
+        elif operation == "validated":
+            monkeypatch.setattr(maintenance, "_seal", wrap(maintenance._seal))
+        else:
+            original = maintenance.subprocess.run
+            def after_consumer(argv, **kwargs):
+                result = original(argv, **kwargs)
+                if "_probe" in argv:
+                    substitute_writer_path(root, fault)
+                return result
+            monkeypatch.setattr(maintenance.subprocess, "run", after_consumer)
+    
+>       with pytest.raises(MaintenanceError, match="identity changed"):
+E       Failed: DID NOT RAISE <class 'rag.maintenance_io.MaintenanceError'>
+
+skills/lib/rag/tests/test_guarded_maintenance.py:401: Failed
+__ test_success_control_writes_recheck_writer_after_validation[approve-root] ___
+
+case = {'full': PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2912/test_success_co...s/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2912/test_success_control_writes_re2/legacy-standard'), ...}
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1066fcd40>
+operation = 'approve', fault = 'root'
+
+    @pytest.mark.parametrize("fault", ["root", "lock"])
+    @pytest.mark.parametrize("operation", ["activate", "approve", "validated", "consumer_receipt"])
+    def test_success_control_writes_recheck_writer_after_validation(case, monkeypatch, operation, fault):
+        from rag import generation as generation_module
+        root = case["root"]
+        old = published(case)
+        pointer = (root / "current.json").read_bytes()
+        target = ready(case, "next") if operation in {"activate", "approve"} else None
+        if operation == "activate":
+            approve(target, approved_by="test operator")
+    
+        def wrap(function):
+            def after(*args, **kwargs):
+                result = function(*args, **kwargs)
+                substitute_writer_path(root, fault)
+                return result
+            return after
+    
+        if operation == "activate":
+            monkeypatch.setattr(generation_module, "resolve_startup", wrap(generation_module.resolve_startup))
+        elif operation == "approve":
+            monkeypatch.setattr(generation_module, "verify_manifest", wrap(generation_module.verify_manifest))
+        elif operation == "validated":
+            monkeypatch.setattr(maintenance, "_seal", wrap(maintenance._seal))
+        else:
+            original = maintenance.subprocess.run
+            def after_consumer(argv, **kwargs):
+                result = original(argv, **kwargs)
+                if "_probe" in argv:
+                    substitute_writer_path(root, fault)
+                return result
+            monkeypatch.setattr(maintenance.subprocess, "run", after_consumer)
+    
+        with pytest.raises(MaintenanceError, match="identity changed"):
+            if operation == "activate":
+                activate(target)
+            elif operation == "approve":
+>               approve(target, approved_by="test operator")
+
+skills/lib/rag/tests/test_guarded_maintenance.py:405: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+skills/lib/rag/generation.py:171: in approve
+    receipt = {"generation": data["generation"], "manifest_sha256": digest(stable_read(manifest)),
+skills/lib/rag/maintenance_io.py:70: in stable_read
+    canonical(path)
+skills/lib/rag/maintenance_io.py:59: in canonical
+    if path != path.resolve(strict=exists):
+/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/pathlib.py:1240: in resolve
+    s = self._flavour.realpath(self, strict=strict)
+<frozen posixpath>:424: in realpath
+    ???
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+path = '/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2912/test_success_control_writes_re2/generations-root'
+rest = 'next/manifest.json', strict = True, seen = {}
+
+>   ???
+E   FileNotFoundError: [Errno 2] No such file or directory: '/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2912/test_success_control_writes_re2/generations-root/generations'
+
+<frozen posixpath>:468: FileNotFoundError
+__ test_success_control_writes_recheck_writer_after_validation[approve-lock] ___
+
+case = {'full': PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2912/test_success_co...s/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2912/test_success_control_writes_re3/legacy-standard'), ...}
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10675e9f0>
+operation = 'approve', fault = 'lock'
+
+    @pytest.mark.parametrize("fault", ["root", "lock"])
+    @pytest.mark.parametrize("operation", ["activate", "approve", "validated", "consumer_receipt"])
+    def test_success_control_writes_recheck_writer_after_validation(case, monkeypatch, operation, fault):
+        from rag import generation as generation_module
+        root = case["root"]
+        old = published(case)
+        pointer = (root / "current.json").read_bytes()
+        target = ready(case, "next") if operation in {"activate", "approve"} else None
+        if operation == "activate":
+            approve(target, approved_by="test operator")
+    
+        def wrap(function):
+            def after(*args, **kwargs):
+                result = function(*args, **kwargs)
+                substitute_writer_path(root, fault)
+                return result
+            return after
+    
+        if operation == "activate":
+            monkeypatch.setattr(generation_module, "resolve_startup", wrap(generation_module.resolve_startup))
+        elif operation == "approve":
+            monkeypatch.setattr(generation_module, "verify_manifest", wrap(generation_module.verify_manifest))
+        elif operation == "validated":
+            monkeypatch.setattr(maintenance, "_seal", wrap(maintenance._seal))
+        else:
+            original = maintenance.subprocess.run
+            def after_consumer(argv, **kwargs):
+                result = original(argv, **kwargs)
+                if "_probe" in argv:
+                    substitute_writer_path(root, fault)
+                return result
+            monkeypatch.setattr(maintenance.subprocess, "run", after_consumer)
+    
+>       with pytest.raises(MaintenanceError, match="identity changed"):
+E       Failed: DID NOT RAISE <class 'rag.maintenance_io.MaintenanceError'>
+
+skills/lib/rag/tests/test_guarded_maintenance.py:401: Failed
+_ test_success_control_writes_recheck_writer_after_validation[validated-lock] __
+
+case = {'full': PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2912/test_success_co...s/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2912/test_success_control_writes_re5/legacy-standard'), ...}
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1065680e0>
+operation = 'validated', fault = 'lock'
+
+    @pytest.mark.parametrize("fault", ["root", "lock"])
+    @pytest.mark.parametrize("operation", ["activate", "approve", "validated", "consumer_receipt"])
+    def test_success_control_writes_recheck_writer_after_validation(case, monkeypatch, operation, fault):
+        from rag import generation as generation_module
+        root = case["root"]
+        old = published(case)
+        pointer = (root / "current.json").read_bytes()
+        target = ready(case, "next") if operation in {"activate", "approve"} else None
+        if operation == "activate":
+            approve(target, approved_by="test operator")
+    
+        def wrap(function):
+            def after(*args, **kwargs):
+                result = function(*args, **kwargs)
+                substitute_writer_path(root, fault)
+                return result
+            return after
+    
+        if operation == "activate":
+            monkeypatch.setattr(generation_module, "resolve_startup", wrap(generation_module.resolve_startup))
+        elif operation == "approve":
+            monkeypatch.setattr(generation_module, "verify_manifest", wrap(generation_module.verify_manifest))
+        elif operation == "validated":
+            monkeypatch.setattr(maintenance, "_seal", wrap(maintenance._seal))
+        else:
+            original = maintenance.subprocess.run
+            def after_consumer(argv, **kwargs):
+                result = original(argv, **kwargs)
+                if "_probe" in argv:
+                    substitute_writer_path(root, fault)
+                return result
+            monkeypatch.setattr(maintenance.subprocess, "run", after_consumer)
+    
+>       with pytest.raises(MaintenanceError, match="identity changed"):
+E       Failed: DID NOT RAISE <class 'rag.maintenance_io.MaintenanceError'>
+
+skills/lib/rag/tests/test_guarded_maintenance.py:401: Failed
+_ test_success_control_writes_recheck_writer_after_validation[consumer_receipt-lock] _
+
+case = {'full': PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2912/test_success_co...s/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2912/test_success_control_writes_re7/legacy-standard'), ...}
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10675cb60>
+operation = 'consumer_receipt', fault = 'lock'
+
+    @pytest.mark.parametrize("fault", ["root", "lock"])
+    @pytest.mark.parametrize("operation", ["activate", "approve", "validated", "consumer_receipt"])
+    def test_success_control_writes_recheck_writer_after_validation(case, monkeypatch, operation, fault):
+        from rag import generation as generation_module
+        root = case["root"]
+        old = published(case)
+        pointer = (root / "current.json").read_bytes()
+        target = ready(case, "next") if operation in {"activate", "approve"} else None
+        if operation == "activate":
+            approve(target, approved_by="test operator")
+    
+        def wrap(function):
+            def after(*args, **kwargs):
+                result = function(*args, **kwargs)
+                substitute_writer_path(root, fault)
+                return result
+            return after
+    
+        if operation == "activate":
+            monkeypatch.setattr(generation_module, "resolve_startup", wrap(generation_module.resolve_startup))
+        elif operation == "approve":
+            monkeypatch.setattr(generation_module, "verify_manifest", wrap(generation_module.verify_manifest))
+        elif operation == "validated":
+            monkeypatch.setattr(maintenance, "_seal", wrap(maintenance._seal))
+        else:
+            original = maintenance.subprocess.run
+            def after_consumer(argv, **kwargs):
+                result = original(argv, **kwargs)
+                if "_probe" in argv:
+                    substitute_writer_path(root, fault)
+                return result
+            monkeypatch.setattr(maintenance.subprocess, "run", after_consumer)
+    
+        with pytest.raises(MaintenanceError, match="identity changed"):
+            if operation == "activate":
+                activate(target)
+            elif operation == "approve":
+                approve(target, approved_by="test operator")
+            else:
+                ready(case, "next")
+        retained = root.with_name("retained-original-root") if fault == "root" else root
+        assert (retained / "current.json").read_bytes() == pointer
+        if fault == "root":
+            assert [p.name for p in root.iterdir()] == ["unknown-owner"]
+        else:
+            assert (root / ".writer.lock").read_text() == "unknown replacement"
+        if operation != "activate":
+            assert not (retained / "approvals/next.json").exists()
+        if operation in {"validated", "consumer_receipt"}:
+            assert not (retained / "validated/next.json").exists()
+            assert not (retained / "failures/next.json").exists()
+        if operation == "consumer_receipt":
+>           assert not (retained / "generations/next/consumer-process.json").exists()
+E           AssertionError: assert not True
+E            +  where True = exists()
+E            +    where exists = (PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2912/test_success_control_writes_re7/generations-root') / 'generations/next/consumer-process.json').exists
+
+skills/lib/rag/tests/test_guarded_maintenance.py:420: AssertionError
+________ test_publisher_rechecks_writer_after_manifest_validation[root] ________
+
+case = {'full': PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2912/test_publisher_...s/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2912/test_publisher_rechecks_writer0/legacy-standard'), ...}
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2912/test_publisher_rechecks_writer0')
+publisher = (<module 'guarded_publisher_test' from '/Users/a77/kb-wt-guarded-maintenance-0920/scripts/publish_rag_index.py'>, {'calls': [], 'fault': None, 'release': None, 'tag_sha': None})
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x106e1e7e0>
+fault = 'root'
+
+    @pytest.mark.parametrize("fault", ["root", "lock"])
+    def test_publisher_rechecks_writer_after_manifest_validation(case, tmp_path, publisher, monkeypatch, fault):
+        from rag import generation as generation_module
+        manifest = published(case)
+        args = publication_args(publisher, manifest, tmp_path)
+        root = case["root"]
+        original = generation_module.verify_manifest
+        def after_verify(*args, **kwargs):
+            result = original(*args, **kwargs)
+            try:
+                assert_writer(root)
+            except MaintenanceError:
+                pass  # the preflight read does not own the writer yet
+            else:
+                substitute_writer_path(root, fault)
+            return result
+        monkeypatch.setattr(generation_module, "verify_manifest", after_verify)
+        module, state = publisher
+        assert module.main(args) == 1
+        assert state["calls"] == []
+>       assert not (root / "publications").exists()
+E       AssertionError: assert not True
+E        +  where True = exists()
+E        +    where exists = (PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2912/test_publisher_rechecks_writer0/generations-root') / 'publications').exists
+
+skills/lib/rag/tests/test_guarded_maintenance.py:807: AssertionError
+----------------------------- Captured stderr call -----------------------------
+[publish] writer root or lock path identity changed
+________ test_publisher_rechecks_writer_after_manifest_validation[lock] ________
+
+case = {'full': PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2912/test_publisher_...s/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2912/test_publisher_rechecks_writer1/legacy-standard'), ...}
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2912/test_publisher_rechecks_writer1')
+publisher = (<module 'guarded_publisher_test' from '/Users/a77/kb-wt-guarded-maintenance-0920/scripts/publish_rag_index.py'>, {'calls': [], 'fault': None, 'release': None, 'tag_sha': None})
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x106e1ffe0>
+fault = 'lock'
+
+    @pytest.mark.parametrize("fault", ["root", "lock"])
+    def test_publisher_rechecks_writer_after_manifest_validation(case, tmp_path, publisher, monkeypatch, fault):
+        from rag import generation as generation_module
+        manifest = published(case)
+        args = publication_args(publisher, manifest, tmp_path)
+        root = case["root"]
+        original = generation_module.verify_manifest
+        def after_verify(*args, **kwargs):
+            result = original(*args, **kwargs)
+            try:
+                assert_writer(root)
+            except MaintenanceError:
+                pass  # the preflight read does not own the writer yet
+            else:
+                substitute_writer_path(root, fault)
+            return result
+        monkeypatch.setattr(generation_module, "verify_manifest", after_verify)
+        module, state = publisher
+        assert module.main(args) == 1
+        assert state["calls"] == []
+>       assert not (root / "publications").exists()
+E       AssertionError: assert not True
+E        +  where True = exists()
+E        +    where exists = (PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2912/test_publisher_rechecks_writer1/generations-root') / 'publications').exists
+
+skills/lib/rag/tests/test_guarded_maintenance.py:807: AssertionError
+----------------------------- Captured stderr call -----------------------------
+[publish] writer root or lock path identity changed
+=========================== short test summary info ============================
+FAILED skills/lib/rag/tests/test_guarded_maintenance.py::test_success_control_writes_recheck_writer_after_validation[activate-root]
+FAILED skills/lib/rag/tests/test_guarded_maintenance.py::test_success_control_writes_recheck_writer_after_validation[activate-lock]
+FAILED skills/lib/rag/tests/test_guarded_maintenance.py::test_success_control_writes_recheck_writer_after_validation[approve-root]
+FAILED skills/lib/rag/tests/test_guarded_maintenance.py::test_success_control_writes_recheck_writer_after_validation[approve-lock]
+FAILED skills/lib/rag/tests/test_guarded_maintenance.py::test_success_control_writes_recheck_writer_after_validation[validated-lock]
+FAILED skills/lib/rag/tests/test_guarded_maintenance.py::test_success_control_writes_recheck_writer_after_validation[consumer_receipt-lock]
+FAILED skills/lib/rag/tests/test_guarded_maintenance.py::test_publisher_rechecks_writer_after_manifest_validation[root]
+FAILED skills/lib/rag/tests/test_guarded_maintenance.py::test_publisher_rechecks_writer_after_manifest_validation[lock]
+8 failed, 2 passed, 61 deselected in 9.90s

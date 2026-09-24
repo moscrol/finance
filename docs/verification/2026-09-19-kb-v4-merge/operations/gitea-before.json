@@ -1,0 +1,117 @@
+{
+  "finance": {
+    "repo": {
+      "name": "finance-workspace-private",
+      "mirror": false,
+      "default_branch": "main",
+      "archived": false,
+      "allow_merge_commits": true,
+      "allow_rebase": true,
+      "allow_rebase_explicit": true,
+      "allow_squash_merge": true,
+      "allow_fast_forward_only_merge": true,
+      "allow_merge_update": true,
+      "allow_rebase_update": true,
+      "allow_manual_merge": false,
+      "default_merge_style": "merge"
+    },
+    "open_prs": [
+      {
+        "number": 783,
+        "state": "open",
+        "merged": false,
+        "head": "feat/history-market-anatomy",
+        "head_sha": "4074dfdf1be0",
+        "base": "main",
+        "mergeable_claimed_by_gitea": false,
+        "title": "WIP: feat(history): 历史表达与夹具返修工程通过，真实四题仍拒收",
+        "url": "http://127.0.0.1:3300/a77/finance-workspace-private/pulls/783"
+      },
+      {
+        "number": 770,
+        "state": "open",
+        "merged": false,
+        "head": "fix/e2-material-closeout",
+        "head_sha": "b1c1c29f2910",
+        "base": "main",
+        "mergeable_claimed_by_gitea": false,
+        "title": "WIP(e2): material closeout — repair-round feedback, contradiction shape, scanner QC fix",
+        "url": "http://127.0.0.1:3300/a77/finance-workspace-private/pulls/770"
+      }
+    ]
+  },
+  "kb": {
+    "repo": {
+      "name": "knowledge-base-private",
+      "mirror": false,
+      "default_branch": "main",
+      "archived": false,
+      "allow_merge_commits": true,
+      "allow_rebase": true,
+      "allow_rebase_explicit": true,
+      "allow_squash_merge": true,
+      "allow_fast_forward_only_merge": true,
+      "allow_merge_update": true,
+      "allow_rebase_update": true,
+      "allow_manual_merge": false,
+      "default_merge_style": "merge"
+    },
+    "open_prs": [
+      {
+        "number": 149,
+        "state": "open",
+        "merged": false,
+        "head": "briefing/0831-0908",
+        "head_sha": "c621f840fcee",
+        "base": "briefing/0821-0830-onto-main",
+        "mergeable_claimed_by_gitea": true,
+        "title": "morning-briefing: 回填 2026-08-31 至 09-08 晨汇并投影 tier events",
+        "url": "http://127.0.0.1:3300/a77/knowledge-base-private/pulls/149"
+      },
+      {
+        "number": 148,
+        "state": "open",
+        "merged": false,
+        "head": "briefing/0821-0830-onto-main",
+        "head_sha": "3e7bef7fafa8",
+        "base": "main",
+        "mergeable_claimed_by_gitea": true,
+        "title": "morning-briefing: 回填 2026-08-21 至 08-30 晨汇并投影 tier events",
+        "url": "http://127.0.0.1:3300/a77/knowledge-base-private/pulls/148"
+      },
+      {
+        "number": 129,
+        "state": "open",
+        "merged": false,
+        "head": "briefing/0821-0830",
+        "head_sha": "93a722a10653",
+        "base": "main",
+        "mergeable_claimed_by_gitea": false,
+        "title": "docs: 回填 2026-08-21 至 08-30 晨汇纪要",
+        "url": "http://127.0.0.1:3300/a77/knowledge-base-private/pulls/129"
+      },
+      {
+        "number": 94,
+        "state": "open",
+        "merged": false,
+        "head": "harness/session-facts-and-receipts",
+        "head_sha": "1106d1c37188",
+        "base": "main",
+        "mergeable_claimed_by_gitea": false,
+        "title": "feat(harness): 会话事实注入升级全配 + 测试读数收据（Phase B 首次跨仓零件移植 n=2）",
+        "url": "http://127.0.0.1:3300/a77/knowledge-base-private/pulls/94"
+      },
+      {
+        "number": 26,
+        "state": "open",
+        "merged": false,
+        "head": "disclosure/fact-status-evidence-index",
+        "head_sha": "1e41daa366b7",
+        "base": "main",
+        "mergeable_claimed_by_gitea": false,
+        "title": "feat: fact_status 升到 evidence_index，与 confidence 分家",
+        "url": "http://127.0.0.1:3300/a77/knowledge-base-private/pulls/26"
+      }
+    ]
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "original_path": "/tmp/hithink-capture-mutation-restored.log",
+  "raw_sha256": "54458c2a9684fc81b50797accaa622684b42ccd6ef6ab5706b3dbf9bb73bf009",
+  "encoding": "utf-8",
+  "lines": [
+    "........................................................................ [ 51%]\n",
+    ".....................................................................    [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260915T080851Z-c85d0101.json\n",
+    "\n",
+    "141 passed in 4.87s\n"
+  ]
+}

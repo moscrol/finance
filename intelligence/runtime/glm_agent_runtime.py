@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
+from dataclasses import replace
 import json
 import time
 
@@ -18,11 +19,13 @@ from intelligence.services.agent_runtime import (
     is_transient_model_error,
 )
 from intelligence.runtime.continuous_sub_research import ContinuousSubResearchWorker
+from intelligence.runtime.model_output_scope import draft_publication_allowed
 from intelligence.runtime.episode_finalizer import EpisodeFinalizer
 from intelligence.services.cancel_signal import CancelSignal
 from intelligence.services.episode_store import EpisodeStore
 from intelligence.services.draft_stream import DraftStreamDecoder
 from intelligence.services.episode_session import CallbackEpisodeSession, EpisodeSession
+from intelligence.services.llm_usage import token_usage_counts
 from intelligence.services.mode_governor import ModeGovernor, ModeSignals
 from intelligence.services.research_contract import ResearchRunContext
 from intelligence.services.research_harness import FinanceResearchHarness
@@ -139,7 +142,11 @@ class GLMModelClient:
         tools: list[dict[str, object]],
         timeout: float,
     ) -> ModelTurn:
-        sink = _DraftSink(self._on_draft_delta) if self._on_draft_delta else None
+        sink = (
+            _DraftSink(self._on_draft_delta)
+            if self._on_draft_delta and draft_publication_allowed()
+            else None
+        )
         try:
             if self._providers is not None:
                 return self._complete_provider_chain(
@@ -221,7 +228,6 @@ class GLMModelClient:
             parse_error = ""
             if self._is_cancelled():
                 reason = "cancelled"
-                message = None
                 trace.append(
                     _provider_trace_entry(
                         provider,
@@ -229,7 +235,10 @@ class GLMModelClient:
                         reason=reason,
                     )
                 )
-                break
+                return self._with_provider_trace(
+                    self._settle_cancelled_response(message, _provider_name(provider), attempts),
+                    tuple(trace),
+                )
             if message is None:
                 trace.append(
                     _provider_trace_entry(
@@ -384,7 +393,10 @@ class GLMModelClient:
                         reason=last_reason,
                     )
                 )
-                break
+                return self._with_provider_trace(
+                    self._settle_cancelled_response(message, provider_name, attempts),
+                    tuple(trace),
+                )
             if message is None:
                 trace.append(
                     _provider_trace_entry(
@@ -419,6 +431,10 @@ class GLMModelClient:
                         reason=parse_error,
                     )
                 )
+                if turn.error.startswith("incomplete_model_response:"):
+                    # Not a transport outage. Keep usage/stop reason and let the
+                    # episode make a budgeted recovery decision, not a hidden retry.
+                    return self._with_provider_trace(turn, tuple(trace))
                 last_reason = parse_error
                 provider_index += 1
                 continue
@@ -442,6 +458,22 @@ class GLMModelClient:
             ),
             tuple(trace),
         )
+
+    def _settle_cancelled_response(
+        self, message: object, provider_name: str, attempts: int,
+    ) -> ModelTurn:
+        """A cancellation fences effects, not usage/response already received.
+
+        A storage-failure hook leaves the response intact for the ledger's private
+        salvage path; the ledger owns that fence and will never dispatch its calls.
+        """
+        if message is None:
+            return ModelTurn("", (), provider_name, "cancelled", provider_attempts=attempts)
+        turn, _error = _turn_from_message(message, provider_name, attempts, reject_empty=False)
+        signal = self._is_cancelled
+        if isinstance(signal, CancelSignal) and signal.cause == "hook" and signal.detail == "storage_failed":
+            return turn
+        return replace(turn, tool_calls=(), error="cancelled")
 
     def _with_provider_trace(
         self,
@@ -659,6 +691,29 @@ def _turn_from_message(
     *,
     reject_empty: bool = True,
 ) -> tuple[ModelTurn, str]:
+    """Check completion before parsing calls, preserving the provider receipt."""
+    reason = message.get("_finish_reason") if isinstance(message, dict) else None
+    reason = reason.strip().lower() if isinstance(reason, str) else None
+    if reason in {"length", "max_tokens", "content_filter", "missing_finish_reason"}:
+        input_tokens, output_tokens = _message_token_usage(message)
+        content = message.get("content")
+        turn = ModelTurn(
+            content if isinstance(content, str) else "", (), provider_name,
+            provider_attempts=attempts, input_tokens=input_tokens, output_tokens=output_tokens,
+            served_model=_message_served_model(message), finish_reason=reason,
+        )
+        return turn, turn.error
+    turn, error = _parse_model_message(message, provider_name, attempts, reject_empty=reject_empty)
+    return replace(turn, finish_reason=reason), error
+
+
+def _parse_model_message(
+    message: object,
+    provider_name: str,
+    attempts: int,
+    *,
+    reject_empty: bool = True,
+) -> tuple[ModelTurn, str]:
     """Validate and convert an adapter envelope without leaking raw payloads."""
 
     if not isinstance(message, dict):
@@ -768,23 +823,18 @@ def _message_served_model(message: Mapping[str, object]) -> str | None:
 
 
 def _message_token_usage(message: Mapping[str, object]) -> tuple[int | None, int | None]:
+    """适配器信封的 ``_usage``（退到 ``usage``）→ (input, output)。
+
+    双命名取值下沉到 ``services.llm_usage.token_usage_counts``（判官侧记账复用同一份，
+    services 不能反向 import runtime）；这里只负责挑信封里的哪个键。
+    """
+
     raw = message.get("_usage")
     if not isinstance(raw, Mapping):
         raw = message.get("usage")
     if not isinstance(raw, Mapping):
         return None, None
-
-    def token_value(*names: str) -> int | None:
-        for name in names:
-            value = raw.get(name)
-            if isinstance(value, int) and not isinstance(value, bool) and value >= 0:
-                return value
-        return None
-
-    return (
-        token_value("input_tokens", "prompt_tokens"),
-        token_value("output_tokens", "completion_tokens"),
-    )
+    return token_usage_counts(raw)
 
 
 def _provider_name(provider: object | None) -> str:

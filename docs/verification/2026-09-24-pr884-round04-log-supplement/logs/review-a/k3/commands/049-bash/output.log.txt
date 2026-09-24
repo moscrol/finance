@@ -1,0 +1,46 @@
+    call: ModelToolCall
+    prepared: PreparedToolArguments
+    normalized_query: str
+    spec: ToolSpec
+
+    @property
+    def key(self) -> tuple[str, str]:
+        return (self.call.name, self.normalized_query)
+
+
+def _run_with_publish_guard(
+    guard: query_ledger.QueryPublishGuard,
+    operation: Callable[[], ToolObservation],
+    results: ToolResultScope,
+) -> ToolObservation:
+    with query_ledger.query_publish_guard_scope(guard), tool_result_scope(results):
+        return operation()
+
+
+@dataclass(frozen=True)
+class DispatchIntent:
+    """就要进线程池的那一批调用：效果三明治的「意图」一侧（INV-R2）。
+
+    在 ``_dispatch`` 之前、所有拒绝（未授权 / 重复 / 预算 / 零授权额 / 取消）都已分完之后
+    交给 ``on_dispatch``。此时 ``clock`` 已算出，所以意图里能带与事后 ``tool_request`` 完全
+    相同的 dispatch clock 字段；``replay`` 抄自各 ``ToolSpec.replay``，恢复时按它决定重跑还是
+    合成 interrupted。``calls`` 按模型给出的顺序。
+    """
+
+    calls: tuple[ModelToolCall, ...]
+    clock: ToolDispatchClock
+    replay: Mapping[str, str]
+    request_extras: Mapping[str, Mapping[str, object]]
+
+
+class EpisodeToolBatchSession:
+    """Own episode query state and execute independent tool calls concurrently."""
+
+    def __init__(
+        self,
+        *,
+        executor: Executor | None = None,
+        scope: EpisodeScope | None = None,
+    ) -> None:
+        self._seen_queries: set[tuple[str, str]] = set()
+        self._successful_episode_tools: set[str] = set()

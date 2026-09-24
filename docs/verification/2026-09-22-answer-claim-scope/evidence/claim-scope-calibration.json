@@ -1,0 +1,52 @@
+{
+  "purpose": "calibration over repo-archived answers with EMPTY evidence context",
+  "files_scanned": 6,
+  "sentences_scanned": 297,
+  "total_hits": 0,
+  "fixed_false_positive": "截至<日期>历史快照 + 不能视为最新交易日复盘（3 份 golden 快照）已由否定/快照限定豁免",
+  "boundary": "empty context leaves only the two text-only rules live; zero hits here is not evidence that those answers are correct, and this corpus is 6 files, not a statistical sample",
+  "files": [
+    {
+      "file": "intelligence/tests/fixtures/golden_answers/snapshots/stock_anchor.md",
+      "issue_count": 0,
+      "rules": [],
+      "sentences": 61,
+      "quotes": []
+    },
+    {
+      "file": "intelligence/tests/fixtures/golden_answers/snapshots/theme_analysis.md",
+      "issue_count": 0,
+      "rules": [],
+      "sentences": 69,
+      "quotes": []
+    },
+    {
+      "file": "intelligence/tests/fixtures/golden_answers/snapshots/theme_no_hits.md",
+      "issue_count": 0,
+      "rules": [],
+      "sentences": 48,
+      "quotes": []
+    },
+    {
+      "file": "docs/learning/knevo-distill/recheck/2026-09-12-t23-nogrok/e2-evidence/t2-run_20260913_035722_162700/answer.md",
+      "issue_count": 0,
+      "rules": [],
+      "sentences": 52,
+      "quotes": []
+    },
+    {
+      "file": "docs/learning/knevo-distill/recheck/2026-09-12-t23-nogrok/e2-evidence/t3-run_20260913_041146_035132/answer.md",
+      "issue_count": 0,
+      "rules": [],
+      "sentences": 55,
+      "quotes": []
+    },
+    {
+      "file": "intelligence/tests/fixtures/golden_run/run_20260708_demo/answer.md",
+      "issue_count": 0,
+      "rules": [],
+      "sentences": 12,
+      "quotes": []
+    }
+  ]
+}

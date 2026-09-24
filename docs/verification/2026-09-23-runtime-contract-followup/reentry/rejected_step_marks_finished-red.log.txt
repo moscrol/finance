@@ -1,0 +1,11 @@
+F.                                                                       [100%]
+=================================== FAILURES ===================================
+_______ test_rejected_concurrent_drive_operation_keeps_owner_live[step] ________
+intelligence/tests/test_episode_writer_reentry.py:109: in test_rejected_concurrent_drive_operation_keeps_owner_live
+    assert not drive.finished and not inbox.closed
+E   assert (not True)
+E    +  where True = <intelligence.runtime.agent_episode.EpisodeDrive object at 0x1066fd520>.finished
+- generated xml file: /Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-reentry/mutations/rejected_step_marks_finished-red.xml -
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_episode_writer_reentry.py::test_rejected_concurrent_drive_operation_keeps_owner_live[step]
+1 failed, 1 passed, 10 deselected in 3.15s

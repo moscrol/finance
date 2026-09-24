@@ -1,0 +1,592 @@
+[
+  {
+    "name": "code-apply",
+    "category": "authorized-target",
+    "rc": 2,
+    "verdict": "FAIL",
+    "checks": 22,
+    "failed": [
+      "receipt_apply_schema",
+      "spec_alignment_apply_verify",
+      "data_checks_executed"
+    ],
+    "schemas": {
+      "apply": false,
+      "verify": true
+    },
+    "output_exists": true,
+    "clone": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-review/spec/code-apply/clone.duckdb"
+  },
+  {
+    "name": "code-verify",
+    "category": "authorized-target",
+    "rc": 2,
+    "verdict": "FAIL",
+    "checks": 22,
+    "failed": [
+      "receipt_verify_schema",
+      "spec_alignment_apply_verify",
+      "data_checks_executed"
+    ],
+    "schemas": {
+      "apply": true,
+      "verify": false
+    },
+    "output_exists": true,
+    "clone": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-review/spec/code-verify/clone.duckdb"
+  },
+  {
+    "name": "code-apply-verify",
+    "category": "authorized-target",
+    "rc": 2,
+    "verdict": "FAIL",
+    "checks": 22,
+    "failed": [
+      "receipt_apply_schema",
+      "receipt_verify_schema",
+      "data_checks_executed"
+    ],
+    "schemas": {
+      "apply": false,
+      "verify": false
+    },
+    "output_exists": true,
+    "clone": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-review/spec/code-apply-verify/clone.duckdb"
+  },
+  {
+    "name": "numeric-stock-true",
+    "category": "numeric-invalid",
+    "rc": 2,
+    "verdict": "FAIL",
+    "checks": 22,
+    "failed": [
+      "receipt_apply_schema",
+      "receipt_verify_schema",
+      "data_checks_executed"
+    ],
+    "schemas": {
+      "apply": false,
+      "verify": false
+    },
+    "output_exists": true,
+    "clone": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-review/spec/numeric-stock-true/clone.duckdb"
+  },
+  {
+    "name": "numeric-stock-false",
+    "category": "numeric-invalid",
+    "rc": 2,
+    "verdict": "FAIL",
+    "checks": 22,
+    "failed": [
+      "receipt_apply_schema",
+      "receipt_verify_schema",
+      "data_checks_executed"
+    ],
+    "schemas": {
+      "apply": false,
+      "verify": false
+    },
+    "output_exists": true,
+    "clone": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-review/spec/numeric-stock-false/clone.duckdb"
+  },
+  {
+    "name": "numeric-stock-nan",
+    "category": "numeric-invalid",
+    "rc": 2,
+    "verdict": "FAIL",
+    "checks": 22,
+    "failed": [
+      "receipt_apply_schema",
+      "receipt_verify_schema",
+      "data_checks_executed"
+    ],
+    "schemas": {
+      "apply": false,
+      "verify": false
+    },
+    "output_exists": true,
+    "clone": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-review/spec/numeric-stock-nan/clone.duckdb"
+  },
+  {
+    "name": "numeric-stock-inf",
+    "category": "numeric-invalid",
+    "rc": 2,
+    "verdict": "FAIL",
+    "checks": 22,
+    "failed": [
+      "receipt_apply_schema",
+      "receipt_verify_schema",
+      "data_checks_executed"
+    ],
+    "schemas": {
+      "apply": false,
+      "verify": false
+    },
+    "output_exists": true,
+    "clone": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-review/spec/numeric-stock-inf/clone.duckdb"
+  },
+  {
+    "name": "numeric-stock-negative-inf",
+    "category": "numeric-invalid",
+    "rc": 2,
+    "verdict": "FAIL",
+    "checks": 22,
+    "failed": [
+      "receipt_apply_schema",
+      "receipt_verify_schema",
+      "data_checks_executed"
+    ],
+    "schemas": {
+      "apply": false,
+      "verify": false
+    },
+    "output_exists": true,
+    "clone": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-review/spec/numeric-stock-negative-inf/clone.duckdb"
+  },
+  {
+    "name": "numeric-stock-huge-positive",
+    "category": "numeric-invalid",
+    "rc": 2,
+    "verdict": "FAIL",
+    "checks": 22,
+    "failed": [
+      "receipt_apply_schema",
+      "receipt_verify_schema",
+      "data_checks_executed"
+    ],
+    "schemas": {
+      "apply": false,
+      "verify": false
+    },
+    "output_exists": true,
+    "clone": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-review/spec/numeric-stock-huge-positive/clone.duckdb"
+  },
+  {
+    "name": "numeric-stock-huge-negative",
+    "category": "numeric-invalid",
+    "rc": 2,
+    "verdict": "FAIL",
+    "checks": 22,
+    "failed": [
+      "receipt_apply_schema",
+      "receipt_verify_schema",
+      "data_checks_executed"
+    ],
+    "schemas": {
+      "apply": false,
+      "verify": false
+    },
+    "output_exists": true,
+    "clone": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-review/spec/numeric-stock-huge-negative/clone.duckdb"
+  },
+  {
+    "name": "numeric-stock-finite-int",
+    "category": "numeric-finite",
+    "rc": 0,
+    "verdict": "PASS",
+    "checks": 37,
+    "failed": [],
+    "schemas": {
+      "apply": true,
+      "verify": true
+    },
+    "output_exists": true,
+    "clone": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-review/spec/numeric-stock-finite-int/clone.duckdb"
+  },
+  {
+    "name": "numeric-stock-finite-float",
+    "category": "numeric-finite",
+    "rc": 0,
+    "verdict": "PASS",
+    "checks": 37,
+    "failed": [],
+    "schemas": {
+      "apply": true,
+      "verify": true
+    },
+    "output_exists": true,
+    "clone": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-review/spec/numeric-stock-finite-float/clone.duckdb"
+  },
+  {
+    "name": "numeric-technical-true",
+    "category": "numeric-invalid",
+    "rc": 2,
+    "verdict": "FAIL",
+    "checks": 22,
+    "failed": [
+      "receipt_apply_schema",
+      "receipt_verify_schema",
+      "data_checks_executed"
+    ],
+    "schemas": {
+      "apply": false,
+      "verify": false
+    },
+    "output_exists": true,
+    "clone": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-review/spec/numeric-technical-true/clone.duckdb"
+  },
+  {
+    "name": "numeric-technical-false",
+    "category": "numeric-invalid",
+    "rc": 2,
+    "verdict": "FAIL",
+    "checks": 22,
+    "failed": [
+      "receipt_apply_schema",
+      "receipt_verify_schema",
+      "data_checks_executed"
+    ],
+    "schemas": {
+      "apply": false,
+      "verify": false
+    },
+    "output_exists": true,
+    "clone": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-review/spec/numeric-technical-false/clone.duckdb"
+  },
+  {
+    "name": "numeric-technical-nan",
+    "category": "numeric-invalid",
+    "rc": 2,
+    "verdict": "FAIL",
+    "checks": 22,
+    "failed": [
+      "receipt_apply_schema",
+      "receipt_verify_schema",
+      "data_checks_executed"
+    ],
+    "schemas": {
+      "apply": false,
+      "verify": false
+    },
+    "output_exists": true,
+    "clone": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-review/spec/numeric-technical-nan/clone.duckdb"
+  },
+  {
+    "name": "numeric-technical-inf",
+    "category": "numeric-invalid",
+    "rc": 2,
+    "verdict": "FAIL",
+    "checks": 22,
+    "failed": [
+      "receipt_apply_schema",
+      "receipt_verify_schema",
+      "data_checks_executed"
+    ],
+    "schemas": {
+      "apply": false,
+      "verify": false
+    },
+    "output_exists": true,
+    "clone": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-review/spec/numeric-technical-inf/clone.duckdb"
+  },
+  {
+    "name": "numeric-technical-negative-inf",
+    "category": "numeric-invalid",
+    "rc": 2,
+    "verdict": "FAIL",
+    "checks": 22,
+    "failed": [
+      "receipt_apply_schema",
+      "receipt_verify_schema",
+      "data_checks_executed"
+    ],
+    "schemas": {
+      "apply": false,
+      "verify": false
+    },
+    "output_exists": true,
+    "clone": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-review/spec/numeric-technical-negative-inf/clone.duckdb"
+  },
+  {
+    "name": "numeric-technical-huge-positive",
+    "category": "numeric-invalid",
+    "rc": 2,
+    "verdict": "FAIL",
+    "checks": 22,
+    "failed": [
+      "receipt_apply_schema",
+      "receipt_verify_schema",
+      "data_checks_executed"
+    ],
+    "schemas": {
+      "apply": false,
+      "verify": false
+    },
+    "output_exists": true,
+    "clone": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-review/spec/numeric-technical-huge-positive/clone.duckdb"
+  },
+  {
+    "name": "numeric-technical-huge-negative",
+    "category": "numeric-invalid",
+    "rc": 2,
+    "verdict": "FAIL",
+    "checks": 22,
+    "failed": [
+      "receipt_apply_schema",
+      "receipt_verify_schema",
+      "data_checks_executed"
+    ],
+    "schemas": {
+      "apply": false,
+      "verify": false
+    },
+    "output_exists": true,
+    "clone": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-review/spec/numeric-technical-huge-negative/clone.duckdb"
+  },
+  {
+    "name": "numeric-technical-finite-int",
+    "category": "numeric-finite",
+    "rc": 2,
+    "verdict": "FAIL",
+    "checks": 37,
+    "failed": [
+      "pinned_technical_target_day"
+    ],
+    "schemas": {
+      "apply": true,
+      "verify": true
+    },
+    "output_exists": true,
+    "clone": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-review/spec/numeric-technical-finite-int/clone.duckdb"
+  },
+  {
+    "name": "numeric-technical-finite-float",
+    "category": "numeric-finite",
+    "rc": 2,
+    "verdict": "FAIL",
+    "checks": 37,
+    "failed": [
+      "pinned_technical_target_day"
+    ],
+    "schemas": {
+      "apply": true,
+      "verify": true
+    },
+    "output_exists": true,
+    "clone": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-review/spec/numeric-technical-finite-float/clone.duckdb"
+  },
+  {
+    "name": "numeric-window-true",
+    "category": "numeric-invalid",
+    "rc": 2,
+    "verdict": "FAIL",
+    "checks": 22,
+    "failed": [
+      "receipt_apply_schema",
+      "receipt_verify_schema",
+      "data_checks_executed"
+    ],
+    "schemas": {
+      "apply": false,
+      "verify": false
+    },
+    "output_exists": true,
+    "clone": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-review/spec/numeric-window-true/clone.duckdb"
+  },
+  {
+    "name": "numeric-window-false",
+    "category": "numeric-invalid",
+    "rc": 2,
+    "verdict": "FAIL",
+    "checks": 22,
+    "failed": [
+      "receipt_apply_schema",
+      "receipt_verify_schema",
+      "data_checks_executed"
+    ],
+    "schemas": {
+      "apply": false,
+      "verify": false
+    },
+    "output_exists": true,
+    "clone": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-review/spec/numeric-window-false/clone.duckdb"
+  },
+  {
+    "name": "numeric-window-nan",
+    "category": "numeric-invalid",
+    "rc": 2,
+    "verdict": "FAIL",
+    "checks": 22,
+    "failed": [
+      "receipt_apply_schema",
+      "receipt_verify_schema",
+      "data_checks_executed"
+    ],
+    "schemas": {
+      "apply": false,
+      "verify": false
+    },
+    "output_exists": true,
+    "clone": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-review/spec/numeric-window-nan/clone.duckdb"
+  },
+  {
+    "name": "numeric-window-inf",
+    "category": "numeric-invalid",
+    "rc": 2,
+    "verdict": "FAIL",
+    "checks": 22,
+    "failed": [
+      "receipt_apply_schema",
+      "receipt_verify_schema",
+      "data_checks_executed"
+    ],
+    "schemas": {
+      "apply": false,
+      "verify": false
+    },
+    "output_exists": true,
+    "clone": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-review/spec/numeric-window-inf/clone.duckdb"
+  },
+  {
+    "name": "numeric-window-negative-inf",
+    "category": "numeric-invalid",
+    "rc": 2,
+    "verdict": "FAIL",
+    "checks": 22,
+    "failed": [
+      "receipt_apply_schema",
+      "receipt_verify_schema",
+      "data_checks_executed"
+    ],
+    "schemas": {
+      "apply": false,
+      "verify": false
+    },
+    "output_exists": true,
+    "clone": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-review/spec/numeric-window-negative-inf/clone.duckdb"
+  },
+  {
+    "name": "numeric-window-huge-positive",
+    "category": "numeric-invalid",
+    "rc": 2,
+    "verdict": "FAIL",
+    "checks": 22,
+    "failed": [
+      "receipt_apply_schema",
+      "receipt_verify_schema",
+      "data_checks_executed"
+    ],
+    "schemas": {
+      "apply": false,
+      "verify": false
+    },
+    "output_exists": true,
+    "clone": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-review/spec/numeric-window-huge-positive/clone.duckdb"
+  },
+  {
+    "name": "numeric-window-huge-negative",
+    "category": "numeric-invalid",
+    "rc": 2,
+    "verdict": "FAIL",
+    "checks": 22,
+    "failed": [
+      "receipt_apply_schema",
+      "receipt_verify_schema",
+      "data_checks_executed"
+    ],
+    "schemas": {
+      "apply": false,
+      "verify": false
+    },
+    "output_exists": true,
+    "clone": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-review/spec/numeric-window-huge-negative/clone.duckdb"
+  },
+  {
+    "name": "numeric-window-finite-int",
+    "category": "numeric-finite",
+    "rc": 2,
+    "verdict": "FAIL",
+    "checks": 37,
+    "failed": [
+      "pinned_windows_target_day"
+    ],
+    "schemas": {
+      "apply": true,
+      "verify": true
+    },
+    "output_exists": true,
+    "clone": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-review/spec/numeric-window-finite-int/clone.duckdb"
+  },
+  {
+    "name": "numeric-window-finite-float",
+    "category": "numeric-finite",
+    "rc": 2,
+    "verdict": "FAIL",
+    "checks": 37,
+    "failed": [
+      "pinned_windows_target_day"
+    ],
+    "schemas": {
+      "apply": true,
+      "verify": true
+    },
+    "output_exists": true,
+    "clone": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-review/spec/numeric-window-finite-float/clone.duckdb"
+  },
+  {
+    "name": "mutation-code",
+    "category": "mutation",
+    "rc": 0,
+    "verdict": "PASS",
+    "checks": 37,
+    "failed": [],
+    "schemas": {
+      "apply": true,
+      "verify": true
+    },
+    "output_exists": true,
+    "clone": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-review/spec/code-apply-verify/clone.duckdb",
+    "required_acceptance_assertion_passed": false
+  },
+  {
+    "name": "mutation-overflow",
+    "category": "mutation",
+    "rc": 1,
+    "verdict": null,
+    "checks": 0,
+    "failed": null,
+    "schemas": {
+      "apply": null,
+      "verify": null
+    },
+    "output_exists": false,
+    "clone": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-review/spec/numeric-technical-huge-positive/clone.duckdb",
+    "required_acceptance_assertion_passed": false
+  },
+  {
+    "name": "restored-code",
+    "category": "restored",
+    "rc": 2,
+    "verdict": "FAIL",
+    "checks": 22,
+    "failed": [
+      "receipt_apply_schema",
+      "receipt_verify_schema",
+      "data_checks_executed"
+    ],
+    "schemas": {
+      "apply": false,
+      "verify": false
+    },
+    "output_exists": true,
+    "clone": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-review/spec/code-apply-verify/clone.duckdb"
+  },
+  {
+    "name": "restored-overflow",
+    "category": "restored",
+    "rc": 2,
+    "verdict": "FAIL",
+    "checks": 22,
+    "failed": [
+      "receipt_apply_schema",
+      "receipt_verify_schema",
+      "data_checks_executed"
+    ],
+    "schemas": {
+      "apply": false,
+      "verify": false
+    },
+    "output_exists": true,
+    "clone": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/backfill-acceptance-review/spec/numeric-technical-huge-positive/clone.duckdb"
+  }
+]

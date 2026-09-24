@@ -1,0 +1,38 @@
+== finance-ruff started 2026-09-18T15:28:34Z ==
+== finance-ruff exit=0 ==
+== registry-parseability started 2026-09-18T15:28:34Z ==
+== registry-parseability exit=0 ==
+== registry-check started 2026-09-18T15:28:34Z ==
+== registry-check exit=0 ==
+== registry-tables started 2026-09-18T15:28:35Z ==
+== registry-tables exit=0 ==
+== registry-views started 2026-09-18T15:28:35Z ==
+== registry-views exit=0 ==
+== registry-ledger started 2026-09-18T15:28:35Z ==
+== registry-ledger exit=0 ==
+== frontend-install started 2026-09-18T15:28:35Z ==
+== frontend-install exit=0 ==
+== frontend-lint started 2026-09-18T15:28:39Z ==
+== frontend-lint exit=0 ==
+== frontend-typecheck started 2026-09-18T15:28:43Z ==
+== frontend-typecheck exit=0 ==
+== frontend-test started 2026-09-18T15:28:50Z ==
+== frontend-test exit=0 ==
+== frontend-build started 2026-09-18T15:29:03Z ==
+== frontend-build exit=0 ==
+== e2e started 2026-09-18T15:29:13Z ==
+== e2e exit=0 ==
+== finance-pytest started 2026-09-18T15:30:54Z ==
+== finance-pytest exit=1 ==
+== kb-pytest started 2026-09-18T15:49:03Z ==
+== kb-pytest exit=0 ==
+== kb-relations started 2026-09-18T15:49:21Z ==
+== kb-relations exit=0 ==
+== kb-sizes started 2026-09-18T15:49:22Z ==
+== kb-sizes exit=0 ==
+== kb-quality started 2026-09-18T15:49:22Z ==
+== kb-quality exit=0 ==
+== kb-log started 2026-09-18T15:49:25Z ==
+== kb-log exit=0 ==
+== kb-index started 2026-09-18T15:49:25Z ==
+== kb-index exit=0 ==

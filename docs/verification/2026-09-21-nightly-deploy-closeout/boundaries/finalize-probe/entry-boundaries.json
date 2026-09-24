@@ -1,0 +1,81 @@
+{
+  "revision": "2137345daa44daefa0d029ba4c2de89e0f725b2a",
+  "final_revision": "2137345daa44daefa0d029ba4c2de89e0f725b2a",
+  "target_status": "",
+  "cases": [
+    {
+      "case": "safe_external_alert",
+      "returncode": 1,
+      "changed_generation_code_files": [],
+      "changed_ops_code_files": [],
+      "launcher_root_diagnostic": false,
+      "launcher_imported": true,
+      "receiver_executed": false,
+      "alert_written": true,
+      "alert_text": "2026-09-21T15:36:51\t[daily-review FAIL] date=2026-09-11 | failed=quality-gate | warn=- | error=command failed with returncode 3\n",
+      "passed": true,
+      "command": [
+        "/bin/zsh",
+        "/Users/a77/.finance-runtime/reviews/nightly-deploy-closeout-20260921/boundaries/finalize-probe/safe_external_alert-5onf2tpz/code snapshot/skills/daily-full-review/scripts/nightly_full_review.sh",
+        "finalize",
+        "2026-09-11"
+      ]
+    },
+    {
+      "case": "generation_rejected_alert",
+      "returncode": 2,
+      "changed_generation_code_files": [],
+      "changed_ops_code_files": [],
+      "launcher_root_diagnostic": true,
+      "launcher_imported": false,
+      "receiver_executed": false,
+      "alert_written": false,
+      "alert_text": null,
+      "passed": true,
+      "command": [
+        "/bin/zsh",
+        "/Users/a77/.finance-runtime/reviews/nightly-deploy-closeout-20260921/boundaries/finalize-probe/generation_rejected_alert-hwcejfaj/code snapshot/skills/daily-full-review/scripts/nightly_full_review.sh",
+        "finalize",
+        "2026-09-11"
+      ]
+    },
+    {
+      "case": "l2_failed_alert",
+      "returncode": 1,
+      "changed_generation_code_files": [],
+      "changed_ops_code_files": [],
+      "launcher_root_diagnostic": false,
+      "launcher_imported": false,
+      "receiver_executed": false,
+      "alert_written": false,
+      "alert_text": null,
+      "passed": true,
+      "command": [
+        "/bin/zsh",
+        "/Users/a77/.finance-runtime/reviews/nightly-deploy-closeout-20260921/boundaries/finalize-probe/l2_failed_alert-j30c1sjv/code snapshot/skills/daily-full-review/scripts/nightly_full_review.sh",
+        "finalize",
+        "2026-09-11"
+      ]
+    },
+    {
+      "case": "receive_escape",
+      "returncode": 2,
+      "changed_generation_code_files": [],
+      "changed_ops_code_files": [],
+      "launcher_root_diagnostic": true,
+      "launcher_imported": false,
+      "receiver_executed": false,
+      "alert_written": false,
+      "alert_text": null,
+      "passed": true,
+      "command": [
+        "/bin/zsh",
+        "/Users/a77/.finance-runtime/reviews/nightly-deploy-closeout-20260921/boundaries/finalize-probe/receive_escape-jawrr2l2/code snapshot/skills/daily-full-review/scripts/nightly_full_review.sh",
+        "finalize",
+        "2026-09-11"
+      ]
+    }
+  ],
+  "passed": 4,
+  "failed": 0
+}

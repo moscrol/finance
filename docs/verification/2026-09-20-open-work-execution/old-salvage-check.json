@@ -1,0 +1,213 @@
+{
+  "checked_at": "2026-09-19T17:12:12.609132+00:00",
+  "trees": [
+    {
+      "tree": "/Users/a77/fwp-wt-main-merge-0913",
+      "manifest_sha256": "5b7e313f149485c380ed9067599af855dff9429f628d620ca236c6d55cb77eb1"
+    },
+    {
+      "tree": "/Users/a77/.finance-runtime/reviews/8792-readiness-fixes-20260917/baseline",
+      "manifest_sha256": "ca8015804970a3f25f5e4082011337457c3c09481c3beb4dd6f755ee149ec154"
+    },
+    {
+      "tree": "/Users/a77/.finance-runtime/reviews/research-evolution-06-ba10747d/tree",
+      "manifest_sha256": "f3716a3f4a822db0409c344f3c4e14f99905ad11e21e6fa7d1872183b4a49734"
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-chat-idle",
+      "manifest_sha256": "196c16a9b93650f217a1d6d27deb196228530e1322413bcf0761778c3e5322b1"
+    },
+    {
+      "tree": "/Users/a77/.finance-runtime/finance-workspace-f4c03b9ae610",
+      "manifest_sha256": "065aa8dc3dcf3862444377ddb91df338e9f0b6221ee83e6a863ea470b493f961"
+    },
+    {
+      "tree": "/private/tmp/knevo-answer-distill-0916",
+      "manifest_sha256": "0017c39a8f85f41b801a033e66961baac5fc2bc103b2a9b5e62be7c459ac525c"
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-broad-index",
+      "manifest_sha256": "741094efd02597e02b4ad804de19a0f70c2e03e6c90a35fed6192b11c772614e"
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-technical-daily",
+      "manifest_sha256": "076f2d1ad14002ac417edd7a6a06d4065a35d5a5baafdae5550cf735603fdf18"
+    },
+    {
+      "tree": "/Users/a77/finance-workspace-private/.claude/worktrees/daily-swap-race-condition-d0f557",
+      "manifest_sha256": "4100c826511b52e195f0eda73cbefbd4fbfce182d417c65bc312ebbb4327fc5d"
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-workbench-research-journey",
+      "manifest_sha256": "29eaa81f1306f742a6ec1be9910120efcd0d43600d87857a7c81f976e8873f4e"
+    },
+    {
+      "tree": "/Users/a77/.finance-runtime/finance-workspace-0060da5c1a08",
+      "manifest_sha256": "a38952f7e87cf38f28a3b6615debdc65f18635d2ea6b03a8a1d90dbf1e87d312"
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-writer-cost",
+      "manifest_sha256": "3de2b7fb1c16ef8950d81eb3d3c83d8921b911e0a065a8cecd5c2b3f417a9114"
+    },
+    {
+      "tree": "/Users/a77/.finance-runtime/reviews/pr773-fix/before",
+      "manifest_sha256": "d95af1422dcc2fc4768cb701b9e30777aa817f0336aabb68667f61bab8e4c5bb"
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-8792-qc-closeout-0913",
+      "manifest_sha256": "940c4257a5c71fd5ca8c57f605621c25ec1a40850e90cfdb66e8ab9eadde391a"
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-public-brief",
+      "manifest_sha256": "f7184d63f7927514010d95cc44c10d1a5f394196341736eed871cbb210a2db62"
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-qc-research-evolution-06",
+      "manifest_sha256": "6d17e467df836b099d606bdc735da283d397d6b0ce669c657e3a5afe99f6e755"
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-rag-window",
+      "manifest_sha256": "e8854e732fa1dd38499835204749c6671993a75f6901eb8d758890a5fa94bd56"
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-8792-financial-r6-repair",
+      "manifest_sha256": "d4ff03f4689ccb93e5e1e24c7361992b64fcf0c9438f52f4750c9cda738f13cd"
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-teaching-slice3",
+      "manifest_sha256": "0596886b06f6004fee105f22de870a4333cc131e6258b11e3eb2894cbf8d251c"
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-ablation-noise-floor",
+      "manifest_sha256": "5c7071d91ae465d8515cbd8fc8a938233b8d162def92b0c0618b3befa670561f"
+    },
+    {
+      "tree": "/Users/a77/finance-workspace-private",
+      "manifest_sha256": "018308408d3e83a4f7ef3e650b1d006a8e56240eea3e88fcd16ce3c3e90ffc3d"
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-e2-p5-inheritance",
+      "manifest_sha256": "1a0a48b62276c788a6b65768b8cffb08d00e02050895f2a227b54148a5be149a"
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-e2-impl-p1",
+      "manifest_sha256": "bc20ef807fdc249d84ce3ced0741c9ca06caebe5c39e530afb0b28182a4695a6"
+    },
+    {
+      "tree": "/Users/a77/finance-workspace-private/.claude/worktrees/fix-trading-day-calendar",
+      "manifest_sha256": "c3319c1c85a5618bf5633af40ff4bf87e167b7bbe6b80cb8b199cc3c9e6b257c"
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-mechanism-pilot",
+      "manifest_sha256": "bbd4e60c4fc5e653c101fdbe4483d5d90f65f47648aef8058157e6c98989e184"
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-e2-material-contract-0913",
+      "manifest_sha256": "42d87efb53a49b1889c725550de5366cbdaeef2745fbc7ad71fc843744c128d0"
+    },
+    {
+      "tree": "/private/tmp/e2-p3e-guard-mutation-39af312f",
+      "manifest_sha256": "7878daa2654849246eca9edb314398381714ee4eb775a56357c4764ba6339e02"
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-step-trajectory-qualification",
+      "manifest_sha256": "e26bc7cfdafe5b6201b83cdec5a5f12961d24c5bf4f9f1625047a34469539a01"
+    },
+    {
+      "tree": "/Users/a77/.finance-runtime/finance-workspace-c7bbcb93e1ad",
+      "manifest_sha256": "a5071e5027c6565aa51b92ff9da774c7c9e64039f3d9e0cbccb5ef36fd7ffbf2"
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-capability-upgrade-plan",
+      "manifest_sha256": "82742f52face3719134341679389d043d5e74e6ced969352b42ba13cbe8315b4"
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-historical-discovery",
+      "manifest_sha256": "96686cbcd872565b817fac3126aac101de5f3c656cd914c81ce0fec4d94501ee"
+    },
+    {
+      "tree": "/Users/a77/.finance-runtime/finance-workspace-ac0132553aae",
+      "manifest_sha256": "8628e1c0ee3dd5ca2040cdacbc12cf425087971bf4fa4860240f435fb237fb58"
+    },
+    {
+      "tree": "/Users/a77/.finance-runtime/kb-dual-index-20260918/before",
+      "manifest_sha256": "c8ff0597ae45546ad6b1d591de223e6ceabd82807b4aa01193d7371af501f4e1"
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-local-plan-alignment-validation",
+      "manifest_sha256": "1586396d8e1d2c4aea25c286c6b6c0bd21c40f8c4d5031758f066b7bb2258f47"
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-8792-integrate-0913",
+      "manifest_sha256": "acb6ce0d3419f8910c930851e0642f273ba30e86938ceb4b394272339f84fbc3"
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-regime-live",
+      "manifest_sha256": "79edb3dc9fe9eff54a1663b2d86d9c0d5a4bdbd9131e11925b3769890dca98e2"
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-qc-conformance",
+      "manifest_sha256": "cc52191f977001b6268327983a4d35f0fb0f2e91e096e7bd73fdd06e5accc8d8"
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-money-effect-regime",
+      "manifest_sha256": "b194a6a6bc930b4479d0df21facb73cfcc3581c20a89f74e21b4d7b141ce9f49"
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-webapp-beautiful-ui",
+      "manifest_sha256": "4ad86c7e620d0bfc0f5883c665518bc24498e0f209e7a617f5e82828df2e2813"
+    },
+    {
+      "tree": "/Users/a77/.finance-runtime/finance-workspace-b594a5e7f8ae",
+      "manifest_sha256": "a1b3b466f703f6c43982b04eef9ac4f5d4e82b23dcc1b8244eaa10fed96844a6"
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-nightly-review-0917",
+      "manifest_sha256": "2381a6b842616493289bee6c166a60648b512829a6e39751c0b01d34c7671bf3"
+    },
+    {
+      "tree": "/Users/a77/.finance-runtime/finance-workspace-2efdff46e251",
+      "manifest_sha256": "ca2c83fe9495bb9c35d98a033d135952595a7c61b6baca0487a1d13e8fdb008a"
+    },
+    {
+      "tree": "/Users/a77/.finance-runtime/finance-workspace-1010970acc85",
+      "manifest_sha256": "531aec5b54435d07d478189245b09009aeab761fe7d21dc0c6a2617b9ad4f585"
+    },
+    {
+      "tree": "/Users/a77/finance-workspace-sync",
+      "manifest_sha256": "beb997110244c875db7cedb0e7e01c35926ef9ff23b5db268546699938045600"
+    },
+    {
+      "tree": "/Users/a77/.finance-runtime/kb-dual-index-20260918/gate-e9bb34c3/finance-workspace-private",
+      "manifest_sha256": "4c48fe94d4774c292bd143f0ca321f86ebcb4f37530b08ec9b0898792c507014"
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-ranking-scenarios-10",
+      "manifest_sha256": "90766512a7df16080b6d106f85b9de796556ad82259fe88018656cf1cb1e7337"
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-worker-freshness",
+      "manifest_sha256": "8078a24b16e58f061cc9c30251b1dc33d7c38042ad5ae3c6e28c9848917f2313"
+    },
+    {
+      "tree": "/private/tmp/e2-p3f1-mutations-418f2bc9",
+      "manifest_sha256": "3b8b0ad28cbdb8dbf04483187adb73004c9017f3630d4249d687adf064702aee"
+    },
+    {
+      "tree": "/Users/a77/.finance-runtime/finance-workspace-d4cb64844ec6",
+      "manifest_sha256": "f1f729cd53cc9dba415cd7f4f4431c33ab294bc934dbc8d8aeda0e5e88b883c1"
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-resume-specs-0905",
+      "manifest_sha256": "5f4433dff44e97d6d3a7b201f0d683c626db4fa4f9255582e3d974a7b8674e6e"
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-knevo-tool-parity",
+      "manifest_sha256": "912f7c36b64e88a30c26fab50e997b4d398830f8e32e1d17e3b294f70c32f839"
+    },
+    {
+      "tree": "/Users/a77/.finance-runtime/finance-hosted-alpha",
+      "manifest_sha256": "ceeede08537b2250479ea28f8629a9d15c11a992cff43b5f27e4781245aaf39e"
+    }
+  ]
+}

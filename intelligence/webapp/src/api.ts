@@ -6,12 +6,17 @@ import type {
   ConfigureLLMRequest,
   CreateMessageRequest,
   CreateMessageResponse,
+  CreditsSummary,
   DailyReportProjection,
   Followup,
   LLMConfig,
   LearningFeedback,
   PerspectiveDescription,
   ProductSkillDescription,
+  ResearchEvolutionActionResult,
+  ResearchEvolutionBindingResult,
+  ResearchEvolutionView,
+  EvidenceCatalogView,
   ResearchProject,
   Run,
   RunContext,
@@ -20,11 +25,28 @@ import type {
   WorkbenchOverview,
 } from "./types";
 
+/** FastAPI 的错误体是 `{"detail": "..."}`；给用户看的是里面那句话，不是整个 JSON。 */
+function errorDetail(body: string): string {
+  try {
+    const parsed: unknown = JSON.parse(body);
+    if (
+      parsed &&
+      typeof parsed === "object" &&
+      typeof (parsed as { detail?: unknown }).detail === "string"
+    ) {
+      return (parsed as { detail: string }).detail;
+    }
+  } catch {
+    // 不是 JSON 就原样返回
+  }
+  return body;
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, init);
   if (!response.ok) {
-    const detail = await response.text();
-    throw new Error(detail || `${response.status} ${response.statusText}`);
+    const body = await response.text();
+    throw new Error(errorDetail(body) || `${response.status} ${response.statusText}`);
   }
   return response.json() as Promise<T>;
 }
@@ -37,6 +59,10 @@ function withUser(path: string, user?: string): string {
 
 export function getBootstrap(user?: string): Promise<Bootstrap> {
   return request<Bootstrap>(withUser("/api/workbench/bootstrap", user));
+}
+
+export function getCredits(user?: string): Promise<CreditsSummary> {
+  return request<CreditsSummary>(withUser("/api/credits", user));
 }
 
 export function getWorkbenchOverview(): Promise<WorkbenchOverview> {
@@ -321,4 +347,95 @@ export function artifactContentUrl(artifactId: string, user?: string): string {
 
 export function runEventsUrl(runId: string, user?: string): string {
   return withUser(`/api/runs/${encodeURIComponent(runId)}/events`, user);
+}
+
+export function getResearchEvolution(
+  conversationId: string,
+  user?: string,
+): Promise<ResearchEvolutionView> {
+  return request<ResearchEvolutionView>(
+    withUser(
+      `/api/conversations/${encodeURIComponent(conversationId)}/research-evolution`,
+      user,
+    ),
+  );
+}
+
+export async function postResearchEvolutionEvents(
+  conversationId: string,
+  events: ReadonlyArray<Record<string, unknown>>,
+  user?: string,
+): Promise<void> {
+  const result = await request<{
+    accepted: string[];
+    duplicates: string[];
+    rejected: Array<{ message: string }>;
+  }>(
+    withUser(`/api/conversations/${encodeURIComponent(conversationId)}/research-evolution/events`, user),
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ events, user }),
+      keepalive: true,
+    },
+  );
+  if (result.rejected.length > 0) {
+    throw new Error(result.rejected.map((item) => item.message).join("；"));
+  }
+  if (result.accepted.length + result.duplicates.length !== events.length) {
+    throw new Error("计时记录未全部确认保存");
+  }
+}
+
+export function postResearchEvolutionAction(
+  conversationId: string,
+  body: Record<string, unknown>,
+  user?: string,
+): Promise<ResearchEvolutionActionResult> {
+  return request<ResearchEvolutionActionResult>(
+    withUser(
+      `/api/conversations/${encodeURIComponent(conversationId)}/research-evolution/actions`,
+      user,
+    ),
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...body, user }),
+    },
+  );
+}
+
+/** 受控证据目录：建绑定前让用户选「这条判断依赖哪些证据的哪一版」。 */
+export function getResearchEvolutionCatalog(
+  conversationId: string,
+  entity: string,
+  asOf: string,
+  user?: string,
+): Promise<EvidenceCatalogView> {
+  const params = new URLSearchParams({ entity, as_of: asOf });
+  return request<EvidenceCatalogView>(
+    withUser(
+      `/api/conversations/${encodeURIComponent(conversationId)}/research-evolution/evidence-catalog?${params}`,
+      user,
+    ),
+  );
+}
+
+/** 「从现在开始跟踪」：服务端解析真实 hash/版本；幂等重试返回 `created=false` 的已落盘记录。 */
+export function postResearchEvolutionBinding(
+  conversationId: string,
+  body: Record<string, unknown>,
+  user?: string,
+): Promise<ResearchEvolutionBindingResult> {
+  return request<ResearchEvolutionBindingResult>(
+    withUser(
+      `/api/conversations/${encodeURIComponent(conversationId)}/research-evolution/bindings`,
+      user,
+    ),
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...body, user }),
+    },
+  );
 }

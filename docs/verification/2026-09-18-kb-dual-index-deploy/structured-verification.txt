@@ -1,0 +1,6 @@
+{"index": ".rag_index", "selected_files": 14448, "indexed_files": 14434, "unexplained_gaps": [], "vector_rows_checked": 168861}
+Traceback (most recent call last):
+  File "/Users/a77/.finance-runtime/kb-dual-index-20260918/verify_indexes.py", line 98, in <module>
+    assert all(digest(kb / path) == sha for path, sha in before.items()), 'production indexes changed'
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: production indexes changed

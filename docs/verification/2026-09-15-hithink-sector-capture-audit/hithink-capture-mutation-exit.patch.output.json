@@ -1,0 +1,20 @@
+{
+  "original_path": "/tmp/hithink-capture-mutation-exit.patch",
+  "raw_sha256": "be2264dfc23d8b11b7b7f4f105783415d577bb27d82935a8a8c82cdad1ea36d2",
+  "encoding": "utf-8",
+  "lines": [
+    "diff --git a/market_feature_store/cli.py b/market_feature_store/cli.py\n",
+    "index c8360fe7..3e71557e 100644\n",
+    "--- a/market_feature_store/cli.py\n",
+    "+++ b/market_feature_store/cli.py\n",
+    "@@ -936,7 +936,7 @@ def cmd_sync_hithink_sector_kline(args) -> int:\n",
+    "         f\"request_complete={str(audit['request_complete']).lower()} \"\n",
+    "         f\"provider_completeness={audit['provider_completeness']}\"\n",
+    "     )\n",
+    "-    return 0 if audit[\"request_complete\"] else 2\n",
+    "+    return 0\n",
+    " \n",
+    " \n",
+    " def cmd_sync_hithink_limit_pools(args) -> int:\n"
+  ]
+}
