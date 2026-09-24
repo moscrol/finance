@@ -21,6 +21,17 @@ class WorkerResponse:
     model_load_count: int = 0
 
 
+class WorkerRequestAbandoned(TimeoutError):
+    """查询超窗，但 worker 还热着：放弃这一条请求、进程保留。
+
+    与「超时即杀」的区别是代价：杀掉热 worker 后要按预热配方重生（模型加载 ~50–145s），
+    重生期间所有查询都排在锁后面等——一次慢查询换来一两分钟的 kb_search 必败
+    （2026-09-03 生产读数：kb_search 66% 的调用以 tool_timeout 收场）。放弃只损失
+    这一次；迟到的响应由下一次查询排掉。连续第二次超时才杀，热 worker 连续两次
+    都答不上来才当它卡死。
+    """
+
+
 def _recovery_cooldown_seconds() -> float:
     raw = os.environ.get("RAG_WORKER_RECOVERY_COOLDOWN_SECONDS", "").strip()
     try:
@@ -55,11 +66,26 @@ class PersistentRagWorker:
         # 与查询路径（持 self._lock）并发时 check-then-spawn 不能撕开。
         self._schedule_lock = threading.Lock()
         self._closed = False
+        # 已放弃、响应还没到的 request id：worker 单线程顺序处理，迟到的那行会在
+        # 下一次查询前吐出来，读到就丢，不当 id 错位。
+        self._abandoned: set[str] = set()
+        self._consecutive_timeouts = 0
+        self._last_latency_ms: int | None = None
+        self.counters: dict[str, int] = {
+            "queries_served": 0,
+            "timeouts_abandoned": 0,
+            "timeouts_killed": 0,
+            "stale_responses_drained": 0,
+            "recoveries": 0,
+        }
 
     def query(self, argv: list[str], timeout: float) -> WorkerResponse:
         with self._lock:
             try:
-                response = self._query_locked(argv, timeout)
+                response = self._query_locked(argv, timeout, allow_abandon=True)
+            except WorkerRequestAbandoned:
+                # 进程还热着：不标 failed、不重生。状态不动。
+                raise
             except Exception as exc:
                 self._mark_failed(exc)
                 self._schedule_recovery()
@@ -77,7 +103,8 @@ class PersistentRagWorker:
             self._last_error_type = None
             started = time.monotonic()
             try:
-                response = self._query_locked(argv, timeout)
+                # 预热不放弃：预热窗本来就按模型加载给的，超了就是真失败。
+                response = self._query_locked(argv, timeout, allow_abandon=False)
                 if response.returncode != 0 or response.model_load_count < 1:
                     raise RuntimeError("rag worker prewarm failed")
             except Exception as exc:
