@@ -81,7 +81,10 @@ def map_sources(root: Path) -> list[dict]:
         try:
             ref = item.get("ref")
             if ref:
-                content = git(owner, "show", f"{ref}:{item['source']}").encode()
+                content = subprocess.run(
+                    ["git", "-C", str(owner), "show", f"{ref}:{item['source']}"],
+                    capture_output=True, check=True, timeout=10,
+                ).stdout
                 row["revision"] = git(owner, "rev-parse", ref)
             else:
                 content = (owner / item["source"]).read_bytes()

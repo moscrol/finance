@@ -1,6 +1,7 @@
 """Offline development foundation: wrong-tree, wrong-env and false-green probes."""
 from __future__ import annotations
 
+import hashlib
 import importlib
 import json
 import os
@@ -195,6 +196,17 @@ def test_network_guard_rejects_connections_before_collection(tmp_path):
                             env=env, capture_output=True, text=True, timeout=30)
     assert result.returncode != 0
     assert "workspace smoke forbids network access" in result.stdout
+
+
+def test_external_git_map_fingerprint_preserves_original_bytes(workspace, repo, monkeypatch):
+    source = b"  normative text\n\n"
+    (repo / "DESIGN-stack.md").write_bytes(source)
+    workspace_env.git(repo, "add", "--", "DESIGN-stack.md")
+    workspace_env.git(repo, "commit", "-m", "spec")
+    workspace_env.git(repo, "update-ref", "refs/remotes/gitea/main", "HEAD")
+    monkeypatch.setenv("FWP_HARNESS_REFERENCE", str(repo))
+    row = next(r for r in workspace.map_sources(repo) if r["id"] == "harness-layers")
+    assert row["sha256"] == hashlib.sha256(source).hexdigest()
 
 
 def test_receipt_fingerprints_track_development_dependencies(monkeypatch):
