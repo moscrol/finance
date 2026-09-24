@@ -73,6 +73,9 @@
 | 75 | `2026-09-22-independent-qc-batch-k3-workorder.md` | P1（服务单，持续） | 金融 | ⏳ 待派。为 #60/#62/#65/#66/#67/#69–#74 各出第二方 Spec+Quality 结论；只有 K3 通道可用（外部通道 429 额度尽）。三段会话（explore/execute/report）、绝对路径、审查探针与作者测试分开记账、并发 ≤2、批前探网关；额度失败记 `BLOCKED_*` 不改写结论。 |
 | 76 | `2026-09-22-natural-quality-acceptance-batch-workorder.md` | P1（服务单，六行各自授权） | 金融 | ⏳ 待派。工程绿 ≠ 自然金融质量过。六行：L1 保稿+空指针门（需可稳定触发拒收的注入点）、L2 A 股两题、L3 历史四题、L4 R6 四题、L5 K3 再验、L6 自适应改稿复核。协议照 `research-preservation-natural-live-20260922`：冻结代码与数据、首发 1/重发 0、`audit.json` 判定项、`closure.json` 生产身份不变；结论四值无总分。 |
 | 77 | `2026-09-22-docs-and-small-gate-prs-batch-merge-workorder.md` | P2（小单） | 金融 | ⏳ 待派。#836/#838/#840/#849/#804/#807 文档与收据封存 PR + #853 inflight 3K 棘轮门禁（含代码，四叶齐）。逐张判合 / 关闭留指针 / 退回，`merge-tree` 自探，`--record` 留痕，落地文件集 == PR 文件集；#840 口径须与 22:15 `/api/health` 实读一致。 |
+| 78 | `2026-09-22-live-pullback-claim-vs-history-data-workorder.md`（占位） | P2（小到中单） | 金融 | ⏳ 待派（#70 合入后）。#70 现场 `run_20260922_191550_067475` 正文写「三段历史相似窗口一段续强、两段先回调」，D10 原数据后续 5 日均为正——证据在、读反了，判官 / 结构核验 / marker 都不对照数值方向。目标：方向词 × `history_query` 后续收益符号的确定性对照 `claim_direction_mismatch`，走 `evidence_claim_findings` 通道（advisory→修订轮→硬拦，顺序同 #65）；夹具用 #70 冻结件，不手写。 |
+| 79 | `2026-09-22-selection-criteria-disclosure-workorder.md`（占位） | P2（小单） | 金融 | ⏳ 待派（#70 合入后）。同一现场：候选池 85 个双红板块只报两个方向，未交代排序依据；现有必需输出没有一项要求「选择口径」。二选一先量后定：A 新增必需输出 `selection_criteria`（与 #70 双钥匙兼容、单缺不拦）/ B advisory finding（与 #65 同通道）。 |
+| 80 | `2026-09-22-fabricated-entity-code-workorder.md`（占位） | P2（小单） | 金融 | ⏳ 待派（#70 合入后）。同一现场：模型以自造代码 `899050.BK` 调 `history_query`（`sample: 0`），只进 `gaps` 未进公开答案，链路上无一处校验代码存在性；同单登记 `evidence_claim_findings` 对 `endpoint_not_path` 类零发现的诊断漏报（只登记不修判官）。目标：工具入口对照 published 板块快照 / `dim_*` 做 `unknown_entity_code`（不猜后缀）+ gaps 标 `fabricated_entity`。 |
 
 ## 2026-09-23 盘点续表
 
