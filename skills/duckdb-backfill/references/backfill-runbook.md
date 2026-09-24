@@ -150,6 +150,24 @@ python3 $S write    --trade-date 2026-09-08   # 单次短事务 upsert + 回读
 - `pre_close` 是**裸价前收**（与 mootdx 同基，非东财的除息调整基）→ 次日锚天然有 0.1~0.3% 的除息股对不上，属坑③同类差异，`validate` 的门槛设在 2%。
 - `source='sina:stock_zh_a_daily'`，已加入 `VALUE_SOURCE_PREFIXES` 白名单（见坑①下方），否则 `stitch-sector-stocks` 会把全部 403 个板块按 `shortfall` 跳过。
 
+## 日期化腾讯原文取证（不是写入路径）
+
+东财快照不可用、需要独立名称/参考前收证据时，使用 `scripts/capture_dated_quotes.py`，再用
+`scripts/audit_dated_quote_capture.py` 离线复验。腾讯此端点只给最新行情；日期参数是拒收错日的闸，不能补抓已经过去的历史截面。
+
+先准备 JSON：`{"trade_date":"YYYY-MM-DD","scope_basis":"范围来源及缺口说明","codes":["600000.SH"]}`。
+范围应对照底库、当日新增代码及日期化停复牌目录；保留来源路径/哈希。目录可能混入 B 股，按证券类型筛出 A 股后才声明范围。
+抓取器复用 `hithink_stock_preview` 的 A 股身份和已知交易日检查，范围抓齐不代表上市全集已经核验。
+
+```bash
+python3 scripts/capture_dated_quotes.py --trade-date YYYY-MM-DD --scope-json /path/scope.json --output-dir /path/new-capture
+python3 scripts/audit_dated_quote_capture.py --trade-date YYYY-MM-DD --capture-dir /path/new-capture --json /path/new-replay.json
+```
+
+输出目录必须不存在；每批先落原文再校验，连接失败或非 200 停止且不重试，语义失败保留原件且最终失败。
+退出 0 只证明声明范围的日期/身份/量额校验通过；零成交不自动等于停牌，B 股也不能补 A 股分母。
+这些产物不写 DuckDB、不授发布权；既有 staging 恢复器的来源合同和逐日验收仍须另外闭合。
+
 ## Useful commands
 
 ```bash
