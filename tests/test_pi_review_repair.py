@@ -9,14 +9,16 @@ import json
 import os
 from pathlib import Path
 import shutil
+import shlex
 import subprocess
 import sys
 import threading
+import xml.etree.ElementTree as ET
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import pytest
 
-from scripts.review_probes.prepare_pi_review_repair import ARCHIVE, STAGE_TOOLS, prepare
+from scripts.review_probes.prepare_pi_review_repair import ARCHIVE, STAGE_TOOLS, prepare, sandbox_metadata
 
 PI = Path("/opt/homebrew/bin/pi")
 
@@ -125,6 +127,13 @@ def test_prepare_preserves_sealed_inputs_and_refuses_reuse(tmp_path):
             assert "controller-owned" in prompt
         extension = (root / axis / "review.mjs").read_text()
         assert "result: Type.Object({}" in extension
+        assert "FWP_WORKBENCH_PYTHON: PYTHON" in extension
+        assert "FWP_ALLOW_ANY_PYTHON" not in extension
+        preflight = (root / axis / "sandbox_preflight.mjs").read_text()
+        assert "--collect-only" in preflight
+        assert "tests/test_main_gate_receipt.py" in preflight
+        assert "intelligence/tests/test_llm_timeout_diagnostic.py" in preflight
+        assert "author-test collection (not execution)" in preflight
     with pytest.raises(FileExistsError):
         prepare(root)
     with pytest.raises(ValueError, match="sealed evidence"):
@@ -140,6 +149,212 @@ def test_prepare_fails_closed_on_changed_archive(tmp_path):
     with pytest.raises(ValueError, match="sealed input changed"):
         prepare(tmp_path / "fresh", archive)
     assert not (tmp_path / "fresh").exists()
+
+
+def configure_sandbox(folder, tree):
+    config = load(folder / "config.json")
+    old_tree = config["tree"]
+    old_venv = str(Path(config["python"]).parent.parent)
+    config.update(tree=str(tree), python=sys.executable)
+    dump(folder / "config.json", config)
+    profile = folder / "tools.sb"
+    profile.write_text(profile.read_text().replace(
+        sandbox_metadata(Path(old_tree), folder), sandbox_metadata(tree, folder),
+    ).replace(old_tree, str(tree)).replace(
+        old_venv, str(Path(sys.executable).parent.parent),
+    ).replace(
+        f'(literal "{Path(old_venv).parent}")',
+        f'(literal "{Path(sys.executable).parent.parent.parent}")',
+    ))
+
+
+def sandbox_inputs(tmp_path, axis, tree):
+    if sys.platform != "darwin" or not PI.is_file():
+        pytest.skip("real macOS sandbox and pi tools required; not admission evidence")
+    root = (tmp_path / "sandbox-inputs").resolve()
+    prepare(root)
+    folder = root / axis
+    configure_sandbox(folder, tree)
+    return folder
+
+
+def sandbox_tool_command(folder, command):
+    out = folder / "offline-tool-run"
+    (out / "commands").mkdir(parents=True)
+    driver = folder / "offline-tool-run.mjs"
+    driver.write_text("""
+import {install} from './review.mjs';
+import fs from 'node:fs';
+import path from 'node:path';
+const root = path.dirname(new URL(import.meta.url).pathname);
+const tools = {};
+process.env.REVIEW_PHASE = 'execute';
+install({registerProvider() {}, on() {}, registerTool(t) {tools[t.name] = t;}}, {
+  out: path.join(root, 'offline-tool-run'), token: 'offline-no-credential',
+  terminate: () => {throw new Error('unexpected termination');},
+});
+try {
+  const result = await tools.bash.execute('offline', {command: process.argv[2], timeout: 120});
+  console.log(JSON.stringify(result));
+} catch (error) {
+  console.error(String(error));
+  process.exitCode = 1;
+}
+if (fs.existsSync(path.join(root, 'offline-tool-run/request-admissions.jsonl'))) {
+  throw new Error('offline tool validation must not admit model requests');
+}
+""")
+    return subprocess.run(["node", str(driver), command], cwd=folder,
+                          capture_output=True, text=True, timeout=140)
+
+
+@pytest.mark.parametrize("axis", ["spec", "quality"])
+@pytest.mark.parametrize("binding", ["configured", "removed", "relative"])
+def test_sandbox_interpreter_binding_without_git_access(tmp_path, axis, binding):
+    tree = (tmp_path / "candidate").resolve()
+    (tree / "scripts").mkdir(parents=True)
+    for name in ("conftest.py", "test-environment.json", "scripts/workspace_env.py"):
+        shutil.copy2(ARCHIVE.parents[2] / name, tree / name)
+    (tree / ".git").write_text("git metadata must remain unreadable\n")
+    (tree / "test_binding.py").write_text(
+        "import os, sys\nfrom pathlib import Path\nimport conftest\n"
+        "def test_binding():\n"
+        "    assert conftest.EXPECTED_PY == Path(sys.executable)\n"
+        "    assert os.environ['FWP_WORKBENCH_PYTHON'] == sys.executable\n"
+        "    assert 'FWP_ALLOW_ANY_PYTHON' not in os.environ\n"
+        "    try: Path('.git').read_bytes()\n"
+        "    except PermissionError: pass\n"
+        "    else: raise AssertionError('git metadata became readable')\n",
+    )
+    folder = sandbox_inputs(tmp_path, axis, tree)
+    if binding == "removed":
+        extension = folder / "review.mjs"
+        code = extension.read_text()
+        assert code.count("FWP_WORKBENCH_PYTHON: PYTHON, ") == 1
+        extension.write_text(code.replace("FWP_WORKBENCH_PYTHON: PYTHON, ", ""))
+    if binding == "relative":
+        config = load(folder / "config.json")
+        config["python"] = ".venv-workbench/bin/python"
+        dump(folder / "config.json", config)
+    command = shlex.join([sys.executable, "-B", "-m", "pytest", "-q", "-p", "no:cacheprovider", "test_binding.py"])
+    proc = sandbox_tool_command(folder, command)
+    if binding == "configured":
+        assert proc.returncode == 0, proc.stdout + proc.stderr
+        assert "1 passed" in proc.stdout
+    elif binding == "removed":
+        assert proc.returncode != 0
+        raw = (folder / "offline-tool-run/commands/001-bash/output.log").read_text()
+        assert "CalledProcessError" in raw and "rev-parse" in raw, raw
+        assert "1 passed" not in raw
+    else:
+        assert proc.returncode != 0
+        assert "review interpreter must be an absolute path" in proc.stderr
+        assert not list((folder / "offline-tool-run/commands").iterdir())
+
+
+@pytest.mark.parametrize("axis", ["spec", "quality"])
+@pytest.mark.parametrize("removed_guard", [None, "metadata", "keychain"])
+def test_sandbox_preflight_collects_real_author_tests(tmp_path, axis, removed_guard):
+    folder = sandbox_inputs(tmp_path, axis, ARCHIVE.parents[2])
+    if removed_guard:
+        profile = folder / "tools.sb"
+        guard = (sandbox_metadata(ARCHIVE.parents[2], folder) if removed_guard == "metadata"
+                 else '(deny process-exec (literal "/usr/bin/security"))')
+        body = profile.read_text()
+        assert body.count(guard) == 1
+        profile.write_text(body.replace(guard, ""))
+    proc = subprocess.run(["node", str(folder / "sandbox_preflight.mjs")], cwd=folder,
+                          capture_output=True, text=True, timeout=140)
+    if removed_guard:
+        assert proc.returncode != 0
+        expected = "PermissionError" if removed_guard == "metadata" else "keychain CLI execution allowed"
+        assert expected in proc.stderr, proc.stderr
+        assert not (folder / "sandbox-preflight/receipt.json").exists()
+        return
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    receipt = load(folder / "sandbox-preflight/receipt.json")
+    assert receipt["status"] == "PASS" and receipt["real_model_requests"] == 0
+    assert "author-test collection (not execution)" in receipt["checks"]
+    logs = list((folder / "sandbox-preflight/commands").glob("*/output.log"))
+    collection = [p.read_text() for p in logs if "tests collected" in p.read_text()]
+    assert len(collection) == 1
+    assert "test_real_late_judge_report_is_rejected" in collection[0]
+    assert "test_gate_retains_complete_output_beside_its_own_receipt" in collection[0]
+    assert not (folder / "work/author-tests.xml").exists()
+
+
+@pytest.mark.parametrize("axis", ["spec", "quality"])
+@pytest.mark.parametrize("claim", ["C3", "C7"])
+def test_real_author_checks_execute_in_sandbox(tmp_path, axis, claim):
+    folder = sandbox_inputs(tmp_path, axis, ARCHIVE.parents[2])
+    work = folder / "work"
+    xml = work / "author-checks.xml"
+    args = ["-q", "-p", "no:cacheprovider", f"--basetemp={work / 'pytest-tmp'}", f"--junitxml={xml}"]
+    if claim == "C7":
+        args += ["tests/test_main_gate_receipt.py"]
+        command = shlex.join([sys.executable, "-B", "-m", "pytest", *args])
+    else:
+        target = "intelligence/tests/test_llm_timeout_diagnostic.py::"
+        args += [target + name for name in (
+            "test_real_late_judge_report_is_rejected_at_the_transport_boundary",
+            "test_shared_window_zero_rejection_is_not_a_third_request",
+            "test_expired_root_is_distinct_from_exhausted_judge_window",
+        )]
+        driver = work / "author-ports.py"
+        # Only relocate the author's ephemeral peers into the already allowed range.
+        driver.write_text("""
+import errno
+import json
+from pathlib import Path
+import sys
+from unittest.mock import patch
+import pytest
+from scripts.review_probes import diagnose_llm_timeout as probe
+
+class ReviewHTTPServer(probe.ThreadingHTTPServer):
+    def server_bind(self):
+        assert self.server_address == ('127.0.0.1', 0)
+        for port in range(26001, 26009):
+            self.server_address = ('127.0.0.1', port)
+            try:
+                return super().server_bind()
+            except OSError as error:
+                if error.errno != errno.EADDRINUSE:
+                    raise
+        raise RuntimeError('review loopback ports unavailable')
+
+observations = []
+original = probe.run_judge_case
+
+def observe(*args, **kwargs):
+    result = original(*args, **kwargs)
+    observations.append(result)
+    return result
+
+with patch.object(probe, 'ThreadingHTTPServer', ReviewHTTPServer), patch.object(probe, 'run_judge_case', observe):
+    code = pytest.main(sys.argv[1:])
+Path(__file__).with_suffix('.json').write_text(json.dumps(observations, indent=2))
+raise SystemExit(code)
+""")
+        command = shlex.join([sys.executable, "-B", str(driver), *args])
+    proc = sandbox_tool_command(folder, command)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    cases = ET.parse(xml).getroot().findall(".//testcase")
+    assert cases and all(not list(case) for case in cases)
+    if claim == "C7":
+        names = {case.attrib["name"] for case in cases}
+        assert "test_gate_retains_complete_output_beside_its_own_receipt[False]" in names
+        assert "test_gate_refuses_receipts_inside_disposable_basetemp[True]" in names
+        assert any(name.startswith("test_readback_refuses_invalid_or_untrustworthy_receipt[") for name in names)
+    else:
+        assert len(cases) == 3
+        results = load(work / "author-ports.json")
+        late = next(row for row in results if row["scenario"] == "judge_late_report")
+        assert late["report_received"] is False and late["unavailable"] is True
+        assert late["request_count"] == 1
+        assert any(event["event"] == "headers" for event in late["attempts"][0]["events"])
+        assert late["wall_elapsed_seconds"] <= 1.0
+        assert 0 < late["remaining_root_seconds"] <= 9.6 - late["wall_elapsed_seconds"] + 0.01
 
 
 @pytest.fixture
@@ -159,12 +374,10 @@ def runtime(tmp_path, peer):
     revision = subprocess.check_output(["git", "-C", str(tree), "rev-parse", "HEAD"], text=True).strip()
     for axis in ("spec", "quality"):
         folder = root / axis
+        configure_sandbox(folder, tree)
         config = load(folder / "config.json")
-        old_tree = config["tree"]
-        config.update(tree=str(tree), author=str(tree), revision=revision, baseline=revision, python=sys.executable)
+        config.update(author=str(tree), revision=revision, baseline=revision)
         dump(folder / "config.json", config)
-        sandbox = folder / "tools.sb"
-        sandbox.write_text(sandbox.read_text().replace(old_tree, str(tree)))
         # Only disposable test inputs use this fixture's already-bound loopback port.
         template = folder / "provider-template.json"
         provider = load(template)

@@ -38,6 +38,14 @@ def replace_once(body: str, old: str, new: str) -> str:
     return body.replace(old, new, 1)
 
 
+def sandbox_metadata(tree: Path, axis_root: Path) -> str:
+    """Permit pytest/Git's stat calls without exposing protected contents."""
+    paths = [f"(subpath {json.dumps(str(tree))})"]
+    parents = sorted(set(tree.parents) | set(axis_root.parents))
+    paths.extend(f"(literal {json.dumps(str(parent))})" for parent in parents)
+    return "(allow file-read-metadata " + " ".join(paths) + ")"
+
+
 def prepare(destination: Path, archive: Path = ARCHIVE) -> dict:
     destination = destination.resolve()
     manifest = json.loads((archive / "archive-manifest.json").read_text())
@@ -66,11 +74,26 @@ def prepare(destination: Path, archive: Path = ARCHIVE) -> dict:
         config = json.loads(inputs[config_name])
         config["stage_tools"] = STAGE_TOOLS
         inputs[config_name] = json.dumps(config, indent=2) + "\n"
+        # Match the later reviewed sandbox, not the older archived policy.
+        inputs[f"{axis}/tools.sb"] += (
+            "\n" + sandbox_metadata(Path(config["tree"]), destination / axis)
+            + '\n(deny process-exec (literal "/usr/bin/security"))\n'
+        )
         inputs[f"{axis}/pi_review_protocol.mjs"] = helper
         inputs[f"{axis}/gateway.mjs"] = "export { default } from './review.mjs';\n"
         name = f"{axis}/review.mjs"
         inputs[name] = replace_once(inputs[name], "import fs from 'node:fs';",
                                    "import { installStageGuard, installGateway, bindStageResult, validateExploreProbes } from './pi_review_protocol.mjs';\nimport fs from 'node:fs';")
+        inputs[name] = replace_once(
+            inputs[name], "  const tree = fs.realpathSync(CONFIG.tree);",
+            "  if (typeof PYTHON !== 'string' || !path.isAbsolute(PYTHON)) "
+            "throw new Error('review interpreter must be an absolute path');\n"
+            "  const tree = fs.realpathSync(CONFIG.tree);",
+        )
+        inputs[name] = replace_once(
+            inputs[name], "PYTHONPATH: tree, FWP_TEST_RECEIPT: '0'",
+            "PYTHONPATH: tree, FWP_WORKBENCH_PYTHON: PYTHON, FWP_TEST_RECEIPT: '0'",
+        )
         inputs[name] = replace_once(inputs[name], "  const stage = process.env.REVIEW_PHASE;",
                                    "  const stage = process.env.REVIEW_PHASE;\n"
                                    "  installStageGuard(pi, {out, stage, tools: CONFIG.stage_tools, terminate});\n"
@@ -159,6 +182,38 @@ def prepare(destination: Path, archive: Path = ARCHIVE) -> dict:
         name = f"{axis}/sandbox_preflight.mjs"
         inputs[name] = replace_once(inputs[name], "const hooks = {}; const tools = {};",
                                    "process.env.REVIEW_PHASE = 'execute';\nconst hooks = {}; const tools = {};")
+        inputs[name] = replace_once(
+            inputs[name], "for target in [${JSON.stringify(forbidden)},",
+            "for target in [${JSON.stringify(path.join(config.tree, '.git'))}, ${JSON.stringify(forbidden)},",
+        )
+        inputs[name] = replace_once(
+            inputs[name], "import errno, os, socket",
+            "import errno, os, socket, subprocess",
+        )
+        inputs[name] = replace_once(
+            inputs[name], "assert not any('TOKEN' in k or 'API_KEY' in k for k in os.environ)",
+            "assert not any('TOKEN' in k or 'API_KEY' in k for k in os.environ)\n"
+            "assert os.environ.get('FWP_WORKBENCH_PYTHON') == ${JSON.stringify(config.python)}\n"
+            "assert 'FWP_ALLOW_ANY_PYTHON' not in os.environ\n"
+            "try: subprocess.run(['/usr/bin/security', 'help'], capture_output=True, timeout=3)\n"
+            "except PermissionError: pass\n"
+            "else: raise AssertionError('keychain CLI execution allowed')",
+        )
+        inputs[name] = replace_once(
+            inputs[name], "await assert.rejects(tools.read.execute('denyread', {path: forbidden}));",
+            "const quote = value => \"'\" + value.replaceAll(\"'\", \"'\\\\''\") + \"'\";\n"
+            "await tools.bash.execute('author-test-collection', {command: [config.python, '-B', "
+            "'-m', 'pytest', '--collect-only', '-q', '-p', 'no:cacheprovider', "
+            "'intelligence/tests/test_llm_timeout_diagnostic.py', 'tests/test_main_gate_receipt.py']"
+            ".map(quote).join(' '), timeout: 120});\n"
+            "await assert.rejects(tools.read.execute('denyread', {path: forbidden}));",
+        )
+        inputs[name] = replace_once(
+            inputs[name], "'candidate import', 'work writes'",
+            "'candidate import', 'author-test collection (not execution)', "
+            "'explicit interpreter without dependency bypass', '.git read denied', "
+            "'keychain CLI execution denied', 'work writes'",
+        )
 
     # Nothing from the previous run's work/, receipts, transcripts, or approvals.
     destination.mkdir(parents=True, exist_ok=False, mode=0o700)
@@ -181,6 +236,9 @@ def prepare(destination: Path, archive: Path = ARCHIVE) -> dict:
         "probe_validation": "in-tool before acceptance; post-exit checks retained; no path repair",
         "delivery_repair_budget": "existing stage budget only; reserved request remains final",
         "stage_tools": STAGE_TOOLS,
+        "tool_interpreter": "FWP_WORKBENCH_PYTHON=CONFIG.python; absolute path required; no dependency bypass",
+        "author_test_preflight": "collect both deadline diagnostic and receipt tests inside review sandbox",
+        "sandbox_policy": "candidate metadata only; protected content still denied; keychain CLI denied",
         "inputs_sha256": {name: digest(body.encode()) for name, body in inputs.items()},
     }
     (destination / "repair-inputs.json").write_text(json.dumps(receipt, indent=2) + "\n")
