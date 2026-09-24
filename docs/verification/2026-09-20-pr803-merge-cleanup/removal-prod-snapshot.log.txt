@@ -1,0 +1,17 @@
+REMOVED /Users/a77/.finance-runtime/finance-workspace-0399b980da58 0399b980da58
+REMOVED /Users/a77/.finance-runtime/finance-workspace-17e5c47ac96e 17e5c47ac96e
+REMOVED /Users/a77/.finance-runtime/finance-workspace-1acbbb1c085e 1acbbb1c085e
+REMOVED /Users/a77/.finance-runtime/finance-workspace-2d8eaea5bdf8 2d8eaea5bdf8
+REMOVED /Users/a77/.finance-runtime/finance-workspace-5cc5aa8bf1e9 5cc5aa8bf1e9
+REMOVED /Users/a77/.finance-runtime/finance-workspace-6c5e318c6085 6c5e318c6085
+REMOVED /Users/a77/.finance-runtime/finance-workspace-7572e2286e8a 7572e2286e8a
+REMOVED /Users/a77/.finance-runtime/finance-workspace-a11d76cabf77 a11d76cabf77
+REMOVED /Users/a77/.finance-runtime/finance-workspace-af370f529681 af370f529681
+REMOVED /Users/a77/.finance-runtime/finance-workspace-c88c81da5120 c88c81da5120
+REMOVED /Users/a77/.finance-runtime/finance-workspace-d4fade5494ee d4fade5494ee
+REMOVED /Users/a77/.finance-runtime/finance-workspace-d65ed0155eb9 d65ed0155eb9
+REMOVED /Users/a77/.finance-runtime/finance-workspace-dd77810986c9 dd77810986c9
+REMOVED /Users/a77/.finance-runtime/finance-workspace-e40f22b83717 e40f22b83717
+REMOVED /Users/a77/.finance-runtime/finance-workspace-ed22039a6152 ed22039a6152
+REMOVED /Users/a77/.finance-runtime/finance-workspace-f7e353c85bbc f7e353c85bbc
+DONE prod-snapshot 16 removed 0 skipped

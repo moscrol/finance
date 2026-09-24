@@ -1,0 +1,21 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+______________ test_valid_archive_but_different_tree_is_rejected _______________
+
+repo = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3672/test_valid_archive_but_differe0')
+
+    def test_valid_archive_but_different_tree_is_rejected(repo):
+        changed(repo)
+        planned = preview.prepare(repo, "archive", [])
+        (repo / "archive/report.md").write_text("drift between preview and commit\n")
+        seal(repo)  # Checker alone would pass; the tree identity must reject this.
+        actual = commit_archive(repo)
+        rc, result = cli(repo, "verify", "archive", "--preview", planned["preview_revision"], "--revision", actual)
+        assert result["archive_check"]["ok"] is True
+>       assert rc == 1 and "real commit tree differs from preview tree" in result["errors"]
+E       assert (0 == 1)
+
+tests/test_preview_evidence_archive.py:168: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_preview_evidence_archive.py::test_valid_archive_but_different_tree_is_rejected
+1 failed in 2.55s

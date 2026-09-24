@@ -10,6 +10,7 @@ import sys
 import duckdb
 import pytest
 
+from market_feature_store.db import SnapshotUnavailableError
 from market_feature_store.hithink_sector_preview import preview_sector_calculation
 
 DAY = date(2026, 9, 2)
@@ -222,6 +223,66 @@ def test_preview_runs_on_read_only_connection_and_is_deterministic(con, tmp_path
     path = _persist_fixture(con, tmp_path)
     with duckdb.connect(str(path), read_only=True) as readonly:
         assert preview(readonly) == preview(readonly)
+
+
+@pytest.mark.parametrize("pct_basis", ["member_equal_weight", "index_close_return"])
+def test_preview_uses_one_snapshot_when_writer_commits_between_reads(con, tmp_path, pct_basis):
+    """真实第二连接在目录读取后提交；结果不能拼旧目录/指数与新股价。"""
+    path = _persist_fixture(con, tmp_path)
+    with duckdb.connect(str(path)) as reader, duckdb.connect(str(path)) as writer:
+        before = preview(reader, pct_basis=pct_basis)
+
+        class ConcurrentCommit:
+            fired = False
+
+            def execute(self, sql, *args):
+                cursor = reader.execute(sql, *args)
+                if "FROM dim_sector_hithink" in sql and not self.fired:
+                    self.fired = True
+                    writer.execute("BEGIN TRANSACTION")
+                    writer.execute("UPDATE dim_sector_hithink SET sector_name='新版名单'")
+                    writer.execute("UPDATE fact_stock_daily SET amount=amount*2 WHERE trade_date=?", [DAY])
+                    writer.execute("UPDATE fact_sector_kline_daily SET close=105 WHERE trade_date=?", [DAY])
+                    writer.execute("COMMIT")
+                return cursor
+
+        racing = ConcurrentCommit()
+        during = preview(racing, pct_basis=pct_basis)
+        after = preview(reader, pct_basis=pct_basis)
+        assert racing.fired
+        assert during == before
+        assert after["calculation_ready"]
+        assert after["rows"][0]["sector_name"] == "新版名单"
+        assert after["rows"][0]["amount"] == 1200
+        assert after["rows"][0]["pct_chg"] == (2.5 if pct_basis == "member_equal_weight" else 5.0)
+
+
+def test_preview_refuses_to_read_inside_callers_uncommitted_transaction(con):
+    """不允许预览读未提交行；拒绝有代价，代价写在这里而不是留给下个人撞。"""
+    con.execute("BEGIN TRANSACTION")
+    con.execute("UPDATE dim_sector_hithink SET sector_name='调用者未提交'")
+    with pytest.raises(SnapshotUnavailableError, match="aborted"):
+        preview(con)
+    # DuckDB 无法在不试 BEGIN 的前提下测事务状态，而失败语句会把事务置为 aborted——
+    # 调用方未提交的改动就此丢失。这是已知代价，不是“只是报个错”。
+    with pytest.raises(duckdb.TransactionException, match="aborted"):
+        con.execute("SELECT sector_name FROM dim_sector_hithink").fetchone()
+    con.execute("ROLLBACK")
+    assert preview(con)["rows"][0]["sector_name"] == "新池"
+
+
+@pytest.mark.parametrize("error", [RuntimeError, KeyboardInterrupt])
+def test_preview_releases_its_snapshot_after_read_failure(con, error):
+    class BrokenRead:
+        def execute(self, sql, *args):
+            if "FROM fact_stock_daily" in sql:
+                raise error("synthetic interrupted read")
+            return con.execute(sql, *args)
+
+    with pytest.raises(error, match="synthetic interrupted read"):
+        preview(BrokenRead())
+    # 未泄露事务；错误后下一次真实预览还能成功。
+    assert preview(con)["calculation_ready"]
 
 
 def _cli_args():

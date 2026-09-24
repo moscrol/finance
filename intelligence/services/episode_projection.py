@@ -52,7 +52,7 @@ Live 车道（``tool/*`` 阶段事件，见 ``episode_event_lanes``）**不进�
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 
 from intelligence.services.agent_runtime import EpisodeEvent
@@ -116,6 +116,11 @@ def _redact_text_field(mapping: dict[str, object], name: str) -> dict[str, objec
 
 
 def _branch_id_of(event: EpisodeEvent) -> str:
+    reference = event.payload.get("episode_ref")
+    if isinstance(reference, Mapping) and reference.get("episode_id"):
+        return str(reference["episode_id"])
+    # Old logs keep their display-only identity. Never cross-pair two new runs
+    # just because both displayed "branch-1".
     return str(event.payload.get("branch_id") or "")
 
 

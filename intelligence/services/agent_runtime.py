@@ -8,7 +8,7 @@ implementations return one immutable :class:`AgentOutcome` for verification.
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 import math
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Literal, Protocol, runtime_checkable
@@ -129,6 +129,8 @@ class ModelTurn:
     # （中转常见，记「未回」）；非空 = 对端实际服务的模型名。**永不**用配置的
     # ``provider.model`` 回填——A/B 读数要靠它分辨「模型没真的切过去」（§3.5.4）。
     served_model: str | None = None
+    # None = legacy adapter supplied no stop metadata; do not fabricate "stop".
+    finish_reason: str | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.content, str):
@@ -139,6 +141,8 @@ class ModelTurn:
             raise ValueError("model error must be a string")
         if self.served_model is not None and not isinstance(self.served_model, str):
             raise ValueError("served_model must be a string or None")
+        if self.finish_reason is not None and not isinstance(self.finish_reason, str):
+            raise ValueError("finish_reason must be a string or None")
         if (
             isinstance(self.provider_attempts, bool)
             or not isinstance(self.provider_attempts, int)
@@ -161,6 +165,14 @@ class ModelTurn:
         object.__setattr__(self, "error", self.error.strip())
         if self.served_model is not None:
             object.__setattr__(self, "served_model", self.served_model.strip())
+        if self.finish_reason is not None:
+            reason = self.finish_reason.strip().lower()
+            object.__setattr__(self, "finish_reason", reason or None)
+            if reason in {"length", "max_tokens", "content_filter", "missing_finish_reason"}:
+                # Even valid JSON may be semantically incomplete. Fence at the neutral
+                # contract too, so injected clients cannot bypass the provider adapter.
+                object.__setattr__(self, "tool_calls", ())
+                object.__setattr__(self, "error", "incomplete_model_response:" + reason)
 
     def to_dict(self) -> dict[str, object]:
         payload: dict[str, object] = {
@@ -174,6 +186,8 @@ class ModelTurn:
             payload["input_tokens"] = self.input_tokens
         if self.output_tokens is not None:
             payload["output_tokens"] = self.output_tokens
+        if self.finish_reason is not None:
+            payload["finish_reason"] = self.finish_reason
         if self.served_model is not None:
             # 空串也写：那是「provider 未回 model 字段」的收据，与字段缺席不同。
             payload["served_model"] = self.served_model
@@ -339,6 +353,8 @@ class AgentUsage:
 
 
 def public_agent_evidence(item: AgentEvidence) -> dict[str, object]:
+    """Return the bounded model/public view; control metadata stays private."""
+
     return {
         "tool": item.tool,
         "title": item.title,
@@ -355,6 +371,17 @@ def public_agent_evidence(item: AgentEvidence) -> dict[str, object]:
     }
 
 
+def private_agent_evidence(item: AgentEvidence) -> dict[str, object]:
+    """Persist structured observations/provenance without widening model input."""
+
+    payload = public_agent_evidence(item)
+    if item.observations:
+        payload["observations"] = [asdict(observation) for observation in item.observations]
+    if item.history_provenance is not None:
+        payload["history_provenance"] = asdict(item.history_provenance)
+    return payload
+
+
 @dataclass(frozen=True)
 class AgentOutcome:
     task_frame_hash: str
@@ -368,6 +395,8 @@ class AgentOutcome:
     bindings: tuple[OutputEvidenceBinding, ...]
     usage: AgentUsage
     plan: ResearchPlan | None = None
+    # unknown = older/other backends make no durable claim; never infer from status.
+    persistence: Literal["unknown", "ephemeral", "durable", "failed"] = "unknown"
 
     def __post_init__(self) -> None:
         if (
@@ -377,6 +406,10 @@ class AgentOutcome:
             raise ValueError("task frame hash must be non-empty")
         if self.status not in _EPISODE_STATUSES:
             raise ValueError("unsupported episode status")
+        if self.persistence not in {"unknown", "ephemeral", "durable", "failed"}:
+            raise ValueError("unsupported persistence status")
+        if self.persistence == "failed" and self.status == "completed":
+            raise ValueError("failed persistence cannot advertise completion")
         if not isinstance(self.draft, str):
             raise ValueError("episode draft must be a string")
         if not isinstance(self.stop_reason, str) or not self.stop_reason.strip():
@@ -445,10 +478,11 @@ class AgentOutcome:
             "task_frame_hash": self.task_frame_hash,
             "status": self.status,
             "draft": self.draft,
-            "evidence": [public_agent_evidence(item) for item in self.evidence],
+            "evidence": [private_agent_evidence(item) for item in self.evidence],
             "traces": [trace.to_dict() for trace in self.traces],
             "gaps": list(self.gaps),
             "stop_reason": self.stop_reason,
+            "persistence": self.persistence,
             "events": [event.to_dict() for event in self.events],
             "bindings": [binding.to_dict() for binding in self.bindings],
             "usage": self.usage.to_dict(),

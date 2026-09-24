@@ -88,9 +88,15 @@ def _production_emitter_paths() -> tuple[Path, ...]:
 def _emitted_durable_kinds() -> set[str]:
     """穷尽扫生产发射 API 的字面量 kind，不扫测试、不扫 ``.add()`` 的其它用法。
 
-    三种写法都算：``ledger.add("kind", ...)`` / ``_add_event("kind", ...)`` /
-    ``EpisodeEvent(seq, "kind", ...)``，以及 ``if/else`` 里二选一的字面量。
-    变量形参（``EpisodeEvent(seq, kind, ...)``）不贡献——那是出口本身。
+    四种写法都算：``ledger.add("kind", ...)`` / ``synth.add("kind", ...)``（恢复路径的
+    合成器）/ ``_add_event("kind", ...)`` / ``EpisodeEvent(seq, "kind", ...)``，以及
+    ``if/else`` 里二选一的字面量。变量形参（``EpisodeEvent(seq, kind, ...)``）不贡献
+    ——那是出口本身。
+
+    ``synth`` 是 2026-09-22 补上的盲点：``episode_restore`` 的合成事件全走它，而此前
+    那些 kind（``model_error`` / ``tool_error`` / ``finish`` …）恰好在热路径也有发射点，
+    扫描器漏掉整个模块也看不出来。``effects_unknown`` 是首个**只**从恢复路径发出的
+    kind，它把这个漏洞暴露了。
     """
 
     kinds: set[str] = set()
@@ -102,7 +108,7 @@ def _emitted_durable_kinds() -> set[str]:
             name = _call_name(node.func)
             if name == "_add_event":
                 kinds.update(_kind_from_call(node, positional_index=0))
-            elif name == "add" and _receiver_root(node.func) in {"ledger", "self"}:
+            elif name == "add" and _receiver_root(node.func) in {"ledger", "self", "synth"}:
                 kinds.update(_kind_from_call(node, positional_index=0))
             elif name == "EpisodeEvent":
                 kinds.update(_kind_from_call(node, positional_index=1))

@@ -46,8 +46,11 @@ import importlib.util
 import json
 import os
 import platform
+import re
 import subprocess
 import sys
+import tempfile
+import uuid
 from pathlib import Path
 
 import pytest
@@ -178,8 +181,32 @@ def _revision() -> str:
     return f"{branch} @ {rev}{dirty}"
 
 
+# Config-local proof is not inherited by another pytest.main() in this process.
+# PID in the environment still blocks inherited subprocesses; neither is a sandbox.
+_RECEIPT_OWNER = pytest.StashKey[tuple[str, str]]()
+
+
+@pytest.hookimpl(tryfirst=True)
 def pytest_configure(config: pytest.Config) -> None:
     """收集之前先判解释器。用 UsageError 而非 assert：前者输出干净且退出码明确。"""
+
+    path = os.environ.get("FWP_TEST_RECEIPT_PATH")
+    previous_owner = os.environ.get("FWP_TEST_RECEIPT_OWNER_PID")
+    if path and not previous_owner:
+        owner = str(os.getpid())
+        config.stash[_RECEIPT_OWNER] = (owner, path)
+        os.environ["FWP_TEST_RECEIPT_OWNER_PID"] = owner
+
+        def release_owner() -> None:
+            # Cleanup also runs when configure fails, before sessionfinish exists.
+            # Restore only our claim; never clear a caller's replacement owner.
+            if os.environ.get("FWP_TEST_RECEIPT_OWNER_PID") == owner:
+                if previous_owner is None:
+                    os.environ.pop("FWP_TEST_RECEIPT_OWNER_PID", None)
+                else:
+                    os.environ["FWP_TEST_RECEIPT_OWNER_PID"] = previous_owner
+
+        config.add_cleanup(release_owner)
 
     missing = _missing()
     if not missing:
@@ -268,6 +295,77 @@ def _dependency_fingerprint() -> str:
     return hashlib.sha256(blob.encode("utf-8")).hexdigest()[:16]
 
 
+def latest_pointer_name(tree: Path) -> str:
+    """本棵树专属的 latest 指针文件名。
+
+    规则刻意选得能在 shell 里一行算出来（``tr -c 'A-Za-z0-9._-' '_'``），
+    这样 session_facts.sh 不必调 Python 就能找到同一个文件。
+    """
+
+    slug = re.sub(r"[^A-Za-z0-9._-]", "_", str(tree))
+    return f"latest-{slug}.json"
+
+
+def _collection_scope(session: pytest.Session) -> dict:
+    """收窄旋钮 + 实收数：让一张收据能自证「跑的是多大一片」。
+
+    ``target`` 只是位置参数，``--ignore`` / ``-k`` / ``-m`` / ``--deselect``
+    这些真正决定收集面的选项一个都不进收据。
+    """
+
+    option = getattr(session.config, "option", None)
+
+    def _get(name: str, default):
+        return getattr(option, name, default) if option is not None else default
+
+    return {
+        "ignore": list(_get("ignore", None) or []),
+        "ignore_glob": list(_get("ignore_glob", None) or []),
+        "deselect": list(_get("deselect", None) or []),
+        "keyword": _get("keyword", "") or "",
+        "markexpr": _get("markexpr", "") or "",
+        "maxfail": int(_get("maxfail", 0) or 0),
+        "last_failed": bool(_get("lf", False)),
+        "collected": int(getattr(session, "testscollected", 0) or 0),
+    }
+
+
+def _write_test_receipt(receipt: dict) -> Path:
+    """Immutable run file plus atomic, non-authoritative latest pointers.
+
+    不可变的那张是本轮的权威收据（#814：`FWP_TEST_RECEIPT_PATH` 显式指定或带 uuid 的
+    时间戳文件名）。两个 latest 指针只服务被动读者（session_facts.sh、人、agent）。
+    """
+    directory = Path(os.environ.get("FWP_TEST_RECEIPT_DIR") or _RECEIPT_DIR).expanduser()
+    directory.mkdir(parents=True, exist_ok=True)
+    stamp = _dt.datetime.now(_dt.UTC).strftime("%Y%m%dT%H%M%SZ")
+    filename = f"{stamp}-{receipt['revision'][:8]}-{uuid.uuid4().hex[:12]}.json"
+    path = Path(os.environ.get("FWP_TEST_RECEIPT_PATH") or directory / filename).expanduser()
+    encoded = json.dumps(receipt, ensure_ascii=False, indent=2) + "\n"
+    with path.open("x", encoding="utf-8") as stream:
+        stream.write(encoded)
+    # latest.json 是全机**单个**文件：多棵树并跑时，谁后结束谁覆盖（2026-09-22 两次撞上），
+    # 而 session_facts.sh 正是拿它的 revision 与本树 HEAD 比——同 base 的两棵干净树
+    # revision 天然相等，它会拿**别人跑的**读数劝你「不必重跑」。故再写一份按树区分的
+    # 指针；latest.json 保留，旧读法不破。两份都原子替换，读者永远看不到半截文件。
+    _replace_atomically(directory, "latest.json", encoded)
+    _replace_atomically(directory, latest_pointer_name(REPO), encoded)
+    return path
+
+
+def _replace_atomically(directory: Path, name: str, encoded: str) -> None:
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=directory,
+                                         prefix=".latest-", delete=False) as stream:
+            temporary = Path(stream.name)
+            stream.write(encoded)
+        os.replace(temporary, directory / name)
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
+
+
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
     """落一份机器可读收据。
 
@@ -276,6 +374,12 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
     """
 
     if os.environ.get(_RECEIPT_ENV) == "0":
+        return
+    path = os.environ.get("FWP_TEST_RECEIPT_PATH")
+    if path and (
+        os.environ.get("FWP_TEST_RECEIPT_OWNER_PID") != str(os.getpid())
+        or session.config.stash.get(_RECEIPT_OWNER, None) != (str(os.getpid()), path)
+    ):
         return
     reporter = session.config.pluginmanager.get_plugin("terminalreporter")
     if reporter is None:
@@ -287,9 +391,11 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
         for report in stats.get(key, [])
         if hasattr(report, "nodeid")
     )
+    # 带上 xfailed/xpassed：没有它们，collected 与读数天然对不平，
+    # 「收了 N 条只跑了 M 条」这种截断就永远解释得通、也就永远查不出来。
     counts = {
         key: len(stats.get(key, []))
-        for key in ("passed", "failed", "error", "skipped")
+        for key in ("passed", "failed", "error", "skipped", "xfailed", "xpassed")
     }
     receipt = {
         # ——— 判定采信所需的条件（校验器逐条比对这些）———
@@ -317,6 +423,10 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
         "dependency_gate_bypassed": os.environ.get(_ESCAPE) == "1",
         # ——— 读数本身 ———
         "target": " ".join(session.config.args or []),
+        # target 只是**位置参数**：`pytest -q` 与 `pytest -q --ignore=scripts/archive -k x`
+        # 写出来的收据一模一样，「全量绿」无法从收据自身审计收集面。把收窄旋钮与实收数
+        # 一并记账；collected 与 counts 对不上，就是被截断过（maxfail / -x / 收集期中断）。
+        "scope": _collection_scope(session),
         "counts": counts,
         # 存 ID 而非只存个数：修好 3 条 + 引入 3 条 = 总数不变。
         # 失败归属必须按名字比，这是 baseline_diff.py 学到的同一条。
@@ -325,15 +435,7 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
         "finished_at": _dt.datetime.now(_dt.UTC).isoformat(timespec="seconds"),
     }
     try:
-        _RECEIPT_DIR.mkdir(parents=True, exist_ok=True)
-        stamp = _dt.datetime.now(_dt.UTC).strftime("%Y%m%dT%H%M%SZ")
-        path = _RECEIPT_DIR / f"{stamp}-{receipt['revision'][:8]}.json"
-        path.write_text(
-            json.dumps(receipt, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
-        )
-        (_RECEIPT_DIR / "latest.json").write_text(
-            json.dumps(receipt, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
-        )
+        path = _write_test_receipt(receipt)
         reporter.write_line(f"读数收据: {path}")
     except OSError as exc:
         reporter.write_line(f"⚠ 收据未写出（不影响测试结论）: {exc}")

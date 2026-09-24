@@ -5,26 +5,40 @@
 
 Key 只从环境变量 ``HITHINK_FINANCE_API_KEY`` 或 macOS 钥匙串
 （service=``hithink-finance`` / account=``a77-api-key``）读取，不进日志、
-不进异常消息、不进仓库。默认 5 QPS（0.2 s）；超限 ``code=4001`` 退避。
+不进异常消息、不进仓库。默认 5 QPS（0.2 s）；限流退避见下。
 预签名下载链接只对 GET 有效，HEAD 会 403，有效期约五分钟。
+
+``code=4001`` 保留原有 ``retries`` 次数语义。HTTP / 业务码 429 使用独立的
+退避预算（``rate_limit_budget_seconds`` / ``HITHINK_RATE_LIMIT_BUDGET_SECONDS``）
+和重试次数上限；先认 HTTP 状态，网关返非 JSON 正文时也接得住。
+预算以 monotonic 计时，包含请求耗时与等待，禁止超时后再发起重试；
+不是强制中断在途响应读取的硬截止。实测 429 不带 Retry-After，窗口约七分钟。
 """
 
 from __future__ import annotations
 
 import json
+import math
 import os
 import subprocess
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from datetime import date, datetime
+from datetime import date, datetime, timezone
+from email.utils import parsedate_to_datetime
 from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
 
 BASE_URL = "https://fuyao.aicubes.cn"
 DEFAULT_GAP_SECONDS = 0.2
+RATE_LIMIT_HTTP_STATUS = 429
+RATE_LIMIT_BUSINESS_CODES = frozenset({429})
+ENV_RATE_LIMIT_BUDGET = "HITHINK_RATE_LIMIT_BUDGET_SECONDS"
+DEFAULT_RATE_LIMIT_BUDGET_SECONDS = 300.0
+MAX_RATE_LIMIT_SLEEP_SECONDS = 60.0
+MAX_RATE_LIMIT_RETRIES = 10
 KEYCHAIN_SERVICE = "hithink-finance"
 KEYCHAIN_ACCOUNT = "a77-api-key"
 ENV_KEY_NAME = "HITHINK_FINANCE_API_KEY"
@@ -34,6 +48,10 @@ _last_request_monotonic = 0.0
 
 class HithinkAPIError(RuntimeError):
     """上游返回非 0 业务码或 HTTP 失败。消息里不得带 key / 预签名 query。"""
+
+
+class HithinkRateLimitError(HithinkAPIError):
+    """限流退避预算耗尽；编排层可安全地把本次请求记为 partial。"""
 
 
 def has_api_key() -> bool:
@@ -109,6 +127,57 @@ def _safe_netloc(url: str) -> str:
         return "unknown-host"
 
 
+def _rate_limit_budget(explicit: float | None) -> float:
+    """限流退避的墙钟预算（秒）。显式参数 > 环境变量 > 默认。0 表示不退避。"""
+
+    raw = explicit
+    if raw is None:
+        raw = (os.environ.get(ENV_RATE_LIMIT_BUDGET) or "").strip()
+        if not raw:
+            return DEFAULT_RATE_LIMIT_BUDGET_SECONDS
+    try:
+        budget = float(raw)
+    except (TypeError, ValueError, OverflowError):
+        raise HithinkAPIError("invalid rate limit budget") from None
+    if not math.isfinite(budget) or budget < 0:
+        raise HithinkAPIError("rate limit budget must be finite and nonnegative")
+    return budget
+
+
+def _retry_after_seconds(headers: Any) -> float | None:
+    """解析 ``Retry-After``（秒数或 HTTP-date 两种合法形态）。
+
+    上游实测不发这个头，所以这条路径平时走不到；留着是因为网关换实现就会有，
+    而到那时应当听它的而不是继续按自己的指数退避猜。缺失或不可解析返回 None。
+    """
+
+    if headers is None:
+        return None
+    try:
+        raw = headers.get("Retry-After")
+    except AttributeError:
+        return None
+    if raw is None:
+        return None
+    raw = str(raw).strip()
+    if not raw:
+        return None
+    try:
+        seconds = float(raw)
+        return max(0.0, seconds) if math.isfinite(seconds) else None
+    except ValueError:
+        pass
+    try:
+        when = parsedate_to_datetime(raw)
+    except (TypeError, ValueError):
+        return None
+    if when is None:
+        return None
+    if when.tzinfo is None:
+        when = when.replace(tzinfo=timezone.utc)
+    return max(0.0, (when - datetime.now(tz=timezone.utc)).total_seconds())
+
+
 def get_json(
     path: str,
     *,
@@ -116,17 +185,41 @@ def get_json(
     gap_seconds: float = DEFAULT_GAP_SECONDS,
     timeout: float = 60.0,
     retries: int = 4,
+    rate_limit_budget_seconds: float | None = None,
 ) -> dict[str, Any]:
-    """GET JSON。``path`` 以 ``/api/`` 开头。返回整段 JSON（含 code/data）。"""
+    """GET JSON。``path`` 以 ``/api/`` 开头。返回整段 JSON（含 code/data）。
+
+    ``retries`` 管网络错误和 4001；429 使用独立的重试预算，见模块 docstring。
+    """
 
     key = load_api_key()
     query = urllib.parse.urlencode(
         {k: v for k, v in (params or {}).items() if v is not None}
     )
     url = BASE_URL + path + (("?" + query) if query else "")
+    budget = _rate_limit_budget(rate_limit_budget_seconds)
     last_err: Exception | None = None
-    for attempt in range(retries):
+    attempt = 0
+    throttled = 0
+    started = time.monotonic()
+    deadline = started + budget
+
+    def exhausted() -> HithinkRateLimitError:
+        return HithinkRateLimitError(
+            f"hithink {path} 限流退避耗尽 budget={budget:g}s "
+            f"spent={time.monotonic() - started:g}s retries={throttled}"
+        )
+
+    while True:
+        if throttled and time.monotonic() >= deadline:
+            raise exhausted() from None
         _throttle(gap_seconds)
+        request_timeout = timeout
+        if throttled:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise exhausted() from None
+            request_timeout = min(timeout, remaining)
         req = urllib.request.Request(
             url,
             headers={
@@ -136,33 +229,59 @@ def get_json(
             },
         )
         try:
-            with urllib.request.urlopen(req, timeout=timeout) as resp:
+            with urllib.request.urlopen(req, timeout=request_timeout) as resp:
                 raw = resp.read()
                 status = resp.status
+                # 真实响应一定有 headers；替身未必，缺了就退回指数退避。
+                headers = getattr(resp, "headers", None)
         except urllib.error.HTTPError as exc:
             raw = exc.read()
             status = exc.code
+            headers = getattr(exc, "headers", None)
             last_err = exc
         except urllib.error.URLError as exc:
             _mark_request()
             last_err = exc
-            time.sleep(min(8.0, 0.5 * (2**attempt)))
+            attempt += 1
+            if attempt >= retries:
+                break
+            time.sleep(min(8.0, 0.5 * (2 ** (attempt - 1))))
             continue
         _mark_request()
-        try:
-            payload = json.loads(raw)
-        except ValueError as exc:
-            raise HithinkAPIError(
-                f"非 JSON 响应 http={status} path={path}"
-            ) from exc
-        code = payload.get("code")
-        if code == 0:
-            return payload
-        if code == 4001 and attempt + 1 < retries:
-            time.sleep(min(8.0, 0.8 * (2**attempt)))
+        # HTTP 状态先判：限流时正文未必是 JSON，解析会把限流误报成格式错误。
+        limited = status == RATE_LIMIT_HTTP_STATUS
+        payload: dict[str, Any] | None = None
+        code: Any = None
+        if not limited:
+            try:
+                payload = json.loads(raw)
+            except ValueError as exc:
+                raise HithinkAPIError(
+                    f"非 JSON 响应 http={status} path={path}"
+                ) from exc
+            code = payload.get("code")
+            if code == 0:
+                return payload
+            limited = code in RATE_LIMIT_BUSINESS_CODES
+        if limited:
+            if throttled >= MAX_RATE_LIMIT_RETRIES:
+                raise exhausted() from None
+            wait = _retry_after_seconds(headers)
+            if wait is None or wait <= 0:
+                wait = 0.8 * (2**throttled)
+            wait = min(wait, MAX_RATE_LIMIT_SLEEP_SECONDS)
+            if time.monotonic() + wait >= deadline:
+                raise exhausted() from None
+            time.sleep(wait)
+            throttled += 1
             continue
+        if code == 4001:
+            attempt += 1
+            if attempt < retries:
+                time.sleep(min(8.0, 0.8 * (2 ** (attempt - 1))))
+                continue
         raise HithinkAPIError(
-            f"hithink {path} http={status} code={code} {payload.get('message')}"
+            f"hithink {path} http={status} code={code}"
         )
     raise HithinkAPIError(f"hithink {path} 重试耗尽") from last_err
 

@@ -1,0 +1,3 @@
+To http://127.0.0.1:3300/a77/finance-workspace-private.git
+ * [new branch]          a354d2651d238839b9bafb068ca7456be58cc9a5 -> salvage/grok-cli-judge-local-20260923
+ * [new branch]          9c2fff08c76de663ce909bd6eabccf72f5721e4a -> salvage/reading-rules-baseline-r2-local-20260923

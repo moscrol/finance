@@ -1,0 +1,9 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_ test_calculator_records_same_peak_next5_dates_without_confirmation_prerequisite _
+tests/test_history_succession_projection.py:272: in test_calculator_records_same_peak_next5_dates_without_confirmation_prerequisite
+    assert row["lag_trading_days"] == 3 and row["succession_status"] == "candidate_not_causal"
+E   assert (None == 3)
+=========================== short test summary info ============================
+FAILED tests/test_history_succession_projection.py::test_calculator_records_same_peak_next5_dates_without_confirmation_prerequisite
+1 failed in 1.07s

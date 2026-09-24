@@ -1,0 +1,10 @@
+{
+  "observed_at": "2026-09-18T02:11:35.045050+00:00",
+  "url": "http://127.0.0.1:8792/api/health",
+  "runtime": {
+    "source_revision": "bf662e9310ff751a4c31763815ee78fb7d6d5122",
+    "source_dirty": false,
+    "code_matches_repo": true,
+    "code_root": "/Users/a77/.finance-runtime/finance-workspace-bf662e9310ff"
+  }
+}

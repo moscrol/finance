@@ -1,0 +1,44 @@
+{
+ "trade_date": "2026-09-18",
+ "prod_db": "/Users/a77/finance-workspace-private/db/market_feature_store.duckdb",
+ "started_at": "2026-09-22T18:11:56Z",
+ "prod_before": {
+  "size": 3855626240,
+  "mtime_ns": 1790084865152880291,
+  "inode": 216161353
+ },
+ "prod_wal_exists": false,
+ "copy_method": "cp -c (clonefile)",
+ "copy_rows_0918_before": 5553,
+ "guard_default": {
+  "refused": true,
+  "message": "2026-09-18 在 fact_stock_daily 已有 5553 行——bridge 只负责整日 0 行的日子；有旧行请走 repair_hithink_stock_day（逐字段 diff + 白名单）",
+  "copy_unchanged_after_refusal": true
+ },
+ "guard_removed_build": {
+  "existing_rows_before": 5553,
+  "planned_rows": 5553,
+  "requested": 5553,
+  "calculated": 5553,
+  "coverage": 1.0,
+  "absent_count": 1,
+  "production_ready": false
+ },
+ "guard_removed_apply_on_copy": {
+  "trade_date": "2026-09-18",
+  "deleted_replaced": 5553,
+  "written_rows": 5553,
+  "final_rows": 5553,
+  "other_days_unchanged": true
+ },
+ "copy_other_days_unchanged": true,
+ "copy_rows_0918_after": 5553,
+ "prod_after": {
+  "size": 3855626240,
+  "mtime_ns": 1790084865152880291,
+  "inode": 216161353
+ },
+ "prod_untouched": true,
+ "copy_deleted": true,
+ "finished_at": "2026-09-22T18:12:07Z"
+}

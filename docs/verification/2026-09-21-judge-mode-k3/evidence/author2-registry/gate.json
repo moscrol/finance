@@ -1,0 +1,71 @@
+{
+  "revision": "292bd55785d223aab0c1eeda658a83fbb8f5075e",
+  "start": {
+    "revision": "292bd55785d223aab0c1eeda658a83fbb8f5075e",
+    "status": ""
+  },
+  "finish": {
+    "revision": "292bd55785d223aab0c1eeda658a83fbb8f5075e",
+    "status": ""
+  },
+  "identity_stable": true,
+  "steps": [
+    {
+      "name": "registry-parseability",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "check-parseability"
+      ],
+      "exit_code": 0,
+      "elapsed_s": 0.14,
+      "sha256": "b2d7a8d77df0fdc0f638e93d711f397b07859eb91e6aa5d45d793a52f2abef60"
+    },
+    {
+      "name": "registry-check",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "check"
+      ],
+      "exit_code": 0,
+      "elapsed_s": 0.14,
+      "sha256": "8c996aaec0fcd03defec5afb55f6ebb96935c7a5bc571e1811410de6339fe0df"
+    },
+    {
+      "name": "registry-tables",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "backfill-tables",
+        "--check"
+      ],
+      "exit_code": 0,
+      "elapsed_s": 0.16,
+      "sha256": "362c2b566827eb15434ae230b1ce60edad2006c45ff08836d0a24fc744447261"
+    },
+    {
+      "name": "registry-views",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "generate-views",
+        "--check"
+      ],
+      "exit_code": 0,
+      "elapsed_s": 0.1,
+      "sha256": "9730a43a0a4535867153d7ac0afd888b1feaaa96f3846b2922c39a16ad068e89"
+    },
+    {
+      "name": "registry-crosswalk",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/audit_ledger_spec_crosswalk.py"
+      ],
+      "exit_code": 0,
+      "elapsed_s": 0.25,
+      "sha256": "b3c1dc1eef8e502d6d030321a4788a362f10f791f736b8eb9b0adc01e796662a"
+    }
+  ],
+  "ok": true
+}

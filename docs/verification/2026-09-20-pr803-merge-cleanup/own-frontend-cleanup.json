@@ -1,0 +1,8 @@
+{
+  "tree": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/frontend/finance-workspace-private",
+  "revision": "728f327160bbd2485cb635e7ef09d040d718d7b5",
+  "archive": "/Users/a77/.finance-runtime/reviews/pr803-merge-cleanup-20260920/own-frontend-metadata-results.tar.gz",
+  "sha256": "c25ccce72d63422a6549538a758cf7a136045204605f978359d5efb7b6fdcf65",
+  "discarded_regenerable": "only freshly pnpm-installed node_modules",
+  "removed_without_force": true
+}

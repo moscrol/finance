@@ -276,8 +276,9 @@ const bundle: RunBundle = {
     question: "半导体方向怎么看？",
     task_type: "ask",
     status: "completed",
+    publication: { status: "published", message_id: "msg_assistant_new" },
     schema_version: 1,
-    session_id: "session_demo",
+    session_id: "conv_recent",
     parent_run_id: null,
     created_at: "2026-07-10T10:00:00+08:00",
     finished_at: "2026-07-10T10:01:00+08:00",
@@ -2089,6 +2090,101 @@ describe("Workbench navigation reliability", () => {
     );
   });
 
+  it.each(["completed", "failed", "cancelled"] as const)(
+    "keeps polling a %s run until its exact message publication is visible",
+    async (status) => {
+      apiMocks.listConversations.mockResolvedValue(conversations);
+      apiMocks.getConversationMessages.mockResolvedValueOnce([]).mockResolvedValue([
+        { ...assistantMessage, message_id: "msg_assistant_new", run_id: "run_created", status,
+          content: "最终消息已落盘，报告登记稍后完成。" },
+      ]);
+      let claimed = false;
+      let published = false;
+      apiMocks.getRun.mockImplementation(async () => ({
+        ...bundle.run, run_id: "run_created", session_id: "conv_recent",
+        status: claimed ? status : "running",
+        publication: { status: published ? "published" : "pending", message_id: published ? "msg_assistant_new" : null },
+        artifacts: published ? [{ ...bundle.run.artifacts[0], path: "report.json", title: "结构化对话报告" }] : [],
+      }));
+      apiMocks.listArtifacts.mockResolvedValue([]);
+      const user = userEvent.setup();
+      render(<App />);
+      await user.click(await screen.findByRole("button", { name: "问答" }));
+      await user.click(await screen.findByRole("button", { name: /今日复盘/ }));
+      await user.click(screen.getByRole("button", { name: "发送研究问题" }));
+      const events = mockEventSources.at(-1)!;
+      await waitFor(() => expect(apiMocks.getRun).toHaveBeenCalled());
+      claimed = true;
+      // SSE 的旧终态与断线轮询两条路径都不能把 pending 当 published。
+      await act(async () => events.emit("run", { ...bundle.run, run_id: "run_created", status,
+        publication: { status: "pending", message_id: null } }));
+      await act(async () => events.fail());
+      expect(events.close).not.toHaveBeenCalled();
+      expect(screen.queryByText("最终消息已落盘，报告登记稍后完成。")).toBeNull();
+      published = true;
+      await act(async () => events.fail());
+      expect(await screen.findByText("最终消息已落盘，报告登记稍后完成。")).toBeVisible();
+      await waitFor(() => expect(events.close).toHaveBeenCalledTimes(1));
+      await user.click(screen.getByText("运行详情", { exact: true }));
+      expect(await screen.findByRole("button", { name: "结构化对话报告" })).toBeVisible();
+    },
+  );
+
+  it.each(["missing-marker", "wrong-message", "wrong-conversation", "load-failed"])(
+    "does not close the stream when publication is %s",
+    async (boundary) => {
+      apiMocks.listConversations.mockResolvedValue(conversations);
+      apiMocks.getConversationMessages.mockResolvedValueOnce([]).mockResolvedValue([
+        { ...assistantMessage, message_id: "msg_assistant_new", run_id: "run_created" },
+      ]);
+      let terminal = false;
+      let reads = 0;
+      apiMocks.getRun.mockImplementation(async () => {
+        reads += 1;
+        if (terminal && boundary === "load-failed" && reads > 2) throw new Error("bundle unavailable");
+        return { ...bundle.run, run_id: "run_created", status: terminal ? "completed" : "running",
+          session_id: boundary === "wrong-conversation" ? "other" : "conv_recent",
+          publication: boundary === "missing-marker" ? undefined : {
+            status: "published", message_id: boundary === "wrong-message" ? "other" : "msg_assistant_new",
+          } };
+      });
+      apiMocks.listArtifacts.mockResolvedValue([]);
+      const user = userEvent.setup();
+      render(<App />);
+      await user.click(await screen.findByRole("button", { name: "问答" }));
+      await user.click(await screen.findByRole("button", { name: /今日复盘/ }));
+      await user.click(screen.getByRole("button", { name: "发送研究问题" }));
+      const events = mockEventSources.at(-1)!;
+      await waitFor(() => expect(reads).toBe(1));
+      terminal = true;
+      await act(async () => events.fail());
+      expect(events.close).not.toHaveBeenCalled();
+      // A later poll can recover; missing/mismatched proof does not close transport.
+      apiMocks.getRun.mockResolvedValue({ ...bundle.run, run_id: "run_created" });
+      await act(async () => events.fail());
+      await waitFor(() => expect(events.close).toHaveBeenCalledTimes(1));
+    },
+  );
+
+  it("reconnects on reload when a terminal message is still awaiting publication", async () => {
+    apiMocks.listConversations.mockResolvedValue(conversations);
+    apiMocks.getConversationMessages.mockResolvedValue([
+      { ...assistantMessage, message_id: "msg_assistant_new", run_id: "run_created" },
+    ]);
+    apiMocks.getRun.mockResolvedValue({ ...bundle.run, run_id: "run_created",
+      publication: { status: "pending", message_id: null } });
+    apiMocks.listArtifacts.mockResolvedValue([]);
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(await screen.findByRole("button", { name: "问答" }));
+    await waitFor(() => expect(mockEventSources).toHaveLength(1));
+    const events = mockEventSources[0];
+    expect(events.close).not.toHaveBeenCalled();
+    apiMocks.getRun.mockResolvedValue({ ...bundle.run, run_id: "run_created" });
+    await act(async () => events.fail());
+    await waitFor(() => expect(events.close).toHaveBeenCalledTimes(1));
+  });
+
   it("recovers a persisted terminal run after the stream disconnects", async () => {
     const finalMessage: ChatMessage = {
       ...assistantMessage,
@@ -2163,14 +2259,14 @@ describe("Workbench navigation reliability", () => {
     ).toBeVisible();
   });
 
-  it("keeps polling while terminal ownership precedes report delivery", async () => {
+  it.each(["completed", "failed", "cancelled"] as const)("keeps polling while %s ownership precedes delivery", async (status) => {
     apiMocks.listConversations.mockResolvedValue(conversations);
     apiMocks.getConversationMessages.mockResolvedValue([]);
     let pending = true;
     apiMocks.getRun.mockImplementation(async () => ({
       ...bundle.run,
       run_id: "run_created",
-      status: "completed",
+      status,
       delivery_pending: pending,
       artifacts: pending ? [] : [{
         artifact_id: "report", path: "report.json", renderer: "structured_report",
@@ -2193,7 +2289,7 @@ describe("Workbench navigation reliability", () => {
     pending = false;
     apiMocks.getConversationMessages.mockResolvedValue([{
       ...assistantMessage, message_id: "msg_assistant_new",
-      run_id: "run_created", content: "报告已交付",
+      run_id: "run_created", content: "报告已交付", status,
     }]);
     await act(async () => events?.fail());
     expect(await screen.findByText("报告已交付")).toBeVisible();
@@ -2240,10 +2336,20 @@ describe("Workbench navigation reliability", () => {
     const oldEvents = mockEventSources.at(-1);
     finishing = true;
     apiMocks.getConversationMessages.mockResolvedValue([oldMessage]);
+    // The writer publishes the exact final message before the terminal run event.
+    // A run claim alone must not unlock the composer under the publication contract.
+    await act(async () => oldEvents?.emit("message.complete", {
+      schema_version: 1, event_id: "old-message-complete", event_type: "message.complete",
+      run_id: "run_old", conversation_id: oldMessage.conversation_id,
+      message_id: oldMessage.message_id, seq: 1,
+      created_at: "2026-07-11T09:00:00+08:00", payload: { message: oldMessage },
+    }));
     await act(async () => oldEvents?.emit("run", {
       ...bundle.run, run_id: "run_old", status: "completed",
+      publication: { status: "published", message_id: oldMessage.message_id },
     }));
     await waitFor(() => expect(apiMocks.getTrace).toHaveBeenCalledTimes(2));
+    expect(oldEvents?.close).not.toHaveBeenCalled();
     await user.type(screen.getByLabelText("输入研究问题"), "紧接着追问");
     await user.click(screen.getByRole("button", { name: "发送研究问题" }));
     expect(screen.getAllByLabelText("研究助手消息")).toHaveLength(2);
