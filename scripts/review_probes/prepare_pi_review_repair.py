@@ -1,7 +1,7 @@
 """Build fresh PR868 review inputs; never edit a sealed batch or start a model.
 
 The archived runner is deliberately retained as a hash-checked migration source.
-CLI wiring, causal gateway protocol and controller-owned identity are replaced. Historical
+CLI wiring, causal gateway protocol and controller-owned identity/completion are replaced. Historical
 receipts, model outputs, and authorization are not inherited.
 """
 from __future__ import annotations
@@ -85,18 +85,21 @@ def prepare(destination: Path, archive: Path = ARCHIVE) -> dict:
         )
         inputs[name] = replace_once(
             inputs[name],
-            "Complete JSON object required by the stage prompt, serialized as a string. Never fabricate evidence.",
-            "Stage content JSON as a string: complete=true and the required evidence fields. "
-            "Do NOT include stage, axis, revision or baseline; the controller owns these fields. Never fabricate evidence.",
+            "Type.String({ description: 'Complete JSON object required by the stage prompt, "
+            "serialized as a string. Never fabricate evidence.' })",
+            "Type.Object({}, { additionalProperties: true, description: 'Structured stage content "
+            "object with required evidence fields, not a JSON-encoded string. "
+            "Do NOT include stage, axis, revision, baseline or complete; these are controller-owned. "
+            "Never fabricate evidence.' })",
         )
         for stage in ("explore", "execute", "report"):
             prompt = f"{axis}/prompt-{stage}.md"
             inputs[prompt] = replace_once(
                 inputs[prompt],
                 f"It must contain stage, axis='{axis}', revision, baseline, complete=true;",
-                "Submit content only: complete=true and required evidence fields. "
-                "Do NOT supply stage, axis, revision or baseline; those fields are controller-owned. "
-                "Identity injection is rejected, never normalized;",
+                "Submit a structured content object with the required evidence fields. "
+                "Stage, axis, revision, baseline and complete are controller-owned; omit all five. "
+                "Controller fields in reviewer content are rejected, never normalized;",
             )
             if stage == "execute":
                 inputs[prompt] = replace_once(
@@ -119,7 +122,7 @@ def prepare(destination: Path, archive: Path = ARCHIVE) -> dict:
                 inputs[prompt] = replace_once(
                     inputs[prompt],
                     "Return required fields stage='report', axis, revision, baseline, complete=true, verdict",
-                    "Return required content fields complete=true, verdict",
+                    "Return required content fields verdict",
                 )
         name = f"{axis}/run_stage.py"
         inputs[name] = replace_once(inputs[name], "'--tools', 'read,bash,write'",
@@ -153,6 +156,8 @@ def prepare(destination: Path, archive: Path = ARCHIVE) -> dict:
         "prior_stage_receipts_inherited": False, "prior_model_outputs_inherited": False,
         "historical_author_inputs_preserved": True,
         "delivery_identity_owner": "controller; reviewer identity fields are forbidden",
+        "delivery_completion_owner": "controller; accepted submission is not a PASS verdict",
+        "delivery_input_format": "structured_object",
         "stage_tools": STAGE_TOOLS,
         "inputs_sha256": {name: digest(body.encode()) for name, body in inputs.items()},
     }
