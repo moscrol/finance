@@ -679,6 +679,35 @@ def test_search_graph_dispatches_hyphen_query_and_python_alias_with_bounded_dedu
     assert not any(hit["symbol"] == "extra" for hit in hits)
 
 
+@pytest.mark.parametrize("alias_fails", [False, True])
+def test_full_literal_batch_cannot_starve_alias(tmp_path, monkeypatch, alias_fails):
+    cm = _cm()
+    root = _init_repo(tmp_path)
+    monkeypatch.setattr(cm, "STRUCTURE_HIT_CAP", 3)
+    calls = []
+
+    def fake(args, cwd):
+        calls.append(args[1])
+        if args[1] == "daily_full":
+            if alias_fails:
+                return subprocess.CompletedProcess([], 1, "", "unavailable")
+            rows = [{"name": "cmd_daily_full", "file_path": "market_feature_store/cli.py"}]
+        else:
+            rows = [{"name": f"helper_{i}", "file_path": "skills/daily-full/tool.py"} for i in range(3)]
+        return subprocess.CompletedProcess([], 0, json.dumps({"results": rows}), "")
+
+    monkeypatch.setattr(cm, "run_crg_cli", fake)
+    hits, reason = cm.search_graph("daily-full", root)
+    assert calls == ["daily-full", "daily_full"]
+    assert len(hits) == 3
+    if alias_fails:
+        assert reason == "search_failed"
+        assert all(hit["symbol"].startswith("helper_") for hit in hits)
+    else:
+        assert reason is None
+        assert hits[1]["symbol"] == "cmd_daily_full"
+
+
 def test_search_graph_ordinary_query_is_dispatched_once(tmp_path, monkeypatch):
     cm = _cm()
     root = _init_repo(tmp_path)

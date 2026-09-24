@@ -12,7 +12,7 @@
 
 ## 当前状态
 
-代码主体 `29e42db81`，基线 `gitea/main@a54fed0d0`；未合入、未部署。收尾另补 Git 源摘要字节保真（入口24项通过），随本交接提交；旧收据不覆盖后补丁。
+代码主体 `29e42db81`，基线 `gitea/main@a54fed0d0`；未合入、未部署。a96c967ca补Git源摘要字节保真；本批另修实际建图才暴露的检索满额问题，旧收据不覆盖后补丁。
 共享文档候选：memory `docs/agent-foundation@6eb6efc1`（`~/memory-wt-agent-foundation`）；harness `docs/agent-foundation@54bef89`（`~/harness-wt-agent-foundation`）。原树的他人改动未动。
 
 ## 已验证
@@ -20,7 +20,8 @@
 新树 venv 从开发锁安装，pip check / doctor 通过；两项离线研究 smoke 通过。
 干净代码提交相关回归 174P/1S；收据 `~/.finance-runtime/test-receipts/20260924T124733Z-29e42db8-4aa1c9b3f188.json` 已校验。仅对该提交成立，不是全量读数。
 全仓 Ruff、提交静态门禁、runtime catalog --check 通过。
-代码图在代码提交上重建成功；memory 图谱审计无 STALE，在途/未验证项仍留。
+代码图重建后，a96c967ca 复验172P/1F/3S：daily-full字面查询挤掉符号别名。已补有界轮流合并及2项回归，地图/入口68P/3S。失败记录保留在快照；最终精确读数以本树SessionStart最新收据为准。
+memory 图谱审计无 STALE，在途/未验证项仍留。
 
 ## 未验证 / 已知边界
 
