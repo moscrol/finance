@@ -117,7 +117,11 @@ def child(args) -> int:
         for name, action in plan:
             if name in {'db-lock', 'stock-daily'}:
                 continue  # Already verified local capture inputs, not live snapshot.
-            if name == 'stitch-sector-stocks':
+            if name == 'hithink-research':
+                # Replay must not mix captured history with newly fetched latest-only observations.
+                result = {'label': name, 'status': 'skip', 'code': None, 'elapsed': 0.0,
+                          'note': 'latest-only excluded from historical recovery; 研究观察值未更新'}
+            elif name == 'stitch-sector-stocks':
                 result = sync.run_step(name, recovery_stitch_command(sync, day, args.history_day), 600)
             else:
                 result = action()

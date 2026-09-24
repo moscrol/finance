@@ -3,6 +3,12 @@
 可独立分发。执行方无需读聊天记录，本单自带背景、证据路径、步骤、验收与红线。
 来源：`docs/handoffs/2026-09-23-orphan-inventory.md`。无前置单；与其他单可并行。
 
+## 09-23 完成状态
+
+[两路决策页](2026-09-23-finarena-decision.md)已回填用户最终原话 **「执行」**，确认归档路径 B。**#817 / #816 已留指针关闭，回读均 closed、merged=false**（评论 6454 / 6458）。本地及远端分支、原树和证据保留；未进入工程合流。详情见[归档收尾](../../handoffs/2026-09-23-finarena-archive-closeout.md)。
+
+[三条旧真实样本逐条移交 #76](../../handoffs/2026-09-23-finarena-quality-transfer.md)，18/18 原件哈希复验一致；仅登记待授权补充，不扩原六行预算，尤其追问须另批两轮会话协议。通用原则已沉淀到共享知识库 `10_knowledge/completion-state-artifact-atomicity.md`，项目笔记留索引。
+
 ## 背景与动机
 
 FinArena 是「多个金融 agent 同题作答、公开裁判」的邀请试运行模块（`intelligence/arena/` + `intelligence/webapp/src/arena/`），09-20 由 PR #811 引入，09-21 前向为 #816（三处边界修复：loopback 端点校验、远端 run_id 关联、SQLite 榜单读事务），离线 Spec/Quality 复核判 **NO-GO**（P1：`runner.py` 先 `finish_run(status=completed)` 再单独 `add_match()`，中途失败留下 completed run 却 0 个 Match；P2：stale running 无恢复闭环、publish 审核无持久审计）。同日 #817 修了 P1/P2（单事务、`recover-run`、审计事件 + 故障注入测试），作者叶：Arena Python 45P、前端六步、Arena E2E 8P；**没有新组合的完整四叶，没有独立复审，之后无人接手**。
@@ -47,11 +53,11 @@ FinArena 是「多个金融 agent 同题作答、公开裁判」的邀请试运�
 
 ## 验收
 
-- [ ] 决策页存在且 #817 评论有链接；用户裁决原话回填决策页。
-- [ ] 落地路径：`merge-tree` 干净；四叶收据 revision == head、`dirty=false`；Arena E2E 8P；`python3 scripts/check_unread_fields.py` 在合流树 exit 0。
-- [ ] 阳性对照：把 `runner.py` 单事务拆回两步，故障注入测试至少一条红。
-- [ ] 归档路径：#816/#817 关闭评论含替代物与失效对策；`10_knowledge/` 有沉淀文件并在项目笔记留一行索引。
-- [ ] INDEX #82 状态行已改。
+- [x] 决策页存在且 #817 评论有链接；用户裁决原话回填决策页。
+- 不适用（本期归档）：落地路径的合流、四叶、Arena E2E 和字段门禁；未执行、未补签。
+- 不适用（本期归档）：拆回事务的阳性对照；方法保留给未来重启验收。
+- [x] 归档路径：#816/#817 关闭评论含替代物与失效对策；`10_knowledge/` 有沉淀文件并在项目笔记留一行索引。
+- [x] INDEX #82 状态行已改。
 
 ## 红线
 

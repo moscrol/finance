@@ -12,7 +12,9 @@ import json
 import math
 from typing import TYPE_CHECKING, Sequence
 
-from intelligence.services.agent_research import AgentEvidence, StructuredObservation
+from intelligence.services.agent_research import (
+    AgentEvidence, HistoricalEvidenceProvenance, StructuredObservation, evidence_content_hash,
+)
 from intelligence.services.material_permissions import LOCAL_READ_CAPABILITIES
 from intelligence.services.user_task import requests_previous_answer_review, requests_previous_evidence_only
 
@@ -104,12 +106,26 @@ def restored_prior_hashes(events: Sequence[object]) -> frozenset[str]:
 
 def _original_atom(raw: object) -> AgentEvidence:
     """Reconstruct the complete stored schema without coercing or dropping fields."""
-    if not isinstance(raw, dict) or set(raw) != {field.name for field in fields(AgentEvidence)}:
+    expected = {field.name for field in fields(AgentEvidence)}
+    if not isinstance(raw, dict) or set(raw) not in (expected, expected - {"history_provenance"}):
         raise ValueError("incomplete or unknown prior evidence schema")
+    # Explicit additive-schema compatibility, not a general missing-field escape.
+    # Old ordinary atoms had no historical metadata; old history atoms cannot
+    # acquire source identity merely by taking the None default.
+    raw = {"history_provenance": None, **raw}
     values = dict(raw)
+    history = raw["history_provenance"]
+    if not isinstance(raw["tool"], str):
+        raise ValueError("invalid evidence text field")
+    if history is not None:
+        if raw["tool"] not in {"history_query", "read_history_result"}:
+            raise ValueError("historical provenance on non-historical evidence")
+        values["history_provenance"] = HistoricalEvidenceProvenance.from_dict(history)
+    elif raw["tool"] in {"history_query", "read_history_result"}:
+        raise ValueError("missing historical provenance")
     sequences = {"supports", "contradicts", "derived_from", "observations"}
     nullable = {"source_date", "reexcerpted", "pointer_dropped", "structural_neighbor_demoted"}
-    for key in set(raw) - sequences - nullable - {"deep_read"}:
+    for key in set(raw) - sequences - nullable - {"deep_read", "history_provenance"}:
         if not isinstance(raw[key], str):
             raise ValueError("invalid evidence text field")
     for key in sequences - {"observations"}:
@@ -140,6 +156,12 @@ def _original_atom(raw: object) -> AgentEvidence:
     atom = AgentEvidence(**values)
     if json.loads(json.dumps(asdict(atom), allow_nan=False)) != raw:
         raise ValueError("lossy evidence reconstruction")
+    if atom.history_provenance is not None and (
+        atom.content_hash != evidence_content_hash(atom)
+        or atom.internal_locator != atom.history_provenance.result_ref
+        or atom.independent_key != atom.history_provenance.query_id
+    ):
+        raise ValueError("historical evidence identity mismatch")
     return atom
 
 
