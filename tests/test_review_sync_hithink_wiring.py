@@ -236,7 +236,7 @@ def test_local_main_stock_fallback_chain_uses_real_bridge_cli(review, monkeypatc
             f"SELECT count(*) FROM {table} WHERE trade_date=?", [day],
         ).fetchone()[0])
 
-        def child(label, argv, timeout):
+        def child(label, argv, timeout, **kwargs):  # run_step 自 #894 起带 partial_exit_codes 关键字
             command = argv[3] if argv[:3] == review.CLI else label
             calls.append(command)
             if command == "sync-stock-daily-snapshot":
