@@ -84,6 +84,8 @@ SPT、风远和 Knevo 是按输入事件更新的链路，不因为当天没有�
 - [x] 修复晨汇验收器遗漏排名输入及六位小数合同的问题，保留 NULL 与零的区别；补用户隔离、未批准补丁和输入变化反例。
 - [x] 第三轮逐条对账风远十条差异：七条剥数、三条措辞，与旧收口记录相符；当前四字段147/147装配，历史值仍95/105，不以相似度自动放行。原Q-002扩展与人工记录在未合分支，非从未登记。
 - [x] 复用既有确定性考卷：风远3/3，SPT缺卷显式失败；新增九例保护，相关回归162P。仅是已知题复现，不证明真实模型质量。
+- [x] 09-25新增首次GLM请求离线捕获：真实风远/SPT完整上下文抵达provider回调，中立对照无视角字段；另用临时用户贯通TurnOrchestrator。干净663cce791定向487P，未调用模型，固定框架不签真实API/路由/续轮。
+- [x] 复查08-19 SPT旧真实run：completed和署名存在，但缺完整视角输入记录、判官partial/unavailable，不代签质量；当前SPT边界字段为空，仍待用户/owner冻结考卷与边界。
 - [ ] 全部人工条目/原始审批权属、风远修订与旧patch的机器追溯关系。旧记载14条人工写入，仅4条本轮字面互证，不移用总数代签。
 - [ ] 数据/发布前置闭合后的真实 Episode、CLI 对照与回答质量验收。
 
@@ -118,6 +120,7 @@ SPT、风远和 Knevo 是按输入事件更新的链路，不因为当天没有�
 - 第一轮收据和结果：`docs/verification/2026-09-24-architecture-audit/README.md`，附机器输出与重跑命令。
 - 消费离线前置及续推结果：`docs/verification/2026-09-24-architecture-consumption/README.md`。
 - 视角差异对账及既有考卷：`docs/verification/2026-09-24-perspective-reconciliation/README.md`。
+- 首次模型请求离线贯通与历史SPT记录核验：`docs/verification/2026-09-25-perspective-delivery/README.md`。
 - 小范围审计工具修复：沿用现有脚本及其测试，若未发现缺陷则不强造代码。
 - 活交接：`docs/handoffs/inflight/feat-architecture-audit-0924.md`。
 
