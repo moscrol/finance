@@ -6,21 +6,21 @@ const same = (a, b) => JSON.stringify([...a].sort()) === JSON.stringify([...b].s
 const text = content => content.filter(c => c.type === 'text').map(c => c.text).join('');
 const save = (out, name, data) => fs.writeFileSync(path.join(out, name), JSON.stringify(data, null, 2) + '\n');
 
-// Identity belongs to the controller, not the reviewer-authored content.
+// Identity and delivery completion belong to the controller, not the verdict.
 export function bindStageResult(raw, { stage, axis, revision, baseline }) {
   if (!['explore', 'execute', 'report'].includes(stage) || !['spec', 'quality'].includes(axis)
       || !/^[a-f0-9]{40}$/.test(revision) || !/^[a-f0-9]{40}$/.test(baseline)) {
     throw new Error('invalid controller identity');
   }
-  if (typeof raw !== 'string' || raw.length >= 6000) throw new Error('invalid delivery size');
-  const body = JSON.parse(raw);
-  if (!body || Array.isArray(body) || typeof body !== 'object' || body.complete !== true) {
-    throw new Error('incomplete delivery');
+  if (!raw || Array.isArray(raw) || typeof raw !== 'object') throw new Error('structured object required');
+  const encoded = JSON.stringify(raw);
+  if (encoded.length >= 6000) throw new Error('invalid delivery size');
+  const body = JSON.parse(encoded);
+  if (['stage', 'axis', 'revision', 'baseline', 'complete'].some(key => Object.hasOwn(body, key))) {
+    throw new Error('reviewer cannot supply controller identity or completion');
   }
-  if (['stage', 'axis', 'revision', 'baseline'].some(key => Object.hasOwn(body, key))) {
-    throw new Error('reviewer cannot supply controller identity');
-  }
-  return { ...body, stage, axis, revision, baseline };
+  if (!Object.keys(body).length) throw new Error('stage content required');
+  return { ...body, stage, axis, revision, baseline, complete: true };
 }
 
 // Check the actual CLI allowlist before any provider request, not just registration.
