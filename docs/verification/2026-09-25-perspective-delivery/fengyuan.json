@@ -1,0 +1,545 @@
+{
+  "status": "FAIL",
+  "issues": [
+    "Approved patch value differs from current profile: pp-0707f95b992a",
+    "Approved patch value differs from current profile: pp-1a31434f7207",
+    "Approved patch value differs from current profile: pp-3475c68f9308",
+    "Approved patch value differs from current profile: pp-7574978407b8",
+    "Approved patch value differs from current profile: pp-96dd6c16d908",
+    "Approved patch value differs from current profile: pp-bcaed8dc7640",
+    "Approved patch value differs from current profile: pp-d5bd29548268",
+    "Approved patch value differs from current profile: pp-e3cc57aec091",
+    "Approved patch value differs from current profile: pp-f1549d439c69",
+    "Approved patch value differs from current profile: pp-f3e6a8a79cba",
+    "Approved value missing from context"
+  ],
+  "scope": "recorded_patches_and_offline_context_assembly_only; known_answer_exam; offline_first_provider_request",
+  "sampled_at": "2026-09-24T16:19:47.999873+00:00",
+  "user": "linxiaoqi5111",
+  "users_root": "/Users/a77/.local/share/finance-workbench/users",
+  "perspective_id": "fengyuan",
+  "query": "风远如何判断行情退潮和亏钱效应，什么条件下应降低仓位？",
+  "article_count": 24,
+  "patch_status_counts": {
+    "approved": 105,
+    "rejected": 52
+  },
+  "quotes_checked": 105,
+  "quotes_verified": 105,
+  "approved_values_in_context": 95,
+  "approved_value_drift": [
+    {
+      "patch_id": "pp-0707f95b992a",
+      "field": "risk_triggers",
+      "approved_value_sha256": "f768499237b8ce2d799f2a6a5699983f3168ef56a780ecf08442a0bbe5738825",
+      "candidates": [
+        {
+          "profile_index": 14,
+          "value_sha256": "70060014af3d738e25fa3ff6c78a003f6c2a9ef07b18bf120879340bd7c144f5",
+          "similarity": 0.877193
+        },
+        {
+          "profile_index": 11,
+          "value_sha256": "c13218f922077f55b712bd478b81f0ac5ad649235a742b6687f31042108dd41d",
+          "similarity": 0.215054
+        },
+        {
+          "profile_index": 19,
+          "value_sha256": "123383c1063e3e5a68e8dc15b47588eb9501d2246e5bbcf7d4adbaa5d23b9c9b",
+          "similarity": 0.193548
+        }
+      ],
+      "interpretation": "structural_similarity_only; review_required; no_auto_apply"
+    },
+    {
+      "patch_id": "pp-1a31434f7207",
+      "field": "risk_triggers",
+      "approved_value_sha256": "124c70c85c6ce02f92fff36081e629e5ff7996bb6cd640343300ca995c2339de",
+      "candidates": [
+        {
+          "profile_index": 16,
+          "value_sha256": "5977ecf797972026a294f453b6158df6425e0a5a1f4c5a2b10e9d732d655b657",
+          "similarity": 0.75
+        },
+        {
+          "profile_index": 7,
+          "value_sha256": "6365dbf2d7341bccf961e952446c0ede045f196e2e59dc1e7f5684bae1258af6",
+          "similarity": 0.2
+        },
+        {
+          "profile_index": 23,
+          "value_sha256": "c754e738e7c0f08ed9b0dff36fafa4d400690c2af7efffe3e3b3e171e53f98cc",
+          "similarity": 0.178218
+        }
+      ],
+      "interpretation": "structural_similarity_only; review_required; no_auto_apply"
+    },
+    {
+      "patch_id": "pp-3475c68f9308",
+      "field": "opportunity_preferences",
+      "approved_value_sha256": "aa8f6c84a180b2cf740943f7283364797a12c3f6024e289403b0c2680201ff59",
+      "candidates": [
+        {
+          "profile_index": 6,
+          "value_sha256": "7c952e5b6ae3c26d757dea51bbf2ca2d0bf14a9961264bf3d1d820e775047be9",
+          "similarity": 0.861314
+        },
+        {
+          "profile_index": 11,
+          "value_sha256": "82a9e0f3a5a2c06b9ad696f2ce352fe1cedbc930e22d462441cec22963cca09e",
+          "similarity": 0.421875
+        },
+        {
+          "profile_index": 0,
+          "value_sha256": "4e38e6e74a783679eae8f21371bd4eef457344a75bbfc2f1a8a7e8c55d5c8321",
+          "similarity": 0.168421
+        }
+      ],
+      "interpretation": "structural_similarity_only; review_required; no_auto_apply"
+    },
+    {
+      "patch_id": "pp-7574978407b8",
+      "field": "falsification_style",
+      "approved_value_sha256": "f2395e5f0a08e4419b0f6c6fbff1e2d0dd5f17dd73b2363184767285c414f632",
+      "candidates": [
+        {
+          "profile_index": 16,
+          "value_sha256": "b7bc5c12838f00f014b17697ea9f938a6b5a4a2de220a50e2d25fd627024791e",
+          "similarity": 0.969072
+        },
+        {
+          "profile_index": 15,
+          "value_sha256": "f2133113cea08ee48898e8ab2d7c01ac0727d2df0911cb231704db1e4bf46a69",
+          "similarity": 0.20202
+        },
+        {
+          "profile_index": 1,
+          "value_sha256": "8cd05a5e72f585597aacf455f11c0ff662a5e08e7d6417355baf94c48c8f3ee0",
+          "similarity": 0.157895
+        }
+      ],
+      "interpretation": "structural_similarity_only; review_required; no_auto_apply"
+    },
+    {
+      "patch_id": "pp-96dd6c16d908",
+      "field": "anti_patterns",
+      "approved_value_sha256": "88117dfd2bd0efe4b5ce3d66b663cd67a8dc4e6ff9715e3d43d66846b05c5c5d",
+      "candidates": [
+        {
+          "profile_index": 12,
+          "value_sha256": "0e2c8b4e8f66527a42d3f32bf7aea9443939584e9d9631d0f42ad7912df7110e",
+          "similarity": 0.6
+        },
+        {
+          "profile_index": 34,
+          "value_sha256": "343f59bdee95e3579df12d2a28b028bd86293fcc9ca5135846e7d5a0624e2c24",
+          "similarity": 0.120482
+        },
+        {
+          "profile_index": 14,
+          "value_sha256": "cd92f19cec88799c82edd3193df94b674b537b60fccc8a1ae1a5922c499f780f",
+          "similarity": 0.106667
+        }
+      ],
+      "interpretation": "structural_similarity_only; review_required; no_auto_apply"
+    },
+    {
+      "patch_id": "pp-bcaed8dc7640",
+      "field": "anti_patterns",
+      "approved_value_sha256": "9fca591572c57e1b86e6e33d552f30ee6d31be3c380be871409074b39319ebad",
+      "candidates": [
+        {
+          "profile_index": 22,
+          "value_sha256": "9139602fd5d65d218a8e554edbc4b0def7c7a881feb881d2c2f49f6187d3827f",
+          "similarity": 0.819672
+        },
+        {
+          "profile_index": 21,
+          "value_sha256": "0dc152187a1cbaefcdca19a6a1ee8046eb6dc9c8d5dc7010f6c3a1484b32c564",
+          "similarity": 0.150943
+        },
+        {
+          "profile_index": 31,
+          "value_sha256": "1967d8f9593be09b86cf5228b85d8d646d8c1970d1e081ed23c3c154959e4769",
+          "similarity": 0.15
+        }
+      ],
+      "interpretation": "structural_similarity_only; review_required; no_auto_apply"
+    },
+    {
+      "patch_id": "pp-d5bd29548268",
+      "field": "anti_patterns",
+      "approved_value_sha256": "992a4553fa26b8d303aaab3dff736b22183228fb45badbf7797d27a08c319644",
+      "candidates": [
+        {
+          "profile_index": 20,
+          "value_sha256": "20942ecca3af55a48f88163eb154241c077700bfa549b07b4656c11cefbdb7d7",
+          "similarity": 0.948718
+        },
+        {
+          "profile_index": 17,
+          "value_sha256": "1f4caa096c0053ae2b85c97b33c9abc09d2c6c8cf6cf1827f7940020ec94f514",
+          "similarity": 0.148148
+        },
+        {
+          "profile_index": 38,
+          "value_sha256": "7a570385c9f441366b413081550939f86308e8761e45bbd5980a8020994d37d8",
+          "similarity": 0.142857
+        }
+      ],
+      "interpretation": "structural_similarity_only; review_required; no_auto_apply"
+    },
+    {
+      "patch_id": "pp-e3cc57aec091",
+      "field": "opportunity_preferences",
+      "approved_value_sha256": "c7d504e63f6e75bca987d6b0dff3d784b14746352c81e648f09c2bb160baf1cd",
+      "candidates": [
+        {
+          "profile_index": 9,
+          "value_sha256": "81e52b4423829242614fb8fc99d36df5c7fd9d2a456877463d6b3a5c6465e778",
+          "similarity": 0.759259
+        },
+        {
+          "profile_index": 5,
+          "value_sha256": "1e897197be5acc6a878638000281a475ddba72572ad91a7ec2758ebd9792f00a",
+          "similarity": 0.152174
+        },
+        {
+          "profile_index": 22,
+          "value_sha256": "8f39781e2e1c3baa3b728fc9dad8cbed1457797006c788c56af039bb29d2dc7a",
+          "similarity": 0.114286
+        }
+      ],
+      "interpretation": "structural_similarity_only; review_required; no_auto_apply"
+    },
+    {
+      "patch_id": "pp-f1549d439c69",
+      "field": "risk_triggers",
+      "approved_value_sha256": "4aa3fdeafa52d05a68c35ec59da5b085a30c5db6f0daf1fb4e7f31d27870a1ad",
+      "candidates": [
+        {
+          "profile_index": 24,
+          "value_sha256": "f8f20f3ccd104e9ffa23ec6b1aba77a583ed8e07f4d7c104ac789d903a5978b2",
+          "similarity": 0.779661
+        },
+        {
+          "profile_index": 20,
+          "value_sha256": "294cde675e3773f2c406ad1475ab54386ff0f690512036cb23cf900fc5b1fe91",
+          "similarity": 0.138614
+        },
+        {
+          "profile_index": 21,
+          "value_sha256": "a4d9fa5094bc893bd3034833720251d4a4b4fe8ecd0673a36fe3798a5a762822",
+          "similarity": 0.134831
+        }
+      ],
+      "interpretation": "structural_similarity_only; review_required; no_auto_apply"
+    },
+    {
+      "patch_id": "pp-f3e6a8a79cba",
+      "field": "risk_triggers",
+      "approved_value_sha256": "489ce2404c6a11add2e39078c93d543cf93af4825884148354758010810e5b04",
+      "candidates": [
+        {
+          "profile_index": 11,
+          "value_sha256": "c13218f922077f55b712bd478b81f0ac5ad649235a742b6687f31042108dd41d",
+          "similarity": 0.769231
+        },
+        {
+          "profile_index": 40,
+          "value_sha256": "e64bd42370a80731747ac5ed312ebffdd147158c0fd1199d6f917481691fd6be",
+          "similarity": 0.164384
+        },
+        {
+          "profile_index": 21,
+          "value_sha256": "a4d9fa5094bc893bd3034833720251d4a4b4fe8ecd0673a36fe3798a5a762822",
+          "similarity": 0.16129
+        }
+      ],
+      "interpretation": "structural_similarity_only; review_required; no_auto_apply"
+    }
+  ],
+  "current_profile_assembly": {
+    "status": "PASS",
+    "scope": "current_patch_managed_field_values_only; not_approval_or_quality",
+    "values": 147,
+    "values_in_context": 147
+  },
+  "known_answer_exam": {
+    "passed": true,
+    "reason": "通过",
+    "known_answer": 2,
+    "edge_case": 1,
+    "scope": "existing_deterministic_suite_only; no_model_or_holdout",
+    "cases": [
+      {
+        "id": "ka-1",
+        "kind": "known_answer",
+        "passed": true,
+        "reason_count": 0,
+        "reason_sha256": []
+      },
+      {
+        "id": "ka-2",
+        "kind": "known_answer",
+        "passed": true,
+        "reason_count": 0,
+        "reason_sha256": []
+      },
+      {
+        "id": "ec-1",
+        "kind": "edge_case",
+        "passed": true,
+        "reason_count": 0,
+        "reason_sha256": []
+      }
+    ]
+  },
+  "offline_request_delivery": {
+    "status": "PASS",
+    "issues": [],
+    "scope": "fixed_frame_to_first_glm_provider_callback; no_api_router_tools_model_or_answer",
+    "probe_date": "2026-09-25",
+    "market_facts_supplied": false,
+    "modes": {
+      "single": {
+        "callback_count": 1,
+        "tool_count": 0,
+        "context_chars": 13449,
+        "context_sha256": "1159f0453fb67472c32fac3ed8f63363e59b9bc34237ac04492257436e355e6c",
+        "request_sha256": "c3de1dcdcfb9c48d5eb8907ed18c3712a3c4825b4112b10d87bcd6d38493b858",
+        "perspective_rule_present": true
+      },
+      "neutral": {
+        "callback_count": 1,
+        "tool_count": 0,
+        "context_chars": 0,
+        "context_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "request_sha256": "f5cb61974b6ac6789268333c7621f3e2e16e0b3ed6c92d1dc7d9a985c0074fe6",
+        "perspective_rule_present": false
+      }
+    }
+  },
+  "profile_values_without_patch_receipt": {
+    "opportunity_preferences": 17,
+    "risk_triggers": 14,
+    "anti_patterns": 11,
+    "falsification_style": 10
+  },
+  "snippets_in_context": 3,
+  "context_sha256": "1159f0453fb67472c32fac3ed8f63363e59b9bc34237ac04492257436e355e6c",
+  "neutral_excludes_approved_values": true,
+  "neutral_excludes_current_values": true,
+  "inputs_unchanged": true,
+  "input_sha256": {
+    "articles/fengyuan/manifest.jsonl": "48c8e9f93b6e4569952a369c518416c9db3309e184559070843b1b6d25666180",
+    "articles/fengyuan/raw/2026-06-16-三层选票框架-赛道水位-公司纯度-赔率位置.md": "c39a423b9ad8e0c3eda7b0d5339ab8af808562cf826fa57322d14b9e97044c25",
+    "articles/fengyuan/raw/2026-07-08-存储分析框架-按品类画成长-周期光谱.md": "c1f71e0166ba6f6120a88658d9ff4ccab70b6198f1535965420d3454e4a50236",
+    "articles/fengyuan/raw/2026-07-08-存储周期领先指标体系-Tier-1-3-五级预警框架.md": "17d67b110d3a2475cd7e33100eb71e6eeaf0786405b9513df90c576383c49732",
+    "articles/fengyuan/raw/2026-07-10-先头部队ATH突破-高潮而非起点.md": "56ff163cdf96e6d91e0f2d1bd1949ad34a26a5c530817093740015f879dfdf3c",
+    "articles/fengyuan/raw/2026-07-12-7-10暴跌-五类资金共振杀跌的经典案例.md": "19973e52f83ec620d3471511f9ac47831afed4759a07b6f1a86ea95a0a44e4f0",
+    "articles/fengyuan/raw/2026-07-12-存储周期领先-确认-滞后三级信号体系.md": "f684b37abbc953b09f15a5c35762a681bb6a20fb9952625eecb02986360abd9b",
+    "articles/fengyuan/raw/2026-07-12-本轮存储周期三大结构性保护-vs-2017-2018-价格崩塌.md": "5525e0171a7cfe8c82cb9cf99dc0a19de5cd17019d623945119d68c8b9930154",
+    "articles/fengyuan/raw/2026-07-12-风远94共享记忆卡-2026-07-12快照-优先审读组-R12-R27-R30-R35-R61-R65.md": "516facf902962635d073321b94feb98fe0b37ba56694646d08cc7584779af426",
+    "articles/fengyuan/raw/2026-07-12-风远94共享记忆卡-2026-07-12快照-新增组第二批-R13-R15-R16-R18-R19-R26-R38-R4.md": "e0178691c6470aee651f59222392ddd91a9aa0455a05e5e13375b95d6b38c72a",
+    "articles/fengyuan/raw/2026-07-12-风远94共享记忆卡-2026-07-12快照-部分覆盖组-台账建议进闭环的15张.md": "fbb8274447200cb4accc6944d4a02e6a952a271d2478c18bb4b4fa3b2b4f0837",
+    "articles/fengyuan/raw/2026-07-19-多周期共振烈度评估器-六周期叠加模型.md": "254c5e524f982f25b689360c4b20e18d2721a819733889b79ffb055605a087ce",
+    "articles/fengyuan/raw/2026-07-19-投机溢价剥离法-出清目标价的三参数模型.md": "1caee58ae914ca552b2db4bed787c036f59eb1525da4e510691d21527d05cb16",
+    "articles/fengyuan/raw/2026-07-19-资产定价底锚定法-五类产业锚的估值框架.md": "6d4e0963d6cc68bdbd61d41abea6fedf4862e4a8cf93867b73ae6b83def8a52e",
+    "articles/fengyuan/raw/2026-07-19-跨资产通用经验-热门票调整八大规律.md": "09c58db1657baeabceb0034085671e540a5942c18b7d6db8272b9773a6f920c0",
+    "articles/fengyuan/raw/2026-07-19-边缘地带头寸不可完美交易.md": "88c8eaf8d6560d1dc7dbff201ee0aa474904394c57560c69d86acf81191fd1b0",
+    "articles/fengyuan/raw/2026-08-05-下跌三因归因框架-逻辑证伪-vs-流动性挤压-vs-情绪错杀.md": "2605ab170f30b6b4e8fe18499873314e5064b4227a6f535d178d948a4381fb92",
+    "articles/fengyuan/raw/2026-08-08-反身性泡沫阶段判断的三变量验证框架.md": "7b827da26a9522248a6a49e347106f3399a428991e9fbe98df55f97ecc96201f",
+    "articles/fengyuan/raw/2026-08-08-风远94共享记忆卡-2026-08-08快照-B侧新增框架组-11条.md": "403ebdafaf791ecd14e2a740dcd3ca3bad7673e315b851e123760ff958d0ecbc",
+    "articles/fengyuan/raw/2026-08-28-五段第5段-水泥型-纯量只做波段仓.md": "8fbd6c3dae85285baf737613ab030e2b0888825ac6de9d64ba05da07ba866d46",
+    "articles/fengyuan/raw/2026-08-28-同链后半分层-SST-vs-HBM的四弹性变量比较.md": "1d3b8cd30cf1bdca4ee5c403392a87a650e3613d45fe8345772dfd354fb613fa",
+    "articles/fengyuan/raw/2026-08-28-框架谱系底部定位-停在段位与无可投标的留白.md": "f7bb7c0a9be8717fa10f2aed8658fa47f553cc095d4db1266905ff5bdea7001c",
+    "articles/fengyuan/raw/2026-08-28-资金映射0-4-5段-用观察量判别A-E谁主导.md": "e56dbab0a88b6477bb88fa8bb266522df5f010eeb1c5647ce5e9b96a026ee58d",
+    "articles/fengyuan/raw/2026-08-28-边缘地带五原则-上限-冻结与升回框架.md": "5a07f51329a64e7b09662feeef00823b99ae0bf2077933b1b6e92d72ae693db7",
+    "articles/fengyuan/raw/2026-08-28-退潮期竞价五模式-模式4全持仓联动与模式5停手默认.md": "73052e4b5668c910d6aa9d5aaa02d24288a50475a3b19469097956f3b23c9337",
+    "exam/fengyuan.json": "848337f6080670dc681e6f227bfa588fa2400d723e609db6f03a7925fb019f11",
+    "patches/fengyuan/pp-00eae36fbada.json": "db86c1a6b22228aaa583aee02483a5bc74261cb58d5c53032e5bab05a9ab70d8",
+    "patches/fengyuan/pp-01dd4c288983.json": "df64a00a3e2939021c93733c7944a6d220be053f524fb62d2b8b4dcedfe54b3e",
+    "patches/fengyuan/pp-01f7cb32f872.json": "1ce89b55829f4c951c297a96f57eef7e6a7c1bb5293ba9419ced9971521a0a35",
+    "patches/fengyuan/pp-02a227c1bb60.json": "992b25589ecf0be085c97d828bb308c9a1b07132144754ce207d00a9a1c79ec3",
+    "patches/fengyuan/pp-02ee8f8a80ea.json": "80dc078b581ff267cb13e4f2ee72fc358ad51ad3a2e855a2a3fa10db4a4f07be",
+    "patches/fengyuan/pp-04daeda05854.json": "20b4680c1d9cb697b3229f27a9a64ee3f4f90f7ba29910dd30dec34dcc824c4d",
+    "patches/fengyuan/pp-0707f95b992a.json": "a38ac74abd7d193ab7135e6ebbe5c99f0df9a43a6fd54c041c7b8e265df21cc6",
+    "patches/fengyuan/pp-08725289def1.json": "0db2034a4497588a704dbbd3ed53524b2ad1b431c5b5af1f8700b9ada2da1d20",
+    "patches/fengyuan/pp-09741d566f8a.json": "d9ae32acbb48b3c5d9a78033e2bd704281d62e0fec2154ad062d7cf35b094ffb",
+    "patches/fengyuan/pp-0c0247ed9b10.json": "2c03598adbfaa2804704bfccdade8c58a3fa66960a0dce449ed8b153d5056c67",
+    "patches/fengyuan/pp-0df9b717bdd3.json": "fe548ae6ec5253bf49a0355ae810ff49f46159661fe01cd16f449add98097603",
+    "patches/fengyuan/pp-0f30347014d2.json": "eecf0fe8fe42e76212bbaf82eca8b861a5c2b6700aea5bef4117a02b3f46dbbc",
+    "patches/fengyuan/pp-136b9acfc7e0.json": "7d2c65e37292b56055f995205eb0a0a601a465e01d97e2d4ffb70fa01b890c44",
+    "patches/fengyuan/pp-14407047aa76.json": "c98be6a1712b81ef3219b79242c766c02faf2f8b14090a4e950bfa7349e4bc76",
+    "patches/fengyuan/pp-161314e2da2e.json": "35515e6dde0cd0e9fcc8f88aa931aded97392dd3ca54094b074ca3824d2f57a8",
+    "patches/fengyuan/pp-16f956ef3e35.json": "c2dd1942f41aafd3aa76fb30986884017b3d08d9ed9950ff43cdf660f19711d5",
+    "patches/fengyuan/pp-178aa7155989.json": "95b083a3470b47c95ff027cab94e24de0eb2a431342f52a4912216b0c09c858d",
+    "patches/fengyuan/pp-1a31434f7207.json": "01a49190cfc7eed6a79d7f7abd2dd7f8481c9a18e0f43c22e82e4479fb39f58e",
+    "patches/fengyuan/pp-1a3600d69d4c.json": "58e2a825ea51982646f29632fbafd62705f2a46e51106dab6d160b3bf5e4fe45",
+    "patches/fengyuan/pp-1d08a07b0b43.json": "41cf416c6de86ecd905a088cefc1db63bb31d33587cd9f9775fb2d8db5226449",
+    "patches/fengyuan/pp-1de099affd14.json": "5808b47b0c19caaaf7b1e847f0dec55076c4dc8ac6bb3d8774716de53098e7d4",
+    "patches/fengyuan/pp-1f7cf9dd1fe4.json": "624a26a8df4da429dd4de5299a28d156313ef6dd0c673db2767062d7c0138134",
+    "patches/fengyuan/pp-1fe07eff658e.json": "c7abfca616f19e5f1caf17defc4fa29cd99675a54a11d4d8bdf4b839b1de48e7",
+    "patches/fengyuan/pp-2276762c11ee.json": "3641598ff3a8d6413382398925338994421ced5219d61c96db8e525c72d152e1",
+    "patches/fengyuan/pp-22e20e72ecd0.json": "2780514e76878019c719cbcf1b6846bcc8c62445f96c8f43a1b034fcee22b19c",
+    "patches/fengyuan/pp-22e371c02788.json": "ec96478e71b047824eee4b51dc694c1d5e8ba7f6f89c2d72427b3e7c619f0735",
+    "patches/fengyuan/pp-233c4c035700.json": "4683fce62c386140e594af20df4e4c69a563bd12d731ec4ecd173551fe38d851",
+    "patches/fengyuan/pp-2343bd836d54.json": "fac615d50be7fbac46310131677944694b95cb34aa3a7176d984b8c5e724d725",
+    "patches/fengyuan/pp-28ebb2b49a03.json": "f1c163e6b46c27021288339863238b94209c5bd781e8bf3919ddec362dc8f343",
+    "patches/fengyuan/pp-2997b3700cfc.json": "57aaa120549e7a96c81259e6a92969180689c8f7f2e1ec95f070683f9f194649",
+    "patches/fengyuan/pp-2b82e92db2dd.json": "a84aabb3dabbe284dd39591bfb924c90955440910389ee391a6aee949d57f75d",
+    "patches/fengyuan/pp-2bded40f84ab.json": "4d7473bbb55f9f571943bad1db59978a7f4e05683af55ccc9634ec159d86b778",
+    "patches/fengyuan/pp-2c95b55daa30.json": "fb53405319dc9196593648a18c84f0c04bb72b7ec7c8a39236fe15701d23fc1b",
+    "patches/fengyuan/pp-2daea2d8f8f5.json": "bfc2e88e71358cd6f6fe99bcd2cbc609fe242887486a5a6c6a8132b8bfc9ca60",
+    "patches/fengyuan/pp-2ed8e6330b54.json": "a6677f14af2c76477e222a445723cc278bb53f63edc916841ff914b996fd71da",
+    "patches/fengyuan/pp-3475c68f9308.json": "9fb5a692b9d98c640404d7a3a5d95e355e3925b423bf14a3fcbc4b09ff08535a",
+    "patches/fengyuan/pp-3487992ec79d.json": "ef121f25846ecb5b6f4153ff634518371badd9d1e7007412fa266f133f08ce12",
+    "patches/fengyuan/pp-35b0272a6ae4.json": "d6ce11ee8330b150e2ae2985d4d25ea4e5cb52de1882a80b1f9401fa264f4f9f",
+    "patches/fengyuan/pp-3600ac0adcac.json": "96db8de86d3a5dee66ccb65d43be0868dcf806004ef7182d481abe1fc7fa4101",
+    "patches/fengyuan/pp-3639f881d104.json": "b177c5951f64144bca716f7c82506e36b3419caebeb31299cfe7e917456f3adb",
+    "patches/fengyuan/pp-36942c82fddc.json": "07ef246e13b5b9d3bb7b0c6673a3f9c497bb4dbd01f92bd97dabe7671b4301f9",
+    "patches/fengyuan/pp-3d043a348af9.json": "d10a3e9274dae4e682aced25921e354334ef3b5c42e9320ce495627beb55be1d",
+    "patches/fengyuan/pp-3d374a57fa5b.json": "02e94f4d2e5ae8901515b927f7223bdd6fe8473f0d836a1ca283606113bafaf1",
+    "patches/fengyuan/pp-3da6c84987dc.json": "b832c88acb8bde535fcd0d3575c8ccab0999709cd8fb7197353e117399de0194",
+    "patches/fengyuan/pp-3e63479f44be.json": "d757a9ff2ce458808ddfcd191f021a1dbce2a444f6ae5f6c8fb8ec020446728c",
+    "patches/fengyuan/pp-3f3e5ac9b6a6.json": "d860e449152a33fd7388288e3a66033ceb2264a2b1a83db265823197d7fda0fa",
+    "patches/fengyuan/pp-40bb9fdd8f6f.json": "66cba2e546c7d0915cfb84a422a6f51622d624e07083e61c432fd62544d27163",
+    "patches/fengyuan/pp-42791bc78807.json": "9c4de28392b35fce89d7f99051c861cd9bdfdfe144063b624296c2cffd48379c",
+    "patches/fengyuan/pp-44686e92b329.json": "599265b55de403511a9f0bfef9c43f357164a43604b75a89072254dedbc83a24",
+    "patches/fengyuan/pp-4721abb762fe.json": "48e9a5dc2b39508787c63bfaffd3a82a83d7245a8e166db0c5dbd5fb8439cb94",
+    "patches/fengyuan/pp-481620abb1e0.json": "d0f08d16d99224e246998cf282f12e27b422c149c61e9eaf0dd236d2690dfb90",
+    "patches/fengyuan/pp-4a428c3ff262.json": "382b258d0bfb7dd88eb2d963abc853b6e8471acdf893e051a1e3197aae595be4",
+    "patches/fengyuan/pp-4a73966ad488.json": "9b9fa5730c052850c177d883adf1926faebc08cdd1b8af901167a7d74130d21f",
+    "patches/fengyuan/pp-4bcbd5e6ef81.json": "24aefeed17f87efe72311e599cfc55b4ea8e0a4702b9e20b2d1d0a9f9d82abdc",
+    "patches/fengyuan/pp-4d63621cf814.json": "8eaa435a7024aeec85cf3d28be054eb874f6fac1aca520f0cb5fb47aefb6750e",
+    "patches/fengyuan/pp-4d6b2f849b3d.json": "a83b2d4eb1e9c765214bd8ae7f0cb0ee4b89d5907a36b55ef898e74cf4880f5b",
+    "patches/fengyuan/pp-4ef6034cf7c5.json": "d93783ffc2044d05d44cc7ccc786bfe9a10225e6b3777bda439a88e14c460ac9",
+    "patches/fengyuan/pp-52c32c7eef9b.json": "983a3bf0ed739ce0b3484a72e738b77def233a14083178e2014841414a3cff9d",
+    "patches/fengyuan/pp-57a62e73db3f.json": "f3f6479b046ee49bf58b46de7a3c8c7c36327864f3788ad78686ddd68f67b31b",
+    "patches/fengyuan/pp-58fdd5cfbcbc.json": "8597140acd99fb0b9a516c42532a64ba3e0c0ba12009e9e15ec35e562fa05658",
+    "patches/fengyuan/pp-5960a2a20376.json": "6756c9851ea021ba92d33af249cde5abcd83f06d4e3e05484340dc32d04b566f",
+    "patches/fengyuan/pp-5cc2a391fe34.json": "070e9eaae28e9328de0f313dd3283240abe2f030038876f6ed6a212ee9a4dc0e",
+    "patches/fengyuan/pp-5cd4795dbc08.json": "d6755495318e0b741afc8aa049ac7f8ccc55dfb16bcaf979829b023515252725",
+    "patches/fengyuan/pp-5e0f8f936417.json": "4f038c5594c939da1f37123bc154997affd6c8c4b05b53d5a11545350b75e81c",
+    "patches/fengyuan/pp-61a10b8dd2d1.json": "8a21d24bb20690630536b9ed8d5c54bfb5d7a879d16f899f77ff77b0fc63fe17",
+    "patches/fengyuan/pp-61cc0ef56be6.json": "4d5c6ea992519c28cb404d4815cff8ef4709a8fa617bdd5d7adeedeafafe6cca",
+    "patches/fengyuan/pp-64277f69c427.json": "a5ce38f1c909677f4ad523bae24298beb9a28f878004c47957d1cd5c843ae874",
+    "patches/fengyuan/pp-649005b01853.json": "dffaf724074c329fd7ffc5f73116bc49efb2c8a4a9b27d79183a0aa8ccd68d02",
+    "patches/fengyuan/pp-65797a91f32f.json": "d34645f63090bea00b6a5e8436f7ef972c2b50edf0b10ac164318ad03967836b",
+    "patches/fengyuan/pp-6639de7ca6b7.json": "a8f5b796a017ff8c03f36707243de92cb935f2d7003e41f7a6d66d51b4fe564e",
+    "patches/fengyuan/pp-66f3c8f94d6d.json": "5476d18e4d80ba4c4d66b304e9e54a54cb17102123a08c05cad885791c6ba68c",
+    "patches/fengyuan/pp-670e35fae470.json": "6d50f83b5aeeb85d5f6ac72a251eaf105f865a9dd281e5004377ddd46b4c9388",
+    "patches/fengyuan/pp-683411aa1b08.json": "4266cb80070f83e794ba1cccb8a92446efd99840536dd2b70d9fc6255456dcc4",
+    "patches/fengyuan/pp-72bb64037d76.json": "46b446f42458fd469f8ab07245a61e0b627420e7802b69b51207088260d0c6d5",
+    "patches/fengyuan/pp-72d748a79336.json": "63e639eba81c29ba980e4766a56e8d4bb8fd8f96e7d2772b96c9ad424f5e47f4",
+    "patches/fengyuan/pp-732eaca91d85.json": "4ea5f9afbf9ac624e6ed1da58f32d1fd081ee3483635baa7af3aa60b9c33a709",
+    "patches/fengyuan/pp-73fa481118f8.json": "f013f8cab630cb11b86fb2e1f30d028ae446a0fe1c222005a78f68129916d0a3",
+    "patches/fengyuan/pp-7574978407b8.json": "11ef1842d09cd0a4f811d8a6fa5fa84684a08188a4bd3cc713475287f2be6352",
+    "patches/fengyuan/pp-772d9aa82464.json": "1cb9f1dfc47519b18daeb592e8c58a43dd7a80d5aa2c1d76d37be200c881f0d6",
+    "patches/fengyuan/pp-773cbd2959ac.json": "3ac86696b1032701a2e8f09cd32f9b320e514fb541e5af80685866b27c674101",
+    "patches/fengyuan/pp-7f84d762596f.json": "b65e08edf7526ce6cfd83904843451a5e60dea91e2a07341c55856e11f6db534",
+    "patches/fengyuan/pp-7f881d72a3b6.json": "d5f44dc86e36ad110b726a3502ff2f5153e97e18edcc4d5b004353c4f06ab54c",
+    "patches/fengyuan/pp-823e5d1beb6b.json": "8b30d264a9ae666bec5168f558e484005eaa0bc52ce14a5eae5a741483fe4465",
+    "patches/fengyuan/pp-83a36807a0ed.json": "789f968d16f5d4fe6d23a7ad2838c0cddf26d5a67649512af0ebc0d65235473b",
+    "patches/fengyuan/pp-85c385eddafe.json": "82041ff4081b4d059b3fbaff83a9a136af54686372a7f8895b7820a8144766ee",
+    "patches/fengyuan/pp-8700bb69b02d.json": "ba8be3adc86dd829564d63523e04276feca6b61157e54f64c80777adffc7fb69",
+    "patches/fengyuan/pp-8704bb52504f.json": "9be7f5f263b997aaf9adc390f00d5b8e74466435525dc241cd0f6c97b9c32b00",
+    "patches/fengyuan/pp-8bf4281fed33.json": "784f68ab0f5224a9d6f4df13599775ca37af3ef8378b7651e17d683740ba1b4a",
+    "patches/fengyuan/pp-8f2808edae8a.json": "4fcd2d66d81e77471c5086b8c5a409082006e2263bcfeddc200af63d52cf71a3",
+    "patches/fengyuan/pp-941f58aa0c48.json": "811f77e7c9e6abf5dc805a9acdf4a6eeb51cecc4fa111995eeb34172eef2b6f0",
+    "patches/fengyuan/pp-94d5aed48a6e.json": "274e99f87a671add1c381681c1f3ddabd74955fb463e720316bbca5e3d7b839e",
+    "patches/fengyuan/pp-95556f6888d2.json": "bf8ac67195b1c172bc677fbfbd9dbce549724f485cb4b77f459f047eeefe97ab",
+    "patches/fengyuan/pp-955a065050b6.json": "3d85cc2acf2254989d35d22bc541f213146cc450fb4fe60665354d6b02c523ce",
+    "patches/fengyuan/pp-96dd6c16d908.json": "3668eae4a1ea0657f59c3492db8a51a9f87ad2c1ed8ef9da0221eaff8973192b",
+    "patches/fengyuan/pp-97df757fc018.json": "f1eafda255587d5a1c68fc211ac405704f870e7a15a0d3230b5ae24cda47130b",
+    "patches/fengyuan/pp-99071bd7de2c.json": "bdb98818ce35e169050b45da271419ff213a5a23070d852f0506889d94eefa66",
+    "patches/fengyuan/pp-9982d6e6882a.json": "144a5138d40a504fca813843ef84967f14ab1caef7cbc283a46a47de1383bfc5",
+    "patches/fengyuan/pp-9d95836625cc.json": "e7d798946bea78fc8785450113f78dad9735adaa588773894ad1d9690c0b93b9",
+    "patches/fengyuan/pp-a08b3d783c44.json": "9090f67d928dfa2e8cede9ff0ad870cf47b6100863a13704dd8ac886f40609ff",
+    "patches/fengyuan/pp-a1d14344fba3.json": "9e6200b1911b4d85a6fa670dca48610a9734c07b882922679f0faf535934e270",
+    "patches/fengyuan/pp-a8212b820a49.json": "a7e2eb7b14aa26e9a538548886be5bb57eea0bc19cf22cdf8fbb80f0610d2ef0",
+    "patches/fengyuan/pp-a82deaa71d79.json": "9921ef494d9709312d5baeba014515cd4533a36ba403aff6ce034ba0f002c7fb",
+    "patches/fengyuan/pp-a98c0d8acba2.json": "1ab3d1240aedd838fa9487ba1d3e667bce07ab0dd55adf5ecdbf046d47af09d4",
+    "patches/fengyuan/pp-ab74ad97c659.json": "bda0601692791b5c07ec6200829df5532a7129b78608507dab1e5c3a20a9cae6",
+    "patches/fengyuan/pp-ac6593a6334d.json": "ee688424ce4b2f8e1e7c985de818812ebc68dd787c3d1678ac3c9d64e7017222",
+    "patches/fengyuan/pp-ac7c2eb25238.json": "a77514a9d05aa28ce55f0287fcb1181b2ec6624b632687e58bfe5a3ede1611d9",
+    "patches/fengyuan/pp-acff9279ee9a.json": "6bdcfe9493703e2fd0580d198036bf18e397cecdaa04221df6df51a553565181",
+    "patches/fengyuan/pp-b4a3283ffd66.json": "e099a4c9f6db978b96692e2af53342ff04daf6cd4a63dcfa432c1b07db114bdf",
+    "patches/fengyuan/pp-b7981041b9d1.json": "b99d7d8f7ff31c8d77997e27d62190f26e0080bbb25e767eeea0dbda6d4f6673",
+    "patches/fengyuan/pp-b7a5a0a35b78.json": "1e9f92df0ca056bd9adaace3306ccb6ab35926e034ea2a55149ae86e40665fb9",
+    "patches/fengyuan/pp-b89f115a0e3a.json": "347b0608e0439e2b2b76884b9b4e78fab6cdca170e79494889f14429a500145e",
+    "patches/fengyuan/pp-ba416d111181.json": "05116436a9adaa5bf85a31f679ed44c56444608ab91fcf5870e6d933527563da",
+    "patches/fengyuan/pp-ba94ca50899c.json": "00b669667e0acb2496746e70df5db2a094b2e133354e6b7f9989312975b77d4d",
+    "patches/fengyuan/pp-bcace30ac06c.json": "fa6f3da143e27747d298d043d53ed8c9e00270e9115fba0b0d0250ca8ebe2e38",
+    "patches/fengyuan/pp-bcaed8dc7640.json": "32ac0ed4e8c1f7e50895dfde0afd5686389b4507e680ed47e30bff2cc62d37a1",
+    "patches/fengyuan/pp-bd8a19bf9e23.json": "d84e8742d44bf2ff2700dc218c69854bdf7badc4c3c7b271c277e47cbcb10878",
+    "patches/fengyuan/pp-c0bb0fae708e.json": "006be492c2807f458763d6e3dc1b863c9770e378c7f4acfe74eb2a328a9f4955",
+    "patches/fengyuan/pp-c19f122e2f75.json": "e9833663d6fa3c3e3e60a8cc922a912bca36d64bfd99cbbe0a8390c60554b334",
+    "patches/fengyuan/pp-c233f6b4dbb4.json": "c2a7e648dcf71d27e7496c413aab878a584c769063e7c6bc1dd06b6e53e78614",
+    "patches/fengyuan/pp-c3a58971ae37.json": "cc5fa3d926211ba6f0b3e9c382f5b0e22d213ddb9c12e367e0f4fb0e4878c4d1",
+    "patches/fengyuan/pp-c573dadd61d3.json": "b28adb0f321e06107e6aebbf138ce715af8a171857dfab5a8c1798e36d8c3ef0",
+    "patches/fengyuan/pp-c6b8bfaabfa7.json": "0f5dd8cd9670e26895fdeffed2e2e21e5a4b215ed6028dbe1b54837b78f54899",
+    "patches/fengyuan/pp-c7d269560d42.json": "4892ed8765d04f9fc2b714da45b6bb97944bc7a324fdb6983e8208612063ae32",
+    "patches/fengyuan/pp-ca9b96a924a4.json": "d3fa57279311e072ec70d662f6ceb756ceb205566d224e4797a6ac92e2ada723",
+    "patches/fengyuan/pp-cb003f3d4a87.json": "3d8ffb3703f31ab204a7377d01bdfc60d8b8454a8f83043a38fc342a4a16f6f2",
+    "patches/fengyuan/pp-cb1aef6f2a95.json": "57d98dd7125e332dc1c3bab99b35fa55290111e6c0f1b207e243f203d8712566",
+    "patches/fengyuan/pp-ce0f63b902d9.json": "88158dd99ba49df9adf4b8c3a5a325d1274279de229dfc73acd0f8e698febcad",
+    "patches/fengyuan/pp-ce15d8148417.json": "ce5503380717f76b1eef397794cd58dffc45ef316d748925170e29a1e34fefa3",
+    "patches/fengyuan/pp-ce73a9727f7a.json": "bbd8bc8c702a6880169a416371d80c776482ead3447221dfc8204cb28ea3a160",
+    "patches/fengyuan/pp-cf1364eaaa29.json": "5d9be874b9fa880a5a2ea9f5b1303c7b67b2d85332038204f52a8679dd870cd7",
+    "patches/fengyuan/pp-d520207ffa4b.json": "f4ef670de4083a332341f83c10637c3be9defb4dde73ce0e7830775998ef5223",
+    "patches/fengyuan/pp-d5bd29548268.json": "eec06eb3fc04ae4eafecf084d11c0143cb2e732ec5f4a1688ae2a0ebd9622337",
+    "patches/fengyuan/pp-d8b7301e99da.json": "cf4d3156ee45299a83c8670458edc2064cd7a0384571459809b0f84192c80e6e",
+    "patches/fengyuan/pp-d9ec537b185f.json": "58dff2aad11d71481354523f3bec69e9bbb40a404ee6e809031b9c688b360478",
+    "patches/fengyuan/pp-dace3615f9c4.json": "d65b3db0c1a9392b720544b56e2b178cb7409421fca5194860f136ecbbff68c6",
+    "patches/fengyuan/pp-dd5c8af02cf0.json": "0a667903b21d81f9f82897f95584fc078b2e302423921a29200c2f58cae46dee",
+    "patches/fengyuan/pp-e06764886b6d.json": "f56c5c52d8ab4988e592a58b33708c3d29f09de06d404bfde8637df7bbdbe008",
+    "patches/fengyuan/pp-e09cc59702d0.json": "4915a536a5ff8b6b68bc591156248d1440852b5f0c0087cae6389d8c614a9d34",
+    "patches/fengyuan/pp-e0a2fd3f8097.json": "a9bb9c3f1d5790a737434006f0943ed6545bdd24411bd49e8f53a5d654364e38",
+    "patches/fengyuan/pp-e1b8a83d8993.json": "443b5e95cfdfc19dc1d5c27d33fd05045f4e4c97b349b1b4337deb8f703009de",
+    "patches/fengyuan/pp-e2cd684731c5.json": "1b2d3390d85fe0b02ee23232e4fc2c8f275bbf99fd98bed1bded4dc664f58d8a",
+    "patches/fengyuan/pp-e3cc57aec091.json": "683e2710f643fbe6199209ef54e6903a85a2384f2c880f0406a6d3b42ed25fcf",
+    "patches/fengyuan/pp-e5658ba499fb.json": "099d8b2c4078e699a0654c867a50071757f4fb536e9cea60707e2e3e336af580",
+    "patches/fengyuan/pp-e7dc8dbf0854.json": "2668d1cb98980d3b5ef0db57e961708f15cf692e4eb82cb7bc057f4e8dda2559",
+    "patches/fengyuan/pp-e99a0043777e.json": "ab27a85ec5752eea2627432c01f7c36046510c7ef013b3b830df5c6af10880f4",
+    "patches/fengyuan/pp-ecc29109ecc1.json": "8f2aff6b7a6221f76e42987d39364d741eeb0a7ed3d834eec6d53b718fe99be3",
+    "patches/fengyuan/pp-ed08bb80e846.json": "f739a8f4f1c5cc4e4e207719dfd7efae2791d4826d533c19364aa10453b3c92c",
+    "patches/fengyuan/pp-ed366d8b7d63.json": "d46ff9364c4bb8cc4c75a10ebc249d1359917dd0e8dc8f4619fe4a1101722807",
+    "patches/fengyuan/pp-efaf307130fe.json": "ea635878ac1f02b31d213f2fea89df5493b6e03580967093048a067523c28c70",
+    "patches/fengyuan/pp-f1549d439c69.json": "713cbcff0f6e123e9888505df6e3bcdaa1546673db686e8d513597239f4c6ca3",
+    "patches/fengyuan/pp-f235d401bd75.json": "d7415c9e44dc449790ed3153fbf9bd82f9f81bdc146a800fdbf72d4d26a1a4cc",
+    "patches/fengyuan/pp-f3e6a8a79cba.json": "f161b56232ab0de738f6ac59011ca90658af95435e0d0053142d9448c5bf2707",
+    "patches/fengyuan/pp-f3fdb5827521.json": "0b709852bc2eb411e44c232156768889a0386c4050179982c704de2d4d97654a",
+    "patches/fengyuan/pp-f5be5cc03fe6.json": "89793ad524619da266602c7a7299009af30bfbeff15c759a981225915a61418f",
+    "patches/fengyuan/pp-f6535a9a4ee6.json": "ea2047f9537343534ae74c136f383d39be639a6ee408b1aae4506f4355326eed",
+    "patches/fengyuan/pp-fc96b231815f.json": "f0d802c5441748a404fb21cb8cd7a25b69389a23c214fcd4744aa3bead4e1370",
+    "patches/fengyuan/pp-ff30b20cbf4c.json": "5be429146c69fa73b243ac8f2226502ad3d30dee8416070bc99143226c55ecc8",
+    "profiles/fengyuan.json": "9600cc38038ec64aef8ccb975f51668c90c6f293ef582d2e15a12853fc21eba9"
+  },
+  "code_sha256": {
+    "intelligence/services/perspective_lab.py": "c2aa873d5888d0ec969c9b5f8226c3bf2a1684ec081be03a233b364614fad1d9",
+    "intelligence/services/perspective_learning.py": "2832c8f6977e2820af8b563df07355d59577ea943917637eddd95629faab0226",
+    "intelligence/userspace.py": "df57e54eb785780b645f335d8bf6b77a334fc9e1d5e35b80c711ae1d1b6f99a8",
+    "intelligence/services/perspective_exam.py": "cd3c40ee5de008fff4faa4bbf0bcb48507ed676853cbd4882faace47fb28550e",
+    "scripts/perspective_request_capture.py": "fc7c4faa3c24e6b24530d69d309bb22ae960dc3c46981055440d12692f7b7ab5",
+    "intelligence/runtime/turn_control_core.py": "87a439f6620b727f7e70e13b5eeae78c40f0e8889156bc8234d37a02d5693ce8",
+    "intelligence/runtime/continuous_turn_adapter.py": "ad79641f322df6b7b807abfe2bcd9e88bb23a2700ca5727c921f7486afae5b2a",
+    "intelligence/runtime/glm_agent_runtime.py": "fc2ed6dd316322147e5e29f9d3cf28e87b4cf8c2e3c4ec7c04d45f747b66840c",
+    "intelligence/runtime/agent_episode.py": "e65902af4f5c606c4dce666fe2bcfd92eca249d3d2f24b3879b5b08136d5bb62",
+    "intelligence/services/episode_factory.py": "9e13a396c04755c985c6a5f73ea3f192de9063ac42064c554afea2065fdce499",
+    "intelligence/services/episode_protocol.py": "3e8477ff109ec2fe4bd12c9d7e53f122a1c3502ebe17a301d8e0814a18b00e40",
+    "intelligence/services/research_harness.py": "d66154d211bed7a9a86be81de94c4827ea701ac3698a8db935f0b20914d44c23"
+  },
+  "unverified": [
+    "manual_framework_fields",
+    "profile_values_without_patch_receipt",
+    "human_review_authority",
+    "api_routing_and_session_selection",
+    "model_consumption",
+    "answer_quality",
+    "historical_cutoff"
+  ],
+  "audit_revision": "507872eed5e86cec1b89947bb435f7dcca403f4d",
+  "audit_script_sha256": "3e25f7286ed4fc448badff3eca7e5a54fab18e20a4b449ad7fa41d0921301e53"
+}
