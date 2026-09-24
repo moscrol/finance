@@ -35,9 +35,11 @@ SOURCE_TOOL = "chain_source_lookup"
 SOURCE_HASH = "chain-source-hash"
 
 
-@pytest.fixture(autouse=True)
-def _fixed_policy(monkeypatch):
+@pytest.fixture(autouse=True, params=["off", "on"])
+def _fixed_policy(monkeypatch, request):
     for key, value in {
+        "WORKBENCH_ADAPTIVE_RESEARCH": request.param,
+        "FORESIGHT_STRICT_DERIVATION": "1",
         "WORKBENCH_RESEARCH_PROGRESS": "on",
         "WORKBENCH_RESEARCH_STALL_FINALIZE_BATCHES": "0",
         "WORKBENCH_TOOL_MENU_HIDE": "off",
@@ -45,6 +47,7 @@ def _fixed_policy(monkeypatch):
         "ASK_EPISODE_BUDGET_STATUS": "on",
     }.items():
         monkeypatch.setenv(key, value)
+    return request.param
 
 
 class ObservingClient:
@@ -57,6 +60,7 @@ class ObservingClient:
         self.observations: list[dict] = []
         self.menus: list[set[str]] = []
         self.finishes: list[dict] = []
+        self.checkpoints: list[dict] = []
         self.calls = 0
 
     def complete(self, *, messages, tools, timeout):
@@ -64,21 +68,47 @@ class ObservingClient:
         assert timeout > 0
         assert self.calls <= 6, "research chain did not terminate"
         self.menus.append({tool["function"]["name"] for tool in tools})
-        if not tools:
-            return ModelTurn(json.dumps(partial_finish(gap="Research window closed")), ())
         observations = [json.loads(m["content"]) for m in messages if m["role"] == "tool"]
+        if not tools:
+            try:
+                instruction = json.loads(messages[-1]["content"])
+            except ValueError:
+                instruction = {}
+            # A no-tool checkpoint still permits planning; finalization does not.
+            if "plan_revision_constraints" in instruction:
+                assert instruction["plan_revision_constraints"] is None
+                latest = observations[-1]
+                self.checkpoints.append(latest)
+                query = self._next_query(latest)
+                plan = {
+                    "kind": "PLAN",
+                    "task_summary": "Follow the observed source lead",
+                    "answer_elements": ["direct_assessment"],
+                    "hypotheses": ["The follow-up source may change the assessment"],
+                    "evidence_needs": [query],
+                    "candidate_actions": [query],
+                    "open_gaps": ["The follow-up source has not been checked"],
+                    "requested_mode": "deep",
+                    "revision": 1,
+                    "perspectives": [{
+                        "perspective_id": "source-followup",
+                        "question": "What does the follow-up source establish?",
+                        "status": "open",
+                        "supporting_evidence": latest.get("evidence_ids", []),
+                        "contradicting_evidence": [],
+                        "assessment": "Source contents remain unverified",
+                        "next_check": query,
+                    }],
+                }
+                return ModelTurn(json.dumps(plan), ())
+            return ModelTurn(json.dumps(partial_finish(gap="Research window closed")), ())
         if not observations:
             assert self.calls == 1, "tool observation was lost between model turns"
             return self._call(self.first_tool, "initial lead")
         latest = observations[-1]
         self.observations.append(latest)
         if latest["tool"] != SOURCE_TOOL:
-            if latest.get("ok") is False:
-                query = f"recover:{latest['error']}"
-            elif not latest.get("evidence_ids"):
-                query = "recover:empty"
-            else:
-                query = json.loads(latest["observation"])["next_query"]
+            query = self._next_query(latest)
             if self.before_followup:
                 self.before_followup()
             return self._call(SOURCE_TOOL, query)
@@ -89,6 +119,14 @@ class ObservingClient:
         finish = completed_finish(draft="The retrieved source supports the assessment.", evidence_hashes=refs)
         self.finishes.append(finish)
         return ModelTurn(json.dumps(finish), ())
+
+    @staticmethod
+    def _next_query(observation):
+        if observation.get("ok") is False:
+            return f"recover:{observation['error']}"
+        if not observation.get("evidence_ids"):
+            return "recover:empty"
+        return json.loads(observation["observation"])["next_query"]
 
     def _call(self, name, query):
         return ModelTurn("", (ModelToolCall(f"chain-{self.calls}", name, {"query": query}),))
@@ -101,6 +139,7 @@ def _run_chain(
     client=None,
     root_calls=4,
     cancel=None,
+    research_tier="quick",
 ) -> tuple[AgentOutcome, ObservingClient, list[tuple[str, str]]]:
     executed: list[tuple[str, str]] = []
 
@@ -155,6 +194,11 @@ def _run_chain(
             hard_seconds_cap=60.0,
         ),
     )
+    context = replace(
+        context,
+        contract=replace(context.contract, research_tier=research_tier),
+        policy=replace(context.policy, tier=research_tier),
+    )
     client = client or ObservingClient()
     runtime = GLMAgentRuntime(client=client, is_cancelled=cancel)
     session = runtime.start(frame, context=context, registry=registry)
@@ -164,12 +208,12 @@ def _run_chain(
         session.close()
 
 
-def _assert_delivered(outcome, executed, expected_query):
+def _assert_delivered(outcome, executed, expected_query, *, llm_calls=3):
     assert executed == [(LEAD_TOOL, "initial lead"), (SOURCE_TOOL, expected_query)]
     assert outcome.status == "completed"
     assert outcome.stop_reason == "model_finish"
     assert outcome.usage.tool_calls == 2
-    assert outcome.usage.llm_calls == 3
+    assert outcome.usage.llm_calls == llm_calls
     assert outcome.usage.invalid_actions == 0
     assert_no_dangling_bindings(outcome)
     assert outcome.bindings[0].evidence_hashes == (SOURCE_HASH,)
@@ -197,6 +241,28 @@ def test_local_failure_returns_to_model_and_allows_alternate_tool(failure, error
     assert {e.content_hash for e in outcome.evidence} == {SOURCE_HASH}
 
 
+@pytest.mark.parametrize("lead,failure,expected_query", [
+    ("source-A:2024", "", "source-A:2024"),
+    ("source-B:2025", "", "source-B:2025"),
+    ("unused", "empty", "recover:empty"),
+    ("unused", "exception", "recover:tool_exception"),
+])
+def test_deep_checkpoint_preserves_observation_driven_followup(_fixed_policy, lead, failure, expected_query):
+    outcome, client, executed = _run_chain(lead=lead, failure=failure, research_tier="deep")
+    enabled = _fixed_policy == "on"
+    _assert_delivered(outcome, executed, expected_query, llm_calls=4 if enabled else 3)
+    assert len(client.checkpoints) == int(enabled)
+    assert [bool(menu) for menu in client.menus] == ([True, False, True, True] if enabled else [True] * 3)
+    assert all(FORBIDDEN_TOOL not in menu for menu in client.menus)
+    if enabled:
+        assert outcome.plan.perspectives[0].next_check == expected_query
+        progress = client.observations[-1]["runtime_budget"]["research_progress"]["adaptive_research"]
+        assert progress["plan_revision"] == 1
+        assert progress["unknown_evidence_ids_at_submission"] == []
+    else:
+        assert outcome.plan is None
+
+
 def test_unauthorized_attempt_is_visible_but_does_not_prevent_later_research():
     outcome, client, executed = _run_chain(client=ObservingClient(first_tool=FORBIDDEN_TOOL))
     assert executed == [(SOURCE_TOOL, "recover:unknown_or_unauthorized_tool")]
@@ -217,8 +283,11 @@ def test_fluent_finish_with_invented_reference_cannot_ship():
     assert all(MISSING_EVIDENCE_HASH not in b.evidence_hashes for b in outcome.bindings)
 
 
-def test_exhausted_root_budget_stops_chain_without_discarding_prior_evidence():
-    outcome, client, executed = _run_chain(root_calls=1)
+@pytest.mark.parametrize("research_tier", ["quick", "deep"])
+def test_exhausted_root_budget_stops_chain_without_discarding_prior_evidence(research_tier):
+    outcome, client, executed = _run_chain(root_calls=1, research_tier=research_tier)
+    assert client.checkpoints == []
+    assert outcome.plan is None
     assert executed == [(LEAD_TOOL, "initial lead")]
     assert client.menus[-1] == set()
     assert outcome.status == "partial"
@@ -227,10 +296,11 @@ def test_exhausted_root_budget_stops_chain_without_discarding_prior_evidence():
     assert any(event.kind == "finalization" for event in outcome.events)
 
 
-def test_cancel_after_observation_fences_the_followup_before_runner():
+@pytest.mark.parametrize("research_tier", ["quick", "deep"])
+def test_cancel_after_observation_fences_the_followup_before_runner(research_tier):
     cancel = CancelSignal()
     client = ObservingClient(before_followup=lambda: cancel.request("user", "test follow-up fence"))
-    outcome, client, executed = _run_chain(client=client, cancel=cancel)
+    outcome, client, executed = _run_chain(client=client, cancel=cancel, research_tier=research_tier)
     assert client.observations, "cancel must arrive after an actual observation"
     assert executed == [(LEAD_TOOL, "initial lead")]
     assert outcome.stop_reason == "cancelled"
@@ -287,4 +357,4 @@ def test_oracle_detects_fabricated_reference_laundering(monkeypatch):
 def test_oracle_detects_unaccounted_tool_budget(monkeypatch):
     monkeypatch.setattr(InMemoryRootBudgetLedger, "consume_call", lambda self, seconds: None)
     with pytest.raises(AssertionError):
-        test_exhausted_root_budget_stops_chain_without_discarding_prior_evidence()
+        test_exhausted_root_budget_stops_chain_without_discarding_prior_evidence("quick")
