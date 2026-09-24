@@ -1,32 +1,24 @@
 # 在途：输入与底座验收
-
 ## 这个分支做什么
-阶段A基线与B离线前置，不是生产恢复单。规格：`docs/superpowers/specs/2026-09-24-architecture-input-foundation-audit-spec.md`。
-
+阶段A基线与B离线前置，不是生产恢复。母规格：`docs/superpowers/specs/2026-09-24-architecture-input-foundation-audit-spec.md`。
 ## 决策与被否方案
-- 未知不归零；票据/装配/请求送达/采用质量分报。
-- 晨汇固定KB、临时标签；否碰脏源/换生产库。
-- 风远剥数/改措辞有旧记录；否自动恢复或相似度代批。
-- SPT从原文拟题先冻结后预演；否画像反推金标、复制画像句刷绿或自动入卷。即使模拟全过仍BLOCKED。
-- 决策：`docs/handoffs/2026-09-25-spt-exam-proposal-decisions.md`，前篇同日perspective-delivery。
-
+- 用户「按照最优方案推进」委托agent采用原SPT三题候选标准；不再重复问实现细节，不冒充逐题签字或生产写入批准。
+- 单规则值哈希绑定条件合同；否全局宽松分词/改题求绿，防前提与否定丢失。合同坏了拒绝，不回退旧匹配。
+- 票据/装配/请求送达/实际采用分报；模拟全过仍BLOCKED。风远旧值不自动恢复。
+- 展开：`docs/handoffs/2026-09-25-spt-signal-contract-decisions.md`；合同规格同日perspective-signal-contract。
 ## 当前状态
-A实现6e6a2eac2；请求检查507872eed；SPT草案/预演4dece383e、证据88ddfa5b0已提交。未推送/PR/合main/部署。
-SPT三题待用户逐项确认：风险PASS、机会none/FAIL、边题未弃权/FAIL；内存加拟议边界后边题PASS。机会规则已有approved pp-ed109ca9f818，缺在字面触发，不是规则丢失。正式考卷仍缺、画像未改。
-09-25 00:29就绪曾多报rag_query_protocol，00:32复查该项通过但仍HTTP503/market_data_consistency=false；前次原因未知。行情/Workbench原owner仍数据HOLD。
-风远147/147、SPT92/92装配且完整上下文到首次GLM请求；风远历史95/105，十条替代关系、余42条及人工原授权仍待追溯。
-
+实现/候选cd2116dbe、证据3567476a3已提交；后继仅交接。未push/PR/合main/部署。
+SPT原画像1/3；仅内存边界2/3；内存合同+边界3/3。原题/画像/原文/patch均未变，正式卷仍缺、真实边界仍空。绑定已有approved pp-ed109ca9f818，不移签新增合同。
+09-25 01:09只读就绪仍503/market_data_consistency=false；检索协议本次通过，00:29失败原因仍未知。邻接owner仍数据HOLD。
+风远147/147、SPT92/92装配且首次GLM请求送达；风远历史95/105，十条替代关系、余42条及人工原授权待追溯。
 ## 未验证 / 已知边界
-未调新模型、写用户目录、补生产/换库/部署/建索引/恢复采集。草案不是金标、不是未见题；预演非模型质量。固定框架不签API/路由/续轮。旧SPT run有署名但无完整输入、判官partial。509P是定向回归，不是全量发布门禁。
-
+未写用户态/补生产/换库/建索引/恢复采集，未调用新模型。规则合同非通用语义；同句多主体、指代、隐含否定/时间转换未解决，未配置规则保留旧限制。候选3/3不签泛化、模型质量、续轮或正式验收。未跑全量发布门禁。
 ## 下一步
-1. 读 `docs/verification/2026-09-25-spt-exam-proposal/README.md` 的三项确认页；用户先确认立场与边界，再由owner处理机会题评分合同，不把期望改none求绿。
-2. 视角owner补风远修订/审批；Q-002 #12-#30已在docs/fengyuan-distill-0916，不重建。
-3. #61及发布owner闭合行情身份/字段/日期，KB/#87发布固定正文/投影/标签；复查检索不稳定，不自归因。
-4. 前置/预算闭合后按#76验真入口，再做阶段C/D。合入需新候选、完整门禁、用户确认。
-
+1. 独立核对候选合同与原文，再按既有批准流程决定画像/正式卷应用。不能拿3/3代审批。
+2. 原视角owner补风远修订来源；Q-002 #12-#30在docs/fengyuan-distill-0916，不重建。
+3. 行情/KB/发布owner闭合日期/身份/范围/字段与索引；前置齐后按#76分验Workbench Episode和CLI，再做阶段C/D。
+4. 合入前重核最新主干、冻结候选、完整门禁及用户确认。
 ## 已验证
-88ddfa5b0干净509P/0F/0S、dirty=false，收据在本轮目录clean-targeted-receipt.json。22个新增预演保护；Ruff/提交钩子过。输入前后未变。风远旧考卷2+1过；SPT总验收仍BLOCKED。
-
+cd2116dbee1d249a779500a22a63b73b7fa74a22干净定向597P/0F/0S，无筛选16文件；三次进程内撤保护7F/5F/15F，恢复597P。Ruff/提交钩子通过。收据：`docs/verification/2026-09-25-spt-signal-contract/`。
 ## 踩过的坑
-none不是弃权；规则存在不等于词面匹配触发。先固定草案再评分，防结果倒灌题目。构造器默认函数要patch实例；考卷存在性须最后终检。首readiness仅终端摘要，勿补造HTTP码。工具归scripts，无第二审批器。
+none不是弃权；source patch evidence才是原文ID来源，不是诊断摘要的article_ids。代码存在/请求送达/确定性题通过都不等于模型理解。旧收据不移签后继SHA。
