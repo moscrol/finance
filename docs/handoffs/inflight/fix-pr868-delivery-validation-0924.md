@@ -1,29 +1,27 @@
 # fix/pr868-delivery-validation-0924
 
 ## 这个分支做什么
-在deliver_stage接受前核探针路径，让审查者在原阶段剩余预算内修正；不改产品循环或封存批。
+#910：交付前核探针路径、原预算内纠错；补审查沙箱作者测试准入，不改产品循环。
 
 ## 决策与被否方案
-从#906的4e0ca6373延伸，否重复complete修补。即时拒收加原退出检查，否宿主代补路径/额外请求/重开封存批。临时测试独占随机端口，不停别人审查。背景见`../2026-09-24-pr868-delivery-validation.md`。
+显式绑定Python，不开放.git/绕过依赖门。只补目录metadata，保留正文/网络/Keychain限制。收集与执行、作者与独审分账，不改封存原件。理由与失败记录见`../2026-09-25-pr868-sandbox-author-admission.md`；原路径修补见09-24快照。
 
 ## 当前状态
-独立树`~/fwp-wt-pr868-delivery-validation-0924`已推gitea并开#910/WIP；实现4bda6613e、隔离测试3e8ea5b64。#906已由owner合入#868，本PR已改base=feat/adaptive-research-loop；相对f261预演无冲突。未合main/部署，未改原owner树。
-#868作者已前向f2610293f并开始工程验证。2105封存批仍spec有保留通过/C3C7未验、quality路径阻塞、213/244；20260925-next只观察到准备脚本，无STATE/授权，本会话未执行。
-研究链交付另见#911与`~/fwp-wt-pi-research/docs/handoffs/2026-09-25-pi-research-forward-delivery.md`。评论#906/6854、#868/6857已通知owner。
+独立树`~/fwp-wt-pr868-delivery-validation-0924`；WIP #910，base=feat/adaptive-research-loop。已前向owner 89624eac7（merge 80a84801c）；代码提交/受测ff62eeeb5cbb27f4198202278298f7296f89a89c。未改owner树、未合main/部署。#911是另一研究链交付，未纳入本次测试。
+next批已结束，host-audit记281/291：spec原件CHANGES_REQUIRED，C3/C5/C7未验；quality PASS_WITH_LIMITS，C1/C3/C6/C7未验。findings为空不撤销补验；本轮付费模型0。
 
 ## 未验证 / 已知边界
-只验协议，不证明自然模型纠错/研究质量。未跑本枝全仓/前端门禁、独审、L6或8792 HTTP。
-prepare保留历史候选配置，不能直接执行；4e0拒reviewer全部控制器字段，而2105临时版曾容许complete=true，协议和提示词必须一起更新。
-09-25观察共享venv的httpx0.25.2不符当前锁0.28.1，已通知owner，未改环境；旧57P不作新环境门禁。
+没有新独审、自然模型/L6、8792 TCP/浏览器或最终组合全仓/前端验收。作者C3/C7绿不代独立签字，不改旧判决。
+生成器仍保留历史候选配置，禁止直接启动。收据仅属于精确ff62与四目标，不移签文档HEAD、f261或#910+#911组合。地图在ff62处stale，不作架构结论。
 
 ## 下一步
-1. 原owner审阅#910相对4e0的两个补丁，再固定最终候选/基座、重建输入、做工程及身份准入，另取明确额度。不续1405/2105、不继承旧收据。
-2. 独审闭合后接#76/L6逐行授权；合main、部署分别确认。
-3. 复用已有生成器和测试；可迁移原则已回写共享知识，无新框架。
+1. 原owner审阅采用#910，固定最终候选/基座，在新证据根重建输入，跑工程准入与真实沙箱预检/作者检查。
+2. 新补审另取授权和预算，按各轴原件补验；不续1405/2105/next，不替审查者改报告。
+3. 独审闭合后接#76/L6逐行授权；main合入、8792部署分别确认。
 
 ## 踩过的坑
-删/private仍是有效/var别名。测试先绑定私有随机端口，生产仍固定19899；4P/53S不能作通过。最终保留请求失败直接停，不追加轮次。
+只绑定Python仍不足：pytest和work内临时Git仓库需要祖先stat权限。metadata不等于正文读取。预检collect-only不等于执行。测试假服务用私有端口；C3只适配既有26001-26008，不扩网络权限。不要动并发共享venv/19899进程。
 
 ## 已验证
-干净3e8ea5b6488f：57P/0F/0E/0S，collected57，真Pi CLI+本地假响应，真实模型0。双轴路径反馈、撤验证变异、预算硬停、交付后文件消失及原回归；Ruff/node/提交钩子通过。
-原收据`~/.finance-runtime/test-receipts/20260924T142406Z-3e8ea5b6-bb7eca42a070.json`仅属当时tests/test_pi_review_repair.py及3e8，不移签PR文档HEAD、f261或新环境。
+干净ff62：四目标199P/0F/0E/0S，collected199，218.59s；其中修补73、workspace25、诊断35、receipt66。内层双轴C3各3P/C7各66P，不重复加数。Ruff/提交钩子/精确收据核验通过，进程已结束。
+Python=`~/fwp-wt-pi-research/.venv-workbench/bin/python`，3.12.13/httpx0.28.1/指纹66726d345bf37ce5，无门禁绕过。收据`~/.finance-runtime/test-receipts/20260924T175321Z-ff62eeeb-3697aad16274.json`；日志根`~/.finance-runtime/reviews/pr868-sandbox-env-offline-20260925/frozen-ff62eeeb5/`。
