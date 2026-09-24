@@ -1,0 +1,27 @@
+{
+  "status": "BLOCKED_PREFLIGHT_TRANSPORT",
+  "started_at": "2026-09-24T16:04:57.682776+00:00",
+  "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+  "baseline": "4cc15e703f81bce8abadee00f68caacdb0c72b4d",
+  "provider": "mirasim-kimi",
+  "model": "kimi-k3",
+  "requests": 1,
+  "request_limit": 1,
+  "automatic_retries": 0,
+  "payload": {
+    "model": "kimi-k3",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Reply exactly OK."
+      }
+    ],
+    "max_tokens": 256,
+    "reasoning_effort": "medium"
+  },
+  "purpose": "gateway preflight, NOT an independent review verdict",
+  "error_type": "TimeoutError",
+  "complete": true,
+  "elapsed_seconds": 92.533,
+  "finished_at": "2026-09-24T16:06:30.216146+00:00"
+}

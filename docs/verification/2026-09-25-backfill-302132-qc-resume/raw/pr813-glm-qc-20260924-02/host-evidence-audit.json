@@ -1,0 +1,64 @@
+{
+  "status": "BLOCKED_SCHEMA_AND_UNSUPPORTED_CLAIMS",
+  "role": "host evidence audit, NOT an independent reviewer verdict",
+  "original_report_unchanged": true,
+  "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+  "baseline": "4cc15e703f81bce8abadee00f68caacdb0c72b4d",
+  "raw_result": {
+    "passed": 3,
+    "failed": 4,
+    "collection_error_attempts": 2,
+    "passed_ids": [
+      "test_c2_gap_date_only_qfq_refuses",
+      "test_c2_later_history_and_adjusted_rows_do_not_refuse",
+      "test_c2_partial_missing_gap_refuses"
+    ],
+    "failed_ids": [
+      "test_c2_adjusted_qfq_row_in_window_is_inert",
+      "test_c2_parquet_sha_mismatch_refuses",
+      "test_c3_oracle_pct_half_up",
+      "test_c3_oracle_amount_volume"
+    ],
+    "syntax_failure_commands": [
+      "execute/commands/005-bash",
+      "execute/commands/011-bash"
+    ],
+    "raw_log": "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260924-02/spec/execute/commands/015-bash/output.log",
+    "raw_log_sha256": "2da026cee77f5300d981984e953b323111f7537df3dca882888fe145eb06e4ca"
+  },
+  "rejection_reasons": [
+    "C2/C3 use verified_with_limits, outside verified/not_verified/out_of_scope enum; run_stage already rejected it",
+    "Report claims indirect qfq-outside-window PASS, but no such corrected case was executed; raw test inserts none, not qfq, outside the upper bound",
+    "reported written=8 is not the seven function cases in the retained runnable probe",
+    "author_test_counts required by prompt is absent; no author test rerun observed",
+    "execute positive_control NOT_RUN; sandbox-preflight control does not substitute",
+    "four failures are probe/fixture expectation failures, not evidence of product defects or repaired passing tests",
+    "C3 external acceptance _data_checks mutation behavior was not executed"
+  ],
+  "host_guardrail_issues": [
+    "First narrowed explore prompt omitted the required work/probes path; corrected in a new batch without rewriting old receipt",
+    "Final prompt named status but omitted its legal enum; final validation correctly rejected the invented enum",
+    "Two intermediate probe rewrites removed earlier files; tool write payloads preserve their exact contents, but source-file preservation instruction was not followed"
+  ],
+  "next_attempt_contract": {
+    "probe_directory": "work/probes",
+    "probe_revisions": "immutable new filename per correction, syntax-check before pytest",
+    "claim_status_enum": [
+      "verified",
+      "not_verified",
+      "out_of_scope"
+    ],
+    "mandatory_control": "Run intentional failing control before product probes; classify it separately",
+    "claims": "A planned correction is NOT a passed case; raw command evidence overrides prior-stage prose",
+    "focus": "Separate C2 guard from C3 _data_checks mutation probes; do not replace C3 with arithmetic helper checks",
+    "budget": "New paid batch not started; no additional authorization inferred for unlimited retries"
+  },
+  "requests_this_turn": {
+    "k3": 1,
+    "glm_first": 11,
+    "glm_corrective": 30,
+    "total": 42
+  },
+  "whole_candidate_qc_complete": false,
+  "production_executed": false
+}

@@ -1,0 +1,136 @@
+[
+  {
+    "path": "explore/parsed.json",
+    "bytes": 2612,
+    "sha256": "d7de8464ad7d4f9e9e6f218b8f0ecc013ffbc885f48d41c37099383cf4b8ec9d"
+  },
+  {
+    "path": "execute/parsed.json",
+    "bytes": 4189,
+    "sha256": "9c2170b47a75af4fb2ecc1cae70a00a0bc59ddc27d314f60312a2652d9b72369"
+  },
+  {
+    "path": "work/EXPLORE.md",
+    "bytes": 1916,
+    "sha256": "9c05251112b11035b6fa6871101d7f0cc3107ac86ed82354121ac7bb54b1dd43"
+  },
+  {
+    "path": "work/EXECUTE.md",
+    "missing": true
+  },
+  {
+    "path": "execute/commands/005-bash/output.log",
+    "bytes": 2017,
+    "sha256": "bb921e76d71d00de376ba1e3ff466be739b9a7acc0a3b90c22a4d48e84cd16e4"
+  },
+  {
+    "path": "execute/commands/005-bash/request.json",
+    "bytes": 449,
+    "sha256": "499f090f52e7a579dacece43a6fac701134361ccb3985a51cd1dd29e1f5b0d22"
+  },
+  {
+    "path": "execute/commands/005-bash/result.json",
+    "bytes": 14,
+    "sha256": "6dd384dafcd1f8034d532040b96b51f8545551a0b584fa1c8abf7018249012ee"
+  },
+  {
+    "path": "execute/commands/006-bash/output.log",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "path": "execute/commands/006-bash/request.json",
+    "bytes": 241,
+    "sha256": "0ece388f405093552f1c16fa18a4bdecb6cecf4a21ee5c8db3fb21dcbeec3fb9"
+  },
+  {
+    "path": "execute/commands/006-bash/result.json",
+    "bytes": 14,
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0"
+  },
+  {
+    "path": "execute/commands/007-bash/output.log",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "path": "execute/commands/007-bash/request.json",
+    "bytes": 262,
+    "sha256": "af7e9be6749eaa71f28b6bc985391683162e618e979ae239973bc31c24dd8c7c"
+  },
+  {
+    "path": "execute/commands/007-bash/result.json",
+    "bytes": 14,
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0"
+  },
+  {
+    "path": "execute/commands/009-bash/output.log",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "path": "execute/commands/009-bash/request.json",
+    "bytes": 170,
+    "sha256": "b12ef4de41f9ecd5910703d59f39a2289138e4e0244abdd00c5b795d43bf567a"
+  },
+  {
+    "path": "execute/commands/009-bash/result.json",
+    "bytes": 14,
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0"
+  },
+  {
+    "path": "execute/commands/011-bash/output.log",
+    "bytes": 2027,
+    "sha256": "0b808d3c32847f0c5fd1da690df35f7b1aa3f4c1374f3a97c4ea0ddb7f764527"
+  },
+  {
+    "path": "execute/commands/011-bash/request.json",
+    "bytes": 455,
+    "sha256": "eee9d7c4e5ca3eab5ebbcb6931ecdd43098e2750df4acc014ed9db18646c0b2a"
+  },
+  {
+    "path": "execute/commands/011-bash/result.json",
+    "bytes": 14,
+    "sha256": "6dd384dafcd1f8034d532040b96b51f8545551a0b584fa1c8abf7018249012ee"
+  },
+  {
+    "path": "execute/commands/013-bash/output.log",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "path": "execute/commands/013-bash/request.json",
+    "bytes": 170,
+    "sha256": "53ee7e7317a866a16e2cd908e2e3a1e8164b1b84c2069accaa3835da1c9ba8bf"
+  },
+  {
+    "path": "execute/commands/013-bash/result.json",
+    "bytes": 14,
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0"
+  },
+  {
+    "path": "execute/commands/015-bash/output.log",
+    "bytes": 4099,
+    "sha256": "2da026cee77f5300d981984e953b323111f7537df3dca882888fe145eb06e4ca"
+  },
+  {
+    "path": "execute/commands/015-bash/request.json",
+    "bytes": 455,
+    "sha256": "07580632c9411fc6af59185ba8355be4d755f3467bab346a91f1bd99adec907f"
+  },
+  {
+    "path": "execute/commands/015-bash/result.json",
+    "bytes": 14,
+    "sha256": "d67659d29dad50e65ac903e33dc7ef4a692331d96253553956300d1fcfa5786a"
+  },
+  {
+    "path": "work/probes/test_guard.py",
+    "bytes": 8259,
+    "sha256": "f017843688f107a8ba60cf97f265af192451456a90faf058355f48d928f5c049"
+  },
+  {
+    "path": "work/probes_v2/test_guard_v2.py",
+    "bytes": 8049,
+    "sha256": "989fa1bf86d31745fb40375e3a22936a7a221c779cde67d0355060eb767d7941"
+  }
+]

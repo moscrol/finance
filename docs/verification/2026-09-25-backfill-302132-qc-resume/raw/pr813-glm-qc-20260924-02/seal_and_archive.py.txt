@@ -1,0 +1,122 @@
+"""Seal completed attempts without promoting partial independent work to approval."""
+import base64
+from datetime import datetime, timezone
+import hashlib
+import json
+from pathlib import Path
+import re
+import subprocess
+
+ROOT = Path(__file__).resolve().parent
+DOCS = Path('/Users/a77/fwp-wt-backfill-302132-0923')
+AUTHOR = ROOT.parent / 'backfill-302132-0923/forward-02/tree'
+DEST = DOCS / 'docs/verification/2026-09-25-backfill-302132-qc-resume'
+REV = '3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59'
+BASE = '4cc15e703f81bce8abadee00f68caacdb0c72b4d'
+ROOTS = [ROOT.parent / 'pr813-k3-qc-20260924-02', ROOT.parent / 'pr813-glm-qc-20260924-01', ROOT]
+
+def sha(raw):
+    return hashlib.sha256(raw).hexdigest()
+
+def save(path, data):
+    path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + '\n')
+
+def git(tree, *args):
+    return subprocess.check_output(['git', '-C', str(tree), *args], text=True).strip()
+
+def main():
+    assert not (ROOT / 'report.json').exists()
+    identities = {}
+    for tree in [AUTHOR, ROOTS[1] / 'candidate', ROOT / 'candidate']:
+        value = {'revision': git(tree, 'rev-parse', 'HEAD'), 'status': git(tree, 'status', '--porcelain')}
+        assert value == {'revision': REV, 'status': ''}, value
+        identities[str(tree)] = value
+    processes = subprocess.check_output(['ps', '-axo', 'pid=,ppid=,command='], text=True).splitlines()
+    active = [line for line in processes if any(str(root) in line for root in ROOTS)
+              and any(name in line for name in ('run_control.py', 'run_stage.py', 'glm_review_shim.py'))]
+    assert not active, active
+    refs = dict(line.split()[::-1] for line in git(DOCS, 'ls-remote', 'gitea', 'refs/heads/main', 'refs/heads/fix/backfill-main-ready-0921').splitlines())
+    assert refs['refs/heads/fix/backfill-main-ready-0921'] == REV
+    attempts = []
+    total = 0
+    for root in ROOTS:
+        controllers = []
+        for path in sorted(root.glob('*/*.controller.json')):
+            obj = json.loads(path.read_text())
+            assert obj['status'] != 'STARTED', path
+            count = obj['shim_counts']
+            assert count['active'] == 0 and count['shutdown_complete']
+            assert count['requests'] == count['dispatched']
+            total += count['requests']
+            controllers.append({'path': str(path.relative_to(root)), 'status': obj['status'],
+                                'stage_status': obj['stage_status'], 'requests': count['requests'],
+                                'request_counts_agree': obj['request_counts_agree']})
+        preflight = root / 'gateway-preflight.json'
+        if preflight.exists():
+            obj = json.loads(preflight.read_text())
+            assert obj['complete']
+            total += obj['requests']
+        probes = sorted(str(p.relative_to(root)) for p in root.glob('*/work/**/*.py')
+                        if 'tmp' not in p.parts and p.name not in {'sandbox_check.py', 'positive_control.py'})
+        attempts.append({'root': str(root), 'controllers': controllers, 'probe_artifacts': probes})
+    assert total <= 79, total
+    parsed = ROOT / 'spec/report/parsed.json'
+    execution = ROOT / 'spec/report/execution.json'
+    spec_complete = execution.exists() and json.loads(execution.read_text())['status'] == 'STAGE_COMPLETE'
+    spec_report = json.loads(parsed.read_text()) if parsed.exists() else None
+    report = {'status': 'PARTIAL_SPEC_DELIVERED_QUALITY_AND_OTHER_CLAIMS_PENDING' if spec_complete else 'BLOCKED_SPEC_DELIVERY',
+              'batch_complete': True, 'qc_complete': False, 'scope': ['C2', 'C3'], 'revision': REV,
+              'baseline': BASE, 'remote_main': refs['refs/heads/main'], 'current_main_engineering_ready': False,
+              'requests_this_turn': total, 'k3_requests': 1, 'glm_requests': total - 1,
+              'prior_turn_k3_requests': 11, 'attempts': attempts, 'spec_complete': spec_complete,
+              'spec_report': spec_report, 'quality': 'not_started', 'owned_processes_stopped': True,
+              'identities': identities, 'merge_authorized': False, 'production_authorized': False,
+              'production_executed': False, 'sealed_at': datetime.now(timezone.utc).isoformat()}
+    save(ROOT / 'report.json', report)
+    DEST.mkdir(exist_ok=False)
+    entries = []
+    for root in ROOTS:
+        for path in sorted(root.rglob('*')):
+            rel = path.relative_to(root)
+            if path.is_symlink() or not path.is_file() or rel.parts[0] == 'candidate':
+                continue
+            if any(part in rel.parts for part in ('__pycache__', 'tmp', 'users')):
+                continue
+            if 'pi-config' in rel.parts and path.name != 'settings.json':
+                continue
+            if path.suffix not in {'.py', '.json', '.jsonl', '.mjs', '.md', '.log', '.sb', '.txt', '.diff'}:
+                continue
+            raw = path.read_bytes()
+            assert not re.search(rb'eyJ[A-Za-z0-9_-]{15,}\.[A-Za-z0-9_-]{15,}\.[A-Za-z0-9_-]{15,}', raw), rel
+            encoded = path.suffix in {'.log', '.diff'} or bool(re.search(rb'[ \t]+\r?\n|\n\n\Z', raw))
+            target_rel = Path('raw') / root.name / rel
+            if encoded:
+                target_rel = target_rel.with_name(target_rel.name + '.b64')
+                stored = base64.encodebytes(raw)
+            else:
+                stored = raw
+                if path.suffix in {'.py', '.mjs', '.sb'}:
+                    target_rel = target_rel.with_name(target_rel.name + '.txt')
+            target = DEST / target_rel
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(stored)
+            entries.append({'source_root': str(root), 'source': str(rel), 'archive': str(target_rel),
+                            'encoding': 'base64' if encoded else 'identity', 'bytes': len(raw),
+                            'sha256': sha(raw), 'archive_sha256': sha(stored)})
+    for entry in entries:
+        stored = (DEST / entry['archive']).read_bytes()
+        raw = base64.b64decode(stored) if entry['encoding'] == 'base64' else stored
+        assert sha(stored) == entry['archive_sha256'] and sha(raw) == entry['sha256']
+        assert raw == (Path(entry['source_root']) / entry['source']).read_bytes()
+    manifest = {'schema': 'lossless-multi-attempt-qc-archive/v1', 'revision': REV, 'baseline': BASE,
+                'verified_files': len(entries), 'entries': entries,
+                'excluded': ['candidate trees', 'credentials/runtime stores', 'temporary DBs/users', 'symlinks']}
+    save(DEST / 'manifest.json', manifest)
+    verified = {'ok': True, 'files': len(entries), 'bytes': sum(e['bytes'] for e in entries),
+                'manifest_sha256': sha((DEST / 'manifest.json').read_bytes()), 'destination': str(DEST)}
+    save(ROOT / 'archive-verification.json', verified)
+    save(DEST / 'archive-verification.json', verified)
+    print(json.dumps({'report_status': report['status'], 'requests': total, **verified}))
+
+if __name__ == '__main__':
+    main()

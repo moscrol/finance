@@ -1,0 +1,68 @@
+"""Audit delivered claims against the retained raw results; never repair a verdict."""
+import ast
+import hashlib
+import json
+from pathlib import Path
+import re
+
+ROOT = Path(__file__).resolve().parent
+BASE = ROOT / 'spec'
+report = json.loads((BASE / 'report/parsed.json').read_text())
+raw_path = BASE / 'execute/commands/015-bash/output.log'
+raw = raw_path.read_text()
+assert re.search(r'^4 failed, 3 passed in 1\.77s$', raw, re.M)
+claims = report['claims']
+invalid = [c['id'] for c in claims if c['status'] not in {'verified', 'not_verified', 'out_of_scope'}]
+assert invalid == ['C2', 'C3']
+probe_path = BASE / 'work/probes_v2/test_guard_v2.py'
+names = [n.name for n in ast.parse(probe_path.read_text()).body if isinstance(n, ast.FunctionDef) and n.name.startswith('test_')]
+assert len(names) == 7
+failed = re.findall(r'^FAILED .*::(\w+)', raw, re.M)
+assert len(failed) == 4
+passed = sorted(set(names) - set(failed))
+commands = [json.loads(p.read_text())['params']['command'] for p in sorted((BASE / 'execute/commands').glob('*-bash/request.json'))]
+assert not any('positive_control.py' in command for command in commands)
+syntax_failures = []
+for folder in sorted((BASE / 'execute/commands').glob('*-bash')):
+    text = (folder / 'output.log').read_text()
+    if 'SyntaxError:' in text:
+        syntax_failures.append(str(folder.relative_to(BASE)))
+assert len(syntax_failures) == 2
+out = {
+    'status': 'BLOCKED_SCHEMA_AND_UNSUPPORTED_CLAIMS',
+    'role': 'host evidence audit, NOT an independent reviewer verdict',
+    'original_report_unchanged': True,
+    'revision': report['revision'], 'baseline': report['baseline'],
+    'raw_result': {'passed': 3, 'failed': 4, 'collection_error_attempts': 2,
+                   'passed_ids': passed, 'failed_ids': failed, 'syntax_failure_commands': syntax_failures,
+                   'raw_log': str(raw_path), 'raw_log_sha256': hashlib.sha256(raw_path.read_bytes()).hexdigest()},
+    'rejection_reasons': [
+        'C2/C3 use verified_with_limits, outside verified/not_verified/out_of_scope enum; run_stage already rejected it',
+        'Report claims indirect qfq-outside-window PASS, but no such corrected case was executed; raw test inserts none, not qfq, outside the upper bound',
+        'reported written=8 is not the seven function cases in the retained runnable probe',
+        'author_test_counts required by prompt is absent; no author test rerun observed',
+        'execute positive_control NOT_RUN; sandbox-preflight control does not substitute',
+        'four failures are probe/fixture expectation failures, not evidence of product defects or repaired passing tests',
+        'C3 external acceptance _data_checks mutation behavior was not executed'
+    ],
+    'host_guardrail_issues': [
+        'First narrowed explore prompt omitted the required work/probes path; corrected in a new batch without rewriting old receipt',
+        'Final prompt named status but omitted its legal enum; final validation correctly rejected the invented enum',
+        'Two intermediate probe rewrites removed earlier files; tool write payloads preserve their exact contents, but source-file preservation instruction was not followed'
+    ],
+    'next_attempt_contract': {
+        'probe_directory': 'work/probes',
+        'probe_revisions': 'immutable new filename per correction, syntax-check before pytest',
+        'claim_status_enum': ['verified', 'not_verified', 'out_of_scope'],
+        'mandatory_control': 'Run intentional failing control before product probes; classify it separately',
+        'claims': 'A planned correction is NOT a passed case; raw command evidence overrides prior-stage prose',
+        'focus': 'Separate C2 guard from C3 _data_checks mutation probes; do not replace C3 with arithmetic helper checks',
+        'budget': 'New paid batch not started; no additional authorization inferred for unlimited retries'
+    },
+    'requests_this_turn': {'k3': 1, 'glm_first': 11, 'glm_corrective': 30, 'total': 42},
+    'whole_candidate_qc_complete': False, 'production_executed': False
+}
+with (ROOT / 'host-evidence-audit.json').open('x') as stream:
+    json.dump(out, stream, ensure_ascii=False, indent=2)
+    stream.write('\n')
+print(json.dumps({'status': out['status'], 'passed': passed, 'failed_probe_cases': len(failed), 'requests': 42}))

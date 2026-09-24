@@ -1,0 +1,77 @@
+"""One K3 route probe; credentials stay in memory and never enter artifacts."""
+from datetime import datetime, timezone
+import hashlib
+import http.client
+import json
+import os
+from pathlib import Path
+import subprocess
+import time
+
+ROOT = Path(__file__).resolve().parent
+OUT = ROOT / "gateway-preflight.json"
+ENV = {"HOME": "/Users/a77", "PATH": "/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+       "LANG": "C.UTF-8", "PI_OFFLINE": "1", "PI_TELEMETRY": "0"}
+PAYLOAD = {"model": "kimi-k3", "messages": [{"role": "user", "content": "Reply exactly OK."}],
+           "max_tokens": 256, "reasoning_effort": "medium"}
+
+
+def main():
+    os.umask(0o022)
+    record = {"status": "RESERVED", "started_at": datetime.now(timezone.utc).isoformat(),
+              "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+              "baseline": "4cc15e703f81bce8abadee00f68caacdb0c72b4d",
+              "provider": "mirasim-kimi", "model": "kimi-k3", "requests": 0,
+              "request_limit": 1, "automatic_retries": 0, "payload": PAYLOAD,
+              "purpose": "gateway preflight, NOT an independent review verdict"}
+    with OUT.open("x") as stream:
+        json.dump(record, stream, indent=2)
+    started = time.monotonic()
+    conn = None
+    token = None
+    try:
+        credential = subprocess.run(
+            ["/opt/homebrew/bin/pi", "auth", "print-api-key", "--provider", "mirasim-kimi", "--model", "kimi-k3"],
+            env=ENV, capture_output=True, text=True, timeout=35)
+        if credential.returncode or not credential.stdout.strip():
+            record.update(status="BLOCKED_CREDENTIAL", credential_exit=credential.returncode)
+            return
+        token = credential.stdout.strip()
+        credential = None
+        conn = http.client.HTTPConnection("127.0.0.1", 18788, timeout=90)
+        record["requests"] = 1
+        OUT.write_text(json.dumps(record, indent=2) + "\n")
+        conn.request("POST", "/v1/chat/completions", json.dumps(PAYLOAD),
+                     {"Authorization": "Bearer " + token, "Content-Type": "application/json"})
+        response = conn.getresponse()
+        body = response.read()
+        record.update(http_status=response.status, body_sha256=hashlib.sha256(body).hexdigest())
+        try:
+            data = json.loads(body)
+        except ValueError:
+            data = {}
+        choices = data.get("choices", [])
+        text = "".join(c.get("message", {}).get("content") or "" for c in choices)
+        error = data.get("error", {})
+        if isinstance(error, dict):
+            record["provider_error"] = {k: str(error[k]).replace(token, "<redacted>")[:1000]
+                                        for k in ("code", "type", "message", "reset_seconds") if k in error}
+        record["nonempty_text"] = bool(text.strip())
+        record["exact_ok"] = text.strip() == "OK"
+        record["status"] = ("PASS_SMALL_PAYLOAD_ONLY" if response.status == 200 and text.strip()
+                            else "BLOCKED_PROVIDER_HTTP_" + str(response.status) if response.status != 200
+                            else "BLOCKED_PROVIDER_EMPTY")
+    except Exception as exc:
+        record.update(status="BLOCKED_PREFLIGHT_TRANSPORT", error_type=type(exc).__name__)
+    finally:
+        token = None
+        if conn is not None:
+            conn.close()
+        record.update(complete=True, elapsed_seconds=round(time.monotonic() - started, 3),
+                      finished_at=datetime.now(timezone.utc).isoformat())
+        OUT.write_text(json.dumps(record, ensure_ascii=False, indent=2) + "\n")
+        print(json.dumps(record, ensure_ascii=False))
+
+
+if __name__ == "__main__":
+    main()

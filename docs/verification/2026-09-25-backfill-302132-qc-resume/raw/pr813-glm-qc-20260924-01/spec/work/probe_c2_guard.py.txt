@@ -1,0 +1,135 @@
+"""C2/C3 reviewer probe: source guard upper bound, adjusted filter, partial/invalid
+refusal; secondary source/oracle consistency via _guard's independent source sets.
+Synthetic DuckDB + synthetic parquet, all under spec/work. Not an author test."""
+import sys
+from dataclasses import replace
+from pathlib import Path
+
+import duckdb
+import pytest
+
+WORK = Path("/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260924-01/spec/work")
+CAND = WORK.parents[2] / "candidate"  # .../pr813-glm-qc-20260924-01/candidate
+sys.path.insert(0, str(CAND))
+
+import repair_backfill_stock_history as mod  # noqa: E402
+
+CAL = ["2026-06-01", "2026-06-02", "2026-06-03", "2026-06-04", "2026-06-05",
+       "2026-06-08", "2026-06-09", "2026-06-12", "2026-06-15", "2026-06-16",
+       "2026-06-18"]
+GAP_PAR = ("2026-06-05", "2026-06-08")
+GAP_PQ = ("2026-06-15", "2026-06-16")
+SHELL = "2026-06-09"
+PQ_DAYS = ["2026-06-12", "2026-06-15", "2026-06-16"]  # pred_b included per guard
+HITHINK_NONE = ["2026-06-03", "2026-06-04", "2026-06-05", "2026-06-08"]
+EXISTING_FACT = ["2026-06-04", "2026-06-12"]  # + shell + pinned window_end
+
+
+def _spec(parquet_sha):
+    return replace(
+        mod.BackfillSpec(),
+        window_start="2026-06-04", main_fill_end="2026-06-16",
+        window_end="2026-06-18", shell_date=SHELL,
+        gap_parallel=GAP_PAR, gap_parquet=GAP_PQ,
+        stale_technical_dates=("2026-06-04",),
+        stale_window_keys=(("2026-06-12", "2026-06-04"),),
+        expected_total_rows=len(CAL) - 3,  # not consulted by _guard
+        parquet_sha256=parquet_sha,
+    )
+
+
+def _build(tmp, later_none=(), hfq_swap=False, nan_close=False, drop_fact=None):
+    db = duckdb.connect(str(tmp / "s.duckdb"))
+    c = tmp / "frozen.parquet"
+    db.execute("""CREATE TABLE mk(d VARCHAR)""")
+    db.executemany("INSERT INTO mk VALUES (?)", [(d,) for d in CAL])
+    db.execute("""CREATE TABLE fact_stock_daily(
+        stock_ts_code VARCHAR, trade_date VARCHAR, stock_name VARCHAR,
+        open DOUBLE, high DOUBLE, low DOUBLE, close DOUBLE, pre_close DOUBLE,
+        pct_chg DOUBLE, amount DOUBLE, turnover DOUBLE, volume DOUBLE,
+        source VARCHAR, updated_at TIMESTAMP DEFAULT current_timestamp)""")
+    rows = []
+    for d in EXISTING_FACT:
+        rows.append(("302132.SZ", d, "中航成飞", 1.0, 1.1, 0.9, 1.05, 1.0,
+                     0.5, 6.0, None, 100.0, "old"))
+    rows.append(("302132.SZ", SHELL, None, None, None, None, None, None,
+                 None, None, None, None, None))  # shell: all write fields NULL
+    rows.append(("302132.SZ", "2026-06-18", "中航成飞", 2.0, 2.1, 1.9, 2.05, 2.0,
+                 2.5, 7.0, None, 200.0, "hithink:daily-k-10d"))
+    if drop_fact:
+        rows = [r for r in rows if r[1] != drop_fact]
+    db.executemany("INSERT INTO fact_stock_daily SELECT ?,?,?,?,?,?,?,?,?,?,?,?,?,now"
+                   , [(r[0], r[1], r[2], r[3], r[4], r[5], r[6], r[7], r[8],
+                      r[9], r[10], r[11], r[12]) for r in rows])
+    db.execute("""CREATE TABLE hith(stock_ts_code VARCHAR, trade_date VARCHAR,
+        adjusted VARCHAR, open DOUBLE, high DOUBLE, low DOUBLE, close DOUBLE,
+        volume DOUBLE, turnover DOUBLE)""")
+    hrows = []
+    for d in HITHINK_NONE + list(later_none):
+        adj = "none"
+        if hfq_swap and d == "2026-06-05":
+            adj = "hfq"
+        close = float("nan") if (nan_close and d == "2026-06-04") else 1.5
+        hrows.append(("302132.SZ", d, adj, 1.4, 1.6, 1.3, close, 120.0, 5.5))
+    db.executemany("INSERT INTO hith VALUES (?,?,?,?,?,?,?,?,?)", hrows)
+    db.execute("CREATE TABLE adjev(stock_ts_code VARCHAR, ex_date VARCHAR)")
+    db.execute("CREATE TABLE tech(stock_ts_code VARCHAR, trade_date VARCHAR)")
+    db.execute("INSERT INTO tech VALUES ('302132.SZ','2026-06-04')")
+    db.execute("""CREATE TABLE win(stock_ts_code VARCHAR, as_of_date VARCHAR,
+        start_date VARCHAR)""")
+    db.execute("INSERT INTO win VALUES ('302132.SZ','2026-06-12','2026-06-04')")
+    # synthetic frozen parquet (guard reads these columns)
+    db.execute("""CREATE TABLE pq(thscode VARCHAR, date_ms BIGINT,
+        open_price DOUBLE, high_price DOUBLE, low_price DOUBLE,
+        close_price DOUBLE, volume DOUBLE, turnover DOUBLE, currency VARCHAR,
+        interval VARCHAR, adjusted VARCHAR)""")
+    import datetime as dt
+    for d in PQ_DAYS:
+        ms = int(dt.date.fromisoformat(d).timestamp() * 1000)
+        db.execute("INSERT INTO pq VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                   ("302132.SZ", ms, 1.7, 1.8, 1.6, 1.75, 130.0, 6.1,
+                    "CNY", "1d", "none"))
+    db.execute(f"COPY pq TO '{c}' (FORMAT PARQUET)")
+    return db, c
+
+
+def _sha(p):
+    import hashlib
+    return hashlib.sha256(Path(p).read_bytes()).hexdigest()
+
+
+def _refusal(db, spec, pq):
+    with pytest.raises(BaseException) as ei:
+        mod._guard(db, spec, pq)
+    assert not isinstance(ei.value, pytest.fail.Exception)
+    return ei.value
+
+
+def test_guard_passes_and_bounds_parallel_upper(tmp_path):
+    """C2: later 'none' history beyond max(gap_parallel) neither refuses nor
+    enters the authorized source (src_a capped at seg_a_end)."""
+    db, pq = _build(tmp_path, later_none=["2026-06-15", "2026-06-16", "2026-06-17"])
+    pre = mod._guard(db, _spec(_sha(pq)), pq)
+    assert pre["mode"] == "apply"
+    # merged source in guard never contains days beyond max(gap_parallel) from
+    # the parallel table: assert via src identity the guard itself proved
+    assert pre["prev_day"] == "2026-06-03"
+
+
+def test_guard_refuses_adjusted_hfq_only_gap_day(tmp_path):
+    """C2: gap day present only as adjusted='hfq' is invisible under the
+    'none' filter -> partial state refusal before any write."""
+    db, pq = _build(tmp_path, hfq_swap=True)
+    _refusal(db, _spec(_sha(pq)), pq)
+
+
+def test_guard_refuses_nan_source_close(tmp_path):
+    """C2: non-finite close in parallel source -> fail closed."""
+    db, pq = _build(tmp_path, nan_close=True)
+    _refusal(db, _spec(_sha(pq)), pq)
+
+
+def test_guard_refuses_partial_state_missing_fact_cover(tmp_path):
+    """C2: dropping an existing cover row widens live gap -> != spec -> refuse."""
+    db, pq = _build(tmp_path, drop_fact="2026-06-04")
+    _refusal(db, _spec(_sha(pq)), pq)

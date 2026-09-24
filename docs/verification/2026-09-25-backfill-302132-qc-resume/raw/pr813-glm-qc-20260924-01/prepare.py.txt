@@ -1,0 +1,105 @@
+"""Reuse the bounded GLM controller for a fixed, narrow #813 independent review."""
+import ast
+import hashlib
+import json
+from pathlib import Path
+import shutil
+import subprocess
+
+ROOT = Path(__file__).resolve().parent
+SRC = ROOT.parent / 'pr868-glm-qc-20260924-2105'
+OLD = ROOT.parent / 'pr813-k3-qc-20260924-01'
+CAND = ROOT / 'candidate'
+AUTHOR = ROOT.parent / 'backfill-302132-0923/forward-02/tree'
+REV = '3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59'
+BASE = '4cc15e703f81bce8abadee00f68caacdb0c72b4d'
+MAIN = 'ea42fac4254b9f15a7d8736caaa62a394e48bf43'
+PY = '/Users/a77/finance-workspace-private/.venv-workbench/bin/python'
+FILES = ['market_feature_store/sync/repair_backfill_stock_history.py',
+         'scripts/verify_302132_backfill_acceptance.py',
+         'tests/test_repair_backfill_stock_history.py']
+
+def save(path, value):
+    path.write_text(json.dumps(value, ensure_ascii=False, indent=2) + '\n')
+
+def sha(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+def main():
+    assert not CAND.exists()
+    assert subprocess.check_output(['git', '-C', str(AUTHOR), 'rev-parse', 'HEAD'], text=True).strip() == REV
+    assert not subprocess.check_output(['git', '-C', str(AUTHOR), 'status', '--porcelain'], text=True).strip()
+    subprocess.run(['git', '-C', str(AUTHOR), 'worktree', 'add', '--detach', str(CAND), REV], check=True)
+    manifest = {'revision': REV, 'baseline': BASE, 'observed_main': MAIN,
+                'source': str(SRC), 'controller_api_changes': False, 'files': {}}
+    for name in ('glm_credential.py', 'glm_review_shim.py', 'bridge_stage.py', 'probe_adapter.py'):
+        shutil.copyfile(SRC / name, ROOT / name)
+        manifest['files'][name] = {'source_sha256': sha(SRC / name), 'sha256': sha(ROOT / name)}
+    symbols = []
+    for name in FILES:
+        source = (CAND / name).read_text()
+        symbols.append('\n## ' + name)
+        for node in ast.walk(ast.parse(source)):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                symbols.append(f'{node.name}: {node.lineno}-{node.end_lineno}')
+    for axis in ('spec', 'quality'):
+        dst = ROOT / axis
+        for name in ('work/tmp', 'work/users', 'work/probes', 'pi-config', 'inputs'):
+            (dst / name).mkdir(parents=True, exist_ok=True)
+        for name in ('review.mjs', 'pi_review_protocol.mjs', 'gateway.mjs', 'file_tool.py',
+                     'provider-template.json', 'run_control.py', 'run_stage.py', 'pi-config/settings.json'):
+            shutil.copyfile(SRC / axis / name, dst / name)
+            manifest['files'][axis + '/' + name] = {'source_sha256': sha(SRC / axis / name), 'sha256': sha(dst / name)}
+        for name in ('auth.json', 'models-store.json'):
+            save(dst / 'pi-config' / name, {})
+        text = (SRC / axis / 'tools.sb').read_text().replace(str(SRC), str(ROOT))
+        (dst / 'tools.sb').write_text(text)
+        text = (SRC / axis / 'sandbox_preflight.mjs').read_text()
+        text = text.replace('docs/handoffs/2026-09-22-adaptive-deadline-transport.md', 'docs/handoffs/2026-09-21-backfill-main-ready.md')
+        text = text.replace('/Users/a77/finance-worktrees/adaptive-research-loop', str(AUTHOR))
+        (dst / 'sandbox_preflight.mjs').write_text(text)
+        assert (CAND / 'docs/handoffs/2026-09-21-backfill-main-ready.md').is_file()
+        config = json.loads((SRC / axis / 'config.json').read_text())
+        config.update(tree=str(CAND), author=str(AUTHOR), revision=REV, baseline=BASE, axis=axis)
+        save(dst / 'config.json', config)
+        claims = (OLD / axis / 'inputs/claims.md').read_text()
+        (dst / 'inputs/claims.md').write_text('This batch reviews ONLY C2 and C3. C1/C4/C5/C6/C7 remain out_of_scope. '
+            'No whole-candidate approval is sought. Current main is ' + MAIN + ', not integrated.\n\n' + claims)
+        (dst / 'inputs/source-map.md').write_text('\n'.join(symbols) + '\n')
+        diff = subprocess.check_output(['git', '-C', str(CAND), 'diff', BASE, REV, '--', *FILES], text=True)
+        (dst / 'inputs/source.diff').write_text(diff)
+        focus = ('C2 primary: source guard upper bound, adjusted filtering, invalid or partial refusal. C3 secondary: source/oracle consistency.'
+                 if axis == 'spec' else 'C3 primary: oracle out-of-window/all-column/multiset invariants, amount and timestamp mutations. C2 secondary: source edge cases.')
+        common = f'''Independent {axis} review of PR #813. Chinese summary. Only C2/C3 in scope; do not approve the whole candidate.
+Candidate {CAND}; revision {REV}; baseline {BASE}.
+Only writable root {dst}/work. Python {PY}.
+Read {dst}/inputs/claims.md and source-map.md first, then precise source regions. {focus}
+Use absolute paths. No git, network, production DB, live vendor calls, credentials, deployments or candidate writes. Synthetic DuckDB files in work only. Candidate docs and the other axis are denied. Do not nest sandbox-exec.
+Limits: explore/execute <=17 requests each, report exactly one; 600 seconds per stage, 120 per request/command, no retry. Deliver early: <=2 small independent probe files, not broad exploration.
+Use deliver_stage exactly once as a STANDALONE tool call (not alongside read/write/bash). Its argument is {{"result": <JSON OBJECT>}}, never a JSON string. Omit stage/axis/revision/baseline/complete: controller supplies identity. Keep result under 4500 characters, no reasoning transcript. A delivered result does not mean PASS.
+External pytest: --confcutdir={dst}/work -p no:cacheprovider --basetemp={dst}/work/tmp/pytest. Candidate import via PYTHONPATH; register dataclass modules in sys.modules before importlib.exec_module. One direct bash command at a time, no pipelines/semicolon/newline shell chains. Reviewer probes, author tests and intentional failing control are separate categories. Probe fixture errors are not product defects.
+'''
+        explore = f'''Explore only, read and WRITE probes without executing. Prioritize a short runnable probe by request 4. You may reuse fixture construction but own assertions must challenge behavior, not copy author tests. Start with _guard and acceptance check() source functions as relevant, do not read the full CLI. Write your probe plan/exact command to {dst}/work/EXPLORE.md then deliver_stage with probe_files (existing absolute .py paths), claims_examined, limits, next_stage_commands. Leave C1/C4/C5/C6/C7 out_of_scope.
+'''
+        execute = f'''Execute only. First read {dst}/work/phase-context/explore/parsed.json and {dst}/work/EXPLORE.md. Run the independent probes and {dst}/work/positive_control.py (expected assertion failure, classify probe_bug). Relevant author tests are optional and counted separately; no whole suite. On failure preserve original probe, explain fixture correction, write a new version; do not overwrite evidence or product. Write {dst}/work/EXECUTE.md containing commands, results, counts, exact raw-log references and limits, then deliver_stage with probe_results, author_test_results, positive_control, findings, limits. Do not assert facts unobserved.
+'''
+        report = '''Report only. The immutable evidence packet below contains prior stage results and raw command evidence, without reasoning. No read/bash/write is available. Call deliver_stage immediately with verdict PASS_WITH_LIMITS/CHANGES_REQUIRED/BLOCKED_INCOMPLETE_EVIDENCE, claims (exactly C1..C7 each id/status/evidence), findings, reviewer_probe_counts, author_test_counts, positive_control, limits. C1/C4/C5/C6/C7 MUST remain out_of_scope. C2/C3 verified only to the actually tested extent. Defects require file:line, triggering input and wrong output. No findings only within checked scope. No merge/production consent.
+'''
+        for stage, extra in [('explore', explore), ('execute', execute), ('report', report)]:
+            (dst / f'prompt-{stage}.md').write_text(common + extra)
+        for name in ('config.json', 'tools.sb', 'sandbox_preflight.mjs', 'prompt-explore.md', 'prompt-execute.md', 'prompt-report.md'):
+            manifest['files'][axis + '/' + name] = {'sha256': sha(dst / name)}
+    save(ROOT / 'prepare-manifest.json', manifest)
+    save(ROOT / 'plan.json', {'revision': REV, 'baseline': BASE, 'observed_main': MAIN,
+        'scope': ['C2', 'C3'], 'whole_candidate_qc_complete': False,
+        'authorization': {'request': 'continue', 'provider_fallback_source': '/Users/a77/agent-memory/30_conventions/preferences.md',
+                          'rule_date': '2026-09-23', 'rule': 'K3 unavailable -> existing GLM allowed; preserve identity, failed evidence and quality; no unlimited budget'},
+        'previous_k3_failure': str(ROOT.parent / 'pr813-k3-qc-20260924-02/gateway-preflight.json'),
+        'provider': 'glm-direct-review/glm-5.3', 'max_requests': 78, 'this_turn_k3_requests': 1,
+        'stage_caps': {'gateway': 4, 'explore': 17, 'execute': 17, 'report': 1},
+        'stage_seconds': 600, 'request_seconds': 120, 'concurrency': 1, 'automatic_retries': 0,
+        'stop_on_400_429_empty_or_missing_deliverable': True, 'merge_authorized': False, 'production_authorized': False})
+    print(json.dumps({'root': str(ROOT), 'revision': REV, 'controller_files': len(manifest['files'])}))
+
+if __name__ == '__main__':
+    main()

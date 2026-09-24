@@ -1,0 +1,41 @@
+{
+  "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+  "baseline": "4cc15e703f81bce8abadee00f68caacdb0c72b4d",
+  "observed_main": "ea42fac4254b9f15a7d8736caaa62a394e48bf43",
+  "scope": [
+    "C2",
+    "C3"
+  ],
+  "whole_candidate_qc_complete": false,
+  "authorization": {
+    "request": "continue",
+    "provider_fallback_source": "/Users/a77/agent-memory/30_conventions/preferences.md",
+    "rule_date": "2026-09-23",
+    "rule": "K3 unavailable -> existing GLM allowed; preserve identity, failed evidence and quality; no unlimited budget"
+  },
+  "previous_k3_failure": "/Users/a77/.finance-runtime/reviews/pr813-k3-qc-20260924-02/gateway-preflight.json",
+  "provider": "glm-direct-review/glm-5.3",
+  "max_requests": 39,
+  "this_turn_k3_requests": 1,
+  "this_turn_glm_request_cap": 78,
+  "prior_glm_requests_charged": 11,
+  "axes": [
+    "spec"
+  ],
+  "corrective_attempt": 1,
+  "previous_attempt": "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260924-01",
+  "reason": "First prompt omitted required work/probes directory; old failed receipt retained, no artifact relocation or result re-signing",
+  "stage_caps": {
+    "gateway": 4,
+    "explore": 17,
+    "execute": 17,
+    "report": 1
+  },
+  "stage_seconds": 600,
+  "request_seconds": 120,
+  "concurrency": 1,
+  "automatic_retries": 0,
+  "stop_on_400_429_empty_or_missing_deliverable": true,
+  "merge_authorized": false,
+  "production_authorized": false
+}
