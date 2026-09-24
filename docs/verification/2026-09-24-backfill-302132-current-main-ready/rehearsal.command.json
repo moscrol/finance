@@ -1,0 +1,27 @@
+{
+  "label": "rehearsal",
+  "argv": [
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "scripts/review_probes/rehearse_302132_backfill.py",
+    "--production",
+    "/Users/a77/finance-workspace-private/db/market_feature_store.duckdb",
+    "--parquet",
+    "/Users/a77/.finance-runtime/reviews/backfill-302132-0923/rehearsal-b9b59a9a/frozen.parquet",
+    "--output",
+    "/Users/a77/.finance-runtime/reviews/backfill-302132-0923/continue-08/rehearsal"
+  ],
+  "identity_before": {
+    "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+    "status": ""
+  },
+  "disk_floor_bytes": 4294967296,
+  "timeout_seconds": 2400,
+  "min_free_bytes": 70865502208,
+  "pid": 82196,
+  "exit_code": 0,
+  "seconds": 156.588,
+  "identity_after": {
+    "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+    "status": ""
+  }
+}

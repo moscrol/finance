@@ -1,5 +1,7 @@
 # #83 ca4 作者工程验收证据
 
+后续 main 合入 #884，候选已前向到 `3c5b3c9a6`。本目录是历史快照，不能证明新候选通过，也不能使用本目录旧授权稿执行生产。最新状态看树外证据根 `CURRENT.json`。
+
 本目录是原件的小型镜像，不是另一轮测试。被验版本 `ca4b33316c47862ecd3ec71a535a51d540ada986`，基线 `a54fed0d065ffdf025734a69420c1fe530615eb1`；原始目录 `~/.finance-runtime/reviews/backfill-302132-0923/continue-07/`。本文所在文档分支的 HEAD 不是被验版本。
 
 `verified-closeout.json` 对应本目录同名路径的 SHA256；脚本退出码/pytest counts/身份/全量范围均来自原始收据，未移签、未补写历史字段。前端和 registry 收据中的逐步日志哈希指向树外原件，镜像未复制这些日志或 E2E 大产物。`production-authorization-draft.md` 是未获授权的后续模板，不是已执行命令。

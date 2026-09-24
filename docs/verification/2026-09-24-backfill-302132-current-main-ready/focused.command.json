@@ -1,0 +1,30 @@
+{
+  "label": "focused",
+  "argv": [
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "tests/test_repair_backfill_stock_history.py",
+    "tests/test_rehearse_302132_backfill.py",
+    "-p",
+    "no:cacheprovider",
+    "-o",
+    "tmp_path_retention_policy=failed",
+    "--basetemp=/Users/a77/.finance-runtime/reviews/wo83-r08-focused-temp"
+  ],
+  "identity_before": {
+    "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+    "status": ""
+  },
+  "disk_floor_bytes": 4294967296,
+  "timeout_seconds": 300,
+  "min_free_bytes": 75856318464,
+  "pid": 79204,
+  "exit_code": 0,
+  "seconds": 40.13,
+  "identity_after": {
+    "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+    "status": ""
+  }
+}

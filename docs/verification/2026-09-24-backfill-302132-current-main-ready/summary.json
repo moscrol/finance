@@ -1,0 +1,149 @@
+{
+  "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+  "main": "4cc15e703f81bce8abadee00f68caacdb0c72b4d",
+  "checks": [
+    {
+      "label": "focused",
+      "argv": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_repair_backfill_stock_history.py",
+        "tests/test_rehearse_302132_backfill.py",
+        "-p",
+        "no:cacheprovider",
+        "-o",
+        "tmp_path_retention_policy=failed",
+        "--basetemp=/Users/a77/.finance-runtime/reviews/wo83-r08-focused-temp"
+      ],
+      "identity_before": {
+        "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+        "status": ""
+      },
+      "disk_floor_bytes": 4294967296,
+      "timeout_seconds": 300,
+      "min_free_bytes": 75856318464,
+      "pid": 79204,
+      "exit_code": 0,
+      "seconds": 40.13,
+      "identity_after": {
+        "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+        "status": ""
+      }
+    },
+    {
+      "label": "frontend",
+      "argv": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/run_frontend_gate.py",
+        "--tree",
+        "/Users/a77/.finance-runtime/reviews/backfill-302132-0923/forward-02/tree",
+        "--expect-revision",
+        "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+        "--output",
+        "/Users/a77/.finance-runtime/reviews/backfill-302132-0923/continue-08/frontend",
+        "--workbench-port",
+        "19941",
+        "--re06-port",
+        "19944"
+      ],
+      "identity_before": {
+        "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+        "status": ""
+      },
+      "disk_floor_bytes": 4294967296,
+      "timeout_seconds": 1500,
+      "min_free_bytes": 75598913536,
+      "pid": 80048,
+      "exit_code": 0,
+      "seconds": 128.462,
+      "identity_after": {
+        "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+        "status": ""
+      }
+    },
+    {
+      "label": "registry",
+      "exit_code": 0
+    },
+    {
+      "label": "rehearsal",
+      "argv": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/review_probes/rehearse_302132_backfill.py",
+        "--production",
+        "/Users/a77/finance-workspace-private/db/market_feature_store.duckdb",
+        "--parquet",
+        "/Users/a77/.finance-runtime/reviews/backfill-302132-0923/rehearsal-b9b59a9a/frozen.parquet",
+        "--output",
+        "/Users/a77/.finance-runtime/reviews/backfill-302132-0923/continue-08/rehearsal"
+      ],
+      "identity_before": {
+        "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+        "status": ""
+      },
+      "disk_floor_bytes": 4294967296,
+      "timeout_seconds": 2400,
+      "min_free_bytes": 70865502208,
+      "pid": 82196,
+      "exit_code": 0,
+      "seconds": 156.588,
+      "identity_after": {
+        "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+        "status": ""
+      }
+    },
+    {
+      "label": "python",
+      "argv": [
+        "bash",
+        "scripts/run_main_gate.sh",
+        "--pytest-args",
+        "-q -p no:cacheprovider -o tmp_path_retention_policy=failed --basetemp=/Users/a77/.finance-runtime/reviews/wo83-r08-python-temp --junitxml=/Users/a77/.finance-runtime/reviews/backfill-302132-0923/continue-08/pytest.xml --durations=20"
+      ],
+      "identity_before": {
+        "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+        "status": ""
+      },
+      "disk_floor_bytes": 4294967296,
+      "timeout_seconds": 5400,
+      "min_free_bytes": 72841564160,
+      "pid": 84911,
+      "exit_code": 0,
+      "seconds": 1087.781,
+      "identity_after": {
+        "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+        "status": ""
+      }
+    },
+    {
+      "label": "scope",
+      "argv": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/check_test_receipt.py",
+        "/Users/a77/.finance-runtime/reviews/backfill-302132-0923/continue-08/python-receipts/gate-47iUwvcM/pytest.json",
+        "--expect-revision",
+        "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+        "--require-full-scope",
+        "--base-drift-max",
+        "5"
+      ],
+      "identity_before": {
+        "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+        "status": ""
+      },
+      "disk_floor_bytes": 4294967296,
+      "timeout_seconds": 120,
+      "min_free_bytes": 78026027008,
+      "pid": 7822,
+      "exit_code": 0,
+      "seconds": 2.012,
+      "identity_after": {
+        "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+        "status": ""
+      }
+    }
+  ],
+  "ok": true
+}

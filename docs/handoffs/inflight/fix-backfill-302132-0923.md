@@ -1,28 +1,26 @@
 # #83 / PR #813
 
 ## 这个分支做什么
-302132 固定范围回填整合，只到工程送审；合入与生产另行授权，不动 8792/launchd/他股。
+302132固定范围回填整合，只到工程送审；合入与生产另行授权，不动8792/launchd/他股。
 
 ## 决策与被否方案
-- main 有源码前进，从 fd6 前向到 ca4 并重验；旧绿不移签。
-- INDEX/QUEUE 冲突保留 main 其它工单行，只补 #83，避免旧表覆盖新事实。
-- 文档留本分支，被验代码另树固定；作者工程绿不代 #75 独审。WIP 保留防误合。
-- 发现顺序/理由：`docs/handoffs/2026-09-24-backfill-302132-engineering-ready.md`。
+main有源码/门禁前进就重新冻结并全验，旧绿不移签；文档留本分支，被验代码另树固定。作者工程绿不代#75独审，WIP保留防误合。理由与发现顺序见 `docs/handoffs/2026-09-24-backfill-302132-current-main-ready.md`（此前背景在engineering-ready和gate-continuation两份快照）。
 
 ## 当前状态
-**ENGINEERING_READY_PENDING_QC**。#813 head `ca4b33316c47862ecd3ec71a535a51d540ada986`，base `a54fed0d065ffdf025734a69420c1fe530615eb1`，已推。作者四叶及整库验收全绿，自有进程均退出。#802 已关，评论 6446 → #813。
-证据根 `~/.finance-runtime/reviews/backfill-302132-0923/`，动态入口 `CURRENT.json`。唯一被验树 `forward-01/tree`；本任务分支的代码仍旧，不能从这里运行验收/生产命令。归仓小收据 `docs/verification/2026-09-24-backfill-302132-ready/`。
+**ENGINEERING_READY_PENDING_QC**。#813 head `3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59`，base `4cc15e703f81bce8abadee00f68caacdb0c72b4d`，已推。四叶及整库均通过，当前main核验一致，自有进程已退出。
+证据根 `~/.finance-runtime/reviews/backfill-302132-0923/`，动态入口 `CURRENT.json`；唯一被验树 `forward-02/tree`；原件 `continue-08/`。本任务分支代码仍旧，不能从这里运行验收/生产。归仓镜像与待授权稿：`docs/verification/2026-09-24-backfill-302132-current-main-ready/`。
+#813保持WIP/open/unmerged；#802已关，6446→#813。ca4与更早轮次只保留为历史证据。
 
 ## 未验证 / 已知边界
-#75 独审未完成；未合 main、未执行生产。副本证据只对本轮冻结数据成立，生产前重新冻结。中性 basetemp 不代表修了来源路径股票代码误判。此前中断/红收据及旧版本绿均保留。
+#75独审未完成，未获合入或生产授权；未写生产。副本证据只对冻结数据成立，生产前重新冻结。中性basetemp不代表修了来源路径股票代码误判；旧红/中断与旧绿原件不删不移签。
 
 ## 下一步
-1. #75 以 ca4 开独审；按 CURRENT/PR head/当前 main 核身份，勿拿文档 HEAD 或 fd6 旧收据。
-2. 独审通过后请用户确认合入。候选或 main 变化先评估并重验，不把本文视为滚动许可。
-3. 生产命令、日期及本轮真实父备份回滚点另行逐字授权；模板见上述归仓目录 `production-authorization-draft.md`。CLI 无 --record，授权另存 JSON；WAL/后续业务写入先停下。
+1. #75以3c5独审，核CURRENT/PR head/main，勿拿文档HEAD或旧收据。
+2. 独审通过后请用户确认合入；版本变化先评估重验，本文不是滚动许可。
+3. 生产对命令/日期/冻结输入/本轮真实父备份另行逐字授权；模板指向forward-02/3c5，CLI无--record，授权另存JSON。WAL/后续业务写入先停。
 
 ## 已验证
-ca4 定向118P；ruff/全量15400P、0F/0E、85S/2X，collected15487，完整范围/身份校验0、基座漂移0；前端120P、E2E34P+2既有跳过；registry五项0。37项副本验收全绿，异常金额仅命中预期项，恢复摘要=基线，生产未变；64行三项值全非空。a54+ca4 merge-tree 无冲突。原件 `continue-07/`。
+3c5定向118P；ruff/全量15457P、0F/0E、85S/2X，完整收集15544，身份/范围校验0、漂移0；前端120P、E2E34P+2既有跳过；registry五项0；整库37PASS、金额负对照/恢复/值审计正确，64行三项全非空，生产未变。merge-tree无冲突。完整原件及哈希对账见continue-08/verified-closeout.json。
 
 ## 踩过的坑
-临时路径含302132会触发业务扫描，必须用中性 basetemp；成功夹具原生清理，失败保留，系统函数模拟先于框架清理恢复。旧trace曾归档过晚丢失，后续轮先归档。恢复只认本轮父收据，不用演练备份；不停止他人任务、不累计部分测试凑全量。
+临时路径含302132会触发业务扫描；中性路径、原生成功清理失败保留。系统函数模拟先于框架清理恢复。E2E先归档。恢复只认本轮父收据，不用演练或“最新”备份；不停止他人任务。
