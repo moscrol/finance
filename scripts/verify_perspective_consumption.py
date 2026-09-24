@@ -56,7 +56,10 @@ def drift_candidates(value: str, current: list[str]) -> list[dict]:
     ]
 
 
-def verify(us: userspace.UserSpace, perspective_id: str, query: str, *, check_exam: bool = False) -> dict:
+def verify(
+    us: userspace.UserSpace, perspective_id: str, query: str, *,
+    check_exam: bool = False, check_delivery: bool = False,
+) -> dict:
     pid = lab.resolve_perspective_id(perspective_id)
     root = lab.perspectives_root(us).resolve()
     require(us.root.resolve() == us.root.parent.resolve() / us.user_id, "User root redirects to another identity")
@@ -183,16 +186,37 @@ def verify(us: userspace.UserSpace, perspective_id: str, query: str, *, check_ex
             for row in result["results"]
         ]
         check(result["passed"], "Known-answer exam not passed")
+    delivery_result = None
+    if check_delivery:
+        from scripts.perspective_request_capture import verify_delivery
+
+        delivery_result = verify_delivery(us, pid, query, context.prompt)
+        check(delivery_result["status"] == "PASS", "Offline provider request delivery failed")
+    if check_exam:
         require(exam_file.exists() == exam_exists, "Exam presence changed during verification")
     require(all(digest(path.read_bytes()) == sha for path, sha in inputs.items()), "Input changed during verification")
     require(sorted(learning.patches_dir(us, pid).glob("pp-*.json")) == patch_paths, "Patch set changed during verification")
     code_paths = [Path(lab.__file__), Path(learning.__file__), Path(userspace.__file__)]
     if check_exam:
         code_paths.append(Path(exam.__file__))
+    if check_delivery:
+        for module in (
+            "scripts.perspective_request_capture",
+            "intelligence.runtime.turn_control_core",
+            "intelligence.runtime.continuous_turn_adapter",
+            "intelligence.runtime.glm_agent_runtime",
+            "intelligence.runtime.agent_episode",
+            "intelligence.services.episode_factory",
+            "intelligence.services.episode_protocol",
+            "intelligence.services.research_harness",
+        ):
+            code_paths.append(Path(sys.modules[module].__file__))
     return {
         "status": "FAIL" if issues else "PASS",
         "issues": issues,
-        "scope": "recorded_patches_and_offline_context_assembly_only" + ("; known_answer_exam" if check_exam else ""),
+        "scope": "recorded_patches_and_offline_context_assembly_only"
+        + ("; known_answer_exam" if check_exam else "")
+        + ("; offline_first_provider_request" if check_delivery else ""),
         "sampled_at": datetime.now(timezone.utc).isoformat(),
         "user": us.user_id,
         "users_root": str(us.root.parent.resolve()),
@@ -211,6 +235,7 @@ def verify(us: userspace.UserSpace, perspective_id: str, query: str, *, check_ex
             "values_in_context": sum(value in context.prompt for value in current_values),
         },
         "known_answer_exam": exam_result,
+        "offline_request_delivery": delivery_result,
         "profile_values_without_patch_receipt": {
             field: sum(learning._norm(value) not in approved_by_field[field] for value in profile.get(field, []))
             for field in learning.ALLOWED_PATCH_FIELDS
@@ -222,7 +247,7 @@ def verify(us: userspace.UserSpace, perspective_id: str, query: str, *, check_ex
         "inputs_unchanged": True,
         "input_sha256": {str(path.relative_to(root)): sha for path, sha in sorted(inputs.items())},
         "code_sha256": {str(path.relative_to(ROOT)): digest(path.read_bytes()) for path in code_paths},
-        "unverified": ["manual_framework_fields", "profile_values_without_patch_receipt", "human_review_authority", "model_consumption", "answer_quality", "historical_cutoff"],
+        "unverified": ["manual_framework_fields", "profile_values_without_patch_receipt", "human_review_authority", "api_routing_and_session_selection", "model_consumption", "answer_quality", "historical_cutoff"],
     }
 
 
@@ -233,10 +258,14 @@ def main() -> int:
     parser.add_argument("--perspective", required=True)
     parser.add_argument("--query", required=True)
     parser.add_argument("--check-exam", action="store_true", help="Also run the existing read-only known-answer exam; missing is FAIL")
+    parser.add_argument("--check-delivery", action="store_true", help="Capture the first GLM request offline; no network/model/tools")
     args = parser.parse_args()
     os.environ[userspace.ENV_USERS_DIR] = str(args.users_root.resolve())
     try:
-        report = verify(userspace.user_space(args.user), args.perspective, args.query, check_exam=args.check_exam)
+        report = verify(
+            userspace.user_space(args.user), args.perspective, args.query,
+            check_exam=args.check_exam, check_delivery=args.check_delivery,
+        )
     except (ValueError, KeyError, TypeError, OSError) as exc:
         report = {"status": "FAIL", "scope": "offline_context_assembly_only", "error": str(exc)}
     report["audit_revision"] = subprocess.check_output(["git", "-C", str(ROOT), "rev-parse", "HEAD"], text=True).strip()

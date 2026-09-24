@@ -164,6 +164,112 @@ def test_manual_values_have_explicit_unverified_scope(sample):
     assert result["current_profile_assembly"]["values_in_context"] == 2
 
 
+def test_offline_delivery_reaches_provider_callback_without_network(sample, monkeypatch):
+    import socket
+
+    from intelligence.services import llm_refine
+
+    def forbidden(*_args, **_kwargs):
+        pytest.fail("Offline audit must not use a provider or network")
+
+    us, _, _ = sample
+    monkeypatch.setattr(llm_refine, "chat_with_tools", forbidden)
+    monkeypatch.setattr(llm_refine, "detect_providers", forbidden)
+    monkeypatch.setattr(socket.socket, "connect", forbidden)
+    result = verify(us, "sample", "volume", check_delivery=True)
+    assert result["status"] == "PASS"
+    delivery = result["offline_request_delivery"]
+    assert delivery["status"] == "PASS"
+    assert delivery["modes"]["single"]["context_sha256"] == result["context_sha256"]
+    assert delivery["modes"]["neutral"]["context_chars"] == 0
+    assert delivery["modes"]["single"]["tool_count"] == 0
+    assert "Check volume before taking risk" not in json.dumps(result)
+    assert "model_consumption" in result["unverified"]
+
+
+@pytest.mark.parametrize("fault", ["drop_adapter", "drop_protocol", "neutral_leak", "no_boundary"])
+def test_delivery_mutations_do_not_pass(sample, monkeypatch, fault):
+    from intelligence.services import episode_protocol as protocol
+    from scripts import perspective_request_capture as probe
+
+    us, _, _ = sample
+    if fault == "drop_adapter":
+        make_adapter = probe.RequestCapture.adapter
+
+        def dropping_adapter(self):
+            adapter = make_adapter(self)
+            build = adapter._context_factory
+
+            def dropping_context(frame, **kwargs):
+                kwargs.pop("perspective_context", None)
+                return build(frame, **kwargs)
+
+            adapter._context_factory = dropping_context
+            return adapter
+
+        monkeypatch.setattr(probe.RequestCapture, "adapter", dropping_adapter)
+    elif fault == "neutral_leak":
+        active = lab.active_runtime_prompt
+        monkeypatch.setattr(lab, "active_runtime_prompt", lambda us, **kw: active(us, **{**kw, "mode": "single"}))
+    else:
+        build = protocol.build_episode_input
+
+        def dropping_input(*args):
+            payload = json.loads(build(*args))
+            payload.pop("perspective_context" if fault == "drop_protocol" else "perspective_context_rule", None)
+            return json.dumps(payload)
+
+        monkeypatch.setattr(protocol, "build_episode_input", dropping_input)
+    result = verify(us, "sample", "volume", check_delivery=True)
+    assert result["status"] == "FAIL"
+    assert result["offline_request_delivery"]["status"] == "FAIL"
+
+
+def test_no_provider_callback_is_not_delivery(sample, monkeypatch):
+    from scripts import perspective_request_capture as probe
+
+    class Adapter:
+        def handle(self, **_kwargs):
+            return None
+
+    us, _, _ = sample
+    monkeypatch.setattr(probe.RequestCapture, "adapter", lambda self: Adapter())
+    with pytest.raises(ValueError, match="not captured exactly once"):
+        verify(us, "sample", "volume", check_delivery=True)
+
+
+def test_input_changed_during_provider_capture_is_rejected(sample, monkeypatch):
+    from scripts import perspective_request_capture as probe
+
+    us, path, _ = sample
+    complete = probe.RequestCapture.complete
+
+    def changing_complete(self, **kwargs):
+        rewrite(path, lambda value: value.update(note="changed during capture"))
+        return complete(self, **kwargs)
+
+    monkeypatch.setattr(probe.RequestCapture, "complete", changing_complete)
+    with pytest.raises(ValueError, match="Input changed"):
+        verify(us, "sample", "volume", check_delivery=True)
+
+
+def test_exam_created_during_provider_capture_is_rejected(sample, monkeypatch):
+    from scripts import perspective_request_capture as probe
+
+    us, _, _ = sample
+    complete = probe.RequestCapture.complete
+
+    def changing_complete(self, **kwargs):
+        path = exam.exam_path(us, "sample")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("{}", encoding="utf-8")
+        return complete(self, **kwargs)
+
+    monkeypatch.setattr(probe.RequestCapture, "complete", changing_complete)
+    with pytest.raises(ValueError, match="Exam presence changed"):
+        verify(us, "sample", "volume", check_exam=True, check_delivery=True)
+
+
 def test_drift_candidates_do_not_approve_rewritten_value(sample):
     us, path, _ = sample
     current = "Check volume before reducing risk"
