@@ -47,6 +47,15 @@ TOOL_ERROR = "tool/error"
 # 「这套授权工具在理论上能不能产出某个 required_output」。预检 fail-open——
 # 声明不全只会漏抓，不会误拦（详见 ``check_satisfiability``）。
 _DEFAULT_TOOL_METADATA: dict[str, tuple[str, str, str, frozenset[str]]] = {
+    # 元工具（knevo ``finance_provider_status`` 的形状，spec capability-amplification §3.6）：调用前自述
+    # 本轮授权的每个源现在是否 ready、什么档次、as_of 从哪来。不铸证据（produces 空），探针只做存在性 /
+    # 开关检查绝不外呼。runner 由运行时按 episode 绑（要注册表与当前 contract），装配层不挂。
+    "provider_status": (
+        "provider_status",
+        "自述本轮已授权的取数 / 检索源当前是否就绪（开关、库文件、目录、沙箱）及各自的档次与 as_of 来源；不取数",
+        "current",
+        frozenset(),
+    ),
     "finance_query": (
         "finance_query",
         "按语义数据集、指标、维度、筛选和时间范围查询本地结构化金融数据",
@@ -513,6 +522,56 @@ def parse_derived_calculation_arguments(
         "timeout_seconds": timeout,
     }
     return json.dumps(payload, ensure_ascii=False), cleaned_purpose
+
+
+# 元工具 provider_status（spec capability-amplification §3.6）：可选 tools 过滤，空参 = 看全部授权源。
+PROVIDER_STATUS_PARAMETERS: dict[str, object] = {
+    "type": "object",
+    "properties": {
+        "tools": {
+            "type": "array",
+            "items": {"type": "string", "minLength": 1},
+            "description": (
+                "可选。只看这几个工具的就绪状态（填工具名，如 [\"financial_data\", \"web_fetch\"]）；"
+                "不传则列出本轮全部已授权的源。填了不存在的名字会被拒并列出可选项。"
+            ),
+        }
+    },
+    "additionalProperties": False,
+}
+
+
+def parse_provider_status_arguments(
+    arguments: Mapping[str, object],
+) -> tuple[str, str]:
+    """空参合法；``tools`` 若给必须是非空字符串数组，多余键拒。"""
+
+    unknown = set(arguments) - {"tools"}
+    if unknown:
+        raise InvalidResearchToolArguments(
+            "provider_status accepts only an optional tools argument; unexpected: "
+            + ", ".join(sorted(str(item) for item in unknown))
+        )
+    raw = arguments.get("tools", [])
+    if raw is None:
+        raw = []
+    if not isinstance(raw, list):
+        raise InvalidResearchToolArguments(
+            "tools argument must be an array of tool names",
+            code="invalid_query",
+        )
+    tools: list[str] = []
+    for item in raw:
+        if not isinstance(item, str) or not item.strip():
+            raise InvalidResearchToolArguments(
+                "each item in the tools argument must be a non-empty tool name",
+                code="invalid_query",
+            )
+        name = item.strip()
+        if name not in tools:
+            tools.append(name)
+    display = "、".join(tools) if tools else "全部授权源"
+    return json.dumps({"tools": tools}, ensure_ascii=False), display
 
 
 def parse_financial_data_arguments(
@@ -1266,6 +1325,17 @@ class ResearchToolRegistry:
 # 失败模式，要么是复述 CLAUDE.md 里已有的红线。没有依据的宁可留空——工具提示词是
 # 模型判断「该不该用、结果怎么读」的依据，编一句进去比不写更糟。
 _TOOL_CONTRACTS: dict[str, str] = {
+    # §3.6 三条契约逐条落：① 空结果语义（「没有任何源就绪」是事实不是缺口；本工具不铸证据）；
+    #    ② 来源分档与 as_of（它自己是元工具，转述的是各工具的档次与 as_of 来源，与本表其它条目同一份事实，
+    #    结构化形态在 provider_status.TOOL_FACTS）；③ 参数（可选 tools 过滤，未知名字报 unknown_tool 不静默）。
+    "provider_status": (
+        "返回的是本轮已授权的每个源此刻是否就绪（开关 / 库文件 / 目录 / 沙箱）以及它的档次与 as_of 来源，"
+        "不取任何数据、不产出证据，不能被引用为依据。"
+        "未就绪（✗）的源不要点：点了得到的是失败而不是「没有该信息」。"
+        "「本轮没有任何已授权的源」是事实：只能基于已有证据作答或说明无法取证，不要把它写成否定结论。"
+        "就绪只表示能调用，不表示查得到——查不到仍按各工具自己的空结果规则读。"
+        "参数 tools 可选，填要看的工具名列表；填了不存在的名字会报 unknown_tool 并列出可选项。"
+    ),
     "market_data": (
         "返回的是最近一个已收盘交易日的快照，不是实时也不一定是今天："
         "当日盘中或次日开盘前查询会回退到上一交易日，此时应明写数据截至日期，"
@@ -1397,7 +1467,9 @@ _TOOL_CONTRACTS: dict[str, str] = {
         "公司项后面的 strength/evidence_layer 是这条映射的可信度分级："
         "peripheral 或研报推断来源的产业链归类只能作为线索，"
         "要断言某公司确有该业务，需要 l3_lookup 的公告或 kb_search 的一手事实确认。"
-        "图谱无命中说明尚未登记该映射，不等于不存在关联。"
+        "「图谱无命中」说明库里尚未登记该映射，是证据缺口，不等于不存在关联；"
+        "「图谱不可用」（graph_unavailable：图谱文件缺失或损坏）是工具故障，不是没有该实体，"
+        "两者观察值分开写，不要把故障读成否定证据。"
     ),
     # 依据在 ``_evidence_lookup`` 的 detail 构造：每条逐字带
     # f"（{source}，{source_date or '无日期'}，质量 {confidence or '?'}）"。
@@ -1526,6 +1598,8 @@ def default_registry(tools: dict[str, agent_research.ToolRunner]) -> ResearchToo
                 if name == "sub_research"
                 else DERIVED_CALCULATION_PARAMETERS
                 if name == "derived_calculation"
+                else PROVIDER_STATUS_PARAMETERS
+                if name == "provider_status"
                 else EMPTY_TOOL_PARAMETERS
                 if name in {"market_data", "mainline_context"}
                 else query_parameters(name)
@@ -1539,6 +1613,8 @@ def default_registry(tools: dict[str, agent_research.ToolRunner]) -> ResearchToo
                 if name == "sub_research"
                 else parse_derived_calculation_arguments
                 if name == "derived_calculation"
+                else parse_provider_status_arguments
+                if name == "provider_status"
                 else parse_snapshot_arguments
                 if name in {"market_data", "mainline_context"}
                 else parse_query_arguments
@@ -1576,6 +1652,14 @@ def derived_calculation_tool_spec(
     """
 
     return default_registry({"derived_calculation": runner}).resolve("derived_calculation")
+
+
+def provider_status_tool_spec(
+    runner: agent_research.ToolRunner | ToolRunnerAdapter,
+) -> ToolSpec:
+    """把一个 episode 期绑好的自述 runner 装成 ``provider_status`` 的 ToolSpec（同一条装配路）。"""
+
+    return default_registry({"provider_status": runner}).resolve("provider_status")
 
 
 # ---------------------------------------------------------------------------

@@ -821,9 +821,37 @@ def build_graph_tools(knowledge) -> dict[str, ToolRunner]:
                     internal_locator="wiki/relations/entity_exposures.json",
                 )
             )
+        # 「库里没有」与「没解析到」要分开（spec capability-amplification §3.6 graph_lookup 行）：
+        # 适配器对图谱文件缺失 / 损坏回 found=False 并带 errors——那是工具故障，模型据此写
+        # 「不存在关联」就是把故障读成否定证据；found=True 且无项才是真缺口。
+        graph_unavailable = not concepts.get("found", True) and not exposures.get("found", True)
+        if not evidence and graph_unavailable:
+            problems = [
+                str(item)
+                for item in (
+                    *(concepts.get("errors") or []),
+                    *(concepts.get("warnings") or []),
+                    *(exposures.get("errors") or []),
+                    *(exposures.get("warnings") or []),
+                )
+                if str(item).strip()
+            ]
+            detail = "；".join(dict.fromkeys(problems))[:200] or "图谱文件缺失或无法读取"
+            return (
+                [],
+                f"图谱不可用（graph_unavailable：{detail}）。这是工具故障，不是没有该实体或概念；"
+                "不要据此下否定结论，可改用 kb_search / evidence_search。",
+                ProviderTrace(
+                    provider="agent:graph_lookup",
+                    capability="agent_loop",
+                    status="error",
+                    detail=f"graph_unavailable: {detail}"[:200],
+                    result_count=0,
+                ),
+            )
         observation = (
             "；".join(f"{item.title}（{item.detail}）" for item in evidence)
-            or "图谱无命中（概念与公司暴露均为空）"
+            or "图谱无命中（概念与公司暴露均为空）：库里尚未登记该映射，是证据缺口，不是否定结论"
         )
         trace = ProviderTrace(
             provider="agent:graph_lookup",

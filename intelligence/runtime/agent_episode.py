@@ -30,6 +30,7 @@ from intelligence.runtime.episode_finalizer import (
 )
 from intelligence.services.derived_calculation import bind_derived_calculation_tool
 from intelligence.services.evidence_ledger import EvidenceLedger, EvidenceLedgerSnapshot
+from intelligence.services.provider_status import bind_provider_status_tool
 from intelligence.services.episode_protocol import (
     SYSTEM_PROMPT_DYNAMIC_BOUNDARY,
     finish_rejection_fields,
@@ -2626,7 +2627,7 @@ class ContinuousAgentEpisode:
         )
         coordinator = self._sub_research_coordinator
         if coordinator is None:
-            return registry
+            return self._with_provider_status_tool(registry, context_ref=context_ref)
 
         def record(goals: tuple[str, ...], result: SubResearchResult) -> None:
             # 与 PLAN 路径同一组 durable 事件（branch_started / completed / failed），
@@ -2641,7 +2642,26 @@ class ContinuousAgentEpisode:
             evidence_ledger=evidence_ledger,
             on_result=record,
         )
-        return registry.with_specs(spec)
+        return self._with_provider_status_tool(registry.with_specs(spec), context_ref=context_ref)
+
+    @staticmethod
+    def _with_provider_status_tool(
+        registry: ResearchToolRegistry, *, context_ref: _ContextRef
+    ) -> ResearchToolRegistry:
+        """最后并进 ``provider_status``（knevo ``finance_provider_status`` 形状，spec §3.6）。
+
+        放在最后是为了让它的自述面覆盖前面绑好的所有 episode 期工具；读的是**此刻**的注册表
+        与 contract（PLAN 升档换 context 后授权面会变），所以传的是可调用不是快照。
+        """
+
+        holder: dict[str, ResearchToolRegistry] = {}
+        holder["registry"] = registry.with_specs(
+            bind_provider_status_tool(
+                registry_specs=lambda: tuple(holder["registry"].authorized_specs()),
+                current_context=context_ref,
+            )
+        )
+        return holder["registry"]
 
     @staticmethod
     def _record_branch_events(

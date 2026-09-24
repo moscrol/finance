@@ -589,6 +589,10 @@ def runtime_capabilities_for_frame(frame: TaskFrame) -> tuple[str, ...]:
     # 纯盘面 / 技术面 / 知识题不给：它每次占一个工具槽，而那些题没有可算的输入。
     if "financial_data" in capabilities and "derived_calculation" not in capabilities:
         capabilities = (*capabilities, "derived_calculation")
+    # 元工具 provider_status（knevo finance_provider_status 形状，spec §3.6）：只要这一轮有任何取数 /
+    # 检索源，就允许模型先问一句「哪些源现在真的 ready」。它不取数、不铸证据，不进策略表。
+    if capabilities and "provider_status" not in capabilities:
+        capabilities = (*capabilities, "provider_status")
     return capabilities
 
 
