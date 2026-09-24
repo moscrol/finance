@@ -17,18 +17,20 @@
 
 已实现 ✅（44 新单测绿；ruff 0；层门禁无新增）｜已进默认入口 ✅（双引擎注入，hybrid 真实 run `run_20260910_011137_336558` 四件全交付、缺件=0）｜真实验收 **部分**（3/6 题：Q1 完整对照——候选四件全交付 vs 基线散文全缺；Q2/Q6 基线 clean 读数；Q2 候选+Q3/Q4/Q5 双臂**卡死在上游故障**，见下）｜生产生效 ❌（按合同不合 main）
 
-## 批跑状态（接手先看）
+## 批跑状态（接手先看 · 09-10 13:20 更新）
 
-- 批跑 pid 39647 存活、双臂 8815/8816 存活，卡在 `wait_for_gateway`（120s 节奏，自 09-10 05:45 起）。已完成 q1 双臂 + q2 基线（两轮），均 clean（model_errors=0）。**剩余：q2 候选臂、q3/q4/q5 双臂。**
-- **故障已定位（blocked/10.md 第 7 行）**：8080 写手出口 = sub2api → mirasim-sidecar（18788）→ relay.mirasim.ai；断点在 relay **拒绝签发 device session（mint 401）**，sidecar 回落不签名模式被 relay 拒 → 恒 502/503。重启 sidecar 无效（试过两次）。57244 Cockpit 同日起也坏（503→连接超时）。**恢复只能等 Mirasim relay 侧修复或重新 enrol 账号。**
-- 验证文档 §4.2 表格与 §6 四项报告已按已跑三题如实填好（部分验收）。
+- **Cockpit 57244 深题会打冷却（blocked/10.md 新增一行）**：q2 候选臂 turn1 于 13:10 clean 完（390.8s、1528 字、finish=completed、判官过），随即 sol 429 `model_cooldown reset_seconds≈8401`（≈15:34 解冷）、luna 同账号池用量限额同步受限、terra 连接超时——**三模型同时不可聊到 15:3x**。driver pid 46965 读 reset_seconds 睡到解冷自动续跑 q2 cand turn2（Q6 追问）→ q3/q4/q5 双臂，预计全部跑完要到深夜。
+- 已完成（clean 可作证据）：q1 双臂、q2 基线 turn1+turn2、q2 候选 turn1。剩余：q2 候选 turn2、q3/q4/q5 双臂。
+- 打脏作废的 run 都有收据可循（model_error>0 即重试）：q2 base turn1 一次（10:34 TimeoutError 打水漂）、turn2 一次（3× TimeoutError）。
+- 15:49–18:48 sol 503 server_is_overloaded 持续 3h，期间四次「探针过→episode 429 打脏」循环（q2 cand turn2 attempt 2–5 全废）。**18:52 起 sol 回稳**：18:56 q2 cand turn2（Q6）clean 落盘（1434 字、0 错），19:06 q3 base clean 落盘；19:14 q3 cand turn1 一次被 1 个 model_error 打脏，正重试。q4/q5 双臂未开始。
+- 已完成（clean）：q1 双臂、q2 双臂两轮、q3 base。剩余：q3 cand、q4/q5 双臂。
+- 现挂 **20:41 一次性 cron** 继续盯；若仍 503 循环，cron 指令自排下一小时接力，不碰进程。
 
 ## 下一步
 
-1. 盯 `/tmp/ticket10/paired/paired.log` + 双链探针；任一链恢复（8080 mint 401 消失，或 57244 回 200）批跑自动继续。
-2. 跑完后 `python3 /tmp/ticket10/summarize.py /tmp/ticket10/paired --md` 更新 §4.2 → 按 `10-frozen-questions.md` 判卷点补打 Q2 候选/Q3/Q4/Q5，Q6 查 `rerank_consistent`。
-3. 合 main 等用户确认；合后能力图谱去 `@branch`。
-4. `blocked/10.md`（判官两处 + 57244 key + **Mirasim relay mint 401**）转运行底座负责人。
+1. 批跑完成后 `python3 /tmp/ticket10/summarize.py /tmp/ticket10/paired --md` 更新 §4.2 → 按 `10-frozen-questions.md` 判卷点补打 Q2 候选/Q3/Q4/Q5，Q6 查 `rerank_consistent`。
+2. 合 main 等用户确认；合后能力图谱去 `@branch`。
+3. `blocked/10.md`（判官两处 + 57244 key + **Mirasim relay mint 401**）转运行底座负责人。
 
 ## 未验证 / 已知边界
 
