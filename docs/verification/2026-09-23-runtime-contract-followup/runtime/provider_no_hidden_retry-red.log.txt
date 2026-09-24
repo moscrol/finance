@@ -1,0 +1,29 @@
+....FFFF                                                                 [100%]
+=================================== FAILURES ===================================
+_ test_incomplete_envelope_is_not_executed_or_silently_retried[providers1-length] _
+intelligence/tests/test_model_turn_completion_boundary.py:41: in test_incomplete_envelope_is_not_executed_or_silently_retried
+    assert turn.finish_reason == reason
+E   AssertionError: assert None == 'length'
+E    +  where None = ModelTurn(content='', tool_calls=(), provider_name='b', error='incomplete_model_response:length', provider_attempts=2, input_tokens=None, output_tokens=None, served_model=None, finish_reason=None).finish_reason
+_ test_incomplete_envelope_is_not_executed_or_silently_retried[providers1-max_tokens] _
+intelligence/tests/test_model_turn_completion_boundary.py:41: in test_incomplete_envelope_is_not_executed_or_silently_retried
+    assert turn.finish_reason == reason
+E   AssertionError: assert None == 'max_tokens'
+E    +  where None = ModelTurn(content='', tool_calls=(), provider_name='b', error='incomplete_model_response:max_tokens', provider_attempts=2, input_tokens=None, output_tokens=None, served_model=None, finish_reason=None).finish_reason
+_ test_incomplete_envelope_is_not_executed_or_silently_retried[providers1-content_filter] _
+intelligence/tests/test_model_turn_completion_boundary.py:41: in test_incomplete_envelope_is_not_executed_or_silently_retried
+    assert turn.finish_reason == reason
+E   AssertionError: assert None == 'content_filter'
+E    +  where None = ModelTurn(content='', tool_calls=(), provider_name='b', error='incomplete_model_response:content_filter', provider_attempts=2, input_tokens=None, output_tokens=None, served_model=None, finish_reason=None).finish_reason
+_ test_incomplete_envelope_is_not_executed_or_silently_retried[providers1-missing_finish_reason] _
+intelligence/tests/test_model_turn_completion_boundary.py:41: in test_incomplete_envelope_is_not_executed_or_silently_retried
+    assert turn.finish_reason == reason
+E   AssertionError: assert None == 'missing_finish_reason'
+E    +  where None = ModelTurn(content='', tool_calls=(), provider_name='b', error='incomplete_model_response:missing_finish_reason', provider_attempts=2, input_tokens=None, output_tokens=None, served_model=None, finish_reason=None).finish_reason
+- generated xml file: /Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/provider_no_hidden_retry-red.xml -
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_model_turn_completion_boundary.py::test_incomplete_envelope_is_not_executed_or_silently_retried[providers1-length]
+FAILED intelligence/tests/test_model_turn_completion_boundary.py::test_incomplete_envelope_is_not_executed_or_silently_retried[providers1-max_tokens]
+FAILED intelligence/tests/test_model_turn_completion_boundary.py::test_incomplete_envelope_is_not_executed_or_silently_retried[providers1-content_filter]
+FAILED intelligence/tests/test_model_turn_completion_boundary.py::test_incomplete_envelope_is_not_executed_or_silently_retried[providers1-missing_finish_reason]
+4 failed, 4 passed, 63 deselected in 7.27s

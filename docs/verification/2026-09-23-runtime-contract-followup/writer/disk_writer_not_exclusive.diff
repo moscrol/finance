@@ -1,0 +1,13 @@
+diff --git a/intelligence/services/episode_store.py b/intelligence/services/episode_store.py
+index 2de38e935..70bb6579c 100644
+--- a/intelligence/services/episode_store.py
++++ b/intelligence/services/episode_store.py
+@@ -581,7 +581,7 @@ class JsonlEpisodeStore:
+         acquired = False
+         try:
+             try:
+-                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
++                fcntl.flock(fd, fcntl.LOCK_SH | fcntl.LOCK_NB)
+             except BlockingIOError as exc:
+                 raise EpisodeWriterBusy(f"{episode_id}: episode writer is active") from exc
+             acquired = True

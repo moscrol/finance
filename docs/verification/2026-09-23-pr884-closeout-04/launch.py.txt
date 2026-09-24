@@ -1,0 +1,14 @@
+"""Launch the fixed candidate controller once; all tests stay bounded."""
+import json
+from pathlib import Path
+import subprocess
+
+root = Path(__file__).resolve().parent
+python = '/Users/a77/finance-workspace-private/.venv-workbench/bin/python'
+with (root / 'launch.json').open('x') as receipt:
+    with (root / 'controller.log.txt').open('xb') as log:
+        process = subprocess.Popen([python, '-B', str(root / 'run.py'), 'start'], cwd=root,
+                                   stdin=subprocess.DEVNULL, stdout=log, stderr=log,
+                                   start_new_session=True)
+    json.dump({'pid': process.pid, 'status': 'started; admission may still be waiting'}, receipt)
+    print(process.pid)

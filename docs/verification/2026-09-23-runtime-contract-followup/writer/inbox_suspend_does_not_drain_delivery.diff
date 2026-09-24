@@ -1,0 +1,16 @@
+diff --git a/intelligence/services/episode_inbox.py b/intelligence/services/episode_inbox.py
+index 1a75e183b..af5bc5e7b 100644
+--- a/intelligence/services/episode_inbox.py
++++ b/intelligence/services/episode_inbox.py
+@@ -483,9 +483,8 @@ class Inbox:
+ 
+     def suspend(self) -> None:
+         """Drain in-flight sends and close without changing pending message facts."""
+-        with self._spool_lock:
+-            with self._lock:
+-                self._closed = True
++        with self._lock:
++            self._closed = True
+ 
+     def reopen(self) -> None:
+         """修复轮（``resume``）重开箱子：``finish`` 之后 episode 又活了，外部输入面随之恢复。

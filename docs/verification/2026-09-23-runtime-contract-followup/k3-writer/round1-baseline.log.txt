@@ -1,0 +1,15 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.12.13, pytest-8.3.5, pluggy-1.6.0 -- /Users/a77/finance-workspace-private/.venv-workbench/bin/python
+rootdir: /Users/a77/.finance-runtime/reviews/runtime-probe-k3-writer-20260923-03/k3/work
+plugins: anyio-4.14.1
+collecting ... collected 6 items
+
+inbox_checks.py::test_c1_failed_insert_keeps_spool_file_and_blocks_claim[deferred_short_circuit] PASSED [ 16%]
+inbox_checks.py::test_c1_failed_insert_keeps_spool_file_and_blocks_claim[mid_insert_write] PASSED [ 33%]
+inbox_checks.py::test_c2_durable_insert_then_unlink_single_claim_derives PASSED [ 50%]
+inbox_checks.py::test_c3_late_spool_after_close_kept_and_not_written PASSED [ 66%]
+inbox_checks.py::test_c4_crash_window_is_at_least_once_reconciled_by_spool_id PASSED [ 83%]
+inbox_checks.py::test_c5_corrupt_spool_quarantined_without_fabricating PASSED [100%]
+
+- generated xml file: /Users/a77/.finance-runtime/reviews/runtime-probe-k3-writer-20260923-03/k3/work/logs/junit-round1.xml -
+============================== 6 passed in 1.48s ===============================

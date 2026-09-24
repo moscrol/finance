@@ -1,0 +1,132 @@
+            raise ValueError("snapshot grant identities do not reconcile with allocations")
+        # Promotion records form a non-decreasing chain of ceilings. Their IDs
+        # may sort differently from application order, but the caps cannot cross.
+        previous_calls, previous_seconds = initial_hard_calls, initial_hard_seconds
+        for calls, amount in sorted(promotions.values()):
+            if not (
+                previous_calls <= calls <= hard_calls and previous_seconds <= amount <= hard_seconds
+                and calls <= PRODUCT_MAX_TOOL_CALLS and amount <= PRODUCT_MAX_SECONDS
+            ):
+                raise ValueError("snapshot promotions do not reconcile with caps")
+            previous_calls, previous_seconds = calls, amount
+        if (previous_calls, previous_seconds) != (hard_calls, hard_seconds):
+            raise ValueError("snapshot last promotion does not match current caps")
+        ledger = cls(
+            episode_id=episode_id, initial_calls=initial_calls, hard_calls_cap=hard_calls,
+            initial_seconds=initial_seconds, hard_seconds_cap=hard_seconds,
+        )
+        ledger.remaining_calls = remaining_calls
+        ledger.remaining_seconds = remaining_seconds
+        ledger._allocated_calls = allocated_calls
+        ledger._allocated_seconds = allocated_seconds
+        ledger._initial_hard_calls_cap = initial_hard_calls
+        ledger._initial_hard_seconds_cap = initial_hard_seconds
+        ledger._grants = grants
+        ledger._promotions = promotions
+        return ledger
+
+
+_LIVE_ROOT_BUDGETS: WeakValueDictionary[str, InMemoryRootBudgetLedger] = (
+    WeakValueDictionary()
+)
+_LIVE_ROOT_BUDGETS_LOCK = RLock()
+
+
+def root_budget_for_policy(
+    policy: ResearchPolicy,
+    *,
+    episode_id: str,
+) -> InMemoryRootBudgetLedger:
+    """Allocate one root ledger from the immutable tier policy."""
+
+    episode = str(episode_id or "").strip()
+    if not episode:
+        raise ValueError("episode_id must be non-empty")
+    hard_calls = {
+        "quick": 4,
+        "standard": 8,
+        "deep": 24,
+        "max": PRODUCT_MAX_TOOL_CALLS,
+    }.get(str(policy.tier).strip().lower(), policy.max_steps)
+    with _LIVE_ROOT_BUDGETS_LOCK:
+        if episode in _LIVE_ROOT_BUDGETS:
+            raise ValueError(f"root budget already exists for live episode: {episode}")
+        ledger = InMemoryRootBudgetLedger(
+            episode_id=episode,
+            initial_calls=policy.max_steps,
+            hard_calls_cap=max(policy.max_steps, hard_calls),
+            initial_seconds=max(
+                0.0,
+                policy.total_seconds - policy.synthesis_reserve,
+            ),
+            hard_seconds_cap=policy.total_seconds,
+        )
+        _LIVE_ROOT_BUDGETS[episode] = ledger
+        return ledger
+
+
+def restore_root_budget(
+    payload: Mapping[str, object],
+    *,
+    episode_id: str,
+    unreconciled_effects: Sequence[Mapping[str, object]],
+) -> InMemoryRootBudgetLedger:
+    """Restore balances/identities, never allocate afresh from a tier policy.
+
+    The live registration is process-local, NOT a cross-process writer lease.
+
+    ``unreconciled_effects`` is **required**, not defaulted. A snapshot is taken
+    at a phase boundary while both accounting paths debit *after* the external
+    work finished, so the balance in it says an in-flight call cost zero. Handing
+    that balance to a spender is how the same money gets spent twice -- and under
+    a crash loop, N times. The caller must therefore state what it knows about
+    the window, and a non-empty list is refused here: recovering a ledger is not
+    the place to decide that an unknown charge can be ignored. Reconciling means
+    charging (``episode_effects.charge_unknown_effects``) and clearing the list
+    on the checkpoint, as one durable transition; the list is its own dedup
+    token, so reconciling twice is impossible rather than merely discouraged.
+    """
+    outstanding = unknown_effects_from_payload(list(unreconciled_effects))
+    if outstanding:
+        raise ValueError(
+            f"root budget for {episode_id} has {len(outstanding)} unreconciled effect(s); "
+            "reconcile them before spending this balance"
+        )
+    ledger = InMemoryRootBudgetLedger.from_snapshot(payload, episode_id=episode_id)
+    with _LIVE_ROOT_BUDGETS_LOCK:
+        if episode_id in _LIVE_ROOT_BUDGETS:
+            raise ValueError(f"root budget already exists for live episode: {episode_id}")
+        _LIVE_ROOT_BUDGETS[episode_id] = ledger
+    return ledger
+
+
+def release_root_budget(episode_id: str) -> None:
+    """Drop the live registration for one episode once that episode is over.
+
+    The registry exists to catch *two concurrent* root budgets for the same
+    episode, so the entry must not outlive the episode. Garbage collection
+    alone is not enough to guarantee that: when an episode ends by raising,
+    the exception traceback keeps the owning frame — and therefore the
+    ledger — reachable, so the next caller for the same episode id fails
+    against a registration that is already dead in every sense but memory.
+    Callers own the release; this is a no-op if nothing is registered.
+    """
+
+    episode = str(episode_id or "").strip()
+    if not episode:
+        return
+    with _LIVE_ROOT_BUDGETS_LOCK:
+        _LIVE_ROOT_BUDGETS.pop(episode, None)
+
+
+# 前瞻假设槽：这些输出的本体是「对未来的条件化判断」——情景路径、持续/证伪
+# 阈值不可能出现在既有证据里（证据不含未来）。episode_factory 在前瞻类题型下
+# 据此把槽签成 model_reasoning，episode_semantic_verifier 的数值门禁据此豁免
+# 条件句里模型提出的新阈值。两处共用本集合：各存一份词表必漂（route_table
+# 的 QUICK_FACT_PATTERN 注释里有同款事故）。
+FORWARD_HYPOTHESIS_OUTPUT_IDS = frozenset(
+    {
+        "scenario_paths",
+        "continuation_conditions",
+
+[truncated; total lines=1889, selected=880:1009; request a later offset]

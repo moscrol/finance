@@ -1,0 +1,86 @@
+{
+  "revision": "d542658a7e47bed58694c93be8ff9951a064f810",
+  "group": "reentry",
+  "role": "host replay of pre-existing author tests; not K3 independent acceptance",
+  "wrapper_sha256": "f712479c02b12dba84fca1b67eb3b97d8944d08b6ee2936ddd0de1ad281c739d",
+  "runner_sha256": "1103f039a54f76e2b479b0b03a24cf43796dbd2681f2dfed1fb8ca1495581209",
+  "before": {
+    "revision": "d542658a7e47bed58694c93be8ff9951a064f810",
+    "status": ""
+  },
+  "accepted": true,
+  "baseline": 12,
+  "mutations": [
+    {
+      "mutation": "runner_control_not_exclusive",
+      "collected": 3,
+      "failures": [
+        {
+          "classname": "intelligence.tests.test_episode_writer_reentry",
+          "name": "test_one_runner_rejects_other_task_without_replacing_or_leaking_inbox[ephemeral]",
+          "message": "Failed: DID NOT RAISE <class 'intelligence.services.episode_store.EpisodeWriterBusy'>"
+        },
+        {
+          "classname": "intelligence.tests.test_episode_writer_reentry",
+          "name": "test_one_runner_rejects_other_task_without_replacing_or_leaking_inbox[memory]",
+          "message": "Failed: DID NOT RAISE <class 'intelligence.services.episode_store.EpisodeWriterBusy'>"
+        },
+        {
+          "classname": "intelligence.tests.test_episode_writer_reentry",
+          "name": "test_one_runner_rejects_other_task_without_replacing_or_leaking_inbox[disk]",
+          "message": "Failed: DID NOT RAISE <class 'intelligence.services.episode_store.EpisodeWriterBusy'>"
+        }
+      ]
+    },
+    {
+      "mutation": "run_bypasses_instance_owner",
+      "collected": 1,
+      "failures": [
+        {
+          "classname": "intelligence.tests.test_episode_writer_reentry",
+          "name": "test_live_repair_blocks_fresh_run_on_same_runner",
+          "message": "Failed: DID NOT RAISE <class 'intelligence.services.episode_store.EpisodeWriterBusy'>"
+        }
+      ]
+    },
+    {
+      "mutation": "repair_bypasses_instance_owner",
+      "collected": 1,
+      "failures": [
+        {
+          "classname": "intelligence.tests.test_episode_writer_reentry",
+          "name": "test_live_run_blocks_repair_of_another_task_on_same_runner",
+          "message": "Failed: DID NOT RAISE <class 'intelligence.services.episode_store.EpisodeWriterBusy'>"
+        }
+      ]
+    },
+    {
+      "mutation": "rejected_step_marks_finished",
+      "collected": 2,
+      "failures": [
+        {
+          "classname": "intelligence.tests.test_episode_writer_reentry",
+          "name": "test_rejected_concurrent_drive_operation_keeps_owner_live[step]",
+          "message": "assert (not True)\n +  where True = <intelligence.runtime.agent_episode.EpisodeDrive object at 0x1066fd520>.finished"
+        }
+      ]
+    },
+    {
+      "mutation": "rejected_close_marks_finished",
+      "collected": 2,
+      "failures": [
+        {
+          "classname": "intelligence.tests.test_episode_writer_reentry",
+          "name": "test_rejected_concurrent_drive_operation_keeps_owner_live[close]",
+          "message": "assert (not True)\n +  where True = <intelligence.runtime.agent_episode.EpisodeDrive object at 0x1074e0440>.finished"
+        }
+      ]
+    }
+  ],
+  "after": {
+    "revision": "d542658a7e47bed58694c93be8ff9951a064f810",
+    "status": ""
+  },
+  "candidate_unchanged": true,
+  "inputs_unchanged": true
+}

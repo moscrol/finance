@@ -1,0 +1,65 @@
+"""Host probes for gaps in K3's unexecuted C5 repairs; not independent acceptance."""
+import threading
+
+import pytest
+
+from intelligence.runtime.agent_episode import ContinuousAgentEpisode
+from intelligence.services.episode_store import EpisodeWriterBusy, MemoryEpisodeStore
+from intelligence.tests.conformance.fixtures import make_context, make_frame
+from intelligence.tests.conformance.races._drive import build_rig
+
+
+def test_same_instance_reused_after_setup_exception():
+    rig = build_rig('host-c5-reused')
+    store = MemoryEpisodeStore()
+    runner = ContinuousAgentEpisode(rig.model, store=store)
+    wrong_context = make_context(make_frame('different question'), task_id='host-c5-rejected')
+    failed = runner.manual_drive(task_frame=rig.frame, context=wrong_context, registry=rig.registry)
+    with pytest.raises(ValueError):
+        failed.step()
+    assert rig.model.calls == 0
+    assert runner.inbox is None or runner.inbox.closed
+    outcome = runner.run(task_frame=rig.frame, context=rig.context, registry=rig.registry)
+    assert outcome.status == 'completed'
+    assert rig.model.calls > 0
+    _events, state = store.load(rig.task_id)
+    assert state is not None and state.terminal
+
+
+def test_step_close_contenders_leave_running_step_usable():
+    rig = build_rig('host-c5-step-close')
+    entered, release = threading.Event(), threading.Event()
+
+    def block():
+        entered.set()
+        assert release.wait(10)
+
+    rig.model.on_call[1] = block
+    drive = rig.start()
+    assert drive.step().phase == 'model_pending'
+    assert rig.model.calls == 0
+    results = {}
+
+    def step():
+        try:
+            results['point'] = drive.step()
+        except BaseException as error:
+            results['error'] = error
+
+    worker = threading.Thread(target=step)
+    worker.start()
+    try:
+        assert entered.wait(10)
+        with pytest.raises(EpisodeWriterBusy):
+            drive.close()
+        with pytest.raises(EpisodeWriterBusy):
+            drive.step()
+        assert not drive.finished
+    finally:
+        release.set()
+        worker.join(10)
+        if not worker.is_alive():
+            drive.close()
+    assert not worker.is_alive()
+    assert 'error' not in results and results['point'] is not None
+    assert drive.finished and drive.step() is None

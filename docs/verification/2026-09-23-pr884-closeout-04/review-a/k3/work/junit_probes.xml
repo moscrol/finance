@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="3" skipped="0" tests="17" time="4.467" timestamp="2026-09-23T18:58:18.661928+08:00" hostname="77deMacBook-Air.local"><testcase classname="test_k3_c1" name="test_k3_c1_model_settlement_ack_loss_fences_all_new_dispatch" time="0.013" /><testcase classname="test_k3_c1" name="test_k3_c1_repair_and_tool_entries_share_the_fence" time="0.001" /><testcase classname="test_k3_c1" name="test_k3_c1_done_checkpoint_failure_keeps_draft_private_and_disk_prefix" time="0.031" /><testcase classname="test_k3_c1" name="test_k3_c1_tree_fence_shared_between_parent_and_child" time="0.001"><failure message="AttributeError: 'object' object has no attribute 'phase'">def test_k3_c1_tree_fence_shared_between_parent_and_child():
+        """父子树共享 FencedEpisodeStore：子episode写失败后，同树其他episode的写必须同样被拒。"""
+        event = EpisodeEvent(1, "task", {"task_frame_hash": "k3", "at": "now"})
+    
+        class Boom:
+            def append(self, *a, **k):
+                raise OSError("child disk full")
+    
+            def put_state(self, *a, **k):
+                raise OSError("child disk full")
+    
+        fence = FencedEpisodeStore(Boom())
+        with pytest.raises(OSError):
+            fence.append("child-ep", (event,), sync=True)
+        assert fence.failure and "child-ep" in fence.failure, (
+            "[C1-TREE-FENCE] 失败登记必须闩住并指向肇事episode"
+        )
+        with pytest.raises(EpisodeStoreFailed):
+            fence.append("parent-ep", (event,), sync=True)
+        with pytest.raises(EpisodeStoreFailed):
+&gt;           fence.put_state("parent-ep", object())
+
+../review-a/k3/work/test_k3_c1.py:151: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = &lt;intelligence.services.episode_store.FencedEpisodeStore object at 0x107c33410&gt;
+episode_id = 'parent-ep', state = &lt;object object at 0x100d4b180&gt;
+
+    def put_state(self, episode_id: str, state: EpisodeState) -&gt; None:
+&gt;       self._write(episode_id, f"state:{state.phase}", lambda: self._store.put_state(episode_id, state))
+E       AttributeError: 'object' object has no attribute 'phase'
+
+intelligence/services/episode_store.py:420: AttributeError</failure></testcase><testcase classname="test_k3_c2" name="test_k3_c2_budget_gate_and_unknown_effect_charge" time="0.024" /><testcase classname="test_k3_c2" name="test_k3_c2_unknown_effect_semantics_and_corrupt_payload" time="0.000" /><testcase classname="test_k3_c2" name="test_k3_c2_authorization_snapshot_exact_match_and_tamper" time="0.003" /><testcase classname="test_k3_c2" name="test_k3_c2_tool_spec_io_effect_domain" time="0.001" /><testcase classname="test_k3_c2" name="test_k3_c2_evidence_v3_roundtrip_and_tamper" time="0.022"><failure message="TypeError: cannot pickle 'mappingproxy' object">def test_k3_c2_evidence_v3_roundtrip_and_tamper():
+        snap = _evidence_snapshot_from_run()
+        assert snap["schema_version"] == 3
+        restored = EpisodeEvidenceSnapshot.from_dict(snap, episode_id=TASK + "-evidence")
+        assert restored.entries, "[C2-EVIDENCE-ENTRIES] v3 快照必须还原私有条目"
+        assert any(e.atom.internal_locator is not None or True for e in restored.entries)
+        # 摘要篡改必须炸
+&gt;       tampered = copy.deepcopy(snap)
+
+../review-a/k3/work/test_k3_c2.py:195: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+x = mappingproxy({'schema_version': 3, 'kind': 'episode_evidence', 'episode_id': 'k3-c2-episode-evidence', 'information_cu...wn'}), 'classification': 'admitted'}),), 'sha256': 'df669e04b4cf3461ba227bd3b4c251da8cdd2927789644a5499fb2ec94b503fb'})
+memo = {}, _nil = []
+
+    def deepcopy(x, memo=None, _nil=[]):
+        """Deep copy operation on arbitrary Python objects.
+    
+        See the module's __doc__ string for more info.
+        """
+    
+        if memo is None:
+            memo = {}
+    
+        d = id(x)
+        y = memo.get(d, _nil)
+        if y is not _nil:
+            return y
+    
+        cls = type(x)
+    
+        copier = _deepcopy_dispatch.get(cls)
+        if copier is not None:
+            y = copier(x, memo)
+        else:
+            if issubclass(cls, type):
+                y = _deepcopy_atomic(x, memo)
+            else:
+                copier = getattr(x, "__deepcopy__", None)
+                if copier is not None:
+                    y = copier(memo)
+                else:
+                    reductor = dispatch_table.get(cls)
+                    if reductor:
+                        rv = reductor(x)
+                    else:
+                        reductor = getattr(x, "__reduce_ex__", None)
+                        if reductor is not None:
+&gt;                           rv = reductor(4)
+E                           TypeError: cannot pickle 'mappingproxy' object
+
+/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/copy.py:151: TypeError</failure></testcase><testcase classname="test_k3_c2" name="test_k3_c2_evidence_legacy_v1_v2_conservative" time="0.020"><failure message="TypeError: cannot pickle 'mappingproxy' object">def test_k3_c2_evidence_legacy_v1_v2_conservative():
+        snap = _evidence_snapshot_from_run()
+    
+        def downgrade(version: int) -&gt; dict:
+            body = {k: copy.deepcopy(v) for k, v in snap.items() if k != "sha256"}
+            body["schema_version"] = version
+            for entry in body["entries"]:
+                assert entry["atom"].pop("io_effect") == "unknown"  # 本仓工具证据均为 unknown
+            for pres in body.get("presentations", []):
+                pres["atom"].pop("io_effect", None)
+            if version == 1:
+                body["presented_hashes"] = [p["atom"]["content_hash"] for p in body.pop("presentations")]
+            body["sha256"] = _digest(body)
+            return body
+    
+        for version in (1, 2):
+&gt;           legacy = downgrade(version)
+
+../review-a/k3/work/test_k3_c2.py:220: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../review-a/k3/work/test_k3_c2.py:208: in downgrade
+    body = {k: copy.deepcopy(v) for k, v in snap.items() if k != "sha256"}
+/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/copy.py:136: in deepcopy
+    y = copier(x, memo)
+/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/copy.py:201: in _deepcopy_tuple
+    y = [deepcopy(a, memo) for a in x]
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+x = mappingproxy({'atom': mappingproxy({'tool': 'market_data', 'title': 'A股市场总览', 'detail': '市场宽度：上涨家数增加', 'source': '本地行情...: '', 'document_type': '', 'io_effect': 'unknown'}), 'targets': (), 'branch_owner': None, 'cutoff_status': 'verified'})
+memo = {}, _nil = []
+
+    def deepcopy(x, memo=None, _nil=[]):
+        """Deep copy operation on arbitrary Python objects.
+    
+        See the module's __doc__ string for more info.
+        """
+    
+        if memo is None:
+            memo = {}
+    
+        d = id(x)
+        y = memo.get(d, _nil)
+        if y is not _nil:
+            return y
+    
+        cls = type(x)
+    
+        copier = _deepcopy_dispatch.get(cls)
+        if copier is not None:
+            y = copier(x, memo)
+        else:
+            if issubclass(cls, type):
+                y = _deepcopy_atomic(x, memo)
+            else:
+                copier = getattr(x, "__deepcopy__", None)
+                if copier is not None:
+                    y = copier(memo)
+                else:
+                    reductor = dispatch_table.get(cls)
+                    if reductor:
+                        rv = reductor(x)
+                    else:
+                        reductor = getattr(x, "__reduce_ex__", None)
+                        if reductor is not None:
+&gt;                           rv = reductor(4)
+E                           TypeError: cannot pickle 'mappingproxy' object
+
+/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/copy.py:151: TypeError</failure></testcase><testcase classname="test_k3_c2" name="test_k3_c2_evidence_legacy_write_side_refuses_to_drop_provenance" time="0.046" /><testcase classname="test_k3_c2" name="test_k3_c2_door_identity_from_server_run_record_not_client" time="2.900" /><testcase classname="test_k3_c2" name="test_k3_c2_recovery_entry_identity_both_directions" time="0.029" /><testcase classname="test_k3_c3" name="test_k3_c3_repeat_restore_retry_model_idempotent" time="0.017" /><testcase classname="test_k3_c3" name="test_k3_c3_repeat_restore_replay_tools_dedup_by_call_identity" time="0.018" /><testcase classname="test_k3_c3" name="test_k3_c3_close_then_repeat_is_already_terminal" time="0.023" /><testcase classname="test_k3_c3" name="test_k3_c3_dispatch_plan_is_not_dispatch_authorization" time="0.020" /></testsuite></testsuites>
