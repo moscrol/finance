@@ -1,0 +1,1 @@
+{"python": "3.12.13", "node": "v22.23.2", "pnpm": "10.12.1", "platform": "macOS-26.4-arm64-arm-64bit"}

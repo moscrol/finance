@@ -1,0 +1,8 @@
+Traceback (most recent call last):
+  File "/Users/a77/.finance-runtime/reviews/pr884-gates-20260923-01/run.py", line 117, in <module>
+    worker(sys.argv[1])
+  File "/Users/a77/.finance-runtime/reviews/pr884-gates-20260923-01/run.py", line 76, in worker
+    run("main-gate", ["bash", "scripts/run_main_gate.sh", "--pytest-args",
+  File "/Users/a77/.finance-runtime/reviews/pr884-gates-20260923-01/run.py", line 61, in run
+    os.killpg(process.pid, signal.SIGKILL)
+PermissionError: [Errno 1] Operation not permitted

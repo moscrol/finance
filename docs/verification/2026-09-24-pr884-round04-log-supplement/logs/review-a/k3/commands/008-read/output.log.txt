@@ -1,0 +1,64 @@
+            extra={"cancel_cause": cancel.get("cause"), "cancel_detail": cancel.get("detail")},
+        )
+
+    # ── 兜底合成路径永远终局 ───────────────────────────────────────────────
+    if recovery_dangling:
+        return close(INTERRUPTED, [interrupted_gap])
+
+    # ── 下一动作 ───────────────────────────────────────────────────────────
+    if replayable:
+        return resumable(
+            ResumePlan(
+                action="replay_tools",
+                phase=continue_phase,
+                reason="工具意图无结算且 replay=safe（意图与当前声明一致），截止未过",
+                call_ids=tuple(replayable),
+            ),
+        )
+    if deadline_passed:
+        return close(INTERRUPTED, [interrupted_gap])
+    if settled_turn_error:
+        return resumable(
+            ResumePlan(
+                action="finalize",
+                phase="finalizing",
+                reason="模型请求以错误结算（含合成 interrupted），截止未过：进收口",
+            ),
+        )
+    if settled_turn is not None:
+        if pending_calls:
+            missing = tuple(call_id for call_id in pending_calls if call_id not in reserved_calls)
+            if missing:
+                return resumable(
+                    ResumePlan(
+                        action="dispatch_tools",
+                        phase=continue_phase,
+                        reason="模型已点工具，意图尚未落账：派发",
+                        turn_id=str(settled_turn.payload.get("turn_id") or ""),
+                        call_ids=missing,
+                    ),
+                )
+            return resumable(
+                ResumePlan(
+                    action="model_turn",
+                    phase=continue_phase,
+                    reason="这一批工具全部结算，回到模型",
+                ),
+            )
+        return resumable(
+            ResumePlan(
+                action="interpret_turn",
+                phase=continue_phase,
+                reason="模型已回非工具轮，下一步是解释它（PLAN / FINAL_JSON 准入）",
+                turn_id=str(settled_turn.payload.get("turn_id") or ""),
+            ),
+        )
+    return resumable(
+        ResumePlan(
+            action="model_turn",
+            phase=continue_phase,
+            reason=(
+                "无在飞外部效果" if not state.reserved_ids else "在飞工具已全部结算"
+            ),
+        ),
+    )

@@ -1,0 +1,20 @@
+232:    has no terminal branch event here and remains uncertain, not a known zero.
+1457:        evidence_ledger = EvidenceLedger(
+1546:        ledger.active_evidence_ledger = evidence_ledger
+1930:            # response.  Let the existing terminal validator/recovery path
+3657:        """Attempt exactly one compact recovery and always return a terminal outcome."""
+247:    def terminal(self) -> bool:
+512:                    if not state.terminal
+686:                if state is not None and not state.terminal:
+50:from intelligence.services.episode_entry_identity import EpisodeEntryIdentity
+138:    - ``evidence_snapshot`` / ``evidence_snapshot_sequence``：完整私有证据账及独立模型引用顺序、
+140:    - ``entry_identity``：这一轮是从哪个入口、属于哪个用户/会话/run 起的。**不是**身份证明，
+143:    - ``unreconciled_effects``：崩溃窗口里「意图已落、结算未落」的外部效果凭证
+169:    evidence_snapshot: Mapping[str, object] | None = None
+170:    evidence_snapshot_sequence: int | None = None
+173:    entry_identity: Mapping[str, object] | None = None
+176:    unreconciled_effects: tuple[Mapping[str, object], ...] = ()
+221:        if self.evidence_snapshot is None:
+222:            if self.evidence_snapshot_sequence is not None:
+225:            if (type(self.evidence_snapshot_sequence) is not int
+226:                    or not 0 <= self.evidence_snapshot_sequence <= self.last_sequence):

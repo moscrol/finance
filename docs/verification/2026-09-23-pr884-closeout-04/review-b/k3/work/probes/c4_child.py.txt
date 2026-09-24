@@ -1,0 +1,57 @@
+"""C4 child process: try to take control of an episode whose lock another process holds.
+
+Usage: c4_child.py <store_root> <episode_id> <mode>
+  mode=writer  -> try store.writer() acquire/release
+  mode=restore -> try restore_episode (needs a checkpoint on disk)
+  mode=run     -> try ContinuousAgentEpisode.run on the same episode id
+Prints exactly one result line: RESULT <mode> <outcome> <detail>
+"""
+import sys
+from pathlib import Path
+
+WORK = Path('/Users/a77/.finance-runtime/reviews/pr884-closeout-20260923-04/review-b/k3/work')
+import intelligence.userspace as u
+u.USERS_DIR = WORK / 'users'
+
+from intelligence.services.episode_store import (
+    EpisodeWriterBusy, JsonlEpisodeStore,
+)
+
+
+def main() -> int:
+    root, episode_id, mode = sys.argv[1], sys.argv[2], sys.argv[3]
+    store = JsonlEpisodeStore(root)
+    try:
+        if mode == "writer":
+            with store.writer(episode_id):
+                pass
+            outcome, detail = "ACQUIRED", ""
+        elif mode == "restore":
+            from intelligence.services.episode_restore import restore_episode
+            result = restore_episode(episode_id, store)
+            outcome, detail = "RESTORED", result.disposition
+        elif mode == "run":
+            from intelligence.runtime.agent_episode import ContinuousAgentEpisode
+            from intelligence.tests.conformance.fixtures import (
+                ScenarioProbe, ScriptedModelClient, ScriptedTurn,
+                completed_finish, make_context, make_frame, make_registry,
+            )
+            probe = ScenarioProbe()
+            frame = make_frame()
+            context = make_context(frame, task_id=episode_id)
+            model = ScriptedModelClient([ScriptedTurn(finish=completed_finish())], probe)
+            episode = ContinuousAgentEpisode(model, store=store)
+            episode.run(task_frame=frame, context=context, registry=make_registry(probe))
+            outcome, detail = "RAN", ""
+        else:
+            raise AssertionError(mode)
+    except EpisodeWriterBusy as exc:
+        outcome, detail = "BUSY", str(exc)[:60]
+    except Exception as exc:  # noqa: BLE001
+        outcome, detail = f"OTHER:{type(exc).__name__}", str(exc)[:60]
+    print(f"RESULT {mode} {outcome} {detail}", flush=True)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

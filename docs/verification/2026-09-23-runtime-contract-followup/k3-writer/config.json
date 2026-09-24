@@ -1,0 +1,10 @@
+{
+  "tree": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/candidate",
+  "prior": "/Users/a77/.finance-runtime/reviews/runtime-postmerge-k3-20260923-r2",
+  "author": "/Users/a77/.finance-runtime/reviews/runtime-identity-effects-20260922/post-merge-main",
+  "author_revision": "3b7e473575b0ff2dea3c1088ba7b5e330e95c8e4",
+  "revision": "5f35da1723f74663a4803c4d1490c402a1d6db40",
+  "baseline": "da761024ed54c46b8e650d1b86076e1f9d261ed2",
+  "python": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "role": "writer"
+}

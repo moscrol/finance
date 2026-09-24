@@ -108,11 +108,19 @@ else
     exit 1
   fi
   echo "== pytest ${PYTEST_ARGS}"
+  PYTEST_LOG="$RUN_DIR/pytest.log.txt"
+  echo "== pytest raw log: ${PYTEST_LOG}"
+  # Retain live output even when interrupted, without treating it as a final receipt.
   # Preserve the existing whitespace-separated --pytest-args contract; never eval it.
   # shellcheck disable=SC2086
   FWP_TEST_RECEIPT_DIR="$RECEIPT_DIR" FWP_TEST_RECEIPT_PATH="$LATEST" \
-    FWP_TEST_RECEIPT_OWNER_PID="" "$PY" -m pytest $PYTEST_ARGS 2>&1 | tail -15
-  PYTEST_EXIT="${PIPESTATUS[0]}"
+    FWP_TEST_RECEIPT_OWNER_PID="" "$PY" -u -m pytest $PYTEST_ARGS 2>&1 | tee "$PYTEST_LOG" | tail -15
+  PIPE_EXITS=("${PIPESTATUS[@]}")
+  PYTEST_EXIT="${PIPE_EXITS[0]}"
+  if [ "${PIPE_EXITS[1]}" != 0 ] || [ "${PIPE_EXITS[2]}" != 0 ]; then
+    echo "pytest output capture failed; receipt not accepted and basetemp retained." >&2
+    exit 4
+  fi
   CHECK_ARGS+=(--pytest-exit "$PYTEST_EXIT")
 fi
 AFTER_REV="$(git rev-parse HEAD)" || exit 4

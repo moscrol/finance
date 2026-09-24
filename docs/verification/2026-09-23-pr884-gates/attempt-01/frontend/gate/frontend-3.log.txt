@@ -1,0 +1,36 @@
+
+> market-intelligence-workbench@0.1.0 test /Users/a77/.finance-runtime/reviews/pr884-gates-20260923-01/finance-workspace-private/intelligence/webapp
+> vitest run
+
+
+[1m[46m RUN [49m[22m [36mv3.2.4 [39m[90m/Users/a77/.finance-runtime/reviews/pr884-gates-20260923-01/finance-workspace-private/intelligence/webapp[39m
+
+ [32m✓[39m src/researchActivity.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m src/api.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 12[2mms[22m[39m
+ [32m✓[39m src/streamEventRegistry.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m src/components/ResearchActivityControl.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[33m 407[2mms[22m[39m
+ [32m✓[39m src/components/ResearchProjectPanel.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[32m 280[2mms[22m[39m
+ [32m✓[39m src/components/DailyReportView.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[33m 634[2mms[22m[39m
+   [33m[2m✓[22m[39m DailyReportView[2m > [22mkeeps glossary and the original report behind disclosure controls [33m 307[2mms[22m[39m
+ [32m✓[39m src/components/ResearchEvolutionPanel.test.tsx [2m([22m[2m18 tests[22m[2m)[22m[33m 1056[2mms[22m[39m
+ [32m✓[39m src/components/components.test.tsx [2m([22m[2m81 tests[22m[2m)[22m[33m 9352[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mopens on today and navigates across the five product surfaces [33m 484[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22msubmits an explicit KOL perspective without mixing other profiles [33m 417[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mkeeps polling a completed run until its exact message publication is visible [33m 309[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mkeeps polling a failed run until its exact message publication is visible [33m 303[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mdoes not close the stream when publication is wrong-message [33m 320[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mdoes not close the stream when publication is wrong-conversation [33m 497[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mdoes not close the stream when publication is load-failed [33m 445[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mrecovers a persisted terminal run after the stream disconnects [33m 357[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mkeeps polling while failed ownership precedes delivery [33m 330[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mkeeps polling while cancelled ownership precedes delivery [33m 449[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mkeeps cancel pending until polling confirms the cancelled state [33m 329[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mconfigures session-only BYOK without exposing the key [33m 372[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mpersists BYOK only after opt-in and can explicitly forget it [33m 490[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mdoes not let a late artifact response replace the current selection [33m 370[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m8 passed[39m[22m[90m (8)[39m
+[2m      Tests [22m [1m[32m120 passed[39m[22m[90m (120)[39m
+[2m   Start at [22m 14:17:24
+[2m   Duration [22m 13.25s[2m (transform 2.29s, setup 3.91s, collect 4.30s, tests 11.76s, environment 9.30s, prepare 1.88s)[22m
+

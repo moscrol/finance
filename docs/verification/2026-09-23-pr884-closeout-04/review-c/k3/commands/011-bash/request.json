@@ -1,0 +1,1 @@
+{"toolCallId":"bash_10","params":{"command":"cd /Users/a77/.finance-runtime/reviews/pr884-closeout-20260923-04/finance-workspace-private && rg -n \"missing_finish_reason|finish_reason|truncat\" intelligence/runtime/agent_episode.py | head -30; echo ===; rg -rn \"missing_finish_reason\" --type py -l"}}

@@ -1,0 +1,26 @@
+"""Compare selected evidence with both manifests and committed artifact blobs."""
+from pathlib import Path
+import hashlib
+import json
+import subprocess
+
+root = Path(__file__).resolve().parent
+repo = root / "finance-workspace-private"
+revision = "db2605d1b1a6a929d9bac468c84ef6aeaddce9ff"
+result = {"revision": revision, "archives": []}
+for name in ("2026-09-23-runtime-contract-followup", "2026-09-23-pr884-gates"):
+    directory = repo / "docs/verification" / name
+    manifest = json.loads((directory / "MANIFEST.json").read_text())
+    size = 0
+    for relative, entry in manifest["files"].items():
+        path = directory / relative
+        data = path.read_bytes()
+        assert len(data) == entry["bytes"]
+        assert hashlib.sha256(data).hexdigest() == entry["sha256"]
+        blob = subprocess.check_output(["git", "show", f"{revision}:{path.relative_to(repo)}"], cwd=repo)
+        assert blob == data
+        size += len(data)
+    result["archives"].append({"path": str(directory.relative_to(repo)), "files": len(manifest["files"]), "bytes": size, "accepted": True})
+with (root / "archive-verification.json").open("x") as stream:
+    stream.write(json.dumps(result, indent=2) + "\n")
+print(json.dumps(result))

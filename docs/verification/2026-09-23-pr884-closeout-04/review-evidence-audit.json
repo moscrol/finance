@@ -1,0 +1,47 @@
+{
+  "revision": "db2605d1b1a6a929d9bac468c84ef6aeaddce9ff",
+  "role": "host audit of independent review evidence, not independent sign-off",
+  "verdict": "BLOCKED",
+  "provider": "mirasim-kimi/kimi-k3",
+  "provider_requests": 83,
+  "batches": {
+    "review-a": {
+      "requests": 32,
+      "report": "BLOCKED",
+      "control": "374 passed (JUnit); command used tail -15, so stdout was not complete",
+      "independent_probes": "14 passed, 3 failed; no withdrawal executed",
+      "probe_defects": ["C1 supplied object() where state.phase was required", "C2 deepcopy of recursively frozen mappingproxy", "C2 vacuous assertion: internal_locator is not None or True"],
+      "report_errors": ["C1 AttributeError incorrectly grouped with C2 mappingproxy errors", "Said exploration stopped before request 24; admissions record 31 exploration plus 1 report"],
+      "host_followup": "host-qc-a/verification.json: 17 green, named C1 and strengthened C2 withdrawal failures, 17 restored; not independent acceptance"
+    },
+    "review-b": {
+      "requests": 33,
+      "report": "BLOCKED",
+      "control": "89 passed; command output truncated",
+      "independent_probes": "C4: 3 passed; C5: 2 passed, 2 failed; C6/C7: not executed; no withdrawal executed",
+      "probe_defects": ["C5 waits for model call after only the first model_pending step; the model has not been dispatched", "C5 expects RuntimeError to escape a loop that settles model_error", "Proposed repair creates episode2 instead of reusing the original runner", "Unexecuted repaired step test still omits the model_pending advance"],
+      "host_followup": "host-qc-b-r2: two probes green for same-instance reuse after setup failure and in-flight step/close mutual exclusion; first host run failure retained under host-qc-b; no independent upgrade"
+    },
+    "review-c": {
+      "requests": 18,
+      "report": null,
+      "failure": "Upstream HTTP 504 Gateway Timeout during request 18",
+      "cli_exit_code": 0,
+      "accept_exit_zero_as_success": false,
+      "independent_probes": "No delivered independent probe or final report; author controls do not establish C8 acceptance",
+      "action": "Controller stopped; no retry, fourth batch, model fallback or quota purchase"
+    }
+  },
+  "coverage": {
+    "C1": "BLOCKED: original independent fixture failure; host correction only",
+    "C2": "BLOCKED: original fixture failures and vacuous assertion; host correction only",
+    "C3": "Partial independent positives; batch has no independent withdrawal evidence",
+    "C4": "Partial independent positives; no independent withdrawal evidence",
+    "C5": "Partial independent positives; full subcontracts not reviewed",
+    "C6": "NOT_REVIEWED",
+    "C7": "NOT_REVIEWED",
+    "C8": "NOT_REVIEWED"
+  },
+  "confirmed_product_defects": [],
+  "limits": ["Absence of a confirmed defect is not acceptance", "Host evidence cannot retroactively authorize an independent reviewer verdict", "Same-instance host setup-failure probe does not establish all in-flight exception cleanup paths"]
+}

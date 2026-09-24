@@ -1,0 +1,20 @@
+        class BoomModel:
+            calls = 0
+    
+            def complete(self, *, messages, tools, timeout) -> ModelTurn:
+                self.calls += 1
+                raise RuntimeError("k3 boom")
+    
+        probe = ScenarioProbe()
+        frame = make_frame()
+        ctx = make_context(frame, task_id="k3-c5-boom")
+        episode = ContinuousAgentEpisode(BoomModel(), store=store)
+        inbox_before = None
+>       with pytest.raises(RuntimeError):
+E       Failed: DID NOT RAISE <class 'RuntimeError'>
+
+probe_c5_reentry.py:102: Failed
+=========================== short test summary info ============================
+FAILED probe_c5_reentry.py::test_step_close_mutual_exclusion_and_close_after_step
+FAILED probe_c5_reentry.py::test_exception_cleans_up_and_runner_is_sequentially_reusable
+2 failed, 2 passed in 1.04s
