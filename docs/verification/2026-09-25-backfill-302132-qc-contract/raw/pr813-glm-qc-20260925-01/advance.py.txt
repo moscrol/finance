@@ -1,0 +1,34 @@
+"""Reserve a finite stage before starting it and expose actual runtime progress."""
+from datetime import datetime, timezone
+import hashlib
+import json
+from pathlib import Path
+import subprocess
+import sys
+
+ROOT = Path(__file__).resolve().parent
+CURRENT = ROOT.parent / 'backfill-302132-0923/CURRENT.json'
+PY = '/Users/a77/finance-workspace-private/.venv-workbench/bin/python'
+axis, phase = sys.argv[1:]
+assert axis in {'spec', 'quality'} and phase in {'gateway', 'explore', 'execute', 'report'}
+cap = {'gateway': 4, 'explore': 17, 'execute': 17, 'report': 1}[phase]
+used = 0
+for path in ROOT.glob('*/*.controller.json'):
+    record = json.loads(path.read_text())
+    assert record['status'] != 'STARTED', path
+    assert record.get('shim_counts', {}).get('shutdown_complete') and record['shim_counts']['active'] == 0
+    used += record['shim_counts']['requests']
+assert used + cap <= 78
+if phase in {'execute', 'report'}:
+    previous = 'explore' if phase == 'execute' else 'execute'
+    assert json.loads((ROOT / axis / (previous + '.controller.json')).read_text())['status'] == 'COMPLETE'
+    subprocess.run([PY, '-B', str(ROOT / 'bridge_stage.py'), axis, previous], check=True)
+if phase == 'report':
+    subprocess.run([PY, '-B', str(ROOT / 'report_packet.py'), axis], check=True)
+result = json.loads(subprocess.check_output([PY, '-B', str(ROOT / axis / 'run_control.py'), phase, '--background'], text=True))
+current = json.loads(CURRENT.read_text())
+current.update(status='SCOPED_GLM_QC_RUNNING', owned_checks_running=True, updated_at=datetime.now(timezone.utc).isoformat())
+current['active_qc'] = {'root': str(ROOT), 'axis': axis, 'stage': phase, 'controller_pid': result['pid'],
+    'requests_used_before_stage': used, 'stage_reservation': cap, 'batch_cap': 78, 'merge_authorized': False, 'production_authorized': False}
+CURRENT.write_text(json.dumps(current, ensure_ascii=False, indent=2) + '\n')
+print(json.dumps({**result, 'axis': axis, 'used': used, 'reserved': cap}))

@@ -1,0 +1,121 @@
+{
+  "stage": "report",
+  "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+  "baseline": "4cc15e703f81bce8abadee00f68caacdb0c72b4d",
+  "started_at": "2026-09-24T17:05:22.365581+00:00",
+  "complete": true,
+  "candidate_before": {
+    "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+    "status": ""
+  },
+  "author_before": {
+    "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+    "status": ""
+  },
+  "inputs_sha256": {
+    "config.json": "e962aca6862b9dab34ede8ba944237d06ae7f0b8909756b6a5995235ca5880dd",
+    "review.mjs": "53214290e79d7ff982ea0988d9877d2cc6d03c8fdf101a005bb593bdeeee1d98",
+    "pi_review_protocol.mjs": "657e40bf2d8f8825a5345210876ac69417aed0cac857a2f899ec96280fa641d5",
+    "tools.sb": "93c71de45b553b581263b053da543ea39659bf5fe2b62e6ecab9516c9b34d8ff",
+    "file_tool.py": "79125feff76d98407e3bf1d36cfa56c0086863bc0591afa499f3580a6dcf8972",
+    "provider-template.json": "b6563f18bc9f829d8d90818ccd3483b91a7ac451e4a02006705e6fff52566b6f",
+    "pi-config/settings.json": "cda612a59b9d61dc644867021e8a5284dc7a6040e65eadab9b883ae78406b417",
+    "prompt-report.md": "2d79c6d2728174487ea32f67e20d5b2417a5cf20a2e56e78e7c8f69744e78932"
+  },
+  "timeout_seconds": 600,
+  "max_requests": 1,
+  "automatic_retries": 0,
+  "command": [
+    "/opt/homebrew/bin/pi",
+    "--provider",
+    "glm-direct-review",
+    "--model",
+    "glm-5.3",
+    "--thinking",
+    "low",
+    "--models",
+    "glm-direct-review/glm-5.3",
+    "--no-session",
+    "--no-extensions",
+    "-e",
+    "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-02/spec/review.mjs",
+    "--no-skills",
+    "--no-prompt-templates",
+    "--no-context-files",
+    "--no-themes",
+    "--no-approve",
+    "--offline",
+    "--tools",
+    "deliver_stage",
+    "--mode",
+    "json",
+    "-p",
+    "--",
+    "<stage prompt>"
+  ],
+  "pid": 62957,
+  "probe_sha256": {
+    "work/probes/test_c2_source_guard.py": "9dafee87ef5b45544e8912b1bb8fa9d5a9eedcf3beb0ea3a415300d4e6da520d",
+    "work/probes/test_c2_source_guard_v2.py": "a8032a60e80dfa7dc0f0bedd7c1724f533408f86aded616ddb40da8ef4245632"
+  },
+  "status": "STAGE_COMPLETE",
+  "exit_code": 0,
+  "elapsed_seconds": 15.836,
+  "timed_out": false,
+  "requests": 1,
+  "responses": [
+    {
+      "admission": 1,
+      "status": 200
+    }
+  ],
+  "errors": [],
+  "candidate_after": {
+    "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+    "status": ""
+  },
+  "author_after": {
+    "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+    "status": ""
+  },
+  "inputs_unchanged": true,
+  "event_counts": {
+    "session": 1,
+    "agent_start": 1,
+    "turn_start": 1,
+    "message_start": 3,
+    "message_end": 3,
+    "message_update": 29,
+    "tool_execution_start": 1,
+    "tool_execution_end": 1,
+    "turn_end": 1,
+    "agent_end": 1,
+    "agent_settled": 1
+  },
+  "report_structural": true,
+  "model_identities": [
+    "glm-direct-review/glm-5.3"
+  ],
+  "usage": {
+    "input": 13045,
+    "output": 853,
+    "cacheRead": 256,
+    "cacheWrite": 0,
+    "totalTokens": 14154
+  },
+  "artifact_sha256": {
+    "tool-menu.json": "caa39de8ead329b20d42a511dc7a4ab35e7be8ecb4d9890c6e91e2bd260ed245",
+    "payload-shapes.jsonl": "b5d5b79fee5b401c61789aeee05231b2154ce5efb770ad89144af65c586a76ae",
+    "stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "parsed.json": "3f1e2acc56b38a127eeed398ae521456166c41ef8cb4845053e497526487cc68",
+    "REPORT.md": "6e99d47b57d6451ef06cb31087ff5226dacd382ea059b140a0c37446e7794f10",
+    "auth-reserved.json": "89d3a977d27d8a5032bbf88f303e090c5d2b24e52f34c59a7f97a56857472e04",
+    "credential.json": "5d6c5124a4f085ec1705fb08673d36708781e166f1e4939b110c6be57ff5c3c8",
+    "request-admissions.jsonl": "6af856fe08d8250bc294b0c3d0ecead243f673e5d7a25c49f05a077e3608fce4",
+    "responses.jsonl": "f5b2bfbd4f957a7246b529caa0f28b7a7b2ba41f11fcf6f2fa222f176c71224f",
+    "events.jsonl": "8018fbb604aba083a4484aee199b0b32a8216748fc328eceff37c011a0e44336",
+    "submission.json": "3f1e2acc56b38a127eeed398ae521456166c41ef8cb4845053e497526487cc68",
+    "commands/001-deliver_stage/request.json": "8b431e9888902d2bc60f5cb0699c8bea7a7883b698b3ea557cf7e17da04716b8",
+    "commands/001-deliver_stage/result.json": "01570f0a8a48e48321e2e60514d8cda7b5142196a2d5565030f21130e41735e1"
+  }
+}

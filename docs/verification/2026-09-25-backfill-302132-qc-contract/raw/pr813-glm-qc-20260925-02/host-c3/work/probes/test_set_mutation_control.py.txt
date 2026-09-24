@@ -1,0 +1,4 @@
+"""Host mutation control, not a reviewer verdict."""
+from pathlib import Path
+from test_fixture_adapter import review, test_outside_window_mutation_fails
+review.ACCEPT = Path(__file__).with_name("acceptance_set_mutant.py")

@@ -1,26 +1,27 @@
 # #83 / PR #813
 
 ## 这个分支做什么
-302132固定范围回填整合；文档树代码旧，不从这里验收/生产。不合main、不动8792/launchd/他股。
+302132固定回填整合；文档树代码旧，不从此验收/生产。不合main、不动8792/launchd/他股。
 
 ## 决策与被否方案
-固定3c5先审C2/C3，不反复换候选。按09-23偏好允许K3不可用时用已有GLM，纠正旧交接过严通道解释；不借其它工单授权。无效终稿不由宿主改字段补签。展开见 `docs/handoffs/2026-09-25-backfill-302132-scoped-qc-resume.md`。
+固定3c5先限定独审，否反复换候选；已有GLM按09-23偏好允许。独审/作者重跑/宿主诊断分账，否补签与文本包装交付。详见 `docs/handoffs/2026-09-25-backfill-302132-guard-qc-and-oracle-probes.md`。
 
 ## 当前状态
-**BLOCKED_SCHEMA_AND_UNSUPPORTED_CLAIMS**。#813 WIP/open/unmerged，head `3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59`，原base `4cc15e703`。封存main `03352758c`；新组合未验，旧绿不移签。产品未改/未推，未合入或写生产，自有进程已退。
-动态入口 `~/.finance-runtime/reviews/backfill-302132-0923/CURRENT.json`，作者树forward-02/tree；历史工程原件continue-08。
-本轮42请求：K3-02小预检1超时；GLM-01共11（探针目录不符被拦）；GLM-02共30（4预检+8探索+17执行+1终稿）。根为 `~/.finance-runtime/reviews/pr813-{k3,glm}-qc-20260924-{01,02}/`；新490原件归仓 `docs/verification/2026-09-25-backfill-302132-qc-resume/`。旧K3-01另计11，不续写。
+**SPEC_SCOPED_DELIVERED_QUALITY_BLOCKED**。#813 WIP/open/unmerged，head `3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59`，base4cc15e703；main03352758c新组合未验。未改/推产品、合入或写生产，自有进程已退。
+动态 `~/.finance-runtime/reviews/backfill-302132-0923/CURRENT.json`；本轮 `~/.finance-runtime/reviews/pr813-glm-qc-20260925-02/`，65请求（Spec30、Quality35）。-01为端口19899被他任务占用，0请求失败，未停他人；新批用19913。
+760原件归仓 `docs/verification/2026-09-25-backfill-302132-qc-contract/`，原失败批不改。
 
 ## 未验证 / 已知边界
-GLM终稿虽自称PASS_WITH_LIMITS，C2/C3却用非法verified_with_limits且沿用未执行qfq修正的PASS，门禁已拒。实际七例3P/4F，另两次语法收集错误；4F是夹具/算式问题但修正未复验。execute故意红对照未跑、作者重跑0、Quality未启，C3外部验收器变异未验；其余C1/C4-C7未审。
+Spec报告PASS_WITH_LIMITS、独立5P，仅来源守卫/拒绝子集；成功写入链未独立跑，部分拒绝只验行数。其内作者1F因.git沙箱拒绝，宿主同一测试1P另计。
+Quality用尽17执行请求只完成语法检查，产品探针0；最终200/exit0只回JSON文本、未调用deliver_stage，无有效终稿，C3未验。宿主7P与去保护控制不代独审。C1/C4-C7仍未审；旧全量绿不移签到main。
 
 ## 下一步
-1. 新有界批前对齐明确路径/状态枚举/必交字段；先故意红对照，修正独立命名并先语法检查，不能沿用无效稿补签。
-2. C2/C3拆开，C3必须测_data_checks窗外全列/多重集增删改，不用算术helper代替；三条历史通过不扩称完整C2。
-3. 独审补齐后再前向当前main重验；合入等确认。生产命令/日期/冻结输入/本轮父备份另行逐字授权，CLI无--record。
+1. 新有界Quality批先核 `host-c3/work/probes/test_fixture_adapter.py`（收据随clone新名复制、他股改真实存在日期），优先执行再补独立断言，不从头造夹具。
+2. 用自己的原始命令/XML/故意红/终稿闭合；宿主绿不移签。源 `host-c3/set-mutation-control.json` 已证明重复行见证敏感；没有新付费批在跑。
+3. 补完整主张后再前向当前main跑门禁。合入等确认；生产命令/日期/冻结输入/本轮父备份另行逐字授权，CLI无--record。
 
 ## 已验证
-独立三例：后续none行情不误拒；缺口只有qfq拒绝；部分缺口拒绝。490原件无损核验通过，候选/作者树clean。旧3c5作者118P，全量15457P/85S/2X，前端120P/E2E34P+2S，registry5，整库37PASS仅历史有效。
+独审Spec5P、两轴首命令故意红均观测。宿主C3原探针7F夹具错；只修夹具保持断言后7P（合法基线+金额/时间/增删/重复/他股六变异）。临时EXCEPT ALL→EXCEPT后重复例1F预期红，原版再7P；候选未变。对账装置11P，760原件无损核验。旧3c5作者全量15457P/85S/2X、四叶及整库37PASS仅历史有效。
 
 ## 踩过的坑
-模型完成结构交付不等于结论有效；假设修正不等于真实PASS。探针中间版本被删除重写，工具write原件仍在。来源路径代码误判未修。恢复只认本轮父收据；不停止他人任务。
+语法检查不是执行；JSON文本不是工具交付。复制库不复制派生收据会先被格式门拦住；他股不存在日期的UPDATE是空操作。pytest隐藏栈帧，收据读结构化验收JSON，不依赖展示文本。来源路径代码误判仍未修，回滚只认本轮父收据。

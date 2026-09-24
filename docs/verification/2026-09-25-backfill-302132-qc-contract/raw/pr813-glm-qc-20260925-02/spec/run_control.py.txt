@@ -1,0 +1,175 @@
+"""Finite private GLM controller. New evidence directories only; no retries."""
+from __future__ import annotations
+import argparse
+import hashlib
+import http.client
+import json
+import os
+from pathlib import Path
+import secrets
+import select
+import signal
+import subprocess
+import sys
+import time
+
+ROOT = Path(__file__).resolve().parent
+PYTHON = '/Users/a77/finance-workspace-private/.venv-workbench/bin/python'
+SHIM = ROOT.parent / 'glm_review_shim.py'
+ENV = {'HOME': '/Users/a77', 'PATH': '/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin',
+       'LANG': 'C.UTF-8', 'PYTHONDONTWRITEBYTECODE': '1'}
+
+
+def save(path, value):
+    path.write_text(json.dumps(value, indent=2, ensure_ascii=False) + '\n')
+
+
+def stop(proc):
+    if proc.poll() is None:
+        os.killpg(proc.pid, signal.SIGTERM)
+        try:
+            proc.wait(timeout=7)
+        except subprocess.TimeoutExpired:
+            os.killpg(proc.pid, signal.SIGKILL)
+            proc.wait()
+
+
+def rows(path):
+    return [json.loads(line) for line in path.read_text().splitlines()] if path.exists() else []
+
+
+def gateway():
+    out = ROOT / 'gateway'
+    out.mkdir()
+    token = subprocess.run([PYTHON, '-B', str(ROOT.parent / 'glm_credential.py'), '--emit'],
+                           capture_output=True, text=True, env=ENV, timeout=35)
+    if token.returncode or not token.stdout.strip():
+        save(out / 'receipt.json', {'status': 'BLOCKED_CREDENTIAL', 'requests': 0})
+        return
+    started = time.monotonic()
+    conn = http.client.HTTPConnection('127.0.0.1', 19913, timeout=122)
+    try:
+        conn.request('POST', '/v1/chat/completions', json.dumps({'model': 'glm-5.3', 'messages': [{'role': 'user', 'content': 'Reply exactly OK.'}], 'reasoning_effort': 'low', 'max_tokens': 256}),
+                     {'Authorization': 'Bearer ' + token.stdout.strip(), 'Content-Type': 'application/json'})
+        response = conn.getresponse()
+        body = response.read()
+        status = response.status
+        try:
+            value = json.loads(body)
+        except ValueError:
+            value = {}
+        tiny = {'status': status, 'elapsed_seconds': time.monotonic() - started,
+                'choices_present': bool(value.get('choices')), 'body_sha256': hashlib.sha256(body).hexdigest()}
+        save(out / 'tiny.json', tiny)
+    finally:
+        token = None
+        conn.close()
+    if status != 200 or not value.get('choices'):
+        save(out / 'receipt.json', {'status': 'BLOCKED_PROVIDER_HTTP_' + str(status), 'requests': 1, 'tiny': tiny})
+        return
+    sentinel = 'GLM_TOOL_ROUNDTRIP_' + secrets.token_hex(8)
+    fixture = ROOT / 'work/gateway-fixture.txt'
+    fixture.write_text(sentinel + '\n')
+    (out / 'commands').mkdir()
+    echo = ROOT / 'work/gateway-echo.txt'
+    prompt = f'Gateway test only. First use read exactly once on {fixture} (offset=1, limit=1). Then use write exactly once to copy those contents into {echo}. The fixture ends with one LF newline: preserve it byte-for-byte in the write content, encoded as a newline escape in JSON. Do not trim any whitespace. Finally return exactly the fixture contents. Do not use bash or output a review.'
+    env = {**ENV, 'TMPDIR': str(ROOT / 'work/tmp'), 'PI_CODING_AGENT_DIR': str(ROOT / 'pi-config'),
+           'PI_OFFLINE': '1', 'PI_TELEMETRY': '0', 'REVIEW_OUTPUT_DIR': str(out), 'REVIEW_PHASE': 'gateway'}
+    command = ['/opt/homebrew/bin/pi', '--provider', 'glm-direct-review', '--model', 'glm-5.3', '--thinking', 'off',
+               '--models', 'glm-direct-review/glm-5.3', '--no-session', '--no-extensions', '-e', str(ROOT / 'gateway.mjs'),
+               '--no-skills', '--no-prompt-templates', '--no-context-files', '--no-themes', '--no-approve',
+               '--offline', '--tools', 'read,write', '--mode', 'json', '-p', '--', prompt]
+    with (out / 'events.jsonl').open('xb') as stdout, (out / 'stderr.log').open('xb') as stderr:
+        proc = subprocess.Popen(command, cwd=ROOT, env=env, stdin=subprocess.DEVNULL, stdout=stdout,
+                                stderr=stderr, start_new_session=True)
+        timed_out = False
+        try:
+            proc.wait(timeout=270)
+        except subprocess.TimeoutExpired:
+            timed_out = True
+        finally:
+            stop(proc)
+    events = rows(out / 'events.jsonl')
+    messages = [e['message'] for e in events if e.get('type') == 'message_end' and e.get('message', {}).get('role') == 'assistant']
+    failed = [m.get('stopReason') for m in messages if m.get('stopReason') in ('error', 'aborted', 'length')]
+    text = '\n'.join(c.get('text', '') for m in messages for c in m.get('content', []) if c.get('type') == 'text')
+    tools = [e for e in events if e.get('type') == 'tool_execution_end']
+    shapes = rows(out / 'payload-shapes.jsonl')
+    state_path = out / 'gateway-state.json'
+    state = json.loads(state_path.read_text()) if state_path.is_file() else {}
+    passed = (state.get('phase') == 'complete' and proc.returncode == 0 and not timed_out and not failed and sentinel in text
+              and len(tools) == 2 and all(not t.get('isError') for t in tools) and len(shapes) == 3
+              and echo.is_file() and echo.read_text().strip() == sentinel
+              and all(s.get('stream') and s.get('model') == 'glm-5.3' and s.get('reasoning_effort') == 'low' for s in shapes))
+    save(out / 'receipt.json', {'status': 'PASS' if passed else 'BLOCKED_PROVIDER_OR_ROUNDTRIP',
+                              'requests': 1 + len(shapes), 'pi_requests': len(shapes), 'tiny_requests': 1,
+                              'exit_code': proc.returncode, 'timed_out': timed_out, 'protocol_state': state, 'failed_stop_reasons': failed,
+                              'tool_executions': len(tools), 'sentinel_returned': sentinel in text,
+                              'written_copy_matches': echo.is_file() and echo.read_text().strip() == sentinel,
+                              'elapsed_seconds': time.monotonic() - started, 'purpose': 'gateway preflight only, not QC'})
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('stage', choices=['gateway', 'explore', 'execute', 'report'])
+    parser.add_argument('--background', action='store_true')
+    args = parser.parse_args()
+    if args.background:
+        with (ROOT / (args.stage + '.controller.log')).open('xb') as stream:
+            proc = subprocess.Popen([PYTHON, '-B', __file__, args.stage], env=ENV, stdin=subprocess.DEVNULL,
+                                    stdout=stream, stderr=subprocess.STDOUT, start_new_session=True)
+        print(json.dumps({'pid': proc.pid, 'stage': args.stage}))
+        return
+    preflight = json.loads((ROOT / 'sandbox-preflight-04/receipt.json').read_text())
+    assert preflight['status'] == 'PASS'
+    output = ROOT / (args.stage + '-shim')
+    limit = {'gateway': 4, 'explore': 17, 'execute': 17, 'report': 1}[args.stage]
+    started = time.monotonic()
+    record = {'stage': args.stage, 'status': 'STARTED', 'max_requests': limit, 'automatic_retries': 0,
+              'shim_sha256': hashlib.sha256(SHIM.read_bytes()).hexdigest()}
+    receipt = ROOT / (args.stage + '.controller.json')
+    assert not receipt.exists()
+    save(receipt, record)
+    shim = None
+    try:
+        with (ROOT / (args.stage + '.shim-stderr.log')).open('xb') as stderr:
+            shim = subprocess.Popen([PYTHON, '-B', str(SHIM), '--listen', '19913', '--upstream-port', '443',
+                                     '--output', str(output), '--max-requests', str(limit), '--request-seconds', '120',
+                                     '--lifetime-seconds', '640'], env=ENV, stdout=subprocess.PIPE, stderr=stderr,
+                                    text=True, start_new_session=True)
+            assert select.select([shim.stdout], [], [], 5)[0], 'shim startup timeout'
+            assert json.loads(shim.stdout.readline())['port'] == 19913
+            if args.stage == 'gateway':
+                gateway()
+            else:
+                proc = subprocess.Popen([PYTHON, '-B', str(ROOT / 'run_stage.py'), args.stage], env=ENV,
+                                        start_new_session=True)
+                try:
+                    proc.wait(timeout=620)
+                finally:
+                    stop(proc)
+                record['stage_runner_exit'] = proc.returncode
+    except Exception as exc:
+        record.update(status='BLOCKED_CONTROLLER', error_type=type(exc).__name__)
+    finally:
+        if shim is not None:
+            stop(shim)
+            shim.stdout.close()
+            record['shim_exit'] = shim.returncode
+        counts_path = output / 'counts.json'
+        count = json.loads(counts_path.read_text()) if counts_path.exists() else {}
+        record['shim_counts'] = count
+        record['elapsed_seconds'] = time.monotonic() - started
+        stage_path = ROOT / args.stage / ('receipt.json' if args.stage == 'gateway' else 'execution.json')
+        stage = json.loads(stage_path.read_text()) if stage_path.exists() else {}
+        record['stage_status'] = stage.get('status')
+        record['request_counts_agree'] = stage.get('requests') == count.get('requests') == count.get('dispatched')
+        if record['status'] == 'STARTED':
+            record['status'] = ('COMPLETE' if record['request_counts_agree'] and count.get('shutdown_complete')
+                                and stage.get('status') in ('PASS', 'STAGE_COMPLETE') else 'BLOCKED_STAGE_OR_ACCOUNTING')
+        save(receipt, record)
+        print(json.dumps(record), flush=True)
+
+
+if __name__ == '__main__':
+    main()

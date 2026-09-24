@@ -1,0 +1,25 @@
+{
+  "status": "BLOCKED_EVIDENCE_AUDIT",
+  "axis": "quality",
+  "scope": [
+    "C3"
+  ],
+  "reasons": [
+    "missing_fields:author_test_counts,claims,findings,limits,positive_control,reviewer_probe_counts,verdict",
+    "invalid_claims_shape",
+    "invalid_counts:reviewer_probe_counts",
+    "invalid_counts:author_test_counts",
+    "missing_observed_probe_xml",
+    "invalid_control_claim",
+    "invalid_verdict",
+    "controller_incomplete:report",
+    "author_counts_disagree_with_xml"
+  ],
+  "observed_probe_attempts": [],
+  "observed_author_attempts": [],
+  "positive_control_observed_first": true,
+  "author_test_commands": 0,
+  "counts_only_not_semantic_approval": true,
+  "independent_report": {},
+  "whole_candidate_approved": false
+}

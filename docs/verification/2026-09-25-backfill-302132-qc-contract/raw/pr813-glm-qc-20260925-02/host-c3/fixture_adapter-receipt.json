@@ -1,0 +1,28 @@
+{
+  "attempt": "fixture_adapter",
+  "command": [
+    "/usr/bin/sandbox-exec",
+    "-f",
+    "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-02/host-c3/tools.sb",
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "-m",
+    "pytest",
+    "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-02/host-c3/work/probes/test_fixture_adapter.py",
+    "--confcutdir=/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-02/host-c3/work",
+    "-p",
+    "no:cacheprovider",
+    "-q",
+    "--basetemp=/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-02/host-c3/work/tmp/fixture_adapter",
+    "--junitxml=/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-02/host-c3/work/fixture_adapter.xml"
+  ],
+  "exit_code": 0,
+  "elapsed_seconds": 4.670954999979585,
+  "xml": "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-02/host-c3/work/fixture_adapter.xml",
+  "counts": {
+    "executed": 7,
+    "passed": 7,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0
+  }
+}

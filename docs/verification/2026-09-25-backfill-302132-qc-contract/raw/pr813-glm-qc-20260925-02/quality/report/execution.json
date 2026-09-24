@@ -1,0 +1,115 @@
+{
+  "stage": "report",
+  "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+  "baseline": "4cc15e703f81bce8abadee00f68caacdb0c72b4d",
+  "started_at": "2026-09-24T17:13:43.812828+00:00",
+  "complete": true,
+  "candidate_before": {
+    "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+    "status": ""
+  },
+  "author_before": {
+    "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+    "status": ""
+  },
+  "inputs_sha256": {
+    "config.json": "74f122a876c030b7a51b27e53d353804b7991ee32956ea0cbc302488e4e3fefb",
+    "review.mjs": "53214290e79d7ff982ea0988d9877d2cc6d03c8fdf101a005bb593bdeeee1d98",
+    "pi_review_protocol.mjs": "657e40bf2d8f8825a5345210876ac69417aed0cac857a2f899ec96280fa641d5",
+    "tools.sb": "ff0a2e09ae9bef29ce23884604d015a4e937d4f06ec85167e03b4d4b81b221b2",
+    "file_tool.py": "79125feff76d98407e3bf1d36cfa56c0086863bc0591afa499f3580a6dcf8972",
+    "provider-template.json": "b6563f18bc9f829d8d90818ccd3483b91a7ac451e4a02006705e6fff52566b6f",
+    "pi-config/settings.json": "cda612a59b9d61dc644867021e8a5284dc7a6040e65eadab9b883ae78406b417",
+    "prompt-report.md": "1952b4d909df938516122e1d953b27d1a604e4d5ecd193b6a9435cf24ea190b1"
+  },
+  "timeout_seconds": 600,
+  "max_requests": 1,
+  "automatic_retries": 0,
+  "command": [
+    "/opt/homebrew/bin/pi",
+    "--provider",
+    "glm-direct-review",
+    "--model",
+    "glm-5.3",
+    "--thinking",
+    "low",
+    "--models",
+    "glm-direct-review/glm-5.3",
+    "--no-session",
+    "--no-extensions",
+    "-e",
+    "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-02/quality/review.mjs",
+    "--no-skills",
+    "--no-prompt-templates",
+    "--no-context-files",
+    "--no-themes",
+    "--no-approve",
+    "--offline",
+    "--tools",
+    "deliver_stage",
+    "--mode",
+    "json",
+    "-p",
+    "--",
+    "<stage prompt>"
+  ],
+  "pid": 65359,
+  "probe_sha256": {
+    "work/probes/probe_c3_acceptance.py": "be53e3129e8b69bf62ce44a8e653988765b23a42df37c703bd28bf9c10ef15f8",
+    "work/probes/probe_c3_acceptance_v2.py": "2ed2015829b1b4d58464ca6de1bc63b9c3fa70e5630d0d2f5b5c8676d947a021",
+    "work/probes/syntax_check_v2.py": "b55dd9b3d0798ed502c7547371d7628dd3426a488fbfb4f6c69a0f9e11b9e863"
+  },
+  "status": "BLOCKED_STAGE_OR_PROVIDER",
+  "exit_code": 0,
+  "elapsed_seconds": 13.386,
+  "timed_out": false,
+  "requests": 1,
+  "responses": [
+    {
+      "admission": 1,
+      "status": 200
+    }
+  ],
+  "errors": [],
+  "candidate_after": {
+    "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+    "status": ""
+  },
+  "author_after": {
+    "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+    "status": ""
+  },
+  "inputs_unchanged": true,
+  "event_counts": {
+    "session": 1,
+    "agent_start": 1,
+    "turn_start": 1,
+    "message_start": 2,
+    "message_end": 2,
+    "message_update": 820,
+    "turn_end": 1,
+    "agent_end": 1,
+    "agent_settled": 1
+  },
+  "report_structural": false,
+  "model_identities": [
+    "glm-direct-review/glm-5.3"
+  ],
+  "usage": {
+    "input": 14986,
+    "output": 825,
+    "cacheRead": 576,
+    "cacheWrite": 0,
+    "totalTokens": 16387
+  },
+  "artifact_sha256": {
+    "tool-menu.json": "caa39de8ead329b20d42a511dc7a4ab35e7be8ecb4d9890c6e91e2bd260ed245",
+    "payload-shapes.jsonl": "b5d5b79fee5b401c61789aeee05231b2154ce5efb770ad89144af65c586a76ae",
+    "stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "auth-reserved.json": "89d3a977d27d8a5032bbf88f303e090c5d2b24e52f34c59a7f97a56857472e04",
+    "credential.json": "5d6c5124a4f085ec1705fb08673d36708781e166f1e4939b110c6be57ff5c3c8",
+    "request-admissions.jsonl": "bc01967b2c2532d5209af321612401a5c9b3f0567b35f26eacc629fa3d6ac631",
+    "responses.jsonl": "f5b2bfbd4f957a7246b529caa0f28b7a7b2ba41f11fcf6f2fa222f176c71224f",
+    "events.jsonl": "d6a2c1c91bed87ca13f469c64faeb0035f8aa9756ec11aa3bd09e669a417919c"
+  }
+}

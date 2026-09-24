@@ -1,0 +1,39 @@
+{
+  "status": "PASS",
+  "role": "host mutation control, NOT independent QC",
+  "new_model_requests": 0,
+  "candidate_source_unchanged": true,
+  "source_sha256": "11450bd814251887ac3c6995dc3c8ce2036b113fbd8226dea1eff0981dc910ad",
+  "mutant_sha256": "dc68aa20872242ffb5acd05ae7e097d1a4d780402c2d402759420570ea6fdca2",
+  "set_mutant": {
+    "tests": 1,
+    "failed_as_expected": 1,
+    "case": "test_outside_window_mutation_fails[duplicate]",
+    "wrong_acceptance_verdict": "PASS",
+    "xml_sha256": "5a74b849720974caacd17cb3560cc75648c952a7a7c4684334e3722a9f333bec",
+    "acceptance_json": "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-02/host-c3/work/tmp/set_mutant/test_outside_window_mutation_f0/out.json",
+    "acceptance_checks": 37
+  },
+  "original_restored_control": {
+    "tests": 7,
+    "passed": 7,
+    "exit_code": 0,
+    "command": [
+      "/usr/bin/sandbox-exec",
+      "-f",
+      "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-02/host-c3/tools.sb",
+      "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+      "-m",
+      "pytest",
+      "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-02/host-c3/work/probes/test_fixture_adapter.py",
+      "--confcutdir=/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-02/host-c3/work",
+      "-p",
+      "no:cacheprovider",
+      "-q",
+      "--basetemp=/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-02/host-c3/work/tmp/original_restored_control",
+      "--junitxml=/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-02/host-c3/work/original_restored_control.xml"
+    ]
+  },
+  "expected_failure": "EXCEPT distinct hides duplicate multiplicity; acceptance returns PASS instead of rejecting corruption",
+  "initial_recorder_error_retained": true
+}

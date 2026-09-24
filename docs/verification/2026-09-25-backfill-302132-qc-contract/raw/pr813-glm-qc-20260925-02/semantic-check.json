@@ -1,0 +1,48 @@
+{
+  "role": "host semantic scope audit, NOT an independent reviewer verdict",
+  "accepted_within_scope": false,
+  "accepted_axes": ["spec"],
+  "spec": {
+    "status": "ACCEPTED_GUARD_SUBSET_WITH_LIMITS",
+    "raw_verdict": "PASS_WITH_LIMITS",
+    "reviewer_probes": {"executed": 5, "passed": 5, "failed": 0},
+    "author_test_in_reviewer_sandbox": {"executed": 1, "passed": 0, "failed": 1},
+    "author_countercheck_outside_sandbox": {"executed": 1, "passed": 1, "failed": 0},
+    "evidence": "spec/host-evidence-audit.json; spec/execute/commands/014-bash and 015-bash; host-countercheck/receipt.json",
+    "limits": [
+      "Independent positive case calls _guard, not a successful apply; exclusion from the writer's source is supported by static code reading plus a separately classified author countercheck, not independent end-to-end apply evidence.",
+      "Partial-state refusal case checks the target-row count, not a full-column post-error snapshot. Other refusal cases compare complete target rows.",
+      "Do not promote the raw C2 verified tag or five passed cases into approval of all C2 inputs, C4 publication behavior or the whole candidate."
+    ]
+  },
+  "quality": {
+    "status": "BLOCKED_NO_REVIEWER_PROBE_EXECUTION_OR_DELIVERY",
+    "reviewer_probes_executed": 0,
+    "positive_control_observed_first": true,
+    "execute_delivered": true,
+    "execute_request_cap_reached": 17,
+    "final_request": {"http_status": 200, "exit_code": 0, "tool_calls": 0, "submission_exists": false},
+    "raw_text_verdict": "BLOCKED_INCOMPLETE_EVIDENCE",
+    "raw_text_claim_C3": "not_verified",
+    "evidence": "quality-report-diagnostic.json; quality-final-message.txt; quality/report/execution.json",
+    "limits": ["Syntax checking is not probe execution.", "A JSON-looking text response is not deliver_stage; host did not synthesize submission or sign a reviewer verdict."]
+  },
+  "host_C3_diagnosis": {
+    "independent_QC": false,
+    "original_probe": {"executed": 7, "passed": 0, "failed": 7},
+    "fixture_corrected": {"executed": 7, "passed": 7, "failed": 0},
+    "assertions_changed": false,
+    "repairs": ["Copy synthetic receipts to clone_mut-derived receipt paths", "Mutate an existing OTHER stock date and assert one affected row"],
+    "cases": ["valid later row baseline", "outside amount mutation", "outside updated_at mutation", "outside deletion", "outside insertion", "outside duplicate multiplicity", "other-stock amount mutation"],
+    "sensitivity_control": {"temporary_change": "EXCEPT ALL -> EXCEPT (two SQL clauses)", "duplicate_case_expected_failure": 1, "wrong_acceptance": "PASS", "original_rechecked_passed": 7},
+    "receipt_recorder_error": "Initial helper expected a pytest traceback substring hidden by __tracebackhide__; retained interruption and verified the structured acceptance JSON instead.",
+    "evidence": "host-c3/receipt.json; host-c3/set-mutation-control.json",
+    "candidate_source_changed": false,
+    "reviewer_source_or_report_changed": false,
+    "production_access": false
+  },
+  "host_infrastructure_tests": 11,
+  "other_claims_not_reviewed": ["C1", "C4", "C5", "C6", "C7"],
+  "current_main_combination_verified": false,
+  "whole_candidate_approved": false
+}

@@ -1,0 +1,17 @@
+{"admission":1,"phase":"explore","timestamp":"2026-09-24T17:00:42.209Z","provider":"glm-direct-review","model":"glm-5.3"}
+{"admission":2,"phase":"explore","timestamp":"2026-09-24T17:00:45.811Z","provider":"glm-direct-review","model":"glm-5.3"}
+{"admission":3,"phase":"explore","timestamp":"2026-09-24T17:00:50.121Z","provider":"glm-direct-review","model":"glm-5.3"}
+{"admission":4,"phase":"explore","timestamp":"2026-09-24T17:00:58.006Z","provider":"glm-direct-review","model":"glm-5.3"}
+{"admission":5,"phase":"explore","timestamp":"2026-09-24T17:01:01.231Z","provider":"glm-direct-review","model":"glm-5.3"}
+{"admission":6,"phase":"explore","timestamp":"2026-09-24T17:01:03.348Z","provider":"glm-direct-review","model":"glm-5.3"}
+{"admission":7,"phase":"explore","timestamp":"2026-09-24T17:01:11.144Z","provider":"glm-direct-review","model":"glm-5.3"}
+{"admission":8,"phase":"explore","timestamp":"2026-09-24T17:01:26.012Z","provider":"glm-direct-review","model":"glm-5.3"}
+{"admission":9,"phase":"explore","timestamp":"2026-09-24T17:01:27.904Z","provider":"glm-direct-review","model":"glm-5.3"}
+{"admission":10,"phase":"explore","timestamp":"2026-09-24T17:01:30.150Z","provider":"glm-direct-review","model":"glm-5.3"}
+{"admission":11,"phase":"explore","timestamp":"2026-09-24T17:01:51.307Z","provider":"glm-direct-review","model":"glm-5.3"}
+{"admission":12,"phase":"explore","timestamp":"2026-09-24T17:01:53.487Z","provider":"glm-direct-review","model":"glm-5.3"}
+{"admission":13,"phase":"explore","timestamp":"2026-09-24T17:02:00.464Z","provider":"glm-direct-review","model":"glm-5.3"}
+{"admission":14,"phase":"explore","timestamp":"2026-09-24T17:02:03.135Z","provider":"glm-direct-review","model":"glm-5.3"}
+{"admission":15,"phase":"explore","timestamp":"2026-09-24T17:02:09.380Z","provider":"glm-direct-review","model":"glm-5.3"}
+{"admission":16,"phase":"explore","timestamp":"2026-09-24T17:02:17.182Z","provider":"glm-direct-review","model":"glm-5.3"}
+{"admission":17,"phase":"report","timestamp":"2026-09-24T17:02:35.145Z","provider":"glm-direct-review","model":"glm-5.3"}

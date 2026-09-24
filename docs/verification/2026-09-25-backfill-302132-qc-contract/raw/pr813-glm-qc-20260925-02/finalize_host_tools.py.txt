@@ -1,0 +1,40 @@
+"""Record host-tool revisions and raw final-message diagnostics, without synthesizing a verdict."""
+import hashlib
+import json
+from pathlib import Path
+import subprocess
+import sys
+
+ROOT = Path(__file__).resolve().parent
+initial = json.loads((ROOT / 'prepare-manifest.json').read_text())
+changes = []
+for name in ('audit_axis.py', 'test_audit_axis.py', 'report_packet.py'):
+    path = ROOT / name
+    changes.append({'path': name, 'prepared_sha256': initial['files'][name]['sha256'],
+                    'final_sha256': hashlib.sha256(path.read_bytes()).hexdigest()})
+proc = subprocess.run([sys.executable, '-B', str(ROOT / 'test_audit_axis.py')], capture_output=True, text=True)
+assert proc.returncode == 0
+value = {'host_tool_changes': changes, 'reason': 'Author test ran: separate its XML by actual test path; include both XML categories in report packet. No model prompt, controller or reviewer artifact rewritten.',
+         'tests_exit_code': proc.returncode, 'tests_stdout': proc.stdout, 'tests_stderr': proc.stderr,
+         'classification': 'host infrastructure controls, NOT product-review evidence'}
+with (ROOT / 'host-tools-final.json').open('x') as stream:
+    json.dump(value, stream, indent=2)
+messages = []
+for line in (ROOT / 'quality/report/events.jsonl').read_text().splitlines():
+    event = json.loads(line)
+    message = event.get('message', {})
+    if event.get('type') == 'message_end' and message.get('role') == 'assistant':
+        messages.append(message)
+texts = [''.join(c.get('text', '') for c in m.get('content', []) if c.get('type') == 'text') for m in messages]
+text = '\n'.join(texts)
+with (ROOT / 'quality-final-message.txt').open('x') as stream:
+    stream.write(text)
+record = {'assistant_messages': len(messages), 'stop_reasons': [m.get('stopReason') for m in messages],
+          'content_types': [[c.get('type') for c in m.get('content', [])] for m in messages],
+          'tool_calls': sum(c.get('type') == 'toolCall' for m in messages for c in m.get('content', [])),
+          'text_sha256': hashlib.sha256(text.encode()).hexdigest(),
+          'text_only_is_not_delivery': True, 'reasoning_not_copied': True,
+          'structured_submission_exists': (ROOT / 'quality/report/submission.json').exists()}
+with (ROOT / 'quality-report-diagnostic.json').open('x') as stream:
+    json.dump(record, stream, indent=2)
+print(json.dumps(record))

@@ -1,0 +1,70 @@
+{
+  "author_test_counts": {
+    "errors": 0,
+    "executed": 1,
+    "failed": 1,
+    "passed": 0,
+    "skipped": 0
+  },
+  "claims": [
+    {
+      "id": "C1",
+      "status": "out_of_scope",
+      "evidence": "仅审 C2 轴，未检查。"
+    },
+    {
+      "id": "C2",
+      "status": "verified",
+      "evidence": "执行 probes/test_c2_source_guard_v2.py（XML 5 用例全过，work/probe-results-v1.xml）：(1) max(gap_parallel) 之后新增合法 hithink 'none' 行（CAL[27..29]）→ _guard 返回 mode=apply，不误拒，且不进入授权源窗口（src_a 上界=max(gap_parallel)）；(2) 缺口日某行改为 qfq → run_backfill_child RepairRefused，主表前后一致；(3) 冻结 parquet 字节篡改（raw[-64]^=1）→ sha256 不符在写前拒绝，主表不变（guard repair_backfill_stock_history.py:249-251）；(4) 部分缺口状态（缺口日已在主表）→ RepairRefused，子任务无写入；(5) dataclasses.replace 错误 parquet_sha256 → 写前拒绝，主表不变。"
+    },
+    {
+      "id": "C3",
+      "status": "out_of_scope",
+      "evidence": "不在范围。"
+    },
+    {
+      "id": "C4",
+      "status": "out_of_scope",
+      "evidence": "不在范围。"
+    },
+    {
+      "id": "C5",
+      "status": "out_of_scope",
+      "evidence": "不在范围。"
+    },
+    {
+      "id": "C6",
+      "status": "out_of_scope",
+      "evidence": "不在范围。"
+    },
+    {
+      "id": "C7",
+      "status": "out_of_scope",
+      "evidence": "不在范围。"
+    }
+  ],
+  "findings": [
+    "C2 范围内未发现产品缺陷：_guard 在任何 read_parquet 业务使用/写入之前先校验 sha256（:249-251），qfq/部分状态/哈希不符均在 _apply_main 之前以 RepairRefused fail-closed。",
+    "源 PK=(trade_date, stock_ts_code)，探针按指示通过将缺口日行改为 qfq（而非造重复行）验证 adjusted 过滤，全部按预期拒绝。",
+    "作者测试 test_backfill_keeps_frozen_tail_source_after_parallel_table_advances 失败：根因 _code_revision（repair_backfill_stock_history.py:120-126）在沙箱内 git 被拒（.git Operation not permitted），属环境产物，非产品缺陷。"
+  ],
+  "limits": "仅 C2 在范围；探针为合成 DuckDB（复用作者 _fixture/_spec/_insert 构造，不复用其断言）；探索阶段 probes/test_c2_source_guard.py 从未执行，实际执行为清理版 v2（两文件均保留为证据）；未跑完整 CLI、全作者套件、网络/生产/候选写入；正例控制为独立故意失败，不计入任何计数。本结论仅限实测用例，不构成全候选批准、合并或生产授权。",
+  "positive_control": {
+    "classification": "probe_bug",
+    "evidence": "execute/commands/001-bash：OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python -B .../spec/work/positive_control.py → exit 1，AssertionError: intentional probe_bug control",
+    "status": "OBSERVED_EXPECTED_FAILURE"
+  },
+  "reviewer_probe_counts": {
+    "executed": 5,
+    "failed": 0,
+    "passed": 5,
+    "errors": 0,
+    "skipped": 0
+  },
+  "verdict": "PASS_WITH_LIMITS",
+  "complete": true,
+  "stage": "report",
+  "axis": "spec",
+  "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+  "baseline": "4cc15e703f81bce8abadee00f68caacdb0c72b4d"
+}

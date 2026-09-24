@@ -1,0 +1,44 @@
+"""Offline negative controls for the host audit, not product-review evidence."""
+from copy import deepcopy
+import unittest
+from audit_axis import validate, xml_counts
+
+class AuditTests(unittest.TestCase):
+    def setUp(self):
+        self.counts = {'executed': 3, 'passed': 3, 'failed': 0, 'errors': 0, 'skipped': 0}
+        self.report = {'verdict': 'PASS_WITH_LIMITS', 'claims': [
+            {'id': f'C{i}', 'status': 'not_verified' if i == 2 else 'out_of_scope', 'evidence': 'explicit limited scope'}
+            for i in range(1, 8)], 'findings': [], 'reviewer_probe_counts': dict(self.counts),
+            'author_test_counts': dict.fromkeys(self.counts, 0),
+            'positive_control': {'status': 'OBSERVED_EXPECTED_FAILURE', 'classification': 'probe_bug', 'evidence': 'commands/001'},
+            'limits': ['synthetic only']}
+    def test_valid(self):
+        self.assertEqual(validate(self.report, self.counts, True, 'spec'), [])
+    def test_illegal_enum(self):
+        self.report['claims'][1]['status'] = 'verified_with_limits'
+        self.assertIn('invalid_claim_status:C2', validate(self.report, self.counts, True, 'spec'))
+    def test_missing_author_count(self):
+        del self.report['author_test_counts']
+        self.assertTrue(validate(self.report, self.counts, True, 'spec'))
+    def test_fabricated_pass(self):
+        observed = deepcopy(self.counts)
+        observed.update(passed=2, failed=1)
+        self.assertIn('probe_counts_disagree_with_xml', validate(self.report, observed, True, 'spec'))
+        self.assertIn('pass_despite_failed_probe_cases', validate(self.report, observed, True, 'spec'))
+    def test_control_required(self):
+        self.assertIn('intentional_control_not_observed_first', validate(self.report, self.counts, False, 'spec'))
+    def test_scope_expansion(self):
+        self.report['claims'][2]['status'] = 'verified'
+        self.assertIn('scope_expanded:C3', validate(self.report, self.counts, True, 'spec'))
+    def test_xml_reads_cases_not_declared_totals(self):
+        self.assertEqual(xml_counts('<testsuites><testsuite tests="999"><testcase/><testcase><failure/></testcase><testcase><error/></testcase><testcase><skipped/></testcase></testsuite></testsuites>'),
+                         {'executed': 4, 'passed': 1, 'failed': 1, 'errors': 1, 'skipped': 1})
+    def test_counts_boolean_rejected(self):
+        self.report['reviewer_probe_counts']['failed'] = False
+        self.assertIn('invalid_counts:reviewer_probe_counts', validate(self.report, self.counts, True, 'spec'))
+    def test_duplicate_ids_rejected(self):
+        self.report['claims'][0]['id'] = 'C2'
+        self.assertIn('invalid_claim_ids', validate(self.report, self.counts, True, 'spec'))
+
+if __name__ == '__main__':
+    unittest.main()

@@ -1,0 +1,28 @@
+{
+  "attempt": "original",
+  "command": [
+    "/usr/bin/sandbox-exec",
+    "-f",
+    "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-02/host-c3/tools.sb",
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "-m",
+    "pytest",
+    "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-02/quality/work/probes/probe_c3_acceptance_v2.py",
+    "--confcutdir=/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-02/host-c3/work",
+    "-p",
+    "no:cacheprovider",
+    "-q",
+    "--basetemp=/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-02/host-c3/work/tmp/original",
+    "--junitxml=/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-02/host-c3/work/original.xml"
+  ],
+  "exit_code": 1,
+  "elapsed_seconds": 2.915611624950543,
+  "xml": "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-02/host-c3/work/original.xml",
+  "counts": {
+    "executed": 7,
+    "passed": 0,
+    "failed": 7,
+    "errors": 0,
+    "skipped": 0
+  }
+}

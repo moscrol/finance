@@ -1,0 +1,27 @@
+{
+  "role": "host author-test countercheck, NOT independent reviewer evidence",
+  "command": [
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "-m",
+    "pytest",
+    "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-02/candidate/tests/test_repair_backfill_stock_history.py::test_backfill_keeps_frozen_tail_source_after_parallel_table_advances",
+    "-q",
+    "-p",
+    "no:cacheprovider",
+    "--basetemp=/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-02/host-countercheck/tmp/pytest",
+    "--junitxml=/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-02/host-countercheck/author-countercheck.xml"
+  ],
+  "exit_code": 0,
+  "elapsed_seconds": 1.026942958123982,
+  "before": {
+    "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+    "status": ""
+  },
+  "after": {
+    "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+    "status": ""
+  },
+  "reviewer_failure_preserved": true,
+  "difference": "outside OS review sandbox; isolated HOME/tmp/users and clean credential-free environment",
+  "full_engineering_gate": false
+}

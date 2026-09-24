@@ -1,0 +1,7 @@
+{
+  "status": "HOST_RECEIPT_ASSERTION_ERROR",
+  "script": "host_mutation_control.py",
+  "reason": "Expected formatted traceback substring assert 0 == 2, but pytest __tracebackhide__ suppressed that frame.",
+  "mutant_test_result": "Expected failure already observed",
+  "repair": "Read structured acceptance JSON; no original result/source changed"
+}

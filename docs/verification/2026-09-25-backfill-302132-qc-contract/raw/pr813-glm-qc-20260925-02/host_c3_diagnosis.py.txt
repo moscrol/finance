@@ -1,0 +1,63 @@
+"""Bounded host-only diagnosis of unexecuted reviewer probes, with unchanged assertions."""
+import hashlib
+import json
+from pathlib import Path
+import subprocess
+import time
+import xml.etree.ElementTree as ET
+
+ROOT = Path(__file__).resolve().parent
+OUT = ROOT / 'host-c3'
+WORK = OUT / 'work'
+CAND = ROOT / 'candidate'
+SOURCE = ROOT / 'quality/work/probes/probe_c3_acceptance_v2.py'
+PY = '/Users/a77/finance-workspace-private/.venv-workbench/bin/python'
+REV = '3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59'
+
+def identity():
+    return {k: subprocess.check_output(['git', '-C', str(CAND), *cmd], text=True).strip()
+            for k, cmd in [('revision', ['rev-parse', 'HEAD']), ('status', ['status', '--porcelain'])]}
+
+def counts(path):
+    cases = list(ET.parse(path).getroot().iter('testcase'))
+    failed = sum(c.find('failure') is not None for c in cases)
+    errors = sum(c.find('error') is not None for c in cases)
+    skipped = sum(c.find('skipped') is not None for c in cases)
+    return {'executed': len(cases), 'passed': len(cases)-failed-errors-skipped, 'failed': failed, 'errors': errors, 'skipped': skipped}
+
+before = identity()
+assert before == {'revision': REV, 'status': ''}
+source_sha = hashlib.sha256(SOURCE.read_bytes()).hexdigest()
+for directory in ('tmp', 'users'):
+    (WORK / directory).mkdir(exist_ok=True)
+policy = (ROOT / 'quality/tools.sb').read_text().replace(str(ROOT / 'quality/work'), str(WORK))
+policy += f'\n(allow file-read* (subpath "{OUT}"))\n'
+(OUT / 'tools.sb').write_text(policy)
+env = {'HOME': str(WORK), 'PATH': '/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin', 'LANG': 'C.UTF-8',
+       'TMPDIR': str(WORK / 'tmp'), 'PYTHONDONTWRITEBYTECODE': '1', 'PYTHONPATH': str(CAND),
+       'FWP_TEST_RECEIPT': '0', 'GIT_OPTIONAL_LOCKS': '0', 'FORESIGHT_USERS_DIR': str(WORK / 'users'),
+       'OPENBLAS_NUM_THREADS': '1', 'OMP_NUM_THREADS': '1'}
+results = []
+for name, test_path in [('original', SOURCE), ('fixture_adapter', WORK / 'probes/test_fixture_adapter.py')]:
+    xml = WORK / (name + '.xml')
+    assert not xml.exists()
+    command = ['/usr/bin/sandbox-exec', '-f', str(OUT / 'tools.sb'), PY, '-m', 'pytest', str(test_path),
+               '--confcutdir=' + str(WORK), '-p', 'no:cacheprovider', '-q',
+               '--basetemp=' + str(WORK / 'tmp' / name), '--junitxml=' + str(xml)]
+    started = time.monotonic()
+    with (OUT / (name + '.log')).open('xb') as stream:
+        proc = subprocess.run(command, cwd=CAND, env=env, stdin=subprocess.DEVNULL, stdout=stream, stderr=subprocess.STDOUT, timeout=120)
+    results.append({'attempt': name, 'command': command, 'exit_code': proc.returncode,
+                    'elapsed_seconds': time.monotonic()-started, 'xml': str(xml), 'counts': counts(xml) if xml.exists() else None})
+    assert before == identity() and hashlib.sha256(SOURCE.read_bytes()).hexdigest() == source_sha
+    with (OUT / (name + '-receipt.json')).open('x') as stream:
+        json.dump(results[-1], stream, indent=2)
+record = {'role': 'host-run diagnosis, NOT reviewer execution or an independent verdict',
+          'revision': REV, 'source_sha256_unchanged': source_sha, 'candidate_unchanged': True,
+          'new_model_requests': 0, 'results': results,
+          'changes': ['Copy synthetic receipts to derived clonedb receipt paths', 'Mutate an existing OTHER date and assert exactly one changed row'],
+          'reviewer_probe_source_modified': False, 'reviewer_report_modified': False, 'production_access': False,
+          'assertions_reused_without_change': True}
+with (OUT / 'receipt.json').open('x') as stream:
+    json.dump(record, stream, ensure_ascii=False, indent=2)
+print(json.dumps(record))

@@ -1,0 +1,42 @@
+"""Rerun one author test outside reviewer sandbox; never amend its failed receipt."""
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+import time
+
+ROOT = Path(__file__).resolve().parent
+CAND = ROOT / 'candidate'
+OUT = ROOT / 'host-countercheck'
+PY = '/Users/a77/finance-workspace-private/.venv-workbench/bin/python'
+REV = '3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59'
+
+def identity():
+    return {k: subprocess.check_output(['git', '-C', str(CAND), *cmd], text=True).strip()
+            for k, cmd in [('revision', ['rev-parse', 'HEAD']), ('status', ['status', '--porcelain'])]}
+
+before = identity()
+assert before == {'revision': REV, 'status': ''}
+OUT.mkdir()
+(OUT / 'tmp').mkdir()
+(OUT / 'users').mkdir()
+env = {'HOME': str(OUT), 'PATH': '/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin',
+       'LANG': 'C.UTF-8', 'TMPDIR': str(OUT / 'tmp'), 'PYTHONDONTWRITEBYTECODE': '1',
+       'PYTHONPATH': str(CAND), 'FWP_TEST_RECEIPT': '0', 'GIT_OPTIONAL_LOCKS': '0',
+       'FORESIGHT_USERS_DIR': str(OUT / 'users'), 'OPENBLAS_NUM_THREADS': '1', 'OMP_NUM_THREADS': '1'}
+command = [PY, '-m', 'pytest', str(CAND / 'tests/test_repair_backfill_stock_history.py') + '::test_backfill_keeps_frozen_tail_source_after_parallel_table_advances',
+           '-q', '-p', 'no:cacheprovider', '--basetemp=' + str(OUT / 'tmp/pytest'), '--junitxml=' + str(OUT / 'author-countercheck.xml')]
+started = time.monotonic()
+with (OUT / 'output.log').open('xb') as stream:
+    proc = subprocess.run(command, cwd=CAND, env=env, stdin=subprocess.DEVNULL, stdout=stream, stderr=subprocess.STDOUT, timeout=120)
+after = identity()
+assert before == after
+record = {'role': 'host author-test countercheck, NOT independent reviewer evidence', 'command': command,
+          'exit_code': proc.returncode, 'elapsed_seconds': time.monotonic() - started,
+          'before': before, 'after': after, 'reviewer_failure_preserved': True,
+          'difference': 'outside OS review sandbox; isolated HOME/tmp/users and clean credential-free environment',
+          'full_engineering_gate': False}
+(OUT / 'receipt.json').write_text(json.dumps(record, indent=2) + '\n')
+print(json.dumps(record))
+raise SystemExit(proc.returncode)

@@ -1,0 +1,16 @@
+{
+  "status": "BLOCKED_LOCAL_PORT_COLLISION",
+  "batch_complete": true,
+  "qc_complete": false,
+  "requests": 0,
+  "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+  "reason": "Spec private proxy could not bind 19899: occupied by an unrelated pr868 review. No provider request dispatched. The other process was not stopped.",
+  "evidence": "spec/gateway.shim-stderr.log",
+  "host_audit_tests": 9,
+  "spec": "not_started",
+  "quality": "not_started",
+  "owned_processes_stopped": true,
+  "merge_authorized": false,
+  "production_authorized": false,
+  "successor": "../pr813-glm-qc-20260925-02"
+}

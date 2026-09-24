@@ -1,0 +1,23 @@
+{
+  "stage": "gateway",
+  "status": "BLOCKED_CONTROLLER",
+  "max_requests": 4,
+  "automatic_retries": 0,
+  "shim_sha256": "5c26084237b366b9d7b758f7811536a767819b4d23c5fd72f54785014e9c28b5",
+  "error_type": "JSONDecodeError",
+  "shim_exit": 1,
+  "shim_counts": {
+    "active": 0,
+    "cancelled": 0,
+    "completed": 0,
+    "dispatched": 0,
+    "dropped_temperature": 0,
+    "failed": 0,
+    "requests": 0,
+    "shutdown_complete": true,
+    "stopped_for": null
+  },
+  "elapsed_seconds": 0.09381687501445413,
+  "stage_status": null,
+  "request_counts_agree": false
+}

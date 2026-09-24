@@ -1,0 +1,501 @@
+{
+  "status": "SPEC_SCOPED_DELIVERED_QUALITY_BLOCKED",
+  "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+  "baseline": "4cc15e703f81bce8abadee00f68caacdb0c72b4d",
+  "remote_main": "03352758cf9b31e3f5d179b517be48cb89588679",
+  "batch_complete": true,
+  "qc_complete": false,
+  "scoped_reports_valid": false,
+  "axes": {
+    "spec": {
+      "status": "EVIDENCE_COUNTS_VALID",
+      "axis": "spec",
+      "scope": [
+        "C2"
+      ],
+      "reasons": [],
+      "observed_probe_attempts": [
+        {
+          "command": "execute/commands/014-bash",
+          "path": "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-02/spec/work/probe-results-v1.xml",
+          "sha256": "d88a2d1554fec92f49d3ddc8635f73ffa5af8770c19afcf50b9edeca25d7ed19",
+          "counts": {
+            "executed": 5,
+            "passed": 5,
+            "failed": 0,
+            "errors": 0,
+            "skipped": 0
+          }
+        }
+      ],
+      "observed_author_attempts": [
+        {
+          "command": "execute/commands/015-bash",
+          "path": "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-02/spec/work/author-results-v1.xml",
+          "sha256": "1c93885f1c64fe4bc09d466ba5ac5c2c9a837ff74d98cd269adf14028109ab85",
+          "counts": {
+            "executed": 1,
+            "passed": 0,
+            "failed": 1,
+            "errors": 0,
+            "skipped": 0
+          }
+        }
+      ],
+      "positive_control_observed_first": true,
+      "author_test_commands": 1,
+      "counts_only_not_semantic_approval": true,
+      "independent_report": {
+        "author_test_counts": {
+          "errors": 0,
+          "executed": 1,
+          "failed": 1,
+          "passed": 0,
+          "skipped": 0
+        },
+        "claims": [
+          {
+            "id": "C1",
+            "status": "out_of_scope",
+            "evidence": "仅审 C2 轴，未检查。"
+          },
+          {
+            "id": "C2",
+            "status": "verified",
+            "evidence": "执行 probes/test_c2_source_guard_v2.py（XML 5 用例全过，work/probe-results-v1.xml）：(1) max(gap_parallel) 之后新增合法 hithink 'none' 行（CAL[27..29]）→ _guard 返回 mode=apply，不误拒，且不进入授权源窗口（src_a 上界=max(gap_parallel)）；(2) 缺口日某行改为 qfq → run_backfill_child RepairRefused，主表前后一致；(3) 冻结 parquet 字节篡改（raw[-64]^=1）→ sha256 不符在写前拒绝，主表不变（guard repair_backfill_stock_history.py:249-251）；(4) 部分缺口状态（缺口日已在主表）→ RepairRefused，子任务无写入；(5) dataclasses.replace 错误 parquet_sha256 → 写前拒绝，主表不变。"
+          },
+          {
+            "id": "C3",
+            "status": "out_of_scope",
+            "evidence": "不在范围。"
+          },
+          {
+            "id": "C4",
+            "status": "out_of_scope",
+            "evidence": "不在范围。"
+          },
+          {
+            "id": "C5",
+            "status": "out_of_scope",
+            "evidence": "不在范围。"
+          },
+          {
+            "id": "C6",
+            "status": "out_of_scope",
+            "evidence": "不在范围。"
+          },
+          {
+            "id": "C7",
+            "status": "out_of_scope",
+            "evidence": "不在范围。"
+          }
+        ],
+        "findings": [
+          "C2 范围内未发现产品缺陷：_guard 在任何 read_parquet 业务使用/写入之前先校验 sha256（:249-251），qfq/部分状态/哈希不符均在 _apply_main 之前以 RepairRefused fail-closed。",
+          "源 PK=(trade_date, stock_ts_code)，探针按指示通过将缺口日行改为 qfq（而非造重复行）验证 adjusted 过滤，全部按预期拒绝。",
+          "作者测试 test_backfill_keeps_frozen_tail_source_after_parallel_table_advances 失败：根因 _code_revision（repair_backfill_stock_history.py:120-126）在沙箱内 git 被拒（.git Operation not permitted），属环境产物，非产品缺陷。"
+        ],
+        "limits": "仅 C2 在范围；探针为合成 DuckDB（复用作者 _fixture/_spec/_insert 构造，不复用其断言）；探索阶段 probes/test_c2_source_guard.py 从未执行，实际执行为清理版 v2（两文件均保留为证据）；未跑完整 CLI、全作者套件、网络/生产/候选写入；正例控制为独立故意失败，不计入任何计数。本结论仅限实测用例，不构成全候选批准、合并或生产授权。",
+        "positive_control": {
+          "classification": "probe_bug",
+          "evidence": "execute/commands/001-bash：OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python -B .../spec/work/positive_control.py → exit 1，AssertionError: intentional probe_bug control",
+          "status": "OBSERVED_EXPECTED_FAILURE"
+        },
+        "reviewer_probe_counts": {
+          "executed": 5,
+          "failed": 0,
+          "passed": 5,
+          "errors": 0,
+          "skipped": 0
+        },
+        "verdict": "PASS_WITH_LIMITS",
+        "complete": true,
+        "stage": "report",
+        "axis": "spec",
+        "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+        "baseline": "4cc15e703f81bce8abadee00f68caacdb0c72b4d"
+      },
+      "whole_candidate_approved": false
+    },
+    "quality": {
+      "status": "BLOCKED_EVIDENCE_AUDIT",
+      "axis": "quality",
+      "scope": [
+        "C3"
+      ],
+      "reasons": [
+        "missing_fields:author_test_counts,claims,findings,limits,positive_control,reviewer_probe_counts,verdict",
+        "invalid_claims_shape",
+        "invalid_counts:reviewer_probe_counts",
+        "invalid_counts:author_test_counts",
+        "missing_observed_probe_xml",
+        "invalid_control_claim",
+        "invalid_verdict",
+        "controller_incomplete:report",
+        "author_counts_disagree_with_xml"
+      ],
+      "observed_probe_attempts": [],
+      "observed_author_attempts": [],
+      "positive_control_observed_first": true,
+      "author_test_commands": 0,
+      "counts_only_not_semantic_approval": true,
+      "independent_report": {},
+      "whole_candidate_approved": false
+    }
+  },
+  "semantic_check": {
+    "role": "host semantic scope audit, NOT an independent reviewer verdict",
+    "accepted_within_scope": false,
+    "accepted_axes": [
+      "spec"
+    ],
+    "spec": {
+      "status": "ACCEPTED_GUARD_SUBSET_WITH_LIMITS",
+      "raw_verdict": "PASS_WITH_LIMITS",
+      "reviewer_probes": {
+        "executed": 5,
+        "passed": 5,
+        "failed": 0
+      },
+      "author_test_in_reviewer_sandbox": {
+        "executed": 1,
+        "passed": 0,
+        "failed": 1
+      },
+      "author_countercheck_outside_sandbox": {
+        "executed": 1,
+        "passed": 1,
+        "failed": 0
+      },
+      "evidence": "spec/host-evidence-audit.json; spec/execute/commands/014-bash and 015-bash; host-countercheck/receipt.json",
+      "limits": [
+        "Independent positive case calls _guard, not a successful apply; exclusion from the writer's source is supported by static code reading plus a separately classified author countercheck, not independent end-to-end apply evidence.",
+        "Partial-state refusal case checks the target-row count, not a full-column post-error snapshot. Other refusal cases compare complete target rows.",
+        "Do not promote the raw C2 verified tag or five passed cases into approval of all C2 inputs, C4 publication behavior or the whole candidate."
+      ]
+    },
+    "quality": {
+      "status": "BLOCKED_NO_REVIEWER_PROBE_EXECUTION_OR_DELIVERY",
+      "reviewer_probes_executed": 0,
+      "positive_control_observed_first": true,
+      "execute_delivered": true,
+      "execute_request_cap_reached": 17,
+      "final_request": {
+        "http_status": 200,
+        "exit_code": 0,
+        "tool_calls": 0,
+        "submission_exists": false
+      },
+      "raw_text_verdict": "BLOCKED_INCOMPLETE_EVIDENCE",
+      "raw_text_claim_C3": "not_verified",
+      "evidence": "quality-report-diagnostic.json; quality-final-message.txt; quality/report/execution.json",
+      "limits": [
+        "Syntax checking is not probe execution.",
+        "A JSON-looking text response is not deliver_stage; host did not synthesize submission or sign a reviewer verdict."
+      ]
+    },
+    "host_C3_diagnosis": {
+      "independent_QC": false,
+      "original_probe": {
+        "executed": 7,
+        "passed": 0,
+        "failed": 7
+      },
+      "fixture_corrected": {
+        "executed": 7,
+        "passed": 7,
+        "failed": 0
+      },
+      "assertions_changed": false,
+      "repairs": [
+        "Copy synthetic receipts to clone_mut-derived receipt paths",
+        "Mutate an existing OTHER stock date and assert one affected row"
+      ],
+      "cases": [
+        "valid later row baseline",
+        "outside amount mutation",
+        "outside updated_at mutation",
+        "outside deletion",
+        "outside insertion",
+        "outside duplicate multiplicity",
+        "other-stock amount mutation"
+      ],
+      "sensitivity_control": {
+        "temporary_change": "EXCEPT ALL -> EXCEPT (two SQL clauses)",
+        "duplicate_case_expected_failure": 1,
+        "wrong_acceptance": "PASS",
+        "original_rechecked_passed": 7
+      },
+      "receipt_recorder_error": "Initial helper expected a pytest traceback substring hidden by __tracebackhide__; retained interruption and verified the structured acceptance JSON instead.",
+      "evidence": "host-c3/receipt.json; host-c3/set-mutation-control.json",
+      "candidate_source_changed": false,
+      "reviewer_source_or_report_changed": false,
+      "production_access": false
+    },
+    "host_infrastructure_tests": 11,
+    "other_claims_not_reviewed": [
+      "C1",
+      "C4",
+      "C5",
+      "C6",
+      "C7"
+    ],
+    "current_main_combination_verified": false,
+    "whole_candidate_approved": false
+  },
+  "controllers": [
+    {
+      "root": "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-01",
+      "path": "spec/gateway.controller.json",
+      "stage": "gateway",
+      "status": "BLOCKED_CONTROLLER",
+      "max_requests": 4,
+      "automatic_retries": 0,
+      "shim_sha256": "5c26084237b366b9d7b758f7811536a767819b4d23c5fd72f54785014e9c28b5",
+      "error_type": "JSONDecodeError",
+      "shim_exit": 1,
+      "shim_counts": {
+        "active": 0,
+        "cancelled": 0,
+        "completed": 0,
+        "dispatched": 0,
+        "dropped_temperature": 0,
+        "failed": 0,
+        "requests": 0,
+        "shutdown_complete": true,
+        "stopped_for": null
+      },
+      "elapsed_seconds": 0.09381687501445413,
+      "stage_status": null,
+      "request_counts_agree": false
+    },
+    {
+      "root": "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-02",
+      "path": "quality/execute.controller.json",
+      "stage": "execute",
+      "status": "COMPLETE",
+      "max_requests": 17,
+      "automatic_retries": 0,
+      "shim_sha256": "5c26084237b366b9d7b758f7811536a767819b4d23c5fd72f54785014e9c28b5",
+      "stage_runner_exit": 0,
+      "shim_exit": 0,
+      "shim_counts": {
+        "active": 0,
+        "cancelled": 0,
+        "completed": 17,
+        "dispatched": 17,
+        "dropped_temperature": 0,
+        "failed": 0,
+        "requests": 17,
+        "shutdown_complete": true,
+        "stopped_for": null
+      },
+      "elapsed_seconds": 125.28800329193473,
+      "stage_status": "STAGE_COMPLETE",
+      "request_counts_agree": true
+    },
+    {
+      "root": "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-02",
+      "path": "quality/explore.controller.json",
+      "stage": "explore",
+      "status": "COMPLETE",
+      "max_requests": 17,
+      "automatic_retries": 0,
+      "shim_sha256": "5c26084237b366b9d7b758f7811536a767819b4d23c5fd72f54785014e9c28b5",
+      "stage_runner_exit": 0,
+      "shim_exit": 0,
+      "shim_counts": {
+        "active": 0,
+        "cancelled": 0,
+        "completed": 13,
+        "dispatched": 13,
+        "dropped_temperature": 0,
+        "failed": 0,
+        "requests": 13,
+        "shutdown_complete": true,
+        "stopped_for": null
+      },
+      "elapsed_seconds": 105.12263620807789,
+      "stage_status": "STAGE_COMPLETE",
+      "request_counts_agree": true
+    },
+    {
+      "root": "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-02",
+      "path": "quality/gateway.controller.json",
+      "stage": "gateway",
+      "status": "COMPLETE",
+      "max_requests": 4,
+      "automatic_retries": 0,
+      "shim_sha256": "5c26084237b366b9d7b758f7811536a767819b4d23c5fd72f54785014e9c28b5",
+      "shim_exit": 0,
+      "shim_counts": {
+        "active": 0,
+        "cancelled": 0,
+        "completed": 4,
+        "dispatched": 4,
+        "dropped_temperature": 0,
+        "failed": 0,
+        "requests": 4,
+        "shutdown_complete": true,
+        "stopped_for": null
+      },
+      "elapsed_seconds": 10.907310666050762,
+      "stage_status": "PASS",
+      "request_counts_agree": true
+    },
+    {
+      "root": "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-02",
+      "path": "quality/report.controller.json",
+      "stage": "report",
+      "status": "BLOCKED_STAGE_OR_ACCOUNTING",
+      "max_requests": 1,
+      "automatic_retries": 0,
+      "shim_sha256": "5c26084237b366b9d7b758f7811536a767819b4d23c5fd72f54785014e9c28b5",
+      "stage_runner_exit": 0,
+      "shim_exit": 0,
+      "shim_counts": {
+        "active": 0,
+        "cancelled": 0,
+        "completed": 1,
+        "dispatched": 1,
+        "dropped_temperature": 0,
+        "failed": 0,
+        "requests": 1,
+        "shutdown_complete": true,
+        "stopped_for": null
+      },
+      "elapsed_seconds": 13.827141291927546,
+      "stage_status": "BLOCKED_STAGE_OR_PROVIDER",
+      "request_counts_agree": true
+    },
+    {
+      "root": "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-02",
+      "path": "spec/execute.controller.json",
+      "stage": "execute",
+      "status": "COMPLETE",
+      "max_requests": 17,
+      "automatic_retries": 0,
+      "shim_sha256": "5c26084237b366b9d7b758f7811536a767819b4d23c5fd72f54785014e9c28b5",
+      "stage_runner_exit": 0,
+      "shim_exit": 0,
+      "shim_counts": {
+        "active": 0,
+        "cancelled": 0,
+        "completed": 17,
+        "dispatched": 17,
+        "dropped_temperature": 0,
+        "failed": 0,
+        "requests": 17,
+        "shutdown_complete": true,
+        "stopped_for": null
+      },
+      "elapsed_seconds": 130.18638741690665,
+      "stage_status": "STAGE_COMPLETE",
+      "request_counts_agree": true
+    },
+    {
+      "root": "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-02",
+      "path": "spec/explore.controller.json",
+      "stage": "explore",
+      "status": "COMPLETE",
+      "max_requests": 17,
+      "automatic_retries": 0,
+      "shim_sha256": "5c26084237b366b9d7b758f7811536a767819b4d23c5fd72f54785014e9c28b5",
+      "stage_runner_exit": 0,
+      "shim_exit": 0,
+      "shim_counts": {
+        "active": 0,
+        "cancelled": 0,
+        "completed": 8,
+        "dispatched": 8,
+        "dropped_temperature": 0,
+        "failed": 0,
+        "requests": 8,
+        "shutdown_complete": true,
+        "stopped_for": null
+      },
+      "elapsed_seconds": 86.4463072498329,
+      "stage_status": "STAGE_COMPLETE",
+      "request_counts_agree": true
+    },
+    {
+      "root": "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-02",
+      "path": "spec/gateway.controller.json",
+      "stage": "gateway",
+      "status": "COMPLETE",
+      "max_requests": 4,
+      "automatic_retries": 0,
+      "shim_sha256": "5c26084237b366b9d7b758f7811536a767819b4d23c5fd72f54785014e9c28b5",
+      "shim_exit": 0,
+      "shim_counts": {
+        "active": 0,
+        "cancelled": 0,
+        "completed": 4,
+        "dispatched": 4,
+        "dropped_temperature": 0,
+        "failed": 0,
+        "requests": 4,
+        "shutdown_complete": true,
+        "stopped_for": null
+      },
+      "elapsed_seconds": 12.009734000079334,
+      "stage_status": "PASS",
+      "request_counts_agree": true
+    },
+    {
+      "root": "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-02",
+      "path": "spec/report.controller.json",
+      "stage": "report",
+      "status": "COMPLETE",
+      "max_requests": 1,
+      "automatic_retries": 0,
+      "shim_sha256": "5c26084237b366b9d7b758f7811536a767819b4d23c5fd72f54785014e9c28b5",
+      "stage_runner_exit": 0,
+      "shim_exit": 0,
+      "shim_counts": {
+        "active": 0,
+        "cancelled": 0,
+        "completed": 1,
+        "dispatched": 1,
+        "dropped_temperature": 0,
+        "failed": 0,
+        "requests": 1,
+        "shutdown_complete": true,
+        "stopped_for": null
+      },
+      "elapsed_seconds": 17.035166958114132,
+      "stage_status": "STAGE_COMPLETE",
+      "request_counts_agree": true
+    }
+  ],
+  "requests_this_turn": 65,
+  "request_cap": 78,
+  "zero_request_bind_failure": "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-01",
+  "identities": {
+    "/Users/a77/.finance-runtime/reviews/backfill-302132-0923/forward-02/tree": {
+      "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+      "status": ""
+    },
+    "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-01/candidate": {
+      "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+      "status": ""
+    },
+    "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-02/candidate": {
+      "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+      "status": ""
+    }
+  },
+  "owned_processes_stopped": true,
+  "current_main_engineering_ready": false,
+  "unreviewed_claims": [
+    "C1",
+    "C4",
+    "C5",
+    "C6",
+    "C7"
+  ],
+  "merge_authorized": false,
+  "production_authorized": false,
+  "production_executed": false,
+  "sealed_at": "2026-09-24T17:21:48.455088+00:00"
+}

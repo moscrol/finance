@@ -1,0 +1,24 @@
+{
+  "host_tool_changes": [
+    {
+      "path": "audit_axis.py",
+      "prepared_sha256": "f8cd74985dd7f66496beb3bb73f8268f217b9d55540ae1a793a77a400b063c1d",
+      "final_sha256": "121331ae59ade43168a5f42e542a15774024bca66b7e43789708d70b3070301c"
+    },
+    {
+      "path": "test_audit_axis.py",
+      "prepared_sha256": "95776a43eb8defc1db5c8c6d4f2b3fdf721e1fcc09a5bb9cae5bd6f38573b3dd",
+      "final_sha256": "6edacce92f92a09aacaeeb2de7af2c2dfc05096be7e5ab801df8694e3f197821"
+    },
+    {
+      "path": "report_packet.py",
+      "prepared_sha256": "887177842f5179c68edbceb737f157edbfb75985d03f52472958251930e163be",
+      "final_sha256": "19ef6bde7f891e7295b87c610fea25d9da79492ab23b983032607f71434c313b"
+    }
+  ],
+  "reason": "Author test ran: separate its XML by actual test path; include both XML categories in report packet. No model prompt, controller or reviewer artifact rewritten.",
+  "tests_exit_code": 0,
+  "tests_stdout": "",
+  "tests_stderr": "...........\n----------------------------------------------------------------------\nRan 11 tests in 0.002s\n\nOK\n",
+  "classification": "host infrastructure controls, NOT product-review evidence"
+}

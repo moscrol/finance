@@ -1,0 +1,50 @@
+"""Fresh batch after a zero-request local bind failure; only the private route port changes."""
+import hashlib
+import importlib.util
+import json
+from pathlib import Path
+import shutil
+import socket
+import subprocess
+import sys
+
+ROOT = Path(__file__).resolve().parent
+PRIOR = ROOT.parent / 'pr813-glm-qc-20260925-01'
+PORT = 19913
+with socket.socket() as sock:
+    sock.bind(('127.0.0.1', PORT))
+loader = importlib.util.spec_from_file_location('prepare_contract', PRIOR / 'prepare.py')
+module = importlib.util.module_from_spec(loader)
+loader.loader.exec_module(module)
+module.ROOT = ROOT
+module.CAND = ROOT / 'candidate'
+module.main()
+manifest = json.loads((ROOT / 'prepare-manifest.json').read_text())
+for name in ('audit_axis.py', 'test_audit_axis.py', 'advance.py', 'report_packet.py'):
+    shutil.copyfile(PRIOR / name, ROOT / name)
+    manifest['files'][name] = {'source_sha256': hashlib.sha256((PRIOR / name).read_bytes()).hexdigest(),
+                               'sha256': hashlib.sha256((ROOT / name).read_bytes()).hexdigest()}
+for axis in ('spec', 'quality'):
+    for name in ('run_control.py', 'review.mjs', 'provider-template.json', 'sandbox_preflight.mjs'):
+        path = ROOT / axis / name
+        text = path.read_text()
+        assert '19899' in text
+        remapped = text.replace('19899', str(PORT))
+        assert remapped.replace(str(PORT), '19899') == text
+        path.write_text(remapped)
+        record = manifest['files'][axis + '/' + name]
+        record['private_port_remap_only'] = {'from': 19899, 'to': PORT}
+        record['sha256'] = hashlib.sha256(path.read_bytes()).hexdigest()
+manifest['controller_api_changes'] = False
+manifest['private_route_port'] = PORT
+(PRIOR / 'report.json').read_text()
+(ROOT / 'prepare-manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
+plan = json.loads((ROOT / 'plan.json').read_text())
+plan.update(private_route_port=PORT, prior_local_failure=str(PRIOR), prior_model_requests=0,
+            automatic_provider_retries=0, remediation='Private route port remap only; old bind-failure receipt preserved')
+(ROOT / 'plan.json').write_text(json.dumps(plan, ensure_ascii=False, indent=2) + '\n')
+result = subprocess.run([sys.executable, '-B', str(ROOT / 'test_audit_axis.py')], capture_output=True, text=True)
+(ROOT / 'host-audit-tests.json').write_text(json.dumps({'exit_code': result.returncode, 'stdout': result.stdout,
+    'stderr': result.stderr, 'classification': 'host infrastructure controls, NOT independent product tests'}, indent=2) + '\n')
+assert result.returncode == 0
+print(json.dumps({'root': str(ROOT), 'private_port': PORT, 'host_audit_tests_exit': result.returncode}))

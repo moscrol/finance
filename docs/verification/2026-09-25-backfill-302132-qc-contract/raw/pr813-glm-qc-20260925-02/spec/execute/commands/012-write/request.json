@@ -1,0 +1,1 @@
+{"toolCallId":"call_d0b90412fe2142708949801a","params":{"content":"import ast\nsrc = open('/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-02/spec/work/probes/test_c2_source_guard_v2.py').read()\nast.parse(src)\nprint('SYNTAX_OK')\n","path":"/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-02/spec/work/syntax_check_v1.py"}}

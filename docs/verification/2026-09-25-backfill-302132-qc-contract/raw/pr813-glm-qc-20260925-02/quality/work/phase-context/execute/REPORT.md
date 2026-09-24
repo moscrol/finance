@@ -1,0 +1,77 @@
+```json
+{
+  "author_test_counts": {
+    "errors": 0,
+    "executed": 0,
+    "failed": 0,
+    "passed": 0,
+    "skipped": 0
+  },
+  "claims": [
+    {
+      "id": "C1",
+      "status": "out_of_scope",
+      "evidence": "Only C3 assigned to this axis; not examined."
+    },
+    {
+      "id": "C2",
+      "status": "out_of_scope",
+      "evidence": "Only C3 assigned to this axis; not examined."
+    },
+    {
+      "id": "C3",
+      "status": "not_verified",
+      "evidence": "Static review: scripts/verify_302132_backfill_acceptance.py _data_checks (540-728) uses bidirectional EXCEPT ALL over all columns (multiset) for other stocks (fact_other_stocks_allcols) and outside-window target rows (target_outside_window_allcols), plus retained-row full-column equality and keyset_fullfield_oracle. Reviewer probe work/probes/probe_c3_acceptance_v2.py (baseline PASS + amount/timestamp/delete/insert/duplicate(PK-removed clone CTAS, disclosed)/other-stock mutations against an outside-window 2026-09-22 row) was syntax-checked (ast.parse, syntax_check_v2.py) but NEVER EXECUTED: stage closed before pytest run. No reviewer execution evidence for any subcase; per rules full claim stays not_verified."
+    },
+    {
+      "id": "C4",
+      "status": "out_of_scope",
+      "evidence": "Only C3 assigned to this axis; not examined."
+    },
+    {
+      "id": "C5",
+      "status": "out_of_scope",
+      "evidence": "Only C3 assigned to this axis; not examined."
+    },
+    {
+      "id": "C6",
+      "status": "out_of_scope",
+      "evidence": "Only C3 assigned to this axis; not examined."
+    },
+    {
+      "id": "C7",
+      "status": "out_of_scope",
+      "evidence": "Only C3 assigned to this axis; not examined."
+    }
+  ],
+  "claims_examined": [
+    "C3"
+  ],
+  "findings": [
+    {
+      "detail": "验收脚本 _data_checks(540-728) 结构上以双向 EXCEPT ALL 全列多重集比较覆盖他股、窗外目标行、保留行与写出行，与 C3 表述一致；但审查者探针未在期限内执行（仅 ast.parse 语法检查通过），缺少基线必绿与六类变异必红的独立运行证据，C3 记 not_verified。",
+      "severity": "info",
+      "title": "静态支持但缺执行证据"
+    }
+  ],
+  "limits": "本阶段已消耗请求额度，closeout 指令要求立即交付：探针套件未运行，EXECUTE.md 未写。正控 positive_control.py 首命令运行，exit1，assert 1==2 'intentional probe_bug control'，作为独立正控记录（不计入审查者计数）。早期探索阶段（parsed.json）曾写 v1 探针但同样未执行。探针 v2 修复了 v1 缺失 sys.path 候选根目录导致的导入问题。合成 DuckDB only，未运行生产副本，无 git/网络/凭证/部署；夹具复用作者 _build_e2e_artifacts（返回 baseline/clone/pq/spec/receipts/base_sha），断言全部为审查者自有；duplicate 变异以 clone-only CTAS 去除主键构造真实重复行（披露：真实 PK 本身会阻止重复）。当前 main 未集成；本交付非 PASS，不构成合并或生产授权。",
+  "positive_control": {
+    "classification": "probe_bug",
+    "evidence": "First command: OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python -B .../quality/work/positive_control.py -> AssertionError: intentional probe_bug control, exit code 1.",
+    "status": "OBSERVED_EXPECTED_FAILURE"
+  },
+  "reviewer_probe_counts": {
+    "errors": 0,
+    "executed": 0,
+    "failed": 0,
+    "passed": 0,
+    "skipped": 0
+  },
+  "verdict": "BLOCKED_INCOMPLETE_EVIDENCE",
+  "complete": true,
+  "stage": "execute",
+  "axis": "quality",
+  "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+  "baseline": "4cc15e703f81bce8abadee00f68caacdb0c72b4d"
+}
+```

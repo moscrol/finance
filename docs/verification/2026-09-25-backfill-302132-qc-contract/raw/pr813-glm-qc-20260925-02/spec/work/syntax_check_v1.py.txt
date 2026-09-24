@@ -1,0 +1,4 @@
+import ast
+src = open('/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-02/spec/work/probes/test_c2_source_guard_v2.py').read()
+ast.parse(src)
+print('SYNTAX_OK')

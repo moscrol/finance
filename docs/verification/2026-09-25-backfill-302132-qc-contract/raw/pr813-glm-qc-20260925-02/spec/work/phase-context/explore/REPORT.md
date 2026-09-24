@@ -1,0 +1,78 @@
+```json
+{
+  "claims": [
+    {
+      "id": "C1",
+      "status": "out_of_scope",
+      "evidence": "Isolated C2 axis per instructions; not examined."
+    },
+    {
+      "id": "C2",
+      "status": "not_verified",
+      "evidence": "Static: _guard repair_backfill_stock_history.py:239-381 checks parquet sha256 before any read_parquet/write (fail-closed pre-publication); live_parallel/src_a bounded at max(spec.gap_parallel) with adjusted='none', so later valid 'none' history neither refuses nor enters source; partial/mismatch states hit _fail at ~lines 297-318. Probe file written (probes/test_c2_source_guard.py, 5 cases: later-history acceptance, qfq gap refusal, tampered parquet hash refusal, partial-gap refusal, spec hash mismatch refusal) but NOT executed — no execution tool available in this review session, so no measured passing evidence."
+    },
+    {
+      "id": "C3",
+      "status": "out_of_scope",
+      "evidence": "Not in scope."
+    },
+    {
+      "id": "C4",
+      "status": "out_of_scope",
+      "evidence": "Not in scope."
+    },
+    {
+      "id": "C5",
+      "status": "out_of_scope",
+      "evidence": "Not in scope."
+    },
+    {
+      "id": "C6",
+      "status": "out_of_scope",
+      "evidence": "Not in scope."
+    },
+    {
+      "id": "C7",
+      "status": "out_of_scope",
+      "evidence": "Not in scope."
+    }
+  ],
+  "findings": [
+    "No product defect demonstrated in C2 by code reading: guard ordering places hash, gap-live-set, shell, stale-set checks before _apply_main writes.",
+    "Evidence incomplete: all 5 reviewer probes unexecuted because the harness provided read/write/deliver_stage only (no shell tool); intended commands recorded in work/EXPLORE.md.",
+    "Minor: probes/test_c2_source_guard.py partial-gap case contains two dead `if False else None` statements from drafting; harmless if later executed but should be cleaned first."
+  ],
+  "limits": "No execution possible (no bash/shell tool exposed); no XML produced; no positive control run; reviewer counts all zero and do not reflect probe quality. Static reading covered _guard only, not full CLI. C1,C3-C7 out of scope. No approval, merge, or production authorization implied; verdict blocked on missing executed evidence, not on observed defects.",
+  "next_stage_commands": [
+    "OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 PYTHONPATH=/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-02/candidate /Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest /Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-02/spec/work/probes/test_c2_source_guard.py -v --junitxml=/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-02/spec/work/c2_results.xml"
+  ],
+  "positive_control": {
+    "status": "NOT_RUN",
+    "classification": "probe_bug",
+    "evidence": "Planned tampered-parquet acceptance control described in /Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-02/spec/work/EXPLORE.md; not executed (no shell tool)."
+  },
+  "probe_files": [
+    "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-02/spec/work/probes/test_c2_source_guard.py"
+  ],
+  "reviewer_probe_counts": {
+    "executed": 0,
+    "passed": 0,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "author_test_counts": {
+    "executed": 0,
+    "passed": 0,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "verdict": "BLOCKED_INCOMPLETE_EVIDENCE",
+  "complete": true,
+  "stage": "explore",
+  "axis": "spec",
+  "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+  "baseline": "4cc15e703f81bce8abadee00f68caacdb0c72b4d"
+}
+```

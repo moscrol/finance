@@ -1,0 +1,17 @@
+{
+  "assistant_messages": 1,
+  "stop_reasons": [
+    "stop"
+  ],
+  "content_types": [
+    [
+      "thinking",
+      "text"
+    ]
+  ],
+  "tool_calls": 0,
+  "text_sha256": "370f99182378d9780b827fb1593cf043b35fdfe3caab0703e7e2a2edd2974162",
+  "text_only_is_not_delivery": true,
+  "reasoning_not_copied": true,
+  "structured_submission_exists": false
+}

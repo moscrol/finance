@@ -1,0 +1,138 @@
+# C2 axis probe: source guard behavior for PR #813 candidate.
+import importlib.util
+import sys
+from pathlib import Path
+
+import duckdb
+import pytest
+
+ROOT = Path("/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-02/candidate")
+TESTS = ROOT / "tests" / "test_repair_backfill_stock_history.py"
+
+spec_m = importlib.util.spec_from_file_location("t_mod", TESTS)
+t = importlib.util.module_from_spec(spec_m)
+sys.modules["t_mod"] = t
+spec_m.loader.exec_module(t)
+
+from market_feature_store.sync.repair_hithink_stock_day import RepairRefused  # noqa: E402
+from market_feature_store.sync import repair_backfill_stock_history as mod  # noqa: E402
+
+CODE, CAL = t.CODE, t.CAL
+
+
+def _setup(tmp_path, tag):
+    db, pq = tmp_path / f"{tag}.duckdb", tmp_path / f"{tag}.parquet"
+    fx = t._fixture(db, pq)
+    spec = t._spec(db, pq, fx["pinned"])
+    return db, pq, spec
+
+
+def _main_snapshot(con):
+    return con.execute(
+        "SELECT * FROM fact_stock_daily WHERE stock_ts_code=? ORDER BY trade_date",
+        [CODE]).fetchall()
+
+
+def test_c2_later_none_history_beyond_max_gap_not_refused_and_not_used(tmp_path):
+    # 1) valid later hithink rows (adjusted='none') after max(gap_parallel) must
+    #    neither cause false refusal nor enter the authorized source set.
+    db, pq, spec = _setup(tmp_path, "later")
+    con = duckdb.connect(str(db))
+    before = _main_snapshot(con)
+    # advance parallel table with valid 'none' rows on parquet-tail days
+    for i in (27, 28, 29):
+        t._insert(con, "fact_stock_daily_hithink", {
+            "trade_date": CAL[i], "stock_ts_code": CODE,
+            "open": 999.0, "high": 999.0, "low": 999.0, "close": 999.0,
+            "volume": 1.0, "turnover": 1.0, "adjusted": "none",
+            "source": "hithink:daily-k",
+            "updated_at": t.datetime(2026, 9, 20, 8, 0)})
+    ctx = mod._guard(con, spec, pq)  # must NOT raise
+    assert ctx["mode"] == "apply"
+    # guard snapshot (authorized source) must not contain the later injected rows
+    assert all(r != 999.0 for r in
+               con.execute("SELECT close FROM fact_stock_daily_hithink "
+                           "WHERE stock_ts_code=? AND adjusted='none' AND "
+                           "trade_date<=?", [CODE, max(spec.gap_parallel)]).fetchall()
+               ) is True
+    con.close()
+
+
+def test_c2_qfq_row_on_gap_date_refused_before_writes(tmp_path):
+    # 2) adjusted filtering: a gap-date row flipped to qfq -> partial live gap
+    #    must fail closed before any publication/write.
+    db, pq, spec = _setup(tmp_path, "qfq")
+    con = duckdb.connect(str(db))
+    before = _main_snapshot(con)
+    con.execute(
+        "UPDATE fact_stock_daily_hithink SET adjusted='qfq' "
+        "WHERE stock_ts_code=? AND trade_date=?", [CODE, spec.gap_parallel[0]])
+    with pytest.raises(RepairRefused):
+        mod.run_backfill_child(con, spec, pq)
+    assert _main_snapshot(con) == before
+    con.close()
+
+
+def test_c2_frozen_parquet_tamper_hash_rejected_before_writes(tmp_path):
+    # 3) frozen parquet hash rejection: rewriting a parquet value must refuse,
+    #    main table unchanged (no publication).
+    db, pq, spec = _setup(tmp_path, "tamper")
+    con = duckdb.connect(str(db))
+    before = _main_snapshot(con)
+    tampered = tmp_path / "tampered.parquet"
+    con.execute(
+        f"COPY (SELECT * FROM read_parquet('{pq}') ) TO '{tampered}' "
+        "(FORMAT PARQUET)")
+    con.close()
+    raw = bytearray(tampered.read_bytes())
+    raw[-64] ^= 0x01  # corrupt trailing bytes (metadata/key likely)
+    tampered.write_bytes(bytes(raw))
+    con = duckdb.connect(str(db))
+    with pytest.raises(RepairRefused):
+        mod.run_backfill_child(con, spec, tampered)
+    assert _main_snapshot(con) == before
+    con.close()
+
+
+def test_c2_partial_gap_state_refused(tmp_path):
+    # 4) partially applied state (one gap day already backfilled) must refuse.
+    db, pq, spec = _setup(tmp_path, "partial")
+    con = duckdb.connect(str(db))
+    before = _main_snapshot(con)
+    d = spec.gap_parallel[0]
+    con.execute(
+        "INSERT INTO fact_stock_daily SELECT trade_date, stock_ts_code, "
+        "stock_name, close, pre_close, pct_chg, amount, turnover, "
+        "'hithink:daily-k', updated_at, open, high, low, volume "
+        "FROM fact_stock_daily WHERE stock_ts_code=? AND trade_date=?",
+        [CODE, CAL[0]])
+    con.execute(
+        f"UPDATE fact_stock_daily SET trade_date='{d}' WHERE stock_ts_code='{CODE}' "
+        f"AND trade_date='__none__'") if False else None
+    con.execute("DELETE FROM fact_stock_daily WHERE rowid NOT IN "
+                "(SELECT MIN(rowid) FROM fact_stock_daily GROUP BY ALL) "
+                "AND stock_ts_code=?", [CODE]) if False else None
+    # simpler: just add a row on a gap date via direct insert
+    t._insert(con, "fact_stock_daily", {
+        "trade_date": d, "stock_ts_code": CODE, "stock_name": t.NAME,
+        "close": 1.0, "pre_close": 1.0, "pct_chg": 1.0, "amount": 1.0,
+        "turnover": None, "source": "hithink:daily-k",
+        "updated_at": t.datetime(2026, 9, 10, 9), "open": 1.0, "high": 1.0,
+        "low": 1.0, "volume": 1.0})
+    with pytest.raises(RepairRefused):
+        mod.run_backfill_child(con, spec, pq)
+    # no further writes by child
+    con.close()
+
+
+def test_c2_hash_mismatch_spec_refused(tmp_path):
+    # 5) mismatched input: wrong pinned sha in spec must refuse before writes.
+    db, pq, spec = _setup(tmp_path, "hashmis")
+    import dataclasses
+    bad = dataclasses.replace(spec, parquet_sha256="f" * 64)
+    con = duckdb.connect(str(db))
+    before = _main_snapshot(con)
+    with pytest.raises(RepairRefused):
+        mod.run_backfill_child(con, spec=bad, parquet_path=pq)
+    assert _main_snapshot(con) == before
+    con.close()

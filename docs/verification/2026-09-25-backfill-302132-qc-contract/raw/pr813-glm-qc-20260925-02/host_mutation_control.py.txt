@@ -1,0 +1,58 @@
+"""Host-only sensitivity control: distinct-set mutation must break duplicate witness."""
+import ast
+import difflib
+import hashlib
+import json
+from pathlib import Path
+import subprocess
+import xml.etree.ElementTree as ET
+
+ROOT = Path(__file__).resolve().parent
+OUT = ROOT / 'host-c3'
+WORK = OUT / 'work'
+CAND = ROOT / 'candidate'
+SOURCE = CAND / 'scripts/verify_302132_backfill_acceptance.py'
+PY = '/Users/a77/finance-workspace-private/.venv-workbench/bin/python'
+original = SOURCE.read_text()
+assert original.count('EXCEPT ALL SELECT') == 2
+mutant = original.replace('EXCEPT ALL SELECT', 'EXCEPT SELECT')
+ast.parse(mutant)
+mutant_path = WORK / 'probes/acceptance_set_mutant.py'
+with mutant_path.open('x') as stream:
+    stream.write(mutant)
+(OUT / 'set-mutant.diff').write_text(''.join(difflib.unified_diff(original.splitlines(keepends=True), mutant.splitlines(keepends=True), fromfile='original_acceptance.py', tofile='temporary_set_mutant.py')))
+test = WORK / 'probes/test_set_mutation_control.py'
+with test.open('x') as stream:
+    stream.write('"""Host mutation control, not a reviewer verdict."""\nfrom pathlib import Path\nfrom test_fixture_adapter import review, test_outside_window_mutation_fails\nreview.ACCEPT = Path(__file__).with_name("acceptance_set_mutant.py")\n')
+env = {'HOME': str(WORK), 'PATH': '/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin', 'LANG': 'C.UTF-8',
+       'TMPDIR': str(WORK / 'tmp'), 'PYTHONDONTWRITEBYTECODE': '1', 'PYTHONPATH': str(CAND),
+       'FWP_TEST_RECEIPT': '0', 'GIT_OPTIONAL_LOCKS': '0', 'FORESIGHT_USERS_DIR': str(WORK / 'users'),
+       'OPENBLAS_NUM_THREADS': '1', 'OMP_NUM_THREADS': '1'}
+results = []
+for label, path, extra in [('set_mutant', test, ['-k', 'duplicate']), ('original_restored_control', WORK / 'probes/test_fixture_adapter.py', [])]:
+    xml = WORK / (label + '.xml')
+    command = ['/usr/bin/sandbox-exec', '-f', str(OUT / 'tools.sb'), PY, '-m', 'pytest', str(path),
+               '--confcutdir=' + str(WORK), '-p', 'no:cacheprovider', '-q',
+               '--basetemp=' + str(WORK / 'tmp' / label), '--junitxml=' + str(xml), *extra]
+    with (OUT / (label + '.log')).open('xb') as stream:
+        run = subprocess.run(command, cwd=CAND, env=env, stdin=subprocess.DEVNULL, stdout=stream, stderr=subprocess.STDOUT, timeout=120)
+    cases = list(ET.parse(xml).getroot().iter('testcase'))
+    failures = [case.get('name') for case in cases if case.find('failure') is not None]
+    errors = [case.get('name') for case in cases if case.find('error') is not None]
+    results.append({'label': label, 'command': command, 'exit_code': run.returncode, 'tests': len(cases), 'failures': failures, 'errors': errors})
+    if label == 'set_mutant':
+        assert run.returncode == 1 and len(cases) == 1 and len(failures) == 1 and not errors
+        assert failures == ['test_outside_window_mutation_fails[duplicate]']
+        failure = cases[0].find('failure')
+        assert 'assert 0 == 2' in failure.text, failure.text
+    else:
+        assert run.returncode == 0 and len(cases) == 7 and not failures and not errors
+assert SOURCE.read_text() == original
+assert not subprocess.check_output(['git', '-C', str(CAND), 'status', '--porcelain'], text=True).strip()
+receipt = {'status': 'PASS', 'role': 'host mutation control, NOT independent QC', 'new_model_requests': 0,
+           'candidate_source_unchanged': True, 'source_sha256': hashlib.sha256(original.encode()).hexdigest(),
+           'mutant_sha256': hashlib.sha256(mutant.encode()).hexdigest(), 'results': results,
+           'expected_failure': 'EXCEPT distinct hides duplicate multiplicity; acceptance returns 0 instead of expected 2'}
+with (OUT / 'set-mutation-control.json').open('x') as stream:
+    json.dump(receipt, stream, indent=2)
+print(json.dumps(receipt))

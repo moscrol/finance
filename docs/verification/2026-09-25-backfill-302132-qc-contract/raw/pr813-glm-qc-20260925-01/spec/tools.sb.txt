@@ -1,0 +1,16 @@
+(version 1)
+(allow default)
+(deny network*)
+(allow network-bind (local ip "localhost:*"))
+(allow network-inbound (local tcp "localhost:*"))
+(allow network-outbound (remote tcp "localhost:26001") (remote tcp "localhost:26002") (remote tcp "localhost:26003") (remote tcp "localhost:26004") (remote tcp "localhost:26005") (remote tcp "localhost:26006") (remote tcp "localhost:26007") (remote tcp "localhost:26008"))
+(deny file-write*)
+(allow file-write* (subpath "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-01/spec/work") (literal "/dev/null"))
+(deny file-read* (subpath "/Users/a77"))
+(allow file-read-metadata (literal "/Users/a77") (literal "/Users/a77/finance-workspace-private") (literal "/Users/a77/.finance-runtime") (literal "/Users/a77/.finance-runtime/reviews"))
+(allow file-read* (subpath "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-01/spec") (subpath "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-01/candidate") (subpath "/Users/a77/finance-workspace-private/.venv-workbench"))
+(deny file-read* (subpath "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-01/candidate/docs") (subpath "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-01/candidate/.claude") (subpath "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-01/candidate/.agents") (subpath "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-01/candidate/intelligence/users") (subpath "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-01/candidate/db") (literal "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-01/candidate/.git"))
+
+(allow file-read-metadata (literal "/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0326") (literal "/Users/a77/.finance-runtime/reviews") (literal "/Users/a77/.finance-runtime") (literal "/Users/a77") (literal "/Users") (literal "/") (literal "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-01") (subpath "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-01/candidate"))
+
+(deny process-exec (literal "/usr/bin/security"))

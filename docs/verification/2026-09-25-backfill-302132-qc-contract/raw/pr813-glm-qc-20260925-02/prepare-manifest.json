@@ -1,0 +1,169 @@
+{
+  "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+  "baseline": "4cc15e703f81bce8abadee00f68caacdb0c72b4d",
+  "source": "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260924-02",
+  "controller_api_changes": false,
+  "files": {
+    "glm_credential.py": {
+      "source_sha256": "f1ec56c9da53d644a0a4de09d413faadd83d99302296f3cee9bd8186565616c6",
+      "sha256": "f1ec56c9da53d644a0a4de09d413faadd83d99302296f3cee9bd8186565616c6"
+    },
+    "glm_review_shim.py": {
+      "source_sha256": "5c26084237b366b9d7b758f7811536a767819b4d23c5fd72f54785014e9c28b5",
+      "sha256": "5c26084237b366b9d7b758f7811536a767819b4d23c5fd72f54785014e9c28b5"
+    },
+    "bridge_stage.py": {
+      "source_sha256": "813efd28af383f17d92e708eb8b0e263a3d908dd4d1d0b6e2d61638a72784f3b",
+      "sha256": "813efd28af383f17d92e708eb8b0e263a3d908dd4d1d0b6e2d61638a72784f3b"
+    },
+    "report_packet.py": {
+      "source_sha256": "887177842f5179c68edbceb737f157edbfb75985d03f52472958251930e163be",
+      "sha256": "887177842f5179c68edbceb737f157edbfb75985d03f52472958251930e163be"
+    },
+    "spec/review.mjs": {
+      "source_sha256": "fb3ffee0297d174aa66290a73c81fb7eba1f7d73850d50fc5fa5965f922bb784",
+      "sha256": "53214290e79d7ff982ea0988d9877d2cc6d03c8fdf101a005bb593bdeeee1d98",
+      "private_port_remap_only": {
+        "from": 19899,
+        "to": 19913
+      }
+    },
+    "spec/pi_review_protocol.mjs": {
+      "source_sha256": "657e40bf2d8f8825a5345210876ac69417aed0cac857a2f899ec96280fa641d5",
+      "sha256": "657e40bf2d8f8825a5345210876ac69417aed0cac857a2f899ec96280fa641d5"
+    },
+    "spec/gateway.mjs": {
+      "source_sha256": "2f2deb572077f10125deb0ca4d6766f3c1ac4732285a329d8b256261a0310d7a",
+      "sha256": "2f2deb572077f10125deb0ca4d6766f3c1ac4732285a329d8b256261a0310d7a"
+    },
+    "spec/file_tool.py": {
+      "source_sha256": "79125feff76d98407e3bf1d36cfa56c0086863bc0591afa499f3580a6dcf8972",
+      "sha256": "79125feff76d98407e3bf1d36cfa56c0086863bc0591afa499f3580a6dcf8972"
+    },
+    "spec/provider-template.json": {
+      "source_sha256": "28ca3ac313311c8e9920042af58d32fdc38ca1703fad85fd15a4269087e32827",
+      "sha256": "b6563f18bc9f829d8d90818ccd3483b91a7ac451e4a02006705e6fff52566b6f",
+      "private_port_remap_only": {
+        "from": 19899,
+        "to": 19913
+      }
+    },
+    "spec/run_control.py": {
+      "source_sha256": "97b3a28898e2c485b58004af5e4369bfb8d294333da6c7a6ed9ff281f59e1fc7",
+      "sha256": "4b04a7ac243493d304dc964ad86077b0b7b3368479b16a6fae85b7694ab2b0ff",
+      "private_port_remap_only": {
+        "from": 19899,
+        "to": 19913
+      }
+    },
+    "spec/run_stage.py": {
+      "source_sha256": "045b3608a22119ef99b47ddbe2c8ab50932652c749e1872ff0e0fa9ecefe71ce",
+      "sha256": "045b3608a22119ef99b47ddbe2c8ab50932652c749e1872ff0e0fa9ecefe71ce"
+    },
+    "spec/pi-config/settings.json": {
+      "source_sha256": "cda612a59b9d61dc644867021e8a5284dc7a6040e65eadab9b883ae78406b417",
+      "sha256": "cda612a59b9d61dc644867021e8a5284dc7a6040e65eadab9b883ae78406b417"
+    },
+    "spec/config.json": {
+      "sha256": "e962aca6862b9dab34ede8ba944237d06ae7f0b8909756b6a5995235ca5880dd"
+    },
+    "spec/tools.sb": {
+      "sha256": "93c71de45b553b581263b053da543ea39659bf5fe2b62e6ecab9516c9b34d8ff"
+    },
+    "spec/sandbox_preflight.mjs": {
+      "sha256": "d0321149312fea16bdd9bd4cc9d74671ee7711c625f8c2d7a9e1674a4a229d23",
+      "private_port_remap_only": {
+        "from": 19899,
+        "to": 19913
+      }
+    },
+    "spec/prompt-explore.md": {
+      "sha256": "43bf0fede0e6aa934a5f8694627f21d8f3959089d5941ab1b17a981b95d24301"
+    },
+    "spec/prompt-execute.md": {
+      "sha256": "a68e159d54d14485d232ac18627ba3e4bf744f743d0f205cc765b3e54a67d707"
+    },
+    "spec/prompt-report.md": {
+      "sha256": "2d79c6d2728174487ea32f67e20d5b2417a5cf20a2e56e78e7c8f69744e78932"
+    },
+    "quality/review.mjs": {
+      "source_sha256": "fb3ffee0297d174aa66290a73c81fb7eba1f7d73850d50fc5fa5965f922bb784",
+      "sha256": "53214290e79d7ff982ea0988d9877d2cc6d03c8fdf101a005bb593bdeeee1d98",
+      "private_port_remap_only": {
+        "from": 19899,
+        "to": 19913
+      }
+    },
+    "quality/pi_review_protocol.mjs": {
+      "source_sha256": "657e40bf2d8f8825a5345210876ac69417aed0cac857a2f899ec96280fa641d5",
+      "sha256": "657e40bf2d8f8825a5345210876ac69417aed0cac857a2f899ec96280fa641d5"
+    },
+    "quality/gateway.mjs": {
+      "source_sha256": "2f2deb572077f10125deb0ca4d6766f3c1ac4732285a329d8b256261a0310d7a",
+      "sha256": "2f2deb572077f10125deb0ca4d6766f3c1ac4732285a329d8b256261a0310d7a"
+    },
+    "quality/file_tool.py": {
+      "source_sha256": "79125feff76d98407e3bf1d36cfa56c0086863bc0591afa499f3580a6dcf8972",
+      "sha256": "79125feff76d98407e3bf1d36cfa56c0086863bc0591afa499f3580a6dcf8972"
+    },
+    "quality/provider-template.json": {
+      "source_sha256": "28ca3ac313311c8e9920042af58d32fdc38ca1703fad85fd15a4269087e32827",
+      "sha256": "b6563f18bc9f829d8d90818ccd3483b91a7ac451e4a02006705e6fff52566b6f",
+      "private_port_remap_only": {
+        "from": 19899,
+        "to": 19913
+      }
+    },
+    "quality/run_control.py": {
+      "source_sha256": "97b3a28898e2c485b58004af5e4369bfb8d294333da6c7a6ed9ff281f59e1fc7",
+      "sha256": "4b04a7ac243493d304dc964ad86077b0b7b3368479b16a6fae85b7694ab2b0ff",
+      "private_port_remap_only": {
+        "from": 19899,
+        "to": 19913
+      }
+    },
+    "quality/run_stage.py": {
+      "source_sha256": "045b3608a22119ef99b47ddbe2c8ab50932652c749e1872ff0e0fa9ecefe71ce",
+      "sha256": "045b3608a22119ef99b47ddbe2c8ab50932652c749e1872ff0e0fa9ecefe71ce"
+    },
+    "quality/pi-config/settings.json": {
+      "source_sha256": "cda612a59b9d61dc644867021e8a5284dc7a6040e65eadab9b883ae78406b417",
+      "sha256": "cda612a59b9d61dc644867021e8a5284dc7a6040e65eadab9b883ae78406b417"
+    },
+    "quality/config.json": {
+      "sha256": "74f122a876c030b7a51b27e53d353804b7991ee32956ea0cbc302488e4e3fefb"
+    },
+    "quality/tools.sb": {
+      "sha256": "ff0a2e09ae9bef29ce23884604d015a4e937d4f06ec85167e03b4d4b81b221b2"
+    },
+    "quality/sandbox_preflight.mjs": {
+      "sha256": "d0321149312fea16bdd9bd4cc9d74671ee7711c625f8c2d7a9e1674a4a229d23",
+      "private_port_remap_only": {
+        "from": 19899,
+        "to": 19913
+      }
+    },
+    "quality/prompt-explore.md": {
+      "sha256": "0d385503934037f49af919888a6f1aa4f2c2936e59952ae8e3c40d905e170cd7"
+    },
+    "quality/prompt-execute.md": {
+      "sha256": "301d472f0a6a8bb628bd856d90acc86ff5af0e191e50af7a50ba3feda9a525c5"
+    },
+    "quality/prompt-report.md": {
+      "sha256": "1952b4d909df938516122e1d953b27d1a604e4d5ecd193b6a9435cf24ea190b1"
+    },
+    "audit_axis.py": {
+      "source_sha256": "f8cd74985dd7f66496beb3bb73f8268f217b9d55540ae1a793a77a400b063c1d",
+      "sha256": "f8cd74985dd7f66496beb3bb73f8268f217b9d55540ae1a793a77a400b063c1d"
+    },
+    "test_audit_axis.py": {
+      "source_sha256": "95776a43eb8defc1db5c8c6d4f2b3fdf721e1fcc09a5bb9cae5bd6f38573b3dd",
+      "sha256": "95776a43eb8defc1db5c8c6d4f2b3fdf721e1fcc09a5bb9cae5bd6f38573b3dd"
+    },
+    "advance.py": {
+      "source_sha256": "10032025436d2ae618c6b7053d6468293fae90e17bc60a943b95fd889c1fa727",
+      "sha256": "10032025436d2ae618c6b7053d6468293fae90e17bc60a943b95fd889c1fa727"
+    }
+  },
+  "private_route_port": 19913
+}

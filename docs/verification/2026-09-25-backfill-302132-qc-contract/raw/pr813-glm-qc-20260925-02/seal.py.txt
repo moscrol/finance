@@ -1,0 +1,120 @@
+"""Seal independent axes and losslessly archive originals without widening approval."""
+import base64
+from datetime import datetime, timezone
+import hashlib
+import json
+from pathlib import Path
+import re
+import subprocess
+
+ROOT = Path(__file__).resolve().parent
+PRIOR = ROOT.parent / 'pr813-glm-qc-20260925-01'
+DOCS = Path('/Users/a77/fwp-wt-backfill-302132-0923')
+DEST = DOCS / 'docs/verification/2026-09-25-backfill-302132-qc-contract'
+AUTHOR = ROOT.parent / 'backfill-302132-0923/forward-02/tree'
+REV = '3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59'
+BASE = '4cc15e703f81bce8abadee00f68caacdb0c72b4d'
+
+def sha(raw):
+    return hashlib.sha256(raw).hexdigest()
+
+def save(path, obj):
+    with path.open('x') as stream:
+        json.dump(obj, stream, ensure_ascii=False, indent=2)
+        stream.write('\n')
+
+def git(tree, *args):
+    return subprocess.check_output(['git', '-C', str(tree), *args], text=True).strip()
+
+def main():
+    assert not (ROOT / 'report.json').exists() and not DEST.exists()
+    identities = {}
+    for tree in (AUTHOR, PRIOR / 'candidate', ROOT / 'candidate'):
+        state = {'revision': git(tree, 'rev-parse', 'HEAD'), 'status': git(tree, 'status', '--porcelain')}
+        assert state == {'revision': REV, 'status': ''}, state
+        identities[str(tree)] = state
+    processes = subprocess.check_output(['ps', '-axo', 'pid=,ppid=,command='], text=True).splitlines()
+    assert not [line for line in processes if any(str(root) in line for root in (ROOT, PRIOR)) and any(name in line for name in ('run_control.py', 'run_stage.py', 'glm_review_shim.py'))]
+    refs = dict(line.split()[::-1] for line in git(DOCS, 'ls-remote', 'gitea', 'refs/heads/main', 'refs/heads/fix/backfill-main-ready-0921').splitlines())
+    assert refs['refs/heads/fix/backfill-main-ready-0921'] == REV
+    total = 0
+    controllers = []
+    for root in (PRIOR, ROOT):
+        for path in sorted(root.glob('*/*.controller.json')):
+            value = json.loads(path.read_text())
+            counts = value['shim_counts']
+            assert value['status'] != 'STARTED' and counts['active'] == 0 and counts['shutdown_complete']
+            assert counts['requests'] == counts['dispatched']
+            total += counts['requests']
+            controllers.append({'root': str(root), 'path': str(path.relative_to(root)), **value})
+    assert total <= 78
+    audits = {}
+    for axis in ('spec', 'quality'):
+        path = ROOT / axis / 'host-evidence-audit.json'
+        assert path.exists()
+        audits[axis] = json.loads(path.read_text())
+    semantic = json.loads((ROOT / 'semantic-check.json').read_text())
+    valid = all(a['status'] == 'EVIDENCE_COUNTS_VALID' for a in audits.values()) and semantic['accepted_within_scope']
+    status = 'SCOPED_C2_C3_REVIEW_DELIVERED_FULL_QC_PENDING' if valid else 'SPEC_SCOPED_DELIVERED_QUALITY_BLOCKED' if audits['spec']['status'] == 'EVIDENCE_COUNTS_VALID' else 'BLOCKED_SCOPED_REVIEW'
+    report = {'status': status,
+        'revision': REV, 'baseline': BASE, 'remote_main': refs['refs/heads/main'], 'batch_complete': True,
+        'qc_complete': False, 'scoped_reports_valid': valid, 'axes': audits, 'semantic_check': semantic,
+        'controllers': controllers, 'requests_this_turn': total, 'request_cap': 78,
+        'zero_request_bind_failure': str(PRIOR), 'identities': identities, 'owned_processes_stopped': True,
+        'current_main_engineering_ready': False, 'unreviewed_claims': ['C1', 'C4', 'C5', 'C6', 'C7'],
+        'merge_authorized': False, 'production_authorized': False, 'production_executed': False,
+        'sealed_at': datetime.now(timezone.utc).isoformat()}
+    save(ROOT / 'report.json', report)
+    DEST.mkdir()
+    entries = []
+    for root in (PRIOR, ROOT):
+        for path in sorted(root.rglob('*')):
+            rel = path.relative_to(root)
+            if path.is_symlink() or not path.is_file() or rel.parts[0] == 'candidate':
+                continue
+            if any(part in rel.parts for part in ('__pycache__', 'tmp', 'users')):
+                continue
+            if 'pi-config' in rel.parts and path.name != 'settings.json':
+                continue
+            if path.suffix not in {'.py', '.json', '.jsonl', '.mjs', '.md', '.log', '.sb', '.txt', '.diff', '.xml'}:
+                continue
+            raw = path.read_bytes()
+            assert not re.search(rb'eyJ[A-Za-z0-9_-]{15,}\.[A-Za-z0-9_-]{15,}\.[A-Za-z0-9_-]{15,}', raw), rel
+            encoded = path.suffix in {'.log', '.diff', '.xml'} or bool(re.search(rb'[ \t]+\r?\n|\n\n\Z', raw))
+            target_rel = Path('raw') / root.name / rel
+            if encoded:
+                target_rel = target_rel.with_name(target_rel.name + '.b64')
+                stored = base64.encodebytes(raw)
+            else:
+                stored = raw
+                if path.suffix in {'.py', '.mjs', '.sb'}:
+                    target_rel = target_rel.with_name(target_rel.name + '.txt')
+            target = DEST / target_rel
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(stored)
+            entries.append({'source_root': str(root), 'source': str(rel), 'archive': str(target_rel),
+                            'encoding': 'base64' if encoded else 'identity', 'bytes': len(raw),
+                            'sha256': sha(raw), 'archive_sha256': sha(stored)})
+    for entry in entries:
+        stored = (DEST / entry['archive']).read_bytes()
+        raw = base64.b64decode(stored) if entry['encoding'] == 'base64' else stored
+        assert sha(stored) == entry['archive_sha256'] and sha(raw) == entry['sha256']
+        assert raw == (Path(entry['source_root']) / entry['source']).read_bytes()
+    save(DEST / 'manifest.json', {'schema': 'lossless-multi-attempt-qc-archive/v1', 'revision': REV,
+        'baseline': BASE, 'verified_files': len(entries), 'entries': entries,
+        'excluded': ['candidate trees', 'runtime credential stores', 'temporary DBs/users', 'symlinks']})
+    verified = {'ok': True, 'files': len(entries), 'bytes': sum(e['bytes'] for e in entries),
+        'manifest_sha256': sha((DEST / 'manifest.json').read_bytes()), 'destination': str(DEST)}
+    save(ROOT / 'archive-verification.json', verified)
+    save(DEST / 'archive-verification.json', verified)
+    current_path = ROOT.parent / 'backfill-302132-0923/CURRENT.json'
+    current = json.loads(current_path.read_text())
+    current.update(status=report['status'], owned_checks_running=False, ready=False, engineering_ready=False,
+                   current_main_engineering_ready=False, merge_ready=False, updated_at=report['sealed_at'])
+    current['active_qc'].update(controller_pid=None, stage='sealed', owned_processes_stopped=True, report=str(ROOT / 'report.json'))
+    current['note'] = 'New scoped reviews sealed; see active_qc report for actual results. No current-main or full-QC approval. Documentation publication pending.'
+    current_path.write_text(json.dumps(current, ensure_ascii=False, indent=2) + '\n')
+    print(json.dumps({'status': report['status'], 'requests': total, **verified}))
+
+if __name__ == '__main__':
+    main()

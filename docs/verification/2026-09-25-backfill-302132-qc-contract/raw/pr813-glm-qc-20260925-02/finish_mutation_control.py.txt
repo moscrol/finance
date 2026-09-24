@@ -1,0 +1,55 @@
+"""Finish evidence recording via acceptance JSON, not pytest's formatted traceback."""
+import hashlib
+import json
+from pathlib import Path
+import subprocess
+import xml.etree.ElementTree as ET
+
+ROOT = Path(__file__).resolve().parent
+OUT = ROOT / 'host-c3'
+WORK = OUT / 'work'
+CAND = ROOT / 'candidate'
+PY = '/Users/a77/finance-workspace-private/.venv-workbench/bin/python'
+xml = WORK / 'set_mutant.xml'
+cases = list(ET.parse(xml).getroot().iter('testcase'))
+assert len(cases) == 1 and cases[0].get('name') == 'test_outside_window_mutation_fails[duplicate]'
+assert cases[0].find('failure') is not None and cases[0].find('error') is None
+outputs = list((WORK / 'tmp/set_mutant').rglob('out.json'))
+assert len(outputs) == 1
+wrong = json.loads(outputs[0].read_text())
+assert wrong['verdict'] == 'PASS' and wrong['failed'] == []
+with (OUT / 'mutation-recorder-interruption.json').open('x') as stream:
+    json.dump({'status': 'HOST_RECEIPT_ASSERTION_ERROR', 'script': 'host_mutation_control.py',
+               'reason': 'Expected formatted traceback substring assert 0 == 2, but pytest __tracebackhide__ suppressed that frame.',
+               'mutant_test_result': 'Expected failure already observed', 'repair': 'Read structured acceptance JSON; no original result/source changed'}, stream, indent=2)
+env = {'HOME': str(WORK), 'PATH': '/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin', 'LANG': 'C.UTF-8',
+       'TMPDIR': str(WORK / 'tmp'), 'PYTHONDONTWRITEBYTECODE': '1', 'PYTHONPATH': str(CAND),
+       'FWP_TEST_RECEIPT': '0', 'GIT_OPTIONAL_LOCKS': '0', 'FORESIGHT_USERS_DIR': str(WORK / 'users'),
+       'OPENBLAS_NUM_THREADS': '1', 'OMP_NUM_THREADS': '1'}
+restored_xml = WORK / 'original_restored_control.xml'
+assert not restored_xml.exists()
+command = ['/usr/bin/sandbox-exec', '-f', str(OUT / 'tools.sb'), PY, '-m', 'pytest', str(WORK / 'probes/test_fixture_adapter.py'),
+           '--confcutdir=' + str(WORK), '-p', 'no:cacheprovider', '-q',
+           '--basetemp=' + str(WORK / 'tmp/original_restored_control'), '--junitxml=' + str(restored_xml)]
+with (OUT / 'original_restored_control.log').open('xb') as stream:
+    run = subprocess.run(command, cwd=CAND, env=env, stdin=subprocess.DEVNULL, stdout=stream, stderr=subprocess.STDOUT, timeout=120)
+restored_cases = list(ET.parse(restored_xml).getroot().iter('testcase'))
+assert run.returncode == 0 and len(restored_cases) == 7 and all(c.find('failure') is None and c.find('error') is None and c.find('skipped') is None for c in restored_cases)
+original = (CAND / 'scripts/verify_302132_backfill_acceptance.py').read_bytes()
+mutant = (WORK / 'probes/acceptance_set_mutant.py').read_bytes()
+assert original.count(b'EXCEPT ALL SELECT') == 2 and original.replace(b'EXCEPT ALL SELECT', b'EXCEPT SELECT') == mutant
+assert not subprocess.check_output(['git', '-C', str(CAND), 'status', '--porcelain'], text=True).strip()
+receipt = {'status': 'PASS', 'role': 'host mutation control, NOT independent QC', 'new_model_requests': 0,
+           'candidate_source_unchanged': True, 'source_sha256': hashlib.sha256(original).hexdigest(),
+           'mutant_sha256': hashlib.sha256(mutant).hexdigest(),
+           'set_mutant': {'tests': 1, 'failed_as_expected': 1, 'case': cases[0].get('name'), 'wrong_acceptance_verdict': wrong['verdict'],
+                          'xml_sha256': hashlib.sha256(xml.read_bytes()).hexdigest(), 'acceptance_json': str(outputs[0]),
+                          'acceptance_checks': len(wrong['checks'])},
+           'original_restored_control': {'tests': 7, 'passed': 7, 'exit_code': run.returncode, 'command': command},
+           'expected_failure': 'EXCEPT distinct hides duplicate multiplicity; acceptance returns PASS instead of rejecting corruption',
+           'initial_recorder_error_retained': True}
+with (OUT / 'set-mutation-control.json').open('x') as stream:
+    json.dump(receipt, stream, indent=2)
+with (OUT / 'mutant-wrong-acceptance.json').open('x') as stream:
+    json.dump(wrong, stream, ensure_ascii=False, indent=2)
+print(json.dumps(receipt))
