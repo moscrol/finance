@@ -7,7 +7,7 @@
 给定探针/新写探针/宿主诊断分账，否复跑冒充新写；39请求到限停，否补字段追加请求；首bash合同不事后改。详见 `docs/handoffs/2026-09-25-backfill-302132-quality-execution.md`。
 
 ## 当前状态
-**SPEC_SCOPED_DELIVERED_QUALITY_FINAL_REJECTED**。#813 WIP/open/unmerged，head `3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59`，base4cc15e703；main03352758c组合未验。未改/推产品、合入/生产，自有进程已退，19917释放。
+**SPEC_SCOPED_DELIVERED_QUALITY_FINAL_REJECTED**。#813 WIP/open/unmerged，head `3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59`，base4cc15e703；发布观测main已由03352758c前进到d21707ca6，新组合未验。未改/推产品、合入/生产，自有进程已退，19917释放。
 本轮 `~/.finance-runtime/reviews/pr813-glm-qc-20260925-03/`，39请求；398原件归仓 `docs/verification/2026-09-25-backfill-302132-quality-execution/`。动态 `~/.finance-runtime/reviews/backfill-302132-0923/CURRENT.json`。
 
 ## 未验证 / 已知边界

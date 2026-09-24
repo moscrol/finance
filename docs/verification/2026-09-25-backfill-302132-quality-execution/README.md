@@ -1,6 +1,6 @@
 # #813：Quality执行证据与终稿拒收
 
-状态 **SPEC_SCOPED_DELIVERED_QUALITY_FINAL_REJECTED**。固定3c5/base4cc，main033组合未验；不是全候选、合入或生产批准。
+状态 **SPEC_SCOPED_DELIVERED_QUALITY_FINAL_REJECTED**。固定3c5/base4cc，封存观测main033，PR评论6911发布时已前进至d21707ca6；新组合未验，不是全候选、合入或生产批准。
 
 - 39模型请求（4+17+17+1），仅Quality轴，无自动重试，均已结束。
 - 新审查会话复跑给定探针7P，给定断言源/宿主夹具修正来源明确，不算本轮新写七例。
