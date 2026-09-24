@@ -14,6 +14,7 @@ import pytest
 from market_feature_store.sync.sync_local_sector_members import (
     VALUE_SOURCE_PREFIXES,
     _today_values,
+    build_rows,
 )
 
 DDL = """
@@ -66,3 +67,22 @@ def test_hithink_source_accepted_fallback_still_rejected(con):
 
 def test_whitelist_includes_hithink_prefix():
     assert "hithink" in VALUE_SOURCE_PREFIXES
+
+
+def test_stitch_uses_dated_name_not_old_identity_baseline(con):
+    values = _today_values(con, TD)
+    assert values["302132.SZ"]["stock_name"] == "中航成飞"
+    members = [{"stock_ts_code": "302132.SZ", "stock_name": "旧简称"},
+               {"stock_ts_code": "600001.SH", "stock_name": "停牌股"}]
+    rows, dropped = build_rows(members, values, highs={}, limits={}, caps={})
+    assert rows[0]["name"] == "中航成飞"
+    assert dropped == ["600001.SH"]
+    assert len(rows) == 1  # identity is retained externally, never as a null-value shell
+
+
+def test_stitch_retains_baseline_name_only_when_dated_name_is_missing(con):
+    values = _today_values(con, TD)
+    values["302132.SZ"]["stock_name"] = None
+    rows, _ = build_rows([{"stock_ts_code": "302132.SZ", "stock_name": "基线名"}],
+                         values, highs={}, limits={}, caps={})
+    assert rows[0]["name"] == "基线名"

@@ -75,6 +75,48 @@ def test_limit_stats_exclude_st_and_use_exchange_rounding():
     assert con.execute("SELECT DISTINCT source FROM fact_theme_limit_stock_daily").fetchall() == [("local:limit-rule",)]
 
 
+def test_recovery_limit_ratio_preserves_suspended_member_identity():
+    with _db() as con:
+        _seed_two_days(con)
+        _seed_universe_and_members(con)
+        # A frozen four-member sector serves three real bars and one explained
+        # nontrading member; the latter must not inflate 2/4 into 2/3.
+        con.execute("UPDATE fact_sector_universe_daily SET expected_stock_count=4 WHERE sector_ts_code='990001.FP'")
+        declared = {"990001.FP": ["600001.SH", "300001.SZ", "000001.SZ", "600998.SH"],
+                    "990002.FP": ["002514.SZ"]}
+        result = cls_.compute_limit_stats_local("2026-09-02", con=con,
+            recovery_members=declared, recovery_nontrading=("600998.SH",))
+        assert con.execute("SELECT total_count,limit_up_ratio FROM fact_theme_limit_heat_daily").fetchone() == (4, 50.)
+        assert result["denominator_basis"] == "frozen_identity"
+        assert result["recovery_member_coverage"]["990001.FP"]["observed_count"] == 3
+        assert con.execute("SELECT COUNT(*) FROM fact_stock_daily WHERE stock_ts_code='600998.SH'").fetchone()[0] == 0
+        assert con.execute("SELECT COUNT(*) FROM fact_sector_stock_daily WHERE stock_ts_code='600998.SH'").fetchone()[0] == 0
+
+
+@pytest.mark.parametrize("change", ["unknown_gap", "wrong_identity", "hidden_sector", "synthetic_bar"])
+def test_recovery_member_failure_precedes_delete_or_write(change):
+    with _db() as con:
+        _seed_two_days(con)
+        _seed_universe_and_members(con)
+        cls_.compute_limit_stats_local("2026-09-02", con=con)
+        before = con.execute("SELECT * FROM fact_theme_limit_heat_daily").fetchall()
+        declared = {"990001.FP": ["600001.SH", "300001.SZ", "000001.SZ"], "990002.FP": ["002514.SZ"]}
+        stopped = ()
+        if change == "unknown_gap":
+            declared["990001.FP"].append("600998.SH")
+            con.execute("UPDATE fact_sector_universe_daily SET expected_stock_count=4 WHERE sector_ts_code='990001.FP'")
+        elif change == "wrong_identity":
+            declared["990001.FP"][-1] = "600998.SH"
+        elif change == "hidden_sector":
+            del declared["990002.FP"]
+        else:
+            stopped = ("600999.SH",)  # zero-amount bar is not permission to synthesize one
+        with pytest.raises(ValueError):
+            cls_.compute_limit_stats_local("2026-09-02", con=con,
+                recovery_members=declared, recovery_nontrading=stopped)
+        assert con.execute("SELECT * FROM fact_theme_limit_heat_daily").fetchall() == before
+
+
 def test_limit_stats_refuses_to_overwrite_fupanhui_rows_unless_forced():
     con = _db()
     _seed_two_days(con)
