@@ -1,8 +1,9 @@
 """Build fresh PR868 review inputs; never edit a sealed batch or start a model.
 
 The archived runner is deliberately retained as a hash-checked migration source.
-CLI wiring, causal gateway protocol and controller-owned identity/completion are replaced. Historical
-receipts, model outputs, and authorization are not inherited.
+CLI wiring, causal gateway protocol, controller-owned identity/completion and
+in-tool probe validation are replaced. Historical receipts, model outputs, and
+authorization are not inherited.
 """
 from __future__ import annotations
 
@@ -69,7 +70,7 @@ def prepare(destination: Path, archive: Path = ARCHIVE) -> dict:
         inputs[f"{axis}/gateway.mjs"] = "export { default } from './review.mjs';\n"
         name = f"{axis}/review.mjs"
         inputs[name] = replace_once(inputs[name], "import fs from 'node:fs';",
-                                   "import { installStageGuard, installGateway, bindStageResult } from './pi_review_protocol.mjs';\nimport fs from 'node:fs';")
+                                   "import { installStageGuard, installGateway, bindStageResult, validateExploreProbes } from './pi_review_protocol.mjs';\nimport fs from 'node:fs';")
         inputs[name] = replace_once(inputs[name], "  const stage = process.env.REVIEW_PHASE;",
                                    "  const stage = process.env.REVIEW_PHASE;\n"
                                    "  installStageGuard(pi, {out, stage, tools: CONFIG.stage_tools, terminate});\n"
@@ -82,6 +83,20 @@ def prepare(destination: Path, archive: Path = ARCHIVE) -> dict:
             "      let data;\n"
             "      try { data = bindStageResult(params.result, {...CONFIG, stage}); }\n"
             "      catch (error) { return deny('delivery_content_invalid: ' + error.message); }",
+        )
+        inputs[name] = replace_once(
+            inputs[name],
+            "      if (stage === 'explore' && (!Array.isArray(data.probe_files) || !data.probe_files.length)) throw new Error('no probes');",
+            "      if (stage === 'explore') {\n"
+            "        try { validateExploreProbes(data, work); }\n"
+            "        catch (error) {\n"
+            "          const reason = 'delivery_probe_invalid: ' + error.message;\n"
+            "          const recoverable = !reportAdmitted && admitted < 24 && clock() - started < 600000;\n"
+            "          fs.writeFileSync(path.join(dir, 'result.json'), JSON.stringify({delivered: false, reason, recoverable}));\n"
+            "          if (!recoverable) return deny(reason);\n"
+            "          throw new Error(reason + '. Correct the submission within the remaining stage budget.');\n"
+            "        }\n"
+            "      }",
         )
         inputs[name] = replace_once(
             inputs[name],
@@ -117,6 +132,11 @@ def prepare(destination: Path, archive: Path = ARCHIVE) -> dict:
                     "Exit nonzero if any non-control assertion fails; report subcase counts separately "
                     "from script invocations. Keep probes small enough to run after mandatory controls "
                     "within the existing execute budget.\n"
+                    "deliver_stage checks probe_files before accepting delivery: use absolute paths "
+                    "to existing regular files inside this axis's work/probes directory, with at least "
+                    "one regular .py file directly in that directory. A rejected delivery is not completion; "
+                    "correct it only within the remaining stage budget. The final reserved request "
+                    "has no retry allowance. The controller never repairs submitted paths.\n"
                 )
             if stage == "report":
                 inputs[prompt] = replace_once(
@@ -158,6 +178,8 @@ def prepare(destination: Path, archive: Path = ARCHIVE) -> dict:
         "delivery_identity_owner": "controller; reviewer identity fields are forbidden",
         "delivery_completion_owner": "controller; accepted submission is not a PASS verdict",
         "delivery_input_format": "structured_object",
+        "probe_validation": "in-tool before acceptance; post-exit checks retained; no path repair",
+        "delivery_repair_budget": "existing stage budget only; reserved request remains final",
         "stage_tools": STAGE_TOOLS,
         "inputs_sha256": {name: digest(body.encode()) for name, body in inputs.items()},
     }

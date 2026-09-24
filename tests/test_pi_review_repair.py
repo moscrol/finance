@@ -55,6 +55,48 @@ for (const [field, value] of [['stage', 'gateway'], ['axis', 'other'], ['revisio
     assert proc.returncode == 0, proc.stderr
 
 
+def test_probe_validation_checks_canonical_files_without_rewriting(tmp_path):
+    work = tmp_path / "work"
+    probes = work / "probes"
+    probes.mkdir(parents=True)
+    good = probes / "valid.py"
+    good.write_text("# fixture\n")
+    outside = work / "probes-other" / "outside.py"
+    outside.parent.mkdir()
+    outside.write_text("# outside\n")
+    (probes / "escape.py").symlink_to(outside)
+    (probes / "inside.py").symlink_to(good)
+    script = """
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import { validateExploreProbes } from './scripts/review_probes/pi_review_protocol.mjs';
+const work = process.argv[1];
+const probes = path.join(work, 'probes');
+const good = path.join(probes, 'valid.py');
+const raw = {probe_files: [good, path.join(probes, 'inside.py')]};
+const before = JSON.stringify(raw);
+validateExploreProbes(raw, work);
+assert.equal(JSON.stringify(raw), before);
+for (const files of [undefined, null, [], {}, 'encoded', [null], [42], ['valid.py'],
+  [path.join(probes, 'missing.py')], [probes], [path.join(work, 'probes-other/outside.py')],
+  [path.join(probes, 'escape.py')], [good, path.join(probes, 'missing.py')]]) {
+  assert.throws(() => validateExploreProbes({probe_files: files}, work), /probe_files/);
+}
+fs.unlinkSync(path.join(probes, 'inside.py'));
+fs.unlinkSync(path.join(probes, 'escape.py'));
+const text = path.join(probes, 'notes.txt');
+fs.renameSync(good, text);
+assert.throws(() => validateExploreProbes({probe_files: [text]}, work), /Python probe/);
+fs.renameSync(probes, path.join(work, 'saved-probes'));
+fs.symlinkSync(path.join(work, 'saved-probes'), probes);
+assert.throws(() => validateExploreProbes({probe_files: [text]}, work), /redirected/);
+"""
+    proc = subprocess.run(["node", "--input-type=module", "-e", script, str(work)],
+                          cwd=ARCHIVE.parents[2], capture_output=True, text=True, timeout=10)
+    assert proc.returncode == 0, proc.stderr
+
+
 def test_prepare_preserves_sealed_inputs_and_refuses_reuse(tmp_path):
     before = {p: p.read_bytes() for p in ARCHIVE.rglob("*") if p.is_file()}
     root = tmp_path / "fresh"
@@ -74,6 +116,8 @@ def test_prepare_preserves_sealed_inputs_and_refuses_reuse(tmp_path):
         assert "verify every called API signature" in explore
         assert "target trigger was reached" in explore
         assert "Exit nonzero" in explore
+        assert "deliver_stage checks probe_files before accepting delivery" in explore
+        assert "final reserved request has no retry allowance" in explore
         for stage in ("explore", "execute", "report"):
             prompt = (root / axis / f"prompt-{stage}.md").read_text()
             assert "complete=true" not in prompt
@@ -302,6 +346,104 @@ def test_real_stage_runner_delivers_without_followup(runtime, peer, stage, axis)
     }
     assert len(peer["requests"]) == 1
     assert {t["function"]["name"] for t in peer["requests"][0]["tools"]} == set(STAGE_TOOLS[stage])
+
+
+@pytest.mark.parametrize("axis", ["spec", "quality"])
+@pytest.mark.parametrize("seed", [0, 15])
+@pytest.mark.parametrize("in_tool_validation", [True, False])
+def test_probe_path_repair_observes_tool_error_within_existing_budget(
+    runtime, peer, axis, seed, in_tool_validation,
+):
+    folder, data = stage_fixture(runtime, "explore", axis)
+    # Drop the workspace prefix, not /private (which aliases /var on macOS).
+    bad_path = str(Path("/") / Path(data["probe_files"][0]).relative_to(runtime.parent))
+    assert not Path(bad_path).exists()
+    invalid = {**data, "probe_files": [bad_path]}
+    extension = folder / "review.mjs"
+    code = extension.read_text().replace("let admitted = 0;", f"let admitted = {seed};")
+    if not in_tool_validation:
+        assert code.count("validateExploreProbes(data, work);") == 1
+        code = code.replace("validateExploreProbes(data, work);", "/* mutation: validate only after exit */")
+    extension.write_text(code)
+    out = folder / "explore"
+
+    def reply(payload, number):
+        if number == 1:
+            return [tool("deliver_stage", {"result": invalid})]
+        assert number == 2
+        assert not (out / "submission.json").exists()
+        assert not (out / "REPORT.md").exists()
+        results = [m for m in payload["messages"] if m["role"] == "tool"]
+        assert "delivery_probe_invalid" in results[-1]["content"]
+        assert str(folder / "work/probes") in results[-1]["content"]
+        rejected = load(out / "commands/001-deliver_stage/result.json")
+        assert rejected["delivered"] is False and rejected["recoverable"] is True
+        return [tool("deliver_stage", {"result": data})]
+
+    peer["reply"] = reply
+    proc = run([sys.executable, "-B", str(folder / "run_stage.py"), "explore"], folder)
+    assert proc.returncode == 0, (proc.stdout, proc.stderr)
+    execution = load(out / "execution.json")
+    assert execution["inputs_unchanged"] is True
+    first = load(out / "commands/001-deliver_stage/request.json")
+    assert first["params"]["result"] == invalid
+    submission = load(out / "submission.json")
+    if not in_tool_validation:
+        assert execution["status"] == "BLOCKED_STAGE_OR_PROVIDER"
+        assert submission["probe_files"] == [bad_path]
+        assert len(peer["requests"]) == execution["requests"] == 1
+        return
+    assert execution["status"] == "STAGE_COMPLETE"
+    assert submission["probe_files"] == data["probe_files"]
+    assert len(peer["requests"]) == execution["requests"] == 2
+    assert load(out / "commands/002-deliver_stage/result.json")["delivered"] is True
+    admissions = [json.loads(line) for line in (out / "request-admissions.jsonl").read_text().splitlines()]
+    assert [a["admission"] for a in admissions] == [seed + 1, seed + 2]
+    if seed == 15:
+        assert [t["function"]["name"] for t in peer["requests"][-1]["tools"]] == ["deliver_stage"]
+
+
+@pytest.mark.parametrize("boundary", ["last_reserved", "repeated_invalid", "deadline_during_delivery", "hard_limit_during_delivery"])
+def test_invalid_probe_delivery_cannot_reopen_budget(runtime, peer, boundary):
+    folder, data = stage_fixture(runtime, "explore", "quality")
+    data["probe_files"] = [str(folder / "work/probes/missing.py")]
+    extension = folder / "review.mjs"
+    code = extension.read_text()
+    if boundary in {"last_reserved", "repeated_invalid"}:
+        seed = 16 if boundary == "last_reserved" else 15
+        code = code.replace("let admitted = 0;", f"let admitted = {seed};")
+    else:
+        expire = "clock = () => started + 600001;" if boundary == "deadline_during_delivery" else "admitted = 24;"
+        code = code.replace("validateExploreProbes(data, work);", expire + " validateExploreProbes(data, work);")
+    extension.write_text(code)
+    peer["reply"] = lambda *_: [tool("deliver_stage", {"result": data})]
+    proc = run([sys.executable, "-B", str(folder / "run_stage.py"), "explore"], folder)
+    assert proc.returncode == 0, (proc.stdout, proc.stderr)
+    out = folder / "explore"
+    assert load(out / "execution.json")["status"] == "BLOCKED_STAGE_OR_PROVIDER"
+    assert not (out / "submission.json").exists()
+    assert not (out / "REPORT.md").exists()
+    attempts = 2 if boundary == "repeated_invalid" else 1
+    assert len(peer["requests"]) == attempts
+    rejection = load(out / f"commands/{attempts:03d}-deliver_stage/result.json")
+    assert rejection["recoverable"] is False and rejection["delivered"] is False
+    assert "delivery_probe_invalid" in load(out / "controller-stop.json")["reason"]
+
+
+def test_post_exit_validation_still_rejects_disappeared_probe(runtime, peer):
+    folder, data = stage_fixture(runtime, "explore", "spec")
+    extension = folder / "review.mjs"
+    code = extension.read_text()
+    assert code.count("      delivered = true;") == 1
+    extension.write_text(code.replace("      delivered = true;",
+                                      "      delivered = true;\n      fs.unlinkSync(data.probe_files[0]);"))
+    peer["reply"] = lambda *_: [tool("deliver_stage", {"result": data})]
+    proc = run([sys.executable, "-B", str(folder / "run_stage.py"), "explore"], folder)
+    assert proc.returncode == 0, (proc.stdout, proc.stderr)
+    out = folder / "explore"
+    assert load(out / "commands/001-deliver_stage/result.json")["delivered"] is True
+    assert load(out / "execution.json")["status"] == "BLOCKED_STAGE_OR_PROVIDER"
+    assert len(peer["requests"]) == 1
 
 
 @pytest.mark.parametrize("field,value", [
