@@ -1,0 +1,54 @@
+{
+  "schema_version": "agent-map-sources/v1",
+  "scope": "Pointers and maintenance contracts, not a second capability inventory. Presence does not imply freshness, deployment or behavioral verification.",
+  "maps": [
+    {
+      "id": "code",
+      "repo": "repo",
+      "source": "scripts/code_map.py",
+      "artifact": ".code-review-graph/graph.db",
+      "triggers": ["source changes", "checkout changes"],
+      "check": "python3 scripts/code_map.py status --json",
+      "update": "python3 scripts/code_map.py build --postprocess none",
+      "manual_review": "Dirty code coverage is unverified. Index readiness applies to this checkout only."
+    },
+    {
+      "id": "capabilities",
+      "repo": "agent-memory",
+      "source": "10_knowledge/finance-agent-capability-graph.md",
+      "triggers": ["capability added or removed", "branch merged", "deployment verified"],
+      "check": "python3 scripts/graph_audit.py --repos-root <explicit-parent-of-repositories>",
+      "manual_review": "Audit target checkout must be explicit. Code presence, merge, deployment and observed effectiveness are independent facts."
+    },
+    {
+      "id": "product-doors",
+      "repo": "repo",
+      "source": "docs/agent-product-door.md",
+      "triggers": ["entry point changed", "routing or runtime contract changed"],
+      "check": "python3 scripts/gen_runtime_catalog.py --check",
+      "manual_review": "Catalog consistency does not validate prose; verify entry points and routing against source and focused tests."
+    },
+    {
+      "id": "harness-layers",
+      "repo": "harness-reference",
+      "ref": "gitea/main",
+      "source": "DESIGN-stack.md",
+      "triggers": ["control ownership or architecture invariant changed"],
+      "manual_review": "Design standard, not implemented capability. Inspect constraints, validation and correction in the target project."
+    },
+    {
+      "id": "closed-loop",
+      "repo": "agent-memory",
+      "source": "10_knowledge/agent-system-closed-loop-first-principles.md",
+      "triggers": ["behavioral evidence changes a principle"],
+      "manual_review": "Reconcile old assertions with new findings; a feedback record is not proof that subsequent behavior changed."
+    },
+    {
+      "id": "ledgers",
+      "repo": "repo",
+      "source": "docs/learning/ledger-map.md",
+      "triggers": ["ledger added", "writer or storage root changed"],
+      "manual_review": "Check runtime path resolver and sole writer. Historical freshness snapshots are not current availability claims."
+    }
+  ]
+}

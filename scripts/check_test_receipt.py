@@ -159,13 +159,14 @@ def _fingerprint() -> str:
     except (OSError, ValueError):
         spec = {}
     names = tuple(spec.get("required_modules") or ())
-    if _LOCK.is_file():
-        pinned = [
-            line.split("==")[0].strip()
-            for line in _LOCK.read_text(encoding="utf-8").splitlines()
-            if "==" in line and not line.startswith("#")
-        ]
-        names = tuple(sorted({*names, *pinned}))
+    for lock in (_LOCK, REPO / str(spec.get("development_lock", "requirements-dev.lock"))):
+        if lock.is_file():
+            pinned = [
+                line.split("==")[0].strip()
+                for line in lock.read_text(encoding="utf-8").splitlines()
+                if "==" in line and not line.startswith("#")
+            ]
+            names = tuple(sorted({*names, *pinned}))
     parts = []
     for name in names:
         try:
