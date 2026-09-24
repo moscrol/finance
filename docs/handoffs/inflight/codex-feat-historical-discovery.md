@@ -14,6 +14,12 @@ M1 90 / M2 100 / M3 80 / M4 80 / M5 100，全部 PASS 无硬伤；M2、M4 上一
 2. 起 8809 必须覆写 `LLM_JUDGE_GROK_BIN=/Users/a77/.grok/bin/grok`、`LLM_JUDGE_GROK_SANDBOX=off`（启动脚本里的 1.0.5 路径已失效；生产 8792 同样带着失效路径，改脚本/重启生产要用户确认）。
 3. 合 main、切生产要用户确认；前端叶子未跑（分支未触 webapp，diff 为空）。
 
+## 2026-09-09 20:15 会话接管核对（kimi-k3，新会话）
+- cron/进程：会话级 cron 此前没建上（旧会话 ContextLow 提前退出），现已在**本会话**重建 `33b040a7`：每 15 分钟（:07/:22/:37/:52）盯 8080 sol 写手稳定性 + cap02/cap07 竞争批退出，满足稳定门后自动起 8809 → M6 → 隔 ≥3 分钟 UI → 审计/评分/落盘。会话级，Claude 退出即失效。
+- 8809 未在跑（lsof 空）；竞争批 pid 65407（cap02 live 验收）已退出，但 8080 仍有 ~29 条 ESTABLISHED（12+ 个 uvicorn 指向它），sol 探测 20:08 仍 `502 Upstream service temporarily unavailable`——未到稳定门。
+- 网关探测法：`zsh -c 'set -a; eval "$(grep "^export " ~/.local/bin/start-finance-workbench)"; set +a; curl -s -X POST $FORESIGHT_BUILTIN_LLM_BASE_URL/chat/completions -H "Authorization: Bearer $FORESIGHT_BUILTIN_LLM_API_KEY" -d {"model":"gpt-5.6-sol",...}'`。`source <(grep …)` 在 bash3.2 下静默半载，必须 `eval "$(grep …)"`。
+- 工作树 HEAD=57f9f17e（含 3 笔 handoff docs 提交），代码 dea3c6fa，工作树干净；R/fixture（冻结库 latest=2026-09-07）与 R/after-users 在；/tmp/hd_rerun.py 在。
+
 ## 决策与被否方案
 受限typed算子，未用任意SQL/新runtime；原件只经 RunStore。A 不伪造 model_turn、不只在发送边缘补消息；B 不删完整性门、不把草稿升级为事实。历史三工具保持共享 finance_query（spec 决定），装配读元数据声明而非改成三个新 capability。
 
