@@ -192,7 +192,73 @@ if n is not None:
 
 1. **09-11 行情补数**——本单只保证判定不骗人。补数后 `top100/quant` 才补得了。
 2. **补数后 L2 的自动补跑**（「不靠人记着」）——判定修好只是前提，补跑编排是另一刀。
-3. **装机副本同步**：`~/.claude/skills/`（或装机路径）下的 `run_l2_pipeline.sh`
-   副本与仓内已分叉（闲鱼日包迁移在途，见 #51 §3 第三问）。本单改的是仓内那份，
-   **装机副本需要同样的守卫改造**，否则夜跑真正执行的还是旧逻辑。⚠️ 这条是本单
-   交付的**实际生效前提**，必须紧接着做。
+3. **闲鱼日包迁移收口**（用户列的第 3 项，未做）——见下 §9 的分叉说明。
+
+## 9. 生产侧落地：夜跑的 L2 不从 gitea/main 取代码
+
+### 9.1 先把「装机副本」这个说法纠正过来
+
+初稿 §8.5 写「装机副本需要同样改造」，**说法不准**：`run_l2_pipeline.sh`
+没有独立装机副本。真实链路是
+
+```
+launchd → ~/.local/bin/nightly-full-review-s7.sh
+        → ~/.local/bin/nightly_full_review.sh   ← 这份才是装机副本（与仓内分叉）
+        → run_moneyflow():
+             L2_LOCK_HELD=1 "$DATA_ROOT/scripts/moneyflow/run_l2_pipeline.sh" "$D"
+                             ^^^^^^^^^^ 注意是 DATA_ROOT，不是 CODE_ROOT
+```
+
+`nightly_full_review.sh:128` 的注释写明这是有意的：
+「L2 绑本机网盘 Cookie 与 data root 的分享入口，不走 CODE_ROOT 冻结快照。」
+
+于是 L2 段的**代码**来自 `$DATA_ROOT = /Users/a77/finance-workspace-private`，
+且探针 `sys.path.insert(0, DATA_ROOT)` 也从那里加载 `trading_days.py`。
+
+### 9.2 那棵树的实测状态（2026-09-12）
+
+| 项 | 读数 |
+|---|---|
+| HEAD | **detached @ `b4a35fa2`**（不在 `main` 上） |
+| 落后 `gitea/main` | **592 提交** |
+| 该区间改过 `trading_days.py` 吗 | **0 次**（所以整文件替换是安全的） |
+| 工作区 | `run_l2_pipeline.sh` 已改（闲鱼日包）、`run_l2_from_share.py` **从未进过提交** |
+
+**结论：把 #52 合进 `gitea/main` 不会改变周一的行为。** 迁移把「数据位置」和
+「代码位置」合成了一个变量 `$DATA_ROOT`——它需要 data root 的 cookie/state 是真的，
+但代码也跟着去了那棵可变的落后树。这与工单 #51「夜跑代码根钉死」是同一个洞，
+只是在 L2 这条支上还没堵。
+
+### 9.3 已打的外科补丁（经用户确认，2026-09-12）
+
+只改两处，各留备份（`*.bak-pre-wo52-20260912`）：
+
+1. `$DATA_ROOT/market_feature_store/trading_days.py` ← 整文件换成本单新版
+   （落后区间对它零改动，无合并风险）
+2. `$DATA_ROOT/scripts/moneyflow/run_l2_pipeline.sh` ← **只换守卫段**
+
+刻意保留该副本的既有差异：`$PY`（`FINANCE_PYTHON`）、`$DATA_ROOT` 作代码根、
+`L2_SOURCE=baidu-share:xianyu-l2-7z`、单步 `run_l2_from_share.py` 链。
+`diff` 对备份核过：除守卫段外零改动。
+
+**验证**（在与生产文件逐字节相同的离线复刻树上跑，stub 掉日包与 render，不出网）：
+
+| 用例 | 判定 | 步骤 |
+|---|---|---|
+| 09-11 真交易日 + 当日 0 行 | `trading / sse_calendar / data=missing` | 全跑 ✅ |
+| 06-19 端午 | `closed / sse_closure` | 0 步 ✅ |
+| 2025-03-03 表外年份 | `unknown / calendar_year_missing` | 全跑 + 告警 ✅ |
+| 探针 import 失败 | `unknown / probe_failed_rc=1`，日志带真 traceback | 全跑 ✅ |
+
+真生产文件另跑一次端午（该路径在动手之前就退出，安全）：`closed(sse_closure)`、exit 0。
+生产模块直读 09-11：`trading / data=missing`（补丁前是「非交易日」）。
+旧调用方兼容性已冒烟：落后树里 `check_daily_review_data.py` 与
+`write_to_duckdb.py` 都只用 `is_trading_day(date)`，签名保留，实测正常。
+
+### 9.4 这条补丁的性质：桥，不是收口
+
+补丁让周一不再因「同步失败 → 判成休市 → 静默 exit 0」丢掉 L2。但
+**代码根仍是一棵共用可变树**，下一次有人动那棵树、或装机脚本重跑覆盖，就可能回退。
+结构性修法是把 L2 的**代码**根改回钉死的 `CODE_ROOT`（数据与 cookie 仍走 DATA_ROOT），
+而那要求先把闲鱼迁移收口成提交——否则 `CODE_ROOT` 快照里没有 `run_l2_from_share.py`，
+切过去会直接 `exit 2`。**顺序是：收口迁移 → 再拆开代码根/数据根。**
