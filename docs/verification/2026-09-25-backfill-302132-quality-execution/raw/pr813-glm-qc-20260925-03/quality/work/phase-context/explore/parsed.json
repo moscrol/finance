@@ -1,0 +1,95 @@
+{
+  "author_test_counts": {
+    "errors": 0,
+    "executed": 0,
+    "failed": 0,
+    "passed": 0,
+    "skipped": 0
+  },
+  "claims": {
+    "C1": {
+      "evidence": "本轴仅审C3；未读取/执行C1证据",
+      "id": "C1",
+      "status": "out_of_scope"
+    },
+    "C2": {
+      "evidence": "本轴仅审C3；未挑战源边界守卫",
+      "id": "C2",
+      "status": "out_of_scope"
+    },
+    "C3": {
+      "evidence": "未在本会话执行任何探针（supplied套件与新建测试均未跑），无基线通过或变异捕获的直接观测。已确认候选 scripts/verify_302132_backfill_acceptance.py::_data_checks 540-728 存在 target_outside_window_allcols(双向EXCEPT ALL全列)、fact_other_stocks_allcols、retained_rows_full_column_identical 等检查逻辑；生产形状计数(64行/nonnull/technical39/window161)未在合成日历上验证。关键证据缺口：无执行结果",
+      "id": "C3",
+      "status": "not_verified"
+    },
+    "C4": {
+      "evidence": "本轴仅审C3",
+      "id": "C4",
+      "status": "out_of_scope"
+    },
+    "C5": {
+      "evidence": "本轴仅审C3；未运行37项验收或副本演练",
+      "id": "C5",
+      "status": "out_of_scope"
+    },
+    "C6": {
+      "evidence": "本轴仅审C3",
+      "id": "C6",
+      "status": "out_of_scope"
+    },
+    "C7": {
+      "evidence": "本轴仅审C3；gate计数未复核",
+      "id": "C7",
+      "status": "out_of_scope"
+    }
+  },
+  "claims_examined": [
+    "C3"
+  ],
+  "findings": [
+    "阻塞：本会话0次执行，supplied套件(test_seeded_c3.py, 7个用例：6变异+基线)与新写套件(test_new_c3_v2.py, 3用例)均未运行，无XML/JUnit证据",
+    "supplied探针血统已审查：probe_c3_acceptance_v2.py为前审阅者断言(6变异: amount/timestamp/delete/insert/duplicate/other_stock+baseline)，复用作者_build_e2e_artifacts夹具；test_seeded_c3.py为HOST夹具修复(收据复制到clone派生路径；other_stock改在CAL[0]变异并断言1行受影响)；无先前结论或结果被采信，也未作为新断言计数",
+    "代码阅读确认：_data_checks对窗口外目标行与其他股票使用全列双向EXCEPT ALL多重集语义，能捕捉amount/时间戳/删除/插入/重复；重复用例披露为clone-only CTAS去PK，仅探针目的",
+    "新写探针缺陷留痕：初稿test_new_c3.py的other_dup在LATER上对OTHER股插入0行(OTHER仅存在于日历日)，已修正为test_new_c3_v2.py用CAL[0]；旧文件保留为证据未删除",
+    "正向控制control_c3.py(期望观测到故意破坏的期望失败)未执行",
+    "C3含生产形状数值计数(64行/64nonnull/technical39/window161)，合成日历不覆盖，保持not_verified"
+  ],
+  "limits": "未执行任何测试（探索阶段预算耗尽于源审）；无执行日志、无XML、无正向控制结果；未跑作者测试套件；未运行副本/生产；本轮reviewer_probe_counts为0且不匹配任何XML（不存在XML）；C3因此not_verified而非缺陷判定。探索消耗约11次读取（含若干冗余小片段读取）。",
+  "next_stage_commands": [
+    "OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 /Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest /Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-03/quality/work/probes/test_seeded_c3.py --junitxml=/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-03/quality/work/work/supplied.xml -v",
+    "OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 /Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest /Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-03/quality/work/probes/test_new_c3_v2.py --junitxml=/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-03/quality/work/work/new.xml -v",
+    "OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 /Users/a77/finance-workspace-private/.venv-workbench/bin/python /Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-03/quality/work/probes/control_c3.py"
+  ],
+  "positive_control": {
+    "classification": "probe_bug",
+    "evidence": "control_c3.py 已写入但未执行；状态 NOT_RUN",
+    "status": "NOT_RUN"
+  },
+  "probe_files": [
+    "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-03/quality/work/probes/test_seeded_c3.py",
+    "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-03/quality/work/probes/test_new_c3_v2.py",
+    "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-03/quality/work/probes/control_c3.py",
+    "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-03/quality/work/probes/test_new_c3.py"
+  ],
+  "reviewer_probe_counts": {
+    "errors": 0,
+    "executed": 0,
+    "failed": 0,
+    "passed": 0,
+    "skipped": 0
+  },
+  "supplied_probe_counts": {
+    "errors": 0,
+    "executed": 0,
+    "failed": 0,
+    "passed": 0,
+    "skipped": 0
+  },
+  "supplied_xml": "不存在（套件未执行）",
+  "verdict": "BLOCKED_INCOMPLETE_EVIDENCE",
+  "complete": true,
+  "stage": "explore",
+  "axis": "quality",
+  "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+  "baseline": "4cc15e703f81bce8abadee00f68caacdb0c72b4d"
+}

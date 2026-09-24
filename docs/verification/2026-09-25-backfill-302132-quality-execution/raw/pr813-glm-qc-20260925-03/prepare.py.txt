@@ -1,0 +1,66 @@
+"""Fresh single-axis bounded review; reuse controller and provenance-labelled probes."""
+import ast
+import hashlib
+import json
+from pathlib import Path
+import shutil
+import socket
+import subprocess
+
+ROOT = Path(__file__).resolve().parent
+OLD = ROOT.parent / 'pr813-glm-qc-20260925-02'
+CAND = ROOT / 'candidate'
+Q = ROOT / 'quality'
+PY = '/Users/a77/finance-workspace-private/.venv-workbench/bin/python'
+REV = '3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59'
+PORT = 19917
+with socket.socket() as sock:
+    sock.bind(('127.0.0.1', PORT))
+assert not CAND.exists()
+subprocess.run(['git', '-C', str(OLD / 'candidate'), 'worktree', 'add', '--detach', str(CAND), REV], check=True)
+for folder in ('work/probes', 'work/tmp', 'work/users', 'pi-config', 'inputs'):
+    (Q / folder).mkdir(parents=True)
+records = []
+def copy(source, target, remap=False):
+    raw = source.read_bytes()
+    text = raw.decode()
+    if remap:
+        text = text.replace(str(OLD), str(ROOT)).replace('19913', str(PORT))
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(text)
+    records.append({'source': str(source), 'destination': str(target.relative_to(ROOT)),
+                    'source_sha256': hashlib.sha256(raw).hexdigest(), 'sha256': hashlib.sha256(target.read_bytes()).hexdigest(),
+                    'path_port_remap_only': remap})
+for name in ('glm_credential.py', 'glm_review_shim.py', 'bridge_stage.py', 'report_packet.py', 'audit_axis.py', 'test_audit_axis.py'):
+    copy(OLD / name, ROOT / name)
+for name in ('review.mjs', 'pi_review_protocol.mjs', 'gateway.mjs', 'file_tool.py', 'provider-template.json', 'run_control.py', 'run_stage.py', 'pi-config/settings.json', 'tools.sb', 'sandbox_preflight.mjs', 'config.json', 'inputs/claims.md', 'inputs/source-map.md'):
+    copy(OLD / 'quality' / name, Q / name, remap=True)
+for name in ('auth.json', 'models-store.json'):
+    (Q / 'pi-config' / name).write_text('{}\n')
+copy(OLD / 'quality/work/probes/probe_c3_acceptance_v2.py', Q / 'work/probes/probe_c3_acceptance_v2.py', remap=True)
+copy(OLD / 'host-c3/work/probes/test_fixture_adapter.py', Q / 'work/probes/test_seeded_c3.py', remap=True)
+syntax = Q / 'work/probes/check_seed_syntax.py'
+syntax.write_text('import ast\nfrom pathlib import Path\nfor name in ("probe_c3_acceptance_v2.py", "test_seeded_c3.py"):\n    ast.parse(Path(__file__).with_name(name).read_text())\nprint("seed syntax ok")\n')
+for path in (Q / 'work/probes').glob('*.py'):
+    ast.parse(path.read_text())
+common = (OLD / 'quality/prompt-execute.md').read_text().split('Execute: first read')[0].replace(str(OLD), str(ROOT))
+common += f'''\nThis fresh review starts with supplied probe source: {Q}/work/probes/probe_c3_acceptance_v2.py and test_seeded_c3.py. These are prior-reviewer assertions plus HOST fixture repairs, not assertions you wrote this session. No prior verdict or prior test result is supplied. Review the sources, state their provenance, and run them yourself. The adapter copies receipts to clone-derived paths and mutates an existing OTHER date, asserting one affected row. Candidate code is unchanged. Do not modify these supplied files. Any new reviewer assertions go in a NEW test_*.py file; separate supplied suite from newly authored tests. Final reviewer_probe_counts may represent your last own suite; additionally REQUIRED supplied_probe_counts (same five keys), probe_provenance and supplied_xml. Never count the seven supplied tests as newly authored. Claims C3 includes production-shaped numeric counts not covered by synthetic calendars: keep not_verified if untested.\n'''
+explore = f'''Explore: read supplied probe sources, claims/source-map and precise candidate _data_checks implementation (around 540-728). Do not execute, rebuild fixtures, read old verdicts or author tests as evidence. Probe files already exist; deliver_stage probe_files=["{Q}/work/probes/test_seeded_c3.py"], claims_examined, limits, next_stage_commands. Write {Q}/work/EXPLORE.md briefly; target <=6 requests and deliver early. You can plan ONE useful extra mutation not in supplied cases; author it later after supplied suite executes.\n'''
+execute = f'''Execute: read phase-context/explore/parsed.json and EXPLORE.md if needed. FIRST bash: OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 {PY} -B {Q}/work/positive_control.py\nSECOND bash: OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 {PY} -B {syntax}\nTHIRD bash, BEFORE any other exploration or writing new probes: OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 {PY} -m pytest {Q}/work/probes/test_seeded_c3.py --confcutdir={Q}/work -p no:cacheprovider -q --basetemp={Q}/work/tmp/seeded --junitxml={Q}/work/probe-results-seeded.xml\nObserve exit/log/XML, then add and execute a small NEW independent mutation test based on source inspection, reusing supplied setup only. Prefer an untested ALL-column/null case or earlier-than-window case. Keep assertions your own. Run new suite separately with --junitxml={Q}/work/probe-results-new-v1.xml and a fresh basetemp. Syntax-check before pytest via ast.parse. If unable, report new tests=0; do not call the seeded seven new. Record any author-test run separately (fixture import is zero author tests). Do not spend requests rebuilding the large fixture. Preserve all versions and XML. Write EXECUTE.md and call deliver_stage before budget expires, fields probe_results, supplied_probe_results, author_test_results, positive_control, findings, limits.\n'''
+report = '''Report: only deliver_stage is available, exactly one request. You MUST emit an actual deliver_stage tool call with {"result": OBJECT}. DO NOT output JSON as ordinary assistant text, even if it looks identical: it is not a delivery. No prose before the tool. Read the immutable evidence packet below. Include all common required fields and supplied_probe_counts/probe_provenance/supplied_xml. Original source seed tests count as reviewer-executed supplied tests, not reviewer-authored tests. Use actual XML and raw command receipts, no invented passes. Full C3 numeric/window requirements still need evidence; missing requirements => not_verified with exact verified subset in evidence, verdict may be PASS_WITH_LIMITS for measured subset. Other C1/C2/C4-C7 out_of_scope. Never claim the host approved the whole candidate.\n'''
+for stage, content in [('explore', explore), ('execute', execute), ('report', report)]:
+    (Q / f'prompt-{stage}.md').write_text(common + content)
+plan = {'revision': REV, 'baseline': json.loads((Q / 'config.json').read_text())['baseline'],
+        'observed_main': '03352758cf9b31e3f5d179b517be48cb89588679', 'axes': {'quality': ['C3']},
+        'request_cap': 39, 'stage_caps': {'gateway': 4, 'explore': 17, 'execute': 17, 'report': 1},
+        'automatic_retries': 0, 'request_seconds': 120, 'stage_seconds': 600, 'concurrency': 1,
+        'private_route_port': PORT, 'authorization': 'User explicitly said continue; existing GLM permitted. Fresh bounded C3-only batch.',
+        'provider': 'glm-direct-review/glm-5.3', 'merge_authorized': False, 'production_authorized': False,
+        'provenance': 'Supplied prior-reviewer assertion source + host fixture adapter. New reviewer assertions must be counted separately.'}
+(ROOT / 'plan.json').write_text(json.dumps(plan, indent=2) + '\n')
+(ROOT / 'prepare-manifest.json').write_text(json.dumps({'copied_files': records, 'controller_api_changes': False,
+    'inputs': {str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest() for p in (Q / 'work/probes').glob('*.py')}}, indent=2) + '\n')
+r = subprocess.run([PY, '-B', str(ROOT / 'test_audit_axis.py')], capture_output=True, text=True)
+(ROOT / 'host-audit-tests.json').write_text(json.dumps({'exit_code': r.returncode, 'stdout': r.stdout, 'stderr': r.stderr}, indent=2))
+assert r.returncode == 0
+print(json.dumps(plan))

@@ -1,0 +1,52 @@
+"""Run the declared one-axis finite stages; never synthesize a missing delivery."""
+from datetime import datetime, timezone
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+
+ROOT = Path(__file__).resolve().parent
+PY = '/Users/a77/finance-workspace-private/.venv-workbench/bin/python'
+STATE = ROOT.parent / 'backfill-302132-0923/CURRENT.json'
+Q = ROOT / 'quality'
+plan = json.loads((ROOT / 'plan.json').read_text())
+sys.path.insert(0, '/Users/a77/fwp-wt-backfill-302132-0923')
+from scripts import gitea_pr
+pr = gitea_pr._api('GET', '/pulls/813')
+assert pr['state'] == 'open' and not pr.get('merged') and pr['head']['sha'] == plan['revision'] and pr['title'].startswith('WIP:')
+(ROOT / 'pr-before.json').write_text(json.dumps({k: pr[k] for k in ('state', 'merged', 'title', 'head', 'base')}, indent=2))
+used = 0
+records = []
+try:
+    for stage in ('gateway', 'explore', 'execute', 'report'):
+        assert used + plan['stage_caps'][stage] <= plan['request_cap']
+        if stage in ('execute', 'report'):
+            previous = 'explore' if stage == 'execute' else 'execute'
+            subprocess.run([PY, '-B', str(ROOT / 'bridge_stage.py'), 'quality', previous], check=True)
+        if stage == 'report':
+            subprocess.run([PY, '-B', str(ROOT / 'report_packet.py'), 'quality'], check=True)
+        current = json.loads(STATE.read_text())
+        current.update(status='QUALITY_SCOPED_REVIEW_RUNNING', owned_checks_running=True, updated_at=datetime.now(timezone.utc).isoformat())
+        current['active_qc'] = {'root': str(ROOT), 'axis': 'quality', 'stage': stage, 'controller_pid': os.getpid(),
+                              'requests_used_before_stage': used, 'stage_reservation': plan['stage_caps'][stage], 'batch_cap': 39,
+                              'merge_authorized': False, 'production_authorized': False}
+        STATE.write_text(json.dumps(current, ensure_ascii=False, indent=2) + '\n')
+        with (Q / (stage + '.controller.log')).open('xb') as stream:
+            subprocess.run([PY, '-B', str(Q / 'run_control.py'), stage], stdout=stream, stderr=subprocess.STDOUT, check=True, timeout=700)
+        result = json.loads((Q / (stage + '.controller.json')).read_text())
+        records.append(result)
+        used += result.get('shim_counts', {}).get('requests', 0)
+        print(json.dumps({'stage': stage, 'status': result['status'], 'used': used}), flush=True)
+        if result['status'] != 'COMPLETE':
+            break
+    if (Q / 'report/parsed.json').exists():
+        subprocess.run([PY, '-B', str(ROOT / 'audit_axis.py'), 'quality'], check=True)
+finally:
+    current = json.loads(STATE.read_text())
+    current.update(status='QUALITY_BATCH_FINISHED_PENDING_HOST_AUDIT', owned_checks_running=False, updated_at=datetime.now(timezone.utc).isoformat())
+    if current.get('active_qc', {}).get('root') == str(ROOT):
+        current['latest_completed_qc'] = current.pop('active_qc')
+    STATE.write_text(json.dumps(current, ensure_ascii=False, indent=2) + '\n')
+    (ROOT / 'batch-receipt.json').write_text(json.dumps({'stages': records, 'requests': used, 'cap': 39, 'automatic_retries': 0,
+        'merge_authorized': False, 'production_authorized': False, 'status': 'FINISHED_PENDING_HOST_AUDIT'}, indent=2) + '\n')

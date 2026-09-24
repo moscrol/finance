@@ -1,0 +1,85 @@
+"""Keep supplied-suite execution distinct from newly authored reviewer tests."""
+import hashlib
+import json
+from pathlib import Path
+import shlex
+import unittest
+
+from audit_axis import xml_counts
+
+FIELDS = ('executed', 'passed', 'failed', 'errors', 'skipped')
+
+def validate(report, supplied, own, unchanged):
+    reasons = []
+    if not unchanged:
+        reasons.append('supplied_sources_modified')
+    if supplied is None:
+        reasons.append('supplied_suite_not_executed')
+    elif report.get('supplied_probe_counts') != supplied:
+        reasons.append('supplied_counts_mismatch')
+    if own is None:
+        reasons.append('new_reviewer_suite_not_executed')
+    elif report.get('reviewer_probe_counts') != own:
+        reasons.append('new_counts_mismatch')
+    if not report.get('probe_provenance'):
+        reasons.append('missing_provenance')
+    if not report.get('supplied_xml'):
+        reasons.append('missing_supplied_xml_reference')
+    return reasons
+
+class Checks(unittest.TestCase):
+    def setUp(self):
+        self.seed = dict(zip(FIELDS, [7, 7, 0, 0, 0]))
+        self.own = dict(zip(FIELDS, [2, 2, 0, 0, 0]))
+        self.report = {'supplied_probe_counts': self.seed, 'reviewer_probe_counts': self.own,
+                       'probe_provenance': 'Supplied source vs new authoring separated', 'supplied_xml': 'probe-results-seeded.xml'}
+    def test_valid(self):
+        self.assertEqual(validate(self.report, self.seed, self.own, True), [])
+    def test_no_counts_borrowing(self):
+        self.report['reviewer_probe_counts'] = self.seed
+        self.assertIn('new_counts_mismatch', validate(self.report, self.seed, self.own, True))
+    def test_seed_overwrite(self):
+        self.assertIn('supplied_sources_modified', validate(self.report, self.seed, self.own, False))
+    def test_no_execution(self):
+        self.assertIn('new_reviewer_suite_not_executed', validate(self.report, self.seed, None, True))
+    def test_seed_miscount(self):
+        self.report['supplied_probe_counts'] = self.own
+        self.assertIn('supplied_counts_mismatch', validate(self.report, self.seed, self.own, True))
+    def test_no_provenance(self):
+        self.report.pop('probe_provenance')
+        self.assertIn('missing_provenance', validate(self.report, self.seed, self.own, True))
+
+def main():
+    root = Path(__file__).resolve().parent
+    q = root / 'quality'
+    manifest = json.loads((root / 'prepare-manifest.json').read_text())
+    unchanged = all(hashlib.sha256((root / p).read_bytes()).hexdigest() == sha for p, sha in manifest['inputs'].items())
+    supplied, own = [], []
+    for path in sorted((q / 'execute/commands').glob('*-bash/request.json')):
+        command = json.loads(path.read_text())['params']['command']
+        args = shlex.split(command)
+        xmls = [Path(a.split('=', 1)[1]) for a in args if a.startswith('--junitxml=')]
+        for xml in xmls:
+            if not xml.exists():
+                continue
+            item = {'request': str(path.relative_to(root)), 'xml': str(xml.relative_to(root)),
+                    'sha256': hashlib.sha256(xml.read_bytes()).hexdigest(), 'counts': xml_counts(xml.read_bytes())}
+            (supplied if any(a.endswith('/test_seeded_c3.py') for a in args) else own).append(item)
+    report_path = q / 'report/parsed.json'
+    report = json.loads(report_path.read_text()) if report_path.exists() else {}
+    reasons = validate(report, supplied[-1]['counts'] if supplied else None, own[-1]['counts'] if own else None, unchanged)
+    if report.get('supplied_xml') and not str(report['supplied_xml']).endswith('probe-results-seeded.xml'):
+        reasons.append('wrong_supplied_xml_reference')
+    value = {'status': 'PROVENANCE_COUNTS_VALID' if not reasons else 'BLOCKED_PROVENANCE_AUDIT',
+             'reasons': reasons, 'supplied_sources_unchanged': unchanged, 'supplied_attempts': supplied,
+             'new_probe_attempts': own, 'not_semantic_or_full_candidate_approval': True}
+    with (root / 'provenance-audit.json').open('x') as stream:
+        json.dump(value, stream, indent=2)
+    print(json.dumps(value))
+
+if __name__ == '__main__':
+    import sys
+    if '--test' in sys.argv:
+        unittest.main(argv=[sys.argv[0]])
+    else:
+        main()

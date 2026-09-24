@@ -1,0 +1,5 @@
+import ast
+from pathlib import Path
+for name in ("probe_c3_acceptance_v2.py", "test_seeded_c3.py"):
+    ast.parse(Path(__file__).with_name(name).read_text())
+print("seed syntax ok")

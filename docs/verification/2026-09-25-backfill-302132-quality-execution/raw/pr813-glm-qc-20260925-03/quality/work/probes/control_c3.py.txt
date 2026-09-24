@@ -1,0 +1,20 @@
+"""Positive control (intentional, standalone, NOT counted in probe totals).
+Breaks the reviewer expectation on purpose: expects PASS after an amount
+mutation of an outside-window row. Expected: OBSERVED_EXPECTED_FAILURE.
+"""
+import sys
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE))
+import test_seeded_c3 as seed  # noqa: E402
+
+review = seed.review
+art = review._base(HERE / "ctl_tmp")
+clone = review._mutated_clone(HERE / "ctl_tmp", art, "amount")
+out = HERE / "ctl_out.json"
+res = review._run(clone, art, out)
+import json  # noqa: E402
+v = json.loads(out.read_text())
+assert res.returncode == 0 and v["verdict"] == "PASS", (res.returncode, v)
+print("CONTROL BUG CONFIRMED: mutated amount outside window was NOT caught")

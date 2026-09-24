@@ -1,0 +1,5 @@
+import ast, pathlib
+for f in ["test_new_c3_v1.py"]:
+    p = pathlib.Path("/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-03/quality/work/probes") / f
+    ast.parse(p.read_text())
+    print("syntax ok:", f)

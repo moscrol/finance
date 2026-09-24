@@ -1,0 +1,121 @@
+"""Seal actual bounded review results, preserving rejected reports and every probe version."""
+import base64
+from datetime import datetime, timezone
+import hashlib
+import json
+from pathlib import Path
+import re
+import subprocess
+
+ROOT = Path(__file__).resolve().parent
+DOCS = Path('/Users/a77/fwp-wt-backfill-302132-0923')
+DEST = DOCS / 'docs/verification/2026-09-25-backfill-302132-quality-execution'
+AUTHOR = ROOT.parent / 'backfill-302132-0923/forward-02/tree'
+STATE = ROOT.parent / 'backfill-302132-0923/CURRENT.json'
+PY = '/Users/a77/finance-workspace-private/.venv-workbench/bin/python'
+REV = '3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59'
+STATUS = 'SPEC_SCOPED_DELIVERED_QUALITY_FINAL_REJECTED'
+
+def sha(raw):
+    return hashlib.sha256(raw).hexdigest()
+
+def save(path, value):
+    with path.open('x') as stream:
+        json.dump(value, stream, ensure_ascii=False, indent=2)
+        stream.write('\n')
+
+def git(tree, *args):
+    return subprocess.check_output(['git', '-C', str(tree), *args], text=True).strip()
+
+assert not DEST.exists() and not (ROOT / 'report.json').exists()
+identities = {}
+for tree in (ROOT / 'candidate', AUTHOR):
+    identities[str(tree)] = {'revision': git(tree, 'rev-parse', 'HEAD'), 'status': git(tree, 'status', '--porcelain')}
+    assert identities[str(tree)] == {'revision': REV, 'status': ''}
+processes = subprocess.check_output(['ps', '-axo', 'pid=,ppid=,command='], text=True).splitlines()
+assert not [p for p in processes if str(ROOT) in p and any(n in p for n in ('run_batch.py', 'run_control.py', 'run_stage.py', 'glm_review_shim.py'))]
+assert subprocess.run(['lsof', '-nP', '-iTCP:19917', '-sTCP:LISTEN'], capture_output=True).returncode == 1
+controllers = [json.loads(p.read_text()) for p in sorted((ROOT / 'quality').glob('*.controller.json'))]
+assert len(controllers) == 4
+for c in controllers:
+    counts = c['shim_counts']
+    assert c['status'] == 'COMPLETE' and c['request_counts_agree'] and counts['shutdown_complete'] and counts['active'] == 0
+    assert counts['requests'] == counts['dispatched']
+total = sum(c['shim_counts']['requests'] for c in controllers)
+assert total == 39
+refs = dict(line.split()[::-1] for line in git(DOCS, 'ls-remote', 'gitea', 'refs/heads/main', 'refs/heads/fix/backfill-main-ready-0921').splitlines())
+assert refs['refs/heads/fix/backfill-main-ready-0921'] == REV
+audit = json.loads((ROOT / 'quality/host-evidence-audit.json').read_text())
+assert audit['status'] == 'BLOCKED_EVIDENCE_AUDIT'
+assert set(audit['reasons']) == {'intentional_control_not_observed_first', 'invalid_control_claim', 'pass_despite_failed_probe_cases'}
+# Recheck infrastructure only. Never count these as product or reviewer tests.
+tests = []
+for name, args in [('test_audit_axis.py', []), ('audit_provenance.py', ['--test'])]:
+    result = subprocess.run([PY, '-B', str(ROOT / name), *args], capture_output=True, text=True)
+    assert result.returncode == 0
+    tests.append({'script': name, 'exit_code': 0, 'stdout': result.stdout, 'stderr': result.stderr})
+save(ROOT / 'host-control-tests-final.json', tests)
+# Retain structured acceptance outputs while excluding disposable synthetic DBs.
+for path in (ROOT / 'quality/work/tmp').rglob('out.json'):
+    dest = ROOT / 'acceptance-json' / path.relative_to(ROOT / 'quality/work/tmp')
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_bytes(path.read_bytes())
+report = {'status': STATUS, 'revision': REV, 'baseline': '4cc15e703f81bce8abadee00f68caacdb0c72b4d',
+          'remote_main': refs['refs/heads/main'], 'requests_this_turn': total, 'request_cap': 39, 'controllers': controllers,
+          'qc_complete': False, 'quality_final_accepted': False, 'structural_tool_delivery_completed': True,
+          'quality_gate': audit, 'supplied_reviewed_suite': {'executed': 7, 'passed': 7, 'failed': 0},
+          'new_reviewer_suite': {'executed': 2, 'passed': 1, 'failed': 1},
+          'new_passing_case': 'null_column: outside stock_name nonNULL -> NULL is rejected by target_outside_window_allcols',
+          'new_failed_case': 'earlier_than_window: synthetic fixture lacks a target row before window_start; no product mutation executed',
+          'control_order': '001 cat inputs, 002 expected assertion exit1, 003 syntax, 004 supplied pytest; before tests but not first bash as contracted',
+          'report_rejection': 'positive_control.status missing; PASS_WITH_LIMITS despite unresolved failed probe; no host report rewrite',
+          'host_earlier_diagnosis': json.loads((ROOT / 'host-earlier/receipt.json').read_text()),
+          'provenance_clarification': json.loads((ROOT / 'provenance-clarification.json').read_text()),
+          'spec_prior': {'root': str(ROOT.parent / 'pr813-glm-qc-20260925-02'), 'accepted_guard_subset_only': True, 'independent_passed': 5},
+          'unverified': ['C3 earlier-row reviewer execution', 'C3 production-shaped 64/39/161 counts', 'C1', 'C4', 'C5', 'C6', 'C7', 'current main combination'],
+          'identities': identities, 'owned_processes_stopped': True, 'merge_authorized': False, 'production_authorized': False,
+          'production_executed': False, 'sealed_at': datetime.now(timezone.utc).isoformat()}
+save(ROOT / 'report.json', report)
+DEST.mkdir()
+entries = []
+for path in sorted(ROOT.rglob('*')):
+    rel = path.relative_to(ROOT)
+    if path.is_symlink() or not path.is_file() or rel.parts[0] == 'candidate':
+        continue
+    if any(part in rel.parts for part in ('__pycache__', 'tmp', 'users')):
+        continue
+    if 'pi-config' in rel.parts and path.name != 'settings.json':
+        continue
+    if path.suffix not in {'.py', '.mjs', '.sb', '.json', '.jsonl', '.md', '.log', '.xml', '.txt'}:
+        continue
+    raw = path.read_bytes()
+    assert not re.search(rb'eyJ[A-Za-z0-9_-]{15,}\.[A-Za-z0-9_-]{15,}\.[A-Za-z0-9_-]{15,}', raw), rel
+    encoded = path.suffix in {'.log', '.xml'} or bool(re.search(rb'[ \t]+\r?\n|\n\n\Z', raw))
+    target_rel = Path('raw') / ROOT.name / rel
+    if encoded:
+        target_rel = target_rel.with_name(target_rel.name + '.b64')
+        stored = base64.encodebytes(raw)
+    else:
+        stored = raw
+        if path.suffix in {'.py', '.mjs', '.sb'}:
+            target_rel = target_rel.with_name(target_rel.name + '.txt')
+    target = DEST / target_rel
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(stored)
+    entries.append({'source_root': str(ROOT), 'source': str(rel), 'archive': str(target_rel),
+                    'encoding': 'base64' if encoded else 'identity', 'bytes': len(raw), 'sha256': sha(raw), 'archive_sha256': sha(stored)})
+for e in entries:
+    stored = (DEST / e['archive']).read_bytes()
+    raw = base64.b64decode(stored) if e['encoding'] == 'base64' else stored
+    assert sha(stored) == e['archive_sha256'] and sha(raw) == e['sha256'] and len(raw) == e['bytes']
+save(DEST / 'manifest.json', {'schema': 'lossless-qc-archive/v1', 'revision': REV, 'verified_files': len(entries), 'entries': entries,
+    'excluded': ['candidate tree', 'credential stores', 'temporary databases/users/caches', 'symlinks'], 'acceptance_json_preserved': True})
+archive = {'files': len(entries), 'bytes': sum(e['bytes'] for e in entries), 'manifest_sha256': sha((DEST / 'manifest.json').read_bytes()), 'destination': str(DEST), 'ok': True}
+save(ROOT / 'archive-verification.json', archive)
+save(DEST / 'archive-verification.json', archive)
+current = json.loads(STATE.read_text())
+current.update(status=STATUS, ready=False, merge_ready=False, engineering_ready=False, current_main_engineering_ready=False,
+               owned_checks_running=False, updated_at=report['sealed_at'], note='Quality executed supplied7P and new1P/1F; final rejected. Host fixture repair3P is separate. Documentation publication pending.')
+current['latest_completed_qc'].update(controller_pid=None, stage='sealed', owned_processes_stopped=True, report=str(ROOT / 'report.json'))
+STATE.write_text(json.dumps(current, ensure_ascii=False, indent=2) + '\n')
+print(json.dumps({'status': STATUS, 'requests': total, **archive}))

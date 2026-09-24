@@ -1,0 +1,128 @@
+{
+  "stage": "report",
+  "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+  "baseline": "4cc15e703f81bce8abadee00f68caacdb0c72b4d",
+  "started_at": "2026-09-24T17:52:55.474108+00:00",
+  "complete": true,
+  "candidate_before": {
+    "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+    "status": ""
+  },
+  "author_before": {
+    "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+    "status": ""
+  },
+  "inputs_sha256": {
+    "config.json": "b8b2014a625b7571c853f8bb3ca17b57cbe64cd321235eb81f086be2aaa14078",
+    "review.mjs": "0be4dccfc6f19994186e85cd5855a526896c18a2de71adde47944cabdd83c600",
+    "pi_review_protocol.mjs": "657e40bf2d8f8825a5345210876ac69417aed0cac857a2f899ec96280fa641d5",
+    "tools.sb": "f72b25ffa710a02a6cc63c9334435a7bc39e362028a48023fbcd939986f6c2df",
+    "file_tool.py": "79125feff76d98407e3bf1d36cfa56c0086863bc0591afa499f3580a6dcf8972",
+    "provider-template.json": "6e0bff5a3b230614452da602401b20a33dac96c2f27c114a86675dc0141ffd8f",
+    "pi-config/settings.json": "cda612a59b9d61dc644867021e8a5284dc7a6040e65eadab9b883ae78406b417",
+    "prompt-report.md": "fa040ed5057ce3d202eed38e2892f8ebcdc116531249efed39c0895e6a19cb29"
+  },
+  "timeout_seconds": 600,
+  "max_requests": 1,
+  "automatic_retries": 0,
+  "command": [
+    "/opt/homebrew/bin/pi",
+    "--provider",
+    "glm-direct-review",
+    "--model",
+    "glm-5.3",
+    "--thinking",
+    "low",
+    "--models",
+    "glm-direct-review/glm-5.3",
+    "--no-session",
+    "--no-extensions",
+    "-e",
+    "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-03/quality/review.mjs",
+    "--no-skills",
+    "--no-prompt-templates",
+    "--no-context-files",
+    "--no-themes",
+    "--no-approve",
+    "--offline",
+    "--tools",
+    "deliver_stage",
+    "--mode",
+    "json",
+    "-p",
+    "--",
+    "<stage prompt>"
+  ],
+  "pid": 14292,
+  "probe_sha256": {
+    "work/probes/check_new_syntax.py": "5f49ac6c885c870b1e3dec87d585be0a2563d708e344ac9c4ce02e145751cbf6",
+    "work/probes/check_seed_syntax.py": "01e07f98a90e29a0aaa395cadffcace63cc2a556f32dafcdcb3c4b7623b8b3e3",
+    "work/probes/control_c3.py": "ec9cac0bf42dbb262b7bc0290867a9a7de81a5d0551480887e8e2cc54312148b",
+    "work/probes/inspect_e2e_v1.py": "fca550df58c1bcc3f541c1504752584ffe01933c4c7f68e40d9234dba42de619",
+    "work/probes/probe_c3_acceptance_v2.py": "7bbf594b94280238858bbf2fc7baa5bc038c1bd7c7abc7b9072300cad4ef25d0",
+    "work/probes/test_new_c3.py": "9013236bf0eebb4e2441c837696b20f77ae18ebb4afe13047ed8ccae65e5f16a",
+    "work/probes/test_new_c3_v1.py": "550bcf560cc048f2a9ad21beaabbd42c600db8a350e9f75772224d05d826b05a",
+    "work/probes/test_new_c3_v2.py": "b2434dd2e4df4beb816fd1bdf63e5b5eb0a6246e5d84356d9af6eb50681a6100",
+    "work/probes/test_seeded_c3.py": "155d751f1b37f58bef1503bbc6d2234f57fb9e85efc5dbd9144a478ebf7bb16a"
+  },
+  "status": "STAGE_COMPLETE",
+  "exit_code": 0,
+  "elapsed_seconds": 21.13,
+  "timed_out": false,
+  "requests": 1,
+  "responses": [
+    {
+      "admission": 1,
+      "status": 200
+    }
+  ],
+  "errors": [],
+  "candidate_after": {
+    "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+    "status": ""
+  },
+  "author_after": {
+    "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+    "status": ""
+  },
+  "inputs_unchanged": true,
+  "event_counts": {
+    "session": 1,
+    "agent_start": 1,
+    "turn_start": 1,
+    "message_start": 3,
+    "message_end": 3,
+    "message_update": 291,
+    "tool_execution_start": 1,
+    "tool_execution_end": 1,
+    "turn_end": 1,
+    "agent_end": 1,
+    "agent_settled": 1
+  },
+  "report_structural": true,
+  "model_identities": [
+    "glm-direct-review/glm-5.3"
+  ],
+  "usage": {
+    "input": 19624,
+    "output": 1465,
+    "cacheRead": 1664,
+    "cacheWrite": 0,
+    "totalTokens": 22753
+  },
+  "artifact_sha256": {
+    "tool-menu.json": "caa39de8ead329b20d42a511dc7a4ab35e7be8ecb4d9890c6e91e2bd260ed245",
+    "payload-shapes.jsonl": "b5d5b79fee5b401c61789aeee05231b2154ce5efb770ad89144af65c586a76ae",
+    "stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "parsed.json": "b4ddad1e0c7dcc1c41ca9b6d14b47eea37b9e161ce518d1cdbf5b45ddf6b602e",
+    "REPORT.md": "23916ee529510afb67ab7828291bb3423c9175880fb9a09edf8c46668c6b500a",
+    "auth-reserved.json": "89d3a977d27d8a5032bbf88f303e090c5d2b24e52f34c59a7f97a56857472e04",
+    "credential.json": "5d6c5124a4f085ec1705fb08673d36708781e166f1e4939b110c6be57ff5c3c8",
+    "request-admissions.jsonl": "f498366c14645e655c70f1ccd6950cad23d4c90708aca6c8875edc7e9ecbaabb",
+    "responses.jsonl": "f5b2bfbd4f957a7246b529caa0f28b7a7b2ba41f11fcf6f2fa222f176c71224f",
+    "events.jsonl": "ad7f8866f45e430a19e5b55db879261cafe6e8601c33b200b116cb696c30b3af",
+    "submission.json": "b4ddad1e0c7dcc1c41ca9b6d14b47eea37b9e161ce518d1cdbf5b45ddf6b602e",
+    "commands/001-deliver_stage/request.json": "3b1ab472b47d58c7a358fdf21565c6aef4372cbb607dd4caeab1b322c31acb50",
+    "commands/001-deliver_stage/result.json": "01570f0a8a48e48321e2e60514d8cda7b5142196a2d5565030f21130e41735e1"
+  }
+}

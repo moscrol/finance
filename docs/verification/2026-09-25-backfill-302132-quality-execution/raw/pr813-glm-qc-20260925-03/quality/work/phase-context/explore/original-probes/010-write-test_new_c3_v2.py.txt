@@ -1,0 +1,83 @@
+"""New reviewer-authored tests (this session), separate from supplied suite.
+Reuses HOST-corrected fixture from test_seeded_c3 (provenance: prior reviewer
+assertions + host fixture repairs) only for baseline setup; new assertions:
+(1) trade_date shift on an outside-window row (key-level mutation)
+(2) duplicate row for OTHER stock (fact_other_stocks_allcols multiplicity)
+Positive control lives in control_c3.py (standalone, not counted here).
+v2: OTHER stock only exists on calendar dates, so use CAL[0] (earlier draft
+test_new_c3.py used LATER and duplicated zero rows; kept as evidence).
+"""
+import json
+import shutil
+import sys
+from pathlib import Path
+
+import duckdb
+import pytest
+
+HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE))
+import test_seeded_c3 as seed  # noqa: E402
+
+review = seed.review
+t = seed.t
+OTHER = review.OTHER
+LATER = review.LATER
+OTHER_DAY = str(t.CAL[0])
+
+
+def _run_case(tmp_path, mutation):
+    art = review._base(tmp_path)
+    clone = tmp_path / "clone_mut.duckdb"
+    shutil.copy(str(art["clone"]), str(clone))
+    for run in (t.APPLY_RUN, t.VERIFY_RUN):
+        shutil.copyfile(str(art["clone"]) + f".repair-backfill-execution.{run}.json",
+                        str(clone) + f".repair-backfill-execution.{run}.json")
+    if mutation == "date_shift":
+        with duckdb.connect(str(clone)) as con:
+            n = con.execute(
+                "UPDATE fact_stock_daily SET trade_date=DATE '" + LATER + "' - 1 "
+                "WHERE stock_ts_code=? AND trade_date=DATE '" + LATER + "'",
+                [art["spec"].code]).fetchone()[0]
+            assert n == 1
+    elif mutation == "other_dup":
+        # DISCLOSURE: clone-only CTAS removes PK so an exact duplicate OTHER row
+        # can exist; multiplicity probe only.
+        with duckdb.connect(str(clone)) as con:
+            con.execute("BEGIN")
+            con.execute("CREATE TABLE fsd_nopk AS SELECT * FROM fact_stock_daily")
+            con.execute("DROP TABLE fact_stock_daily")
+            con.execute("ALTER TABLE fsd_nopk RENAME TO fact_stock_daily")
+            before = con.execute(
+                "SELECT COUNT(*) FROM fact_stock_daily WHERE stock_ts_code=? "
+                "AND trade_date=DATE '" + OTHER_DAY + "'", [OTHER]).fetchone()[0]
+            con.execute("INSERT INTO fact_stock_daily SELECT * FROM "
+                        "fact_stock_daily WHERE stock_ts_code=? AND "
+                        "trade_date=DATE '" + OTHER_DAY + "'", [OTHER])
+            con.execute("COMMIT")
+            assert before >= 1
+    else:
+        raise ValueError(mutation)
+    out = tmp_path / "out.json"
+    res = review._run(clone, art, out)
+    return res, out
+
+
+EXPECT = {"date_shift": "target_outside_window_allcols",
+          "other_dup": "fact_other_stocks_allcols"}
+
+
+@pytest.mark.parametrize("mutation", ["date_shift", "other_dup"])
+def test_new_outside_window_mutations_fail(tmp_path, mutation):
+    res, out = _run_case(tmp_path, mutation)
+    assert res.returncode == 2, (res.returncode, res.stdout, res.stderr)
+    v = json.loads(out.read_text())
+    assert v["verdict"] == "FAIL"
+    assert EXPECT[mutation] in v["failed"], (mutation, v["failed"])
+
+
+def test_new_baseline_pass(tmp_path):
+    res, out = _run_case(tmp_path, "none")
+    assert res.returncode == 0, (res.stdout, res.stderr)
+    v = json.loads(out.read_text())
+    assert v["verdict"] == "PASS" and v["failed"] == [], v

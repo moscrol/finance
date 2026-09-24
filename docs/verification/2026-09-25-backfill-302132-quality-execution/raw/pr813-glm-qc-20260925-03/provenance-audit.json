@@ -1,0 +1,36 @@
+{
+  "status": "BLOCKED_PROVENANCE_AUDIT",
+  "reasons": [
+    "wrong_supplied_xml_reference"
+  ],
+  "supplied_sources_unchanged": true,
+  "supplied_attempts": [
+    {
+      "request": "quality/execute/commands/004-bash/request.json",
+      "xml": "quality/work/probe-results-seeded.xml",
+      "sha256": "9853d92ea34cdb89f5901513119ca2826c72ed1e5ac5d48901ec80ff1443054b",
+      "counts": {
+        "executed": 7,
+        "passed": 7,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0
+      }
+    }
+  ],
+  "new_probe_attempts": [
+    {
+      "request": "quality/execute/commands/011-bash/request.json",
+      "xml": "quality/work/probe-results-new-v1.xml",
+      "sha256": "803fb5fddbad383fb6b23169e69b10a614108273f04c2cdfcba74a1efed824c4",
+      "counts": {
+        "executed": 2,
+        "passed": 1,
+        "failed": 1,
+        "errors": 0,
+        "skipped": 0
+      }
+    }
+  ],
+  "not_semantic_or_full_candidate_approval": true
+}

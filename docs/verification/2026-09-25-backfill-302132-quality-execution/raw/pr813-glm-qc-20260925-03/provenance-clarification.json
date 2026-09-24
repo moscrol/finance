@@ -1,0 +1,20 @@
+{
+  "status": "PROVENANCE_COUNTS_VALID_WITH_HOST_REFERENCE_CLARIFICATION",
+  "original_audit_retained": true,
+  "schema_never_required_bare_path": true,
+  "observed_reference": "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-03/quality/work/probe-results-seeded.xml (7 tests, 0 failures)",
+  "actual_xml": "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-03/quality/work/probe-results-seeded.xml",
+  "reason": "Original host checker treated a human annotation after the correct XML path as a wrong path. Counts and immutable supplied sources already agreed.",
+  "tests": {
+    "run": 4,
+    "failures": 0,
+    "errors": 0
+  },
+  "independent_evidence_gate_unchanged": [
+    "intentional_control_not_observed_first",
+    "invalid_control_claim",
+    "pass_despite_failed_probe_cases"
+  ],
+  "reviewer_report_changed": false,
+  "review_accepted": false
+}

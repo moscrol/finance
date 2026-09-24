@@ -1,0 +1,17 @@
+{"admission":1,"stage":"explore","stream":true,"model":"glm-5.3","tools":["read","write","deliver_stage"],"temperature_removed":false,"reasoning_effort":"low","max_completion_tokens":8192}
+{"admission":2,"stage":"explore","stream":true,"model":"glm-5.3","tools":["read","write","deliver_stage"],"temperature_removed":false,"reasoning_effort":"low","max_completion_tokens":8192}
+{"admission":3,"stage":"explore","stream":true,"model":"glm-5.3","tools":["read","write","deliver_stage"],"temperature_removed":false,"reasoning_effort":"low","max_completion_tokens":8192}
+{"admission":4,"stage":"explore","stream":true,"model":"glm-5.3","tools":["read","write","deliver_stage"],"temperature_removed":false,"reasoning_effort":"low","max_completion_tokens":8192}
+{"admission":5,"stage":"explore","stream":true,"model":"glm-5.3","tools":["read","write","deliver_stage"],"temperature_removed":false,"reasoning_effort":"low","max_completion_tokens":8192}
+{"admission":6,"stage":"explore","stream":true,"model":"glm-5.3","tools":["read","write","deliver_stage"],"temperature_removed":false,"reasoning_effort":"low","max_completion_tokens":8192}
+{"admission":7,"stage":"explore","stream":true,"model":"glm-5.3","tools":["read","write","deliver_stage"],"temperature_removed":false,"reasoning_effort":"low","max_completion_tokens":8192}
+{"admission":8,"stage":"explore","stream":true,"model":"glm-5.3","tools":["read","write","deliver_stage"],"temperature_removed":false,"reasoning_effort":"low","max_completion_tokens":8192}
+{"admission":9,"stage":"explore","stream":true,"model":"glm-5.3","tools":["read","write","deliver_stage"],"temperature_removed":false,"reasoning_effort":"low","max_completion_tokens":8192}
+{"admission":10,"stage":"explore","stream":true,"model":"glm-5.3","tools":["read","write","deliver_stage"],"temperature_removed":false,"reasoning_effort":"low","max_completion_tokens":8192}
+{"admission":11,"stage":"explore","stream":true,"model":"glm-5.3","tools":["read","write","deliver_stage"],"temperature_removed":false,"reasoning_effort":"low","max_completion_tokens":8192}
+{"admission":12,"stage":"explore","stream":true,"model":"glm-5.3","tools":["read","write","deliver_stage"],"temperature_removed":false,"reasoning_effort":"low","max_completion_tokens":8192}
+{"admission":13,"stage":"explore","stream":true,"model":"glm-5.3","tools":["read","write","deliver_stage"],"temperature_removed":false,"reasoning_effort":"low","max_completion_tokens":8192}
+{"admission":14,"stage":"explore","stream":true,"model":"glm-5.3","tools":["read","write","deliver_stage"],"temperature_removed":false,"reasoning_effort":"low","max_completion_tokens":8192}
+{"admission":15,"stage":"explore","stream":true,"model":"glm-5.3","tools":["read","write","deliver_stage"],"temperature_removed":false,"reasoning_effort":"low","max_completion_tokens":8192}
+{"admission":16,"stage":"explore","stream":true,"model":"glm-5.3","tools":["read","write","deliver_stage"],"temperature_removed":false,"reasoning_effort":"low","max_completion_tokens":8192}
+{"admission":17,"stage":"explore","stream":true,"model":"glm-5.3","tools":["read","write","deliver_stage"],"temperature_removed":false,"reasoning_effort":"low","max_completion_tokens":8192}

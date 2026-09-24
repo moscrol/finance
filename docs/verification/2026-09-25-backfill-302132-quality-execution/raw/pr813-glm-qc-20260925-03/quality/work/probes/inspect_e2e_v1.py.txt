@@ -1,0 +1,15 @@
+import importlib.util, sys
+from pathlib import Path
+import tempfile
+
+CAND = Path("/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-03/candidate")
+TESTS = CAND / "tests" / "test_repair_backfill_stock_history.py"
+sys.path.insert(0, str(CAND))
+spec = importlib.util.spec_from_file_location("t302132_inspect", TESTS)
+t = importlib.util.module_from_spec(spec)
+sys.modules["t302132_inspect"] = t
+spec.loader.exec_module(t)
+import inspect
+print("window:", t._spec.__doc__ if hasattr(t, "_spec") else "")
+src = inspect.getsource(t._build_e2e_artifacts)
+print(src)

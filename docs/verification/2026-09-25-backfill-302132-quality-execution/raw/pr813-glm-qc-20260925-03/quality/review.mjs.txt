@@ -1,0 +1,187 @@
+import { installStageGuard, installGateway, bindStageResult } from './pi_review_protocol.mjs';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { execFileSync, spawn } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { Type } from '/opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent/node_modules/typebox/build/index.mjs';
+import { createBashTool, createLocalBashOperations, createReadTool, createWriteTool } from '/opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent/dist/index.js';
+
+const ROOT = path.dirname(fileURLToPath(import.meta.url));
+const CONFIG = JSON.parse(fs.readFileSync(path.join(ROOT, 'config.json'), 'utf8'));
+const PYTHON = CONFIG.python;
+const hash = value => createHash('sha256').update(value).digest('hex');
+const quote = value => "'" + value.replaceAll("'", "'\\''") + "'";
+const finishPrompt = 'STAGE CLOSEOUT. Call deliver_stage NOW with the complete JSON required by the original prompt. Use only observed evidence; missing work stays explicit. No more reads or execution. A completed deliverable is not a PASS verdict.';
+
+export function phaseFor(admitted, elapsedMs) {
+  return admitted >= 16 || elapsedMs >= 420000 ? 'report' : 'explore';
+}
+
+export function reportPayload(payload) {
+  return { ...payload, tools: payload.tools.filter(t => t.function?.name === 'deliver_stage'), tool_choice: { type: 'function', function: { name: 'deliver_stage' } }, messages: [...payload.messages, { role: 'user', content: finishPrompt }] };
+}
+
+export function validateCredential(token) {
+  if (typeof token !== 'string' || token.length < 8 || /[\r\n]/.test(token)) throw new Error('credential shape');
+  return { auth_type: 'existing_api_key', expiry_verified: false };
+}
+
+export function install(pi, { out, token, clock = Date.now, terminate = code => process.exit(code) }) {
+  const tree = fs.realpathSync(CONFIG.tree);
+  const work = path.join(ROOT, 'work');
+  const logs = path.join(out, 'commands');
+  const provider = JSON.parse(fs.readFileSync(path.join(ROOT, 'provider-template.json'), 'utf8'));
+  if (provider.baseUrl !== 'http://127.0.0.1:19917/v1' || provider.api !== 'openai-completions' || provider.models?.length !== 1 || provider.models[0].id !== 'glm-5.3')
+    throw new Error('fixed provider route mismatch');
+  const claims = validateCredential(token, clock() / 1000);
+  fs.writeFileSync(path.join(out, 'credential.json'), JSON.stringify({ status: 'READY', ...claims, claim_signature_locally_verified: false, prices_verified: false, token_sha256: hash(token), token_storage: 'host process memory only' }, null, 2), { flag: 'wx', mode: 0o600 });
+  pi.registerProvider('glm-direct-review', { ...provider, apiKey: token });
+  let admitted = 0;
+  let report = false;
+  let reportAdmitted = false;
+  let sequence = 0;
+  let delivered = false;
+  const stage = process.env.REVIEW_PHASE;
+  installStageGuard(pi, {out, stage, tools: CONFIG.stage_tools, terminate});
+  if (stage === 'gateway') installGateway(pi, {out, tree, terminate});
+  const started = clock();
+  const toolEnv = { HOME: work, PATH: '/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin', LANG: 'C.UTF-8', TMPDIR: path.join(work, 'tmp'), PYTHONDONTWRITEBYTECODE: '1', PYTHONPATH: tree, FWP_TEST_RECEIPT: '0', GIT_OPTIONAL_LOCKS: '0', FORESIGHT_USERS_DIR: path.join(work, 'users') };
+  const append = (name, value) => fs.appendFileSync(path.join(out, name), JSON.stringify(value) + '\n', { mode: 0o600 });
+  const deny = reason => {
+    fs.writeFileSync(path.join(out, 'controller-stop.json'), JSON.stringify({ reason, admitted, reportAdmitted }));
+    terminate(75);
+    throw new Error('admission denied: ' + reason);
+  };
+  pi.on('before_provider_request', (event, ctx) => {
+    if (ctx.model?.provider !== 'glm-direct-review' || ctx.model?.id !== 'glm-5.3' || ctx.model?.baseUrl !== provider.baseUrl || ctx.model?.api !== provider.api || event.payload?.model !== 'glm-5.3') return deny('route');
+    if (admitted >= 24 || clock() - started >= 600000 || reportAdmitted || delivered) return deny('budget_or_report_already_dispatched');
+    report = stage === 'report' || phaseFor(admitted, clock() - started) === 'report';
+    append('request-admissions.jsonl', { admission: ++admitted, phase: report ? 'report' : 'explore', timestamp: new Date(clock()).toISOString(), provider: 'glm-direct-review', model: 'glm-5.3' });
+    const payload = { ...event.payload };
+    payload.reasoning_effort = 'low';
+    if (stage !== 'gateway') {
+      const allowed = CONFIG.stage_tools[stage];
+      payload.tools = payload.tools.filter(t => allowed.includes(t.function?.name));
+    }
+    const temperatureRemoved = false;
+    append('payload-shapes.jsonl', { admission: admitted, stage: process.env.REVIEW_PHASE, stream: payload.stream, model: payload.model, tools: payload.tools?.map(t => t.function?.name), temperature_removed: temperatureRemoved, reasoning_effort: payload.reasoning_effort, max_tokens: payload.max_tokens, max_completion_tokens: payload.max_completion_tokens });
+    if (report) {
+      reportAdmitted = true;
+      return reportPayload(payload);
+    }
+    return payload;
+  });
+  pi.on('after_provider_response', event => {
+    append('responses.jsonl', { admission: admitted, status: event.status });
+    if ([400, 429].includes(event.status)) deny('provider_http_' + event.status);
+  });
+  pi.on('tool_call', event => {
+    if (event.toolName === 'deliver_stage' && stage !== 'gateway') return;
+    if (report || delivered) return { block: true, terminate: true, reason: 'Closeout only.' };
+    if (stage === 'explore' && event.toolName === 'bash') return { block: true, terminate: true, reason: 'Explore cannot execute commands.' };
+    if (!['read', 'write', 'bash'].includes(event.toolName)) return { block: true, terminate: true, reason: 'Tool not authorized.' };
+  });
+  pi.on('message_end', event => {
+    const m = event.message;
+    if (m.role !== 'assistant') return;
+    if (m.stopReason === 'error' || m.stopReason === 'aborted') {
+      fs.writeFileSync(path.join(out, 'model-failure.json'), JSON.stringify({ stopReason: m.stopReason, admission: admitted }));
+      return;
+    }
+    if (m.content.some(item => item.type === 'toolCall')) return;
+    const text = m.content.filter(item => item.type === 'text').map(item => item.text).join('\n');
+    if (text && stage === 'gateway') fs.writeFileSync(path.join(out, 'REPORT.md'), text + '\n', { flag: 'wx' });
+  });
+  const audit = (kind, id, params) => {
+    const dir = path.join(logs, String(++sequence).padStart(3, '0') + '-' + kind);
+    fs.mkdirSync(dir);
+    fs.writeFileSync(path.join(dir, 'request.json'), JSON.stringify({ toolCallId: id, params }));
+    return dir;
+  };
+  pi.registerTool({
+    name: 'deliver_stage', label: 'Deliver review stage',
+    description: 'Submit the final structured stage JSON and terminate immediately. This is the only valid review stage closeout.',
+    parameters: Type.Object({ result: Type.Object({}, { additionalProperties: true, description: 'Structured stage content object, not a JSON-encoded string. Include required evidence fields. The controller sets complete=true when you call deliver_stage; omit it (never send complete=false). Do NOT include stage, axis, revision or baseline; the controller owns these fields. Never fabricate evidence.' }) }),
+    async execute(id, params) {
+      if (delivered || stage === 'gateway') throw new Error('invalid delivery');
+      const dir = audit('deliver_stage', id, params);
+      let data;
+      try { data = bindStageResult(params.result, {...CONFIG, stage}); }
+      catch (error) { return deny('delivery_content_invalid: ' + error.message); }
+      if (data.stage !== stage || data.axis !== CONFIG.axis || data.revision !== CONFIG.revision || data.baseline !== CONFIG.baseline || data.complete !== true)
+        throw new Error('delivery identity mismatch');
+      if (stage === 'explore' && (!Array.isArray(data.probe_files) || !data.probe_files.length)) throw new Error('no probes');
+      if (stage === 'report' && (!['PASS', 'PASS_WITH_LIMITS', 'CHANGES_REQUIRED', 'BLOCKED_INCOMPLETE_EVIDENCE'].includes(data.verdict) || !Array.isArray(data.claims) || data.claims.length !== 7)) throw new Error('incomplete final verdict');
+      fs.writeFileSync(path.join(out, 'submission.json'), JSON.stringify(data, null, 2) + '\n', { flag: 'wx' });
+      fs.writeFileSync(path.join(out, 'REPORT.md'), '```json\n' + JSON.stringify(data, null, 2) + '\n```\n', { flag: 'wx' });
+      fs.writeFileSync(path.join(dir, 'result.json'), JSON.stringify({ delivered: true, terminate: true }));
+      delivered = true;
+      return { content: [{ type: 'text', text: 'Structured stage submitted.' }], details: data, terminate: true };
+    }
+  });
+  const bashTemplate = createBashTool(tree);
+  pi.registerTool({ ...bashTemplate, promptGuidelines: ['bash executes only in the review sandbox; use the supplied Python interpreter. Never use a pipe to tail for tests; full raw output is captured automatically.'], async execute(id, params, signal, update) {
+    if (report || stage === 'explore') throw new Error('execution forbidden in this phase');
+    if (stage === 'execute' && /[;|&\n]/.test(params.command)) throw new Error('one direct command only; no shell chaining');
+    const dir = audit('bash', id, params);
+    const fd = fs.openSync(path.join(dir, 'output.log'), 'wx');
+    const local = createLocalBashOperations({ shellPath: '/bin/bash' });
+    const tool = createBashTool(tree, {
+      exposeSessionEnvironment: false,
+      spawnHook: ({ command }) => ({ command: 'exec /usr/bin/sandbox-exec -f ' + quote(path.join(ROOT, 'tools.sb')) + ' /bin/bash --noprofile --norc -c ' + quote(command), cwd: tree, env: toolEnv }),
+      operations: { async exec(command, cwd, options) {
+        try {
+          const result = await local.exec(command, cwd, { ...options, onData(data) { fs.writeSync(fd, data); options.onData(data); } });
+          fs.writeFileSync(path.join(dir, 'result.json'), JSON.stringify(result));
+          return result;
+        } catch (error) {
+          fs.writeFileSync(path.join(dir, 'result.json'), JSON.stringify({ error: String(error) }));
+          throw error;
+        }
+      } },
+    });
+    try { return await tool.execute(id, { ...params, timeout: Math.min(params.timeout || 120, 120) }, signal, update); }
+    finally { fs.closeSync(fd); }
+  } });
+  for (const kind of ['read', 'write']) {
+    const template = kind === 'read' ? createReadTool(tree) : createWriteTool(tree);
+    pi.registerTool({ ...template, async execute(id, params, signal) {
+      if (report) throw new Error('report-only');
+      const dir = audit(kind, id, params);
+      const output = await new Promise((resolve, reject) => {
+        const child = spawn('/usr/bin/sandbox-exec', ['-f', path.join(ROOT, 'tools.sb'), PYTHON, '-B', path.join(ROOT, 'file_tool.py')], { cwd: tree, env: toolEnv, stdio: ['pipe', 'pipe', 'pipe'] });
+        const stdout = []; const stderr = [];
+        const abort = () => child.kill('SIGKILL');
+        const timer = setTimeout(abort, 30000);
+        signal?.addEventListener('abort', abort, { once: true });
+        child.stdout.on('data', d => stdout.push(d)); child.stderr.on('data', d => stderr.push(d));
+        child.on('error', reject);
+        child.on('close', code => {
+          clearTimeout(timer); signal?.removeEventListener('abort', abort);
+          const text = Buffer.concat(stdout).toString(); const error = Buffer.concat(stderr).toString();
+          fs.writeFileSync(path.join(dir, 'output.log'), text + error);
+          fs.writeFileSync(path.join(dir, 'result.json'), JSON.stringify({ exitCode: code }));
+          if (code !== 0) reject(new Error(error || 'sandbox file tool failed')); else resolve(text);
+        });
+        child.stdin.on('error', () => {});
+        child.stdin.end(JSON.stringify({ kind, params, out }));
+      });
+      return { content: [{ type: 'text', text: output }], details: {} };
+    } });
+  }
+}
+
+export default function (pi) {
+  const out = fs.realpathSync(process.env.REVIEW_OUTPUT_DIR || '/invalid-output');
+  try {
+    if (path.dirname(out) !== ROOT) throw new Error('unexpected output');
+    fs.writeFileSync(path.join(out, 'auth-reserved.json'), JSON.stringify({ status: 'RESERVED', model_requests: 0 }), { flag: 'wx', mode: 0o600 });
+    const token = execFileSync(PYTHON, ['-B', path.join(ROOT, '../glm_credential.py'), '--emit'], { encoding: 'utf8', timeout: 35000, maxBuffer: 65536, env: { HOME: '/Users/a77', PATH: '/opt/homebrew/bin:/usr/bin:/bin', LANG: 'C.UTF-8' }, stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+    install(pi, { out, token });
+  } catch {
+    fs.writeFileSync(path.join(out, 'bootstrap-failure.json'), JSON.stringify({ status: 'BLOCKED', provider_requests: 0 }));
+    process.stderr.write('Credential or extension preflight blocked; no retry.\n');
+    process.exit(70);
+  }
+}

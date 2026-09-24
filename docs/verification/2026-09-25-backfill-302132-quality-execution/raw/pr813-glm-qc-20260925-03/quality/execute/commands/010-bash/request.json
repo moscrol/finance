@@ -1,0 +1,1 @@
+{"toolCallId":"call_d158e0c16b9248c38799ba13","params":{"command":"OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 /Users/a77/finance-workspace-private/.venv-workbench/bin/python -B /Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-03/quality/work/probes/check_new_syntax.py"}}

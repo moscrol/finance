@@ -1,0 +1,44 @@
+"""Clarify an evidence reference with a parenthetical note; retain the original audit."""
+import json
+from pathlib import Path
+import unittest
+
+
+def matches(reference, expected):
+    return isinstance(reference, str) and (reference == expected or
+        (reference.startswith(expected + ' (') and reference.endswith(')')))
+
+
+class ReferenceChecks(unittest.TestCase):
+    def test_exact(self):
+        self.assertTrue(matches('/work/seed.xml', '/work/seed.xml'))
+    def test_annotation(self):
+        self.assertTrue(matches('/work/seed.xml (7 tests, 0 failures)', '/work/seed.xml'))
+    def test_different_file(self):
+        self.assertFalse(matches('/work/seed.xml.other (7 tests)', '/work/seed.xml'))
+    def test_non_string(self):
+        self.assertFalse(matches(None, '/work/seed.xml'))
+
+
+def main():
+    root = Path(__file__).resolve().parent
+    original = json.loads((root / 'provenance-audit.json').read_text())
+    report = json.loads((root / 'quality/report/parsed.json').read_text())
+    actual = root / original['supplied_attempts'][-1]['xml']
+    assert matches(report['supplied_xml'], str(actual))
+    assert original['reasons'] == ['wrong_supplied_xml_reference']
+    result = unittest.TextTestRunner().run(unittest.defaultTestLoader.loadTestsFromTestCase(ReferenceChecks))
+    assert result.wasSuccessful()
+    clarification = {'status': 'PROVENANCE_COUNTS_VALID_WITH_HOST_REFERENCE_CLARIFICATION',
+        'original_audit_retained': True, 'schema_never_required_bare_path': True,
+        'observed_reference': report['supplied_xml'], 'actual_xml': str(actual),
+        'reason': 'Original host checker treated a human annotation after the correct XML path as a wrong path. Counts and immutable supplied sources already agreed.',
+        'tests': {'run': result.testsRun, 'failures': len(result.failures), 'errors': len(result.errors)},
+        'independent_evidence_gate_unchanged': ['intentional_control_not_observed_first', 'invalid_control_claim', 'pass_despite_failed_probe_cases'],
+        'reviewer_report_changed': False, 'review_accepted': False}
+    with (root / 'provenance-clarification.json').open('x') as stream:
+        json.dump(clarification, stream, indent=2)
+    print(json.dumps(clarification))
+
+if __name__ == '__main__':
+    main()

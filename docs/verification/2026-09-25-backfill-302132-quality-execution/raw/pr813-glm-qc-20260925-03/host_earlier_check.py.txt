@@ -1,0 +1,50 @@
+"""Sandboxed host fixture diagnosis. No reviewer evidence or verdict is rewritten."""
+import hashlib
+import json
+from pathlib import Path
+import subprocess
+
+from audit_axis import xml_counts
+
+ROOT = Path(__file__).resolve().parent
+OUT = ROOT / 'host-earlier'
+WORK = OUT / 'work'
+CAND = ROOT / 'candidate'
+PY = '/Users/a77/finance-workspace-private/.venv-workbench/bin/python'
+SOURCE = ROOT / 'quality/work/probes/test_new_c3_v1.py'
+sha = hashlib.sha256(SOURCE.read_bytes()).hexdigest()
+for name in ('tmp', 'users'):
+    (WORK / name).mkdir()
+policy = (ROOT / 'quality/tools.sb').read_text().replace(str(ROOT / 'quality/work'), str(WORK))
+policy += '\n(allow file-read* (subpath "' + str(OUT) + '"))\n'
+(OUT / 'tools.sb').write_text(policy)
+env = {'HOME': str(WORK), 'PATH': '/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin', 'LANG': 'C.UTF-8',
+       'TMPDIR': str(WORK / 'tmp'), 'PYTHONDONTWRITEBYTECODE': '1', 'PYTHONPATH': str(CAND),
+       'FWP_TEST_RECEIPT': '0', 'GIT_OPTIONAL_LOCKS': '0', 'FORESIGHT_USERS_DIR': str(WORK / 'users'),
+       'OPENBLAS_NUM_THREADS': '1', 'OMP_NUM_THREADS': '1'}
+receipts = []
+for label, selection in [('baseline', ['-k', 'baseline']), ('all_cases', [])]:
+    xml = WORK / (label + '.xml')
+    command = ['/usr/bin/sandbox-exec', '-f', str(OUT / 'tools.sb'), PY, '-m', 'pytest', str(WORK / 'probes/test_earlier_fixture_adapter.py'),
+               '--confcutdir=' + str(WORK), '-p', 'no:cacheprovider', '-q', '--basetemp=' + str(WORK / 'tmp' / label),
+               '--junitxml=' + str(xml), *selection]
+    with (OUT / (label + '.log')).open('xb') as stream:
+        result = subprocess.run(command, cwd=CAND, env=env, stdin=subprocess.DEVNULL, stdout=stream, stderr=subprocess.STDOUT, timeout=120)
+    counts = xml_counts(xml.read_bytes()) if xml.exists() else None
+    receipts.append({'label': label, 'command': command, 'exit_code': result.returncode, 'counts': counts})
+    if result.returncode:
+        break
+assert hashlib.sha256(SOURCE.read_bytes()).hexdigest() == sha
+assert not subprocess.check_output(['git', '-C', str(CAND), 'status', '--porcelain'], text=True).strip()
+# Preserve acceptance JSON too, without archiving disposable synthetic databases.
+for path in (WORK / 'tmp').rglob('out.json'):
+    dest = OUT / 'acceptance-json' / path.relative_to(WORK / 'tmp')
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_bytes(path.read_bytes())
+record = {'status': 'PASS' if len(receipts) == 2 and all(r['exit_code'] == 0 for r in receipts) else 'BLOCKED_HOST_DIAGNOSIS',
+          'role': 'host-only fixture diagnosis, not independent QC', 'results': receipts,
+          'reviewer_source_unchanged_sha256': sha, 'reviewer_assertions_reused_without_change': True,
+          'candidate_unchanged': True, 'new_model_requests': 0, 'production_access': False}
+with (OUT / 'receipt.json').open('x') as stream:
+    json.dump(record, stream, indent=2)
+print(json.dumps(record))

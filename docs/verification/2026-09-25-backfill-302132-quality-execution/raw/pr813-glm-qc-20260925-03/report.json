@@ -1,0 +1,363 @@
+{
+  "status": "SPEC_SCOPED_DELIVERED_QUALITY_FINAL_REJECTED",
+  "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+  "baseline": "4cc15e703f81bce8abadee00f68caacdb0c72b4d",
+  "remote_main": "d21707ca6c71e4e39194b01ef9549bc893595d3f",
+  "requests_this_turn": 39,
+  "request_cap": 39,
+  "controllers": [
+    {
+      "stage": "execute",
+      "status": "COMPLETE",
+      "max_requests": 17,
+      "automatic_retries": 0,
+      "shim_sha256": "5c26084237b366b9d7b758f7811536a767819b4d23c5fd72f54785014e9c28b5",
+      "stage_runner_exit": 0,
+      "shim_exit": 0,
+      "shim_counts": {
+        "active": 0,
+        "cancelled": 0,
+        "completed": 17,
+        "dispatched": 17,
+        "dropped_temperature": 0,
+        "failed": 0,
+        "requests": 17,
+        "shutdown_complete": true,
+        "stopped_for": null
+      },
+      "elapsed_seconds": 93.29366575018503,
+      "stage_status": "STAGE_COMPLETE",
+      "request_counts_agree": true
+    },
+    {
+      "stage": "explore",
+      "status": "COMPLETE",
+      "max_requests": 17,
+      "automatic_retries": 0,
+      "shim_sha256": "5c26084237b366b9d7b758f7811536a767819b4d23c5fd72f54785014e9c28b5",
+      "stage_runner_exit": 0,
+      "shim_exit": 0,
+      "shim_counts": {
+        "active": 0,
+        "cancelled": 0,
+        "completed": 17,
+        "dispatched": 17,
+        "dropped_temperature": 0,
+        "failed": 0,
+        "requests": 17,
+        "shutdown_complete": true,
+        "stopped_for": null
+      },
+      "elapsed_seconds": 92.83140991698019,
+      "stage_status": "STAGE_COMPLETE",
+      "request_counts_agree": true
+    },
+    {
+      "stage": "gateway",
+      "status": "COMPLETE",
+      "max_requests": 4,
+      "automatic_retries": 0,
+      "shim_sha256": "5c26084237b366b9d7b758f7811536a767819b4d23c5fd72f54785014e9c28b5",
+      "shim_exit": 0,
+      "shim_counts": {
+        "active": 0,
+        "cancelled": 0,
+        "completed": 4,
+        "dispatched": 4,
+        "dropped_temperature": 0,
+        "failed": 0,
+        "requests": 4,
+        "shutdown_complete": true,
+        "stopped_for": null
+      },
+      "elapsed_seconds": 17.09757325006649,
+      "stage_status": "PASS",
+      "request_counts_agree": true
+    },
+    {
+      "stage": "report",
+      "status": "COMPLETE",
+      "max_requests": 1,
+      "automatic_retries": 0,
+      "shim_sha256": "5c26084237b366b9d7b758f7811536a767819b4d23c5fd72f54785014e9c28b5",
+      "stage_runner_exit": 0,
+      "shim_exit": 0,
+      "shim_counts": {
+        "active": 0,
+        "cancelled": 0,
+        "completed": 1,
+        "dispatched": 1,
+        "dropped_temperature": 0,
+        "failed": 0,
+        "requests": 1,
+        "shutdown_complete": true,
+        "stopped_for": null
+      },
+      "elapsed_seconds": 21.557318334002048,
+      "stage_status": "STAGE_COMPLETE",
+      "request_counts_agree": true
+    }
+  ],
+  "qc_complete": false,
+  "quality_final_accepted": false,
+  "structural_tool_delivery_completed": true,
+  "quality_gate": {
+    "status": "BLOCKED_EVIDENCE_AUDIT",
+    "axis": "quality",
+    "scope": [
+      "C3"
+    ],
+    "reasons": [
+      "intentional_control_not_observed_first",
+      "invalid_control_claim",
+      "pass_despite_failed_probe_cases"
+    ],
+    "observed_probe_attempts": [
+      {
+        "command": "execute/commands/004-bash",
+        "path": "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-03/quality/work/probe-results-seeded.xml",
+        "sha256": "9853d92ea34cdb89f5901513119ca2826c72ed1e5ac5d48901ec80ff1443054b",
+        "counts": {
+          "executed": 7,
+          "passed": 7,
+          "failed": 0,
+          "errors": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "command": "execute/commands/011-bash",
+        "path": "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-03/quality/work/probe-results-new-v1.xml",
+        "sha256": "803fb5fddbad383fb6b23169e69b10a614108273f04c2cdfcba74a1efed824c4",
+        "counts": {
+          "executed": 2,
+          "passed": 1,
+          "failed": 1,
+          "errors": 0,
+          "skipped": 0
+        }
+      }
+    ],
+    "observed_author_attempts": [],
+    "positive_control_observed_first": false,
+    "author_test_commands": 0,
+    "counts_only_not_semantic_approval": true,
+    "independent_report": {
+      "author_test_counts": {
+        "errors": 0,
+        "executed": 0,
+        "failed": 0,
+        "passed": 0,
+        "skipped": 0
+      },
+      "claims": [
+        {
+          "evidence": "本轴仅审C3 (inputs/claims.md)",
+          "id": "C1",
+          "status": "out_of_scope"
+        },
+        {
+          "evidence": "本轴仅审C3",
+          "id": "C2",
+          "status": "out_of_scope"
+        },
+        {
+          "evidence": "已验证子集: 合成DuckDB探针确认 _data_checks (scripts/verify_302132_backfill_acceptance.py:540-728, xa:551-562) 的全列双向EXCEPT ALL多重集语义捕获窗口外行 amount/timestamp/删除/插入/重复(去PK CTAS构造,已披露)及其他股票(000001.SZ)变异, 且基线通过; 另自研null_column(stock_name置NULL)亦被捕获。未验证: 生产形数值计数(64行/64非空close/pct_chg/amount、technical39/window161)未在合成日历独立复测; earlier_than_window用例因fixture无窗口前行未测。声明保持not_verified",
+          "id": "C3",
+          "status": "not_verified"
+        },
+        {
+          "evidence": "本轴仅审C3",
+          "id": "C4",
+          "status": "out_of_scope"
+        },
+        {
+          "evidence": "本轴仅审C3; 未跑37项验收或副本演练; 未授权生产副本运行",
+          "id": "C5",
+          "status": "out_of_scope"
+        },
+        {
+          "evidence": "本轴仅审C3",
+          "id": "C6",
+          "status": "out_of_scope"
+        },
+        {
+          "evidence": "证据绑定类声明; 本会话未复核gate计数",
+          "id": "C7",
+          "status": "out_of_scope"
+        }
+      ],
+      "findings": [
+        "审查对象: 候选 scripts/verify_302132_backfill_acceptance.py main->_data_checks 的 target_outside_window_allcols 与 fact_other_stocks_allcols (EXCEPT ALL 双向, :551-562), 非仅writer _accept",
+        "供给套件 (probe_c3_acceptance_v2.py + test_seeded_c3.py, 7用例): 7/7通过 — 基线PASS + 窗口外行 amount/timestamp/删除/插入/重复/其他股票 六种变异全部被oracle捕获且指向正确检查名; XML: work/probe-results-seeded.xml",
+        "自研新套件 test_new_c3_v1.py (2用例): null_column通过; earlier_than_window失败系fixture前置不足(目标股无窗口前行), 非产品缺陷; XML: work/probe-results-new-v1.xml",
+        "无产品缺陷认定: 所有实际执行变异均被验收oracle捕获",
+        "C3含生产形数值计数(64/39/161)未在合成日历覆盖, 保持not_verified",
+        "控制脚本control_c3.py未执行, 正向控制以positive_control.py断言退出码1实现 (OBSERVED_EXPECTED_FAILURE)"
+      ],
+      "limits": [
+        "仅合成DuckDB于quality/work; 无git/网络/生产库/部署/候选写入; 未运行作者测试套件, author_test_counts全零",
+        "最后一轮自研套件计数为 test_new_c3_v1.xml: 2执行/1过/1败(fixture无窗口前行), 该失败为探针fixture前置不足非产品缺陷; test_new_c3_v2.py(修正other_dup至CAL[0])本会话未获执行, 不计入任何计数",
+        "重复/other_dup探测使用clone-only CTAS去PK, 非真实schema路径, 已披露",
+        "窗口前行变异与生产形数值计数(64行/64nonnull/technical39/window161)未独立复测, C3保持not_verified",
+        "本结论非整体PASS, 不构成合并或生产授权"
+      ],
+      "positive_control": {
+        "classification": "probe_bug",
+        "evidence": "execute/commands/002-bash: python -B work/positive_control.py -> AssertionError: intentional probe_bug control, exit 1 (OBSERVED_EXPECTED_FAILURE); control_c3.py另写但未执行"
+      },
+      "probe_provenance": "probes/probe_c3_acceptance_v2.py 为前审者断言源(6变异+基线, 复用作者_build_e2e_artifacts夹具); probes/test_seeded_c3.py 为HOST夹具修复(收据拷贝至clone派生路径; other_stock变异改在CAL[0]并断言1行受影响); 二者本会话原样复核执行, 未修改; 新自研断言(test_new_c3_v1.py)独立于该套件",
+      "reviewer_probe_counts": {
+        "errors": 0,
+        "executed": 2,
+        "failed": 1,
+        "passed": 1,
+        "skipped": 0
+      },
+      "supplied_probe_counts": {
+        "errors": 0,
+        "executed": 7,
+        "failed": 0,
+        "passed": 7,
+        "skipped": 0
+      },
+      "supplied_xml": "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-03/quality/work/probe-results-seeded.xml (7 tests, 0 failures)",
+      "verdict": "PASS_WITH_LIMITS",
+      "complete": true,
+      "stage": "report",
+      "axis": "quality",
+      "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+      "baseline": "4cc15e703f81bce8abadee00f68caacdb0c72b4d"
+    },
+    "whole_candidate_approved": false
+  },
+  "supplied_reviewed_suite": {
+    "executed": 7,
+    "passed": 7,
+    "failed": 0
+  },
+  "new_reviewer_suite": {
+    "executed": 2,
+    "passed": 1,
+    "failed": 1
+  },
+  "new_passing_case": "null_column: outside stock_name nonNULL -> NULL is rejected by target_outside_window_allcols",
+  "new_failed_case": "earlier_than_window: synthetic fixture lacks a target row before window_start; no product mutation executed",
+  "control_order": "001 cat inputs, 002 expected assertion exit1, 003 syntax, 004 supplied pytest; before tests but not first bash as contracted",
+  "report_rejection": "positive_control.status missing; PASS_WITH_LIMITS despite unresolved failed probe; no host report rewrite",
+  "host_earlier_diagnosis": {
+    "status": "PASS",
+    "role": "host-only fixture diagnosis, not independent QC",
+    "results": [
+      {
+        "label": "baseline",
+        "command": [
+          "/usr/bin/sandbox-exec",
+          "-f",
+          "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-03/host-earlier/tools.sb",
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "pytest",
+          "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-03/host-earlier/work/probes/test_earlier_fixture_adapter.py",
+          "--confcutdir=/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-03/host-earlier/work",
+          "-p",
+          "no:cacheprovider",
+          "-q",
+          "--basetemp=/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-03/host-earlier/work/tmp/baseline",
+          "--junitxml=/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-03/host-earlier/work/baseline.xml",
+          "-k",
+          "baseline"
+        ],
+        "exit_code": 0,
+        "counts": {
+          "executed": 1,
+          "passed": 1,
+          "failed": 0,
+          "errors": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "label": "all_cases",
+        "command": [
+          "/usr/bin/sandbox-exec",
+          "-f",
+          "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-03/host-earlier/tools.sb",
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "pytest",
+          "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-03/host-earlier/work/probes/test_earlier_fixture_adapter.py",
+          "--confcutdir=/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-03/host-earlier/work",
+          "-p",
+          "no:cacheprovider",
+          "-q",
+          "--basetemp=/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-03/host-earlier/work/tmp/all_cases",
+          "--junitxml=/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-03/host-earlier/work/all_cases.xml"
+        ],
+        "exit_code": 0,
+        "counts": {
+          "executed": 3,
+          "passed": 3,
+          "failed": 0,
+          "errors": 0,
+          "skipped": 0
+        }
+      }
+    ],
+    "reviewer_source_unchanged_sha256": "550bcf560cc048f2a9ad21beaabbd42c600db8a350e9f75772224d05d826b05a",
+    "reviewer_assertions_reused_without_change": true,
+    "candidate_unchanged": true,
+    "new_model_requests": 0,
+    "production_access": false
+  },
+  "provenance_clarification": {
+    "status": "PROVENANCE_COUNTS_VALID_WITH_HOST_REFERENCE_CLARIFICATION",
+    "original_audit_retained": true,
+    "schema_never_required_bare_path": true,
+    "observed_reference": "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-03/quality/work/probe-results-seeded.xml (7 tests, 0 failures)",
+    "actual_xml": "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-03/quality/work/probe-results-seeded.xml",
+    "reason": "Original host checker treated a human annotation after the correct XML path as a wrong path. Counts and immutable supplied sources already agreed.",
+    "tests": {
+      "run": 4,
+      "failures": 0,
+      "errors": 0
+    },
+    "independent_evidence_gate_unchanged": [
+      "intentional_control_not_observed_first",
+      "invalid_control_claim",
+      "pass_despite_failed_probe_cases"
+    ],
+    "reviewer_report_changed": false,
+    "review_accepted": false
+  },
+  "spec_prior": {
+    "root": "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-02",
+    "accepted_guard_subset_only": true,
+    "independent_passed": 5
+  },
+  "unverified": [
+    "C3 earlier-row reviewer execution",
+    "C3 production-shaped 64/39/161 counts",
+    "C1",
+    "C4",
+    "C5",
+    "C6",
+    "C7",
+    "current main combination"
+  ],
+  "identities": {
+    "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-03/candidate": {
+      "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+      "status": ""
+    },
+    "/Users/a77/.finance-runtime/reviews/backfill-302132-0923/forward-02/tree": {
+      "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+      "status": ""
+    }
+  },
+  "owned_processes_stopped": true,
+  "merge_authorized": false,
+  "production_authorized": false,
+  "production_executed": false,
+  "sealed_at": "2026-09-24T17:58:48.660544+00:00"
+}
