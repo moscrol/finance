@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import plistlib
 import subprocess
 from pathlib import Path
 
@@ -80,8 +81,8 @@ def test_launchd_symlink_reference_is_canonicalized(tmp_path):
     home = tmp_path / "home"
     (home / "Library/LaunchAgents").mkdir(parents=True)
     (home / "runtime").symlink_to(candidate, target_is_directory=True)
-    (home / "Library/LaunchAgents/job.plist").write_text(
-        f"<string>{home / 'runtime'}</string>\n"
+    (home / "Library/LaunchAgents/job.plist").write_bytes(
+        plistlib.dumps({"WorkingDirectory": str(home / "runtime")})
     )
 
     result = run_cleanup(repo, home, "exit 0")
@@ -116,3 +117,40 @@ def test_old_clean_detached_tree_can_be_removed(tmp_path):
     assert result.returncode == 0, result.stdout + result.stderr
     assert not candidate.exists()
     assert "RM" in result.stdout
+
+
+def test_graph_changes_are_not_exempt_from_dirty_guard(tmp_path):
+    repo = make_repo(tmp_path)
+    candidate = add_detached(repo, tmp_path / "candidate")
+    (candidate / ".code-review-graph").mkdir()
+    (candidate / ".code-review-graph/notes.md").write_text("uncommitted evidence")
+    age_tree(candidate)
+    result = run_cleanup(repo, tmp_path / "home", "exit 0")
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert candidate.exists()
+    assert ".code-review-graph/notes.md" in result.stdout
+
+
+def test_process_blocker_identifies_pid_and_path(tmp_path):
+    repo = make_repo(tmp_path)
+    candidate = add_detached(repo, tmp_path / "candidate")
+    age_tree(candidate)
+    result = run_cleanup(
+        repo, tmp_path / "home", f"printf 'p123\\ncworker\\nfcwd\\nn{candidate}\\n'",
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert candidate.exists()
+    assert "pid=123" in result.stdout and "fd=cwd" in result.stdout
+
+
+def test_malformed_plist_stops_cleanup(tmp_path):
+    repo = make_repo(tmp_path)
+    candidate = add_detached(repo, tmp_path / "candidate")
+    age_tree(candidate)
+    home = tmp_path / "home"
+    (home / "Library/LaunchAgents").mkdir(parents=True)
+    (home / "Library/LaunchAgents/broken.plist").write_text("broken")
+    result = run_cleanup(repo, home, "exit 0")
+    assert result.returncode == 4
+    assert candidate.exists()
+    assert "broken.plist" in result.stderr
