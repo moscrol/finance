@@ -4,7 +4,7 @@
 Pi尾项队列的离线局部修补：同题重复句按出现位置绑定本次来源，不按文字展开所有组合。基座main03352758c，代码3198df4964f3fc52fff7488b17763955ba15e4f2。
 
 ## 当前状态
-代码已本地提交，未push/PR/合main/部署，付费请求0。未接管#877原作者树7a89e2510。两组变异定义已入库但尚未运行，末次load1=9.31>8，不启动新测试。无本轮后台。
+代码已本地提交，未push/PR/合main/部署，付费请求0。未接管#877原作者树7a89e2510。a99fc9c90仅修变异选择器，应用及测试同3198；两组撤保护/恢复现已闭合。此树无后台。
 
 ## 决策与被否方案
 沿用题号与未消费句索引，否了文本去重和新增持久化ID；题内原有有序合同足够。只改question输出，边界声明旧映射不扩修。删前句后继续匹配其他文本，否了耗尽共享迭代器。详情见2026-09-25-material-claim-occurrence.md。
@@ -13,10 +13,10 @@ Pi尾项队列的离线局部修补：同题重复句按出现位置绑定本次
 原八问续稿同题重复组=0，本缺陷不是其方向/基期/库存定性/盈利预设错误的根因修复；真实八问仍失败。未做独审、新自然问答、全量Python、前端/E2E或registry整套准入。doctor报httpx0.25.2不符锁0.28.1，未改共享环境；收据可采信仅指当前环境与受验环境一致，不证明符合锁文件。边界声明及同文删句后的完整来源追踪未验。
 
 ## 下一步
-load1<=8且预计pytest<=2时，以固定3198运行现有runner：--definitions scripts/review_probes/material_claim_occurrence_mutations.json --tests intelligence/tests/test_e2_material_claim_review.py --output <新目录>。再交独审；与#877合流及真实复验另行固定组合/授权，不移签收据。
+交独审；与#877合流及真实复验另行固定组合/授权，不移签收据。新证据与选择器错误原件见2026-09-25-material-occurrence-mutation-closeout.md。
 
 ## 踩过的坑
-Knevo分支独有test_material_prompt_contract.py不在main，首次误列导致exit4/no-tests，原件保留。主检出他人脏改不动。公开投影已删某句时不能因匹配失败吞掉后句。
+变异targets是pytest -k名称，不是完整node ID；旧3198首次撤保护0执行/exit5已被拒收，不算验红。Knevo独有测试误列exit4原件也保留。同文删句投影仍有边界，不因匹配失败吞后句。
 
 ## 已验证
-旧实现新例7F/1P，修后8P；固定3198相关21文件736P/4S、collected740，0F/0E；四跳过是旧同类引号排除。Ruff全仓、diff-check、提交hook、定向收据校验均过。收据20260924T161513Z-3198df49-efe4dcd1eb34.json；证据根~/.finance-runtime/reviews/pi-closeout-execution-20260924/material-occurrence-0925/。
+旧实现新例7F/1P转8P；3198及a99各自相关21文件736P/4S、collected740，收据校验过。a99基线57P、两变异5F/7F、各自恢复绿、最终57P，0收集错/跳过/超时且hash恢复。新收据20260924T164630Z-a99fc9c9-03e233816b71.json。证据根~/.finance-runtime/reviews/pi-closeout-execution-20260924/material-occurrence-0925/，两次变异原件分目录保留。
