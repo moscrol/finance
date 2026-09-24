@@ -155,3 +155,103 @@ def test_cli_pending_proposal_is_nonzero_not_acceptance(sample, monkeypatch, cap
     monkeypatch.setattr("sys.argv", ["preview", "--users-root", str(us.root.parent), "--user", "alice", "--proposal", str(proposal)])
     assert probe.main() == 2
     assert json.loads(capsys.readouterr().out)["status"] == "BLOCKED"
+
+
+@pytest.fixture
+def candidate(sample, tmp_path):
+    us, proposal, _ = sample
+    packet = json.loads(proposal.read_text())
+    article_id = packet["sources"][0]["article_id"]
+    patch = {
+        "patch_id": "pp-0123456789ab", "perspective_id": "teacher", "status": "approved",
+        "field": "opportunity_preferences", "value": "growth",
+        "evidence": [{"article_id": article_id}],
+    }
+    path = probe.learning.patch_path(us, "teacher", patch["patch_id"])
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(patch))
+    target = tmp_path / "candidate.json"
+    target.write_text(json.dumps({
+        "status": "isolated_candidate", "perspective_id": "teacher",
+        "proposal_sha256": probe.digest(proposal.read_bytes()),
+        "profile_sha256": probe.digest(lab.profile_path(us, "teacher").read_bytes()),
+        "entries": [{"patch_id": patch["patch_id"], "patch_sha256": probe.digest(path.read_bytes()),
+                     "source_refs": [article_id], "rule": {
+                         "field": patch["field"], "value_sha256": probe.digest(b"growth"),
+                         "all_of": [["private"], ["growth"]], "none_of": [],
+                     }}],
+    }))
+    return target, path
+
+
+def test_candidate_rules_are_in_memory_only_and_do_not_grant_approval(sample, candidate):
+    us, proposal, _ = sample
+    target, _ = candidate
+    before = {p: p.read_bytes() for p in us.root.rglob("*") if p.is_file()}
+    report = probe.preview(us, proposal, target)
+    assert report["with_proposed_rules_and_boundary_in_memory"]["all_cases_passed"]
+    assert report["candidate_rule_count"] == 1
+    assert report["status"] == "BLOCKED" and not report["acceptance_passed"]
+    assert {p: p.read_bytes() for p in us.root.rglob("*") if p.is_file()} == before
+    assert "private growth" not in json.dumps(report)
+    assert "all_of" not in json.dumps(report)
+
+
+@pytest.mark.parametrize("mutate", [
+    lambda p: p.update(status="approved"),
+    lambda p: p.update(perspective_id="another"),
+    lambda p: p.update(proposal_sha256="wrong"),
+    lambda p: p.update(profile_sha256="wrong"),
+    lambda p: p.update(entries=[]),
+    lambda p: p["entries"][0].update(patch_sha256="wrong"),
+    lambda p: p["entries"][0].update(source_refs=["pa-unknown"]),
+    lambda p: p["entries"][0]["rule"].update(value_sha256="wrong"),
+    lambda p: p["entries"][0]["rule"].update(field="risk_triggers"),
+])
+def test_invalid_candidate_rejected(sample, candidate, mutate):
+    us, proposal, _ = sample
+    target, _ = candidate
+    change(target, mutate)
+    with pytest.raises(ValueError):
+        probe.preview(us, proposal, target)
+
+
+@pytest.mark.parametrize("mutate", [
+    lambda p: p.update(status="pending"),
+    lambda p: p.update(perspective_id="another"),
+    lambda p: p.update(patch_id="pp-aaaaaaaaaaaa"),
+    lambda p: p.update(evidence=[]),
+])
+def test_candidate_requires_matching_approved_patch(sample, candidate, mutate):
+    us, proposal, _ = sample
+    target, patch = candidate
+    change(patch, mutate)
+    change(target, lambda p: p["entries"][0].update(patch_sha256=probe.digest(patch.read_bytes())))
+    with pytest.raises(ValueError):
+        probe.preview(us, proposal, target)
+
+
+@pytest.mark.parametrize("which", ["candidate", "patch", "profile", "exam"])
+def test_candidate_phase_concurrent_changes_fail_closed(sample, candidate, monkeypatch, which):
+    us, proposal, _ = sample
+    target, patch = candidate
+    original = probe._score
+
+    def mutate_after_loading(profile, cases):
+        result = original(profile, cases)
+        if profile.get("signal_match_rules"):
+            if which == "candidate":
+                change(target, lambda p: p.update(note="changed"))
+            elif which == "patch":
+                change(patch, lambda p: p.update(status="rejected"))
+            elif which == "profile":
+                change(lab.profile_path(us, "teacher"), lambda p: p.update(note="changed"))
+            else:
+                path = exam.exam_path(us, "teacher")
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("{}")
+        return result
+
+    monkeypatch.setattr(probe, "_score", mutate_after_loading)
+    with pytest.raises(ValueError, match="changed during preview"):
+        probe.preview(us, proposal, target)

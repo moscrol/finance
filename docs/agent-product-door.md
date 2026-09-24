@@ -813,7 +813,7 @@ worker 的资料根按调用参数传递且纳入进程复用键，不继承无�
 
 - `ResearchToolRegistry`：授权、参数规范化、同 key 只跑一次、截止日期过滤。不是 `{name: runner}` 字典。超时/重试在 Episode 批次循环，不要搬进注册表（`services/` 不得 import `runtime/`）。
 - `llm_refine`：传输（重试/流式/预算）+ 任务提示词焊在一个文件。不要合成万能 `generate(task_type)`。
-- `perspective_lab.active_runtime_prompt`：视角注入门。模块里还有路径 helper，不要把整文件当成四方法闭环。
+- `perspective_lab.active_runtime_prompt`：视角注入门。模块里还有路径 helper，不要把整文件当成四方法闭环。`evaluate_role` 是另一个确定性评分积木，不是模型质量判官；审计分支候选支持按精确画像值绑定的 `signal_match_rules`（多条件短语同时成立、反证优先），不改未配置规则或模型提示，未写生产画像。范围及局限见 [候选合同](superpowers/specs/2026-09-25-perspective-signal-contract.md)。
 - 数据块（D0/D6/D9…）：意图门控在块自己的 `applies()`。调用方若要关某一块，只传 `AskOptions.enabled_providers`（或 `evidence_registry.without_providers(...)`）。**不要**再给每个块一个 `include_*_block`。
 
 `force_moneyflow_block` 是「日报强制取 L2」，不是允许开关，仍留在 `AskOptions`。

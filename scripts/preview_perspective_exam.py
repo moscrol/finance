@@ -1,7 +1,7 @@
 """Preview a human-review proposal without saving an exam or approving a rule.
 
 Verify source fingerprints, reuse perspective_exam.score_case, and compare the
-current profile with an in-memory boundary proposal. A valid preview always stays
+current profile with in-memory boundary and optional signal contracts. A valid preview always stays
 BLOCKED (exit 2): matching tests cannot grant approval. Private profile text and
 scoring reasons are represented by hashes/counts, never emitted.
 """
@@ -22,6 +22,8 @@ if str(ROOT) not in sys.path:
 from intelligence import userspace  # noqa: E402
 from intelligence.services import perspective_exam as exam  # noqa: E402
 from intelligence.services import perspective_lab as lab  # noqa: E402
+from intelligence.services import perspective_learning as learning  # noqa: E402
+from intelligence.services import perspective_signals as signals  # noqa: E402
 from scripts.verify_perspective_consumption import digest, require  # noqa: E402
 
 
@@ -42,7 +44,7 @@ def _score(profile: dict, cases: list[dict]) -> dict:
     return {"all_cases_passed": all(row["passed"] for row in rows), "cases": rows}
 
 
-def preview(us: userspace.UserSpace, proposal_path: Path) -> dict:
+def preview(us: userspace.UserSpace, proposal_path: Path, match_candidate: Path | None = None) -> dict:
     tracked: dict[Path, str] = {}
 
     def read_input(path: Path) -> bytes:
@@ -119,12 +121,51 @@ def preview(us: userspace.UserSpace, proposal_path: Path) -> dict:
     hypothetical = copy.deepcopy(profile)
     hypothetical["honest_boundaries"] = [*profile.get("honest_boundaries", []), boundary["text"]]
     proposed = _score(hypothetical, cases)
+    candidate_result = {}
+    if match_candidate is not None:
+        require(not match_candidate.resolve().is_relative_to(us.root.resolve()), "Candidate must stay outside user state")
+        packet = json.loads(read_input(match_candidate))
+        require(isinstance(packet, dict), "Candidate must be an object")
+        require(packet.get("status") == "isolated_candidate", "Not an isolated candidate")
+        require(packet.get("perspective_id") == pid, "Wrong candidate perspective")
+        require(packet.get("proposal_sha256") == tracked[proposal_path], "Candidate proposal changed")
+        require(packet.get("profile_sha256") == tracked[profile_path], "Candidate profile changed")
+        entries = packet.get("entries")
+        require(isinstance(entries, list) and bool(entries), "Missing candidate rules")
+        receipts, rules = [], []
+        for entry in entries:
+            require(isinstance(entry, dict) and isinstance(entry.get("rule"), dict), "Invalid candidate rule")
+            path = learning.patch_path(us, pid, entry["patch_id"])
+            require(path.resolve().is_relative_to(root / "patches" / pid), "Patch outside selected perspective")
+            patch = json.loads(read_input(path))
+            require(isinstance(patch, dict), "Invalid source patch")
+            require(tracked[path] == entry["patch_sha256"], "Source patch changed")
+            require(patch.get("status") == "approved" and patch.get("perspective_id") == pid, "Source patch not approved for perspective")
+            require(patch.get("patch_id") == entry["patch_id"], "Wrong patch identity")
+            rule = entry["rule"]
+            require(patch.get("field") == rule.get("field"), "Wrong target field")
+            require(isinstance(patch.get("value"), str) and digest(patch["value"].encode()) == rule.get("value_sha256"), "Wrong target value")
+            refs = entry.get("source_refs")
+            require(isinstance(refs, list) and refs and all(isinstance(ref, str) for ref in refs), "Missing candidate sources")
+            evidence = patch.get("evidence")
+            require(isinstance(evidence, list) and all(isinstance(item, dict) for item in evidence), "Invalid patch evidence")
+            patch_sources = {item.get("article_id") for item in evidence}
+            require(set(refs).issubset(source_ids) and set(refs).issubset(patch_sources), "Unverified candidate source")
+            receipts.append({"patch_id": entry["patch_id"], "patch_sha256": tracked[path]})
+            rules.append(rule)
+        hypothetical["signal_match_rules"] = [*hypothetical.get("signal_match_rules", []), *rules]
+        signals.validated_rules(hypothetical)
+        candidate_result = {
+            "candidate_sha256": tracked[match_candidate], "candidate_rule_count": len(rules),
+            "candidate_patch_receipts": receipts,
+            "with_proposed_rules_and_boundary_in_memory": _score(hypothetical, cases),
+        }
 
     require(live_exam.exists() == exam_present, "Live exam presence changed during preview")
     require(all(digest(path.read_bytes()) == sha for path, sha in tracked.items()), "Input changed during preview")
     return {
         "status": "BLOCKED", "acceptance_passed": False,
-        "reason": "human_confirmation_required_even_if_preview_passes",
+        "reason": "preview_cannot_grant_acceptance_or_apply_approval",
         "scope": "deterministic_draft_preview_only; no_model_no_apply_no_live_exam_write",
         "user": us.user_id, "perspective_id": pid,
         "proposal_sha256": tracked[proposal_path],
@@ -136,9 +177,10 @@ def preview(us: userspace.UserSpace, proposal_path: Path) -> dict:
         "sources_verified": verified,
         "current_profile": current,
         "with_proposed_boundary_in_memory": proposed,
+        **candidate_result,
         "inputs_unchanged": True,
         "unverified": ["human_approval", "source_semantic_entailment", "model_consumption", "financial_quality", "holdout"],
-        "code_sha256": {str(path.relative_to(ROOT)): digest(path.read_bytes()) for path in (Path(__file__), Path(exam.__file__), Path(lab.__file__), Path(userspace.__file__), Path(sys.modules[digest.__module__].__file__))},
+        "code_sha256": {str(path.relative_to(ROOT)): digest(path.read_bytes()) for path in (Path(__file__), Path(exam.__file__), Path(lab.__file__), Path(signals.__file__), Path(learning.__file__), Path(userspace.__file__), Path(sys.modules[digest.__module__].__file__))},
     }
 
 
@@ -147,10 +189,11 @@ def main() -> int:
     parser.add_argument("--users-root", type=Path, required=True)
     parser.add_argument("--user", required=True)
     parser.add_argument("--proposal", type=Path, required=True)
+    parser.add_argument("--match-candidate", type=Path)
     args = parser.parse_args()
     os.environ[userspace.ENV_USERS_DIR] = str(args.users_root.resolve())
     try:
-        report = preview(userspace.user_space(args.user), args.proposal)
+        report = preview(userspace.user_space(args.user), args.proposal, args.match_candidate)
     except (ValueError, KeyError, TypeError, OSError):
         # Exceptions may contain private text (e.g. malformed profile/manifest).
         report = {"status": "FAIL", "acceptance_passed": False, "reason": "proposal_or_input_invalid_or_changed"}
