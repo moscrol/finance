@@ -98,8 +98,13 @@ def checked_raw(root: Path, entry: dict[str, Any]) -> bytes:
     return raw
 
 
-def audit_capture(root: Path, trade_date: date) -> dict[str, Any]:
-    receipt = json.loads((root / "receipt.json").read_text(encoding="utf-8"))
+def load_capture(root: Path, trade_date: date, *, receipt_sha256: str | None = None
+                 ) -> tuple[dict[str, dict[str, Any]], dict[str, Any]]:
+    """Return the exact validated observations; never reread raw bytes to apply them."""
+    raw_receipt = (root / "receipt.json").read_bytes()
+    if receipt_sha256 is not None and hashlib.sha256(raw_receipt).hexdigest() != receipt_sha256:
+        raise ValueError("capture receipt hash changed")
+    receipt = json.loads(raw_receipt)
     if receipt["target_date"] != trade_date.isoformat():
         raise ValueError("receipt date mismatch")
     expected = unique_codes(receipt["codes"])
@@ -118,13 +123,17 @@ def audit_capture(root: Path, trade_date: date) -> dict[str, Any]:
         quotes.update(parsed)
     if set(quotes) != expected or receipt["captured_code_count"] != len(expected):
         raise ValueError("capture does not cover its declared scope")
-    return {"trade_date": trade_date.isoformat(), "declared_scope_count": len(expected),
+    return quotes, {"trade_date": trade_date.isoformat(), "declared_scope_count": len(expected),
             "validated_quote_count": len(quotes), "validated_batches": len(filenames),
             "volume_units": dict(Counter(q["raw_volume_unit"] for q in quotes.values())),
             "zero_activity_codes": sorted(c for c, q in quotes.items() if q["volume_shares"] == 0),
             "capture_validated": True, "independent_market_universe_verified": False,
             "official_suspension_status_verified": False, "production_ready": False,
             "database_writes": False, "publication_attempted": False}
+
+
+def audit_capture(root: Path, trade_date: date) -> dict[str, Any]:
+    return load_capture(root, trade_date)[1]
 
 
 def main(argv: list[str] | None = None) -> int:
