@@ -99,6 +99,34 @@ def test_real_worker_and_cli_preserve_context_then_recheck_source_conflict(real_
     assert warm.telemetry.receipt_received
 
 
+def test_deployed_code_root_binds_worker_and_cli_to_argument_wiki(real_kb, monkeypatch, tmp_path):
+    code, wiki, index = real_kb
+    monkeypatch.setenv("KB_RAG_CODE_ROOT", str(code))
+    monkeypatch.setenv("KB_RAG_PYTHON", sys.executable)
+    monkeypatch.setenv("RAG_WORKER_ENABLED", "1")
+    # This ambient root deliberately has no evidence. Explicit data must win,
+    # including prewarm, which used to silently read the code checkout's wiki.
+    wrong = tmp_path / "wrong-wiki"
+    wrong.mkdir()
+    monkeypatch.setenv("KB_VAULT", str(wrong))
+    assert kb_rag.probe_rag_cli(wiki).query_protocol_compatible
+    kb_rag.prewarm(wiki, timeout=30)
+    out = kb_rag.retrieve("alpha", wiki, index_dir=index, mode="bm25", timeout=20)
+    assert out.ok, out.warning
+    assert out.telemetry.query_protocol == "persistent_worker"
+    assert out.telemetry.receipt_received
+    assert "sources/official" in [hit.page_id for hit in out.hits]
+    filtered = kb_rag.retrieve("alpha", wiki, index_dir=index, mode="bm25", timeout=20,
+                               evidence_layer="L3", as_of="2026-08-03")
+    assert filtered.ok, filtered.warning
+    assert [hit.page_id for hit in filtered.hits] == ["sources/official"]
+    page = wiki / "sources/official.md"
+    page.write_text(page.read_text() + "\n||||||| unresolved live source\n")
+    warm = kb_rag.retrieve("alpha", wiki, index_dir=index, mode="bm25", timeout=20)
+    assert "sources/official" not in [hit.page_id for hit in warm.hits]
+    assert warm.telemetry.receipt_received
+
+
 def test_real_old_metadata_empty_receipt_remains_visible(real_kb):
     _, _, index = real_kb
     path = index / "meta.json"
