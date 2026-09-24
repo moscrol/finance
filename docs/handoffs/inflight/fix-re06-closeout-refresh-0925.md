@@ -1,22 +1,23 @@
-# RE06新主干候选，本机工程绿但整体仍阻塞
+# RE06锁定环境工程已过，独审在途
 
 ## 这个分支做什么
-Pi尾项#73续推进：固定main03352758+旧8088合流为a30e7e4594ac09310271739c8beb30ee8b2cd3ef。旧漂移拒收原件不改，本轮新收据只签a30。
+Pi会话01a0d357推进尾项#73。固定代码a30e7e4594ac09310271739c8beb30ee8b2cd3ef=main0335+8088；文档提交不移签收据。
 
 ## 当前状态
-本地候选已提交，完整Python15471P/85S/2X、前端122P/E2E34P2S、registry五项0；正式范围/身份/漂移exit0，漂移0。未push/PR/合main/部署，付费请求0。所有检查已退出，无本轮后台；文档提交不移签代码收据。
+09-25 02:20后，锁定环境四叶完成；三组独审由本会话串行推进，勿重复启动。C1-C3探索交付；旧execute虽格式交付但实际零执行，事实门已拒入终审。qc-delivery-03正做离线预检并保留拒收；不是独审通过。未push/PR/合main/生产。
+证据根R=`~/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/`。实时额度用`R/candidate/.venv-workbench/bin/python R/inspect_status.py`；历史147，加R下各批gateway和阶段准入逐行计数，总上限218，不自动重试；已用至少167。原147/218不是余额。
 
 ## 决策与被否方案
-独立候选与同SHA前端树，否追移旧收据/共用构建可写树；真实退出记录+JUnit，否按stdout补exit。环境锁与测试分账，否改共享httpx或四叶绿自动发布。详情2026-09-25-re06-closeout-refresh.md。
+自建锁定Python及Node22，否改共享环境。旧qc首次4请求仅读元数据，未读业务源码，保留拒收；第三批直接携带已交探索原件，先执行固定对照；最多再2通道+47阶段请求，不增加总上限，不伪造新的探索通过。源码、凭证、网络隔离不放宽。
 
 ## 未验证 / 已知边界
-doctor仍blocked：httpx实际0.25.2、锁要求0.28.1；未改共享解释器、未绕依赖门。收据证同受验环境，不证锁定环境CI合规。新树代码地图为空，不作架构完整结论。三组独审、C1-C10逐项覆盖、自然验收仍欠；旧147/218账不改。原readiness请求不是push/PR/生产授权。
+三组独审、C1-C10逐项覆盖及#76自然验收未完成。当前执行器通过不代签业务。生产/发布无本批授权，不接管#61活跃线。共享httpx偏差仍存在，但本批不使用共享解释器。
 
 ## 下一步
-先协调独占且获授权的锁定环境验证，再按原有界方案独审与自然验收；不得自动重开模型/加预算。合入前重新核远端main（末核0335），生产另授权。保留旧8088漂移拒收，不把它改成新组合通过。
+先读R/inspect_status.py输出和qc-delivery-03各阶段execution.json，不重跑已存在目录。execute之后核check_execution_v3，再准入report；consent还须事务同族清单。最终复核远端漂移：末核d21707ca6（仅文档，漂移2）。完工覆写本交接并另写日期快照。
 
 ## 踩过的坑
-唯一收据不读共享latest；后续文档tip不等于受验SHA。doctor锁偏差不能被指纹一致洗掉。只看路径数/旧PR有后继不能判冗余，归属复核在队列树。
+探索不可先读全仓元数据耗尽额度；作者测试不能补签独立覆盖。沙箱子进程须传FWP_WORKBENCH_PYTHON，否则conftest调用被禁的git。Node22设置进程名需专用工具目录读取权限；拒读哨兵必须存在。旧失败原件全留。
 
 ## 已验证
-证据根~/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-refresh/。完整collected15558、0F/0E/0XP、全树clean、无过滤；JUnit与收据一致。唯一Python receipts/gate-qXwwsFSR/pytest.json；full-python.process.json真实exit0。frontend/frontend.json六步0且首尾身份稳定；registry各自进程记录0。receipt-check.log正式范围/身份/漂移通过，成功basetemp已由门禁清理。
+R/doctor-locked.json及doctor-after-valid.json ready；Python3.12.13/httpx0.28.1/Node22.23.2。完整15470P/86S/2X、15558收集，唯一收据receipts/gate-a2kwxg5I/pytest.json，真实exit0，范围/身份/漂移通过。较旧轮唯一差异是开发锁未含可选tdxpy，真实解析器用例跳过；其余15557项状态一致。前端六步0、122P/E2E34P2S，首尾干净；registry四项+ledger均有*-locked.process.json exit0。
