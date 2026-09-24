@@ -1,4 +1,4 @@
-# Offline development baseline, not the ingestion/runtime deployment environment.
+# Offline development and test baseline, not the ingestion/deployment environment.
 # Consumer pins have one owner: scripts/dependency_closure.py.
 -r requirements-consumer.lock
 
@@ -13,3 +13,12 @@ pluggy==1.6.0
 cryptography==49.0.0
 cffi==2.1.0
 pycparser==3.0
+
+# Full-suite data transformations and review rendering (no ingestion clients).
+numpy==2.2.1
+pandas==2.2.3
+Markdown==3.10.3
+python-dateutil==2.9.0.post0
+pytz==2026.2
+tzdata==2026.3
+six==1.17.0

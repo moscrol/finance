@@ -231,6 +231,17 @@ def test_resolved_runner_preserves_exit_status(repo):
     assert result.returncode == 7
 
 
+def test_ci_python_installs_use_the_development_lock():
+    import yaml
+
+    workflow = yaml.safe_load((ROOT / ".github/workflows/workbench-check.yml").read_text())
+    spec = workspace_env.load_spec(ROOT)
+    for leaf in ("python", "e2e"):
+        install = next(step for step in workflow["jobs"][leaf]["steps"]
+                       if step.get("name") == "Install Python dependencies")
+        assert install["run"] == f"python -m pip install -r {spec['development_lock']}"
+
+
 def test_map_manifest_and_corrected_doors():
     manifest = json.loads((ROOT / "docs/agent-maps.json").read_text())
     assert {m["id"] for m in manifest["maps"]} == {

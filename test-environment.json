@@ -21,7 +21,10 @@
     "uvicorn",
     "duckdb",
     "pytest",
-    "ruff"
+    "ruff",
+    "numpy",
+    "pandas",
+    "markdown"
   ],
 
   "_escape_hatch": "FWP_ALLOW_ANY_PYTHON=1 放行依赖门禁（用于故意验证缺依赖时的行为），放行时仍打横幅，不静默。",
