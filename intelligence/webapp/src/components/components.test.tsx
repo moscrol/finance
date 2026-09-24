@@ -1062,16 +1062,15 @@ describe("Chat-first conversation components", () => {
     const currentStage = within(stageList).getByLabelText("查找证据，进行中");
     expect(currentStage).toHaveAttribute("aria-current", "step");
     expect(currentStage).toHaveClass("is-running", "is-current");
-    const mobileSummary = screen.getByText(
-      "阶段 2/4 · 查找证据 · 进行中",
-    );
-    expect(mobileSummary).toBeInTheDocument();
-    expect(mobileSummary).toHaveAttribute("aria-hidden", "true");
+    const caption = screen.getByText("查找证据 · 进行中");
+    expect(caption).toBeInTheDocument();
+    expect(caption).toHaveAttribute("aria-hidden", "true");
 
     const liveRegion = screen.getByRole("status");
     expect(liveRegion).toHaveAttribute("aria-live", "polite");
     expect(liveRegion).toHaveTextContent("正在核对公告、盘面与知识库。");
     expect(stageList).not.toHaveAttribute("aria-live");
+    expect(screen.queryByRole("list", { name: "研究步骤" })).toBeNull();
   });
 
   it("exposes every phase status through text and semantic classes", () => {
@@ -1109,9 +1108,7 @@ describe("Chat-first conversation components", () => {
     expect(within(stageList).getByLabelText("形成结论，未执行")).toHaveClass(
       "is-skipped",
     );
-    expect(
-      screen.getByText("阶段 3/4 · 交叉核验 · 需要关注"),
-    ).toBeInTheDocument();
+    expect(screen.getByText("交叉核验 · 需要关注")).toBeInTheDocument();
   });
 
   it("preserves the current journey while the connection recovers", () => {
@@ -1123,14 +1120,11 @@ describe("Chat-first conversation components", () => {
 
     render(<ResearchJourney model={model} connection="reconnecting" />);
 
-    expect(screen.getByText("Foresight · 正在研究")).toBeVisible();
     expect(screen.getByRole("status")).toHaveTextContent(
       "连接恢复中 · 正在启动研究",
     );
-    expect(screen.getAllByRole("listitem")).toHaveLength(4);
-    expect(screen.getByLabelText("理解与计划，等待中")).toHaveClass(
-      "is-waiting",
-    );
+    expect(screen.queryByRole("list", { name: "研究阶段" })).toBeNull();
+    expect(screen.queryByText("Foresight · 正在研究")).toBeNull();
   });
 
   it("uses the compact journey treatment after draft text appears", () => {
@@ -1145,9 +1139,7 @@ describe("Chat-first conversation components", () => {
     );
 
     expect(screen.getByLabelText("研究进度")).toHaveClass("is-compact");
-    expect(
-      screen.getByText("阶段 4/4 · 形成结论 · 进行中"),
-    ).toBeInTheDocument();
+    expect(screen.getByText("形成结论 · 进行中")).toBeInTheDocument();
     expect(screen.getByLabelText("形成结论，进行中")).toHaveClass(
       "is-running",
       "is-current",
@@ -1199,19 +1191,14 @@ describe("Chat-first conversation components", () => {
     expect(
       within(receipt).getByRole("heading", {
         level: 3,
-        name: "Foresight · 已完成",
+        name: "已完成",
       }),
     ).toBeInTheDocument();
-    expect(receipt).toHaveTextContent("Foresight · 已完成");
     expect(receipt).toHaveTextContent("1 条可验证引用");
     expect(receipt).toHaveTextContent("数据日期未记录");
     expect(receipt).toHaveTextContent("2 个产物");
-    expect(receipt).toHaveAttribute("data-issue-summary", "缺少客户口径");
+    expect(receipt).not.toHaveAttribute("data-issue-summary");
 
-    const metrics = within(receipt).getByRole("list", {
-      name: "研究收据指标",
-    });
-    expect(metrics.children).toHaveLength(4);
     const disclosure = within(receipt).getByText("1 项限制/缺口");
     const details = disclosure.closest("details") as HTMLDetailsElement;
     expect(details).not.toHaveAttribute("open");
@@ -1253,7 +1240,7 @@ describe("Chat-first conversation components", () => {
     expect(
       screen.getByRole("heading", {
         level: 3,
-        name: `Foresight · ${label}`,
+        name: label,
       }),
     ).toBeInTheDocument();
     expect(screen.getByLabelText("研究收据")).toHaveClass(
@@ -1731,7 +1718,38 @@ describe("Chat-first conversation components", () => {
 
     expect(screen.getByLabelText("研究进度")).toBeVisible();
     expect(screen.getByRole("status")).toHaveTextContent("正在启动研究");
+    expect(screen.queryByRole("list", { name: "研究阶段" })).toBeNull();
     expect(screen.queryByText("正在检索本轮证据")).toBeNull();
+  });
+
+  it("does not treat an unrecognized message status as completed", () => {
+    render(
+      <MessageBubble
+        message={{
+          ...assistantMessage,
+          content: "已有正文",
+          status: "weird-status",
+          degrades: [],
+        }}
+        skills={productSkills}
+        live={null}
+        bundle={bundle}
+        canRegenerate={false}
+        onRegenerate={vi.fn()}
+        onOpenArtifact={vi.fn()}
+        onFollowup={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("已有正文")).toBeVisible();
+    expect(screen.queryByLabelText("研究收据")).toBeNull();
+    expect(screen.queryByLabelText("研究进度")).toBeNull();
+    expect(screen.queryByText("研究过程（")).toBeNull();
+    expect(
+      screen.queryByText("已完成", {
+        selector: ".assistant-message-header span",
+      }),
+    ).toBeNull();
   });
 
   it("replaces the live journey with a receipt when the terminal bundle is loaded", () => {
@@ -1772,11 +1790,8 @@ describe("Chat-first conversation components", () => {
     expect(screen.queryByLabelText("研究进度")).toBeNull();
     const receipt = screen.getByLabelText("研究收据");
     expect(receipt).toBeVisible();
-    expect(receipt).toHaveAttribute(
-      "data-issue-summary",
-      "自然语言综合暂时不可用，已保留可核验数据与研究产物。",
-    );
     expect(within(receipt).getByText("1 项限制/缺口")).toBeVisible();
+    expect(receipt).toHaveTextContent("1 条可验证引用");
     expect(screen.getByText("最终回答")).toBeVisible();
     expect(screen.getByText("运行详情", { exact: true })).toBeVisible();
   });
@@ -1833,7 +1848,7 @@ describe("Chat-first conversation components", () => {
   });
 
   it.each([
-    ["failed", "失败", "本轮生成失败，请重试。"],
+    ["failed", "需要关注", "本轮生成失败，请重试。"],
     ["cancelled", "已停止", "已停止生成，已保留已生成内容。"],
   ] as const)(
     "prioritizes the %s run status over a verified fallback label",
@@ -1996,18 +2011,21 @@ describe("Chat-first conversation components", () => {
     />
   );
 
-  it("condenses episode milestones into four truthful phases", () => {
+  it("keeps every streamed SSE milestone visible while the run is live", () => {
     render(bubbleWithProgress({ content: "", status: "pending" }, episodeSteps));
 
-    expect(screen.getByLabelText("研究进度")).toBeVisible();
-    expect(screen.getByLabelText("理解与计划，已完成")).toBeVisible();
+    const journey = screen.getByLabelText("研究进度");
+    expect(journey).toBeVisible();
+    expect(within(journey).getByText("已形成研究计划。")).toBeVisible();
+    expect(within(journey).getByText("正在查盘面快照。")).toBeVisible();
+    expect(within(journey).getByText("正在查主线结构。")).toBeVisible();
     expect(screen.getByLabelText("查找证据，进行中")).toHaveAttribute(
       "aria-current",
       "step",
     );
-    expect(screen.getByRole("status")).toHaveTextContent("正在查主线结构。");
-    expect(screen.queryByText("已形成研究计划。")).toBeNull();
-    expect(screen.queryByText("正在查盘面快照。")).toBeNull();
+    expect(within(journey).getByRole("status")).toHaveTextContent(
+      "正在查主线结构。",
+    );
   });
 
   it("keeps the timeline available after the answer lands", () => {

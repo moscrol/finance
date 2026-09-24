@@ -26,6 +26,15 @@ async function expectComposerDoesNotOverlapThread(page: Page) {
   expect(boxes!.threadBottom).toBeLessThanOrEqual(boxes!.composerTop + 1);
 }
 
+async function expectJourneyDensity(page: Page) {
+  const journey = page.getByLabel("研究进度").last();
+  await expect(journey).toBeVisible();
+  const copies = journey.locator(".research-journey-phase-copy");
+  if ((await copies.count()) > 0) {
+    await expect(copies.first()).toHaveClass(/sr-only/);
+  }
+}
+
 async function submitQuestion(
   page: Page,
   question: string,
@@ -33,6 +42,22 @@ async function submitQuestion(
 ) {
   await page.getByLabel("输入研究问题").fill(question);
   await page.getByRole("button", { name: "发送研究问题" }).click();
+  await expect
+    .poll(
+      async () => {
+        const journeyVisible = (await page.getByLabel("研究进度").count()) > 0;
+        const completed = (await activeConversationMessages(page)).filter(
+          (message) =>
+            message.role === "assistant" && message.status === "completed",
+        ).length;
+        return journeyVisible || completed >= completedAnswerCount;
+      },
+      { timeout: answerTimeout },
+    )
+    .toBeTruthy();
+  if ((await page.getByLabel("研究进度").count()) > 0) {
+    await expectJourneyDensity(page);
+  }
   await expect
     .poll(
       async () =>
@@ -46,6 +71,10 @@ async function submitQuestion(
   await expect(page.getByLabel("研究助手消息")).toHaveCount(
     completedAnswerCount,
   );
+  await expect(page.getByLabel("研究收据").last()).toBeVisible({
+    timeout: 10_000,
+  });
+  await expect(page.getByLabel("研究进度")).toHaveCount(0);
 }
 
 async function selectManualDailyAgent(page: Page) {
@@ -234,6 +263,8 @@ test("real chat persists three fresh turns, skills, SSE, and regeneration", asyn
   await expect(page.getByText("已自动选择 · 每日复盘")).toBeVisible();
   await expect(page.getByText("已指定工具 · Daily Agent")).toHaveCount(3);
   await expect(page.getByLabel("研究助手消息")).toHaveCount(4);
+  await expect(page.getByLabel("研究收据")).toHaveCount(4);
+  await expect(page.getByLabel("研究进度")).toHaveCount(0);
 
   await expectNoHorizontalOverflow(page);
   await expectComposerDoesNotOverlapThread(page);

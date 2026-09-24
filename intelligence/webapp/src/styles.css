@@ -3112,10 +3112,58 @@ p {
   flex: 1;
 }
 
-.assistant-message-content > .markdown-body {
+.assistant-message-content .markdown-view {
+  max-width: 68ch;
   color: var(--ink);
-  font-size: 13px;
-  line-height: 1.75;
+  font-size: 15.5px;
+  line-height: 1.8;
+}
+
+.assistant-message-content .markdown-view > :first-child {
+  margin-top: 0;
+}
+
+.assistant-message-content .markdown-view p {
+  margin: 0 0 1.15em;
+}
+
+.assistant-message-content .markdown-view ul,
+.assistant-message-content .markdown-view ol {
+  margin: 0 0 1.25em;
+  padding-left: 1.35em;
+}
+
+.assistant-message-content .markdown-view li {
+  margin: 0.4em 0;
+}
+
+.assistant-message-content .markdown-view li > p {
+  margin-bottom: 0.45em;
+}
+
+.assistant-message-content .markdown-view h1,
+.assistant-message-content .markdown-view h2,
+.assistant-message-content .markdown-view h3 {
+  letter-spacing: -0.02em;
+  line-height: 1.35;
+}
+
+.assistant-message-content .markdown-view h1 {
+  margin: 1.5em 0 0.65em;
+}
+
+.assistant-message-content .markdown-view h2 {
+  margin: 1.7em 0 0.65em;
+}
+
+.assistant-message-content .markdown-view h3 {
+  margin: 1.4em 0 0.5em;
+}
+
+.assistant-message-content .markdown-view hr {
+  margin: 1.8em 0;
+  border: 0;
+  border-top: 1px solid var(--line);
 }
 
 .message-thinking {

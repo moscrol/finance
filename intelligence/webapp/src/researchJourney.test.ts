@@ -4,6 +4,11 @@ import {
   RESEARCH_PHASES,
   buildResearchJourney,
   buildResearchReceipt,
+  formatResearchReceiptLine,
+  journeyShowsPhaseTrack,
+  parseResearchStatus,
+  researchRunLabel,
+  shouldShowResearchJourney,
 } from "./researchJourney";
 import type { AnswerPhase, RunBundle, TraceStep } from "./types";
 
@@ -217,6 +222,48 @@ describe("buildResearchJourney", () => {
     expect(result.currentPhaseIndex).toBe(3);
   });
 
+  it("does not let answerPhase paint completion over failed or cancelled runs", () => {
+    const failed = buildResearchJourney({
+      progress: [],
+      answerPhase: "verified_fallback",
+      terminalStatus: "failed",
+    });
+    expect(failed.phases[3].status).toBe("skipped");
+    expect(failed.currentAction).toBe("研究未完成");
+    expect(failed.runLabel).toBe("需要关注");
+    expect(failed.currentPhaseIndex).toBeNull();
+    expect(journeyShowsPhaseTrack(failed)).toBe(false);
+
+    const cancelled = buildResearchJourney({
+      progress: [step("understanding", "completed")],
+      answerPhase: "validated_synthesis",
+      terminalStatus: "cancelled",
+    });
+    expect(cancelled.phases.map((phase) => phase.status)).toEqual([
+      "completed", "skipped", "skipped", "skipped",
+    ]);
+    expect(cancelled.runLabel).toBe("已停止");
+    expect(cancelled.currentAction).not.toBe("自然语言精修完成");
+  });
+
+  it("does not forge a phase track before any mapped progress exists", () => {
+    const idle = buildResearchJourney({
+      progress: [],
+      answerPhase: null,
+      terminalStatus: "streaming",
+    });
+    expect(idle.currentAction).toBe("正在启动研究");
+    expect(journeyShowsPhaseTrack(idle)).toBe(false);
+
+    const unknownOnly = buildResearchJourney({
+      progress: [step("future_stage", "running", { output_summary: "后台正在处理" })],
+      answerPhase: null,
+      terminalStatus: "streaming",
+    });
+    expect(unknownOnly.currentAction).toBe("后台正在处理");
+    expect(journeyShowsPhaseTrack(unknownOnly)).toBe(false);
+  });
+
   it("lets explicit conclusion running or failure override answer-phase completion", () => {
     const running = buildResearchJourney({ progress: [step("finalizing", "running", { output_summary: "正在发布" })], answerPhase: "validated_synthesis", terminalStatus: "streaming" });
     const failed = buildResearchJourney({ progress: [step("finalizing", "failed", { output_summary: "发布失败" })], answerPhase: "validated_synthesis", terminalStatus: "failed" });
@@ -230,6 +277,37 @@ describe("buildResearchJourney", () => {
     const result = buildResearchJourney({ progress: [step("understanding", "completed"), step("research", "running")], answerPhase: null, terminalStatus: "cancelled" });
     expect(result.phases.map((phase) => phase.status)).toEqual(["completed", "attention", "skipped", "skipped"]);
     expect(result.runLabel).toBe("已停止");
+  });
+});
+
+describe("research status helpers", () => {
+  it("fails closed on unrecognized message status", () => {
+    expect(parseResearchStatus("completed")).toBe("completed");
+    expect(parseResearchStatus("streaming")).toBe("streaming");
+    expect(parseResearchStatus("weird")).toBeNull();
+    expect(parseResearchStatus("")).toBeNull();
+  });
+
+  it("keeps run labels in one table", () => {
+    expect(researchRunLabel("failed")).toBe("需要关注");
+    expect(researchRunLabel("cancelled")).toBe("已停止");
+    expect(researchRunLabel("streaming")).toBe("正在研究");
+    expect(researchRunLabel("queued")).toBe("等待中");
+  });
+
+  it("shows a journey only for in-flight or retained failed progress", () => {
+    expect(shouldShowResearchJourney({
+      hasTerminalBundle: true, status: "completed", progressCount: 3,
+    })).toBe(false);
+    expect(shouldShowResearchJourney({
+      hasTerminalBundle: false, status: "streaming", progressCount: 0,
+    })).toBe(true);
+    expect(shouldShowResearchJourney({
+      hasTerminalBundle: false, status: "failed", progressCount: 0,
+    })).toBe(false);
+    expect(shouldShowResearchJourney({
+      hasTerminalBundle: false, status: "failed", progressCount: 1,
+    })).toBe(true);
   });
 });
 
@@ -247,6 +325,9 @@ describe("buildResearchReceipt", () => {
       "自然语言综合暂时不可用，已保留可核验数据与研究产物。",
       "知识库索引已过期；相关证据仅供参考。",
     ]);
+    expect(formatResearchReceiptLine(result)).toBe(
+      "1 条可验证引用 · 数据截至 2026-08-23 · 2 个产物 · 2 项限制/缺口",
+    );
   });
 
   it("uses raw context gaps when public run degrades have already been sanitized", () => {

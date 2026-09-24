@@ -4,6 +4,7 @@ import type {
   AnswerPhase,
   LiveMessageState,
   RunBundle,
+  RunStatus,
   TraceStep,
 } from "./types";
 
@@ -14,6 +15,62 @@ export type ResearchPhaseStatus =
   | "completed"
   | "skipped"
   | "attention";
+
+export const TERMINAL_RESEARCH_STATUSES = [
+  "completed",
+  "failed",
+  "cancelled",
+] as const;
+export type TerminalResearchStatus = (typeof TERMINAL_RESEARCH_STATUSES)[number];
+
+export function isTerminalResearchStatus(
+  status: string,
+): status is TerminalResearchStatus {
+  return (
+    status === "completed" || status === "failed" || status === "cancelled"
+  );
+}
+
+export function parseResearchStatus(
+  status: string,
+): LiveMessageState["status"] | null {
+  if (
+    status === "pending" ||
+    status === "streaming" ||
+    isTerminalResearchStatus(status)
+  ) {
+    return status;
+  }
+  return null;
+}
+
+export function researchRunLabel(
+  status: LiveMessageState["status"] | RunStatus,
+): string {
+  if (status === "queued") return "等待中";
+  if (status === "pending" || status === "streaming" || status === "running") {
+    return "正在研究";
+  }
+  if (status === "completed") return "已完成";
+  if (status === "failed") return "需要关注";
+  return "已停止";
+}
+
+export function shouldShowResearchJourney({
+  hasTerminalBundle,
+  status,
+  progressCount,
+}: {
+  hasTerminalBundle: boolean;
+  status: LiveMessageState["status"];
+  progressCount: number;
+}): boolean {
+  if (hasTerminalBundle) return false;
+  if (status === "pending" || status === "streaming") return true;
+  return (
+    (status === "failed" || status === "cancelled") && progressCount > 0
+  );
+}
 
 export interface ResearchJourneyPhase {
   id: ResearchPhaseId;
@@ -36,6 +93,28 @@ export interface ResearchReceiptModel {
   issueCount: number;
   issueLabels: string[];
   runStatus: RunBundle["run"]["status"];
+}
+
+export function journeyShowsPhaseTrack(model: ResearchJourneyModel): boolean {
+  return (
+    model.currentPhaseIndex !== null ||
+    model.phases.some(
+      (phase) =>
+        phase.status === "completed" ||
+        phase.status === "running" ||
+        phase.status === "attention",
+    )
+  );
+}
+
+export function formatResearchReceiptLine(
+  model: Pick<
+    ResearchReceiptModel,
+    "evidenceCount" | "cutoff" | "artifactCount" | "issueCount"
+  >,
+): string {
+  const cutoff = model.cutoff ? `数据截至 ${model.cutoff}` : "数据日期未记录";
+  return `${model.evidenceCount} 条可验证引用 · ${cutoff} · ${model.artifactCount} 个产物 · ${model.issueCount} 项限制/缺口`;
 }
 
 export const RESEARCH_PHASES: ReadonlyArray<Omit<ResearchJourneyPhase, "status">> = [
@@ -63,7 +142,7 @@ const phaseIndex = (id: ResearchPhaseId): number =>
   RESEARCH_PHASES.findIndex((phase) => phase.id === id);
 
 const terminal = (status: LiveMessageState["status"]): boolean =>
-  status === "completed" || status === "failed" || status === "cancelled";
+  isTerminalResearchStatus(status);
 
 function phaseStatus(
   steps: TraceStep[],
@@ -187,10 +266,7 @@ function emptyAction(status: LiveMessageState["status"]): string {
 }
 
 function runLabel(status: LiveMessageState["status"]): string {
-  if (status === "pending" || status === "streaming") return "正在研究";
-  if (status === "completed") return "已完成";
-  if (status === "failed") return "需要关注";
-  return "已停止";
+  return researchRunLabel(status);
 }
 
 export function buildResearchJourney({
@@ -222,10 +298,19 @@ export function buildResearchJourney({
   const conclusionHasExplicitActiveState = conclusionSteps.some(
     (step) => step.status === "failed" || step.status === "running",
   );
-  const answerUpdate = answerPhase && !conclusionHasExplicitActiveState
-    ? answerPhaseAction[answerPhase]
-    : null;
-  if (answerUpdate) phases[3] = { ...phases[3], status: answerUpdate.status };
+  const terminalOverride =
+    terminalStatus === "failed" || terminalStatus === "cancelled";
+  const answerUpdate =
+    answerPhase && !conclusionHasExplicitActiveState && !terminalOverride
+      ? answerPhaseAction[answerPhase]
+      : null;
+  const concludeIndex = phaseIndex("conclude");
+  if (answerUpdate) {
+    phases[concludeIndex] = {
+      ...phases[concludeIndex],
+      status: answerUpdate.status,
+    };
+  }
 
   const selected = newestAction(normalizedTrace);
   const selectedPhase = selected ? phaseByStage[selected.name] : undefined;
