@@ -9,7 +9,7 @@
 
 ## 当前状态
 独立树`~/fwp-wt-pi-research`。已组合#868候选f531d2d00add，合并提交d21a42efe；开关双态/深度复核测试提交59ab6e5cf。相对f531未改生产逻辑；仅本分支组合，未push/合main/部署。本交接为文档收尾，不改变受测代码。
-旧交接ce2/166-209过期。最新核`~/.finance-runtime/reviews/pr868-glm-qc-20260924-2105/STATE.md`及batch/authorization：候选f531，spec有保留通过（C3/C7未验）；quality/explore路径漏/Users被拒，整批BLOCKED_NO_RETRY，累计213/244、余31，不足完整quality新轴39。原owner的工程结果不移签本组合；complete协议已修，不重复做。未分类探针不是产品缺陷。
+旧交接ce2/166-209过期。最新核`~/.finance-runtime/reviews/pr868-glm-qc-20260924-2105/STATE.md`及batch/authorization：候选f531，spec有保留通过（C3/C7未验）；quality/explore路径漏/Users被拒，整批BLOCKED_NO_RETRY，累计213/244、余31，不足完整quality新轴39。原owner工程绿不移签本组合；未分类探针不是产品缺陷。
 
 ## 已验证
 研究链36场景：off/on、quick/deep、观察追查、空/异常换路、越权/假引用拒绝、一次复核后续查、耗尽/取消、变异对照。真实Runtime/Harness，替身模型/源，严格消息对账，零真实模型请求。
@@ -19,7 +19,7 @@
 未验真实HTTP门、真实来源/子研究、自然模型主动改向/反证/修稿与公开稿一致性。本组合未跑全仓/前端门禁或独审。未核8792活进程能力。文档HEAD不接收59ab测试收据。
 
 ## 下一步
-1. 原owner确认#868最新状态、即时交付校验、新批预算/范围；不续1405/2105封存批。
+1. 即时交付校验已在独立枝`fix/pr868-delivery-validation-0924`完成（3e8ea5b64，57P/0S、零真实请求）；交接`~/fwp-wt-pr868-delivery-validation-0924/docs/handoffs/inflight/fix-pr868-delivery-validation-0924.md`。原owner审阅采用，再申请新批预算/范围；不续1405/2105。
 2. 独审闭合后按#76逐行授权跑真实Workbench；候选若变，重验确切组合。
 3. 完整门禁与用户确认后才合入/部署，不把P1离线当P2质量改善。
 
