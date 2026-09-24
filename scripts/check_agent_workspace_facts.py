@@ -28,6 +28,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from workspace_env import python_path
+
 # 主检出树（各 worktree 的 .git 都指向它）；用于区分「主树 vs 附属 worktree」。
 def _raw_git(*args: str) -> str:
     """模块级 git 调用，供下面推导主树用。
@@ -75,7 +77,8 @@ MAIN_CHECKOUT = _main_checkout()
 # 唯一真本源，与 conftest.py 共读同一份。此前两处各存一份清单、靠 docstring 里
 # 一句「两处都改才算改完」同步，当天就漂了（uvicorn 与 ruff 只在其中一处）��
 # 用提醒去同步两份清单，正是这两道门禁本身要治的病。
-_SPEC_PATH = Path(MAIN_CHECKOUT) / "test-environment.json"
+_REPO = Path(_raw_git("rev-parse", "--show-toplevel") or Path(__file__).resolve().parents[1])
+_SPEC_PATH = _REPO / "test-environment.json"
 
 
 def _spec() -> dict:
@@ -91,12 +94,8 @@ def _spec() -> dict:
 
 
 _SPEC = _spec()
-# .venv-workbench 是全仓共享的唯一解释器，用绝对路径。
-VENV_PY = Path(
-    str(_SPEC.get("interpreter"))
-    if _SPEC.get("interpreter")
-    else f"{MAIN_CHECKOUT}/.venv-workbench/bin/python"
-)
+# 当前树的合同决定解释器；允许显式本机绑定与公共检出树的 venv。
+VENV_PY = python_path(_REPO)
 # 被反复误报为「缺失」的包。清单来自真实误报，不是凭空列的。
 WATCHED: tuple[str, ...] = tuple(_SPEC.get("required_modules") or ())
 

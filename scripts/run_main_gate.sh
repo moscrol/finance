@@ -37,8 +37,7 @@ while [ $# -gt 0 ]; do
 done
 
 # 仅用宿主标准库解析 JSON，测试本身仍用契约指定的解释器。
-PY="$(python3 -c 'import json,sys; from pathlib import Path; p=Path(sys.argv[1]); print(json.loads(p.read_text()).get("interpreter", "") if p.is_file() else "")' "$REPO/test-environment.json")" || exit 4
-[ -z "$PY" ] && PY="$REPO/.venv-workbench/bin/python"
+PY="$(python3 "$GATE_DIR/workspace_env.py" --repo "$REPO")" || exit 4
 if [ ! -x "$PY" ]; then
   echo "解释器不可执行: ${PY}" >&2
   exit 4

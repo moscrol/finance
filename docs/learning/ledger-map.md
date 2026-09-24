@@ -4,6 +4,8 @@
 > 按日期命名分区；每个台账文件只有一个写入者；需要 git 历史的进仓，缓存/超大生成物落仓外 `~/kb_work/`。
 > 新增任何台账，必须先在这张表登记。
 
+用户态路径以 `intelligence/userspace.py::users_dir/user_space` 为准：`FORESIGHT_USERS_DIR` 优先，未配置时源码仍回退到仓内 `intelligence/users/`。该回退是代码兼容行为，不是写入冻结存档的授权；正常运行须显式绑定外置用户根，离线测试使用临时根。下表以解析器表达落点，不硬编码本机目录。保鲜诊断是带日期的历史证据，不是当前覆盖率。
+
 | 台账 | canonical 路径 | 格式 | 唯一写入者 | 提交? | 渲染物 |
 |---|---|---|---|---|---|
 | 方法验证实验（固定三组、当日前瞻观察、到期回检） | `userspace.user_space(user).root/method_validation/<protocol_id>/protocol.json`；`history/<记录日>/<hash>.json`、`capture/<D0>/<hash>.json`、`recheck/<记录日>/<hash>.json`（`FORESIGHT_USERS_DIR` 优先；CLI `--root` 可明确指定离线研究目录）。派生缓存 `standing/<输入指纹>.json`（立场摘要，可重算、可替换，不是真源）；草稿 `<root>/candidates/<hash>.json`（匹不上固定方法的自然语言方法，不编译） | JSON，不可覆盖；协议/每次输入/结果均有内容摘要 | `scripts/method_validation.py register/history/capture/recheck/daily`（`status --refresh` 只重算摘要）；夜间 `checkpoint recheck` 经 `MethodValidationResolver` 到期写 recheck 收据；主实验 R 号仍由 claim_ledger_id 领取并在 prediction-ledger 索引。有信号的 D0 观察**登记进既有 `checkpoints.jsonl`**（`object_type=method_observation`、`metric.type=method_validation`），不另开台账 | 否（私人研究应用态）；方法代码与工作流文档提交 | `report --record` → Markdown；`status` → 立场摘要；日报「方法信号与待验对象」段与 `[M]` / `memory_lookup` 只读摘要；当前全部 research_only，不进入 lifecycle/画像/参数推广 |
@@ -13,10 +15,10 @@
 | 复盘输入冻结 | `docs/learning/forecast-review-ledger/<date>.manifest.json` | JSON | `dual_blind_forecast.py manifest`（**夜跑已退役**，仅手动） | 是 | — |
 | 复盘答卷 | `docs/learning/forecast-review-ledger/<date>.answer.<agent>.json` | JSON | `dual_blind_forecast.py validate`（校验；**夜跑已退役**） | 是 | `<date>.md` |
 | 复盘验证 | `docs/learning/forecast-review-ledger/<date>.verdict.json` | JSON | `dual_blind_forecast.py verdict`（**夜跑已退役**，仅手动） | 是 | `index.md` 状态表（`index` 子命令） |
-| 回答评分 | `intelligence/users/<id>/answer_scores.jsonl` | JSONL | auto_eval | 否（用户态） | — |
-| 个人判断回检 | `intelligence/users/<id>/checkpoints.jsonl` + `verdicts.jsonl` | JSONL（`checkpoints` 每行可选字段 `rule_id / rule_verdict / rule_receipt / bias_flags`：引用的方法论规则、登记当时该规则最近收据的四态与路径、偏差目录命中 code 列表——2026-09-05 INDEX #24，读者 `calibrate.by_rule` / `render_report` / `checkpoint bias-scan`） | foresight checkpoint | 否（用户态） | — |
+| 回答评分 | `userspace.user_space(user).answer_scores_path` | JSONL | auto_eval | 否（用户态） | — |
+| 个人判断回检 | `userspace.user_space(user).checkpoints_path` + `verdicts_path` | JSONL（`checkpoints` 每行可选字段 `rule_id / rule_verdict / rule_receipt / bias_flags`：引用的方法论规则、登记当时该规则最近收据的四态与路径、偏差目录命中 code 列表——2026-09-05 INDEX #24，读者 `calibrate.by_rule` / `render_report` / `checkpoint bias-scan`） | foresight checkpoint | 否（用户态） | — |
 | 情景树（多步推演，#37 / G-15） | `userspace.user_space(user).root/scenario_trees.jsonl`（`FORESIGHT_USERS_DIR` 优先） | JSONL，append-only；登记须带 `projection_hash / model_id / framework_version`，`realized_path` 只由 `river.slice(T+k, C=T+k)` 判定 | `intelligence/services/scenario_trees.py::register / resolve`（无独立 CLI；每日复盘钩子 `daily_review_hook` 默认关，`FORESIGHT_SCENARIO_TREE_RESOLVE=1` 才跑）；登记同时进 `checkpoints.jsonl`（`object_type=scenario_tree`） | 否（用户态） | 三项回检（覆盖 / 沿路剧本 / 规则样本）；到达节点剧本按 G-03 登记 |
-| 记忆候选留档 | `intelligence/users/<id>/memory_candidates.jsonl` | JSONL | `run_memory_candidate_loop.py` | 否（用户态） | `trace` 子命令（归因反查）；生命周期见 `memory-candidate-lifecycle.md` |
+| 记忆候选留档 | `userspace.user_space(user).root/memory_candidates.jsonl` | JSONL | `run_memory_candidate_loop.py` | 否（用户态） | `trace` 子命令（归因反查）；生命周期见 `memory-candidate-lifecycle.md` |
 | 双盲错因反思候选 | `docs/learning/forecast-lessons/reflections/<date>.reflection.<agent>.<source>.json` | JSON | `forecast_learning_loop sync-reflections` | 是 | Workbench / 人工审批 |
 | 双盲已批准 lessons | `docs/learning/forecast-lessons/lessons.jsonl` | JSONL | `forecast_learning_loop approve-reflection` | 是 | 次日答卷 prompt |
 | 双盲批注规则候选 | `docs/learning/forecast-lessons/rule_candidates.jsonl` | JSONL 事件流 | `forecast_learning_loop sync-annotations/approve-rule/reject-rule` | 是 | 次日答卷 prompt（仅 approved） |
@@ -29,13 +31,13 @@
 | 晨汇 Tier 事件（晨汇正文 Tier 1 / 2 / 3 条目的确定性投影：维度 / 是否盘面共振 / 主题 / 信号 / 映射标的 / 双链 / 材料日 / 最早可知日 / 写成日；一条条目一行，全量重建、可复现） | 知识库仓 `wiki/raw/theme-radar/opinion-store/briefing-tier-events.jsonl` | JSONL | 知识库 `skills/morning-briefing/scripts/extract_tier_events.py`（morning-briefing Stage 4.5；`--check` 作收尾门禁） | 是 | 金融仓 `build-labels --kb-wiki` → `tf.briefing_*` / 河对象 `teaching_briefing` / 带读「消息面」一行 |
 | 机构胜率 | `~/kb_work/winrate_cache/` + `~/kb_work/winrate/` | md | refresh_winrate | 仓外 | 同上 |
 | 每日运营总账 | `build_daily_ops_ledger.py` 输出 | JSON | 该脚本 | 生成物 | cockpit |
-| 工作台 Run | `intelligence/users/<id>/runs/<run_id>/run.json` + `trace.jsonl` | JSON/JSONL | `run_store.py` | 否（用户态） | Workbench UI（协议见 `docs/superpowers/plans/2026-07-08-run-protocol.md`） |
+| 工作台 Run | `userspace.user_space(user).root/runs/<run_id>/run.json` + `trace.jsonl` | JSON/JSONL | `run_store.py` | 否（用户态） | Workbench UI（协议见 `docs/superpowers/plans/2026-07-08-run-protocol.md`） |
 | 历史研究查询 / 案例 / 假设原件 | `userspace.user_space(user).root/runs/<run_id>/history-{query,case,hypothesis}-<sha256>.json`（用户根由 `FORESIGHT_USERS_DIR` 解析；登记在同 run 的 `run.json`，不写冻结的 `intelligence/users/`） | 内容寻址 JSON，不可覆盖 | `RunStore.add_history_artifact`；案例修订在 `history_case_transaction` 内核对当前 head | 否（用户态） | Workbench 既有 JSON 产物查看器；Agent `read_history_result` 同用户同会话、截止及范围核验后读取 |
 | 工具饥饿 | `$FORESIGHT_USERS_DIR/<user>/runs/<run_id>/tool_hunger.jsonl` | JSONL | episode/inline 运行时（fail-open） | 否（用户态） | `python -m intelligence.eval.tool_hunger` → `intelligence/eval/measurements/tool-hunger-YYYY-MM-DD.{json,md}` |
-| 工作台会话 | `intelligence/users/<id>/conversations/<conversation_id>/conversation.json` + `messages.jsonl` | JSON/JSONL | `ConversationStore` | 否（用户态） | Chat-first Workbench UI |
+| 工作台会话 | `userspace.user_space(user).root/conversations/<conversation_id>/conversation.json` + `messages.jsonl` | JSON/JSONL | `ConversationStore` | 否（用户态） | Chat-first Workbench UI |
 | Fidelity 前向验收 | `/Users/a77/fidelity-runtime/forward-acceptance/records/<date>/*.json` | JSON | `fidelity_forward_acceptance.py record` | 仓外 | `latest/<date>.json` + `summary` 子命令 |
 | 观测台薄账 | `docs/roadmap.md` | md（例外：md 即 canonical，不是渲染物） | 检阅方 | 是 | Phase 1 起 `var/observatory/index.html`（gitignored）；L2/曲线由生成器投影 |
-| 视角考卷（已知题/边题） | `intelligence/users/<id>/perspectives/exam/<pid>.json` | JSON | `perspective exam add` | 否（用户态） | `perspective exam run` 报告 |
+| 视角考卷（已知题/边题） | `userspace.user_space(user).root/perspectives/exam/<pid>.json` | JSON | `perspective exam add` | 否（用户态） | `perspective exam run` 报告 |
 | 自用摩擦台账 | `docs/learning/self-use-ledger/<date>.jsonl` | JSONL | `scripts/self_use_ledger.py add`（只记真人使用，探针/评测不进账） | 是 | `summary` 子命令（Self-use Gate 读数，见目录 README） |
 | 预测/假设台账（R-号，实验立案与预注册裁决） | `docs/prediction-ledger.md` | md（例外：md 即 canonical） | 号由 `scripts/claim_ledger_id.py claim` 原子预占（禁手工 max+1）；行由立案会话写入 | 是 | —（实验原始收据在 `~/.finance-runtime/<实验名>/`，本表行是唯一住址索引） |
 | IMA 缺口清单（该跑 DeepDive 的题材 / 该补逻辑卡的个股） | `market_feature_store/exports/<date>-ima-gap.json`（`schema_version` 字段） | JSON | 全量入口 `intelligence.cli daily` 的 `ima-gap-report` 步（只出清单，不自动问 IMA） | 是 | 同名 `.md` |

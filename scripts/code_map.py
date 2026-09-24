@@ -33,6 +33,7 @@ CODE_DIRTY_PREFIXES = (
     "ruff.toml",
     "test-environment.json",
     "requirements-consumer.lock",
+    "requirements-dev.lock",
 )
 CODE_DIRTY_EXCLUDE_PREFIXES = ("market_feature_store/exports/",)
 
@@ -52,6 +53,7 @@ def _git(root: Path, *args: str) -> subprocess.CompletedProcess[str]:
         capture_output=True,
         text=True,
         check=False,
+        timeout=10,
     )
 
 
@@ -197,8 +199,14 @@ def collect_status(root: Path) -> tuple[dict[str, Any], int]:
             stale_weight=stale_weight,
             missing_sha=missing_sha,
         )
+        if dirty and status in {"ready", "stale"}:
+            status, exit_code = "stale", EXIT_STALE
+            one = _clip_one_line("代码地图: stale 未提交代码未验覆盖；提交后重建 ← 勿当当前架构")
         body = {
             "status": status,
+            "scope": "checkout_only",
+            "worktree_coverage": "unverified_dirty" if dirty else "committed_only",
+            "production_verified": False,
             "node_count": 0 if node_count is None and status == "empty" else node_count,
             "git_head_sha": git_head_sha,
             "head_sha": head_sha,

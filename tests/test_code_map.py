@@ -243,8 +243,13 @@ def test_worktree_dirty_code_true_for_scripts(tmp_path):
     scripts.mkdir()
     (scripts / "x.py").write_text("print(1)\n", encoding="utf-8")
     payload, code = _collect(root)
-    assert code == 0
+    assert code == 1
+    assert payload["status"] == "stale"
     assert payload["worktree_dirty_code"] is True
+    assert payload["worktree_coverage"] == "unverified_dirty"
+    assert "未提交代码未验覆盖" in payload["one_line"]
+    assert payload["scope"] == "checkout_only"
+    assert payload["production_verified"] is False
 
 
 def test_exports_do_not_count_as_code_dirty(tmp_path):
