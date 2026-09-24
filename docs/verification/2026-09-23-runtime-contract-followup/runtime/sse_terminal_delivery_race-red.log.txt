@@ -1,0 +1,12 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+____________ test_sse_emits_terminal_message_arriving_between_reads ____________
+intelligence/tests/test_workbench_api.py:3258: in test_sse_emits_terminal_message_arriving_between_reads
+    assert body.count("event: message.error") == 1
+E   assert 0 == 1
+E    +  where 0 = <built-in method count of str object at 0x95c926700>('event: message.error')
+E    +    where <built-in method count of str object at 0x95c926700> = 'event: run\ndata: {"run_id": "run_20260923_134315_522041", "user": "default", "question": "terminal race", "task_type...tenance_launch": null, "publication": {"status": "not_applicable", "message_id": null}, "delivery_pending": false}\n\n'.count
+- generated xml file: /Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/sse_terminal_delivery_race-red.xml -
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_workbench_api.py::test_sse_emits_terminal_message_arriving_between_reads
+1 failed, 70 deselected in 7.60s

@@ -14,7 +14,11 @@ import math
 import re
 from typing import TYPE_CHECKING
 
-from intelligence.services.agent_research import AgentEvidence, StructuredObservation
+from intelligence.services.agent_research import (
+    AgentEvidence,
+    HistoricalEvidenceProvenance,
+    StructuredObservation,
+)
 from intelligence.services.agent_runtime import _json_copy
 
 if TYPE_CHECKING:
@@ -29,6 +33,7 @@ _FIELDS_BY_VERSION = {
     1: _COMMON_FIELDS | {"presented_hashes"},
     2: _COMMON_FIELDS | {"presentations"},
     3: _COMMON_FIELDS | {"presentations"},
+    4: _COMMON_FIELDS | {"presentations"},
 }
 _STRING_FIELDS = (
     "tool", "title", "detail", "source", "internal_locator", "evidence_tier",
@@ -36,15 +41,36 @@ _STRING_FIELDS = (
 )
 # Explicit atom schema: a new AgentEvidence field must make capture fail closed
 # until its persistence/validation semantics have been deliberately chosen.
+# Each schema version names exactly the fields it persists; older versions keep
+# their original bytes/digest and never infer the fields they predate.
 _LEGACY_ATOM_FIELDS = frozenset((*_STRING_FIELDS,
     "source_date", "supports", "contradicts", "derived_from", "observations",
     "reexcerpted", "pointer_dropped", "structural_neighbor_demoted", "deep_read",
 ))
-_ATOM_FIELDS = _LEGACY_ATOM_FIELDS | {"io_effect"}
+# v3: dispatch-level IO provenance (``io_effect``).
+_IO_ATOM_FIELDS = _LEGACY_ATOM_FIELDS | {"io_effect"}
+# v4: historical source identity (``history_provenance``), persisted as the
+# complete ``HistoricalEvidenceProvenance`` record or ``None``; restore goes
+# through ``HistoricalEvidenceProvenance.from_dict`` so a partial or unknown
+# provenance shape fails closed instead of becoming an ordinary card.
+_ATOM_FIELDS = _IO_ATOM_FIELDS | {"history_provenance"}
+
+
+def _atom_fields(version: int) -> frozenset[str]:
+    if version >= 4:
+        return _ATOM_FIELDS
+    if version == 3:
+        return _IO_ATOM_FIELDS
+    return _LEGACY_ATOM_FIELDS
 
 
 def _atom_payload(item: AgentEvidence, *, version: int) -> dict[str, object]:
     payload = _json_copy(asdict(item), path="atom")
+    if version < 4:
+        # Old snapshots had no historical source identity. Preserve their exact
+        # bytes/digest; a card that carries provenance has no lossless old shape.
+        if payload.pop("history_provenance") is not None:
+            raise ValueError("legacy evidence snapshot cannot preserve history provenance")
     if version < 3:
         # Old snapshots had no dispatch-level IO provenance. Preserve their
         # exact bytes/digest without inventing local-read authority on restore.
@@ -74,7 +100,7 @@ def _digest(body: dict[str, object]) -> str:
 
 
 def _atom(raw: object, *, version: int) -> AgentEvidence:
-    atom = _object(raw, _ATOM_FIELDS if version >= 3 else _LEGACY_ATOM_FIELDS, "atom")
+    atom = _object(raw, _atom_fields(version), "atom")
     if version >= 3 and atom["io_effect"] not in ("local_read", "external_or_mixed", "unknown"):
         raise ValueError("evidence IO effect must be an audited declaration or unknown")
     if any(not isinstance(atom[key], str) for key in _STRING_FIELDS):
@@ -85,6 +111,10 @@ def _atom(raw: object, *, version: int) -> AgentEvidence:
     if atom["source_date"] is not None and not isinstance(atom["source_date"], str):
         raise ValueError("evidence source_date must be a string or None")
     kwargs = dict(atom)
+    if version >= 4 and atom["history_provenance"] is not None:
+        # Complete record or nothing: ``from_dict`` rejects partial/unknown keys
+        # and re-runs the identity validation the card was admitted under.
+        kwargs["history_provenance"] = HistoricalEvidenceProvenance.from_dict(atom["history_provenance"])
     for key in ("supports", "contradicts", "derived_from"):
         kwargs[key] = _strings(atom[key])
     if type(atom["deep_read"]) is not bool or (
@@ -124,7 +154,7 @@ class EvidenceCheckpointEntry:
     branch_owner: str | None
     cutoff_status: str
 
-    def to_dict(self, *, version: int = 3) -> dict[str, object]:
+    def to_dict(self, *, version: int = 4) -> dict[str, object]:
         return {
             "atom": _atom_payload(self.atom, version=version),
             "targets": list(self.targets), "branch_owner": self.branch_owner,
@@ -137,7 +167,7 @@ class EvidencePresentation:
     atom: AgentEvidence
     classification: str
 
-    def to_dict(self, *, version: int = 3) -> dict[str, object]:
+    def to_dict(self, *, version: int = 4) -> dict[str, object]:
         return {
             "atom": _atom_payload(self.atom, version=version),
             "classification": self.classification,
@@ -188,7 +218,7 @@ class EpisodeEvidenceSnapshot:
     presentations: tuple[EvidencePresentation, ...]
     covered_outputs: tuple[str, ...]
     open_gaps: tuple[str, ...]
-    schema_version: int = 3
+    schema_version: int = 4
 
     @property
     def presented_hashes(self) -> tuple[str, ...]:

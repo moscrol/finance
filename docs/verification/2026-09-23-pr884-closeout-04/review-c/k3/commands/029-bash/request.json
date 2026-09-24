@@ -1,0 +1,1 @@
+{"toolCallId":"bash_28","params":{"command":"cd /Users/a77/.finance-runtime/reviews/pr884-closeout-20260923-04/finance-workspace-private && rg -c \"def test\" intelligence/tests/test_workbench_api.py; rg -n \"delivery_pending|publication|events\" intelligence/tests/test_workbench_api.py | head -20"}}

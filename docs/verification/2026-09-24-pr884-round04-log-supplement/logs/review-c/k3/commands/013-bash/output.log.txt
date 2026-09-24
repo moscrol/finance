@@ -1,0 +1,4 @@
+695:    reason = message.get("_finish_reason") if isinstance(message, dict) else None
+697:    if reason in {"length", "max_tokens", "content_filter", "missing_finish_reason"}:
+703:            served_model=_message_served_model(message), finish_reason=reason,
+707:    return replace(turn, finish_reason=reason), error

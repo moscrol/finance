@@ -1,0 +1,38 @@
+{
+  "command": [
+    "/usr/bin/sandbox-exec",
+    "-f",
+    "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/host.sb",
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "-B",
+    "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/remaining-regressions/regression/entry.py",
+    "-q",
+    "-p",
+    "no:cacheprovider",
+    "--junitxml",
+    "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/remaining-regressions/regression.xml",
+    "intelligence/tests/test_episode_store.py",
+    "intelligence/tests/test_episode_restore.py",
+    "intelligence/tests/test_episode_restore_persistence.py",
+    "intelligence/tests/test_episode_restore_repeatability.py",
+    "intelligence/tests/test_episode_entry_identity.py",
+    "intelligence/tests/test_episode_effects.py",
+    "intelligence/tests/test_root_budget_snapshot.py",
+    "intelligence/tests/test_episode_progress.py",
+    "--basetemp=/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/remaining-regressions/regression/pytest"
+  ],
+  "cwd": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/candidate",
+  "env": {
+    "PATH": "/opt/homebrew/bin:/usr/bin:/bin",
+    "PYTHONPATH": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/candidate",
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "FWP_TEST_RECEIPT": "0",
+    "HOME": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/remaining-regressions/regression/home",
+    "TMPDIR": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/remaining-regressions/regression/tmp",
+    "FORESIGHT_USERS_DIR": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/remaining-regressions/regression/users",
+    "FORESIGHT_LLM_KEYCHAIN": "0"
+  },
+  "timeout": 120,
+  "exit_code": 0,
+  "raw_sha256": "8afd0f5b2ff7ab8b3e7c34f4a5748917fee716550118ddb0f3255fb8784e507c"
+}

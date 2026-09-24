@@ -1,0 +1,11 @@
+947:def restore_root_budget(
+951:    unreconciled_effects: Sequence[Mapping[str, object]],
+957:    ``unreconciled_effects`` is **required**, not defaulted. A snapshot is taken
+968:    outstanding = unknown_effects_from_payload(list(unreconciled_effects))
+===ENTRY===
+wc: intelligence/services/continuous_turn_adapter.py: open: No such file or directory
+     172 intelligence/services/episode_entry_identity.py
+     291 intelligence/services/episode_evidence.py
+     214 intelligence/services/episode_authorization.py
+    4151 intelligence/runtime/agent_episode.py
+    4828 total

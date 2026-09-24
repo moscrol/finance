@@ -1,0 +1,38 @@
+{
+  "command": [
+    "/usr/bin/sandbox-exec",
+    "-f",
+    "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/host.sb",
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "-B",
+    "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/mutations/new_run_restarts_existing_log-green/entry.py",
+    "-q",
+    "-p",
+    "no:randomly",
+    "-p",
+    "no:cacheprovider",
+    "--tb=short",
+    "--junitxml",
+    "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/mutations/new_run_restarts_existing_log-green.xml",
+    "intelligence/tests/test_episode_writer.py",
+    "-k",
+    "test_successful_drive_releases_but_never_restarts_existing_log",
+    "--basetemp=/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/mutations/new_run_restarts_existing_log-green/pytest"
+  ],
+  "cwd": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/scratch/contract-mutations-p3lj97l5/tree",
+  "env": {
+    "PATH": "/Users/a77/.pi/agent/bin:/Users/a77/.kimi-code/bin:/Users/a77/.grok/bin:/Users/a77/.local/bin:/Users/a77/.local/bin:/Users/a77/.codeium/windsurf/bin:/Users/a77/.local/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/opt/pkg/env/active/bin:/opt/pmk/env/global/bin:/Applications/Ghostty.app/Contents/MacOS",
+    "HOME": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/mutations/new_run_restarts_existing_log-green/home",
+    "PYTHONPATH": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/scratch/contract-mutations-p3lj97l5/tree",
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "FWP_TEST_RECEIPT": "0",
+    "FORESIGHT_USERS_DIR": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/mutations/new_run_restarts_existing_log-green/users",
+    "FORESIGHT_LLM_KEYCHAIN": "0",
+    "LANG": "en_US.UTF-8",
+    "TMPDIR": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/mutations/new_run_restarts_existing_log-green/tmp",
+    "KNOWLEDGE_WIKI": "/Users/a77/knowledge-base-private/wiki"
+  },
+  "timeout": 120,
+  "exit_code": 0,
+  "raw_sha256": "b1d7323d17a98368d503b800ce09e54e421b892d59aa6b3496f4675f56072a7e"
+}

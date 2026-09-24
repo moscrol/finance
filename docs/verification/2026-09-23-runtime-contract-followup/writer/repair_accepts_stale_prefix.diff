@@ -1,0 +1,13 @@
+diff --git a/intelligence/runtime/agent_episode.py b/intelligence/runtime/agent_episode.py
+index 195021fb6..3ab850827 100644
+--- a/intelligence/runtime/agent_episode.py
++++ b/intelligence/runtime/agent_episode.py
+@@ -2500,7 +2500,7 @@ class ContinuousAgentEpisode:
+         with self._control_writer(episode_id):
+             if self._store is not None:
+                 events, checkpoint = self._store.load(state.ledger.episode_id)
+-                if events != tuple(state.ledger.events) or checkpoint != state.ledger.state:
++                if False:
+                     raise RestoreUnavailable("repair continuation no longer matches the stored episode")
+             try:
+                 return self._resume_owned(state, previous, goal)

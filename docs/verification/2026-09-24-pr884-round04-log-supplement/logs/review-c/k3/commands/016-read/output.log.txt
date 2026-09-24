@@ -1,0 +1,92 @@
+    provider_name: str = ""
+    error: str = ""
+    # Physical provider/HTTP attempts. Zero is valid when deadline or budget
+    # rejects the turn before the adapter boundary.
+    provider_attempts: int = 1
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+    # 响应体自报的 model（生效值）。三态：``None`` = 这一回合没有到达 provider
+    # （预算/截止在适配器之前拒掉）；``""`` = provider 回了响应但没带 model 字段
+    # （中转常见，记「未回」）；非空 = 对端实际服务的模型名。**永不**用配置的
+    # ``provider.model`` 回填——A/B 读数要靠它分辨「模型没真的切过去」（§3.5.4）。
+    served_model: str | None = None
+    # None = legacy adapter supplied no stop metadata; do not fabricate "stop".
+    finish_reason: str | None = None
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.content, str):
+            raise ValueError("model content must be a string")
+        if not isinstance(self.provider_name, str):
+            raise ValueError("provider_name must be a stable string")
+        if not isinstance(self.error, str):
+            raise ValueError("model error must be a string")
+        if self.served_model is not None and not isinstance(self.served_model, str):
+            raise ValueError("served_model must be a string or None")
+        if self.finish_reason is not None and not isinstance(self.finish_reason, str):
+            raise ValueError("finish_reason must be a string or None")
+        if (
+            isinstance(self.provider_attempts, bool)
+            or not isinstance(self.provider_attempts, int)
+            or self.provider_attempts < 0
+        ):
+            raise ValueError("provider_attempts must be a non-negative integer")
+        for field_name in ("input_tokens", "output_tokens"):
+            value = getattr(self, field_name)
+            if value is not None and (
+                isinstance(value, bool)
+                or not isinstance(value, int)
+                or value < 0
+            ):
+                raise ValueError(f"{field_name} must be a non-negative integer")
+        calls = tuple(self.tool_calls)
+        if any(not isinstance(call, ModelToolCall) for call in calls):
+            raise ValueError("tool_calls must contain ModelToolCall values")
+        object.__setattr__(self, "tool_calls", calls)
+        object.__setattr__(self, "provider_name", self.provider_name.strip())
+        object.__setattr__(self, "error", self.error.strip())
+        if self.served_model is not None:
+            object.__setattr__(self, "served_model", self.served_model.strip())
+        if self.finish_reason is not None:
+            reason = self.finish_reason.strip().lower()
+            object.__setattr__(self, "finish_reason", reason or None)
+            if reason in {"length", "max_tokens", "content_filter", "missing_finish_reason"}:
+                # Even valid JSON may be semantically incomplete. Fence at the neutral
+                # contract too, so injected clients cannot bypass the provider adapter.
+                object.__setattr__(self, "tool_calls", ())
+                object.__setattr__(self, "error", "incomplete_model_response:" + reason)
+
+    def to_dict(self) -> dict[str, object]:
+        payload: dict[str, object] = {
+            "content": self.content,
+            "tool_calls": [call.to_dict() for call in self.tool_calls],
+            "provider_name": self.provider_name,
+            "error": self.error,
+            "provider_attempts": self.provider_attempts,
+        }
+        if self.input_tokens is not None:
+            payload["input_tokens"] = self.input_tokens
+        if self.output_tokens is not None:
+            payload["output_tokens"] = self.output_tokens
+        if self.finish_reason is not None:
+            payload["finish_reason"] = self.finish_reason
+        if self.served_model is not None:
+            # 空串也写：那是「provider 未回 model 字段」的收据，与字段缺席不同。
+            payload["served_model"] = self.served_model
+        return payload
+
+
+# 瞬态模型/provider 错误的判据（单一真本源）。provider 适配器
+# （glm_agent_runtime）用它决定链内换 provider 重试，episode 修复轮用它决定
+# harness 层是否补救一次。两处共用同一份标记，避免「适配器认为可重试、
+# 修复轮认为致命」这种口径漂移。
+TRANSIENT_MODEL_ERROR_MARKERS = (
+    "TimeoutError",
+    "RemoteDisconnected",
+    "URLError",
+    # cockpit gateway round-robin 偶发：池里某账号坏掉时返回 502/503，
+    # 下一轮 round-robin 通常会打到健康账号。一次重试代价极低（<1s），
+    # 而不重试会让单次决证直接报 model_unavailable，误导性极强。
+    "HTTP 502",
+    "HTTP 503",
+
+[truncated; total lines=518, selected=120:209; request a later offset]

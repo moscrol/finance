@@ -1,0 +1,107 @@
+"""K3 independent probe C4: writer takes lock before load, holds it for the whole
+control operation, stable flock inode; cross-process competitors cannot
+append/close/consume through protected entry points.
+
+Named semantic assertions are marked ASSERT:C4-*.
+"""
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+import pytest
+
+WORK = Path('/Users/a77/.finance-runtime/reviews/pr884-closeout-20260923-04/review-b/k3/work')
+import intelligence.userspace as u
+u.USERS_DIR = WORK / 'users'
+
+from intelligence.runtime.agent_episode import ContinuousAgentEpisode
+from intelligence.services.episode_store import (
+    EpisodeState, EpisodeWriterBusy, JsonlEpisodeStore, now_iso,
+)
+from intelligence.services.agent_runtime import EpisodeEvent
+from intelligence.tests.conformance.fixtures import (
+    ScenarioProbe, ScriptedModelClient, ScriptedToolCall, ScriptedTurn,
+    completed_finish, make_context, make_frame, make_registry,
+)
+
+CHILD = Path(__file__).with_name("c4_child.py")
+PY = "/Users/a77/finance-workspace-private/.venv-workbench/bin/python"
+
+
+def _child(root: Path, episode_id: str, mode: str) -> str:
+    proc = subprocess.run(
+        [PY, "-B", str(CHILD), str(root), episode_id, mode],
+        capture_output=True, text=True, timeout=90,
+    )
+    line = next((l for l in proc.stdout.splitlines() if l.startswith("RESULT")), "")
+    assert line, f"child gave no result: stdout={proc.stdout!r} stderr={proc.stderr[-500:]!r}"
+    return line
+
+
+def _seed_open_episode(store: JsonlEpisodeStore, episode_id: str) -> None:
+    store.append(episode_id, (EpisodeEvent(1, "task", {"question": "q"}),))
+    store.put_state(episode_id, EpisodeState(
+        episode_id=episode_id, phase="model_pending", last_sequence=1, updated_at=now_iso()))
+
+
+def test_cross_process_competitor_busy_for_writer_restore_and_run(tmp_path):
+    store = JsonlEpisodeStore(tmp_path)
+    eid = "k3-c4-cross"
+    _seed_open_episode(store, eid)
+    before = (tmp_path / store.episode_dir(eid).name / "events.jsonl").read_text()
+    with store.writer(eid):
+        # ASSERT:C4-1 a second process cannot take the writer lock
+        assert "RESULT writer BUSY" in _child(tmp_path, eid, "writer")
+        # ASSERT:C4-2 restore takes ownership before load: competitor gets busy, no plan
+        assert "RESULT restore BUSY" in _child(tmp_path, eid, "restore")
+        # ASSERT:C4-3 a fresh run through the real runtime entry is fenced out
+        assert "RESULT run BUSY" in _child(tmp_path, eid, "run")
+    # ASSERT:C4-4 competitor appended nothing while fenced out
+    after = (tmp_path / store.episode_dir(eid).name / "events.jsonl").read_text()
+    assert after == before
+    # lock released with normal return: child can now acquire
+    assert "RESULT writer ACQUIRED" in _child(tmp_path, eid, "writer")
+
+
+def test_lock_held_while_drive_paused_and_released_on_close(tmp_path):
+    store = JsonlEpisodeStore(tmp_path)
+    eid = "k3-c4-paused"
+    probe = ScenarioProbe()
+    frame = make_frame()
+    context = make_context(frame, task_id=eid)
+    model = ScriptedModelClient(
+        [ScriptedTurn(tool_calls=(ScriptedToolCall("get_market_data", "市场宽度"),)),
+         ScriptedTurn(finish=completed_finish())], probe)
+    episode = ContinuousAgentEpisode(model, store=store)
+    drive = episode.manual_drive(task_frame=frame, context=context, registry=make_registry(probe))
+    try:
+        point = drive.step()
+        assert point is not None and point.phase == "model_pending"
+        # ASSERT:C4-5 paused live drive still owns the episode cross-process
+        assert "RESULT writer BUSY" in _child(tmp_path, eid, "writer")
+        assert "RESULT restore BUSY" in _child(tmp_path, eid, "restore")
+    finally:
+        drive.close()
+    # ASSERT:C4-6 close released ownership without marking a finished episode
+    assert "RESULT writer ACQUIRED" in _child(tmp_path, eid, "writer")
+    events, state = store.load(eid)
+    assert state is not None and not state.terminal
+
+
+def test_lock_inode_stable_and_nofollow(tmp_path):
+    store = JsonlEpisodeStore(tmp_path)
+    eid = "k3-c4-inode"
+    lock_path = store.episode_dir(eid) / ".writer.lock"
+    with store.writer(eid):
+        first = os.stat(lock_path).st_ino
+    with store.writer(eid):
+        second = os.stat(lock_path).st_ino
+    # ASSERT:C4-7 the lock inode is never unlinked/replaced between sessions
+    assert first == second
+    # ASSERT:C4-8 a symlinked lock path is refused (O_NOFOLLOW), not followed
+    lock_path.unlink()
+    os.symlink(tmp_path / "elsewhere", lock_path)
+    with pytest.raises(OSError):
+        with store.writer(eid):
+            pass

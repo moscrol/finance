@@ -1,0 +1,14 @@
+{
+  "role": "host, not independent reviewer",
+  "command": [
+    "/usr/bin/sandbox-exec",
+    "-p",
+    "(version 1) (allow default) (deny network*) (deny file-write*) (allow file-write* (subpath \"/Users/a77/.finance-runtime/reviews/pr884-closeout-20260923-04/host-qc-b\") (literal \"/dev/null\")) (deny process-exec (literal \"/usr/bin/security\"))",
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "-B",
+    "/Users/a77/.finance-runtime/reviews/pr884-closeout-20260923-04/host-qc-b/run.py",
+    "inner"
+  ],
+  "exit_code": 1,
+  "source_sha256": "5984440cf5b2fdacbd873525a652a97ad0665850edb0375b497b9a5168100fe9"
+}

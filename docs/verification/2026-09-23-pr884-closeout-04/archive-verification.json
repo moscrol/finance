@@ -1,0 +1,17 @@
+{
+  "revision": "db2605d1b1a6a929d9bac468c84ef6aeaddce9ff",
+  "archives": [
+    {
+      "path": "docs/verification/2026-09-23-runtime-contract-followup",
+      "files": 241,
+      "bytes": 540434,
+      "accepted": true
+    },
+    {
+      "path": "docs/verification/2026-09-23-pr884-gates",
+      "files": 23,
+      "bytes": 49467,
+      "accepted": true
+    }
+  ]
+}

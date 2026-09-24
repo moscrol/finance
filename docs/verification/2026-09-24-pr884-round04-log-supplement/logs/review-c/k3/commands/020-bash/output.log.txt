@@ -1,0 +1,19 @@
+1781:            if not turn.tool_calls and not turn.error:
+1883:            if turn.error:
+1884:                ledger.add("model_error", {"reason": turn.error, "turn_id": turn_id})
+1909:                        failure_reason=turn.error,
+1918:                    gap=turn.error,
+2420:                turn.error
+2423:                and is_transient_model_error(turn.error)
+2465:                        "reason": turn.error,
+2734:        if turn.error:
+2735:            ledger.add("model_error", {"reason": turn.error})
+2740:                gap=turn.error,
+2856:        if turn.error or turn.tool_calls:
+2860:                    "repair_model_error" if turn.error else "repair_tool_during_finish"
+2862:                reason=turn.error or "修复终止阶段仍尝试调用工具",
+2876:                gap=turn.error or "修复终止阶段仍尝试调用工具",
+3781:        if turn.error:
+3782:            ledger.add("model_error", {"reason": turn.error})
+3787:                reason=turn.error,
+4030:        if turn.error or turn.tool_calls or not str(turn.content or "").strip():

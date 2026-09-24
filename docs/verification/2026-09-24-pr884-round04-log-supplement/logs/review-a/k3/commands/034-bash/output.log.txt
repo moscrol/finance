@@ -1,0 +1,6 @@
+intelligence/services/research_contract.py
+767:    def to_snapshot(self) -> dict[str, object]:
+775:                "schema_version": 1,
+791:    def from_snapshot(
+802:            "schema_version", "kind", "episode_id", "initial_calls", "initial_seconds",
+809:        if type(payload["schema_version"]) is not int or payload["schema_version"] != 1:

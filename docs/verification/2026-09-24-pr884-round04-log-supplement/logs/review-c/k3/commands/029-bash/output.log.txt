@@ -1,0 +1,21 @@
+110
+658:            run_store.load_stream_events(run.run_id),
+867:            run_store.load_stream_events(run.run_id),
+2422:        events = RunStore().load_stream_events(run_id)
+2428:    assert all(event["event_type"] != "message.error" for event in events)
+2491:    events = RunStore().load_stream_events(interrupted.run_id)
+2492:    assert events[0]["event_type"] == "run_recovered"
+2598:def test_sse_does_not_expose_trace_rows_as_public_events(client: TestClient) -> None:
+2602:    events = []
+2603:    with client.stream("GET", f"/api/runs/{run_id}/events") as resp:
+2606:                events.append(line.removeprefix("event: "))
+2609:    assert events == ["run"]
+2635:    with client.stream("GET", f"/api/runs/{run.run_id}/events") as response:
+2695:        (store.load_trace(run.run_id), store.load_stream_events(run.run_id))
+2698:    event_body = client.get(f"/api/runs/{run.run_id}/events").text
+2793:    raw_events = json.dumps(
+2794:        store.load_stream_events(run.run_id),
+2798:    assert "Traceback" in raw_events
+2800:    assert "/Users/alice" in raw_events
+2803:    event_body = client.get(f"/api/runs/{run.run_id}/events").text
+2857:    streamed = client.get(f"/api/runs/{run_id}/events").text

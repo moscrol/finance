@@ -151,6 +151,19 @@ def run_hithink_dragon_auction_step(trade_date: str | None = None) -> dict:
     )
 
 
+def run_hithink_research_step(trade_date: str | None = None) -> dict:
+    from .sync_hithink_research import HithinkResearchError, sync_hithink_research
+
+    result = sync_hithink_research(end_date=date.fromisoformat(trade_date) if trade_date else None)
+    if result.get("status") == "skip":
+        return {"skipped": True, "reason": result["reason"]}
+    if result.get("status") == "partial":
+        raise HithinkResearchError(
+            "hithink-research partial; missing=" + json.dumps(result["missing"])
+        )
+    return result
+
+
 def run_hithink_stock_daily_step() -> dict:
     """东财 / mootdx 之后并跑十年 K 的日增量。没 key 算 skip，有 key 下载失败才失败。"""
 
@@ -316,6 +329,7 @@ def run_daily_update(
     steps.append(_run_step("sync-hithink-sector-kline", run_hithink_sector_kline_step, td))
     steps.append(_run_step("sync-hithink-limit-pools", run_hithink_limit_pools_step, td))
     steps.append(_run_step("sync-hithink-dragon-auction", run_hithink_dragon_auction_step, td))
+    steps.append(_run_step("sync-hithink-research", run_hithink_research_step, td))
     steps.append(_run_step("sync-mainline-daily", sync_mainline_daily, td))
     steps.append(_run_step("sync-theme-flow-daily", sync_theme_flow_daily, td))
     steps.append(_run_step("sync-mainline-sector-daily", sync_mainline_sector_daily, td))

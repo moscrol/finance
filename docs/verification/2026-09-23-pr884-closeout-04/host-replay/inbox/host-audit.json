@@ -1,0 +1,37 @@
+{
+  "revision": "db2605d1b1a6a929d9bac468c84ef6aeaddce9ff",
+  "group": "inbox",
+  "role": "host replay of pre-existing author tests; not K3 independent acceptance",
+  "wrapper_sha256": "ec95c9b571ec55eb688f10f3105fd0db732bfa60fb94e8f9e5d42f6435be3aad",
+  "runner_sha256": "1103f039a54f76e2b479b0b03a24cf43796dbd2681f2dfed1fb8ca1495581209",
+  "before": {
+    "revision": "db2605d1b1a6a929d9bac468c84ef6aeaddce9ff",
+    "status": ""
+  },
+  "accepted": true,
+  "baseline": 6,
+  "mutations": [
+    {
+      "mutation": "inbox_storage_failure_deletes_spool",
+      "collected": 2,
+      "failures": [
+        {
+          "classname": "scripts.review_probes.runtime_identity_effects.probe.inbox_checks",
+          "name": "test_c1_failed_insert_keeps_spool_file_and_blocks_claim[deferred_short_circuit]",
+          "message": "AssertionError: insert 没落账就不许销毁运输副本\nassert 1 == 0\n +  where 1 = ingest_spool()\n +    where ingest_spool = <intelligence.services.episode_inbox.Inbox object at 0x107101f70>.ingest_spool"
+        },
+        {
+          "classname": "scripts.review_probes.runtime_identity_effects.probe.inbox_checks",
+          "name": "test_c1_failed_insert_keeps_spool_file_and_blocks_claim[mid_insert_write]",
+          "message": "AssertionError: insert 没落账就不许销毁运输副本\nassert 1 == 0\n +  where 1 = ingest_spool()\n +    where ingest_spool = <intelligence.services.episode_inbox.Inbox object at 0x107ad3350>.ingest_spool"
+        }
+      ]
+    }
+  ],
+  "after": {
+    "revision": "db2605d1b1a6a929d9bac468c84ef6aeaddce9ff",
+    "status": ""
+  },
+  "candidate_unchanged": true,
+  "inputs_unchanged": true
+}

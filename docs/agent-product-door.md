@@ -2,6 +2,8 @@
 
 评接口深浅、找「入口」、宣称「我们没有 X」之前读本页。
 能力有哪些节点仍以能力图谱为准，本页不抄工具表、不写死个数。
+本页描述代码合同；带日期的部署段只对所记版本成立，当前生产需查部署账本与实际收据。
+搭建环境走 [开发基线](workflows/agent-foundation.md)；六图维护合同见 `docs/agent-maps.json`。
 
 **深模块** = 调用方每学一单位接口能驱动多少行为。接口包括签名、不变量、必须知道的配置。数参数个数当深浅，会把测试旋钮当成生产门。
 
@@ -27,7 +29,7 @@
 | 维护旧判断 / 选下一项研究 / 看个人诊断 | `GET /api/conversations/{id}/research-evolution`（+ `POST` 的 `bindings` / `actions` / `events`） | 挂在**既有会话**下的内容区，不是第三条问答引擎：判定全部回调 01–05 的真函数，本层只取数与授权。`?user=` 不是认证——未配认证层时只认服务配置用户与 `RESEARCH_EVOLUTION_ALLOWED_USERS` 白名单。管理动作**不能冒充新判断**：关闭维护项要指到原写入者写下的新判断行 |
 | 研究跑到一半插一句话 | `python3 -m intelligence.cli steer <episode_id> "<文本>"` | 运行底座 P3 收件箱（INV-R5）的跨进程门：写 durable 目录投递槽 `<episode_dir>/inbox-spool/`，loop 下一次模型请求前认领；`--list` 看在跑的、`--wait N` 等回执。store 根必须与 Workbench 进程同一套 `FINANCE_WS` / `FORESIGHT_EPISODE_STORE`，否则是另一个家（CLI 会拒投并打出看过的路径）。Workbench 端点等 Alpha（母单 §12 第 4 题） |
 | 复盘写入（另一条面） | `python3 -m market_feature_store.cli daily-full` | 飞书 Bitable 写入已退役 |
-| 飞书 IM（已退役，不是门） | `python3 -m intelligence.cli feishu-bot` | exit 2，不连 WebSocket。与 Bitable 写入退役是两件事 |
+| 飞书（已退役，不是门） | 无现役 IM 入口 | 2026-09-11 起 IM、自建应用与 Bitable 写入整体退役；旧 `feishu-bot` 子命令和实现已删除 |
 
 夜跑收尾的运维入口仍是 `nightly_full_review.sh finalize`，不新增问答门或事实写入链。
 生成段从 `FINANCE_GENERATION_CODE_ROOT` 的双根 launcher 调用原 `intelligence.cli daily --skip-sync`；
@@ -385,6 +387,25 @@ H-03 将已有引导块、缩进块及长材料区的归属送入同一个控制
 SSE 同时等精确发布证明与 writer 收尾，并补发两次读取之间的新事件，不以固定等待
 时长猜发布已完成。这是待验证的组合合同，不继承任一父分支的完整门禁或独立签字。
 
+### 半年与全年混比拒句（2026-09-22，仍未合入）
+
+R6 已知缺陷之一是把中报累计值与上年全年累计值直接比强弱。#835 候选此前只按
+逗号分句核对，跨分句的「较……走弱」不带自身期别，因此 `2026中报净现比0.132，
+较2025全年净现比1.009走弱`、省略第二个指标名、以及先写「不可直接比较」再转折
+的写法都被放行（两种判官模式一致）。现在同一句内把前一分句显式命名的比率期别
+带给「较/相较于/相比于」的对照分句，期别长度不同即拒句，走既有 `metric_evidence`
+缺口与修复账，保留同句已绑定引用，不替模型改写成正确结论。
+
+只认显式命名比率的分句作锚：裸数字、存货或收入等其他指标不充当比率锚，无
+「较」的并列列示、带不可比声明的句子、跨句承接一律不判，宁可漏判不误拒。因此
+「2026中报净现比0.132，2025全年净现比1.009走弱」这类主语歧义句仍会放行，属
+已知漏判。算术门仍只检查有绑定事实的期别：对无绑定事实期别的数值（如
+`2025中报含金量为9.999`）不作对错判定，该类由引用与缺口规则另管。
+
+回归 `test_financial_comparison_context.py`（对照用例经六项撤保护验证：去挂钩、
+去不可比声明、裸数字充当锚、去「较」锚、期别只比年份、去方向词，全部被杀死）。
+不改任何自然验收结论：旧 R6/R3 整题 0/4 不变，本项未经付费模型复核或新 live。
+
 ### 材料题边界（E2，分阶段接线中）
 
 D1 分类器已独立复核；P2 把完整题组/原题号、前提真实性与数据范围接入
@@ -729,7 +750,7 @@ adapter 在语义删句后按**核验过的公开正文**重算表达缺件，�
 1. **确定性题型 → D 块流水线**：`DETERMINISTIC_OWNER_TYPES` 实为**五条**——`external_market` / `dated_market_review` / `market_watch` / `watchlist_digest` / `disclosure_scan`（`continuous_turn_adapter.py:111`，个数以该常量为准，勿写死）。**`quick_fact` 已被明确移出**（`:108`，R-20260828-05：排名/过滤/区间取值必须进 episode 才碰得到 `finance_query`）。
 2. **ownerless 长尾 → `generic_research_owner` 循环**：`research_task_contract` 非空时 `_answer_query_impl` **整条早退**、D 块一次不跑（`ask.py:3055-3059`）；契约只在 `conversation_orchestrator.py:2809` 设上，条件是「研究题 + 无专属椅子」（`:2245`）。这一条是 `run_agent_loop`，**不是写死流程**——把 B 整体说成「写死流程」会把它接长尾的能力漏掉。
 
-A 与 B 的门禁不对等：语义判官（`episode_semantic_verifier`）、结构门、修复轮**只在 A**；B 有 `gate_receipt` / `CompletionReport` / `evidence_judge` / 输出质检。差的成因是分层——判官在 `runtime/`，B 在 `services/`，不得反向 import。现状与并轨计划见 `docs/superpowers/specs/2026-08-30-engine-b-into-a-strangler-design.md` §1.3。
+A 与 B 的门禁接线不对等：A 的结构门、`episode_semantic_verifier` 与修复循环由 `runtime/continuous_turn_adapter.py` 装配；B 有 `gate_receipt` / `CompletionReport` / `evidence_judge` / 输出质检。判官实现已位于 `services/episode_semantic_verifier.py`，不能再用「判官在 runtime 所以 B 不能引用」解释现状；模块可引用不等于两条引擎已接通同一门禁。历史并轨方案见 `docs/superpowers/specs/2026-08-30-engine-b-into-a-strangler-design.md` §1.3，现状以源码及对应测试为准。
 
 ### 判官模式：`ASK_SEMANTIC_JUDGE=llm|off`（工单 #55）
 
@@ -758,7 +779,7 @@ A 与 B 的门禁不对等：语义判官（`episode_semantic_verifier`）、结
 |---|---|---|
 | `cli ask` | `AskWorkflowOptions` → `run_ask` → 再填 `AskOptions`（浅拷贝还在） | 否，经 CLI 默认填充 |
 | `cli chat` / `cli agent` | 直接 `AskOptions` | 否 |
-| 飞书 IM | `feishu-bot` **exit 2**；文件里还留着 `_run_ask_workflow`，`run()` 到不了 | 已退役，不是门 |
+| 飞书 IM | 旧 `feishu-bot` 子命令与实现已删除，不再构造 `AskOptions` | 已退役，不是门 |
 | `research_owner.py` | 直接 `AskOptions`，带 `compose` / `deadline` / `question_type_override` 等 | 否，策略调用方 |
 | Workbench `app.py` `_run_ask` | 直接 `AskOptions` + `answer_query`，走 run/store | 否，UI 合同 |
 
@@ -792,6 +813,22 @@ worker 的资料根按调用参数传递且纳入进程复用键，不继承无�
 跨仓合同见 `docs/handoffs/2026-09-18-kb-filter-receipt.md`；金融 #784 / KB #151 已合入，
 合并验收与生产边界见 `docs/handoffs/2026-09-18-kb-retrieval-merge-acceptance.md`。部署与索引迁移另行。
 
+### RAG 能力探针诊断
+
+`/api/readiness` 与 `/api/health/ready` 的 `rag` 对象增加 `elapsed_ms`、
+`timeout_seconds`、`failure_kind`：记录整次探针单调时钟耗时、传给 subprocess 的超时预算、
+固定失败分类。耗时含路径检查和子进程回收，不是 CPU/导入耗时，也不是严格的端到端截止时间；
+未测量的手工构造收据保留 null。`os_error` 不进一步断言是启动还是通信失败。
+默认每批仍执行一次 `query --help`、subprocess 预算 5 秒，无重试或成功缓存；失败仍非 ready，
+不公开 stderr、命令路径或异常原文。legacy 缺可选参数不作为失败。
+同一进程内，代码根/内容指纹、解释器路径、子进程环境和超时相同的重叠调用共用在途检查，
+完成即删除，不跨进程去重；不同配置不串行等待。不增加对外诊断字段。
+`elapsed_ms` 始终是本请求耗时（包含指纹检查和等待），不是被复用检查的原始耗时。
+等待者最多等待同一超时预算，超时不会重试或取消执行者；执行者仍负责回收子进程。
+成功发布前重验受跟踪代码，变更返回 `code_changed`，读取失败拒绝报绿；不是完整供应链校验，
+不检测解释器/第三方依赖的原地替换或文件先改后还原，部署仍须不可变代码树并重启。
+这些字段不能证明真实检索成功，也不能倒推出历史间歇超时根因；候选代码尚未部署。
+
 ## 积木（常见误判）
 
 这些可以很深，但**调用方不是人，是引擎**：
@@ -808,4 +845,4 @@ worker 的资料根按调用参数传递且纳入进程复用键，不继承无�
 
 对着积木的公开方法数打「浅」、建议再包一层工厂、建议把超时重试塞进注册表——都是把积木当成了门。先问：调用方是人、是调度器、还是引擎内部？
 
-把 `feishu-bot` 当问答正门，或把「飞书 Bitable 写入已退役」写成连 IM 长连接也没了——两扇门不是同一件事。IM 入口现在 exit 2。
+把历史飞书 IM 文档当现役入口，或仍按旧的 exit 2 stub 判断当前代码。2026-09-11 后飞书整体退役；退出方式的历史记录不能覆盖当前 CLI 与源码。

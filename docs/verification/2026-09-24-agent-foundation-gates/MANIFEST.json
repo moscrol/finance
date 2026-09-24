@@ -1,0 +1,131 @@
+{
+  "tested_revision": "03af215e092cf0da25f3c7e8f60256cb60c2836e",
+  "files": [
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/agent-foundation-0924/round-01/doctor.json",
+      "path": "doctor.json",
+      "bytes": 4839,
+      "sha256": "f1ad144d44c244b30b9447f7bf2ddb863d0a245db6bd865b526197d550200456"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/agent-foundation-0924/round-01/frontend/controller.log",
+      "path": "frontend/controller.log.txt",
+      "bytes": 436,
+      "sha256": "37a6d9dd2828f9c05b9e28fcc0b50732ec0ccde8fb04e5185d87979ffb20e308"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/agent-foundation-0924/round-01/frontend/gate/frontend-0.log.txt",
+      "path": "frontend/gate/frontend-0.log.txt",
+      "bytes": 995,
+      "sha256": "de20ba28f19ceca0f034558631d39b91ac2e2fd924ee03384a6566ec75abd27e"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/agent-foundation-0924/round-01/frontend/gate/frontend-1.log.txt",
+      "path": "frontend/gate/frontend-1.log.txt",
+      "bytes": 111,
+      "sha256": "c8e97cb29517391e0009f0260201d4b7726b9d9fdf4a90a1c8734989b80ea974"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/agent-foundation-0924/round-01/frontend/gate/frontend-2.log.txt",
+      "path": "frontend/gate/frontend-2.log.txt",
+      "bytes": 209,
+      "sha256": "b3d57b2c2c8b15ac5f5c636d2396093a4599bbab0581161df48b552e3a854375"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/agent-foundation-0924/round-01/frontend/gate/frontend-3.log.txt",
+      "path": "frontend/gate/frontend-3.log.txt",
+      "bytes": 1423,
+      "sha256": "4061b381c848f7f7e14f1b7f10190d004fb24f476e253d990de72b96519d0148"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/agent-foundation-0924/round-01/frontend/gate/frontend-4.log.txt",
+      "path": "frontend/gate/frontend-4.log.txt",
+      "bytes": 909,
+      "sha256": "c0d21af332b79c47fca64772012c2de9ad8ed6229089ec70eab232af362000d4"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/agent-foundation-0924/round-01/frontend/gate/frontend-5.log.txt",
+      "path": "frontend/gate/frontend-5.log.txt",
+      "bytes": 11986,
+      "sha256": "84ce531761684596bb4d7a97e0b74b5b789bd79192602d5c28f036a5f195a97d"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/agent-foundation-0924/round-01/frontend/gate/frontend.json",
+      "path": "frontend/gate/frontend.json",
+      "bytes": 2493,
+      "sha256": "2b3fd759fcbd5f53b5a4e5948288c5fa809d31c1df6770b1edaa472383902335"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/agent-foundation-0924/round-01/frontend/process.json",
+      "path": "frontend/process.json",
+      "bytes": 54,
+      "sha256": "97d8367fdfbb3d71d1bf1fbd48f456c9644f85048c3b142ebaa8fe05e2cb1373"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/agent-foundation-0924/round-01/python/controller.log",
+      "path": "python/controller.log.txt",
+      "bytes": 2412,
+      "sha256": "8b656335050d4505720a311da76898aa5fc1c075e38843a610a90aa1b9a0dfb6"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/agent-foundation-0924/round-01/python/gate-QrXbdo6j/pytest.json",
+      "path": "python/gate-QrXbdo6j/pytest.json",
+      "bytes": 860,
+      "sha256": "a483ffa1e14549bf55ddbf9f6e0759339f5264c04c54ada1bbf416b5a549b110"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/agent-foundation-0924/round-01/python/gate-QrXbdo6j/pytest.log.txt",
+      "path": "python/gate-QrXbdo6j/pytest.log.txt",
+      "bytes": 21593,
+      "sha256": "b5ae86aff67e02b91f2ddb3e248d13ffcf12595f17dea14176694a6070c3a0c2"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/agent-foundation-0924/round-01/python/process.json",
+      "path": "python/process.json",
+      "bytes": 54,
+      "sha256": "4111982053cff5c7d4a6616096a5f5fa1ee3fd995cad37381ce28c6b73509aaf"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/agent-foundation-0924/round-01/registry/0.log",
+      "path": "registry/0.log.txt",
+      "bytes": 95,
+      "sha256": "b2d7a8d77df0fdc0f638e93d711f397b07859eb91e6aa5d45d793a52f2abef60"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/agent-foundation-0924/round-01/registry/1.log",
+      "path": "registry/1.log.txt",
+      "bytes": 33,
+      "sha256": "8c996aaec0fcd03defec5afb55f6ebb96935c7a5bc571e1811410de6339fe0df"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/agent-foundation-0924/round-01/registry/2.log",
+      "path": "registry/2.log.txt",
+      "bytes": 116,
+      "sha256": "362c2b566827eb15434ae230b1ce60edad2006c45ff08836d0a24fc744447261"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/agent-foundation-0924/round-01/registry/3.log",
+      "path": "registry/3.log.txt",
+      "bytes": 68,
+      "sha256": "9730a43a0a4535867153d7ac0afd888b1feaaa96f3846b2922c39a16ad068e89"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/agent-foundation-0924/round-01/registry/4.log",
+      "path": "registry/4.log.txt",
+      "bytes": 2006,
+      "sha256": "ee9a323abc88349fd1b5e1bce5e6958deff3a840272fd82cb41e43af9a89ad01"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/agent-foundation-0924/round-01/registry/5.log",
+      "path": "registry/5.log.txt",
+      "bytes": 28,
+      "sha256": "4156ef962a60722df2b0f9a18981a11006345a1d637382dadd9e55d605c400cb"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/agent-foundation-0924/round-01/registry/registry.json",
+      "path": "registry/registry.json",
+      "bytes": 1341,
+      "sha256": "eebd87a9096a928b7c6b61381f42a7b406470ed66ba78948691000e15885eb5f"
+    }
+  ]
+}

@@ -1,0 +1,254 @@
+{
+  "revision": "db2605d1b1a6a929d9bac468c84ef6aeaddce9ff",
+  "group": "runtime",
+  "role": "host replay of pre-existing author tests; not K3 independent acceptance",
+  "wrapper_sha256": "ec95c9b571ec55eb688f10f3105fd0db732bfa60fb94e8f9e5d42f6435be3aad",
+  "runner_sha256": "1103f039a54f76e2b479b0b03a24cf43796dbd2681f2dfed1fb8ca1495581209",
+  "before": {
+    "revision": "db2605d1b1a6a929d9bac468c84ef6aeaddce9ff",
+    "status": ""
+  },
+  "accepted": true,
+  "baseline": 71,
+  "mutations": [
+    {
+      "mutation": "terminal_completion_fence",
+      "collected": 12,
+      "failures": [
+        {
+          "classname": "intelligence.tests.test_episode_persistence_failure",
+          "name": "test_failed_write_stops_new_effects[configure-0-0]",
+          "message": "AssertionError: assert 'durable' == 'failed'\n  \n  - failed\n  + durable"
+        },
+        {
+          "classname": "intelligence.tests.test_episode_persistence_failure",
+          "name": "test_failed_write_stops_new_effects[task-0-0]",
+          "message": "AssertionError: assert 'durable' == 'failed'\n  \n  - failed\n  + durable"
+        },
+        {
+          "classname": "intelligence.tests.test_episode_persistence_failure",
+          "name": "test_failed_write_stops_new_effects[prompt_assembled-0-0]",
+          "message": "AssertionError: assert 'durable' == 'failed'\n  \n  - failed\n  + durable"
+        },
+        {
+          "classname": "intelligence.tests.test_episode_persistence_failure",
+          "name": "test_failed_write_stops_new_effects[state:planning-0-0]",
+          "message": "AssertionError: assert 'durable' == 'failed'\n  \n  - failed\n  + durable"
+        },
+        {
+          "classname": "intelligence.tests.test_episode_persistence_failure",
+          "name": "test_failed_write_stops_new_effects[model_intent-0-0]",
+          "message": "AssertionError: assert 'durable' == 'failed'\n  \n  - failed\n  + durable"
+        },
+        {
+          "classname": "intelligence.tests.test_episode_persistence_failure",
+          "name": "test_failed_write_stops_new_effects[state:model_pending-0-0]",
+          "message": "AssertionError: assert 'durable' == 'failed'\n  \n  - failed\n  + durable"
+        },
+        {
+          "classname": "intelligence.tests.test_episode_persistence_failure",
+          "name": "test_failed_write_stops_new_effects[model_turn-1-0]",
+          "message": "AssertionError: assert 'durable' == 'failed'\n  \n  - failed\n  + durable"
+        },
+        {
+          "classname": "intelligence.tests.test_episode_persistence_failure",
+          "name": "test_failed_write_stops_new_effects[tool_request-1-0]",
+          "message": "AssertionError: assert 'durable' == 'failed'\n  \n  - failed\n  + durable"
+        },
+        {
+          "classname": "intelligence.tests.test_episode_persistence_failure",
+          "name": "test_failed_write_stops_new_effects[state:tools_pending-1-0]",
+          "message": "AssertionError: assert 'durable' == 'failed'\n  \n  - failed\n  + durable"
+        },
+        {
+          "classname": "intelligence.tests.test_episode_persistence_failure",
+          "name": "test_failed_write_stops_new_effects[tool_result-1-1]",
+          "message": "AssertionError: assert 'durable' == 'failed'\n  \n  - failed\n  + durable"
+        },
+        {
+          "classname": "intelligence.tests.test_episode_persistence_failure",
+          "name": "test_failed_write_stops_new_effects[finish-2-1]",
+          "message": "AssertionError: assert 'completed' == 'failed'\n  \n  - failed\n  + completed"
+        },
+        {
+          "classname": "intelligence.tests.test_episode_persistence_failure",
+          "name": "test_failed_write_stops_new_effects[state:done-2-1]",
+          "message": "AssertionError: assert 'completed' == 'failed'\n  \n  - failed\n  + completed"
+        }
+      ]
+    },
+    {
+      "mutation": "pre_model_dispatch_fence",
+      "collected": 12,
+      "failures": [
+        {
+          "classname": "intelligence.tests.test_episode_persistence_failure",
+          "name": "test_failed_write_stops_new_effects[model_intent-0-0]",
+          "message": "AssertionError: assert 1 == 0\n +  where 1 = <intelligence.tests.conformance.races._drive.EffectAwareModel object at 0x10967eae0>.calls\n +    where <intelligence.tests.conformance.races._drive.EffectAwareModel object at 0x10967eae0> = Rig(task_id='failure-model_intent', oracle=FailingStore(inner=<intelligence.services.episode_store.MemoryEpisodeStore ...lls=0, tool_calls=0, turn_id='turn-1'), StepPoint(phase='model_settled', llm_calls=1, tool_calls=0, turn_id='turn-1')]).model"
+        },
+        {
+          "classname": "intelligence.tests.test_episode_persistence_failure",
+          "name": "test_failed_write_stops_new_effects[state:model_pending-0-0]",
+          "message": "AssertionError: assert 1 == 0\n +  where 1 = <intelligence.tests.conformance.races._drive.EffectAwareModel object at 0x109684d10>.calls\n +    where <intelligence.tests.conformance.races._drive.EffectAwareModel object at 0x109684d10> = Rig(task_id='failure-state-model_pending', oracle=FailingStore(inner=<intelligence.services.episode_store.MemoryEpisod...lls=0, tool_calls=0, turn_id='turn-1'), StepPoint(phase='model_settled', llm_calls=1, tool_calls=0, turn_id='turn-1')]).model"
+        }
+      ]
+    },
+    {
+      "mutation": "tool_intent_fence",
+      "collected": 1,
+      "failures": [
+        {
+          "classname": "intelligence.tests.test_episode_persistence_failure",
+          "name": "test_tool_intent_rejection_never_submits_to_executor",
+          "message": "Failed: unpersisted intent reached executor"
+        }
+      ]
+    },
+    {
+      "mutation": "terminal_flush",
+      "collected": 1,
+      "failures": [
+        {
+          "classname": "intelligence.tests.test_episode_persistence_failure",
+          "name": "test_successful_durable_completion_is_explicit_and_flushed",
+          "message": "AssertionError: assert ([TimelineEntry(kind='append', label='finish', key='', alt='', sync=False, sequence=13)] and False)\n +  where False = all(<generator object test_successful_durable_completion_is_explicit_and_flushed.<locals>.<genexpr> at 0x10d9c7940>)"
+        }
+      ]
+    },
+    {
+      "mutation": "neutral_completion_boundary",
+      "collected": 5,
+      "failures": [
+        {
+          "classname": "intelligence.tests.test_model_turn_completion_boundary",
+          "name": "test_direct_model_turn_cannot_bypass_completion_boundary[length-True]",
+          "message": "AssertionError: assert 1 == 0\n +  where 1 = AgentUsage(llm_calls=5, tool_calls=1, invalid_actions=4, input_tokens=None, output_tokens=None).tool_calls\n +    where AgentUsage(llm_calls=5, tool_calls=1, invalid_actions=4, input_tokens=None, output_tokens=None) = AgentOutcome(task_frame_hash='771106cac1d71005f0e33352af1869afba4562a3817c3344d224de28c9533c98', status='partial', dra...m_calls=5, tool_calls=1, invalid_actions=4, input_tokens=None, output_tokens=None), plan=None, persistence='ephemeral').usage"
+        },
+        {
+          "classname": "intelligence.tests.test_model_turn_completion_boundary",
+          "name": "test_direct_model_turn_cannot_bypass_completion_boundary[missing_finish_reason-True]",
+          "message": "AssertionError: assert 1 == 0\n +  where 1 = AgentUsage(llm_calls=5, tool_calls=1, invalid_actions=4, input_tokens=None, output_tokens=None).tool_calls\n +    where AgentUsage(llm_calls=5, tool_calls=1, invalid_actions=4, input_tokens=None, output_tokens=None) = AgentOutcome(task_frame_hash='771106cac1d71005f0e33352af1869afba4562a3817c3344d224de28c9533c98', status='partial', dra...m_calls=5, tool_calls=1, invalid_actions=4, input_tokens=None, output_tokens=None), plan=None, persistence='ephemeral').usage"
+        },
+        {
+          "classname": "intelligence.tests.test_model_turn_completion_boundary",
+          "name": "test_truncated_finalizer_cannot_publish_parseable_finish",
+          "message": "AssertionError: assert ('completed' != 'completed')\n +  where 'completed' = AgentOutcome(task_frame_hash='771106cac1d71005f0e33352af1869afba4562a3817c3344d224de28c9533c98', status='completed', d...e(llm_calls=3, tool_calls=1, invalid_actions=0, input_tokens=11, output_tokens=12), plan=None, persistence='ephemeral').status"
+        }
+      ]
+    },
+    {
+      "mutation": "nonstream_finish_reason",
+      "collected": 2,
+      "failures": [
+        {
+          "classname": "intelligence.tests.test_model_turn_completion_boundary",
+          "name": "test_transport_preserves_truncation_reason[False]",
+          "message": "KeyError: '_finish_reason'"
+        }
+      ]
+    },
+    {
+      "mutation": "provider_no_hidden_retry",
+      "collected": 8,
+      "failures": [
+        {
+          "classname": "intelligence.tests.test_model_turn_completion_boundary",
+          "name": "test_incomplete_envelope_is_not_executed_or_silently_retried[providers1-length]",
+          "message": "AssertionError: assert None == 'length'\n +  where None = ModelTurn(content='', tool_calls=(), provider_name='b', error='incomplete_model_response:length', provider_attempts=2, input_tokens=None, output_tokens=None, served_model=None, finish_reason=None).finish_reason"
+        },
+        {
+          "classname": "intelligence.tests.test_model_turn_completion_boundary",
+          "name": "test_incomplete_envelope_is_not_executed_or_silently_retried[providers1-max_tokens]",
+          "message": "AssertionError: assert None == 'max_tokens'\n +  where None = ModelTurn(content='', tool_calls=(), provider_name='b', error='incomplete_model_response:max_tokens', provider_attempts=2, input_tokens=None, output_tokens=None, served_model=None, finish_reason=None).finish_reason"
+        },
+        {
+          "classname": "intelligence.tests.test_model_turn_completion_boundary",
+          "name": "test_incomplete_envelope_is_not_executed_or_silently_retried[providers1-content_filter]",
+          "message": "AssertionError: assert None == 'content_filter'\n +  where None = ModelTurn(content='', tool_calls=(), provider_name='b', error='incomplete_model_response:content_filter', provider_attempts=2, input_tokens=None, output_tokens=None, served_model=None, finish_reason=None).finish_reason"
+        },
+        {
+          "classname": "intelligence.tests.test_model_turn_completion_boundary",
+          "name": "test_incomplete_envelope_is_not_executed_or_silently_retried[providers1-missing_finish_reason]",
+          "message": "AssertionError: assert None == 'missing_finish_reason'\n +  where None = ModelTurn(content='', tool_calls=(), provider_name='b', error='incomplete_model_response:missing_finish_reason', provider_attempts=2, input_tokens=None, output_tokens=None, served_model=None, finish_reason=None).finish_reason"
+        }
+      ]
+    },
+    {
+      "mutation": "inbox_no_false_ack",
+      "collected": 2,
+      "failures": [
+        {
+          "classname": "intelligence.tests.test_episode_persistence_failure",
+          "name": "test_failed_inbox_write_is_not_acknowledged_or_deleted[memory]",
+          "message": "AssertionError: assert (not True)\n +  where True = InboxReceipt(message_id='inbox-1', accepted=True, reason='').accepted"
+        },
+        {
+          "classname": "intelligence.tests.test_episode_persistence_failure",
+          "name": "test_failed_inbox_write_is_not_acknowledged_or_deleted[spool]",
+          "message": "AssertionError: assert 1 == 0\n +  where 1 = ingest_spool()\n +    where ingest_spool = <intelligence.services.episode_inbox.Inbox object at 0x10cf502c0>.ingest_spool\n +      where <intelligence.services.episode_inbox.Inbox object at 0x10cf502c0> = <intelligence.runtime.agent_episode.ContinuousAgentEpisode object at 0x10cf57830>.inbox\n +        where <intelligence.runtime.agent_episode.ContinuousAgentEpisode object at 0x10cf57830> = Rig(task_id='inbox-failure-spool', oracle=FailingStore(inner=<intelligence.services.episode_store.MemoryEpisodeStore o...deDrive object at 0x10cf57dd0>, points=[StepPoint(phase='model_pending', llm_calls=0, tool_calls=0, turn_id='turn-1')]).episode"
+        }
+      ]
+    },
+    {
+      "mutation": "inbox_flush_before_ack",
+      "collected": 1,
+      "failures": [
+        {
+          "classname": "intelligence.tests.test_episode_persistence_failure",
+          "name": "test_inbox_ack_flushes_insert_before_deleting_spool",
+          "message": "AssertionError: assert ([TimelineEntry(kind='append', label='inbox_inserted', key='', alt='', sync=False, sequence=6)] and False)\n +  where False = all(<generator object test_inbox_ack_flushes_insert_before_deleting_spool.<locals>.<genexpr> at 0x108e6a500>)"
+        }
+      ]
+    },
+    {
+      "mutation": "assembly_cancel_propagation",
+      "collected": 1,
+      "failures": [
+        {
+          "classname": "intelligence.tests.test_episode_persistence_failure",
+          "name": "test_real_assembly_shares_local_failure_with_inflight_model",
+          "message": "AssertionError: assert ('failed' == 'failed'\n  \n    failed and '')\n +  where '' = AgentOutcome(task_frame_hash='771106cac1d71005f0e33352af1869afba4562a3817c3344d224de28c9533c98', status='failed', draf...sage(llm_calls=2, tool_calls=1, invalid_actions=0, input_tokens=10, output_tokens=20), plan=None, persistence='failed').draft"
+        }
+      ]
+    },
+    {
+      "mutation": "received_tool_result_retention",
+      "collected": 1,
+      "failures": [
+        {
+          "classname": "intelligence.tests.test_episode_persistence_failure",
+          "name": "test_parallel_failure_keeps_received_result_and_fences_queued_runner",
+          "message": "AssertionError: assert ('failed' == 'failed'\n  \n    failed and 0 == 1)\n +  where 0 = len(())\n +    where () = AgentOutcome(task_frame_hash='771106cac1d71005f0e33352af1869afba4562a3817c3344d224de28c9533c98', status='failed', draf...(llm_calls=1, tool_calls=2, invalid_actions=2, input_tokens=None, output_tokens=None), plan=None, persistence='failed').evidence"
+        }
+      ]
+    },
+    {
+      "mutation": "queued_runner_fence",
+      "collected": 1,
+      "failures": [
+        {
+          "classname": "intelligence.tests.test_episode_persistence_failure",
+          "name": "test_parallel_failure_keeps_received_result_and_fences_queued_runner",
+          "message": "Failed: DID NOT RAISE <class 'RuntimeError'>"
+        }
+      ]
+    },
+    {
+      "mutation": "sse_terminal_delivery_race",
+      "collected": 1,
+      "failures": [
+        {
+          "classname": "intelligence.tests.test_workbench_api",
+          "name": "test_sse_emits_terminal_message_arriving_between_reads",
+          "message": "assert 0 == 1\n +  where 0 = <built-in method count of str object at 0x999db0600>('event: message.error')\n +    where <built-in method count of str object at 0x999db0600> = 'event: run\\ndata: {\"run_id\": \"run_20260923_185035_455999\", \"user\": \"default\", \"question\": \"terminal race\", \"task_type...tenance_launch\": null, \"publication\": {\"status\": \"not_applicable\", \"message_id\": null}, \"delivery_pending\": false}\\n\\n'.count"
+        }
+      ]
+    }
+  ],
+  "after": {
+    "revision": "db2605d1b1a6a929d9bac468c84ef6aeaddce9ff",
+    "status": ""
+  },
+  "candidate_unchanged": true,
+  "inputs_unchanged": true
+}

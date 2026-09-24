@@ -1,0 +1,10 @@
+test_process_observation_failure_is_not_admission (__main__.ControllerTests.test_process_observation_failure_is_not_admission) ... ok
+test_repeat_start_does_not_overwrite (__main__.ControllerTests.test_repeat_start_does_not_overwrite) ... ok
+test_timeout_runs_no_leaf (__main__.ControllerTests.test_timeout_runs_no_leaf) ... ok
+test_wait_denies_foreign_until_clear (__main__.ControllerTests.test_wait_denies_foreign_until_clear) ... ok
+test_zero_wait_does_not_launch_or_sleep (__main__.ControllerTests.test_zero_wait_does_not_launch_or_sleep) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 0.020s
+
+OK
