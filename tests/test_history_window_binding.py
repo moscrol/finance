@@ -484,9 +484,11 @@ def test_scripted_episode_reads_original_and_repairs_mismatched_window(tmp_path,
                 args = {"result_ref": ref} if n == 0 else _args(original, ref, **({"end": "2026-01-29"} if n == 1 else {}))
                 return ModelTurn("", (ModelToolCall(f"window-{n}", name, args),), "scripted-window", "")
             gap = "脚本仅验证原件读取与同窗纠错；不是实际模型验收，条件全集未完成。"
+            # 每个 binding 的 basis 跟随合同声明的 grounding_mode：假设槽不得伪装成证据。
             return ModelTurn(json.dumps({
                 "status": "partial", "draft": gap, "gaps": [gap],
-                "bindings": [{"output_id": o.output_id, "evidence_hashes": [], "gap": gap}
+                "bindings": [{"output_id": o.output_id, "evidence_hashes": [],
+                              "basis": o.grounding_mode, "gap": gap}
                              for o in context.contract.required_outputs],
             }, ensure_ascii=False), (), "scripted-window", "")
 

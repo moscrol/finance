@@ -64,7 +64,8 @@ def main(argv=None) -> int:
             artifact = args.output / f"{name}.json"
             artifact.write_text(json.dumps(payload, ensure_ascii=False, sort_keys=True, indent=2), encoding="utf-8")
             blocks = _model_projection(payload, "run/history-query-" + "a" * 64 + ".json")
-            omissions = [json.loads(detail) for _, detail, _ in blocks if json.loads(detail).get("projection_status")]
+            omissions = [json.loads(block[1]) for block in blocks
+                         if json.loads(block[1]).get("projection_status")]
             failures |= bool(omissions)
             receipt["results"][name] = {
                 "query_id": payload["query_id"], "artifact_sha256": digest(artifact),

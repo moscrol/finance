@@ -221,10 +221,12 @@ def test_adapter_backfill_plan_uses_outcome_events(monkeypatch) -> None:
 
     from intelligence.runtime.continuous_turn_adapter import _issue_backfill_plan
 
-    monkeypatch.setattr(
-        "intelligence.runtime.continuous_turn_adapter.numeric_condition_unsupported",
-        lambda _verified: False,
-    )
+    # 这条测的是事件互斥，不是两道门本身；替身只带 issue_items，所以两道门都要 patch
+    # 掉（它们都要求真的 VerifiedEpisodeOutcome）。别反过来把生产代码改成 getattr 容错。
+    for gate in ("numeric_condition_unsupported", "comparison_baseline_unsupported"):
+        monkeypatch.setattr(
+            f"intelligence.runtime.continuous_turn_adapter.{gate}", lambda _verified: False,
+        )
     structural = SimpleNamespace(
         issue_items=(
             Issue(

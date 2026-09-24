@@ -8,7 +8,11 @@ import json
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from intelligence.services.agent_research import AgentEvidence
+from intelligence.services.agent_research import (
+    AgentEvidence,
+    HistoricalEvidenceProvenance,
+    StructuredObservation,
+)
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.research_tool_registry import ToolRunResult, ToolSpec
 
@@ -38,14 +42,17 @@ class HistorySession:
             for item in self.store.list_runs()
             if item.user == self.store.user_id and item.session_id == self.conversation_id
         ]
+        refreshed: dict[str, tuple[str, str]] = {}
         for item in related:
             for artifact in item.artifacts:
                 filename = str(artifact.get("path", ""))
                 if (
                     filename.startswith("history-")
                     and artifact.get("visibility") == "public"
+                    and artifact.get("downloadable", True) is True
                 ):
-                    self.refs[f"{item.run_id}/{filename}"] = (item.run_id, filename)
+                    refreshed[f"{item.run_id}/{filename}"] = (item.run_id, filename)
+        self.refs = refreshed
 
     def save(self, kind: str, payload: dict) -> str:
         envelope = dict(
@@ -64,21 +71,14 @@ class HistorySession:
         return ref
 
     def read(self, ref: str) -> dict:
-        if ref not in self.refs:
-            if not isinstance(ref, str) or len(ref) > 300 or ref.count("/") != 1:
-                raise ValueError("history result reference is outside this conversation")
-            run_id, filename = ref.split("/", 1)
-            try:
-                run = self.store.load_run(run_id)
-            except (ValueError, FileNotFoundError) as exc:
-                raise ValueError("history result reference is outside this conversation") from exc
-            if run.user != self.store.user_id or run.session_id != self.conversation_id:
-                raise ValueError("history result reference is outside this conversation")
-            # The display index is bounded; same-conversation authorization isn't.
-            self.store.read_history_artifact(run_id, filename)
-            self.refs[ref] = (run_id, filename)
-        run_id, filename = self.refs[ref]
-        payload = self.store.read_history_artifact(run_id, filename)
+        # The display cache never grants authority, even for a previously read ref.
+        if not isinstance(ref, str) or len(ref) > 300 or ref.count("/") != 1:
+            raise ValueError("history result reference is outside this conversation")
+        run_id, filename = ref.split("/", 1)
+        payload = self.store.read_history_artifact(
+            run_id, filename, conversation_id=self.conversation_id,
+        )
+        self.refs[ref] = (run_id, filename)
         return payload
 
     def remember(self, ref: str, payload: dict):
@@ -168,7 +168,7 @@ def _model_blocks(identity: dict, atoms: list[dict]) -> list[str]:
     from intelligence.services.tool_result_budget import MAX_EVIDENCE_DETAIL_CHARS
 
     def encode(value):
-        return json.dumps(value, ensure_ascii=False, default=str, separators=(",", ":"))
+        return json.dumps(value, ensure_ascii=False, sort_keys=True, default=str, separators=(",", ":"))
 
     def merge(left, right):
         result = dict(left)
@@ -202,24 +202,64 @@ def _model_blocks(identity: dict, atoms: list[dict]) -> list[str]:
     return blocks
 
 
-def _model_projection(payload: dict, result_ref: str) -> list[tuple[str, str, str | None]]:
-    """Project data and definitions, keeping row count distinct from card count."""
+def _model_projection(
+    payload: dict, result_ref: str
+) -> list[tuple[str, str, str | None, int | None, str, str, tuple[StructuredObservation, ...]]]:
+    """Project data and definitions, keeping row count distinct from card count.
+
+    The extra identity fields are control-plane metadata. They let every model
+    card point back to one immutable query row without making page coordinates
+    or free-form detail text carry provenance.
+    """
     projected = []
+    query_id = str(payload.get("query_id") or "")
 
-    def add(title, identity, atoms, source_date=None):
-        projected.extend(
-            (title, detail, source_date) for detail in _model_blocks(identity, atoms)
+    def add(
+        title,
+        identity,
+        atoms,
+        source_date=None,
+        *,
+        row_index: int | None = None,
+        row_identity: str = "",
+        row_hash: str = "",
+        observations: tuple[StructuredObservation, ...] = (),
+    ):
+        # Row identity must be stable across pages, but is not a card identity:
+        # a row may span several public citations with different fields.
+        for block_index, detail in enumerate(_model_blocks(identity, atoms)):
+            visible = json.loads(detail)
+            visible_values = {**visible, **visible.get("features", {})}
+            block_observations = tuple(
+                observation for observation in observations
+                if type(visible_values.get(observation.metric)) in (int, float)
+                and visible_values[observation.metric] == observation.value
+            )
+            projected.append(
+                (f"{title}·块{block_index + 1}" if row_identity else title,
+                 detail, source_date, row_index, row_identity, row_hash, block_observations)
+            )
+
+    scope_observations = tuple(
+        StructuredObservation(
+            subject=query_id,
+            as_of=str(payload.get("end") or payload.get("spec", {}).get("end") or ""),
+            metric=key,
+            value=float(payload[key]),
         )
-
+        for key in ("total_matched", "returned_count")
+        if isinstance(payload.get(key), (int, float)) and not isinstance(payload.get(key), bool)
+    )
     add("历史研究范围与完整分母", {}, [
         {key: payload.get(key)}
-        for key in ("operation", "status", "total_matched", "returned_count", "truncated")
-    ] + [{"research_only": True, "decision_eligible": False, "promotion_eligible": False}])
+        for key in ("operation", "status", "total_matched", "returned_count", "truncated", "offset", "next_offset")
+    ] + [{"research_only": True, "decision_eligible": False, "promotion_eligible": False}], observations=scope_observations)
     add("历史研究原件引用", {}, [{"result_ref": result_ref}])
     add("历史研究使用边界", {}, [{
         "pit_grade": payload.get("pit_grade", "hindsight_reconstruction"),
         "null": "未知或不可计算，非0；具体原因见每项status；not_observed表示该窗口未观察到触发。",
     }])
+
     spec = payload.get("spec", {})
     add("历史计算声明观察窗", {}, [{"observation_window": {
         key: spec.get(key) for key in ("operation", "start", "end")
@@ -239,11 +279,11 @@ def _model_projection(payload: dict, result_ref: str) -> list[tuple[str, str, st
             {"condition": spec.get("condition")},
             {"outcome_definition": payload.get("outcome_definition")},
         ])
-        add("历史条件比较完整统计", {}, [{key: value} for key, value in comparison.items()])
+        add("历史条件比较完整统计", {}, [{key: value} for key, value in sorted(comparison.items())])
     universe = payload.get("universe")
     if isinstance(universe, dict):
         add("历史比较宇宙与窗口", {}, [
-            {key: value} for key, value in universe.items() if key != "entity_codes"
+            {key: value} for key, value in sorted(universe.items()) if key != "entity_codes"
         ] + [{"entity_count": len(universe.get("entity_codes", []))}])
     for key in ("analysis_definition",):
         if isinstance(payload.get(key), dict):
@@ -252,7 +292,7 @@ def _model_projection(payload: dict, result_ref: str) -> list[tuple[str, str, st
         add("样本独立性限制", {}, [{"independence_policy": payload["independence_policy"]}])
     if payload.get("matching_use"):
         add("历史相似召回用途", {}, [{"matching_use": payload["matching_use"]}])
-    for name, definition in payload.get("feature_definitions", {}).items():
+    for name, definition in sorted(payload.get("feature_definitions", {}).items()):
         add("历史特征严格定义", {"feature": name}, [
             {key: definition[key]} for key in ("rule", "unit", "version", "input_mapping") if key in definition
         ])
@@ -265,13 +305,19 @@ def _model_projection(payload: dict, result_ref: str) -> list[tuple[str, str, st
                 if code and name:
                     names.setdefault(code, set()).add(name)
     preview = payload.get("preview", [])
-    records = list(enumerate(preview[:25] if isinstance(preview, list) else []))
+    # A sample is a row in the immutable result, not a position within this page.
+    records = list(enumerate(
+        preview[:25] if isinstance(preview, list) else [], start=payload.get("offset", 0)
+    ))
     reference = payload.get("reference")
     if isinstance(reference, dict):
         records.insert(0, ("reference", reference))
     for index, row in records:
         if not isinstance(row, dict):
             continue
+        row_index = index if isinstance(index, int) else None
+        row_identity = f"{query_id}:row:{index}"
+        row_hash = hashlib.sha256(_compact(row).encode("utf-8")).hexdigest()[:16]
         if row.get("record_kind") == "sector_succession":
             from .succession_projection import succession_atoms
 
@@ -281,7 +327,8 @@ def _model_projection(payload: dict, result_ref: str) -> list[tuple[str, str, st
                         "source_sector": row.get("source_sector"), "entity_code": row.get("entity_code")}
             for atom in succession_atoms(row, payload):
                 add(f"历史接力配对 {row.get('source_sector')}→{row.get('entity_code')}",
-                    identity, [atom], row.get("succession_known_as_of"))
+                    identity, [atom], row.get("succession_known_as_of"),
+                    row_index=row_index, row_identity=row_identity, row_hash=row_hash)
             continue
         identity = {"sample": index, "entity_code": row.get("entity_code")}
         if isinstance(reference, dict):
@@ -298,14 +345,16 @@ def _model_projection(payload: dict, result_ref: str) -> list[tuple[str, str, st
             atoms.extend({key: row[key]} for key in (
                 "comparison_state", "x", "y", "forward_return_pct", "outcome_end"
             ) if key in row)
-        for name, value in row.get("features", {}).items():
+        # Stored artifacts use sorted keys. Order semantic atoms before packing,
+        # not just the final JSON: block boundaries must also survive a reread.
+        for name, value in sorted(row.get("features", {}).items()):
             atoms.append({
                 "features": {name: value},
                 "status": {name: row.get("feature_coverage", {}).get(name, {}).get("status", "unknown")},
             })
         atoms.extend(
             {"feature_differences": {name: value}}
-            for name, value in row.get("feature_differences", {}).items()
+            for name, value in sorted(row.get("feature_differences", {}).items())
         )
         for kind in ("sector", "stock"):
             values = row.get(kind)
@@ -354,11 +403,46 @@ def _model_projection(payload: dict, result_ref: str) -> list[tuple[str, str, st
                 ) if key in row["market"])
         date_value = str(row.get("succession_known_as_of", row.get("trade_date", row.get("path_end", row.get("end", ""))))) or None
         sample_scope = " ".join(str(value) for key, value in identity.items() if key != "sample")
-        add(f"历史观察样本 {sample_scope}", identity, atoms, date_value)
+        row_observations: list[StructuredObservation] = []
+        as_of = date_value or ""
+        subject = str(row.get("entity_code") or row.get("entity_name") or query_id)
+        for metric, value in sorted(row.get("features", {}).items()):
+            if isinstance(value, (int, float)) and not isinstance(value, bool):
+                row_observations.append(
+                    StructuredObservation(subject, as_of, str(metric), float(value))
+                )
+        for metric, value in sorted(row.items()):
+            if metric in {"features", "feature_coverage", "entity_code", "entity_name", "start", "end"}:
+                continue
+            if isinstance(value, (int, float)) and not isinstance(value, bool):
+                row_observations.append(
+                    StructuredObservation(subject, as_of, str(metric), float(value))
+                )
+        add(
+            f"历史观察样本 {sample_scope}",
+            identity,
+            atoms,
+            date_value,
+            row_index=row_index,
+            row_identity=row_identity,
+            row_hash=row_hash,
+            observations=tuple(row_observations),
+        )
     return projected
 
 
-def _result(payload: dict, *, result_ref: str = "", tool: str = "history_query"):
+def _result(
+    payload: dict, *, result_ref: str = "", tool: str = "history_query", offset: int = 0
+):
+    returned_count = payload.get("returned_count", 0)
+    page_end = offset + returned_count
+    payload = dict(
+        payload,
+        offset=offset,
+        next_offset=(
+            page_end if returned_count and page_end < payload.get("total_matched", 0) else None
+        ),
+    )
     metadata = {
         key: payload[key]
         for key in (
@@ -369,6 +453,8 @@ def _result(payload: dict, *, result_ref: str = "", tool: str = "history_query")
             "total_matched",
             "returned_count",
             "truncated",
+            "offset",
+            "next_offset",
             "coverage",
             "definition_refs",
             "gaps",
@@ -405,7 +491,7 @@ def _result(payload: dict, *, result_ref: str = "", tool: str = "history_query")
             tool=tool,
             # Citation UI deduplicates by title/source/date. A block is a public
             # observation, not an independent sample; independent_key stays qid.
-            title=f"{title}｜{query_id[:8]}·{index + 1}｜{scope}".rstrip("｜"),
+            title=f"{title}｜{query_id[:8]}·{(row_index + 1) if row_index is not None else card_index + 1}｜{scope}".rstrip("｜"),
             detail=detail,
             source="本地历史研究 · 可复算原件",
             internal_locator=result_ref,
@@ -413,8 +499,21 @@ def _result(payload: dict, *, result_ref: str = "", tool: str = "history_query")
             evidence_tier="L4_market_signal",
             freshness="historical",
             independent_key=query_id,
+            observations=observations,
+            history_provenance=HistoricalEvidenceProvenance(
+                query_id=query_id,
+                operation=str(payload.get("operation") or ""),
+                purpose=str(payload.get("purpose") or ""),
+                result_ref=result_ref,
+                row_index=row_index,
+                row_identity=row_identity,
+                row_hash=row_hash,
+                research_only=True,
+                decision_eligible=False,
+                promotion_eligible=False,
+            ),
         )
-        for index, (title, detail, source_date) in enumerate(projection)
+        for card_index, (title, detail, source_date, row_index, row_identity, row_hash, observations) in enumerate(projection)
     ]
     return ToolRunResult(
         evidence=tuple(evidence),
@@ -422,10 +521,11 @@ def _result(payload: dict, *, result_ref: str = "", tool: str = "history_query")
         + _compact({"result_ref": result_ref, "query_id": query_id,
                     "total_matched": payload.get("total_matched"), "returned_count": payload.get("returned_count"),
                     "truncated": payload.get("truncated"),
+                    "offset": offset, "next_offset": payload["next_offset"],
                     "projected_evidence_count": len(projection)})
-        + "样本以完整JSON语义块展示，同sample属于同一原件行；特征定义卡给出真实rule/unit/version。"
-        "大成员、覆盖明细和超长字段仅在完整artifact；需更多日期用read_history_result分页。"
-        "需未展示行请用read_history_result分页；补查字段可明确实体/特征但保持所选窗口，仍不足就说明缺口或由用户查看原件，不把null当0。",
+        + "样本以完整JSON语义块展示，同result_ref内sample是原件行号（从0起），跨页不重置；特征定义卡给出真实rule/unit/version。"
+        "大成员、覆盖明细和超长字段仅在完整artifact；需更多行用read_history_result按next_offset分页，null表示已到末页。"
+        "需未展示行请按next_offset分页；补查字段可明确实体/特征但保持所选窗口，仍不足就说明缺口或由用户查看原件，不把null当0。",
         trace=ProviderTrace(
             provider="duckdb_history_query",
             capability="finance_query",
@@ -668,7 +768,7 @@ def history_tool_specs(
         ToolSpec(
             name="history_query",
             capability="finance_query",
-            description="重建历史行情、市场环境类比、启动到顶部日线路径与板块候选接力。市场阶段先inspect_history(entity_kind=market,000001.SH)，类比用find_analogues显式历史范围，当时谁强用rank_history声明窗排名（未指定代码=窗口内已观测全集；超限报缺口，不偷偷缩窗），行情解剖用trace_history；先inspect核对板块/股票精确代码，同名不同供应商不混接。共同启动特征比较launch_signal行，验证还须compare_cases含失败样本。trace仅日线描述代理，不冒充SPT/风远完整方法或当时可知顶部。续问按可信用途先read_history_result，再用window_ref绑定类比候选sample_id或已有分析观察窗，不按旧助手答案猜日期。不确定窗口先提出并注明，缺数不补零。",
+            description="重建历史行情、市场环境类比、启动到顶部日线路径与板块候选接力。市场阶段先inspect_history(entity_kind=market,000001.SH)，类比用find_analogues显式历史范围，当时谁强用rank_history声明窗排名（未指定代码=窗口内已观测全集；超限报缺口，不偷偷缩窗），行情解剖用trace_history；先inspect核对板块/股票精确代码，同名不同供应商不混接。共同启动特征比较launch_signal行；但只看已启动的是幸存者偏差，验证请用compare_cases配 condition={'rule':'launch_signal'}，它按同版本规则逐窗判定当时是否启动，未启动窗口即控制组，缺数与未成熟分开计数仍留在分母。trace仅日线描述代理，不冒充SPT/风远完整方法或当时可知顶部。续问按可信用途先read_history_result，再用window_ref绑定类比候选sample_id或已有分析观察窗，不按旧助手答案猜日期。不确定窗口先提出并注明，缺数不补零。",
             contract=_TOOL_CONTRACTS["history_query"],
             cost="local",
             freshness="historical",
@@ -732,11 +832,12 @@ def history_tool_specs(
             )
         rows = payload.get("rows", payload.get("cases", []))
         if isinstance(rows, list):
+            page = rows[offset : offset + limit]
             payload = dict(
                 payload,
-                preview=rows[offset : offset + limit],
-                returned_count=len(rows[offset : offset + limit]),
-                truncated=len(rows) > limit,
+                preview=page,
+                returned_count=len(page),
+                truncated=len(page) < len(rows),
             )
         metadata = {
             key: payload.get(key)
@@ -750,7 +851,7 @@ def history_tool_specs(
                 "definition_refs",
             )
         }
-        result = _result(payload, result_ref=ref, tool="read_history_result")
+        result = _result(payload, result_ref=ref, tool="read_history_result", offset=offset)
         context.history_results.append(
             dict(metadata, result_ref=ref, execution_status="success",
                  **({"window_binding": payload["window_binding"]} if "window_binding" in payload else {}))

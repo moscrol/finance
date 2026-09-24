@@ -5242,6 +5242,27 @@ def numeric_condition_unsupported(verified: VerifiedEpisodeOutcome) -> bool:
     )
 
 
+def comparison_baseline_unsupported(verified: VerifiedEpisodeOutcome) -> bool:
+    """True when a condition compares against a prior-period baseline nobody bound.
+
+    Same routing as :func:`numeric_condition_unsupported`: the adapter runs this
+    *before* the judge so the missing baseline can be fetched, rather than the
+    sentence being thinned. A watch item may reference future data; it may not
+    rest on a historical value this episode never obtained.
+    """
+
+    contract = verified.contract
+    if contract is None or contract.question_type != "financial_analysis":
+        return False
+    from intelligence.services.financial_claim_checks import comparison_baseline_gaps
+
+    bound = tuple(dict.fromkeys(h for b in verified.outcome.bindings for h in b.evidence_hashes))
+    return bool(comparison_baseline_gaps(
+        _numbered_sentences(verified.outcome.draft), verified.outcome.evidence, bound,
+        subject=contract.subject,
+    ))
+
+
 def _mismatched_weekday_indexes(
     sentences: list[dict[str, object]],
     verified: VerifiedEpisodeOutcome,
@@ -6510,6 +6531,30 @@ def _project_semantic_evidence(
             projected["contradicts"] = list(item.contradicts)
         if item.independent_key:
             projected["independent_key"] = item.independent_key
+        if item.observations:
+            projected["observations"] = [
+                {
+                    "subject": observation.subject,
+                    "as_of": observation.as_of,
+                    "metric": observation.metric,
+                    "value": observation.value,
+                }
+                for observation in item.observations
+            ]
+        if item.history_provenance is not None:
+            provenance = item.history_provenance
+            projected["research_only"] = provenance.research_only
+            projected["decision_eligible"] = provenance.decision_eligible
+            projected["promotion_eligible"] = provenance.promotion_eligible
+            projected["history_provenance"] = {
+                "query_id": provenance.query_id,
+                "operation": provenance.operation,
+                "purpose": provenance.purpose,
+                "result_ref": provenance.result_ref,
+                "row_index": provenance.row_index,
+                "row_identity": provenance.row_identity,
+                "row_hash": provenance.row_hash,
+            }
         if title and "title" not in projected:
             dropped_field_chars += len(title)
         if detail and "detail" not in projected:
@@ -7069,6 +7114,7 @@ __all__ = [
     "SEMANTIC_QUALITY_DOUBT_MARK",
     "SemanticEpisodeOutcome",
     "SemanticEpisodeVerifier",
+    "comparison_baseline_unsupported",
     "draft_sentence_count",
     "numeric_condition_unsupported",
     "v8_semantic_degrade_enabled",
