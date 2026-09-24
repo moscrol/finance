@@ -66,7 +66,7 @@
 
 决策：保留现有 PASS/WARN/FAIL 与 CLI exit 语义，避免破坏旧调用方；未知通过 WARN + None/error 表达。否掉新建综合健康评分器，现有确定性工具已能暴露主故障。没有把完整性门槛调低来消红。
 
-验证：原版上新增用例 `6 failed, 4 passed`，修复后 `10 passed`，坏报告覆盖三类报告各七种输入；相关 RAG/视角/学习/用户空间定向回归 `103 passed`；ruff 和 diff-check exit 0。日志 `tests-red.txt` / `tests-green.txt` / `targeted-regression.txt`。这些是本分支未提交变更上的定向读数，**不是干净 SHA 全量门禁、不是部署或真实金融验收**。
+验证：原版上新增用例 `6 failed, 4 passed`，修复后 `10 passed`，坏报告覆盖三类报告各七种输入；相关 RAG/视角/学习/用户空间定向回归 `103 passed`；ruff 和 diff-check exit 0。日志 `tests-red.txt` / `tests-green.txt` / `targeted-regression.txt`。这三份日志是本分支未提交变更上的定向读数。提交后又在干净 `6e6a2eac26b0b4d40034c6154b555bfafb3af2ba` 复跑同组 103P/0F，`dirty=false`、collected=103，收据为 `clean-targeted-receipt.json`。**两类读数都不是全量门禁、部署或真实金融验收；干净收据只绑定该提交，不移签后续文档提交。**
 
 ## 执行顺序
 
