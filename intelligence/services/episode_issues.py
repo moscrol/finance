@@ -22,14 +22,23 @@ class IssueCode(str, Enum):
 
     EVIDENCE_EMPTY_HASH = "evidence_empty_hash"
     EVIDENCE_DUPLICATE_HASH = "evidence_duplicate_hash"
+    # 契约外输出绑定分两档（2026-09-09 判官修复 01 第一刀）：
+    # - EXTRA_OUTPUT_BINDING：多做的一块研究，引用的哈希都在证据池里 → 从契约结构
+    #   里隔离出去（STRIP_OK），必需输出照常进语义判官，正文仍逐句核验。
+    # - UNKNOWN_OUTPUT_BINDING：契约外且引用了池里没有 / 重复的哈希 → 编造引用，
+    #   保持 BLOCK。旧实现两种都 BLOCK，让已完成的核心答案被一个多余字段连坐。
+    EXTRA_OUTPUT_BINDING = "extra_output_binding"
     UNKNOWN_OUTPUT_BINDING = "unknown_output_binding"
     MISSING_REQUIRED_OUTPUT = "missing_required_output"
     GROUNDING_BASIS_MISMATCH = "grounding_basis_mismatch"
+    MATERIAL_SOURCE_VIOLATION = "material_source_violation"
     REQUIRED_OUTPUT_GAP = "required_output_gap"
     UNKNOWN_EVIDENCE_HASH = "unknown_evidence_hash"
     AMBIGUOUS_EVIDENCE_HASH = "ambiguous_evidence_hash"
     EVIDENCE_TYPE_STRIPPED = "evidence_type_stripped"
     EVIDENCE_TYPE_UNSUPPORTED = "evidence_type_unsupported"
+    HISTORY_OPERATION_UNSUPPORTED = "history_operation_unsupported"
+    HISTORY_OPERATION_STRIPPED = "history_operation_stripped"
     FINANCIAL_ANCHOR_MISSING = "financial_anchor_missing"
     MISSING_MANDATORY_CAPABILITY = "missing_mandatory_capability"
     REQUIRED_OUTPUT_NO_SUBSTANCE = "required_output_no_substance"
@@ -38,6 +47,8 @@ class IssueCode(str, Enum):
     PATH_TREND_MISMATCH = "path_trend_mismatch"
     MARKER_LOSS = "marker_loss"
     UNRESOLVED_EVIDENCE_ORDINAL = "unresolved_evidence_ordinal"
+    # #55：句内完整日期与其唯一所引证据携带的日期全部不符（机械探测，替代判官抓的那类）。
+    EVIDENCE_DATE_MISMATCH = "evidence_date_mismatch"
 
 
 class ReleaseAction(str, Enum):
@@ -61,14 +72,20 @@ class Issue:
 RELEASE_POLICY: dict[IssueCode, ReleaseAction] = {
     IssueCode.EVIDENCE_EMPTY_HASH: ReleaseAction.BLOCK,
     IssueCode.EVIDENCE_DUPLICATE_HASH: ReleaseAction.BLOCK,
+    IssueCode.EXTRA_OUTPUT_BINDING: ReleaseAction.STRIP_OK,
     IssueCode.UNKNOWN_OUTPUT_BINDING: ReleaseAction.BLOCK,
     IssueCode.MISSING_REQUIRED_OUTPUT: ReleaseAction.BLOCK,
     IssueCode.GROUNDING_BASIS_MISMATCH: ReleaseAction.BLOCK,
+    IssueCode.MATERIAL_SOURCE_VIOLATION: ReleaseAction.BLOCK,
     IssueCode.REQUIRED_OUTPUT_GAP: ReleaseAction.PARTIAL_OK,
     IssueCode.UNKNOWN_EVIDENCE_HASH: ReleaseAction.BLOCK,
     IssueCode.AMBIGUOUS_EVIDENCE_HASH: ReleaseAction.BLOCK,
     IssueCode.EVIDENCE_TYPE_STRIPPED: ReleaseAction.STRIP_OK,
     IssueCode.EVIDENCE_TYPE_UNSUPPORTED: ReleaseAction.PARTIAL_OK,
+    IssueCode.HISTORY_OPERATION_UNSUPPORTED: ReleaseAction.BLOCK,
+    # 引错算子与伪造身份不同等：前者剪掉该引用即可，槽里还有合法证据就不必
+    # 整篇作废（与 EVIDENCE_TYPE_STRIPPED 同一口径）。
+    IssueCode.HISTORY_OPERATION_STRIPPED: ReleaseAction.STRIP_OK,
     IssueCode.FINANCIAL_ANCHOR_MISSING: ReleaseAction.BLOCK,
     IssueCode.MISSING_MANDATORY_CAPABILITY: ReleaseAction.PARTIAL_OK,
     IssueCode.REQUIRED_OUTPUT_NO_SUBSTANCE: ReleaseAction.BLOCK,
@@ -77,6 +94,8 @@ RELEASE_POLICY: dict[IssueCode, ReleaseAction] = {
     IssueCode.PATH_TREND_MISMATCH: ReleaseAction.BLOCK,
     IssueCode.MARKER_LOSS: ReleaseAction.BLOCK,
     IssueCode.UNRESOLVED_EVIDENCE_ORDINAL: ReleaseAction.BLOCK,
+    # #55：与 weekday / path 同一档——机械删句后由 preflight 修复，修不好就 BLOCK。
+    IssueCode.EVIDENCE_DATE_MISMATCH: ReleaseAction.BLOCK,
 }
 
 _PARTIAL_RELEASE_ACTIONS = frozenset(

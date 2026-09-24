@@ -1,0 +1,206 @@
+"""Force late API workers to resolve runners during fixture teardown, not after it."""
+from __future__ import annotations
+
+import os
+import threading
+
+import pytest
+
+from intelligence.api import app as api_module
+from intelligence.api.credits import CreditStore
+from intelligence.services.run_store import RunStore
+from intelligence.tests import test_api_credits, test_api_quota, test_api_run_admission
+
+
+@pytest.mark.parametrize("owner", ["quota", "credits", "admission"])
+def test_api_fixture_joins_late_worker_before_restoring_runner(tmp_path, owner):
+    entered = threading.Event()
+    release = threading.Event()
+    joined = threading.Event()
+    calls = []
+    fixture = None
+    client = None
+    with pytest.MonkeyPatch.context() as patch:
+        execute = api_module.RunSupervisor._execute
+
+        def delayed_execute(*args, **kwargs):
+            entered.set()
+            if not release.wait(5):
+                raise RuntimeError("test did not release its worker")
+            return execute(*args, **kwargs)
+
+        patch.setattr(api_module.RunSupervisor, "_execute", delayed_execute)
+        factory = {
+            "quota": test_api_quota.quota_client,
+            "credits": test_api_credits.api,
+            "admission": test_api_run_admission.harness,
+        }[owner]
+        try:
+            fixture = factory.__wrapped__(tmp_path, patch)
+            value = next(fixture)
+            if owner == "quota":
+                client = value
+            elif owner == "credits":
+                client = value(CreditStore(enabled=False))
+            else:
+                client = value.build(api_module.RunSupervisor(max_workers=1, timeout_sec=10))
+            supervisor = client.app.state.supervisor
+            fake_runner = api_module._run_ask
+
+            def recording_fake(*args, **kwargs):
+                calls.append("fixture_runner")
+                return fake_runner(*args, **kwargs)
+
+            patch.setattr(api_module, "_run_ask", recording_fake)
+            shutdown = supervisor._executor.shutdown
+
+            def controlled_shutdown(wait=True, *, cancel_futures=False):
+                if wait:
+                    joined.set()
+                    release.set()
+                return shutdown(wait=wait, cancel_futures=cancel_futures)
+
+            patch.setattr(supervisor._executor, "shutdown", controlled_shutdown)
+            response = client.post("/api/runs", json={"question": "q", "user": "owner"})
+            assert response.status_code == 200
+            assert entered.wait(5)
+            assert calls == [], "worker must remain behind the deterministic gate"
+            # Teardown must join while the fixture's runner/env patches still exist.
+            with pytest.raises(StopIteration):
+                next(fixture)
+            assert joined.is_set(), "fixture restored dependencies without joining its worker"
+            assert calls == ["fixture_runner"]
+            assert supervisor.active_count() == 0
+        finally:
+            release.set()
+            if fixture is not None:
+                fixture.close()
+            if client is not None:
+                # Also drain deliberately broken variants before monkeypatch undo.
+                client.app.state.supervisor.shutdown()
+                client.app.state.supervisor._executor.shutdown(wait=True, cancel_futures=True)
+                client.close()
+
+
+@pytest.mark.parametrize("owner", ["quota", "credits", "admission"])
+def test_fixture_waits_for_fired_timer_removed_from_supervisor_before_restoring_env(tmp_path, owner):
+    entered = threading.Event()
+    release = threading.Event()
+    worker_release = threading.Event()
+    forgotten = threading.Event()
+    joining = threading.Event()
+    teardown_observed = threading.Event()
+    teardown_done = threading.Event()
+    callback_done = threading.Event()
+    unrelated_release = threading.Event()
+    unrelated = threading.Timer(0, unrelated_release.wait)
+    unrelated.start()
+    observed = []
+    timers = []
+    errors = []
+    fixture = client = teardown_thread = None
+    with pytest.MonkeyPatch.context() as patch:
+        original_claim = RunStore.claim_failed_run
+
+        def parked_claim(store, *args, **kwargs):
+            value = original_claim(store, *args, **kwargs)
+            if kwargs.get("error") == "executor_timeout":
+                assert value[1]
+                timers.append(threading.current_thread())
+                entered.set()
+                try:
+                    if not release.wait(5):
+                        raise RuntimeError("test did not release its timer")
+                    observed.append(os.environ.get("FORESIGHT_USERS_DIR"))
+                finally:
+                    callback_done.set()
+            return value
+
+        patch.setattr(RunStore, "claim_failed_run", parked_claim)
+        factory = {
+            "quota": test_api_quota.quota_client,
+            "credits": test_api_credits.api,
+            "admission": test_api_run_admission.harness,
+        }[owner]
+        try:
+            fixture = factory.__wrapped__(tmp_path, patch)
+            value = next(fixture)
+            if owner == "quota":
+                client = value
+            elif owner == "credits":
+                client = value(CreditStore(enabled=False))
+            else:
+                client = value.build(api_module.RunSupervisor(max_workers=1, timeout_sec=0))
+                value.gate.release.set()
+            supervisor = client.app.state.supervisor
+            supervisor.timeout_sec = 0
+            fake_runner = api_module._run_ask
+            forget = supervisor._forget
+
+            def gated_runner(*args, **kwargs):
+                if not worker_release.wait(5):
+                    raise RuntimeError("test did not release its worker")
+                return fake_runner(*args, **kwargs)
+
+            def observed_forget(*args, **kwargs):
+                try:
+                    return forget(*args, **kwargs)
+                finally:
+                    forgotten.set()
+
+            patch.setattr(api_module, "_run_ask", gated_runner)
+            patch.setattr(supervisor, "_forget", observed_forget)
+            response = client.post("/api/runs", json={"question": "q", "user": "owner"})
+            assert response.status_code == 200
+            assert entered.wait(5)
+            fixture_env = os.environ.get("FORESIGHT_USERS_DIR")
+            worker_release.set()
+            assert forgotten.wait(5)
+            assert not supervisor._timers and supervisor.active_count() == 0
+            timer = timers[0]
+            join = timer.join
+
+            def observed_join(*args, **kwargs):
+                joining.set()
+                teardown_observed.set()
+                return join(*args, **kwargs)
+
+            patch.setattr(timer, "join", observed_join)
+
+            def teardown():
+                try:
+                    next(fixture)
+                except StopIteration:
+                    pass
+                except BaseException as exc:
+                    errors.append(exc)
+                finally:
+                    teardown_done.set()
+                    teardown_observed.set()
+
+            teardown_thread = threading.Thread(target=teardown)
+            teardown_thread.start()
+            assert teardown_observed.wait(5)
+            assert joining.is_set(), "fixture exited without joining its already-fired timer"
+            assert not teardown_done.is_set() and not callback_done.is_set()
+            release.set()
+            assert teardown_done.wait(5) and callback_done.is_set()
+            assert not errors and observed == [fixture_env]
+            assert unrelated.is_alive(), "fixture must not wait for unrelated process timers"
+            run = RunStore(user_id="owner").load_run(response.json()["run_id"])
+            assert run.status == "failed" and run.error == "executor_timeout"
+        finally:
+            release.set()
+            worker_release.set()
+            unrelated_release.set()
+            unrelated.join(5)
+            if teardown_thread is not None:
+                teardown_thread.join(5)
+            for timer in timers:
+                timer.join(5)
+            if fixture is not None:
+                fixture.close()
+            if client is not None:
+                client.app.state.supervisor.shutdown()
+                client.app.state.supervisor._executor.shutdown(wait=True, cancel_futures=True)
+                client.close()

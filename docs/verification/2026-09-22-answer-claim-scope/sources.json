@@ -1,0 +1,42 @@
+{
+  "archived_at": "2026-09-22T19:28:51.348858+08:00",
+  "archive": "docs/verification/2026-09-22-answer-claim-scope",
+  "file_count": 5,
+  "sources": [
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/k3-acceptance-20260922/claim-scope-run_20260921_183219_280474.json",
+      "archived_as": "evidence/claim-scope-run_20260921_183219_280474.json",
+      "sha256": "6af9fc8c293881bea2b5adc3b88c9d8d3669960b45443c0e724fa47389199f28",
+      "redacted": false
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/k3-acceptance-20260922/claim-scope-run_20260921_183642_325351.json",
+      "archived_as": "evidence/claim-scope-run_20260921_183642_325351.json",
+      "sha256": "6b8e58609e5d90909bee4f3404cdaa8cadd283ec19b4ff79dc80eca4b7074e2d",
+      "redacted": false
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/k3-acceptance-20260922/claim-scope-calibration.json",
+      "archived_as": "evidence/claim-scope-calibration.json",
+      "sha256": "429d65ac06ee74b68b84e846b90f591b6428d8544dc40819343ae6bfe11b14a6",
+      "redacted": false
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/test-receipts/20260922T112802Z-ef9ff3b4.json",
+      "archived_as": "evidence/test-receipt-targeted.json",
+      "sha256": "e54f93a4d287bb0a7832cf74d709baf5737a3f66e7ddc7ead9227e3aa56d53f4",
+      "redacted": false
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/test-receipts/20260922T112523Z-a2c8d1f9.json",
+      "archived_as": "evidence/test-receipt-full-suite.json",
+      "sha256": "d28c777dd14e869ebabc0c638e11fc19e3b3c5a62fa6ba5431bf956342ccae97",
+      "redacted": false
+    }
+  ],
+  "excluded": [
+    "冻结 run 的原始 answer/episode（已在 2026-09-21 证据提交内）",
+    "私有证据根的其余收据"
+  ],
+  "boundary": "本轮 lint 相关收据的选择性归档，不是私有证据根的完整备份"
+}

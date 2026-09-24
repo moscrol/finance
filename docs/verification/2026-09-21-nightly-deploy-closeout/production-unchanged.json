@@ -1,0 +1,57 @@
+{
+  "timestamp": "2026-09-21T07:49:09.560489+00:00",
+  "installed_files": [
+    {
+      "path": "/Users/a77/.local/bin/nightly_full_review.sh",
+      "unchanged": true
+    },
+    {
+      "path": "/Users/a77/.local/bin/nightly-full-review-s7.sh",
+      "unchanged": true
+    },
+    {
+      "path": "/Users/a77/.local/bin/nightly-review-sync-staged.py",
+      "unchanged": true
+    },
+    {
+      "path": "/Users/a77/.local/bin/ops_python.sh",
+      "unchanged": true
+    },
+    {
+      "path": "/Users/a77/Library/LaunchAgents/com.financeworkspace.daily-full-review-sync.plist",
+      "unchanged": true
+    },
+    {
+      "path": "/Users/a77/Library/LaunchAgents/com.financeworkspace.daily-full-review-finalize.plist",
+      "unchanged": true
+    }
+  ],
+  "sync": {
+    "exit_code": 0,
+    "loaded_state": [
+      "state = not running",
+      "FINANCE_SYNC_CODE_ROOT => /Users/a77/finance-workspace-sync",
+      "REVIEW_SYNC_PLAN => local",
+      "FINANCE_CODE_ROOT => /Users/a77/finance-workspace-runtime",
+      "runs = 3",
+      "last exit code = 0"
+    ]
+  },
+  "finalize": {
+    "exit_code": 0,
+    "loaded_state": [
+      "state = not running",
+      "FINANCE_SYNC_CODE_ROOT => /Users/a77/finance-workspace-sync",
+      "FINANCE_GENERATION_CODE_ROOT => /Users/a77/.finance-runtime/finance-generation-387028b846a2",
+      "REVIEW_SYNC_PLAN => local",
+      "FINANCE_CODE_ROOT => /Users/a77/.finance-runtime/finance-l2-d433b90788c0",
+      "runs = 4",
+      "last exit code = 0"
+    ]
+  },
+  "8792": {
+    "source_revision": "adcda94b5e401158f1c3aa51f210e1e8d0f0b713",
+    "source_dirty": false,
+    "code_matches_repo": true
+  }
+}

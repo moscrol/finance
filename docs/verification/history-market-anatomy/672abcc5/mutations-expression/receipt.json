@@ -1,0 +1,90 @@
+{
+  "suite": "expression",
+  "scope": "author-side in-memory mutation tests; no product source edits, independent QC or live-model claim",
+  "revision": "672abcc504b3466a2ddd24dfa450c55703265c70",
+  "dirty_paths": [],
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "source_sha256": {
+    "intelligence/runtime/continuous_turn_adapter.py": "65565fc702dd548262a05a0382f3db21bd92fc95f0aa36f248d73b8c344aa1b7",
+    "intelligence/runtime/conversation_orchestrator.py": "7e91f915ff030c23978d948a43f24d6e03417e8a8e258b826cc8ac6f93b8e879",
+    "intelligence/services/episode_protocol.py": "f9288cb8712ee087c344435b33657f40e92a63dd9d844e3791e6ae5e4c8c67cf",
+    "intelligence/services/episode_tools.py": "7abfaec10ecc6976267b82fc420bfd3e753953eb9688f0acb47f0b4064b68e9b",
+    "intelligence/services/ranking_contract.py": "62d32ce54c749738231d1d55d14e1821079d65e73d3cb0c9bf4e0b58e3179468",
+    "intelligence/services/track_contract.py": "f602b6fc8759bf14da2b23ba941e385f7dded2496b01a83d983f88a00c15a694",
+    "intelligence/tests/test_conversation_orchestrator.py": "65315fc3cc8d6dd38909b283d3c33b92dcf31b1f8bb86ebad40517a96a1cc899",
+    "intelligence/tests/test_ranking_contract.py": "930a98e37020425cbb5a6e080f684642cc4292e50e4df8730a265b5220bd025f",
+    "intelligence/tests/test_research_intent_boundaries.py": "aa59097b88fc9309fda01691fb03b824ebe015e2691f65433457c189ba3b932c",
+    "scripts/review_probes/history_diagnostic_mutations.py": "7f976c016e674541cb63b2c25abb45819245f2178c1701944056acc268cd47a0",
+    "tests/test_history_argument_repair.py": "7febd49bdb1331be757dfcf812854d2afa438e49328dea4a502a8c735ed5db08",
+    "tests/test_history_expression_contract_boundary.py": "ef24e2930ea7123b2e608360d745773be3720dc686f946935d86b3fb30af8851",
+    "tests/test_history_live_seams.py": "b8145e632474722650e000f15adf349e373c95c40df7428f6c827cb9d0516d8c",
+    "tests/test_history_tool_diagnostics.py": "48f32dc4a8b2be312310d4a5d139aef95463222cda68a6205d5b24f96212d022"
+  },
+  "source_unchanged": true,
+  "mutations": [
+    {
+      "mutation": "drop_history_track_prompt",
+      "test": "tests/test_history_expression_contract_boundary.py::test_original_four_turn_prompts_use_history_not_forward_contracts",
+      "exit_code": 1,
+      "caught": true,
+      "log": "drop_history_track_prompt.txt",
+      "sha256": "d1e99e2b928f41c67dd2c429c980da3cddd42573398333130c1717e99417ddd5"
+    },
+    {
+      "mutation": "drop_history_ranking_prompt",
+      "test": "tests/test_history_expression_contract_boundary.py::test_original_four_turn_prompts_use_history_not_forward_contracts",
+      "exit_code": 1,
+      "caught": true,
+      "log": "drop_history_ranking_prompt.txt",
+      "sha256": "85fafe4a64c9058062bd6104a15570941d8a86eed79e8002dee9e6badeca8080"
+    },
+    {
+      "mutation": "drop_history_repair_scope",
+      "test": "tests/test_history_expression_contract_boundary.py::test_repair_does_not_replace_history_evidence_gaps_with_forward_slots",
+      "exit_code": 1,
+      "caught": true,
+      "log": "drop_history_repair_scope.txt",
+      "sha256": "43cc4834e1803c7ef8e7eaf87f7134f6e08ea78488bb44fcefef62964b32962d"
+    },
+    {
+      "mutation": "drop_history_receipt_scope",
+      "test": "tests/test_history_expression_contract_boundary.py::test_actual_adapter_receipts_and_repair_keep_history_missing",
+      "exit_code": 1,
+      "caught": true,
+      "log": "drop_history_receipt_scope.txt",
+      "sha256": "0380850a5720ac0084a819d8e2c69038955da15ec40f4970ccc6cea2b7bd243c"
+    },
+    {
+      "mutation": "drop_history_checkpoint_context",
+      "test": "tests/test_history_expression_contract_boundary.py::test_real_run_turn_passes_inherited_history_to_checkpoint_boundary",
+      "exit_code": 1,
+      "caught": true,
+      "log": "drop_history_checkpoint_context.txt",
+      "sha256": "0629236588ff6ad8375034da23d3f1d9fe62b1602802aadd4d1bf1ab2e9d4969"
+    },
+    {
+      "mutation": "erase_history_checkpoint_gate",
+      "test": "tests/test_history_expression_contract_boundary.py::test_orchestrator_blocks_history_before_resolving_user_path_or_calling_writers",
+      "exit_code": 1,
+      "caught": true,
+      "log": "erase_history_checkpoint_gate.txt",
+      "sha256": "5338bd690ccaebfd90b0fda734d82857acf4574e4035d0f5ba7c34195a5c2fbd"
+    },
+    {
+      "mutation": "erase_history_track_boundary",
+      "test": "tests/test_history_expression_contract_boundary.py::test_both_checkpoint_writers_reject_history_even_with_registerable_answer[ingest_next_watch]",
+      "exit_code": 1,
+      "caught": true,
+      "log": "erase_history_track_boundary.txt",
+      "sha256": "b62f9343e5087ffbf60f72201e1c0d6df435b59c70b01515a74c6082fadb288d"
+    },
+    {
+      "mutation": "erase_history_ranking_boundary",
+      "test": "tests/test_history_expression_contract_boundary.py::test_both_checkpoint_writers_reject_history_even_with_registerable_answer[ingest_flip_conditions]",
+      "exit_code": 1,
+      "caught": true,
+      "log": "erase_history_ranking_boundary.txt",
+      "sha256": "dcc08d663928757a83c2466773d9eb87ae3b934571513fcabea4d41e4c17b4d8"
+    }
+  ]
+}

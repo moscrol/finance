@@ -1,0 +1,10 @@
+{
+  "kind": "append-only archive repair, not rerun or approval",
+  "original_manifest": "docs/verification/2026-09-23-pr884-closeout-04/MANIFEST.json",
+  "original_manifest_sha256": "7b528c677c4d286a855bfa637f3633660e2233bf5497dcbe3b51c0a92fc55b25",
+  "discovery_revision": "ddc0d35b053f25ac74b10a3e4c62ab5502bae5ea",
+  "original_published_docs_revision": "10a21cff7f094fbf4d8cae81a5048aa659db5158",
+  "files": 129,
+  "bytes": 403320,
+  "credential_value_scan": "No matches to the round-04 tool credential values; no values archived"
+}

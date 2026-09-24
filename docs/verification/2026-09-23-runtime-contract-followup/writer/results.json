@@ -1,0 +1,319 @@
+{
+  "revision": "d542658a7e47bed58694c93be8ff9951a064f810",
+  "suite": "custom",
+  "tree": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/scratch/contract-mutations-p3lj97l5/tree",
+  "python": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "tests": [
+    "intelligence/tests/test_episode_writer.py"
+  ],
+  "definitions": "scripts/review_probes/episode_writer_mutations.json",
+  "complete": true,
+  "runs": [
+    {
+      "label": "baseline",
+      "exit": 0,
+      "executed": 23,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "disk_writer_not_exclusive-red",
+      "exit": 1,
+      "executed": 1,
+      "failures": 1,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_episode_writer",
+          "name": "test_separate_process_cannot_restore_until_owner_releases",
+          "message": "AssertionError: assert {'busy': Fals...ox': [], ...}} == {'busy': True}\n  \n  Differing items:\n  {'busy': False} != {'busy': True}\n  Left contains 1 more item:\n  {'result': {'disposition': 'resumable',\n              'entry_identity_bound': False,\n              'episode_id': 'restore-write-confirmation',...\n  \n  ...Full output truncated (36 lines hidden), use '-vv' to show"
+        }
+      ]
+    },
+    {
+      "label": "disk_writer_not_exclusive-green",
+      "exit": 0,
+      "executed": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "restore_bypasses_writer-red",
+      "exit": 1,
+      "executed": 1,
+      "failures": 1,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_episode_writer",
+          "name": "test_separate_process_cannot_restore_until_owner_releases",
+          "message": "AssertionError: assert {'busy': Fals...ox': [], ...}} == {'busy': True}\n  \n  Differing items:\n  {'busy': False} != {'busy': True}\n  Left contains 1 more item:\n  {'result': {'disposition': 'resumable',\n              'entry_identity_bound': False,\n              'episode_id': 'restore-write-confirmation',...\n  \n  ...Full output truncated (36 lines hidden), use '-vv' to show"
+        }
+      ]
+    },
+    {
+      "label": "restore_bypasses_writer-green",
+      "exit": 0,
+      "executed": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "drive_bypasses_writer-red",
+      "exit": 1,
+      "executed": 1,
+      "failures": 1,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_episode_writer",
+          "name": "test_killing_real_drive_releases_lock_but_keeps_unexecuted_intent",
+          "message": "Failed: DID NOT RAISE <class 'intelligence.services.episode_store.EpisodeWriterBusy'>"
+        }
+      ]
+    },
+    {
+      "label": "drive_bypasses_writer-green",
+      "exit": 0,
+      "executed": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "new_run_restarts_existing_log-red",
+      "exit": 1,
+      "executed": 1,
+      "failures": 1,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_episode_writer",
+          "name": "test_successful_drive_releases_but_never_restarts_existing_log",
+          "message": "Failed: DID NOT RAISE <class 'intelligence.services.episode_restore.RestoreUnavailable'>"
+        }
+      ]
+    },
+    {
+      "label": "new_run_restarts_existing_log-green",
+      "exit": 0,
+      "executed": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "repair_bypasses_writer-red",
+      "exit": 1,
+      "executed": 1,
+      "failures": 1,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_episode_writer",
+          "name": "test_repair_owns_entire_operation_and_releases_on_exception",
+          "message": "Failed: DID NOT RAISE <class 'intelligence.services.episode_store.EpisodeWriterBusy'>"
+        }
+      ]
+    },
+    {
+      "label": "repair_bypasses_writer-green",
+      "exit": 0,
+      "executed": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "repair_accepts_stale_prefix-red",
+      "exit": 1,
+      "executed": 2,
+      "failures": 2,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_episode_writer",
+          "name": "test_stale_repair_never_appends_or_calls_model[event]",
+          "message": "Failed: DID NOT RAISE <class 'intelligence.services.episode_restore.RestoreUnavailable'>"
+        },
+        {
+          "class": "intelligence.tests.test_episode_writer",
+          "name": "test_stale_repair_never_appends_or_calls_model[state]",
+          "message": "Failed: DID NOT RAISE <class 'intelligence.services.episode_restore.RestoreUnavailable'>"
+        }
+      ]
+    },
+    {
+      "label": "repair_accepts_stale_prefix-green",
+      "exit": 0,
+      "executed": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "repair_locks_foreign_store-red",
+      "exit": 1,
+      "executed": 4,
+      "failures": 1,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_episode_writer",
+          "name": "test_repair_rejects_foreign_owner_or_task_before_any_effect[store]",
+          "message": "Failed: DID NOT RAISE <class 'intelligence.services.episode_restore.RestoreUnavailable'>"
+        }
+      ]
+    },
+    {
+      "label": "repair_locks_foreign_store-green",
+      "exit": 0,
+      "executed": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "inbox_suspend_does_not_drain_delivery-red",
+      "exit": 1,
+      "executed": 1,
+      "failures": 1,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_episode_writer",
+          "name": "test_close_drains_inflight_delivery_before_releasing_writer",
+          "message": "Failed: DID NOT RAISE <class 'TimeoutError'>"
+        }
+      ]
+    },
+    {
+      "label": "inbox_suspend_does_not_drain_delivery-green",
+      "exit": 0,
+      "executed": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "restore_accepts_foreign_checkpoint-red",
+      "exit": 1,
+      "executed": 1,
+      "failures": 1,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_episode_writer",
+          "name": "test_restore_refuses_checkpoint_for_another_episode_even_when_terminal",
+          "message": "Failed: DID NOT RAISE <class 'intelligence.services.episode_restore.RestoreUnavailable'>"
+        }
+      ]
+    },
+    {
+      "label": "restore_accepts_foreign_checkpoint-green",
+      "exit": 0,
+      "executed": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "restored-full",
+      "exit": 0,
+      "executed": 23,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    }
+  ],
+  "mutations": [
+    {
+      "id": "disk_writer_not_exclusive",
+      "path": "intelligence/services/episode_store.py",
+      "before_sha256": "f245cd26c6cb5adbf3a40fec714c76452e2c8f8fbbfb06e9fd5e8096b9486f30",
+      "mutated_sha256": "101a0cd4cfc8d65fcba0b4727f2e3cea2eb335211dd1b4f5a29f6382eee48e8c",
+      "restored_sha256": "f245cd26c6cb5adbf3a40fec714c76452e2c8f8fbbfb06e9fd5e8096b9486f30"
+    },
+    {
+      "id": "restore_bypasses_writer",
+      "path": "intelligence/services/episode_restore.py",
+      "before_sha256": "eb9189be3a6d7f9a4022628d43f7e59c849f579dab669d7b1076201f7f5c95c4",
+      "mutated_sha256": "6ac2c083d0499efb1dc5f04647467b0066678ca1bb81e4da851b45f9a690abc2",
+      "restored_sha256": "eb9189be3a6d7f9a4022628d43f7e59c849f579dab669d7b1076201f7f5c95c4"
+    },
+    {
+      "id": "drive_bypasses_writer",
+      "path": "intelligence/runtime/agent_episode.py",
+      "before_sha256": "e65902af4f5c606c4dce666fe2bcfd92eca249d3d2f24b3879b5b08136d5bb62",
+      "mutated_sha256": "a375cbef1be421177e72f2e83ed1093061120eba6f14768200444332126b965d",
+      "restored_sha256": "e65902af4f5c606c4dce666fe2bcfd92eca249d3d2f24b3879b5b08136d5bb62"
+    },
+    {
+      "id": "new_run_restarts_existing_log",
+      "path": "intelligence/runtime/agent_episode.py",
+      "before_sha256": "e65902af4f5c606c4dce666fe2bcfd92eca249d3d2f24b3879b5b08136d5bb62",
+      "mutated_sha256": "c39ec925247080eb0372a54c52b6fdd17d0a4563b4da14542e76219156de8c6b",
+      "restored_sha256": "e65902af4f5c606c4dce666fe2bcfd92eca249d3d2f24b3879b5b08136d5bb62"
+    },
+    {
+      "id": "repair_bypasses_writer",
+      "path": "intelligence/runtime/agent_episode.py",
+      "before_sha256": "e65902af4f5c606c4dce666fe2bcfd92eca249d3d2f24b3879b5b08136d5bb62",
+      "mutated_sha256": "4128e10ce3324db31b7a74ebfa3bb2c9cbe130f489d52d60946074d666dcc73d",
+      "restored_sha256": "e65902af4f5c606c4dce666fe2bcfd92eca249d3d2f24b3879b5b08136d5bb62"
+    },
+    {
+      "id": "repair_accepts_stale_prefix",
+      "path": "intelligence/runtime/agent_episode.py",
+      "before_sha256": "e65902af4f5c606c4dce666fe2bcfd92eca249d3d2f24b3879b5b08136d5bb62",
+      "mutated_sha256": "12d5180c2fcd0639a556de3e629196e437aaef7523d32cf6a06c019b5e01e8d9",
+      "restored_sha256": "e65902af4f5c606c4dce666fe2bcfd92eca249d3d2f24b3879b5b08136d5bb62"
+    },
+    {
+      "id": "repair_locks_foreign_store",
+      "path": "intelligence/runtime/agent_episode.py",
+      "before_sha256": "e65902af4f5c606c4dce666fe2bcfd92eca249d3d2f24b3879b5b08136d5bb62",
+      "mutated_sha256": "dec9b02e43a2c3ca276f89ebf81c40ecb598a3903c6fc953e46f8b0255a54df1",
+      "restored_sha256": "e65902af4f5c606c4dce666fe2bcfd92eca249d3d2f24b3879b5b08136d5bb62"
+    },
+    {
+      "id": "inbox_suspend_does_not_drain_delivery",
+      "path": "intelligence/services/episode_inbox.py",
+      "before_sha256": "6d494fa221b4227c08ead0beb65e31ca424ed2ea9d4177454f99270ef6e700d6",
+      "mutated_sha256": "b2efddce0b9dbd790b79a937f71a9d377f5046f1d1303be641d5597118df775f",
+      "restored_sha256": "6d494fa221b4227c08ead0beb65e31ca424ed2ea9d4177454f99270ef6e700d6"
+    },
+    {
+      "id": "restore_accepts_foreign_checkpoint",
+      "path": "intelligence/services/episode_restore.py",
+      "before_sha256": "eb9189be3a6d7f9a4022628d43f7e59c849f579dab669d7b1076201f7f5c95c4",
+      "mutated_sha256": "313f16628b93e028fed1af4f24a991afb02167a5638a5a9168ef93013d8b4f09",
+      "restored_sha256": "eb9189be3a6d7f9a4022628d43f7e59c849f579dab669d7b1076201f7f5c95c4"
+    }
+  ],
+  "definitions_sha256": "496e0d038c7d7ab58c94969c346e2d7eb5033c2825068cec1e5e35f7f37edbcf",
+  "final_status": ""
+}

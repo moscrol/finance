@@ -1,0 +1,312 @@
+        callbacks: tuple[Callable[[], None], ...] = ()
+        try:
+            with self._lock:
+                if self._failure:
+                    raise EpisodeStoreFailed(self._failure)
+                try:
+                    write()
+                except Exception as exc:
+                    self._failure = f"{episode_id}:{boundary}:{type(exc).__name__}"
+                    callbacks = tuple(self._callbacks)
+                    raise
+        finally:
+            self._notify_failure(callbacks)
+
+    def append(
+        self, episode_id: str, events: Sequence[EpisodeEvent], *, sync: bool = False
+    ) -> None:
+        self._write(episode_id, "append", lambda: self._store.append(episode_id, events, sync=sync))
+
+    def put_state(self, episode_id: str, state: EpisodeState) -> None:
+        self._write(episode_id, f"state:{state.phase}", lambda: self._store.put_state(episode_id, state))
+
+    def writer(self, episode_id: str) -> AbstractContextManager[None]:
+        return self._store.writer(episode_id)
+
+    def load(self, episode_id: str) -> tuple[tuple[EpisodeEvent, ...], EpisodeState | None]:
+        return self._store.load(episode_id)
+
+    def list_open(self) -> tuple[str, ...]:
+        return self._store.list_open()
+
+
+def require_known_kinds(events: Iterable[EpisodeEvent]) -> None:
+    """读者入口校验：未登记且非 ignorable 的 kind → ``UnknownRequiredKind``。
+
+    登记表是 ``episode_event_lanes.DURABLE_EVENT_KINDS``（单一事实源）。写方新增 kind 要么
+    先登记，要么打 ``ignorable``——两条路都是显式的，没有「读者自己猜」这条。
+    """
+
+    for event in events:
+        if event.kind in DURABLE_EVENT_KINDS or event.ignorable:
+            continue
+        raise UnknownRequiredKind(event.kind, event.sequence)
+
+
+def _event_record(event: EpisodeEvent) -> dict[str, object]:
+    return event.to_dict()
+
+
+def _event_from_record(record: Mapping[str, object]) -> EpisodeEvent:
+    payload = record.get("payload")
+    if not isinstance(payload, Mapping):
+        raise ValueError("事件记录缺 payload 对象")
+    return EpisodeEvent(
+        int(record.get("sequence") or 0),
+        str(record.get("kind") or ""),
+        payload,
+        ignorable=bool(record.get("ignorable", False)),
+    )
+
+
+def _require_contiguous(events: Sequence[EpisodeEvent], *, episode_id: str) -> None:
+    expected = tuple(range(1, len(events) + 1))
+    actual = tuple(event.sequence for event in events)
+    if actual != expected:
+        raise EpisodeLogCorrupt(
+            f"{episode_id}: 事件序号不连续（期望 1..{len(events)}，读到 {actual[:8]}…）"
+        )
+
+
+class MemoryEpisodeStore:
+    """测试与无落盘调用方用：同一套四动作，纯内存。"""
+
+    def __init__(self) -> None:
+        self._lock = threading.RLock()
+        self._events: dict[str, list[EpisodeEvent]] = {}
+        self._states: dict[str, EpisodeState] = {}
+        self._writers: set[str] = set()
+        # 写序 oracle 与「意图 fsync、结算不 fsync」的断言靶：记录每次 append 的 sync 标记。
+        self.append_log: list[tuple[str, tuple[int, ...], bool]] = []
+
+    def append(
+        self, episode_id: str, events: Sequence[EpisodeEvent], *, sync: bool = False
+    ) -> None:
+        items = tuple(events)
+        if not items:
+            return
+        with self._lock:
+            self._events.setdefault(episode_id, []).extend(items)
+            self.append_log.append(
+                (episode_id, tuple(event.sequence for event in items), bool(sync))
+            )
+
+    def put_state(self, episode_id: str, state: EpisodeState) -> None:
+        if state.episode_id != episode_id:
+            raise ValueError("state.episode_id 与写入的 episode_id 不一致")
+        with self._lock:
+            self._states[episode_id] = state
+
+    def load(self, episode_id: str) -> tuple[tuple[EpisodeEvent, ...], EpisodeState | None]:
+        with self._lock:
+            events = tuple(self._events.get(episode_id, ()))
+            state = self._states.get(episode_id)
+        _require_contiguous(events, episode_id=episode_id)
+        return events, state
+
+    def list_open(self) -> tuple[str, ...]:
+        with self._lock:
+            return tuple(
+                sorted(
+                    episode_id
+                    for episode_id, state in self._states.items()
+                    if not state.terminal
+                )
+            )
+
+    @contextmanager
+    def writer(self, episode_id: str) -> Iterator[None]:
+        with self._lock:
+            if episode_id in self._writers:
+                raise EpisodeWriterBusy(f"{episode_id}: episode writer is active")
+            self._writers.add(episode_id)
+        try:
+            yield
+        finally:
+            with self._lock:
+                self._writers.remove(episode_id)
+
+    def truncate(self, episode_id: str, *, keep: int) -> None:
+        """测试用：模拟崩溃——只保留前 ``keep`` 条事件（状态另由测试决定保留哪份）。"""
+
+        with self._lock:
+            self._events[episode_id] = list(self._events.get(episode_id, ()))[:keep]
+
+
+_UNSAFE_NAME = re.compile(r"[^A-Za-z0-9._-]")
+
+
+def _directory_name(episode_id: str) -> str:
+    """episode_id（``run_…:msg_…``）含冒号等文件系统不友好字符：替换后加短哈希保单射。"""
+
+    safe = _UNSAFE_NAME.sub("_", episode_id)
+    if safe == episode_id:
+        return safe
+    digest = hashlib.sha256(episode_id.encode("utf-8")).hexdigest()[:12]
+    return f"{safe}-{digest}"
+
+
+class JsonlEpisodeStore:
+    """生产实现：``<root>/<episode_dir>/{events.jsonl,state.json}``。
+
+    与 ``deploy-ledger.jsonl`` 同族：追加式 JSONL、零依赖。``state.json`` 走
+    「写临时文件 → fsync → ``os.replace``」，读者永远只看到旧的或新的整份，没有半份。
+    """
+
+    EVENTS_NAME = "events.jsonl"
+    STATE_NAME = "state.json"
+
+    def __init__(self, root: str | Path) -> None:
+        self.root = Path(root).expanduser()
+        self._lock = threading.RLock()
+
+    def episode_dir(self, episode_id: str) -> Path:
+        name = _directory_name(str(episode_id))
+        if name in {"", ".", ".."}:
+            raise ValueError("episode_id must name a child directory")
+        return self.root / name
+
+    @contextmanager
+    def writer(self, episode_id: str) -> Iterator[None]:
+        """Local POSIX single-writer guard, held even while a drive is paused.
+
+        Never unlink/replace the lock inode: that would let a second process
+        lock a different inode for the same episode. Kernel ownership, not file
+        contents or elapsed time, decides when takeover is possible. This is
+        advisory: all runtime/recovery entry points must cooperate; raw imports
+        and older processes are not fenced. No network-filesystem guarantee.
+        """
+        directory = self.episode_dir(episode_id)
+        directory.mkdir(parents=True, exist_ok=True)
+        fd = os.open(directory / ".writer.lock", os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+        acquired = False
+        try:
+            try:
+                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError as exc:
+                raise EpisodeWriterBusy(f"{episode_id}: episode writer is active") from exc
+            acquired = True
+            yield
+        finally:
+            try:
+                if acquired:
+                    fcntl.flock(fd, fcntl.LOCK_UN)
+            finally:
+                os.close(fd)
+
+    def append(
+        self, episode_id: str, events: Sequence[EpisodeEvent], *, sync: bool = False
+    ) -> None:
+        items = tuple(events)
+        if not items:
+            return
+        lines = "".join(
+            json.dumps(_event_record(event), ensure_ascii=False) + "\n" for event in items
+        )
+        directory = self.episode_dir(episode_id)
+        with self._lock:
+            directory.mkdir(parents=True, exist_ok=True)
+            with open(directory / self.EVENTS_NAME, "a", encoding="utf-8") as handle:
+                handle.write(lines)
+                handle.flush()
+                if sync:
+                    os.fsync(handle.fileno())
+
+    def put_state(self, episode_id: str, state: EpisodeState) -> None:
+        if state.episode_id != episode_id:
+            raise ValueError("state.episode_id 与写入的 episode_id 不一致")
+        directory = self.episode_dir(episode_id)
+        target = directory / self.STATE_NAME
+        temporary = directory / f".{self.STATE_NAME}.{os.getpid()}.tmp"
+        body = json.dumps(state.to_dict(), ensure_ascii=False, indent=2)
+        with self._lock:
+            directory.mkdir(parents=True, exist_ok=True)
+            with open(temporary, "w", encoding="utf-8") as handle:
+                handle.write(body)
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.replace(temporary, target)
+
+    def _read_events(self, path: Path, *, episode_id: str) -> tuple[EpisodeEvent, ...]:
+        if not path.is_file():
+            return ()
+        raw_lines = [line for line in path.read_text(encoding="utf-8").split("\n") if line.strip()]
+        events: list[EpisodeEvent] = []
+        last_index = len(raw_lines) - 1
+        for index, line in enumerate(raw_lines):
+            try:
+                record = json.loads(line)
+                event = _event_from_record(record)
+            except (ValueError, TypeError) as exc:
+                if index == last_index:
+                    # 撕裂末行：单写者 append 被崩溃切断。整行丢弃，前缀仍是合法日志。
+                    break
+                raise EpisodeLogCorrupt(
+                    f"{episode_id}: 第 {index + 1} 行（非末行）解不出事件: {exc}"
+                ) from exc
+            events.append(event)
+        frozen = tuple(events)
+        _require_contiguous(frozen, episode_id=episode_id)
+        return frozen
+
+    def _read_state(self, path: Path) -> EpisodeState | None:
+        if not path.is_file():
+            return None
+        return EpisodeState.from_dict(json.loads(path.read_text(encoding="utf-8")))
+
+    def load(self, episode_id: str) -> tuple[tuple[EpisodeEvent, ...], EpisodeState | None]:
+        directory = self.episode_dir(episode_id)
+        with self._lock:
+            events = self._read_events(directory / self.EVENTS_NAME, episode_id=episode_id)
+            state = self._read_state(directory / self.STATE_NAME)
+        return events, state
+
+    def load_state(self, episode_id: str) -> EpisodeState | None:
+        """只读 ``state.json``、不读事件流：递话的 CLI 判「收口了没」用它，events.jsonl 可能几百 KB。
+        没有 state.json（episode 刚起、第一次 phase 转移前）回 None。"""
+
+        with self._lock:
+            return self._read_state(self.episode_dir(episode_id) / self.STATE_NAME)
+
+    def list_open(self) -> tuple[str, ...]:
+        if not self.root.is_dir():
+            return ()
+        open_ids: list[str] = []
+        with self._lock:
+            for child in sorted(self.root.iterdir()):
+                state_path = child / self.STATE_NAME
+                if not child.is_dir() or not state_path.is_file():
+                    continue
+                try:
+                    state = self._read_state(state_path)
+                except (ValueError, OSError):
+                    # 读不出的 state 不是「open」也不是「done」——列出来让人看见比吞掉好，
+                    # 但它没有 episode_id 可报，用目录名代。
+                    open_ids.append(child.name)
+                    continue
+                if state is not None and not state.terminal:
+                    open_ids.append(state.episode_id)
+        return tuple(sorted(open_ids))
+
+
+def resolve_episode_store_root(finance_ws: str | None = None) -> Path:
+    """store 根目录解析，覆盖序与 ``deploy_ledger.resolve_ledger_path`` 同：
+
+    1. ``FORESIGHT_EPISODE_STORE``（测试 / 显式覆盖）
+    2. ``$FINANCE_WS/state/episodes``（生产数据仓，跨快照）
+    3. ``~/.finance-runtime/episodes``
+    """
+
+    override = os.environ.get(EPISODE_STORE_ENV, "").strip()
+    if override:
+        return Path(override).expanduser()
+    workspace = (finance_ws if finance_ws is not None else os.environ.get("FINANCE_WS", "")).strip()
+    if workspace:
+        return Path(workspace).expanduser() / "state" / "episodes"
+    return Path.home() / ".finance-runtime" / "episodes"
+
+
+def now_iso() -> str:
+    """状态与合成事件的挂钟时刻，与 ``_EpisodeLedger.add`` 的 ``at`` 同格式。"""
+
+    return datetime.now().astimezone().isoformat(timespec="milliseconds")

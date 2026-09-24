@@ -1,0 +1,68 @@
+{
+  "archive_root": "/Users/a77/.local/share/finance-workbench/diagnostics/20260917-citation-numeric-gate",
+  "code_revision": "2841ce665b2dae4039ba8c70600c03a48c57fa78",
+  "files": [
+    {
+      "path": "citation-numeric-gate-0917-commit.log",
+      "bytes": 5782,
+      "sha256": "4e964df2546b8f421782131da4e37de5dcd836340c4765ff7934655eb98bb8fa"
+    },
+    {
+      "path": "citation-numeric-gate-0917-full-clean.log",
+      "bytes": 16996,
+      "sha256": "d52a4a90f569ef645e1249c479ba1003f8206a6187a8ed02ce3270db8c5a0571"
+    },
+    {
+      "path": "citation-numeric-gate-0917-full.log",
+      "bytes": 16996,
+      "sha256": "10852893003688687703b63f0b287d147d791e05a28a2dd414e2b08def6a1a97"
+    },
+    {
+      "path": "citation-numeric-gate-0917-mutation-disable.log",
+      "bytes": 24260,
+      "sha256": "a15eb559ce9ee7807b177a460efb3faec3503e0a6230b8095f2f2ef6bb0d04b1"
+    },
+    {
+      "path": "citation-numeric-gate-0917-mutation-strip.log",
+      "bytes": 20300,
+      "sha256": "80a945d2ab253e889926e2db74cbcf6a9ba7ae1d04b81c7e168f09cf8dc9855d"
+    },
+    {
+      "path": "citation-numeric-gate-0917-receipt-check.txt",
+      "bytes": 753,
+      "sha256": "70f1034e16d150d1c22d0a5cdf018d2992c24a3f20ddf8f524f0dec5ddfb6df1"
+    },
+    {
+      "path": "citation-numeric-gate-0917-red.log",
+      "bytes": 20300,
+      "sha256": "1a71d3ca6fe7c0fc9f70c216606e77a3a26d61d58cafdbfc7253e25439ca71b1"
+    },
+    {
+      "path": "citation-numeric-gate-0917-replay-after.json",
+      "bytes": 4066,
+      "sha256": "9cab4caaf8a4e63a53f93942831581e754a6f8d869b995fb632363675b651215"
+    },
+    {
+      "path": "citation-numeric-gate-0917-replay-before.json",
+      "bytes": 4080,
+      "sha256": "c6a0dd84d99f83ad0f225d0a0e8f8d5018cf9aaa583d046882b6df8956ebee73"
+    },
+    {
+      "path": "citation-numeric-gate-0917-targeted.log",
+      "bytes": 427,
+      "sha256": "29b51a27ed08e90245d080ad9d9c02982751ae8a31f5ae5ea66c938a35e0c138"
+    },
+    {
+      "path": "citation-numeric-gate-0917-three-sentences.json",
+      "bytes": 986,
+      "sha256": "96b40251d11472a49c5171669990f89b1e293a490e5ea1cb0ecfef10b3f24f5d"
+    },
+    {
+      "path": "20260917T133812Z-2841ce66.json",
+      "bytes": 670,
+      "sha256": "f4fde9d0a5f2f79cba926b3f3255f4a6c92dbbb8c1a4ed72b7aa460baad6c820"
+    }
+  ],
+  "total_bytes": 115616,
+  "boundary": "Local offline artifacts only; not uploaded; original sector/history bundle kept separately."
+}

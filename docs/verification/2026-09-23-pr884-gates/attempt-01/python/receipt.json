@@ -1,0 +1,32 @@
+{
+  "leaf": "python",
+  "revision": "480cad07057c243fad2e948b6c33dc160f9412b6",
+  "before": {
+    "revision": "480cad07057c243fad2e948b6c33dc160f9412b6",
+    "status": ""
+  },
+  "checks": [],
+  "complete": false,
+  "started_at": "2026-09-23T06:17:03.575419+00:00",
+  "env": {
+    "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+    "HOME": "/Users/a77",
+    "LANG": "en_US.UTF-8",
+    "TMPDIR": "/Users/a77/.finance-runtime/reviews/pr884-gates-20260923-01/python/tmp",
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "FORESIGHT_LLM_KEYCHAIN": "0",
+    "FORESIGHT_USERS_DIR": "/Users/a77/.finance-runtime/reviews/pr884-gates-20260923-01/python/users",
+    "FWP_TEST_RECEIPT_DIR": "/Users/a77/.finance-runtime/reviews/pr884-gates-20260923-01/python/receipts",
+    "CI": "1"
+  },
+  "profile": "(version 1) (allow default) (deny network*) (allow network* (local ip \"localhost:*\") (remote ip \"localhost:*\")) (deny process-exec (literal \"/usr/bin/security\"))",
+  "driver_sha256": "9f7024e752d695d12aae9a1923be96e470a800b685147cc2eb4b111f2494d4e8",
+  "error": "PermissionError(1, 'Operation not permitted')",
+  "after": {
+    "revision": "480cad07057c243fad2e948b6c33dc160f9412b6",
+    "status": ""
+  },
+  "identity_stable": true,
+  "accepted": false,
+  "finished_at": "2026-09-23T06:28:17.994104+00:00"
+}

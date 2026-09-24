@@ -64,7 +64,11 @@ def parse_stock_analog_intent(query: str) -> bool:
     text = re.sub(r"\s+", "", str(query or ""))
     if not text:
         return False
-    return any(term in text for term in _ANALOG_TERMS)
+    for clause in re.split(r"[，。；！？,;!?]", text):
+        for match in re.finditer("|".join(map(re.escape, _ANALOG_TERMS)), clause):
+            if not re.search(r"(?:不得|禁止|不要|无需|不用|不能|不允许)", clause[:match.start()]):
+                return True
+    return False
 
 
 def _clean_stock_text(value: Any) -> str:

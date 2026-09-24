@@ -1,0 +1,440 @@
+FFFFFF.FFFFFFFFF.                                                        [100%]
+=================================== FAILURES ===================================
+_________ test_refresh_cannot_borrow_old_success_when_baseline_expired _________
+
+completed = <_duckdb.DuckDBPyConnection object at 0x107c1fbf0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x107383d10>
+capsys = <_pytest.capture.CaptureFixture object at 0x10a00fa70>
+
+    def test_refresh_cannot_borrow_old_success_when_baseline_expired(completed, monkeypatch, capsys):
+        rc, summary = call_cli(completed, monkeypatch)
+        assert summary["audit_complete"] is True  # Old, truthful audit is not rewritten.
+        assert summary["skipped"] == {"no_baseline": 3}
+        assert summary["stitched"] == 0
+        assert member_price(completed) == 10.0  # Base quote is 12; recovery must stop.
+>       assert rc == 2
+E       assert 0 == 2
+
+tests/test_stitch_refresh_completion.py:90: AssertionError
+----------------------------- Captured stdout call -----------------------------
+交易日: 2026-09-17 | snapshot=dcd8c78761a7 | 2026-09-17 vs 2026-03-01: unchanged=3 changed=0 new=0 gone=0
+候选 3 | 拼接 0 | 剔除无值成员 0 | 市值现值 0 只
+  跳过[no_baseline] 3: 990001.FP, 990002.FP, 990003.FP
+基线日期分布: {}
+留给复盘会 delta 的板块: 3
+完成度审计: 2026-09-17 snapshot=dcd8c78761a7 success=3/3 rel=7+0/7 pending=0 retriable=0 nulls=0 continuity=100% missing_tables=- mismatch=-
+stitched=0/3 skipped[no_baseline=3] provider_pending=3 dropped=0 | 2026-09-17 vs 2026-03-01: unchanged=3 changed=0 new=0 gone=0
+_________ test_refresh_with_qualified_baseline_really_rewrites_members _________
+
+completed = <_duckdb.DuckDBPyConnection object at 0x107c1f5b0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1099b4260>
+
+    def test_refresh_with_qualified_baseline_really_rewrites_members(completed, monkeypatch):
+        # Fixture control only; production/recovery still requests 180 days.
+        rc, summary = call_cli(completed, monkeypatch, age=365)
+        assert rc == 0
+>       assert summary["refresh_complete"] is True
+E       KeyError: 'refresh_complete'
+
+tests/test_stitch_refresh_completion.py:99: KeyError
+----------------------------- Captured stdout call -----------------------------
+交易日: 2026-09-17 | snapshot=dcd8c78761a7 | 2026-09-17 vs 2026-03-01: unchanged=3 changed=0 new=0 gone=0
+候选 3 | 拼接 3 | 剔除无值成员 0 | 市值现值 0 只
+基线日期分布: {'2026-03-01': 3}
+留给复盘会 delta 的板块: 0
+完成度审计: 2026-09-17 snapshot=dcd8c78761a7 success=3/3 rel=7+0/7 pending=0 retriable=0 nulls=0 continuity=100% missing_tables=- mismatch=-
+stitched=3/3 skipped[-] provider_pending=0 dropped=0 | 2026-09-17 vs 2026-03-01: unchanged=3 changed=0 new=0 gone=0
+_____________________ test_partial_refresh_is_not_complete _____________________
+
+completed = <_duckdb.DuckDBPyConnection object at 0x10a5cbb30>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10a69b050>
+
+    def test_partial_refresh_is_not_complete(completed, monkeypatch):
+        original = stitch._baselines
+    
+        def missing_one(*args, **kwargs):
+            return {k: v for k, v in original(*args, **kwargs).items() if k != "990001.FP"}
+    
+        monkeypatch.setattr(stitch, "_baselines", missing_one)
+        rc, summary = call_cli(completed, monkeypatch, age=365)
+        assert summary["stitched"] == 2
+        assert summary["audit_complete"] is True
+        assert summary["skipped"] == {"no_baseline": 1}
+>       assert rc == 2 and summary["refresh_complete"] is False
+E       assert (0 == 2)
+
+tests/test_stitch_refresh_completion.py:115: AssertionError
+----------------------------- Captured stdout call -----------------------------
+交易日: 2026-09-17 | snapshot=dcd8c78761a7 | 2026-09-17 vs 2026-03-01: unchanged=3 changed=0 new=0 gone=0
+候选 3 | 拼接 2 | 剔除无值成员 0 | 市值现值 0 只
+  跳过[no_baseline] 1: 990001.FP
+基线日期分布: {'2026-03-01': 2}
+留给复盘会 delta 的板块: 1
+完成度审计: 2026-09-17 snapshot=dcd8c78761a7 success=3/3 rel=7+0/7 pending=0 retriable=0 nulls=0 continuity=100% missing_tables=- mismatch=-
+stitched=2/3 skipped[no_baseline=1] provider_pending=1 dropped=0 | 2026-09-17 vs 2026-03-01: unchanged=3 changed=0 new=0 gone=0
+_______________ test_refresh_missing_values_stops[empty-members] _______________
+
+completed = <_duckdb.DuckDBPyConnection object at 0x1072a9e30>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10a6f2c60>
+remove_all = True
+
+    @pytest.mark.parametrize("remove_all", [True, False], ids=["empty-members", "shortfall"])
+    def test_refresh_missing_values_stops(completed, monkeypatch, remove_all):
+        original = stitch.build_rows
+    
+        def insufficient(*args, **kwargs):
+            rows, dropped = original(*args, **kwargs)
+            return ([], dropped) if remove_all else (rows[:1], dropped)
+    
+        monkeypatch.setattr(stitch, "build_rows", insufficient)
+        if not remove_all:
+            monkeypatch.setattr(stitch, "_shortfall_bound", lambda expected: 0)
+        rc, summary = call_cli(completed, monkeypatch, age=365)
+        assert summary["skipped"] == {"shortfall": 3}
+        assert summary["audit_complete"] is True
+>       assert rc == 2 and summary["refresh_complete"] is False
+E       assert (0 == 2)
+
+tests/test_stitch_refresh_completion.py:132: AssertionError
+----------------------------- Captured stdout call -----------------------------
+交易日: 2026-09-17 | snapshot=dcd8c78761a7 | 2026-09-17 vs 2026-03-01: unchanged=3 changed=0 new=0 gone=0
+候选 3 | 拼接 0 | 剔除无值成员 0 | 市值现值 0 只
+  跳过[shortfall] 3: 990001.FP, 990002.FP, 990003.FP
+基线日期分布: {}
+留给复盘会 delta 的板块: 3
+完成度审计: 2026-09-17 snapshot=dcd8c78761a7 success=3/3 rel=7+0/7 pending=0 retriable=0 nulls=0 continuity=100% missing_tables=- mismatch=-
+stitched=0/3 skipped[shortfall=3] provider_pending=3 dropped=0 | 2026-09-17 vs 2026-03-01: unchanged=3 changed=0 new=0 gone=0
+_________________ test_refresh_missing_values_stops[shortfall] _________________
+
+completed = <_duckdb.DuckDBPyConnection object at 0x10a679c70>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10a698dd0>
+remove_all = False
+
+    @pytest.mark.parametrize("remove_all", [True, False], ids=["empty-members", "shortfall"])
+    def test_refresh_missing_values_stops(completed, monkeypatch, remove_all):
+        original = stitch.build_rows
+    
+        def insufficient(*args, **kwargs):
+            rows, dropped = original(*args, **kwargs)
+            return ([], dropped) if remove_all else (rows[:1], dropped)
+    
+        monkeypatch.setattr(stitch, "build_rows", insufficient)
+        if not remove_all:
+            monkeypatch.setattr(stitch, "_shortfall_bound", lambda expected: 0)
+        rc, summary = call_cli(completed, monkeypatch, age=365)
+        assert summary["skipped"] == {"shortfall": 3}
+        assert summary["audit_complete"] is True
+>       assert rc == 2 and summary["refresh_complete"] is False
+E       assert (0 == 2)
+
+tests/test_stitch_refresh_completion.py:132: AssertionError
+----------------------------- Captured stdout call -----------------------------
+交易日: 2026-09-17 | snapshot=dcd8c78761a7 | 2026-09-17 vs 2026-03-01: unchanged=3 changed=0 new=0 gone=0
+候选 3 | 拼接 0 | 剔除无值成员 0 | 市值现值 0 只
+  跳过[shortfall] 3: 990001.FP, 990002.FP, 990003.FP
+基线日期分布: {}
+留给复盘会 delta 的板块: 3
+完成度审计: 2026-09-17 snapshot=dcd8c78761a7 success=3/3 rel=7+0/7 pending=0 retriable=0 nulls=0 continuity=100% missing_tables=- mismatch=-
+stitched=0/3 skipped[shortfall=3] provider_pending=3 dropped=0 | 2026-09-17 vs 2026-03-01: unchanged=3 changed=0 new=0 gone=0
+_________________ test_writer_failure_cannot_borrow_old_audit __________________
+
+completed = <_duckdb.DuckDBPyConnection object at 0x1072a93b0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10a74f590>
+
+    def test_writer_failure_cannot_borrow_old_audit(completed, monkeypatch):
+        monkeypatch.setattr(SectorUniverseStore, "record_member_result", lambda *a, **k:
+                            SimpleNamespace(status="error", last_error_code="writer_failed"))
+        rc, summary = call_cli(completed, monkeypatch, age=365)
+        assert len(summary["failed"]) == 3 and summary["audit_complete"] is True
+>       assert rc == 2 and summary["refresh_complete"] is False
+E       assert (0 == 2)
+
+tests/test_stitch_refresh_completion.py:140: AssertionError
+----------------------------- Captured stdout call -----------------------------
+交易日: 2026-09-17 | snapshot=dcd8c78761a7 | 2026-09-17 vs 2026-03-01: unchanged=3 changed=0 new=0 gone=0
+候选 3 | 拼接 0 | 剔除无值成员 0 | 市值现值 0 只
+  回执失败 3: [('990001.FP', 'writer_failed'), ('990002.FP', 'writer_failed'), ('990003.FP', 'writer_failed')]
+基线日期分布: {'2026-03-01': 3}
+留给复盘会 delta 的板块: 3
+完成度审计: 2026-09-17 snapshot=dcd8c78761a7 success=3/3 rel=7+0/7 pending=0 retriable=0 nulls=0 continuity=100% missing_tables=- mismatch=-
+stitched=0/3 skipped[-] provider_pending=3 dropped=0 | 2026-09-17 vs 2026-03-01: unchanged=3 changed=0 new=0 gone=0
+____ test_zero_candidates_requires_no_pending_and_complete_audit[True-None] ____
+
+completed = <_duckdb.DuckDBPyConnection object at 0x10a68bd70>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10a69aa50>
+pending_kind = None, audit_complete = True
+
+    @pytest.mark.parametrize("pending_kind", [None, "changed", "new"])
+    @pytest.mark.parametrize("audit_complete", [True, False])
+    def test_zero_candidates_requires_no_pending_and_complete_audit(
+        completed, monkeypatch, pending_kind, audit_complete,
+    ):
+        delta = stitch.identity_delta(completed, fixture.D2)
+        # Defensive empty-work boundary: normal published universes are nonempty.
+        delta = replace(delta, unchanged=(), changed=(), new=())
+        if pending_kind:
+            delta = replace(delta, **{pending_kind: ("990099.FP",)})
+        monkeypatch.setattr(stitch, "identity_delta", lambda *args: delta)
+        monkeypatch.setattr(SectorUniverseStore, "completion_audit", lambda *a, **k:
+                            SimpleNamespace(complete=audit_complete, brief=lambda: "fixture audit"))
+        rc, summary = call_cli(completed, monkeypatch)
+        expected = pending_kind is None and audit_complete
+        assert summary["stitched"] == summary["candidates"] == 0
+>       assert summary["refresh_complete"] is expected
+E       KeyError: 'refresh_complete'
+
+tests/test_stitch_refresh_completion.py:168: KeyError
+----------------------------- Captured stdout call -----------------------------
+交易日: 2026-09-17 | snapshot=dcd8c78761a7 | 2026-09-17 vs 2026-03-01: unchanged=0 changed=0 new=0 gone=0
+候选 0 | 拼接 0 | 剔除无值成员 0 | 市值现值 0 只
+基线日期分布: {}
+留给复盘会 delta 的板块: 0
+完成度审计: fixture audit
+stitched=0/0 skipped[-] provider_pending=0 dropped=0 | 2026-09-17 vs 2026-03-01: unchanged=0 changed=0 new=0 gone=0
+__ test_zero_candidates_requires_no_pending_and_complete_audit[True-changed] ___
+
+completed = <_duckdb.DuckDBPyConnection object at 0x10a72c0f0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10d321940>
+pending_kind = 'changed', audit_complete = True
+
+    @pytest.mark.parametrize("pending_kind", [None, "changed", "new"])
+    @pytest.mark.parametrize("audit_complete", [True, False])
+    def test_zero_candidates_requires_no_pending_and_complete_audit(
+        completed, monkeypatch, pending_kind, audit_complete,
+    ):
+        delta = stitch.identity_delta(completed, fixture.D2)
+        # Defensive empty-work boundary: normal published universes are nonempty.
+        delta = replace(delta, unchanged=(), changed=(), new=())
+        if pending_kind:
+            delta = replace(delta, **{pending_kind: ("990099.FP",)})
+        monkeypatch.setattr(stitch, "identity_delta", lambda *args: delta)
+        monkeypatch.setattr(SectorUniverseStore, "completion_audit", lambda *a, **k:
+                            SimpleNamespace(complete=audit_complete, brief=lambda: "fixture audit"))
+        rc, summary = call_cli(completed, monkeypatch)
+        expected = pending_kind is None and audit_complete
+        assert summary["stitched"] == summary["candidates"] == 0
+>       assert summary["refresh_complete"] is expected
+E       KeyError: 'refresh_complete'
+
+tests/test_stitch_refresh_completion.py:168: KeyError
+----------------------------- Captured stdout call -----------------------------
+交易日: 2026-09-17 | snapshot=dcd8c78761a7 | 2026-09-17 vs 2026-03-01: unchanged=0 changed=1 new=0 gone=0
+候选 0 | 拼接 0 | 剔除无值成员 0 | 市值现值 0 只
+基线日期分布: {}
+留给复盘会 delta 的板块: 1
+完成度审计: fixture audit
+stitched=0/0 skipped[-] provider_pending=1 dropped=0 | 2026-09-17 vs 2026-03-01: unchanged=0 changed=1 new=0 gone=0
+____ test_zero_candidates_requires_no_pending_and_complete_audit[True-new] _____
+
+completed = <_duckdb.DuckDBPyConnection object at 0x10a73a9f0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10a516f60>
+pending_kind = 'new', audit_complete = True
+
+    @pytest.mark.parametrize("pending_kind", [None, "changed", "new"])
+    @pytest.mark.parametrize("audit_complete", [True, False])
+    def test_zero_candidates_requires_no_pending_and_complete_audit(
+        completed, monkeypatch, pending_kind, audit_complete,
+    ):
+        delta = stitch.identity_delta(completed, fixture.D2)
+        # Defensive empty-work boundary: normal published universes are nonempty.
+        delta = replace(delta, unchanged=(), changed=(), new=())
+        if pending_kind:
+            delta = replace(delta, **{pending_kind: ("990099.FP",)})
+        monkeypatch.setattr(stitch, "identity_delta", lambda *args: delta)
+        monkeypatch.setattr(SectorUniverseStore, "completion_audit", lambda *a, **k:
+                            SimpleNamespace(complete=audit_complete, brief=lambda: "fixture audit"))
+        rc, summary = call_cli(completed, monkeypatch)
+        expected = pending_kind is None and audit_complete
+        assert summary["stitched"] == summary["candidates"] == 0
+>       assert summary["refresh_complete"] is expected
+E       KeyError: 'refresh_complete'
+
+tests/test_stitch_refresh_completion.py:168: KeyError
+----------------------------- Captured stdout call -----------------------------
+交易日: 2026-09-17 | snapshot=dcd8c78761a7 | 2026-09-17 vs 2026-03-01: unchanged=0 changed=0 new=1 gone=0
+候选 0 | 拼接 0 | 剔除无值成员 0 | 市值现值 0 只
+基线日期分布: {}
+留给复盘会 delta 的板块: 1
+完成度审计: fixture audit
+stitched=0/0 skipped[-] provider_pending=1 dropped=0 | 2026-09-17 vs 2026-03-01: unchanged=0 changed=0 new=1 gone=0
+___ test_zero_candidates_requires_no_pending_and_complete_audit[False-None] ____
+
+completed = <_duckdb.DuckDBPyConnection object at 0x10a6cb0f0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10a59b7a0>
+pending_kind = None, audit_complete = False
+
+    @pytest.mark.parametrize("pending_kind", [None, "changed", "new"])
+    @pytest.mark.parametrize("audit_complete", [True, False])
+    def test_zero_candidates_requires_no_pending_and_complete_audit(
+        completed, monkeypatch, pending_kind, audit_complete,
+    ):
+        delta = stitch.identity_delta(completed, fixture.D2)
+        # Defensive empty-work boundary: normal published universes are nonempty.
+        delta = replace(delta, unchanged=(), changed=(), new=())
+        if pending_kind:
+            delta = replace(delta, **{pending_kind: ("990099.FP",)})
+        monkeypatch.setattr(stitch, "identity_delta", lambda *args: delta)
+        monkeypatch.setattr(SectorUniverseStore, "completion_audit", lambda *a, **k:
+                            SimpleNamespace(complete=audit_complete, brief=lambda: "fixture audit"))
+        rc, summary = call_cli(completed, monkeypatch)
+        expected = pending_kind is None and audit_complete
+        assert summary["stitched"] == summary["candidates"] == 0
+>       assert summary["refresh_complete"] is expected
+E       KeyError: 'refresh_complete'
+
+tests/test_stitch_refresh_completion.py:168: KeyError
+----------------------------- Captured stdout call -----------------------------
+交易日: 2026-09-17 | snapshot=dcd8c78761a7 | 2026-09-17 vs 2026-03-01: unchanged=0 changed=0 new=0 gone=0
+候选 0 | 拼接 0 | 剔除无值成员 0 | 市值现值 0 只
+基线日期分布: {}
+留给复盘会 delta 的板块: 0
+完成度审计: fixture audit
+stitched=0/0 skipped[-] provider_pending=0 dropped=0 | 2026-09-17 vs 2026-03-01: unchanged=0 changed=0 new=0 gone=0
+__ test_zero_candidates_requires_no_pending_and_complete_audit[False-changed] __
+
+completed = <_duckdb.DuckDBPyConnection object at 0x10a773270>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10a598800>
+pending_kind = 'changed', audit_complete = False
+
+    @pytest.mark.parametrize("pending_kind", [None, "changed", "new"])
+    @pytest.mark.parametrize("audit_complete", [True, False])
+    def test_zero_candidates_requires_no_pending_and_complete_audit(
+        completed, monkeypatch, pending_kind, audit_complete,
+    ):
+        delta = stitch.identity_delta(completed, fixture.D2)
+        # Defensive empty-work boundary: normal published universes are nonempty.
+        delta = replace(delta, unchanged=(), changed=(), new=())
+        if pending_kind:
+            delta = replace(delta, **{pending_kind: ("990099.FP",)})
+        monkeypatch.setattr(stitch, "identity_delta", lambda *args: delta)
+        monkeypatch.setattr(SectorUniverseStore, "completion_audit", lambda *a, **k:
+                            SimpleNamespace(complete=audit_complete, brief=lambda: "fixture audit"))
+        rc, summary = call_cli(completed, monkeypatch)
+        expected = pending_kind is None and audit_complete
+        assert summary["stitched"] == summary["candidates"] == 0
+>       assert summary["refresh_complete"] is expected
+E       KeyError: 'refresh_complete'
+
+tests/test_stitch_refresh_completion.py:168: KeyError
+----------------------------- Captured stdout call -----------------------------
+交易日: 2026-09-17 | snapshot=dcd8c78761a7 | 2026-09-17 vs 2026-03-01: unchanged=0 changed=1 new=0 gone=0
+候选 0 | 拼接 0 | 剔除无值成员 0 | 市值现值 0 只
+基线日期分布: {}
+留给复盘会 delta 的板块: 1
+完成度审计: fixture audit
+stitched=0/0 skipped[-] provider_pending=1 dropped=0 | 2026-09-17 vs 2026-03-01: unchanged=0 changed=1 new=0 gone=0
+____ test_zero_candidates_requires_no_pending_and_complete_audit[False-new] ____
+
+completed = <_duckdb.DuckDBPyConnection object at 0x10d30d2b0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10a691700>
+pending_kind = 'new', audit_complete = False
+
+    @pytest.mark.parametrize("pending_kind", [None, "changed", "new"])
+    @pytest.mark.parametrize("audit_complete", [True, False])
+    def test_zero_candidates_requires_no_pending_and_complete_audit(
+        completed, monkeypatch, pending_kind, audit_complete,
+    ):
+        delta = stitch.identity_delta(completed, fixture.D2)
+        # Defensive empty-work boundary: normal published universes are nonempty.
+        delta = replace(delta, unchanged=(), changed=(), new=())
+        if pending_kind:
+            delta = replace(delta, **{pending_kind: ("990099.FP",)})
+        monkeypatch.setattr(stitch, "identity_delta", lambda *args: delta)
+        monkeypatch.setattr(SectorUniverseStore, "completion_audit", lambda *a, **k:
+                            SimpleNamespace(complete=audit_complete, brief=lambda: "fixture audit"))
+        rc, summary = call_cli(completed, monkeypatch)
+        expected = pending_kind is None and audit_complete
+        assert summary["stitched"] == summary["candidates"] == 0
+>       assert summary["refresh_complete"] is expected
+E       KeyError: 'refresh_complete'
+
+tests/test_stitch_refresh_completion.py:168: KeyError
+----------------------------- Captured stdout call -----------------------------
+交易日: 2026-09-17 | snapshot=dcd8c78761a7 | 2026-09-17 vs 2026-03-01: unchanged=0 changed=0 new=1 gone=0
+候选 0 | 拼接 0 | 剔除无值成员 0 | 市值现值 0 只
+基线日期分布: {}
+留给复盘会 delta 的板块: 1
+完成度审计: fixture audit
+stitched=0/0 skipped[-] provider_pending=1 dropped=0 | 2026-09-17 vs 2026-03-01: unchanged=0 changed=0 new=1 gone=0
+_______________ test_nonrefresh_keeps_provider_fallback_contract _______________
+
+completed = <_duckdb.DuckDBPyConnection object at 0x10d31da30>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10a4ea570>
+
+    def test_nonrefresh_keeps_provider_fallback_contract(completed, monkeypatch):
+        completed.execute("UPDATE ops_sector_member_sync_daily SET status='pending' WHERE trade_date=?",
+                          [fixture.D2])
+        rc, summary = call_cli(completed, monkeypatch, refresh=False)
+        assert summary["skipped"] == {"no_baseline": 3}
+        assert summary["pending_for_provider"] == 3
+        assert rc == 0  # Ordinary incremental work may leave these for provider fill.
+>       assert summary["refresh_complete"] is None
+E       KeyError: 'refresh_complete'
+
+tests/test_stitch_refresh_completion.py:180: KeyError
+----------------------------- Captured stdout call -----------------------------
+交易日: 2026-09-17 | snapshot=dcd8c78761a7 | 2026-09-17 vs 2026-03-01: unchanged=3 changed=0 new=0 gone=0
+候选 3 | 拼接 0 | 剔除无值成员 0 | 市值现值 0 只
+  跳过[no_baseline] 3: 990001.FP, 990002.FP, 990003.FP
+基线日期分布: {}
+留给复盘会 delta 的板块: 3
+完成度审计: 2026-09-17 snapshot=dcd8c78761a7 success=0/3 rel=7+0/7 pending=3 retriable=0 nulls=0 continuity=100% missing_tables=- mismatch=-
+stitched=0/3 skipped[no_baseline=3] provider_pending=3 dropped=0 | 2026-09-17 vs 2026-03-01: unchanged=3 changed=0 new=0 gone=0
+_________________ test_dry_run_is_preview_not_completed_write __________________
+
+completed = <_duckdb.DuckDBPyConnection object at 0x10a7583f0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10a698410>
+capsys = <_pytest.capture.CaptureFixture object at 0x10a698500>
+
+    def test_dry_run_is_preview_not_completed_write(completed, monkeypatch, capsys):
+        rc, summary = call_cli(completed, monkeypatch, age=365, dry_run=True)
+        assert rc == 0 and summary["stitched"] == 3 and summary["rows"]
+>       assert summary["refresh_complete"] is False
+E       KeyError: 'refresh_complete'
+
+tests/test_stitch_refresh_completion.py:186: KeyError
+----------------------------- Captured stdout call -----------------------------
+交易日: 2026-09-17 | snapshot=dcd8c78761a7 | 2026-09-17 vs 2026-03-01: unchanged=3 changed=0 new=0 gone=0
+候选 3 | 拼接 3 | 剔除无值成员 0 | 市值现值 0 只
+基线日期分布: {'2026-03-01': 3}
+留给复盘会 delta 的板块: 0
+stitched=3/3 skipped[-] provider_pending=0 dropped=0 | 2026-09-17 vs 2026-03-01: unchanged=3 changed=0 new=0 gone=0
+___________________ test_complete_writes_still_require_audit ___________________
+
+completed = <_duckdb.DuckDBPyConnection object at 0x10d30cff0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10a6dd520>
+
+    def test_complete_writes_still_require_audit(completed, monkeypatch):
+        monkeypatch.setattr(SectorUniverseStore, "completion_audit", lambda *a, **k:
+                            SimpleNamespace(complete=False, brief=lambda: "incomplete"))
+        rc, summary = call_cli(completed, monkeypatch, age=365)
+        assert summary["stitched"] == summary["candidates"] == 3
+        assert member_price(completed) == 12.0
+>       assert summary["refresh_complete"] is False and rc == 2
+E       KeyError: 'refresh_complete'
+
+tests/test_stitch_refresh_completion.py:198: KeyError
+----------------------------- Captured stdout call -----------------------------
+交易日: 2026-09-17 | snapshot=dcd8c78761a7 | 2026-09-17 vs 2026-03-01: unchanged=3 changed=0 new=0 gone=0
+候选 3 | 拼接 3 | 剔除无值成员 0 | 市值现值 0 只
+基线日期分布: {'2026-03-01': 3}
+留给复盘会 delta 的板块: 0
+完成度审计: incomplete
+stitched=3/3 skipped[-] provider_pending=0 dropped=0 | 2026-09-17 vs 2026-03-01: unchanged=3 changed=0 new=0 gone=0
+=========================== short test summary info ============================
+FAILED tests/test_stitch_refresh_completion.py::test_refresh_cannot_borrow_old_success_when_baseline_expired
+FAILED tests/test_stitch_refresh_completion.py::test_refresh_with_qualified_baseline_really_rewrites_members
+FAILED tests/test_stitch_refresh_completion.py::test_partial_refresh_is_not_complete
+FAILED tests/test_stitch_refresh_completion.py::test_refresh_missing_values_stops[empty-members]
+FAILED tests/test_stitch_refresh_completion.py::test_refresh_missing_values_stops[shortfall]
+FAILED tests/test_stitch_refresh_completion.py::test_writer_failure_cannot_borrow_old_audit
+FAILED tests/test_stitch_refresh_completion.py::test_zero_candidates_requires_no_pending_and_complete_audit[True-None]
+FAILED tests/test_stitch_refresh_completion.py::test_zero_candidates_requires_no_pending_and_complete_audit[True-changed]
+FAILED tests/test_stitch_refresh_completion.py::test_zero_candidates_requires_no_pending_and_complete_audit[True-new]
+FAILED tests/test_stitch_refresh_completion.py::test_zero_candidates_requires_no_pending_and_complete_audit[False-None]
+FAILED tests/test_stitch_refresh_completion.py::test_zero_candidates_requires_no_pending_and_complete_audit[False-changed]
+FAILED tests/test_stitch_refresh_completion.py::test_zero_candidates_requires_no_pending_and_complete_audit[False-new]
+FAILED tests/test_stitch_refresh_completion.py::test_nonrefresh_keeps_provider_fallback_contract
+FAILED tests/test_stitch_refresh_completion.py::test_dry_run_is_preview_not_completed_write
+FAILED tests/test_stitch_refresh_completion.py::test_complete_writes_still_require_audit
+15 failed, 2 passed in 1.05s

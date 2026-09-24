@@ -1,0 +1,20 @@
+
+> market-intelligence-workbench@0.1.0 test /Users/a77/fwp-wt-8792-financial-r6-repair/intelligence/webapp
+> vitest run
+
+
+ RUN  v3.2.4 /Users/a77/fwp-wt-8792-financial-r6-repair/intelligence/webapp
+
+ ✓ src/api.test.ts (3 tests) 11ms
+ ✓ src/researchActivity.test.ts (2 tests) 7ms
+ ✓ src/streamEventRegistry.test.ts (2 tests) 8ms
+ ✓ src/components/ResearchActivityControl.test.tsx (5 tests) 262ms
+ ✓ src/components/ResearchProjectPanel.test.tsx (5 tests) 263ms
+ ✓ src/components/DailyReportView.test.tsx (4 tests) 488ms
+ ✓ src/components/ResearchEvolutionPanel.test.tsx (18 tests) 805ms
+ ✓ src/components/components.test.tsx (68 tests) 3571ms
+
+ Test Files  8 passed (8)
+      Tests  107 passed (107)
+   Start at  23:45:08
+   Duration  6.94s (transform 1.69s, setup 3.48s, collect 3.36s, tests 5.41s, environment 7.08s, prepare 1.31s)

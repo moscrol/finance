@@ -1,0 +1,14 @@
+"""Launch bounded independent reviews once, after local preflight in each batch."""
+import json
+from pathlib import Path
+import subprocess
+
+root = Path(__file__).resolve().parent
+python = '/Users/a77/finance-workspace-private/.venv-workbench/bin/python'
+with (root / 'reviews-launch.json').open('x') as receipt:
+    with (root / 'reviews-controller.log.txt').open('xb') as log:
+        process = subprocess.Popen([python, '-B', str(root / 'review_batches.py')], cwd=root,
+                                   stdin=subprocess.DEVNULL, stdout=log, stderr=log,
+                                   start_new_session=True)
+    json.dump({'pid': process.pid, 'status': 'started; local preflight before each batch'}, receipt)
+    print(process.pid)

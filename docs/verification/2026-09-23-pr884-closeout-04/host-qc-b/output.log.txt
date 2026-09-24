@@ -1,0 +1,12 @@
+.F                                                                       [100%]
+=================================== FAILURES ===================================
+_____________ test_step_close_contenders_leave_running_step_usable _____________
+../host-qc-b/test_c5.py:50: in test_step_close_contenders_leave_running_step_usable
+    assert entered.wait(10)
+E   assert False
+E    +  where False = wait(10)
+E    +    where wait = <threading.Event at 0x10b010bc0: unset>.wait
+- generated xml file: /Users/a77/.finance-runtime/reviews/pr884-closeout-20260923-04/host-qc-b/junit.xml -
+=========================== short test summary info ============================
+FAILED ../host-qc-b/test_c5.py::test_step_close_contenders_leave_running_step_usable
+1 failed, 1 passed in 12.58s

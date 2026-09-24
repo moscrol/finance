@@ -1,0 +1,1 @@
+{"axis": "spec", "complete": true, "exit_code": 0, "stop_reason": null, "candidate_untouched": true, "author_untouched": true, "model_errors": [], "usage": {"input": 136847, "output": 25759, "cacheRead": 674418, "cacheWrite": 0, "totalTokens": 837024}}

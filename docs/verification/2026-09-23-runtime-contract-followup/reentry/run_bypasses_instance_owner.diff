@@ -1,0 +1,13 @@
+diff --git a/intelligence/runtime/agent_episode.py b/intelligence/runtime/agent_episode.py
+index 195021fb6..17c6c412c 100644
+--- a/intelligence/runtime/agent_episode.py
++++ b/intelligence/runtime/agent_episode.py
+@@ -1406,7 +1406,7 @@ class ContinuousAgentEpisode:
+         _continuation_sink: list[_EpisodeContinuationState] | None = None,
+     ) -> Generator[StepPoint, None, AgentOutcome]:
+         episode_id = context.contract.task_id.strip()
+-        with self._control_writer(episode_id):
++        with episode_writer(self._store, episode_id):
+             if self._store is not None:
+                 events, state = self._store.load(episode_id)
+                 if events or state is not None:

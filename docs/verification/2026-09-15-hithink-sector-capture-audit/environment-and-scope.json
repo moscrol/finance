@@ -1,0 +1,71 @@
+{
+  "recorded_at": "2026-09-15T08:12:13.904391+00:00",
+  "author_tree": "/Users/a77/fwp-wt-hithink-review-wiring",
+  "revision": "c85d01017fa239aa3b2101b1585e8f5c07e005b3",
+  "author_status_before_archive": "",
+  "scope": "author verification; not independent QC or production acceptance",
+  "platform": "macOS-26.4-arm64-arm-64bit",
+  "python": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "python_version": "3.12.13",
+  "dependency_fingerprint": "3328bed61f3e21ea",
+  "node": "v26.0.0",
+  "pnpm": "10.12.1",
+  "ci_environment_difference": "local macOS Node 26; workflow specifies Ubuntu Node 22; not identical environment",
+  "mutation_tree": "/Users/a77/fwp-wt-hithink-capture-mutation-c85d0101",
+  "mutation_final_status": "",
+  "qc_tree": "/Users/a77/.finance-runtime/reviews/hithink-c85d0101-qc-20260915/finance-workspace-private",
+  "qc_result": "exit 1; usage limit before review; no report",
+  "e2e": {
+    "port": 18975,
+    "keychain": false,
+    "environment": "env -i PATH HOME; fixture KNOWLEDGE_WIKI; WORKBENCH_PYTHON; WORKBENCH_E2E_PORT; FORESIGHT_LLM_KEYCHAIN=0; isolated FINANCE_DEPLOY_LEDGER",
+    "deploy_ledger": "/tmp/hithink-capture-e2e-c85d0101/deploy-ledger.jsonl",
+    "test_users": "intelligence/webapp/test-results/workbench-users",
+    "result": "15 passed; exit 0"
+  },
+  "mutations": {
+    "limit": {
+      "exit": 1,
+      "summary": "3 failed, 52 passed in 3.51s"
+    },
+    "manifest": {
+      "exit": 1,
+      "summary": "1 failed, 54 passed in 4.06s"
+    },
+    "terminal": {
+      "exit": 1,
+      "summary": "2 failed, 53 passed in 3.54s"
+    },
+    "time": {
+      "exit": 1,
+      "summary": "2 failed, 53 passed in 3.68s"
+    },
+    "exit": {
+      "exit": 1,
+      "summary": "1 failed, 54 passed in 3.68s"
+    },
+    "fallback": {
+      "exit": 1,
+      "summary": "6 failed, 49 passed in 3.59s"
+    }
+  },
+  "no_real_market_or_production_write": true,
+  "receipt_files": [
+    "20260915T062502Z-fdbe5dad.json",
+    "20260915T062959Z-fdbe5dad.json",
+    "20260915T063330Z-fdbe5dad.json",
+    "20260915T063602Z-fdbe5dad.json",
+    "20260915T065423Z-fdbe5dad.json",
+    "20260915T070259Z-fdbe5dad.json",
+    "20260915T070515Z-fdbe5dad.json",
+    "20260915T071054Z-fdbe5dad.json",
+    "20260915T072124Z-c85d0101.json",
+    "20260915T074610Z-c85d0101.json",
+    "20260915T074730Z-c85d0101.json",
+    "20260915T075352Z-c85d0101.json",
+    "20260915T075918Z-c85d0101.json",
+    "20260915T080612Z-c85d0101.json",
+    "20260915T080729Z-c85d0101.json",
+    "20260915T080851Z-c85d0101.json"
+  ]
+}

@@ -1,0 +1,364 @@
+{
+  "revision": "d06dc1e8d1adf6ba8b39bd02333af6299416dc1d",
+  "suite": "publication",
+  "tree": "/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/extraction-closeout-mutations-hqui8cc1/tree",
+  "python": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "complete": true,
+  "runs": [
+    {
+      "label": "baseline",
+      "exit": 0,
+      "executed": 150,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "publication-requires-commit-event-red",
+      "exit": 1,
+      "executed": 7,
+      "failures": 7,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_workbench_api",
+          "name": "test_run_publication_waits_for_exact_terminal_message_event[completed-message.complete]",
+          "message": "AssertionError: assert {'message_id'...: 'published'} == {'message_id'...s': 'pending'}\n  \n  Differing items:\n  {'status': 'published'} != {'status': 'pending'}\n  {'message_id': 'msg_6aa2e9f3621147df93fcdf141b29ff84'} != {'message_id': None}\n  Use -v to get more diff"
+        },
+        {
+          "class": "intelligence.tests.test_workbench_api",
+          "name": "test_run_publication_waits_for_exact_terminal_message_event[failed-message.error]",
+          "message": "AssertionError: assert {'message_id'...: 'published'} == {'message_id'...s': 'pending'}\n  \n  Differing items:\n  {'status': 'published'} != {'status': 'pending'}\n  {'message_id': 'msg_b63f6cc957cf49e5b0ec445846a8e8de'} != {'message_id': None}\n  Use -v to get more diff"
+        },
+        {
+          "class": "intelligence.tests.test_workbench_api",
+          "name": "test_run_publication_waits_for_exact_terminal_message_event[cancelled-message.error]",
+          "message": "AssertionError: assert {'message_id'...: 'published'} == {'message_id'...s': 'pending'}\n  \n  Differing items:\n  {'status': 'published'} != {'status': 'pending'}\n  {'message_id': 'msg_4dc07f86ba064451b5b9de06fe483393'} != {'message_id': None}\n  Use -v to get more diff"
+        },
+        {
+          "class": "intelligence.tests.test_financial_publication_integration",
+          "name": "test_financial_partial_publication_preserves_debt_citations_and_safe_answer[report-normal]",
+          "message": "AssertionError: assert {'message_id'...: 'published'} == {'message_id'...s': 'pending'}\n  \n  Differing items:\n  {'status': 'published'} != {'status': 'pending'}\n  {'message_id': 'msg_aad32317b98949e5a4dd16460e207d82'} != {'message_id': None}\n  Use -v to get more diff"
+        },
+        {
+          "class": "intelligence.tests.test_financial_publication_integration",
+          "name": "test_financial_partial_publication_preserves_debt_citations_and_safe_answer[report-recovery]",
+          "message": "AssertionError: assert {'message_id'...: 'published'} == {'message_id'...s': 'pending'}\n  \n  Differing items:\n  {'status': 'published'} != {'status': 'pending'}\n  {'message_id': 'msg_9ac9e7d85856405cb6ba0ca0bc94ac3d'} != {'message_id': None}\n  Use -v to get more diff"
+        },
+        {
+          "class": "intelligence.tests.test_financial_publication_integration",
+          "name": "test_financial_partial_publication_preserves_debt_citations_and_safe_answer[commit-event-normal]",
+          "message": "AssertionError: assert 'running' == 'completed'\n  \n  - completed\n  + running"
+        },
+        {
+          "class": "intelligence.tests.test_financial_publication_integration",
+          "name": "test_financial_partial_publication_preserves_debt_citations_and_safe_answer[commit-event-recovery]",
+          "message": "AssertionError: assert 'queued' == 'completed'\n  \n  - completed\n  + queued"
+        }
+      ]
+    },
+    {
+      "label": "publication-requires-commit-event-green",
+      "exit": 0,
+      "executed": 7,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "publication-requires-matching-message-red",
+      "exit": 1,
+      "executed": 3,
+      "failures": 3,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_workbench_api",
+          "name": "test_run_publication_waits_for_exact_terminal_message_event[completed-message.complete]",
+          "message": "AssertionError: assert 'published' == 'pending'\n  \n  - pending\n  + published"
+        },
+        {
+          "class": "intelligence.tests.test_workbench_api",
+          "name": "test_run_publication_waits_for_exact_terminal_message_event[failed-message.error]",
+          "message": "AssertionError: assert 'published' == 'pending'\n  \n  - pending\n  + published"
+        },
+        {
+          "class": "intelligence.tests.test_workbench_api",
+          "name": "test_run_publication_waits_for_exact_terminal_message_event[cancelled-message.error]",
+          "message": "AssertionError: assert 'published' == 'pending'\n  \n  - pending\n  + published"
+        }
+      ]
+    },
+    {
+      "label": "publication-requires-matching-message-green",
+      "exit": 0,
+      "executed": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "publication-requires-matching-conversation-red",
+      "exit": 1,
+      "executed": 3,
+      "failures": 3,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_workbench_api",
+          "name": "test_run_publication_waits_for_exact_terminal_message_event[completed-message.complete]",
+          "message": "AssertionError: assert 'published' == 'pending'\n  \n  - pending\n  + published"
+        },
+        {
+          "class": "intelligence.tests.test_workbench_api",
+          "name": "test_run_publication_waits_for_exact_terminal_message_event[failed-message.error]",
+          "message": "AssertionError: assert 'published' == 'pending'\n  \n  - pending\n  + published"
+        },
+        {
+          "class": "intelligence.tests.test_workbench_api",
+          "name": "test_run_publication_waits_for_exact_terminal_message_event[cancelled-message.error]",
+          "message": "AssertionError: assert 'published' == 'pending'\n  \n  - pending\n  + published"
+        }
+      ]
+    },
+    {
+      "label": "publication-requires-matching-conversation-green",
+      "exit": 0,
+      "executed": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "publication-reloads-artifact-snapshot-red",
+      "exit": 1,
+      "executed": 1,
+      "failures": 1,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_workbench_api",
+          "name": "test_publication_snapshot_reloads_artifacts_after_observing_commit_marker",
+          "message": "AssertionError: assert [] == ['report.json']\n  \n  Right contains one more item: 'report.json'\n  Use -v to get more diff"
+        }
+      ]
+    },
+    {
+      "label": "publication-reloads-artifact-snapshot-green",
+      "exit": 0,
+      "executed": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "sse-waits-for-publication-red",
+      "exit": 1,
+      "executed": 2,
+      "failures": 2,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_workbench_api",
+          "name": "test_sse_waits_for_publication_or_times_out_without_faking_completion[True]",
+          "message": "ValueError: substring not found"
+        },
+        {
+          "class": "intelligence.tests.test_workbench_api",
+          "name": "test_sse_waits_for_publication_or_times_out_without_faking_completion[False]",
+          "message": "assert ('event: timeout' in 'event: run\\ndata: {\"run_id\": \"run_20260919_005537_975465\", \"user\": \"default\", \"question\": \"publication boundary\", \"ta...ror\": null, \"artifacts\": [], \"maintenance_launch\": null, \"publication\": {\"status\": \"pending\", \"message_id\": null}}\\n\\n')"
+        }
+      ]
+    },
+    {
+      "label": "sse-waits-for-publication-green",
+      "exit": 0,
+      "executed": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "sse-drains-between-read-commit-red",
+      "exit": 1,
+      "executed": 1,
+      "failures": 1,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_workbench_api",
+          "name": "test_sse_drains_commit_event_observed_between_reads",
+          "message": "assert 'event: message.complete' in 'event: run\\ndata: {\"run_id\": \"run_20260919_005543_214864\", \"user\": \"default\", \"question\": \"publication boundary\", \"ta...nance_launch\": null, \"publication\": {\"status\": \"published\", \"message_id\": \"msg_2f2e1ffe58a74df0b3adc4b0001176ef\"}}\\n\\n'"
+        }
+      ]
+    },
+    {
+      "label": "sse-drains-between-read-commit-green",
+      "exit": 0,
+      "executed": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "probe-waits-for-publication-red",
+      "exit": 1,
+      "executed": 4,
+      "failures": 4,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "tests.test_workbench_probe",
+          "name": "test_terminal_claim_waits_for_matching_publication[completed-0]",
+          "message": "assert (0 == 0 and 1 == 5)\n +  where 1 = <tests.test_workbench_probe._FakeServer object at 0x10ab16480>.run_polls"
+        },
+        {
+          "class": "tests.test_workbench_probe",
+          "name": "test_terminal_claim_waits_for_matching_publication[failed-2]",
+          "message": "assert (2 == 2 and 1 == 5)\n +  where 1 = <tests.test_workbench_probe._FakeServer object at 0x10da8b800>.run_polls"
+        },
+        {
+          "class": "tests.test_workbench_probe",
+          "name": "test_terminal_claim_waits_for_matching_publication[cancelled-2]",
+          "message": "assert (2 == 2 and 1 == 5)\n +  where 1 = <tests.test_workbench_probe._FakeServer object at 0x10ab16810>.run_polls"
+        },
+        {
+          "class": "tests.test_workbench_probe",
+          "name": "test_unpublished_terminal_run_times_out_without_returning_early_body",
+          "message": "assert (0 == 3)"
+        }
+      ]
+    },
+    {
+      "label": "probe-waits-for-publication-green",
+      "exit": 0,
+      "executed": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "publication-is-not-financial-completeness-red",
+      "exit": 1,
+      "executed": 4,
+      "failures": 4,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": [
+        {
+          "class": "intelligence.tests.test_financial_publication_integration",
+          "name": "test_financial_partial_publication_preserves_debt_citations_and_safe_answer[report-normal]",
+          "message": "AssertionError: assert 'completed' == 'complete'\n  \n  - complete\n  + completed\n  ?         +"
+        },
+        {
+          "class": "intelligence.tests.test_financial_publication_integration",
+          "name": "test_financial_partial_publication_preserves_debt_citations_and_safe_answer[report-recovery]",
+          "message": "AssertionError: assert 'completed' == 'complete'\n  \n  - complete\n  + completed\n  ?         +"
+        },
+        {
+          "class": "intelligence.tests.test_financial_publication_integration",
+          "name": "test_financial_partial_publication_preserves_debt_citations_and_safe_answer[commit-event-normal]",
+          "message": "AssertionError: assert 'completed' == 'complete'\n  \n  - complete\n  + completed\n  ?         +"
+        },
+        {
+          "class": "intelligence.tests.test_financial_publication_integration",
+          "name": "test_financial_partial_publication_preserves_debt_citations_and_safe_answer[commit-event-recovery]",
+          "message": "AssertionError: assert 'completed' == 'complete'\n  \n  - complete\n  + completed\n  ?         +"
+        }
+      ]
+    },
+    {
+      "label": "publication-is-not-financial-completeness-green",
+      "exit": 0,
+      "executed": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    },
+    {
+      "label": "restored-full",
+      "exit": 0,
+      "executed": 150,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "failed_cases": []
+    }
+  ],
+  "mutations": [
+    {
+      "id": "publication-requires-commit-event",
+      "path": "intelligence/api/app.py",
+      "before_sha256": "b96b74c020e54ba604c1507eb08fb78617dded58d2c61f9b397cf96de4877ded",
+      "mutated_sha256": "882298cd3a06d20941f23e2426bf1979df2f4e1f312c518cd992502d63136772",
+      "restored_sha256": "b96b74c020e54ba604c1507eb08fb78617dded58d2c61f9b397cf96de4877ded"
+    },
+    {
+      "id": "publication-requires-matching-message",
+      "path": "intelligence/api/app.py",
+      "before_sha256": "b96b74c020e54ba604c1507eb08fb78617dded58d2c61f9b397cf96de4877ded",
+      "mutated_sha256": "6531ad42256d651fd46a5f8d32c95830df832559ad5ba9918f8dcac167bf61dd",
+      "restored_sha256": "b96b74c020e54ba604c1507eb08fb78617dded58d2c61f9b397cf96de4877ded"
+    },
+    {
+      "id": "publication-requires-matching-conversation",
+      "path": "intelligence/api/app.py",
+      "before_sha256": "b96b74c020e54ba604c1507eb08fb78617dded58d2c61f9b397cf96de4877ded",
+      "mutated_sha256": "0ad2a3a1d4c7a1863a92a0b2d89f4ea4c512f605dd01072c9fc8b89102aa4fdb",
+      "restored_sha256": "b96b74c020e54ba604c1507eb08fb78617dded58d2c61f9b397cf96de4877ded"
+    },
+    {
+      "id": "publication-reloads-artifact-snapshot",
+      "path": "intelligence/api/app.py",
+      "before_sha256": "b96b74c020e54ba604c1507eb08fb78617dded58d2c61f9b397cf96de4877ded",
+      "mutated_sha256": "5f622f26827beda802f656c10c4fba36a2d86ed5e338e2c7aef88aefc32402f1",
+      "restored_sha256": "b96b74c020e54ba604c1507eb08fb78617dded58d2c61f9b397cf96de4877ded"
+    },
+    {
+      "id": "sse-waits-for-publication",
+      "path": "intelligence/api/app.py",
+      "before_sha256": "b96b74c020e54ba604c1507eb08fb78617dded58d2c61f9b397cf96de4877ded",
+      "mutated_sha256": "edf578bd625f74e5e27d72174da8d54d43b866959caff2fd92bae4e051746581",
+      "restored_sha256": "b96b74c020e54ba604c1507eb08fb78617dded58d2c61f9b397cf96de4877ded"
+    },
+    {
+      "id": "sse-drains-between-read-commit",
+      "path": "intelligence/api/app.py",
+      "before_sha256": "b96b74c020e54ba604c1507eb08fb78617dded58d2c61f9b397cf96de4877ded",
+      "mutated_sha256": "d290e22e98300b46cef0869d2c8c11713fb258dbdeeb3b8760fbfa2107f1e43a",
+      "restored_sha256": "b96b74c020e54ba604c1507eb08fb78617dded58d2c61f9b397cf96de4877ded"
+    },
+    {
+      "id": "probe-waits-for-publication",
+      "path": "scripts/workbench_probe.py",
+      "before_sha256": "0760d1b446647e708a4ba7dc5cc60c6a93126015ce90e03d31d06393f0e0e47a",
+      "mutated_sha256": "8c9fb9d1ef23164b2059b229e0721ab40b32c21b2b61e482dc08c2c167b8fe4a",
+      "restored_sha256": "0760d1b446647e708a4ba7dc5cc60c6a93126015ce90e03d31d06393f0e0e47a"
+    },
+    {
+      "id": "publication-is-not-financial-completeness",
+      "path": "intelligence/services/status_projection.py",
+      "before_sha256": "677511c7327fb1f8122bfb037d47f9da38fbe77e8246ee4c2361f8ffe9a422a4",
+      "mutated_sha256": "bd5a339df86322db70d5c5cb14840dd79232099a34bee7545f1e00d3bbdb2067",
+      "restored_sha256": "677511c7327fb1f8122bfb037d47f9da38fbe77e8246ee4c2361f8ffe9a422a4"
+    }
+  ],
+  "definitions_sha256": "aec5e25a18a09ae1c3f9dcbaca5930dad53cfb387a246d1d90d1dac989be356f",
+  "final_status": ""
+}

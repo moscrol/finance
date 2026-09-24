@@ -1,6 +1,7 @@
 """同步指数日线到 fact_market_daily。"""
 from __future__ import annotations
 
+import os
 from datetime import datetime, timedelta
 
 from ..db import connect, init_db
@@ -117,6 +118,7 @@ def sync_akshare_index_daily(
     start_date: str | None = None,
     end_date: str | None = None,
     symbol: str = "sh000001",
+    allow_fupanhui_fallback: bool = True,
 ) -> dict:
     init_db()
     con = connect()
@@ -146,6 +148,12 @@ def sync_akshare_index_daily(
             records = []
             akshare_error = exc
         if not records and trade_date:
+            # local 是请求边界，不能只在 preflight 跳过登录探测后又偷偷访问复盘会。
+            if not allow_fupanhui_fallback or os.environ.get("REVIEW_SYNC_PLAN") == "local":
+                raise RuntimeError(
+                    f"AkShare 未返回指数数据: {symbol} {start}~{end}; "
+                    "local/no-fupanhui-fallback 禁止请求复盘会，保留缺口、不降级换源"
+                ) from akshare_error
             # akshare 两条路径(新浪/东财)可同时被本机代理掐 SSL(2026-08-21/08-24 实测)。
             # 兜底只覆盖请求日单日; 多日回填仍依赖 akshare, 缺口如实抛。
             fallback = _fetch_fph_index(trade_date)

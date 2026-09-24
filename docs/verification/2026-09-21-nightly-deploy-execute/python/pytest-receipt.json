@@ -1,0 +1,33 @@
+{
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "python_version": "3.12.13",
+  "dependency_fingerprint": "3328bed61f3e21ea",
+  "tree": "/Users/a77/fwp-wt-nightly-deploy-closeout-0921",
+  "revision": "2ea6c3db01a062b9c623498df1b60edfbafe582b",
+  "branch": "fix/nightly-deploy-closeout-0921",
+  "dirty": false,
+  "dirty_paths": [],
+  "worktree_dirty_total": 0,
+  "dependency_gate_bypassed": false,
+  "target": "/Users/a77/fwp-wt-nightly-deploy-closeout-0921",
+  "counts": {
+    "passed": 12454,
+    "failed": 2,
+    "error": 8,
+    "skipped": 85
+  },
+  "failed_ids": [
+    "tests/test_sync_fupanhui_public_assets.py::test_sync_range_aligns_to_market_calendar_and_skips_existing",
+    "tests/test_sync_polymarket_macro_odds.py::test_expired_markets_are_dropped_because_upstream_closed_flag_lies",
+    "tests/test_sync_polymarket_macro_odds.py::test_expired_markets_are_dropped_because_upstream_closed_flag_lies",
+    "tests/test_sync_polymarket_macro_odds.py::test_is_expired_boundary",
+    "tests/test_sync_polymarket_macro_odds.py::test_is_expired_boundary",
+    "tests/test_sync_polymarket_macro_odds.py::test_sync_defaults_trade_date_to_today_when_omitted",
+    "tests/test_sync_polymarket_macro_odds.py::test_sync_defaults_trade_date_to_today_when_omitted",
+    "tests/test_sync_polymarket_macro_odds.py::test_sync_reports_zero_rows_when_nothing_matches",
+    "tests/test_sync_polymarket_macro_odds.py::test_sync_writes_rows_with_snapshot_trade_date",
+    "tests/test_sync_polymarket_macro_odds.py::test_sync_writes_rows_with_snapshot_trade_date"
+  ],
+  "exit_status": 1,
+  "finished_at": "2026-09-21T08:41:01+00:00"
+}

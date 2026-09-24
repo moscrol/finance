@@ -1,0 +1,4 @@
+
+> market-intelligence-workbench@0.1.0 lint /Users/a77/.finance-runtime/kb-v4-merge-20260919/pre/finance-workspace-private/intelligence/webapp
+> eslint .
+

@@ -1,0 +1,62 @@
+{
+  "revision": "becb68c0dd3105abbbcc1f92a917dbde224de24b",
+  "tree": "/Users/a77/.finance-runtime/open-work-execution-20260920/gate-788-frontend/finance-workspace-private",
+  "complete": true,
+  "checks": [
+    {
+      "command": [
+        "pnpm",
+        "install",
+        "--frozen-lockfile"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 1.27,
+      "log": "/Users/a77/.finance-runtime/open-work-execution-20260920/gate-788/frontend-0.log.txt"
+    },
+    {
+      "command": [
+        "pnpm",
+        "lint"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 1.58,
+      "log": "/Users/a77/.finance-runtime/open-work-execution-20260920/gate-788/frontend-1.log.txt"
+    },
+    {
+      "command": [
+        "pnpm",
+        "typecheck"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 2.25,
+      "log": "/Users/a77/.finance-runtime/open-work-execution-20260920/gate-788/frontend-2.log.txt"
+    },
+    {
+      "command": [
+        "pnpm",
+        "test"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 4.59,
+      "log": "/Users/a77/.finance-runtime/open-work-execution-20260920/gate-788/frontend-3.log.txt"
+    },
+    {
+      "command": [
+        "pnpm",
+        "build"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 3.32,
+      "log": "/Users/a77/.finance-runtime/open-work-execution-20260920/gate-788/frontend-4.log.txt"
+    },
+    {
+      "command": [
+        "pnpm",
+        "test:e2e"
+      ],
+      "exit_code": 1,
+      "elapsed_seconds": 63.67,
+      "log": "/Users/a77/.finance-runtime/open-work-execution-20260920/gate-788/frontend-5.log.txt"
+    }
+  ]
+}

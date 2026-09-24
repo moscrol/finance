@@ -6,7 +6,13 @@ from html import escape
 from pathlib import Path
 from typing import Any
 
-ROOT = Path(__file__).resolve().parents[1]
+CODE_ROOT = Path(__file__).resolve().parents[1]
+if str(CODE_ROOT) not in sys.path:
+    sys.path.insert(0, str(CODE_ROOT))
+
+from intelligence.paths import data_repo_root  # noqa: E402
+
+ROOT = data_repo_root()
 EXPORTS = ROOT / "market_feature_store" / "exports"
 DAILY_ROOT = ROOT / "复盘" / "daily"
 STYLE = """

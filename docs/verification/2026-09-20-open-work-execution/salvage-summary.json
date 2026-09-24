@@ -1,0 +1,2462 @@
+{
+  "old_verified_trees": 52,
+  "trees": [
+    {
+      "tree": "/Users/a77/finance-workspace-private",
+      "head": "b4a35fa2c143d152f4a87162f5fc044325d566a8",
+      "branch": null,
+      "captured_at": "2026-09-19T17:12:12.764160+00:00",
+      "status_sha256": "54190e776bef1637e82f9403fbadc710844bb092dab6c7574a7a065353781362",
+      "files": [
+        {
+          "path": "tracked-unstaged.diff",
+          "bytes": 2055263,
+          "sha256": "42ef42d73c2f9fec9ae654060b0c159385693fce64d0d91a3f5afa71bfa1cebb"
+        },
+        {
+          "path": "tracked-staged.diff",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "untracked": [
+        {
+          "path": "docs/bp/2026-09-finance-agent-bp-对外版.md",
+          "bytes": 24810,
+          "sha256": "48a0c7a8d230b4b4ffe879183102a560be755910d30be7c40fdc7b3e3fa8826b",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "docs/bp/2026-09-foresight-financial-assumptions.json",
+          "bytes": 2505,
+          "sha256": "d315b0351362c9ef0db4f85cf4fdb4384fd10bcce293b2279d37eeebdd490784",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "docs/bp/internal/2026-09-finance-agent-bp-v0.8-archive.md",
+          "bytes": 145893,
+          "sha256": "7d938662c4eb60f7010608aa97c8edac8db867d8f12f4b11d2a14922fe5029f6",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "docs/bp/internal/2026-09-finance-agent-deck-v0.8-archive.md",
+          "bytes": 29742,
+          "sha256": "bcb27e34a71853b80d3ee4aa412ce7f0df475e882f90df7702d7b7452468488c",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "docs/data-sources/runtime-and-pitfalls.md",
+          "bytes": 7647,
+          "sha256": "8cd546d1f0033170a92d563bbdc87ce2cc905f23a0689f9bd1d381d9d31c821d",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "docs/handoffs/2026-09-10-capability-upgrade-closeout.md",
+          "bytes": 11415,
+          "sha256": "fc44a260f35608764bcfae50a75aaeb6f23e313ad17036e1d431f77cc3bf91e2",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "docs/handoffs/2026-09-13-8792-integrate-deploy-recheck.md",
+          "bytes": 2574,
+          "sha256": "2fd83d6cda06b49c28dcdf1d7ec58c1b719c651c347a59b603ac95256cd5975d",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "docs/handoffs/inflight/ops-capability-upgrade-closeout.md",
+          "bytes": 3000,
+          "sha256": "d6823612134de7e658605769c3ec5a64f14768f74e78e57b44c80e5f7af707d8",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "docs/knowledge-backfill-rules.md",
+          "bytes": 8028,
+          "sha256": "efca380f6c4b59a26f1a9f68c794337318762c07f39d725cdafe9f96c585f124",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "docs/learning/teaching-framework/00-concept-label-skeleton.md",
+          "bytes": 108337,
+          "sha256": "93f92a465612392e9de10feec98836b92e5307ec2d4066890385731f389f781d",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "docs/previews/2026-09-16-workbench-redesign.html",
+          "bytes": 63354,
+          "sha256": "3dfe8ac91ba97c779e5dbdd8f482e6c563d9535ef32a45f24b24c429867aaf6c",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "docs/previews/2026-09-16-workbench-tech-premium.html",
+          "bytes": 56466,
+          "sha256": "ca5093c26e746a2e898c30d19435e6084dd770d0dc21c9b87e01c38ee979c250",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "docs/superpowers/specs/2026-09-07-teaching-framework-slice1-index-stage-leader-succession-design.md",
+          "bytes": 24655,
+          "sha256": "db2b1ee211b1598b45dec03929fc1a261abf555001022e76104964c3bc5205f5",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "docs/superpowers/specs/2026-09-09-broad-index-coverage-delta.md",
+          "bytes": 7575,
+          "sha256": "3b59970f6f2d4abce2a30d05b3639149ef8c9bdfbdebba91369221ee66be56e1",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "docs/superpowers/specs/2026-09-14-extraction-first-p0-workorder.md",
+          "bytes": 21374,
+          "sha256": "ddf99dc3f47944cf472b8f2f67b2a42fdef7c3e3c841a3a737adc68f27112308",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "docs/workflows/strategy-hypothesis-experiments.md",
+          "bytes": 1518,
+          "sha256": "a3aad5b2b2f291dcc93991ea4fd3f63528ae3f32157db3ce4ae7f5cf84972fd7",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "k3-p1-r1c.err",
+          "bytes": 233,
+          "sha256": "bac0a4a8eb9f43fcb1bce0424482ed039c611f386e25dde35d30c1a2e5d0f7b8",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "k3-p1-r1c.json",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "market_feature_store/exports/2026-09-07-daily-agent-summary.json",
+          "bytes": 2840,
+          "sha256": "24a0420cdd7e7912df555aa7846a60f19ae51288d310fe3094995f75043ad8e4",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "market_feature_store/exports/2026-09-07-daily-agent.md",
+          "bytes": 19542,
+          "sha256": "8b59600f2a0298b2fb01f4b5d2384a8effdb3ee2053f9545d198f3756fddc0d4",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "market_feature_store/exports/2026-09-07-kb-ingest-queue.json",
+          "bytes": 17481,
+          "sha256": "26393febdbc80dbdeda0dea72e1a167f87905517b0e516c9d91781ada8d939d6",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "market_feature_store/exports/2026-09-07-research-queue.json",
+          "bytes": 12673,
+          "sha256": "9153cf0c906ffeef258bd364ded938697ea99e4acead4c76b557dc79e4303fe2",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "market_feature_store/exports/2026-09-07-research-queue.md",
+          "bytes": 2793,
+          "sha256": "c26e76ee3e9fbed11ba8308d0e8130e2b61f330832761204e7460fb97e7d1979",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "market_feature_store/exports/2026-09-07-theme-candidates.md",
+          "bytes": 29242,
+          "sha256": "db5d18630ece324c903ac473f266020b0ae556509e0d99b17703178cb302d7e1",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "market_feature_store/exports/2026-09-09-daily-agent-summary.json",
+          "bytes": 2629,
+          "sha256": "7dc507d217ffd8450c37ffe6b35cb2896ce23ffa7742d37f57d77ea115ebe769",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "market_feature_store/exports/2026-09-09-daily-agent.md",
+          "bytes": 18803,
+          "sha256": "8a806f4e07eb1755d8db563b3cf132a03a9a957095beb391e9a73dfb124e20c6",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "market_feature_store/exports/2026-09-09-kb-ingest-queue.json",
+          "bytes": 5687,
+          "sha256": "fc2c411b37a2cb33d5d1c9e6015bc24d6f0062a2f03230be900ee9185127e4e2",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "market_feature_store/exports/2026-09-09-research-queue.json",
+          "bytes": 12520,
+          "sha256": "02e56a35beab8b15c23792e08e5d3e56ba9c20f7fb50a17dcfdfb32f72ec1f06",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "market_feature_store/exports/2026-09-09-research-queue.md",
+          "bytes": 3581,
+          "sha256": "6081dedef79363db9f4009ae08af4aad151e42772771cef045b87b33414b1beb",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "market_feature_store/exports/2026-09-09-theme-candidates.md",
+          "bytes": 28521,
+          "sha256": "0e0060be1fb1f3f2c88264c9005a48125cc62fb0d163084f68cff755688f367d",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "market_feature_store/exports/2026-09-14-daily-agent-summary.json",
+          "bytes": 2926,
+          "sha256": "c0e77528695c245dfc852ae60790c6f51a93697c12bc919a99f05c4b2625a12e",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "market_feature_store/exports/2026-09-14-daily-agent.md",
+          "bytes": 19304,
+          "sha256": "a982843e1e1eb7db5328daccec6f1d23bd6caf42ba731e09a3677f2e201f9131",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "market_feature_store/exports/2026-09-14-daily-workflow-summary.json",
+          "bytes": 14943,
+          "sha256": "338aab60b9fa971ebbda020748e4c4e30f6df8e149b0124cab98b7506382b0e3",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "market_feature_store/exports/2026-09-14-data-requests.json",
+          "bytes": 9903,
+          "sha256": "a2603835015ea93841e3864157f2c048cda101ff785ec2255e456cc497590755",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "market_feature_store/exports/2026-09-14-kb-ingest-queue.json",
+          "bytes": 12942,
+          "sha256": "e573a5ad098a3044182205f2c622c3dcd74a5867da4fd30cb3d349887b284953",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "market_feature_store/exports/2026-09-14-research-queue.json",
+          "bytes": 12284,
+          "sha256": "a9ecbeb195f5486f3f04d3e2b5df8ec0ad97ac32b05aaf78f94a41d1bab88906",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "market_feature_store/exports/2026-09-14-research-queue.md",
+          "bytes": 2993,
+          "sha256": "fb15f6f0fbab23bea4f8d760ab30f00040edcd4bd2b07cb0388c7329d326cb1e",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "market_feature_store/exports/2026-09-14-theme-candidates.md",
+          "bytes": 28384,
+          "sha256": "3a87c0de2561edf7dcaa8f55e556a0a09fe6cb64c48fb89acd0d0fbf631a5482",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "market_feature_store/exports/2026-09-15-daily-agent-summary.json",
+          "bytes": 2799,
+          "sha256": "eb6d8957a2c1563eef32d0d79e588ab39a9973af3af1a6a30021dc2d31ac793f",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "market_feature_store/exports/2026-09-15-daily-agent.md",
+          "bytes": 19524,
+          "sha256": "c8d28a23010b85ce9fd65820472177b57f837cbad200e648501b61bab7d7a0b2",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "market_feature_store/exports/2026-09-15-daily-workflow-summary.json",
+          "bytes": 14942,
+          "sha256": "f2c039652c49a58ae2e6262a7ca43671f132d2a0a10ef09c7a8615aca0d8492b",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "market_feature_store/exports/2026-09-15-data-requests.json",
+          "bytes": 9903,
+          "sha256": "844d731b457705d76eb0c08f206394022f99bc98df12477de3e469b8ef353b7a",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "market_feature_store/exports/2026-09-15-kb-ingest-queue.json",
+          "bytes": 11573,
+          "sha256": "979d509524805423db049b1ace2910266fd54c406e38e1b33234c0119bb53ed1",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "market_feature_store/exports/2026-09-15-research-queue.json",
+          "bytes": 12948,
+          "sha256": "e02574f070e6fd3c0c3b148d12c357c4f7a7cff232aa0b737c3d16c9cdc90794",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "market_feature_store/exports/2026-09-15-research-queue.md",
+          "bytes": 3411,
+          "sha256": "ba4894543f0eab0bd4e151decc233fd6f04ef2d6436b62c4c7a5b10ba6fbe44f",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "market_feature_store/exports/2026-09-15-theme-candidates.md",
+          "bytes": 28003,
+          "sha256": "bef93e8774286b31f078fac6c3974a5a9ce6e36d0d99a895135b54209c98b608",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "market_feature_store/exports/2026-09-16-daily-agent.md",
+          "bytes": 20670,
+          "sha256": "0b25827806056326ba5e980197461d1e204acac6e4efb9c648a3c20ae6fd8994",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "market_feature_store/exports/2026-09-16-daily-post-recovery-summary.json",
+          "bytes": 15201,
+          "sha256": "0adb156e82451cf02ca48c33809ff9d167e6217561eb92c8988c6a9aaca77613",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "market_feature_store/exports/2026-09-16-daily-review.json",
+          "bytes": 98943,
+          "sha256": "f2c3854aa00d88ea1cf220a98eadbe972a4bfdb864a9d65ee1a40469e365886e",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "market_feature_store/exports/2026-09-16-daily-workflow-summary.json",
+          "bytes": 32449,
+          "sha256": "dfd2600caf8e379f052bf0a594854dc42929b6c9d357a000b8ba0929d36f0a90",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "market_feature_store/exports/2026-09-16-data-requests.json",
+          "bytes": 50539,
+          "sha256": "80a7cc4fc20e1252e9159c134bbf5c4efa7d30c8ba1b65ca1a2ccb191088fe13",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "market_feature_store/exports/2026-09-16-kb-ingest-queue.json",
+          "bytes": 14849,
+          "sha256": "cc66c5c581487c5490375968b309ae1faa38d2339d6c81bbc04a42bbf2560d16",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "market_feature_store/exports/2026-09-16-research-queue.json",
+          "bytes": 14931,
+          "sha256": "6f303124259a6c2bb70c54d72c737fa40cca262e1e0a0474f47ecddef52dc685",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "market_feature_store/exports/2026-09-16-research-queue.md",
+          "bytes": 3689,
+          "sha256": "c564480c50b9da60ea89710eb7116ef0248d530c59977f1fe11acb21903121b9",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "market_feature_store/exports/2026-09-16-strategy1-row.json",
+          "bytes": 2459,
+          "sha256": "35b5f8494d298921ac528f94131e83d5adb55f419f4b2b221bf68f751cf7d8ce",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "market_feature_store/exports/2026-09-16-theme-backfill-queue.json",
+          "bytes": 23330,
+          "sha256": "0ffcdb38406e43cc9a2e213457c08953a9e4fcf14eeb616357b9f73b0e8a69e0",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "market_feature_store/exports/2026-09-16-theme-backfill-review-queue.json",
+          "bytes": 8477,
+          "sha256": "73002bb7fbc649eb951210043c46179799b6149779366c3f7c7904958a022323",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "market_feature_store/exports/2026-09-16-theme-backfill-review-queue.md",
+          "bytes": 2319,
+          "sha256": "e9c776d48b4cc4b1e808a2983a5f0c4554d0b65f2ca9c3f557f4fc1c9d4413ee",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "market_feature_store/exports/2026-09-16-theme-candidates.md",
+          "bytes": 29752,
+          "sha256": "b2c40ca1437a88740c034f79963179130b4f76fab1070ab3f8575b8460b77ce9",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "market_feature_store/exports/2026-09-17-daily-agent.md",
+          "bytes": 20249,
+          "sha256": "f22869b15044307c5e301892214245172cb25bed8d06f3d9031de5ba46aca620",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "market_feature_store/exports/2026-09-17-daily-post-recovery-summary.json",
+          "bytes": 15086,
+          "sha256": "722f68f9faf99c4849407c528b9d8316eca2e60d19c5709471dac50beb011893",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "market_feature_store/exports/2026-09-17-daily-review.json",
+          "bytes": 81648,
+          "sha256": "3f1645b1acf7af227da45314bcbc0b5e94501ee689a685e6e2da5f9361ca9da5",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "market_feature_store/exports/2026-09-17-daily-workflow-summary.json",
+          "bytes": 32383,
+          "sha256": "48456eb2dcefe840c6aceb274738963f36340556344171a2a0fb81955677d5c8",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "market_feature_store/exports/2026-09-17-data-requests.json",
+          "bytes": 50539,
+          "sha256": "c588378e674d04c8d4fb9ad26410e5016130dba60099d34d043f3be78313caaf",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "market_feature_store/exports/2026-09-17-kb-ingest-queue.json",
+          "bytes": 15456,
+          "sha256": "d738cd1ab1a31f8fae883242a9be46f146e2376e287135a804eb35cf11c3e11c",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "market_feature_store/exports/2026-09-17-research-queue.json",
+          "bytes": 12396,
+          "sha256": "22fc76bb875cf6a2ae490f493292900bce2d81fc2155ebf94033f758e620c391",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "market_feature_store/exports/2026-09-17-research-queue.md",
+          "bytes": 2996,
+          "sha256": "7219fba4df41911d41d52ed76ecd472d6c59ade759e812fc974e5d7f66843f1c",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "market_feature_store/exports/2026-09-17-strategy1-row.json",
+          "bytes": 2096,
+          "sha256": "dc913a620d3b729c9aa9e218de088826843bb085653dada6d1fe29fe9a5aa644",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "market_feature_store/exports/2026-09-17-theme-backfill-queue.json",
+          "bytes": 18906,
+          "sha256": "e9d461f8602653936c620a3923514a9af53faccb1508aa2d0f93562cd541586f",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "market_feature_store/exports/2026-09-17-theme-backfill-review-queue.json",
+          "bytes": 6615,
+          "sha256": "9ced0334b824f00f9694dbeb922403a3c96636bc1b179de8740df7beaacef58f",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "market_feature_store/exports/2026-09-17-theme-backfill-review-queue.md",
+          "bytes": 1972,
+          "sha256": "35d3b9f4efd08f5708d55e3028a61a675cf800125f9e2f9e2453cf211f541f97",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "market_feature_store/exports/2026-09-17-theme-candidates.md",
+          "bytes": 27651,
+          "sha256": "8e24c8fc4fd6f63ed86dcfa557faa63f438ab937759f7ba40825f4c6e825b680",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "market_feature_store/exports/2026-09-18-daily-agent-summary.json",
+          "bytes": 2644,
+          "sha256": "b7264734e7390a77c048d18bedae4c89f26bcf647eabf27207374a0b241e5d59",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "market_feature_store/exports/2026-09-18-daily-agent.md",
+          "bytes": 20248,
+          "sha256": "fe5b4d98581f237d6372b8eec38b4a7008b875da38bded5148cddaabc061b351",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "market_feature_store/exports/2026-09-18-daily-review.json",
+          "bytes": 98551,
+          "sha256": "5665fe0d74755679e8a77a4715190c86e7505568d7251ee16127f9532c4bce35",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "market_feature_store/exports/2026-09-18-daily-workflow-summary.json",
+          "bytes": 33152,
+          "sha256": "0066186dbf68b889e198929ede4d0f5abeed3597cd45e2c1dc9491c14e208d99",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "market_feature_store/exports/2026-09-18-data-requests.json",
+          "bytes": 50561,
+          "sha256": "49f5552a23e14685d34eb9076419971e5c942717fb3ba65c37a1f18fdf84617a",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "market_feature_store/exports/2026-09-18-kb-ingest-queue.json",
+          "bytes": 10179,
+          "sha256": "9533d28e0f39d702360293f4975a3d4c8adc672c4c66b480b76fd6f5a81f72aa",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "market_feature_store/exports/2026-09-18-research-queue.json",
+          "bytes": 14270,
+          "sha256": "9bf2a8b9c856e790fe8012ec57436cf0fd7b25d392ccad6e69931e31cb323616",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "market_feature_store/exports/2026-09-18-research-queue.md",
+          "bytes": 3741,
+          "sha256": "1de2e7ad1dd3146186f27542d2bdf25cf6b6fa2664407bdafb7254ff03aee6d5",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "market_feature_store/exports/2026-09-18-strategy1-row.json",
+          "bytes": 2455,
+          "sha256": "10fd0cbaf706c611f6e9fadcdc3093c755f1c5916bd54701c3e1e6c39dce59a7",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "market_feature_store/exports/2026-09-18-theme-backfill-queue.json",
+          "bytes": 23854,
+          "sha256": "17e55f1940f11fcd3a2501294ef6744d0e64ba91e8592ab175092c1e33346a6e",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "market_feature_store/exports/2026-09-18-theme-backfill-review-queue.json",
+          "bytes": 5845,
+          "sha256": "ccd6f2a56e7aa7ce706948d5bbf970a4aaf86d2357a29567a92548d4d876a80e",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "market_feature_store/exports/2026-09-18-theme-backfill-review-queue.md",
+          "bytes": 1737,
+          "sha256": "c43ed40ff3b25873f5fe689f13d829a4d2ab9b4f90bc4b55063804255fafbfc1",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "market_feature_store/exports/2026-09-18-theme-candidates.md",
+          "bytes": 30094,
+          "sha256": "f410489d580b1c60adec5cc983a6618f792bc257eaea71772f13f1514e5c4594",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "market_feature_store/sync/sync_eastmoney_fund_flow.py",
+          "bytes": 28890,
+          "sha256": "11cce21c292fce651e7db0f1169510c157b7914fbab2def3666e47a8cb470b8c",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "market_feature_store/sync/sync_theme_capital_from_baskets.py",
+          "bytes": 10896,
+          "sha256": "241328eae4485f3b825898ae2520d98ccdeff9e0ae5a3f519711e12c96ddbf64",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "pelican-bike.html",
+          "bytes": 25636,
+          "sha256": "02998c135919d1a81ab42d450a09201a5490ea9420828e9c99546720768fd561",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "pelican-ride.html",
+          "bytes": 31170,
+          "sha256": "01c43731ef6be7b6cb48990889511089658c31dac60b497a2388e63d62fa7230",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "scripts/build_bp_public.py",
+          "bytes": 6935,
+          "sha256": "3b8f9373a5ba3bdd606e4f9f34b4b2aa154790e8556725d795461b2be5f61df4",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "scripts/check_daily_plan_local.py",
+          "bytes": 1105,
+          "sha256": "8388ebe58b17b8aea2bf9f4ad57df0b0662f8332e3962cb9ca0c09fe18dd63b9",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "scripts/moneyflow/baidu_share.py",
+          "bytes": 8201,
+          "sha256": "692d3f0b8e7c1c7b5ce55cdbda3829bae2af167212557f8e49fd75b4d926111f",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "scripts/moneyflow/cdn_chunks.py",
+          "bytes": 5122,
+          "sha256": "d1d7ed810cecc1559b7f724152bbeb3dccc2da70e73846f717680351197b4cf5",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "scripts/moneyflow/l2_paths.py",
+          "bytes": 1363,
+          "sha256": "d7d73126521e14d57f44dfb76f2b74b40451c221b7d55414cef675d26f1a33b9",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "scripts/moneyflow/process_l2_archive.py",
+          "bytes": 9389,
+          "sha256": "ea032376cbd5c891da44dc986864bae44751069460f3a222dfc1d28e20193243",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "scripts/moneyflow/run_l2_from_share.py",
+          "bytes": 3835,
+          "sha256": "f5f2e4037efd38af822f1ff0c1409dc562e98ce379bd1e8b3927db4df94f8cb8",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "scripts/render_bp_pdf.py",
+          "bytes": 4209,
+          "sha256": "2329e6d9e0cd2756577f8eb0984023a397c61cca8d1036500a89e943148abe0f",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "skills/daily-full-review/state/quality-2026-09-10.json",
+          "bytes": 165,
+          "sha256": "a09d3133d9267813bc6165ef29493de860d159cc24cabf7656e3b052d6f297b0",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "skills/daily-full-review/state/quality-2026-09-16.json",
+          "bytes": 165,
+          "sha256": "48549a532042964cc272a76fba8d017d374d541776b3a351bf3c98afe53cbbc1",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "skills/daily-full-review/state/quality-2026-09-17.json",
+          "bytes": 165,
+          "sha256": "78900aa4182868dbb0d4c71550957ac4bfacec6216cb84b0db6133fd6a652e56",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "skills/daily-full-review/state/quality-2026-09-18.json",
+          "bytes": 165,
+          "sha256": "31153a4436de840b51c3d60ea62becb8b70be841d9867d25a23b7f3eebc648d1",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "skills/l2-moneyflow/SKILL.md",
+          "bytes": 1996,
+          "sha256": "9d1342f31793544a444744c8acc22cdb2485a564403c1d34030ff1b0305cbc26",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "skills/stock-deep-dive/references/gold-standard.md",
+          "bytes": 1344,
+          "sha256": "36a350ecb8de500b83493517af853d9d1d72c4c1e25089606f649f6d9fde5d4d",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "skills/theme-radar/references/gold-standard.md",
+          "bytes": 1586,
+          "sha256": "9bffeb2272dcbd06abd02e6241a277b5c1ca25868f81079f84f31ca0833e6d65",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "tests/test_l2_file_pipeline.py",
+          "bytes": 1429,
+          "sha256": "b7067b795f73816b785a9662cd6fbec45664d75a013c713e5361c6c0a52c958a",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "tests/test_sync_eastmoney_fund_flow.py",
+          "bytes": 30830,
+          "sha256": "ad9e407e7d7a0184dd683872b9c12c45363ad46bcc4884143a69334767fc417f",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "tests/test_theme_capital_from_baskets.py",
+          "bytes": 6010,
+          "sha256": "3b79d94bc6fd38178c0f2fe0c346b27a4f660615b87ce0a8b4fd6b1d9f337541",
+          "copied": true,
+          "reason": null
+        }
+      ],
+      "snapshot_dir": "/Users/a77/.finance-runtime/open-work-execution-20260920/salvage/393e2911f67a",
+      "status_stable": true
+    },
+    {
+      "tree": "/private/tmp/knevo-answer-distill-0916",
+      "head": "d9bb278aa9a448912da75203368e713ece321934",
+      "branch": "refs/heads/docs/knevo-answer-distill-0916",
+      "captured_at": "2026-09-19T17:12:13.055585+00:00",
+      "status_sha256": "3cec6eae35138333ec0c5ae4493f5605dfd47877b152c0000251c93c01e23016",
+      "files": [
+        {
+          "path": "tracked-unstaged.diff",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "tracked-staged.diff",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "untracked": [
+        {
+          "path": "docs/handoffs/inflight/docs-knevo-answer-distill-0916.md",
+          "bytes": 1135,
+          "sha256": "3b0ae089e8a0254cc116d4c376fc1f66526014fdffb9e28a79ad813f9e2c7ca9",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "docs/learning/distill/2026-09-15-knevo-answer-distill.md",
+          "bytes": 9070,
+          "sha256": "32e1fc5a41f299dab14806e0895ec32f7c550165c2655e0246391539022272b3",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "docs/learning/distill/evidence/2026-09-15-knevo-three-answers.txt",
+          "bytes": 42447,
+          "sha256": "25cf6f04e9dd476ee71c53e122ef5a6359cc0483892d0e6b21b3b506de351b26",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "docs/learning/distill/evidence/SHA256SUMS",
+          "bytes": 132,
+          "sha256": "155cfe9892070d86ab624a07a4b00478d83854f632a1ef604599d175e2de813a",
+          "copied": true,
+          "reason": null
+        }
+      ],
+      "snapshot_dir": "/Users/a77/.finance-runtime/open-work-execution-20260920/salvage/6b565ddc9b20",
+      "status_stable": true
+    },
+    {
+      "tree": "/Users/a77/.finance-runtime/finance-hosted-alpha",
+      "head": "35e1b2912a5720e7df84deb8d4c5d87376f5bd81",
+      "branch": null,
+      "captured_at": "2026-09-19T17:12:13.729848+00:00",
+      "status_sha256": "2ff0c978125e5f7ae9d23f8240e84f9a68b3f2353c5e4ee2927d02f79d34e6f2",
+      "files": [
+        {
+          "path": "tracked-unstaged.diff",
+          "bytes": 160257,
+          "sha256": "469cfb310175d23ee47322e75ace8aba3062655361756faf19e21f3e51fa0b53"
+        },
+        {
+          "path": "tracked-staged.diff",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "untracked": [
+        {
+          "path": ".venv-workbench",
+          "type": "symlink",
+          "target": "/Users/a77/finance-workspace-private/.venv-workbench"
+        },
+        {
+          "path": "intelligence/users/default/workbench.sqlite3-shm",
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "intelligence/users/default/workbench.sqlite3-wal",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "copied": true,
+          "reason": null
+        }
+      ],
+      "snapshot_dir": "/Users/a77/.finance-runtime/open-work-execution-20260920/salvage/67b512e4ad2a",
+      "status_stable": true
+    },
+    {
+      "tree": "/Users/a77/.finance-runtime/finance-workspace-0060da5c1a08",
+      "head": "0060da5c1a0892f0b6d9a19838f26c7127c75164",
+      "branch": null,
+      "captured_at": "2026-09-19T17:12:13.895243+00:00",
+      "status_sha256": "be539a74dc0b0402f5bafb81d184a42d3071d53ec123acdec06d436879ad4353",
+      "files": [
+        {
+          "path": "tracked-unstaged.diff",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "tracked-staged.diff",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "untracked": [
+        {
+          "path": "intelligence/users/default/workbench.sqlite3-shm",
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "intelligence/users/default/workbench.sqlite3-wal",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "copied": true,
+          "reason": null
+        }
+      ],
+      "snapshot_dir": "/Users/a77/.finance-runtime/open-work-execution-20260920/salvage/ca77ef2f616b",
+      "status_stable": true
+    },
+    {
+      "tree": "/Users/a77/.finance-runtime/finance-workspace-1010970acc85",
+      "head": "1010970acc8560df3c8a84e57d1be5768785b361",
+      "branch": null,
+      "captured_at": "2026-09-19T17:12:14.062339+00:00",
+      "status_sha256": "be539a74dc0b0402f5bafb81d184a42d3071d53ec123acdec06d436879ad4353",
+      "files": [
+        {
+          "path": "tracked-unstaged.diff",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "tracked-staged.diff",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "untracked": [
+        {
+          "path": "intelligence/users/default/workbench.sqlite3-shm",
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "intelligence/users/default/workbench.sqlite3-wal",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "copied": true,
+          "reason": null
+        }
+      ],
+      "snapshot_dir": "/Users/a77/.finance-runtime/open-work-execution-20260920/salvage/dccbf65e9b7a",
+      "status_stable": true
+    },
+    {
+      "tree": "/Users/a77/.finance-runtime/finance-workspace-2efdff46e251",
+      "head": "2efdff46e2510a2f87f5bc245b524fb94724741a",
+      "branch": null,
+      "captured_at": "2026-09-19T17:12:14.313952+00:00",
+      "status_sha256": "81aac2c57d3f690fb5cc2fffe5f2f52746c7c2d0c7b68e65d3d09f9e516b0770",
+      "files": [
+        {
+          "path": "tracked-unstaged.diff",
+          "bytes": 1140,
+          "sha256": "fb015e37b4166cfb4b841656060b68fedb73853eb6ed90b41f54bc2670d2e2a7"
+        },
+        {
+          "path": "tracked-staged.diff",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "untracked": [
+        {
+          "path": "skills/daily-full-review/state/quality-2026-09-11.json",
+          "bytes": 165,
+          "sha256": "c8451d721df00fa58fd30089d173baba028bdc9e49744f33f40dad46d831ebd7",
+          "copied": true,
+          "reason": null
+        }
+      ],
+      "snapshot_dir": "/Users/a77/.finance-runtime/open-work-execution-20260920/salvage/4b045a796798",
+      "status_stable": true
+    },
+    {
+      "tree": "/Users/a77/.finance-runtime/finance-workspace-ac0132553aae",
+      "head": "ac0132553aae1a1fb1981fe198b6b65798822781",
+      "branch": null,
+      "captured_at": "2026-09-19T17:12:14.759568+00:00",
+      "status_sha256": "7eae2d13e0f24f4d3353076ca0553993a8bb21abced3292660be713ed3c48116",
+      "files": [
+        {
+          "path": "tracked-unstaged.diff",
+          "bytes": 5369,
+          "sha256": "51a23eef9d8cb1e9348b3f8e303f44d7b3aaf4b599e95d207d89d658b6b1d19a"
+        },
+        {
+          "path": "tracked-staged.diff",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "untracked": [
+        {
+          "path": "skills/daily-full-review/state/quality-2026-09-09.json",
+          "bytes": 165,
+          "sha256": "5801bf7d4243cb1993346546fe174ff9ee91b0de7e0efe34ac86b6bde7020e77",
+          "copied": true,
+          "reason": null
+        }
+      ],
+      "snapshot_dir": "/Users/a77/.finance-runtime/open-work-execution-20260920/salvage/cf6398f310e2",
+      "status_stable": true
+    },
+    {
+      "tree": "/Users/a77/.finance-runtime/finance-workspace-b594a5e7f8ae",
+      "head": "b594a5e7f8ae2b99e9cf38c5b3b1cdede20b2c36",
+      "branch": null,
+      "captured_at": "2026-09-19T17:12:14.886780+00:00",
+      "status_sha256": "be539a74dc0b0402f5bafb81d184a42d3071d53ec123acdec06d436879ad4353",
+      "files": [
+        {
+          "path": "tracked-unstaged.diff",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "tracked-staged.diff",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "untracked": [
+        {
+          "path": "intelligence/users/default/workbench.sqlite3-shm",
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "intelligence/users/default/workbench.sqlite3-wal",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "copied": true,
+          "reason": null
+        }
+      ],
+      "snapshot_dir": "/Users/a77/.finance-runtime/open-work-execution-20260920/salvage/3a911accaa1b",
+      "status_stable": true
+    },
+    {
+      "tree": "/Users/a77/.finance-runtime/finance-workspace-c7bbcb93e1ad",
+      "head": "c7bbcb93e1ada1e0afca984f541729b14f783656",
+      "branch": null,
+      "captured_at": "2026-09-19T17:12:15.080783+00:00",
+      "status_sha256": "bbc6fcc805d93a909a5f02fa6a6c9b9079fd0d07b154615df38ae94b034c06db",
+      "files": [
+        {
+          "path": "tracked-unstaged.diff",
+          "bytes": 1941,
+          "sha256": "ed906dace962be0540a015135053ddc73730707d9be688f63c4ebe09e7de6853"
+        },
+        {
+          "path": "tracked-staged.diff",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "untracked": [],
+      "snapshot_dir": "/Users/a77/.finance-runtime/open-work-execution-20260920/salvage/4f0fc7d400bb",
+      "status_stable": true
+    },
+    {
+      "tree": "/Users/a77/.finance-runtime/finance-workspace-d4cb64844ec6",
+      "head": "d4cb64844ec64c4a10db53f9078c9bfcf1582074",
+      "branch": null,
+      "captured_at": "2026-09-19T17:12:15.245737+00:00",
+      "status_sha256": "be539a74dc0b0402f5bafb81d184a42d3071d53ec123acdec06d436879ad4353",
+      "files": [
+        {
+          "path": "tracked-unstaged.diff",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "tracked-staged.diff",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "untracked": [
+        {
+          "path": "intelligence/users/default/workbench.sqlite3-shm",
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "intelligence/users/default/workbench.sqlite3-wal",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "copied": true,
+          "reason": null
+        }
+      ],
+      "snapshot_dir": "/Users/a77/.finance-runtime/open-work-execution-20260920/salvage/c296839fef1a",
+      "status_stable": true
+    },
+    {
+      "tree": "/Users/a77/.finance-runtime/finance-workspace-f4c03b9ae610",
+      "head": "f4c03b9ae6107696062039ee0e7df8acd4ad1c68",
+      "branch": null,
+      "captured_at": "2026-09-19T17:12:15.582598+00:00",
+      "status_sha256": "be539a74dc0b0402f5bafb81d184a42d3071d53ec123acdec06d436879ad4353",
+      "files": [
+        {
+          "path": "tracked-unstaged.diff",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "tracked-staged.diff",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "untracked": [
+        {
+          "path": "intelligence/users/default/workbench.sqlite3-shm",
+          "bytes": 32768,
+          "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "intelligence/users/default/workbench.sqlite3-wal",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "copied": true,
+          "reason": null
+        }
+      ],
+      "snapshot_dir": "/Users/a77/.finance-runtime/open-work-execution-20260920/salvage/800da97b85f9",
+      "status_stable": true
+    },
+    {
+      "tree": "/Users/a77/.finance-runtime/kb-dual-index-20260918/before",
+      "head": "d32b8966237e1b8241dd5377e9a9a659423e212b",
+      "branch": null,
+      "captured_at": "2026-09-19T17:12:16.020142+00:00",
+      "status_sha256": "79269131fe2f587625331d7586afddf6c71c8f0eb2c26aa05075e83784a8cc7a",
+      "files": [
+        {
+          "path": "tracked-unstaged.diff",
+          "bytes": 2091,
+          "sha256": "015b57c314912b731f5a2a3fa1743d77005c47d45b12bbac992ad01cf239ae78"
+        },
+        {
+          "path": "tracked-staged.diff",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "untracked": [
+        {
+          "path": "intelligence/tests/test_kb_runtime_roots.py",
+          "bytes": 3215,
+          "sha256": "fb4d1bb123594b10e7e16645fa89c078edd2c84f6165e37896ff4d6ff98e32b9",
+          "copied": true,
+          "reason": null
+        }
+      ],
+      "snapshot_dir": "/Users/a77/.finance-runtime/open-work-execution-20260920/salvage/8f82e4feb1dd",
+      "status_stable": true
+    },
+    {
+      "tree": "/Users/a77/.finance-runtime/kb-dual-index-20260918/gate-e9bb34c3/finance-workspace-private",
+      "head": "e9bb34c37101a21b0dfab80393bda1d5b8b4f548",
+      "branch": null,
+      "captured_at": "2026-09-19T17:12:16.212298+00:00",
+      "status_sha256": "39db57b72ce28f137b07304f6225c05b7be5aeca083cf41011d7f26d93754881",
+      "files": [
+        {
+          "path": "tracked-unstaged.diff",
+          "bytes": 412398,
+          "sha256": "c5c6234037dfffcf2e14ae943f319a0ae2f5c3ad1c25831d852fb05e2a251b36"
+        },
+        {
+          "path": "tracked-staged.diff",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "untracked": [
+        {
+          "path": "intelligence/api/static/assets/index-DH207EFA.js",
+          "bytes": 411269,
+          "sha256": "394ce43b2ca5b0d3af68355c29631907b9774b896885918029f1b0e605cc33df",
+          "copied": true,
+          "reason": null
+        }
+      ],
+      "snapshot_dir": "/Users/a77/.finance-runtime/open-work-execution-20260920/salvage/a774f4e3c665",
+      "status_stable": true
+    },
+    {
+      "tree": "/Users/a77/.finance-runtime/reviews/8792-readiness-fixes-20260917/baseline",
+      "head": "0a1cb8c44aaf2d19ae5f5809bf27119b709b8442",
+      "branch": null,
+      "captured_at": "2026-09-19T17:12:16.603560+00:00",
+      "status_sha256": "0d14f7ecb85e0c40bcccc2b2620b8d65b978ead5d8d973c7eb6972c10b2271c6",
+      "files": [
+        {
+          "path": "tracked-unstaged.diff",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "tracked-staged.diff",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "untracked": [
+        {
+          "path": "intelligence/tests/test_readiness_boundary_regressions.py",
+          "bytes": 10560,
+          "sha256": "70f458bc446e048f08c0258937e5f529a9748b90a8309803461076ace9db5632",
+          "copied": true,
+          "reason": null
+        }
+      ],
+      "snapshot_dir": "/Users/a77/.finance-runtime/open-work-execution-20260920/salvage/3241f7163795",
+      "status_stable": true
+    },
+    {
+      "tree": "/Users/a77/.finance-runtime/reviews/pr773-fix/before",
+      "head": "2e2329ea22f50f19663e7946c614a9a9ddf59013",
+      "branch": null,
+      "captured_at": "2026-09-19T17:12:17.450613+00:00",
+      "status_sha256": "4b31799d682642edf904290dfa1576bb831fd101f5826e689e5e62bd8f2eb060",
+      "files": [
+        {
+          "path": "tracked-unstaged.diff",
+          "bytes": 1408,
+          "sha256": "92c875de12fb787c5e73cf7cf0e7efe831459d327e48fe6b5377d75d4d5aef36"
+        },
+        {
+          "path": "tracked-staged.diff",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "untracked": [
+        {
+          "path": "tests/test_l2_file_source_quality.py",
+          "bytes": 10026,
+          "sha256": "925a2d9b3ffa874d0a89cbe1dc9030bf91a81279e64578ad7c9e1e5b4aafd1f2",
+          "copied": true,
+          "reason": null
+        }
+      ],
+      "snapshot_dir": "/Users/a77/.finance-runtime/open-work-execution-20260920/salvage/315813d0fecb",
+      "status_stable": true
+    },
+    {
+      "tree": "/Users/a77/.finance-runtime/reviews/research-evolution-06-ba10747d/tree",
+      "head": "ba10747df0c440a3b3654e70240c919327e00007",
+      "branch": "refs/heads/docs/qc-research-evolution-06-ba10747d",
+      "captured_at": "2026-09-19T17:12:17.979609+00:00",
+      "status_sha256": "1da39fb09939f95514938add440e8d60f972574ea069c07619e6d1821b58fac8",
+      "files": [
+        {
+          "path": "tracked-unstaged.diff",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "tracked-staged.diff",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "untracked": [
+        {
+          "path": "docs/handoffs/2026-09-13-research-evolution-06-ba10747d-qc.md",
+          "bytes": 11126,
+          "sha256": "9b1cbf7ab4c19d41bac1c81272a184a34d9586d724babd3766b5af977aabc0fa",
+          "copied": true,
+          "reason": null
+        }
+      ],
+      "snapshot_dir": "/Users/a77/.finance-runtime/open-work-execution-20260920/salvage/64c784c17cc8",
+      "status_stable": true
+    },
+    {
+      "tree": "/Users/a77/finance-workspace-private/.claude/worktrees/daily-swap-race-condition-d0f557",
+      "head": "32bff514501bf083af4f03d28896e5e8f20df891",
+      "branch": "refs/heads/claude/foresight-copy-versions-33373d",
+      "captured_at": "2026-09-19T17:12:18.530671+00:00",
+      "status_sha256": "cf2835a68dcbf3bb685db8addc28beb3ca1877c4373bd19d398be9d8a33da64b",
+      "files": [
+        {
+          "path": "tracked-unstaged.diff",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "tracked-staged.diff",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "untracked": [
+        {
+          "path": "docs/handoffs/inflight/claude-foresight-copy-versions-33373d.md",
+          "bytes": 9091,
+          "sha256": "b188b26817f3d457ba622b24a88ba9e264f4bf31e3288c14aabbfc25ada01ef1",
+          "copied": true,
+          "reason": null
+        }
+      ],
+      "snapshot_dir": "/Users/a77/.finance-runtime/open-work-execution-20260920/salvage/ce494b95d9e7",
+      "status_stable": true
+    },
+    {
+      "tree": "/Users/a77/finance-workspace-private/.claude/worktrees/fix-trading-day-calendar",
+      "head": "458db8926f7022b9e6faf1ecbb51b6ebfe380254",
+      "branch": "refs/heads/fix/trading-day-calendar",
+      "captured_at": "2026-09-19T17:12:18.640666+00:00",
+      "status_sha256": "9367526ba149e8904e26541c1745e8138e486f023d901d3505cf05641cf438cf",
+      "files": [
+        {
+          "path": "tracked-unstaged.diff",
+          "bytes": 4910,
+          "sha256": "0afd24e5cca5a9d788ef5dd6f406ddde3ef1902610a0682f869f80f718916b33"
+        },
+        {
+          "path": "tracked-staged.diff",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "untracked": [],
+      "snapshot_dir": "/Users/a77/.finance-runtime/open-work-execution-20260920/salvage/20e3b8f3cd22",
+      "status_stable": true
+    },
+    {
+      "tree": "/Users/a77/finance-workspace-sync",
+      "head": "6382c13b7a869114727439a43f0004ab67bb36ef",
+      "branch": null,
+      "captured_at": "2026-09-19T17:12:18.891573+00:00",
+      "status_sha256": "5f9b78eeec1ae923d4ed118e57f06fb741c18fece9ecbdca37bc24b0f1e31d2c",
+      "files": [
+        {
+          "path": "tracked-unstaged.diff",
+          "bytes": 5310,
+          "sha256": "7f6f173697736f76268c915f5d385908426ab62094dc11fb1919c5faa2f73f61"
+        },
+        {
+          "path": "tracked-staged.diff",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "untracked": [
+        {
+          "path": "skills/daily-full-review/state/quality-2026-09-14.json",
+          "bytes": 165,
+          "sha256": "067da7820a82d0368ab958ee65fd182d742e30f90ba7fb4a1b2a25683e556a08",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "skills/daily-full-review/state/quality-2026-09-15.json",
+          "bytes": 165,
+          "sha256": "d5bd176865e32c48f9813768e637aaecb7f58d4d00185bed54a7acbd325e7c1d",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "skills/daily-full-review/state/quality-2026-09-17.json",
+          "bytes": 165,
+          "sha256": "78900aa4182868dbb0d4c71550957ac4bfacec6216cb84b0db6133fd6a652e56",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "skills/daily-full-review/state/quality-2026-09-18.json",
+          "bytes": 165,
+          "sha256": "31153a4436de840b51c3d60ea62becb8b70be841d9867d25a23b7f3eebc648d1",
+          "copied": true,
+          "reason": null
+        }
+      ],
+      "snapshot_dir": "/Users/a77/.finance-runtime/open-work-execution-20260920/salvage/a0bc8ee24a13",
+      "status_stable": true
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-8792-financial-r6-repair",
+      "head": "d8d6196baebdb1108a81ae01466e9df6397dc4fc",
+      "branch": "refs/heads/fix/8792-financial-r6-repair",
+      "captured_at": "2026-09-19T17:12:19.262256+00:00",
+      "status_sha256": "9eee057865fe5c4e415d65a4a82bdfc65e69a05ba0cdcf5af0e60561f240eb37",
+      "files": [
+        {
+          "path": "tracked-unstaged.diff",
+          "bytes": 5660,
+          "sha256": "651a021cc0f34eea9c2b396f18873bbdfd688261ac87672c45d3c8709e6af489"
+        },
+        {
+          "path": "tracked-staged.diff",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "untracked": [
+        {
+          "path": "docs/handoffs/2026-09-19-8792-financial-rag-integration.md",
+          "bytes": 12661,
+          "sha256": "15a9ccc5d1b93816848f4975888516a40d82c5ab31cdcf66b75c81ec4d9eb638",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "docs/verification/2026-09-19-8792-financial-rag-integration/README.md",
+          "bytes": 3700,
+          "sha256": "5ed1dfedd7b05682cc268b03e94b7a264d50f7c1aa7e6aba02a0274e15897299",
+          "copied": true,
+          "reason": null
+        }
+      ],
+      "snapshot_dir": "/Users/a77/.finance-runtime/open-work-execution-20260920/salvage/ab269ca9e989",
+      "status_stable": true
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-8792-integrate-0913",
+      "head": "5fb13a8c26986e6a0a24eb2687a2635131426694",
+      "branch": "refs/heads/fix/8792-integrate-routefix-tradingday",
+      "captured_at": "2026-09-19T17:12:19.363470+00:00",
+      "status_sha256": "5ec4203e97c75d25426b131a865dbc3eb5fb41c13c14be55a8713f42658eb87d",
+      "files": [
+        {
+          "path": "tracked-unstaged.diff",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "tracked-staged.diff",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "untracked": [
+        {
+          "path": ".venv-workbench",
+          "type": "symlink",
+          "target": "/Users/a77/finance-workspace-private/.venv-workbench"
+        }
+      ],
+      "snapshot_dir": "/Users/a77/.finance-runtime/open-work-execution-20260920/salvage/35bfb64ecac2",
+      "status_stable": true
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-8792-qc-closeout-0913",
+      "head": "1c251a3b2720c533823967520f698bf3c3b0d280",
+      "branch": "refs/heads/fix/8792-qc-closeout-0913",
+      "captured_at": "2026-09-19T17:12:19.461852+00:00",
+      "status_sha256": "5ec4203e97c75d25426b131a865dbc3eb5fb41c13c14be55a8713f42658eb87d",
+      "files": [
+        {
+          "path": "tracked-unstaged.diff",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "tracked-staged.diff",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "untracked": [
+        {
+          "path": ".venv-workbench",
+          "type": "symlink",
+          "target": "/Users/a77/finance-workspace-private/.venv-workbench"
+        }
+      ],
+      "snapshot_dir": "/Users/a77/.finance-runtime/open-work-execution-20260920/salvage/1f373ea6fa56",
+      "status_stable": true
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-ablation-noise-floor",
+      "head": "1e4df5728595b0aaa14d2556d72480b5c3fb1727",
+      "branch": "refs/heads/feat/ablation-judge-independence",
+      "captured_at": "2026-09-19T17:12:19.637790+00:00",
+      "status_sha256": "e2003763b81a93f91764b9cc4780b448943e8275a6fb5c581f8194a62d5fee7b",
+      "files": [
+        {
+          "path": "tracked-unstaged.diff",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "tracked-staged.diff",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "untracked": [
+        {
+          "path": "scripts/exp_rubric_variance_ab.py",
+          "bytes": 9222,
+          "sha256": "4a51481c433c76d03339bf7156e4b6e98e452b6d7dae0a2f6034211257245320",
+          "copied": true,
+          "reason": null
+        }
+      ],
+      "snapshot_dir": "/Users/a77/.finance-runtime/open-work-execution-20260920/salvage/99aab846bdd5",
+      "status_stable": true
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-broad-index",
+      "head": "f450f4bb87339daec3f0f31d14eff6ec8f3fd22e",
+      "branch": "refs/heads/data-source/broad-index-delta",
+      "captured_at": "2026-09-19T17:12:20.153468+00:00",
+      "status_sha256": "00e18dbcd4f195b8360386a3045b086b33b5e1e18b4ece054cdf819d02501f79",
+      "files": [
+        {
+          "path": "tracked-unstaged.diff",
+          "bytes": 10005,
+          "sha256": "2e56e2e20a8844c3204ab3b6e8504e8f0e674a3336370f0e45e3eb3ba773b3d4"
+        },
+        {
+          "path": "tracked-staged.diff",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "untracked": [],
+      "snapshot_dir": "/Users/a77/.finance-runtime/open-work-execution-20260920/salvage/2b492727b243",
+      "status_stable": true
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-capability-upgrade-plan",
+      "head": "d93d86738c09af72696037e594fe0ffebb276838",
+      "branch": "refs/heads/codex/docs-capability-upgrade-plan",
+      "captured_at": "2026-09-19T17:12:20.458130+00:00",
+      "status_sha256": "4affa2accc7b84b922444e4ce5153fc58907043db93e3f1e509107ecfef3276b",
+      "files": [
+        {
+          "path": "tracked-unstaged.diff",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "tracked-staged.diff",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "untracked": [
+        {
+          "path": "quality-audit-2026-09-10.md",
+          "bytes": 19276,
+          "sha256": "4737cfe65e1c8dd6ae2cec9fb6cce966162d1ba1b71b0c3a25323b689c360686",
+          "copied": true,
+          "reason": null
+        }
+      ],
+      "snapshot_dir": "/Users/a77/.finance-runtime/open-work-execution-20260920/salvage/e04aae87bf8f",
+      "status_stable": true
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-chat-idle",
+      "head": "6d4a9df162e6db0725364398d04a1a706ec28010",
+      "branch": "refs/heads/fix/chat-idle-no-git-ritual",
+      "captured_at": "2026-09-19T17:12:20.593431+00:00",
+      "status_sha256": "640fdc33254fbd367cf8a37561fcec1ab5f72c9b6aeabd102b735c0a3240b578",
+      "files": [
+        {
+          "path": "tracked-unstaged.diff",
+          "bytes": 13012,
+          "sha256": "535ef42fbefdc72b1fe44c5530b4ab89b00c12451ac579022cf6a2a5d3e353ff"
+        },
+        {
+          "path": "tracked-staged.diff",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "untracked": [],
+      "snapshot_dir": "/Users/a77/.finance-runtime/open-work-execution-20260920/salvage/60352774cfc3",
+      "status_stable": true
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-e2-impl-p1",
+      "head": "8bd55b26ca431c1c2a37c3c5782854ee52a75497",
+      "branch": "refs/heads/feat/e2-material-contract-impl",
+      "captured_at": "2026-09-19T17:12:21.232858+00:00",
+      "status_sha256": "5ec4203e97c75d25426b131a865dbc3eb5fb41c13c14be55a8713f42658eb87d",
+      "files": [
+        {
+          "path": "tracked-unstaged.diff",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "tracked-staged.diff",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "untracked": [
+        {
+          "path": ".venv-workbench",
+          "type": "symlink",
+          "target": "/Users/a77/finance-workspace-private/.venv-workbench"
+        }
+      ],
+      "snapshot_dir": "/Users/a77/.finance-runtime/open-work-execution-20260920/salvage/184c701f9e82",
+      "status_stable": true
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-e2-material-contract-0913",
+      "head": "ec54ef556864fe48f1e74564c4343e156421701a",
+      "branch": "refs/heads/feat/e2-material-contract-design",
+      "captured_at": "2026-09-19T17:12:21.374470+00:00",
+      "status_sha256": "5ec4203e97c75d25426b131a865dbc3eb5fb41c13c14be55a8713f42658eb87d",
+      "files": [
+        {
+          "path": "tracked-unstaged.diff",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "tracked-staged.diff",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "untracked": [
+        {
+          "path": ".venv-workbench",
+          "type": "symlink",
+          "target": "/Users/a77/finance-workspace-private/.venv-workbench"
+        }
+      ],
+      "snapshot_dir": "/Users/a77/.finance-runtime/open-work-execution-20260920/salvage/b69f644ce9f2",
+      "status_stable": true
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-e2-p5-inheritance",
+      "head": "8355cf8e9951712986d351f0d00f82c5914a1a96",
+      "branch": "refs/heads/feat/e2-p5-cross-turn-inheritance",
+      "captured_at": "2026-09-19T17:12:21.559907+00:00",
+      "status_sha256": "9ba6cf9286bd28a4f7fe92c2562b171befe1db1bb2616b1e27889ae85e1e2b6b",
+      "files": [
+        {
+          "path": "tracked-unstaged.diff",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "tracked-staged.diff",
+          "bytes": 2230520,
+          "sha256": "8db4d47c47334010cfbf1e3e604337cb4b98a0cb5115bc8cdb96fcda4854d290"
+        }
+      ],
+      "untracked": [],
+      "snapshot_dir": "/Users/a77/.finance-runtime/open-work-execution-20260920/salvage/ddad19f7c7c8",
+      "status_stable": true
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-historical-discovery",
+      "head": "57f9f17e2538a7a21da58bbd11e8c43812a66355",
+      "branch": "refs/heads/codex/feat-historical-discovery",
+      "captured_at": "2026-09-19T17:12:22.133019+00:00",
+      "status_sha256": "5fc6b38f664916b541d119e9ffb27f9912c803f72a31ea08cc0aaffc3c4095e0",
+      "files": [
+        {
+          "path": "tracked-unstaged.diff",
+          "bytes": 2272,
+          "sha256": "38bf9825a01d56646aa299ced3f3103a7bc58d858e6ad42ccf3d656c55e2f9ca"
+        },
+        {
+          "path": "tracked-staged.diff",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "untracked": [],
+      "snapshot_dir": "/Users/a77/.finance-runtime/open-work-execution-20260920/salvage/a7f485f27d74",
+      "status_stable": true
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-knevo-tool-parity",
+      "head": "dc85e602e5c3f48724b621c7a0be64e20453be9d",
+      "branch": "refs/heads/feat/knevo-tool-parity",
+      "captured_at": "2026-09-19T17:12:22.915147+00:00",
+      "status_sha256": "899c5ac70125e2c69d140055d44736dfdfd160d482a2eb583ff90263550d3d4c",
+      "files": [
+        {
+          "path": "tracked-unstaged.diff",
+          "bytes": 14096,
+          "sha256": "129cea0b9f7b6d21b95310248a59204a9f0ee1b82d34ac91da0ea510c5d7d6dd"
+        },
+        {
+          "path": "tracked-staged.diff",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "untracked": [
+        {
+          "path": "intelligence/services/provider_status.py",
+          "bytes": 12572,
+          "sha256": "ddc054b1c5d1708ad1c065c45ba2963297f478134358876cb5d8030803065174",
+          "copied": true,
+          "reason": null
+        }
+      ],
+      "snapshot_dir": "/Users/a77/.finance-runtime/open-work-execution-20260920/salvage/f8e68fd1b5bb",
+      "status_stable": true
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-local-plan-alignment-validation",
+      "head": "07d42891cb7bbc9436455130dcb5261a38e7b349",
+      "branch": null,
+      "captured_at": "2026-09-19T17:12:23.187714+00:00",
+      "status_sha256": "c21db55d0a4a814b382d31b1896c1bb35f6e84b9b0457efb6d19de7f9b2791a5",
+      "files": [
+        {
+          "path": "tracked-unstaged.diff",
+          "bytes": 15044,
+          "sha256": "9fa0fd0911f541e85b730f689a099ac527dc3c6f8e5d2307050eea1ea8e7f920"
+        },
+        {
+          "path": "tracked-staged.diff",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "untracked": [],
+      "snapshot_dir": "/Users/a77/.finance-runtime/open-work-execution-20260920/salvage/71f88e650916",
+      "status_stable": true
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-main-merge-0913",
+      "head": "d7e5380551ba92758935d268fdd0e6fbfdd51ce8",
+      "branch": null,
+      "captured_at": "2026-09-19T17:12:23.322842+00:00",
+      "status_sha256": "5ec4203e97c75d25426b131a865dbc3eb5fb41c13c14be55a8713f42658eb87d",
+      "files": [
+        {
+          "path": "tracked-unstaged.diff",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "tracked-staged.diff",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "untracked": [
+        {
+          "path": ".venv-workbench",
+          "type": "symlink",
+          "target": "/Users/a77/finance-workspace-private/.venv-workbench"
+        }
+      ],
+      "snapshot_dir": "/Users/a77/.finance-runtime/open-work-execution-20260920/salvage/6eae5b6570c3",
+      "status_stable": true
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-mechanism-pilot",
+      "head": "c29a64011da4a82ea94dbd16797639aca66c0158",
+      "branch": "refs/heads/feat/mechanism-research-pilot",
+      "captured_at": "2026-09-19T17:12:23.470855+00:00",
+      "status_sha256": "4942e3433213ac09855ff6a82627ce6efecec76ed16619109a19b8c75cdc1ee0",
+      "files": [
+        {
+          "path": "tracked-unstaged.diff",
+          "bytes": 12378,
+          "sha256": "b3195a92525f3e35ea0fefb1e7a58ed3210388767c38f8c66ee18be7bac4fc63"
+        },
+        {
+          "path": "tracked-staged.diff",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "untracked": [
+        {
+          "path": "docs/handoffs/2026-09-16-mechanism-research-pilot.md",
+          "bytes": 4642,
+          "sha256": "c2c632e4a20e102df31968ef94ec1928c057de3b2d44a0b24fdc9f19e11961d4",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "docs/handoffs/inflight/feat-mechanism-research-pilot.md",
+          "bytes": 2933,
+          "sha256": "bfb57909a96467b61abbe902f96ffd3696c949a01582e2b0348594505fbe5ee6",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "docs/verification/2026-09-16-mechanism-pilot-live.md",
+          "bytes": 6014,
+          "sha256": "9229f996f8e33d26efcb2b1a27f0fae24e99bd4eee4e251fa0a03321db530c36",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "docs/verification/2026-09-16-mechanism-workbench-live.md",
+          "bytes": 10326,
+          "sha256": "f419b7dd11e01732aa4f32644cf08aad3259ee81755850bec8dbffbf3972c693",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "docs/workflows/mechanism-research-pilot.md",
+          "bytes": 7084,
+          "sha256": "79e6263c8da091cf9d3c29f321cb8584124af0895c1575229a6f61da53064fa9",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "intelligence/eval/fixtures/mechanism-pilot-v1.json",
+          "bytes": 6630,
+          "sha256": "ac6f5f51e4c17ef391150d64aa60ea98d739d27e7fe21def9b96acaf04aa558a",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "intelligence/eval/mechanism_pilot.py",
+          "bytes": 17900,
+          "sha256": "4a6fd8310dfdee0b729eeeabb3a016c49c2ac5800d437ef80f45d170ee8b3c87",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "intelligence/eval/mechanism_workbench.py",
+          "bytes": 9478,
+          "sha256": "ad5b5e202c6d53eb47434e3424b79c7e87c8ce18a2129e7198cd74c2e04832d7",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "intelligence/tests/test_mechanism_pilot.py",
+          "bytes": 12771,
+          "sha256": "9392aa728b9f2a4ea9765c37007542421967bd5b4e0e2c01c4178be1a4eb9520",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "intelligence/tests/test_mechanism_workbench.py",
+          "bytes": 3564,
+          "sha256": "4459e723351711c386731479afe0b629e277336bc4ed807ae82f16107f182297",
+          "copied": true,
+          "reason": null
+        }
+      ],
+      "snapshot_dir": "/Users/a77/.finance-runtime/open-work-execution-20260920/salvage/ccd41ca2c8de",
+      "status_stable": true
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-money-effect-regime",
+      "head": "47f69827a6227638654bcbfc755bdea8f3440030",
+      "branch": "refs/heads/feat/money-effect-regime-rules",
+      "captured_at": "2026-09-19T17:12:24.394153+00:00",
+      "status_sha256": "9ee40a199d1d35a7163efc7a386f72a545ce3c3bdd05fd600fd0d60b0de1f834",
+      "files": [
+        {
+          "path": "tracked-unstaged.diff",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "tracked-staged.diff",
+          "bytes": 17618822,
+          "sha256": "93258fbb1947efce9475568d16521fce3b511aa59aa4a4f3600f180f38078369"
+        }
+      ],
+      "untracked": [],
+      "snapshot_dir": "/Users/a77/.finance-runtime/open-work-execution-20260920/salvage/b6241a921e21",
+      "status_stable": true
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-nightly-review-0917",
+      "head": "6356ffd5e703b30948f687baaaf60102bf97f0a5",
+      "branch": "refs/heads/fix/nightly-review-0917",
+      "captured_at": "2026-09-19T17:12:24.591797+00:00",
+      "status_sha256": "f360eb3b7e6445b295ccc0bdad81b2cb82a7ece76f9cabb2c30d7e0ad77ce801",
+      "files": [
+        {
+          "path": "tracked-unstaged.diff",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "tracked-staged.diff",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "untracked": [
+        {
+          "path": "skills/daily-full-review/state/quality-2026-09-16.json",
+          "bytes": 192,
+          "sha256": "6f3700e3ea4cbc539412cf4dcb8326254fbe836d14f6190b2797fef2feb7fe3e",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "skills/daily-full-review/state/quality-2026-09-17.json",
+          "bytes": 192,
+          "sha256": "21eba88bb7271c4022c6d02c99ab0a59662d881911010d6f1925356de106215f",
+          "copied": true,
+          "reason": null
+        }
+      ],
+      "snapshot_dir": "/Users/a77/.finance-runtime/open-work-execution-20260920/salvage/ba16eeab6747",
+      "status_stable": true
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-open-work-spec",
+      "head": "50848ea0cf09b194b8c36c0011ec4782be8b468b",
+      "branch": "refs/heads/docs/open-work-consolidation-0920",
+      "captured_at": "2026-09-19T17:12:24.700917+00:00",
+      "status_sha256": "b586505667481a5553cfda7dc09931d8e2f8c64c697b017b87da15256667e931",
+      "files": [
+        {
+          "path": "tracked-unstaged.diff",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "tracked-staged.diff",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "untracked": [
+        {
+          "path": "docs/superpowers/plans/2026-09-20-open-work-execution.md",
+          "bytes": 2819,
+          "sha256": "4d078b374d69f9284c08a740f119e11bac3a57c405a34730fdaf87ff424111dc",
+          "copied": true,
+          "reason": null
+        }
+      ],
+      "snapshot_dir": "/Users/a77/.finance-runtime/open-work-execution-20260920/salvage/9d140aecb7d8",
+      "status_stable": true
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-public-brief",
+      "head": "a7f501039f5370d3e64eaa7f71e0703f0da0687f",
+      "branch": "refs/heads/feat/public-daily-brief",
+      "captured_at": "2026-09-19T17:12:25.227763+00:00",
+      "status_sha256": "213bd730b678992f53abead2a47f76c477c3dec21d22cc7a10564ba80ec97ecb",
+      "files": [
+        {
+          "path": "tracked-unstaged.diff",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "tracked-staged.diff",
+          "bytes": 23228150,
+          "sha256": "6e85153b24d2c681e831df8434930cddab167dd10c766819f2659a5b74aad0de"
+        }
+      ],
+      "untracked": [],
+      "snapshot_dir": "/Users/a77/.finance-runtime/open-work-execution-20260920/salvage/cd90e3c4860d",
+      "status_stable": true
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-qc-conformance",
+      "head": "f40f878b2bac324d6ac05c74e391ab0934094039",
+      "branch": null,
+      "captured_at": "2026-09-19T17:12:25.549458+00:00",
+      "status_sha256": "e81e25368e34ecf5ca45867b92acc40389adfd9d74d67f426d0a857184cf2d93",
+      "files": [
+        {
+          "path": "tracked-unstaged.diff",
+          "bytes": 52278,
+          "sha256": "b04ad8d4841896db07042902d67b8bfe0da8898ccd5f52cd3d9258b62f2372ac"
+        },
+        {
+          "path": "tracked-staged.diff",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "untracked": [],
+      "snapshot_dir": "/Users/a77/.finance-runtime/open-work-execution-20260920/salvage/dc699494628a",
+      "status_stable": true
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-qc-research-evolution-06",
+      "head": "51c08288fcbd094718b3817cea4f8a1e5a2b819f",
+      "branch": "refs/heads/docs/qc-research-evolution-06-0913",
+      "captured_at": "2026-09-19T17:12:25.854025+00:00",
+      "status_sha256": "3262bacbe02723ca87ba448980d8d548f2effaaf1404e791dbc485f29597358c",
+      "files": [
+        {
+          "path": "tracked-unstaged.diff",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "tracked-staged.diff",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "untracked": [
+        {
+          "path": "intelligence/webapp/node_modules",
+          "type": "symlink",
+          "target": "/Users/a77/fwp-wt-research-evolution-06/intelligence/webapp/node_modules"
+        }
+      ],
+      "snapshot_dir": "/Users/a77/.finance-runtime/open-work-execution-20260920/salvage/b2f837aaca50",
+      "status_stable": true
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-rag-window",
+      "head": "94f5daaedc4fd2b4dad93da7484e05a4bd09ec2a",
+      "branch": "refs/heads/feat/rag-window-gate-and-worker-keepalive",
+      "captured_at": "2026-09-19T17:12:26.126941+00:00",
+      "status_sha256": "9bab6579b2bb3f566800eac8547afc3f78952ee7d64f52f6710fe4e21d29b512",
+      "files": [
+        {
+          "path": "tracked-unstaged.diff",
+          "bytes": 2923,
+          "sha256": "918a48c0f4ac0e34f3581ee79a2ab66d88b7ca9bc2fde0b5320016ac851874ab"
+        },
+        {
+          "path": "tracked-staged.diff",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "untracked": [],
+      "snapshot_dir": "/Users/a77/.finance-runtime/open-work-execution-20260920/salvage/5bd8e50bb637",
+      "status_stable": true
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-ranking-scenarios-10",
+      "head": "0dc0999db5d80575dd418cf880751774e173db44",
+      "branch": "refs/heads/feat/ranking-scenarios-10",
+      "captured_at": "2026-09-19T17:12:26.264059+00:00",
+      "status_sha256": "49a1c3f254bad9e772672f2b1f8d29b5fb79b6245444f81e452e9f00c365e4e0",
+      "files": [
+        {
+          "path": "tracked-unstaged.diff",
+          "bytes": 9262,
+          "sha256": "e1661c94cff2ec4bc9439f4c8c3fa975466987451d79ff7379a4a3e95cf8818a"
+        },
+        {
+          "path": "tracked-staged.diff",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "untracked": [],
+      "snapshot_dir": "/Users/a77/.finance-runtime/open-work-execution-20260920/salvage/1d7ef6d68ac7",
+      "status_stable": true
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-react-comparison-archive",
+      "head": "b22ddf8b0285a952de1e6e18c04db0f4abe448e7",
+      "branch": "refs/heads/docs/react-components-comparison-0918",
+      "captured_at": "2026-09-19T17:12:26.457759+00:00",
+      "status_sha256": "f20012d63a281ab138b0771c7df8ad602cfb6b637d533398803511a5cf3067d4",
+      "files": [
+        {
+          "path": "tracked-unstaged.diff",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "tracked-staged.diff",
+          "bytes": 16950627,
+          "sha256": "d9264e4647777b7d27a8b5200fe96253607623eefcb7900492759d5290f3c764"
+        }
+      ],
+      "untracked": [],
+      "snapshot_dir": "/Users/a77/.finance-runtime/open-work-execution-20260920/salvage/a3722e702222",
+      "status_stable": true
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-regime-live",
+      "head": "f80464cbebe8499b0938aa640dde0f277fd48956",
+      "branch": "refs/heads/feat/money-effect-regime-live",
+      "captured_at": "2026-09-19T17:12:26.898567+00:00",
+      "status_sha256": "58fffc2520737b8c7a3a690233e57f120a8fad59e5467ff16315d58449bcc7d7",
+      "files": [
+        {
+          "path": "tracked-unstaged.diff",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "tracked-staged.diff",
+          "bytes": 17734872,
+          "sha256": "26ed29089738b6bbcc72a61abc6179162fd0a6a717819e7f47d64ac3ba8a48b5"
+        }
+      ],
+      "untracked": [],
+      "snapshot_dir": "/Users/a77/.finance-runtime/open-work-execution-20260920/salvage/b5fb0c9766b5",
+      "status_stable": true
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-resume-specs-0905",
+      "head": "c6e702a6d8e3dae454e974000ae0aa2ea38571e0",
+      "branch": "refs/heads/docs/resume-specs-0905",
+      "captured_at": "2026-09-19T17:12:27.209762+00:00",
+      "status_sha256": "cf32f474f54a370371bb9c1191c7b11c23190584f87ce4dbd428bb03409031bf",
+      "files": [
+        {
+          "path": "tracked-unstaged.diff",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "tracked-staged.diff",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "untracked": [
+        {
+          "path": "docs/superpowers/specs/2026-09-05-resume-knowhow-recipes-round3.md",
+          "bytes": 20809,
+          "sha256": "f4673213310ebb6c4b5ca15fef835fef40469bd3e279c55c5fde9e772eeb759b",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "docs/superpowers/specs/2026-09-05-resume-learning-loop-workorders-dispatch.md",
+          "bytes": 33864,
+          "sha256": "3b27968e4b13386a0dda0df21d685e1ec5f672298c6f20d48beb9b931dd13e73",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "docs/superpowers/specs/2026-09-05-resume-methodology-backtest-p1-fourth-cut-closeout.md",
+          "bytes": 19092,
+          "sha256": "06963357bb474ba288edd6e3e38e14ed557929894320c69894b2b55da709ba20",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "docs/superpowers/specs/2026-09-05-resume-rag-slimming-third-cut-closeout.md",
+          "bytes": 22185,
+          "sha256": "48350305325dbe1d94472388d9586086d5febfbe59d0bc5c31d1a92932a42539",
+          "copied": true,
+          "reason": null
+        }
+      ],
+      "snapshot_dir": "/Users/a77/.finance-runtime/open-work-execution-20260920/salvage/aa9635ead355",
+      "status_stable": true
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-step-trajectory-qualification",
+      "head": "52eba88009ff765f3f69bf9ff9ccf93207c81f14",
+      "branch": "refs/heads/feat/step-trajectory-qualification",
+      "captured_at": "2026-09-19T17:12:27.607570+00:00",
+      "status_sha256": "fd6b9319f54765a84e284336cf9829be1d68a145bddbb503c5428e0a181cbf2f",
+      "files": [
+        {
+          "path": "tracked-unstaged.diff",
+          "bytes": 166947,
+          "sha256": "c95f348e89d7f764aeccda583cd206b4e0b9c96b2b72a0a3c38e2864489f2bda"
+        },
+        {
+          "path": "tracked-staged.diff",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "untracked": [
+        {
+          "path": "intelligence/tests/fixtures/chat_workbench_repo/state/deploy-ledger.jsonl",
+          "bytes": 429,
+          "sha256": "9306fb67ef356f4c71f02a52288990ac5f0dec539ba397c42d416ab57b302ef5",
+          "copied": true,
+          "reason": null
+        }
+      ],
+      "snapshot_dir": "/Users/a77/.finance-runtime/open-work-execution-20260920/salvage/c363fb6607dd",
+      "status_stable": true
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-teaching-slice3",
+      "head": "3a35d0ec6bcfb567fbf10aa0475fa20fa27cfdd3",
+      "branch": "refs/heads/feat/teaching-framework-slice3-structure",
+      "captured_at": "2026-09-19T17:12:28.095982+00:00",
+      "status_sha256": "3bda20dd89795183bfd142aca3c0ec094a27874a1b14a8a2f7e13d084c48a812",
+      "files": [
+        {
+          "path": "tracked-unstaged.diff",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "tracked-staged.diff",
+          "bytes": 14710522,
+          "sha256": "1a9c146e11f8699b2c2b55f4cbab4b178c6f823578ff249b792791c57749a79a"
+        }
+      ],
+      "untracked": [],
+      "snapshot_dir": "/Users/a77/.finance-runtime/open-work-execution-20260920/salvage/0c60063775a9",
+      "status_stable": true
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-technical-daily",
+      "head": "6b6d9f36446d81b325c3d376da0857033d283e6a",
+      "branch": "refs/heads/feat/finance-query-technical-daily",
+      "captured_at": "2026-09-19T17:12:28.234793+00:00",
+      "status_sha256": "f96f258a92cdd3a702d9183435147318cd4c78ad31cfd264760c7c0b5597c153",
+      "files": [
+        {
+          "path": "tracked-unstaged.diff",
+          "bytes": 59536,
+          "sha256": "6c830c81bf47a65a6a2260fa3f1a64d68f247259879cdfa9ed75f5095d928340"
+        },
+        {
+          "path": "tracked-staged.diff",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "untracked": [],
+      "snapshot_dir": "/Users/a77/.finance-runtime/open-work-execution-20260920/salvage/bf2aac05f313",
+      "status_stable": true
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-webapp-beautiful-ui",
+      "head": "78fb86396ec5d13ab8312e293ab08cec81bb5cb0",
+      "branch": "refs/heads/fix/webapp-ime-enter-and-beautiful-ui",
+      "captured_at": "2026-09-19T17:12:28.487645+00:00",
+      "status_sha256": "e022724fc19ef3b074b589d06e9371c1838bef499041a4a5a0def5a37fd48b23",
+      "files": [
+        {
+          "path": "tracked-unstaged.diff",
+          "bytes": 552078,
+          "sha256": "f4eb24eee345da723862b070b32afa4405a9d258b34b872d79ed20b9a88ab432"
+        },
+        {
+          "path": "tracked-staged.diff",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "untracked": [
+        {
+          "path": "intelligence/api/static/assets/index-LXBWUKtg.css",
+          "bytes": 85696,
+          "sha256": "39431eb47cd0fd35394ea6d0a65171b23986a6d395d1f5f30e58d7796fc7d307",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "intelligence/api/static/assets/index-WdQ3sY_0.js",
+          "bytes": 376903,
+          "sha256": "1885ff32d9f99fad9d353bc25af07733fc00210af1b8894908e4d2a63e262ae4",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "intelligence/webapp/src/spotlight.ts",
+          "bytes": 1808,
+          "sha256": "c8ce77f9f14f84b4efa14369df438ab529906aff44dcfb166e2b0f1db54736ad",
+          "copied": true,
+          "reason": null
+        }
+      ],
+      "snapshot_dir": "/Users/a77/.finance-runtime/open-work-execution-20260920/salvage/9786848c15ce",
+      "status_stable": true
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-workbench-research-journey",
+      "head": "094daed115454a6cb5cbb4e41920ad631c5db761",
+      "branch": "refs/heads/codex/feat-workbench-research-journey",
+      "captured_at": "2026-09-19T17:12:28.634273+00:00",
+      "status_sha256": "4d536095ecc4d0111f96d1536e2982df3ed7532b7018cdc2f42cdadbc293b9d8",
+      "files": [
+        {
+          "path": "tracked-unstaged.diff",
+          "bytes": 541361,
+          "sha256": "d7009d7d9eeddbb983da8648ba717c9a59138e4afb4bbb807d49647750c86acc"
+        },
+        {
+          "path": "tracked-staged.diff",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "untracked": [
+        {
+          "path": "intelligence/api/static/assets/index-4spMTKgC.js",
+          "bytes": 381856,
+          "sha256": "b888b952483db018d3555158eca3efd8b77af57cfb630744778a90b910a9dc3f",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "intelligence/api/static/assets/index-DHjeEfCV.css",
+          "bytes": 75036,
+          "sha256": "b9edcae98417b91978b767fc8f9b82efffbb47c84473e3969f80a3e79aa24c84",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "intelligence/tests/fixtures/chat_workbench_repo/state/deploy-ledger.jsonl",
+          "bytes": 426,
+          "sha256": "0a2be76947cdfc1c305df8161b825b419c1c5c5f4644230d16a5f8f4bbd44e6c",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "intelligence/webapp/src/answerMarkdown.test.ts",
+          "bytes": 1,
+          "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+          "copied": true,
+          "reason": null
+        },
+        {
+          "path": "intelligence/webapp/src/answerMarkdown.ts",
+          "bytes": 690,
+          "sha256": "75638dfba0810142933058734716e5984916d3056b07fc986cba5191ae38a12e",
+          "copied": true,
+          "reason": null
+        }
+      ],
+      "snapshot_dir": "/Users/a77/.finance-runtime/open-work-execution-20260920/salvage/d29287a6edb4",
+      "status_stable": true
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-worker-freshness",
+      "head": "6f38ea8cbdc8f9abd6ad511cb01171957cdc8120",
+      "branch": "refs/heads/fix/rag-worker-page-freshness",
+      "captured_at": "2026-09-19T17:12:28.768694+00:00",
+      "status_sha256": "a0c81760449f474dfafe2624b6aa18e42baaa0f24f5d9b306b40afb7d91e22f5",
+      "files": [
+        {
+          "path": "tracked-unstaged.diff",
+          "bytes": 45306,
+          "sha256": "6ff2a8e1112129254f6b755b69300c639a20c57c2d66c6c8d0bbb7504b7834aa"
+        },
+        {
+          "path": "tracked-staged.diff",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "untracked": [],
+      "snapshot_dir": "/Users/a77/.finance-runtime/open-work-execution-20260920/salvage/9506b7e7ad97",
+      "status_stable": true
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-writer-cost",
+      "head": "be41535536e1485f7558f9f893ee7f33180dcdf7",
+      "branch": "refs/heads/feat/writer-cost-budget",
+      "captured_at": "2026-09-19T17:12:29.185195+00:00",
+      "status_sha256": "3570f073d27a7db18e54557b8bc86baa7a9353076dfc3e77d234629d4c3d9848",
+      "files": [
+        {
+          "path": "tracked-unstaged.diff",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "tracked-staged.diff",
+          "bytes": 15388386,
+          "sha256": "84e1cbf069a37a396eb97e4b34aa8a63bf0a8fd9688c73bd369536b3015c0b03"
+        }
+      ],
+      "untracked": [],
+      "snapshot_dir": "/Users/a77/.finance-runtime/open-work-execution-20260920/salvage/121a03cb38a5",
+      "status_stable": true
+    }
+  ],
+  "inaccessible": [
+    {
+      "tree": "/private/tmp/e2-p3d-qc-1f6ebc5d",
+      "error": "fatal: not a git repository (or any of the parent directories): .git\n",
+      "action": "retain; inspection required"
+    },
+    {
+      "tree": "/private/tmp/e2-p3e-guard-mutation-39af312f",
+      "error": "fatal: not a git repository (or any of the parent directories): .git\n",
+      "action": "retain; inspection required"
+    },
+    {
+      "tree": "/private/tmp/e2-p3e-qc-0b83e14f",
+      "error": "fatal: not a git repository (or any of the parent directories): .git\n",
+      "action": "retain; inspection required"
+    },
+    {
+      "tree": "/private/tmp/e2-p3f1-frozen-a819ecde",
+      "error": "fatal: not a git repository (or any of the parent directories): .git\n",
+      "action": "retain; inspection required"
+    },
+    {
+      "tree": "/private/tmp/e2-p3f1-mutations-418f2bc9",
+      "error": "fatal: not a git repository (or any of the parent directories): .git\n",
+      "action": "retain; inspection required"
+    },
+    {
+      "tree": "/private/tmp/e2-p3f1-qc-a819ecde",
+      "error": "fatal: not a git repository (or any of the parent directories): .git\n",
+      "action": "retain; inspection required"
+    },
+    {
+      "tree": "/private/tmp/e2-p3f1-qc2-a819ecde",
+      "error": "fatal: not a git repository (or any of the parent directories): .git\n",
+      "action": "retain; inspection required"
+    },
+    {
+      "tree": "/private/tmp/e2-p3f1-qc3-a819ecde",
+      "error": "fatal: not a git repository (or any of the parent directories): .git\n",
+      "action": "retain; inspection required"
+    },
+    {
+      "tree": "/private/tmp/local-plan-alignment-baseline-1fef3d27",
+      "error": "fatal: not a git repository (or any of the parent directories): .git\n",
+      "action": "retain; inspection required"
+    },
+    {
+      "tree": "/private/tmp/qc-baseline-before-batch",
+      "error": "fatal: not a git repository (or any of the parent directories): .git\n",
+      "action": "retain; inspection required"
+    },
+    {
+      "tree": "/private/tmp/qc-main-final",
+      "error": "fatal: not a git repository (or any of the parent directories): .git\n",
+      "action": "retain; inspection required"
+    },
+    {
+      "tree": "/private/tmp/qc-merge-sim",
+      "error": "fatal: not a git repository (or any of the parent directories): .git\n",
+      "action": "retain; inspection required"
+    },
+    {
+      "tree": "/private/tmp/qc-pr592",
+      "error": "fatal: not a git repository (or any of the parent directories): .git\n",
+      "action": "retain; inspection required"
+    },
+    {
+      "tree": "/private/tmp/qc-pr593",
+      "error": "fatal: not a git repository (or any of the parent directories): .git\n",
+      "action": "retain; inspection required"
+    },
+    {
+      "tree": "/private/tmp/qc-pr673",
+      "error": "fatal: not a git repository (or any of the parent directories): .git\n",
+      "action": "retain; inspection required"
+    },
+    {
+      "tree": "/private/tmp/qc-pr746",
+      "error": "fatal: not a git repository (or any of the parent directories): .git\n",
+      "action": "retain; inspection required"
+    }
+  ]
+}

@@ -1,0 +1,73 @@
+FF                                                                       [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260918T093050Z-0a1cb8c4.json
+
+=================================== FAILURES ===================================
+_ test_worker_restarts_on_code_change_even_with_same_size_and_mtime[scripts/rag_index.py] _
+
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2463/test_worker_restarts_on_code_c0')
+relative = 'scripts/rag_index.py'
+
+    @pytest.mark.parametrize("relative", ["scripts/rag_index.py", "scripts/rag_freshness.py"])
+    def test_worker_restarts_on_code_change_even_with_same_size_and_mtime(tmp_path, relative):
+        import os
+    
+        _write_fake_rag(tmp_path)
+        index = tmp_path / ".rag_index"
+        index.mkdir()
+        worker = PersistentRagWorker(sys.executable, tmp_path, index)
+        try:
+            first = worker.query(["query", "before", "--json"], timeout=3)
+            process = worker._process
+            path = tmp_path / relative
+            stat = path.stat()
+            before = path.read_text()
+            after = before.replace('"query": query', '"query": "NEW"') if "index" in relative else before.replace("scripts", "updated")
+            assert len(before) == len(after) and before != after
+            path.write_text(after)
+            os.utime(path, ns=(stat.st_atime_ns, stat.st_mtime_ns))
+            second = worker.query(["query", "after", "--json"], timeout=3)
+            third = worker.query(["query", "again", "--json"], timeout=3)
+            assert first.returncode == second.returncode == third.returncode == 0
+>           assert process.poll() is not None, "磁盘升级不能继续使用已加载旧代码的进程"
+E           AssertionError: 磁盘升级不能继续使用已加载旧代码的进程
+E           assert None is not None
+E            +  where None = poll()
+E            +    where poll = <Popen: returncode: None args: ['/Users/a77/finance-workspace-private/.venv-...>.poll
+
+intelligence/tests/test_rag_worker.py:79: AssertionError
+_ test_worker_restarts_on_code_change_even_with_same_size_and_mtime[scripts/rag_freshness.py] _
+
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2463/test_worker_restarts_on_code_c1')
+relative = 'scripts/rag_freshness.py'
+
+    @pytest.mark.parametrize("relative", ["scripts/rag_index.py", "scripts/rag_freshness.py"])
+    def test_worker_restarts_on_code_change_even_with_same_size_and_mtime(tmp_path, relative):
+        import os
+    
+        _write_fake_rag(tmp_path)
+        index = tmp_path / ".rag_index"
+        index.mkdir()
+        worker = PersistentRagWorker(sys.executable, tmp_path, index)
+        try:
+            first = worker.query(["query", "before", "--json"], timeout=3)
+            process = worker._process
+            path = tmp_path / relative
+            stat = path.stat()
+            before = path.read_text()
+            after = before.replace('"query": query', '"query": "NEW"') if "index" in relative else before.replace("scripts", "updated")
+            assert len(before) == len(after) and before != after
+            path.write_text(after)
+            os.utime(path, ns=(stat.st_atime_ns, stat.st_mtime_ns))
+            second = worker.query(["query", "after", "--json"], timeout=3)
+            third = worker.query(["query", "again", "--json"], timeout=3)
+            assert first.returncode == second.returncode == third.returncode == 0
+>           assert process.poll() is not None, "磁盘升级不能继续使用已加载旧代码的进程"
+E           AssertionError: 磁盘升级不能继续使用已加载旧代码的进程
+E           assert None is not None
+E            +  where None = poll()
+E            +    where poll = <Popen: returncode: None args: ['/Users/a77/finance-workspace-private/.venv-...>.poll
+
+intelligence/tests/test_rag_worker.py:79: AssertionError
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_rag_worker.py::test_worker_restarts_on_code_change_even_with_same_size_and_mtime[scripts/rag_index.py]
+FAILED intelligence/tests/test_rag_worker.py::test_worker_restarts_on_code_change_even_with_same_size_and_mtime[scripts/rag_freshness.py]
+2 failed, 44 deselected in 0.27s

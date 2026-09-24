@@ -1,0 +1,10 @@
+{
+  "number": 155,
+  "html_url": "http://127.0.0.1:3300/a77/knowledge-base-private/pulls/155",
+  "state": "open",
+  "merged": false,
+  "mergeable": true,
+  "title": "feat(rag): guarded immutable dual-index maintenance",
+  "head_sha": "3a21010323eababb54ce8519093fd60dbacb9451",
+  "base_sha": "1254224be89e2c4974350b7f3e985dbedb5dc043"
+}

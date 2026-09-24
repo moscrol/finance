@@ -1,0 +1,16 @@
+{
+  "original_path": "/tmp/hithink-preview-registry-leaf-rest-dcee18f2.log",
+  "raw_sha256": "3b88a2e29333ce3ef172dbec2eb18d1e366777f3bad808abfa27056465008ef2",
+  "encoding": "utf-8",
+  "lines": [
+    "\n",
+    "=== build_registry backfill-tables --check ===\n",
+    "[backfill] 无变化：finance-workspace-private/AGENTS.md\n",
+    "[backfill --check] 文档 skill 表与注册表一致。\n",
+    "exit=0\n",
+    "\n",
+    "=== build_registry generate-views --check ===\n",
+    "[generate-views --check] agent 目录视图与 skills/ 源一致。\n",
+    "exit=0\n"
+  ]
+}

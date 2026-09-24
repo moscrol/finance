@@ -44,6 +44,39 @@ class ParseMidtermIntentTests(unittest.TestCase):
         self.assertIsNone(parse_midterm_intent("过去 10 个交易日涨停家数逐日变化"))
 
 
+class DirectionRankingGateTests(unittest.TestCase):
+    """方向排序题式放宽 D6 门控（AB-002 失败形状，见 is_direction_ranking_query）。"""
+
+    # AB-002 / AB-003 的原题，逐字取自 docs/learning/knevo-distill/ab-ledger.md
+    AB_002 = "下一交易日最值得关注的三个方向，按确定性×弹性排序"
+    AB_003 = "2026-09-14（周一）最值得关注的 3 个方向"
+
+    def test_real_ab_questions_open_the_gate(self) -> None:
+        from intelligence.services.market_midterm import midterm_intent_for
+
+        for query in (self.AB_002, self.AB_003):
+            with self.subTest(query=query):
+                self.assertIsNotNone(midterm_intent_for(query))
+
+    def test_plain_queries_stay_closed(self) -> None:
+        """只放「挑/排」这个动作；泛查询不该把 D6 拖起来。"""
+        from intelligence.services.market_midterm import midterm_intent_for
+
+        for query in (
+            "今天信创板块怎么样",
+            "今天哪些板块涨了",
+            "过去 10 个交易日涨停家数逐日变化",
+            "站在SPT视角看AI应用、地产这些方向怎么看",  # 非视角模式
+        ):
+            with self.subTest(query=query):
+                self.assertIsNone(midterm_intent_for(query))
+
+    def test_parse_midterm_intent_not_widened(self) -> None:
+        """放宽只发生在 D6 门控入口：另两个调用点问的是「真的问了中期吗」。"""
+        self.assertIsNone(parse_midterm_intent(self.AB_002))
+        self.assertIsNone(parse_midterm_intent(self.AB_003))
+
+
 @unittest.skipIf(duckdb is None, "duckdb 不可用")
 class MidtermBlockTests(unittest.TestCase):
     def _make_db(self, path: Path) -> None:
@@ -85,6 +118,23 @@ class MidtermBlockTests(unittest.TestCase):
                 con.close()
         self.assertIn("信创", themes)
         self.assertIn("数据要素", themes)
+
+    def test_board_fallback_fills_themeless_ranking_query(self) -> None:
+        """排序题不点名题材时，没有兜底就是空块——门放开也等于没开。
+
+        这条测的是「拥挤度真的进了上下文」，不是「门开了」。两者差一个真缺陷：
+        实测 AB-002/AB-003 原题在只放开门时块长度仍为 0。
+        """
+        with TemporaryDirectory() as tmp:
+            db = Path(tmp) / "t.duckdb"
+            self._make_db(db)
+            query = "最值得关注的三个方向，按确定性排序"
+            without = midterm_trend_block_for_llm(query, None, db)
+            with_fallback = midterm_trend_block_for_llm(query, None, db, board_fallback=True)
+        self.assertEqual(without, "")  # 既有行为不变：默认关
+        self.assertIn("信创", with_fallback)
+        self.assertIn("数据要素", with_fallback)
+        self.assertIn("拥挤度分位", with_fallback)
 
     def test_resolve_themes_anchored_fuzzy_match(self) -> None:
         """精确匹配漏空时，前后缀锚定的宽松匹配兜底（「地产」→「房地产」）。"""

@@ -1,0 +1,1 @@
+{"already_open": false, "number": 786, "state": "open", "merged": false, "head": "fix/kb-dual-index-deploy", "head_sha": "2b4948a4015e", "base": "main", "mergeable_claimed_by_gitea": true, "title": "fix(kb): bind dual indexes and close Workbench delivery races", "url": "http://127.0.0.1:3300/a77/finance-workspace-private/pulls/786"}

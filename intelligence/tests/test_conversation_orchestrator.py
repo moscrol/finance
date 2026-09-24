@@ -3,7 +3,8 @@ import json
 import time
 import urllib.error
 from dataclasses import asdict, replace
-from threading import Event
+from threading import Event, current_thread
+from types import SimpleNamespace
 
 import pytest
 
@@ -42,6 +43,7 @@ from intelligence.runtime.conversation_orchestrator import (
 from intelligence.runtime.continuous_turn_adapter import ContinuousTurnResult
 from intelligence.services.conversation_store import ConversationStore
 from intelligence.services.query_understanding import QueryEnvelope
+from intelligence.services import research_contract as research_contract_service
 from intelligence.services.research_contract import TurnIntent
 from intelligence.services.research_policy import ResearchExecutionPolicy
 from intelligence.services.provider_observability import ProviderTrace
@@ -631,6 +633,136 @@ def _continuous_forecast_fixture(
         intent,
         controller,
     )
+
+
+def test_continuous_turn_publishes_derived_calculation_artifacts(tmp_path) -> None:
+    """工单 04：私有产物里的 tool_result.telemetry.derived_calculation 记录 → calc-<id>.json/.html/.csv 进 run 产物。"""
+
+    conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    query = "贵州茅台最近几个季度单季营收怎么走"
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store, run_store, conversation.conversation_id, query
+    )
+    frame = TaskFrame(
+        raw_question=query,
+        user_goal="单季还原",
+        question_type="financial_analysis",
+        subject="贵州茅台",
+        subject_kind="company",
+        market_scope="A股",
+        timeframe="最近六个季度",
+        required_outputs=("direct_assessment",),
+        assumptions=(),
+        ambiguities=(),
+        clarification_question=None,
+        evidence_policy="company_financial_evidence",
+        confidence=0.95,
+    )
+    intent = TurnIntent(
+        primary_subject=frame.subject,
+        secondary_topics=(),
+        question_type=frame.question_type,
+        answer_owner=None,
+        comparison_entities=(),
+        inherited_from_turn=None,
+        timeframe=frame.timeframe,
+        required_outputs=frame.required_outputs,
+        task_frame_hash=frame.task_frame_hash,
+    )
+    calc_id = "0123456789abcdef"
+    record = {
+        "calc_id": calc_id,
+        "purpose": "茅台单季营收还原",
+        "script": "emit_result(...)",
+        "as_of": "2026-03-31",
+        "enforcement": "process",
+        "params": {},
+        "inputs": [{"ref": "E1", "hash": "a" * 16, "tool": "financial_data", "as_of": "2026-08-15"}],
+        "result": {
+            "schema": "derived_calculation.result/v1",
+            "summary": {"latest_quarter_yi": 375.75},
+            "tables": [
+                {"name": "单季营收", "columns": ["期间", "单季(亿)"], "rows": [["2026Q1", 547.03], ["2026Q2", 375.75]], "unit": "亿元"}
+            ],
+        },
+    }
+
+    def controller(_query: str, **_kwargs: object) -> TurnDecision:
+        return TurnDecision(
+            lane="research",
+            needs_retrieval=True,
+            needs_memory=False,
+            needs_template=True,
+            question_type=frame.question_type,
+            capabilities=("financial_data",),
+            task_frame=frame,
+            turn_intent=intent,
+        )
+
+    class Adapter:
+        def handle(self, *, frame: TaskFrame, control):
+            return ContinuousTurnResult(
+                handled=True,
+                status="completed",
+                answer="2026Q2 单季营收 375.75 亿元（计算编号 0123456789abcdef）。",
+                as_of="2026-06-30",
+                citations=(),
+                warnings=(),
+                private_artifact={
+                    "events": [
+                        {"kind": "task", "payload": {"task_frame_hash": frame.task_frame_hash}},
+                        {
+                            "kind": "tool_result",
+                            "payload": {
+                                "tool": "derived_calculation",
+                                "telemetry": {"derived_calculation": record},
+                            },
+                        },
+                    ],
+                    "semantic_verifier": {"judge_status": "passed", "issues": []},
+                },
+                events=(),
+            )
+
+    def forbidden(*_args, **_kwargs):
+        raise AssertionError("legacy dependency must not run")
+
+    orchestrator = TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=forbidden,
+        route_skills_fn=forbidden,
+        lane_answer_fn=forbidden,
+        turn_controller_fn=controller,
+        continuous_turn_adapter=Adapter(),
+    )
+    result = orchestrator.run_turn(
+        conversation_id=conversation.conversation_id,
+        run_id=run_id,
+        assistant_message_id=assistant_message_id,
+        query=query,
+        skill_mode="auto",
+        selected_skill_ids=[],
+    )
+
+    assert result.status == "completed"
+    run = run_store.load_run(run_id)
+    paths = {item["path"]: item for item in run.artifacts}
+    assert {f"calc-{calc_id}.json", f"calc-{calc_id}.html", f"calc-{calc_id}-t1.csv"} <= set(paths)
+    csv_artifact = paths[f"calc-{calc_id}-t1.csv"]
+    assert csv_artifact["renderer"] == "table"
+    assert csv_artifact["visibility"] == "public" and csv_artifact["downloadable"] is True
+    csv_text = (run_store.run_dir(run_id) / f"calc-{calc_id}-t1.csv").read_text(encoding="utf-8")
+    assert "2026Q2,375.75" in csv_text
+    html_text = (run_store.run_dir(run_id) / f"calc-{calc_id}.html").read_text(encoding="utf-8")
+    assert "茅台单季营收还原" in html_text and "<script" not in html_text
+    # 私有审计产物仍在、仍为 internal；calc 产物不影响既有四件。
+    assert paths["continuous-episode.json"]["visibility"] == "internal"
+    assert {"answer.md", "report.json"} <= set(paths)
+    assert not run.degrades
 
 
 def test_continuous_handled_turn_bypasses_legacy_and_persists_public_result(
@@ -3028,6 +3160,8 @@ def test_static_knowledge_lane_uses_neutral_generator_without_retrieval(
     assert captured["decision"].lane == "knowledge"
     assert "当前视角" not in result.content
     assert "非投资建议" not in result.content
+    assert conversation_store.load_messages(conversation.conversation_id)[-1].degrades == []
+    assert run_store.load_run(run_id).degrades == []
 
 
 def test_methodology_lane_never_falls_back_to_financial_rag(tmp_path) -> None:
@@ -3070,6 +3204,7 @@ def test_methodology_lane_never_falls_back_to_financial_rag(tmp_path) -> None:
     assert "方法论分析" in result.content
     assistant = conversation_store.load_messages(conversation.conversation_id)[-1]
     assert assistant.degrades == ["方法论回答生成暂时不可用"]
+    assert run_store.load_run(run_id).degrades == assistant.degrades
     controller = next(
         step
         for step in run_store.load_trace(run_id)
@@ -3409,10 +3544,14 @@ def test_static_knowledge_uses_local_retrieval_when_generation_is_unavailable(
     assert captured[0].question_type_override == QUESTION_CONCEPT_DEFINITION
     assistant = conversation_store.load_messages(conversation.conversation_id)[-1]
     assert assistant.citations[0]["source"] == "百科来源"
+    warning = "自然语言生成暂时不可用，本轮正文未经综述"
+    assert assistant.degrades == [warning]
+    assert run_store.load_run(run_id).degrades == [warning]
     report = json.loads(
         (run_store.run_dir(run_id) / "report.json").read_text(encoding="utf-8")
     )
     assert report["task_type"] == "knowledge"
+    assert report["warnings"] == [warning]
 
 
 def test_static_knowledge_fails_closed_when_generation_and_retrieval_fail(
@@ -3455,12 +3594,14 @@ def test_static_knowledge_fails_closed_when_generation_and_retrieval_fail(
     assert "未取得足够可靠的资料" in result.content
     assert "private diagnostic" not in result.content
     assistant = conversation_store.load_messages(conversation.conversation_id)[-1]
-    assert assistant.degrades == ["一般知识检索暂时不可用"]
+    expected = ["一般知识检索暂时不可用", "自然语言生成暂时不可用，本轮正文未经综述"]
+    assert assistant.degrades == expected
+    assert run_store.load_run(run_id).degrades == expected
     report = json.loads(
         (run_store.run_dir(run_id) / "report.json").read_text(encoding="utf-8")
     )
     assert report["task_type"] == "knowledge"
-    assert report["warnings"] == ["一般知识检索暂时不可用"]
+    assert report["warnings"] == expected
 
 
 def test_knowledge_follow_up_uses_bounded_conversation_context_without_retrieval(
@@ -5489,7 +5630,9 @@ def test_recovered_turn_prefixes_event_ids_to_avoid_replay_collisions(
     assert all(event["event_id"].startswith("recovery:2:") for event in events)
 
 
-def test_completed_stream_persists_human_readable_answer(tmp_path) -> None:
+def test_completed_stream_persists_human_readable_answer(tmp_path, monkeypatch) -> None:
+    # 展示契约只用本例 answer_spy；不能由外部 FINANCE_WS 读到真实最新交易日后注入盘面包。
+    monkeypatch.setenv("FINANCE_WS", str(tmp_path))
     conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
     run_store = RunStore("alice", root=tmp_path / "runs")
     conversation = conversation_store.create_conversation()
@@ -6141,8 +6284,20 @@ def test_market_forecast_head_route_does_not_enable_long_tail_agent(
     )
 
 
+@pytest.fixture
+def watchdog_clock(monkeypatch):
+    now = [1000.0]
+    # Replace only this module's clock; Event/Future timeouts stay on real time.
+    monkeypatch.setattr(
+        research_contract_service, "time", SimpleNamespace(monotonic=lambda: now[0])
+    )
+    return now
+
+
 def test_ask_watchdog_returns_partial_and_suppresses_late_progress(
     tmp_path,
+    monkeypatch,
+    watchdog_clock,
 ) -> None:
     conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
     run_store = RunStore("alice", root=tmp_path / "runs")
@@ -6157,8 +6312,12 @@ def test_ask_watchdog_returns_partial_and_suppresses_late_progress(
     release_worker = Event()
     worker_started = Event()
     late_progress_sent = Event()
+    worker_threads = []
+    forwarded_deltas = []
+    watchdog_timings: dict[str, float] = {}
 
     def blocking_answer(options: AskOptions) -> AskResult:
+        worker_threads.append(current_thread())
         assert llm_refine.current_call_ledger() is not None
         assert options.progress_callback is not None
         assert options.stream_cancel_check is not None
@@ -6166,15 +6325,19 @@ def test_ask_watchdog_returns_partial_and_suppresses_late_progress(
         assert not options.stream_cancel_check()
         options.progress_callback("agent_loop", "started", {"tool_count": 7})
         worker_started.set()
-        release_worker.wait(timeout=2)
+        assert options.deadline is not None
+        assert options.deadline.remaining() == pytest.approx(0.2)
+        # Expire the original absolute deadline only after the worker is ready.
+        watchdog_timings["expired"] = time.monotonic()
+        watchdog_clock[0] = options.deadline.expires_at
+        assert release_worker.wait(timeout=5), "test did not release the worker"
         assert options.stream_cancel_check()
         options.stream_text_delta("不应写入的迟到片段")
         options.progress_callback("agent_loop", "completed", {"tool_count": 7})
         late_progress_sent.set()
         return _ask_result(options.query)
 
-    started = time.monotonic()
-    result = TurnOrchestrator(
+    orchestrator = TurnOrchestrator(
         repo_root=tmp_path,
         conversation_store=conversation_store,
         run_store=run_store,
@@ -6188,6 +6351,103 @@ def test_ask_watchdog_returns_partial_and_suppresses_late_progress(
             max_skill_calls=3,
             max_elapsed_seconds=0.2,
         ),
+    )
+    original_watchdog = orchestrator._run_answer_query_with_watchdog
+
+    def observe_forwarded_text(options, **kwargs):
+        original_delta = options.stream_text_delta
+        assert original_delta is not None
+
+        def capture_delta(delta):
+            forwarded_deltas.append(delta)
+            original_delta(delta)
+
+        answer_result = original_watchdog(
+            replace(options, stream_text_delta=capture_delta), **kwargs
+        )
+        watchdog_timings["returned"] = time.monotonic()
+        return answer_result
+
+    monkeypatch.setattr(
+        orchestrator, "_run_answer_query_with_watchdog", observe_forwarded_text
+    )
+    try:
+        result = orchestrator.run_turn(
+            conversation_id=conversation.conversation_id,
+            run_id=run_id,
+            assistant_message_id=assistant_message_id,
+            query=query,
+            skill_mode="auto",
+            selected_skill_ids=[],
+        )
+        assert worker_started.is_set()
+        assert watchdog_timings["returned"] - watchdog_timings["expired"] < 0.8
+        assert not release_worker.is_set()
+        assert result.status == "completed"
+        assert "截止时间" in result.content
+        trace_before_release = run_store.load_trace(run_id)
+        assert any(
+            step["name"] == "ask_stage_agent_loop" and step["status"] == "running"
+            for step in trace_before_release
+        )
+        timeout_step = next(
+            step for step in trace_before_release if step["name"] == "ask_root_timeout"
+        )
+        assert json.loads(timeout_step["output_summary"]) == {
+            "remaining_ms": 0,
+            "worker_started": True,
+            "task_may_continue": True,
+        }
+
+        release_worker.set()
+        assert late_progress_sent.wait(timeout=5)
+        assert forwarded_deltas == []
+        assert run_store.load_trace(run_id) == trace_before_release
+        assistant = conversation_store.load_messages(conversation.conversation_id)[-1]
+        assert assistant.content == result.content
+        assert "迟到片段" not in assistant.content
+    finally:
+        release_worker.set()
+        for worker in worker_threads:
+            worker.join(timeout=5)
+            assert not worker.is_alive()
+
+
+def test_ask_watchdog_does_not_start_worker_after_preparation_exhausts_deadline(
+    tmp_path,
+    watchdog_clock,
+) -> None:
+    conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
+    run_store = RunStore("alice", root=tmp_path / "runs")
+    conversation = conversation_store.create_conversation()
+    query = "我希望你基于目前的市场数据，展望一下后面市场会怎么演绎"
+    run_id, assistant_message_id = _prepare_turn(
+        conversation_store, run_store, conversation.conversation_id, query
+    )
+    answer_calls = []
+
+    def slow_controller(query, **kwargs):
+        watchdog_clock[0] += 0.25
+        return _research_controller(query, **kwargs)
+
+    def unexpected_answer(options):
+        answer_calls.append(options.query)
+        return _ask_result(options.query)
+
+    result = TurnOrchestrator(
+        repo_root=tmp_path,
+        conversation_store=conversation_store,
+        run_store=run_store,
+        answer_query_fn=unexpected_answer,
+        route_skills_fn=lambda *args, **kwargs: SkillRouteResult(
+            (), fallback_to_ask=False, base_finance_fallback=True
+        ),
+        skill_registry=SkillRegistry(),
+        turn_controller_fn=slow_controller,
+        research_policy=ResearchExecutionPolicy(
+            max_skill_calls=3,
+            max_elapsed_seconds=0.2,
+        ),
     ).run_turn(
         conversation_id=conversation.conversation_id,
         run_id=run_id,
@@ -6196,25 +6456,15 @@ def test_ask_watchdog_returns_partial_and_suppresses_late_progress(
         skill_mode="auto",
         selected_skill_ids=[],
     )
-    elapsed = time.monotonic() - started
-
-    assert worker_started.is_set()
-    assert elapsed < 0.8
     assert result.status == "completed"
     assert "截止时间" in result.content
-    trace_before_release = run_store.load_trace(run_id)
-    assert any(
-        step["name"] == "ask_stage_agent_loop" and step["status"] == "running"
-        for step in trace_before_release
-    )
-    assert any(step["name"] == "ask_root_timeout" for step in trace_before_release)
-
-    release_worker.set()
-    assert late_progress_sent.wait(timeout=1)
-    assert run_store.load_trace(run_id) == trace_before_release
-    assistant = conversation_store.load_messages(conversation.conversation_id)[-1]
-    assert assistant.content == result.content
-    assert "迟到片段" not in assistant.content
+    assert answer_calls == []
+    trace = run_store.load_trace(run_id)
+    timeout_step = next(step for step in trace if step["name"] == "ask_root_timeout")
+    assert json.loads(timeout_step["output_summary"]) == {
+        "remaining_ms": 0,
+        "worker_started": False,
+    }
 
 
 def test_route_contract_and_verifier_share_rebound_task_frame(tmp_path) -> None:

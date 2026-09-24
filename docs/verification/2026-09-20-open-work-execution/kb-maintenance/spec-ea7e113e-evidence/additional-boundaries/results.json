@@ -1,0 +1,47 @@
+[
+  {
+    "case": "current-file-symlink",
+    "rejected": false,
+    "error": null,
+    "link": "/Users/a77/.finance-runtime/open-work-execution-20260920/kb-maintenance/spec-ea7e113e-evidence/additional-boundaries/symlink-current/generations-root/current.json",
+    "target": "/Users/a77/.finance-runtime/open-work-execution-20260920/kb-maintenance/spec-ea7e113e-evidence/additional-boundaries/symlink-current/external-current.json"
+  },
+  {
+    "case": "approval-file-symlink",
+    "rejected": false,
+    "error": null,
+    "link": "/Users/a77/.finance-runtime/open-work-execution-20260920/kb-maintenance/spec-ea7e113e-evidence/additional-boundaries/symlink-approval/generations-root/approvals/one.json",
+    "target": "/Users/a77/.finance-runtime/open-work-execution-20260920/kb-maintenance/spec-ea7e113e-evidence/additional-boundaries/symlink-approval/external-approval.json"
+  },
+  {
+    "case": "lock-identity-lost-before-error-path",
+    "error": "OSError: injected lock identity loss during update",
+    "failure_written_without_ownership": true,
+    "failure_path": "/Users/a77/.finance-runtime/open-work-execution-20260920/kb-maintenance/spec-ea7e113e-evidence/additional-boundaries/lost-lock/generations-root/failures/failed.json",
+    "old_current_unchanged": true,
+    "old_manifest_still_valid": true
+  },
+  {
+    "case": "root-identity-lost-before-error-path",
+    "error": "OSError: injected root identity loss during update",
+    "failure_written_without_ownership": true,
+    "failure_path": "/Users/a77/.finance-runtime/open-work-execution-20260920/kb-maintenance/spec-ea7e113e-evidence/additional-boundaries/lost-root/generations-root/failures/failed.json",
+    "replacement_root_entries": [
+      "failures",
+      "failures/failed.json"
+    ],
+    "replacement_root_evidence": "/Users/a77/.finance-runtime/open-work-execution-20260920/kb-maintenance/spec-ea7e113e-evidence/additional-boundaries/lost-root/replacement-root-evidence",
+    "old_current_unchanged": true,
+    "old_manifest_still_valid": true
+  },
+  {
+    "case": "remote-tag-changes-during-upload",
+    "returncode": 0,
+    "expected_code_sha": "ea7e113e99dfc611252b5c629845e8d9c23dfc0c",
+    "actual_remote_tag_sha": "ffffffffffffffffffffffffffffffffffffffff",
+    "receipt_status": "succeeded",
+    "receipt": "/Users/a77/.finance-runtime/open-work-execution-20260920/kb-maintenance/spec-ea7e113e-evidence/additional-boundaries/remote-tag-changes-after-create/generations-root/publications/996d482c8d8b445d9f9c685a75b41a84/receipt.json",
+    "transport": "local in-memory stub; no network",
+    "rejected": false
+  }
+]

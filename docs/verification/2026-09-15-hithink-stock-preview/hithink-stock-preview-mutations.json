@@ -1,0 +1,234 @@
+{
+  "tree": "/Users/a77/fwp-wt-hithink-stock-mutation-40317d78",
+  "revision": "40317d780d71de03ca6884c4c437b9accece0b49",
+  "module": "/Users/a77/fwp-wt-hithink-stock-mutation-40317d78/market_feature_store/hithink_stock_preview.py",
+  "tests": "tests/test_hithink_stock_preview.py",
+  "results": [
+    {
+      "id": "BASELINE",
+      "guard": "未变异基线",
+      "exit": 0,
+      "summary": "95 passed in 5.22s",
+      "failed": [],
+      "landed": null,
+      "expectation": "干净还原点应全绿"
+    },
+    {
+      "id": "M1",
+      "guard": "整数股约束",
+      "exit": 1,
+      "summary": "2 failed, 93 passed in 4.68s",
+      "failed": [
+        "test_bad_bars_block_without_dropping_fields[volume-150.5-invalid-volume-or-amount-day0-current]",
+        "test_bad_bars_block_without_dropping_fields[volume-150.5-invalid-volume-or-amount-day1-previous]"
+      ],
+      "landed": true,
+      "expectation": "小数股应被拒为 invalid-volume-or-amount"
+    },
+    {
+      "id": "M2",
+      "guard": "非现金事件拒绝",
+      "exit": 1,
+      "summary": "3 failed, 92 passed in 4.64s",
+      "failed": [
+        "test_actions_are_explicit_not_null_to_zero_or_cash_fallback[options0-unsupported-noncash-action]",
+        "test_actions_are_explicit_not_null_to_zero_or_cash_fallback[options1-unsupported-noncash-action]",
+        "test_actions_are_explicit_not_null_to_zero_or_cash_fallback[options2-unsupported-noncash-action]"
+      ],
+      "landed": true,
+      "expectation": "送转/配股应拒绝，不得套用现金公式"
+    },
+    {
+      "id": "M3",
+      "guard": "固定 Decimal Context",
+      "exit": 1,
+      "summary": "3 failed, 92 passed in 5.10s",
+      "failed": [
+        "test_decimal_ambient_precision_rounding_and_traps_cannot_change_result",
+        "test_integer_oracle_agrees_with_half_up_price_amount_and_volume",
+        "test_percentage_half_up_ties_in_both_directions[8.01-0.13]"
+      ],
+      "landed": true,
+      "expectation": "结果不得随进程 context/traps/指数范围变化"
+    },
+    {
+      "id": "M4",
+      "guard": "参考价先按分舍入",
+      "exit": 1,
+      "summary": "1 failed, 94 passed in 6.14s",
+      "failed": [
+        "test_reference_price_rounds_half_up_before_percentage"
+      ],
+      "landed": true,
+      "expectation": "先舍入参考价再算涨幅，顺序不可换"
+    },
+    {
+      "id": "M5",
+      "guard": "零成交不当平盘",
+      "exit": 1,
+      "summary": "4 failed, 91 passed in 6.01s",
+      "failed": [
+        "test_bad_bars_block_without_dropping_fields[turnover-0-nontrading-or-zero-volume-amount-day0-current]",
+        "test_bad_bars_block_without_dropping_fields[turnover-0-nontrading-or-zero-volume-amount-day1-previous]",
+        "test_bad_bars_block_without_dropping_fields[volume-0-nontrading-or-zero-volume-amount-day0-current]",
+        "test_bad_bars_block_without_dropping_fields[volume-0-nontrading-or-zero-volume-amount-day1-previous]"
+      ],
+      "landed": true,
+      "expectation": "零量/零额必须进缺口，不得合成正常 K 线"
+    },
+    {
+      "id": "M6",
+      "guard": "缺前日/重复行不猜",
+      "exit": 1,
+      "summary": "6 failed, 89 passed in 7.03s",
+      "failed": [
+        "test_declared_denominator_is_not_reduced_to_observed_rows",
+        "test_duplicate_input_identities_not_silently_deduplicated[fact_stock_daily_hithink-duplicate-current-bar]",
+        "test_duplicate_previous_bar_and_missing_current_remain_gaps",
+        "test_input_order_does_not_change_scope_or_value_fingerprint",
+        "test_missing_previous_day_does_not_use_older_or_canonical_close",
+        "test_real_cli_exit_readonly_hash_and_scope[False]"
+      ],
+      "landed": true,
+      "expectation": "缺/重行必须进缺口（删掉后会越界，属崩溃式红）"
+    },
+    {
+      "id": "M7",
+      "guard": "显式分母不缩",
+      "exit": 1,
+      "summary": "1 failed, 94 passed in 10.90s",
+      "failed": [
+        "test_declared_denominator_is_not_reduced_to_observed_rows"
+      ],
+      "landed": true,
+      "expectation": "声明分母不得缩成实际算出的行数"
+    },
+    {
+      "id": "M8",
+      "guard": "production_ready 恒 false",
+      "exit": 1,
+      "summary": "56 failed, 39 passed in 9.62s",
+      "failed": [
+        "test_actions_are_explicit_not_null_to_zero_or_cash_fallback[options0-unsupported-noncash-action]",
+        "test_actions_are_explicit_not_null_to_zero_or_cash_fallback[options1-unsupported-noncash-action]",
+        "test_actions_are_explicit_not_null_to_zero_or_cash_fallback[options10-adjustment-provenance]",
+        "test_actions_are_explicit_not_null_to_zero_or_cash_fallback[options11-adjustment-provenance]",
+        "test_actions_are_explicit_not_null_to_zero_or_cash_fallback[options12-invalid-reference-price]",
+        "test_actions_are_explicit_not_null_to_zero_or_cash_fallback[options13-invalid-reference-price]",
+        "test_actions_are_explicit_not_null_to_zero_or_cash_fallback[options2-unsupported-noncash-action]",
+        "test_actions_are_explicit_not_null_to_zero_or_cash_fallback[options3-invalid-adjustment-values]",
+        "test_actions_are_explicit_not_null_to_zero_or_cash_fallback[options4-invalid-adjustment-values]",
+        "test_actions_are_explicit_not_null_to_zero_or_cash_fallback[options5-invalid-adjustment-values]",
+        "test_actions_are_explicit_not_null_to_zero_or_cash_fallback[options6-invalid-adjustment-values]",
+        "test_actions_are_explicit_not_null_to_zero_or_cash_fallback[options7-invalid-adjustment-values]",
+        "test_actions_are_explicit_not_null_to_zero_or_cash_fallback[options8-invalid-adjustment-values]",
+        "test_actions_are_explicit_not_null_to_zero_or_cash_fallback[options9-invalid-adjustment-values]",
+        "test_bad_bars_block_without_dropping_fields[adjusted-forward-bar-provenance-day0-current]",
+        "test_bad_bars_block_without_dropping_fields[adjusted-forward-bar-provenance-day1-previous]",
+        "test_bad_bars_block_without_dropping_fields[close-0-invalid-price-day0-current]",
+        "test_bad_bars_block_without_dropping_fields[close-0-invalid-price-day1-previous]",
+        "test_bad_bars_block_without_dropping_fields[close-10.001-invalid-price-tick-day0-current]",
+        "test_bad_bars_block_without_dropping_fields[close-10.001-invalid-price-tick-day1-previous]",
+        "test_bad_bars_block_without_dropping_fields[close-None-invalid-price-day0-current]",
+        "test_bad_bars_block_without_dropping_fields[close-None-invalid-price-day1-previous]",
+        "test_bad_bars_block_without_dropping_fields[high-9-invalid-ohlc-day0-current]",
+        "test_bad_bars_block_without_dropping_fields[high-9-invalid-ohlc-day1-previous]",
+        "test_bad_bars_block_without_dropping_fields[high-inf-invalid-price-day0-current]",
+        "test_bad_bars_block_without_dropping_fields[high-inf-invalid-price-day1-previous]",
+        "test_bad_bars_block_without_dropping_fields[low--1-invalid-price-day0-current]",
+        "test_bad_bars_block_without_dropping_fields[low--1-invalid-price-day1-previous]",
+        "test_bad_bars_block_without_dropping_fields[low-11-invalid-ohlc-day0-current]",
+        "test_bad_bars_block_without_dropping_fields[low-11-invalid-ohlc-day1-previous]",
+        "test_bad_bars_block_without_dropping_fields[open-nan-invalid-price-day0-current]",
+        "test_bad_bars_block_without_dropping_fields[open-nan-invalid-price-day1-previous]",
+        "test_bad_bars_block_without_dropping_fields[source-hithink:daily-k-10d:fake-bar-provenance-day0-current]",
+        "test_bad_bars_block_without_dropping_fields[source-hithink:daily-k-10d:fake-bar-provenance-day1-previous]",
+        "test_bad_bars_block_without_dropping_fields[turnover-0-nontrading-or-zero-volume-amount-day0-current]",
+        "test_bad_bars_block_without_dropping_fields[turnover-0-nontrading-or-zero-volume-amount-day1-previous]",
+        "test_bad_bars_block_without_dropping_fields[turnover-nan-invalid-volume-or-amount-day0-current]",
+        "test_bad_bars_block_without_dropping_fields[turnover-nan-invalid-volume-or-amount-day1-previous]",
+        "test_bad_bars_block_without_dropping_fields[updated_at-None-bar-provenance-day0-current]",
+        "test_bad_bars_block_without_dropping_fields[updated_at-None-bar-provenance-day1-previous]",
+        "test_bad_bars_block_without_dropping_fields[volume--1-invalid-volume-or-amount-day0-current]",
+        "test_bad_bars_block_without_dropping_fields[volume--1-invalid-volume-or-amount-day1-previous]",
+        "test_bad_bars_block_without_dropping_fields[volume-0-nontrading-or-zero-volume-amount-day0-current]",
+        "test_bad_bars_block_without_dropping_fields[volume-0-nontrading-or-zero-volume-amount-day1-previous]",
+        "test_bad_bars_block_without_dropping_fields[volume-150.5-invalid-volume-or-amount-day0-current]",
+        "test_bad_bars_block_without_dropping_fields[volume-150.5-invalid-volume-or-amount-day1-previous]",
+        "test_bad_bars_block_without_dropping_fields[volume-None-invalid-volume-or-amount-day0-current]",
+        "test_bad_bars_block_without_dropping_fields[volume-None-invalid-volume-or-amount-day1-previous]",
+        "test_declared_denominator_is_not_reduced_to_observed_rows",
+        "test_duplicate_input_identities_not_silently_deduplicated[fact_stock_adjustment_hithink-duplicate-adjustment]",
+        "test_duplicate_input_identities_not_silently_deduplicated[fact_stock_daily_hithink-duplicate-current-bar]",
+        "test_duplicate_previous_bar_and_missing_current_remain_gaps",
+        "test_missing_previous_day_does_not_use_older_or_canonical_close",
+        "test_real_cli_exit_readonly_hash_and_scope[False]",
+        "test_real_cli_exit_readonly_hash_and_scope[True]",
+        "test_units_reference_and_no_canonical_borrowing"
+      ],
+      "landed": true,
+      "expectation": "预演不得自称生产就绪"
+    },
+    {
+      "id": "M9",
+      "guard": "元→亿元换算",
+      "exit": 1,
+      "summary": "3 failed, 92 passed in 8.00s",
+      "failed": [
+        "test_integer_oracle_agrees_with_half_up_price_amount_and_volume",
+        "test_tiny_positive_turnover_and_volume_expose_rounding_not_suspension",
+        "test_units_reference_and_no_canonical_borrowing"
+      ],
+      "landed": true,
+      "expectation": "金额单位换算错了必须被抓"
+    },
+    {
+      "id": "M10",
+      "guard": "前一计划交易日",
+      "exit": 1,
+      "summary": "1 failed, 94 passed in 9.67s",
+      "failed": [
+        "test_weekend_is_crossed_by_schedule_not_latest_observation"
+      ],
+      "landed": true,
+      "expectation": "跨周末按交易日历，不用自然日前一天"
+    },
+    {
+      "id": "M11",
+      "guard": "行情来源标签",
+      "exit": 1,
+      "summary": "6 failed, 89 passed in 5.19s",
+      "failed": [
+        "test_bad_bars_block_without_dropping_fields[adjusted-forward-bar-provenance-day0-current]",
+        "test_bad_bars_block_without_dropping_fields[adjusted-forward-bar-provenance-day1-previous]",
+        "test_bad_bars_block_without_dropping_fields[source-hithink:daily-k-10d:fake-bar-provenance-day0-current]",
+        "test_bad_bars_block_without_dropping_fields[source-hithink:daily-k-10d:fake-bar-provenance-day1-previous]",
+        "test_bad_bars_block_without_dropping_fields[updated_at-None-bar-provenance-day0-current]",
+        "test_bad_bars_block_without_dropping_fields[updated_at-None-bar-provenance-day1-previous]"
+      ],
+      "landed": true,
+      "expectation": "来源/复权标签/更新时间不符必须进缺口"
+    },
+    {
+      "id": "M12",
+      "guard": "分价（两位小数）校验",
+      "exit": 1,
+      "summary": "2 failed, 93 passed in 5.63s",
+      "failed": [
+        "test_bad_bars_block_without_dropping_fields[close-10.001-invalid-price-tick-day0-current]",
+        "test_bad_bars_block_without_dropping_fields[close-10.001-invalid-price-tick-day1-previous]"
+      ],
+      "landed": true,
+      "expectation": "非分价价格必须进缺口"
+    },
+    {
+      "id": "RESTORED",
+      "guard": "全部还原后",
+      "exit": 0,
+      "summary": "95 passed in 6.91s",
+      "failed": [],
+      "landed": null,
+      "expectation": "还原后必须回到基线全绿"
+    }
+  ]
+}

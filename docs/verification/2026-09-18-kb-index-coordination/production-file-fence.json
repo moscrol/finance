@@ -1,0 +1,273 @@
+{
+  "started_at": "2026-09-18T14:15:34.427700+00:00",
+  "status": "fenced",
+  "mechanism": "UF_IMMUTABLE",
+  "scope": "two local index directories and their files; not remote releases",
+  "entries": [
+    {
+      "path": "/Users/a77/knowledge-base-private/.rag_index",
+      "flags": 0,
+      "device": 16777234,
+      "inode": 54110186,
+      "size": 448,
+      "mtime_ns": 1789737852404956333,
+      "sha256": null
+    },
+    {
+      "path": "/Users/a77/knowledge-base-private/.rag_index/bm25.pkl.gz",
+      "flags": 0,
+      "device": 16777234,
+      "inode": 54110189,
+      "size": 42620819,
+      "mtime_ns": 1781848756390447616,
+      "sha256": "ace84f10b0aa53ccc37d12ea39c53021cf928f61770a6a6fc0cc05ee739e079f"
+    },
+    {
+      "path": "/Users/a77/knowledge-base-private/.rag_index/bm25_csc.data.npy",
+      "flags": 0,
+      "device": 16777234,
+      "inode": 169427036,
+      "size": 134752848,
+      "mtime_ns": 1789737852399850791,
+      "sha256": "330a6c687ddaa4e4370375a11c857302ee759b3b0b09fb3037a17b5ac6a8148c"
+    },
+    {
+      "path": "/Users/a77/knowledge-base-private/.rag_index/bm25_csc.indices.npy",
+      "flags": 0,
+      "device": 16777234,
+      "inode": 169427035,
+      "size": 134752848,
+      "mtime_ns": 1789737852357398458,
+      "sha256": "3f56b43534f11b2cbc905402f821b4536043b5fc2debf0762555e70c411d8642"
+    },
+    {
+      "path": "/Users/a77/knowledge-base-private/.rag_index/bm25_csc.indptr.npy",
+      "flags": 0,
+      "device": 16777234,
+      "inode": 169427034,
+      "size": 4246704,
+      "mtime_ns": 1789737852326743208,
+      "sha256": "67400e5fa6133872f4dde8c5d56ae010bf39c4e6c4a3ad821241d237122f4227"
+    },
+    {
+      "path": "/Users/a77/knowledge-base-private/.rag_index/bm25_csc.meta.json",
+      "flags": 0,
+      "device": 16777234,
+      "inode": 169427039,
+      "size": 391,
+      "mtime_ns": 1789737852404847333,
+      "sha256": "7979f6b0f80f42141cf92d71e9cbbf0b9be65ba413351a75e462fc39be3b415d"
+    },
+    {
+      "path": "/Users/a77/knowledge-base-private/.rag_index/bm25_csc.term_offsets.npy",
+      "flags": 0,
+      "device": 16777234,
+      "inode": 169427037,
+      "size": 4246704,
+      "mtime_ns": 1789737852401044333,
+      "sha256": "b477794fae8ef86b8969933003e39aea5178b47abbb11fffe914637e85931d5e"
+    },
+    {
+      "path": "/Users/a77/knowledge-base-private/.rag_index/bm25_csc.terms.bin",
+      "flags": 0,
+      "device": 16777234,
+      "inode": 169427038,
+      "size": 3286349,
+      "mtime_ns": 1789737852403780999,
+      "sha256": "78d0a7be61d9a6e9bfcd9e4c519b2936116073441998561377962f35c6358704"
+    },
+    {
+      "path": "/Users/a77/knowledge-base-private/.rag_index/bm25_tokens.jsonl.gz",
+      "flags": 0,
+      "device": 16777234,
+      "inode": 169420457,
+      "size": 60997189,
+      "mtime_ns": 1789737834939529458,
+      "sha256": "df5f793c89ba66c228b3af6a595dc5812360be4346e080e318e258568948390f"
+    },
+    {
+      "path": "/Users/a77/knowledge-base-private/.rag_index/chunks.jsonl",
+      "flags": 0,
+      "device": 16777234,
+      "inode": 169420453,
+      "size": 208794298,
+      "mtime_ns": 1789737821587076749,
+      "sha256": "ae8109cc19a4853e9d9725e1f4d9278db5ece2bf59b369fef3fdcfedc73b749d"
+    },
+    {
+      "path": "/Users/a77/knowledge-base-private/.rag_index/dense.npy",
+      "flags": 0,
+      "device": 16777234,
+      "inode": 169420455,
+      "size": 347412608,
+      "mtime_ns": 1789737821667047874,
+      "sha256": "bbafa63d9e287c2cf28f8fd97a6f13d71ff47902fba2d823d0b290745a74b15e"
+    },
+    {
+      "path": "/Users/a77/knowledge-base-private/.rag_index/file_stat_cache.jsonl",
+      "flags": 0,
+      "device": 16777234,
+      "inode": 54110187,
+      "size": 2634866,
+      "mtime_ns": 1789737821694952333,
+      "sha256": "dfb18225a1fc05ae50f9a9939a77e7aea1aad31b1af0a0da544cd8fb5af8d0e7"
+    },
+    {
+      "path": "/Users/a77/knowledge-base-private/.rag_index/meta.json",
+      "flags": 0,
+      "device": 16777234,
+      "inode": 54110197,
+      "size": 831,
+      "mtime_ns": 1789737821668436958,
+      "sha256": "59d0d38687f02d7e55fcaf8373cef05eea1295514953d123568a57b79b68bcd5"
+    },
+    {
+      "path": "/Users/a77/knowledge-base-private/.rag_index_full",
+      "flags": 0,
+      "device": 16777234,
+      "inode": 10239199,
+      "size": 448,
+      "mtime_ns": 1789740191167081249,
+      "sha256": null
+    },
+    {
+      "path": "/Users/a77/knowledge-base-private/.rag_index_full/bm25.pkl.gz",
+      "flags": 0,
+      "device": 16777234,
+      "inode": 10239200,
+      "size": 72716820,
+      "mtime_ns": 1781847802477753400,
+      "sha256": "672b2faec3a13d9e5213f235b364522b99d3f47aee5a83456756242098351bbb"
+    },
+    {
+      "path": "/Users/a77/knowledge-base-private/.rag_index_full/bm25_csc.data.npy",
+      "flags": 0,
+      "device": 16777234,
+      "inode": 169657993,
+      "size": 197597180,
+      "mtime_ns": 1789740191134021583,
+      "sha256": "d1d1a34bdfe444ac5788d5995aded121f7d3c0253e6e6983f2d91b47c03343a4"
+    },
+    {
+      "path": "/Users/a77/knowledge-base-private/.rag_index_full/bm25_csc.indices.npy",
+      "flags": 0,
+      "device": 16777234,
+      "inode": 169657956,
+      "size": 197597180,
+      "mtime_ns": 1789740190856745791,
+      "sha256": "aab5c71507f472f7e27147562ef22ceff130596eb906a69fbd54d93bebbc3253"
+    },
+    {
+      "path": "/Users/a77/knowledge-base-private/.rag_index_full/bm25_csc.indptr.npy",
+      "flags": 0,
+      "device": 16777234,
+      "inode": 169657952,
+      "size": 6375320,
+      "mtime_ns": 1789740190501528958,
+      "sha256": "9e5120700a69555856fc172d74c77ba31d5e5dd5c415be2a4b0f57625fed5b0f"
+    },
+    {
+      "path": "/Users/a77/knowledge-base-private/.rag_index_full/bm25_csc.meta.json",
+      "flags": 0,
+      "device": 16777234,
+      "inode": 169658023,
+      "size": 391,
+      "mtime_ns": 1789740191166226874,
+      "sha256": "a546abcd0b746d32720cad76d5257fec4015030f0b4d2b725e7582f8813151ff"
+    },
+    {
+      "path": "/Users/a77/knowledge-base-private/.rag_index_full/bm25_csc.term_offsets.npy",
+      "flags": 0,
+      "device": 16777234,
+      "inode": 169658018,
+      "size": 6375320,
+      "mtime_ns": 1789740191145987291,
+      "sha256": "4e0e43eadc6444e5df8bea047405c39a473a6f02a586a1bb731c4678f64dd1cd"
+    },
+    {
+      "path": "/Users/a77/knowledge-base-private/.rag_index_full/bm25_csc.terms.bin",
+      "flags": 0,
+      "device": 16777234,
+      "inode": 169658020,
+      "size": 5459342,
+      "mtime_ns": 1789740191158603583,
+      "sha256": "99a755ed7e9e3c7315ce1beaaca2870cfe9bc11a647fd70bf5cbb09648496ffd"
+    },
+    {
+      "path": "/Users/a77/knowledge-base-private/.rag_index_full/bm25_tokens.jsonl.gz",
+      "flags": 0,
+      "device": 16777234,
+      "inode": 169623135,
+      "size": 95847064,
+      "mtime_ns": 1789739957975421999,
+      "sha256": "57d42bc0902ec8ac7e89a8353bab7f45c33b176ea33dff2b41c6d9a460c367c4"
+    },
+    {
+      "path": "/Users/a77/knowledge-base-private/.rag_index_full/chunks.jsonl",
+      "flags": 0,
+      "device": 16777234,
+      "inode": 169622350,
+      "size": 285112450,
+      "mtime_ns": 1789739892760592541,
+      "sha256": "1788656019e07e4a306e5f34e3cd88bfca67f55bf98b20b205132185193fa115"
+    },
+    {
+      "path": "/Users/a77/knowledge-base-private/.rag_index_full/dense.npy",
+      "flags": 0,
+      "device": 16777234,
+      "inode": 169622451,
+      "size": 472213632,
+      "mtime_ns": 1789739894261508666,
+      "sha256": "530660ba365bc4fb59149e2e4fdcc8d200ef27c1396b55c8b969a81d1e550683"
+    },
+    {
+      "path": "/Users/a77/knowledge-base-private/.rag_index_full/file_stat_cache.jsonl",
+      "flags": 0,
+      "device": 16777234,
+      "inode": 51920880,
+      "size": 2797089,
+      "mtime_ns": 1789739894416606499,
+      "sha256": "366e9c052ba64610ee385e06b04865f5f7f510d7ea3e649cc5f3318cccca14ed"
+    },
+    {
+      "path": "/Users/a77/knowledge-base-private/.rag_index_full/meta.json",
+      "flags": 0,
+      "device": 16777234,
+      "inode": 10239203,
+      "size": 830,
+      "mtime_ns": 1789739894274359999,
+      "sha256": "bd25c24530d0dd69b7dff9220e32c18ffe42d1c49ddd78e325aef71eba25a6df"
+    }
+  ],
+  "open_file_snapshot": [],
+  "applied": [
+    "/Users/a77/knowledge-base-private/.rag_index",
+    "/Users/a77/knowledge-base-private/.rag_index/bm25.pkl.gz",
+    "/Users/a77/knowledge-base-private/.rag_index/bm25_csc.data.npy",
+    "/Users/a77/knowledge-base-private/.rag_index/bm25_csc.indices.npy",
+    "/Users/a77/knowledge-base-private/.rag_index/bm25_csc.indptr.npy",
+    "/Users/a77/knowledge-base-private/.rag_index/bm25_csc.meta.json",
+    "/Users/a77/knowledge-base-private/.rag_index/bm25_csc.term_offsets.npy",
+    "/Users/a77/knowledge-base-private/.rag_index/bm25_csc.terms.bin",
+    "/Users/a77/knowledge-base-private/.rag_index/bm25_tokens.jsonl.gz",
+    "/Users/a77/knowledge-base-private/.rag_index/chunks.jsonl",
+    "/Users/a77/knowledge-base-private/.rag_index/dense.npy",
+    "/Users/a77/knowledge-base-private/.rag_index/file_stat_cache.jsonl",
+    "/Users/a77/knowledge-base-private/.rag_index/meta.json",
+    "/Users/a77/knowledge-base-private/.rag_index_full",
+    "/Users/a77/knowledge-base-private/.rag_index_full/bm25.pkl.gz",
+    "/Users/a77/knowledge-base-private/.rag_index_full/bm25_csc.data.npy",
+    "/Users/a77/knowledge-base-private/.rag_index_full/bm25_csc.indices.npy",
+    "/Users/a77/knowledge-base-private/.rag_index_full/bm25_csc.indptr.npy",
+    "/Users/a77/knowledge-base-private/.rag_index_full/bm25_csc.meta.json",
+    "/Users/a77/knowledge-base-private/.rag_index_full/bm25_csc.term_offsets.npy",
+    "/Users/a77/knowledge-base-private/.rag_index_full/bm25_csc.terms.bin",
+    "/Users/a77/knowledge-base-private/.rag_index_full/bm25_tokens.jsonl.gz",
+    "/Users/a77/knowledge-base-private/.rag_index_full/chunks.jsonl",
+    "/Users/a77/knowledge-base-private/.rag_index_full/dense.npy",
+    "/Users/a77/knowledge-base-private/.rag_index_full/file_stat_cache.jsonl",
+    "/Users/a77/knowledge-base-private/.rag_index_full/meta.json"
+  ],
+  "completed_at": "2026-09-18T14:15:36.673197+00:00",
+  "files": 24
+}

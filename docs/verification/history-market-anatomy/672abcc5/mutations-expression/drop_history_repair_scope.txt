@@ -1,0 +1,18 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+____ test_repair_does_not_replace_history_evidence_gaps_with_forward_slots _____
+tests/test_history_expression_contract_boundary.py:101: in test_repair_does_not_replace_history_evidence_gaps_with_forward_slots
+    assert actual == original
+E   AssertionError: assert VerifiedEpiso...on_outputs=()) == VerifiedEpiso...on_outputs=())
+E     
+E     Omitting 8 identical items, use -vv to show
+E     Differing attributes:
+E     ['missing_outputs']
+E     
+E     Drill down into differing attribute missing_outputs:
+E       missing_outputs: ('direct_assessment', 'counterpoint', 'evidence_boundary', 'track_quad_or_baseline', 'track_ttl', 'track_next_watch', 'ranking_matrix', 'ranking_flip_conditions', 'ranking_competing_explanations', 'ranking_next_actions') != ('direct_assessment', 'counterpoint', 'evidence_boundary')
+E       Left contains 7 more items, first extra item: 'track_quad_or_baseline'
+E       Use -v to get more diff
+=========================== short test summary info ============================
+FAILED tests/test_history_expression_contract_boundary.py::test_repair_does_not_replace_history_evidence_gaps_with_forward_slots
+1 failed in 0.47s

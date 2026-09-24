@@ -1,0 +1,36 @@
+{
+  "source_sha256": "edabef87f97baf92abf0783bbb0a8712ab001fdaefbf886a4e906bd82211614e",
+  "results": [
+    {
+      "mutation": "index-scope",
+      "test": "test_prepare_preserves_real_index_refs_and_other_staged_content",
+      "exit_code": 1,
+      "caught": true
+    },
+    {
+      "mutation": "tree-identity",
+      "test": "test_valid_archive_but_different_tree_is_rejected",
+      "exit_code": 1,
+      "caught": true
+    },
+    {
+      "mutation": "base-parent",
+      "test": "test_same_tree_with_wrong_parent_is_rejected",
+      "exit_code": 1,
+      "caught": true
+    },
+    {
+      "mutation": "nonzero-exit",
+      "test": "test_prepare_rejects_invalid_archive_with_nonzero_exit[hash]",
+      "exit_code": 1,
+      "caught": true
+    },
+    {
+      "mutation": "recheck-actual",
+      "test": "test_verification_rechecks_archive_even_if_trees_match",
+      "exit_code": 1,
+      "caught": true
+    }
+  ],
+  "ok": true
+}

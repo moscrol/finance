@@ -1,0 +1,80 @@
+{
+  "fixture_kind": "live_product",
+  "run_id": "run_20260922_191550_067475",
+  "question_type": "comparison_analog",
+  "question": "截至2026年9月18日，这里的行情哪个板块更有机会，历史上有相似的阶段吗？",
+  "captured_at": "2026-09-22T19:17+08:00",
+  "frozen_at": "2026-09-22T23:49:03+08:00",
+  "source_root": "<runtime>/reviews/research-preservation-natural-live-20260922/users/<redacted-user>/runs/run_20260922_191550_067475",
+  "workorder": "docs/superpowers/specs/2026-09-22-research-empty-delivery-gate-pr-workorder.md（收口批 #70）",
+  "incident": "模型在自由文本里写完 2518 字完整答案，却把结构化 finish 的 draft 填成指针「见正文：……」；运行时按 draft 交付，用户收到 154 字、report.modules=0；77 条证据全绑定、结构核验 partial、语义判官 passed、marker_coverage=incomplete 但 observation_only",
+  "sources": {
+    "answer.md": {
+      "sha256": "988fdb545016209e70b6ba9f88b1d681a51b6d399d90432ef95e483d5b7abe69",
+      "bytes": 440
+    },
+    "report.json": {
+      "sha256": "496bc21098b059f168efe7b177bcb7da74f903542d78fa889f556260164b4b21",
+      "bytes": 3917
+    },
+    "continuous-episode.json": {
+      "sha256": "fc91b4d3eb0691ae759371178ed139dcc3b105b3e2d1a007171f27278fcf6eea",
+      "bytes": 1271077
+    }
+  },
+  "frozen": {
+    "answer.md": {
+      "sha256": "988fdb545016209e70b6ba9f88b1d681a51b6d399d90432ef95e483d5b7abe69",
+      "bytes": 440,
+      "verbatim": true,
+      "chars": 154
+    },
+    "report.json": {
+      "sha256": "26fb0e698437f0dddca0f1be040bc8597966b1355d058d1a1c395cc7b491bd1d",
+      "bytes": 3918,
+      "verbatim": true,
+      "note": "仅重排版（indent=2），字段与值逐字保留"
+    },
+    "continuous-episode.json": {
+      "sha256": "6ca5710502b8627ce7084b3d335a9f2cc707d3a38685ba6bab4b75b6490d2910",
+      "bytes": 235199,
+      "verbatim": false,
+      "projection": {
+        "dropped_paths": [
+          {
+            "path": "outcome.events",
+            "replaced_with": {
+              "$duplicate_of": "events"
+            }
+          },
+          {
+            "path": "structural_verifier.outcome",
+            "replaced_with": {
+              "$duplicate_of": "outcome"
+            }
+          },
+          {
+            "path": "semantic_verifier.verified",
+            "replaced_with": {
+              "$duplicate_of": "outcome + events"
+            }
+          }
+        ],
+        "kept": "其余全部字段逐字保留，含 events[*].payload.content（模型自由文本原文）、outcome.draft（finish 的 draft 原文）、contract / task_frame / outcome.evidence（77 条）/ outcome.bindings / structural_verifier / semantic_verifier 摘要字段",
+        "reason": "三处是同一 outcome / events 的整份重复拷贝（1.27 MB 里约 0.56 MB），去重后不改任何措辞"
+      }
+    }
+  },
+  "redaction": {
+    "rules": [
+      "家目录绝对路径 → <redacted-path>",
+      "探针用户 id → <redacted-user>"
+    ],
+    "applied": {
+      "answer.md": 0,
+      "report.json": 0,
+      "continuous-episode.json": 0
+    }
+  },
+  "wording_policy": "夹具正文逐字冻结、不许改措辞。任何改动都会改变 frozen.*.sha256，test_public_delivery_gate_live_products 会红；确需更新时同步改本 manifest 并在 PR 里说明。"
+}

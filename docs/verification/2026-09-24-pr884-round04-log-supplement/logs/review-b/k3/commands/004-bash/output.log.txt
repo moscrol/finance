@@ -1,0 +1,7 @@
+     785 docs/agent-product-door.md
+     711 intelligence/services/episode_store.py
+     523 intelligence/services/episode_inbox.py
+     862 intelligence/services/episode_restore.py
+    4151 intelligence/runtime/agent_episode.py
+    2587 intelligence/runtime/continuous_turn_adapter.py
+    9619 total

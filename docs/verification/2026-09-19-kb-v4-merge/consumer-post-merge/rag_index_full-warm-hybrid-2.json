@@ -1,0 +1,257 @@
+{
+  "ok": true,
+  "command": "rag_index.py query <q> --k 19 --mode hybrid --evidence-chars 1750 --json",
+  "citation_source": "knowledge-base · rag_index.py query --mode hybrid（匹配 chunk 证据）",
+  "index_dir": "/Users/a77/.finance-runtime/kb-dual-index-20260918/staging-v4/.rag_index_full",
+  "hits": [
+    {
+      "page_id": "sources/液冷服务器_DeepDive_数据抽取_20260604",
+      "file_path": "wiki/sources/液冷服务器_DeepDive_数据抽取_20260604.md",
+      "title": "液冷服务器_DeepDive_数据抽取_20260604",
+      "score": 0.194493,
+      "excerpt": "IMA 液冷服务器题材 Deep Dive 原始情报解析池，用于写入 [[液冷服务器]] concept graph。共解析 28 条结构化情报项（其中 hard_fact 候选 0 条、需人工复核 28 条），按 review_required 守恒口径，不直接升级为 hard fact / entity_delta。",
+      "llm_evidence": "IMA 液冷服务器题材 Deep Dive 原始情报解析池，用于写入 [[液冷服务器]] concept graph。共解析 28 条结构化情报项（其中 hard_fact 候选 0 条、需人工复核 28 条），按 review_required 守恒口径，不直接升级为 hard fact / entity_delta。",
+      "display_excerpt": "IMA 液冷服务器题材 Deep Dive 原始情报解析池，用于写入 [[液冷服务器]] concept graph。共解析 28 条结构化情报项（其中 hard_fact 候选 0 条、需人工复核 28 条），按 review_required 守恒口径，不直接升级为 hard fact / entity_delta。",
+      "best_chunk_id": "wiki/sources/液冷服务器_DeepDive_数据抽取_20260604.md::2",
+      "evidence_chunk_ids": [
+        "wiki/sources/液冷服务器_DeepDive_数据抽取_20260604.md::2",
+        "wiki/sources/液冷服务器_DeepDive_数据抽取_20260604.md::1"
+      ],
+      "evidence_query_terms": [
+        "液冷"
+      ],
+      "evidence_char_budget": 1400,
+      "section": "液冷服务器_DeepDive_数据抽取_20260604 > 相关概念",
+      "content_hash": "52356650f3c7a3f458552df43585a80d2ea38a9b",
+      "index_built_at": "2026-09-18T15:01:48Z",
+      "index_source_revision": "manifest:v1:47bcda0365b37d9de58c4b07ca867b7696a3c54b897fe09a2e1eae3f13169c8d",
+      "index_freshness": "fresh",
+      "evidence_layer": "",
+      "fact_hardness": "",
+      "source_type": "",
+      "via_neighbor": false,
+      "source_date": "",
+      "source_quality": "",
+      "publish_time": "2026-06-04",
+      "available_time": "2026-06-13",
+      "review_required": "",
+      "source_refs": [],
+      "content_validity": "valid",
+      "evidence_scope_bound": false,
+      "reexcerpted": true,
+      "deep_read_section": "液冷服务器_DeepDive_数据抽取_20260604 > 相关概念",
+      "deep_read_sections": [
+        "液冷服务器_DeepDive_数据抽取_20260604 > 相关概念"
+      ],
+      "deep_read_blocks": [
+        [
+          "液冷服务器_DeepDive_数据抽取_20260604 > 相关概念",
+          "[[液冷系统全栈集成]] · [[液冷系统集成+数据中心温控]] · [[浸没式液冷系统]] · [[数据中心温控+液冷]] · [[液冷电子泵]] · [[液冷管路]] · [[软管]] · [[快接头（UQD）]] · [[板式换热器]] · [[冷板+液冷系统]] · [[导热界面材料]] · [[电磁屏蔽+导热]] · [[真空钎焊]] · [[冷板制造]] · [[微通道加工]] · [[冷板内部流道]] · [[氟化液（浸没式）]] · [[浸没式冷却介质]]"
+        ]
+      ],
+      "deep_read_paragraphs": [
+        "[[液冷系统全栈集成]] · [[液冷系统集成+数据中心温控]] · [[浸没式液冷系统]] · [[数据中心温控+液冷]] · [[液冷电子泵]] · [[液冷管路]] · [[软管]] · [[快接头（UQD）]] · [[板式换热器]] · [[冷板+液冷系统]] · [[导热界面材料]] · [[电磁屏蔽+导热]] · [[真空钎焊]] · [[冷板制造]] · [[微通道加工]] · [[冷板内部流道]] · [[氟化液（浸没式）]] · [[浸没式冷却介质]]"
+      ],
+      "deep_read_truncated": false,
+      "deep_read_omitted_chars": 0,
+      "page_outline": [
+        "液冷服务器_DeepDive_数据抽取_20260604",
+        "液冷服务器_DeepDive_数据抽取_20260604 > 摘要"
+      ],
+      "section_latest_date": "",
+      "recovered_from_source": false
+    },
+    {
+      "page_id": "concepts/液冷技术",
+      "file_path": "wiki/concepts/液冷技术.md",
+      "title": "液冷技术",
+      "score": 0.190661,
+      "excerpt": "占位概念页：该概念由 missing wikilinks agent-selected 决策生成，用于修复断链和承接题材雷达后续补证。",
+      "llm_evidence": "占位概念页：该概念由 missing wikilinks agent-selected 决策生成，用于修复断链和承接题材雷达后续补证。",
+      "display_excerpt": "占位概念页：该概念由 missing wikilinks agent-selected 决策生成，用于修复断链和承接题材雷达后续补证。",
+      "best_chunk_id": "wiki/concepts/液冷技术.md::4",
+      "evidence_chunk_ids": [
+        "wiki/concepts/液冷技术.md::4",
+        "wiki/concepts/液冷技术.md::3"
+      ],
+      "evidence_query_terms": [
+        "液冷"
+      ],
+      "evidence_char_budget": 1400,
+      "section": "液冷技术 > 相关概念",
+      "content_hash": "a51518b0ea92f4f7540eb7ae29adc5c2fe421f75",
+      "index_built_at": "2026-09-18T15:01:48Z",
+      "index_source_revision": "manifest:v1:47bcda0365b37d9de58c4b07ca867b7696a3c54b897fe09a2e1eae3f13169c8d",
+      "index_freshness": "fresh",
+      "evidence_layer": "",
+      "fact_hardness": "",
+      "source_type": "",
+      "via_neighbor": false,
+      "source_date": "",
+      "source_quality": "",
+      "publish_time": "",
+      "available_time": "",
+      "review_required": "",
+      "source_refs": [
+        "[[晚研_20260623]]"
+      ],
+      "content_validity": "valid",
+      "evidence_scope_bound": false,
+      "reexcerpted": true,
+      "deep_read_section": "液冷技术 > 相关概念",
+      "deep_read_sections": [
+        "液冷技术 > 相关概念"
+      ],
+      "deep_read_blocks": [
+        [
+          "液冷技术 > 相关概念",
+          "[[液冷]] · [[数据中心液冷]]"
+        ]
+      ],
+      "deep_read_paragraphs": [
+        "[[液冷]] · [[数据中心液冷]]"
+      ],
+      "deep_read_truncated": false,
+      "deep_read_omitted_chars": 0,
+      "page_outline": [
+        "液冷技术",
+        "液冷技术 > 速览",
+        "液冷技术 > 待补证定义",
+        "液冷技术 > 首批出现位置",
+        "液冷技术 > 概念增量 > 2026-06-23｜晚研_20260623",
+        "液冷技术 > 概念增量 > 2026-06-23｜晚研_20260623 > 边际变化",
+        "液冷技术 > 概念增量 > 2026-06-23｜晚研_20260623 > 标的增量"
+      ],
+      "section_latest_date": "",
+      "recovered_from_source": false
+    },
+    {
+      "page_id": "concepts/液冷",
+      "file_path": "wiki/concepts/液冷.md",
+      "title": "液冷",
+      "score": 0.19024,
+      "excerpt": "占位概念页：该概念由剩余高频 missing wikilinks 清理生成，用于修复断链和承接题材雷达后续补证。",
+      "llm_evidence": "占位概念页：该概念由剩余高频 missing wikilinks 清理生成，用于修复断链和承接题材雷达后续补证。",
+      "display_excerpt": "占位概念页：该概念由剩余高频 missing wikilinks 清理生成，用于修复断链和承接题材雷达后续补证。",
+      "best_chunk_id": "wiki/concepts/液冷.md::4",
+      "evidence_chunk_ids": [
+        "wiki/concepts/液冷.md::4",
+        "wiki/concepts/液冷.md::3"
+      ],
+      "evidence_query_terms": [
+        "液冷"
+      ],
+      "evidence_char_budget": 1400,
+      "section": "液冷 > 相关概念",
+      "content_hash": "212345788932d92f785567d9109d3a9dfa489dd0",
+      "index_built_at": "2026-09-18T15:01:48Z",
+      "index_source_revision": "manifest:v1:47bcda0365b37d9de58c4b07ca867b7696a3c54b897fe09a2e1eae3f13169c8d",
+      "index_freshness": "fresh",
+      "evidence_layer": "",
+      "fact_hardness": "",
+      "source_type": "",
+      "via_neighbor": false,
+      "source_date": "",
+      "source_quality": "",
+      "publish_time": "",
+      "available_time": "",
+      "review_required": "",
+      "source_refs": [
+        "[[0502卖方观点合集]]",
+        "[[0507卖方观点合集]]",
+        "[[0510卖方观点合集]]",
+        "[[0511卖方观点合集]]",
+        "[[晚卖研汇_20260616]]",
+        "[[晚卖研汇_20260618]]",
+        "[[晚间卖方研报20260708]]",
+        "[[晚卖研汇_20260430]]",
+        "[[晚卖研汇_20260621]]",
+        "[[晚卖研汇3_20260621]]",
+        "[[晚研_20260622]]",
+        "[[晚研_20260417]]",
+        "[[晚卖研汇_20260622]]",
+        "[[晚卖研汇_20260620]]",
+        "[[晚间卖方研报20260706]]",
+        "[[液冷服务器产业新变化与新格局全面分析报告]]"
+      ],
+      "content_validity": "valid",
+      "evidence_scope_bound": false,
+      "reexcerpted": true,
+      "deep_read_section": "液冷 > 相关概念",
+      "deep_read_sections": [
+        "液冷 > 相关概念"
+      ],
+      "deep_read_blocks": [
+        [
+          "液冷 > 相关概念",
+          "[[CPU]] · [[连接器]] · [[光模块]] · [[先进封装]] · [[陶瓷基板]] · [[散热器]] · [[数据中心电源]] · [[HVDC高压直流]] · [[人形机器人]] · [[AI电源]] · [[数据中心液冷]] · [[AI算力]] · [[算力租赁]] · [[液冷服务器]] · [[液冷散热]] · [[英伟达链]] · [[制冷设备]] · [[冷板式液冷]] · [[浸没式液冷]] · [[氟化液]] · [[AI服务器]]"
+        ]
+      ],
+      "deep_read_paragraphs": [
+        "[[CPU]] · [[连接器]] · [[光模块]] · [[先进封装]] · [[陶瓷基板]] · [[散热器]] · [[数据中心电源]] · [[HVDC高压直流]] · [[人形机器人]] · [[AI电源]] · [[数据中心液冷]] · [[AI算力]] · [[算力租赁]] · [[液冷服务器]] · [[液冷散热]] · [[英伟达链]] · [[制冷设备]] · [[冷板式液冷]] · [[浸没式液冷]] · [[氟化液]] · [[AI服务器]]"
+      ],
+      "deep_read_truncated": false,
+      "deep_read_omitted_chars": 0,
+      "page_outline": [
+        "液冷",
+        "液冷 > 速览",
+        "液冷 > 待补证定义",
+        "液冷 > 首批出现位置",
+        "液冷 > 概念增量 > 2026-05-02｜0502卖方观点合集",
+        "液冷 > 概念增量 > 2026-05-02｜0502卖方观点合集 > 边际变化",
+        "液冷 > 概念增量 > 2026-05-07｜0507卖方观点合集",
+        "液冷 > 概念增量 > 2026-05-07｜0507卖方观点合集 > 边际变化"
+      ],
+      "section_latest_date": "",
+      "recovered_from_source": false
+    }
+  ],
+  "warning": "",
+  "telemetry": {
+    "mode": "hybrid",
+    "requested_mode": "hybrid",
+    "effective_mode": "hybrid",
+    "fallback_reason": "",
+    "recall_desc": "BM25 关键词 + 稠密向量(BGE-m3) + RRF 融合",
+    "index_kind": "full",
+    "index_dir": "/Users/a77/.finance-runtime/kb-dual-index-20260918/staging-v4/.rag_index_full",
+    "requested_index_dir": "/Users/a77/.finance-runtime/kb-dual-index-20260918/staging-v4/.rag_index_full",
+    "degraded": false,
+    "k": 3,
+    "filters": {},
+    "applied_filters": {},
+    "filter_verification": "not_requested",
+    "receipt_received": true,
+    "filter_policy": "explicit_chunk_metadata; unknown_excluded; as_of=available_time",
+    "metadata_version": 1,
+    "metadata_update_required": false,
+    "status": "ok",
+    "hit_count": 3,
+    "neighbor_hits": 0,
+    "score_max": 0.194493,
+    "score_min": 0.19024,
+    "score_mean": 0.191798,
+    "latency_ms": 1156,
+    "index_built_at": "2026-09-18T15:01:48Z",
+    "index_source_revision": "manifest:v1:47bcda0365b37d9de58c4b07ca867b7696a3c54b897fe09a2e1eae3f13169c8d",
+    "index_freshness": "fresh",
+    "warning": "",
+    "display_excerpt_chars": 200,
+    "llm_evidence_chars": 1400,
+    "llm_evidence_total_chars": 5600,
+    "query_protocol": "persistent_worker",
+    "unsupported_options": [],
+    "cache_hit": false,
+    "cache_age_ms": null,
+    "index_fingerprint": "meta.json:1288:1789743713989479583|chunks.jsonl:405779781:1789743713163516041|bm25.pkl.gz:72716820:1781847802477753400|dense.npy:550484096:1789743713987815499",
+    "model_loaded": true,
+    "pointer_dropped": 0,
+    "structural_neighbor_demoted": 0,
+    "deep_read_pages": 3,
+    "deep_read_paragraphs": 3,
+    "deep_read_chars": 493,
+    "stale_recovered": 0,
+    "stale_unrecoverable": 0,
+    "material_scope": "general"
+  }
+}

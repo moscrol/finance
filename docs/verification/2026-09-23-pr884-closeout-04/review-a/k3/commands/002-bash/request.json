@@ -1,0 +1,1 @@
+{"toolCallId":"bash_1_0a55bf9f","params":{"command":"cd /Users/a77/.finance-runtime/reviews/pr884-closeout-20260923-04/finance-workspace-private && rg --files | rg -i 'episode_(restore|effects|budget|authorization|evidence|entry_identity)|agent_episode|continuous_turn_adapter' | head -40"}}

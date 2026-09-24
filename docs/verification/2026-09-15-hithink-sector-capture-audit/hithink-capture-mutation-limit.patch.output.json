@@ -1,0 +1,20 @@
+{
+  "original_path": "/tmp/hithink-capture-mutation-limit.patch",
+  "raw_sha256": "3e7702cc7ee45a0a53793fa336d5fb441ac7a69f94aec871118c53bb35159107",
+  "encoding": "utf-8",
+  "lines": [
+    "diff --git a/market_feature_store/hithink_sector_capture.py b/market_feature_store/hithink_sector_capture.py\n",
+    "index 1f07b0c9..7242447f 100644\n",
+    "--- a/market_feature_store/hithink_sector_capture.py\n",
+    "+++ b/market_feature_store/hithink_sector_capture.py\n",
+    "@@ -236,7 +236,7 @@ class SectorCapture:\n",
+    "                 \"INSERT INTO ops_hithink_sector_request \"\n",
+    "                 \"(capture_id, kind, request_key, status, error_code) VALUES (?, 'members', ?, ?, ?)\",\n",
+    "                 [(self.capture_id, code, \"pending\" if code in selected_set else \"skipped\",\n",
+    "-                  None if code in selected_set else \"limit\") for code in codes],\n",
+    "+                  None if code in selected_set else \"limit\") for code in selected],\n",
+    "             )\n",
+    "             self.con.execute(\n",
+    "                 \"UPDATE ops_hithink_sector_capture SET members_planned=true WHERE capture_id=?\", [self.capture_id],\n"
+  ]
+}

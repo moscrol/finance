@@ -1,13 +1,13 @@
 {
   "version": 2,
   "generator": "scripts/build_registry.py@1",
-  "generated_at": "2026-09-03T07:29:20Z",
+  "generated_at": "2026-09-21T02:58:46Z",
   "repos": [
     {
       "name": "finance-workspace-private",
       "short": "ws",
       "present": true,
-      "skills": 38
+      "skills": 39
     },
     {
       "name": "knowledge-base-private",
@@ -90,7 +90,7 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:9d24aff95e9a7cacd1dd1dcf67291962b1831a0358c96b6b90ab6d14f0e2a73b",
+      "computedHash": "sha256:fe97e29dea89f79dd3573b6ee182c9b971431f4f60afb8de3aaa617b415d1825",
       "agentOnly": false,
       "views": [
         {
@@ -148,7 +148,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:36f64b01ae853fb2b02a272526bca81509507835a824dd38232de3f0b86e6aec",
+      "computedHash": "sha256:f5ca9a75bd6468b0f4c18c029bdbb0cacf8548d7b31566a994cf032ee05edb42",
       "agentOnly": false,
       "views": []
     },
@@ -185,7 +185,7 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:9d033dbb596b9c51a342a3d341f2b3b1c8776ca814a9dd3f059e2a12925ac512",
+      "computedHash": "sha256:6e7705428dbca6815b7355347f6c2dae1c4448a81a6bade2ed29b5ffed9fc81c",
       "agentOnly": false,
       "views": []
     },
@@ -220,13 +220,19 @@
       "repo": "finance-workspace-private",
       "sourceType": "local",
       "skillPath": "skills/duckdb-backfill/SKILL.md",
-      "description": "DuckDB market_feature_store 回补。用户说「回补 duckdb」「全量回补」「补缺口」「修 fact_* 覆盖」或 sync 挂起需短命令重试时用。按覆盖审计与超时兜底跑。不改策略、不改 vault。",
+      "description": "DuckDB market_feature_store 历史日回补与验收。触发：断档回补（某天/几天的复盘没抓、夜跑失败补数）、回补 duckdb、补单表缺口、修 fact_* 覆盖、fupanhui 429 后续跑、验收回补是否与基线对齐。当日全量复盘走 daily-full-review。",
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:c945164a21711481a096d4d4954fde4ee50643f711af45c014fb3ad5aa33b7b6",
+      "computedHash": "sha256:3f76fadf4d03713f25c9adefffcf1aa9bc243932eca8ed22d6e5f6553ab2d74d",
       "agentOnly": false,
-      "views": []
+      "views": [
+        {
+          "path": ".claude/skills/duckdb-backfill",
+          "type": "symlink",
+          "target": "../../skills/duckdb-backfill"
+        }
+      ]
     },
     "ws/finance-degraded-fallback": {
       "name": "finance-degraded-fallback",
@@ -335,7 +341,7 @@
       ],
       "note": "纯涨幅排行（不看成交额）用 top-gainers。",
       "entrypoint": null,
-      "computedHash": "sha256:47a5ebb5c2fff7cbfb5340bd7fd3ed8fb7774ebd913bbdfbe6153f12a25e43b4",
+      "computedHash": "sha256:b8bab41fdb9f6c1ac3a5f839a224d50d2234a2fe33cd25a3f3689bfd40a4d362",
       "agentOnly": false,
       "views": [
         {
@@ -399,8 +405,8 @@
       "name": "l2-moneyflow",
       "repo": "finance-workspace-private",
       "sourceType": "local",
-      "skillPath": ".claude/skills/l2-moneyflow/SKILL.md",
-      "description": "Level2 大单资金流分析（ClickHouse 逐笔成交 → 榜单/个股图 → DuckDB 特征表）。触发词：大单资金流、主买净额、总买净额、涨停股资金流、资金流榜单、量化单、量化买单、大单扫描、moneyflow。注意：问财口径的资金流向查询用 hithink-market-query；本 skill 是自有大单口径（委托编号判主动方向）的逐笔级分析。",
+      "skillPath": "skills/l2-moneyflow/SKILL.md",
+      "description": "Level2 大单资金流分析（闲鱼日包逐笔成交 → 榜单/个股图 → DuckDB 特征表）。触发词：大单资金流、主买净额、总买净额、涨停股资金流、资金流榜单、量化单、量化买单、大单扫描、moneyflow。注意：问财口径的资金流向查询用 hithink-market-query；本 skill 是自有大单口径（委托编号判主动方向）的逐笔级分析。",
       "triggers": [
         "大单资金流",
         "主买净额",
@@ -414,22 +420,30 @@
       ],
       "note": "问财口径的资金流向查询用 hithink-market-query；本 skill 是自有大单口径（委托编号判主动方向）的逐笔级分析。",
       "entrypoint": null,
-      "computedHash": "sha256:1f811a2e00a939c4f010265d1cdde4c25b64f41750847578b8c0098451e78bda",
-      "agentOnly": true,
-      "views": []
+      "computedHash": "sha256:9d1342f31793544a444744c8acc22cdb2485a564403c1d34030ff1b0305cbc26",
+      "agentOnly": false,
+      "views": [
+        {
+          "path": ".claude/skills/l2-moneyflow",
+          "type": "symlink",
+          "target": "../../skills/l2-moneyflow"
+        }
+      ]
     },
     "ws/limit-advance": {
       "name": "limit-advance",
       "repo": "finance-workspace-private",
       "sourceType": "local",
       "skillPath": "skills/limit-advance/SKILL.md",
-      "description": "连板晋级数据抓取与飞书入库。触发词：晋级。",
+      "description": "连板晋级梯队抓取与展示（fupanhui API）。触发词：晋级、连板晋级、晋级梯队。注意：入库走 CLI sync-fupanhui-limit-advance-daily，本 skill 只抓取+展示。",
       "triggers": [
-        "晋级"
+        "晋级",
+        "连板晋级",
+        "晋级梯队"
       ],
-      "note": "",
+      "note": "入库走 CLI sync-fupanhui-limit-advance-daily，本 skill 只抓取+展示。",
       "entrypoint": null,
-      "computedHash": "sha256:4b1445aadc7458c89e7ffb65bb151c770cb4a61fe17961c3b5ec3e48486b641b",
+      "computedHash": "sha256:8e6b89edf3795d1cb86d790243016eb62fc8996666df65cdb55ed5e398c3a90f",
       "agentOnly": false,
       "views": [
         {
@@ -456,7 +470,7 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:08f448c0179e6375c74dcd1ab312c56c8c01447211007dd000dd0b996f6d9683",
+      "computedHash": "sha256:de1b6e3157e433c7b46128e5cb3990c2cf151d404ffc3f6ada57cf6d27b08600",
       "agentOnly": false,
       "views": [
         {
@@ -497,7 +511,7 @@
       ],
       "note": "只切换/使用已有视角回答问题不用本 skill，直接在 Workbench 选视角即可。",
       "entrypoint": null,
-      "computedHash": "sha256:5f2fd1a4c86095e9f7b9d05096951bc3084903ac9bd852e6b0d0233ac570ac46",
+      "computedHash": "sha256:6bff08b3fb65fa673e0605166348c5b0e7a5ba0a3d2d6382ad9014e147b8fc72",
       "agentOnly": false,
       "views": [
         {
@@ -570,7 +584,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:853d1b5875592223ef5ac817a164c0e2566020d9049e1a7487ee08fa2c8dac46",
+      "computedHash": "sha256:350666ac92a860b2cf42144461f3e4c1bf1f002ad24b6ba5ea09b4a778d52527",
       "agentOnly": false,
       "views": []
     },
@@ -617,6 +631,28 @@
       "note": "",
       "entrypoint": null,
       "computedHash": "sha256:085bfe8f349e6c65454387fe32248ce8355b675e0bdc44d27b6cb01d3594d7d3",
+      "agentOnly": false,
+      "views": []
+    },
+    "ws/stock-technicals": {
+      "name": "stock-technicals",
+      "repo": "finance-workspace-private",
+      "sourceType": "local",
+      "skillPath": "skills/stock-technicals/SKILL.md",
+      "description": "个股技术位本地计算：均线（MA5/10/20/26）、UP 线与偏离度、中期/短线回踩筛选，支持自选股清单与历史回溯。触发词：UP线、偏离度、自选股、回踩、均线、MA10、MA20、技术位。注意：数据来自 DuckDB fact_stock_daily，不联网、不依赖外部表格；问历史某天必须传 --as-of。",
+      "triggers": [
+        "UP线",
+        "偏离度",
+        "自选股",
+        "回踩",
+        "均线",
+        "MA10",
+        "MA20",
+        "技术位"
+      ],
+      "note": "数据来自 DuckDB fact_stock_daily，不联网、不依赖外部表格；问历史某天必须传 --as-of。",
+      "entrypoint": null,
+      "computedHash": "sha256:2e9107e9ca51e433499a7346bbde1ec9e14bbf4778f8eaca46e8533f8b6db112",
       "agentOnly": false,
       "views": []
     },
@@ -769,7 +805,7 @@
       ],
       "note": "只看排行不入库用 top-gainers；自选股的均线筛选用 watchlist-ma。",
       "entrypoint": null,
-      "computedHash": "sha256:354a6a0fceb14ce994a75f45c20f41e0235bd8f06ffe2f6a32bc96fd12c78686",
+      "computedHash": "sha256:b5d9ea4732af7206be8747def702607b891b7030acf7d4123407cc4d400654f8",
       "agentOnly": false,
       "views": [
         {
@@ -796,7 +832,7 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:61e65246f8a16c6f838eae2b256f66415923ca961b76f47ae53573fe13a22bac",
+      "computedHash": "sha256:9f7f9685194d3521489b61e50233a2241a79d874649df01ddc1c49d8c9fba3c1",
       "agentOnly": false,
       "views": [
         {
@@ -848,7 +884,7 @@
       ],
       "note": "强势股库的均线回踩用 top-gainers-feishu。",
       "entrypoint": null,
-      "computedHash": "sha256:74c49198b5160d33f3962a752e6ae2833c3213153d34c6f76479ccdc62363657",
+      "computedHash": "sha256:ae0833fec368ede8d4750a869a064b33cdd26aaa15a7e481dee448a86023acf2",
       "agentOnly": false,
       "views": [
         {
@@ -947,7 +983,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:e6c998f02d6317cf805f78753195dfd9d42b16df730f55d52839b51ad935d014",
+      "computedHash": "sha256:f07d3ab4fd5e704490863edfc082f9eda19f2e3cdef476ec03467a9e2f94db7a",
       "agentOnly": false,
       "views": []
     },
@@ -960,7 +996,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:5d0720da673c7ffbae04ed7b748274840716dfe72189f77d347932e91d4ed5ed",
+      "computedHash": "sha256:9c5713058c5f7161e9a1c9e0c045d9376bd512258bc8863c235a15aab1a6b713",
       "agentOnly": false,
       "views": [
         {
@@ -979,7 +1015,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:47a8e7a77c59e0ed19e4ccde7d82ad5eb17152ecc0fb6ceb2cf1a967eee6dff2",
+      "computedHash": "sha256:73e876538bd427c8eb3220f3a343375f84aead8c172a021fcade81870a92a19a",
       "agentOnly": false,
       "views": [
         {
@@ -1024,7 +1060,7 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:40a5ab6d81fb5ffb02bc2027b20730a02b99568ad221e467ecc968859a25c8f6",
+      "computedHash": "sha256:7a41e5d2d7e85b7bdb61300b4beda7de6a5ccc98b3182773c6dfa8e5ef3ffe93",
       "agentOnly": false,
       "views": [
         {
@@ -1149,7 +1185,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:7ec611f9e4b68d93ee329f39a41497e36130b4acd80a8a15e8e38a41ccae5edd",
+      "computedHash": "sha256:571db1861e88a426a684da428d7e44b473d7e9ee0f8cf5e8a9ed99fed16bc981",
       "agentOnly": false,
       "views": []
     },
@@ -1162,7 +1198,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:eb06541164a7a302a9af99884c236f18dd3be80c37a41b5601d9b6a4b903cb61",
+      "computedHash": "sha256:05d8f4605e7ef9a9f6d052c260f55d1aaa4557301a1d6de19d551e95b3d4e5e5",
       "agentOnly": false,
       "views": []
     },
@@ -1175,7 +1211,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:d82694816e9f271cb8ac7b30430277fb99939a129732cea911803f89d68c1aff",
+      "computedHash": "sha256:068f1b7d218c3b79b2861c7a7bde5dde05e3ca52ee2541d07fd9a429dfe3105d",
       "agentOnly": false,
       "views": []
     },
@@ -1215,7 +1251,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:a5531894b41f3361a7d93f595dd1aed0351565829caf755ee547fa4d9eaf2bce",
+      "computedHash": "sha256:3f6589df209bfeb95c2e3a6cfb8f61778375a85b838e4beb5d805ea7bd44388c",
       "agentOnly": false,
       "views": []
     },
@@ -1228,7 +1264,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:7f5c7439169775e95887d5a23afc1bea4fa5c6708e22ac1004b21c8fed7d5ff6",
+      "computedHash": "sha256:54b2868ae54cf715260dcc4ba1c2b9c40f3dabf51d0a4d6f4bc3ea56743a101e",
       "agentOnly": false,
       "views": [
         {
@@ -1271,7 +1307,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:f7af3741fb04a403a1c6d52012f49616e9495b726991d54ad425e4ac61a54bfb",
+      "computedHash": "sha256:4b982d28e5a752a5fb149271b53bb557c165497aa01d4dab976eb634148935be",
       "agentOnly": false,
       "views": [
         {
@@ -1290,7 +1326,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:f501aca199500f2e33a25810ad77599abfe7e39d23182a69c571d0b0f4540dd1",
+      "computedHash": "sha256:d6f0f893b7ab02f8d0f3e492ee031533c2dd6121013d80745879aeb5be4de8ca",
       "agentOnly": false,
       "views": []
     },
@@ -1336,7 +1372,7 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:a3a83b13819d23e61e55e9e691d9f1571ab04d73c07b0332f27527771fd9db60",
+      "computedHash": "sha256:fad96bca3a32fe495f623fc63b30fcaf91adc019a2fb3ccfef90974d9ba97676",
       "agentOnly": false,
       "views": [
         {

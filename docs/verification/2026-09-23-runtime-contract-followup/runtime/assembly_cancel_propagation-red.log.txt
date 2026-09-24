@@ -1,0 +1,13 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_________ test_real_assembly_shares_local_failure_with_inflight_model __________
+intelligence/tests/test_episode_persistence_failure.py:455: in test_real_assembly_shares_local_failure_with_inflight_model
+    assert outcome.persistence == "failed" and outcome.draft
+E   AssertionError: assert ('failed' == 'failed'
+E     
+E       failed and '')
+E    +  where '' = AgentOutcome(task_frame_hash='771106cac1d71005f0e33352af1869afba4562a3817c3344d224de28c9533c98', status='failed', draf...sage(llm_calls=2, tool_calls=1, invalid_actions=0, input_tokens=10, output_tokens=20), plan=None, persistence='failed').draft
+- generated xml file: /Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-runtime/mutations/assembly_cancel_propagation-red.xml -
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_episode_persistence_failure.py::test_real_assembly_shares_local_failure_with_inflight_model
+1 failed, 70 deselected in 8.67s

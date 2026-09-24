@@ -1,0 +1,242 @@
+{
+  "ok": true,
+  "command": "rag_index.py query <q> --k 19 --mode hybrid --evidence-chars 1500 --json",
+  "citation_source": "knowledge-base · rag_index.py query --mode hybrid（匹配 chunk 证据）",
+  "index_dir": "/Users/a77/.finance-runtime/kb-dual-index-20260918/staging-v4/.rag_index",
+  "hits": [
+    {
+      "page_id": "sources/液冷服务器_DeepDive_数据抽取_20260604",
+      "file_path": "wiki/sources/液冷服务器_DeepDive_数据抽取_20260604.md",
+      "title": "液冷服务器_DeepDive_数据抽取_20260604",
+      "score": 0.196544,
+      "excerpt": "IMA 液冷服务器题材 Deep Dive 原始情报解析池，用于写入 [[液冷服务器]] concept graph。共解析 28 条结构化情报项（其中 hard_fact 候选 0 条、需人工复核 28 条），按 review_required 守恒口径，不直接升级为 hard fact / entity_delta。",
+      "llm_evidence": "IMA 液冷服务器题材 Deep Dive 原始情报解析池，用于写入 [[液冷服务器]] concept graph。共解析 28 条结构化情报项（其中 hard_fact 候选 0 条、需人工复核 28 条），按 review_required 守恒口径，不直接升级为 hard fact / entity_delta。",
+      "display_excerpt": "IMA 液冷服务器题材 Deep Dive 原始情报解析池，用于写入 [[液冷服务器]] concept graph。共解析 28 条结构化情报项（其中 hard_fact 候选 0 条、需人工复核 28 条），按 review_required 守恒口径，不直接升级为 hard fact / entity_delta。",
+      "best_chunk_id": "wiki/sources/液冷服务器_DeepDive_数据抽取_20260604.md::2",
+      "evidence_chunk_ids": [
+        "wiki/sources/液冷服务器_DeepDive_数据抽取_20260604.md::2",
+        "wiki/sources/液冷服务器_DeepDive_数据抽取_20260604.md::1"
+      ],
+      "evidence_query_terms": [
+        "液冷"
+      ],
+      "evidence_char_budget": 1200,
+      "section": "液冷服务器_DeepDive_数据抽取_20260604 > 相关概念",
+      "content_hash": "52356650f3c7a3f458552df43585a80d2ea38a9b",
+      "index_built_at": "2026-09-18T14:59:45Z",
+      "index_source_revision": "manifest:v1:c060681e80a8e2f97c02cb1851d974fe18a208a6dc98e04e90a0028385dfab5f",
+      "index_freshness": "fresh",
+      "evidence_layer": "",
+      "fact_hardness": "",
+      "source_type": "",
+      "via_neighbor": false,
+      "source_date": "",
+      "source_quality": "",
+      "publish_time": "2026-06-04",
+      "available_time": "2026-06-13",
+      "review_required": "",
+      "source_refs": [],
+      "content_validity": "valid",
+      "evidence_scope_bound": false,
+      "reexcerpted": true,
+      "deep_read_section": "液冷服务器_DeepDive_数据抽取_20260604 > 相关概念",
+      "deep_read_sections": [
+        "液冷服务器_DeepDive_数据抽取_20260604 > 相关概念"
+      ],
+      "deep_read_blocks": [
+        [
+          "液冷服务器_DeepDive_数据抽取_20260604 > 相关概念",
+          "[[液冷系统全栈集成]] · [[液冷系统集成+数据中心温控]] · [[浸没式液冷系统]] · [[数据中心温控+液冷]] · [[液冷电子泵]] · [[液冷管路]] · [[软管]] · [[快接头（UQD）]] · [[板式换热器]] · [[冷板+液冷系统]] · [[导热界面材料]] · [[电磁屏蔽+导热]] · [[真空钎焊]] · [[冷板制造]] · [[微通道加工]] · [[冷板内部流道]] · [[氟化液（浸没式）]] · [[浸没式冷却介质]]"
+        ]
+      ],
+      "deep_read_paragraphs": [
+        "[[液冷系统全栈集成]] · [[液冷系统集成+数据中心温控]] · [[浸没式液冷系统]] · [[数据中心温控+液冷]] · [[液冷电子泵]] · [[液冷管路]] · [[软管]] · [[快接头（UQD）]] · [[板式换热器]] · [[冷板+液冷系统]] · [[导热界面材料]] · [[电磁屏蔽+导热]] · [[真空钎焊]] · [[冷板制造]] · [[微通道加工]] · [[冷板内部流道]] · [[氟化液（浸没式）]] · [[浸没式冷却介质]]"
+      ],
+      "deep_read_truncated": false,
+      "deep_read_omitted_chars": 0,
+      "page_outline": [
+        "液冷服务器_DeepDive_数据抽取_20260604",
+        "液冷服务器_DeepDive_数据抽取_20260604 > 摘要"
+      ],
+      "section_latest_date": "",
+      "recovered_from_source": false
+    },
+    {
+      "page_id": "concepts/液冷技术",
+      "file_path": "wiki/concepts/液冷技术.md",
+      "title": "液冷技术",
+      "score": 0.19364,
+      "excerpt": "占位概念页：该概念由 missing wikilinks agent-selected 决策生成，用于修复断链和承接题材雷达后续补证。",
+      "llm_evidence": "占位概念页：该概念由 missing wikilinks agent-selected 决策生成，用于修复断链和承接题材雷达后续补证。",
+      "display_excerpt": "占位概念页：该概念由 missing wikilinks agent-selected 决策生成，用于修复断链和承接题材雷达后续补证。",
+      "best_chunk_id": "wiki/concepts/液冷技术.md::4",
+      "evidence_chunk_ids": [
+        "wiki/concepts/液冷技术.md::4",
+        "wiki/concepts/液冷技术.md::3"
+      ],
+      "evidence_query_terms": [
+        "液冷"
+      ],
+      "evidence_char_budget": 1200,
+      "section": "液冷技术 > 相关概念",
+      "content_hash": "a51518b0ea92f4f7540eb7ae29adc5c2fe421f75",
+      "index_built_at": "2026-09-18T14:59:45Z",
+      "index_source_revision": "manifest:v1:c060681e80a8e2f97c02cb1851d974fe18a208a6dc98e04e90a0028385dfab5f",
+      "index_freshness": "fresh",
+      "evidence_layer": "",
+      "fact_hardness": "",
+      "source_type": "",
+      "via_neighbor": false,
+      "source_date": "",
+      "source_quality": "",
+      "publish_time": "",
+      "available_time": "",
+      "review_required": "",
+      "source_refs": [
+        "[[晚研_20260623]]"
+      ],
+      "content_validity": "valid",
+      "evidence_scope_bound": false,
+      "reexcerpted": true,
+      "deep_read_section": "液冷技术 > 相关概念",
+      "deep_read_sections": [
+        "液冷技术 > 相关概念"
+      ],
+      "deep_read_blocks": [
+        [
+          "液冷技术 > 相关概念",
+          "[[液冷]] · [[数据中心液冷]]"
+        ]
+      ],
+      "deep_read_paragraphs": [
+        "[[液冷]] · [[数据中心液冷]]"
+      ],
+      "deep_read_truncated": false,
+      "deep_read_omitted_chars": 0,
+      "page_outline": [
+        "液冷技术",
+        "液冷技术 > 速览",
+        "液冷技术 > 待补证定义",
+        "液冷技术 > 首批出现位置",
+        "液冷技术 > 概念增量 > 2026-06-23｜晚研_20260623",
+        "液冷技术 > 概念增量 > 2026-06-23｜晚研_20260623 > 边际变化",
+        "液冷技术 > 概念增量 > 2026-06-23｜晚研_20260623 > 标的增量"
+      ],
+      "section_latest_date": "",
+      "recovered_from_source": false
+    },
+    {
+      "page_id": "concepts/冷板式液冷",
+      "file_path": "wiki/concepts/冷板式液冷.md",
+      "title": "冷板式液冷",
+      "score": 0.193586,
+      "excerpt": "冷板式液冷是让冷却液在冷板内部流动，通过冷板与芯片或发热器件接触带走热量的液冷路线，是当前AI服务器和数据中心液冷中工程化程度较高的主流方案。",
+      "llm_evidence": "冷板式液冷是让冷却液在冷板内部流动，通过冷板与芯片或发热器件接触带走热量的液冷路线，是当前AI服务器和数据中心液冷中工程化程度较高的主流方案。",
+      "display_excerpt": "冷板式液冷是让冷却液在冷板内部流动，通过冷板与芯片或发热器件接触带走热量的液冷路线，是当前AI服务器和数据中心液冷中工程化程度较高的主流方案。",
+      "best_chunk_id": "wiki/concepts/冷板式液冷.md::5",
+      "evidence_chunk_ids": [
+        "wiki/concepts/冷板式液冷.md::5",
+        "wiki/concepts/冷板式液冷.md::4"
+      ],
+      "evidence_query_terms": [
+        "液冷"
+      ],
+      "evidence_char_budget": 1200,
+      "section": "冷板式液冷 > 相关概念",
+      "content_hash": "94bf024172fdbcec0ae3d408939f2476e98c3f2e",
+      "index_built_at": "2026-09-18T14:59:45Z",
+      "index_source_revision": "manifest:v1:c060681e80a8e2f97c02cb1851d974fe18a208a6dc98e04e90a0028385dfab5f",
+      "index_freshness": "fresh",
+      "evidence_layer": "",
+      "fact_hardness": "",
+      "source_type": "",
+      "via_neighbor": false,
+      "source_date": "",
+      "source_quality": "",
+      "publish_time": "",
+      "available_time": "",
+      "review_required": "",
+      "source_refs": [
+        "[[ConceptQualityUpgrade_P0_20260602]]"
+      ],
+      "content_validity": "valid",
+      "evidence_scope_bound": false,
+      "reexcerpted": true,
+      "deep_read_section": "冷板式液冷 > 相关概念",
+      "deep_read_sections": [
+        "冷板式液冷 > 相关概念"
+      ],
+      "deep_read_blocks": [
+        [
+          "冷板式液冷 > 相关概念",
+          "[[液冷]] · [[数据中心液冷]] · [[AI散热]] · [[GPU散热]] · [[液冷服务器]] · [[微泵液冷]] · [[AI芯片散热]]"
+        ]
+      ],
+      "deep_read_paragraphs": [
+        "[[液冷]] · [[数据中心液冷]] · [[AI散热]] · [[GPU散热]] · [[液冷服务器]] · [[微泵液冷]] · [[AI芯片散热]]"
+      ],
+      "deep_read_truncated": false,
+      "deep_read_omitted_chars": 0,
+      "page_outline": [
+        "冷板式液冷",
+        "冷板式液冷 > 所属主干",
+        "冷板式液冷 > 产业链位置",
+        "冷板式液冷 > 为什么重要",
+        "冷板式液冷 > 相关公司/实体",
+        "冷板式液冷 > 后续验证",
+        "冷板式液冷 > 边界说明",
+        "冷板式液冷 > 来源"
+      ],
+      "section_latest_date": "",
+      "recovered_from_source": false
+    }
+  ],
+  "warning": "",
+  "telemetry": {
+    "mode": "hybrid",
+    "requested_mode": "hybrid",
+    "effective_mode": "hybrid",
+    "fallback_reason": "",
+    "recall_desc": "BM25 关键词 + 稠密向量(BGE-m3) + RRF 融合",
+    "index_kind": "structured",
+    "index_dir": "/Users/a77/.finance-runtime/kb-dual-index-20260918/staging-v4/.rag_index",
+    "requested_index_dir": "",
+    "degraded": false,
+    "k": 3,
+    "filters": {},
+    "applied_filters": {},
+    "filter_verification": "not_requested",
+    "receipt_received": true,
+    "filter_policy": "explicit_chunk_metadata; unknown_excluded; as_of=available_time",
+    "metadata_version": 1,
+    "metadata_update_required": false,
+    "status": "ok",
+    "hit_count": 3,
+    "neighbor_hits": 0,
+    "score_max": 0.196544,
+    "score_min": 0.193586,
+    "score_mean": 0.19459,
+    "latency_ms": 1265,
+    "index_built_at": "2026-09-18T14:59:45Z",
+    "index_source_revision": "manifest:v1:c060681e80a8e2f97c02cb1851d974fe18a208a6dc98e04e90a0028385dfab5f",
+    "index_freshness": "fresh",
+    "warning": "",
+    "display_excerpt_chars": 200,
+    "llm_evidence_chars": 1200,
+    "llm_evidence_total_chars": 4800,
+    "query_protocol": "persistent_worker",
+    "unsupported_options": [],
+    "cache_hit": false,
+    "cache_age_ms": null,
+    "index_fingerprint": "meta.json:1070:1789743588670674791|chunks.jsonl:258904693:1789743588278498999|bm25.pkl.gz:42620819:1781848756390447616|dense.npy:345829504:1789743588669419999",
+    "model_loaded": true,
+    "pointer_dropped": 0,
+    "structural_neighbor_demoted": 0,
+    "deep_read_pages": 3,
+    "deep_read_paragraphs": 3,
+    "deep_read_chars": 335,
+    "stale_recovered": 0,
+    "stale_unrecoverable": 0,
+    "material_scope": "general"
+  }
+}

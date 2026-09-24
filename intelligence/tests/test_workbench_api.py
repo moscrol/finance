@@ -1,7 +1,7 @@
 import json
 import threading
 import time
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from types import SimpleNamespace
@@ -622,8 +622,10 @@ def test_production_continuous_adapter_shares_provider_client_across_gates(
     assert semantic._primary_judge is episode._model
     assert semantic._finalizer is episode._finalizer
     assert episode._model._providers == providers
-    assert episode._model._is_cancelled is is_cancelled
-    assert episode._is_cancelled is is_cancelled
+    # OPT-08: local storage failure must reach the injected model client, not
+    # merely the loop. Adapter/orchestrator still own the user-cancel predicate.
+    assert episode._model._is_cancelled is episode._is_cancelled
+    assert episode._is_cancelled.upstream is is_cancelled
     assert adapter._is_cancelled is is_cancelled
     assert adapter._deadline_expires_at == deadline_expires_at
     assert 0 < adapter._remaining_timeout() <= 42.0
@@ -672,6 +674,82 @@ def test_production_continuous_adapter_shares_provider_client_across_gates(
     # 组合根必须把链首帽钉进 adapter。只靠问 GLMAgentRuntime 会落空，
     # live 就会两发 30.0 TimeoutError（run_20260817_002238_100737）。
     assert adapter._repair_seconds_cap == repair_seconds_cap_for("zhipu")
+
+
+def _glm_thinking_adapter(monkeypatch, tmp_path: Path, *, model: str, effort: str | None):
+    if effort is None:
+        monkeypatch.delenv("LLM_REASONING_EFFORT", raising=False)
+    else:
+        monkeypatch.setenv("LLM_REASONING_EFFORT", effort)
+    monkeypatch.delenv("ASK_SYNTHESIS_RESERVE_FLOOR", raising=False)
+    providers = (
+        app_module.LLMProvider(
+            "zhipu",
+            "primary-secret",
+            "https://glm.example.invalid/v1",
+            model,
+        ),
+    )
+    run_store = RunStore(user_id="reserve", root=tmp_path / "runs")
+    run = run_store.create_run("固态电池题材", "ask", session_id="conversation-r")
+    return app_module._build_continuous_turn_adapter(
+        providers=providers,
+        run_id=run.run_id,
+        assistant_message_id="message-r",
+        run_store=run_store,
+        conversation_id="conversation-r",
+        is_cancelled=lambda: False,
+        timeout=900.0,
+        deadline_expires_at=time.monotonic() + 900.0,
+    )
+
+
+def test_continuous_adapter_floors_synthesis_reserve_by_thinking_model(
+    monkeypatch, tmp_path: Path
+) -> None:
+    """链首是 GLM-5.3 且开了思考：合成保留取模型写作成本地板 240，不再是档位的 60。
+
+    2026-09-07 high×Q1-r3：60s 保留下模型研究到剩 161s 才写，7.3K token 写作轮到点被切。
+    地板来自 provider_latency 的实测表；档位/题型逻辑本身不动（quick 仍走 20 → 取大得 240）。
+    """
+
+    adapter = _glm_thinking_adapter(monkeypatch, tmp_path, model="glm-5.3-flash", effort="max")
+    assert (
+        adapter._synthesis_reserve_for_task(tier="max", question_type="theme_analysis")
+        == 240.0
+    )
+    # P1：同一链首、同一 effort，修复帽也按模型取地板（zhipu 表值 40 → 200）。
+    assert adapter._repair_seconds_cap == 200.0
+    assert (
+        adapter._synthesis_reserve_for_task(tier="standard", question_type="market_cause")
+        == 240.0
+    )
+    # 地板是地板：题型/档位算出来更大时沿用更大的那个（这里没有更大的，故仍 240）。
+    assert (
+        adapter._synthesis_reserve_for_task(tier="quick", question_type="quick_fact")
+        == 240.0
+    )
+
+
+def test_continuous_adapter_keeps_tier_reserve_for_sol_and_non_thinking_glm(
+    monkeypatch, tmp_path: Path
+) -> None:
+    """sol@cockpit（链首 name=zhipu 但 model 是 sol）与未开思考的 GLM：预算逐字节同前。"""
+
+    sol = _glm_thinking_adapter(monkeypatch, tmp_path, model="gpt-5.6-sol", effort="max")
+    assert sol._synthesis_reserve_for_task(tier="max", question_type="theme_analysis") == 60.0
+    assert sol._repair_seconds_cap == 40.0
+    assert sol._synthesis_reserve_for_task(tier="quick", question_type="quick_fact") == 20.0
+
+    glm_low = _glm_thinking_adapter(monkeypatch, tmp_path, model="glm-5.3-flash", effort="low")
+    assert glm_low._synthesis_reserve_for_task(tier="max", question_type="theme_analysis") == 60.0
+    assert glm_low._repair_seconds_cap == 40.0
+
+    glm_unset = _glm_thinking_adapter(monkeypatch, tmp_path, model="glm-5.3-flash", effort=None)
+    assert (
+        glm_unset._synthesis_reserve_for_task(tier="standard", question_type="market_cause")
+        == 75.0
+    )
 
 
 def test_production_adapter_composes_sdk_glm_without_changing_verifier(
@@ -1600,29 +1678,54 @@ def test_skills_serializes_only_product_registry_definitions(
     assert all("skill_tools" not in name for name in imported)
 
 
-def test_cancel_missing_run_and_idempotence(client: TestClient) -> None:
-    assert client.post("/api/runs/run_missing/cancel").status_code == 404
-    run_id = client.post("/api/runs", json={"question": "q", "user": "alice"}).json()[
-        "run_id"
-    ]
-    assert (
-        client.post(f"/api/runs/{run_id}/cancel", params={"user": "bob"}).status_code
-        == 404
-    )
-    _wait_terminal(client, run_id, user="alice")
-    assert client.app.state.cancellation_registry == {}
-    first = client.post(f"/api/runs/{run_id}/cancel", params={"user": "alice"}).json()
-    second = client.post(f"/api/runs/{run_id}/cancel", params={"user": "alice"}).json()
-    assert (
-        first
-        == second
-        == {
-            "run_id": run_id,
-            "status": "completed",
-            "cancel_requested": True,
-        }
-    )
-    assert client.app.state.cancellation_registry == {}
+@pytest.mark.parametrize("hold_worker_open", [False, True])
+def test_cancel_missing_run_and_idempotence(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, hold_worker_open: bool
+) -> None:
+    supervisor = client.app.state.supervisor
+    original_execute = supervisor._execute
+    release_worker = threading.Event()
+
+    def execute_with_tail(*args, **kwargs) -> None:
+        original_execute(*args, **kwargs)
+        if hold_worker_open:
+            assert release_worker.wait(5), "worker tail was not released"
+
+    monkeypatch.setattr(supervisor, "_execute", execute_with_tail)
+    try:
+        assert client.post("/api/runs/run_missing/cancel").status_code == 404
+        run_id = client.post("/api/runs", json={"question": "q", "user": "alice"}).json()[
+            "run_id"
+        ]
+        assert (
+            client.post(f"/api/runs/{run_id}/cancel", params={"user": "bob"}).status_code
+            == 404
+        )
+        _wait_terminal(client, run_id, user="alice")
+        key = ("alice", run_id)
+        registry = client.app.state.cancellation_registry
+        if hold_worker_open:
+            assert key in registry
+        release_worker.set()
+        # A terminal run is visible before the Future's cleanup callback removes its signal.
+        deadline = time.monotonic() + 5.0
+        while key in registry and time.monotonic() < deadline:
+            time.sleep(0.01)
+        assert registry == {}
+        first = client.post(f"/api/runs/{run_id}/cancel", params={"user": "alice"}).json()
+        second = client.post(f"/api/runs/{run_id}/cancel", params={"user": "alice"}).json()
+        assert (
+            first
+            == second
+            == {
+                "run_id": run_id,
+                "status": "completed",
+                "cancel_requested": True,
+            }
+        )
+        assert client.app.state.cancellation_registry == {}
+    finally:
+        release_worker.set()
 
 
 def test_create_run_and_fetch_artifacts(client: TestClient) -> None:
@@ -1706,6 +1809,38 @@ def test_health_endpoints_report_worker_and_storage_state(client: TestClient) ->
     assert payload["market_snapshot"]["requested_date"] == "2026-07-17"
     assert payload["missing_critical"] == []
     assert payload["workers"]["capacity"] == 2
+
+
+def test_readiness_registers_open_episodes_without_restoring_them(
+    client: TestClient, monkeypatch, tmp_path
+) -> None:
+    """运行底座 P2（母单 §12 第 3 题：只登记）：store 里非 done 的 episode 进 readiness，
+    但 readiness 不去 restore、不改 store。"""
+
+    from intelligence.services.episode_store import (
+        EPISODE_STORE_ENV,
+        EpisodeState,
+        JsonlEpisodeStore,
+    )
+
+    root = tmp_path / "episodes"
+    monkeypatch.setenv(EPISODE_STORE_ENV, str(root))
+    store = JsonlEpisodeStore(root)
+    store.put_state("run_a:msg_1", EpisodeState(episode_id="run_a:msg_1", phase="tools_pending"))
+    store.put_state("run_b:msg_2", EpisodeState(episode_id="run_b:msg_2", phase="done"))
+    snapshot = sorted((path.name, path.stat().st_size) for path in root.rglob("*"))
+
+    response = client.get("/api/readiness")
+
+    payload = response.json()
+    assert payload["open_episodes"] == {
+        "count": 1,
+        "episode_ids": ["run_a:msg_1"],
+        "truncated": False,
+    }
+    assert sorted((path.name, path.stat().st_size) for path in root.rglob("*")) == snapshot, (
+        "readiness 只读 store，不 restore、不改写"
+    )
 
 
 def test_readiness_probe_schedules_dead_worker_recovery(
@@ -2101,6 +2236,9 @@ def test_readiness_fails_when_rag_query_protocol_is_incompatible(
             supported_options=("--k", "--mode"),
             missing_required_options=("--json",),
             warning="RAG CLI 缺少必要 query 参数",
+            elapsed_ms=12,
+            timeout_seconds=5.0,
+            failure_kind="protocol_incompatible",
         ),
     )
 
@@ -2113,6 +2251,91 @@ def test_readiness_fails_when_rag_query_protocol_is_incompatible(
     assert payload["checks"]["rag_query_protocol"] is False
     assert payload["missing_critical"] == ["rag_query_protocol"]
     assert payload["rag"]["missing_required_options"] == ["--json"]
+    assert payload["rag"]["elapsed_ms"] == 12
+    assert payload["rag"]["timeout_seconds"] == 5.0
+    assert payload["rag"]["failure_kind"] == "protocol_incompatible"
+
+
+@pytest.mark.parametrize("endpoint", ["/api/readiness", "/api/health/ready"])
+def test_readiness_exposes_safe_real_probe_timeout(client, monkeypatch, endpoint) -> None:
+    run = app_module.kb_rag.subprocess.run
+    probe_calls = []
+
+    def fail_help(cmd, **kwargs):
+        if cmd[-2:] == ["query", "--help"]:
+            probe_calls.append(kwargs["timeout"])
+            raise app_module.kb_rag.subprocess.TimeoutExpired(
+                cmd, kwargs["timeout"], output="secret-out", stderr="secret-err"
+            )
+        return run(cmd, **kwargs)
+
+    monkeypatch.setattr(app_module.kb_rag.subprocess, "run", fail_help)
+    response = client.get(endpoint)
+
+    assert response.status_code == 503
+    payload = response.json()
+    assert payload["missing_critical"] == ["rag_query_protocol"]
+    assert payload["rag"]["failure_kind"] == "timeout"
+    assert payload["rag"]["timeout_seconds"] == 5.0
+    assert isinstance(payload["rag"]["elapsed_ms"], int)
+    assert payload["rag"]["elapsed_ms"] >= 0
+    assert payload["rag"]["supported_options"] == []
+    assert payload["rag"]["available"] is False
+    assert "secret" not in response.text
+    assert probe_calls == [5]
+
+
+@pytest.mark.parametrize("failure", ["timeout", "code_changed"])
+def test_readiness_shares_inflight_failure_and_rechecks_after_completion(client, monkeypatch, failure):
+    entered, joined, release = threading.Event(), threading.Event(), threading.Event()
+    original_run = app_module.kb_rag.subprocess.run
+    original_identity = app_module.kb_rag._probe_code_identity
+    changed = threading.Event()
+    calls = []
+
+    class ObservedFuture(Future):
+        def result(self, timeout=None):
+            joined.set()
+            return super().result(timeout=timeout)
+
+    def run(cmd, **kwargs):
+        if cmd[-2:] != ["query", "--help"]:
+            return original_run(cmd, **kwargs)
+        calls.append(cmd)
+        entered.set()
+        assert release.wait(3)
+        if failure == "timeout":
+            raise app_module.kb_rag.subprocess.TimeoutExpired(cmd, 5, stderr="secret-error")
+        changed.set()
+        return app_module.kb_rag.subprocess.CompletedProcess(
+            cmd, 0, " ".join(app_module.kb_rag.REQUIRED_QUERY_OPTIONS), "",
+        )
+
+    monkeypatch.setattr(app_module.kb_rag, "Future", ObservedFuture)
+    monkeypatch.setattr(app_module.kb_rag.subprocess, "run", run)
+    monkeypatch.setattr(app_module.kb_rag, "_probe_code_identity", lambda root: (
+        original_identity(root) + ("changed" if changed.is_set() else "")
+    ))
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        try:
+            owner = pool.submit(client.get, "/api/readiness")
+            assert entered.wait(3)
+            follower = pool.submit(client.get, "/api/health/ready")
+            assert joined.wait(3)
+        finally:
+            release.set()
+        responses = [owner.result(5), follower.result(5)]
+    assert len(calls) == 1
+    for response in responses:
+        assert response.status_code == 503
+        assert response.json()["missing_critical"] == ["rag_query_protocol"]
+        assert response.json()["rag"]["failure_kind"] == failure
+        assert "secret" not in response.text
+    assert not app_module.kb_rag._PROBE_FLIGHTS
+    monkeypatch.setattr(app_module.kb_rag.subprocess, "run", original_run)
+    later = client.get("/api/readiness")
+    assert later.status_code == 200
+    assert "shared_inflight" not in later.json()["rag"]
 
 
 def test_cancel_run_is_terminal_even_when_worker_finishes_later(
@@ -2826,12 +3049,489 @@ def test_sse_canonical_cursor_and_terminal_replay(client: TestClient) -> None:
     assert "report:module:new" not in numeric
 
 
+def test_completed_run_waits_for_artifact_delivery_without_blocking_cancel(
+    client: TestClient,
+) -> None:
+    store = RunStore()
+    supervisor = client.app.state.supervisor
+    claimed = threading.Event()
+    release = threading.Event()
+    run = store.create_run("delayed delivery", "ask")
+
+    def runner(_signal) -> None:
+        store.finish_run(run.run_id, rs.STATUS_COMPLETED)
+        claimed.set()
+        assert release.wait(5), "test did not release artifact writer"
+        store.add_artifact(
+            run.run_id, "report.json", '{}',
+            renderer="structured_report", title="结构化对话报告",
+        )
+        store.append_stream_event(
+            run.run_id, event_id="report:complete", event_type="report.complete",
+            payload={"report": {"status": "completed"}},
+        )
+
+    supervisor._submit(store, run.run_id, runner)
+    with supervisor._lock:
+        future = supervisor._futures[(store.user_id, run.run_id)]
+    try:
+        assert claimed.wait(5)
+        pending = client.get(f"/api/runs/{run.run_id}").json()
+        assert pending["status"] == "completed"
+        assert pending.get("delivery_pending") is True
+        assert pending["artifacts"] == []
+        # No other user's/run's delivery flag may leak into this run.
+        other = store.create_run("already done", "ask")
+        store.finish_run(other.run_id, rs.STATUS_COMPLETED)
+        assert client.get(f"/api/runs/{other.run_id}").json()["delivery_pending"] is False
+    finally:
+        release.set()
+        future.result(timeout=5)
+    ready = client.get(f"/api/runs/{run.run_id}").json()
+    assert ready["delivery_pending"] is False
+    assert [a["path"] for a in ready["artifacts"]] == ["report.json"]
+
+    cancelled = store.create_run("cancel while worker blocked", "ask")
+    started = threading.Event()
+    unblock = threading.Event()
+
+    def blocked(_signal) -> None:
+        started.set()
+        assert unblock.wait(5)
+
+    supervisor._submit(store, cancelled.run_id, blocked)
+    with supervisor._lock:
+        future = supervisor._futures[(store.user_id, cancelled.run_id)]
+    try:
+        assert started.wait(5)
+        supervisor.cancel(store, cancelled.run_id)
+        payload = client.get(f"/api/runs/{cancelled.run_id}").json()
+        assert payload["status"] == "cancelled"
+        assert payload["delivery_pending"] is False
+    finally:
+        unblock.set()
+        future.result(timeout=5)
+
+
+@pytest.mark.parametrize("status", [rs.STATUS_FAILED, rs.STATUS_CANCELLED])
+@pytest.mark.parametrize("boundary", ["message", "event"])
+def test_failed_or_cancelled_delivery_waits_for_terminal_message_event(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, status: str, boundary: str,
+) -> None:
+    entered = threading.Event()
+    release = threading.Event()
+    original_revise = ConversationStore.revise_message
+    original_append = RunStore.append_stream_event
+
+    def block():
+        entered.set()
+        assert release.wait(10), "test did not release delivery writer"
+
+    def revise(self, *args, **kwargs):
+        if boundary == "message" and kwargs.get("status") == status:
+            block()
+        return original_revise(self, *args, **kwargs)
+
+    def append(self, *args, **kwargs):
+        if boundary == "event" and kwargs.get("event_type") == "message.error":
+            block()
+        return original_append(self, *args, **kwargs)
+
+    def terminal_turn(**kwargs):
+        orch = app_module.TurnOrchestrator(
+            repo_root=kwargs["repo_root"], conversation_store=kwargs["conversation_store"],
+            run_store=kwargs["run_store"],
+        )
+        args = (kwargs["conversation_id"], kwargs["run_id"], kwargs["assistant_message_id"],
+                {}, [], [], [], [], [], ["preserved draft"])
+        if status == rs.STATUS_FAILED:
+            orch._fail(*args, RuntimeError("offline regression"))
+        else:
+            orch._cancel(*args)
+
+    monkeypatch.setattr(ConversationStore, "revise_message", revise)
+    monkeypatch.setattr(RunStore, "append_stream_event", append)
+    monkeypatch.setattr(app_module, "_run_conversation_turn", terminal_turn)
+    conversation = client.post("/api/conversations", json={"title": "delivery"}).json()["conversation_id"]
+    created = client.post(f"/api/conversations/{conversation}/messages", json={
+        "content": "review", "skill_mode": "auto",
+    }).json()
+    run_id = created["run_id"]
+    supervisor = client.app.state.supervisor
+    try:
+        assert entered.wait(5)
+        with supervisor._lock:
+            future = supervisor._futures[("default", run_id)]
+        pending = client.get(f"/api/runs/{run_id}").json()
+        assert pending["status"] == status
+        assert pending["delivery_pending"] is True
+        listed = next(r for r in client.get("/api/runs").json() if r["run_id"] == run_id)
+        assert listed["delivery_pending"] is True
+        messages = client.get(f"/api/conversations/{conversation}/messages").json()
+        assert messages[-1]["status"] == ("pending" if boundary == "message" else status)
+    finally:
+        release.set()
+        with supervisor._lock:
+            future = supervisor._futures.get(("default", run_id))
+        if future is not None:
+            future.result(timeout=5)
+    ready = client.get(f"/api/runs/{run_id}").json()
+    assert ready["delivery_pending"] is False
+    body = client.get(f"/api/runs/{run_id}/events").text
+    assert body.index("event: message.error") < body.index("event: run\n")
+    assert "preserved draft" in body
+    events = RunStore().load_stream_events(run_id)
+    terminal = next(e for e in events if e["event_type"] == "message.error")
+    resumed = client.get(f"/api/runs/{run_id}/events", headers={
+        "Last-Event-ID": terminal["event_id"],
+    }).text
+    assert "event: message.error" not in resumed and "event: run\n" in resumed
+
+
+@pytest.mark.parametrize("reason", ["cancelled_by_user", "executor_timeout"])
+def test_supervisor_terminal_message_does_not_wait_for_uncooperative_worker(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, reason: str,
+) -> None:
+    started = threading.Event()
+    release = threading.Event()
+
+    def blocked(**_kwargs):
+        started.set()
+        assert release.wait(10)
+
+    monkeypatch.setattr(app_module, "_run_conversation_turn", blocked)
+    conversation = client.post("/api/conversations", json={"title": "cancel"}).json()["conversation_id"]
+    created = client.post(f"/api/conversations/{conversation}/messages", json={
+        "content": "review", "skill_mode": "auto",
+    }).json()
+    run_id = created["run_id"]
+    supervisor = client.app.state.supervisor
+    store = RunStore()
+    key = (store.user_id, run_id)
+    try:
+        assert started.wait(5)
+        with supervisor._lock:
+            future = supervisor._futures[key]
+        if reason == "cancelled_by_user":
+            supervisor.cancel(store, run_id)
+        else:
+            supervisor._expire(store, run_id, key)
+        assert not future.done()
+        payload = client.get(f"/api/runs/{run_id}").json()
+        assert payload["status"] == ("cancelled" if reason == "cancelled_by_user" else "failed")
+        assert payload["delivery_pending"] is False
+        body = client.get(f"/api/runs/{run_id}/events").text
+        assert body.index("event: message.error") < body.index("event: run\n")
+    finally:
+        release.set()
+        with supervisor._lock:
+            future = supervisor._futures.get(key)
+        if future is not None:
+            future.result(timeout=5)
+
+
+@pytest.mark.parametrize("mismatch", ["message", "conversation", "status", "malformed_payload"])
+def test_unrelated_terminal_event_does_not_release_delivery(client: TestClient, mismatch: str) -> None:
+    store = RunStore()
+    conversations = ConversationStore(user_id=store.user_id)
+    conversation = conversations.create_conversation("delivery identity")
+    run = store.create_run("failed", "ask", session_id=conversation.conversation_id)
+    message = conversations.append_message(
+        conversation.conversation_id, "assistant", "", status="pending", run_id=run.run_id,
+    )
+    store.finish_run(run.run_id, rs.STATUS_FAILED)
+    store.append_stream_event(
+        run.run_id, event_id="unrelated", event_type="message.error",
+        payload=(
+            {"message": None} if mismatch == "malformed_payload"
+            else {"status": "cancelled" if mismatch == "status" else "failed"}
+        ),
+        conversation_id="other" if mismatch == "conversation" else conversation.conversation_id,
+        message_id="other" if mismatch == "message" else message.message_id,
+    )
+    assert client.get(f"/api/runs/{run.run_id}").json()["delivery_pending"] is True
+
+
+@pytest.mark.parametrize("status_location", ["top_level", "message"])
+def test_failure_delivery_rereads_run_after_message_event(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, status_location: str,
+) -> None:
+    store = RunStore()
+    conversation_store = ConversationStore(user_id=store.user_id)
+    conversation = conversation_store.create_conversation("delivery reread")
+    run = store.create_run("delivery reread", "ask", session_id=conversation.conversation_id)
+    message = conversation_store.append_message(
+        conversation.conversation_id, "assistant", "failed", status="failed", run_id=run.run_id,
+    )
+    store.finish_run(run.run_id, rs.STATUS_FAILED)
+    original = RunStore.load_stream_events
+    injected = False
+
+    def publish_and_mutate(self, run_id, *args, **kwargs):
+        nonlocal injected
+        events = original(self, run_id, *args, **kwargs)
+        if run_id == run.run_id and not injected:
+            injected = True
+            self.add_artifact(run_id, "answer.md", "failed", renderer="markdown", title="失败回答")
+            self.append_stream_event(
+                run_id, event_id="message:error:reread", event_type="message.error",
+                payload={
+                    "message": asdict(message),
+                    **({"status": "failed"} if status_location == "top_level" else {}),
+                },
+                conversation_id=run.session_id, message_id=message.message_id,
+            )
+            return original(self, run_id, *args, **kwargs)
+        return events
+
+    monkeypatch.setattr(RunStore, "load_stream_events", publish_and_mutate)
+    payload = client.get(f"/api/runs/{run.run_id}").json()
+    assert payload["delivery_pending"] is False
+    assert [item["path"] for item in payload["artifacts"]] == ["answer.md"]
+
+
+@pytest.mark.parametrize("session_id", ["missing-conversation", "ordinary/session"])
+def test_nonconversation_terminal_run_does_not_wait_for_unrelated_message(
+    client: TestClient, session_id: str,
+) -> None:
+    store = RunStore()
+    run = store.create_run("ordinary failure", "ask", session_id=session_id)
+    store.finish_run(run.run_id, rs.STATUS_FAILED)
+    payload = client.get(f"/api/runs/{run.run_id}").json()
+    assert payload["delivery_pending"] is False
+
+
+def test_corrupt_conversation_is_not_treated_as_delivered(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = RunStore()
+    run = store.create_run("corrupt conversation", "ask", session_id="corrupt-conversation")
+    store.finish_run(run.run_id, rs.STATUS_FAILED)
+
+    def corrupt(*_args, **_kwargs):
+        raise json.JSONDecodeError("invalid metadata", "{", 1)
+
+    monkeypatch.setattr(ConversationStore, "load_messages", corrupt)
+    response = client.get(f"/api/runs/{run.run_id}")
+    assert response.status_code != 200
+    assert "delivery_pending" not in response.json()
+
+
+def test_sse_drains_delivery_events_before_terminal_run(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = RunStore()
+    run = store.create_run("delivery crossing poll boundary", "ask")
+    store.finish_run(run.run_id, rs.STATUS_COMPLETED)
+    original = RunStore.load_stream_events
+    calls = 0
+
+    def events_then_publish(self, run_id, *, after=0):
+        nonlocal calls
+        events = original(self, run_id, after=after)
+        if run_id == run.run_id:
+            calls += 1
+            if calls == 1:
+                # Writer finishes AFTER this poll's event snapshot, BEFORE load_run.
+                self.append_stream_event(
+                    run_id, event_id="report:complete", event_type="report.complete",
+                    payload={"report": {"status": "completed"}},
+                )
+        return events
+
+    monkeypatch.setattr(RunStore, "load_stream_events", events_then_publish)
+    body = client.get(f"/api/runs/{run.run_id}/events").text
+    assert "event: report.complete" in body
+    assert body.index("event: report.complete") < body.index("event: run\n")
+    assert body.count("event: run\n") == 1
+
+
+def test_sse_emits_terminal_message_arriving_between_reads(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = RunStore()
+    run = store.create_run("terminal race", "ask", session_id="conversation-race")
+    store.finish_run(run.run_id, rs.STATUS_FAILED)
+    load = RunStore.load_stream_events
+    first_read = True
+
+    def load_then_append(self, run_id, *args, **kwargs):
+        nonlocal first_read
+        snapshot = load(self, run_id, *args, **kwargs)
+        if run_id == run.run_id and first_read:
+            first_read = False
+            self.append_stream_event(
+                run_id, event_id="message:error:race", event_type="message.error",
+                payload={"message": {"status": "failed", "content": "保存失败"}},
+            )
+        return snapshot
+
+    monkeypatch.setattr(RunStore, "load_stream_events", load_then_append)
+    body = client.get(f"/api/runs/{run.run_id}/events").text
+    assert body.count("event: message.error") == 1
+    assert body.index("event: message.error") < body.index("event: run\n")
+
+
 def test_sse_rejects_negative_after(client: TestClient) -> None:
-    run_id = client.post("/api/runs", json={"question": "q"}).json()["run_id"]
+    # Cursor validation needs a stored run, not a background answer worker.
+    store = RunStore()
+    run_id = store.create_run("q", "ask").run_id
+    store.finish_run(run_id, rs.STATUS_COMPLETED)
     assert (
         client.get(f"/api/runs/{run_id}/events", params={"after": -1}).status_code
         == 422
     )
+
+
+def _publication_run(status="completed"):
+    store = RunStore()
+    conversations = ConversationStore(user_id=store.user_id)
+    conversation = conversations.create_conversation("publication boundary")
+    run = store.create_run("publication boundary", "ask", session_id=conversation.conversation_id)
+    message = conversations.append_message(
+        conversation.conversation_id, "assistant", "终稿", run_id=run.run_id, status=status,
+    )
+    store.finish_run(run.run_id, status)
+    return store, run, message.message_id
+
+
+@pytest.mark.parametrize("status,event_type", [
+    ("completed", "message.complete"),
+    ("failed", "message.error"),
+    ("cancelled", "message.error"),
+])
+def test_run_publication_waits_for_exact_terminal_message_event(
+    client: TestClient, status: str, event_type: str,
+) -> None:
+    store, run, message_id = _publication_run(status)
+    route = f"/api/runs/{run.run_id}"
+    early = client.get(route).json()
+    assert early["status"] == status  # 终态归属不动，不能挪 claim 来消除窗口。
+    assert early["publication"] == {"status": "pending", "message_id": None}
+    message = {
+        "run_id": run.run_id, "conversation_id": run.session_id,
+        "message_id": message_id, "role": "assistant", "status": status,
+    }
+    # 错误会话、错误消息坐标、非助手、错误状态均不能授权收口。
+    for index, (envelope, payload) in enumerate([
+        ({"conversation_id": "other"}, message),
+        ({}, {**message, "message_id": "other"}),
+        ({}, {**message, "role": "user"}),
+        ({}, {**message, "status": "pending"}),
+        ({}, {**message, "run_id": "other"}),
+        ({}, {**message, "conversation_id": "other"}),
+        ({"message_id": "other"}, {**message, "message_id": "other"}),
+    ]):
+        store.append_stream_event(
+            run.run_id, event_id=f"bad-publication-{index}", event_type=event_type,
+            conversation_id=envelope.get("conversation_id", run.session_id),
+            message_id=envelope.get("message_id", message["message_id"]),
+            payload={"message": payload},
+        )
+        assert client.get(route).json()["publication"]["status"] == "pending"
+    if status == "completed":
+        store.add_artifact(run.run_id, "report.json", "{}", renderer="structured_report", title="报告")
+        assert client.get(route).json()["publication"]["status"] == "pending"
+    # 失败/取消无需 report.json：真正屏障是匹配的最后消息发布事件。
+    store.append_stream_event(
+        run.run_id, event_id="published", event_type=event_type,
+        conversation_id=run.session_id, message_id=message["message_id"],
+        payload={"message": message},
+    )
+    published = client.get(route).json()
+    assert published["publication"] == {"status": "published", "message_id": message_id}
+    assert next(r for r in client.get("/api/runs").json() if r["run_id"] == run.run_id)["publication"] == published["publication"]
+
+
+def test_publication_snapshot_reloads_artifacts_after_observing_commit_marker(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store, run, message_id = _publication_run()
+    original = RunStore.load_stream_events
+    published = False
+
+    def publish_between_reads(self, run_id, after=0):
+        nonlocal published
+        if run_id == run.run_id and not published:
+            published = True
+            store.add_artifact(run_id, "report.json", "{}", renderer="structured_report", title="报告")
+            store.append_stream_event(
+                run_id, event_id="published", event_type="message.complete",
+                conversation_id=run.session_id, message_id=message_id,
+                payload={"message": {"run_id": run_id, "conversation_id": run.session_id,
+                         "message_id": message_id, "role": "assistant", "status": "completed"}},
+            )
+        return original(self, run_id, after)
+
+    monkeypatch.setattr(RunStore, "load_stream_events", publish_between_reads)
+    payload = client.get(f"/api/runs/{run.run_id}").json()
+    assert payload["publication"]["status"] == "published"
+    assert [item["path"] for item in payload["artifacts"]] == ["report.json"]
+
+
+@pytest.mark.parametrize("session_id", [None, "legacy-cli-session"])
+def test_non_conversation_run_does_not_require_message_publication(client: TestClient, session_id) -> None:
+    store = RunStore()
+    run = store.create_run("legacy run", "ask", session_id=session_id)
+    store.finish_run(run.run_id, "completed")
+    assert client.get(f"/api/runs/{run.run_id}").json()["publication"] == {
+        "status": "not_applicable", "message_id": None,
+    }
+
+
+@pytest.mark.parametrize("publish", [True, False])
+def test_sse_waits_for_publication_or_times_out_without_faking_completion(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, publish: bool,
+) -> None:
+    store, run, message_id = _publication_run()
+    clock = [0.0]
+
+    def sleep(seconds):
+        clock[0] += seconds
+        if publish and clock[0] == 4:
+            store.add_artifact(run.run_id, "report.json", "{}", renderer="json", title="报告")
+            store.append_stream_event(
+                run.run_id, event_id="late", event_type="message.complete",
+                conversation_id=run.session_id, message_id=message_id,
+                payload={"message": {"run_id": run.run_id, "conversation_id": run.session_id,
+                         "message_id": message_id, "role": "assistant", "status": "completed"}},
+            )
+
+    monkeypatch.setattr(app_module, "time", SimpleNamespace(monotonic=lambda: clock[0], sleep=sleep))
+    monkeypatch.setattr(app_module, "_SSE_POLL_SECONDS", 1)
+    monkeypatch.setattr(app_module, "_SSE_MAX_SECONDS", 5)
+    body = client.get(f"/api/runs/{run.run_id}/events").text
+    if publish:
+        assert body.index("event: message.complete") < body.index("event: run")
+        final = json.loads(body.split("event: run\ndata: ")[1].strip())
+        assert final["publication"] == {"status": "published", "message_id": message_id}
+        assert final["artifacts"][0]["path"] == "report.json"
+    else:
+        assert "event: timeout" in body and "event: run" not in body
+
+
+def test_sse_drains_commit_event_observed_between_reads(client, monkeypatch):
+    store, run, message_id = _publication_run()
+    original = RunStore.load_stream_events
+    reads = 0
+
+    def publish_during_publication_check(self, run_id, after=0):
+        nonlocal reads
+        if run_id == run.run_id:
+            reads += 1
+            if reads == 2:  # Initial stream read was empty; publication read sees commit.
+                store.append_stream_event(
+                    run_id, event_id="between-reads", event_type="message.complete",
+                    conversation_id=run.session_id, message_id=message_id,
+                    payload={"message": {"run_id": run_id, "conversation_id": run.session_id,
+                             "message_id": message_id, "role": "assistant", "status": "completed"}},
+                )
+        return original(self, run_id, after)
+
+    monkeypatch.setattr(RunStore, "load_stream_events", publish_during_publication_check)
+    body = client.get(f"/api/runs/{run.run_id}/events").text
+    assert "event: message.complete" in body
+    assert body.index("event: message.complete") < body.index("event: run")
 
 
 def test_sse_initial_connection_keeps_polling_canonical_events(

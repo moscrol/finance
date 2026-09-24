@@ -1,0 +1,22 @@
+{
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "python_version": "3.12.13",
+  "dependency_fingerprint": "3328bed61f3e21ea",
+  "tree": "/Users/a77/fwp-wt-hithink-review-wiring",
+  "revision": "9621128a9982586f55883156415d3129df404fe2",
+  "branch": "fix/hithink-review-wiring",
+  "dirty": false,
+  "dirty_paths": [],
+  "worktree_dirty_total": 0,
+  "dependency_gate_bypassed": false,
+  "target": "/Users/a77/fwp-wt-hithink-review-wiring",
+  "counts": {
+    "passed": 9629,
+    "failed": 0,
+    "error": 0,
+    "skipped": 79
+  },
+  "failed_ids": [],
+  "exit_status": 0,
+  "finished_at": "2026-09-15T04:29:17+00:00"
+}

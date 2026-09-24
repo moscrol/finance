@@ -1,0 +1,109 @@
+"""Seal K3 independent-review artefacts into the repo verification dir and extend manifest.json.
+
+Usage: seal_k3.py spec [quality]
+Conventions follow the existing manifest: .py -> .py.txt, .log -> .log.txt, every sealed file gets
+{file, source, bytes, sha256}. pi's json event stream carries one line per streamed token delta, so
+the repo copy is a compacted stream (token/tool-output deltas dropped, every message/tool/turn/error
+event kept) and the full original is recorded under `external_only` with its own bytes + sha256.
+Fixture DBs, parquet and anything over 1 MiB stay external and are listed the same way.
+"""
+import hashlib
+import json
+import shutil
+import sys
+from pathlib import Path
+
+SRC = Path('/Users/a77/.finance-runtime/reviews/research-closeout-resume-20260920')
+DST = Path('/Users/a77/fwp-wt-nightly-refresh-resume-0920/docs/verification/2026-09-20-nightly-refresh-resume')
+RENAME = {'.py': '.py.txt', '.log': '.log.txt'}
+DROP_EVENT_TYPES = {'message_update', 'tool_execution_update'}
+EXTERNAL_SUFFIXES = {'.duckdb', '.parquet', '.db', '.sqlite', '.wal'}
+LIMIT = 1 << 20
+
+
+def sha(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def entry(dst: Path, src: Path) -> dict:
+    return {'file': str(dst.relative_to(DST)), 'source': str(src), 'bytes': dst.stat().st_size, 'sha256': sha(dst)}
+
+
+def external(src: Path, why: str) -> dict:
+    return {'source': str(src), 'bytes': src.stat().st_size, 'sha256': sha(src), 'why_external': why}
+
+
+def compact_events(src: Path, dst: Path) -> None:
+    kept = dropped = 0
+    with src.open('r', encoding='utf-8') as fin, dst.open('w', encoding='utf-8') as fout:
+        for line in fin:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                kind = json.loads(line).get('type')
+            except json.JSONDecodeError:
+                kind = None
+            if kind in DROP_EVENT_TYPES:
+                dropped += 1
+                continue
+            fout.write(line + '\n')
+            kept += 1
+    print(f'compacted {src.name}: kept {kept} events, dropped {dropped} streaming deltas')
+
+
+def seal_file(src: Path, dst_dir: Path, files: list, externals: list) -> None:
+    if src.name == 'events.jsonl':
+        dst = dst_dir / 'events.compact.jsonl'
+        compact_events(src, dst)
+        externals.append(external(src, 'full pi json stream incl. token deltas; compact copy sealed'))
+        files.append(entry(dst, src))
+        return
+    if src.suffix in EXTERNAL_SUFFIXES or src.stat().st_size > LIMIT:
+        externals.append(external(src, 'binary fixture or >1MiB'))
+        return
+    dst = dst_dir / (src.stem + RENAME.get(src.suffix, src.suffix))
+    if dst.exists():
+        raise SystemExit(f'refusing to overwrite sealed evidence: {dst}')
+    shutil.copyfile(src, dst)
+    files.append(entry(dst, src))
+
+
+def main(axes: list[str]) -> None:
+    manifest_path = DST / 'manifest.json'
+    manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+    files, externals = [], []
+    ind_src, ind_dst = SRC / 'nightly-independent', DST / 'nightly-independent'
+    for axis in axes:
+        for name in (f'run_{axis}_k3.py', f'{axis}-k3-prompt.md'):
+            seal_file(ind_src / name, ind_dst, files, externals)
+        out_src, out_dst = ind_src / f'{axis}-k3', ind_dst / f'{axis}-k3'
+        out_dst.mkdir(parents=True, exist_ok=False)
+        for src in sorted(p for p in out_src.rglob('*') if p.is_file()):
+            rel = src.relative_to(out_src)
+            if len(rel.parts) > 1:  # reviewer scratch subdirs (pytest-tmp, fixtures): record, do not copy
+                externals.append(external(src, f'reviewer scratch subdir {rel.parts[0]}'))
+                continue
+            seal_file(src, out_dst, files, externals)
+    # Root-session QC of the reviewers: rerun/bite-test logs and the JSON record (probe copies are
+    # duplicates of the sealed reviewer originals and are not copied twice).
+    for extra_dir in ('qc-rerun', 'qc-mutation'):
+        src_dir = ind_src / extra_dir
+        if src_dir.is_dir():
+            (ind_dst / extra_dir).mkdir(parents=True, exist_ok=False)
+            for src in sorted(src_dir.glob('*.log')):
+                seal_file(src, ind_dst / extra_dir, files, externals)
+    for name in ('qc-of-spec-k3.json', 'qc-of-quality-k3.json'):
+        if (ind_src / name).exists():
+            seal_file(ind_src / name, ind_dst, files, externals)
+    seal_file(ind_src / 'seal_k3.py', ind_dst, files, externals)
+    manifest['files'].extend(files)
+    manifest.setdefault('external_only', []).extend(externals)
+    manifest.setdefault('k3_rerun_note', 'Independent Spec/Quality re-run on kimi-k3 via pi after the Codex quota block; '
+                        'Codex originals in nightly-independent/spec/ left byte-identical.')
+    manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+    print(f'sealed {len(files)} files, {len(externals)} external-only entries; manifest now {len(manifest["files"])} files')
+
+
+if __name__ == '__main__':
+    main(sys.argv[1:] or ['spec'])

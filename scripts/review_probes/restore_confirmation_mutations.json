@@ -1,0 +1,51 @@
+[
+  {
+    "id": "restore_settlement_sync",
+    "path": "intelligence/services/episode_restore.py",
+    "old": "        self._store.append(self._episode_id, (event,), sync=True)",
+    "new": "        self._store.append(self._episode_id, (event,), sync=False)",
+    "targets": ["test_restore_confirms_settlements_before_returning_plan_or_closed"]
+  },
+  {
+    "id": "restore_append_ack_failure",
+    "path": "intelligence/services/episode_restore.py",
+    "old": "        self._store.append(self._episode_id, (event,), sync=True)",
+    "new": "        try:\n            self._store.append(self._episode_id, (event,), sync=True)\n        except OSError:\n            pass",
+    "targets": ["test_restore_ack_failure_propagates_without_advertising_next_action"]
+  },
+  {
+    "id": "restore_done_checkpoint_ack_failure",
+    "path": "intelligence/services/episode_restore.py",
+    "old": "        store.put_state(episode_id, done)",
+    "new": "        try:\n            store.put_state(episode_id, done)\n        except OSError:\n            pass",
+    "targets": ["test_restore_ack_failure_propagates_without_advertising_next_action"]
+  },
+  {
+    "id": "restore_plan_checkpoint_ack_failure",
+    "path": "intelligence/services/episode_restore.py",
+    "old": "            store.put_state(episode_id, state_after)",
+    "new": "            try:\n                store.put_state(episode_id, state_after)\n            except OSError:\n                pass",
+    "targets": ["test_restore_ack_failure_propagates_without_advertising_next_action"]
+  },
+  {
+    "id": "restore_terminal_prefix_consistency",
+    "path": "intelligence/services/episode_restore.py",
+    "old": "            raise RestoreUnavailable(f\"{episode_id}: terminal checkpoint does not match the finish prefix\")",
+    "new": "            pass",
+    "targets": ["test_restore_refuses_unconfirmed_terminal_without_writes"]
+  },
+  {
+    "id": "restore_finish_requires_checkpoint",
+    "path": "intelligence/services/episode_restore.py",
+    "old": "            raise RestoreUnavailable(f\"{episode_id}: finish has no confirmed completion or repair checkpoint\")",
+    "new": "            pass",
+    "targets": ["test_restore_refuses_unconfirmed_terminal_without_writes"]
+  },
+  {
+    "id": "restore_old_finish_cannot_hide_repair",
+    "path": "intelligence/services/episode_restore.py",
+    "old": "        # Same-process repair can legally continue after a prior finish. Its\n        # newer checkpoint, not a historical finish, owns the recovery position.",
+    "new": "        return result(\"already_terminal\", synth=None, plan=None, outcome=None, state_after=state)",
+    "targets": ["test_real_runtime_repair_prefix_is_not_mistaken_for_previous_completion"]
+  }
+]

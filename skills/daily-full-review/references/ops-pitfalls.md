@@ -2,6 +2,15 @@
 
 ### 关键防坑点（顺/坑 速查）
 
+- **档位要验运行态三件套**：仓内模板、`~/Library/LaunchAgents/` 装机 plist、`launchctl print`
+  生效环境逐个对照。2026-09-15 有会话根据旧数据树误判 `local` 不存在，将装机值改成 `auto`，
+  导致 09-16/17 仍去探复盘会；模板正确不能证明机器正确。恢复时只改目标键并保留现有 L2 代码根。
+  `local` 的子模块请求边界另见 `skills/duckdb-backfill/references/backfill-runbook.md` 坑⑧。
+
+- **补跑收尾分层验收**（2026-09-17）：数据/报告/L2 过门且快照达到目标日，才说明复盘主链恢复；方法飞轮 `daily` 即使 rc=0，也要读 `capture.status`（旧协议 v3 对新标签 v6 可被拒绝），不能宣称已登记前向观察。协议迁移另走登记/切换，不改旧协议或回拨时钟。
+- **首次生成的研究队列可留过期预览警告**：`agent-daily` 读取整轮 summary 时，summary 尚未落盘。先核对仅缺该文件且整轮已 PASS，再经同一固定代码根从 `--from-step agent-daily` 刷新队列及后续驾驶台，另存补跑 summary、保留原全流程收据；不手删警告。
+- **L3 的 `--date` 不冻结外部查询日期**：现有 lookup 只有滚动 `--days` 窗口，历史补跑不能冒充当时证据；当日 dry-run 后逐条看原文。只有投资者问题、没有公司回答的关键词命中不是公司事实；不要 apply。
+
 - **limit-heat 被 PIPE 吞进度 = 看起来挂死**：通过子脚本 `backfill_review_hot_data.py`
   跑时 stdout 被 PIPE 缓冲，看不到 chunk 进度会误判挂起。**直跑 `sync-limit-heat`
   继承 stdout** 就能看到 `detail chunk i/N`，2026-06-16 验证 25 个 chunk 顺利跑完。
@@ -119,21 +128,31 @@
 ### 夜间 launchd 定时运维（2026-07 踩坑沉淀）
 
 夜间自动复盘走 `nightly_full_review.sh`（launchd），**已拆成两个 job**——因为
-**L2 逐笔资金流数据 ~20:30 才入 ClickHouse，18:30 跑必空**（连续两天因此 fail、需手动补跑）：
+**L2 闲鱼日包收盘后才上分享，18:30 跑必空**（ClickHouse 已退役，夜跑走 `scripts/moneyflow/run_l2_pipeline.sh` 文件源；曾连续两天因早跑 fail、需手动补跑）：
 
 | job | 时间 | 命令 | 跑什么 |
 |---|---|---|---|
-| `com.financeworkspace.daily-full-review-sync` | 18:30 | `nightly_full_review.sh sync` | 同步段（全 fact 同步 + same/cross-day 门），不依赖 L2 |
+| `com.financeworkspace.daily-full-review-sync` | 18:30 | `nightly-full-review-s7.sh <date>` | 同步段（全 fact 同步 + same/cross-day 门），走 staging + 原子换名，不依赖 L2 |
 | `com.financeworkspace.fidelity-daily-agent` | 20:05 | `run_fidelity_daily_agent.sh` | theme-candidates 合同校验 + agent-daily（`--semantic-rag-top-n 0`）+ kb-queue-receive |
-| `com.financeworkspace.daily-full-review-finalize` | 20:40 | `nightly_full_review.sh finalize` | sync 守卫（复查 same-day-gate）→ L2 → 生成段（含研究队列 + receive）→ 终极门 |
+| `com.financeworkspace.daily-full-review-finalize` | 20:40 | `nightly_full_review.sh finalize` | **L2 → sync 守卫（复查 same-day-gate）→ 生成段**（含研究队列 + receive）→ 终极门 → 方法飞轮 |
 
-手动补跑用 `nightly_full_review.sh [date]`（phase=all，全量；跨日补跑也用它）。
-脚本带 phase 参数（`sync`/`finalize`/`all`），date 参数顺序无关。旧的单 job plist 已 bootout 并重命名为 `.retired`。
+**手动补跑两条分开跑、都要跑**（工单 #51，见 SKILL.md「一键入口」的完整写法）：先
+`nightly-full-review-s7.sh <date>`，再 `nightly_full_review.sh finalize <date>`，两个
+退出码分别接住。别用 `&&` 串——同步一失败 finalize 不启动，当天 L2 跟着丢；也别用裸
+分号——那样同步失败会被收尾的成功掩盖。
+
+`nightly_full_review.sh` 现在**只接受 `finalize`**：`sync` / `all`（含只传日期的缺省
+`all`）自 2026-09-12 起在加锁前就被拒绝并打印替代命令，因为它们直调同步器、绕开
+staging 直写生产库。date 参数顺序无关。旧的单 job plist 已 bootout 并重命名为 `.retired`。
+
+L2 排在同步守卫**之前**是刻意的：L2 读逐笔日包，不依赖同步段产物，同步失败不该连坐它
+（9-10 / 9-11 两天的 `feature_l2_*` 就是被连坐丢的）。但生成段的门没松——守卫不过仍
+中止生成，L2 失败也仍挡住生成。
 
 近期踩坑（调度/脚本层已修，记此防复发）：
 
-- **L2 18:30 必空**：逐笔数据 ~20:30 才到，早跑 `empty_count=全量` → 资金流段 fail。
-  这就是拆 sync/finalize 的根因。**手动补跑 L2 也要等 20:30 之后**（之前踩过：18:40 跑全空，过零点再跑才有数据）。
+- **L2 18:30 必空**：闲鱼日包收盘后才上分享，早跑 `empty_count=全量` → 资金流段 fail。
+  这就是拆 sync/finalize 的根因。**手动补跑 L2 也要等日包上架之后**（ClickHouse 时代踩过：18:40 跑全空，过零点再跑才有数据）。
   注：全空时 scan 会 raise，**空结果不进缓存**，重跑会真扫（无需 force-rescan）。
 - **preflight `wrong-host` = fupanhui 标签页没就绪**：sync 段 preflight 要挂载一个**已登录的 fupanhui.com 标签页**。
   Mac 睡眠唤醒后 launchd 补跑，常因 debug Chrome 里没有 fupanhui 标签页而 fail（proxy `/health` 显示 `managedTabs:0`）。
@@ -222,9 +241,15 @@
 - **S7 夜跑 sync（2026-08-16）**：18:30 不再直接跑仓内
   `nightly_full_review.sh sync`。入口是
   `~/.local/bin/nightly-full-review-s7.sh`，写锁只落 staging，成功才
-  `os.replace` 进生产库。子进程仍用 private 工作树上的
-  `run_review_sync.py`（那棵树有未提交的主线 static 回退）。**不要**为了
-  S7 去切 8792——S7 不在 `intelligence/`。详见
+  `os.replace` 进生产库。子进程的 `run_review_sync.py` **自 09-09 起按
+  `FINANCE_CODE_ROOT` 取**（两个 plist 已设 = `/Users/a77/finance-workspace-runtime`
+  软链，切流自动跟随；缺省仍回落主树）——08-16 让它跑脏主树的理由（未提交的
+  主线 static 回退）早已合入，而主树后来是别的 agent 的脏检出。注意 s7.sh 自己
+  **不设**这个变量，绕过 plist 手跑时要自己带上，否则回落脏主树。安装件
+  `~/.local/bin/nightly-review-sync-staged.py` **没有仓内 .py 源**，改它必须留
+  `.bak-*` 备份并写回执（本次 `.bak-pre-coderoot-20260909`、plist
+  `.bak-pre-local-20260909`，见 `docs/verification/2026-09-09-cutover-0909.md`）。
+  **不要**为了 S7 去切 8792——S7 不在 `intelligence/`。详见
   `docs/handoffs/2026-08-16-s7-nightly-staging.md`。
 
 - **Token 编码 U+2028/U+2029**：macOS 环境变量可能尾部带 Unicode 行分隔符，导致 hmac 校验失败返回 401。

@@ -55,6 +55,66 @@ def main(argv=None):
     )
 
 
+@pytest.mark.parametrize("relative", ["scripts/rag_index.py", "scripts/rag_freshness.py"])
+def test_worker_restarts_on_code_change_even_with_same_size_and_mtime(tmp_path, relative):
+    import os
+    import py_compile
+
+    _write_fake_rag(tmp_path)
+    path = tmp_path / relative
+    py_compile.compile(str(path), doraise=True)  # 刻意遗留可按同 mtime+size 命中的旧 pyc。
+    index = tmp_path / ".rag_index"
+    index.mkdir()
+    worker = PersistentRagWorker(sys.executable, tmp_path, index)
+    try:
+        first = worker.query(["query", "before", "--json"], timeout=3)
+        process = worker._process
+        path = tmp_path / relative
+        stat = path.stat()
+        before = path.read_text()
+        after = before.replace('"query": query', '"query": "NEW"') if "index" in relative else before.replace("scripts", "updated")
+        assert len(before) == len(after) and before != after
+        path.write_text(after)
+        os.utime(path, ns=(stat.st_atime_ns, stat.st_mtime_ns))
+        second = worker.query(["query", "after", "--json"], timeout=3)
+        third = worker.query(["query", "again", "--json"], timeout=3)
+        assert first.returncode == second.returncode == third.returncode == 0
+        assert process.poll() is not None, "磁盘升级不能继续使用已加载旧代码的进程"
+        row = json.loads(second.stdout)[0]
+        if "index" in relative:
+            assert row["query"] == "NEW"
+        else:
+            assert row["import_context"] == "knowledge-base-updated"
+        assert second.model_load_count == third.model_load_count == 1
+    finally:
+        worker.close()
+
+
+def test_worker_discards_output_if_code_changes_mid_query(tmp_path):
+    _write_fake_rag(tmp_path)
+    script = tmp_path / "scripts/rag_index.py"
+    script.write_text(script.read_text().replace(
+        '    query = argv[1]',
+        '    query = argv[1]\n'
+        '    if query == "mutate":\n'
+        '        from pathlib import Path\n'
+        '        path = Path(__file__).with_name("rag_freshness.py")\n'
+        '        path.write_text(path.read_text().replace("scripts", "updated"))',
+    ))
+    index = tmp_path / ".rag_index"
+    index.mkdir()
+    worker = PersistentRagWorker(sys.executable, tmp_path, index)
+    try:
+        worker.query(["query", "before", "--json"], timeout=3)
+        with pytest.raises(RuntimeError, match="code changed"):
+            worker.query(["query", "mutate", "--json"], timeout=3)
+        assert not worker.healthy()
+        recovered = worker.query(["query", "after", "--json"], timeout=3)
+        assert json.loads(recovered.stdout)[0]["import_context"] == "knowledge-base-updated"
+    finally:
+        worker.close()
+
+
 def test_worker_reuses_loaded_retriever(tmp_path: Path) -> None:
     _write_fake_rag(tmp_path)
     index = tmp_path / ".rag_index"
@@ -108,6 +168,26 @@ class _Config:
 
 config = _Config()
 
+class _Chunks:
+    # 复现 KB 懒读表（knowledge-base-private #143）的接口：len / [row] 可用，
+    # 整表遍历要付 169k 行解析 + 1.4 GB——记下遍历次数，worker 一次都不该碰。
+    ITER_CALLS = 0
+
+    def __init__(self):
+        self._rows = [
+            {"id": "c1", "text": "证据正文", "section": "s", "content_hash": "h1"}
+        ]
+
+    def __len__(self):
+        return len(self._rows)
+
+    def __getitem__(self, row):
+        return self._rows[row]
+
+    def __iter__(self):
+        type(self).ITER_CALLS += 1
+        return iter(self._rows)
+
 class RagStore:
     __hash__ = None
 
@@ -116,9 +196,7 @@ class RagStore:
 
     def __init__(self, meta):
         self.meta = meta
-        self.chunks = [
-            {"id": "c1", "text": "证据正文", "section": "s", "content_hash": "h1"}
-        ]
+        self.chunks = _Chunks()
 
     @classmethod
     def load(cls, in_dir=None):
@@ -136,6 +214,9 @@ class Retriever:
     def __init__(self, store, index_freshness):
         self.store = store
         self.index_freshness = index_freshness
+        # 与真 Retriever 同名：enrich 按 id 查行号、再从 store.chunks 取那一行
+        self.chunks = store.chunks
+        self.row_by_chunk_id = {"c1": 0}
 
 def _load_retriever(model, need_dense, reranker_name=None, store=None, index_freshness=None):
     return Retriever(store, index_freshness)
@@ -156,6 +237,7 @@ def main(argv=None):
         "file_path": "wiki/x.md",
         "snippet": "证据正文",
         "store_loads": len(STORE_LOADS),
+        "chunks_iterated": _Chunks.ITER_CALLS,
         "store_is_retriever_store": r.store is store,
     }], ensure_ascii=False))
     return 0
@@ -265,6 +347,51 @@ def test_timeout_terminates_worker_and_next_query_restarts(tmp_path: Path) -> No
 
     assert recovered.returncode == 0
     assert recovered.model_load_count == 1
+
+
+@pytest.mark.parametrize("query", ["recovered", "slow"])
+@pytest.mark.parametrize("restart", ["crash", "code-change"])
+def test_new_process_discards_old_partial_bytes_and_timeout_state(tmp_path, query, restart):
+    """Framing state and code identity must turn over together, including private pycache."""
+    _write_fake_rag(tmp_path)
+    index = tmp_path / ".rag_index"
+    index.mkdir()
+    worker = PersistentRagWorker(sys.executable, tmp_path, index)
+    try:
+        worker.prewarm(["query", "warmup", "--json"], timeout=2)
+        process = worker._process
+        assert process is not None
+        old_pycache = Path(worker._pycache.name)
+        worker._response_buffer.extend(b'{"id":"old-partial')
+        worker._abandoned.add("old")
+        worker._consecutive_timeouts = 1
+        if restart == "crash":
+            process.kill()
+            process.wait(timeout=2)
+        else:
+            source = tmp_path / "scripts/rag_freshness.py"
+            source.write_text(source.read_text().replace("scripts", "updated"))
+        worker._recovery_argv = None
+        if query == "slow":
+            with pytest.raises(TimeoutError) as error:
+                worker.query(["query", query, "--json"], timeout=0.02)
+            assert not isinstance(error.value, rag_worker.WorkerRequestAbandoned)
+            assert worker.counters["timeouts_killed"] == 1
+            assert worker.model_load_count == 0, "cold successor cannot inherit warm state"
+        else:
+            response = worker.query(["query", query], timeout=2)
+            assert '"query": "recovered"' in response.stdout
+            if restart == "code-change":
+                assert "knowledge-base-updated" in response.stdout
+            assert worker._process is not process
+            assert worker.model_load_count == 1
+        assert process.poll() is not None
+        assert not old_pycache.exists()
+        assert worker._response_buffer == b""
+        assert worker._abandoned == set()
+        assert worker._consecutive_timeouts == 0
+    finally:
+        worker.close()
 
 
 def test_prewarm_marks_worker_ready_and_reuses_model(tmp_path: Path) -> None:
@@ -694,6 +821,7 @@ def test_kb_rag_prewarm_uses_production_runtime_without_business_cache(
         "python": sys.executable,
         "kb_root": tmp_path,
         "index_dir": index,
+        "kb_wiki": wiki,
         "argv": [
             "query",
             "Workbench RAG 预热",
@@ -1102,6 +1230,115 @@ def test_enrich_falls_back_when_page_freshness_raises() -> None:
     state = _state(_FakeStore(raises=True), freshness="unknown")
     out = json.loads(module._enrich_query_output(json.dumps(_rows()), state, _FakeModule()))
     assert {r["index_freshness"] for r in out} == {"unknown"}
+
+
+class _LazyChunks:
+    """像 KB 懒读表：按行取、可 len，整表遍历要记账（worker 一次都不该做）。"""
+
+    def __init__(self, rows):
+        self._rows = rows
+        self.iter_calls = 0
+
+    def __len__(self):
+        return len(self._rows)
+
+    def __getitem__(self, row):
+        return self._rows[row]
+
+    def __iter__(self):
+        self.iter_calls += 1
+        return iter(self._rows)
+
+
+def _lazy_retriever(store):
+    rows = [
+        {"id": "c1", "text": "懒读正文一", "section": "s1", "content_hash": "h1"},
+        {"id": "c2", "text": "懒读正文二", "section": "s2", "content_hash": "h2"},
+    ]
+    table = _LazyChunks(rows)
+    retriever = mock.Mock(store=store)
+    retriever.row_by_chunk_id = {"c1": 0, "c2": 1}
+    retriever.chunks = table
+    return retriever, table
+
+
+def test_enrich_resolves_rows_from_retriever_without_state_copy() -> None:
+    """靶心：state["chunks"] 为空时按 retriever.row_by_chunk_id 现取那一行，且不遍历整表。
+
+    KB 侧 store.chunks 已是懒读表（knowledge-base-private #143）；此前 worker 在加载时把
+    它整份复制成 id→dict，等于把 169k 行全解析出来攥着（1.4 GB），KB 那一刀白做。
+    """
+    module = _worker_module()
+    store = _FakeStore({"wiki/concepts/军工.md": "fresh"})
+    retriever, table = _lazy_retriever(store)
+    state = {"retriever": retriever, "chunks": {}, "revision": "rev9", "freshness": "stale", "store": store}
+
+    out = json.loads(module._enrich_query_output(json.dumps(_rows()), state, _FakeModule()))
+
+    by_id = {r["best_chunk_id"]: r for r in out}
+    assert by_id["c1"]["llm_evidence_text"] == "懒读正文一"
+    assert by_id["c2"]["section"] == "s2" and by_id["c2"]["content_hash"] == "h2"
+    assert by_id["c1"]["evidence_chunk_ids"] == ["c1"]
+    assert by_id["c2"]["index_freshness"] == "fresh" and by_id["c1"]["index_freshness"] == "stale"
+    assert table.iter_calls == 0, "enrich 只能按行取，不得遍历整表"
+    assert state["chunks"] == {}, "不得把表复制回 state"
+
+
+def test_enrich_state_chunks_take_precedence_over_retriever_table() -> None:
+    module = _worker_module()
+    store = _FakeStore({})
+    retriever, _ = _lazy_retriever(store)
+    state = _state(store)  # 预填的 c1/c2 正文是「证据正文」
+    state["retriever"] = retriever
+
+    out = json.loads(module._enrich_query_output(json.dumps(_rows()), state, _FakeModule()))
+    assert {r["llm_evidence_text"] for r in out} == {"证据正文"}
+
+
+def test_enrich_stamps_index_fields_even_when_chunk_unresolvable() -> None:
+    """id 不在索引里 / retriever 没有表：索引级字段照盖，块级字段不碰。"""
+    module = _worker_module()
+    store = _FakeStore({"wiki/concepts/军工.md": "fresh"})
+    state = _state(store, chunks_ids=())          # 没有预填，mock retriever 也没有真表
+    out = json.loads(module._enrich_query_output(json.dumps(_rows()), state, _FakeModule()))
+    by_path = {r["file_path"]: r for r in out}
+    assert by_path["wiki/concepts/军工.md"]["index_freshness"] == "fresh"
+    assert by_path["wiki/entities/中国船舶.md"]["index_built_at"] == "2026-08-31T11:01:16Z"
+    assert all("llm_evidence_text" not in r for r in out)
+
+
+def test_chunk_by_id_fails_closed_on_garbage() -> None:
+    module = _worker_module()
+    retriever, table = _lazy_retriever(_FakeStore({}))
+    assert module._chunk_by_id({"chunks": {}}, retriever, "c2")["id"] == "c2"
+    assert module._chunk_by_id({"chunks": {}}, retriever, "") is None
+    assert module._chunk_by_id({"chunks": {}}, retriever, "nope") is None
+    assert module._chunk_by_id({"chunks": {}}, mock.Mock(), "c1") is None, "Mock 出来的 row 不是 int"
+    retriever.row_by_chunk_id = {"c1": True}
+    assert module._chunk_by_id({"chunks": {}}, retriever, "c1") is None, "bool 不算行号"
+    retriever.row_by_chunk_id = {"c1": 99}
+    assert module._chunk_by_id({"chunks": {}}, retriever, "c1") is None, "越界 fail closed"
+    assert table.iter_calls == 0
+
+
+def test_worker_does_not_materialize_store_chunks(tmp_path: Path) -> None:
+    """e2e：worker 加载 retriever 时不得遍历 store.chunks；enrich 仍能按 id 取到正文。"""
+    _write_flipable_rag(tmp_path)
+    index = tmp_path / ".rag_index"
+    index.mkdir()
+    (index / "meta.json").write_text('{"built_at": "2026-08-31T11:01:16Z"}', encoding="utf-8")
+    (index / "verdict.txt").write_text("fresh", encoding="utf-8")
+    worker = PersistentRagWorker(sys.executable, tmp_path, index)
+    try:
+        first = worker.query(["query", "first", "--json"], timeout=2)
+        second = worker.query(["query", "second", "--json"], timeout=2)
+    finally:
+        worker.close()
+    assert first.returncode == 0, first.stderr
+    row = json.loads(second.stdout)[0]
+    assert row["chunks_iterated"] == 0, "worker 把 store.chunks 整份遍历/复制了"
+    assert row["llm_evidence_text"] == "证据正文" and row["content_hash"] == "h1"
+    assert row["index_built_at"] == "2026-08-31T11:01:16Z"
 
 
 def test_prewarm_prefers_kb_single_source_over_stale_report() -> None:

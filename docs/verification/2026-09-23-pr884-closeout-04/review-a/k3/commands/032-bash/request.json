@@ -1,0 +1,1 @@
+{"toolCallId":"bash_31","params":{"command":"cd /Users/a77/.finance-runtime/reviews/pr884-closeout-20260923-04/finance-workspace-private && rg -n 'schema_version|SCHEMA_VERSION|def from_snapshot|def to_snapshot' intelligence/services/agent_runtime.py | head && rg -n 'EPISODE_LOG_VERSION' intelligence/services/episode_store.py | head -5"}}

@@ -24,7 +24,15 @@ import re
 from html import escape
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
+import sys
+
+CODE_ROOT = Path(__file__).resolve().parents[1]
+if str(CODE_ROOT) not in sys.path:
+    sys.path.insert(0, str(CODE_ROOT))
+
+from intelligence.paths import data_repo_root  # noqa: E402
+
+ROOT = data_repo_root()
 FUPAN = ROOT / "复盘"
 DAILY = FUPAN / "daily"
 WINRATE = FUPAN / "winrate"

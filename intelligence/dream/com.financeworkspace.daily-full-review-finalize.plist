@@ -18,8 +18,13 @@
   <string>/Users/a77/finance-workspace-private</string>
   <key>EnvironmentVariables</key>
   <dict>
+    <!-- 两个完整固定检出分别保留 L2/质检/方法与生成身份，可以独立回滚。
+         adcda94b 中 scripts/moneyflow 与原 d433b907 逐字一致，生成含已合 #796/#815。
+         这是部署候选模板；仓内合入不代表装机或真实夜跑验收完成。 -->
     <key>FINANCE_CODE_ROOT</key>
-    <string>/Users/a77/finance-workspace-runtime</string>
+    <string>/Users/a77/.finance-runtime/finance-l2-adcda94b5e40</string>
+    <key>FINANCE_GENERATION_CODE_ROOT</key>
+    <string>/Users/a77/.finance-runtime/finance-generation-adcda94b5e40</string>
     <key>FINANCE_DATA_ROOT</key>
     <string>/Users/a77/finance-workspace-private</string>
     <key>FINANCE_WS</key>
@@ -38,10 +43,16 @@
     <string>36</string>
     <key>REVIEW_GATE_LOCK_DELAY_SECONDS</key>
     <string>10</string>
-    <key>FUPANHUI_DIRECT</key>
-    <string>0</string>
-    <key>FUPANHUI_MIN_INTERVAL</key>
-    <string>0.8</string>
+    <!-- finalize 也必须带档位（2026-09-12 补）：三道质检闸门（data / l2 / all）
+         的 plan 参数缺省读这个变量，未设即按 full 期望裁判，plan=local 下不抓的
+         fact_theme_flow_daily 会被判成断档 → 20:40 守卫中止 → 方法飞轮轮不到。
+         装机副本此前手工加过 local，仓内源一直没有：重装就会静默丢掉它。
+         与 sync 源保持同值，改档两份一起改。 -->
+    <key>REVIEW_SYNC_PLAN</key>
+    <string>local</string>
+    <!-- 与独立 S7 同步任务保持记录一致；finalize 不调用 sync / all。 -->
+    <key>FINANCE_SYNC_CODE_ROOT</key>
+    <string>/Users/a77/.finance-runtime/finance-sync-2edbe4c46595</string>
   </dict>
   <key>RunAtLoad</key>
   <false/>

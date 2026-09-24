@@ -1,0 +1,13 @@
+diff --git a/intelligence/runtime/agent_episode.py b/intelligence/runtime/agent_episode.py
+index 195021fb6..a43c09456 100644
+--- a/intelligence/runtime/agent_episode.py
++++ b/intelligence/runtime/agent_episode.py
+@@ -1409,7 +1409,7 @@ class ContinuousAgentEpisode:
+         with self._control_writer(episode_id):
+             if self._store is not None:
+                 events, state = self._store.load(episode_id)
+-                if events or state is not None:
++                if False:
+                     raise RestoreUnavailable(f"{episode_id}: existing episode requires recovery, not a fresh run")
+             try:
+                 return (yield from self._drive(

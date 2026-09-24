@@ -1,0 +1,4 @@
+............................................................             [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260923T103028Z-75dfd08c-4e24c87e70f1.json
+
+- generated xml file: /Users/a77/.finance-runtime/reviews/pr884-closeout-20260923-04/logging-regression.xml -
+60 passed in 87.16s (0:01:27)

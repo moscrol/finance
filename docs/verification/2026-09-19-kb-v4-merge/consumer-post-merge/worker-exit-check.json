@@ -1,0 +1,15 @@
+{
+  "observed_at": "2026-09-18T17:27:35.023303+00:00",
+  "workers": {
+    "rag_index": {
+      "pid": 91084,
+      "ps_exit": 1,
+      "absent": true
+    },
+    "rag_index_full": {
+      "pid": 93344,
+      "ps_exit": 1,
+      "absent": true
+    }
+  }
+}

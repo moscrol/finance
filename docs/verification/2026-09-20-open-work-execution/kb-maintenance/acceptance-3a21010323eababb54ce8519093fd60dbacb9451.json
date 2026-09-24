@@ -1,0 +1,86 @@
+{
+  "schema": 1,
+  "recorded_at": "2026-09-19T19:00:08.486298+00:00",
+  "code_sha": "3a21010323eababb54ce8519093fd60dbacb9451",
+  "worktree": "/Users/a77/kb-wt-guarded-maintenance-0920",
+  "branch": "codex/kb-guarded-maintenance-0920",
+  "clean": true,
+  "finance_workspace": "/Users/a77/.finance-runtime/open-work-execution-20260920/gate-generation-final/finance-workspace-private",
+  "finance_sha": "4ace5ec2e9b7735d90eb15bc2351fa193c1120b8",
+  "finance_clean": true,
+  "python": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "pytest": {
+    "passed": 911,
+    "failed": 0,
+    "skipped": 0,
+    "seconds": 55.65
+  },
+  "checks": [
+    {
+      "command": "FINANCE_WS=/Users/a77/.finance-runtime/open-work-execution-20260920/gate-generation-final/finance-workspace-private /Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest tests skills/lib/rag/tests -q",
+      "exit_code": 0,
+      "log": "/Users/a77/.finance-runtime/open-work-execution-20260920/kb-maintenance/full-3a2101032.log",
+      "log_sha256": "3404bca4ff01ed2d3e1fb3e373ba95aead8e6ef38ef65103a9d10268ed8e4c23",
+      "log_bytes": 1061
+    },
+    {
+      "command": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python scripts/ingest.py check --strict-vocab",
+      "exit_code": 0,
+      "log": "/Users/a77/.finance-runtime/open-work-execution-20260920/kb-maintenance/strict-vocab-3a2101032.log",
+      "log_sha256": "1c684cbb1bb972a3a5ceadbdff9549a0687edb1ec607c8547cd12fe127eff2b4",
+      "log_bytes": 336
+    },
+    {
+      "command": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python scripts/check_tracked_file_sizes.py",
+      "exit_code": 0,
+      "log": "/Users/a77/.finance-runtime/open-work-execution-20260920/kb-maintenance/file-sizes-3a2101032.log",
+      "log_sha256": "82cd8c7ca5e160adf643affbfa8b5a213a2fdea26c6945d245d355685b5fadf4",
+      "log_bytes": 100
+    },
+    {
+      "command": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python scripts/quality_gate.py",
+      "exit_code": 0,
+      "log": "/Users/a77/.finance-runtime/open-work-execution-20260920/kb-maintenance/quality-gate-3a2101032.log",
+      "log_sha256": "d1a3153ddefa5634198fb6d226b860f2d9b889877f2c1e8bd9adf2a0e31fae5e",
+      "log_bytes": 2217
+    }
+  ],
+  "scope": "temporary hash indexes; real finance PersistentRagWorker; publisher transport stubs only",
+  "production_index_writes": false,
+  "actual_remote_asset_publication": false,
+  "production_restart": false,
+  "reviewed_code_sha": "7e07addb466385085e21ccaf3d06bf23c6e4b0a1",
+  "documents_only_since_review": true,
+  "documentation_delta": [
+    "docs/handoffs/2026-09-20-kb-guarded-maintenance-acceptance.md",
+    "docs/handoffs/inflight/codex-kb-guarded-maintenance-0920.md",
+    "docs/rag-guarded-maintenance.md",
+    "docs/superpowers/plans/2026-09-20-guarded-rag-maintenance.md"
+  ],
+  "existing_quality_debt": {
+    "strict_vocab_errors": 0,
+    "strict_vocab_warnings": 2,
+    "quality_status": "no_regression_with_debt"
+  },
+  "reviews": {
+    "spec_dynamic_code_sha": "1bd5e1dc8d48f59461c79f35ea553e1cda71a6ec",
+    "final_spec_mode": "static_delta",
+    "final_quality_mode": "static_with_author_regression",
+    "independent_final_dynamic_rerun": false,
+    "reports": [
+      {
+        "path": "/Users/a77/.finance-runtime/open-work-execution-20260920/kb-maintenance/spec-review-1bd5e1dc.md",
+        "sha256": "bea8768959950a47a3cf4cd38129f9a2161d58a7d19ec435a88777613a954258"
+      },
+      {
+        "path": "/Users/a77/.finance-runtime/open-work-execution-20260920/kb-maintenance/spec-review-7e07addb.md",
+        "sha256": "ed558a249824db53931174ec64e1c0383672b3f1d4b30083a79786aaac3cb214"
+      },
+      {
+        "path": "/Users/a77/.finance-runtime/open-work-execution-20260920/kb-maintenance/quality-review-7e07addb.md",
+        "sha256": "d902c029c94b0b3b852b9d3ff3979c1f1467c74a017262475f4cd1b5e0c021ca"
+      }
+    ]
+  },
+  "inflight_bytes": 2583
+}

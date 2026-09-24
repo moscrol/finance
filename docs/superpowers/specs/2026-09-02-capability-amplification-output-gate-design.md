@@ -231,6 +231,15 @@ Episode 臂：   kb_search✗ → financial_data✓ → l3_lookup✗ → evidenc
 > 4 条 issue 全是**降级标注**（`decision=demoted_to_issue` 那一类，V8 语义降级已把「必需槽内的语义拒句」改成只记 issue），
 > 见 `docs/verification/2026-09-03-web-chain-two-arm-live.md` §3。所以第 2 步要数的是两个数：`deleted` 里有出处的占比（判据是否过严），
 > 以及 `demoted` 里低档来源的条数（标注是否被展示层吃掉——§3.3 那条「前提是展示层真的把标注展示出来」）。
+>
+> **状态（2026-09-21）**：第 2 步量了（`docs/verification/2026-09-21-judge-verdict-census-pre-reason-codes.md`，生产 113 个带字段 run）：
+> `deleted` 有出处占比 10.5%，但 4 条全是 preflight 数值闸，judge 阶段有出处被删 **0 条**；「引了 E 且被拒」39 条全部 demoted，
+> 来源档 L4_structured 25 条，判官原话里 7 条写明「数字本身有证据、不是拒绝原因」。量出来的结论是**判据不该按来源档或引用与否改**——
+> 判官拒绝理由异质，要按理由分流。落地：判官报告加可选 `reason_codes`（`answer_model.JUDGE_REASON_CODES` 四码），`_plan_repair_indexes`
+> 按码路由——`fact_beyond_evidence` 删、`unsupported_ranking` 改写矩阵「优先级」格为「N（研判）」、`internal_process_leak` 改写措辞、
+> 其余与无码走原槽位规则；账本新增 `decision=rewritten` / `judge_reason_code` / `rewritten_to`，读侧 census 加 `judge_stage.coded_share`。
+> 「标注写进正文」第一处真落地是矩阵行的「（研判）」；展示层的句级标注仍只在 issues。判官侧另加 `ranking_contract` 送判块，
+> 让检查方知道「优先级」列是契约要求的研判（生产方与检查方的缝，不是删句判据的问题）。
 
 ### 3.4 P3：沙箱按 `derived_calculation` 落地
 
@@ -259,6 +268,16 @@ Episode 臂：   kb_search✗ → financial_data✓ → l3_lookup✗ → evidenc
 | 产出 `input_evidence_hashes` | 空或伪造 | 天然完整 |
 
 而且它接上一个反复出现的形状（`10_knowledge/cross-layer-vocabulary-reconciliation.md`：两个自洽子系统各用各的词表、中间无对账）——**沙箱可以当那个对账器**。
+
+> **落地回写（2026-09-08，分支 `feat/sandbox-derived-calculation`，工单 #41）**：协议四条全落。工具 `derived_calculation`（`services/derived_calculation.py`）
+> 按 episode 绑证据账本进注册表（与 `sub_research` 同「没账本不挂」规矩，参考 loop 没有它）；产物 `DerivedCalculation` 带 `calc_id`
+> （prelude 版本 | 脚本 | 排序输入哈希 | DuckDB 指纹）、`input_evidence_hashes`（本回合全部已绑定证据）、原样 `script`、`as_of`（输入最旧）、
+> `enforcement`。**机制拍板为两层**：进程层守卫（独立解释器 + 从零 env + prelude 换掉 socket / 拦 import / 写只许工作目录 + rlimit + 墙钟）永远开，
+> macOS 有 `sandbox-exec` 时叠 Seatbelt deny-list（network / process-fork / 工作目录外写）；实测 Seatbelt 单独一层就拦下 connect / 越界写 / fork。
+> `produces` 不写自己的名字（词表规矩 output_id ≠ 工具名），派生身份由 `evidence_tier=derived_calculation` + `AgentEvidence.derived_from` 说明。
+> 授权从 `financial_data` 派生（与 `web_fetch` 从 `web_search` 派生同理）。§5 第 16 条落为 `validate_episode_finish` 的 `derived_without_inputs`
+> （INTEGRITY）；第 17 / 18 条各有夹具，18 条走 `ContinuousAgentEpisode` 端到端（两源 1741.44 / 1740.0 → diff 1.44、`as_of` 2025-04-03、结论绑
+> E1/E2/E3 被接受）。三处变异（门关掉 / as_of 取最新 / prelude 守卫整段关掉）分别 1 / 3 / 4 红。未做：另冻计算类题集、脚本实读遥测、CLI / Workbench 入口。
 
 ### 3.5 P4：底座 A/B——`sdk_glm` 主臂，`sdk_gpt` 可选第三臂
 

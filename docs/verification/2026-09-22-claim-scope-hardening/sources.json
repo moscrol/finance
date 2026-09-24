@@ -1,0 +1,43 @@
+{
+  "archived_at": "2026-09-22T20:33:55.169873+08:00",
+  "archive": "docs/verification/2026-09-22-claim-scope-hardening",
+  "file_count": 6,
+  "sources": [
+    {
+      "source": "本目录内生成（见 README 复跑命令）",
+      "archived_as": "README.md",
+      "sha256": "17b6b4b3ee5c7fe1239efe7af9479bc242b745ea82e3fb81ddc2babb57ed89b9",
+      "redacted": false
+    },
+    {
+      "source": "本目录内生成（见 README 复跑命令）",
+      "archived_as": "evidence/frozen-run-parity.json",
+      "sha256": "83333a0672c2856bf1a076e897886a9e8b14c37b99acfc8dc45bef1aa681f262",
+      "redacted": false
+    },
+    {
+      "source": "本目录内生成（见 README 复跑命令）",
+      "archived_as": "evidence/gates.json",
+      "sha256": "2b2a0549d20c6299847489253cb2d1d0fbb223dff3a0964e5989a22a98724932",
+      "redacted": false
+    },
+    {
+      "source": "本目录内生成（见 README 复跑命令）",
+      "archived_as": "evidence/probe-closure.json",
+      "sha256": "54f0353d28c2c7ba49a76599c53b62e7c7a023eaf3fa67827afaefede11cda9d",
+      "redacted": false
+    },
+    {
+      "source": "本目录内生成（见 README 复跑命令）",
+      "archived_as": "evidence/recalibration.json",
+      "sha256": "0b5fadfb37ee94919cd34a5a89a195e79b742a14c97ecc09350c825af5ec94fb",
+      "redacted": false
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/test-receipts/20260922T122953Z-50ffda95.json",
+      "archived_as": "evidence/test-receipt-targeted.json",
+      "sha256": "1e21ba1cbb6c91145b97659187c6993ed5b2130714e1d19a2949d0ceb3020121",
+      "redacted": false
+    }
+  ]
+}

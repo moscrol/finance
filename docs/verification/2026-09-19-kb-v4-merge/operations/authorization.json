@@ -1,0 +1,11 @@
+{
+  "user_response": "允许",
+  "accepted_scope": "两仓新增修复进入合并验收；完整门禁通过后合入Gitea main。",
+  "finance_candidate": "2b4948a4015e53fd1fde5bb1e50147582abde2da",
+  "kb_candidate": "c141a424a16faed2cc959c0839e6b0ea29ced481",
+  "finance_base": "d32b8966237e1b8241dd5377e9a9a659423e212b",
+  "kb_base": "91725ea9ba0252a43665f9e3130142f946c289ae",
+  "forbidden_actions": ["切换8792", "清除生产索引uchg", "恢复旧post-*更新入口", "上传或覆盖远端索引资产", "改写raw原文或解决14页历史冲突"],
+  "production_deploy_authorized": false,
+  "guarded_maintenance_implemented": false
+}

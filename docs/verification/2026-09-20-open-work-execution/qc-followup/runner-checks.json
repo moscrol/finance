@@ -1,0 +1,29 @@
+[
+  {
+    "command": [
+      "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+      "-m",
+      "pytest",
+      "-q",
+      "-p",
+      "no:cacheprovider",
+      "tests/test_run_frontend_gate.py"
+    ],
+    "exit_code": 0,
+    "log": "runner-tests.log.txt",
+    "sha256": "cccc105c4729c139d57bf78fe1feaa9dc85e80781b7367e611405d8054556e25"
+  },
+  {
+    "command": [
+      "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+      "-m",
+      "ruff",
+      "check",
+      "scripts/run_frontend_gate.py",
+      "tests/test_run_frontend_gate.py"
+    ],
+    "exit_code": 0,
+    "log": "runner-ruff.log.txt",
+    "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+  }
+]

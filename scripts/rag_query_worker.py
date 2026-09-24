@@ -14,6 +14,9 @@ import sys
 import hashlib
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from intelligence.services.kb_code_identity import code_identity  # noqa: E402
+
 
 def main() -> int:
     parser = argparse.ArgumentParser()
@@ -28,7 +31,10 @@ def main() -> int:
             sys.path.insert(0, resolved)
     os.chdir(root)
     os.environ["RAG_INDEX_DIR"] = str(Path(args.index_dir).resolve())
+    loaded_identity = code_identity(root)
     module = _load_module(script_dir / "rag_index.py")
+    if code_identity(root) != loaded_identity:
+        raise RuntimeError("rag code changed during startup; restart required")
     _install_shared_embedder(module)
     store_cache = _install_store_cache(module)
     original_loader = module._load_retriever
@@ -81,11 +87,11 @@ def main() -> int:
             state["retriever"] = None
             return retriever
         state["retriever"] = retriever
-        state["chunks"] = {
-            str(chunk.get("id") or ""): chunk
-            for chunk in getattr(attached, "chunks", None) or []
-            if isinstance(chunk, dict) and chunk.get("id")
-        }
+        # 不再把 store.chunks 整份复制成 id→dict：KB 侧 store.chunks 现在是懒读表
+        # （knowledge-base-private #143，内存只留行偏移、正文按需解析），在这里遍历一遍
+        # 等于把 169k 行全解析出来攥在 worker 手里（≈1.4 GB），KB 那一刀就白做了。
+        # enrich 改为按 retriever.row_by_chunk_id 现取 top-k 行（见 _chunk_by_id）。
+        state["chunks"] = {}
         state["revision"] = identity or _index_identity(attached)
         state["store"] = attached
         state["freshness"] = (
@@ -107,6 +113,8 @@ def main() -> int:
             stdout = io.StringIO()
             stderr = io.StringIO()
             with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+                if code_identity(root) != loaded_identity:
+                    raise RuntimeError("rag code changed; restart required")
                 try:
                     returncode = int(module.main(argv))
                 except SystemExit as exc:
@@ -114,6 +122,8 @@ def main() -> int:
             output = stdout.getvalue()
             if returncode == 0 and argv and argv[0] == "query":
                 output = _enrich_query_output(output, state, module)
+            if code_identity(root) != loaded_identity:
+                raise RuntimeError("rag code changed during query; discard response")
             response = {
                 "id": request_id,
                 "returncode": returncode,
@@ -129,12 +139,14 @@ def main() -> int:
                 "stderr": f"{type(exc).__name__}: {exc}",
                 "model_load_count": load_count,
             }
+        response["code_identity"] = loaded_identity
         print(json.dumps(response, ensure_ascii=False), flush=True)
     return 0
 
 
 def _enrich_query_output(output: str, state: dict[str, object], module=None) -> str:
-    rows = json.loads(output or "[]")
+    payload = json.loads(output or "[]")
+    rows = payload.get("hits") if isinstance(payload, dict) else payload
     if not isinstance(rows, list):
         return output
     chunks = state.get("chunks")
@@ -146,8 +158,22 @@ def _enrich_query_output(output: str, state: dict[str, object], module=None) -> 
     for row in rows:
         if not isinstance(row, dict):
             continue
-        chunk = chunks.get(str(row.get("best_chunk_id") or ""))
-        if not isinstance(chunk, dict):
+        # 索引级字段不依赖 chunk：先盖；块级字段只在能取到那一行时才盖。
+        row.update(
+            {
+                "index_built_at": built_at,
+                "index_source_revision": str(row.get("index_source_revision") or state.get("revision") or ""),
+                "index_freshness": page_verdicts.get(
+                    str(row.get("file_path") or ""),
+                    str(state.get("freshness") or "unknown"),
+                ),
+            }
+        )
+        # 新协议已裁切过证据上下文，不能再用原始单块覆盖预算/邻块/过滤边界。
+        if isinstance(payload, dict) or "applied_filters" in row:
+            continue
+        chunk = _chunk_by_id(state, retriever, str(row.get("best_chunk_id") or ""))
+        if chunk is None:
             continue
         text = str(chunk.get("text") or row.get("snippet") or "")
         row.update(
@@ -157,15 +183,38 @@ def _enrich_query_output(output: str, state: dict[str, object], module=None) -> 
                 "display_excerpt": str(row.get("snippet") or text),
                 "llm_evidence_text": text,
                 "evidence_chunk_ids": [str(chunk.get("id") or "")],
-                "index_built_at": built_at,
-                "index_source_revision": str(state.get("revision") or ""),
-                "index_freshness": page_verdicts.get(
-                    str(row.get("file_path") or ""),
-                    str(state.get("freshness") or "unknown"),
-                ),
             }
         )
-    return json.dumps(rows, ensure_ascii=False)
+    return json.dumps(payload, ensure_ascii=False)
+
+
+def _chunk_by_id(state: dict, retriever, chunk_id: str):
+    """enrich 用的按 id 取块：先看 ``state["chunks"]``（旧路 / 测试夹具预填），再按
+    ``retriever.row_by_chunk_id`` 查行号、``retriever.chunks[row]`` 现取一行。
+
+    后者对 KB 的 list（老索引）与懒读表（#143 之后）都成立——两者都是 ``Sequence[dict]``；
+    懒读表按行解析并带小 LRU，一次 top-k enrich 只碰 k 行。取不到（假 retriever、id 不在
+    索引里、行不是 dict）一律返回 None，调用方只跳过块级字段。
+    """
+    if not chunk_id:
+        return None
+    chunks = state.get("chunks")
+    if isinstance(chunks, dict):
+        hit = chunks.get(chunk_id)
+        if isinstance(hit, dict):
+            return hit
+    rows = getattr(retriever, "row_by_chunk_id", None)
+    table = getattr(retriever, "chunks", None)
+    if not isinstance(rows, dict) or table is None:
+        return None
+    row = rows.get(chunk_id)
+    if isinstance(row, bool) or not isinstance(row, int):
+        return None
+    try:
+        chunk = table[row]
+    except (IndexError, KeyError, TypeError, ValueError):
+        return None
+    return chunk if isinstance(chunk, dict) else None
 
 
 def _index_wide_freshness(store, module) -> str:

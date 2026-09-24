@@ -1,0 +1,25 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_______ test_prepare_preserves_real_index_refs_and_other_staged_content ________
+
+repo = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3671/test_prepare_preserves_real_in0')
+
+    def test_prepare_preserves_real_index_refs_and_other_staged_content(repo):
+        (repo / "other.txt").write_text("another agent's staged work\n")
+        git(repo, "add", "--", "other.txt")
+        index_before = (repo / ".git/index").read_bytes()
+        refs_before = git(repo, "show-ref")
+        changed(repo)
+        rc, result = cli(repo, "prepare", "archive")
+        assert rc == 0 and result["ok"]
+        assert result["phase"] == "preview_only"
+>       assert (repo / ".git/index").read_bytes() == index_before
+E       AssertionError: assert b'DIRC\x00\x0...xc2\xf9\x92Tx' == b'DIRC\x00\x0...03\x13\x18knk'
+E         
+E         At index 11 diff: b'\x04' != b'\x03'
+E         Use -v to get more diff
+
+tests/test_preview_evidence_archive.py:82: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_preview_evidence_archive.py::test_prepare_preserves_real_index_refs_and_other_staged_content
+1 failed in 1.22s

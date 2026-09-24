@@ -21,10 +21,12 @@ from copy import deepcopy
 from dataclasses import replace
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 from intelligence.runtime.agent_episode import ContinuousAgentEpisode
 from intelligence.runtime.episode_tool_batch import stage_timeout_granted_detail
 from intelligence.runtime.harness_reference_loop import HarnessReferenceLoop
+from intelligence.services import research_contract
 from intelligence.services.agent_research import AgentEvidence, AgentToolContext
 from intelligence.services.agent_runtime import ModelToolCall, ModelTurn
 from intelligence.services.episode_protocol import finish_rejection_fields
@@ -320,7 +322,7 @@ def _gap_finish_turn() -> ModelTurn:
 
 
 def test_zero_grant_timeout_is_the_same_machine() -> None:
-    """时间闸零授权（研究窗已被 reserve 吃光）：两条 loop 给模型看的 ``tool_timeout``
+    """时间闸零授权（研究窗已被 reserve 吃光）：两条 loop 给模型看的 ``tool_not_dispatched``
     detail 必须同为实授值 ``stage_timeout_granted=0``，不是一边有数一边空串。
 
     2026-09-01 预算单 P0/P0.1 让 Episode 在零授权未派发时回灌实授值；这一格是底座
@@ -365,7 +367,8 @@ def test_zero_grant_timeout_is_the_same_machine() -> None:
             for m in model.calls[1]["messages"]
             if m.get("role") == "tool"
         ]
-        assert tool_payloads and tool_payloads[0]["error"] == "tool_timeout"
+        # 零授权未派发是 tool_not_dispatched（INV-R4，#28），不再与真超时共用 tool_timeout。
+        assert tool_payloads and tool_payloads[0]["error"] == "tool_not_dispatched"
         assert tool_payloads[0]["detail"] == stage_timeout_granted_detail(0.0)
 
     assert _outcome_core(episode) == _outcome_core(reference)
@@ -395,7 +398,7 @@ def _registry_with_slow_kb() -> ResearchToolRegistry:
     )
 
 
-def test_tool_hidden_for_too_small_window_is_the_same_machine() -> None:
+def test_tool_hidden_for_too_small_window_is_the_same_machine(monkeypatch) -> None:
     """本轮工具窗装不下的工具，两条 loop 都不摆给模型，且记同一条 ``tool_menu`` 事件。
 
     2026-09-03 生产读数：kb_search 66% 的调用以 tool_timeout 收场、每次烧掉约 23s
@@ -403,6 +406,10 @@ def test_tool_hidden_for_too_small_window_is_the_same_machine() -> None:
     ``min_window_seconds``；两条 loop 必须同一格同一字，否则模型看到的菜单随 loop 而变。
     """
 
+    # Freeze only the deadline module's clock, not the shared time module or worker clocks.
+    monkeypatch.setattr(
+        research_contract, "time", SimpleNamespace(monotonic=lambda: 1_000.0)
+    )
     frame = _frame()
 
     def narrow_window_context() -> ResearchRunContext:
@@ -431,11 +438,7 @@ def test_tool_hidden_for_too_small_window_is_the_same_machine() -> None:
         assert names == ["market_data"], names
     assert episode_model.calls[0]["tools"] == reference_model.calls[0]["tools"]
 
-    # Episode 的账本给每条事件盖 task_frame_hash / at（其它同机用例同样摘掉），
-    # 菜单本身的四个裁决键两边必须一字不差；``would_grant`` 单独按容差比——它由
-    # ``ResearchDeadline.remaining()`` 的墙钟推导，两条 loop 各建一个 deadline、到 ``menu()``
-    # 之间各走了几毫秒，round(…, 3) 后 14.999 对 15.0 是时钟抖动不是机器差
-    #（2026-09-03 在 gitea/main 干净树上 6/6 复现红）。
+    # Ignore ledger timestamps; with equal clocks, menu decisions and grants must match exactly.
     menu_keys = ("visible", "hidden", "min_window_seconds", "reason")
 
     def menu_events(outcome):
@@ -452,8 +455,7 @@ def test_tool_hidden_for_too_small_window_is_the_same_machine() -> None:
     assert left and left == right
     left_grants, right_grants = menu_grants(episode), menu_grants(reference)
     assert len(left_grants) == len(right_grants) == len(left)
-    for left_grant, right_grant in zip(left_grants, right_grants, strict=True):
-        assert abs(left_grant - right_grant) < 0.05, (left_grants, right_grants)
+    assert left_grants == right_grants == [15.0] * len(left)
     first = {**left[0], "would_grant": left_grants[0]}
     assert first["hidden"] == ["kb_search"]
     assert first["visible"] == ["market_data"]
@@ -463,12 +465,17 @@ def test_tool_hidden_for_too_small_window_is_the_same_machine() -> None:
     assert _outcome_core(episode) == _outcome_core(reference)
 
 
-def test_no_pruning_leaves_the_event_stream_untouched() -> None:
-    """窄窗不成立时不记 tool_menu：无裁剪轮的事件流与改前逐字节相同。"""
+def test_unpruned_menu_is_recorded_and_matches_model_input_in_both_loops() -> None:
+    """无裁剪也留实际菜单；用户可见投影不能等工具被隐藏才偶尔出现。"""
 
-    (_, episode), (_, reference) = _run_both([_tool_turn(), _finish_turn()])
-    for outcome in (episode, reference):
-        assert not [e for e in outcome.events if e.kind == "tool_menu"]
+    for model, outcome in _run_both([_tool_turn(), _finish_turn()]):
+        menus = [e for e in outcome.events if e.kind == "tool_menu"]
+        assert len(menus) == len(model.calls)
+        for event, call in zip(menus, model.calls, strict=True):
+            assert list(event.payload["visible"]) == [
+                definition["function"]["name"] for definition in call["tools"]
+            ]
+            assert not event.payload["hidden"]
 
 
 # ── 3. 有 PLAN：深度裁决也经 harness，全程消息归零差 ─────────────────────

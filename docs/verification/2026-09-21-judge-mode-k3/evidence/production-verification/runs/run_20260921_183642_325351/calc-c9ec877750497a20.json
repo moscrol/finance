@@ -1,0 +1,848 @@
+{
+  "artifacts": [
+    "calc-c9ec877750497a20.json",
+    "calc-c9ec877750497a20.html",
+    "calc-c9ec877750497a20-summary.csv"
+  ],
+  "as_of": "2026-09-14",
+  "base_calc_id": null,
+  "calc_id": "c9ec877750497a20",
+  "db_fingerprint": "",
+  "duration_ms": 1313,
+  "enforcement": "seatbelt+process",
+  "exit_code": 0,
+  "input_evidence_hashes": [
+    "ab38604a4d81f704",
+    "77e35f7db6536964",
+    "9025fe290ed130f9",
+    "286519db03eba182",
+    "19453ee81b66f32e",
+    "c860bb2537dc73bc",
+    "92073b9a5898c5fe",
+    "04c34029fa9fae6a",
+    "420c277d63275bde",
+    "09a141bf0edba45c",
+    "a8e5711c1f98e014",
+    "7d01b9d79880ed12",
+    "38ee65849a2eb5fd",
+    "825486c555bd9081",
+    "3699287e98da089c",
+    "3be41e9365dd06da",
+    "a56b8895a1ffd318",
+    "0fd5ab2f407714fb",
+    "7d8abd44386693a7",
+    "3d2d61518cf3d853",
+    "02765c1070648fe4",
+    "08b3df7966fe55f1",
+    "f19136751091a10a",
+    "4f839ac91fffbdce",
+    "7ac161cefb7553d8",
+    "b70fd974700232ac",
+    "072b94b01e8145a3",
+    "ee9f0359d5d1da8a",
+    "5f3afa31e427b5c4",
+    "70b4be83685849be",
+    "91263504142ced06",
+    "2626193de12cc1f9",
+    "09757aab5dd2d117",
+    "5f26e84faf2de0d7",
+    "4ad62da2c0d85b6d",
+    "d767f43771e00342",
+    "4316dba15ce2ba32",
+    "9bd136dff58d84cf"
+  ],
+  "input_refs": [
+    "E1",
+    "E2",
+    "E3",
+    "E4",
+    "E5",
+    "E6",
+    "E7",
+    "E8",
+    "E9",
+    "E10",
+    "E11",
+    "E12",
+    "E13",
+    "E14",
+    "E15",
+    "E16",
+    "E17",
+    "E18",
+    "E19",
+    "E20",
+    "E21",
+    "E22",
+    "E23",
+    "E24",
+    "E25",
+    "E26",
+    "E27",
+    "E28",
+    "E29",
+    "E30",
+    "E31",
+    "E32",
+    "E33",
+    "E34",
+    "E35",
+    "E36",
+    "E37",
+    "E38"
+  ],
+  "inputs": [
+    {
+      "as_of": "2026-09-18",
+      "hash": "ab38604a4d81f704",
+      "observations": [],
+      "ref": "E1",
+      "source": "本地 DuckDB · MARKET_DAILY 市场总览",
+      "tier": "L4_structured",
+      "title": "市场数据截至：2026-09-18。该日期是本轮整体盘面日期。",
+      "tool": "market_data"
+    },
+    {
+      "as_of": "2026-09-18",
+      "hash": "77e35f7db6536964",
+      "observations": [],
+      "ref": "E2",
+      "source": "本地 DuckDB · MARKET_DAILY 市场总览",
+      "tier": "L4_structured",
+      "title": "市场阶段：反弹阶段（第 1 天）；量能状态：主线抱团。",
+      "tool": "market_data"
+    },
+    {
+      "as_of": "2026-09-18",
+      "hash": "9025fe290ed130f9",
+      "observations": [],
+      "ref": "E3",
+      "source": "本地 DuckDB · MARKET_DAILY 市场总览",
+      "tier": "L4_structured",
+      "title": "全市场成交额：20764.84 亿元；较前一日 13.92%；量比 109.37%。",
+      "tool": "market_data"
+    },
+    {
+      "as_of": "2026-09-18",
+      "hash": "286519db03eba182",
+      "observations": [],
+      "ref": "E4",
+      "source": "本地 DuckDB · MARKET_DAILY 市场总览",
+      "tier": "L4_structured",
+      "title": "涨跌结构：上涨 4234 家；涨停 79 家；跌停 0 家。",
+      "tool": "market_data"
+    },
+    {
+      "as_of": "2026-09-18",
+      "hash": "19453ee81b66f32e",
+      "observations": [],
+      "ref": "E5",
+      "source": "本地 DuckDB · MARKET_DAILY 市场总览",
+      "tier": "L4_structured",
+      "title": "上证指数：3911.871 点，当日 0.94%。",
+      "tool": "market_data"
+    },
+    {
+      "as_of": "2026-09-18",
+      "hash": "c860bb2537dc73bc",
+      "observations": [],
+      "ref": "E6",
+      "source": "本地 DuckDB · MARKET_DAILY 市场总览",
+      "tier": "L4_structured",
+      "title": "强势股状态：沸点；平均涨幅 9.70%；边际变化 3.56%。",
+      "tool": "market_data"
+    },
+    {
+      "as_of": "2026-09-18",
+      "hash": "92073b9a5898c5fe",
+      "observations": [],
+      "ref": "E7",
+      "source": "本地 DuckDB · MARKET_DAILY 市场总览",
+      "tier": "L4_structured",
+      "title": "行业集中度：集中；领先行业为 电子（31.20%）、通信（9.50%）、机械设备（7.50%）。",
+      "tool": "market_data"
+    },
+    {
+      "as_of": "2026-09-18",
+      "hash": "04c34029fa9fae6a",
+      "observations": [],
+      "ref": "E8",
+      "source": "本地 DuckDB · MARKET_DAILY 市场总览",
+      "tier": "L4_structured",
+      "title": "主线题材（截至 2026-09-18）：半导体（4 个核心板块）、AI算力（5 个核心板块）、电",
+      "tool": "market_data"
+    },
+    {
+      "as_of": "2026-09-18",
+      "hash": "420c277d63275bde",
+      "observations": [],
+      "ref": "E9",
+      "source": "本地结构化数据 · 个股日频行情",
+      "tier": "L4_structured",
+      "title": "个股日频行情（2026-09-18）",
+      "tool": "finance_query"
+    },
+    {
+      "as_of": "2026-09-17",
+      "hash": "09a141bf0edba45c",
+      "observations": [],
+      "ref": "E10",
+      "source": "本地结构化数据 · 个股日频行情",
+      "tier": "L4_structured",
+      "title": "个股日频行情（2026-09-17）",
+      "tool": "finance_query"
+    },
+    {
+      "as_of": "2026-09-16",
+      "hash": "a8e5711c1f98e014",
+      "observations": [],
+      "ref": "E11",
+      "source": "本地结构化数据 · 个股日频行情",
+      "tier": "L4_structured",
+      "title": "个股日频行情（2026-09-16）",
+      "tool": "finance_query"
+    },
+    {
+      "as_of": "2026-09-15",
+      "hash": "7d01b9d79880ed12",
+      "observations": [],
+      "ref": "E12",
+      "source": "本地结构化数据 · 个股日频行情",
+      "tier": "L4_structured",
+      "title": "个股日频行情（2026-09-15）",
+      "tool": "finance_query"
+    },
+    {
+      "as_of": "2026-09-14",
+      "hash": "38ee65849a2eb5fd",
+      "observations": [],
+      "ref": "E13",
+      "source": "本地结构化数据 · 个股日频行情",
+      "tier": "L4_structured",
+      "title": "个股日频行情（2026-09-14）",
+      "tool": "finance_query"
+    },
+    {
+      "as_of": "2026-09-18",
+      "hash": "825486c555bd9081",
+      "observations": [
+        {
+          "as_of": "2026-09-18",
+          "metric": "amount",
+          "subject": "长电科技",
+          "value": 114.9025
+        },
+        {
+          "as_of": "2026-09-18",
+          "metric": "pct_chg",
+          "subject": "长电科技",
+          "value": 7.75
+        }
+      ],
+      "ref": "E14",
+      "source": "本地结构化数据 · 板块成分股日频行情",
+      "tier": "L4_structured",
+      "title": "板块成分股日频行情（2026-09-18）",
+      "tool": "finance_query"
+    },
+    {
+      "as_of": "2026-09-18",
+      "hash": "3699287e98da089c",
+      "observations": [
+        {
+          "as_of": "2026-09-18",
+          "metric": "amount",
+          "subject": "长电科技",
+          "value": 114.9025
+        },
+        {
+          "as_of": "2026-09-18",
+          "metric": "pct_chg",
+          "subject": "长电科技",
+          "value": 7.75
+        }
+      ],
+      "ref": "E15",
+      "source": "本地结构化数据 · 板块成分股日频行情",
+      "tier": "L4_structured",
+      "title": "板块成分股日频行情（2026-09-18）",
+      "tool": "finance_query"
+    },
+    {
+      "as_of": "2026-09-18",
+      "hash": "3be41e9365dd06da",
+      "observations": [
+        {
+          "as_of": "2026-09-18",
+          "metric": "amount",
+          "subject": "长电科技",
+          "value": 114.9025
+        },
+        {
+          "as_of": "2026-09-18",
+          "metric": "pct_chg",
+          "subject": "长电科技",
+          "value": 7.75
+        }
+      ],
+      "ref": "E16",
+      "source": "本地结构化数据 · 板块成分股日频行情",
+      "tier": "L4_structured",
+      "title": "板块成分股日频行情（2026-09-18）",
+      "tool": "finance_query"
+    },
+    {
+      "as_of": "2026-09-18",
+      "hash": "a56b8895a1ffd318",
+      "observations": [
+        {
+          "as_of": "2026-09-18",
+          "metric": "amount",
+          "subject": "长电科技",
+          "value": 114.9025
+        },
+        {
+          "as_of": "2026-09-18",
+          "metric": "pct_chg",
+          "subject": "长电科技",
+          "value": 7.75
+        }
+      ],
+      "ref": "E17",
+      "source": "本地结构化数据 · 板块成分股日频行情",
+      "tier": "L4_structured",
+      "title": "板块成分股日频行情（2026-09-18）",
+      "tool": "finance_query"
+    },
+    {
+      "as_of": "2026-09-18",
+      "hash": "0fd5ab2f407714fb",
+      "observations": [
+        {
+          "as_of": "2026-09-18",
+          "metric": "amount",
+          "subject": "长电科技",
+          "value": 114.9025
+        },
+        {
+          "as_of": "2026-09-18",
+          "metric": "pct_chg",
+          "subject": "长电科技",
+          "value": 7.75
+        }
+      ],
+      "ref": "E18",
+      "source": "本地结构化数据 · 板块成分股日频行情",
+      "tier": "L4_structured",
+      "title": "板块成分股日频行情（2026-09-18）",
+      "tool": "finance_query"
+    },
+    {
+      "as_of": "2026-09-18",
+      "hash": "7d8abd44386693a7",
+      "observations": [
+        {
+          "as_of": "2026-09-18",
+          "metric": "amount",
+          "subject": "长电科技",
+          "value": 114.9025
+        },
+        {
+          "as_of": "2026-09-18",
+          "metric": "pct_chg",
+          "subject": "长电科技",
+          "value": 7.75
+        }
+      ],
+      "ref": "E19",
+      "source": "本地结构化数据 · 板块成分股日频行情",
+      "tier": "L4_structured",
+      "title": "板块成分股日频行情（2026-09-18）",
+      "tool": "finance_query"
+    },
+    {
+      "as_of": "2026-09-18",
+      "hash": "3d2d61518cf3d853",
+      "observations": [
+        {
+          "as_of": "2026-09-18",
+          "metric": "amount",
+          "subject": "长电科技",
+          "value": 114.9025
+        },
+        {
+          "as_of": "2026-09-18",
+          "metric": "pct_chg",
+          "subject": "长电科技",
+          "value": 7.75
+        }
+      ],
+      "ref": "E20",
+      "source": "本地结构化数据 · 板块成分股日频行情",
+      "tier": "L4_structured",
+      "title": "板块成分股日频行情（2026-09-18）",
+      "tool": "finance_query"
+    },
+    {
+      "as_of": "2026-09-18",
+      "hash": "02765c1070648fe4",
+      "observations": [
+        {
+          "as_of": "2026-09-18",
+          "metric": "amount",
+          "subject": "长电科技",
+          "value": 114.9025
+        },
+        {
+          "as_of": "2026-09-18",
+          "metric": "pct_chg",
+          "subject": "长电科技",
+          "value": 7.75
+        }
+      ],
+      "ref": "E21",
+      "source": "本地结构化数据 · 板块成分股日频行情",
+      "tier": "L4_structured",
+      "title": "板块成分股日频行情（2026-09-18）",
+      "tool": "finance_query"
+    },
+    {
+      "as_of": "2026-09-18",
+      "hash": "08b3df7966fe55f1",
+      "observations": [
+        {
+          "as_of": "2026-09-18",
+          "metric": "amount",
+          "subject": "长电科技",
+          "value": 114.9025
+        },
+        {
+          "as_of": "2026-09-18",
+          "metric": "pct_chg",
+          "subject": "长电科技",
+          "value": 7.75
+        }
+      ],
+      "ref": "E22",
+      "source": "本地结构化数据 · 板块成分股日频行情",
+      "tier": "L4_structured",
+      "title": "板块成分股日频行情（2026-09-18）",
+      "tool": "finance_query"
+    },
+    {
+      "as_of": "2026-09-18",
+      "hash": "f19136751091a10a",
+      "observations": [
+        {
+          "as_of": "2026-09-18",
+          "metric": "amount",
+          "subject": "长电科技",
+          "value": 114.9025
+        },
+        {
+          "as_of": "2026-09-18",
+          "metric": "pct_chg",
+          "subject": "长电科技",
+          "value": 7.75
+        }
+      ],
+      "ref": "E23",
+      "source": "本地结构化数据 · 板块成分股日频行情",
+      "tier": "L4_structured",
+      "title": "板块成分股日频行情（2026-09-18）",
+      "tool": "finance_query"
+    },
+    {
+      "as_of": "2026-09-18",
+      "hash": "4f839ac91fffbdce",
+      "observations": [
+        {
+          "as_of": "2026-09-18",
+          "metric": "amount",
+          "subject": "长电科技",
+          "value": 114.9025
+        },
+        {
+          "as_of": "2026-09-18",
+          "metric": "pct_chg",
+          "subject": "长电科技",
+          "value": 7.75
+        }
+      ],
+      "ref": "E24",
+      "source": "本地结构化数据 · 板块成分股日频行情",
+      "tier": "L4_structured",
+      "title": "板块成分股日频行情（2026-09-18）",
+      "tool": "finance_query"
+    },
+    {
+      "as_of": "2026-09-18",
+      "hash": "7ac161cefb7553d8",
+      "observations": [
+        {
+          "as_of": "2026-09-18",
+          "metric": "amount",
+          "subject": "长电科技",
+          "value": 114.9025
+        },
+        {
+          "as_of": "2026-09-18",
+          "metric": "pct_chg",
+          "subject": "长电科技",
+          "value": 7.75
+        }
+      ],
+      "ref": "E25",
+      "source": "本地结构化数据 · 板块成分股日频行情",
+      "tier": "L4_structured",
+      "title": "板块成分股日频行情（2026-09-18）",
+      "tool": "finance_query"
+    },
+    {
+      "as_of": "2026-09-18",
+      "hash": "b70fd974700232ac",
+      "observations": [
+        {
+          "as_of": "2026-09-18",
+          "metric": "amount",
+          "subject": "长电科技",
+          "value": 114.9025
+        },
+        {
+          "as_of": "2026-09-18",
+          "metric": "pct_chg",
+          "subject": "长电科技",
+          "value": 7.75
+        }
+      ],
+      "ref": "E26",
+      "source": "本地结构化数据 · 板块成分股日频行情",
+      "tier": "L4_structured",
+      "title": "板块成分股日频行情（2026-09-18）",
+      "tool": "finance_query"
+    },
+    {
+      "as_of": "2026-09-18",
+      "hash": "072b94b01e8145a3",
+      "observations": [
+        {
+          "as_of": "2026-09-18",
+          "metric": "amount",
+          "subject": "长电科技",
+          "value": 114.9025
+        },
+        {
+          "as_of": "2026-09-18",
+          "metric": "pct_chg",
+          "subject": "长电科技",
+          "value": 7.75
+        }
+      ],
+      "ref": "E27",
+      "source": "本地结构化数据 · 板块成分股日频行情",
+      "tier": "L4_structured",
+      "title": "板块成分股日频行情（2026-09-18）",
+      "tool": "finance_query"
+    },
+    {
+      "as_of": "2026-09-18",
+      "hash": "ee9f0359d5d1da8a",
+      "observations": [
+        {
+          "as_of": "2026-09-18",
+          "metric": "amount",
+          "subject": "长电科技",
+          "value": 114.9025
+        },
+        {
+          "as_of": "2026-09-18",
+          "metric": "pct_chg",
+          "subject": "长电科技",
+          "value": 7.75
+        }
+      ],
+      "ref": "E28",
+      "source": "本地结构化数据 · 板块成分股日频行情",
+      "tier": "L4_structured",
+      "title": "板块成分股日频行情（2026-09-18）",
+      "tool": "finance_query"
+    },
+    {
+      "as_of": "2026-09-18",
+      "hash": "5f3afa31e427b5c4",
+      "observations": [
+        {
+          "as_of": "2026-09-18",
+          "metric": "amount",
+          "subject": "长电科技",
+          "value": 114.9025
+        },
+        {
+          "as_of": "2026-09-18",
+          "metric": "pct_chg",
+          "subject": "长电科技",
+          "value": 7.75
+        }
+      ],
+      "ref": "E29",
+      "source": "本地结构化数据 · 板块成分股日频行情",
+      "tier": "L4_structured",
+      "title": "板块成分股日频行情（2026-09-18）",
+      "tool": "finance_query"
+    },
+    {
+      "as_of": "2026-09-18",
+      "hash": "70b4be83685849be",
+      "observations": [
+        {
+          "as_of": "2026-09-18",
+          "metric": "amount",
+          "subject": "长电科技",
+          "value": 114.9025
+        },
+        {
+          "as_of": "2026-09-18",
+          "metric": "pct_chg",
+          "subject": "长电科技",
+          "value": 7.75
+        }
+      ],
+      "ref": "E30",
+      "source": "本地结构化数据 · 板块成分股日频行情",
+      "tier": "L4_structured",
+      "title": "板块成分股日频行情（2026-09-18）",
+      "tool": "finance_query"
+    },
+    {
+      "as_of": "2026-09-18",
+      "hash": "91263504142ced06",
+      "observations": [
+        {
+          "as_of": "2026-09-18",
+          "metric": "amount",
+          "subject": "长电科技",
+          "value": 114.9025
+        },
+        {
+          "as_of": "2026-09-18",
+          "metric": "pct_chg",
+          "subject": "长电科技",
+          "value": 7.75
+        }
+      ],
+      "ref": "E31",
+      "source": "本地结构化数据 · 板块成分股日频行情",
+      "tier": "L4_structured",
+      "title": "板块成分股日频行情（2026-09-18）",
+      "tool": "finance_query"
+    },
+    {
+      "as_of": "2026-09-18",
+      "hash": "2626193de12cc1f9",
+      "observations": [
+        {
+          "as_of": "2026-09-18",
+          "metric": "amount",
+          "subject": "长电科技",
+          "value": 114.9025
+        },
+        {
+          "as_of": "2026-09-18",
+          "metric": "pct_chg",
+          "subject": "长电科技",
+          "value": 7.75
+        }
+      ],
+      "ref": "E32",
+      "source": "本地结构化数据 · 板块成分股日频行情",
+      "tier": "L4_structured",
+      "title": "板块成分股日频行情（2026-09-18）",
+      "tool": "finance_query"
+    },
+    {
+      "as_of": "2026-09-18",
+      "hash": "09757aab5dd2d117",
+      "observations": [
+        {
+          "as_of": "2026-09-18",
+          "metric": "amount",
+          "subject": "长电科技",
+          "value": 114.9025
+        },
+        {
+          "as_of": "2026-09-18",
+          "metric": "pct_chg",
+          "subject": "长电科技",
+          "value": 7.75
+        }
+      ],
+      "ref": "E33",
+      "source": "本地结构化数据 · 板块成分股日频行情",
+      "tier": "L4_structured",
+      "title": "板块成分股日频行情（2026-09-18）",
+      "tool": "finance_query"
+    },
+    {
+      "as_of": "2026-09-18",
+      "hash": "5f26e84faf2de0d7",
+      "observations": [
+        {
+          "as_of": "2026-09-18",
+          "metric": "amount",
+          "subject": "半导体封测",
+          "value": 411.197
+        },
+        {
+          "as_of": "2026-09-18",
+          "metric": "diff_ratio",
+          "subject": "半导体封测",
+          "value": 72.6588
+        },
+        {
+          "as_of": "2026-09-18",
+          "metric": "pct_chg",
+          "subject": "半导体封测",
+          "value": 4.08
+        }
+      ],
+      "ref": "E34",
+      "source": "本地结构化数据 · 板块日频行情",
+      "tier": "L4_structured",
+      "title": "板块日频行情（2026-09-18）",
+      "tool": "finance_query"
+    },
+    {
+      "as_of": "2026-09-18",
+      "hash": "4ad62da2c0d85b6d",
+      "observations": [
+        {
+          "as_of": "2026-09-18",
+          "metric": "amount",
+          "subject": "半导体",
+          "value": 3385.168
+        },
+        {
+          "as_of": "2026-09-18",
+          "metric": "diff_ratio",
+          "subject": "半导体",
+          "value": 43.8703
+        },
+        {
+          "as_of": "2026-09-18",
+          "metric": "pct_chg",
+          "subject": "半导体",
+          "value": 3.9664
+        }
+      ],
+      "ref": "E35",
+      "source": "本地结构化数据 · 板块日频行情",
+      "tier": "L4_structured",
+      "title": "板块日频行情（2026-09-18）",
+      "tool": "finance_query"
+    },
+    {
+      "as_of": "2026-09-18",
+      "hash": "d767f43771e00342",
+      "observations": [
+        {
+          "as_of": "2026-09-18",
+          "metric": "amount",
+          "subject": "先进封装",
+          "value": 3080.0643
+        },
+        {
+          "as_of": "2026-09-18",
+          "metric": "diff_ratio",
+          "subject": "先进封装",
+          "value": 22.3399
+        },
+        {
+          "as_of": "2026-09-18",
+          "metric": "pct_chg",
+          "subject": "先进封装",
+          "value": 2.9504
+        }
+      ],
+      "ref": "E36",
+      "source": "本地结构化数据 · 板块日频行情",
+      "tier": "L4_structured",
+      "title": "板块日频行情（2026-09-18）",
+      "tool": "finance_query"
+    },
+    {
+      "as_of": "2026-09-18",
+      "hash": "4316dba15ce2ba32",
+      "observations": [
+        {
+          "as_of": "2026-09-18",
+          "metric": "amount",
+          "subject": "电子",
+          "value": 6499.1619
+        },
+        {
+          "as_of": "2026-09-18",
+          "metric": "diff_ratio",
+          "subject": "电子",
+          "value": 25.8813
+        },
+        {
+          "as_of": "2026-09-18",
+          "metric": "pct_chg",
+          "subject": "电子",
+          "value": 2.7489
+        }
+      ],
+      "ref": "E37",
+      "source": "本地结构化数据 · 板块日频行情",
+      "tier": "L4_structured",
+      "title": "板块日频行情（2026-09-18）",
+      "tool": "finance_query"
+    },
+    {
+      "as_of": "2026-09-18",
+      "hash": "9bd136dff58d84cf",
+      "observations": [
+        {
+          "as_of": "2026-09-18",
+          "metric": "amount",
+          "subject": "芯片",
+          "value": 9277.2314
+        },
+        {
+          "as_of": "2026-09-18",
+          "metric": "diff_ratio",
+          "subject": "芯片",
+          "value": 22.4316
+        },
+        {
+          "as_of": "2026-09-18",
+          "metric": "pct_chg",
+          "subject": "芯片",
+          "value": 2.6213
+        }
+      ],
+      "ref": "E38",
+      "source": "本地结构化数据 · 板块日频行情",
+      "tier": "L4_structured",
+      "title": "板块日频行情（2026-09-18）",
+      "tool": "finance_query"
+    }
+  ],
+  "notes": [],
+  "params": {},
+  "purpose": "计算长电科技 2026-09-18 成交额相对前一交易日的环比变化",
+  "result": {
+    "成交额_0917_亿": 49.3146,
+    "成交额_0918_亿": 114.9025,
+    "成交额环比_pct": 133.0
+  },
+  "runtime": {
+    "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "platform": "Darwin",
+    "prelude_version": "5",
+    "python": "3.12.13"
+  },
+  "script": "amt_18 = 114.9025\namt_17 = 49.3146\nchg = (amt_18 / amt_17 - 1) * 100\nemit({\"成交额环比_pct\": round(chg, 2), \"成交额_0918_亿\": amt_18, \"成交额_0917_亿\": amt_17})",
+  "stderr_tail": "",
+  "stdout_tail": ""
+}

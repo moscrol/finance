@@ -1,0 +1,46 @@
+{
+  "tested_revision": "506e1e237ad0c8f7a61d2a94b4df9ff40c7d0b49",
+  "base": "0a1cb8c44aaf2d19ae5f5809bf27119b709b8442",
+  "scope": "author-side local CI equivalent, NOT independent QC or live model research acceptance",
+  "leaves": {
+    "python": {
+      "exit_code": 0,
+      "log": "/Users/a77/.finance-runtime/history-market-anatomy-506e1e23-checks/python.txt",
+      "sha256": "fd46d7c51bb8a74ee1a88bf20e4c3af1503b92ab51f7ddfc882cebf9d9ea4e9a"
+    },
+    "frontend": {
+      "exit_code": 0,
+      "log": "/Users/a77/.finance-runtime/history-market-anatomy-506e1e23-checks/frontend.txt",
+      "sha256": "cbb0a33f00c8902fe0a4e308c16a7b1046e47786613ea215f48e3d5217109ccc"
+    },
+    "e2e": {
+      "exit_code": 0,
+      "log": "/Users/a77/.finance-runtime/history-market-anatomy-506e1e23-checks/e2e.txt",
+      "sha256": "3154cabb20fe59bda211e227ebfd54fd2d0aeb572f60fcb7b973c91033a56460"
+    },
+    "registry": {
+      "exit_code": 0,
+      "log": "/Users/a77/.finance-runtime/history-market-anatomy-506e1e23-checks/registry.txt",
+      "sha256": "293cc723b9c59384e64219a56dd95c1fac853179706a99373be2d2031e7d3e63"
+    }
+  },
+  "counts": {
+    "python": {
+      "passed": 11464,
+      "skipped": 81,
+      "xfailed": 2,
+      "warnings": 17
+    },
+    "frontend": {
+      "passed": 107
+    },
+    "e2e": {
+      "passed": 34,
+      "skipped": 2
+    },
+    "registry": {
+      "checks": 5
+    }
+  },
+  "e2e_scope": "Existing browser regression on isolated fixtures at ports 18891/18894; no new live-model history journey"
+}

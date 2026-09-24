@@ -1,0 +1,30 @@
+SKIP /Users/a77/fwp-wt-acceptance-tests command failed rc=1: ['git', 'merge-base', '--is-ancestor']
+REMOVED /Users/a77/fwp-wt-adaptive-research-06-base 5eb2451513ef
+REMOVED /Users/a77/fwp-wt-backfill-0908 4baa65165119
+REMOVED /Users/a77/fwp-wt-bm0904-review-docs 2512cb93eafb
+REMOVED /Users/a77/fwp-wt-capability-integration-spec a06deea7ff15
+REMOVED /Users/a77/fwp-wt-closeout-workorders 9a7c803825a3
+REMOVED /Users/a77/fwp-wt-dream-mine-fix 085a801e705a
+REMOVED /Users/a77/fwp-wt-fill-gate 6c6581376ec0
+REMOVED /Users/a77/fwp-wt-gagent-audit 8e452e727202
+REMOVED /Users/a77/fwp-wt-gatemain-tmp c703e068685a
+REMOVED /Users/a77/fwp-wt-historical-discovery-baseline f90af450b1be
+REMOVED /Users/a77/fwp-wt-hithink-capture-mutation-c85d0101 c85d01017fa2
+REMOVED /Users/a77/fwp-wt-hithink-preview-mutation-dcee18f2 dcee18f2a236
+REMOVED /Users/a77/fwp-wt-hithink-wiring-mutation-9621128a 9621128a9982
+REMOVED /Users/a77/fwp-wt-judge01-base 5eb2451513ef
+REMOVED /Users/a77/fwp-wt-market-daily-cycle-stage 843aa7bf11c7
+REMOVED /Users/a77/fwp-wt-merge-06 2f44810decf2
+REMOVED /Users/a77/fwp-wt-nightly-generation-deploy-0917 f7337bf0e15d
+REMOVED /Users/a77/fwp-wt-opt03-sync-status-gate f90af450b1be
+REMOVED /Users/a77/fwp-wt-qc-ef9e61d2 ef9e61d256f4
+REMOVED /Users/a77/fwp-wt-rag-mem-docs 7f89ef6abb9a
+REMOVED /Users/a77/fwp-wt-rag-slimming-closeout c5ecf3e3fef4
+REMOVED /Users/a77/fwp-wt-ranking-baseline-10 5eb2451513ef
+REMOVED /Users/a77/fwp-wt-receipt-zero-count becb68c0dd31
+REMOVED /Users/a77/fwp-wt-research-foundation-spec 5b821d4a025d
+REMOVED /Users/a77/fwp-wt-review-620-624-0907 3d964c91aceb
+REMOVED /Users/a77/fwp-wt-review-compaction-0907 812f1cc64d02
+REMOVED /Users/a77/fwp-wt-river-next-specs-0913 288045054341
+REMOVED /Users/a77/fwp-wt-writer-cost-design f48d2e9fc045
+DONE dev-wt 28 removed 1 skipped

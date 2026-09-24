@@ -1,0 +1,21 @@
+{
+  "tree": "/Users/a77/.finance-runtime/reviews/research-closeout-resume-20260920/nightly-gate/finance-workspace-private",
+  "revision": "d95b706edc6e44f3dfa54d7b8837dfdd36b16cf2",
+  "inputs": {
+    "finance-workspace-private": {
+      "path": "/Users/a77/.finance-runtime/reviews/research-closeout-resume-20260920/nightly-gate/finance-workspace-private",
+      "revision": "d95b706edc6e44f3dfa54d7b8837dfdd36b16cf2",
+      "status": ""
+    },
+    "knowledge-base-private": {
+      "path": "/Users/a77/.finance-runtime/open-work-execution-20260920/gate-788/knowledge-base-private",
+      "revision": "1254224be89e2c4974350b7f3e985dbedb5dc043",
+      "status": ""
+    },
+    "finance-research-site": {
+      "path": "/Users/a77/.finance-runtime/open-work-execution-20260920/gate-788/finance-research-site",
+      "revision": "f606583867fe1cad8de96b06be1dd6cfe2b57e51",
+      "status": ""
+    }
+  }
+}

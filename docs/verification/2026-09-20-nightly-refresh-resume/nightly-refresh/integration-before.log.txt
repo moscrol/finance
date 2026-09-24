@@ -1,0 +1,83 @@
+..................F..........                                            [100%]
+=================================== FAILURES ===================================
+_________ test_plan_declared_hithink_no_key_skips_do_not_claim_updates _________
+
+child_runner = (<function child_runner.<locals>.run at 0x10cbf58a0>, PosixPath('/private/tmp/pytest-of-a77/pytest-1250/test_plan_decl...ew_sync' from '/Users/a77/fwp-wt-nightly-refresh-resume-0920/skills/daily-full-review/scripts/run_review_sync.py'>, [])
+
+    def test_plan_declared_hithink_no_key_skips_do_not_claim_updates(child_runner):
+        run, target, sync, calls = child_runner
+>       assert run(key=False) == 0
+
+tests/test_recovery_refresh_integration.py:90: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/test_recovery_refresh_integration.py:67: in run
+    return recovery.child(args)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+args = Namespace(history_day='2026-09-16', snapshot_day='2026-09-17', history=PosixPath('/private/tmp/pytest-of-a77/pytest-12...pshot.json'), receipt=PosixPath('/private/tmp/pytest-of-a77/pytest-1250/test_plan_declared_hithink_no_0/receipt.json'))
+
+    def child(args) -> int:
+        from market_feature_store import db
+        from market_feature_store.sync import sync_eastmoney_stock_snapshot as snapshot_module
+    
+        if not str(db.DB_PATH).endswith('.staging') or not os.environ.get('MARKET_FEATURE_STORE_RUN_ID'):
+            raise RuntimeError('child requires the staging publisher, not a direct write')
+        raw, rows = validate_inputs(args.history_day, args.snapshot_day, args.history, args.snapshot)
+        # Replay captured official bytes through the unchanged parser and date gate.
+        with patch.object(snapshot_module, 'fetch_snapshot', return_value=raw):
+            result = snapshot_module.sync_fact_stock_daily_snapshot(args.snapshot_day)
+        print('snapshot replay:', result, flush=True)
+        con = db.connect(read_only=True)
+        try:
+            anchor_count = con.execute(
+                'SELECT count(*) FROM fact_stock_daily WHERE trade_date=? AND amount>0',
+                [args.snapshot_day],
+            ).fetchone()[0]
+        finally:
+            con.close()
+        if len(rows) < anchor_count * 0.99:
+            raise RuntimeError(f'history coverage {len(rows)}/{anchor_count} below 99%')
+        history_module = load_script('skills/duckdb-backfill/scripts/backfill_stock_daily_sina.py')
+        hist_args = argparse.Namespace(trade_date=args.history_day, rows=str(args.history))
+        if history_module.cmd_validate(hist_args):
+            raise RuntimeError('historical adjacent-day/units validation failed')
+        history_module.cmd_write(hist_args)
+    
+        sync = load_script('skills/daily-full-review/scripts/run_review_sync.py')
+        data_root = Path(os.environ['FINANCE_WS']).resolve()
+        sync.RUNLOG = data_root / 'skills/daily-full-review/state/runlog.md'
+        os.environ['DUCKDB_SNAPSHOT_OUT_ROOT'] = str(data_root / 'db/snapshots')
+        results = []
+        for day in (args.history_day, args.snapshot_day):
+            plan = sync.build_plan(day, timeout=300, heavy_timeout=600, plan='local')
+            for name, action in plan:
+                if name in {'db-lock', 'stock-daily'}:
+                    continue  # Already verified local capture inputs, not live snapshot.
+                if name == 'stitch-sector-stocks':
+                    result = sync.run_step(name, recovery_stitch_command(sync, day, args.history_day), 600)
+                else:
+                    result = action()
+                results.append({'date': day, **result})
+                if result['status'] != 'ok':
+>                   raise RuntimeError(f'{day} {name} failed; no publish')
+E                   RuntimeError: 2026-09-16 hithink-stock-daily failed; no publish
+
+scripts/recover_local_review.py:126: RuntimeError
+----------------------------- Captured stdout call -----------------------------
+snapshot replay: {'trade_date': '2026-09-17', 'snapshot_trade_date': '2026-09-17', 'source': 'eastmoney:snapshot', 'fetched': 1, 'rows_written': 1, 'skipped': 0, 'day_rows': 1, 'table_total': 2, 'distinct_stocks': 1, 'distinct_dates': 2, 'date_min': '2026-09-15', 'date_max': '2026-09-17'}
+① pre_close 链 vs 2026-09-15 close: 可比 1 不符 0 (0.00%)
+② 次日锚 2026-09-17.pre_close == 本日 close: 可比 1 不符 0 (0.00%)  ← 除息股会差，>2% 才算红
+③ pct_chg 重算: 不符 0
+④ 量纲闭环（amount/volume 反推均价落在 [low,high]）: 越界 0/1
+   本次 sum(amount)=0.0 亿
+   邻日 2026-09-15: 1 只 sum(amount)=0.0 亿 turnover中位=1.0%
+   邻日 2026-09-17: 1 只 sum(amount)=0.0 亿 turnover中位=1.0%
+
+RESULT: PASS
+2026-09-16 行数 0 → 1
+来源: [('sina:stock_zh_a_daily', 1)]
+空值(close/amount/pct): (0, 0, 0)
+<<< hithink-stock-daily: skip (no-key; 并跑源未更新)
+=========================== short test summary info ============================
+FAILED tests/test_recovery_refresh_integration.py::test_plan_declared_hithink_no_key_skips_do_not_claim_updates
+1 failed, 28 passed in 2.18s

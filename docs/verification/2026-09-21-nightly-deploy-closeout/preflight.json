@@ -1,0 +1,146 @@
+{
+  "checked_at": "2026-09-21T07:38:02.471305+00:00",
+  "config_revision": "2137345daa44daefa0d029ba4c2de89e0f725b2a",
+  "runtime_revision": "adcda94b5e401158f1c3aa51f210e1e8d0f0b713",
+  "roots": {
+    "sync": {
+      "revision": "adcda94b5e401158f1c3aa51f210e1e8d0f0b713",
+      "status": "",
+      "tree_object": "d4f7dcf7c1198021ed6ec20f70d95a6436119757",
+      "selected_files": [
+        {
+          "path": "/Users/a77/.finance-runtime/finance-sync-adcda94b5e40/market_feature_store/hithink_client.py",
+          "sha256": "df2951b7265bc883560938c22e76facfdded7ce626414f5fd5e3c7734aea30e3",
+          "bytes": 6513
+        },
+        {
+          "path": "/Users/a77/.finance-runtime/finance-sync-adcda94b5e40/market_feature_store/sync/sync_daily_full.py",
+          "sha256": "57ec1bae65a64655f39f686c6370e10bd5e3016fabfa26a55cb8e1f389ff6d2b",
+          "bytes": 39260
+        },
+        {
+          "path": "/Users/a77/.finance-runtime/finance-sync-adcda94b5e40/skills/daily-full-review/scripts/run_review_sync.py",
+          "sha256": "1130e5a26d6465b6b8d28ca462b27f696c3f37aec00bd8bd9a375f9979ae37b3",
+          "bytes": 31263
+        }
+      ]
+    },
+    "generation": {
+      "revision": "adcda94b5e401158f1c3aa51f210e1e8d0f0b713",
+      "status": "",
+      "tree_object": "d4f7dcf7c1198021ed6ec20f70d95a6436119757",
+      "selected_files": [
+        {
+          "path": "/Users/a77/.finance-runtime/finance-generation-adcda94b5e40/scripts/run_daily_generation.py",
+          "sha256": "074f65d18892160a90ac0732cb6a43cd440ab907325c8ee7ba48e4f30faf8872",
+          "bytes": 6587
+        },
+        {
+          "path": "/Users/a77/.finance-runtime/finance-generation-adcda94b5e40/scripts/notify_ops.py",
+          "sha256": "6e7ca8d44c75ade359294d7bae2079ef8e7bf8d587c7ccc2667727996d80c4ca",
+          "bytes": 3733
+        },
+        {
+          "path": "/Users/a77/.finance-runtime/finance-generation-adcda94b5e40/intelligence/workflows/daily_review.py",
+          "sha256": "b68cb7fafa26929faf17abc0329b79c6737bc29c912da640c1e4dd0b02751bae",
+          "bytes": 21902
+        }
+      ]
+    },
+    "l2": {
+      "revision": "adcda94b5e401158f1c3aa51f210e1e8d0f0b713",
+      "status": "",
+      "tree_object": "d4f7dcf7c1198021ed6ec20f70d95a6436119757",
+      "selected_files": [
+        {
+          "path": "/Users/a77/.finance-runtime/finance-l2-adcda94b5e40/scripts/check_daily_review_data.py",
+          "sha256": "d9ebb0e657c26cd95333fdcdb093a4276fd6b7ecb3184ddad062097c50df0812",
+          "bytes": 34875
+        },
+        {
+          "path": "/Users/a77/.finance-runtime/finance-l2-adcda94b5e40/scripts/notify_ops.py",
+          "sha256": "6e7ca8d44c75ade359294d7bae2079ef8e7bf8d587c7ccc2667727996d80c4ca",
+          "bytes": 3733
+        }
+      ]
+    }
+  },
+  "preservation": {
+    "old_sync_index_patch": {
+      "old": {
+        "path": "/Users/a77/finance-workspace-sync/market_feature_store/sync/sync_akshare_index_daily.py",
+        "sha256": "3e3581ecd2d876bd1f8bb4685c3f479bf15544e992bfc0e8cbf5cd47972808f6",
+        "bytes": 9331
+      },
+      "candidate": {
+        "path": "/Users/a77/.finance-runtime/finance-sync-adcda94b5e40/market_feature_store/sync/sync_akshare_index_daily.py",
+        "sha256": "3e3581ecd2d876bd1f8bb4685c3f479bf15544e992bfc0e8cbf5cd47972808f6",
+        "bytes": 9331
+      }
+    },
+    "l2_and_method": {
+      "compared_files": 18,
+      "different_files": []
+    }
+  },
+  "production_deployed": false,
+  "installed_files": [
+    {
+      "path": "/Users/a77/.local/bin/nightly_full_review.sh",
+      "sha256": "c75ec93934343e3b59435907d0e96bcd05e1409e7cf28384cdc2a5ab413cc33c",
+      "bytes": 24709
+    },
+    {
+      "path": "/Users/a77/.local/bin/nightly-full-review-s7.sh",
+      "sha256": "8703b5ab936c4d2499196546620c01dc44bf3335ad7750e504bda1dc7bd00560",
+      "bytes": 3397
+    },
+    {
+      "path": "/Users/a77/.local/bin/nightly-review-sync-staged.py",
+      "sha256": "742c36c1e79c2e968c2a1d6088df5c022c6d4d5b23e53e486666ac3fab712375",
+      "bytes": 7243
+    },
+    {
+      "path": "/Users/a77/.local/bin/ops_python.sh",
+      "sha256": "19ad2fa1210efb30c508517ac1478fc09896e95abf9f8071aea4d85256ddd8ff",
+      "bytes": 2530
+    },
+    {
+      "path": "/Users/a77/Library/LaunchAgents/com.financeworkspace.daily-full-review-sync.plist",
+      "sha256": "2799497e2f4f98a8d522b08da90dec7508a06d9a70cbc3f90de6f41dac82d8bf",
+      "bytes": 1942
+    },
+    {
+      "path": "/Users/a77/Library/LaunchAgents/com.financeworkspace.daily-full-review-finalize.plist",
+      "sha256": "73f4ded2745aaa1ccfdb220243fa8a5888f573de3e0d47f8d9f78c77c6c8afcd",
+      "bytes": 2128
+    }
+  ],
+  "config_changes": {
+    "sync": {
+      "FINANCE_CODE_ROOT": {
+        "old": "/Users/a77/finance-workspace-runtime",
+        "new": "/Users/a77/.finance-runtime/finance-sync-adcda94b5e40"
+      },
+      "FINANCE_SYNC_CODE_ROOT": {
+        "old": "/Users/a77/finance-workspace-sync",
+        "new": "/Users/a77/.finance-runtime/finance-sync-adcda94b5e40"
+      }
+    },
+    "finalize": {
+      "FINANCE_GENERATION_CODE_ROOT": {
+        "old": "/Users/a77/.finance-runtime/finance-generation-387028b846a2",
+        "new": "/Users/a77/.finance-runtime/finance-generation-adcda94b5e40"
+      },
+      "FINANCE_CODE_ROOT": {
+        "old": "/Users/a77/.finance-runtime/finance-l2-d433b90788c0",
+        "new": "/Users/a77/.finance-runtime/finance-l2-adcda94b5e40"
+      },
+      "FINANCE_SYNC_CODE_ROOT": {
+        "old": "/Users/a77/finance-workspace-sync",
+        "new": "/Users/a77/.finance-runtime/finance-sync-adcda94b5e40"
+      }
+    }
+  },
+  "boundary": "No production writes or loaded launchd changes; sync code writes its own runlog/quality artifacts after execution. S7 wrapper and S7_ROOT unchanged; real full-cycle provider/data validation pending."
+}

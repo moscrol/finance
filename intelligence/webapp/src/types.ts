@@ -17,6 +17,14 @@ export interface Run {
   question: string;
   task_type: string;
   status: RunStatus;
+  // Optional for pre-barrier servers; true means terminal artifacts are still being written.
+  delivery_pending?: boolean;
+  // Claiming terminal ownership is not yet message/artifact publication.
+  // Optional for old stored payloads; live completion requires positive proof.
+  publication?: {
+    status: "pending" | "published" | "not_applicable";
+    message_id: string | null;
+  };
   schema_version: number;
   session_id: string | null;
   parent_run_id: string | null;
@@ -58,6 +66,82 @@ export interface Followup {
   full_prompt?: string;
   rationale?: string;
   source?: string;
+  type_label?: string;
+  angle?: string;
+  /** 09 连续研究：三分法种类 gap_fill | alternative_explanation | condition_test | continue。 */
+  kind?: string;
+  kind_label?: string;
+  /** 点击后要继承的研究坐标（对象 / 站立日 / 题型），不是正文。 */
+  inherits?: Record<string, string>;
+}
+
+/** 研究进化「继续核查」启动消息携带的请求实例坐标；服务端回查 rejudge 台账核验当前代际后才登记关联。 */
+export interface MaintenanceLaunchRef {
+  item_id: string;
+  request_event_id: string;
+}
+
+/** 卡片点击时随消息一起 POST 的延续坐标；服务端核验 run 归属后落在用户消息上。 */
+export interface FollowupContinuation {
+  run_id: string;
+  kind?: string;
+  source?: string;
+  label?: string;
+  full_prompt?: string;
+  inherits?: Record<string, string>;
+}
+
+export interface ResearchProjectRound {
+  index: number;
+  run_id: string;
+  question: string;
+  asked_at: string;
+  status: string;
+  as_of: string | null;
+  question_type: string;
+  subject: string;
+  answer_headline: string;
+  citations: number;
+  artifacts: string[];
+  open_gaps: string[];
+  warnings: string[];
+  followups: Followup[];
+  continuation: FollowupContinuation | null;
+}
+
+export interface ResearchProjectTrigger {
+  kind: string;
+  id: string;
+  claim: string;
+  due: string;
+  status: "hit" | "miss" | "partial" | "unverifiable" | "due" | "pending" | string;
+  checked_at: string | null;
+  source: string;
+  themes: string[];
+  linked: "conversation" | "subject" | string;
+}
+
+/** `GET /api/conversations/{id}/research-project`：现有 run / 消息 / 判断轨的只读投影。 */
+export interface ResearchProject {
+  conversation_id: string;
+  user_id: string;
+  title: string;
+  subject: string;
+  question_type: string;
+  as_of: string | null;
+  updated_at: string;
+  rounds: ResearchProjectRound[];
+  completed_rounds: number;
+  current_judgment: string;
+  open_questions: string[];
+  materials_read: number;
+  artifacts: string[];
+  triggers: ResearchProjectTrigger[];
+  next_questions: Followup[];
+  prior_status: string | null;
+  prior_note: string;
+  origin_conversation_id: string | null;
+  warnings: string[];
 }
 
 export interface EvidenceItem {
@@ -308,6 +392,17 @@ export interface SelfUseMaturity {
   passed: boolean;
 }
 
+export interface CreditsSummary {
+  enabled: boolean;
+  exempt: boolean;
+  /** 可用积分（未过期余量 − 在途预占 − 欠账，可为负）；钱包关闭或豁免用户为 null。 */
+  remaining: number | null;
+  /** 换算口径：100 积分 = 1 元。 */
+  points_per_yuan?: number;
+  /** 最近一笔会到期的积分的到期时刻（ISO）；没有会到期的为 null。 */
+  next_expiry: string | null;
+}
+
 export interface Bootstrap {
   user: string;
   workflows: Workflow[];
@@ -318,6 +413,7 @@ export interface Bootstrap {
   needs_human_action: number;
   data_cutoff: string | null;
   self_use_maturity: SelfUseMaturity;
+  credits?: CreditsSummary;
 }
 
 export type WorkbenchSection =
@@ -569,6 +665,7 @@ export interface ChatMessage {
   citations: Array<Record<string, unknown>>;
   degrades: string[];
   followups?: Followup[];
+  continuation?: FollowupContinuation | null;
 }
 
 export type SkillMode = "manual" | "auto" | "hybrid";
@@ -600,6 +697,9 @@ export interface CreateMessageRequest {
   perspective_mode?: PerspectiveMode;
   selected_perspective_ids?: string[];
   user?: string;
+  continuation?: FollowupContinuation;
+  /** 06 QC V2：首轮也能携带的请求实例坐标；普通提问不带。 */
+  maintenance_launch?: MaintenanceLaunchRef;
 }
 
 export interface CreateMessageResponse {
@@ -695,3 +795,217 @@ export type Surface =
   | { kind: "run"; runId: string }
   | { kind: "library" }
   | { kind: "artifact"; artifactId: string };
+
+/** ---- 研究进化（01–05 的 Workbench 投影）：`GET /api/conversations/{id}/research-evolution` ---- */
+
+export interface EvolutionObjectRef {
+  kind: string;
+  id: string | null;
+  namespace: string;
+  version_or_hash: string;
+  ref: string;
+  scope: Record<string, string>;
+}
+
+export interface EvolutionGap {
+  reason: string;
+  ref: string | null;
+  checked_at: string;
+  retryable: boolean;
+  detail: string;
+  /** 封套层 gap 才有：它属于哪一段。 */
+  module?: string;
+}
+
+export interface EvidenceVersionRef {
+  ref: string;
+  source_hash: string | null;
+  recorded_at: string | null;
+  derivation: string;
+}
+
+/** 01 的维护项。`epistemic_state=requires_review` 是「需复核」，不是「已证伪」。 */
+export interface MaintenanceItem {
+  id: string;
+  /** 真实载荷里是递增整数；旧面板当字符串用过，两种都接受。 */
+  item_version: number | string;
+  object_ref: EvolutionObjectRef;
+  before: EvidenceVersionRef[];
+  current: EvidenceVersionRef[];
+  change_type: string;
+  reason_code: string;
+  epistemic_state: "observed" | "requires_review" | "unknown" | string;
+  condition_result: string | null;
+  condition_role: string | null;
+  as_of: string;
+  knowledge_cutoff: string;
+  pit_grade: string;
+  gaps: EvolutionGap[];
+  action: string;
+  status: string;
+  management_revision: number;
+  management: Record<string, unknown>;
+}
+
+export interface MaintenanceReport {
+  id: string;
+  as_of: string;
+  knowledge_cutoff: string;
+  pit_grade: string;
+  hindsight: boolean;
+  gaps: EvolutionGap[];
+  items: MaintenanceItem[];
+  counts: Record<string, number>;
+  /** 本会话的 run 关联登记投影（QC V3）：面板「确认成果」入口的数据源。 */
+  run_links?: EvolutionRunLink[];
+}
+
+/** run_links 台账行的会话内投影。run_status 由服务端投影时补。 */
+export interface EvolutionRunLink {
+  link_id?: string;
+  item_id: string;
+  run_id: string;
+  conversation_id: string;
+  request_event_id?: string;
+  registered_at?: string;
+  run_status?: string;
+}
+
+/** 02 的视图行：中文键由 `research_priority.render_view` 生成，前端不再翻译一遍。 */
+export interface ResearchPriorityRow {
+  task_id: string;
+  标题: string;
+  动作类型: string;
+  组?: string;
+  原因?: string;
+  耗时: string;
+  可执行状态: string;
+  为什么在前?: string[];
+  还缺什么?: string[];
+  click_payload: Record<string, unknown>;
+}
+
+export interface ResearchPriorityView {
+  report_id: string;
+  policy_version: string;
+  summary: Record<string, string | number>;
+  selected: ResearchPriorityRow[];
+  deferred: ResearchPriorityRow[];
+  blocked: ResearchPriorityRow[];
+  critical_not_selected_ids: string[];
+  gaps: EvolutionGap[];
+  limitations: string[];
+  synthetic: boolean;
+  hindsight: boolean;
+}
+
+export interface DiagnosticFinding {
+  id: string;
+  kind: string;
+  classification: "issue" | "context" | "unknown" | string;
+  actor_group: string;
+  observed: string;
+  expected: string;
+  limitation: string;
+}
+
+export interface DiagnosticsReport {
+  id: string;
+  policy_id: string;
+  findings: DiagnosticFinding[];
+  exercise: Record<string, unknown> | null;
+}
+
+export interface EvolutionModuleStatus {
+  status: "ok" | "unknown" | "pending" | "error" | "unavailable" | "wiring_in_progress" | string;
+  reason: string | null;
+  synthetic: boolean;
+  detail?: Record<string, unknown>;
+}
+
+export interface EvolutionTrackable {
+  object_ref: EvolutionObjectRef;
+  kind: string;
+  title: string;
+  recorded_at: string | null;
+  bound: boolean;
+  binding_id: string | null;
+  gaps: EvolutionGap[];
+  candidate_refs: string[];
+}
+
+export interface EvolutionReceiptRef {
+  kind: string;
+  study_id?: string;
+  receipt_id?: string;
+  summary_id?: string;
+  empirical_status?: string;
+  status?: string;
+  engineering_status?: string;
+  field_status?: string;
+  commercial_status?: string;
+}
+
+export interface ResearchEvolutionView {
+  schema_version: string;
+  owner_user_id: string;
+  conversation_id: string;
+  view_version: string;
+  view_digest: string;
+  generated_at: string;
+  maintenance: MaintenanceReport | null;
+  priority: ResearchPriorityView | null;
+  diagnostics: DiagnosticsReport | null;
+  receipt_refs: {
+    validation: EvolutionReceiptRef[];
+    product_value: EvolutionReceiptRef[];
+  };
+  module_status: Record<string, EvolutionModuleStatus>;
+  gaps: EvolutionGap[];
+  inputs: {
+    as_of: string;
+    knowledge_cutoff: string;
+    budget_minutes: number | null;
+    bindings: number;
+    trackable_objects: EvolutionTrackable[];
+  };
+}
+
+/** `POST …/research-evolution/actions` 的结果；`continuation` 只在「继续核查」时出现。 */
+export interface ResearchEvolutionActionResult {
+  replayed: boolean;
+  status?: string;
+  reason_code?: string;
+  item_id?: string;
+  resulting_status?: string | null;
+  resulting_management_revision?: number | null;
+  continuation?: Record<string, unknown>;
+  click_payload?: Record<string, unknown>;
+  link?: Record<string, unknown>;
+  receipt?: Record<string, unknown>;
+  kind?: string;
+}
+
+/** `GET …/research-evolution/evidence-catalog`：可绑定证据的受控目录。 */
+export interface EvidenceCatalogView {
+  entity: string;
+  as_of: string;
+  knowledge_cutoff: string;
+  available: boolean;
+  reason: string | null;
+  pit_grade: string;
+  versions: Array<Record<string, unknown>>;
+  labels: string[];
+  gaps: EvolutionGap[];
+}
+
+/** `POST …/research-evolution/bindings` 的结果；`created=false` 是幂等重试命中了已落盘记录。 */
+export interface ResearchEvolutionBindingResult {
+  schema_version: string;
+  created: boolean;
+  binding_id: string;
+  binding: Record<string, unknown>;
+  baseline_cutoff: string | null;
+  created_at: string | null;
+  pit_grade: string;
+}

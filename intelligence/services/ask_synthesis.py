@@ -18,9 +18,14 @@ from intelligence.services import (
     evidence_registry,
     experience_cards,
     forecast_preflight,
+    judgment_delta,
     knowledge_injection_policy,
     llm_refine,
     perspective_lab,
+    pricing_split,
+    ranking_contract,
+    research_reasoning,
+    research_workflow_guidance,
     scenario_tree,
     track_contract,
 )
@@ -53,6 +58,7 @@ from intelligence.services.ask_types import (
     _synthesis_timeout,
     _llm_deadline,
 )
+from intelligence.services.judge_mode import JUDGE_MODE_OFF, semantic_judge_mode
 from intelligence.services.task_fulfillment import answer_has_output_marker
 from intelligence.services.research_policy import grounded_deep
 
@@ -845,6 +851,25 @@ def _prepare_answer_spec_synthesis(
     # 表达契约（情景树/跟踪）与经验卡片分开注入：契约是强制格式约束，塞进
     # 「历史经验卡片」段会被模型当参考经验忽略（2026-08-13 workbench 实测）。
     contract_parts: list[str] = []
+    reasoning_type = (
+        options.question_type_override
+        if options.question_type_override not in {None, "general_finance_qa"}
+        else knowledge_injection_policy.routed_question_type(question_plan)
+    )
+    reasoning_guidance = research_reasoning.guidance(reasoning_type)
+    if reasoning_guidance:
+        contract_parts.append(reasoning_guidance)
+    workflow_guidance = research_workflow_guidance.workflow_guidance(
+        question_plan.question_type
+    )
+    # Legacy plans can translate a material critique into financial_analysis.
+    # Preserve its recognized intent, but never override an explicit caller choice.
+    if options.question_type_override in {None, "general_finance_qa"}:
+        workflow_guidance = research_workflow_guidance.workflow_guidance(
+            knowledge_injection_policy.routed_question_type(question_plan)
+        ) or workflow_guidance
+    if workflow_guidance:
+        contract_parts.append(workflow_guidance)
     if options.include_scenario_guidance:
         scenario_guidance = scenario_tree.scenario_guidance_for_query(
             options.query,
@@ -859,6 +884,27 @@ def _prepare_answer_spec_synthesis(
         )
         if track_guidance:
             contract_parts.append(track_guidance)
+    if options.include_ranking_guidance:
+        ranking_guidance = ranking_contract.ranking_guidance_for_query(
+            options.query,
+            question_plan.question_type,
+        )
+        if ranking_guidance:
+            contract_parts.append(ranking_guidance)
+    if options.include_judgment_delta_guidance:
+        judgment_guidance = judgment_delta.judgment_delta_guidance_for_query(
+            options.query,
+            question_plan.question_type,
+        )
+        if judgment_guidance:
+            contract_parts.append(judgment_guidance)
+    if options.include_pricing_split_guidance:
+        pricing_guidance = pricing_split.pricing_split_guidance_for_query(
+            options.query,
+            question_plan.question_type,
+        )
+        if pricing_guidance:
+            contract_parts.append(pricing_guidance)
     messages = llm_refine.build_synthesis_messages(
         options.query,
         theme,
@@ -1501,8 +1547,10 @@ def _grounded_body_line_count(text: str) -> int:
 
 # 可以落到用户面前的影子状态。``judge_outage_released`` 是 judge 因瞬时故障缺席时
 # 的降级放行——正文已过确定性层且自带警示，见 ``_judge_outage_release``。
+# ``deterministic_only``（#55）是 ASK_SEMANTIC_JUDGE=off 下的常态：按设计没有第二模型
+# 审，正文只过确定性层，不带掉线告示（判官没有掉线，是被关掉的）。
 _PROMOTABLE_SHADOW_STATUSES = frozenset(
-    {"accepted", "repaired", "judge_outage_released"}
+    {"accepted", "repaired", "judge_outage_released", "deterministic_only"}
 )
 
 
@@ -1618,6 +1666,18 @@ def promote_grounded_answer(
             detail=(
                 "deterministic binding passed; semantic judge absent, "
                 "released with an explicit notice"
+            ),
+        )
+    elif shadow.status == "deterministic_only":
+        # #55：不是「没人审但放行」也不是「过了语义审」——是设计上只有确定性门。
+        # reason_code 让 eval/synthesis_health 把它单独成桶，不冒充 full_pass。
+        _set_synthesis_diagnostic(
+            result,
+            state="accepted",
+            reason_code="deterministic_only",
+            detail=(
+                "semantic judge disabled (ASK_SEMANTIC_JUDGE=off); "
+                "deterministic gates only, no second-model review"
             ),
         )
     else:
@@ -2173,7 +2233,12 @@ def synthesize_shadow_grounded_answer(
         deadline, options.shadow_grounded_timeout, 1.0
     )
     judge_skipped = _phase_slice_collapsed(deadline, 1.0)
-    if judge_skipped:
+    # #55：用户决策不用 LLM 判官。不发调用，也不走下面的掉线放行（那条会给正文加
+    # 告示——判官并没有掉线，是被关掉的）；确定性层的结果原样交付，status 单列。
+    judge_disabled = semantic_judge_mode() == JUDGE_MODE_OFF
+    if judge_disabled:
+        judged, judge_reason = None, "judge_off"
+    elif judge_skipped:
         # 不发这次调用，但**不放行**：跳过的原因是我们自己的预算，
         # ``insufficient_budget`` 不在瞬时故障白名单里，下面照常 fail-closed。
         judged, judge_reason = None, _INSUFFICIENT_BUDGET_REASON
@@ -2201,13 +2266,40 @@ def synthesize_shadow_grounded_answer(
         result,
         name="judge",
         status=(
-            "skipped" if judge_skipped else ("failed" if judged is None else "ok")
+            "skipped"
+            if (judge_skipped or judge_disabled)
+            else ("failed" if judged is None else "ok")
         ),
         remaining_ms_at_entry=judge_remaining_ms,
         timeout_s=judge_timeout,
         started=judge_started,
         reason=judge_reason if judged is None else "",
     )
+    if judge_disabled:
+        candidate_answer = answer_model.ensure_chain_mapping_section(
+            candidate_answer,
+            result.answer_spec,
+            decision_brief,
+        )
+        result.grounded_composer_shadow = (
+            answer_model.GroundedComposerShadow(
+                status="deterministic_only",
+                decision_brief=decision_brief,
+                raw_answer=raw_answer,
+                repaired_answer=candidate_answer if repaired else None,
+                presented_answer=(
+                    answer_model.present_grounded_composer_answer(
+                        candidate_answer,
+                        result.answer_spec,
+                    )
+                ),
+                deterministic_issues=deterministic_issues,
+                provider=composed.provider,
+                model=composed.model,
+                elapsed_ms=round((time.monotonic() - started) * 1000),
+            )
+        )
+        return result
     if judged is None:
         released = _judge_outage_release(
             candidate_answer,

@@ -73,10 +73,14 @@ if [ -f "$V/30_conventions/preferences.md" ]; then
 fi
 
 # ── 项目笔记：只注入开工必读段，跳过历史流水 ──────────────────────────
-repo_root="$(git rev-parse --show-toplevel 2>/dev/null)"
-[ -n "$repo_root" ] || repo_root="$(pwd)"
-remote="$(git -C "$repo_root" remote get-url origin 2>/dev/null || true)"
-if [ -n "${remote:-}" ]; then repo="$(basename "${remote%.git}")"; else repo="$(basename "$repo_root")"; fi
+# 项目记忆身份固定为本钩子随附的仓：它 checked in 在 finance-workspace-private 里，
+# 注入与回写就该指向 20_projects/finance-workspace-private.md。不再从目录名、
+# git common-dir 或 origin URL 猜——那些是存放/网络位置，不是项目身份：
+# origin 指 github.com/moscrol/finance.git 时推出 "finance"，笔记整段静默缺席
+#（2026-09-08 实测）；common-dir 父目录名在改名独立 clone 里推出别的项目名，
+# 注入并提示回写到那份笔记（2026-09-13 质检实测：clone 改名 finhot、两份笔记
+# 都在时注入了 finhot 笔记，Claude/Codex 两个入口退出码都是 0）。
+repo="finance-workspace-private"
 note="$V/20_projects/$repo.md"
 
 # ── 尾部固定段：先生成到变量，用**实测长度**做预留，不写死 RESERVED ──────
@@ -150,7 +154,6 @@ if [ -f "$note" ]; then
   # 取到「## 交接记录」为止，再删掉那一行本身；文件里没有该标题时退回全文。
   head_part="$(sed -n '1,/^## 交接记录/p' "$note" 2>/dev/null | sed '$d')"
   [ -n "$head_part" ] || head_part="$(cat "$note" 2>/dev/null)"
-  full_bytes="$(printf '%s' "$head_part" | wc -c | tr -d ' ')"
   # 折叠任务看板：进入该段后只放行前 BOARD_ROWS 行，之后到下一个 ## 为止全部跳过。
   # 匹配用 `任.*板` 而不是 `任务看板`：笔记里的标题实际是 `## 任**务**看**板**`
   # ——中文字符之间夹着 markdown 粗体标记。用 od -c 才看出来，肉眼读渲染后的
@@ -166,6 +169,8 @@ if [ -f "$note" ]; then
       if (n == keep + 1) print "> …看板其余条目已折叠（含历史排查细节）。需要全部任务时 Read 笔记全文。"
     }
   ')"
+  # 折叠之后再量必读段：看板折叠掉的字节不是预算截断，不该报成「被预算截断」。
+  full_bytes="$(printf '%s' "$head_part" | wc -c | tr -d ' ')"
   # 减去 RESERVED：尾部「Git 现状」「回写约定」两段是固定要输出的，必须先占位，
   # 否则项目笔记会吃满预算、尾部再无条件追加，总量必然超支（实测 13,298 > 12,000）。
   remain=$((BUDGET - used - RESERVED))

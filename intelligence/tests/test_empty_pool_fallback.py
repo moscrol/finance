@@ -221,10 +221,12 @@ def test_adapter_backfill_plan_uses_outcome_events(monkeypatch) -> None:
 
     from intelligence.runtime.continuous_turn_adapter import _issue_backfill_plan
 
-    monkeypatch.setattr(
-        "intelligence.runtime.continuous_turn_adapter.numeric_condition_unsupported",
-        lambda _verified: False,
-    )
+    # 这条测的是事件互斥，不是两道门本身；替身只带 issue_items，所以两道门都要 patch
+    # 掉（它们都要求真的 VerifiedEpisodeOutcome）。别反过来把生产代码改成 getattr 容错。
+    for gate in ("numeric_condition_unsupported", "comparison_baseline_unsupported"):
+        monkeypatch.setattr(
+            f"intelligence.runtime.continuous_turn_adapter.{gate}", lambda _verified: False,
+        )
     structural = SimpleNamespace(
         issue_items=(
             Issue(
@@ -572,6 +574,48 @@ def _fallback_requests(events) -> list[dict[str, object]]:
     ]
 
 
+def _undeclared_wire_tool_ids(wire_messages) -> list[str]:
+    """线格式上的同一条规则：每条 tool 消息的 tool_call_id 必须被前面某条 assistant.tool_calls 声明。
+    没声明的就是 2026-09-09 M3 / M6 让 OpenAI 兼容接口回 400 的那条消息。"""
+
+    declared: set[str] = set()
+    orphans: list[str] = []
+    for message in wire_messages:
+        if message.get("role") == "assistant":
+            declared.update(str(call["id"]) for call in message.get("tool_calls") or ())
+        elif message.get("role") == "tool" and message.get("tool_call_id") not in declared:
+            orphans.append(str(message.get("tool_call_id")))
+    return orphans
+
+
+def _assert_fallback_declared_on_the_wire(model: _ScriptedModel, events) -> None:
+    """补的那一枪进入下一次请求前必须有 assistant.tool_calls 声明，声明紧贴它的 tool 消息；
+    durable 侧恰好一条 application_tool_call，且落在回退 tool_request 之前。"""
+
+    assert len(model.calls) >= 2
+    for request in model.calls:
+        assert _undeclared_wire_tool_ids(request["messages"]) == []
+    second = model.calls[1]["messages"]
+    index = next(
+        i
+        for i, m in enumerate(second)
+        if m.get("role") == "assistant"
+        and any(call["id"] == FALLBACK_CALL_ID for call in m.get("tool_calls") or ())
+    )
+    assert second[index]["content"] == ""
+    assert second[index]["tool_calls"][0]["function"]["name"] == "finance_query"
+    assert second[index + 1]["role"] == "tool"
+    assert second[index + 1]["tool_call_id"] == FALLBACK_CALL_ID
+    declarations = [e for e in events if e.kind == "application_tool_call"]
+    assert len(declarations) == 1
+    assert declarations[0].payload["call_id"] == FALLBACK_CALL_ID
+    assert declarations[0].payload["source"] == "empty_pool_fallback"
+    fallback_request = next(
+        e for e in events if e.kind == "tool_request" and e.payload.get("fallback_query")
+    )
+    assert declarations[0].sequence < fallback_request.sequence
+
+
 def test_episode_empty_sector_daily_runs_one_amount_fallback() -> None:
     seen: list[object] = []
     frame = _theme_frame()
@@ -587,6 +631,7 @@ def test_episode_empty_sector_daily_runs_one_amount_fallback() -> None:
     assert outcome.status == "completed"
     assert len(seen) == 2
     assert len(tagged) == 1
+    _assert_fallback_declared_on_the_wire(model, outcome.events)
     assert tagged[0]["as_of"] == "2026-08-18"
     assert tagged[0]["arguments"]["time_range"] == {
         "start": "2026-08-18",
@@ -949,6 +994,9 @@ def test_reference_loop_runs_the_same_fallback_as_the_episode() -> None:
     assert tagged(episode) == tagged(reference)
     assert tagged(reference)[0]["call_id"] == FALLBACK_CALL_ID
     assert tagged(reference)[0]["fallback_query"] is True
+    # 两条 loop 都先声明再派发：下一次请求里没有孤儿 tool 消息。
+    _assert_fallback_declared_on_the_wire(episode_model, episode.events)
+    _assert_fallback_declared_on_the_wire(reference_model, reference.events)
     # 模型看到的消息一致（只差 Episode 的 runtime_budget 键）。
     assert len(episode_model.calls) == len(reference_model.calls) == 2
     for a, b in zip(episode_model.calls, reference_model.calls):

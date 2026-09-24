@@ -1,0 +1,24 @@
+{
+  "original_path": "/tmp/hithink-capture-frontend-build-c85d0101.log",
+  "raw_sha256": "fa33e9634865e6d8cbd3619c83624d8c02c830f35d857d10128bcc1a3552a2a1",
+  "encoding": "utf-8",
+  "lines": [
+    "\n",
+    "> market-intelligence-workbench@0.1.0 build /Users/a77/fwp-wt-hithink-review-wiring/intelligence/webapp\n",
+    "> pnpm typecheck && vite build\n",
+    "\n",
+    "\n",
+    "> market-intelligence-workbench@0.1.0 typecheck /Users/a77/fwp-wt-hithink-review-wiring/intelligence/webapp\n",
+    "> tsc --noEmit -p tsconfig.app.json --pretty false && tsc --noEmit -p tsconfig.node.json --pretty false\n",
+    "\n",
+    "vite v6.3.5 building for production...\n",
+    "transforming...\n",
+    "✓ 1611 modules transformed.\n",
+    "rendering chunks...\n",
+    "computing gzip size...\n",
+    "../api/static/index.html                   0.47 kB │ gzip:   0.30 kB\n",
+    "../api/static/assets/index-DCBHHflb.css   74.16 kB │ gzip:  14.48 kB\n",
+    "../api/static/assets/index--C_6_P-4.js   382.31 kB │ gzip: 117.13 kB\n",
+    "✓ built in 724ms\n"
+  ]
+}

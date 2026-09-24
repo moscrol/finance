@@ -1,0 +1,9 @@
+{"label": "rag_index-cli-bm25", "status": "pass", "index": ".rag_index", "mode": "bm25", "expected_empty": false, "hits": 3, "filter_verification": "not_requested", "paths": ["wiki/concepts/冷板式液冷.md", "wiki/concepts/数据中心液冷.md", "wiki/entities/曙光数创.md"]}
+{"label": "rag_index-cli-L3-empty", "status": "pass", "index": ".rag_index", "mode": "bm25", "expected_empty": true, "hits": 0, "filter_verification": "verified", "paths": []}
+Traceback (most recent call last):
+  File "/Users/a77/.finance-runtime/kb-dual-index-20260918/probe_v4_consumers_r2.py", line 122, in <module>
+    record(f'{prefix}-cli-bge-filtered', result, name, 'hybrid', positive_filters,
+  File "/Users/a77/.finance-runtime/kb-dual-index-20260918/probe_v4_consumers_r2.py", line 89, in record
+    assert result.ok and result.hits, (label, result.warning)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: ('rag_index-cli-bge-filtered', 'wiki-rag 无可用 chunk 命中')

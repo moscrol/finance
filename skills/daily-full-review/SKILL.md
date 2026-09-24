@@ -40,11 +40,13 @@ stock-daily）静默挂起，整个 daily 就卡死且无进度输出。**
   `_runtime_market_reference_date = min(snapshot, db)` 把生产问答整日钳在 08-24 而 health/覆盖率全绿
   （台账 `R-20260826-01`；工单 `docs/superpowers/specs/2026-08-26-width-resonance-bag-workorder.md` §P0）。
 - **夜跑失败禁止直写生产**：18:30 S7 写的是 `db/market_feature_store.duckdb.staging`，same-day 不过门就不换名。补洞设 `MARKET_FEATURE_STORE_DB=…staging`，门绿才 `atomic_swap_into_place`。详见 `references/ops-pitfalls.md`「S7 staging」。
-- **两个 python 不是同一个**：`intelligence.cli` / DuckDB 用 `.venv-workbench/bin/python`；生成段 `CommandSpec` 写死 PATH 里的 `python3`，必须以 `/opt/homebrew/bin` 开头（venv 缺 `markdown`/`matplotlib`）。
+- **生成解释器随 launcher 固定**：已部署双根 launcher 及其 Python 子步骤统一用 workbench venv；外部 shell（如 KB receive）仍可能调 PATH 里的 `python3`，保持 `/opt/homebrew/bin` 在前。不要用旧“两个 Python”经验替代当次命令与依赖检查。
 - **每轮必记 runlog**：跑完把每个模块的 状态/耗时/走了哪条路径 追加到
   `state/runlog.md`，顺的路径记住，坑的路径下次规避。
 - **末尾自动补偿重试**：编排器跑完一轮后会对 fail/timeout 的模块统一重跑
   `--retry-rounds` 轮（默认1），CDP 500 等瞬态故障到末尾往往已自愈；runlog 备注会带 `[retry rN]`。
+- **fupanhui 停抓期间只用 `--plan local`**（2026-09-07 账号风控起）：不发任何复盘会请求，名单冻结 + 加工层自算，
+  门禁按计划裁剪期望表。步骤与坑见 `skills/duckdb-backfill/SKILL.md`「local 计划」。full/cheap 会打复盘会，跑了必失败且续期惩罚。
 - **必须用编排层 run_review_sync.py**：不要手动逐步跑 sync-* 命令，参数极易搞错
   （如 sync-stock-daily --refresh 默认 offset=180 ≈ 90min）。编排层自带正确参数 + 超时 + 兜底。
 - **禁止 `cli daily-update` / `daily-full-exec` 直写生产**：默认 fail closed。急救必须 `--direct`（会写 `ops_sync_run` 与 `state/direct-write-*.json`）。`cli daily-full` 走 staging 换名，不要绕过它手跑 exec。
@@ -81,17 +83,55 @@ git branch --show-current
 
 ### 一键入口（推荐）
 
+**走 S7 包装脚本，它才有 staging + 换名闸**：
+
 ```bash
-python3 skills/daily-full-review/scripts/run_review_sync.py --date YYYY-MM-DD
+/bin/zsh /Users/a77/.local/bin/nightly-full-review-s7.sh YYYY-MM-DD; s7=$?
+/bin/zsh /Users/a77/.local/bin/nightly_full_review.sh finalize YYYY-MM-DD; fin=$?
+echo "sync rc=$s7  finalize rc=$fin"; [ "$s7" -eq 0 ] && [ "$fin" -eq 0 ]
 ```
+
+**两条都要跑，两个退出码都要留**（工单 #51）。这里有两个互相拉扯的要求，所以既不能用
+`&&` 也不能用裸分号：
+
+- **不能用 `&&`**：同步一失败，`finalize` 根本不启动，当天的 L2 跟着一起丢。而 L2 读的是
+  逐笔日包，**不依赖同步段产物**——2026-09-10 与 09-11 两天的 `feature_l2_*` 就是这么没的。
+  跑 `finalize` 是安全的：它自己先跑 L2，再由数据守卫决定要不要生成，守卫不过就只跳过生成段，
+  不会拿半拉数据出报告。
+- **不能用裸分号**：那样整段的退出码只剩 `finalize` 的，同步失败会被收尾的成功掩盖。
+  「守卫放行」只说明库里已有合格数据，**不说明本次同步成功**。
+
+所以分别接住 `$?`、最后一行显式合取——两段各自报账，任一非零整段即非零。
+
+两个脚本都自带 `FINANCE_SYNC_CODE_ROOT` / `REVIEW_SYNC_PLAN` 缺省，干净 shell 直接可跑；
+要覆盖就在命令前面加同名变量。`finalize` 覆盖 L2 + 生成段 + 方法飞轮；同步段只由 S7 负责。
+
+> ⚠ **同步段只有 S7 这一条路。** `nightly_full_review.sh` 的 `sync` / `all`（以及
+> 只传日期的缺省 `all`）已在加锁前拒绝并给出替代命令——它们直调
+> `run_review_sync.py`，而同步器自己**不做** staging：写的就是
+> `MARKET_FEATURE_STORE_DB` 指向的那个库，指向生产就是直写生产，中途失败会留下
+> 改了一半的生产库。「克隆到 staging → 过闸 → 原子换名」全在
+> `nightly-review-sync-staged.py` 里，只有经 S7 入口才走得到。
+> `run_review_sync.py` 里那几处 `staging` 字样是注释，它假定外层已经把库换成 staging。
+
+**从哪棵树跑**：S7 入口会把同步子进程指到 `finance-workspace-sync`（夜跑专用 detached
+worktree，跟随 `gitea/main`）。**不要在 `finance-workspace-private` 里跑**——那是数据仓、
+各 agent 共用，长期停在任意旧提交上；2026-09-12 实测它落后 548 个提交、`PLANS` 里没有
+`local`，直接 `ValueError: unknown plan 'local'`。
+
+**档位**：日更固定 `local`（零复盘会请求，不需要 Chrome 登录态）。`full` / `cheap` 都要
+fupanhui 登录，登录失效时停在 preflight rc=3。
+
+**生成代码根**：finalize 用 `FINANCE_GENERATION_CODE_ROOT` 的 `scripts/run_daily_generation.py`，
+仅给该子进程设置 `FINANCE_CODE_ROOT`；L2、质检、方法仍沿用原 `FINANCE_CODE_ROOT`。
+生成根未单独配置时使用代码根，缺 launcher 就拒绝，绝不退到数据树。
+装机值见 finalize plist 的 `EnvironmentVariables`；手动补跑须显式传相同的两个代码根，
+因为终端不会继承 launchd 环境。具体部署与回滚见
+`../../docs/handoffs/2026-09-17-nightly-generation-deployment.md`。
 
 脚本按下面的"已验证模块顺序"逐个跑，逐模块超时 + 自动兜底 + 写 runlog。
-同步全绿后再跑生成段：
-
-```bash
-python3 -m intelligence.cli daily --date YYYY-MM-DD --skip-sync --from-step daily-review \
-  --summary-json market_feature_store/exports/YYYY-MM-DD-daily-workflow-summary.json
-```
+只补生成时先核对装机生成根，再以该根的 launcher 调 `daily --skip-sync`，
+保留 `FINANCE_DATA_ROOT` / `FORESIGHT_USERS_DIR`；不在数据仓裸跑 `python -m intelligence.cli daily`。
 
 ### 收尾：当日增量导出到本地快照（自动）
 

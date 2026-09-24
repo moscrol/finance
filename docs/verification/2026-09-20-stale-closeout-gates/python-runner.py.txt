@@ -1,0 +1,76 @@
+"""Frozen-checkout gate orchestration; does not modify tests or source.
+
+Usage: python gate_python_registry.py <external output dir with target.json>.
+The receipt redirect plugin changes only receipt destination, not assertions.
+"""
+from datetime import datetime, timezone
+import hashlib
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+import time
+
+output = Path(sys.argv[1]).resolve()
+target = json.loads((output / "target.json").read_text())
+tree = Path(target["tree"])
+python = "/Users/a77/finance-workspace-private/.venv-workbench/bin/python"
+plugin_root = Path("/Users/a77/.finance-runtime/open-work-execution-20260920")
+env = {key: os.environ[key] for key in ("HOME", "PATH", "TMPDIR", "LANG") if key in os.environ}
+env.update(PYTHONDONTWRITEBYTECODE="1", KNOWLEDGE_WIKI=str(output / "knowledge-base-private/wiki"),
+           PYTHONPATH=os.pathsep.join((str(tree), str(plugin_root))),
+           FWP_GATE_TREE=str(tree), FWP_TEST_RECEIPT_DIR=str(output / "receipts"))
+os.umask(0o022)
+
+
+def identity():
+    rev = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=tree, env=env, text=True).strip()
+    status = subprocess.check_output(["git", "status", "--porcelain", "--untracked-files=all"], cwd=tree, env=env, text=True)
+    return {"revision": rev, "dirty": bool(status), "status": status,
+            "time": datetime.now(timezone.utc).isoformat()}
+
+
+checks = [
+    ("ruff", [python, "-m", "ruff", "check", "."]),
+    ("pytest", [python, "-m", "pytest", "-p", "receipt_redirect", "-q", "-p", "no:cacheprovider"]),
+    ("registry-parse", [python, "scripts/build_registry.py", "check-parseability"]),
+    ("registry-check", [python, "scripts/build_registry.py", "check"]),
+    ("registry-tables", [python, "scripts/build_registry.py", "backfill-tables", "--check"]),
+    ("registry-views", [python, "scripts/build_registry.py", "generate-views", "--check"]),
+    ("ledger-crosswalk", [python, "scripts/audit_ledger_spec_crosswalk.py"]),
+]
+receipt = {"expected_revision": target["revision"], "identity_before": identity(),
+           "runner_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+           "complete": False, "checks": []}
+assert receipt["identity_before"]["revision"] == target["revision"] and not receipt["identity_before"]["dirty"]
+path = output / "python-registry.json"
+assert not path.exists(), "do not replace an earlier receipt"
+
+
+def save():
+    path.write_text(json.dumps(receipt, indent=2, ensure_ascii=False) + "\n")
+
+
+save()
+try:
+    for name, command in checks:
+        started = time.monotonic()
+        log = output / (name + ".log.txt")
+        with log.open("xb") as stream:
+            result = subprocess.run(command, cwd=tree, env=env, stdout=stream, stderr=subprocess.STDOUT)
+        row = {"name": name, "command": command, "exit_code": result.returncode,
+               "elapsed_seconds": round(time.monotonic() - started, 2), "log": str(log),
+               "sha256": hashlib.sha256(log.read_bytes()).hexdigest()}
+        receipt["checks"].append(row)
+        save()
+        print(json.dumps(row), flush=True)
+    receipt["complete"] = True
+finally:
+    receipt["identity_after"] = identity()
+    receipt["identity_stable"] = (receipt["identity_after"]["revision"] == target["revision"]
+                                  and not receipt["identity_after"]["dirty"])
+    receipt["exit_code"] = 0 if (receipt["complete"] and receipt["identity_stable"]
+                                  and all(c["exit_code"] == 0 for c in receipt["checks"])) else 1
+    save()
+sys.exit(receipt["exit_code"])
