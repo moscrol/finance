@@ -1,27 +1,28 @@
 # feat/pi-research-loop
 
 ## 这个分支做什么
-兑现 8792 的 Pi 式研究行为；P0完成，P1组合离线完成，真实研究仍待前置放行。
+兑现8792的Pi式研究行为；P0/P1离线已交付#911，真实质量仍待独审及逐行授权。
 
 ## 决策与被否方案
-复用 ContinuousAgentEpisode + FinanceResearchHarness；否掉第三条生产Loop、宿主Shell放权、重复改#868。只在本任务树组合候选，不改原owner受审树、不自动增模型额度。
-背景/收据：`../2026-09-24-pi-research-p1-offline.md`；P0历史见`../2026-09-24-pi-research-p0.md`。合同：`docs/superpowers/specs/2026-09-24-pi-style-research-delivery-design.md`。
+复用ContinuousAgentEpisode+FinanceResearchHarness，否第三条生产Loop、宿主Shell扩权、重复改#868。组合固定候选，不改原owner树。新快照`../2026-09-25-pi-research-forward-delivery.md`；合同仍为09-24 pi-style-research-delivery-design。
 
 ## 当前状态
-独立树`~/fwp-wt-pi-research`。已组合#868候选f531d2d00add，合并提交d21a42efe；开关双态/深度复核测试提交59ab6e5cf。相对f531未改生产逻辑；仅本分支组合，未push/合main/部署。本交接为文档收尾，不改变受测代码。
-旧交接ce2/166-209过期。最新核`~/.finance-runtime/reviews/pr868-glm-qc-20260924-2105/STATE.md`及batch/authorization：候选f531，spec有保留通过（C3/C7未验）；quality/explore路径漏/Users被拒，整批BLOCKED_NO_RETRY，累计213/244、余31，不足完整quality新轴39。原owner工程绿不移签本组合；未分类探针不是产品缺陷。
-
-## 已验证
-研究链36场景：off/on、quick/deep、观察追查、空/异常换路、越权/假引用拒绝、一次复核后续查、耗尽/取消、变异对照。真实Runtime/Harness，替身模型/源，严格消息对账，零真实模型请求。
-干净59ab6e5cf定向606P/3S/1X，收集610；ruff/提交钩子通过。收据校验通过：`~/.finance-runtime/test-receipts/20260924T134639Z-59ab6e5c-1160ab7b55b4.json`。范围为conformance、runtime/progress/adaptive/plan/semantic/harness七目标，不是全仓门禁。X为既有codex_headless修复收据缺席基线。
+独立树`~/fwp-wt-pi-research`已推gitea。先前向main03352758c，再组合#868作者f2610293f，受测提交6b7c4c4c61ee。PR #911为WIP，base=feat/adaptive-research-loop；相对f261只有研究链测试及文档，无产品差分。文档收尾不继承代码收据。
+#906已由owner合进#868；即时路径修补另交#910，同base/WIP，两PR预演均无冲突。#868仍未合main，本会话没启动模型/部署。
+最新封存2105仍spec有保留通过/C3C7未验、quality阻塞、213/244；另见20260925-next准备目录，但未见STATE/授权，不认定执行或额度变化。接续须重新核原件。
 
 ## 未验证 / 已知边界
-未验真实HTTP门、真实来源/子研究、自然模型主动改向/反证/修稿与公开稿一致性。本组合未跑全仓/前端门禁或独审。未核8792活进程能力。文档HEAD不接收59ab测试收据。
+doctor发现共享venv的httpx0.25.2不符锁0.28.1，已通知owner（#868评论6857）；未改共享环境。当时owner正跑f261全量，本枝未重复启动，未得四叶门禁。
+未验真实HTTP门、真实源/子研究、自然模型改向/反证/修稿及公开稿一致性；未核8792活进程。别把定向绿作独审或部署准入。
 
 ## 下一步
-1. 即时交付校验已在独立枝`fix/pr868-delivery-validation-0924`完成（3e8ea5b64，57P/0S、零真实请求）；交接`~/fwp-wt-pr868-delivery-validation-0924/docs/handoffs/inflight/fix-pr868-delivery-validation-0924.md`。原owner审阅采用，再申请新批预算/范围；不续1405/2105。
-2. 独审闭合后按#76逐行授权跑真实Workbench；候选若变，重验确切组合。
-3. 完整门禁与用户确认后才合入/部署，不把P1离线当P2质量改善。
+1. 原owner审阅采用#910/#911，对最终组合冻结身份和环境重验；不替作者合入，不搬旧收据。
+2. 新独审批须新证据根、当前输入、工程身份与明确预算。不得续1405/2105或直接执行生成器历史配置。
+3. 独审闭合后接#76/L6逐行自然验收；合main、8792部署分别确认。
 
 ## 踩过的坑
-无工具菜单可能是复核或预算收口，要读消息区分。授权快照会先截菜单变异；漏扣账测试要区分已授额度与hard cap。不要拿其他revision/旧交接的绿或额度给当前签字。
+共享环境可漂，收据指纹一致不代表符合锁；并发测试时不就地修venv。无工具菜单可能是复核或预算收口，要读消息。新的目录/PR不证明授权或真实执行。
+
+## 已验证
+干净6b7c4c4c61ee：606P/0F/0E/3S/1X，collected610；七目标同P1，真实Runtime/Harness、替身模型/源，真实模型0。36个新场景含双态/深度/追查/恢复/越权/复核/耗尽/取消/变异。Ruff通过。
+收据`~/.finance-runtime/test-receipts/20260924T161506Z-6b7c4c4c-0922655b0f78.json`已按精确版本及七目标校验，实际依赖指纹e1c50cb821a30f00。3S为声明不适用，1X为既有codex_headless缺resume收据。不是完整门禁，不移签后续文档HEAD。
