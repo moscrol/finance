@@ -8,7 +8,7 @@
 
 ## 当前状态
 **ENGINEERING_READY_QC_BLOCKED**。#813仍WIP/open/unmerged，head `3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59`，base `4cc15e703f81bce8abadee00f68caacdb0c72b4d`；封存核远端未变，作者/审查树均干净。未合入或写生产，无自有后台任务。
-工程根 `~/.finance-runtime/reviews/backfill-302132-0923/`，动态入口CURRENT.json，被验树forward-02/tree，原件continue-08/。本分支代码旧，不能从此执行验收/生产。
+工程根 `~/.finance-runtime/reviews/backfill-302132-0923/`，动态入口CURRENT.json，被验树forward-02/tree，原件continue-08/。本分支代码旧，不能从此执行验收/生产。发布前main已到 `03af215e0`（依赖/测试环境/门禁源码变化），旧绿只对3c5+4cc有效；新main组合未验。
 独审根 `~/.finance-runtime/reviews/pr813-k3-qc-20260924-01/`，归仓 `docs/verification/2026-09-24-backfill-302132-qc-01/`。本批11请求：小探针1、工具往返4、Spec explore6；第6请求200后流在120秒中断，10次只读、0产品探针、无REPORT；Quality模型未启动。report.json只是宿主封存记录。
 
 ## 未验证 / 已知边界

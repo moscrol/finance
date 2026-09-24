@@ -26,7 +26,7 @@
 - `raw/prepare.py.txt`、两轴 runner/config/prompt：本批输入与执行装置，不是通用新框架。
 - `manifest.json` / `archive-verification.json`：214份原件、2154813字节（含补入的两轴source.diff输入），逐文件解码及SHA256一致。脚本以文本归档；日志或带末尾空白的文件使用Base64，不修剪原字节。
 
-树外原件 `~/.finance-runtime/reviews/pr813-k3-qc-20260924-01/`；产品动态状态仍在 `~/.finance-runtime/reviews/backfill-302132-0923/CURRENT.json`。候选和作者树均干净，远端head/base未变，自有进程及19899监听已退出。
+树外原件 `~/.finance-runtime/reviews/pr813-k3-qc-20260924-01/`；产品动态状态仍在 `~/.finance-runtime/reviews/backfill-302132-0923/CURRENT.json`。独审批封存时，候选和作者树均干净、远端head/base未变，自有进程及19899监听已退出。发布前main又前进到 `03af215e0`，含依赖/测试环境/门禁源码变化；本包只覆盖固定3c5/4cc，不覆盖新main组合，详见qc-blocked交接。
 
 ## 续审边界
 
