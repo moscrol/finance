@@ -10,6 +10,7 @@
 |---|---|---|
 | C11 | `fix/citation-numeric-gate-0917`（09-17，引用序号不进数值条件） | `strip_evidence_ordinals` 已在 `gitea/main` 的 `intelligence/services/episode_protocol.py`（2 处）与 `episode_semantic_verifier.py`（3 处），随 #832 → #863 谱系进入；本枝多出的 `intelligence/tests/test_episode_numeric_citations.py`（137 行）若要补覆盖，从分支取 |
 | G5 | `fix/gate-receipt-selection-0921`（09-21，选中本次 pytest 收据、保留失败退出码） | #860 已落同一机制：`scripts/run_main_gate.sh` 110–117 行 `PYTEST_LOG` + `PIPESTATUS` 取精确收据、不假定绿 |
+| G6 | `fix/generation-stage-code-root`（09-15，初版 `0f6c2810`） | 返修分支 `fix/generation-root-boundary-guards`（`387028b8` 校验具体生成路径 + `ada20cc8e` 复核记录）已是 `gitea/main` 祖先，09-18 finalize 实际用的冻结生成根就是 387028b8；初版多出的 2 个补丁是被返修取代的旧版。INDEX #50 行仍写「⏳ 待派」，是过期状态，留给 INDEX 单一写者更正 |
 | A7 | PR #900 `fix/recovery-release-forward-0923` | 已关，指针评论 6921 → #915（三个修复按补丁进入 eb4ec08f） |
 
 ## 归档（方向未变，但这条实现路径不再推进；代码保留在分支）
