@@ -24,6 +24,7 @@ from decimal import Decimal
 from typing import Any
 
 from intelligence.services.product_value import contracts as C
+from intelligence.services.product_value.consent import ConsentEntry, covers_measurement, measurement_scopes, scopes_at
 from intelligence.services.product_value.evidence import (
     EVIDENCE_CROSS_OWNER,
     EVIDENCE_OK,
@@ -143,35 +144,34 @@ def _sum_by_currency(items: Iterable[Mapping[str, Any]]) -> dict[str, float]:
 # --------------------------------------------------------------------------
 
 
-def _consent_timeline(events: Sequence[Mapping[str, Any]]) -> dict[str, list[tuple[datetime, str, frozenset[str]]]]:
-    timeline: dict[str, list[tuple[datetime, str, frozenset[str]]]] = {}
+def _consent_timeline(events: Sequence[Mapping[str, Any]]) -> dict[str, list[ConsentEntry]]:
+    """只认带 ``participant_id`` 的试点记录；owner 自用记录不进读侧时间线。
+
+    ``event_time`` 在 ``event_at`` 不可解析时抛：台账已过校验，坏值是真异常，
+    不能静默跳过——跳过一条 ``withdraw`` 就是把已撤回当成仍授权。排序与折叠归
+    ``consent.scopes_at`` 所有，这里不再自己排一遍。
+    """
+    timeline: dict[str, list[ConsentEntry]] = {}
     for event in events:
         if event.get("event_type") != "consent_changed" or not event.get("participant_id"):
             continue
         payload = event["payload"]
         effective = parse_ts(payload.get("effective_at")) or event_time(event)
+        scopes = measurement_scopes(event)
+        if scopes is None:
+            continue
         timeline.setdefault(str(event["participant_id"]), []).append(
-            (effective, str(payload.get("action")), frozenset(str(s) for s in payload.get("scopes") or ()))
+            (effective, str(payload.get("action")), scopes)
         )
-    for entries in timeline.values():
-        entries.sort(key=lambda item: (item[0], item[1]))
     return timeline
 
 
-def _scopes_at(timeline: dict[str, list[tuple[datetime, str, frozenset[str]]]], participant: str, at: datetime) -> frozenset[str] | None:
+def _scopes_at(timeline: dict[str, list[ConsentEntry]], participant: str, at: datetime) -> frozenset[str] | None:
     """参与者在 ``at`` 时刻生效的同意范围；没有任何记录返回 None（≠ 空集）。"""
     entries = timeline.get(participant)
     if not entries:
         return None
-    active: set[str] = set()
-    for effective, action, scopes in entries:
-        if effective > at:
-            break
-        if action == "grant":
-            active |= scopes
-        elif action == "withdraw":
-            active -= scopes
-    return frozenset(active)
+    return scopes_at(entries, at)
 
 
 # --------------------------------------------------------------------------
@@ -759,7 +759,7 @@ def measure_pair(
             scopes = _scopes_at(consent, str(participant), event_time(event))
             if scopes is None:
                 limitations.add(f"consent_unknown:{participant}")
-            elif not C.REQUIRED_MEASUREMENT_SCOPES <= scopes:
+            elif not covers_measurement(scopes):
                 exclusions.append({"id": str(event["event_id"]), "reason": "consent_withdrawn", "rule_version": rule_versions.get("consent_withdrawn", "")})
                 continue
         task_events[task_id].append(event)
