@@ -1,0 +1,29 @@
+341:class FencedEpisodeStore:
+342:    """One live parent/child tree shares a fail-closed write boundary.
+347:    to the backend, without holding this tree-wide lock across model/tool IO.
+348:    This fence is not a durable failure receipt: ACK loss is uncertain on disk.
+354:        self._failure = ""
+365:    def failure(self) -> str:
+367:            return self._failure
+369:    def on_failure(self, callback: Callable[[], None]) -> None:
+372:            failed = bool(self._failure)
+377:    def _notify_failure(callbacks: Sequence[Callable[[], None]]) -> None:
+382:                # A broken observer cannot hide failure or starve other signals.
+385:    def fail(self, episode_id: str, boundary: str, error: Exception) -> None:
+386:        """Latch a required checkpoint's encoding failure, before storage IO.
+390:        as an append/put_state failure.
+393:            if self._failure:
+395:            self._failure = f"{episode_id}:{boundary}:{type(error).__name__}"
+397:        self._notify_failure(callbacks)
+403:                if self._failure:
+404:                    raise EpisodeStoreFailed(self._failure)
+408:                    self._failure = f"{episode_id}:{boundary}:{type(exc).__name__}"
+412:            self._notify_failure(callbacks)
+intelligence/tests/test_episode_writer.py
+intelligence/services/episode_store.py
+intelligence/runtime/sub_research.py
+intelligence/runtime/agent_episode.py
+intelligence/tests/test_episode_evidence_snapshot.py
+intelligence/tests/test_sub_research_persistence.py
+intelligence/tests/test_root_budget_snapshot.py
+intelligence/tests/test_episode_authorization_snapshot.py

@@ -1,0 +1,32 @@
+{
+  "command": [
+    "/usr/bin/sandbox-exec",
+    "-f",
+    "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/host.sb",
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "-B",
+    "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/k3-host-acceptance/restored/entry.py",
+    "-q",
+    "-p",
+    "no:cacheprovider",
+    "--junitxml",
+    "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/k3-host-acceptance/restored.xml",
+    "/Users/a77/.finance-runtime/reviews/runtime-probe-k3-writer-20260923-03/k3/work/inbox_checks.py",
+    "--basetemp=/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/k3-host-acceptance/restored/pytest"
+  ],
+  "cwd": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/candidate",
+  "env": {
+    "PATH": "/opt/homebrew/bin:/usr/bin:/bin",
+    "PYTHONPATH": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/candidate",
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "FWP_TEST_RECEIPT": "0",
+    "K3_INBOX_SHADOW": "0",
+    "HOME": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/k3-host-acceptance/restored/home",
+    "TMPDIR": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/k3-host-acceptance/restored/tmp",
+    "FORESIGHT_USERS_DIR": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/k3-host-acceptance/restored/users",
+    "FORESIGHT_LLM_KEYCHAIN": "0"
+  },
+  "timeout": 120,
+  "exit_code": 0,
+  "raw_sha256": "b9b533d579c6b0a2e066b6bbdc4091a58e8d49f88c8b89a972e6c63532bfeaeb"
+}

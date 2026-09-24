@@ -1,0 +1,30 @@
+44:    unknown_effects_from_payload,
+45:    unknown_effects_payload,
+58:    episode_writer,
+159:        message_id = str(event.payload.get("message_id") or "")
+205:        if str(event.payload.get(key) or "") == value:
+213:            return str(event.payload.get("task_frame_hash") or "")
+239:    def add(self, kind: str, payload: Mapping[str, object]) -> EpisodeEvent:
+244:                **dict(payload),
+292:    tool = str(intent.payload.get("name") or "")
+293:    call_id = str(intent.payload.get("call_id") or "")
+294:    payload = harness.project_tool_error(tool=tool, error=INTERRUPTED, detail=detail)
+298:            **payload,
+301:            "model_content": json.dumps(payload, ensure_ascii=False),
+338:        status=str(finish.payload.get("status") or "failed"),  # type: ignore[arg-type]
+342:        gaps=tuple(str(item) for item in (finish.payload.get("gaps") or ())),
+343:        stop_reason=str(finish.payload.get("stop_reason") or INTERRUPTED),
+367:    才能合成日志/给计划；旧日志可 load 诊断，但不猜权限给恢复计划。确认完成态只读返回。
+374:    with episode_writer(store, episode_id):
+391:    loaded_events, state = store.load(episode_id)
+400:    require_known_kinds(loaded_events)
+401:    if state.last_sequence > len(loaded_events):
+404:            f"{len(loaded_events)} 条事件）"
+406:    events = list(loaded_events)
+409:    current_unknown: UnreconciledEffects = unknown_effects_from_payload(
+431:            pending_inbox=pending_inbox_messages(loaded_events),
+469:    # Both stay loadable for diagnosis, but neither may bypass this gate.
+530:                "effects": unknown_effects_payload(added),
+562:            unreconciled_effects=tuple(unknown_effects_payload(current_unknown)),
+595:                unreconciled_effects=tuple(unknown_effects_payload(current_unknown)),
+625:        intent_phase = str(intent.payload.get("phase") or continue_phase)

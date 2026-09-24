@@ -1,0 +1,35 @@
+{
+  "accepted": true,
+  "kind": "host unittest plus semantic mutation, not independent review or full gate",
+  "baseline": {
+    "tests": 9,
+    "passed": true,
+    "failures": [],
+    "errors": [],
+    "log": "admission-baseline.log.txt",
+    "log_sha256": "394a25787f300c066a768dccbeb94ffbd958487a50f647f65b1d97074fdd0603"
+  },
+  "mutation": {
+    "tests": 1,
+    "passed": false,
+    "failures": [
+      "resource_tests.GateResourceTests.test_pytest_without_report_option_blocks"
+    ],
+    "errors": [],
+    "log": "admission-mutation-report-required.log.txt",
+    "log_sha256": "421bdf076df60ff94a77664c1dfb65c484e5b89b37ed734803af07a150d00bc2"
+  },
+  "restored": {
+    "tests": 9,
+    "passed": true,
+    "failures": [],
+    "errors": [],
+    "log": "admission-restored.log.txt",
+    "log_sha256": "99bdc186077f0f974f4158c74dedb7531a7cb788a5c3581ae9f18e43ff317c0c"
+  },
+  "source_sha256": {
+    "/Users/a77/fwp-wt-runtime-postmerge-qc-0923/scripts/review_probes/gate_resources.py": "7d04572fe6654edb8177d5b0e0b9903686a83441a9f02a680d911a2e040a4b45",
+    "/Users/a77/fwp-wt-runtime-postmerge-qc-0923/tests/test_review_gate_resources.py": "090f155f541f0e0c863771d9a1091a7b0cee94f9f3aef27c2cf5261af794d236"
+  },
+  "source_unchanged": true
+}

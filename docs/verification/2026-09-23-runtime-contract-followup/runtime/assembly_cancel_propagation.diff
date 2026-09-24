@@ -1,0 +1,13 @@
+diff --git a/intelligence/api/app.py b/intelligence/api/app.py
+index 267b813cb..518f55b03 100644
+--- a/intelligence/api/app.py
++++ b/intelligence/api/app.py
+@@ -522,7 +522,7 @@ def _build_continuous_turn_adapter(
+     )
+     client = GLMModelClient(
+         providers=providers,
+-        is_cancelled=execution_cancel,
++        is_cancelled=is_cancelled,
+         # 只在 continuous_glm 上接：sdk_glm 走 OpenAIAgentsRuntime，
+         # 它自己的流式语义还没对齐，这里不假装它也能流。
+         on_draft_delta=(

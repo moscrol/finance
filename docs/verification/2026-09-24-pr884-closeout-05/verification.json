@@ -1,0 +1,92 @@
+{
+  "revision": "5344d8b0f87a9dcf14b08d87a19f63c7c3a25a1a",
+  "integrated_base": "3bb81b9638f97b4773ce0f338df3a505b7c0162f",
+  "verdict": "BLOCKED",
+  "accepted": false,
+  "recorded_at": "2026-09-23T17:59:11.355462+00:00",
+  "engineering": {
+    "status": "NOT_RUN",
+    "reason": "No resource admission; idle controller stopped for archive repair; repaired candidate also not admitted",
+    "python_outcome": "NOT_RUN",
+    "counts": null,
+    "collected": null,
+    "frontend": "NOT_RUN",
+    "e2e": "NOT_RUN",
+    "registry": "NOT_RUN"
+  },
+  "prepared_gate_revision": "ddc0d35b053f25ac74b10a3e4c62ab5502bae5ea",
+  "resource": {
+    "admitted": false,
+    "foreign_pytest": [
+      {
+        "pid": 50980,
+        "pgid": 50949,
+        "command": "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -m pytest -q -p no:cacheprovider --basetemp=/Users/a77/.finance-runtime/knevo-deploy-readiness-20260924/full-tmp"
+      },
+      {
+        "pid": 52409,
+        "pgid": 52381,
+        "command": "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -m pytest -q -p no:cacheprovider --basetemp=/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0135/python-basetemp"
+      },
+      {
+        "pid": 79022,
+        "pgid": 79022,
+        "command": "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -m pytest -q -p no:cacheprovider -o tmp_path_retention_policy=failed --basetemp=/Users/a77/.finance-runtime/reviews/worktree-board-hardening-20260924/integration-01/pytest-temp --junitxml=/Users/a77/.finance-runtime/reviews/worktree-board-hardening-20260924/integration-01/python.xml"
+      }
+    ],
+    "disk_free_bytes": 5215031296,
+    "minimum_free_bytes": 12884901888,
+    "excluded_groups": [],
+    "scope": "point-in-time; all detected pytest processes, not just full suites; no reservation",
+    "observed_at": "2026-09-23T17:57:36.813318+00:00"
+  },
+  "operator_stop": {
+    "status": "STOPPED_BEFORE_ANY_GATE",
+    "pid": 69758,
+    "before": "69758     1 69758 /opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -B /Users/a77/.finance-runtime/reviews/pr884-closeout-20260924-05/run.py start",
+    "observed_at": "2026-09-23T17:48:57.278403+00:00",
+    "reason": "Frozen candidate lacks Git blobs for historical selected archive logs; repair and freeze a new candidate first",
+    "gate_processes_launched": 0,
+    "model_requests": 0,
+    "other_processes_signaled": [],
+    "original_controller_state_retained": true,
+    "no_remaining_controller": true
+  },
+  "targeted_checks": {
+    "admission_unittest_baseline": 9,
+    "admission_unittest_restored": 9,
+    "semantic_old_behavior_mutation_rejected": true,
+    "controller_unittest": 5,
+    "scope": "lightweight host unit checks, not pytest full-suite or independent approval",
+    "admission_source_matches_current_commit": true
+  },
+  "archive_repair": {
+    "historical_files_resolved": 685,
+    "round04_direct_blobs": 292,
+    "round04_supplemented_blobs": 129,
+    "supplement_payload_bytes": 403320,
+    "original_manifest_and_reports_unchanged": true,
+    "git_commit_check": true
+  },
+  "independent_review": {
+    "status": "BLOCKED",
+    "new_model_requests": 0,
+    "plan": "review-plan-proposed.md; requires confirmation before any new model request",
+    "prior_round": "pr884-closeout-20260923-04; no verdict transfer"
+  },
+  "merge_preview_tree": "b4efc10f9f99a3af78ba087fbc0b11941e3d0845",
+  "ci_platform_executed": false,
+  "merge_ready": false,
+  "merge_authorized": false,
+  "deployed": false,
+  "production_mutations": false,
+  "remaining_own_background_processes": [],
+  "evidence_sha256": {
+    "operator-stop.json": "26feeb0be708a6b38826fa87e69ec246e6cfae5d088682209e628836f0e985cf",
+    "admission-verification.json": "dbba4cab254e43d8ff132d16d078195561f95150689c1fea236ee9ca95d71411",
+    "controller-tests.log.txt": "2b79c44417f538c774c32b2bf3029bde0c6508fe83706b98ceb87edbb746116c",
+    "archive-closure-verification.json": "f1804febfab88c6dd85d91d6449696bbcd1d58c2d7ebda9065268046a0c892d5",
+    "supplement-committed-verification.json": "009292a7f750a6deb7725db81e344a89670e7507c4aeff61b561c0fd6d67529a",
+    "resource-final.json": "212bc01445308060c57d3fe854edc53b76d205916f920b2e80ba63277d610745"
+  }
+}

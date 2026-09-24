@@ -1,0 +1,3 @@
+intelligence/runtime/continuous_turn_adapter.py:2039:    counts: dict[str, int] = {"covered": 0, "unknown": 0, "suspicious": 0}
+intelligence/runtime/agent_episode.py:842:                if result.error == "unknown_or_unauthorized_tool":
+intelligence/runtime/agent_episode.py:1195:            raise ValueError(f"unknown step phase: {phase!r}")

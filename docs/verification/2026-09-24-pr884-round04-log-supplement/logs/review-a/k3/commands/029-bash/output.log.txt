@@ -1,0 +1,13 @@
+intelligence/api/app.py:95:from intelligence.services.episode_entry_identity import EntryIdentity
+intelligence/api/app.py:455:    entry_identity: EntryIdentity | None = None
+intelligence/api/app.py:464:        entry_identity = EntryIdentity(
+intelligence/api/app.py:644:        entry_identity=entry_identity,
+intelligence/runtime/continuous_turn_adapter.py:66:from intelligence.services.episode_entry_identity import EntryIdentity
+intelligence/runtime/continuous_turn_adapter.py:173:        entry_identity: EntryIdentity | None = None,
+intelligence/runtime/continuous_turn_adapter.py:200:        if entry_identity is not None and not isinstance(entry_identity, EntryIdentity):
+intelligence/runtime/continuous_turn_adapter.py:201:            raise TypeError("entry_identity must be an EntryIdentity")
+intelligence/runtime/continuous_turn_adapter.py:217:        self._entry_identity = entry_identity
+intelligence/runtime/continuous_turn_adapter.py:561:                entry_identity=(
+intelligence/runtime/continuous_turn_adapter.py:562:                    None if self._entry_identity is None
+intelligence/runtime/continuous_turn_adapter.py:563:                    else self._entry_identity.bind(task_id)
+ 36M	intelligence

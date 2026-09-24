@@ -1,0 +1,24 @@
+# Offline development and test baseline, not the ingestion/deployment environment.
+# Consumer pins have one owner: scripts/dependency_closure.py.
+-r requirements-consumer.lock
+
+# Development tools and their dependencies (Python 3.12).
+PyYAML==6.0.3
+pytest==8.3.5
+ruff==0.11.13
+iniconfig==2.3.0
+packaging==26.2
+pluggy==1.6.0
+# PyJWT's crypto extra is needed by the API; dependency_closure excludes extras.
+cryptography==49.0.0
+cffi==2.1.0
+pycparser==3.0
+
+# Full-suite data transformations and review rendering (no ingestion clients).
+numpy==2.2.1
+pandas==2.2.3
+Markdown==3.10.3
+python-dateutil==2.9.0.post0
+pytz==2026.2
+tzdata==2026.3
+six==1.17.0

@@ -15,6 +15,8 @@ A 股量化复盘 + 研究工具集：fupanhui / iFinD / AKShare 数据经 `mark
 2. 解释器：pytest / ruff 一律 `.venv-workbench/bin/python -m …`。宿主 python3 缺依赖，失败数会偏高且看起来完全合理（实测 71 vs 14）。conftest 与 pre-commit 会拦提交，拦不住你已经读错的数字。
 3. 读本分支的在途交接 `docs/handoffs/inflight/<分支名，/ 换 ->.md`（hook 已注入前约 2000 字符）。完工用 `handoff` skill 覆写，在动作完成之后写，否则注入给下一个 agent 的是假状态。
 
+新工作树、换机器、搭建 Agent：先 `python3 scripts/workspace.py doctor`；安装与离线样例走 `docs/workflows/agent-foundation.md`。六图来源及更新触发器在 `docs/agent-maps.json`，源文件存在不代表语义已验证或生产已部署。
+
 ## 三个正门
 
 - 金融问答：`python3 -m intelligence.cli ask "<问题>"`；追问 `chat`；要模型自选工具才 `agent`（opt-in）。Workbench UI 走 Episode（`TurnOrchestrator.run_turn`），不用 CLI 冒充它的会话 id 合同。作答前可用 `intelligence.cli prime "<问题>"` 拿校准 + 个人库 + 图谱前缀做 grounding。`--kb-mode` / `--wiki-rag-mode` / `--modules` 是逃生口，不写进日常口令。

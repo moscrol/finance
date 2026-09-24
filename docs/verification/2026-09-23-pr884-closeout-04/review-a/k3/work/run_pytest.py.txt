@@ -1,0 +1,9 @@
+"""外置 wrapper：先固定 USERS_DIR 再 import pytest（防仓库 conftest 清生产用户目录）。"""
+import sys
+from pathlib import Path
+
+import intelligence.userspace as u
+u.USERS_DIR = Path('/Users/a77/.finance-runtime/reviews/pr884-closeout-20260923-04/review-a/k3/work/users')
+import pytest  # noqa: E402
+
+sys.exit(pytest.main(sys.argv[1:]))

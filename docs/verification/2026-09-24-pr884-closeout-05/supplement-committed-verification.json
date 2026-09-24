@@ -1,0 +1,27 @@
+{
+  "ok": true,
+  "phase": "committed_bytes_only",
+  "repo": "/Users/a77/fwp-wt-runtime-postmerge-qc-0923",
+  "archive": "docs/verification/2026-09-24-pr884-round04-log-supplement",
+  "preview_revision": "a385ae56e7057faa0eb765e4d12090dd09e26549",
+  "revision": "5344d8b0f87a9dcf14b08d87a19f63c7c3a25a1a",
+  "preview_tree": "b4efc10f9f99a3af78ba087fbc0b11941e3d0845",
+  "tree": "b4efc10f9f99a3af78ba087fbc0b11941e3d0845",
+  "preview_check": {
+    "revision": "a385ae56e7057faa0eb765e4d12090dd09e26549",
+    "archive": "docs/verification/2026-09-24-pr884-round04-log-supplement",
+    "manifest_files": 133,
+    "committed_files": 133,
+    "ok": true,
+    "errors": []
+  },
+  "archive_check": {
+    "revision": "5344d8b0f87a9dcf14b08d87a19f63c7c3a25a1a",
+    "archive": "docs/verification/2026-09-24-pr884-round04-log-supplement",
+    "manifest_files": 133,
+    "committed_files": 133,
+    "ok": true,
+    "errors": []
+  },
+  "errors": []
+}

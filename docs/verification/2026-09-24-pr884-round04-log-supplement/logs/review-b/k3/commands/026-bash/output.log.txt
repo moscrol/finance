@@ -1,0 +1,110 @@
+4:按 ``spool_id`` 对回执；CLI 出口码；loop 级：真 ``GLMAgentRuntime`` + ``JsonlEpisodeStore``，话不经
+16:from intelligence.runtime.glm_agent_runtime import GLMAgentRuntime
+22:    read_spool_record,
+23:    spool_dir_for,
+24:    write_spool_record,
+35:from intelligence.services.episode_store import EpisodeState, JsonlEpisodeStore, now_iso
+64:def _record(spool_id: str, content: str, **overrides: object) -> SpoolRecord:
+65:    return SpoolRecord(spool_id=spool_id, content=content, created_at=now_iso(), **overrides)  # type: ignore[arg-type]
+68:def _open_episode(store: JsonlEpisodeStore, episode_id: str, *, phase: str = "model_pending") -> None:
+76:def test_spool_records_round_trip_and_sort_in_delivery_order(tmp_path) -> None:
+77:    spool = tmp_path / INBOX_SPOOL_DIRNAME
+78:    first = write_spool_record(spool, _record("a1", "先看北向资金"))
+79:    second = write_spool_record(spool, _record("b2", "再看两融", target="next_turn", wakeup=True))
+81:    assert sorted(spool.iterdir()) == [first, second]
+82:    assert first.suffix == ".json" and not list(spool.glob("*.tmp"))
+83:    got = read_spool_record(second)
+86:        spool_id="b2", content="再看两融", target="next_turn", source="cli", wakeup=True, created_at=got.created_at
+89:        write_spool_record(spool, SpoolRecord(spool_id="x", content="   "))
+91:        write_spool_record(spool, SpoolRecord(spool_id="x", content="y", target="later"))
+94:def test_inbox_ingests_the_spool_at_pending_and_claim_with_facts_and_removes_files(tmp_path) -> None:
+96:    spool = tmp_path / INBOX_SPOOL_DIRNAME
+97:    inbox = Inbox(ledger, spool=spool)
+99:    write_spool_record(spool, _record("s1", "先看北向资金"))
+100:    write_spool_record(spool, _record("s2", "再看两融", target="next_turn"))
+103:    assert list(spool.iterdir()) == []
+106:    assert inserted["spool_id"] == "s1" and inserted["source"] == "cli"
+116:    # 进程内 send 的 payload 形状不变：没有 spool_id。
+118:    assert "spool_id" not in ledger.events[-1].payload
+121:def test_invalid_spool_files_are_quarantined_without_facts(tmp_path) -> None:
+123:    spool = tmp_path / INBOX_SPOOL_DIRNAME
+按 ``spool_id`` 对回执；CLI 出口码；loop 级：真 ``GLMAgentRuntime`` + ``JsonlEpisodeStore``，话不经
+``runtime.steer`` 只写槽（与 CLI 完全同一条路径），第二次模型请求前被认领。
+"""
+
+from __future__ import annotations
+
+import json
+import threading
+
+import pytest
+
+from intelligence import cli
+from intelligence.runtime.glm_agent_runtime import GLMAgentRuntime
+from intelligence.services.agent_runtime import EpisodeEvent, ModelTurn
+from intelligence.services.episode_inbox import (
+    INBOX_SPOOL_DIRNAME,
+    Inbox,
+    SpoolRecord,
+    read_spool_record,
+    spool_dir_for,
+    write_spool_record,
+)
+from intelligence.services.episode_messages import derive_messages, user_message
+from intelligence.services.episode_steer import (
+    EpisodeFinished,
+    EpisodeNotFound,
+    deliver_steer,
+    list_open_episodes,
+    read_receipt,
+    wait_receipt,
+)
+from intelligence.services.episode_store import EpisodeState, JsonlEpisodeStore, now_iso
+from intelligence.tests.conformance.fixtures import (
+    AUTHORIZED_TOOL,
+    ScenarioProbe,
+    ScriptedModelClient,
+    ScriptedToolCall,
+    ScriptedTurn,
+    completed_finish,
+    make_context,
+    make_frame,
+    make_registry,
+)
+
+
+class _Ledger:
+    def __init__(self) -> None:
+        self.events: list[EpisodeEvent] = []
+        self._lock = threading.Lock()
+
+    def add(self, kind: str, payload: dict[str, object]) -> EpisodeEvent:
+        with self._lock:
+            event = EpisodeEvent(len(self.events) + 1, kind, dict(payload))
+            self.events.append(event)
+            return event
+
+    def kinds(self) -> list[str]:
+        return [event.kind for event in self.events]
+
+
+def _record(spool_id: str, content: str, **overrides: object) -> SpoolRecord:
+# ── loop 级 ──────────────────────────────────────────────────────────────
+
+
+class _HookedModel:
+    """脚本化 client 外包一层：记每次请求的线格式消息；第 N 次请求进行中可触发钩子。"""
+
+    def __init__(self, inner: ScriptedModelClient) -> None:
+        self._inner = inner
+        self.requests: list[list[dict[str, object]]] = []
+        self.on_call: dict[int, object] = {}
+
+    def complete(self, *, messages, tools, timeout) -> ModelTurn:
+        self.requests.append([dict(item) for item in messages])
+        hook = self.on_call.get(len(self.requests))
+        if hook is not None:
+            hook()  # type: ignore[operator]
+        return self._inner.complete(messages=messages, tools=tools, timeout=timeout)
+
+

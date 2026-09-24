@@ -1,0 +1,7 @@
+(version 1)
+(allow default)
+(deny network*)
+(deny process-exec (literal "/usr/bin/security"))
+(deny file-write*)
+(allow file-write* (subpath "/Users/a77/.finance-runtime/reviews/pr884-closeout-20260923-04/host-qc-a") (literal "/dev/null"))
+(deny file-read* (subpath "/Users/a77/.claude") (subpath "/Users/a77/.pi") (subpath "/Users/a77/.ssh") (subpath "/Users/a77/Library/Keychains") (subpath "/Users/a77/Library/Application Support/mirasim-sidecar"))

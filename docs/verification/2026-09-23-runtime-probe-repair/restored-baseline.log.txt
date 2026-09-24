@@ -1,0 +1,3 @@
+................                                                         [100%]
+- generated xml file: /Users/a77/.finance-runtime/reviews/runtime-probe-host-repair-20260923/runs/portable/restored-baseline/junit.xml -
+16 passed in 1.05s

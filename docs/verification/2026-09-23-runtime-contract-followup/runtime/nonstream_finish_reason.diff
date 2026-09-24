@@ -1,0 +1,13 @@
+diff --git a/intelligence/services/llm_refine.py b/intelligence/services/llm_refine.py
+index 773f644b6..e5026e959 100644
+--- a/intelligence/services/llm_refine.py
++++ b/intelligence/services/llm_refine.py
+@@ -1481,7 +1481,7 @@ def _post_chat_message(
+             attempt.observe_response(body, resp)
+         choice = body["choices"][0]
+         message = dict(choice["message"])
+-        finish_reason = _stable_finish_reason(choice.get("finish_reason"))
++        finish_reason = None
+         if finish_reason is not None:
+             message["_finish_reason"] = finish_reason
+         attempt.observe_result(message)

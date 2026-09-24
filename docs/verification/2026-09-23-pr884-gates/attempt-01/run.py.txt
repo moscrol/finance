@@ -1,0 +1,117 @@
+"""Bounded local CI for PR884; delegates to committed gate scripts."""
+import datetime
+import hashlib
+import json
+import os
+from pathlib import Path
+import signal
+import subprocess
+import sys
+import time
+
+ROOT = Path(__file__).resolve().parent
+TREE = ROOT / "finance-workspace-private"
+REV = "480cad07057c243fad2e948b6c33dc160f9412b6"
+PY = "/Users/a77/finance-workspace-private/.venv-workbench/bin/python"
+PROFILE = '(version 1) (allow default) (deny network*) (allow network* (local ip "localhost:*") (remote ip "localhost:*")) (deny process-exec (literal "/usr/bin/security"))'
+
+
+def save(path, data):
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n")
+    tmp.replace(path)
+
+
+def identity():
+    def git(*args):
+        return subprocess.check_output(["git", *args], cwd=TREE, text=True).strip()
+    return {"revision": git("rev-parse", "HEAD"), "status": git("status", "--porcelain")}
+
+
+def worker(leaf):
+    output = ROOT / leaf
+    output.mkdir(exist_ok=False)
+    for name in ("tmp", "users", "receipts"):
+        (output / name).mkdir()
+    env = {"PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin", "HOME": str(Path.home()),
+           "LANG": "en_US.UTF-8", "TMPDIR": str(output / "tmp"), "PYTHONDONTWRITEBYTECODE": "1",
+           "FORESIGHT_LLM_KEYCHAIN": "0", "FORESIGHT_USERS_DIR": str(output / "users"),
+           "FWP_TEST_RECEIPT_DIR": str(output / "receipts"), "CI": "1"}
+    record = {"leaf": leaf, "revision": REV, "before": identity(), "checks": [], "complete": False,
+              "started_at": datetime.datetime.now(datetime.timezone.utc).isoformat(), "env": env,
+              "profile": PROFILE, "driver_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest()}
+    save(output / "receipt.json", record)
+    if record["before"] != {"revision": REV, "status": ""}:
+        raise RuntimeError("candidate changed or dirty")
+
+    def run(name, cmd, *, cwd=TREE, sandbox=True, timeout=900):
+        actual = ["/usr/bin/sandbox-exec", "-p", PROFILE, *cmd] if sandbox else cmd
+        start = time.monotonic()
+        row = {"name": name, "command": actual, "cwd": str(cwd), "timeout": timeout}
+        with (output / (name + ".log.txt")).open("xb") as log:
+            process = subprocess.Popen(actual, cwd=cwd, env=env, stdout=log, stderr=log,
+                                       stdin=subprocess.DEVNULL, start_new_session=True)
+            row["pid"] = process.pid
+            try:
+                process.wait(timeout=timeout)
+            except subprocess.TimeoutExpired:
+                row["timed_out"] = True
+            finally:
+                try:
+                    os.killpg(process.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+                process.wait()
+            row["exit_code"] = process.returncode
+        row["elapsed_seconds"] = round(time.monotonic() - start, 3)
+        data = (output / (name + ".log.txt")).read_bytes()
+        row.update(log_sha256=hashlib.sha256(data).hexdigest(), log_bytes=len(data))
+        record["checks"].append(row)
+        save(output / "receipt.json", record)
+        print(json.dumps({"leaf": leaf, **row}), flush=True)
+        return process.returncode
+
+    try:
+        if leaf == "python":
+            run("main-gate", ["bash", "scripts/run_main_gate.sh", "--pytest-args",
+                f"-q -p no:cacheprovider --basetemp={output / 'pytest'} --junitxml={output / 'pytest.xml'}"])
+        elif leaf == "frontend":
+            # Dependency acquisition is the sole network-enabled step; no model credentials.
+            installed = run("dependency-install", ["pnpm", "install", "--frozen-lockfile"],
+                            cwd=TREE / "intelligence/webapp", sandbox=False, timeout=300)
+            if installed:
+                raise RuntimeError("frontend dependencies unavailable")
+            run("frontend-gate", [PY, "scripts/run_frontend_gate.py", "--tree", str(TREE),
+                "--expect-revision", REV, "--output", str(output / "gate"),
+                "--python", PY, "--workbench-port", "19081", "--re06-port", "19084"], timeout=1200)
+        elif leaf == "registry":
+            for index, args in enumerate((("check-parseability",), ("check",),
+                                         ("backfill-tables", "--check"), ("generate-views", "--check"))):
+                run(f"registry-{index}", [PY, "scripts/build_registry.py", *args], timeout=120)
+            run("ledger-crosswalk", [PY, "scripts/audit_ledger_spec_crosswalk.py"], timeout=120)
+        else:
+            raise ValueError(leaf)
+        record["complete"] = True
+    except Exception as error:
+        record["error"] = repr(error)
+        raise
+    finally:
+        record["after"] = identity()
+        record["identity_stable"] = record["before"] == record["after"] == {"revision": REV, "status": ""}
+        record["accepted"] = record["complete"] and record["identity_stable"] and all(
+            c["exit_code"] == 0 and not c.get("timed_out") for c in record["checks"])
+        record["finished_at"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        save(output / "receipt.json", record)
+
+
+if sys.argv[1:] == ["start"]:
+    runs = []
+    for leaf in ("python", "frontend", "registry"):
+        with (ROOT / (leaf + "-controller.log.txt")).open("xb") as stream:
+            process = subprocess.Popen([PY, "-B", str(Path(__file__)), leaf], stdout=stream,
+                                       stderr=stream, stdin=subprocess.DEVNULL, start_new_session=True)
+        runs.append({"leaf": leaf, "pid": process.pid})
+    save(ROOT / "processes.json", runs)
+    print(json.dumps(runs))
+else:
+    worker(sys.argv[1])

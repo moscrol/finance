@@ -1,0 +1,10 @@
+........F........                                                        [100%]
+=================================== FAILURES ===================================
+_________________ test_k3_c2_evidence_v3_roundtrip_and_tamper __________________
+../.finance-runtime/reviews/pr884-closeout-20260923-04/host-qc-a/test_k3_c2.py:202: in test_k3_c2_evidence_v3_roundtrip_and_tamper
+    with pytest.raises(ValueError, match="digest"):
+E   Failed: DID NOT RAISE <class 'ValueError'>
+- generated xml file: /Users/a77/.finance-runtime/reviews/pr884-closeout-20260923-04/host-qc-a/mutation-c2-strong/junit.xml -
+=========================== short test summary info ============================
+FAILED ../.finance-runtime/reviews/pr884-closeout-20260923-04/host-qc-a/test_k3_c2.py::test_k3_c2_evidence_v3_roundtrip_and_tamper
+1 failed, 16 passed in 2.96s

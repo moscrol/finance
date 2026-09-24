@@ -1,0 +1,1 @@
+{"toolCallId":"bash_17","params":{"command":"cd /Users/a77/.finance-runtime/reviews/pr884-closeout-20260923-04/finance-workspace-private && rg -n \"incomplete_model_response|finish_reason\" intelligence/runtime/agent_episode.py intelligence/runtime/continuous_turn_adapter.py | head -30"}}

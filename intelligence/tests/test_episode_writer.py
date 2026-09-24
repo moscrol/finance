@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
 from contextlib import contextmanager
 from dataclasses import replace
 import json
@@ -218,31 +218,26 @@ def test_close_drains_inflight_delivery_before_releasing_writer(tmp_path, monkey
     assert rig.run_until("model_pending") is not None
     inbox = rig.episode.inbox
     delivery_started, finish_delivery, close_attempted = Event(), Event(), Event()
-    delivery_lock = inbox._spool_lock
 
     def admit(_message):
         delivery_started.set()
         assert finish_delivery.wait(10), "test did not release delivery"
         return True
 
-    class ObservedDeliveryLock:
-        def __enter__(self):
-            if delivery_started.is_set():
-                close_attempted.set()
-            delivery_lock.acquire()
-
-        def __exit__(self, *_exc):
-            delivery_lock.release()
+    def close_drive():
+        close_attempted.set()
+        drive.close()
 
     monkeypatch.setattr(inbox, "_admit", admit)
-    monkeypatch.setattr(inbox, "_spool_lock", ObservedDeliveryLock())
     with ThreadPoolExecutor(max_workers=2) as pool:
         sending = pool.submit(inbox.send, user_message("pending message"))
         try:
             assert delivery_started.wait(10)
-            closing = pool.submit(drive.close)
+            closing = pool.submit(close_drive)
             assert close_attempted.wait(10)
-            assert not closing.done()
+            # Observe the close operation, not a lock hook the mutant removes.
+            with pytest.raises(FutureTimeout):
+                closing.result(timeout=0.25)
             with pytest.raises(EpisodeWriterBusy):
                 restore_episode(rig.task_id, store, context=rig.context, registry=rig.registry)
         finally:

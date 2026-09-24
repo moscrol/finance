@@ -1,0 +1,80 @@
+"""OPT-08: a durable write failure fences new effects, not the in-memory draft."""
+from __future__ import annotations
+
+from dataclasses import replace
+
+import pytest
+
+from intelligence.runtime.agent_episode import ContinuousAgentEpisode
+from intelligence.tests.conformance.fixtures import (
+    ScenarioProbe, ScriptedModelClient, make_context, make_frame, make_registry,
+)
+from intelligence.tests.conformance.oracle import WriteOrderOracle
+from intelligence.tests.conformance.races._drive import build_rig, tool_then_finish
+
+
+class FailingStore(WriteOrderOracle):
+    def __init__(self, boundary: str, *, occurrence: int = 1):
+        super().__init__()
+        self.boundary = boundary
+        self.remaining = occurrence
+        self.failed = False
+        self.writes_after_failure = 0
+
+    def _check(self, boundary):
+        if self.failed:
+            self.writes_after_failure += 1
+        elif boundary == self.boundary:
+            self.remaining -= 1
+            if self.remaining == 0:
+                self.failed = True
+                raise OSError("disk full")
+
+    def append(self, episode_id, events, *, sync=False):
+        for event in events:
+            self._check(event.kind)
+        super().append(episode_id, events, sync=sync)
+
+    def put_state(self, episode_id, state):
+        self._check(f"state:{state.phase}")
+        super().put_state(episode_id, state)
+
+
+@pytest.mark.parametrize(("boundary", "model_calls", "tool_calls"), [
+    ("configure", 0, 0), ("task", 0, 0), ("prompt_assembled", 0, 0),
+    ("state:planning", 0, 0), ("model_intent", 0, 0),
+    ("state:model_pending", 0, 0), ("model_turn", 1, 0),
+    ("tool_request", 1, 0), ("state:tools_pending", 1, 0),
+    ("tool_result", 1, 1), ("finish", 2, 1), ("state:done", 2, 1),
+])
+def test_failed_write_stops_new_effects(boundary, model_calls, tool_calls):
+    store = FailingStore(boundary)
+    rig = build_rig(f"failure-{boundary.replace(':', '-')}", store=store)
+    emitted = []
+    rig.episode._event_sink = emitted.append
+    rig.start()
+    outcome = rig.finish()
+    assert store.failed, "failure injection must actually be reached"
+    assert outcome.status == "failed"
+    assert outcome.stop_reason == "storage_failed"
+    assert outcome.persistence == "failed"
+    assert rig.model.calls == model_calls
+    assert outcome.usage.llm_calls == model_calls
+    assert outcome.usage.tool_calls == tool_calls
+    assert store.writes_after_failure == 0
+    assert any(e.kind == "persistence_failed" for e in outcome.events)
+    from intelligence.services.episode_progress import project_episode_progress
+    failure = next(e for e in emitted if e.kind == "persistence_failed")
+    assert project_episode_progress(failure).status == "failed"
+    assert not any(e.kind == "finish" and e.payload["status"] == "completed" for e in emitted)
+    # Durable data remains an unchanged prefix, even if done-state failed AFTER finish append.
+    stored, _state = store.load(rig.task_id)
+    assert stored == outcome.events[:len(stored)]
+    if boundary in {"finish", "state:done"}:
+        assert outcome.draft, "saving failure must not discard an already admitted draft"
+    assert tuple(e.sequence for e in outcome.events) == tuple(range(1, len(outcome.events) + 1))
+
+
+def test_successful_durable_completion_is_explicit_and_flushed():
+    rig = build_rig("durable-completion")
+    rig.start()

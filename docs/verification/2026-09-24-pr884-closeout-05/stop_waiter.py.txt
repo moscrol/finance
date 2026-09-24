@@ -1,0 +1,36 @@
+"""Stop only our idle admission controller after discovering an archive defect."""
+import datetime
+import json
+import os
+from pathlib import Path
+import signal
+import subprocess
+import time
+
+ROOT = Path(__file__).resolve().parent
+launch = json.loads((ROOT / 'launch.json').read_text())
+state = json.loads((ROOT / 'controller-result.json').read_text())
+assert state['status'] == 'WAITING_FOR_ADMISSION' and state['leaves'] == []
+assert not (ROOT / 'processes.json').exists()
+assert not any((ROOT / leaf).exists() for leaf in ('registry', 'frontend', 'python-native'))
+pid = launch['pid']
+before = subprocess.check_output(['ps', '-p', str(pid), '-o', 'pid=,ppid=,pgid=,command='], text=True)
+assert str(ROOT / 'run.py') + ' start' in before
+assert int(before.split()[0]) == pid
+os.kill(pid, signal.SIGTERM)
+for _ in range(100):
+    current = subprocess.run(['ps', '-p', str(pid), '-o', 'pid=,stat=,command='], capture_output=True, text=True)
+    if not current.stdout.strip():
+        break
+    time.sleep(0.05)
+assert not current.stdout.strip(), current.stdout
+assert not (ROOT / 'processes.json').exists()
+result = {'status': 'STOPPED_BEFORE_ANY_GATE', 'pid': pid, 'before': before.strip(),
+          'observed_at': datetime.datetime.now(datetime.timezone.utc).isoformat(),
+          'reason': 'Frozen candidate lacks Git blobs for historical selected archive logs; repair and freeze a new candidate first',
+          'gate_processes_launched': 0, 'model_requests': 0, 'other_processes_signaled': [],
+          'original_controller_state_retained': True, 'no_remaining_controller': True}
+with (ROOT / 'operator-stop.json').open('x') as stream:
+    json.dump(result, stream, indent=2)
+    stream.write('\n')
+print(json.dumps(result, indent=2))
