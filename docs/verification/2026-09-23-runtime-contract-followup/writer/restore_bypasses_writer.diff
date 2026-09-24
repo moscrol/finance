@@ -1,0 +1,13 @@
+diff --git a/intelligence/services/episode_restore.py b/intelligence/services/episode_restore.py
+index 5f45fa3a6..bcba0d26c 100644
+--- a/intelligence/services/episode_restore.py
++++ b/intelligence/services/episode_restore.py
+@@ -371,7 +371,7 @@ def restore_episode(
+     ``now`` 可注入，Tier A 套件用它把「截止已过 / 未过」两格都跑到。
+     """
+ 
+-    with episode_writer(store, episode_id):
++    with episode_writer(None, episode_id):
+         return _restore_owned(
+             episode_id, store, registry=registry, harness=harness, now=now, context=context,
+         )

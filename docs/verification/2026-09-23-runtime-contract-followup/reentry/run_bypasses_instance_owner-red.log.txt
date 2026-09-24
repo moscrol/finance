@@ -1,0 +1,14 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_______________ test_live_repair_blocks_fresh_run_on_same_runner _______________
+intelligence/tests/test_episode_writer_reentry.py:81: in test_live_repair_blocks_fresh_run_on_same_runner
+    assert rig.episode.resume(state, previous, _goal(rig.task_id)) is previous
+intelligence/runtime/agent_episode.py:2506: in resume
+    return self._resume_owned(state, previous, goal)
+intelligence/tests/test_episode_writer_reentry.py:73: in repair
+    with pytest.raises(EpisodeWriterBusy):
+E   Failed: DID NOT RAISE <class 'intelligence.services.episode_store.EpisodeWriterBusy'>
+- generated xml file: /Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-reentry/mutations/run_bypasses_instance_owner-red.xml -
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_episode_writer_reentry.py::test_live_repair_blocks_fresh_run_on_same_runner
+1 failed, 11 deselected in 5.08s

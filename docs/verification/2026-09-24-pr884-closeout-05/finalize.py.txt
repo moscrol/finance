@@ -1,0 +1,79 @@
+"""Record a stopped local attempt without inventing gate or review outcomes."""
+import datetime
+import hashlib
+import json
+from pathlib import Path
+import re
+import subprocess
+
+ROOT = Path(__file__).resolve().parent
+TREE = Path('/Users/a77/fwp-wt-runtime-postmerge-qc-0923')
+REV = '5344d8b0f87a9dcf14b08d87a19f63c7c3a25a1a'
+BASE = '3bb81b9638f97b4773ce0f338df3a505b7c0162f'
+proof = {}
+def read(name):
+    raw = (ROOT / name).read_bytes()
+    proof[name] = hashlib.sha256(raw).hexdigest()
+    return json.loads(raw)
+
+stopped = read('operator-stop.json')
+assert stopped['gate_processes_launched'] == stopped['model_requests'] == 0
+assert stopped['no_remaining_controller'] and not stopped['other_processes_signaled']
+assert not (ROOT / 'processes.json').exists()
+assert not any((ROOT / leaf).exists() for leaf in ('python-native', 'frontend', 'registry'))
+process = subprocess.run(['ps', '-p', str(stopped['pid']), '-o', 'pid=,command='], text=True, capture_output=True)
+assert not process.stdout.strip()
+unit = read('admission-verification.json')
+assert unit['accepted'] and unit['baseline']['passed'] and unit['restored']['passed']
+for stage in ('baseline', 'mutation', 'restored'):
+    entry = unit[stage]
+    assert hashlib.sha256((ROOT / entry['log']).read_bytes()).hexdigest() == entry['log_sha256']
+controller_log = (ROOT / 'controller-tests.log.txt').read_bytes()
+controller_count = re.search(rb'Ran (\d+) tests in [^\n]+\n\nOK\s*$', controller_log)
+assert controller_count is not None
+proof['controller-tests.log.txt'] = hashlib.sha256(controller_log).hexdigest()
+for path, digest in unit['source_sha256'].items():
+    assert hashlib.sha256(Path(path).read_bytes()).hexdigest() == digest
+    git_path = Path(path).relative_to(TREE).as_posix()
+    blob = subprocess.check_output(['git', '--no-replace-objects', 'show', REV + ':' + git_path], cwd=TREE)
+    assert hashlib.sha256(blob).hexdigest() == digest
+archive = read('archive-closure-verification.json')
+assert archive['accepted'] and archive['revision'] == REV
+committed = read('supplement-committed-verification.json')
+assert committed['ok'] and committed['revision'] == REV
+resource = read('resource-final.json')
+assert resource['admitted'] is False
+identity = {'revision': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=TREE, text=True).strip(),
+            'status': subprocess.check_output(['git', 'status', '--porcelain'], cwd=TREE, text=True).strip()}
+assert identity == {'revision': REV, 'status': ''}
+preview = subprocess.run(['git', 'merge-tree', '--write-tree', BASE, REV], cwd=TREE, text=True, capture_output=True)
+assert preview.returncode == 0
+assert preview.stdout.strip() == subprocess.check_output(['git', 'rev-parse', 'HEAD^{tree}'], cwd=TREE, text=True).strip()
+result = {
+    'revision': REV, 'integrated_base': BASE, 'verdict': 'BLOCKED', 'accepted': False,
+    'recorded_at': datetime.datetime.now(datetime.timezone.utc).isoformat(),
+    'engineering': {'status': 'NOT_RUN', 'reason': 'No resource admission; idle controller stopped for archive repair; repaired candidate also not admitted',
+                    'python_outcome': 'NOT_RUN', 'counts': None, 'collected': None,
+                    'frontend': 'NOT_RUN', 'e2e': 'NOT_RUN', 'registry': 'NOT_RUN'},
+    'prepared_gate_revision': 'ddc0d35b053f25ac74b10a3e4c62ab5502bae5ea',
+    'resource': resource, 'operator_stop': stopped,
+    'targeted_checks': {'admission_unittest_baseline': 9, 'admission_unittest_restored': 9,
+                       'semantic_old_behavior_mutation_rejected': True, 'controller_unittest': int(controller_count[1]),
+                       'scope': 'lightweight host unit checks, not pytest full-suite or independent approval',
+                       'admission_source_matches_current_commit': True},
+    'archive_repair': {'historical_files_resolved': sum(a['files'] for a in archive['archives']),
+                       'round04_direct_blobs': 292, 'round04_supplemented_blobs': 129,
+                       'supplement_payload_bytes': 403320,
+                       'original_manifest_and_reports_unchanged': True, 'git_commit_check': True},
+    'independent_review': {'status': 'BLOCKED', 'new_model_requests': 0,
+                           'plan': 'review-plan-proposed.md; requires confirmation before any new model request',
+                           'prior_round': 'pr884-closeout-20260923-04; no verdict transfer'},
+    'merge_preview_tree': preview.stdout.strip(), 'ci_platform_executed': False,
+    'merge_ready': False, 'merge_authorized': False, 'deployed': False,
+    'production_mutations': False, 'remaining_own_background_processes': [],
+    'evidence_sha256': proof,
+}
+with (ROOT / 'verification.json').open('x') as stream:
+    json.dump(result, stream, indent=2)
+    stream.write('\n')
+print(json.dumps({k: v for k, v in result.items() if k not in {'evidence_sha256', 'resource', 'operator_stop'}}, indent=2))

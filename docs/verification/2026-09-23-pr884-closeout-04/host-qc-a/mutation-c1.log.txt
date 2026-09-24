@@ -1,0 +1,13 @@
+.F...............                                                        [100%]
+=================================== FAILURES ===================================
+______________ test_k3_c1_repair_and_tool_entries_share_the_fence ______________
+../.finance-runtime/reviews/pr884-closeout-20260923-04/host-qc-a/test_k3_c1.py:92: in test_k3_c1_repair_and_tool_entries_share_the_fence
+    assert turn.error == "storage_failed" and turn.provider_attempts == 0, (
+E   AssertionError: [C1-REPAIR-FENCE] 修复共用的模型入口在失败后必须直接拒发，实际 error=''
+E   assert ('' == 'storage_failed'
+E     
+E     - storage_failed)
+- generated xml file: /Users/a77/.finance-runtime/reviews/pr884-closeout-20260923-04/host-qc-a/mutation-c1/junit.xml -
+=========================== short test summary info ============================
+FAILED ../.finance-runtime/reviews/pr884-closeout-20260923-04/host-qc-a/test_k3_c1.py::test_k3_c1_repair_and_tool_entries_share_the_fence
+1 failed, 16 passed in 5.76s

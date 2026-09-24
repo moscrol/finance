@@ -1,0 +1,13 @@
+diff --git a/intelligence/runtime/agent_episode.py b/intelligence/runtime/agent_episode.py
+index 195021fb6..8d39d86ba 100644
+--- a/intelligence/runtime/agent_episode.py
++++ b/intelligence/runtime/agent_episode.py
+@@ -2497,7 +2497,7 @@ class ContinuousAgentEpisode:
+                 or goal.episode_id != episode_id
+                 or previous.task_frame_hash != state.task_frame.task_frame_hash):
+             raise RestoreUnavailable("repair continuation owner or task identity mismatch")
+-        with self._control_writer(episode_id):
++        with episode_writer(self._store, episode_id):
+             if self._store is not None:
+                 events, checkpoint = self._store.load(state.ledger.episode_id)
+                 if events != tuple(state.ledger.events) or checkpoint != state.ledger.state:

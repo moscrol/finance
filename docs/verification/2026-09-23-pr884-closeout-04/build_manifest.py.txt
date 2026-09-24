@@ -1,0 +1,82 @@
+"""Archive selected immutable evidence, excluding credentials and temporary data."""
+from pathlib import Path
+import hashlib
+import json
+import shutil
+
+root = Path(__file__).resolve().parent
+destination = Path('/Users/a77/fwp-wt-runtime-postmerge-qc-0923/docs/test-receipts/2026-09-23-pr884-closeout-04')
+paths = {root / name for name in (
+    'README.md', 'authorization.json', 'verification.json', 'cleanup.json', 'archive-verification.json',
+    'conditional-workflow.json', 'merge-preview-pinned.json', 'latest-main-preview.json', 'review-evidence-audit.json',
+    'run.py', 'launch.py', 'launch.json', 'admission.json', 'admission-history.jsonl', 'processes.json',
+    'verify_engineering.py', 'record_blocked.py', 'record_blocked-initial.py', 'verify_archives.py',
+    'build_manifest.py', 'snapshot_scope.py', 'snapshot_latest.py', 'prepare_reviews.py', 'review_batches.py',
+    'launch_reviews.py', 'reviews-launch.json', 'prompt-amendment.json', 'host_replay.py',
+    'logging-regression.xml', 'logging-regression.log.txt', 'logging-targeted.xml', 'archive-build.log.txt',
+    'lint-invocation-error.log.txt', 'closeout-verifier.log.txt', 'closeout-verifier-2.log.txt',
+)}
+paths.update(root.glob('*controller.log.txt'))
+for leaf in ('python-native', 'frontend', 'registry'):
+    folder = root / leaf
+    paths.add(folder / 'receipt.json')
+    paths.update(folder.glob('*.log.txt'))
+    paths.update((folder / 'receipts').glob('gate-*/pytest.log.txt'))
+paths.add(root / 'frontend/gate/frontend.json')
+paths.update((root / 'frontend/gate').glob('*.log.txt'))
+paths.update((root / 'host-replay').glob('*/*.json'))
+paths.update((root / 'host-replay').glob('*/*.xml'))
+paths.update((root / 'host-replay').glob('*.log.txt'))
+for name in ('host-qc-a', 'host-qc-b', 'host-qc-b-r2'):
+    folder = root / name
+    for pattern in ('*.py', '*.json', '*.md', '*.sb', '*.log.txt', '*.xml', '*/junit.xml', '*/source/*.py'):
+        paths.update(folder.glob(pattern))
+for batch in ('review-a', 'review-b', 'review-c'):
+    folder = root / batch
+    for name in ('summary.json', 'prompt.md', 'config.json', 'tools.sb', 'review.mjs', 'file_tool.py', 'preflight.mjs', 'provider-template.json', 'preflight/receipt.json'):
+        paths.add(folder / name)
+    paths.update(folder.glob('*.stderr.log'))
+    paths.update(folder.glob('preflight-run.*.log'))
+    for pattern in ('REPORT.md', 'parsed-verdict.json', 'model-failure.json', 'request-admissions.jsonl', 'commands/*/request.json', 'commands/*/receipt.json', 'commands/*/output.log', 'work/*.py', 'work/*.xml', 'work/probes/*.py'):
+        paths.update((folder / 'k3').glob(pattern))
+
+secret_values = set()
+secret_keys = {'token', 'nonce', 'secret', 'api_key', 'apikey', 'password', 'access_token'}
+
+
+def inspect(value):
+    if isinstance(value, dict):
+        for key, item in value.items():
+            if key.lower() in secret_keys and isinstance(item, str) and len(item) >= 16:
+                secret_values.add(item.encode())
+            inspect(item)
+    elif isinstance(value, list):
+        for item in value:
+            inspect(item)
+
+
+for source in root.glob('review-*/k3/credential.json'):
+    inspect(json.loads(source.read_text()))
+items = []
+for path in sorted(paths):
+    payload = path.read_bytes()
+    assert not any(secret in payload for secret in secret_values), f'Credential match: {path.relative_to(root)}'
+    relative = str(path.relative_to(root))
+    archived = relative + '.txt' if path.suffix in ('.py', '.mjs', '.sb') else relative
+    items.append({'path': relative, 'archived_path': archived, 'bytes': len(payload), 'sha256': hashlib.sha256(payload).hexdigest()})
+result = {'revision': 'db2605d1b1a6a929d9bac468c84ef6aeaddce9ff',
+          'scope': 'Selected evidence, not complete model stdout sessions, credentials, dependency or temporary-data archive',
+          'original_root': str(root), 'files': len(items), 'bytes': sum(item['bytes'] for item in items),
+          'credential_value_scan': 'passed; no credential values printed or archived', 'artifacts': items}
+with (root / 'MANIFEST.json').open('x') as stream:
+    json.dump(result, stream, ensure_ascii=False, indent=2)
+    stream.write('\n')
+destination.mkdir(parents=True, exist_ok=False)
+for item in items:
+    target = destination / item['archived_path']
+    target.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(root / item['path'], target)
+    assert hashlib.sha256(target.read_bytes()).hexdigest() == item['sha256']
+shutil.copyfile(root / 'MANIFEST.json', destination / 'MANIFEST.json')
+print(json.dumps({key: value for key, value in result.items() if key != 'artifacts'}, ensure_ascii=False, indent=2))
+print('manifest_sha256=' + hashlib.sha256((root / 'MANIFEST.json').read_bytes()).hexdigest())

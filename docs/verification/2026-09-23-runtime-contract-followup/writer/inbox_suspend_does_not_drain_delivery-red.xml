@@ -1,0 +1,3 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="4.173" timestamp="2026-09-23T13:40:05.294322+08:00" hostname="77deMacBook-Air.local"><testcase classname="intelligence.tests.test_episode_writer" name="test_close_drains_inflight_delivery_before_releasing_writer" time="0.043"><failure message="Failed: DID NOT RAISE &lt;class 'TimeoutError'&gt;">intelligence/tests/test_episode_writer.py:239: in test_close_drains_inflight_delivery_before_releasing_writer
+    with pytest.raises(FutureTimeout):
+E   Failed: DID NOT RAISE &lt;class 'TimeoutError'&gt;</failure></testcase></testsuite></testsuites>

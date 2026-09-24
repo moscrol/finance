@@ -1,0 +1,302 @@
+                    "finish", "inbox_inserted", "inbox_claimed", "inbox_discarded",
+                },
+            )
+        except Exception as exc:  # noqa: BLE001 - 熔断新派发，保留内存结果
+            self._fail_store(f"append#{event.sequence}:{type(exc).__name__}")
+
+    def _fail_store(self, detail: str) -> None:
+        self._local_store_failures.append(detail)
+        self._store = None
+        if self._on_store_failure is not None:
+            self._on_store_failure()
+
+    def model_complete(self, model: AgentModelClient, **kwargs: object) -> ModelTurn:
+        """Every model entry (including repair) must pass the durable fence."""
+        if self.store_failures:
+            return ModelTurn("", (), error="storage_failed", provider_attempts=0)
+        return model.complete(**kwargs)
+
+    def outcome(self, **kwargs: object) -> AgentOutcome:
+        """Only advertise completion AFTER finish append and done checkpoint succeed.
+
+        A finish already appended cannot be rewritten when the done checkpoint fails.
+        The extra in-memory failure receipt supersedes it without corrupting the prefix.
+        """
+        persistence = self.persistence_mode
+        if self.store_failures:
+            persistence = "failed"
+            gap = "关键恢复记录保存失败；已停止新派发，保留的草稿不可视为可靠完成或自动续跑依据。"
+            if not any(e.kind == "persistence_failed" for e in self.events):
+                self.add("persistence_failed", {
+                    "status": "failed", "stop_reason": "storage_failed",
+                    "store_failures": list(self.store_failures),
+                    "recovery": "uncertain", "learning_eligible": False,
+                })
+            kwargs.update(
+                status="failed", stop_reason="storage_failed",
+                gaps=tuple(dict.fromkeys((*kwargs.get("gaps", ()), gap))),
+            )
+        kwargs.update(events=tuple(self.events), persistence=persistence)
+        return AgentOutcome(**kwargs)
+
+    def put_state(
+        self,
+        *,
+        phase: EpisodePhase,
+        reserved_ids: tuple[str, ...] = (),
+        context: ResearchRunContext | None = None,
+        retry: Mapping[str, object] | None = None,
+        cancel: Mapping[str, object] | None = None,
+    ) -> EpisodeState:
+        """覆写一份完整的程序计数器（INV-R3）。每次 phase 转移调一次。
+
+        ``deadline_at`` / ``consumed_seconds`` 从 ``context``（缺省 ``active_context``）的
+        截止算成挂钟；没有 context 就沿用上一份——终局 ``done`` 不需要它们。
+        """
+
+        previous = self.state
+        source = context if context is not None else self.active_context
+        deadline_at = previous.deadline_at if previous is not None else ""
+        consumed = previous.consumed_seconds if previous is not None else 0.0
+        if source is not None:
+            remaining = float(source.deadline.remaining())
+            deadline_at = _wall_clock_after(remaining)
+            consumed = max(0.0, float(source.policy.total_seconds) - remaining)
+        carried_cancel = (
+            dict(cancel)
+            if cancel is not None
+            else (dict(previous.cancel) if previous is not None and previous.cancel else None)
+        )
+        with self._lock:
+            state = EpisodeState(
+                episode_id=self.episode_id,
+                phase=phase,
+                turn_index=self._turn_counter,
+                reserved_ids=tuple(reserved_ids),
+                consumed_seconds=consumed,
+                deadline_at=deadline_at,
+                retry=dict(retry) if retry is not None else {},
+                contract_snapshot=self.contract_snapshot,
+                cancel=carried_cancel,
+                last_sequence=len(self.events),
+                updated_at=now_iso(),
+                # 热路径不产生未知效果（本进程内的意图都能看到自己的结算），但也没资格
+                # **抹掉**上一次恢复留下的未对账凭证：只有对账能清空它。不带它往下传，
+                # 等于用下一个检查点把「有笔账没对」静默改写成「无账可对」。
+                unreconciled_effects=(
+                    tuple(previous.unreconciled_effects) if previous is not None else ()
+                ),
+            )
+            if not self.store_failures:
+                try:
+                    budget_snapshot = previous.budget_snapshot if previous is not None else None
+                    budget_sequence = previous.budget_snapshot_sequence if previous is not None else None
+                    if source is not None:
+                        # A child view is NOT an independent root allocation.
+                        root = source.root_budget
+                        budget_snapshot = root.to_snapshot() if isinstance(root, InMemoryRootBudgetLedger) else None
+                        if isinstance(root, InMemoryRootBudgetLedger) and budget_snapshot is None:
+                            raise ValueError("root budget omitted its required snapshot")
+                        budget_sequence = len(self.events) if budget_snapshot is not None else None
+                    state = replace(
+                        state, budget_snapshot=budget_snapshot, budget_snapshot_sequence=budget_sequence,
+                    )
+                except Exception as exc:
+                    # Encoding is part of required persistence. Do not write a
+                    # valid-looking state with its required budget omitted.
+                    if self.persistence_mode != "durable":
+                        raise
+                    if self._store_fence is not None:
+                        self._store_fence.fail(self.episode_id, f"state:{phase}:budget", exc)
+                    self._fail_store(f"state:{phase}:budget:{type(exc).__name__}")
+            if not self.store_failures:
+                try:
+                    authorization = previous.authorization_snapshot if previous is not None else None
+                    if source is not None:
+                        if self.active_registry is None:
+                            raise ValueError("episode omitted its required authorization registry")
+                        authorization = capture_authorization_snapshot(source, self.active_registry)
+                        if authorization is None:
+                            raise ValueError("episode omitted its required authorization snapshot")
+                    state = replace(state, authorization_snapshot=authorization)
+                except Exception as exc:
+                    if self.persistence_mode != "durable":
+                        raise
+                    if self._store_fence is not None:
+                        self._store_fence.fail(self.episode_id, f"state:{phase}:authorization", exc)
+                    self._fail_store(f"state:{phase}:authorization:{type(exc).__name__}")
+            if not self.store_failures:
+                try:
+                    identity = previous.entry_identity if previous is not None else None
+                    if source is not None:
+                        captured = capture_entry_identity(source)
+                        # One episode, one owner. A door that changes mid-run (or
+                        # disappears) is not a fallback to "unbound" -- it means the
+                        # context we are checkpointing is no longer the one that started.
+                        if identity is not None and captured != identity:
+                            raise ValueError("episode entry identity must not change mid-run")
+                        identity = captured
+                    state = replace(state, entry_identity=identity)
+                except Exception as exc:
+                    if self.persistence_mode != "durable":
+                        raise
+                    if self._store_fence is not None:
+                        self._store_fence.fail(self.episode_id, f"state:{phase}:identity", exc)
+                    self._fail_store(f"state:{phase}:identity:{type(exc).__name__}")
+            if not self.store_failures:
+                try:
+                    evidence = previous.evidence_snapshot if previous is not None else None
+                    evidence_sequence = previous.evidence_snapshot_sequence if previous is not None else None
+                    if source is not None:
+                        if self.active_evidence_ledger is None or self.presented_evidence is None:
+                            raise ValueError("episode omitted its required evidence source")
+                        if self.active_evidence_ledger.information_cutoff != source.information_cutoff.as_of_date:
+                            raise ValueError("episode evidence cutoff differs from current context")
+                        evidence = capture_evidence_snapshot(
+                            episode_id=self.episode_id, ledger=self.active_evidence_ledger,
+                            presented_evidence=tuple(self.presented_evidence),
+                        )
+                        if evidence is None:
+                            raise ValueError("episode omitted its required evidence snapshot")
+                        evidence_sequence = len(self.events)
+                    state = replace(state, evidence_snapshot=evidence, evidence_snapshot_sequence=evidence_sequence)
+                except Exception as exc:
+                    if self.persistence_mode != "durable":
+                        raise
+                    if self._store_fence is not None:
+                        self._store_fence.fail(self.episode_id, f"state:{phase}:evidence", exc)
+                    self._fail_store(f"state:{phase}:evidence:{type(exc).__name__}")
+            self.state = state
+            store = self._store if not self.store_failures else None
+            if store is not None:
+                try:
+                    store.put_state(self.episode_id, state)
+                except Exception as exc:  # noqa: BLE001 - 同 _persist
+                    self._fail_store(f"state:{phase}:{type(exc).__name__}")
+        return state
+
+    def record_model_intent(
+        self,
+        *,
+        timeout_asked: float,
+        phase: str,
+        retries_remaining: int,
+        context: ResearchRunContext | None = None,
+    ) -> str:
+        """模型请求前的意图（效果三明治左片）。返回预留给结算复用的 ``turn_id``。
+
+        ``retries_remaining`` 是**捕获的**重试策略：恢复时发现意图无结算，允许再问几次。
+        写在意图与状态里而不是恢复时现算——策略是当时的决定，以后的代码不该改写它。
+        """
+
+        with self._lock:
+            self._turn_counter += 1
+            turn_id = f"turn-{self._turn_counter}"
+        self.add(
+            "model_intent",
+            {
+                "turn_id": turn_id,
+                "timeout_asked": float(timeout_asked),
+                "phase": str(phase),
+                "retries_remaining": int(retries_remaining),
+            },
+        )
+        self.put_state(
+            phase="model_pending",
+            reserved_ids=(turn_id,),
+            context=context,
+            retry={"remaining": int(retries_remaining)},
+        )
+        return turn_id
+
+    def record_dispatch_intent(self, intent: DispatchIntent) -> bool:
+        """工具派发前的意图：这一批真要进线程池的每个调用各一条 ``tool_request``。
+
+        payload 与事后写法同形（``call.to_dict()`` + dispatch clock + 空池回退标记），多一个
+        ``replay``——恢复时决定「同参数重跑」还是「合成 interrupted」的依据。
+        """
+
+        if self.store_failures:
+            return False
+        clock = intent.clock.to_payload()
+        for call in intent.calls:
+            payload: dict[str, object] = {
+                **call.to_dict(),
+                **clock,
+                "replay": str(intent.replay.get(call.call_id, "safe")),
+            }
+            extra = intent.request_extras.get(call.call_id)
+            if extra:
+                payload.update(extra)
+            self.add("tool_request", payload)
+            with self._lock:
+                self.intended_call_ids.add(call.call_id)
+        self.put_state(
+            phase="tools_pending",
+            reserved_ids=tuple(call.call_id for call in intent.calls),
+        )
+        return not self.store_failures
+
+    def settle_tool_request(self, call_id: str) -> bool:
+        """结算到达：该调用若有在飞意图则销掉并返回 True（调用方不再补事后 tool_request）。"""
+
+        with self._lock:
+            if call_id in self.intended_call_ids:
+                self.intended_call_ids.discard(call_id)
+                return True
+            return False
+
+    def verify_model_visible(self, messages: list[EpisodeMessage]) -> bool:
+        """请求前对账（INV-R1）：即将发出的 messages 必须能从本账本的事件派生。
+
+        严格模式（测试）不一致即抛；生产只记账不炸——见 ``episode_messages`` 文首。
+        """
+
+        with self._lock:
+            snapshot = tuple(self.events)
+        return check_derivation(snapshot, messages, on_mismatch=self.note_derive_mismatch)
+
+    def add(self, kind: str, payload: dict[str, object]) -> EpisodeEvent:
+        event_payload = dict(payload)
+        event_payload["task_frame_hash"] = self._task_frame_hash
+        if kind == "finish":
+            # INV-R5：收口前清箱。箱里没送到模型的话逐条落 inbox_discarded，reason 按终局分
+            # （取消 → cancelled，其余 → episode_finished），事件序都在 finish 之前——
+            # 读事件流的人不会看到「finish 之后还有未决的 inserted」。
+            inbox = self.inbox
+            if inbox is not None and not inbox.closed:
+                inbox.discard_all(
+                    reason=(
+                        "cancelled"
+                        if str(event_payload.get("stop_reason") or "") == "cancelled"
+                        else "episode_finished"
+                    )
+                )
+            event_payload.setdefault(
+                "time_budget_injected", self.time_budget_injected
+            )
+            event_payload.setdefault(
+                "history_compaction",
+                {
+                    "enabled": history_compaction_enabled(),
+                    "folded_messages": self.history_compaction_folded,
+                    "chars_saved": self.history_compaction_saved,
+                },
+            )
+            event_payload.setdefault("store_failures", list(self.store_failures))
+            if self.store_failures:
+                event_payload.update(status="failed", stop_reason="storage_failed")
+        # 事件发生的挂钟时刻。相邻两条事件的时间差就是上一步的耗时——所以不需要
+        # 给每一步单独开 span，就能算出「哪一步吃掉了时钟」。
+        #
+        # 放进 payload 而不是给 EpisodeEvent 加字段：``task_frame_hash`` 已经是
+        # 同样的做法，而 EpisodeEvent 是 services 层的冻结 dataclass，被所有
+        # runtime 共用，加字段的爆炸半径大得多。
+        event_payload["at"] = datetime.now().astimezone().isoformat(timespec="milliseconds")
+        # 临界区：序号取自 ``len(self.events)``，与 append 之间必须原子。两个线程
+        # 各读到同一个长度就会发出重号，而重号会撞 episode_session 的 resume 前缀
+        # 不变量（事件只增、前缀逐条相等）和「sequence 恰好是 1..N」的断言。
+        #
+        # 今天所有 add 都在主线程（阶段事件的 sink 还是 None，emit 直接返回），
+
+[truncated; total lines=4151, selected=390:689; request a later offset]

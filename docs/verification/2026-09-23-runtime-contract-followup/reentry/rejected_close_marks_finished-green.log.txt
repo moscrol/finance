@@ -1,0 +1,3 @@
+..                                                                       [100%]
+- generated xml file: /Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-reentry/mutations/rejected_close_marks_finished-green.xml -
+2 passed, 10 deselected in 2.81s
