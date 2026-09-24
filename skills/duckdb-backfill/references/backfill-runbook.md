@@ -200,10 +200,12 @@ MARKET_FEATURE_STORE_DB=/path/source.duckdb FINANCE_WS=/path/workspace \
 
 运行前由核验过的清单取得 `MANIFEST_SHA256`。输出目录和收据必须全新；先校验所有日期的字节，再由已有 staging
 编排在锁内克隆，子进程再次校验并事务写入、逐字段回读。来源为 `tencent:captured-dated-quote`，名称和参考价取同日报价，
-金额元转亿元、股数转手，换手率保持百分比；不借旧 canonical 名称、不把来源伪装成东财。
+金额元转亿元、股数转手。沿用恢复合同，canonical `turnover` 为 NULL，不把未知分母的供应商百分比当标准换手率；
+逐股 `observed_turnover_pct`、`name_source`、`name_observed_at` 保留在输入收据。不是丢弃原值，也不借旧 canonical 名称、不伪装成东财。
 
-**退出码始终为 2（不可发布）**，输入成功看收据 `input_prepared=true`、`swapped=false` 和子状态 `ok=false`。
-即使子进程退出 0，父编排仍在发布前返回，旧普通 staging 不清理。冻结板块身份、历史修复、同日/跨日/L2 门和最终部署仍需另行完成；
+**父、子退出码始终为 2（不可发布）**，输入成功看收据 `input_prepared=true`、`swapped=false` 和子状态 `ok=false`。
+子进程的 2 还防止其他调用方漏传 `prepare_dir` 时误入普通发布路径；隔离模式的父编排即使遇到退出 0 的子进程也不发布。
+旧普通 staging 不清理。冻结板块身份、历史修复、同日/跨日/L2 门和最终部署仍需另行完成；
 禁止把该副本手动换入生产或把输入成功改标为整轮恢复成功。
 
 ## Useful commands

@@ -139,7 +139,7 @@ def load_manifest(path: Path, expected_sha256: str) -> tuple[PreparedDay, ...]:
                 _cents(quote[key])
             amount = quote["amount_yuan"] / 1e8
             rows.append((day, code, quote["name"], quote["close"], quote["pre_close"],
-                         quote["pct_chg"], amount, quote["turnover_pct"], SOURCE, now,
+                         quote["pct_chg"], amount, None, SOURCE, now,
                          quote["open"], quote["high"], quote["low"], quote["volume_shares"] / 100))
             breadth_rows.append({"stock_ts_code": code, "pct_chg": quote["pct_chg"], "amount": amount})
         if not rows:
@@ -150,7 +150,11 @@ def load_manifest(path: Path, expected_sha256: str) -> tuple[PreparedDay, ...]:
             "captures": audits, "source": SOURCE,
             "name_basis": "same-date captured provider name",
             "reference_basis": "same-date captured provider reference, not prior raw close",
-            "canonical_units": {"amount": "CNY 100 million", "volume": "hands", "turnover": "percent"},
+            "canonical_units": {"amount": "CNY 100 million", "volume": "hands"},
+            "turnover_contract": "null_not_zero_not_carried_not_inferred",
+            "observations": [{"stock_ts_code": code, "name_source": SOURCE,
+                              "name_observed_at": quotes[code]["quote_timestamp"],
+                              "observed_turnover_pct": quotes[code]["turnover_pct"]} for code in active],
             "suspensions": {"path": str(reference_path.resolve()), "sha256": reference["sha256"],
                             "applicable_codes": stopped, "excluded_codes": excluded},
             "breadth": market_breadth(breadth_rows, stopped), "synthetic_rows": 0,

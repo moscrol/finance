@@ -4,6 +4,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import sys
 
 import duckdb
 import pytest
@@ -57,7 +58,7 @@ def test_preparation_preserves_scope_source_units_and_nontrading_identities(tmp_
     path = fixture_inputs(tmp_path)
     day, = load_manifest(path, digest(path))
     row, = day.rows
-    assert row[:9] == (DAY, "600001.SH", "Example", 10, 10, 0, .001, 1, SOURCE)
+    assert row[:9] == (DAY, "600001.SH", "Example", 10, 10, 0, .001, None, SOURCE)
     assert isinstance(row[9], datetime)
     assert row[10:] == (10, 11, 9, 100)
     evidence = day.evidence
@@ -66,6 +67,9 @@ def test_preparation_preserves_scope_source_units_and_nontrading_identities(tmp_
     assert evidence["breadth"]["unchanged_traded"] == 1
     assert evidence["breadth"]["nontrading_not_flat"] == 1
     assert evidence["synthetic_rows"] == 0
+    assert evidence["turnover_contract"] == 'null_not_zero_not_carried_not_inferred'
+    assert evidence["observations"] == [{"stock_ts_code": "600001.SH", "name_source": SOURCE,
+                                        "name_observed_at": "20260921150001", "observed_turnover_pct": 1}]
     assert evidence["production_ready"] is False
     assert evidence["coverage"]["official_historical_universe_verified"] is False
 
@@ -212,7 +216,7 @@ def test_real_child_prepares_rows_but_parent_never_publishes(preparation):
     assert recovery.main(argv) == 2
     result = json.loads(receipt.read_text())
     assert result["swapped"] is False and result["backup"] is None
-    assert result["input_prepared"] is True and result["child_returncode"] == 0
+    assert result["input_prepared"] is True and result["child_returncode"] == 2
     assert result["status"]["ok"] is False
     assert result["status"]["quality_gates_attempted"] is False
     assert digest(target) == before
@@ -269,6 +273,21 @@ def test_child_rejects_canonical_database_aliases_before_loading_inputs(preparat
     with pytest.raises(RuntimeError, match='not a direct write'):
         recovery.main(argv + ['--child'])
     assert digest(target) == before and not receipt.exists()
+
+
+def test_ordinary_publisher_cannot_promote_a_miswired_input_preparation_child(preparation):
+    from market_feature_store.sync.sync_daily_full import run_daily_full_staged
+
+    _, target, _, _, argv = preparation
+    # Simulate a caller that forgot the publisher's prepare_dir keyword.
+    argv[argv.index('--prepare-dir') + 1] = str(target.parent)
+    command = [sys.executable, str(Path(recovery.__file__).resolve()), *argv, '--child']
+    before = digest(target)
+    result = run_daily_full_staged(child_argv=command)
+    assert result['swapped'] is False
+    assert result['rc'] == 2 and result['child_returncode'] == 2
+    assert result['status']['input_prepared'] is True and result['status']['ok'] is False
+    assert digest(target) == before
 
 
 def test_bad_input_prevents_even_clone_or_lock(preparation):

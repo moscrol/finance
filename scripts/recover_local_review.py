@@ -124,7 +124,8 @@ def prepare_quote_child(args) -> int:
                          'days': [day.evidence for day in prepared], 'written_rows': len(rows)}]}
     with Path(str(db.DB_PATH) + '.status.json').open('x', encoding='utf-8') as handle:
         json.dump(status, handle, ensure_ascii=False, allow_nan=False)
-    return 0
+    # The ordinary publisher must also refuse this child if prepare_dir is lost.
+    return 2
 
 
 def child(args) -> int:

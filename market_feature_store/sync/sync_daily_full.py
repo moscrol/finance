@@ -714,12 +714,13 @@ def _run_daily_full_staged_locked(
         return _abort(
             "status.json 缺本轮 run_id 或不匹配（疑似上一轮遗留/非本轮产物），不换名"
         )
+    if prepare_dir is not None:
+        result["input_prepared"] = (child_rc == 2 and status.get("input_prepared") is True
+                                    and status.get("ok") is False)
+        return _abort("preparation-only staging retained; publication not attempted")
+
     if child_rc not in (0, 1):
         return _abort(f"子进程异常退出 (rc={child_rc}), 不换名")
-
-    if prepare_dir is not None:
-        result["input_prepared"] = child_rc == 0 and status.get("input_prepared") is True
-        return _abort("input-only staging retained; quality gates and publication not attempted")
 
     staging_shape = _db_shape(staging)
     if staging_shape is None:
