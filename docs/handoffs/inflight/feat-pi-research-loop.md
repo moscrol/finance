@@ -1,28 +1,28 @@
 # feat/pi-research-loop
 
 ## 这个分支做什么
-兑现8792的Pi式研究行为；P0/P1离线已交付#911，真实质量仍待独审及逐行授权。
+兑现8792的Pi式研究行为；#911交付离线机制及进程内API组合，真实质量仍待独审和授权验收。
 
 ## 决策与被否方案
-复用ContinuousAgentEpisode+FinanceResearchHarness，否第三条生产Loop、宿主Shell扩权、重复改#868。组合固定候选，不改原owner树。新快照`../2026-09-25-pi-research-forward-delivery.md`；合同仍为09-24 pi-style-research-delivery-design。
+复用现有Episode/Harness；否第三条Loop、Shell扩权、替换整个Adapter。共享环境漂移时在本树bootstrap锁定venv，否修改并行owner环境。只交测试、不追入正在独审的新候选。理由/失败史见`../2026-09-25-pi-research-http-offline.md`。
 
 ## 当前状态
-独立树`~/fwp-wt-pi-research`已推gitea。先前向main03352758c，再组合#868作者f2610293f，受测提交6b7c4c4c61ee。PR #911为WIP，base=feat/adaptive-research-loop；相对f261只有研究链测试及文档，无产品差分。文档收尾不继承代码收据。
-#906已由owner合进#868；即时路径修补另交#910，同base/WIP，两PR预演均无冲突。#868仍未合main，本会话没启动模型/部署。
-最新封存2105仍spec有保留通过/C3C7未验、quality阻塞、213/244；另见20260925-next准备目录，但未见STATE/授权，不认定执行或额度变化。接续须重新核原件。
+代码0c57cd0d7181已推现有WIP #911，base=feat/adaptive-research-loop；本轮仅新增test_workbench_research_chain.py，无生产差分。底层仍组合f2610293f，不代表#868新HEAD89624eac7e76。#910路径修补仍独立交付，未替owner采用或合main。
+新20场景走真实路由/调度/Adapter/Runtime/Harness/持久化，模型及源替身；开关双态、观察追查、空/错恢复、伪造拒收、身份和稿件一致性、两类变异。不是自然质量。
+09-25约00:51重读next批授权已approved=true，candidate=f261、baseline=03352758c，本批78/累计291；spec网关4请求预检PASS，非QC。STATE尚写未授权，已滞后。该批归原owner，本会话真实模型0，不动其输入/预算；下次必须重核。
 
 ## 未验证 / 已知边界
-doctor发现共享venv的httpx0.25.2不符锁0.28.1，已通知owner（#868评论6857）；未改共享环境。当时owner正跑f261全量，本枝未重复启动，未得四叶门禁。
-未验真实HTTP门、真实源/子研究、自然模型改向/反证/修稿及公开稿一致性；未核8792活进程。别把定向绿作独审或部署准入。
+TestClient为进程内ASGI，不是TCP、浏览器或8792活进程。判官脚本化通过，不验自然语义/修稿/反证；真实源/子研究未验。未跑完整四叶门禁，不移签#868新候选、未来组合或后续文档HEAD。
+本树独立.venv-workbench已按锁安装，doctor=ready/无依赖漂移；共享venv未改。代码地图在新提交后需刷新，不作当前架构完整性声明。
 
 ## 下一步
-1. 原owner审阅采用#910/#911，对最终组合冻结身份和环境重验；不替作者合入，不搬旧收据。
-2. 新独审批须新证据根、当前输入、工程身份与明确预算。不得续1405/2105或直接执行生成器历史配置。
-3. 独审闭合后接#76/L6逐行自然验收；合main、8792部署分别确认。
+1. owner在当前冻结独审批次之外审阅采用#910/#911；最终组合重验，不借旧收据。
+2. 重核next批授权和结果，不能沿用旧2105余量，也不能把预检当独审闭合。
+3. 独审后按#76/L6逐行自然验收；合main、8792部署分别确认。
 
 ## 踩过的坑
-共享环境可漂，收据指纹一致不代表符合锁；并发测试时不就地修venv。无工具菜单可能是复核或预算收口，要读消息。新的目录/PR不证明授权或真实执行。
+消息终态不证明所有审计工件发布完；只join测试自有执行器，再读工件并撤销替身。空工具返回也须ProviderTrace。负向变异须匹配具体断言，不能任意AssertionError就算抓到。
 
 ## 已验证
-干净6b7c4c4c61ee：606P/0F/0E/3S/1X，collected610；七目标同P1，真实Runtime/Harness、替身模型/源，真实模型0。36个新场景含双态/深度/追查/恢复/越权/复核/耗尽/取消/变异。Ruff通过。
-收据`~/.finance-runtime/test-receipts/20260924T161506Z-6b7c4c4c-0922655b0f78.json`已按精确版本及七目标校验，实际依赖指纹e1c50cb821a30f00。3S为声明不适用，1X为既有codex_headless缺resume收据。不是完整门禁，不移签后续文档HEAD。
+干净0c57cd0d7181十目标787P/0F/0E/3S/1X，collected791；Ruff/提交钩子通过。3S为参照后端不适用/接口限制，1X既有codex缺resume收据。
+收据`~/.finance-runtime/test-receipts/20260924T165102Z-0c57cd0d-bcce35088223.json`已精确SHA+十目标校验。Python3.12.13/httpx0.28.1，指纹66726d345bf37ce5。本结果非全仓门禁；旧606P/57P仍只归其原版本。
