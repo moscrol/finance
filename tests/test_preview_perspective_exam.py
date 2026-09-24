@@ -189,7 +189,10 @@ def test_candidate_rules_are_in_memory_only_and_do_not_grant_approval(sample, ca
     target, _ = candidate
     before = {p: p.read_bytes() for p in us.root.rglob("*") if p.is_file()}
     report = probe.preview(us, proposal, target)
-    assert report["with_proposed_rules_and_boundary_in_memory"]["all_cases_passed"]
+    assert "with_proposed_rules_and_boundary_in_memory" not in report
+    assert report["candidate_disposition"] == "REJECTED"
+    assert report["candidate_runtime_enabled"] is False
+    assert report["candidate_literal_matches"][1]["literal_match_count"] == 1
     assert report["candidate_rule_count"] == 1
     assert report["status"] == "BLOCKED" and not report["acceptance_passed"]
     assert {p: p.read_bytes() for p in us.root.rglob("*") if p.is_file()} == before
@@ -235,23 +238,123 @@ def test_candidate_requires_matching_approved_patch(sample, candidate, mutate):
 def test_candidate_phase_concurrent_changes_fail_closed(sample, candidate, monkeypatch, which):
     us, proposal, _ = sample
     target, patch = candidate
-    original = probe._score
+    original = probe.signals.matches
 
-    def mutate_after_loading(profile, cases):
-        result = original(profile, cases)
-        if profile.get("signal_match_rules"):
-            if which == "candidate":
-                change(target, lambda p: p.update(note="changed"))
-            elif which == "patch":
-                change(patch, lambda p: p.update(status="rejected"))
-            elif which == "profile":
-                change(lab.profile_path(us, "teacher"), lambda p: p.update(note="changed"))
-            else:
-                path = exam.exam_path(us, "teacher")
-                path.parent.mkdir(parents=True, exist_ok=True)
-                path.write_text("{}")
+    def mutate_after_loading(rule, facts):
+        result = original(rule, facts)
+        if which == "candidate":
+            change(target, lambda p: p.update(note="changed"))
+        elif which == "patch":
+            change(patch, lambda p: p.update(status="rejected"))
+        elif which == "profile":
+            change(lab.profile_path(us, "teacher"), lambda p: p.update(note="changed"))
+        else:
+            path = exam.exam_path(us, "teacher")
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("{}")
         return result
 
-    monkeypatch.setattr(probe, "_score", mutate_after_loading)
+    monkeypatch.setattr(probe.signals, "matches", mutate_after_loading)
     with pytest.raises(ValueError, match="changed during preview"):
         probe.preview(us, proposal, target)
+
+
+@pytest.fixture
+def challenge_set(candidate, tmp_path):
+    target, _ = candidate
+    suite = tmp_path / "challenges.json"
+    suite.write_text(json.dumps({
+        "candidate_sha256": probe.digest(target.read_bytes()),
+        "rule_field": "opportunity_preferences", "rule_value_sha256": probe.digest(b"growth"),
+        "cases": [
+            {"id": "positive", "facts": "private growth", "expected_match": True},
+            {"id": "withdrawn", "facts": "private growth。这些观察均不属实。", "expected_match": False},
+        ],
+    }))
+    return suite
+
+
+def test_challenge_failure_is_not_hidden_by_old_gold_success(sample, candidate, challenge_set):
+    us, proposal, _ = sample
+    target, _ = candidate
+    report = probe.preview(us, proposal, target, challenge_set)
+    assert report["with_proposed_boundary_in_memory"]["all_cases_passed"]
+    assert report["status"] == "FAIL"
+    assert report["reason"] == "candidate_challenge_failed"
+    assert report["challenge_result"]["failed"] == 1
+    assert report["candidate_disposition"] == "REJECTED"
+    assert not report["acceptance_passed"]
+    assert "private growth" not in json.dumps(report)
+
+
+def test_even_passing_challenges_cannot_reenable_candidate(sample, candidate, challenge_set):
+    us, proposal, _ = sample
+    target, _ = candidate
+    change(challenge_set, lambda p: p["cases"].pop())
+    report = probe.preview(us, proposal, target, challenge_set)
+    assert report["challenge_result"]["status"] == "PASS"
+    assert report["candidate_disposition"] == "REJECTED"
+    assert report["status"] == "BLOCKED"
+    assert not report["candidate_runtime_enabled"]
+
+
+def test_no_experimental_profile_is_sent_to_the_real_scorer(sample, candidate, monkeypatch):
+    us, proposal, _ = sample
+    target, _ = candidate
+    original = probe._score
+    calls = []
+
+    def checked(profile, cases):
+        assert "signal_match_rules" not in profile
+        calls.append(1)
+        return original(profile, cases)
+
+    monkeypatch.setattr(probe, "_score", checked)
+    probe.preview(us, proposal, target)
+    assert len(calls) == 2
+
+
+@pytest.mark.parametrize("mutate", [
+    lambda p: p.update(candidate_sha256="wrong"),
+    lambda p: p.update(rule_field="risk_triggers"),
+    lambda p: p.update(rule_value_sha256="wrong"),
+    lambda p: p.update(cases=[]),
+    lambda p: p["cases"][0].update(expected_match="yes"),
+])
+def test_invalid_challenge_binding_is_rejected(sample, candidate, challenge_set, mutate):
+    us, proposal, _ = sample
+    target, _ = candidate
+    change(challenge_set, mutate)
+    with pytest.raises(ValueError):
+        probe.preview(us, proposal, target, challenge_set)
+
+
+def test_challenges_require_candidate(sample, challenge_set):
+    us, proposal, _ = sample
+    with pytest.raises(ValueError, match="require a candidate"):
+        probe.preview(us, proposal, challenge_set=challenge_set)
+
+
+def test_challenge_changes_during_evaluation_are_rejected(sample, candidate, challenge_set, monkeypatch):
+    us, proposal, _ = sample
+    target, _ = candidate
+    original = probe.signals.challenge
+
+    def changing(rule, cases):
+        result = original(rule, cases)
+        change(challenge_set, lambda p: p.update(note="changed"))
+        return result
+
+    monkeypatch.setattr(probe.signals, "challenge", changing)
+    with pytest.raises(ValueError, match="changed during preview"):
+        probe.preview(us, proposal, target, challenge_set)
+
+
+def test_cli_reports_semantic_challenge_failure(sample, candidate, challenge_set, monkeypatch, capsys):
+    us, proposal, _ = sample
+    target, _ = candidate
+    monkeypatch.setattr("sys.argv", ["preview", "--users-root", str(us.root.parent), "--user", "alice",
+                                   "--proposal", str(proposal), "--match-candidate", str(target),
+                                   "--challenge-set", str(challenge_set)])
+    assert probe.main() == 1
+    assert json.loads(capsys.readouterr().out)["reason"] == "candidate_challenge_failed"

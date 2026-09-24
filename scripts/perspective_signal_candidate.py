@@ -1,8 +1,8 @@
-"""Opt-in literal conjunctions for deterministic perspective scoring, not NLP.
+"""Rejected lexical experiment, retained ONLY for audit reproduction.
 
-Contracts bind exact profile values. They replace, never supplement, legacy
-matching for those values. Use only reviewed factual phrases for one subject;
-unsupported wording yields no hit, not an inferred stance or an abstention.
+Scope challenges disproved its suitability for perspective judgments. Production
+scoring/saving rejects signal_match_rules; a lexical match here grants no stance,
+approval or runtime capability. Do not import this experiment into intelligence.
 """
 from __future__ import annotations
 
@@ -95,3 +95,25 @@ def matches(rule: dict, facts: str) -> bool:
         all(any(alias in _norm(sentence) for alias in group) for group in groups)
         for sentence in re.split(r"[。.!！？?\n]", facts)
     )
+
+
+def challenge(rule: dict, cases: Any) -> dict:
+    """Measure frozen semantic expectations without repairing or approving them."""
+    if not isinstance(cases, list) or not cases:
+        raise ValueError("Missing challenge cases")
+    rows, seen = [], set()
+    for case in cases:
+        if not isinstance(case, dict):
+            raise ValueError("Invalid challenge case")
+        ident, facts, expected = case.get("id"), case.get("facts"), case.get("expected_match")
+        if not isinstance(ident, str) or not ident.strip() or ident in seen:
+            raise ValueError("Missing or duplicate challenge identity")
+        if not isinstance(facts, str) or not facts.strip() or type(expected) is not bool:
+            raise ValueError("Invalid challenge facts or expectation")
+        seen.add(ident)
+        actual = matches(rule, facts)
+        rows.append({"id": ident, "expected_match": expected, "actual_match": actual,
+                     "facts_sha256": value_sha256(facts), "passed": actual == expected})
+    failed = sum(not row["passed"] for row in rows)
+    return {"status": "FAIL" if failed else "PASS", "passed": len(rows) - failed,
+            "failed": failed, "cases": rows}

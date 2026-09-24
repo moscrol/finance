@@ -710,7 +710,6 @@ _PROFILE_RATCHET_LISTS = (
     "falsification_style",
     "contradictions",
     "honest_boundaries",
-    "signal_match_rules",
     "patch_history",
 )
 
@@ -729,12 +728,18 @@ def _profile_regression_reasons(disk: dict[str, Any], incoming: dict[str, Any]) 
     return reasons
 
 
+def _reject_experimental_signal_rules(profile: dict[str, Any]) -> None:
+    if "signal_match_rules" in profile:
+        raise ValueError("Experimental signal contracts are audit-only; runtime use is rejected")
+
+
 def _save_profile(
     us: UserSpace,
     profile: dict[str, Any],
     *,
     allow_regression: bool = False,
 ) -> Path:
+    _reject_experimental_signal_rules(profile)
     path = profile_path(us, str(profile.get("id")))
     if path.is_file() and not allow_regression:
         try:
@@ -749,9 +754,6 @@ def _save_profile(
                     + "；".join(reasons)
                     + "）。先重读磁盘再改，或直接编辑 JSON。"
                 )
-    from intelligence.services.perspective_signals import validated_rules
-
-    validated_rules(profile)
     profile["updated_at"] = _now_iso()
     path.write_text(json.dumps(profile, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return path
@@ -1007,20 +1009,10 @@ def evaluate_role(
 
     考卷与合议共用，避免「考试一套、辩论一套」。
     """
-    from intelligence.services.perspective_signals import matches, validated_rules
-
-    rules = validated_rules(profile)
-
-    def hits(field: str) -> list[str]:
-        return [
-            value for value in profile.get(field) or []
-            if (matches(rules[(field, value)], facts) if (field, value) in rules
-                else bool(_hit_terms([value], facts)))
-        ]
-
+    _reject_experimental_signal_rules(profile)
     matched = matching_boundaries(list(profile.get("honest_boundaries") or []), question, facts)
-    opportunity_hits = hits("opportunity_preferences")
-    risk_hits = hits("risk_triggers")
+    opportunity_hits = _hit_terms(list(profile.get("opportunity_preferences") or []), facts)
+    risk_hits = _hit_terms(list(profile.get("risk_triggers") or []), facts)
     abstain = bool(matched)
     if abstain:
         opportunity_hits, risk_hits = [], []

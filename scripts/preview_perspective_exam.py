@@ -1,8 +1,9 @@
 """Preview a human-review proposal without saving an exam or approving a rule.
 
 Verify source fingerprints, reuse perspective_exam.score_case, and compare the
-current profile with in-memory boundary and optional signal contracts. A valid preview always stays
-BLOCKED (exit 2): matching tests cannot grant approval. Private profile text and
+current profile with an in-memory boundary. Rejected signal experiments are
+lexical diagnostics only, never profile judgments. Challenges may FAIL (exit 1);
+otherwise a preview stays BLOCKED (exit 2): tests cannot grant approval. Private profile text and
 scoring reasons are represented by hashes/counts, never emitted.
 """
 from __future__ import annotations
@@ -23,7 +24,7 @@ from intelligence import userspace  # noqa: E402
 from intelligence.services import perspective_exam as exam  # noqa: E402
 from intelligence.services import perspective_lab as lab  # noqa: E402
 from intelligence.services import perspective_learning as learning  # noqa: E402
-from intelligence.services import perspective_signals as signals  # noqa: E402
+from scripts import perspective_signal_candidate as signals  # noqa: E402
 from scripts.verify_perspective_consumption import digest, require  # noqa: E402
 
 
@@ -44,7 +45,9 @@ def _score(profile: dict, cases: list[dict]) -> dict:
     return {"all_cases_passed": all(row["passed"] for row in rows), "cases": rows}
 
 
-def preview(us: userspace.UserSpace, proposal_path: Path, match_candidate: Path | None = None) -> dict:
+def preview(us: userspace.UserSpace, proposal_path: Path, match_candidate: Path | None = None,
+            challenge_set: Path | None = None) -> dict:
+    require(challenge_set is None or match_candidate is not None, "Challenges require a candidate")
     tracked: dict[Path, str] = {}
 
     def read_input(path: Path) -> bytes:
@@ -154,18 +157,35 @@ def preview(us: userspace.UserSpace, proposal_path: Path, match_candidate: Path 
             receipts.append({"patch_id": entry["patch_id"], "patch_sha256": tracked[path]})
             rules.append(rule)
         hypothetical["signal_match_rules"] = [*hypothetical.get("signal_match_rules", []), *rules]
-        signals.validated_rules(hypothetical)
+        checked = signals.validated_rules(hypothetical)
         candidate_result = {
             "candidate_sha256": tracked[match_candidate], "candidate_rule_count": len(rules),
             "candidate_patch_receipts": receipts,
-            "with_proposed_rules_and_boundary_in_memory": _score(hypothetical, cases),
+            "candidate_disposition": "REJECTED", "candidate_runtime_enabled": False,
+            "candidate_scope": "lexical_diagnostic_only_not_perspective_judgment",
+            "candidate_literal_matches": [
+                {"id": case["id"], "literal_match_count": sum(
+                    signals.matches(rule, case.get("facts") or "") for rule in checked.values()
+                )} for case in cases
+            ],
         }
+        if challenge_set is not None:
+            require(not challenge_set.resolve().is_relative_to(us.root.resolve()), "Challenges must stay outside user state")
+            suite = json.loads(read_input(challenge_set))
+            require(isinstance(suite, dict), "Challenge suite must be an object")
+            require(suite.get("candidate_sha256") == tracked[match_candidate], "Challenge candidate changed")
+            targets = [rule for (field, value), rule in checked.items()
+                       if field == suite.get("rule_field") and digest(value.encode()) == suite.get("rule_value_sha256")]
+            require(len(targets) == 1, "Challenge target absent or ambiguous")
+            candidate_result["challenge_sha256"] = tracked[challenge_set]
+            candidate_result["challenge_result"] = signals.challenge(targets[0], suite.get("cases"))
 
     require(live_exam.exists() == exam_present, "Live exam presence changed during preview")
     require(all(digest(path.read_bytes()) == sha for path, sha in tracked.items()), "Input changed during preview")
+    challenge_failed = candidate_result.get("challenge_result", {}).get("status") == "FAIL"
     return {
-        "status": "BLOCKED", "acceptance_passed": False,
-        "reason": "preview_cannot_grant_acceptance_or_apply_approval",
+        "status": "FAIL" if challenge_failed else "BLOCKED", "acceptance_passed": False,
+        "reason": "candidate_challenge_failed" if challenge_failed else "preview_cannot_grant_acceptance_or_apply_approval",
         "scope": "deterministic_draft_preview_only; no_model_no_apply_no_live_exam_write",
         "user": us.user_id, "perspective_id": pid,
         "proposal_sha256": tracked[proposal_path],
@@ -190,10 +210,11 @@ def main() -> int:
     parser.add_argument("--user", required=True)
     parser.add_argument("--proposal", type=Path, required=True)
     parser.add_argument("--match-candidate", type=Path)
+    parser.add_argument("--challenge-set", type=Path)
     args = parser.parse_args()
     os.environ[userspace.ENV_USERS_DIR] = str(args.users_root.resolve())
     try:
-        report = preview(userspace.user_space(args.user), args.proposal, args.match_candidate)
+        report = preview(userspace.user_space(args.user), args.proposal, args.match_candidate, args.challenge_set)
     except (ValueError, KeyError, TypeError, OSError):
         # Exceptions may contain private text (e.g. malformed profile/manifest).
         report = {"status": "FAIL", "acceptance_passed": False, "reason": "proposal_or_input_invalid_or_changed"}
