@@ -105,6 +105,7 @@ def test_prepare_preserves_sealed_inputs_and_refuses_reuse(tmp_path):
     assert receipt["real_model_requests"] == 0
     for axis in ("spec", "quality"):
         assert load(root / axis / "config.json")["stage_tools"] == STAGE_TOOLS
+        assert load(root / axis / "provider-template.json")["baseUrl"] == "http://127.0.0.1:19899/v1"
         assert not (root / axis / "gateway/receipt.json").exists()
         assert not (root / axis / "report").exists()
         assert not list((root / axis / "work/probes").iterdir())
@@ -142,7 +143,7 @@ def test_prepare_fails_closed_on_changed_archive(tmp_path):
 
 
 @pytest.fixture
-def runtime(tmp_path):
+def runtime(tmp_path, peer):
     if sys.platform != "darwin" or not PI.is_file():
         pytest.skip("real pi CLI and macOS sandbox required; not an admission receipt")
     root = tmp_path / "offline-repair-fixture"
@@ -164,6 +165,21 @@ def runtime(tmp_path):
         dump(folder / "config.json", config)
         sandbox = folder / "tools.sb"
         sandbox.write_text(sandbox.read_text().replace(old_tree, str(tree)))
+        # Only disposable test inputs use this fixture's already-bound loopback port.
+        template = folder / "provider-template.json"
+        provider = load(template)
+        original_url = provider["baseUrl"]
+        provider["baseUrl"] = peer["base_url"]
+        dump(template, provider)
+        extension = folder / "review.mjs"
+        code = extension.read_text()
+        assert code.count(original_url) == 1
+        extension.write_text(code.replace(original_url, peer["base_url"]))
+        control = folder / "run_control.py"
+        code = control.read_text()
+        original = "HTTPConnection('127.0.0.1', 19899, timeout=122)"
+        assert code.count(original) == 1
+        control.write_text(code.replace(original, f"HTTPConnection('127.0.0.1', {peer['port']}, timeout=122)"))
     return root
 
 
@@ -206,11 +222,9 @@ def peer(tmp_path):
                 state["errors"].append(repr(exc))
                 self.send_error(500)
 
-    # The archived provider is intentionally pinned. Never stop another owner's server.
-    try:
-        server = ThreadingHTTPServer(("127.0.0.1", 19899), Fake)
-    except OSError:
-        pytest.skip("private 19899 already owned; cannot validate CLI integration")
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Fake)
+    state["port"] = server.server_address[1]
+    state["base_url"] = f"http://127.0.0.1:{state['port']}/v1"
     thread = threading.Thread(target=server.serve_forever, kwargs={"poll_interval": 0.02})
     thread.start()
     try:
@@ -221,6 +235,7 @@ def peer(tmp_path):
         thread.join(timeout=3)
         dump(tmp_path / "peer-summary.json", {
             "fake_http_requests": len(state["requests"]), "real_model_requests": 0,
+            "base_url": state["base_url"],
             "tool_menus": [[t["function"]["name"] for t in p.get("tools", [])] for p in state["requests"]],
             "errors": state["errors"],
         })
