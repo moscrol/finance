@@ -30,6 +30,31 @@ def load(path):
     return json.loads(path.read_text())
 
 
+def test_content_binding_rejects_malformed_or_forged_submissions():
+    script = """
+import assert from 'node:assert/strict';
+import { bindStageResult } from './scripts/review_probes/pi_review_protocol.mjs';
+const identity = {stage: 'execute', axis: 'spec', revision: 'a'.repeat(40), baseline: 'b'.repeat(40)};
+const raw = {observed: [], verdict: 'BLOCKED_INCOMPLETE_EVIDENCE'};
+const bound = bindStageResult(raw, identity);
+assert.deepEqual(bound, {...raw, ...identity, complete: true});
+assert.equal(Object.hasOwn(raw, 'complete'), false);
+for (const bad of [null, [], 'encoded', 42, false, {}]) {
+  assert.throws(() => bindStageResult(bad, identity));
+}
+assert.throws(() => bindStageResult({note: 'x'.repeat(6000)}, identity), /delivery size/);
+for (const field of ['stage', 'axis', 'revision', 'baseline', 'complete']) {
+  assert.throws(() => bindStageResult({...raw, [field]: true}, identity), /controller identity/);
+}
+for (const [field, value] of [['stage', 'gateway'], ['axis', 'other'], ['revision', 'a'], ['baseline', 'b']]) {
+  assert.throws(() => bindStageResult(raw, {...identity, [field]: value}), /controller identity/);
+}
+"""
+    proc = subprocess.run(["node", "--input-type=module", "-e", script],
+                          cwd=ARCHIVE.parents[2], capture_output=True, text=True, timeout=10)
+    assert proc.returncode == 0, proc.stderr
+
+
 def test_prepare_preserves_sealed_inputs_and_refuses_reuse(tmp_path):
     before = {p: p.read_bytes() for p in ARCHIVE.rglob("*") if p.is_file()}
     root = tmp_path / "fresh"
@@ -49,6 +74,12 @@ def test_prepare_preserves_sealed_inputs_and_refuses_reuse(tmp_path):
         assert "verify every called API signature" in explore
         assert "target trigger was reached" in explore
         assert "Exit nonzero" in explore
+        for stage in ("explore", "execute", "report"):
+            prompt = (root / axis / f"prompt-{stage}.md").read_text()
+            assert "complete=true" not in prompt
+            assert "controller-owned" in prompt
+        extension = (root / axis / "review.mjs").read_text()
+        assert "result: Type.Object({}" in extension
     with pytest.raises(FileExistsError):
         prepare(root)
     with pytest.raises(ValueError, match="sealed evidence"):
@@ -248,7 +279,7 @@ def stage_fixture(runtime, stage, axis):
     probe.write_text("# Synthetic plumbing fixture; not a product probe.\n")
     if stage == "report":
         (folder / "report-packet.md").write_text("Synthetic plumbing fixture only.\n")
-    data = {"complete": True, "probe_files": [str(probe)], "verdict": "BLOCKED_INCOMPLETE_EVIDENCE",
+    data = {"probe_files": [str(probe)], "verdict": "BLOCKED_INCOMPLETE_EVIDENCE",
             "claims": [{"id": f"C{i}", "status": "not_verified"} for i in range(1, 8)]}
     return folder, data
 
@@ -257,7 +288,7 @@ def stage_fixture(runtime, stage, axis):
 @pytest.mark.parametrize("axis", ["spec", "quality"])
 def test_real_stage_runner_delivers_without_followup(runtime, peer, stage, axis):
     folder, data = stage_fixture(runtime, stage, axis)
-    peer["reply"] = lambda *_: [tool("deliver_stage", {"result": json.dumps(data)})]
+    peer["reply"] = lambda *_: [tool("deliver_stage", {"result": data})]
     proc = run([sys.executable, "-B", str(folder / "run_stage.py"), stage], folder)
     assert proc.returncode == 0, (proc.stdout, proc.stderr)
     out = folder / stage
@@ -266,7 +297,7 @@ def test_real_stage_runner_delivers_without_followup(runtime, peer, stage, axis)
     assert execution["status"] == "STAGE_COMPLETE", execution
     config = load(folder / "config.json")
     assert load(out / "submission.json") == {
-        **data, "stage": stage, "axis": axis,
+        **data, "complete": True, "stage": stage, "axis": axis,
         "revision": config["revision"], "baseline": config["baseline"],
     }
     assert len(peer["requests"]) == 1
@@ -276,17 +307,61 @@ def test_real_stage_runner_delivers_without_followup(runtime, peer, stage, axis)
 @pytest.mark.parametrize("field,value", [
     ("stage", "EXECUTE"), ("stage", "execute"), ("axis", "quality"),
     ("revision", "0" * 40), ("baseline", "0" * 40),
+    ("complete", True), ("complete", False), ("complete", "true"), ("complete", None),
 ])
 def test_reviewer_identity_injection_stops_without_followup(runtime, peer, field, value):
     folder, data = stage_fixture(runtime, "execute", "spec")
     data[field] = value
-    peer["reply"] = lambda *_: [tool("deliver_stage", {"result": json.dumps(data)})]
+    peer["reply"] = lambda *_: [tool("deliver_stage", {"result": data})]
     run([sys.executable, "-B", str(folder / "run_stage.py"), "execute"], folder)
     out = folder / "execute"
     assert load(out / "execution.json")["status"] == "BLOCKED_STAGE_OR_PROVIDER"
     assert "controller identity" in load(out / "controller-stop.json")["reason"]
     assert not (out / "submission.json").exists()
     assert len(peer["requests"]) == 1
+
+
+@pytest.mark.parametrize("stage,missing", [
+    ("explore", "probe_files"), ("report", "verdict"), ("report", "claims"),
+])
+def test_completion_does_not_replace_required_evidence(runtime, peer, stage, missing):
+    folder, data = stage_fixture(runtime, stage, "spec")
+    del data[missing]
+    peer["reply"] = lambda *_: [tool("deliver_stage", {"result": data})]
+    # The final reserved request has no repair/follow-up budget.
+    extension = folder / "review.mjs"
+    extension.write_text(extension.read_text().replace("let admitted = 0;", "let admitted = 16;"))
+    run([sys.executable, "-B", str(folder / "run_stage.py"), stage], folder)
+    assert load(folder / stage / "execution.json")["status"] == "BLOCKED_STAGE_OR_PROVIDER"
+    assert not (folder / stage / "submission.json").exists()
+    assert len(peer["requests"]) == 1
+
+
+@pytest.mark.parametrize("require_reviewer_flag", [False, True])
+def test_last_reserved_request_delivers_without_completion_flag(runtime, peer, require_reviewer_flag):
+    folder, data = stage_fixture(runtime, "execute", "spec")
+    extension = folder / "review.mjs"
+    code = extension.read_text().replace("let admitted = 0;", "let admitted = 16;")
+    if require_reviewer_flag:
+        # Reinstall the 1405 schema defect in disposable inputs as a mutation witness.
+        assert code.count("result: Type.Object({}") == 1
+        code = code.replace("result: Type.Object({}", "result: Type.Object({ complete: Type.Literal(true) }")
+    extension.write_text(code)
+    peer["reply"] = lambda *_: [tool("deliver_stage", {"result": data})]
+    proc = run([sys.executable, "-B", str(folder / "run_stage.py"), "execute"], folder)
+    assert proc.returncode == 0, (proc.stdout, proc.stderr)
+    if require_reviewer_flag:
+        assert load(folder / "execute/execution.json")["status"] == "BLOCKED_STAGE_OR_PROVIDER"
+        assert not (folder / "execute/submission.json").exists()
+        assert len(peer["requests"]) == 1
+        return
+    assert load(folder / "execute/execution.json")["status"] == "STAGE_COMPLETE"
+    submission = load(folder / "execute/submission.json")
+    assert submission["complete"] is True
+    assert submission["verdict"] == "BLOCKED_INCOMPLETE_EVIDENCE"
+    assert all(claim["status"] == "not_verified" for claim in submission["claims"])
+    assert len(peer["requests"]) == 1
+    assert [t["function"]["name"] for t in peer["requests"][0]["tools"]] == ["deliver_stage"]
 
 
 @pytest.mark.parametrize("budget", ["reserved_used", "hard_limit", "deadline"])
@@ -340,7 +415,7 @@ def test_missing_cli_delivery_tool_fails_before_provider(runtime, peer):
 def test_delivery_with_sibling_tool_is_blocked(runtime, peer):
     folder, data = stage_fixture(runtime, "execute", "spec")
     victim = folder / "work/must-not-exist.txt"
-    peer["reply"] = lambda *_: [tool("deliver_stage", {"result": json.dumps(data)}),
+    peer["reply"] = lambda *_: [tool("deliver_stage", {"result": data}),
                                 tool("write", {"path": str(victim), "content": "bad"}, 1)]
     proc = run([sys.executable, "-B", str(folder / "run_stage.py"), "execute"], folder)
     out = folder / "execute"
