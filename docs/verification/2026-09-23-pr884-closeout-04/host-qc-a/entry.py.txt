@@ -1,0 +1,52 @@
+"""Host-only repair verification and in-memory protection withdrawal; source stays untouched."""
+import inspect
+import json
+import os
+from pathlib import Path
+import sys
+import textwrap
+
+root = Path(__file__).resolve().parent
+label, mode = sys.argv[1:]
+output = root / label
+output.mkdir(exist_ok=False)
+(output / 'users').mkdir()
+(output / 'system-tmp').mkdir()
+os.environ['TMPDIR'] = str(output / 'system-tmp')
+os.environ['FORESIGHT_USERS_DIR'] = str(output / 'users')
+os.environ['FWP_TEST_RECEIPT'] = '0'
+import intelligence.userspace as userspace
+userspace.USERS_DIR = output / 'users'
+
+mutation = None
+if mode == 'c1':
+    import intelligence.runtime.agent_episode as module
+    owner = module._EpisodeLedger
+    source = textwrap.dedent(inspect.getsource(owner.model_complete))
+    old = '    if self.store_failures:\n        return ModelTurn("", (), error="storage_failed", provider_attempts=0)\n'
+    assert source.count(old) == 1
+    changed = source.replace(old, '', 1)
+    scope = dict(vars(module))
+    exec(compile(changed, '<host-c1-withdrawal>', 'exec'), scope)
+    owner.model_complete = scope['model_complete']
+    mutation = {'target': '_EpisodeLedger.model_complete', 'old': old, 'new': ''}
+elif mode == 'c2':
+    import intelligence.services.episode_evidence as module
+    owner = module.EpisodeEvidenceSnapshot
+    source = textwrap.dedent(inspect.getsource(owner.from_dict.__func__))
+    old = '    if not isinstance(raw["sha256"], str) or raw["sha256"] != _digest(body):\n        raise ValueError("evidence snapshot digest mismatch")\n'
+    assert source.count(old) == 1
+    changed = source.replace('@classmethod\n', '', 1).replace(old, '', 1)
+    scope = dict(vars(module))
+    exec(compile(changed, '<host-c2-withdrawal>', 'exec'), scope)
+    owner.from_dict = classmethod(scope['from_dict'])
+    mutation = {'target': 'EpisodeEvidenceSnapshot.from_dict', 'old': old, 'new': ''}
+elif mode != 'baseline':
+    raise ValueError(mode)
+(output / 'mutation.json').write_text(json.dumps({'role': 'host, not independent K3', 'mutation': mutation}, indent=2) + '\n')
+import pytest
+raise SystemExit(pytest.main([
+    '-q', '-p', 'no:cacheprovider', '--tb=short', '--rootdir=' + str(root),
+    '--basetemp=' + str(output / 'tmp'), '--junitxml=' + str(output / 'junit.xml'),
+    *(str(root / ('test_k3_c' + str(i) + '.py')) for i in (1, 2, 3)),
+]))

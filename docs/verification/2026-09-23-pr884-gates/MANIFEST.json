@@ -1,0 +1,120 @@
+{
+  "scope": "First-attempt selected evidence; not final-tip acceptance",
+  "files": {
+    "attempt-01/run.py.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/pr884-gates-20260923-01/run.py",
+      "bytes": 5755,
+      "sha256": "9f7024e752d695d12aae9a1923be96e470a800b685147cc2eb4b111f2494d4e8"
+    },
+    "attempt-01/processes.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/pr884-gates-20260923-01/processes.json",
+      "bytes": 148,
+      "sha256": "ce8d4b3a0e30c34cec7655be013d794af0d7c12faee692061c84010ff74dbc31"
+    },
+    "attempt-01/runner-unit.xml": {
+      "source": "/Users/a77/.finance-runtime/reviews/pr884-gates-20260923-01/runner-unit.xml",
+      "bytes": 6929,
+      "sha256": "225dc7a100d79a355c6dbbc7a2cd81a66c7bfda6e6a245505b6093da326dfbe1"
+    },
+    "attempt-01/invalid-profile.sb": {
+      "source": "/Users/a77/.finance-runtime/reviews/pr884-gates-20260923-01/invalid-profile.sb",
+      "bytes": 162,
+      "sha256": "a50bdb81c053400f5922699bec02bd7927fcba269d1dfa5765800bfb0902e7ab"
+    },
+    "attempt-01/invalid-profile-preflight.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/pr884-gates-20260923-01/invalid-profile-preflight.json",
+      "bytes": 986,
+      "sha256": "60fcdc1951b343deb19574ffc71528f2e0c65f47681b46c971216721640da9a7"
+    },
+    "attempt-01/corrected-profile-preflight.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/pr884-gates-20260923-01/corrected-profile-preflight.json",
+      "bytes": 1043,
+      "sha256": "84769fd2379b3a14f0eefb903d40cadccc626f563f9b0cdbc099ba5ea3845da7"
+    },
+    "attempt-01/python/receipt.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/pr884-gates-20260923-01/python/receipt.json",
+      "bytes": 1323,
+      "sha256": "3d0a60ae824eb0b78bb141887e4630a438e96a5caf4c7ceba1af5dc6c06eb65a"
+    },
+    "attempt-01/python/main-gate.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/pr884-gates-20260923-01/python/main-gate.log.txt",
+      "bytes": 533,
+      "sha256": "60ce00d64fac325b16c9752a678e86d3ccdc73d00efb7042b057d2ae65a10827"
+    },
+    "attempt-01/python-controller.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/pr884-gates-20260923-01/python-controller.log.txt",
+      "bytes": 516,
+      "sha256": "fd1d87cadd3e8bffc65bd87f857b139b3ba548a198bdc0cb7077b230dfbdc951"
+    },
+    "attempt-01/frontend/receipt.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/pr884-gates-20260923-01/frontend/receipt.json",
+      "bytes": 2943,
+      "sha256": "efb52f4046f5759f2d77bc8d75f280480f4cd9cb9b3010bcc7ad5b3a4e3117a1"
+    },
+    "attempt-01/frontend/gate/frontend.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/pr884-gates-20260923-01/frontend/gate/frontend.json",
+      "bytes": 2549,
+      "sha256": "60f3199f045d25758f207b3c6398bcf4a584736a1b2cdec7d3df4ee93461bc0a"
+    },
+    "attempt-01/registry/receipt.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/pr884-gates-20260923-01/registry/receipt.json",
+      "bytes": 4997,
+      "sha256": "bbd44728dae246b5fafe7e332964a58b41fe17f892160bbe20fc40b26ba4cbff"
+    },
+    "attempt-01/frontend/gate/frontend-0.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/pr884-gates-20260923-01/frontend/gate/frontend-0.log.txt",
+      "bytes": 995,
+      "sha256": "88704bfd1072ea101ef2f40b6540e0dc8fe9c4d016e9eb6063b9035b71d8482b"
+    },
+    "attempt-01/frontend/gate/frontend-1.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/pr884-gates-20260923-01/frontend/gate/frontend-1.log.txt",
+      "bytes": 162,
+      "sha256": "4bf1023d1c2fa05c9fdb123d82261be9e71700aafd529ba9055392012de18c1f"
+    },
+    "attempt-01/frontend/gate/frontend-2.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/pr884-gates-20260923-01/frontend/gate/frontend-2.log.txt",
+      "bytes": 260,
+      "sha256": "fab29e58729c43c81fa0fc719b988cd930d31e53868e878f2f4cdf48835602dd"
+    },
+    "attempt-01/frontend/gate/frontend-3.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/pr884-gates-20260923-01/frontend/gate/frontend-3.log.txt",
+      "bytes": 3902,
+      "sha256": "cbb0c8c9ab7d77f4d0812638b840a91a452893895b112fa67a0cd52a36adcae6"
+    },
+    "attempt-01/frontend/gate/frontend-4.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/pr884-gates-20260923-01/frontend/gate/frontend-4.log.txt",
+      "bytes": 1011,
+      "sha256": "e1fadeeefd05d47547a32b3e16484a8171a0eef7ee754f7f016a24a67f1e2c58"
+    },
+    "attempt-01/frontend/gate/frontend-5.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/pr884-gates-20260923-01/frontend/gate/frontend-5.log.txt",
+      "bytes": 12796,
+      "sha256": "121c20c93e4265f2e9feb2048318f27d2b4c062b61afdd12f8d245132981f9b3"
+    },
+    "attempt-01/registry/ledger-crosswalk.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/pr884-gates-20260923-01/registry/ledger-crosswalk.log.txt",
+      "bytes": 2057,
+      "sha256": "cfcfcdcbdfc19c07a81c124f3e0467fad4f88c25bb69477feae3c0e26f47cfbf"
+    },
+    "attempt-01/registry/registry-0.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/pr884-gates-20260923-01/registry/registry-0.log.txt",
+      "bytes": 95,
+      "sha256": "b51e9381db04ba38043f910bb96bef5b2fa938766a50778afad648b006d47abe"
+    },
+    "attempt-01/registry/registry-1.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/pr884-gates-20260923-01/registry/registry-1.log.txt",
+      "bytes": 121,
+      "sha256": "cd23fc68109e09614cda1546571454ec5b5cfc79323009e7435c563b71047b3a"
+    },
+    "attempt-01/registry/registry-2.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/pr884-gates-20260923-01/registry/registry-2.log.txt",
+      "bytes": 116,
+      "sha256": "362c2b566827eb15434ae230b1ce60edad2006c45ff08836d0a24fc744447261"
+    },
+    "attempt-01/registry/registry-3.log.txt": {
+      "source": "/Users/a77/.finance-runtime/reviews/pr884-gates-20260923-01/registry/registry-3.log.txt",
+      "bytes": 68,
+      "sha256": "9730a43a0a4535867153d7ac0afd888b1feaaa96f3846b2922c39a16ad068e89"
+    }
+  }
+}

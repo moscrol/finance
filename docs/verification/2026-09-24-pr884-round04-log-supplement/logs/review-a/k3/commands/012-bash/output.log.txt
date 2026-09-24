@@ -1,0 +1,60 @@
+52:    ResearchProgressTracker,
+70:    repair_seconds_cap_for,
+72:from intelligence.services.repair_coordinator import BudgetGrant, RepairGoal
+133:from intelligence.runtime.repair_budget import grant_for_transient_model_retry
+154:# 修复轮瞬态错误的补救次数上限（repair / repair_finalize 两跳共用）。
+339:        self._store_fence = store if isinstance(store, FencedEpisodeStore) else None
+374:        # Read shared health without callbacks into other ledger locks (no ABBA).
+376:        if not failures and self._store_fence is not None and self._store_fence.failure:
+377:            failures.append(f"episode_tree:{self._store_fence.failure}")
+403:        """Every model entry (including repair) must pass the durable fence."""
+405:            return ModelTurn("", (), error="storage_failed", provider_attempts=0)
+416:            persistence = "failed"
+417:            gap = "关键恢复记录保存失败；已停止新派发，保留的草稿不可视为可靠完成或自动续跑依据。"
+418:            if not any(e.kind == "persistence_failed" for e in self.events):
+419:                self.add("persistence_failed", {
+420:                    "status": "failed", "stop_reason": "storage_failed",
+425:                status="failed", stop_reason="storage_failed",
+498:                    if self._store_fence is not None:
+499:                        self._store_fence.fail(self.episode_id, f"state:{phase}:budget", exc)
+514:                    if self._store_fence is not None:
+515:                        self._store_fence.fail(self.episode_id, f"state:{phase}:authorization", exc)
+523:                        # disappears) is not a fallback to "unbound" -- it means the
+532:                    if self._store_fence is not None:
+533:                        self._store_fence.fail(self.episode_id, f"state:{phase}:identity", exc)
+555:                    if self._store_fence is not None:
+556:                        self._store_fence.fail(self.episode_id, f"state:{phase}:evidence", exc)
+601:    def record_dispatch_intent(self, intent: DispatchIntent) -> bool:
+677:                event_payload.update(status="failed", stop_reason="storage_failed")
+750:def _tool_dispatch_clock_payload(result: ToolCallResult) -> dict[str, object]:
+753:    时间闸（``tool_not_dispatched`` 零授权未派发 / ``tool_timeout`` 真超时）和次数闸
+754:    （``tool_budget_exhausted`` + ``remaining_slots_at_dispatch``）共用这份
+803:    progress: ResearchProgressTracker = field(default_factory=ResearchProgressTracker)
+819:            clock = _tool_dispatch_clock_payload(result)
+825:            # 派发过的调用在 ``_dispatch`` 之前已由 ``record_dispatch_intent`` 落过意图
+941:            acknowledge = getattr(self.harness, "acknowledge_tool_result", None)
+942:            if acknowledge is not None:
+943:                acknowledge(observation, projection, context=context)
+1129:    "before_tool_dispatch",
+1221:        repair_seconds_cap: float | None = None,
+1245:        self._repair_seconds_cap = (
+1246:            float(repair_seconds_cap)
+1247:            if repair_seconds_cap is not None
+1248:            else repair_seconds_cap_for(provider_name_from(model))
+1263:            self._store.on_failure(lambda: self._cancel.request("hook", "storage_failed"))
+1381:        （``model_settled``）；工具意图将落、批次未派发（``before_tool_dispatch``）；批次结算
+1472:            on_store_failure=lambda: self._cancel.request("hook", "storage_failed"),
+1482:            persistence_failed=lambda: bool(ledger.store_failures),
+1487:        progress = ResearchProgressTracker()
+1513:        # INV-R2：工具意图出口。批次执行器在 ``_dispatch`` 之前把真要跑的调用整批交给它，
+1515:        tool_session.on_dispatch = ledger.record_dispatch_intent
+1578:                    task_frame=task_frame, status="failed", stop_reason="storage_failed",
+1579:                    gap="恢复记录保存失败", ledger=ledger,
+1764:            # 与 repair_reentry 对齐：asked / configured / 入场残余必须落在
+1804:                    task_frame=task_frame, status="failed", stop_reason="storage_failed",
+1805:                    gap="恢复记录保存失败", ledger=ledger,
+2075:                # P4 步点③：工具批次将派发（意图 tool_request 在 _dispatch 前由 ledger 落）。
+2076:                yield StepPoint("before_tool_dispatch", llm_calls, tool_calls, turn_id=turn_id)
+2088:                    turn_elapsed_at_dispatch=model_elapsed,
+2116:                fallback = self._maybe_execute_empty_pool_fallback(
+2125:                if fallback is not None:

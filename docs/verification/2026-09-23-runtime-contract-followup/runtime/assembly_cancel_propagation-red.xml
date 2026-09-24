@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="8.683" timestamp="2026-09-23T13:42:18.114085+08:00" hostname="77deMacBook-Air.local"><testcase classname="intelligence.tests.test_episode_persistence_failure" name="test_real_assembly_shares_local_failure_with_inflight_model" time="0.048"><failure message="AssertionError: assert ('failed' == 'failed'&#10;  &#10;    failed and '')&#10; +  where '' = AgentOutcome(task_frame_hash='771106cac1d71005f0e33352af1869afba4562a3817c3344d224de28c9533c98', status='failed', draf...sage(llm_calls=2, tool_calls=1, invalid_actions=0, input_tokens=10, output_tokens=20), plan=None, persistence='failed').draft">intelligence/tests/test_episode_persistence_failure.py:455: in test_real_assembly_shares_local_failure_with_inflight_model
+    assert outcome.persistence == "failed" and outcome.draft
+E   AssertionError: assert ('failed' == 'failed'
+E     
+E       failed and '')
+E    +  where '' = AgentOutcome(task_frame_hash='771106cac1d71005f0e33352af1869afba4562a3817c3344d224de28c9533c98', status='failed', draf...sage(llm_calls=2, tool_calls=1, invalid_actions=0, input_tokens=10, output_tokens=20), plan=None, persistence='failed').draft</failure></testcase></testsuite></testsuites>

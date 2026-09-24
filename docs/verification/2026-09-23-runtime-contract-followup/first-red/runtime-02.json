@@ -1,0 +1,7 @@
+{
+  "revision": "cef3a243a744a5257e163cb59d2f2e5fa97210fd",
+  "role": "host replay of pre-existing author tests; not K3 independent acceptance",
+  "wrapper_sha256": "3f36b841023d90ed536cdc79b35290a82ca698112ba4047e2dbc11329cf4b3db",
+  "accepted": false,
+  "error": "AssertionError(('sse_terminal_delivery_race', 'anchor must match exactly once'))"
+}

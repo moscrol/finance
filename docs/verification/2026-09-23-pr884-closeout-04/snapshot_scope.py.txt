@@ -1,0 +1,26 @@
+"""Resolve the conditional workflow from structured YAML and the pinned diff."""
+import fnmatch
+import hashlib
+import json
+from pathlib import Path
+import subprocess
+
+import yaml
+
+root = Path(__file__).resolve().parent
+tree = root / 'finance-workspace-private'
+preview = json.loads((root / 'merge-preview-pinned.json').read_text())
+changed = subprocess.check_output(['git', 'diff', '--name-only', preview['base'], preview['head']], cwd=tree, text=True).splitlines()
+workflow = tree / '.github/workflows/data-quality-check.yml'
+parsed = yaml.safe_load(workflow.read_text())
+triggers = parsed.get('on', parsed.get(True))
+patterns = triggers['pull_request']['paths']
+matched = [p for p in changed if any(fnmatch.fnmatchcase(p, pattern) for pattern in patterns)]
+result = {'base': preview['base'], 'revision': preview['head'], 'workflow': str(workflow.relative_to(tree)),
+          'workflow_sha256': hashlib.sha256(workflow.read_bytes()).hexdigest(), 'patterns': patterns,
+          'matched_files': matched, 'required': bool(matched), 'status': 'REQUIRED' if matched else 'NOT_TRIGGERED',
+          'claim': 'Applicability only, not a passing test result'}
+with (root / 'conditional-workflow.json').open('x') as stream:
+    json.dump(result, stream, indent=2)
+    stream.write('\n')
+print(json.dumps(result))

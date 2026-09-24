@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="5.086" timestamp="2026-09-23T13:38:26.116178+08:00" hostname="77deMacBook-Air.local"><testcase classname="intelligence.tests.test_episode_writer_reentry" name="test_live_repair_blocks_fresh_run_on_same_runner" time="0.115"><failure message="Failed: DID NOT RAISE &lt;class 'intelligence.services.episode_store.EpisodeWriterBusy'&gt;">intelligence/tests/test_episode_writer_reentry.py:81: in test_live_repair_blocks_fresh_run_on_same_runner
+    assert rig.episode.resume(state, previous, _goal(rig.task_id)) is previous
+intelligence/runtime/agent_episode.py:2506: in resume
+    return self._resume_owned(state, previous, goal)
+intelligence/tests/test_episode_writer_reentry.py:73: in repair
+    with pytest.raises(EpisodeWriterBusy):
+E   Failed: DID NOT RAISE &lt;class 'intelligence.services.episode_store.EpisodeWriterBusy'&gt;</failure></testcase></testsuite></testsuites>

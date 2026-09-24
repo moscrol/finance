@@ -1,0 +1,138 @@
+"""Reuse the committed mutation runner, sandbox pytest, audit exact witnesses."""
+from __future__ import annotations
+
+import hashlib
+import importlib.util
+import json
+import os
+from pathlib import Path
+import signal
+import subprocess
+import sys
+import types
+import xml.etree.ElementTree as ET
+
+ROOT = Path(__file__).resolve().parent
+CANDIDATE = ROOT / "candidate"
+REVISION = "5f35da1723f74663a4803c4d1490c402a1d6db40"
+PYTHON = sys.executable
+PROFILE = ROOT / "host.sb"
+TEST_ROOT = "intelligence/tests/"
+GROUPS = {
+    "runtime": ("runtime_contract_mutations.json", [
+        TEST_ROOT + "test_episode_persistence_failure.py",
+        TEST_ROOT + "test_model_turn_completion_boundary.py",
+        TEST_ROOT + "test_workbench_api.py::test_sse_emits_terminal_message_arriving_between_reads",
+    ]),
+    "writer": ("episode_writer_mutations.json", [TEST_ROOT + "test_episode_writer.py"]),
+    "reentry": ("episode_writer_reentry_mutations.json", [TEST_ROOT + "test_episode_writer_reentry.py"]),
+}
+
+
+def dump(path, value):
+    with path.open("x") as stream:
+        json.dump(value, stream, ensure_ascii=False, indent=2)
+        stream.write("\n")
+
+
+def sandbox_run(command, **kwargs):
+    if "pytest" not in command:
+        return subprocess.run(command, **kwargs)
+    junit = Path(command[command.index("--junitxml") + 1])
+    stage = junit.parent / junit.stem
+    stage.mkdir()
+    for name in ("tmp", "users", "home"):
+        (stage / name).mkdir()
+    entry = stage / "entry.py"
+    entry.write_text(
+        "import sys\nfrom pathlib import Path\nimport intelligence.userspace as u\n"
+        f"u.USERS_DIR=Path({str(stage / 'users')!r})\n"
+        "import pytest\nraise SystemExit(pytest.main(sys.argv[1:]))\n"
+    )
+    actual = ["/usr/bin/sandbox-exec", "-f", str(PROFILE), PYTHON, "-B", str(entry),
+              *command[command.index("pytest") + 1:], "--basetemp=" + str(stage / "pytest")]
+    env = {**kwargs["env"], "HOME": str(stage / "home"), "TMPDIR": str(stage / "tmp"),
+           "FORESIGHT_USERS_DIR": str(stage / "users"), "FORESIGHT_LLM_KEYCHAIN": "0"}
+    record = {"command": actual, "cwd": str(kwargs["cwd"]), "env": env, "timeout": 120}
+    with (stage / "raw.log").open("xb") as log:
+        proc = subprocess.Popen(actual, cwd=kwargs["cwd"], env=env, stdin=subprocess.DEVNULL,
+                                stdout=log, stderr=log, start_new_session=True)
+        try:
+            proc.wait(timeout=120)
+        except subprocess.TimeoutExpired:
+            record["timeout_reached"] = True
+        finally:
+            try:
+                os.killpg(proc.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            proc.wait()
+    record["exit_code"] = proc.returncode
+    record["raw_sha256"] = hashlib.sha256((stage / "raw.log").read_bytes()).hexdigest()
+    dump(stage / "process.json", record)
+    return subprocess.CompletedProcess(actual, proc.returncode, (stage / "raw.log").read_text(), "")
+
+
+def cases(path):
+    root = ET.parse(path).getroot()
+    result = {}
+    for case in root.iter("testcase"):
+        key = (case.get("classname"), case.get("name"))
+        assert key not in result, ("duplicate case", key)
+        result[key] = case
+    return result
+
+
+def audit(output):
+    report = json.loads((output / "results.json").read_text())
+    definitions = json.loads((output / "definitions.json").read_text())
+    baseline = cases(output / "baseline.xml")
+    assert baseline and report["complete"] and report["final_status"] == ""
+    assert set(cases(output / "restored-full.xml")) == set(baseline)
+    witnesses = []
+    for mutation in definitions:
+        ident, targets = mutation["id"], set(mutation["targets"])
+        expected = {key for key in baseline if key[1].split("[", 1)[0] in targets}
+        assert {key[1].split("[", 1)[0] for key in expected} == targets
+        red, green = cases(output / f"{ident}-red.xml"), cases(output / f"{ident}-green.xml")
+        assert set(red) == set(green) == expected, (ident, "collection differs")
+        failures = []
+        for key, case in red.items():
+            assert case.find("error") is None and case.find("skipped") is None
+            failure = case.find("failure")
+            if failure is not None:
+                message = failure.get("message", "")
+                assert failure.get("type") == "AssertionError" or message.startswith("Failed: DID NOT RAISE "), (ident, key, message)
+                failures.append({"classname": key[0], "name": key[1], "message": message})
+        assert {row["name"].split("[", 1)[0] for row in failures} == targets, ident
+        assert all(len(case) == 0 for case in green.values()), ident
+        witnesses.append({"mutation": ident, "collected": len(red), "failures": failures})
+    return {"baseline": len(baseline), "mutations": witnesses, "accepted": True}
+
+
+def main():
+    group, run_name = sys.argv[1:]
+    definitions, tests = GROUPS[group]
+    output = ROOT / "runs" / run_name
+    os.chdir(CANDIDATE)
+    spec = importlib.util.spec_from_file_location("committed_runner", CANDIDATE / "scripts/review_probes/run_extraction_mutations.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    module.subprocess = types.SimpleNamespace(run=sandbox_run, check_output=subprocess.check_output)
+    sys.argv = ["committed_runner", "--revision", REVISION, "--output", str(output),
+                "--definitions", "scripts/review_probes/" + definitions, "--tests", *tests]
+    record = {"revision": REVISION, "role": "host replay of pre-existing author tests; not K3 independent acceptance",
+              "wrapper_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(), "accepted": False}
+    try:
+        module.main()
+        record.update(audit(output))
+    except Exception as error:
+        record["error"] = repr(error)
+        raise
+    finally:
+        dump(ROOT / "runs" / (run_name + "-host-audit.json"), record)
+    print(json.dumps({"group": group, "baseline": record["baseline"], "mutations": len(record["mutations"]), "accepted": True}))
+
+
+if __name__ == "__main__":
+    main()

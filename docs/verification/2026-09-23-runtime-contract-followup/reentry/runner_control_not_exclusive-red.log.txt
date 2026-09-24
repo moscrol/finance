@@ -1,0 +1,20 @@
+FFF                                                                      [100%]
+=================================== FAILURES ===================================
+_ test_one_runner_rejects_other_task_without_replacing_or_leaking_inbox[ephemeral] _
+intelligence/tests/test_episode_writer_reentry.py:28: in test_one_runner_rejects_other_task_without_replacing_or_leaking_inbox
+    with pytest.raises(EpisodeWriterBusy):
+E   Failed: DID NOT RAISE <class 'intelligence.services.episode_store.EpisodeWriterBusy'>
+_ test_one_runner_rejects_other_task_without_replacing_or_leaking_inbox[memory] _
+intelligence/tests/test_episode_writer_reentry.py:28: in test_one_runner_rejects_other_task_without_replacing_or_leaking_inbox
+    with pytest.raises(EpisodeWriterBusy):
+E   Failed: DID NOT RAISE <class 'intelligence.services.episode_store.EpisodeWriterBusy'>
+_ test_one_runner_rejects_other_task_without_replacing_or_leaking_inbox[disk] __
+intelligence/tests/test_episode_writer_reentry.py:28: in test_one_runner_rejects_other_task_without_replacing_or_leaking_inbox
+    with pytest.raises(EpisodeWriterBusy):
+E   Failed: DID NOT RAISE <class 'intelligence.services.episode_store.EpisodeWriterBusy'>
+- generated xml file: /Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-reentry/mutations/runner_control_not_exclusive-red.xml -
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_episode_writer_reentry.py::test_one_runner_rejects_other_task_without_replacing_or_leaking_inbox[ephemeral]
+FAILED intelligence/tests/test_episode_writer_reentry.py::test_one_runner_rejects_other_task_without_replacing_or_leaking_inbox[memory]
+FAILED intelligence/tests/test_episode_writer_reentry.py::test_one_runner_rejects_other_task_without_replacing_or_leaking_inbox[disk]
+3 failed, 9 deselected in 7.91s

@@ -1,0 +1,13 @@
+diff --git a/intelligence/runtime/agent_episode.py b/intelligence/runtime/agent_episode.py
+index 195021fb6..94d7f0127 100644
+--- a/intelligence/runtime/agent_episode.py
++++ b/intelligence/runtime/agent_episode.py
+@@ -412,7 +412,7 @@ class _EpisodeLedger:
+         The extra in-memory failure receipt supersedes it without corrupting the prefix.
+         """
+         persistence = self.persistence_mode
+-        if self.store_failures:
++        if False:
+             persistence = "failed"
+             gap = "关键恢复记录保存失败；已停止新派发，保留的草稿不可视为可靠完成或自动续跑依据。"
+             if not any(e.kind == "persistence_failed" for e in self.events):

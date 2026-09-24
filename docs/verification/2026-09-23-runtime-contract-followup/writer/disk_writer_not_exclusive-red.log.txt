@@ -1,0 +1,19 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+__________ test_separate_process_cannot_restore_until_owner_releases ___________
+intelligence/tests/test_episode_writer.py:114: in test_separate_process_cannot_restore_until_owner_releases
+    assert _child(RESTORE_CHILD, tmp_path) == {"busy": True}
+E   AssertionError: assert {'busy': Fals...ox': [], ...}} == {'busy': True}
+E     
+E     Differing items:
+E     {'busy': False} != {'busy': True}
+E     Left contains 1 more item:
+E     {'result': {'disposition': 'resumable',
+E                 'entry_identity_bound': False,
+E                 'episode_id': 'restore-write-confirmation',...
+E     
+E     ...Full output truncated (36 lines hidden), use '-vv' to show
+- generated xml file: /Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-writer/mutations/disk_writer_not_exclusive-red.xml -
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_episode_writer.py::test_separate_process_cannot_restore_until_owner_releases
+1 failed, 22 deselected in 7.31s

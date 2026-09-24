@@ -1,0 +1,197 @@
+"""K3 独立探针 C3：重复 restore 保持 phase/reserved IDs/执行前缀；按 call/effect identity 去重；
+计划不是执行或结算授权。
+
+不间断跑法（RecordingStore + 前缀切片）是仓内公开夹具模式；切点选择、重复恢复协议与
+全部断言由本审查独立编写。
+"""
+from __future__ import annotations
+
+from datetime import datetime, timedelta
+
+import pytest
+
+from intelligence.runtime.glm_agent_runtime import GLMAgentRuntime
+from intelligence.services.episode_restore import restore_episode
+from intelligence.services.episode_store import EpisodeState, MemoryEpisodeStore
+from intelligence.tests.conformance.fixtures import (
+    AUTHORIZED_TOOL,
+    ScenarioProbe,
+    ScriptedModelClient,
+    ScriptedToolCall,
+    ScriptedTurn,
+    completed_finish,
+    make_context,
+    make_frame,
+    make_registry,
+)
+
+EP = "k3-c3-episode"
+BEFORE_RUN = datetime.now().astimezone()
+NOT_PASSED = BEFORE_RUN + timedelta(seconds=30)   # 截止（run时刻+120s）未过
+PASSED = BEFORE_RUN + timedelta(days=365)          # 截止已过
+
+SCENARIO = (
+    ScriptedTurn(tool_calls=(ScriptedToolCall(AUTHORIZED_TOOL, "市场宽度"),)),
+    ScriptedTurn(finish=completed_finish()),
+)
+
+
+class K3RecordingStore(MemoryEpisodeStore):
+    def __init__(self) -> None:
+        super().__init__()
+        self.states: list[EpisodeState] = []
+
+    def put_state(self, episode_id, state):
+        super().put_state(episode_id, state)
+        self.states.append(state)
+
+
+def _run() -> tuple[K3RecordingStore, tuple, ScenarioProbe]:
+    store = K3RecordingStore()
+    probe = ScenarioProbe()
+    frame = make_frame()
+    context = make_context(frame, task_id=EP, timeout=120.0)
+    registry = make_registry(probe)
+    runtime = GLMAgentRuntime(client=ScriptedModelClient(list(SCENARIO), probe), episode_store=store)
+    outcome = runtime.run(task_frame=frame, context=context, registry=registry)
+    assert outcome.stop_reason == "model_finish"
+    events, state = store.load(EP)
+    assert state is not None and state.phase == "done"
+    store.context = context
+    store.registry = registry
+    return store, events, probe
+
+
+def _crash_store(events, states, length):
+    state = max((s for s in states if s.last_sequence <= length), key=lambda s: s.last_sequence)
+    store = MemoryEpisodeStore()
+    store.append(EP, tuple(events[:length]))
+    store.put_state(EP, state)
+    return store, state
+
+
+def _authority(run_store):
+    return {"context": run_store.context, "registry": run_store.registry}
+
+
+def test_k3_c3_repeat_restore_retry_model_idempotent():
+    """model_pending 悬空意图：重复恢复给同一计划、同一phase/预留ID、事件前缀不动、效果不重复登记。"""
+    run_store, events, probe = _run()
+    intent_seq = next(e.sequence for e in events if e.kind == "model_intent")
+    crash, state = _crash_store(events, run_store.states, intent_seq)
+    assert state.phase == "model_pending" and state.reserved_ids
+    executed_before = list(probe.executed)
+
+    first = restore_episode(EP, crash, now=NOT_PASSED, **_authority(run_store))
+    assert first.disposition == "resumable" and first.plan is not None
+    assert first.plan.action == "retry_model", f"[C3-PLAN] 悬空模型意图应建议 retry_model，实际 {first.plan.action}"
+    assert first.state_after.phase == "model_pending", (
+        f"[C3-PHASE-KEPT] 恢复不得前移程序计数器，实际 phase={first.state_after.phase}"
+    )
+    assert first.state_after.reserved_ids == state.reserved_ids, "[C3-RESERVED-KEPT] 预留ID必须原样保留"
+    assert first.plan.turn_id == state.reserved_ids[0]
+    stored_after_first, state_after_first = crash.load(EP)
+    assert tuple(stored_after_first[: len(events[:intent_seq])]) == tuple(events[:intent_seq]), (
+        "[C3-PREFIX-KEPT] 恢复不得改动既有执行前缀"
+    )
+    effects_unknown_1 = [e for e in stored_after_first if e.kind == "effects_unknown"]
+    assert len(effects_unknown_1) == 1, "[C3-EFFECT-REGISTERED] 未知窗口须恰登记一次"
+    assert len(first.unreconciled_effects) == 1
+
+    for round_no in (2, 3):
+        again = restore_episode(EP, crash, now=NOT_PASSED, **_authority(run_store))
+        assert again.plan == first.plan, f"[C3-REPEAT-PLAN] 第{round_no}次恢复计划必须逐字段相同"
+        assert again.disposition == first.disposition
+        assert again.synthesized == (), (
+            f"[C3-REPEAT-NO-DUP] 第{round_no}次恢复不得再合成任何事件，"
+            f"实际 {[e.kind for e in again.synthesized]}"
+        )
+        stored_now, state_now = crash.load(EP)
+        assert [e.to_dict() for e in stored_now] == [e.to_dict() for e in stored_after_first], (
+            f"[C3-REPEAT-BYTES] 第{round_no}次恢复后磁盘字节不得变化"
+        )
+        assert len(again.unreconciled_effects) == 1, (
+            f"[C3-EFFECT-DEDUP] 第{round_no}次恢复后未清清单不得按重启次数膨胀"
+        )
+        assert state_now.phase == "model_pending" and state_now.reserved_ids == state.reserved_ids
+    # 计划不是结算：日志里那个 turn 依旧没有结算；计划不是执行：工具从未因恢复而跑
+    settled = [e for e in crash.load(EP)[0]
+               if e.kind in {"model_turn", "model_error"} and e.payload.get("turn_id") == state.reserved_ids[0]]
+    assert settled == [], "[C3-PLAN-NOT-SETTLEMENT] retry 计划不得替模型结算"
+    assert probe.executed == executed_before, "[C3-PLAN-NOT-EXECUTION] 恢复不得执行任何工具"
+
+
+def test_k3_c3_repeat_restore_replay_tools_dedup_by_call_identity():
+    """tools_pending 悬空 tool_request(replay=safe)：重复恢复保持同一 call_ids，登记按 call identity 去重。"""
+    run_store, events, probe = _run()
+    req = next(e for e in events if e.kind == "tool_request")
+    crash, state = _crash_store(events, run_store.states, req.sequence)
+    assert state.phase == "tools_pending" and req.payload["call_id"] in state.reserved_ids
+    executed_before = list(probe.executed)
+
+    first = restore_episode(EP, crash, now=NOT_PASSED, **_authority(run_store))
+    assert first.plan is not None and first.plan.action == "replay_tools", (
+        f"[C3-PLAN] replay=safe 悬空工具应建议 replay_tools，实际 {first.plan and first.plan.action}"
+    )
+    assert first.plan.call_ids == (req.payload["call_id"],), "[C3-CALL-IDENTITY] 计划必须按 call_id 定位"
+    assert first.state_after.phase == "tools_pending", "[C3-PHASE-KEPT]"
+    assert first.state_after.reserved_ids == state.reserved_ids, "[C3-RESERVED-KEPT]"
+    stored1, _ = crash.load(EP)
+    for round_no in (2, 3):
+        again = restore_episode(EP, crash, now=NOT_PASSED, **_authority(run_store))
+        assert again.plan == first.plan, f"[C3-REPEAT-PLAN] 第{round_no}次"
+        assert again.synthesized == (), f"[C3-REPEAT-NO-DUP] 第{round_no}次恢复不得重复登记同一call的未知窗口"
+        stored_now, _ = crash.load(EP)
+        assert [e.to_dict() for e in stored_now] == [e.to_dict() for e in stored1]
+        assert len(again.unreconciled_effects) == 1, "[C3-EFFECT-DEDUP] 同一 call identity 只算一段窗口"
+    no_settle = [e for e in crash.load(EP)[0]
+                 if e.kind in {"tool_result", "tool_error"} and e.payload.get("call_id") == req.payload["call_id"]
+                 and e.sequence > req.sequence]
+    assert no_settle == [], "[C3-PLAN-NOT-SETTLEMENT] replay 计划不得替工具结算"
+    assert probe.executed == executed_before, "[C3-PLAN-NOT-EXECUTION]"
+
+
+def test_k3_c3_close_then_repeat_is_already_terminal():
+    """截止已过 → 合成结算并闭合；再次恢复 only already_terminal，不得二次合成。"""
+    run_store, events, _probe = _run()
+    intent_seq = next(e.sequence for e in events if e.kind == "model_intent")
+    crash, state = _crash_store(events, run_store.states, intent_seq)
+
+    closed = restore_episode(EP, crash, now=PASSED, **_authority(run_store))
+    assert closed.disposition == "closed" and closed.terminal, "[C3-CLOSE] 截止已过必须闭合"
+    assert closed.outcome is not None and closed.outcome.stop_reason == "interrupted"
+    kinds = [e.kind for e in closed.synthesized]
+    assert "model_error" in kinds and kinds[-1] == "finish", (
+        f"[C3-CLOSE-ORDER] 先结算悬空意图再闭合，实际 {kinds}"
+    )
+    stored1, state1 = crash.load(EP)
+    assert state1.phase == "done"
+    again = restore_episode(EP, crash, now=PASSED, **_authority(run_store))
+    assert again.disposition == "already_terminal", "[C3-CLOSE-IDEMPOTENT] 闭合后不得再走恢复路径"
+    assert again.synthesized == ()
+    stored2, _ = crash.load(EP)
+    assert [e.to_dict() for e in stored2] == [e.to_dict() for e in stored1], (
+        "[C3-CLOSE-BYTES] 闭合后重复恢复不得再写一个字节"
+    )
+    # 闭合也没资格抹掉未对账凭证
+    assert len(closed.unreconciled_effects) == 1, "[C3-CLOSE-KEEPS-DEBT] close 不是对账"
+    assert state1.unreconciled_effects, "[C3-CLOSE-KEEPS-DEBT] 凭证必须随检查点持久"
+
+
+def test_k3_c3_dispatch_plan_is_not_dispatch_authorization():
+    """模型结算已落、工具意图未落：计划 dispatch_tools 只是数据——不得落 tool_request、不得执行。"""
+    run_store, events, probe = _run()
+    turn_seq = next(e.sequence for e in events if e.kind == "model_turn")
+    crash, state = _crash_store(events, run_store.states, turn_seq)
+    executed_before = list(probe.executed)
+    plan = restore_episode(EP, crash, now=NOT_PASSED, **_authority(run_store))
+    assert plan.plan is not None and plan.plan.action == "dispatch_tools", (
+        f"[C3-PLAN] 已点工具未落意图应建议 dispatch_tools，实际 {plan.plan and plan.plan.action}"
+    )
+    assert plan.plan.call_ids, "[C3-DISPATCH-IDS] 必须指明待派发 call_id"
+    stored, _ = crash.load(EP)
+    assert not any(e.kind == "tool_request" for e in stored), (
+        "[C3-PLAN-NOT-EXECUTION] dispatch 计划不得擅自落 tool_request 意图"
+    )
+    assert probe.executed == executed_before, "[C3-PLAN-NOT-EXECUTION] 工具不得因恢复而执行"
+    assert plan.synthesized == (), "[C3-DISPATCH-NO-SYNTH] 未出门的声明不登记未知效果"
