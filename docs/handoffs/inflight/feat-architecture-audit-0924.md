@@ -1,33 +1,32 @@
 # 在途：输入与底座验收
 
 ## 这个分支做什么
-阶段 A 基线及 B 离线前置；不是生产恢复单。规格 `docs/superpowers/specs/2026-09-24-architecture-input-foundation-audit-spec.md`。
+阶段A基线与B离线前置，不是生产恢复单。规格见 `docs/superpowers/specs/2026-09-24-architecture-input-foundation-audit-spec.md`。
 
 ## 决策与被否方案
-- 缺报告用未知，不归零；保留 inventory_only 边界。
-- 晨汇只从固定 KB 提交导出，在临时目录建标签；否改脏源/换生产库。
-- 风远批准值消失只报漂移，否自动重应用：可能有人有意删改。
-- 验收复用排名输入与六位精度合同，否放宽容差。
-- 展开：`docs/handoffs/2026-09-24-architecture-consumption-decisions.md`；A 决策见同日前篇。
+- 缺报告保留未知；文件盘点不当消费。
+- 晨汇固定KB版本、临时建标签；否碰脏源/换生产库。
+- 风远七条剥数、三条改措辞有旧记录；否自动恢复旧值或相似度代批。
+- 当前装配/历史票据/已知考卷分开报，否旧考卷代独立质量验证。
+- 展开见 `docs/handoffs/2026-09-24-perspective-reconciliation-decisions.md` 及同日consumption前篇。
 
 ## 当前状态
-A 实现6e6a2eac2，B离线前置/审计器修复7863fa125已提交；未推送/开PR/合main/部署。
-09-24本轮末生产readiness仍503，版本3b7e473575b0。KB已合a2cfb2b8的09-18晨汇未出现在生产投影。
-SPT原文/批准/上下文限定范围PASS。风远105条引文可追，但10条批准值已不在画像；另52条值无当前approved patch票据，语义待审。
+A实现6e6a2eac2；B前置7863fa125；本轮6365501ba已提交，未推送/开PR/合main/部署。
+09-24 14:44Z生产readiness仍503，market_data_consistency失败。晨汇生产阻塞未解除。
+风远四字段147/147进入上下文；历史approved原值95/105，十条有改写意图记录但缺逐patch替代关系。52条无等值批准票据中含十条改写，余42条仍需追溯；旧记载14条人工写入仅4条本轮字面互证。SPT92/92装配，但无考卷。
 
 ## 未验证 / 已知边界
-未调用新模型、改用户目录、生产补数/换库/部署/重建索引/恢复采集。实际Episode/回答质量、审批权属、手工框架字段、方法卡生成、跨日稳定、优化对照未签。
-137P不是全量Python/前端/E2E/registry发布门禁。生产/KB原owner继续持有修复权。
+未调新模型、写用户目录、补生产/换库/部署/建索引/恢复采集。原始授权对话、手工框架全量、真实Episode/CLI采用及质量、跨日稳定与优化对照未签。162P是定向回归，不是四叶发布门禁；生产/KB/视角原owner仍负责修复。
 
 ## 下一步
-1. 读 `docs/verification/2026-09-24-architecture-consumption/README.md` 的结果、patch差异、重跑命令；A总表仍在相邻architecture-audit目录。
-2. #61先修身份/范围/字段/日历。09-18晨汇按现有日历落到09-22，该日六个关键字段NULL，隔离重建仍失败。
-3. KB/#87发布固定版本并重建标签；Perspective owner裁定十条漂移与人工条目，不代批。
-4. 前置与预算满足后按#76做真入口；合入另冻结候选、跑完整门禁并等用户确认。
+1. 读 `docs/verification/2026-09-24-perspective-reconciliation/README.md`；晨汇重跑命令与断点在相邻architecture-consumption目录。
+2. #61修行情身份/范围/字段/日历；KB/#87发布固定正文、投影与标签。09-18晨汇受09-22关键字段空值阻断。
+3. 视角owner衔接修订记录及未合文档；Q-002 #12-#30已在docs/fengyuan-distill-0916，不重建队列。SPT需独立冻结考卷，不从画像自造金标。
+4. 前置和预算闭合后按#76验真入口；合入另冻结候选、全量门禁和用户确认。
 
 ## 已验证
-7863fa125干净树137P/0F/0S、dirty=false；收据在第二轮目录clean-targeted-receipt.json，只绑该SHA。Ruff/diff-check及提交钩子通过。
-隔离09-14晨汇进入半导体长河，严格截止过滤晚录教学对象；生产同例仍FAIL。SPT92批准值/引文进入上下文；真实账户linxiaoqi5111，两视角均召回3段原文。三份读取模块与部署版哈希相同，不证明模型用对。
+6365501ba干净树162P/0F/0S，dirty=false，第三轮目录clean-targeted-receipt.json只绑定该SHA。Ruff、diff-check、实现提交钩子通过。
+风远既有考卷2已知+1边题均过；SPT缺卷显式FAIL。检查器增加漂移候选、当前装配、可选考卷及九个反例，不改runtime。
 
 ## 踩过的坑
-health绿不等于readiness；default不是服务账户；文件盘点不是消费。长河entity要用存在的板块，不用market。比回读值要复用写端输入/规范化，NULL不当零。工具已落scripts及反例测试，不另造健康服务。
+health绿不等于readiness；default不是服务账户；当前画像不等于历史patch原值。主干没看到记录不等于其他分支没登记。考卷曾用于改措辞，不能证明未见题。工具归已有scripts，政策语义仍须人工判断。
