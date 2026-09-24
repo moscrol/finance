@@ -1,5 +1,5 @@
 import { ArrowUp, LoaderCircle, StopCircle } from "lucide-react";
-import { FormEvent, KeyboardEvent } from "react";
+import { FormEvent, KeyboardEvent, useRef } from "react";
 import type {
   PerspectiveDescription,
   PerspectiveMode,
@@ -30,6 +30,10 @@ interface ComposerProps {
   onPerspectiveModeChange?: (mode: PerspectiveMode) => void;
   onPerspectiveSelectionChange?: (perspectiveIds: string[]) => void;
 }
+
+// Safari 在输入法上屏时先派发 compositionend，再派发一个 isComposing=false 的
+// Enter keydown；两者来自同一次物理按键，间隔远小于人手连按两次回车的间隔。
+const IME_COMMIT_GRACE_MS = 50;
 
 export function Composer({
   value,
@@ -63,11 +67,31 @@ export function Composer({
     submit();
   };
 
+  const composingRef = useRef(false);
+  const compositionEndedAtRef = useRef(0);
+
+  const handleCompositionStart = () => {
+    composingRef.current = true;
+  };
+
+  const handleCompositionEnd = () => {
+    composingRef.current = false;
+    compositionEndedAtRef.current = performance.now();
+  };
+
+  const isImeEnter = (event: KeyboardEvent<HTMLTextAreaElement>) =>
+    event.nativeEvent.isComposing ||
+    event.nativeEvent.keyCode === 229 ||
+    composingRef.current ||
+    performance.now() - compositionEndedAtRef.current < IME_COMMIT_GRACE_MS;
+
   const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (event.key === "Enter" && !event.shiftKey) {
-      event.preventDefault();
-      submit();
-    }
+    if (event.key !== "Enter" || event.shiftKey) return;
+    // 中文输入法：候选词未上屏时按回车，浏览器同样派发 key === "Enter" 的 keydown，
+    // 这一下是交给输入法的，不能当作发送。
+    if (isImeEnter(event)) return;
+    event.preventDefault();
+    submit();
   };
 
   return (
@@ -91,6 +115,8 @@ export function Composer({
         disabled={disabled}
         onChange={(event) => onChange(event.target.value)}
         onKeyDown={handleKeyDown}
+        onCompositionStart={handleCompositionStart}
+        onCompositionEnd={handleCompositionEnd}
       />
       <div className="composer-footer">
         <div className="composer-tools">
@@ -137,6 +163,7 @@ export function Composer({
             className="primary-icon-button"
             type="submit"
             aria-label={disabled ? "正在创建研究" : "发送研究问题"}
+            title="Enter 发送 · Shift + Enter 换行"
             disabled={disabled || !value.trim()}
           >
             {disabled ? (

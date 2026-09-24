@@ -1096,6 +1096,61 @@ describe("Chat-first conversation components", () => {
     expect(onStop).toHaveBeenCalled();
   });
 
+  it("does not send when Enter belongs to the input method", () => {
+    const onSubmit = vi.fn();
+    render(
+      <Composer
+        value="液冷"
+        taskType="ask"
+        onChange={vi.fn()}
+        onSubmit={onSubmit}
+      />,
+    );
+    const textarea = screen.getByLabelText("输入研究问题");
+
+    fireEvent.keyDown(textarea, { key: "Enter", isComposing: true });
+    expect(onSubmit).not.toHaveBeenCalled();
+
+    fireEvent.keyDown(textarea, { key: "Enter", keyCode: 229 });
+    expect(onSubmit).not.toHaveBeenCalled();
+
+    fireEvent.compositionStart(textarea);
+    fireEvent.keyDown(textarea, { key: "Enter" });
+    expect(onSubmit).not.toHaveBeenCalled();
+
+    // Safari：compositionend 先到，紧跟着的 Enter 仍属于这次上屏
+    fireEvent.compositionEnd(textarea);
+    fireEvent.keyDown(textarea, { key: "Enter" });
+    expect(onSubmit).not.toHaveBeenCalled();
+
+    fireEvent.keyDown(textarea, { key: "Enter", shiftKey: true });
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it("sends on a plain Enter after composition has settled", () => {
+    const now = vi.spyOn(performance, "now");
+    try {
+      const onSubmit = vi.fn();
+      render(
+        <Composer
+          value="液冷"
+          taskType="ask"
+          onChange={vi.fn()}
+          onSubmit={onSubmit}
+        />,
+      );
+      const textarea = screen.getByLabelText("输入研究问题");
+      now.mockReturnValue(1000);
+      fireEvent.compositionStart(textarea);
+      fireEvent.compositionEnd(textarea);
+      now.mockReturnValue(1300);
+      fireEvent.keyDown(textarea, { key: "Enter" });
+      expect(onSubmit).toHaveBeenCalledWith("液冷");
+    } finally {
+      now.mockRestore();
+    }
+  });
+
   it("marks template answers and regenerates without hiding the old answer", async () => {
     const user = userEvent.setup();
     const onRegenerate = vi.fn();
@@ -1936,6 +1991,23 @@ describe("Workbench navigation reliability", () => {
         user: "default",
       },
     );
+  });
+
+  it("keeps archived conversations out of the sidebar after reload", async () => {
+    apiMocks.listConversations.mockResolvedValue([
+      ...conversations,
+      {
+        ...conversations[1],
+        conversation_id: "conv_archived",
+        title: "已归档的旧线程",
+        status: "archived",
+      },
+    ]);
+    render(<App />);
+
+    expect(await screen.findByRole("button", { name: /^液冷跟踪/ })).toBeVisible();
+    expect(screen.getByRole("button", { name: /^机器人/ })).toBeVisible();
+    expect(screen.queryByText("已归档的旧线程")).toBeNull();
   });
 
   it("submits an explicit KOL perspective without mixing other profiles", async () => {

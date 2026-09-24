@@ -2,7 +2,6 @@ import {
   BrainCircuit,
   KeyRound,
   LoaderCircle,
-  LockKeyhole,
   PanelLeftOpen,
   PanelRightOpen,
   RefreshCw,
@@ -53,6 +52,7 @@ import { OutputWorkbench } from "./components/OutputWorkbench";
 import { ResearchInspector } from "./components/ResearchInspector";
 import { supportsDailyProjection } from "./dailyReports";
 import { userFacingIssue } from "./displayText";
+import { useSpotlight } from "./spotlight";
 import {
   applyChatStreamEvent,
   createLiveMessageState,
@@ -85,6 +85,12 @@ interface StreamIdentity {
   conversationId: string;
   messageId: string;
   runId: string;
+}
+
+// 后端 /api/conversations 会把已归档会话一并返回；侧栏只展示活跃会话，
+// 否则「归档」只在本次会话内生效，刷新后又回来了。
+function activeConversations(items: Conversation[]): Conversation[] {
+  return items.filter((item) => item.status !== "archived");
 }
 
 export default function App() {
@@ -138,6 +144,8 @@ export default function App() {
   const runPollTimerRef = useRef<number | null>(null);
   const runPollInFlightRef = useRef(false);
   const finalizingRunRef = useRef<string | null>(null);
+
+  useSpotlight();
 
   const user = bootstrap?.user ?? "default";
 
@@ -253,7 +261,9 @@ export default function App() {
       try {
         await Promise.all([
           loadConversationData(identity.conversationId),
-          listConversations(user).then(setConversations),
+          listConversations(user).then((items) =>
+            setConversations(activeConversations(items)),
+          ),
         ]);
         setLiveMessages((current) => {
           const state = current[identity.messageId];
@@ -481,7 +491,7 @@ export default function App() {
           nextLLMConfig,
           nextOverview,
         ] = await Promise.all([
-          listConversations(nextBootstrap.user),
+          listConversations(nextBootstrap.user).then(activeConversations),
           getSkills(nextBootstrap.user),
           getPerspectives(nextBootstrap.user),
           getLLMConfig(nextBootstrap.user).catch(() => null),
@@ -962,10 +972,6 @@ export default function App() {
                 <span className="agent-status-dot" aria-hidden="true" />
               )}
               {runningLive ? "正在研究" : "空闲"}
-            </span>
-            <span className="private-mode-badge">
-              <LockKeyhole aria-hidden="true" size={13} />
-              私有
             </span>
             <span className="demo-stage-badge">
               Demo · 非计分 · Day 1 未开始
