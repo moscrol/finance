@@ -37,9 +37,11 @@ def repo(tmp_path):
         "code_path_prefixes": ["test_", "conftest.py"],
     }))
     shutil.copy2(ROOT / "conftest.py", path / "conftest.py")
+    (path / "scripts").mkdir()
+    shutil.copy2(ROOT / "scripts/workspace_env.py", path / "scripts/workspace_env.py")
     (path / "test_sample.py").write_text("def test_ok():\n    assert True\n")
     (path / ".gitignore").write_text("__pycache__/\n.pytest_cache/\n.ruff_cache/\n")
-    git(path, "add", "--", "test-environment.json", "conftest.py", "test_sample.py", ".gitignore")
+    git(path, "add", "--", "test-environment.json", "conftest.py", "test_sample.py", ".gitignore", "scripts/workspace_env.py")
     git(path, "commit", "-m", "fixture")
     return path
 
