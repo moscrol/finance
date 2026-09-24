@@ -1,0 +1,135 @@
+"""Independent probes for llm_http_transport (C1, C6, parts of C3/C5).
+
+Boundaries exercised:
+- P1 positive success: fast local fake HTTP (port 26001) completes inside deadline.
+- P2 streaming trickle vs absolute deadline: server trickles chunks forever;
+  urlopen(timeout=1.5) must raise HTTPDeadlineExceeded at ~1.5s wall clock,
+  NOT at server completion time. Exercises whole-call monotonic deadline incl. reads.
+- P3 cancelled streaming: is_cancelled flips after first chunk; must raise
+  HTTPStreamCancelled promptly (<0.5s), parent loop honors 0.05s poll.
+- P4 expired deadline => zero budget: urlopen raises HTTPDeadlineExceeded
+  BEFORE spawning the worker; server request count must be 0 (no HTTP request,
+  supports C5 'no request').
+- P5 subprocess startup inside budget: server delays headers 2.0s, deadline 1.0s
+  from before Popen => deadline counts startup; raise HTTPDeadlineExceeded
+  (C6 inclusion, behavioral).
+- P6 stalled parent: open response, stop consuming past expires_at, then read;
+  worker Timer os._exit(124) or parent _check must raise HTTPDeadlineExceeded,
+  never hang.
+Run: python probe_transport.py
+"""
+import http.server, json, sys, threading, time, socketserver
+sys.path.insert(0, "/Users/a77/.finance-runtime/reviews/pr868-repaired-20260923-2111/candidate")
+from intelligence.services import llm_http_transport as T
+import urllib.request
+
+PORT = 26001
+hits = {"n": 0}
+lock = threading.Lock()
+
+class H(http.server.BaseHTTPRequestHandler):
+    protocol_version = "HTTP/1.1"
+    def log_message(self, *a): pass
+    def do_POST(self):
+        with lock: hits["n"] += 1
+        length = int(self.headers.get("Content-Length") or 0)
+        self.rfile.read(length)
+        mode = self.path
+        if mode == "/fast":
+            body = json.dumps({"ok": True}).encode()
+            self.send_response(200); self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
+        elif mode == "/trickle":
+            self.send_response(200); self.send_header("Transfer-Encoding", "chunked"); self.end_headers()
+            while True:
+                self.wfile.write(b"%x\r\n" % 8 + b"aaaaaaaa" + b"\r\n"); self.wfile.flush(); time.sleep(0.1)
+        elif mode == "/slowheaders":
+            time.sleep(2.0)
+            body = b"{}"
+            self.send_response(200); self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
+        else:
+            self.send_response(404); self.send_header("Content-Length","0"); self.end_headers()
+
+class S(socketserver.ThreadingTCPServer):
+    allow_reuse_address = True
+    daemon_threads = True
+
+srv = S(("127.0.0.1", PORT), H)
+threading.Thread(target=srv.serve_forever, daemon=True).start()
+time.sleep(0.3)
+base = f"http://127.0.0.1:{PORT}"
+results = []
+def check(name, cond, extra=""):
+    results.append((name, bool(cond), extra)); print(("PASS" if cond else "FAIL"), name, extra)
+
+def req(path):
+    return urllib.request.Request(base + path, data=b"{}", headers={"Content-Type": "application/json"}, method="POST")
+
+# P1 positive success
+t0 = time.monotonic()
+with T.urlopen(req("/fast"), timeout=5.0) as r:
+    body = r.read()
+check("P1 fast success", body == json.dumps({"ok": True}).encode(), f"status={r.status}")
+
+# P2 trickle vs absolute deadline
+t0 = time.monotonic()
+try:
+    with T.urlopen(req("/trickle"), timeout=1.5) as r:
+        r.read()
+    check("P2 trickle deadline", False, "no exception")
+except T.HTTPDeadlineExceeded:
+    dt = time.monotonic() - t0
+    check("P2 trickle deadline", 1.3 < dt < 2.6, f"dt={dt:.2f}")
+except Exception as e:
+    check("P2 trickle deadline", False, f"wrong exc {type(e).__name__}")
+
+# P3 cancelled streaming
+state = {"cancel": False}
+t0 = time.monotonic()
+try:
+    with T.urlopen(req("/trickle"), timeout=10.0, is_cancelled=lambda: state["cancel"]) as r:
+        for chunk in r:
+            state["cancel"] = True  # flip after first data chunk
+    check("P3 cancel", False, "no exception")
+except T.HTTPStreamCancelled:
+    dt = time.monotonic() - t0
+    check("P3 cancel", dt < 3.0, f"dt={dt:.2f}")
+except Exception as e:
+    check("P3 cancel", False, f"wrong exc {type(e).__name__}")
+
+# P4 expired deadline -> no request at all
+before = hits["n"]
+try:
+    T.urlopen(req("/fast"), timeout=5.0, deadline=T.__dict__ and __import__("intelligence.services.llm_refine", fromlist=["Deadline"]).Deadline(time.monotonic() - 1.0))
+    check("P4 expired no request", False, "no exception")
+except T.HTTPDeadlineExceeded:
+    time.sleep(0.2)
+    check("P4 expired no request", hits["n"] == before, f"requests_before={before} after={hits['n']}")
+except Exception as e:
+    check("P4 expired no request", False, f"wrong exc {type(e).__name__}")
+
+# P5 startup inside budget (headers delayed 2.0s, deadline 1.0s)
+t0 = time.monotonic()
+try:
+    with T.urlopen(req("/slowheaders"), timeout=1.0) as r:
+        r.read()
+    check("P5 startup in budget", False, "no exception")
+except T.HTTPDeadlineExceeded:
+    dt = time.monotonic() - t0
+    check("P5 startup in budget", dt < 1.9, f"dt={dt:.2f} (deadline 1.0 must bind before 2.0s headers)")
+except Exception as e:
+    check("P5 startup in budget", False, f"wrong exc {type(e).__name__}")
+
+# P6 stalled parent
+t0 = time.monotonic()
+try:
+    resp = T.urlopen(req("/trickle"), timeout=1.0)
+    time.sleep(1.5)  # parent stalls, no reads
+    resp.read()
+    check("P6 stalled parent", False, "no exception")
+except T.HTTPDeadlineExceeded:
+    check("P6 stalled parent", True, f"dt={time.monotonic()-t0:.2f}")
+except Exception as e:
+    check("P6 stalled parent", False, f"wrong exc {type(e).__name__} (deadline not enforced for stalled parent?)")
+
+srv.shutdown()
+print("SUMMARY", sum(1 for _, ok, _ in results if ok), "/", len(results))

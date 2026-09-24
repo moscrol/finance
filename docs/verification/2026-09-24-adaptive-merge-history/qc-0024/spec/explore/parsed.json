@@ -1,0 +1,30 @@
+{
+  "complete": true,
+  "probe_files": [
+    "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260924-0024/spec/work/probes/fake_server.py",
+    "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260924-0024/spec/work/probes/probe_transport.py",
+    "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260924-0024/spec/work/probes/probe_transport_v2.py",
+    "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260924-0024/spec/work/probes/probe_wrapper.py",
+    "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260924-0024/spec/work/probes/probe_judge_window.py"
+  ],
+  "claims_examined": [
+    "C1",
+    "C2",
+    "C3",
+    "C4",
+    "C5",
+    "C6",
+    "C7"
+  ],
+  "limits": "C3 的 episode 级字段 report_received=False/unavailable=True 未被探针直接断言，仅在 wrapper+ledger 层验证迟到载荷拒绝与失败记账；C7 属证据归属声明，无行为探针；probe_transport.py 为 v1，含 T6a 用 timeout=0 的弱断言，已由 probe_transport_v2.py 修正替代，执行时以 v2 为准。探针均未运行（EXPLORE 仅写入）。",
+  "notes": "覆盖: probe_transport_v2 T1-T6b 覆盖 C1(trickle 死线/取消流/停滞父进程 Timer 124 回收)与 C6(0.01s 预算下 spawn 计入、请求前拒绝)及 0.4s 片 vs 0.5s 共享死线边界; probe_wrapper W1-W5 覆盖 C2 五个调用路径(10s 片+0.5s 共享死线对 2.9s 慢服务器必须 <1.5s 截断,即 C4), W4 用 trickle 流中翻转取消, W6 覆盖 C3 包装层迟到载荷拒绝并读台账 reason, W7/W8 覆盖 C5 零预算无 HTTP 连接、无预留消费、call_timeout 区分耗尽根与子窗口; probe_judge_window J1-J4 覆盖判官窗口 env 只降不升、attempt 地板、_deadline_remaining_seconds 单调、超时失败身份。所有探针各自报告触发是否到达(observer 事件/连接计数/台账记录), 异常类型单独不足以判 PASS; 失败即非零退出; 子用例数与脚本数分开打印。端口仅用 26001-26004 固定端口。",
+  "next_stage_commands": [
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python /Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260924-0024/spec/work/probes/probe_transport_v2.py",
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python /Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260924-0024/spec/work/probes/probe_wrapper.py",
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python /Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260924-0024/spec/work/probes/probe_judge_window.py"
+  ],
+  "stage": "explore",
+  "axis": "spec",
+  "revision": "5e6974d3946f48c4f27c8847830d1a17c0529b41",
+  "baseline": "c9dd71dfd678855b61662100ec74625b92ad1f1b"
+}

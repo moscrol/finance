@@ -1,0 +1,8 @@
+result=None reason='LLM 合成超过共享截止时间，已降级为模板' elapsed=0.01s server_hit=0
+Traceback (most recent call last):
+  File "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260923-1707/spec/work/probes/probe_c4_wrapper_deadline.py", line 71, in <module>
+    main()
+  File "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260923-1707/spec/work/probes/probe_c4_wrapper_deadline.py", line 61, in main
+    assert server_hit, "no HTTP request reached the fixture"
+           ^^^^^^^^^^
+AssertionError: no HTTP request reached the fixture

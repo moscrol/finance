@@ -65,9 +65,17 @@ from intelligence.services.research_contract import (
 from intelligence.services.research_tool_registry import (
     _DEFAULT_TOOL_METADATA,
     _TOOL_CONTRACTS,
+    DEFAULT_RESEARCH_CAPABILITIES,
 )
 
 ALL_TOOLS: tuple[str, ...] = tuple(_DEFAULT_TOOL_METADATA)
+# 授权面只能是运行时能力。三个历史工具（history_query / read_history_result /
+# save_history_research）是工具不是能力：由 finance_query 授权 + history_intent 条件
+# 装配，不在 DEFAULT_RESEARCH_CAPABILITIES 里。把它们当能力传给 build_episode_context
+# 会 ValueError，试验场任何工具都构造失败（2026-09-21 冒烟实测，本分支与 main 同病）。
+PROBE_CAPABILITIES: tuple[str, ...] = tuple(
+    name for name in ALL_TOOLS if name in DEFAULT_RESEARCH_CAPABILITIES
+)
 
 # 不吃 query 的三个工具（``EMPTY_TOOL_PARAMETERS``，取值由 task frame 决定）。
 _EPISODE_SCOPED = frozenset({"market_data", "financial_data", "mainline_context"})
@@ -187,9 +195,9 @@ def probe(
         context = build_episode_context(
             control.task_frame,
             task_id=task_id,
-            # 放宽授权面到全部工具。放宽 allowed 不会触碰
+            # 放宽授权面到全部**能力**。放宽 allowed 不会触碰
             # ``mandatory ⊆ allowed`` 这条不变量（收紧才会），所以是安全的。
-            capabilities=ALL_TOOLS,
+            capabilities=PROBE_CAPABILITIES,
             tier="deep",
             timeout=timeout,
             today=as_of,

@@ -46,7 +46,7 @@ def call_stream(body: bytes, **kwargs):
         mock.patch.object(llm_refine, "_reserve_llm_call"),
         mock.patch.object(llm_refine, "_record_llm_call"),
         mock.patch(
-            "urllib.request.urlopen", return_value=_FakeResponse(body)
+            "intelligence.services.llm_http_transport.urlopen", return_value=_FakeResponse(body)
         ),
     ):
         message = llm_refine._post_chat_message_stream(
@@ -68,14 +68,14 @@ def _captured_payload(monkeypatch: pytest.MonkeyPatch) -> dict:
 
     captured: dict = {}
 
-    def fake_urlopen(request, timeout):  # noqa: ARG001
+    def fake_urlopen(request, timeout=0.0, **_kwargs):  # noqa: ARG001
         captured.update(json.loads(request.data.decode("utf-8")))
         return _FakeResponse(sse({"choices": [{"delta": {"content": "ok"}, "finish_reason": "stop"}]}))
 
     with (
         mock.patch.object(llm_refine, "_reserve_llm_call"),
         mock.patch.object(llm_refine, "_record_llm_call"),
-        mock.patch("urllib.request.urlopen", side_effect=fake_urlopen),
+        mock.patch("intelligence.services.llm_http_transport.urlopen", side_effect=fake_urlopen),
     ):
         llm_refine._post_chat_message_stream(
             PROVIDER, [{"role": "user", "content": "q"}], timeout=30.0, temperature=0.0,
@@ -246,7 +246,7 @@ def test_failure_after_first_delta_is_a_different_exception() -> None:
     with (
         mock.patch.object(llm_refine, "_reserve_llm_call"),
         mock.patch.object(llm_refine, "_record_llm_call"),
-        mock.patch("urllib.request.urlopen", return_value=_ExplodingResponse(b"")),
+        mock.patch("intelligence.services.llm_http_transport.urlopen", return_value=_ExplodingResponse(b"")),
         pytest.raises(llm_refine.LLMStreamAlreadyEmitted),
     ):
         llm_refine._post_chat_message_stream(

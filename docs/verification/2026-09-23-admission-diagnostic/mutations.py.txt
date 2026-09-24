@@ -1,0 +1,67 @@
+"""In-memory guard removal only; never edit candidate files or sign acceptance."""
+import ast
+import inspect
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+from unittest.mock import patch
+
+ROOT = Path(__file__).resolve().parent
+TREE = Path('/Users/a77/finance-worktrees/adaptive-research-loop')
+CASES = {
+    'missing_coverage_guard': ('intelligence/tests/test_llm_timeout_diagnostic.py::test_strict_mode_rejects_missing_coverage_even_inside_deadline', 1),
+    'exit_zero_only': ('tests/test_retrieval_readiness.py::test_exit_zero_without_a_valid_final_result_is_not_ready', 5),
+}
+
+
+def worker(name):
+    os.chdir(TREE)
+    os.environ['FWP_TEST_RECEIPT'] = '0'
+    sys.path.insert(0, str(TREE))
+    import pytest
+    if name == 'missing_coverage_guard':
+        from scripts.review_probes import diagnose_llm_timeout as module
+        context = patch.object(module, 'coverage_gaps', lambda cases: [])
+    else:
+        from scripts.review_probes import prepare_adaptive_l6 as module
+        source = ast.parse(inspect.getsource(module.retrieval_probe))
+        matches = []
+        for node in ast.walk(source):
+            if isinstance(node, ast.Dict):
+                for index, key in enumerate(node.keys):
+                    if isinstance(key, ast.Constant) and key.value == 'ready':
+                        matches.append((node, index))
+        assert len(matches) == 1
+        node, index = matches[0]
+        node.values[index] = ast.parse('code == 0', mode='eval').body
+        ast.fix_missing_locations(source)
+        namespace = vars(module).copy()
+        exec(compile(source, '<intentional-readiness-mutation>', 'exec'), namespace)
+        context = patch.object(module, 'retrieval_probe', namespace['retrieval_probe'])
+    with context:
+        return int(pytest.main(['-q', '-p', 'no:cacheprovider', CASES[name][0],
+                               '--basetemp=' + str(ROOT / ('mutation-' + name)),
+                               '--junitxml=' + str(ROOT / ('mutation-' + name + '.xml'))]))
+
+
+if len(sys.argv) == 2:
+    raise SystemExit(worker(sys.argv[1]))
+
+results = []
+for name, (target, expected) in CASES.items():
+    with (ROOT / ('mutation-' + name + '.log')).open('xb') as log:
+        result = subprocess.run([sys.executable, '-B', str(Path(__file__).resolve()), name], stdout=log, stderr=subprocess.STDOUT, timeout=35)
+    import xml.etree.ElementTree as ET
+    suites = ET.parse(ROOT / ('mutation-' + name + '.xml')).getroot().findall('testsuite')
+    failed = sum(int(suite.get('failures', 0)) for suite in suites)
+    errors = sum(int(suite.get('errors', 0)) for suite in suites)
+    row = {'mutation': name, 'target': target, 'exit_code': result.returncode, 'failures': failed, 'errors': errors,
+           'expected_failures': expected, 'detected': result.returncode == 1 and failed == expected and errors == 0,
+           'classification': 'intentional_author_control; not product defect or independent review'}
+    results.append(row)
+with (ROOT / 'mutations.json').open('x') as stream:
+    json.dump(results, stream, indent=2)
+assert all(row['detected'] for row in results), results
+print(json.dumps(results, indent=2))

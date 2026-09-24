@@ -1,0 +1,22 @@
+[
+  {
+    "mutation": "missing_coverage_guard",
+    "target": "intelligence/tests/test_llm_timeout_diagnostic.py::test_strict_mode_rejects_missing_coverage_even_inside_deadline",
+    "exit_code": 1,
+    "failures": 1,
+    "errors": 0,
+    "expected_failures": 1,
+    "detected": true,
+    "classification": "intentional_author_control; not product defect or independent review"
+  },
+  {
+    "mutation": "exit_zero_only",
+    "target": "tests/test_retrieval_readiness.py::test_exit_zero_without_a_valid_final_result_is_not_ready",
+    "exit_code": 1,
+    "failures": 5,
+    "errors": 0,
+    "expected_failures": 5,
+    "detected": true,
+    "classification": "intentional_author_control; not product defect or independent review"
+  }
+]

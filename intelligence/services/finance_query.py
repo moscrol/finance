@@ -189,6 +189,7 @@ def truncation_notice(
     audit: FinanceQueryAudit,
     *,
     covered_range: str | None = None,
+    group_by: Sequence[str] = (),
 ) -> str | None:
     """撞顶就提示。不再要求「harness 压低了 limit」——模型自设 limit 撞顶是主路径。
 
@@ -199,6 +200,11 @@ def truncation_notice(
 
     if audit.row_count < audit.applied_limit:
         return None
+    if group_by:
+        return (
+            f"聚合结果最多返回 {audit.applied_limit} 组，可能还有未返回的组；"
+            "每组统计基于筛选后全部记录，返回组数上限不裁剪组内日期"
+        )
     text = (
         f"查询结果已按 Agent 上下文预算截断至 {audit.applied_limit} 条；"
         "未覆盖的日期请收窄 time_range 再查，不要靠调大 limit"
@@ -268,7 +274,7 @@ class _FieldDefinition:
     column: str
     label: str
     role: Literal["dimension", "metric"]
-    aggregate: Literal["avg", "sum", "max", "min"] | None = None
+    aggregate: Literal["avg", "sum", "max", "min", "count"] | None = None
     value_kind: Literal["text", "number", "integer", "boolean", "date"] = "text"
     # NULL 的业务语义因字段而异：high_status 的 NULL 是「非新高」这个事实，
     # 渲染成「未知」会让模型把"多数个股不是新高"误读成"数据没回填"
@@ -341,10 +347,33 @@ def _dimension(
 def _metric(
     column: str,
     label: str,
-    aggregate: Literal["avg", "sum", "max", "min"] = "avg",
+    aggregate: Literal["avg", "sum", "max", "min", "count"] = "avg",
     value_kind: Literal["number", "integer"] = "number",
 ) -> _FieldDefinition:
     return _FieldDefinition(column, label, "metric", aggregate, value_kind)
+
+
+_RETURN_SUMMARY_KEYS = {
+    "stock_daily": "stock_code", "sector_daily": "sector_code", "sw_l1_daily": "sw_l1_code",
+}
+_RETURN_SUMMARY_REQUIRED = frozenset({"return_compound_pct", "return_valid_count", "return_observed_count"})
+_RETURN_SUMMARY_FIELDS = {
+    "return_compound_pct": _metric("pct_chg", "已观测日复利收益率%"),
+    "return_valid_count": _metric("pct_chg", "有效涨跌幅行数", "count", "integer"),
+    "return_observed_count": _metric("pct_chg", "观测行数", "count", "integer"),
+    "return_min_pct": _metric("pct_chg", "最小单日涨跌幅%", "min"),
+    "return_max_pct": _metric("pct_chg", "最大单日涨跌幅%", "max"),
+}
+_RETURN_SUMMARY_COVERAGE = (
+    "区间累计收益用 return_compound_pct + return_valid_count + return_observed_count，三项同时取；"
+    "可加 return_min_pct/return_max_pct 核验单日范围。dimensions/group_by 只填本表代码维，"
+    "筛选也只用代码，必须给完整 time_range.start/end，不混取日线指标。"
+    "按已观测日逐日复利，含首日涨跌；坏值或重复日期使收益和极值为未知，不跳过。"
+    "复利公式100*(乘积(1+每日涨跌幅/100)-1)，不是价格首末比；并非复权总回报或固定成分组合收益。"
+    "样本数不证明交易日齐全；比较须对齐证据中的实际日期集合和分类/数值口径。"
+    "证据卡的日期按年月列出日号；卡片超预算会拒绝并提示缩窗，不交付截断摘要。"
+    "return_pct 的普通分组聚合是平均日涨跌幅，不是累计收益。"
+)
 
 
 _DATASETS: dict[str, _DatasetDefinition] = {
@@ -436,7 +465,13 @@ _DATASETS: dict[str, _DatasetDefinition] = {
         label="个股日频行情",
         population="full",
         coverage=(
-            "全市个股全集，每股每日一行。"
+            "全市个股全集，每股每日一行。amount 聚合仍是成交额求和。"
+            "区间日均成交额必须同时取 amount_mean 和 amount_valid_count，"
+            'dimensions/group_by 均只填 ["stock_code"]，给明确的 time_range.start/end；'
+            "筛选只支持 stock_code，名称和逐日行情另查，避免名称变化拆组或数值筛选改变分母。"
+            "均值单位亿，分母仅为窗口内已入库的有限数值行数（含零，不含空值/NaN/无穷），"
+            "不等于窗口应有交易日数；统计在返回行数截断前完成，不要从截断明细心算。"
+            + _RETURN_SUMMARY_COVERAGE
         ),
         time_field="trade_date",
         dimensions={
@@ -450,6 +485,9 @@ _DATASETS: dict[str, _DatasetDefinition] = {
             "return_pct": _metric("pct_chg", "涨跌幅"),
             "amount": _metric("amount", "成交额亿", "sum"),
             "turnover": _metric("turnover", "换手率"),
+            "amount_mean": _metric("amount", "成交额均值亿"),
+            "amount_valid_count": _metric("amount", "有效成交额样本数", "count", "integer"),
+            **_RETURN_SUMMARY_FIELDS,
         },
     ),
     "sector_daily": _DatasetDefinition(
@@ -463,6 +501,7 @@ _DATASETS: dict[str, _DatasetDefinition] = {
             "⚠️ sector_name 不是键：2025-10-09~2026-07-24 两套板块码系（.TI / .FP）并存，"
             "同名板块各一行、数值不同；`国防军工` 至今两个 .FP 码同名。按 sector_name 聚合会双计，"
             "按 sector_code 分组或先用 dim_sector_canonical 解析到现行码。"
+            + _RETURN_SUMMARY_COVERAGE
         ),
         time_field="trade_date",
         dimensions={
@@ -480,6 +519,7 @@ _DATASETS: dict[str, _DatasetDefinition] = {
             "amount": _metric("amount", "成交额亿", "sum"),
             "marginal_volume_pct": _metric("diff_ratio", "边际量"),
             "strength": _metric("strength", "强度"),
+            **_RETURN_SUMMARY_FIELDS,
         },
     ),
     "sector_stock_daily": _DatasetDefinition(
@@ -742,6 +782,7 @@ _DATASETS: dict[str, _DatasetDefinition] = {
             "不要对 `sector_daily` 按申万一级加总冒充行业成交额——"
             "概念重叠会重复计算，加总会大于全市。"
             "另 `fupanhui_ratio` 约 27% 有值、`amount_ma120*` 约 2%，同样未开放，不是漏了。"
+            + _RETURN_SUMMARY_COVERAGE
         ),
         time_field="trade_date",
         dimensions={
@@ -756,6 +797,7 @@ _DATASETS: dict[str, _DatasetDefinition] = {
             "close": _metric("close", "行业指数收盘"),
             "pre_close": _metric("pre_close", "前收盘"),
             "return_pct": _metric("pct_chg", "涨跌幅"),
+            **_RETURN_SUMMARY_FIELDS,
         },
     ),
     "stock_technical_daily": _DatasetDefinition(
@@ -1937,6 +1979,23 @@ def validation_retry_hint(
         return "dataset 可选 " + ",".join(sorted(_DATASETS))
     if message == "date filters must use time_range":
         return "日期不要放入 filters；请改用 time_range.start/time_range.end"
+    if message.startswith("return summary"):
+        key = _RETURN_SUMMARY_KEYS.get(spec.dataset, "代码维")
+        return f"{spec.dataset} 的 dimensions/group_by 使用 [\"{key}\"]；" + _RETURN_SUMMARY_COVERAGE
+    if message.startswith("amount summary"):
+        return (
+            "stock_daily 区间均值请同时选择 amount_mean 和 amount_valid_count，"
+            'dimensions/group_by 使用 ["stock_code"]，并给完整 time_range；'
+            + _DATASETS["stock_daily"].coverage
+        )
+    if message.startswith("code filter needs a market suffix:"):
+        detail = message.removeprefix("code filter needs a market suffix:").strip()
+        return (
+            f"{detail}：库里存的是带交易所后缀的代码，精确比较必须带后缀。"
+            "个股 60/68 开头用 .SH，00/30 开头用 .SZ，8/4 开头用 .BJ；"
+            "板块用 .FP（复盘会）或 .TI（同花顺）。"
+            "不确定后缀时改用 op=contains 传 6 位数字，或先查一次带 stock_name 的宽条件。"
+        )
 
     requested_fields = tuple(
         dict.fromkeys(
@@ -2227,6 +2286,7 @@ class _CompiledQuery:
     applied_limit: int
     reverse_after_fetch: bool = False
     sector_universe_index: int | None = None
+    return_dates_index: int | None = None
 
 
 DuckDbConnect = Callable[..., Any]
@@ -2309,7 +2369,7 @@ class FinanceQuery:
                     compiled.sql,
                     list(compiled.parameters),
                 )
-                rows, source_dates, sector_universes, output_bytes = self._fetch_rows(
+                rows, source_dates, sector_universes, return_dates, output_bytes = self._fetch_rows(
                     cursor,
                     compiled,
                     cancelled=cancelled,
@@ -2318,6 +2378,7 @@ class FinanceQuery:
                     rows = tuple(reversed(rows))
                     source_dates = tuple(reversed(source_dates))
                     sector_universes = tuple(reversed(sector_universes))
+                    return_dates = tuple(reversed(return_dates))
             except Exception as exc:
                 if interrupted_for:
                     if interrupted_for[0] == "cancelled":
@@ -2354,11 +2415,18 @@ class FinanceQuery:
             dataset=dataset,
             fingerprint=fingerprint,
             sector_universes=sector_universes,
+            summary_window=_requested_time_range(spec) if _stock_amount_summary(spec) else None,
+            return_window=_requested_time_range(spec) if _return_summary(spec) else None,
+            return_dates=return_dates,
+            grouped_return=spec.dataset in _RETURN_SUMMARY_KEYS and bool(spec.group_by) and "return_pct" in spec.metrics,
         )
         dates = tuple(item.source_date for item in evidence if item.source_date)
         observation = "；".join(item.detail for item in evidence)
         if not observation:
-            observation = f"{dataset.label}：结构化查询无结果"
+            observation = (
+                f"{dataset.label}：本次条件与截止时点内未命中本地记录；"
+                "不证明事件未发生，也不证明数据覆盖完整。"
+            )
         audit = FinanceQueryAudit(
             dataset=spec.dataset,
             physical_sql=compiled.sql,
@@ -2441,9 +2509,10 @@ class FinanceQuery:
         compiled: _CompiledQuery,
         *,
         cancelled: Callable[[], bool],
-    ) -> tuple[tuple[dict[str, object], ...], tuple[str | None, ...], tuple[str, ...], int]:
+    ) -> tuple[tuple[dict[str, object], ...], tuple[str | None, ...], tuple[str, ...], tuple[str, ...], int]:
         rows: list[dict[str, object]] = []
         sector_universes: list[str] = []
+        return_dates: list[str] = []
         output_bytes = 0
         while len(rows) < compiled.applied_limit:
             if cancelled():
@@ -2464,6 +2533,10 @@ class FinanceQuery:
                 )
                 sector_universes.append(universe)
                 public["__sector_universe"] = universe
+                dates = str(raw_row[compiled.return_dates_index] or "") if compiled.return_dates_index is not None else ""
+                return_dates.append(dates)
+                if compiled.return_dates_index is not None:
+                    public["__return_dates"] = dates
                 encoded = json.dumps(
                     public,
                     ensure_ascii=False,
@@ -2475,11 +2548,11 @@ class FinanceQuery:
                     raise FinanceQueryLimitExceeded("finance query byte limit exceeded")
                 rows.append(public)
         visible_rows = tuple(
-            {key: value for key, value in row.items() if key not in {"__source_date", "__sector_universe"}}
+            {key: value for key, value in row.items() if key not in {"__source_date", "__sector_universe", "__return_dates"}}
             for row in rows
         )
         source_dates = tuple(_date_text(row.get("__source_date")) for row in rows)
-        return visible_rows, source_dates, tuple(sector_universes), output_bytes
+        return visible_rows, source_dates, tuple(sector_universes), tuple(return_dates), output_bytes
 
 
 def _semantic_time_dimension(dataset: _DatasetDefinition) -> str | None:
@@ -2501,6 +2574,92 @@ def _semantic_time_dimension(dataset: _DatasetDefinition) -> str | None:
         ),
         None,
     )
+
+
+_STOCK_AMOUNT_SUMMARY_METRICS = frozenset({"amount_mean", "amount_valid_count"})
+
+
+def result_has_date_axis(spec: FinanceQuerySpec) -> bool:
+    """A grouped MAX(source_date) alone does not describe covered input dates."""
+    dataset = _DATASETS.get(spec.dataset)
+    return not spec.group_by or bool(
+        dataset is not None and _semantic_time_dimension(dataset) in spec.group_by
+    )
+
+
+def _stock_amount_summary(spec: FinanceQuerySpec) -> bool:
+    return spec.dataset == "stock_daily" and bool(
+        _STOCK_AMOUNT_SUMMARY_METRICS.intersection(spec.metrics)
+    )
+
+
+def _validate_stock_amount_summary(spec: FinanceQuerySpec) -> None:
+    if not _stock_amount_summary(spec):
+        return
+    if not _STOCK_AMOUNT_SUMMARY_METRICS.issubset(spec.metrics):
+        raise FinanceQueryValidationError(
+            "amount summary requires amount_mean and amount_valid_count together"
+        )
+    if spec.dimensions != ("stock_code",) or spec.group_by != ("stock_code",):
+        raise FinanceQueryValidationError(
+            'amount summary requires dimensions and group_by ["stock_code"]'
+        )
+    if spec.time_range is None or spec.time_range.start is None or spec.time_range.end is None:
+        raise FinanceQueryValidationError(
+            "amount summary requires explicit time_range.start and time_range.end"
+        )
+    for item in spec.filters:
+        if item.field in _STOCK_AMOUNT_SUMMARY_METRICS:
+            raise FinanceQueryValidationError(
+                "amount summary metrics cannot be used as row filters"
+            )
+        if item.field != "stock_code":
+            raise FinanceQueryValidationError(
+                "amount summary filters support only stock_code; query daily detail separately"
+            )
+
+
+def _return_summary(spec: FinanceQuerySpec) -> bool:
+    return spec.dataset in _RETURN_SUMMARY_KEYS and bool(_RETURN_SUMMARY_FIELDS.keys() & set(spec.metrics))
+
+
+def _validate_return_summary(spec: FinanceQuerySpec) -> None:
+    if not _return_summary(spec):
+        return
+    if not _RETURN_SUMMARY_REQUIRED.issubset(spec.metrics):
+        raise FinanceQueryValidationError("return summary requires return_compound_pct, return_valid_count and return_observed_count together")
+    key = _RETURN_SUMMARY_KEYS[spec.dataset]
+    if spec.dimensions != (key,) or spec.group_by != (key,):
+        raise FinanceQueryValidationError(f'return summary requires dimensions and group_by ["{key}"]')
+    if spec.time_range is None or spec.time_range.start is None or spec.time_range.end is None:
+        raise FinanceQueryValidationError("return summary requires explicit time_range.start and time_range.end")
+    if set(spec.metrics) - _RETURN_SUMMARY_FIELDS.keys():
+        raise FinanceQueryValidationError("return summary accepts only return summary metrics; query other metrics separately")
+    if any(item.field != key for item in spec.filters):
+        raise FinanceQueryValidationError(f"return summary filters support only {key}")
+
+
+def _return_summary_expression(name: str, dataset: _DatasetDefinition, key: str) -> str:
+    value = _quote(dataset.metrics[name].column)
+    day = _quote(dataset.dimensions["trade_date"].column)
+    identity = _quote(dataset.dimensions[key].column)
+    valid = f"isfinite({value}) AND {value} >= -100"
+    count = f"COUNT(*) FILTER (WHERE {valid})"
+    if name == "return_valid_count":
+        return count
+    if name == "return_observed_count":
+        return "COUNT(*)"
+    # Never let SQL aggregate NULL-skipping turn a broken chain into a full return.
+    sound = (
+        f"{count} = COUNT(*) AND COUNT(DISTINCT {day}) = COUNT(*) "
+        f"AND COUNT(*) FILTER (WHERE NULLIF(TRIM({identity}), '') IS NOT NULL) = COUNT(*)"
+    )
+    if name == "return_compound_pct":
+        compounded = f"100.0 * (PRODUCT(1.0 + {value} / 100.0 ORDER BY {day}) - 1.0)"
+        result = f"CASE WHEN MIN({value}) = -100 THEN -100.0 WHEN isfinite({compounded}) THEN {compounded} END"
+    else:
+        result = f"{dataset.metrics[name].aggregate.upper()}({value})"
+    return f"CASE WHEN {sound} THEN {result} END"
 
 
 def _compile_query(
@@ -2573,6 +2732,8 @@ def _compile_query(
     if dataset.time_field is None and spec.time_range is not None:
         raise FinanceQueryValidationError("dataset has no time dimension")
 
+    _validate_stock_amount_summary(spec)
+    _validate_return_summary(spec)
     aliases: dict[str, str] = {}
     select_parts: list[str] = []
     for index, name in enumerate(selected):
@@ -2580,7 +2741,12 @@ def _compile_query(
         alias = f"c{index}"
         aliases[name] = alias
         expression = _quote(field.column)
-        if group_by and field.role == "metric":
+        if _stock_amount_summary(spec) and name in _STOCK_AMOUNT_SUMMARY_METRICS:
+            # AVG and COUNT must see exactly the same valid sample, including zeros.
+            expression = f"CASE WHEN isfinite({expression}) THEN {expression} END"
+        if _return_summary(spec) and name in _RETURN_SUMMARY_FIELDS:
+            expression = _return_summary_expression(name, dataset, _RETURN_SUMMARY_KEYS[spec.dataset])
+        elif group_by and field.role == "metric":
             if field.aggregate is None:
                 raise FinanceQueryValidationError(f"metric cannot be grouped: {name}")
             expression = f"{field.aggregate.upper()}({expression})"
@@ -2614,6 +2780,12 @@ def _compile_query(
         sector_universe_index = len(select_parts)
         select_parts.append(f"{universe} AS __sector_universe")
 
+    return_dates_index = None
+    if _return_summary(spec):
+        return_dates_index = len(select_parts)
+        day = _quote(fields["trade_date"].column)
+        select_parts.append(f"string_agg(DISTINCT CAST({day} AS VARCHAR), ',' ORDER BY CAST({day} AS VARCHAR)) AS __return_dates")
+
     where_parts: list[str] = []
     parameters: list[object] = []
     if dataset.time_field is not None:
@@ -2639,6 +2811,15 @@ def _compile_query(
             raise FinanceQueryValidationError(f"unknown field: {item.field}")
         if item.field == dataset.time_field:
             raise FinanceQueryValidationError("date filters must use time_range")
+        if spec.dataset in _RETURN_SUMMARY_KEYS and item.field in _RETURN_SUMMARY_FIELDS:
+            raise FinanceQueryValidationError("return summary metrics cannot be used as row filters")
+        if spec.dataset == "stock_daily" and item.field in _STOCK_AMOUNT_SUMMARY_METRICS:
+            raise FinanceQueryValidationError("amount summary metrics cannot be used as row filters")
+        bare_codes = _bare_code_filter_values(field, item)
+        if bare_codes:
+            raise FinanceQueryValidationError(
+                f"code filter needs a market suffix: {item.field}={','.join(bare_codes)}"
+            )
         clause, values = _filter_clause(field, item)
         where_parts.append(clause)
         parameters.extend(values)
@@ -2687,6 +2868,36 @@ def _compile_query(
         applied_limit=applied_limit,
         reverse_after_fetch=reverse_after_fetch,
         sector_universe_index=sector_universe_index,
+        return_dates_index=return_dates_index,
+    )
+
+
+# 交易所后缀缺失：`stock_code eq 600673` 精确比 `stock_ts_code`，库里存的是
+# `600673.SH`，于是零行返回。观察文案是「结构化查询无结果」，模型据此写「本地
+# 缺失」——2026-09-21 两次真实模型冒烟各撞一次（688256 / 600673），答案诚实而
+# 前提是假的。这里不替模型改值（6 位码到交易所的映射有 B 股等例外，猜错比查空
+# 更坏），而是把静默空结果换成带重试提示的拒绝。
+# 只拦精确比较：`contains` 用 6 位码是能命中的正常写法（LIKE '%600673%'），
+# 那条路径实测有效，不能一起拦下。
+_BARE_A_SHARE_CODE_RE = re.compile(r"\A\d{6}\Z")
+_EXACT_CODE_OPERATORS = frozenset({"eq", "ne", "in"})
+
+
+def _bare_code_filter_values(
+    field: _FieldDefinition,
+    item: QueryFilter,
+) -> tuple[str, ...]:
+    """精确比较一个 ts_code 列时，值里缺后缀的那些。"""
+
+    if item.op not in _EXACT_CODE_OPERATORS or not field.column.endswith("ts_code"):
+        return ()
+    raw = item.value if item.op == "in" else [item.value]
+    if not isinstance(raw, Sequence) or isinstance(raw, (str, bytes)):
+        raw = [item.value]
+    return tuple(
+        value
+        for value in raw
+        if isinstance(value, str) and _BARE_A_SHARE_CODE_RE.match(value.strip())
     )
 
 
@@ -2803,6 +3014,33 @@ def _row_observations(
     )
 
 
+def _return_summary_detail(
+    row: Mapping[str, object], dataset_name: str,
+    window: tuple[str | None, str | None], dates: str,
+) -> str:
+    def number(value: object) -> str:
+        return f"{value:.10g}" if isinstance(value, float) else _display_value(value)
+
+    months: dict[str, list[str]] = {}
+    for value in dates.split(","):
+        day = date.fromisoformat(value)
+        months.setdefault(day.strftime("%Y-%m"), []).append(day.strftime("%d"))
+    compact_dates = "/".join(f"{month}:{','.join(days)}" for month, days in months.items())
+    key = _RETURN_SUMMARY_KEYS[dataset_name]
+    detail = (
+        f"代码={row[key]}；请求={_format_date_range(*window)}；"
+        f"逐日复利%={number(row['return_compound_pct'])}；"
+        f"有效/观测={row['return_valid_count']}/{row['return_observed_count']}；"
+    )
+    for metric, label in (("return_min_pct", "日最小%"), ("return_max_pct", "日最大%")):
+        if metric in row:
+            detail += f"{label}={number(row[metric])}；"
+    return (
+        detail + f"日期={compact_dates}；含首日；样本数不证明交易日齐全；"
+        "坏值/重日收益及极值未知"
+    )
+
+
 def _rows_to_evidence(
     rows: tuple[dict[str, object], ...],
     *,
@@ -2811,6 +3049,10 @@ def _rows_to_evidence(
     dataset: _DatasetDefinition,
     fingerprint: str,
     sector_universes: tuple[str, ...] = (),
+    summary_window: tuple[str | None, str | None] | None = None,
+    return_window: tuple[str | None, str | None] | None = None,
+    return_dates: tuple[str, ...] = (),
+    grouped_return: bool = False,
 ) -> tuple[agent_research.AgentEvidence, ...]:
     evidence: list[agent_research.AgentEvidence] = []
     fields = dataset.fields
@@ -2823,11 +3065,27 @@ def _rows_to_evidence(
     for index, row in enumerate(rows, start=1):
         source_date = source_dates[index - 1]
         detail = "；".join(
-            f"{fields[name].label}={_display_value(value, fields[name])}"
+            f"{'平均日涨跌幅%' if grouped_return and name == 'return_pct' else fields[name].label}="
+            f"{_display_value(value, fields[name])}"
             for name, value in row.items()
         )
+        if summary_window is not None:
+            detail = (
+                f"统计请求窗口={_format_date_range(*summary_window)}；"
+                "口径=每股已入库有限成交额的算术均值，零值计入，空值/非有限值不计入；"
+                "样本数不证明交易日齐全；" + detail
+            )
+        if return_window is not None:
+            detail = _return_summary_detail(row, dataset_name, return_window, return_dates[index - 1])
+        if grouped_return:
+            detail += "；平均日涨跌幅不是累计收益"
         if sector_universes and sector_universes[index - 1]:
             detail += f"；板块分类口径={sector_universes[index - 1]}"
+        if return_window is not None:
+            from intelligence.services.tool_result_budget import MAX_EVIDENCE_DETAIL_CHARS
+
+            if len(detail) > MAX_EVIDENCE_DETAIL_CHARS:
+                raise FinanceQueryLimitExceeded("区间收益摘要超过证据卡预算，请缩短 time_range；未交付截断摘要")
         title = dataset.label + (f"（{source_date}）" if source_date else "")
         item = agent_research.AgentEvidence(
             tool="finance_query",
@@ -2969,6 +3227,7 @@ __all__ = [
     "QueryFilter",
     "TimeRange",
     "dataset_field_hint",
+    "result_has_date_axis",
     "validation_diagnostic",
     "validation_retry_hint",
 ]

@@ -1,0 +1,28 @@
+{
+  "candidate": "31f1b40dd788d36c71da249d59fb769c50d7cd30",
+  "baseline": "9a02279863733c9b9f60fd92fcc7e840fa83f878",
+  "axes": [
+    "spec",
+    "quality"
+  ],
+  "stages": [
+    "explore",
+    "execute",
+    "report"
+  ],
+  "max_requests_per_stage": 24,
+  "request_seconds": 120,
+  "stage_seconds": 600,
+  "automatic_retries": 0,
+  "max_batch_requests": 152,
+  "model": "glm-5.3",
+  "reasoning_effort": "low",
+  "upstream": "https://open.bigmodel.cn/api/coding/paas/v4",
+  "independent_axes": true,
+  "failure_stops_batch": true,
+  "final_delivery": "model-authored terminating deliver_stage tool",
+  "prior_model_outputs_inherited": false,
+  "production_changes": false,
+  "natural_finance_requests": 0,
+  "user_authorization": "continue independent review; existing GLM authorized"
+}

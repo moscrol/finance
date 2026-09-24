@@ -1,0 +1,28 @@
+{
+  "scope": "offline harness characterization; not independent QC or live acceptance",
+  "shim_sha256": "44d225396320ae9356b03b258456602477aa1256cc9475eb2010698aa1d76bee",
+  "probe_sha256": "30443319dfe1c39830437465180906a21dad72de7f2955852f6d87624aca4e4a",
+  "model_requests": 0,
+  "local_stub_requests": 2,
+  "upstream_pause_seconds": 0.6,
+  "observations": [
+    {
+      "path": "direct_control",
+      "first_read_bytes": 51,
+      "total_bytes": 65,
+      "first_byte_seconds": 0.0012,
+      "upstream_to_client_seconds": 0.0001,
+      "received_before_upstream_end": true
+    },
+    {
+      "path": "frozen_shim",
+      "first_read_bytes": 65,
+      "total_bytes": 65,
+      "first_byte_seconds": 0.6066,
+      "upstream_to_client_seconds": 0.6052,
+      "received_before_upstream_end": false
+    }
+  ],
+  "buffering_reproduced": true,
+  "historical_timeout_root_cause_proven": false
+}

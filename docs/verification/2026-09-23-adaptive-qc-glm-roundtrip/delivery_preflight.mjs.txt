@@ -1,0 +1,32 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import assert from 'node:assert/strict';
+import { fileURLToPath } from 'node:url';
+import { install } from './spec/review.mjs';
+const root = path.dirname(fileURLToPath(import.meta.url));
+const config = JSON.parse(fs.readFileSync(path.join(root, 'spec/config.json')));
+const results = [];
+for (const stage of ['explore', 'execute', 'report']) {
+  process.env.REVIEW_PHASE = stage;
+  const out = path.join(root, 'spec', 'delivery-preflight-' + stage);
+  fs.mkdirSync(out); fs.mkdirSync(path.join(out, 'commands'));
+  const hooks = {}; const tools = {};
+  install({ registerProvider() {}, on(n, fn) { hooks[n] = fn; }, registerTool(t) { tools[t.name] = t; } }, { out, token: 'fake-offline-key', terminate() { throw new Error('stopped'); } });
+  const ctx = { model: {provider: 'glm-direct-review', id: 'glm-5.3', baseUrl: 'http://127.0.0.1:19899/v1', api: 'openai-completions'} };
+  const payload = hooks.before_provider_request({ payload: { model: 'glm-5.3', messages: [], tools: ['read','write','bash','deliver_stage'].map(name => ({function: {name}})) } }, ctx);
+  assert.equal(payload.reasoning_effort, 'low');
+  if (stage === 'explore') {
+    assert(!payload.tools.some(t => t.function.name === 'bash'));
+    assert(hooks.tool_call({toolName: 'bash'}).block);
+  }
+  if (stage === 'report') assert.deepEqual(payload.tools.map(t => t.function.name), ['deliver_stage']);
+  const data = {stage, axis: 'spec', revision: config.revision, baseline: config.baseline, complete: true,
+    probe_files: ['/offline-only'], verdict: 'BLOCKED_INCOMPLETE_EVIDENCE', claims: Array.from({length: 7}, (_,i) => ({id: 'C' + (i+1), status: 'not_verified'}))};
+  const result = await tools.deliver_stage.execute('fake-submit', {result: JSON.stringify(data)});
+  assert.equal(result.terminate, true);
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(out, 'submission.json'))), data);
+  await assert.rejects(tools.deliver_stage.execute('duplicate', {result: JSON.stringify(data)}));
+  results.push({stage, terminate: true, duplicate_rejected: true});
+}
+fs.writeFileSync(path.join(root, 'delivery-preflight.json'), JSON.stringify({status: 'PASS', real_model_requests: 0, results}, null, 2));
+console.log('delivery preflight PASS; real_model_requests=0');

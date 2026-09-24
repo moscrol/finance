@@ -1,0 +1,190 @@
+{
+  "revision": "7ad61a0d3fd9ee63abe2089a4049a0a1b4a8bc16",
+  "finished_at": "2026-09-23T02:59:43.257469+00:00",
+  "results": [
+    {
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-m",
+        "ruff",
+        "check",
+        "."
+      ],
+      "exit_code": 0,
+      "wall_seconds": 0.23,
+      "identity_stable": true,
+      "log": "ruff.log.txt",
+      "log_sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+      "pytest_receipt_copy": null,
+      "log_tail": [
+        "All checks passed!"
+      ],
+      "runner_error": null
+    },
+    {
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "--basetemp",
+        "/Users/a77/.finance-runtime/reviews/pr868-forward-20260923/gate-7ad61a0d3/pytest-temp",
+        "--junitxml",
+        "/Users/a77/.finance-runtime/reviews/pr868-forward-20260923/gate-7ad61a0d3/pytest-full.xml"
+      ],
+      "exit_code": 0,
+      "wall_seconds": 1108.338,
+      "identity_stable": true,
+      "log": "pytest-full.log.txt",
+      "log_sha256": "943f77dd8db1f18808018c4868b9acfdc15072d624b15830c1c68d073191f792",
+      "pytest_receipt_copy": "pytest-full.pytest-receipt.json",
+      "log_tail": [
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "- generated xml file: /Users/a77/.finance-runtime/reviews/pr868-forward-20260923/gate-7ad61a0d3/pytest-full.xml -",
+        "14921 passed, 85 skipped, 2 xfailed, 17 warnings in 1106.41s (0:18:26)"
+      ],
+      "runner_error": null
+    },
+    {
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/run_frontend_gate.py",
+        "--tree",
+        "/Users/a77/.finance-runtime/reviews/pr868-forward-20260923/finance-workspace-private",
+        "--expect-revision",
+        "7ad61a0d3fd9ee63abe2089a4049a0a1b4a8bc16",
+        "--output",
+        "/Users/a77/.finance-runtime/reviews/pr868-forward-20260923/gate-7ad61a0d3/frontend",
+        "--python",
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "--workbench-port",
+        "19971",
+        "--re06-port",
+        "19974"
+      ],
+      "exit_code": 0,
+      "wall_seconds": 84.685,
+      "identity_stable": true,
+      "log": "frontend.log.txt",
+      "log_sha256": "db60683641e337ea11df95909fccc7a8458cccacf5814fa6699fcdac3bc15d68",
+      "pytest_receipt_copy": null,
+      "log_tail": [
+        "{\"command\": [\"pnpm\", \"build\"], \"exit_code\": 0}",
+        "{\"command\": [\"pnpm\", \"test:e2e\"], \"exit_code\": 0}",
+        "{\"receipt\": \"/Users/a77/.finance-runtime/reviews/pr868-forward-20260923/gate-7ad61a0d3/frontend/frontend.json\", \"exit_code\": 0}"
+      ],
+      "runner_error": null
+    },
+    {
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/review_probes/diagnose_llm_timeout.py",
+        "--output",
+        "/Users/a77/.finance-runtime/reviews/pr868-forward-20260923/gate-7ad61a0d3/strict-deadline.json",
+        "--assert-deadline"
+      ],
+      "exit_code": 0,
+      "wall_seconds": 9.553,
+      "identity_stable": true,
+      "log": "strict-deadline.log.txt",
+      "log_sha256": "cb5022e3fad018d6f5180d7caf716c181048b3f2f219f2a67fca5ccc8fb83e3b",
+      "pytest_receipt_copy": null,
+      "log_tail": [
+        "{\"receipt\": \"/Users/a77/.finance-runtime/reviews/pr868-forward-20260923/gate-7ad61a0d3/strict-deadline.json\", \"deadline_violations\": []}"
+      ],
+      "runner_error": null
+    },
+    {
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "check-parseability"
+      ],
+      "exit_code": 0,
+      "wall_seconds": 0.077,
+      "identity_stable": true,
+      "log": "registry-parse.log.txt",
+      "log_sha256": "b51e9381db04ba38043f910bb96bef5b2fa938766a50778afad648b006d47abe",
+      "pytest_receipt_copy": null,
+      "log_tail": [
+        "[check-parseability] 全部 39 个 SKILL.md frontmatter 可解析、name 与目录名一致。"
+      ],
+      "runner_error": null
+    },
+    {
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "check"
+      ],
+      "exit_code": 0,
+      "wall_seconds": 0.074,
+      "identity_stable": true,
+      "log": "registry-check.log.txt",
+      "log_sha256": "cd23fc68109e09614cda1546571454ec5b5cfc79323009e7435c563b71047b3a",
+      "pytest_receipt_copy": null,
+      "log_tail": [
+        "[check] 部分仓在场（['ws']），跨仓项已跳过；忽略缺仓 skill 23 个。",
+        "[check] 注册表与源一致。"
+      ],
+      "runner_error": null
+    },
+    {
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "backfill-tables",
+        "--check"
+      ],
+      "exit_code": 0,
+      "wall_seconds": 0.074,
+      "identity_stable": true,
+      "log": "registry-tables.log.txt",
+      "log_sha256": "362c2b566827eb15434ae230b1ce60edad2006c45ff08836d0a24fc744447261",
+      "pytest_receipt_copy": null,
+      "log_tail": [
+        "[backfill] 无变化：finance-workspace-private/AGENTS.md",
+        "[backfill --check] 文档 skill 表与注册表一致。"
+      ],
+      "runner_error": null
+    },
+    {
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "generate-views",
+        "--check"
+      ],
+      "exit_code": 0,
+      "wall_seconds": 0.069,
+      "identity_stable": true,
+      "log": "registry-views.log.txt",
+      "log_sha256": "9730a43a0a4535867153d7ac0afd888b1feaaa96f3846b2922c39a16ad068e89",
+      "pytest_receipt_copy": null,
+      "log_tail": [
+        "[generate-views --check] agent 目录视图与 skills/ 源一致。"
+      ],
+      "runner_error": null
+    },
+    {
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/audit_ledger_spec_crosswalk.py"
+      ],
+      "exit_code": 0,
+      "wall_seconds": 0.128,
+      "identity_stable": true,
+      "log": "ledger-crosswalk.log.txt",
+      "log_sha256": "625e9c684ac8b88b69d45e118ba51a89b3269c45bd18131a7829a4dde02b6980",
+      "pytest_receipt_copy": null,
+      "log_tail": [
+        "✓ 订正传播：无同号在途交接落后于 spec",
+        "",
+        "✅ 通过（exit 0 只对上面那个 revision 的工作树内容成立）"
+      ],
+      "runner_error": null
+    }
+  ]
+}

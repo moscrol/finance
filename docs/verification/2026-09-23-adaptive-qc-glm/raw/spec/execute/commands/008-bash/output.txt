@@ -1,0 +1,24 @@
+/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260923-1707/spec/work/phase-context/explore/:
+total 56
+drwxr-xr-x@  7 a77  staff    224 Sep 23 17:28 .
+drwxr-xr-x@  3 a77  staff     96 Sep 23 17:28 ..
+-rw-r--r--@  1 a77  staff   2623 Sep 23 17:28 REPORT.md
+drwxr-xr-x@ 25 a77  staff    800 Sep 23 17:28 commands
+-rw-r--r--@  1 a77  staff  17226 Sep 23 17:28 copy-manifest.json
+drwxr-xr-x@  6 a77  staff    192 Sep 23 17:28 original-probes
+-rw-r--r--@  1 a77  staff   1307 Sep 23 17:28 parsed.json
+
+/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260923-1707/spec/work/probes/:
+total 24
+drwxr-xr-x@  5 a77  staff   160 Sep 23 17:20 .
+drwxr-xr-x@ 12 a77  staff   384 Sep 23 17:28 ..
+-rw-r--r--@  1 a77  staff  3169 Sep 23 17:19 probe_c1_stalled_parent.py
+-rw-r--r--@  1 a77  staff  3219 Sep 23 17:19 probe_c1_stream_deadline.py
+-rw-r--r--@  1 a77  staff  3286 Sep 23 17:21 probe_c4_wrapper_deadline.py
+
+/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260923-1707/spec/work/tmp/:
+total 0
+drwxr-xr-x@  3 a77  staff   96 Sep 23 17:16 .
+drwxr-xr-x@ 12 a77  staff  384 Sep 23 17:28 ..
+drwxr-xr-x@  2 a77  staff   64 Sep 23 17:16 jiti
+assert 1 == 2, "intentional probe_bug control"

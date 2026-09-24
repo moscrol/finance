@@ -1,0 +1,97 @@
+{
+  "complete": true,
+  "verdict": "CHANGES_REQUIRED",
+  "claims": [
+    {
+      "id": "C1",
+      "status": "not_verified",
+      "evidence": "probe_c1_transport_v2 (cmd 014): A/D/E/F/G PASS（成功读、共享deadline 0.51s 停、停滞父进程 rc=124、过期不 spawn、G spawn+request_sent 计入 0.6s 预算）。但 B_trickle_deadline 与 C_stream_cancel 观察为 'completed, no trigger'：trickle 流（10×0.3s）在 1.2s 绝对 deadline 下迭代完成未触发 HTTPDeadlineExceeded，流中 is_cancelled 亦未触发 HTTPStreamCancelled。未运行修正变体以排除探针缺陷，流式读取/取消受 deadline 强制中止这一核心断言未获验证。"
+    },
+    {
+      "id": "C2",
+      "status": "verified",
+      "evidence": "probe_c2_refine_calls (cmd 015) 8/8 PASS：五个调用点 (_post_chat/_post_chat_synthesis/_post_chat_message/_post_chat_message_stream/_post_chat_stream) 经 override 记录验证共享 Deadline 对象同一转发、流式 is_cancelled 转发；无 deadline 时自建；B 真实传输 10s+0.5s 于 0.51s LLMDeadlineExceeded；C 台账耗尽 LLMCallBudgetExceeded 且 opener=0 次。限：override 注入非生产路径，生产路径仅经 B 部分真实传输补强。"
+    },
+    {
+      "id": "C3",
+      "status": "not_verified",
+      "evidence": "probe_c3_c5_judge_window.py 已编写但未执行（阶段被关闭，cmd 015 后无其输出）。晚判官载荷拒绝、report_received=False、unavailable=True 均无行为证据。"
+    },
+    {
+      "id": "C4",
+      "status": "verified",
+      "evidence": "probe_c1 D：timeout=10 + 共享 Deadline 0.5s 对 2.9s 服务 0.51s 停止 HTTPDeadlineExceeded；probe_c2 B 在 _post_chat 真实传输层同样 0.51s LLMDeadlineExceeded。共享 deadline 而非每调用 timeout 生效。限：仅覆盖 _post_chat 一条调用路径的行为级验证。"
+    },
+    {
+      "id": "C5",
+      "status": "not_verified",
+      "evidence": "probe_c3_c5 未执行。根剩余 0 / 判官子窗耗尽的区分及 leftover 三态均无行为证据；仅 probe_c2 C 证实预算耗尽时无 HTTP 请求且无新预订（该部分 verified）。"
+    },
+    {
+      "id": "C6",
+      "status": "verified",
+      "evidence": "probe_c1 G：0.6s 预算内 events=['spawn_started','spawned','request_sent']，被 1.5s header 延迟打断 elapsed=0.61 —— 子进程启动计入授予预算。"
+    },
+    {
+      "id": "C7",
+      "status": "out_of_scope",
+      "evidence": "范围/台账性声明：历史 receipt 不覆盖当前候选，无需行为验证；本次亦未将历史 receipt 计入当前测试数。"
+    }
+  ],
+  "findings": [
+    {
+      "severity": "major",
+      "file": "intelligence/services/llm_http_transport.py",
+      "line": "unknown",
+      "trigger": "probe_c1_transport_v2 B_trickle_deadline：trickle 流式响应(10×0.3s)在 1.2s 绝对 deadline 下迭代完成",
+      "observed": "未触发 HTTPDeadlineExceeded，'completed, no trigger'",
+      "impact": "若非探针缺陷，则 C1 声称的流式读取纳入绝对 deadline 的强制终止在该观测场景未生效"
+    },
+    {
+      "severity": "major",
+      "file": "intelligence/services/llm_http_transport.py",
+      "line": "unknown",
+      "trigger": "probe_c1_transport_v2 C_stream_cancel：收到 2 块后 is_cancelled=True",
+      "observed": "未触发 HTTPStreamCancelled，'completed, no trigger'",
+      "impact": "若非探针缺陷，则流中取消终止未生效；两条均未做修正变体复测，保留探针缺陷可能"
+    }
+  ],
+  "author_tests": {
+    "passed": 10,
+    "failed": 0,
+    "detail": "pytest -k violation_uses/cli_strict/existing_receipt/rejects_unbounded/endpoint_guard on test_llm_timeout_diagnostic.py：10 passed, 25 deselected (cmd 012, exit 0)。前两次因沙箱对 reviews 父目录 stat 禁止收集失败(exit 2/4)，改用本地 pytest.ini+rootdir 且测试文件复制自 candidate、PYTHONPATH=candidate，产品代码未绕过。"
+  },
+  "reviewer_probes": {
+    "passed": 12,
+    "failed": 2,
+    "detail": "probe_c1_transport_v2: 5/7 PASS (B、C FAIL)；probe_c2_refine_calls: 8/8 PASS；probe_c3_c5_judge_window: 未执行。"
+  },
+  "intentional_control": {
+    "observed_failed": true,
+    "detail": "positive_control.py exit 1，AssertionError 'intentional probe_bug control'，按预期失败，非产品缺陷。"
+  },
+  "failures": [
+    {
+      "command": "probe_c1 B_trickle_deadline / C_stream_cancel",
+      "classification": "product_suspect_or_probe_bug",
+      "reason": "观察为未触发中断即完成；未运行修正变体，不能归因"
+    },
+    {
+      "command": "两次 pytest 直指 candidate 路径",
+      "classification": "environment/sandbox",
+      "reason": "PermissionError 对 reviews 上级目录；已用本地 ini+rootdir 适配成功"
+    }
+  ],
+  "limits": [
+    "C3/C5 行为探针未执行（阶段关闭），报告不视为通过",
+    "B/C 流式中断失败未做修正复测，无法区分产品缺陷与探针缺陷",
+    "C2 五点转发经 override 注入验证，非生产路径；行为级仅 _post_chat 一条",
+    "作者测试仅跑验证类 10 项，loopback 广义作者测试未运行",
+    "沙箱限制 reviews 父目录遍历，需 pytest 适配",
+    "自然 L6 仍 NOT_PASSED，latest-head/main 门禁不在本评审范围"
+  ],
+  "stage": "report",
+  "axis": "quality",
+  "revision": "5e6974d3946f48c4f27c8847830d1a17c0529b41",
+  "baseline": "c9dd71dfd678855b61662100ec74625b92ad1f1b"
+}

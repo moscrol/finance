@@ -1,0 +1,1 @@
+/bin/bash: /Users/a77/finance-workbench-private/.venv-workbench/bin/python: No such file or directory

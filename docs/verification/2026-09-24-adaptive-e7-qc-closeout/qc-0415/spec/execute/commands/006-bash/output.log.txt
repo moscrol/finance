@@ -1,0 +1,66 @@
+[
+ {
+  "subcase": "shared_deadline_post_chat",
+  "pass": false,
+  "trigger_reached": false,
+  "exception": null,
+  "wall": 0.069
+ },
+ {
+  "subcase": "shared_deadline_post_chat_synthesis",
+  "pass": false,
+  "trigger_reached": false,
+  "exception": null,
+  "wall": 0.05
+ },
+ {
+  "subcase": "shared_deadline_post_chat_message",
+  "pass": false,
+  "trigger_reached": false,
+  "exception": null,
+  "wall": 0.047
+ },
+ {
+  "subcase": "shared_deadline_post_chat_message_stream",
+  "pass": false,
+  "trigger_reached": false,
+  "exception": "LLMStreamingUnsupported",
+  "wall": 0.042
+ },
+ {
+  "subcase": "shared_deadline_post_chat_stream_raw",
+  "pass": false,
+  "trigger_reached": false,
+  "exception": "LLMStreamingUnsupported",
+  "wall": 0.044
+ },
+ {
+  "subcase": "success_post_chat",
+  "pass": true,
+  "trigger_reached": true,
+  "exception": null,
+  "content": "hello"
+ },
+ {
+  "subcase": "cancel_tools_stream",
+  "pass": false,
+  "trigger_reached": false,
+  "exception": "LLMStreamingUnsupported",
+  "cancel_to_stop": null
+ },
+ {
+  "subcase": "zero_budget_no_http",
+  "pass": true,
+  "trigger_reached": true,
+  "exception": "LLMCallBudgetExceeded",
+  "wall": 0.0
+ },
+ {
+  "subcase": "expired_root_no_http",
+  "pass": true,
+  "trigger_reached": true,
+  "exception": "LLMDeadlineExceeded",
+  "wall": 0.0
+ }
+]
+SUBCASES total=9 failed=6 ['shared_deadline_post_chat', 'shared_deadline_post_chat_synthesis', 'shared_deadline_post_chat_message', 'shared_deadline_post_chat_message_stream', 'shared_deadline_post_chat_stream_raw', 'cancel_tools_stream']

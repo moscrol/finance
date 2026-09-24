@@ -1,0 +1,6 @@
+[{"axis": "spec", "case": "original-policy", "exit_code": 0, "stderr": "", "original_predicate": false}, {"axis": "spec", "case": "deny-cli-control", "exit_code": 71, "stderr": "sandbox-exec: execvp() of '/usr/bin/security' failed: Operation not permitted\n", "original_predicate": false}, {"axis": "quality", "case": "original-policy", "exit_code": 0, "stderr": "", "original_predicate": false}, {"axis": "quality", "case": "deny-cli-control", "exit_code": 71, "stderr": "sandbox-exec: execvp() of '/usr/bin/security' failed: Operation not permitted\n", "original_predicate": false}]
+Traceback (most recent call last):
+  File "/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0326/probe_review_cli_boundary_v2.py", line 28, in <module>
+    assert all(x['original_predicate'] for x in rows if x['case']=='deny-cli-control')
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError

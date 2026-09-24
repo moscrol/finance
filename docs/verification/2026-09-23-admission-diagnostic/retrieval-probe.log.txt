@@ -1,0 +1,24 @@
+{"event": "started", "elapsed_seconds": 3e-06}
+{"event": "import_started", "elapsed_seconds": 0.000406}
+{"event": "import_complete", "elapsed_seconds": 0.20032}
+{"event": "load_started", "elapsed_seconds": 0.200454}
+{"event": "load_complete", "elapsed_seconds": 27.180347}
+{"event": "encode_started", "elapsed_seconds": 27.951085}
+Timeout (0:00:30)!
+Thread 0x00000001ef5218c0 (most recent call first):
+  File "/Users/a77/knowledge-base-private/.rag_venv/lib/python3.14/site-packages/torch/nn/modules/module.py", line 995 in _apply
+  File "/Users/a77/knowledge-base-private/.rag_venv/lib/python3.14/site-packages/torch/nn/modules/module.py", line 933 in _apply
+  File "/Users/a77/knowledge-base-private/.rag_venv/lib/python3.14/site-packages/torch/nn/modules/module.py", line 933 in _apply
+  File "/Users/a77/knowledge-base-private/.rag_venv/lib/python3.14/site-packages/torch/nn/modules/module.py", line 933 in _apply
+  File "/Users/a77/knowledge-base-private/.rag_venv/lib/python3.14/site-packages/torch/nn/modules/module.py", line 933 in _apply
+  File "/Users/a77/knowledge-base-private/.rag_venv/lib/python3.14/site-packages/torch/nn/modules/module.py", line 933 in _apply
+  File "/Users/a77/knowledge-base-private/.rag_venv/lib/python3.14/site-packages/torch/nn/modules/module.py", line 933 in _apply
+  File "/Users/a77/knowledge-base-private/.rag_venv/lib/python3.14/site-packages/torch/nn/modules/module.py", line 1383 in to
+  File "/Users/a77/knowledge-base-private/.rag_venv/lib/python3.14/site-packages/FlagEmbedding/inference/embedder/encoder_only/m3.py", line 345 in encode_single_device
+  File "/Users/a77/knowledge-base-private/.rag_venv/lib/python3.14/site-packages/torch/utils/_contextlib.py", line 124 in decorate_context
+  File "/Users/a77/knowledge-base-private/.rag_venv/lib/python3.14/site-packages/FlagEmbedding/abc/inference/AbsEmbedder.py", line 279 in encode
+  File "/Users/a77/knowledge-base-private/.rag_venv/lib/python3.14/site-packages/FlagEmbedding/inference/embedder/encoder_only/m3.py", line 300 in encode
+  File "/Users/a77/knowledge-base-private/skills/lib/rag/embedder.py", line 62 in encode
+  File "/Users/a77/finance-worktrees/adaptive-research-loop/scripts/review_probes/retrieval_readiness_worker.py", line 33 in probe
+  File "/Users/a77/finance-worktrees/adaptive-research-loop/scripts/review_probes/retrieval_readiness_worker.py", line 46 in <module>
+{"event": "complete", "elapsed_seconds": 31.10285, "ready": true, "shape": [1, 1024]}

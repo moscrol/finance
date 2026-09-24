@@ -1,0 +1,104 @@
+{
+  "schema_version": 1,
+  "record_kind": "host_execution_closure_not_independent_verdict",
+  "verdict": "BLOCKED_REVIEW_TRANSPORT_DEADLINE",
+  "independent_review_complete": false,
+  "closed_at": "2026-09-23T07:45:05.930344+00:00",
+  "candidate_revision": "31f1b40dd788d36c71da249d59fb769c50d7cd30",
+  "baseline": "9a02279863733c9b9f60fd92fcc7e840fa83f878",
+  "candidate_path": "/Users/a77/.finance-runtime/reviews/pr868-k3-qc-20260923-1530/candidate/finance-workspace-private",
+  "evidence_root": "/Users/a77/.finance-runtime/reviews/pr868-k3-qc-20260923-1530",
+  "provider": "mirasim-kimi",
+  "requested_model": "kimi-k3",
+  "thinking": "xhigh",
+  "requests": 17,
+  "request_accounting": {
+    "requests": 17,
+    "dispatched": 17,
+    "completed": 16,
+    "failed": 1,
+    "cancelled": 0
+  },
+  "request_count_basis": "durable admission and dispatch-intent logs, corroborated by HTTP headers; not provider billing",
+  "gateway_requests": 3,
+  "spec_requests": 14,
+  "quality_requests": 0,
+  "natural_finance_requests": 0,
+  "automatic_retries": 0,
+  "http_400": 0,
+  "http_429": 0,
+  "request_deadline_hits": 1,
+  "stage_deadline_hits": 0,
+  "stage_elapsed_seconds": 324.64,
+  "stage_limit_seconds": 600,
+  "last_request_elapsed_seconds": 120.006985,
+  "request_limit_seconds": 120,
+  "last_request_http_status": 200,
+  "last_message_error": "terminated",
+  "last_message_had_streamed_data": true,
+  "historical_l6_timeout_root_cause_proven": false,
+  "axes": {
+    "spec": {
+      "explore": "BLOCKED_NO_FINAL",
+      "execute": "NOT_RUN",
+      "report": "NOT_RUN",
+      "claims": {
+        "C1": "not_verified",
+        "C2": "not_verified",
+        "C3": "not_verified",
+        "C4": "not_verified",
+        "C5": "not_verified",
+        "C6": "not_verified",
+        "C7": "not_verified"
+      },
+      "reviewer_probe_files": 0,
+      "reviewer_tests_run": 0
+    },
+    "quality": {
+      "status": "NOT_RUN_AFTER_CANDIDATE_STOP",
+      "offline_sandbox_preflight": "PASS"
+    }
+  },
+  "author_evidence": {
+    "tooling_revision": "2f4b5f089cbdffdb4ebf4ffea1bf0c896cb436a0",
+    "targeted_tests": {
+      "passed": 45,
+      "failed": 0,
+      "error": 0,
+      "skipped": 0,
+      "xfailed": 0,
+      "xpassed": 0
+    },
+    "receipt_path": "/Users/a77/.finance-runtime/test-receipts/20260923T073620Z-2f4b5f08-5a926a26676f.json",
+    "receipt_sha256": "23cb2dc9cac7777f4a1fff8e321fe4591fc5c16fdddbad35e53bc46cdce34a69",
+    "stalled_cancellation_triplet": "PASS; 3 baseline green / 3 mutation red / 3 restoration green",
+    "scope": "not independent K3 review probes; not full-gate or natural-quality evidence"
+  },
+  "positive_control": {
+    "host_sandbox_preflight": "assert 1 == 2 observed exit 1",
+    "independent_execute": "NOT_EXERCISED"
+  },
+  "candidate_clean_before_after": true,
+  "all_owned_processes_exited": true,
+  "private_port_released": 19899,
+  "production_actions": 0,
+  "merge_authorized": false,
+  "merged": false,
+  "deployed": false,
+  "limits": [
+    "No independent probe or final report; no product correctness verdict.",
+    "Transport completed counters are not semantic success counters.",
+    "Usage is partial: interrupted final response reports zero usage, not zero billing.",
+    "Prior L6 remains NOT_PASSED and is not retried or supplemented.",
+    "Full-gate receipt remains bound to 7ad61a0d3; current tooling and joint main are not full-gated.",
+    "Three failed sandbox preflights are retained; final policy uses explicit fake-server port allowlist."
+  ],
+  "source_hashes": {
+    "shim": "b5dd3b1d37524fe8060ed7752f1aaf129aaf877f8799932fad313e7b30cd6055",
+    "cancellation_probe": "594594e47fd757eeca318597202b7c9922a1ae40522b965632a5962c5c0c0928",
+    "manifest": "76a4b6884ad1faef807e7da7983732aa5f7c7951c5c4c312028ae5ca1a7be0b5",
+    "gateway_controller": "a8edaf6b109bb4208f1af636944fcba2f492a2cb09bda3392b82e516fc00dc2f",
+    "explore_controller": "13694e7fd37b2e2b885a56b2a88eebc4ee299a7b6bc110ce18f9062f5f62b763",
+    "explore_execution": "636adb6d3953947e9fe4bbc5f10a9144ef7b66e6fdd7a83ec9f75d7cf085cfae"
+  }
+}

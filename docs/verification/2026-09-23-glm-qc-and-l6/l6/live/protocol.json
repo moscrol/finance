@@ -1,0 +1,48 @@
+{
+  "state": "LIVE_STARTED_PENDING_AUDIT",
+  "frozen_protocol_sha256": "cb1d179ffb4f2e02d74a88b83e72cf24a159aa9066de19fb1757319db912e444",
+  "authorization": {
+    "approved": true,
+    "quote": "那你验证，反正写手可以是不同的llm，然后把75和l6做了",
+    "continuation_quote": "继续",
+    "scope": "New bounded #75 and L6 batches, interchangeable writer/reviewer models; no merge or deployment"
+  },
+  "candidate_revision": "31f1b40dd788d36c71da249d59fb769c50d7cd30",
+  "questions": [
+    {
+      "id": "L6-N1",
+      "text": "海光信息(688041.SH)截至2026年9月22日这轮行情，给我一组可证伪的跟踪条件：需要哪些指标达到什么数值才算逻辑兑现，出现哪些数值算证伪。每个数值请标明它的来源和对应日期。",
+      "requested_capability_mode": "full_read_only",
+      "text_sha256": "da47b7cdc91f73c765a90e33e709534cb0ae9195a08c40b224000844bd1cb35f",
+      "mode": "full_read_only"
+    },
+    {
+      "id": "L6-N2",
+      "text": "只用本地已有资料，不联网：生益科技(600183.SH)2026年9月1日至9月22日的量价表现如何，与所属板块相比强弱如何？给出具体数值、日期和数据来源；本地没有的部分单独列出，不要补。",
+      "requested_capability_mode": "local_only_four_read_only_capabilities",
+      "text_sha256": "1e735b10e66d325b7fe6dfc41c1ae482677eeee6de44fecfe17ad44d4a7b668d",
+      "mode": "local_only_four_read_only_capabilities"
+    },
+    {
+      "id": "L6-N3",
+      "text": "液冷服务器题材截至2026年9月22日这轮行情发酵到哪一步了？给我一组可证伪的跟踪条件，每个数值标明来源和日期。",
+      "requested_capability_mode": "theme_track_full_read_only",
+      "text_sha256": "d1ac4fa30cb1c395e6a5e97382fc083bbb2c27a036ac35073076347e3dfc8026",
+      "mode": "theme_track_full_read_only"
+    }
+  ],
+  "initial_submissions_per_question": 1,
+  "resubmissions": 0,
+  "followups": 0,
+  "concurrency": 1,
+  "workbench_port": 19897,
+  "shim_port": 19898,
+  "writer": "glm-5.3",
+  "judge": "glm-5.3-flash",
+  "semantic_judge": "llm",
+  "evidence_judge": "auto",
+  "data_root": "/Users/a77/.finance-runtime/reviews/pr868-l6-glm-20260923-1945/preparation-coherent/data",
+  "kb_inputs_frozen": false,
+  "external_inputs_frozen": false,
+  "started_at": "2026-09-23T11:55:00.946368+00:00"
+}

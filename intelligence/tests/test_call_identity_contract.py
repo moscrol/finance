@@ -36,7 +36,7 @@ def test_recorded_identity_is_consumed_by_the_batch_gate(monkeypatch, role, repo
         target = verdict["attempt_records"][0]
         reason = "judge_identity_unknown"
     metadata = {"model": target["reported_model"]} if reported else {}
-    monkeypatch.setattr(llm_refine.urllib.request, "urlopen", lambda *a, **k: Response(body(**metadata)))
+    monkeypatch.setattr(llm_refine.llm_http_transport, "urlopen", lambda *a, **k: Response(body(**metadata)))
     with llm_refine.call_ledger_scope() as ledger, llm_refine.call_provenance_scope("contract", role) as context:
         llm_refine._post_chat(PROVIDER, MESSAGES, 5)
     observed = ledger.records_for_call("contract")[0]
@@ -72,7 +72,7 @@ def test_billing_and_identity_survive_both_ledger_projections(monkeypatch, trans
     usage = {"usage": {"input_tokens": 11, "output_tokens": 7}} if has_usage else {}
     provider = PROVIDER
     if transport == "http":
-        monkeypatch.setattr(llm_refine.urllib.request, "urlopen", lambda *a, **k: Response(body(**metadata, **usage)))
+        monkeypatch.setattr(llm_refine.llm_http_transport, "urlopen", lambda *a, **k: Response(body(**metadata, **usage)))
     else:
         original = grok_cli_judge.complete_grok_cli
         monkeypatch.setattr(grok_cli_judge, "resolve_grok_binary", lambda: "/fixture/grok")

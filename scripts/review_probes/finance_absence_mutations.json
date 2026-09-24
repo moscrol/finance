@@ -1,0 +1,44 @@
+[
+  {
+    "id": "empty-loses-boundary",
+    "path": "intelligence/services/finance_query.py",
+    "old": "\"不证明事件未发生，也不证明数据覆盖完整。\"",
+    "new": "\"\"",
+    "targets": ["test_successful_empty_query_only_describes_local_match"]
+  },
+  {
+    "id": "historical-nonmatch-becomes-exit",
+    "path": "intelligence/services/episode_tools.py",
+    "old": "\"未命中不证明事件未发生；最新日期不证明逐日覆盖完整。\"",
+    "new": "\"构成要素退出，非数据陈旧。\"",
+    "targets": ["test_local_registry_preserves_absence_boundary_through_model_projection"]
+  },
+  {
+    "id": "historical-gap-lost",
+    "path": "intelligence/services/episode_tools.py",
+    "old": "gaps=(\n            \"当前筛选缺少请求时点记录；历史记录不代替请求窗口内缺失的事实，\"\n            \"也不能据此断言事件未发生。\",\n        ),",
+    "new": "gaps=(),",
+    "targets": ["test_local_registry_preserves_absence_boundary_through_model_projection"]
+  },
+  {
+    "id": "writer-loses-unattempted-rule",
+    "path": "intelligence/services/episode_protocol.py",
+    "old": "\"未查询或调用失败只能写尚未查证，不得写成本地没有记录。\\n\"",
+    "new": "\"\\n\"",
+    "targets": ["test_writer_distinguishes_nonmatch_from_unattempted_and_absent_event"]
+  },
+  {
+    "id": "branch-gap-becomes-receipt",
+    "path": "intelligence/services/research_harness.py",
+    "old": "\"分支 gaps 是待核验声明，不是事实证据或查询收据；\"",
+    "new": "\"分支 gaps 是已核实查询收据；\"",
+    "targets": ["test_default_project_sub_research_equals_inline_projection"]
+  },
+  {
+    "id": "judge-loses-negative-fact-rule",
+    "path": "intelligence/services/episode_semantic_verifier.py",
+    "old": "\"否定事实与肯定事实使用同一证据标准：未命中不等于事件未发生。\"",
+    "new": "\"\"",
+    "targets": ["test_judge_checks_negative_facts_and_unverified_gap_claims_on_wire"]
+  }
+]

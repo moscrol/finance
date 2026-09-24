@@ -1,0 +1,10 @@
+A: result=None reason='LLM 合成超过共享截止时间，已降级为模板' dt=0.01 hits+=0
+B: result=None reason='LLM 合成超过共享截止时间，已降级为模板' dt=1.51 hits=1
+Traceback (most recent call last):
+  File "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260923-1707/spec/work/probes/probe_c4_wrapper_deadline.py", line 83, in <module>
+    main()
+  File "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260923-1707/spec/work/probes/probe_c4_wrapper_deadline.py", line 72, in main
+    assert len(server_hit) == 2 or len(server_hit) >= 2, "fixture was not called in case B"
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: fixture was not called in case B
+EXIT=1

@@ -93,7 +93,7 @@ class LLMCallLedgerTests(unittest.TestCase):
     def test_complete_records_success_attempt(self) -> None:
         with llm_refine.provider_override(self._provider()):
             with mock.patch.object(
-                llm_refine.urllib.request,
+                llm_refine.llm_http_transport,
                 "urlopen",
                 return_value=_fake_urlopen_response(_CHAT_PAYLOAD),
             ):
@@ -113,7 +113,7 @@ class LLMCallLedgerTests(unittest.TestCase):
     def test_failed_attempt_is_recorded(self) -> None:
         with llm_refine.provider_override(self._provider()):
             with mock.patch.object(
-                llm_refine.urllib.request,
+                llm_refine.llm_http_transport,
                 "urlopen",
                 side_effect=OSError("boom"),
             ):
@@ -132,7 +132,7 @@ class LLMCallLedgerTests(unittest.TestCase):
         """失败必须留下可聚合的原因——否则无法回答"为什么 35% 的调用失败"。"""
         with llm_refine.provider_override(self._provider()):
             with mock.patch.object(
-                llm_refine.urllib.request,
+                llm_refine.llm_http_transport,
                 "urlopen",
                 side_effect=TimeoutError("slow"),
             ):
@@ -148,7 +148,7 @@ class LLMCallLedgerTests(unittest.TestCase):
         )
         with llm_refine.provider_override(self._provider()):
             with mock.patch.object(
-                llm_refine.urllib.request, "urlopen", side_effect=error
+                llm_refine.llm_http_transport, "urlopen", side_effect=error
             ):
                 with llm_refine.call_ledger_scope() as ledger:
                     llm_refine.complete([{"role": "user", "content": "hi"}])
@@ -163,7 +163,7 @@ class LLMCallLedgerTests(unittest.TestCase):
         """
         with llm_refine.provider_override(self._provider()):
             with mock.patch.object(
-                llm_refine.urllib.request, "urlopen"
+                llm_refine.llm_http_transport, "urlopen"
             ) as urlopen:
                 with llm_refine.call_ledger_scope() as ledger:
                     content, _prov, reason = llm_refine.complete(
@@ -185,7 +185,7 @@ class LLMCallLedgerTests(unittest.TestCase):
         """
         with llm_refine.provider_override(self._provider()):
             with mock.patch.object(
-                llm_refine.urllib.request,
+                llm_refine.llm_http_transport,
                 "urlopen",
                 return_value=_fake_urlopen_response(_CHAT_PAYLOAD),
             ):
@@ -199,7 +199,7 @@ class LLMCallLedgerTests(unittest.TestCase):
     def test_sufficient_budget_still_calls(self) -> None:
         with llm_refine.provider_override(self._provider()):
             with mock.patch.object(
-                llm_refine.urllib.request,
+                llm_refine.llm_http_transport,
                 "urlopen",
                 return_value=_fake_urlopen_response(_CHAT_PAYLOAD),
             ):
@@ -216,7 +216,7 @@ class LLMCallLedgerTests(unittest.TestCase):
     def test_no_ledger_scope_is_zero_overhead(self) -> None:
         with llm_refine.provider_override(self._provider()):
             with mock.patch.object(
-                llm_refine.urllib.request,
+                llm_refine.llm_http_transport,
                 "urlopen",
                 return_value=_fake_urlopen_response(_CHAT_PAYLOAD),
             ):
@@ -259,7 +259,7 @@ class LLMCallLedgerTests(unittest.TestCase):
     def test_synthesis_attempt_is_recorded(self) -> None:
         with llm_refine.provider_override(self._provider()):
             with mock.patch.object(
-                llm_refine.urllib.request,
+                llm_refine.llm_http_transport,
                 "urlopen",
                 return_value=_fake_urlopen_response(_CHAT_PAYLOAD),
             ):
@@ -279,7 +279,7 @@ class LLMCallLedgerTests(unittest.TestCase):
         """硬预算：尝试数达上限后新调用被拒发（不发 HTTP），graceful 降级。"""
         with llm_refine.provider_override(self._provider()):
             with mock.patch.object(
-                llm_refine.urllib.request,
+                llm_refine.llm_http_transport,
                 "urlopen",
                 return_value=_fake_urlopen_response(_CHAT_PAYLOAD),
             ) as urlopen:
@@ -321,7 +321,7 @@ class LLMCallLedgerTests(unittest.TestCase):
             return_value=[first, second],
         ):
             with mock.patch.object(
-                llm_refine.urllib.request,
+                llm_refine.llm_http_transport,
                 "urlopen",
                 side_effect=OSError("boom"),
             ) as urlopen:
@@ -358,7 +358,7 @@ class LLMCallLedgerTests(unittest.TestCase):
     def test_synthesis_retry_does_not_sleep_after_budget_is_spent(self) -> None:
         with llm_refine.provider_override(self._provider()):
             with mock.patch.object(
-                llm_refine.urllib.request,
+                llm_refine.llm_http_transport,
                 "urlopen",
                 side_effect=OSError("boom"),
             ) as urlopen:
@@ -376,7 +376,7 @@ class LLMCallLedgerTests(unittest.TestCase):
     def test_no_limit_never_rejects(self) -> None:
         with llm_refine.provider_override(self._provider()):
             with mock.patch.object(
-                llm_refine.urllib.request,
+                llm_refine.llm_http_transport,
                 "urlopen",
                 side_effect=lambda *a, **k: _fake_urlopen_response(_CHAT_PAYLOAD),
             ):

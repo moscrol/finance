@@ -1,0 +1,3107 @@
+{
+  "qc/adapter-preflight.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/adapter-preflight.json",
+    "sha256": "a402f40acd1088645c75582e61dcdbd2a17f34021581474e45c55c2bcb8749c1",
+    "bytes": 228
+  },
+  "qc/authorization.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/authorization.json",
+    "sha256": "24dc7090a3eca6e67cd0c813c31b4a45addb23155d3d51989ec6d630c83e2ecf",
+    "bytes": 4931
+  },
+  "qc/bridge_stage.py": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/bridge_stage.py",
+    "sha256": "813efd28af383f17d92e708eb8b0e263a3d908dd4d1d0b6e2d61638a72784f3b",
+    "bytes": 2157
+  },
+  "qc/glm_credential.py": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/glm_credential.py",
+    "sha256": "f1ec56c9da53d644a0a4de09d413faadd83d99302296f3cee9bd8186565616c6",
+    "bytes": 1478
+  },
+  "qc/glm_review_shim.py": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/glm_review_shim.py",
+    "sha256": "5c26084237b366b9d7b758f7811536a767819b4d23c5fd72f54785014e9c28b5",
+    "bytes": 11782
+  },
+  "qc/merge-check.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/merge-check.json",
+    "sha256": "7ba9b1ff3621ae14607ff8cad13233ce8fc98f0a3c7759d701d53a24e1c48c39",
+    "bytes": 288
+  },
+  "qc/probe_adapter.py": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/probe_adapter.py",
+    "sha256": "96404d5b18ac2d0fcf18084a5d00de8301b09672eda2c45823f8f349fe08406d",
+    "bytes": 2824
+  },
+  "qc/quality/config.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/config.json",
+    "sha256": "9ebb8e8efd31915061de7702f412c423a9eba39a41ba35d716804f2e0493b897",
+    "bytes": 877
+  },
+  "qc/quality/execute/REPORT.md": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/execute/REPORT.md",
+    "sha256": "01c9703dffdd624e659e7dc8e3f9899baef62f34aac27d348c89c4dbb0f7762c",
+    "bytes": 4570
+  },
+  "qc/quality/execute/auth-reserved.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/execute/auth-reserved.json",
+    "sha256": "89d3a977d27d8a5032bbf88f303e090c5d2b24e52f34c59a7f97a56857472e04",
+    "bytes": 40
+  },
+  "qc/quality/execute/commands/001-read/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/execute/commands/001-read/output.log",
+    "sha256": "fd509ead87a7dd1fd99ae229c09ed6a493d7963032882f1d4400b3f440cd7516",
+    "bytes": 2831
+  },
+  "qc/quality/execute/commands/001-read/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/execute/commands/001-read/request.json",
+    "sha256": "0ff8e206da7e434460a18f23ebbb0b26f7b14eaafa854f572faa934003f23ed2",
+    "bytes": 166
+  },
+  "qc/quality/execute/commands/001-read/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/execute/commands/001-read/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/quality/execute/commands/002-read/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/execute/commands/002-read/output.log",
+    "sha256": "2b05b503998ad761f7e9500bc7f94bfb2cf7d7ae189954b2b222917299c5d11e",
+    "bytes": 3346
+  },
+  "qc/quality/execute/commands/002-read/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/execute/commands/002-read/request.json",
+    "sha256": "01f9a5202c6cf42e300cd52bfdcd486b644b237c6e0290525e335e1fb3cb9015",
+    "bytes": 163
+  },
+  "qc/quality/execute/commands/002-read/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/execute/commands/002-read/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/quality/execute/commands/003-bash/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/execute/commands/003-bash/output.log",
+    "sha256": "79e6535154d064bdd3404ee4d267eee4e00529a9a980c5fc3f0f77e2df4c85d1",
+    "bytes": 5040
+  },
+  "qc/quality/execute/commands/003-bash/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/execute/commands/003-bash/request.json",
+    "sha256": "31232cfa25636c6f37dba33a6a7da42d63181115e94fd22ce811ef65f3ca7726",
+    "bytes": 264
+  },
+  "qc/quality/execute/commands/003-bash/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/execute/commands/003-bash/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/quality/execute/commands/004-bash/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/execute/commands/004-bash/output.log",
+    "sha256": "780b7299e897830b9b36779088b9ec1b08911b56b18a1244982e2f66245d8858",
+    "bytes": 823
+  },
+  "qc/quality/execute/commands/004-bash/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/execute/commands/004-bash/request.json",
+    "sha256": "e9ba4fd6690054a79593a25f8c50f91296a74a1fc05bdb21e1d6d890b3ae79c3",
+    "bytes": 203
+  },
+  "qc/quality/execute/commands/004-bash/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/execute/commands/004-bash/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/quality/execute/commands/005-bash/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/execute/commands/005-bash/output.log",
+    "sha256": "3668d05992cce11e8fc87c409f4b2bf37edc3f3e60491af2503293f8efb3451e",
+    "bytes": 453
+  },
+  "qc/quality/execute/commands/005-bash/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/execute/commands/005-bash/request.json",
+    "sha256": "fbd586dc1254a21984c515ac35ec58bd99a31affe987d5cf55741657b86ac7ac",
+    "bytes": 209
+  },
+  "qc/quality/execute/commands/005-bash/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/execute/commands/005-bash/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/quality/execute/commands/006-bash/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/execute/commands/006-bash/output.log",
+    "sha256": "5a8f842590b331239c1b51c64d744160a1f1e2e5af651f4538be2fe3b3dd81c4",
+    "bytes": 150
+  },
+  "qc/quality/execute/commands/006-bash/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/execute/commands/006-bash/request.json",
+    "sha256": "37f61055bdb5463b27c41b1527114e3dfe999e9832703ea0c24232035717917f",
+    "bytes": 201
+  },
+  "qc/quality/execute/commands/006-bash/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/execute/commands/006-bash/result.json",
+    "sha256": "6dd384dafcd1f8034d532040b96b51f8545551a0b584fa1c8abf7018249012ee",
+    "bytes": 14
+  },
+  "qc/quality/execute/commands/007-bash/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/execute/commands/007-bash/output.log",
+    "sha256": "c15c4057e7b0349eb1f0a11d525dff1bdfddb99fd5e94847125f7e46d839fc6d",
+    "bytes": 115
+  },
+  "qc/quality/execute/commands/007-bash/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/execute/commands/007-bash/request.json",
+    "sha256": "78ff64155432d40c8c4822838fa9625e8006853e86aa098ef7212b78734dbbee",
+    "bytes": 184
+  },
+  "qc/quality/execute/commands/007-bash/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/execute/commands/007-bash/result.json",
+    "sha256": "d67659d29dad50e65ac903e33dc7ef4a692331d96253553956300d1fcfa5786a",
+    "bytes": 14
+  },
+  "qc/quality/execute/commands/008-bash/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/execute/commands/008-bash/output.log",
+    "sha256": "31c69742352fd8a49fb9e901b24893a360b763f67140367584ba46cbbac7931c",
+    "bytes": 99
+  },
+  "qc/quality/execute/commands/008-bash/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/execute/commands/008-bash/request.json",
+    "sha256": "5f21adc5c108e922df26049576f9a6b29ba3dfa5b0919e0370c24ef1f92bfde9",
+    "bytes": 200
+  },
+  "qc/quality/execute/commands/008-bash/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/execute/commands/008-bash/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/quality/execute/commands/009-bash/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/execute/commands/009-bash/output.log",
+    "sha256": "a1f89892195977f38052583c46a42b92eac7f64467847562c6f2465843dab9f5",
+    "bytes": 143
+  },
+  "qc/quality/execute/commands/009-bash/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/execute/commands/009-bash/request.json",
+    "sha256": "b1a966699f1d2d7cf811de67894b57da7696d2b7a2b92f32e2567b94aab90590",
+    "bytes": 197
+  },
+  "qc/quality/execute/commands/009-bash/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/execute/commands/009-bash/result.json",
+    "sha256": "6dd384dafcd1f8034d532040b96b51f8545551a0b584fa1c8abf7018249012ee",
+    "bytes": 14
+  },
+  "qc/quality/execute/commands/010-bash/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/execute/commands/010-bash/output.log",
+    "sha256": "ce9cc463668c31fff0663c910ed9b2ad09b067b482c9c51355a2964b68e10f74",
+    "bytes": 96
+  },
+  "qc/quality/execute/commands/010-bash/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/execute/commands/010-bash/request.json",
+    "sha256": "d5af4d84b20d0648e89b286d02d90a9a862f8dd4c66fd51934e059e6c1ab6815",
+    "bytes": 179
+  },
+  "qc/quality/execute/commands/010-bash/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/execute/commands/010-bash/result.json",
+    "sha256": "d67659d29dad50e65ac903e33dc7ef4a692331d96253553956300d1fcfa5786a",
+    "bytes": 14
+  },
+  "qc/quality/execute/commands/011-write/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/execute/commands/011-write/output.log",
+    "sha256": "7677209547e692c6e4f3acb5af4d8ff22209ce995c2fb2159c07cd380dca73f5",
+    "bytes": 122
+  },
+  "qc/quality/execute/commands/011-write/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/execute/commands/011-write/request.json",
+    "sha256": "2c2b40b48edf7f880720bd3c3b9ce3688ea47a1f6ab6cee0d2841d2351a335fe",
+    "bytes": 512
+  },
+  "qc/quality/execute/commands/011-write/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/execute/commands/011-write/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/quality/execute/commands/012-bash/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/execute/commands/012-bash/output.log",
+    "sha256": "08589e8084a48c76e8055fa8366bfe063dda1ed22bf382ad990f99fffb1918d8",
+    "bytes": 287
+  },
+  "qc/quality/execute/commands/012-bash/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/execute/commands/012-bash/request.json",
+    "sha256": "15330042d83bf0ecec749b3ed87768d45e4217ea71d879a7d31295fcd5d073c7",
+    "bytes": 239
+  },
+  "qc/quality/execute/commands/012-bash/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/execute/commands/012-bash/result.json",
+    "sha256": "d67659d29dad50e65ac903e33dc7ef4a692331d96253553956300d1fcfa5786a",
+    "bytes": 14
+  },
+  "qc/quality/execute/commands/013-bash/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/execute/commands/013-bash/output.log",
+    "sha256": "9dffd01f20fe82455a43304c73ba4265224441a05ee17c510dd783981f274948",
+    "bytes": 777
+  },
+  "qc/quality/execute/commands/013-bash/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/execute/commands/013-bash/request.json",
+    "sha256": "a2ba2cda6ecbaf650dadb0726ebf9b2785b8a32a25476d533e3e9a76740bed02",
+    "bytes": 192
+  },
+  "qc/quality/execute/commands/013-bash/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/execute/commands/013-bash/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/quality/execute/commands/014-deliver_stage/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/execute/commands/014-deliver_stage/request.json",
+    "sha256": "e2f67b341a7b61c955f1b415aa230928346b640faf54338da02beb05d1f41483",
+    "bytes": 4241
+  },
+  "qc/quality/execute/commands/014-deliver_stage/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/execute/commands/014-deliver_stage/result.json",
+    "sha256": "01570f0a8a48e48321e2e60514d8cda7b5142196a2d5565030f21130e41735e1",
+    "bytes": 35
+  },
+  "qc/quality/execute/credential.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/execute/credential.json",
+    "sha256": "5d6c5124a4f085ec1705fb08673d36708781e166f1e4939b110c6be57ff5c3c8",
+    "bytes": 292
+  },
+  "qc/quality/execute/events.jsonl": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/execute/events.jsonl",
+    "sha256": "dec587ede1a96a5426c139c5a6b28ac4ff80c8abb2197731461ffb12f4fc161a",
+    "bytes": 328130
+  },
+  "qc/quality/execute/execution.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/execute/execution.json",
+    "sha256": "bdb6a0e789a667cfd41814c8570de0008b70d5ee3c71d97f0a55ff7823578aef",
+    "bytes": 9554
+  },
+  "qc/quality/execute/parsed.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/execute/parsed.json",
+    "sha256": "73242d5e4ef518f388b07b3fca734416ec03861220cf683f2041266fa27bb589",
+    "bytes": 4558
+  },
+  "qc/quality/execute/payload-shapes.jsonl": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/execute/payload-shapes.jsonl",
+    "sha256": "c9b738463719619bba9b05abc04cc0024a8dd5268dd0c9bda4ab166142d169a3",
+    "bytes": 3340
+  },
+  "qc/quality/execute/request-admissions.jsonl": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/execute/request-admissions.jsonl",
+    "sha256": "2348890da56788e5de8550c3213914aae6360777044fd1f58e684c98c2090b81",
+    "bytes": 2081
+  },
+  "qc/quality/execute/responses.jsonl": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/execute/responses.jsonl",
+    "sha256": "a1a142d38b1c8b22706b7096e140f34377cf344f48e284e5bf7dd87565273f64",
+    "bytes": 501
+  },
+  "qc/quality/execute/stderr.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/execute/stderr.log",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0
+  },
+  "qc/quality/execute/submission.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/execute/submission.json",
+    "sha256": "73242d5e4ef518f388b07b3fca734416ec03861220cf683f2041266fa27bb589",
+    "bytes": 4558
+  },
+  "qc/quality/execute/tool-menu.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/execute/tool-menu.json",
+    "sha256": "031219d7560595519047d75f96150dafbbf65dc463bd3f8c20d208242e95ad67",
+    "bytes": 199
+  },
+  "qc/quality/execute-shim/counts.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/execute-shim/counts.json",
+    "sha256": "f1a1185999de6bb1d513ea8db70a87828aa6f7bdf0bbc39388c185ccd58870b1",
+    "bytes": 168
+  },
+  "qc/quality/execute-shim/requests.jsonl": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/execute-shim/requests.jsonl",
+    "sha256": "34f556789fb2e432b39b10a03b1b24d39dc442938e0b04461e51e859ad73aa7f",
+    "bytes": 6738
+  },
+  "qc/quality/execute.controller.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/execute.controller.json",
+    "sha256": "b9e8a1b209f7d4048a49b6c01b9cb48d01efa6ef1cd9bba04b5596337f117fda",
+    "bytes": 561
+  },
+  "qc/quality/execute.controller.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/execute.controller.log",
+    "sha256": "7a61b0554d2e74bc52908ccecd035fb7edeb77d43cff18a25c206226b3097079",
+    "bytes": 631
+  },
+  "qc/quality/execute.shim-stderr.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/execute.shim-stderr.log",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0
+  },
+  "qc/quality/explore/REPORT.md": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/explore/REPORT.md",
+    "sha256": "5842b3fe1a4830830ba66044da115c8a4b57511a9f721222ca540fed6db1c21a",
+    "bytes": 2843
+  },
+  "qc/quality/explore/auth-reserved.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/explore/auth-reserved.json",
+    "sha256": "89d3a977d27d8a5032bbf88f303e090c5d2b24e52f34c59a7f97a56857472e04",
+    "bytes": 40
+  },
+  "qc/quality/explore/commands/001-read/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/explore/commands/001-read/output.log",
+    "sha256": "2b05b503998ad761f7e9500bc7f94bfb2cf7d7ae189954b2b222917299c5d11e",
+    "bytes": 3346
+  },
+  "qc/quality/explore/commands/001-read/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/explore/commands/001-read/request.json",
+    "sha256": "e20fe81cdcfc32c181898ad9352579e35aef1569fd2e05b958b69455ab851d5c",
+    "bytes": 163
+  },
+  "qc/quality/explore/commands/001-read/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/explore/commands/001-read/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/quality/explore/commands/002-read/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/explore/commands/002-read/output.log",
+    "sha256": "f7677b5a3fa11692b2cf47991a972f315f9523586e91c0875d2e0aa2135d4122",
+    "bytes": 7700
+  },
+  "qc/quality/explore/commands/002-read/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/explore/commands/002-read/request.json",
+    "sha256": "52d6b07f27df797a0bcf7f9a2ea0bb9cb73756144e29ec4165f52a19db2e86c2",
+    "bytes": 171
+  },
+  "qc/quality/explore/commands/002-read/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/explore/commands/002-read/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/quality/explore/commands/003-read/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/explore/commands/003-read/output.log",
+    "sha256": "f7677b5a3fa11692b2cf47991a972f315f9523586e91c0875d2e0aa2135d4122",
+    "bytes": 7700
+  },
+  "qc/quality/explore/commands/003-read/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/explore/commands/003-read/request.json",
+    "sha256": "b1656d0563264bfc86787618841241f87b126e655b2ea3c7793642c2aa987ccc",
+    "bytes": 171
+  },
+  "qc/quality/explore/commands/003-read/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/explore/commands/003-read/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/quality/explore/commands/004-read/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/explore/commands/004-read/output.log",
+    "sha256": "c695f5fdfa14b5353da3efd21952a37101d2f6cdbf8e2bcb294acf58e3f8c4c5",
+    "bytes": 10764
+  },
+  "qc/quality/explore/commands/004-read/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/explore/commands/004-read/request.json",
+    "sha256": "7db7cc13ae528a4cb307124a60908004cba0e50b82c5f8e6b3a745527ad397ff",
+    "bytes": 185
+  },
+  "qc/quality/explore/commands/004-read/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/explore/commands/004-read/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/quality/explore/commands/005-read/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/explore/commands/005-read/output.log",
+    "sha256": "3b9a1d43f61ccdfe865b6dfb0e65df8b2bacdf41e60577c193ffb70ef263aeee",
+    "bytes": 6280
+  },
+  "qc/quality/explore/commands/005-read/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/explore/commands/005-read/request.json",
+    "sha256": "52963e07ecd162b0b069932faff7fd6e68d074a2ddc1356bce92e6e88771ee65",
+    "bytes": 202
+  },
+  "qc/quality/explore/commands/005-read/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/explore/commands/005-read/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/quality/explore/commands/006-read/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/explore/commands/006-read/output.log",
+    "sha256": "462a62bf9435b7bb9333ccd6bf715e52ac0293852ace0c277dbba2570f469045",
+    "bytes": 6997
+  },
+  "qc/quality/explore/commands/006-read/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/explore/commands/006-read/request.json",
+    "sha256": "bafe69896bb563ac62e88ebab230f34b5d0c1e7cb1769d2f01aefe45eb3d4539",
+    "bytes": 203
+  },
+  "qc/quality/explore/commands/006-read/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/explore/commands/006-read/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/quality/explore/commands/007-read/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/explore/commands/007-read/output.log",
+    "sha256": "806ab1f93b57b2f7e894f61877c93268216c1de84dfc81a0ceae61448d82b0f3",
+    "bytes": 8461
+  },
+  "qc/quality/explore/commands/007-read/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/explore/commands/007-read/request.json",
+    "sha256": "a544bb140cb376662804a7dc0c0ae23580d939bdf33964a4d49ed3879064ea3b",
+    "bytes": 203
+  },
+  "qc/quality/explore/commands/007-read/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/explore/commands/007-read/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/quality/explore/commands/008-read/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/explore/commands/008-read/output.log",
+    "sha256": "a6d7092082900992935f069b7249ba279fbae1f8baeb52d3d24fa0caad19d52b",
+    "bytes": 4303
+  },
+  "qc/quality/explore/commands/008-read/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/explore/commands/008-read/request.json",
+    "sha256": "9a6bceb0dd17532c76d029d5f29dac93ef11dc3c9d9b5410693e3f250355e842",
+    "bytes": 203
+  },
+  "qc/quality/explore/commands/008-read/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/explore/commands/008-read/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/quality/explore/commands/009-read/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/explore/commands/009-read/output.log",
+    "sha256": "12bb8502ed4d9002a73ea2dc745851f120b4b88d1a7af408777d1b1b9cf8188b",
+    "bytes": 3691
+  },
+  "qc/quality/explore/commands/009-read/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/explore/commands/009-read/request.json",
+    "sha256": "79d003d9f0c2f74c93505a2c6c559c5fe99f6f7661d4c849b73e033845b41d3a",
+    "bytes": 204
+  },
+  "qc/quality/explore/commands/009-read/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/explore/commands/009-read/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/quality/explore/commands/010-write/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/explore/commands/010-write/output.log",
+    "sha256": "3e26862311f9235a43a05e5a9cd5fd88b7f4fe10fba3a0eca8fe9994dc12219e",
+    "bytes": 131
+  },
+  "qc/quality/explore/commands/010-write/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/explore/commands/010-write/request.json",
+    "sha256": "aba3a8b586adda3700599d806215de4424aab46bed7dcac883bdbc2ab4115ab9",
+    "bytes": 6254
+  },
+  "qc/quality/explore/commands/010-write/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/explore/commands/010-write/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/quality/explore/commands/011-write/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/explore/commands/011-write/output.log",
+    "sha256": "a6bb82b4e82ad9d44e83408fed4076a0950153024c8fbaea346bf1cfd7462c11",
+    "bytes": 137
+  },
+  "qc/quality/explore/commands/011-write/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/explore/commands/011-write/request.json",
+    "sha256": "2cbde1a33d17839bbcee8026c0534d23669a96b7ec3f825fe9469a72d78fdb9d",
+    "bytes": 6865
+  },
+  "qc/quality/explore/commands/011-write/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/explore/commands/011-write/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/quality/explore/commands/012-write/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/explore/commands/012-write/output.log",
+    "sha256": "1d949c2aa58910f0e93980e953c83691080e220cd0a2cbe99e58769af8cd4526",
+    "bytes": 134
+  },
+  "qc/quality/explore/commands/012-write/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/explore/commands/012-write/request.json",
+    "sha256": "70aee13d9da9d3f249da0fe3862580b7f8d8c75af9808321601eb37957603240",
+    "bytes": 4807
+  },
+  "qc/quality/explore/commands/012-write/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/explore/commands/012-write/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/quality/explore/commands/013-write/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/explore/commands/013-write/output.log",
+    "sha256": "a3640d2f2b473bc1fceab6657a3381f99cbf6f076019fa7ab891f25524ec0132",
+    "bytes": 134
+  },
+  "qc/quality/explore/commands/013-write/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/explore/commands/013-write/request.json",
+    "sha256": "6358762d3dafa6c69497eb9bdfcb45e89531e9b2166d337dea15360a276d1d5a",
+    "bytes": 4888
+  },
+  "qc/quality/explore/commands/013-write/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/explore/commands/013-write/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/quality/explore/commands/014-deliver_stage/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/explore/commands/014-deliver_stage/request.json",
+    "sha256": "2e57967865b552d2e5c442394214db7e8d4659499743179e488b6f72f26bbf84",
+    "bytes": 2701
+  },
+  "qc/quality/explore/commands/014-deliver_stage/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/explore/commands/014-deliver_stage/result.json",
+    "sha256": "01570f0a8a48e48321e2e60514d8cda7b5142196a2d5565030f21130e41735e1",
+    "bytes": 35
+  },
+  "qc/quality/explore/credential.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/explore/credential.json",
+    "sha256": "5d6c5124a4f085ec1705fb08673d36708781e166f1e4939b110c6be57ff5c3c8",
+    "bytes": 292
+  },
+  "qc/quality/explore/events.jsonl": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/explore/events.jsonl",
+    "sha256": "d5abe029d00516d39994c973bfabea5a9fe13080353440ae24e6ed480f242a6b",
+    "bytes": 1009243
+  },
+  "qc/quality/explore/execution.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/explore/execution.json",
+    "sha256": "ecc7ff0f767e8b5a58e1143efded8cd1eb7217d90d9e78654996bc5dc2434a36",
+    "bytes": 9075
+  },
+  "qc/quality/explore/parsed.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/explore/parsed.json",
+    "sha256": "fd509ead87a7dd1fd99ae229c09ed6a493d7963032882f1d4400b3f440cd7516",
+    "bytes": 2831
+  },
+  "qc/quality/explore/payload-shapes.jsonl": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/explore/payload-shapes.jsonl",
+    "sha256": "8b3f4367fb375f38f54e67f827726ee7262e1021175ddee78688a84d85417b20",
+    "bytes": 1701
+  },
+  "qc/quality/explore/request-admissions.jsonl": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/explore/request-admissions.jsonl",
+    "sha256": "22fff7a30ac4cb9685bdbf553bcdfa149ef515675191897618cbefb2c810fa89",
+    "bytes": 1098
+  },
+  "qc/quality/explore/responses.jsonl": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/explore/responses.jsonl",
+    "sha256": "bb7a2799e2c2ab66d3a353c807d90458f9291e81a9eff782277f5768c68ae1ad",
+    "bytes": 261
+  },
+  "qc/quality/explore/stderr.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/explore/stderr.log",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0
+  },
+  "qc/quality/explore/submission.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/explore/submission.json",
+    "sha256": "fd509ead87a7dd1fd99ae229c09ed6a493d7963032882f1d4400b3f440cd7516",
+    "bytes": 2831
+  },
+  "qc/quality/explore/tool-menu.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/explore/tool-menu.json",
+    "sha256": "39e3504cd80b631965aac6d417704ccb6173983bdf4cb96f58abb1f9208b5461",
+    "bytes": 175
+  },
+  "qc/quality/explore-shim/counts.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/explore-shim/counts.json",
+    "sha256": "e401a8fa1a1593235a20b228e8917b63e2e9bdf497546c7e1880ca747c2c529e",
+    "bytes": 165
+  },
+  "qc/quality/explore-shim/requests.jsonl": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/explore-shim/requests.jsonl",
+    "sha256": "b46e4d25924b39ca9dc51b30dd2672db3bf3346b35a444fd74d6f1b041c59c8b",
+    "bytes": 3646
+  },
+  "qc/quality/explore.controller.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/explore.controller.json",
+    "sha256": "65abd90f1d72484961c9328503ce0669fbc8df317fdce9ea00f475dbd6c6152e",
+    "bytes": 557
+  },
+  "qc/quality/explore.controller.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/explore.controller.log",
+    "sha256": "f4b8280d72b340ac59e1d4e2ceedcaa8767d1334829ca6cddceca4f90e55131a",
+    "bytes": 626
+  },
+  "qc/quality/explore.shim-stderr.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/explore.shim-stderr.log",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0
+  },
+  "qc/quality/file_tool.py": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/file_tool.py",
+    "sha256": "79125feff76d98407e3bf1d36cfa56c0086863bc0591afa499f3580a6dcf8972",
+    "bytes": 1639
+  },
+  "qc/quality/gateway/REPORT.md": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/gateway/REPORT.md",
+    "sha256": "59ca485037d61f59c9414b22eacf569647fe0604f221dfe7abc4b669dda6f521",
+    "bytes": 36
+  },
+  "qc/quality/gateway/auth-reserved.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/gateway/auth-reserved.json",
+    "sha256": "89d3a977d27d8a5032bbf88f303e090c5d2b24e52f34c59a7f97a56857472e04",
+    "bytes": 40
+  },
+  "qc/quality/gateway/commands/001-read/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/gateway/commands/001-read/output.log",
+    "sha256": "59ca485037d61f59c9414b22eacf569647fe0604f221dfe7abc4b669dda6f521",
+    "bytes": 36
+  },
+  "qc/quality/gateway/commands/001-read/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/gateway/commands/001-read/request.json",
+    "sha256": "fea44f00e6107a89f070a68319490c1b043cc7b031af058a85d109a9e7f421c4",
+    "bytes": 192
+  },
+  "qc/quality/gateway/commands/001-read/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/gateway/commands/001-read/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/quality/gateway/commands/002-write/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/gateway/commands/002-write/output.log",
+    "sha256": "1bb25c8b1e7ff515b54ab593f3f37c4b05eaf089f4cd1070fbd5700b16bfd9cb",
+    "bytes": 120
+  },
+  "qc/quality/gateway/commands/002-write/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/gateway/commands/002-write/request.json",
+    "sha256": "ca6ae2d482a8bf9771d0f9a3069f7da8aa6ec0f033949a7ab25bc28d98197d48",
+    "bytes": 218
+  },
+  "qc/quality/gateway/commands/002-write/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/gateway/commands/002-write/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/quality/gateway/credential.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/gateway/credential.json",
+    "sha256": "5d6c5124a4f085ec1705fb08673d36708781e166f1e4939b110c6be57ff5c3c8",
+    "bytes": 292
+  },
+  "qc/quality/gateway/events.jsonl": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/gateway/events.jsonl",
+    "sha256": "a414a873b9cc38f7ccc1a3b545c180f9583571c645649470fc1ba5564a105881",
+    "bytes": 18708
+  },
+  "qc/quality/gateway/gateway-state.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/gateway/gateway-state.json",
+    "sha256": "4ee336f60c888986b62e9a4a9f7cecfda96beb8cbf3fae8fb0bba2a99546b9eb",
+    "bytes": 644
+  },
+  "qc/quality/gateway/payload-shapes.jsonl": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/gateway/payload-shapes.jsonl",
+    "sha256": "19536216b78b62fa979bde8f1309ceb9ffffd7946be0df08fcac372c462578a2",
+    "bytes": 490
+  },
+  "qc/quality/gateway/receipt.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/gateway/receipt.json",
+    "sha256": "36f13e785a431f8ceca3d485ed176e86f5cfae1a0315c71392d64b476b900acf",
+    "bytes": 1069
+  },
+  "qc/quality/gateway/request-admissions.jsonl": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/gateway/request-admissions.jsonl",
+    "sha256": "06c87531da0ef35501f4b6371656902b4a6e767177d161f90bcd7be51b4438a8",
+    "bytes": 366
+  },
+  "qc/quality/gateway/responses.jsonl": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/gateway/responses.jsonl",
+    "sha256": "80527bc76d9beb5b3ca6717cf268760df2e001550dae5de75f8a7110ecab32e2",
+    "bytes": 87
+  },
+  "qc/quality/gateway/stderr.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/gateway/stderr.log",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0
+  },
+  "qc/quality/gateway/tiny.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/gateway/tiny.json",
+    "sha256": "3886f6ee11f66cc1fb7c9258b03b7f0d41114d276d02d6318f5d4136f6dc0054",
+    "bytes": 173
+  },
+  "qc/quality/gateway/tool-menu.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/gateway/tool-menu.json",
+    "sha256": "1a439f2a6a6325dd58cfc63a28382279d0021e40269103ee70f466a61b39904a",
+    "bytes": 133
+  },
+  "qc/quality/gateway-shim/counts.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/gateway-shim/counts.json",
+    "sha256": "6bd4b1f499d9a137902b1d0fca2b7865023503eafa721c188ba76b31bcac06ee",
+    "bytes": 165
+  },
+  "qc/quality/gateway-shim/requests.jsonl": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/gateway-shim/requests.jsonl",
+    "sha256": "979b8eb1dc23a04064e52422f810ace20c9b420fc8ea91ca4a8c490000a2edab",
+    "bytes": 1717
+  },
+  "qc/quality/gateway.controller.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/gateway.controller.json",
+    "sha256": "b30b339d32a2ee3f5e5f54dc31fe713c3930cd066b03607beca640649930fe25",
+    "bytes": 520
+  },
+  "qc/quality/gateway.controller.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/gateway.controller.log",
+    "sha256": "37dfe7d1fd211b531fa6384a754fb1d68adf3d9327996050c257833c65007b3c",
+    "bytes": 458
+  },
+  "qc/quality/gateway.mjs": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/gateway.mjs",
+    "sha256": "2f2deb572077f10125deb0ca4d6766f3c1ac4732285a329d8b256261a0310d7a",
+    "bytes": 40
+  },
+  "qc/quality/gateway.shim-stderr.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/gateway.shim-stderr.log",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0
+  },
+  "qc/quality/inputs/author-pytest-receipt.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/inputs/author-pytest-receipt.json",
+    "sha256": "7c36b18bf8bbc09d9d71ec35782739f7faafdf0af32f732b73367adc9e996243",
+    "bytes": 945
+  },
+  "qc/quality/inputs/author-summary.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/inputs/author-summary.json",
+    "sha256": "40fb288b7e6ddee6183de2d6257a0e7f098d10949a3e19d54e933cc97377b046",
+    "bytes": 6728
+  },
+  "qc/quality/inputs/claims.md": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/inputs/claims.md",
+    "sha256": "2b05b503998ad761f7e9500bc7f94bfb2cf7d7ae189954b2b222917299c5d11e",
+    "bytes": 3346
+  },
+  "qc/quality/inputs/code-tip-to-candidate.diffstat.txt": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/inputs/code-tip-to-candidate.diffstat.txt",
+    "sha256": "15d266e15efe3dd827001b4d3e789c254f1f514bbb2379b84f1b3c60845494fa",
+    "bytes": 93540
+  },
+  "qc/quality/inputs/source-index.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/inputs/source-index.json",
+    "sha256": "eeb64b09a275c34cc8b9b7b215e225beb0dff139f2f51ce13f556940ee045a25",
+    "bytes": 38770
+  },
+  "qc/quality/pi-config/auth.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/pi-config/auth.json",
+    "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+    "bytes": 2
+  },
+  "qc/quality/pi-config/models-store.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/pi-config/models-store.json",
+    "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+    "bytes": 2
+  },
+  "qc/quality/pi-config/settings.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/pi-config/settings.json",
+    "sha256": "cda612a59b9d61dc644867021e8a5284dc7a6040e65eadab9b883ae78406b417",
+    "bytes": 340
+  },
+  "qc/quality/pi_review_protocol.mjs": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/pi_review_protocol.mjs",
+    "sha256": "05360fd5433f0af6f6a8c5c8c37289a3008be1803d9e898a4caef62049e03492",
+    "bytes": 6864
+  },
+  "qc/quality/prompt-execute.md": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/prompt-execute.md",
+    "sha256": "d377c360abc6334b26359837c741c60ec0a83e8a4fcd7f159f11589e5bee5505",
+    "bytes": 4206
+  },
+  "qc/quality/prompt-explore.md": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/prompt-explore.md",
+    "sha256": "85384ea458ec8fe08d2a8371c03bc3092b4017b6cac1b8fb3783ee699881844d",
+    "bytes": 3750
+  },
+  "qc/quality/prompt-report.md": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/prompt-report.md",
+    "sha256": "dbeb1f76276aeb7827f31f00cbc7ee5bc3427a5d9ac2bb38dda5627d2ad80769",
+    "bytes": 3124
+  },
+  "qc/quality/provider-template.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/provider-template.json",
+    "sha256": "28ca3ac313311c8e9920042af58d32fdc38ca1703fad85fd15a4269087e32827",
+    "bytes": 515
+  },
+  "qc/quality/report/REPORT.md": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/report/REPORT.md",
+    "sha256": "065d7a3fda755e811162a45197cc9990bd5aedf042d084f610c2e7b808613318",
+    "bytes": 4427
+  },
+  "qc/quality/report/auth-reserved.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/report/auth-reserved.json",
+    "sha256": "89d3a977d27d8a5032bbf88f303e090c5d2b24e52f34c59a7f97a56857472e04",
+    "bytes": 40
+  },
+  "qc/quality/report/commands/001-deliver_stage/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/report/commands/001-deliver_stage/request.json",
+    "sha256": "0ceac3d0a59c81c6ff97348b285c9e5245ad3fca44bc3d4eb58373063137e08f",
+    "bytes": 4133
+  },
+  "qc/quality/report/commands/001-deliver_stage/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/report/commands/001-deliver_stage/result.json",
+    "sha256": "01570f0a8a48e48321e2e60514d8cda7b5142196a2d5565030f21130e41735e1",
+    "bytes": 35
+  },
+  "qc/quality/report/credential.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/report/credential.json",
+    "sha256": "5d6c5124a4f085ec1705fb08673d36708781e166f1e4939b110c6be57ff5c3c8",
+    "bytes": 292
+  },
+  "qc/quality/report/events.jsonl": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/report/events.jsonl",
+    "sha256": "83e14c0c2e59b41306834d22ee744b51c03c365569e4e675abcb0a612e6d47bc",
+    "bytes": 251946
+  },
+  "qc/quality/report/execution.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/report/execution.json",
+    "sha256": "8360585267110d2df878b9ba3f8914a208561dace7b2e4dfe9ded22c0882f42c",
+    "bytes": 4505
+  },
+  "qc/quality/report/parsed.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/report/parsed.json",
+    "sha256": "8926e6525e18fc385a928ef1f037af58959b3ce1493deddcca0e13581c0d9490",
+    "bytes": 4415
+  },
+  "qc/quality/report/payload-shapes.jsonl": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/report/payload-shapes.jsonl",
+    "sha256": "b5d5b79fee5b401c61789aeee05231b2154ce5efb770ad89144af65c586a76ae",
+    "bytes": 173
+  },
+  "qc/quality/report/request-admissions.jsonl": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/report/request-admissions.jsonl",
+    "sha256": "a9807091546fb88052451439ed3f78822bb34298a7c4638761ca80b28c613fab",
+    "bytes": 121
+  },
+  "qc/quality/report/responses.jsonl": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/report/responses.jsonl",
+    "sha256": "f5b2bfbd4f957a7246b529caa0f28b7a7b2ba41f11fcf6f2fa222f176c71224f",
+    "bytes": 29
+  },
+  "qc/quality/report/stderr.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/report/stderr.log",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0
+  },
+  "qc/quality/report/submission.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/report/submission.json",
+    "sha256": "8926e6525e18fc385a928ef1f037af58959b3ce1493deddcca0e13581c0d9490",
+    "bytes": 4415
+  },
+  "qc/quality/report/tool-menu.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/report/tool-menu.json",
+    "sha256": "caa39de8ead329b20d42a511dc7a4ab35e7be8ecb4d9890c6e91e2bd260ed245",
+    "bytes": 124
+  },
+  "qc/quality/report-packet-manifest.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/report-packet-manifest.json",
+    "sha256": "f79841bf4feb38ff05ed4c6a56e5e885c8123d6f651df32d76fe6cf7cff08ffe",
+    "bytes": 7486
+  },
+  "qc/quality/report-packet.md": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/report-packet.md",
+    "sha256": "991eb0f38461479f6cc48be4fe24c9ae794be783dd9897cb2c3a73f8c7f5cd9f",
+    "bytes": 54090
+  },
+  "qc/quality/report-shim/counts.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/report-shim/counts.json",
+    "sha256": "88aea16cc49eec14de82ebb06c97f9b265f22c2fdf6b296394d04a70889aeb31",
+    "bytes": 165
+  },
+  "qc/quality/report-shim/requests.jsonl": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/report-shim/requests.jsonl",
+    "sha256": "9f9a0e0af7cddc899ba4162805149a53b2c5e0ac6ace75eb7bedbfc247a040ff",
+    "bytes": 559
+  },
+  "qc/quality/report.controller.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/report.controller.json",
+    "sha256": "d8437fec01f24f97929596c8e669fa5657ca007006cdc8c71b32690e3a7991b4",
+    "bytes": 557
+  },
+  "qc/quality/report.controller.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/report.controller.log",
+    "sha256": "9e0bccdd4adcc337e03b620c6bbaa9127104b58e4e01d6bd10b7e804fba5e38c",
+    "bytes": 624
+  },
+  "qc/quality/report.shim-stderr.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/report.shim-stderr.log",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0
+  },
+  "qc/quality/review.mjs": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/review.mjs",
+    "sha256": "7cb9e4921e4a1918f4f45ff4d949a2de5bccc0de7ed3d8e52fb8ebd55250b803",
+    "bytes": 12798
+  },
+  "qc/quality/run_control.py": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/run_control.py",
+    "sha256": "d13160d41e0018a6f112e0b3539902aafb3d58849a6c8265c2d5f6900346cc8b",
+    "bytes": 9360
+  },
+  "qc/quality/run_stage.py": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/run_stage.py",
+    "sha256": "7649b9604733be3e23bd91732aec323ef399de397d0b3ea4c4d19c41f80d8b2e",
+    "bytes": 8133
+  },
+  "qc/quality/sandbox-preflight-04/commands/001-write/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/sandbox-preflight-04/commands/001-write/output.log",
+    "sha256": "d9e77fc69a93e6b9ba22563a5d635ef708724ae82964c1e6f497382d3895065b",
+    "bytes": 122
+  },
+  "qc/quality/sandbox-preflight-04/commands/001-write/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/sandbox-preflight-04/commands/001-write/request.json",
+    "sha256": "383916118dd6b919b49f3093024827cb88d653778fe5f4b272f819f1ae37023e",
+    "bytes": 2085
+  },
+  "qc/quality/sandbox-preflight-04/commands/001-write/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/sandbox-preflight-04/commands/001-write/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/quality/sandbox-preflight-04/commands/002-read/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/sandbox-preflight-04/commands/002-read/output.log",
+    "sha256": "7d33f060338c721c436745a0d9c9a6c172cbfb8c3534d5a4dd3c81d3cfeaa673",
+    "bytes": 1895
+  },
+  "qc/quality/sandbox-preflight-04/commands/002-read/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/sandbox-preflight-04/commands/002-read/request.json",
+    "sha256": "05431d4b3e18b6dc0413dc0fd43a569f82aedfe23dea9b72695f6e30a10b2485",
+    "bytes": 152
+  },
+  "qc/quality/sandbox-preflight-04/commands/002-read/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/sandbox-preflight-04/commands/002-read/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/quality/sandbox-preflight-04/commands/003-bash/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/sandbox-preflight-04/commands/003-bash/output.log",
+    "sha256": "92e8d6e667d6be88a6f095660f0577d9d67e847d7cbef5c824a9d4c68402e1e0",
+    "bytes": 65
+  },
+  "qc/quality/sandbox-preflight-04/commands/003-bash/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/sandbox-preflight-04/commands/003-bash/request.json",
+    "sha256": "3e92ee3bdf7b5683b425253f95742a1d9d6395cc1f2a50e8e6f76114eb4c8e90",
+    "bytes": 224
+  },
+  "qc/quality/sandbox-preflight-04/commands/003-bash/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/sandbox-preflight-04/commands/003-bash/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/quality/sandbox-preflight-04/commands/004-read/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/sandbox-preflight-04/commands/004-read/output.log",
+    "sha256": "d1d06ae25351c5ccc565b5401fbe65606a949f5ef4c28c4398b66a42eb8e9950",
+    "bytes": 987
+  },
+  "qc/quality/sandbox-preflight-04/commands/004-read/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/sandbox-preflight-04/commands/004-read/request.json",
+    "sha256": "9bc2dc547aa948597bb0ed71551444eb38553833a4a77041a5487a208c228e65",
+    "bytes": 176
+  },
+  "qc/quality/sandbox-preflight-04/commands/004-read/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/sandbox-preflight-04/commands/004-read/result.json",
+    "sha256": "d67659d29dad50e65ac903e33dc7ef4a692331d96253553956300d1fcfa5786a",
+    "bytes": 14
+  },
+  "qc/quality/sandbox-preflight-04/commands/005-write/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/sandbox-preflight-04/commands/005-write/output.log",
+    "sha256": "8e12cf3576f0cd12d2d1fe6ef0b1fd42f6464fff02f6e9c598ba8e5c8dafa2f8",
+    "bytes": 263
+  },
+  "qc/quality/sandbox-preflight-04/commands/005-write/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/sandbox-preflight-04/commands/005-write/request.json",
+    "sha256": "91ff00349882db8978dae6272282193e592577c9fdb7294b1e31051ff1f2b519",
+    "bytes": 154
+  },
+  "qc/quality/sandbox-preflight-04/commands/005-write/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/sandbox-preflight-04/commands/005-write/result.json",
+    "sha256": "d67659d29dad50e65ac903e33dc7ef4a692331d96253553956300d1fcfa5786a",
+    "bytes": 14
+  },
+  "qc/quality/sandbox-preflight-04/commands/006-write/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/sandbox-preflight-04/commands/006-write/output.log",
+    "sha256": "8e12cf3576f0cd12d2d1fe6ef0b1fd42f6464fff02f6e9c598ba8e5c8dafa2f8",
+    "bytes": 263
+  },
+  "qc/quality/sandbox-preflight-04/commands/006-write/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/sandbox-preflight-04/commands/006-write/request.json",
+    "sha256": "a531637bc66ee6d4d7d64797c7cc22efd9d9529871d17f727e33f2c54dea12e0",
+    "bytes": 158
+  },
+  "qc/quality/sandbox-preflight-04/commands/006-write/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/sandbox-preflight-04/commands/006-write/result.json",
+    "sha256": "d67659d29dad50e65ac903e33dc7ef4a692331d96253553956300d1fcfa5786a",
+    "bytes": 14
+  },
+  "qc/quality/sandbox-preflight-04/commands/007-write/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/sandbox-preflight-04/commands/007-write/output.log",
+    "sha256": "bef80728e790acad08836a579fef9a6f3455bd553711b11017f8b15c36b109f0",
+    "bytes": 123
+  },
+  "qc/quality/sandbox-preflight-04/commands/007-write/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/sandbox-preflight-04/commands/007-write/request.json",
+    "sha256": "02f474eaacd0a4eec5b6216844e8ec6fc820a182051d1b111e5deeef89a1ef9e",
+    "bytes": 213
+  },
+  "qc/quality/sandbox-preflight-04/commands/007-write/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/sandbox-preflight-04/commands/007-write/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/quality/sandbox-preflight-04/commands/008-bash/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/sandbox-preflight-04/commands/008-bash/output.log",
+    "sha256": "2f589ade87ea0ca72e2fa72bf31c4b6c8eecc7fa21528a7d05a38234d7e7ec34",
+    "bytes": 285
+  },
+  "qc/quality/sandbox-preflight-04/commands/008-bash/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/sandbox-preflight-04/commands/008-bash/request.json",
+    "sha256": "f02f2bf2b98f79c3e4a2915c8e35c81223976953ddf94d9b20aaabaca4d44a8d",
+    "bytes": 234
+  },
+  "qc/quality/sandbox-preflight-04/commands/008-bash/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/sandbox-preflight-04/commands/008-bash/result.json",
+    "sha256": "d67659d29dad50e65ac903e33dc7ef4a692331d96253553956300d1fcfa5786a",
+    "bytes": 14
+  },
+  "qc/quality/sandbox-preflight-04/controller-stop.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/sandbox-preflight-04/controller-stop.json",
+    "sha256": "d9d25bae4808b77154b6800b100689ae531ca8f69f1c61361aa9ec5d6e7a2c8c",
+    "bytes": 84
+  },
+  "qc/quality/sandbox-preflight-04/credential.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/sandbox-preflight-04/credential.json",
+    "sha256": "1034953d6eac8fe47be3798233e9efb058d3b9cd4fa0f6630c9379e9ede5f769",
+    "bytes": 292
+  },
+  "qc/quality/sandbox-preflight-04/payload-shapes.jsonl": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/sandbox-preflight-04/payload-shapes.jsonl",
+    "sha256": "212bb1e2e0df44585b45653612c4c8759bf53cde4ed16884018e9945ce9a2812",
+    "bytes": 2592
+  },
+  "qc/quality/sandbox-preflight-04/receipt.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/sandbox-preflight-04/receipt.json",
+    "sha256": "25fba9011891a341f7fce2ba37da68a0c329dd4f3cb097eab724816fa1aa330c",
+    "bytes": 563
+  },
+  "qc/quality/sandbox-preflight-04/request-admissions.jsonl": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/sandbox-preflight-04/request-admissions.jsonl",
+    "sha256": "85f398cff706b18a2f7cf5827d8faa01eb86397596830dcf792bcaff3c71d893",
+    "bytes": 2081
+  },
+  "qc/quality/sandbox_preflight.mjs": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/sandbox_preflight.mjs",
+    "sha256": "dc32262cdfaa595dc1b5b1a58ac3503293add781aa528f78a77729d5fde5cded",
+    "bytes": 5503
+  },
+  "qc/quality/tools.sb": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/tools.sb",
+    "sha256": "2bae9001378e47498e33a85db37313759066595b5c0a2b8bfdbdabf0c094195c",
+    "bytes": 1650
+  },
+  "qc/quality/work/allowed.txt": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/work/allowed.txt",
+    "sha256": "2689367b205c16ce32ed4200942b8b8b1e262dfc70d9bc9fbc77c49699a4f1df",
+    "bytes": 2
+  },
+  "qc/quality/work/gateway-echo.txt": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/work/gateway-echo.txt",
+    "sha256": "59ca485037d61f59c9414b22eacf569647fe0604f221dfe7abc4b669dda6f521",
+    "bytes": 36
+  },
+  "qc/quality/work/gateway-fixture.txt": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/work/gateway-fixture.txt",
+    "sha256": "59ca485037d61f59c9414b22eacf569647fe0604f221dfe7abc4b669dda6f521",
+    "bytes": 36
+  },
+  "qc/quality/work/inspect_cancel.py": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/work/inspect_cancel.py",
+    "sha256": "726f66c0b7b0ad43dec344336c5220a7622f2468c1cddc159f807285b7e933ed",
+    "bytes": 315
+  },
+  "qc/quality/work/phase-context/explore/REPORT.md": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/work/phase-context/explore/REPORT.md",
+    "sha256": "5842b3fe1a4830830ba66044da115c8a4b57511a9f721222ca540fed6db1c21a",
+    "bytes": 2843
+  },
+  "qc/quality/work/phase-context/explore/commands/001-read/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/work/phase-context/explore/commands/001-read/output.log",
+    "sha256": "2b05b503998ad761f7e9500bc7f94bfb2cf7d7ae189954b2b222917299c5d11e",
+    "bytes": 3346
+  },
+  "qc/quality/work/phase-context/explore/commands/001-read/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/work/phase-context/explore/commands/001-read/request.json",
+    "sha256": "e20fe81cdcfc32c181898ad9352579e35aef1569fd2e05b958b69455ab851d5c",
+    "bytes": 163
+  },
+  "qc/quality/work/phase-context/explore/commands/001-read/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/work/phase-context/explore/commands/001-read/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/quality/work/phase-context/explore/commands/002-read/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/work/phase-context/explore/commands/002-read/output.log",
+    "sha256": "f7677b5a3fa11692b2cf47991a972f315f9523586e91c0875d2e0aa2135d4122",
+    "bytes": 7700
+  },
+  "qc/quality/work/phase-context/explore/commands/002-read/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/work/phase-context/explore/commands/002-read/request.json",
+    "sha256": "52d6b07f27df797a0bcf7f9a2ea0bb9cb73756144e29ec4165f52a19db2e86c2",
+    "bytes": 171
+  },
+  "qc/quality/work/phase-context/explore/commands/002-read/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/work/phase-context/explore/commands/002-read/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/quality/work/phase-context/explore/commands/003-read/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/work/phase-context/explore/commands/003-read/output.log",
+    "sha256": "f7677b5a3fa11692b2cf47991a972f315f9523586e91c0875d2e0aa2135d4122",
+    "bytes": 7700
+  },
+  "qc/quality/work/phase-context/explore/commands/003-read/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/work/phase-context/explore/commands/003-read/request.json",
+    "sha256": "b1656d0563264bfc86787618841241f87b126e655b2ea3c7793642c2aa987ccc",
+    "bytes": 171
+  },
+  "qc/quality/work/phase-context/explore/commands/003-read/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/work/phase-context/explore/commands/003-read/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/quality/work/phase-context/explore/commands/004-read/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/work/phase-context/explore/commands/004-read/output.log",
+    "sha256": "c695f5fdfa14b5353da3efd21952a37101d2f6cdbf8e2bcb294acf58e3f8c4c5",
+    "bytes": 10764
+  },
+  "qc/quality/work/phase-context/explore/commands/004-read/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/work/phase-context/explore/commands/004-read/request.json",
+    "sha256": "7db7cc13ae528a4cb307124a60908004cba0e50b82c5f8e6b3a745527ad397ff",
+    "bytes": 185
+  },
+  "qc/quality/work/phase-context/explore/commands/004-read/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/work/phase-context/explore/commands/004-read/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/quality/work/phase-context/explore/commands/005-read/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/work/phase-context/explore/commands/005-read/output.log",
+    "sha256": "3b9a1d43f61ccdfe865b6dfb0e65df8b2bacdf41e60577c193ffb70ef263aeee",
+    "bytes": 6280
+  },
+  "qc/quality/work/phase-context/explore/commands/005-read/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/work/phase-context/explore/commands/005-read/request.json",
+    "sha256": "52963e07ecd162b0b069932faff7fd6e68d074a2ddc1356bce92e6e88771ee65",
+    "bytes": 202
+  },
+  "qc/quality/work/phase-context/explore/commands/005-read/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/work/phase-context/explore/commands/005-read/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/quality/work/phase-context/explore/commands/006-read/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/work/phase-context/explore/commands/006-read/output.log",
+    "sha256": "462a62bf9435b7bb9333ccd6bf715e52ac0293852ace0c277dbba2570f469045",
+    "bytes": 6997
+  },
+  "qc/quality/work/phase-context/explore/commands/006-read/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/work/phase-context/explore/commands/006-read/request.json",
+    "sha256": "bafe69896bb563ac62e88ebab230f34b5d0c1e7cb1769d2f01aefe45eb3d4539",
+    "bytes": 203
+  },
+  "qc/quality/work/phase-context/explore/commands/006-read/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/work/phase-context/explore/commands/006-read/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/quality/work/phase-context/explore/commands/007-read/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/work/phase-context/explore/commands/007-read/output.log",
+    "sha256": "806ab1f93b57b2f7e894f61877c93268216c1de84dfc81a0ceae61448d82b0f3",
+    "bytes": 8461
+  },
+  "qc/quality/work/phase-context/explore/commands/007-read/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/work/phase-context/explore/commands/007-read/request.json",
+    "sha256": "a544bb140cb376662804a7dc0c0ae23580d939bdf33964a4d49ed3879064ea3b",
+    "bytes": 203
+  },
+  "qc/quality/work/phase-context/explore/commands/007-read/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/work/phase-context/explore/commands/007-read/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/quality/work/phase-context/explore/commands/008-read/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/work/phase-context/explore/commands/008-read/output.log",
+    "sha256": "a6d7092082900992935f069b7249ba279fbae1f8baeb52d3d24fa0caad19d52b",
+    "bytes": 4303
+  },
+  "qc/quality/work/phase-context/explore/commands/008-read/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/work/phase-context/explore/commands/008-read/request.json",
+    "sha256": "9a6bceb0dd17532c76d029d5f29dac93ef11dc3c9d9b5410693e3f250355e842",
+    "bytes": 203
+  },
+  "qc/quality/work/phase-context/explore/commands/008-read/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/work/phase-context/explore/commands/008-read/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/quality/work/phase-context/explore/commands/009-read/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/work/phase-context/explore/commands/009-read/output.log",
+    "sha256": "12bb8502ed4d9002a73ea2dc745851f120b4b88d1a7af408777d1b1b9cf8188b",
+    "bytes": 3691
+  },
+  "qc/quality/work/phase-context/explore/commands/009-read/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/work/phase-context/explore/commands/009-read/request.json",
+    "sha256": "79d003d9f0c2f74c93505a2c6c559c5fe99f6f7661d4c849b73e033845b41d3a",
+    "bytes": 204
+  },
+  "qc/quality/work/phase-context/explore/commands/009-read/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/work/phase-context/explore/commands/009-read/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/quality/work/phase-context/explore/commands/010-write/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/work/phase-context/explore/commands/010-write/output.log",
+    "sha256": "3e26862311f9235a43a05e5a9cd5fd88b7f4fe10fba3a0eca8fe9994dc12219e",
+    "bytes": 131
+  },
+  "qc/quality/work/phase-context/explore/commands/010-write/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/work/phase-context/explore/commands/010-write/request.json",
+    "sha256": "aba3a8b586adda3700599d806215de4424aab46bed7dcac883bdbc2ab4115ab9",
+    "bytes": 6254
+  },
+  "qc/quality/work/phase-context/explore/commands/010-write/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/work/phase-context/explore/commands/010-write/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/quality/work/phase-context/explore/commands/011-write/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/work/phase-context/explore/commands/011-write/output.log",
+    "sha256": "a6bb82b4e82ad9d44e83408fed4076a0950153024c8fbaea346bf1cfd7462c11",
+    "bytes": 137
+  },
+  "qc/quality/work/phase-context/explore/commands/011-write/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/work/phase-context/explore/commands/011-write/request.json",
+    "sha256": "2cbde1a33d17839bbcee8026c0534d23669a96b7ec3f825fe9469a72d78fdb9d",
+    "bytes": 6865
+  },
+  "qc/quality/work/phase-context/explore/commands/011-write/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/work/phase-context/explore/commands/011-write/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/quality/work/phase-context/explore/commands/012-write/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/work/phase-context/explore/commands/012-write/output.log",
+    "sha256": "1d949c2aa58910f0e93980e953c83691080e220cd0a2cbe99e58769af8cd4526",
+    "bytes": 134
+  },
+  "qc/quality/work/phase-context/explore/commands/012-write/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/work/phase-context/explore/commands/012-write/request.json",
+    "sha256": "70aee13d9da9d3f249da0fe3862580b7f8d8c75af9808321601eb37957603240",
+    "bytes": 4807
+  },
+  "qc/quality/work/phase-context/explore/commands/012-write/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/work/phase-context/explore/commands/012-write/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/quality/work/phase-context/explore/commands/013-write/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/work/phase-context/explore/commands/013-write/output.log",
+    "sha256": "a3640d2f2b473bc1fceab6657a3381f99cbf6f076019fa7ab891f25524ec0132",
+    "bytes": 134
+  },
+  "qc/quality/work/phase-context/explore/commands/013-write/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/work/phase-context/explore/commands/013-write/request.json",
+    "sha256": "6358762d3dafa6c69497eb9bdfcb45e89531e9b2166d337dea15360a276d1d5a",
+    "bytes": 4888
+  },
+  "qc/quality/work/phase-context/explore/commands/013-write/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/work/phase-context/explore/commands/013-write/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/quality/work/phase-context/explore/commands/014-deliver_stage/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/work/phase-context/explore/commands/014-deliver_stage/request.json",
+    "sha256": "2e57967865b552d2e5c442394214db7e8d4659499743179e488b6f72f26bbf84",
+    "bytes": 2701
+  },
+  "qc/quality/work/phase-context/explore/commands/014-deliver_stage/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/work/phase-context/explore/commands/014-deliver_stage/result.json",
+    "sha256": "01570f0a8a48e48321e2e60514d8cda7b5142196a2d5565030f21130e41735e1",
+    "bytes": 35
+  },
+  "qc/quality/work/phase-context/explore/copy-manifest.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/work/phase-context/explore/copy-manifest.json",
+    "sha256": "f732088b3a4febaeaf2646d386d4e6e648e078d137e18f5847cb0263b4ab7ff3",
+    "bytes": 10883
+  },
+  "qc/quality/work/phase-context/explore/original-probes/010-write-probe_transport.py": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/work/phase-context/explore/original-probes/010-write-probe_transport.py",
+    "sha256": "0530e9a29f35aa4c14e66cb0d4c0954dc422b303dd3829cfe944815fc674e26e",
+    "bytes": 5767
+  },
+  "qc/quality/work/phase-context/explore/original-probes/011-write-probe_refine_deadline.py": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/work/phase-context/explore/original-probes/011-write-probe_refine_deadline.py",
+    "sha256": "754bd37b61b40dff0f902498ae2aa87c9b5d3a66f242f9db238b2705fa26a48d",
+    "bytes": 6367
+  },
+  "qc/quality/work/phase-context/explore/original-probes/012-write-probe_transport_v2.py": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/work/phase-context/explore/original-probes/012-write-probe_transport_v2.py",
+    "sha256": "1789bb3001928af8a40e7a750c14730a816c9f4b8f1de8403d5b4f85307b4a7a",
+    "bytes": 4350
+  },
+  "qc/quality/work/phase-context/explore/original-probes/013-write-probe_judge_window.py": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/work/phase-context/explore/original-probes/013-write-probe_judge_window.py",
+    "sha256": "09df4a75796a6c0ca2be9af3205926a977ce0e7aa3e63a0682fe297b904e18c2",
+    "bytes": 4482
+  },
+  "qc/quality/work/phase-context/explore/parsed.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/work/phase-context/explore/parsed.json",
+    "sha256": "fd509ead87a7dd1fd99ae229c09ed6a493d7963032882f1d4400b3f440cd7516",
+    "bytes": 2831
+  },
+  "qc/quality/work/positive_control.py": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/work/positive_control.py",
+    "sha256": "18cf446a29460738f129087dfd9f38db586c836b422aadfa12cfc34ad4a37592",
+    "bytes": 47
+  },
+  "qc/quality/work/probes/probe_judge_window.py": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/work/probes/probe_judge_window.py",
+    "sha256": "09df4a75796a6c0ca2be9af3205926a977ce0e7aa3e63a0682fe297b904e18c2",
+    "bytes": 4482
+  },
+  "qc/quality/work/probes/probe_refine_deadline.py": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/work/probes/probe_refine_deadline.py",
+    "sha256": "754bd37b61b40dff0f902498ae2aa87c9b5d3a66f242f9db238b2705fa26a48d",
+    "bytes": 6367
+  },
+  "qc/quality/work/probes/probe_transport.py": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/work/probes/probe_transport.py",
+    "sha256": "0530e9a29f35aa4c14e66cb0d4c0954dc422b303dd3829cfe944815fc674e26e",
+    "bytes": 5767
+  },
+  "qc/quality/work/probes/probe_transport_v2.py": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/work/probes/probe_transport_v2.py",
+    "sha256": "1789bb3001928af8a40e7a750c14730a816c9f4b8f1de8403d5b4f85307b4a7a",
+    "bytes": 4350
+  },
+  "qc/quality/work/sandbox_check.py": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/work/sandbox_check.py",
+    "sha256": "7d33f060338c721c436745a0d9c9a6c172cbfb8c3534d5a4dd3c81d3cfeaa673",
+    "bytes": 1895
+  },
+  "qc/repair-inputs.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/repair-inputs.json",
+    "sha256": "56b0ab051ef16fa1fd6a29d622e97da6a534faabcfe85207c549211f6e1deec8",
+    "bytes": 4994
+  },
+  "qc/report.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/report.json",
+    "sha256": "0edb5be4cde7169b1703c2e4b01ebb7b6182ca95a3f317204e501309da9cf481",
+    "bytes": 14419
+  },
+  "qc/spec/config.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/config.json",
+    "sha256": "fd31d0aebdddf16580e59c9fb9b445bc313057831c2864a04370db48927c0615",
+    "bytes": 874
+  },
+  "qc/spec/execute/REPORT.md": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/execute/REPORT.md",
+    "sha256": "5f8f555d61643b24662280e361777eb756d5cf73db96cff75767b2630caa3da9",
+    "bytes": 6453
+  },
+  "qc/spec/execute/auth-reserved.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/execute/auth-reserved.json",
+    "sha256": "89d3a977d27d8a5032bbf88f303e090c5d2b24e52f34c59a7f97a56857472e04",
+    "bytes": 40
+  },
+  "qc/spec/execute/commands/001-read/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/execute/commands/001-read/output.log",
+    "sha256": "65174749e1dee70be3bcffb4d48b8029ee938d72f1609a40bddef8da0cb0cadd",
+    "bytes": 3220
+  },
+  "qc/spec/execute/commands/001-read/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/execute/commands/001-read/request.json",
+    "sha256": "b45229667d5509803f4f939dcb736593fc64dfdfb8f7d10e72b27d5178b2411a",
+    "bytes": 163
+  },
+  "qc/spec/execute/commands/001-read/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/execute/commands/001-read/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/spec/execute/commands/002-read/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/execute/commands/002-read/output.log",
+    "sha256": "2b05b503998ad761f7e9500bc7f94bfb2cf7d7ae189954b2b222917299c5d11e",
+    "bytes": 3346
+  },
+  "qc/spec/execute/commands/002-read/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/execute/commands/002-read/request.json",
+    "sha256": "8f1512f661ecc2ffc49120cd4d1943b524957ee2118f5d78ae9315430132abf2",
+    "bytes": 160
+  },
+  "qc/spec/execute/commands/002-read/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/execute/commands/002-read/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/spec/execute/commands/003-read/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/execute/commands/003-read/output.log",
+    "sha256": "484225cbfda00a2f50c1ac0b970bbd19e42b0aadc905258ca3db6d2d847f7871",
+    "bytes": 4665
+  },
+  "qc/spec/execute/commands/003-read/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/execute/commands/003-read/request.json",
+    "sha256": "edf52493ac44f83a64e82b3b22ef7d7f20f083628f10d3987a299e25dfa13cc6",
+    "bytes": 174
+  },
+  "qc/spec/execute/commands/003-read/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/execute/commands/003-read/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/spec/execute/commands/004-read/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/execute/commands/004-read/output.log",
+    "sha256": "54ba94b30f06cd719ccd67a2dd55d586ef2be71bec373887a08d073e9dc5a63a",
+    "bytes": 4683
+  },
+  "qc/spec/execute/commands/004-read/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/execute/commands/004-read/request.json",
+    "sha256": "9db5057ccacaeb25fa662f4f70bb7403105ffebdce7d1439f55166e9721222aa",
+    "bytes": 184
+  },
+  "qc/spec/execute/commands/004-read/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/execute/commands/004-read/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/spec/execute/commands/005-read/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/execute/commands/005-read/output.log",
+    "sha256": "a291929c955b2a5f1da666a46944757d23862790fa2207b8087e559b0e9c425a",
+    "bytes": 4786
+  },
+  "qc/spec/execute/commands/005-read/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/execute/commands/005-read/request.json",
+    "sha256": "dbff3f2847c4d812616bb51c6928cf2c8e2c98b18f897cc17ab581a99ff1ac85",
+    "bytes": 177
+  },
+  "qc/spec/execute/commands/005-read/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/execute/commands/005-read/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/spec/execute/commands/006-bash/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/execute/commands/006-bash/output.log",
+    "sha256": "6ce5b489093b6ec8685d937e6cc4efcaad707ee3f040dbe2706213abd80bb566",
+    "bytes": 646
+  },
+  "qc/spec/execute/commands/006-bash/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/execute/commands/006-bash/request.json",
+    "sha256": "711d28f8065e939193d2d4a74f884bd55cd28fab6f7ca35207130b25c9cf6d63",
+    "bytes": 255
+  },
+  "qc/spec/execute/commands/006-bash/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/execute/commands/006-bash/result.json",
+    "sha256": "d67659d29dad50e65ac903e33dc7ef4a692331d96253553956300d1fcfa5786a",
+    "bytes": 14
+  },
+  "qc/spec/execute/commands/007-bash/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/execute/commands/007-bash/output.log",
+    "sha256": "c6d50521ef03f1d542fd2ffa9c88af2f1d38e0523e5e4fc30cabd5d9d0ec4f58",
+    "bytes": 802
+  },
+  "qc/spec/execute/commands/007-bash/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/execute/commands/007-bash/request.json",
+    "sha256": "3fb8016e5a4e778e16831175576769d3730005d94fe7f2fb8a369cd63fd00cd0",
+    "bytes": 221
+  },
+  "qc/spec/execute/commands/007-bash/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/execute/commands/007-bash/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/spec/execute/commands/008-write/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/execute/commands/008-write/output.log",
+    "sha256": "d9b4146efbebe6f4db2de29801502d2a8e6c43344345163ea222dfb4458dca73",
+    "bytes": 131
+  },
+  "qc/spec/execute/commands/008-write/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/execute/commands/008-write/request.json",
+    "sha256": "dbdf7acfcacf2d4439a306633628cab23e2a7626fbc1c4da6c8cedab10d4dd3a",
+    "bytes": 4530
+  },
+  "qc/spec/execute/commands/008-write/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/execute/commands/008-write/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/spec/execute/commands/009-bash/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/execute/commands/009-bash/output.log",
+    "sha256": "a72f8f89e5f866bf8fa7082c92ca339decc70669b9061dbe28ae542e1beb1ee7",
+    "bytes": 3530
+  },
+  "qc/spec/execute/commands/009-bash/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/execute/commands/009-bash/request.json",
+    "sha256": "408f6a0c694e4dcebc20af27a88f18b060822875f1da8e6549ce06e767ceff8a",
+    "bytes": 258
+  },
+  "qc/spec/execute/commands/009-bash/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/execute/commands/009-bash/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/spec/execute/commands/010-bash/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/execute/commands/010-bash/output.log",
+    "sha256": "38e9290ecb3e9ce1f515dd259fe0de18567db66d1ca3d4b587be434f09261018",
+    "bytes": 1262
+  },
+  "qc/spec/execute/commands/010-bash/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/execute/commands/010-bash/request.json",
+    "sha256": "e1331342e44b1021f7012fe56e7786012d25a0b4fc67535dfda06babd54aaeb5",
+    "bytes": 265
+  },
+  "qc/spec/execute/commands/010-bash/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/execute/commands/010-bash/result.json",
+    "sha256": "d67659d29dad50e65ac903e33dc7ef4a692331d96253553956300d1fcfa5786a",
+    "bytes": 14
+  },
+  "qc/spec/execute/commands/011-bash/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/execute/commands/011-bash/output.log",
+    "sha256": "c44d81fb084199fbd0c76c326cc52c79d5fb3b109340766371a15f0b0829af50",
+    "bytes": 418
+  },
+  "qc/spec/execute/commands/011-bash/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/execute/commands/011-bash/request.json",
+    "sha256": "e959c07bd135495ef0d1aa76aec6e028a81b27f042802c4e35299f414f83ed5f",
+    "bytes": 202
+  },
+  "qc/spec/execute/commands/011-bash/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/execute/commands/011-bash/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/spec/execute/commands/012-read/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/execute/commands/012-read/output.log",
+    "sha256": "69c6053a53741c9276a3e72cba709a670fc14243ce19e96cf64c3808a05e4808",
+    "bytes": 2284
+  },
+  "qc/spec/execute/commands/012-read/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/execute/commands/012-read/request.json",
+    "sha256": "ab0dd08f93795fceefae58d340ff52a027d0a2e7c7ed9d6e345590b06f40f387",
+    "bytes": 126
+  },
+  "qc/spec/execute/commands/012-read/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/execute/commands/012-read/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/spec/execute/commands/013-bash/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/execute/commands/013-bash/output.log",
+    "sha256": "b874e6a6dcd59ac26bfee8c098cd137df58726a8eb803055049b993f91b569f7",
+    "bytes": 302
+  },
+  "qc/spec/execute/commands/013-bash/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/execute/commands/013-bash/request.json",
+    "sha256": "018f0339ee6fa134a0e75fa62049c96887b356e98c244496e9e4a849c4248619",
+    "bytes": 211
+  },
+  "qc/spec/execute/commands/013-bash/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/execute/commands/013-bash/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/spec/execute/commands/014-write/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/execute/commands/014-write/output.log",
+    "sha256": "6d7674c9784ffe310e132ade9de18c0bc59996c978b556358c69cc2b16264843",
+    "bytes": 138
+  },
+  "qc/spec/execute/commands/014-write/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/execute/commands/014-write/request.json",
+    "sha256": "a41c10c7ff5a31c02f99563d63fb6075bd62f6fd243ccf30cf1cd86377156597",
+    "bytes": 4983
+  },
+  "qc/spec/execute/commands/014-write/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/execute/commands/014-write/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/spec/execute/commands/015-bash/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/execute/commands/015-bash/output.log",
+    "sha256": "c86a5f19b0797850be30ddf721dd5d6680388e14233549c8bfc8a1953cab3704",
+    "bytes": 1907
+  },
+  "qc/spec/execute/commands/015-bash/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/execute/commands/015-bash/request.json",
+    "sha256": "5681a8170776590446f52d88b858bc9dbc3056f02ceb23469d9bf7b4329a5928",
+    "bytes": 265
+  },
+  "qc/spec/execute/commands/015-bash/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/execute/commands/015-bash/result.json",
+    "sha256": "d67659d29dad50e65ac903e33dc7ef4a692331d96253553956300d1fcfa5786a",
+    "bytes": 14
+  },
+  "qc/spec/execute/commands/016-read/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/execute/commands/016-read/output.log",
+    "sha256": "fafd909ac5d292f053700c85c66b19b96f687fa8bf5c763645528d82f53db5c1",
+    "bytes": 624
+  },
+  "qc/spec/execute/commands/016-read/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/execute/commands/016-read/request.json",
+    "sha256": "2bc6e293aa618bf7bae105be9422ce9a370ac7355aa70669dffb884261bf9383",
+    "bytes": 126
+  },
+  "qc/spec/execute/commands/016-read/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/execute/commands/016-read/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/spec/execute/commands/017-read/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/execute/commands/017-read/output.log",
+    "sha256": "dd78ce1372cc8d935d628ad245a768069cf9c5c157893d0f6b87792573d42b4b",
+    "bytes": 1036
+  },
+  "qc/spec/execute/commands/017-read/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/execute/commands/017-read/request.json",
+    "sha256": "f2e251cf86f123a9e202c5598ea16799dc9b93769cf0904ae9c8775b3af8b05e",
+    "bytes": 126
+  },
+  "qc/spec/execute/commands/017-read/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/execute/commands/017-read/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/spec/execute/commands/018-deliver_stage/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/execute/commands/018-deliver_stage/request.json",
+    "sha256": "0a3fff2055283e8b82d568fce18a2e6f150761be196f6f0191f515f8bc8cbea5",
+    "bytes": 6062
+  },
+  "qc/spec/execute/commands/018-deliver_stage/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/execute/commands/018-deliver_stage/result.json",
+    "sha256": "01570f0a8a48e48321e2e60514d8cda7b5142196a2d5565030f21130e41735e1",
+    "bytes": 35
+  },
+  "qc/spec/execute/credential.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/execute/credential.json",
+    "sha256": "5d6c5124a4f085ec1705fb08673d36708781e166f1e4939b110c6be57ff5c3c8",
+    "bytes": 292
+  },
+  "qc/spec/execute/events.jsonl": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/execute/events.jsonl",
+    "sha256": "0fc7a70c324d63690e9c571826aa9972737c17c973e33237d59947d89121b4ad",
+    "bytes": 825866
+  },
+  "qc/spec/execute/execution.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/execute/execution.json",
+    "sha256": "bf0ce32481d9a19422bee8531ae40eb646d7a57fa2fdacc38210e82612e09149",
+    "bytes": 11049
+  },
+  "qc/spec/execute/parsed.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/execute/parsed.json",
+    "sha256": "934dc0ac5e30ff225a1554063b0b836196cc741e63352da7a82d8302c2822771",
+    "bytes": 6441
+  },
+  "qc/spec/execute/payload-shapes.jsonl": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/execute/payload-shapes.jsonl",
+    "sha256": "c9b738463719619bba9b05abc04cc0024a8dd5268dd0c9bda4ab166142d169a3",
+    "bytes": 3340
+  },
+  "qc/spec/execute/request-admissions.jsonl": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/execute/request-admissions.jsonl",
+    "sha256": "12ed6c46ce9fb99764dd5bbfa16a38a89de5d9166d93444edd79f6289d676893",
+    "bytes": 2081
+  },
+  "qc/spec/execute/responses.jsonl": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/execute/responses.jsonl",
+    "sha256": "a1a142d38b1c8b22706b7096e140f34377cf344f48e284e5bf7dd87565273f64",
+    "bytes": 501
+  },
+  "qc/spec/execute/stderr.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/execute/stderr.log",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0
+  },
+  "qc/spec/execute/submission.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/execute/submission.json",
+    "sha256": "934dc0ac5e30ff225a1554063b0b836196cc741e63352da7a82d8302c2822771",
+    "bytes": 6441
+  },
+  "qc/spec/execute/tool-menu.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/execute/tool-menu.json",
+    "sha256": "031219d7560595519047d75f96150dafbbf65dc463bd3f8c20d208242e95ad67",
+    "bytes": 199
+  },
+  "qc/spec/execute-shim/counts.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/execute-shim/counts.json",
+    "sha256": "f1a1185999de6bb1d513ea8db70a87828aa6f7bdf0bbc39388c185ccd58870b1",
+    "bytes": 168
+  },
+  "qc/spec/execute-shim/requests.jsonl": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/execute-shim/requests.jsonl",
+    "sha256": "9eb7f38aecba72c21172ce83e4d4090f3c1731b16cdd2327fa210143e95026a5",
+    "bytes": 6764
+  },
+  "qc/spec/execute.controller.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/execute.controller.json",
+    "sha256": "90970800bff9cae6c4dffdbfe7bbaab04fb8a8441e587c424de791c8ef8efd02",
+    "bytes": 561
+  },
+  "qc/spec/execute.controller.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/execute.controller.log",
+    "sha256": "c71ef9cc7fde918cb2b6609c39f394d21980b30f1052767c844714ab4417f933",
+    "bytes": 631
+  },
+  "qc/spec/execute.shim-stderr.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/execute.shim-stderr.log",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0
+  },
+  "qc/spec/explore/REPORT.md": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/explore/REPORT.md",
+    "sha256": "dd7a086b148717a9611218e3324395d7d6303d86e611cd4a3d26741c248da314",
+    "bytes": 3232
+  },
+  "qc/spec/explore/auth-reserved.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/explore/auth-reserved.json",
+    "sha256": "89d3a977d27d8a5032bbf88f303e090c5d2b24e52f34c59a7f97a56857472e04",
+    "bytes": 40
+  },
+  "qc/spec/explore/commands/001-read/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/explore/commands/001-read/output.log",
+    "sha256": "2b05b503998ad761f7e9500bc7f94bfb2cf7d7ae189954b2b222917299c5d11e",
+    "bytes": 3346
+  },
+  "qc/spec/explore/commands/001-read/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/explore/commands/001-read/request.json",
+    "sha256": "2a5f6df396cda09ab22676dbab6e62e18fe97e7f194bb346b1fecf4f85fb728d",
+    "bytes": 160
+  },
+  "qc/spec/explore/commands/001-read/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/explore/commands/001-read/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/spec/explore/commands/002-read/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/explore/commands/002-read/output.log",
+    "sha256": "f7677b5a3fa11692b2cf47991a972f315f9523586e91c0875d2e0aa2135d4122",
+    "bytes": 7700
+  },
+  "qc/spec/explore/commands/002-read/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/explore/commands/002-read/request.json",
+    "sha256": "b0704b105a5145a3ea2743ac904e1d4bd3f6bbe7109bc01cdc382f611b4990ff",
+    "bytes": 168
+  },
+  "qc/spec/explore/commands/002-read/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/explore/commands/002-read/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/spec/explore/commands/003-read/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/explore/commands/003-read/output.log",
+    "sha256": "f7677b5a3fa11692b2cf47991a972f315f9523586e91c0875d2e0aa2135d4122",
+    "bytes": 7700
+  },
+  "qc/spec/explore/commands/003-read/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/explore/commands/003-read/request.json",
+    "sha256": "80263d19727bd675be67fff9313408e3a6cf5edd926cb914ef5edaa63456acc6",
+    "bytes": 168
+  },
+  "qc/spec/explore/commands/003-read/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/explore/commands/003-read/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/spec/explore/commands/004-read/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/explore/commands/004-read/output.log",
+    "sha256": "60ee22e9af3d56faf3ced050246ad9eb00c0068b3dc462c8d06b20e7d12285c8",
+    "bytes": 986
+  },
+  "qc/spec/explore/commands/004-read/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/explore/commands/004-read/request.json",
+    "sha256": "37d9550b31fa5d4e93cf9327130c6190a1445f379947ff3b82521121d671d831",
+    "bytes": 120
+  },
+  "qc/spec/explore/commands/004-read/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/explore/commands/004-read/result.json",
+    "sha256": "d67659d29dad50e65ac903e33dc7ef4a692331d96253553956300d1fcfa5786a",
+    "bytes": 14
+  },
+  "qc/spec/explore/commands/005-read/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/explore/commands/005-read/output.log",
+    "sha256": "c695f5fdfa14b5353da3efd21952a37101d2f6cdbf8e2bcb294acf58e3f8c4c5",
+    "bytes": 10764
+  },
+  "qc/spec/explore/commands/005-read/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/explore/commands/005-read/request.json",
+    "sha256": "5ac25fa6d76d2c0534c92dce87cefd412be77a86ed9b1d182d123aac955a018d",
+    "bytes": 110
+  },
+  "qc/spec/explore/commands/005-read/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/explore/commands/005-read/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/spec/explore/commands/006-read/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/explore/commands/006-read/output.log",
+    "sha256": "0af7433262ef3724e64dcd55e49b3cc1037c3f104cbb37eee86cd488c1ab7279",
+    "bytes": 2269
+  },
+  "qc/spec/explore/commands/006-read/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/explore/commands/006-read/request.json",
+    "sha256": "78d6bc05153e7845c61a3f82f002a79101781700a7f06e3cf738da7db5c028ac",
+    "bytes": 126
+  },
+  "qc/spec/explore/commands/006-read/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/explore/commands/006-read/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/spec/explore/commands/007-read/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/explore/commands/007-read/output.log",
+    "sha256": "f0065ab1e41ce21b3aa17b42148c52d14172aa8de5e5a60b17f658db3f066b0a",
+    "bytes": 4878
+  },
+  "qc/spec/explore/commands/007-read/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/explore/commands/007-read/request.json",
+    "sha256": "0fc73876218152341f79db414d8578684730ebbacf2a63af760b5c570a066b07",
+    "bytes": 128
+  },
+  "qc/spec/explore/commands/007-read/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/explore/commands/007-read/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/spec/explore/commands/008-read/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/explore/commands/008-read/output.log",
+    "sha256": "69a7e3d319578123021f6f307fca2c8dfbe41a5fb9d0182d9bd44e93034862cb",
+    "bytes": 5896
+  },
+  "qc/spec/explore/commands/008-read/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/explore/commands/008-read/request.json",
+    "sha256": "b939ee308c044eebe84db384af513853152f122570ee02044242c20451670171",
+    "bytes": 128
+  },
+  "qc/spec/explore/commands/008-read/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/explore/commands/008-read/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/spec/explore/commands/009-read/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/explore/commands/009-read/output.log",
+    "sha256": "a6d7092082900992935f069b7249ba279fbae1f8baeb52d3d24fa0caad19d52b",
+    "bytes": 4303
+  },
+  "qc/spec/explore/commands/009-read/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/explore/commands/009-read/request.json",
+    "sha256": "95a602fa07fc2f6c3489a6a799072ccf6026b6ade9b1c13f3952a0af9917eec6",
+    "bytes": 128
+  },
+  "qc/spec/explore/commands/009-read/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/explore/commands/009-read/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/spec/explore/commands/010-read/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/explore/commands/010-read/output.log",
+    "sha256": "3e867414b9e3385df0352ed0413a1a3252a6f3e6073475cf16662843bb97111a",
+    "bytes": 8105
+  },
+  "qc/spec/explore/commands/010-read/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/explore/commands/010-read/request.json",
+    "sha256": "3b9201a1cb6cd389ed45dcd3a43c9c9a463259134f8e672343bd3cbc05e0a3e5",
+    "bytes": 193
+  },
+  "qc/spec/explore/commands/010-read/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/explore/commands/010-read/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/spec/explore/commands/011-read/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/explore/commands/011-read/output.log",
+    "sha256": "49403c260e97d7c756c08d5e84da1bd7bc06d67d7bd9508234d4f4408267fc1a",
+    "bytes": 4718
+  },
+  "qc/spec/explore/commands/011-read/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/explore/commands/011-read/request.json",
+    "sha256": "a93940d341433e7366479d40cdb90f3c5111bcc0de24ba747c2bf04361c9230f",
+    "bytes": 143
+  },
+  "qc/spec/explore/commands/011-read/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/explore/commands/011-read/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/spec/explore/commands/012-read/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/explore/commands/012-read/output.log",
+    "sha256": "9d925a5d05e8e3b322e1703b2aa11fda67441d2cd71fe70e6c1f20b373f86a95",
+    "bytes": 2568
+  },
+  "qc/spec/explore/commands/012-read/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/explore/commands/012-read/request.json",
+    "sha256": "09d92e29adc66abbfd99a85c79cdb42192945dd2f8bd0b1cb85c9cdd6f83ba14",
+    "bytes": 141
+  },
+  "qc/spec/explore/commands/012-read/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/explore/commands/012-read/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/spec/explore/commands/013-write/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/explore/commands/013-write/output.log",
+    "sha256": "3dbc97ff25a378a89337c99da76c9a1b37df430912a95a1b0ba19ea75009d679",
+    "bytes": 128
+  },
+  "qc/spec/explore/commands/013-write/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/explore/commands/013-write/request.json",
+    "sha256": "eb086e19343faff1e74768868824495705e6e8e0a226b7c17bb7455d3a42251a",
+    "bytes": 5063
+  },
+  "qc/spec/explore/commands/013-write/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/explore/commands/013-write/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/spec/explore/commands/014-write/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/explore/commands/014-write/output.log",
+    "sha256": "21cb417b73efbae258248bb59d693a08704436df65965a70135c7ccd7ddd9cf2",
+    "bytes": 135
+  },
+  "qc/spec/explore/commands/014-write/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/explore/commands/014-write/request.json",
+    "sha256": "6386ac9b97116f45bed73b461b709d87e758fed912a7ea1c9d2273df30821fbb",
+    "bytes": 6505
+  },
+  "qc/spec/explore/commands/014-write/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/explore/commands/014-write/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/spec/explore/commands/015-write/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/explore/commands/015-write/output.log",
+    "sha256": "80907c4c866f1bf80b8eaa15a2750bc6c8a4870d313edac5e737473fbc8fbeef",
+    "bytes": 131
+  },
+  "qc/spec/explore/commands/015-write/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/explore/commands/015-write/request.json",
+    "sha256": "dd08f1de5368bc0e0e2abbc91db3707e790087ffe179dbd17415cde58fc6630e",
+    "bytes": 5156
+  },
+  "qc/spec/explore/commands/015-write/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/explore/commands/015-write/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/spec/explore/commands/016-read/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/explore/commands/016-read/output.log",
+    "sha256": "606a00f72f7d476f80a627114d680b3a61fdb21f10713a88426233bd4b1a2f5b",
+    "bytes": 1158
+  },
+  "qc/spec/explore/commands/016-read/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/explore/commands/016-read/request.json",
+    "sha256": "0f1bdea2737c9954281fe1fd81da3977e2ff34ecc599c1575aa9d1312b70af81",
+    "bytes": 126
+  },
+  "qc/spec/explore/commands/016-read/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/explore/commands/016-read/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/spec/explore/commands/017-read/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/explore/commands/017-read/output.log",
+    "sha256": "575a6f607922388f5b63dc0f973d838b3070fd88fc3039822d6477e7226965bd",
+    "bytes": 1464
+  },
+  "qc/spec/explore/commands/017-read/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/explore/commands/017-read/request.json",
+    "sha256": "a3bb44919a30f997a3ac8b87214bb23af1a291a1a0757aa4c3f0cc39148c41a6",
+    "bytes": 127
+  },
+  "qc/spec/explore/commands/017-read/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/explore/commands/017-read/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/spec/explore/commands/018-write/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/explore/commands/018-write/output.log",
+    "sha256": "2ef2f692a738919cb8b76bd2b7a0c1f51f66538031b7e69d1b78cc71f6be7f82",
+    "bytes": 138
+  },
+  "qc/spec/explore/commands/018-write/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/explore/commands/018-write/request.json",
+    "sha256": "eecb875ab4a836b4d434aaced18f6c6598a54921b094fb7c2a437595693ad16e",
+    "bytes": 5138
+  },
+  "qc/spec/explore/commands/018-write/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/explore/commands/018-write/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/spec/explore/commands/019-deliver_stage/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/explore/commands/019-deliver_stage/request.json",
+    "sha256": "9a5b97f41f77a18173aa1621449b979671eccf8caf82d3120f46f33c433b295a",
+    "bytes": 3090
+  },
+  "qc/spec/explore/commands/019-deliver_stage/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/explore/commands/019-deliver_stage/result.json",
+    "sha256": "01570f0a8a48e48321e2e60514d8cda7b5142196a2d5565030f21130e41735e1",
+    "bytes": 35
+  },
+  "qc/spec/explore/credential.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/explore/credential.json",
+    "sha256": "5d6c5124a4f085ec1705fb08673d36708781e166f1e4939b110c6be57ff5c3c8",
+    "bytes": 292
+  },
+  "qc/spec/explore/events.jsonl": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/explore/events.jsonl",
+    "sha256": "79d21d08a37be21504863fa7d6f954c19ce8583ac3958a27b5cbe7b6411b21f8",
+    "bytes": 934437
+  },
+  "qc/spec/explore/execution.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/explore/execution.json",
+    "sha256": "462c5de560605d395f5c334c2f1e0450ba4cb6bee2858efcfa6bbb4555f6c453",
+    "bytes": 10827
+  },
+  "qc/spec/explore/parsed.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/explore/parsed.json",
+    "sha256": "65174749e1dee70be3bcffb4d48b8029ee938d72f1609a40bddef8da0cb0cadd",
+    "bytes": 3220
+  },
+  "qc/spec/explore/payload-shapes.jsonl": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/explore/payload-shapes.jsonl",
+    "sha256": "a8faebcd70459fc19971b2850fb81d04a7c3207dbf6c9dc2676568fd4c17f656",
+    "bytes": 2271
+  },
+  "qc/spec/explore/request-admissions.jsonl": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/explore/request-admissions.jsonl",
+    "sha256": "3ae4f2ad01c2d590ca8cbb07b13a954e4757ded547300dfdb1b3e77128d39a6e",
+    "bytes": 1467
+  },
+  "qc/spec/explore/responses.jsonl": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/explore/responses.jsonl",
+    "sha256": "5ef00c5d636ca5e0a8182531101cc003f8614bf66c30a0c5441cc9d9548090cc",
+    "bytes": 351
+  },
+  "qc/spec/explore/stderr.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/explore/stderr.log",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0
+  },
+  "qc/spec/explore/submission.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/explore/submission.json",
+    "sha256": "65174749e1dee70be3bcffb4d48b8029ee938d72f1609a40bddef8da0cb0cadd",
+    "bytes": 3220
+  },
+  "qc/spec/explore/tool-menu.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/explore/tool-menu.json",
+    "sha256": "39e3504cd80b631965aac6d417704ccb6173983bdf4cb96f58abb1f9208b5461",
+    "bytes": 175
+  },
+  "qc/spec/explore-shim/counts.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/explore-shim/counts.json",
+    "sha256": "7bc22c5ea59b9499b1a3fe4902f3705dfaea1f7ad007d596c2dca9c2c24761a6",
+    "bytes": 168
+  },
+  "qc/spec/explore-shim/requests.jsonl": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/explore-shim/requests.jsonl",
+    "sha256": "aa6717058c3b36b577bf37c1de437c4ca6b6900e4eb8c005515db2e4934d6bd3",
+    "bytes": 4814
+  },
+  "qc/spec/explore.controller.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/explore.controller.json",
+    "sha256": "99b8b7bc4d52a3bf5edecab536e5f21021a27db131a6bfd95fb657d82364aadc",
+    "bytes": 561
+  },
+  "qc/spec/explore.controller.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/explore.controller.log",
+    "sha256": "1cb58827f1c8c9bd4120a2b68eccb5d0fe25acc8424169b127b9c767f7e20da9",
+    "bytes": 631
+  },
+  "qc/spec/explore.shim-stderr.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/explore.shim-stderr.log",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0
+  },
+  "qc/spec/file_tool.py": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/file_tool.py",
+    "sha256": "79125feff76d98407e3bf1d36cfa56c0086863bc0591afa499f3580a6dcf8972",
+    "bytes": 1639
+  },
+  "qc/spec/gateway/REPORT.md": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/gateway/REPORT.md",
+    "sha256": "7cc3df1a25c873a39ec18820b7fdbba14801865fd89afbdf41051951a9ccf31d",
+    "bytes": 36
+  },
+  "qc/spec/gateway/auth-reserved.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/gateway/auth-reserved.json",
+    "sha256": "89d3a977d27d8a5032bbf88f303e090c5d2b24e52f34c59a7f97a56857472e04",
+    "bytes": 40
+  },
+  "qc/spec/gateway/commands/001-read/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/gateway/commands/001-read/output.log",
+    "sha256": "7cc3df1a25c873a39ec18820b7fdbba14801865fd89afbdf41051951a9ccf31d",
+    "bytes": 36
+  },
+  "qc/spec/gateway/commands/001-read/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/gateway/commands/001-read/request.json",
+    "sha256": "b3e9a0cb2e54072c96c8793d950c4a802635deaf82af5a1c4b77d944e4c65ce9",
+    "bytes": 189
+  },
+  "qc/spec/gateway/commands/001-read/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/gateway/commands/001-read/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/spec/gateway/commands/002-write/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/gateway/commands/002-write/output.log",
+    "sha256": "2cbbe771348efe3218e31d9fde253d97b3534201b51a7852e9f301b49d12bd59",
+    "bytes": 117
+  },
+  "qc/spec/gateway/commands/002-write/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/gateway/commands/002-write/request.json",
+    "sha256": "37a79f8fde445f8e61b780aa8d47c6181aeeecbf9a02b8c4d111c6d075d13403",
+    "bytes": 215
+  },
+  "qc/spec/gateway/commands/002-write/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/gateway/commands/002-write/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/spec/gateway/credential.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/gateway/credential.json",
+    "sha256": "5d6c5124a4f085ec1705fb08673d36708781e166f1e4939b110c6be57ff5c3c8",
+    "bytes": 292
+  },
+  "qc/spec/gateway/events.jsonl": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/gateway/events.jsonl",
+    "sha256": "9289185dfd2ce2132397179851bf95d590e616f4c876dfc1905c529e5769b350",
+    "bytes": 26329
+  },
+  "qc/spec/gateway/gateway-state.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/gateway/gateway-state.json",
+    "sha256": "4ee336f60c888986b62e9a4a9f7cecfda96beb8cbf3fae8fb0bba2a99546b9eb",
+    "bytes": 644
+  },
+  "qc/spec/gateway/payload-shapes.jsonl": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/gateway/payload-shapes.jsonl",
+    "sha256": "19536216b78b62fa979bde8f1309ceb9ffffd7946be0df08fcac372c462578a2",
+    "bytes": 490
+  },
+  "qc/spec/gateway/receipt.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/gateway/receipt.json",
+    "sha256": "5c41f3b36e45afec6fac4f27618956dc40ecc994f9f6614b90f0d8ba0da61a5b",
+    "bytes": 1068
+  },
+  "qc/spec/gateway/request-admissions.jsonl": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/gateway/request-admissions.jsonl",
+    "sha256": "d64c2bb92e53f13e3341c8a93c3d2c0ae20deb76e9081701ae3f1d9ecc45e305",
+    "bytes": 366
+  },
+  "qc/spec/gateway/responses.jsonl": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/gateway/responses.jsonl",
+    "sha256": "80527bc76d9beb5b3ca6717cf268760df2e001550dae5de75f8a7110ecab32e2",
+    "bytes": 87
+  },
+  "qc/spec/gateway/stderr.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/gateway/stderr.log",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0
+  },
+  "qc/spec/gateway/tiny.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/gateway/tiny.json",
+    "sha256": "179a417eba8731b6a5dbb95b9605fdf5d6a4e1cfe47df0f8c0fd03bdf6bf7f52",
+    "bytes": 173
+  },
+  "qc/spec/gateway/tool-menu.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/gateway/tool-menu.json",
+    "sha256": "1a439f2a6a6325dd58cfc63a28382279d0021e40269103ee70f466a61b39904a",
+    "bytes": 133
+  },
+  "qc/spec/gateway-shim/counts.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/gateway-shim/counts.json",
+    "sha256": "6bd4b1f499d9a137902b1d0fca2b7865023503eafa721c188ba76b31bcac06ee",
+    "bytes": 165
+  },
+  "qc/spec/gateway-shim/requests.jsonl": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/gateway-shim/requests.jsonl",
+    "sha256": "891813be6ab5bc66d0eaae02a3ae51fe119b5b4c36abef160027de5352f95ace",
+    "bytes": 1720
+  },
+  "qc/spec/gateway.controller.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/gateway.controller.json",
+    "sha256": "efcf2555aee98fd7ad8908593d292ffec8e247e4d921d7edb725a797bb803b53",
+    "bytes": 521
+  },
+  "qc/spec/gateway.controller.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/gateway.controller.log",
+    "sha256": "467d732a63da42614a5a8cc69d0220e7160f9ddc446244bd39297cca221c1a65",
+    "bytes": 459
+  },
+  "qc/spec/gateway.mjs": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/gateway.mjs",
+    "sha256": "2f2deb572077f10125deb0ca4d6766f3c1ac4732285a329d8b256261a0310d7a",
+    "bytes": 40
+  },
+  "qc/spec/gateway.shim-stderr.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/gateway.shim-stderr.log",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0
+  },
+  "qc/spec/inputs/author-pytest-receipt.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/inputs/author-pytest-receipt.json",
+    "sha256": "7c36b18bf8bbc09d9d71ec35782739f7faafdf0af32f732b73367adc9e996243",
+    "bytes": 945
+  },
+  "qc/spec/inputs/author-summary.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/inputs/author-summary.json",
+    "sha256": "40fb288b7e6ddee6183de2d6257a0e7f098d10949a3e19d54e933cc97377b046",
+    "bytes": 6728
+  },
+  "qc/spec/inputs/claims.md": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/inputs/claims.md",
+    "sha256": "2b05b503998ad761f7e9500bc7f94bfb2cf7d7ae189954b2b222917299c5d11e",
+    "bytes": 3346
+  },
+  "qc/spec/inputs/code-tip-to-candidate.diffstat.txt": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/inputs/code-tip-to-candidate.diffstat.txt",
+    "sha256": "15d266e15efe3dd827001b4d3e789c254f1f514bbb2379b84f1b3c60845494fa",
+    "bytes": 93540
+  },
+  "qc/spec/inputs/source-index.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/inputs/source-index.json",
+    "sha256": "eeb64b09a275c34cc8b9b7b215e225beb0dff139f2f51ce13f556940ee045a25",
+    "bytes": 38770
+  },
+  "qc/spec/pi-config/auth.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/pi-config/auth.json",
+    "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+    "bytes": 2
+  },
+  "qc/spec/pi-config/models-store.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/pi-config/models-store.json",
+    "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+    "bytes": 2
+  },
+  "qc/spec/pi-config/settings.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/pi-config/settings.json",
+    "sha256": "cda612a59b9d61dc644867021e8a5284dc7a6040e65eadab9b883ae78406b417",
+    "bytes": 340
+  },
+  "qc/spec/pi_review_protocol.mjs": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/pi_review_protocol.mjs",
+    "sha256": "05360fd5433f0af6f6a8c5c8c37289a3008be1803d9e898a4caef62049e03492",
+    "bytes": 6864
+  },
+  "qc/spec/prompt-execute.md": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/prompt-execute.md",
+    "sha256": "f852507961a64cdf21bff38b3eb1f4466eb46012bbd077b3a81cb14eeed8f6af",
+    "bytes": 4182
+  },
+  "qc/spec/prompt-explore.md": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/prompt-explore.md",
+    "sha256": "4af4cb696b3f10749fb5ea538baef73153a329d25c4ee275bbcab6b636431b13",
+    "bytes": 3735
+  },
+  "qc/spec/prompt-report.md": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/prompt-report.md",
+    "sha256": "30e6d16fa6262cd1b4e0846a490bcb252493ee314472da9ebe01eda5004c6cdf",
+    "bytes": 3112
+  },
+  "qc/spec/provider-template.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/provider-template.json",
+    "sha256": "28ca3ac313311c8e9920042af58d32fdc38ca1703fad85fd15a4269087e32827",
+    "bytes": 515
+  },
+  "qc/spec/report/REPORT.md": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/report/REPORT.md",
+    "sha256": "76ce1f3688e8451455ed1c95ca74fe2e3cdfe9abaf16b4203e8e494f5327c409",
+    "bytes": 5020
+  },
+  "qc/spec/report/auth-reserved.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/report/auth-reserved.json",
+    "sha256": "89d3a977d27d8a5032bbf88f303e090c5d2b24e52f34c59a7f97a56857472e04",
+    "bytes": 40
+  },
+  "qc/spec/report/commands/001-deliver_stage/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/report/commands/001-deliver_stage/request.json",
+    "sha256": "1b1a8afd1a7ea7852d2e36784293e1d4cafde10ce214da4e86ea39ae6bf4d07d",
+    "bytes": 4713
+  },
+  "qc/spec/report/commands/001-deliver_stage/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/report/commands/001-deliver_stage/result.json",
+    "sha256": "01570f0a8a48e48321e2e60514d8cda7b5142196a2d5565030f21130e41735e1",
+    "bytes": 35
+  },
+  "qc/spec/report/credential.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/report/credential.json",
+    "sha256": "5d6c5124a4f085ec1705fb08673d36708781e166f1e4939b110c6be57ff5c3c8",
+    "bytes": 292
+  },
+  "qc/spec/report/events.jsonl": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/report/events.jsonl",
+    "sha256": "67cb3171302274edd7ba7fb10dbb22061d739179a6804699afbfedab28adad2b",
+    "bytes": 385956
+  },
+  "qc/spec/report/execution.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/report/execution.json",
+    "sha256": "7cdcb4d2daff6062ac76d2208ab5cecdbc7ca5d77660cf0b915945d21356cb47",
+    "bytes": 4734
+  },
+  "qc/spec/report/parsed.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/report/parsed.json",
+    "sha256": "4a2f6eaf59590277cb99f7ab64e0964635638451496389b15240cad43c48fdec",
+    "bytes": 5008
+  },
+  "qc/spec/report/payload-shapes.jsonl": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/report/payload-shapes.jsonl",
+    "sha256": "b5d5b79fee5b401c61789aeee05231b2154ce5efb770ad89144af65c586a76ae",
+    "bytes": 173
+  },
+  "qc/spec/report/request-admissions.jsonl": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/report/request-admissions.jsonl",
+    "sha256": "49a41147353d739844f4dd7364aeb48b28072bd8b64c4ecdd0f6ce70e5dcc915",
+    "bytes": 121
+  },
+  "qc/spec/report/responses.jsonl": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/report/responses.jsonl",
+    "sha256": "f5b2bfbd4f957a7246b529caa0f28b7a7b2ba41f11fcf6f2fa222f176c71224f",
+    "bytes": 29
+  },
+  "qc/spec/report/stderr.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/report/stderr.log",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0
+  },
+  "qc/spec/report/submission.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/report/submission.json",
+    "sha256": "4a2f6eaf59590277cb99f7ab64e0964635638451496389b15240cad43c48fdec",
+    "bytes": 5008
+  },
+  "qc/spec/report/tool-menu.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/report/tool-menu.json",
+    "sha256": "caa39de8ead329b20d42a511dc7a4ab35e7be8ecb4d9890c6e91e2bd260ed245",
+    "bytes": 124
+  },
+  "qc/spec/report-packet-manifest.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/report-packet-manifest.json",
+    "sha256": "7ecc7ed90cf4954d1243b7f7b70992f1949e64ea0d8356b5ecf6a0880cfe7e09",
+    "bytes": 9700
+  },
+  "qc/spec/report-packet.md": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/report-packet.md",
+    "sha256": "76103b1adddd07fc711487a0908590b21fc98f96e6f2c5d693718e6409b3d114",
+    "bytes": 94166
+  },
+  "qc/spec/report-shim/counts.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/report-shim/counts.json",
+    "sha256": "88aea16cc49eec14de82ebb06c97f9b265f22c2fdf6b296394d04a70889aeb31",
+    "bytes": 165
+  },
+  "qc/spec/report-shim/requests.jsonl": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/report-shim/requests.jsonl",
+    "sha256": "49144dd125fa3b4243d50d487bf49168e871bc3214366ba8ff86712946ec130b",
+    "bytes": 564
+  },
+  "qc/spec/report.controller.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/report.controller.json",
+    "sha256": "d1e8239f6896d3f333e02b5968ff892143bc3de5e1b6d9002b1fb1505e2a1c37",
+    "bytes": 556
+  },
+  "qc/spec/report.controller.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/report.controller.log",
+    "sha256": "9d4273e21401c98ea11644a0c01f7cacf30229e80a3901f79690bd53dfe5493f",
+    "bytes": 622
+  },
+  "qc/spec/report.shim-stderr.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/report.shim-stderr.log",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0
+  },
+  "qc/spec/review.mjs": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/review.mjs",
+    "sha256": "7cb9e4921e4a1918f4f45ff4d949a2de5bccc0de7ed3d8e52fb8ebd55250b803",
+    "bytes": 12798
+  },
+  "qc/spec/run_control.py": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/run_control.py",
+    "sha256": "d13160d41e0018a6f112e0b3539902aafb3d58849a6c8265c2d5f6900346cc8b",
+    "bytes": 9360
+  },
+  "qc/spec/run_stage.py": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/run_stage.py",
+    "sha256": "7649b9604733be3e23bd91732aec323ef399de397d0b3ea4c4d19c41f80d8b2e",
+    "bytes": 8133
+  },
+  "qc/spec/sandbox-preflight-04/commands/001-write/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/sandbox-preflight-04/commands/001-write/output.log",
+    "sha256": "97ac03e19f4cc28861c5c076e79676fa0c573509a77757f432da8b297204d558",
+    "bytes": 119
+  },
+  "qc/spec/sandbox-preflight-04/commands/001-write/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/sandbox-preflight-04/commands/001-write/request.json",
+    "sha256": "72a8f9d0360f95ad98e93dbcb32773b0355ff5967a1ca81cf254b0d61da9b11b",
+    "bytes": 2076
+  },
+  "qc/spec/sandbox-preflight-04/commands/001-write/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/sandbox-preflight-04/commands/001-write/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/spec/sandbox-preflight-04/commands/002-read/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/sandbox-preflight-04/commands/002-read/output.log",
+    "sha256": "4f7b21b47b2029d49340d966398aeb598a4ff86479ceec9dc5e92af2926d57c7",
+    "bytes": 1889
+  },
+  "qc/spec/sandbox-preflight-04/commands/002-read/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/sandbox-preflight-04/commands/002-read/request.json",
+    "sha256": "78e06972eb324e8bd74ad9d5bc4b14543cad79acce2662354bd57cbd2cb32cc7",
+    "bytes": 149
+  },
+  "qc/spec/sandbox-preflight-04/commands/002-read/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/sandbox-preflight-04/commands/002-read/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/spec/sandbox-preflight-04/commands/003-bash/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/sandbox-preflight-04/commands/003-bash/output.log",
+    "sha256": "92e8d6e667d6be88a6f095660f0577d9d67e847d7cbef5c824a9d4c68402e1e0",
+    "bytes": 65
+  },
+  "qc/spec/sandbox-preflight-04/commands/003-bash/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/sandbox-preflight-04/commands/003-bash/request.json",
+    "sha256": "e250e52711337989e9a6990f5f9e19839bd10ae82fcea413a2daf9c014014a79",
+    "bytes": 221
+  },
+  "qc/spec/sandbox-preflight-04/commands/003-bash/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/sandbox-preflight-04/commands/003-bash/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/spec/sandbox-preflight-04/commands/004-read/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/sandbox-preflight-04/commands/004-read/output.log",
+    "sha256": "959cbafa95cfcd2fb6fb6af282215b6ead7a5f9d356c17f2c3df799d83002c68",
+    "bytes": 984
+  },
+  "qc/spec/sandbox-preflight-04/commands/004-read/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/sandbox-preflight-04/commands/004-read/request.json",
+    "sha256": "9bc2dc547aa948597bb0ed71551444eb38553833a4a77041a5487a208c228e65",
+    "bytes": 176
+  },
+  "qc/spec/sandbox-preflight-04/commands/004-read/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/sandbox-preflight-04/commands/004-read/result.json",
+    "sha256": "d67659d29dad50e65ac903e33dc7ef4a692331d96253553956300d1fcfa5786a",
+    "bytes": 14
+  },
+  "qc/spec/sandbox-preflight-04/commands/005-write/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/sandbox-preflight-04/commands/005-write/output.log",
+    "sha256": "4e76b952c1d571a5a9e89cf5e4b43cff94ef243b95b978574a43cf3b99abba6e",
+    "bytes": 260
+  },
+  "qc/spec/sandbox-preflight-04/commands/005-write/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/sandbox-preflight-04/commands/005-write/request.json",
+    "sha256": "ba849f0c0fd249d4670da54204454da2d2cf036051d516ec2276d6e763a97959",
+    "bytes": 151
+  },
+  "qc/spec/sandbox-preflight-04/commands/005-write/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/sandbox-preflight-04/commands/005-write/result.json",
+    "sha256": "d67659d29dad50e65ac903e33dc7ef4a692331d96253553956300d1fcfa5786a",
+    "bytes": 14
+  },
+  "qc/spec/sandbox-preflight-04/commands/006-write/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/sandbox-preflight-04/commands/006-write/output.log",
+    "sha256": "4e76b952c1d571a5a9e89cf5e4b43cff94ef243b95b978574a43cf3b99abba6e",
+    "bytes": 260
+  },
+  "qc/spec/sandbox-preflight-04/commands/006-write/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/sandbox-preflight-04/commands/006-write/request.json",
+    "sha256": "e02b7f8427547110d441541c7ef224af32d0d5ec4de7ae7da5fbe37ee33c0cca",
+    "bytes": 155
+  },
+  "qc/spec/sandbox-preflight-04/commands/006-write/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/sandbox-preflight-04/commands/006-write/result.json",
+    "sha256": "d67659d29dad50e65ac903e33dc7ef4a692331d96253553956300d1fcfa5786a",
+    "bytes": 14
+  },
+  "qc/spec/sandbox-preflight-04/commands/007-write/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/sandbox-preflight-04/commands/007-write/output.log",
+    "sha256": "865c8180a80d4decd4bcb2308f19fd2a268d2db8d1f3eca7f59c66aafac25254",
+    "bytes": 120
+  },
+  "qc/spec/sandbox-preflight-04/commands/007-write/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/sandbox-preflight-04/commands/007-write/request.json",
+    "sha256": "22721a5dc5903446a3e42dd26d9a8ab269e90c2997008b16293b4e46ea410b9c",
+    "bytes": 210
+  },
+  "qc/spec/sandbox-preflight-04/commands/007-write/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/sandbox-preflight-04/commands/007-write/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/spec/sandbox-preflight-04/commands/008-bash/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/sandbox-preflight-04/commands/008-bash/output.log",
+    "sha256": "cba1a6cbb7f8ddaefae6c759f5beb53187b80efb2cf1eec836773f0d8cdb5c88",
+    "bytes": 282
+  },
+  "qc/spec/sandbox-preflight-04/commands/008-bash/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/sandbox-preflight-04/commands/008-bash/request.json",
+    "sha256": "92965b54e8c707904564635ce28b16fbfc841b1fb27f168fbe12d67100746bf8",
+    "bytes": 231
+  },
+  "qc/spec/sandbox-preflight-04/commands/008-bash/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/sandbox-preflight-04/commands/008-bash/result.json",
+    "sha256": "d67659d29dad50e65ac903e33dc7ef4a692331d96253553956300d1fcfa5786a",
+    "bytes": 14
+  },
+  "qc/spec/sandbox-preflight-04/controller-stop.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/sandbox-preflight-04/controller-stop.json",
+    "sha256": "d9d25bae4808b77154b6800b100689ae531ca8f69f1c61361aa9ec5d6e7a2c8c",
+    "bytes": 84
+  },
+  "qc/spec/sandbox-preflight-04/credential.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/sandbox-preflight-04/credential.json",
+    "sha256": "cacfdb3f09ab819f304f8bdc094168c97f0dff67d8a5f6f7927e654400e28055",
+    "bytes": 292
+  },
+  "qc/spec/sandbox-preflight-04/payload-shapes.jsonl": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/sandbox-preflight-04/payload-shapes.jsonl",
+    "sha256": "212bb1e2e0df44585b45653612c4c8759bf53cde4ed16884018e9945ce9a2812",
+    "bytes": 2592
+  },
+  "qc/spec/sandbox-preflight-04/receipt.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/sandbox-preflight-04/receipt.json",
+    "sha256": "25fba9011891a341f7fce2ba37da68a0c329dd4f3cb097eab724816fa1aa330c",
+    "bytes": 563
+  },
+  "qc/spec/sandbox-preflight-04/request-admissions.jsonl": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/sandbox-preflight-04/request-admissions.jsonl",
+    "sha256": "feb175991c3a6c1be32ebd4e765b2c197e82249bc65519ea8615a3fefac7cb80",
+    "bytes": 2081
+  },
+  "qc/spec/sandbox_preflight.mjs": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/sandbox_preflight.mjs",
+    "sha256": "dc32262cdfaa595dc1b5b1a58ac3503293add781aa528f78a77729d5fde5cded",
+    "bytes": 5503
+  },
+  "qc/spec/tools.sb": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/tools.sb",
+    "sha256": "032221aa6e2db082db4838132e2321ccfd39a948bc292405cb65dfec110937da",
+    "bytes": 1644
+  },
+  "qc/spec/work/allowed.txt": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/allowed.txt",
+    "sha256": "2689367b205c16ce32ed4200942b8b8b1e262dfc70d9bc9fbc77c49699a4f1df",
+    "bytes": 2
+  },
+  "qc/spec/work/gateway-echo.txt": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/gateway-echo.txt",
+    "sha256": "7cc3df1a25c873a39ec18820b7fdbba14801865fd89afbdf41051951a9ccf31d",
+    "bytes": 36
+  },
+  "qc/spec/work/gateway-fixture.txt": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/gateway-fixture.txt",
+    "sha256": "7cc3df1a25c873a39ec18820b7fdbba14801865fd89afbdf41051951a9ccf31d",
+    "bytes": 36
+  },
+  "qc/spec/work/phase-context/explore/REPORT.md": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/phase-context/explore/REPORT.md",
+    "sha256": "dd7a086b148717a9611218e3324395d7d6303d86e611cd4a3d26741c248da314",
+    "bytes": 3232
+  },
+  "qc/spec/work/phase-context/explore/commands/001-read/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/phase-context/explore/commands/001-read/output.log",
+    "sha256": "2b05b503998ad761f7e9500bc7f94bfb2cf7d7ae189954b2b222917299c5d11e",
+    "bytes": 3346
+  },
+  "qc/spec/work/phase-context/explore/commands/001-read/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/phase-context/explore/commands/001-read/request.json",
+    "sha256": "2a5f6df396cda09ab22676dbab6e62e18fe97e7f194bb346b1fecf4f85fb728d",
+    "bytes": 160
+  },
+  "qc/spec/work/phase-context/explore/commands/001-read/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/phase-context/explore/commands/001-read/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/spec/work/phase-context/explore/commands/002-read/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/phase-context/explore/commands/002-read/output.log",
+    "sha256": "f7677b5a3fa11692b2cf47991a972f315f9523586e91c0875d2e0aa2135d4122",
+    "bytes": 7700
+  },
+  "qc/spec/work/phase-context/explore/commands/002-read/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/phase-context/explore/commands/002-read/request.json",
+    "sha256": "b0704b105a5145a3ea2743ac904e1d4bd3f6bbe7109bc01cdc382f611b4990ff",
+    "bytes": 168
+  },
+  "qc/spec/work/phase-context/explore/commands/002-read/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/phase-context/explore/commands/002-read/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/spec/work/phase-context/explore/commands/003-read/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/phase-context/explore/commands/003-read/output.log",
+    "sha256": "f7677b5a3fa11692b2cf47991a972f315f9523586e91c0875d2e0aa2135d4122",
+    "bytes": 7700
+  },
+  "qc/spec/work/phase-context/explore/commands/003-read/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/phase-context/explore/commands/003-read/request.json",
+    "sha256": "80263d19727bd675be67fff9313408e3a6cf5edd926cb914ef5edaa63456acc6",
+    "bytes": 168
+  },
+  "qc/spec/work/phase-context/explore/commands/003-read/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/phase-context/explore/commands/003-read/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/spec/work/phase-context/explore/commands/004-read/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/phase-context/explore/commands/004-read/output.log",
+    "sha256": "60ee22e9af3d56faf3ced050246ad9eb00c0068b3dc462c8d06b20e7d12285c8",
+    "bytes": 986
+  },
+  "qc/spec/work/phase-context/explore/commands/004-read/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/phase-context/explore/commands/004-read/request.json",
+    "sha256": "37d9550b31fa5d4e93cf9327130c6190a1445f379947ff3b82521121d671d831",
+    "bytes": 120
+  },
+  "qc/spec/work/phase-context/explore/commands/004-read/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/phase-context/explore/commands/004-read/result.json",
+    "sha256": "d67659d29dad50e65ac903e33dc7ef4a692331d96253553956300d1fcfa5786a",
+    "bytes": 14
+  },
+  "qc/spec/work/phase-context/explore/commands/005-read/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/phase-context/explore/commands/005-read/output.log",
+    "sha256": "c695f5fdfa14b5353da3efd21952a37101d2f6cdbf8e2bcb294acf58e3f8c4c5",
+    "bytes": 10764
+  },
+  "qc/spec/work/phase-context/explore/commands/005-read/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/phase-context/explore/commands/005-read/request.json",
+    "sha256": "5ac25fa6d76d2c0534c92dce87cefd412be77a86ed9b1d182d123aac955a018d",
+    "bytes": 110
+  },
+  "qc/spec/work/phase-context/explore/commands/005-read/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/phase-context/explore/commands/005-read/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/spec/work/phase-context/explore/commands/006-read/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/phase-context/explore/commands/006-read/output.log",
+    "sha256": "0af7433262ef3724e64dcd55e49b3cc1037c3f104cbb37eee86cd488c1ab7279",
+    "bytes": 2269
+  },
+  "qc/spec/work/phase-context/explore/commands/006-read/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/phase-context/explore/commands/006-read/request.json",
+    "sha256": "78d6bc05153e7845c61a3f82f002a79101781700a7f06e3cf738da7db5c028ac",
+    "bytes": 126
+  },
+  "qc/spec/work/phase-context/explore/commands/006-read/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/phase-context/explore/commands/006-read/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/spec/work/phase-context/explore/commands/007-read/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/phase-context/explore/commands/007-read/output.log",
+    "sha256": "f0065ab1e41ce21b3aa17b42148c52d14172aa8de5e5a60b17f658db3f066b0a",
+    "bytes": 4878
+  },
+  "qc/spec/work/phase-context/explore/commands/007-read/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/phase-context/explore/commands/007-read/request.json",
+    "sha256": "0fc73876218152341f79db414d8578684730ebbacf2a63af760b5c570a066b07",
+    "bytes": 128
+  },
+  "qc/spec/work/phase-context/explore/commands/007-read/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/phase-context/explore/commands/007-read/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/spec/work/phase-context/explore/commands/008-read/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/phase-context/explore/commands/008-read/output.log",
+    "sha256": "69a7e3d319578123021f6f307fca2c8dfbe41a5fb9d0182d9bd44e93034862cb",
+    "bytes": 5896
+  },
+  "qc/spec/work/phase-context/explore/commands/008-read/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/phase-context/explore/commands/008-read/request.json",
+    "sha256": "b939ee308c044eebe84db384af513853152f122570ee02044242c20451670171",
+    "bytes": 128
+  },
+  "qc/spec/work/phase-context/explore/commands/008-read/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/phase-context/explore/commands/008-read/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/spec/work/phase-context/explore/commands/009-read/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/phase-context/explore/commands/009-read/output.log",
+    "sha256": "a6d7092082900992935f069b7249ba279fbae1f8baeb52d3d24fa0caad19d52b",
+    "bytes": 4303
+  },
+  "qc/spec/work/phase-context/explore/commands/009-read/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/phase-context/explore/commands/009-read/request.json",
+    "sha256": "95a602fa07fc2f6c3489a6a799072ccf6026b6ade9b1c13f3952a0af9917eec6",
+    "bytes": 128
+  },
+  "qc/spec/work/phase-context/explore/commands/009-read/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/phase-context/explore/commands/009-read/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/spec/work/phase-context/explore/commands/010-read/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/phase-context/explore/commands/010-read/output.log",
+    "sha256": "3e867414b9e3385df0352ed0413a1a3252a6f3e6073475cf16662843bb97111a",
+    "bytes": 8105
+  },
+  "qc/spec/work/phase-context/explore/commands/010-read/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/phase-context/explore/commands/010-read/request.json",
+    "sha256": "3b9201a1cb6cd389ed45dcd3a43c9c9a463259134f8e672343bd3cbc05e0a3e5",
+    "bytes": 193
+  },
+  "qc/spec/work/phase-context/explore/commands/010-read/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/phase-context/explore/commands/010-read/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/spec/work/phase-context/explore/commands/011-read/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/phase-context/explore/commands/011-read/output.log",
+    "sha256": "49403c260e97d7c756c08d5e84da1bd7bc06d67d7bd9508234d4f4408267fc1a",
+    "bytes": 4718
+  },
+  "qc/spec/work/phase-context/explore/commands/011-read/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/phase-context/explore/commands/011-read/request.json",
+    "sha256": "a93940d341433e7366479d40cdb90f3c5111bcc0de24ba747c2bf04361c9230f",
+    "bytes": 143
+  },
+  "qc/spec/work/phase-context/explore/commands/011-read/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/phase-context/explore/commands/011-read/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/spec/work/phase-context/explore/commands/012-read/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/phase-context/explore/commands/012-read/output.log",
+    "sha256": "9d925a5d05e8e3b322e1703b2aa11fda67441d2cd71fe70e6c1f20b373f86a95",
+    "bytes": 2568
+  },
+  "qc/spec/work/phase-context/explore/commands/012-read/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/phase-context/explore/commands/012-read/request.json",
+    "sha256": "09d92e29adc66abbfd99a85c79cdb42192945dd2f8bd0b1cb85c9cdd6f83ba14",
+    "bytes": 141
+  },
+  "qc/spec/work/phase-context/explore/commands/012-read/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/phase-context/explore/commands/012-read/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/spec/work/phase-context/explore/commands/013-write/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/phase-context/explore/commands/013-write/output.log",
+    "sha256": "3dbc97ff25a378a89337c99da76c9a1b37df430912a95a1b0ba19ea75009d679",
+    "bytes": 128
+  },
+  "qc/spec/work/phase-context/explore/commands/013-write/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/phase-context/explore/commands/013-write/request.json",
+    "sha256": "eb086e19343faff1e74768868824495705e6e8e0a226b7c17bb7455d3a42251a",
+    "bytes": 5063
+  },
+  "qc/spec/work/phase-context/explore/commands/013-write/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/phase-context/explore/commands/013-write/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/spec/work/phase-context/explore/commands/014-write/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/phase-context/explore/commands/014-write/output.log",
+    "sha256": "21cb417b73efbae258248bb59d693a08704436df65965a70135c7ccd7ddd9cf2",
+    "bytes": 135
+  },
+  "qc/spec/work/phase-context/explore/commands/014-write/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/phase-context/explore/commands/014-write/request.json",
+    "sha256": "6386ac9b97116f45bed73b461b709d87e758fed912a7ea1c9d2273df30821fbb",
+    "bytes": 6505
+  },
+  "qc/spec/work/phase-context/explore/commands/014-write/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/phase-context/explore/commands/014-write/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/spec/work/phase-context/explore/commands/015-write/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/phase-context/explore/commands/015-write/output.log",
+    "sha256": "80907c4c866f1bf80b8eaa15a2750bc6c8a4870d313edac5e737473fbc8fbeef",
+    "bytes": 131
+  },
+  "qc/spec/work/phase-context/explore/commands/015-write/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/phase-context/explore/commands/015-write/request.json",
+    "sha256": "dd08f1de5368bc0e0e2abbc91db3707e790087ffe179dbd17415cde58fc6630e",
+    "bytes": 5156
+  },
+  "qc/spec/work/phase-context/explore/commands/015-write/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/phase-context/explore/commands/015-write/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/spec/work/phase-context/explore/commands/016-read/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/phase-context/explore/commands/016-read/output.log",
+    "sha256": "606a00f72f7d476f80a627114d680b3a61fdb21f10713a88426233bd4b1a2f5b",
+    "bytes": 1158
+  },
+  "qc/spec/work/phase-context/explore/commands/016-read/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/phase-context/explore/commands/016-read/request.json",
+    "sha256": "0f1bdea2737c9954281fe1fd81da3977e2ff34ecc599c1575aa9d1312b70af81",
+    "bytes": 126
+  },
+  "qc/spec/work/phase-context/explore/commands/016-read/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/phase-context/explore/commands/016-read/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/spec/work/phase-context/explore/commands/017-read/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/phase-context/explore/commands/017-read/output.log",
+    "sha256": "575a6f607922388f5b63dc0f973d838b3070fd88fc3039822d6477e7226965bd",
+    "bytes": 1464
+  },
+  "qc/spec/work/phase-context/explore/commands/017-read/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/phase-context/explore/commands/017-read/request.json",
+    "sha256": "a3bb44919a30f997a3ac8b87214bb23af1a291a1a0757aa4c3f0cc39148c41a6",
+    "bytes": 127
+  },
+  "qc/spec/work/phase-context/explore/commands/017-read/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/phase-context/explore/commands/017-read/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/spec/work/phase-context/explore/commands/018-write/output.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/phase-context/explore/commands/018-write/output.log",
+    "sha256": "2ef2f692a738919cb8b76bd2b7a0c1f51f66538031b7e69d1b78cc71f6be7f82",
+    "bytes": 138
+  },
+  "qc/spec/work/phase-context/explore/commands/018-write/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/phase-context/explore/commands/018-write/request.json",
+    "sha256": "eecb875ab4a836b4d434aaced18f6c6598a54921b094fb7c2a437595693ad16e",
+    "bytes": 5138
+  },
+  "qc/spec/work/phase-context/explore/commands/018-write/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/phase-context/explore/commands/018-write/result.json",
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "bytes": 14
+  },
+  "qc/spec/work/phase-context/explore/commands/019-deliver_stage/request.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/phase-context/explore/commands/019-deliver_stage/request.json",
+    "sha256": "9a5b97f41f77a18173aa1621449b979671eccf8caf82d3120f46f33c433b295a",
+    "bytes": 3090
+  },
+  "qc/spec/work/phase-context/explore/commands/019-deliver_stage/result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/phase-context/explore/commands/019-deliver_stage/result.json",
+    "sha256": "01570f0a8a48e48321e2e60514d8cda7b5142196a2d5565030f21130e41735e1",
+    "bytes": 35
+  },
+  "qc/spec/work/phase-context/explore/copy-manifest.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/phase-context/explore/copy-manifest.json",
+    "sha256": "ca1d4d859942a0ee6c3e302d2ade89f350d561066f0d648cbb25c4122a6cb796",
+    "bytes": 14296
+  },
+  "qc/spec/work/phase-context/explore/original-probes/013-write-probe_transport.py": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/phase-context/explore/original-probes/013-write-probe_transport.py",
+    "sha256": "484225cbfda00a2f50c1ac0b970bbd19e42b0aadc905258ca3db6d2d847f7871",
+    "bytes": 4665
+  },
+  "qc/spec/work/phase-context/explore/original-probes/014-write-probe_deadline_forward.py": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/phase-context/explore/original-probes/014-write-probe_deadline_forward.py",
+    "sha256": "b36d0240cfd01f96bb0d8b9c92c5cdd4e278dc4caaa49863623f82bcce32d367",
+    "bytes": 6023
+  },
+  "qc/spec/work/phase-context/explore/original-probes/015-write-probe_judge_window.py": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/phase-context/explore/original-probes/015-write-probe_judge_window.py",
+    "sha256": "a291929c955b2a5f1da666a46944757d23862790fa2207b8087e559b0e9c425a",
+    "bytes": 4786
+  },
+  "qc/spec/work/phase-context/explore/original-probes/018-write-probe_deadline_forward_v2.py": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/phase-context/explore/original-probes/018-write-probe_deadline_forward_v2.py",
+    "sha256": "54ba94b30f06cd719ccd67a2dd55d586ef2be71bec373887a08d073e9dc5a63a",
+    "bytes": 4683
+  },
+  "qc/spec/work/phase-context/explore/parsed.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/phase-context/explore/parsed.json",
+    "sha256": "65174749e1dee70be3bcffb4d48b8029ee938d72f1609a40bddef8da0cb0cadd",
+    "bytes": 3220
+  },
+  "qc/spec/work/positive_control.py": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/positive_control.py",
+    "sha256": "18cf446a29460738f129087dfd9f38db586c836b422aadfa12cfc34ad4a37592",
+    "bytes": 47
+  },
+  "qc/spec/work/probes/probe_deadline_forward.py": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/probes/probe_deadline_forward.py",
+    "sha256": "b36d0240cfd01f96bb0d8b9c92c5cdd4e278dc4caaa49863623f82bcce32d367",
+    "bytes": 6023
+  },
+  "qc/spec/work/probes/probe_deadline_forward_v2.py": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/probes/probe_deadline_forward_v2.py",
+    "sha256": "54ba94b30f06cd719ccd67a2dd55d586ef2be71bec373887a08d073e9dc5a63a",
+    "bytes": 4683
+  },
+  "qc/spec/work/probes/probe_deadline_forward_v3.py": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/probes/probe_deadline_forward_v3.py",
+    "sha256": "8c7270988e3b67791fb2497f4dbae8b32b06f752961fda6c5c69a9786cdc0cb6",
+    "bytes": 4535
+  },
+  "qc/spec/work/probes/probe_judge_window.py": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/probes/probe_judge_window.py",
+    "sha256": "a291929c955b2a5f1da666a46944757d23862790fa2207b8087e559b0e9c425a",
+    "bytes": 4786
+  },
+  "qc/spec/work/probes/probe_transport.py": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/probes/probe_transport.py",
+    "sha256": "484225cbfda00a2f50c1ac0b970bbd19e42b0aadc905258ca3db6d2d847f7871",
+    "bytes": 4665
+  },
+  "qc/spec/work/probes/probe_transport_v2.py": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/probes/probe_transport_v2.py",
+    "sha256": "e5fb4853b30d36ef8eba0c1ad8714b7e10fdb66794566e74b34e96e90984ff1d",
+    "bytes": 4136
+  },
+  "qc/spec/work/sandbox_check.py": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/sandbox_check.py",
+    "sha256": "4f7b21b47b2029d49340d966398aeb598a4ff86479ceec9dc5e92af2926d57c7",
+    "bytes": 1889
+  },
+  "l6/check_proxy_offline.py": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-l6-repaired-20260923-2118/check_proxy_offline.py",
+    "sha256": "74908fc17ecf55114a73638ee1b5cca4d9b1d28e555508fa12ac74c573062ef5",
+    "bytes": 3865
+  },
+  "l6/closure-manifest.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-l6-repaired-20260923-2118/closure-manifest.json",
+    "sha256": "84c747993f04ce70408080e42dfd2002c4c05f0dadcf83a98c1e2d9edd9894a7",
+    "bytes": 3450
+  },
+  "l6/data-clone-receipt.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-l6-repaired-20260923-2118/data-clone-receipt.json",
+    "sha256": "167a95988e056a32d70cce6c362144974cea7bf6dce5de0b2f4c02ea1a1294a2",
+    "bytes": 565
+  },
+  "l6/glm_l6_shim.py": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-l6-repaired-20260923-2118/glm_l6_shim.py",
+    "sha256": "e461da2adbfae6cc2648ffaca165c18b198ecca6bf4191f32362a58a1cd10616",
+    "bytes": 11959
+  },
+  "l6/launcher-exports.sh": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-l6-repaired-20260923-2118/launcher-exports.sh",
+    "sha256": "13f635a6abd6f727c015695495ef9561cecf4a8b621705b352321b4c4b303adb",
+    "bytes": 1721
+  },
+  "l6/preparation/audit.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-l6-repaired-20260923-2118/preparation/audit.json",
+    "sha256": "4b2a0b16add3e41b0f843c0503825323db0fc859031531957b30d1729fd8466f",
+    "bytes": 322
+  },
+  "l6/preparation/closure.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-l6-repaired-20260923-2118/preparation/closure.json",
+    "sha256": "a4814d944353122b8558a16cdead1538c121cbcb57a974864f18c388e0c2a8ed",
+    "bytes": 423
+  },
+  "l6/preparation/frozen-data-manifest.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-l6-repaired-20260923-2118/preparation/frozen-data-manifest.json",
+    "sha256": "5796a9b742eb44b779ed44d94f6ece23ff243e203e7f980e524263b1d1085bbb",
+    "bytes": 130590
+  },
+  "l6/preparation/frozen-data.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-l6-repaired-20260923-2118/preparation/frozen-data.json",
+    "sha256": "6d65ccf03548ea79db6e3be45f2af2f94328f02d47b0188a65fc552c9cc6cfb4",
+    "bytes": 208467
+  },
+  "l6/preparation/production-health-after.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-l6-repaired-20260923-2118/preparation/production-health-after.json",
+    "sha256": "10cecd14227129974f1d5dc844704c00b2fd7b5fb1595791f628cef7ab2ebec0",
+    "bytes": 1998
+  },
+  "l6/preparation/production-health-before.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-l6-repaired-20260923-2118/preparation/production-health-before.json",
+    "sha256": "eb3dffe1fd921dfec8a1409ff2fcede9ee36a031ecf186ff0767694f9e33c456",
+    "bytes": 1998
+  },
+  "l6/preparation/protocol.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-l6-repaired-20260923-2118/preparation/protocol.json",
+    "sha256": "49117271f8dbef0865519c1698ce73e3e2e97d76f9f3b78463b3cec7da388905",
+    "bytes": 5868
+  },
+  "l6/preparation/retrieval-probe.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-l6-repaired-20260923-2118/preparation/retrieval-probe.json",
+    "sha256": "6810a41b380c2172f3223e99a670253f2b4c2aa4f7af20ac8cf951c26d611547",
+    "bytes": 381
+  },
+  "l6/preparation/retrieval-probe.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-l6-repaired-20260923-2118/preparation/retrieval-probe.log",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0
+  },
+  "l6/preparation/snapshot-contract.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-l6-repaired-20260923-2118/preparation/snapshot-contract.json",
+    "sha256": "92f0c9f47b3f945c9c985da5d0f0e3d3213ebeddf7424e9c18151a226a772188",
+    "bytes": 2380
+  },
+  "l6/preparation.log": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-l6-repaired-20260923-2118/preparation.log",
+    "sha256": "a5405d6ed947243e55428c4b6fbf5aeb0b382c37a85ffc9c4206f3b798923882",
+    "bytes": 302
+  },
+  "l6/protocol-coherent.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-l6-repaired-20260923-2118/protocol-coherent.json",
+    "sha256": "49117271f8dbef0865519c1698ce73e3e2e97d76f9f3b78463b3cec7da388905",
+    "bytes": 5868
+  },
+  "l6/proxy-offline-check.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-l6-repaired-20260923-2118/proxy-offline-check.json",
+    "sha256": "7695131c230711e3ed7ab571de508d4666ad4641df77f8aecf4bac490b5b2afd",
+    "bytes": 745
+  },
+  "l6/proxy-offline-ledger/counts.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-l6-repaired-20260923-2118/proxy-offline-ledger/counts.json",
+    "sha256": "5fc327ef73cf70f01e61e4443fb30c6246d721d6bae20327cbd6969345e3833f",
+    "bytes": 171
+  },
+  "l6/proxy-offline-ledger/requests.jsonl": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-l6-repaired-20260923-2118/proxy-offline-ledger/requests.jsonl",
+    "sha256": "f637bb09d6bc0546657bafda3be39dd1842bf2927cadf5b6e4b4c11667740ac1",
+    "bytes": 1670
+  },
+  "l6/report.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-l6-repaired-20260923-2118/report.json",
+    "sha256": "0ba742371dcbb5b4b43c3695fd0a10d9bd76e61f4472e39925279bd7ebb5a83e",
+    "bytes": 2441
+  },
+  "l6/run_live_l6.py": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-l6-repaired-20260923-2118/run_live_l6.py",
+    "sha256": "79e5cdd30b343dfa891bf1945138d2111edef2830f48cea6e243ed780ae6df41",
+    "bytes": 23660
+  },
+  "l6/runner-preparation.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-l6-repaired-20260923-2118/runner-preparation.json",
+    "sha256": "281b32520c5c5396980b526e892abac8d08124806550d6ec91830453cca8578e",
+    "bytes": 904
+  },
+  "l6/seal_preflight.py": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-l6-repaired-20260923-2118/seal_preflight.py",
+    "sha256": "f12c406292ab081175cb59bc83972a1fff94af5ab3e6950317802c161f4fcf77",
+    "bytes": 3343
+  },
+  "l6/source-regression.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-l6-repaired-20260923-2118/source-regression.json",
+    "sha256": "ad9698df541a156759c41ee6584b6ace04e4ce83ec1af5cd2a614be4b7dae4cd",
+    "bytes": 1140
+  },
+  "l6/strict-deadline.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-l6-repaired-20260923-2118/strict-deadline.json",
+    "sha256": "8ca7bcabe5efb6e6b97b9f3379faf4e118dc0d24ad3f63353c3b3b917957686c",
+    "bytes": 11881
+  },
+  "offline/build_report_packet.py": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-repair-offline-20260923-2108/build_report_packet.py",
+    "sha256": "8d8caf77fd8dab27ee1b43892f6415c37389800b965455e84b5897a2fc5800b2",
+    "bytes": 2375
+  },
+  "offline/development-source-regression.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-repair-offline-20260923-2108/development-source-regression.json",
+    "sha256": "92271f81f7c6401351e9cc1efe5a341df404d67d294e248aa0927290009369d1",
+    "bytes": 1140
+  },
+  "offline/freeze_l6_data.py": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-repair-offline-20260923-2108/freeze_l6_data.py",
+    "sha256": "e02a0e6a9474f9ed568618674bf3032bab457a6f98c6b64568de8aa09d8c95f7",
+    "bytes": 2191
+  },
+  "offline/prepare_fresh_l6.py": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-repair-offline-20260923-2108/prepare_fresh_l6.py",
+    "sha256": "8bbdcbba174f778e1616d1b8419c44e607fafaa2cb605a46304a89fec501e14f",
+    "bytes": 4404
+  },
+  "offline/prepare_fresh_qc.py": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-repair-offline-20260923-2108/prepare_fresh_qc.py",
+    "sha256": "76ac3a85fdcd623a3aa3096444c061087b68a99cf352c8aa1bef4630f12b6ba8",
+    "bytes": 6134
+  },
+  "offline/replay_currency.py": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-repair-offline-20260923-2108/replay_currency.py",
+    "sha256": "41f75521203b15b6553803749e50a691a083f28caecde4c045c4edddd18e36af",
+    "bytes": 4408
+  },
+  "offline/seal_repaired_batch.py": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-repair-offline-20260923-2108/seal_repaired_batch.py",
+    "sha256": "07660660d5fddc213752c7ef4f78c561c24843e8d039aaf3178a34245d54ab8a",
+    "bytes": 7218
+  }
+}

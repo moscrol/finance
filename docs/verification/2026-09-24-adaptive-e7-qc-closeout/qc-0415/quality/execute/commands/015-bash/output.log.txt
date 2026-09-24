@@ -1,0 +1,26 @@
+1366:def _post_chat_message_stream(
+1367-    provider: LLMProvider,
+1368-    messages: list[dict],
+1369-    timeout: float,
+1370-    temperature: float,
+1371-    tools: list[dict] | None,
+1372-    tool_choice: str | dict | None,
+1373-    disable_thinking: bool | None,
+1374-    on_content_delta: Callable[[str], None],
+1375-    is_cancelled: Callable[[], bool] | None = None,
+1376-    *,
+1377-    deadline: Deadline | None = None,
+1378-) -> dict:
+1379-    """Stream one tools-enabled turn, returning the same message dict shape.
+1380-
+1381-    Everything downstream (``ModelTurn`` parsing, the agent loop, the episode
+1382-    ledger) consumes the non-streaming shape, so this returns exactly that and
+1383-    keeps streaming an implementation detail of the transport.  The only extra
+1384-    is ``_streamed_chars``: the caller needs to know whether anything already
+1385-    crossed to the user before deciding it may retry.
+1386-    """
+1387-
+1388-    _reserve_llm_call()
+1389-    url = provider.base_url.rstrip("/") + "/chat/completions"
+1390-    payload = _chat_payload(
+1391-        provider, messages, temperature, stream=True,

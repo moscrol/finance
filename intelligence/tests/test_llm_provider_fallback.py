@@ -96,8 +96,8 @@ def _providers() -> tuple[llm_refine.LLMProvider, ...]:
 def test_complete_falls_back_to_next_configured_provider(monkeypatch) -> None:
     calls: list[str] = []
 
-    def fake_post(provider, messages, timeout, temperature):
-        del messages, timeout, temperature
+    def fake_post(provider, messages, timeout, temperature, *, deadline=None):
+        del messages, timeout, temperature, deadline
         calls.append(provider.name)
         if provider.name == "primary":
             raise OSError("primary unavailable")
@@ -140,8 +140,9 @@ def test_tool_chat_falls_back_without_losing_tool_contract(monkeypatch) -> None:
         tools,
         tool_choice,
         disable_thinking,
+        deadline=None,
     ):
-        del messages, timeout, temperature, tool_choice
+        del messages, timeout, temperature, tool_choice, deadline
         calls.append((provider.name, tools, disable_thinking))
         if provider.name == "primary":
             raise OSError("primary unavailable")

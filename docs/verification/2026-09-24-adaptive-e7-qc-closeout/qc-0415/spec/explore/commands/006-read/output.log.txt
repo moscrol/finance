@@ -1,0 +1,32 @@
+def _post_chat_message(
+    provider: LLMProvider,
+    messages: list[dict],
+    timeout: float,
+    temperature: float = 0.2,
+    tools: list[dict] | None = None,
+    tool_choice: str | dict | None = None,
+    disable_thinking: bool | None = None,
+    *,
+    deadline: Deadline | None = None,
+) -> dict:
+    """Like :func:`_post_chat` but returns the full assistant *message* dict.
+
+    The message may contain ``tool_calls`` (OpenAI-compatible function calling)
+    in addition to / instead of ``content`` — needed to drive an agent loop."""
+    _reserve_llm_call()
+    url = provider.base_url.rstrip("/") + "/chat/completions"
+    payload = _chat_payload(provider, messages, temperature)
+    _apply_thinking_controls(
+        payload,
+        disable_thinking=(
+            disable_thinking is True
+            or (disable_thinking is None and os.environ.get("LLM_THINKING") == "disabled")
+        ),
+    )
+    if tools:
+        payload["tools"] = tools
+        if tool_choice is not None:
+            payload["tool_choice"] = tool_choice
+    data = json.dumps(payload).encode("utf-8")
+
+[truncated; total lines=2605, selected=1506:1535; request a later offset]

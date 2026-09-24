@@ -1,0 +1,82 @@
+{
+  "status": "BLOCKED_NO_RETRY",
+  "revision": "e7a6cb412865fdd189cf51a17f93622fa3d4fe55",
+  "stages": [
+    {
+      "axis": "spec",
+      "stage": "gateway",
+      "status": "COMPLETE",
+      "seconds": 10.536,
+      "requests": 4,
+      "actual_count_known": true,
+      "charged_requests": 4,
+      "reserved_requests": 4
+    },
+    {
+      "axis": "spec",
+      "stage": "explore",
+      "status": "COMPLETE",
+      "seconds": 123.457,
+      "requests": 9,
+      "actual_count_known": true,
+      "charged_requests": 9,
+      "reserved_requests": 17
+    },
+    {
+      "axis": "spec",
+      "stage": "execute",
+      "status": "COMPLETE",
+      "seconds": 105.815,
+      "requests": 16,
+      "actual_count_known": true,
+      "charged_requests": 16,
+      "reserved_requests": 17
+    },
+    {
+      "axis": "spec",
+      "stage": "report",
+      "status": "COMPLETE",
+      "seconds": 17.783,
+      "requests": 1,
+      "actual_count_known": true,
+      "charged_requests": 1,
+      "reserved_requests": 1
+    },
+    {
+      "axis": "quality",
+      "stage": "gateway",
+      "status": "COMPLETE",
+      "seconds": 10.455,
+      "requests": 4,
+      "actual_count_known": true,
+      "charged_requests": 4,
+      "reserved_requests": 4
+    },
+    {
+      "axis": "quality",
+      "stage": "explore",
+      "status": "COMPLETE",
+      "seconds": 109.51,
+      "requests": 9,
+      "actual_count_known": true,
+      "charged_requests": 9,
+      "reserved_requests": 17
+    },
+    {
+      "axis": "quality",
+      "stage": "execute",
+      "status": "BLOCKED_STAGE_OR_ACCOUNTING",
+      "seconds": 103.274,
+      "requests": 14,
+      "actual_count_known": true,
+      "charged_requests": 14,
+      "reserved_requests": 17
+    }
+  ],
+  "automatic_retries": 0,
+  "prior_batches_requests": 74,
+  "cumulative_request_cap": 152,
+  "running": "quality/execute",
+  "cumulative_charged_requests": 131,
+  "error": "{'stage': 'execute', 'status': 'BLOCKED_STAGE_OR_ACCOUNTING', 'max_requests': 17, 'automatic_retries': 0, 'shim_sha256': '5c26084237b366b9d7b758f7811536a767819b4d23c5fd72f54785014e9c28b5', 'stage_runner_exit': 0, 'shim_exit': 0, 'shim_counts': {'active': 0, 'cancelled': 0, 'completed': 14, 'dispatched': 14, 'dropped_temperature': 0, 'failed': 0, 'requests': 14, 'shutdown_complete': True, 'stopped_for': None}, 'elapsed_seconds': 103.2192907910794, 'stage_status': 'BLOCKED_STAGE_OR_PROVIDER', 'request_counts_agree': True}"
+}
