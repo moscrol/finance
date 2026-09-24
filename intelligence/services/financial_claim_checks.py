@@ -42,6 +42,17 @@ _SINGLE_OCF = re.compile(
 _STOCK_MOVE = re.compile(rf"(?P<a>{_NUMBER})\s*(?:亿元?|亿)?\s*→\s*(?P<b>{_NUMBER})")
 _DURATION = re.compile(r"(?P<half>半年)(?!度|报)|(?P<months>[一二三四六九十\d]+)个月")
 _CN_NUM = {"一": 1, "二": 2, "三": 3, "四": 4, "六": 6, "九": 9, "十": 10}
+# 向**历史**基准比的条件（「不低于两期中较低值」「回到上期水平」）。未来数据未到手是正常的，
+# 但基准取不到时，条件到复查日也无法被评判——看着可证伪，实际不可证伪。
+_BASELINE_COMPARISON = re.compile(
+    r"(?:不低于|不高于|低于|高于|回升至?|回到|恢复至|超过|达到)[^，,。；;、]{0,8}?"
+    r"(?P<scope>最近两期|前两期|两期中|两期|上一期|上期|同期)[^，,。；;、]{0,6}?"
+    r"(?:较低值|较高值|均值|平均值|水平|值|数)"
+)
+_BASELINE_SCOPE_PERIODS = {
+    "最近两期": 2, "前两期": 2, "两期中": 2, "两期": 2,
+    "上一期": 1, "上期": 1, "同期": 1,
+}
 
 
 def _decimal(raw: object) -> Decimal | None:
@@ -141,6 +152,102 @@ def calculation_ratio_gaps(
     return tuple(dict.fromkeys(gaps))
 
 
+def comparison_baseline_gaps(
+    sentences: Sequence[dict[str, object]], evidence: Sequence[AgentEvidence],
+    bound_hashes: Sequence[str], *, subject: str | None,
+) -> tuple[str, ...]:
+    """Flag conditions whose *historical* comparison baseline was never obtained.
+
+    A watch condition may reference data that does not exist yet -- that is what
+    a watch is for. What it may not do is compare against a prior-period baseline
+    this answer never bound: at recheck time there is nothing to compare with, so
+    the condition only looks falsifiable. Clauses carrying a literal value stay
+    with the existing numeric-support gate, qualitative conditions are untouched,
+    and a peer company's readings never stand in for the requested subject.
+    """
+    bound = set(bound_hashes)
+    values = _observations(evidence, bound, subject)
+    if not values:
+        # 契约主体常写中文名（「中际旭创」），而带读数的证据标题里只有代码；
+        # 含公司名的那条往往是 0 读数的表头，标题反查因此落空（实测于封存回合
+        # 8792-boundary-retest-20260918/positive-persistence）。仅当已绑定读数只指向
+        # **一个**主体时回退；同业对比等多主体场景继续失败关闭，不猜。
+        subjects = {
+            obs.subject for item in evidence
+            if item.tool == "financial_data" and item.content_hash in bound
+            for obs in item.observations
+        }
+        if len(subjects) != 1:
+            return ()
+        values = _observations(evidence, bound, subjects.pop())
+        if not values:
+            return ()
+    available = {
+        period for period, metric in values
+        if metric == "ocf_cum_yi" and (period, "net_profit_cum_yi") in values
+    }
+    gaps = []
+    for sentence in sentences:
+        text = str(sentence.get("text") or "").replace("**", "").replace("__", "")
+        for clause in re.split(r"[，,。；;、]", text):
+            if re.search(r"\d", clause):
+                continue
+            ratio = re.search(_RATIO, clause, re.I)
+            match = _BASELINE_COMPARISON.search(clause)
+            if ratio is None or match is None:
+                continue
+            required = _BASELINE_SCOPE_PERIODS[match["scope"]]
+            if len(available) >= required:
+                continue
+            gaps.append(
+                f"触发条件「{match[0]}」依赖{ratio[0]}的历史比较基准，"
+                f"但已绑定证据只够算 {len(available)} 期、需要 {required} 期"
+            )
+    return tuple(dict.fromkeys(gaps))
+
+
+def _relative_ratio_comparison_mismatch(text: str) -> bool:
+    """Carry a level's period into a same-sentence '较/相较于' counterpart.
+
+    Callers segment sentences, so this only spans clauses inside one sentence.
+    Keep it separate from generic previous-period context: an inventory or
+    revenue clause is not a ratio anchor. A comparison whose antecedent is
+    ambiguous stays deferred rather than guessed in either direction.
+    """
+    ratio_period: str | None = None
+    for segment in re.split(r"但是|但|然而|却", text):
+        caveat = bool(_COMPARISON_CAVEAT.search(segment))
+        for clause in re.split(r"[，,]", segment):
+            if not clause.strip():
+                continue
+            periods = _periods(clause)
+            relative = re.match(r"\s*(?:相较于?|相比于?|较)", clause)
+            if len(periods) != 1:
+                if not _COMPARISON_CAVEAT.search(clause):
+                    ratio_period = None
+                continue
+            start, end, period = periods[0]
+            tail = clause[end:].lstrip().removeprefix("累计").lstrip()
+            level = _RATIO_VALUE.match(tail)
+            value = level or re.match(rf"(?:的)?\s*{_NUMBER}(?![\d.])", tail)
+            # A named metric after the number ends the narrow ellipsis,
+            # e.g. '较2025全年1.009亿元收入增长'.
+            counterpart = value and re.match(
+                r"\s*(?:倍|%)?\s*(?:明显|显著|有所)?\s*(?:走弱|恶化|改善|回升|上升|升|下降|降)",
+                tail[value.end():],
+            )
+            if (relative and not clause[relative.end():start].strip()
+                    and counterpart and ratio_period and not caveat
+                    and _COMPARISON.search(clause) and "单季" not in clause):
+                if period[5:7] != ratio_period[5:7]:
+                    return True
+            # Only an explicitly named ratio level anchors a later clause: a
+            # bare number does not establish which metric it is. A caveat
+            # without a dated fact may carry across 'but'; anything else clears.
+            ratio_period = period if level and "单季" not in clause else None
+    return False
+
+
 def financial_claim_mismatches(
     sentences: Sequence[dict[str, object]], evidence: Sequence[AgentEvidence],
     bound_hashes: Sequence[str], *, subject: str | None,
@@ -172,6 +279,7 @@ def financial_claim_mismatches(
         bad = False
         financial = bool(re.search(r"现金流|OCF|存货|净利润", text, re.I) or re.search(_RATIO, text, re.I))
         if financial:
+            bad |= _relative_ratio_comparison_mismatch(text)
             for equation in _EQUATION.finditer(text):
                 a, b = _decimal(equation["a"]), _decimal(equation["b"])
                 if a is not None and b is not None:

@@ -2,6 +2,7 @@
 
 from copy import deepcopy
 from datetime import date, timedelta
+from dataclasses import replace
 import json
 
 import duckdb
@@ -365,7 +366,11 @@ def test_anatomy_followup_preserves_exclusive_dates_and_cancel():
     previous = HistoryIntent(
         "retrospective_discovery", "2026-01-05", "2026-01-29", strict_window=True
     )
-    assert inherit_history_followup("那它们见顶后谁接力？", previous) == previous
+    followup = inherit_history_followup("那它们见顶后谁接力？", previous)
+    # 权限（独占日期、strict、截止日）原样继承；只有「本轮要不要求样本全集」逐轮重判，
+    # 这句问的是接力经过，没要求规律，所以是 False。
+    assert replace(followup, comparison_requested=None) == previous
+    assert followup.comparison_requested is False
     assert inherit_history_followup("不要历史研究", previous) is None
     assert infer_history_intent("什么是启动信号？") is None
 

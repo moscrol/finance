@@ -1394,3 +1394,61 @@ CREATE TABLE IF NOT EXISTS fact_auction_hithink (
 CREATE INDEX IF NOT EXISTS idx_fact_auction_hithink_date
     ON fact_auction_hithink(trade_date, kind);
 
+-- Research snapshots retain request scope/raw responses. Facts are latest-observed,
+-- not point-in-time backtest versions; observation_date can be a non-trading day.
+CREATE TABLE IF NOT EXISTS ops_hithink_research_request (
+    request_id TEXT PRIMARY KEY,
+    kind TEXT NOT NULL,
+    target_date DATE NOT NULL,
+    started_at TIMESTAMPTZ NOT NULL,
+    captured_at TIMESTAMPTZ,
+    params_json JSON NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('pending', 'ok', 'empty', 'partial', 'failed')),
+    provider_request_id TEXT,
+    provider_timestamp_ms BIGINT,
+    row_count INTEGER,
+    value_rows INTEGER,
+    payload_json JSON,
+    error_type TEXT
+);
+CREATE TABLE IF NOT EXISTS fact_stock_anomaly_hithink (
+    observation_date DATE NOT NULL,
+    stock_ts_code TEXT NOT NULL,
+    tag_name TEXT NOT NULL,
+    analysis_content TEXT NOT NULL,
+    keywords_json JSON NOT NULL,
+    observations INTEGER NOT NULL DEFAULT 1 CHECK (observations = 1),
+    captured_date DATE NOT NULL,
+    captured_at TIMESTAMPTZ NOT NULL,
+    provider_timestamp_ms BIGINT,
+    request_id TEXT NOT NULL,
+    source TEXT NOT NULL,
+    PRIMARY KEY (observation_date, stock_ts_code, tag_name)
+);
+CREATE TABLE IF NOT EXISTS fact_hot_stock_trend_hithink (
+    observation_date DATE NOT NULL,
+    stock_ts_code TEXT NOT NULL,
+    rank INTEGER CHECK (rank > 0),
+    captured_date DATE NOT NULL,
+    captured_at TIMESTAMPTZ NOT NULL,
+    provider_timestamp_ms BIGINT,
+    request_id TEXT NOT NULL,
+    source TEXT NOT NULL,
+    PRIMARY KEY (observation_date, stock_ts_code)
+);
+CREATE TABLE IF NOT EXISTS fact_stock_valuation_hithink (
+    observation_date DATE NOT NULL,
+    stock_ts_code TEXT NOT NULL,
+    pe_ttm DOUBLE,
+    pe_mrq DOUBLE,
+    pb_mrq DOUBLE,
+    ps_ttm DOUBLE,
+    pcf_ttm DOUBLE,
+    captured_date DATE NOT NULL,
+    captured_at TIMESTAMPTZ NOT NULL,
+    provider_timestamp_ms BIGINT,
+    request_id TEXT NOT NULL,
+    source TEXT NOT NULL,
+    PRIMARY KEY (observation_date, stock_ts_code)
+);
+

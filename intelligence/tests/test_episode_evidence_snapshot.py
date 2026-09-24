@@ -58,11 +58,14 @@ def _resign(payload):
 
 
 def _legacy_payload(payload, version):
-    """Reproduce the pre-io_effect wire shape, independently of the new writer."""
+    """Reproduce an older wire shape (v3: pre-history_provenance; v1/v2: also
+    pre-io_effect), independently of the new writer."""
     payload = deepcopy(payload)
     payload["schema_version"] = version
     for entry in (*payload["entries"], *payload.get("presentations", ())):
-        entry["atom"].pop("io_effect")
+        entry["atom"].pop("history_provenance")
+        if version < 3:
+            entry["atom"].pop("io_effect")
     if version == 1:
         payload["presented_hashes"] = [
             item["atom"]["content_hash"] for item in payload.pop("presentations")
@@ -109,7 +112,10 @@ def test_restored_ledger_keeps_cutoff_gate_and_duplicate_owner_first_writer():
 
 
 @pytest.mark.parametrize(("path", "value"), [
-    (("schema_version",), True), (("schema_version",), 4), (("kind",), "public_evidence"),
+    (("schema_version",), True), (("schema_version",), 5), (("kind",), "public_evidence"),
+    # A partial or non-record provenance must not restore as an ordinary card.
+    (("entries", 0, "atom", "history_provenance"), {"query_id": "forged"}),
+    (("entries", 0, "atom", "history_provenance"), "run/history-query-forged.json"),
     (("episode_id",), "other"), (("information_cutoff",), "2026-99-99"),
     (("entries", 0, "atom", "source_date"), "2026-07-25"),
     (("entries", 0, "atom", "source_date"), "unknown"),
@@ -147,6 +153,7 @@ def test_semantically_invalid_snapshot_is_rejected_even_with_recomputed_digest(p
     ("entries", 0, "branch_owner"), ("entries", 0, "cutoff_status"),
     ("entries", 0, "atom", "observations"), ("entries", 0, "atom", "source_date"),
     ("entries", 0, "atom", "derived_from"), ("entries", 0, "atom", "internal_locator"),
+    ("entries", 0, "atom", "history_provenance"),
 ])
 def test_missing_fields_are_not_filled_from_public_projection_or_defaults(path):
     _, _, payload = _fixture()
@@ -272,7 +279,7 @@ def test_restore_keeps_original_capture_position_when_synthesizing_settlements(t
     rig.run_until("model_pending")
     events, checkpoint = live.load(rig.task_id)
     assert checkpoint.evidence_snapshot["presentations"]
-    if version < 3:
+    if version < 4:
         payload = _legacy_payload(checkpoint.to_dict()["evidence_snapshot"], version)
         checkpoint = replace(checkpoint, evidence_snapshot=payload)
     # Retry=0 exercises synthetic model_error -> finalizing, not just a readonly plan.

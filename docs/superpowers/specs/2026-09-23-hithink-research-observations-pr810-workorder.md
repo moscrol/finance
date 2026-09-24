@@ -47,11 +47,25 @@ PR **#810**（`feat/hithink-research-data`）在抓取侧之上加「当日异�
 
 ## 验收
 
-- [ ] `merge-tree` 干净；四叶收据 revision == head、`dirty=false`、failed=0。
-- [ ] 阳性对照：把 429 退避常量改为 0 次，新测试红。
-- [ ] 生产库与 8792 的 revision / mtime 前后一致。
-- [ ] QUEUE.md 有本单行或用户豁免原话贴在 PR。
-- [ ] INDEX #85 行已改。
+- [x] 冻结候选 `62777a76d7812bf5eebe070892e5977b2aa93003` 四叶同SHA、`dirty=false`、failed=0；完整收集面15019，Python14932P；收尾main=5bf47a5ae、漂移1、merge-tree干净。后续文档tip不移签，合入时按最终tip核门禁。
+- [x] 同候选429禁重试2F→恢复2P；错误重分类变异3F→恢复并含编排保护4P，磁盘源码未改。
+- [x] 原定向验收窗口生产stat/plist/runtime对照保留；本轮只读health仍为3b7e473575b0、干净且匹配，不扩称整个长会话的生产数据证明。
+- [x] QUEUE.md 已回写K3双轴PASS_WITH_LIMITS：Spec23P、Quality17P；M1由独立复审撤销，原报告保留，未获合并或部署授权。
+- [x] INDEX #85 已记候选验收完成、待用户确认。
+
+## 09-23 执行回写
+
+`fix/hithink-research-85` 承接#810，最终代码 `0f0231553acf788e7d42440ce54d3d101fdca187` 已推。main基座 `626d8a508`，merge-tree干净。冻结干净定向130P、全仓Ruff、registry五项通过（跨仓跳过，台账98 warning）；CLI partial返回3，夜跑重试后仍partial不发布，旧单体也不报成功。其他研究请求继续，4001旧语义保留。
+
+原件 `~/.finance-runtime/reviews/hithink-research-85-20260923/`，最终收据 `final-receipts/gate-3GXIgpu2/pytest.json`。完整Python/前端/E2E未跑，主机高负载下不叠加；无独审结论，不能合入。Gitea创建接口超时后回读确认新WIP PR **#894** 已生成，承接#810，原PR未关闭。下一步、被否方案及仅供后续授权的部署命令见 `docs/handoffs/2026-09-23-hithink-research-observations-85.md` 和 `inflight/fix-hithink-research-85.md`。未采集/写生产/重载launchd/切8792。
+
+## 09-24 续推回写
+
+前向main至c9dd71dfd后，09b437c2f四叶通过（Python14928P）。Quality首次报M1，与审查前C2/C3的普通错误不得重分类合同冲突；原判保留。新增4项混合错误回归，业务实现未改，冻结并推送 `62777a76d7812bf5eebe070892e5977b2aa93003`。K3用受控时钟及有/无429对照复核，确认普通次数先耗尽、429两界未触发，正式撤销M1。
+
+最终同SHA：Python14932P/0F/0E/85S/2X（collected15019、17 warnings），Ruff通过；frontend120P、E2E34P/2S；registry五项通过（含邻仓，98条反向warning）；Spec23P、Quality17P均PASS_WITH_LIMITS。审查沙箱的作者测试收集blocked，宿主正常94P与完整门禁另账；两组explore提前试跑偏差已披露，最终只计独立execute一次。
+
+原件 `~/.finance-runtime/reviews/hithink-research-85-20260923/continue-03/`，Python收据 `receipts/gate-ODgFHGso/pytest.json`，完整面/身份/漂移校验通过，错误SHA被拒。报告与探针封存于 `docs/verification/2026-09-24-hithink-research-85/`；取舍、限制、旧轮关系及下一步见 `docs/handoffs/2026-09-24-hithink-research-85-qc.md`。WIP #894与#810均保持打开；后续文档tip另计，不能把627收据移签过去。未合入、部署或真实采集，部署草稿仍未执行。
 
 ## 红线
 
