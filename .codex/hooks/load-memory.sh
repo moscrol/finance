@@ -28,13 +28,29 @@ if [ -f "$note" ]; then
   echo
 fi
 
-echo "## Git 现状（开工先看）"
+echo "## Git 现状"
 br="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
 echo "当前分支：${br:-?}"
-st="$(git status --short 2>/dev/null || true)"
-if [ -n "$st" ]; then echo '```'; echo "$st"; echo '```'; else echo "(工作树干净)"; fi
+code="$(git status --porcelain 2>/dev/null \
+  | sed 's/^...//' | sed 's/^"//;s/"$//' | sed 's/.* -> //' \
+  | grep -E '^(intelligence/|evolution/|market_feature_store/|scripts/|tests/|conftest\.py|pytest\.ini|ruff\.toml|test-environment\.json|requirements-consumer\.lock)' \
+  | grep -v '^market_feature_store/exports/' || true)"
+code_n="$(printf '%s' "$code" | grep -c . || true)"
+if [ "${code_n:-0}" -gt 0 ]; then
+  echo "未提交的代码改动 ${code_n} 个："
+  echo '```'
+  printf '%s\n' "$code" | head -15
+  [ "$code_n" -gt 15 ] && echo "…另 $((code_n - 15)) 个"
+  echo '```'
+else
+  echo "无未提交代码改动"
+fi
 echo "Git 约定：大任务开分支；合并 main 必须等确认，不强推。"
 echo
 
 echo "## 回写约定"
-echo "完工后按 $V/40_playbooks/devin-writeback.md 做分层沉淀：项目级决策写 $V/20_projects/$repo.md；稳定方法论写 $V/10_knowledge/；单次问答纠偏/评分样本写项目学习层，不把聊天流水写进交接记录。"
+if [ -x "$V/40_playbooks/check-writeback.sh" ]; then
+  "$V/40_playbooks/check-writeback.sh" remind
+else
+  echo "回写时机：本窗改了代码/配置之后。问答/身份直接回答。"
+fi

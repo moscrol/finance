@@ -161,9 +161,9 @@ LINES+=("$map_line")
 
 # ── 3. 代码是否有未提交改动 ────────────────────────────────────────────
 # 只列**影响被测行为**的路径。本仓工作区长期有 40+ 个脏文件（复盘台账、
-# market_feature_store/exports、复盘/ 下 HTML），全是每日 ingest 的正常产物；
-# 整块塞进来会把真信号埋掉。判据前缀与 test-environment.json 共用同一份。
-dirty_total="$(git status --porcelain 2>/dev/null | grep -c . || true)"
+# market_feature_store/exports、复盘/ 下 HTML），全是每日 ingest 的正常产物。
+# SessionStart 看不到本场是闲聊还是改仓：把 ingest 计数写进开窗事实，模型会
+# 把「全树 N 个脏文件」当成待办。入库任务按 AGENTS.md 自己 git status。
 code_dirty="$(git status --porcelain 2>/dev/null \
   | sed 's/^...//' | sed 's/^"//;s/"$//' | sed 's/.* -> //' \
   | grep -E '^(intelligence/|evolution/|market_feature_store/|scripts/|tests/|conftest\.py|pytest\.ini|ruff\.toml|test-environment\.json|requirements-consumer\.lock)' \
@@ -171,9 +171,9 @@ code_dirty="$(git status --porcelain 2>/dev/null \
 code_n="$(printf '%s' "$code_dirty" | grep -c . || true)"
 if [ "${code_n:-0}" -gt 0 ]; then
   first="$(printf '%s' "$code_dirty" | head -3 | tr '\n' ' ')"
-  LINES+=("代码改动: ${code_n} 个未提交（${first}…）；全树另有 $((dirty_total - code_n)) 个 ingest 数据产物，与被测行为无关")
+  LINES+=("代码改动: ${code_n} 个未提交（${first}…）")
 else
-  LINES+=("代码改动: 无（全树 ${dirty_total} 个脏文件均为 ingest 数据产物）")
+  LINES+=("代码改动: 无")
 fi
 
 # ── 4. 上次读数能不能直接采信 ──────────────────────────────────────────
@@ -287,7 +287,7 @@ if [ -f "$inflight" ]; then
 elif [ -d "$inflight_dir" ]; then
   others="$(ls "$inflight_dir" 2>/dev/null | grep -c '\.md$' || true)"
   if [ "${others:-0}" -gt 0 ]; then
-    LINES+=("在途交接: 本分支无（inflight/ 下另有 ${others} 份属其他分支）。完工请按 devin-writeback.md 覆写 inflight/${slug}.md")
+    LINES+=("在途交接: 本分支无活文档（正常）。只有本窗完成了项目级任务才写 inflight/${slug}.md")
   fi
 fi
 

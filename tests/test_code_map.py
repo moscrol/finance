@@ -312,6 +312,29 @@ def test_agents_and_claude_carry_code_map_pointer():
             assert needle in text, f"{path.name} missing {needle!r}"
 
 
+def test_git_convention_does_not_treat_chat_as_start_of_work():
+    for path in (ROOT / "AGENTS.md", ROOT / "CLAUDE.md"):
+        text = path.read_text(encoding="utf-8")
+        assert "开工先 `git status" not in text, path.name
+        assert "改代码或查故障时先 `git status" in text, path.name
+        assert "问答/身份直接回答" in text, path.name
+
+
+def test_session_facts_does_not_advertise_leftover_ingest_dirt():
+    result = subprocess.run(
+        ["bash", str(ROOT / "scripts" / "session_facts.sh")],
+        cwd=str(ROOT),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    ctx = json.loads(result.stdout)["hookSpecificOutput"]["additionalContext"]
+    assert "ingest 数据产物" not in ctx
+    assert "脏文件均为" not in ctx
+    assert "代码改动:" in ctx
+
+
 def test_session_facts_calls_status_one_line_after_interpreter():
     text = (ROOT / "scripts" / "session_facts.sh").read_text(encoding="utf-8")
     interp_at = text.index("解释器:")

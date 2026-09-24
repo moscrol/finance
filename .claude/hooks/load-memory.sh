@@ -89,29 +89,32 @@ note="$V/20_projects/$repo.md"
 # 这个「先量后裁、最后输出」的次序，就是上一处 bug（先写「未提交」再提交，
 # 文档当场失效）的反面：**凡是要用到某个量，就必须在用它之前把它测准。**
 build_tail() {
-  echo "## Git 现状（开工先看）"
+  echo "## Git 现状"
   br="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
   echo "当前分支：${br:-?}"
-  all_n="$(git status --porcelain 2>/dev/null | grep -c . || true)"
   code="$(git status --porcelain 2>/dev/null \
     | sed 's/^...//' | sed 's/^"//;s/"$//' | sed 's/.* -> //' \
     | grep -E '^(intelligence/|evolution/|market_feature_store/|scripts/|tests/|conftest\.py|pytest\.ini|ruff\.toml|test-environment\.json|requirements-consumer\.lock)' \
     | grep -v '^market_feature_store/exports/' || true)"
   code_n="$(printf '%s' "$code" | grep -c . || true)"
   if [ "${code_n:-0}" -gt 0 ]; then
-    echo "未提交的**代码**改动 ${code_n} 个（全树另有 $((all_n - code_n)) 个 ingest 数据产物，与被测行为无关）："
+    echo "未提交的**代码**改动 ${code_n} 个："
     echo '```'
     printf '%s\n' "$code" | head -15
     [ "$code_n" -gt 15 ] && echo "…另 $((code_n - 15)) 个"
     echo '```'
   else
-    echo "无未提交代码改动（全树 ${all_n} 个脏文件均为 ingest 数据产物）"
+    echo "无未提交代码改动"
   fi
   echo "Git 约定：大任务开分支；合并 main 必须等确认，不强推。"
   echo
   echo "## 回写约定"
-  echo "完工后按 $V/40_playbooks/devin-writeback.md 分层沉淀：项目级决策写 $V/20_projects/$repo.md（**只写一行索引**，正文进 docs/handoffs/inflight/<分支>.md）；稳定方法论写 $V/10_knowledge/；单次纠偏/评分样本写项目学习层。"
-  echo "在途交接：完工前覆写 docs/handoffs/inflight/<当前分支，/ 换 ->.md，SessionStart 会自动注入给下一个 agent。**在动作完成之后写**，否则注入的是假状态。"
+  if [ -x "$V/40_playbooks/check-writeback.sh" ]; then
+    "$V/40_playbooks/check-writeback.sh" remind
+  else
+    echo "回写时机：本窗改了代码/配置之后。问答/身份直接回答。"
+  fi
+  echo "在途交接：只有本窗完成了项目级任务才覆写 docs/handoffs/inflight/<当前分支，/ 换 ->.md。"
 }
 tail_part="$(build_tail)"
 tail_bytes="$(printf '%s\n' "$tail_part" | wc -c | tr -d ' ')"
