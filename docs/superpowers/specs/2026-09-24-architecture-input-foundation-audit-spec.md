@@ -122,7 +122,8 @@ SPT、风远和 Knevo 是按输入事件更新的链路，不因为当天没有�
 - 消费离线前置及续推结果：`docs/verification/2026-09-24-architecture-consumption/README.md`。
 - 视角差异对账及既有考卷：`docs/verification/2026-09-24-perspective-reconciliation/README.md`。
 - 首次模型请求离线贯通与历史SPT记录核验：`docs/verification/2026-09-25-perspective-delivery/README.md`。
-- SPT考卷待确认草案、只读预演及字面漏触发诊断：`docs/verification/2026-09-25-spt-exam-proposal/README.md`。
+- SPT原始考卷草案、只读预演及字面漏触发诊断：`docs/verification/2026-09-25-spt-exam-proposal/README.md`。
+- 用户委托推进后的按规则条件匹配候选：`docs/superpowers/specs/2026-09-25-perspective-signal-contract.md`；真实输入隔离3/3、原画像仍1/3，干净cd2116dbe定向597P，不签生产应用或模型质量，见 `docs/verification/2026-09-25-spt-signal-contract/README.md`。
 - 小范围审计工具修复：沿用现有脚本及其测试，若未发现缺陷则不强造代码。
 - 活交接：`docs/handoffs/inflight/feat-architecture-audit-0924.md`。
 

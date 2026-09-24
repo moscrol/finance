@@ -1,0 +1,24 @@
+{
+  "http_status": 503,
+  "source": "GET /api/readiness",
+  "timestamp": "2026-09-25T01:09:12+08:00",
+  "status": "not_ready",
+  "missing_critical": [
+    "market_data_consistency"
+  ],
+  "checks": {
+    "repo_root": true,
+    "knowledge_wiki": true,
+    "relations": true,
+    "vector_index": true,
+    "rag_runtime": true,
+    "market_snapshot": true,
+    "frontend_built": true,
+    "rag_query_protocol": true,
+    "rag_worker": true,
+    "run_store_writable": true,
+    "market_snapshot_contract": true,
+    "market_data_consistency": false,
+    "code_snapshot_matches_repo": true
+  }
+}
