@@ -86,7 +86,8 @@ SPT、风远和 Knevo 是按输入事件更新的链路，不因为当天没有�
 - [x] 复用既有确定性考卷：风远3/3，SPT缺卷显式失败；新增九例保护，相关回归162P。仅是已知题复现，不证明真实模型质量。
 - [x] 09-25新增首次GLM请求离线捕获：真实风远/SPT完整上下文抵达provider回调，中立对照无视角字段；另用临时用户贯通TurnOrchestrator。干净663cce791定向487P，未调用模型，固定框架不签真实API/路由/续轮。
 - [x] 复查08-19 SPT旧真实run：completed和署名存在，但缺完整视角输入记录、判官partial/unavailable，不代签质量；当前SPT边界字段为空，仍待用户/owner冻结考卷与边界。
-- [x] 09-25冻结SPT原文依据的2已知+1边题草案并只读预演：当前1/3，内存加拟议边界2/3；机会规则有approved票据但改写题面未触发字面匹配，不改金标刷绿。草案待用户逐项确认，正式考卷未写；88ddfa5b0干净定向509P，不签金融质量。
+- [x] 09-25冻结SPT原文依据的2已知+1边题草案并只读预演：当前1/3，内存加拟议边界2/3；机会规则有approved票据但改写题面未触发字面匹配，不改金标刷绿。随后用户委托采用这组候选标准继续推进，正式考卷未写；88ddfa5b0干净定向509P，不签金融质量。
+- [x] 条件匹配候选曾在原3题3/3；随后先冻结12项反例，8项失败，因此拒收方案。fa82a73ca撤下运行时接线并拒绝实验字段，真实重放保持4P/8F，旧画像仍1/3；干净636P及撤护栏21F只签隔离保护，不签语义验收。同一执行者复核，不是第三方盲审。
 - [ ] 全部人工条目/原始审批权属、风远修订与旧patch的机器追溯关系。旧记载14条人工写入，仅4条本轮字面互证，不移用总数代签。
 - [ ] 数据/发布前置闭合后的真实 Episode、CLI 对照与回答质量验收。
 
@@ -123,7 +124,7 @@ SPT、风远和 Knevo 是按输入事件更新的链路，不因为当天没有�
 - 视角差异对账及既有考卷：`docs/verification/2026-09-24-perspective-reconciliation/README.md`。
 - 首次模型请求离线贯通与历史SPT记录核验：`docs/verification/2026-09-25-perspective-delivery/README.md`。
 - SPT原始考卷草案、只读预演及字面漏触发诊断：`docs/verification/2026-09-25-spt-exam-proposal/README.md`。
-- 用户委托推进后的按规则条件匹配候选：`docs/superpowers/specs/2026-09-25-perspective-signal-contract.md`；真实输入隔离3/3、原画像仍1/3，干净cd2116dbe定向597P，不签生产应用或模型质量，见 `docs/verification/2026-09-25-spt-signal-contract/README.md`。
+- 用户委托推进后的条件匹配尝试已否决：历史规格 `docs/superpowers/specs/2026-09-25-perspective-signal-contract.md`；旧3/3/597P不作采纳依据。当前反例失败与fa82a73ca隔离保护收据见 `docs/verification/2026-09-25-spt-contract-challenge/README.md`。
 - 小范围审计工具修复：沿用现有脚本及其测试，若未发现缺陷则不强造代码。
 - 活交接：`docs/handoffs/inflight/feat-architecture-audit-0924.md`。
 
