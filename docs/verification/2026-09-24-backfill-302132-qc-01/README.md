@@ -24,7 +24,7 @@
 - `raw/spec/explore/events.jsonl`：完整事件流；代理请求台账在相邻 `explore-shim/requests.jsonl`。
 - `raw/spec/gateway*`：带工具的真实通道预检；两轴 `sandbox-preflight-04/` 为无模型宿主控制。
 - `raw/prepare.py.txt`、两轴 runner/config/prompt：本批输入与执行装置，不是通用新框架。
-- `manifest.json` / `archive-verification.json`：212份原件、1818513字节，逐文件解码及SHA256一致。脚本以文本归档；日志或带末尾空白的文件使用Base64，不修剪原字节。
+- `manifest.json` / `archive-verification.json`：214份原件、2154813字节（含补入的两轴source.diff输入），逐文件解码及SHA256一致。脚本以文本归档；日志或带末尾空白的文件使用Base64，不修剪原字节。
 
 树外原件 `~/.finance-runtime/reviews/pr813-k3-qc-20260924-01/`；产品动态状态仍在 `~/.finance-runtime/reviews/backfill-302132-0923/CURRENT.json`。候选和作者树均干净，远端head/base未变，自有进程及19899监听已退出。
 
