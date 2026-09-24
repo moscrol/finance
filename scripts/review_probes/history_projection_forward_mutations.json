@@ -1,0 +1,16 @@
+[
+  {
+    "id": "history_scope_observations_survive_forward_merge",
+    "path": "intelligence/services/historical_research/episode.py",
+    "old": "observations=scope_observations)",
+    "new": "observations=())",
+    "targets": ["test_query_pages_keep_absolute_sample_coordinates_and_navigation"]
+  },
+  {
+    "id": "history_failed_page_does_not_register_success",
+    "path": "intelligence/services/historical_research/episode.py",
+    "old": "        result = _result(payload, result_ref=ref, tool=\"read_history_result\", offset=offset)\n        context.history_results.append(\n            dict(metadata, result_ref=ref, execution_status=\"success\",\n                 **({\"window_binding\": payload[\"window_binding\"]} if \"window_binding\" in payload else {}))\n        )\n        return result",
+    "new": "        context.history_results.append(\n            dict(metadata, result_ref=ref, execution_status=\"success\",\n                 **({\"window_binding\": payload[\"window_binding\"]} if \"window_binding\" in payload else {}))\n        )\n        return _result(payload, result_ref=ref, tool=\"read_history_result\", offset=offset)",
+    "targets": ["test_failed_page_projection_does_not_record_success"]
+  }
+]
