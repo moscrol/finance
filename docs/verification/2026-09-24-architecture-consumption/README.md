@@ -36,6 +36,8 @@ SPT 的 PASS 不证明人工审批权属、手工框架字段、方法卡生成�
 4. 初次重跑使用 `--entity market`，但长河只解析当日存在的板块实体，故出现 `Briefing missing from river slice`。这是本次探针参数错误，不记作运行时缺陷；最终使用确实存在的 `半导体`。保留此前输出，不用后来的 PASS 覆盖失败过程。
 5. 定向回归 137P、Ruff/diff-check 通过。覆盖视角负例、晨汇有效/错误/缺失覆盖率、审批漂移、并发输入变化、用户隔离，以及第一轮 103 项回归。`targeted-regression.txt` 来自含本轮改动的树，不是干净提交的发布收据。
 
+实现提交 `7863fa12583e9da3f106176fcb838c41a3dd6258` 后，在干净树再次运行同组测试：137P/0F/0S、exit 0、`dirty=false`。收据 `clean-targeted-receipt.json` 仅绑定该实现提交，不移签给后续交接/文档提交，不替代完整发布门禁。
+
 ## 下一步及归属
 
 1. #61 / release owner：处理市场身份与范围、关键字段、日历缺口。09-22 缺 `sh_week_ma / sh_deviation_pct / total_amount / amount_ma20 / amount_vs_yesterday_pct / top3_industry_ratio`，不能只看日期有行。原诊断见 `briefing-isolated-gaps.json`。
