@@ -1,0 +1,47 @@
+"""New, read-only staging acceptance; NEVER overwrites the failed old window."""
+import datetime as dt
+import json
+import subprocess
+import sys
+
+from verify_indexes import ROOT, HOME, digest, verify
+
+out = ROOT / 'evidence' / 'post-coordination'
+out.mkdir(exist_ok=False)
+results = json.loads((ROOT / 'evidence/migration-results.json').read_text())
+assert {r['index'] for r in results if r['exit_code'] == 0} == {'.rag_index', '.rag_index_full'}
+for name in ('.rag_index', '.rag_index_full'):
+    report = verify(name)
+    report['observed_at'] = dt.datetime.now(dt.timezone.utc).isoformat()
+    (out / f'{name[1:]}-verification.json').write_text(json.dumps(report, ensure_ascii=False, indent=2))
+    print(json.dumps({k: report[k] for k in ('index', 'selected_files', 'indexed_files', 'vector_rows_checked', 'unexplained_gaps')}, ensure_ascii=False), flush=True)
+
+before = json.loads((ROOT / 'evidence/source-files.json').read_text())
+checks = {}
+for label, root in [('frozen', ROOT / 'source'), ('live', HOME / 'knowledge-base-private')]:
+    now = {p.relative_to(root).as_posix(): digest(p) for name in ('wiki', 'raw')
+           for p in sorted((root / name).rglob('*')) if p.is_file()}
+    checks[label] = {
+        'file_count': len(now),
+        'added': sorted(now.keys() - before.keys()),
+        'removed': sorted(before.keys() - now.keys()),
+        'changed': sorted(p for p in now.keys() & before.keys() if now[p] != before[p]),
+    }
+    if label == 'frozen':
+        assert now == before, 'frozen source drift'
+old = json.loads((ROOT / 'evidence/production-index-before.json').read_text())
+drift = sorted(p for p, sha in old.items() if digest(HOME / 'knowledge-base-private' / p) != sha)
+assert drift, 'historical drift unexpectedly absent; investigate, do not rewrite history'
+subprocess.run([sys.executable, str(ROOT / 'verify_file_fence.py'), 'file-fence-after-full-verification.json'], check=True)
+summary = {
+    'observed_at': dt.datetime.now(dt.timezone.utc).isoformat(),
+    'staging_acceptance': 'pass_with_quarantines',
+    'old_production_window': 'FAILED; not superseded by this receipt',
+    'old_production_drift_paths': drift,
+    'new_production_window': 'file fence verified separately',
+    'source_comparison': checks,
+    'consumer_switched': False,
+    'production_deploy_ready': False,
+}
+(out / 'summary.json').write_text(json.dumps(summary, ensure_ascii=False, indent=2))
+print(json.dumps(summary, ensure_ascii=False), flush=True)

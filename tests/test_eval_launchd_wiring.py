@@ -39,7 +39,7 @@ BUILD_PLIST = (
 )
 CLT_PYTHON = "/usr/bin/python3"
 RUNTIME = "/Users/a77/finance-workspace-runtime"  # path-literal-ok: 本机 launchd 树指针契约
-SYNC_CODE_ROOT = "/Users/a77/finance-workspace-sync"  # path-literal-ok: 本机 sync 专用代码根契约
+SYNC_CODE_ROOT = "/Users/a77/.finance-runtime/finance-sync-2edbe4c46595"  # path-literal-ok: 本机 sync 固定代码根契约
 VENV_PYTHON = "/Users/a77/finance-workspace-private/.venv-workbench/bin/python"  # path-literal-ok: 本机 workbench venv 契约
 LOCAL_BIN = "/Users/a77/.local/bin"  # path-literal-ok: 本机 wrapper 安装落点
 
@@ -63,8 +63,9 @@ def _zsh_source_ops(env: dict[str, str]) -> subprocess.CompletedProcess[str]:
 NIGHTLY = ROOT / "skills" / "daily-full-review" / "scripts" / "nightly_full_review.sh"
 
 _FAKE_PYTHON = """#!/bin/sh
-printf 'python %s\\n' "$*" >> "$CALL_LOG"
+printf 'python %s | code=%s data=%s users=%s\\n' "$*" "$FINANCE_CODE_ROOT" "$FINANCE_DATA_ROOT" "$FORESIGHT_USERS_DIR" >> "$CALL_LOG"
 case "$*" in
+  *run_daily_generation.py*) exit "${FAKE_GENERATION_RC:-0}" ;;
   *check_daily_review_data.py*"--phase data"*) exit "${FAKE_GUARD_RC:-0}" ;;
   *check_daily_review_data.py*"--phase l2"*) exit "${FAKE_L2_GATE_RC:-0}" ;;
 esac
@@ -72,7 +73,7 @@ exit 0
 """
 
 _FAKE_MONEYFLOW = """#!/bin/sh
-printf 'moneyflow %s\\n' "$*" >> "$CALL_LOG"
+printf 'moneyflow %s | script=%s code=%s\\n' "$*" "$0" "$FINANCE_CODE_ROOT" >> "$CALL_LOG"
 exit "${FAKE_MONEYFLOW_RC:-0}"
 """
 
@@ -85,6 +86,10 @@ def _run_nightly_finalize(
     guard_rc: int = 0,
     l2_gate_rc: int = 0,
     moneyflow_rc: int = 0,
+    generation_rc: int = 0,
+    separate_generation: bool = True,
+    missing_launcher: bool = False,
+    receive: bool = False,
     script_text: str | None = None,
 ) -> tuple[subprocess.CompletedProcess[str], str, str]:
     """真启动 `nightly_full_review.sh finalize`，外呼与写库全换成假执行器。
@@ -122,6 +127,17 @@ def _run_nightly_finalize(
     # 质检闸门只需**存在**（脚本对它 fail closed）；真正的退出码由假 python 给。
     (code_root / "scripts" / "check_daily_review_data.py").write_text("", encoding="utf-8")
     # 刻意不建 scripts/method_validation.py：绑定解析整段跳过，本夹具不测那条链。
+    generation_root = tmp_path / "generation code" if separate_generation else code_root
+    (generation_root / "scripts").mkdir(parents=True, exist_ok=True)
+    if not missing_launcher:
+        (generation_root / "scripts/run_daily_generation.py").touch()
+    if receive:
+        receiver = generation_root / "skills/daily-full-review/scripts/receive_kb_ingest_queue.sh"
+        receiver.parent.mkdir(parents=True, exist_ok=True)
+        receiver.write_text('#!/bin/sh\nprintf "receive-marker\\n" >> "$CALL_LOG"\n')
+    # 数据树有同名入口也不得回退。
+    (data_root / "scripts").mkdir()
+    (data_root / "scripts/run_daily_generation.py").touch()
 
     for target, body in (
         (stub_bin / "fake-python", _FAKE_PYTHON),
@@ -134,7 +150,9 @@ def _run_nightly_finalize(
     call_log = tmp_path / "calls.log"
     call_log.write_text("", encoding="utf-8")
 
-    env = os.environ.copy()
+    env = {k: v for k, v in os.environ.items() if k != "FINANCE_GENERATION_CODE_ROOT"}
+    if separate_generation:
+        env["FINANCE_GENERATION_CODE_ROOT"] = str(generation_root)
     env.update(
         {
             "FINANCE_CODE_ROOT": str(code_root),
@@ -148,6 +166,7 @@ def _run_nightly_finalize(
             "FAKE_GUARD_RC": str(guard_rc),
             "FAKE_L2_GATE_RC": str(l2_gate_rc),
             "FAKE_MONEYFLOW_RC": str(moneyflow_rc),
+            "FAKE_GENERATION_RC": str(generation_rc),
         }
     )
     proc = subprocess.run(
@@ -159,6 +178,20 @@ def _run_nightly_finalize(
         check=False,
     )
     return proc, call_log.read_text(encoding="utf-8"), proc.stderr
+
+
+@pytest.mark.parametrize("generation_rc", [0, 2])
+def test_generation_failure_stops_receive_and_fallback_log(tmp_path, generation_rc):
+    proc, calls, _ = _run_nightly_finalize(
+        tmp_path, generation_rc=generation_rc, receive=True,
+    )
+    assert proc.returncode == generation_rc, proc.stderr
+    if generation_rc:
+        assert "生成段失败 rc=2" in proc.stdout + proc.stderr
+        assert "receive-marker" not in calls
+        assert "notify_ops.py" not in calls
+    else:
+        assert "receive-marker" in calls
 
 
 def test_ops_python_helper_exists() -> None:
@@ -350,6 +383,18 @@ def test_nightly_closes_the_staging_bypassing_sync_phases() -> None:
     #    塞回去测试照样绿（变异测试实测）。别把它改回文本断言。
 
 
+def test_nightly_generation_fails_closed_when_code_root_is_missing(tmp_path: Path) -> None:
+    """缺少生成代码根时不能退回 DATA_ROOT 继续产出报告。"""
+    proc, calls, _ = _run_nightly_finalize(tmp_path, separate_generation=False, missing_launcher=True)
+
+    assert proc.returncode == 2
+    assert "生成段代码根无效" in proc.stderr
+    assert "WORKSPACE=" in proc.stderr
+    assert "moneyflow " in calls
+    assert "--phase l2" in calls
+    assert "run_daily_generation.py" not in calls
+
+
 def test_nightly_finalize_attempts_l2_even_when_the_sync_guard_fails(tmp_path: Path) -> None:
     """同步守卫失败时，L2 仍然被尝试；生成段仍然被挡住。（工单 #51）
 
@@ -365,7 +410,8 @@ def test_nightly_finalize_attempts_l2_even_when_the_sync_guard_fails(tmp_path: P
 
     # 守卫失败 → 退出码是守卫的，生成段不许跑。
     assert proc.returncode == 1, f"期望以守卫退出码 1 退出，实际 {proc.returncode}"
-    assert "intelligence.cli daily" not in calls, f"同步守卫没通过却跑了生成段：\n{calls}"
+    assert "run_daily_generation.py" not in calls, f"同步守卫没通过却跑了生成段：\n{calls}"
+    assert "intelligence.cli daily" not in calls
 
     # L2 必须排在守卫之前——顺序反了就又回到「同步失败连坐 L2」。
     assert calls.index("moneyflow ") < calls.index("--phase data"), (
@@ -382,7 +428,9 @@ def test_nightly_finalize_happy_path_still_runs_generation(tmp_path: Path) -> No
 
     assert "moneyflow " in calls, f"L2 段没跑：\n{calls}"
     assert "--phase data" in calls, f"同步守卫没跑：\n{calls}"
-    assert "intelligence.cli daily" in calls, f"守卫放行了却没跑生成段：\n{calls}"
+    launcher = tmp_path / "generation code/scripts/run_daily_generation.py"
+    assert f"-P {launcher}" in calls, f"没有执行选定生成代码根的真实启动器：\n{calls}"
+    assert "intelligence.cli daily" not in calls
     assert proc.returncode == 0, f"顺利路径应退 0，实际 {proc.returncode}\n{proc.stderr[-2000:]}"
 
 
@@ -391,8 +439,65 @@ def test_nightly_finalize_blocks_generation_when_l2_fails(tmp_path: Path) -> Non
     proc, calls, _ = _run_nightly_finalize(tmp_path, guard_rc=0, moneyflow_rc=1)
 
     assert "moneyflow " in calls, f"L2 段没跑：\n{calls}"
-    assert "intelligence.cli daily" not in calls, f"L2 失败却跑了生成段：\n{calls}"
+    assert "run_daily_generation.py" not in calls, f"L2 失败却跑了生成段：\n{calls}"
+    assert "intelligence.cli daily" not in calls
     assert proc.returncode == 1, f"L2 失败应退 1，实际 {proc.returncode}"
+
+
+def test_generation_override_is_scoped_to_its_child(tmp_path: Path) -> None:
+    proc, calls, _ = _run_nightly_finalize(tmp_path)
+    assert proc.returncode == 0, proc.stderr
+    lines = calls.splitlines()
+    generation = next(line for line in lines if "run_daily_generation.py" in line)
+    code = tmp_path / "code"
+    gen = tmp_path / "generation code"
+    data = tmp_path / "data"
+    assert f"-P {gen}/scripts/run_daily_generation.py" in generation
+    assert f"code={gen} data={data}" in generation
+    assert "--plan local" in generation
+    assert f"--summary-json {data}/market_feature_store/exports/2026-09-11-daily-workflow-summary.json" in generation
+    moneyflow = next(line for line in lines if line.startswith("moneyflow "))
+    assert f"script={code}/scripts/moneyflow/run_l2_pipeline.sh code={code}" in moneyflow
+    # 包括生成后的 all 门：子进程赋值不能泄漏到后续质检。
+    gates = [line for line in lines if "check_daily_review_data.py" in line]
+    assert len(gates) == 3
+    assert all(f"code={code} data={data}" in line for line in gates)
+    assert calls.index("moneyflow ") < calls.index("--phase data") < calls.index("run_daily_generation.py")
+    assert calls.index("run_daily_generation.py") < calls.index("--phase all")
+
+
+def test_generation_without_override_uses_code_root_not_workspace(tmp_path: Path) -> None:
+    proc, calls, _ = _run_nightly_finalize(tmp_path, separate_generation=False)
+    assert proc.returncode == 0, proc.stderr
+    assert f"-P {tmp_path / 'code'}/scripts/run_daily_generation.py" in calls
+    assert f"{tmp_path / 'data'}/scripts/run_daily_generation.py" not in calls
+
+
+def test_missing_generation_launcher_refuses_workspace_fallback(tmp_path: Path) -> None:
+    proc, calls, _ = _run_nightly_finalize(tmp_path, missing_launcher=True)
+    assert proc.returncode == 2, proc.stderr
+    assert "moneyflow " in calls
+    assert "run_daily_generation.py" not in calls
+    assert "intelligence.cli daily" not in calls
+    assert "--phase all" not in calls
+    assert "拒绝回退到 WORKSPACE" in proc.stderr
+
+
+def test_generation_failure_is_not_reported_as_complete(tmp_path: Path) -> None:
+    proc, calls, _ = _run_nightly_finalize(tmp_path, generation_rc=27)
+    assert proc.returncode == 27, proc.stderr
+    assert "run_daily_generation.py" in calls
+    assert "--phase all" not in calls
+    assert "全量复盘完成" not in proc.stdout
+
+
+def test_finalize_template_pins_generation_separately_from_l2() -> None:
+    with SPLIT_REVIEW_PLISTS[1].open("rb") as handle:
+        env = plistlib.load(handle)["EnvironmentVariables"]
+    assert env["FINANCE_CODE_ROOT"].endswith("/finance-l2-adcda94b5e40")
+    assert env["FINANCE_GENERATION_CODE_ROOT"].endswith("/finance-generation-adcda94b5e40")
+    assert env["FINANCE_SYNC_CODE_ROOT"] == SYNC_CODE_ROOT
+    assert len({env[key] for key in ("FINANCE_CODE_ROOT", "FINANCE_GENERATION_CODE_ROOT", "FINANCE_DATA_ROOT")}) == 3
 
 
 def test_nightly_finalize_never_invokes_s7(tmp_path: Path) -> None:
@@ -422,14 +527,16 @@ def test_review_sync_plist_source_pins_dedicated_sync_code_root() -> None:
     夜跑 09-10~09-11 连着三次 `unknown plan 'local'` rc=2，09-11 整个交易日没进库。
     缺省值在代码里，所以只有 plist 显式给值才挡得住；这条钉住它别再被删。
 
-    也不能指回 FINANCE_CODE_ROOT（运行快照）：那是部分 rsync，缺 L2 与题材资金源。
+    不能指回 8792 可变软链或数据树。sync 的 FINANCE_CODE_ROOT 也指同一完整检出，
+    但 S7 clone/swap 实现仍由原 FINANCE_S7_ROOT 提供，不在本次切换范围。
     """
     with SPLIT_REVIEW_PLISTS[0].open("rb") as handle:
         plist = plistlib.load(handle)
     env = plist["EnvironmentVariables"]
     assert env.get("FINANCE_SYNC_CODE_ROOT") == SYNC_CODE_ROOT
     assert env["FINANCE_SYNC_CODE_ROOT"] != env.get("FINANCE_DATA_ROOT")
-    assert env["FINANCE_SYNC_CODE_ROOT"] != env.get("FINANCE_CODE_ROOT")
+    assert env["FINANCE_SYNC_CODE_ROOT"] == env["FINANCE_CODE_ROOT"]
+    assert env["FINANCE_SYNC_CODE_ROOT"] != RUNTIME
 
 
 def test_checkpoint_installer_defaults_to_venv_and_runtime() -> None:

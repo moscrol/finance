@@ -27,6 +27,7 @@ from intelligence.services.gate_receipt import (
     extract_gate_receipt,
     optional_bool,
 )
+from intelligence.services.judge_mode import JUDGE_MODE_DETERMINISTIC, JUDGE_MODE_OFF
 
 REPO = Path(__file__).resolve().parents[2]
 RUNS_DIR = REPO / "intelligence" / "eval" / "runs"
@@ -94,9 +95,11 @@ def per_question_flip_rate(outcomes: Sequence[str]) -> float:
     return sum(1 for item in outcomes if item != mode) / len(outcomes)
 
 
-def judge_independence_label(correlated_judge: Any) -> str:
-    """Only an explicit bool is known. Missing stays ``unknown``, not independent."""
+def judge_independence_label(correlated_judge: Any, judge_mode: Any = None) -> str:
+    """No model call is a separate bucket, never an independent review."""
 
+    if judge_mode in (JUDGE_MODE_DETERMINISTIC, JUDGE_MODE_OFF):
+        return "no_judge"
     if correlated_judge is True:
         return "correlated"
     if correlated_judge is False:
@@ -173,7 +176,12 @@ def normalize_repeat(raw: Mapping[str, Any], *, default_qid: str = "") -> dict[s
         "primary_outcome": primary,
         "judge_status": judge_status,
         "judge_unavailable": unavailable,
-        "correlated_judge": optional_bool(raw.get("correlated_judge")),
+        "judge_mode": raw.get("judge_mode"),
+        "correlated_judge": (
+            None
+            if raw.get("judge_mode") in (JUDGE_MODE_DETERMINISTIC, JUDGE_MODE_OFF)
+            else optional_bool(raw.get("correlated_judge"))
+        ),
         "verified_status": raw.get("verified_status"),
         "terminal_outcome": raw.get("terminal_outcome"),
         "run_id": raw.get("run_id"),
@@ -190,6 +198,7 @@ def extract_from_run_dir(run_dir: Path) -> dict[str, Any]:
     smoke = _read_json_object(run_dir / "smoke.json")
 
     verified = None
+    judge_mode: Any = None
     judge_status: Any = None
     receipt = extract_gate_receipt(report, summary)
     receipt_judge = receipt.get("judge_status")
@@ -213,6 +222,7 @@ def extract_from_run_dir(run_dir: Path) -> dict[str, Any]:
         semantic = episode.get("semantic_verifier")
         if not isinstance(semantic, dict):
             semantic = {}
+        judge_mode = semantic.get("judge_mode")
         if judge_status is None:
             judge_status = semantic.get("judge_status")
             metrics = episode.get("metrics")
@@ -230,6 +240,7 @@ def extract_from_run_dir(run_dir: Path) -> dict[str, Any]:
                 "status": smoke.get("run_status") or run.get("status"),
                 "degrades": run.get("degrades") or [],
                 "judge_status": judge_status,
+                "judge_mode": judge_mode,
                 "correlated_judge": correlated_judge,
                 "run_id": smoke.get("run_id") or run.get("run_id") or run_dir.name,
             }
@@ -249,6 +260,7 @@ def extract_from_run_dir(run_dir: Path) -> dict[str, Any]:
             "status": run.get("status"),
             "degrades": degrades,
             "judge_status": judge_status,
+            "judge_mode": judge_mode,
             "correlated_judge": correlated_judge,
             "run_id": run.get("run_id") or run_dir.name,
         }
@@ -439,6 +451,7 @@ def score_distribution(fixture: Mapping[str, Any]) -> dict[str, Any]:
     judge_rates: list[float] = []
     correlated_rates: list[float] = []
     independent_rates: list[float] = []
+    no_judge_rates: list[float] = []
     unknown_independence_rates: list[float] = []
 
     for block in fixture.get("questions") or []:
@@ -452,10 +465,12 @@ def score_distribution(fixture: Mapping[str, Any]) -> dict[str, Any]:
         n = len(repeats)
         unavailable_n = sum(1 for item in repeats if item["judge_unavailable"])
         labels = [
-            judge_independence_label(item.get("correlated_judge")) for item in repeats
+            judge_independence_label(item.get("correlated_judge"), item.get("judge_mode"))
+            for item in repeats
         ]
         correlated_n = sum(1 for label in labels if label == "correlated")
         independent_n = sum(1 for label in labels if label == "independent")
+        no_judge_n = sum(1 for label in labels if label == "no_judge")
         unknown_n = sum(1 for label in labels if label == "unknown")
         judge_rate = unavailable_n / n
         correlated_rate = correlated_n / n
@@ -476,6 +491,7 @@ def score_distribution(fixture: Mapping[str, Any]) -> dict[str, Any]:
         judge_rates.append(judge_rate)
         correlated_rates.append(correlated_rate)
         independent_rates.append(independent_rate)
+        no_judge_rates.append(no_judge_n / n)
         unknown_independence_rates.append(unknown_rate)
         per_question.append(
             {
@@ -490,6 +506,8 @@ def score_distribution(fixture: Mapping[str, Any]) -> dict[str, Any]:
                 "correlated_judge_rate": _rate(correlated_rate),
                 "independent_judge_count": independent_n,
                 "independent_judge_rate": _rate(independent_rate),
+                "no_judge_count": no_judge_n,
+                "no_judge_rate": _rate(no_judge_n / n),
                 "unknown_judge_independence_count": unknown_n,
                 "unknown_judge_independence_rate": _rate(unknown_rate),
                 "content_n": len(content_outcomes),
@@ -524,6 +542,7 @@ def score_distribution(fixture: Mapping[str, Any]) -> dict[str, Any]:
         "judge_unavailable_rate": judge_mean,
         "correlated_judge_rate": correlated_mean,
         "independent_judge_rate": independent_mean,
+        "no_judge_rate": _rate(statistics.fmean(no_judge_rates)),
         "unknown_judge_independence_rate": unknown_mean,
         "independent_n": independent_total,
         "content_flip_rate": content_mean,
@@ -571,6 +590,7 @@ def build_receipt(
         "judge_unavailable_rate": scored["judge_unavailable_rate"],
         "correlated_judge_rate": scored.get("correlated_judge_rate"),
         "independent_judge_rate": scored.get("independent_judge_rate"),
+        "no_judge_rate": scored.get("no_judge_rate"),
         "unknown_judge_independence_rate": scored.get("unknown_judge_independence_rate"),
         "independent_n": scored.get("independent_n"),
         "content_flip_rate": scored.get("content_flip_rate"),
@@ -615,6 +635,7 @@ def _render_summary_md(payload: Mapping[str, Any]) -> str:
         f"- correlated_judge_rate: {payload.get('correlated_judge_rate')}",
         f"- independent_judge_rate: {payload.get('independent_judge_rate')}",
         f"- independent_n: {payload.get('independent_n')}",
+        f"- no_judge_rate: {payload.get('no_judge_rate')}",
         f"- content_flip_rate: {payload.get('content_flip_rate')}",
         "",
         AB_RULE,
@@ -629,6 +650,7 @@ def _render_summary_md(payload: Mapping[str, Any]) -> str:
             f"judge_unavailable={item.get('judge_unavailable_rate')} "
             f"correlated={item.get('correlated_judge_rate')} "
             f"independent={item.get('independent_judge_rate')} "
+            f"no_judge={item.get('no_judge_rate')} "
             f"counts={item.get('primary_outcome_counts')}"
         )
     lines.append("")

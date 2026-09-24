@@ -1,0 +1,22 @@
+{
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "python_version": "3.12.13",
+  "dependency_fingerprint": "3328bed61f3e21ea",
+  "tree": "/Users/a77/fwp-wt-generation-root-guards-validation",
+  "revision": "387028b846a21a1327d964af8c4b428367f88fcf",
+  "branch": "HEAD",
+  "dirty": false,
+  "dirty_paths": [],
+  "worktree_dirty_total": 0,
+  "dependency_gate_bypassed": false,
+  "target": "/Users/a77/fwp-wt-generation-root-guards-validation",
+  "counts": {
+    "passed": 9704,
+    "failed": 0,
+    "error": 0,
+    "skipped": 77
+  },
+  "failed_ids": [],
+  "exit_status": 0,
+  "finished_at": "2026-09-15T02:23:54+00:00"
+}

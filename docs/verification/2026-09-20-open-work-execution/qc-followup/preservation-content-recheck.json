@@ -1,0 +1,429 @@
+{
+  "observed_at": "2026-09-20T02:56:09.757881+00:00",
+  "scope": "status and content recheck; the two execution-owned trees are expected to change",
+  "trees": [
+    {
+      "tree": "/Users/a77/finance-workspace-private",
+      "status_backup_verified": true,
+      "diff_backups_verified": 2,
+      "untracked_backups_verified": 107,
+      "current_status_matches": true,
+      "current_content_matches": true
+    },
+    {
+      "tree": "/private/tmp/knevo-answer-distill-0916",
+      "status_backup_verified": true,
+      "diff_backups_verified": 2,
+      "untracked_backups_verified": 4,
+      "current_status_matches": true,
+      "current_content_matches": true
+    },
+    {
+      "tree": "/Users/a77/.finance-runtime/finance-hosted-alpha",
+      "status_backup_verified": true,
+      "diff_backups_verified": 2,
+      "untracked_backups_verified": 2,
+      "current_status_matches": true,
+      "current_content_matches": true
+    },
+    {
+      "tree": "/Users/a77/.finance-runtime/finance-workspace-0060da5c1a08",
+      "status_backup_verified": true,
+      "diff_backups_verified": 2,
+      "untracked_backups_verified": 2,
+      "current_status_matches": true,
+      "current_content_matches": true
+    },
+    {
+      "tree": "/Users/a77/.finance-runtime/finance-workspace-1010970acc85",
+      "status_backup_verified": true,
+      "diff_backups_verified": 2,
+      "untracked_backups_verified": 2,
+      "current_status_matches": true,
+      "current_content_matches": true
+    },
+    {
+      "tree": "/Users/a77/.finance-runtime/finance-workspace-2efdff46e251",
+      "status_backup_verified": true,
+      "diff_backups_verified": 2,
+      "untracked_backups_verified": 1,
+      "current_status_matches": true,
+      "current_content_matches": true
+    },
+    {
+      "tree": "/Users/a77/.finance-runtime/finance-workspace-ac0132553aae",
+      "status_backup_verified": true,
+      "diff_backups_verified": 2,
+      "untracked_backups_verified": 1,
+      "current_status_matches": true,
+      "current_content_matches": true
+    },
+    {
+      "tree": "/Users/a77/.finance-runtime/finance-workspace-b594a5e7f8ae",
+      "status_backup_verified": true,
+      "diff_backups_verified": 2,
+      "untracked_backups_verified": 2,
+      "current_status_matches": true,
+      "current_content_matches": true
+    },
+    {
+      "tree": "/Users/a77/.finance-runtime/finance-workspace-c7bbcb93e1ad",
+      "status_backup_verified": true,
+      "diff_backups_verified": 2,
+      "untracked_backups_verified": 0,
+      "current_status_matches": true,
+      "current_content_matches": true
+    },
+    {
+      "tree": "/Users/a77/.finance-runtime/finance-workspace-d4cb64844ec6",
+      "status_backup_verified": true,
+      "diff_backups_verified": 2,
+      "untracked_backups_verified": 2,
+      "current_status_matches": true,
+      "current_content_matches": true
+    },
+    {
+      "tree": "/Users/a77/.finance-runtime/finance-workspace-f4c03b9ae610",
+      "status_backup_verified": true,
+      "diff_backups_verified": 2,
+      "untracked_backups_verified": 2,
+      "current_status_matches": true,
+      "current_content_matches": true
+    },
+    {
+      "tree": "/Users/a77/.finance-runtime/kb-dual-index-20260918/before",
+      "status_backup_verified": true,
+      "diff_backups_verified": 2,
+      "untracked_backups_verified": 1,
+      "current_status_matches": true,
+      "current_content_matches": true
+    },
+    {
+      "tree": "/Users/a77/.finance-runtime/kb-dual-index-20260918/gate-e9bb34c3/finance-workspace-private",
+      "status_backup_verified": true,
+      "diff_backups_verified": 2,
+      "untracked_backups_verified": 1,
+      "current_status_matches": true,
+      "current_content_matches": true
+    },
+    {
+      "tree": "/Users/a77/.finance-runtime/reviews/8792-readiness-fixes-20260917/baseline",
+      "status_backup_verified": true,
+      "diff_backups_verified": 2,
+      "untracked_backups_verified": 1,
+      "current_status_matches": true,
+      "current_content_matches": true
+    },
+    {
+      "tree": "/Users/a77/.finance-runtime/reviews/pr773-fix/before",
+      "status_backup_verified": true,
+      "diff_backups_verified": 2,
+      "untracked_backups_verified": 1,
+      "current_status_matches": true,
+      "current_content_matches": true
+    },
+    {
+      "tree": "/Users/a77/.finance-runtime/reviews/research-evolution-06-ba10747d/tree",
+      "status_backup_verified": true,
+      "diff_backups_verified": 2,
+      "untracked_backups_verified": 1,
+      "current_status_matches": true,
+      "current_content_matches": true
+    },
+    {
+      "tree": "/Users/a77/finance-workspace-private/.claude/worktrees/daily-swap-race-condition-d0f557",
+      "status_backup_verified": true,
+      "diff_backups_verified": 2,
+      "untracked_backups_verified": 1,
+      "current_status_matches": true,
+      "current_content_matches": true
+    },
+    {
+      "tree": "/Users/a77/finance-workspace-private/.claude/worktrees/fix-trading-day-calendar",
+      "status_backup_verified": true,
+      "diff_backups_verified": 2,
+      "untracked_backups_verified": 0,
+      "current_status_matches": true,
+      "current_content_matches": true
+    },
+    {
+      "tree": "/Users/a77/finance-workspace-sync",
+      "status_backup_verified": true,
+      "diff_backups_verified": 2,
+      "untracked_backups_verified": 4,
+      "current_status_matches": true,
+      "current_content_matches": true
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-8792-financial-r6-repair",
+      "status_backup_verified": true,
+      "diff_backups_verified": 2,
+      "untracked_backups_verified": 2,
+      "current_status_matches": true,
+      "current_content_matches": true
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-8792-integrate-0913",
+      "status_backup_verified": true,
+      "diff_backups_verified": 2,
+      "untracked_backups_verified": 0,
+      "current_status_matches": true,
+      "current_content_matches": true
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-8792-qc-closeout-0913",
+      "status_backup_verified": true,
+      "diff_backups_verified": 2,
+      "untracked_backups_verified": 0,
+      "current_status_matches": true,
+      "current_content_matches": true
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-ablation-noise-floor",
+      "status_backup_verified": true,
+      "diff_backups_verified": 2,
+      "untracked_backups_verified": 1,
+      "current_status_matches": true,
+      "current_content_matches": true
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-broad-index",
+      "status_backup_verified": true,
+      "diff_backups_verified": 2,
+      "untracked_backups_verified": 0,
+      "current_status_matches": true,
+      "current_content_matches": true
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-capability-upgrade-plan",
+      "status_backup_verified": true,
+      "diff_backups_verified": 2,
+      "untracked_backups_verified": 1,
+      "current_status_matches": true,
+      "current_content_matches": true
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-chat-idle",
+      "status_backup_verified": true,
+      "diff_backups_verified": 2,
+      "untracked_backups_verified": 0,
+      "current_status_matches": true,
+      "current_content_matches": true
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-e2-impl-p1",
+      "status_backup_verified": true,
+      "diff_backups_verified": 2,
+      "untracked_backups_verified": 0,
+      "current_status_matches": true,
+      "current_content_matches": true
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-e2-material-contract-0913",
+      "status_backup_verified": true,
+      "diff_backups_verified": 2,
+      "untracked_backups_verified": 0,
+      "current_status_matches": true,
+      "current_content_matches": true
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-e2-p5-inheritance",
+      "status_backup_verified": true,
+      "diff_backups_verified": 2,
+      "untracked_backups_verified": 0,
+      "current_status_matches": true,
+      "current_content_matches": true
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-historical-discovery",
+      "status_backup_verified": true,
+      "diff_backups_verified": 2,
+      "untracked_backups_verified": 0,
+      "current_status_matches": true,
+      "current_content_matches": true
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-knevo-tool-parity",
+      "status_backup_verified": true,
+      "diff_backups_verified": 2,
+      "untracked_backups_verified": 1,
+      "current_status_matches": true,
+      "current_content_matches": true
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-local-plan-alignment-validation",
+      "status_backup_verified": true,
+      "diff_backups_verified": 2,
+      "untracked_backups_verified": 0,
+      "current_status_matches": true,
+      "current_content_matches": true
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-main-merge-0913",
+      "status_backup_verified": true,
+      "diff_backups_verified": 2,
+      "untracked_backups_verified": 0,
+      "current_status_matches": true,
+      "current_content_matches": true
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-mechanism-pilot",
+      "status_backup_verified": true,
+      "diff_backups_verified": 2,
+      "untracked_backups_verified": 10,
+      "current_status_matches": true,
+      "current_content_matches": true
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-money-effect-regime",
+      "status_backup_verified": true,
+      "diff_backups_verified": 2,
+      "untracked_backups_verified": 0,
+      "current_status_matches": true,
+      "current_content_matches": true
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-nightly-review-0917",
+      "status_backup_verified": true,
+      "diff_backups_verified": 2,
+      "untracked_backups_verified": 2,
+      "current_status_matches": true,
+      "current_content_matches": true
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-open-work-spec",
+      "status_backup_verified": true,
+      "diff_backups_verified": 2,
+      "untracked_backups_verified": 1,
+      "current_status_matches": false,
+      "current_content_matches": null
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-public-brief",
+      "status_backup_verified": true,
+      "diff_backups_verified": 2,
+      "untracked_backups_verified": 0,
+      "current_status_matches": true,
+      "current_content_matches": true
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-qc-conformance",
+      "status_backup_verified": true,
+      "diff_backups_verified": 2,
+      "untracked_backups_verified": 0,
+      "current_status_matches": true,
+      "current_content_matches": true
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-qc-research-evolution-06",
+      "status_backup_verified": true,
+      "diff_backups_verified": 2,
+      "untracked_backups_verified": 0,
+      "current_status_matches": true,
+      "current_content_matches": true
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-rag-window",
+      "status_backup_verified": true,
+      "diff_backups_verified": 2,
+      "untracked_backups_verified": 0,
+      "current_status_matches": true,
+      "current_content_matches": true
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-ranking-scenarios-10",
+      "status_backup_verified": true,
+      "diff_backups_verified": 2,
+      "untracked_backups_verified": 0,
+      "current_status_matches": true,
+      "current_content_matches": true
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-react-comparison-archive",
+      "status_backup_verified": true,
+      "diff_backups_verified": 2,
+      "untracked_backups_verified": 0,
+      "current_status_matches": false,
+      "current_content_matches": null
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-regime-live",
+      "status_backup_verified": true,
+      "diff_backups_verified": 2,
+      "untracked_backups_verified": 0,
+      "current_status_matches": true,
+      "current_content_matches": true
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-resume-specs-0905",
+      "status_backup_verified": true,
+      "diff_backups_verified": 2,
+      "untracked_backups_verified": 4,
+      "current_status_matches": true,
+      "current_content_matches": true
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-step-trajectory-qualification",
+      "status_backup_verified": true,
+      "diff_backups_verified": 2,
+      "untracked_backups_verified": 1,
+      "current_status_matches": true,
+      "current_content_matches": true
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-teaching-slice3",
+      "status_backup_verified": true,
+      "diff_backups_verified": 2,
+      "untracked_backups_verified": 0,
+      "current_status_matches": true,
+      "current_content_matches": true
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-technical-daily",
+      "status_backup_verified": true,
+      "diff_backups_verified": 2,
+      "untracked_backups_verified": 0,
+      "current_status_matches": true,
+      "current_content_matches": true
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-webapp-beautiful-ui",
+      "status_backup_verified": true,
+      "diff_backups_verified": 2,
+      "untracked_backups_verified": 3,
+      "current_status_matches": true,
+      "current_content_matches": true
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-workbench-research-journey",
+      "status_backup_verified": true,
+      "diff_backups_verified": 2,
+      "untracked_backups_verified": 5,
+      "current_status_matches": true,
+      "current_content_matches": true
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-worker-freshness",
+      "status_backup_verified": true,
+      "diff_backups_verified": 2,
+      "untracked_backups_verified": 0,
+      "current_status_matches": true,
+      "current_content_matches": true
+    },
+    {
+      "tree": "/Users/a77/fwp-wt-writer-cost",
+      "status_backup_verified": true,
+      "diff_backups_verified": 2,
+      "untracked_backups_verified": 0,
+      "current_status_matches": true,
+      "current_content_matches": true
+    }
+  ],
+  "summary": {
+    "status_backups": 52,
+    "diff_backups": 104,
+    "untracked_backups": 166,
+    "current_status_matches": 50,
+    "current_content_matches": 50
+  }
+}

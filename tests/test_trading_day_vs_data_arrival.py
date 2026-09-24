@@ -208,33 +208,35 @@ with open(os.environ["L2_STEP_LOG"], "a") as fh:
 
 @pytest.fixture
 def guard_env(tmp_path):
-    """搭一个假 CODE_ROOT：真 `market_feature_store` + stub 掉的四个步骤脚本。
+    """搭一个假 CODE_ROOT：真 `market_feature_store` + stub 掉的步骤脚本。
 
     `market_feature_store` 用软链接指向仓内真包——探针走的是产品代码，不是副本。
-    步骤脚本换成 stub，所以全程不连 ClickHouse、不写生产库、不出网。
+    步骤脚本（日历台账 write_to_duckdb、日包管线 run_l2_from_share、渲染）换成 stub，
+    所以全程不下载日包、不写生产库、不出网；假 DATA_ROOT 里放一个空的分享入口文件，
+    否则交易日会在前置件检查处 exit 2。
     """
     code_root = tmp_path / "code"
     moneyflow = code_root / "scripts" / "moneyflow"
     moneyflow.mkdir(parents=True)
     (code_root / "market_feature_store").symlink_to(ROOT / "market_feature_store")
 
-    for name in ("write_to_duckdb", "scan_limitup", "scan_top100", "scan_quant"):
+    for name in ("write_to_duckdb", "run_l2_from_share"):
         (moneyflow / f"{name}.py").write_text(_STUB.format(name=name))
     (code_root / "scripts" / "render_moneyflow_html.py").write_text(
         _STUB.format(name="render")
     )
 
     data_root = tmp_path / "data"
-    data_root.mkdir()
+    (data_root / "state").mkdir(parents=True)
+    (data_root / "state" / "l2-baidu-share.json").write_text("{}")
     step_log = tmp_path / "steps.log"
 
     env = dict(os.environ)
     env.update(
         {
-            # HOME 指向 tmp：不去 source 真的 ~/.secrets/clickhouse.env，测试自洽。
+            # HOME 指向 tmp：百度网盘 Cookie 库按家目录解析，测试自洽不碰真登录态。
             "HOME": str(tmp_path),
             "L2_LOCK_HELD": "1",  # 不抢全量复盘的锁
-            "CH_PASSWORD": "stub",  # 否则脚本在守卫之前就 exit 2
             "FINANCE_CODE_ROOT": str(code_root),
             "FINANCE_DATA_ROOT": str(data_root),
             "L2_STEP_LOG": str(step_log),
@@ -290,14 +292,30 @@ def test_guard_runs_the_pipeline_on_a_zero_row_trading_day(guard_env, tmp_path):
     assert "data=missing" in proc.stdout
     assert _steps(step_log) == [
         "write_to_duckdb",  # --calendar：日历判定落台账（QC S2），每跑必写
-        "write_to_duckdb",  # --begin：标 running
-        "scan_limitup",
-        "scan_top100",
-        "scan_quant",
+        "run_l2_from_share",  # 日包管线：转存 / 下载 / 解包 / 三榜 / 写库都在它里面（进程内调用 write_to_duckdb）
         "render",
     ], "交易日零行必须把整条链跑完"
     # 行情缺口要在日志里说清，别让值班的人误判成 L2 坏了。
     assert "行情缺口，不是 L2 故障" in proc.stderr
+
+
+@pytest.mark.parametrize("relative", [True, False])
+def test_guard_keeps_interpreter_valid_after_chdir(guard_env, relative):
+    import sys
+
+    env, step_log, root = guard_env
+    python = root / ".venv-workbench" / "bin" / "python"
+    python.parent.mkdir(parents=True)
+    python.symlink_to(sys.executable)
+    env["FINANCE_PYTHON"] = ".venv-workbench/bin/python" if relative else str(python)
+    env["MARKET_FEATURE_STORE_DB"] = str(root / "absent.duckdb")
+    proc = subprocess.run(
+        ["/bin/zsh", str(GUARD), INCIDENT], cwd=root, env=env,
+        capture_output=True, text=True, timeout=180,
+    )
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert "verdict=trading" in proc.stdout
+    assert _steps(step_log) == ["write_to_duckdb", "run_l2_from_share", "render"]
 
 
 def test_guard_runs_and_shouts_when_the_calendar_is_unknown(guard_env):

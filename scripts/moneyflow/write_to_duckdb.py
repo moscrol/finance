@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """把每日榜单计算结果写入 DuckDB 特征库（market_feature_store）。
 
-分工原则：原始逐笔 tick 留在 ClickHouse（列存海量明细），DuckDB 只落
+分工原则：原始逐笔 tick 留在日包 7z（算完即删），DuckDB 只落
 每日计算结果（feature_* 层，可删除重算），供与其它特征表 join 分析。
 
 写入表：
@@ -24,8 +24,12 @@ from market_feature_store.db import connect, init_db  # noqa: E402
 from config import to_ts_code  # noqa: E402
 from market_feature_store.trading_days import is_trading_day  # noqa: E402
 
-SOURCE = "clickhouse:share(level2服务端聚合)"
+DEFAULT_SOURCE = "baidu-share:xianyu-l2-7z"
 STEPS = ("limitup", "top100", "quant")
+
+
+def current_source() -> str:
+    return os.environ.get("L2_SOURCE", DEFAULT_SOURCE)
 
 
 def begin_l2_run(date):
@@ -59,7 +63,7 @@ def begin_l2_run(date):
                     source = excluded.source,
                     finished_at = excluded.finished_at
                 """,
-                [date, step, SOURCE],
+                [date, step, current_source()],
             )
         con.execute("COMMIT")
     except Exception:
@@ -93,6 +97,9 @@ def _format_message(message, stats):
             f"nonempty={(stats or {}).get('nonempty_count')} "
             f"empty={(stats or {}).get('empty_count', 0)}"
         )
+    missing_pct = (stats or {}).get("pct_chg_canonical_missing")
+    if missing_pct is not None:
+        parts.append(f"pct_chg_canonical_missing={missing_pct}")
     return " | ".join(parts) if parts else None
 
 
@@ -117,7 +124,7 @@ def _mark_status(con, date, step, status, row_count, stats, message):
         """,
         [date, step, status, row_count,
          stats.get("input_count"), stats.get("processed_count"),
-         stats.get("failed_count"), message, SOURCE],
+         stats.get("failed_count"), message, current_source()],
     )
 
 
@@ -153,7 +160,7 @@ def _zero_result_problem(scan_type, row_count, stats):
     if row_count == 0 and inp > 0:
         return (
             f"zero rows for {scan_type} with input_count={inp} "
-            "(likely CH empty/VPN); refuse complete"
+            "(likely empty ticks / download miss); refuse complete"
         )
     return None
 
@@ -379,7 +386,7 @@ def write_capital_flow(date, scan_type, res, big_thr, prev_limitup_date=None, st
              # 当日涨幅%：日线口径（收盘/前收）；行情缺口日为 NULL，不充日内口径
              None if pd.isna(r["当日涨幅%"]) else float(r["当日涨幅%"]),
              float(big_thr), i + 1,
-             prev_limitup_date, SOURCE, now)
+             prev_limitup_date, current_source(), now)
             for i, r in df.iterrows()]
     zero_problem = _zero_result_problem(scan_type, len(rows), stats)
     if zero_problem:
@@ -433,7 +440,7 @@ def write_quant_orders(date, res, big_thr, quant_thr, stats=None):
              int(r["簇数"]), int(r["笔数"]), str(r["最大簇"]),
              None if pd.isna(r["当日涨幅%"]) else float(r["当日涨幅%"]),
              float(quant_thr), float(big_thr),
-             i + 1, SOURCE, now)
+             i + 1, current_source(), now)
             for i, r in df.iterrows()]
     con = connect()
     try:

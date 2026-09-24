@@ -1,0 +1,14 @@
+{
+  "observed_at": "2026-09-18T15:07:57.482734+00:00",
+  "staging_acceptance": "pass_with_14_quarantined_source_pages",
+  "previous_v3_full_acceptance": "FAILED: four nonempty source pages lost during parsing; original retained",
+  "original_production_window": "FAILED: production drift; original retained",
+  "new_production_window": "file fence checked; production not switched",
+  "frozen_source_unchanged": true,
+  "live_index_freshness": {
+    ".rag_index": "fresh",
+    ".rag_index_full": "fresh"
+  },
+  "consumer_switched": false,
+  "production_deploy_ready": false
+}

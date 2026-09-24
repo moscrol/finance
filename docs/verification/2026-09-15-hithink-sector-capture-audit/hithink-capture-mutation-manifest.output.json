@@ -1,0 +1,31 @@
+{
+  "original_path": "/tmp/hithink-capture-mutation-manifest.log",
+  "raw_sha256": "e18d61d0babfae6156966b8b5e68c8a340a15eac85218b3ad65d6d9ed5cf706c",
+  "encoding": "utf-8",
+  "lines": [
+    "................................F......................                  [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260915T074730Z-c85d0101.json\n",
+    "\n",
+    "=================================== FAILURES ===================================\n",
+    "_______ test_rows_and_hash_changed_together_still_break_sealed_manifest ________\n",
+    "\n",
+    "con = <_duckdb.DuckDBPyConnection object at 0x109a21030>\n",
+    "\n",
+    "    def test_rows_and_hash_changed_together_still_break_sealed_manifest(con):\n",
+    "        from market_feature_store.hithink_sector_capture import _hash, _json\n",
+    "    \n",
+    "        capture, _ = _finish(con)\n",
+    "        forged = [{\"thscode\": \"600001.SH\", \"ticker\": \"600001\"}]\n",
+    "        con.execute(\n",
+    "            \"UPDATE ops_hithink_sector_request SET normalized_rows=?, rows_sha256=? WHERE kind='members'\",\n",
+    "            [_json(forged), _hash(forged)],\n",
+    "        )\n",
+    "        report = _audit(con, capture.capture_id)\n",
+    ">       assert not report[\"request_complete\"] and \"capture-manifest-mismatch\" in report[\"gaps\"]\n",
+    "E       assert (not True)\n",
+    "\n",
+    "tests/test_hithink_sector_capture.py:296: AssertionError\n",
+    "=========================== short test summary info ============================\n",
+    "FAILED tests/test_hithink_sector_capture.py::test_rows_and_hash_changed_together_still_break_sealed_manifest\n",
+    "1 failed, 54 passed in 4.06s\n"
+  ]
+}

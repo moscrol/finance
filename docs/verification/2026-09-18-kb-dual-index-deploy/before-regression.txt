@@ -1,0 +1,113 @@
+FFF..F.                                                                  [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260918T132926Z-d32b8966.json
+
+=================================== FAILURES ===================================
+___________ test_prewarm_probe_and_cli_use_frozen_code_not_data_tree ___________
+
+roots = (PosixPath('/private/tmp/pytest-of-a77/pytest-585/test_prewarm_probe_and_cli_use0/code'), PosixPath('/private/tmp/pyte...i_use0/data/wiki'), PosixPath('/private/tmp/pytest-of-a77/pytest-585/test_prewarm_probe_and_cli_use0/data/.rag_index'))
+
+    def test_prewarm_probe_and_cli_use_frozen_code_not_data_tree(roots):
+        code, wiki, index = roots
+        with mock.patch.object(rag_worker, "prewarm") as warm:
+>           kb_rag.prewarm(wiki)
+
+intelligence/tests/test_kb_runtime_roots.py:34: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+kb_wiki = PosixPath('/private/tmp/pytest-of-a77/pytest-585/test_prewarm_probe_and_cli_use0/data/wiki')
+
+    def prewarm(
+        kb_wiki: str | Path | None,
+        *,
+        timeout: float = 90,
+    ) -> dict[str, object]:
+        """Load the production hybrid retriever before serving user requests."""
+        if not rag_worker.enabled():
+            return rag_worker.status()
+        if not kb_wiki:
+            raise ValueError("knowledge wiki is required for RAG prewarm")
+        root = kb_root(kb_wiki)
+        script = root / RAG_SCRIPT_REL
+        index_dir = _resolve_index_dir(root)
+        if not script.is_file():
+>           raise FileNotFoundError(script)
+E           FileNotFoundError: /private/tmp/pytest-of-a77/pytest-585/test_prewarm_probe_and_cli_use0/data/scripts/rag_index.py
+
+intelligence/services/kb_rag.py:646: FileNotFoundError
+_______ test_invalid_configured_root_does_not_fall_back_to_old_data_code _______
+
+roots = (PosixPath('/private/tmp/pytest-of-a77/pytest-585/test_invalid_configured_root_d0/code'), PosixPath('/private/tmp/pyte...oot_d0/data/wiki'), PosixPath('/private/tmp/pytest-of-a77/pytest-585/test_invalid_configured_root_d0/data/.rag_index'))
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10a77bd10>
+
+    def test_invalid_configured_root_does_not_fall_back_to_old_data_code(roots, monkeypatch):
+        code, wiki, _ = roots
+        old = wiki.parent / "scripts/rag_index.py"
+        old.parent.mkdir()
+        old.write_text("# old but present\n")
+        monkeypatch.setenv("KB_RAG_CODE_ROOT", str(code / "missing"))
+        with mock.patch.object(kb_rag.subprocess, "run") as run:
+            assert not kb_rag.probe_rag_cli(wiki).available
+>           result = kb_rag.retrieve("alpha", wiki)
+
+intelligence/tests/test_kb_runtime_roots.py:58: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+intelligence/services/kb_rag.py:1752: in retrieve
+    unsupported = tuple(
+intelligence/services/kb_rag.py:1755: in <genexpr>
+    if option in cmd and _unsupported_option(proc.stderr, option)
+intelligence/services/kb_rag.py:754: in _unsupported_option
+    compact = re.sub(r"\s+", " ", stderr or "").strip()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+pattern = '\\s+', repl = ' '
+string = <MagicMock name='run().stderr' id='4476701152'>, count = 0, flags = 0
+
+    def sub(pattern, repl, string, count=0, flags=0):
+        """Return the string obtained by replacing the leftmost
+        non-overlapping occurrences of the pattern in string by the
+        replacement repl.  repl can be either a string or a callable;
+        if a string, backslash escapes in it are processed.  If it is
+        a callable, it's passed the Match object and must return
+        a replacement string to be used."""
+>       return _compile(pattern, flags).sub(repl, string, count)
+E       TypeError: expected string or bytes-like object, got 'MagicMock'
+
+/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/re/__init__.py:186: TypeError
+______ test_worker_data_binding_overrides_environment_and_partitions_pool ______
+
+roots = (PosixPath('/private/tmp/pytest-of-a77/pytest-585/test_worker_data_binding_overr0/code'), PosixPath('/private/tmp/pyte...overr0/data/wiki'), PosixPath('/private/tmp/pytest-of-a77/pytest-585/test_worker_data_binding_overr0/data/.rag_index'))
+
+    def test_worker_data_binding_overrides_environment_and_partitions_pool(roots):
+        code, wiki, index = roots
+>       worker = rag_worker._worker_for(sys.executable, code, index, wiki)
+E       TypeError: _worker_for() takes 3 positional arguments but 4 were given
+
+intelligence/tests/test_kb_runtime_roots.py:68: TypeError
+________ test_deployed_code_root_binds_worker_and_cli_to_argument_wiki _________
+
+real_kb = (PosixPath('/Users/a77/.finance-runtime/kb-code-91725ea9ba02'), PosixPath('/private/tmp/pytest-of-a77/pytest-585/test_...yed_code_root_binds_0/wiki'), PosixPath('/private/tmp/pytest-of-a77/pytest-585/test_deployed_code_root_binds_0/index'))
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10b50b2f0>
+tmp_path = PosixPath('/private/tmp/pytest-of-a77/pytest-585/test_deployed_code_root_binds_0')
+
+    def test_deployed_code_root_binds_worker_and_cli_to_argument_wiki(real_kb, monkeypatch, tmp_path):
+        code, wiki, index = real_kb
+        monkeypatch.setenv("KB_RAG_CODE_ROOT", str(code))
+        monkeypatch.setenv("KB_RAG_PYTHON", sys.executable)
+        monkeypatch.setenv("RAG_WORKER_ENABLED", "1")
+        # This ambient root deliberately has no evidence. Explicit data must win,
+        # including prewarm, which used to silently read the code checkout's wiki.
+        wrong = tmp_path / "wrong-wiki"
+        wrong.mkdir()
+        monkeypatch.setenv("KB_VAULT", str(wrong))
+>       assert kb_rag.probe_rag_cli(wiki).query_protocol_compatible
+E       AssertionError: assert False
+E        +  where False = RagCliProbe(available=False, query_protocol_compatible=False, supported_options=(), missing_required_options=(), missing_optional_options=(), warning='RAG CLI 脚本不存在').query_protocol_compatible
+E        +    where RagCliProbe(available=False, query_protocol_compatible=False, supported_options=(), missing_required_options=(), missing_optional_options=(), warning='RAG CLI 脚本不存在') = <function probe_rag_cli at 0x10b5f6ca0>(PosixPath('/private/tmp/pytest-of-a77/pytest-585/test_deployed_code_root_binds_0/wiki'))
+E        +      where <function probe_rag_cli at 0x10b5f6ca0> = kb_rag.probe_rag_cli
+
+intelligence/tests/test_kb_receipt_integration.py:112: AssertionError
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_kb_runtime_roots.py::test_prewarm_probe_and_cli_use_frozen_code_not_data_tree
+FAILED intelligence/tests/test_kb_runtime_roots.py::test_invalid_configured_root_does_not_fall_back_to_old_data_code
+FAILED intelligence/tests/test_kb_runtime_roots.py::test_worker_data_binding_overrides_environment_and_partitions_pool
+FAILED intelligence/tests/test_kb_receipt_integration.py::test_deployed_code_root_binds_worker_and_cli_to_argument_wiki
+4 failed, 3 passed in 6.91s

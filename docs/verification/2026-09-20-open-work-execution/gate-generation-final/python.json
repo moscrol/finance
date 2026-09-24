@@ -1,0 +1,34 @@
+{
+  "revision": "4ace5ec2e9b7735d90eb15bc2351fa193c1120b8",
+  "tree": "/Users/a77/.finance-runtime/open-work-execution-20260920/gate-generation-final/finance-workspace-private",
+  "complete": true,
+  "checks": [
+    {
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-m",
+        "ruff",
+        "check",
+        "."
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.14,
+      "log": "/Users/a77/.finance-runtime/open-work-execution-20260920/gate-generation-final/python-0.log.txt"
+    },
+    {
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-m",
+        "pytest",
+        "-p",
+        "receipt_redirect",
+        "-q",
+        "-p",
+        "no:cacheprovider"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 761.65,
+      "log": "/Users/a77/.finance-runtime/open-work-execution-20260920/gate-generation-final/python-1.log.txt"
+    }
+  ]
+}

@@ -14,11 +14,14 @@ from dataclasses import asdict, dataclass, replace
 from typing import TYPE_CHECKING, Callable
 
 from intelligence.services.trading_calendar import question_non_trading_note
+from intelligence.services.material_contract import MaterialContract, compile_material_contract
+from intelligence.services.conversation_materials import ConversationMaterials
 from intelligence.services.user_task import (
     Hypothesis,
     MaterialRef,
     MethodCandidate,
     UserTask,
+    classify_top_level_regions,
     conversation_context_material_unrecoverable,
     extract_method_candidates,
     extract_user_premises,
@@ -128,6 +131,8 @@ class TaskFrame:
     competing_explanations: tuple[Hypothesis, ...] = ()
     method_candidates: tuple[MethodCandidate, ...] = ()
     history_intent: HistoryIntent | None = None
+    material_contract: MaterialContract | None = None
+    conversation_materials: ConversationMaterials | None = None
 
     def _payload(self) -> dict[str, object]:
         payload = asdict(self)
@@ -136,6 +141,15 @@ class TaskFrame:
                 payload.pop(key, None)
         if payload.get("history_intent") is None:
             payload.pop("history_intent", None)
+        if self.material_contract is None:
+            payload.pop("material_contract", None)
+        if self.conversation_materials is None:
+            payload.pop("conversation_materials", None)
+        else:
+            if not self.conversation_materials.calculation_sources:
+                payload["conversation_materials"].pop("calculation_sources", None)
+            if self.conversation_materials.history_intent is None:
+                payload["conversation_materials"].pop("history_intent", None)
         return payload
 
     @property
@@ -241,6 +255,14 @@ class TaskFrame:
                     value.get("method_candidates"), MethodCandidate.from_dict
                 ),
                 history_intent=HistoryIntent.from_dict(value.get("history_intent")),
+                material_contract=(
+                    MaterialContract.from_dict(value["material_contract"])
+                    if "material_contract" in value else None
+                ),
+                conversation_materials=(
+                    ConversationMaterials.from_dict(value["conversation_materials"])
+                    if "conversation_materials" in value else None
+                ),
             )
         except (KeyError, TypeError, ValueError):
             return None
@@ -273,6 +295,9 @@ def build_task_frame(
     inherited_subject: str | None = None,
     llm_complete: LLMComplete | None = None,
     conversation_context: str | None = None,
+    conversation_materials: ConversationMaterials | None = None,
+    source_turn: int = 0,
+    history_continuation: bool = False,
 ) -> TaskFrame:
     """Compile rules first, then optionally merge one constrained LLM draft.
 
@@ -280,17 +305,32 @@ def build_task_frame(
     caller has it (``None`` = unknown, legacy callers).  It is only used to bind
     「这篇 / 这份材料」to a material pasted earlier, or — when the block is known
     and holds no material — to ask for the material deterministically instead of
-    hoping the alignment model writes the ambiguity.  Unknown context never asks.
+    hoping the alignment model writes the ambiguity. Unknown context never asks.
+    When supplied, ``conversation_materials`` is authoritative even when empty:
+    bind its complete user-message records, never parse roles from prompt text.
     """
 
     question = str(raw_question or "").strip()
     # 材料与问题分开：路由、目标、日历、产出物都只看问题部分；raw_question 仍是
     # 完整原文（模型需要读材料本身）。没有材料时 core == question，一切照旧。
-    parts = split_user_message(question)
+    parts = split_user_message(str(raw_question or ""))
+    material_contract = (
+        conversation_materials.compile_contract(
+            parts.regions, history_continuation=history_continuation,
+        ) if conversation_materials is not None else compile_material_contract(
+            parts.regions, source_turn=source_turn,
+            history_continuation=history_continuation,
+        )
+    ) if parts.regions else None
+    restricted_material = bool(material_contract and (
+        material_contract.data_scope == "material_only" or material_contract.needs_clarification
+        or material_contract.premise_calculation
+    ))
     materials = parts.materials
     core = parts.question or question
     question_type = str(envelope.question_type or "general_finance_qa")
-    history_intent = infer_history_intent(core)
+    # Permission readers need the original container, not the legacy last-line extract.
+    history_intent = infer_history_intent(str(raw_question or ""))
     if history_intent is not None and (
         history_intent.purpose == "historical_comparison" or question_type == "comparison"
     ):
@@ -311,7 +351,7 @@ def build_task_frame(
     )
     subject_kind = str(envelope.subject_kind or "unknown")
     if history_intent is not None and subject is None:
-        named_subject = named_wave_subject(core)
+        named_subject = named_wave_subject(str(raw_question or ""))
         if named_subject:
             subject = named_subject
             subject_kind = "theme"
@@ -331,7 +371,7 @@ def build_task_frame(
         and _UNBOUND_LINE_REFERENCE_RE.search(core)
     )
     assumptions: list[str] = []
-    nickname_pairs = resolve_nicknames(core)
+    nickname_pairs = () if restricted_material else resolve_nicknames(core)
     if nickname_pairs:
         canonicals = tuple(canonical for _alias, canonical in nickname_pairs)
         if subject is None:
@@ -357,7 +397,7 @@ def build_task_frame(
     # 「该日休市、无行情数据」注入假设——它随 episode input 到达模型，
     # 模型据此直接回答，而不是烧完检索窗后答「证据不足」。只看问题部分：
     # 材料里的日期是材料的发布日 / 数据日，不是用户要查的交易日。
-    if _is_financial_task(question_type, core):
+    if not restricted_material and _is_financial_task(question_type, core):
         calendar_note = question_non_trading_note(core)
         if calendar_note is not None:
             assumptions.append(calendar_note)
@@ -387,16 +427,35 @@ def build_task_frame(
                 f"{item.char_count} 字）由用户在本轮提供，引用时写材料段落 / 表头 / 日期，"
                 "其中的数字是材料的说法而非市场事实"
             )
-    elif references_material(core) and conversation_context is not None:
-        earlier = materials_in_conversation(conversation_context)
-        if earlier:
-            newest = earlier[-1][0]
-            referenced_ids = tuple(ref.material_id for ref, _text in reversed(earlier))
+    references_previous = (not materials and references_material(core)) or bool(
+        material_contract and material_contract.continuation_requested
+        and conversation_materials is not None and conversation_materials.items
+    )
+    if references_previous and (conversation_materials is not None or conversation_context is not None):
+        earlier_refs = (
+            tuple(item.ref for item in conversation_materials.items)
+            if conversation_materials is not None
+            else tuple(ref for ref, _text in materials_in_conversation(conversation_context))
+        )
+        unavailable = (
+            conversation_materials.unavailable
+            if conversation_materials is not None
+            else conversation_context_material_unrecoverable(conversation_context)
+        )
+        if earlier_refs:
+            newest = earlier_refs[-1]
+            referenced_ids = tuple(ref.material_id for ref in reversed(earlier_refs))
             assumptions.append(
                 f"「这篇 / 这份」按最近一次提供的材料理解：{newest.material_id}"
                 f"（{newest.title or _MATERIAL_KIND_LABEL.get(newest.kind, newest.kind)}）"
             )
-        elif conversation_context_material_unrecoverable(conversation_context):
+            if conversation_materials is not None:
+                assumptions.extend(
+                    f"材料 {item.ref.material_id} 来自完整用户消息 {item.source_message_id}；"
+                    "来源坐标仅用于材料绑定，不授予市场事实或跨轮权限资格"
+                    for item in conversation_materials.items
+                )
+        elif unavailable:
             # I2 收口：对话块被截断 ≠ 没有材料——「这篇」超窗口丢了，不把它错当成
             # 「用户引用了但根本没贴过」的缺材料车道。用更具体的缺口措辞提示重贴，
             # 且这条歧义措辞与 MISSING_MATERIAL_AMBIGUITY 不同，可分别判卷。
@@ -459,6 +518,8 @@ def build_task_frame(
         competing_explanations=hypotheses,
         method_candidates=methods,
         history_intent=history_intent,
+        material_contract=material_contract,
+        conversation_materials=conversation_materials,
     )
     if llm_complete is None:
         return frame
@@ -620,6 +681,52 @@ def resolve_task_frame_clarification(
                 ),
             )
         return frame
+    if frame.material_contract is not None and frame.material_contract.needs_clarification:
+        # 材料合同类澄清（基底不可恢复 / 边界不明）的回答：轴值只能出自 D1/D2 编译器，
+        # 这里不猜。回答带显式声明 → 编译结果就是新合同（逐轴显式覆盖）；只贴材料 /
+        # 无法识别 → 合同如实保留 needs_clarification，装配层按最严收窄执行——预算
+        # 一轮，不二次采访，也绝不静默放宽成 full。题组与续轮标记从挂起合同保留。
+        pending = frame.material_contract
+        answer_text = str(answer or "")
+        parts = split_user_message(answer_text)
+        answered = compile_material_contract(classify_top_level_regions(answer_text))
+        materials = tuple(item for item in (parts.materials or ()) if item is not None)
+        if not materials and cleaned and answered is None:
+            fallback = material_from_text(answer_text)
+            materials = (fallback,) if fallback is not None else ()
+        if answered is not None:
+            contract = replace(
+                answered,
+                questions=pending.questions or answered.questions,
+                continuation_requested=(
+                    pending.continuation_requested or answered.continuation_requested
+                ),
+                premise_marks=tuple(
+                    dict.fromkeys((*pending.premise_marks, *answered.premise_marks))
+                ),
+            )
+        else:
+            contract = pending
+        if answered is not None and not answered.needs_clarification:
+            assumption = (
+                "用户在唯一一次澄清中声明了本轮边界"
+                f"（数据范围 {contract.data_scope}，材料 {len(materials)} 份）"
+            )
+        elif materials:
+            assumption = (
+                f"用户在唯一一次澄清中补充了材料 {len(materials)} 份，"
+                "数据范围未声明，按最严格边界继续"
+            )
+        else:
+            assumption = "澄清预算已用尽，边界仍未声明，按最严格边界继续"
+        return replace(
+            frame,
+            material_contract=contract,
+            materials=_merge_materials(frame.materials, materials),
+            ambiguities=(),
+            clarification_question=None,
+            assumptions=_merge_strings(frame.assumptions, (assumption,)),
+        )
     if is_missing_material_clarification(frame) or is_material_out_of_window_clarification(frame):
         # 追问的是「材料在哪 / 材料超出窗口」，回答是贴进来的材料本身：它不是主体名，不能走下面的
         # 主体/市场归一（一段研报正文会被 _safe_subject 判掉、再默认成「A股市场 /
@@ -880,6 +987,28 @@ def _clarification_for(ambiguities: tuple[str, ...]) -> str | None:
     return "你希望我围绕哪个明确主体继续判断？"
 
 
+def frame_blocks_contract_blind_pipelines(frame: TaskFrame) -> bool:
+    """P3h：本轮是否禁入无材料合同意识的执行面（引擎 B / 确定性 owner 管线）。
+
+    合同级分界见 ``blocks_contract_blind_pipelines``；材料语境（本轮材料、
+    可信历史条目）在 frame 级推导，adapter 与 orchestrator 共用本函数，
+    不各自拼条件。
+    """
+
+    from intelligence.services.material_contract import blocks_contract_blind_pipelines
+
+    return blocks_contract_blind_pipelines(
+        frame.material_contract,
+        has_material_context=bool(
+            frame.materials
+            or (
+                frame.conversation_materials is not None
+                and frame.conversation_materials.items
+            )
+        ),
+    )
+
+
 def is_missing_material_clarification(frame: object) -> bool:
     return getattr(frame, "clarification_question", None) == MISSING_MATERIAL_CLARIFICATION
 
@@ -1019,6 +1148,8 @@ def _is_financial_task(question_type: str, question: str) -> bool:
 def task_frame_requires_retrieval(frame: TaskFrame) -> bool:
     """Return whether an execution route may safely omit evidence retrieval."""
 
+    if frame.material_contract and frame.material_contract.premise_calculation:
+        return False
     if frame.evidence_policy in {"stable_knowledge", "model_reasoning"}:
         return False
     if frame.evidence_policy == "general_finance_evidence":

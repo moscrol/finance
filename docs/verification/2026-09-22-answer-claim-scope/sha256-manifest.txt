@@ -1,0 +1,8 @@
+d511146a63a13ee8aab8bb7e0996cca9441b951a3ccd71868ed81378a0a6b721  docs/verification/2026-09-22-answer-claim-scope/README.md
+429d65ac06ee74b68b84e846b90f591b6428d8544dc40819343ae6bfe11b14a6  docs/verification/2026-09-22-answer-claim-scope/evidence/claim-scope-calibration.json
+6af9fc8c293881bea2b5adc3b88c9d8d3669960b45443c0e724fa47389199f28  docs/verification/2026-09-22-answer-claim-scope/evidence/claim-scope-run_20260921_183219_280474.json
+6b8e58609e5d90909bee4f3404cdaa8cadd283ec19b4ff79dc80eca4b7074e2d  docs/verification/2026-09-22-answer-claim-scope/evidence/claim-scope-run_20260921_183642_325351.json
+d28c777dd14e869ebabc0c638e11fc19e3b3c5a62fa6ba5431bf956342ccae97  docs/verification/2026-09-22-answer-claim-scope/evidence/test-receipt-full-suite.json
+e54f93a4d287bb0a7832cf74d709baf5737a3f66e7ddc7ead9227e3aa56d53f4  docs/verification/2026-09-22-answer-claim-scope/evidence/test-receipt-targeted.json
+f3e9ace4d04b28d42dc430832126014f7dcb640541d516c8d6135314b477cfee  docs/verification/2026-09-22-answer-claim-scope/secret-scan.json
+e549477ab5edce3c5f31b043a0d899a82eb5b6d351067837dd61cc94ad9fa03b  docs/verification/2026-09-22-answer-claim-scope/sources.json

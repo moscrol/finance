@@ -1,0 +1,26 @@
+{
+  "captured_at": "2026-09-19T18:32:03.742455+00:00",
+  "pulls": [
+    {
+      "number": 789,
+      "title": "docs: execute preservation and verified merges with explicit runtime boundaries",
+      "head_sha": "6fb77055a37b48d436021c8ede4f4b7f082bab0a",
+      "head_ref": "docs/open-work-consolidation-0920",
+      "url": "http://127.0.0.1:3300/a77/finance-workspace-private/pulls/789"
+    },
+    {
+      "number": 783,
+      "title": "WIP: feat(history): 历史表达与夹具返修工程通过，真实四题仍拒收",
+      "head_sha": "c9bd82ff2e25fe2727347329706f7aeb98444ee8",
+      "head_ref": "feat/history-market-anatomy",
+      "url": "http://127.0.0.1:3300/a77/finance-workspace-private/pulls/783"
+    },
+    {
+      "number": 770,
+      "title": "WIP(e2): material closeout — repair-round feedback, contradiction shape, scanner QC fix",
+      "head_sha": "b1c1c29f2910cc11692767f1810984ba90b616d2",
+      "head_ref": "fix/e2-material-closeout",
+      "url": "http://127.0.0.1:3300/a77/finance-workspace-private/pulls/770"
+    }
+  ]
+}

@@ -1,0 +1,52 @@
+{
+  "schema": 1,
+  "recorded_at": "2026-09-19T18:34:45.720863+00:00",
+  "code_sha": "1bd5e1dc8d48f59461c79f35ea553e1cda71a6ec",
+  "worktree": "/Users/a77/kb-wt-guarded-maintenance-0920",
+  "branch": "codex/kb-guarded-maintenance-0920",
+  "clean": true,
+  "finance_workspace": "/Users/a77/.finance-runtime/open-work-execution-20260920/gate-generation-final/finance-workspace-private",
+  "finance_sha": "4ace5ec2e9b7735d90eb15bc2351fa193c1120b8",
+  "finance_clean": true,
+  "python": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "pytest": {
+    "passed": 899,
+    "failed": 0,
+    "skipped": 0,
+    "seconds": 44.68
+  },
+  "checks": [
+    {
+      "command": "FINANCE_WS=/Users/a77/.finance-runtime/open-work-execution-20260920/gate-generation-final/finance-workspace-private /Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest tests skills/lib/rag/tests -q",
+      "exit_code": 0,
+      "log": "/Users/a77/.finance-runtime/open-work-execution-20260920/kb-maintenance/full-1bd5e1dc8.log",
+      "log_sha256": "f72f2eff4b0700ba80c95c2e860f95ecd51dc32230aaece7780ccb2c3809f653",
+      "log_bytes": 1061
+    },
+    {
+      "command": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python scripts/ingest.py check --strict-vocab",
+      "exit_code": 0,
+      "log": "/Users/a77/.finance-runtime/open-work-execution-20260920/kb-maintenance/strict-vocab-1bd5e1dc8.log",
+      "log_sha256": "1c684cbb1bb972a3a5ceadbdff9549a0687edb1ec607c8547cd12fe127eff2b4",
+      "log_bytes": 336
+    },
+    {
+      "command": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python scripts/check_tracked_file_sizes.py",
+      "exit_code": 0,
+      "log": "/Users/a77/.finance-runtime/open-work-execution-20260920/kb-maintenance/file-sizes-1bd5e1dc8.log",
+      "log_sha256": "f561c5a84ba66c7b89b0d67eaf795e79cba1af026eef84487c5e048df769250f",
+      "log_bytes": 100
+    },
+    {
+      "command": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python scripts/quality_gate.py",
+      "exit_code": 0,
+      "log": "/Users/a77/.finance-runtime/open-work-execution-20260920/kb-maintenance/quality-gate-1bd5e1dc8.log",
+      "log_sha256": "d1a3153ddefa5634198fb6d226b860f2d9b889877f2c1e8bd9adf2a0e31fae5e",
+      "log_bytes": 2217
+    }
+  ],
+  "scope": "temporary hash indexes; real finance PersistentRagWorker; publisher transport stubs only",
+  "production_index_writes": false,
+  "actual_remote_asset_publication": false,
+  "production_restart": false
+}

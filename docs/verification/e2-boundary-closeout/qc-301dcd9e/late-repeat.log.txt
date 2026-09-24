@@ -1,0 +1,28 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.12.13, pytest-8.3.5, pluggy-1.6.0 -- /Users/a77/finance-workspace-private/.venv-workbench/bin/python
+rootdir: /tmp/e2-qc-301dcd9e-evidence
+collecting ... collected 10 items
+
+../../../tmp/e2-qc-301dcd9e-evidence/test_late_repeat.py::test_late_scope_repeat[False-0] QC_CORRECTED_LATE_TRACE [{"phase": "raw_runner_entered", "elapsed_ms": 0.236}, {"phase": "batch_timeout_returned", "elapsed_ms": 85.225}, {"phase": "new_scope_bound", "elapsed_ms": 85.304}, {"phase": "raw_runner_returning", "elapsed_ms": 85.333}, {"phase": "old_result_emitted", "elapsed_ms": 85.428}]
+PASSED
+../../../tmp/e2-qc-301dcd9e-evidence/test_late_repeat.py::test_late_scope_repeat[False-1] QC_CORRECTED_LATE_TRACE [{"phase": "raw_runner_entered", "elapsed_ms": 0.209}, {"phase": "batch_timeout_returned", "elapsed_ms": 85.169}, {"phase": "new_scope_bound", "elapsed_ms": 85.259}, {"phase": "raw_runner_returning", "elapsed_ms": 85.293}, {"phase": "old_result_emitted", "elapsed_ms": 85.406}]
+PASSED
+../../../tmp/e2-qc-301dcd9e-evidence/test_late_repeat.py::test_late_scope_repeat[False-2] QC_CORRECTED_LATE_TRACE [{"phase": "raw_runner_entered", "elapsed_ms": 0.221}, {"phase": "batch_timeout_returned", "elapsed_ms": 84.867}, {"phase": "new_scope_bound", "elapsed_ms": 84.987}, {"phase": "raw_runner_returning", "elapsed_ms": 85.022}, {"phase": "old_result_emitted", "elapsed_ms": 85.179}]
+PASSED
+../../../tmp/e2-qc-301dcd9e-evidence/test_late_repeat.py::test_late_scope_repeat[False-3] QC_CORRECTED_LATE_TRACE [{"phase": "raw_runner_entered", "elapsed_ms": 0.481}, {"phase": "batch_timeout_returned", "elapsed_ms": 84.781}, {"phase": "new_scope_bound", "elapsed_ms": 84.921}, {"phase": "raw_runner_returning", "elapsed_ms": 84.949}, {"phase": "old_result_emitted", "elapsed_ms": 85.079}]
+PASSED
+../../../tmp/e2-qc-301dcd9e-evidence/test_late_repeat.py::test_late_scope_repeat[False-4] QC_CORRECTED_LATE_TRACE [{"phase": "raw_runner_entered", "elapsed_ms": 0.284}, {"phase": "batch_timeout_returned", "elapsed_ms": 84.142}, {"phase": "new_scope_bound", "elapsed_ms": 84.299}, {"phase": "raw_runner_returning", "elapsed_ms": 84.338}, {"phase": "old_result_emitted", "elapsed_ms": 84.506}]
+PASSED
+../../../tmp/e2-qc-301dcd9e-evidence/test_late_repeat.py::test_late_scope_repeat[True-0] QC_CORRECTED_LATE_TRACE [{"phase": "raw_runner_entered", "elapsed_ms": 0.432}, {"phase": "batch_timeout_returned", "elapsed_ms": 81.168}, {"phase": "new_scope_bound", "elapsed_ms": 81.398}, {"phase": "raw_runner_returning", "elapsed_ms": 81.442}, {"phase": "old_result_emitted", "elapsed_ms": 81.663}]
+PASSED
+../../../tmp/e2-qc-301dcd9e-evidence/test_late_repeat.py::test_late_scope_repeat[True-1] QC_CORRECTED_LATE_TRACE [{"phase": "raw_runner_entered", "elapsed_ms": 0.437}, {"phase": "batch_timeout_returned", "elapsed_ms": 83.527}, {"phase": "new_scope_bound", "elapsed_ms": 83.799}, {"phase": "raw_runner_returning", "elapsed_ms": 83.851}, {"phase": "old_result_emitted", "elapsed_ms": 84.113}]
+PASSED
+../../../tmp/e2-qc-301dcd9e-evidence/test_late_repeat.py::test_late_scope_repeat[True-2] QC_CORRECTED_LATE_TRACE [{"phase": "raw_runner_entered", "elapsed_ms": 0.51}, {"phase": "batch_timeout_returned", "elapsed_ms": 85.315}, {"phase": "new_scope_bound", "elapsed_ms": 85.411}, {"phase": "raw_runner_returning", "elapsed_ms": 85.447}, {"phase": "old_result_emitted", "elapsed_ms": 85.578}]
+PASSED
+../../../tmp/e2-qc-301dcd9e-evidence/test_late_repeat.py::test_late_scope_repeat[True-3] QC_CORRECTED_LATE_TRACE [{"phase": "raw_runner_entered", "elapsed_ms": 0.38}, {"phase": "batch_timeout_returned", "elapsed_ms": 85.331}, {"phase": "new_scope_bound", "elapsed_ms": 85.497}, {"phase": "raw_runner_returning", "elapsed_ms": 85.542}, {"phase": "old_result_emitted", "elapsed_ms": 85.722}]
+PASSED
+../../../tmp/e2-qc-301dcd9e-evidence/test_late_repeat.py::test_late_scope_repeat[True-4] QC_CORRECTED_LATE_TRACE [{"phase": "raw_runner_entered", "elapsed_ms": 0.461}, {"phase": "batch_timeout_returned", "elapsed_ms": 80.812}, {"phase": "new_scope_bound", "elapsed_ms": 80.984}, {"phase": "raw_runner_returning", "elapsed_ms": 81.033}, {"phase": "old_result_emitted", "elapsed_ms": 81.247}]
+PASSED
+
+============================== 10 passed in 1.15s ==============================
+QC_IO_ATTEMPTS []

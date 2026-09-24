@@ -1,0 +1,46 @@
+"""Fixed-checkout gates; capture subprocess exits and do not skip sibling leaves."""
+import hashlib
+import json
+import os
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+repo=Path(sys.argv[1]).resolve()
+output=Path(sys.argv[2]).resolve()
+output.mkdir(parents=True,exist_ok=False)
+python=sys.executable
+rev=subprocess.check_output(['git','-C',str(repo),'rev-parse','HEAD'],text=True).strip()
+def identity():
+    return {'revision':subprocess.check_output(['git','rev-parse','HEAD'],cwd=repo,text=True).strip(),'status':subprocess.check_output(['git','status','--porcelain'],cwd=repo,text=True)}
+env={k:os.environ[k] for k in ('PATH','HOME','TMPDIR') if k in os.environ}
+env['KNOWLEDGE_WIKI']='/Users/a77/knowledge-base-private/wiki'
+os.umask(0o022)
+start=identity()
+assert start['status']=='', start
+commands=[
+    ('ruff',[python,'-m','ruff','check','.']),
+    ('pytest',[python,'-m','pytest','-q',f'--junitxml={output}/pytest.xml', f'--basetemp={output}/scratch', '-o', 'tmp_path_retention_policy=failed']),
+]
+if '--registry' in sys.argv:
+    commands=[
+        ('registry-parseability',[python,'scripts/build_registry.py','check-parseability']),
+        ('registry-check',[python,'scripts/build_registry.py','check']),
+        ('registry-tables',[python,'scripts/build_registry.py','backfill-tables','--check']),
+        ('registry-views',[python,'scripts/build_registry.py','generate-views','--check']),
+        ('registry-crosswalk',[python,'scripts/audit_ledger_spec_crosswalk.py']),
+    ]
+rows=[]
+for name,cmd in commands:
+    t=time.time()
+    log=output/f'{name}.log'
+    with log.open('w') as f:
+        proc=subprocess.run(cmd,cwd=repo,env=env,stdout=f,stderr=subprocess.STDOUT)
+    rows.append({'name':name,'command':cmd,'exit_code':proc.returncode,'elapsed_s':round(time.time()-t,2),'sha256':hashlib.sha256(log.read_bytes()).hexdigest()})
+    (output/'progress.json').write_text(json.dumps(rows,indent=2)+'\n')
+finish=identity()
+receipt={'revision':rev,'start':start,'finish':finish,'identity_stable':start==finish,'steps':rows,'ok':start==finish and not finish['status'] and all(r['exit_code']==0 for r in rows)}
+(output/'gate.json').write_text(json.dumps(receipt,indent=2)+'\n')
+print(json.dumps(receipt,indent=2))
+raise SystemExit(0 if receipt['ok'] else 1)

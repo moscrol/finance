@@ -1,0 +1,402 @@
+{
+  "checked_at": "2026-09-19T18:17:32.161526+00:00",
+  "checked_candidates": 28,
+  "with_non_cache_ignored_artifacts": 9,
+  "deleted": 0,
+  "trees": [
+    {
+      "path": "/private/tmp/fwp-kb-receipt-base-20260918",
+      "exit_code": 0,
+      "ignored_files": 0,
+      "non_cache_ignored_files": [],
+      "artifacts": [],
+      "decision": "retain; per-tree ownership still pending"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/finance-workspace-2d8eaea5bdf8",
+      "exit_code": 0,
+      "ignored_files": 206,
+      "non_cache_ignored_files": [],
+      "artifacts": [],
+      "decision": "retain; per-tree ownership still pending"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/gate-checkouts/instruction-clearance-r4-20260912/finance-workspace-private",
+      "exit_code": 0,
+      "ignored_files": 1270,
+      "non_cache_ignored_files": [
+        "intelligence/users/default/checkpoints.jsonl",
+        "intelligence/users/default/verdicts.jsonl",
+        "intelligence/users/default/workbench.sqlite3"
+      ],
+      "artifacts": [
+        {
+          "path": "intelligence/users/default/checkpoints.jsonl",
+          "bytes": 7188,
+          "sha256": "5f7bf49c65e764a8fe27c998e7069881ce59e9ea62cbdb99f0e018d6a96dc71f",
+          "copied": false,
+          "decision": "retain original"
+        },
+        {
+          "path": "intelligence/users/default/verdicts.jsonl",
+          "bytes": 918,
+          "sha256": "c1a62542d05dc8523e1730423dcf4db7990a6673d313cfb02086cb7ce25388b0",
+          "copied": false,
+          "decision": "retain original"
+        },
+        {
+          "path": "intelligence/users/default/workbench.sqlite3",
+          "bytes": 53248,
+          "sha256": "aeb27aba8b8867b122ab5f6f16f26b11248f5cd7354c0e1dd55f51204907a41a",
+          "copied": false,
+          "decision": "retain original"
+        }
+      ],
+      "decision": "retain; ignored artifacts require ownership"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/gate-checkouts/post-merge-742-main-tip/finance-workspace-private",
+      "exit_code": 0,
+      "ignored_files": 1319,
+      "non_cache_ignored_files": [
+        "intelligence/users/default/checkpoints.jsonl",
+        "intelligence/users/default/verdicts.jsonl",
+        "intelligence/users/default/workbench.sqlite3"
+      ],
+      "artifacts": [
+        {
+          "path": "intelligence/users/default/checkpoints.jsonl",
+          "bytes": 7188,
+          "sha256": "a57efcfd4db52ef5adabf4f9d428359024b395e7f59b9578e49cb6c3a9d3cc0e",
+          "copied": false,
+          "decision": "retain original"
+        },
+        {
+          "path": "intelligence/users/default/verdicts.jsonl",
+          "bytes": 918,
+          "sha256": "3093b814307b53bf92e179556bf9c14769c139d4944abdbbacaae039f9d71629",
+          "copied": false,
+          "decision": "retain original"
+        },
+        {
+          "path": "intelligence/users/default/workbench.sqlite3",
+          "bytes": 53248,
+          "sha256": "aeb27aba8b8867b122ab5f6f16f26b11248f5cd7354c0e1dd55f51204907a41a",
+          "copied": false,
+          "decision": "retain original"
+        }
+      ],
+      "decision": "retain; ignored artifacts require ownership"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/extraction-closeout-20260915/qc6/finance-workspace-private",
+      "exit_code": 0,
+      "ignored_files": 31,
+      "non_cache_ignored_files": [],
+      "artifacts": [],
+      "decision": "retain; per-tree ownership still pending"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/hithink-48242bd4-qc/probe-target",
+      "exit_code": 0,
+      "ignored_files": 0,
+      "non_cache_ignored_files": [],
+      "artifacts": [],
+      "decision": "retain; per-tree ownership still pending"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/pr742-3d9c3102-20260913/finance-workspace-private",
+      "exit_code": 0,
+      "ignored_files": 140,
+      "non_cache_ignored_files": [],
+      "artifacts": [],
+      "decision": "retain; per-tree ownership still pending"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/pr742-b54fdf6a-20260913/finance-workspace-private",
+      "exit_code": 0,
+      "ignored_files": 145,
+      "non_cache_ignored_files": [],
+      "artifacts": [],
+      "decision": "retain; per-tree ownership still pending"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/research-candidate-glm-live-20260918/code",
+      "exit_code": 0,
+      "ignored_files": 276,
+      "non_cache_ignored_files": [],
+      "artifacts": [],
+      "decision": "retain; per-tree ownership still pending"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/research-draft-claim-repair-20260919/code",
+      "exit_code": 0,
+      "ignored_files": 132,
+      "non_cache_ignored_files": [],
+      "artifacts": [],
+      "decision": "retain; per-tree ownership still pending"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/research-draft-claim-repair-20260919/final/code",
+      "exit_code": 0,
+      "ignored_files": 138,
+      "non_cache_ignored_files": [],
+      "artifacts": [],
+      "decision": "retain; per-tree ownership still pending"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/research-draft-claim-repair-20260919/final/mutation-code",
+      "exit_code": 0,
+      "ignored_files": 197,
+      "non_cache_ignored_files": [],
+      "artifacts": [],
+      "decision": "retain; per-tree ownership still pending"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/research-draft-claim-repair-20260919/mutation-code",
+      "exit_code": 0,
+      "ignored_files": 197,
+      "non_cache_ignored_files": [],
+      "artifacts": [],
+      "decision": "retain; per-tree ownership still pending"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/research-evolution-repair-qc-20260913/05-before",
+      "exit_code": 0,
+      "ignored_files": 13,
+      "non_cache_ignored_files": [],
+      "artifacts": [],
+      "decision": "retain; per-tree ownership still pending"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/research-progress-repair-20260918/code",
+      "exit_code": 0,
+      "ignored_files": 0,
+      "non_cache_ignored_files": [],
+      "artifacts": [],
+      "decision": "retain; per-tree ownership still pending"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/research-publication-live-20260918/code",
+      "exit_code": 0,
+      "ignored_files": 137,
+      "non_cache_ignored_files": [],
+      "artifacts": [],
+      "decision": "retain; per-tree ownership still pending"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/research-publication-live-20260918/mutation-code",
+      "exit_code": 0,
+      "ignored_files": 271,
+      "non_cache_ignored_files": [
+        "intelligence/users/default/workbench.sqlite3"
+      ],
+      "artifacts": [
+        {
+          "path": "intelligence/users/default/workbench.sqlite3",
+          "bytes": 53248,
+          "sha256": "aeb27aba8b8867b122ab5f6f16f26b11248f5cd7354c0e1dd55f51204907a41a",
+          "copied": false,
+          "decision": "retain original"
+        }
+      ],
+      "decision": "retain; ignored artifacts require ownership"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/research-publication-repair-20260918/code",
+      "exit_code": 0,
+      "ignored_files": 137,
+      "non_cache_ignored_files": [],
+      "artifacts": [],
+      "decision": "retain; per-tree ownership still pending"
+    },
+    {
+      "path": "/Users/a77/.finance-runtime/reviews/research-rag-framing-repair-20260919/mutation-code",
+      "exit_code": 0,
+      "ignored_files": 20,
+      "non_cache_ignored_files": [],
+      "artifacts": [],
+      "decision": "retain; per-tree ownership still pending"
+    },
+    {
+      "path": "/Users/a77/finance-workspace-private/.claude/worktrees/tools-zip-review-d224e9",
+      "exit_code": 0,
+      "ignored_files": 3,
+      "non_cache_ignored_files": [
+        ".claude/scheduled_tasks.lock",
+        ".claude/settings.local.json"
+      ],
+      "artifacts": [
+        {
+          "path": ".claude/scheduled_tasks.lock",
+          "bytes": 130,
+          "sha256": "76dee8cae894f61ed036dc016e1709d7fc903e4ce03a2be7d071cd1215bf988e",
+          "copied": false,
+          "decision": "retain original"
+        },
+        {
+          "path": ".claude/settings.local.json",
+          "bytes": 7786,
+          "sha256": "38d2d8c8b442de4dccc00b42a21f9a7e915807833a958d926ffee4971ce08048",
+          "copied": false,
+          "decision": "retain original"
+        }
+      ],
+      "decision": "retain; ignored artifacts require ownership"
+    },
+    {
+      "path": "/Users/a77/finance-workspace-private/.claude/worktrees/workorder-index-reconciliation-1f4eb1",
+      "exit_code": 0,
+      "ignored_files": 2,
+      "non_cache_ignored_files": [
+        ".claude/settings.local.json"
+      ],
+      "artifacts": [
+        {
+          "path": ".claude/settings.local.json",
+          "bytes": 7786,
+          "sha256": "38d2d8c8b442de4dccc00b42a21f9a7e915807833a958d926ffee4971ce08048",
+          "copied": false,
+          "decision": "retain original"
+        }
+      ],
+      "decision": "retain; ignored artifacts require ownership"
+    },
+    {
+      "path": "/Users/a77/fwp-wt-full-dd7b6f74",
+      "exit_code": 0,
+      "ignored_files": 1231,
+      "non_cache_ignored_files": [
+        "intelligence/users/default/checkpoints.jsonl",
+        "intelligence/users/default/verdicts.jsonl",
+        "intelligence/users/default/workbench.sqlite3"
+      ],
+      "artifacts": [
+        {
+          "path": "intelligence/users/default/checkpoints.jsonl",
+          "bytes": 7188,
+          "sha256": "ff8562987118af8ac4c2c3fa1043e321f641a0b9eaf90ec246e95d05436a29b3",
+          "copied": false,
+          "decision": "retain original"
+        },
+        {
+          "path": "intelligence/users/default/verdicts.jsonl",
+          "bytes": 918,
+          "sha256": "70aadb6bc89c1db2ee5f7e791ad1cae78706fe0fc77dc76ac704ffe5aae0141b",
+          "copied": false,
+          "decision": "retain original"
+        },
+        {
+          "path": "intelligence/users/default/workbench.sqlite3",
+          "bytes": 53248,
+          "sha256": "aeb27aba8b8867b122ab5f6f16f26b11248f5cd7354c0e1dd55f51204907a41a",
+          "copied": false,
+          "decision": "retain original"
+        }
+      ],
+      "decision": "retain; ignored artifacts require ownership"
+    },
+    {
+      "path": "/Users/a77/fwp-wt-gate-0903f",
+      "exit_code": 0,
+      "ignored_files": 15527,
+      "non_cache_ignored_files": [
+        "intelligence/users/default/checkpoints.jsonl",
+        "intelligence/users/default/workbench.sqlite3"
+      ],
+      "artifacts": [
+        {
+          "path": "intelligence/users/default/checkpoints.jsonl",
+          "bytes": 406,
+          "sha256": "21255f62b41ba8b8a88242eb3e827f41c44133f39caffba2abd773b87283cfd8",
+          "copied": false,
+          "decision": "retain original"
+        },
+        {
+          "path": "intelligence/users/default/workbench.sqlite3",
+          "bytes": 53248,
+          "sha256": "aeb27aba8b8867b122ab5f6f16f26b11248f5cd7354c0e1dd55f51204907a41a",
+          "copied": false,
+          "decision": "retain original"
+        }
+      ],
+      "decision": "retain; ignored artifacts require ownership"
+    },
+    {
+      "path": "/Users/a77/fwp-wt-gatemain-tmp",
+      "exit_code": 0,
+      "ignored_files": 0,
+      "non_cache_ignored_files": [],
+      "artifacts": [],
+      "decision": "retain; per-tree ownership still pending"
+    },
+    {
+      "path": "/Users/a77/fwp-wt-historical-discovery-baseline",
+      "exit_code": 0,
+      "ignored_files": 212,
+      "non_cache_ignored_files": [],
+      "artifacts": [],
+      "decision": "retain; per-tree ownership still pending"
+    },
+    {
+      "path": "/Users/a77/fwp-wt-qc-0911",
+      "exit_code": 0,
+      "ignored_files": 15802,
+      "non_cache_ignored_files": [
+        "intelligence/users/default/checkpoints.jsonl",
+        "intelligence/users/default/verdicts.jsonl",
+        "intelligence/users/default/workbench.sqlite3"
+      ],
+      "artifacts": [
+        {
+          "path": "intelligence/users/default/checkpoints.jsonl",
+          "bytes": 24558,
+          "sha256": "6a3de72c87d7b8c369eb396257eda4b0fb0e2c9d91aecf459c3c58610d001ca6",
+          "copied": false,
+          "decision": "retain original"
+        },
+        {
+          "path": "intelligence/users/default/verdicts.jsonl",
+          "bytes": 3488,
+          "sha256": "8247316e8902533772587aa6fcf9fb3c9837a3ae540fa393dcd7a444e6080132",
+          "copied": false,
+          "decision": "retain original"
+        },
+        {
+          "path": "intelligence/users/default/workbench.sqlite3",
+          "bytes": 53248,
+          "sha256": "aeb27aba8b8867b122ab5f6f16f26b11248f5cd7354c0e1dd55f51204907a41a",
+          "copied": false,
+          "decision": "retain original"
+        }
+      ],
+      "decision": "retain; ignored artifacts require ownership"
+    },
+    {
+      "path": "/Users/a77/fwp-wt-review-compaction-0907",
+      "exit_code": 0,
+      "ignored_files": 0,
+      "non_cache_ignored_files": [],
+      "artifacts": [],
+      "decision": "retain; per-tree ownership still pending"
+    },
+    {
+      "path": "/Users/a77/fwp-wt-verify-8e1ea623",
+      "exit_code": 0,
+      "ignored_files": 1241,
+      "non_cache_ignored_files": [
+        "intelligence/users/default/workbench.sqlite3"
+      ],
+      "artifacts": [
+        {
+          "path": "intelligence/users/default/workbench.sqlite3",
+          "bytes": 53248,
+          "sha256": "aeb27aba8b8867b122ab5f6f16f26b11248f5cd7354c0e1dd55f51204907a41a",
+          "copied": false,
+          "decision": "retain original"
+        }
+      ],
+      "decision": "retain; ignored artifacts require ownership"
+    }
+  ]
+}

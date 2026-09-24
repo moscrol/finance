@@ -26,6 +26,7 @@ import {
   getArtifactText,
   getBootstrap,
   getConversationMessages,
+  getCredits,
   getFollowups,
   forgetSavedLLM,
   getLLMConfig,
@@ -34,7 +35,11 @@ import {
   getRunArtifactText,
   getRunContext,
   getRunReport,
+  getResearchEvolution,
+  getResearchEvolutionCatalog,
   getResearchProject,
+  postResearchEvolutionAction,
+  postResearchEvolutionBinding,
   getSkills,
   getTrace,
   getWorkbenchOverview,
@@ -67,14 +72,19 @@ import type {
   Bootstrap,
   ChatMessage,
   Conversation,
+  CreditsSummary,
   DailyReportProjection,
   FollowupContinuation,
+  MaintenanceLaunchRef,
+  CreateMessageResponse,
   LiveMessageState,
   LLMConfig,
   LLMProviderId,
   PerspectiveDescription,
   PerspectiveMode,
   ProductSkillDescription,
+  ResearchEvolutionActionResult,
+  ResearchEvolutionView,
   ResearchProject,
   Run,
   RunBundle,
@@ -90,8 +100,22 @@ interface StreamIdentity {
   runId: string;
 }
 
+function isPublishedTerminalRun(
+  run: Run, identity: StreamIdentity,
+): run is Run & { status: "completed" | "failed" | "cancelled" } {
+  return (
+    run.run_id === identity.runId &&
+    run.session_id === identity.conversationId &&
+    !run.delivery_pending &&
+    ["completed", "failed", "cancelled"].includes(run.status) &&
+    run.publication?.status === "published" &&
+    run.publication.message_id === identity.messageId
+  );
+}
+
 export default function App() {
   const [bootstrap, setBootstrap] = useState<Bootstrap | null>(null);
+  const [credits, setCredits] = useState<CreditsSummary | null>(null);
   const [surface, setSurface] = useState<Surface>({ kind: "today" });
   const [overview, setOverview] = useState<WorkbenchOverview | null>(null);
   const [overviewRefreshing, setOverviewRefreshing] = useState(false);
@@ -107,6 +131,10 @@ export default function App() {
   const [researchProject, setResearchProject] = useState<ResearchProject | null>(
     null,
   );
+  // 研究进化：01/02/04 的会话级投影。与研究项目同批刷新；加载失败只让「维护」页显示空态。
+  const [researchEvolution, setResearchEvolution] =
+    useState<ResearchEvolutionView | null>(null);
+  const [evolutionBusy, setEvolutionBusy] = useState(false);
   const [liveMessages, setLiveMessages] = useState<
     Record<string, LiveMessageState>
   >({});
@@ -147,6 +175,14 @@ export default function App() {
   const finalizingRunRef = useRef<string | null>(null);
 
   const user = bootstrap?.user ?? "default";
+
+  // 余额在两个时刻变：提问被受理（预占）与 run 结束（按用量结算、释放预占）。
+  // 拉不到就保留上一次的数，展示项不该把主流程带红。
+  const refreshCredits = useCallback(() => {
+    void getCredits(user)
+      .then(setCredits)
+      .catch(() => undefined);
+  }, [user]);
 
   const fetchRunBundle = useCallback(
     async (runId: string): Promise<RunBundle> => {
@@ -189,7 +225,7 @@ export default function App() {
   );
 
   const loadConversationData = useCallback(
-    async (conversationId: string): Promise<ChatMessage[]> => {
+    async (conversationId: string) => {
       const generation = ++conversationGeneration.current;
       const nextMessages = await getConversationMessages(conversationId, user);
       const runIds = [
@@ -199,7 +235,7 @@ export default function App() {
             .filter((runId): runId is string => Boolean(runId)),
         ),
       ];
-      const [bundles, project] = await Promise.all([
+      const [bundles, project, evolution] = await Promise.all([
         Promise.all(
           runIds.map((runId) =>
             fetchRunBundle(runId)
@@ -213,22 +249,25 @@ export default function App() {
           .then(() => getResearchProject(conversationId, user))
           .then((value) => value ?? null)
           .catch(() => null),
+        Promise.resolve()
+          .then(() => getResearchEvolution(conversationId, user))
+          .then((value) => value ?? null)
+          .catch(() => null),
       ]);
-      if (
-        activeConversationRef.current === conversationId &&
-        conversationGeneration.current === generation
-      ) {
+      const nextBundles = Object.fromEntries(
+        bundles.filter(
+          (item): item is readonly [string, RunBundle] => item !== null,
+        ),
+      );
+      const applied = activeConversationRef.current === conversationId &&
+        conversationGeneration.current === generation;
+      if (applied) {
         setMessages(nextMessages);
-        setRunBundles(
-          Object.fromEntries(
-            bundles.filter(
-              (item): item is readonly [string, RunBundle] => item !== null,
-            ),
-          ),
-        );
+        setRunBundles(nextBundles);
         setResearchProject(project);
+        setResearchEvolution(evolution);
       }
-      return nextMessages;
+      return { messages: nextMessages, bundles: nextBundles, applied };
     },
     [fetchRunBundle, user],
   );
@@ -244,33 +283,35 @@ export default function App() {
   const finalizeRun = useCallback(
     async (
       identity: StreamIdentity,
-      status: "completed" | "failed" | "cancelled",
       events: EventSource,
     ) => {
       if (eventSourceRef.current !== events) return;
       if (finalizingRunRef.current === identity.runId) return;
       finalizingRunRef.current = identity.runId;
-      setLiveMessages((current) => {
-        const state = current[identity.messageId];
-        return state?.runId === identity.runId
-          ? {
-              ...current,
-              [identity.messageId]: {
-                ...state,
-                status,
-                connection: "connected",
-              },
-            }
-          : current;
-      });
-      clearRunPolling();
-      events.close();
-      eventSourceRef.current = null;
       try {
-        await Promise.all([
-          loadConversationData(identity.conversationId),
-          listConversations(user).then(setConversations),
-        ]);
+        const loaded = await loadConversationData(identity.conversationId);
+        if (!loaded.applied || eventSourceRef.current !== events) return;
+        const bundle = loaded.bundles[identity.runId];
+        const message = loaded.messages.find((item) =>
+          item.role === "assistant" && item.message_id === identity.messageId &&
+          item.run_id === identity.runId && item.conversation_id === identity.conversationId,
+        );
+        if (!bundle || !isPublishedTerminalRun(bundle.run, identity) ||
+            !message || message.status !== bundle.run.status) return;
+        const status = bundle.run.status;
+        clearRunPolling();
+        events.close();
+        eventSourceRef.current = null;
+        setLiveMessages((current) => {
+          const state = current[identity.messageId];
+          return state?.runId === identity.runId
+            ? { ...current, [identity.messageId]: { ...state,
+                status, connection: "connected" } }
+            : current;
+        });
+        setConversations(await listConversations(user));
+        // 结算发生在 worker 返回之后、SSE 收口之后几毫秒；等两次往返回来再读余额，读到的是结算后的数。
+        refreshCredits();
         setLiveMessages((current) => {
           const state = current[identity.messageId];
           if (
@@ -296,7 +337,7 @@ export default function App() {
         }
       }
     },
-    [clearRunPolling, loadConversationData, user],
+    [clearRunPolling, loadConversationData, refreshCredits, user],
   );
 
   const connectStream = useCallback(
@@ -354,12 +395,8 @@ export default function App() {
         try {
           const run = await getRun(identity.runId, user);
           if (eventSourceRef.current !== events) return;
-          if (["completed", "failed", "cancelled"].includes(run.status)) {
-            await finalizeRun(
-              identity,
-              run.status as "completed" | "failed" | "cancelled",
-              events,
-            );
+          if (isPublishedTerminalRun(run, identity)) {
+            await finalizeRun(identity, events);
           }
         } catch {
           if (eventSourceRef.current !== events) return;
@@ -405,12 +442,8 @@ export default function App() {
             (rawEvent as MessageEvent<string>).data,
           ) as Run;
           if (nextRun.run_id !== identity.runId) return;
-          if (["completed", "failed", "cancelled"].includes(nextRun.status)) {
-            void finalizeRun(
-              identity,
-              nextRun.status as "completed" | "failed" | "cancelled",
-              events,
-            );
+          if (isPublishedTerminalRun(nextRun, identity)) {
+            void finalizeRun(identity, events);
           }
         } catch {
           setError("运行结束事件格式无效");
@@ -436,14 +469,16 @@ export default function App() {
       setMessages([]);
       setRunBundles({});
       setResearchProject(null);
+      setResearchEvolution(null);
       setLiveMessages({});
       if (options.closeDrawer !== false) {
         setConversationDrawerOpen(false);
       }
       setLoading(true);
       try {
-        const nextMessages = await loadConversationData(conversationId);
-        if (activeConversationRef.current !== conversationId) return;
+        const loaded = await loadConversationData(conversationId);
+        if (!loaded.applied) return;
+        const nextMessages = loaded.messages;
         const lastUserMessage = [...nextMessages]
           .reverse()
           .find((message) => message.role === "user");
@@ -458,8 +493,10 @@ export default function App() {
           .find(
             (message) =>
               message.role === "assistant" &&
-              message.status === "pending" &&
-              message.run_id,
+              message.run_id &&
+              (message.status === "pending" ||
+                loaded.bundles[message.run_id]?.run.delivery_pending ||
+                loaded.bundles[message.run_id]?.run.publication?.status === "pending"),
           );
         if (
           pending?.run_id &&
@@ -491,6 +528,7 @@ export default function App() {
       .then(async (nextBootstrap) => {
         if (disposed) return;
         setBootstrap(nextBootstrap);
+        setCredits(nextBootstrap.credits ?? null);
         const [
           nextConversations,
           nextSkills,
@@ -631,8 +669,10 @@ export default function App() {
       },
       // 09 连续研究：由「猜你想问」卡片点出时带延续坐标；普通提问不带。
       continuation?: FollowupContinuation,
-    ) => {
-      if (submitting) return;
+      // 06 研究进化：「继续核查」启动消息带请求实例坐标（QC V2，首轮也能带）。
+      maintenanceLaunch?: MaintenanceLaunchRef,
+    ): Promise<CreateMessageResponse | null> => {
+      if (submitting) return null;
       setSubmitting(true);
       try {
         const effectivePerspectiveMode =
@@ -655,6 +695,9 @@ export default function App() {
           selected_perspective_ids: effectivePerspectiveIds,
           user,
           ...(continuation ? { continuation } : {}),
+          ...(maintenanceLaunch
+            ? { maintenance_launch: maintenanceLaunch }
+            : {}),
         });
         const now = new Date().toISOString();
         const userMessage: ChatMessage = {
@@ -687,6 +730,9 @@ export default function App() {
           citations: [],
           degrades: [],
         };
+        // Any in-flight reload captured the conversation before this new turn.
+        // Invalidate it even within the SAME conversation, not only on navigation.
+        ++conversationGeneration.current;
         setMessages((current) => [
           ...current,
           userMessage,
@@ -701,6 +747,7 @@ export default function App() {
           }),
         }));
         setDraft("");
+        refreshCredits();
         connectStream({
           conversationId,
           messageId: created.assistant_message_id,
@@ -718,10 +765,12 @@ export default function App() {
             ),
           );
         }
+        return created;
       } catch (caught) {
         setError(
           caught instanceof Error ? caught.message : "发送消息失败",
         );
+        return null;
       } finally {
         setSubmitting(false);
       }
@@ -730,6 +779,7 @@ export default function App() {
       connectStream,
       conversations,
       newConversation,
+      refreshCredits,
       selectedSkillIds,
       selectedPerspectiveIds,
       skillMode,
@@ -737,6 +787,169 @@ export default function App() {
       submitting,
       user,
     ],
+  );
+
+  /**
+   * 研究进化的动作口：管理动作 / 任务选择 / 「继续核查」。
+   *
+   * 三件事刻意做在这里：
+   * 1. 动作后**重新拉一遍投影**——项版本与管理修订都在服务端变了，拿旧投影再点会 409；
+   * 2. 「继续核查」用服务端返回的 continuation 走既有 POST 消息入口，不另造一条问答链路；
+   * 3. 失败不静默：错误进 `error`，投影保持原样，不伪装成已完成。
+   */
+  const submitEvolutionAction = useCallback(
+    async (body: Record<string, unknown>) => {
+      const conversationId = activeConversationRef.current;
+      if (!conversationId || evolutionBusy) return;
+      const wantsContinue = body.__continue === true;
+      const payload = { ...body };
+      delete payload.__continue;
+      setEvolutionBusy(true);
+      try {
+        const result = await postResearchEvolutionAction(
+          conversationId,
+          payload,
+          user,
+        );
+        const isSelectTask = payload.action === "select_task";
+        const cont =
+          (wantsContinue || isSelectTask) && result.continuation
+            ? result.continuation
+            : undefined;
+        if (cont) {
+          const prompt = String(
+            cont.full_prompt ??
+              (isSelectTask ? "继续这个研究任务" : "继续核查这条判断"),
+          );
+          // 只有带真实起源 run 的 continuation 才走延续坐标；没有就发普通消息。
+          // 「从现在开始跟踪」不许把空 run_id 硬塞成 continuation（后端 min_length=1，会 422）。
+          const followup = cont.run_id
+            ? (cont as unknown as FollowupContinuation)
+            : undefined;
+          // QC V2：请求实例坐标随启动消息发出（首轮不依赖 origin run），
+          // 服务端回查 rejudge 台账核验当前代际后登记 run 关联。
+          const launchItemId = String(cont.maintenance_item_id ?? "");
+          const launchRequestId = String(cont.request_event_id ?? "");
+          const maintenanceLaunch =
+            launchItemId && launchRequestId
+              ? { item_id: launchItemId, request_event_id: launchRequestId }
+              : undefined;
+          const created = await submitResearch(
+            prompt,
+            undefined,
+            followup,
+            maintenanceLaunch,
+          );
+          if (!isSelectTask) {
+            // 「继续核查」rejudge：登记「本次维护请求发起了这个 run」的持久化关联；
+            // 消息没被接受则退回 open，不留「请求挂着、永远没有 run」的假进行态。
+            const itemId = String(payload.item_id ?? "");
+            const revision = result.resulting_management_revision;
+            const version = payload.expected_item_version;
+            const canLink =
+              itemId !== "" &&
+              version !== undefined &&
+              String(version) !== "" &&
+              typeof revision === "number";
+            if (created?.run_id && canLink) {
+              await postResearchEvolutionAction(
+                conversationId,
+                {
+                  action: "link_run",
+                  idempotency_key: `link_run:${itemId}:${created.run_id}`,
+                  item_id: itemId,
+                  run_id: created.run_id,
+                  expected_item_version: version,
+                  expected_management_revision: revision,
+                },
+                user,
+              );
+            } else if (!created && canLink) {
+              await postResearchEvolutionAction(
+                conversationId,
+                {
+                  action: "cancel_rejudge",
+                  idempotency_key: `cancel_rejudge:${itemId}:${revision}`,
+                  item_id: itemId,
+                  reason: "消息未被接受，维护项退回待复核",
+                  expected_item_version: version,
+                  expected_management_revision: revision,
+                },
+                user,
+              ).catch(() => undefined);
+              setError("「继续核查」的消息没有被接受，这条待复核已退回未开始状态，可重新发起。");
+            }
+          } else if (!created) {
+            setError("任务已选择，但发起研究的消息没有被接受，请从对话框重发。");
+          }
+        }
+        const refreshed = await getResearchEvolution(conversationId, user).catch(
+          () => null,
+        );
+        if (activeConversationRef.current === conversationId) {
+          setResearchEvolution(refreshed);
+        }
+      } catch (caught) {
+        setError(
+          caught instanceof Error ? caught.message : "维护动作没有成功，请刷新后重试",
+        );
+      } finally {
+        setEvolutionBusy(false);
+      }
+    },
+    [evolutionBusy, submitResearch, user],
+  );
+
+  /** 「从现在开始跟踪」建绑定：服务端解析真实 hash/版本，幂等重试不重复建行。 */
+  const submitEvolutionBinding = useCallback(
+    async (body: Record<string, unknown>) => {
+      const conversationId = activeConversationRef.current;
+      if (!conversationId || evolutionBusy) return;
+      setEvolutionBusy(true);
+      try {
+        await postResearchEvolutionBinding(conversationId, body, user);
+        const refreshed = await getResearchEvolution(conversationId, user).catch(
+          () => null,
+        );
+        if (activeConversationRef.current === conversationId) {
+          setResearchEvolution(refreshed);
+        }
+      } catch (caught) {
+        setError(
+          caught instanceof Error ? caught.message : "绑定没有成功，请刷新后重试",
+        );
+      } finally {
+        setEvolutionBusy(false);
+      }
+    },
+    [evolutionBusy, user],
+  );
+
+  /** 受控证据目录：建绑定表单选版本时调。 */
+  const fetchEvolutionCatalog = useCallback(
+    (entity: string, asOf: string) => {
+      const conversationId = activeConversationRef.current;
+      if (!conversationId) return Promise.reject(new Error("没有活动会话"));
+      return getResearchEvolutionCatalog(conversationId, entity, asOf, user);
+    },
+    [user],
+  );
+
+  /** 面板需要读回包的动作（练习作答 / 收据原件）：走同一个 actions 端点，成功后顺手刷新投影。 */
+  const runEvolutionAction = useCallback(
+    async (body: Record<string, unknown>): Promise<ResearchEvolutionActionResult> => {
+      const conversationId = activeConversationRef.current;
+      if (!conversationId) throw new Error("没有活动会话");
+      const result = await postResearchEvolutionAction(conversationId, body, user);
+      const refreshed = await getResearchEvolution(conversationId, user).catch(
+        () => null,
+      );
+      if (activeConversationRef.current === conversationId) {
+        setResearchEvolution(refreshed);
+      }
+      return result;
+    },
+    [user],
   );
 
   const regenerate = (assistant: ChatMessage) => {
@@ -934,6 +1147,7 @@ export default function App() {
         onLibrary={openLibrary}
         activeSection={activeSection}
         onSection={navigateSection}
+        credits={credits}
       />
 
       <main className="main-surface chat-surface">
@@ -1129,6 +1343,12 @@ export default function App() {
         onFollowup={(question, continuation) =>
           void submitResearch(question, undefined, continuation)
         }
+        evolution={researchEvolution}
+        onEvolutionAction={(body) => void submitEvolutionAction(body)}
+        onEvolutionBind={(body) => void submitEvolutionBinding(body)}
+        onFetchEvolutionCatalog={fetchEvolutionCatalog}
+        runEvolutionAction={runEvolutionAction}
+        evolutionBusy={evolutionBusy}
       />
       <ModelSettings
         open={modelSettingsOpen}

@@ -1,0 +1,17 @@
+{
+  "number": 597,
+  "state": "closed",
+  "merged": true,
+  "closed_at": "2026-09-12T00:28:38+08:00",
+  "merged_at": "2026-09-12T00:28:38+08:00",
+  "merge_commit_sha": "c208cbaf38ebf55e5f122f8ff558ae4fc16a886f",
+  "html_url": "http://127.0.0.1:3300/a77/finance-workspace-private/pulls/597",
+  "comments": [
+    {
+      "id": 4609,
+      "created_at": "2026-09-16T10:29:38+08:00",
+      "body": "关闭说明（接替指针）：本 PR 头 f6d61363 已是 gitea/main 的祖先（`git merge-base --is-ancestor` 为真），`intelligence/eval/replay_engine.py` 等全部内容已随前向合并链进入 main，无需再合。接替指针 = gitea/main；工单 INDEX #25 状态应回写为 ✅（下一次动 INDEX 的分支顺手改，INDEX 是热文件不单开分支）。若日后发现 main 上缺少本分支的某个文件，直接 cherry-pick 对应提交即可，不必重开本 PR。2026-09-16 盘点时关闭。",
+      "html_url": "http://127.0.0.1:3300/a77/finance-workspace-private/pulls/597#issuecomment-4609"
+    }
+  ]
+}

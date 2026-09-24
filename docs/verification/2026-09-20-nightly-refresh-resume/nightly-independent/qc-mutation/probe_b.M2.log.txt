@@ -1,0 +1,132 @@
+snapshot replay: {'trade_date': '2026-09-11', 'snapshot_trade_date': '2026-09-11', 'source': 'eastmoney:snapshot', 'fetched': 1, 'rows_written': 1, 'skipped': 0, 'day_rows': 1, 'table_total': 2, 'distinct_stocks': 1, 'distinct_dates': 2, 'date_min': '2026-09-09', 'date_max': '2026-09-11'}
+① pre_close 链 vs 2026-09-09 close: 可比 1 不符 0 (0.00%)
+② 次日锚 2026-09-11.pre_close == 本日 close: 可比 1 不符 0 (0.00%)  ← 除息股会差，>2% 才算红
+③ pct_chg 重算: 不符 0
+④ 量纲闭环（amount/volume 反推均价落在 [low,high]）: 越界 0/1
+   本次 sum(amount)=0.0 亿
+   邻日 2026-09-09: 1 只 sum(amount)=0.0 亿 turnover中位=1.0%
+   邻日 2026-09-11: 1 只 sum(amount)=0.0 亿 turnover中位=1.0%
+
+RESULT: PASS
+2026-09-10 行数 0 → 1
+来源: [('sina:stock_zh_a_daily', 1)]
+空值(close/amount/pct): (0, 0, 0)
+PASS I1.all_ok_rc0 rc=0 err=None
+PASS I1.all_ok_status_runid 
+PASS I1.all_ok_steps_ok 
+PASS I1.stitch_cmd_include_completed_180 [['/Users/a77/finance-workspace-private/.venv-workbench/bin/python', '-m', 'market_feature_store.cli', 'stitch-sector-stocks', '--trade-date', '2026-09-10', '--max-baseline-age-days', '180', '--include-completed', '--no-caps']]
+PASS I1.local_index_no_fupanhui_fallback_kept [['/Users/a77/finance-workspace-private/.venv-workbench/bin/python', '-m', 'market_feature_store.cli', 'sync-index-daily', '--trade-date', '2026-09-10', '--no-fupanhui-fallback']]
+snapshot replay: {'trade_date': '2026-09-11', 'snapshot_trade_date': '2026-09-11', 'source': 'eastmoney:snapshot', 'fetched': 1, 'rows_written': 1, 'skipped': 0, 'day_rows': 1, 'table_total': 2, 'distinct_stocks': 1, 'distinct_dates': 2, 'date_min': '2026-09-09', 'date_max': '2026-09-11'}
+① pre_close 链 vs 2026-09-09 close: 可比 1 不符 0 (0.00%)
+② 次日锚 2026-09-11.pre_close == 本日 close: 可比 1 不符 0 (0.00%)  ← 除息股会差，>2% 才算红
+③ pct_chg 重算: 不符 0
+④ 量纲闭环（amount/volume 反推均价落在 [low,high]）: 越界 0/1
+   本次 sum(amount)=0.0 亿
+   邻日 2026-09-09: 1 只 sum(amount)=0.0 亿 turnover中位=1.0%
+   邻日 2026-09-11: 1 只 sum(amount)=0.0 亿 turnover中位=1.0%
+
+RESULT: PASS
+2026-09-10 行数 0 → 1
+来源: [('sina:stock_zh_a_daily', 1)]
+空值(close/amount/pct): (0, 0, 0)
+<<< hithink-stock-daily: skip (no-key; 并跑源未更新)
+<<< hithink-sector-kline: skip (no-key; 并跑源未更新)
+<<< hithink-limit-pools: skip (no-key; 并跑源未更新)
+<<< hithink-dragon-auction: skip (no-key; 并跑源未更新)
+<<< hithink-stock-daily: skip (no-key; 并跑源未更新)
+<<< hithink-sector-kline: skip (no-key; 并跑源未更新)
+<<< hithink-limit-pools: skip (no-key; 并跑源未更新)
+<<< hithink-dragon-auction: skip (no-key; 并跑源未更新)
+PASS I1.hithink_skip_rc0 rc=0 err=None
+PASS I1.hithink_skip_count 8
+PASS I1.hithink_skip_labels 
+PASS I1.hithink_skip_receipt_kept [{'date': '2026-09-10', 'label': 'hithink-stock-daily', 'status': 'skip', 'code': None, 'elapsed': 0.0, 'note': 'no-key; 并跑源未更新，不代表换源完成'}]
+PASS I1.hithink_skip_no_subprocess 
+snapshot replay: {'trade_date': '2026-09-11', 'snapshot_trade_date': '2026-09-11', 'source': 'eastmoney:snapshot', 'fetched': 1, 'rows_written': 1, 'skipped': 0, 'day_rows': 1, 'table_total': 2, 'distinct_stocks': 1, 'distinct_dates': 2, 'date_min': '2026-09-09', 'date_max': '2026-09-11'}
+① pre_close 链 vs 2026-09-09 close: 可比 1 不符 0 (0.00%)
+② 次日锚 2026-09-11.pre_close == 本日 close: 可比 1 不符 0 (0.00%)  ← 除息股会差，>2% 才算红
+③ pct_chg 重算: 不符 0
+④ 量纲闭环（amount/volume 反推均价落在 [low,high]）: 越界 0/1
+   本次 sum(amount)=0.0 亿
+   邻日 2026-09-09: 1 只 sum(amount)=0.0 亿 turnover中位=1.0%
+   邻日 2026-09-11: 1 只 sum(amount)=0.0 亿 turnover中位=1.0%
+
+RESULT: PASS
+2026-09-10 行数 0 → 1
+来源: [('sina:stock_zh_a_daily', 1)]
+空值(close/amount/pct): (0, 0, 0)
+FAIL I1.required_skip_blocked err=None
+FAIL I1.required_skip_no_status 
+snapshot replay: {'trade_date': '2026-09-11', 'snapshot_trade_date': '2026-09-11', 'source': 'eastmoney:snapshot', 'fetched': 1, 'rows_written': 1, 'skipped': 0, 'day_rows': 1, 'table_total': 2, 'distinct_stocks': 1, 'distinct_dates': 2, 'date_min': '2026-09-09', 'date_max': '2026-09-11'}
+① pre_close 链 vs 2026-09-09 close: 可比 1 不符 0 (0.00%)
+② 次日锚 2026-09-11.pre_close == 本日 close: 可比 1 不符 0 (0.00%)  ← 除息股会差，>2% 才算红
+③ pct_chg 重算: 不符 0
+④ 量纲闭环（amount/volume 反推均价落在 [low,high]）: 越界 0/1
+   本次 sum(amount)=0.0 亿
+   邻日 2026-09-09: 1 只 sum(amount)=0.0 亿 turnover中位=1.0%
+   邻日 2026-09-11: 1 只 sum(amount)=0.0 亿 turnover中位=1.0%
+
+RESULT: PASS
+2026-09-10 行数 0 → 1
+来源: [('sina:stock_zh_a_daily', 1)]
+空值(close/amount/pct): (0, 0, 0)
+PASS I1.stitch_fail_blocked err=2026-09-10 stitch-sector-stocks failed; no publish
+PASS I1.stitch_fail_no_status 
+PASS I1.stitch_fail_no_derivation 
+snapshot replay: {'trade_date': '2026-09-11', 'snapshot_trade_date': '2026-09-11', 'source': 'eastmoney:snapshot', 'fetched': 1, 'rows_written': 1, 'skipped': 0, 'day_rows': 1, 'table_total': 2, 'distinct_stocks': 1, 'distinct_dates': 2, 'date_min': '2026-09-09', 'date_max': '2026-09-11'}
+① pre_close 链 vs 2026-09-09 close: 可比 1 不符 0 (0.00%)
+② 次日锚 2026-09-11.pre_close == 本日 close: 可比 1 不符 0 (0.00%)  ← 除息股会差，>2% 才算红
+③ pct_chg 重算: 不符 0
+④ 量纲闭环（amount/volume 反推均价落在 [low,high]）: 越界 0/1
+   本次 sum(amount)=0.0 亿
+   邻日 2026-09-09: 1 只 sum(amount)=0.0 亿 turnover中位=1.0%
+   邻日 2026-09-11: 1 只 sum(amount)=0.0 亿 turnover中位=1.0%
+
+RESULT: PASS
+2026-09-10 行数 0 → 1
+来源: [('sina:stock_zh_a_daily', 1)]
+空值(close/amount/pct): (0, 0, 0)
+PASS I1.hithink_fail_blocked err=2026-09-10 hithink-stock-daily failed; no publish
+snapshot replay: {'trade_date': '2026-09-11', 'snapshot_trade_date': '2026-09-11', 'source': 'eastmoney:snapshot', 'fetched': 1, 'rows_written': 1, 'skipped': 0, 'day_rows': 1, 'table_total': 2, 'distinct_stocks': 1, 'distinct_dates': 2, 'date_min': '2026-09-09', 'date_max': '2026-09-11'}
+① pre_close 链 vs 2026-09-09 close: 可比 1 不符 0 (0.00%)
+② 次日锚 2026-09-11.pre_close == 本日 close: 可比 1 不符 0 (0.00%)  ← 除息股会差，>2% 才算红
+③ pct_chg 重算: 不符 0
+④ 量纲闭环（amount/volume 反推均价落在 [low,high]）: 越界 0/1
+   本次 sum(amount)=0.0 亿
+   邻日 2026-09-09: 1 只 sum(amount)=0.0 亿 turnover中位=1.0%
+   邻日 2026-09-11: 1 只 sum(amount)=0.0 亿 turnover中位=1.0%
+
+RESULT: PASS
+2026-09-10 行数 0 → 1
+来源: [('sina:stock_zh_a_daily', 1)]
+空值(close/amount/pct): (0, 0, 0)
+PASS I1.hithink_timeout_blocked err=2026-09-10 hithink-stock-daily failed; no publish
+snapshot replay: {'trade_date': '2026-09-11', 'snapshot_trade_date': '2026-09-11', 'source': 'eastmoney:snapshot', 'fetched': 1, 'rows_written': 1, 'skipped': 0, 'day_rows': 1, 'table_total': 2, 'distinct_stocks': 1, 'distinct_dates': 2, 'date_min': '2026-09-09', 'date_max': '2026-09-11'}
+① pre_close 链 vs 2026-09-09 close: 可比 1 不符 0 (0.00%)
+② 次日锚 2026-09-11.pre_close == 本日 close: 可比 1 不符 0 (0.00%)  ← 除息股会差，>2% 才算红
+③ pct_chg 重算: 不符 0
+④ 量纲闭环（amount/volume 反推均价落在 [low,high]）: 越界 0/1
+   本次 sum(amount)=0.0 亿
+   邻日 2026-09-09: 1 只 sum(amount)=0.0 亿 turnover中位=1.0%
+   邻日 2026-09-11: 1 只 sum(amount)=0.0 亿 turnover中位=1.0%
+
+RESULT: PASS
+2026-09-10 行数 0 → 1
+来源: [('sina:stock_zh_a_daily', 1)]
+空值(close/amount/pct): (0, 0, 0)
+PASS I1.gate_fail_blocked err=2026-09-10 quality gates failed; no publish
+{
+ "total": 18,
+ "failed": [
+  {
+   "check": "I1.required_skip_blocked",
+   "pass": false,
+   "detail": "err=None"
+  },
+  {
+   "check": "I1.required_skip_no_status",
+   "pass": false,
+   "detail": ""
+  }
+ ]
+}

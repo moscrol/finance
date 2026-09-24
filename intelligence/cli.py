@@ -1,9 +1,17 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
+import io
 import json
+import os
 import sys
+import tempfile
+import uuid
+from contextlib import redirect_stdout
+from dataclasses import dataclass
 from pathlib import Path
+from typing import TextIO
 
 # NOTE: workflow modules are imported lazily inside each command handler so the
 # CLI (and the duckdb-free `ask` command) can run in environments without the
@@ -156,6 +164,14 @@ def add_ask_parser(subparsers: argparse._SubParsersAction) -> None:
     parser.add_argument("--l3-lookup-timeout", type=int, default=480, help="单个 L3 工具调用超时秒数；SSE 首跑建 uid 缓存可能接近 7 分钟")
     parser.add_argument("--l3-lookup-limit", type=int, default=5, help="单个 L3 工具最多注入证据条数")
     parser.add_argument("--summary-json", default=None, help="Write workflow summary JSON")
+    parser.add_argument(
+        "--call-provenance-json", default=None,
+        help="Write an exclusive machine receipt binding this ask's output and model calls",
+    )
+    parser.add_argument(
+        "--call-provenance-id", default=None,
+        help="Caller-supplied unique receipt ID; defaults to a generated UUID",
+    )
     parser.add_argument(
         "--brief-json",
         default=None,
@@ -782,15 +798,24 @@ def cmd_daily_agent(args: argparse.Namespace) -> int:
     from intelligence import userspace as _userspace
     from intelligence.services import guided_reading as _gr
 
-    _guided, _gr_reason = _gr.build_for_daily_review(
+    # 提取前置（工单 #53）：带读开着但用户今天还没写自己的剧本时，这里只放一段入口提示，
+    # 非带读正文一字不动。夜跑不等 stdin、不替用户记跳过 / 离开——后台跑过一次
+    # 不证明用户进过这个页面。
+    _section = _gr.daily_section(
         report, _userspace.user_space(getattr(args, "user", None)),
         override=getattr(args, "guided_reading", None),
         teaching_labels_db=getattr(args, "teaching_labels_db", None),
         card_dir=out_md.parent,
     )
-    if _guided is not None:
-        answer = _gr.merge_into_daily_review(answer, _guided)
-        print(f"带读已并入日报：{_gr_reason}", file=sys.stderr)
+    if _section.guided is not None or _section.hint:
+        answer = _gr.merge_into_daily_review(
+            answer, _section.guided, hint=_section.hint, diff_lines=_section.diff_lines
+        )
+        print(
+            ("带读已并入日报：" if _section.guided is not None else "带读位置只放了提取入口提示：")
+            + _section.reason,
+            file=sys.stderr,
+        )
     # 情景树逐日解析（#37 / G-15）：默认关，`FORESIGHT_SCENARIO_TREE_RESOLVE=1` 才跑；
     # 关着时 answer 是同一个对象——逐字节不变靠 is 等价，不靠约定。
     from intelligence.services import scenario_trees as _st
@@ -1263,7 +1288,11 @@ def add_adapter_smoke_parser(subparsers: argparse._SubParsersAction) -> None:
 
 
 def add_daily_parser(subparsers: argparse._SubParsersAction) -> None:
+    from market_feature_store.consumption_registry import PLAN_CHOICES
+
     parser = subparsers.add_parser("daily", help="Run daily review workflow")
+    parser.add_argument("--plan", choices=PLAN_CHOICES, default=None,
+                        help="同步/质检档位；显式参数 > REVIEW_SYNC_PLAN > full；auto 按目标交易日解析")
     parser.add_argument("--date", required=True, help="Trade date YYYY-MM-DD")
     parser.add_argument("--user", default=None, help="User id for runtime metrics isolation")
     parser.add_argument("--kb-wiki", default=None, help="知识库 wiki 根目录；会传给 agent-daily，并用于刷新驾驶舱晨汇链接")
@@ -1289,6 +1318,48 @@ def add_daily_parser(subparsers: argparse._SubParsersAction) -> None:
     parser.add_argument("--summary-json", default=None, help="Write workflow summary JSON")
     parser.add_argument("--dry-run", action="store_true", help="Print command plan without execution")
     parser.set_defaults(func=cmd_daily)
+
+
+def add_ima_gap_report_parser(subparsers: argparse._SubParsersAction) -> None:
+    parser = subparsers.add_parser(
+        "ima-gap-report",
+        help="读当日 research-queue，列出题材 DeepDive / 个股逻辑卡缺口（不问 IMA）",
+    )
+    parser.add_argument("--date", required=True, help="交易日 YYYY-MM-DD")
+    parser.add_argument("--finance-root", default=None, help="覆盖金融仓路径")
+    parser.add_argument("--kb-wiki", default=None, help="知识库 wiki 根目录")
+    parser.add_argument(
+        "--extra-wiki",
+        action="append",
+        default=[],
+        help="额外 wiki（未提交 worktree），可重复",
+    )
+    parser.set_defaults(func=cmd_ima_gap_report)
+
+
+def cmd_ima_gap_report(args: argparse.Namespace) -> int:
+    from intelligence.paths import default_paths
+    from intelligence.services.ima_gap_report import build_ima_gap_report, write_ima_gap_report
+
+    paths = default_paths()
+    finance_root = Path(args.finance_root).expanduser() if args.finance_root else paths.finance_root
+    kb_wiki = Path(args.kb_wiki).expanduser() if args.kb_wiki else paths.knowledge_wiki
+    extras = [Path(p).expanduser() for p in (args.extra_wiki or [])]
+    queue_path = finance_root / "market_feature_store" / "exports" / f"{args.date}-research-queue.json"
+    if not queue_path.is_file():
+        print(json.dumps({"ok": False, "error": f"missing {queue_path}"}, ensure_ascii=False, indent=2))
+        # 缺少当日 research queue 时没有生成报告；非零让 nightly runner 记 FAIL，避免假成功。
+        return 2
+    payload = json.loads(queue_path.read_text(encoding="utf-8"))
+    report = build_ima_gap_report(payload, wikis=[kb_wiki, *extras], date=args.date)
+    exports = finance_root / "market_feature_store" / "exports"
+    written = write_ima_gap_report(
+        report,
+        exports / f"{args.date}-ima-gap.json",
+        exports / f"{args.date}-ima-gap.md",
+    )
+    print(json.dumps({"ok": True, "counts": report["counts"], "written": {k: str(v) for k, v in written.items()}}, ensure_ascii=False, indent=2))
+    return 0
 
 
 def add_kb_queue_receive_parser(subparsers: argparse._SubParsersAction) -> None:
@@ -1466,7 +1537,139 @@ def add_l3_ingest_parser(subparsers: argparse._SubParsersAction) -> None:
     p_apply.set_defaults(func=cmd_l3_apply)
 
 
+@dataclass
+class _AskReceiptState:
+    as_of: str | None
+    delivery_state: str = "no_answer"
+
+
+class _AskStdoutCapture:
+    """Forward output immediately while retaining the exact text that was written."""
+
+    def __init__(self, target: TextIO) -> None:
+        self.target = target
+        self.output = io.StringIO()
+
+    def write(self, text: str) -> int:
+        written = self.target.write(text)
+        self.output.write(text[:written])
+        return written
+
+    def flush(self) -> None:
+        self.target.flush()
+
+    def __getattr__(self, name: str):
+        return getattr(self.target, name)
+
+
+def _write_ask_call_receipt(path: Path, receipt: dict[str, object]) -> None:
+    with tempfile.NamedTemporaryFile(
+        mode="w", encoding="utf-8", dir=path.parent,
+        prefix=f".{path.name}.", suffix=".tmp", delete=False,
+    ) as output:
+        temporary = Path(output.name)
+        try:
+            json.dump(receipt, output, ensure_ascii=False, sort_keys=True, allow_nan=False)
+            output.write("\n")
+            output.flush()
+            os.fsync(output.fileno())
+        except BaseException:
+            temporary.unlink(missing_ok=True)
+            raise
+    try:
+        os.replace(temporary, path)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
 def cmd_ask(args: argparse.Namespace) -> int:
+    receipt_path = getattr(args, "call_provenance_json", None)
+    if not receipt_path:
+        if getattr(args, "call_provenance_id", None):
+            print("--call-provenance-id requires --call-provenance-json", file=sys.stderr)
+            return 2
+        return _cmd_ask(args)
+
+    from intelligence.services import llm_refine
+
+    path = Path(receipt_path).expanduser()
+    # An output path alias would overwrite the summary/brief and make a receipt
+    # appear to belong to the wrong artifact. Reject it before any workflow IO.
+    for output_name in ("summary_json", "brief_json", "audit_ledger"):
+        other = getattr(args, output_name, None)
+        if other and path.resolve() == Path(other).expanduser().resolve():
+            print(
+                f"[call-provenance] receipt path conflicts with --{output_name}",
+                file=sys.stderr,
+            )
+            return 2
+    receipt_id = getattr(args, "call_provenance_id", None) or str(uuid.uuid4())
+    state = _AskReceiptState(as_of=args.date)
+    receipt: dict[str, object] = {
+        "schema_version": 1,
+        "scope": "all_successful_ask_calls",
+        "receipt_id": receipt_id,
+        "call_id": receipt_id,
+        "status": "incomplete",
+        "delivery_state": "no_answer",
+        "records": [],
+    }
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("x", encoding="utf-8") as output:
+            json.dump(receipt, output, ensure_ascii=False, sort_keys=True, allow_nan=False)
+            output.write("\n")
+    except OSError as exc:
+        print(f"[call-provenance] cannot create receipt ({type(exc).__name__})", file=sys.stderr)
+        return 2
+
+    capture = _AskStdoutCapture(sys.stdout)
+    with llm_refine.call_ledger_scope(reuse_existing=True) as ledger:
+        previous_count = len(ledger.summary()["records"])
+        try:
+            with llm_refine.call_provenance_scope(receipt_id, "writer"), redirect_stdout(capture):
+                returncode = _cmd_ask(args, receipt_state=state)
+            receipt["status"] = "completed" if returncode != 2 else "invalid_input"
+            receipt["returncode"] = returncode
+            return returncode
+        except BaseException as exc:
+            receipt["status"] = "failed"
+            receipt["error_type"] = type(exc).__name__
+            raise
+        finally:
+            records = ledger.summary()["records"][previous_count:]
+            # A reused outer ledger may receive another copied context in parallel;
+            # only this receipt's call id belongs in its writer evidence. Keep
+            # unbound records so the receipt can explicitly fail closed.
+            records = [
+                item for item in records
+                if item.get("call_id") in {receipt_id, None}
+            ]
+            raw_output = capture.output.getvalue()
+            question = {"text": args.query, "as_of": state.as_of}
+            question_json = json.dumps(
+                question, ensure_ascii=False, sort_keys=True,
+                separators=(",", ":"), allow_nan=False,
+            )
+            receipt.update({
+                "question_sha256": hashlib.sha256(question_json.encode("utf-8")).hexdigest(),
+                "raw_output_sha256": hashlib.sha256(raw_output.encode("utf-8")).hexdigest(),
+                "answer_sha256": hashlib.sha256(raw_output.strip().encode("utf-8")).hexdigest(),
+                "delivery_state": state.delivery_state,
+                "collection_state": (
+                    "unattributed" if any(
+                        item["status"] == "success" and not item.get("call_id")
+                        for item in records
+                    ) else "captured" if records else "not_called"
+                ),
+                "records": records,
+            })
+            _write_ask_call_receipt(path, receipt)
+
+
+def _cmd_ask(
+    args: argparse.Namespace, *, receipt_state: _AskReceiptState | None = None,
+) -> int:
     from intelligence.services.ask import AskOptions
     from intelligence.workflows.ask import run_ask
 
@@ -1504,11 +1707,17 @@ def cmd_ask(args: argparse.Namespace) -> int:
             parallel_blocks=not args.serial_blocks,
         )
     )
+    if receipt_state is not None:
+        # Bind the hash to the date actually used by the workflow. A requested
+        # date may fall back to the latest available snapshot.
+        receipt_state.as_of = _result.trade_date or args.date
     if _result.clarify is not None:
         # 澄清追问短路：印出结构化追问即退出（未检索、不评分）。
         if args.summary_json:
             summary.write_json(args.summary_json)
         print(answer, end="")
+        if receipt_state is not None:
+            receipt_state.delivery_state = "clarification"
         return 0
     if args.summary_json:
         summary.write_json(args.summary_json)
@@ -1533,6 +1742,8 @@ def cmd_ask(args: argparse.Namespace) -> int:
         if record.is_failure:
             print(f"[audit-ledger] 已记为失败样本：{'、'.join(record.failure_tags)}", file=sys.stderr)
     print(answer, end="")
+    if receipt_state is not None:
+        receipt_state.delivery_state = "delivered" if answer.strip() else "no_answer"
     if not args.no_score:
         _auto_score_answer(args.query, _result.synthesis or answer, user=args.user)
     return 0 if summary.status in {"PASS", "WARN", "SKIP"} else 1
@@ -1723,11 +1934,13 @@ def cmd_refresh_profile(args: argparse.Namespace) -> int:
     return 0 if summary.status in {"PASS", "WARN", "SKIP"} else 1
 
 
-def cmd_daily(args: argparse.Namespace) -> int:
-    from intelligence.workflows.daily_review import DailyReviewOptions, dry_run_daily_review, run_daily_review
+def daily_options_from_args(args: argparse.Namespace):
+    """One daily option mapping for both the CLI and generation preflight."""
+    from intelligence.workflows.daily_review import DailyReviewOptions
 
-    options = DailyReviewOptions(
+    return DailyReviewOptions(
         date=args.date,
+        plan=args.plan,
         user=args.user,
         skip_sync=args.skip_sync,
         skip_long=args.skip_long,
@@ -1745,6 +1958,12 @@ def cmd_daily(args: argparse.Namespace) -> int:
         alerts_enabled=not args.no_alert,
         alert_on_warn=args.alert_on_warn,
     )
+
+
+def cmd_daily(args: argparse.Namespace) -> int:
+    from intelligence.workflows.daily_review import dry_run_daily_review, run_daily_review
+
+    options = daily_options_from_args(args)
     summary = dry_run_daily_review(options) if args.dry_run else run_daily_review(options)
     if args.summary_json:
         summary.write_json(args.summary_json)
@@ -2279,6 +2498,12 @@ def cmd_theme(args: argparse.Namespace) -> int:
     return 0 if summary.status in {"PASS", "WARN", "SKIP"} else 1
 
 
+def _add_bias_source_args(parser: argparse.ArgumentParser) -> None:
+    """偏差目录扫描的三个只读数据源（register / bias-scan 共用）。缺省走双根解析；缺哪个哪条就 unverifiable。"""
+    parser.add_argument("--db-path", default=None, help="主库 DuckDB 路径（themes → sector_ts_code 映射；默认 MARKET_FEATURE_STORE_DB / 数据根 db/）")
+    parser.add_argument("--labels-db", default=None, help="旁路库 history_labels.duckdb（标签 + 交易日历；默认与主库同目录）")
+    parser.add_argument("--rules-dir", default=None, help="方法论规则目录（rule_not_firing 编译用；默认 methodology/rules）")
+
 def add_personal_export_parser(subparsers: argparse._SubParsersAction) -> None:
     p = subparsers.add_parser(
         "personal-export",
@@ -2318,12 +2543,29 @@ def cmd_personal_export(args: argparse.Namespace) -> int:
 def add_observation_parser(subparsers: argparse._SubParsersAction) -> None:
     parser = subparsers.add_parser(
         "observation",
-        help="观察剧本（G-03）：今日带读 → 确认 / 修改 / 跳过 → 登记 T+1 回检。"
-        "只到指数 / 板块 / 题材，不出个股名单、不给方向与时点",
+        help="观察剧本（G-03 / 工单 #53）：**先写你自己的** → 今日带读 + 字段差异 → "
+        "确认 / 修改 / 跳过 → 登记 T+1 回检。只到指数 / 板块 / 题材，不出个股名单、不给方向与时点",
     )
     sub = parser.add_subparsers(dest="action", required=True)
 
-    p_read = sub.add_parser("read", help="今日带读：读 as-of 河切片 → 事实 / 限制 / 缺口 + 剧本骨架")
+    p_draft = sub.add_parser(
+        "draft",
+        help="先写下你自己今天要看什么（提取前置）。保存草稿不生成系统骨架、不登记回检",
+    )
+    p_draft.add_argument("--user", default=None, help="用户 id")
+    p_draft.add_argument("--as-of", required=True, help="所读交易日 YYYY-MM-DD")
+    p_draft.add_argument("--entity", required=True, help="板块 / 题材名或代码（不接受个股）")
+    p_draft.add_argument("--scope", default=None, choices=list(observation_scope_choices()), help="作用域（缺省 theme）")
+    p_draft.add_argument("--variable", dest="variables", action="append", default=[], help="你要观察的变量（可多次，至少一条）")
+    p_draft.add_argument("--upgrade", dest="upgrades", action="append", default=[], help="升级条件（可多次）")
+    p_draft.add_argument("--abandon", dest="abandons", action="append", default=[], help="降级 / 放弃条件（可多次，至少一条）")
+    p_draft.add_argument("--condition", dest="conditions", action="append", default=[], help="可机检盘面条件（可多次），形如 advancers>=3000")
+    p_draft.add_argument("--attempt-id", default=None, help="续接某次提取尝试（缺省复用同键未结束的那个）")
+    p_draft.add_argument("--db-path", default=None, help="覆盖 DuckDB 路径（身份解析用）")
+    p_draft.add_argument("--json", action="store_true", help="输出机器可读 JSON")
+    p_draft.set_defaults(func=cmd_observation_draft)
+
+    p_read = sub.add_parser("read", help="今日带读：读 as-of 河切片 → 事实 / 限制 / 缺口 + 剧本骨架 + 与你那份的字段差异")
     p_read.add_argument("--user", default=None, help="用户 id（默认 default 或环境变量 FORESIGHT_USER）")
     p_read.add_argument("--as-of", required=True, help="交易日 YYYY-MM-DD")
     p_read.add_argument("--entity", required=True, help="板块 / 题材名或代码（不接受个股）")
@@ -2331,6 +2573,7 @@ def add_observation_parser(subparsers: argparse._SubParsersAction) -> None:
     p_read.add_argument("--db-path", default=None, help="覆盖 DuckDB 路径")
     p_read.add_argument("--on", dest="force", action="store_const", const=True, default=None, help="强制开带读（默认：新用户开、老用户关）")
     p_read.add_argument("--off", dest="force", action="store_const", const=False, help="强制关带读")
+    add_extraction_args(p_read)
     p_read.add_argument("--json", action="store_true", help="输出机器可读 JSON")
     p_read.set_defaults(func=cmd_observation_read)
 
@@ -2343,19 +2586,34 @@ def add_observation_parser(subparsers: argparse._SubParsersAction) -> None:
     p_conf.add_argument("--upgrade", dest="upgrades", action="append", default=[], help="升级条件（可多次）")
     p_conf.add_argument("--abandon", dest="abandons", action="append", default=[], help="降级 / 放弃条件（可多次，至少一条）")
     p_conf.add_argument("--condition", dest="conditions", action="append", default=[], help="可机检盘面条件（可多次），形如 advancers>=3000；缺省到期走人工判定")
-    p_conf.add_argument("--from-slice", default=None, help="用该实体的当日骨架补齐未给的字段（板块 / 题材名）")
+    p_conf.add_argument("--from-slice", default=None, help="用该实体的当日骨架补齐未给的字段（板块 / 题材名）；受提取门约束")
+    p_conf.add_argument("--from-draft", default=None, help="用你自己那份草稿补齐未给的字段（板块 / 题材名）")
     p_conf.add_argument("--due", default=None, help="回检日（缺省 T+1 自然日）")
-    p_conf.add_argument("--db-path", default=None, help="覆盖 DuckDB 路径（仅 --from-slice 时用）")
+    p_conf.add_argument("--db-path", default=None, help="覆盖 DuckDB 路径（--from-slice / --from-draft 时用）")
+    add_extraction_args(p_conf)
     p_conf.add_argument("--json", action="store_true", help="输出机器可读 JSON")
     p_conf.set_defaults(func=cmd_observation_confirm)
 
-    p_skip = sub.add_parser("skip", help="跳过当日剧本（有效行为，不计失败；只进负担指标）")
+    p_skip = sub.add_parser("skip", help="跳过**系统**当日剧本（有效行为，不计失败；只进负担指标）。"
+                                         "跳过提取用 read --skip-draft，两件事分开记")
     p_skip.add_argument("--user", default=None, help="用户 id")
     p_skip.add_argument("--as-of", required=True, help="交易日 YYYY-MM-DD")
     p_skip.add_argument("--entity", required=True, help="板块 / 题材名或代码")
     p_skip.add_argument("--db-path", default=None, help="覆盖 DuckDB 路径")
+    add_extraction_args(p_skip)
     p_skip.add_argument("--json", action="store_true", help="输出机器可读 JSON")
     p_skip.set_defaults(func=cmd_observation_skip)
+
+    p_close = sub.add_parser(
+        "close",
+        help="明确结束一次提取尝试。只有从未提交 / 跳过 / 成功读取的尝试才记 abandoned——"
+        "关掉终端不算离开，那没有任何可证明的结束信号",
+    )
+    p_close.add_argument("--user", default=None, help="用户 id")
+    p_close.add_argument("--attempt-id", required=True, help="要结束的提取尝试 id")
+    p_close.add_argument("--reason", default="user_closed", help="结束原因（自由文本，进台账）")
+    p_close.add_argument("--json", action="store_true", help="输出机器可读 JSON")
+    p_close.set_defaults(func=cmd_observation_close)
 
     p_rp = sub.add_parser(
         "repoint",
@@ -2368,11 +2626,25 @@ def add_observation_parser(subparsers: argparse._SubParsersAction) -> None:
     p_rp.add_argument("--json", action="store_true")
     p_rp.set_defaults(func=cmd_observation_repoint)
 
-    p_ls = sub.add_parser("list", help="列出剧本台账与状态分布")
+    p_ls = sub.add_parser("list", help="列出剧本台账与状态分布；加 --events 看五业务事件与未结束的尝试")
     p_ls.add_argument("--user", default=None, help="用户 id")
-    p_ls.add_argument("--as-of", default=None, help="只看某一天")
+    p_ls.add_argument("--as-of", default=None, help="只看某一天（按记录的 as_of 判断）")
+    p_ls.add_argument("--entity", default=None, help="只看某个实体身份（canonical_entity_id）")
+    p_ls.add_argument("--events", action="store_true", help="列五业务事件与 pending 尝试，而不是剧本")
+    p_ls.add_argument("--attempt-id", default=None, help="只看某次提取尝试的事件")
     p_ls.add_argument("--json", action="store_true", help="输出机器可读 JSON")
     p_ls.set_defaults(func=cmd_observation_list)
+
+
+def add_extraction_args(p: argparse.ArgumentParser) -> None:
+    """提取门的两个公共参数。集中加，避免某个入口漏掉一个就成了绕门的口子。"""
+    p.add_argument(
+        "--skip-draft",
+        action="store_true",
+        help="显式跳过本次提取，直接看系统那份（跳过是有效行为，不计失败）。"
+        "授权只对本次尝试 / 本日 / 本实体有效，不跨用户、不跨新尝试",
+    )
+    p.add_argument("--attempt-id", default=None, help="续接某次提取尝试（缺省复用同键未结束的那个）")
 
 
 def observation_scope_choices() -> tuple[str, ...]:
@@ -2406,9 +2678,40 @@ def add_checkpoint_parser(subparsers: argparse._SubParsersAction) -> None:
     p_reg.add_argument("--trade-date", default=None, help="market_daily 取数交易日（缺省用 due）")
     p_reg.add_argument("--from-judgment", default=None, help="反链 B 核心判断的 ts（可选）")
     p_reg.add_argument("--session", default=None, help="来源会话 id（可选）")
+    p_reg.add_argument(
+        "--rule-id",
+        default=None,
+        help="这条判断依据的方法论规则 rule_id（methodology/rules/<rule_id>.v<n>.json）。给了就读该规则最近一次回测收据、"
+        "把四态与收据路径写进记录并回显一行；无收据也照常登记（只提示，不拦截）",
+    )
+    p_reg.add_argument(
+        "--receipts-dir",
+        default=None,
+        help="回测收据目录（默认 methodology/receipts），只在 --rule-id 时读取",
+    )
     p_reg.add_argument("--checkpoints-file", default=None, help="覆盖可证伪点台账路径")
+    p_reg.add_argument("--verdicts-file", default=None, help="覆盖回检打分台账路径（偏差目录扫描读同类 / 同标的历史判定）")
+    _add_bias_source_args(p_reg)
+    p_reg.add_argument(
+        "--no-bias-scan",
+        action="store_true",
+        help="登记后不跑偏差目录扫描（默认跑：late_streak / post_miss_streak / rule_not_firing / revenge_reentry，只提示不拦截）",
+    )
     p_reg.add_argument("--json", action="store_true", help="输出机器可读 JSON")
     p_reg.set_defaults(func=cmd_checkpoint_register)
+
+    p_bias = sub.add_parser(
+        "bias-scan",
+        help="离线对已有台账跑偏差目录 v1（只读：不写台账、不写库）：每条 flag 的命中 / 无法判定 / 干净 / 不适用计数与命中判断 id",
+    )
+    p_bias.add_argument("--user", default=None, help="用户 id（默认 default 或环境变量 FORESIGHT_USER）")
+    p_bias.add_argument("--since", default=None, help="只扫登记日 >= 该日（YYYY-MM-DD，按 ts 的 UTC 日期比较）的判断")
+    p_bias.add_argument("--checkpoints-file", default=None, help="覆盖可证伪点台账路径")
+    p_bias.add_argument("--verdicts-file", default=None, help="覆盖回检打分台账路径")
+    _add_bias_source_args(p_bias)
+    p_bias.add_argument("--show-ids", type=int, default=10, help="文本输出里每条 flag 最多列出多少个命中 id（默认 10）")
+    p_bias.add_argument("--json", action="store_true", help="输出机器可读 JSON（含逐条 flags）")
+    p_bias.set_defaults(func=cmd_checkpoint_bias_scan)
 
     p_due = sub.add_parser("due", help="列出到期且尚未拿到终态打分的检查点")
     p_due.add_argument("--user", default=None, help="用户 id（默认 default 或环境变量 FORESIGHT_USER）")
@@ -2444,11 +2747,12 @@ def add_checkpoint_parser(subparsers: argparse._SubParsersAction) -> None:
     p_score.add_argument("--json", action="store_true", help="输出机器可读 JSON")
     p_score.set_defaults(func=cmd_checkpoint_score)
 
-    p_cal = sub.add_parser("calibrate", help="按类别聚合已回检判断的胜率，定位你哪类二阶推演靠谱/偏差")
+    p_cal = sub.add_parser("calibrate", help="按类别 / 产出模块 / 引用规则聚合已回检判断的胜率，定位你哪类二阶推演靠谱/偏差")
     p_cal.add_argument("--user", default=None, help="用户 id（默认 default 或环境变量 FORESIGHT_USER）")
     p_cal.add_argument("--date", default=None, help="判定到期/待回检的基准日 YYYY-MM-DD（默认今天）")
     p_cal.add_argument("--checkpoints-file", default=None, help="覆盖可证伪点台账路径")
     p_cal.add_argument("--verdicts-file", default=None, help="覆盖回检打分台账路径")
+    p_cal.add_argument("--receipts-dir", default=None, help="回测收据目录（默认 methodology/receipts）；「按规则」段并排各规则最近收据")
     p_cal.add_argument("--json", action="store_true", help="输出机器可读 JSON")
     p_cal.set_defaults(func=cmd_checkpoint_calibrate)
 
@@ -3170,6 +3474,49 @@ def cmd_checkpoint_adjudicate(args: argparse.Namespace) -> int:
     return 0
 
 
+def _receipts_dir(args: argparse.Namespace) -> Path:
+    """回测收据目录：``--receipts-dir`` > 仓内 ``methodology/receipts``（与经验卡统计门同一处、同一读法）。"""
+    from intelligence import userspace
+
+    explicit = getattr(args, "receipts_dir", None)
+    return Path(explicit).expanduser() if explicit else userspace.REPO_ROOT / "methodology" / "receipts"
+
+
+def _rule_receipt_line(rule_id: str, receipt: dict | None) -> str:
+    """登记时回显：规则最近收据一行（无收据也回显，不拦截）。"""
+    from intelligence.services import checkpoints
+
+    if receipt is None:
+        return f"规则 {rule_id} 尚无收据——先跑 scripts/methodology_backtest.py run"
+    return f"规则 {rule_id} 最近收据：{checkpoints.summarize_rule_receipt(receipt)}"
+
+
+def _bias_sources(args: argparse.Namespace):
+    """把 --db-path / --labels-db / --rules-dir 解析成只读数据源（缺省：双根解析的主库、同目录旁路库、仓内规则目录）。"""
+    from intelligence import userspace
+    from intelligence.paths import default_market_db_path
+    from intelligence.services import checkpoint_bias
+    from intelligence.services.methodology_backtest.store import default_labels_db_path
+
+    db_path = Path(args.db_path).expanduser() if getattr(args, "db_path", None) else default_market_db_path()
+    labels_db = Path(args.labels_db).expanduser() if getattr(args, "labels_db", None) else default_labels_db_path(db_path)
+    rules_dir = Path(args.rules_dir).expanduser() if getattr(args, "rules_dir", None) else userspace.REPO_ROOT / "methodology" / "rules"
+    return checkpoint_bias.LedgerDataSources(labels_db=labels_db, market_db=db_path, rules_dir=rules_dir)
+
+
+def _scan_one(sources, checkpoint: dict, checkpoints_all: list[dict], verdicts_all: list[dict]) -> list:
+    from intelligence.services import checkpoint_bias
+
+    return checkpoint_bias.scan(
+        checkpoint,
+        checkpoints=checkpoints_all,
+        verdicts=verdicts_all,
+        label_lookup=sources.label_lookup,
+        rule_fire_lookup=sources.rule_fire_lookup,
+        entity_lookup=sources.entity_lookup,
+        calendar=sources.calendar,
+    )
+
 def _observation_user_space(args: argparse.Namespace):
     from intelligence import userspace
 
@@ -3203,18 +3550,222 @@ def _print_rejections(exc, as_json: bool) -> int:
     return 2
 
 
-def cmd_observation_read(args: argparse.Namespace) -> int:
+def _observation_identity(args: argparse.Namespace, slice_dict: dict[str, object]) -> str | None:
+    """从已取到的切片里读实体身份。解析不出返回 ``None``——不拿用户输入的别名顶替。"""
+    from intelligence.services import observation_extraction as ox
+
+    return ox.identity_from_slice(slice_dict)
+
+
+def _print_identity_error(entity: str, as_of: str, as_json: bool) -> int:
     import json as _json
 
+    detail = f"「{entity}」在 {as_of} 解析不出实体身份（只做精确匹配，不做模糊匹配）"
+    print(_json.dumps({"error": "entity_unresolved", "detail": detail}, ensure_ascii=False, indent=2) if as_json else detail)
+    return 2
+
+
+def _print_gate_block(gate, attempt_id: str | None, as_json: bool) -> int:
+    """提取门未过：只回提示、原因与 attempt_id。**正文与 JSON 里都没有系统骨架**。
+
+    退出码 0 而不是非零：这不是运行错误，是「该你先写一句」的提示，
+    与既有「带读未开启」那条分支同一档。机器判定看 JSON 里的 ``blocked`` / ``code``。
+    """
+    import json as _json
+
+    from intelligence.services import observation_extraction as _ox
+
+    payload = {
+        "enabled": gate.decision.code != _ox.BLOCK_GUIDED_READING_OFF,
+        "blocked": True,
+        "code": gate.decision.code,
+        "reason": gate.reason,
+        "attempt_id": attempt_id,
+    }
+    if as_json:
+        print(_json.dumps(payload, ensure_ascii=False, indent=2))
+    else:
+        print(gate.reason)
+        if attempt_id:
+            print(f"  （本次提取尝试 {attempt_id}；写完可加 --attempt-id {attempt_id} 续接）")
+    return 0
+
+
+def cmd_observation_draft(args: argparse.Namespace) -> int:
+    """提取前置入口：先收用户自己的观察剧本。不生成系统骨架、不登记 checkpoint。"""
+    import json as _json
+
+    from intelligence.services import observation_extraction as ox
+    from intelligence.services import observation_script as osc
+
+    us = _observation_user_space(args)
+    try:
+        canonical = ox.resolve_identity(args.as_of, args.entity, db_path=args.db_path)
+    except ox.IdentityUnresolved as exc:
+        print(_json.dumps({"error": "entity_unresolved", "detail": str(exc)}, ensure_ascii=False, indent=2) if args.json else str(exc))
+        return 2
+
+    key = ox.make_key(us.user_id, args.as_of, canonical)
+    # 直接 draft 也能开尝试：用户可以不先 read 就写下自己的看法。
+    attempt, _ = osc.open_attempt(
+        us.observation_scripts_path, key=key, entrypoint="draft", attempt_id=args.attempt_id
+    )
+    script = osc.make(
+        as_of=args.as_of,
+        scope=args.scope or "theme",
+        entity_ids=[args.entity],
+        variables=args.variables,
+        downgrade_or_abandon_conditions=args.abandons,
+        upgrade_conditions=args.upgrades,
+        machine_conditions=args.conditions,
+        user_id=us.user_id,
+        status="drafted",
+    )
+    try:
+        record, created = osc.submit_draft(
+            us.observation_scripts_path,
+            script,
+            key=key,
+            attempt_id=str(attempt["attempt_id"]),
+            entrypoint="draft",
+        )
+    except osc.ObservationScriptRejected as exc:
+        return _print_rejections(exc, args.json)
+
+    if args.json:
+        print(_json.dumps({"created": created, "attempt_id": attempt["attempt_id"], **record}, ensure_ascii=False, indent=2))
+    else:
+        verb = "已记下你的观察剧本" if created else "这一版你已经提交过（同一尝试内重跑不重复记）"
+        print(f"{verb} {record['draft_id']}（第 {record['draft_version']} 版｜{record['as_of']}｜{canonical}）")
+        print(f"  提取尝试 {attempt['attempt_id']}；现在可以看系统那份：observation read --as-of {args.as_of} --entity {args.entity}")
+        print(f"  {osc.DISCLAIMER}")
+    return 0
+
+
+def cmd_observation_close(args: argparse.Namespace) -> int:
+    import json as _json
+
+    from intelligence.services import observation_script as osc
+
+    us = _observation_user_space(args)
+    try:
+        closed, event = osc.close_attempt(
+            us.observation_scripts_path,
+            attempt_id=args.attempt_id,
+            user_id=us.user_id,
+            reason=args.reason,
+            entrypoint="close",
+        )
+    except ValueError as exc:
+        print(str(exc))
+        return 2
+    if args.json:
+        print(_json.dumps({"attempt": closed, "abandoned_event": event}, ensure_ascii=False, indent=2))
+    else:
+        tail = "，记为 abandoned（这次从未提交 / 跳过 / 成功读取）" if event else "，保留已发生的事件"
+        print(f"已结束提取尝试 {args.attempt_id}{tail}")
+    return 0
+
+
+def cmd_observation_read(args: argparse.Namespace) -> int:
+    import json as _json
+    import sys as _sys
+
     from intelligence.services import guided_reading
+    from intelligence.services import observation_script as osc
 
     us = _observation_user_space(args)
     sl = _observation_slice(args, us, args.entity)
-    gr, reason = guided_reading.run(us, sl, override=args.force)
-    if gr is None:
-        print(f"带读未开启（{reason}）。要看今天的带读：加 --on")
+    canonical = _observation_identity(args, sl)
+    if canonical is None:
+        return _print_identity_error(args.entity, args.as_of, args.json)
+
+    from intelligence.services import observation_extraction as ox
+
+    key = ox.make_key(us.user_id, args.as_of, canonical)
+    path = us.observation_scripts_path
+
+    # 开关排在最前：带读关闭时连提取尝试都不创建——记录动作本身会改变
+    # 「新用户 / 老用户」判据与「关掉后逐字节不变」这两条既有合同。
+    enabled, enabled_reason = guided_reading.resolve_enabled(us, override=args.force)
+    if not enabled:
+        print(f"带读未开启（{enabled_reason}）。要看今天的带读：加 --on")
         return 0
-    text = guided_reading.render(gr)
+
+    raw = osc.load_raw(path)
+    # 收据查询排在 open_attempt **之前**：成功的 read 会关闭尝试，所以「同 ID 重试」
+    # 撞上的第一件事是 open_attempt 的「已结束不能复活」，退 2 之后收据分支根本不可达
+    # （质检 S3）。先验归属再看收据，别人的收据不能凭 ID 读走。
+    if args.attempt_id:
+        state = osc.attempt_states(raw).get(str(args.attempt_id))
+        if state is None:
+            print(f"没有这个提取尝试：{args.attempt_id}")
+            return 2
+        if osc._key_of(state) != key.as_tuple():
+            print(f"提取尝试 {args.attempt_id} 不属于该用户 / 阅读目标")
+            return 2
+        done = osc.find_event(raw, event=osc.EVENT_READ_COMPLETED, attempt_id=str(args.attempt_id))
+        if done:
+            # 交付成功但**关闭失败**时，上一次会留下「完成事件已落、尝试仍 pending」。
+            # 重试必须把这个终态补上，否则那个尝试永远挂着，而它其实早就读完了。
+            # `close_attempt` 对已关闭是幂等的；这次不是放弃（已有完成事件），
+            # 所以补出来的只是 closed，不会多一条 abandoned。
+            if str(state.get("status")) == osc.ATTEMPT_PENDING:
+                try:
+                    osc.close_attempt(path, attempt_id=str(args.attempt_id), user_id=us.user_id,
+                                      reason="read_completed", entrypoint="read")
+                except Exception as exc:
+                    print(f"⚠ 完成收据在，但尝试终态仍补不上（{type(exc).__name__}: {exc}）",
+                          file=_sys.stderr)
+                    return 1
+            # 返回原成功收据：不重放正文、不重新构建骨架、不重复记完成事件——
+            # 「又给你看了一遍」和「当时确实交付过」是两件事，混起来会让完成率虚高。
+            print(_json.dumps(done, ensure_ascii=False, indent=2) if args.json
+                  else f"提取尝试 {args.attempt_id} 已完成过一次带读"
+                       f"（收据 {done['event_id']}｜{done.get('occurred_at')}）。要重新读取请开新尝试。")
+            return 0
+
+    try:
+        attempt, _ = osc.open_attempt(path, key=key, entrypoint="read", attempt_id=args.attempt_id)
+    except ValueError as exc:
+        print(str(exc))
+        return 2
+    aid = str(attempt["attempt_id"])
+
+    # 再查一次收据，这次按**真正被认领的** aid。上面那次只覆盖显式 `--attempt-id`
+    # （那条路必须前置，因为已关闭的尝试会被 open_attempt 拒掉）；而「收据已落、
+    # 关闭失败」留下的是一个**仍 pending** 的尝试，不带参数原样重跑会自动复用它，
+    # 于是正文被重新生成、台账却沿用旧收据——重放了正文却声称没重放（复审二实测）。
+    if not args.attempt_id:
+        done = osc.find_event(osc.load_raw(path), event=osc.EVENT_READ_COMPLETED, attempt_id=aid)
+        if done:
+            try:
+                osc.close_attempt(path, attempt_id=aid, user_id=us.user_id,
+                                  reason="read_completed", entrypoint="read")
+            except Exception as exc:
+                print(f"⚠ 完成收据在，但尝试终态仍补不上（{type(exc).__name__}: {exc}）",
+                      file=_sys.stderr)
+                return 1
+            print(_json.dumps(done, ensure_ascii=False, indent=2) if args.json
+                  else f"提取尝试 {aid} 已完成过一次带读"
+                       f"（收据 {done['event_id']}｜{done.get('occurred_at')}）。要重新读取请开新尝试。")
+            return 0
+
+    gate = guided_reading.gated(
+        us,
+        sl,
+        key=key,
+        override=args.force,
+        skip_draft=bool(getattr(args, "skip_draft", False)),
+        records=raw,
+        on_skip=lambda: osc.record_event(
+            path, event=osc.EVENT_DRAFT_SKIPPED, key=key, entrypoint="read", attempt_id=aid
+        ),
+    )
+    if gate.guided is None:
+        return _print_gate_block(gate, aid, args.json)
+
+    text = guided_reading.render(gate.guided, diff_lines=gate.diff_lines)
     hits = guided_reading.lint_output(text)
     if hits:
         # 产品自己的输出过不了自己的门，是硬故障：宁可不出，也不能把方向词发出去。
@@ -3223,9 +3774,73 @@ def cmd_observation_read(args: argparse.Namespace) -> int:
             print(f"  - [{h.code}] {h.term}：{h.context}")
         return 1
     if args.json:
-        print(_json.dumps({"enabled": True, "reason": reason, **gr.to_dict()}, ensure_ascii=False, indent=2))
+        print(_json.dumps(
+            {"enabled": True, "reason": gate.reason, "attempt_id": aid,
+             "extraction": gate.to_dict(), **gate.guided.to_dict()},
+            ensure_ascii=False, indent=2,
+        ))
     else:
         print(text)
+
+    # 先把正文交付出去并 flush，再落完成收据。两者之间崩溃 = 交付结果未知：
+    # 如实报可诊断失败，不补造一条成功——stdout 与台账是两个介质，
+    # 「恰好一次」在这里做不到，能做到的是「不谎报」。
+    try:
+        _sys.stdout.flush()
+    except Exception as exc:  # pragma: no cover - stdout 坏了本来就无处输出
+        print(f"带读正文输出失败：{type(exc).__name__}: {exc}", file=_sys.stderr)
+        return 1
+
+    if gate.guided.draft is None:
+        # 六轨全缺：交付的是**缺口说明**，不是完整带读。§2.4 那张表写得很直白——
+        # 「无系统骨架」不得记 read_completed。也不关尝试：这一天数据还没到，
+        # 用户回头再读同一目标应当接着这次尝试，而不是被记成「已经读完了」。
+        print(
+            f"⚠ {args.as_of} 的「{args.entity}」六轨全缺，只交付了缺口说明，"
+            f"不记为完整带读；提取尝试 {aid} 保持 pending。",
+            file=_sys.stderr,
+        )
+        return 0
+
+    try:
+        osc.record_event(
+            path,
+            event=osc.EVENT_READ_COMPLETED,
+            key=key,
+            entrypoint="read",
+            attempt_id=aid,
+            # 只存**来源关联**：这次比较的是哪一版草稿、哪一份骨架、哪一片投影。
+            # 差异本身与它的大小都不落盘，展示时重算——一旦把「差了几项」存进台账，
+            # 下一个人就会拿它做时间序列，而那就是收敛指标，收敛指标奖励迎合。
+            extra={
+                "system_script_ref": gate.system_script_ref,
+                "projection_hash": gate.guided.projection_hash,
+                "source_draft_id": (gate.decision.draft or {}).get("draft_id"),
+                "granted_by": gate.decision.code,
+            },
+        )
+    except Exception as exc:
+        print(
+            f"⚠ 带读正文已输出，但完成收据落盘失败（{type(exc).__name__}: {exc}）："
+            f"本次交付结果未知，尝试 {aid} 仍是 pending，不记为已完成。",
+            file=_sys.stderr,
+        )
+        return 1
+
+    # 收据与关闭分开报：两者的事实完全不同，合成一句话会把「已完成、只是终态没落」
+    # 说成「交付结果未知」，而前者重试就能愈合、后者不能。
+    try:
+        osc.close_attempt(
+            path, attempt_id=aid, user_id=us.user_id, reason="read_completed", entrypoint="read"
+        )
+    except Exception as exc:
+        print(
+            f"⚠ 完成收据已落盘（本次带读**确实交付了**），但尝试 {aid} 的终态没写上"
+            f"（{type(exc).__name__}: {exc}）：它仍是 pending。"
+            f"重跑 `observation read --attempt-id {aid}` 即可补上，不会重复记完成。",
+            file=_sys.stderr,
+        )
+        return 1
     return 0
 
 
@@ -3233,15 +3848,133 @@ def cmd_observation_confirm(args: argparse.Namespace) -> int:
     import json as _json
 
     from intelligence.services import guided_reading, observation_script
+    from intelligence.services import observation_extraction as ox
 
     us = _observation_user_space(args)
     draft = None
+    attempt_id: str | None = None
+    entrypoint = observation_script.ENTRYPOINT_MANUAL_CONFIRM
+    author_origin: str | None = None
+    canonical: str | None = None
+    source_draft_id: str | None = None
+    require_open_attempt = False
+
+    if not args.from_draft and not args.from_slice and getattr(args, "attempt_id", None):
+        # 完整手填 + 显式尝试：这条路径此前**根本没读这个参数**，传另一个目标的 ID
+        # 也照样 exit=0 建出 checkpoint，关联被静默丢弃。给了就得验，验过才用。
+        raw = observation_script.load_raw(us.observation_scripts_path)
+        state = observation_script.attempt_states(raw).get(str(args.attempt_id))
+        if state is None:
+            print(f"没有这个提取尝试：{args.attempt_id}")
+            return 2
+        if str(state.get("user_id") or "") != us.user_id or str(state.get("as_of") or "") != args.as_of:
+            print(f"提取尝试 {args.attempt_id} 不属于该用户 / 阅读目标")
+            return 2
+        entities = args.entities or []
+        canonical_of_attempt = str(state.get("canonical_entity_id") or "")
+        try:
+            named = {ox.resolve_identity(args.as_of, e, db_path=args.db_path) for e in entities}
+        except ox.IdentityUnresolved as exc:
+            print(str(exc))
+            return 2
+        if named and canonical_of_attempt not in named:
+            print(f"提取尝试 {args.attempt_id} 不属于该用户 / 阅读目标"
+                  f"（它是 {canonical_of_attempt}，你确认的是 {sorted(named)}）")
+            return 2
+        canonical = canonical_of_attempt
+        attempt_id = str(args.attempt_id)
+        entrypoint = "confirm"
+        # 手填 + 显式尝试是**在进行中的尝试里做动作**，不是引用出处——这条路径
+        # 没有任何草稿或收据版本可引用。终态（含 abandoned）必须连登记副作用一起拒，
+        # 复验收进 writer 的持锁区，不停留在 CLI 先查再写（第三轮复审 Q3 实测：
+        # closed/abandoned=true 的尝试上还新增了一条确认与一个 checkpoint）。
+        require_open_attempt = True
+
+    if args.from_draft:
+        # 确认**你自己那份草稿**：保留 source_draft_id 指回原稿，不覆盖它。
+        try:
+            canonical = ox.resolve_identity(args.as_of, args.from_draft, db_path=args.db_path)
+        except ox.IdentityUnresolved as exc:
+            print(str(exc))
+            return 2
+        key = ox.make_key(us.user_id, args.as_of, canonical)
+        raw = observation_script.load_raw(us.observation_scripts_path)
+        wanted = getattr(args, "attempt_id", None)
+        if wanted:
+            # 显式给了尝试就**按它取版本**，并先验归属：§2.4.1 要求拒绝其他用户 / 目标的 ID，
+            # §2.4.4 要求能关联「已完成尝试的具体草稿版本」。之前这条路径完全没读这个参数，
+            # 传错目标照样 exit=0，然后悄悄改用 latest（质检 S4）。
+            state = observation_script.attempt_states(raw).get(str(wanted))
+            if state is None:
+                print(f"没有这个提取尝试：{wanted}")
+                return 2
+            if observation_script._key_of(state) != key.as_tuple():
+                print(f"提取尝试 {wanted} 不属于该用户 / 阅读目标")
+                return 2
+            mine = observation_script.draft_for_attempt(raw, key=key, attempt_id=str(wanted))
+            if mine is None:
+                print(f"提取尝试 {wanted} 里没有提交过草稿")
+                return 1
+        else:
+            mine = observation_script.latest_user_draft(raw, key=key)
+        if mine is None:
+            print(f"{args.as_of} 的「{args.from_draft}」你还没提交过草稿：先 observation draft")
+            return 1
+        # ``make`` 不吃 id / checkpoint_id（登记时才生成），先摘掉。
+        draft = observation_script.make(
+            **{
+                k: v
+                for k, v in mine.items()
+                if k in observation_script.ObservationScript.__dataclass_fields__
+                and k not in {"id", "checkpoint_id"}
+            }
+        )
+        source_draft_id = str(mine.get("draft_id") or "")
+        # **归属跟你指名的那次尝试走**，不跟草稿行走。「取哪一版」与「算在哪次尝试
+        # 名下」是两件事：A 提交草稿、B 复用读完、你指名 B 确认时，版本来自 A 的那一行，
+        # 但这次确认动作发生在 B。从草稿行取 attempt_id 会把事件挂回 A（复审二实测）。
+        # 没显式给时才回落到草稿自己的尝试。
+        attempt_id = str(wanted or mine.get("extraction_attempt_id") or "") or None
+        entrypoint, author_origin = "confirm", observation_script.AUTHOR_USER
+
     if args.from_slice:
         sl = _observation_slice(args, us, args.from_slice)
-        draft = guided_reading.build(sl).draft
+        canonical = _observation_identity(args, sl)
+        if canonical is None:
+            return _print_identity_error(args.from_slice, args.as_of, args.json)
+        key = ox.make_key(us.user_id, args.as_of, canonical)
+        path = us.observation_scripts_path
+        enabled, _reason = guided_reading.resolve_enabled(us, override=None)
+        # `--from-slice` 是用户显式索要系统骨架，不被「老用户默认关」静默吞掉；
+        # 但它照样要过提取门——门与开关是两件事。
+        try:
+            attempt, _ = observation_script.open_attempt(
+                path, key=key, entrypoint="confirm", attempt_id=getattr(args, "attempt_id", None)
+            )
+        except ValueError as exc:
+            print(str(exc))
+            return 2
+        attempt_id = str(attempt["attempt_id"])
+        gate = guided_reading.gated(
+            us,
+            sl,
+            key=key,
+            override=True if enabled is False else None,
+            skip_draft=bool(getattr(args, "skip_draft", False)),
+            on_skip=lambda: observation_script.record_event(
+                path, event=observation_script.EVENT_DRAFT_SKIPPED, key=key,
+                entrypoint="confirm", attempt_id=attempt_id,
+            ),
+        )
+        if gate.guided is None:
+            return _print_gate_block(gate, attempt_id, args.json)
+        draft = gate.guided.draft
         if draft is None:
             print(f"{args.as_of} 的「{args.from_slice}」六轨全缺，没有可确认的骨架")
             return 1
+        entrypoint = "confirm"
+        author_origin = observation_script.AUTHOR_SYSTEM
+        source_draft_id = str((gate.decision.draft or {}).get("draft_id") or "") or None
 
     script = observation_script.make(
         as_of=args.as_of,
@@ -3250,8 +3983,12 @@ def cmd_observation_confirm(args: argparse.Namespace) -> int:
         variables=args.variables or (list(draft.variables) if draft else []),
         downgrade_or_abandon_conditions=args.abandons
         or (list(draft.downgrade_or_abandon_conditions) if draft else []),
-        upgrade_conditions=args.upgrades,
-        machine_conditions=args.conditions,
+        # 升级条件与机检条件同样**从来源继承**，命令行只在给了值时覆盖。
+        # 之前这两个字段只认命令行：`--from-draft` 时用户自己写的机检规则会被静默清空，
+        # 于是及时确认的剧本到期从「盘面自动判定」掉成「人工判定」，而台账上看不出
+        # 发生过这件事（质检 S1）。
+        upgrade_conditions=args.upgrades or (list(draft.upgrade_conditions) if draft else []),
+        machine_conditions=args.conditions or (list(draft.machine_conditions) if draft else []),
         evidence_refs=list(draft.evidence_refs) if draft else [],
         knowledge_cutoff=draft.knowledge_cutoff if draft else None,
         user_id=us.user_id,
@@ -3272,10 +4009,24 @@ def cmd_observation_confirm(args: argparse.Namespace) -> int:
             due=args.due,
             next_open=next_open,
             db_path=args.db_path,
-            user_authored=draft is None,
+            user_authored=draft is None or args.from_draft is not None,
+            author_origin=author_origin,
+            canonical_entity_id=canonical,
+            attempt_id=attempt_id,
+            entrypoint=entrypoint,
+            source_draft_id=source_draft_id,
+            # `--from-slice` 与「手填 + 显式尝试」是在**进行中的尝试里**做的动作，
+            # 落盘前持锁复验它仍可写；只有 `--from-draft` 是引用已完成尝试的历史版本
+            # （§2.4.4），已完成旧尝试的合法引用不一刀切拒掉。同动作重试在复验之前
+            # 已被去重短路，不会产生新副作用。
+            require_open_attempt=bool(args.from_slice) or require_open_attempt,
         )
     except observation_script.ObservationScriptRejected as exc:
         return _print_rejections(exc, args.json)
+    except ValueError as exc:
+        # 并发 close 插在门与落盘之间：如实拒绝，不写剧本行、不建 checkpoint。
+        print(str(exc))
+        return 2
 
     if args.json:
         print(_json.dumps(record, ensure_ascii=False, indent=2))
@@ -3293,9 +4044,41 @@ def cmd_observation_skip(args: argparse.Namespace) -> int:
 
     from intelligence.services import guided_reading, observation_script
 
+    from intelligence.services import observation_extraction as ox
+
     us = _observation_user_space(args)
     sl = _observation_slice(args, us, args.entity)
-    draft = guided_reading.build(sl).draft
+    canonical = _observation_identity(args, sl)
+    if canonical is None:
+        return _print_identity_error(args.entity, args.as_of, args.json)
+    key = ox.make_key(us.user_id, args.as_of, canonical)
+    path = us.observation_scripts_path
+    # `skip` 会**回显系统骨架**（它把骨架原样记成 skipped），所以照样要过提取门。
+    # 注意它跳过的是「系统这份剧本」，与 `read --skip-draft` 跳过的「提取」是两件事，
+    # 台账上分开记：前者是一条 skipped 剧本，后者是一条 draft_skipped 事件。
+    enabled, _reason = guided_reading.resolve_enabled(us, override=None)
+    try:
+        attempt, _ = observation_script.open_attempt(
+            path, key=key, entrypoint="skip", attempt_id=getattr(args, "attempt_id", None)
+        )
+    except ValueError as exc:
+        print(str(exc))
+        return 2
+    aid = str(attempt["attempt_id"])
+    gate = guided_reading.gated(
+        us,
+        sl,
+        key=key,
+        override=True if enabled is False else None,
+        skip_draft=bool(getattr(args, "skip_draft", False)),
+        on_skip=lambda: observation_script.record_event(
+            path, event=observation_script.EVENT_DRAFT_SKIPPED, key=key,
+            entrypoint="skip", attempt_id=aid,
+        ),
+    )
+    if gate.guided is None:
+        return _print_gate_block(gate, aid, args.json)
+    draft = gate.guided.draft
     if draft is None:
         print(f"{args.as_of} 的「{args.entity}」六轨全缺，没有可跳过的剧本")
         return 1
@@ -3303,9 +4086,20 @@ def cmd_observation_skip(args: argparse.Namespace) -> int:
     payload = {k: v for k, v in draft.to_dict().items() if k not in {"id", "checkpoint_id"}}
     skipped = observation_script.make(**{**payload, "status": "skipped", "user_id": us.user_id})
     try:
-        _, record = observation_script.register(us.observation_scripts_path, skipped)
+        _, record = observation_script.register(
+            us.observation_scripts_path,
+            skipped,
+            author_origin=observation_script.AUTHOR_SYSTEM,
+            canonical_entity_id=canonical,
+            attempt_id=aid,
+            entrypoint="skip",
+            require_open_attempt=True,
+        )
     except observation_script.ObservationScriptRejected as exc:
         return _print_rejections(exc, args.json)
+    except ValueError as exc:
+        print(str(exc))
+        return 2
     if args.json:
         print(_json.dumps(record, ensure_ascii=False, indent=2))
     else:
@@ -3370,12 +4164,57 @@ def cmd_observation_repoint(args: argparse.Namespace) -> int:
 def cmd_observation_list(args: argparse.Namespace) -> int:
     import json as _json
 
+    from intelligence.services import observation_extraction as ox
     from intelligence.services import observation_script
 
     us = _observation_user_space(args)
-    records = observation_script.expire_stale(observation_script.load(us.observation_scripts_path))
-    if args.as_of:
-        records = [r for r in records if str(r.get("as_of")) == args.as_of]
+    raw = observation_script.load_raw(us.observation_scripts_path)
+
+    def _match(rec: dict) -> bool:
+        if args.as_of and str(rec.get("as_of")) != args.as_of:
+            return False
+        if args.entity and str(rec.get("canonical_entity_id") or "") != args.entity:
+            return False
+        return True
+
+    if args.events:
+        def _attempt_match(rec: dict) -> bool:
+            """事件与 pending 共用同一个筛选谓词。
+
+            两边各写各的，就会出现「按 attempt 查询却把别的 pending 一起带出来」
+            （质检 S10 实测）——查询面的过滤条件不一致，读的人会以为那个尝试有两条挂着。
+            """
+            if not _match(rec):
+                return False
+            return not args.attempt_id or str(rec.get("attempt_id") or "") == args.attempt_id
+
+        events = [e for e in observation_script.projected_events(raw) if _attempt_match(e)]
+        pending = [
+            s for s in observation_script.attempt_states(raw).values()
+            if str(s.get("status")) == observation_script.ATTEMPT_PENDING and _attempt_match(s)
+        ]
+        # 逐事件分列，**不合并成一个跳过率**：五个事件的分母各不相同，
+        # 合成单一比率就再也说不清「谁没进来」与「进来了没作答」。
+        counts = {name: sum(1 for e in events if str(e.get("event")) == name) for name in observation_script.EVENTS}
+        if args.json:
+            print(_json.dumps({"counts": counts, "pending_attempts": pending, "events": events}, ensure_ascii=False, indent=2))
+            return 0
+        print(f"提取事件台账：{us.observation_scripts_path}")
+        print("  " + "｜".join(f"{k}={v}" for k, v in counts.items()) + f"｜pending={len(pending)}")
+        for ev in events[-20:]:
+            print(f"  - {ev.get('event')}｜{ev.get('as_of')}｜{ev.get('canonical_entity_id')}"
+                  f"｜attempt={ev.get('attempt_id')}｜{ev.get('occurred_at')}")
+        for att in pending:
+            print(f"  · pending {att.get('attempt_id')}｜{att.get('as_of')}｜{att.get('canonical_entity_id')}"
+                  f"｜自 {att.get('opened_at')}（等待中，不算离开）")
+        return 0
+
+    scripts = observation_script.expire_stale(
+        [r for r in raw if observation_script.record_kind_of(r) == observation_script.RECORD_SCRIPT]
+    )
+    # 尚无用户草稿的阅读目标，不回显系统骨架正文——列表不是绕过提取门的后门。
+    scripts = ox.redact_system_skeletons(scripts, keys_with_draft=observation_script.keys_with_user_draft(raw))
+    records = [r for r in scripts if _match(r)]
     counts = observation_script.status_counts(records)
     if args.json:
         print(_json.dumps({"counts": counts, "records": records}, ensure_ascii=False, indent=2))
@@ -3383,7 +4222,8 @@ def cmd_observation_list(args: argparse.Namespace) -> int:
     print(f"观察剧本台账：{us.observation_scripts_path}")
     print("  " + "｜".join(f"{k}={v}" for k, v in counts.items()))
     for rec in records[-20:]:
-        print(f"  - {rec['id']}｜{rec['as_of']}｜{rec['status']}｜{'/'.join(rec.get('entity_ids') or [])}")
+        mine = "你写的" if str(rec.get("author_origin") or "") == observation_script.AUTHOR_USER else "系统"
+        print(f"  - {rec['id']}｜{rec['as_of']}｜{rec['status']}｜{mine}｜{'/'.join(rec.get('entity_ids') or [])}")
     return 0
 
 
@@ -3392,7 +4232,7 @@ def cmd_checkpoint_register(args: argparse.Namespace) -> int:
 
     from intelligence.services import checkpoints
 
-    cpath, _ = _checkpoint_paths(args)
+    cpath, vpath = _checkpoint_paths(args)
     metric: dict[str, object] | None = None
     if args.metric_type:
         metric = {"type": args.metric_type}
@@ -3407,8 +4247,26 @@ def cmd_checkpoint_register(args: argparse.Namespace) -> int:
                 metric["window_days"] = args.window_days
         if args.target_name:
             metric["target_name"] = args.target_name
-    _, record = checkpoints.register_checkpoint(
-        cpath,
+
+    # 规则四态：与经验卡统计门同源同口径（latest_receipt 跨版本取最近）。这里只回显、只记录，不设门。
+    rule_id = str(getattr(args, "rule_id", None) or "").strip() or None
+    receipt: dict | None = None
+    rule_verdict: str | None = None
+    rule_receipt: str | None = None
+    if rule_id:
+        try:
+            rule_id = checkpoints.normalize_rule_id(rule_id)
+        except ValueError as exc:
+            print(f"登记失败：{exc}", file=sys.stderr)
+            return 2
+        from intelligence.services.methodology_backtest.receipts import latest_receipt
+
+        receipt = latest_receipt(_receipts_dir(args), rule_id)
+        if receipt is not None:
+            rule_verdict = str(receipt.get("verdict") or "") or None
+            rule_receipt = receipt.get("_path")
+
+    fields = dict(
         claim=args.claim,
         due=args.due,
         category=args.category,
@@ -3418,14 +4276,130 @@ def cmd_checkpoint_register(args: argparse.Namespace) -> int:
         metric=metric,
         source_judgment_ts=args.from_judgment,
         session_id=args.session,
+        rule_id=rule_id,
+        rule_verdict=rule_verdict,
+        rule_receipt=rule_receipt,
     )
+    # 先把「将要落盘的那条记录」算出来（同一 ts → 同一 id），对它跑偏差目录，再连 bias_flags 一起落盘。
+    # 扫描出任何异常都只打一行警告、不写 bias_flags 键（= 没扫），登记照常——只提示不拦截。
+    try:
+        preview = checkpoints.build_checkpoint_record(**fields)
+    except ValueError as exc:
+        print(f"登记失败：{exc}", file=sys.stderr)
+        return 2
+    flags: list = []
+    bias_codes: list[str] | None = None
+    scan_note: str | None = None
+    if not getattr(args, "no_bias_scan", False):
+        try:
+            cks_all, _ = checkpoints.load_checkpoints(cpath)
+            vds_all, _ = checkpoints.load_verdicts(vpath)
+            with _bias_sources(args) as sources:
+                flags = _scan_one(sources, preview, cks_all, vds_all)
+                scan_note = "；".join(sources.notes) or None
+            bias_codes = [f.code for f in flags]
+        except Exception as exc:  # noqa: BLE001 - 偏差扫描是提示层，不能让登记失败
+            print(f"[checkpoint] 偏差目录扫描失败（不影响登记）：{exc}", file=sys.stderr)
+            flags, bias_codes = [], None
+    try:
+        _, record = checkpoints.register_checkpoint(cpath, ts=preview["ts"], bias_flags=bias_codes, **fields)
+    except ValueError as exc:
+        print(f"登记失败：{exc}", file=sys.stderr)
+        return 2
     if args.json:
-        print(_json.dumps({"path": str(cpath), "checkpoint": record}, ensure_ascii=False, indent=2))
+        payload: dict[str, object] = {
+            "path": str(cpath),
+            "checkpoint": record,
+            "rule_id": rule_id,
+            "rule_verdict": rule_verdict,
+            "rule_receipt": rule_receipt,
+            "rule_receipt_line": _rule_receipt_line(rule_id, receipt) if rule_id else None,
+            "bias_flags": [f.to_dict() for f in flags],
+            "bias_scan_note": scan_note,
+        }
+        print(_json.dumps(payload, ensure_ascii=False, indent=2))
     else:
+        from intelligence.services import checkpoint_bias
+
         mtail = f"｜机检 {record['metric']['type']}" if record.get("metric") else "｜人工判定"
         print(f"已登记可证伪点 {record['id']}（到期 {record['due']}{mtail}）")
         print(f"  {record['claim']}")
+        if rule_id:
+            print(f"  {_rule_receipt_line(rule_id, receipt)}")
+        if bias_codes is not None:
+            if flags:
+                print(f"  偏差目录（只提示不拦截）：{len(flags)} 条")
+                for line in checkpoint_bias.render_flag_lines(flags):
+                    print(f"    {line}")
+            else:
+                print("  偏差目录：未命中")
+            if scan_note:
+                print(f"    （数据源：{scan_note}）")
         print(f"  → 到期跑 `checkpoint recheck --user {args.user or 'default'} --apply`")
+    return 0
+
+
+def cmd_checkpoint_bias_scan(args: argparse.Namespace) -> int:
+    import json as _json
+
+    from intelligence.services import checkpoint_bias, checkpoints
+
+    cpath, vpath = _checkpoint_paths(args)
+    cks, cwarn = checkpoints.load_checkpoints(cpath)
+    vds, vwarn = checkpoints.load_verdicts(vpath)
+    targets = cks
+    if args.since:
+        since = checkpoints._parse_date(args.since)
+        targets = [c for c in cks if str(c.get("ts") or "")[:10] >= since]
+    results: list[tuple[dict, list]] = []
+    with _bias_sources(args) as sources:
+        availability = sources.availability()
+        for c in targets:
+            results.append((c, _scan_one(sources, c, cks, vds)))
+    summary = checkpoint_bias.summarize(results)
+    if args.json:
+        print(_json.dumps(
+            {
+                "checkpoints_path": str(cpath),
+                "verdicts_path": str(vpath),
+                "since": args.since,
+                "sources": availability,
+                "summary": summary,
+                "results": [
+                    {"id": c.get("id"), "ts": c.get("ts"), "category": c.get("category"),
+                     "themes": c.get("themes"), "rule_id": c.get("rule_id"),
+                     "status": checkpoint_bias.classify(c, flags),
+                     "flags": [f.to_dict() for f in flags]}
+                    for c, flags in results
+                ],
+                "warnings": [w for w in (cwarn, vwarn) if w],
+            },
+            ensure_ascii=False, indent=2,
+        ))
+        return 0
+    print(f"偏差目录 v1 离线扫描：{summary['scanned']} 条判断（台账 {cpath}）")
+    print(
+        f"  数据源：旁路库 {'✓' if availability['labels_db_ok'] else '✗'}（日历 {availability['calendar_days']} 日，"
+        f"至 {availability['calendar_end']}，{availability['label_version']}）· "
+        f"主库 {'✓' if availability['market_db_ok'] else '✗'} · 规则目录 {'✓' if availability['rules_dir_ok'] else '✗'}"
+    )
+    for note in availability["notes"]:
+        print(f"  · {note}")
+    for code, bucket in summary["by_code"].items():
+        print(
+            f"- {code}：命中 {bucket['flagged']} · 无法判定 {bucket['unverifiable']} · "
+            f"干净 {bucket['clean']} · 不适用 {bucket['not_applicable']}"
+        )
+        ids = bucket["flagged_ids"]
+        if ids:
+            shown = ", ".join(ids[: max(0, args.show_ids)])
+            more = f" …共 {len(ids)} 条" if len(ids) > args.show_ids else ""
+            print(f"    命中：{shown}{more}")
+        for reason, n in list(bucket["unverifiable_reasons"].items())[:3]:
+            print(f"    无法判定 ×{n}：{reason}")
+    for w in (cwarn, vwarn):
+        if w:
+            print(f"  ⚠ {w}")
     return 0
 
 
@@ -3582,7 +4556,32 @@ def cmd_checkpoint_calibrate(args: argparse.Namespace) -> int:
 
     cpath, vpath = _checkpoint_paths(args)
     cal, warnings = checkpoints.load_calibration(cpath, vpath, today=args.date)
+    # 「按规则」段的收据由这里读文件系统再传进纯函数；calibrate / render_report 本身不碰磁盘。
+    rule_receipts: dict[str, dict] = {}
+    if cal.by_rule:
+        from intelligence.services.methodology_backtest.receipts import latest_receipt
+
+        receipts_dir = _receipts_dir(args)
+        for st in cal.by_rule:
+            found = latest_receipt(receipts_dir, st.category)
+            if found is not None:
+                rule_receipts[st.category] = found
     if args.json:
+        def _receipt_summary(receipt: dict | None) -> dict | None:
+            if receipt is None:
+                return None
+            stats = receipt.get("stats") if isinstance(receipt.get("stats"), dict) else {}
+            return {
+                "verdict": receipt.get("verdict"),
+                "n": stats.get("n"),
+                "p": stats.get("p"),
+                "p0": stats.get("p0"),
+                "wilson_lo": stats.get("wilson_lo"),
+                "wilson_hi": stats.get("wilson_hi"),
+                "generated_at": receipt.get("generated_at"),
+                "path": receipt.get("_path"),
+            }
+
         print(_json.dumps(
             {
                 "scored": cal.scored,
@@ -3615,12 +4614,26 @@ def cmd_checkpoint_calibrate(args: argparse.Namespace) -> int:
                     }
                     for s in cal.by_source
                 ],
+                "by_rule": [
+                    {
+                        "rule_id": s.category,
+                        "n": s.n,
+                        "hits": s.hits,
+                        "partial": s.partial,
+                        "miss": s.miss,
+                        "hit_rate": round(s.hit_rate, 4),
+                        "reliability": s.reliability,
+                        "samples": s.samples,
+                        "receipt": _receipt_summary(rule_receipts.get(s.category)),
+                    }
+                    for s in cal.by_rule
+                ],
                 "warnings": warnings,
             },
             ensure_ascii=False, indent=2,
         ))
     else:
-        print(checkpoints.render_report(cal), end="")
+        print(checkpoints.render_report(cal, rule_receipts=rule_receipts), end="")
     return 0
 
 
@@ -4025,6 +5038,82 @@ def cmd_digest(args: argparse.Namespace) -> int:
     return 0
 
 
+def add_brief_parser(subparsers: argparse._SubParsersAction) -> None:
+    parser = subparsers.add_parser(
+        "brief",
+        help="公开晚报：公开安全白名单渲染的可分享一页（产物 HTML/PNG，不进问答路由）。"
+        "spec docs/superpowers/specs/2026-08-27-public-evening-brief-design.md",
+    )
+    parser.add_argument(
+        "--date",
+        default=None,
+        help="站立日 YYYY-MM-DD（显式精确命中，无该日则出无行情句）；缺省=库内最新交易日",
+    )
+    parser.add_argument(
+        "--db",
+        default=None,
+        help="盘面 DuckDB 路径；缺省 MARKET_FEATURE_STORE_DB / 数据根 db/market_feature_store.duckdb",
+    )
+    parser.add_argument(
+        "--exports-dir",
+        default=None,
+        help="题材候选产物目录；缺省 <数据根>/market_feature_store/exports",
+    )
+    parser.add_argument(
+        "--out-dir",
+        default=None,
+        help="产物输出目录；缺省 <数据根>/复盘/briefs",
+    )
+    parser.add_argument(
+        "--png",
+        action="store_true",
+        help="额外用 Chrome 无头截长图（失败降级为提示，HTML 仍是主产物）",
+    )
+    parser.add_argument(
+        "--write-snapshot",
+        action="store_true",
+        help="把证据快照 JSON 落到 ~/.finance-runtime/public-brief/<date>/"
+        "（PUBLIC_BRIEF_DIR 可重定位）；默认只写 HTML",
+    )
+    parser.set_defaults(func=cmd_brief)
+
+
+def cmd_brief(args: argparse.Namespace) -> int:
+    from intelligence.paths import default_market_db_path
+    from intelligence.services.public_brief_pack import (
+        run_public_evening_brief,
+        write_outputs,
+        write_snapshot as write_brief_snapshot,
+    )
+
+    db = Path(args.db).expanduser() if args.db else default_market_db_path()
+    root = db.parent.parent
+    exports = (
+        Path(args.exports_dir).expanduser()
+        if args.exports_dir
+        else root / "market_feature_store" / "exports"
+    )
+    out_dir = (
+        Path(args.out_dir).expanduser() if args.out_dir else root / "复盘" / "briefs"
+    )
+    brief = run_public_evening_brief(
+        market_db_path=db, exports_dir=exports, cutoff=args.date
+    )
+    outputs = write_outputs(brief, out_dir, png=args.png)
+    print(f"[晚报] 站立日 {brief.standing_date} status={brief.status}")
+    if brief.stop_text:
+        print(f"[停机] {brief.stop_text}")
+    print(f"[HTML] {outputs['html']}")
+    if "png" in outputs:
+        print(f"[PNG] {outputs['png']}")
+    if "png_error" in outputs:
+        print(f"[PNG] {outputs['png_error']}", file=sys.stderr)
+    if args.write_snapshot:
+        path = write_brief_snapshot(brief)
+        print(f"[快照] {path}", file=sys.stderr)
+    return 0
+
+
 def add_steer_parser(subparsers: argparse._SubParsersAction) -> None:
     parser = subparsers.add_parser(
         "steer",
@@ -4136,6 +5225,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_ask_parser(subparsers)
     add_chat_parser(subparsers)
     add_digest_parser(subparsers)
+    add_brief_parser(subparsers)
     add_agent_parser(subparsers)
     add_agent_eval_parser(subparsers)
     add_answer_score_parser(subparsers)
@@ -4157,6 +5247,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_theme_parser(subparsers)
     add_kb_queue_status_parser(subparsers)
     add_kb_queue_receive_parser(subparsers)
+    add_ima_gap_report_parser(subparsers)
     add_data_requests_parser(subparsers)
     add_l3_ingest_parser(subparsers)
     add_serve_parser(subparsers)

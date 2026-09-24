@@ -1,0 +1,1 @@
+[check-parseability] 全部 39 个 SKILL.md frontmatter 可解析、name 与目录名一致。

@@ -1,0 +1,102 @@
+[
+  {
+    "label": "rag_index-cli-bm25",
+    "status": "pass",
+    "index": ".rag_index",
+    "mode": "bm25",
+    "expected_empty": false,
+    "hits": 3,
+    "filter_verification": "not_requested",
+    "paths": [
+      "wiki/concepts/冷板式液冷.md",
+      "wiki/concepts/数据中心液冷.md",
+      "wiki/entities/曙光数创.md"
+    ]
+  },
+  {
+    "label": "rag_index-cli-L3-empty",
+    "status": "pass",
+    "index": ".rag_index",
+    "mode": "bm25",
+    "expected_empty": true,
+    "hits": 0,
+    "filter_verification": "verified",
+    "paths": []
+  },
+  {
+    "label": "rag_index-cli-review-empty",
+    "status": "pass",
+    "index": ".rag_index",
+    "mode": "bm25",
+    "expected_empty": true,
+    "hits": 0,
+    "filter_verification": "verified",
+    "paths": []
+  },
+  {
+    "label": "rag_index-cli-bge-filtered",
+    "status": "pass",
+    "index": ".rag_index",
+    "mode": "hybrid",
+    "expected_empty": false,
+    "hits": 3,
+    "filter_verification": "verified",
+    "paths": [
+      "wiki/sources/GQY视讯 2025年年度报告 baseline 2026-04-29.md",
+      "wiki/sources/天威视讯 2025年年度报告 baseline 2026-04-22.md",
+      "wiki/sources/吉视传媒 2025年度报告 baseline 2026-04-24.md"
+    ]
+  },
+  {
+    "label": "rag_index-cli-asof-empty",
+    "status": "pass",
+    "index": ".rag_index",
+    "mode": "bm25",
+    "expected_empty": true,
+    "hits": 0,
+    "filter_verification": "verified",
+    "paths": []
+  },
+  {
+    "label": "rag_index-warm-hybrid-1",
+    "status": "pass",
+    "index": ".rag_index",
+    "mode": "hybrid",
+    "expected_empty": false,
+    "hits": 3,
+    "filter_verification": "not_requested",
+    "paths": [
+      "wiki/sources/液冷服务器_DeepDive_数据抽取_20260604.md",
+      "wiki/concepts/液冷技术.md",
+      "wiki/concepts/冷板式液冷.md"
+    ]
+  },
+  {
+    "label": "rag_index-warm-hybrid-2",
+    "status": "pass",
+    "index": ".rag_index",
+    "mode": "hybrid",
+    "expected_empty": false,
+    "hits": 3,
+    "filter_verification": "not_requested",
+    "paths": [
+      "wiki/sources/液冷服务器_DeepDive_数据抽取_20260604.md",
+      "wiki/concepts/液冷技术.md",
+      "wiki/concepts/冷板式液冷.md"
+    ]
+  },
+  {
+    "label": "rag_index_full-cli-bm25",
+    "status": "pass",
+    "index": ".rag_index_full",
+    "mode": "bm25",
+    "expected_empty": false,
+    "hits": 3,
+    "filter_verification": "not_requested",
+    "paths": [
+      "wiki/concepts/冷板式液冷.md",
+      "wiki/concepts/数据中心液冷.md",
+      "wiki/entities/曙光数创.md"
+    ]
+  }
+]

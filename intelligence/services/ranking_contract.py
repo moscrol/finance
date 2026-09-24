@@ -31,6 +31,8 @@ from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
+from intelligence.services.historical_research.intent import HistoryIntent
+
 # ——————————————————————————————————————————— 固定表头（程序据此解析，契约里逐字给模型）
 MATRIX_HEADERS: tuple[str, ...] = (
     "公司",
@@ -80,13 +82,18 @@ _SCENARIO_UPDATE_RE = re.compile(
 )
 
 
-def parse_ranking_intent(query: str, question_type: str | None = None) -> bool:
+def parse_ranking_intent(
+    query: str, question_type: str | None = None, *, history_intent: HistoryIntent | None = None
+) -> bool:
     """排序词面 × 多对象信号双门；快事实榜单排除。
 
     三个及以上对象（「A、B、C」）或群指代（「这三家」「哪家」）配任一排序词面即命中；
     两个对象只认强词面（更值得 / 优先 / 排序 / 预期差…），「需求和成本哪个更重要」这类
     概念二选一不进来。``question_type`` 只用于未来收窄，当前不据它放行。
     """
+    # 历史强弱排名不是前向研究优先级；跨轮可信意图优先于「排名/谁最强」词面。
+    if history_intent is not None:
+        return False
     del question_type  # 保留签名与 scenario_tree / track_contract 一致
     text = re.sub(r"\s+", "", str(query or ""))
     if not text or _EXCLUDE_RE.search(text):
@@ -183,9 +190,11 @@ def build_ranking_guidance_for_episode() -> str:
     )
 
 
-def ranking_guidance_for_query(query: str, question_type: str | None = None) -> str:
+def ranking_guidance_for_query(
+    query: str, question_type: str | None = None, *, history_intent: HistoryIntent | None = None
+) -> str:
     """命中意图返回表达契约，否则空串（不注入，行为不变）。"""
-    if not parse_ranking_intent(query, question_type):
+    if not parse_ranking_intent(query, question_type, history_intent=history_intent):
         return ""
     return build_ranking_guidance()
 
@@ -195,6 +204,7 @@ def episode_ranking_rule(
     question_type: str | None = None,
     *,
     conversation_context: str = "",
+    history_intent: HistoryIntent | None = None,
 ) -> str:
     """episode 指令的条件注入口：命中排序意图返回 episode 版契约，否则空串。
 
@@ -202,7 +212,7 @@ def episode_ranking_rule(
     （见 :func:`rerank_baseline_note`）——情景变化更新排序这件事由确定性规则先算一遍，
     模型负责解释与据证据偏离，而不是凭印象重排。
     """
-    if not parse_ranking_intent(query, question_type):
+    if not parse_ranking_intent(query, question_type, history_intent=history_intent):
         return ""
     text = build_ranking_guidance_for_episode()
     if parse_scenario_update_intent(query):
@@ -224,8 +234,8 @@ _ARROW_RE = re.compile(r"(↑+|↓+|上移|下移|上升|下降|升|降)")
 _TAGGED_MOVE_RE = re.compile(rf"({_TOKEN})\s*(↑+|↓+|上移|下移|上升|下降)")
 _DISTINGUISH_RE = re.compile(r"区分变量[：:]\s*([^；;。\n]+)")
 _DATE_RE = re.compile(r"(20\d{2}-\d{2}-\d{2})")
-_CN_DATE_RE = re.compile(r"(20\d{2})年(\d{1,2})月(\d{1,2})日")
 _DAYS_RE = re.compile(r"(\d+)\s*(?:个)?\s*(天|日|周|月)")
+_YEAR_MONTH_SCRUB_RE = re.compile(r"(20\d{2})\s*[-/年]\s*(\d{1,2})\s*月?")
 _EXPLANATION_HEADINGS = ("竞争解释", "互斥解释", "替代解释")
 _NEXT_HEADINGS = ("下一步",)
 
@@ -539,6 +549,71 @@ def _main_judgment(text: str) -> str:
     return ""
 
 
+# ——————————————————————————————————————————— 判官侧契约缝 + 优先级格的确定性改写
+PRIORITY_JUDGMENT_MARK = "（研判）"
+JUDGE_PRIORITY_GROUNDING = "model_reasoning"
+
+
+def judge_ranking_contract_block() -> dict[str, object]:
+    """送给语义判官的排序契约说明：「优先级」列是契约要求填的研判，不是事实断言。
+
+    为什么要这一块：契约（生产方）要模型填 1..N 的优先级，判官（检查方）收到的却是普通
+    编号句，于是按事实句审「凭什么排第 1」——实测一张 8 行公司矩阵 7 行被拒，判官逐条
+    写明「行情数字本身有 E4 支持，不是拒绝原因」。缝在生产方与检查方之间，就补在送判
+    载荷里；不动删句判据，不给优先级数字发证据。
+    """
+    return {
+        "matrix_headers": list(MATRIX_HEADERS),
+        "priority_column": "优先级",
+        "priority_grounding": JUDGE_PRIORITY_GROUNDING,
+        "note": (
+            "公司矩阵表的「优先级」列是排序契约要求模型填写的研究优先级研判（1..N），"
+            "属 model_reasoning，不是事实断言；只审同行其他格的数字、日期与证据绑定，"
+            "不得仅因优先级数字无证据或无排序规则而拒绝该行。"
+        ),
+    }
+
+
+def matrix_header_mapping(line: str) -> dict[str, int] | None:
+    """这一行若是公司矩阵表头，返回各固定表头所在列号；否则 ``None``。"""
+    text = str(line or "")
+    if not _TABLE_LINE_RE.match(text):
+        return None
+    cells = [cell.strip() for cell in text.strip().strip("|").split("|")]
+    found = _find_table([[cells]], MATRIX_HEADERS)
+    return found[1] if found is not None else None
+
+
+def mark_priority_as_judgment(row_line: str, mapping: dict[str, int]) -> str | None:
+    """把矩阵行的「优先级」格 ``N`` 改成 ``N（研判）``；已标、无整数、非表行则 ``None``。
+
+    刻意不清空：``missing_contract_elements`` 要求优先级列完整，清空会被判成缺矩阵、
+    触发契约重写、模型再填回去——循环。整数保留，``_INT_RE`` 解析与机械再排序不受
+    影响；读者与判官看到的是「这是研判」。这是 spec 2026-09-02 §3.3「置信度标注写进
+    正文」第一处真正落到正文的实现——此前标注只进 issues / 控制面。
+    """
+    text = str(row_line or "")
+    if not _TABLE_LINE_RE.match(text):
+        return None
+    index = mapping.get("优先级")
+    if index is None:
+        return None
+    stripped = text.strip()
+    leading = text[: len(text) - len(text.lstrip())]
+    trailing = text[len(text.rstrip()):]
+    cells = stripped.strip("|").split("|")
+    if index >= len(cells):
+        return None
+    cell = cells[index]
+    if PRIORITY_JUDGMENT_MARK in cell:
+        return None
+    match = _INT_RE.search(cell)
+    if match is None:
+        return None
+    cells[index] = cell[: match.end()] + PRIORITY_JUDGMENT_MARK + cell[match.end() :]
+    return leading + "|" + "|".join(cells) + "|" + trailing
+
+
 def parse_ranking_artifact(answer: str) -> RankingArtifact:
     """从答案解析矩阵、改判条件、竞争解释、下一步。解析不到就空，不猜。"""
     text = str(answer or "")
@@ -601,9 +676,10 @@ def contract_missing_outputs(
     *,
     query: str = "",
     question_type: str | None = None,
+    history_intent: HistoryIntent | None = None,
 ) -> tuple[str, ...]:
     """程序核对：排序题的契约缺件 → missing_outputs 词表输出项 id。非排序题恒空。"""
-    if not parse_ranking_intent(query, question_type):
+    if not parse_ranking_intent(query, question_type, history_intent=history_intent):
         return ()
     return tuple(
         RANKING_CONTRACT_OUTPUT_IDS[key]
@@ -620,9 +696,12 @@ def merge_ranking_missing_outputs(
     *,
     query: str = "",
     question_type: str | None = None,
+    history_intent: HistoryIntent | None = None,
 ) -> tuple[str, ...]:
     """把排序契约缺件并入 repair 用的 missing_outputs。非排序题原样返回。"""
-    extra = contract_missing_outputs(answer, query=query, question_type=question_type)
+    extra = contract_missing_outputs(
+        answer, query=query, question_type=question_type, history_intent=history_intent
+    )
     return tuple(dict.fromkeys((*tuple(existing or ()), *extra)))
 
 
@@ -901,16 +980,19 @@ def ranking_receipt(
     question_type: str | None = None,
     as_of: str | None = None,
     conversation_context: str = "",
+    history_intent: HistoryIntent | None = None,
 ) -> dict[str, object]:
     """EVAL 可读收据：``missing_outputs`` 恒在场；``ranking_intent`` 区分「契约齐」与「不适用」。
 
     再排序题另给 ``prior_rerank``（机械推演）与 ``rerank_consistent``（模型的新旧对照表
     是否与机械结果同序；无对照表或无上一轮矩阵时 None）——「表格、正文、计算一致」的程序核对。
     """
-    intent = parse_ranking_intent(query, question_type)
+    intent = parse_ranking_intent(query, question_type, history_intent=history_intent)
     scenario_update = parse_scenario_update_intent(query) if intent else False
     artifact = parse_ranking_artifact(answer) if intent else None
-    missing = contract_missing_outputs(answer, query=query, question_type=question_type)
+    missing = contract_missing_outputs(
+        answer, query=query, question_type=question_type, history_intent=history_intent
+    )
     prior_rerank: dict[str, object] | None = None
     rerank_consistent: bool | None = None
     if scenario_update and artifact is not None:
@@ -952,15 +1034,23 @@ def _as_of_date(as_of: str | None) -> date:
 
 
 def _due_from_watch(watch: str, as_of: str | None) -> str:
+    from intelligence.services.track_contract import calendar_month_due, chinese_full_date
+
     text = str(watch or "")
     found = _DATE_RE.search(text)
     if found:
         return found.group(1)
-    cn = _CN_DATE_RE.search(text)
-    if cn:
-        return f"{cn.group(1)}-{int(cn.group(2)):02d}-{int(cn.group(3)):02d}"
+    cn_due = chinese_full_date(text)
+    if cn_due:
+        return cn_due
+    # 日历月必须排在时长之前，否则「约2026-10月底披露」会被 _DAYS_RE 读成
+    # 「10 个月」= +300 天（R-20260916-05 真实写出 due=2027-07-13）。
+    month_due = calendar_month_due(text)
+    if month_due:
+        return month_due
     base = _as_of_date(as_of)
-    span = _DAYS_RE.search(text)
+    # 时长解析前把已识别的年月 token 摹掉，避免残留数字被当成周期。
+    span = _DAYS_RE.search(_YEAR_MONTH_SCRUB_RE.sub(" ", text))
     if span:
         amount = int(span.group(1))
         unit = span.group(2)
@@ -1022,6 +1112,7 @@ def ingest_flip_conditions(
     as_of: str | None = None,
     theme: str | None = None,
     session_id: str | None = None,
+    history_intent: HistoryIntent | None = None,
 ) -> list[dict[str, Any]]:
     """把改判条件登记进 checkpoints.jsonl。非排序题 / 无条目 / 重复条目时空操作。"""
     from intelligence.services.checkpoints import (
@@ -1030,7 +1121,13 @@ def ingest_flip_conditions(
         register_checkpoint,
     )
 
-    if not parse_ranking_intent(query, question_type):
+    from intelligence.services.track_contract import persistence_opt_out
+
+    if persistence_opt_out(query):
+        # 与 track_next_watch 同一道边界：用户拒绝登记时，改判条件也不得落盘。
+        # 两个入口共用一本 checkpoints.jsonl，只堵一个等于没堵。
+        return []
+    if not parse_ranking_intent(query, question_type, history_intent=history_intent):
         return []
     artifact = parse_ranking_artifact(answer)
     if not artifact.flip_conditions:

@@ -1,7 +1,7 @@
 # 时间长河终局
 
 > 日期：2026-09-05
-> 状态：**已审**（2026-09-05 下午：用户确认终局「确实是这样」；§11 三题按 §13 裁决执行；BP 已同步到 v0.7，§9 第三条与 §10「文件不改」随之过期；缺口清单见 `2026-09-05-time-river-gap-roadmap.md`。不动代码。）
+> 状态：**已审**（2026-09-05 下午：用户确认终局「确实是这样」；§11 三题按 §13 裁决执行；BP 已同步到 v0.7，§9 第三条与 §10「文件不改」随之过期；缺口清单见 `2026-09-05-time-river-gap-roadmap.md`。不动代码。）**2026-09-06 第二轮审阅见 §14**：用户拍板「日内」= 单日切片、推演 = 多步情景树、区间与上下文投影契约入 spec；契约正文落在 `2026-09-06-personal-research-calibration-endstate-design.md`，本文件只记决策。
 > 触发：用户把 OPC BP 的「半专业校准工作台」扩成双路径终局——小白学会看，高手把认知做成复利。
 > 对照：`docs/bp/2026-09-finance-agent-bp.md` v0.6（不改）；`docs/superpowers/specs/2026-08-13-memory-analog-lifecycle-design.md`（记忆 × 对标 × 题材生命周期，六 slice 已落地）；`docs/superpowers/specs/2026-08-19-user-framework-perspective-bootstrap-design.md`（判读方法 / 判断倾向已分层）；Knevo 公开叙事 + 71 页使用分享蒸馏 + 桌面 7/13 对话截图。
 > 词表：新词已写入 `UBIQUITOUS_LANGUAGE.md`「产品终局」。
@@ -210,3 +210,88 @@ D10 已经能做市场级窗口对标并只报后续事实。[实测] 缺的是�
 ### 13.3 状态
 
 终局：用户确认。§11：按 13.1 执行。§9 非目标第三条（不改 BP）、§10（文件不改）、§12 首句已过期，以本节为准。下一份文档已落：`2026-09-05-time-river-gap-roadmap.md`（能力级缺口清单与验收判据，不是实施切片）。
+
+---
+
+## 14. 审阅记录第二轮（2026-09-06，审阅方：Cursor agent；用户三项拍板）
+
+用户口述终局——agent 上下文要高信噪比；单点切片与区间都可回溯、可联立、可计算；大盘 / 板块 / 个股 / 舆论 / 资金 / agent 判断多维；灌入方法论 → 验历史胜率 → 推演 → 回溯 → 飞轮——与本 spec 对照，八成已覆盖，且覆盖到的部分（双时钟、gap 一等、框架横切、统计门、判断轨三类对象）已在代码里而非只在文档里。差的两处是**契约**而不是数据：区间没有与单点同级的读取契约，agent 上下文没有投影契约。另有一处措辞歧义（「日内」）、两处内部张力（「换模型能重算」vs 河里已有的模型散文；「自进化」的实际含义与速度）。用户拍板三项，其余按审阅方建议一并写入，落点是 `2026-09-06-personal-research-calibration-endstate-design.md`（当前面向实现的统一 spec），本节只记决策。
+
+### 14.1 拍板
+
+1. **「日内」= 单日切片，不是盘中。** `as_of` 与 `knowledge_cutoff` 保持交易日粒度；盘中时刻（首板时间等）作日频对象的 payload 字段。→ 09-06 §4.1。
+2. **推演 = 多步情景树。** 新对象 `ScenarioTree`：节点是观察剧本，边是注册标签上的确定性条件，路径由河的切片逐日判定；与观察剧本同一道硬门、同一个 `scope`，深度 ≤ 5 步，`otherwise` 分枝强制存在。树不按「走了哪条枝」判对错，回检的是覆盖率、沿路剧本触发、以及每条走过的 `(条件 → 下一步事实)` 产出的规则样本。→ 09-06 §3.3。
+3. **区间契约与上下文投影契约入 spec**，其余小修一并写入。→ 09-06 §4.4（`river.window`：切片序列 + 五类派生对象 `streak / transition / cumulative / first_event / signature`，`member_refs` 可拆回到天与行，`pit_grade` 随段，`gap_policy` 默认 `unverifiable`）、§4.5（`project()`：框架就是信噪比过滤器；`projection_hash` 入台账；gaps 与 limits 是强制块；按块省略不截断）。
+
+### 14.2 一并写入的小修
+
+- **个股轨不改名，语义钉死**为「个股节点轨」（数据种类，不是实体粒度），并补实体 × 轨覆盖矩阵。用户口语的六个维度混了两条轴（大盘 / 板块 / 个股是实体粒度，舆论 / 资金 / 判断是数据种类），矩阵把它们分开放。改名会波及 BP v0.7 / deck / 词表 / `river.TRACKS`，验证期不值得。→ 09-06 §2.3。
+- **两类派生** `derivation ∈ {deterministic, frozen_llm}`。§3「换模型能重算」只对前者成立；后者（叙事版本、逻辑版本、产业文档散文——[实测] 已在河里）带 `model_id / prompt_hash`，硬度封顶 L1，只进上下文不进度量。→ 09-06 §4.2。
+- **`validity_kind ∈ {point, state, range}`** 给 `valid_to` 确定含义（逐日标签 point、阶段 / 判断 state、区间派生 range）；这也是 roadmap 09-06 回写里「契约字段只落一半、纠正没有载体」的可实施定义。→ 09-06 §4.2。
+- **判断轨归因字段**：agent 产物必带 `model_id / framework_version / projection_hash`，台账拒收缺项；否则按 框架 × 模型 分列胜率无从谈起。→ 09-06 §4.2。
+- **候选规则提议契约**（verdict / `realized_path` → 规则 JSON，`provenance.kind`，提议次数进多重检验分母），补 09-06 §3.1「生成候选经验」那句的空。→ 09-06 §5.4。
+- **相似匹配与规则 DSL 共用注册标签目录**：D8 / D10 / `stock_analogs` / `river_window` 的特征维都应是 `history_labels` 里的标签，同一个 `LABEL_VERSION`——「找相似 → 看四态 → 推演 → 回检」才是一个词表上的闭环。→ 09-06 §4.4。
+
+### 14.3 本轮实测发现（spec 与仓的差距，不是新愿望）
+
+- `river_window.build_daily_vectors` 读全历史、不接 `knowledge_cutoff`、不出 `pit_grade`：单点守住的无前视到区间断了。→ 缺口 G-02c。
+- `river.resolve_entity` 只解析板块；spec 说的指数 / 题材 / 个股实体入口未开，`config_theme_sector_link` 0 行。矩阵里如实标 ○ / —。
+- `guided_reading` 的投影是写死截断（6 键 / 10 节点 / 字母序）。→ 缺口 G-14。
+- 判断轨对象无 `model_id`；`valid_to / expired_at / superseded_by / hardness / label_version` 全树零命中（roadmap 09-06 回写已记）。
+
+### 14.4 两条写进产品原则的诚实边界
+
+1. 自进化的是**规则库**（阈值、候选、四态），不是框架的结构——母本由人写、人改、版本化；agent 可以提议，不能改写。
+2. 样本墙是真的：413 个交易日分桶后 N ≥ 10 稀缺。飞轮靠横截面（每天 400 个板块各是一个样本）与结构型规则转起来，数字阈值先以 `insufficient` 展示、不阻塞带读与推演。
+
+### 14.5 未动的
+
+BP v0.7 / deck / 申请表不在本轮改（§9 纪律，BP 同步另起）。「区间」「上下文投影」「情景树」「两类派生」四词已入 `UBIQUITOUS_LANGUAGE.md`「产品终局」，「日内」「推演」两条歧义已登记。新缺口 G-02c / G-14 / G-15 / G-16 已补进 `2026-09-05-time-river-gap-roadmap.md` §2.5，顺序：G-14 在 G-03 接进每日复盘之前（V1）；G-02c 在 G-02b 相似匹配与 G-08 环境剧本之前（V2）；G-15 在 G-03、G-14、G-05 之后（V2 起步、V3 放开深度）；G-16 与 G-13 同一工单（V3）。不动代码。
+
+### 14.6 同日补充：方法论内容口述 → G-01 骨架
+
+用户随后口述了方法论的**内容**（不是形状）：指数阶段按周均线与偏离度划分（主流主升 / 左底向下 / 缩量右底……）、主流板块成交占比、市场风格量（大成交占比 / 连板晋级率 / 最高连板）、板块角色（主流 / 价 / 锐度板块）、以及一类回溯问题「最高连板结束后，低位首板 / 二板谁走出来、什么形态、走出来前量价形态、当时主流 / 价 / 锐度板块是什么」，目标是「都可以回溯，再在历史中逐步熟悉我教给 agent 的方法论」。
+
+处置：这正是 roadmap 标为关键路径的 G-01 母本原料。agent 按 08-19 红线只搭骨架——`docs/learning/teaching-framework/00-concept-label-skeleton.md`：把口述拆成 A 指数阶段 state 标签族 / B 市场风格 point 标签 / C 板块角色 sector 标签 / D 事件锚点回溯查询形状 四类，每个概念对照库内字段标「可算 / 待接 / 无源」，判读定义一律留空进 §6 创始人待填清单（8 条，前 3 条阻塞）。D 类作为区间的第三种问法写进 09-06 spec §4.6（`anchor_windows`，验收第 15 条）。
+
+本轮实测里最要紧的一条：**库内 `market_stage` 是供应商阶段字段，不是授课框架的指数阶段**；`methodology_backtest` 现有 `market_stage` 标签只是投影它。授课阶段词要另起标签族 `index_stage`、另起版本（09-06 验收第 16 条）——否则「在历史中熟悉方法论」学到的是供应商的词表。A 类的全部输入字段（`sh_week_ma`、`sh_deviation_pct`、量能状态、涨家数）都已在 `fact_market_daily`，缺的只是创始人写阈值与转移条件；07-03 问卷第八层已存量板块 / 价板块的用户定义，锐度未定义且未入库，大成交表 0 行无写入方。词表新增 事件锚点回溯 / `index_stage` / 量板块 价板块 / 锐度板块 四条，歧义登记 `market_stage ≠ 授课指数阶段`、两套阶段粒度、主流板块两口径。
+
+### 14.7 同日第二轮拍板（用户答骨架 §6 前三条）
+
+- **九段是七段的细分** → `index_stage` 落 `stage_coarse`（七段）+ `stage_fine`（九段）两级；同名四段已对齐，五个非同名段归属待填（骨架 §1.1）。
+- **+1.5 / −2.5 是软判据**（用户原话「金融领域没有百分百，只是基于历史的大概率，我们本身就在做大概率事件的博弈」）→ `index_stage` 不编硬状态机，编「证据旗标 + 确定性计分 + 置信档」，「大概率」由四态收据量（骨架 §1.3）。软的是置信，硬的是计算过程；创始人给每阶段最看的两三条证据，不给权重。
+- **锚点 = 最高连板断板；低位 = 三板以下；走出来 = 走成后面的市场最高标** → D 类查询三个定义齐了，剩六处口径（并列 / 含三板 / 候选日 / k / 最低高度 / 炸板）待确认后即可编 `anchor_windows`（骨架 §4）。
+- **「高标断板日的低位一般会有衔接」收为第一条 `provenance.kind=teaching` 候选规则** `top_board_break_handoff`（骨架 §4.1）：条件 = 断板日，结果 = 候选股在 (T, T+k] 走成最高标，基准 = 非断板日同 universe；k 与最低高度标 B 类。回溯（谁、什么形态）与规则（几成、比基准高多少）是同一锚点的两种输出。
+- 数据侧顺带发现：涨停表带 `first_limit_time / open_times / up_stat / circ_mv`，问卷第八层 TODO 6「成交额 / 流通市值比」现在可算；`fact_stock_daily` 无开高低收，一字板只能近似。
+
+### 14.8 同日第三轮：D 类口径八答，接力链成形
+
+用户答表单八问：最高处只有一只，「前一天的市场最高连板第二天不是了，那就是断板日」；三板以下不含三板；候选取 T−1 / T / T+1；**不设固定 k**——「观察下次的市场最高标的诞生环境和前一个市场最高标断板的关联」；最高标 ≥ 3 板；炸板不分；主流板块两口径并存分开命名；晋级率一个总数。
+
+第四答把 D 类从「锚点 + 定长前瞻窗」改成**事件到事件**：`LeaderSuccession` 对象（前任断板日 → 下一任诞生日，两端各一个上下文切片，`gap_days` 是读数不是参数），候选规则改名 `leader_handoff_from_low_boards`，基准改为随机非断板三天窗（控制掉「任何最高标都曾是首板 / 二板」这条近乎必然的事实）。09-06 spec §4.6 随之加 `after = until(target_label)` 模式与 `context_target` 段。**D 类结构定义已齐，可开工单跑第一份接力链读数**；`path` 段的「形态」词与两端上下文里的「指数阶段」仍等骨架 §6 第 1、2 条。
+
+### 14.9 同日第四轮：A 类判据口述齐了，四类全部可编码
+
+用户口述转点逻辑（逐句转录于骨架 §1.4）：转点按周均线 × 量能分——放量站上周均 = 转点向上；偏离度过高 = 高位转点开始调整；放量跌破或跳空低开跌破周均 = 向下继续调整；负偏离过大 → 止跌反弹往周均线靠；二次探底有缩量过程；再放量站上周均后主流板块逐步放量、成交占比扩大；MA5 配合看不参与定义。由此：**转点与见顶是事件不是阶段**（九段里剩 确认左底、分歧转一致共振 待归属）；旗标目录 v0 十条全部落在 `fact_market_daily` 现有字段上；七段各有进入 / 持续证据；计分并列时按转移图取可达者，仍并列输出 `ambiguous`。
+
+其余：形态族 v0 = 断板反包 / N 字 / 炸板反包（用户「不用特别细化」；炸板无 Z 数据时并入断板反包）+ 回封 / 一字秒板 / 换手板三个数据可判的；锐度 = 板块 3 / 5 / 10 日涨幅并排 + 涨停家数参考（`sharpness_v1`），**复盘会「尖锐度」公式仓内与网上均无**，要接只能另名对照；大成交占比 = 前 50 与前 100 都算；**双红是申万一级下细分题材的强度，不参与定义主流**，主流两口径定案。
+
+状态：**A / B / C / D 四类结构定义齐，可开工单**——`index_stage` 标签族（G-01 (3) 的第一批规则）与 `LeaderSuccession` 接力链（G-02c `anchor_windows` 的第一个实例）。剩余待填全是 B 类基准数字与两段归属，不阻塞；下一步是跑出第一份读数给创始人纠偏，不是继续在纸上问。母本正文（`01-index-stage.md` 等）仍由创始人写，agent 只能把 §1.4 的转录原样搬进去。
+
+### 14.10 同日第五轮：锐度两分量、RPS 与两种偏离度
+
+用户确认锐度由两个分量共同定义——板块区间涨幅（3 / 5 / 10 日名次）与涨停家数映射；价板块只看 5 日涨幅且排除量板块，重叠仅在 5 日这一维。用户问「RPS 是什么，也是偏离度吗」——不是：RPS 是横截面名次（谁比谁强），偏离度是纵向离自己参考线的距离（拉得多远）；锐度的区间涨幅分量在术语上就是板块级短期 RPS，07-03 问卷「板块 RPS 强度」是同族长期限。仓内「偏离度」有两条参考线，引用必须标线：指数周均线偏离度（`sh_deviation_pct`，vs MA5）与 `up-line` skill 的 UP 线偏离度（UP = MA26 + 0.764·STD26，个股，只写飞书，[实测] `fact_stock_technical_snapshot` / `fact_top_gainers` 均 0 行）。用户问板块能否算 UP 线偏离度——能，但 `fact_sector_daily` 无收盘点位，须以 ∏(1+pct_chg) 造合成点位，带缺天 / 换源 caveat，26 日窗缺天即 `unverifiable`。
+
+[实测] 顺带找到锐度的现成载体 `fact_sector_period_rank_daily`：daily / day3 / day5 / day10 各 top-5、94 天、含 `change_pct + limit_up_count`，`derived:fact_sector_daily`；其 `badge='sharp'` 9 行是供应商当日点名的锐度板块，仅 4 天，只作趣闻对照。词表新增 RPS、偏离度（两种）两条，锐度板块改两分量。骨架 §3.1 新增「RPS 与偏离度：两条不同的轴」。同轮用户定大成交占比只算**前 100 只**（`top100_amount_share`），前 50 撤。
+
+### 14.11 2026-09-07：第一刀设计稿落盘（用户「先落一份 spec」）
+
+`2026-09-07-teaching-framework-slice1-index-stage-leader-succession-design.md`：A 类 `index_stage`（十条旗标、七段 E/H 证据计分、转移图并列裁决、`ambiguous / no_evidence`、`stage_fine`、三种转点事件、与供应商阶段列联表）+ D 类 `LeaderSuccession`（`top(d)` 唯一 ≥3 板、断板 = 不在涨停表、候选 T−1..T+1 ≤2 板、下一任 = 首个不同 `top`、`handoff`、`gap_days`、形态族 v0、两端上下文）+ 衔接规则经 `stats.readout / stage_readouts` 出四态（基准 = 全部非断板日同定义）+ 诞生环境对照（`cohort_compare` 接旁路库标签）。产物落旁路库新表 `history_teaching_labels / history_teaching_gaps / history_leader_succession`，参数落 `methodology/teaching/index_stage_params.v0.1.json`，`framework_version = tf-v0.1+hash` 与 `LABEL_VERSION` 分命名空间。C 类板块角色是第二刀。判别变量 8 条、验收 12 条、待拍板 5 条（缩量基准 / 占比扩大基准 / 秒板与反包候选值 / `overtaken` 旁表 / 第二刀是否紧随）。工单编号待 INDEX 分配（#26 已被 RAG 回预算闸预留）。不动代码。
+
+### 14.12 2026-09-07 晚：事件定价第一刀设计稿落盘（`anchor_windows` 第二实例）
+
+起因：用户先问「agent 是否缺宏观视角，Knevo 好像有」，探针实测（`knevo-distill/E-007-macro-probes.md`）裁决对手宏观「纪律强、数据空」——PIT 推理 / 不编数 / 防谄媚全过，但无宏观数据层、无日频利率、报不出「LPR 下调后 5/10/20 日指数与涨停家数」。结论：不补宏观分析；G4（社融 / M1M2 / PPI / 汇率）不上调，理由是无母本作者与样本墙，**不是**「对手没有」（用户 09-07 纠正：Knevo 没有的，对我们有用就可以有）。随后用户问「事件的冲击和定价是不是我们缺的」——[实测] 缺的是 join 不是数据：`fact_event_daily` 2627 行（数据发布 954 / 会议 748 / 政策 122，75% 带板块）、价格与涨停各层齐、`anchor_windows` 已设计、`windows_around / cohort_compare / history_outcomes` 原型在；缺事件成锚点标签、事前窗、超额、横截面、「已定价」度量（`valuation_gap.py` 自诊「不知道市场已经 price in 多少」）。
+
+落盘 `2026-09-07-event-pricing-slice1-calendar-reaction-design.md`：**事件锚点日历**（编辑日历 + 手录官方日程 JSON 合成，`source_grade` 分级，每类一条确定性**反应日**映射——美国时段事件记到下一交易日；`latest_known(indicator, as_of)` 只答「哪期 / 哪天 / 尚未发布」不答数值，夹具即 E-007 P3 / P4）+ **`EventReaction`**（锚点 × 实体：事前 m 日 / 当日 / 事后 3/5/10 日复用 `history_outcomes`，板块减上证超额，六个描述性**形状标签**对非事件日基准过四态；**预期内 / 非预期分表**——只有官方日程事前已公开的事件，事前窗才读作预期）+ **「已定价」三代理并排**（事前超额、拥挤度分位、舆论认同度阶段；第三列 v0 `gap{not_wired}`）+ 横截面（只到板块 / 申万一级）。v0 七类：`cn_lpr / cn_pmi_official / cn_cpi_ppi / cn_credit_data / fomc_decision`（market）+ `policy_release / industry_event`（sector）。[实测] 编辑日历宏观类不全（LPR 8 个月 5 天、社融 0、CPI 混境外、FOMC 混纪要），事件表 2026-01 起而价格 2024-12 起——官方日程文件是 N 的来源不是可选项。产物落旁路库 `history_event_calendar / history_event_anchors / history_event_reaction / history_event_gaps`，`ev_version` 独立命名空间。判别变量 9 条、验收 12 条、待拍板 6 条。词表六条新词与两条歧义（「定价」「事件」）待审后写入。同日顺带核到：旁路库 `LABEL_VERSION` 已是 v3（含 `market_stage_normalized`），第一刀 spec §2.1 写的 v2 已过期。
+
+**同晚用户「执行」，六条按推荐落地**：`intelligence/services/event_pricing/`（八个模块）+ `scripts/event_reaction.py` + 29 条单测；官方日程从统计局 2025 / 2026 表、美联储日程页、LPR 接口 curl 抓取后脚本转录（中文星期逐条断言）。真库第一份读数 `ev-v0.1+dd4c4389`：日历 278 行、锚点 1054、反应记录 ok 222 / pending 25 / missing 807；五个 market 类四态全部 `not_distinguishable`（N 13–21）；`latest_known(cn_cpi, 2026-07-08)=2026-05`、`(cn_cpi, 2026-09-07)` → 下一期 09-09——E-007 P3 / P4 两题从对象里确定性答出。跑出来的数据现实：板块价格序列 2026-07-24 起从 `.TI` 换到 `.FP`，编辑日历板块全是 FP 码，板块级锚点只覆盖 06-30 起；编辑 FOMC 记北京日期；金融数据同期两日期无官方仲裁 → `editorial_ambiguous` 不入锚点；主库 2026-08-17 指数涨跌幅 NULL 杀掉 3 个锚点。全仓 pytest 8010 passed，门禁全绿；一条与本刀无关的 orchestrator 测试在 HEAD 上本就红。验证文档 `docs/verification/2026-09-07-event-pricing-slice1.md`。

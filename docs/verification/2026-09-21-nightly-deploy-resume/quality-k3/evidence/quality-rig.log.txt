@@ -1,0 +1,135 @@
+== setup ==
+PASS: copy hash scripts/install_eval_launchd.sh (eef79c318143dc61ca24d61698c14cfa7250d74d74b7d544565ee56de7a063a8)
+PASS: copy hash intelligence/dream/com.financeworkspace.daily-full-review-sync.plist (1921f278d3e5fe088f81fa87faba11dc844a024e8b0e25043a9bdaa0e52eabe5)
+PASS: copy hash intelligence/dream/com.financeworkspace.daily-full-review-finalize.plist (71fe78623f56129e08f93b183e531ad9fadc9d270f0e07e9d15500f50ee2ecbe)
+PASS: copy hash skills/daily-full-review/scripts/nightly_full_review_s7.sh (02474070d3cda8dd909c81b821502192fce33954fb1a31ee52576df3f4a8aff0)
+== Q0 positive control: scoped install ==
+PASS: Q0 rc (0)
+PASS: Q0 launchctl calls (4)
+PASS: Q0 kickstarts (0)
+PASS: Q0 sync loaded (yes)
+PASS: Q0 finalize loaded (yes)
+PASS: Q0 installed sync plist == candidate (1921f278d3e5fe088f81fa87faba11dc844a024e8b0e25043a9bdaa0e52eabe5)
+PASS: Q0 installed s7 wrapper == candidate (02474070d3cda8dd909c81b821502192fce33954fb1a31ee52576df3f4a8aff0)
+PASS: Q0 s7 wrapper executable (yes)
+PASS: Q0 other four jobs' files untouched (1)
+PASS: Q0 other four jobs' loaded state untouched (6)
+PASS: Q0 helper untouched (19ad2fa1210efb30c508517ac1478fc09896e95abf9f8071aea4d85256ddd8ff)
+PASS: Q0 installed sync plist carries adcda root (2)
+== Q1 mid-install fault: bootstrap of 2nd job fails ==
+PASS: Q1 installer fails loudly rc=5
+PASS: Q1 calls before abort (4)
+PASS: Q1 MIXED STATE: sync loaded-new (1921f278d3e5fe088f81fa87faba11dc844a024e8b0e25043a9bdaa0e52eabe5)
+PASS: Q1 MIXED STATE: finalize NOT loaded (absent)
+PASS: Q1 installer attempted no rollback (calls still 4) (4)
+PASS: Q1 files were copied before launchctl phase (mixed on-disk too) (1)
+PASS: Q1 other four jobs untouched by failed install (1)
+PASS: Q1 operator rollback restores old loaded jobs + old files (1)
+== Q2 mutations in repo COPY are caught ==
+PASS: Q2-M1 wrong-Label mutation: rc (2)
+PASS: Q2-M1 zero launchctl calls (0)
+PASS: Q2-M1 zero file changes (19ad2fa1210efb30c508517ac1478fc09896e95abf9f8071aea4d85256ddd8ff  ./.local/bin/ops_python.sh
+1ce798693443327c8878649c1a8d29e7b3854410a193907a7b406a9a391736c7  ./Library/LaunchAgents/com.financeworkspace.daily-full-review-finalize.plist
+60eabe71c120c7ac9324c60ac1cdba9176a19441a31c2f6c7a6a9a773048c4da  ./.local/bin/nightly-full-review-s7.sh
+6a4456323c48aa9190732d4578a820c29993bf8f9ac47892b9fe314822d87213  ./Library/LaunchAgents/com.financeworkspace.fidelity-daily-agent.plist
+ab42920f82ff43e7b722d475a21dfecc63b81ee78fa4a36e22827d4832f82baf  ./.local/bin/nightly_full_review.sh
+ae42c600e42ddc764032c64d98f683d366b5e59003192ad1a53f0a122bad5a57  ./Library/LaunchAgents/com.financeworkspace.fidelity-forward-acceptance.plist
+b2a2a04513b18955fe4718fc7c619f6d9aa950c5a4b4611d3c588463e6b67257  ./Library/LaunchAgents/com.financeworkspace.checkpoint-recheck.plist
+b35af8f470e68db96944efe1f99ba9bab8cdb19b116e513b3e56c7706bb667cc  ./Library/LaunchAgents/com.financeworkspace.daily-full-review-sync.plist
+e0f5cdea9b2c80cb8faed59f0bf8b75dfb86a14ebc55f3704278e772198f068e  ./Library/LaunchAgents/com.financeworkspace.pit-snapshot.plist)
+PASS: Q2-M2 RunAtLoad=true mutation: rc (2)
+PASS: Q2-M2 zero launchctl calls (0)
+PASS: Q2-M2 zero file changes (19ad2fa1210efb30c508517ac1478fc09896e95abf9f8071aea4d85256ddd8ff  ./.local/bin/ops_python.sh
+1ce798693443327c8878649c1a8d29e7b3854410a193907a7b406a9a391736c7  ./Library/LaunchAgents/com.financeworkspace.daily-full-review-finalize.plist
+60eabe71c120c7ac9324c60ac1cdba9176a19441a31c2f6c7a6a9a773048c4da  ./.local/bin/nightly-full-review-s7.sh
+6a4456323c48aa9190732d4578a820c29993bf8f9ac47892b9fe314822d87213  ./Library/LaunchAgents/com.financeworkspace.fidelity-daily-agent.plist
+ab42920f82ff43e7b722d475a21dfecc63b81ee78fa4a36e22827d4832f82baf  ./.local/bin/nightly_full_review.sh
+ae42c600e42ddc764032c64d98f683d366b5e59003192ad1a53f0a122bad5a57  ./Library/LaunchAgents/com.financeworkspace.fidelity-forward-acceptance.plist
+b2a2a04513b18955fe4718fc7c619f6d9aa950c5a4b4611d3c588463e6b67257  ./Library/LaunchAgents/com.financeworkspace.checkpoint-recheck.plist
+b35af8f470e68db96944efe1f99ba9bab8cdb19b116e513b3e56c7706bb667cc  ./Library/LaunchAgents/com.financeworkspace.daily-full-review-sync.plist
+e0f5cdea9b2c80cb8faed59f0bf8b75dfb86a14ebc55f3704278e772198f068e  ./Library/LaunchAgents/com.financeworkspace.pit-snapshot.plist)
+PASS: Q2-M4 shell-syntax mutation: rc=1 nonzero
+PASS: Q2-M4 zero launchctl calls (0)
+PASS: Q2-M4 zero file changes (19ad2fa1210efb30c508517ac1478fc09896e95abf9f8071aea4d85256ddd8ff  ./.local/bin/ops_python.sh
+1ce798693443327c8878649c1a8d29e7b3854410a193907a7b406a9a391736c7  ./Library/LaunchAgents/com.financeworkspace.daily-full-review-finalize.plist
+60eabe71c120c7ac9324c60ac1cdba9176a19441a31c2f6c7a6a9a773048c4da  ./.local/bin/nightly-full-review-s7.sh
+6a4456323c48aa9190732d4578a820c29993bf8f9ac47892b9fe314822d87213  ./Library/LaunchAgents/com.financeworkspace.fidelity-daily-agent.plist
+ab42920f82ff43e7b722d475a21dfecc63b81ee78fa4a36e22827d4832f82baf  ./.local/bin/nightly_full_review.sh
+ae42c600e42ddc764032c64d98f683d366b5e59003192ad1a53f0a122bad5a57  ./Library/LaunchAgents/com.financeworkspace.fidelity-forward-acceptance.plist
+b2a2a04513b18955fe4718fc7c619f6d9aa950c5a4b4611d3c588463e6b67257  ./Library/LaunchAgents/com.financeworkspace.checkpoint-recheck.plist
+b35af8f470e68db96944efe1f99ba9bab8cdb19b116e513b3e56c7706bb667cc  ./Library/LaunchAgents/com.financeworkspace.daily-full-review-sync.plist
+e0f5cdea9b2c80cb8faed59f0bf8b75dfb86a14ebc55f3704278e772198f068e  ./Library/LaunchAgents/com.financeworkspace.pit-snapshot.plist)
+== Q2-M3 semantic root mutation: installer blind spot vs wiring test ==
+PASS: Q2-M3 installer ACCEPTS wrong-root plist (no semantic check) (0)
+PASS: Q2-M3 installed (wrong) root present in fake HOME plist (1)
+PASS: Q2-M3 wiring tests CATCH root mutation (pytest rc=1)
+  m3: FAILED tests/test_eval_launchd_wiring.py::test_review_sync_plist_source_pins_dedicated_sync_code_root
+  m3: 1 failed, 32 passed in 9.36s
+PASS: Q2 restore: dry-run rc after restore (0)
+== Q3 dry-run: zero side effects incl. launchd state ==
+PASS: Q3 rc (0)
+PASS: Q3 zero calls (0)
+PASS: Q3 home unchanged (19ad2fa1210efb30c508517ac1478fc09896e95abf9f8071aea4d85256ddd8ff  ./.local/bin/ops_python.sh
+1ce798693443327c8878649c1a8d29e7b3854410a193907a7b406a9a391736c7  ./Library/LaunchAgents/com.financeworkspace.daily-full-review-finalize.plist
+60eabe71c120c7ac9324c60ac1cdba9176a19441a31c2f6c7a6a9a773048c4da  ./.local/bin/nightly-full-review-s7.sh
+6a4456323c48aa9190732d4578a820c29993bf8f9ac47892b9fe314822d87213  ./Library/LaunchAgents/com.financeworkspace.fidelity-daily-agent.plist
+ab42920f82ff43e7b722d475a21dfecc63b81ee78fa4a36e22827d4832f82baf  ./.local/bin/nightly_full_review.sh
+ae42c600e42ddc764032c64d98f683d366b5e59003192ad1a53f0a122bad5a57  ./Library/LaunchAgents/com.financeworkspace.fidelity-forward-acceptance.plist
+b2a2a04513b18955fe4718fc7c619f6d9aa950c5a4b4611d3c588463e6b67257  ./Library/LaunchAgents/com.financeworkspace.checkpoint-recheck.plist
+b35af8f470e68db96944efe1f99ba9bab8cdb19b116e513b3e56c7706bb667cc  ./Library/LaunchAgents/com.financeworkspace.daily-full-review-sync.plist
+e0f5cdea9b2c80cb8faed59f0bf8b75dfb86a14ebc55f3704278e772198f068e  ./Library/LaunchAgents/com.financeworkspace.pit-snapshot.plist)
+PASS: Q3 state unchanged (4f7d4d4b79fb4e56c1074c478613bf65927f4038bd7f77ae654f228d041567db  ./com.financeworkspace.daily-full-review-finalize
+69ab91ca75f5e967a278f503c57af16ff288adf49db62eb14e6817942039ac50  ./com.financeworkspace.fidelity-forward-acceptance
+73faedd47e38881c2f6cd11357984dd04510e0b1bfd94f4c937b078c32dd3f0d  ./com.financeworkspace.daily-full-review-sync
+976a05f0e96a5669c62f9eb9f47e3af69e27d4dd489584aeb7667c100f3d81bd  ./com.financeworkspace.checkpoint-recheck
+c26aa4b28ca7c4af1efc8fd9d40e966c5c04998469a47e7d1b61c6895498e8fb  ./com.financeworkspace.fidelity-daily-agent
+c46783ec2455777545d340c0ca35a2cc8f0b6a6c20e43ddcedadfbcbef4936e2  ./com.financeworkspace.pit-snapshot)
+PASS: Q3 no .finance-runtime created (absent)
+== Q4 default full install unchanged (6 jobs / 12 calls) ==
+PASS: Q4 rc (0)
+PASS: Q4 calls (12)
+PASS: Q4 loaded jobs (6)
+PASS: Q4 reports 6 jobs
+== Q5 bootout failure is swallowed but next bootstrap conflict is loud ==
+PASS: Q5 rc=17 nonzero (bootstrap conflict surfaced)
+PASS: Q5 sync still loaded (old def) (loaded)
+PASS: Q5 on-disk sync plist already new (loaded!=disk until re-bootstrap) (1921f278d3e5fe088f81fa87faba11dc844a024e8b0e25043a9bdaa0e52eabe5)
+PASS: Q5 finalize loaded state untouched (old def) (loaded)
+PASS: Q5 finalize on-disk plist also new (copies precede launchctl) (71fe78623f56129e08f93b183e531ad9fadc9d270f0e07e9d15500f50ee2ecbe)
+PASS: Q5 calls before abort (bootout+bootstrap sync only) (2)
+PASS: Q5 rerun converges rc (0)
+== Q6 contradictory/unknown options fail before side effects (order-independent) ==
+PASS: Q6 [--dry-run --kickstart] rc (2)
+PASS: Q6 [--dry-run --kickstart] zero calls (0)
+PASS: Q6 [--dry-run --kickstart] home unchanged (19ad2fa1210efb30c508517ac1478fc09896e95abf9f8071aea4d85256ddd8ff  ./.local/bin/ops_python.sh
+1ce798693443327c8878649c1a8d29e7b3854410a193907a7b406a9a391736c7  ./Library/LaunchAgents/com.financeworkspace.daily-full-review-finalize.plist
+60eabe71c120c7ac9324c60ac1cdba9176a19441a31c2f6c7a6a9a773048c4da  ./.local/bin/nightly-full-review-s7.sh
+6a4456323c48aa9190732d4578a820c29993bf8f9ac47892b9fe314822d87213  ./Library/LaunchAgents/com.financeworkspace.fidelity-daily-agent.plist
+ab42920f82ff43e7b722d475a21dfecc63b81ee78fa4a36e22827d4832f82baf  ./.local/bin/nightly_full_review.sh
+ae42c600e42ddc764032c64d98f683d366b5e59003192ad1a53f0a122bad5a57  ./Library/LaunchAgents/com.financeworkspace.fidelity-forward-acceptance.plist
+b2a2a04513b18955fe4718fc7c619f6d9aa950c5a4b4611d3c588463e6b67257  ./Library/LaunchAgents/com.financeworkspace.checkpoint-recheck.plist
+b35af8f470e68db96944efe1f99ba9bab8cdb19b116e513b3e56c7706bb667cc  ./Library/LaunchAgents/com.financeworkspace.daily-full-review-sync.plist
+e0f5cdea9b2c80cb8faed59f0bf8b75dfb86a14ebc55f3704278e772198f068e  ./Library/LaunchAgents/com.financeworkspace.pit-snapshot.plist)
+PASS: Q6 [--kickstart --dry-run] rc (2)
+PASS: Q6 [--kickstart --dry-run] zero calls (0)
+PASS: Q6 [--kickstart --dry-run] home unchanged (19ad2fa1210efb30c508517ac1478fc09896e95abf9f8071aea4d85256ddd8ff  ./.local/bin/ops_python.sh
+1ce798693443327c8878649c1a8d29e7b3854410a193907a7b406a9a391736c7  ./Library/LaunchAgents/com.financeworkspace.daily-full-review-finalize.plist
+60eabe71c120c7ac9324c60ac1cdba9176a19441a31c2f6c7a6a9a773048c4da  ./.local/bin/nightly-full-review-s7.sh
+6a4456323c48aa9190732d4578a820c29993bf8f9ac47892b9fe314822d87213  ./Library/LaunchAgents/com.financeworkspace.fidelity-daily-agent.plist
+ab42920f82ff43e7b722d475a21dfecc63b81ee78fa4a36e22827d4832f82baf  ./.local/bin/nightly_full_review.sh
+ae42c600e42ddc764032c64d98f683d366b5e59003192ad1a53f0a122bad5a57  ./Library/LaunchAgents/com.financeworkspace.fidelity-forward-acceptance.plist
+b2a2a04513b18955fe4718fc7c619f6d9aa950c5a4b4611d3c588463e6b67257  ./Library/LaunchAgents/com.financeworkspace.checkpoint-recheck.plist
+b35af8f470e68db96944efe1f99ba9bab8cdb19b116e513b3e56c7706bb667cc  ./Library/LaunchAgents/com.financeworkspace.daily-full-review-sync.plist
+e0f5cdea9b2c80cb8faed59f0bf8b75dfb86a14ebc55f3704278e772198f068e  ./Library/LaunchAgents/com.financeworkspace.pit-snapshot.plist)
+PASS: Q6 [--nightly-onyl] rc (2)
+PASS: Q6 [--nightly-onyl] zero calls (0)
+PASS: Q6 [--nightly-onyl] home unchanged (19ad2fa1210efb30c508517ac1478fc09896e95abf9f8071aea4d85256ddd8ff  ./.local/bin/ops_python.sh
+1ce798693443327c8878649c1a8d29e7b3854410a193907a7b406a9a391736c7  ./Library/LaunchAgents/com.financeworkspace.daily-full-review-finalize.plist
+60eabe71c120c7ac9324c60ac1cdba9176a19441a31c2f6c7a6a9a773048c4da  ./.local/bin/nightly-full-review-s7.sh
+6a4456323c48aa9190732d4578a820c29993bf8f9ac47892b9fe314822d87213  ./Library/LaunchAgents/com.financeworkspace.fidelity-daily-agent.plist
+ab42920f82ff43e7b722d475a21dfecc63b81ee78fa4a36e22827d4832f82baf  ./.local/bin/nightly_full_review.sh
+ae42c600e42ddc764032c64d98f683d366b5e59003192ad1a53f0a122bad5a57  ./Library/LaunchAgents/com.financeworkspace.fidelity-forward-acceptance.plist
+b2a2a04513b18955fe4718fc7c619f6d9aa950c5a4b4611d3c588463e6b67257  ./Library/LaunchAgents/com.financeworkspace.checkpoint-recheck.plist
+b35af8f470e68db96944efe1f99ba9bab8cdb19b116e513b3e56c7706bb667cc  ./Library/LaunchAgents/com.financeworkspace.daily-full-review-sync.plist
+e0f5cdea9b2c80cb8faed59f0bf8b75dfb86a14ebc55f3704278e772198f068e  ./Library/LaunchAgents/com.financeworkspace.pit-snapshot.plist)
+== RESULT: 62 pass / 0 fail ==

@@ -40,7 +40,7 @@ stock-daily）静默挂起，整个 daily 就卡死且无进度输出。**
   `_runtime_market_reference_date = min(snapshot, db)` 把生产问答整日钳在 08-24 而 health/覆盖率全绿
   （台账 `R-20260826-01`；工单 `docs/superpowers/specs/2026-08-26-width-resonance-bag-workorder.md` §P0）。
 - **夜跑失败禁止直写生产**：18:30 S7 写的是 `db/market_feature_store.duckdb.staging`，same-day 不过门就不换名。补洞设 `MARKET_FEATURE_STORE_DB=…staging`，门绿才 `atomic_swap_into_place`。详见 `references/ops-pitfalls.md`「S7 staging」。
-- **两个 python 不是同一个**：`intelligence.cli` / DuckDB 用 `.venv-workbench/bin/python`；生成段 `CommandSpec` 写死 PATH 里的 `python3`，必须以 `/opt/homebrew/bin` 开头（venv 缺 `markdown`/`matplotlib`）。
+- **生成解释器随 launcher 固定**：已部署双根 launcher 及其 Python 子步骤统一用 workbench venv；外部 shell（如 KB receive）仍可能调 PATH 里的 `python3`，保持 `/opt/homebrew/bin` 在前。不要用旧“两个 Python”经验替代当次命令与依赖检查。
 - **每轮必记 runlog**：跑完把每个模块的 状态/耗时/走了哪条路径 追加到
   `state/runlog.md`，顺的路径记住，坑的路径下次规避。
 - **末尾自动补偿重试**：编排器跑完一轮后会对 fail/timeout 的模块统一重跑
@@ -122,18 +122,16 @@ worktree，跟随 `gitea/main`）。**不要在 `finance-workspace-private` 里�
 **档位**：日更固定 `local`（零复盘会请求，不需要 Chrome 登录态）。`full` / `cheap` 都要
 fupanhui 登录，登录失效时停在 preflight rc=3。
 
-**已知遗留（另单）**：生成段 `python -m intelligence.cli daily` 在 `cd "$WORKSPACE"`
-之后跑，`sys.path[0]` 是空串即 cwd，所以 `intelligence` 仍从主检出树加载
-（实测 `/Users/a77/finance-workspace-private/intelligence/__init__.py`）。
-质检闸门与同步器已钉住代码根，**生成段还没有**。
+**生成代码根**：finalize 用 `FINANCE_GENERATION_CODE_ROOT` 的 `scripts/run_daily_generation.py`，
+仅给该子进程设置 `FINANCE_CODE_ROOT`；L2、质检、方法仍沿用原 `FINANCE_CODE_ROOT`。
+生成根未单独配置时使用代码根，缺 launcher 就拒绝，绝不退到数据树。
+装机值见 finalize plist 的 `EnvironmentVariables`；手动补跑须显式传相同的两个代码根，
+因为终端不会继承 launchd 环境。具体部署与回滚见
+`../../docs/handoffs/2026-09-17-nightly-generation-deployment.md`。
 
 脚本按下面的"已验证模块顺序"逐个跑，逐模块超时 + 自动兜底 + 写 runlog。
-同步全绿后再跑生成段：
-
-```bash
-python3 -m intelligence.cli daily --date YYYY-MM-DD --skip-sync --from-step daily-review \
-  --summary-json market_feature_store/exports/YYYY-MM-DD-daily-workflow-summary.json
-```
+只补生成时先核对装机生成根，再以该根的 launcher 调 `daily --skip-sync`，
+保留 `FINANCE_DATA_ROOT` / `FORESIGHT_USERS_DIR`；不在数据仓裸跑 `python -m intelligence.cli daily`。
 
 ### 收尾：当日增量导出到本地快照（自动）
 

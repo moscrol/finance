@@ -1,0 +1,150 @@
+{
+  "axis": "quality",
+  "revision": "b0cf04fb446b8e87cb4a374b63d96b7c92824551",
+  "command": [
+    "/opt/homebrew/bin/pi",
+    "--provider",
+    "mirasim-kimi",
+    "--model",
+    "kimi-k3",
+    "--thinking",
+    "xhigh",
+    "--models",
+    "mirasim-kimi/kimi-k3",
+    "--no-session",
+    "--no-extensions",
+    "-e",
+    "/Users/a77/.finance-runtime/reviews/nightly-deploy-resume-20260921/credential-bootstrap.mjs",
+    "--no-skills",
+    "--no-prompt-templates",
+    "--no-context-files",
+    "--no-themes",
+    "--no-approve",
+    "--offline",
+    "--tools",
+    "read,bash,write,grep,find,ls",
+    "--mode",
+    "json",
+    "-p",
+    "--",
+    "<prompt file>"
+  ],
+  "prompt_sha256": "b917729ae9e3303145815bc332a860845e30a189830254449fcf837baa46cb72",
+  "common_sha256": "667cb2a8412da92bf63e46b2a990cf9383d43c1056f63bf303eb2d2c95331fb5",
+  "settings_sha256": "ea3b67cdee8eb32030f8e3b7acde1e3c4b4f9394ab399fd21b18b2aecc037b2d",
+  "authorization_sha256": "d1942c70ffd7e4747d29002995302ac2fbff32c0b0c325fcc52d8efb57fcdc56",
+  "runner_sha256": "f61edbae6ac924c3504ecfbfb1c4ed9a4ffa461886fddc591b7f4b523f93a10a",
+  "identity_before": {
+    "revision": "b0cf04fb446b8e87cb4a374b63d96b7c92824551",
+    "status": "",
+    "relevant_refs": "refs/heads/fix/nightly-deploy-closeout-0921 b0cf04fb446b8e87cb4a374b63d96b7c92824551\nrefs/remotes/gitea/main f2c3e9e1a24f42ae9b1d5a8cb9e501ababd1330a",
+    "author": {
+      "revision": "b0cf04fb446b8e87cb4a374b63d96b7c92824551",
+      "status": ""
+    },
+    "vault": {
+      "revision": "1cb5b4287114e14dd8a01e6e943eaf414b28cd37",
+      "status": ""
+    },
+    "inputs_sha256": {
+      "run-review.py": "f61edbae6ac924c3504ecfbfb1c4ed9a4ffa461886fddc591b7f4b523f93a10a",
+      "quality-prompt.md": "b917729ae9e3303145815bc332a860845e30a189830254449fcf837baa46cb72",
+      "review-common.md": "667cb2a8412da92bf63e46b2a990cf9383d43c1056f63bf303eb2d2c95331fb5",
+      "authorization-update.json": "d1942c70ffd7e4747d29002995302ac2fbff32c0b0c325fcc52d8efb57fcdc56",
+      "credential-bootstrap.mjs": "4abd95638e299f1be10bc3c7ecf5a56fc7834461f7a6b954550a1ec77da631e4",
+      "provider-template.json": "d3030f00ab3ba2d67c27d1fba2fcbdf60af34ea0d0d675e8bba704dfc54094b4",
+      "pi-config/settings.json": "ea3b67cdee8eb32030f8e3b7acde1e3c4b4f9394ab399fd21b18b2aecc037b2d",
+      "pi-config/models.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      "pi-config/auth.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      "spec-k3/qc.json": "8f91110bc1b10c567ffd9519eae7932b6101f398fbfdd57b4e1f976918d8b5fb",
+      "spec-k3/execution.json": "1332d2a4edc41175126d11c75f806e4ae69d7796193a5703a9964823b2727712",
+      "spec-applicability.json": "4f0e24f6bba3b09565982b21a5706a8098596792ac4ea788dc80f83e65f849b1"
+    },
+    "spec_report_sha256": "b39316b685fdc85fb3f8e4f15b1a47b45bde3c00eaa4e13f1ef9d000b6595295",
+    "spec_verdict_sha256": "af2eac820216e9b41c31f11c1f52b497148b474d9e4ec438af4166c3cc649e32"
+  },
+  "time_before": "2026-09-21T09:20:32.752378+00:00",
+  "complete": true,
+  "timeout_seconds": 1200,
+  "turn_watchdog_threshold": 41,
+  "max_provider_request_admissions": 40,
+  "monetary_cap": null,
+  "billing": "existing subscription; estimated cost is not a financial invoice",
+  "pid": 6541,
+  "exit_code": 0,
+  "stop_reason": null,
+  "identity_after": {
+    "revision": "b0cf04fb446b8e87cb4a374b63d96b7c92824551",
+    "status": "",
+    "relevant_refs": "refs/heads/fix/nightly-deploy-closeout-0921 b0cf04fb446b8e87cb4a374b63d96b7c92824551\nrefs/remotes/gitea/main f2c3e9e1a24f42ae9b1d5a8cb9e501ababd1330a",
+    "author": {
+      "revision": "b0cf04fb446b8e87cb4a374b63d96b7c92824551",
+      "status": ""
+    },
+    "vault": {
+      "revision": "ae615900ea5f434ffcef3573a7ffea886ccc2740",
+      "status": ""
+    },
+    "inputs_sha256": {
+      "run-review.py": "f61edbae6ac924c3504ecfbfb1c4ed9a4ffa461886fddc591b7f4b523f93a10a",
+      "quality-prompt.md": "b917729ae9e3303145815bc332a860845e30a189830254449fcf837baa46cb72",
+      "review-common.md": "667cb2a8412da92bf63e46b2a990cf9383d43c1056f63bf303eb2d2c95331fb5",
+      "authorization-update.json": "d1942c70ffd7e4747d29002995302ac2fbff32c0b0c325fcc52d8efb57fcdc56",
+      "credential-bootstrap.mjs": "4abd95638e299f1be10bc3c7ecf5a56fc7834461f7a6b954550a1ec77da631e4",
+      "provider-template.json": "d3030f00ab3ba2d67c27d1fba2fcbdf60af34ea0d0d675e8bba704dfc54094b4",
+      "pi-config/settings.json": "ea3b67cdee8eb32030f8e3b7acde1e3c4b4f9394ab399fd21b18b2aecc037b2d",
+      "pi-config/models.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      "pi-config/auth.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      "spec-k3/qc.json": "8f91110bc1b10c567ffd9519eae7932b6101f398fbfdd57b4e1f976918d8b5fb",
+      "spec-k3/execution.json": "1332d2a4edc41175126d11c75f806e4ae69d7796193a5703a9964823b2727712",
+      "spec-applicability.json": "4f0e24f6bba3b09565982b21a5706a8098596792ac4ea788dc80f83e65f849b1"
+    },
+    "spec_report_sha256": "b39316b685fdc85fb3f8e4f15b1a47b45bde3c00eaa4e13f1ef9d000b6595295",
+    "spec_verdict_sha256": "af2eac820216e9b41c31f11c1f52b497148b474d9e4ec438af4166c3cc649e32"
+  },
+  "time_after": "2026-09-21T09:35:30.415045+00:00",
+  "elapsed_seconds": 897.662,
+  "candidate_untouched": true,
+  "author_untouched": true,
+  "relevant_refs_unchanged": true,
+  "vault_unchanged": false,
+  "inputs_unchanged": true,
+  "spec_unchanged": true,
+  "event_counts": {
+    "session": 1,
+    "agent_start": 1,
+    "turn_start": 24,
+    "message_start": 58,
+    "message_end": 58,
+    "message_update": 17731,
+    "tool_execution_start": 33,
+    "tool_execution_end": 33,
+    "turn_end": 24,
+    "tool_execution_update": 75,
+    "agent_end": 1,
+    "agent_settled": 1
+  },
+  "assistant_messages": 24,
+  "model_identities": [
+    "mirasim-kimi/kimi-k3"
+  ],
+  "model_errors": [],
+  "usage": {
+    "input": 95150,
+    "output": 23327,
+    "cacheRead": 640708,
+    "cacheWrite": 0,
+    "totalTokens": 759185
+  },
+  "estimated_cost_not_invoice": 0,
+  "provider_request_admissions": 24,
+  "admissions_valid": true,
+  "sha256": {
+    "events.jsonl": "b86ac765fd18745f6fbeb32453b12d79315fa537569841a95d06b9f5d3a059c2",
+    "stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "REPORT.md": "9860e2e01fee8ab749ce9bc1207f9dfd01f6b214adc97eb96868536e1c8c5420",
+    "verdict.json": "0352fe8eba2276ac6084767b8660dde3945664cfa67602214d87aeac28de63f6",
+    "credential.json": "0568dc9906c902c406a40379489ae084a1574cb20ddfd3b8a6e1f466b66bb488",
+    "request-admissions.jsonl": "d0e251e91a7d25559304675ccb74cbaf320c0687bd110d3904a8ec82ec9f24c7"
+  }
+}

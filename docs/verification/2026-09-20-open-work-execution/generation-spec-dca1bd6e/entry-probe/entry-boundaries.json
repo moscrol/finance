@@ -1,0 +1,81 @@
+{
+  "revision": "dca1bd6e73f443ca09d08ef0a6c8b9b2bb0018a9",
+  "final_revision": "dca1bd6e73f443ca09d08ef0a6c8b9b2bb0018a9",
+  "target_status": "",
+  "cases": [
+    {
+      "case": "safe_external_alert",
+      "returncode": 1,
+      "changed_generation_code_files": [],
+      "changed_ops_code_files": [],
+      "launcher_root_diagnostic": false,
+      "launcher_imported": true,
+      "receiver_executed": false,
+      "alert_written": true,
+      "alert_text": "2026-09-20T01:46:07\t[daily-review FAIL] date=2026-09-11 | failed=quality-gate | warn=- | error=command failed with returncode 3\n",
+      "passed": true,
+      "command": [
+        "/bin/zsh",
+        "/Users/a77/.finance-runtime/open-work-execution-20260920/generation-spec-dca1bd6e/entry-probe/safe_external_alert-oac475lb/code snapshot/skills/daily-full-review/scripts/nightly_full_review.sh",
+        "finalize",
+        "2026-09-11"
+      ]
+    },
+    {
+      "case": "generation_rejected_alert",
+      "returncode": 2,
+      "changed_generation_code_files": [],
+      "changed_ops_code_files": [],
+      "launcher_root_diagnostic": true,
+      "launcher_imported": false,
+      "receiver_executed": false,
+      "alert_written": false,
+      "alert_text": null,
+      "passed": true,
+      "command": [
+        "/bin/zsh",
+        "/Users/a77/.finance-runtime/open-work-execution-20260920/generation-spec-dca1bd6e/entry-probe/generation_rejected_alert-7qrkt88y/code snapshot/skills/daily-full-review/scripts/nightly_full_review.sh",
+        "finalize",
+        "2026-09-11"
+      ]
+    },
+    {
+      "case": "l2_failed_alert",
+      "returncode": 1,
+      "changed_generation_code_files": [],
+      "changed_ops_code_files": [],
+      "launcher_root_diagnostic": false,
+      "launcher_imported": false,
+      "receiver_executed": false,
+      "alert_written": false,
+      "alert_text": null,
+      "passed": true,
+      "command": [
+        "/bin/zsh",
+        "/Users/a77/.finance-runtime/open-work-execution-20260920/generation-spec-dca1bd6e/entry-probe/l2_failed_alert-lk8dyhup/code snapshot/skills/daily-full-review/scripts/nightly_full_review.sh",
+        "finalize",
+        "2026-09-11"
+      ]
+    },
+    {
+      "case": "receive_escape",
+      "returncode": 2,
+      "changed_generation_code_files": [],
+      "changed_ops_code_files": [],
+      "launcher_root_diagnostic": true,
+      "launcher_imported": false,
+      "receiver_executed": false,
+      "alert_written": false,
+      "alert_text": null,
+      "passed": true,
+      "command": [
+        "/bin/zsh",
+        "/Users/a77/.finance-runtime/open-work-execution-20260920/generation-spec-dca1bd6e/entry-probe/receive_escape-e1vho7w9/code snapshot/skills/daily-full-review/scripts/nightly_full_review.sh",
+        "finalize",
+        "2026-09-11"
+      ]
+    }
+  ],
+  "passed": 4,
+  "failed": 0
+}

@@ -1,0 +1,121 @@
+"""Real CLI + finance service + prewarmed BGE consumers on a frozen pair only.
+
+No API server, production swap, source/index writes, reranker, or model download.
+Logs/telemetry are isolated. This proves retrieval wiring, not answer quality.
+"""
+from dataclasses import asdict
+import datetime as dt
+import hashlib
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+
+HOME = Path.home()
+ROOT = HOME / '.finance-runtime/kb-dual-index-20260918'
+CODE = HOME / '.finance-runtime/kb-code-23b4f5e4e1ac'
+FINANCE = ROOT / 'gate-e9bb34c3/finance-workspace-private'
+PY = HOME / 'knowledge-base-private/.rag_venv/bin/python'
+VAULT = ROOT / 'source/wiki'
+PAIR = ROOT / 'staging-v4'
+OUT = ROOT / 'evidence/consumer-v4'
+OUT.mkdir(exist_ok=False)
+os.environ.update(
+    KB_RAG_CODE_ROOT=str(CODE), KB_RAG_PYTHON=str(PY),
+    RAG_INDEX_DIR=str(PAIR / '.rag_index'),
+    KB_RAG_FULL_INDEX_DIR=str(PAIR / '.rag_index_full'),
+    KB_ACCESS_LOG_PATH=str(OUT / 'access.jsonl'),
+    HF_HUB_OFFLINE='1', TRANSFORMERS_OFFLINE='1', PYTHONDONTWRITEBYTECODE='1',
+    RAG_WORKER_ENABLED='1', RAG_WORKER_KEEPALIVE_SECONDS='0',
+)
+# Intentionally wrong ambient source: explicit kb_wiki must win in both paths.
+os.environ['KB_VAULT'] = str(ROOT / 'nonexistent-ambient-wiki')
+sys.path.insert(0, str(FINANCE))
+from intelligence.services import kb_rag, rag_worker
+
+
+def hashes():
+    return {p.relative_to(PAIR).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
+            for name in ('.rag_index', '.rag_index_full')
+            for p in sorted((PAIR / name).iterdir()) if p.is_file()}
+
+
+before = hashes()
+(OUT / 'index-before.json').write_text(json.dumps(before, indent=2))
+probe = kb_rag.probe_rag_cli(VAULT, timeout=30)
+(OUT / 'probe.json').write_text(json.dumps(asdict(probe), ensure_ascii=False, indent=2))
+assert probe.available and probe.query_protocol_compatible
+results = []
+
+
+def save_and_assert(label, result, name, mode, filtered):
+    (OUT / f'{label}.json').write_text(json.dumps(asdict(result), ensure_ascii=False, indent=2))
+    assert result.ok and result.hits, (label, result.warning)
+    tel = result.telemetry
+    assert Path(tel.index_dir).resolve() == PAIR / name
+    assert tel.effective_mode == mode and not tel.fallback_reason, asdict(tel)
+    if filtered:
+        assert tel.filter_verification == 'verified' and tel.metadata_version == 1
+        assert tel.applied_filters == {'evidence_layer': 'L3'}
+    for hit in result.hits:
+        assert hit.index_freshness == 'fresh'
+        assert all(marker not in hit.excerpt for marker in ('<<<<<<<', '>>>>>>>'))
+        if filtered:
+            assert hit.evidence_layer == 'L3' and hit.evidence_scope_bound
+    results.append({'label': label, 'status': 'pass', 'index': name,
+                    'hits': len(result.hits), 'mode': mode,
+                    'filter_verification': tel.filter_verification,
+                    'paths': [h.file_path for h in result.hits]})
+    (OUT / 'results.json').write_text(json.dumps(results, ensure_ascii=False, indent=2))
+    print(json.dumps(results[-1], ensure_ascii=False), flush=True)
+
+
+try:
+    for name in ('.rag_index', '.rag_index_full'):
+        idx_arg = None if name == '.rag_index' else '.rag_index_full'
+        result = kb_rag.retrieve('液冷', VAULT, k=3, mode='bm25', timeout=120,
+                                 evidence_layer='L3', index_dir=idx_arg, worker_enabled=False)
+        save_and_assert(f'{name[1:]}-cli-bm25', result, name, 'bm25', True)
+
+        # Direct accepted CLI must retrieve a formerly swallowed raw page.
+        if name == '.rag_index_full':
+            env = dict(os.environ, KB_VAULT=str(VAULT), RAG_INDEX_DIR=str(PAIR / name))
+            cmd = [str(PY), str(CODE / 'scripts/rag_index.py'), 'query',
+                   '毫米波雷达 十五分钟', '--mode', 'bm25', '--k', '10', '--json', '--receipt']
+            proc = subprocess.run(cmd, env=env, cwd=CODE, text=True, capture_output=True, timeout=120)
+            (OUT / 'restored-raw-cli.json').write_text(proc.stdout)
+            (OUT / 'restored-raw-cli.stderr.txt').write_text(proc.stderr)
+            assert proc.returncode == 0
+            payload = json.loads(proc.stdout)
+            assert any(h['file_path'] == 'raw/毫米波雷达-演讲稿.md' for h in payload['hits'])
+
+        # Prewarm one model at a time to avoid keeping both multi-GB workers resident.
+        if name == '.rag_index':
+            state = kb_rag.prewarm(VAULT, timeout=240)
+        else:
+            rag_worker.prewarm(python=str(PY), kb_root=CODE, index_dir=PAIR / name,
+                               kb_wiki=VAULT, timeout=240,
+                               argv=['query', '液冷', '--k', '1', '--mode', 'hybrid',
+                                     '--stale-policy', 'fail', '--json', '--receipt'])
+            state = rag_worker.status()
+        (OUT / f'{name[1:]}-prewarm.json').write_text(json.dumps(state, ensure_ascii=False, indent=2))
+        for seq in (1, 2):
+            result = kb_rag.retrieve('液冷', VAULT, k=3, mode='hybrid', timeout=120,
+                                     evidence_layer='L3', index_dir=idx_arg, worker_enabled=True)
+            save_and_assert(f'{name[1:]}-warm-hybrid-{seq}', result, name, 'hybrid', True)
+        (OUT / f'{name[1:]}-worker-after.json').write_text(json.dumps(rag_worker.status(), ensure_ascii=False, indent=2))
+        rag_worker.close_all()
+finally:
+    rag_worker.close_all()
+    after = hashes()
+    (OUT / 'index-after.json').write_text(json.dumps(after, indent=2))
+    assert after == before, 'read-only consumer mutated staging indexes'
+(OUT / 'summary.json').write_text(json.dumps({
+    'observed_at': dt.datetime.now(dt.timezone.utc).isoformat(),
+    'finance_revision': 'e9bb34c37101a21b0dfab80393bda1d5b8b4f548',
+    'kb_revision': '23b4f5e4e1ace932fcc741197bf4892c272bf541',
+    'status': 'pass', 'query_cases': len(results), 'index_bytes_unchanged': True,
+    'scope': 'CLI/service/prewarm workers; not 8792/answer quality/rerank/maintenance',
+    'production_switched': False,
+}, ensure_ascii=False, indent=2))

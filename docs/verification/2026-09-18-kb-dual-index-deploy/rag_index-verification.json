@@ -1,0 +1,187 @@
+{
+  "index": ".rag_index",
+  "frozen_health": {
+    "index_dir": "/Users/a77/.finance-runtime/kb-dual-index-20260918/staging/.rag_index",
+    "status": "degraded",
+    "issues": [
+      "conflict pages quarantined; source review required"
+    ],
+    "freshness": "fresh",
+    "built_at": "2026-09-18T13:23:57Z",
+    "include_raw": false,
+    "num_chunks": 168861,
+    "indexed_files": 14434,
+    "selected_files": 14448,
+    "missing_files_count": 0,
+    "missing_files_sample": [],
+    "source_conflicts_count": 14,
+    "source_conflicts_sample": [
+      "wiki/concepts/CPU.md",
+      "wiki/concepts/MLCC.md",
+      "wiki/concepts/光纤光缆.md",
+      "wiki/concepts/光芯片.md",
+      "wiki/concepts/光通信.md",
+      "wiki/concepts/商业航天.md",
+      "wiki/concepts/固态电池.md",
+      "wiki/concepts/存储芯片.md",
+      "wiki/concepts/电子布.md",
+      "wiki/concepts/磷化铟.md",
+      "wiki/concepts/算力租赁.md",
+      "wiki/concepts/铜箔.md",
+      "wiki/entities/内蒙一机.md",
+      "wiki/sources/晚卖研汇_20260620.md"
+    ],
+    "indexed_conflicts_count": 0,
+    "indexed_conflicts_sample": [],
+    "unreadable_files_count": 0,
+    "metadata_version": 1,
+    "evidence_field_counts": {
+      "evidence_layer": 17567,
+      "fact_hardness": 17608,
+      "source_type": 18444,
+      "source_quality": 20470,
+      "publish_time": 78134,
+      "available_time": 78206,
+      "review_required": 487
+    },
+    "raw_coverage": {
+      "raw/": {
+        "selected_files": 0,
+        "indexed_files": 0
+      },
+      "wiki/raw/disclosures/": {
+        "selected_files": 0,
+        "indexed_files": 0
+      },
+      "wiki/raw/sellside/": {
+        "selected_files": 0,
+        "indexed_files": 0
+      },
+      "wiki/raw/briefings/": {
+        "selected_files": 0,
+        "indexed_files": 0
+      }
+    }
+  },
+  "live_health": {
+    "index_dir": "/Users/a77/.finance-runtime/kb-dual-index-20260918/staging/.rag_index",
+    "status": "degraded",
+    "issues": [
+      "conflict pages quarantined; source review required"
+    ],
+    "freshness": "fresh",
+    "built_at": "2026-09-18T13:23:57Z",
+    "include_raw": false,
+    "num_chunks": 168861,
+    "indexed_files": 14434,
+    "selected_files": 14448,
+    "missing_files_count": 0,
+    "missing_files_sample": [],
+    "source_conflicts_count": 14,
+    "source_conflicts_sample": [
+      "wiki/concepts/CPU.md",
+      "wiki/concepts/MLCC.md",
+      "wiki/concepts/光纤光缆.md",
+      "wiki/concepts/光芯片.md",
+      "wiki/concepts/光通信.md",
+      "wiki/concepts/商业航天.md",
+      "wiki/concepts/固态电池.md",
+      "wiki/concepts/存储芯片.md",
+      "wiki/concepts/电子布.md",
+      "wiki/concepts/磷化铟.md",
+      "wiki/concepts/算力租赁.md",
+      "wiki/concepts/铜箔.md",
+      "wiki/entities/内蒙一机.md",
+      "wiki/sources/晚卖研汇_20260620.md"
+    ],
+    "indexed_conflicts_count": 0,
+    "indexed_conflicts_sample": [],
+    "unreadable_files_count": 0,
+    "metadata_version": 1,
+    "evidence_field_counts": {
+      "evidence_layer": 17567,
+      "fact_hardness": 17608,
+      "source_type": 18444,
+      "source_quality": 20470,
+      "publish_time": 78134,
+      "available_time": 78206,
+      "review_required": 487
+    },
+    "raw_coverage": {
+      "raw/": {
+        "selected_files": 0,
+        "indexed_files": 0
+      },
+      "wiki/raw/disclosures/": {
+        "selected_files": 0,
+        "indexed_files": 0
+      },
+      "wiki/raw/sellside/": {
+        "selected_files": 0,
+        "indexed_files": 0
+      },
+      "wiki/raw/briefings/": {
+        "selected_files": 0,
+        "indexed_files": 0
+      }
+    }
+  },
+  "metadata_counts": {
+    "evidence_layer": 17567,
+    "fact_hardness": 17608,
+    "source_quality": 20470,
+    "publish_time": 78134,
+    "available_time": 78206,
+    "review_required": 487,
+    "source_type": 18444
+  },
+  "layer_counts": {
+    "<unknown>": 151294,
+    "L1_L3_candidate": 72,
+    "L3": 12,
+    "L1": 63,
+    "L3。": 4,
+    "L3-L4": 4,
+    "L2": 17412
+  },
+  "layer_hardness_with_available_time": {
+    "('L3', 'hard_fact_candidate')": 12,
+    "('L1', 'research_claim')": 15,
+    "('L1_L3_candidate', 'review_candidate')": 64,
+    "('L2', 'baseline')": 17412
+  },
+  "selected_files": 14448,
+  "indexed_files": 14434,
+  "quarantined_files": [
+    "wiki/concepts/CPU.md",
+    "wiki/concepts/MLCC.md",
+    "wiki/concepts/光纤光缆.md",
+    "wiki/concepts/光芯片.md",
+    "wiki/concepts/光通信.md",
+    "wiki/concepts/商业航天.md",
+    "wiki/concepts/固态电池.md",
+    "wiki/concepts/存储芯片.md",
+    "wiki/concepts/电子布.md",
+    "wiki/concepts/磷化铟.md",
+    "wiki/concepts/算力租赁.md",
+    "wiki/concepts/铜箔.md",
+    "wiki/entities/内蒙一机.md",
+    "wiki/sources/晚卖研汇_20260620.md"
+  ],
+  "unexplained_gaps": [],
+  "vector_rows_checked": 168861,
+  "file_hashes": {
+    "bm25.pkl.gz": "ace84f10b0aa53ccc37d12ea39c53021cf928f61770a6a6fc0cc05ee739e079f",
+    "bm25_csc.data.npy": "bb48c934608bbb63685c59a2a6b7a883331d9a98376c70ab41c05358d1acdd7f",
+    "bm25_csc.indices.npy": "b8cd331a800e9ef616bbb41e640135e62d7b24a890977c5c82bf5548a6ad0542",
+    "bm25_csc.indptr.npy": "b35a49af370365bc65228131baa11dfaffee3273ede64e06d3a7e0c87d81b404",
+    "bm25_csc.meta.json": "40b9d74ad361a2863d7f8d4b7594ace5287ea1e900c13b9d2a376cd43bd1b799",
+    "bm25_csc.term_offsets.npy": "14b4ff1f9e978daef92a7a6377c4e058880a208519dd80635dcf3e22ddfff8ab",
+    "bm25_csc.terms.bin": "b371bfa501d4adea320aa04b4369549b5b01763b2a295345e13575d6f92cf3e0",
+    "bm25_tokens.jsonl.gz": "07120891d422b544e8220ed5c124ab8ba92dc99298817249e3dc3e053ca4097c",
+    "chunks.jsonl": "eb93eca3f1b7f6b3a1dee181a1a6831437f51c54cd67aed2d5d8a9238fc995d9",
+    "dense.npy": "3a9cc7541ae051a54f63e1b2b2ad2414d062cf76a55eec2486aebf6c5b99b905",
+    "file_stat_cache.jsonl": "dfb18225a1fc05ae50f9a9939a77e7aea1aad31b1af0a0da544cd8fb5af8d0e7",
+    "meta.json": "f33b94fcc39852fe81bbf36d75f153b6f2d2ec84d437e48d039ff17d53d5a844"
+  }
+}

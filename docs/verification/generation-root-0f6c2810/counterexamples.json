@@ -1,0 +1,81 @@
+{
+  "revision": "0f6c28101b92d654338e705c357778cf1d818a85",
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "fixture": "temporary SQL/quality fixture; real CLI/runner/writers",
+  "cases": [
+    {
+      "case": "summary_full",
+      "returncode": 2,
+      "changed_code_files": [],
+      "stale_code_executed": false,
+      "root_diagnostic": true,
+      "argument_rejected": false,
+      "passed": true
+    },
+    {
+      "case": "summary_abbrev",
+      "returncode": 0,
+      "changed_code_files": [
+        "qc-summary.json"
+      ],
+      "stale_code_executed": false,
+      "root_diagnostic": false,
+      "argument_rejected": false,
+      "passed": false
+    },
+    {
+      "case": "user_subdir_symlink",
+      "returncode": 0,
+      "changed_code_files": [
+        "qc-user/workflow_metrics.jsonl"
+      ],
+      "stale_code_executed": false,
+      "root_diagnostic": false,
+      "argument_rejected": false,
+      "passed": false
+    },
+    {
+      "case": "html_day_symlink",
+      "returncode": 0,
+      "changed_code_files": [
+        "qc-report/2026-09-11-advancers-ma5.png",
+        "qc-report/2026-09-11-daily-review.html"
+      ],
+      "stale_code_executed": false,
+      "root_diagnostic": false,
+      "argument_rejected": false,
+      "passed": false
+    },
+    {
+      "case": "quality_state_symlink",
+      "returncode": 0,
+      "changed_code_files": [
+        "qc-quality/quality-2026-09-11.json"
+      ],
+      "stale_code_executed": false,
+      "root_diagnostic": false,
+      "argument_rejected": false,
+      "passed": false
+    },
+    {
+      "case": "direct_script_symlink_raises",
+      "returncode": 1,
+      "changed_code_files": [],
+      "stale_code_executed": true,
+      "root_diagnostic": false,
+      "argument_rejected": false,
+      "passed": false
+    },
+    {
+      "case": "direct_script_symlink_succeeds",
+      "returncode": 0,
+      "changed_code_files": [],
+      "stale_code_executed": true,
+      "root_diagnostic": false,
+      "argument_rejected": false,
+      "passed": false
+    }
+  ],
+  "passed": 1,
+  "failed": 6
+}

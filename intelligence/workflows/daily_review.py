@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import os
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -9,6 +11,10 @@ from intelligence.paths import ProjectPaths, default_paths, vector_index_dir_for
 from intelligence.runner import run_command_step
 from intelligence.summary import WorkflowStep, WorkflowSummary, now_iso
 from scripts.notify_ops import send_alert
+from market_feature_store.consumption_registry import resolve_plan
+
+
+CODE_ROOT = Path(__file__).resolve().parents[2]
 
 
 @dataclass(frozen=True)
@@ -42,10 +48,13 @@ class DailyReviewOptions:
     step_timeout_sec: float = 1800
     alerts_enabled: bool = True
     alert_on_warn: bool = False
+    plan: str | None = None
 
     def __post_init__(self) -> None:
         if self.step_timeout_sec <= 0:
             raise ValueError("step_timeout_sec must be positive")
+        # 入口解析一次，恢复执行和两道门使用同一实际档位，不再各自读环境。
+        object.__setattr__(self, "plan", resolve_plan(self.plan, self.date))
 
 
 def build_daily_review_plan(options: DailyReviewOptions, paths: ProjectPaths | None = None) -> list[CommandSpec]:
@@ -82,7 +91,7 @@ def build_daily_review_plan(options: DailyReviewOptions, paths: ProjectPaths | N
 
     plan.append(CommandSpec(
         name="quality-gate",
-        argv=["python3", "scripts/check_daily_review_data.py", date, "--phase", "data"],
+        argv=["python3", "scripts/check_daily_review_data.py", date, "--phase", "data", "--plan", options.plan],
         outputs=[],
     ))
 
@@ -92,6 +101,7 @@ def build_daily_review_plan(options: DailyReviewOptions, paths: ProjectPaths | N
             "python3", "-m", "market_feature_store.cli", "check-daily",
             "--trade-date", date,
             "--json", str(paths.finance_root / "skills" / "daily-full-review" / "state" / f"quality-{date}.json"),
+            "--plan", options.plan,
         ],
         outputs=[],
     ))
@@ -103,11 +113,15 @@ def build_daily_review_plan(options: DailyReviewOptions, paths: ProjectPaths | N
             "skills/daily-full-review/scripts/export_increment.py",
             "--date",
             date,
+            "--db", str(Path(os.environ.get("MARKET_FEATURE_STORE_DB") or paths.finance_root / "db/market_feature_store.duckdb").expanduser()),
+            "--out-root", str(Path(os.environ.get("DUCKDB_SNAPSHOT_OUT_ROOT") or paths.finance_root / "db/snapshots").expanduser()),
         ],
         outputs=[],
     ))
 
-    review_argv = ["python3", "-m", "market_feature_store.cli", "daily-review", "--trade-date", date]
+    review_argv = ["python3", "-m", "market_feature_store.cli", "daily-review", "--trade-date", date,
+                   "--output", str(exports / f"{date}-daily-review.md"),
+                   "--chart-output", str(exports / f"{date}-advancers-ma5.png")]
     if options.start_date:
         review_argv.extend(["--start-date", options.start_date])
     # JSON 是台账真本源（Workbench 投影 / 框架解读读它），md 是渲染物。
@@ -123,7 +137,7 @@ def build_daily_review_plan(options: DailyReviewOptions, paths: ProjectPaths | N
 
     plan.append(CommandSpec(
         name="daily-review-html",
-        argv=["python3", "scripts/render_daily_review_briefing.py", date],
+        argv=["python3", "scripts/render_daily_review_briefing.py", date, "--plan", options.plan],
         outputs=[str(daily_dir / f"{date}-daily-review.html")],
     ))
 
@@ -247,6 +261,25 @@ def build_daily_review_plan(options: DailyReviewOptions, paths: ProjectPaths | N
                 ],
                 outputs=[],
             ))
+            plan.append(CommandSpec(
+                name="ima-gap-report",
+                argv=[
+                    "python3",
+                    "-m",
+                    "intelligence.cli",
+                    "ima-gap-report",
+                    "--date",
+                    date,
+                    "--kb-wiki",
+                    str(paths.knowledge_wiki),
+                    "--finance-root",
+                    str(paths.finance_root),
+                ],
+                outputs=[
+                    str(exports / f"{date}-ima-gap.json"),
+                    str(exports / f"{date}-ima-gap.md"),
+                ],
+            ))
 
     plan.append(CommandSpec(
         name="strategy1-matrix-draft",
@@ -276,6 +309,13 @@ def build_daily_review_plan(options: DailyReviewOptions, paths: ProjectPaths | N
             outputs=[str(paths.finance_root / "复盘" / "index.html")],
         ))
 
+    # 用本进程解释器，所有可执行文件只属于加载的代码树；输出参数仍来自 paths。
+    # 直接脚本用绝对路径，缺文件即失败，不让 scripts 命名空间搜索到别的检出树。
+    for step in plan:
+        argv = step.argv
+        if argv[1].startswith(("scripts/", "skills/")):
+            argv[1] = str(CODE_ROOT / argv[1])
+        argv[0:1] = [sys.executable, "-P"]
     return plan
 
 
@@ -284,6 +324,15 @@ def filter_plan(plan: list[CommandSpec], options: DailyReviewOptions) -> tuple[l
     step_names = [step.name for step in plan]
     if options.from_step and options.only_step:
         return [], ["--from-step and --only-step cannot be used together"]
+    sync_selected = not options.skip_sync and (
+        options.only_step in {"preflight-db-lock", "daily-update"}
+        or (not options.only_step and options.from_step in {None, "preflight-db-lock", "daily-update"})
+    )
+    if sync_selected and options.plan != "full":
+        return [], [
+            f"daily-update does not support plan={options.plan}; refusing full sync. "
+            "Complete the matching sync plan first, then use --skip-sync."
+        ]
     if options.from_step:
         if options.from_step not in step_names:
             return [], [f"unknown --from-step: {options.from_step}; allowed: {', '.join(step_names)}"]
@@ -321,6 +370,7 @@ def filter_plan(plan: list[CommandSpec], options: DailyReviewOptions) -> tuple[l
 def summary_inputs(options: DailyReviewOptions, dry_run: bool) -> dict:
     return {
         "date": options.date,
+        "plan": options.plan,
         "user": options.user,
         "skip_sync": options.skip_sync,
         "skip_long": options.skip_long,
@@ -462,6 +512,12 @@ def run_daily_review(options: DailyReviewOptions, paths: ProjectPaths | None = N
         warnings=plan_messages,
     )
 
+    child_env = dict(os.environ)
+    child_env.update(FINANCE_WS=str(paths.finance_root.resolve()),
+                     FINANCE_DATA_ROOT=str(paths.finance_root.resolve()),
+                     PYTHONPATH=str(CODE_ROOT), PYTHONSAFEPATH="1", PYTHONDONTWRITEBYTECODE="1")
+    child_env.setdefault("MARKET_FEATURE_STORE_DB", str(paths.finance_root / "db/market_feature_store.duckdb"))
+    child_env.setdefault("FORESIGHT_USERS_DIR", str(userspace.users_dir()))
     blocked = False
     for step in plan:
         if blocked:
@@ -477,6 +533,7 @@ def run_daily_review(options: DailyReviewOptions, paths: ProjectPaths | None = N
             step.name,
             step.argv,
             cwd=paths.finance_root,
+            env=child_env,
             outputs=step.outputs,
             timeout_sec=step.timeout_sec or options.step_timeout_sec,
         )

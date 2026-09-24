@@ -1,0 +1,24 @@
+{
+  "original_path": "/tmp/hithink-capture-restored-receipt-check-c85d0101.log",
+  "raw_sha256": "cc28a998e73fcf56ac8d89d7e54da8066b3e5eed7425a55de9cc34851b9229a4",
+  "encoding": "utf-8",
+  "lines": [
+    "========================================================================\n",
+    "读数收据校验 — 判「能不能采信」，不重跑测试\n",
+    "========================================================================\n",
+    "  收据     /Users/a77/.finance-runtime/test-receipts/20260915T080851Z-c85d0101.json\n",
+    "  产生于   2026-09-15T08:08:51+00:00\n",
+    "  目标     tests/test_hithink_sector_capture.py tests/test_hithink_sector_capture_integration.py tests/test_hithink_sector_kline.py tests/test_hithink_sector_preview.py tests/test_review_sync_hithink_wiring.py tests/test_consumption_registry.py\n",
+    "  读数     passed=141 failed=0 error=0 skipped=0\n",
+    "\n",
+    "  ✓ revision 一致\n",
+    "  ✓ 解释器一致\n",
+    "  ✓ python 版本一致\n",
+    "  ✓ 依赖指纹一致\n",
+    "  ✓ 收据来自干净树\n",
+    "  ✓ 依赖门禁未被绕过\n",
+    "  ✓ 收据 revision == c85d01017fa2\n",
+    "\n",
+    "✅ 可采信 —— 收据成立的条件与当前环境一致，无需重跑。\n"
+  ]
+}

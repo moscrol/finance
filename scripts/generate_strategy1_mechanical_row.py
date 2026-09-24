@@ -30,9 +30,14 @@ from pathlib import Path
 import duckdb
 
 ROOT = Path(__file__).resolve().parents[1]
-DB = ROOT / "db/market_feature_store.duckdb"
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from intelligence.paths import data_repo_root, default_market_db_path  # noqa: E402
+
+DB = default_market_db_path()
 UPDATER = ROOT / "skills/strategy1-matrix/scripts/update_matrix.py"
-MATRIX = ROOT / "复盘/matrices/strategy1-priority-stock-matrix.html"
+MATRIX = data_repo_root() / "复盘/matrices/strategy1-priority-stock-matrix.html"
 
 
 def fetch(date: str) -> dict:
@@ -163,7 +168,8 @@ def main() -> int:
         print(f"[strategy1] {args.date} 无候选（fact_stock_daily/fact_sw_l1_daily 缺数据？），跳过")
         return 1
     row = build_row(args.date, data)
-    row_path = Path(f"/tmp/strategy1-row-{args.date}.json")
+    row_path = data_repo_root() / f"market_feature_store/exports/{args.date}-strategy1-row.json"
+    row_path.parent.mkdir(parents=True, exist_ok=True)
     row_path.write_text(json.dumps(row, ensure_ascii=False, indent=1), encoding="utf-8")
 
     cmd = [sys.executable, str(UPDATER), "--row-json", str(row_path), "--matrix", args.matrix]

@@ -1,0 +1,11 @@
+{
+  "original_path": "/tmp/hithink-capture-frontend-lint-c85d0101.log",
+  "raw_sha256": "2b6f85e5f7c3ef532bda0d3f9c3c8531c6dd2ab250495bdb8e62c55bf020ee45",
+  "encoding": "utf-8",
+  "lines": [
+    "\n",
+    "> market-intelligence-workbench@0.1.0 lint /Users/a77/fwp-wt-hithink-review-wiring/intelligence/webapp\n",
+    "> eslint .\n",
+    "\n"
+  ]
+}

@@ -1,0 +1,31 @@
+PASS R1.expired_baseline_rc2 rc=2
+PASS R1.expired_baseline_refresh_false False
+PASS R1.expired_baseline_skip_no_baseline {'no_baseline': 2}
+PASS R1.expired_baseline_old_value_kept price=10.0
+PASS R1.expired_baseline_audit_untouched True
+PASS R1.expired_baseline_msg 
+PASS R1.control365_rc0 rc=0
+PASS R1.control365_refresh_true 
+PASS R1.control365_value_rewritten price=12.0
+PASS R1.control365_all_stitched 
+PASS R1.dryrun_rc0 rc=0
+PASS R1.dryrun_not_certified 
+PASS R1.dryrun_no_write price=10.0
+PASS R1.dryrun_msg 
+PASS R1.nonrefresh_rc0 rc=0
+PASS R1.nonrefresh_refresh_none 
+PASS R1.nonrefresh_pending_kept 2
+PASS R1.zero_cand[None,True] rc=0 refresh_complete=True
+PASS R1.zero_cand[changed,True] rc=2 refresh_complete=False
+PASS R1.zero_cand[new,True] rc=2 refresh_complete=False
+PASS R1.zero_cand[None,False] rc=2 refresh_complete=False
+PASS R1.writer_fail_rc2 rc=2
+PASS R1.writer_fail_failed_list [('980001.FP', 'writer_failed'), ('980002.FP', 'writer_failed')]
+PASS R1.recovery_cmd_include_completed 
+PASS R1.recovery_cmd_180_kept 
+PASS R1.recovery_cmd_no_caps_only_history 
+PASS R1.recovery_cmd_history_no_caps 
+{
+ "total": 27,
+ "failed": []
+}

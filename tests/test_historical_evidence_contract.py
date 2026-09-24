@@ -334,7 +334,8 @@ def test_history_does_not_widen_specialized_output_evidence_contracts():
         output.output_id: output.evidence_types
         for output in context.contract.required_outputs
     }
-    assert types["prime_quote"] == ("market_data",)
+    assert types["prime_quote"] == ("market_data", "finance_query")
+    assert not {"history_query", "read_history_result"} & set(types["prime_quote"])
     assert types["prime_news"] == ("news_search",)
     assert types["prior_recall"] == ("memory_lookup",)
     assert types["financial_business_anchor"] == ("financial_data",)

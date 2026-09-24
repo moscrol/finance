@@ -1,0 +1,83 @@
+#!/bin/bash
+# Operation-bound pre/post-merge acceptance. No deploy, unlock, or publication.
+# A phase gets a fresh output directory; original receipts are never overwritten.
+set -u
+umask 022
+ROOT="$HOME/.finance-runtime/kb-v4-merge-20260919"
+PHASE="${1:?pre or post required}"
+case "$PHASE" in pre|post) ;; *) exit 2 ;; esac
+TREE="$ROOT/pre/finance-workspace-private"
+KB="$ROOT/pre/knowledge-base-private"
+OUT="$ROOT/$PHASE-receipts"
+PY="$HOME/finance-workspace-private/.venv-workbench/bin/python"
+FINANCE_REV=2b4948a4015e53fd1fde5bb1e50147582abde2da
+KB_REV=c141a424a16faed2cc959c0839e6b0ea29ced481
+KB_BASE=91725ea9ba0252a43665f9e3130142f946c289ae
+mkdir -p "$OUT"
+test ! -e "$OUT/revision.txt" || exit 2
+export FINANCE_WS="$HOME/finance-workspace-private"
+export KB_RECEIPT_CODE_ROOT="$KB"
+export KB_ACCESS_LOG_PATH="$OUT/access.jsonl"
+export PYTHONDONTWRITEBYTECODE=1
+result=0
+run() {
+  local name="$1"; shift
+  printf '== %s started %s ==\n' "$name" "$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+  "$@" > "$OUT/$name.txt" 2>&1
+  local rc=$?
+  printf '%s\n' "$rc" > "$OUT/$name.exit"
+  printf '== %s exit=%s ==\n' "$name" "$rc"
+  if [ "$rc" -ne 0 ]; then result=1; fi
+}
+cd "$TREE" || exit 2
+test -z "$(git status --porcelain)" || exit 3
+test -z "$(git -C "$KB" status --porcelain)" || exit 3
+test "$(git rev-parse HEAD)" = "$FINANCE_REV" || exit 4
+test "$(git -C "$KB" rev-parse HEAD)" = "$KB_REV" || exit 4
+if [ "$PHASE" = post ]; then
+  test "$(git ls-remote gitea refs/heads/main | cut -f1)" = "$FINANCE_REV" || exit 5
+  test "$(git -C "$KB" ls-remote gitea refs/heads/main | cut -f1)" = "$KB_REV" || exit 5
+fi
+git rev-parse HEAD 'HEAD^{tree}' > "$OUT/revision.txt"
+git -C "$KB" rev-parse HEAD 'HEAD^{tree}' > "$OUT/kb-revision.txt"
+"$PY" -m pip freeze > "$OUT/python-dependencies.txt"
+run finance-ruff "$PY" -m ruff check .
+run registry-parseability "$PY" scripts/build_registry.py check-parseability
+run registry-check "$PY" scripts/build_registry.py check
+run registry-tables "$PY" scripts/build_registry.py backfill-tables --check
+run registry-views "$PY" scripts/build_registry.py generate-views --check
+run registry-ledger "$PY" scripts/audit_ledger_spec_crosswalk.py
+cd "$TREE/intelligence/webapp" || exit 2
+run frontend-install pnpm install --offline --frozen-lockfile
+if [ "$(< "$OUT/frontend-install.exit")" = 0 ]; then
+  run frontend-lint pnpm lint
+  run frontend-typecheck pnpm typecheck
+  run frontend-test pnpm test
+  run frontend-build pnpm build
+  git -C "$TREE" status --porcelain > "$OUT/status-after-build.txt"
+  if [ -s "$OUT/status-after-build.txt" ]; then
+    printf 'Build changed the fixed candidate; do not sign a dirty revision.\n'
+    printf '1\n' > "$OUT/all.exit"
+    exit 1
+  fi
+  export WORKBENCH_PYTHON="$PY"
+  export WORKBENCH_E2E_PORT=18971
+  export RE06_E2E_PORT=18974
+  export RE06_E2E_URL=http://127.0.0.1:18974
+  run e2e pnpm test:e2e
+  unset WORKBENCH_PYTHON WORKBENCH_E2E_PORT RE06_E2E_PORT RE06_E2E_URL
+fi
+cd "$TREE" || exit 2
+run finance-pytest "$PY" -m pytest -q -p no:cacheprovider
+cd "$KB" || exit 2
+run kb-pytest "$PY" -m pytest tests skills/lib/rag/tests -q -p no:cacheprovider
+run kb-relations "$PY" scripts/ingest.py check --strict-vocab
+run kb-sizes "$PY" scripts/check_tracked_file_sizes.py
+run kb-quality "$PY" scripts/quality_gate.py
+run kb-log "$PY" scripts/check_log_id_conflicts.py --base "$KB_BASE"
+run kb-index "$PY" scripts/check_index_regression.py --base "$KB_BASE"
+git status --porcelain > "$OUT/kb-status-after.txt"
+git -C "$TREE" status --porcelain > "$OUT/status-after.txt"
+if [ -s "$OUT/status-after.txt" ] || [ -s "$OUT/kb-status-after.txt" ]; then result=1; fi
+printf '%s\n' "$result" > "$OUT/all.exit"
+exit "$result"

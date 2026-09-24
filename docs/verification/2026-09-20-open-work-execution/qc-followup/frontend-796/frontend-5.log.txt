@@ -1,0 +1,104 @@
+
+> market-intelligence-workbench@0.1.0 test:e2e /Users/a77/.finance-runtime/open-work-execution-20260920/gate-generation-final/finance-workspace-private/intelligence/webapp
+> playwright test
+
+(node:23160) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+[workbench] INFO:     Started server process [23169]
+[workbench] INFO:     Waiting for application startup.
+[workbench] INFO:     Application startup complete.
+[workbench] INFO:     Uvicorn running on http://127.0.0.1:18981 (Press CTRL+C to quit)
+[research-evolution-binding] INFO:     Started server process [23196]
+[research-evolution-binding] INFO:     Waiting for application startup.
+[research-evolution-binding] INFO:     Application startup complete.
+[research-evolution-binding] INFO:     Uvicorn running on http://127.0.0.1:18984 (Press CTRL+C to quit)
+
+Running 36 tests using 1 worker
+
+(node:23199) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+  ✓  1 [desktop] › e2e/research-evolution-binding.spec.ts:30:3 › 研究进化 · 绑定真链路（带真实市场库的隔离服务） › 表单建绑定 → 服务端落账 → 投影刷新为已绑定 (916ms)
+  ✓  2 [desktop] › e2e/research-evolution-timing.spec.ts:6:1 › I14：隐藏暂停应用内活跃，原始区间保留完整端到端时间 (1.2s)
+  ✓  3 [desktop] › e2e/research-evolution.spec.ts:46:3 › 研究进化面板 › 接口在真实服务上可达，缺输入如实报「还判不了」 (119ms)
+  ✓  4 [desktop] › e2e/research-evolution.spec.ts:73:3 › 研究进化面板 › 未认证模式拒绝任意换用户，且不泄漏他人会话是否存在 (10ms)
+  ✓  5 [desktop] › e2e/research-evolution.spec.ts:90:3 › 研究进化面板 › R1 回归针：空 run_id 的 continuation 必须 422，不能默默进消息口 (6ms)
+  ✓  6 [desktop] › e2e/research-evolution.spec.ts:116:3 › 研究进化面板 › R8 回归针：未知动作返回 400，actor 必须等于登录用户 (7ms)
+  ✓  7 [desktop] › e2e/research-evolution.spec.ts:146:3 › 研究进化面板 · 浏览器渲染 › 维护页在浏览器里渲染，空态写的是「尚不能比较变化」 (462ms)
+  ✓  8 [desktop] › e2e/workbench.spec.ts:87:1 › structured workbench keeps five surfaces available (318ms)
+  ✓  9 [desktop] › e2e/workbench.spec.ts:109:1 › model settings switch between managed model and session BYOK (561ms)
+[workbench] [research-evolution] owner 未同意测量范围，跳过 run_started（run_20260920_105732_158147）；研究不受影响
+[workbench] [research-evolution] owner 未同意测量范围，跳过 run_finished（run_20260920_105732_158147）；研究不受影响
+[workbench] [research-evolution] owner 未同意测量范围，跳过 run_started（run_20260920_105733_892612）；研究不受影响
+[workbench] [research-evolution] owner 未同意测量范围，跳过 run_finished（run_20260920_105733_892612）；研究不受影响
+[workbench] [research-evolution] owner 未同意测量范围，跳过 run_started（run_20260920_105735_610014）；研究不受影响
+[workbench] [research-evolution] owner 未同意测量范围，跳过 run_finished（run_20260920_105735_610014）；研究不受影响
+[workbench] [research-evolution] owner 未同意测量范围，跳过 run_started（run_20260920_105737_226522）；研究不受影响
+[workbench] [research-evolution] owner 未同意测量范围，跳过 run_finished（run_20260920_105737_226522）；研究不受影响
+  ✓  10 [desktop] › e2e/workbench.spec.ts:143:1 › real chat persists three fresh turns, skills, SSE, and regeneration (6.9s)
+[workbench] [research-evolution] owner 未同意测量范围，跳过 run_started（run_20260920_105739_174914）；研究不受影响
+[workbench] [research-evolution] owner 未同意测量范围，跳过 run_finished（run_20260920_105739_174914）；研究不受影响
+[workbench] [research-evolution] owner 未同意测量范围，跳过 run_started（run_20260920_105740_557498）；研究不受影响
+[workbench] [research-evolution] owner 未同意测量范围，跳过 run_finished（run_20260920_105740_557498）；研究不受影响
+  ✓  11 [desktop] › e2e/workbench.spec.ts:222:1 › stock deep-dive owns and continues a traceable Workbench answer (3.2s)
+[workbench] [research-evolution] owner 未同意测量范围，跳过 run_started（run_20260920_105742_341301）；研究不受影响
+[workbench] [research-evolution] owner 未同意测量范围，跳过 run_finished（run_20260920_105742_341301）；研究不受影响
+  ✓  12 [desktop] › e2e/workbench.spec.ts:263:1 › stop preserves cancellation and responsive drawers remain closable (1.6s)
+(node:23313) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+  -  13 [tablet] › e2e/research-evolution-binding.spec.ts:30:3 › 研究进化 · 绑定真链路（带真实市场库的隔离服务） › 表单建绑定 → 服务端落账 → 投影刷新为已绑定
+  ✓  14 [tablet] › e2e/research-evolution-timing.spec.ts:6:1 › I14：隐藏暂停应用内活跃，原始区间保留完整端到端时间 (1.3s)
+  ✓  15 [tablet] › e2e/research-evolution.spec.ts:46:3 › 研究进化面板 › 接口在真实服务上可达，缺输入如实报「还判不了」 (103ms)
+  ✓  16 [tablet] › e2e/research-evolution.spec.ts:73:3 › 研究进化面板 › 未认证模式拒绝任意换用户，且不泄漏他人会话是否存在 (12ms)
+  ✓  17 [tablet] › e2e/research-evolution.spec.ts:90:3 › 研究进化面板 › R1 回归针：空 run_id 的 continuation 必须 422，不能默默进消息口 (7ms)
+  ✓  18 [tablet] › e2e/research-evolution.spec.ts:116:3 › 研究进化面板 › R8 回归针：未知动作返回 400，actor 必须等于登录用户 (7ms)
+  ✓  19 [tablet] › e2e/research-evolution.spec.ts:146:3 › 研究进化面板 · 浏览器渲染 › 维护页在浏览器里渲染，空态写的是「尚不能比较变化」 (484ms)
+  ✓  20 [tablet] › e2e/workbench.spec.ts:87:1 › structured workbench keeps five surfaces available (398ms)
+  ✓  21 [tablet] › e2e/workbench.spec.ts:109:1 › model settings switch between managed model and session BYOK (560ms)
+[workbench] [research-evolution] owner 未同意测量范围，跳过 run_started（run_20260920_105747_208172）；研究不受影响
+[workbench] [research-evolution] owner 未同意测量范围，跳过 run_finished（run_20260920_105747_208172）；研究不受影响
+[workbench] [research-evolution] owner 未同意测量范围，跳过 run_started（run_20260920_105748_942876）；研究不受影响
+[workbench] [research-evolution] owner 未同意测量范围，跳过 run_finished（run_20260920_105748_942876）；研究不受影响
+[workbench] [research-evolution] owner 未同意测量范围，跳过 run_started（run_20260920_105751_126576）；研究不受影响
+[workbench] [research-evolution] owner 未同意测量范围，跳过 run_finished（run_20260920_105751_126576）；研究不受影响
+[workbench] [research-evolution] owner 未同意测量范围，跳过 run_started（run_20260920_105752_812193）；研究不受影响
+[workbench] [research-evolution] owner 未同意测量范围，跳过 run_finished（run_20260920_105752_812193）；研究不受影响
+  ✓  22 [tablet] › e2e/workbench.spec.ts:143:1 › real chat persists three fresh turns, skills, SSE, and regeneration (7.7s)
+[workbench] [research-evolution] owner 未同意测量范围，跳过 run_started（run_20260920_105755_058152）；研究不受影响
+[workbench] [research-evolution] owner 未同意测量范围，跳过 run_finished（run_20260920_105755_058152）；研究不受影响
+[workbench] [research-evolution] owner 未同意测量范围，跳过 run_started（run_20260920_105756_456981）；研究不受影响
+[workbench] [research-evolution] owner 未同意测量范围，跳过 run_finished（run_20260920_105756_456981）；研究不受影响
+  ✓  23 [tablet] › e2e/workbench.spec.ts:222:1 › stock deep-dive owns and continues a traceable Workbench answer (3.3s)
+[workbench] [research-evolution] owner 未同意测量范围，跳过 run_started（run_20260920_105758_256861）；研究不受影响
+[workbench] [research-evolution] owner 未同意测量范围，跳过 run_finished（run_20260920_105758_256861）；研究不受影响
+  ✓  24 [tablet] › e2e/workbench.spec.ts:263:1 › stop preserves cancellation and responsive drawers remain closable (1.8s)
+(node:23354) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+  -  25 [mobile] › e2e/research-evolution-binding.spec.ts:30:3 › 研究进化 · 绑定真链路（带真实市场库的隔离服务） › 表单建绑定 → 服务端落账 → 投影刷新为已绑定
+  ✓  26 [mobile] › e2e/research-evolution-timing.spec.ts:6:1 › I14：隐藏暂停应用内活跃，原始区间保留完整端到端时间 (1.5s)
+  ✓  27 [mobile] › e2e/research-evolution.spec.ts:46:3 › 研究进化面板 › 接口在真实服务上可达，缺输入如实报「还判不了」 (109ms)
+  ✓  28 [mobile] › e2e/research-evolution.spec.ts:73:3 › 研究进化面板 › 未认证模式拒绝任意换用户，且不泄漏他人会话是否存在 (14ms)
+  ✓  29 [mobile] › e2e/research-evolution.spec.ts:90:3 › 研究进化面板 › R1 回归针：空 run_id 的 continuation 必须 422，不能默默进消息口 (5ms)
+  ✓  30 [mobile] › e2e/research-evolution.spec.ts:116:3 › 研究进化面板 › R8 回归针：未知动作返回 400，actor 必须等于登录用户 (7ms)
+  ✓  31 [mobile] › e2e/research-evolution.spec.ts:146:3 › 研究进化面板 · 浏览器渲染 › 维护页在浏览器里渲染，空态写的是「尚不能比较变化」 (5.5s)
+  ✓  32 [mobile] › e2e/workbench.spec.ts:87:1 › structured workbench keeps five surfaces available (2.4s)
+  ✓  33 [mobile] › e2e/workbench.spec.ts:109:1 › model settings switch between managed model and session BYOK (860ms)
+[workbench] [research-evolution] owner 未同意测量范围，跳过 run_started（run_20260920_105811_523867）；研究不受影响
+[workbench] [research-evolution] owner 未同意测量范围，跳过 run_finished（run_20260920_105811_523867）；研究不受影响
+[workbench] [research-evolution] owner 未同意测量范围，跳过 run_started（run_20260920_105813_291000）；研究不受影响
+[workbench] [research-evolution] owner 未同意测量范围，跳过 run_finished（run_20260920_105813_291000）；研究不受影响
+[workbench] [research-evolution] owner 未同意测量范围，跳过 run_started（run_20260920_105815_477509）；研究不受影响
+[workbench] [research-evolution] owner 未同意测量范围，跳过 run_finished（run_20260920_105815_477509）；研究不受影响
+[workbench] [research-evolution] owner 未同意测量范围，跳过 run_started（run_20260920_105817_647064）；研究不受影响
+[workbench] [research-evolution] owner 未同意测量范围，跳过 run_finished（run_20260920_105817_647064）；研究不受影响
+  ✓  34 [mobile] › e2e/workbench.spec.ts:143:1 › real chat persists three fresh turns, skills, SSE, and regeneration (8.8s)
+[workbench] [research-evolution] owner 未同意测量范围，跳过 run_started（run_20260920_105820_506424）；研究不受影响
+[workbench] [research-evolution] owner 未同意测量范围，跳过 run_finished（run_20260920_105820_506424）；研究不受影响
+[workbench] [research-evolution] owner 未同意测量范围，跳过 run_started（run_20260920_105821_939774）；研究不受影响
+[workbench] [research-evolution] owner 未同意测量范围，跳过 run_finished（run_20260920_105821_939774）；研究不受影响
+  ✓  35 [mobile] › e2e/workbench.spec.ts:222:1 › stock deep-dive owns and continues a traceable Workbench answer (3.9s)
+[workbench] [research-evolution] owner 未同意测量范围，跳过 run_started（run_20260920_105824_389667）；研究不受影响
+[workbench] [research-evolution] owner 未同意测量范围，跳过 run_finished（run_20260920_105824_389667）；研究不受影响
+  ✓  36 [mobile] › e2e/workbench.spec.ts:263:1 › stop preserves cancellation and responsive drawers remain closable (3.1s)
+
+  2 skipped
+  34 passed (1.0m)

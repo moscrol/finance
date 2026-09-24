@@ -1,0 +1,24 @@
+{
+  "enabled": true,
+  "state": "ready",
+  "active": 1,
+  "configured_workers": 1,
+  "model_load_count": 1,
+  "prewarm_latency_ms": 36055,
+  "last_error_type": null,
+  "lifecycle": "startup_prewarm",
+  "counters": {
+    "queries_served": 1,
+    "timeouts_abandoned_kept_warm": 0,
+    "timeouts_killed": 0,
+    "stale_responses_drained": 0,
+    "recoveries": 0,
+    "keepalive_sent": 0,
+    "keepalive_timeouts": 0,
+    "keepalive_skipped_busy": 0
+  },
+  "abandoned_in_flight": 0,
+  "rss_bytes": 1177731072,
+  "idle_seconds": 0.0,
+  "keepalive_interval_seconds": 0.0
+}

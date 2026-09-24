@@ -1,0 +1,60 @@
+{
+  "synthetic": true,
+  "_note": "data_requests.DataRequest.to_dict() 同形的合成补数请求；u_other 只用于验证「无当前用户消费者的请求被跳过且不回显」。",
+  "requests": [
+    {
+      "request_id": "dr-aaaaaaaaaa",
+      "dataset": "sector_daily",
+      "table": "fact_sector_daily",
+      "window_start": "2026-09-08",
+      "window_end": "2026-09-12",
+      "fields": ["pct_chg", "amount"],
+      "consumers": [
+        {"run_id": "run_1", "user": "u_test", "question": "制冷剂板块近一周边际量", "conversation_id": "conv_1", "asked_at": "2026-09-12T21:00:00+08:00", "run_status": "completed", "sub_question": "sector_daily 2026-09-08..2026-09-12 的 pct_chg、amount"}
+      ],
+      "sources_tried": ["finance_query dataset=sector_daily 返回 0 行（整窗未覆盖；实际覆盖 库内该窗无行）"],
+      "fill_route": {"mode": "manual", "source_family": "fupanhui", "condition": "", "writer": "market_feature_store.cli daily-full", "parts": []},
+      "priority": 4.0,
+      "first_asked_at": "2026-09-12T21:00:00+08:00",
+      "last_asked_at": "2026-09-12T21:00:00+08:00",
+      "event_count": 1,
+      "after_fill": "重算受影响子问题并恢复原会话研究，不让用户重新问整题"
+    },
+    {
+      "request_id": "dr-bbbbbbbbbb",
+      "dataset": "theme_flow_daily",
+      "table": "fact_theme_flow_daily",
+      "window_start": "2026-09-11",
+      "window_end": "2026-09-12",
+      "fields": ["net_inflow"],
+      "consumers": [
+        {"run_id": "run_2", "user": "u_test", "question": "制冷剂题材资金流", "conversation_id": "conv_1", "asked_at": "2026-09-12T21:30:00+08:00", "run_status": "completed", "sub_question": "theme_flow_daily 2026-09-11..2026-09-12 的 net_inflow"}
+      ],
+      "sources_tried": ["finance_query dataset=theme_flow_daily 返回 0 行（整窗未覆盖；实际覆盖 库内该窗无行）"],
+      "fill_route": {"mode": "pending_sync", "source_family": "theme_flow_daily", "condition": "题材资金流：pending_sync（user_confirmed）；等上游同步", "writer": "sync_fupanhui_theme_flow_daily", "parts": []},
+      "priority": 3.0,
+      "first_asked_at": "2026-09-12T21:30:00+08:00",
+      "last_asked_at": "2026-09-12T21:30:00+08:00",
+      "event_count": 1,
+      "after_fill": "重算受影响子问题并恢复原会话研究，不让用户重新问整题"
+    },
+    {
+      "request_id": "dr-cccccccccc",
+      "dataset": "stock_daily",
+      "table": "fact_stock_daily",
+      "window_start": "2026-09-01",
+      "window_end": "2026-09-12",
+      "fields": ["close"],
+      "consumers": [
+        {"run_id": "run_9", "user": "u_other", "question": "他人问题", "conversation_id": "conv_other", "asked_at": "2026-09-12T22:00:00+08:00", "run_status": "completed", "sub_question": "stock_daily 2026-09-01..2026-09-12 的 close"}
+      ],
+      "sources_tried": [],
+      "fill_route": {"mode": "auto", "source_family": "fupanhui", "condition": "", "writer": "market_feature_store.cli daily-full", "parts": []},
+      "priority": 2.0,
+      "first_asked_at": "2026-09-12T22:00:00+08:00",
+      "last_asked_at": "2026-09-12T22:00:00+08:00",
+      "event_count": 1,
+      "after_fill": "重算受影响子问题并恢复原会话研究，不让用户重新问整题"
+    }
+  ]
+}

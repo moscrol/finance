@@ -1,0 +1,37 @@
+[
+  {
+    "id": "public-receipt-drops-history-intent",
+    "path": "intelligence/runtime/continuous_turn_adapter.py",
+    "old": "        question_type=context.contract.question_type, as_of=context.today,\n        history_intent=context.history_intent,\n    )\n    if material_question_outputs",
+    "new": "        question_type=context.contract.question_type, as_of=context.today,\n    )\n    if material_question_outputs",
+    "targets": ["test_final_track_projection_preserves_history_intent_without_disabling_track", "test_history_intent_reaches_public_receipt_on_both_delivery_exits"]
+  },
+  {
+    "id": "semantic-repair-drops-storage-fence",
+    "path": "intelligence/runtime/continuous_turn_adapter.py",
+    "old": "                    rejected_claim_notes=_rejected_claim_notes(semantic, context),\n                    semantic_gap_outputs=semantic.gap_output_ids,\n                    allow_delivery_repair=not delivery_repair_attempted,\n                )\n                if repaired is None:\n                    repair_attempts -= 1\n                    break\n                previous_snapshot = current_snapshot\n                outcome, structural, delivery_only = repaired\n                if outcome.persistence == \"failed\":\n                    return self._storage_failed_result(outcome, context)\n",
+    "new": "                    rejected_claim_notes=_rejected_claim_notes(semantic, context),\n                    semantic_gap_outputs=semantic.gap_output_ids,\n                    allow_delivery_repair=not delivery_repair_attempted,\n                )\n                if repaired is None:\n                    repair_attempts -= 1\n                    break\n                previous_snapshot = current_snapshot\n                outcome, structural, delivery_only = repaired\n",
+    "targets": ["test_storage_failure_after_semantic_check_never_uses_verified_recovery"]
+  },
+  {
+    "id": "cutoff-parses-material-as-authority",
+    "path": "intelligence/services/honesty_gates.py",
+    "old": "    visible, _uncertain = top_level_message_text(query)\n    return visible\n",
+    "new": "    return query\n",
+    "targets": ["test_cutoff_provenance_roles_negation_and_conflicts_do_not_fallback", "test_material_cutoff_cannot_override_independent_top_level_cutoff"]
+  },
+  {
+    "id": "cutoff-accepts-accounting-or-review-date",
+    "path": "intelligence/services/honesty_gates.py",
+    "old": "            if match.group(\"until\") and re.search(\n",
+    "new": "            if False and match.group(\"until\") and re.search(\n",
+    "targets": ["test_cutoff_provenance_roles_negation_and_conflicts_do_not_fallback"]
+  },
+  {
+    "id": "history-intent-bypasses-negated-cutoff",
+    "path": "intelligence/services/historical_research/intent.py",
+    "old": "    values = set(explicit_information_cutoff_dates(question))\n    if None in values:\n",
+    "new": "    values = set(explicit_information_cutoff_dates(question.split(\"不要\")[-1]))\n    if None in values:\n",
+    "targets": ["test_history_intent_and_episode_cutoff_read_one_truth", "test_negated_cutoff_does_not_reach_episode_through_history_intent"]
+  }
+]

@@ -1,0 +1,91 @@
+"""Preserve and reclaim only the previous successful run's own pytest basetemp.
+
+Not a worktree cleanup; never traverses symlink targets or handles production DBs.
+Original logs/receipts remain. New manifest binds every fixture byte/mode/link.
+"""
+from datetime import datetime
+import hashlib
+import json
+import os
+from pathlib import Path
+import shutil
+import stat
+import subprocess
+import tarfile
+
+ROOT = Path(__file__).resolve().parent
+SOURCE = ROOT.parent / 'nightly-deploy-closeout-20260921/python/tmp'
+OUT = ROOT / 'prior-owned-temp'
+OUT.mkdir(exist_ok=False)
+assert SOURCE.is_dir() and not SOURCE.is_symlink() and not (SOURCE / '.git').exists()
+run = json.loads((SOURCE.parent / 'run.json').read_text())
+assert run['finished_at'] and 'active_pid' not in run
+check = subprocess.run(['lsof', '-nP', '+D', str(SOURCE)], capture_output=True, text=True, timeout=90)
+assert check.returncode == 1 and not check.stdout.strip()
+
+
+def digest(stream):
+    sha = hashlib.sha256()
+    for block in iter(lambda: stream.read(1024 * 1024), b''):
+        sha.update(block)
+    return sha.hexdigest()
+
+
+rows = {}
+for base, dirs, files in os.walk(SOURCE, followlinks=False):
+    for name in [*dirs, *files]:
+        p = Path(base) / name
+        row = {'mode': stat.S_IMODE(p.lstat().st_mode)}
+        if p.is_symlink():
+            row.update(type='link', target=os.readlink(p))
+        elif p.is_dir():
+            row['type'] = 'dir'
+        elif p.is_file():
+            with p.open('rb') as stream:
+                row.update(type='file', bytes=p.stat().st_size, sha256=digest(stream))
+        else:
+            raise AssertionError(str(p))
+        rows['tmp/' + str(p.relative_to(SOURCE))] = row
+record = {'source': str(SOURCE), 'started_at': datetime.now().astimezone().isoformat(), 'files': rows, 'free_before': shutil.disk_usage(SOURCE).free, 'state': 'INVENTORIED'}
+manifest = OUT / 'manifest.json'
+manifest.write_text(json.dumps(record, ensure_ascii=False) + '\n')
+archive = OUT / 'pytest-temp.tar.gz'
+with tarfile.open(archive, 'w:gz', compresslevel=1, dereference=False) as tar:
+    tar.add(SOURCE, arcname='tmp')
+verified = {}
+with tarfile.open(archive, 'r|gz') as tar:
+    for item in tar:
+        if item.name == 'tmp':
+            assert item.isdir()
+            continue
+        row = rows[item.name]
+        assert row['mode'] == item.mode
+        if row['type'] == 'file':
+            if item.islnk():
+                value = verified[item.linkname]
+            else:
+                assert item.isfile() and item.size == row['bytes']
+                with tar.extractfile(item) as stream:
+                    value = digest(stream)
+            assert value == row['sha256']
+            verified[item.name] = value
+        elif row['type'] == 'link':
+            assert item.issym() and item.linkname == row['target']
+            verified[item.name] = row['target']
+        else:
+            assert item.isdir()
+            verified[item.name] = 'directory'
+assert set(verified) == set(rows)
+with archive.open('rb') as stream:
+    record['archive_sha256'] = digest(stream)
+record.update(state='VERIFIED', archive_bytes=archive.stat().st_size)
+manifest.write_text(json.dumps(record, ensure_ascii=False) + '\n')
+check = subprocess.run(['lsof', '-nP', '+D', str(SOURCE)], capture_output=True, text=True, timeout=90)
+assert check.returncode == 1 and not check.stdout.strip()
+for base, dirs, files in os.walk(SOURCE, topdown=True, followlinks=False):
+    p = Path(base)
+    p.chmod(stat.S_IMODE(p.lstat().st_mode) | 0o700)
+shutil.rmtree(SOURCE)
+record.update(state='ARCHIVED_AND_TEMP_RECLAIMED', free_after=shutil.disk_usage(archive).free, finished_at=datetime.now().astimezone().isoformat())
+manifest.write_text(json.dumps(record, ensure_ascii=False) + '\n')
+print(json.dumps({k: v for k, v in record.items() if k != 'files'}, ensure_ascii=False))

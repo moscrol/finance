@@ -1,0 +1,190 @@
+diff --git a/docs/handoffs/inflight/data-source-broad-index-delta.md b/docs/handoffs/inflight/data-source-broad-index-delta.md
+index 7b469fe3..7dc95b2c 100644
+--- a/docs/handoffs/inflight/data-source-broad-index-delta.md
++++ b/docs/handoffs/inflight/data-source-broad-index-delta.md
+@@ -1,51 +1,43 @@
+-# data-source/broad-index-delta · 宽基指数补三码（未开工，树已备好）
++# data-source/broad-index-delta · 宽基指数回补（两码已落库，北证50 上游无码）
+ 
+-**状态：只建了树，一行代码没改，一次 API 没打。** 接手直接干。
++**状态：回补已跑。** `000688.SH` / `000016.SH` 各 996 行至 2026-09-08。`899050.BJ` 上游不认，未入库。代码未提交。
+ 
+ ## 目标
+ 
+-`fact_sector_kline_daily` 补 `000688.SH`(科创50) / `000016.SH`(上证50) / `899050.BJ`(北证50)，
+-三码现各 **0 行**。规范：`docs/superpowers/specs/2026-09-09-broad-index-coverage-delta.md`
+-（在 PR #685 分支 `docs/knevo-m-probes-verification`，本树没有，去 `~/fwp-wt-knevo-verify` 读）。
++`fact_sector_kline_daily` 补科创50 / 上证50 / 北证50。规范在 PR #685：
++`~/fwp-wt-knevo-verify` 的 `docs/superpowers/specs/2026-09-09-broad-index-coverage-delta.md`。
+ 
+-起因：核对 Knevo 断言「科创50 −5.53%」时本库无表可查，只能记「无法核」（E-008 §7.3）。
++## 当前状态
+ 
+-## 已查清的事实（别重查）
++- 树 `~/fwp-wt-broad-index` @ `data-source/broad-index-delta`（底 `f450f4bb`，从 `data-source/hithink-ingest` 开出）。
++- 未提交：`sync_hithink_sector_kline.py`（`INDEX_CODES` + 未知码跳过 + dim 名 `COALESCE`）、`tests/test_hithink_sector_kline.py`（9 passed）。
++- 生产库（须 `MARKET_FEATURE_STORE_DB` 指主树 `db/`，工作树没有自己的 duckdb）：
++  - `000688.SH` 996 行，2022-08-02~2026-09-08，近 5 日 OHLC/volume 非空。
++  - `000016.SH` 同上。
++  - `899050.BJ`：**0 行**。`tickers/search` 只有 `.OF` 基金；`historical` 报 `Unknown thscode`（试过 `.BJ/.NQ/.TI/.SH/.SZ` 无后缀）。已从 `dim_sector_hithink` 删掉失败跑留下的空行。
++- 工作树跑 CLI 必须带：
++  `MARKET_FEATURE_STORE_DB=/Users/a77/finance-workspace-private/db/market_feature_store.duckdb`
+ 
+-- 表**已建且已填**：814,305 行 / 854 码 / 2022-08-02~2026-09-08。#41 列的 6 个指数码全已回补，各 996 行。
+-  所以这单不是「建管线」，是**加常量 + 补跑**。
+-- 唯一改动点：`market_feature_store/sync/sync_hithink_sector_kline.py:27` 的 `INDEX_CODES` 元组。
+-  没有 `--codes` 参数，码写死在这里。
+-- CLI 不传 `db_path` → 写生产库 `db/market_feature_store.duckdb`，撞写锁时**抛错**不落 sidecar（已读 `cli.py:849`）。
+-  跑之前确认夜跑没在写。
++## 已验证
+ 
+-## 命令（`--skip-constituents` 不可省）
++1. `--full --resume --skip-constituents --end-date 2026-09-08`：`kline 7/7 written_bars=3127 empty=0`，`constituent_rows=0`。
++2. 闭环：Knevo「科创50 −5.53%」= **2026-07-10**（收 2064.98 / 前收 2185.83）。7 月另有 −7.70%（7/2）、−7.12%（7/17），不是记错月份。
++3. 未知码若硬写进 `INDEX_CODES`，会在 flush 前把已拉的 K 线丢掉；现 `Unknown thscode` 当空跳过。
+ 
+-```bash
+-market_feature_store.cli sync-hithink-sector-kline \
+-    --full --resume --skip-constituents --end-date 2026-09-08
+-```
++## 未做
+ 
+-`--resume` 只过滤 K 线的 `codes`；成分股那段的 `member_codes` 从**未过滤的** `catalog_rows`
+-重算（同文件 586-590 行），省掉旗标会多打 848 次成分接口 + 写 `fact_sector_constituent_hithink`
+-+ UPDATE `dim_sector_hithink`，全在本单范围外。
++- 未提交、未开/更 PR（本枝叠在未合的 `hithink-ingest` 上，合 main 需用户确认）。
++- spec §5.3 混合源接缝（同花顺 × akshare 20 日 close）没跑。北证50 若要补，只能另走 akshare，不进这条同花顺清单。
++- dim 里这两个新码 `sector_name` 仍是 NULL（`INDEX_CODES` 只给码）。
+ 
+-`--resume` 判据 `MAX(trade_date) >= end_day AND COUNT(*) >= 100`：854 码里 849 个被跳过，
+-5 个会重拉（`886112/886111/886110/883443.TI` 行数不足 100，`883401.TI` max=2026-09-03）。
+-前四个是新板块、行数天然到不了 100，**每次 resume 都重拉是判据固有行为，不是 bug**。
+-实际请求 ≈ 4 目录 + 8~15 K 线。
++## 下一步
+ 
+-回滚：`delete from fact_sector_kline_daily where sector_ts_code in ('000688.SH','000016.SH','899050.BJ')`。
++1. 用户确认后 pathspec 提交这两处代码改动。
++2. 把「`899050.BJ` 上游无指数码」补进 PR #685 spec，避免下一任再写回去。
++3. 回滚（只这两码）：
++   `delete from fact_sector_kline_daily where sector_ts_code in ('000688.SH','000016.SH')`
+ 
+-## 验收（spec §5）
++## 踩过的坑
+ 
+-1. 三码各 `count(*) > 0` 且 `max(trade_date)` = 最近交易日。
+-2. 非空壳：三码各抽 5 日，`open/high/low/close/volume` 非 NULL。
+-3. 闭环：重核「科创50 −5.53%」——给出对应交易日，或判定 2026-07 全月不成立。
+-
+-## 边界
+-
+-- key 只从钥匙串 `hithink-finance / a77-api-key` 或 `HITHINK_FINANCE_API_KEY` 取，**不进代码/日志/收据/对话**。
+-- 限流 ≤5 QPS，不并发。窗口必须 <1500 天（超了上游静默返空，不报错）。
+-- 本分支从 `data-source/hithink-ingest`(5fb33d46, 领先 main 3 提交未合) 开出，**PR 叠在它上面**，
+-  用户明确要求「不动他的分支」。合并 main 需用户确认。
++- 工作树默认 `DB_PATH` 是自己的 `db/`，不设 env 会新建空库，看起来像「写成功」。
++- `INDEX_CODES` 带 `name=None` 做 upsert 会把已有指数名刷空；已改 `COALESCE`。失败那次已刷过一次，旧 6 码名若空是这次留下的。
+diff --git a/market_feature_store/sync/sync_hithink_sector_kline.py b/market_feature_store/sync/sync_hithink_sector_kline.py
+index 655582a7..0a218240 100644
+--- a/market_feature_store/sync/sync_hithink_sector_kline.py
++++ b/market_feature_store/sync/sync_hithink_sector_kline.py
+@@ -17,7 +17,13 @@ from typing import Any, Callable
+ import duckdb
+ 
+ from ..db import DB_PATH, init_db, is_lock_conflict
+-from ..hithink_client import get_json, has_api_key, ms_to_shanghai_date, shanghai_midnight_ms
++from ..hithink_client import (
++    HithinkAPIError,
++    get_json,
++    has_api_key,
++    ms_to_shanghai_date,
++    shanghai_midnight_ms,
++)
+ 
+ TRADE_DATE_SQL = (
+     "CAST(to_timestamp(date_ms/1000) AT TIME ZONE 'UTC' + INTERVAL 8 HOUR AS DATE)"
+@@ -31,6 +37,10 @@ INDEX_CODES = (
+     "000300.SH",
+     "000905.SH",
+     "000852.SH",
++    "000688.SH",  # 科创50
++    "000016.SH",  # 上证50
++    # 899050.BJ 北证50：tickers/search 只有 .OF 基金，historical 报
++    # Unknown thscode。不写进清单，避免每次 --resume 白打一次并污染 dim。
+ )
+ # 闭区间天数。1500 是上游静默空的实测线，请求必须严格小于它。
+ MAX_WINDOW_DAYS = 1500
+@@ -129,15 +139,23 @@ def fetch_catalog(tag: str, getter: GetJson) -> list[dict[str, Any]]:
+ def fetch_historical(
+     thscode: str, start_ms: int, end_ms: int, getter: GetJson
+ ) -> list[dict[str, Any]]:
+-    payload = getter(
+-        "/api/a-share-index/prices/historical",
+-        params={
+-            "thscode": thscode,
+-            "interval": "1d",
+-            "start": start_ms,
+-            "end": end_ms,
+-        },
+-    )
++    try:
++        payload = getter(
++            "/api/a-share-index/prices/historical",
++            params={
++                "thscode": thscode,
++                "interval": "1d",
++                "start": start_ms,
++                "end": end_ms,
++            },
++        )
++    except HithinkAPIError as exc:
++        # 单码不认识不能让整批中断：--resume 会重拉行数<100 的新板块，
++        # 再叠一个未知指数码就会在 flush 前把已拉到的 K 线丢掉。
++        if "Unknown thscode" in str(exc):
++            print(f"skip unknown thscode {thscode}", flush=True)
++            return []
++        raise
+     bars = []
+     for item in _items(payload):
+         bar = {field: item.get(field) for field in HISTORICAL_BAR_FIELDS}
+@@ -171,7 +189,7 @@ def _upsert_dim(con: duckdb.DuckDBPyConnection, rows: list[dict[str, Any]]) -> i
+             (sector_ts_code, sector_name, category, source, updated_at)
+         VALUES (?, ?, ?, ?, now())
+         ON CONFLICT (sector_ts_code) DO UPDATE SET
+-            sector_name = excluded.sector_name,
++            sector_name = COALESCE(excluded.sector_name, dim_sector_hithink.sector_name),
+             category = excluded.category,
+             source = excluded.source,
+             updated_at = now()
+diff --git a/tests/test_hithink_sector_kline.py b/tests/test_hithink_sector_kline.py
+index 6988cac8..7372ed67 100644
+--- a/tests/test_hithink_sector_kline.py
++++ b/tests/test_hithink_sector_kline.py
+@@ -8,7 +8,7 @@ from datetime import date
+ import duckdb
+ import pytest
+ 
+-from market_feature_store.hithink_client import shanghai_midnight_ms
++from market_feature_store.hithink_client import HithinkAPIError, shanghai_midnight_ms
+ from market_feature_store.sync import sync_daily_full
+ from market_feature_store.sync import sync_hithink_sector_kline as htb
+ 
+@@ -128,6 +128,19 @@ def _getter(end: date):
+     return get_json
+ 
+ 
++def test_unknown_thscode_is_empty_not_abort() -> None:
++    def getter(path, params=None, **_k):
++        params = params or {}
++        if path.endswith("/historical"):
++            raise HithinkAPIError(
++                "hithink /api/a-share-index/prices/historical "
++                "http=200 code=1002 Unknown thscode: 899050.BJ"
++            )
++        raise AssertionError(path)
++
++    assert htb.fetch_historical("899050.BJ", 1, 2, getter) == []
++
++
+ def test_window_rejects_1500_days() -> None:
+     with pytest.raises(htb.HithinkSectorSyncError):
+         htb.window_ms(date(2026, 9, 8), 1500)

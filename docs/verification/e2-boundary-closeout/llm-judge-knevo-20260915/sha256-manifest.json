@@ -1,0 +1,10 @@
+{
+  "kind": "retrospective_grok_judge_evidence",
+  "not_formal_pk": true,
+  "files": {
+    "T2.json": "a3dd39a0f30583f320fdb5ee1d32b04737ed71de1cb3bd077565f548f986be88",
+    "T3.json": "3a483569d51c22ed3ae361e0f7cfb2f323a3f7dde91aeda5d6f369f5131a6f59",
+    "grok-readonly-sandbox-failure-summary.json": "42c7796fd4c57ef28d61cdf9763284d33ac90072f023a8ef610d1191de4921ec",
+    "grok-retrospective-summary.json": "100db52e30fab74329718eddef4a1759a579530182c76a38c743dfb7a72ad6eb"
+  }
+}

@@ -1,0 +1,11 @@
+F                                                                        [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260918T082052Z-ba281381.json
+
+=================================== FAILURES ===================================
+_ test_actual_recovery_retains_all_six_saved_pair_states_before_nav_and_members _
+tests/test_history_succession_projection.py:255: in test_actual_recovery_retains_all_six_saved_pair_states_before_nav_and_members
+    assert len(states) == 6
+E   assert 0 == 6
+E    +  where 0 = len([])
+=========================== short test summary info ============================
+FAILED tests/test_history_succession_projection.py::test_actual_recovery_retains_all_six_saved_pair_states_before_nav_and_members
+1 failed in 0.32s

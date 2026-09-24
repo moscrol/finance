@@ -1,0 +1,152 @@
+{
+  "schema_version": "ima-gap/v1",
+  "date": "2026-09-07",
+  "auto_fetch": false,
+  "note": "只出清单。daily-full 不自动问 IMA；补卡/DeepDive 另开一轮。",
+  "theme_run": [],
+  "stock_run": [
+    "生益科技"
+  ],
+  "themes": [
+    {
+      "theme": "PCB概念",
+      "bucket": "today_do_ima",
+      "priority": 174.84,
+      "stocks": [
+        "德福科技",
+        "沪电股份",
+        "生益科技",
+        "东山精密",
+        "景旺电子"
+      ],
+      "page_class": "has_deepdive",
+      "wiki": "/Users/a77/knowledge-base-private/wiki",
+      "chars": 3284,
+      "action": "skip_have_deepdive",
+      "reason": "已有 ThemeRadar / ima_deep_dive 15 章材料"
+    },
+    {
+      "theme": "EDA（电子设计自动化）",
+      "bucket": "today_find_official_evidence",
+      "priority": 190.01,
+      "stocks": [
+        "源杰科技",
+        "中石科技",
+        "沪电股份",
+        "长鑫科技",
+        "生益科技"
+      ],
+      "page_class": "l1",
+      "wiki": "/Users/a77/knowledge-base-private/wiki",
+      "chars": 5575,
+      "action": "route_disclosure",
+      "reason": "复盘已标找公告，不重复做题材 DeepDive"
+    },
+    {
+      "theme": "PCB",
+      "bucket": "today_find_official_evidence",
+      "priority": 188.54,
+      "stocks": [
+        "沪电股份",
+        "生益科技",
+        "东山精密",
+        "景旺电子",
+        "生益电子"
+      ],
+      "page_class": "thin_card",
+      "wiki": "/Users/a77/knowledge-base-private/wiki",
+      "chars": 16330,
+      "action": "route_disclosure",
+      "reason": "复盘已标找公告，不重复做题材 DeepDive"
+    },
+    {
+      "theme": "人形机器人",
+      "bucket": "today_find_official_evidence",
+      "priority": 186.3,
+      "stocks": [
+        "斯菱智驱",
+        "东山精密",
+        "协创数据",
+        "华兴源创",
+        "江海股份"
+      ],
+      "page_class": "l1",
+      "wiki": "/Users/a77/knowledge-base-private/wiki",
+      "chars": 20682,
+      "action": "route_disclosure",
+      "reason": "复盘已标找公告，不重复做题材 DeepDive"
+    },
+    {
+      "theme": "CPO",
+      "bucket": "today_find_official_evidence",
+      "priority": 185.2,
+      "stocks": [
+        "中际旭创",
+        "源杰科技",
+        "德福科技",
+        "中石科技",
+        "新易盛"
+      ],
+      "page_class": "thin_card",
+      "wiki": "/Users/a77/knowledge-base-private/wiki",
+      "chars": 16779,
+      "action": "route_disclosure",
+      "reason": "复盘已标找公告，不重复做题材 DeepDive"
+    },
+    {
+      "theme": "新型工业化",
+      "bucket": "today_find_official_evidence",
+      "priority": 177.44,
+      "stocks": [
+        "罗博特科",
+        "致尚科技",
+        "麦格米特",
+        "大族激光",
+        "中远通"
+      ],
+      "page_class": "missing",
+      "wiki": "",
+      "chars": 0,
+      "action": "route_disclosure",
+      "reason": "复盘已标找公告，不重复做题材 DeepDive"
+    }
+  ],
+  "stocks": [
+    {
+      "company": "德福科技",
+      "theme": "PCB概念",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "沪电股份",
+      "theme": "PCB概念",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "生益科技",
+      "theme": "PCB概念",
+      "action": "run_stock_card",
+      "reason": "有实体、无完整 12 章卡"
+    },
+    {
+      "company": "东山精密",
+      "theme": "PCB概念",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    },
+    {
+      "company": "景旺电子",
+      "theme": "PCB概念",
+      "action": "skip_have_card",
+      "reason": "已有 12 章逻辑卡"
+    }
+  ],
+  "counts": {
+    "theme_run": 0,
+    "stock_run": 1,
+    "themes": 6,
+    "stocks": 5
+  }
+}

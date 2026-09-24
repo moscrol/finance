@@ -179,7 +179,14 @@ fi
 # ── 4. 上次读数能不能直接采信 ──────────────────────────────────────────
 # 存在的理由：多 agent 协作里，下一个 agent 通常不信前人的「3943 passed」而重跑
 # 一遍。那是理性反应——脱离条件的数字不是证据。收据带齐条件后，几秒即可判定。
-receipt="$HOME/.finance-runtime/test-receipts/latest.json"
+# latest.json 是全机单个文件，多棵树并跑时谁后结束谁覆盖；而下面的判据是
+# 「收据 revision == 本树 HEAD 且干净」——同 base 的两棵干净树 revision 天然相等，
+# 于是会把别人的读数判成「可直接采信，不必重跑」。先找本树专属指针（命名规则与
+# conftest.latest_pointer_name 一致），没有才回落。
+receipt_dir="${FWP_TEST_RECEIPT_DIR:-$HOME/.finance-runtime/test-receipts}"
+receipt_slug="$(printf '%s' "$REPO" | tr -c 'A-Za-z0-9._-' '_')"
+receipt="$receipt_dir/latest-$receipt_slug.json"
+[ -f "$receipt" ] || receipt="$receipt_dir/latest.json"
 if [ -f "$receipt" ]; then
   r_rev="$(sed -n 's/.*"revision"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$receipt" | head -1)"
   r_pass="$(sed -n 's/.*"passed"[[:space:]]*:[[:space:]]*\([0-9]*\).*/\1/p' "$receipt" | head -1)"

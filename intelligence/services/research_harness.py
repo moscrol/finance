@@ -61,6 +61,9 @@ PLAN 是本领域的研究协议（先出计划再动手），两家都没有；
 ``project_tool_result`` 决定一次工具观察**审计留什么、模型看什么**：审计底稿全量
 （含 hash / telemetry），模型视图去重、预算、去 hash 只留 E<n>——这条边界是
 2026-08 B1/B7 零绑定事故（模型誊抄 16-hex）之后立的，不能因为换 loop 而漂。
+``acknowledge_tool_result`` 在 loop 追加该投影消息之后，委托领域更新交付记录；
+不把 worker 完成或仅调用投影函数当成已入模型上下文，也不证明 provider 已处理。
+旧注入 harness 缺此回调时保持兼容，但不能获得依赖实际交付的新权限。
 
 ``fallback_after_empty_batch``（`2026-09-02-empty-pool-fallback-state-machine.md`）两家也没有：
 一批工具跑完、下一次问模型之前，loop 替模型**自己补发**一次查询——某个 ``sector_daily`` 池开场
@@ -79,13 +82,13 @@ PLAN 是本领域的研究协议（先出计划再动手），两家都没有；
 
 - ``FinanceResearchHarness`` 是对既有函数的**纯委托**：没有新判定。改口径改
   ``episode_protocol`` / ``forecast_residual_budget``，不改这里。
-- harness **不持有 loop 状态**。四个方法都是（context, evidence, registry）→ 值。
+- harness **不持有 loop 状态**。交付确认仅委托领域更新传入 context，其他判定返回值。
 - 本模块只 import ``services.*``（``scripts/layer_audit.py``：领域层不得依赖底座）。
 """
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable, Set
+from collections.abc import Callable, Iterable, Mapping, Set
 from dataclasses import dataclass, replace
 import json
 from typing import Literal, Protocol, runtime_checkable
@@ -108,6 +111,7 @@ from intelligence.services.empty_pool_fallback import (
 from intelligence.services.episode_protocol import (
     RejectionResponse,
     attach_evidence_ordinals,
+    cited_evidence_ordinals,
     evidence_ordinal_table,
     expand_episode_snapshot_bindings,
     finish_rejection_fields,
@@ -464,6 +468,13 @@ class ResearchHarness(Protocol):
         """
         ...
 
+    def acknowledge_tool_result(
+        self, observation: ToolObservation, projection: ToolResultProjection,
+        *, context: ResearchRunContext,
+    ) -> None:
+        """底座已追加工具消息后确认交付；计算完成不等于模型消息可见。"""
+        ...
+
     def project_tool_error(
         self, *, tool: str, error: str, detail: str
     ) -> dict[str, object]:
@@ -539,11 +550,16 @@ class ResearchHarness(Protocol):
         """Final domain requirements after repairs and semantic verification."""
         ...
 
+    def finalization_materials(self, *, context: ResearchRunContext) -> dict[str, object]:
+        """Owned non-evidence inputs that can support bounded finish recovery."""
+        ...
+
     def recovery_evidence_priority(
         self,
         *,
         context: ResearchRunContext,
         evidence: tuple[AgentEvidence, ...],
+        candidate_content: str = "",
     ) -> tuple[str, ...]:
         """Existing evidence hashes to retain first in a bounded recovery view."""
         ...
@@ -571,11 +587,21 @@ class ResearchHarness(Protocol):
         """
         ...
 
-    def repair_goal_message(self, goal: RepairGoal, *, tools_open: bool) -> str:
+    def repair_goal_message(
+        self,
+        goal: RepairGoal,
+        *,
+        tools_open: bool,
+        finish_format: Mapping[str, object] | None = None,
+    ) -> str:
         """修复轮开场给模型的那段话（``REPAIR_GOAL`` 正文，user 角色）。
 
         ``goal`` 是裁决后的模型侧目标（不可达格已降级）；``tools_open`` 是底座
         告诉领域「这一轮能不能派工具」——两套指令按它分叉。
+
+        ``finish_format`` 是开场发过的那份冻结成稿形状（material_only 才有）；传进来就
+        原样重述一遍。修复轮是最后一次机会，它必须在手上，而不是靠作者回忆上文。
+        不传时消息逐字节不变。
         """
         ...
 
@@ -781,7 +807,7 @@ class FinanceResearchHarness:
         # 逐字搬自 _EpisodeToolAccumulator.consume 的成功分支。
         ordinals = evidence_ordinal_table(tuple(evidence_so_far))
         audit: dict[str, object] = {
-            "ok": True,
+            **observation.result_status_fields(),
             "tool": observation.tool,
             "query": observation.query,
             "observation": observation.observation,
@@ -820,6 +846,14 @@ class FinanceResearchHarness:
             model_content=content,
             seen_prose=frozenset(seen),
         )
+
+    def acknowledge_tool_result(
+        self, observation: ToolObservation, projection: ToolResultProjection,
+        *, context: ResearchRunContext,
+    ) -> None:
+        from intelligence.services.historical_research.episode import record_history_delivery
+
+        record_history_delivery(observation, projection.model_content, context=context)
 
     def project_tool_error(
         self, *, tool: str, error: str, detail: str
@@ -965,19 +999,33 @@ class FinanceResearchHarness:
             )
         return PublicationAssessment()
 
+    def finalization_materials(self, *, context: ResearchRunContext) -> dict[str, object]:
+        calculation = context.contract.premise_calculation
+        if (
+            calculation is None or calculation.issues or not calculation.rows
+            or any(item.grounding_mode != "user_premise" for item in context.contract.required_outputs if item.required)
+        ):
+            return {}
+        return {"calculation_delivery": calculation.model_payload()}
+
     def recovery_evidence_priority(
         self,
         *,
         context: ResearchRunContext,
         evidence: tuple[AgentEvidence, ...],
+        candidate_content: str = "",
     ) -> tuple[str, ...]:
-        if context.history_intent is None:
-            return ()
-        from intelligence.services.historical_research.recovery import (
-            recovery_evidence_priority,
-        )
+        priority: tuple[str, ...] = ()
+        if context.history_intent is not None:
+            from intelligence.services.historical_research.recovery import (
+                recovery_evidence_priority,
+            )
 
-        return recovery_evidence_priority(evidence)
+            priority = recovery_evidence_priority(evidence)
+        # Preserve cited observations, never the unadmitted draft or invented IDs.
+        by_id = {eid: digest for digest, eid in evidence_ordinal_table(evidence).items()}
+        cited = tuple(by_id[ref] for ref in cited_evidence_ordinals(candidate_content) if ref in by_id)
+        return tuple(dict.fromkeys((*priority, *cited)))
 
     def classify_repair_need(
         self,
@@ -1021,11 +1069,20 @@ class FinanceResearchHarness:
             goal=prompt_goal,
         )
 
-    def repair_goal_message(self, goal: RepairGoal, *, tools_open: bool) -> str:
+    def repair_goal_message(
+        self,
+        goal: RepairGoal,
+        *,
+        tools_open: bool,
+        finish_format: Mapping[str, object] | None = None,
+    ) -> str:
         # 逐字搬自 agent_episode.resume()：REPAIR_GOAL 正文 + 工具开/关两套指令。
         payload: dict[str, object] = {
             "kind": "REPAIR_GOAL",
             **goal.to_dict(),
+            # 开场的冻结成稿形状原样重述：修复稿仍要按它交，而修复轮里再犯格式就是终局。
+            # 这一键只在 material_only 出现，其它题型的修复轮消息逐字节不变。
+            **({"finish_format": dict(finish_format)} if finish_format else {}),
             "instruction": (
                 "保留最初任务、全部原始观察和当前工具账本。"
                 + (
@@ -1053,7 +1110,9 @@ class FinanceResearchHarness:
             hints: list[str] = []
             if track_slots:
                 hints.append(
-                    "track_ttl → 一行「复核期限：YYYY-MM-DD」；track_next_watch → 一段「下期关注：…」；"
+                    "track_ttl → 一行「复核期限：YYYY-MM-DD」；"
+                    "track_next_watch → 「下期关注」每项须含指标/事件、时间节点与可证伪触发条件；"
+                    "只用现有证据支持的条件，不编造数字阈值；无法补齐时保留可信正文并明确缺口；"
                     "track_quad_or_baseline → 四态对照或「无上期基线」声明"
                 )
             if ranking_slots:

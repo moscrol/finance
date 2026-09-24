@@ -43,6 +43,7 @@ from intelligence.services.research_tool_registry import (
     MIN_WINDOW_SECONDS,
     PreparedToolArguments,
     ResearchToolRegistry,
+    ToolDiagnostic,
     ToolSpec,
     ToolRunResult,
     default_registry,
@@ -131,33 +132,39 @@ def attach_financial_observations(
 ) -> list[agent_research.AgentEvidence]:
     """给 D7 数据行证据挂结构化观察值：按行文本查表，不解析单元格。
 
-    键是 ``market_financials.observations_by_line`` 渲染的行（与 ``block_lines_to_evidence``
-    剥掉 ``- `` 后的 detail 逐字节相同）。``observations`` 不进内容哈希，证据身份不变。
+    键是规范渲染行，不解析单元格。沿 research-data-readiness/a9a7ce92、d77383ac
+    的已提交修复给模型补主体/报告期/指标口径；本片另保留披露日。标签改变后重算哈希，
+    ``observations`` 本身仍不参与内容哈希。
     """
 
     mapping = bundle.observations_by_line()
     if not mapping:
         return list(evidence)
+    periods = {row.report_date: row for row in bundle.rows}
     out: list[agent_research.AgentEvidence] = []
     for item in evidence:
         found = mapping.get(item.detail)
         if not found:
             out.append(item)
             continue
-        out.append(
-            replace(
-                item,
-                observations=tuple(
-                    agent_research.StructuredObservation(
-                        subject=obs.subject,
-                        as_of=obs.as_of,
-                        metric=obs.metric,
-                        value=obs.value,
-                    )
-                    for obs in found
-                ),
-            )
+        row = periods[found[0].as_of]
+        values = "；".join(
+            f"{market_financials.METRIC_GLOSSARY[obs.metric]}={obs.value:g}" for obs in found
         )
+        labeled = replace(
+            item,
+            title=f"{bundle.name}（{found[0].subject}）报告期 {found[0].as_of}",
+            detail=(
+                f"| {row.report_name}（{row.report_date}） | 披露日={row.notice_date or '缺'}；"
+                f"{values} |"
+            ),
+            observations=tuple(
+                agent_research.StructuredObservation(
+                    subject=obs.subject, as_of=obs.as_of, metric=obs.metric, value=obs.value,
+                ) for obs in found
+            ),
+        )
+        out.append(replace(labeled, content_hash=agent_research.evidence_content_hash(labeled)))
     return out
 
 
@@ -797,6 +804,9 @@ def _opening_prefetch_evidence(
     perspective_ids: tuple[str, ...] = (),
     perspective_mode: str = "neutral",
 ) -> tuple[agent_research.AgentEvidence, ...]:
+    if context.contract.material_contract is not None and context.contract.material_contract.data_scope in {"material_only", "local_only"}:
+        # local_only 的工具已保留纯本地路径；未按同一授权分类的自动播种暂不执行。
+        return ()
     from intelligence.services.asof_prefetch import (
         collect_prefetch_items,
         evidence_from_prefetch,
@@ -973,6 +983,11 @@ def build_episode_registry(
 ) -> ResearchToolRegistry:
     """Build a read-only registry from the repository's current tool runners."""
 
+    if context.contract.material_contract is not None and context.contract.material_contract.data_scope == "material_only":
+        # 必须早于 _roots / 日期探测 / 实体解析 / 预取；菜单清空不能撤销已经发生的读取。
+        return ResearchToolRegistry((), read_scope="material_only")
+
+    local_only = context.contract.material_contract is not None and context.contract.material_contract.data_scope == "local_only"
     finance, wiki = _roots(finance_root, knowledge_wiki)
     market_db_path = _market_db_path(finance_root, finance, fixture_policy)
     freshness_floor = _structured_freshness_floor(context)
@@ -1019,7 +1034,8 @@ def build_episode_registry(
             anchor_admission="subject_local",
         )
     knowledge = KnowledgeAdapter(wiki_root=wiki)
-    subject_anchor = entity_anchor.resolve_entity_anchor(
+    # 保留的本地 runner 不消费 subject_anchor；避免为被禁工具先读全局证券词典。
+    subject_anchor = None if local_only else entity_anchor.resolve_entity_anchor(
         f"{frame.subject or ''} {frame.raw_question}",
         knowledge,
     )
@@ -1059,7 +1075,7 @@ def build_episode_registry(
         )
 
     # 02：把本题问句交给 web_fetch 做定向选段（工具参数面只有 url，问句只能从这里进）。
-    default_tools = agent_research.build_default_tools(
+    default_tools = {} if local_only else agent_research.build_default_tools(
         retrieve_kb, focus_query=subject_query
     )
     if fixture_policy is not None and not fixture_policy.external_search_enabled:
@@ -1233,8 +1249,13 @@ def build_episode_registry(
                     else f"已按默认最近 {periods} 期取数"
                 )
             )
-        # 放宽窗口时证据行数跟着放宽，否则目标期那一行取到了却被 limit 截掉。
-        row_limit = 12 + max(0, periods - market_financials.DEFAULT_PERIODS)
+        # Adopt the data-row budgeting fix from research-data-readiness/a93b50c2:
+        # headers and fetch-date prose must not displace OCF evidence.
+        row_limit = 2 * periods
+        from intelligence.services.financial_report_contract import select_reports
+
+        selections: list[dict[str, object]] = []
+        gaps: list[str] = []
         source_label = "东财 F10 / 新浪利润表 / AKShare · D7 逐季财报"
         evidence: list[agent_research.AgentEvidence] = []
         observations: list[str] = []
@@ -1283,12 +1304,29 @@ def build_episode_registry(
                     resolved_subjects.append(
                         market_financials.observation_subject(bundle.ts_code)
                     )
+                selection = select_reports(
+                    bundle, question=frame.raw_question,
+                    cutoff=tool_context.information_cutoff or context.information_cutoff,
+                )
+                bundle = selection.bundle
+                selections.append(selection.receipt)
+                gaps.extend(selection.gaps)
+                if selection.hint:
+                    notes.append(selection.hint)
+                # Same fetched rows feed the text and calculator; no second fetch.
+                # Empty real bundles produce gaps, never header/diagnostic evidence.
+                data_block = "\n".join(bundle.observations_by_line()) if bundle.rows else (
+                    bundle.block if bundle.result is None and not selection.receipt["candidates"] else ""
+                )
                 items, text = agent_research.block_lines_to_evidence(
-                    "financial_data",
-                    bundle.block,
-                    source_label,
-                    limit=row_limit,
-                    detail_chars=1000,
+                    "financial_data", data_block, source_label,
+                    limit=row_limit, detail_chars=1000,
+                )
+                notes.extend(
+                    line.strip().removeprefix("- ") for line in bundle.block.splitlines()
+                    if line.strip().removeprefix("- ").startswith(
+                        (*_NON_EVIDENCE_PREFIXES, "口径说明：")
+                    )
                 )
                 evidence.extend(attach_financial_observations(items, bundle))
                 hint = structured_observation_hint(bundle)
@@ -1313,16 +1351,17 @@ def build_episode_registry(
             detail += f"; target_report_end={target_end.isoformat()}"
         if subjects:
             detail += f"; subjects={len(subjects)}; resolved={len(resolved_subjects)}"
-        return (
-            evidence,
-            observation,
-            ProviderTrace(
+        return ToolRunResult(
+            evidence=tuple(evidence), observation=observation,
+            trace=ProviderTrace(
                 provider="agent:financial_data",
                 capability="financial_data",
                 status="success" if evidence else "empty",
                 detail=detail,
                 result_count=len(evidence),
             ),
+            gaps=tuple(gaps),
+            telemetry={"financial_report_selection": selections},
         )
 
     def mainline_runner(
@@ -1448,7 +1487,13 @@ def build_episode_registry(
         # 的调用方（与可达性审计）留同一个座位，没传就不挂。
         tools["derived_calculation"] = derived_calculation_runner
     base_registry = default_registry(tools)
-    specs = list(base_registry.authorized_specs())
+    # 这两条 runner 就在本装配函数内选定：mainline_runner 只读 DuckDB；
+    # build_graph_tools._evidence_lookup 只读 KnowledgeAdapter JSON。不是从标签猜。
+    specs = [
+        replace(spec, io_effect="local_read")
+        if spec.name in {"mainline_context", "evidence_lookup"} else spec
+        for spec in base_registry.authorized_specs()
+    ]
     if frame.history_intent is not None:
         from intelligence.services.historical_research.episode import history_tool_specs
 
@@ -1705,6 +1750,7 @@ def build_episode_registry(
                 cost="local",
                 freshness="current",
                 runner=finance_query_runner,
+                io_effect="local_read",
                 parameters=_agent_finance_parameters(),
                 parse_arguments=parse_finance_arguments,
             )
@@ -1909,8 +1955,19 @@ def build_episode_registry(
                 cost="local",
                 freshness="stable",
                 runner=memory_lookup_runner,
+                io_effect="local_read",
             )
         )
+
+    if local_only:
+        # 不加载 live weekly/计算恢复，不执行尚未按capability分类的自动预取。
+        # with_specs 追加的未知 runner 仍受此注册表上限与 dispatch 同时约束。
+        local_specs = tuple(
+            spec for spec in specs
+            if spec.capability in context.contract.allowed_capabilities and spec.io_effect == "local_read"
+        )
+        require_tool_contracts(local_specs)
+        return ResearchToolRegistry(local_specs, read_scope="local_only")
 
     live_us = user_space
     if live_us is None and str(memory_user or "").strip():
@@ -1946,10 +2003,7 @@ def _finance_query_failure_result(
     if isinstance(error, finance_query.FinanceQueryValidationError):
         failure_code = "invalid_query"
         status = "parse_error"
-        observation = (
-            f"结构化查询参数无效：{str(error)[:160]}；重试提示："
-            f"{finance_query.validation_retry_hint(spec, error)}"
-        )
+        observation = finance_query.validation_diagnostic(spec, error)
         gap = "结构化查询条件无效；请改写 dataset、字段、筛选或日期范围后重试"
         from intelligence.services.tool_hunger import record_finance_query_rejected
 
@@ -1976,7 +2030,8 @@ def _finance_query_failure_result(
         gap = "结构化数据源暂不可用；当前答案仍缺少该查询对应的数据"
     return ToolRunResult(
         evidence=(),
-        observation=observation,
+        observation="",
+        diagnostics=(ToolDiagnostic(code=failure_code, message=observation),),
         trace=ProviderTrace(
             provider="duckdb_semantic_query",
             capability="finance_query",

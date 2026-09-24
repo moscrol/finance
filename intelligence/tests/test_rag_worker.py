@@ -55,6 +55,66 @@ def main(argv=None):
     )
 
 
+@pytest.mark.parametrize("relative", ["scripts/rag_index.py", "scripts/rag_freshness.py"])
+def test_worker_restarts_on_code_change_even_with_same_size_and_mtime(tmp_path, relative):
+    import os
+    import py_compile
+
+    _write_fake_rag(tmp_path)
+    path = tmp_path / relative
+    py_compile.compile(str(path), doraise=True)  # 刻意遗留可按同 mtime+size 命中的旧 pyc。
+    index = tmp_path / ".rag_index"
+    index.mkdir()
+    worker = PersistentRagWorker(sys.executable, tmp_path, index)
+    try:
+        first = worker.query(["query", "before", "--json"], timeout=3)
+        process = worker._process
+        path = tmp_path / relative
+        stat = path.stat()
+        before = path.read_text()
+        after = before.replace('"query": query', '"query": "NEW"') if "index" in relative else before.replace("scripts", "updated")
+        assert len(before) == len(after) and before != after
+        path.write_text(after)
+        os.utime(path, ns=(stat.st_atime_ns, stat.st_mtime_ns))
+        second = worker.query(["query", "after", "--json"], timeout=3)
+        third = worker.query(["query", "again", "--json"], timeout=3)
+        assert first.returncode == second.returncode == third.returncode == 0
+        assert process.poll() is not None, "磁盘升级不能继续使用已加载旧代码的进程"
+        row = json.loads(second.stdout)[0]
+        if "index" in relative:
+            assert row["query"] == "NEW"
+        else:
+            assert row["import_context"] == "knowledge-base-updated"
+        assert second.model_load_count == third.model_load_count == 1
+    finally:
+        worker.close()
+
+
+def test_worker_discards_output_if_code_changes_mid_query(tmp_path):
+    _write_fake_rag(tmp_path)
+    script = tmp_path / "scripts/rag_index.py"
+    script.write_text(script.read_text().replace(
+        '    query = argv[1]',
+        '    query = argv[1]\n'
+        '    if query == "mutate":\n'
+        '        from pathlib import Path\n'
+        '        path = Path(__file__).with_name("rag_freshness.py")\n'
+        '        path.write_text(path.read_text().replace("scripts", "updated"))',
+    ))
+    index = tmp_path / ".rag_index"
+    index.mkdir()
+    worker = PersistentRagWorker(sys.executable, tmp_path, index)
+    try:
+        worker.query(["query", "before", "--json"], timeout=3)
+        with pytest.raises(RuntimeError, match="code changed"):
+            worker.query(["query", "mutate", "--json"], timeout=3)
+        assert not worker.healthy()
+        recovered = worker.query(["query", "after", "--json"], timeout=3)
+        assert json.loads(recovered.stdout)[0]["import_context"] == "knowledge-base-updated"
+    finally:
+        worker.close()
+
+
 def test_worker_reuses_loaded_retriever(tmp_path: Path) -> None:
     _write_fake_rag(tmp_path)
     index = tmp_path / ".rag_index"
@@ -287,6 +347,51 @@ def test_timeout_terminates_worker_and_next_query_restarts(tmp_path: Path) -> No
 
     assert recovered.returncode == 0
     assert recovered.model_load_count == 1
+
+
+@pytest.mark.parametrize("query", ["recovered", "slow"])
+@pytest.mark.parametrize("restart", ["crash", "code-change"])
+def test_new_process_discards_old_partial_bytes_and_timeout_state(tmp_path, query, restart):
+    """Framing state and code identity must turn over together, including private pycache."""
+    _write_fake_rag(tmp_path)
+    index = tmp_path / ".rag_index"
+    index.mkdir()
+    worker = PersistentRagWorker(sys.executable, tmp_path, index)
+    try:
+        worker.prewarm(["query", "warmup", "--json"], timeout=2)
+        process = worker._process
+        assert process is not None
+        old_pycache = Path(worker._pycache.name)
+        worker._response_buffer.extend(b'{"id":"old-partial')
+        worker._abandoned.add("old")
+        worker._consecutive_timeouts = 1
+        if restart == "crash":
+            process.kill()
+            process.wait(timeout=2)
+        else:
+            source = tmp_path / "scripts/rag_freshness.py"
+            source.write_text(source.read_text().replace("scripts", "updated"))
+        worker._recovery_argv = None
+        if query == "slow":
+            with pytest.raises(TimeoutError) as error:
+                worker.query(["query", query, "--json"], timeout=0.02)
+            assert not isinstance(error.value, rag_worker.WorkerRequestAbandoned)
+            assert worker.counters["timeouts_killed"] == 1
+            assert worker.model_load_count == 0, "cold successor cannot inherit warm state"
+        else:
+            response = worker.query(["query", query], timeout=2)
+            assert '"query": "recovered"' in response.stdout
+            if restart == "code-change":
+                assert "knowledge-base-updated" in response.stdout
+            assert worker._process is not process
+            assert worker.model_load_count == 1
+        assert process.poll() is not None
+        assert not old_pycache.exists()
+        assert worker._response_buffer == b""
+        assert worker._abandoned == set()
+        assert worker._consecutive_timeouts == 0
+    finally:
+        worker.close()
 
 
 def test_prewarm_marks_worker_ready_and_reuses_model(tmp_path: Path) -> None:
@@ -716,6 +821,7 @@ def test_kb_rag_prewarm_uses_production_runtime_without_business_cache(
         "python": sys.executable,
         "kb_root": tmp_path,
         "index_dir": index,
+        "kb_wiki": wiki,
         "argv": [
             "query",
             "Workbench RAG 预热",

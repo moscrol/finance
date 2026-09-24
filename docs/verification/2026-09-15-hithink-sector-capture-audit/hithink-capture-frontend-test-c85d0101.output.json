@@ -1,0 +1,24 @@
+{
+  "original_path": "/tmp/hithink-capture-frontend-test-c85d0101.log",
+  "raw_sha256": "f5322ae29a8592fc93296e7e991e968fb55f856e0bfe5aa5714d48baa430e46e",
+  "encoding": "utf-8",
+  "lines": [
+    "\n",
+    "> market-intelligence-workbench@0.1.0 test /Users/a77/fwp-wt-hithink-review-wiring/intelligence/webapp\n",
+    "> vitest run\n",
+    "\n",
+    "\n",
+    " RUN  v3.2.4 /Users/a77/fwp-wt-hithink-review-wiring/intelligence/webapp\n",
+    "\n",
+    " ✓ src/streamEventRegistry.test.ts (2 tests) 6ms\n",
+    " ✓ src/components/ResearchProjectPanel.test.tsx (5 tests) 80ms\n",
+    " ✓ src/components/DailyReportView.test.tsx (4 tests) 97ms\n",
+    " ✓ src/components/components.test.tsx (65 tests) 1395ms\n",
+    "\n",
+    " Test Files  4 passed (4)\n",
+    "      Tests  76 passed (76)\n",
+    "   Start at  15:22:48\n",
+    "   Duration  2.45s (transform 296ms, setup 616ms, collect 836ms, tests 1.58s, environment 1.07s, prepare 208ms)\n",
+    "\n"
+  ]
+}

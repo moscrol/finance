@@ -1,0 +1,1496 @@
+EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEFFFFF
+==================================== ERRORS ====================================
+_ ERROR at setup of test_material_only_never_touches_lexicons[False-False-\u300c\u7532\u8bbe\u5907\u6536\u5165100\uff0c\u8ba2\u535520\u3002\u300d\n\n1. \u7532\u8bbe\u5907\u8ba2\u5355\u5360\u6536\u5165\u591a\u5c11\uff1f] _
+
+tmp_path = PosixPath('/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_material_only_never_touch0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x106ecf230>
+
+    @pytest.fixture
+    def lexicons(tmp_path, monkeypatch):
+        wiki = tmp_path / "wiki"
+        relations = wiki / "relations"
+        relations.mkdir(parents=True)
+        (relations / "entity_exposures.json").write_text(json.dumps({"entities": {
+            "甲设备": {"codes": ["300001.SZ"], "concepts": {"光模块": {}}},
+            "乙设备": {"codes": ["300002.SZ"], "concepts": {"光模块": {}}},
+        }}, ensure_ascii=False))
+        (relations / "aliases.json").write_text(json.dumps({
+            "aliases": {"光通信模块": "光模块"},
+        }, ensure_ascii=False))
+        db = tmp_path / "securities.duckdb"
+>       with duckdb.connect(str(db)) as con:
+
+intelligence/tests/test_e2_query_resolver_reads.py:36: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:60: in guarded_connect
+    deny('duckdb.connect', str(database))
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+event = 'duckdb.connect'
+details = '/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_material_only_never_touch0/securities.duckdb'
+
+    def deny(event, details):
+        violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})
+>       raise PermissionError('Author test forbidden IO: ' + event)
+E       PermissionError: Author test forbidden IO: duckdb.connect
+
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:35: PermissionError
+_ ERROR at setup of test_material_only_never_touches_lexicons[False-False-\u300c300001\u53ea\u662f\u6750\u6599\u7f16\u53f7\uff0c\u6536\u5165100\u3002\u300d\n\n1. 300001\u7684\u8ba2\u5355\u6bd4\u4f8b\u662f\u591a\u5c11\uff1f] _
+
+tmp_path = PosixPath('/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_material_only_never_touch1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x106f26450>
+
+    @pytest.fixture
+    def lexicons(tmp_path, monkeypatch):
+        wiki = tmp_path / "wiki"
+        relations = wiki / "relations"
+        relations.mkdir(parents=True)
+        (relations / "entity_exposures.json").write_text(json.dumps({"entities": {
+            "甲设备": {"codes": ["300001.SZ"], "concepts": {"光模块": {}}},
+            "乙设备": {"codes": ["300002.SZ"], "concepts": {"光模块": {}}},
+        }}, ensure_ascii=False))
+        (relations / "aliases.json").write_text(json.dumps({
+            "aliases": {"光通信模块": "光模块"},
+        }, ensure_ascii=False))
+        db = tmp_path / "securities.duckdb"
+>       with duckdb.connect(str(db)) as con:
+
+intelligence/tests/test_e2_query_resolver_reads.py:36: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:60: in guarded_connect
+    deny('duckdb.connect', str(database))
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+event = 'duckdb.connect'
+details = '/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_material_only_never_touch1/securities.duckdb'
+
+    def deny(event, details):
+        violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})
+>       raise PermissionError('Author test forbidden IO: ' + event)
+E       PermissionError: Author test forbidden IO: duckdb.connect
+
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:35: PermissionError
+_ ERROR at setup of test_material_only_never_touches_lexicons[False-False-\u300c\u5149\u901a\u4fe1\u6a21\u5757\u6536\u5165100\uff0c\u8ba2\u535520\u3002\u300d\n\n1. \u5149\u901a\u4fe1\u6a21\u5757\u7684\u8ba2\u5355\u6bd4\u4f8b\u662f\u591a\u5c11\uff1f] _
+
+tmp_path = PosixPath('/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_material_only_never_touch2')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x106f27500>
+
+    @pytest.fixture
+    def lexicons(tmp_path, monkeypatch):
+        wiki = tmp_path / "wiki"
+        relations = wiki / "relations"
+        relations.mkdir(parents=True)
+        (relations / "entity_exposures.json").write_text(json.dumps({"entities": {
+            "甲设备": {"codes": ["300001.SZ"], "concepts": {"光模块": {}}},
+            "乙设备": {"codes": ["300002.SZ"], "concepts": {"光模块": {}}},
+        }}, ensure_ascii=False))
+        (relations / "aliases.json").write_text(json.dumps({
+            "aliases": {"光通信模块": "光模块"},
+        }, ensure_ascii=False))
+        db = tmp_path / "securities.duckdb"
+>       with duckdb.connect(str(db)) as con:
+
+intelligence/tests/test_e2_query_resolver_reads.py:36: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:60: in guarded_connect
+    deny('duckdb.connect', str(database))
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+event = 'duckdb.connect'
+details = '/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_material_only_never_touch2/securities.duckdb'
+
+    def deny(event, details):
+        violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})
+>       raise PermissionError('Author test forbidden IO: ' + event)
+E       PermissionError: Author test forbidden IO: duckdb.connect
+
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:35: PermissionError
+_ ERROR at setup of test_material_only_never_touches_lexicons[False-False-\u300c\u7532\u8bbe\u5907\u548c\u4e59\u8bbe\u5907\u5747\u6709\u8ba2\u5355\u3002\u300d\n\n1. \u6bd4\u8f83\u7532\u8bbe\u5907\u548c\u4e59\u8bbe\u59072024\u5e74\u90a3\u4e00\u6ce2\u7684\u5dee\u5f02\uff1f] _
+
+tmp_path = PosixPath('/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_material_only_never_touch3')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x106f26de0>
+
+    @pytest.fixture
+    def lexicons(tmp_path, monkeypatch):
+        wiki = tmp_path / "wiki"
+        relations = wiki / "relations"
+        relations.mkdir(parents=True)
+        (relations / "entity_exposures.json").write_text(json.dumps({"entities": {
+            "甲设备": {"codes": ["300001.SZ"], "concepts": {"光模块": {}}},
+            "乙设备": {"codes": ["300002.SZ"], "concepts": {"光模块": {}}},
+        }}, ensure_ascii=False))
+        (relations / "aliases.json").write_text(json.dumps({
+            "aliases": {"光通信模块": "光模块"},
+        }, ensure_ascii=False))
+        db = tmp_path / "securities.duckdb"
+>       with duckdb.connect(str(db)) as con:
+
+intelligence/tests/test_e2_query_resolver_reads.py:36: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:60: in guarded_connect
+    deny('duckdb.connect', str(database))
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+event = 'duckdb.connect'
+details = '/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_material_only_never_touch3/securities.duckdb'
+
+    def deny(event, details):
+        violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})
+>       raise PermissionError('Author test forbidden IO: ' + event)
+E       PermissionError: Author test forbidden IO: duckdb.connect
+
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:35: PermissionError
+_ ERROR at setup of test_material_only_never_touches_lexicons[False-False-\u300c\u5149\u6a21\u5757\u6536\u5165100\u3002\u300d\n\n1. \u590d\u76d82024\u5e74\u5149\u6a21\u5757\u90a3\u4e00\u6ce2\u7684\u53d8\u5316\uff1f] _
+
+tmp_path = PosixPath('/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_material_only_never_touch4')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x106f26090>
+
+    @pytest.fixture
+    def lexicons(tmp_path, monkeypatch):
+        wiki = tmp_path / "wiki"
+        relations = wiki / "relations"
+        relations.mkdir(parents=True)
+        (relations / "entity_exposures.json").write_text(json.dumps({"entities": {
+            "甲设备": {"codes": ["300001.SZ"], "concepts": {"光模块": {}}},
+            "乙设备": {"codes": ["300002.SZ"], "concepts": {"光模块": {}}},
+        }}, ensure_ascii=False))
+        (relations / "aliases.json").write_text(json.dumps({
+            "aliases": {"光通信模块": "光模块"},
+        }, ensure_ascii=False))
+        db = tmp_path / "securities.duckdb"
+>       with duckdb.connect(str(db)) as con:
+
+intelligence/tests/test_e2_query_resolver_reads.py:36: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:60: in guarded_connect
+    deny('duckdb.connect', str(database))
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+event = 'duckdb.connect'
+details = '/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_material_only_never_touch4/securities.duckdb'
+
+    def deny(event, details):
+        violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})
+>       raise PermissionError('Author test forbidden IO: ' + event)
+E       PermissionError: Author test forbidden IO: duckdb.connect
+
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:35: PermissionError
+_ ERROR at setup of test_material_only_never_touches_lexicons[False-True-\u300c\u7532\u8bbe\u5907\u6536\u5165100\uff0c\u8ba2\u535520\u3002\u300d\n\n1. \u7532\u8bbe\u5907\u8ba2\u5355\u5360\u6536\u5165\u591a\u5c11\uff1f] _
+
+tmp_path = PosixPath('/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_material_only_never_touch5')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x106f630b0>
+
+    @pytest.fixture
+    def lexicons(tmp_path, monkeypatch):
+        wiki = tmp_path / "wiki"
+        relations = wiki / "relations"
+        relations.mkdir(parents=True)
+        (relations / "entity_exposures.json").write_text(json.dumps({"entities": {
+            "甲设备": {"codes": ["300001.SZ"], "concepts": {"光模块": {}}},
+            "乙设备": {"codes": ["300002.SZ"], "concepts": {"光模块": {}}},
+        }}, ensure_ascii=False))
+        (relations / "aliases.json").write_text(json.dumps({
+            "aliases": {"光通信模块": "光模块"},
+        }, ensure_ascii=False))
+        db = tmp_path / "securities.duckdb"
+>       with duckdb.connect(str(db)) as con:
+
+intelligence/tests/test_e2_query_resolver_reads.py:36: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:60: in guarded_connect
+    deny('duckdb.connect', str(database))
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+event = 'duckdb.connect'
+details = '/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_material_only_never_touch5/securities.duckdb'
+
+    def deny(event, details):
+        violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})
+>       raise PermissionError('Author test forbidden IO: ' + event)
+E       PermissionError: Author test forbidden IO: duckdb.connect
+
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:35: PermissionError
+_ ERROR at setup of test_material_only_never_touches_lexicons[False-True-\u300c300001\u53ea\u662f\u6750\u6599\u7f16\u53f7\uff0c\u6536\u5165100\u3002\u300d\n\n1. 300001\u7684\u8ba2\u5355\u6bd4\u4f8b\u662f\u591a\u5c11\uff1f] _
+
+tmp_path = PosixPath('/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_material_only_never_touch6')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x106f62db0>
+
+    @pytest.fixture
+    def lexicons(tmp_path, monkeypatch):
+        wiki = tmp_path / "wiki"
+        relations = wiki / "relations"
+        relations.mkdir(parents=True)
+        (relations / "entity_exposures.json").write_text(json.dumps({"entities": {
+            "甲设备": {"codes": ["300001.SZ"], "concepts": {"光模块": {}}},
+            "乙设备": {"codes": ["300002.SZ"], "concepts": {"光模块": {}}},
+        }}, ensure_ascii=False))
+        (relations / "aliases.json").write_text(json.dumps({
+            "aliases": {"光通信模块": "光模块"},
+        }, ensure_ascii=False))
+        db = tmp_path / "securities.duckdb"
+>       with duckdb.connect(str(db)) as con:
+
+intelligence/tests/test_e2_query_resolver_reads.py:36: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:60: in guarded_connect
+    deny('duckdb.connect', str(database))
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+event = 'duckdb.connect'
+details = '/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_material_only_never_touch6/securities.duckdb'
+
+    def deny(event, details):
+        violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})
+>       raise PermissionError('Author test forbidden IO: ' + event)
+E       PermissionError: Author test forbidden IO: duckdb.connect
+
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:35: PermissionError
+_ ERROR at setup of test_material_only_never_touches_lexicons[False-True-\u300c\u5149\u901a\u4fe1\u6a21\u5757\u6536\u5165100\uff0c\u8ba2\u535520\u3002\u300d\n\n1. \u5149\u901a\u4fe1\u6a21\u5757\u7684\u8ba2\u5355\u6bd4\u4f8b\u662f\u591a\u5c11\uff1f] _
+
+tmp_path = PosixPath('/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_material_only_never_touch7')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x106f62240>
+
+    @pytest.fixture
+    def lexicons(tmp_path, monkeypatch):
+        wiki = tmp_path / "wiki"
+        relations = wiki / "relations"
+        relations.mkdir(parents=True)
+        (relations / "entity_exposures.json").write_text(json.dumps({"entities": {
+            "甲设备": {"codes": ["300001.SZ"], "concepts": {"光模块": {}}},
+            "乙设备": {"codes": ["300002.SZ"], "concepts": {"光模块": {}}},
+        }}, ensure_ascii=False))
+        (relations / "aliases.json").write_text(json.dumps({
+            "aliases": {"光通信模块": "光模块"},
+        }, ensure_ascii=False))
+        db = tmp_path / "securities.duckdb"
+>       with duckdb.connect(str(db)) as con:
+
+intelligence/tests/test_e2_query_resolver_reads.py:36: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:60: in guarded_connect
+    deny('duckdb.connect', str(database))
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+event = 'duckdb.connect'
+details = '/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_material_only_never_touch7/securities.duckdb'
+
+    def deny(event, details):
+        violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})
+>       raise PermissionError('Author test forbidden IO: ' + event)
+E       PermissionError: Author test forbidden IO: duckdb.connect
+
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:35: PermissionError
+_ ERROR at setup of test_material_only_never_touches_lexicons[False-True-\u300c\u7532\u8bbe\u5907\u548c\u4e59\u8bbe\u5907\u5747\u6709\u8ba2\u5355\u3002\u300d\n\n1. \u6bd4\u8f83\u7532\u8bbe\u5907\u548c\u4e59\u8bbe\u59072024\u5e74\u90a3\u4e00\u6ce2\u7684\u5dee\u5f02\uff1f] _
+
+tmp_path = PosixPath('/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_material_only_never_touch8')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x106f11310>
+
+    @pytest.fixture
+    def lexicons(tmp_path, monkeypatch):
+        wiki = tmp_path / "wiki"
+        relations = wiki / "relations"
+        relations.mkdir(parents=True)
+        (relations / "entity_exposures.json").write_text(json.dumps({"entities": {
+            "甲设备": {"codes": ["300001.SZ"], "concepts": {"光模块": {}}},
+            "乙设备": {"codes": ["300002.SZ"], "concepts": {"光模块": {}}},
+        }}, ensure_ascii=False))
+        (relations / "aliases.json").write_text(json.dumps({
+            "aliases": {"光通信模块": "光模块"},
+        }, ensure_ascii=False))
+        db = tmp_path / "securities.duckdb"
+>       with duckdb.connect(str(db)) as con:
+
+intelligence/tests/test_e2_query_resolver_reads.py:36: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:60: in guarded_connect
+    deny('duckdb.connect', str(database))
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+event = 'duckdb.connect'
+details = '/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_material_only_never_touch8/securities.duckdb'
+
+    def deny(event, details):
+        violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})
+>       raise PermissionError('Author test forbidden IO: ' + event)
+E       PermissionError: Author test forbidden IO: duckdb.connect
+
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:35: PermissionError
+_ ERROR at setup of test_material_only_never_touches_lexicons[False-True-\u300c\u5149\u6a21\u5757\u6536\u5165100\u3002\u300d\n\n1. \u590d\u76d82024\u5e74\u5149\u6a21\u5757\u90a3\u4e00\u6ce2\u7684\u53d8\u5316\uff1f] _
+
+tmp_path = PosixPath('/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_material_only_never_touch9')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x106d64950>
+
+    @pytest.fixture
+    def lexicons(tmp_path, monkeypatch):
+        wiki = tmp_path / "wiki"
+        relations = wiki / "relations"
+        relations.mkdir(parents=True)
+        (relations / "entity_exposures.json").write_text(json.dumps({"entities": {
+            "甲设备": {"codes": ["300001.SZ"], "concepts": {"光模块": {}}},
+            "乙设备": {"codes": ["300002.SZ"], "concepts": {"光模块": {}}},
+        }}, ensure_ascii=False))
+        (relations / "aliases.json").write_text(json.dumps({
+            "aliases": {"光通信模块": "光模块"},
+        }, ensure_ascii=False))
+        db = tmp_path / "securities.duckdb"
+>       with duckdb.connect(str(db)) as con:
+
+intelligence/tests/test_e2_query_resolver_reads.py:36: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:60: in guarded_connect
+    deny('duckdb.connect', str(database))
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+event = 'duckdb.connect'
+details = '/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_material_only_never_touch9/securities.duckdb'
+
+    def deny(event, details):
+        violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})
+>       raise PermissionError('Author test forbidden IO: ' + event)
+E       PermissionError: Author test forbidden IO: duckdb.connect
+
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:35: PermissionError
+_ ERROR at setup of test_material_only_never_touches_lexicons[True-False-\u300c\u7532\u8bbe\u5907\u6536\u5165100\uff0c\u8ba2\u535520\u3002\u300d\n\n1. \u7532\u8bbe\u5907\u8ba2\u5355\u5360\u6536\u5165\u591a\u5c11\uff1f] _
+
+tmp_path = PosixPath('/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_material_only_never_touch10')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x106d64a70>
+
+    @pytest.fixture
+    def lexicons(tmp_path, monkeypatch):
+        wiki = tmp_path / "wiki"
+        relations = wiki / "relations"
+        relations.mkdir(parents=True)
+        (relations / "entity_exposures.json").write_text(json.dumps({"entities": {
+            "甲设备": {"codes": ["300001.SZ"], "concepts": {"光模块": {}}},
+            "乙设备": {"codes": ["300002.SZ"], "concepts": {"光模块": {}}},
+        }}, ensure_ascii=False))
+        (relations / "aliases.json").write_text(json.dumps({
+            "aliases": {"光通信模块": "光模块"},
+        }, ensure_ascii=False))
+        db = tmp_path / "securities.duckdb"
+>       with duckdb.connect(str(db)) as con:
+
+intelligence/tests/test_e2_query_resolver_reads.py:36: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:60: in guarded_connect
+    deny('duckdb.connect', str(database))
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+event = 'duckdb.connect'
+details = '/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_material_only_never_touch10/securities.duckdb'
+
+    def deny(event, details):
+        violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})
+>       raise PermissionError('Author test forbidden IO: ' + event)
+E       PermissionError: Author test forbidden IO: duckdb.connect
+
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:35: PermissionError
+_ ERROR at setup of test_material_only_never_touches_lexicons[True-False-\u300c300001\u53ea\u662f\u6750\u6599\u7f16\u53f7\uff0c\u6536\u5165100\u3002\u300d\n\n1. 300001\u7684\u8ba2\u5355\u6bd4\u4f8b\u662f\u591a\u5c11\uff1f] _
+
+tmp_path = PosixPath('/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_material_only_never_touch11')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x106d66960>
+
+    @pytest.fixture
+    def lexicons(tmp_path, monkeypatch):
+        wiki = tmp_path / "wiki"
+        relations = wiki / "relations"
+        relations.mkdir(parents=True)
+        (relations / "entity_exposures.json").write_text(json.dumps({"entities": {
+            "甲设备": {"codes": ["300001.SZ"], "concepts": {"光模块": {}}},
+            "乙设备": {"codes": ["300002.SZ"], "concepts": {"光模块": {}}},
+        }}, ensure_ascii=False))
+        (relations / "aliases.json").write_text(json.dumps({
+            "aliases": {"光通信模块": "光模块"},
+        }, ensure_ascii=False))
+        db = tmp_path / "securities.duckdb"
+>       with duckdb.connect(str(db)) as con:
+
+intelligence/tests/test_e2_query_resolver_reads.py:36: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:60: in guarded_connect
+    deny('duckdb.connect', str(database))
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+event = 'duckdb.connect'
+details = '/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_material_only_never_touch11/securities.duckdb'
+
+    def deny(event, details):
+        violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})
+>       raise PermissionError('Author test forbidden IO: ' + event)
+E       PermissionError: Author test forbidden IO: duckdb.connect
+
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:35: PermissionError
+_ ERROR at setup of test_material_only_never_touches_lexicons[True-False-\u300c\u5149\u901a\u4fe1\u6a21\u5757\u6536\u5165100\uff0c\u8ba2\u535520\u3002\u300d\n\n1. \u5149\u901a\u4fe1\u6a21\u5757\u7684\u8ba2\u5355\u6bd4\u4f8b\u662f\u591a\u5c11\uff1f] _
+
+tmp_path = PosixPath('/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_material_only_never_touch12')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x106d666f0>
+
+    @pytest.fixture
+    def lexicons(tmp_path, monkeypatch):
+        wiki = tmp_path / "wiki"
+        relations = wiki / "relations"
+        relations.mkdir(parents=True)
+        (relations / "entity_exposures.json").write_text(json.dumps({"entities": {
+            "甲设备": {"codes": ["300001.SZ"], "concepts": {"光模块": {}}},
+            "乙设备": {"codes": ["300002.SZ"], "concepts": {"光模块": {}}},
+        }}, ensure_ascii=False))
+        (relations / "aliases.json").write_text(json.dumps({
+            "aliases": {"光通信模块": "光模块"},
+        }, ensure_ascii=False))
+        db = tmp_path / "securities.duckdb"
+>       with duckdb.connect(str(db)) as con:
+
+intelligence/tests/test_e2_query_resolver_reads.py:36: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:60: in guarded_connect
+    deny('duckdb.connect', str(database))
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+event = 'duckdb.connect'
+details = '/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_material_only_never_touch12/securities.duckdb'
+
+    def deny(event, details):
+        violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})
+>       raise PermissionError('Author test forbidden IO: ' + event)
+E       PermissionError: Author test forbidden IO: duckdb.connect
+
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:35: PermissionError
+_ ERROR at setup of test_material_only_never_touches_lexicons[True-False-\u300c\u7532\u8bbe\u5907\u548c\u4e59\u8bbe\u5907\u5747\u6709\u8ba2\u5355\u3002\u300d\n\n1. \u6bd4\u8f83\u7532\u8bbe\u5907\u548c\u4e59\u8bbe\u59072024\u5e74\u90a3\u4e00\u6ce2\u7684\u5dee\u5f02\uff1f] _
+
+tmp_path = PosixPath('/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_material_only_never_touch13')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x106d67fb0>
+
+    @pytest.fixture
+    def lexicons(tmp_path, monkeypatch):
+        wiki = tmp_path / "wiki"
+        relations = wiki / "relations"
+        relations.mkdir(parents=True)
+        (relations / "entity_exposures.json").write_text(json.dumps({"entities": {
+            "甲设备": {"codes": ["300001.SZ"], "concepts": {"光模块": {}}},
+            "乙设备": {"codes": ["300002.SZ"], "concepts": {"光模块": {}}},
+        }}, ensure_ascii=False))
+        (relations / "aliases.json").write_text(json.dumps({
+            "aliases": {"光通信模块": "光模块"},
+        }, ensure_ascii=False))
+        db = tmp_path / "securities.duckdb"
+>       with duckdb.connect(str(db)) as con:
+
+intelligence/tests/test_e2_query_resolver_reads.py:36: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:60: in guarded_connect
+    deny('duckdb.connect', str(database))
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+event = 'duckdb.connect'
+details = '/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_material_only_never_touch13/securities.duckdb'
+
+    def deny(event, details):
+        violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})
+>       raise PermissionError('Author test forbidden IO: ' + event)
+E       PermissionError: Author test forbidden IO: duckdb.connect
+
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:35: PermissionError
+_ ERROR at setup of test_material_only_never_touches_lexicons[True-False-\u300c\u5149\u6a21\u5757\u6536\u5165100\u3002\u300d\n\n1. \u590d\u76d82024\u5e74\u5149\u6a21\u5757\u90a3\u4e00\u6ce2\u7684\u53d8\u5316\uff1f] _
+
+tmp_path = PosixPath('/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_material_only_never_touch14')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x106d8c680>
+
+    @pytest.fixture
+    def lexicons(tmp_path, monkeypatch):
+        wiki = tmp_path / "wiki"
+        relations = wiki / "relations"
+        relations.mkdir(parents=True)
+        (relations / "entity_exposures.json").write_text(json.dumps({"entities": {
+            "甲设备": {"codes": ["300001.SZ"], "concepts": {"光模块": {}}},
+            "乙设备": {"codes": ["300002.SZ"], "concepts": {"光模块": {}}},
+        }}, ensure_ascii=False))
+        (relations / "aliases.json").write_text(json.dumps({
+            "aliases": {"光通信模块": "光模块"},
+        }, ensure_ascii=False))
+        db = tmp_path / "securities.duckdb"
+>       with duckdb.connect(str(db)) as con:
+
+intelligence/tests/test_e2_query_resolver_reads.py:36: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:60: in guarded_connect
+    deny('duckdb.connect', str(database))
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+event = 'duckdb.connect'
+details = '/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_material_only_never_touch14/securities.duckdb'
+
+    def deny(event, details):
+        violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})
+>       raise PermissionError('Author test forbidden IO: ' + event)
+E       PermissionError: Author test forbidden IO: duckdb.connect
+
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:35: PermissionError
+_ ERROR at setup of test_material_only_never_touches_lexicons[True-True-\u300c\u7532\u8bbe\u5907\u6536\u5165100\uff0c\u8ba2\u535520\u3002\u300d\n\n1. \u7532\u8bbe\u5907\u8ba2\u5355\u5360\u6536\u5165\u591a\u5c11\uff1f] _
+
+tmp_path = PosixPath('/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_material_only_never_touch15')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x106d66d80>
+
+    @pytest.fixture
+    def lexicons(tmp_path, monkeypatch):
+        wiki = tmp_path / "wiki"
+        relations = wiki / "relations"
+        relations.mkdir(parents=True)
+        (relations / "entity_exposures.json").write_text(json.dumps({"entities": {
+            "甲设备": {"codes": ["300001.SZ"], "concepts": {"光模块": {}}},
+            "乙设备": {"codes": ["300002.SZ"], "concepts": {"光模块": {}}},
+        }}, ensure_ascii=False))
+        (relations / "aliases.json").write_text(json.dumps({
+            "aliases": {"光通信模块": "光模块"},
+        }, ensure_ascii=False))
+        db = tmp_path / "securities.duckdb"
+>       with duckdb.connect(str(db)) as con:
+
+intelligence/tests/test_e2_query_resolver_reads.py:36: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:60: in guarded_connect
+    deny('duckdb.connect', str(database))
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+event = 'duckdb.connect'
+details = '/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_material_only_never_touch15/securities.duckdb'
+
+    def deny(event, details):
+        violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})
+>       raise PermissionError('Author test forbidden IO: ' + event)
+E       PermissionError: Author test forbidden IO: duckdb.connect
+
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:35: PermissionError
+_ ERROR at setup of test_material_only_never_touches_lexicons[True-True-\u300c300001\u53ea\u662f\u6750\u6599\u7f16\u53f7\uff0c\u6536\u5165100\u3002\u300d\n\n1. 300001\u7684\u8ba2\u5355\u6bd4\u4f8b\u662f\u591a\u5c11\uff1f] _
+
+tmp_path = PosixPath('/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_material_only_never_touch16')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x106d65be0>
+
+    @pytest.fixture
+    def lexicons(tmp_path, monkeypatch):
+        wiki = tmp_path / "wiki"
+        relations = wiki / "relations"
+        relations.mkdir(parents=True)
+        (relations / "entity_exposures.json").write_text(json.dumps({"entities": {
+            "甲设备": {"codes": ["300001.SZ"], "concepts": {"光模块": {}}},
+            "乙设备": {"codes": ["300002.SZ"], "concepts": {"光模块": {}}},
+        }}, ensure_ascii=False))
+        (relations / "aliases.json").write_text(json.dumps({
+            "aliases": {"光通信模块": "光模块"},
+        }, ensure_ascii=False))
+        db = tmp_path / "securities.duckdb"
+>       with duckdb.connect(str(db)) as con:
+
+intelligence/tests/test_e2_query_resolver_reads.py:36: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:60: in guarded_connect
+    deny('duckdb.connect', str(database))
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+event = 'duckdb.connect'
+details = '/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_material_only_never_touch16/securities.duckdb'
+
+    def deny(event, details):
+        violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})
+>       raise PermissionError('Author test forbidden IO: ' + event)
+E       PermissionError: Author test forbidden IO: duckdb.connect
+
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:35: PermissionError
+_ ERROR at setup of test_material_only_never_touches_lexicons[True-True-\u300c\u5149\u901a\u4fe1\u6a21\u5757\u6536\u5165100\uff0c\u8ba2\u535520\u3002\u300d\n\n1. \u5149\u901a\u4fe1\u6a21\u5757\u7684\u8ba2\u5355\u6bd4\u4f8b\u662f\u591a\u5c11\uff1f] _
+
+tmp_path = PosixPath('/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_material_only_never_touch17')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x106d65700>
+
+    @pytest.fixture
+    def lexicons(tmp_path, monkeypatch):
+        wiki = tmp_path / "wiki"
+        relations = wiki / "relations"
+        relations.mkdir(parents=True)
+        (relations / "entity_exposures.json").write_text(json.dumps({"entities": {
+            "甲设备": {"codes": ["300001.SZ"], "concepts": {"光模块": {}}},
+            "乙设备": {"codes": ["300002.SZ"], "concepts": {"光模块": {}}},
+        }}, ensure_ascii=False))
+        (relations / "aliases.json").write_text(json.dumps({
+            "aliases": {"光通信模块": "光模块"},
+        }, ensure_ascii=False))
+        db = tmp_path / "securities.duckdb"
+>       with duckdb.connect(str(db)) as con:
+
+intelligence/tests/test_e2_query_resolver_reads.py:36: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:60: in guarded_connect
+    deny('duckdb.connect', str(database))
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+event = 'duckdb.connect'
+details = '/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_material_only_never_touch17/securities.duckdb'
+
+    def deny(event, details):
+        violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})
+>       raise PermissionError('Author test forbidden IO: ' + event)
+E       PermissionError: Author test forbidden IO: duckdb.connect
+
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:35: PermissionError
+_ ERROR at setup of test_material_only_never_touches_lexicons[True-True-\u300c\u7532\u8bbe\u5907\u548c\u4e59\u8bbe\u5907\u5747\u6709\u8ba2\u5355\u3002\u300d\n\n1. \u6bd4\u8f83\u7532\u8bbe\u5907\u548c\u4e59\u8bbe\u59072024\u5e74\u90a3\u4e00\u6ce2\u7684\u5dee\u5f02\uff1f] _
+
+tmp_path = PosixPath('/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_material_only_never_touch18')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x106d8e000>
+
+    @pytest.fixture
+    def lexicons(tmp_path, monkeypatch):
+        wiki = tmp_path / "wiki"
+        relations = wiki / "relations"
+        relations.mkdir(parents=True)
+        (relations / "entity_exposures.json").write_text(json.dumps({"entities": {
+            "甲设备": {"codes": ["300001.SZ"], "concepts": {"光模块": {}}},
+            "乙设备": {"codes": ["300002.SZ"], "concepts": {"光模块": {}}},
+        }}, ensure_ascii=False))
+        (relations / "aliases.json").write_text(json.dumps({
+            "aliases": {"光通信模块": "光模块"},
+        }, ensure_ascii=False))
+        db = tmp_path / "securities.duckdb"
+>       with duckdb.connect(str(db)) as con:
+
+intelligence/tests/test_e2_query_resolver_reads.py:36: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:60: in guarded_connect
+    deny('duckdb.connect', str(database))
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+event = 'duckdb.connect'
+details = '/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_material_only_never_touch18/securities.duckdb'
+
+    def deny(event, details):
+        violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})
+>       raise PermissionError('Author test forbidden IO: ' + event)
+E       PermissionError: Author test forbidden IO: duckdb.connect
+
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:35: PermissionError
+_ ERROR at setup of test_material_only_never_touches_lexicons[True-True-\u300c\u5149\u6a21\u5757\u6536\u5165100\u3002\u300d\n\n1. \u590d\u76d82024\u5e74\u5149\u6a21\u5757\u90a3\u4e00\u6ce2\u7684\u53d8\u5316\uff1f] _
+
+tmp_path = PosixPath('/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_material_only_never_touch19')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x106d8c4a0>
+
+    @pytest.fixture
+    def lexicons(tmp_path, monkeypatch):
+        wiki = tmp_path / "wiki"
+        relations = wiki / "relations"
+        relations.mkdir(parents=True)
+        (relations / "entity_exposures.json").write_text(json.dumps({"entities": {
+            "甲设备": {"codes": ["300001.SZ"], "concepts": {"光模块": {}}},
+            "乙设备": {"codes": ["300002.SZ"], "concepts": {"光模块": {}}},
+        }}, ensure_ascii=False))
+        (relations / "aliases.json").write_text(json.dumps({
+            "aliases": {"光通信模块": "光模块"},
+        }, ensure_ascii=False))
+        db = tmp_path / "securities.duckdb"
+>       with duckdb.connect(str(db)) as con:
+
+intelligence/tests/test_e2_query_resolver_reads.py:36: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:60: in guarded_connect
+    deny('duckdb.connect', str(database))
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+event = 'duckdb.connect'
+details = '/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_material_only_never_touch19/securities.duckdb'
+
+    def deny(event, details):
+        violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})
+>       raise PermissionError('Author test forbidden IO: ' + event)
+E       PermissionError: Author test forbidden IO: duckdb.connect
+
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:35: PermissionError
+_ ERROR at setup of test_allowed_queries_keep_real_synthetic_lexicon_reads[\u7532\u8bbe\u5907-\u7532\u8bbe\u5907-] _
+
+tmp_path = PosixPath('/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_allowed_queries_keep_real0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x106d8e510>
+
+    @pytest.fixture
+    def lexicons(tmp_path, monkeypatch):
+        wiki = tmp_path / "wiki"
+        relations = wiki / "relations"
+        relations.mkdir(parents=True)
+        (relations / "entity_exposures.json").write_text(json.dumps({"entities": {
+            "甲设备": {"codes": ["300001.SZ"], "concepts": {"光模块": {}}},
+            "乙设备": {"codes": ["300002.SZ"], "concepts": {"光模块": {}}},
+        }}, ensure_ascii=False))
+        (relations / "aliases.json").write_text(json.dumps({
+            "aliases": {"光通信模块": "光模块"},
+        }, ensure_ascii=False))
+        db = tmp_path / "securities.duckdb"
+>       with duckdb.connect(str(db)) as con:
+
+intelligence/tests/test_e2_query_resolver_reads.py:36: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:60: in guarded_connect
+    deny('duckdb.connect', str(database))
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+event = 'duckdb.connect'
+details = '/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_allowed_queries_keep_real0/securities.duckdb'
+
+    def deny(event, details):
+        violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})
+>       raise PermissionError('Author test forbidden IO: ' + event)
+E       PermissionError: Author test forbidden IO: duckdb.connect
+
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:35: PermissionError
+_ ERROR at setup of test_allowed_queries_keep_real_synthetic_lexicon_reads[\u7532\u8bbe\u5907-\u7532\u8bbe\u5907-\u4e0d\u8981\u8054\u7f51\u3002\n\n] _
+
+tmp_path = PosixPath('/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_allowed_queries_keep_real1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x106d8dc10>
+
+    @pytest.fixture
+    def lexicons(tmp_path, monkeypatch):
+        wiki = tmp_path / "wiki"
+        relations = wiki / "relations"
+        relations.mkdir(parents=True)
+        (relations / "entity_exposures.json").write_text(json.dumps({"entities": {
+            "甲设备": {"codes": ["300001.SZ"], "concepts": {"光模块": {}}},
+            "乙设备": {"codes": ["300002.SZ"], "concepts": {"光模块": {}}},
+        }}, ensure_ascii=False))
+        (relations / "aliases.json").write_text(json.dumps({
+            "aliases": {"光通信模块": "光模块"},
+        }, ensure_ascii=False))
+        db = tmp_path / "securities.duckdb"
+>       with duckdb.connect(str(db)) as con:
+
+intelligence/tests/test_e2_query_resolver_reads.py:36: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:60: in guarded_connect
+    deny('duckdb.connect', str(database))
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+event = 'duckdb.connect'
+details = '/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_allowed_queries_keep_real1/securities.duckdb'
+
+    def deny(event, details):
+        violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})
+>       raise PermissionError('Author test forbidden IO: ' + event)
+E       PermissionError: Author test forbidden IO: duckdb.connect
+
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:35: PermissionError
+_ ERROR at setup of test_allowed_queries_keep_real_synthetic_lexicon_reads[\u7532\u8bbe\u5907-\u7532\u8bbe\u5907-\u53ef\u4ee5\u67e5\u771f\u5b9e\u6570\u636e\u3002\n\n] _
+
+tmp_path = PosixPath('/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_allowed_queries_keep_real2')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x106d67140>
+
+    @pytest.fixture
+    def lexicons(tmp_path, monkeypatch):
+        wiki = tmp_path / "wiki"
+        relations = wiki / "relations"
+        relations.mkdir(parents=True)
+        (relations / "entity_exposures.json").write_text(json.dumps({"entities": {
+            "甲设备": {"codes": ["300001.SZ"], "concepts": {"光模块": {}}},
+            "乙设备": {"codes": ["300002.SZ"], "concepts": {"光模块": {}}},
+        }}, ensure_ascii=False))
+        (relations / "aliases.json").write_text(json.dumps({
+            "aliases": {"光通信模块": "光模块"},
+        }, ensure_ascii=False))
+        db = tmp_path / "securities.duckdb"
+>       with duckdb.connect(str(db)) as con:
+
+intelligence/tests/test_e2_query_resolver_reads.py:36: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:60: in guarded_connect
+    deny('duckdb.connect', str(database))
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+event = 'duckdb.connect'
+details = '/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_allowed_queries_keep_real2/securities.duckdb'
+
+    def deny(event, details):
+        violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})
+>       raise PermissionError('Author test forbidden IO: ' + event)
+E       PermissionError: Author test forbidden IO: duckdb.connect
+
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:35: PermissionError
+_ ERROR at setup of test_allowed_queries_keep_real_synthetic_lexicon_reads[\u4e19\u8bbe\u5907-\u4e19\u8bbe\u5907-] _
+
+tmp_path = PosixPath('/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_allowed_queries_keep_real3')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x106d645f0>
+
+    @pytest.fixture
+    def lexicons(tmp_path, monkeypatch):
+        wiki = tmp_path / "wiki"
+        relations = wiki / "relations"
+        relations.mkdir(parents=True)
+        (relations / "entity_exposures.json").write_text(json.dumps({"entities": {
+            "甲设备": {"codes": ["300001.SZ"], "concepts": {"光模块": {}}},
+            "乙设备": {"codes": ["300002.SZ"], "concepts": {"光模块": {}}},
+        }}, ensure_ascii=False))
+        (relations / "aliases.json").write_text(json.dumps({
+            "aliases": {"光通信模块": "光模块"},
+        }, ensure_ascii=False))
+        db = tmp_path / "securities.duckdb"
+>       with duckdb.connect(str(db)) as con:
+
+intelligence/tests/test_e2_query_resolver_reads.py:36: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:60: in guarded_connect
+    deny('duckdb.connect', str(database))
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+event = 'duckdb.connect'
+details = '/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_allowed_queries_keep_real3/securities.duckdb'
+
+    def deny(event, details):
+        violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})
+>       raise PermissionError('Author test forbidden IO: ' + event)
+E       PermissionError: Author test forbidden IO: duckdb.connect
+
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:35: PermissionError
+_ ERROR at setup of test_allowed_queries_keep_real_synthetic_lexicon_reads[\u4e19\u8bbe\u5907-\u4e19\u8bbe\u5907-\u4e0d\u8981\u8054\u7f51\u3002\n\n] _
+
+tmp_path = PosixPath('/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_allowed_queries_keep_real4')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x106d67410>
+
+    @pytest.fixture
+    def lexicons(tmp_path, monkeypatch):
+        wiki = tmp_path / "wiki"
+        relations = wiki / "relations"
+        relations.mkdir(parents=True)
+        (relations / "entity_exposures.json").write_text(json.dumps({"entities": {
+            "甲设备": {"codes": ["300001.SZ"], "concepts": {"光模块": {}}},
+            "乙设备": {"codes": ["300002.SZ"], "concepts": {"光模块": {}}},
+        }}, ensure_ascii=False))
+        (relations / "aliases.json").write_text(json.dumps({
+            "aliases": {"光通信模块": "光模块"},
+        }, ensure_ascii=False))
+        db = tmp_path / "securities.duckdb"
+>       with duckdb.connect(str(db)) as con:
+
+intelligence/tests/test_e2_query_resolver_reads.py:36: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:60: in guarded_connect
+    deny('duckdb.connect', str(database))
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+event = 'duckdb.connect'
+details = '/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_allowed_queries_keep_real4/securities.duckdb'
+
+    def deny(event, details):
+        violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})
+>       raise PermissionError('Author test forbidden IO: ' + event)
+E       PermissionError: Author test forbidden IO: duckdb.connect
+
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:35: PermissionError
+_ ERROR at setup of test_allowed_queries_keep_real_synthetic_lexicon_reads[\u4e19\u8bbe\u5907-\u4e19\u8bbe\u5907-\u53ef\u4ee5\u67e5\u771f\u5b9e\u6570\u636e\u3002\n\n] _
+
+tmp_path = PosixPath('/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_allowed_queries_keep_real5')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x106d17ce0>
+
+    @pytest.fixture
+    def lexicons(tmp_path, monkeypatch):
+        wiki = tmp_path / "wiki"
+        relations = wiki / "relations"
+        relations.mkdir(parents=True)
+        (relations / "entity_exposures.json").write_text(json.dumps({"entities": {
+            "甲设备": {"codes": ["300001.SZ"], "concepts": {"光模块": {}}},
+            "乙设备": {"codes": ["300002.SZ"], "concepts": {"光模块": {}}},
+        }}, ensure_ascii=False))
+        (relations / "aliases.json").write_text(json.dumps({
+            "aliases": {"光通信模块": "光模块"},
+        }, ensure_ascii=False))
+        db = tmp_path / "securities.duckdb"
+>       with duckdb.connect(str(db)) as con:
+
+intelligence/tests/test_e2_query_resolver_reads.py:36: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:60: in guarded_connect
+    deny('duckdb.connect', str(database))
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+event = 'duckdb.connect'
+details = '/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_allowed_queries_keep_real5/securities.duckdb'
+
+    def deny(event, details):
+        violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})
+>       raise PermissionError('Author test forbidden IO: ' + event)
+E       PermissionError: Author test forbidden IO: duckdb.connect
+
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:35: PermissionError
+_ ERROR at setup of test_allowed_queries_keep_real_synthetic_lexicon_reads[\u5149\u901a\u4fe1\u6a21\u5757-\u5149\u6a21\u5757-] _
+
+tmp_path = PosixPath('/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_allowed_queries_keep_real6')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x106d149e0>
+
+    @pytest.fixture
+    def lexicons(tmp_path, monkeypatch):
+        wiki = tmp_path / "wiki"
+        relations = wiki / "relations"
+        relations.mkdir(parents=True)
+        (relations / "entity_exposures.json").write_text(json.dumps({"entities": {
+            "甲设备": {"codes": ["300001.SZ"], "concepts": {"光模块": {}}},
+            "乙设备": {"codes": ["300002.SZ"], "concepts": {"光模块": {}}},
+        }}, ensure_ascii=False))
+        (relations / "aliases.json").write_text(json.dumps({
+            "aliases": {"光通信模块": "光模块"},
+        }, ensure_ascii=False))
+        db = tmp_path / "securities.duckdb"
+>       with duckdb.connect(str(db)) as con:
+
+intelligence/tests/test_e2_query_resolver_reads.py:36: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:60: in guarded_connect
+    deny('duckdb.connect', str(database))
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+event = 'duckdb.connect'
+details = '/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_allowed_queries_keep_real6/securities.duckdb'
+
+    def deny(event, details):
+        violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})
+>       raise PermissionError('Author test forbidden IO: ' + event)
+E       PermissionError: Author test forbidden IO: duckdb.connect
+
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:35: PermissionError
+_ ERROR at setup of test_allowed_queries_keep_real_synthetic_lexicon_reads[\u5149\u901a\u4fe1\u6a21\u5757-\u5149\u6a21\u5757-\u4e0d\u8981\u8054\u7f51\u3002\n\n] _
+
+tmp_path = PosixPath('/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_allowed_queries_keep_real7')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x106d178c0>
+
+    @pytest.fixture
+    def lexicons(tmp_path, monkeypatch):
+        wiki = tmp_path / "wiki"
+        relations = wiki / "relations"
+        relations.mkdir(parents=True)
+        (relations / "entity_exposures.json").write_text(json.dumps({"entities": {
+            "甲设备": {"codes": ["300001.SZ"], "concepts": {"光模块": {}}},
+            "乙设备": {"codes": ["300002.SZ"], "concepts": {"光模块": {}}},
+        }}, ensure_ascii=False))
+        (relations / "aliases.json").write_text(json.dumps({
+            "aliases": {"光通信模块": "光模块"},
+        }, ensure_ascii=False))
+        db = tmp_path / "securities.duckdb"
+>       with duckdb.connect(str(db)) as con:
+
+intelligence/tests/test_e2_query_resolver_reads.py:36: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:60: in guarded_connect
+    deny('duckdb.connect', str(database))
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+event = 'duckdb.connect'
+details = '/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_allowed_queries_keep_real7/securities.duckdb'
+
+    def deny(event, details):
+        violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})
+>       raise PermissionError('Author test forbidden IO: ' + event)
+E       PermissionError: Author test forbidden IO: duckdb.connect
+
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:35: PermissionError
+_ ERROR at setup of test_allowed_queries_keep_real_synthetic_lexicon_reads[\u5149\u901a\u4fe1\u6a21\u5757-\u5149\u6a21\u5757-\u53ef\u4ee5\u67e5\u771f\u5b9e\u6570\u636e\u3002\n\n] _
+
+tmp_path = PosixPath('/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_allowed_queries_keep_real8')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x106d67440>
+
+    @pytest.fixture
+    def lexicons(tmp_path, monkeypatch):
+        wiki = tmp_path / "wiki"
+        relations = wiki / "relations"
+        relations.mkdir(parents=True)
+        (relations / "entity_exposures.json").write_text(json.dumps({"entities": {
+            "甲设备": {"codes": ["300001.SZ"], "concepts": {"光模块": {}}},
+            "乙设备": {"codes": ["300002.SZ"], "concepts": {"光模块": {}}},
+        }}, ensure_ascii=False))
+        (relations / "aliases.json").write_text(json.dumps({
+            "aliases": {"光通信模块": "光模块"},
+        }, ensure_ascii=False))
+        db = tmp_path / "securities.duckdb"
+>       with duckdb.connect(str(db)) as con:
+
+intelligence/tests/test_e2_query_resolver_reads.py:36: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:60: in guarded_connect
+    deny('duckdb.connect', str(database))
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+event = 'duckdb.connect'
+details = '/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_allowed_queries_keep_real8/securities.duckdb'
+
+    def deny(event, details):
+        violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})
+>       raise PermissionError('Author test forbidden IO: ' + event)
+E       PermissionError: Author test forbidden IO: duckdb.connect
+
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:35: PermissionError
+_ ERROR at setup of test_only_top_level_effective_scope_blocks_reads[\u300c\u53ea\u4f9d\u636e\u4ee5\u4e0b\u6750\u6599\u56de\u7b54\u3002\u7532\u8bbe\u5907\u6536\u5165100\u3002\u300d\n\n1. \u7532\u8bbe\u5907\u600e\u4e48\u770b\uff1f] _
+
+tmp_path = PosixPath('/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_only_top_level_effective_0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x106d64c50>
+
+    @pytest.fixture
+    def lexicons(tmp_path, monkeypatch):
+        wiki = tmp_path / "wiki"
+        relations = wiki / "relations"
+        relations.mkdir(parents=True)
+        (relations / "entity_exposures.json").write_text(json.dumps({"entities": {
+            "甲设备": {"codes": ["300001.SZ"], "concepts": {"光模块": {}}},
+            "乙设备": {"codes": ["300002.SZ"], "concepts": {"光模块": {}}},
+        }}, ensure_ascii=False))
+        (relations / "aliases.json").write_text(json.dumps({
+            "aliases": {"光通信模块": "光模块"},
+        }, ensure_ascii=False))
+        db = tmp_path / "securities.duckdb"
+>       with duckdb.connect(str(db)) as con:
+
+intelligence/tests/test_e2_query_resolver_reads.py:36: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:60: in guarded_connect
+    deny('duckdb.connect', str(database))
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+event = 'duckdb.connect'
+details = '/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_only_top_level_effective_0/securities.duckdb'
+
+    def deny(event, details):
+        violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})
+>       raise PermissionError('Author test forbidden IO: ' + event)
+E       PermissionError: Author test forbidden IO: duckdb.connect
+
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:35: PermissionError
+_ ERROR at setup of test_only_top_level_effective_scope_blocks_reads[```\n\u53ea\u4f9d\u636e\u4ee5\u4e0b\u6750\u6599\u56de\u7b54\u3002\u7532\u8bbe\u5907\u6536\u5165100\u3002\n```\n\n1. \u7532\u8bbe\u5907\u600e\u4e48\u770b\uff1f] _
+
+tmp_path = PosixPath('/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_only_top_level_effective_1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x106d8d940>
+
+    @pytest.fixture
+    def lexicons(tmp_path, monkeypatch):
+        wiki = tmp_path / "wiki"
+        relations = wiki / "relations"
+        relations.mkdir(parents=True)
+        (relations / "entity_exposures.json").write_text(json.dumps({"entities": {
+            "甲设备": {"codes": ["300001.SZ"], "concepts": {"光模块": {}}},
+            "乙设备": {"codes": ["300002.SZ"], "concepts": {"光模块": {}}},
+        }}, ensure_ascii=False))
+        (relations / "aliases.json").write_text(json.dumps({
+            "aliases": {"光通信模块": "光模块"},
+        }, ensure_ascii=False))
+        db = tmp_path / "securities.duckdb"
+>       with duckdb.connect(str(db)) as con:
+
+intelligence/tests/test_e2_query_resolver_reads.py:36: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:60: in guarded_connect
+    deny('duckdb.connect', str(database))
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+event = 'duckdb.connect'
+details = '/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_only_top_level_effective_1/securities.duckdb'
+
+    def deny(event, details):
+        violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})
+>       raise PermissionError('Author test forbidden IO: ' + event)
+E       PermissionError: Author test forbidden IO: duckdb.connect
+
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:35: PermissionError
+_ ERROR at setup of test_only_top_level_effective_scope_blocks_reads[\u53ea\u4f9d\u636e\u4ee5\u4e0b\u6750\u6599\u56de\u7b54\u3002\n\n\u53ef\u4ee5\u67e5\u771f\u5b9e\u6570\u636e\u3002\n\n\u7532\u8bbe\u5907\u600e\u4e48\u770b\uff1f] _
+
+tmp_path = PosixPath('/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_only_top_level_effective_2')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x106ce57c0>
+
+    @pytest.fixture
+    def lexicons(tmp_path, monkeypatch):
+        wiki = tmp_path / "wiki"
+        relations = wiki / "relations"
+        relations.mkdir(parents=True)
+        (relations / "entity_exposures.json").write_text(json.dumps({"entities": {
+            "甲设备": {"codes": ["300001.SZ"], "concepts": {"光模块": {}}},
+            "乙设备": {"codes": ["300002.SZ"], "concepts": {"光模块": {}}},
+        }}, ensure_ascii=False))
+        (relations / "aliases.json").write_text(json.dumps({
+            "aliases": {"光通信模块": "光模块"},
+        }, ensure_ascii=False))
+        db = tmp_path / "securities.duckdb"
+>       with duckdb.connect(str(db)) as con:
+
+intelligence/tests/test_e2_query_resolver_reads.py:36: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:60: in guarded_connect
+    deny('duckdb.connect', str(database))
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+event = 'duckdb.connect'
+details = '/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_only_top_level_effective_2/securities.duckdb'
+
+    def deny(event, details):
+        violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})
+>       raise PermissionError('Author test forbidden IO: ' + event)
+E       PermissionError: Author test forbidden IO: duckdb.connect
+
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:35: PermissionError
+_ ERROR at setup of test_restricted_then_full_then_restricted_does_not_poison_caches _
+
+tmp_path = PosixPath('/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_restricted_then_full_then0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x106ce7710>
+
+    @pytest.fixture
+    def lexicons(tmp_path, monkeypatch):
+        wiki = tmp_path / "wiki"
+        relations = wiki / "relations"
+        relations.mkdir(parents=True)
+        (relations / "entity_exposures.json").write_text(json.dumps({"entities": {
+            "甲设备": {"codes": ["300001.SZ"], "concepts": {"光模块": {}}},
+            "乙设备": {"codes": ["300002.SZ"], "concepts": {"光模块": {}}},
+        }}, ensure_ascii=False))
+        (relations / "aliases.json").write_text(json.dumps({
+            "aliases": {"光通信模块": "光模块"},
+        }, ensure_ascii=False))
+        db = tmp_path / "securities.duckdb"
+>       with duckdb.connect(str(db)) as con:
+
+intelligence/tests/test_e2_query_resolver_reads.py:36: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:60: in guarded_connect
+    deny('duckdb.connect', str(database))
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+event = 'duckdb.connect'
+details = '/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_restricted_then_full_then0/securities.duckdb'
+
+    def deny(event, details):
+        violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})
+>       raise PermissionError('Author test forbidden IO: ' + event)
+E       PermissionError: Author test forbidden IO: duckdb.connect
+
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:35: PermissionError
+_ ERROR at setup of test_real_controller_uses_guarded_default_or_injected_resolver[False] _
+
+tmp_path = PosixPath('/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_real_controller_uses_guar0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x106d8c410>
+
+    @pytest.fixture
+    def lexicons(tmp_path, monkeypatch):
+        wiki = tmp_path / "wiki"
+        relations = wiki / "relations"
+        relations.mkdir(parents=True)
+        (relations / "entity_exposures.json").write_text(json.dumps({"entities": {
+            "甲设备": {"codes": ["300001.SZ"], "concepts": {"光模块": {}}},
+            "乙设备": {"codes": ["300002.SZ"], "concepts": {"光模块": {}}},
+        }}, ensure_ascii=False))
+        (relations / "aliases.json").write_text(json.dumps({
+            "aliases": {"光通信模块": "光模块"},
+        }, ensure_ascii=False))
+        db = tmp_path / "securities.duckdb"
+>       with duckdb.connect(str(db)) as con:
+
+intelligence/tests/test_e2_query_resolver_reads.py:36: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:60: in guarded_connect
+    deny('duckdb.connect', str(database))
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+event = 'duckdb.connect'
+details = '/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_real_controller_uses_guar0/securities.duckdb'
+
+    def deny(event, details):
+        violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})
+>       raise PermissionError('Author test forbidden IO: ' + event)
+E       PermissionError: Author test forbidden IO: duckdb.connect
+
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:35: PermissionError
+_ ERROR at setup of test_real_controller_uses_guarded_default_or_injected_resolver[True] _
+
+tmp_path = PosixPath('/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_real_controller_uses_guar1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x106d644a0>
+
+    @pytest.fixture
+    def lexicons(tmp_path, monkeypatch):
+        wiki = tmp_path / "wiki"
+        relations = wiki / "relations"
+        relations.mkdir(parents=True)
+        (relations / "entity_exposures.json").write_text(json.dumps({"entities": {
+            "甲设备": {"codes": ["300001.SZ"], "concepts": {"光模块": {}}},
+            "乙设备": {"codes": ["300002.SZ"], "concepts": {"光模块": {}}},
+        }}, ensure_ascii=False))
+        (relations / "aliases.json").write_text(json.dumps({
+            "aliases": {"光通信模块": "光模块"},
+        }, ensure_ascii=False))
+        db = tmp_path / "securities.duckdb"
+>       with duckdb.connect(str(db)) as con:
+
+intelligence/tests/test_e2_query_resolver_reads.py:36: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:60: in guarded_connect
+    deny('duckdb.connect', str(database))
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+event = 'duckdb.connect'
+details = '/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_real_controller_uses_guar1/securities.duckdb'
+
+    def deny(event, details):
+        violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})
+>       raise PermissionError('Author test forbidden IO: ' + event)
+E       PermissionError: Author test forbidden IO: duckdb.connect
+
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:35: PermissionError
+_ ERROR at setup of test_plain_continuation_keeps_existing_reference_behavior __
+
+tmp_path = PosixPath('/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_plain_continuation_keeps_0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x106d17a70>
+
+    @pytest.fixture
+    def lexicons(tmp_path, monkeypatch):
+        wiki = tmp_path / "wiki"
+        relations = wiki / "relations"
+        relations.mkdir(parents=True)
+        (relations / "entity_exposures.json").write_text(json.dumps({"entities": {
+            "甲设备": {"codes": ["300001.SZ"], "concepts": {"光模块": {}}},
+            "乙设备": {"codes": ["300002.SZ"], "concepts": {"光模块": {}}},
+        }}, ensure_ascii=False))
+        (relations / "aliases.json").write_text(json.dumps({
+            "aliases": {"光通信模块": "光模块"},
+        }, ensure_ascii=False))
+        db = tmp_path / "securities.duckdb"
+>       with duckdb.connect(str(db)) as con:
+
+intelligence/tests/test_e2_query_resolver_reads.py:36: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:60: in guarded_connect
+    deny('duckdb.connect', str(database))
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+event = 'duckdb.connect'
+details = '/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_plain_continuation_keeps_0/securities.duckdb'
+
+    def deny(event, details):
+        violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})
+>       raise PermissionError('Author test forbidden IO: ' + event)
+E       PermissionError: Author test forbidden IO: duckdb.connect
+
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:35: PermissionError
+=================================== FAILURES ===================================
+_ test_independent_scope[\u4e0d\u8bfb\u53d6\u6750\u6599\u5916\u6570\u636e\u3002-True] _
+
+tmp_path = PosixPath('/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_independent_scope__u4e0d_0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x106ce4980>
+prefix = '不读取材料外数据。', restricted = True
+
+    @pytest.mark.parametrize('prefix,restricted', [
+        ('不读取材料外数据。', True),
+        ('仅根据以下材料回答。', True),
+        ('不要联网。', False),
+        ('可以查真实数据。', False),
+        ('', False),
+    ])
+    def test_independent_scope(tmp_path, monkeypatch, prefix, restricted):
+        wiki = tmp_path / 'wiki'
+        rel = wiki / 'relations'
+        rel.mkdir(parents=True)
+        (rel / 'entity_exposures.json').write_text(json.dumps({'entities': {'星舟设备': {'codes': ['300019.SZ'], 'concepts': {'合成专题': {}}}}}))
+        (rel / 'aliases.json').write_text('{"aliases": {}}')
+        db = tmp_path / 'stock.duckdb'
+>       with duckdb.connect(str(db)) as con:
+
+/tmp/e2-p3e-qc-0b83e14f-evidence/test_independent.py:24: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:60: in guarded_connect
+    deny('duckdb.connect', str(database))
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+event = 'duckdb.connect'
+details = '/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_independent_scope__u4e0d_0/stock.duckdb'
+
+    def deny(event, details):
+        violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})
+>       raise PermissionError('Author test forbidden IO: ' + event)
+E       PermissionError: Author test forbidden IO: duckdb.connect
+
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:35: PermissionError
+_ test_independent_scope[\u4ec5\u6839\u636e\u4ee5\u4e0b\u6750\u6599\u56de\u7b54\u3002-True] _
+
+tmp_path = PosixPath('/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_independent_scope__u4ec5_0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x106cbeb40>
+prefix = '仅根据以下材料回答。', restricted = True
+
+    @pytest.mark.parametrize('prefix,restricted', [
+        ('不读取材料外数据。', True),
+        ('仅根据以下材料回答。', True),
+        ('不要联网。', False),
+        ('可以查真实数据。', False),
+        ('', False),
+    ])
+    def test_independent_scope(tmp_path, monkeypatch, prefix, restricted):
+        wiki = tmp_path / 'wiki'
+        rel = wiki / 'relations'
+        rel.mkdir(parents=True)
+        (rel / 'entity_exposures.json').write_text(json.dumps({'entities': {'星舟设备': {'codes': ['300019.SZ'], 'concepts': {'合成专题': {}}}}}))
+        (rel / 'aliases.json').write_text('{"aliases": {}}')
+        db = tmp_path / 'stock.duckdb'
+>       with duckdb.connect(str(db)) as con:
+
+/tmp/e2-p3e-qc-0b83e14f-evidence/test_independent.py:24: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:60: in guarded_connect
+    deny('duckdb.connect', str(database))
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+event = 'duckdb.connect'
+details = '/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_independent_scope__u4ec5_0/stock.duckdb'
+
+    def deny(event, details):
+        violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})
+>       raise PermissionError('Author test forbidden IO: ' + event)
+E       PermissionError: Author test forbidden IO: duckdb.connect
+
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:35: PermissionError
+_________ test_independent_scope[\u4e0d\u8981\u8054\u7f51\u3002-False] _________
+
+tmp_path = PosixPath('/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_independent_scope__u4e0d_1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x106cbfec0>
+prefix = '不要联网。', restricted = False
+
+    @pytest.mark.parametrize('prefix,restricted', [
+        ('不读取材料外数据。', True),
+        ('仅根据以下材料回答。', True),
+        ('不要联网。', False),
+        ('可以查真实数据。', False),
+        ('', False),
+    ])
+    def test_independent_scope(tmp_path, monkeypatch, prefix, restricted):
+        wiki = tmp_path / 'wiki'
+        rel = wiki / 'relations'
+        rel.mkdir(parents=True)
+        (rel / 'entity_exposures.json').write_text(json.dumps({'entities': {'星舟设备': {'codes': ['300019.SZ'], 'concepts': {'合成专题': {}}}}}))
+        (rel / 'aliases.json').write_text('{"aliases": {}}')
+        db = tmp_path / 'stock.duckdb'
+>       with duckdb.connect(str(db)) as con:
+
+/tmp/e2-p3e-qc-0b83e14f-evidence/test_independent.py:24: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:60: in guarded_connect
+    deny('duckdb.connect', str(database))
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+event = 'duckdb.connect'
+details = '/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_independent_scope__u4e0d_1/stock.duckdb'
+
+    def deny(event, details):
+        violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})
+>       raise PermissionError('Author test forbidden IO: ' + event)
+E       PermissionError: Author test forbidden IO: duckdb.connect
+
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:35: PermissionError
+_ test_independent_scope[\u53ef\u4ee5\u67e5\u771f\u5b9e\u6570\u636e\u3002-False] _
+
+tmp_path = PosixPath('/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_independent_scope__u53ef_0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x106ce6930>
+prefix = '可以查真实数据。', restricted = False
+
+    @pytest.mark.parametrize('prefix,restricted', [
+        ('不读取材料外数据。', True),
+        ('仅根据以下材料回答。', True),
+        ('不要联网。', False),
+        ('可以查真实数据。', False),
+        ('', False),
+    ])
+    def test_independent_scope(tmp_path, monkeypatch, prefix, restricted):
+        wiki = tmp_path / 'wiki'
+        rel = wiki / 'relations'
+        rel.mkdir(parents=True)
+        (rel / 'entity_exposures.json').write_text(json.dumps({'entities': {'星舟设备': {'codes': ['300019.SZ'], 'concepts': {'合成专题': {}}}}}))
+        (rel / 'aliases.json').write_text('{"aliases": {}}')
+        db = tmp_path / 'stock.duckdb'
+>       with duckdb.connect(str(db)) as con:
+
+/tmp/e2-p3e-qc-0b83e14f-evidence/test_independent.py:24: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:60: in guarded_connect
+    deny('duckdb.connect', str(database))
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+event = 'duckdb.connect'
+details = '/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_independent_scope__u53ef_0/stock.duckdb'
+
+    def deny(event, details):
+        violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})
+>       raise PermissionError('Author test forbidden IO: ' + event)
+E       PermissionError: Author test forbidden IO: duckdb.connect
+
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:35: PermissionError
+________________________ test_independent_scope[-False] ________________________
+
+tmp_path = PosixPath('/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_independent_scope__False_0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x106d16e10>
+prefix = '', restricted = False
+
+    @pytest.mark.parametrize('prefix,restricted', [
+        ('不读取材料外数据。', True),
+        ('仅根据以下材料回答。', True),
+        ('不要联网。', False),
+        ('可以查真实数据。', False),
+        ('', False),
+    ])
+    def test_independent_scope(tmp_path, monkeypatch, prefix, restricted):
+        wiki = tmp_path / 'wiki'
+        rel = wiki / 'relations'
+        rel.mkdir(parents=True)
+        (rel / 'entity_exposures.json').write_text(json.dumps({'entities': {'星舟设备': {'codes': ['300019.SZ'], 'concepts': {'合成专题': {}}}}}))
+        (rel / 'aliases.json').write_text('{"aliases": {}}')
+        db = tmp_path / 'stock.duckdb'
+>       with duckdb.connect(str(db)) as con:
+
+/tmp/e2-p3e-qc-0b83e14f-evidence/test_independent.py:24: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:60: in guarded_connect
+    deny('duckdb.connect', str(database))
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+event = 'duckdb.connect'
+details = '/private/tmp/e2-p3e-qc-0b83e14f-data/focused/pytest/test_independent_scope__False_0/stock.duckdb'
+
+    def deny(event, details):
+        violations.append({'event': event, 'details': str(details), 'stack': traceback.format_stack(limit=14)})
+>       raise PermissionError('Author test forbidden IO: ' + event)
+E       PermissionError: Author test forbidden IO: duckdb.connect
+
+/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py:35: PermissionError
+=========================== short test summary info ============================
+FAILED ::test_independent_scope[\u4e0d\u8bfb\u53d6\u6750\u6599\u5916\u6570\u636e\u3002-True]
+FAILED ::test_independent_scope[\u4ec5\u6839\u636e\u4ee5\u4e0b\u6750\u6599\u56de\u7b54\u3002-True]
+FAILED ::test_independent_scope[\u4e0d\u8981\u8054\u7f51\u3002-False] - Permi...
+FAILED ::test_independent_scope[\u53ef\u4ee5\u67e5\u771f\u5b9e\u6570\u636e\u3002-False]
+FAILED ::test_independent_scope[-False] - PermissionError: Author test forbid...
+ERROR intelligence/tests/test_e2_query_resolver_reads.py::test_material_only_never_touches_lexicons[False-False-\u300c\u7532\u8bbe\u5907\u6536\u5165100\uff0c\u8ba2\u535520\u3002\u300d\n\n1. \u7532\u8bbe\u5907\u8ba2\u5355\u5360\u6536\u5165\u591a\u5c11\uff1f]
+ERROR intelligence/tests/test_e2_query_resolver_reads.py::test_material_only_never_touches_lexicons[False-False-\u300c300001\u53ea\u662f\u6750\u6599\u7f16\u53f7\uff0c\u6536\u5165100\u3002\u300d\n\n1. 300001\u7684\u8ba2\u5355\u6bd4\u4f8b\u662f\u591a\u5c11\uff1f]
+ERROR intelligence/tests/test_e2_query_resolver_reads.py::test_material_only_never_touches_lexicons[False-False-\u300c\u5149\u901a\u4fe1\u6a21\u5757\u6536\u5165100\uff0c\u8ba2\u535520\u3002\u300d\n\n1. \u5149\u901a\u4fe1\u6a21\u5757\u7684\u8ba2\u5355\u6bd4\u4f8b\u662f\u591a\u5c11\uff1f]
+ERROR intelligence/tests/test_e2_query_resolver_reads.py::test_material_only_never_touches_lexicons[False-False-\u300c\u7532\u8bbe\u5907\u548c\u4e59\u8bbe\u5907\u5747\u6709\u8ba2\u5355\u3002\u300d\n\n1. \u6bd4\u8f83\u7532\u8bbe\u5907\u548c\u4e59\u8bbe\u59072024\u5e74\u90a3\u4e00\u6ce2\u7684\u5dee\u5f02\uff1f]
+ERROR intelligence/tests/test_e2_query_resolver_reads.py::test_material_only_never_touches_lexicons[False-False-\u300c\u5149\u6a21\u5757\u6536\u5165100\u3002\u300d\n\n1. \u590d\u76d82024\u5e74\u5149\u6a21\u5757\u90a3\u4e00\u6ce2\u7684\u53d8\u5316\uff1f]
+ERROR intelligence/tests/test_e2_query_resolver_reads.py::test_material_only_never_touches_lexicons[False-True-\u300c\u7532\u8bbe\u5907\u6536\u5165100\uff0c\u8ba2\u535520\u3002\u300d\n\n1. \u7532\u8bbe\u5907\u8ba2\u5355\u5360\u6536\u5165\u591a\u5c11\uff1f]
+ERROR intelligence/tests/test_e2_query_resolver_reads.py::test_material_only_never_touches_lexicons[False-True-\u300c300001\u53ea\u662f\u6750\u6599\u7f16\u53f7\uff0c\u6536\u5165100\u3002\u300d\n\n1. 300001\u7684\u8ba2\u5355\u6bd4\u4f8b\u662f\u591a\u5c11\uff1f]
+ERROR intelligence/tests/test_e2_query_resolver_reads.py::test_material_only_never_touches_lexicons[False-True-\u300c\u5149\u901a\u4fe1\u6a21\u5757\u6536\u5165100\uff0c\u8ba2\u535520\u3002\u300d\n\n1. \u5149\u901a\u4fe1\u6a21\u5757\u7684\u8ba2\u5355\u6bd4\u4f8b\u662f\u591a\u5c11\uff1f]
+ERROR intelligence/tests/test_e2_query_resolver_reads.py::test_material_only_never_touches_lexicons[False-True-\u300c\u7532\u8bbe\u5907\u548c\u4e59\u8bbe\u5907\u5747\u6709\u8ba2\u5355\u3002\u300d\n\n1. \u6bd4\u8f83\u7532\u8bbe\u5907\u548c\u4e59\u8bbe\u59072024\u5e74\u90a3\u4e00\u6ce2\u7684\u5dee\u5f02\uff1f]
+ERROR intelligence/tests/test_e2_query_resolver_reads.py::test_material_only_never_touches_lexicons[False-True-\u300c\u5149\u6a21\u5757\u6536\u5165100\u3002\u300d\n\n1. \u590d\u76d82024\u5e74\u5149\u6a21\u5757\u90a3\u4e00\u6ce2\u7684\u53d8\u5316\uff1f]
+ERROR intelligence/tests/test_e2_query_resolver_reads.py::test_material_only_never_touches_lexicons[True-False-\u300c\u7532\u8bbe\u5907\u6536\u5165100\uff0c\u8ba2\u535520\u3002\u300d\n\n1. \u7532\u8bbe\u5907\u8ba2\u5355\u5360\u6536\u5165\u591a\u5c11\uff1f]
+ERROR intelligence/tests/test_e2_query_resolver_reads.py::test_material_only_never_touches_lexicons[True-False-\u300c300001\u53ea\u662f\u6750\u6599\u7f16\u53f7\uff0c\u6536\u5165100\u3002\u300d\n\n1. 300001\u7684\u8ba2\u5355\u6bd4\u4f8b\u662f\u591a\u5c11\uff1f]
+ERROR intelligence/tests/test_e2_query_resolver_reads.py::test_material_only_never_touches_lexicons[True-False-\u300c\u5149\u901a\u4fe1\u6a21\u5757\u6536\u5165100\uff0c\u8ba2\u535520\u3002\u300d\n\n1. \u5149\u901a\u4fe1\u6a21\u5757\u7684\u8ba2\u5355\u6bd4\u4f8b\u662f\u591a\u5c11\uff1f]
+ERROR intelligence/tests/test_e2_query_resolver_reads.py::test_material_only_never_touches_lexicons[True-False-\u300c\u7532\u8bbe\u5907\u548c\u4e59\u8bbe\u5907\u5747\u6709\u8ba2\u5355\u3002\u300d\n\n1. \u6bd4\u8f83\u7532\u8bbe\u5907\u548c\u4e59\u8bbe\u59072024\u5e74\u90a3\u4e00\u6ce2\u7684\u5dee\u5f02\uff1f]
+ERROR intelligence/tests/test_e2_query_resolver_reads.py::test_material_only_never_touches_lexicons[True-False-\u300c\u5149\u6a21\u5757\u6536\u5165100\u3002\u300d\n\n1. \u590d\u76d82024\u5e74\u5149\u6a21\u5757\u90a3\u4e00\u6ce2\u7684\u53d8\u5316\uff1f]
+ERROR intelligence/tests/test_e2_query_resolver_reads.py::test_material_only_never_touches_lexicons[True-True-\u300c\u7532\u8bbe\u5907\u6536\u5165100\uff0c\u8ba2\u535520\u3002\u300d\n\n1. \u7532\u8bbe\u5907\u8ba2\u5355\u5360\u6536\u5165\u591a\u5c11\uff1f]
+ERROR intelligence/tests/test_e2_query_resolver_reads.py::test_material_only_never_touches_lexicons[True-True-\u300c300001\u53ea\u662f\u6750\u6599\u7f16\u53f7\uff0c\u6536\u5165100\u3002\u300d\n\n1. 300001\u7684\u8ba2\u5355\u6bd4\u4f8b\u662f\u591a\u5c11\uff1f]
+ERROR intelligence/tests/test_e2_query_resolver_reads.py::test_material_only_never_touches_lexicons[True-True-\u300c\u5149\u901a\u4fe1\u6a21\u5757\u6536\u5165100\uff0c\u8ba2\u535520\u3002\u300d\n\n1. \u5149\u901a\u4fe1\u6a21\u5757\u7684\u8ba2\u5355\u6bd4\u4f8b\u662f\u591a\u5c11\uff1f]
+ERROR intelligence/tests/test_e2_query_resolver_reads.py::test_material_only_never_touches_lexicons[True-True-\u300c\u7532\u8bbe\u5907\u548c\u4e59\u8bbe\u5907\u5747\u6709\u8ba2\u5355\u3002\u300d\n\n1. \u6bd4\u8f83\u7532\u8bbe\u5907\u548c\u4e59\u8bbe\u59072024\u5e74\u90a3\u4e00\u6ce2\u7684\u5dee\u5f02\uff1f]
+ERROR intelligence/tests/test_e2_query_resolver_reads.py::test_material_only_never_touches_lexicons[True-True-\u300c\u5149\u6a21\u5757\u6536\u5165100\u3002\u300d\n\n1. \u590d\u76d82024\u5e74\u5149\u6a21\u5757\u90a3\u4e00\u6ce2\u7684\u53d8\u5316\uff1f]
+ERROR intelligence/tests/test_e2_query_resolver_reads.py::test_allowed_queries_keep_real_synthetic_lexicon_reads[\u7532\u8bbe\u5907-\u7532\u8bbe\u5907-]
+ERROR intelligence/tests/test_e2_query_resolver_reads.py::test_allowed_queries_keep_real_synthetic_lexicon_reads[\u7532\u8bbe\u5907-\u7532\u8bbe\u5907-\u4e0d\u8981\u8054\u7f51\u3002\n\n]
+ERROR intelligence/tests/test_e2_query_resolver_reads.py::test_allowed_queries_keep_real_synthetic_lexicon_reads[\u7532\u8bbe\u5907-\u7532\u8bbe\u5907-\u53ef\u4ee5\u67e5\u771f\u5b9e\u6570\u636e\u3002\n\n]
+ERROR intelligence/tests/test_e2_query_resolver_reads.py::test_allowed_queries_keep_real_synthetic_lexicon_reads[\u4e19\u8bbe\u5907-\u4e19\u8bbe\u5907-]
+ERROR intelligence/tests/test_e2_query_resolver_reads.py::test_allowed_queries_keep_real_synthetic_lexicon_reads[\u4e19\u8bbe\u5907-\u4e19\u8bbe\u5907-\u4e0d\u8981\u8054\u7f51\u3002\n\n]
+ERROR intelligence/tests/test_e2_query_resolver_reads.py::test_allowed_queries_keep_real_synthetic_lexicon_reads[\u4e19\u8bbe\u5907-\u4e19\u8bbe\u5907-\u53ef\u4ee5\u67e5\u771f\u5b9e\u6570\u636e\u3002\n\n]
+ERROR intelligence/tests/test_e2_query_resolver_reads.py::test_allowed_queries_keep_real_synthetic_lexicon_reads[\u5149\u901a\u4fe1\u6a21\u5757-\u5149\u6a21\u5757-]
+ERROR intelligence/tests/test_e2_query_resolver_reads.py::test_allowed_queries_keep_real_synthetic_lexicon_reads[\u5149\u901a\u4fe1\u6a21\u5757-\u5149\u6a21\u5757-\u4e0d\u8981\u8054\u7f51\u3002\n\n]
+ERROR intelligence/tests/test_e2_query_resolver_reads.py::test_allowed_queries_keep_real_synthetic_lexicon_reads[\u5149\u901a\u4fe1\u6a21\u5757-\u5149\u6a21\u5757-\u53ef\u4ee5\u67e5\u771f\u5b9e\u6570\u636e\u3002\n\n]
+ERROR intelligence/tests/test_e2_query_resolver_reads.py::test_only_top_level_effective_scope_blocks_reads[\u300c\u53ea\u4f9d\u636e\u4ee5\u4e0b\u6750\u6599\u56de\u7b54\u3002\u7532\u8bbe\u5907\u6536\u5165100\u3002\u300d\n\n1. \u7532\u8bbe\u5907\u600e\u4e48\u770b\uff1f]
+ERROR intelligence/tests/test_e2_query_resolver_reads.py::test_only_top_level_effective_scope_blocks_reads[```\n\u53ea\u4f9d\u636e\u4ee5\u4e0b\u6750\u6599\u56de\u7b54\u3002\u7532\u8bbe\u5907\u6536\u5165100\u3002\n```\n\n1. \u7532\u8bbe\u5907\u600e\u4e48\u770b\uff1f]
+ERROR intelligence/tests/test_e2_query_resolver_reads.py::test_only_top_level_effective_scope_blocks_reads[\u53ea\u4f9d\u636e\u4ee5\u4e0b\u6750\u6599\u56de\u7b54\u3002\n\n\u53ef\u4ee5\u67e5\u771f\u5b9e\u6570\u636e\u3002\n\n\u7532\u8bbe\u5907\u600e\u4e48\u770b\uff1f]
+ERROR intelligence/tests/test_e2_query_resolver_reads.py::test_restricted_then_full_then_restricted_does_not_poison_caches
+ERROR intelligence/tests/test_e2_query_resolver_reads.py::test_real_controller_uses_guarded_default_or_injected_resolver[False]
+ERROR intelligence/tests/test_e2_query_resolver_reads.py::test_real_controller_uses_guarded_default_or_injected_resolver[True]
+ERROR intelligence/tests/test_e2_query_resolver_reads.py::test_plain_continuation_keeps_existing_reference_behavior
+5 failed, 36 errors in 0.43s
+Traceback (most recent call last):
+  File "/tmp/e2-p3e-qc-0b83e14f-evidence/launcher.py", line 68, in <module>
+    assert not violations, f'Forbidden attempts: {len(violations)}'
+           ^^^^^^^^^^^^^^
+AssertionError: Forbidden attempts: 41

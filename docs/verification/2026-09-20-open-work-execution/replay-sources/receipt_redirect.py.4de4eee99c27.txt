@@ -1,0 +1,13 @@
+"""Only change receipt output directory; do not modify any test or assertion."""
+import os
+from pathlib import Path
+import pytest
+@pytest.hookimpl(tryfirst=True)
+def pytest_sessionstart(session):
+    expected=Path(os.environ['FWP_GATE_TREE'])/'conftest.py'
+    matches=[]
+    for plugin in session.config.pluginmanager.get_plugins():
+        source=getattr(plugin,'__file__',None)
+        if source and Path(source).resolve()==expected.resolve():
+            plugin._RECEIPT_DIR=Path(os.environ['FWP_TEST_RECEIPT_DIR']);matches.append(source)
+    if len(matches)!=1:raise RuntimeError(f'expected exactly one root receipt module; got {matches}')

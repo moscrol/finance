@@ -243,6 +243,22 @@ def _member_shortfall_bound(expected_count: int) -> float:
 _MEMBER_SERVED_DATE_MISMATCH = "served_date_mismatch"
 _MEMBER_DUPLICATE_IDENTITY = "duplicate_member_identity"
 _MEMBER_EMPTY_IDENTITY = "empty_member_identity"
+# 整板块每一行都没有 price / pct_chg / amount: 这是「拷成分、改日期」的形状
+# (fast_daily_sync 2025-01~2026-03 写了 810 万行, copy_legacy_member_generation 又写了
+# 2.3 万行), 行数与覆盖率全对, 日报却全「暂无」。归属行不是行情事实, 拒收。
+_MEMBER_QUOTELESS = "member_rows_quoteless"
+
+# 一行「有行情」的最低定义: 三个行情列至少一个非空。与 schema.sql 里
+# fact_sector_stock_daily_generation 的 CHECK 是同一条规则的两个落点——store 在
+# 写前丢掉无报价行 (单只停牌/接口漏值不至于让整板块的写事务炸掉), CHECK 兜住
+# 任何绕过 store 的裸 INSERT。
+QUOTE_COLUMNS = ("price", "pct_chg", "amount")
+QUOTELESS_PREDICATE = " AND ".join(f"{c} IS NULL" for c in QUOTE_COLUMNS)
+
+
+def _has_quote(row: Mapping[str, object]) -> bool:
+    return any(row.get(column) is not None for column in QUOTE_COLUMNS)
+
 
 _RETRIABLE_MEMBER_STATUSES = ("empty", "error")
 
@@ -437,9 +453,17 @@ def _copy_legacy_rows(
         for column in target_columns
     )
     quoted_targets = ", ".join(f'"{column}"' for column in target_columns)
+    # 成分股表: 无报价的 legacy 行是归属行不是行情, 不进代际表 (与 CHECK 同一条规则;
+    # 不过滤的话 CHECK 会让整个迁移事务回滚)。legacy 表缺行情列时视为全空。
+    where = ""
+    if generation_name == "fact_sector_stock_daily_generation":
+        present = [c for c in QUOTE_COLUMNS if c in legacy_columns]
+        if not present:
+            return
+        where = " WHERE NOT (" + " AND ".join(f'l."{c}" IS NULL' for c in present) + ")"
     con.execute(
         f'INSERT INTO "{generation_name}" (sector_universe_snapshot_id, {quoted_targets}) '
-        f'SELECT ?, {selected} FROM "{legacy_name}" AS l '
+        f'SELECT ?, {selected} FROM "{legacy_name}" AS l{where} '
         "ON CONFLICT DO NOTHING",
         [LEGACY_SNAPSHOT_ID],
     )
@@ -548,12 +572,32 @@ class SectorUniverseStore:
         provider_source: str,
         sectors: Sequence[SectorDescriptor],
         captured_at: str | datetime,
+        supersede_provider: str | None = None,
     ) -> PublishedSectorSnapshot:
-        """Validate and atomically publish one daily provider universe."""
+        """Validate and atomically publish one daily provider universe.
+
+        一个交易日只能有**一个**已发布名单，跨 provider 也算数。读者侧
+        (``published_snapshot`` / ``fact_sector_daily`` 视图) 一直按这个口径写，
+        但写者侧曾把它收窄成每 (日, provider) 一个——于是 fupanhui 已发布的日子
+        再发 hithink 会得到两个 published 表头：视图同时暴露两版「正式名单」，
+        ``get_published_snapshot_id`` 静默按 captured_at 挑晚的那个。
+
+        换源本身是允许的 (2026-09-15 定)，但必须**显式声明换掉谁**：
+        ``supersede_provider`` 要求调用方写出它以为当前在位的 provider，写错即拒。
+        比布尔开关强的地方在于：它拦得住「以为在覆盖 A，实际在覆盖 B」。
+        """
         canonical_date = _normalize_trade_date(trade_date)
         canonical_provider = _canonical_text(provider_source).casefold()
         if not canonical_provider:
             raise SectorUniverseValidationError("provider_source must be non-empty")
+        retired_provider = (
+            None if supersede_provider is None
+            else _canonical_text(supersede_provider).casefold()
+        )
+        if retired_provider == canonical_provider:
+            raise SectorUniverseValidationError(
+                "supersede_provider must name a different provider than the one being published"
+            )
         canonical_captured_at = _normalize_captured_at(captured_at)
         canonical_sectors = _normalize_sectors(sectors)
         snapshot_id = _snapshot_id(
@@ -579,14 +623,31 @@ class SectorUniverseStore:
         try:
             published_before = self._con.execute(
                 """
-                SELECT count(*) FROM ops_sector_universe_snapshot_daily
-                WHERE trade_date = ? AND provider_source = ? AND status = 'published'
+                SELECT provider_source FROM ops_sector_universe_snapshot_daily
+                WHERE trade_date = ? AND status = 'published'
+                ORDER BY snapshot_id
                 """,
-                [canonical_date, canonical_provider],
-            ).fetchone()[0]
-            if published_before > 1:
+                [canonical_date],
+            ).fetchall()
+            if len(published_before) > 1:
                 raise SectorUniverseValidationError(
                     "more than one published snapshot exists before publication"
+                )
+            incumbent = published_before[0][0] if published_before else None
+            if incumbent is not None and incumbent != canonical_provider:
+                if retired_provider is None:
+                    raise SectorUniverseValidationError(
+                        f"provider switch from {incumbent} to {canonical_provider} "
+                        "requires an explicit supersede_provider"
+                    )
+                if retired_provider != incumbent:
+                    raise SectorUniverseValidationError(
+                        f"provider switch expected to supersede {retired_provider} "
+                        f"but {incumbent} is the published provider"
+                    )
+            elif retired_provider is not None:
+                raise SectorUniverseValidationError(
+                    f"no published {retired_provider} snapshot to supersede"
                 )
             existing = self._con.execute(
                 """
@@ -705,10 +766,9 @@ class SectorUniverseStore:
                 """
                 UPDATE ops_sector_universe_snapshot_daily
                 SET status = 'superseded'
-                WHERE trade_date = ? AND provider_source = ?
-                  AND status = 'published' AND snapshot_id <> ?
+                WHERE trade_date = ? AND status = 'published' AND snapshot_id <> ?
                 """,
-                [canonical_date, canonical_provider, snapshot_id],
+                [canonical_date, snapshot_id],
             )
             self._con.execute(
                 """
@@ -722,9 +782,9 @@ class SectorUniverseStore:
             published_count = self._con.execute(
                 """
                 SELECT count(*) FROM ops_sector_universe_snapshot_daily
-                WHERE trade_date = ? AND provider_source = ? AND status = 'published'
+                WHERE trade_date = ? AND status = 'published'
                 """,
-                [canonical_date, canonical_provider],
+                [canonical_date],
             ).fetchone()[0]
             if published_count != 1:
                 raise SectorUniverseValidationError(
@@ -771,7 +831,7 @@ class SectorUniverseStore:
                 """
                 UPDATE dim_sector AS d
                 SET is_active = false, updated_at = ?
-                WHERE d.source = ? AND d.is_active IS TRUE
+                WHERE d.source IN (?, ?) AND d.is_active IS TRUE
                   AND NOT EXISTS (
                     SELECT 1 FROM fact_sector_universe_daily AS u
                     WHERE u.trade_date = ? AND u.snapshot_id = ?
@@ -781,6 +841,9 @@ class SectorUniverseStore:
                 [
                     canonical_captured_at,
                     canonical_provider,
+                    # 换源时旧 provider 的 active 身份也必须退役，否则 dim_sector 里
+                    # 两池同时 is_active，维度表自己就成了第二份「正式名单」。
+                    retired_provider or canonical_provider,
                     canonical_date,
                     snapshot_id,
                 ],
@@ -1161,45 +1224,22 @@ class SectorUniverseStore:
         target_date: str | date,
         source_date: str | date,
     ) -> int:
-        """把 ``source_date`` 的成分身份前推复制到 ``target_date`` 的 legacy 代际。
+        """⛔ 已退役 (2026-09-03): 一律拒绝, 不再写任何行。
 
-        只服务没有已发布宇宙的历史交易日：有表头就拒绝，因为凭空造出的成分会
-        满足覆盖率查询却与 provider 声明矛盾。价格类字段一律置空——复制的是身份，
-        不是当日行情。写入 ``sector_universe_snapshot_id='legacy'``，不产生成功回执。
+        它曾把 ``source_date`` 的成分身份前推复制到 ``target_date``、行情列全置空
+        (source='incremental-copy')。这正是 fact_sector_stock_daily 里 810 万空壳行的
+        第二个来源 (2026-06-18~22 共 2.3 万行): 行数与覆盖率全对, 日报却全「暂无」。
+        归属行不是行情事实, 成分股表现在有 CHECK 不收无报价行; 历史日没有成分
+        就让它缺着——缺口在台账上可见, 空壳只会把缺口藏起来。
+        方法名保留, 让停用脚本 fast_daily_sync 的 REFUSED 分支照常工作。
         """
         target = _normalize_trade_date(target_date)
         source = _normalize_trade_date(source_date)
-        published = self._con.execute(
-            """
-            SELECT count(*) FROM ops_sector_universe_snapshot_daily
-            WHERE trade_date = ? AND status = 'published'
-            """,
-            [target],
-        ).fetchone()[0]
-        if published:
-            raise SectorUniverseValidationError(
-                f"{target} has a published universe; legacy copy is not eligible"
-            )
-        self._con.execute(
-            """
-            INSERT INTO fact_sector_stock_daily_generation
-                (trade_date, sector_universe_snapshot_id, sector_ts_code, sector_name,
-                 sw_l1, stock_ts_code, stock_name,
-                 price, pct_chg, amount, pct_chg_5d, pct_chg_10d, pct_chg_20d,
-                 fund_flow_1d, fund_flow_5d, sw_industry, leader_plate,
-                 leader_sub_plate, source, updated_at)
-            SELECT
-                ?, 'legacy', sector_ts_code, sector_name,
-                sw_l1, stock_ts_code, stock_name,
-                NULL, NULL, NULL, NULL, NULL, NULL,
-                NULL, NULL, sw_industry, leader_plate,
-                leader_sub_plate, 'incremental-copy', CURRENT_TIMESTAMP
-            FROM fact_sector_stock_daily_generation
-            WHERE trade_date = ?
-            """,
-            [target, source],
+        raise SectorUniverseValidationError(
+            f"legacy member copy {source} -> {target} is retired: copying identities "
+            "forward writes quoteless rows that satisfy coverage but carry no facts; "
+            "run the receipt-driven member sync instead"
         )
-        return self.member_generation_row_count(target)
 
     def next_member_work(
         self,
@@ -1296,6 +1336,7 @@ class SectorUniverseStore:
                 error_code = _MEMBER_SERVED_DATE_MISMATCH
             else:
                 seen: set[str] = set()
+                quoteless = 0
                 for row in result.stocks:
                     stock_code = _canonical_text(row.get("ts_code", "")).upper()
                     if not stock_code:
@@ -1305,6 +1346,10 @@ class SectorUniverseStore:
                         error_code = _MEMBER_DUPLICATE_IDENTITY
                         break
                     seen.add(stock_code)
+                    if not _has_quote(row):
+                        # 单只无报价 (停牌/接口漏值) 当作未交付: 进缺口账, 不进事实表。
+                        quoteless += 1
+                        continue
                     stock_rows.append(
                         self._member_row(
                             trade_date=trade_date,
@@ -1318,6 +1363,9 @@ class SectorUniverseStore:
                             now=now,
                         )
                     )
+                if error_code is None and quoteless and not stock_rows:
+                    # 每一行都没有行情 = 「拷成分、改日期」的形状, 整板块拒收。
+                    error_code = _MEMBER_QUOTELESS
                 if error_code is None:
                     delivered = len(stock_rows)
                     if delivered > expected_count:

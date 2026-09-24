@@ -1,0 +1,26 @@
+
+> market-intelligence-workbench@0.1.0 test /Users/a77/.finance-runtime/kb-v4-merge-20260919/pre/finance-workspace-private/intelligence/webapp
+> vitest run
+
+
+ RUN  v3.2.4 /Users/a77/.finance-runtime/kb-v4-merge-20260919/pre/finance-workspace-private/intelligence/webapp
+
+ ✓ src/researchActivity.test.ts (2 tests) 9ms
+ ✓ src/api.test.ts (3 tests) 32ms
+ ✓ src/streamEventRegistry.test.ts (2 tests) 10ms
+ ✓ src/components/ResearchActivityControl.test.tsx (5 tests) 324ms
+ ✓ src/components/ResearchProjectPanel.test.tsx (5 tests) 531ms
+ ✓ src/components/DailyReportView.test.tsx (4 tests) 589ms
+ ✓ src/components/ResearchEvolutionPanel.test.tsx (18 tests) 1101ms
+ ✓ src/components/components.test.tsx (71 tests) 5204ms
+   ✓ Workbench navigation reliability > opens on today and navigates across the five product surfaces  360ms
+   ✓ Workbench navigation reliability > submits an explicit KOL perspective without mixing other profiles  376ms
+   ✓ Workbench navigation reliability > keeps polling while terminal ownership precedes report delivery  333ms
+   ✓ Workbench navigation reliability > does not let an old finalization snapshot erase the next submitted turn  318ms
+   ✓ Workbench navigation reliability > persists BYOK only after opt-in and can explicitly forget it  311ms
+
+ Test Files  8 passed (8)
+      Tests  110 passed (110)
+   Start at  01:20:31
+   Duration  9.18s (transform 1.84s, setup 4.31s, collect 4.22s, tests 7.80s, environment 8.63s, prepare 1.80s)
+

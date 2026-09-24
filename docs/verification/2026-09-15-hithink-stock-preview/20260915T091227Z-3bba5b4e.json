@@ -1,0 +1,30 @@
+{
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "python_version": "3.12.13",
+  "dependency_fingerprint": "3328bed61f3e21ea",
+  "tree": "/Users/a77/fwp-wt-hithink-review-wiring",
+  "revision": "3bba5b4ece5360b0f08b3c717b6bf053d2883067",
+  "branch": "fix/hithink-review-wiring",
+  "dirty": true,
+  "dirty_paths": [
+    "market_feature_store/cli.py",
+    "market_feature_store/hithink_stock_preview.py",
+    "tests/test_hithink_stock_preview.py"
+  ],
+  "worktree_dirty_total": 3,
+  "dependency_gate_bypassed": false,
+  "target": "tests/test_hithink_stock_preview.py",
+  "counts": {
+    "passed": 90,
+    "failed": 3,
+    "error": 0,
+    "skipped": 0
+  },
+  "failed_ids": [
+    "tests/test_hithink_stock_preview.py::test_bad_bars_block_without_dropping_fields[volume-150.5-invalid-volume-or-amount-day0-current]",
+    "tests/test_hithink_stock_preview.py::test_bad_bars_block_without_dropping_fields[volume-150.5-invalid-volume-or-amount-day1-previous]",
+    "tests/test_hithink_stock_preview.py::test_decimal_ambient_precision_rounding_and_traps_cannot_change_result"
+  ],
+  "exit_status": 1,
+  "finished_at": "2026-09-15T09:12:27+00:00"
+}

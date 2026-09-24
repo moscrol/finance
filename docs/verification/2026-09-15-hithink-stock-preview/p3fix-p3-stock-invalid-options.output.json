@@ -1,0 +1,26 @@
+{
+ "original_path": "/tmp/p3-stock-invalid-options.json",
+ "raw_sha256": "32b183ae4800dc509bbb824a9a38b11d9182177b846510f7b04b57faa21a8e69",
+ "encoding": "utf-8",
+ "lines": [
+  "{\n",
+  "  \"adjustment_coverage\": \"unverified\",\n",
+  "  \"calculation_ready\": false,\n",
+  "  \"contract_version\": \"hithink-stock-preview-v1\",\n",
+  "  \"gaps\": [\n",
+  "    {\n",
+  "      \"detail\": \"target and previous scheduled trading days must be known\",\n",
+  "      \"reason\": \"invalid-preview-options\"\n",
+  "    }\n",
+  "  ],\n",
+  "  \"production_ready\": false,\n",
+  "  \"provider_completeness\": \"unverified\",\n",
+  "  \"request_complete\": null,\n",
+  "  \"rows\": [],\n",
+  "  \"stock_codes\": [\n",
+  "    \"600001.SH\"\n",
+  "  ],\n",
+  "  \"trade_date\": \"2026-10-01\"\n",
+  "}\n"
+ ]
+}

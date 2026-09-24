@@ -1,0 +1,9 @@
+{
+  "reason": "Stop incomplete c0fa49cf gate before adding explicit full-index deployment binding; not a pass",
+  "terminated_owned_pids": [
+    46672,
+    46670,
+    45301,
+    45261
+  ]
+}

@@ -1,0 +1,34 @@
+from pathlib import Path
+import json, subprocess, sys
+ROOT = Path('/Users/a77/.finance-runtime/open-work-execution-20260920')
+TREE = Path('/Users/a77/fwp-wt-hithink-merge-0920')
+sys.path.insert(0, str(TREE))
+from scripts import gitea_pr as g
+SHA = 'ec92b31b5300bbbb4abc64e41f96854f1438aea0'
+BRANCH = 'codex/hithink-merge-0920'
+for leaf in ('python', 'frontend', 'registry'):
+    receipt = json.loads((ROOT/'gate-hithink'/f'{leaf}.json').read_text())
+    assert receipt['revision'] == SHA and receipt['complete']
+    assert all(r['exit_code'] == 0 for r in receipt['checks'])
+assert (ROOT/'gate-hithink/receipt-check.exit').read_text().strip() == '0'
+assert g._git('rev-parse', 'HEAD', cwd=TREE) == SHA
+assert not g._git('status', '--porcelain', cwd=TREE)
+assert g._git('ls-remote', 'gitea', 'refs/heads/main', cwd=TREE).split()[0] == 'becb68c0dd3105abbbcc1f92a917dbde224de24b'
+subprocess.run(['git', 'push', 'gitea', f'{SHA}:refs/heads/{BRANCH}'], cwd=TREE, check=True)
+body = '''同花顺采集步骤已接入既有复盘同步计划；前向合并当前 main 并按节保留术语表双方有效内容。既有作者验收、独立 QC 及 P3 返修继续保留，旧 09-15 收据不作为本次合并依据。
+
+本次合并候选固定为 `ec92b31b5300bbbb4abc64e41f96854f1438aea0`，Python 冻结树无生产库，跨仓 registry 固定 KB `1254224be89e2c4974350b7f3e985dbedb5dc043`、研究站 `f606583867fe1cad8de96b06be1dd6cfe2b57e51`。
+
+- Python：11707 passed / 0 failed / 85 skipped；ruff 0；收据 dirty=false，revision 校验与基座漂移 0 门均通过。
+- 前端 lint、typecheck、test、build 全部 exit 0；Playwright 34 passed / 2 skipped。
+- registry parseability、check、backfill-tables --check、generate-views --check、ledger/spec crosswalk 五项全部 exit 0。
+
+完整固定收据与原始日志：`~/.finance-runtime/open-work-execution-20260920/gate-hithink/`。用户 2026-09-20 已授权满足门禁后合并；使用 fast-forward-only 保留被测 SHA，保留所有源分支。此次仅合源码，未变更生产启动器或执行外呼采集。
+'''
+(ROOT/'gate-hithink/pr-body.md').write_text(body)
+prs = g._api('GET', '/pulls?state=open&limit=100')
+pr = next((p for p in prs if p['head']['ref'] == BRANCH), None)
+if pr is None:
+    pr = g._api('POST', '/pulls', {'title':'fix(review): integrate verified Hithink wiring with current main', 'head':BRANCH, 'base':'main', 'body':body})
+(ROOT/'gate-hithink/pr-created.json').write_text(json.dumps(pr,ensure_ascii=False,indent=2)+'\n')
+print(json.dumps({'number':pr['number'], 'url':pr['html_url'], 'mergeable':pr.get('mergeable')},ensure_ascii=False),flush=True)

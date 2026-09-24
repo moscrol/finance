@@ -1,0 +1,120 @@
+FFF....                                                                  [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260920T150536Z-728f3271.json
+
+=================================== FAILURES ===================================
+___________ test_broad_indices_are_requested_named_and_written[full] ___________
+
+db_path = PosixPath('/private/tmp/pytest-of-a77/pytest-1272/test_broad_indices_are_request0/mfs.duckdb')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10894f500>
+mode = 'full'
+
+    @pytest.mark.parametrize("mode", ["full", "incremental"])
+    def test_broad_indices_are_requested_named_and_written(db_path, monkeypatch, mode):
+        monkeypatch.setattr(htb, "init_db", lambda con: None)
+        end = date(2026, 9, 8)
+        expected = {"000688.SH": "科创50", "000016.SH": "上证50"}
+        seen = []
+        base_getter = _getter(end)
+    
+        def getter(path, params=None, **kwargs):
+            params = params or {}
+            if path.endswith("/historical"):
+                seen.append(params["thscode"])
+                if params["thscode"] in expected:
+                    return {"code": 0, "data": {"item": [_bar(end, 1234.5)]}}
+            return base_getter(path, params=params, **kwargs)
+    
+        htb.sync_hithink_sector_kline(
+            mode=mode, db_path=db_path, end_date=end,
+            get_json_fn=getter, skip_constituents=True,
+        )
+>       assert set(expected) <= set(seen)
+E       AssertionError: assert {'000016.SH', '000688.SH'} <= {'000001.SH',...9006.SZ', ...}
+E         
+E         Extra items in the left set:
+E         '000688.SH'
+E         '000016.SH'
+
+tests/test_hithink_sector_kline.py:157: AssertionError
+----------------------------- Captured stdout call -----------------------------
+capture_id=3ed400bf472940f589a3d6788bf1a172 status=running
+kline 8/8 written_bars=6 empty=5
+_______ test_broad_indices_are_requested_named_and_written[incremental] ________
+
+db_path = PosixPath('/private/tmp/pytest-of-a77/pytest-1272/test_broad_indices_are_request1/mfs.duckdb')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10b9a6990>
+mode = 'incremental'
+
+    @pytest.mark.parametrize("mode", ["full", "incremental"])
+    def test_broad_indices_are_requested_named_and_written(db_path, monkeypatch, mode):
+        monkeypatch.setattr(htb, "init_db", lambda con: None)
+        end = date(2026, 9, 8)
+        expected = {"000688.SH": "科创50", "000016.SH": "上证50"}
+        seen = []
+        base_getter = _getter(end)
+    
+        def getter(path, params=None, **kwargs):
+            params = params or {}
+            if path.endswith("/historical"):
+                seen.append(params["thscode"])
+                if params["thscode"] in expected:
+                    return {"code": 0, "data": {"item": [_bar(end, 1234.5)]}}
+            return base_getter(path, params=params, **kwargs)
+    
+        htb.sync_hithink_sector_kline(
+            mode=mode, db_path=db_path, end_date=end,
+            get_json_fn=getter, skip_constituents=True,
+        )
+>       assert set(expected) <= set(seen)
+E       AssertionError: assert {'000016.SH', '000688.SH'} <= {'000001.SH',...9006.SZ', ...}
+E         
+E         Extra items in the left set:
+E         '000688.SH'
+E         '000016.SH'
+
+tests/test_hithink_sector_kline.py:157: AssertionError
+----------------------------- Captured stdout call -----------------------------
+capture_id=e6112406e7b44ed6808bb2ab6eadda2f status=running
+kline 8/8 written_bars=6 empty=5
+_ test_dimension_refresh_preserves_name_only_when_missing[None-\u539f\u540d\u79f0] _
+
+db_path = PosixPath('/private/tmp/pytest-of-a77/pytest-1272/test_dimension_refresh_preserv0/mfs.duckdb')
+incoming = None, expected = '原名称'
+
+    @pytest.mark.parametrize("incoming, expected", [(None, "原名称"), ("新名称", "新名称")])
+    def test_dimension_refresh_preserves_name_only_when_missing(db_path, incoming, expected):
+>       with duckdb.connect(str(db_path)) as con:
+
+tests/test_hithink_sector_kline.py:174: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+db_path = PosixPath('/private/tmp/pytest-of-a77/pytest-1272/test_dimension_refresh_preserv0/mfs.duckdb')
+incoming = None, expected = '原名称'
+
+    @pytest.mark.parametrize("incoming, expected", [(None, "原名称"), ("新名称", "新名称")])
+    def test_dimension_refresh_preserves_name_only_when_missing(db_path, incoming, expected):
+        with duckdb.connect(str(db_path)) as con:
+            htb._upsert_dim(con, [{"thscode": "000688.SH", "name": "原名称", "category": "index"}])
+            htb._upsert_dim(con, [{"thscode": "000688.SH", "name": incoming, "category": "index"}])
+>           assert con.execute(
+                "SELECT sector_name FROM dim_sector_hithink WHERE sector_ts_code = '000688.SH'"
+            ).fetchone() == (expected,)
+E           AssertionError: assert (None,) == ('原名称',)
+E             
+E             At index 0 diff: None != '原名称'
+E             Use -v to get more diff
+
+tests/test_hithink_sector_kline.py:177: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_hithink_sector_kline.py::test_broad_indices_are_requested_named_and_written[full]
+FAILED tests/test_hithink_sector_kline.py::test_broad_indices_are_requested_named_and_written[incremental]
+FAILED tests/test_hithink_sector_kline.py::test_dimension_refresh_preserves_name_only_when_missing[None-\u539f\u540d\u79f0]
+3 failed, 4 passed, 19 deselected in 0.57s
+/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/pathlib.py:96: PytestWarning: (rm_rf) error removing /private/tmp/pytest-of-a77/garbage-26992807-4379-4f53-8ba8-611e6573fd03/test_load_sealed_fixture_recom0/ceiling/fixture
+<class 'OSError'>: [Errno 66] Directory not empty: '/private/tmp/pytest-of-a77/garbage-26992807-4379-4f53-8ba8-611e6573fd03/test_load_sealed_fixture_recom0/ceiling/fixture'
+  warnings.warn(
+/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/pathlib.py:96: PytestWarning: (rm_rf) error removing /private/tmp/pytest-of-a77/garbage-26992807-4379-4f53-8ba8-611e6573fd03/test_load_sealed_fixture_recom0/ceiling
+<class 'OSError'>: [Errno 66] Directory not empty: '/private/tmp/pytest-of-a77/garbage-26992807-4379-4f53-8ba8-611e6573fd03/test_load_sealed_fixture_recom0/ceiling'
+  warnings.warn(
+/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/pathlib.py:96: PytestWarning: (rm_rf) error removing /private/tmp/pytest-of-a77/garbage-26992807-4379-4f53-8ba8-611e6573fd03/test_load_sealed_fixture_recom0
+<class 'OSError'>: [Errno 66] Directory not empty: '/private/tmp/pytest-of-a77/garbage-26992807-4379-4f53-8ba8-611e6573fd03/test_load_sealed_fixture_recom0'
+  warnings.warn(

@@ -1,0 +1,26 @@
+[
+  {
+    "guard_removed": "answer_spec",
+    "pytest_exit": 1,
+    "summary": "4 failed, 12 passed in 1.29s",
+    "log": "/tmp/e2-p3d-mutation-answer_spec.txt"
+  },
+  {
+    "guard_removed": "stance",
+    "pytest_exit": 1,
+    "summary": "4 failed, 12 passed in 0.83s",
+    "log": "/tmp/e2-p3d-mutation-stance.txt"
+  },
+  {
+    "guard_removed": "project_prior",
+    "pytest_exit": 1,
+    "summary": "4 failed, 12 passed in 0.84s",
+    "log": "/tmp/e2-p3d-mutation-project_prior.txt"
+  },
+  {
+    "guard_removed": "perspective",
+    "pytest_exit": 1,
+    "summary": "4 failed, 12 passed in 0.83s",
+    "log": "/tmp/e2-p3d-mutation-perspective.txt"
+  }
+]

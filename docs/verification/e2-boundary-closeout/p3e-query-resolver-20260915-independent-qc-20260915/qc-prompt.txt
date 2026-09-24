@@ -1,0 +1,34 @@
+你是独立代码审查者，中文裁定。独立上下文，不是作者；只审固定P3e小片，不跑产品金融问答或Grok/Knevo，不调用另一个模型。
+
+目标树 /tmp/e2-p3e-qc-0b83e14f，固定HEAD 0b83e14f5c6e664772d617f075a24911f16f7547；父提交39af312f51fa73f7a3db3b7f8c1fa8f8420213c9。
+每shell先cd；只读应用树，不提交/推送/合并/部署。使用 /Users/a77/finance-workspace-private/.venv-workbench/bin/python 跑pytest/ruff。
+证据仅写 /tmp/e2-p3e-qc-0b83e14f-evidence/，数据仅写 /tmp/e2-p3e-qc-0b83e14f-data/；最终报告 /tmp/e2-p3e-qc-0b83e14f-report.md。不要覆盖任何P3d或作者证据。
+
+先 git status --short / rev-parse HEAD，读AGENTS.md（不用执行其金融命令或改共享记忆）。读本树：
+- docs/verification/e2-boundary-closeout/p3e-query-resolver-20260915/README.md、commands.txt、manifest.json
+- docs/agent-product-door.md 的E2段
+- docs/learning/knevo-distill/recheck/2026-09-12-t23-nogrok/E2-DESIGN-material-contract-2026-09-13.md 的D1/D2/D4/D7及A13-A17。
+- git diff 39af312f..0b83e14f -- intelligence/services/query_resolution.py intelligence/tests/test_e2_query_resolver_reads.py docs/agent-product-door.md
+
+本片声称：QueryResolver.resolve在知识库/证券词典与缓存读取之前使用现有split_user_message+compile_material_contract，明确material_only时不做这些词典查询，仅understand_query文本理解。普通/full/local_only照旧。没有新关键词规则；不把所有继续拦成clarify。
+不声称：understand_query整体零IO（会读静态路由配置、含日历/简称先验）；controller更早history/context过滤；可信继承/未知边界澄清；注入式恶意resolver/更早剥掉禁令；完整P3/P4–P7。
+如果发现这些边界导致本片自身承诺不成立或遗漏必要路径，须指出并据实际严重度裁定，不为迎合分片给通过。
+
+作者证据，不是你的裁定：
+- 新36针修前23F/13P，修后36P；唯一if恒假变异23F/13P；固定父应用+同针23F/13P。
+- 真实临时DuckDB/KB，冷热缓存、吞PermissionError仍计数、保护区短语/显式放宽、scope切换、默认或注入QueryResolver的真实decide_turn。
+- 453项相关测试虽pytest全绿，Python audit启动器拒绝8尝试并exit3：普通问候的KB默认路径2次；API模块导入版本指纹扫描的git进程2次、旧users目录扫描4次。原log/IO/调用栈均保留。不是隔离通过。
+- v1/v2 launcher误设不识别的KNOWLEDGE_BASE_ROOT；v3改实现实际识别的KB_VAULT/KNOWLEDGE_WIKI（不放宽拒绝）。排除test_real_app_factory_injects_same_run_writer_only_for_history后服务子集452P/1 deselected，禁止0/exit0。明确不是453项完整隔离回归。
+- 全仓Ruff过，仓内conftest新文件36P。没有本版全仓pytest/前端/E2E结论；旧9797P属于1f6ebc5d。
+- 最早precontroller-probe不完整，未封证券默认DB，不能作隔离/提示注入证据。
+- q3被上游划为材料尚未修；新测试固定q1，不证明q3已好。P3d16P已独立通过，只限四先验生产者。
+
+你必须实际执行验证，不只复述作者读数：
+1. 独立审代码/载体同源性、是否产生第二个语义解析、是否错误放宽/误杀普通材料/续轮，检查early return字段与非受限路径兼容。
+2. 校验manifest原件sha256。可以复用作者测试，但必须独立运行并检查它是否覆盖声明；另写少量不导入作者测试的反例（冷/热可选）验证受限词典读取0、允许路径真实读正例，或用父版本对照。尽量不同句式；不得改原题/评分/原46针，不修改作者测试求绿。
+3. pytest前隔离：清除凭据/真人用户环境，HOME/KB_VAULT/KNOWLEDGE_WIKI/FINANCE_WS/FORESIGHT_USERS_DIR/MARKET_FEATURE_STORE_DB/ENTITY_ANCHOR_SECURITIES_DB均指向临时目录或关闭证券默认回退；插件自动加载关闭，独立basetemp，避免清理宿主其他pytest目录。显式禁止网络/子进程/生产用户/生产KB/主库/密钥文件，在尝试时先计数再抛错；最后断言累计计数，不以异常或exit0代替。
+   可只读并改造归档launcher-v3.py.txt复制到你的证据目录。它是Python audit hook，不是OS沙箱；native DuckDB需单独拦connect到临时库，不能只依赖Python open事件。
+   模型审查服务本身远程调用不算产品外呼；审查工具严禁调用金融模型/API、生产Episode、Grok、Knevo、真实用户台账或生产数据库。source/static config允许读，但不得冒称材料内证据。API导入隔离红针可记未覆盖，不得靠白名单放生产路径求绿。
+4. 结果写报告：通过/退修/阻塞（限P3e），实际执行者、HEAD、命令、终态、禁止尝试数、发现的P1/P2/P3及证据位置；是否重复作者测试/独立补针分别标注。没有报告或CLI exit0本身不算完成。
+
+有外部服务限流就记阻塞，不无限重试。不要等待作者替你运行后直接签字；产物未验不得宣称通过。完成后检查固定应用树仍clean，保留失败、修正、日志，最终给出报告绝对路径。

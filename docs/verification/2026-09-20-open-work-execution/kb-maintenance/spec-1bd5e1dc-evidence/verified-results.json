@@ -1,0 +1,18 @@
+{
+  "candidate": "1bd5e1dc8d48f59461c79f35ea553e1cda71a6ec",
+  "tree": "/Users/a77/.finance-runtime/open-work-execution-20260920/kb-maintenance/spec-1bd5e1dc-tree",
+  "tree_clean": true,
+  "spec": "PASS",
+  "additional_cases_passed": 5,
+  "original_query_save_cases_passed": 3,
+  "root_overlap_added_entries": 0,
+  "targeted_tests": "61 passed in 35.24s",
+  "probe_sources_sha256": {
+    "/Users/a77/.finance-runtime/open-work-execution-20260920/kb-maintenance/spec-37437e1a-evidence/probe_spec_boundaries.py": "397b9bfd85d5b70ffb0b89e718521a99876bcf1044a2c435222f26ce9fe5dd57",
+    "/Users/a77/.finance-runtime/open-work-execution-20260920/kb-maintenance/spec-37437e1a-evidence/probe_known_root_overlap.py": "8c202785cb5e4ed22ce68cd63d9b9f1fb2a548176877edf691223e0d6a04fe00",
+    "/Users/a77/.finance-runtime/open-work-execution-20260920/kb-maintenance/spec-ea7e113e-evidence/probe_additional_boundaries.py": "3018f1f20b9d6fc14de6dea4dbce25a716893724effa47fb3b1f4ebca870dbcc",
+    "/Users/a77/.finance-runtime/open-work-execution-20260920/kb-maintenance/spec-ea7e113e-evidence/replay_original_probe.py": "d8303a40264de1fc06e5efec2dcb14674403da34db5ccf013c4ffecf3442e2da"
+  },
+  "production_actions": false,
+  "real_network_publication": false
+}

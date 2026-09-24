@@ -1,0 +1,28 @@
+{
+  "pre": {
+    "receipt": "/Users/a77/.finance-runtime/test-receipts/20260918T171255Z-2b4948a4.json",
+    "counts": {
+      "passed": 11491,
+      "failed": 0,
+      "error": 0,
+      "skipped": 73
+    },
+    "finished_at": "2026-09-18T17:12:55+00:00",
+    "receipt_check_exit": 0
+  },
+  "post": {
+    "receipt": "/Users/a77/.finance-runtime/test-receipts/20260918T174518Z-2b4948a4.json",
+    "counts": {
+      "passed": 11491,
+      "failed": 0,
+      "error": 0,
+      "skipped": 73
+    },
+    "finished_at": "2026-09-18T17:45:18+00:00",
+    "receipt_check_exit": 0
+  },
+  "observed_at": "2026-09-18T17:47:00.655059+00:00",
+  "status": "pass",
+  "production_switched": false,
+  "scope": "exact code-main pre/post engineering; not subsequent docs identity or deployment"
+}

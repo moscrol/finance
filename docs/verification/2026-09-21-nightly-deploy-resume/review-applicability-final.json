@@ -1,0 +1,86 @@
+{
+  "revision": "c097d712f9acfdd258709c7d0de054f978e0159c",
+  "base": "f2c3e9e1a24f42ae9b1d5a8cb9e501ababd1330a",
+  "checked_at": "2026-09-21T09:44:44.486088+00:00",
+  "valid": true,
+  "scope": "nightly installer/plist/wrapper changes only; no full-commit independent certification",
+  "spec_revision": "2ea6c3db01a062b9c623498df1b60edfbafe582b",
+  "quality_revision": "b0cf04fb446b8e87cb4a374b63d96b7c92824551",
+  "byte_identical_inputs": [
+    {
+      "path": "scripts/install_eval_launchd.sh",
+      "sha256_by_revision": {
+        "2ea6c3db01a062b9c623498df1b60edfbafe582b": "eef79c318143dc61ca24d61698c14cfa7250d74d74b7d544565ee56de7a063a8",
+        "b0cf04fb446b8e87cb4a374b63d96b7c92824551": "eef79c318143dc61ca24d61698c14cfa7250d74d74b7d544565ee56de7a063a8",
+        "c097d712f9acfdd258709c7d0de054f978e0159c": "eef79c318143dc61ca24d61698c14cfa7250d74d74b7d544565ee56de7a063a8"
+      }
+    },
+    {
+      "path": "scripts/lib/ops_python.sh",
+      "sha256_by_revision": {
+        "2ea6c3db01a062b9c623498df1b60edfbafe582b": "19ad2fa1210efb30c508517ac1478fc09896e95abf9f8071aea4d85256ddd8ff",
+        "b0cf04fb446b8e87cb4a374b63d96b7c92824551": "19ad2fa1210efb30c508517ac1478fc09896e95abf9f8071aea4d85256ddd8ff",
+        "c097d712f9acfdd258709c7d0de054f978e0159c": "19ad2fa1210efb30c508517ac1478fc09896e95abf9f8071aea4d85256ddd8ff"
+      }
+    },
+    {
+      "path": "intelligence/dream/com.financeworkspace.daily-full-review-sync.plist",
+      "sha256_by_revision": {
+        "2ea6c3db01a062b9c623498df1b60edfbafe582b": "1921f278d3e5fe088f81fa87faba11dc844a024e8b0e25043a9bdaa0e52eabe5",
+        "b0cf04fb446b8e87cb4a374b63d96b7c92824551": "1921f278d3e5fe088f81fa87faba11dc844a024e8b0e25043a9bdaa0e52eabe5",
+        "c097d712f9acfdd258709c7d0de054f978e0159c": "1921f278d3e5fe088f81fa87faba11dc844a024e8b0e25043a9bdaa0e52eabe5"
+      }
+    },
+    {
+      "path": "intelligence/dream/com.financeworkspace.daily-full-review-finalize.plist",
+      "sha256_by_revision": {
+        "2ea6c3db01a062b9c623498df1b60edfbafe582b": "71fe78623f56129e08f93b183e531ad9fadc9d270f0e07e9d15500f50ee2ecbe",
+        "b0cf04fb446b8e87cb4a374b63d96b7c92824551": "71fe78623f56129e08f93b183e531ad9fadc9d270f0e07e9d15500f50ee2ecbe",
+        "c097d712f9acfdd258709c7d0de054f978e0159c": "71fe78623f56129e08f93b183e531ad9fadc9d270f0e07e9d15500f50ee2ecbe"
+      }
+    },
+    {
+      "path": "skills/daily-full-review/scripts/nightly_full_review.sh",
+      "sha256_by_revision": {
+        "2ea6c3db01a062b9c623498df1b60edfbafe582b": "05285c522d20c22981b390d311975eaf4aafc98dbb420eb7553dc843932d61ff",
+        "b0cf04fb446b8e87cb4a374b63d96b7c92824551": "05285c522d20c22981b390d311975eaf4aafc98dbb420eb7553dc843932d61ff",
+        "c097d712f9acfdd258709c7d0de054f978e0159c": "05285c522d20c22981b390d311975eaf4aafc98dbb420eb7553dc843932d61ff"
+      }
+    },
+    {
+      "path": "skills/daily-full-review/scripts/nightly_full_review_s7.sh",
+      "sha256_by_revision": {
+        "2ea6c3db01a062b9c623498df1b60edfbafe582b": "02474070d3cda8dd909c81b821502192fce33954fb1a31ee52576df3f4a8aff0",
+        "b0cf04fb446b8e87cb4a374b63d96b7c92824551": "02474070d3cda8dd909c81b821502192fce33954fb1a31ee52576df3f4a8aff0",
+        "c097d712f9acfdd258709c7d0de054f978e0159c": "02474070d3cda8dd909c81b821502192fce33954fb1a31ee52576df3f4a8aff0"
+      }
+    },
+    {
+      "path": "tests/test_eval_launchd_installer.py",
+      "sha256_by_revision": {
+        "2ea6c3db01a062b9c623498df1b60edfbafe582b": "1bcffe354c11a91e74a02f1f18aa1d14f14921a73491d03bda0ee3151156726e",
+        "b0cf04fb446b8e87cb4a374b63d96b7c92824551": "1bcffe354c11a91e74a02f1f18aa1d14f14921a73491d03bda0ee3151156726e",
+        "c097d712f9acfdd258709c7d0de054f978e0159c": "1bcffe354c11a91e74a02f1f18aa1d14f14921a73491d03bda0ee3151156726e"
+      }
+    },
+    {
+      "path": "tests/test_eval_launchd_wiring.py",
+      "sha256_by_revision": {
+        "2ea6c3db01a062b9c623498df1b60edfbafe582b": "7992d0419bbb07712983b16386565d4a430069d491051e3959bfce4f9e2c4987",
+        "b0cf04fb446b8e87cb4a374b63d96b7c92824551": "7992d0419bbb07712983b16386565d4a430069d491051e3959bfce4f9e2c4987",
+        "c097d712f9acfdd258709c7d0de054f978e0159c": "7992d0419bbb07712983b16386565d4a430069d491051e3959bfce4f9e2c4987"
+      }
+    }
+  ],
+  "upstream_delta": [
+    "docs/agent-product-door.md",
+    "intelligence/eval/variance_baseline.py",
+    "intelligence/services/gate_receipt.py",
+    "intelligence/services/llm_refine.py",
+    "intelligence/tests/test_judge_mode_receipt_independence.py",
+    "intelligence/tests/test_llm_k3_sampling.py"
+  ],
+  "upstream_delta_reviewed_by_this_session": false,
+  "deployment_runtime_unchanged": "adcda94b5e401158f1c3aa51f210e1e8d0f0b713",
+  "explanation": "Upstream #830 changes are accepted baseline, not silently added to review scope; deployed roots remain pinned adcda. Installer/selected sources/shared helper/tests unchanged; fresh all-leaf gates run at exact merged candidate."
+}

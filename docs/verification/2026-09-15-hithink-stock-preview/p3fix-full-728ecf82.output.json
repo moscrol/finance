@@ -1,0 +1,14 @@
+{
+ "original_path": "/private/tmp/claude-501/-Users-a77-finance-workspace-private/6e631397-fefa-449d-a4aa-4a4f452936ad/tasks/bo5033g4r.output",
+ "raw_sha256": "bcdce494566ec226ff5823e7781843f33393497c4eb7975d022ba4c0d9512f1a",
+ "encoding": "utf-8",
+ "lines": [
+  "  /Users/a77/fwp-wt-hithink-review-wiring/market_feature_store/sync/sync_fupanhui_mainline_sector_daily.py:121: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).\n",
+  "    now = datetime.utcnow().isoformat()\n",
+  "\n",
+  "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n",
+  "9834 passed, 79 skipped, 2 xfailed, 17 warnings in 697.67s (0:11:37)\n",
+  "\n",
+  "[exited with code 0]\n"
+ ]
+}

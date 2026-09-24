@@ -2,6 +2,15 @@
 
 ### 关键防坑点（顺/坑 速查）
 
+- **档位要验运行态三件套**：仓内模板、`~/Library/LaunchAgents/` 装机 plist、`launchctl print`
+  生效环境逐个对照。2026-09-15 有会话根据旧数据树误判 `local` 不存在，将装机值改成 `auto`，
+  导致 09-16/17 仍去探复盘会；模板正确不能证明机器正确。恢复时只改目标键并保留现有 L2 代码根。
+  `local` 的子模块请求边界另见 `skills/duckdb-backfill/references/backfill-runbook.md` 坑⑧。
+
+- **补跑收尾分层验收**（2026-09-17）：数据/报告/L2 过门且快照达到目标日，才说明复盘主链恢复；方法飞轮 `daily` 即使 rc=0，也要读 `capture.status`（旧协议 v3 对新标签 v6 可被拒绝），不能宣称已登记前向观察。协议迁移另走登记/切换，不改旧协议或回拨时钟。
+- **首次生成的研究队列可留过期预览警告**：`agent-daily` 读取整轮 summary 时，summary 尚未落盘。先核对仅缺该文件且整轮已 PASS，再经同一固定代码根从 `--from-step agent-daily` 刷新队列及后续驾驶台，另存补跑 summary、保留原全流程收据；不手删警告。
+- **L3 的 `--date` 不冻结外部查询日期**：现有 lookup 只有滚动 `--days` 窗口，历史补跑不能冒充当时证据；当日 dry-run 后逐条看原文。只有投资者问题、没有公司回答的关键词命中不是公司事实；不要 apply。
+
 - **limit-heat 被 PIPE 吞进度 = 看起来挂死**：通过子脚本 `backfill_review_hot_data.py`
   跑时 stdout 被 PIPE 缓冲，看不到 chunk 进度会误判挂起。**直跑 `sync-limit-heat`
   继承 stdout** 就能看到 `detail chunk i/N`，2026-06-16 验证 25 个 chunk 顺利跑完。
@@ -119,7 +128,7 @@
 ### 夜间 launchd 定时运维（2026-07 踩坑沉淀）
 
 夜间自动复盘走 `nightly_full_review.sh`（launchd），**已拆成两个 job**——因为
-**L2 逐笔资金流数据 ~20:30 才入 ClickHouse，18:30 跑必空**（连续两天因此 fail、需手动补跑）：
+**L2 闲鱼日包收盘后才上分享，18:30 跑必空**（ClickHouse 已退役，夜跑走 `scripts/moneyflow/run_l2_pipeline.sh` 文件源；曾连续两天因早跑 fail、需手动补跑）：
 
 | job | 时间 | 命令 | 跑什么 |
 |---|---|---|---|
@@ -142,8 +151,8 @@ L2 排在同步守卫**之前**是刻意的：L2 读逐笔日包，不依赖同�
 
 近期踩坑（调度/脚本层已修，记此防复发）：
 
-- **L2 18:30 必空**：逐笔数据 ~20:30 才到，早跑 `empty_count=全量` → 资金流段 fail。
-  这就是拆 sync/finalize 的根因。**手动补跑 L2 也要等 20:30 之后**（之前踩过：18:40 跑全空，过零点再跑才有数据）。
+- **L2 18:30 必空**：闲鱼日包收盘后才上分享，早跑 `empty_count=全量` → 资金流段 fail。
+  这就是拆 sync/finalize 的根因。**手动补跑 L2 也要等日包上架之后**（ClickHouse 时代踩过：18:40 跑全空，过零点再跑才有数据）。
   注：全空时 scan 会 raise，**空结果不进缓存**，重跑会真扫（无需 force-rescan）。
 - **preflight `wrong-host` = fupanhui 标签页没就绪**：sync 段 preflight 要挂载一个**已登录的 fupanhui.com 标签页**。
   Mac 睡眠唤醒后 launchd 补跑，常因 debug Chrome 里没有 fupanhui 标签页而 fail（proxy `/health` 显示 `managedTabs:0`）。

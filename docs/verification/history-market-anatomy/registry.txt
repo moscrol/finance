@@ -1,0 +1,33 @@
+===== build_registry check-parseability =====
+[check-parseability] 全部 61 个 SKILL.md frontmatter 可解析、name 与目录名一致。
+===== build_registry check =====
+[check] 注册表与源一致。
+===== build_registry backfill-tables --check =====
+[backfill] 无变化：finance-workspace-private/AGENTS.md
+[backfill --check] 文档 skill 表与注册表一致。
+===== build_registry generate-views --check =====
+[generate-views --check] agent 目录视图与 skills/ 源一致。
+========================================================================
+spec↔台账双向对账 — spec 引的号必须在台账有且仅有一行
+  树        /Users/a77/fwp-wt-history-market-anatomy
+  revision  506e1e237ad0
+========================================================================
+
+✓ 正向：spec 引用的号台账全有行
+✓ 重号：无
+
+⚠ 反向（台账行回指不了 spec/handoff/verification）：98 行（severity=warning）
+    R-20260908-03  | `R-20260908-03` | **溯源：非标准四阶段分诊**——同 spec P1。现场：high×Q1 reserve 臂第一次 finish **
+    R-20260908-04  | `R-20260908-04` | **溯源：非标准四阶段分诊**——同 spec P2 + 三刀合体验收。现场：单独抬合成保留 4/4 partial（§
+    R-20260908-01  | `R-20260908-01` | **溯源：非标准四阶段分诊**——2026-09-07 GLM-5.3-flash 能力天花板探针（收据 `~/.fin
+    R-20260830-03  | `R-20260830-03` | **溯源：非标准四阶段分诊**——勒死单 P1。现场：双红口径在树里有**三份互不引用的实现**（`market_fea
+    R-20260828-08  | `R-20260828-08` | 审架构（2026-08-28 晚，harness-architecture-review 对 #489/#490 三家族
+    R-20260828-06  | `R-20260828-06` | 工单同上 F2（独立复核钉：R6 首轮 `model_turn.tool_calls` 已发出正确 `finance_q
+    R-20260827-17  | `R-20260827-17` | 全量门禁 flaky 收敛 2026-08-28 00:55（#471 验收批次门禁同 rev 一绿一红：6855P/0
+    R-20260827-11  | `R-20260827-11` | 合并门禁抓存量红 2026-08-27 20:23（#464 验收 session：干净树 @`e4276e00` 全量
+    R-20260827-10  | `R-20260827-10` | P0 D6 复跑分诊 2026-08-27（`-07a` refuted 的归因升格：controller `_pars
+    R-20260827-08  | `R-20260827-08` | 工单同上 §P2-D2（[实测] 8792 probe `run_20260827_152937_309324`：`ju
+    …另 88 行
+✓ 订正传播：无同号在途交接落后于 spec
+
+✅ 通过（exit 0 只对上面那个 revision 的工作树内容成立）

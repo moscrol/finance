@@ -29,7 +29,7 @@ A 股量化复盘 + 研究工具集：fupanhui / iFinD / AKShare 数据经 `mark
 
 - 主库 `db/market_feature_store.duckdb`，星型模型，schema SSOT `market_feature_store/schema.sql`；表清单看 schema，不抄进文档。深挖前先查各 `fact_*` 的 `max(trade_date)` 验鲜（`docs/learning/current-duckdb-source.md`）。
 - `fact_sector_daily` / `fact_sector_stock_daily` 是 VIEW，只暴露 `published` 那版板块快照；写入目标是 `fact_sector_*_daily_generation`，主键含 `sector_universe_snapshot_id`，用 `db.get_published_snapshot_id(con, trade_date)` 解析（无 published 回退 `'legacy'`，当日出现 published 后 legacy 自动让位）。往 VIEW 里 upsert 会报 `Catalog Error`。这层存在是因为供应商会换板块代码和名单，没有它答不了「当时用的是哪一版清单」。
-- 覆盖率审计只能抓行数，抓不到「行在、值全 NULL」的空壳；重要回填后再抽 `price / pct_chg / amount` 非空或做跨日期 diff。
+- 覆盖率审计只能抓行数，抓不到「行在、值全 NULL」的空壳；重要回填后再抽 `price / pct_chg / amount` 非空或做跨日期 diff。底层 `fact_sector_stock_daily_generation` 已有行级 CHECK（至少带一个行情值），`quality.check_daily` 含空壳板块量具；2026-09-03 维护清过 810 万空壳行，2025-01-06~2026-03-30 成分股行情如实为缺，不是新断档。
 - 分析脚本只读 canonical `fact_*` 表（`detect_turning_points.py`、`backtest_sector.py`，库路径可用 `MARKET_FEATURE_STORE_DB` 覆盖，不存在则 fail closed）。
 - 复盘事实只走 `daily-full`。已退役 / 停用，勿跑勿恢复成第二条写入链：`scripts/sync_to_local.py`（无副作用 shim）、`scripts/fast_daily_sync.py`（写 VIEW 且拷昨日行改日期，值全空）、`scripts/backfill_sector_marginal.py`（写不存在的旧表）、旧库 `db/market.duckdb`、**飞书整体退役（Bitable 写入、IM 入口、自建应用与凭证，2026-09-11）**——自建应用与仓内全部飞书代码已删除，退役前只读导出在 `~/.finance-runtime/feishu-export-20260911/`，运维告警改走 `scripts/notify_ops.py`（零凭证）。
 - 台账（复盘验证 / 晨汇 / 卖方研报…）的 canonical 路径、格式与唯一写入者见 `docs/learning/ledger-map.md`，新增台账先登记。预注册号一律 `python3 scripts/claim_ledger_id.py claim --branch <分支>`，不手工「当日 max+1」（check-then-act 会撞号，号不回收）。
@@ -55,7 +55,9 @@ A 股量化复盘 + 研究工具集：fupanhui / iFinD / AKShare 数据经 `mark
 - 提交只用 pathspec：`git add -- <文件>` 与 `git commit -- <文件>`；不用 `git add -A` / `git add .`。裸 `git commit` 提交的是整个索引，别人在你 add 和 commit 之间暂存的文件会被你带走（实测吞掉他人 4 个在途文件，靠 `git reset --soft HEAD~1` 退回）。
 - 不提交 `.env*`、`mcp_config.json`、`feishu_config.json`、`*.pdf|zip|duckdb|db|sqlite*|pptx`、`.DS_Store`、`__MACOSX/`、`._*`、缓存与虚拟环境；不写明文密钥（pre-commit `block-forbidden-files` 兜底）。
 - 合并前本机跑等价 CI（Gitea 不跑 Actions）：`.venv-workbench/bin/python -m ruff check . && .venv-workbench/bin/python -m pytest -q`；前端 `cd intelligence/webapp && pnpm lint && pnpm typecheck && pnpm test && pnpm build`。任一叶子（python / frontend / e2e / registry-check）红或无结论都不合，不允许「带红合入回头再修」；聚合 job `workbench-check` 红先看哪片叶子红。`data-quality-check` 是**按 paths 条件触发**的第五道（`scripts/db_delta_*.py`、`tests/test_db_delta.py`、`skills/report-search/scripts/**`、它自己的 workflow 文件）：改到这些路径就必须跑绿，没触发则不算数、也不算缺结论。教训：main 曾连红 142 次照常合入，E2E 被 fail-fast 掩盖 26 天。若 GitHub 解封并转公开仓，把本条固化成真分支保护（required checks：`workbench-check` + `registry-check`，strict 不开）并回写本节。
+- 把一张收据当「全量绿」用之前，先让它自证收集面：`.venv-workbench/bin/python scripts/check_test_receipt.py <收据> --require-full-scope`。收据的 `target` 只记 pytest 的**位置参数**，`--ignore` / `-k` / `-m` / `--deselect` 一个都不显示，所以「仓根路径 + 12000 passed」看起来和真全量一模一样。教训：`a41e86dfc`（2026-08-20）把一个活测试误扫进 `scripts/archive/`，全树 `pytest -q` 此后 33 天停在 collection error 一条不跑；同期收据库里仍有 187 张「≥10000 passed / error=0 / exit 0 / target=仓根」的收据在流通，回查发现其 176 个 revision **全部带着那个坏文件**——它们只可能是收窄过的读数，而收据看不出来。现在 `scope` 段会记下收窄旋钮与 `collected`，并与读数对账（收了 N 条就得有 N 条读数）。
 - 关闭 PR 必留接替指针（替代 PR / 提交 / 文档）或废弃理由，不静默关闭。验收 session 规程 `docs/workflows/acceptance-workflow.md`；全仓合入看板 `python3 scripts/worktree_board.py`。
+- 门禁与修库不留现场：整库「改前快照 / 备份」一律走 `market_feature_store.db.clone_to_staging`（APFS `cp -c` 克隆，秒级、零额外占盘），不写 `shutil.copy2` / `cp` 整份拷；`run_main_gate.sh` 显式 `--basetemp` 在门禁绿时自动删（红保留，`GATE_KEEP_BASETEMP=1` 可留）；按提交号检出的 detached 门禁树跑完就 `git worktree remove`，批量用 `scripts/cleanup_gate_trees.sh`（默认 dry-run）。教训：2026-09-23 盘上静置 20 份 3.4 GB 整库拷贝（68 GB）+ 30 GB basetemp + 78 棵干净 detached 树，日烧 30–45 GB。
 
 ## 记忆、纠偏与沉淀
 
@@ -117,6 +119,7 @@ A 股量化复盘 + 研究工具集：fupanhui / iFinD / AKShare 数据经 `mark
 | 公司画像页 | 公司画像PPT |
 | 潜意识模式 | 开启潜意识模式、潜意识模式、进入潜意识、退出潜意识、收工、回读对话、巩固记忆、沉淀这轮、记进沉淀、潜意识开关 |
 | 行业概览 | 行业概览 |
+| stock-technicals | UP线、偏离度、自选股、回踩、均线、MA10、MA20、技术位 |
 
 跨仓引用（规范源在知识库仓，本仓不放正文）：
 

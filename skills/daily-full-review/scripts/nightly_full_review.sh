@@ -4,7 +4,7 @@
 # 同步段**不在本脚本里**：它要做 staging 克隆 / 过闸 / 原子换名，只有 S7 入口走得到。
 # 周末直接跳过；非交易日由质检闸门拦截。
 #
-# 定时拆分（L2 逐笔数据 ~20:30 才到，18:30 跑必空）：
+# 定时拆分（L2 闲鱼日包收盘后才上分享，18:30 跑必空）：
 #   nightly-full-review-s7.sh <date>       → 仅同步段（@18:30，走 staging）
 #   nightly_full_review.sh finalize <date> → L2 + 生成段 + 方法飞轮（@20:40）
 # 两条分开跑、都要跑，别用 && 串：同步失败时 finalize 不启动，L2 会跟着一起丢，
@@ -29,6 +29,8 @@ else
 fi
 
 CODE_ROOT="${FINANCE_CODE_ROOT:-/Users/a77/finance-workspace-runtime}"
+# 生成段可独立部署；L2/质检/方法验证仍使用 CODE_ROOT，不能整树回退它们。
+GENERATION_CODE_ROOT="${FINANCE_GENERATION_CODE_ROOT:-$CODE_ROOT}"
 DATA_ROOT="${FINANCE_DATA_ROOT:-/Users/a77/finance-workspace-private}"
 WORKSPACE="$DATA_ROOT"
 
@@ -200,13 +202,7 @@ if [ "$dow" -gt 5 ]; then
   exit 0
 fi
 
-# 遗留未修（另单）：下面生成段的 `python -m intelligence.cli daily` 在这个 cwd 下跑，
-# `-m` 会把 cwd 放进 sys.path[0]（实测是空串），于是 intelligence 仍从 WORKSPACE 加载
-# ——也就是那棵共用的、会漂的主检出树（实测
-# /Users/a77/finance-workspace-private/intelligence/__init__.py）。
-# 质检闸门（REVIEW_CHECKER）已钉住代码根、同步段已只走 S7，
-# **生成段还没有**：修对两处不等于整个 finalize 已修对根。
-# 不在本单顺手改：生成段要连 users 目录、episode 目录、模型网关一起验，改动面比闸门大。
+# 运维步骤保持数据 cwd；生成 launcher 独立校验代码/写入根，不污染 L2 环境。
 cd "$WORKSPACE" || exit 1
 REV=$(git -C "$CODE_ROOT" rev-parse --short=12 HEAD 2>/dev/null || echo unknown)
 WORKSPACE_REV=$(git -C "$WORKSPACE" rev-parse --short=12 HEAD 2>/dev/null || echo unknown)
@@ -214,9 +210,12 @@ echo "[$(date '+%F %T')] === 全量复盘开始 phase=$PHASE date=$D l2_code=$CO
 
 # 失败告警两条腿：内联 osascript 弹窗（零依赖、必达本机）+ notify_ops.py 落盘
 # ~/.finance-runtime/alerts.log（--no-desktop 免得重复弹）；告警自身失败不影响退出码
-notify() {
+notify_desktop() {
   osascript -e "display notification \"$1\" with title \"全量复盘告警\" sound name \"Basso\"" 2>/dev/null || true
-  "$OPS_PYTHON" "$WORKSPACE/scripts/notify_ops.py" --no-desktop "$1" 2>/dev/null || true
+}
+notify() {
+  notify_desktop "$1"
+  "$OPS_PYTHON" "$CODE_ROOT/scripts/notify_ops.py" --no-desktop "$1" 2>/dev/null || true
 }
 
 run_moneyflow() {
@@ -228,17 +227,11 @@ run_moneyflow() {
 
 # L2 是独立 DAG 分支：同步段即使失败也会尝试，避免 SW-L1/复盘会故障截断资金流。
 # 返回 moneyflow_rc / l2_rc 两个全局变量。
-# L2 挂账暂停：state/l2-paused.flag 存在 → 不抓取、L2 门放行（check 脚本读 L2_PAUSED=1
-# 会跳过并留痕）。删除 flag 文件即恢复；欠账日期用 run_l2_pipeline.sh 按日回补。
-L2_PAUSED_FLAG="$WORKSPACE/state/l2-paused.flag"
+# L2 源是闲鱼日包（百度分享，见 scripts/moneyflow/run_l2_pipeline.sh），不打 ClickHouse，
+# 也不再认 state/l2-paused.flag——那是 ClickHouse 断供时代的挂账开关，文件源没有对应的
+# 故障形状；check 脚本仍认环境变量 L2_PAUSED=1 作应急开关，需要时手动 export，不靠 flag
+# 文件静默放行。L2 代码走 CODE_ROOT（冻结快照），状态 / 库走 DATA_ROOT（工单 #51）。
 run_l2_branch() {
-  if [ -f "$L2_PAUSED_FLAG" ]; then
-    export L2_PAUSED=1
-    echo "[$(date '+%F %T')] L2 已挂账暂停（存在 $L2_PAUSED_FLAG），跳过资金流段与 L2 质量门"
-    moneyflow_rc=0
-    l2_rc=0
-    return 0
-  fi
   run_moneyflow
   moneyflow_rc=$?
   if [ "$moneyflow_rc" -ne 0 ]; then
@@ -263,22 +256,35 @@ run_l2_branch() {
 
 # 生成段 + 收尾（KB 时效 / 最终硬门）。前置：sync 与 L2 均已通过。
 run_generation_and_finalize() {
-  "$OPS_PYTHON" -m intelligence.cli daily --date "$D" --skip-sync --from-step daily-review \
-    --summary-json "market_feature_store/exports/$D-daily-workflow-summary.json"
+  local generation_launcher="$GENERATION_CODE_ROOT/scripts/run_daily_generation.py"
+  if [ ! -f "$generation_launcher" ]; then
+    echo "[$(date '+%F %T')] 生成段代码根无效：缺少 $generation_launcher；拒绝回退到 WORKSPACE=$WORKSPACE" >&2
+    return 2
+  fi
+  local generation_rev
+  generation_rev=$(git -C "$GENERATION_CODE_ROOT" rev-parse --short=12 HEAD 2>/dev/null || echo unknown)
+  echo "[$(date '+%F %T')] generation_code=$GENERATION_CODE_ROOT generation_rev=$generation_rev l2_code=$CODE_ROOT"
+  # 仅此子进程切代码根：launcher 与所有生成子步骤固定同一解释器/代码，数据仍在 DATA_ROOT。
+  FINANCE_CODE_ROOT="$GENERATION_CODE_ROOT" PYTHONPATH="$GENERATION_CODE_ROOT" \
+    PYTHONSAFEPATH=1 PYTHONDONTWRITEBYTECODE=1 \
+    "$OPS_PYTHON" -P "$generation_launcher" --date "$D" --skip-sync --from-step daily-review \
+    --plan "$REVIEW_SYNC_PLAN" \
+    --summary-json "$DATA_ROOT/market_feature_store/exports/$D-daily-workflow-summary.json"
   local rc=$?
+
+  # launcher 拒绝的代码/写入根不能被外层接线重新执行；失败只走现有 stdout/桌面。
+  if [ "$rc" -ne 0 ]; then
+    echo "[$(date '+%F %T')] 生成段失败 rc=$rc"
+    notify_desktop "⚠️ 全量复盘 $D 生成段失败 rc=$rc；日志 logs/daily-full-review.out.log"
+    return "$rc"
+  fi
 
   # 幂等兜底：20:05 fidelity 或 daily 步已写出的 kb-ingest-queue 归档进 wiki/raw。
   # 只 receive，不 apply。daily 计划里也有同一步；重复跑按 payload hash 去重。
-  local RECEIVE_SH="$WORKSPACE/skills/daily-full-review/scripts/receive_kb_ingest_queue.sh"
+  local RECEIVE_SH="$GENERATION_CODE_ROOT/skills/daily-full-review/scripts/receive_kb_ingest_queue.sh"
   if [ -f "$RECEIVE_SH" ]; then
     /bin/zsh "$RECEIVE_SH" "$D" "$WORKSPACE" "$KNOWLEDGE_WIKI" \
       || echo "[$(date '+%F %T')] kb ingest receive 失败（不阻断）"
-  fi
-
-  if [ "$rc" -ne 0 ]; then
-    echo "[$(date '+%F %T')] 生成段失败 rc=$rc"
-    notify "⚠️ 全量复盘 $D 生成段失败 rc=$rc（同步已完成，可手动重跑 intelligence.cli daily --skip-sync）；日志 logs/daily-full-review.out.log"
-    return "$rc"
   fi
 
   # 双盲答卷回检已退役（2026-08-20）：不再随 finalize 跑 recheck / auto_verdict。
@@ -286,7 +292,7 @@ run_generation_and_finalize() {
 
   # 知识库证据断更监控（超 7 天未 ingest 新批次则告警；不阻断收尾）
   local kb_msg
-  kb_msg=$("$OPS_PYTHON" "$WORKSPACE/scripts/check_kb_freshness.py" --max-age 7)
+  kb_msg=$("$OPS_PYTHON" "$GENERATION_CODE_ROOT/scripts/check_kb_freshness.py" --max-age 7)
   if [ $? -eq 2 ]; then
     notify "$kb_msg——研报证据需要补 ingest（PDF 批次）"
   fi
