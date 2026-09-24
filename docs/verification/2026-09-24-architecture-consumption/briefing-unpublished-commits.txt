@@ -1,0 +1,3 @@
+e4cca9531 fix(briefing): avoid concurrent log id collision
+0ad67b928 fix(briefing): preserve attribution and correct MLCC denominator claims
+de6608547 feat(briefing): 回填 2026-09-15、09-18 晨汇（#6891/#6892）

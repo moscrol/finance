@@ -19,12 +19,14 @@ import duckdb
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from intelligence.services.river import slice_river  # noqa: E402
+from intelligence.services.teaching_framework.flags import SCALAR_DECIMALS  # noqa: E402
 from intelligence.services.teaching_framework.narrative import (  # noqa: E402
     BRIEFING_EVENTS_RELPATH,
     BRIEFING_FIELDS,
     briefing_daily,
 )
 from intelligence.services.teaching_framework.river_objects import teaching_objects  # noqa: E402
+from scripts.teaching_framework import _load_rps5_names  # noqa: E402
 
 
 def require(condition: bool, message: str) -> None:
@@ -39,8 +41,9 @@ def verify(args: argparse.Namespace) -> dict:
         events = [json.loads(line) for line in stream if line.strip()]
     with duckdb.connect(str(args.db_path), read_only=True) as source:
         calendar = [r[0] for r in source.execute("SELECT trade_date FROM fact_market_daily ORDER BY trade_date").fetchall()]
+        rps5_names = _load_rps5_names(source)
     require(bool(calendar), "Empty market calendar")
-    daily = briefing_daily(events, calendar)
+    daily = briefing_daily(events, calendar, rps5_names=rps5_names)
     # ``briefing_daily`` aggregates every material day that lands on the same trading day
     # (for example, a Friday/weekend pair). Keep the verification result on that same
     # landing-day basis instead of reporting only the requested material day's row count.
@@ -83,9 +86,13 @@ def verify(args: argparse.Namespace) -> dict:
             require(actual_labels == expected_labels, f"Briefing label set mismatch: {day}")
             values = {label.removeprefix("tf."): value for label, value, _computed_at in rows}
             for field in BRIEFING_FIELDS:
-                # NULL is meaningful here: a two-dimensional briefing cannot claim market confirmation
-                # or a price-ranking comparison. A numeric zero is not an equivalent representation.
-                require(field in values and values[field] == expected[field], f"Label mismatch: {day} {field}")
+                # NULL is meaningful: market confirmation requires three dimensions, and ranking
+                # coverage requires ranking inputs. A numeric zero is not equivalent to unknown.
+                expected_value = expected[field]
+                if expected_value is not None:
+                    expected_value = round(float(expected_value), SCALAR_DECIMALS)
+                require(field in values and values[field] == expected_value,
+                        f"Label mismatch: {day} {field}; expected={expected_value!r}, actual={values.get(field)!r}")
 
             source_recorded_at = expected.get("recorded_at")
             require(source_recorded_at, f"Missing source recorded_at: {day}")
