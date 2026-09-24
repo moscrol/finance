@@ -12,6 +12,11 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Literal
 
+from intelligence.services.agent_research import (
+    AgentEvidence,
+    HistoricalEvidenceProvenance,
+    evidence_content_hash,
+)
 from intelligence.services.agent_runtime import AgentOutcome
 from intelligence.services.episode_issues import Issue, IssueCode, serialize_issues
 from intelligence.services.episode_output_substance import (
@@ -67,6 +72,22 @@ class VerifiedEpisodeOutcome:
             ),
             "extension_outputs": list(self.extension_outputs),
         }
+
+
+def _valid_history_identity(item: AgentEvidence) -> bool:
+    provenance = item.history_provenance
+    if not isinstance(provenance, HistoricalEvidenceProvenance):
+        return False
+    try:
+        provenance.validate()
+    except ValueError:
+        return False
+    return (
+        item.tool in {"history_query", "read_history_result"}
+        and item.content_hash == evidence_content_hash(item)
+        and item.internal_locator == provenance.result_ref
+        and item.independent_key == provenance.query_id
+    )
 
 
 def verify_episode_outcome(
@@ -269,6 +290,43 @@ def verify_episode_outcome(
             for item in evidence_items
             if required.evidence_types and item.tool not in required.evidence_types
         )
+        history_items = tuple(
+            item for item in evidence_items
+            if item.tool in {"history_query", "read_history_result"}
+            or item.history_provenance is not None
+        )
+        unsupported_history = tuple(
+            item
+            for item in history_items
+            if required.allowed_history_operations
+            and isinstance(item.history_provenance, HistoricalEvidenceProvenance)
+            and (
+                item.history_provenance.operation
+                not in required.allowed_history_operations
+                or item.tool not in {"history_query", "read_history_result"}
+            )
+        )
+        invalid_history_qualification = tuple(
+            item
+            for item in history_items
+            if required.allowed_history_operations
+            and not _valid_history_identity(item)
+        )
+        # 「引错算子」按剔除处理，不整槽作废：剪掉该引用，槽里还有合法证据就
+        # 让回答出门；整格无合法证据才 BLOCK。理由是比例，与下方类型白名单
+        # 同一口径：一张引错槽的卡不应让整篇有据的回答退成缺口模板。
+        # （查过：allowed_history_operations 确实随 契约 to_dict 发给了模型，
+        # 模型不是无从得知；因此这里不是在补偿信息缺口，而是在控制惩罚力度。）
+        # 伪造或降级身份（invalid_history_qualification）不适用此例：那是账本完整性
+        # 问题，哪怕旁边还有合法引用也必须拦住。
+        history_details = tuple(
+            (item.history_provenance.operation or "unknown")
+            if isinstance(item.history_provenance, HistoricalEvidenceProvenance)
+            and isinstance(item.history_provenance.operation, str)
+            else "missing_provenance" if item.history_provenance is None
+            else "invalid_provenance"
+            for item in (*unsupported_history, *invalid_history_qualification)
+        )
         # 类型白名单按「剔除非法、保留合法」执行，不再整槽作废（2026-08-19，
         # run_20260819_130854：prime_quote 绑了 market_data + finance_query
         # 各若干条，旧判据把合法行情哈希一并清掉 → 整篇换缺口模板）。
@@ -284,10 +342,34 @@ def verify_episode_outcome(
                 not required.evidence_types
                 or evidence_by_hash[content_hash].tool in required.evidence_types
             )
+            and evidence_by_hash[content_hash] not in unsupported_history
+            and evidence_by_hash[content_hash] not in invalid_history_qualification
         )
         kept_items = tuple(
             evidence_by_hash[content_hash] for content_hash in kept_hashes
         )
+        if unsupported_history or invalid_history_qualification:
+            blocked = bool(invalid_history_qualification) or not kept_items
+            prefix = "" if blocked else "stripped "
+            issues.append(
+                Issue(
+                    (
+                        IssueCode.HISTORY_OPERATION_UNSUPPORTED
+                        if blocked
+                        else IssueCode.HISTORY_OPERATION_STRIPPED
+                    ),
+                    required.output_id,
+                    (
+                        f"{prefix}history evidence is not eligible for "
+                        f"{required.output_id}: " + ",".join(history_details)
+                    ),
+                )
+            )
+            stripped_hashes.update(
+                item.content_hash
+                for item in (*unsupported_history, *invalid_history_qualification)
+                if item.content_hash.strip()
+            )
         if wrong_types:
             prefix = "stripped " if kept_items else ""
             type_message = (
@@ -343,6 +425,10 @@ def verify_episode_outcome(
             and (not wrong_types or bool(kept_hashes))
             and not missing_floor
             and not basis_mismatch
+            # 引错算子与类型白名单同一口径：剪掉那条引用，剩下合法证据槽位继续成立。
+            # 身份无效是账本完整性问题，不给这条出路。
+            and (not unsupported_history or bool(kept_hashes))
+            and not invalid_history_qualification
             and len(evidence_items) == len(binding.evidence_hashes)
         )
         financial_gaps: tuple[str, ...] = ()

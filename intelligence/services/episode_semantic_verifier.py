@@ -6189,6 +6189,30 @@ def _project_semantic_evidence(
             projected["contradicts"] = list(item.contradicts)
         if item.independent_key:
             projected["independent_key"] = item.independent_key
+        if item.observations:
+            projected["observations"] = [
+                {
+                    "subject": observation.subject,
+                    "as_of": observation.as_of,
+                    "metric": observation.metric,
+                    "value": observation.value,
+                }
+                for observation in item.observations
+            ]
+        if item.history_provenance is not None:
+            provenance = item.history_provenance
+            projected["research_only"] = provenance.research_only
+            projected["decision_eligible"] = provenance.decision_eligible
+            projected["promotion_eligible"] = provenance.promotion_eligible
+            projected["history_provenance"] = {
+                "query_id": provenance.query_id,
+                "operation": provenance.operation,
+                "purpose": provenance.purpose,
+                "result_ref": provenance.result_ref,
+                "row_index": provenance.row_index,
+                "row_identity": provenance.row_identity,
+                "row_hash": provenance.row_hash,
+            }
         if title and "title" not in projected:
             dropped_field_chars += len(title)
         if detail and "detail" not in projected:

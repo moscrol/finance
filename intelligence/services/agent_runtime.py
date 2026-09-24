@@ -8,7 +8,7 @@ implementations return one immutable :class:`AgentOutcome` for verification.
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 import math
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Literal, Protocol, runtime_checkable
@@ -353,6 +353,8 @@ class AgentUsage:
 
 
 def public_agent_evidence(item: AgentEvidence) -> dict[str, object]:
+    """Return the bounded model/public view; control metadata stays private."""
+
     return {
         "tool": item.tool,
         "title": item.title,
@@ -367,6 +369,17 @@ def public_agent_evidence(item: AgentEvidence) -> dict[str, object]:
         "content_hash": item.content_hash,
         **({"io_effect": item.io_effect} if item.io_effect != "unknown" else {}),
     }
+
+
+def private_agent_evidence(item: AgentEvidence) -> dict[str, object]:
+    """Persist structured observations/provenance without widening model input."""
+
+    payload = public_agent_evidence(item)
+    if item.observations:
+        payload["observations"] = [asdict(observation) for observation in item.observations]
+    if item.history_provenance is not None:
+        payload["history_provenance"] = asdict(item.history_provenance)
+    return payload
 
 
 @dataclass(frozen=True)
@@ -465,7 +478,7 @@ class AgentOutcome:
             "task_frame_hash": self.task_frame_hash,
             "status": self.status,
             "draft": self.draft,
-            "evidence": [public_agent_evidence(item) for item in self.evidence],
+            "evidence": [private_agent_evidence(item) for item in self.evidence],
             "traces": [trace.to_dict() for trace in self.traces],
             "gaps": list(self.gaps),
             "stop_reason": self.stop_reason,

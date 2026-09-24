@@ -24,7 +24,7 @@ def test_presentation_links_roundtrip_without_changing_first_writer_or_coverage(
     )
     decoded = snapshots.EpisodeEvidenceSnapshot.from_dict(payload, episode_id="episode")
     restored = EvidenceLedger.from_recovery_snapshot(payload, episode_id="episode")
-    assert payload["schema_version"] == 3
+    assert payload["schema_version"] == 4
     assert decoded.presented_evidence == changed
     assert decoded.presented_hashes == ("first", "second")
     assert restored.items() == ledger.items()
@@ -83,7 +83,7 @@ def test_unadmitted_presentations_require_real_future_date_not_title(cutoff, sou
         ledger.to_recovery_snapshot(episode_id="episode", presented_evidence=(item,))
 
 
-@pytest.mark.parametrize("version", [1, 2])
+@pytest.mark.parametrize("version", [1, 2, 3])
 def test_legacy_read_preserves_version_digest_and_presentation_semantics(version):
     ledger, presented, payload = _fixture()
     payload = _legacy_payload(payload, version)
@@ -95,7 +95,7 @@ def test_legacy_read_preserves_version_digest_and_presentation_semantics(version
     state = EpisodeState(episode_id="episode", phase="planning", last_sequence=2,
                          evidence_snapshot=payload, evidence_snapshot_sequence=2)
     assert EpisodeState.from_dict(state.to_dict()).to_dict()["evidence_snapshot"] == original
-    assert ledger.to_recovery_snapshot(episode_id="episode", presented_evidence=presented)["schema_version"] == 3
+    assert ledger.to_recovery_snapshot(episode_id="episode", presented_evidence=presented)["schema_version"] == 4
 
 
 @pytest.mark.parametrize("mutation", ["missing", "extra", "duplicate", "unknown", "coverage", "digest"])
@@ -126,13 +126,13 @@ def test_v1_reader_retains_strict_legacy_validation(mutation):
     ("2026-07-24", "/tmp/2026-7-25"), ("2026-07-24", "2026-7-25 09:30:00+08:00garbage"),
     ("2026-07-24", "2026-W30-6"),
 ])
-@pytest.mark.parametrize("version", [2, 3])
+@pytest.mark.parametrize("version", [2, 3, 4])
 def test_reader_rechecks_future_classification_even_with_recomputed_digest(cutoff, source_date, version):
     ledger = EvidenceLedger(information_cutoff=date(2026, 7, 24))
     payload = ledger.to_recovery_snapshot(
         episode_id="episode", presented_evidence=(_atom("future", source_date="2026-07-25"),),
     )
-    if version < 3:
+    if version < 4:
         payload = _legacy_payload(payload, version)
     payload["information_cutoff"] = cutoff
     payload["presentations"][0]["atom"]["source_date"] = source_date

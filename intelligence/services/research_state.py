@@ -28,6 +28,8 @@ class EvidenceObservation:
     independent_key: str = ""
     freshness: str = "unknown"
     content_hash: str = ""
+    # Optional structured source identity; unlike detail this is machine-checkable.
+    provenance: dict[str, object] = field(default_factory=dict)
 
 
 @dataclass

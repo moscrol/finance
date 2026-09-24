@@ -148,8 +148,8 @@ class _ObservationBranchModel:
                     "draft": "已按实际盘面保存候选与反证边界。" + gap,
                     "gaps": [gap],
                     "bindings": [
-                        {"output_id": output, "evidence_hashes": [], "gap": gap}
-                        for output in self.outputs
+                        {"output_id": output, "evidence_hashes": [], "basis": basis, "gap": gap}
+                        for output, basis in self.outputs.items()
                     ],
                     "history_research": {
                         "purpose": self.purpose,
@@ -180,7 +180,7 @@ def _run(root, *, final_return, cancel_after_first_result=False):
     question = session.store.load_run(session.run_id).question
     frame = understand_query(question).task_frame
     model = _ObservationBranchModel(
-        [item.output_id for item in context.contract.required_outputs],
+        {item.output_id: item.grounding_mode for item in context.contract.required_outputs},
         context.history_intent.purpose,
     )
     cancel = Event()
@@ -239,6 +239,8 @@ def test_same_question_counterevidence_changes_real_tool_branch_and_saved_hypoth
     assert negative_hypothesis["failed_sample_refs"] == negative_model.refs
     assert negative_hypothesis["counterevidence_refs"] == negative_model.refs
     assert set(negative_model.refs) <= set(negative_cases[0]["exposed_sample_refs"])
+    assert positive_model.calls == negative_model.calls == 4
+    assert not any(event.kind == "invalid_action" for run in (positive, negative) for event in run.events)
     assert positive.usage.tool_calls == negative.usage.tool_calls == 3
     assert all(
         len([event for event in run.events if event.kind == "tool_result"]) == 3
