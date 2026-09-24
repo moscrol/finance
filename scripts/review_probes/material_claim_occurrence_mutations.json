@@ -1,0 +1,23 @@
+[
+  {
+    "id": "reuse-claimed-sentence-index",
+    "path": "intelligence/services/material_claim_review.py",
+    "old": "                    or sentence[\"index\"] in matched_indexes\n",
+    "new": "",
+    "targets": [
+      "intelligence/tests/test_e2_material_claim_review.py::test_repeated_claim_occurrences_keep_their_own_anchors",
+      "intelligence/tests/test_e2_material_claim_review.py::test_repeated_claim_occurrences_reject_only_the_unsupported_occurrence"
+    ]
+  },
+  {
+    "id": "expand-one-claim-to-all-occurrences",
+    "path": "intelligence/services/material_claim_review.py",
+    "old": "                    matched_indexes.add(sentence[\"index\"])\n                    break\n",
+    "new": "                    matched_indexes.add(sentence[\"index\"])\n",
+    "targets": [
+      "intelligence/tests/test_e2_material_claim_review.py::test_repeated_claim_occurrences_keep_their_own_anchors",
+      "intelligence/tests/test_e2_material_claim_review.py::test_repeated_claim_occurrences_stay_in_their_original_question",
+      "intelligence/tests/test_e2_material_claim_review.py::test_repeated_claim_occurrences_reject_only_the_unsupported_occurrence"
+    ]
+  }
+]
