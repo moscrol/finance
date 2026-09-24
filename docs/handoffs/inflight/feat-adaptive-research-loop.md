@@ -1,33 +1,28 @@
 # feat/adaptive-research-loop 在途
 
 ## 这个分支做什么
-#72/PR #868、#75双轴独审、#76 L6。工程绿，独审/自然未闭合，尚不可合入。未push/合main/部署。
+#72 / PR #868：传输层绝对截止；#75 双轴独审、#76 L6 自然验收。工程绿，独审未闭合，WIP，未合 main。
 
 ## 决策与被否方案
-- 固定候选签证，文档HEAD不移签。旧失败不续跑/倒改；0.8秒+0.2容差及检索120秒不放宽。
-- 否掉宿主修JSON补签旧Quality；对象交付仅新设施候选，不能替reviewer作结论。
-- 余额不足原批准完整双轴方案，不启动半轮、不借L6额度。
-- 背景/方案比较：`../2026-09-24-adaptive-e7-qc-budget-boundary.md`。
+- 受审候选固定，文档提交不继承候选收据；旧失败不续跑、不翻案；0.8s+0.2s 和检索 120s 的判据不放宽。
+- 交付的 `complete` 字段由控制器写入（#906，已并入本分支）；审查者内容里出现身份字段或 `complete` 一律拒收。
+- 背景：`../2026-09-24-runtime-review-r07-and-pr868-2105.md`
 
 ## 当前状态
-受测e7a6cb412，基线main3bb81b963，末次远程复核未漂移。0326七叶全绿：15396P/85S/2X、collected15483，无筛选；前端六步及五个registry/ledger叶过。e7只修日志链，不宣称旧RAG/覆盖根因已修。
-根均在 `~/.finance-runtime/reviews/`：工程 `pr868-merge-ready-20260924-0326/`，独审 `pr868-glm-qc-20260924-0415/`，均结束、无后台。收据为0326下 `python-receipts/gate-Pq59hxEb/pytest.json`，完整log/XML已存。
-0415已封存BLOCKED：Spec PASS_WITH_LIMITS但C3/C7未验证；Quality执行交付内部JSON字符串语法错误，exit75、无report/最终verdict。两轴原路径作者各16P，不能补独立缺口。原始探针失败及解释均保留。
-**模型总账131/152，剩21；不得从旧74重新起算。** 本批Spec30+Quality27=57，历史74；所有已起shim计数一致、active=0、shutdown_complete=true。原每轴4/17/17/1方案不能以21完成。保持完整新批78上限需总授权至少209，尚未获准，不自动启动。
+受审候选 `f2610293f`：由 f531d2d00、#906，以及 main `03352758c`（agent-foundation 快进 + #909）合并而来；本分支 HEAD 是其后的纯文档提交。四叶全绿：Python 15886P/0F（收据 `~/.finance-runtime/reviews/pr868-gates-20260925-c/`），前端 120P，e2e 34P/2S，registry 五项。
+独审额度累计 213/244：1405 批封存（spec 执行阶段交付漏了 `complete`）；2105 批 spec 轴 PASS_WITH_LIMITS（C1/C2/C4/C5/C6 已验，C3/C7 未验），quality 轴封存（探针路径漏了 `/Users`）。
+下一批已准备好、**未授权**：`~/.finance-runtime/reviews/pr868-glm-qc-20260925-next/`。离线 12/12、两轴沙箱预检 PASS。explore 交付时会当场核验 probe_files，不合格作为工具错误回给模型；没有用户批准不得运行。
 
 ## 未验证 / 已知边界
-旧c315的7个RAG失败及前缀判官共享窗覆盖红根因仍未定，新绿不翻案。
-0145/0208/0400零消费封存；0400原路径10P/6个git-init setup error后另起0415，只补父目录metadata，宿主16P各过。原exit120空日志原因未定，简单文件/管道对照均0。
-新L6未准备/提交，旧0210零消费阻断、严格覆盖/检索失败及自然NOT_PASSED不改。生产身份未比较。
-整PR diff-check仍exit2，8份旧封存文本空白问题；未裁剪/豁免。新归档自身检查不是整PR。
+C3（判官迟到回包的语义字段）与 C7（收据身份）还没有独立动态证据；quality 轴没有有效终审；L6 未准备，自然验收仍是 NOT_PASSED。旧 c315 的 RAG keepalive 失败根因未定。#906 的 inflight 文件随合并进了本分支，合 main 前要清理。
 
 ## 下一步
-1. 先读0415的batch、host-evidence-audit与closure-current-turn；旧批不得续。
-2. 待预算/方案确认，另建独审根。对象协议须新批验证，C3语义结果、C7身份/收据及探针签名/端点核对不能省。
-3. 独审与正式准入均满足后才另建L6新根/新题；精确Episode审计PASS才下一题，重发/续问0。
+1. 用户批准新上限（≥ 291，也就是剩余 31 次再加一整批 78 次）后，按 `pr868-glm-qc-20260925-next/STATE.md` 顺序串行跑两轴；失败即停，零重试。
+2. 独审闭合后再新建 L6 根：≤ 3 题，精确 Episode 审计 PASS 才出下一题。
+3. 合 main 与部署另取授权。
 
 ## 已验证
-e7修复72P、旧反例4F+2F；对象交付离线15项含注册工具通过，0模型、未启用，不算独审。新530原件/本地/Git核验0差 `docs/verification/2026-09-24-adaptive-e7-qc-closeout/`；历史208/51份仍保留。
+e7 修复 72P；#906 离线 43P，结构化交付 12 项；2105 批 spec 轴三次真实交付全部被接收。
 
 ## 踩过的坑
-模型HTTP200与阶段完成不等于有效终审。metadata可逐目录放行，正文不能跟着开放。harness-reference/BUILD.md有他人改动，未碰。
+模型交付的字段不要让模型负责「完成标志」；探针路径要在工具里当场核验，别等进程退出后才判结构失败。
