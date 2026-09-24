@@ -1,0 +1,221 @@
+# -*- coding: utf-8 -*-
+"""Root-adapted diagnostic based on UNFINISHED K3 probes (NOT independent approval).
+
+Original is preserved in k3/probe_k3.py. Root changes: real telemetry field,
+JSON parsing rather than whitespace, hash bindings rather than nonexistent raw_refs,
+verified.contract and correct numeric-gate argument order. C3 now uses a real
+conditional trigger; plain factual numeric checks are outside this function.
+Pinned source is supplied as argv[1] for before/after root diagnostics.
+
+Probe sets:
+  A) _repair_dangling_condition_references seam repair (orphan vs surviving defs,
+     mixed lines, punctuation residue, numeric evidence gate protection)
+  B) read_history_result pagination -> _result/_model_projection (absolute sample
+     numbering, empty page next_offset, card-count vs row-count)
+  C) forward-merged numeric gate: reference-ordinal exclusion + historical claim
+     passthrough + real violation still rejected + evidence-side E-ref exclusion
+"""
+import json
+import sys
+
+import intelligence.services.episode_semantic_verifier as esv
+import intelligence.services.historical_research.episode as ep
+from intelligence.services.agent_runtime import (
+    AgentOutcome,
+    AgentUsage,
+    EpisodeEvent,
+    OutputEvidenceBinding,
+)
+from intelligence.services.agent_research import AgentEvidence
+
+FAIL = []
+
+
+def check(name, cond, detail=""):
+    print(("PASS " if cond else "FAIL ") + name + (" :: " + detail if detail else ""))
+    if not cond:
+        FAIL.append((name, detail))
+
+
+print("esv.__file__ =", esv.__file__)
+print("ep.__file__  =", ep.__file__)
+HEAD = open("/dev/stdin").read().strip() if False else None
+import subprocess
+head = subprocess.run(
+    ["git", "-C", "/Users/a77/fwp-wt-react-trace-qc-0921", "rev-parse", "HEAD"],
+    capture_output=True, text=True).stdout.strip()
+print("HEAD =", head)
+check("pin-head", head == sys.argv[1], head)
+check("pin-esv-file", esv.__file__.startswith("/Users/a77/fwp-wt-react-trace-qc-0921/"), esv.__file__)
+check("pin-ep-file", ep.__file__.startswith("/Users/a77/fwp-wt-react-trace-qc-0921/"), ep.__file__)
+
+R = esv._repair_dangling_condition_references
+
+# ---------- Probe set A: dangling condition reference repair ----------
+# A1: deleted 升级条件 definition + bold count with adverb; valid observation survives.
+before = "升级条件：价格突破20日均线且量能放大。"
+draft1 = "多头结构未破坏。目前尚未满足升级条件中的2条，需继续观察。"
+out = R(draft1, before=before, rejected_sentence_indexes=(1,))
+print("A1:", repr(out))
+check("A1.orphan-count-removed", "满足升级条件中的2条" not in out)
+check("A1.observation-kept", "多头结构未破坏" in out)
+check("A1.no-stranded-adverb", "尚未" not in out and "目前" not in out, out)
+check("A1.followup-kept", "需继续观察" in out)
+
+# A2: two counts on one line, first NOT orphaned, second orphaned -> only second removed.
+before2 = "降级条件：跌破60日均线。"
+draft2 = "满足升级条件中的3条，且满足降级条件中的1条，风险可控。"
+out2 = R(draft2, before=before2, rejected_sentence_indexes=(1,))
+print("A2:", repr(out2))
+check("A2.survivor-ref-kept", "满足升级条件中的3条" in out2)
+check("A2.orphan-removed", "满足降级条件中的1条" not in out2)
+check("A2.no-double-punct", "，，" not in out2 and "，。" not in out2, out2)
+check("A2.tail-kept", "风险可控" in out2)
+
+# A3: both labels deleted, two lines each with only a count -> contentless lines dropped.
+before3 = "升级条件：放量上涨。降级条件：缩量阴跌。"
+draft3 = "满足升级条件中的2条。\n目前仅满足降级条件中的1条。"
+out3 = R(draft3, before=before3, rejected_sentence_indexes=(1, 2))
+print("A3:", repr(out3))
+check("A3.all-lines-dropped", out3 == "", out3)
+
+# A4: surviving definition anywhere (even renumbered) -> NO touch.
+before4 = "前言。升级条件：连续3日站稳5日线。"
+draft4 = "升级条件：连续3日站稳5日线。目前仅满足升级条件中的2条。"
+out4 = R(draft4, before=before4, rejected_sentence_indexes=(2,))
+print("A4:", repr(out4))
+check("A4.untouched-when-def-survives", out4 == draft4, out4)
+
+# A5: rejected index does not match a definition line -> nothing happens.
+before5 = "某个不相关的句子被删。"
+draft5 = "满足升级条件中的2条，但基本面仍稳。"
+out5 = R(draft5, before=before5, rejected_sentence_indexes=(1,))
+check("A5.no-def-deleted-noop", out5 == draft5, out5)
+
+# A6: full-width digits / Chinese numerals and ASCII-hyphen list marker.
+before6 = "降级条件：跌破年线。"
+draft6 = "各周期未共振。\n- 已满足降级条件中的２条，需警惕。"
+out6 = R(draft6, before=before6, rejected_sentence_indexes=(1,))
+print("A6:", repr(out6))
+check("A6.fullwidth-count-removed", "２条" not in out6)
+check("A6.list-marker-kept", "- 需警惕" in out6, out6)
+check("A6.other-line-kept", "各周期未共振" in out6)
+
+# A7: label-only line after repair gets dropped entirely ("结论：" residue).
+before7 = "升级条件：MACD金叉。"
+draft7 = "结论：满足升级条件中的1条。"
+out7 = R(draft7, before=before7, rejected_sentence_indexes=(1,))
+print("A7:", repr(out7))
+check("A7.label-only-dropped", out7 == "", out7)
+
+# A8: markdown list line where count is preceded by ASCII hyphen must not collapse
+# the marker into prose (dash is NOT consumed as a full-width dash).
+before8 = "升级条件：换手率大于5%。"
+draft8 = "- 当前尚未满足升级条件中的3条。"
+out8 = R(draft8, before=before8, rejected_sentence_indexes=(1,))
+print("A8:", repr(out8))
+check("A8.marker-only-line-dropped", out8 == "", out8)
+
+# ---------- Probe set B: pagination / model projection ----------
+def payload(total, returned):
+    return {
+        "query_id": "q1", "operation": "similar_cases", "purpose": "p",
+        "status": "success", "total_matched": total, "returned_count": returned,
+        "truncated": False, "coverage": {}, "definition_refs": (), "gaps": (),
+        "preview": [{"entity_code": "000001.SZ", "trade_date": "2024-01-05"}] * returned,
+        "spec": {},
+    }
+
+# B1: middle page -> samples numbered by absolute original row.
+res = ep._result(payload(60, 3), result_ref="ref1", tool="read_history_result", offset=25)
+obs = res.observation if hasattr(res, "observation") else res
+samples = [e.detail for e in res.evidence] if hasattr(res, "evidence") else None
+print("B1 evidence count:", len(res.evidence))
+sample_ids = []
+for ev in res.evidence:
+    try:
+        d = json.loads(ev.detail)
+        if "sample" in d:
+            sample_ids.append(d["sample"])
+    except Exception:
+        pass
+print("B1 sample ids:", sample_ids)
+check("B1.absolute-numbering", sample_ids == [25, 26, 27], str(sample_ids))
+check("B1.next-offset-28", res.telemetry.get("next_offset") == 28, str(res.telemetry))
+
+# B2: page at exact end -> next_offset null, no fake next page.
+res2 = ep._result(payload(50, 0), result_ref="ref1", tool="read_history_result", offset=50)
+meta2 = res2.telemetry
+print("B2 metadata:", meta2)
+check("B2.empty-end-page-next-null", meta2.get("next_offset") is None, str(meta2))
+check("B2.empty-page-samples-empty",
+      not any("sample" in json.loads(ev.detail) for ev in res2.evidence
+              if ev.detail.strip().startswith("{")), "")
+
+# B3: page fully beyond end -> next_offset must be null even though total > 0.
+res3 = ep._result(payload(10, 0), result_ref="ref1", tool="read_history_result", offset=10)
+meta3 = res3.telemetry
+check("B3.past-end-next-null", meta3.get("next_offset") is None, str(meta3))
+
+# B4: row-count card distinct from sample card count: 1 sample shown of 60 total.
+scope_cards = [ev.detail for ev in res.evidence if "total_matched" in ev.detail]
+print("B4 scope card:", scope_cards[:1])
+check("B4.total-60-visible", any(json.loads(c).get('total_matched') == 60 for c in scope_cards), str(scope_cards[:1]))
+
+# B5: direct _model_projection with offset in payload -> enumerate starts at offset.
+proj = ep._model_projection(dict(payload(60, 2), offset=40), "refX")
+sample_details = [json.loads(d) for (t, d, s) in proj if t.startswith("历史观察样本")]
+ids5 = [d["sample"] for d in sample_details if "sample" in d]
+print("B5:", ids5)
+check("B5.projection-absolute", ids5 == [40, 41], str(ids5))
+
+# ---------- Probe set C: numeric gate protections ----------
+# C1: evidence prose mentioning other cards (E27) must not authorize a real 27.
+ev_ref = AgentEvidence(
+    tool="history_query", title="t", detail="对照 E27 的卡显示不同", source="s",
+    source_date="2024-01-01", content_hash="h1",
+)
+ev_real = AgentEvidence(
+    tool="kb", title="t2", detail="阈值为 5%", source="s2",
+    source_date="2024-01-01", content_hash="h2",
+)
+binding_all = OutputEvidenceBinding(output_id="o1", evidence_hashes=("h1", "h2"))
+qs = esv._bound_evidence_quantities(
+    AgentOutcome(
+        task_frame_hash="x", status="completed",
+        draft="x", evidence=(ev_ref, ev_real), traces=(), gaps=(),
+        stop_reason="done", events=(EpisodeEvent(1, 'task', {'task_frame_hash': 'x'}),),
+        bindings=(binding_all,), usage=AgentUsage(),
+    )
+)
+print("C1 bound quantities:", sorted(qs))
+check("C1.e27-not-quantity", "27" not in qs, str(sorted(qs)))
+check("C1.real-5-kept", any("5" in q for q in qs), str(sorted(qs)))
+
+# C2: sentence containing only a reference + date must not be flagged as novel numeric.
+sentences = [{"index": 1, "text": "如 E27 所示（2024年1月5日），形态相似。"}]
+from dataclasses import dataclass
+outcome = AgentOutcome(
+    task_frame_hash="x", status="completed", draft="d", evidence=(), traces=(),
+    gaps=(), stop_reason="done", events=(EpisodeEvent(1, 'task', {'task_frame_hash': 'x'}),),
+    bindings=(), usage=AgentUsage(),
+)
+@dataclass
+class _V:
+    outcome: AgentOutcome
+    contract: object = None
+idx = esv._novel_numeric_condition_indexes(sentences, _V(outcome))
+print("C2 flagged:", idx)
+check("C2.ref-date-sentence-pass", idx == (), str(idx))
+
+# C3: real unsupported number still rejected (gate not weakened).
+sentences3 = [{"index": 1, "text": "若回撤达到 17.3%，则超过警戒线。"}]
+idx3 = esv._novel_numeric_condition_indexes(sentences3, _V(outcome))
+print("C3 flagged:", idx3)
+check("C3.real-number-flagged", idx3 == (1,), str(idx3))
+
+print()
+print("TOTAL FAILURES:", len(FAIL))
+for n, d in FAIL:
+    print("  FAIL:", n, d[:160])
+sys.exit(1 if FAIL else 0)

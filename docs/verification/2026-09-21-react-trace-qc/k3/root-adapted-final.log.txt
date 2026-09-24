@@ -1,0 +1,51 @@
+esv.__file__ = /Users/a77/fwp-wt-react-trace-qc-0921/intelligence/services/episode_semantic_verifier.py
+ep.__file__  = /Users/a77/fwp-wt-react-trace-qc-0921/intelligence/services/historical_research/episode.py
+HEAD = ec246761eec6caeac17ea9ad3477b06248f200f5
+PASS pin-head :: ec246761eec6caeac17ea9ad3477b06248f200f5
+PASS pin-esv-file :: /Users/a77/fwp-wt-react-trace-qc-0921/intelligence/services/episode_semantic_verifier.py
+PASS pin-ep-file :: /Users/a77/fwp-wt-react-trace-qc-0921/intelligence/services/historical_research/episode.py
+A1: '多头结构未破坏。需继续观察。'
+PASS A1.orphan-count-removed
+PASS A1.observation-kept
+PASS A1.no-stranded-adverb :: 多头结构未破坏。需继续观察。
+PASS A1.followup-kept
+A2: '满足升级条件中的3条，风险可控。'
+PASS A2.survivor-ref-kept
+PASS A2.orphan-removed
+PASS A2.no-double-punct :: 满足升级条件中的3条，风险可控。
+PASS A2.tail-kept
+A3: ''
+PASS A3.all-lines-dropped
+A4: '升级条件：连续3日站稳5日线。目前仅满足升级条件中的2条。'
+PASS A4.untouched-when-def-survives :: 升级条件：连续3日站稳5日线。目前仅满足升级条件中的2条。
+PASS A5.no-def-deleted-noop :: 满足升级条件中的2条，但基本面仍稳。
+A6: '各周期未共振。\n- 需警惕。'
+PASS A6.fullwidth-count-removed
+PASS A6.list-marker-kept :: 各周期未共振。
+- 需警惕。
+PASS A6.other-line-kept
+A7: ''
+PASS A7.label-only-dropped
+A8: ''
+PASS A8.marker-only-line-dropped
+B1 evidence count: 6
+B1 sample ids: [25, 26, 27]
+PASS B1.absolute-numbering :: [25, 26, 27]
+PASS B1.next-offset-28 :: {'query_id': 'q1', 'operation': 'similar_cases', 'purpose': 'p', 'status': 'success', 'total_matched': 60, 'returned_count': 3, 'truncated': False, 'offset': 25, 'next_offset': 28, 'coverage': {}, 'definition_refs': (), 'gaps': (), 'spec': {}, 'result_ref': 'ref1', 'research_only': True, 'decision_eligible': False, 'promotion_eligible': False, 'projected_evidence_count': 6}
+B2 metadata: {'query_id': 'q1', 'operation': 'similar_cases', 'purpose': 'p', 'status': 'success', 'total_matched': 50, 'returned_count': 0, 'truncated': False, 'offset': 50, 'next_offset': None, 'coverage': {}, 'definition_refs': (), 'gaps': (), 'spec': {}, 'result_ref': 'ref1', 'research_only': True, 'decision_eligible': False, 'promotion_eligible': False, 'projected_evidence_count': 3}
+PASS B2.empty-end-page-next-null :: {'query_id': 'q1', 'operation': 'similar_cases', 'purpose': 'p', 'status': 'success', 'total_matched': 50, 'returned_count': 0, 'truncated': False, 'offset': 50, 'next_offset': None, 'coverage': {}, 'definition_refs': (), 'gaps': (), 'spec': {}, 'result_ref': 'ref1', 'research_only': True, 'decision_eligible': False, 'promotion_eligible': False, 'projected_evidence_count': 3}
+PASS B2.empty-page-samples-empty
+PASS B3.past-end-next-null :: {'query_id': 'q1', 'operation': 'similar_cases', 'purpose': 'p', 'status': 'success', 'total_matched': 10, 'returned_count': 0, 'truncated': False, 'offset': 10, 'next_offset': None, 'coverage': {}, 'definition_refs': (), 'gaps': (), 'spec': {}, 'result_ref': 'ref1', 'research_only': True, 'decision_eligible': False, 'promotion_eligible': False, 'projected_evidence_count': 3}
+B4 scope card: ['{"operation":"similar_cases","status":"success","total_matched":60,"returned_count":3,"truncated":false,"offset":25,"next_offset":28,"research_only":true,"decision_eligible":false,"promotion_eligible":false}']
+PASS B4.total-60-visible :: ['{"operation":"similar_cases","status":"success","total_matched":60,"returned_count":3,"truncated":false,"offset":25,"next_offset":28,"research_only":true,"decision_eligible":false,"promotion_eligible":false}']
+B5: [40, 41]
+PASS B5.projection-absolute :: [40, 41]
+C1 bound quantities: ['-01', '2', '2024-01', '5%']
+PASS C1.e27-not-quantity :: ['-01', '2', '2024-01', '5%']
+PASS C1.real-5-kept :: ['-01', '2', '2024-01', '5%']
+C2 flagged: ()
+PASS C2.ref-date-sentence-pass :: ()
+C3 flagged: (1,)
+PASS C3.real-number-flagged :: (1,)
+
+TOTAL FAILURES: 0

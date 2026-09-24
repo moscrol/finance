@@ -1,0 +1,26 @@
+[
+  {
+    "toolCallId": "tool_VRCqbeIEqUW15xF2biw4pZfg",
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "patched2\nS1 ALL PASS\nrc=0\n"
+        }
+      ]
+    },
+    "isError": false
+  },
+  {
+    "toolCallId": "tool_ijJ4DsMaCxBdGh30YtdHD7R8",
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "........................................................................ [ 62%]\n............................................                             [100%]\n116 passed in 4.78s\n"
+        }
+      ]
+    },
+    "isError": false
+  }
+]

@@ -205,6 +205,14 @@ def test_query_pages_keep_absolute_sample_coordinates_and_navigation(
     scope = next(row for row in details if "total_matched" in row)
     assert scope["total_matched"] == 2
     assert scope["returned_count"] == len(samples)
+    scope_observations = {
+        observation.metric: observation.value
+        for item in page.evidence if item.title.startswith("历史研究范围与完整分母｜")
+        for observation in item.observations
+    }
+    assert scope_observations == {
+        "total_matched": 2.0, "returned_count": float(len(samples)),
+    }
     assert scope["offset"] == offset
     assert scope["next_offset"] == next_offset
     # A last page is still only part of the complete result, even with no next page.
@@ -213,9 +221,39 @@ def test_query_pages_keep_absolute_sample_coordinates_and_navigation(
     assert page.telemetry["next_offset"] == next_offset
     assert f'"offset":{offset}' in model["observation"]
     assert f'"next_offset":{next_offset if next_offset is not None else "null"}' in model["observation"]
+    assert "保持所选窗口" in model["observation"]
+    assert "缩窄日期" not in model["observation"]
     assert session.read(ref) == original
     assert all(item.internal_locator == ref for item in page.evidence)
     assert {item.independent_key for item in page.evidence} == {first.telemetry["query_id"]}
+
+
+def test_failed_page_projection_does_not_record_success(tmp_path, monkeypatch):
+    registry, context, session = _registry(tmp_path)
+    first = registry.execute(
+        "history_query",
+        {"operation": "inspect_history", "start": "2026-08-03", "end": "2026-08-04",
+         "entity_codes": ["A.FP"], "preview_limit": 1},
+        context=context, step_id="query",
+    )
+    ref = first.telemetry["result_ref"]
+    original = deepcopy(session.read(ref))
+    before = deepcopy(context.history_results)
+
+    def fail_projection(payload, *, result_ref, tool, offset):
+        assert (result_ref, tool, offset) == (ref, "read_history_result", 1)
+        raise ValueError("projection failed")
+
+    monkeypatch.setattr(
+        "intelligence.services.historical_research.episode._result", fail_projection,
+    )
+    with pytest.raises(ValueError, match="projection failed"):
+        registry.execute(
+            "read_history_result", {"result_ref": ref, "offset": 1, "limit": 1},
+            context=context, step_id="failed-page",
+        )
+    assert context.history_results == before
+    assert session.read(ref) == original
 
 
 def test_query_initial_preview_advertises_the_next_page(tmp_path):

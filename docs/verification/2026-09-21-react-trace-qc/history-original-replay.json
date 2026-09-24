@@ -1,0 +1,57 @@
+{
+  "artifact_sha256": "98b3746f5cc71027c3a5756ada1057f433a84acb98b65f3106b8c5c95e42d933",
+  "query_id": "94dd4eb671dd9420ddf27440b4864f184d47671c9012d2e0e52bdf973bd4c75f",
+  "pages": [
+    {
+      "offset": 0,
+      "next_offset": 25,
+      "rows": 25
+    },
+    {
+      "offset": 25,
+      "next_offset": 50,
+      "rows": 25
+    },
+    {
+      "offset": 50,
+      "next_offset": 75,
+      "rows": 25
+    },
+    {
+      "offset": 75,
+      "next_offset": 100,
+      "rows": 25
+    },
+    {
+      "offset": 100,
+      "next_offset": 125,
+      "rows": 25
+    },
+    {
+      "offset": 125,
+      "next_offset": 150,
+      "rows": 25
+    },
+    {
+      "offset": 150,
+      "next_offset": 175,
+      "rows": 25
+    },
+    {
+      "offset": 175,
+      "next_offset": 200,
+      "rows": 25
+    },
+    {
+      "offset": 200,
+      "next_offset": null,
+      "rows": 25
+    }
+  ],
+  "visited_rows": 225,
+  "unique_rows": 225,
+  "all_features_equal_to_source": true,
+  "saved_artifact_unchanged": true,
+  "natural_model_calls": 0,
+  "cross_tool_hash_stability_tested": false
+}

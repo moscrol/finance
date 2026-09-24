@@ -1,0 +1,8 @@
+(version 1)
+(allow default)
+(deny file-write*)
+(allow file-write*
+  (subpath "/Users/a77/.finance-runtime/reviews/react-trace-closeout-0921/independent/k3")
+  (literal "/dev/null"))
+(deny network*)
+(allow network-outbound (remote ip "localhost:18788"))

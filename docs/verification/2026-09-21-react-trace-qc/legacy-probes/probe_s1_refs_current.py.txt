@@ -1,0 +1,83 @@
+# K3 probe S1: evidence ordinals masked only in analysis copies; real quantities intact.
+import sys
+from types import SimpleNamespace
+
+from intelligence.services import episode_protocol as ep
+from intelligence.services import episode_semantic_verifier as esv
+
+assert ep.__file__.startswith("/Users/a77/fwp-wt-react-trace-qc-0921/"), ep.__file__
+assert esv.__file__.startswith("/Users/a77/fwp-wt-react-trace-qc-0921/"), esv.__file__
+
+fails = []
+
+# 1) grammar: legal ordinals masked, real numbers/units kept, no token joining
+cases = {
+    "见E27与e3，增长27%": ("27%", ["E27", "e3"]),
+    "E1000不是合法序号": ("E1000", []),   # out of grammar range -> must stay
+    "E0不合法": ("E0", []),
+    "PE27不动": ("PE27", []),            # lookbehind blocks
+    "阈值27%不变": ("27%", []),
+}
+for text, (keep, gone) in cases.items():
+    out = ep.strip_evidence_ordinals(text)
+    if keep not in out:
+        fails.append(f"strip lost {keep!r} from {text!r} -> {out!r}")
+    for g in gone:
+        if g in out:
+            fails.append(f"strip kept {g!r} in {text!r} -> {out!r}")
+# no joining: "E27" between words must become space, not glue
+out = ep.strip_evidence_ordinals("增长E27倍")
+if "增长倍" in out:
+    fails.append(f"strip joined tokens: {out!r}")
+
+# 2) original text untouched; citation gate still sees ordinals (unknown-ref path intact)
+original = "根据E99得出结论"
+_ = ep.strip_evidence_ordinals(original)
+if ep.cited_evidence_ordinals(original) != ("E99",):
+    fails.append(f"citation gate changed: {ep.cited_evidence_ordinals(original)!r}")
+
+# 3) _bound_evidence_quantities: E27 in bound evidence prose must NOT authorize quantity 27;
+#    a real 27% threshold in prose MUST remain bound.
+def outcome_with(detail: str):
+    ev = SimpleNamespace(
+        content_hash="h1", title="卡片", detail=detail, source="unit-test",
+        source_date="2026-09-01", observations=(),
+    )
+    binding = SimpleNamespace(evidence_hashes=("h1",))
+    return SimpleNamespace(evidence=(ev,), bindings=(binding,))
+
+q_ref = esv._bound_evidence_quantities(outcome_with("参见E27的口径，环比+12.6%"))
+if "27" in q_ref:
+    fails.append(f"E27 leaked into bound quantities: {sorted(q_ref)}")
+if not any("12.6%" in q for q in q_ref):
+    fails.append(f"real quantity 12.6%% lost: {sorted(q_ref)}")
+q_real = esv._bound_evidence_quantities(outcome_with("突破阈值27%后确认"))
+if "27%" not in q_real:
+    fails.append(f"real threshold 27%% lost: {sorted(q_real)}")
+
+# 4) answer-side: condition citing E27 with a real unsupported number must still be caught.
+#    Build minimal verified outcome: draft sentence with trigger + quantity not in evidence.
+sentences = [{"index": 0, "text": "若涨幅超过31.5%（见E27）则加仓"}]
+verified = SimpleNamespace(
+    outcome=outcome_with("参见E27的口径，环比+12.6%"),
+    contract=None,
+)
+rejected = esv._novel_numeric_condition_indexes(sentences, verified)
+if rejected != (0,):
+    fails.append(f"novel quantity 31.5% not rejected: {rejected!r}")
+# control: same sentence but quantity IS bound -> not rejected
+verified2 = SimpleNamespace(
+    outcome=outcome_with("参见E27，若涨幅超过31.5%则加仓的历史"),
+    contract=None,
+)
+rejected2 = esv._novel_numeric_condition_indexes(sentences, verified2)
+if rejected2 != ():
+    fails.append(f"supported quantity wrongly rejected: {rejected2!r}")
+# control: condition that only cites E27, no quantity -> no numeric rejection
+sentences3 = [{"index": 0, "text": "若满足E27所述条件则成立"}]
+rejected3 = esv._novel_numeric_condition_indexes(sentences3, verified)
+if rejected3 != ():
+    fails.append(f"bare E27 citation triggered numeric rejection: {rejected3!r}")
+
+print("S1 FAILS:" if fails else "S1 ALL PASS", *fails, sep="\n")
+sys.exit(1 if fails else 0)

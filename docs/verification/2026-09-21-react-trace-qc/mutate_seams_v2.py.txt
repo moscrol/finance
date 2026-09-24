@@ -1,0 +1,106 @@
+"""Re-execute the verifier in memory with one protection removed per process.
+
+No working-tree files are modified. Parse JUnit to reject collection errors or
+zero-test runs; a mutation is caught only by assertion failures in these tests.
+Usage: canonical-python mutate_seams.py TREE OUTPUT_DIR
+"""
+from __future__ import annotations
+
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+import xml.etree.ElementTree as ET
+
+PYTHON = sys.executable
+TEST = "intelligence/tests/test_condition_reference_seams.py"
+MODULE = "intelligence.services.episode_semantic_verifier"
+MUTATIONS = {
+    "survivor_sentence_grammar": (
+        'for item in _numbered_sentences(draft)\n        for match in (_CONDITION_DEFINITION_RE.match(str(item["text"])),)',
+        'for line in str(draft).splitlines()\n        for match in (_CONDITION_DEFINITION_RE.match(line),)',
+    ),
+    "terminal_separator": (
+        'if head.endswith(tuple("，,、；;")) and (not tail or tail[0] in _CLAUSE_EDGE_CHARS):',
+        'if False:',
+    ),
+    "leading_separator": (
+        'suffix = suffix.lstrip("，,、；;。．！？!? ")',
+        'suffix = suffix',
+    ),
+    "bound_modifiers": (
+        'prefix = _drop_adverbs_bound_to_count(line[: match.start()])',
+        'prefix = line[: match.start()]',
+    ),
+    "line_endings": (
+        'lines.append(line + raw_line[len(body):])',
+        'lines.append(line + "\\n")',
+    ),
+    "emphasis_before_modifiers": (
+        'if prefix.endswith("**") and prefix.count("**") % 2:',
+        'if False:',
+    ),
+    "clause_local_time_adverbs": (
+        'clause_start = max(remainder.rfind(char) for char in _CLAUSE_EDGE_CHARS) + 1',
+        'clause_start = 0',
+    ),
+    "temporary_time_adverb": (
+        '"截至当前", "暂", "暂时", "眼下"',
+        '"截至当前", "暂", "眼下"',
+    ),
+    "repair_wiring": (
+        'draft = _repair_dangling_condition_references(\n            draft,\n            before=original.draft,\n            rejected_sentence_indexes=rejected_sentence_indexes,\n        )',
+        'draft = draft',
+    ),
+}
+
+
+def child(name: str, output: Path) -> int:
+    import importlib
+    import pytest
+
+    module = importlib.import_module(MODULE)
+    if name != "baseline":
+        old, new = MUTATIONS[name]
+        path = Path(module.__file__)
+        source = path.read_text()
+        expected = 2 if name == "leading_separator" else 1
+        if source.count(old) != expected:
+            raise RuntimeError(f"mutation target drift: {name}")
+        exec(compile(source.replace(old, new), str(path), "exec"), module.__dict__)
+    return pytest.main(["-q", TEST, "--junitxml", str(output / f"{name}.xml")])
+
+
+def main() -> int:
+    if sys.argv[1] == "child":
+        return child(sys.argv[2], Path(sys.argv[3]))
+    tree, output = Path(sys.argv[1]).resolve(), Path(sys.argv[2]).resolve()
+    output.mkdir(parents=True, exist_ok=False)
+    summary = []
+    for name in ("baseline", *MUTATIONS):
+        env = {key: os.environ[key] for key in ("HOME", "PATH", "TMPDIR") if key in os.environ}
+        env.update(PYTHONPATH=str(tree), FWP_TEST_RECEIPT="0")
+        with (output / f"{name}.log").open("w") as log:
+            run = subprocess.run(
+                [PYTHON, str(Path(__file__).resolve()), "child", name, str(output)],
+                cwd=tree, env=env, stdout=log, stderr=subprocess.STDOUT, timeout=120,
+            )
+        root = ET.parse(output / f"{name}.xml").getroot()
+        cases = root.findall(".//testcase")
+        failed = [node.attrib["name"] for node in cases if node.find("failure") is not None]
+        errors = root.findall(".//error")
+        ok = len(cases) == 37 and not errors and (
+            run.returncode == 0 and not failed if name == "baseline"
+            else run.returncode == 1 and bool(failed)
+        )
+        row = dict(name=name, exit_code=run.returncode, tests=len(cases), failed=failed,
+                   errors=len(errors), caught_or_baseline_green=ok)
+        summary.append(row)
+        print(json.dumps(row, ensure_ascii=False), flush=True)
+    (output / "summary.json").write_text(json.dumps(summary, ensure_ascii=False, indent=2) + "\n")
+    return 0 if all(row["caught_or_baseline_green"] for row in summary) else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
