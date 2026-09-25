@@ -320,7 +320,7 @@ def _gap_finish_turn() -> ModelTurn:
 
 
 def test_zero_grant_timeout_is_the_same_machine() -> None:
-    """时间闸零授权（研究窗已被 reserve 吃光）：两条 loop 给模型看的 ``tool_not_dispatched``
+    """时间闸零授权（研究窗已被 reserve 吃光）：两条 loop 给模型看的 ``tool_timeout``
     detail 必须同为实授值 ``stage_timeout_granted=0``，不是一边有数一边空串。
 
     2026-09-01 预算单 P0/P0.1 让 Episode 在零授权未派发时回灌实授值；这一格是底座
@@ -365,8 +365,7 @@ def test_zero_grant_timeout_is_the_same_machine() -> None:
             for m in model.calls[1]["messages"]
             if m.get("role") == "tool"
         ]
-        # 零授权未派发是 tool_not_dispatched（INV-R4，#28），不再与真超时共用 tool_timeout。
-        assert tool_payloads and tool_payloads[0]["error"] == "tool_not_dispatched"
+        assert tool_payloads and tool_payloads[0]["error"] == "tool_timeout"
         assert tool_payloads[0]["detail"] == stage_timeout_granted_detail(0.0)
 
     assert _outcome_core(episode) == _outcome_core(reference)
@@ -464,17 +463,12 @@ def test_tool_hidden_for_too_small_window_is_the_same_machine() -> None:
     assert _outcome_core(episode) == _outcome_core(reference)
 
 
-def test_unpruned_menu_is_recorded_and_matches_model_input_in_both_loops() -> None:
-    """无裁剪也留实际菜单；用户可见投影不能等工具被隐藏才偶尔出现。"""
+def test_no_pruning_leaves_the_event_stream_untouched() -> None:
+    """窄窗不成立时不记 tool_menu：无裁剪轮的事件流与改前逐字节相同。"""
 
-    for model, outcome in _run_both([_tool_turn(), _finish_turn()]):
-        menus = [e for e in outcome.events if e.kind == "tool_menu"]
-        assert len(menus) == len(model.calls)
-        for event, call in zip(menus, model.calls, strict=True):
-            assert list(event.payload["visible"]) == [
-                definition["function"]["name"] for definition in call["tools"]
-            ]
-            assert not event.payload["hidden"]
+    (_, episode), (_, reference) = _run_both([_tool_turn(), _finish_turn()])
+    for outcome in (episode, reference):
+        assert not [e for e in outcome.events if e.kind == "tool_menu"]
 
 
 # ── 3. 有 PLAN：深度裁决也经 harness，全程消息归零差 ─────────────────────

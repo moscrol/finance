@@ -17,7 +17,7 @@ from intelligence.services.logic_market_match import (
 )
 from intelligence.services import catalyst_attribution
 from intelligence.services import kb_rag
-from intelligence.services import data_requests, kb_ingest_queue, kb_queue_receipt
+from intelligence.services import kb_ingest_queue, kb_queue_receipt
 from intelligence.services import logic_lifecycle
 from intelligence.services import logic_effectiveness
 from intelligence.services import market_validation
@@ -460,42 +460,6 @@ def _enrich_decision_with_market_validation(
     market_validation.build_market_validation_for_decision(decision, current_by_theme, history_by_theme)
 
 
-def _method_flywheel_section(options: DailyAgentOptions) -> dict[str, Any]:
-    """方法飞轮段（能力升级 07）：只读该用户的方法验证立场摘要与 checkpoint 台账。
-
-    没有实验、摘要缺失、读取失败都如实写进段里，不让日报因此失败。
-    """
-    from intelligence.services.method_validation import flywheel
-
-    try:
-        space = user_space(options.user)
-        cpath = (
-            Path(options.checkpoints_path).expanduser()
-            if options.checkpoints_path
-            else space.checkpoints_path
-        )
-        vpath = space.verdicts_path if not options.checkpoints_path else None
-        return flywheel.daily_brief(
-            user=options.user,
-            today=options.date,
-            checkpoints_path=cpath,
-            verdicts_path=vpath,
-        )
-    except Exception as exc:  # 日报不能因为方法段失败
-        return {
-            "available": False,
-            "today": options.date,
-            "reason": f"方法飞轮段不可用：{type(exc).__name__}: {exc}",
-            "studies": [],
-        }
-
-
-def _method_flywheel_rows(brief: dict[str, Any] | None) -> list[str]:
-    from intelligence.services.method_validation import flywheel
-
-    return flywheel.render_brief_lines(brief or {})
-
-
 def _enrich_decision_with_semantic_rag(
     decision: dict[str, list[dict[str, Any]]],
     options: DailyAgentOptions,
@@ -689,7 +653,6 @@ def build_daily_agent_report(options: DailyAgentOptions) -> dict[str, Any]:
         wiki_root=paths.knowledge_wiki,
     )
     catalyst_attribution.enrich_kb_ingest_queue(catalyst_index, kb_queue)
-    method_flywheel = _method_flywheel_section(options)
     knowledge_snapshot_after = build_content_delta(
         paths.knowledge_wiki,
         captured_at=snapshot_captured_at,
@@ -728,8 +691,6 @@ def build_daily_agent_report(options: DailyAgentOptions) -> dict[str, Any]:
         },
         "research_queue": task_queue,
         "kb_ingest_queue": kb_queue,
-        "method_flywheel": method_flywheel,
-        "data_requests": _data_requests_block(),
         "catalyst_attribution": {
             "enabled": True,
             "window_days": options.catalyst_window_days,
@@ -749,7 +710,6 @@ def build_daily_agent_report(options: DailyAgentOptions) -> dict[str, Any]:
             "agent-daily 是只读入口：读取 daily workflow、知识库和 logic-match 产物，不自动回补。",
             "回补类事项只进入数据缺口队列，等待用户统一处理，不自动补来源/概念/IMA。",
             "kb_ingest_queue 是跨仓待办任务包：只给知识库 repo 接收、校验和归档，不自动写入 wiki。",
-            "data_requests 是问题驱动补数请求：由各 run 的 window_uncovered 事件重建并做覆盖检查，补数写入仍由 daily-full 维护者执行。",
         ],
     }
     report["input_artifacts"] = _input_artifacts(
@@ -778,32 +738,6 @@ def build_daily_agent_report(options: DailyAgentOptions) -> dict[str, Any]:
         manifest_payload=report_manifest_payload(report),
     )
     return report
-
-
-def _data_requests_block(since: str = "30d") -> dict[str, Any]:
-    """问题驱动补数请求：从各 run 的 window_uncovered 事件重建并做覆盖检查（只读）；失败不阻断日报。
-
-    与 kb_ingest_queue 一样只是「缺口清单」：请求本身可随时重建，不是第二份台账；
-    写入者仍是 write_research_queue_outputs（兄弟件 ``{date}-data-requests.json``）。
-    """
-    from intelligence.paths import default_market_db_path
-    from intelligence.userspace import users_dir
-
-    try:
-        runs_root = users_dir()
-        db_path = default_market_db_path()
-        events = data_requests.collect_gap_events(runs_root, since=data_requests.parse_since(since))
-        requests = data_requests.build_requests(events)
-        completions = data_requests.check_requests(requests, db_path=db_path) if requests else []
-        return data_requests.wrap_artifact(requests, completions, runs_root=runs_root, since=since, db_path=db_path)
-    except Exception as exc:  # noqa: BLE001 - 日报不因补数请求聚合失败而中断
-        return {
-            "schema_version": data_requests.SCHEMA_VERSION,
-            "requests": [],
-            "completions": [],
-            "summary": {"requests": 0, "consumers": 0, "auto_routes": 0, "manual_routes": 0, "by_status": {}},
-            "error": f"{type(exc).__name__}: {str(exc)[:200]}",
-        }
 
 
 def _section_rows(rows: list[dict[str, Any]], limit: int = 10) -> list[str]:
@@ -1013,7 +947,6 @@ def render_daily_agent(report: dict[str, Any]) -> str:
     else:
         lines.append("- 无")
     lines.extend(["", "## 今日研究任务队列", "", *_research_queue_rows(report.get("research_queue") or {})])
-    lines.extend(["", "## 方法信号与待验对象", "", *_method_flywheel_rows(report.get("method_flywheel"))])
     lines.extend(["", "## 知识库回补任务包", "", *_kb_ingest_queue_rows(report.get("kb_ingest_queue") or {})])
     lines.extend(["", "## 逻辑证据卡", "", *_evidence_card_rows(decision)])
     lines.extend(["", "## 逐声明证据血缘", ""])

@@ -6,7 +6,6 @@ evidence products a contract must obtain without adding another route table.
 
 from __future__ import annotations
 
-import os
 import re
 from dataclasses import asdict, dataclass
 
@@ -66,7 +65,7 @@ _MARKET_SUBJECT_MARKERS = (
     "市场", "大盘", "行情", "板块", "主线", "盘面", "a股", "指数",
 )
 # 盘面度量词：本身就蕴含「要看数据」，可以在没有时间词时独立成立
-# （「涨停家数多少」「茅台多少钱」都没有时间词，但都必须查行情）。
+#（「涨停家数多少」「茅台多少钱」都没有时间词，但都必须查行情）。
 _MARKET_STATE_MARKERS = (
     "市场结构", "成交", "涨停", "涨跌", "家数", "情绪", "换手", "北向",
     "多少钱", "股价", "价格", "收盘",
@@ -538,19 +537,6 @@ def resolve_evidence_plan(
     )
 
 
-# 全工具授权的部署开关。默认关：按 ``_RUNTIME_CAPABILITY_FLOOR`` 逐策略给工具子集。
-# 设为 ``all`` 时，需要检索的题一律拿到注册表全部工具——那张策略表存在的理由是
-# 「一轮 4-6 次调用就 budget_exhausted，广授权会挤掉盘面查询」（见表头注释），它是
-# 预算约束的派生物；2026-09-06 用户决策「先找能力 max、再按超限加约束」，预算一放开，
-# 这层裁剪就没有独立理由了。不需要检索的题（方法论 / 用户前提）仍是空授权：那条是
-# 防金融数据泄漏进知识题的正确性规则，不是预算规则，不随本开关放开。
-TOOL_AUTHORIZATION_ENV = "WORKBENCH_TOOL_AUTHORIZATION"
-
-
-def all_tools_authorized() -> bool:
-    return os.environ.get(TOOL_AUTHORIZATION_ENV, "").strip().lower() == "all"
-
-
 def runtime_capabilities_for_frame(frame: TaskFrame) -> tuple[str, ...]:
     """Project task semantics into the continuous runtime's tool namespace."""
 
@@ -562,14 +548,6 @@ def runtime_capabilities_for_frame(frame: TaskFrame) -> tuple[str, ...]:
     frame_requires_retrieval = task_frame_requires_retrieval(frame)
     if not frame_requires_retrieval and not plan.requirements:
         return ()
-    if all_tools_authorized():
-        # 延迟 import：research_tool_registry 在运行期 import 本模块所在的一族
-        # （agent_research → …），模块级反向 import 会成环。
-        from intelligence.services.research_tool_registry import (
-            DEFAULT_RESEARCH_CAPABILITIES,
-        )
-
-        return tuple(DEFAULT_RESEARCH_CAPABILITIES)
     floor = _RUNTIME_CAPABILITY_FLOOR.get(frame.evidence_policy)
     if floor is None:
         floor = ("kb_search", "web_search") if frame_requires_retrieval else ()
@@ -579,18 +557,11 @@ def runtime_capabilities_for_frame(frame: TaskFrame) -> tuple[str, ...]:
         if (runtime_name := _PLAN_CAPABILITY_TO_RUNTIME.get(item.capability))
     )
     capabilities = tuple(dict.fromkeys((*floor, *planned)))
-    if frame.history_intent is not None and "finance_query" not in capabilities:
-        capabilities = (*capabilities, "finance_query")
     # 取页是检索的延伸，不单独进策略表：授权了 web_search 就授权 web_fetch——
     # web_search 只回 160 字符 snippet，没有取页那条线索到不了可读证据（spec §3.6）。
     # 反向不成立：没有 web_search 的策略（本地盘面 / 技术面）也不该取页。
     if "web_search" in capabilities and "web_fetch" not in capabilities:
         capabilities = (*capabilities, "web_fetch")
-    # 派生计算是取数的延伸，同样不单独进策略表：授权了 financial_data 的策略（公司财务 /
-    # 估值）才有可算的结构化数——跨源口径核对、差额、敏感性都长在那上面（spec §3.4）。
-    # 纯盘面 / 技术面 / 知识题不给：它每次占一个工具槽，而那些题没有可算的输入。
-    if "financial_data" in capabilities and "derived_calculation" not in capabilities:
-        capabilities = (*capabilities, "derived_calculation")
     return capabilities
 
 

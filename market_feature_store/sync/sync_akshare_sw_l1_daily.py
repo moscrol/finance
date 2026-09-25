@@ -133,17 +133,6 @@ def _fetch_hist_by_code(code: str, start: date, end: date) -> dict[date, dict]:
     return out
 
 
-# akshare index_realtime_sw 的「成交额」单位是百万元（2026-09-07 实测：电子 506527.36 ↔ index_hist_sw 同日约 5065 亿），
-# 而 index_hist_sw 是亿。表里统一存亿，realtime 分支必须 /100，否则当日 31 行比历史大两个量级
-# （qa_backfill_align 的 全A/申万 成交额比 0.0102 就是这样抓出来的）。
-REALTIME_AMOUNT_TO_YI = 100.0
-
-
-def realtime_amount_to_yi(value):
-    n = _num(value)
-    return n / REALTIME_AMOUNT_TO_YI if n is not None else None
-
-
 def _fetch_realtime() -> dict[str, dict]:
     import akshare as ak
 
@@ -161,7 +150,7 @@ def _fetch_realtime() -> dict[str, dict]:
                 "close": close,
                 "pre_close": pre_close,
                 "pct_chg": pct_chg,
-                "amount": realtime_amount_to_yi(_pick(raw, "成交额")),
+                "amount": _num(_pick(raw, "成交额")),
                 "source": f"akshare:index_realtime_sw:{code}",
             }
     return out
@@ -281,15 +270,10 @@ def sync_akshare_sw_l1_daily(trade_date: str | None = None, days: int = 20) -> d
                     }
             time.sleep(0.2)
         realtime = {}
-        if end == date.today():
-            try:
-                realtime = _fetch_realtime()
-            except Exception as exc:
-                failures.append({"sw_l1": "realtime", "code": "index_realtime_sw", "error": str(exc)})
-        # end != 今天（历史回填窗）时绝不取实时快照：index_realtime_sw 只反映「现在」，
-        # 写到历史末日上是把今天的值克隆成历史（08 单反向验证抓到的覆写缺陷；
-        # 行数审计看不出来，只有跨日期 diff 能暴露）。历史末日缺行走 hist/板块代理，
-        # 仍缺就如实报错，不造数。
+        try:
+            realtime = _fetch_realtime()
+        except Exception as exc:
+            failures.append({"sw_l1": "realtime", "code": "index_realtime_sw", "error": str(exc)})
         for name, item in realtime.items():
             if name in by_name:
                 records[(end, name)] = {

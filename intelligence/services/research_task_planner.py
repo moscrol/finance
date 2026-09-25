@@ -91,42 +91,6 @@ def _clean_items(value: object, *, limit: int) -> tuple[str, ...]:
     return tuple(result)
 
 
-# 决策面：关键变量由某个主体拍板的那几类问题。每项是（题面标签，决定权主体）。
-# 词表刻意窄——只收「有人拍板」的动作词，不收「政策利好」这类叙事词，
-# 否则每道题材题都会被判成参与者约束题。
-_DECISION_SURFACES: tuple[tuple[str, str, tuple[str, ...]], ...] = (
-    (
-        "审批/政策决定",
-        "主管部门",
-        ("批复", "核准", "审批", "备案", "立项", "发牌", "牌照", "配额", "出台",
-         "新规", "禁令", "限产", "国补", "补贴目录", "纳入目录", "集采政策"),
-    ),
-    (
-        "招标/采购决定",
-        "招标方或采购方",
-        ("招标", "中标", "投标", "定标", "流标", "废标", "集采", "框架协议",
-         "询价", "采购订单", "供应商入围"),
-    ),
-    (
-        "扩产/投资决定",
-        "公司董事会与出资方",
-        ("扩产", "新建产能", "扩建", "技改", "资本开支", "产能规划", "投产计划",
-         "定增投向", "对外投资"),
-    ),
-)
-
-
-def detect_decision_surface(question: str) -> tuple[str, str] | None:
-    """问句里是否有「等某个主体拍板」的决策面。命中返回（题面标签，决定权主体）。"""
-    text = re.sub(r"\s+", "", str(question or ""))
-    if not text:
-        return None
-    for label, actor, terms in _DECISION_SURFACES:
-        if any(term in text for term in terms):
-            return label, actor
-    return None
-
-
 def _rule_plan(question: str, contract: object | None = None, *, reason: str = "") -> TaskPlan:
     """无 LLM/非法 JSON 时的保守规则计划。"""
 
@@ -190,33 +154,6 @@ def _rule_plan(question: str, contract: object | None = None, *, reason: str = "
             hypotheses=("关键差异能够解释结果差距。",),
             source="rules",
             reason=reason or "comparison_rule_fallback",
-        )
-    surface = detect_decision_surface(q)
-    if surface is not None:
-        # 参与者约束试验（Knevo q17 Q6 回灌，复核笔记候选三，**小范围试用**）：
-        # 政策/招标/扩产/采购类问题的关键变量由某个主体决定，而不是由行业趋势决定。
-        # 先问「谁有决定权、他的公开约束是什么、有哪几种可行动作、哪份材料能区分」，
-        # 再谈传导，检索顺序才不会一上来就去抓行情。
-        #
-        # 刻意排在 forecast/relation/comparison 之后：那三类已有自己的规划，这一支
-        # 只接管它们没接走的问句。试用出效果再考虑并进 event_forecast 那一支。
-        label, actor = surface
-        return TaskPlan(
-            subquestions=(
-                f"{prefix}这件{label}由谁决定？决策主体、层级和公开的决策程序是什么"
-                f"（只用公开依据；查不到就写成假设，不补内部动机）？",
-                f"{actor}受什么公开约束（法规、预算、合同条款、产能与现金约束）？",
-                "在这些约束下他有哪几种可行动作？每种对应什么可观察的公开信号？",
-                "哪份公告、条款或后续行为能区分这几种可能？出现在什么时间窗？",
-                "这些动作分别怎么传导到收入/成本/利润，下一步先验证哪一条？",
-            ),
-            hypotheses=(
-                f"决策权限：关键变量确实由{actor}决定，而不是另一层级或另一主体。",
-                "公开约束：现有法规/合同/经营约束足以排除其中某些动作。",
-                "区分证据：某份公开材料能在给定窗口内区分剩余可能。",
-            ),
-            source="rules",
-            reason=reason or "participant_constraint_rule",
         )
     return TaskPlan(
         subquestions=(

@@ -6,8 +6,7 @@ import {
   FileText,
 } from "lucide-react";
 import { userFacingIssue, userFacingStage } from "../displayText";
-import { continuationFor } from "../followups";
-import type { FollowupContinuation, RunBundle, TraceStep } from "../types";
+import type { RunBundle, TraceStep } from "../types";
 import { StatusBadge } from "./StatusBadge";
 
 function latestSteps(trace: TraceStep[]): TraceStep[] {
@@ -21,7 +20,7 @@ interface RunViewProps {
   connection: "connected" | "reconnecting";
   onOpenRun?: (runId: string) => void;
   onOpenArtifact: (artifactId: string) => void;
-  onFollowup: (question: string, continuation?: FollowupContinuation) => void;
+  onFollowup: (question: string) => void;
 }
 
 export function RunView({
@@ -162,20 +161,8 @@ export function RunView({
                 <button
                   type="button"
                   key={`${followup.type}:${followup.full_prompt || followup.question}`}
-                  data-kind={followup.kind}
-                  title={followup.kind_label}
-                  onClick={() =>
-                    onFollowup(
-                      followup.full_prompt || followup.question,
-                      continuationFor(followup, run.run_id),
-                    )
-                  }
+                  onClick={() => onFollowup(followup.full_prompt || followup.question)}
                 >
-                  {followup.kind_label && (
-                    <span aria-hidden="true" className="followup-kind">
-                      {followup.kind_label}
-                    </span>
-                  )}
                   {followup.label || followup.question}
                 </button>
               ))}

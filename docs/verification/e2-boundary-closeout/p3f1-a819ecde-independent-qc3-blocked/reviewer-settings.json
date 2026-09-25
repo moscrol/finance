@@ -1,1 +1,0 @@
-{"retry": {"enabled": false, "maxRetries": 0}, "compaction": {"enabled": false}, "quietStartup": true}

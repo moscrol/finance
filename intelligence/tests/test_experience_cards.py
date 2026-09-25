@@ -244,9 +244,7 @@ class ResidentCardTests(unittest.TestCase):
 
 
 class PromotionGateTests(unittest.TestCase):
-    """统计门：带 rule_id 的卡，晋升要过统一认证（in_method_library）、失效要 refuted；无 rule_id 走原流程。"""
-
-    IN_LIBRARY = {"state": "personal_method", "in_method_library": True, "blocked_by": None}
+    """统计门：带 rule_id 的卡，晋升要 supported、失效要 refuted；无 rule_id 走原流程。"""
 
     def _score(self):
         return score_answer("双红连三日的板块后 5 日还涨吗", "会涨。（非投资建议）", local_sources=["market_feature_store"])
@@ -262,36 +260,15 @@ class PromotionGateTests(unittest.TestCase):
             gate = experience_cards.gate_promotion("candidate", rule_id="dual_red_streak3_continuation", verdict=verdict)
             self.assertTrue(gate.allowed, verdict)
 
-    def test_promotion_requires_certified_lifecycle(self) -> None:
+    def test_promotion_requires_supported(self) -> None:
         for promo in ("promoted", "methodology", "promoted_to_code"):
-            ok = experience_cards.gate_promotion(
-                promo, rule_id="r1", verdict="supported", receipt="x.json", method_state=self.IN_LIBRARY
-            )
+            ok = experience_cards.gate_promotion(promo, rule_id="r1", verdict="supported", receipt="x.json")
             self.assertTrue(ok.allowed, promo)
-            self.assertEqual(ok.lifecycle_state, "personal_method")
             for verdict in (None, "insufficient_n", "not_distinguishable", "refuted"):
                 gate = experience_cards.gate_promotion(promo, rule_id="r1", verdict=verdict)
                 self.assertFalse(gate.allowed, (promo, verdict))
                 self.assertIn("r1", gate.reason)
-
-    def test_single_supported_receipt_no_longer_promotes(self) -> None:
-        """OPT-04 堵的「另一入口」：队列要求三段链，这边单份 supported 曾照样放行常驻卡。"""
-        for promo in ("promoted", "methodology", "promoted_to_code"):
-            gate = experience_cards.gate_promotion(
-                promo,
-                rule_id="r1",
-                verdict="supported",
-                method_state={
-                    "state": "discovery_passed",
-                    "in_method_library": False,
-                    "blocked_by": "缺 validation 阶段收据",
-                },
-            )
-            self.assertFalse(gate.allowed, promo)
-            self.assertIn("缺 validation 阶段收据", gate.reason)
-            no_state = experience_cards.gate_promotion(promo, rule_id="r1", verdict="supported", method_state=None)
-            self.assertFalse(no_state.allowed, promo)
-            self.assertIn("无认证状态", no_state.reason)
+                self.assertIn(verdict or "无收据", gate.reason)
 
     def test_invalidation_requires_refuted(self) -> None:
         self.assertTrue(
@@ -308,15 +285,13 @@ class PromotionGateTests(unittest.TestCase):
             rule_id="r1",
             rule_verdict="supported",
             rule_receipt="methodology/receipts/r1@v1/2026-09-04.json",
-            method_state=self.IN_LIBRARY,
         )
         self.assertEqual(card["rule_id"], "r1")
         self.assertEqual(card["rule_verdict"], "supported")
-        self.assertEqual(card["rule_lifecycle_state"], "personal_method")
         self.assertEqual(card["rule_receipt"], "methodology/receipts/r1@v1/2026-09-04.json")
         with self.assertRaises(experience_cards.PromotionGateError) as ctx:
             experience_cards.build_card_from_score(
-                self._score(), promotion="methodology", rule_id="r1", rule_verdict="supported"
+                self._score(), promotion="methodology", rule_id="r1", rule_verdict="not_distinguishable"
             )
         self.assertFalse(ctx.exception.gate.allowed)
         # 一次纠偏改不了结论：candidate 仍可落卡并带上溯源字段，等规则累积
