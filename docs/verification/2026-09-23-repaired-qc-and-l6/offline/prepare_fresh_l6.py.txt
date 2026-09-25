@@ -1,0 +1,49 @@
+"""Fresh L6 input generation, with no model request or inherited verdict."""
+import hashlib
+import json
+from pathlib import Path
+import sys
+
+TREE = Path('/Users/a77/.finance-runtime/reviews/pr868-repaired-20260923-2111/candidate')
+ROOT = Path('/Users/a77/.finance-runtime/reviews/pr868-l6-repaired-20260923-2118')
+sys.path.insert(0, str(TREE))
+from scripts.review_probes.prepare_adaptive_l6_runner import prepare
+
+old = Path('/Users/a77/.finance-runtime/reviews/pr868-l6-glm-20260923-1945/protocol-coherent.json')
+protocol = json.loads(old.read_text())
+protocol['schema'] = 'adaptive-l6-natural-live/v3'
+protocol['authorization'] = {'approved': True, 'quote': '执行',
+    'scope': 'Three repairs and new bounded #75/L6 verification. No main merge, deploy or old-batch resumption.'}
+protocol['baseline']['premerge_candidate_revision'] = 'ac11027fa75ee6a988ab90ab81e0329159964643'
+protocol['baseline']['engineering_revision'] = None
+protocol['baseline']['targeted_receipt'] = '/Users/a77/.finance-runtime/test-receipts/20260923T131130Z-ac11027f-57f31ba6b077.json'
+protocol['entrypoint']['user'] = 'adaptive-l6-repaired-20260923-2118'
+protocol['data']['source_root'] = '/Users/a77/.finance-runtime/reviews/pr868-l6-glm-20260923-1945/preparation-coherent/data'
+source_manifest = Path('/Users/a77/.finance-runtime/reviews/pr868-l6-glm-20260923-1945/preparation-coherent/frozen-data-manifest.json')
+protocol['data']['source_manifest_sha256'] = hashlib.sha256(source_manifest.read_bytes()).hexdigest()
+protocol['questions'] = [
+    {'id': 'L6-R1', 'text': '中际旭创(300308.SZ)截至2026年9月22日这轮行情，给我一组可证伪的跟踪条件：需要哪些指标达到什么数值才算逻辑兑现，出现哪些数值算证伪。每个数值请标明它的来源和对应日期。', 'requested_capability_mode': 'full_read_only'},
+    {'id': 'L6-R2', 'text': '只用本地已有资料，不联网：沪电股份(002463.SZ)2026年9月1日至9月22日的量价表现如何，与所属板块相比强弱如何？给出具体数值、日期和数据来源；本地没有的部分单独列出，不要补。', 'requested_capability_mode': 'local_only_four_read_only_capabilities'},
+    {'id': 'L6-R3', 'text': '固态电池题材截至2026年9月22日这轮行情发酵到哪一步了？给我一组可证伪的跟踪条件，每个数值标明来源和日期。', 'requested_capability_mode': 'theme_track_full_read_only'},
+]
+prior_paths = [old, Path('/Users/a77/.finance-runtime/reviews/pr868-l6-natural-20260923-1455/live-r2/protocol.json')]
+prior_hashes = {hashlib.sha256(q['text'].encode()).hexdigest() for p in prior_paths for q in json.loads(p.read_text())['questions']}
+for question in protocol['questions']:
+    question['text_sha256'] = hashlib.sha256(question['text'].encode()).hexdigest()
+    question['mode'] = question['requested_capability_mode']
+    assert question['text_sha256'] not in prior_hashes
+protocol['limits']['source_audit_seconds'] = 300
+protocol['limits']['next_question_requires'] = 'exact-Episode source audit PASS before absolute audit deadline; all non-PASS states stop'
+protocol['amendments'] = [
+    'Candidate-first validation remains authorized; the main merge was into the feature branch only.',
+    'Candidate is repaired ac11027fa; 328 targeted tests are not a full engineering gate.',
+    'New question identities preserve the three capability classes. No old failed or unsubmitted question is resent.',
+    'Independent APFS clone of the sealed coherent 2026-09-22 dataset; no old outputs or verdicts inherited. Sector cutoff remains 2026-09-18.',
+    'Previous source misdeletion remains NOT_PASSED. The repaired candidate has a separate original/wrong-unit/restored mechanical regression.',
+    'Serial admission now awaits exact-Episode content review; no host side intervention is needed to stop next-question submission on non-PASS.',
+    'Models, request/time limits, zero resubmissions/followups and no production changes remain unchanged.',
+    'Same-provider writer/judge does not constitute independent financial QC. No claim of disabled server thinking.',
+]
+protocol['adjudication']['source_regression_expected'] = 'PASS on repaired candidate; original episode and historical failed verdict remain sealed'
+result = prepare(ROOT, protocol)
+print(json.dumps({'root': str(ROOT), 'status': result['status'], 'new_questions': 3, 'model_requests': 0}))

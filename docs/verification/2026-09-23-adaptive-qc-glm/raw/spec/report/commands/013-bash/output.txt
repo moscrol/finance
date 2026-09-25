@@ -1,0 +1,46 @@
+=== 001-bash/ ===
+result: {"exitCode":0}
+=== 002-bash/ ===
+result: {"exitCode":128}
+=== 003-bash/ ===
+result: {"exitCode":128}
+=== 004-bash/ ===
+result: {"exitCode":0}
+=== 005-read/ ===
+result: {"exitCode":0}
+=== 006-bash/ ===
+result: {"exitCode":0}
+=== 007-bash/ ===
+result: {"exitCode":0}
+=== 008-bash/ ===
+result: {"exitCode":0}
+=== 009-write/ ===
+result: {"exitCode":0}
+=== 010-bash/ ===
+result: {"exitCode":127}
+=== 011-bash/ ===
+result: {"exitCode":1}
+=== 012-bash/ ===
+result: {"exitCode":0}
+=== 013-write/ ===
+result: {"exitCode":0}
+=== 014-bash/ ===
+result: {"exitCode":0}
+=== 015-bash/ ===
+result: {"exitCode":0}
+=== 016-bash/ ===
+result: {"exitCode":0}
+=== 017-bash/ ===
+result: {"exitCode":0}
+=== 018-bash/ ===
+result: {"exitCode":0}
+=== 019-bash/ ===
+result: {"exitCode":0}
+=== 020-write/ ===
+result: {"exitCode":0}
+=== 021-bash/ ===
+result: {"exitCode":1}
+=== 022-bash/ ===
+result: {"exitCode":0}
+=== 023-write/ ===
+result: {"exitCode":0}

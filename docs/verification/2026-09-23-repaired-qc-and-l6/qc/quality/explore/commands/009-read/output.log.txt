@@ -1,0 +1,102 @@
+"""Semantic grounding gate for one continuous research episode.
+
+``episode_verifier`` proves only the structural part of an episode: every
+required output has a valid evidence binding.  This module is the deliberately
+separate semantic gate.  It gives a private, numbered evidence registry to a
+    strict JSON judge, permits bounded deletion-only repairs, and projects only
+    a safe answer to the public boundary.
+
+The module is provider-neutral.  Tests and canary callers can inject a small
+``judge_fn``/primary model; production can use the independent provider chosen
+by :func:`llm_refine.judge_provider`.  No NLI model or second retrieval path is
+introduced here: a semantic judge may reject or narrow an answer, never add
+evidence.  Mixed/blocked structural partials stay partial.  An honest runtime
+partial whose contracted slots are already fulfilled (the 2026-08-19
+deadline_exhausted shape) may be reported completed after a judge pass.
+Optional numeric-claim
+recheck (bookgap S2) may attach ``source_recheck`` when ``ASK_JUDGE_RECHECK``
+is on; the default remains off.
+"""
+
+from __future__ import annotations
+
+from copy import deepcopy
+from decimal import Decimal
+import inspect
+import json
+import os
+import re
+from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass, field, replace
+from datetime import date
+from typing import TYPE_CHECKING, Literal, Protocol, cast, runtime_checkable
+
+from intelligence.services import answer_model, llm_refine
+from intelligence.services.agent_research import (
+    AgentEvidence,
+    StructuredObservation,
+    describe_lost_observation,
+    grounded_values_in_text,
+)
+from intelligence.services.degraded_fallback import (
+    gap_transparency,
+    is_model_service_unavailable,
+)
+from intelligence.services.session_projection import (
+    CAUSE_EVIDENCE_GAP,
+    CAUSE_JUDGE_UNAVAILABLE_HELD,
+    CAUSE_MODEL_UNAVAILABLE,
+    CAUSE_TRANSIENT_VERIFIER_OUTAGE,
+    CAUSE_VERIFICATION_INCOMPLETE,
+    CAUSE_VERIFIED,
+    TerminalFacts,
+    view,
+)
+from intelligence.services.material_claim_review import (
+    CLAIM_CHECK_RULE, CLAIM_CHECK_SCHEMA, MATERIAL_REVIEW_RULE, NONFACTUAL_REVIEW_RULE, OUTPUT_CHECK_RULE, OUTPUT_CHECK_SCHEMA,
+    material_claim_rows, material_output_rows, nonfactual_review_request, reconcile_claim_checks, reconcile_output_checks,
+)
+from intelligence.services.material_grounding import (
+    claim_sentences, grounding_scope, historical_claim_texts, material_grounding_payload, material_private_tokens,
+)
+from intelligence.services.agent_runtime import (
+    AgentModelClient,
+    AgentOutcome,
+    EpisodeEvent,
+    ModelTurn,
+    OutputEvidenceBinding,
+)
+from intelligence.services.episode_answer_hygiene import (
+    choose_repair_rollback,
+    classify_asked_date_coverage,
+    find_unattempted_claims,
+    repair_collapsed_to_stub,
+    rewrite_unattempted_claims,
+    rewrite_unverified_kb_gap_claims,
+    scrub_internal_process_wording,
+)
+from intelligence.services.ranking_contract import (
+    judge_ranking_contract_block,
+    mark_priority_as_judgment,
+    matrix_header_mapping,
+    parse_ranking_intent,
+)
+from intelligence.services.episode_protocol import (
+    cited_evidence_ordinals,
+    evidence_ordinal_table,
+    strip_evidence_ordinals,
+)
+from intelligence.services.episode_issues import (
+    Issue,
+    IssueCode,
+    allows_partial_release,
+)
+from intelligence.services.episode_output_substance import (
+    JUDGMENT_OUTPUT_IDS,
+    contract_has_model_reasoning_judgment,
+    label_unlabelled_analytical_inferences,
+    lost_required_output_substance,
+    remove_lost_output_scaffolding,
+)
+
+[truncated; total lines=7075, selected=1:100; request a later offset]

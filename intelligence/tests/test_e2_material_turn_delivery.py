@@ -445,7 +445,12 @@ def _turn(store, runs, conv, query):
     return run, assistant
 
 
-def test_local_only_deterministic_owner_never_reaches_engine_b(tmp_path, monkeypatch):
+@pytest.mark.parametrize("query", [
+    "只用本地已有数据，不要联网。美股隔夜表现如何？",
+    "只用本地已有数据，美股隔夜表现如何？",
+    "只用本地已有资料，判断中际旭创最近是否存在已确认的重大风险；没有查到的部分请单独列出。",
+])
+def test_local_only_deterministic_owner_never_reaches_engine_b(tmp_path, monkeypatch, query):
     from intelligence.runtime import conversation_orchestrator as runtime
     from intelligence.services.conversation_store import ConversationStore
     from intelligence.services.run_store import RunStore
@@ -458,7 +463,6 @@ def test_local_only_deterministic_owner_never_reaches_engine_b(tmp_path, monkeyp
     orchestrator = runtime.TurnOrchestrator(
         repo_root=tmp_path, conversation_store=store, run_store=runs, **probes
     )
-    query = "只用本地已有数据，不要联网。美股隔夜表现如何？"
     run, assistant = _turn(store, runs, conv, query)
     result = orchestrator.run_turn(
         conversation_id=conv.conversation_id, run_id=run.run_id,

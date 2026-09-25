@@ -1,0 +1,1 @@
+{"toolCallId":"call_920ea87063ae42e482837ce8","params":{"command":"cd /Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260923-1707/spec/work/probes && /Users/a77/finance-workspace-private/.venv-workbench/bin/python probe_c1_stalled_parent.py; echo \"EXIT=$?\"","timeout":40}}

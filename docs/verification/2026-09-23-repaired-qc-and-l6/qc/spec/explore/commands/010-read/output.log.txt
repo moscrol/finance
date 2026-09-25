@@ -1,0 +1,402 @@
+        "name": "_served_model_from_body",
+        "start": 1572,
+        "end": 1583
+      },
+      {
+        "name": "chat_with_tools",
+        "start": 1586,
+        "end": 1680
+      },
+      {
+        "name": "_extract_json",
+        "start": 1683,
+        "end": 1697
+      },
+      {
+        "name": "_as_lines",
+        "start": 1700,
+        "end": 1705
+      },
+      {
+        "name": "RefineResult",
+        "start": 1709,
+        "end": 1713
+      },
+      {
+        "name": "refine",
+        "start": 1716,
+        "end": 1729
+      },
+      {
+        "name": "refine_or_reason",
+        "start": 1732,
+        "end": 1773
+      },
+      {
+        "name": "SynthesisResult",
+        "start": 1812,
+        "end": 1817
+      },
+      {
+        "name": "_build_synthesis_prompt",
+        "start": 1820,
+        "end": 1863
+      },
+      {
+        "name": "build_synthesis_messages",
+        "start": 1866,
+        "end": 1934
+      },
+      {
+        "name": "_required_outputs_block",
+        "start": 1981,
+        "end": 1998
+      },
+      {
+        "name": "_registry_document",
+        "start": 2001,
+        "end": 2016
+      },
+      {
+        "name": "build_decision_brief_messages",
+        "start": 2030,
+        "end": 2046
+      },
+      {
+        "name": "build_grounded_composer_messages",
+        "start": 2049,
+        "end": 2086
+      },
+      {
+        "name": "build_grounding_judge_messages",
+        "start": 2089,
+        "end": 2104
+      },
+      {
+        "name": "followup_user_content",
+        "start": 2115,
+        "end": 2120
+      },
+      {
+        "name": "synthesize_messages",
+        "start": 2123,
+        "end": 2233
+      },
+      {
+        "name": "_post_chat_stream",
+        "start": 2236,
+        "end": 2273
+      },
+      {
+        "name": "_post_chat_stream_raw",
+        "start": 2276,
+        "end": 2353
+      },
+      {
+        "name": "synthesize_messages_stream",
+        "start": 2379,
+        "end": 2495
+      },
+      {
+        "name": "gate_revision_user_content",
+        "start": 2507,
+        "end": 2510
+      },
+      {
+        "name": "claim_binding_revision_user_content",
+        "start": 2513,
+        "end": 2526
+      },
+      {
+        "name": "grounded_composer_system_prompt",
+        "start": 2529,
+        "end": 2532
+      },
+      {
+        "name": "fulfillment_revision_user_content",
+        "start": 2535,
+        "end": 2584
+      },
+      {
+        "name": "synthesize",
+        "start": 2587,
+        "end": 2605
+      },
+      {
+        "name": "from_timeout",
+        "start": 188,
+        "end": 189
+      },
+      {
+        "name": "remaining",
+        "start": 191,
+        "end": 192
+      },
+      {
+        "name": "require_remaining",
+        "start": 194,
+        "end": 198
+      },
+      {
+        "name": "call_timeout",
+        "start": 200,
+        "end": 215
+      },
+      {
+        "name": "observe_response",
+        "start": 589,
+        "end": 605
+      },
+      {
+        "name": "observe_result",
+        "start": 607,
+        "end": 617
+      },
+      {
+        "name": "over_budget",
+        "start": 653,
+        "end": 658
+      },
+      {
+        "name": "headroom",
+        "start": 660,
+        "end": 670
+      },
+      {
+        "name": "try_reserve",
+        "start": 672,
+        "end": 688
+      },
+      {
+        "name": "rejection_reason",
+        "start": 690,
+        "end": 694
+      },
+      {
+        "name": "reject",
+        "start": 696,
+        "end": 699
+      },
+      {
+        "name": "record",
+        "start": 701,
+        "end": 703
+      },
+      {
+        "name": "records_for_call",
+        "start": 705,
+        "end": 707
+      },
+      {
+        "name": "summary",
+        "start": 709,
+        "end": 739
+      },
+      {
+        "name": "__init__",
+        "start": 1322,
+        "end": 1324
+      },
+      {
+        "name": "add",
+        "start": 1326,
+        "end": 1360
+      },
+      {
+        "name": "assembled",
+        "start": 1362,
+        "end": 1363
+      },
+      {
+        "name": "_tracked_delta",
+        "start": 2410,
+        "end": 2413
+      }
+    ]
+  },
+  {
+    "file": "intelligence/services/episode_semantic_verifier.py",
+    "sha256": "25559c737b7e7b1f55a8acbbbbc6a998f15d913471fc23399a0e357069fbd7cf",
+    "lines": 7075,
+    "symbols": [
+      {
+        "name": "semantic_judge_window_seconds",
+        "start": 159,
+        "end": 170
+      },
+      {
+        "name": "judge_attempt_seconds",
+        "start": 173,
+        "end": 189
+      },
+      {
+        "name": "policy_for_contract",
+        "start": 192,
+        "end": 198
+      },
+      {
+        "name": "_FinalizerJudgeProvider",
+        "start": 204,
+        "end": 214
+      },
+      {
+        "name": "_judge_report_tools",
+        "start": 508,
+        "end": 524
+      },
+      {
+        "name": "compact_judge_payload",
+        "start": 627,
+        "end": 666
+      },
+      {
+        "name": "dumps_judge_request",
+        "start": 669,
+        "end": 673
+      },
+      {
+        "name": "SemanticEpisodeOutcome",
+        "start": 677,
+        "end": 838
+      },
+      {
+        "name": "semantic_repair_feedback",
+        "start": 841,
+        "end": 894
+      },
+      {
+        "name": "_unresolved_publication_feedback",
+        "start": 897,
+        "end": 927
+      },
+      {
+        "name": "with_unresolved_review_publication",
+        "start": 930,
+        "end": 944
+      },
+      {
+        "name": "with_unreviewed_revision_publication",
+        "start": 952,
+        "end": 974
+      },
+      {
+        "name": "_retained_delivery_hashes",
+        "start": 977,
+        "end": 992
+      },
+      {
+        "name": "_recheck_research_delivery",
+        "start": 995,
+        "end": 1080
+      },
+      {
+        "name": "recheck_material_public_delivery",
+        "start": 1083,
+        "end": 1177
+      },
+      {
+        "name": "_HygieneSnapshot",
+        "start": 1181,
+        "end": 1184
+      },
+      {
+        "name": "_JudgeCall",
+        "start": 1188,
+        "end": 1207
+      },
+      {
+        "name": "_judge_failure_identity",
+        "start": 1210,
+        "end": 1236
+      },
+      {
+        "name": "_deadline_remaining_seconds",
+        "start": 1239,
+        "end": 1248
+      },
+      {
+        "name": "_attach_judge_clock",
+        "start": 1251,
+        "end": 1271
+      },
+      {
+        "name": "guided_retrieve_enabled",
+        "start": 1319,
+        "end": 1328
+      },
+      {
+        "name": "build_guided_query",
+        "start": 1331,
+        "end": 1371
+      },
+      {
+        "name": "GuidedRetrievalTelemetry",
+        "start": 1375,
+        "end": 1396
+      },
+      {
+        "name": "_guided_support_row",
+        "start": 1399,
+        "end": 1406
+      },
+      {
+        "name": "SemanticEpisodeVerifier",
+        "start": 1409,
+        "end": 4211
+      },
+      {
+        "name": "_gap_label",
+        "start": 4214,
+        "end": 4226
+      },
+      {
+        "name": "_latest_evidence_date",
+        "start": 4229,
+        "end": 4242
+      },
+      {
+        "name": "_required_output_degraded_note",
+        "start": 4250,
+        "end": 4257
+      },
+      {
+        "name": "_with_required_output_degrade_mark",
+        "start": 4260,
+        "end": 4265
+      },
+      {
+        "name": "_shrink_verified_for_marker_loss",
+        "start": 4268,
+        "end": 4346
+      },
+      {
+        "name": "_gap_task_context",
+        "start": 4349,
+        "end": 4355
+      },
+      {
+        "name": "_contract_slots_all_fulfilled",
+        "start": 4358,
+        "end": 4393
+      },
+      {
+        "name": "_material_questions_settled",
+        "start": 4396,
+        "end": 4415
+      },
+      {
+        "name": "_can_semantically_release_partial",
+        "start": 4418,
+        "end": 4450
+      },
+      {
+        "name": "_numbered_sentences",
+        "start": 4453,
+        "end": 4457
+      },
+      {
+        "name": "_mechanical_reasons_by_index",
+        "start": 4460,
+        "end": 4484
+
+[truncated; total lines=1893, selected=400:799; request a later offset]

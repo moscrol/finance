@@ -1,0 +1,96 @@
+# -*- coding: utf-8 -*-
+"""独立探针 C：C5 零预算/无预占 + 根期限与判官子窗区分(不运行于本阶段)。
+
+边界: LLMCallLedger 预占与拒发入口、episode_semantic_verifier 两个
+deadline-exhausted 常量、Deadline/require_remaining。
+C1 台账耗尽(max_calls=1): 第二次 complete() 入口直接返回降级 reason,
+   间谍 opener 第二次绝不被调用(= 无 HTTP 请求), reservation_count 仍为 1,
+   rejected_count=1 (= 无新预占)。第一次成功。
+C2 判官窗耗尽 vs 根期限: verifier 常量 WINDOW_EXHAUSTED_ISSUE !=
+   ROOT_DEADLINE_EXHAUSTED_ISSUE 且语义可区分; 剩余 0 的根 Deadline
+   require_remaining 抛 LLMDeadlineExceeded; _insufficient_budget_reason
+   只在显式 min_viable_seconds 时把小 timeout 拦下(0 预算不烧)。
+"""
+import sys
+import time
+
+sys.path.insert(0, ".")
+from intelligence.services import llm_refine as R
+from intelligence.services import episode_semantic_verifier as V
+
+
+def main():
+    results = []
+
+    def check(name, cond, detail=""):
+        results.append((name, bool(cond), detail))
+        print(("PASS" if cond else "FAIL"), name, detail)
+
+    calls = []
+
+    def spy(request, timeout, *, deadline=None, is_cancelled=None, **kw):
+
+        class FakeResp:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+            def read(self):
+                return (b'{"choices": [{"message": {"content": "ok"},'
+                        b'"finish_reason": "stop"}]}')
+
+        calls.append(1)
+        return FakeResp()
+
+    with R.http_transport_override(spy):
+        with R.call_ledger_scope(max_calls=1) as ledger:
+            content, prov, reason = R.complete([{"role": "user", "content": "x"}],
+                                               timeout=3.0)
+            check("C1_first_call_succeeds", content == "ok" and calls,
+                  f"n_http={len(calls)} reason={reason!r}")
+            check("C1_reservation_1", ledger._reservation_count == 1,
+                  f"res={ledger._reservation_count}")
+            content2, prov2, reason2 = R.complete(
+                [{"role": "user", "content": "x"}], timeout=3.0)
+            check("C1_zero_budget_no_http",
+                  content2 is None and len(calls) == 1,
+                  f"n_http={len(calls)} reason={reason2!r}")
+            check("C1_rejected_reason", reason2 and "预算耗尽" in reason2,
+                  f"reason={reason2!r}")
+            check("C1_no_new_reservation",
+                  ledger._reservation_count == 1 and ledger.rejected_count == 1,
+                  f"res={ledger._reservation_count} rej={ledger.rejected_count}")
+
+    # C2 根期限 vs 判官子窗
+    check("C2_issue_strings_distinct",
+          V.WINDOW_EXHAUSTED_ISSUE != V.ROOT_DEADLINE_EXHAUSTED_ISSUE
+          and "window" in V.WINDOW_EXHAUSTED_ISSUE.lower()
+          and "deadline" in V.ROOT_DEADLINE_EXHAUSTED_ISSUE.lower(),
+          f"window={V.WINDOW_EXHAUSTED_ISSUE!r} root={V.ROOT_DEADLINE_EXHAUSTED_ISSUE!r}")
+    expired_root = R.Deadline(time.monotonic() - 0.5)
+    try:
+        expired_root.require_remaining(0.001)
+        check("C2_root_expired_raises", False, "no exception")
+    except R.LLMDeadlineExceeded:
+        check("C2_root_expired_raises", True,
+              f"remaining={expired_root.remaining()}")
+    # 根剩余尚多但判官子窗已耗尽 -> require_remaining 不抛(0.5 剩余仍在),
+    # 但子窗判定应走 WINDOW_EXHAUSTED; 反之亦然。用语义区分探针:
+    fresh = R.Deadline(time.monotonic() + 0.5)
+    check("C2_root_alive_window_dead_ok", fresh.require_remaining(0.001) > 0,
+          f"remaining={fresh.remaining():.3f}")
+    # 0 预算跳过: 无 min_viable 时不设闸(照发); 有 min_viable 时小预算被拦
+    check("C2_gate_none_by_default", R._insufficient_budget_reason(0.2, None) is None)
+    gated = R._insufficient_budget_reason(0.2, 1.0)
+    check("C2_gate_small_timeout", gated is not None and "预算不足" in gated,
+          f"reason={gated!r}")
+
+    fails = [n for n, ok, _ in results if not ok]
+    print(f"SUMMARY probe_c: {len(results)-len(fails)}/{len(results)} passed")
+    sys.exit(1 if fails else 0)
+
+
+if __name__ == "__main__":
+    main()

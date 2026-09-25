@@ -1,0 +1,177 @@
+def _post_chat(
+    provider: LLMProvider,
+    messages: list[dict],
+    timeout: float,
+    temperature: float = 0.2,
+    max_tokens: int | None = None,
+    *,
+    deadline: Deadline | None = None,
+) -> str:
+    _reserve_llm_call()
+    url = provider.base_url.rstrip("/") + "/chat/completions"
+    payload = _chat_payload(provider, messages, temperature)
+    if max_tokens is not None:
+        payload["max_tokens"] = max_tokens
+    _apply_thinking_controls(
+        payload, disable_thinking=os.environ.get("LLM_THINKING") == "disabled"
+    )
+    data = json.dumps(payload).encode("utf-8")
+    req = urllib.request.Request(
+        url,
+        data=data,
+        headers=_llm_request_headers(provider),
+        method="POST",
+    )
+    started = time.monotonic()
+    attempt = _new_call_attempt(provider, messages)
+    call_deadline = deadline or Deadline.from_timeout(timeout)
+    try:
+        with _open_deadline_http_response(req, timeout=timeout, deadline=call_deadline) as resp:
+            body = json.loads(resp.read().decode("utf-8"))
+            call_deadline.require_remaining(0.001)
+            attempt.observe_response(body, resp)
+        content = body["choices"][0]["message"]["content"]
+        attempt.observe_result(content)
+    except Exception as exc:
+        attempt.observe_response(response=exc)
+        _record_llm_call("chat", provider, "failed", started, _failure_reason(exc), attempt=attempt)
+        raise
+    # 响应顶层 usage 此前被丢弃——API 判官走的就是这条路，判官侧 token 因此一直
+    # 没有账（BP §7.3 只量到写手侧）。缺 usage 的响应记 None，不抛。
+    input_tokens, output_tokens = token_usage_counts(
+        body.get("usage") if isinstance(body, Mapping) else None
+    )
+    _record_llm_call(
+        "chat",
+        provider,
+        "success",
+        started,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        usage_source=USAGE_SOURCE_API,
+        attempt=attempt,
+    )
+    return content
+
+
+def _post_chat_synthesis(
+    provider: LLMProvider,
+    messages: list[dict],
+    timeout: float,
+    temperature: float,
+    max_tokens: int,
+    max_chars: int,
+    *,
+    deadline: Deadline | None = None,
+) -> tuple[str, str | None]:
+    _reserve_llm_call()
+    url = provider.base_url.rstrip("/") + "/chat/completions"
+    payload = _chat_payload(provider, messages, temperature, max_tokens=max_tokens)
+    _apply_thinking_controls(payload, disable_thinking=synthesis_thinking_disabled())
+    request = urllib.request.Request(
+        url,
+        data=json.dumps(payload).encode("utf-8"),
+        headers=_llm_request_headers(provider),
+        method="POST",
+    )
+    started = time.monotonic()
+    attempt = _new_call_attempt(provider, messages)
+    call_deadline = deadline or Deadline.from_timeout(timeout)
+    try:
+        with _open_deadline_http_response(request, timeout=timeout, deadline=call_deadline) as resp:
+            body = json.loads(resp.read().decode("utf-8"))
+            call_deadline.require_remaining(0.001)
+            attempt.observe_response(body, resp)
+        choice = body["choices"][0]
+        content = choice["message"]["content"]
+        attempt.observe_result(content)
+    except Exception as exc:
+        attempt.observe_response(response=exc)
+        _record_llm_call("synthesis", provider, "failed", started, _failure_reason(exc), attempt=attempt)
+        raise
+    if len(content) > max_chars:
+        _record_llm_call("synthesis", provider, "failed", started, "output_too_long", attempt=attempt)
+        raise LLMOutputTooLong()
+    _record_llm_call("synthesis", provider, "success", started, attempt=attempt)
+    return content, _stable_finish_reason(choice.get("finish_reason"))
+
+
+def complete(
+    messages: list[dict],
+    model_override: str | None = None,
+    timeout: float = DEFAULT_LLM_TIMEOUT,
+    temperature: float = 0.2,
+    *,
+    min_viable_seconds: float | None = None,
+    max_tokens: int | None = None,
+) -> tuple[str | None, "LLMProvider | None", str]:
+    """Generic OpenAI-compatible chat call shared across services.
+
+    Returns ``(content, provider, reason)``. On any failure (no key, HTTP error,
+    network error) ``content`` is ``None`` and ``reason`` explains why so callers
+    can degrade gracefully — same contract as :func:`refine_or_reason`.
+    """
+    context = _CALL_PROVENANCE.get()
+    if context is not None:
+        context.selected_attempt_id = None
+        context.identity_state = IDENTITY_NOT_CALLED
+    rejection = _budget_rejection()
+    if rejection is not None:
+        return None, None, rejection
+    providers = detect_providers(model_override)
+    if not providers:
+        return None, None, (
+            "未配置 LLM key。设置 DEEPSEEK_API_KEY / MOONSHOT_API_KEY / "
+            "DASHSCOPE_API_KEY / ZHIPU_API_KEY / OPENAI_API_KEY 或通用 "
+            "LLM_API_KEY(+LLM_BASE_URL,+LLM_MODEL) 即可启用"
+        )
+    insufficient = _insufficient_budget_reason(timeout, min_viable_seconds)
+    if insufficient is not None:
+        return None, None, insufficient
+    deadline = Deadline.from_timeout(timeout)
+    failures: list[tuple[LLMProvider, str]] = []
+    from intelligence.services.grok_cli_judge import is_cli_judge_provider
+
+    for provider in providers:
+        try:
+            remaining = deadline.require_remaining(0.001)
+            if is_cli_judge_provider(provider):
+                content = _complete_cli_judge(provider, messages, remaining)
+            else:
+                if max_tokens is None:
+                    content = _post_chat(
+                        provider,
+                        messages,
+                        remaining,
+                        temperature,
+                        deadline=deadline,
+                    )
+                else:
+                    content = _post_chat(
+                        provider,
+                        messages,
+                        remaining,
+                        temperature,
+                        max_tokens=max_tokens,
+                        deadline=deadline,
+                    )
+        except LLMCallBudgetExceeded as exc:
+            return None, None, str(exc)
+        except urllib.error.HTTPError as exc:  # pragma: no cover - network
+            failures.append((provider, f"LLM 调用 HTTP {exc.code}"))
+        except Exception as exc:  # pragma: no cover - network
+            failures.append((provider, f"LLM 调用失败（{type(exc).__name__}）"))
+        else:
+            if deadline.remaining() <= 0:
+                return None, provider, "LLM 调用失败（LLMDeadlineExceeded）"
+            return content, provider, ""
+        if deadline.remaining() <= 0:
+            break
+    provider, reason = _provider_failure_reason(failures)
+    return None, provider, reason
+
+
+class _ToolCallAssembler:
+    """Reassemble OpenAI-style streamed ``tool_calls`` fragments by index.
+
+[truncated; total lines=2605, selected=1139:1313; request a later offset]

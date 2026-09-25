@@ -1,0 +1,60 @@
+"""Offline check of the small GLM-specific proxy changes; no model requests."""
+import http.client
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import json
+from pathlib import Path
+import tempfile
+import threading
+from unittest.mock import patch
+import glm_review_shim as shim
+
+seen = []
+class Fake(BaseHTTPRequestHandler):
+    def log_message(self, *_):
+        pass
+    def do_POST(self):
+        seen.append((self.path, json.loads(self.rfile.read(int(self.headers['Content-Length'])))))
+        body = b'{"choices":[{"message":{"content":"OK"}}]}'
+        self.send_response(200)
+        self.send_header('Content-Length', str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+upstream = ThreadingHTTPServer(('127.0.0.1', 0), Fake)
+thread = threading.Thread(target=upstream.serve_forever)
+thread.start()
+try:
+    with tempfile.TemporaryDirectory() as tmp:
+        ledger = shim.Ledger(Path(tmp) / 'ledger', 2)
+        server = shim.ReviewServer(0, 443, ledger, 3, 15)
+        worker = threading.Thread(target=server.serve_forever)
+        worker.start()
+        def connection(host, port, timeout):
+            assert (host, port) == ('open.bigmodel.cn', 443)
+            return http.client.HTTPConnection('127.0.0.1', upstream.server_port, timeout=timeout)
+        try:
+            with patch.object(shim.http.client, 'HTTPSConnection', side_effect=connection):
+                for model, expected in [('kimi-k3', 400), ('glm-5.3', 200)]:
+                    client = http.client.HTTPConnection('127.0.0.1', server.server_port, timeout=5)
+                    client.request('POST', '/v1/chat/completions', json.dumps({'model': model, 'temperature': 0.25, 'messages': []}), {'Content-Type': 'application/json'})
+                    response = client.getresponse()
+                    assert response.status == expected
+                    response.read()
+                    client.close()
+        finally:
+            server.shutdown()
+            server.server_close()
+            worker.join()
+            ledger.close()
+        assert seen == [('/api/coding/paas/v4/chat/completions', {'model': 'glm-5.3', 'temperature': 0.25, 'messages': []})]
+        assert ledger.state['requests'] == ledger.state['dispatched'] == ledger.state['completed'] == 1
+        assert ledger.state['dropped_temperature'] == 0 and ledger.state['shutdown_complete']
+finally:
+    upstream.shutdown()
+    upstream.server_close()
+    thread.join()
+result = {'status': 'PASS', 'model_requests': 0, 'fake_requests': 1,
+          'checks': ['GLM-only model admission', 'official host/port/path', 'payload and temperature preserved', 'durable accounting and shutdown']}
+with Path(__file__).with_name('adapter-preflight.json').open('x') as f:
+    json.dump(result, f, indent=2)
+print(json.dumps(result))

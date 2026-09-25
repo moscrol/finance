@@ -1,0 +1,87 @@
+def _deadline_remaining_seconds(deadline: object) -> float | None:
+    """Duck-typed remaining(); test stubs may only implement synthesis_timeout."""
+
+    remaining = getattr(deadline, "remaining", None)
+    if not callable(remaining):
+        return None
+    try:
+        return float(remaining())
+    except Exception:
+        return None
+
+
+def _attach_judge_clock(
+    outcome: SemanticEpisodeOutcome,
+    call: _JudgeCall,
+) -> SemanticEpisodeOutcome:
+    pending_request = (
+        dict(call.request)
+        if outcome.judge_status == "unavailable" and call.request is not None
+        else None
+    )
+    return replace(
+        outcome,
+        timeout_asked=call.timeout_asked,
+        timeout_configured=call.timeout_configured,
+        remaining_seconds_at_entry=call.remaining_seconds_at_entry,
+        exc_class=call.exc_class,
+        http_status=call.http_status,
+        judge_attempt_index=call.judge_attempt_index,
+        judge_request=pending_request,
+        material_review_calls=call.material_review_calls,
+        last_dispatched_failure=call.last_dispatched_failure,
+    )
+
+
+# ---------------------------------------------------------------------------
+# V11 · 判官引导的一次有界回检索
+# 设计：docs/superpowers/specs/2026-08-22-v11-judge-guided-retrieval-design.md
+# 接进默认路径：2026-09-09 判官修复 01 第三刀（任务包 01-judge-recovery-goal-brief.md）
+#
+# 只在「纯语义早退」那条路上开火：首判拒了句、_plan_repair_indexes 为空（没有机械
+# 句要删）、V8 已把语义拒句降成 issue 准备直接出门。此时用被拒句拼一条确定性 query
+# 回库一次，检回新卡就让判官再看同一份草稿一眼；判官明确放过的句子撤标（从
+# _semantic_reject_texts 拿掉），其余原样。不改 draft、不进 _repair、不加第二修复窗、
+# 每 episode 最多一枪、旗标在 IO 之前预占、预算不够就当 V8 没发生过。
+# ---------------------------------------------------------------------------
+GUIDED_RETRIEVE_ENV = "FINANCE_V11_GUIDED_RETRIEVE"
+# 复用 episode_tools.retrieve_kb 的 min(timeout, 30.0)，不新发明 16 / 25 / 45。
+GUIDED_RETRIEVE_CAP_SECONDS = 30.0
+GUIDED_QUERY_MAX_CHARS = 80
+GUIDED_SENTENCE_MAX_CHARS = 40
+GUIDED_MAX_SENTENCES = 3
+GUIDED_MAX_SUPPORT_EVIDENCE = 6
+GUIDED_OUTCOMES = (
+    "skipped",
+    "retrieved_empty",
+    "retrieved_no_rejudge",
+    "lifted",
+    "still_annotated",
+)
+_GUIDED_META_STOPWORDS = (
+    "无据",
+    "因果",
+    "发明",
+    "环节",
+    "外部原因",
+    "偷渡",
+    "证明不了",
+    "质量不够",
+    "证据不足",
+)
+_GUIDED_META_TOKEN_RE = re.compile(r"第\s*\d+\s*句|句\s*\d+|code=\S+|subject=\S+|::")
+_GUIDED_QUALITY_MARK_RE = re.compile(r"【质检[^】]*】")
+_GUIDED_CJK_RUN_RE = re.compile(r"[一-鿿]{2,}")
+_GUIDED_QUESTION_SPLIT_RE = re.compile(r"怎么看|怎么样|如何|为什么|吗")
+_GUIDED_EDGE_PUNCT = "。，、；：！？.,;:!?「」『』\"' "
+
+GuidedRetrieveFn = Callable[[str, float], Sequence[AgentEvidence]]
+
+
+def guided_retrieve_enabled() -> bool:
+    """回滚闸。默认开。
+
+    V11 设计稿（§7.3）为 A/B 卫生写的是默认关；2026-09-09 判官修复 01 的范围合同明确
+    「不能只接一个永远不开的开关」，改为默认开、保留环境变量作回滚。开火面本身已被
+
+[truncated; total lines=7054, selected=1228:1312; request a later offset]

@@ -1,0 +1,12 @@
+{
+  "stage": "gateway",
+  "expected": [
+    "read",
+    "write"
+  ],
+  "actual": [
+    "read",
+    "write"
+  ],
+  "status": "PASS"
+}

@@ -1,0 +1,10 @@
+{
+  "stage": "report",
+  "expected": [
+    "deliver_stage"
+  ],
+  "actual": [
+    "deliver_stage"
+  ],
+  "status": "PASS"
+}

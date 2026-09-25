@@ -1,0 +1,46 @@
+{
+  "verdict": "NOT_PASSED",
+  "episode_sha256": "397ef6f396a29a538e339974d2ced10d8d633e4a798252023e43e3fb965b4b41",
+  "model_revision_observed": true,
+  "drafts": [
+    {
+      "sequence": 44,
+      "phase": null,
+      "served_model": "glm-5.3",
+      "draft_sha256": "e12f86748211bb8411cc4d990678687dedb211c399215fb3a10396492651d4fb"
+    },
+    {
+      "sequence": 52,
+      "phase": "repair",
+      "served_model": "glm-5.3",
+      "draft_sha256": "23202ac2926fedbeeb933815aae130ed3777e7370c1b0cf588acf742d1a62b06"
+    },
+    {
+      "sequence": 60,
+      "phase": "repair",
+      "served_model": "glm-5.3",
+      "draft_sha256": "bdfa49c47f59a9515af8f59704fc619ddb5812c8baf303b492555b97a787e490"
+    }
+  ],
+  "claims": [
+    {
+      "sentence": "- **证伪条件**（任一触发即判事件驱动逻辑失效）：① 量价背离——成交额萎缩至9月22日112.27亿元（E9）的三分之一以下，且收盘跌回9月21日246.45元（E10）下方；",
+      "source_supported": true,
+      "deleted": true,
+      "supported_condition_lost": true
+    }
+  ],
+  "supported_conditions_lost": [
+    "- **证伪条件**（任一触发即判事件驱动逻辑失效）：① 量价背离——成交额萎缩至9月22日112.27亿元（E9）的三分之一以下，且收盘跌回9月21日246.45元（E10）下方；"
+  ],
+  "late_report_observed": false,
+  "late_report_adopted": false,
+  "findings": [
+    "evidence_supported_numeric_condition_deleted"
+  ],
+  "all_numeric_conditions_reviewed": false,
+  "judge_status": "unavailable",
+  "judge_mode": "llm",
+  "independent_financial_review": false,
+  "scope": "source-review aggregation; synthetic deadline proof and batch closure are separate prerequisites"
+}

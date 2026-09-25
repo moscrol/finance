@@ -1,0 +1,1 @@
+{"toolCallId":"call_275170a3d40a4bd9ba277fdc","params":{"command":"grep -n \"^def complete(\" intelligence/services/llm_refine.py && sed -n \"$(grep -n '^def complete(' intelligence/services/llm_refine.py | cut -d: -f1),+40p\" intelligence/services/llm_refine.py"}}

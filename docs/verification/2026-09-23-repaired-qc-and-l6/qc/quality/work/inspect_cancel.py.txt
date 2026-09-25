@@ -1,0 +1,7 @@
+import sys, inspect
+sys.path.insert(0, "/Users/a77/.finance-runtime/reviews/pr868-repaired-20260923-2111/candidate")
+import intelligence.llm_http_transport as T
+src = inspect.getsource(T).splitlines()
+for i, l in enumerate(src, 1):
+    if "ancel" in l or l.startswith("class ") or "raise" in l:
+        print(i, l)

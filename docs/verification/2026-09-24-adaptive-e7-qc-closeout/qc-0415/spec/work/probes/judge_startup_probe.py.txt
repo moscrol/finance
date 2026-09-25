@@ -1,0 +1,132 @@
+"""Probe 3: subprocess startup inside budget (C6), root-vs-judge subwindow (C5),
+late judge payload recorded failed/timeout (C3 record side).
+
+Fake loopback server 127.0.0.1:26003; /late sleeps ~2.9s then sends full JSON.
+Run: python judge_startup_probe.py
+"""
+import json, sys, time, threading
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+sys.path.insert(0, "/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0326/candidate")
+from intelligence.services import llm_http_transport as T
+from intelligence.services import llm_refine as llm
+from urllib.request import Request
+
+PORT = 26003
+RESULTS = []
+MESSAGES = [{"role": "user", "content": "late judge fixture"}]
+
+
+class H(BaseHTTPRequestHandler):
+    protocol_version = "HTTP/1.1"
+
+    def log_message(self, *a):
+        pass
+
+    def do_POST(self):
+        n = int(self.headers.get("Content-Length") or 0)
+        self.rfile.read(n)
+        time.sleep(2.9)
+        body = b'{"choices": [{"message": {"content": "late"}, "finish_reason": "stop"}], "usage": {}}'
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+        self.wfile.flush()
+
+
+def record(name, ok, trigger, detail):
+    RESULTS.append({"subcase": name, "pass": bool(ok), "trigger_reached": bool(trigger), **detail})
+
+
+def main():
+    srv = ThreadingHTTPServer(("127.0.0.1", PORT), H)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    time.sleep(0.2)
+    provider = llm.LLMProvider(name="fake", base_url=f"http://127.0.0.1:{PORT}",
+                               model="fake-model", api_key="k")
+
+    # C6: subprocess spawn is inside the granted budget.
+    # 0.9s budget against a 2.9s server: failure must occur ~0.9s after call
+    # start (not 2.9s), proving spawn+send were charged to the same budget.
+    ev = []
+    t0, exc = time.monotonic(), None
+    req = Request(provider.base_url + "/late", data=b"{}", method="POST",
+                  headers={"Content-Type": "application/json"})
+    try:
+        with T.urlopen(req, 0.9, observer=lambda k, **kw: ev.append((k, time.monotonic() - t0))) as r:
+            r.read()
+    except BaseException as e:
+        exc = type(e).__name__
+    wall = time.monotonic() - t0
+    spawn_at = next((t for k, t in ev if k == "spawn_started"), None)
+    sent_at = next((t for k, t in ev if k == "request_sent"), None)
+    record("startup_in_budget",
+           exc == "HTTPDeadlineExceeded" and 0.85 <= wall <= 1.8 and spawn_at is not None
+           and sent_at is not None and wall < 2.5,
+           exc == "HTTPDeadlineExceeded" and spawn_at is not None and sent_at is not None,
+           {"exception": exc, "wall": round(wall, 3), "spawn_at": spawn_at,
+            "request_sent_at": sent_at, "events": [k for k, _ in ev]})
+
+    # C5: expired ROOT vs live judge SUBWINDOW.
+    # Root deadline has 2.0s remaining; judge subwindow gets 0.4s. Subwindow must
+    # fire while root still has >1s remaining -> distinguishes the two windows.
+    root = llm.Deadline.from_timeout(2.0)
+    judge = llm.Deadline.from_timeout(0.4)
+    t0, exc = time.monotonic(), None
+    try:
+        with llm.call_ledger_scope(max_calls=10, reuse_existing=False):
+            llm._post_chat(provider, MESSAGES, 10, deadline=judge)
+    except BaseException as e:
+        exc = type(e).__name__
+    wall = time.monotonic() - t0
+    root_left = root.remaining()
+    record("judge_subwindow_vs_root",
+           exc == "LLMDeadlineExceeded" and wall < 1.0 and root_left > 1.0,
+           exc == "LLMDeadlineExceeded" and root_left > 1.0,
+           {"exception": exc, "wall": round(wall, 3), "root_remaining_after": round(root_left, 3)})
+
+    # expired root: no HTTP at all, immediate
+    root2 = llm.Deadline.from_timeout(0)
+    t0, exc = time.monotonic(), None
+    try:
+        with llm.call_ledger_scope(max_calls=10, reuse_existing=False):
+            llm._post_chat(provider, MESSAGES, 10, deadline=root2)
+    except BaseException as e:
+        exc = type(e).__name__
+    record("expired_root_immediate",
+           exc == "LLMDeadlineExceeded" and time.monotonic() - t0 < 0.5,
+           exc == "LLMDeadlineExceeded" and time.monotonic() - t0 < 0.5,
+           {"exception": exc, "wall": round(time.monotonic() - t0, 3)})
+
+    # C3 (record side): 0.8s judge budget vs 2.9s server -> ledger records
+    # failed with timeout reason; payload never parsed/accepted.
+    t0, exc = time.monotonic(), None
+    ledger_exc = None
+    try:
+        with llm.call_ledger_scope(max_calls=10, reuse_existing=False) as ledger:
+            llm._post_chat(provider, MESSAGES, 0.8)
+    except BaseException as e:
+        exc = type(e).__name__
+        ledger_exc = getattr(e, "__cause__", None)
+    wall = time.monotonic() - t0
+    records = ledger.records if ledger is not None else []
+    last = records[-1] if records else None
+    reason = getattr(last, "failure_reason", None) if last is not None else None
+    status = getattr(last, "status", None) if last is not None else None
+    record("late_judge_failed_recorded",
+           exc == "LLMDeadlineExceeded" and wall < 1.5 and status == "failed",
+           exc == "LLMDeadlineExceeded" and wall < 2.9,
+           {"exception": exc, "wall": round(wall, 3), "ledger_status": status,
+            "failure_reason": reason, "n_records": len(records)})
+
+    srv.shutdown()
+    print(json.dumps(RESULTS, indent=1))
+    bad = [r["subcase"] for r in RESULTS if not r["pass"]]
+    print(f"SUBCASES total={len(RESULTS)} failed={len(bad)} {bad}")
+    sys.exit(1 if bad else 0)
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,402 @@
+{
+  "raw_copies": [
+    {
+      "source": "execute/REPORT.md",
+      "copy": "work/phase-context/execute/REPORT.md",
+      "sha256": "92f662e07aad2369775f68010fb278917deec75971f869b1fdca102ea9add244"
+    },
+    {
+      "source": "execute/parsed.json",
+      "copy": "work/phase-context/execute/parsed.json",
+      "sha256": "1925d1861c0cd9f661616fca3cc50adf2cd94f9dee839606842cf3c3948b3d94"
+    },
+    {
+      "source": "execute/commands/001-read/output.log",
+      "copy": "work/phase-context/execute/commands/001-read/output.log",
+      "sha256": "2dc58bbfa4f3a45104ffd5880ef0c0070f3f1b0c99bd2f3ea2d1610c59ea0862"
+    },
+    {
+      "source": "execute/commands/001-read/request.json",
+      "copy": "work/phase-context/execute/commands/001-read/request.json",
+      "sha256": "6e1284b7d3d99f0c16863311f0bd8262d4164140b73e500b34ad8c91cc384902"
+    },
+    {
+      "source": "execute/commands/001-read/result.json",
+      "copy": "work/phase-context/execute/commands/001-read/result.json",
+      "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0"
+    },
+    {
+      "source": "execute/commands/002-read/output.log",
+      "copy": "work/phase-context/execute/commands/002-read/output.log",
+      "sha256": "6d48eb1f42f4f353f898b9ca4500c9420b6052d4622e39c20c1da7a1f953236e"
+    },
+    {
+      "source": "execute/commands/002-read/request.json",
+      "copy": "work/phase-context/execute/commands/002-read/request.json",
+      "sha256": "e7b07c9d90afe435bc83918262ddff9bb4a975f9ab3088b1c646c668eaaf1c1a"
+    },
+    {
+      "source": "execute/commands/002-read/result.json",
+      "copy": "work/phase-context/execute/commands/002-read/result.json",
+      "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0"
+    },
+    {
+      "source": "execute/commands/003-read/output.log",
+      "copy": "work/phase-context/execute/commands/003-read/output.log",
+      "sha256": "96beba579149a696a1aec31013e2940273ffbd3a20a87ea96f1253eeb56a344a"
+    },
+    {
+      "source": "execute/commands/003-read/request.json",
+      "copy": "work/phase-context/execute/commands/003-read/request.json",
+      "sha256": "295d66fccffaeaf62db240dfb8869ca7f7888f8119827dcf108fa07b873cf5f9"
+    },
+    {
+      "source": "execute/commands/003-read/result.json",
+      "copy": "work/phase-context/execute/commands/003-read/result.json",
+      "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0"
+    },
+    {
+      "source": "execute/commands/004-bash/output.log",
+      "copy": "work/phase-context/execute/commands/004-bash/output.log",
+      "sha256": "7c782d062b3ead90e78de380be043e11decd843917177df6a4fbb2a93f67eca5"
+    },
+    {
+      "source": "execute/commands/004-bash/request.json",
+      "copy": "work/phase-context/execute/commands/004-bash/request.json",
+      "sha256": "f6ff0c9348f15b9589b199b8927eb303302c513354fc7f3d82bae6df4318c579"
+    },
+    {
+      "source": "execute/commands/004-bash/result.json",
+      "copy": "work/phase-context/execute/commands/004-bash/result.json",
+      "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0"
+    },
+    {
+      "source": "execute/commands/005-read/output.log",
+      "copy": "work/phase-context/execute/commands/005-read/output.log",
+      "sha256": "7c36b18bf8bbc09d9d71ec35782739f7faafdf0af32f732b73367adc9e996243"
+    },
+    {
+      "source": "execute/commands/005-read/request.json",
+      "copy": "work/phase-context/execute/commands/005-read/request.json",
+      "sha256": "3d796ab8cb67e112168e3f150b103f329d0fa7baa68d15192420345e3b3c93a0"
+    },
+    {
+      "source": "execute/commands/005-read/result.json",
+      "copy": "work/phase-context/execute/commands/005-read/result.json",
+      "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0"
+    },
+    {
+      "source": "execute/commands/006-read/output.log",
+      "copy": "work/phase-context/execute/commands/006-read/output.log",
+      "sha256": "40fb288b7e6ddee6183de2d6257a0e7f098d10949a3e19d54e933cc97377b046"
+    },
+    {
+      "source": "execute/commands/006-read/request.json",
+      "copy": "work/phase-context/execute/commands/006-read/request.json",
+      "sha256": "9eedffc7451473c8bf0dc1d84edeaa0edcac2c7b530826040622bc8f533e6cd2"
+    },
+    {
+      "source": "execute/commands/006-read/result.json",
+      "copy": "work/phase-context/execute/commands/006-read/result.json",
+      "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0"
+    },
+    {
+      "source": "execute/commands/007-read/output.log",
+      "copy": "work/phase-context/execute/commands/007-read/output.log",
+      "sha256": "6a1bb21e0faa7c443e22ba874216d75e21c2829af9e71380921d6dc4f065d695"
+    },
+    {
+      "source": "execute/commands/007-read/request.json",
+      "copy": "work/phase-context/execute/commands/007-read/request.json",
+      "sha256": "9526fab265f041457a11a4eca3d025e1411907c950bef6c7fb8e47260028a454"
+    },
+    {
+      "source": "execute/commands/007-read/result.json",
+      "copy": "work/phase-context/execute/commands/007-read/result.json",
+      "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0"
+    },
+    {
+      "source": "execute/commands/008-bash/output.log",
+      "copy": "work/phase-context/execute/commands/008-bash/output.log",
+      "sha256": "4eba45384fc207df1dd122fbedb2061f8acc452c2e260157817be858f3fc4c6d"
+    },
+    {
+      "source": "execute/commands/008-bash/request.json",
+      "copy": "work/phase-context/execute/commands/008-bash/request.json",
+      "sha256": "d3801a603615758d5f8697f30a4e7d818996a99fdef17fb8188482884a973edf"
+    },
+    {
+      "source": "execute/commands/008-bash/result.json",
+      "copy": "work/phase-context/execute/commands/008-bash/result.json",
+      "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0"
+    },
+    {
+      "source": "execute/commands/009-bash/output.log",
+      "copy": "work/phase-context/execute/commands/009-bash/output.log",
+      "sha256": "4adeb3f9bc6f0a6d18a59643c1ba83a181c19bb21d6e5f3bf6d12260e94a0140"
+    },
+    {
+      "source": "execute/commands/009-bash/request.json",
+      "copy": "work/phase-context/execute/commands/009-bash/request.json",
+      "sha256": "a2c602a3dfc7038447c941e70929f23e250e8291cb6e5082ece829264269706d"
+    },
+    {
+      "source": "execute/commands/009-bash/result.json",
+      "copy": "work/phase-context/execute/commands/009-bash/result.json",
+      "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0"
+    },
+    {
+      "source": "execute/commands/010-read/output.log",
+      "copy": "work/phase-context/execute/commands/010-read/output.log",
+      "sha256": "5c92a5d2b9a32092e53655c6586d3f9bd476aff00990522567302ed065e504e8"
+    },
+    {
+      "source": "execute/commands/010-read/request.json",
+      "copy": "work/phase-context/execute/commands/010-read/request.json",
+      "sha256": "1be04298d2f15d38849b09ab66097d0e4e31905efdd44e0821f6f5d3a52dcebb"
+    },
+    {
+      "source": "execute/commands/010-read/result.json",
+      "copy": "work/phase-context/execute/commands/010-read/result.json",
+      "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0"
+    },
+    {
+      "source": "execute/commands/011-bash/output.log",
+      "copy": "work/phase-context/execute/commands/011-bash/output.log",
+      "sha256": "c4724931b39bddb6158b074cccf0f18d17037a639c251ec9b5319a11269ee0ca"
+    },
+    {
+      "source": "execute/commands/011-bash/request.json",
+      "copy": "work/phase-context/execute/commands/011-bash/request.json",
+      "sha256": "f2e922320cc279a76819431ebc038addcfc1deef47676e3effa2de337848299f"
+    },
+    {
+      "source": "execute/commands/011-bash/result.json",
+      "copy": "work/phase-context/execute/commands/011-bash/result.json",
+      "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0"
+    },
+    {
+      "source": "execute/commands/012-bash/output.log",
+      "copy": "work/phase-context/execute/commands/012-bash/output.log",
+      "sha256": "9f65608a1025eff32963314957e59324d9534c6d4a834c0de9ac5115c63235ab"
+    },
+    {
+      "source": "execute/commands/012-bash/request.json",
+      "copy": "work/phase-context/execute/commands/012-bash/request.json",
+      "sha256": "1af77a13a8568671204968c896863438e05291cab1e08e3a095b9ce6e26b1424"
+    },
+    {
+      "source": "execute/commands/012-bash/result.json",
+      "copy": "work/phase-context/execute/commands/012-bash/result.json",
+      "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0"
+    },
+    {
+      "source": "execute/commands/013-bash/output.log",
+      "copy": "work/phase-context/execute/commands/013-bash/output.log",
+      "sha256": "2485ad5c808d9c7ed22f4c5c9c71b50ac06eceb104434f12ea71ae3b4de442f7"
+    },
+    {
+      "source": "execute/commands/013-bash/request.json",
+      "copy": "work/phase-context/execute/commands/013-bash/request.json",
+      "sha256": "bd56aded25174f90bf03dbe956cc47b0609dfb3eed6495a72e82a0b0769e91c0"
+    },
+    {
+      "source": "execute/commands/013-bash/result.json",
+      "copy": "work/phase-context/execute/commands/013-bash/result.json",
+      "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0"
+    },
+    {
+      "source": "execute/commands/014-bash/output.log",
+      "copy": "work/phase-context/execute/commands/014-bash/output.log",
+      "sha256": "00492fc87777b3f7e86ffd3310fe9c3a0500c0be5e50f6c18dc1f6fd6b757ac2"
+    },
+    {
+      "source": "execute/commands/014-bash/request.json",
+      "copy": "work/phase-context/execute/commands/014-bash/request.json",
+      "sha256": "7e4b0662d1bb724e2491bb45381301f0305edbd58d59885ae7f899b5b3c4f20c"
+    },
+    {
+      "source": "execute/commands/014-bash/result.json",
+      "copy": "work/phase-context/execute/commands/014-bash/result.json",
+      "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0"
+    },
+    {
+      "source": "execute/commands/015-read/output.log",
+      "copy": "work/phase-context/execute/commands/015-read/output.log",
+      "sha256": "a1d1c16ace5197bc93e3ca5ef62378a5ecf2ca42ee14719be26631641683d2bb"
+    },
+    {
+      "source": "execute/commands/015-read/request.json",
+      "copy": "work/phase-context/execute/commands/015-read/request.json",
+      "sha256": "787abfdceed44d8977d4b3938baa62104d75ff18dd5e06d97af32fca82ded88d"
+    },
+    {
+      "source": "execute/commands/015-read/result.json",
+      "copy": "work/phase-context/execute/commands/015-read/result.json",
+      "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0"
+    },
+    {
+      "source": "execute/commands/016-bash/output.log",
+      "copy": "work/phase-context/execute/commands/016-bash/output.log",
+      "sha256": "b4947e4972ebcdb8f7d7d369dafc511e70ecbf187a5e4cb3aed1602b88320ea6"
+    },
+    {
+      "source": "execute/commands/016-bash/request.json",
+      "copy": "work/phase-context/execute/commands/016-bash/request.json",
+      "sha256": "445ed900f141fc452cab80b9da161bf3d2fe81a6a8ba56e45d3c9b64260946c0"
+    },
+    {
+      "source": "execute/commands/016-bash/result.json",
+      "copy": "work/phase-context/execute/commands/016-bash/result.json",
+      "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0"
+    },
+    {
+      "source": "execute/commands/017-read/output.log",
+      "copy": "work/phase-context/execute/commands/017-read/output.log",
+      "sha256": "122dd1caf50d03647faecc8125542fff11f6a770223697d2e48ce7871e13ae91"
+    },
+    {
+      "source": "execute/commands/017-read/request.json",
+      "copy": "work/phase-context/execute/commands/017-read/request.json",
+      "sha256": "6dcff49d720091e6cb29edcfff8fbc0beb5b3d0d28a85fdf9c251f75eac8196b"
+    },
+    {
+      "source": "execute/commands/017-read/result.json",
+      "copy": "work/phase-context/execute/commands/017-read/result.json",
+      "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0"
+    },
+    {
+      "source": "execute/commands/018-read/output.log",
+      "copy": "work/phase-context/execute/commands/018-read/output.log",
+      "sha256": "c695f5fdfa14b5353da3efd21952a37101d2f6cdbf8e2bcb294acf58e3f8c4c5"
+    },
+    {
+      "source": "execute/commands/018-read/request.json",
+      "copy": "work/phase-context/execute/commands/018-read/request.json",
+      "sha256": "a47df29b874c8286e2e9a0cd03140c22782569d5f3f8ee6b964b2c7bd2c1acae"
+    },
+    {
+      "source": "execute/commands/018-read/result.json",
+      "copy": "work/phase-context/execute/commands/018-read/result.json",
+      "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0"
+    },
+    {
+      "source": "execute/commands/019-bash/output.log",
+      "copy": "work/phase-context/execute/commands/019-bash/output.log",
+      "sha256": "4643f97b690d277b8cfa722963d5898b258f75e97f29ee39140877408a4504f0"
+    },
+    {
+      "source": "execute/commands/019-bash/request.json",
+      "copy": "work/phase-context/execute/commands/019-bash/request.json",
+      "sha256": "279714f117c765d1a73c5049be82a73fcbd4b1f2b164b04c77e08976269cee9b"
+    },
+    {
+      "source": "execute/commands/019-bash/result.json",
+      "copy": "work/phase-context/execute/commands/019-bash/result.json",
+      "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0"
+    },
+    {
+      "source": "execute/commands/020-bash/output.log",
+      "copy": "work/phase-context/execute/commands/020-bash/output.log",
+      "sha256": "bc3ff5bfbcee0489e04d39cb17eb3cefee8eab8f9837bbd60cf25660cf927ed4"
+    },
+    {
+      "source": "execute/commands/020-bash/request.json",
+      "copy": "work/phase-context/execute/commands/020-bash/request.json",
+      "sha256": "22c66f284cf70474bd5480f16bc96b3fc5b960d654ab2f91d4d19841d04d03d9"
+    },
+    {
+      "source": "execute/commands/020-bash/result.json",
+      "copy": "work/phase-context/execute/commands/020-bash/result.json",
+      "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0"
+    },
+    {
+      "source": "execute/commands/021-bash/output.log",
+      "copy": "work/phase-context/execute/commands/021-bash/output.log",
+      "sha256": "9f13d3da04f4ba368da318653f1893616c7ec644745d44c8281ec1a792e0bfb5"
+    },
+    {
+      "source": "execute/commands/021-bash/request.json",
+      "copy": "work/phase-context/execute/commands/021-bash/request.json",
+      "sha256": "b3d831e147e0602a4ca44c7c04138e0d05b6ea467c7f83317cb090ea7f9be859"
+    },
+    {
+      "source": "execute/commands/021-bash/result.json",
+      "copy": "work/phase-context/execute/commands/021-bash/result.json",
+      "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0"
+    },
+    {
+      "source": "execute/commands/022-bash/output.log",
+      "copy": "work/phase-context/execute/commands/022-bash/output.log",
+      "sha256": "42aa712fa1cd73c5faa7641c9f1976d81b00812651ab9def123f630ffe8d3ebe"
+    },
+    {
+      "source": "execute/commands/022-bash/request.json",
+      "copy": "work/phase-context/execute/commands/022-bash/request.json",
+      "sha256": "a5705720c269b6459cb7515b088e0d398ade3e83ace9280062060fa290e37947"
+    },
+    {
+      "source": "execute/commands/022-bash/result.json",
+      "copy": "work/phase-context/execute/commands/022-bash/result.json",
+      "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0"
+    },
+    {
+      "source": "execute/commands/023-bash/output.log",
+      "copy": "work/phase-context/execute/commands/023-bash/output.log",
+      "sha256": "e6fbf9969e82e609da310d7daf3f5b7b493e05a4581fe61f04493634ad75af30"
+    },
+    {
+      "source": "execute/commands/023-bash/request.json",
+      "copy": "work/phase-context/execute/commands/023-bash/request.json",
+      "sha256": "749b5328057498b729558d8e55b6d9de379b3f37204357554f26a70ce9522cba"
+    },
+    {
+      "source": "execute/commands/023-bash/result.json",
+      "copy": "work/phase-context/execute/commands/023-bash/result.json",
+      "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0"
+    },
+    {
+      "source": "execute/commands/024-bash/output.log",
+      "copy": "work/phase-context/execute/commands/024-bash/output.log",
+      "sha256": "bdde16b6e5cc357b581eaa4b0c9fb67af1f8c361ed7415007bd6f39f267a2024"
+    },
+    {
+      "source": "execute/commands/024-bash/request.json",
+      "copy": "work/phase-context/execute/commands/024-bash/request.json",
+      "sha256": "602e2e919451e9d1a0b101f02f5112583dc5b5e5d89abafc7057dac0f9704d33"
+    },
+    {
+      "source": "execute/commands/024-bash/result.json",
+      "copy": "work/phase-context/execute/commands/024-bash/result.json",
+      "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0"
+    },
+    {
+      "source": "execute/commands/025-bash/output.log",
+      "copy": "work/phase-context/execute/commands/025-bash/output.log",
+      "sha256": "78a92703fb65362020cc7df4c0f9209f8c8b2145249a689642071cd50045738d"
+    },
+    {
+      "source": "execute/commands/025-bash/request.json",
+      "copy": "work/phase-context/execute/commands/025-bash/request.json",
+      "sha256": "ab999e6d63e788e9198df659b9c108dfed753b88b2ebcdf99ab7f605037cfa7f"
+    },
+    {
+      "source": "execute/commands/025-bash/result.json",
+      "copy": "work/phase-context/execute/commands/025-bash/result.json",
+      "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0"
+    },
+    {
+      "source": "execute/commands/026-write/output.log",
+      "copy": "work/phase-context/execute/commands/026-write/output.log",
+      "sha256": "683d65dc7761be9b669395b08a0c7ec5d61489b53695aa07a3356f40d17b88d0"
+    },
+    {
+      "source": "execute/commands/026-write/request.json",
+      "copy": "work/phase-context/execute/commands/026-write/request.json",
+      "sha256": "d5535974f10f63e12beb133d22928e77d97211f0d3f4e5e48af5d7949874554c"
+    },
+    {
+      "source": "execute/commands/026-write/result.json",
+      "copy": "work/phase-context/execute/commands/026-write/result.json",
+
+[truncated; total lines=512, selected=1:400; request a later offset]

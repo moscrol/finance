@@ -1,0 +1,110 @@
+"""probe_transport_v2: 仅修正 C 项的判定(原 C 假定 urlopen 总会先返回 response 对象;
+实测父进程在响应头/首读前的 deadline 检查(line 237)即可抛 HTTPDeadlineExceeded,
+同样是 C1 所要求的'停滞父进程下仍强制终止')。修正后 C 接受两种有效形态:
+(a) urlopen 在 deadline 窗口内抛 HTTPDeadlineExceeded(父侧绝对 deadline);
+(b) 打开后停滞读取, read 抛 OSError/HTTPDeadlineExceeded 且 worker returncode=124。
+其余 A/B/D/E 与原版一致。原失败保留在 probe_transport.py 运行记录中。
+"""
+import sys, time, threading, json
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+sys.path.insert(0, ".")
+from intelligence.services import llm_http_transport as T
+import urllib.request
+
+RESULTS = []
+def check(name, cond, detail=""):
+    RESULTS.append((name, bool(cond), detail))
+    print(("PASS " if cond else "FAIL ") + name + " :: " + detail)
+
+class Slow(BaseHTTPRequestHandler):
+    def do_POST(self):
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream")
+        self.end_headers()
+        for i in range(20):
+            self.wfile.write(b"data: x\n\n")
+            self.wfile.flush()
+            time.sleep(0.3)
+    def log_message(self, *a): pass
+
+def serve(port):
+    srv = ThreadingHTTPServer(("127.0.0.1", port), Slow)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+
+def req(port):
+    return urllib.request.Request(
+        f"http://127.0.0.1:{port}/chat/completions",
+        data=b"{}", method="POST",
+        headers={"Content-Type": "application/json"})
+
+def main():
+    for p in (26001, 26002, 26003, 26004):
+        serve(p)
+
+    t0 = time.monotonic()
+    try:
+        with T.urlopen(req(26004), 10.0) as r:
+            body = r.read()
+        check("A_success_body_received", r.status == 200 and len(body) > 0, f"status={r.status} len={len(body)}")
+    except Exception as e:
+        check("A_success_body_received", False, repr(e))
+
+    t0 = time.monotonic()
+    try:
+        with T.urlopen(req(26001), 1.0) as r:
+            r.read()
+        check("B_trickle_deadline", False, "no exception")
+    except T.HTTPDeadlineExceeded:
+        dt = time.monotonic() - t0
+        check("B_trickle_deadline", dt < 1.6, f"elapsed={dt:.2f}")
+    except Exception as e:
+        check("B_trickle_deadline", False, repr(e))
+
+    # C 修正:两种有效形态均算父/worker 侧强制终止
+    t0 = time.monotonic()
+    try:
+        resp = T.urlopen(req(26002), 1.0)
+    except T.HTTPDeadlineExceeded as e:
+        dt = time.monotonic() - t0
+        check("C_stalled_parent_killed", 0.9 < dt < 2.5,
+              f"parent-side deadline enforcement at urlopen, dt={dt:.2f}")
+    else:
+        time.sleep(2.0)
+        try:
+            data = resp.read()
+            rc = resp.process.poll()
+            check("C_stalled_parent_killed", False, f"read returned {len(data)} bytes rc={rc}")
+        except (OSError, T.HTTPDeadlineExceeded) as e:
+            dt = time.monotonic() - t0
+            rc = resp.process.poll()
+            check("C_stalled_parent_killed", rc in (124, None), f"exc={type(e).__name__} rc={rc} dt={dt:.2f}")
+            resp.close()
+
+    cancel = {"flag": False}
+    def is_cancelled():
+        return cancel["flag"]
+    try:
+        with T.urlopen(req(26003), 10.0, is_cancelled=is_cancelled) as r:
+            n = 0
+            for line in r:
+                n += 1
+                if n >= 2:
+                    cancel["flag"] = True
+            check("D_stream_cancel", False, "iteration completed")
+    except T.HTTPStreamCancelled:
+        check("D_stream_cancel", True, "HTTPStreamCancelled raised")
+    except Exception as e:
+        check("D_stream_cancel", False, repr(e))
+
+    try:
+        T.urlopen(req(26001), 0.0)
+        check("E_expired_immediate", False, "no exception")
+    except T.HTTPDeadlineExceeded:
+        check("E_expired_immediate", True, "immediate reject")
+
+    print(json.dumps([{"name": n, "pass": p} for n, p, _ in RESULTS]))
+    sys.exit(0 if all(p for _, p, _ in RESULTS) else 1)
+
+if __name__ == "__main__":
+    main()

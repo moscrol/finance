@@ -1,0 +1,74 @@
+{
+  "status": "PREPARED_NOT_AUTHORIZED",
+  "source_archive": "/Users/a77/.finance-runtime/reviews/pr868-repaired-20260923-2111/candidate/docs/verification/2026-09-23-adaptive-qc-glm-roundtrip",
+  "sealed_inputs_checked": 44,
+  "real_model_requests": 0,
+  "prior_stage_receipts_inherited": false,
+  "prior_model_outputs_inherited": false,
+  "historical_author_inputs_preserved": true,
+  "delivery_identity_owner": "controller; reviewer identity fields are forbidden",
+  "stage_tools": {
+    "gateway": [
+      "read",
+      "write"
+    ],
+    "explore": [
+      "read",
+      "write",
+      "deliver_stage"
+    ],
+    "execute": [
+      "read",
+      "write",
+      "bash",
+      "deliver_stage"
+    ],
+    "report": [
+      "deliver_stage"
+    ]
+  },
+  "inputs_sha256": {
+    "bridge_stage.py": "813efd28af383f17d92e708eb8b0e263a3d908dd4d1d0b6e2d61638a72784f3b",
+    "glm_credential.py": "f1ec56c9da53d644a0a4de09d413faadd83d99302296f3cee9bd8186565616c6",
+    "glm_review_shim.py": "5c26084237b366b9d7b758f7811536a767819b4d23c5fd72f54785014e9c28b5",
+    "probe_adapter.py": "96404d5b18ac2d0fcf18084a5d00de8301b09672eda2c45823f8f349fe08406d",
+    "quality/config.json": "c1b7396f22e674f8fdc11f5090d6d4fd5bc415fa4b531947b3455444e4594ec8",
+    "quality/file_tool.py": "79125feff76d98407e3bf1d36cfa56c0086863bc0591afa499f3580a6dcf8972",
+    "quality/gateway.mjs": "2f2deb572077f10125deb0ca4d6766f3c1ac4732285a329d8b256261a0310d7a",
+    "quality/inputs/author-pytest-receipt.json": "7c36b18bf8bbc09d9d71ec35782739f7faafdf0af32f732b73367adc9e996243",
+    "quality/inputs/author-summary.json": "40fb288b7e6ddee6183de2d6257a0e7f098d10949a3e19d54e933cc97377b046",
+    "quality/inputs/claims.md": "96beba579149a696a1aec31013e2940273ffbd3a20a87ea96f1253eeb56a344a",
+    "quality/inputs/code-tip-to-candidate.diffstat.txt": "6a1bb21e0faa7c443e22ba874216d75e21c2829af9e71380921d6dc4f065d695",
+    "quality/inputs/source-index.json": "aca25702df056afb41aee14761e6e65b8b80d8265e859c495ce479217718c7cd",
+    "quality/pi-config/settings.json": "cda612a59b9d61dc644867021e8a5284dc7a6040e65eadab9b883ae78406b417",
+    "quality/prompt-execute.md": "4dc583992a5c35b56d5aa292bc7bbb93445a953ae0cb488199c220264e185f9a",
+    "quality/prompt-explore.md": "8bec07ee84c4f597ccaee99d6831bf1e8a94e2d0d66327851d9fb518e4655a4f",
+    "quality/prompt-report.md": "d80a553f73acfd743f8e3f18567ffb4bc94d53a6664b0763dcf9eaf908bc074c",
+    "quality/provider-template.json": "28ca3ac313311c8e9920042af58d32fdc38ca1703fad85fd15a4269087e32827",
+    "quality/review.mjs": "7cb9e4921e4a1918f4f45ff4d949a2de5bccc0de7ed3d8e52fb8ebd55250b803",
+    "quality/run_control.py": "d13160d41e0018a6f112e0b3539902aafb3d58849a6c8265c2d5f6900346cc8b",
+    "quality/run_stage.py": "7649b9604733be3e23bd91732aec323ef399de397d0b3ea4c4d19c41f80d8b2e",
+    "quality/sandbox_preflight.mjs": "dc32262cdfaa595dc1b5b1a58ac3503293add781aa528f78a77729d5fde5cded",
+    "quality/tools.sb": "0451d008a78fd8d6b16f5cdcba4bfa0b31d98f8f36e190277ec01801d61a559a",
+    "spec/config.json": "010816a5840d49d4e7e51c6e6f505f65a1fb74dab8458197e2a66913ffa5aa52",
+    "spec/file_tool.py": "79125feff76d98407e3bf1d36cfa56c0086863bc0591afa499f3580a6dcf8972",
+    "spec/gateway.mjs": "2f2deb572077f10125deb0ca4d6766f3c1ac4732285a329d8b256261a0310d7a",
+    "spec/inputs/author-pytest-receipt.json": "7c36b18bf8bbc09d9d71ec35782739f7faafdf0af32f732b73367adc9e996243",
+    "spec/inputs/author-summary.json": "40fb288b7e6ddee6183de2d6257a0e7f098d10949a3e19d54e933cc97377b046",
+    "spec/inputs/claims.md": "96beba579149a696a1aec31013e2940273ffbd3a20a87ea96f1253eeb56a344a",
+    "spec/inputs/code-tip-to-candidate.diffstat.txt": "6a1bb21e0faa7c443e22ba874216d75e21c2829af9e71380921d6dc4f065d695",
+    "spec/inputs/source-index.json": "aca25702df056afb41aee14761e6e65b8b80d8265e859c495ce479217718c7cd",
+    "spec/pi-config/settings.json": "cda612a59b9d61dc644867021e8a5284dc7a6040e65eadab9b883ae78406b417",
+    "spec/prompt-execute.md": "d6382b61d6e71b3b98685d0c86ebccc428937c701788bd211e49a4c7bad98e0f",
+    "spec/prompt-explore.md": "df07fba7b994379df8c01b3b3c7bd4da34639697fef9e5e4515609352d52a3ac",
+    "spec/prompt-report.md": "52db7decff3bbdefe326409a5fa908eb74f6b82a3b622f62b4983b4b1db231d1",
+    "spec/provider-template.json": "28ca3ac313311c8e9920042af58d32fdc38ca1703fad85fd15a4269087e32827",
+    "spec/review.mjs": "7cb9e4921e4a1918f4f45ff4d949a2de5bccc0de7ed3d8e52fb8ebd55250b803",
+    "spec/run_control.py": "d13160d41e0018a6f112e0b3539902aafb3d58849a6c8265c2d5f6900346cc8b",
+    "spec/run_stage.py": "7649b9604733be3e23bd91732aec323ef399de397d0b3ea4c4d19c41f80d8b2e",
+    "spec/sandbox_preflight.mjs": "dc32262cdfaa595dc1b5b1a58ac3503293add781aa528f78a77729d5fde5cded",
+    "spec/tools.sb": "d675a1fb607c8735aa49b1a4d0bafd37b2b48f30423f9f76eb0be4f2193b55db",
+    "spec/pi_review_protocol.mjs": "05360fd5433f0af6f6a8c5c8c37289a3008be1803d9e898a4caef62049e03492",
+    "quality/pi_review_protocol.mjs": "05360fd5433f0af6f6a8c5c8c37289a3008be1803d9e898a4caef62049e03492"
+  }
+}

@@ -1,0 +1,161 @@
+# -*- coding: utf-8 -*-
+"""独立探针 A：C1/C6 传输层 urlopen 行为(不运行于本阶段)。
+
+边界: 真实 subprocess worker + 本地回环假 HTTP (127.0.0.1:26001/26002/26003,
+全部在许可端口段内)。
+用例:
+ A1 成功路径: 快速响应可完整读回 (positive success)。
+ A2 流式读受绝对单调 deadline: 服务器 trickling 超过 deadline -> HTTPDeadlineExceeded。
+ A3 取消: is_cancelled 在流中途翻 True -> HTTPStreamCancelled。
+ A4 已过期 deadline: expires_at 在过去 -> 立即 HTTPDeadlineExceeded, 不建连。
+ A5 父进程停读/慢消费: 父不消费时 worker Timer os._exit(124) 终止 (stalled-parent)。
+ A6 子进程启动计入预算: timeout=10 但共享 deadline 仅 0.5s, 上游 ~2.9s ->
+    必须在 ~0.5s 截止 (证明 startup+请求全程在预算内, C6 包含关系)。
+"""
+import http.server
+import sys
+import threading
+import time
+import urllib.request
+
+sys.path.insert(0, ".")
+from intelligence.services import llm_http_transport as T
+
+PORT_FAST, PORT_TRICKLE, PORT_SLOW = 26001, 26002, 26003
+
+
+class Handler(http.server.BaseHTTPRequestHandler):
+    protocol_version = "HTTP/1.1"
+    mode = "fast"
+
+    def do_POST(self):
+        self.rfile.read(int(self.headers.get("Content-Length", 0) or 0))
+        if Handler.mode == "fast":
+            body = b'{"ok": true}'
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+        elif Handler.mode == "trickle":
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream")
+            self.send_header("Transfer-Encoding", "chunked")
+            self.end_headers()
+            for _ in range(40):  # 每 0.1s 一小片, 共 ~4s
+                self.wfile.write(b"3\r\ndata\r\n\r\n".replace(b"data", b"abc"))
+                self.wfile.flush()
+                time.sleep(0.1)
+        else:  # slow
+            time.sleep(2.9)
+            body = b'{"late": true}'
+            self.send_response(200)
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+    def log_message(self, *a):
+        pass
+
+
+def serve(port):
+    srv = http.server.ThreadingHTTPServer(("127.0.0.1", port), Handler)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    return srv
+
+
+def req(port, body=b"{}"):
+    return urllib.request.Request(
+        f"http://127.0.0.1:{port}/chat/completions", data=body,
+        headers={"Content-Type": "application/json"}, method="POST")
+
+
+def main():
+    results = []
+
+    def check(name, cond, detail=""):
+        results.append((name, bool(cond), detail))
+        print(("PASS" if cond else "FAIL"), name, detail)
+
+    serve(PORT_FAST); serve(PORT_TRICKLE); serve(PORT_SLOW)
+    time.sleep(0.3)
+
+    # A1 成功
+    Handler.mode = "fast"
+    t0 = time.monotonic()
+    with T.urlopen(req(PORT_FAST), 5.0) as r:
+        body = r.read()
+    check("A1_success", body == b'{"ok": true}' and r.status == 200,
+          f"status={r.status} elapsed={time.monotonic()-t0:.2f}s")
+
+    # A2 trickling 超窗
+    Handler.mode = "trickle"
+    t0 = time.monotonic()
+    try:
+        with T.urlopen(req(PORT_TRICKLE), 1.0) as r:
+            for _ in r:
+                pass
+        check("A2_deadline", False, "no exception")
+    except T.HTTPDeadlineExceeded:
+        check("A2_deadline", True, f"elapsed={time.monotonic()-t0:.2f}s (期望~1s 非4s)")
+    except Exception as e:
+        check("A2_deadline", False, f"wrong exc {type(e).__name__}")
+
+    # A3 流中取消
+    state = {"cancelled": False}
+    t0 = time.monotonic()
+    try:
+        with T.urlopen(req(PORT_TRICKLE), 10.0, is_cancelled=lambda: state["cancelled"]) as r:
+            for i, _ in enumerate(r):
+                if i == 3:
+                    state["cancelled"] = True
+        check("A3_cancel", False, "no exception")
+    except T.HTTPStreamCancelled:
+        check("A3_cancel", True, f"elapsed={time.monotonic()-t0:.2f}s (远小于10s)")
+    except Exception as e:
+        check("A3_cancel", False, f"wrong exc {type(e).__name__}")
+
+    # A4 过期 deadline
+    class PastDeadline:
+        expires_at = time.monotonic() - 1.0
+    t0 = time.monotonic()
+    try:
+        T.urlopen(req(PORT_FAST), 10.0, deadline=PastDeadline())
+        check("A4_past", False, "no exception")
+    except T.HTTPDeadlineExceeded:
+        check("A4_past", True, f"immediate elapsed={time.monotonic()-t0:.3f}s")
+
+    # A5 stalled parent: 打开后不读, worker 自身 Timer 到期 os._exit(124)
+    Handler.mode = "trickle"
+    with T.urlopen(req(PORT_TRICKLE), 1.5) as r:
+        time.sleep(3.0)  # 父进程停读超过 deadline
+        rc = r.process.returncode
+        try:
+            r._receive()
+        except (OSError, T.HTTPDeadlineExceeded) as e:
+            err = type(e).__name__
+        else:
+            err = "none"
+    check("A5_worker_exit_124", rc == 124 or r.process.poll() == 124,
+          f"returncode={rc} later_read_exc={err}")
+
+    # A6 启动计入预算: timeout 片 10s, 共享 deadline 0.5s, 上游 ~2.9s
+    Handler.mode = "slow"
+    class ShortDeadline:
+        expires_at = time.monotonic() + 0.5
+    t0 = time.monotonic()
+    try:
+        with T.urlopen(req(PORT_SLOW), 10.0, deadline=ShortDeadline()) as r:
+            r.read()
+        check("A6_startup_in_budget", False, "no exception")
+    except T.HTTPDeadlineExceeded:
+        el = time.monotonic() - t0
+        check("A6_startup_in_budget", el < 1.5, f"elapsed={el:.2f}s (期望~0.5s 含启动)")
+
+    fails = [n for n, ok, _ in results if not ok]
+    print(f"SUMMARY probe_a: {len(results)-len(fails)}/{len(results)} passed")
+    sys.exit(1 if fails else 0)
+
+
+if __name__ == "__main__":
+    main()

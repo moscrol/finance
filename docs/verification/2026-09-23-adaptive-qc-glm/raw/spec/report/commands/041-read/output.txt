@@ -1,0 +1,81 @@
+672:    correlated_judge: bool = False
+762:            "correlated_judge": self.correlated_judge,
+1180:    correlated: bool
+1693:                # A correlated judge cannot certify changed calculation bytes.
+1924:                correlated_judge=False,
+1942:                correlated_judge=False,
+1965:                correlated_judge=False,
+1985:                correlated_judge=False,
+2065:                    correlated_judge=False,
+2087:                    correlated_judge=False,
+2153:                    correlated_judge=first.correlated,
+2170:                    correlated_judge=first.correlated,
+2200:                    correlated_judge=first.correlated,
+2219:                correlated_judge=first.correlated,
+2252:                correlated_judge=first.correlated,
+2283:                    correlated_judge=first.correlated,
+2314:            correlated_judge=first.correlated,
+2345:                    correlated_judge=first.correlated,
+2374:        correlated = first.correlated or second.correlated
+2390:                correlated_judge=correlated,
+                    return self._clocked_judge_call(
+                        asked=attempt_timeout,
+                        judge_attempt_index=attempt,
+                        remaining=remaining_at_entry,
+                        correlated=False,
+                        unavailable=False,
+                        report=report,
+                        monotonic_release_safe=prior_failures_release_safe,
+                    )
+                failure = reason or "invalid semantic judge output"
+                issue, retryable, release_safe = _stable_semantic_judge_error(failure)
+                should_retry = _should_retry_semantic_judge(
+                    attempt,
+                    retryable=retryable,
+                    release_safe=release_safe,
+                    prior_failures_release_safe=prior_failures_release_safe,
+                    deadline=deadline,
+                )
+                prior_failures_release_safe &= release_safe
+                if not should_retry and _next_slot_switches_judge(
+                    attempt, len(providers), len(attempt_timeouts), deadline
+                ):
+                    # 同上：链上还有备胎时不在主判官身上判死刑。
+                    should_retry = True
+                last_failure = self._clocked_judge_call(
+                    asked=attempt_timeout,
+                    judge_attempt_index=attempt,
+                    remaining=remaining_at_entry,
+                    correlated=False,
+                    unavailable=True,
+                    issue=issue,
+                    failure=failure,
+                    transient_provider_failure=prior_failures_release_safe,
+                    monotonic_release_safe=prior_failures_release_safe,
+                )
+                if should_retry:
+                    continue
+                return last_failure
+            return self._clocked_judge_call(
+                asked=None,
+                remaining=_deadline_remaining_seconds(deadline),
+                correlated=False,
+                unavailable=True,
+                issue="semantic judge unavailable",
+                last_dispatched_failure=last_failure,
+            )
+
+        # Explicit injection is the deterministic test/canary seam only when
+        # no independent LLM_JUDGE provider is configured.  It is correlated
+        # because it normally shares the primary composer model.
+        if self._judge_fn is not None:
+            remaining_at_entry = _deadline_remaining_seconds(deadline)
+            asked = deadline.synthesis_timeout(attempt_timeouts[0])
+            return self._invoke_injected(
+                self._judge_fn,
+                request,
+                asked,
+                True,
+                timeout_configured=attempt_cap,
+                remaining_seconds_at_entry=remaining_at_entry,
+            )

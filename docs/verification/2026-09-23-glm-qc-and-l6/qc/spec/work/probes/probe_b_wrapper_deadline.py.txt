@@ -1,0 +1,121 @@
+# -*- coding: utf-8 -*-
+"""独立探针 B：C2/C4 包装层转发共享 deadline(不运行于本阶段)。
+
+边界: llm_refine 五个调用点的公共出口 _open_deadline_http_response。
+B1 间谍探针: http_transport_override 注入记录器, 调 _post_chat, 断言
+   (a) 确实经由该出口 (无旁路); (b) 转发的 deadline 是共享 deadline 对象
+   本身, 其 expires_at ~= now+0.5, 而 timeout 参数是 10 (两个来源值不同,
+   排除"同值夹具巧合"伪证)。
+B2 行为探针: 不注入, 走真实 subprocess worker + 本地假 HTTP(127.0.0.1:26004,
+   ~2.9s 上游)。deadline=0.5s, timeout 片 10s -> 必须 ~0.5s 内抛
+   LLMDeadlineExceeded, 早于 2.9s 完成。若未转发共享 deadline 则会 2.9s 成功
+   —— 用行为差异检测缺失转发 (C4 要求)。
+B3 对照: 无共享 deadline、timeout=5s 时同一上游成功 (positive control)。
+"""
+import http.server
+import json
+import sys
+import threading
+import time
+
+sys.path.insert(0, ".")
+from intelligence.services import llm_http_transport
+from intelligence.services import llm_refine as R
+
+PORT = 26004
+
+
+class Handler(http.server.BaseHTTPRequestHandler):
+    protocol_version = "HTTP/1.1"
+
+    def do_POST(self):
+        self.rfile.read(int(self.headers.get("Content-Length", 0) or 0))
+        time.sleep(2.9)
+        body = json.dumps({"choices": [{"message": {"content": "ok"},
+                                        "finish_reason": "stop"}]}).encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def log_message(self, *a):
+        pass
+
+
+def main():
+    results = []
+
+    def check(name, cond, detail=""):
+        results.append((name, bool(cond), detail))
+        print(("PASS" if cond else "FAIL"), name, detail)
+
+    srv = http.server.ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    time.sleep(0.3)
+
+    prov = R.LLMProvider(name="fake", api_key="k",
+                         base_url=f"http://127.0.0.1:{PORT}", model="m")
+    msgs = [{"role": "user", "content": "hi"}]
+
+    # B1 间谍: 转发参数
+    seen = []
+
+    def spy(request, timeout, *, deadline=None, is_cancelled=None, **kw):
+        seen.append({"timeout": timeout, "deadline": deadline,
+                     "is_cancelled": is_cancelled})
+
+        class FakeResp:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+            def read(self):
+                return json.dumps(
+                    {"choices": [{"message": {"content": "ok"}}]}).encode()
+
+        return FakeResp()
+
+    shared = R.Deadline(time.monotonic() + 0.5)
+    t0 = time.monotonic()
+    with R.http_transport_override(spy):
+        R._post_chat(prov, msgs, 10.0, deadline=shared)
+    f = seen[0]
+    check("B1_via_wrapper_no_bypass", len(seen) == 1)
+    check("B1_shared_deadline_forwarded",
+          f["deadline"] is shared and abs((f["deadline"].expires_at - t0) - 0.5) < 0.2,
+          f"timeout={f['timeout']} expires_at_delta="
+          f"{(f['deadline'].expires_at - t0):.3f}")
+    check("B1_slice_distinct", f["timeout"] == 10.0, f"timeout={f['timeout']}")
+
+    # B2 行为: 共享 0.5s 压过 10s 片, 上游 2.9s
+    t0 = time.monotonic()
+    shared2 = R.Deadline(time.monotonic() + 0.5)
+    try:
+        R._post_chat(prov, msgs, 10.0, deadline=shared2)
+        check("B2_shared_deadline_behavior", False, "no exception -> 转发失效")
+    except R.LLMDeadlineExceeded:
+        el = time.monotonic() - t0
+        check("B2_shared_deadline_behavior", el < 2.0,
+              f"elapsed={el:.2f}s (须早于2.9s)")
+    except Exception as e:
+        check("B2_shared_deadline_behavior", False, f"wrong exc {type(e).__name__}")
+
+    # B3 对照: 无共享 deadline, timeout 5s -> 成功
+    t0 = time.monotonic()
+    try:
+        out = R._post_chat(prov, msgs, 5.0)
+        check("B3_control_success", out == "ok",
+              f"content={out[:10]} elapsed={time.monotonic()-t0:.2f}s")
+    except Exception as e:
+        check("B3_control_success", False, f"{type(e).__name__}: {e}")
+
+    fails = [n for n, ok, _ in results if not ok]
+    print(f"SUMMARY probe_b: {len(results)-len(fails)}/{len(results)} passed")
+    sys.exit(1 if fails else 0)
+
+
+if __name__ == "__main__":
+    main()

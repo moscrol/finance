@@ -1,0 +1,5 @@
+Traceback (most recent call last):
+  File "/Users/a77/.finance-runtime/reviews/pr868-k3-qc-20260923-1607/quality/work/sandbox_check.py", line 19, in <module>
+    s=socket.socket(); s.bind(('127.0.0.1',26001)); s.listen(1)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+OSError: [Errno 48] Address already in use

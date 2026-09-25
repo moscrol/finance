@@ -1,0 +1,7 @@
+{
+  "writer_requested": "glm-5.3",
+  "writer_gateway": "http://127.0.0.1:19898/v1",
+  "judge_requested": "glm-5.3-flash",
+  "semantic_judge_mode": "llm",
+  "evidence_judge_mode": "auto"
+}
