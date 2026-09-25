@@ -4,6 +4,8 @@
 
 ## 结论
 
+以下生产状态是本报告原采样时的历史结果。09-25续推对readiness探测15秒超时，当前状态UNKNOWN；没有把历史503沿用成当前结论。
+
 | 对象 | 本轮结果 | 证据与边界 |
 |---|---|---|
 | 生产 readiness | FAIL | 首尾 GET 均 HTTP 503，`missing_critical=[market_data_consistency]`；health 200 不抵消此失败 |
@@ -45,7 +47,7 @@ SPT 的 PASS 不证明人工审批权属、手工框架字段、方法卡生成�
 3. Perspective owner：按 `perspective-fengyuan.json` 的十个 patch ID 查清删除/改写意图，另审无 patch 票据的人工条目与结构化框架。应保留的才重新审批；应撤回的补齐撤回/替代记录，审计分支不代批。
 4. 生产和预算前置满足后，按规格执行六类输入及纠正/跨用户两例真入口消费。卖方、Knevo 仍沿原 owner 在途工单推进。本轮不声称它们的新生产验收已经完成。
 5. 用户纠正台账 → `memory_lookup`、跨用户隔离与撤回的离线前置见 `docs/verification/2026-09-25-user-memory-consumption/README.md`。只证明当时已有台账读取链，后续写侧/自动预取另见下一项。
-6. Workbench P0纠偏写侧与P1记忆开口读侧已在审计分支完成临时根验收（`9533417c3`，干净641P）；下一轮首请求可自动收到新写的相关纠偏，空/超时/失败分别为缺口。见 `docs/verification/2026-09-25-workbench-correction-ingest/README.md`。这是无模型装配/送达PASS，真实模型采用和金融质量UNKNOWN；未合main/部署。
+6. Workbench P0纠偏写侧与P1记忆开口读侧已在审计分支完成临时根验收（`9533417c3`，干净641P）；下一轮首请求可自动收到新写的相关纠偏，空/超时/失败分别为缺口。见 `docs/verification/2026-09-25-workbench-correction-ingest/README.md`。这是无模型装配/送达PASS，真实模型采用和金融质量UNKNOWN；未合main/部署。随后`3047cb1ee`补进程内HTTP入口三场景，干净794P；另开空会话排除历史回显，核对同用户/跨用户/撤回及Episode身份哈希，范围与主干漂移预检见同一纠偏报告，不签真实网络或浏览器UI。
 
 ## 精确重跑
 

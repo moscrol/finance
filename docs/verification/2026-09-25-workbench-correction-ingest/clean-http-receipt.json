@@ -1,0 +1,34 @@
+{
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "python_version": "3.12.13",
+  "dependency_fingerprint": "3328bed61f3e21ea",
+  "tree": "/Users/a77/fwp-wt-architecture-audit-0924",
+  "revision": "3047cb1ee2f9347aeb65142b8c484559d248c372",
+  "branch": "feat/architecture-audit-0924",
+  "dirty": false,
+  "dirty_paths": [],
+  "worktree_dirty_total": 0,
+  "dependency_gate_bypassed": false,
+  "target": "intelligence/tests/test_workbench_correction_http.py intelligence/tests/test_workbench_api.py intelligence/tests/test_workbench_conversation_integration.py intelligence/tests/test_memory_opening_prefetch.py intelligence/tests/test_workbench_correction_ingest.py intelligence/tests/test_episode_factory.py intelligence/tests/test_episode_tools.py intelligence/tests/test_episode_protocol.py intelligence/tests/test_episode_verifier.py intelligence/tests/test_user_memory.py intelligence/tests/test_corrections.py intelligence/tests/test_judgments.py intelligence/tests/test_memory_status.py intelligence/tests/test_e2_local_freeze.py intelligence/tests/test_e2_runtime_ceiling.py intelligence/tests/test_evidence_capabilities.py intelligence/tests/test_agent_episode.py intelligence/tests/test_conversation_orchestrator.py intelligence/tests/test_capability_wiring_closeout.py intelligence/tests/test_capability_monotonicity.py intelligence/tests/test_asof_prefetch_calendar.py intelligence/tests/test_asof_prefetch_dual_red.py intelligence/tests/test_asof_prefetch_regime_analog.py intelligence/tests/test_asof_prefetch_theme_snapshot.py",
+  "scope": {
+    "ignore": [],
+    "ignore_glob": [],
+    "deselect": [],
+    "keyword": "",
+    "markexpr": "",
+    "maxfail": 0,
+    "last_failed": false,
+    "collected": 794
+  },
+  "counts": {
+    "passed": 794,
+    "failed": 0,
+    "error": 0,
+    "skipped": 0,
+    "xfailed": 0,
+    "xpassed": 0
+  },
+  "failed_ids": [],
+  "exit_status": 0,
+  "finished_at": "2026-09-25T04:45:38+00:00"
+}
