@@ -66,6 +66,10 @@ def record_correction(
     principle: str | None = None,
     themes: list[str] | None = None,
     ts: str | None = None,
+    source: str | None = None,
+    conversation_id: str | None = None,
+    corrected_message_id: str | None = None,
+    plane: str | None = None,
 ) -> tuple[Path, dict[str, Any]]:
     """把一条纠正 append 到 ``corrections.jsonl``，返回 ``(path, record)``。
 
@@ -86,6 +90,14 @@ def record_correction(
         record["original"] = str(original).strip()
     if principle and str(principle).strip():
         record["principle"] = str(principle).strip()
+    for key, value in (
+        ("source", source),
+        ("conversation_id", conversation_id),
+        ("corrected_message_id", corrected_message_id),
+        ("plane", plane),
+    ):
+        if value and str(value).strip():
+            record[key] = str(value).strip()
     p.parent.mkdir(parents=True, exist_ok=True)
     with p.open("a", encoding="utf-8") as fh:
         fh.write(json.dumps(record, ensure_ascii=False) + "\n")

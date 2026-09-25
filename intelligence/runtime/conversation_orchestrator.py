@@ -112,6 +112,7 @@ from intelligence.services.tool_hunger import bind_run_hunger
 from intelligence.services import llm_refine
 from intelligence.services import output_review
 from intelligence.services import query_ledger
+from intelligence.services import workbench_correction_ingest
 from intelligence.services.llm_refine import LLMStreamCancelled
 from intelligence.services.lane_generation import (
     LaneAnswer,
@@ -1719,6 +1720,36 @@ def previous_turn_message(context: ConversationContext) -> Message | None:
     return None
 
 
+def previous_completed_assistant_message(
+    context: ConversationContext,
+) -> Message | None:
+    """Find the answer that the current user message could be correcting.
+
+    This intentionally does not reuse ``previous_turn_message``: that helper
+    finds the latest message with a turn intent, regardless of role/status.
+    """
+    for message in reversed(context.recent_messages):
+        if (
+            message.role == "assistant"
+            and message.status == "completed"
+            and message.content.strip()
+        ):
+            return message
+    return None
+
+
+def workbench_correction_guard_reason(user_id: str) -> str | None:
+    """Return the closed guard reason for the runtime-only write path."""
+    if os.environ.get("PYTEST_CURRENT_TEST"):
+        return "identity_skipped"
+    cleaned = str(user_id or "").strip()
+    if not cleaned or cleaned in {"golden-test", "tester"}:
+        return "identity_skipped"
+    if cleaned.startswith(("probe-", "fsr2-", "ablation-", "golden-")):
+        return "identity_skipped"
+    return None
+
+
 class TurnOrchestrator:
     def __init__(
         self,
@@ -1753,6 +1784,77 @@ class TurnOrchestrator:
         self.cancellation_reason = cancellation_reason or (lambda: None)
         self.event_id_prefix = event_id_prefix
         self.continuous_turn_adapter = continuous_turn_adapter
+
+    def _maybe_ingest_workbench_correction(
+        self,
+        *,
+        context: ConversationContext,
+        query: str,
+        conversation_id: str,
+        run_id: str,
+        assistant_message_id: str,
+        warnings: list[str],
+    ) -> None:
+        """Record a high-confidence user correction without blocking research."""
+        user_id = str(getattr(self.run_store, "user_id", "") or "")
+        guard_reason = workbench_correction_guard_reason(user_id)
+        if guard_reason is not None:
+            result = workbench_correction_ingest.CorrectionIngestResult(
+                "skipped", guard_reason
+            )
+        else:
+            previous = previous_completed_assistant_message(context)
+            previous_payload = None
+            if previous is not None:
+                previous_payload = {
+                    "message_id": previous.message_id,
+                    "role": previous.role,
+                    "status": previous.status,
+                    "content": previous.content,
+                }
+            try:
+                result = workbench_correction_ingest.maybe_record_workbench_correction(
+                    userspace.user_space(user_id).corrections_path,
+                    user_text=query,
+                    previous_assistant=previous_payload,
+                    conversation_id=conversation_id,
+                    corrected_message_id=(previous.message_id if previous else ""),
+                )
+            except Exception as exc:  # fail-open: research must still run
+                result = workbench_correction_ingest.CorrectionIngestResult(
+                    "failed",
+                    "write_failed",
+                    error_type=type(exc).__name__,
+                )
+
+        if result.status == "failed":
+            warning = "user_correction_ingest_failed"
+            warnings.append(warning)
+            try:
+                self.run_store.add_degrade(run_id, warning)
+            except Exception:
+                pass
+        if result.status == "skipped":
+            return
+        try:
+            step_id = (
+                "user_correction_recorded"
+                if result.status == "recorded"
+                else "user_correction_ingest_failed"
+            )
+            self._trace(
+                run_id,
+                assistant_message_id,
+                conversation_id,
+                step_id,
+                step_id,
+                result.to_trace(),
+                status="failed" if result.status == "failed" else "completed",
+            )
+        except Exception:
+            # The trace is observability; it must not turn a fail-open write
+            # side into a failed research turn.
+            pass
 
     def _publish_calculation_artifacts(
         self,
@@ -1907,6 +2009,14 @@ class TurnOrchestrator:
             )
             self.conversation_store.update_summary_text(
                 conversation_id, context.summary
+            )
+            self._maybe_ingest_workbench_correction(
+                context=context,
+                query=query,
+                conversation_id=conversation_id,
+                run_id=run_id,
+                assistant_message_id=assistant_message_id,
+                warnings=warnings,
             )
             inherited_message = previous_turn_message(context)
             inherited_intent = (
