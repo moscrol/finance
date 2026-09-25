@@ -2,22 +2,22 @@
 ## 这个分支做什么
 阶段A基线及B离线前置。母规格：`docs/superpowers/specs/2026-09-24-architecture-input-foundation-audit-spec.md`。
 ## 决策与被否方案
-扩既有HTTP夹具验异常，不新造召回或借#76预算。组件绿不代HTTP绿，旧收据不移签；资源拒绝不强行开测。决策：`docs/handoffs/2026-09-25-workbench-memory-faults.md`。
-保留merge历史及双方经验；成功夹具补输入，不放宽缺审计时WARN合同。SPT词面合同仍拒收。
+主干已有代码漂移，merge固定724028390而非只测旧HEAD；保留历史，不rebase移签收据。资源拒绝不强测、不排除其他agent，20分钟到限退出。
+理由与盘点：`docs/handoffs/2026-09-25-architecture-main724-integration.md`。
 ## 当前状态
-c367aa2a7的HTTP异常测试已在干净78b25943f执行通过，本轮未改代码。此前资源阻塞已解除；两测试进程结束，无后台等待器。
-证据：`docs/verification/2026-09-25-workbench-memory-faults/README.md`，新原件在validation-78b25943f，旧阻塞记录保留。未push/PR/合main/部署。
-本轮未fetch或重采生产；上轮主干64847b7a1只比已整合9d5b9800a多文档。上轮09:28Z health200但未认证身份，readiness超时，当前仍UNKNOWN。
+固定主干724028390已整合为bb556febd（第一父8e1d6fc28）。包含按模型推理强度/API预算及测试变化，未启用配置。静态PASS，但四叶BLOCKED且均未启动；等待器已退出，无本任务后台进程。
+证据与续跑：`docs/verification/2026-09-25-architecture-main724-integration/README.md`，8份原件。未push/PR/合回main/部署。
 ## 已验证
-78b25943f：HTTP22P；24文件相关回归824P/0F/0S（包含22项），两收据同SHA/解释器/依赖/干净树校验exit0，全仓Ruff通过。覆盖自适应on/off、坏台账、读失败/超时/busy/迟到、写入权限/磁盘满及恢复。
-旧698fd172d四叶PASS：16423P/0F/74S/2X、收集16499，前端123P、e2e34P/2S、registry五项0。只签旧SHA，不移签当前候选。
+bb556febd：干净树全仓Ruff、代码/文档差异检查exit0；20分钟41次资源观测全拒绝，磁盘高于门槛，阻塞为其他pytest。
+78b25943f：HTTP22P、24文件824P/0F/0S（包含22项），两收据校验通过，见workbench-memory-faults验收目录。只签旧SHA。
+698fd172d旧四叶PASS：16423P/0F/74S/2X，前端123P、e2e34P/2S、registry五项0；不移签。
 ## 未验证 / 已知边界
-当前候选无完整四叶；TestClient仍是合成上一答案、无回答替身，不签部署网络/UI、真实采用或金融质量，生产发布BLOCKED。
-未读写真实用户、补数/换库/建索引/恢复采集/新增模型；未动共享图谱。记忆授权/身份双闸、可选先验、非市场事实边界保留。
-SPT原画像1/3、挑战4P/8F拒收；风远替代关系及余42条来源待owner。#76判官不可用由原owner处理。
+当前组合无动态收据。HTTP仍是进程内合成上一答案，无回答替身；不签部署网络/UI、真实采用或金融质量，生产发布BLOCKED。
+本轮无生产请求、真实用户读写、补数/换库/建索引/恢复采集/新增模型；未动共享图谱。既有生产readiness仍UNKNOWN。
+SPT原画像1/3、挑战4P/8F拒收；风远替代关系及余42条来源待owner。#76第二批NOT_PASSED/数值预检问题归原owner，不借预算。
 ## 下一步
-1. 验收方复核届时主干与实际待合入候选，取得同SHA四叶及用户确认；不重复扩测试范围或把文档HEAD移签。
-2. 行情/KB/发布owner闭合前置，预算齐后分别验真实Workbench和CLI，再C/D。
-3. SPT画像/考卷走批准流程；风远沿Q-002。
+1. 不必重做本轮merge。先确认干净树与实际待测SHA，资源准入后跑现有前端/E2E、registry五项、全仓Python入口及完整收据校验。若在后继文档HEAD跑，只签实测版本。
+2. 四叶齐后复核届时主干、独立验收并等用户确认再合。期间不移动受测候选。
+3. 行情/KB/发布owner闭合前置，预算齐后分别验真实Workbench和CLI，再C/D；SPT走审批，风远沿Q-002。
 ## 踩过的坑
-资源采样先于启动，不是全机锁。空会话上下文含格式提示。线程只能有界等待，不能硬杀磁盘IO；顺序去重不签并发去重。824P包含22P，不能相加。
+资源采样先于启动，不是全机锁；历史PID不是当前事实。静态绿不代动态绿，未启动不算FAIL。空会话仍有格式提示；线程不能硬杀磁盘IO，顺序去重不签并发去重。
