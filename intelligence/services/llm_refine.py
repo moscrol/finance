@@ -1030,6 +1030,30 @@ def synthesis_thinking_disabled() -> bool:
 # 只在 GLM 出口的启动器里设；sol@cockpit 那条不设，请求体逐字节同前。
 REASONING_EFFORT_ENV = "LLM_REASONING_EFFORT"
 
+# 按模型设推理强度（2026-09-25）。全局 LLM_REASONING_EFFORT 让写手与判官一起变；#76 L6 两次
+# 自然运行（09-23 / 09-25）判官 glm-5.3-flash 非流式按默认强度思考，0/10 在 75s 单次上限内作答，
+# 写手 glm-5.3 流式同批 4.6–19.7s。本 env 形如「glm-5.3-flash:low」，逗号分隔，与
+# LLM_COMPAT_PAYLOAD 同一口径：首个命中的模型名前缀生效（更具体的前缀写前面），命中时压过全局值；
+# 未设或未命中，请求体与按推理档查的时限表逐字节同前。
+REASONING_EFFORT_BY_MODEL_ENV = "LLM_REASONING_EFFORT_BY_MODEL"
+
+
+def effective_reasoning_effort(model: str | None) -> str | None:
+    """该模型实际发出的 ``reasoning_effort``：按模型表优先，其次全局值；都没有返回 None。
+
+    请求体（``_apply_thinking_controls``）与按推理档查时限的 ``provider_latency`` 表必须读
+    同一个生效值，否则写手的合成保留 / 修复帽会按错误的档位算。
+    """
+
+    name = (model or "").strip().lower()
+    spec = str(os.environ.get(REASONING_EFFORT_BY_MODEL_ENV) or "").strip()
+    for clause in spec.split(","):
+        prefix, sep, effort = clause.partition(":")
+        prefix, effort = prefix.strip().lower(), effort.strip()
+        if sep and prefix and effort and name.startswith(prefix):
+            return effort
+    return str(os.environ.get(REASONING_EFFORT_ENV) or "").strip() or None
+
 # 2026-09-10 逐参数二分实测（8080 网关，kimi-k3）：system 消息、tools、
 # temperature=0.0 三者同现时约八成请求被上游拒答（HTTP 400/502，与内容、
 # thinking、tool_choice、中英文无关）；摘掉 temperature 字段或换 1.0 即恢复 200。
@@ -1076,7 +1100,7 @@ def _apply_compat_payload(payload: dict, *, model: str) -> None:
 def _apply_thinking_controls(payload: dict, *, disable_thinking: bool) -> None:
     """``thinking`` / ``reasoning_effort`` 两个键的唯一写入点。"""
 
-    effort = str(os.environ.get(REASONING_EFFORT_ENV) or "").strip()
+    effort = effective_reasoning_effort(payload.get("model"))
     if effort:
         payload["thinking"] = {"type": "enabled"}
         payload["reasoning_effort"] = effort
