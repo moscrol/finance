@@ -1,0 +1,4 @@
+{
+  "command": "/Users/a77/fwp-wt-pi-research/.venv-workbench/bin/python -B -m pytest -q -p no:cacheprovider --basetemp=/Users/a77/.finance-runtime/reviews/pr910-911-qc-20260925-01/spec/work/author-tmp --junitxml=/Users/a77/.finance-runtime/reviews/pr910-911-qc-20260925-01/spec/work/author-tests.xml tests/test_pi_review_repair.py::test_content_binding_rejects_malformed_or_forged_submissions tests/test_pi_review_repair.py::test_probe_validation_checks_canonical_files_without_rewriting intelligence/tests/conformance/test_research_chain.py intelligence/tests/test_workbench_research_chain.py",
+  "scope": "two pure protocol tests + two research suites; not full nested sandbox author suite"
+}

@@ -1,0 +1,15 @@
+{
+  "status": "INVALIDATED_NOT_AUTHORIZED",
+  "reason": "Agent incorrectly inferred paid-review authorization from the generic user instruction to proceed; the available handoff explicitly prohibited that inference.",
+  "paid_requests": 0,
+  "model_stages_started": 0,
+  "offline_execution_steps_started": 0,
+  "supervisor_pid": 27817,
+  "supervisor_terminated": true,
+  "source_state": "batch-state.before-stop.json",
+  "authorization_original": "authorization.invalidated-original.json",
+  "owner_correction_comment": 7080,
+  "original_owner_comment": 7076,
+  "reuse_allowed": false,
+  "next_action": "Select final candidate/base with owner, obtain explicit paid-review authorization, and prepare a new root with fresh offline admission. Do not resume this batch."
+}

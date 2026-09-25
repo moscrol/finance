@@ -1,0 +1,34 @@
+{
+  "tree": "/Users/a77/.finance-runtime/reviews/pr910-911-qc-20260925-01/candidate",
+  "python": "/Users/a77/fwp-wt-pi-research/.venv-workbench/bin/python",
+  "author": "/Users/a77/.finance-runtime/reviews/pr910-911-qc-20260925-01/candidate",
+  "revision": "fb41cebdaa6a186c14bd402f0f2dd83705f64421",
+  "baseline": "fe9fdbfd70a637efc5bcf0cfecf74080a8d6a90c",
+  "axis": "quality",
+  "thinking": "low",
+  "max_output_tokens": 8192,
+  "provider": "glm-direct-review",
+  "model": "glm-5.3",
+  "upstream_port": 443,
+  "upstream_url": "https://open.bigmodel.cn/api/coding/paas/v4",
+  "stage_tools": {
+    "gateway": [
+      "read",
+      "write"
+    ],
+    "explore": [
+      "read",
+      "write",
+      "deliver_stage"
+    ],
+    "execute": [
+      "read",
+      "write",
+      "bash",
+      "deliver_stage"
+    ],
+    "report": [
+      "deliver_stage"
+    ]
+  }
+}

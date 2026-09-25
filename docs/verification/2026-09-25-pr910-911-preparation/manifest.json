@@ -1,0 +1,222 @@
+{
+  "schema_version": 1,
+  "status": "INVALIDATED_NOT_AUTHORIZED",
+  "model_requests": 0,
+  "new_product_tests": 0,
+  "created_at": "2026-09-25T04:06:00.832994+00:00",
+  "candidate": "fb41cebdaa6a186c14bd402f0f2dd83705f64421",
+  "baseline": "fe9fdbfd70a637efc5bcf0cfecf74080a8d6a90c",
+  "files": [
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-qc-20260925-01/STOPPED.json",
+      "path": "raw/STOPPED.json",
+      "sha256": "a2d23ff4612ddbcf33ec50639667e9554ec855a487885e1b16443a3c7c042e69",
+      "bytes": 769
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-qc-20260925-01/authorization.json",
+      "path": "raw/authorization.json",
+      "sha256": "745a0f375750ae2cc6a071ddd0c731fc46f78bc3152fa654dcdc105ebe7ec9f2",
+      "bytes": 522
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-qc-20260925-01/authorization.invalidated-original.json",
+      "path": "raw/authorization.invalidated-original.json",
+      "sha256": "c0620cafe392d5811a1ee4dfa9081d38ddeb8c1f3e6cdd22694171a8500cb599",
+      "bytes": 841
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-qc-20260925-01/binding-manifest.json",
+      "path": "raw/binding-manifest.json",
+      "sha256": "35c67bb99b9c362e23e5f30707802120f6d387dd06c85f3fa49f4397563f914f",
+      "bytes": 5753
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-qc-20260925-01/batch-state.json",
+      "path": "raw/batch-state.json",
+      "sha256": "04cf4830b5ea962a7eb1a4d4b0667744dcafccb2fdc50cba43ca0603d9ab002f",
+      "bytes": 3020
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-qc-20260925-01/batch-state.before-stop.json",
+      "path": "raw/batch-state.before-stop.json",
+      "sha256": "b595da925b06f6261f1809b2c58f2b6a7a21ce072751fa66d06b5a64eef76afa",
+      "bytes": 2744
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-qc-20260925-01/started-once.json",
+      "path": "raw/started-once.json",
+      "sha256": "62ac0e31ca77b0aa7600a0e83f94ff4922c2067368074c56f7177194963846be",
+      "bytes": 327
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-qc-20260925-01/stop-verification.json",
+      "path": "raw/stop-verification.json",
+      "sha256": "528808e17d0063dc65a3bd36c5497498db8ebc8a606c5168b6944bc751955a5d",
+      "bytes": 2309
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-qc-20260925-01/review-plan.invalidated-original.md",
+      "path": "raw/review-plan.invalidated-original.md",
+      "sha256": "13f19297df63108e922b6b1c3034688240331a5a4dab999e9ff4d620eeca72cd",
+      "bytes": 2596
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-qc-20260925-01/repair-inputs.json",
+      "path": "raw/repair-inputs.json",
+      "sha256": "49abf7ad9581da74ea0be22ccdd0a4a03f61f1f1d2d937032405e2471e1bd5e7",
+      "bytes": 5585
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-qc-20260925-01/bind_incremental.py",
+      "path": "raw/bind_incremental.py.txt",
+      "sha256": "a0c6ffd6b71e4806ce8b6df0ab6dc7d198f87e3650d85e4183274da4986b3672",
+      "bytes": 13403
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-qc-20260925-01/run_batch.py",
+      "path": "raw/run_batch.py.txt",
+      "sha256": "c10743beb74a39cef74ad5741046474e8baa5bc6d65bf7f8f118fe07cc42db4b",
+      "bytes": 8008
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-qc-20260925-01/verify_stop.py",
+      "path": "raw/verify_stop.py.txt",
+      "sha256": "f3ade55b7a07f0a2aaf2e7fda405d63e7bc3ba1a0516d58089c32401c65bbb7c",
+      "bytes": 3794
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-qc-20260925-01/freeze_preparation.py",
+      "path": "raw/freeze_preparation.py.txt",
+      "sha256": "bae11e9c75668209f414998f7558c63f7c202b26c939b74f7dc1bfa28a17e703",
+      "bytes": 2583
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-qc-20260925-01/spec/config.json",
+      "path": "raw/spec/config.json",
+      "sha256": "c4ff5c60eefdb2919987762ab0fa17e38c6d46938d7d04d402af3f6cbc52661d",
+      "bytes": 859
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-qc-20260925-01/spec/author-command.json",
+      "path": "raw/spec/author-command.json",
+      "sha256": "718d430e8f1d638ebd8d0da1aaee20d8a7b0e7095ff4c2ee62fa40e1890fd4ce",
+      "bytes": 696
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-qc-20260925-01/spec/run_control.py",
+      "path": "raw/spec/run_control.py.txt",
+      "sha256": "96d82d4aec4cdb5c4025088e59742e8554e3cf053fc514be8561fd243e4c6ced",
+      "bytes": 9633
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-qc-20260925-01/spec/run_stage.py",
+      "path": "raw/spec/run_stage.py.txt",
+      "sha256": "9866ad818496e6e125d8312d39ad7f85e435b9b99bc0d90211fb264a33854aac",
+      "bytes": 8305
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-qc-20260925-01/spec/tools.sb",
+      "path": "raw/spec/tools.sb",
+      "sha256": "456d76065ff0a9ef1618f10fb19bfc972f2a821ae0128c7b3efa72af3818bae1",
+      "bytes": 1958
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-qc-20260925-01/spec/prompt-explore.md",
+      "path": "raw/spec/prompt-explore.md",
+      "sha256": "044d0934b41e57f4d6ac1883d9a0d3ff76dc6ed1885105dd93db9232dd3844ce",
+      "bytes": 2963
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-qc-20260925-01/spec/prompt-execute.md",
+      "path": "raw/spec/prompt-execute.md",
+      "sha256": "1ec24ddcf12fd8d2214dd46dbd3b54896c92a4a4efcc32cfee030eef308b7d33",
+      "bytes": 3968
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-qc-20260925-01/spec/prompt-report.md",
+      "path": "raw/spec/prompt-report.md",
+      "sha256": "8219ad0549e663f8a9dcf629a3facfa61a6c1b34db12a498858c53997fdcc318",
+      "bytes": 2590
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-qc-20260925-01/spec/inputs/claims.md",
+      "path": "raw/spec/inputs/claims.md",
+      "sha256": "4c58c52d29cd4e868add075c99667b10aa2aa8e28a8ae311aac709c905c52b9a",
+      "bytes": 2517
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-qc-20260925-01/spec/inputs/source-index.json",
+      "path": "raw/spec/inputs/source-index.json",
+      "sha256": "366da0c3ad5e9e012fa78056722a4cca11270545a7d683e51d6932cadad549e3",
+      "bytes": 7986
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-qc-20260925-01/quality/config.json",
+      "path": "raw/quality/config.json",
+      "sha256": "5b63b1b0f573a1d42d69776c87cce3035eae39e5b87989399ead06d2a394f817",
+      "bytes": 862
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-qc-20260925-01/quality/author-command.json",
+      "path": "raw/quality/author-command.json",
+      "sha256": "6a01855b0934370bf6e25986403cdf9939fb76ead49fc6262df4ad2b3345f55b",
+      "bytes": 702
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-qc-20260925-01/quality/run_control.py",
+      "path": "raw/quality/run_control.py.txt",
+      "sha256": "96d82d4aec4cdb5c4025088e59742e8554e3cf053fc514be8561fd243e4c6ced",
+      "bytes": 9633
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-qc-20260925-01/quality/run_stage.py",
+      "path": "raw/quality/run_stage.py.txt",
+      "sha256": "9866ad818496e6e125d8312d39ad7f85e435b9b99bc0d90211fb264a33854aac",
+      "bytes": 8305
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-qc-20260925-01/quality/tools.sb",
+      "path": "raw/quality/tools.sb",
+      "sha256": "f22db3a7bd4f127a3a8fe98dec17576538cc1607f456f224726b7b06f263a321",
+      "bytes": 1964
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-qc-20260925-01/quality/prompt-explore.md",
+      "path": "raw/quality/prompt-explore.md",
+      "sha256": "28e88b3e5e1de33f3221afa00943bcccf5fbecafc36baa216127fa3f1420fb2a",
+      "bytes": 2984
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-qc-20260925-01/quality/prompt-execute.md",
+      "path": "raw/quality/prompt-execute.md",
+      "sha256": "9363e305f26bf083baea98f59fd3073c645f9f6ab5cbf09d5953f00adad0df3e",
+      "bytes": 3998
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-qc-20260925-01/quality/prompt-report.md",
+      "path": "raw/quality/prompt-report.md",
+      "sha256": "aa85e3ccea6c232264bae9c7234830bc3acb7641f4080b442c73a26565062b7e",
+      "bytes": 2608
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-qc-20260925-01/quality/inputs/claims.md",
+      "path": "raw/quality/inputs/claims.md",
+      "sha256": "4c58c52d29cd4e868add075c99667b10aa2aa8e28a8ae311aac709c905c52b9a",
+      "bytes": 2517
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-qc-20260925-01/quality/inputs/source-index.json",
+      "path": "raw/quality/inputs/source-index.json",
+      "sha256": "366da0c3ad5e9e012fa78056722a4cca11270545a7d683e51d6932cadad549e3",
+      "bytes": 7986
+    }
+  ],
+  "limits": [
+    "Not an independent review",
+    "No sandbox/author execution admission",
+    "Invalid inference is retained for audit, not approval",
+    "Exact code diff and derived old inputs remain in external root; this is a selected preparation archive",
+    "Four controller guards differ from initial binding; stop-verification checks exact pre-guard hashes"
+  ]
+}

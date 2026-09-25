@@ -1,0 +1,38 @@
+"""Archive only this stopped preparation; preserve original invalid inference and hashes."""
+from datetime import datetime, timezone
+import hashlib
+import json
+from pathlib import Path
+import shutil
+
+ROOT = Path(__file__).resolve().parent
+DEST = Path('/Users/a77/fwp-wt-pr868-current-0925/docs/verification/2026-09-25-pr910-911-preparation')
+assert json.loads((ROOT / 'STOPPED.json').read_text())['reuse_allowed'] is False
+DEST.mkdir(exist_ok=False)
+names = ['STOPPED.json', 'authorization.json', 'authorization.invalidated-original.json',
+         'binding-manifest.json', 'batch-state.json', 'batch-state.before-stop.json',
+         'started-once.json', 'stop-verification.json', 'review-plan.invalidated-original.md',
+         'repair-inputs.json', 'bind_incremental.py', 'run_batch.py', 'verify_stop.py', 'freeze_preparation.py']
+for axis in ('spec', 'quality'):
+    names.extend(f'{axis}/{name}' for name in ['config.json', 'author-command.json', 'run_control.py',
+        'run_stage.py', 'tools.sb', 'prompt-explore.md', 'prompt-execute.md', 'prompt-report.md',
+        'inputs/claims.md', 'inputs/source-index.json'])
+rows = []
+for name in names:
+    source = ROOT / name
+    target = DEST / 'raw' / (name + '.txt' if name.endswith('.py') else name)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(source, target)
+    sha = hashlib.sha256(source.read_bytes()).hexdigest()
+    assert hashlib.sha256(target.read_bytes()).hexdigest() == sha
+    rows.append({'source': str(source), 'path': str(target.relative_to(DEST)), 'sha256': sha, 'bytes': source.stat().st_size})
+manifest = {'schema_version': 1, 'status': 'INVALIDATED_NOT_AUTHORIZED', 'model_requests': 0,
+            'new_product_tests': 0, 'created_at': datetime.now(timezone.utc).isoformat(),
+            'candidate': 'fb41cebdaa6a186c14bd402f0f2dd83705f64421',
+            'baseline': 'fe9fdbfd70a637efc5bcf0cfecf74080a8d6a90c', 'files': rows,
+            'limits': ['Not an independent review', 'No sandbox/author execution admission',
+                       'Invalid inference is retained for audit, not approval',
+                       'Exact code diff and derived old inputs remain in external root; this is a selected preparation archive',
+                       'Four controller guards differ from initial binding; stop-verification checks exact pre-guard hashes']}
+(DEST / 'manifest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n')
+print(json.dumps({'status': 'ARCHIVED_STOPPED_PREPARATION', 'files': len(rows), 'bytes': sum(row['bytes'] for row in rows)}))

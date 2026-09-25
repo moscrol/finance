@@ -1,0 +1,60 @@
+"""Offline evidence that this invalidated batch cannot resume through its controllers."""
+from datetime import datetime, timezone
+import ast
+import hashlib
+import json
+from pathlib import Path
+import subprocess
+import tempfile
+
+ROOT = Path(__file__).resolve().parent
+PY = '/Users/a77/fwp-wt-pi-research/.venv-workbench/bin/python'
+commands = [[PY, '-B', str(ROOT / 'run_batch.py')]]
+for axis in ('spec', 'quality'):
+    commands.extend([[PY, '-B', str(ROOT / axis / 'run_control.py'), 'gateway'],
+                     [PY, '-B', str(ROOT / axis / 'run_stage.py'), 'explore']])
+results = []
+for command in commands:
+    result = subprocess.run(command, text=True, capture_output=True, timeout=10)
+    assert result.returncode == 1 and 'INVALIDATED_NOT_AUTHORIZED' in result.stderr
+    results.append({'command': command, 'exit': result.returncode, 'stdout': result.stdout, 'stderr': result.stderr})
+# A safe copy proves that the guard, rather than an unrelated import, causes rejection.
+module = ast.parse((ROOT / 'run_batch.py').read_text())
+guard = next(n for n in module.body if isinstance(n, ast.If) and 'STOPPED.json' in ast.unparse(n))
+with tempfile.TemporaryDirectory(prefix='review-stop-control-') as tmp:
+    folder = Path(tmp)
+    script = folder / 'witness.py'
+    script.write_text('from pathlib import Path\nROOT = Path(__file__).parent\n' + ast.unparse(guard) + '\nraise SystemExit(87)\n')
+    (folder / 'STOPPED.json').write_text('{}')
+    blocked = subprocess.run([PY, '-B', str(script)], capture_output=True, text=True, timeout=10)
+    (folder / 'STOPPED.json').unlink()
+    witness = subprocess.run([PY, '-B', str(script)], capture_output=True, text=True, timeout=10)
+    assert blocked.returncode == 1 and witness.returncode == 87
+    results.append({'control': 'safe copied guard with/without stop marker; no model code',
+                    'blocked_exit': blocked.returncode, 'marker_removed_exit': witness.returncode})
+assert not list(ROOT.glob('*/*-shim/counts.json'))
+assert not list(ROOT.glob('*/*.controller.json'))
+assert not json.loads((ROOT / 'authorization.json').read_text())['approved']
+state = json.loads((ROOT / 'batch-state.before-stop.json').read_text())
+assert state['requests'] == 0 and state['steps'] == [] and state['status'] == 'ADMISSION'
+manifest = json.loads((ROOT / 'binding-manifest.json').read_text())
+changed = []
+for name, expected in manifest['inputs'].items():
+    path = ROOT / name
+    actual = hashlib.sha256(path.read_bytes()).hexdigest()
+    if actual != expected:
+        guard_text = "if (ROOT.parent / 'STOPPED.json').exists():\n    raise SystemExit('INVALIDATED_NOT_AUTHORIZED: sealed batch cannot be resumed')\n"
+        assert name in [f'{axis}/{script}' for axis in ('spec', 'quality') for script in ('run_control.py', 'run_stage.py')]
+        assert hashlib.sha256(path.read_text().replace(guard_text, '', 1).encode()).hexdigest() == expected
+        changed.append(name)
+assert len(changed) == 4
+state.update(status='INVALIDATED_NOT_AUTHORIZED', requests=0, finished_at=datetime.now(timezone.utc).isoformat(),
+             stop_record='STOPPED.json', inherited_authorization=False, process_terminated=True,
+             owner_correction_comment=7080, original_authorization='authorization.invalidated-original.json')
+(ROOT / 'batch-state.json').write_text(json.dumps(state, indent=2, ensure_ascii=False) + '\n')
+report = {'status': 'PASS_FOR_STOP_ONLY', 'paid_requests': 0, 'product_tests_run': 0,
+          'independent_review_started': False, 'entrypoints_blocked': 5,
+          'safe_guard_mutation_checked': True, 'bound_input_changes_only_stop_guards': changed,
+          'results': results, 'python': PY}
+(ROOT / 'stop-verification.json').write_text(json.dumps(report, indent=2) + '\n')
+print(json.dumps(report, indent=2))

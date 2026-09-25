@@ -1,0 +1,76 @@
+{
+  "status": "PASS_FOR_STOP_ONLY",
+  "paid_requests": 0,
+  "product_tests_run": 0,
+  "independent_review_started": false,
+  "entrypoints_blocked": 5,
+  "safe_guard_mutation_checked": true,
+  "bound_input_changes_only_stop_guards": [
+    "spec/run_stage.py",
+    "spec/run_control.py",
+    "quality/run_stage.py",
+    "quality/run_control.py"
+  ],
+  "results": [
+    {
+      "command": [
+        "/Users/a77/fwp-wt-pi-research/.venv-workbench/bin/python",
+        "-B",
+        "/Users/a77/.finance-runtime/reviews/pr910-911-qc-20260925-01/run_batch.py"
+      ],
+      "exit": 1,
+      "stdout": "",
+      "stderr": "INVALIDATED_NOT_AUTHORIZED: sealed batch cannot be resumed\n"
+    },
+    {
+      "command": [
+        "/Users/a77/fwp-wt-pi-research/.venv-workbench/bin/python",
+        "-B",
+        "/Users/a77/.finance-runtime/reviews/pr910-911-qc-20260925-01/spec/run_control.py",
+        "gateway"
+      ],
+      "exit": 1,
+      "stdout": "",
+      "stderr": "INVALIDATED_NOT_AUTHORIZED: sealed batch cannot be resumed\n"
+    },
+    {
+      "command": [
+        "/Users/a77/fwp-wt-pi-research/.venv-workbench/bin/python",
+        "-B",
+        "/Users/a77/.finance-runtime/reviews/pr910-911-qc-20260925-01/spec/run_stage.py",
+        "explore"
+      ],
+      "exit": 1,
+      "stdout": "",
+      "stderr": "INVALIDATED_NOT_AUTHORIZED: sealed batch cannot be resumed\n"
+    },
+    {
+      "command": [
+        "/Users/a77/fwp-wt-pi-research/.venv-workbench/bin/python",
+        "-B",
+        "/Users/a77/.finance-runtime/reviews/pr910-911-qc-20260925-01/quality/run_control.py",
+        "gateway"
+      ],
+      "exit": 1,
+      "stdout": "",
+      "stderr": "INVALIDATED_NOT_AUTHORIZED: sealed batch cannot be resumed\n"
+    },
+    {
+      "command": [
+        "/Users/a77/fwp-wt-pi-research/.venv-workbench/bin/python",
+        "-B",
+        "/Users/a77/.finance-runtime/reviews/pr910-911-qc-20260925-01/quality/run_stage.py",
+        "explore"
+      ],
+      "exit": 1,
+      "stdout": "",
+      "stderr": "INVALIDATED_NOT_AUTHORIZED: sealed batch cannot be resumed\n"
+    },
+    {
+      "control": "safe copied guard with/without stop marker; no model code",
+      "blocked_exit": 1,
+      "marker_removed_exit": 87
+    }
+  ],
+  "python": "/Users/a77/fwp-wt-pi-research/.venv-workbench/bin/python"
+}

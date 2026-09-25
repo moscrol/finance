@@ -1,0 +1,12 @@
+{
+  "approved": false,
+  "status": "INVALIDATED_NOT_AUTHORIZED",
+  "candidate": "fb41cebdaa6a186c14bd402f0f2dd83705f64421",
+  "baseline": "fe9fdbfd70a637efc5bcf0cfecf74080a8d6a90c",
+  "authorized_requests": 0,
+  "proposed_batch_cap_only": 78,
+  "prior_allowance_inherited": false,
+  "source": "The generic user instruction to proceed does not authorize additional paid review; original erroneous inference retained separately.",
+  "supersedes": "authorization.invalidated-original.json",
+  "stop_record": "STOPPED.json"
+}

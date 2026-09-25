@@ -1,0 +1,164 @@
+"""One immutable, bounded #910/#911 review batch; stop, never restart failed stages."""
+from datetime import datetime, timezone
+import hashlib
+import json
+import os
+from pathlib import Path
+import shutil
+import socket
+import subprocess
+import sys
+import time
+
+ROOT = Path(__file__).resolve().parent
+if (ROOT / 'STOPPED.json').exists():
+    raise SystemExit('INVALIDATED_NOT_AUTHORIZED: sealed batch cannot be resumed')
+TREE = ROOT / 'candidate'
+PY = '/Users/a77/fwp-wt-pi-research/.venv-workbench/bin/python'
+REV = 'fb41cebdaa6a186c14bd402f0f2dd83705f64421'
+sys.path.insert(0, str(TREE))
+from scripts.check_test_receipt import _fingerprint  # noqa: E402 - import the bound candidate only
+from scripts.review_probes.run_extraction_mutations import _run_logged_command  # noqa: E402
+
+
+def now():
+    return datetime.now(timezone.utc).isoformat()
+
+
+def save(name, value):
+    (ROOT / name).write_text(json.dumps(value, ensure_ascii=False, indent=2) + '\n')
+
+
+def git(*args):
+    return subprocess.check_output(['git', '-C', str(TREE), *args], text=True).strip()
+
+
+def digest(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+state = {'status': 'ADMISSION', 'candidate': REV, 'started_at': now(), 'steps': [], 'admissions': [],
+         'requests': 0, 'cap': 78, 'automatic_retries': 0, 'axes_completed': [], 'independent_verdict': None}
+manifest = json.loads((ROOT / 'binding-manifest.json').read_text())
+authorization = json.loads((ROOT / 'authorization.json').read_text())
+assert authorization['approved'] and authorization['candidate'] == REV and authorization['batch_cap'] == 78
+assert authorization['phase_limits'] == {'gateway': 4, 'explore': 17, 'execute': 17, 'report': 1}
+assert sys.executable == PY and _fingerprint() == '66726d345bf37ce5'
+with (ROOT / 'started-once.json').open('x') as stream:
+    json.dump({'started_at': now(), 'pid': os.getpid(), 'authorization_sha256': digest(ROOT / 'authorization.json'),
+               'runner_sha256': digest(Path(__file__)), 'binding_sha256': digest(ROOT / 'binding-manifest.json')}, stream)
+ENV = {k: os.environ[k] for k in ('PATH', 'HOME', 'LANG', 'TMPDIR') if k in os.environ}
+ENV.update(FWP_WORKBENCH_PYTHON=PY, PYTHONPATH=str(TREE), PYTHONDONTWRITEBYTECODE='1',
+           FWP_TEST_RECEIPT='0', FORESIGHT_LLM_KEYCHAIN='0', FORESIGHT_USERS_DIR=str(ROOT / 'offline-users'))
+LOGS = ROOT / 'host-steps'
+LOGS.mkdir()
+
+
+def refresh_counts():
+    records = []
+    for path in sorted(ROOT.glob('*/*-shim/counts.json')):
+        row = json.loads(path.read_text())
+        records.append({'path': str(path.relative_to(ROOT)), **row})
+    state['request_ledgers'] = records
+    state['requests'] = sum(r.get('requests', 0) for r in records)
+    assert state['requests'] <= 78
+
+
+def identity():
+    assert git('rev-parse', 'HEAD') == REV and git('status', '--porcelain') == ''
+    assert _fingerprint() == '66726d345bf37ce5'
+    for name, sha in manifest['inputs'].items():
+        # These empty runtime stores may be maintained by Pi; they are not credentials.
+        if name.endswith(('pi-config/auth.json', 'pi-config/models-store.json')):
+            continue
+        assert digest(ROOT / name) == sha, 'input drift: ' + name
+    for name, sha in manifest['source_files'].items():
+        assert digest(TREE / name) == sha, 'candidate source drift'
+
+
+def admit(label):
+    for attempt in range(11):
+        identity()
+        load = os.getloadavg()[0]
+        disk = shutil.disk_usage(ROOT).free / 2**30
+        with socket.socket() as sock:
+            try:
+                sock.bind(('127.0.0.1', 19899))
+                free = True
+            except OSError:
+                free = False
+        row = {'label': label, 'at': now(), 'load_1m': load, 'max_load': 8, 'free_gib': disk,
+               'min_free_gib': 20, 'port_19899_available': free,
+               'admitted': load < 8 and disk >= 20 and free}
+        state['admissions'].append(row)
+        save('batch-state.json', state)
+        if row['admitted']:
+            return
+        if attempt < 10:
+            time.sleep(30)
+    raise RuntimeError('resource admission blocked: ' + label)
+
+
+def run(label, command, timeout=180, env=ENV):
+    result = _run_logged_command(TREE, LOGS, label, command, env, timeout=timeout)
+    state['steps'].append({'label': label, 'exit': result['exit'], 'status': result['status']})
+    save('batch-state.json', state)
+    assert result['exit'] == 0 and result['status'] == 'completed', 'step failed: ' + label
+
+
+try:
+    admit('offline-preflight')
+    state['status'] = 'OFFLINE_PREFLIGHT'
+    run('adapter', [PY, '-B', str(ROOT / 'probe_adapter.py')], 30)
+    for axis in ('spec', 'quality'):
+        folder = ROOT / axis
+        admit(axis + '-sandbox-preflight')
+        run(axis + '-sandbox', ['node', str(folder / 'sandbox_preflight.mjs')], 180)
+        receipt = json.loads((folder / 'sandbox-preflight/receipt.json').read_text())
+        assert receipt['status'] == 'PASS' and receipt['real_model_requests'] == 0
+        command = json.loads((folder / 'author-command.json').read_text())['command']
+        env = {'HOME': str(folder / 'work'), 'PATH': '/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin',
+               'LANG': 'C.UTF-8', 'TMPDIR': str(folder / 'work/tmp'), 'PYTHONDONTWRITEBYTECODE': '1',
+               'PYTHONPATH': str(TREE), 'FWP_WORKBENCH_PYTHON': PY, 'FWP_TEST_RECEIPT': '0',
+               'GIT_OPTIONAL_LOCKS': '0', 'FORESIGHT_USERS_DIR': str(folder / 'work/users')}
+        # Host pre-admission executes the exact prescribed command under the same OS policy.
+        run(axis + '-author-admission', ['/usr/bin/sandbox-exec', '-f', str(folder / 'tools.sb'),
+                                        '/bin/bash', '--noprofile', '--norc', '-c', command.replace('author-tmp', 'admission-tmp').replace('author-tests.xml', 'admission-tests.xml')], 180, env)
+    state['status'] = 'MODEL_STAGES'
+    for axis in ('spec', 'quality'):
+        folder = ROOT / axis
+        for phase in ('gateway', 'explore', 'execute', 'report'):
+            admit(axis + '-' + phase)
+            if phase == 'execute':
+                run(axis + '-bridge-explore', [PY, '-B', str(ROOT / 'bridge_stage.py'), axis, 'explore'], 30)
+            if phase == 'report':
+                run(axis + '-packet', [PY, '-B', str(ROOT / 'build_report_packet.py'), axis], 30)
+            limit = authorization['phase_limits'][phase]
+            refresh_counts()
+            assert state['requests'] + limit <= 78
+            assert not (folder / (phase + '.controller.json')).exists()
+            run(axis + '-' + phase, [PY, '-B', str(folder / 'run_control.py'), phase], 710)
+            control = json.loads((folder / (phase + '.controller.json')).read_text())
+            refresh_counts()
+            save('batch-state.json', state)
+            assert control['status'] == 'COMPLETE', 'controller not complete: ' + axis + '/' + phase
+            assert control['max_requests'] == limit and control['shim_counts']['requests'] <= limit
+            assert control['shim_counts']['shutdown_complete'] and control['request_counts_agree']
+            if phase == 'execute':
+                parsed = json.loads((folder / 'execute/parsed.json').read_text())
+                assert parsed.get('intentional_control', {}).get('observed_failed') is True
+                author = parsed.get('author_tests', {})
+                assert author.get('failed') == 0 and author.get('passed', 0) > 0
+        state['axes_completed'].append(axis)
+    state['status'] = 'DELIVERED_REQUIRES_HOST_AUDIT'
+except BaseException as exc:
+    state['status'] = 'BLOCKED'
+    state['error'] = type(exc).__name__ + ': ' + str(exc)
+finally:
+    refresh_counts()
+    state['finished_at'] = now()
+    state['candidate_after'] = git('rev-parse', 'HEAD')
+    state['dirty_after'] = git('status', '--porcelain')
+    save('batch-state.json', state)
+    print(json.dumps(state, ensure_ascii=False), flush=True)
+raise SystemExit(0 if state['status'] == 'DELIVERED_REQUIRES_HOST_AUDIT' else 1)

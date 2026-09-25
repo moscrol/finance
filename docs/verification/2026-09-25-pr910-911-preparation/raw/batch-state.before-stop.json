@@ -1,0 +1,103 @@
+{
+  "status": "ADMISSION",
+  "candidate": "fb41cebdaa6a186c14bd402f0f2dd83705f64421",
+  "started_at": "2026-09-25T03:55:51.274029+00:00",
+  "steps": [],
+  "admissions": [
+    {
+      "label": "offline-preflight",
+      "at": "2026-09-25T03:55:51.663999+00:00",
+      "load_1m": 11.2548828125,
+      "max_load": 8,
+      "free_gib": 53.45038986206055,
+      "min_free_gib": 20,
+      "port_19899_available": true,
+      "admitted": false
+    },
+    {
+      "label": "offline-preflight",
+      "at": "2026-09-25T03:56:22.021047+00:00",
+      "load_1m": 9.96533203125,
+      "max_load": 8,
+      "free_gib": 54.431148529052734,
+      "min_free_gib": 20,
+      "port_19899_available": true,
+      "admitted": false
+    },
+    {
+      "label": "offline-preflight",
+      "at": "2026-09-25T03:56:52.355807+00:00",
+      "load_1m": 8.78173828125,
+      "max_load": 8,
+      "free_gib": 54.42110824584961,
+      "min_free_gib": 20,
+      "port_19899_available": true,
+      "admitted": false
+    },
+    {
+      "label": "offline-preflight",
+      "at": "2026-09-25T03:57:22.981443+00:00",
+      "load_1m": 8.8701171875,
+      "max_load": 8,
+      "free_gib": 54.37477111816406,
+      "min_free_gib": 20,
+      "port_19899_available": true,
+      "admitted": false
+    },
+    {
+      "label": "offline-preflight",
+      "at": "2026-09-25T03:57:53.387821+00:00",
+      "load_1m": 10.025390625,
+      "max_load": 8,
+      "free_gib": 53.823055267333984,
+      "min_free_gib": 20,
+      "port_19899_available": true,
+      "admitted": false
+    },
+    {
+      "label": "offline-preflight",
+      "at": "2026-09-25T03:58:24.174511+00:00",
+      "load_1m": 9.8544921875,
+      "max_load": 8,
+      "free_gib": 53.59272003173828,
+      "min_free_gib": 20,
+      "port_19899_available": true,
+      "admitted": false
+    },
+    {
+      "label": "offline-preflight",
+      "at": "2026-09-25T03:58:54.831070+00:00",
+      "load_1m": 8.96337890625,
+      "max_load": 8,
+      "free_gib": 52.453426361083984,
+      "min_free_gib": 20,
+      "port_19899_available": true,
+      "admitted": false
+    },
+    {
+      "label": "offline-preflight",
+      "at": "2026-09-25T03:59:25.004560+00:00",
+      "load_1m": 8.4365234375,
+      "max_load": 8,
+      "free_gib": 52.44505310058594,
+      "min_free_gib": 20,
+      "port_19899_available": true,
+      "admitted": false
+    },
+    {
+      "label": "offline-preflight",
+      "at": "2026-09-25T03:59:55.343222+00:00",
+      "load_1m": 10.07958984375,
+      "max_load": 8,
+      "free_gib": 53.36195755004883,
+      "min_free_gib": 20,
+      "port_19899_available": true,
+      "admitted": false
+    }
+  ],
+  "requests": 0,
+  "cap": 78,
+  "automatic_retries": 0,
+  "axes_completed": [],
+  "independent_verdict": null
+}

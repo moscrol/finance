@@ -1,0 +1,139 @@
+"""Bind a new, narrowed incremental review; no model request or old verdict reuse."""
+from datetime import datetime, timezone
+import ast
+import hashlib
+import json
+from pathlib import Path
+import shutil
+import subprocess
+import sys
+
+ROOT = Path(__file__).resolve().parent
+TREE = ROOT / 'candidate'
+REV = 'fb41cebdaa6a186c14bd402f0f2dd83705f64421'
+BASE = 'fe9fdbfd70a637efc5bcf0cfecf74080a8d6a90c'
+OWNER = '89624eac7e76c325c14aeee090bc4610bf05f97c'
+PY = '/Users/a77/fwp-wt-pi-research/.venv-workbench/bin/python'
+sys.path.insert(0, str(TREE))
+from scripts.review_probes.prepare_pi_review_repair import sandbox_metadata, replace_once  # noqa: E402 - bind candidate before importing
+
+
+def git(*args):
+    return subprocess.check_output(['git', '-C', str(TREE), *args], text=True).strip()
+
+
+def save(path, value):
+    path.write_text(json.dumps(value, ensure_ascii=False, indent=2) + '\n')
+
+
+def sha(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+assert git('rev-parse', 'HEAD') == REV and git('status', '--porcelain') == ''
+assert not (ROOT / 'binding-manifest.json').exists()
+FILES = ['scripts/review_probes/pi_review_protocol.mjs', 'scripts/review_probes/prepare_pi_review_repair.py',
+         'tests/test_pi_review_repair.py', 'intelligence/tests/conformance/test_research_chain.py',
+         'intelligence/tests/test_workbench_research_chain.py']
+CLAIMS = '''# Incremental #910/#911 Review Claims
+These C1-C7 IDs belong to THIS incremental matrix, NOT the old #868 transport matrix.
+No old independent verdict is supplied or inherited. Candidate fb41/basefe9, with the five scoped files and their supporting runtime APIs.
+C1 (#910): explore delivery validates canonical absolute regular probe paths inside this axis work/probes, rejects missing/relative/directory/outside/symlink escape or redirected-root paths, requires a direct regular Python probe, and never rewrites reviewer paths.
+C2 (#910): invalid path delivery is recoverable before terminal acceptance only within remaining stage request/time budget; no completion artifact on rejection, no identity forgery, and reserved final closeout cannot obtain another request. Verify real installed tool behavior, not only validator return values.
+C3 (#910): explicit absolute interpreter binding reaches actual tools, without FWP_ALLOW_ANY_PYTHON, .git content access, Keychain or external/production network access; necessary ancestor metadata is admitted. Distinguish collection from execution and old author's nested sandbox evidence from new observations.
+C4 (#911): subsequent research actions depend on observed prior tool content; varying observations changes the next query; this is scripted conformance, not proof of model intelligence. Check whether fake clients/providers bypass behavior the tests claim to exercise.
+C5 (#911): citation identity, contradictory/missing evidence, no-source, malformed references, budget and no-progress controls actually fail/reject under the stated mutation; no weakened financial gate or manufactured accepted final artifact.
+C6 (#911): the Workbench API tests run the actual orchestration/continuous Episode path with scripted providers and isolated persistence, and assert real public response/audit/run identity, not just canned JSON or CLI session IDs.
+C7 (both): scope and test claims match real assertion reachability; two changes introduce no production loop, external network/credential use or production persistence write. Every claimed negative control needs a reached trigger, not only an exception. List missing natural financial coverage explicitly.
+Verdicts: PASS, PASS_WITH_LIMITS, CHANGES_REQUIRED, BLOCKED_INCOMPLETE_EVIDENCE. Empty findings alone do not imply PASS. Distinguish verified, not_verified and out_of_scope per claim; explain exact observed values and limits. No signature for standalone #868, main merge, deployment, L6 or latest-main integration.
+'''
+manifest = {'candidate': REV, 'baseline': BASE, 'created_at': datetime.now(timezone.utc).isoformat(),
+            'scope': '#910/#911 incremental only; not #868 release', 'source_files': {}, 'inputs': {}}
+for name in FILES:
+    manifest['source_files'][name] = sha(TREE / name)
+packet_builder = ROOT.parent / 'pr868-glm-qc-20260925-c3/build_report_packet.py'
+shutil.copyfile(packet_builder, ROOT / 'build_report_packet.py')
+manifest['packet_builder_source'] = {'path': str(packet_builder), 'sha256': sha(packet_builder)}
+for axis in ('spec', 'quality'):
+    folder = ROOT / axis
+    config = json.loads((folder / 'config.json').read_text())
+    old = dict(config)
+    old_venv = str(Path(old['python']).parent.parent)
+    new_venv = str(Path(PY).parent.parent)
+    config.update(tree=str(TREE), author=str(TREE), revision=REV, baseline=BASE, python=PY)
+    save(folder / 'config.json', config)
+    profile = (folder / 'tools.sb').read_text()
+    profile = replace_once(profile, sandbox_metadata(Path(old['tree']), folder), sandbox_metadata(TREE, folder))
+    profile = profile.replace(old['tree'], str(TREE)).replace(old_venv, new_venv)
+    profile = profile.replace(f'(literal "{Path(old_venv).parent}")', f'(literal "{Path(new_venv).parent}")')
+    (folder / 'tools.sb').write_text(profile)
+    control = (folder / 'run_control.py').read_text().replace(old['python'], PY)
+    control = replace_once(control, "limit = 4 if args.stage == 'gateway' else 24",
+                           "limit = {'gateway': 4, 'explore': 17, 'execute': 17, 'report': 1}[args.stage]")
+    control = control.replace('sandbox-preflight-04', 'sandbox-preflight')
+    control = replace_once(control, 'Finally return exactly the fixture contents.',
+                           'The fixture ends with one LF newline: preserve it byte-for-byte in the write content, encoded as a newline escape in JSON. Finally return exactly the fixture contents.')
+    (folder / 'run_control.py').write_text(control)
+    stage = (folder / 'run_stage.py').read_text().replace('sandbox-preflight-04', 'sandbox-preflight')
+    stage = replace_once(stage, "'max_requests': 24", "'max_requests': {'explore': 17, 'execute': 17, 'report': 1}[STAGE]")
+    (folder / 'run_stage.py').write_text(stage)
+    # Keep the original generator output as provenance, outside either readable axis.
+    bootstrap = ROOT / 'bootstrap-inputs' / axis
+    bootstrap.parent.mkdir(exist_ok=True)
+    (folder / 'inputs').rename(bootstrap)
+    inputs = folder / 'inputs'
+    inputs.mkdir()
+    (inputs / 'claims.md').write_text(CLAIMS)
+    (inputs / 'patch.diff').write_text(git('diff', OWNER, REV, '--', *FILES) + '\n')
+    shutil.copyfile(TREE / 'docs/superpowers/specs/2026-09-24-pi-style-research-delivery-design.md', inputs / 'research-design.md')
+    index = {}
+    for name in FILES:
+        if name.endswith('.py'):
+            index[name] = [{'symbol': n.name, 'line': n.lineno, 'end': n.end_lineno}
+                           for n in ast.walk(ast.parse((TREE / name).read_text()))
+                           if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))]
+        else:
+            index[name] = {'lines': len((TREE / name).read_text().splitlines())}
+    save(inputs / 'source-index.json', index)
+    for name in ('auth.json', 'models-store.json'):
+        (folder / 'pi-config' / name).write_text('{}')
+    work = folder / 'work'
+    author_command = f'{PY} -B -m pytest -q -p no:cacheprovider --basetemp={work}/author-tmp --junitxml={work}/author-tests.xml tests/test_pi_review_repair.py::test_content_binding_rejects_malformed_or_forged_submissions tests/test_pi_review_repair.py::test_probe_validation_checks_canonical_files_without_rewriting intelligence/tests/conformance/test_research_chain.py intelligence/tests/test_workbench_research_chain.py'
+    save(folder / 'author-command.json', {'command': author_command, 'scope': 'two pure protocol tests + two research suites; not full nested sandbox author suite'})
+    common = f'''You are the independent {axis} reviewer for the #910/#911 incremental changes. Do not review standalone #868 for release or import old transport claim meanings.
+Candidate {TREE}, revision {REV}, base {BASE}. Python {PY}. Work/probes {work}/probes.
+Read {inputs}/claims.md first, then {inputs}/source-index.json and relevant candidate source. Diff {inputs}/patch.diff. Design {inputs}/research-design.md.
+No product edits or real external data, credentials, nested paid model calls, main merge, deployment, L6 or live8792. Other review axes and private home files are inaccessible. Write only new files under work. Never overwrite failed probes. Do not invoke nested sandbox-exec.
+Per-stage budget 17 requests for explore/execute, 1 for report, 120 seconds per request, 600 seconds per stage. Final delivery forced after 16 normal requests or 420 seconds. No automatic retries or budget transfers. GLM reasoning_effort=low; do not claim server thinking disabled.
+Final action must be standalone deliver_stage with result as a structured OBJECT, NOT encoded JSON. Omit stage/axis/revision/baseline/complete, which are controller-owned. Under 6000 characters. Chinese explanations. Controller completion is not substantive PASS.
+Count author test cases separately from reviewer script invocations/subcases, negative controls and model requests. No old result transfers. Only reached-trigger evidence verifies a behavior. Candidate docs are sandbox-denied; use supplied design/diff only. Candidate tests may be referenced for API signatures but copying them is not independent evidence.
+'''
+    prompts = {
+        'explore': f'''Read-only source exploration plus writing probes; bash unavailable. Verify called API signatures before writing. Within the 16 normal requests, produce a small independent Python probe and supporting files, covering as many claims as possible; do not spend the entire budget reading. For Node APIs your Python entry can run node with a new .mjs file. Prefer small installed-tool and observation-changing controls rather than large copied author suites. An inner controller whose result is mocked is not an end-to-end proof.
+Delivery requires probe_files (absolute existing regular paths below {work}/probes, at least one regular .py directly there), inspected files, claim probe plan, limits. Path rejection can be corrected only within remaining budget; the host never repairs paths. Do not execute probes now.
+''',
+        'execute': f'''First TWO tool calls MUST be bash: (1) intentional failure exactly once: {PY} -B {work}/positive_control.py (2) prescribed author tests exactly once: {author_command}
+The intentional control MUST exit1, classified probe_bug/intentional_control, not a product defect. If the author command fails do not relabel it PASS; retain and investigate within existing budget.
+Then read same-axis {work}/phase-context/explore/parsed.json and its probes; run each reviewer probe. bash only a SINGLE direct command, no pipes, chaining, echo EXIT, truncation or inline shell newlines. Tool output and real exit are retained. Correct at most once per failed probe using a NEW filename, retain every original failure. Repeated errors stay not_verified. Local fake network may only connect to 26001-26008, never production/gateways; prefer no network probes for this scoped review.
+Return author_tests={{passed,failed,skipped,commands}}, reviewer_probes={{passed,failed,subcases,commands}}, intentional_control={{observed_failed,classification,command}}, failures (all failed executions with classifications), claim_evidence for C1-C7, limits. No final verdict.
+''',
+        'report': '''Use only the attached immutable same-axis packet. No tool except deliver_stage. Return verdict, findings (product defects only, severity/file/line/reason/evidence; an empty array does not mean PASS), claims (exactly C1-C7, each id/status/evidence), author_tests, reviewer_probes, intentional_control, failures and limits. Explicitly separate missing evidence from product defects and author fixture bugs. Out-of-scope natural financial quality is not a passed claim. No prose outside the delivery tool.
+'''}
+    for phase, text in prompts.items():
+        (folder / f'prompt-{phase}.md').write_text(common + '\n' + text)
+    for path in folder.rglob('*'):
+        if path.is_file():
+            manifest['inputs'][str(path.relative_to(ROOT))] = sha(path)
+for name in ('glm_credential.py', 'glm_review_shim.py', 'bridge_stage.py', 'probe_adapter.py', 'build_report_packet.py'):
+    manifest['inputs'][name] = sha(ROOT / name)
+save(ROOT / 'binding-manifest.json', manifest)
+save(ROOT / 'authorization.json', {
+    'approved': True, 'user_quote_verbatim': '推进',
+    'source': 'current Pi conversation: direct user reply to assistant question offering a 78-request spec/quality review; 2026-09-25',
+    'scope_narrowing': 'Owner #868 comments 7055/7066 selected standalone #868; this batch reviews only #910/#911 increments on the same fb41 code candidate',
+    'candidate': REV, 'baseline': BASE, 'batch_cap': 78,
+    'axis_caps': {'spec': 39, 'quality': 39}, 'phase_limits': {'gateway': 4, 'explore': 17, 'execute': 17, 'report': 1},
+    'automatic_retries': 0, 'prior_allowance_inherited': False,
+    'excluded': ['L6', 'main merge', '8792 deployment', 'production configuration/data', 'standalone #868 release'],
+})
+print(json.dumps({'status': 'BOUND_OFFLINE_ADMISSION_REQUIRED', 'candidate': REV, 'input_files': len(manifest['inputs']), 'paid_requests': 0}))

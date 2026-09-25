@@ -1,0 +1,28 @@
+{
+  "approved": true,
+  "user_quote_verbatim": "推进",
+  "source": "current Pi conversation: direct user reply to assistant question offering a 78-request spec/quality review; 2026-09-25",
+  "scope_narrowing": "Owner #868 comments 7055/7066 selected standalone #868; this batch reviews only #910/#911 increments on the same fb41 code candidate",
+  "candidate": "fb41cebdaa6a186c14bd402f0f2dd83705f64421",
+  "baseline": "fe9fdbfd70a637efc5bcf0cfecf74080a8d6a90c",
+  "batch_cap": 78,
+  "axis_caps": {
+    "spec": 39,
+    "quality": 39
+  },
+  "phase_limits": {
+    "gateway": 4,
+    "explore": 17,
+    "execute": 17,
+    "report": 1
+  },
+  "automatic_retries": 0,
+  "prior_allowance_inherited": false,
+  "excluded": [
+    "L6",
+    "main merge",
+    "8792 deployment",
+    "production configuration/data",
+    "standalone #868 release"
+  ]
+}

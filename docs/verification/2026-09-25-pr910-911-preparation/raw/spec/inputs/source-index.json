@@ -1,0 +1,408 @@
+{
+  "scripts/review_probes/pi_review_protocol.mjs": {
+    "lines": 205
+  },
+  "scripts/review_probes/prepare_pi_review_repair.py": [
+    {
+      "symbol": "digest",
+      "line": 31,
+      "end": 32
+    },
+    {
+      "symbol": "replace_once",
+      "line": 35,
+      "end": 38
+    },
+    {
+      "symbol": "sandbox_metadata",
+      "line": 41,
+      "end": 46
+    },
+    {
+      "symbol": "prepare",
+      "line": 49,
+      "end": 245
+    },
+    {
+      "symbol": "main",
+      "line": 248,
+      "end": 253
+    }
+  ],
+  "tests/test_pi_review_repair.py": [
+    {
+      "symbol": "dump",
+      "line": 26,
+      "end": 28
+    },
+    {
+      "symbol": "load",
+      "line": 31,
+      "end": 32
+    },
+    {
+      "symbol": "test_content_binding_rejects_malformed_or_forged_submissions",
+      "line": 35,
+      "end": 57
+    },
+    {
+      "symbol": "test_probe_validation_checks_canonical_files_without_rewriting",
+      "line": 60,
+      "end": 99
+    },
+    {
+      "symbol": "test_prepare_preserves_sealed_inputs_and_refuses_reuse",
+      "line": 102,
+      "end": 141
+    },
+    {
+      "symbol": "test_prepare_fails_closed_on_changed_archive",
+      "line": 144,
+      "end": 151
+    },
+    {
+      "symbol": "configure_sandbox",
+      "line": 154,
+      "end": 168
+    },
+    {
+      "symbol": "sandbox_inputs",
+      "line": 171,
+      "end": 178
+    },
+    {
+      "symbol": "sandbox_tool_command",
+      "line": 181,
+      "end": 208
+    },
+    {
+      "symbol": "test_sandbox_interpreter_binding_without_git_access",
+      "line": 213,
+      "end": 252
+    },
+    {
+      "symbol": "test_sandbox_preflight_collects_real_author_tests",
+      "line": 257,
+      "end": 283
+    },
+    {
+      "symbol": "test_real_author_checks_execute_in_sandbox",
+      "line": 288,
+      "end": 357
+    },
+    {
+      "symbol": "runtime",
+      "line": 361,
+      "end": 396
+    },
+    {
+      "symbol": "peer",
+      "line": 400,
+      "end": 455
+    },
+    {
+      "symbol": "tool",
+      "line": 458,
+      "end": 460
+    },
+    {
+      "symbol": "run",
+      "line": 463,
+      "end": 464
+    },
+    {
+      "symbol": "gateway",
+      "line": 467,
+      "end": 489
+    },
+    {
+      "symbol": "test_real_cli_menu_startup_zero_requests",
+      "line": 492,
+      "end": 497
+    },
+    {
+      "symbol": "test_real_cli_gateway_protocol",
+      "line": 501,
+      "end": 539
+    },
+    {
+      "symbol": "stage_fixture",
+      "line": 542,
+      "end": 556
+    },
+    {
+      "symbol": "test_real_stage_runner_delivers_without_followup",
+      "line": 561,
+      "end": 576
+    },
+    {
+      "symbol": "test_probe_path_repair_observes_tool_error_within_existing_budget",
+      "line": 582,
+      "end": 631
+    },
+    {
+      "symbol": "test_invalid_probe_delivery_cannot_reopen_budget",
+      "line": 635,
+      "end": 658
+    },
+    {
+      "symbol": "test_post_exit_validation_still_rejects_disappeared_probe",
+      "line": 661,
+      "end": 674
+    },
+    {
+      "symbol": "test_reviewer_identity_injection_stops_without_followup",
+      "line": 682,
+      "end": 691
+    },
+    {
+      "symbol": "test_completion_does_not_replace_required_evidence",
+      "line": 697,
+      "end": 707
+    },
+    {
+      "symbol": "test_last_reserved_request_delivers_without_completion_flag",
+      "line": 711,
+      "end": 734
+    },
+    {
+      "symbol": "test_exhausted_stage_rejects_before_any_provider_request",
+      "line": 738,
+      "end": 752
+    },
+    {
+      "symbol": "test_real_stage_menu_startup_zero_requests",
+      "line": 756,
+      "end": 769
+    },
+    {
+      "symbol": "test_missing_cli_delivery_tool_fails_before_provider",
+      "line": 772,
+      "end": 782
+    },
+    {
+      "symbol": "test_delivery_with_sibling_tool_is_blocked",
+      "line": 785,
+      "end": 796
+    },
+    {
+      "symbol": "test_gateway_controller_requires_completed_state",
+      "line": 800,
+      "end": 825
+    },
+    {
+      "symbol": "Fake",
+      "line": 403,
+      "end": 436
+    },
+    {
+      "symbol": "reply",
+      "line": 506,
+      "end": 522
+    },
+    {
+      "symbol": "reply",
+      "line": 598,
+      "end": 609
+    },
+    {
+      "symbol": "reply",
+      "line": 804,
+      "end": 817
+    },
+    {
+      "symbol": "log_message",
+      "line": 404,
+      "end": 405
+    },
+    {
+      "symbol": "do_POST",
+      "line": 407,
+      "end": 436
+    }
+  ],
+  "intelligence/tests/conformance/test_research_chain.py": [
+    {
+      "symbol": "_fixed_policy",
+      "line": 39,
+      "end": 50
+    },
+    {
+      "symbol": "ObservingClient",
+      "line": 53,
+      "end": 132
+    },
+    {
+      "symbol": "_run_chain",
+      "line": 135,
+      "end": 208
+    },
+    {
+      "symbol": "_assert_delivered",
+      "line": 211,
+      "end": 219
+    },
+    {
+      "symbol": "test_observation_selects_next_query_and_real_evidence_binding",
+      "line": 223,
+      "end": 227
+    },
+    {
+      "symbol": "test_local_failure_returns_to_model_and_allows_alternate_tool",
+      "line": 231,
+      "end": 241
+    },
+    {
+      "symbol": "test_deep_checkpoint_preserves_observation_driven_followup",
+      "line": 250,
+      "end": 263
+    },
+    {
+      "symbol": "test_unauthorized_attempt_is_visible_but_does_not_prevent_later_research",
+      "line": 266,
+      "end": 273
+    },
+    {
+      "symbol": "test_fluent_finish_with_invented_reference_cannot_ship",
+      "line": 276,
+      "end": 283
+    },
+    {
+      "symbol": "test_exhausted_root_budget_stops_chain_without_discarding_prior_evidence",
+      "line": 287,
+      "end": 296
+    },
+    {
+      "symbol": "test_cancel_after_observation_fences_the_followup_before_runner",
+      "line": 300,
+      "end": 307
+    },
+    {
+      "symbol": "test_oracle_detects_lost_observation_content",
+      "line": 310,
+      "end": 324
+    },
+    {
+      "symbol": "test_oracle_detects_unauthorized_menu_leak",
+      "line": 327,
+      "end": 339
+    },
+    {
+      "symbol": "test_oracle_detects_fabricated_reference_laundering",
+      "line": 342,
+      "end": 354
+    },
+    {
+      "symbol": "test_oracle_detects_unaccounted_tool_budget",
+      "line": 357,
+      "end": 360
+    },
+    {
+      "symbol": "__init__",
+      "line": 56,
+      "end": 64
+    },
+    {
+      "symbol": "complete",
+      "line": 66,
+      "end": 121
+    },
+    {
+      "symbol": "_next_query",
+      "line": 124,
+      "end": 129
+    },
+    {
+      "symbol": "_call",
+      "line": 131,
+      "end": 132
+    },
+    {
+      "symbol": "runner",
+      "line": 146,
+      "end": 168
+    },
+    {
+      "symbol": "lose_content",
+      "line": 313,
+      "end": 318
+    },
+    {
+      "symbol": "leak_menu",
+      "line": 330,
+      "end": 335
+    },
+    {
+      "symbol": "launder_reference",
+      "line": 345,
+      "end": 350
+    },
+    {
+      "symbol": "run",
+      "line": 147,
+      "end": 167
+    }
+  ],
+  "intelligence/tests/test_workbench_research_chain.py": [
+    {
+      "symbol": "ObservingModel",
+      "line": 29,
+      "end": 105
+    },
+    {
+      "symbol": "offline_workbench",
+      "line": 109,
+      "end": 164
+    },
+    {
+      "symbol": "test_http_research_follows_observation_and_persists_identity",
+      "line": 171,
+      "end": 310
+    },
+    {
+      "symbol": "test_http_oracle_detects_observation_replacement",
+      "line": 313,
+      "end": 330
+    },
+    {
+      "symbol": "test_http_oracle_detects_fabricated_reference_laundering",
+      "line": 333,
+      "end": 352
+    },
+    {
+      "symbol": "__init__",
+      "line": 30,
+      "end": 34
+    },
+    {
+      "symbol": "complete",
+      "line": 36,
+      "end": 105
+    },
+    {
+      "symbol": "no_network",
+      "line": 137,
+      "end": 139
+    },
+    {
+      "symbol": "registry",
+      "line": 180,
+      "end": 233
+    },
+    {
+      "symbol": "replace_lead",
+      "line": 316,
+      "end": 321
+    },
+    {
+      "symbol": "launder_reference",
+      "line": 338,
+      "end": 343
+    },
+    {
+      "symbol": "source",
+      "line": 181,
+      "end": 220
+    }
+  ]
+}
