@@ -1,0 +1,44 @@
+"""Host-only receipt repair for a completed explore process whose parser rejected dict probe entries."""
+import hashlib
+import json
+from pathlib import Path
+import shutil
+
+ROOT = Path(__file__).resolve().parent
+OUT = ROOT / 'explore'
+execution = OUT / 'execution.json'
+initial = json.loads(execution.read_text())
+assert initial['complete'] is False
+submission = json.loads((OUT / 'submission.json').read_text())
+assert submission['stage'] == 'explore' and submission['complete'] is True
+assert submission['axis'] == 'quality'
+paths = [item.get('path') if isinstance(item, dict) else item for item in submission['probe_files']]
+probe_root = (ROOT / 'work/probes').resolve()
+assert paths and all(isinstance(p, str) and Path(p).is_file() and Path(p).resolve().is_relative_to(probe_root) for p in paths)
+assert not any((OUT / 'commands').glob('*-bash'))
+admissions = [json.loads(line) for line in (OUT / 'request-admissions.jsonl').read_text().splitlines()]
+assert len(admissions) == 7 and all(row['phase'] == 'explore' for row in admissions)
+messages = []
+for line in (OUT / 'events.jsonl').read_text().splitlines():
+    event = json.loads(line)
+    if event.get('type') == 'message_end' and event.get('message', {}).get('role') == 'assistant':
+        messages.append(event['message'])
+assert not [m for m in messages if m.get('stopReason') in {'error', 'aborted', 'length'}]
+for rel, expected in initial['inputs_sha256'].items():
+    assert hashlib.sha256((ROOT / rel).read_bytes()).hexdigest() == expected, rel
+assert not initial['candidate_before']['status'] and not initial['author_before']['status']
+shutil.copy2(execution, OUT / 'execution-pre-host-repair.json')
+initial.update({
+    'complete': True, 'status': 'STAGE_COMPLETE', 'exit_code': 0, 'requests': len(admissions),
+    'responses': [json.loads(line) for line in (OUT / 'responses.jsonl').read_text().splitlines()],
+    'errors': [], 'inputs_unchanged': True, 'report_structural': True,
+    'host_repaired': True, 'host_repair_reason': 'run_stage.py rejected valid dict entries in explore.probe_files; no model request or artifact was changed',
+    'probe_sha256': {str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(probe_root.glob('*.py'))},
+})
+execution.write_text(json.dumps(initial, ensure_ascii=False, indent=2) + '\n')
+(OUT / 'host-repair.json').write_text(json.dumps({
+    'status': 'PASS', 'raw_execution_preserved_as': 'execution-pre-host-repair.json',
+    'reason': initial['host_repair_reason'], 'requests_replayed': 0,
+    'model_artifacts_changed': False, 'probe_paths_checked': paths,
+}, ensure_ascii=False, indent=2) + '\n')
+print(json.dumps({'status': 'PASS', 'requests': len(admissions), 'repair': str(OUT / 'host-repair.json')}))

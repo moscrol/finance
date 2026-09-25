@@ -1,0 +1,8 @@
+import ast
+paths = [
+    '/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-04/quality/work/probes/test_seeded_c3.py',
+    '/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-04/quality/work/probes/test_earlier_fixture_adapter.py',
+]
+for p in paths:
+    ast.parse(open(p).read(), p)
+    print('syntax OK:', p)

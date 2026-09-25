@@ -1,0 +1,54 @@
+{
+  "status": "SPEC_SCOPED_DELIVERED_QUALITY_FINAL_REJECTED",
+  "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+  "baseline": "4cc15e703f81bce8abadee00f68caacdb0c72b4d",
+  "observed_main": "d21707ca6c71e4e39194b01ef9549bc893595d3f",
+  "candidate_unchanged": true,
+  "requests": {
+    "04": {
+      "gateway": 4,
+      "explore": 7,
+      "execute": 10,
+      "report": 0,
+      "total": 21,
+      "status": "EXECUTE_PROVIDER_ENV_ERROR_NO_DELIVERY"
+    },
+    "05": {
+      "gateway": 4,
+      "explore": 8,
+      "execute": 0,
+      "report": 0,
+      "total": 12,
+      "status": "EXPLORE_NO_DELIVERY"
+    },
+    "06": {
+      "gateway": 4,
+      "explore": 5,
+      "execute": 9,
+      "report": 1,
+      "total": 19,
+      "status": "FINAL_DELIVERY_REJECTED"
+    }
+  },
+  "total_requests": 52,
+  "quality_evidence": {
+    "positive_control": "06 execute/001-bash exit 1 with intentional probe_bug",
+    "reviewer_executed_supplied_cases": 10,
+    "passed": 10,
+    "failed": 0,
+    "author_tests": 0,
+    "c3_production_shape_counts": "not_verified"
+  },
+  "rejections": [
+    "04 pytest rootdir sandbox error and no delivery",
+    "05 explore ended at request cap without delivery",
+    "06 final deliver_stage missing required verdict/claim/count/control fields; hard gate rejected"
+  ],
+  "merge_authorized": false,
+  "production_authorized": false,
+  "sealed_at": "2026-09-25T01:15:29.634719+00:00",
+  "archive_files": 480,
+  "archive_bytes": 2389778,
+  "manifest_sha256": "4aca039667b929f75da5f6d3086d0052d402ca402147d416a26593cc15f05152",
+  "destination": "/Users/a77/fwp-wt-backfill-302132-0923/docs/verification/2026-09-25-backfill-302132-quality-continuation"
+}

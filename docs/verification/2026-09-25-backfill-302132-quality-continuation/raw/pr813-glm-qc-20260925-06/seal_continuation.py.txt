@@ -1,0 +1,77 @@
+"""Losslessly archive bounded QC attempts 04-06 without candidate or temp DBs."""
+import base64
+from datetime import datetime, timezone
+import hashlib
+import json
+from pathlib import Path
+import re
+
+DOCS = Path('/Users/a77/fwp-wt-backfill-302132-0923')
+DEST = DOCS / 'docs/verification/2026-09-25-backfill-302132-quality-continuation'
+ROOTS = [Path('/Users/a77/.finance-runtime/reviews') / f'pr813-glm-qc-20260925-{n:02d}' for n in (4, 5, 6)]
+REV = '3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59'
+BASE = '4cc15e703f81bce8abadee00f68caacdb0c72b4d'
+
+def sha(raw):
+    return hashlib.sha256(raw).hexdigest()
+
+def save(path, value):
+    path.write_text(json.dumps(value, ensure_ascii=False, indent=2) + '\n')
+
+assert not DEST.exists()
+entries = []
+allowed = {'.py', '.mjs', '.sb', '.json', '.jsonl', '.md', '.log', '.xml', '.txt'}
+skip_names = {'credential.json', 'auth.json', 'models-store.json'}
+for root in ROOTS:
+    assert root.is_dir()
+    for path in sorted(root.rglob('*')):
+        rel = path.relative_to(root)
+        if path.is_symlink() or not path.is_file():
+            continue
+        if rel.parts[0] in {'candidate', '__pycache__'} or any(part in {'tmp', 'users', '.pytest_cache'} for part in rel.parts):
+            continue
+        if path.name in skip_names or path.suffix.lower() in {'.duckdb', '.db', '.sqlite', '.sqlite3'}:
+            continue
+        if path.suffix.lower() not in allowed:
+            continue
+        raw = path.read_bytes()
+        assert not re.search(rb'eyJ[A-Za-z0-9_-]{15,}\.[A-Za-z0-9_-]{15,}\.[A-Za-z0-9_-]{15,}', raw), str(path)
+        encoded = path.suffix.lower() in {'.log', '.xml', '.jsonl'} or bool(re.search(rb'[ \t]+\r?\n|\n\n\Z', raw))
+        archive_rel = Path('raw') / root.name / rel
+        stored = base64.encodebytes(raw) if encoded else raw
+        if encoded:
+            archive_rel = archive_rel.with_name(archive_rel.name + '.b64')
+        elif path.suffix.lower() in {'.py', '.mjs', '.sb'}:
+            archive_rel = archive_rel.with_name(archive_rel.name + '.txt')
+        target = DEST / archive_rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(stored)
+        entries.append({'source_root': str(root), 'source': str(rel), 'archive': str(archive_rel),
+                        'encoding': 'base64' if encoded else 'identity', 'bytes': len(raw),
+                        'sha256': sha(raw), 'archive_sha256': sha(stored)})
+manifest = {'schema': 'lossless-qc-archive/v1', 'revision': REV, 'baseline': BASE,
+            'verified_files': len(entries), 'entries': entries,
+            'excluded': ['candidate worktrees', 'credentials/auth stores', 'temporary databases/users/caches', 'symlinks']}
+save(DEST / 'manifest.json', manifest)
+for entry in entries:
+    stored = (DEST / entry['archive']).read_bytes()
+    raw = base64.b64decode(stored) if entry['encoding'] == 'base64' else stored
+    assert sha(stored) == entry['archive_sha256'] and sha(raw) == entry['sha256'] and len(raw) == entry['bytes']
+summary = {
+    'status': 'SPEC_SCOPED_DELIVERED_QUALITY_FINAL_REJECTED', 'revision': REV, 'baseline': BASE,
+    'observed_main': 'd21707ca6c71e4e39194b01ef9549bc893595d3f', 'candidate_unchanged': True,
+    'requests': {'04': {'gateway': 4, 'explore': 7, 'execute': 10, 'report': 0, 'total': 21, 'status': 'EXECUTE_PROVIDER_ENV_ERROR_NO_DELIVERY'},
+                 '05': {'gateway': 4, 'explore': 8, 'execute': 0, 'report': 0, 'total': 12, 'status': 'EXPLORE_NO_DELIVERY'},
+                 '06': {'gateway': 4, 'explore': 5, 'execute': 9, 'report': 1, 'total': 19, 'status': 'FINAL_DELIVERY_REJECTED'}},
+    'total_requests': 52, 'quality_evidence': {'positive_control': '06 execute/001-bash exit 1 with intentional probe_bug',
+        'reviewer_executed_supplied_cases': 10, 'passed': 10, 'failed': 0,
+        'author_tests': 0, 'c3_production_shape_counts': 'not_verified'},
+    'rejections': ['04 pytest rootdir sandbox error and no delivery', '05 explore ended at request cap without delivery',
+                   '06 final deliver_stage missing required verdict/claim/count/control fields; hard gate rejected'],
+    'merge_authorized': False, 'production_authorized': False,
+    'sealed_at': datetime.now(timezone.utc).isoformat(), 'archive_files': len(entries), 'archive_bytes': sum(e['bytes'] for e in entries),
+    'manifest_sha256': sha((DEST / 'manifest.json').read_bytes()), 'destination': str(DEST)}
+save(DEST / 'summary.json', summary)
+readme = f'''# #813 Quality continuation batches 04-06\n\n状态 **{summary['status']}**。固定候选 `{REV}` / base `{BASE}`，观察到 main `d21707ca6`；本归档不构成合入或生产批准。\n\n- 04：网关4、探索7；首执行阶段10次请求，首 bash 控件通过，但 pytest 自动选择审查根目录并被沙箱拒绝，未交付。宿主同沙箱补 `--rootdir=quality/work` 后诊断为10 passed；该诊断不是独立模型证据。\n- 05：网关4、探索8；探索未在配额内交付，未进入执行。\n- 06：网关4、探索5、执行9、报告1。首 bash exit 1 且含 `intentional probe_bug`；给定来源探针10例由模型真实执行并10P。报告交付被硬门禁拒绝：缺 `verdict`、C1-C7 的 `id/status/evidence`、标准计数对象和 `positive_control.status/classification/evidence`。\n- 全部批次52次请求均结束；无自动重试。C3生产形64/39/161、C1/C4-C7及当前main组合仍未验证。\n\n原始脚本、请求、响应、命令、XML和报告包逐项保存并按 manifest 原字节校验；排除候选工作树、凭据/auth、临时DB、用户目录、缓存和软链。\n'''
+(DEST / 'README.md').write_text(readme)
+print(json.dumps(summary, ensure_ascii=False))

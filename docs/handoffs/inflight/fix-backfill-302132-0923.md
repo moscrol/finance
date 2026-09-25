@@ -4,23 +4,28 @@
 302132固定回填整合；文档树代码旧，不从此验收/生产。不合main、不动8792/launchd/他股。
 
 ## 决策与被否方案
-给定探针/新写探针/宿主诊断分账，否复跑冒充新写；39请求到限停，否补字段追加请求；首bash合同不事后改。详见 `docs/handoffs/2026-09-25-backfill-302132-quality-execution.md`。
+- 固定候选 `3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59` / base `4cc15e703f81bce8abadee00f68caacdb0c72b4d`；main观测 `d21707ca6` 新组合未验。
+- 04-06共52次GLM请求，无自动重试；所有自有进程已结束，PR继续WIP/open/unmerged。
+- 工具层已硬拦首bash、阳性对照必交字段、失败用例不得报PASS；离线反例6项和沙箱预检通过。详见日期交接 `docs/handoffs/2026-09-25-backfill-302132-quality-continuation.md`。
 
 ## 当前状态
-**SPEC_SCOPED_DELIVERED_QUALITY_FINAL_REJECTED**。#813 WIP/open/unmerged，head `3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59`，base4cc15e703；发布观测main已由03352758c前进到d21707ca6，新组合未验。未改/推产品、合入/生产，自有进程已退，19917释放。
-本轮 `~/.finance-runtime/reviews/pr813-glm-qc-20260925-03/`，39请求；398原件归仓 `docs/verification/2026-09-25-backfill-302132-quality-execution/`。动态 `~/.finance-runtime/reviews/backfill-302132-0923/CURRENT.json`。
-
-## 未验证 / 已知边界
-Quality这次实际跑了给定7P、新写1P/1F：NULL变异通过，窗口前行用例缺fixture而失败，非产品缺陷。终稿真实工具交付，但漏positive_control.status、带未修失败仍给PASS_WITH_LIMITS；对照第2条bash，虽早于测试仍违反首bash合同。原门拒收，未补签。
-C3生产形64/39/161未独验；C1/C4-C7未审，当前main无组合收据。旧Spec来源守卫5P局部有效，不覆盖完整写入链；旧全量绿不移签。
-
-## 下一步
-1. 不原样再投17+17：先在新批工具入口离线验证首命令/必交字段硬约束，再花模型额度；这项尚未实施。若改控制次序定义，须新批开始前声明。
-2. 早期行复验用 `host-earlier/work/probes/test_earlier_fixture_adapter.py`：基线和clone同时补窗前行、重绑收据SHA；宿主3P不代独审。新批优先执行已有探针，少重造夹具。
-3. 补C3余项/完整主张后前向main跑门禁。合入等确认；生产命令/日期/冻结输入/本轮父备份另行逐字授权，CLI无--record。
+**SPEC_SCOPED_DELIVERED_QUALITY_FINAL_REJECTED**。06执行阶段完成首控件+供应探针10P；报告真实deliver_stage但缺 `verdict`、C1-C7 `id/status/evidence`、标准计数和 `positive_control.status/classification/evidence`，硬门拒收。04因pytest rootdir沙箱错误未交付；05探索耗尽无交付。归档480份/2,389,778字节：`docs/verification/2026-09-25-backfill-302132-quality-continuation/`。未合入、未生产。
 
 ## 已验证
-Quality给定7P；新写NULL例1P/窗前例1F原样留存，作者测试0。宿主窗前夹具先基线1P、再完整3P（两个原断言不变）；不是新增4例。原对账11P、来源6P、路径注释澄清4P。398原件无损核验。旧Spec5P与作者15457P/85S/2X、四叶/整库37PASS仅各自原范围成立。
+- 06：网关4P、探索5请求结构通过、执行9请求结构通过；首bash raw exit1且含 `intentional probe_bug`。
+- 06给定来源两组供应探针真实10P（7个旧断言来源+3个窗前适配器来源），作者测试0；`--rootdir=quality/work`后无环境错误。
+- 04宿主同沙箱命令诊断10P，仅诊断不移签独审。
+- 旧Spec守卫5P、旧作者15457P/四叶/37项仍只在旧范围有效。
+
+## 未验证 / 已知边界
+- C3生产形64/39/161未独验；C1/C4-C7未审；当前main组合无工程收据。
+- 给定探针来源为前审查断言+宿主夹具修复，不算本轮新写；供应10P不等于完整C3批准。
+- 终稿未被接受，不能人工补字段或把模型JSON包装成PASS。
+
+## 下一步
+新批次若继续，先核对CURRENT、PR head、main和归档，再补一个标准schema且不掩盖限制的真实报告；完成独立QC后才前向当前main跑工程门禁。合入、生产回填均等逐字授权；生产前重新冻结输入并取本轮父备份。
 
 ## 踩过的坑
-提示词要求先执行不等于工具前置约束。fixture没有窗前行不能凭空变异；修后先验合法基线。supplied_xml正确路径后带注释被宿主过严检查误报，已另留澄清不算模型错误；三项真实拒收理由不变。来源路径代码误判仍未修，回滚只认本轮父收据。
+- pytest绝对路径会把审查根当rootdir，沙箱拒绝扫描；固定`--rootdir=quality/work`。
+- 探索probe_files可能是对象而非字符串；宿主解析需取`.path`并对`parsed=None`短路。
+- 报告字段即使事实计数正确，缺schema也必须拒收；不可事后补签。

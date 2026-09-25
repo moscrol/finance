@@ -1,0 +1,14 @@
+{
+  "stage": "explore",
+  "expected": [
+    "read",
+    "write",
+    "deliver_stage"
+  ],
+  "actual": [
+    "read",
+    "write",
+    "deliver_stage"
+  ],
+  "status": "PASS"
+}

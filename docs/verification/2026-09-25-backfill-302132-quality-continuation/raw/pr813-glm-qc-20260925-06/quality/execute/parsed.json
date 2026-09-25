@@ -1,0 +1,92 @@
+{
+  "author_test_counts": {
+    "errors": 0,
+    "failed": 0,
+    "passed": 0,
+    "note": "no author tests run per instruction"
+  },
+  "claims": [
+    {
+      "claim": "Outside-window mutations (amount, timestamp, delete, insert, duplicate, other_stock) are rejected by the candidate acceptance entry",
+      "state": "verified"
+    },
+    {
+      "claim": "Baseline passes acceptance",
+      "state": "verified"
+    },
+    {
+      "claim": "Earlier-than-window and null-column mutations are rejected with a real pre-window row in both baseline and clone",
+      "state": "verified"
+    },
+    {
+      "claim": "Production-shaped 64/39/161 counts correctness",
+      "state": "out_of_scope"
+    }
+  ],
+  "findings": [
+    "All 10 supplied probes passed; both suites exercise the actual external acceptance entry scripts/verify_302132_backfill_acceptance.py, not only a helper",
+    "Duplicate cases disclose clone-only PK removal",
+    "Host fixture adapter (real pre-window row added to both baseline and clone, receipt hashes rebound) confirms candidate rejects pre-window mutations and passes baseline"
+  ],
+  "limits": [
+    "Production-shaped 64/39/161 counts remain a separate limitation unless directly observed; not observed here",
+    "No git/network/live vendors/credentials/production DB; synthetic DuckDB inside work only; no candidate writes"
+  ],
+  "positive_control": {
+    "command": "OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 /Users/a77/finance-workspace-private/.venv-workbench/bin/python -B /Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-06/quality/work/positive_control.py",
+    "exit_code": 1,
+    "message": "AssertionError: intentional probe_bug control",
+    "observed": true,
+    "raw_files": [
+      "execute/001-bash/request.json",
+      "execute/001-bash/result.json",
+      "execute/001-bash/output.log"
+    ]
+  },
+  "probe_provenance": "Supplied probes are prior reviewer assertions plus host fixture repairs (receipt-path/OTHER-date repair in test_seeded_c3.py; host-only adapter adding a real pre-window row to both baseline and clone and rebinding receipt hashes in test_earlier_fixture_adapter.py). Executed fresh in this session against the actual external acceptance entry; supplied evidence, not new authoring. Supplied files unmodified.",
+  "reviewer_probe_counts": {
+    "errors": 0,
+    "failed": 0,
+    "passed": 10,
+    "total": 10
+  },
+  "supplied_probe_counts": {
+    "cases": 10,
+    "errors": 0,
+    "failed": 0,
+    "files": 2,
+    "passed": 10
+  },
+  "supplied_probe_results": {
+    "basetemp": "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-06/quality/work/tmp/supplied",
+    "command": "pytest probes/test_seeded_c3.py probes/test_earlier_fixture_adapter.py --rootdir=work --junitxml=work/probe-results-supplied.xml -p no:cacheprovider --basetemp=work/tmp/supplied",
+    "detail": {
+      "probes/test_earlier_fixture_adapter.py": {
+        "passed": [
+          "test_new_outside_window_mutations_fail[earlier_than_window]",
+          "test_new_outside_window_mutations_fail[null_column]",
+          "test_baseline_with_earlier_row_pass"
+        ]
+      },
+      "probes/test_seeded_c3.py": {
+        "passed": [
+          "test_outside_window_mutation_fails[amount]",
+          "test_outside_window_mutation_fails[timestamp]",
+          "test_outside_window_mutation_fails[delete]",
+          "test_outside_window_mutation_fails[insert]",
+          "test_outside_window_mutation_fails[duplicate]",
+          "test_outside_window_mutation_fails[other_stock]",
+          "test_baseline_pass"
+        ]
+      }
+    },
+    "exit_code": 0,
+    "syntax_check": "ast.parse OK on both supplied files",
+    "xml": "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-06/quality/work/probe-results-supplied.xml"
+  },
+  "complete": true,
+  "stage": "execute",
+  "axis": "quality",
+  "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+  "baseline": "4cc15e703f81bce8abadee00f68caacdb0c72b4d"
+}

@@ -1,0 +1,54 @@
+"""Publish continuation status for #813 without changing product refs."""
+from datetime import datetime, timezone
+import hashlib
+import json
+from pathlib import Path
+import sys
+
+DOCS = Path('/Users/a77/fwp-wt-backfill-302132-0923')
+STATE = Path('/Users/a77/.finance-runtime/reviews/backfill-302132-0923/CURRENT.json')
+BUNDLE = 'docs/verification/2026-09-25-backfill-302132-quality-continuation'
+REV = '3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59'
+MARKER = '<!-- wo83-quality-continuation-20260925-04-06 -->'
+sys.path.insert(0, str(DOCS))
+from scripts import gitea_pr
+
+pr = gitea_pr._api('GET', '/pulls/813')
+assert pr['state'] == 'open' and not pr.get('merged') and pr['head']['sha'] == REV
+summary = json.loads((DOCS / BUNDLE / 'summary.json').read_text())
+body = f'''{MARKER}
+## #83续推：Quality批04-06已封存，终稿仍拒收
+
+状态 **{summary['status']}**；固定候选 `{REV}` / base `4cc15e703f81bce8abadee00f68caacdb0c72b4d` 未变，main观测 `d21707ca6`，新组合未验。
+
+- 批04-06共52次GLM请求，全部自有进程结束，无自动重试。
+- 批06首 bash 原始收据通过（exit 1，含 `intentional probe_bug`）；两组给定来源供应探针真实执行 **10P**，作者测试0。
+- 批06终稿真实调用 `deliver_stage`，但宿主硬门拒收：缺 `verdict`、C1-C7 `id/status/evidence`、标准计数对象及 `positive_control.status/classification/evidence`。不手工补签、不包装为PASS。
+- 批04的 pytest 根目录沙箱错误已由宿主同沙箱诊断为命令缺 `--rootdir=quality/work`，诊断10P不移签独审；批05探索配额用尽无交付。
+
+478份新增原件已逐项解码、长度和SHA核验，归档 `{BUNDLE}`；旧398份归档不变。C3生产形64/39/161、C1/C4-C7和当前main工程组合仍未验证。未改/推产品、未合main、未写生产；PR继续WIP/open/unmerged。
+
+[新增归档](http://127.0.0.1:3300/a77/finance-workspace-private/src/branch/fix/backfill-302132-0923/{BUNDLE}/README.md) | [续推交接](http://127.0.0.1:3300/a77/finance-workspace-private/src/branch/fix/backfill-302132-0923/docs/handoffs/2026-09-25-backfill-302132-quality-continuation.md)
+'''
+old = [c for c in gitea_pr._api('GET', '/issues/813/comments?limit=100') if MARKER in c.get('body', '')]
+assert len(old) <= 1
+comment = old[0] if old else gitea_pr._api('POST', '/issues/813/comments', {'body': body})
+if old and comment['body'] != body:
+    comment = gitea_pr._api('PATCH', f"/issues/comments/{comment['id']}", {'body': body})
+assert comment['body'] == body
+prefix = f'''## 最新状态：2026-09-25，Quality批04-06终稿拒收
+
+固定候选 `{REV}` / base `4cc15e703f81bce8abadee00f68caacdb0c72b4d`；main观测 `d21707ca6` 新组合未验。批04-06共52次请求：06执行给定来源供应探针10P，但终稿缺标准schema被硬门拒收；04/05分别为执行环境错误/探索无交付。478份新增原件已封存，见评论 {comment['id']}。无后台，未改/推产品、未合入/生产，WIP保留。
+
+---
+
+'''
+if not (pr.get('body') or '').startswith(prefix):
+    gitea_pr._api('PATCH', '/pulls/813', {'body': prefix + (pr.get('body') or '')})
+after = gitea_pr._api('GET', '/pulls/813')
+assert after['state'] == 'open' and not after.get('merged') and after['head']['sha'] == REV and after['body'].startswith(prefix)
+receipt = {'comment_id': comment['id'], 'url': comment.get('html_url'), 'revision': REV, 'remote_main': summary['observed_main'],
+           'body_sha256': hashlib.sha256(body.encode()).hexdigest(), 'published_at': datetime.now(timezone.utc).isoformat(),
+           'state': 'open', 'merged': False}
+(Path('/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-06') / 'publication.json').write_text(json.dumps(receipt, ensure_ascii=False, indent=2) + '\n')
+print(json.dumps(receipt, ensure_ascii=False))

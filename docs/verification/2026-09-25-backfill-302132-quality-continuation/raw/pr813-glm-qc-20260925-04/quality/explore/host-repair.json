@@ -1,0 +1,11 @@
+{
+  "status": "PASS",
+  "raw_execution_preserved_as": "execution-pre-host-repair.json",
+  "reason": "run_stage.py rejected valid dict entries in explore.probe_files; no model request or artifact was changed",
+  "requests_replayed": 0,
+  "model_artifacts_changed": false,
+  "probe_paths_checked": [
+    "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-04/quality/work/probes/test_seeded_c3.py",
+    "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-04/quality/work/probes/test_earlier_fixture_adapter.py"
+  ]
+}

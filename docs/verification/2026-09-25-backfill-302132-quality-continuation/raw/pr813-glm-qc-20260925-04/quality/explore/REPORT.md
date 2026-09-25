@@ -1,0 +1,40 @@
+```json
+{
+  "claims_examined": {
+    "data_contract_docs": "verify_302132_backfill_acceptance.py module docstring documents: param format checks, preflight (regular files, samefile alias, TOCTOU sha before/after), deep receipt schema, backup identity, spec alignment across apply/verify, three-way parquet identity, and data contract incl. other-stock and target outside-window full-column bidirectional EXCEPT ALL, source tables untouched, parallel_source_md5 recomputed from baseline, keyset full-field oracle, protected slices, window golden triples, technical exact set and pinned values.",
+    "source_map": "not_found",
+    "target_of_probes": "_data_checks(check, prod, clone, pq, spec, receipts) in candidate/scripts/verify_302132_backfill_acceptance.py (read in full). Key checks targeted by probes: target_outside_window_allcols (bidirectional EXCEPT ALL over target code rows with trade_date NOT BETWEEN window_start AND window_end) and fact_other_stocks_allcols (same for stock_ts_code <> '302132.SZ'). Confirmed checks exist as claimed and run only when preflight/args/receipt-schema pass; exceptions map to data_checks_error with rc=2; verdict FAIL -> rc=2, PASS -> rc=0."
+  },
+  "limits": [
+    "No tests or commands were executed in this stage; all claims remain unverified until the execute stage runs the supplied suites and the positive control.",
+    "claims/source-map was not found at the stated path or common naming variants (read-only probes only); claims examined are derived from the acceptance script source itself.",
+    "The production-shaped 64/39/161 counts remain a separate limitation unless directly observed in execute.",
+    "Supplied probes are prior reviewer assertions plus host fixture repairs (receipt-path rebinding, OTHER-date fix, pre-window row insertion); they are evidence to execute, not verdicts.",
+    "No author tests were run and no new probe assertions were authored."
+  ],
+  "next_stage_commands": [
+    "OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 /Users/a77/finance-workspace-private/.venv-workbench/bin/python -B /Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-04/quality/work/positive_control.py (must be the first bash call; expected exit 1 with intentional probe_bug text)",
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python -B -m pytest -p no:cacheprovider -q /Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-04/quality/work/probes/test_seeded_c3.py /Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-04/quality/work/probes/test_earlier_fixture_adapter.py (with JUnit XML into quality/work; use OPENBLAS/OMP=1; work under /Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-04/quality/work only)"
+  ],
+  "probe_files": [
+    {
+      "assertions": "7 outside-window/other-stock mutation cases (amount/timestamp/delete/insert/duplicate/other_stock expected FAIL with rc=2 and specific failed check names; 'none' baseline expects PASS rc=0). duplicate case discloses clone-only PK removal via CTAS rebuild.",
+      "path": "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-04/quality/work/probes/test_seeded_c3.py",
+      "provenance": "prior reviewer assertions (probe_c3_acceptance_v2.py) + host fixture repair (receipt-path rebinding to requested clone; OTHER mutation moved from CAL date to LATER date)",
+      "role": "supplied, execute-only, not modified"
+    },
+    {
+      "assertions": "earlier_than_window and null_column mutations expect FAIL target_outside_window_allcols; baseline-with-earlier-row expects PASS.",
+      "path": "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-04/quality/work/probes/test_earlier_fixture_adapter.py",
+      "provenance": "prior new assertions (test_new_c3_v1.py) + host-only fixture repair inserting a real pre-window row (window_start - 1 day) into baseline and clone and rebinding receipt backup hashes",
+      "role": "supplied, execute-only, not modified"
+    }
+  ],
+  "stage_note": "Explore only: no bash executed, no tests ran, no new probe assertions authored.",
+  "complete": true,
+  "stage": "explore",
+  "axis": "quality",
+  "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+  "baseline": "4cc15e703f81bce8abadee00f68caacdb0c72b4d"
+}
+```
