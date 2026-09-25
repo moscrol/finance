@@ -8,14 +8,15 @@ L6-N1 句 13「10月前…是否披露CPU1000客户或订单」被 `novel_numeri
 - 证据侧用同一张代号视图，只收紧。否了只掩答案侧：证据 `D7` 会替 `≥7` 背书。
 - 估值缩写、单个 E、带单位或以上/以下的仍审。否了字母前缀一律豁免：`PE20附近`、`E1000` 会漏。
 - CE4 从「不豁免」钉挪到「不读成 E4」钉，可一行回退。
-- L6 批 2 新形状另开 PR：`amount>500` 写成 `500亿`；30 行计数写成 `30日`。原因是要改「裸数不给金额背书」「计数不是字面证据」两条既有口径，需用户拍板。
+- L6 批 2 新形状不进本 PR：`amount>500` 写成 `500亿`；30 行计数写成 `30日`。原因是要改「裸数不给金额背书」「计数不是字面证据」两条既有口径，需用户拍板。
 - 展开见 `docs/handoffs/2026-09-25-numeric-preflight-model-number.md`。
 
 ## 当前状态
 修复提交 `f3d18e6cc`；前向合入 main `724028390` 得到 `15d33c76f`，与本交接一起推 gitea。PR #932 open，**未合入，等用户确认**。
-- python 叶与 registry 已在 `eed1ec80a` 跑绿，收据过 `--require-full-scope`；其后本提交只改 `docs/`。
-- 前端与 e2e 在本提交的 head 上跑。
-- 读数只贴 PR #932 评论；没有评论 = 没跑完，不能合。
+- python 叶在 `eed1ec80a` 跑绿，收据过 `--require-full-scope`。
+- 前端、e2e、registry 在 `0f3a70aa8` 跑绿。
+- 两个受测提交之后都只改了 `docs/`。
+- 读数见 PR #932 评论。
 
 ## 已验证
 新增用例修复前 14 红 4 绿（4 绿是反例守卫），修复后全绿。数值门相关 7 个文件跑绿。
@@ -31,7 +32,8 @@ L6-N1 句 13「10月前…是否披露CPU1000客户或订单」被 `novel_numeri
 
 ## 下一步
 - 用户确认后用 `gitea_pr.py merge --expect-head --record` 合。合前 main 若漂移超限，重跑 python 叶。
-- L6 批 2 两种形状（`docs/handoffs/2026-09-25-l6-batch2-and-judge-effort.md`）由本会话另开分支，改同一函数。
+- L6 批 2 两种形状（`docs/handoffs/2026-09-25-l6-batch2-and-judge-effort.md`）由会话 `local_d1bf0c0c` 从 main 另开分支修，只改证据侧支撑认定。
+- 本 PR 也改了 `_bound_evidence_quantities` 的 corpus 行，已告知对方。约定谁后合谁解冲突。
 - 下次 L6 要等两个 PR 都合入。
 - 中文前缀代号需要实体表，另立单。
 
