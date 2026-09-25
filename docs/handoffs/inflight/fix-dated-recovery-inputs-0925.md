@@ -1,12 +1,12 @@
 # #913 源分支接续
 
 ## 当前状态
-接续树 `~/fwp-wt-dated-recovery-forward-0925`，分支 `fix/dated-recovery-forward-0925`；原树和本地源分支保留。实现9384f008c完成09-22三股的参考价只读仲裁：两项接受、一项缺口，无可写行。干净提交409P、Ruff和定向收据通过；非全量、未重跑前端/E2E。main收尾见e159c5644，未整合，旧b17全量不转签。#913继续WIP，未合入/部署。
+接续树 `~/fwp-wt-dated-recovery-forward-0925`，分支 `fix/dated-recovery-forward-0925`。第12轮仅审计：9/2增量备份30表校验通过，80缺口板块成员与封存基线全同，新增身份0，仍缺113位置；北交所官网一次403后停止采集。第11轮42项封存复核通过，本轮零库写入/模型/合入/部署，#913继续WIP。
 
 ## 下一步
-读 `docs/handoffs/inflight/fix-dated-recovery-forward-0925.md`；背景 `docs/handoffs/2026-09-25-dated-reference-adjudication.md`。证据第11轮，最新待办 `remaining-evidence-packet-v4.json`，旧v3不覆盖。
-
-03原件和10轮已准备副本不变。09-21两条缺行仍仅在受保护子副本；09-22未写库。920229.BJ缺明确前收、三股缺合格同日名称；80板块缺113冻结身份，完整派生和发布门仍阻塞。四日QA84FAIL/4WARN是上轮未变副本读数。
+读 `docs/handoffs/inflight/fix-dated-recovery-forward-0925.md`，正文 `docs/handoffs/2026-09-25-archive-evidence-boundary.md`。证据12轮 `remaining-evidence-packet-v5.json`；旧v4不覆盖。补920229明确日期前收、300803/301686/920229合格同日名称及冻结成员原件，再经原owner新staging和完整派生/发布门。
 
 ## 边界
-不重问已给授权、不增模型额度；不重试401、不按计数补身份、不自动拿发行价代前收、不手工晋升准备副本。生产采样仍3b7e473、health200/readiness503，hash同前次；无生产写入/换库/部署/模型调用，无本轮后台。工程定向通过不等于恢复或合入完成。
+生产新采样runtime仍3b7e473、200/503，但hash已从5f8e86cd变c207726b，来源未确认；本任务未写生产，不得沿用旧相同结论或回滚他人变化。readiness报RAG协议探测超时和市场数据日期不一致。
+实现9384的409P仅第11轮定向收据；本轮未跑全量/独审/QA，旧b17全量不转签，观察main1341f5c2未整合。9/21两条仍仅10轮隔离副本；9/22只读参考价两过一缺，无完整可写行。
+禁止重试401/403、发行价代前收、计数补身份或手工晋升；不重问已授权、不增模型额度。无本轮后台。
