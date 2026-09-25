@@ -19,6 +19,7 @@ fail-open：KeepAlive + ThrottleInterval 下，启动抛错会变成每 10 秒�
 from __future__ import annotations
 
 from collections.abc import Sequence
+import hashlib
 import json
 import logging
 import os
@@ -28,6 +29,7 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 logger = logging.getLogger(__name__)
 
@@ -118,6 +120,120 @@ def read_rows(path: Path) -> list[dict[str, Any]]:
 
 def _row_identity(row: dict[str, Any]) -> str:
     return json.dumps(row, ensure_ascii=False, sort_keys=True)
+
+
+def startup_row_sha256(row: dict[str, Any]) -> str:
+    """Stable identity across JSON formatting and ledger-home migration."""
+    return hashlib.sha256(_row_identity(row).encode("utf-8")).hexdigest()
+
+
+def _evidence_bytes(reference: dict[str, Any]) -> bytes:
+    path = Path(reference["path"])
+    if not path.is_absolute() or not re.fullmatch(r"[0-9a-f]{64}", reference["sha256"]):
+        raise ValueError("evidence requires an absolute path and SHA256")
+    raw = path.read_bytes()
+    if hashlib.sha256(raw).hexdigest() != reference["sha256"]:
+        raise ValueError("attribution evidence hash mismatch")
+    return raw
+
+
+def _validate_startup_attribution(target: dict[str, Any], attribution: dict[str, Any]) -> None:
+    """Bind a single-process Uvicorn log to its near-startup health snapshot."""
+    port = attribution["port"]
+    if (target.get("action") != "startup" or target.get("port") is not None
+            or type(target.get("pid")) is not int or target["pid"] <= 0
+            or type(port) is not int or not 1 <= port <= 65535
+            or attribution.get("schema_version") != "startup-port-attribution/v1"
+            or not isinstance(attribution.get("reason"), str) or not attribution["reason"].strip()
+            or attribution.get("target_sha256") != startup_row_sha256(target)):
+        raise ValueError("invalid startup attribution target or claim")
+    log = _evidence_bytes(attribution["server_log"]).decode("utf-8")
+    pids = re.findall(r"^INFO:\s+Started server process \[([0-9]+)\]\s*$", log, re.MULTILINE)
+    urls = re.findall(r"^INFO:\s+Uvicorn running on (https?://\S+) \(Press CTRL\+C to quit\)\s*$",
+                      log, re.MULTILINE)
+    if pids != [str(target["pid"])] or len(urls) != 1 or urlsplit(urls[0]).port != port:
+        raise ValueError("server log does not uniquely bind the startup PID and port")
+    health = json.loads(_evidence_bytes(attribution["health_snapshot"]))
+    runtime = health["runtime"]
+    rev = runtime["source_revision"]
+    if (not re.fullmatch(r"[0-9a-f]{7,40}", rev)
+            or not re.fullmatch(r"[0-9a-f]{7,40}", target["rev"])
+            or not revs_match(rev, target["rev"])
+            or not target.get("snapshot_path")
+            or target["snapshot_path"] not in (runtime.get("loaded_code_root"), runtime.get("code_root"))):
+        raise ValueError("health snapshot does not match the startup revision and code root")
+    captured = datetime.fromisoformat(health["timestamp"].replace("Z", "+00:00"))
+    started = datetime.fromisoformat(target["ts"].replace("Z", "+00:00"))
+    if captured.tzinfo is None or started.tzinfo is None:
+        raise ValueError("startup and health timestamps require timezones")
+    elapsed = (captured - started).total_seconds()
+    # Health serializes whole seconds; the ledger preserves microseconds.
+    same_truncated_second = captured.microsecond == 0 and -1 < elapsed < 0
+    if not (0 <= elapsed <= 300 or same_truncated_second):
+        raise ValueError("health snapshot must be within five minutes after startup")
+
+
+def resolved_rows(path: Path) -> list[dict[str, Any]]:
+    """Apply evidence-backed startup attribution without rewriting or reordering events.
+
+    Unknown, conflicting, or changed evidence leaves the original port unknown.
+    Attribution is never itself a startup/switch and never applies to a switch.
+    """
+    rows = read_rows(path)
+    targets: dict[str, list[int]] = {}
+    claims: dict[str, list[tuple[int, dict[str, Any]]]] = {}
+    for index, row in enumerate(rows):
+        if row.get("action") in RELEVANT_ACTIONS:
+            targets.setdefault(startup_row_sha256(row), []).append(index)
+        elif row.get("action") == "startup_port_attribution":
+            key = row.get("target_sha256")
+            if isinstance(key, str):
+                claims.setdefault(key, []).append((index, row))
+    for key, entries in claims.items():
+        indices = targets.get(key, [])
+        if len(indices) != 1:
+            continue
+        index = indices[0]
+        target = rows[index]
+        try:
+            if any(position <= index for position, _ in entries):
+                continue
+            for _, entry in entries:
+                _validate_startup_attribution(target, entry)
+            if len({entry["port"] for _, entry in entries}) != 1:
+                continue
+        except (OSError, ValueError, KeyError, TypeError, AttributeError):
+            continue
+        rows[index] = {**target, "port": entries[0][1]["port"], "recorded_port": None,
+                       "port_attribution_sha256": startup_row_sha256(entries[0][1])}
+    return rows
+
+
+def attribute_startup_port(*, ledger_path: Path, target_sha256: str, port: int,
+                           server_log: dict[str, Any], health_snapshot: dict[str, Any],
+                           reason: str, apply: bool) -> dict[str, Any]:
+    """Append a proved attribution only; dry-run by default at the CLI boundary."""
+    rows = read_rows(ledger_path)
+    targets = [row for row in rows if row.get("action") in RELEVANT_ACTIONS
+               and startup_row_sha256(row) == target_sha256]
+    if len(targets) != 1:
+        raise ValueError("attribution requires exactly one matching startup row")
+    claim = {"schema_version": "startup-port-attribution/v1", "target_sha256": target_sha256,
+             "port": port, "server_log": server_log, "health_snapshot": health_snapshot,
+             "reason": reason}
+    _validate_startup_attribution(targets[0], claim)
+    previous = [row for row in rows if row.get("action") == "startup_port_attribution"
+                and row.get("target_sha256") == target_sha256]
+    if (any(any(row.get(key) != value for key, value in claim.items()) for row in previous)
+            or any(rows.index(row) <= rows.index(targets[0]) for row in previous)):
+        raise ValueError("conflicting or out-of-order startup attribution already exists")
+    report = {"target_sha256": target_sha256, "port": port, "applied": False,
+              "already_recorded": bool(previous), "ledger_path": str(ledger_path)}
+    if apply and not previous:
+        row = {**build_row(action="startup_port_attribution", rev=targets[0]["rev"], port=port), **claim}
+        append_row(ledger_path, row)
+        report["applied"] = True
+    return report
 
 
 def _row_order(row: dict[str, Any]) -> float:
@@ -366,25 +482,17 @@ def last_relevant_row(path: Path, port: int | None = None) -> dict[str, Any] | N
     同一本账，不过滤会拿 sidecar 启动行去对生产 health（实测 2026-08-19 假
     ``rev_mismatch``）。``port`` 为 ``None`` 的行（旧版 switch 未记端口、或
     infer 失败）计入任何端口：宁可误报生产切换，也不因缺字段漏报。
+    唯一例外是 ``attribute-startup`` 的原件绑定补记；原始行不改，证据变化即恢复未知。
     """
 
     if not path.is_file():
         return None
     try:
-        text = path.read_text(encoding="utf-8")
+        rows = resolved_rows(path)
     except OSError:
         return None
     last: dict[str, Any] | None = None
-    for line in text.splitlines():
-        stripped = line.strip()
-        if not stripped:
-            continue
-        try:
-            row = json.loads(stripped)
-        except json.JSONDecodeError:
-            continue
-        if not isinstance(row, dict):
-            continue
+    for row in rows:
         if row.get("action") not in RELEVANT_ACTIONS:
             continue
         if port is not None:
