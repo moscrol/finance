@@ -44,8 +44,8 @@ SPT 的 PASS 不证明人工审批权属、手工框架字段、方法卡生成�
 2. KB / #87 owner：将固定且批准发布的正文、投影、索引部署为同一版本；用正确市场输入重新构建 sidecar，再跑本验收器。隔离成功不是直接把临时库拷到生产的授权。
 3. Perspective owner：按 `perspective-fengyuan.json` 的十个 patch ID 查清删除/改写意图，另审无 patch 票据的人工条目与结构化框架。应保留的才重新审批；应撤回的补齐撤回/替代记录，审计分支不代批。
 4. 生产和预算前置满足后，按规格执行六类输入及纠正/跨用户两例真入口消费。卖方、Knevo 仍沿原 owner 在途工单推进。本轮不声称它们的新生产验收已经完成。
-5. 用户纠正台账 → `memory_lookup`、跨用户隔离与撤回的离线前置见 `docs/verification/2026-09-25-user-memory-consumption/README.md`。只证明已有台账读取链；Workbench 对话自动写入仍 UNKNOWN/BLOCKED。
-6. Workbench 纠偏写侧已在审计分支完成临时用户根探针，见 `docs/verification/2026-09-25-workbench-correction-ingest/README.md`；不代表合 main、部署或下一轮开口必取记忆。
+5. 用户纠正台账 → `memory_lookup`、跨用户隔离与撤回的离线前置见 `docs/verification/2026-09-25-user-memory-consumption/README.md`。只证明当时已有台账读取链，后续写侧/自动预取另见下一项。
+6. Workbench P0纠偏写侧与P1记忆开口读侧已在审计分支完成临时根验收（`9533417c3`，干净641P）；下一轮首请求可自动收到新写的相关纠偏，空/超时/失败分别为缺口。见 `docs/verification/2026-09-25-workbench-correction-ingest/README.md`。这是无模型装配/送达PASS，真实模型采用和金融质量UNKNOWN；未合main/部署。
 
 ## 精确重跑
 
