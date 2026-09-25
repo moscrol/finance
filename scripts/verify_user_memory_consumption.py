@@ -24,6 +24,7 @@ from intelligence import userspace  # noqa: E402
 from intelligence.services import corrections, memory_status, user_memory  # noqa: E402
 from intelligence.services.episode_factory import build_episode_context  # noqa: E402
 from intelligence.services.episode_tools import build_episode_registry  # noqa: E402
+from intelligence.services.prime import PrimeOptions, build_prime  # noqa: E402
 from intelligence.services.task_frame import TaskFrame  # noqa: E402
 
 
@@ -72,6 +73,15 @@ def write_correction(root: Path, user: str, *, ts: str) -> dict[str, Any]:
         ts=ts,
     )
     return record
+
+
+def prime_lookup(root: Path, user: str, query: str = "光刻胶，现在怎么看") -> dict[str, Any]:
+    result = build_prime(PrimeOptions(query=query, user=user, kb_wiki=root / "missing-kb"))
+    return {
+        "corrections_present": bool(result.corrections_lines),
+        "corrections_sha256": digest(result.corrections_lines) if result.corrections_lines else None,
+        "warnings_count": len(result.warnings),
+    }
 
 
 def lookup(root: Path, user: str, query: str = "光刻胶，现在怎么看") -> dict[str, Any]:
@@ -123,7 +133,11 @@ def verify() -> dict[str, Any]:
             alice = write_correction(root, "alice", ts="2026-09-25T02:00:00")
             alice_before = lookup(root, "alice")
             bob_before = lookup(root, "bob")
+            alice_prime_before = prime_lookup(root, "alice")
+            bob_prime_before = prime_lookup(root, "bob")
             require(alice_before["recalled_corrections"] == 1, "Alice ledger was not recalled")
+            require(alice_prime_before["corrections_present"], "Alice correction missing from CLI prime")
+            require(not bob_prime_before["corrections_present"], "Bob correction leaked into CLI prime")
             require(alice_before["evidence_count"] == 1, "Alice tool did not return her correction")
             require(bob_before["recalled_corrections"] == 0, "Bob recalled Alice's correction")
             require(bob_before["evidence_count"] == 0, "Bob tool returned Alice's correction")
@@ -140,7 +154,9 @@ def verify() -> dict[str, Any]:
                 ts="2026-09-25T02:01:00",
             )
             alice_after = lookup(root, "alice")
+            alice_prime_after = prime_lookup(root, "alice")
             require(alice_after["recalled_corrections"] == 0, "Rejected correction remained in direct recall")
+            require(not alice_prime_after["corrections_present"], "Rejected correction remained in CLI prime")
             require(alice_after["evidence_count"] == 0, "Rejected correction remained in tool evidence")
             require(alice_after["trace_status"] == "empty", "Post-withdrawal empty recall was not explicit")
 
@@ -161,13 +177,16 @@ def verify() -> dict[str, Any]:
 
             return {
                 "status": "PASS",
-                "scope": "temporary_ledger_writer_to_memory_lookup; no_workbench_ingest_no_model_no_real_user_state",
+                "scope": "temporary_ledger_writer_to_prime_and_memory_lookup; no_workbench_ingest_no_model_no_real_user_state",
                 "write_path": "canonical_corrections_record_correction_in_temporary_users_root",
                 "alice_record_id": alice["id"],
                 "alice_correction_sha256": digest(alice["correction"]),
                 "alice_before_withdrawal": alice_before,
+                "alice_cli_prime_before_withdrawal": alice_prime_before,
                 "bob_cross_user_control": bob_before,
+                "bob_cli_prime_control": bob_prime_before,
                 "alice_after_withdrawal": alice_after,
+                "alice_cli_prime_after_withdrawal": alice_prime_after,
                 "missing_identity": {"memory_lookup_registered": False},
                 "inputs_unchanged": True,
             }
@@ -185,7 +204,7 @@ def main() -> int:
     try:
         report = verify()
     except Exception as exc:  # keep the audit result machine-readable
-        report = {"status": "FAIL", "scope": "temporary_ledger_writer_to_memory_lookup", "error": type(exc).__name__}
+        report = {"status": "FAIL", "scope": "temporary_ledger_writer_to_prime_and_memory_lookup", "error": type(exc).__name__}
         if not args.json:
             print(f"FAIL: {type(exc).__name__}: {exc}", file=sys.stderr)
     print(json.dumps(report, ensure_ascii=False, indent=2) if args.json else report["status"])
