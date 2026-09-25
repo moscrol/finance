@@ -1,25 +1,23 @@
 # 在途：输入与底座验收
 ## 这个分支做什么
-阶段A基线与B离线前置，不是生产恢复。母规格：`docs/superpowers/specs/2026-09-24-architecture-input-foundation-audit-spec.md`。
+阶段A基线及B离线前置。母规格：`docs/superpowers/specs/2026-09-24-architecture-input-foundation-audit-spec.md`。
 ## 决策与被否方案
-- 保留双方历史用merge，不rebase改写旧收据身份；经验冲突保留双方独立记录。
-- 旧成功夹具缺审计文件却期待PASS：补齐输入并加WARN传播反例，不放宽运行时或直接改旧断言。
-- 写入/送达/采用/质量分报；SPT词面合同仍拒收。展开：`docs/handoffs/2026-09-25-architecture-main-integration.md`。
+扩既有HTTP夹具验异常，不新造召回或借#76预算。组件绿不代HTTP绿，旧收据不移签；资源拒绝不强行开测。决策：`docs/handoffs/2026-09-25-workbench-memory-faults.md`。
+保留merge历史及双方经验；成功夹具补输入，不放宽缺审计时WARN合同。SPT词面合同仍拒收。
 ## 当前状态
-冻结主干9d5b9800a已整合至审计分支fa7b80942；仅测试修正698fd172d。未push/PR/合main/部署。
-四叶工程门禁PASS仅签698fd172d；后继文档HEAD不移签。证据：`docs/verification/2026-09-25-architecture-main-integration/README.md`。
-readiness上轮15秒超时，本轮未采样，UNKNOWN；历史503不沿用。真实采用/金融质量UNKNOWN，生产发布BLOCKED。
+新增测试提交c367aa2a7，仅改HTTP测试：自适应on/off、坏台账、读失败/超时/busy/迟到、写入权限/磁盘满及恢复。pytest未启动，BLOCKED于其他pytest并发；未留后台等待器。
+本轮fetch主干64847b7a1只比已整合9d5b9800a多文档，文本预检无冲突，未再merge。未push/PR/合main/部署。
+新证据：`docs/verification/2026-09-25-workbench-memory-faults/README.md`。09:28Z health200但未认证代码身份，readiness15秒超时，UNKNOWN。
 ## 已验证
-698fd172d干净全仓16423P/0F/74S/2X，collected16499；完整收集面与同SHA校验exit0，Ruff与外层门禁exit0。前端123P、e2e34P/2S，registry五项exit0。自适应开关on环境的HTTP及相关回归17P。
-首轮fa7b80942为16421P/1F/74S/2X，红原件保留；不是靠局部复跑拼绿。旧794P→3047cb1ee、641P→9533417c3等保持原签名。
+c367全仓Ruff和提交静态检查PASS；新增测试无运行结果。
+旧698fd172d四叶PASS：16423P/0F/74S/2X、完整收集16499，前端123P、e2e34P/2S、registry五项0。只签旧SHA，首轮红保留；详见`docs/verification/2026-09-25-architecture-main-integration/README.md`。
 ## 未验证 / 已知边界
-HTTP纠偏仍为TestClient、合成上一答案、无回答替身；常规隔离e2e不签生产纠偏UI、Workbench/CLI真实模型采用或金融质量。
-未读写真实用户、补数/换库/建生产索引/恢复采集/新增模型。用户分区不签生产登录认证；树外共享图谱未改。
-P1限授权主体研究题，material_only/local_only无预取；1秒、两槽无积压，不是磁盘IO硬取消。未做生产稳定性演练。
-SPT挑战4P/8F拒收、原画像1/3；风远十条替代关系及余42条来源待owner。
+新HTTP故障候选待运行。既有TestClient仍是合成上一答案、无回答替身，不签部署网络/UI、真实模型采用或金融质量；生产发布BLOCKED。
+未读写真实用户、补数/换库/建索引/恢复采集/新增模型；未动树外共享图谱。记忆授权及身份双闸、可选先验、非市场事实边界保留。
+SPT原画像1/3、挑战4P/8F拒收；风远替代关系及余42条来源待owner。#76新增记录判官不可用，不借其预算。
 ## 下一步
-1. 验收方复核届时主干与实际候选，同SHA门禁及用户确认齐后才合入，不拿文档HEAD代签。
-2. 行情/KB/发布owner闭合前置，预算齐后按#76分别验真实Workbench和CLI，再C/D。
-3. SPT画像/考卷走批准流程；风远沿Q-002；共享图谱owner补离线与整合证据，保留生产UNKNOWN。
+1. 先资源采样再启动测试，在独占干净候选跑HTTP/P0/P1相关回归，收据绑定实际HEAD；最终合入仍需对应四叶及用户确认。
+2. 行情/KB/发布owner闭合前置，预算齐后分别验真实Workbench和CLI，再C/D。
+3. SPT画像/考卷走批准流程；风远沿Q-002。
 ## 踩过的坑
-资源采样应先于启动测试，不能并行；本轮重验途中另一树开测，留资源原件，不作性能比较。失败缺文件不等于零债务；服务合同收紧要覆盖消费者夹具。记忆原句送达不等于采用。
+资源采样不能与启动测试并行；时点准入不是全机锁。空会话上下文含格式提示，不必为空字符串。线程只能有界等待，不能硬杀磁盘IO；顺序去重不签并发去重。
