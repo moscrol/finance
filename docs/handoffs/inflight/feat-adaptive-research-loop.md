@@ -1,33 +1,28 @@
 # feat/adaptive-research-loop 在途
 
 ## 这个分支做什么
-#72/PR #868、#75双轴独审、#76 L6。工程绿，独审/自然未闭合，尚不可合入。未push/合main/部署。
+#72 / PR #868：传输层绝对截止。#75 双轴独审已闭合；#76 L6 自然验收待用户批准。WIP，未合 main。
 
 ## 决策与被否方案
-- 固定候选签证，文档HEAD不移签。旧失败不续跑/倒改；0.8秒+0.2容差及检索120秒不放宽。
-- 否掉宿主修JSON补签旧Quality；对象交付仅新设施候选，不能替reviewer作结论。
-- 余额不足原批准完整双轴方案，不启动半轮、不借L6额度。
-- 背景/方案比较：`../2026-09-24-adaptive-e7-qc-budget-boundary.md`。
+- 受审候选固定；文档提交和前向都不继承候选收据；旧失败不续跑、不翻案；0.8s+0.2s 和检索 120s 的判据不放宽。
+- `complete` 由控制器写入（#906 已并入）；审查者内容里出现身份字段或 `complete`，一律拒收。
+- 09-25 定为只合 #868（A 路）：独审证据在 `f2610293f` 上已经齐了。#910 / #911 在 Pi 会话 `01a0d35f` 的组合树 `fb41cebda` 上，另走审查，#868 合入后改指 main。否掉的 B 路：组合树整体重审（约 78 次），会把未经独审的 #911 拉进同一次合并。
+- 背景：`../2026-09-25-c3-c6-review-closeout.md`
 
 ## 当前状态
-受测e7a6cb412，基线main3bb81b963，末次远程复核未漂移。0326七叶全绿：15396P/85S/2X、collected15483，无筛选；前端六步及五个registry/ledger叶过。e7只修日志链，不宣称旧RAG/覆盖根因已修。
-根均在 `~/.finance-runtime/reviews/`：工程 `pr868-merge-ready-20260924-0326/`，独审 `pr868-glm-qc-20260924-0415/`，均结束、无后台。收据为0326下 `python-receipts/gate-Pq59hxEb/pytest.json`，完整log/XML已存。
-0415已封存BLOCKED：Spec PASS_WITH_LIMITS但C3/C7未验证；Quality执行交付内部JSON字符串语法错误，exit75、无report/最终verdict。两轴原路径作者各16P，不能补独立缺口。原始探针失败及解释均保留。
-**模型总账131/152，剩21；不得从旧74重新起算。** 本批Spec30+Quality27=57，历史74；所有已起shim计数一致、active=0、shutdown_complete=true。原每轴4/17/17/1方案不能以21完成。保持完整新批78上限需总授权至少209，尚未获准，不自动启动。
+- 独审（`f2610293f`）：spec 轴 C1–C7 全部独立验证，零发现（C3 由批 c3 验证，累计 333/354）；quality 轴 PASS_WITH_LIMITS（批 next）。
+- 本分支 = `f2610293f` + 纯文档 + 前向 main `55db731a6`（`ce60a6b0c`：INDEX 按行解，docstring 取并集）+ 本提交（删 #906 带进来的在途文件）。前向带入 #920：`llm_refine.py` 的 5 个 `_post_chat*` 调用点加了 `_apply_compat_payload`，与本分支的截止改动自动合并。
+- 前向后的四叶与 #920 调用点作者复核在本提交之后跑，收据绑定本 head，位置 `~/.finance-runtime/reviews/pr868-fwd-20260925/`。
 
 ## 未验证 / 已知边界
-旧c315的7个RAG失败及前缀判官共享窗覆盖红根因仍未定，新绿不翻案。
-0145/0208/0400零消费封存；0400原路径10P/6个git-init setup error后另起0415，只补父目录metadata，宿主16P各过。原exit120空日志原因未定，简单文件/管道对照均0。
-新L6未准备/提交，旧0210零消费阻断、严格覆盖/检索失败及自然NOT_PASSED不改。生产身份未比较。
-整PR diff-check仍exit2，8份旧封存文本空白问题；未裁剪/豁免。新归档自身检查不是整PR。
+- L6 未跑，自然验收仍是 NOT_PASSED。
+- 旧 c315 的 RAG keepalive 失败根因未定。
+- spec 轴的非阻塞观察：流式调用点在截止或取消时，抛出的异常类型各次运行不一致（`LLMStreamCancelled` / `LLMStreamAlreadyEmitted`）。截止本身生效。
 
 ## 下一步
-1. 先读0415的batch、host-evidence-audit与closure-current-turn；旧批不得续。
-2. 待预算/方案确认，另建独审根。对象协议须新批验证，C3语义结果、C7身份/收据及探针签名/端点核对不能省。
-3. 独审与正式准入均满足后才另建L6新根/新题；精确Episode审计PASS才下一题，重发/续问0。
-
-## 已验证
-e7修复72P、旧反例4F+2F；对象交付离线15项含注册工具通过，0模型、未启用，不算独审。新530原件/本地/Git核验0差 `docs/verification/2026-09-24-adaptive-e7-qc-closeout/`；历史208/51份仍保留。
+1. 四叶绿 + 调用点复核通过后，快进推到本分支。
+2. 用户批准后新建 L6 根：≤ 3 题，每题精确 Episode 审计 PASS 才出下一题。
+3. L6 通过后合 main（等用户确认）。合并时 main 如果有代码前进，要再前向并重跑四叶。
 
 ## 踩过的坑
-模型HTTP200与阶段完成不等于有效终审。metadata可逐目录放行，正文不能跟着开放。harness-reference/BUILD.md有他人改动，未碰。
+完成标志不要让模型负责；探针路径要在工具里当场核验；沙箱里 conftest 找解释器会调 git，工具环境要设 `FWP_WORKBENCH_PYTHON`。

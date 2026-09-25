@@ -175,7 +175,7 @@ def run_hithink_stock_daily_step() -> dict:
     return sync_hithink_stock_daily(mode="incremental")
 
 
-def run_bridge_stock_daily_step(trade_date: str) -> dict:
+def run_bridge_stock_daily_step(trade_date: str, *, skip_existing: bool = True) -> dict:
     """主源没写出当日 fact_stock_daily 时，用同花顺日线兜底补齐。
 
     为什么需要它（2026-09-22 复盘）：fact_stock_daily 缺当日行会让 13 个
@@ -187,6 +187,7 @@ def run_bridge_stock_daily_step(trade_date: str) -> dict:
     同花顺两样都不提供）。主源成功时本步骤自动跳过——不靠额外的先后判断，
     而是靠 bridge 默认拒绝覆盖已有行这道守卫本身。
 
+    skip_existing=False 用于主源失败后的 CLI 兜底：残留行不等于主源成功，必须拒绝覆盖。
     两个源都没数据时本步骤会报错，这是对的：那确实是当天没行情，
     应该红在这里，而不是等到 compute-features 才爆。
     """
@@ -198,7 +199,7 @@ def run_bridge_stock_daily_step(trade_date: str) -> dict:
             "SELECT count(*) FROM fact_stock_daily WHERE trade_date = ?",
             [trade_date],
         ).fetchone()[0]
-        if existing:
+        if existing and skip_existing:
             return {"skipped": True, "reason": f"主源已写入 {existing} 行", "rows": existing}
         plan = build_bridge_day(con, trade_date)
         applied = apply_bridge_day(con, plan)
