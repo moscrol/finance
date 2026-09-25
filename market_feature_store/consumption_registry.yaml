@@ -96,8 +96,8 @@ plans:
   # 同花顺五步：缺 key 明确 skip，有 key 执行失败阻断发布；并跑表成功≠复盘旧表已换源。
   local:
     - db-lock
-    - stock-daily
     - hithink-stock-daily
+    - stock-daily
     - hithink-sector-kline
     - hithink-limit-pools
     - hithink-dragon-auction
@@ -224,6 +224,8 @@ datasets:
       policy: >-
         已是东财快照（sync-stock-daily-snapshot，非复盘会）。维持。失败兜底 fill-stock-daily-fallback
         （source 带 fallback，来自成分表——cheap 日拼接器会拒绝这种源）。历史回填走 mootdx。
+        local 先同步同花顺日线；前两源失败且目标日无行时，在 stock-daily 内调用 bridge-stock-daily。
+        桥接不覆盖已有行；全部尝试失败即阻断下游与发布。
     evidence: "东财值与复盘会成分表逐只完全一致（价/涨幅/成交额 p99 差=0.0）[回测]"
 
   - key: hithink_stock_daily
