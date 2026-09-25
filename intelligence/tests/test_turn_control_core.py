@@ -60,36 +60,6 @@ def test_control_core_preserves_conversation_context_outside_task_frame() -> Non
     assert "conversation_context" not in result.task_frame.to_dict()
 
 
-_CORE_MATERIAL_REPORT = (
-    "【卖方摘要｜2026-08-28】固态电池：硫化物路线进入中试放量期\n\n"
-    "一、核心观点\n公司 A 硫化物电解质中试线 2026 年 8 月投产，规划产能 200 吨/年，"
-    "预计 2027 年一季度满产。管理层在电话会中表示下游两家电池厂已完成 A 样验证。\n\n"
-    "二、关键数据\n2026 年上半年新签订单 12 亿元，同比增长 40%；毛利率 31.5%（去年同期 27.2%）。\n\n"
-    "三、我们的判断\n我们认为硫化物路线将在 2027 年替代氧化物成为主流，公司 A 是最大受益者，目标价上调 30%。"
-)
-
-
-def test_control_core_passes_context_into_build_task_frame() -> None:
-    """B05-1：control 层把 context 传进 frame，「这篇」能绑到上一轮材料。"""
-
-    from intelligence.services.user_task import material_id_for
-
-    block = (
-        "## 较早消息（原文，超预算时从最早处截断）\n（无较早消息）\n\n"
-        "## 最近消息原文\n"
-        f"user: {_CORE_MATERIAL_REPORT}\n\n这篇研报的核心逻辑站得住吗？\n"
-        "assistant: 硬事实有三条……"
-    )
-    result = TurnControlCore().control(
-        "这篇里提到的产能数字有官方来源吗",
-        context=block,
-    )
-
-    assert result.task_frame.referenced_material_ids == (
-        material_id_for(_CORE_MATERIAL_REPORT),
-    )
-
-
 def test_market_forecast_runtime_uses_current_structure_without_causal_web_tools() -> (
     None
 ):

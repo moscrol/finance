@@ -17,17 +17,6 @@ def _load():
     return module
 
 
-def test_preflight_local_plan_skips_fupanhui_checks():
-    """plan=local 零复盘会请求：preflight 不得发起 CDP/登录探测，也不得报这两类问题。"""
-    module = _load()
-    with patch.object(
-        module.urllib.request, "urlopen",
-        side_effect=AssertionError("local 计划不应发起 CDP/复盘会探测"),
-    ):
-        problems = module.preflight(require_fupanhui=False)
-    assert not any(("CDP" in p) or ("fupanhui" in p) for p in problems)
-
-
 def test_sw_l1_uses_heavy_timeout_index_stays_light():
     module = _load()
     recorded: list[tuple[str, int]] = []

@@ -305,30 +305,11 @@ POINTER_NEEDLES = (
 )
 
 
-def _instruction_text_with_imports(path):
-    """指令文件正文 + 它用 ``@<相对路径>`` 导入进来的正文。
-
-    2026-09 指令迁移后 AGENTS.md 是唯一事实源，CLAUDE.md 收为 ``@AGENTS.md`` 导入
-    加几行 Claude Code 备注。断言仍是「读任一入口文件的 agent 都能拿到这些指针」，
-    只是要跟着导入走一层——若 CLAUDE.md 丢了 ``@AGENTS.md``，或 AGENTS.md 丢了指针，
-    这条依旧会红。
-    """
-    text = path.read_text(encoding="utf-8")
-    parts = [text]
-    for line in text.splitlines():
-        stripped = line.strip()
-        if stripped.startswith("@") and not stripped.startswith("@@"):
-            target = ROOT / stripped[1:].strip()
-            if target.is_file():
-                parts.append(target.read_text(encoding="utf-8"))
-    return "\n".join(parts)
-
-
 def test_agents_and_claude_carry_code_map_pointer():
     for path in (ROOT / "AGENTS.md", ROOT / "CLAUDE.md"):
-        text = _instruction_text_with_imports(path)
+        text = path.read_text(encoding="utf-8")
         for needle in POINTER_NEEDLES:
-            assert needle in text, f"{path.name}（含 @ 导入）missing {needle!r}"
+            assert needle in text, f"{path.name} missing {needle!r}"
 
 
 def test_session_facts_calls_status_one_line_after_interpreter():
@@ -382,9 +363,8 @@ def test_query_empty_graph_exits_0_and_refuses_structure():
 def test_query_daily_full_doors_probe():
     payload, _ = _query_json("daily-full")
     hits = payload["layers"]["doors"]["hits"]
-    # 2026-09 指令迁移后写入正门这一段在 AGENTS.md（CLAUDE.md 已收为 @AGENTS.md 导入）。
     assert any(
-        "AGENTS.md" in h["path"]
+        "CLAUDE.md" in h["path"]
         and "daily-full" in h["excerpt"]
         and "market_feature_store.cli" in h["excerpt"]
         for h in hits
@@ -397,9 +377,7 @@ def test_query_daily_full_doors_probe():
     assert cmd_hits
     assert cmd_hits[0]["retired"] == []
     retired_lines = [r for h in hits for r in h["retired"]]
-    # 门旁必须有退役标记被捞出来。措辞跟着 CLAUDE.md 走：飞书那条 2026-09-11
-    # 从「已废弃」改口成「已退役/已删除」，故三个词都认（都在 code_map 的 RETIRED_RE 里）。
-    assert any(("已废弃" in r or "停用" in r or "退役" in r) for r in retired_lines)
+    assert any("已废弃" in r or "停用" in r for r in retired_lines)
     assert payload["completeness_claim"]["recall"] == "untested"
     assert payload["completeness_claim"]["doors"] in ("ok", "partial")
 
@@ -419,7 +397,7 @@ def test_query_skill_bridge_hits_are_a_set_not_merged_lines():
 def test_query_fact_sector_daily_is_view():
     payload, _ = _query_json("fact_sector_daily")
     hits = payload["layers"]["doors"]["hits"]
-    assert any("AGENTS.md" in h["path"] for h in hits)
+    assert any("CLAUDE.md" in h["path"] for h in hits)
     assert any(
         "VIEW" in h["excerpt"] or "_generation" in h["excerpt"] or "snapshot" in h["excerpt"]
         for h in hits

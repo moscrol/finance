@@ -8,7 +8,7 @@ module can be introduced beside the old path without changing its public API.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 import inspect
 from typing import TYPE_CHECKING, Callable, Literal
 
@@ -163,7 +163,7 @@ class TurnControlCore:
             previous_turn_id=previous_turn_id,
             llm_complete=llm_complete,
         )
-        frame = self._frame_for(decision, query, previous_frame, context=context)
+        frame = self._frame_for(decision, query, previous_frame)
         return project_turn_decision(
             decision,
             task_frame=frame,
@@ -203,8 +203,6 @@ class TurnControlCore:
         decision: TurnDecision,
         query: str,
         previous_frame: TaskFrame | None,
-        *,
-        context: str = "",
     ) -> TaskFrame:
         if decision.task_frame is not None:
             return decision.task_frame
@@ -216,21 +214,15 @@ class TurnControlCore:
                 decision.turn_intent,
                 query,
                 confidence=decision.confidence,
-                context=context,
             )
         if decision.question_type is not None:
-            return TurnControlCore._frame_from_decision(decision, query, context=context)
+            return TurnControlCore._frame_from_decision(decision, query)
         if previous_frame is not None:
             return previous_frame
-        return TurnControlCore._frame_from_decision(decision, query, context=context)
+        return TurnControlCore._frame_from_decision(decision, query)
 
     @staticmethod
-    def _frame_from_decision(
-        decision: TurnDecision,
-        query: str,
-        *,
-        context: str = "",
-    ) -> TaskFrame:
+    def _frame_from_decision(decision: TurnDecision, query: str) -> TaskFrame:
         """Project validated adapter metadata without interpreting the query twice."""
 
         from intelligence.services.query_understanding import QueryEnvelope
@@ -246,10 +238,7 @@ class TurnControlCore:
             matched_by="explicit" if decision.subject is not None else "generic",
             confidence=decision.confidence,
         )
-        # B05-1：对话块已知才传（None 保持旧调用方语义——不做材料绑定也不追问）。
-        return build_task_frame(
-            query, envelope, conversation_context=context if context else None
-        )
+        return build_task_frame(query, envelope)
 
     @staticmethod
     def _frame_from_intent(
@@ -257,7 +246,6 @@ class TurnControlCore:
         query: str,
         *,
         confidence: float,
-        context: str = "",
     ) -> TaskFrame:
         from intelligence.services.query_understanding import QueryEnvelope
 
@@ -275,11 +263,7 @@ class TurnControlCore:
             confidence=confidence,
             required_outputs=intent.required_outputs,
         )
-        frame = build_task_frame(
-            query, envelope, conversation_context=context if context else None
-        )
-        if frame.history_intent is None and intent.history_intent is not None:
-            frame = replace(frame, history_intent=intent.history_intent)
+        frame = build_task_frame(query, envelope)
         return rebase_task_frame(
             frame,
             question_type=intent.question_type,

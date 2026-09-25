@@ -1526,45 +1526,25 @@ def _format_market_value_rows(rows: list[tuple[Any, Any]], latest_close: float |
     ]
 
 
-def _sector_scope(
-    con: Any, latest_date: Any, sector: str, *, table: str = "fact_sector_stock_daily"
-) -> tuple[str, str]:
-    """把板块名解析成事实表的单个码, 返回 (键列名, 键值)。
-
-    板块名不是键: `国防军工` 至今是两个 .FP 码同名, 两套供应商码系并存期同名两套成分。
-    按名字分区算排名会把两个板块的成分股混进同一个分母。解析器不可用 (视图未建/名字
-    查不到) 时整段退回旧行为——键列就是 sector_name, 连分区列也不假设有 sector_ts_code
-    (旧夹具/旧库可能没有这一列), 不静默吞掉结果。
-    """
-    from market_feature_store.sector_alias import pick_code_with_rows, resolve_sector_codes
-
-    res = resolve_sector_codes(con, sector)
-    if res.codes:
-        code = pick_code_with_rows(con, table, latest_date, res.codes) or res.codes[0]
-        return "sector_ts_code", code
-    return "sector_name", sector
-
-
 def _format_stock_rank_lines(con: Any, latest_date: Any, stock_code: str, sector_names: list[str]) -> list[str]:
     if not sector_names:
         return []
     out: list[str] = []
     for sector in sector_names[:5]:
-        key, value = _sector_scope(con, latest_date, sector)
         row = con.execute(
-            f"""
+            """
             with base as (
-              select {key}, stock_ts_code, stock_name, pct_chg, amount,
-                     rank() over(partition by {key} order by amount desc nulls last) as amount_rank,
-                     rank() over(partition by {key} order by pct_chg desc nulls last) as pct_rank,
-                     count(*) over(partition by {key}) as n
+              select sector_name, stock_ts_code, stock_name, pct_chg, amount,
+                     rank() over(partition by sector_name order by amount desc nulls last) as amount_rank,
+                     rank() over(partition by sector_name order by pct_chg desc nulls last) as pct_rank,
+                     count(*) over(partition by sector_name) as n
               from fact_sector_stock_daily
-              where trade_date=? and {key}=?
+              where trade_date=? and sector_name=?
             )
             select amount_rank, pct_rank, n, pct_chg, amount
             from base where stock_ts_code=?
             """,
-            [latest_date, value, stock_code],
+            [latest_date, sector, stock_code],
         ).fetchone()
         if row:
             out.append(f"{sector}成交排名{row[0]}/{row[2]}、涨幅排名{row[1]}/{row[2]}、涨跌幅{row[3]}%、成交{row[4]}亿")
@@ -1576,16 +1556,14 @@ def _format_sector_state_lines(con: Any, latest_date: Any, sector_names: list[st
         return []
     out: list[str] = []
     for sector in sector_names:
-        # 同名双码时 `limit 1` 会随机落到哪一套; 先解析到码 (现行码优先, 当日无行退回退役码)。
-        key, value = _sector_scope(con, latest_date, sector, table="fact_sector_daily")
         row = con.execute(
-            f"""
+            """
             select pct_chg, amount, diff_ratio
             from fact_sector_daily
-            where trade_date=? and {key}=?
+            where trade_date=? and sector_name=?
             limit 1
             """,
-            [latest_date, value],
+            [latest_date, sector],
         ).fetchone()
         if row:
             proxy = "双红代理" if (row[0] or 0) > 0 and (row[2] or 0) > 0 else "非双红代理"
@@ -1752,25 +1730,9 @@ def _financials_block_for_llm(
     """
     if not market_financials.fetch_enabled():
         return market_financials.build_financials_block("", "", [], fetch_disabled=True)
-    target = _resolve_financials_target(query, market_db_path)
-    if target is None:
-        return ""
-    target_code, target_name = target
-    return market_financials.financials_block_for_target(
-        target_code,
-        target_name,
-        periods=periods if periods is not None else market_financials.DEFAULT_PERIODS,
-        fetcher=fetcher,
-        timeout=timeout,
-    )
-
-
-def _resolve_financials_target(
-    query: str, market_db_path: str | Path | None
-) -> tuple[str, str] | None:
-    """问句 / 主体文本 → (ts_code, 名称)。先查本地 DuckDB（代码或名称），查不到再认裸 6 位代码。"""
-
     db_path = Path(market_db_path).expanduser() if market_db_path else DEFAULT_MARKET_DB_PATH
+    target_code: str | None = None
+    target_name = ""
     if db_path.exists():
         db_result = retrieval_cache.try_connect_readonly(db_path)
         if db_result.available:
@@ -1778,45 +1740,21 @@ def _resolve_financials_target(
             try:
                 stock = _resolve_stock_for_market_block(con, query)
                 if stock:
-                    return str(stock[0]), str(stock[1])
+                    target_code, target_name = stock
             except Exception:
                 pass
             finally:
                 con.close()
-    code_match = re.search(r"\b(\d{6})(?:\.(SH|SZ|BJ))?\b", str(query or ""), re.I)
-    if not code_match:
-        return None
-    return code_match.group(0), ""
-
-
-def _financials_bundle_for_llm(
-    query: str,
-    market_db_path: str | Path | None,
-    timeout: float = 8.0,
-    periods: int | None = None,
-) -> market_financials.FinancialsBundle | None:
-    """``_financials_block_for_llm`` 的结构化版本：块 + 原始行 + 取数结果一起回。
-
-    ``financial_data`` 工具用它给证据行挂 ``StructuredObservation``（工单 04）。解析不到目标股
-    返回 None（与块版本返回空串同义）；取数被开关关闭时返回只有说明块、无行的 bundle。
-    """
-
-    if not market_financials.fetch_enabled():
-        return market_financials.FinancialsBundle(
-            ts_code="",
-            name="",
-            rows=(),
-            result=None,
-            block=market_financials.build_financials_block("", "", [], fetch_disabled=True),
-        )
-    target = _resolve_financials_target(query, market_db_path)
-    if target is None:
-        return None
-    target_code, target_name = target
-    return market_financials.fetch_financials_bundle(
+    if target_code is None:
+        code_match = re.search(r"\b(\d{6})(?:\.(SH|SZ|BJ))?\b", str(query or ""), re.I)
+        if not code_match:
+            return ""
+        target_code = code_match.group(0)
+    return market_financials.financials_block_for_target(
         target_code,
         target_name,
         periods=periods if periods is not None else market_financials.DEFAULT_PERIODS,
+        fetcher=fetcher,
         timeout=timeout,
     )
 

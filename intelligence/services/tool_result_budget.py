@@ -206,12 +206,6 @@ def budget_tool_observation(
         # hash or an evidence id as an argument.  Keep this list in sync with
         # ``episode_protocol.strip_hashes_for_model``; the pairing is pinned by
         # ``test_context_budget_names_only_model_visible_fields``.
-        #
-        # 2026-09-11: 「取不回来」只对「按证据编号 / 哈希取」成立。cap02 落地后存在一条
-        # 真实的节级重读路径：``agent_research.deep_read_evidence`` 把命中页整节按
-        # ``kb_rag.DEEP_READ_ITEM_CHARS``（与本文件 detail 上限同值）切成段级证据，并在
-        # 观察值里给出「同页其余章节」目录。指令里只说「取不回」会教模型放弃一条
-        # 存在的动作，所以这里把那条路径写明（blocked/02 B-1 建议②）。
         budgeted["context_budget"] = {
             "truncated": True,
             "omitted_chars": omitted_chars,
@@ -232,10 +226,8 @@ def budget_tool_observation(
                 "证据编号、来源、时点、分级与缺口都完整。"
                 "不要因为叙述变短而重复同一次查询——重查得到的是同一份预览。"
                 "引用时用证据编号（E1、E2…），不要誊抄哈希。"
-                "被截掉的原文没有工具能按证据编号取回，但不等于没有返回："
-                "kb_search 命中页的整节会另以「深读《章节名》N/M」段落送来（每段完整不截），"
-                "观察值里还有「同页其余章节」目录——缺哪一节就用 kb_search 检索「页名 章节名」"
-                "把那节读出来。还不够再换更窄的查询，或把它写成缺口。"
+                "被截掉的原文没有工具可以取回；若这条证据不够支撑结论，"
+                "请换一个更窄的查询，或把它写成缺口。"
             ),
         }
 

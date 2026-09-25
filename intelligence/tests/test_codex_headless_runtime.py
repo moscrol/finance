@@ -8,7 +8,6 @@ import os
 from pathlib import Path
 import shlex
 import subprocess
-import sys
 from threading import Thread
 
 import pytest
@@ -720,16 +719,9 @@ def test_sealed_runtime_stops_before_model_when_isolation_is_unproven() -> None:
     not Path("/Applications/ChatGPT.app/Contents/Resources/codex").is_file(),
     reason="Codex desktop binary unavailable",
 )
-@pytest.mark.parametrize("prepend_venv_path", [False, True])
 def test_installed_codex_sandbox_denies_network_and_unix_socket(
     tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    prepend_venv_path: bool,
 ) -> None:
-    if prepend_venv_path:
-        monkeypatch.setenv(
-            "PATH", f"{Path(sys.executable).parent}{os.pathsep}{os.environ['PATH']}"
-        )
     receipt = probe_sealed_isolation(
         "/Applications/ChatGPT.app/Contents/Resources/codex",
         tmp_path,
@@ -741,38 +733,6 @@ def test_installed_codex_sandbox_denies_network_and_unix_socket(
     assert receipt.unix_socket == "denied"
     assert receipt.live_root_read == "denied"
     assert not (tmp_path / ".codex-isolation-probe").exists()
-
-
-def test_isolation_probe_preserves_nonzero_process_output(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    payload = dict.fromkeys(
-        ("public_tcp", "loopback", "unix_socket", "live_root_read"), "denied"
-    )
-    stderr = "sandbox-exec: Operation not permitted\n" + "x" * 5000
-
-    def run(args, **kwargs):
-        if args[1] == "--version":
-            return subprocess.CompletedProcess(args, 0, "codex-cli test", "")
-        return subprocess.CompletedProcess(args, 71, json.dumps(payload), stderr)
-
-    monkeypatch.setattr(
-        "intelligence.runtime.codex_headless_runtime.subprocess.run", run
-    )
-    receipt = probe_sealed_isolation("test-codex", tmp_path)
-
-    assert receipt.status == "unproven"
-    assert receipt.probe_returncode == 71
-    assert receipt.probe_stdout == json.dumps(payload)
-    assert receipt.probe_stderr == stderr[:4096]
-    assert Path(receipt.python_executable).is_absolute()
-    assert receipt.to_dict()["probe_returncode"] == 71
-    assert receipt.to_dict()["probe_stderr"] == stderr[:4096]
-
-
-def test_proven_isolation_receipt_rejects_nonzero_exit() -> None:
-    with pytest.raises(ValueError, match="proven isolation receipt"):
-        replace(HeadlessIsolationReceipt.proven_for_test(), probe_returncode=71)
 
 
 def test_headless_runtime_forwards_only_an_explicit_model() -> None:

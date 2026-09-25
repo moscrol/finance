@@ -1,40 +1,40 @@
 #!/usr/bin/env bash
-# Codex SessionStart hook：委托给 .claude/hooks/load-memory.sh，不再维护第二份实现。
-#
-# 之前这里是一份早期拷贝：无预算、`cat` 整篇项目笔记（300KB+，其中 7 成是交接流水），
-# 与 .claude 版在 2026-08-10 收窄到 12000 字节预算后分道扬镳——同一份逻辑存两处必漂。
-# 退出码恒 0：观测设施故障不该阻断会话。
-set -uo pipefail
+# SessionStart hook: 把记忆底座(偏好 + 本项目笔记)注入 Claude Code 上下文。
+# 在 Mac 本机经软链 .agent-memory 读取；软链不在则回退到绝对路径。
+set -euo pipefail
 
-# 候选仓根逐个验证，而不是「第一个非空就算数」：
-# 环境变量非空但指向错目录（例如父目录）会让 `[ -n "$ROOT" ]` 短路掉后面的回退，
-# 结果是找不到脚本、静默 exit 0、注入为空。只有「该目录下真有被委托脚本」才算命中。
-#
-# 顺序是「cwd 的 git 仓根优先、环境变量其次」，与 .devin/config.json 的
-# _why_portable_hooks 同一套。sentinel 只问「该目录下有没有被委托脚本」，
-# **另一棵有效项目树完全满足它**——所以它只挡得住「变量指向不存在的目录」，
-# 挡不住「变量指向另一棵有效树」，后者只能靠顺序。把变量排在前面时，继承来的
-# CODEX_PROJECT_DIR 会赢过当前树，注入别人的分支/改动/收据，且 exit 0 静默失真
-# （2026-09-12 实测：在 A 树启动、变量指 B 树，注入的是 B 的分支）。
-# cwd 不在任何项目树里时（Codex 可从任意目录启动）git 那步取不到值，自然落到
-# 环境变量——两种情形都由 tests/test_agent_hook_roots.py 钉住。
-pick_root() {
-  local cand
-  for cand in "$(git rev-parse --show-toplevel 2>/dev/null)" \
-              "${CODEX_PROJECT_DIR:-}" "${CLAUDE_PROJECT_DIR:-}" \
-              "$(cd "$(dirname "$0")/../.." 2>/dev/null && pwd)"; do
-    [ -n "$cand" ] || continue
-    [ -f "$cand/.claude/hooks/load-memory.sh" ] || continue
-    printf '%s\n' "$cand"
-    return 0
-  done
-  return 1
-}
+V=".agent-memory"
+[ -d "$V" ] || V="/Users/a77/agent-memory"
 
-ROOT="$(pick_root)" || exit 0
+[ -d "$V" ] || exit 0   # vault 不可达(如在别的机器)就静默退出，不打扰
 
-# 必须在目标仓里执行：被委托脚本用 cwd 找 git（尾部固定段的 `git status` 与
-# `git rev-parse --abbrev-ref HEAD`）。只把路径拼对、却在别处（如 /tmp）跑它，
-# 会注入到「当前分支：?」。
-( cd "$ROOT" && bash .claude/hooks/load-memory.sh )
-exit 0
+echo "# 记忆底座（SessionStart 自动注入）"
+echo "> 以下为用户长期偏好与本项目笔记，请全程严格遵守（尤其教学模式：讲原理 + 技术选型/替代方案对比 + 标注可复用知识点；中文）。"
+echo
+
+if [ -f "$V/30_conventions/preferences.md" ]; then
+  echo "## 用户偏好 (preferences.md)"
+  cat "$V/30_conventions/preferences.md"
+  echo
+fi
+
+repo_root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+remote="$(git -C "$repo_root" remote get-url origin 2>/dev/null || true)"
+if [ -n "${remote:-}" ]; then repo="$(basename "${remote%.git}")"; else repo="$(basename "$repo_root")"; fi
+note="$V/20_projects/$repo.md"
+if [ -f "$note" ]; then
+  echo "## 本项目笔记 ($repo)"
+  cat "$note"
+  echo
+fi
+
+echo "## Git 现状（开工先看）"
+br="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
+echo "当前分支：${br:-?}"
+st="$(git status --short 2>/dev/null || true)"
+if [ -n "$st" ]; then echo '```'; echo "$st"; echo '```'; else echo "(工作树干净)"; fi
+echo "Git 约定：大任务开分支；合并 main 必须等确认，不强推。"
+echo
+
+echo "## 回写约定"
+echo "完工后按 $V/40_playbooks/devin-writeback.md 做分层沉淀：项目级决策写 $V/20_projects/$repo.md；稳定方法论写 $V/10_knowledge/；单次问答纠偏/评分样本写项目学习层，不把聊天流水写进交接记录。"

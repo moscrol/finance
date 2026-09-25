@@ -6,7 +6,6 @@ import hashlib
 import json
 import os
 import re
-import sys
 import threading
 import time
 from collections import Counter
@@ -17,7 +16,7 @@ from dataclasses import asdict
 from importlib import import_module
 from pathlib import Path
 from threading import Event, Lock
-from typing import Any, Literal
+from typing import Literal
 
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
@@ -43,16 +42,13 @@ from intelligence.api.structured_reports import (
     new_structured_report,
     upsert_report_module,
 )
-from intelligence.api import research_evolution as research_evolution_api
 from intelligence.api.stream_events import PUBLIC_EVENT_TYPES
 from intelligence.services import followups as followups_svc
-from intelligence.services import research_evolution as research_evolution_svc
 from intelligence.services import kb_rag
 from intelligence.services import llm_refine
 from intelligence.services import market_moneyflow
 from intelligence.services import perspective_lab
 from intelligence.services import research_contract
-from intelligence.services import research_project
 from intelligence.services import run_store as rs
 from intelligence.services.provider_latency import (
     repair_seconds_cap_for,
@@ -92,12 +88,8 @@ from intelligence.services.draft_publisher import (
 from intelligence.services.episode_progress import (
     EpisodeProgress,
     RunEpisodeProgressPublisher,
-    is_public_progress_message,
     project_episode_progress,
-)
-from intelligence.services.episode_store import (
-    JsonlEpisodeStore,
-    resolve_episode_store_root,
+    public_progress_messages,
 )
 from intelligence.services.episode_tools import (
     build_episode_registry,
@@ -118,7 +110,7 @@ from intelligence.services.llm_settings import SessionLLMSettings
 from intelligence.services.market_snapshot_contract import (
     validate_market_snapshot_root,
 )
-from intelligence.services.run_store import RunStore, redact_value
+from intelligence.services.run_store import RunStore
 from intelligence.services.runtime_provenance import build_runtime_provenance
 from intelligence.services import task_fulfillment
 from intelligence.services.task_frame import derive_required_outputs
@@ -292,22 +284,11 @@ def _model_floored_synthesis_reserve(
     return reserve
 
 
-def _history_session_for_run(store, run_id, conversation_id):
-    # Resolve lazily: ordinary questions do not scan or instantiate history state.
-    def create():
-        from intelligence.services.historical_research.episode import HistorySession
-
-        return HistorySession(store, run_id, conversation_id)
-
-    return create
-
-
 def _memory_bound_registry_factory(
     memory_user: str | None,
     *,
     perspective_ids: tuple[str, ...] = (),
     perspective_mode: str = "neutral",
-    history_session=None,
 ) -> Callable[..., object]:
     """把 memory 身份绑进装配工厂，并断言身份真的穿透到了装配产物。
 
@@ -351,14 +332,8 @@ def _memory_bound_registry_factory(
     一起钉住。可达性审计的 ⓘ 注记说的也是这一档残留，本轮未改。
     """
 
-    def history_kwargs(frame):
-        if frame.history_intent is None or history_session is None:
-            return {}
-        session = history_session() if callable(history_session) else history_session
-        return {"history_session": session}
-
     if not memory_user:
-        if not perspective_ids and history_session is None:
+        if not perspective_ids:
             return build_episode_registry
 
         def perspective_only_factory(frame, context):
@@ -367,7 +342,6 @@ def _memory_bound_registry_factory(
                 context,
                 perspective_ids=perspective_ids,
                 perspective_mode=perspective_mode,
-                **history_kwargs(frame),
             )
 
         return perspective_only_factory
@@ -379,7 +353,6 @@ def _memory_bound_registry_factory(
             memory_user=memory_user,
             perspective_ids=perspective_ids,
             perspective_mode=perspective_mode,
-            **history_kwargs(frame),
         )
         if (
             "memory_lookup" in context.contract.allowed_capabilities
@@ -393,28 +366,6 @@ def _memory_bound_registry_factory(
         return registry
 
     return registry_factory
-
-
-_OPEN_EPISODES_LIST_CAP = 50
-
-
-def _open_episodes_registry() -> dict[str, object]:
-    """``/api/readiness`` 里的登记表：store 中仍未终局的 episode（运行底座 P2）。
-
-    只登记，不恢复——自动恢复要等 P4 竞态目录里「restore vs 在飞驱动」有测（母单 §12 第 3 题）。
-    列表截到 ``_OPEN_EPISODES_LIST_CAP`` 条，count 给全量。
-    """
-
-    store = JsonlEpisodeStore(resolve_episode_store_root())
-    try:
-        open_ids = store.list_open()
-    except Exception as exc:  # noqa: BLE001 - 探针路径：读不出 store 不该拖垮 readiness
-        return {"count": None, "episode_ids": [], "unavailable": type(exc).__name__}
-    return {
-        "count": len(open_ids),
-        "episode_ids": list(open_ids[:_OPEN_EPISODES_LIST_CAP]),
-        "truncated": len(open_ids) > _OPEN_EPISODES_LIST_CAP,
-    }
 
 
 def _build_continuous_turn_adapter(
@@ -514,9 +465,6 @@ def _build_continuous_turn_adapter(
             event_sink=(
                 publish_episode_event if progress_publisher is not None else None
             ),
-            # 运行底座 P2：每步落盘（events.jsonl 追加 + state.json 覆写），进程重启后
-            # ``restore`` 能读回。store 对象只是根路径 + 锁，按次构造即可，目录首次 append 才建。
-            episode_store=JsonlEpisodeStore(resolve_episode_store_root()),
         )
     elif selection.name == "sdk_glm":
         if not providers:
@@ -568,7 +516,10 @@ def _build_continuous_turn_adapter(
             ),
         )
     else:
-        if os.environ.get("AGENT_RUNTIME_BENCHMARK_ENABLE", "").strip() != "1":
+        if (
+            os.environ.get("AGENT_RUNTIME_BENCHMARK_ENABLE", "").strip()
+            != "1"
+        ):
             raise RuntimeError("Codex headless runtime is benchmark-only")
         from intelligence.runtime.codex_headless_runtime import (
             CodexHeadlessRuntime,
@@ -592,15 +543,6 @@ def _build_continuous_turn_adapter(
         memory_user,
         perspective_ids=perspective_ids,
         perspective_mode=perspective_mode,
-        **(
-            {
-                "history_session": _history_session_for_run(
-                    run_store, run_id, conversation_id
-                )
-            }
-            if run_store is not None and conversation_id
-            else {}
-        ),
     )
     return ContinuousTurnAdapter(
         runtime=runtime,
@@ -732,8 +674,6 @@ _PUBLIC_TRACE_STAGE_BY_PRIVATE_NAME = {
     "task_fulfillment": "verification",
     "render_artifacts": "finalizing",
     "foresight_followups": "finalizing",
-    # 09 连续研究：研究项目先验块并入会话上下文，属「理解与计划」阶段。
-    "research_project_prior": "understanding",
 }
 _PUBLIC_TRACE_MESSAGE_BY_PRIVATE_NAME = {
     "turn_controller": "已完成问题理解与任务对齐。",
@@ -748,7 +688,6 @@ _PUBLIC_TRACE_MESSAGE_BY_PRIVATE_NAME = {
     "task_fulfillment": "已完成回答与任务契约的逐项核对。",
     "render_artifacts": "已生成本轮研究产物。",
     "foresight_followups": "已整理后续核验问题。",
-    "research_project_prior": "已载入研究项目先验：上轮结论、未解问题与可证伪点裁决。",
 }
 _PUBLIC_PROGRESS_MESSAGES = {
     "understanding": "已对齐本轮任务并进入研究。",
@@ -758,6 +697,7 @@ _PUBLIC_PROGRESS_MESSAGES = {
     "verification": "正在核验证据绑定与回答完整性。",
     "finalizing": "正在基于核验结果形成公开回答。",
 }
+_EPISODE_PROGRESS_MESSAGES = public_progress_messages()
 _PUBLIC_HIDDEN_CONTROL_KEYS = frozenset(
     {
         "task_frame_hash",
@@ -879,10 +819,10 @@ def _public_trace_step(step: dict[str, object]) -> dict[str, object]:
         # 只会得到同一句「已完成一项证据核对。」——上游写了、下游不读，实测
         # （:8801 三轮）UI 上一个工具标签都没出现。
         #
-        # 放行判据是**封闭词表/语法**：固定进度句或同一工具标签表组成的菜单；
-        # 不是只验前缀。模型自由措辞仍不过，seam 不放宽。
+        # 放行判据是**集合成员**：只有本进程自己那张表生成过的句子才过，模型
+        # 措辞或别的 trace 生产者的 output_summary 一律不过，seam 不放宽。
         already_projected = str(step.get("output_summary") or "").strip()
-        if is_public_progress_message(already_projected):
+        if already_projected in _EPISODE_PROGRESS_MESSAGES:
             message = already_projected
         elif status == "failed":
             message = "一项研究步骤未完成，相关结果未纳入结论。"
@@ -1530,43 +1470,6 @@ class UserRequest(BaseModel):
     user: str | None = None
 
 
-class ContinuationRequest(BaseModel):
-    """「猜你想问」卡片点击时随消息带上的延续坐标（09 连续研究）。
-
-    只承载坐标（来源 run / 卡片种类 / 继承的对象与站立日），不承载正文；
-    服务端核验 run 属于本用户本会话后落在用户消息上，编排器据此继承研究状态。
-    ``click_payload`` 是结构化载荷（02 任务卡的 source_refs / scope、研究进化的维护项对象与版本），
-    由前端原样透传并持久化在用户消息上（QC Q7——丢了它，任务卡与研究进化续跑的结构化来源就断在边界上）。
-    """
-
-    run_id: str = Field(min_length=1)
-    kind: str = ""
-    source: str = ""
-    label: str = ""
-    click_payload: dict[str, Any] = Field(default_factory=dict)
-    full_prompt: str = ""
-    inherits: dict[str, str] = Field(default_factory=dict)
-
-    @field_validator("kind")
-    @classmethod
-    def kind_must_be_known(cls, value: str) -> str:
-        if value and value not in followups_svc.FOLLOWUP_KINDS:
-            raise ValueError("unknown followup kind")
-        return value
-
-
-class MaintenanceLaunchRef(BaseModel):
-    """研究进化「继续核查」启动消息携带的请求实例坐标（06 QC V1/V2）。
-
-    首轮没有 origin run，continuation 上不了消息合同；请求身份必须有独立信道。
-    坐标只是声明——服务端回查 rejudge 动作台账（owner/会话/维护项/当前请求代际）后才登记；
-    核验不过时消息仍是普通聊天，不产生 run_links、不迁移维护状态。
-    """
-
-    item_id: str = Field(min_length=1)
-    request_event_id: str = Field(min_length=1)
-
-
 class CreateMessageRequest(BaseModel):
     content: str = Field(min_length=1)
     skill_mode: Literal["manual", "auto", "hybrid"]
@@ -1574,8 +1477,6 @@ class CreateMessageRequest(BaseModel):
     perspective_mode: Literal["neutral", "single", "compare"] = "neutral"
     selected_perspective_ids: list[str] = Field(default_factory=list)
     user: str | None = None
-    continuation: ContinuationRequest | None = None
-    maintenance_launch: MaintenanceLaunchRef | None = None
 
     @field_validator("content")
     @classmethod
@@ -1583,20 +1484,6 @@ class CreateMessageRequest(BaseModel):
         if not value.strip():
             raise ValueError("content must not be blank")
         return value
-
-
-def _validated_continuation(
-    run_store: RunStore, conversation_id: str, req: ContinuationRequest
-) -> dict[str, object]:
-    """延续坐标只认本用户、本会话的 run；其它一律 422，不静默丢弃。"""
-    try:
-        origin = run_store.load_run(req.run_id)
-    except (FileNotFoundError, ValueError) as exc:
-        raise HTTPException(422, "continuation run 不存在") from exc
-    if origin.session_id != conversation_id:
-        raise HTTPException(422, "continuation run 不属于本会话")
-    payload = req.model_dump()
-    return {key: value for key, value in payload.items() if value not in ("", {}, None)}
 
 
 class ConfigureLLMRequest(BaseModel):
@@ -2344,8 +2231,6 @@ def create_app(
     auth_gate: AuthGate | None = None,
     run_quota: RunQuota | None = None,
     run_supervisor: RunSupervisor | None = None,
-    research_evolution_evidence: object | None = None,
-    research_evolution_clock: object | None = None,
 ) -> FastAPI:
     root = (repo_root or REPO_ROOT).resolve()
     effective_default_user_id = userspace.resolve_user_id(None)
@@ -2470,24 +2355,8 @@ def create_app(
     app.state.conversation_locks_guard = conversation_locks_guard
     app.state.llm_settings = llm_settings
 
-    def _fold_research_evolution(user_id: str, run_id: str) -> None:
-        """run 终态后的研究进化收尾（QC Q2）：由 ObservingRunStore 在 claim 成功后回调。
-        闭包在调用时才解析 _evolution_service——store_for 先于服务构建，回调只在 run 终态时触发。"""
-        ctx = research_evolution_svc.OwnerContext.for_owner(user_id)
-        _evolution_service.fold_run_terminal(ctx=ctx, run_id=run_id)
-
     def store_for(user: str | None) -> RunStore:
-        # 06（spec §5「服务端观察 run 生命周期」）：ObservingRunStore 是 RunStore 子类，
-        # 在 create / 终态两个漏斗点经 06 单 writer 多写一条 05 测量事件；
-        # 读路径与写路径的其余行为与 RunStore 完全一致。事件写失败不阻断 run。
-        # 终态后多走一步：若该 run 是维护复核发起的（运行中登记过关联），把结果折回维护项（QC Q2）。
-        return research_evolution_svc.ObservingRunStore(
-            user_id=user,
-            evolution_root=Path(userspace.user_space(user).root) / "research_evolution",
-            clock=research_evolution_clock if callable(research_evolution_clock) else None,
-            code_sha=str(runtime_provenance.get("source_revision") or ""),
-            maintenance_folder=lambda run_id, _user=user: _fold_research_evolution(_user or "default", run_id),
-        )
+        return RunStore(user_id=user)
 
     def conversation_store_for(user: str | None) -> ConversationStore:
         return ConversationStore(user_id=store_for(user).user_id)
@@ -2752,10 +2621,6 @@ def create_app(
                 "rag": worker_status,
             },
             "recovered_runs": len(recovered_runs),
-            # 运行底座 P2（§12 第 3 题：只登记、不自动恢复）：进程重启后 store 里仍
-            # 非 done 的 episode。列出来让人 / Workbench 决定是否 ``restore``；
-            # 读不出 store 时如实报 unavailable，不让它拖红 readiness。
-            "open_episodes": _open_episodes_registry(),
         }
         return JSONResponse(payload, status_code=200 if ready else 503)
 
@@ -2854,45 +2719,6 @@ def create_app(
             for item in conversation_store_for(user).load_messages(conversation_id)
         ]
 
-    @app.get("/api/conversations/{conversation_id}/research-project")
-    def get_research_project(
-        conversation_id: str, user: str | None = None
-    ) -> dict[str, object]:
-        """09 连续研究：会话级研究项目状态（现有 run / 消息 / 判断轨的只读投影）。"""
-        conversation_or_404(user, conversation_id)
-        state = research_project.load_project(
-            conversation_store_for(user), store_for(user), conversation_id
-        )
-        payload = redact_value(state.to_dict())
-        return payload if isinstance(payload, dict) else state.to_dict()
-
-    # --- 研究进化（01–05）接线：独立 router，注入既有 store 与资源 ---------------- #
-    # 市场库路径显式解析：``river`` 的缺省是 cwd 相对路径，在 uvicorn 的工作目录下会指向别的树。
-    _market_db = os.environ.get("MARKET_FEATURE_STORE_DB") or str(
-        app.state.finance_root / "db" / "market_feature_store.duckdb"
-    )
-    # 市场取数与时钟可注入：验收要在固定市场输入上跑真实 01–05（spec §7），
-    # 但注入的只是**资源**，判定仍由各 owner 的真函数给出。
-    _evolution_kwargs: dict[str, object] = {}
-    if research_evolution_clock is not None:
-        _evolution_kwargs["clock"] = research_evolution_clock
-    _evolution_resources = research_evolution_svc.Resources(
-        evidence_source=research_evolution_evidence or research_evolution_svc.RiverEvidenceSource(db_path=_market_db),
-        conversation_store_for=conversation_store_for,
-        run_store_for=store_for,
-        finance_root=app.state.finance_root,
-        code_sha=str(runtime_provenance.get("source_revision") or ""),
-        **_evolution_kwargs,  # type: ignore[arg-type]
-    )
-    _evolution_service = research_evolution_svc.ResearchEvolutionService(_evolution_resources)
-    app.include_router(
-        research_evolution_api.build_router(
-            service_for=lambda: _evolution_service,
-            # 有效 owner 每次请求重算：``WORKBENCH_AUTH_MODE`` / 允许名单可在进程外改。
-            access_policy=lambda: research_evolution_svc.AccessPolicy.from_env(auth_mode=gate.mode),
-        )
-    )
-
     @app.get("/api/llm/config")
     def get_llm_config(user: str | None = None) -> dict[str, object]:
         user_id = store_for(user).user_id
@@ -2967,34 +2793,13 @@ def create_app(
                 raise HTTPException(422, str(exc)) from exc
             parent_run_id = conversation.last_run_id
             run_store = store_for(req.user)
-            continuation_payload: dict[str, object] | None = None
-            maintenance_launch_payload = req.maintenance_launch.model_dump() if req.maintenance_launch is not None else None
-            if req.continuation is not None:
-                continuation_payload = _validated_continuation(
-                    run_store, conversation_id, req.continuation
-                )
-            else:
-                # QC T3：首轮 select_task 没有起源 run，前端按消息合同（run_id 非空）发不出
-                # continuation——服务端用动作台账里记录的任务选择把结构化来源水合回来。
-                # 水合是增强：失败只留痕，消息入口不为研究进化的降级买单。
-                try:
-                    continuation_payload = _evolution_service.pending_task_continuation(
-                        ctx=research_evolution_svc.OwnerContext.for_owner(run_store.user_id),
-                        conversation_id=conversation_id,
-                        content=req.content,
-                    )
-                except Exception as exc:  # noqa: BLE001 - 水合失败退回普通消息，不阻塞聊天
-                    print(f"[research-evolution] 首轮任务上下文水合失败（{conversation_id}）：{exc}", file=sys.stderr)
             _precheck_admission(run_store.user_id)
             _reserve_run_quota(run_store.user_id)
-            # QC Y1：maintenance_launch 坐标随 run 创建同步落盘（发布前保存的可信启动身份）——
-            # run 一旦对外可见/可取消，终态折回就能判定身份，不把「源消息还没落盘」当「无来源」。
             run = run_store.create_run(
                 req.content,
                 "ask",
                 session_id=conversation_id,
                 parent_run_id=parent_run_id,
-                maintenance_launch=maintenance_launch_payload,
             )
 
             def _compensate_failed_submission() -> None:
@@ -3020,8 +2825,6 @@ def create_app(
                     selected_skill_ids=req.selected_skill_ids,
                     perspective_mode=req.perspective_mode,
                     selected_perspective_ids=list(selected_perspective_ids),
-                    continuation=continuation_payload,
-                    maintenance_launch=maintenance_launch_payload,
                 )
                 assistant_message = store.append_message(
                     conversation_id,
@@ -3039,19 +2842,6 @@ def create_app(
             except Exception:
                 _compensate_failed_submission()
                 raise
-            # QC T1/U1/V1/V2：启动执行器**之前**建立可信的 request→run 关联——请求身份只认
-            # 消息携带的请求实例坐标（item_id + request_event_id），服务端回查 rejudge 动作台账
-            # 核验 owner/会话/维护项/当前代际后登记；不带坐标的消息永远是普通聊天（U1），
-            # 文本相似不再充当身份（V2）。失败只留痕：客户端显式 link_run 仍是主路径。
-            try:
-                _evolution_service.bind_pending_rejudge_run(
-                    ctx=research_evolution_svc.OwnerContext.for_owner(run_store.user_id),
-                    conversation_id=conversation_id,
-                    run_id=run.run_id,
-                    launch=maintenance_launch_payload,
-                )
-            except Exception as exc:  # noqa: BLE001 - 登记失败不阻塞消息，link_run 仍可补偿
-                print(f"[research-evolution] 消息接受侧关联登记失败（{run.run_id}）：{exc}", file=sys.stderr)
             try:
                 supervisor.submit_conversation(
                     run_store,

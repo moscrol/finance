@@ -2,7 +2,7 @@
 
 > 本文件由 `skills/market-overview/SKILL.md` 外置（ADK Reviewer/Generator 模式：检查内容与检查方式解耦 + 渐进披露）；正文与原 SKILL.md 逐字节一致。
 
-子 agent 通过 API 抓取（并行），主 agent 汇总。原来主 agent 还要串行写飞书，该步已于 2026-09-11 随飞书退役删除——落库走 `daily-full`。
+子 agent 通过 API 抓取（并行），主 agent 串行写入飞书。
 
 ### 子 agent prompt 模板
 

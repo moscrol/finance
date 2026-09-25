@@ -23,7 +23,6 @@ from dataclasses import replace
 import itertools
 import json
 from pathlib import Path
-import re
 
 import pytest
 
@@ -1767,8 +1766,7 @@ def test_resume_no_longer_carries_repair_wording_or_verdict() -> None:
     ):
         assert needle not in source, needle
     assert "repair_goal_message(" in source
-    # 收口指令仍由 harness 给（不依赖调用处换行方式）。
-    assert re.search(r'steering_message\(\s*"repair_finalize"', source)
+    assert 'steering_message(\n                        "repair_finalize"' in source
     assert "admit_repair_result(" in source
     assert "downgrade_unreachable(" in source
     tree = ast.parse(source)

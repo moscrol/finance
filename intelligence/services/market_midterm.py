@@ -47,7 +47,6 @@ DEFAULT_WINDOW = 20
 MIN_WINDOW = 5
 MAX_WINDOW = 120
 CROWDING_LOOKBACK = 60  # 拥挤度分位的回看窗口（交易日）
-BOARD_FALLBACK_LIMIT = 6  # 方向排序题无题材名时，兜底取成交额头部几个板块
 
 # 中期/赔率/配置意图词。命中任一即视为「中期时间尺度」问题。
 _MIDTERM_TERMS = (
@@ -116,60 +115,20 @@ def parse_midterm_intent(query: str) -> MidtermIntent | None:
     return MidtermIntent(window=DEFAULT_WINDOW)
 
 
-# 「方向排序题式」：要我们在多个方向之间挑或排的问句。主体词 + 动作词同时命中
-# 才算，两个列表都刻意窄——只放「挑/排」这个动作，不放「哪些/怎么样」这类泛问
-# 句词，否则「今天哪些板块涨了」这种纯查询也会把 D6 拖起来（多一次 DuckDB 查询
-# 加一整块上下文）。
-_RANKING_SUBJECT_TERMS = ("方向", "题材", "板块", "赛道", "主线")
-_RANKING_ACTION_TERMS = ("排序", "排名", "值得关注", "优先级", "选谁", "怎么选")
-
-
-def is_direction_ranking_query(query: str) -> bool:
-    """问句是否在要求「在多个方向之间挑选/排序」。
-
-    实测失败形状（AB-002，2026-07-10）：这类问句一个中期词都不带，词面门控全部
-    拦下 → D6 不出块 → 拥挤度分位从未进入上下文，排序只能建立在当日绝对量上
-    （原答案写满"边际量 +23.64、成交 8508.1 亿"，全是绝对量），结果排序完全反转：
-    排第 1 的半导体链 T+1 -5.13%，被明确排除的农业/养殖 +2.40%。拥挤度分位是
-    「最新成交额在自身 trailing-60 日分布里的位置」——正是当日截面给不了的那个
-    相对化变换，所以「挑方向」这件事本身就要带它，与问的是多长时间尺度无关。
-    """
-    text = re.sub(r"\s+", "", str(query or ""))
-    if not text:
-        return False
-    return any(term in text for term in _RANKING_SUBJECT_TERMS) and any(
-        term in text for term in _RANKING_ACTION_TERMS
-    )
-
-
 def midterm_intent_for(
     query: str,
     *,
     perspective_active: bool = False,
 ) -> MidtermIntent | None:
-    """D6 门控入口：词面意图优先；三类问法在意图缺失时回退默认窗口。
+    """D6 门控入口：词面意图优先；视角模式下意图缺失回退默认窗口。
 
-    - **视角模式**：KOL 视角解读行情天然需要题材量价趋势底座，而视角类问法
-      （"站在X视角看 AI应用/地产"）往往不带中期意图词。实测失败形状
-      （2026-08-13）：D6 被词面门拦下 → 视角对着空判断"该方向无盘面信号"，
-      与库内双红数据直接矛盾。
-    - **方向排序题式**：同样不带中期词，来历见 :func:`is_direction_ranking_query`。
-    - **定价状态题式**（"液冷还能追吗""是不是已经反映了"）：同一个失败形状第三次——
-      问句不带中期词，拥挤度分位进不来，"已经反映多少"只能靠当日绝对涨幅回答，而
-      绝对涨幅恰恰答不了这一问。判据见 :func:`pricing_split.is_pricing_state_query`。
-
-    :func:`parse_midterm_intent` 本身**不放宽**——它另有两个调用点
-    （``query_understanding`` 的时间尺度判定、``ask`` 的时序直查回退），
-    那两处问的是"用户是不是真的问了中期"，不是"要不要补拥挤度底座"。
+    KOL 视角解读行情天然需要题材量价趋势底座，而视角类问法（"站在X视角看
+    AI应用/地产"）往往不带中期意图词。实测失败形状（2026-08-13）：D6 被词面门
+    拦下 → 视角对着空判断"该方向无盘面信号"，与库内双红数据直接矛盾。
+    ``perspective_active=False`` 时行为与 :func:`parse_midterm_intent` 逐字节一致。
     """
-    from intelligence.services.pricing_split import is_pricing_state_query
-
     intent = parse_midterm_intent(query)
-    if intent is None and (
-        perspective_active
-        or is_direction_ranking_query(query)
-        or is_pricing_state_query(query)
-    ):
+    if intent is None and perspective_active:
         return MidtermIntent(window=DEFAULT_WINDOW)
     return intent
 
@@ -305,30 +264,17 @@ def _trend_tag(first: float | None, last: float | None) -> str:
     return f"持平(×{ratio:.2f})"
 
 
-def _fetch_theme_trend(
-    con: Any,
-    theme: str,
-    window: int,
-    as_of: date | str | None = None,
-) -> dict[str, Any] | None:
-    """单题材的多日趋势 + 拥挤度分位。题材在板块表无行时返回 None。
-
-    ``as_of`` 非空时三条查询（趋势窗 / 拥挤度 trailing 分布 / 涨停热度）**全部**
-    截到 ``trade_date <= as_of``。三条必须一起截：只截趋势窗会让拥挤度分位的
-    分母带上未来成交额，分位数字看着正常、实际是拿后来的分布给当时排名。
-    """
-    trend_sql = """
+def _fetch_theme_trend(con: Any, theme: str, window: int) -> dict[str, Any] | None:
+    """单题材的多日趋势 + 拥挤度分位。题材在板块表无行时返回 None。"""
+    rows = con.execute(
+        f"""
         select trade_date, pct_chg, diff_ratio, amount
         from fact_sector_daily
-        where sector_name = ?{cut}
+        where sector_name = ?
         order by trade_date desc
-        limit {window}
-        """
-    cut = " and trade_date <= ?" if as_of is not None else ""
-    params: list[Any] = [theme] if as_of is None else [theme, str(as_of)]
-    rows = con.execute(
-        trend_sql.format(cut=cut, window=int(window)),
-        params,
+        limit {int(window)}
+        """,
+        [theme],
     ).fetchall()
     if not rows:
         return None
@@ -344,12 +290,12 @@ def _fetch_theme_trend(
 
     # 拥挤度分位：最新成交额在自身 trailing-60 日成交额分布里的百分位。
     hist = con.execute(
-        """
+        f"""
         select amount from fact_sector_daily
-        where sector_name = ? and amount is not null{cut}
-        order by trade_date desc limit {lookback}
-        """.format(cut=cut, lookback=CROWDING_LOOKBACK),
-        params,
+        where sector_name = ? and amount is not null
+        order by trade_date desc limit {CROWDING_LOOKBACK}
+        """,
+        [theme],
     ).fetchall()
     hist_amts = sorted(float(r[0]) for r in hist)
     crowding_pct: float | None = None
@@ -359,13 +305,13 @@ def _fetch_theme_trend(
 
     # 涨停热度趋势（可选，题材可能在热度表无行）。
     heat = con.execute(
-        """
+        f"""
         select trade_date, limit_up_count, rank
         from fact_theme_limit_heat_daily
-        where sector_name = ?{cut}
-        order by trade_date desc limit {window}
-        """.format(cut=cut, window=int(window)),
-        params,
+        where sector_name = ?
+        order by trade_date desc limit {int(window)}
+        """,
+        [theme],
     ).fetchall()
     heat_trend = None
     if heat:
@@ -377,11 +323,7 @@ def _fetch_theme_trend(
 
     return {
         "theme": theme,
-        # 覆盖天数按**不同交易日**计，不是行数。同一板块名可能挂两套供应商代码
-        # （`885756.TI` 与 `990325.FP`，全库 3,206 组重复），行数窗口在有重复的
-        # 区段上只覆盖一半交易日。写 len(rows) 时这一列会在历史日期上报 20 天、
-        # 而块头日期区间只有 10 天，自相矛盾（实测 2026-07-10 的芯片）。
-        "days": len({r[0] for r in rows}),
+        "days": len(rows),
         "double_red_days": double_red_days,
         "amount_trend": _trend_tag(first_amt, last_amt),
         "avg_pct": avg_pct,
@@ -402,59 +344,11 @@ def _fmt(value: Any, digits: int = 2, suffix: str = "") -> str:
         return str(value)
 
 
-def top_board_themes(
-    con: Any,
-    limit: int = BOARD_FALLBACK_LIMIT,
-    as_of: date | str | None = None,
-) -> list[str]:
-    """截止日当天（缺省库尾）成交额最大的 N 个板块（同名多行取最大额去重）。
-
-    候选池兜底，不做题材名解析。方向排序题式不点名题材，
-    :func:`resolve_query_themes` 必然解析为空 → D6 渲染成空块（实测 AB-002/
-    AB-003 原题块长度 0，门放开了也等于没开）。按成交额取头部，正是排序题真会
-    从里面挑的那一批，也正是最可能已经拥挤的那一批。
-
-    ``as_of`` 非空时基准日改成「≤ as_of 的最后一个交易日」。候选池本身就是一次
-    排序：拿库尾的成交额榜去答一道历史问句，等于把「后来谁大」当成「当时该看谁」。
-    """
-    if as_of is None:
-        rows = con.execute(
-            f"""
-        select sector_name, max(amount) as amt
-        from fact_sector_daily
-        where trade_date = (select max(trade_date) from fact_sector_daily)
-          and amount is not null
-        group by sector_name
-        order by amt desc
-        limit {int(limit)}
-        """
-        ).fetchall()
-    else:
-        rows = con.execute(
-            f"""
-        select sector_name, max(amount) as amt
-        from fact_sector_daily
-        where trade_date = (
-            select max(trade_date) from fact_sector_daily where trade_date <= ?
-          )
-          and amount is not null
-        group by sector_name
-        order by amt desc
-        limit {int(limit)}
-        """,
-            [str(as_of)],
-        ).fetchall()
-    return [str(row[0]) for row in rows if row[0]]
-
-
 def load_midterm_trend_artifact(
     query: str,
     anchored_theme: str | None,
     market_db_path: str | Path | None,
     window: int = DEFAULT_WINDOW,
-    *,
-    board_fallback: bool = False,
-    as_of: date | str | None = None,
 ) -> MidtermTrendArtifact:
     db_path = (
         Path(market_db_path).expanduser()
@@ -485,16 +379,11 @@ def load_midterm_trend_artifact(
         )
     con = db_result.connection
     try:
-        # as_of 必须同时给「解析器」与「取数」（判例：test_analog_as_of_truncation）：
-        # 只截逐日行、不截题材名录时，截止日当时还不存在的板块照样被解析出来，
-        # 只是多一行「数据缺口」，整块仍然自洽。
-        themes = resolve_query_themes(con, query, anchored_theme, as_of=as_of)
-        if not themes and board_fallback:
-            themes = top_board_themes(con, as_of=as_of)
+        themes = resolve_query_themes(con, query, anchored_theme)
         trends: list[dict[str, Any]] = []
         missing: list[str] = []
         for theme in themes:
-            trend = _fetch_theme_trend(con, theme, window, as_of=as_of)
+            trend = _fetch_theme_trend(con, theme, window)
             if trend is None:
                 missing.append(theme)
             else:
@@ -532,21 +421,13 @@ def midterm_trend_block_for_llm(
     anchored_theme: str | None,
     market_db_path: str | Path | None,
     window: int = DEFAULT_WINDOW,
-    *,
-    board_fallback: bool = False,
-    as_of: date | str | None = None,
 ) -> str:
-    """把多日趋势 + 拥挤度分位渲染成带 [D6] 引用编号的确定性数据块（空串=未取到）。
-
-    ``as_of=None`` = 库尾，与接 as_of 之前逐字节相同；非空则整块截到该日。
-    """
+    """把多日趋势 + 拥挤度分位渲染成带 [D6] 引用编号的确定性数据块（空串=未取到）。"""
     artifact = load_midterm_trend_artifact(
         query,
         anchored_theme,
         market_db_path,
         window,
-        board_fallback=board_fallback,
-        as_of=as_of,
     )
     if not artifact.available:
         return ""
@@ -555,11 +436,8 @@ def midterm_trend_block_for_llm(
     try:
         lines = ["## 多日/中期趋势数据块 [D6]"]
         lines.extend(reading_baseline.block_rule_lines("D6"))
-        # 口径行写 as_of：历史问句下这一行是模型判断「这是当时还是今天」的唯一依据。
-        scope = f"，截至 {as_of}（不含之后的行情）" if as_of else ""
         lines.append(
-            f"- 查询口径：取最近 {window} 行板块日行情（{trends[0]['first_date']} ~ "
-            f"{trends[0]['last_date']}）{scope}，每题材实际覆盖天数见表内「覆盖天数」列；"
+            f"- 查询口径：近 {window} 个交易日（{trends[0]['first_date']} ~ {trends[0]['last_date']}），"
             "本地 DuckDB fact_sector_daily / fact_theme_limit_heat_daily 参数化直查，非 LLM 生成。"
         )
         lines.append(
