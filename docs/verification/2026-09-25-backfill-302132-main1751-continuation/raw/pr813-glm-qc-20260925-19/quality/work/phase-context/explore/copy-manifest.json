@@ -1,0 +1,57 @@
+{
+  "raw_copies": [
+    {
+      "source": "explore/REPORT.md",
+      "copy": "work/phase-context/explore/REPORT.md",
+      "sha256": "d8978e5121775bd39764087f383eed380d12b7db9243f70ff9199761e7aa3d23"
+    },
+    {
+      "source": "explore/parsed.json",
+      "copy": "work/phase-context/explore/parsed.json",
+      "sha256": "ca40f27207b3179d43bf149303380f91963810f56d39435bcc1b7fc29e421afc"
+    },
+    {
+      "source": "explore/commands/001-read/output.log",
+      "copy": "work/phase-context/explore/commands/001-read/output.log",
+      "sha256": "c9aa5774c65a1f7fa6c7fa794102ef0fc3d0d3fcee7bce77a0ddb623bc9866d0"
+    },
+    {
+      "source": "explore/commands/001-read/request.json",
+      "copy": "work/phase-context/explore/commands/001-read/request.json",
+      "sha256": "0f1c639a14f281702afd1d951b521eba542ad3ae30e988dbe1f4d76a6623a76f"
+    },
+    {
+      "source": "explore/commands/001-read/result.json",
+      "copy": "work/phase-context/explore/commands/001-read/result.json",
+      "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0"
+    },
+    {
+      "source": "explore/commands/002-read/output.log",
+      "copy": "work/phase-context/explore/commands/002-read/output.log",
+      "sha256": "303ce29b9d4b1351428ccba4cce38f121a01c3bb039359bc6ccf9dd27754406e"
+    },
+    {
+      "source": "explore/commands/002-read/request.json",
+      "copy": "work/phase-context/explore/commands/002-read/request.json",
+      "sha256": "87e0b7c32054187ad163d68baf24b79b46fd6f56f5bcd174dfc83e5119c158b1"
+    },
+    {
+      "source": "explore/commands/002-read/result.json",
+      "copy": "work/phase-context/explore/commands/002-read/result.json",
+      "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0"
+    },
+    {
+      "source": "explore/commands/003-deliver_stage/request.json",
+      "copy": "work/phase-context/explore/commands/003-deliver_stage/request.json",
+      "sha256": "d53aa12a667bb628ad5981331e729bdd7b29a9ef8abcece2f70c0224dff8b9ef"
+    },
+    {
+      "source": "explore/commands/003-deliver_stage/result.json",
+      "copy": "work/phase-context/explore/commands/003-deliver_stage/result.json",
+      "sha256": "01570f0a8a48e48321e2e60514d8cda7b5142196a2d5565030f21130e41735e1"
+    }
+  ],
+  "original_probe_materializations": [],
+  "host_did_not_edit_probe_code": true,
+  "chain_of_thought_excluded": true
+}

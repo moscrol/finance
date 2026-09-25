@@ -1,0 +1,58 @@
+{
+  "tree": "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-16/candidate",
+  "python": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "author": "/Users/a77/fwp-wt-backfill-ready-main1751-0925",
+  "revision": "ae3f812e1c1e142953b657ba41f30fce23e7c14a",
+  "baseline": "1751e21e0fd30642e0b223604b64b30e38c46f41",
+  "axis": "quality",
+  "thinking": "low",
+  "max_output_tokens": 8192,
+  "provider": "glm-direct-review",
+  "model": "glm-5.3",
+  "upstream_port": 443,
+  "upstream_url": "https://open.bigmodel.cn/api/coding/paas/v4",
+  "stage_tools": {
+    "gateway": [
+      "read",
+      "write"
+    ],
+    "explore": [
+      "read",
+      "write",
+      "deliver_stage"
+    ],
+    "execute": [
+      "read",
+      "write",
+      "bash",
+      "deliver_stage"
+    ],
+    "report": [
+      "deliver_stage"
+    ]
+  },
+  "private_route_port": 19923,
+  "request_cap": 23,
+  "request_caps": {
+    "gateway": 4,
+    "explore": 6,
+    "execute": 12,
+    "report": 1
+  },
+  "stage_caps": {
+    "gateway": 4,
+    "explore": 6,
+    "execute": 12,
+    "report": 1
+  },
+  "observed_main": "1751e21e0fd30642e0b223604b64b30e38c46f41",
+  "claims_in_scope": [
+    "C1",
+    "C2",
+    "C3",
+    "C4",
+    "C5",
+    "C6",
+    "C7"
+  ]
+}

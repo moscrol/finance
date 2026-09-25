@@ -1,0 +1,126 @@
+[
+  {
+    "path": "explore/parsed.json",
+    "bytes": 1612,
+    "sha256": "6f4c91155cf8e5994952bf44e582eb2b4bb3a303d29033ce18d4d48e48ab3068"
+  },
+  {
+    "path": "execute/parsed.json",
+    "bytes": 3920,
+    "sha256": "cb64ab8a3812910d4f467dcd39a79900fa1c26930e6207fb1b045ba21a7d293d"
+  },
+  {
+    "path": "work/EXPLORE.md",
+    "missing": true
+  },
+  {
+    "path": "work/EXECUTE.md",
+    "bytes": 3424,
+    "sha256": "fa75c1e0c2b846f3eb4edd11e4d856fcd0ea2435d32234f18fa27766cd9d329c"
+  },
+  {
+    "path": "execute/commands/001-bash/output.log",
+    "bytes": 274,
+    "sha256": "36aed1fde0b1dc506886b7b1780aef6ba683d1e8b2931d43ac430183020043eb"
+  },
+  {
+    "path": "execute/commands/001-bash/request.json",
+    "bytes": 271,
+    "sha256": "95fa0d53e8c5c882ac73f5a888f563d29b7aa6a4dd5f0066c0dff947128e582e"
+  },
+  {
+    "path": "execute/commands/001-bash/result.json",
+    "bytes": 14,
+    "sha256": "d67659d29dad50e65ac903e33dc7ef4a692331d96253553956300d1fcfa5786a"
+  },
+  {
+    "path": "execute/commands/002-bash/output.log",
+    "bytes": 220,
+    "sha256": "487d00ddff5c74dc186d00576835dd3603f13707d950bf0c1a70ace628a30ad4"
+  },
+  {
+    "path": "execute/commands/002-bash/request.json",
+    "bytes": 835,
+    "sha256": "4d3084619091d5c2c4bf99af561186b7d38c8f446ca175ffc6c2f38cc8de8893"
+  },
+  {
+    "path": "execute/commands/002-bash/result.json",
+    "bytes": 14,
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0"
+  },
+  {
+    "path": "work/probes/probe_c3_acceptance_v2.py",
+    "bytes": 6570,
+    "sha256": "a7be39f5c58ca4adfdac162391adb74043913da7bbf17c3d3738cd54914c665e"
+  },
+  {
+    "path": "work/probes/test_earlier_fixture_adapter.py",
+    "bytes": 2004,
+    "sha256": "37807e0b2d5a3aba69112e677edd06769a48c66a8aa50339cbfff90f436d3c2c"
+  },
+  {
+    "path": "work/probes/test_new_c3_v1.py",
+    "bytes": 5245,
+    "sha256": "724ab5b2dbc6a965c2712492a6ea836375828ff6933e0084c59744776b4f8f93"
+  },
+  {
+    "path": "work/probes/test_production_contract.py",
+    "bytes": 11298,
+    "sha256": "c5d15165d3af8a85396a6881f8cc3a53a9ea769ce6a564f3a5abed9a999453a6"
+  },
+  {
+    "path": "work/probes/test_seeded_c3.py",
+    "bytes": 1674,
+    "sha256": "155d751f1b37f58bef1503bbc6d2234f57fb9e85efc5dbd9144a478ebf7bb16a"
+  },
+  {
+    "path": "work/probe-results-all.xml",
+    "bytes": 3437,
+    "sha256": "6ecd928b9f9aa2dc19e0cb0c4745b668b9a0602b92be8c2184981f5b8aae58bf"
+  },
+  {
+    "path": "work/independent-real-date-observation.json",
+    "bytes": 4758,
+    "sha256": "20b1bc8262f07e319bae022c5cac0a668023d7ee312ef4d3eb142a425ff44327"
+  },
+  {
+    "path": "work/tmp/reviewer/test_real_date_parent_rehearsa0/real-date-rehearsal/summary.json",
+    "bytes": 16138,
+    "sha256": "7b4f51cad93ae3e7814f89a2130b0b03525f727b469391a72a976c36c3f26431"
+  },
+  {
+    "path": "work/tmp/reviewer/test_real_date_parent_rehearsa0/real-date-rehearsal/acceptance.json",
+    "bytes": 5621,
+    "sha256": "4dee7707c4680e03a67b56445e02d68a4a6d9b4fedca9fcf5caeecbe5af7a491"
+  },
+  {
+    "path": "work/tmp/reviewer/test_real_date_parent_rehearsa0/real-date-rehearsal/amount-control.json",
+    "bytes": 5687,
+    "sha256": "c2984d41ffe9da587b8edcd0af9191144e03afe3482df17bf86b6bf3823e277b"
+  },
+  {
+    "path": "work/tmp/reviewer/test_real_date_parent_rehearsa0/real-date-rehearsal/acceptance.command.json",
+    "bytes": 1271,
+    "sha256": "d5dd8c54453aff965b4eae5307f36e79087b5bc643fc85e7c56b7d2993482fc0"
+  },
+  {
+    "path": "work/tmp/reviewer/test_real_date_parent_rehearsa0/real-date-rehearsal/amount-control.command.json",
+    "bytes": 1279,
+    "sha256": "7e73e93b21eaf31e4fb031d6004073c223342ee870f91fe0aa4224804d305c50"
+  },
+  {
+    "path": "work/tmp/reviewer/test_real_date_parent_rehearsa0/real-date-rehearsal/apply.command.json",
+    "bytes": 420,
+    "sha256": "81d4a822a2b4c48acde6d248fcb4896eea784e05eb9f480eae27dd79d93d4d5d"
+  },
+  {
+    "path": "work/tmp/reviewer/test_real_date_parent_rehearsa0/real-date-rehearsal/refused-parent.command.json",
+    "bytes": 427,
+    "sha256": "f58655985d899426e713a91c6a2f577f2adbbfedcd56abbd7557b00f9506b4b4"
+  },
+  {
+    "path": "work/tmp/reviewer/test_real_date_parent_rehearsa0/real-date-rehearsal/verify.command.json",
+    "bytes": 421,
+    "sha256": "fdcf89ea87382ab9ebf0218652a32d68aae4f751335079f411ee18d5e1076f1e"
+  }
+]

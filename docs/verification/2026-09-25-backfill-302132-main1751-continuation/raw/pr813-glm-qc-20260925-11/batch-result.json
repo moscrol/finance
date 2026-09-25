@@ -1,0 +1,13 @@
+{
+  "completed_stages": [
+    "gateway"
+  ],
+  "error": "explore: BLOCKED_STAGE_OR_ACCOUNTING",
+  "requests": {
+    "gateway": 4,
+    "explore": 13
+  },
+  "automatic_retries": 0,
+  "merge_authorized": false,
+  "production_authorized": false
+}

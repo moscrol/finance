@@ -1,0 +1,50 @@
+"""Host-only fixture repair, retaining the reviewer's two mutation assertions."""
+from datetime import date, timedelta
+import importlib.util
+import json
+from pathlib import Path
+import sys
+
+import duckdb
+
+ROOT = Path(__file__).resolve().parents[3]
+SOURCE = ROOT / 'quality/work/probes/test_new_c3_v1.py'
+loader = importlib.util.spec_from_file_location('reviewer_earlier_original', SOURCE)
+review = importlib.util.module_from_spec(loader)
+sys.modules[loader.name] = review
+loader.loader.exec_module(review)
+original_base = review._base
+
+
+def corrected_base(tmp_path):
+    art = original_base(tmp_path)
+    earlier = date.fromisoformat(art['spec'].window_start) - timedelta(days=1)
+    for path in (art['baseline'], art['clone']):
+        with duckdb.connect(str(path)) as con:
+            rows = con.execute(
+                'INSERT INTO fact_stock_daily SELECT * REPLACE (? AS trade_date) '
+                'FROM fact_stock_daily WHERE stock_ts_code=? AND trade_date=? RETURNING trade_date',
+                [earlier, art['spec'].code, art['spec'].window_end],
+            ).fetchall()
+            assert rows == [(earlier,)]
+    art['base_sha'] = review.t.mod._sha256(art['baseline'])
+    for run in (review.t.APPLY_RUN, review.t.VERIFY_RUN):
+        path = Path(str(art['clone']) + f'.repair-backfill-execution.{run}.json')
+        receipt = json.loads(path.read_text())
+        receipt['backup']['backup_sha256'] = art['base_sha']
+        path.write_text(json.dumps(receipt))
+    return art
+
+
+review._base = corrected_base
+test_new_outside_window_mutations_fail = review.test_new_outside_window_mutations_fail
+
+
+def test_baseline_with_earlier_row_pass(tmp_path):
+    art = corrected_base(tmp_path)
+    clone = review._clone_with_receipts(tmp_path, art)
+    out = tmp_path / 'out.json'
+    result = review._run(clone, art, out)
+    assert result.returncode == 0, (result.stdout, result.stderr)
+    verdict = json.loads(out.read_text())
+    assert verdict['verdict'] == 'PASS' and not verdict['failed']

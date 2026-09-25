@@ -1,0 +1,74 @@
+{
+  "author_test_counts": {
+    "description": "C6: three copied author test bodies executed twice (candidate and external scope-mutant) inside three host-authored regression witnesses; six body invocations total; no standalone author pytest invocation. All three witness cases passed within the batch.",
+    "executed": 6,
+    "failed": 0,
+    "passed": 6,
+    "skipped": 0
+  },
+  "counts": {
+    "errors": 0,
+    "executed": 25,
+    "failed": 0,
+    "passed": 25,
+    "skipped": 0
+  },
+  "findings": [
+    "Positive control behaved as designed (exit 1, intentional probe_bug) — environment sane.",
+    "All 25 supplied probe cases passed in a single pytest invocation in 34.97s with no reruns.",
+    "Counts transcribed from raw pytest output; probe-results-all.xml is the authoritative record for the report stage."
+  ],
+  "limits": [
+    "Counts taken from raw stdout; JUnit XML not yet parsed (report stage will reconcile).",
+    "Real-date fixture is partial (302132.SZ, sentinel 000001.SZ, market calendar), not full production; no engineering receipts were treated as QC facts.",
+    "Engineering receipts still running are not a QC fact; C7 code binding assessed separately at report stage."
+  ],
+  "positive_control": {
+    "command": "OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 /Users/a77/finance-workspace-private/.venv-workbench/bin/python -B /Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-16/quality/work/positive_control.py",
+    "exit_code": 1,
+    "observed": "AssertionError: intentional probe_bug control (expected intentional failure)",
+    "passed_as_expected": true
+  },
+  "probe_files": [
+    "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-16/quality/work/probes/test_seeded_c3.py",
+    "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-16/quality/work/probes/test_earlier_fixture_adapter.py",
+    "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-16/quality/work/probes/test_production_contract.py"
+  ],
+  "probe_provenance": {
+    "author_bodies": "C6: three copied author test bodies each executed twice (candidate and external scope-mutant) within three host-authored regression witnesses; six body invocations disclosed; no standalone author pytest run.",
+    "baseline_integration": "main 1751e21e0fd30642e0b223604b64b30e38c46f41",
+    "fixture_scope": "Real-date fixture contains verbatim 302132.SZ and sentinel 000001.SZ history plus market calendar; not full production data.",
+    "host_rehearsal": "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-16/quality/inputs/host-rehearsal (audit-only, not executed)",
+    "test_production_contract": {
+      "author": "host",
+      "cases": 15,
+      "scope": "real-date CLI apply/verify/rollback, source refusals, preflight, OS scope witnesses, host receipt consistency"
+    },
+    "test_seeded_c3": {
+      "author": "prior-reviewer with host fixture fixes",
+      "cases": 10
+    },
+    "test_earlier_fixture_adapter": {
+      "author": "prior-reviewer with host fixture fixes",
+      "cases": 10
+    }
+  },
+  "reviewer_probe_counts": {
+    "executed": 0,
+    "note": "No reviewer-authored probes; supplied evidence executed only.",
+    "passed": 0
+  },
+  "supplied_probe_counts": {
+    "errors": 0,
+    "executed": 25,
+    "failed": 0,
+    "passed": 25,
+    "skipped": 0
+  },
+  "supplied_xml": "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-16/quality/work/probe-results-all.xml",
+  "complete": true,
+  "stage": "execute",
+  "axis": "quality",
+  "revision": "ae3f812e1c1e142953b657ba41f30fce23e7c14a",
+  "baseline": "1751e21e0fd30642e0b223604b64b30e38c46f41"
+}

@@ -1,0 +1,44 @@
+"""Build a bounded, unedited evidence packet for the one-request final stage."""
+import hashlib
+import json
+from pathlib import Path
+import sys
+
+ROOT = Path(__file__).resolve().parent
+axis = sys.argv[1]
+assert axis in {'spec', 'quality'}
+base = ROOT / axis
+assert json.loads((base / 'execute/execution.json').read_text())['status'] == 'STAGE_COMPLETE'
+paths = [base / 'explore/parsed.json', base / 'execute/parsed.json',
+         base / 'work/EXPLORE.md', base / 'work/EXECUTE.md']
+for stage in ('explore', 'execute'):
+    for folder in sorted((base / stage / 'commands').glob('*-bash')):
+        paths.extend(sorted(p for p in folder.iterdir() if p.is_file()))
+paths.extend(sorted((base / 'work/probes').glob('*.py')))
+paths.extend(sorted((base / 'work/probes_v2').glob('*.py')))
+paths.extend(sorted((base / 'work').glob('probe-results-*.xml')))
+paths.extend(sorted((base / 'work').glob('author-results-*.xml')))
+observation = base / 'work/independent-real-date-observation.json'
+if observation.exists():
+    paths.append(observation)
+    rehearsal = Path(json.loads(observation.read_text())['rehearsal_directory'])
+    assert rehearsal.resolve().is_relative_to((base / 'work').resolve())
+    paths.extend(rehearsal / name for name in ('summary.json', 'acceptance.json', 'amount-control.json'))
+    paths.extend(sorted(rehearsal.glob('*.command.json')))
+parts = ['# Immutable evidence packet\nNo reasoning transcript or other-axis results included.\nRaw command output is authoritative. Prior-stage prose may contain errors: never promote a proposed correction or unsupported PASS label to an observed result. Missing evidence must remain explicit.\n']
+manifest = []
+for path in paths:
+    if not path.exists():
+        manifest.append({'path': str(path.relative_to(base)), 'missing': True})
+        parts.append('\n## ' + str(path.relative_to(base)) + '\nMISSING: not delivered by previous stage. No substitute was authored.\n')
+        continue
+    raw = path.read_bytes()
+    manifest.append({'path': str(path.relative_to(base)), 'bytes': len(raw), 'sha256': hashlib.sha256(raw).hexdigest()})
+    parts.append('\n## ' + str(path.relative_to(base)) + '\n```text\n' + raw.decode() + '\n```\n')
+packet = '\n'.join(parts)
+assert len(packet.encode()) <= 160000, 'Packet too large: preserve originals and block, do not silently truncate'
+with (base / 'report-packet.md').open('x') as out:
+    out.write(packet)
+with (base / 'report-packet-manifest.json').open('x') as out:
+    json.dump(manifest, out, indent=2)
+print(json.dumps({'axis': axis, 'files': len(paths), 'bytes': len(packet.encode())}))

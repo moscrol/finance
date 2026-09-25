@@ -1,0 +1,375 @@
+{
+  "status": "ENGINEERING_PASS_QC_BLOCKED_SANDBOX_IDENTITY_AND_DELIVERY",
+  "revision": "ae3f812e1c1e142953b657ba41f30fce23e7c14a",
+  "integrated_main": "1751e21e0fd30642e0b223604b64b30e38c46f41",
+  "observed_remote_main": "853c4b7fac1321d2e442bef813b71980143c79b4",
+  "later_main_docs_only": [
+    "docs/handoffs/2026-09-25-pr868-merged-l6-readiness.md",
+    "docs/handoffs/inflight/feat-adaptive-research-loop.md",
+    "docs/superpowers/specs/2026-09-01-workorders-INDEX.md"
+  ],
+  "latest_main_merge_preview_tree": "9db4b09f403713bc402cfaf7fa14d3222932b497",
+  "engineering": {
+    "revision": "ae3f812e1c1e142953b657ba41f30fce23e7c14a",
+    "baseline": "1751e21e0fd30642e0b223604b64b30e38c46f41",
+    "checks": [
+      {
+        "label": "focused",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/test_repair_backfill_stock_history.py",
+          "tests/test_rehearse_302132_backfill.py",
+          "-p",
+          "no:cacheprovider",
+          "-o",
+          "tmp_path_retention_policy=failed",
+          "--basetemp=/Users/a77/.finance-runtime/reviews/pr813-ready-main1751-20260925/focused-temp"
+        ],
+        "identity_before": {
+          "revision": "ae3f812e1c1e142953b657ba41f30fce23e7c14a",
+          "status": ""
+        },
+        "disk_floor_bytes": 4294967296,
+        "timeout_seconds": 600,
+        "min_free_bytes": 56012226560,
+        "pid": 67197,
+        "exit_code": 0,
+        "seconds": 34.096,
+        "identity_after": {
+          "revision": "ae3f812e1c1e142953b657ba41f30fce23e7c14a",
+          "status": ""
+        }
+      },
+      {
+        "label": "rehearsal",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "scripts/review_probes/rehearse_302132_backfill.py",
+          "--production",
+          "/Users/a77/finance-workspace-private/db/market_feature_store.duckdb",
+          "--parquet",
+          "/Users/a77/.finance-runtime/reviews/backfill-302132-0923/continue-08/rehearsal/frozen.parquet",
+          "--output",
+          "/Users/a77/.finance-runtime/reviews/pr813-ready-main1751-20260925/rehearsal"
+        ],
+        "identity_before": {
+          "revision": "ae3f812e1c1e142953b657ba41f30fce23e7c14a",
+          "status": ""
+        },
+        "disk_floor_bytes": 4294967296,
+        "timeout_seconds": 2400,
+        "min_free_bytes": 50528518144,
+        "pid": 68741,
+        "exit_code": 0,
+        "seconds": 184.687,
+        "identity_after": {
+          "revision": "ae3f812e1c1e142953b657ba41f30fce23e7c14a",
+          "status": ""
+        }
+      },
+      {
+        "label": "frontend",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "scripts/run_frontend_gate.py",
+          "--tree",
+          "/Users/a77/fwp-wt-backfill-ready-main1751-0925",
+          "--expect-revision",
+          "ae3f812e1c1e142953b657ba41f30fce23e7c14a",
+          "--output",
+          "/Users/a77/.finance-runtime/reviews/pr813-ready-main1751-20260925/frontend",
+          "--workbench-port",
+          "19951",
+          "--re06-port",
+          "19954"
+        ],
+        "identity_before": {
+          "revision": "ae3f812e1c1e142953b657ba41f30fce23e7c14a",
+          "status": ""
+        },
+        "disk_floor_bytes": 4294967296,
+        "timeout_seconds": 2400,
+        "min_free_bytes": 53681262592,
+        "pid": 74274,
+        "exit_code": 0,
+        "seconds": 142.482,
+        "identity_after": {
+          "revision": "ae3f812e1c1e142953b657ba41f30fce23e7c14a",
+          "status": ""
+        }
+      },
+      {
+        "label": "python",
+        "argv": [
+          "bash",
+          "scripts/run_main_gate.sh",
+          "--pytest-args",
+          "-q -p no:cacheprovider -o tmp_path_retention_policy=failed --basetemp=/Users/a77/.finance-runtime/reviews/pr813-ready-main1751-20260925/python-temp --junitxml=/Users/a77/.finance-runtime/reviews/pr813-ready-main1751-20260925/pytest.xml --durations=20"
+        ],
+        "identity_before": {
+          "revision": "ae3f812e1c1e142953b657ba41f30fce23e7c14a",
+          "status": ""
+        },
+        "disk_floor_bytes": 4294967296,
+        "timeout_seconds": 7200,
+        "min_free_bytes": 42206822400,
+        "pid": 76556,
+        "exit_code": 0,
+        "seconds": 1712.965,
+        "identity_after": {
+          "revision": "ae3f812e1c1e142953b657ba41f30fce23e7c14a",
+          "status": ""
+        }
+      },
+      {
+        "label": "registry",
+        "exit_code": 0
+      },
+      {
+        "label": "scope",
+        "argv": [
+          "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+          "scripts/check_test_receipt.py",
+          "/Users/a77/.finance-runtime/reviews/pr813-ready-main1751-20260925/python-receipts/gate-tAxX1y1K/pytest.json",
+          "--expect-revision",
+          "ae3f812e1c1e142953b657ba41f30fce23e7c14a",
+          "--require-full-scope",
+          "--base-drift-max",
+          "5"
+        ],
+        "identity_before": {
+          "revision": "ae3f812e1c1e142953b657ba41f30fce23e7c14a",
+          "status": ""
+        },
+        "disk_floor_bytes": 4294967296,
+        "timeout_seconds": 120,
+        "min_free_bytes": 46087479296,
+        "pid": 26191,
+        "exit_code": 0,
+        "seconds": 2.005,
+        "identity_after": {
+          "revision": "ae3f812e1c1e142953b657ba41f30fce23e7c14a",
+          "status": ""
+        }
+      }
+    ],
+    "ok": true,
+    "identity_after": {
+      "revision": "ae3f812e1c1e142953b657ba41f30fce23e7c14a",
+      "status": ""
+    }
+  },
+  "python_counts": {
+    "passed": 16259,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 93,
+    "xfailed": 2
+  },
+  "frontend_counts": {
+    "unit_passed": 123,
+    "e2e_passed": 34,
+    "e2e_skipped": 2
+  },
+  "batches": {
+    "11": {
+      "completed_stages": [
+        "gateway"
+      ],
+      "error": "explore: BLOCKED_STAGE_OR_ACCOUNTING",
+      "requests": {
+        "gateway": 4,
+        "explore": 13
+      },
+      "automatic_retries": 0,
+      "merge_authorized": false,
+      "production_authorized": false
+    },
+    "12": {
+      "completed_stages": [
+        "gateway",
+        "explore"
+      ],
+      "error": "execute: BLOCKED_STAGE_OR_ACCOUNTING",
+      "requests": {
+        "gateway": 4,
+        "explore": 2,
+        "execute": 24
+      },
+      "automatic_retries": 0,
+      "merge_authorized": false,
+      "production_authorized": false
+    },
+    "13": {
+      "completed_stages": [
+        "gateway",
+        "explore",
+        "execute",
+        "report"
+      ],
+      "error": null,
+      "requests": {
+        "gateway": 4,
+        "explore": 2,
+        "execute": 7,
+        "report": 1
+      },
+      "automatic_retries": 0,
+      "merge_authorized": false,
+      "production_authorized": false
+    },
+    "14": {
+      "completed_stages": [
+        "gateway",
+        "explore"
+      ],
+      "error": "execute: BLOCKED_STAGE_OR_ACCOUNTING",
+      "requests": {
+        "gateway": 4,
+        "explore": 2,
+        "execute": 12
+      },
+      "automatic_retries": 0,
+      "merge_authorized": false,
+      "production_authorized": false
+    },
+    "15": {
+      "completed_stages": [],
+      "error": "gateway: BLOCKED_STAGE_OR_ACCOUNTING",
+      "requests": {
+        "gateway": 4
+      },
+      "automatic_retries": 0,
+      "merge_authorized": false,
+      "production_authorized": false
+    },
+    "16": {
+      "completed_stages": [
+        "gateway",
+        "explore",
+        "execute"
+      ],
+      "error": "report: BLOCKED_STAGE_OR_ACCOUNTING",
+      "requests": {
+        "gateway": 4,
+        "explore": 2,
+        "execute": 4,
+        "report": 1
+      },
+      "automatic_retries": 0,
+      "merge_authorized": false,
+      "production_authorized": false
+    },
+    "17": {
+      "completed_stages": [
+        "gateway",
+        "explore",
+        "execute"
+      ],
+      "error": "report: BLOCKED_STAGE_OR_ACCOUNTING",
+      "requests": {
+        "gateway": 4,
+        "explore": 2,
+        "execute": 4,
+        "report": 1
+      },
+      "automatic_retries": 0,
+      "merge_authorized": false,
+      "production_authorized": false
+    },
+    "18": {
+      "completed_stages": [
+        "gateway",
+        "explore",
+        "execute"
+      ],
+      "error": "report: BLOCKED_STAGE_OR_ACCOUNTING",
+      "requests": {
+        "gateway": 4,
+        "explore": 2,
+        "execute": 4,
+        "report": 1
+      },
+      "automatic_retries": 0,
+      "merge_authorized": false,
+      "production_authorized": false
+    },
+    "19": {
+      "completed_stages": [
+        "gateway",
+        "explore",
+        "execute"
+      ],
+      "error": "report: BLOCKED_STAGE_OR_ACCOUNTING",
+      "requests": {
+        "gateway": 4,
+        "explore": 2,
+        "execute": 4,
+        "report": 1
+      },
+      "automatic_retries": 0,
+      "merge_authorized": false,
+      "production_authorized": false
+    },
+    "20": {
+      "completed_stages": [
+        "gateway",
+        "explore",
+        "execute"
+      ],
+      "error": "report: BLOCKED_STAGE_OR_ACCOUNTING",
+      "requests": {
+        "gateway": 4,
+        "explore": 2,
+        "execute": 4,
+        "report": 1
+      },
+      "automatic_retries": 0,
+      "merge_authorized": false,
+      "production_authorized": false
+    }
+  },
+  "new_requests_total": 138,
+  "latest_qc_counts": {
+    "executed": 25,
+    "failed": 2,
+    "errors": 0,
+    "skipped": 0,
+    "passed": 23
+  },
+  "latest_qc_delivered": false,
+  "merge_ready": false,
+  "engineering_ready": true,
+  "merge_authorized": false,
+  "production_authorized": false,
+  "production_executed": false,
+  "archive_files": 2738,
+  "archive_bytes": 13957191,
+  "manifest_sha256": "48b49f88eaf6cc55fad582895f24c59cbbd89a871f10f33613b5f458f3852c3d",
+  "sealed_at": "2026-09-25T05:11:56.301760+00:00",
+  "external_sensitive_artifacts": [
+    {
+      "runtime_path": "/Users/a77/.finance-runtime/reviews/pr813-ready-20260925/pytest.xml",
+      "bytes": 2538198,
+      "sha256": "e76957bc9f72c8601c675855a93bd3ea504032d261261c58a7f4dae5b17e8dae",
+      "reason": "JWT-shaped content; raw original retained outside Git, not safe to publish as-is"
+    },
+    {
+      "runtime_path": "/Users/a77/.finance-runtime/reviews/pr813-ready-main1751-20260925/pytest.xml",
+      "bytes": 2628461,
+      "sha256": "c19d999d9b3b735bd7008bc338693439294874f8d860578f3809775c0b783c4a",
+      "reason": "JWT-shaped content; raw original retained outside Git, not safe to publish as-is"
+    }
+  ],
+  "limits": [
+    "Batch13 C1-C7 PASS_WITH_LIMITS remains bound to f650, not ae3.",
+    "Batches14/16-19 passed 25 supplied cases but had no accepted final report.",
+    "Batch20 had 23P/2F: clean-checkout guard refused two rehearsal cases in sandbox; host-only later git diagnostic clean, root cause not proven.",
+    "Batches16-18 first rejected for >=6000 serialized characters; missing/extra claim ids were secondary defects, not the first controller rejection.",
+    "Prepared seal_ready.py and publish_ready.py were never run and make no claim about current readiness.",
+    "Latest main added documentation only; no new merged revision is claimed to inherit ae3 test receipts."
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "phase": "failed",
+  "requests": 3,
+  "history": [
+    {
+      "event": "start",
+      "phase": "read",
+      "request": 0
+    },
+    {
+      "event": "request",
+      "phase": "read",
+      "request": 1
+    },
+    {
+      "event": "tool_result",
+      "phase": "write",
+      "request": 1
+    },
+    {
+      "event": "request",
+      "phase": "write",
+      "request": 2
+    },
+    {
+      "event": "tool_result",
+      "phase": "final",
+      "request": 2
+    },
+    {
+      "event": "request",
+      "phase": "final",
+      "request": 3
+    },
+    {
+      "event": "blocked",
+      "phase": "failed",
+      "request": 3,
+      "reason": "final_echo_mismatch"
+    }
+  ]
+}

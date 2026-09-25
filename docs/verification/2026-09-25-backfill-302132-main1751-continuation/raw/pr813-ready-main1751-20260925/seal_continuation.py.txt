@@ -1,0 +1,126 @@
+"""Archive completed engineering and failed QC without granting merge readiness."""
+import base64
+from datetime import datetime, timezone
+import hashlib
+import json
+import os
+from pathlib import Path
+import re
+import subprocess
+import xml.etree.ElementTree as ET
+
+ROOT = Path(__file__).resolve().parent
+TREE = Path('/Users/a77/fwp-wt-backfill-ready-main1751-0925')
+DOCS = Path('/Users/a77/fwp-wt-backfill-302132-0923')
+DEST = DOCS / 'docs/verification/2026-09-25-backfill-302132-main1751-continuation'
+REV = 'ae3f812e1c1e142953b657ba41f30fce23e7c14a'
+BASE = '1751e21e0fd30642e0b223604b64b30e38c46f41'
+Q = ROOT.parent / 'pr813-glm-qc-20260925-20/quality'
+SOURCES = [ROOT.parent / 'pr813-ready-20260925', ROOT] + [ROOT.parent / f'pr813-glm-qc-20260925-{n}' for n in range(11, 21)]
+ALLOWED = {'.py', '.mjs', '.sb', '.json', '.jsonl', '.md', '.log', '.xml', '.txt', '.diff'}
+EXCLUDED_DIRS = {'candidate', '__pycache__', '.pytest_cache', 'users', 'python-temp', 'focused-temp', 'node_modules', '.git', 'archive-partial-sensitive-refusal'}
+EXCLUDED_NAMES = {'credential.json', 'auth.json', 'auth-reserved.json', 'models-store.json'}
+
+
+def sha(raw):
+    return hashlib.sha256(raw).hexdigest()
+
+
+def save(path, value):
+    with path.open('x') as stream:
+        json.dump(value, stream, ensure_ascii=False, indent=2)
+        stream.write('\n')
+
+
+def git(*args):
+    result = subprocess.run(['git', '-C', str(TREE), *args], capture_output=True, text=True, timeout=60)
+    assert result.returncode == 0, result.stderr
+    return result.stdout.strip()
+
+
+engineering = json.loads((ROOT / 'engineering.json').read_text())
+assert engineering['ok'] and engineering['revision'] == REV and engineering['baseline'] == BASE
+assert git('rev-parse', 'HEAD') == REV and not git('status', '--porcelain')
+latest = git('ls-remote', 'gitea', 'refs/heads/main').split()[0]
+changed = git('diff', '--name-only', BASE, latest).splitlines()
+assert all(name.startswith('docs/') for name in changed)
+preview = git('merge-tree', '--write-tree', latest, REV)
+scope_command = ['/Users/a77/finance-workspace-private/.venv-workbench/bin/python', 'scripts/check_test_receipt.py',
+                 str(next((ROOT / 'python-receipts').glob('gate-*/pytest.json'))), '--expect-revision', REV,
+                 '--require-full-scope', '--base-drift-max', '5']
+scope = subprocess.run(scope_command, cwd=TREE, capture_output=True, text=True, timeout=120)
+save(ROOT / 'latest-main-scope-final.json', {'argv': scope_command, 'exit_code': scope.returncode,
+                                    'stdout': scope.stdout, 'stderr': scope.stderr, 'observed_main': latest})
+assert scope.returncode == 0
+batches = {}
+for n in range(11, 21):
+    folder = ROOT.parent / f'pr813-glm-qc-20260925-{n}'
+    batches[str(n)] = json.loads((folder / 'batch-result.json').read_text())
+assert batches['20']['error'] is not None and not (Q / 'report/parsed.json').exists()
+cases = list(ET.parse(Q / 'work/probe-results-all.xml').iter('testcase'))
+counts = {'executed': len(cases), 'failed': sum(c.find('failure') is not None for c in cases),
+          'errors': sum(c.find('error') is not None for c in cases), 'skipped': sum(c.find('skipped') is not None for c in cases)}
+counts['passed'] = counts['executed'] - counts['failed'] - counts['errors'] - counts['skipped']
+assert counts == {'executed': 25, 'failed': 2, 'errors': 0, 'skipped': 0, 'passed': 23}
+assert not DEST.exists()
+DEST.mkdir(parents=True)
+entries = []
+external_sensitive = []
+for source in SOURCES:
+    for directory, dirs, files in os.walk(source):
+        dirs[:] = sorted(d for d in dirs if d not in EXCLUDED_DIRS and not (Path(directory) / d).is_symlink())
+        for name in sorted(files):
+            path = Path(directory) / name
+            if path.is_symlink() or name in EXCLUDED_NAMES or path.suffix.lower() not in ALLOWED:
+                continue
+            raw = path.read_bytes()
+            if re.search(rb'eyJ[A-Za-z0-9_-]{15,}\.[A-Za-z0-9_-]{15,}\.[A-Za-z0-9_-]{15,}', raw):
+                external_sensitive.append({'runtime_path': str(path), 'bytes': len(raw), 'sha256': sha(raw),
+                                           'reason': 'JWT-shaped content; raw original retained outside Git, not safe to publish as-is'})
+                continue
+            rel = path.relative_to(source)
+            encoded = path.suffix in {'.log', '.xml', '.jsonl', '.diff'} or bool(re.search(rb'[ \t]+\r?\n|\n\n\Z', raw))
+            archived = Path('raw') / source.name / rel
+            stored = base64.encodebytes(raw) if encoded else raw
+            if encoded:
+                archived = archived.with_name(archived.name + '.b64')
+            elif path.suffix in {'.py', '.mjs', '.sb'}:
+                archived = archived.with_name(archived.name + '.txt')
+            target = DEST / archived
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(stored)
+            entries.append({'source_root': str(source), 'source': str(rel), 'archive': str(archived),
+                            'encoding': 'base64' if encoded else 'identity', 'bytes': len(raw),
+                            'sha256': sha(raw), 'archive_sha256': sha(stored)})
+manifest = {'schema': 'lossless-qc-archive/v1', 'revision': REV, 'baseline': BASE, 'verified_files': len(entries),
+            'entries': entries, 'excluded': ['candidate trees', 'credentials/auth', 'databases/parquet/binaries', 'users/caches', 'symlinks', 'engineering temporary fixtures']}
+manifest['external_sensitive_artifacts'] = external_sensitive
+save(DEST / 'manifest.json', manifest)
+save(DEST / 'external-raw-artifacts.json', {'artifacts': external_sensitive, 'raw_retained': True, 'copied_to_git': False})
+for item in entries:
+    stored = (DEST / item['archive']).read_bytes()
+    decoded = base64.b64decode(stored) if item['encoding'] == 'base64' else stored
+    assert len(decoded) == item['bytes'] and sha(decoded) == item['sha256'] and sha(stored) == item['archive_sha256']
+summary = {
+    'status': 'ENGINEERING_PASS_QC_BLOCKED_SANDBOX_IDENTITY_AND_DELIVERY',
+    'revision': REV, 'integrated_main': BASE, 'observed_remote_main': latest,
+    'later_main_docs_only': changed, 'latest_main_merge_preview_tree': preview,
+    'engineering': engineering, 'python_counts': {'passed': 16259, 'failed': 0, 'errors': 0, 'skipped': 93, 'xfailed': 2},
+    'frontend_counts': {'unit_passed': 123, 'e2e_passed': 34, 'e2e_skipped': 2},
+    'batches': batches, 'new_requests_total': sum(sum(b['requests'].values()) for b in batches.values()),
+    'latest_qc_counts': counts, 'latest_qc_delivered': False,
+    'merge_ready': False, 'engineering_ready': True, 'merge_authorized': False,
+    'production_authorized': False, 'production_executed': False,
+    'archive_files': len(entries), 'archive_bytes': sum(e['bytes'] for e in entries),
+    'manifest_sha256': sha((DEST / 'manifest.json').read_bytes()), 'sealed_at': datetime.now(timezone.utc).isoformat(),
+    'external_sensitive_artifacts': external_sensitive,
+    'limits': ['Batch13 C1-C7 PASS_WITH_LIMITS remains bound to f650, not ae3.',
+               'Batches14/16-19 passed 25 supplied cases but had no accepted final report.',
+               'Batch20 had 23P/2F: clean-checkout guard refused two rehearsal cases in sandbox; host-only later git diagnostic clean, root cause not proven.',
+               'Batches16-18 first rejected for >=6000 serialized characters; missing/extra claim ids were secondary defects, not the first controller rejection.',
+               'Prepared seal_ready.py and publish_ready.py were never run and make no claim about current readiness.',
+               'Latest main added documentation only; no new merged revision is claimed to inherit ae3 test receipts.'],
+}
+save(DEST / 'summary.json', summary)
+(DEST / 'README.md').write_text(f'''# #83 / PR813 main1751 continuation\n\n**{summary['status']}**. Not merge-ready, not production approval.\n\nCandidate `{REV}` integrates `{BASE}`. Python 16259P/0F/93S/2X; focused118P; frontend123P; E2E34P/2S; registry and full-scope receipt checks passed. Full-copy staged rehearsal, 37 checks, negative controls and hash-matching restore passed as host evidence.\n\nReview batches11-20 used {summary['new_requests_total']} bounded requests, no automatic retry. Batch13 accepted 24 supplied cases on the superseded f650 candidate. Batches14/16-19 passed25 on ae3 but final delivery failed. Batch20:23P/2F, no accepted final report. The clean-checkout refusal occurred inside the sandbox; later host-only diagnostic found a clean tree but cannot erase those failures.\n\nDirect rejection for16-18 was delivery size 7349/7472/7318 against an exclusive6000-character bound. Batch19 hit a360-character provenance constraint and had an annotated XML path. Batch20 also returned extra claim ids. All rejected originals remain preserved; no rejected result is promoted to an approval.\n\nCurrent main `{latest}` only adds the three listed documentation files. Its merge preview is conflict-free; no test receipt is relabeled as this preview. Keep PR WIP. Product publication and documentation publication receipts are recorded separately after actual actions.\n\nManifest records raw and stored hashes. Binary data, credentials, candidate checkouts and caches stay outside Git. Raw full-suite XML containing JWT-shaped fixture/log content is retained at the hashed runtime paths listed in external-raw-artifacts.json; it is not copied into Git. Prepared ready-only helpers are inactive drafts, not executed operations.\n''')
+print(json.dumps({k: summary[k] for k in ('status', 'revision', 'archive_files', 'archive_bytes', 'manifest_sha256', 'new_requests_total')}))

@@ -1,0 +1,34 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import { Check } from '/opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent/node_modules/typebox/build/value/check/check.mjs';
+import { finalReportSchema } from './review.mjs';
+
+const counts = { executed: 0, passed: 0, failed: 0, errors: 0, skipped: 0 };
+const schema = finalReportSchema();
+const valid = {
+  verdict: 'BLOCKED_INCOMPLETE_EVIDENCE',
+  claims: Array.from({ length: 7 }, (_, i) => ({ id: `C${i + 1}`, status: 'not_verified', evidence: 'Offline schema sample only.' })),
+  findings: [], limits: ['Offline schema sample; no independent approval.'],
+  reviewer_probe_counts: counts, author_test_counts: counts, supplied_probe_counts: counts,
+  positive_control: { status: 'OBSERVED_EXPECTED_FAILURE', classification: 'probe_bug', evidence: 'Schema sample; actual raw control remains separately checked.' },
+  supplied_xml: '/example/offline.xml', probe_provenance: 'Offline schema diagnostic, not reviewer evidence.',
+};
+assert(Check(schema, valid));
+const negative = [
+  { ...valid, claims: [...valid.claims, { id: 'positive_control_summary', status: 'verified', evidence: 'Wrong eighth claim.' }] },
+  { ...valid, claims: valid.claims.slice(1) },
+  { ...valid, claims: [{ ...valid.claims[0], id: 'C8' }, ...valid.claims.slice(1)] },
+  { ...valid, claims: [{ status: 'not_verified', evidence: 'Missing id.' }, ...valid.claims.slice(1)] },
+  { ...valid, probe_provenance: { note: 'Wrong object.' } },
+  { ...valid, reviewer_probe_counts: { ...counts, passed: '0' } },
+  { ...valid, reviewer_probe_counts: { ...counts, failed: -1 } },
+  { ...valid, verdict: 'PASS' },
+  { ...valid, revision: 'invented identity' },
+];
+for (const sample of negative) assert(!Check(schema, sample));
+const raw = JSON.parse(fs.readFileSync('/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-17/quality/report/commands/001-deliver_stage/request.json', 'utf8'));
+assert(!Check(schema, raw.params.result));
+const receipt = { status: 'PASS', positive: 1, negative: negative.length + 1, production_evidence: false,
+  note: 'Tool schema is stricter; raw-control, count arithmetic, unique claim ids and XML audit gates remain unchanged.' };
+fs.writeFileSync(new URL('./report-schema-preflight.json', import.meta.url), JSON.stringify(receipt, null, 2) + '\n', { flag: 'wx' });
+console.log(JSON.stringify(receipt));

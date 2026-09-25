@@ -1,0 +1,78 @@
+{
+  "revision": "f650d9e765e127c7e66a621226cc2d676d70075d",
+  "main": "79861f07e48573b6b5bd378b28880e484f509905",
+  "workflow_sha256": "16995d8a95100983e4490f2dc229fd23f9ebe09d5876222f489af51a4d31edcf",
+  "identity_before": {
+    "revision": "f650d9e765e127c7e66a621226cc2d676d70075d",
+    "status": ""
+  },
+  "identity_after": {
+    "revision": "f650d9e765e127c7e66a621226cc2d676d70075d",
+    "status": ""
+  },
+  "checks": [
+    {
+      "name": "check-parseability（每个 SKILL.md frontmatter 可解析、name 与目录名一致）",
+      "argv": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "check-parseability"
+      ],
+      "exit_code": 0,
+      "seconds": 0.315,
+      "log": "check-0.log.txt",
+      "log_sha256": "b2d7a8d77df0fdc0f638e93d711f397b07859eb91e6aa5d45d793a52f2abef60"
+    },
+    {
+      "name": "check（注册表 skills.registry.json 与源一致，无漂移）",
+      "argv": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "check"
+      ],
+      "exit_code": 0,
+      "seconds": 0.186,
+      "log": "check-1.log.txt",
+      "log_sha256": "8c996aaec0fcd03defec5afb55f6ebb96935c7a5bc571e1811410de6339fe0df"
+    },
+    {
+      "name": "backfill-tables --check（文档里的 skill 表与注册表一致）",
+      "argv": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "backfill-tables",
+        "--check"
+      ],
+      "exit_code": 0,
+      "seconds": 0.18,
+      "log": "check-2.log.txt",
+      "log_sha256": "362c2b566827eb15434ae230b1ce60edad2006c45ff08836d0a24fc744447261"
+    },
+    {
+      "name": "generate-views --check（agent 目录视图规范、无物理拷贝/坏链）",
+      "argv": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "generate-views",
+        "--check"
+      ],
+      "exit_code": 0,
+      "seconds": 0.155,
+      "log": "check-3.log.txt",
+      "log_sha256": "9730a43a0a4535867153d7ac0afd888b1feaaa96f3846b2922c39a16ad068e89"
+    },
+    {
+      "name": "ledger-spec-crosswalk（spec↔台账双向对账，正向缺号/重号即红）",
+      "argv": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "scripts/audit_ledger_spec_crosswalk.py"
+      ],
+      "exit_code": 0,
+      "seconds": 0.757,
+      "log": "check-4.log.txt",
+      "log_sha256": "8b5cfd442f89192b03343da0f750dba65736958e7c60d7307b06848741221221"
+    }
+  ],
+  "scope": "finance-only checkout, same as CI; absent sibling repositories explicitly skipped",
+  "ok": true
+}

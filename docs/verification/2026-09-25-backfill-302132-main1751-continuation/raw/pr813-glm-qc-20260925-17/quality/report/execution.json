@@ -1,0 +1,117 @@
+{
+  "stage": "report",
+  "revision": "ae3f812e1c1e142953b657ba41f30fce23e7c14a",
+  "baseline": "1751e21e0fd30642e0b223604b64b30e38c46f41",
+  "started_at": "2026-09-25T04:44:13.306873+00:00",
+  "complete": true,
+  "candidate_before": {
+    "revision": "ae3f812e1c1e142953b657ba41f30fce23e7c14a",
+    "status": ""
+  },
+  "author_before": {
+    "revision": "ae3f812e1c1e142953b657ba41f30fce23e7c14a",
+    "status": ""
+  },
+  "inputs_sha256": {
+    "config.json": "c6c64123db552a1f495d8b2b250b09c86386c84f6581a95d72969de1e07f30b0",
+    "review.mjs": "fa8524eccde0c1c06418849c03d3de2e4b060c6b46a4d36f5c3fc5efc7801aba",
+    "pi_review_protocol.mjs": "657e40bf2d8f8825a5345210876ac69417aed0cac857a2f899ec96280fa641d5",
+    "tools.sb": "d8d1df988277f50e8e09ac76695c20e10ab3fbf688face802fae4941cd26228f",
+    "file_tool.py": "79125feff76d98407e3bf1d36cfa56c0086863bc0591afa499f3580a6dcf8972",
+    "provider-template.json": "8130824c44d453e1ba75aa396dd08e57761e8657cbdd0615f6bc3fa1a6261a66",
+    "pi-config/settings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+    "prompt-report.md": "b38eb15f3c90bac7b22bb8af56bce2334337ee4e24cb925affae02976db395a5"
+  },
+  "timeout_seconds": 600,
+  "max_requests": 1,
+  "automatic_retries": 0,
+  "command": [
+    "/opt/homebrew/bin/pi",
+    "--provider",
+    "glm-direct-review",
+    "--model",
+    "glm-5.3",
+    "--thinking",
+    "low",
+    "--models",
+    "glm-direct-review/glm-5.3",
+    "--no-session",
+    "--no-extensions",
+    "-e",
+    "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-17/quality/review.mjs",
+    "--no-skills",
+    "--no-prompt-templates",
+    "--no-context-files",
+    "--no-themes",
+    "--no-approve",
+    "--offline",
+    "--tools",
+    "deliver_stage",
+    "--mode",
+    "json",
+    "-p",
+    "--",
+    "<stage prompt>"
+  ],
+  "pid": 9941,
+  "probe_sha256": {
+    "work/probes/probe_c3_acceptance_v2.py": "db8eecfa4bd64ab2ccaf5dab9dd459af0349e2ea858141298a36370e683e21e0",
+    "work/probes/test_earlier_fixture_adapter.py": "37807e0b2d5a3aba69112e677edd06769a48c66a8aa50339cbfff90f436d3c2c",
+    "work/probes/test_new_c3_v1.py": "31c134721857c446e439224a0de8742971402115aca8ef03febb94de55d5e3a6",
+    "work/probes/test_production_contract.py": "303ce29b9d4b1351428ccba4cce38f121a01c3bb039359bc6ccf9dd27754406e",
+    "work/probes/test_seeded_c3.py": "155d751f1b37f58bef1503bbc6d2234f57fb9e85efc5dbd9144a478ebf7bb16a"
+  },
+  "status": "BLOCKED_STAGE_OR_PROVIDER",
+  "exit_code": 75,
+  "elapsed_seconds": 28.673,
+  "timed_out": false,
+  "requests": 1,
+  "responses": [
+    {
+      "admission": 1,
+      "status": 200
+    }
+  ],
+  "errors": [],
+  "candidate_after": {
+    "revision": "ae3f812e1c1e142953b657ba41f30fce23e7c14a",
+    "status": ""
+  },
+  "author_after": {
+    "revision": "ae3f812e1c1e142953b657ba41f30fce23e7c14a",
+    "status": ""
+  },
+  "inputs_unchanged": true,
+  "event_counts": {
+    "session": 1,
+    "agent_start": 1,
+    "turn_start": 1,
+    "message_start": 2,
+    "message_end": 2,
+    "message_update": 41,
+    "tool_execution_start": 1
+  },
+  "report_structural": false,
+  "model_identities": [
+    "glm-direct-review/glm-5.3"
+  ],
+  "usage": {
+    "input": 43596,
+    "output": 1848,
+    "cacheRead": 576,
+    "cacheWrite": 0,
+    "totalTokens": 46020
+  },
+  "artifact_sha256": {
+    "tool-menu.json": "caa39de8ead329b20d42a511dc7a4ab35e7be8ecb4d9890c6e91e2bd260ed245",
+    "payload-shapes.jsonl": "b5d5b79fee5b401c61789aeee05231b2154ce5efb770ad89144af65c586a76ae",
+    "stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "auth-reserved.json": "89d3a977d27d8a5032bbf88f303e090c5d2b24e52f34c59a7f97a56857472e04",
+    "credential.json": "5d6c5124a4f085ec1705fb08673d36708781e166f1e4939b110c6be57ff5c3c8",
+    "request-admissions.jsonl": "b67453aecbf5f72270acad89ed9a11f26fe9fd57277b8e004f15448264bcf3d5",
+    "responses.jsonl": "f5b2bfbd4f957a7246b529caa0f28b7a7b2ba41f11fcf6f2fa222f176c71224f",
+    "events.jsonl": "a63f7caf1208c7873ca09dc17d2a06f6f9534f7acdfb8eed7b59fd76bc1558e0",
+    "controller-stop.json": "bb84dc74ee5d36322d5b8d00e6e265c7f10ed793a53a0097237cb5f20e0ebeea",
+    "commands/001-deliver_stage/request.json": "5723581da63d63d5dd6175f62c5aec24f3eedd1eed5f4e8a0101ec29684c2c43"
+  }
+}

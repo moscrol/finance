@@ -1,0 +1,126 @@
+"""New QC-authored C3 tests (independent of supplied suite assertions).
+
+Provenance: fixture/_base/copy logic ADAPTED from supplied probe_c3_acceptance_v2.py
+(whose setup derives from author _build_e2e_artifacts); assertions below are newly
+authored this session. Targets candidate scripts/verify_302132_backfill_acceptance.py
+main -> _data_checks "target_outside_window_allcols".
+
+New cases (not covered by the supplied suite's amount/timestamp/delete/insert/
+duplicate/other_stock on the later date):
+  1. earlier_than_window: mutate an inside-code row strictly BEFORE window_start
+     (trade_date < 2026-06-15), assert acceptance FAILs target_outside_window_allcols.
+  2. null_column: set a NULL-able column (stock_name) to NULL on the outside-window
+     later row; NULL-vs-nonNULL must be caught by EXCEPT ALL multiset semantics.
+"""
+from __future__ import annotations
+
+import importlib.util
+import json
+import os
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+import duckdb
+import pytest
+
+CAND = Path("/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-20/candidate")
+TESTS = CAND / "tests" / "test_repair_backfill_stock_history.py"
+ACCEPT = CAND / "scripts" / "verify_302132_backfill_acceptance.py"
+
+sys.path.insert(0, str(CAND))
+spec = importlib.util.spec_from_file_location("t302132_new", TESTS)
+t = importlib.util.module_from_spec(spec)
+sys.modules["t302132_new"] = t
+spec.loader.exec_module(t)
+
+OTHER = "000001.SZ"
+LATER = "2026-09-22"
+
+
+def _env() -> dict[str, str]:
+    return {
+        "HOME": os.environ.get("HOME", str(Path.home())),
+        "PATH": os.environ.get("PATH", os.defpath),
+        "LANG": "C.UTF-8",
+        "TMPDIR": os.environ.get("TMPDIR", "/tmp"),
+        "FWP_TEST_RECEIPT": "0",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "PYTHONPATH": str(CAND),
+    }
+
+
+def _base(tmp_path: Path) -> dict:
+    art = t._build_e2e_artifacts(tmp_path)
+    for p in (art["baseline"], art["clone"]):
+        with duckdb.connect(str(p)) as con:
+            con.execute(
+                "INSERT INTO fact_stock_daily SELECT * REPLACE "
+                "(DATE '" + LATER + "' AS trade_date) FROM fact_stock_daily "
+                "WHERE stock_ts_code=? AND trade_date=?",
+                [art["spec"].code, art["spec"].window_end])
+    art["base_sha"] = t.mod._sha256(art["baseline"])
+    for rid in (t.APPLY_RUN, t.VERIFY_RUN):
+        p = Path(str(art["clone"]) + f".repair-backfill-execution.{rid}.json")
+        rec = json.loads(p.read_text())
+        rec["backup"]["backup_sha256"] = art["base_sha"]
+        p.write_text(json.dumps(rec))
+    # receipts resolved relative to clone path (host correction, same as supplied)
+    clone = Path(art["clone"])
+    return art
+
+
+def _clone_with_receipts(tmp_path: Path, art: dict) -> Path:
+    clone = tmp_path / "clone_new.duckdb"
+    shutil.copy(str(art["clone"]), str(clone))
+    for rid in (t.APPLY_RUN, t.VERIFY_RUN):
+        src = Path(str(art["clone"]) + f".repair-backfill-execution.{rid}.json")
+        dst = Path(str(clone) + f".repair-backfill-execution.{rid}.json")
+        shutil.copyfile(src, dst)
+    return clone
+
+
+def _run(clone: Path, art: dict, out: Path) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        [sys.executable, str(ACCEPT), "--production", str(art["baseline"]),
+         "--clone", str(clone), "--parquet", str(art["pq"]),
+         "--run-apply", t.APPLY_RUN, "--run-verify", t.VERIFY_RUN,
+         "--expected-revision", t.E2E_REV,
+         "--expected-production-sha256", art["base_sha"],
+         "--output", str(out)],
+        capture_output=True, text=True, timeout=110, env=_env())
+
+
+@pytest.mark.parametrize("mutation", ["earlier_than_window", "null_column"])
+def test_new_outside_window_mutations_fail(tmp_path, mutation):
+    art = _base(tmp_path)
+    clone = _clone_with_receipts(tmp_path, art)
+    with duckdb.connect(str(clone)) as con:
+        if mutation == "earlier_than_window":
+            code = art["spec"].code
+            d0 = art["spec"].window_start
+            rows = con.execute(
+                "SELECT trade_date FROM fact_stock_daily WHERE stock_ts_code=? "
+                "AND trade_date < ? ORDER BY trade_date DESC LIMIT 1",
+                [code, d0]).fetchall()
+            assert rows, "fixture lacks a pre-window row for target code"
+            earlier = rows[0][0]
+            changed = con.execute(
+                "UPDATE fact_stock_daily SET amount=amount+1 WHERE "
+                "stock_ts_code=? AND trade_date=? RETURNING amount",
+                [code, earlier]).fetchall()
+            assert len(changed) == 1, (changed, earlier)
+        elif mutation == "null_column":
+            changed = con.execute(
+                "UPDATE fact_stock_daily SET stock_name=NULL WHERE "
+                "stock_ts_code=? AND trade_date=DATE '" + LATER + "' "
+                "RETURNING 1", [art["spec"].code]).fetchall()
+            assert len(changed) == 1, changed
+    out = tmp_path / "out.json"
+    res = _run(clone, art, out)
+    assert res.returncode == 2, (res.returncode, res.stdout, res.stderr)
+    assert out.exists()
+    v = json.loads(out.read_text())
+    assert v["verdict"] == "FAIL", v
+    assert "target_outside_window_allcols" in v["failed"], v["failed"]

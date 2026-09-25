@@ -1,0 +1,106 @@
+"""Lossless archive for the new-main readiness decision; refuses incomplete gates."""
+import base64
+from datetime import datetime, timezone
+import hashlib
+import json
+import os
+from pathlib import Path
+import re
+import subprocess
+
+ROOT = Path(__file__).resolve().parent
+REV = 'ae3f812e1c1e142953b657ba41f30fce23e7c14a'
+BASE = '1751e21e0fd30642e0b223604b64b30e38c46f41'
+TREE = Path('/Users/a77/fwp-wt-backfill-ready-main1751-0925')
+DOCS = Path('/Users/a77/fwp-wt-backfill-302132-0923')
+DEST = DOCS / 'docs/verification/2026-09-25-backfill-302132-main1751-ready'
+Q = ROOT.parent / 'pr813-glm-qc-20260925-19/quality'
+SOURCES = [ROOT.parent / 'pr813-ready-20260925', ROOT] + [ROOT.parent / f'pr813-glm-qc-20260925-{n}' for n in range(11, 20)]
+ALLOWED = {'.py', '.mjs', '.sb', '.json', '.jsonl', '.md', '.log', '.xml', '.txt', '.diff'}
+EXCLUDED_DIRS = {'candidate', '__pycache__', '.pytest_cache', 'users', 'python-temp', 'focused-temp', 'node_modules', '.git'}
+EXCLUDED_NAMES = {'credential.json', 'auth.json', 'auth-reserved.json', 'models-store.json'}
+
+
+def digest(raw):
+    return hashlib.sha256(raw).hexdigest()
+
+
+def save(path, value):
+    with path.open('x') as stream:
+        json.dump(value, stream, ensure_ascii=False, indent=2)
+        stream.write('\n')
+
+
+def main():
+    engineering = json.loads((ROOT / 'engineering.json').read_text())
+    audit = json.loads((Q / 'host-evidence-audit.json').read_text())
+    report = json.loads((Q / 'report/parsed.json').read_text())
+    assert engineering['ok'] and engineering['revision'] == REV and engineering['baseline'] == BASE
+    assert audit['status'] == 'EVIDENCE_COUNTS_VALID' and audit['reasons'] == []
+    assert report['revision'] == REV and report['baseline'] == BASE
+    assert report['verdict'] == 'PASS_WITH_LIMITS'
+    assert {c['id']: c['status'] for c in report['claims']} == {f'C{i}': 'verified' for i in range(1, 8)}
+    assert subprocess.check_output(['git', '-C', str(TREE), 'rev-parse', 'HEAD'], text=True).strip() == REV
+    assert not subprocess.check_output(['git', '-C', str(TREE), 'status', '--porcelain'], text=True).strip()
+    remote = subprocess.check_output(['git', '-C', str(TREE), 'ls-remote', 'gitea', 'refs/heads/main'], text=True).split()[0]
+    assert remote == BASE, 'Main advanced again; do not seal current-main readiness'
+    assert not DEST.exists()
+    DEST.mkdir(parents=True)
+    entries = []
+    for source in SOURCES:
+        for directory, dirs, files in os.walk(source):
+            dirs[:] = sorted(d for d in dirs if d not in EXCLUDED_DIRS and not (Path(directory) / d).is_symlink())
+            for name in sorted(files):
+                path = Path(directory) / name
+                if path.is_symlink() or name in EXCLUDED_NAMES or path.suffix.lower() not in ALLOWED:
+                    continue
+                raw = path.read_bytes()
+                assert not re.search(rb'eyJ[A-Za-z0-9_-]{15,}\.[A-Za-z0-9_-]{15,}\.[A-Za-z0-9_-]{15,}', raw), str(path)
+                relative = path.relative_to(source)
+                encoded = path.suffix in {'.log', '.xml', '.jsonl', '.diff'} or bool(re.search(rb'[ \t]+\r?\n|\n\n\Z', raw))
+                archived = Path('raw') / source.name / relative
+                stored = base64.encodebytes(raw) if encoded else raw
+                if encoded:
+                    archived = archived.with_name(archived.name + '.b64')
+                elif path.suffix in {'.py', '.mjs', '.sb'}:
+                    archived = archived.with_name(archived.name + '.txt')
+                target = DEST / archived
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes(stored)
+                entries.append({'source_root': str(source), 'source': str(relative), 'archive': str(archived),
+                                'encoding': 'base64' if encoded else 'identity', 'bytes': len(raw),
+                                'sha256': digest(raw), 'archive_sha256': digest(stored)})
+    manifest = {'schema': 'lossless-qc-archive/v1', 'revision': REV, 'baseline': BASE,
+                'verified_files': len(entries), 'entries': entries,
+                'excluded': ['candidate trees', 'credential/auth stores', 'databases/parquet/binary files', 'users and caches', 'symlinks', 'engineering temporary fixtures']}
+    save(DEST / 'manifest.json', manifest)
+    for item in entries:
+        stored = (DEST / item['archive']).read_bytes()
+        raw = base64.b64decode(stored) if item['encoding'] == 'base64' else stored
+        assert len(raw) == item['bytes'] and digest(raw) == item['sha256'] and digest(stored) == item['archive_sha256']
+    python_receipts = list((ROOT / 'python-receipts').glob('gate-*/pytest.json'))
+    assert len(python_receipts) == 1
+    python_receipt = json.loads(python_receipts[0].read_text())
+    requests = {}
+    for n in range(11, 20):
+        requests[str(n)] = json.loads((ROOT.parent / f'pr813-glm-qc-20260925-{n}/batch-result.json').read_text())['requests']
+    summary = {'status': 'MERGE_READY_DEPLOYMENT_PROCEDURE_PREPARED_NOT_AUTHORIZED',
+               'revision': REV, 'integrated_main': BASE, 'observed_remote_main': remote,
+               'engineering': engineering, 'python_receipt': python_receipt,
+               'independent_qc': report, 'requests': requests,
+               'new_requests_total': sum(sum(v.values()) for v in requests.values()),
+               'merge_ready': True, 'engineering_ready': True, 'merge_authorized': False,
+               'production_authorized': False, 'production_executed': False,
+               'archive_files': len(entries), 'archive_bytes': sum(e['bytes'] for e in entries),
+               'manifest_sha256': digest((DEST / 'manifest.json').read_bytes()),
+               'sealed_at': datetime.now(timezone.utc).isoformat(),
+               'prior_candidate': {'revision': 'f650d9e765e127c7e66a621226cc2d676d70075d',
+                                   'python': '15760P/72S/2X', 'qc_batch13': '24 supplied cases passed; C1-C7 verified with limits',
+                                   'scope': 'superseded after PR868 advanced main; not transferred to ae3'}}
+    save(DEST / 'summary.json', summary)
+    (DEST / 'README.md').write_text(f'''# #83 / PR813: main1751 readiness evidence\n\nCandidate `{REV}`, integrated main `{BASE}`.\n\nEngineering and bounded independent QC completed for this exact clean revision. Merge and production operations remain unauthorized. The review is `PASS_WITH_LIMITS`: supplied probes, real-data subset, and separately audited host full-copy evidence. It is not a general security audit or a production execution.\n\nBatches 11 and 12 failed before pytest and remain preserved. Batch13 passed 24 supplied cases on f650, then main advanced through PR868. Batch14 passed 25 cases on ae3 but exhausted execute without delivery. Batch15 stopped at gateway final-echo mismatch. Batches16-18 each passed 25 cases but were rejected first by the original 6000-character delivery limit (7349/7472/7318 characters). Batch16 also omitted claim ids and original claims in its packet; batch17 also added an eighth claim. Those secondary defects were initially mistaken for the primary rejection and the corrected diagnosis is retained. Batch18's typed schema constrained shape but not length. Batch19 bounds all variable fields (offline maximum 4817 characters, 1 positive + 15 negative checks) and preserves every evidence gate; it is a fresh execution and report on ae3, not a relabeling. Host diagnostics and copied author-body scope witnesses are explicitly identified in the raw evidence.\n\nFiles are losslessly encoded where necessary and verified against manifest hashes. Databases, parquet, credentials, caches and candidate trees remain outside Git. Original runtime paths and hashes are preserved for reproducibility.\n''')
+    print(json.dumps({k: summary[k] for k in ('status', 'revision', 'archive_files', 'archive_bytes', 'manifest_sha256', 'new_requests_total')}))
+
+
+if __name__ == '__main__':
+    main()

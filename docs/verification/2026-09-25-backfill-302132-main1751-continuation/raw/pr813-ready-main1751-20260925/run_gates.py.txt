@@ -1,0 +1,25 @@
+"""Fresh full engineering receipts after main advanced via PR868."""
+import importlib.util
+import json
+from pathlib import Path
+import subprocess
+import sys
+
+ROOT = Path(__file__).resolve().parent
+TREE = Path('/Users/a77/fwp-wt-backfill-ready-main1751-0925')
+REV = 'ae3f812e1c1e142953b657ba41f30fce23e7c14a'
+BASE = '1751e21e0fd30642e0b223604b64b30e38c46f41'
+PY = '/Users/a77/finance-workspace-private/.venv-workbench/bin/python'
+spec = importlib.util.spec_from_file_location('engineering_driver', ROOT.parent / 'pr813-ready-20260925/run_gates.py')
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+module.ROOT, module.TREE, module.REV, module.BASE = ROOT, TREE, REV, BASE
+module.runner.OUT, module.runner.TREE, module.runner.REV, module.runner.MAIN = ROOT, TREE, REV, BASE
+
+if '--background' in sys.argv:
+    with (ROOT / 'driver.log.txt').open('xb') as log:
+        process = subprocess.Popen([PY, '-B', __file__], cwd=TREE, env=module.runner.base_env,
+                                   stdin=subprocess.DEVNULL, stdout=log, stderr=log, start_new_session=True)
+    print(json.dumps({'pid': process.pid, 'revision': REV, 'baseline': BASE}))
+else:
+    module.main()

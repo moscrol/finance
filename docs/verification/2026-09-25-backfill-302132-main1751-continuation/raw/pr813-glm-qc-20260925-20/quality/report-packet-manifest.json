@@ -1,0 +1,101 @@
+[
+  {
+    "path": "inputs/claims.md",
+    "bytes": 2319,
+    "sha256": "c9aa5774c65a1f7fa6c7fa794102ef0fc3d0d3fcee7bce77a0ddb623bc9866d0"
+  },
+  {
+    "path": "inputs/source-contract.md",
+    "bytes": 57967,
+    "sha256": "0e95e79cb298ef18ac0999088b8396a9d09fc95febe46bb774c5b97712e905c0"
+  },
+  {
+    "path": "inputs/source-contract-manifest.json",
+    "bytes": 782,
+    "sha256": "59a7beaa4d425efbfa6722ec0f7107ed36f45dceab09ce450160cc0b2c20d705"
+  },
+  {
+    "path": "explore/parsed.json",
+    "bytes": 1612,
+    "sha256": "585a607c998becb2a9203aaef6eedc0357455a0a64d56a35015fb0af2a3b5261"
+  },
+  {
+    "path": "execute/parsed.json",
+    "bytes": 4133,
+    "sha256": "a919e90d19c4b6fec78dfe0c0e78104987b136a9093d878e9cf5920ddaa7678c"
+  },
+  {
+    "path": "work/EXPLORE.md",
+    "missing": true
+  },
+  {
+    "path": "work/EXECUTE.md",
+    "bytes": 3325,
+    "sha256": "267ed9e6bdfae87a5123be42b2db7406dca2d87f893d6ca07d77b1594e08c29d"
+  },
+  {
+    "path": "execute/commands/001-bash/output.log",
+    "bytes": 274,
+    "sha256": "380abdae6fcea60e2c6c1b66d4918e0d115482565f94bc9673b5da48d47e210c"
+  },
+  {
+    "path": "execute/commands/001-bash/request.json",
+    "bytes": 271,
+    "sha256": "c2cde748828808741ee499226644b9e21b7a657b0995568f58e8b90d253ed162"
+  },
+  {
+    "path": "execute/commands/001-bash/result.json",
+    "bytes": 14,
+    "sha256": "d67659d29dad50e65ac903e33dc7ef4a692331d96253553956300d1fcfa5786a"
+  },
+  {
+    "path": "execute/commands/002-bash/output.log",
+    "bytes": 4432,
+    "sha256": "cedc3d01d3a81c42e5683c4012bf35ec64c4a4f900099c357d36cd4732f67c82"
+  },
+  {
+    "path": "execute/commands/002-bash/request.json",
+    "bytes": 820,
+    "sha256": "85abf917b3675cf8957f1308a6539fe640a704f7ebda5c3d0c12b7b9b3f33fd9"
+  },
+  {
+    "path": "execute/commands/002-bash/result.json",
+    "bytes": 14,
+    "sha256": "d67659d29dad50e65ac903e33dc7ef4a692331d96253553956300d1fcfa5786a"
+  },
+  {
+    "path": "work/probes/probe_c3_acceptance_v2.py",
+    "bytes": 6570,
+    "sha256": "284feb417d970fada2eba49d18e9116cf391553c97a473e994755b3346d96712"
+  },
+  {
+    "path": "work/probes/test_earlier_fixture_adapter.py",
+    "bytes": 2004,
+    "sha256": "37807e0b2d5a3aba69112e677edd06769a48c66a8aa50339cbfff90f436d3c2c"
+  },
+  {
+    "path": "work/probes/test_new_c3_v1.py",
+    "bytes": 5245,
+    "sha256": "30801be14d77f65698822b66b08676264d4f3678461ffc174186056354c9c4bc"
+  },
+  {
+    "path": "work/probes/test_production_contract.py",
+    "bytes": 13499,
+    "sha256": "303ce29b9d4b1351428ccba4cce38f121a01c3bb039359bc6ccf9dd27754406e"
+  },
+  {
+    "path": "work/probes/test_seeded_c3.py",
+    "bytes": 1674,
+    "sha256": "155d751f1b37f58bef1503bbc6d2234f57fb9e85efc5dbd9144a478ebf7bb16a"
+  },
+  {
+    "path": "work/probe-results-all.xml",
+    "bytes": 8535,
+    "sha256": "0c8c53a6987b38439dadd642f98ceaf2189b5e43edba490f77aa81ef4a5383dd"
+  },
+  {
+    "path": "work/independent-keyset-observation.json",
+    "bytes": 2931,
+    "sha256": "264b3e32ca7604453b42e6c63b0a0ae3b73ad600cee0e131d1d560f8cb19a95a"
+  }
+]

@@ -1,0 +1,69 @@
+"""Fresh engineering receipts for the isolated PR813 integration candidate."""
+import importlib.util
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+
+ROOT = Path(__file__).resolve().parent
+TREE = Path('/Users/a77/fwp-wt-backfill-ready-0925')
+REV = 'f650d9e765e127c7e66a621226cc2d676d70075d'
+BASE = '79861f07e48573b6b5bd378b28880e484f509905'
+PY = '/Users/a77/finance-workspace-private/.venv-workbench/bin/python'
+SOURCE = ROOT.parent / 'backfill-302132-0923/continue-08/run_checks.py'
+spec = importlib.util.spec_from_file_location('prior_driver', SOURCE)
+runner = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(runner)
+runner.OUT, runner.TREE, runner.REV, runner.MAIN = ROOT, TREE, REV, BASE
+runner.base_env['OMP_NUM_THREADS'] = '1'
+
+
+def main():
+    if '--background' in sys.argv:
+        with (ROOT / 'driver.log.txt').open('xb') as log:
+            p = subprocess.Popen([PY, '-B', __file__], cwd=TREE, env=runner.base_env,
+                                 stdin=subprocess.DEVNULL, stdout=log, stderr=log,
+                                 start_new_session=True)
+        print(json.dumps({'pid': p.pid, 'root': str(ROOT)}))
+        return
+    results = []
+    commands = [
+        ('focused', [PY, '-m', 'pytest', '-q', 'tests/test_repair_backfill_stock_history.py',
+                     'tests/test_rehearse_302132_backfill.py', '-p', 'no:cacheprovider',
+                     '-o', 'tmp_path_retention_policy=failed', f'--basetemp={ROOT}/focused-temp'], 600,
+                     {'FWP_TEST_RECEIPT_PATH': str(ROOT / 'focused-receipt.json')}),
+        ('rehearsal', [PY, 'scripts/review_probes/rehearse_302132_backfill.py',
+                       '--production', '/Users/a77/finance-workspace-private/db/market_feature_store.duckdb',
+                       '--parquet', str(ROOT.parent / 'backfill-302132-0923/continue-08/rehearsal/frozen.parquet'),
+                       '--output', str(ROOT / 'rehearsal')], 2400, None),
+        ('frontend', [PY, 'scripts/run_frontend_gate.py', '--tree', str(TREE),
+                      '--expect-revision', REV, '--output', str(ROOT / 'frontend'),
+                      '--workbench-port', '19951', '--re06-port', '19954'], 2400, None),
+        ('python', ['bash', 'scripts/run_main_gate.sh', '--pytest-args',
+                    f'-q -p no:cacheprovider -o tmp_path_retention_policy=failed --basetemp={ROOT}/python-temp --junitxml={ROOT}/pytest.xml --durations=20'],
+                    7200, {'FWP_TEST_RECEIPT_DIR': str(ROOT / 'python-receipts')}),
+    ]
+    try:
+        for label, argv, timeout, env in commands:
+            receipt = runner.run(label, argv, timeout, env)
+            results.append(receipt)
+            if receipt['exit_code'] != 0:
+                break
+        if len(results) == len(commands) and all(r['exit_code'] == 0 for r in results):
+            results.append({'label': 'registry', 'exit_code': 0 if runner.registry()['ok'] else 1})
+            receipts = list((ROOT / 'python-receipts').glob('gate-*/pytest.json'))
+            assert len(receipts) == 1
+            results.append(runner.run('scope', [PY, 'scripts/check_test_receipt.py', str(receipts[0]),
+                                               '--expect-revision', REV, '--require-full-scope',
+                                               '--base-drift-max', '5'], 120))
+    finally:
+        value = {'revision': REV, 'baseline': BASE, 'checks': results,
+                 'ok': len(results) == 6 and all(r['exit_code'] == 0 for r in results),
+                 'identity_after': runner.identity()}
+        (ROOT / 'engineering.json').write_text(json.dumps(value, indent=2) + '\n')
+        print(json.dumps({'ok': value['ok'], 'completed': len(results)}), flush=True)
+
+
+if __name__ == '__main__':
+    main()

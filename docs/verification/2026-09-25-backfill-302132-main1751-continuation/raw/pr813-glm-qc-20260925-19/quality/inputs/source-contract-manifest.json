@@ -1,0 +1,30 @@
+[
+  {
+    "path": "market_feature_store/sync/repair_backfill_stock_history.py",
+    "file_sha256": "11a2cea136b17850efa079c8e2b7c9ced80bc278a696b3058ba56d0f4ad2f049",
+    "symbols": [
+      "BackfillSpec",
+      "_guard",
+      "_apply_main",
+      "_rebuild_derived_scoped",
+      "_accept",
+      "run_backfill_child",
+      "_code_revision",
+      "_guarded_write_json"
+    ]
+  },
+  {
+    "path": "market_feature_store/cli.py",
+    "file_sha256": "0f4aff9eb0aa74b10f1d777dce1c53f0ae3518870768fb175aeac75d59374e8d",
+    "symbols": [
+      "cmd_repair_backfill_302132"
+    ]
+  },
+  {
+    "path": "scripts/verify_302132_backfill_acceptance.py",
+    "file_sha256": "11450bd814251887ac3c6995dc3c8ce2036b113fbd8226dea1eff0981dc910ad",
+    "symbols": [
+      "_data_checks"
+    ]
+  }
+]

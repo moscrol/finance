@@ -1,0 +1,139 @@
+"""Reject unsupported report counts using raw command receipts and JUnit XML."""
+import hashlib
+import json
+from pathlib import Path
+import shlex
+import sys
+import xml.etree.ElementTree as ET
+
+FIELDS = ('executed', 'passed', 'failed', 'errors', 'skipped')
+REQUIRED = {'verdict', 'claims', 'findings', 'reviewer_probe_counts', 'author_test_counts', 'positive_control', 'limits'}
+
+def xml_counts(raw):
+    root = ET.fromstring(raw)
+    cases = list(root.iter('testcase'))
+    errors = sum(c.find('error') is not None for c in cases)
+    failed = sum(c.find('failure') is not None for c in cases)
+    skipped = sum(c.find('skipped') is not None for c in cases)
+    return {'executed': len(cases), 'passed': len(cases) - errors - failed - skipped,
+            'failed': failed, 'errors': errors, 'skipped': skipped}
+
+def command_category(command, base):
+    paths = [Path(arg.split('::', 1)[0]) for arg in shlex.split(command) if arg.split('::', 1)[0].endswith('.py')]
+    authors = any(p.is_relative_to(base.parent / 'candidate/tests') for p in paths)
+    reviewers = any(p.is_relative_to(base / 'work/probes') for p in paths)
+    if authors and reviewers:
+        return 'mixed'
+    return 'author' if authors else 'reviewer' if reviewers else 'unknown'
+
+def validate(report, observed, control, axis, in_scope=None):
+    reasons = []
+    missing = sorted(REQUIRED - set(report))
+    if missing:
+        reasons.append('missing_fields:' + ','.join(missing))
+    claims = report.get('claims')
+    if not isinstance(claims, list) or len(claims) != 7 or any(not isinstance(c, dict) for c in claims):
+        reasons.append('invalid_claims_shape')
+    else:
+        if {c.get('id') for c in claims} != {f'C{i}' for i in range(1, 8)}:
+            reasons.append('invalid_claim_ids')
+        for c in claims:
+            if c.get('status') not in {'verified', 'not_verified', 'out_of_scope'}:
+                reasons.append('invalid_claim_status:' + str(c.get('id')))
+            allowed = in_scope or ['C2' if axis == 'spec' else 'C3']
+            if c.get('id') not in allowed and c.get('status') != 'out_of_scope':
+                reasons.append('scope_expanded:' + str(c.get('id')))
+            if not isinstance(c.get('evidence'), str) or not c['evidence'].strip():
+                reasons.append('missing_claim_evidence:' + str(c.get('id')))
+    for field in ('reviewer_probe_counts', 'author_test_counts'):
+        counts = report.get(field)
+        if not isinstance(counts, dict) or any(type(counts.get(k)) is not int or counts[k] < 0 for k in FIELDS):
+            reasons.append('invalid_counts:' + field)
+        elif counts['executed'] != sum(counts[k] for k in FIELDS[1:]):
+            reasons.append('counts_do_not_sum:' + field)
+    if observed is None:
+        reasons.append('missing_observed_probe_xml')
+    elif report.get('reviewer_probe_counts') != observed:
+        reasons.append('probe_counts_disagree_with_xml')
+    pc = report.get('positive_control', {})
+    if not control:
+        reasons.append('intentional_control_not_observed_first')
+    if not isinstance(pc, dict) or pc.get('status') != 'OBSERVED_EXPECTED_FAILURE' or pc.get('classification') != 'probe_bug' or not pc.get('evidence'):
+        reasons.append('invalid_control_claim')
+    if report.get('verdict') not in {'PASS_WITH_LIMITS', 'CHANGES_REQUIRED', 'BLOCKED_INCOMPLETE_EVIDENCE'}:
+        reasons.append('invalid_verdict')
+    if report.get('verdict') == 'PASS_WITH_LIMITS' and observed and (observed['failed'] or observed['errors']):
+        reasons.append('pass_despite_failed_probe_cases')
+    return reasons
+
+def main(axis):
+    root = Path(__file__).resolve().parent
+    base = root / axis
+    assert axis in {'spec', 'quality'}
+    reasons = []
+    commands = []
+    xmls = []
+    author_xmls = []
+    xml_paths = set()
+    for path in sorted((base / 'execute/commands').glob('*-bash/request.json')):
+        command = json.loads(path.read_text())['params']['command']
+        result_path = path.parent / 'result.json'
+        result = json.loads(result_path.read_text()) if result_path.exists() else {}
+        output = (path.parent / 'output.log').read_text()
+        commands.append({'path': str(path.parent.relative_to(base)), 'command': command, 'result': result, 'output': output})
+        args = shlex.split(command)
+        for arg in args:
+            if arg.startswith('--junitxml='):
+                target = Path(arg.split('=', 1)[1])
+                assert target.resolve().is_relative_to((base / 'work').resolve())
+                if target.exists():
+                    category = command_category(command, base)
+                    entry = {'command': str(path.parent.relative_to(base)), 'path': str(target),
+                             'sha256': hashlib.sha256(target.read_bytes()).hexdigest(),
+                             'counts': xml_counts(target.read_bytes())}
+                    if str(target) in xml_paths:
+                        reasons.append('xml_path_reused:' + str(target))
+                    xml_paths.add(str(target))
+                    if category == 'reviewer':
+                        xmls.append(entry)
+                    elif category == 'author':
+                        author_xmls.append(entry)
+                    else:
+                        reasons.append('unclassifiable_xml:' + category)
+    first = commands[0] if commands else {}
+    control = bool(first and 'positive_control.py' in first['command'] and first['result'].get('exitCode') == 1 and 'intentional probe_bug control' in first['output'])
+    parsed = base / 'report/parsed.json'
+    report = json.loads(parsed.read_text()) if parsed.exists() else {}
+    observed = xmls[-1]['counts'] if xmls else None
+    in_scope = json.loads((base / 'config.json').read_text()).get('claims_in_scope')
+    reasons.extend(validate(report, observed, control, axis, in_scope))
+    for phase in ('gateway', 'explore', 'execute', 'report'):
+        path = base / (phase + '.controller.json')
+        obj = json.loads(path.read_text()) if path.exists() else {}
+        if obj.get('status') != 'COMPLETE' or not obj.get('request_counts_agree') or not obj.get('shim_counts', {}).get('shutdown_complete'):
+            reasons.append('controller_incomplete:' + phase)
+    # This batch authorizes no undocumented author runs; fixture imports are not test runs.
+    author_commands = [c for c in commands if 'pytest' in c['command'] and command_category(c['command'], base) == 'author']
+    expected_author = author_xmls[-1]['counts'] if author_xmls else dict.fromkeys(FIELDS, 0)
+    if report.get('author_test_counts') != expected_author:
+        reasons.append('author_counts_disagree_with_xml')
+    if author_commands and not author_xmls:
+        reasons.append('missing_author_xml')
+    for request in sorted((base / 'execute/commands').glob('*-write/request.json')):
+        params = json.loads(request.read_text())['params']
+        target = Path(params['path'])
+        if target.suffix == '.py' and target.is_relative_to(base / 'work/probes'):
+            if not target.exists() or target.read_text() != params['content']:
+                reasons.append('probe_version_not_preserved:' + str(target))
+    receipt = {'status': 'EVIDENCE_COUNTS_VALID' if not reasons else 'BLOCKED_EVIDENCE_AUDIT',
+               'axis': axis, 'scope': in_scope or ['C2' if axis == 'spec' else 'C3'], 'reasons': reasons,
+               'observed_probe_attempts': xmls, 'observed_author_attempts': author_xmls, 'positive_control_observed_first': control,
+               'author_test_commands': len(author_commands), 'counts_only_not_semantic_approval': True,
+               'independent_report': report, 'whole_candidate_approved': False}
+    with (base / 'host-evidence-audit.json').open('x') as out:
+        json.dump(receipt, out, ensure_ascii=False, indent=2)
+        out.write('\n')
+    print(json.dumps({'axis': axis, 'status': receipt['status'], 'reasons': reasons, 'observed': observed}, ensure_ascii=False))
+
+if __name__ == '__main__':
+    main(sys.argv[1])

@@ -1,0 +1,53 @@
+```json
+{
+  "author_test_counts": null,
+  "findings": [],
+  "limits": [
+    "Real-date fixture contains verbatim 302132.SZ and sentinel 000001.SZ history plus market calendar, not full production.",
+    "Host full-copy rehearsal is audit-only, not reviewer execution.",
+    "Supplied evidence only; no newly authored tests; supplied tests unedited; no wrappers; single pytest invocation, no rerun.",
+    "Claim evaluation deferred to report stage."
+  ],
+  "positive_control": {
+    "command": "OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 /Users/a77/finance-workspace-private/.venv-workbench/bin/python -B /Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-19/quality/work/positive_control.py",
+    "exit_code": 1,
+    "expected_exit_code": 1,
+    "observed": "AssertionError: intentional probe_bug control",
+    "passed": true
+  },
+  "probe_files": [
+    "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-19/quality/work/probes/test_seeded_c3.py",
+    "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-19/quality/work/probes/test_earlier_fixture_adapter.py",
+    "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-19/quality/work/probes/test_production_contract.py"
+  ],
+  "probe_provenance": {
+    "c6_disclosure": "Three copied author test bodies run twice each (candidate and external scope-mutant) inside three host-authored regression witnesses; six body invocations disclosed separately; no standalone author pytest invocation.",
+    "editing": "Supplied tests unedited; no wrappers added; no rerun of failed pytest (none failed).",
+    "test_earlier_fixture_adapter_cases": 3,
+    "test_production_contract_cases": 15,
+    "test_production_contract_note": "Host-authored: real-date CLI apply/verify/rollback, source refusals, preflight, OS scope witnesses, host receipt consistency.",
+    "test_seeded_c3_cases": 7,
+    "total_prior_reviewer_cases_combined": 10
+  },
+  "reviewer_probe_counts": {
+    "errors": 0,
+    "executed": 25,
+    "failed": 0,
+    "passed": 25,
+    "skipped": 0
+  },
+  "supplied_probe_counts": {
+    "errors": 0,
+    "executed": 25,
+    "failed": 0,
+    "passed": 25,
+    "skipped": 0
+  },
+  "supplied_xml": "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-19/quality/work/probe-results-all.xml",
+  "complete": true,
+  "stage": "execute",
+  "axis": "quality",
+  "revision": "ae3f812e1c1e142953b657ba41f30fce23e7c14a",
+  "baseline": "1751e21e0fd30642e0b223604b64b30e38c46f41"
+}
+```

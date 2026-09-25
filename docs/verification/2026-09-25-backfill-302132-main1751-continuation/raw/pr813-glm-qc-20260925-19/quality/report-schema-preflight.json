@@ -1,0 +1,25 @@
+{
+  "status": "PASS",
+  "format_positive": 1,
+  "format_negative": 15,
+  "worst_case_serialized_characters": 4817,
+  "controller_limit_exclusive": 6000,
+  "prior_rejections": [
+    {
+      "batch": 16,
+      "actual_serialized_characters": 7349,
+      "first_rejection": "invalid delivery size"
+    },
+    {
+      "batch": 17,
+      "actual_serialized_characters": 7472,
+      "first_rejection": "invalid delivery size"
+    },
+    {
+      "batch": 18,
+      "actual_serialized_characters": 7318,
+      "first_rejection": "invalid delivery size"
+    }
+  ],
+  "note": "Offline schema diagnostic only. Mathematical count consistency, raw control, duplicate ids and XML audit remain separate unchanged gates."
+}

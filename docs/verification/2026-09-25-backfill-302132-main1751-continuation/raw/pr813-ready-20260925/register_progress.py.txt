@@ -1,0 +1,34 @@
+"""Record a distinct in-progress candidate without relabeling prior receipts."""
+from datetime import datetime, timezone
+import json
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent
+STATE = ROOT.parent / 'backfill-302132-0923/CURRENT.json'
+old = STATE.read_bytes()
+with (ROOT / 'CURRENT-before.json').open('xb') as stream:
+    stream.write(old)
+value = json.loads(old)
+value['active_continuation'] = {
+    'status': 'INTEGRATED_CANDIDATE_UNDER_ENGINEERING_AND_INDEPENDENT_REVIEW',
+    'candidate': '/Users/a77/fwp-wt-backfill-ready-0925',
+    'revision': 'f650d9e765e127c7e66a621226cc2d676d70075d',
+    'integrated_main': '79861f07e48573b6b5bd378b28880e484f509905',
+    'prior_candidate_preserved': True,
+    'remote_pr_head_unchanged': '3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59',
+    'engineering_root': str(ROOT),
+    'independent_review_root': str(ROOT.parent / 'pr813-glm-qc-20260925-11'),
+    'focused': 'passed', 'full_copy_rehearsal': 'passed', 'frontend_and_e2e': 'passed',
+    'python': 'running', 'registry': 'pending', 'independent_review': 'running',
+    'ready': False, 'merge_authorized': False, 'production_authorized': False,
+    'production_executed': False,
+}
+value['owned_checks_running'] = True
+value['updated_at'] = datetime.now(timezone.utc).isoformat()
+assert STATE.read_bytes() == old, 'Concurrent state update; do not overwrite'
+temp = STATE.with_name('CURRENT.continuation11.tmp')
+with temp.open('x') as stream:
+    json.dump(value, stream, ensure_ascii=False, indent=2)
+    stream.write('\n')
+temp.replace(STATE)
+print(value['active_continuation']['status'])

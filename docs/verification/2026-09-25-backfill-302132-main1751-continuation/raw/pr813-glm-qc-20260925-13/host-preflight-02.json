@@ -1,0 +1,24 @@
+{
+  "classification": "host preparation diagnostic",
+  "cwd": "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-13/candidate",
+  "argv": [
+    "/usr/bin/sandbox-exec",
+    "-f",
+    "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-13/quality/tools.sb",
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "-B",
+    "-m",
+    "pytest",
+    "-q",
+    "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-13/quality/work/probes/test_production_contract.py",
+    "-k",
+    "not real_date",
+    "--rootdir=/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-13/quality/work",
+    "-p",
+    "no:cacheprovider",
+    "--junitxml=/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-13/quality/work/host-preflight-02.xml",
+    "--basetemp=/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-13/quality/work/tmp/host-preflight-02"
+  ],
+  "exit_code": 0,
+  "prior_attempt": "Attempt 1 inherited a log fd outside writable sandbox, exit120 with empty log. Earlier direct invocation from inaccessible main cwd failed before config. Neither is product evidence."
+}

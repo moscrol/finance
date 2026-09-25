@@ -1,0 +1,80 @@
+"""Freeze a supplied, directly executable complete-contract review batch."""
+import ast
+import hashlib
+import json
+from pathlib import Path
+import shutil
+import subprocess
+
+ROOT = Path(__file__).resolve().parent
+OLD = ROOT.parent / 'pr813-glm-qc-20260925-19'
+Q = ROOT / 'quality'
+CAND = ROOT / 'candidate'
+AUTHOR = Path('/Users/a77/fwp-wt-backfill-ready-main1751-0925')
+PY = '/Users/a77/finance-workspace-private/.venv-workbench/bin/python'
+REV = 'ae3f812e1c1e142953b657ba41f30fce23e7c14a'
+BASE = '1751e21e0fd30642e0b223604b64b30e38c46f41'
+CAPS = {'gateway': 4, 'explore': 2, 'execute': 4, 'report': 1}
+assert not CAND.exists() and not Q.exists()
+subprocess.run(['git', 'clone', '--local', '--no-hardlinks', '--no-checkout', str(AUTHOR), str(CAND)], check=True)
+subprocess.run(['git', '-C', str(CAND), 'checkout', '--detach', REV], check=True)
+for name in ('work/probes', 'work/tmp', 'work/users', 'pi-config', 'inputs'):
+    (Q / name).mkdir(parents=True)
+records = []
+
+def copy(rel):
+    src, dest = OLD / rel, ROOT / rel
+    raw = src.read_bytes()
+    dest.write_text(raw.decode().replace(str(OLD), str(ROOT)))
+    records.append({'source': str(src), 'target': rel, 'source_sha256': hashlib.sha256(raw).hexdigest(), 'sha256': hashlib.sha256(dest.read_bytes()).hexdigest()})
+
+for name in ('glm_credential.py', 'glm_review_shim.py', 'bridge_stage.py', 'report_packet.py', 'audit_axis.py', 'test_audit_axis.py', 'run_review.py'):
+    copy(name)
+for name in ('review.mjs', 'pi_review_protocol.mjs', 'gateway.mjs', 'file_tool.py', 'provider-template.json', 'run_control.py', 'run_stage.py', 'sandbox_preflight.mjs', 'tools.sb', 'config.json', 'test_hard_gates.mjs'):
+    copy('quality/' + name)
+for name in ('probe_c3_acceptance_v2.py', 'test_new_c3_v1.py', 'test_seeded_c3.py', 'test_earlier_fixture_adapter.py'):
+    copy('quality/work/probes/' + name)
+shutil.copyfile(ROOT / 'test_production_contract.py', Q / 'work/probes/test_production_contract.py')
+for path in (Q / 'work/probes').glob('*.py'):
+    ast.parse(path.read_text())
+    assert str(OLD) not in path.read_text()
+for name in ('auth.json', 'models-store.json', 'settings.json'):
+    (Q / 'pi-config' / name).write_text('{}\n')
+for path in (OLD / 'quality/inputs').iterdir():
+    dest = Q / 'inputs' / path.name
+    if path.name == 'host-rehearsal':
+        host = ROOT.parent / 'pr813-ready-main1751-20260925/rehearsal'
+        assert json.loads((host / 'summary.json').read_text())['ok']
+        dest.mkdir()
+        for artifact in host.iterdir():
+            if artifact.suffix in ('.json', '.txt'):
+                shutil.copyfile(artifact, dest / artifact.name)
+    elif path.is_dir():
+        shutil.copytree(path, dest)
+    else:
+        shutil.copyfile(path, dest)
+claims_path = Q / 'inputs/claims.md'
+claims_path.write_text(claims_path.read_text().replace('f650d9e765e127c7e66a621226cc2d676d70075d', REV).replace('79861f07e48573b6b5bd378b28880e484f509905', BASE))
+config = json.loads((Q / 'config.json').read_text())
+config.update(tree=str(CAND), author=str(AUTHOR), revision=REV, baseline=BASE, observed_main=BASE,
+              request_caps=CAPS, stage_caps=CAPS, request_cap=sum(CAPS.values()))
+(Q / 'config.json').write_text(json.dumps(config, indent=2) + '\n')
+paths = [str(Q / 'work/probes' / name) for name in ('test_seeded_c3.py', 'test_earlier_fixture_adapter.py', 'test_production_contract.py')]
+control = f'OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 {PY} -B {Q}/work/positive_control.py'
+pytest = f'OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 {PY} -B -m pytest -q ' + ' '.join(paths) + f' --rootdir={Q}/work -p no:cacheprovider --junitxml={Q}/work/probe-results-all.xml --basetemp={Q}/work/tmp/reviewer'
+common = f'''Independent Quality review, all C1-C7, PR813. Revision {REV}, candidate {CAND}; clean integration of main {config['baseline']}. Only write {Q}/work. No production access, credentials, network, deployment or git mutation. Python {PY}. Do NOT explore directories or search for inputs: all paths below are complete and absolute.\n
+The claims are in {Q}/inputs/claims.md. Product contract sources are under {CAND}. Three supplied pytest entrypoints:\n{json.dumps(paths)}\ntest_seeded_c3.py has 7 cases; test_earlier_fixture_adapter.py has 3 cases. COMBINED these are 10 prior-reviewer cases with host fixture fixes, not 10 each. Third has 15 HOST-AUTHORED cases for real-date CLI apply/verify/rollback, source refusals, preflight, OS scope witnesses and host receipt consistency. This is supplied evidence, not your newly authored tests. C6 runs three copied author test bodies twice (candidate and external scope-mutant) inside three host-authored regression witnesses; disclose six body invocations separately, no standalone author pytest invocation. Do not edit supplied tests, do not add wrappers, do not rerun a failed pytest.\n
+All claims may be challenged. Real-date fixture contains verbatim 302132.SZ and sentinel 000001.SZ history plus market calendar, not full production. The fresh host full-copy rehearsal in {Q}/inputs/host-rehearsal is audit-only. Numeric values must come from execution, not from claims. C7 code binding is separate from full engineering readiness; separate engineering receipts are not reviewer execution.\n
+Hard rules: FIRST execute bash EXACTLY {control}. Raw result must be exit1 and intentional probe_bug text. Then the direct pytest command below, once. Any failing or error case rules out PASS_WITH_LIMITS. Commands one direct invocation; no chaining. Calls to deliver_stage must be alone with result object, omitting stage/axis/revision/baseline/complete. Legal verdict PASS_WITH_LIMITS/CHANGES_REQUIRED/BLOCKED_INCOMPLETE_EVIDENCE. Claims exactly C1-C7 each status verified/not_verified/out_of_scope and nonempty string evidence. Counts executed,passed,failed,errors,skipped integers; actual JUnit is authoritative. Caps {CAPS}, no automatic retry.\n
+Direct pytest command:\n{pytest}\n'''
+shape = {'result': {'probe_files': paths, 'claims_examined': [f'C{i}' for i in range(1, 8)],
+                    'provenance': 'All tests supplied. 10 prior-reviewer assertions plus 14 host-authored tests. No execution in explore.',
+                    'limits': ['No tests or positive control observed yet.'], 'next_stage_command': pytest}}
+(Q / 'prompt-explore.md').write_text(common + f'\nExplore: read ONLY {Q}/inputs/claims.md and {Q}/work/probes/test_production_contract.py; then deliver immediately. No source discovery, no writing. Use this exact delivery structure with absolute paths and separate prose fields: {json.dumps(shape)}\n')
+(Q / 'prompt-execute.md').write_text(common + f'''\nExecute is an EXECUTION RECEIPT stage, not the final review. Follow exactly four actions and then stop: (1) bash exact positive control; (2) bash exact pytest command; (3) write {Q}/work/EXECUTE.md with counts transcribed from raw pytest output, positive control observed, and supplied provenance; (4) call deliver_stage immediately. NO read calls, source browsing, post-test bash, directory scans, extra tests or wrappers. The separate report stage will receive all immutable code/probe/observation artifacts and evaluate claims. Do not consume execute requests doing the report's work. The deliver_stage result needs only probe_files, reviewer_probe_counts, author_test_counts, supplied_probe_counts, positive_control, supplied_xml, probe_provenance, findings and limits; no claims or verdict required at execute. Count objects transcribe observed results; never assume pass. Use absolute paths without annotations. Any failing output remains a failed batch; do not correct or rerun.\n''')
+(Q / 'prompt-report.md').write_text(common + '''\nReport only: immutable packet appended. No other tools, ordinary text, or extra requests. CRITICAL: the result JSON is strictly below 6000 serialized characters. The tool schema imposes field lengths and array sizes so compliance fits. Write terse evidence pointers, not a narrative. All strings plain ASCII, no double quotes or backslashes inside strings; single quotes allowed. Seven evidence strings at most 320 chars each; findings at most 3 strings of 120 chars; limits at most 4 strings of 140 chars; provenance at most 600 chars; positive-control evidence at most 150 chars; supplied_xml MUST equal the one literal absolute XML path in the tool schema, with no annotations or counts. Preserve material scope limits, source provenance 7+3+15 and six embedded bodies/zero standalone author pytest. Raw packet supplies the detail, do not repeat it. Call deliver_stage once with required keys verdict, claims, findings, reviewer_probe_counts, author_test_counts, positive_control, limits, supplied_probe_counts, supplied_xml, probe_provenance. Reviewer counts equal combined XML. All cases in this batch are supplied, so supplied_probe_counts equals reviewer_probe_counts, not an additional total. author_test_counts all zero for standalone pytest invocations; explicitly disclose six embedded author-body invocations in provenance if C6 cases ran. Positive_control object: status OBSERVED_EXPECTED_FAILURE, classification probe_bug, evidence string naming execute/001-bash/request.json, result.json, output.log. Complete exactly seven claim records, each with ONLY fields id, status, evidence. id is REQUIRED: C1/C2/C3/C4/C5/C6/C7, preserving the exact meaning in the appended inputs/claims.md, not new titles. status is verified/not_verified/out_of_scope; evidence is a nonempty STRING. Do not add title or renumber meanings. probe_provenance MUST be one STRING, not an object; describe supplied cases split 7 + 3 + 15 and six embedded body invocations there. Every counts object contains only executed, passed, failed, errors, skipped integers; no notes in count objects. The final tool call is an object with a single key result whose value is the full report object; do not put these fields outside result. Do not assume claims verified; judge concrete observed/static evidence in the packet. Real-date subset does not equal full production-copy run; host full-copy receipts audited remain host evidence. Full engineering readiness/merge/production approval cannot be inferred.\n''')
+(ROOT / 'prepare-manifest.json').write_text(json.dumps({'source': str(OLD), 'revision': REV, 'caps': CAPS,
+    'prior_execution_receipts_reused': False, 'prior_verdict_reused': False, 'input_fixture_only_reused': True,
+    'supplied_host_probe_sha256': hashlib.sha256((ROOT / 'test_production_contract.py').read_bytes()).hexdigest(),
+    'copied': records}, indent=2) + '\n')
+print(json.dumps({'revision': REV, 'caps': CAPS, 'pytest': pytest}))

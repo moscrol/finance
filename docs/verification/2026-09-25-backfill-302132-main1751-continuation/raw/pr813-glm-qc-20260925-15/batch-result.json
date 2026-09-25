@@ -1,0 +1,10 @@
+{
+  "completed_stages": [],
+  "error": "gateway: BLOCKED_STAGE_OR_ACCOUNTING",
+  "requests": {
+    "gateway": 4
+  },
+  "automatic_retries": 0,
+  "merge_authorized": false,
+  "production_authorized": false
+}

@@ -1,0 +1,23 @@
+{
+  "classification": "host frozen real-data subset, not synthetic and not full-database reproduction",
+  "source": "/Users/a77/finance-workspace-private/db/market_feature_store.duckdb",
+  "source_size": 3855626240,
+  "source_mtime_ns": 1790168645608937291,
+  "stock_codes": [
+    "302132.SZ",
+    "000001.SZ"
+  ],
+  "row_counts": {
+    "fact_stock_daily": 754,
+    "fact_stock_daily_hithink": 4864,
+    "fact_stock_adjustment_hithink": 48,
+    "feature_stock_technical_daily": 762,
+    "feature_stock_window": 1579,
+    "fact_sector_stock_daily_generation": 1027,
+    "fact_market_daily": 426,
+    "ops_sector_universe_snapshot_daily": 41
+  },
+  "fixture_sha256": "4c2d1b7e53770e9daead4af503e466a815d371294c22b3b4b6909fdd4da2ca26",
+  "parquet_sha256": "51f9ee9cba1ceb4a6ff50c4c4dce8267cb39f78add28d6a33699cbf90bf28d17",
+  "host_assertions": "none about repair correctness; target and sentinel histories copied verbatim"
+}

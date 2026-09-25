@@ -1,0 +1,88 @@
+```json
+{
+  "author_test_counts": {
+    "errors": 0,
+    "executed": 0,
+    "failed": 0,
+    "passed": 0,
+    "skipped": 0
+  },
+  "claims": [
+    {
+      "evidence": "Reviewer-executed frozen real-date subset rehearsal (independent-real-date-observation.json): parent CLI apply exit 0, verify exit 0; 37-check acceptance oracle exit 0 PASS binding revision f650d9e765e127c7e66a621226cc2d676d70075d and source sha256 4c2d1b7e…ca26; retained rows 10/10 identical; production_unchanged true. Limit: exact 53-INSERT/1-UPDATE split not independently row-enumerated by reviewer; subset is not full production copy.",
+      "id": "C1",
+      "status": "verified"
+    },
+    {
+      "evidence": "test_corrupt_authorized_source_refuses_without_publish[missing|null|adjusted] all passed (exit 2 refusal, source sha unchanged, no .bak published); wrong.parquet CLI refusal observed exit 2 without publish (refused-parent.command.json).",
+      "id": "C2",
+      "status": "verified"
+    },
+    {
+      "evidence": "Seeded mutation oracle: test_seeded_c3 6 mutations (amount/timestamp/delete/insert/duplicate/other_stock) fail target_outside_window_allcols or fact_other_stocks_allcols; test_earlier_fixture_adapter adds earlier_than_window/null_column failures and baseline pass. Reviewer-run numerics: rows=64, technical=39, window=161, acceptance_checks=37.",
+      "id": "C3",
+      "status": "verified"
+    },
+    {
+      "evidence": "In-scope probes passed: preflight rejections existing/under_source/symlink/wal/bad_hash before any copy; low-space refusal before database copies ('insufficient physical headroom'); receipt coherence and scope witnesses passed. Not a full security audit (outside claim scope).",
+      "id": "C4",
+      "status": "verified"
+    },
+    {
+      "evidence": "Reviewer-isolated subset rehearsal: apply/verify exit 0, 37/37 checks PASS, rollback_sha256==baseline_sha256, amount-control negative exit 2 failing keyset_fullfield_oracle; unsafe identity/WAL/symlink/hash rejections passed. Limits: host full-copy rehearsal (inputs/host-rehearsal) audited as external evidence via test_host_full_copy_receipts_are_current_but_not_reviewer_execution, not reviewer execution; production read-only/unchanged on full copy not independently observed.",
+      "id": "C5",
+      "status": "verified"
+    },
+    {
+      "evidence": "test_context_regression_witness_rejects_degraded_scope passed 3/3 (fdopen cleanup, open permission preflight, EEXIST race). Six embedded author test-body invocations disclosed (3 bodies × candidate + external scope-mutant), run only inside witnesses; standalone author pytest invocations = 0; degraded scope always detected.",
+      "id": "C6",
+      "status": "verified"
+    },
+    {
+      "evidence": "Observation JSON and rehearsal summary record code_identity_after=[f650d9e765e127c7e66a621226cc2d676d70075d, dirty=false]; receipts bind revision with baseline main 79861f07e48573b6b5bd378b28880e484f509905 clean integration. Verdict is code-binding only; engineering readiness gate still running, merge/production approval not inferable.",
+      "id": "C7",
+      "status": "verified"
+    }
+  ],
+  "findings": [
+    "No failing or error cases; supplied 24-case suite passed in single direct pytest invocation (exit 0).",
+    "C6 embedded author-body evidence is witness-scoped only; no standalone author pytest was invoked.",
+    "Prior-stage EXECUTE.md and explore parsed.json consistent with raw XML and observation JSON; no unsupported PASS promotions detected.",
+    "EXPLORE.md artifact was missing from prior stage; not material to observed execution evidence."
+  ],
+  "limits": [
+    "Frozen real-data subset only (302132.SZ verbatim + sentinel 000001.SZ + calendar), not a full production copy.",
+    "53-INSERT/1-UPDATE split and full-copy production-unchanged property rest on acceptance oracle and host receipts, not reviewer row enumeration.",
+    "Host full-copy rehearsal (inputs/host-rehearsal) is audit-only external evidence, not reviewer execution.",
+    "C7 covers code binding only; engineering readiness gate still running; merge/production approval cannot be inferred.",
+    "All probe cases are host/prior-reviewer supplied; no reviewer-authored test cases executed in this batch."
+  ],
+  "positive_control": {
+    "classification": "probe_bug",
+    "evidence": "execute/001-bash/request.json ran OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python -B positive_control.py; result.json exitCode=1; output.log shows 'AssertionError: intentional probe_bug control'.",
+    "status": "OBSERVED_EXPECTED_FAILURE"
+  },
+  "probe_provenance": "All 24 cases supplied: test_seeded_c3.py (7, host fixture correction of prior-reviewer assertions), test_earlier_fixture_adapter.py (3, host fixture repair retaining prior-reviewer assertions), test_production_contract.py (14, host-authored). C6 disclosure: six embedded author test-body invocations (test_refused_receipt_write_failure_cleans_partial, test_cli_parent_preflight_blocks_on_open_permission_error, test_refused_receipt_eexist_race_keeps_other_writers_file; each executed as candidate and as external scope-mutant) ran inside three host regression witnesses; standalone author pytest invocations = 0. Supplied tests were not edited; no wrappers added; failed pytest never rerun. JUnit XML is authoritative for counts.",
+  "reviewer_probe_counts": {
+    "errors": 0,
+    "executed": 24,
+    "failed": 0,
+    "passed": 24,
+    "skipped": 0
+  },
+  "supplied_probe_counts": {
+    "errors": 0,
+    "executed": 24,
+    "failed": 0,
+    "passed": 24,
+    "skipped": 0
+  },
+  "supplied_xml": "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-13/quality/work/probe-results-all.xml",
+  "verdict": "PASS_WITH_LIMITS",
+  "complete": true,
+  "stage": "report",
+  "axis": "quality",
+  "revision": "f650d9e765e127c7e66a621226cc2d676d70075d",
+  "baseline": "79861f07e48573b6b5bd378b28880e484f509905"
+}
+```

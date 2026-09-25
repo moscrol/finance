@@ -1,0 +1,30 @@
+{
+  "802": {
+    "number": 802,
+    "state": "closed",
+    "title": "fix(acceptance): bind backfill receipts to target and reject huge numerics",
+    "merged": false,
+    "draft": false,
+    "html_url": "http://127.0.0.1:3300/a77/finance-workspace-private/pulls/802",
+    "head": "1fd34dc7ab06d54882a5643b4b985fa5ca291b7c",
+    "branch": "fix/backfill-acceptance-closeout-0920",
+    "pointer_comments": [
+      {
+        "id": 6446,
+        "body": "## #83 接替指针\n\n本 PR #802 的验收绑定修复已由 #813 承接，后续整合与验收只在 #813 继续，不单独合本 PR。\n\n- 替代 PR: #813 (`fix/backfill-main-ready-0921`，保持 WIP，尚未获准合入)。\n- 当前本机前向候选: `fix/backfill-302132-0923`，源码提交 `b9b59a9afa001f036d98baa6b9a19bd9f9b48e34`，基于 main `626d8a508c1c988ff094110b371987e6afdcdd15`。\n- 工单: `docs/superpowers/specs/2026-09-23-backfill-302132-acceptance-integration-workorder.md`；候选交接将写入 `docs/handoffs/inflight/fix-backfill-302132-0923.md`。\n- 关闭是去重，不表示 #813 已验收。四类工程检查和当前完整库副本演练仍待完成；生产执行与合入授权均未取得。\n- #802 的 head 分支与 `fix/backfill-302132-scoped` 原分支均保留。若 #813 被废弃或接替链中断，按 #83 重新指派并恢复本 PR，不从旧收据推定新候选通过。\n",
+        "url": "http://127.0.0.1:3300/a77/finance-workspace-private/pulls/802#issuecomment-6446"
+      }
+    ]
+  },
+  "813": {
+    "number": 813,
+    "state": "open",
+    "title": "WIP: integrate 302132 backfill acceptance on current main",
+    "merged": false,
+    "draft": true,
+    "html_url": "http://127.0.0.1:3300/a77/finance-workspace-private/pulls/813",
+    "head": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+    "branch": "fix/backfill-main-ready-0921",
+    "pointer_comments": []
+  }
+}

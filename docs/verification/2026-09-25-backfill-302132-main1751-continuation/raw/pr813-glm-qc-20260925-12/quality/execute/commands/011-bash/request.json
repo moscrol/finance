@@ -1,0 +1,1 @@
+{"toolCallId":"call_32f66121156741f8aad452d2","params":{"command":"find /Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-12 -maxdepth 4 \\( -name 'claims.md' -o -name 'source-map.md' -o -name 'fixture-manifest.json' -o -name 'frozen.parquet' -o -name 'production-slice.duckdb' \\) -print 2>/dev/null"}}

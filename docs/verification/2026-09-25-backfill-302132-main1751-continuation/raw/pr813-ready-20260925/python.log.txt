@@ -1,0 +1,24 @@
+== gate @ f650d9e765e1 tree=/Users/a77/fwp-wt-backfill-ready-0925 py=/Users/a77/finance-workspace-private/.venv-workbench/bin/python receipt=/Users/a77/.finance-runtime/reviews/pr813-ready-20260925/python-receipts/gate-UrVHodXB/pytest.json
+== ruff check .
+All checks passed!
+== pytest -q -p no:cacheprovider -o tmp_path_retention_policy=failed --basetemp=/Users/a77/.finance-runtime/reviews/pr813-ready-20260925/python-temp --junitxml=/Users/a77/.finance-runtime/reviews/pr813-ready-20260925/pytest.xml --durations=20
+== pytest raw log: /Users/a77/.finance-runtime/reviews/pr813-ready-20260925/python-receipts/gate-UrVHodXB/pytest.log.txt
+12.83s call     tests/test_scripts_module_references.py::test_scanner_ignores_imports_written_inside_string_fixtures
+11.42s call     tests/test_money_effect_regime.py::test_load_regime_state_from_synthetic_db_and_as_of
+11.20s setup    intelligence/tests/test_methodology_dependence.py::TestPurge::test_窗末跨界事件被剔且如实计数
+10.35s call     tests/test_scripts_module_references.py::test_import_statement_module_references_resolve
+9.16s call     tests/test_generation_code_root.py::test_direct_renderers_and_queues_use_data_paths
+8.24s call     tests/test_moneyflow_ch_preflight.py::test_run_scan_rejects_all_empty
+8.13s setup    intelligence/tests/test_methodology_backtest.py::test_synthetic_positive_control_supported_in_every_stage_with_own_baseline
+7.70s call     intelligence/tests/test_answer_orchestrator.py::AnswerOrchestratorTests::test_general_base_presenter_does_not_echo_question_as_title
+7.68s call     intelligence/tests/test_methodology_backtest.py::test_synthetic_positive_control_supported_in_every_stage_with_own_baseline
+7.53s call     intelligence/tests/test_ask_clarify_planner.py::AskIntegrationTest::test_no_clarify_flag_disables_gate
+7.24s call     intelligence/tests/test_agent_review_gate.py::test_two_provisional_slices_allowed_but_third_denied
+7.03s call     intelligence/tests/test_agent_review_gate.py::test_narrow_repair_does_not_seal_older_unreviewed_milestone
+6.44s call     intelligence/tests/test_ask_clarify_planner.py::AskIntegrationTest::test_parallel_and_serial_compose_identical
+6.24s call     intelligence/tests/test_agent_review_worker.py::test_worker_skips_failed_repair_for_newer_superseding_repair
+15760 passed, 72 skipped, 2 xfailed, 17 warnings in 1493.86s (0:24:53)
+== receipt /Users/a77/.finance-runtime/reviews/pr813-ready-20260925/python-receipts/gate-UrVHodXB/pytest.json
+   revision=f650d9e765e1 dirty=False target=/Users/a77/fwp-wt-backfill-ready-0925
+   passed=15760 failed=0 error=0 skipped=72 xfailed=2 xpassed=0
+== 门禁绿，basetemp 已清: /Users/a77/.finance-runtime/reviews/pr813-ready-20260925/python-temp（要保留请设 GATE_KEEP_BASETEMP=1）

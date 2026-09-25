@@ -1,0 +1,52 @@
+"""Run one bounded review batch, stopping on any incomplete stage."""
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+
+ROOT = Path(__file__).resolve().parent
+PY = '/Users/a77/finance-workspace-private/.venv-workbench/bin/python'
+Q = ROOT / 'quality'
+ENV = {'HOME': '/Users/a77', 'PATH': '/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin',
+       'LANG': 'C.UTF-8', 'PYTHONDONTWRITEBYTECODE': '1'}
+
+
+def main():
+    if '--background' in sys.argv:
+        with (ROOT / 'driver.log.txt').open('xb') as log:
+            proc = subprocess.Popen([PY, '-B', __file__], env=ENV, stdin=subprocess.DEVNULL,
+                                    stdout=log, stderr=log, start_new_session=True)
+        print(json.dumps({'pid': proc.pid, 'root': str(ROOT)}))
+        return
+    completed = []
+    error = None
+    try:
+        for stage in ('gateway', 'explore', 'execute', 'report'):
+            if stage == 'execute':
+                subprocess.run([PY, '-B', str(ROOT / 'bridge_stage.py'), 'quality', 'explore'], check=True, env=ENV)
+            if stage == 'report':
+                subprocess.run([PY, '-B', str(ROOT / 'report_packet.py'), 'quality'], check=True, env=ENV)
+            subprocess.run([PY, '-B', str(Q / 'run_control.py'), stage], check=True, env=ENV)
+            receipt = json.loads((Q / f'{stage}.controller.json').read_text())
+            if receipt['status'] != 'COMPLETE':
+                raise RuntimeError(f'{stage}: {receipt["status"]}')
+            completed.append(stage)
+        subprocess.run([PY, '-B', str(ROOT / 'audit_axis.py'), 'quality'], check=True, env=ENV)
+    except Exception as exc:
+        error = str(exc)
+    finally:
+        counts = {}
+        for stage in ('gateway', 'explore', 'execute', 'report'):
+            path = Q / f'{stage}.controller.json'
+            if path.exists():
+                counts[stage] = json.loads(path.read_text()).get('shim_counts', {}).get('requests', 0)
+        with (ROOT / 'batch-result.json').open('x') as output:
+            json.dump({'completed_stages': completed, 'error': error, 'requests': counts,
+                       'automatic_retries': 0, 'merge_authorized': False,
+                       'production_authorized': False}, output, indent=2)
+        print(json.dumps({'completed': completed, 'error': error, 'requests': counts}), flush=True)
+
+
+if __name__ == '__main__':
+    main()

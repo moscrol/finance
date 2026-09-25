@@ -1,0 +1,24 @@
+{
+  "classification": "host preparation diagnostic",
+  "cwd": "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-13/candidate",
+  "argv": [
+    "/usr/bin/sandbox-exec",
+    "-f",
+    "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-13/quality/tools.sb",
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "-B",
+    "-m",
+    "pytest",
+    "-q",
+    "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-13/quality/work/probes/test_production_contract.py",
+    "-k",
+    "not real_date",
+    "--rootdir=/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-13/quality/work",
+    "-p",
+    "no:cacheprovider",
+    "--junitxml=/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-13/quality/work/host-preflight.xml",
+    "--basetemp=/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-13/quality/work/tmp/host-preflight"
+  ],
+  "exit_code": 120,
+  "prior_attempt": "Host tool invocation from inaccessible main cwd failed before pytest config; zero collected, no product result."
+}

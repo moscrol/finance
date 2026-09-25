@@ -1,0 +1,7 @@
+{"label": "focused", "exit_code": 0}
+{"label": "rehearsal", "exit_code": 0}
+{"label": "frontend", "exit_code": 0}
+{"label": "python", "exit_code": 0}
+{"label": "registry", "checks": 5, "exit_codes": [0, 0, 0, 0, 0], "ok": true}
+{"label": "scope", "exit_code": 0}
+{"ok": true, "completed": 6}

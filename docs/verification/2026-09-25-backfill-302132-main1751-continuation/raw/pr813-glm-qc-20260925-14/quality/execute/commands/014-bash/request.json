@@ -1,0 +1,1 @@
+{"toolCallId":"call_1acf0b0062bc40cc9f25b87a","params":{"command":"OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 /Users/a77/finance-workspace-private/.venv-workbench/bin/python -B /Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-14/quality/work/inspect_rehearsal.py"}}

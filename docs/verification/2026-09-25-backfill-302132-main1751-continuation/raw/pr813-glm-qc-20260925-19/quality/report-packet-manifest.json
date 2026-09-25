@@ -1,0 +1,146 @@
+[
+  {
+    "path": "inputs/claims.md",
+    "bytes": 2319,
+    "sha256": "c9aa5774c65a1f7fa6c7fa794102ef0fc3d0d3fcee7bce77a0ddb623bc9866d0"
+  },
+  {
+    "path": "inputs/source-contract.md",
+    "bytes": 57967,
+    "sha256": "0e95e79cb298ef18ac0999088b8396a9d09fc95febe46bb774c5b97712e905c0"
+  },
+  {
+    "path": "inputs/source-contract-manifest.json",
+    "bytes": 782,
+    "sha256": "59a7beaa4d425efbfa6722ec0f7107ed36f45dceab09ce450160cc0b2c20d705"
+  },
+  {
+    "path": "explore/parsed.json",
+    "bytes": 1612,
+    "sha256": "ca40f27207b3179d43bf149303380f91963810f56d39435bcc1b7fc29e421afc"
+  },
+  {
+    "path": "execute/parsed.json",
+    "bytes": 2439,
+    "sha256": "9a15fff6fd7af1a939fc23aa0636a2993b389155162b0e9cf4f6bd166ac8a417"
+  },
+  {
+    "path": "work/EXPLORE.md",
+    "missing": true
+  },
+  {
+    "path": "work/EXECUTE.md",
+    "bytes": 1871,
+    "sha256": "412c198fa68049c67b9154eb4c17e77a7b99ab0910bf34f8b45d2b57edcc4f22"
+  },
+  {
+    "path": "execute/commands/001-bash/output.log",
+    "bytes": 274,
+    "sha256": "a4a7b237ed8754af0b3cc982a69fb694e7741be6618e39ab390fc7ce7b70e069"
+  },
+  {
+    "path": "execute/commands/001-bash/request.json",
+    "bytes": 271,
+    "sha256": "9a7348dba3226b1d3660aab2c27fffcb069c53e69c8173693be91e90f552410a"
+  },
+  {
+    "path": "execute/commands/001-bash/result.json",
+    "bytes": 14,
+    "sha256": "d67659d29dad50e65ac903e33dc7ef4a692331d96253553956300d1fcfa5786a"
+  },
+  {
+    "path": "execute/commands/002-bash/output.log",
+    "bytes": 220,
+    "sha256": "61e7e2e8f4a7df8f5b4b755de9cd839ace42088a1e2312faaadd24a32b815de3"
+  },
+  {
+    "path": "execute/commands/002-bash/request.json",
+    "bytes": 835,
+    "sha256": "981af19b8b11a00803c32969cdc71f29e7f3a2aeb4005c24ddf8ff378c53f21c"
+  },
+  {
+    "path": "execute/commands/002-bash/result.json",
+    "bytes": 14,
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0"
+  },
+  {
+    "path": "work/probes/probe_c3_acceptance_v2.py",
+    "bytes": 6570,
+    "sha256": "28a9ec7ae46ce847909a4554ff72e3953921c59d7fae140bc1e33d7359b51d0f"
+  },
+  {
+    "path": "work/probes/test_earlier_fixture_adapter.py",
+    "bytes": 2004,
+    "sha256": "37807e0b2d5a3aba69112e677edd06769a48c66a8aa50339cbfff90f436d3c2c"
+  },
+  {
+    "path": "work/probes/test_new_c3_v1.py",
+    "bytes": 5245,
+    "sha256": "19a02d63cf7823c8c9f8b7eb52611355d7691f0b38fe0425b46d5f6bde5ade0d"
+  },
+  {
+    "path": "work/probes/test_production_contract.py",
+    "bytes": 13499,
+    "sha256": "303ce29b9d4b1351428ccba4cce38f121a01c3bb039359bc6ccf9dd27754406e"
+  },
+  {
+    "path": "work/probes/test_seeded_c3.py",
+    "bytes": 1674,
+    "sha256": "155d751f1b37f58bef1503bbc6d2234f57fb9e85efc5dbd9144a478ebf7bb16a"
+  },
+  {
+    "path": "work/probe-results-all.xml",
+    "bytes": 3555,
+    "sha256": "121d1ada6c97a479758aa00c8ed5d67b68836f8dcb98421c9b1c81e58e8143d3"
+  },
+  {
+    "path": "work/independent-keyset-observation.json",
+    "bytes": 2931,
+    "sha256": "264b3e32ca7604453b42e6c63b0a0ae3b73ad600cee0e131d1d560f8cb19a95a"
+  },
+  {
+    "path": "work/independent-real-date-observation.json",
+    "bytes": 4759,
+    "sha256": "5ea07fc4ca299214e4e5adb5cd77229314854ce14bed472f06aaffdceec4a7aa"
+  },
+  {
+    "path": "work/tmp/reviewer/test_real_date_parent_rehearsa0/real-date-rehearsal/summary.json",
+    "bytes": 16139,
+    "sha256": "5127befbed5e96d78da9c75871a962bb183cff219b5857e3636ea437d7867b62"
+  },
+  {
+    "path": "work/tmp/reviewer/test_real_date_parent_rehearsa0/real-date-rehearsal/acceptance.json",
+    "bytes": 5621,
+    "sha256": "b096e34bd1a5b3761ebc3c40b938937f990ab2cf6d5aa52f4583a89ddd1c4036"
+  },
+  {
+    "path": "work/tmp/reviewer/test_real_date_parent_rehearsa0/real-date-rehearsal/amount-control.json",
+    "bytes": 5687,
+    "sha256": "3fc4f6791d0941383e5eeb5183c83f0fec407bad18e41edf8f1279d29f09a540"
+  },
+  {
+    "path": "work/tmp/reviewer/test_real_date_parent_rehearsa0/real-date-rehearsal/acceptance.command.json",
+    "bytes": 1271,
+    "sha256": "7324ef53a527d4830dcd75f7a2cab3dd756b1c62fd6f03e09fccb37572b0206d"
+  },
+  {
+    "path": "work/tmp/reviewer/test_real_date_parent_rehearsa0/real-date-rehearsal/amount-control.command.json",
+    "bytes": 1279,
+    "sha256": "acb203675676db60e35910e7d000e9c136e2c86f52e03173748385c81c44c8f1"
+  },
+  {
+    "path": "work/tmp/reviewer/test_real_date_parent_rehearsa0/real-date-rehearsal/apply.command.json",
+    "bytes": 420,
+    "sha256": "6c2307f8ec1290a807775cac26a34e6f55734cd2deaf49147834777aa47f0f58"
+  },
+  {
+    "path": "work/tmp/reviewer/test_real_date_parent_rehearsa0/real-date-rehearsal/refused-parent.command.json",
+    "bytes": 428,
+    "sha256": "e6cc5d901914ad96ef008915bf4085287464cfb82513a7a62ea140eacf7b08a4"
+  },
+  {
+    "path": "work/tmp/reviewer/test_real_date_parent_rehearsa0/real-date-rehearsal/verify.command.json",
+    "bytes": 421,
+    "sha256": "63e0b10ec064df42ec799bf9cadabe3742308000ae004c82c203e1574eeb6db4"
+  }
+]

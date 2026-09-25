@@ -1,0 +1,40 @@
+"""Record main drift and preserve the superseded candidate's complete evidence."""
+from datetime import datetime, timezone
+import json
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent
+STATE = ROOT.parent / 'backfill-302132-0923/CURRENT.json'
+raw = STATE.read_bytes()
+with (ROOT / 'CURRENT-before.json').open('xb') as stream:
+    stream.write(raw)
+value = json.loads(raw)
+value.setdefault('continuation_history', []).append(value.get('active_continuation'))
+value['active_continuation'] = {
+    'status': 'CURRENT_MAIN1751_CANDIDATE_UNDER_ENGINEERING_AND_QC',
+    'candidate': '/Users/a77/fwp-wt-backfill-ready-main1751-0925',
+    'revision': 'ae3f812e1c1e142953b657ba41f30fce23e7c14a',
+    'integrated_main': '1751e21e0fd30642e0b223604b64b30e38c46f41',
+    'previous_candidate': 'f650d9e765e127c7e66a621226cc2d676d70075d',
+    'prior_candidate_preserved': True,
+    'remote_pr_head_unchanged': '3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59',
+    'engineering_root': str(ROOT),
+    'independent_review_root': str(ROOT.parent / 'pr813-glm-qc-20260925-14'),
+    'prior_engineering': str(ROOT.parent / 'pr813-ready-20260925/engineering.json'),
+    'prior_engineering_note': '15760P/72S/2X, frontend/E2E and registry passed; final scope failed because main advanced by 19 merge ancestors. Not applicable to new main.',
+    'prior_qc': str(ROOT.parent / 'pr813-glm-qc-20260925-13/quality/host-evidence-audit.json'),
+    'prior_qc_note': 'Batch13 24 supplied cases passed; C1-C7 verified with disclosed limits. Bound to f650, never relabeled as ae3.',
+    'focused': 'passed', 'full_copy_rehearsal': 'passed',
+    'frontend_and_e2e': 'running', 'python': 'pending', 'registry': 'pending',
+    'independent_review': 'running', 'ready': False, 'merge_authorized': False,
+    'production_authorized': False, 'production_executed': False,
+}
+value['owned_checks_running'] = True
+value['updated_at'] = datetime.now(timezone.utc).isoformat()
+assert STATE.read_bytes() == raw
+pending = STATE.with_name('CURRENT.main1751.tmp')
+with pending.open('x') as stream:
+    json.dump(value, stream, ensure_ascii=False, indent=2)
+    stream.write('\n')
+pending.replace(STATE)
+print(value['active_continuation']['status'])

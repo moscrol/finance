@@ -1,0 +1,23 @@
+{
+  "label": "python",
+  "argv": [
+    "bash",
+    "scripts/run_main_gate.sh",
+    "--pytest-args",
+    "-q -p no:cacheprovider -o tmp_path_retention_policy=failed --basetemp=/Users/a77/.finance-runtime/reviews/pr813-ready-20260925/python-temp --junitxml=/Users/a77/.finance-runtime/reviews/pr813-ready-20260925/pytest.xml --durations=20"
+  ],
+  "identity_before": {
+    "revision": "f650d9e765e127c7e66a621226cc2d676d70075d",
+    "status": ""
+  },
+  "disk_floor_bytes": 4294967296,
+  "timeout_seconds": 7200,
+  "min_free_bytes": 49902379008,
+  "pid": 28120,
+  "exit_code": 0,
+  "seconds": 1512.683,
+  "identity_after": {
+    "revision": "f650d9e765e127c7e66a621226cc2d676d70075d",
+    "status": ""
+  }
+}

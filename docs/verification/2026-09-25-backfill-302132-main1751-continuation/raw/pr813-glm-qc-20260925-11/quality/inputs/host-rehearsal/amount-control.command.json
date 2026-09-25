@@ -1,0 +1,26 @@
+{
+  "label": "amount-control",
+  "argv": [
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "/Users/a77/fwp-wt-backfill-ready-0925/scripts/verify_302132_backfill_acceptance.py",
+    "--production",
+    "/Users/a77/.finance-runtime/reviews/pr813-ready-20260925/rehearsal/baseline.duckdb",
+    "--clone",
+    "/Users/a77/.finance-runtime/reviews/pr813-ready-20260925/rehearsal/copy.duckdb",
+    "--parquet",
+    "/Users/a77/.finance-runtime/reviews/pr813-ready-20260925/rehearsal/frozen.parquet",
+    "--run-apply",
+    "a236d85e7239",
+    "--run-verify",
+    "a6cdfe4b98a4",
+    "--expected-revision",
+    "f650d9e765e127c7e66a621226cc2d676d70075d",
+    "--expected-production-sha256",
+    "5f8e86cd854b7c6569cdcb62bfb5e9861d1d3a804d8f521480003185323dc91e",
+    "--output",
+    "/Users/a77/.finance-runtime/reviews/pr813-ready-20260925/rehearsal/amount-control.json"
+  ],
+  "expected_exit": 2,
+  "exit_code": 2,
+  "seconds": 50.59
+}

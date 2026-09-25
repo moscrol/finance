@@ -1,0 +1,40 @@
+"""Refresh progress without granting readiness before publication and final checks."""
+from datetime import datetime, timezone
+import json
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent
+STATE = ROOT.parent / 'backfill-302132-0923/CURRENT.json'
+raw = STATE.read_bytes()
+value = json.loads(raw)
+active = value['active_continuation']
+assert active['revision'] == 'ae3f812e1c1e142953b657ba41f30fce23e7c14a'
+active['independent_review_root'] = str(ROOT.parent / 'pr813-glm-qc-20260925-20')
+active['review_batches'] = {}
+for n in range(11, 21):
+    folder = ROOT.parent / f'pr813-glm-qc-20260925-{n}'
+    result = folder / 'batch-result.json'
+    active['review_batches'][str(n)] = json.loads(result.read_text()) if result.exists() else {'status': 'running'}
+active['independent_review'] = active['review_batches']['20'].get('error') or 'running'
+final_report = ROOT.parent / 'pr813-glm-qc-20260925-20/quality/report/parsed.json'
+final_audit = ROOT.parent / 'pr813-glm-qc-20260925-20/quality/host-evidence-audit.json'
+if final_report.exists() and final_audit.exists():
+    active['independent_review'] = {'verdict': json.loads(final_report.read_text())['verdict'], 'audit': json.loads(final_audit.read_text())['status']}
+engineering = ROOT / 'engineering.json'
+active['engineering'] = json.loads(engineering.read_text()) if engineering.exists() else {'status': 'running'}
+active['frontend_and_e2e'] = 'passed'
+active['ready'] = False
+active['status'] = 'ENGINEERING_PASS_QC_BLOCKED_SANDBOX_IDENTITY_AND_DELIVERY'
+active['python'] = '16259 passed, 0 failed, 93 skipped, 2 xfailed'
+active['registry'] = '5 checks passed'
+active['latest_qc_counts'] = {'passed': 23, 'failed': 2, 'errors': 0}
+active['observed_main'] = '853c4b7fac1321d2e442bef813b71980143c79b4'
+value['owned_checks_running'] = not (engineering.exists() and (ROOT.parent / 'pr813-glm-qc-20260925-20/batch-result.json').exists())
+value['updated_at'] = datetime.now(timezone.utc).isoformat()
+assert STATE.read_bytes() == raw
+pending = STATE.with_name('CURRENT.progress.tmp')
+with pending.open('x') as stream:
+    json.dump(value, stream, ensure_ascii=False, indent=2)
+    stream.write('\n')
+pending.replace(STATE)
+print(json.dumps({'active_status': active['status'], 'checks_running': value['owned_checks_running'], 'independent_review': active['independent_review']}))

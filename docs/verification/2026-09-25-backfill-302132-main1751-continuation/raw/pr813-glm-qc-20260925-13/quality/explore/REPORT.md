@@ -1,0 +1,28 @@
+```json
+{
+  "claims_examined": [
+    "C1",
+    "C2",
+    "C3",
+    "C4",
+    "C5",
+    "C6",
+    "C7"
+  ],
+  "limits": [
+    "No tests or positive control observed yet."
+  ],
+  "next_stage_command": "OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 /Users/a77/finance-workspace-private/.venv-workbench/bin/python -B -m pytest -q /Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-13/quality/work/probes/test_seeded_c3.py /Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-13/quality/work/probes/test_earlier_fixture_adapter.py /Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-13/quality/work/probes/test_production_contract.py --rootdir=/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-13/quality/work -p no:cacheprovider --junitxml=/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-13/quality/work/probe-results-all.xml --basetemp=/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-13/quality/work/tmp/reviewer",
+  "probe_files": [
+    "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-13/quality/work/probes/test_seeded_c3.py",
+    "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-13/quality/work/probes/test_earlier_fixture_adapter.py",
+    "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-13/quality/work/probes/test_production_contract.py"
+  ],
+  "provenance": "All tests supplied. 10 prior-reviewer assertions plus 14 host-authored tests. No execution in explore.",
+  "complete": true,
+  "stage": "explore",
+  "axis": "quality",
+  "revision": "f650d9e765e127c7e66a621226cc2d676d70075d",
+  "baseline": "79861f07e48573b6b5bd378b28880e484f509905"
+}
+```

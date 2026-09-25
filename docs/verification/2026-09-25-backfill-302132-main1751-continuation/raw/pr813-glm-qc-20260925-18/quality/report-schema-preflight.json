@@ -1,0 +1,7 @@
+{
+  "status": "PASS",
+  "positive": 1,
+  "negative": 10,
+  "production_evidence": false,
+  "note": "Tool schema is stricter; raw-control, count arithmetic, unique claim ids and XML audit gates remain unchanged."
+}

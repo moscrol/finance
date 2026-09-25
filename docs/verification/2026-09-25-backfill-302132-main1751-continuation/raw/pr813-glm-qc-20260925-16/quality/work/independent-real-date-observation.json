@@ -1,0 +1,107 @@
+{
+  "revision": "ae3f812e1c1e142953b657ba41f30fce23e7c14a",
+  "classification": "reviewer executes host-supplied probes on frozen real-data subset; not full production copy",
+  "rows": 64,
+  "technical": 39,
+  "window": 161,
+  "acceptance_checks": 37,
+  "rehearsal_directory": "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-16/quality/work/tmp/reviewer/test_real_date_parent_rehearsa0/real-date-rehearsal",
+  "backup_rollback_match": true,
+  "source_sha256": "4c2d1b7e53770e9daead4af503e466a815d371294c22b3b4b6909fdd4da2ca26",
+  "commands": [
+    {
+      "label": "refused-parent",
+      "argv": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-m",
+        "market_feature_store.cli",
+        "repair-backfill-302132",
+        "--parquet",
+        "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-16/quality/work/tmp/reviewer/test_real_date_parent_rehearsa0/real-date-rehearsal/wrong.parquet"
+      ],
+      "expected_exit": 2,
+      "exit_code": 2,
+      "seconds": 1.136
+    },
+    {
+      "label": "apply",
+      "argv": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-m",
+        "market_feature_store.cli",
+        "repair-backfill-302132",
+        "--parquet",
+        "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-16/quality/work/tmp/reviewer/test_real_date_parent_rehearsa0/real-date-rehearsal/frozen.parquet"
+      ],
+      "expected_exit": 0,
+      "exit_code": 0,
+      "seconds": 3.431
+    },
+    {
+      "label": "verify",
+      "argv": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-m",
+        "market_feature_store.cli",
+        "repair-backfill-302132",
+        "--parquet",
+        "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-16/quality/work/tmp/reviewer/test_real_date_parent_rehearsa0/real-date-rehearsal/frozen.parquet"
+      ],
+      "expected_exit": 0,
+      "exit_code": 0,
+      "seconds": 3.092
+    },
+    {
+      "label": "acceptance",
+      "argv": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-16/candidate/scripts/verify_302132_backfill_acceptance.py",
+        "--production",
+        "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-16/quality/work/tmp/reviewer/test_real_date_parent_rehearsa0/real-date-rehearsal/baseline.duckdb",
+        "--clone",
+        "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-16/quality/work/tmp/reviewer/test_real_date_parent_rehearsa0/real-date-rehearsal/copy.duckdb",
+        "--parquet",
+        "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-16/quality/work/tmp/reviewer/test_real_date_parent_rehearsa0/real-date-rehearsal/frozen.parquet",
+        "--run-apply",
+        "1ab6593bec9f",
+        "--run-verify",
+        "47eda40be1ab",
+        "--expected-revision",
+        "ae3f812e1c1e142953b657ba41f30fce23e7c14a",
+        "--expected-production-sha256",
+        "4c2d1b7e53770e9daead4af503e466a815d371294c22b3b4b6909fdd4da2ca26",
+        "--output",
+        "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-16/quality/work/tmp/reviewer/test_real_date_parent_rehearsa0/real-date-rehearsal/acceptance.json"
+      ],
+      "expected_exit": 0,
+      "exit_code": 0,
+      "seconds": 1.366
+    },
+    {
+      "label": "amount-control",
+      "argv": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-16/candidate/scripts/verify_302132_backfill_acceptance.py",
+        "--production",
+        "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-16/quality/work/tmp/reviewer/test_real_date_parent_rehearsa0/real-date-rehearsal/baseline.duckdb",
+        "--clone",
+        "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-16/quality/work/tmp/reviewer/test_real_date_parent_rehearsa0/real-date-rehearsal/copy.duckdb",
+        "--parquet",
+        "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-16/quality/work/tmp/reviewer/test_real_date_parent_rehearsa0/real-date-rehearsal/frozen.parquet",
+        "--run-apply",
+        "1ab6593bec9f",
+        "--run-verify",
+        "47eda40be1ab",
+        "--expected-revision",
+        "ae3f812e1c1e142953b657ba41f30fce23e7c14a",
+        "--expected-production-sha256",
+        "4c2d1b7e53770e9daead4af503e466a815d371294c22b3b4b6909fdd4da2ca26",
+        "--output",
+        "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-16/quality/work/tmp/reviewer/test_real_date_parent_rehearsa0/real-date-rehearsal/amount-control.json"
+      ],
+      "expected_exit": 2,
+      "exit_code": 2,
+      "seconds": 0.93
+    }
+  ]
+}

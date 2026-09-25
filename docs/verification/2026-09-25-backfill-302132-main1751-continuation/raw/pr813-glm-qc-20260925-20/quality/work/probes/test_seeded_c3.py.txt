@@ -1,0 +1,39 @@
+"""HOST fixture correction; assertions originate in reviewer source, NOT a QC verdict."""
+import importlib.util
+from pathlib import Path
+import shutil
+import sys
+
+import duckdb
+
+ROOT = Path(__file__).resolve().parents[3]
+SOURCE = ROOT / 'quality/work/probes/probe_c3_acceptance_v2.py'
+spec = importlib.util.spec_from_file_location('reviewer_original_for_host_diagnosis', SOURCE)
+review = importlib.util.module_from_spec(spec)
+sys.modules[spec.name] = review
+spec.loader.exec_module(review)
+original_mutation = review._mutated_clone
+
+
+def corrected_fixture(tmp_path, art, mutation):
+    clone = original_mutation(tmp_path, art, mutation)
+    # The CLI resolves receipts relative to the requested clone, not the fixture's old filename.
+    for run in (review.t.APPLY_RUN, review.t.VERIFY_RUN):
+        source = Path(str(art['clone']) + f'.repair-backfill-execution.{run}.json')
+        destination = Path(str(clone) + f'.repair-backfill-execution.{run}.json')
+        assert source.is_file() and not destination.exists()
+        shutil.copyfile(source, destination)
+    if mutation == 'other_stock':
+        # The original fixture has OTHER only on CAL dates, never on LATER.
+        with duckdb.connect(str(clone)) as con:
+            changed = con.execute(
+                'UPDATE fact_stock_daily SET amount=amount+1 WHERE stock_ts_code=? AND trade_date=? RETURNING amount',
+                [review.OTHER, review.t.CAL[0]],
+            ).fetchall()
+            assert len(changed) == 1
+    return clone
+
+
+review._mutated_clone = corrected_fixture
+test_outside_window_mutation_fails = review.test_outside_window_mutation_fails
+test_baseline_pass = review.test_baseline_pass

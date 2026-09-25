@@ -1,0 +1,34 @@
+{
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "python_version": "3.12.13",
+  "dependency_fingerprint": "e1c50cb821a30f00",
+  "tree": "/Users/a77/fwp-wt-backfill-ready-main1751-0925",
+  "revision": "ae3f812e1c1e142953b657ba41f30fce23e7c14a",
+  "branch": "fix/backfill-ready-main1751-0925",
+  "dirty": false,
+  "dirty_paths": [],
+  "worktree_dirty_total": 0,
+  "dependency_gate_bypassed": false,
+  "target": "tests/test_repair_backfill_stock_history.py tests/test_rehearse_302132_backfill.py",
+  "scope": {
+    "ignore": [],
+    "ignore_glob": [],
+    "deselect": [],
+    "keyword": "",
+    "markexpr": "",
+    "maxfail": 0,
+    "last_failed": false,
+    "collected": 118
+  },
+  "counts": {
+    "passed": 118,
+    "failed": 0,
+    "error": 0,
+    "skipped": 0,
+    "xfailed": 0,
+    "xpassed": 0
+  },
+  "failed_ids": [],
+  "exit_status": 0,
+  "finished_at": "2026-09-25T04:19:53+00:00"
+}

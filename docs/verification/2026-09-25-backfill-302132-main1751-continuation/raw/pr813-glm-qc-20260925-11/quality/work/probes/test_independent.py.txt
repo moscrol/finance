@@ -1,0 +1,9 @@
+"""Independent bounded review probes for PR813 (C1-C7). Skeleton written during
+explore; full implementation added during execute BEFORE any pytest run."""
+from pathlib import Path
+
+WORK = Path(__file__).resolve().parent
+
+def test_probe_harness_wired():
+    """Placeholder confirming collection works; real probes added in execute."""
+    assert WORK.is_dir()

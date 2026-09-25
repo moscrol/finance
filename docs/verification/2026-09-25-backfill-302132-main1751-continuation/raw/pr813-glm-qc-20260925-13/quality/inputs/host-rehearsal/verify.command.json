@@ -1,0 +1,14 @@
+{
+  "label": "verify",
+  "argv": [
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "-m",
+    "market_feature_store.cli",
+    "repair-backfill-302132",
+    "--parquet",
+    "/Users/a77/.finance-runtime/reviews/pr813-ready-20260925/rehearsal/frozen.parquet"
+  ],
+  "expected_exit": 0,
+  "exit_code": 0,
+  "seconds": 24.05
+}

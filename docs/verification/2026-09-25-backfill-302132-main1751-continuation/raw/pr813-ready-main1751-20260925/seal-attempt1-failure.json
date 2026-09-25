@@ -1,0 +1,9 @@
+{
+  "status": "REFUSED_SENSITIVE_RAW_XML",
+  "source": "/Users/a77/.finance-runtime/reviews/pr813-ready-20260925/pytest.xml",
+  "detector": "JWT-shaped string",
+  "partial_archive_moved_to": "archive-partial-sensitive-refusal",
+  "raw_original_retained": true,
+  "raw_xml_committed": false,
+  "note": "Do not treat base64 as sanitization. Subsequent archive records outside-Git path/hash for sensitive artifacts."
+}

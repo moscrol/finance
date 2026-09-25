@@ -1,0 +1,35 @@
+"""Include precise source in the final reviewer packet without spending discovery calls."""
+import ast
+import hashlib
+import json
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent
+TREE = ROOT / 'candidate'
+Q = ROOT / 'quality'
+selections = {
+    'market_feature_store/sync/repair_backfill_stock_history.py': ['BackfillSpec', '_guard', '_apply_main', '_rebuild_derived_scoped', '_accept', 'run_backfill_child', '_code_revision', '_guarded_write_json'],
+    'market_feature_store/cli.py': ['cmd_repair_backfill_302132'],
+    'scripts/verify_302132_backfill_acceptance.py': ['_data_checks'],
+}
+parts = ['# Precise source excerpts, not conclusions\nFull-file hashes and AST-derived line locations bind these excerpts. Unselected helper code is not included.\n']
+manifest = []
+for relative, names in selections.items():
+    path = TREE / relative
+    source = path.read_text()
+    lines = source.splitlines(keepends=True)
+    syntax = ast.parse(source)
+    selected = {node.name: node for node in syntax.body if isinstance(node, (ast.FunctionDef, ast.ClassDef)) and node.name in names}
+    assert set(selected) == set(names)
+    if relative.endswith('repair_backfill_stock_history.py'):
+        end = selected['BackfillSpec'].lineno - 2
+        parts.append(f'\n## {relative}:1-{end} (constants)\n```python\n' + ''.join(lines[:end]) + '\n```\n')
+    for name in names:
+        node = selected[name]
+        parts.append(f'\n## {relative}:{node.lineno}-{node.end_lineno} ({name})\n```python\n' + ''.join(lines[node.lineno-1:node.end_lineno]) + '\n```\n')
+    manifest.append({'path': relative, 'file_sha256': hashlib.sha256(path.read_bytes()).hexdigest(), 'symbols': names})
+text = ''.join(parts)
+assert len(text.encode()) < 75000
+(Q / 'inputs/source-contract.md').write_text(text)
+(Q / 'inputs/source-contract-manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
+print(len(text.encode()))

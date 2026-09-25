@@ -1,0 +1,253 @@
+"""HOST-SUPPLIED probes, not model-authored assertions or a review verdict.
+
+Runs the real parent and external acceptance against a frozen real-data slice.
+C6 embeds three author test bodies inside a new restoration/mutation witness;
+those six body invocations are disclosed, not standalone author pytest runs.
+"""
+import ast
+from argparse import Namespace
+import hashlib
+import json
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import sys
+from types import SimpleNamespace
+
+import duckdb
+import pytest
+
+BATCH = Path(__file__).resolve().parents[3]
+TREE = BATCH / 'candidate'
+Q = BATCH / 'quality'
+INPUTS = Q / 'inputs'
+sys.path.insert(0, str(TREE))
+from market_feature_store.sync import repair_backfill_stock_history as mod
+from market_feature_store.sync.repair_hithink_stock_day import RepairRefused
+from scripts.review_probes import rehearse_302132_backfill as rehearsal
+
+REV = json.loads((Q / 'config.json').read_text())['revision']
+SOURCE = INPUTS / 'production-slice.duckdb'
+PARQUET = INPUTS / 'frozen.parquet'
+
+
+def sha(path):
+    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
+def save(path, obj):
+    with path.open('x') as stream:
+        json.dump(obj, stream, indent=2, default=str)
+
+
+def command(argv, cwd=TREE, extra=None):
+    env = {k: os.environ[k] for k in ('HOME', 'PATH', 'LANG', 'TMPDIR') if k in os.environ}
+    env.update(PYTHONDONTWRITEBYTECODE='1', OPENBLAS_NUM_THREADS='1', OMP_NUM_THREADS='1', GIT_OPTIONAL_LOCKS='0')
+    env.update(extra or {})
+    return subprocess.run(argv, cwd=cwd, env=env, capture_output=True, text=True, timeout=90)
+
+
+def test_real_date_parent_rehearsal_and_numeric_contract(tmp_path):
+    before = sha(SOURCE)
+    manifest = json.loads((INPUTS / 'fixture-manifest.json').read_text())
+    assert before == manifest['fixture_sha256']
+    assert sha(PARQUET) == mod.PARQUET_SHA256
+    with duckdb.connect(str(SOURCE), read_only=True) as con:
+        assert str(con.execute("SELECT max(trade_date) FROM fact_stock_daily_hithink WHERE stock_ts_code='302132.SZ' AND adjusted='none'").fetchone()[0]) > max(mod.GAP_PARALLEL)
+    out = tmp_path / 'real-date-rehearsal'
+    argv = [sys.executable, '-B', str(TREE / 'scripts/review_probes/rehearse_302132_backfill.py'),
+            '--production', str(SOURCE), '--parquet', str(PARQUET), '--output', str(out)]
+    result = command(argv)
+    save(tmp_path / 'rehearsal-process.json', {'argv': argv, 'exit': result.returncode, 'stdout': result.stdout, 'stderr': result.stderr})
+    assert result.returncode == 0, result.stdout + result.stderr
+    summary = json.loads((out / 'summary.json').read_text())
+    assert summary['ok'] and summary['production_unchanged']
+    assert summary['revision'] == REV and summary['dirty'] is False
+    assert summary['rollback_sha256'] == summary['baseline_sha256'] == before
+    assert summary['values_before']['rows'] == 11
+    assert summary['values_after']['rows'] == 64
+    assert summary['values_after']['non_null'] == {'close': 64, 'pct_chg': 64, 'amount': 64}
+    assert summary['values_after']['identical_adjacent_values'] == []
+    assert summary['failure_did_not_publish']
+    acceptance = json.loads((out / 'acceptance.json').read_text())
+    assert acceptance['verdict'] == 'PASS' and acceptance['failed'] == []
+    checks = {v['name']: v for v in acceptance['checks']}
+    assert len(checks) == 37 and all(v['ok'] for v in checks.values())
+    assert checks['window_golden_triples']['detail'] == {'actual': 161, 'golden': 161}
+    assert checks['technical_exact_set']['detail'] == 39
+    assert checks['expected_window_counts_match_golden']['detail']['golden'] == {'5': 59, '10': 54, '20': 44, '60': 4}
+    applied = json.loads((out / f"copy.duckdb.repair-backfill-execution.{summary['runs']['apply']}.json").read_text())
+    verified = json.loads((out / f"copy.duckdb.repair-backfill-execution.{summary['runs']['verify']}.json").read_text())
+    for receipt, mode in ((applied, 'apply'), (verified, 'verify')):
+        assert receipt['code_revision'] == REV and receipt['code_dirty'] is False
+        assert receipt['child_report']['mode'] == mode
+        assert receipt['child_report']['technical_rows'] == 39
+        assert receipt['child_report']['window_rows'] == 161
+        assert receipt['child_report']['ok'] is True
+    assert applied['backup']['backup_sha256'] == before
+    assert applied['run_id'] != verified['run_id']
+    control = json.loads((out / 'amount-control.json').read_text())
+    assert control['failed'] == ['keyset_fullfield_oracle']
+    assert sha(SOURCE) == before
+    save(Q / 'work/independent-real-date-observation.json', {
+        'revision': REV, 'classification': 'reviewer executes host-supplied probes on frozen real-data subset; not full production copy',
+        'rows': 64, 'technical': 39, 'window': 161, 'acceptance_checks': 37,
+        'rehearsal_directory': str(out), 'backup_rollback_match': True,
+        'source_sha256': before, 'commands': summary['commands']})
+
+
+def test_exact_main_insert_and_update_keysets(tmp_path):
+    target = tmp_path / 'keyset.duckdb'
+    shutil.copyfile(SOURCE, target)
+    result = command([sys.executable, '-B', '-m', 'market_feature_store.cli',
+                      'repair-backfill-302132', '--parquet', str(PARQUET)],
+                     extra={'MARKET_FEATURE_STORE_DB': str(target), 'MARKET_FEATURE_STORE_PRODUCTION_DB': str(SOURCE)})
+    save(tmp_path / 'keyset-process.json', {'exit': result.returncode, 'stdout': result.stdout, 'stderr': result.stderr})
+    assert result.returncode == 0, result.stdout + result.stderr
+    with duckdb.connect(str(target), read_only=True) as con:
+        con.execute("ATTACH '" + str(SOURCE).replace("'", "''") + "' AS baseline (READ_ONLY)")
+        inserted = con.execute('SELECT stock_ts_code, trade_date FROM fact_stock_daily EXCEPT ALL SELECT stock_ts_code, trade_date FROM baseline.fact_stock_daily').fetchall()
+        removed = con.execute('SELECT stock_ts_code, trade_date FROM baseline.fact_stock_daily EXCEPT ALL SELECT stock_ts_code, trade_date FROM fact_stock_daily').fetchall()
+        changed_before = con.execute('SELECT stock_ts_code, trade_date FROM (SELECT * FROM baseline.fact_stock_daily EXCEPT ALL SELECT * FROM fact_stock_daily)').fetchall()
+        changed_after = con.execute('SELECT stock_ts_code, trade_date FROM (SELECT * FROM fact_stock_daily EXCEPT ALL SELECT * FROM baseline.fact_stock_daily)').fetchall()
+    expected = {('302132.SZ', date) for date in (*mod.GAP_PARALLEL, *mod.GAP_PARQUET)}
+    normalize = lambda rows: [(code, str(day)) for code, day in rows]
+    assert len(inserted) == len(expected) == 53 and set(normalize(inserted)) == expected
+    assert removed == []
+    assert normalize(changed_before) == [('302132.SZ', '2026-06-23')]
+    assert len(changed_after) == 54
+    assert set(normalize(changed_after)) == expected | {('302132.SZ', '2026-06-23')}
+    save(Q / 'work/independent-keyset-observation.json', {'inserted': sorted(normalize(inserted)),
+         'deleted_keys': removed, 'changed_existing': normalize(changed_before),
+         'classification': 'direct bidirectional full-row comparison on real-date subset, not full production'})
+
+
+@pytest.mark.parametrize('mutation', ['missing', 'null', 'adjusted'])
+def test_corrupt_authorized_source_refuses_without_publish(tmp_path, mutation):
+    target = tmp_path / 'input.duckdb'
+    shutil.copyfile(SOURCE, target)
+    with duckdb.connect(str(target)) as con:
+        where = "stock_ts_code='302132.SZ' AND trade_date='2026-06-17' AND adjusted='none'"
+        if mutation == 'missing':
+            con.execute('DELETE FROM fact_stock_daily_hithink WHERE ' + where)
+        elif mutation == 'null':
+            con.execute('UPDATE fact_stock_daily_hithink SET close=NULL WHERE ' + where)
+        else:
+            con.execute("UPDATE fact_stock_daily_hithink SET adjusted='invalid-review-control' WHERE " + where)
+    before = sha(target)
+    result = command([sys.executable, '-B', '-m', 'market_feature_store.cli',
+                      'repair-backfill-302132', '--parquet', str(PARQUET)],
+                     extra={'MARKET_FEATURE_STORE_DB': str(target), 'MARKET_FEATURE_STORE_PRODUCTION_DB': str(SOURCE)})
+    save(tmp_path / 'refusal-process.json', {'mutation': mutation, 'exit': result.returncode, 'stdout': result.stdout, 'stderr': result.stderr})
+    assert result.returncode == 2, result.stdout + result.stderr
+    assert sha(target) == before
+    assert not list(tmp_path.glob('*.bak-*'))
+
+
+class RemoveContext(ast.NodeTransformer):
+    def visit_With(self, node):
+        if any(isinstance(i.context_expr, ast.Call) and isinstance(i.context_expr.func, ast.Attribute)
+               and i.context_expr.func.attr == 'context' for i in node.items):
+            return [self.visit(child) for child in node.body]
+        return self.generic_visit(node)
+
+    def visit_Name(self, node):
+        if node.id == 'patch':
+            return ast.copy_location(ast.Name(id='monkeypatch', ctx=node.ctx), node)
+        return node
+
+
+@pytest.mark.parametrize('name,attribute', [
+    ('test_refused_receipt_write_failure_cleans_partial', 'fdopen'),
+    ('test_cli_parent_preflight_blocks_on_open_permission_error', 'open'),
+    ('test_refused_receipt_eexist_race_keeps_other_writers_file', 'open'),
+])
+def test_context_regression_witness_rejects_degraded_scope(tmp_path, name, attribute):
+    source = (TREE / 'tests/test_repair_backfill_stock_history.py').read_text()
+    observations = []
+    for mutated in (False, True):
+        function = next(n for n in ast.parse(source).body if isinstance(n, ast.FunctionDef) and n.name == name)
+        function.decorator_list = []
+        module = ast.Module(body=[function], type_ignores=[])
+        if mutated:
+            module = RemoveContext().visit(module)
+        ast.fix_missing_locations(module)
+        namespace = {'mod': mod, 'pytest': pytest, 'RepairRefused': RepairRefused}
+        exec(compile(module, '<external-scope-witness>', 'exec'), namespace)
+        folder = tmp_path / ('mutant' if mutated else 'candidate')
+        folder.mkdir()
+        patch = pytest.MonkeyPatch()
+        before = getattr(os, attribute)
+        error = None
+        try:
+            try:
+                namespace[name](folder, patch)
+            except AssertionError as exc:
+                error = repr(exc)
+            restored = getattr(os, attribute) is before
+        finally:
+            patch.undo()
+        assert getattr(os, attribute) is before
+        observations.append({'mutated': mutated, 'restored_before_fixture_cleanup': restored, 'body_assertion_error': error})
+        if mutated:
+            assert not restored or error is not None, 'degraded scope escaped the witness'
+        else:
+            assert restored and error is None
+    save(tmp_path / 'scope-witness.json', {'copied_author_body': name, 'standalone_author_pytest_runs': 0, 'body_invocations': 2, 'observations': observations})
+
+
+@pytest.mark.parametrize('case', ['existing', 'under_source', 'symlink', 'wal', 'bad_hash'])
+def test_rehearsal_rejects_unsafe_input_before_copy(tmp_path, case):
+    data = tmp_path / 'data'
+    data.mkdir()
+    source = data / 'source.duckdb'
+    shutil.copyfile(SOURCE, source)
+    parquet = data / 'frozen.parquet'
+    shutil.copyfile(PARQUET, parquet)
+    output = tmp_path / 'run'
+    if case == 'existing':
+        output.mkdir()
+    elif case == 'under_source':
+        output = data / 'run'
+    elif case == 'symlink':
+        alias = data / 'alias.duckdb'
+        alias.symlink_to(source)
+        source = alias
+    elif case == 'wal':
+        Path(str(source) + '.wal').write_bytes(b'WAL witness')
+    else:
+        parquet.write_bytes(b'bad hash witness')
+    before = {p.name: sha(p) for p in data.iterdir() if p.is_file()}
+    with pytest.raises(ValueError):
+        rehearsal.run(Namespace(production=source, parquet=parquet, output=output))
+    assert {p.name: sha(p) for p in data.iterdir() if p.is_file()} == before
+    assert not output.exists() or (case == 'existing' and list(output.iterdir()) == [])
+
+
+def test_low_space_refuses_before_database_copies(tmp_path, monkeypatch):
+    out = tmp_path / 'low-space'
+    with monkeypatch.context() as patch:
+        patch.setattr(rehearsal.shutil, 'disk_usage', lambda _: SimpleNamespace(free=0))
+        rc = rehearsal.run(Namespace(production=SOURCE, parquet=PARQUET, output=out))
+    assert rc == 2
+    result = json.loads((out / 'summary.json').read_text())
+    assert 'insufficient physical headroom' in result['error']
+    assert not list(out.glob('*.duckdb'))
+
+
+def test_host_full_copy_receipts_are_current_but_not_reviewer_execution():
+    root = INPUTS / 'host-rehearsal'
+    summary = json.loads((root / 'summary.json').read_text())
+    assert summary['revision'] == REV and summary['dirty'] is False
+    assert summary['ok'] and summary['production_unchanged']
+    assert summary['production_before']['size'] > SOURCE.stat().st_size
+    assert summary['rollback_sha256'] == summary['baseline_sha256']
+    manifest = json.loads((root / 'manifest.json').read_text())
+    for name, expected in manifest.items():
+        path = root / name
+        if path.is_file():
+            assert sha(path) == expected
+    for name, expected in [('refused-parent', 2), ('apply', 0), ('verify', 0), ('acceptance', 0), ('amount-control', 2)]:
+        receipt = json.loads((root / f'{name}.command.json').read_text())
+        assert receipt['exit_code'] == receipt['expected_exit'] == expected

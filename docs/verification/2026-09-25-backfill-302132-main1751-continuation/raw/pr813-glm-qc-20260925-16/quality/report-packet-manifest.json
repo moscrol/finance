@@ -1,0 +1,141 @@
+[
+  {
+    "path": "inputs/source-contract.md",
+    "bytes": 57967,
+    "sha256": "0e95e79cb298ef18ac0999088b8396a9d09fc95febe46bb774c5b97712e905c0"
+  },
+  {
+    "path": "inputs/source-contract-manifest.json",
+    "bytes": 782,
+    "sha256": "59a7beaa4d425efbfa6722ec0f7107ed36f45dceab09ce450160cc0b2c20d705"
+  },
+  {
+    "path": "explore/parsed.json",
+    "bytes": 1612,
+    "sha256": "eb399c6c5f2d23300af054748f2186d4d2d66291025479b9affb586fa1f7be63"
+  },
+  {
+    "path": "execute/parsed.json",
+    "bytes": 3603,
+    "sha256": "f01062c9f7fecc012295285e6910f927bfabd4d8cb3527f7bcabb21b7f169664"
+  },
+  {
+    "path": "work/EXPLORE.md",
+    "missing": true
+  },
+  {
+    "path": "work/EXECUTE.md",
+    "bytes": 2220,
+    "sha256": "b77b9204ebdef53ed776e688097f8f08ff4f3afae9bc5c34ac415430ab0f3dd2"
+  },
+  {
+    "path": "execute/commands/001-bash/output.log",
+    "bytes": 274,
+    "sha256": "1fee61ce5fbfdfe8782be62db13b1f98aef451495e7d0996119699a3e646f428"
+  },
+  {
+    "path": "execute/commands/001-bash/request.json",
+    "bytes": 271,
+    "sha256": "c6e103695e74808bc4a67adbb0c51e63e7bc7a87636b3e766bec33bc68d5b497"
+  },
+  {
+    "path": "execute/commands/001-bash/result.json",
+    "bytes": 14,
+    "sha256": "d67659d29dad50e65ac903e33dc7ef4a692331d96253553956300d1fcfa5786a"
+  },
+  {
+    "path": "execute/commands/002-bash/output.log",
+    "bytes": 220,
+    "sha256": "2b2228df5611cd1bf86df97c7ea2d9c11e273a3f94e2ac0fe19bb6f3669bfec9"
+  },
+  {
+    "path": "execute/commands/002-bash/request.json",
+    "bytes": 834,
+    "sha256": "cadf3bc9844116cadf57aeb7eb425b98f5af2d043f8fbc45af98af34457ee8e9"
+  },
+  {
+    "path": "execute/commands/002-bash/result.json",
+    "bytes": 14,
+    "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0"
+  },
+  {
+    "path": "work/probes/probe_c3_acceptance_v2.py",
+    "bytes": 6570,
+    "sha256": "2530f207d237d79f7f5108ed321f338c71284dcc25205c560ec03956836a93cf"
+  },
+  {
+    "path": "work/probes/test_earlier_fixture_adapter.py",
+    "bytes": 2004,
+    "sha256": "37807e0b2d5a3aba69112e677edd06769a48c66a8aa50339cbfff90f436d3c2c"
+  },
+  {
+    "path": "work/probes/test_new_c3_v1.py",
+    "bytes": 5245,
+    "sha256": "5ed974c10f387fa9e36c74f66e7075220802f1212818cba4e2bea930e1959f55"
+  },
+  {
+    "path": "work/probes/test_production_contract.py",
+    "bytes": 13499,
+    "sha256": "303ce29b9d4b1351428ccba4cce38f121a01c3bb039359bc6ccf9dd27754406e"
+  },
+  {
+    "path": "work/probes/test_seeded_c3.py",
+    "bytes": 1674,
+    "sha256": "155d751f1b37f58bef1503bbc6d2234f57fb9e85efc5dbd9144a478ebf7bb16a"
+  },
+  {
+    "path": "work/probe-results-all.xml",
+    "bytes": 3556,
+    "sha256": "0d8a074b9040195d3e18e83b36d669150579125d4a6116334ada6121935c94d8"
+  },
+  {
+    "path": "work/independent-keyset-observation.json",
+    "bytes": 2931,
+    "sha256": "264b3e32ca7604453b42e6c63b0a0ae3b73ad600cee0e131d1d560f8cb19a95a"
+  },
+  {
+    "path": "work/independent-real-date-observation.json",
+    "bytes": 4758,
+    "sha256": "908466fbc0ece20fb81fd611763e69a46746bd9f570c1e3fa319e52381a2f3db"
+  },
+  {
+    "path": "work/tmp/reviewer/test_real_date_parent_rehearsa0/real-date-rehearsal/summary.json",
+    "bytes": 16138,
+    "sha256": "94c2dd958e2141ccd03daa9364e82cac92c9de7588523b0e825370c9cc938ca9"
+  },
+  {
+    "path": "work/tmp/reviewer/test_real_date_parent_rehearsa0/real-date-rehearsal/acceptance.json",
+    "bytes": 5621,
+    "sha256": "1611a1e53d640f4037c2c078396e9dc9b2f1097d8e11a6d56201520fbd679641"
+  },
+  {
+    "path": "work/tmp/reviewer/test_real_date_parent_rehearsa0/real-date-rehearsal/amount-control.json",
+    "bytes": 5687,
+    "sha256": "d972f887d48ae16b0f0362ad16cf3f9a6616cf903f03370b42dcf129469820b4"
+  },
+  {
+    "path": "work/tmp/reviewer/test_real_date_parent_rehearsa0/real-date-rehearsal/acceptance.command.json",
+    "bytes": 1271,
+    "sha256": "3f5eda38d9548e3b30137302880e0ca35c25be3061a9e2388b42b8e698c22e7b"
+  },
+  {
+    "path": "work/tmp/reviewer/test_real_date_parent_rehearsa0/real-date-rehearsal/amount-control.command.json",
+    "bytes": 1278,
+    "sha256": "7003e742596dfa2749dcd2e9cea89a613f6bf5c14b29acfffadc16052281d06a"
+  },
+  {
+    "path": "work/tmp/reviewer/test_real_date_parent_rehearsa0/real-date-rehearsal/apply.command.json",
+    "bytes": 420,
+    "sha256": "56f6e216029037224beef0c51d033c8b68d6ef83ee3f9dc135a7da2c74cc95ea"
+  },
+  {
+    "path": "work/tmp/reviewer/test_real_date_parent_rehearsa0/real-date-rehearsal/refused-parent.command.json",
+    "bytes": 428,
+    "sha256": "d94b56775a92d7bc061c304f25ecf579334f9fce069f4cf282cc114d11f0fd95"
+  },
+  {
+    "path": "work/tmp/reviewer/test_real_date_parent_rehearsa0/real-date-rehearsal/verify.command.json",
+    "bytes": 421,
+    "sha256": "2dde471f21a30acd62f42aaff3b0a03b862f63a7d0a5be968372e65ef0f6c227"
+  }
+]

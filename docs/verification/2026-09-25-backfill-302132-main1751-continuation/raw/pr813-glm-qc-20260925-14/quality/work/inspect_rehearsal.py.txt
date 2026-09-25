@@ -1,0 +1,17 @@
+import json, glob, os
+p = '/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-14/quality/work/tmp/reviewer/test_real_date_parent_rehearsa0/real-date-rehearsal/'
+for f in sorted(glob.glob(p + '*')):
+    print(f)
+print('----')
+a = json.load(open(p + 'acceptance.json'))
+print('acceptance verdict', a.get('verdict'), 'checks', len(a.get('checks', [])), 'failed', a.get('failed'))
+ac = json.load(open(p + 'amount-control.json'))
+print('amount-control verdict', ac.get('verdict'), 'failed checks:', [c['name'] for c in ac.get('checks', []) if not c.get('ok')])
+for f in sorted(glob.glob(p + '*.json')):
+    name = os.path.basename(f)
+    if name in ('acceptance.json', 'amount-control.json'):
+        continue
+    d = json.load(open(f))
+    if isinstance(d, dict):
+        keys = [k for k in ('mode','run_id','kind','ok','technical_rows','window_rows','technical_staged','parallel_source_md5','trade_date','backup','spec_version') if k in d]
+        print('==', name, {k: d[k] for k in keys})

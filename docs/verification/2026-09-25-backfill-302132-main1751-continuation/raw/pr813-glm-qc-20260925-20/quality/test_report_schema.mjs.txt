@@ -1,0 +1,51 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import { Check } from '/opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent/node_modules/typebox/build/value/check/check.mjs';
+import { finalReportSchema } from './review.mjs';
+import { bindStageResult } from './pi_review_protocol.mjs';
+
+const schema = finalReportSchema();
+const config = { ...JSON.parse(fs.readFileSync(new URL('./config.json', import.meta.url))), stage: 'report' };
+const counts = { executed: 1000000, passed: 1000000, failed: 1000000, errors: 1000000, skipped: 1000000 };
+// Every variable-length field is maximal; ASCII excludes escaping expansion.
+const longest = {
+  verdict: 'BLOCKED_INCOMPLETE_EVIDENCE',
+  claims: Array.from({ length: 7 }, (_, i) => ({ id: `C${i + 1}`, status: 'out_of_scope', evidence: 'x'.repeat(320) })),
+  findings: Array(3).fill('x'.repeat(120)), limits: Array(4).fill('x'.repeat(140)),
+  reviewer_probe_counts: counts, author_test_counts: counts, supplied_probe_counts: counts,
+  positive_control: { status: 'OBSERVED_EXPECTED_FAILURE', classification: 'probe_bug', evidence: 'x'.repeat(150) },
+  supplied_xml: schema.properties.supplied_xml.const, probe_provenance: 'x'.repeat(600),
+};
+assert(Check(schema, longest));
+assert(JSON.stringify(longest).length < 6000);
+assert(bindStageResult(longest, config).complete);
+const negative = [
+  { ...longest, claims: [...longest.claims, longest.claims[0]] },
+  { ...longest, claims: longest.claims.slice(1) },
+  { ...longest, claims: [{ ...longest.claims[0], id: 'C8' }, ...longest.claims.slice(1)] },
+  { ...longest, claims: [{ status: 'not_verified', evidence: 'Missing id.' }, ...longest.claims.slice(1)] },
+  { ...longest, probe_provenance: { note: 'Wrong object.' } },
+  { ...longest, reviewer_probe_counts: { ...counts, passed: '0' } },
+  { ...longest, reviewer_probe_counts: { ...counts, failed: -1 } },
+  { ...longest, verdict: 'PASS' },
+  { ...longest, revision: 'invented identity' },
+  { ...longest, probe_provenance: 'x'.repeat(601) },
+  { ...longest, supplied_xml: 'work/probe-results-all.xml: tests=25' },
+  { ...longest, findings: [...longest.findings, 'extra'] },
+  { ...longest, probe_provenance: '\\"\n' },
+];
+for (const sample of negative) assert(!Check(schema, sample));
+const rejections = [];
+for (const batch of [16, 17, 18]) {
+  const path = `/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-${batch}/quality/report/commands/001-deliver_stage/request.json`;
+  const raw = JSON.parse(fs.readFileSync(path, 'utf8')).params.result;
+  assert.throws(() => bindStageResult(raw, config), /invalid delivery size/);
+  assert(!Check(schema, raw));
+  rejections.push({ batch, actual_serialized_characters: JSON.stringify(raw).length, first_rejection: 'invalid delivery size' });
+}
+const receipt = { status: 'PASS', format_positive: 1, format_negative: negative.length + 3,
+  worst_case_serialized_characters: JSON.stringify(longest).length,
+  controller_limit_exclusive: 6000, prior_rejections: rejections,
+  note: 'Offline schema diagnostic only. Mathematical count consistency, raw control, duplicate ids and XML audit remain separate unchanged gates.' };
+fs.writeFileSync(new URL('./report-schema-preflight.json', import.meta.url), JSON.stringify(receipt, null, 2) + '\n', { flag: 'wx' });
+console.log(JSON.stringify(receipt));

@@ -1,0 +1,22 @@
+"""Preparation diagnostics only; never counted as independent reviewer execution."""
+import json
+from pathlib import Path
+import subprocess
+
+ROOT = Path(__file__).resolve().parent
+Q = ROOT / 'quality'
+PY = '/Users/a77/finance-workspace-private/.venv-workbench/bin/python'
+ENV = {'HOME': str(Q / 'work'), 'PATH': '/opt/homebrew/bin:/usr/bin:/bin', 'LANG': 'C.UTF-8',
+       'PYTHONDONTWRITEBYTECODE': '1', 'GIT_OPTIONAL_LOCKS': '0', 'FWP_TEST_RECEIPT': '0',
+       'TMPDIR': str(Q / 'work/tmp'), 'OPENBLAS_NUM_THREADS': '1', 'OMP_NUM_THREADS': '1'}
+argv = ['/usr/bin/sandbox-exec', '-f', str(Q / 'tools.sb'), PY, '-B', '-m', 'pytest', '-q',
+        str(Q / 'work/probes/test_production_contract.py'), '-k', 'not real_date',
+        f'--rootdir={Q}/work', '-p', 'no:cacheprovider', f'--junitxml={Q}/work/host-preflight.xml',
+        f'--basetemp={Q}/work/tmp/host-preflight']
+with (ROOT / 'host-preflight.log.txt').open('xb') as log:
+    result = subprocess.run(argv, cwd=ROOT / 'candidate', env=ENV, stdout=log, stderr=log, timeout=120)
+with (ROOT / 'host-preflight.json').open('x') as out:
+    json.dump({'classification': 'host preparation diagnostic', 'cwd': str(ROOT / 'candidate'),
+               'argv': argv, 'exit_code': result.returncode,
+               'prior_attempt': 'Host tool invocation from inaccessible main cwd failed before pytest config; zero collected, no product result.'}, out, indent=2)
+print(result.returncode)

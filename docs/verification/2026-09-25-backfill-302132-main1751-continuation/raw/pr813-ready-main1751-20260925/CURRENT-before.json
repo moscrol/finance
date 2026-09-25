@@ -1,0 +1,547 @@
+{
+  "workorder": 83,
+  "pr": 813,
+  "status": "SPEC_SCOPED_DELIVERED_QUALITY_PASS_WITH_LIMITS_C3_NOT_VERIFIED",
+  "updated_at": "2026-09-25T04:01:47.704546+00:00",
+  "test_revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+  "remote_pr_head": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+  "integrated_main": "4cc15e703f81bce8abadee00f68caacdb0c72b4d",
+  "remote_main_at_freeze": "4db9a42b69b0d30bcf55b2eafb64151a6c1bb317",
+  "previous_candidate": "ca4b33316c47862ecd3ec71a535a51d540ada986",
+  "candidate": "/Users/a77/.finance-runtime/reviews/backfill-302132-0923/forward-02/tree",
+  "ready": false,
+  "merge_authorized": false,
+  "production_authorized": false,
+  "production_executed": false,
+  "prior_status": "continue-03/final-status-c2.json",
+  "current_checks": {
+    "python": {
+      "status": "pass",
+      "command_receipt": "continue-08/python.command.json",
+      "receipt": "continue-08/python-receipts/gate-47iUwvcM/pytest.json",
+      "counts": {
+        "passed": 15457,
+        "failed": 0,
+        "error": 0,
+        "skipped": 85,
+        "xfailed": 2,
+        "xpassed": 0
+      },
+      "collected": 15544,
+      "scope_receipt": "continue-08/scope.command.json",
+      "full_scope_verified": true,
+      "temp_retention_policy": "failed"
+    },
+    "focused": {
+      "status": "pass",
+      "receipt": "continue-08/focused-receipt.json",
+      "counts": {
+        "passed": 118,
+        "failed": 0,
+        "error": 0,
+        "skipped": 0,
+        "xfailed": 0,
+        "xpassed": 0
+      }
+    },
+    "frontend": {
+      "status": "pass",
+      "evidence": "continue-08/frontend/frontend.json"
+    },
+    "e2e": {
+      "status": "pass",
+      "evidence": "continue-08/frontend/frontend.json",
+      "artifacts": "continue-08/e2e-results"
+    },
+    "registry": {
+      "status": "pass_finance_only",
+      "evidence": "continue-08/registry-complete/receipt.json",
+      "checks": 5
+    },
+    "rehearsal": {
+      "status": "pass",
+      "evidence": "continue-08/rehearsal/summary.json",
+      "checks_passed": 37,
+      "production_unchanged": true,
+      "rollback_matches_baseline": true
+    }
+  },
+  "isolation_fix": {
+    "commit": "fd6d8cc5be24c6f3a85af5c960be7766f88deaa7",
+    "file": "tests/test_repair_backfill_stock_history.py",
+    "reason": "Bound three global OS mocks to the tested call; restore real OS functions before pytest fixture teardown. Existing refusal and file-preservation assertions are unchanged.",
+    "red": "continue-03/osmock-red.log.txt",
+    "green_diagnostic": "continue-03/osmock-green.log.txt",
+    "green_diagnostic_scope": "Three targeted tests on the dirty pre-commit tree; not a merge receipt.",
+    "mutant": "continue-04/osmock-mutant.log.txt",
+    "mutant_result": "With the scope removed only in an external copy, the new restoration assertion fails under default retention. The candidate remains unchanged."
+  },
+  "merge_preview": {
+    "base": "4cc15e703f81bce8abadee00f68caacdb0c72b4d",
+    "head": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+    "tree": "20101d9ea85cb3f732483aa0747a8233d2c0ae5c",
+    "exit_code": 0,
+    "evidence": "continue-08/verified-closeout.json"
+  },
+  "data_quality_workflow": {
+    "status": "not_triggered",
+    "reason": "No PR diff intersects paths in .github/workflows/data-quality-check.yml."
+  },
+  "owned_checks_running": true,
+  "previous_python_status": "continue-06/python.command.json",
+  "previous_main_drift": "a54fed0d065ffdf025734a69420c1fe530615eb1 -> 4cc15e703f81bce8abadee00f68caacdb0c72b4d",
+  "previous_fd6_status": "continue-04/final-status-fd6-blocked.json",
+  "closed_predecessor": {
+    "pr": 802,
+    "state": "closed",
+    "successor": 813,
+    "pointer_comment": 6446
+  },
+  "cleanup": {
+    "continue_03_failed_fixture": "continue-03/failing-osmock-fixture",
+    "continue_03_other_temporary_fixtures_removed": true
+  },
+  "blockers": [
+    "Independent Quality is complete only for the C3-scoped batch 10 report; this is not full QC.",
+    "C3 production-shaped 64/39/161 counts and C1/C2/C4/C5/C6/C7 remain incomplete or out of scope.",
+    "Current main combination is unverified; merge and production are not authorized."
+  ],
+  "documentation": {
+    "branch": "fix/backfill-302132-0923",
+    "revision": "9827ff9c33c63fae7ef24983ef9d27d7f7616376",
+    "pushed": true,
+    "candidate_unchanged_by_docs": true,
+    "handoff": "docs/handoffs/2026-09-25-backfill-302132-quality-continuation.md",
+    "evidence_bundle": "docs/verification/2026-09-24-backfill-302132-current-main-ready/",
+    "queue_state": "spec_scoped_delivered_quality_pass_with_limits_c3_not_verified",
+    "archive_verification": "continue-08/archive-verification.json",
+    "qc_evidence_bundle": "docs/verification/2026-09-25-backfill-302132-quality-0710",
+    "qc_git_archive_verified_files": 797,
+    "primary_qc_archive_commit": "9827ff9c33c63fae7ef24983ef9d27d7f7616376",
+    "qc_git_archive_bytes": 3803807,
+    "qc_git_archive_manifest_sha256": "e9bfd26ad6d7c8731e9b7861930c595679843be399abf4bfe533334d8de82943"
+  },
+  "pr_update": {
+    "comment_id": 7021,
+    "url": "http://127.0.0.1:3300/a77/finance-workspace-private/pulls/813#issuecomment-7021",
+    "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+    "documentation_revision": "9827ff9c33c63fae7ef24983ef9d27d7f7616376",
+    "remote_main": "4db9a42b69b0d30bcf55b2eafb64151a6c1bb317",
+    "remote_main_observations": {
+      "07": "fe9fdbfd70a637efc5bcf0cfecf74080a8d6a90c",
+      "08": "fe9fdbfd70a637efc5bcf0cfecf74080a8d6a90c",
+      "09": "4db9a42b69b0d30bcf55b2eafb64151a6c1bb317",
+      "10": "4db9a42b69b0d30bcf55b2eafb64151a6c1bb317"
+    },
+    "git_archive_verified_files": 797,
+    "git_archive_manifest_sha256": "e9bfd26ad6d7c8731e9b7861930c595679843be399abf4bfe533334d8de82943",
+    "state": "open",
+    "merged": false,
+    "wip_retained": true,
+    "merge_authorized": false,
+    "production_authorized": false,
+    "verified_at": "2026-09-25T02:14:48.741746+00:00"
+  },
+  "memory_writeback": {
+    "auto_sync_commit": "1ba54c6c",
+    "knowledge": "10_knowledge/pytest-temp-paths-and-mock-lifetime.md",
+    "vault_lint_exit_code": 1,
+    "vault_lint_errors": 44,
+    "vault_lint_warnings": 17,
+    "vault_lint_log": "continue-04/vault-lint.log.txt",
+    "project_writeback": "Full #83 status and main drift verified in existing auto-sync.",
+    "last_observed_project_auto_sync_commit": "157d4d65244a54e3912b9cd14b1199d3edf3eb43",
+    "note": "The earlier global vault lint found issues in unchanged files or pre-existing project links; the new knowledge note was not reported as erroneous. It was not rerun for this final note update and is not a finance CI result."
+  },
+  "driver": "continue-08/run_checks.py",
+  "driver_log": "continue-08/driver.log.txt",
+  "note": "Batches 04-06 had 52 requests and a rejected final schema. Batches 07-10 had 69 requests; batch 10 accepted a C3-scoped PASS_WITH_LIMITS report with 10/10 supplied probes passing, while C3 production-shaped counts remain not_verified. No full QC, current-main gates, merge, or production approval.",
+  "readiness_scope": "Historical 3c5/base4cc author gates only. New Spec report covers a guard subset, host C3 checks do not substitute for Quality.",
+  "engineering_ready": false,
+  "historical_engineering_ready_3c5_base4cc": true,
+  "merge_ready": false,
+  "independent_qc": {
+    "status": "SPEC_SCOPED_DELIVERED_QUALITY_PASS_WITH_LIMITS_C3_NOT_VERIFIED",
+    "complete": false,
+    "root": "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-10",
+    "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+    "baseline": "4cc15e703f81bce8abadee00f68caacdb0c72b4d",
+    "requests_this_turn": 69,
+    "requests_total_continuation_04_10": 121,
+    "provider": "glm-direct-review/glm-5.3",
+    "axes": [
+      "quality:C3"
+    ],
+    "batches": {
+      "04": {
+        "requests": 21,
+        "status": "EXECUTE_PROVIDER_ENV_ERROR_NO_DELIVERY"
+      },
+      "05": {
+        "requests": 12,
+        "status": "EXPLORE_NO_DELIVERY"
+      },
+      "06": {
+        "requests": 19,
+        "status": "FINAL_DELIVERY_REJECTED"
+      },
+      "07": {
+        "requests": 12,
+        "status": "EXPLORE_NO_DELIVERY"
+      },
+      "08": {
+        "requests": 21,
+        "status": "EXECUTE_COLLECTION_ERROR_NO_DELIVERY"
+      },
+      "09": {
+        "requests": 21,
+        "status": "EXECUTE_STALE_PATH_COLLECTION_ERROR_NO_DELIVERY"
+      },
+      "10": {
+        "requests": 15,
+        "status": "QUALITY_PASS_WITH_LIMITS"
+      }
+    },
+    "quality": {
+      "verdict": "PASS_WITH_LIMITS",
+      "positive_control": "batch 10 execute/001-bash exit 1 with intentional probe_bug",
+      "reviewer_executed_supplied": 10,
+      "reviewer_passed": 10,
+      "reviewer_failed": 0,
+      "reviewer_errors": 0,
+      "reviewer_skipped": 0,
+      "author_tests": 0,
+      "final_accepted": true,
+      "claim": "C3 not_verified",
+      "claims": {
+        "C1": "out_of_scope",
+        "C2": "out_of_scope",
+        "C3": "not_verified",
+        "C4": "out_of_scope",
+        "C5": "out_of_scope",
+        "C6": "out_of_scope",
+        "C7": "out_of_scope"
+      },
+      "c3_production_shape_counts": "not_verified",
+      "host_evidence_audit": "EVIDENCE_COUNTS_VALID",
+      "limitations": [
+        "production-shaped 64/39/161 counts were not independently observed",
+        "supplied probes are prior reviewer assertions and host fixture repairs, not new reviewer assertions",
+        "current main combination and C1/C2/C4-C7 were not reviewed"
+      ]
+    },
+    "archive": "docs/verification/2026-09-25-backfill-302132-quality-0710",
+    "archive_files": 797,
+    "archive_bytes": 3803807,
+    "archive_manifest_sha256": "e9bfd26ad6d7c8731e9b7861930c595679843be399abf4bfe533334d8de82943",
+    "report": "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-10/quality/report/execution.json",
+    "publication": "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-10/publication.json",
+    "pr_result_comment": 7021
+  },
+  "verified_closeout": "continue-08/verified-closeout.json",
+  "remote_main_at_closeout": "4db9a42b69b0d30bcf55b2eafb64151a6c1bb317",
+  "current_main_engineering_ready": false,
+  "main_drift_after_qc": {
+    "observed_during": "post_closed.py remote verification before any PR write",
+    "candidate": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+    "reviewed_base": "4cc15e703f81bce8abadee00f68caacdb0c72b4d",
+    "remote_main": "03af215e092cf0da25f3c7e8f60256cb60c2836e",
+    "documentation_revision_at_refusal": "2d54f3223cacb6f9e4298e45c9647521cc11b532",
+    "source_or_gate_changes": true,
+    "impact": [
+      "dependency lock and installation",
+      "conftest and workspace environment",
+      "test receipt verifier",
+      "main gate",
+      "code map and workspace tooling"
+    ],
+    "engineering_receipts_scope": "Original clean candidate 3c5 on base4cc only; not transferred to new main",
+    "action": "Publish the failed fixed-candidate review with explicit current-main drift; no forward merge or whole-suite rerun while independent QC remains blocked",
+    "merge_authorized": false,
+    "production_authorized": false
+  },
+  "independent_qc_history": [
+    {
+      "status": "BLOCKED_PROVIDER_REQUEST_DEADLINE_NO_FINAL_REPORT",
+      "queue": 75,
+      "root": "/Users/a77/.finance-runtime/reviews/pr813-k3-qc-20260924-01",
+      "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+      "report": "/Users/a77/.finance-runtime/reviews/pr813-k3-qc-20260924-01/report.json",
+      "requests": 11,
+      "complete": false,
+      "spec": "No final report; request 6 stream interrupted at 120 seconds",
+      "quality": "not_started",
+      "pr_start_comment": 6810,
+      "pr_result_comment": 6817,
+      "archive": "docs/verification/2026-09-24-backfill-302132-qc-01",
+      "archive_files": 214,
+      "archive_verification": "/Users/a77/.finance-runtime/reviews/pr813-k3-qc-20260924-01/archive-verification.json"
+    },
+    {
+      "status": "BLOCKED_SCHEMA_AND_UNSUPPORTED_CLAIMS",
+      "complete": false,
+      "queue": 75,
+      "root": "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260924-02",
+      "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+      "scope": [
+        "C2",
+        "C3"
+      ],
+      "requests_this_turn": 42,
+      "provider_requests": {
+        "k3": 1,
+        "glm": 41
+      },
+      "reviewer_probes": {
+        "passed": 3,
+        "failed": 4,
+        "collection_error_attempts": 2
+      },
+      "author_test_reruns": 0,
+      "execute_positive_control": "NOT_RUN",
+      "quality": "NOT_STARTED",
+      "report": "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260924-02/report.json",
+      "host_audit": "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260924-02/host-evidence-audit.json",
+      "pr_result_comment": 6875,
+      "archive": "docs/verification/2026-09-25-backfill-302132-qc-resume",
+      "archive_files": 490
+    },
+    {
+      "status": "SPEC_SCOPED_DELIVERED_QUALITY_BLOCKED",
+      "complete": false,
+      "queue": 75,
+      "root": "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-02",
+      "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+      "requests_this_turn": 65,
+      "provider": "glm-direct-review/glm-5.3",
+      "spec": {
+        "final_delivered": true,
+        "verdict": "PASS_WITH_LIMITS",
+        "independent_probes_passed": 5,
+        "scope": "C2 guard subset only"
+      },
+      "quality": {
+        "final_delivered": false,
+        "independent_probes_executed": 0,
+        "claim": "C3 not_verified"
+      },
+      "host_only_C3": {
+        "original_failed": 7,
+        "fixture_corrected_passed": 7,
+        "set_mutant_expected_failures": 1,
+        "original_rechecked_passed": 7
+      },
+      "author_counterchecks": {
+        "reviewer_sandbox_failed": 1,
+        "host_passed": 1
+      },
+      "report": "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-02/report.json",
+      "pr_result_comment": 6892,
+      "archive": "docs/verification/2026-09-25-backfill-302132-qc-contract",
+      "archive_files": 760
+    },
+    {
+      "status": "SPEC_SCOPED_DELIVERED_QUALITY_FINAL_REJECTED",
+      "complete": false,
+      "root": "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-03",
+      "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+      "requests_this_turn": 39,
+      "provider": "glm-direct-review/glm-5.3",
+      "spec": {
+        "final_delivered": true,
+        "verdict": "PASS_WITH_LIMITS",
+        "independent_probes_passed": 5,
+        "scope": "C2 guard subset only"
+      },
+      "quality": {
+        "formal_delivery": true,
+        "final_accepted": false,
+        "claim": "C3 not_verified",
+        "supplied_executed": 7,
+        "supplied_passed": 7,
+        "new_executed": 2,
+        "new_passed": 1,
+        "new_failed": 1,
+        "reasons": [
+          "intentional_control_not_observed_first",
+          "invalid_control_claim",
+          "pass_despite_failed_probe_cases"
+        ]
+      },
+      "host_only_earlier": {
+        "baseline_passed": 1,
+        "full_suite_passed": 3,
+        "reviewer_assertions_changed": false
+      },
+      "archive": "docs/verification/2026-09-25-backfill-302132-quality-execution",
+      "archive_files": 398,
+      "report": "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-03/report.json",
+      "pr_result_comment": 6911
+    },
+    {
+      "status": "SPEC_SCOPED_DELIVERED_QUALITY_FINAL_REJECTED",
+      "complete": false,
+      "root": "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-06",
+      "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+      "baseline": "4cc15e703f81bce8abadee00f68caacdb0c72b4d",
+      "requests_this_turn": 52,
+      "provider": "glm-direct-review/glm-5.3",
+      "axes": [
+        "quality:C3"
+      ],
+      "batches": {
+        "04": {
+          "requests": 21,
+          "status": "EXECUTE_PROVIDER_ENV_ERROR_NO_DELIVERY"
+        },
+        "05": {
+          "requests": 12,
+          "status": "EXPLORE_NO_DELIVERY"
+        },
+        "06": {
+          "requests": 19,
+          "status": "FINAL_DELIVERY_REJECTED"
+        }
+      },
+      "quality": {
+        "positive_control": "observed first execute bash exit1 with intentional probe_bug",
+        "reviewer_executed_supplied": 10,
+        "reviewer_passed": 10,
+        "reviewer_failed": 0,
+        "author_tests": 0,
+        "final_accepted": false,
+        "claim": "C3 not_verified",
+        "reasons": [
+          "missing verdict",
+          "claims schema missing C1-C7 id/status/evidence",
+          "standard count objects missing",
+          "positive_control status/classification/evidence missing"
+        ]
+      },
+      "archive": "docs/verification/2026-09-25-backfill-302132-quality-continuation",
+      "archive_files": 480,
+      "archive_bytes": 2389778,
+      "archive_manifest_sha256": "4aca039667b929f75da5f6d3086d0052d402ca402147d416a26593cc15f05152",
+      "report": "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-06/quality/report/execution.json",
+      "pr_result_comment": 6977
+    },
+    {
+      "status": "SPEC_SCOPED_DELIVERED_QUALITY_PASS_WITH_LIMITS_C3_NOT_VERIFIED",
+      "complete": false,
+      "root": "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-10",
+      "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+      "baseline": "4cc15e703f81bce8abadee00f68caacdb0c72b4d",
+      "requests_this_turn": 69,
+      "requests_total_continuation_04_10": 121,
+      "provider": "glm-direct-review/glm-5.3",
+      "axes": [
+        "quality:C3"
+      ],
+      "batches": {
+        "04": {
+          "requests": 21,
+          "status": "EXECUTE_PROVIDER_ENV_ERROR_NO_DELIVERY"
+        },
+        "05": {
+          "requests": 12,
+          "status": "EXPLORE_NO_DELIVERY"
+        },
+        "06": {
+          "requests": 19,
+          "status": "FINAL_DELIVERY_REJECTED"
+        },
+        "07": {
+          "requests": 12,
+          "status": "EXPLORE_NO_DELIVERY"
+        },
+        "08": {
+          "requests": 21,
+          "status": "EXECUTE_COLLECTION_ERROR_NO_DELIVERY"
+        },
+        "09": {
+          "requests": 21,
+          "status": "EXECUTE_STALE_PATH_COLLECTION_ERROR_NO_DELIVERY"
+        },
+        "10": {
+          "requests": 15,
+          "status": "QUALITY_PASS_WITH_LIMITS"
+        }
+      },
+      "quality": {
+        "verdict": "PASS_WITH_LIMITS",
+        "positive_control": "batch 10 execute/001-bash exit 1 with intentional probe_bug",
+        "reviewer_executed_supplied": 10,
+        "reviewer_passed": 10,
+        "reviewer_failed": 0,
+        "reviewer_errors": 0,
+        "reviewer_skipped": 0,
+        "author_tests": 0,
+        "final_accepted": true,
+        "claim": "C3 not_verified",
+        "claims": {
+          "C1": "out_of_scope",
+          "C2": "out_of_scope",
+          "C3": "not_verified",
+          "C4": "out_of_scope",
+          "C5": "out_of_scope",
+          "C6": "out_of_scope",
+          "C7": "out_of_scope"
+        },
+        "c3_production_shape_counts": "not_verified",
+        "host_evidence_audit": "EVIDENCE_COUNTS_VALID",
+        "limitations": [
+          "production-shaped 64/39/161 counts were not independently observed",
+          "supplied probes are prior reviewer assertions and host fixture repairs, not new reviewer assertions",
+          "current main combination and C1/C2/C4-C7 were not reviewed"
+        ]
+      },
+      "archive": "docs/verification/2026-09-25-backfill-302132-quality-0710",
+      "archive_files": 797,
+      "archive_bytes": 3803807,
+      "archive_manifest_sha256": "e9bfd26ad6d7c8731e9b7861930c595679843be399abf4bfe533334d8de82943",
+      "report": "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-10/quality/report/execution.json",
+      "publication": "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-10/publication.json",
+      "pr_result_comment": 7021
+    }
+  ],
+  "latest_completed_qc": {
+    "root": "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-10",
+    "axis": "quality:C3",
+    "stage": "sealed",
+    "controller_pid": null,
+    "requests_used_before_stage": 14,
+    "stage_reservation": 1,
+    "batch_cap": 29,
+    "merge_authorized": false,
+    "production_authorized": false,
+    "owned_processes_stopped": true,
+    "report": "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-10/quality/report/execution.json",
+    "publication_comment": 7021
+  },
+  "latest_quality_main_observations": {
+    "07": "fe9fdbfd70a637efc5bcf0cfecf74080a8d6a90c",
+    "08": "fe9fdbfd70a637efc5bcf0cfecf74080a8d6a90c",
+    "09": "4db9a42b69b0d30bcf55b2eafb64151a6c1bb317",
+    "10": "4db9a42b69b0d30bcf55b2eafb64151a6c1bb317"
+  },
+  "active_continuation": {
+    "status": "INTEGRATED_CANDIDATE_UNDER_ENGINEERING_AND_INDEPENDENT_REVIEW",
+    "candidate": "/Users/a77/fwp-wt-backfill-ready-0925",
+    "revision": "f650d9e765e127c7e66a621226cc2d676d70075d",
+    "integrated_main": "79861f07e48573b6b5bd378b28880e484f509905",
+    "prior_candidate_preserved": true,
+    "remote_pr_head_unchanged": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+    "engineering_root": "/Users/a77/.finance-runtime/reviews/pr813-ready-20260925",
+    "independent_review_root": "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-11",
+    "focused": "passed",
+    "full_copy_rehearsal": "passed",
+    "frontend_and_e2e": "passed",
+    "python": "running",
+    "registry": "pending",
+    "independent_review": "running",
+    "ready": false,
+    "merge_authorized": false,
+    "production_authorized": false,
+    "production_executed": false
+  }
+}

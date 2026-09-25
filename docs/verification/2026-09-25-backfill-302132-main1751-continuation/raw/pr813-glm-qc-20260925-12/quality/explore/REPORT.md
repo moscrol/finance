@@ -1,0 +1,29 @@
+```json
+{
+  "claims_examined": [
+    "C1",
+    "C2",
+    "C3",
+    "C4",
+    "C5",
+    "C6",
+    "C7"
+  ],
+  "limits": [
+    "Explore stage only: read inputs/claims.md and inputs/source-map.md; no bash, no tests, no product source read, no files written.",
+    "Positive control not yet executed; no observations of tests claimed at this stage."
+  ],
+  "next_stage": "In execute: run enforced positive_control.py first (expect exit 1 probe_bug), copy production-slice.duckdb and real-date fixture into work, read candidate sources per source-map, implement test_independent.py, and run one combined pytest with supplied probes.",
+  "probe_files": [
+    "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-12/quality/work/probes/test_seeded_c3.py",
+    "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-12/quality/work/probes/test_earlier_fixture_adapter.py",
+    "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-12/quality/work/probes/test_independent.py"
+  ],
+  "provenance": "test_seeded_c3.py (7 checks) and test_earlier_fixture_adapter.py (3 checks) are supplied prior-reviewer assertions with host fixture repair, located in work/probes with same-directory dependencies; to be executed, not trusted. test_independent.py is the independent reviewer's file, currently a host placeholder, to be authored in execute against real CLI parent on a copy of the real-date fixture, covering C1-C4 plus C6 witness; C5/C7 audited via host-rehearsal receipts and revision binding without claiming them as own execution.",
+  "complete": true,
+  "stage": "explore",
+  "axis": "quality",
+  "revision": "f650d9e765e127c7e66a621226cc2d676d70075d",
+  "baseline": "79861f07e48573b6b5bd378b28880e484f509905"
+}
+```

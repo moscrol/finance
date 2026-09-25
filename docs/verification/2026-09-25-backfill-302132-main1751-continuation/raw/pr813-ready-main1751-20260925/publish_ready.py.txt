@@ -1,0 +1,68 @@
+"""Publish readiness only after the exact product head and evidence docs are on Gitea."""
+from datetime import datetime, timezone
+import hashlib
+import json
+from pathlib import Path
+import subprocess
+import sys
+
+ROOT = Path(__file__).resolve().parent
+DOCS = Path('/Users/a77/fwp-wt-backfill-302132-0923')
+REV = 'ae3f812e1c1e142953b657ba41f30fce23e7c14a'
+BASE = '1751e21e0fd30642e0b223604b64b30e38c46f41'
+BUNDLE = 'docs/verification/2026-09-25-backfill-302132-main1751-ready'
+MARKER = '<!-- wo83-main1751-ready-20260925 -->'
+sys.path.insert(0, str(DOCS))
+from scripts import gitea_pr
+
+summary = json.loads((DOCS / BUNDLE / 'summary.json').read_text())
+assert summary['merge_ready'] and summary['revision'] == REV and not summary['merge_authorized']
+pr = gitea_pr._api('GET', '/pulls/813')
+assert pr['state'] == 'open' and not pr.get('merged') and pr['head']['sha'] == REV
+remote = subprocess.check_output(['git', '-C', str(DOCS), 'ls-remote', 'gitea', 'refs/heads/main'], text=True).split()[0]
+assert remote == BASE
+head = subprocess.check_output(['git', '-C', str(DOCS), 'rev-parse', 'HEAD'], text=True).strip()
+docs_remote = subprocess.check_output(['git', '-C', str(DOCS), 'ls-remote', 'gitea', 'refs/heads/fix/backfill-302132-0923'], text=True).split()[0]
+assert head == docs_remote
+body = f'''{MARKER}
+## #83: 当前 main 整合验收完成，待合并确认与单独生产授权
+
+候选 `{REV}`，已整合 main `{BASE}`。`merge-tree` 实测无冲突，完整收据绑定同一干净提交，不采 Gitea 的 mergeable 字段作验收。
+
+- 新候选完整工程门禁、前端/E2E、registry 和全量收据校验均通过，详见归档 `summary.json`。旧 f650 虽 Python 15760P，但 main 漂移 19 个合并祖先使 scope 门禁拒收；原件保留，没有移签。
+- 独审批19真实执行 25 个供应探针，一次 pytest 通过；首阳性对照真实 exit1。唯一 report 通过结构化交付和计数审计，`PASS_WITH_LIMITS`，C1-C7 全部 verified。
+- 真日期子集实际观察 53 INSERT、仅 06-23 一条既有行变化，窗内64行，technical39/window161，37项验收通过。六次嵌入作者函数体调用单列，standalone作者pytest为0。供应断言不是模型新写的测试。
+- 宿主另做完整库副本父发布/verify/37项验收/amount负控/本轮父备份恢复，生产 stat 与各表最新日期前后一致。完整库演练是宿主证据，不冒充独审执行。
+- 批11-19共 {summary['new_requests_total']} 次请求，所有失败批次、准备诊断、拒收结果和原始日志均归档；无自动重试，无失败补签。批13的旧候选通过结果保留原身份。
+
+仅移除 WIP，表示工程合入就绪，不代表合入授权。**尚未合 main、尚未生产回填**。生产需对固定命令、日期范围、冻结输入和本轮回滚点另行逐字授权；不重启8792、不改launchd、不补他股。#802 已关闭并保留→#813指针。
+
+[证据归档](http://127.0.0.1:3300/a77/finance-workspace-private/src/commit/{head}/{BUNDLE}/README.md) | [完整交接](http://127.0.0.1:3300/a77/finance-workspace-private/src/commit/{head}/docs/handoffs/2026-09-25-backfill-302132-main1751-ready.md)
+'''
+comments = gitea_pr._api('GET', '/issues/813/comments?limit=100')
+old = [c for c in comments if MARKER in c.get('body', '')]
+assert len(old) <= 1
+comment = old[0] if old else gitea_pr._api('POST', '/issues/813/comments', {'body': body})
+if old and comment['body'] != body:
+    comment = gitea_pr._api('PATCH', f"/issues/comments/{comment['id']}", {'body': body})
+assert comment['body'] == body
+prefix = f'''## 最新状态：2026-09-25，当前 main 整合验收完成，待合并确认
+
+候选 `{REV}` / 已整合 main `{BASE}`；四叶、full-scope 收据、完整库副本发布与恢复演练通过。独审批19：供应25P，C1-C7 verified，PASS_WITH_LIMITS，计数硬门通过；旧失败批次保留。详见评论 {comment['id']}。仅工程就绪；合入与生产授权均 false，未改生产，未动8792/launchd。
+
+---
+
+'''
+if not (pr.get('body') or '').startswith(prefix):
+    gitea_pr._api('PATCH', '/pulls/813', {'title': 'integrate 302132 backfill acceptance on current main',
+                                       'body': prefix + (pr.get('body') or '')})
+after = gitea_pr._api('GET', '/pulls/813')
+assert after['head']['sha'] == REV and after['state'] == 'open' and not after.get('merged') and not after.get('draft')
+receipt = {'comment_id': comment['id'], 'url': comment.get('html_url'), 'revision': REV, 'baseline': BASE,
+           'documentation_commit': head, 'state': 'open', 'draft': after.get('draft'), 'merged': False,
+           'body_sha256': hashlib.sha256(body.encode()).hexdigest(), 'merge_authorized': False,
+           'production_authorized': False, 'published_at': datetime.now(timezone.utc).isoformat()}
+with (ROOT / 'publication.json').open('x') as stream:
+    json.dump(receipt, stream, ensure_ascii=False, indent=2)
+    stream.write('\n')
+print(json.dumps(receipt, ensure_ascii=False))

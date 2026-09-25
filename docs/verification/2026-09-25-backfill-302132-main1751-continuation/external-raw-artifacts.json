@@ -1,0 +1,18 @@
+{
+  "artifacts": [
+    {
+      "runtime_path": "/Users/a77/.finance-runtime/reviews/pr813-ready-20260925/pytest.xml",
+      "bytes": 2538198,
+      "sha256": "e76957bc9f72c8601c675855a93bd3ea504032d261261c58a7f4dae5b17e8dae",
+      "reason": "JWT-shaped content; raw original retained outside Git, not safe to publish as-is"
+    },
+    {
+      "runtime_path": "/Users/a77/.finance-runtime/reviews/pr813-ready-main1751-20260925/pytest.xml",
+      "bytes": 2628461,
+      "sha256": "c19d999d9b3b735bd7008bc338693439294874f8d860578f3809775c0b783c4a",
+      "reason": "JWT-shaped content; raw original retained outside Git, not safe to publish as-is"
+    }
+  ],
+  "raw_retained": true,
+  "copied_to_git": false
+}

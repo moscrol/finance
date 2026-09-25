@@ -1,0 +1,41 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { expectedControlCommand, inspectControlEvidence, validateFinalEvidence } from './review.mjs';
+
+const root = fs.mkdtempSync(path.join(os.tmpdir(), 'pr813-hard-gate-'));
+const execute = path.join(root, 'execute', 'commands', '001-bash');
+fs.mkdirSync(execute, { recursive: true });
+const python = '/Users/a77/finance-workspace-private/.venv-workbench/bin/python';
+const control = path.join(root, 'work', 'positive_control.py');
+const command = `OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 ${python} -B ${control}`;
+fs.writeFileSync(path.join(execute, 'request.json'), JSON.stringify({ params: { command } }));
+fs.writeFileSync(path.join(execute, 'result.json'), JSON.stringify({ exitCode: 1 }));
+fs.writeFileSync(path.join(execute, 'output.log'), 'AssertionError: intentional probe_bug control\n');
+
+assert.equal(expectedControlCommand(command, python, control), true);
+assert.equal(expectedControlCommand('cat claims.md', python, control), false);
+assert.deepEqual(inspectControlEvidence(root, python, control), {
+  valid: true, first: '001-bash', command, exitCode: 1, controlText: true, reason: null,
+});
+
+const counts = { executed: 10, passed: 10, failed: 0, errors: 0, skipped: 0 };
+const claims = Array.from({ length: 7 }, (_, i) => ({ id: `C${i + 1}`, status: i === 2 ? 'not_verified' : 'out_of_scope', evidence: 'bounded evidence' }));
+const good = { verdict: 'PASS_WITH_LIMITS', claims, findings: [], reviewer_probe_counts: counts,
+  author_test_counts: { executed: 0, passed: 0, failed: 0, errors: 0, skipped: 0 },
+  positive_control: { status: 'OBSERVED_EXPECTED_FAILURE', classification: 'probe_bug', evidence: '001-bash' }, limits: 'C3 numeric shape not tested',
+  supplied_probe_counts: counts, supplied_xml: 'probe-results-supplied.xml', probe_provenance: 'supplied suites' };
+assert.deepEqual(validateFinalEvidence(good, root, python, control), {
+  ok: true, reasons: [], observed: { valid: true, first: '001-bash', command, exitCode: 1, controlText: true, reason: null },
+});
+const bad = structuredClone(good);
+bad.verdict = 'PASS_WITH_LIMITS';
+bad.reviewer_probe_counts = { executed: 2, passed: 1, failed: 1, errors: 0, skipped: 0 };
+delete bad.positive_control.status;
+const rejected = validateFinalEvidence(bad, root, python, control);
+assert.equal(rejected.ok, false);
+assert.deepEqual(rejected.reasons.sort(), ['pass with failed reviewer cases', 'positive_control field']);
+fs.writeFileSync(path.join(execute, 'result.json'), JSON.stringify({ exitCode: 2 }));
+assert.equal(inspectControlEvidence(root, python, control).valid, false);
+console.log(JSON.stringify({ status: 'PASS', checks: 6 }));

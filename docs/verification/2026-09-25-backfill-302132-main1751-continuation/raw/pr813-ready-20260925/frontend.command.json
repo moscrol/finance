@@ -1,0 +1,31 @@
+{
+  "label": "frontend",
+  "argv": [
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "scripts/run_frontend_gate.py",
+    "--tree",
+    "/Users/a77/fwp-wt-backfill-ready-0925",
+    "--expect-revision",
+    "f650d9e765e127c7e66a621226cc2d676d70075d",
+    "--output",
+    "/Users/a77/.finance-runtime/reviews/pr813-ready-20260925/frontend",
+    "--workbench-port",
+    "19951",
+    "--re06-port",
+    "19954"
+  ],
+  "identity_before": {
+    "revision": "f650d9e765e127c7e66a621226cc2d676d70075d",
+    "status": ""
+  },
+  "disk_floor_bytes": 4294967296,
+  "timeout_seconds": 2400,
+  "min_free_bytes": 57389629440,
+  "pid": 24971,
+  "exit_code": 0,
+  "seconds": 128.378,
+  "identity_after": {
+    "revision": "f650d9e765e127c7e66a621226cc2d676d70075d",
+    "status": ""
+  }
+}

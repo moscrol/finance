@@ -1,0 +1,71 @@
+"""New bounded batch after batch11's invalid explore paths; no receipt reuse."""
+import ast
+import hashlib
+import json
+from pathlib import Path
+import shutil
+import subprocess
+
+ROOT = Path(__file__).resolve().parent
+OLD = ROOT.parent / 'pr813-glm-qc-20260925-11'
+Q = ROOT / 'quality'
+CAND = ROOT / 'candidate'
+AUTHOR = Path('/Users/a77/fwp-wt-backfill-ready-0925')
+REV = 'f650d9e765e127c7e66a621226cc2d676d70075d'
+CAPS = {'gateway': 4, 'explore': 8, 'execute': 24, 'report': 1}
+assert not CAND.exists() and not Q.exists()
+subprocess.run(['git', 'clone', '--local', '--no-hardlinks', '--no-checkout', str(AUTHOR), str(CAND)], check=True)
+subprocess.run(['git', '-C', str(CAND), 'checkout', '--detach', REV], check=True)
+for name in ('work/probes', 'work/tmp', 'work/users', 'pi-config', 'inputs'):
+    (Q / name).mkdir(parents=True)
+records = []
+
+def copy(rel):
+    src, dest = OLD / rel, ROOT / rel
+    raw = src.read_bytes()
+    dest.write_text(raw.decode().replace(str(OLD), str(ROOT)))
+    records.append({'source': str(src), 'target': rel, 'source_sha256': hashlib.sha256(raw).hexdigest(), 'sha256': hashlib.sha256(dest.read_bytes()).hexdigest()})
+
+for name in ('glm_credential.py', 'glm_review_shim.py', 'bridge_stage.py', 'report_packet.py', 'audit_axis.py', 'test_audit_axis.py', 'run_review.py'):
+    copy(name)
+for name in ('review.mjs', 'pi_review_protocol.mjs', 'gateway.mjs', 'file_tool.py', 'provider-template.json',
+             'run_control.py', 'run_stage.py', 'sandbox_preflight.mjs', 'tools.sb', 'config.json',
+             'test_hard_gates.mjs', 'prompt-explore.md', 'prompt-execute.md', 'prompt-report.md'):
+    copy('quality/' + name)
+for name in ('probe_c3_acceptance_v2.py', 'test_new_c3_v1.py', 'test_seeded_c3.py', 'test_earlier_fixture_adapter.py'):
+    copy('quality/work/probes/' + name)
+for path in (Q / 'work/probes').glob('*.py'):
+    ast.parse(path.read_text())
+    assert str(OLD) not in path.read_text()
+(Q / 'work/probes/test_independent.py').write_text('"""Empty host placeholder. Reviewer must implement real assertions before pytest."""\n')
+for name in ('auth.json', 'models-store.json', 'settings.json'):
+    (Q / 'pi-config' / name).write_text('{}\n')
+for path in (OLD / 'quality/inputs').iterdir():
+    dest = Q / 'inputs' / path.name
+    if path.is_dir():
+        shutil.copytree(path, dest)
+    else:
+        shutil.copyfile(path, dest)
+    if dest.is_file() and dest.suffix in ('.json', '.md', '.diff'):
+        dest.write_text(dest.read_text().replace(str(OLD), str(ROOT)))
+config = json.loads((Q / 'config.json').read_text())
+config.update(request_caps=CAPS, stage_caps=CAPS, request_cap=sum(CAPS.values()))
+(Q / 'config.json').write_text(json.dumps(config, indent=2) + '\n')
+common = (Q / 'prompt-explore.md').read_text().split('\nExplore only:', 1)[0]
+common = common.replace(str({'gateway': 4, 'explore': 14, 'execute': 22, 'report': 1}), str(CAPS))
+paths = [str(Q / 'work/probes' / name) for name in ('test_seeded_c3.py', 'test_earlier_fixture_adapter.py', 'test_independent.py')]
+shape = {'result': {'probe_files': paths, 'claims_examined': [f'C{i}' for i in range(1, 8)],
+                    'provenance': 'First two files are supplied prior-reviewer assertions with host fixture repair; third is empty host placeholder, to be implemented by independent execute reviewer.',
+                    'limits': ['No bash or tests executed in explore. No positive control observed.'],
+                    'next_stage': 'Implement independent assertions before one combined pytest run.'}}
+(Q / 'prompt-explore.md').write_text(common + f'''\nExplore only: read exactly {Q}/inputs/claims.md and {Q}/inputs/source-map.md, then call deliver_stage immediately with the following shape. Do not write files or read product implementation in this stage; execute has the budget for precise source reading and new probe authoring. probe_files must contain ABSOLUTE PATHS ONLY, with no annotations appended. Descriptions belong only in provenance. Do not claim any observation of tests/positive control before execution.\n{json.dumps(shape)}\n''')
+for name in ('prompt-execute.md', 'prompt-report.md'):
+    path = Q / name
+    path.write_text(path.read_text().replace(str({'gateway': 4, 'explore': 14, 'execute': 22, 'report': 1}), str(CAPS)) + '\nUse absolute paths only in path-valued fields. The test_independent.py supplied by host is EMPTY, not a test or prior reviewer result. You must author substantive assertions. Do not count a placeholder as coverage.\n')
+# Explain how to reach the immutable prior-stage content, without transferring a verdict.
+with (Q / 'prompt-execute.md').open('a') as out:
+    out.write(f'\nRead source before writing probes. Explore output is at {Q}/work/phase-context/explore/parsed.json. Use inputs/fixture-manifest.json and read CLI lines1561-1755 to get real receipt filenames. Baseline schema already includes the relevant tables/views. Do not guess verifier option names; read its argparse block. Parent command uses MARKET_FEATURE_STORE_DB for the target COPY and MARKET_FEATURE_STORE_PRODUCTION_DB for a DIFFERENT protected fixture.\n')
+(ROOT / 'prepare-manifest.json').write_text(json.dumps({'source': str(OLD), 'revision': REV, 'caps': CAPS,
+    'prior_execution_receipts_reused': False, 'prior_verdict_reused': False, 'input_fixture_only_reused': True,
+    'failed_batch11_preserved': True, 'copied': records}, indent=2) + '\n')
+print(json.dumps({'revision': REV, 'caps': CAPS}))

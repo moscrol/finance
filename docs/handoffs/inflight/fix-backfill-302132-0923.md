@@ -1,34 +1,28 @@
-# #83 / PR #813
+# #83 / PR813
 
 ## 这个分支做什么
-302132固定回填整合；文档树代码旧，不从此验收/生产。不合main、不动8792/launchd/他股。
-
-## 固定身份
-- 候选 `3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59`
-- 工程基线 `4cc15e703f81bce8abadee00f68caacdb0c72b4d`
-- PR head未变；PR保持open/WIP/unmerged
-- 07-08 main观测 `fe9fdbfd70a637efc5bcf0cfecf74080a8d6a90c`；09-10 main观测 `4db9a42b69b0d30bcf55b2eafb64151a6c1bb317`；均未做组合验收
+302132固定范围回填整合。文档树代码旧，不从本树验收或生产。
 
 ## 当前状态
-**SPEC_SCOPED_DELIVERED_QUALITY_PASS_WITH_LIMITS_C3_NOT_VERIFIED**。批10完成C3限定Quality终稿：gateway4、explore3、execute7、report1；首bash raw exit1且含 `intentional probe_bug`；供应探针10/10 passed、0 failed、0 errors；作者测试0；host evidence audit为 `EVIDENCE_COUNTS_VALID`；终稿 `PASS_WITH_LIMITS` 通过硬门。C3生产形64/39/161未直接观察，故C3 claim仍是`not_verified`，不是完整QC批准。
+**ENGINEERING_PASS_QC_BLOCKED_SANDBOX_IDENTITY_AND_DELIVERY**，未合入就绪。PR813已快进到ae3，继续WIP/open/unmerged；未写生产、未动8792/launchd。
+- 候选 `ae3f812e1c1e142953b657ba41f30fce23e7c14a`，树 `/Users/a77/fwp-wt-backfill-ready-main1751-0925`。
+- 整合main `1751e21e0fd30642e0b223604b64b30e38c46f41`；最新观测 `853c4b7fac1321d2e442bef813b71980143c79b4` 仅文档差异，merge-tree无冲突，不移签收据。
+- 工程根 `~/.finance-runtime/reviews/pr813-ready-main1751-20260925/`；独审最后 `pr813-glm-qc-20260925-20/`，所有自有检查已停止。
 
-## 之前的失败批次
-- 04-06共52请求：06供应10P但终稿schema被拒收，旧归档不改。
-- 07共12请求：explore耗尽8请求无交付。
-- 08共21请求：execute因漏复制两个fixture依赖，collection error。
-- 09共21请求：execute因探针残留旧`/06/candidate`路径，沙箱拒绝，collection error。
-所有批次无自动重试，原始收据均已归档。
+## 决策与被否方案
+保留旧f650结果，main变动后重跑ae3；否决旧绿移签。保留全部失败批次，否决放宽硬门、失败补签及用宿主诊断冲销独审失败。工具是本单证据，不注册成通用产品能力。
 
-## 证据归档
-- 新归档：`docs/verification/2026-09-25-backfill-302132-quality-0710/`，797份、3,803,807字节，manifest SHA `e9bfd26ad6d7c8731e9b7861930c595679843be399abf4bfe533334d8de82943`。
-- 旧归档：`docs/verification/2026-09-25-backfill-302132-quality-continuation/`，保持不改。
-- 最新批次：`/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-10/`
-- 动态状态：`/Users/a77/.finance-runtime/reviews/backfill-302132-0923/CURRENT.json`
+## 已验证
+ae3干净树：Python16259P/0F/93S/2X；定向118P；前端123P、E2E34P/2S；registry5项与full-scope通过。宿主完整库副本父发布/verify/37检查/错误输入及amount负控/父备份恢复通过，生产演练前后不变。
 
-## 未验证 / 禁止动作
-- C3生产形64/39/161未独验；C1/C2/C4-C7未审；最新main组合无工程收据。
-- 供应10P是局部行为证据，不等于完整C3或完整QC。
-- `merge_authorized=false`、`production_authorized=false`、`production_executed=false`。不要合入、不要执行生产回填；生产前必须逐字授权命令、日期、冻结输入和本轮父备份。
+## 未验证 / 已知边界
+批13在f650取得C1-C7 PASS_WITH_LIMITS，不转给ae3。ae3批14/16-19虽25P但无合格终稿；批20实际23P/2F，两例遇沙箱内clean-checkout守卫，事后宿主诊断干净，根因未证实。终稿又含额外claim，未交付。供应探针非模型新写；C6六次嵌入作者函数体调用，standalone作者pytest为0。
 
 ## 下一步
-若继续，先重新核对CURRENT、PR head、main和归档；优先补验C3生产形数量与剩余数据契约，再针对届时最新main执行工程门禁。详见日期交接：`docs/handoffs/2026-09-25-backfill-302132-quality-continuation.md`。
+先零外呼复现冷沙箱git身份并捕获原始输出，再离线验证交付格式，才考虑新有界独审。不得重跑/补签批20。合入与生产授权均false，生产要重新冻结与逐字授权，WAL存在即停。#802已关闭留6446指针。
+
+## 踩过的坑
+16-18首拒收实际是6000字符限额，不是最初判断的claim格式。19来源说明超字段长度；20仍有真实失败。运行根ready-only脚本未执行，不是就绪证据。原全量XML含JWT形内容，只保留本机原件和归档哈希。
+
+## 交接与证据
+详情 `docs/handoffs/2026-09-25-backfill-302132-main1751-continuation.md`；归档 `docs/verification/2026-09-25-backfill-302132-main1751-continuation/`（2738份；批11-20共138请求）。动态 `~/.finance-runtime/reviews/backfill-302132-0923/CURRENT.json`；文档提交/远端SHA以该指针最终核对为准。

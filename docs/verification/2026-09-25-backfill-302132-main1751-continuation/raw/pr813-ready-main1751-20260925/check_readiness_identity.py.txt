@@ -1,0 +1,39 @@
+"""Record exact current-main mergeability and product identity without publishing."""
+import hashlib
+import json
+from pathlib import Path
+import subprocess
+
+ROOT = Path(__file__).resolve().parent
+TREE = Path('/Users/a77/fwp-wt-backfill-ready-main1751-0925')
+REV = 'ae3f812e1c1e142953b657ba41f30fce23e7c14a'
+BASE = '1751e21e0fd30642e0b223604b64b30e38c46f41'
+OLD = 'f650d9e765e127c7e66a621226cc2d676d70075d'
+paths = ['market_feature_store/cli.py', 'market_feature_store/sync/repair_backfill_stock_history.py',
+         'scripts/verify_302132_backfill_acceptance.py', 'scripts/review_probes/rehearse_302132_backfill.py',
+         'tests/test_repair_backfill_stock_history.py', 'tests/test_rehearse_302132_backfill.py']
+commands = []
+
+def git(*args):
+    argv = ['git', '-C', str(TREE), *args]
+    result = subprocess.run(argv, capture_output=True, text=True, timeout=60)
+    commands.append({'argv': argv, 'exit_code': result.returncode, 'stdout': result.stdout, 'stderr': result.stderr})
+    assert result.returncode == 0
+    return result.stdout.strip()
+
+assert git('rev-parse', 'HEAD') == REV
+assert not git('status', '--porcelain')
+assert git('ls-remote', 'gitea', 'refs/heads/main').split()[0] == BASE
+git('merge-base', '--is-ancestor', BASE, REV)
+git('merge-base', '--is-ancestor', '3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59', REV)
+merge_tree = git('merge-tree', '--write-tree', BASE, REV)
+assert merge_tree == git('rev-parse', REV + '^{tree}')
+assert not git('diff', '--exit-code', OLD, REV, '--', *paths)
+value = {'revision': REV, 'integrated_main': BASE, 'dirty': False, 'merge_tree': merge_tree,
+         'prior_product_code_unchanged': OLD, 'commands': commands,
+         'source_sha256': {name: hashlib.sha256((TREE / name).read_bytes()).hexdigest() for name in paths},
+         'merge_authorized': False, 'production_authorized': False}
+with (ROOT / 'readiness-identity.json').open('x') as stream:
+    json.dump(value, stream, indent=2)
+    stream.write('\n')
+print(json.dumps({'revision': REV, 'merge_tree': merge_tree, 'main': BASE, 'clean': True}))

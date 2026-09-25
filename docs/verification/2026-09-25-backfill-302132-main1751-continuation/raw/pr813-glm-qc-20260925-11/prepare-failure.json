@@ -1,0 +1,9 @@
+{
+  "phase": "host_fixture_preparation",
+  "requests": 0,
+  "product_executed": false,
+  "error": "DuckDB ParserException: ATTACH cannot bind a positional parameter",
+  "source_script": "prepare-v1-failed.py",
+  "partial_files": "prepare-partial-failed",
+  "resolution": "Quote the fixed host-owned absolute path as a DuckDB string literal; retain original failed script and fixture. Reuse only verified clean standalone clone."
+}

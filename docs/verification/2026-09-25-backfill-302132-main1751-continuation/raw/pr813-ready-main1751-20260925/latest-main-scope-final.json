@@ -1,0 +1,16 @@
+{
+  "argv": [
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "scripts/check_test_receipt.py",
+    "/Users/a77/.finance-runtime/reviews/pr813-ready-main1751-20260925/python-receipts/gate-tAxX1y1K/pytest.json",
+    "--expect-revision",
+    "ae3f812e1c1e142953b657ba41f30fce23e7c14a",
+    "--require-full-scope",
+    "--base-drift-max",
+    "5"
+  ],
+  "exit_code": 0,
+  "stdout": "========================================================================\n读数收据校验 — 判「能不能采信」，不重跑测试\n========================================================================\n  收据     /Users/a77/.finance-runtime/reviews/pr813-ready-main1751-20260925/python-receipts/gate-tAxX1y1K/pytest.json\n  产生于   2026-09-25T04:53:51+00:00\n  来自树   /Users/a77/fwp-wt-backfill-ready-main1751-0925\n  目标     /Users/a77/fwp-wt-backfill-ready-main1751-0925\n  读数     passed=16259 failed=0 error=0 skipped=93\n\n  ✓ 执行读数 16259 条（passed+failed+error）\n  ✓ 收集面未被收窄（collected=16354）\n  ✓ 收执对账平：collected=16354 == 读数合计=16354\n  ✓ revision 一致\n  ✓ 解释器一致\n  ✓ python 版本一致\n  ✓ 依赖指纹一致\n  ✓ 收据来自干净树\n  ✓ 依赖门禁未被绕过\n  ✓ 收据 revision == ae3f812e1c1e\n  ✓ 基座漂移 1 ≤ 5\n\n✅ 可采信 —— 收据成立的条件与当前环境一致，无需重跑。\n",
+  "stderr": "",
+  "observed_main": "853c4b7fac1321d2e442bef813b71980143c79b4"
+}

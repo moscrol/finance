@@ -1,0 +1,23 @@
+"""Read running receipts without interpreting incomplete logs as a pass."""
+import json
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent
+for label in ('focused', 'rehearsal', 'frontend', 'python', 'scope'):
+    path = ROOT / f'{label}.command.json'
+    value = json.loads(path.read_text()) if path.exists() else {}
+    print(json.dumps({'check': label, 'exit_code': value.get('exit_code'),
+                      'seconds': value.get('seconds'), 'state': 'complete' if value else 'pending_or_running'}))
+logs = list((ROOT / 'python-receipts').glob('gate-*/pytest.log.txt'))
+if logs:
+    lines = logs[0].read_text().splitlines()
+    print(json.dumps({'python_last_raw_lines': lines[-4:]}))
+for batch in (11, 12):
+    base = ROOT.parent / f'pr813-glm-qc-20260925-{batch}'
+    stages = {}
+    for stage in ('gateway', 'explore', 'execute', 'report'):
+        path = base / 'quality' / f'{stage}.controller.json'
+        if path.exists():
+            value = json.loads(path.read_text())
+            stages[stage] = {k: value.get(k) for k in ('status', 'stage_status', 'shim_counts')}
+    print(json.dumps({'review_batch': batch, 'stages': stages}))

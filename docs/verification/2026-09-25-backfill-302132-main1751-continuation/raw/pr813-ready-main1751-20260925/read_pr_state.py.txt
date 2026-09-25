@@ -1,0 +1,20 @@
+"""Capture only public PR identity and replacement-pointer status."""
+import json
+from pathlib import Path
+import sys
+
+ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, '/Users/a77/fwp-wt-backfill-302132-0923')
+from scripts import gitea_pr
+
+rows = {}
+for number in (802, 813):
+    value = gitea_pr._api('GET', f'/pulls/{number}')
+    comments = gitea_pr._api('GET', f'/issues/{number}/comments?limit=100')
+    rows[str(number)] = {key: value.get(key) for key in ('number', 'state', 'title', 'merged', 'draft', 'html_url')}
+    rows[str(number)].update(head=value['head']['sha'], branch=value['head']['ref'],
+                            pointer_comments=[{'id': c['id'], 'body': c['body'], 'url': c.get('html_url')} for c in comments if number == 802 and ('813' in c.get('body', '') or '替代' in c.get('body', ''))])
+with (ROOT / 'pr-state-before.json').open('x') as stream:
+    json.dump(rows, stream, ensure_ascii=False, indent=2)
+    stream.write('\n')
+print(json.dumps(rows, ensure_ascii=False))

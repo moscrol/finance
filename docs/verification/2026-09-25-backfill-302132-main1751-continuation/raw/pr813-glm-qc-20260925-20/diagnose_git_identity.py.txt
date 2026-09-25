@@ -1,0 +1,25 @@
+"""Host-only read-only diagnosis of sandbox vs host git identity; no pytest rerun."""
+import json
+from pathlib import Path
+import subprocess
+
+ROOT = Path(__file__).resolve().parent
+CAND = ROOT / 'candidate'
+Q = ROOT / 'quality'
+ENV = {'HOME': str(Q / 'work'), 'PATH': '/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin',
+       'LANG': 'C.UTF-8', 'TMPDIR': str(Q / 'work/tmp'), 'GIT_OPTIONAL_LOCKS': '0',
+       'PYTHONDONTWRITEBYTECODE': '1', 'PYTHONPATH': str(CAND)}
+commands = [
+    ['git', 'status', '--porcelain'],
+    ['/usr/bin/sandbox-exec', '-f', str(Q / 'tools.sb'), 'git', 'status', '--porcelain'],
+    ['/usr/bin/sandbox-exec', '-f', str(Q / 'tools.sb'), '/Users/a77/finance-workspace-private/.venv-workbench/bin/python', '-B', '-c',
+     'from market_feature_store.sync.repair_backfill_stock_history import _code_revision; print(_code_revision())'],
+]
+rows = []
+for argv in commands:
+    result = subprocess.run(argv, cwd=CAND, env=ENV, capture_output=True, text=True, timeout=30)
+    rows.append({'argv': argv, 'exit_code': result.returncode, 'stdout': result.stdout, 'stderr': result.stderr})
+with (ROOT / 'host-git-identity-diagnostic.json').open('x') as stream:
+    json.dump({'classification': 'host-only diagnostic, not reviewer rerun or approval', 'commands': rows}, stream, indent=2)
+    stream.write('\n')
+print(json.dumps(rows))

@@ -1,0 +1,159 @@
+"""Reviewer QC probe C3 v2 (PR #813): acceptance oracle for outside-window rows.
+
+Challenges candidate/scripts/verify_302132_backfill_acceptance.py (main ->
+_data_checks). Fixture helper reused from author tests; ALL assertions are the
+reviewer's own. Synthetic DuckDB inside quality/work only. No production run.
+
+v2 fix: sys.path setup before importing the author test module (v1 import of
+market_feature_store would fail without candidate root on sys.path); removed the
+intentional-control test (positive control is the separate standalone script).
+"""
+from __future__ import annotations
+
+import json
+import os
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+import pytest
+
+CAND = Path("/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-14/candidate")
+TESTS = CAND / "tests" / "test_repair_backfill_stock_history.py"
+ACCEPT = CAND / "scripts" / "verify_302132_backfill_acceptance.py"
+
+import importlib.util
+
+sys.path.insert(0, str(CAND))
+spec = importlib.util.spec_from_file_location("t302132", TESTS)
+t = importlib.util.module_from_spec(spec)
+sys.modules["t302132"] = t
+spec.loader.exec_module(t)
+
+OTHER = "000001.SZ"
+LATER = "2026-09-22"
+LATER2 = "2026-09-23"
+
+
+def _subprocess_env() -> dict[str, str]:
+    return {
+        "HOME": os.environ.get("HOME", str(Path.home())),
+        "PATH": os.environ.get("PATH", os.defpath),
+        "LANG": "C.UTF-8",
+        "TMPDIR": os.environ.get("TMPDIR", "/tmp"),
+        "FWP_TEST_RECEIPT": "0",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "PYTHONPATH": str(CAND),
+    }
+
+
+def _run(clone: Path, art: dict, out: Path) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        [sys.executable, str(ACCEPT), "--production", str(art["baseline"]),
+         "--clone", str(clone), "--parquet", str(art["pq"]),
+         "--run-apply", t.APPLY_RUN, "--run-verify", t.VERIFY_RUN,
+         "--expected-revision", t.E2E_REV,
+         "--expected-production-sha256", art["base_sha"],
+         "--output", str(out)],
+        capture_output=True, text=True, timeout=110, env=_subprocess_env())
+
+
+def _base(tmp_path: Path) -> dict:
+    """Author fixture + a later (outside-window) row in BOTH baseline & clone,
+    receipts' backup sha rebound to the modified baseline."""
+    import duckdb
+    art = t._build_e2e_artifacts(tmp_path)
+    for p in (art["baseline"], art["clone"]):
+        with duckdb.connect(str(p)) as con:
+            con.execute(
+                "INSERT INTO fact_stock_daily SELECT * REPLACE "
+                "(DATE '" + LATER + "' AS trade_date) FROM fact_stock_daily "
+                "WHERE stock_ts_code=? AND trade_date=?",
+                [art["spec"].code, art["spec"].window_end])
+    art["base_sha"] = t.mod._sha256(art["baseline"])
+    for rid in (t.APPLY_RUN, t.VERIFY_RUN):
+        p = Path(str(art["clone"]) + f".repair-backfill-execution.{rid}.json")
+        rec = json.loads(p.read_text())
+        rec["backup"]["backup_sha256"] = art["base_sha"]
+        p.write_text(json.dumps(rec))
+    return art
+
+
+def _mutated_clone(tmp_path: Path, art: dict, mutation: str) -> Path:
+    import duckdb
+    clone = tmp_path / "clone_mut.duckdb"
+    shutil.copy(str(art["clone"]), str(clone))
+    with duckdb.connect(str(clone)) as con:
+        if mutation == "none":
+            pass
+        elif mutation == "amount":
+            con.execute("UPDATE fact_stock_daily SET amount=amount+1 "
+                        "WHERE stock_ts_code=? AND trade_date=DATE '" + LATER + "'",
+                        [art["spec"].code])
+        elif mutation == "timestamp":
+            con.execute("UPDATE fact_stock_daily SET updated_at="
+                        "TIMESTAMP '2026-09-23 12:00:00' WHERE stock_ts_code=? "
+                        "AND trade_date=DATE '" + LATER + "'", [art["spec"].code])
+        elif mutation == "delete":
+            con.execute("DELETE FROM fact_stock_daily WHERE stock_ts_code=? "
+                        "AND trade_date=DATE '" + LATER + "'", [art["spec"].code])
+        elif mutation == "insert":
+            con.execute("INSERT INTO fact_stock_daily SELECT * REPLACE "
+                        "(DATE '" + LATER2 + "' AS trade_date) FROM "
+                        "fact_stock_daily WHERE stock_ts_code=? AND "
+                        "trade_date=DATE '" + LATER + "'", [art["spec"].code])
+        elif mutation == "duplicate":
+            # DISCLOSURE: clone-only CTAS rebuild removes the PK constraint so
+            # an exact duplicate row can exist; adversarial multiset-oracle
+            # probe only — real PK would itself block duplicates.
+            con.execute("BEGIN")
+            con.execute("CREATE TABLE fsd_nopk AS SELECT * FROM fact_stock_daily")
+            con.execute("DROP TABLE fact_stock_daily")
+            con.execute("ALTER TABLE fsd_nopk RENAME TO fact_stock_daily")
+            con.execute("INSERT INTO fact_stock_daily SELECT * FROM "
+                        "fact_stock_daily WHERE stock_ts_code=? AND "
+                        "trade_date=DATE '" + LATER + "'", [art["spec"].code])
+            con.execute("COMMIT")
+        elif mutation == "other_stock":
+            con.execute("UPDATE fact_stock_daily SET amount=amount+1 "
+                        "WHERE stock_ts_code=? AND trade_date=DATE '" + LATER + "'",
+                        [OTHER])
+        else:
+            raise ValueError(mutation)
+    return clone
+
+
+def _fail_check(res, out: Path, must_fail: str) -> dict:
+    __tracebackhide__ = True
+    assert res.returncode == 2, (res.returncode, res.stdout, res.stderr)
+    assert out.exists()
+    v = json.loads(out.read_text())
+    assert v["verdict"] == "FAIL", v
+    assert must_fail in v["failed"], (must_fail, v["failed"])
+    return v
+
+
+MUTS = ["amount", "timestamp", "delete", "insert", "duplicate", "other_stock"]
+EXPECT_CHECK = {"other_stock": "fact_other_stocks_allcols",
+                "insert": "target_outside_window_allcols"}
+
+
+@pytest.mark.parametrize("mutation", MUTS)
+def test_outside_window_mutation_fails(tmp_path, mutation):
+    art = _base(tmp_path)
+    clone = _mutated_clone(tmp_path, art, mutation)
+    out = tmp_path / "out.json"
+    res = _run(clone, art, out)
+    _fail_check(res, out, EXPECT_CHECK.get(
+        mutation, "target_outside_window_allcols"))
+
+
+def test_baseline_pass(tmp_path):
+    art = _base(tmp_path)
+    clone = _mutated_clone(tmp_path, art, "none")
+    out = tmp_path / "out.json"
+    res = _run(clone, art, out)
+    assert res.returncode == 0, (res.stdout, res.stderr)
+    v = json.loads(out.read_text())
+    assert v["verdict"] == "PASS" and v["failed"] == [], v
