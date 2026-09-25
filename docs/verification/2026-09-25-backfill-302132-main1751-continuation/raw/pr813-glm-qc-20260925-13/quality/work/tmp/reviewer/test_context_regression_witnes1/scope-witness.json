@@ -1,0 +1,17 @@
+{
+  "copied_author_body": "test_cli_parent_preflight_blocks_on_open_permission_error",
+  "standalone_author_pytest_runs": 0,
+  "body_invocations": 2,
+  "observations": [
+    {
+      "mutated": false,
+      "restored_before_fixture_cleanup": true,
+      "body_assertion_error": null
+    },
+    {
+      "mutated": true,
+      "restored_before_fixture_cleanup": false,
+      "body_assertion_error": null
+    }
+  ]
+}

@@ -1,0 +1,5 @@
+[staging] 克隆生产库 -> copy.duckdb.staging (clonefile, 0.004s, 10235904 bytes)
+[staging] 子进程同步 pid=7458 (写锁只落在 staging, 生产库无锁)
+回填护栏/验收不通过，未发布: 冻结 parquet 哈希不符: 78caa3dbaeb227ebd9b87ff5f74f19670714955f7ee302ee38174322e8599b03
+[staging] 子进程未写出 status.json (rc=2), 视为未跑完管道, 不换名
+回填状态: BLOCKED | 生产库未动 | 子进程未写出 status.json (rc=2), 视为未跑完管道, 不换名

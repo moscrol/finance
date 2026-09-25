@@ -1,0 +1,16 @@
+{
+  "argv": [
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "-B",
+    "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-18/candidate/scripts/review_probes/rehearse_302132_backfill.py",
+    "--production",
+    "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-18/quality/inputs/production-slice.duckdb",
+    "--parquet",
+    "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-18/quality/inputs/frozen.parquet",
+    "--output",
+    "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-18/quality/work/tmp/reviewer/test_real_date_parent_rehearsa0/real-date-rehearsal"
+  ],
+  "exit": 0,
+  "stdout": "{\"ok\": true, \"error\": null, \"output\": \"/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-18/quality/work/tmp/reviewer/test_real_date_parent_rehearsa0/real-date-rehearsal\"}\n",
+  "stderr": ""
+}

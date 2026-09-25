@@ -1,0 +1,9 @@
+[staging] 克隆生产库 -> copy.duckdb.staging (clonefile, 0.013s, 14954496 bytes)
+[staging] 子进程同步 pid=97293 (写锁只落在 staging, 生产库无锁)
+回填完成: 302132.SZ 窗内 39 technical / 161 window，保护切片指纹不变，报告 /Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-16/quality/work/tmp/reviewer/test_real_date_parent_rehearsa0/real-date-rehearsal/copy.duckdb.staging.backfill-report.47eda40be1ab.json
+[staging] 校验通过: 表 72>=72, fact_market_daily 覆盖到 2026-09-22
+[staging] 换名前备份: /Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-16/quality/work/tmp/reviewer/test_real_date_parent_rehearsa0/real-date-rehearsal/copy.duckdb.bak-20260925T123817-47eda40be1ab (sha256=3400a43f2889520d…)
+[staging] 原子换名完成 (0.067s), 收据 run_id=47eda40be1ab
+回填状态: OK | 已原子换库
+换库前备份: /Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-16/quality/work/tmp/reviewer/test_real_date_parent_rehearsa0/real-date-rehearsal/copy.duckdb.bak-20260925T123817-47eda40be1ab (sha256=3400a43f2889520d…, 恢复步骤见同级 .receipt.json)
+执行收据: /Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-16/quality/work/tmp/reviewer/test_real_date_parent_rehearsa0/real-date-rehearsal/copy.duckdb.repair-backfill-execution.47eda40be1ab.json

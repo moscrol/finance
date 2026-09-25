@@ -1,0 +1,17 @@
+{
+  "copied_author_body": "test_refused_receipt_eexist_race_keeps_other_writers_file",
+  "standalone_author_pytest_runs": 0,
+  "body_invocations": 2,
+  "observations": [
+    {
+      "mutated": false,
+      "restored_before_fixture_cleanup": true,
+      "body_assertion_error": null
+    },
+    {
+      "mutated": true,
+      "restored_before_fixture_cleanup": false,
+      "body_assertion_error": "AssertionError()"
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "label": "refused-parent",
+  "argv": [
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "-m",
+    "market_feature_store.cli",
+    "repair-backfill-302132",
+    "--parquet",
+    "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-19/quality/work/tmp/reviewer/test_real_date_parent_rehearsa0/real-date-rehearsal/wrong.parquet"
+  ],
+  "expected_exit": 2,
+  "exit_code": 2,
+  "seconds": 0.374
+}

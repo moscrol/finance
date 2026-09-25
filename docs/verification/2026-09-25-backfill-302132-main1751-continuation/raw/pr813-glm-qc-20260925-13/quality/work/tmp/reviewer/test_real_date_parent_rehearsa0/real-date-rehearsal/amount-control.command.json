@@ -1,0 +1,26 @@
+{
+  "label": "amount-control",
+  "argv": [
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-13/candidate/scripts/verify_302132_backfill_acceptance.py",
+    "--production",
+    "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-13/quality/work/tmp/reviewer/test_real_date_parent_rehearsa0/real-date-rehearsal/baseline.duckdb",
+    "--clone",
+    "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-13/quality/work/tmp/reviewer/test_real_date_parent_rehearsa0/real-date-rehearsal/copy.duckdb",
+    "--parquet",
+    "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-13/quality/work/tmp/reviewer/test_real_date_parent_rehearsa0/real-date-rehearsal/frozen.parquet",
+    "--run-apply",
+    "9bee09824f80",
+    "--run-verify",
+    "207d080f1b09",
+    "--expected-revision",
+    "f650d9e765e127c7e66a621226cc2d676d70075d",
+    "--expected-production-sha256",
+    "4c2d1b7e53770e9daead4af503e466a815d371294c22b3b4b6909fdd4da2ca26",
+    "--output",
+    "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-13/quality/work/tmp/reviewer/test_real_date_parent_rehearsa0/real-date-rehearsal/amount-control.json"
+  ],
+  "expected_exit": 2,
+  "exit_code": 2,
+  "seconds": 0.819
+}

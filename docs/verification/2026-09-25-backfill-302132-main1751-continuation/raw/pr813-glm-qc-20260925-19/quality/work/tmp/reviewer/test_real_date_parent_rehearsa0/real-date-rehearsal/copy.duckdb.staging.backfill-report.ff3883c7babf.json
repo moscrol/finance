@@ -1,0 +1,28 @@
+{
+  "spec_version": "302132-backfill-2026-09-14-v1",
+  "code": "302132.SZ",
+  "parquet_sha256": "51f9ee9cba1ceb4a6ff50c4c4dce8267cb39f78add28d6a33699cbf90bf28d17",
+  "code_revision": "ae3f812e1c1e142953b657ba41f30fce23e7c14a",
+  "code_dirty": false,
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "parallel_source_md5": "2ddb4224900b3b8e30a85ac0c9b89ffc",
+  "mode": "verify",
+  "technical_rows": 39,
+  "window_rows": 161,
+  "window_counts": {
+    "5": 59,
+    "10": 54,
+    "20": 44,
+    "60": 4
+  },
+  "technical_staged": 39,
+  "protected_slices": {
+    "fact_other": 741,
+    "tech_protected": 414,
+    "win_protected": 412
+  },
+  "run_id": "ff3883c7babf",
+  "trade_date": "2026-09-11",
+  "kind": "repair-backfill-302132",
+  "ok": true
+}

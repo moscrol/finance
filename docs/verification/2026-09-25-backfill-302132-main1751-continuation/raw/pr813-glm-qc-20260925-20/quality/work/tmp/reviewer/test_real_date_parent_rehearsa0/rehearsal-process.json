@@ -1,0 +1,16 @@
+{
+  "argv": [
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "-B",
+    "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-20/candidate/scripts/review_probes/rehearse_302132_backfill.py",
+    "--production",
+    "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-20/quality/inputs/production-slice.duckdb",
+    "--parquet",
+    "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-20/quality/inputs/frozen.parquet",
+    "--output",
+    "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-20/quality/work/tmp/reviewer/test_real_date_parent_rehearsa0/real-date-rehearsal"
+  ],
+  "exit": 1,
+  "stdout": "",
+  "stderr": "Traceback (most recent call last):\n  File \"/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-20/candidate/scripts/review_probes/rehearse_302132_backfill.py\", line 243, in <module>\n    raise SystemExit(main())\n                     ^^^^^^\n  File \"/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-20/candidate/scripts/review_probes/rehearse_302132_backfill.py\", line 239, in main\n    return run(parser.parse_args())\n           ^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-20/candidate/scripts/review_probes/rehearse_302132_backfill.py\", line 78, in run\n    raise ValueError(\"rehearsal requires a clean committed checkout\")\nValueError: rehearsal requires a clean committed checkout\n"
+}

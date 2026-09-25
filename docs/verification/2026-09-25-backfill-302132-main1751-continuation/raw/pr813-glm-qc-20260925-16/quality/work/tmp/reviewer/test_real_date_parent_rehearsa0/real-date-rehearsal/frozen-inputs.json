@@ -1,0 +1,140 @@
+{
+  "revision": "ae3f812e1c1e142953b657ba41f30fce23e7c14a",
+  "dirty": false,
+  "commands": [],
+  "ok": false,
+  "production_before": {
+    "path": "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-16/quality/inputs/production-slice.duckdb",
+    "size": 10235904,
+    "mtime_ns": 1790311001238458374,
+    "inode": 268281765,
+    "freshness": {
+      "fact_auction_hithink": "None",
+      "fact_auction_stock_daily": "None",
+      "fact_core_leader_daily": "None",
+      "fact_core_stock_daily": "None",
+      "fact_dragon_hot_money_hithink": "None",
+      "fact_dragon_seat_daily": "None",
+      "fact_dragon_summary_daily": "None",
+      "fact_dragon_tiger_daily": "None",
+      "fact_dragon_tiger_hithink": "None",
+      "fact_global_index_daily": "None",
+      "fact_global_stock_daily": "None",
+      "fact_hot_stock_rank_hithink": "None",
+      "fact_leader_height_daily": "None",
+      "fact_limit_advance_daily": "None",
+      "fact_limit_advance_presence": "None",
+      "fact_limit_pool_hithink": "None",
+      "fact_mainline_sector_daily": "None",
+      "fact_mainline_stock_daily": "None",
+      "fact_mainline_theme_daily": "None",
+      "fact_market_daily": "2026-09-22",
+      "fact_polymarket_macro_odds_daily": "None",
+      "fact_sector_daily": "None",
+      "fact_sector_daily_generation": "None",
+      "fact_sector_kline_daily": "None",
+      "fact_sector_period_rank_daily": "None",
+      "fact_sector_stock_daily": "2026-09-18",
+      "fact_sector_stock_daily_generation": "2026-09-18",
+      "fact_sector_universe_daily": "None",
+      "fact_stock_daily": "2026-09-22",
+      "fact_stock_daily_hithink": "2026-09-22",
+      "fact_stock_high_daily": "None",
+      "fact_stock_technical_snapshot": "None",
+      "fact_sw_l1_daily": "None",
+      "fact_theme_flow_daily": "None",
+      "fact_theme_limit_heat_daily": "None",
+      "fact_theme_limit_stock_daily": "None"
+    }
+  },
+  "free_bytes_before": 48322707456,
+  "baseline_copy": {
+    "method": "clonefile",
+    "seconds": 0.008,
+    "bytes": 10235904
+  },
+  "baseline_sha256": "4c2d1b7e53770e9daead4af503e466a815d371294c22b3b4b6909fdd4da2ca26",
+  "parquet_sha256": "51f9ee9cba1ceb4a6ff50c4c4dce8267cb39f78add28d6a33699cbf90bf28d17",
+  "target_copy": {
+    "method": "clonefile",
+    "seconds": 0.009,
+    "bytes": 10235904
+  },
+  "values_before": {
+    "rows": 11,
+    "non_null": {
+      "close": 10,
+      "pct_chg": 10,
+      "amount": 10
+    },
+    "identical_adjacent_values": [],
+    "values": [
+      [
+        "2026-06-15",
+        61.35,
+        -3.86,
+        8.92
+      ],
+      [
+        "2026-06-16",
+        60.9,
+        -0.1,
+        4.39
+      ],
+      [
+        "2026-06-18",
+        59.33,
+        -1.4452,
+        4.1855
+      ],
+      [
+        "2026-06-22",
+        60.25,
+        1.55,
+        4.97
+      ],
+      [
+        "2026-06-23",
+        null,
+        null,
+        null
+      ],
+      [
+        "2026-06-25",
+        57.9,
+        -0.09,
+        4.06
+      ],
+      [
+        "2026-06-26",
+        57.08,
+        -1.42,
+        4.4
+      ],
+      [
+        "2026-07-01",
+        58.5,
+        0.31,
+        5.65
+      ],
+      [
+        "2026-07-07",
+        56.69,
+        -0.74,
+        3.29
+      ],
+      [
+        "2026-07-09",
+        55.81,
+        0.5,
+        3.52
+      ],
+      [
+        "2026-09-11",
+        63.42,
+        -1.45,
+        5.9863
+      ]
+    ]
+  }
+}

@@ -1,0 +1,262 @@
+{
+  "verdict": "PASS",
+  "expected_revision": "ae3f812e1c1e142953b657ba41f30fce23e7c14a",
+  "runs": {
+    "apply": "9348aad2c0d1",
+    "verify": "0f33a6795645"
+  },
+  "checks": [
+    {
+      "name": "args_expected_revision_format",
+      "ok": true,
+      "detail": "ae3f812e1c1e142953b657ba41f30fce23e7c14a"
+    },
+    {
+      "name": "args_expected_production_sha256_format",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "args_run_ids_distinct_nonempty",
+      "ok": true,
+      "detail": {
+        "apply": "9348aad2c0d1",
+        "verify": "0f33a6795645"
+      }
+    },
+    {
+      "name": "inputs_regular_files",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "name": "clone_is_not_production_alias",
+      "ok": true,
+      "detail": {
+        "production": "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-17/quality/work/tmp/reviewer/test_real_date_parent_rehearsa0/real-date-rehearsal/baseline.duckdb",
+        "clone": "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-17/quality/work/tmp/reviewer/test_real_date_parent_rehearsa0/real-date-rehearsal/copy.duckdb"
+      }
+    },
+    {
+      "name": "production_sha256_before",
+      "ok": true,
+      "detail": {
+        "expected": "4c2d1b7e53770e9d",
+        "actual": "4c2d1b7e53770e9d"
+      }
+    },
+    {
+      "name": "receipt_apply_readable",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "receipt_verify_readable",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "receipts_apply_verify_present",
+      "ok": true,
+      "detail": [
+        "apply",
+        "verify"
+      ]
+    },
+    {
+      "name": "receipt_apply_schema",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "name": "receipt_verify_schema",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "name": "receipt_apply_child_report_file",
+      "ok": true,
+      "detail": "与父收据嵌入子报告深比较"
+    },
+    {
+      "name": "receipt_verify_child_report_file",
+      "ok": true,
+      "detail": "与父收据嵌入子报告深比较"
+    },
+    {
+      "name": "backup_apply_identity",
+      "ok": true,
+      "detail": {
+        "expected": "4c2d1b7e53770e9d",
+        "actual": "4c2d1b7e53770e9d"
+      }
+    },
+    {
+      "name": "backup_verify_identity",
+      "ok": true,
+      "detail": {
+        "expected": "be7c566a8d999ddd",
+        "actual": "be7c566a8d999ddd"
+      }
+    },
+    {
+      "name": "backup_apply_matches_baseline",
+      "ok": true,
+      "detail": "apply 备份 sha == 基线 sha（换库前生产身份）"
+    },
+    {
+      "name": "spec_alignment_apply_verify",
+      "ok": true,
+      "detail": "apply/verify 授权 spec 深比较（同输入同合同前提）"
+    },
+    {
+      "name": "parquet_readable",
+      "ok": true,
+      "detail": "51f9ee9cba1ceb4a"
+    },
+    {
+      "name": "parquet_identity_apply",
+      "ok": true,
+      "detail": {
+        "spec": "51f9ee9cba1ceb4a",
+        "actual": "51f9ee9cba1ceb4a"
+      }
+    },
+    {
+      "name": "parquet_identity_verify",
+      "ok": true,
+      "detail": {
+        "spec": "51f9ee9cba1ceb4a",
+        "actual": "51f9ee9cba1ceb4a"
+      }
+    },
+    {
+      "name": "fact_other_stocks_allcols",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "retained_rows_full_column_identical",
+      "ok": true,
+      "detail": {
+        "rows": 10,
+        "expected": 10
+      }
+    },
+    {
+      "name": "target_outside_window_allcols",
+      "ok": true,
+      "detail": [
+        0,
+        0
+      ]
+    },
+    {
+      "name": "hithink_source_untouched",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "hithink_adjustment_untouched",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "parallel_source_md5_binding",
+      "ok": true,
+      "detail": {
+        "recomputed": "2ddb4224900b3b8e30a85ac0c9b89ffc",
+        "rows": 62,
+        "apply": "2ddb4224900b3b8e30a85ac0c9b89ffc",
+        "verify": "2ddb4224900b3b8e30a85ac0c9b89ffc"
+      }
+    },
+    {
+      "name": "keyset_fullfield_oracle",
+      "ok": true,
+      "detail": {
+        "rows": 54,
+        "keys": 54,
+        "bad": []
+      }
+    },
+    {
+      "name": "technical_protected_allcols",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "window_protected_allcols",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "window_golden_triples",
+      "ok": true,
+      "detail": {
+        "actual": 161,
+        "golden": 161
+      }
+    },
+    {
+      "name": "expected_window_counts_match_golden",
+      "ok": true,
+      "detail": {
+        "golden": {
+          "5": 59,
+          "10": 54,
+          "20": 44,
+          "60": 4
+        },
+        "spec": {
+          "5": 59,
+          "10": 54,
+          "20": 44,
+          "60": 4
+        }
+      }
+    },
+    {
+      "name": "technical_exact_set",
+      "ok": true,
+      "detail": 39
+    },
+    {
+      "name": "expected_technical_count_matches_calendar",
+      "ok": true,
+      "detail": {
+        "spec": 39,
+        "calendar": 39
+      }
+    },
+    {
+      "name": "pinned_technical_target_day",
+      "ok": true,
+      "detail": [
+        59.8542,
+        2.6845,
+        61.9052,
+        2.45
+      ]
+    },
+    {
+      "name": "pinned_windows_target_day",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "market_daily_untouched",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "production_sha256_after",
+      "ok": true,
+      "detail": {
+        "expected": "4c2d1b7e53770e9d",
+        "actual": "4c2d1b7e53770e9d"
+      }
+    }
+  ],
+  "failed": []
+}

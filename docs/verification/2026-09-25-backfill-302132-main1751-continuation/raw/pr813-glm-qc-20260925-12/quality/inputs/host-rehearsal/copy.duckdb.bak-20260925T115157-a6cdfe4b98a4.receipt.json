@@ -1,0 +1,21 @@
+{
+  "kind": "pre-swap-backup",
+  "run_id": "a6cdfe4b98a4",
+  "created_at": "2026-09-25T11:52:01",
+  "source_db": "/Users/a77/.finance-runtime/reviews/pr813-ready-20260925/rehearsal/copy.duckdb",
+  "source_size_bytes": 3855626240,
+  "source_mtime_ns": 1790308293569873291,
+  "backup_path": "/Users/a77/.finance-runtime/reviews/pr813-ready-20260925/rehearsal/copy.duckdb.bak-20260925T115157-a6cdfe4b98a4",
+  "backup_sha256": "be27e5b24007c0359d0f1ce4aa89da76faaebaf8de0eb4597395396ee3b4e359",
+  "backup_bytes": 3855626240,
+  "copy_method": "clonefile",
+  "readability_check": "read_only 打开成功, 68 张表",
+  "restore_steps": [
+    "1. 确认无活跃写者/读者（probe_no_active_writer 或 lsof）",
+    "2. 校验备份指纹: shasum -a 256 copy.duckdb.bak-20260925T115157-a6cdfe4b98a4 应等于 receipt 的 backup_sha256",
+    "3. 若 target 处有残留 WAL 先删除: copy.duckdb.wal",
+    "4. cp -c copy.duckdb.bak-20260925T115157-a6cdfe4b98a4 copy.duckdb（同卷 clonefile；跨卷用 cp）",
+    "5. 只读打开 target 抽查行数，确认恢复完成后再让读写方上线",
+    "6. 验证通过后备份可人工删除（3.6G 量级，别长期留）"
+  ]
+}
