@@ -1,0 +1,93 @@
+{
+  "status": "PASS",
+  "real_model_requests": 0,
+  "independent_candidate_tests": 0,
+  "runs": [
+    {
+      "role": "controller_preflight",
+      "exit_code": 1,
+      "log": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-09/execution-boundary-preflight-v3-1790355110590488000/controller_preflight.log.txt",
+      "markers": [
+        {
+          "path": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-09/evidence/controller-v3/controller_preflight-1790355110619075000/receipt.json",
+          "sha256": "7ccc9358c87f6a7fdf8066a317952e8524ab68b38ce34d888e44bc79ad4f64a0",
+          "exit_code": 1,
+          "counts": {
+            "tests": 10,
+            "passed": 9,
+            "failed": 1,
+            "errors": 0,
+            "skipped": 0,
+            "xfailed": 0,
+            "collected": 10,
+            "collected_source": "pytest_stdout"
+          },
+          "blocked": null
+        }
+      ]
+    },
+    {
+      "role": "ui_controller_preflight",
+      "exit_code": 1,
+      "log": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-09/execution-boundary-preflight-v3-1790355110590488000/ui_controller_preflight.log.txt",
+      "markers": [
+        {
+          "path": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-09/evidence/controller-v3/ui_controller_preflight-1790355110929636000/receipt.json",
+          "sha256": "4c4c7528f72167e8f8c75c49aee64c1bc5ae3ea6a2890df9e98b91d1fa8bfb2d",
+          "exit_code": 1,
+          "counts": {
+            "tests": 2,
+            "passed": 1,
+            "failed": 1,
+            "errors": 0,
+            "skipped": 0,
+            "xfailed": 0,
+            "collected": 2,
+            "collected_source": "vitest_junit"
+          },
+          "blocked": null
+        }
+      ]
+    },
+    {
+      "role": "controller_author_collection",
+      "exit_code": 0,
+      "log": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-09/execution-boundary-preflight-v3-1790355110590488000/controller_author_collection.log.txt",
+      "markers": [
+        {
+          "path": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-09/evidence/controller-v3/controller_author_collection-1790355113741495000/receipt.json",
+          "sha256": "11c6e740f54e0420c59aea598a11ac4e81edfe83f9a65cc6d8545b4c003e3b21",
+          "exit_code": 0,
+          "counts": {
+            "tests": 0,
+            "passed": 0,
+            "failed": 0,
+            "errors": 0,
+            "skipped": 0,
+            "xfailed": 0,
+            "collected": 109,
+            "collected_source": "pytest_stdout"
+          },
+          "blocked": null
+        }
+      ]
+    }
+  ],
+  "expected_host_control_failures": 2,
+  "not_the_independent_qc_positive_control": true,
+  "source_sha256": {
+    "run_probe_v3.py": "d6cc600c5298682c8bcb1f518864feafbb3e9623e3d68c38524c2e58b41d3786",
+    "review_v3.mjs": "c5b287ce178cd57550999221c49944e4e8f6c9add6fea6b90429c0fdcb7b92e8",
+    "probe_execution_menu.mjs": "227530d607b6eb435325ecff1b38211a9a0ee08f3eaf1e4df9e77fc2a352606f",
+    "run_stage_v3.py": "fae524ab4fd5833366029b3b478d9b96feda6f3c9c3c7c25eeb3bb79e488c289",
+    "stage_admission_v3.py": "edc245bbfe47f66e92158c73e5d51de42b391b74c5600d7699e2ca3ec736d3fb",
+    "check_execution_v3.py": "a1a7f656b6100dfa0a9f7951afcc20bf86ce3f157c1b31e782bd1c4cbe246d99",
+    "tools-v3.sb": "86c29102858dc5dff4fbd0ba12e78602aa4ba12373cf22c60ea7d0bdf927dbb9",
+    "resource_pytest.py": "e84b2846f40e05f4c0cb51286ee5d4506cb9c7e248173e0b7fabfb9b31474ec5",
+    "review_io_sandbox.py": "64393725f88b6a691be52418ebf23b51a4b7185bae32c60f985e7a955ec6300a",
+    "review_artifact_writer.py": "8d66b0cc21351540246870b468d542cb90bc3d0e555f5fc3abbf4738240ff750",
+    "file_tool.py": "3abdab5f93a01578855a549c43c6e47a50156604bdf39188380a509e8f5ca057",
+    "inputs/ui.vitest-v3.config.mjs": "456a4daf6326ac720aeb624bbb5e04f3398c309d44f50caca8318143f458818c",
+    "inputs/qc_userspace_isolation.py": "a9b93fbf5ff230e651d7835b3355619aa7a0091f24f8a36797f6d22d18418551"
+  }
+}

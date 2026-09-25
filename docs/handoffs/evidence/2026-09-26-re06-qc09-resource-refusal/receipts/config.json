@@ -1,0 +1,44 @@
+{
+  "tree": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-09/candidate/finance-workspace-private",
+  "python": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/candidate/.venv-workbench/bin/python",
+  "author": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/candidate",
+  "revision": "a30e7e4594ac09310271739c8beb30ee8b2cd3ef",
+  "baseline": "03352758cf9b31e3f5d179b517be48cb89588679",
+  "stage_work_request_limits": {
+    "explore": 3,
+    "execute": 13,
+    "report": 6
+  },
+  "artifact_first_explore": true,
+  "stage_group_work_request_limits": {
+    "explore": {
+      "e2": 0,
+      "timer": 4,
+      "consent": 4
+    },
+    "execute": {
+      "e2": 5,
+      "timer": 4,
+      "consent": 4
+    },
+    "report": {
+      "e2": 2,
+      "timer": 2,
+      "consent": 2
+    }
+  },
+  "prior_explore": {
+    "e2": {
+      "execution": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-bounded-02/explore-e2-v3/execution.json",
+      "sha256": "a3cb7bc5e5f1616d7068e94f34cee79d6190d42fe1cef8f759e6f22d4e859158",
+      "work": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-09/inputs/frozen-explore-e2-v3"
+    }
+  },
+  "allowed_stage_groups": [
+    "execute/e2",
+    "report/e2"
+  ],
+  "request_ceiling": 218,
+  "prior_real_requests": 186,
+  "slice_max_requests": 11
+}

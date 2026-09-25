@@ -1,0 +1,83 @@
+"""Prepare a fresh QC09 with evidence parents; never alter or resume QC08."""
+from datetime import datetime, timezone
+import hashlib
+import importlib.util
+import json
+from pathlib import Path
+import subprocess
+
+ROOT = Path(__file__).resolve().parent
+OLD = ROOT / 'qc-evidence-isolated-08'
+QC = ROOT / 'qc-evidence-isolated-09'
+TREE = Path('/Users/a77/fwp-wt-re06-closeout-refresh-0925')
+TOOLS = TREE / 'scripts/review_probes'
+ARCHIVE = TREE / 'docs/handoffs/evidence/2026-09-25-re06-qc08-controller-fixture'
+assert not QC.exists()
+old_hashes = {row['source']: row['sha256'] for row in json.loads((ARCHIVE / 'manifest.json').read_text())['artifacts']}
+config = json.loads((OLD / 'config.json').read_text())
+assert config['prior_real_requests'] == 186 and config['slice_max_requests'] == 11
+budget = json.loads(subprocess.check_output([config['python'], str(ROOT / 'inspect_status.py')], text=True))
+assert budget['used'] == 186 and budget['remaining'] == 32
+assert config['allowed_stage_groups'] == ['execute/e2', 'report/e2']
+config['tree'] = str(QC / 'candidate/finance-workspace-private')
+config['prior_explore']['e2']['work'] = str(QC / 'inputs/frozen-explore-e2-v3')
+subprocess.run(['git', '-C', config['author'], 'worktree', 'add', '--detach', config['tree'], config['revision']], check=True)
+records = {}
+
+def copy(source, destination, translate=True):
+    data = source.read_bytes()
+    if str(source) in old_hashes:
+        assert hashlib.sha256(data).hexdigest() == old_hashes[str(source)], source
+    result = data.decode().replace(str(OLD), str(QC)).encode() if translate else data
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    with destination.open('xb') as stream:
+        stream.write(result)
+    records[str(destination.relative_to(QC))] = {'source': str(source), 'source_sha256': hashlib.sha256(data).hexdigest(), 'prepared_sha256': hashlib.sha256(result).hexdigest()}
+
+names = [
+    'gateway.mjs', 'run_gateway.py', 'probe_execution_menu.mjs', 'run_stage_v3.py', 'run_probe_v3.py',
+    'stage_admission_v3.py', 'check_execution_v3.py', 'file_tool.py', 'tools-v3.sb',
+    'stage_boundary_preflight_v3.mjs', 'execution_boundary_preflight_v3.py', 'artifact_checkpoint_preflight.mjs',
+    'probe_menu_preflight.mjs', 'probe_transport_preflight.mjs', 'provider-template.json',
+    'resource_pytest.py', 'verify_transaction_inventory.py', 'prepare_write_profiles.py', 'io_boundary_preflight.mjs',
+    'inputs/ui.vitest-v3.config.mjs', 'inputs/claims.md', 'pi-config/settings.json',
+    'prompt-execute-e2-v3.md', 'prompt-report-e2-v3.md', 'credential-bootstrap.mjs', 'review_v3.mjs',
+]
+for name in names:
+    copy(OLD / name, QC / name)
+for source in (OLD / 'inputs').glob('source-*-*'):
+    copy(source, QC / 'inputs' / source.name)
+for source in (OLD / 'work/controller-v3/probes').iterdir():
+    if source.is_file():
+        copy(source, QC / 'work/controller-v3/probes' / source.name)
+for name in ('review_artifact_writer.py', 'review_io_sandbox.py'):
+    copy(TOOLS / name, QC / name, False)
+copy(TOOLS / 'qc_userspace_isolation.py', QC / 'inputs/qc_userspace_isolation.py', False)
+manifest = json.loads((OLD / 'inputs/frozen-explore-e2-v3/manifest.json').read_text())
+for name, expected in manifest['artifacts_sha256'].items():
+    source = OLD / 'inputs/frozen-explore-e2-v3' / name
+    assert hashlib.sha256(source.read_bytes()).hexdigest() == expected
+    for destination in (QC / 'inputs/frozen-explore-e2-v3' / name, QC / 'work/e2' / name):
+        copy(source, destination, False)
+copy(OLD / 'inputs/frozen-explore-e2-v3/manifest.json', QC / 'inputs/frozen-explore-e2-v3/manifest.json', False)
+for folder in ('work/tmp', 'work/users', 'work/timer/probes', 'work/consent/probes', 'scratch'):
+    (QC / folder).mkdir(parents=True, exist_ok=True)
+spec = importlib.util.spec_from_file_location('qc09_io', QC / 'review_io_sandbox.py')
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+groups = module.prepare_evidence_groups(QC / 'evidence')
+assert len(groups) == 4 and all(path.is_dir() and not list(path.iterdir()) for path in groups)
+for name in ('auth.json', 'models.json'):
+    with (QC / 'pi-config' / name).open('x') as stream:
+        stream.write('{}\n')
+with (QC / 'config.json').open('x') as stream:
+    json.dump(config, stream, indent=2)
+subprocess.run(['cp', '-cR', str(ROOT / 'frontend-tree/intelligence/webapp/node_modules'), str(Path(config['tree']) / 'intelligence/webapp')], check=True)
+for folder in ('inputs', 'work'):
+    (QC / folder / 'node_modules').symlink_to('../candidate/finance-workspace-private/intelligence/webapp/node_modules')
+with (QC / 'preparation.json').open('x') as stream:
+    json.dump({'at': datetime.now(timezone.utc).isoformat(), 'scope': 'e2 slice only; timer/consent not admitted',
+               'prior_real_requests': 186, 'ceiling': 218, 'max_new_requests': 11, 'automatic_retries': 0,
+               'dynamic_verdicts_inherited': False, 'old_batches_not_reexecuted': True,
+               'evidence_groups_prepared_before_freeze': [str(path) for path in groups], 'sources': records}, stream, indent=2)
+print(QC)

@@ -1,0 +1,138 @@
+"""Preserve QC09 infrastructure passes and pre-E2 resource refusal, no retry."""
+from datetime import datetime, timezone
+import hashlib
+import json
+from pathlib import Path
+import subprocess
+import xml.etree.ElementTree as ET
+
+ROOT = Path(__file__).resolve().parent
+QC = ROOT / 'qc-evidence-isolated-09'
+TREE = Path('/Users/a77/fwp-wt-re06-closeout-refresh-0925')
+PYTHON = str(ROOT / 'candidate/.venv-workbench/bin/python')
+OUT = ROOT / 'qc09-resource-incident-0926'
+DEST = TREE / 'docs/handoffs/evidence/2026-09-26-re06-qc09-resource-refusal'
+OUT.mkdir(exist_ok=False)
+DEST.mkdir(parents=True, exist_ok=False)
+
+def sha(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+def load(path):
+    return json.loads(path.read_text())
+
+def save(path, value):
+    with path.open('x') as stream:
+        json.dump(value, stream, indent=2)
+        stream.write('\n')
+
+config = load(QC / 'config.json')
+offline = load(QC / 'offline-validation/receipt.json')
+assert offline['status'] == 'OFFLINE_PASS_DYNAMIC_NOT_RUN'
+assert len(offline['checks']) == 13
+assert 'Ran 39 tests' in (QC / 'offline-validation/unittest.log.txt').read_text()
+preflight = load(QC / 'execution-boundary-preflight-v3.json')
+assert preflight['status'] == 'PASS' and len(preflight['runs']) == 3
+for filename in ('execution-boundary-preflight-v3.json', 'io-boundary-preflight.json'):
+    assert all(sha(QC / name) == value for name, value in load(QC / filename)['source_sha256'].items())
+assert all(sha(QC / name) == row['prepared_sha256'] for name, row in load(QC / 'preparation.json')['sources'].items())
+controls = []
+for run in preflight['runs']:
+    marker = run['markers'][0]
+    receipt = Path(marker['path'])
+    assert sha(receipt) == marker['sha256']
+    child = load(receipt)
+    assert child['complete'] and child['sources_unchanged'] and child['blocked'] is None
+    assert sha(Path(child['log'])) == child['log_sha256']
+    assert sha(Path(child['junit'])) == child['junit_sha256']
+    failures = [case.get('name') for case in ET.parse(child['junit']).getroot().iter('testcase') if case.find('failure') is not None]
+    expected = {'controller_preflight': ['test_deliberate_controller_red'], 'ui_controller_preflight': ['controller deliberate red'], 'controller_author_collection': []}
+    assert failures == expected[child['role']]
+    controls.append({'role': child['role'], 'counts': child['counts'], 'failures': failures, 'receipt': str(receipt), 'receipt_sha256': sha(receipt)})
+gateway = load(QC / 'gateway/receipt.json')
+assert gateway['complete'] and gateway['status'] == 'PASS' and gateway['requests'] == 2
+assert all(sha(QC / 'gateway' / name) == value for name, value in gateway['artifact_sha256'].items())
+steps = {}
+for name in ('execution-preflight', 'gateway', 'execute-e2'):
+    folder = QC / 'host-steps' / name
+    row = load(folder / 'receipt.json')
+    assert row['complete'] and sha(folder / 'stdout.log.txt') == row['stdout_sha256']
+    if row['child_receipt']:
+        assert sha(Path(row['child_receipt'])) == row['child_receipt_sha256']
+    steps[name] = row
+assert steps['execute-e2']['exit_code'] == 75 and steps['execute-e2']['status'] == 'BLOCKED'
+resource = load(QC / 'host-steps/execute-e2/stdout.log.txt')
+assert not resource['allowed'] and resource['load_1m'] > 8
+assert resource['projected_pytest'] <= 2 and resource['free_gib'] >= 8
+for name in ('execute-e2-v3', 'report-e2-v3', 'stage-execution-checks-v3'):
+    assert not (QC / name).exists()
+assert not list((QC / 'evidence/e2').iterdir())
+assert not (QC / 'work/e2/EXECUTE.json').exists()
+budget = json.loads(subprocess.check_output([PYTHON, str(ROOT / 'inspect_status.py')], text=True))
+assert budget['used'] == 188 and budget['remaining'] == 30
+save(OUT / 'budget-after.json', budget)
+old = TREE / 'docs/handoffs/evidence/2026-09-25-re06-qc08-controller-fixture'
+prior = load(old / 'manifest.json')
+for row in prior['artifacts']:
+    assert sha(old / row['archive']) == sha(Path(row['source'])) == row['sha256']
+for tree in (config['author'], config['tree']):
+    assert subprocess.check_output(['git', '-C', tree, 'rev-parse', 'HEAD'], text=True).strip() == config['revision']
+    assert not subprocess.check_output(['git', '-C', tree, 'status', '--porcelain'], text=True).strip()
+incident = {'at': datetime.now(timezone.utc).isoformat(), 'status': 'BLOCKED_RESOURCE_BEFORE_E2',
+            'revision': config['revision'], 'baseline': config['baseline'], 'model_requests_added': 2,
+            'model_requests_gateway': 2, 'model_requests_independent_review': 0, 'automatic_retries': 0,
+            'controller_runs': controls, 'gateway_status': gateway['status'], 'resource_refusal': resource,
+            'stage_status': 'not started; host admission exit75', 'budget_used': budget['used'], 'remaining': budget['remaining'],
+            'prior_qc08_archive_and_all_sources_unchanged': len(prior['artifacts']),
+            'independent_candidate_test_runs': 0, 'host_steps': steps,
+            'not_verified': ['E2 execute/report', 'review-model receipt integrity', 'C1-C10', 'timer', 'consent', 'natural acceptance', 'new main integration'],
+            'continuation_boundary': 'Only after explicit renewed admission: new host attempt receipt, unchanged QC09 bindings, no replay of gateway. Preserve failed attempt and append-only resource ledger; do not broaden 11-request slice.'}
+save(OUT / 'incident.json', incident)
+
+files = {}
+def add(source, relative):
+    assert source.is_file() and not source.is_symlink()
+    relative = Path(relative)
+    if relative.suffix == '.log':
+        relative = Path(str(relative) + '.txt')
+    files[source] = relative
+for source in QC.iterdir():
+    if source.suffix in {'.py', '.mjs', '.sb'}:
+        add(source, 'sources/' + source.name + '.txt')
+for name in ('config.json', 'preparation.json', 'provider-template.json', 'io-boundary-preflight.json',
+             'stage-boundary-preflight-v3-0925.json', 'probe-menu-preflight-0925.json', 'execution-boundary-preflight-v3.json',
+             'probe-transport-preflight.json', 'artifact-checkpoint-preflight-0925.json'):
+    add(QC / name, 'receipts/' + name)
+folders = ['offline-validation', 'stage-admissions', 'inputs/frozen-explore-e2-v3', 'work/controller-v3/probes', 'host-steps', 'evidence', 'gateway']
+folders += [p.name for p in QC.glob('execution-boundary-preflight-v3-*') if p.is_dir()]
+excluded = []
+for folder in folders:
+    for source in (QC / folder).rglob('*'):
+        if not source.is_file() or source.is_symlink() or '__pycache__' in source.parts:
+            continue
+        if source.name == 'credential.json':
+            excluded.append({'source': str(source), 'sha256': sha(source), 'reason': 'credential-related metadata stays in local runtime; not copied into Git'})
+            continue
+        add(source, 'artifacts/' + str(source.relative_to(QC)) + ('.txt' if source.suffix in {'.py', '.tsx'} else ''))
+for name in ('inputs/ui.vitest-v3.config.mjs', 'inputs/qc_userspace_isolation.py', 'work/reviewer-pytest-admissions.jsonl', 'prompt-execute-e2-v3.md', 'prompt-report-e2-v3.md'):
+    add(QC / name, 'artifacts/' + name + '.txt')
+io = Path(load(QC / 'io-boundary-preflight.json')['evidence'])
+for source in io.rglob('*'):
+    if source.is_file() and not source.is_symlink() and not source.is_relative_to(io / 'fixture') and source.name != 'credential.json':
+        add(source, 'io-preflight/' + str(source.relative_to(io)))
+for source in OUT.iterdir():
+    add(source, 'verification/' + source.name)
+for name in ('prepare_qc09.py', 'preflight_qc09_offline.py', 'run_qc09_step.py', 'inspect_status.py', 'archive_qc09.py'):
+    add(ROOT / name, 'sources/' + name + '.txt')
+rows = []
+for source, relative in sorted(files.items(), key=lambda item: str(item[1])):
+    destination = DEST / relative
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    with destination.open('xb') as stream:
+        stream.write(source.read_bytes())
+    assert sha(destination) == sha(source)
+    rows.append({'source': str(source), 'archive': str(relative), 'bytes': source.stat().st_size, 'sha256': sha(source)})
+save(DEST / 'manifest.json', {'scope': 'QC09 real infrastructure passes and pre-E2 resource refusal; no independent review verdict',
+                            'archive_count': len(rows), 'artifacts': rows, 'excluded': excluded})
+print(json.dumps({'archive': str(DEST), 'count': len(rows), 'status': incident['status'], 'new_requests': 2,
+                  'budget_used': budget['used'], 'remaining': budget['remaining'], 'controls': controls}, indent=2))
