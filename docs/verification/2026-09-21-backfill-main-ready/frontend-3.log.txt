@@ -1,0 +1,31 @@
+
+> market-intelligence-workbench@0.1.0 test /Users/a77/fwp-wt-backfill-main-ready-0921/intelligence/webapp
+> vitest run
+
+
+[1m[46m RUN [49m[22m [36mv3.2.4 [39m[90m/Users/a77/fwp-wt-backfill-main-ready-0921/intelligence/webapp[39m
+
+ [32m✓[39m src/researchActivity.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m src/streamEventRegistry.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m src/api.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 63[2mms[22m[39m
+ [32m✓[39m src/components/ResearchActivityControl.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[33m 588[2mms[22m[39m
+   [33m[2m✓[22m[39m 默认关闭，拒收同意不启动区间，也不影响其他研究控件 [33m 326[2mms[22m[39m
+ [32m✓[39m src/components/ResearchProjectPanel.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[33m 766[2mms[22m[39m
+   [33m[2m✓[22m[39m ResearchProjectPanel[2m > [22morders next questions as given and sends continuation of the last completed round on click [33m 464[2mms[22m[39m
+ [32m✓[39m src/components/DailyReportView.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[33m 762[2mms[22m[39m
+   [33m[2m✓[22m[39m DailyReportView[2m > [22mrenders the five report layers with reader-facing labels [33m 451[2mms[22m[39m
+ [32m✓[39m src/components/ResearchEvolutionPanel.test.tsx [2m([22m[2m18 tests[22m[2m)[22m[33m 1218[2mms[22m[39m
+   [33m[2m✓[22m[39m ResearchEvolutionPanel[2m > [22m哈希与内部版本只在详情里出现，不上主屏 [33m 333[2mms[22m[39m
+ [32m✓[39m src/components/components.test.tsx [2m([22m[2m71 tests[22m[2m)[22m[33m 5862[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mopens on today and navigates across the five product surfaces [33m 445[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mrestores the latest conversation and submits in hybrid mode [33m 391[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22msubmits an explicit KOL perspective without mixing other profiles [33m 445[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mkeeps polling while terminal ownership precedes report delivery [33m 352[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mkeeps cancel pending until polling confirms the cancelled state [33m 325[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mconfigures session-only BYOK without exposing the key [33m 347[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m8 passed[39m[22m[90m (8)[39m
+[2m      Tests [22m [1m[32m110 passed[39m[22m[90m (110)[39m
+[2m   Start at [22m 03:11:31
+[2m   Duration [22m 11.21s[2m (transform 2.21s, setup 4.81s, collect 5.52s, tests 9.28s, environment 12.20s, prepare 2.19s)[22m
+
