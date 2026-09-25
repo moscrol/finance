@@ -68,7 +68,6 @@ from intelligence.services.episode_messages import (
     append_model_input,
     assistant_message,
     check_derivation,
-    record_application_tool_call,
     record_prompt_assembled,
     system_message,
     to_provider,
@@ -396,11 +395,6 @@ class HarnessReferenceLoop:
                         in_repair=False,
                     )
                     if fallback is not None:
-                        # 与 Episode 同一条规则：应用替模型点的调用先声明再派发，
-                        # 否则下一次请求里它的 tool 消息没有 assistant.tool_calls（400）。
-                        record_application_tool_call(
-                            messages, ledger, call=fallback.call, source="empty_pool_fallback"
-                        )
                         fallback_batch = state.session.execute(
                             (fallback.call,),
                             registry=registry,
@@ -796,8 +790,9 @@ class HarnessReferenceLoop:
         ledger: _Ledger,
     ) -> list[dict[str, object]]:
         menu = session.menu(registry=registry, context=context)
-        # 与 Episode 同一格同一字：每步实际菜单落账，不从装配前快照猜可用集合。
-        ledger.add("tool_menu", menu.to_payload())
+        # 与 Episode 同一格同一字：藏了工具才记 tool_menu，无裁剪轮事件流不变。
+        if menu.hidden:
+            ledger.add("tool_menu", menu.to_payload())
         return tool_definitions_for_menu(menu, registry=registry, context=context)
 
 

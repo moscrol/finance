@@ -358,9 +358,6 @@ _BENCHMARK_STEPS: dict[str, tuple[str, str]] = {
     # actually invoking a tool with arguments -- L1 `tool`
     "tool_request": ("tool", "tool"),
     "tool_call": ("tool", "tool"),
-    # the runtime (not the model) declaring a tool call it is about to dispatch
-    # (empty-pool fallback); same L1 bucket as the request it precedes.
-    "application_tool_call": ("tool", "tool"),
     # observations, including rejected and failed attempts
     "tool_result": ("observe", "control"),
     "tool_error": ("observe", "control"),

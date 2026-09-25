@@ -266,21 +266,6 @@ datasets:
     refresh:
       tier: C-daily
       policy: "保留（题材归属绑在 990.FP 上是独有价值；明细供 stitch 的 limit_times join 和同日门禁，chunk 化 ~5 请求）。"
-    pitfalls:
-      - >-
-        local 计划下 fact_theme_limit_stock_daily **只有 12/38 列有值**：limit-stats-local
-        从日线 OHLCV 自算，first_limit_time / last_limit_time / limit_status / open_times /
-        fd_amount / theme_names_json / ths_concept_top / 多周期涨跌幅 等**盘中事实整批为
-        NULL，行照常进**（2026-09-03 切换当天 22 列同时归零 [实测]）。这是能力边界不是故障，
-        风控期会一直如此。要判当天是哪条链路写的，查 source 列：fupanhui:watchlist/... vs
-        local:limit-rule；**别用 count(col is not null) 的累计数判断它是否日更**，那个数在
-        断供后仍然很大（spec 曾据此立项，交付出来是惰性的）。
-      - >-
-        封板时点的替代源是 fact_limit_pool_hithink（同花顺官方，limit_up 池的 limit_up_time，
-        100% 非空、回溯到 2020-07）。2026-09-02 双源交叉验证 49 只交集逐只到分钟一致；
-        source_switch_coverage_diff 读数 416 vs 394 天、裸切丢 0 天。[D18] 块已按日回退到它。
-        但该表**没有末封时点**（limit_up 与 limit_break 两池互斥），且 turnover_ratio_pct
-        实测 0% 填充——换手是否充分两个源都判不了（G1b 仍开着）。
 
   - key: stock_high
     label: 新高个股

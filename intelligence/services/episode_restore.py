@@ -105,10 +105,6 @@ class RestoreResult:
     synthesized: tuple[EpisodeEvent, ...]
     plan: ResumePlan | None
     outcome: AgentOutcome | None
-    # P3 遗留、P4 收：崩溃时箱里「入箱了、还没认领也没丢弃」的话（message_id）。恢复方
-    # 重新驱动时要把它们递回收件箱，否则用户递进去的话会随崩溃静默消失（INV-R5 三事实里
-    # 缺了第三件）。这里只**列出**，不认领——认领是 loop 的事，恢复读的是事实。
-    pending_inbox: tuple[str, ...] = ()
 
     @property
     def terminal(self) -> bool:
@@ -123,23 +119,7 @@ class RestoreResult:
             "synthesized": [event.to_dict() for event in self.synthesized],
             "plan": self.plan.to_dict() if self.plan is not None else None,
             "stop_reason": self.outcome.stop_reason if self.outcome is not None else None,
-            "pending_inbox": list(self.pending_inbox),
         }
-
-
-def pending_inbox_messages(events: Sequence[EpisodeEvent]) -> tuple[str, ...]:
-    """入箱了、既未认领也未丢弃的 message_id，按入箱序。"""
-
-    pending: dict[str, None] = {}
-    for event in events:
-        message_id = str(event.payload.get("message_id") or "")
-        if not message_id:
-            continue
-        if event.kind == "inbox_inserted":
-            pending.setdefault(message_id, None)
-        elif event.kind in {"inbox_claimed", "inbox_discarded"}:
-            pending.pop(message_id, None)
-    return tuple(pending)
 
 
 # ── 内部：点查 ───────────────────────────────────────────────────────────────
@@ -362,7 +342,6 @@ def restore_episode(
             synthesized=tuple(synth.synthesized) if synth is not None else (),
             plan=plan,
             outcome=outcome,
-            pending_inbox=pending_inbox_messages(loaded_events),
         )
 
     if state.terminal or any(e.kind == "finish" for e in events):
@@ -521,24 +500,6 @@ def restore_episode(
         else:
             detail = "research deadline passed before the tool settled"
         _settle_tool_interrupted(synth, harness=domain, intent=intent, detail=detail)
-
-    # ── 应用声明了调用、意图没落（application_tool_call 后、tool_request 前崩溃）────
-    # 声明已进模型历史（派生成 assistant.tool_calls）；没有结算它的 tool 消息，下一次请求
-    # 就是悬空 tool_calls，同样非法。不重发：声明不是意图，重发要走正常的空池回退判定，而
-    # ``fallback_already_attempted`` 把这条声明算作已尝试。合成 tool_error{interrupted} 配平，
-    # 派生器从它重建 tool 消息（INV-R1 在合成后的日志上仍成立）。
-    dispatched_ids = {
-        str(e.payload.get("call_id") or "") for e in events if e.kind == "tool_request"
-    }
-    for declaration in [e for e in events if e.kind == "application_tool_call"]:
-        if str(declaration.payload.get("call_id") or "") in dispatched_ids:
-            continue
-        _settle_tool_interrupted(
-            synth,
-            harness=domain,
-            intent=declaration,
-            detail="application tool call was declared but never dispatched",
-        )
 
     # ── 兜底合成在飞 ───────────────────────────────────────────────────────
     recovery_dangling = False

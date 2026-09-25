@@ -37,37 +37,6 @@ def test_red_team_brief_surfaces_past_mistakes_and_weak_categories() -> None:
     assert "红队反方" in md and "预期差" in md
 
 
-def test_red_team_past_mistakes_carry_per_item_date() -> None:
-    """W2b 续：红队的历史纠偏是 corrections 的第七个渲染点，也是唯一自己拼的一处。
-
-    它不走 corrections.render_for_prompt，所以改那个渲染器改不到这里——这条测试
-    存在的意义就是把这个「同一份台账、两套渲染」的缝钉住。
-    """
-    brief = red_team.build_red_team_brief(
-        "液冷是真瓶颈，T+3 板块应双红",
-        themes=["液冷"],
-        corrections=[
-            {
-                "ts": "2026-06-01T10:00:00",
-                "correction": "液冷的驱动是订单不是涨价",
-                "original": "液冷涨价驱动",
-                "principle": "驱动看订单",
-                "themes": ["液冷"],
-            }
-        ],
-        calibration=None,
-    )
-    md = brief.to_markdown()
-    mistake_lines = [
-        ln for ln in md.splitlines()
-        if ln.startswith("- ") and "被纠正为" in ln
-    ]
-    assert mistake_lines, "历史纠偏段没渲染出来"
-    # 块标题「你在同类判断上纠正过的错」说不出是什么时候纠正的，日期必须逐条带
-    for line in mistake_lines:
-        assert line.startswith("- [你的纠偏 2026-06-01]"), line
-
-
 def test_red_team_brief_without_history_still_outputs_rebuttals() -> None:
     brief = red_team.build_red_team_brief("某题材要涨", corrections=[], calibration=None)
     assert brief.rebuttals  # 通用反方骨架永远存在

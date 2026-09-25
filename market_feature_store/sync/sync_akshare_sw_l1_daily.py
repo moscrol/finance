@@ -281,15 +281,10 @@ def sync_akshare_sw_l1_daily(trade_date: str | None = None, days: int = 20) -> d
                     }
             time.sleep(0.2)
         realtime = {}
-        if end == date.today():
-            try:
-                realtime = _fetch_realtime()
-            except Exception as exc:
-                failures.append({"sw_l1": "realtime", "code": "index_realtime_sw", "error": str(exc)})
-        # end != 今天（历史回填窗）时绝不取实时快照：index_realtime_sw 只反映「现在」，
-        # 写到历史末日上是把今天的值克隆成历史（08 单反向验证抓到的覆写缺陷；
-        # 行数审计看不出来，只有跨日期 diff 能暴露）。历史末日缺行走 hist/板块代理，
-        # 仍缺就如实报错，不造数。
+        try:
+            realtime = _fetch_realtime()
+        except Exception as exc:
+            failures.append({"sw_l1": "realtime", "code": "index_realtime_sw", "error": str(exc)})
         for name, item in realtime.items():
             if name in by_name:
                 records[(end, name)] = {

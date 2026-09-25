@@ -135,43 +135,6 @@ class PrimeTests(unittest.TestCase):
         payload = prime.result_to_dict(result)
         self.assertEqual(payload["prefix"], prefix)
 
-    def test_prime_judgment_lines_carry_per_item_ownership(self) -> None:
-        """W2b：prime 前缀是 judgments 的第三条真实出口，逐条必须自带归属。
-
-        为什么钉在 build_prime/render_prefix 而不是 judgments.render_for_prompt：
-        W2 只改 [M] 块渲染、差点漏掉 memory_lookup，教训是「出口比渲染器多」。
-        这里走完整出口，只改渲染器而没接上 prime 时同样会红。
-        """
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            with mock.patch.dict(
-                "os.environ",
-                {"FORESIGHT_USERS_DIR": str(root / "users"), "FORESIGHT_USER": "w2b"},
-            ):
-                us = user_space("w2b")
-                us.ensure_dir()
-                _write_jsonl(
-                    us.judgments_path,
-                    [
-                        {"memo": "液冷是长逻辑", "themes": ["液冷"], "ts": "2026-01-01T10:00:00"},
-                        {"memo": "裸判断无题材", "ts": "2026-02-02T10:00:00"},
-                    ],
-                )
-                # 用不相关问句：prime 的题材相关性筛选取不到命中时回落全量，
-                # 两条都进渲染，归属断言才覆盖「带题材」与「裸判断」两种形状。
-                result = prime.build_prime(
-                    prime.PrimeOptions(query="宏观利率怎么看", user="w2b", kb_wiki=root / "no-wiki")
-                )
-                prefix = prime.render_prefix(result)
-
-        lines = [ln for ln in result.judgments_lines.splitlines() if ln.strip()]
-        self.assertEqual(len(lines), 2)
-        for line in lines:
-            # 逐条归属 + 逐条日期；块级标签【核心判断｜…】不算数
-            self.assertRegex(line, r"^- \[你的判断 \d{4}-\d{2}-\d{2}\]")
-        self.assertIn("[你的判断 2026-01-01][液冷]：液冷是长逻辑", prefix)
-        self.assertIn("[你的判断 2026-02-02]：裸判断无题材", prefix)
-
     def test_build_prime_degrades_without_any_assets(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

@@ -283,7 +283,6 @@ def tool_definitions_for_menu(
 ) -> list[dict[str, object]]:
     """把菜单落成模型 API 的 tool definitions；两条 loop 共用，菜单只算一次。"""
 
-    registry = registry.for_context(context)
     visible = set(menu.visible)
     return [
         definition
@@ -353,23 +352,6 @@ class EpisodeToolBatchSession:
         # 唯一不允许的形状，所以这里不吞。
         self.on_dispatch: Callable[[DispatchIntent], None] | None = None
 
-    def bind_scope(
-        self, *, registry: ResearchToolRegistry, context: ResearchRunContext
-    ) -> EpisodeScope | None:
-        """Synchronize the diagnostic/runner view under the batch lock."""
-        with self._lock:
-            self._bind_scope_locked(registry=registry, context=context)
-            return self._scope
-
-    def _bind_scope_locked(
-        self, *, registry: ResearchToolRegistry, context: ResearchRunContext
-    ) -> ResearchToolRegistry:
-        registry = registry.for_context(context)
-        if self._scope is not None:
-            self._scope = self._scope.for_execution(context=context, registry=registry)
-            registry = self._scope.registry
-        return registry
-
     def menu(
         self,
         *,
@@ -389,7 +371,6 @@ class EpisodeToolBatchSession:
         visible: list[str] = []
         hidden: list[tuple[str, float]] = []
         with self._lock:
-            registry = self._bind_scope_locked(registry=registry, context=context)
             for spec in registry.authorized_specs(context.contract.allowed_capabilities):
                 if (
                     spec.query_scope == "episode"
@@ -425,7 +406,6 @@ class EpisodeToolBatchSession:
         request_extras: Mapping[str, Mapping[str, object]] | None = None,
     ) -> ToolBatchResult:
         with self._lock:
-            registry = self._bind_scope_locked(registry=registry, context=context)
             return self._execute_locked(
                 calls,
                 registry=registry,

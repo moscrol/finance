@@ -460,7 +460,7 @@ def main() -> int:
         detail = f"verdict={receipt['verdict']}"
         if receipt["verdict"] == "refuted":
             path = write_refuted(refuted_root, receipt, date_str="selftest", receipt_path=None)
-            entries, _unreadable = load_refuted(refuted_root)
+            entries = load_refuted(refuted_root)
             entry = entries[0] if entries else {}
             required = ("rule_id", "rule_version", "sharing", "owner", "n", "p0", "ci", "by_market_stage", "refuted_at")
             entry_ok = (

@@ -18,7 +18,6 @@ os.chdir(Path(__file__).resolve().parent)
 from moneyflow import (  # noqa: E402
     analyze,
     detect_quant_orders,
-    duck_pct_chg_map,
     fetch_trades_retry,
     make_client,
     stock_info,
@@ -157,20 +156,6 @@ def main() -> int:
             cache_file.write_text(json.dumps(done, ensure_ascii=False))
 
     cache_file.write_text(json.dumps(done, ensure_ascii=False))
-    # 当日涨幅%以日线口径（收盘/前收）在读出侧统一覆盖：done 里既有新算的行、也有
-    # scan_cache_quant_<date>.json 里旧口径（末笔/首笔）的缓存行，一次纠正。
-    # 行情缺口日 pct_map 为空 → 全量写 NULL，不拿日内口径冒充日线。
-    pct_map = duck_pct_chg_map(date)
-    if not pct_map:
-        print(
-            f"⚠️ {date} fact_stock_daily 无 pct_chg（行情缺口）：当日涨幅% 写 NULL",
-            flush=True,
-        )
-    for row in done.values():
-        if not row:
-            continue
-        pct = pct_map.get(row.get("code", ""))
-        row["当日涨幅%"] = None if pct is None else round(pct, 2)
     res = pd.DataFrame([v for v in done.values() if v])
     print(
         f"FINAL cache={len(done)} nonempty={len(res)} empty~{empty} "

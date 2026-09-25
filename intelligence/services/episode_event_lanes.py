@@ -82,10 +82,6 @@ DURABLE_EVENT_KINDS: frozenset[str] = frozenset(
         "tool_menu",
         "model_turn",
         "model_error",
-        # 应用替模型补发工具调用的声明（空池回退；终态稿 §6.1 补充 2026-09-09）：它承载
-        # 模型下一次请求会看到的 assistant.tool_calls，没有它随后的 tool 消息是孤儿（400）。
-        # 归 durable 是必然：重放消费者重建模型历史缺不了这条声明。
-        "application_tool_call",
         "tool_request",
         "tool_result",
         "tool_error",
@@ -101,9 +97,6 @@ DURABLE_EVENT_KINDS: frozenset[str] = frozenset(
         # 历史折叠（spec 2026-09-07 §3.2）：模型进门前哪些 tool 消息被折成 E 号索引、省了多少字。
         # 不映射阶段（同 prefetch / tool_menu）：它不推进研究阶段，只是上下文的账。
         "history_compacted",
-        # 写作轮差额铸窗（spec 2026-09-08 P0）：写结论超出研究额度的秒数从合成保留余量补了多少。
-        # 不映射阶段（同 history_compacted）：它是账本的账，不推进研究阶段。
-        "writing_grant",
         # 收件箱三事实（终态稿 §6.4 P3，INV-R5）：入箱（带正文，模型可见正文的唯一落点）、
         # 认领（这一刻才进 messages）、丢弃（领域拒收 / 取消 / 收口，带 reason）。
         # 归 durable 是必然：认领的那句话是模型历史的一部分，重放消费者要能重建它。

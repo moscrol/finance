@@ -8,7 +8,7 @@
 
 | 步 | 模块 | 命令（均 `python3 -m market_feature_store.cli …`） | 源语义 | fupanhui 请求 |
 |---|---|---|---|---|
-| 2 | 全A日线 | `sync-stock-daily --start-date D --offset 4`（mootdx 逐只 TCP；北交所常只回 ~150/340 只）；北交所缺口用东财历史 K 线 `push2his.eastmoney.com/api/qt/stock/kline/get`（`klt=101 fqt=0`，逐只 ≥4s 节流，`source='eastmoney:hist_kline'`）。**2026-09-11 实测：mootdx 与 push2his 在本机都已不可用**，改走新浪：`skills/duckdb-backfill/scripts/backfill_stock_daily_sina.py fetch/validate/write`（含北交所，`source='sina:stock_zh_a_daily'`），详见下文「第三条路径」 | 日期参数化（mootdx 裸收盘，见坑③） | 0 |
+| 2 | 全A日线 | `sync-stock-daily --start-date D --offset 4`（mootdx 逐只 TCP；北交所常只回 ~150/340 只）；北交所缺口用东财历史 K 线 `push2his.eastmoney.com/api/qt/stock/kline/get`（`klt=101 fqt=0`，逐只 ≥4s 节流，`source='eastmoney:hist_kline'`）——**仓内暂无 CLI**，09-07 用的是临时脚本，收进 `market_feature_store/sync/` 是待办 | 日期参数化（mootdx 裸收盘，见坑③） | 0 |
 | 2 | 申万一级 | `sync-sw-l1-daily --trade-date D`（hist 模式；坑①） | `index_hist_sw` 日期参数化 | 0 |
 | 3 | 板块宇宙 | `sync-sectors --trade-date D` | 发布快照 + `ops_sector_search_payload_daily`（有 pct_chg/strength/stock_count，**无 amount**） | 1 |
 | 3 | 主线 | `sync-mainline-daily --trade-date D` → `sync-mainline-sector-daily --trade-date D` | 公开 API | ~2 |
@@ -38,22 +38,10 @@
    (a) 快照同步多请求 `f297`（行情自身交易日），与 `--trade-date` 不一致**拒写**（`SnapshotMisdated`；`--allow-misdated` 才放行且 source 标 `-misdated`）；
    (b) `qa_local_vs_fupanhui.py` 全历史扫「相邻日逐股相同 >50%」与「快照行写入时刻晚于下一交易日 09:30」，命中即 FAIL——
        **不能**按「`updated_at` 日期 ≠ `trade_date`」判：凌晨 / 周末补前一交易日是常态（07~08 月 8 天），那些行是对的；
-   (c) `check_daily_review_data` data 阶段比当日与前一交易日逐股相同比例，>5% 报缺；
-   (d) **逐列填充率闸（2026-09-08 评审补）**：前三层只看复制 / 错日，没有一层看空值——`fact_market_daily.sh_index_pct_chg`
-       08-17 为 NULL 两周无人知（事件定价丢 3 个锚点）、`fact_stock_daily` 2025-09-19 `pct_chg` 只有 79%。
-       `check_daily_review_data` data 阶段每次扫**全历史**：必填列只许在 `fill-rate-baseline.json` 钉住的日期为空，
-       个股 close / amount / pct_chg 逐日填充率 ≥ 99%，已知缺口带原因列在基线 `known_gaps`，再恶化 > 0.5 个点也报。
-       基线更新：`check_daily_review_data.py <date> --update-fill-rate-baseline`（旧缺口原因保留、新缺口标待查，改动进 git diff）。
-       洞补上了不用改基线（少一个空值日不报）。
+   (c) `check_daily_review_data` data 阶段比当日与前一交易日逐股相同比例，>5% 报缺。
    历史日一律走 mootdx `sync-stock-daily --start-date D --end-date D --refresh`（北交所 mootdx std 客户端不回，用东财 hist kline 临时脚本，见上表）。
 ⑥ **fupanhui 限流是突发触发**：`sync-sector-daily` 一步 403 请求/29 秒必炸；二次突发后 `retry-after=251318s`。模块化 + `sector-daily-local` + 成分 1 req/s 能活；429 期间不跑 `reconcile-sector-daily` / `verify_backfill.py` 的回源抽样。
 
-⑦ **`stitch-sector-stocks` 的值源白名单会静默地把全部板块判死**（2026-09-11 补 09-08 实测）：
-   `sync_local_sector_members.VALUE_SOURCE_PREFIXES` 只认白名单内的 `source`。用新源补完 `fact_stock_daily` 后直接跑 stitch，会得到
-   `stitched=0/403 skipped[shortfall=403]` 而 **`status=ok code=0`、仅 3.4s** —— 不报错、不非零退出，下游
-   `sector-daily-local` / `mainline` / `core-leader` / `features` 才连坐报「403 个板块无成分行」。
-   辨识特征：输出里 **`基线日期分布: {}`** 且 `市值现值 N 只` 正常（基线取到了、当日真值没认出来）。
-   新增独立外部供应商源时要同步加进白名单；**绝不可为了过门把行的 `source` 改成已在白名单的名字**（伪造出处）。
 ## local 计划实跑记录（2026-09-07，生产库）
 
 | 日 | 结果 | 备注 |
@@ -113,32 +101,6 @@
 - **历史多日回填 → mootdx 逐只（慢，可拉区间）**：`sync-stock-daily --start-date ... --offset N`。快照接口只给当日截面，补历史区间仍必须用 mootdx。`daily-full --stock-source mootdx` 可强制日更也走 mootdx（受 `--skip-long` 控制）。
 
 两条路径同 schema/口径（amount 存「亿」、close 不复权、turnover 留空）；快照 `source='eastmoney:snapshot'`，mootdx `source='mootdx'`。
-
-### 第三条路径：新浪（2026-09-11 补 09-08 实测，前两条当时都死了）
-
-**上面两条在本机的实测状态（补 09-08 时逐一验证，不是推测）：**
-
-| 源 | 实测结果 |
-| --- | --- |
-| mootdx `sync-stock-daily` | **14 台 HQ 服务器全部 0 根**，每台恰好 ~3.95s 失败。跑 51 分钟 0 行 0 WAL、CPU 仅 5s。本机 TCP 出口是 `198.18.0.1`（TUN 模式代理假地址段），TDX 7709 二进制协议被吞。**不是代码问题，改代码没用。** |
-| 东财 `push2his` hist kline | 头 ~12 个请求正常（与库内 iFinD 行收盘完全一致），随后**整站级 IP 拒连**：`push2his` 及 `1./5./8./92.push2his` 全部 `Empty reply from server`（HTTP 000）。⚠️ 生产快照用的是 **`push2`**（另一台），实测仍 HTTP 200 未受影响 |
-| iFinD | 仓内无 `skills/ifind/mcp_config.json`，无 token，`skills/ifind/call.py` 不可用 |
-| 腾讯 `web.ifzq.gtimg.cn` / 新浪 `CN_MarketData.getKLineData` | 通，但**只有量没有成交额** → 市场总额、板块金额、双红都算不出来，不可用 |
-| 网易 `quotes.money.163.com/service/chddata.html` | 502 |
-
-→ 唯一既通、又带 `amount`、又覆盖北交所的历史源是 **`akshare.stock_zh_a_daily`（新浪通道）**，已收成脚本：
-
-```bash
-S=skills/duckdb-backfill/scripts/backfill_stock_daily_sina.py
-python3 $S fetch    --trade-date 2026-09-08   # 取数落 JSONL，全程不持库连接（~0.46s/只，5.5k 只约 32min）
-python3 $S validate --trade-date 2026-09-08   # 四条只读对账，必须 PASS 才能写
-python3 $S write    --trade-date 2026-09-08   # 单次短事务 upsert + 回读
-```
-
-- 覆盖北交所：`bj{code}` 前缀可用，解掉了 mootdx「北交所只回 ~150/340 只」的老缺口（09-08 实得 343 只）。
-- 量纲（三方对账定的，勿凭记忆改）：`amount` 元 ÷1e8→亿元；`volume` 股 ÷100→手；`turnover` 小数 ×100→%。
-- `pre_close` 是**裸价前收**（与 mootdx 同基，非东财的除息调整基）→ 次日锚天然有 0.1~0.3% 的除息股对不上，属坑③同类差异，`validate` 的门槛设在 2%。
-- `source='sina:stock_zh_a_daily'`，已加入 `VALUE_SOURCE_PREFIXES` 白名单（见坑①下方），否则 `stitch-sector-stocks` 会把全部 403 个板块按 `shortfall` 跳过。
 
 ## Useful commands
 

@@ -79,7 +79,7 @@ def load_evidence_freshness(wiki_root: Path) -> dict[str, tuple[date | None, int
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--max-age", type=int, default=7, help="断更阈值（天），默认 7")
-    ap.add_argument("--alert", action="store_true", help="超阈值时告警（notify_ops.py：落盘 + 桌面通知）")
+    ap.add_argument("--alert", action="store_true", help="超阈值时经飞书告警（notify_feishu.py）")
     ap.add_argument(
         "--watch-lanes",
         type=str,
@@ -136,7 +136,7 @@ def main() -> int:
         
         if args.alert:
             sys.path.insert(0, str(Path(__file__).parent))
-            from notify_ops import send_alert
+            from notify_feishu import send_alert
             send_alert(msg)
         
         return 2

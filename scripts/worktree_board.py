@@ -26,23 +26,6 @@ from pathlib import Path
 from typing import Any
 
 LEDGER_NAME = "deploy-ledger.jsonl"
-
-# 「底旧」到多少才值得在 SessionStart 里喊一声。
-#
-# 失败形状（2026-09-13 实测）：主检出树落后 gitea/main 628 提交，而 ``--this``
-# 只报 ``cherry+0``（= 我的补丁都进 main 了）。两件事是正交的：cherry 回答
-# 「我有没有东西丢在外面」，behind 回答「我读到的代码是不是旧的」。只报前者，
-# 一个照章办事的 agent 会把 ``cherry+0`` 读成「一切正常」，然后在旧代码上跑
-# graph_audit —— 已合进 main 的能力被报成「在途 / 未进工作树」，据此写出
-# 「我们没有 X」的错误负面断言，正是断言纪律要防的那件事。同族前科：夜跑的
-# 代码根停在落后 548 提交的共用树，吃掉一个交易日（工单 #51）。
-#
-# 阈值不取 0：共享仓（harness-reference）那边取 0 是因为那是只读参照仓，不动
-# 就不该落后；工作仓按构造天天落后（main 近期约 17 笔合入/天），取 0 会每次
-# 会话都喊，喊到 agent 学会忽略它，比不喊更坏。50 ≈ 三天漂移。
-# 数字本身无论多少都打印，⚠ 只在过阈值时加。
-STALE_BASE_WARN = 50
-
 CODE_DIRTY_PREFIXES = (
     "intelligence/",
     "evolution/",
@@ -178,29 +161,6 @@ def unique_subjects(head: str, base: str, *, cwd: str, timeout: float, limit: in
     return tuple(plus_lines[:limit])
 
 
-def _count(args: list[str], *, cwd: str, timeout: float) -> int:
-    """``rev-list --count`` 的安全读法：非数字一律当 0。
-
-    直接 ``int(out or 0)`` 会在 git 把话写到 stdout 时抛 ValueError。本脚本
-    喂的是 SessionStart，抛出去就是 hook 静默不输出——等于没装（见模块头）。
-    """
-
-    code, out = _git(args, cwd=cwd, timeout=timeout)
-    if code != 0 or not out.isdigit():
-        return 0
-    return int(out)
-
-
-def behind_count(head: str, base: str, *, cwd: str, timeout: float) -> int:
-    """base 上有多少提交是 head 没有的 —— 「我读到的代码有多旧」。
-
-    与 ``cherry_counts`` 正交：cherry 回答「我的补丁丢在外面没有」，两者都要
-    报。只报 cherry 的后果见 ``STALE_BASE_WARN`` 的注释。
-    """
-
-    return _count(["rev-list", "--count", f"{head}..{base}"], cwd=cwd, timeout=timeout)
-
-
 def classify_worktree(
     spec: dict[str, str],
     *,
@@ -213,8 +173,8 @@ def classify_worktree(
     if not path or not head:
         return None
     plus, minus, in_main = cherry_counts(head, base, cwd=path, timeout=timeout)
-    ahead = _count(["rev-list", "--count", f"{base}..{head}"], cwd=path, timeout=timeout)
-    behind = behind_count(head, base, cwd=path, timeout=timeout)
+    _, ahead_s = _git(["rev-list", "--count", f"{base}..{head}"], cwd=path, timeout=timeout)
+    _, behind_s = _git(["rev-list", "--count", f"{head}..{base}"], cwd=path, timeout=timeout)
     _, status = _git(["status", "--porcelain"], cwd=path, timeout=timeout)
     paths = _status_paths(status)
     subjects: tuple[str, ...] = ()
@@ -226,8 +186,8 @@ def classify_worktree(
         branch=spec.get("branch") or "?",
         cherry_plus=plus,
         cherry_minus=minus,
-        ahead=ahead,
-        behind=behind,
+        ahead=int(ahead_s or 0),
+        behind=int(behind_s or 0),
         in_main=in_main,
         dirty=bool(paths),
         code_dirty=is_code_dirty(paths),
@@ -272,29 +232,29 @@ def _last_switch_unix(ledger: Path, port: int) -> float:
 def resolve_ledger_path(
     repo_root: Path, *, timeout: float = 2.0, port: int = 8792
 ) -> Path:
-    """读取侧解析。唯一的默认家是 ``~/.finance-runtime/deploy-ledger.jsonl``，与
-    ``intelligence.runtime.deploy_ledger.default_ledger_path`` 同址——SessionStart 在宿主
-    python3 下跑、不 import 包，所以这里抄址不抄模块，改址两处一起改。
+    """覆盖序对齐 ``intelligence.runtime.deploy_ledger.resolve_ledger_path``。
 
-    失败形状（2026-09-08 实测）：账本有两个家——主检出树 ``state/`` 那份（带 ``FINANCE_WS``
-    的生产启动与部署脚本写的）与 ``~/.finance-runtime`` 那份（链切规程显式 ``--ledger`` 写的）。
-    按固定顺序取第一份，SessionStart 就把 8792 报成一天前的 rev，而生产早切了两次。
-    2026-09-09 工单 #44 把写入侧收成一个家；读取侧过渡期仍看三个**旧家**（``$FINANCE_WS/state/``、
-    ``<repo_root>/state/``、git common-dir 父目录的 ``state/``）——切流前旧代码的生产进程还往那儿
-    写 startup。存在的候选里取该 port 末次 switch 最新的那份（#675 的读法，不退）；都没有
-    switch 行时唯一家优先。``audit_deploy_ledger.py migrate-homes --apply`` 把旧家并入后旧文件
-    改名 ``.migrated-*``，不再被本函数看见。
+    SessionStart 必须能在宿主 python3、不 import 包的情况下跑，所以这里抄序
+    不抄模块。Hook 环境通常没有 ``FINANCE_WS``，附属 worktree 也没有数据仓
+    里的 ledger；多探一步 git common-dir 的父目录（主检出树），改覆盖序时
+    与 ``deploy_ledger`` 一起改。
+
+    失败形状（2026-09-08 实测）：账本有两个家——主检出树 ``state/`` 那份
+    （dev server 从主树起时按 ``<repo_root>/state`` 落）与 ``~/.finance-runtime``
+    那份（生产快照没有 ``state/``，走最后一级回落）。两份都在时按固定顺序取
+    第一份，SessionStart 就把 8792 报成一天前的 rev，而生产早切了两次；
+    ``audit_deploy_ledger.py check`` 读的是另一份，所以说一切正常。
+    读取侧不再按顺序取「第一份存在的」，而是在**存在的**候选里取该 port 末次
+    switch 最新的那份；都没有 switch 行才回到顺序。写入侧的分家不在本函数治。
     """
 
     override = os.environ.get("FINANCE_DEPLOY_LEDGER", "").strip()
     if override:
         return Path(override).expanduser()
-    home = Path.home() / ".finance-runtime" / LEDGER_NAME
-    candidates: list[Path] = [home]
     finance_ws = os.environ.get("FINANCE_WS", "").strip()
     if finance_ws:
-        candidates.append(Path(finance_ws).expanduser() / "state" / LEDGER_NAME)
-    candidates.append(repo_root / "state" / LEDGER_NAME)
+        return Path(finance_ws).expanduser() / "state" / LEDGER_NAME
+    candidates: list[Path] = [repo_root / "state" / LEDGER_NAME]
     code, common = _git(
         ["rev-parse", "--path-format=absolute", "--git-common-dir"],
         cwd=str(repo_root),
@@ -302,43 +262,23 @@ def resolve_ledger_path(
     )
     if code == 0 and common:
         candidates.append(Path(common).resolve().parent / "state" / LEDGER_NAME)
-    unique: list[Path] = []
-    for path in candidates:
-        if path not in unique:
-            unique.append(path)
-    existing = [path for path in unique if path.is_file()]
+    candidates.append(Path.home() / ".finance-runtime" / LEDGER_NAME)
+    existing = [path for path in candidates if path.is_file()]
     if not existing:
-        return home
-    # 稳定排序：时刻相同（含都没有 switch 行）时唯一家在前、旧家按老顺序。
+        return candidates[0]
+    # 稳定排序：时刻相同（含都没有 switch 行）时保持覆盖序，与旧行为一致。
     return max(existing, key=lambda path: _last_switch_unix(path, port))
 
 
-def last_switch_for_port(
-    ledger: Path, port: int = 8792
-) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
-    """返回 ``(该 port 末次 switch, 比它更新且没记 port 的 switch)``。
-
-    第二项不为 None 时，第一项**已经不能代表该 port 的现状**——账本里更新的那次
-    切换没写 port，读取侧无从归属。这里不替它猜：``deploy_ledger.infer_port`` 在
-    写入侧就明写「认不出来就 None，不猜 8792」，读取侧补一个猜测只是把同一个猜测
-    藏得更深，而且会猜错——账本里 8796 的末次 switch 后面同样跟着未归属行，按
-    「取最新」归属会把 8792 的 rev 报成 8796 的。
-
-    旧实现 ``return matched or fallback`` 的后果：切换时漏 ``--port`` 就落一行
-    无归属的 switch，看板回落到上一条带 port 的行，于是**每个会话的 SessionStart
-    都把上一版 rev 报成 8792 现状**（09-03 f4c03b9a 被报成 c88c81da；账本里已有
-    16 行是这么来的）。源头治理见 ``docs/workflows/acceptance-workflow.md`` 的
-    切换命令——执行切换的人是唯一知道端口的人，别把这个信息留给读取侧猜。
-    """
-
+def last_switch_for_port(ledger: Path, port: int = 8792) -> dict[str, Any] | None:
     if not ledger.is_file():
-        return None, None
+        return None
     matched: dict[str, Any] | None = None
-    unattributed: dict[str, Any] | None = None
+    fallback: dict[str, Any] | None = None
     try:
         text = ledger.read_text(encoding="utf-8")
     except OSError:
-        return None, None
+        return None
     for raw in text.splitlines():
         line = raw.strip()
         if not line:
@@ -351,14 +291,10 @@ def last_switch_for_port(
             continue
         if not row.get("rev"):
             continue
-        row_port = row.get("port")
-        if row_port is None or str(row_port).strip() == "":
-            unattributed = row
-        elif str(row_port) == str(port):
-            # 该 port 有了更新的确凿行，之前那条未归属行不再影响判断
+        fallback = row
+        if row.get("port") == port or str(row.get("port") or "") == str(port):
             matched = row
-            unattributed = None
-    return matched, unattributed
+    return matched or fallback
 
 
 def display_path(path: str) -> str:
@@ -444,36 +380,15 @@ def this_tree_lines(
     if code != 0 or not head:
         return []
     plus, minus, in_main = cherry_counts(head, base, cwd=cwd, timeout=timeout)
-    behind = behind_count(head, base, cwd=cwd, timeout=timeout)
     if in_main:
         merge = f"合入: 本枝补丁已在 {base}={base_sha[:12]}（cherry+0）"
     else:
         merge = (
             f"合入: 本枝 cherry+{plus} / cherry-{minus} vs {base}={base_sha[:12]}"
         )
-    # 追加在同一行而不是新起一行：SessionStart 有 2000 字符预算，实测已在截断
-    # 后省略三十余条，多一行就是挤掉另一条事实。落后量始终打印，⚠ 只在过阈值时加。
-    if behind > 0:
-        merge += f"；底落后 {behind} 提交"
-        if behind >= STALE_BASE_WARN:
-            merge += (
-                f"（≥{STALE_BASE_WARN}）⚠ 本树跑出的门禁 / 能力图谱读数量的是旧代码，"
-                "别据此下「我们没有 X」——先 fetch 或另开新树"
-            )
     lines = [merge]
-    switch, unattributed = last_switch_for_port(
-        resolve_ledger_path(repo_root, timeout=timeout)
-    )
-    if unattributed is not None:
-        # 报「不知道」而不是报一个更旧的 rev：后者每个会话都读起来像真值。
-        newer = str(unattributed.get("rev") or "")[:12]
-        known = str((switch or {}).get("rev") or "")[:12]
-        known_bit = f"，末次带 port=8792 的是 {known}" if known else ""
-        lines.append(
-            f"8792: 账本判不出——更新的 switch {newer} 未记 port{known_bit}"
-            "；取真值 scripts/audit_deploy_ledger.py check"
-        )
-    elif switch:
+    switch = last_switch_for_port(resolve_ledger_path(repo_root, timeout=timeout))
+    if switch:
         rev = str(switch.get("rev") or "")
         port = switch.get("port")
         same = rev.startswith(base_sha[:12]) or base_sha.startswith(rev[:12])

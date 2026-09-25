@@ -23,12 +23,6 @@ export FINANCE_DATA_ROOT="$DATA_ROOT"
 export FINANCE_WS="$DATA_ROOT"
 export MARKET_FEATURE_STORE_DB="${MARKET_FEATURE_STORE_DB:-$DATA_ROOT/db/market_feature_store.duckdb}"
 export FINANCE_S7_ROOT="${FINANCE_S7_ROOT:-/Users/a77/.finance-runtime/finance-s7-sync}"
-# 缺省值在脚本里给全，不靠 plist（plist 只作用于 launchd 启的进程，手动补跑拿不到）。
-# 这两个变量由 nightly-review-sync-staged.py 与 run_review_sync.py 读：
-# 缺 FINANCE_SYNC_CODE_ROOT → 退到共用主检出树（无 plan=local，ValueError）；
-# 缺 REVIEW_SYNC_PLAN → CLI 默认 full → 要 fupanhui 登录态 → rc=3。
-export FINANCE_SYNC_CODE_ROOT="${FINANCE_SYNC_CODE_ROOT:-/Users/a77/finance-workspace-sync}"
-export REVIEW_SYNC_PLAN="${REVIEW_SYNC_PLAN:-local}"
 PY="${FINANCE_SYNC_PYTHON:-${OPS_PYTHON}}"
 WRAPPER="${FINANCE_S7_WRAPPER:-/Users/a77/.local/bin/nightly-review-sync-staged.py}"
 
@@ -78,7 +72,7 @@ rc=$?
 if [ "$rc" -ne 0 ]; then
   echo "[$(date '+%F %T')] S7 staging sync 失败 rc=$rc"
   osascript -e "display notification \"S7 staging sync $D rc=$rc\" with title \"全量复盘告警\" sound name \"Basso\"" 2>/dev/null || true
-  "$OPS_PYTHON" "$DATA_ROOT/scripts/notify_ops.py" --no-desktop "⚠️ S7 staging sync $D 失败 rc=$rc；生产库未换名" 2>/dev/null || true
+  "$OPS_PYTHON" "$DATA_ROOT/scripts/notify_feishu.py" "⚠️ S7 staging sync $D 失败 rc=$rc；生产库未换名" 2>/dev/null || true
   echo "[$(date '+%F %T')] === sync 段失败 date=$D rc=$rc ==="
   exit "$rc"
 fi

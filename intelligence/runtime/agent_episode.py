@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Generator, Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta
 import hashlib
@@ -28,7 +28,6 @@ from intelligence.runtime.episode_finalizer import (
     MIN_FINALIZATION_RECOVERY_SECONDS,
     EpisodeFinalizer,
 )
-from intelligence.services.derived_calculation import bind_derived_calculation_tool
 from intelligence.services.evidence_ledger import EvidenceLedger, EvidenceLedgerSnapshot
 from intelligence.services.episode_protocol import (
     SYSTEM_PROMPT_DYNAMIC_BOUNDARY,
@@ -45,11 +44,6 @@ from intelligence.runtime.episode_tool_batch import (
     timeout_detail_for_model,
     tool_definitions_for_menu,
 )
-from intelligence.runtime.research_progress import (
-    ResearchProgressTracker,
-    ToolCallDigest,
-    progress_enabled,
-)
 from intelligence.runtime.tier_promotion import apply_mode_promotion
 from intelligence.services.episode_history_compaction import (
     compact_history,
@@ -65,7 +59,7 @@ from intelligence.services.provider_latency import (
     provider_name_from,
     repair_seconds_cap_for,
 )
-from intelligence.services.repair_coordinator import BudgetGrant, RepairGoal
+from intelligence.services.repair_coordinator import RepairGoal
 from intelligence.services.research_contract import (
     PRODUCT_MAX_TOOL_CALLS,
     ResearchDeadline,
@@ -78,19 +72,13 @@ from intelligence.services.research_plan import (
 )
 from intelligence.services.cancel_signal import CancelSignal
 from intelligence.services.episode_event_lanes import LiveEventSink
-from intelligence.services.episode_inbox import (
-    Inbox,
-    InboxReceipt,
-    InboxTarget,
-    spool_dir_for,
-)
+from intelligence.services.episode_inbox import Inbox, InboxReceipt, InboxTarget
 from intelligence.services.episode_messages import (
     PROMPT_SOURCE_FINALIZER,
     EpisodeMessage,
     append_model_input,
     assistant_message,
     check_derivation,
-    record_application_tool_call,
     record_prompt_assembled,
     record_tool_budget_state,
     rewrite_last_tool_content,
@@ -491,10 +479,6 @@ class _EpisodeLedger:
                     "chars_saved": self.history_compaction_saved,
                 },
             )
-            # P4 竞态目录「store.append 失败 vs 内存 ledger」：落盘失败不拥有执行，但要有收据。
-            # 收据只能落在内存 / 产物这一侧——store 已经写不进了；读产物的人由此知道
-            # durable 副本从哪一条序号起是不完整的（空列表 = 全部落盘）。
-            event_payload.setdefault("store_failures", list(self.store_failures))
         # 事件发生的挂钟时刻。相邻两条事件的时间差就是上一步的耗时——所以不需要
         # 给每一步单独开 span，就能算出「哪一步吃掉了时钟」。
         #
@@ -619,9 +603,6 @@ class _EpisodeToolAccumulator:
     traces: list[ProviderTrace] = field(default_factory=list)
     gaps: list[str] = field(default_factory=list)
     seen_observation_prose: set[str] = field(default_factory=set)
-    # 研究进展账（06 号单）：按批记「这轮有没有新证据 / 同一查询重复了几次 / 哪个工具连续空手」，
-    # 底座事实，run() 叠进 runtime_budget 递给模型；停滞到底时收口。
-    progress: ResearchProgressTracker = field(default_factory=ResearchProgressTracker)
 
     def __post_init__(self) -> None:
         if self.harness is None:
@@ -651,15 +632,6 @@ class _EpisodeToolAccumulator:
 
             if result.status == "rejected":
                 invalid_actions += 1
-                # 去重闸拒掉的调用就是「同一查询又来了一遍」：进展账记成 duplicate，
-                # 而不是笼统的 rejected——模型下一轮要看到的是「换查询」这个事实。
-                self.progress.record_call(
-                    ToolCallDigest(
-                        call.name,
-                        call.arguments,
-                        "duplicate" if result.error == "duplicate_query" else "rejected",
-                    )
-                )
                 if result.error == "unknown_or_unauthorized_tool":
                     self.traces.append(
                         ProviderTrace(
@@ -700,9 +672,6 @@ class _EpisodeToolAccumulator:
                 self._append_tool_error(
                     call, public_error, public_detail, timing=timing
                 )
-                self.progress.record_call(
-                    ToolCallDigest(call.name, call.arguments, str(result.status))
-                )
                 continue
 
             observation = result.observation
@@ -714,29 +683,12 @@ class _EpisodeToolAccumulator:
             self._extend_unique_gaps(observation.gaps)
             if observation.evidence:
                 self.successful_tools.add(call.name)
-            new_evidence = 0
             for item in observation.evidence:
                 if item.content_hash in self.evidence_hashes:
                     continue
                 self.evidence_hashes.add(item.content_hash)
                 self.evidence.append(item)
                 self.evidence_ledger.append(item)
-                new_evidence += 1
-            self.progress.record_call(
-                ToolCallDigest(
-                    call.name,
-                    observation.query or call.arguments,
-                    (
-                        "new"
-                        if new_evidence
-                        else "duplicate"
-                        if observation.evidence
-                        else "empty"
-                    ),
-                    new_evidence=new_evidence,
-                    total_evidence=len(observation.evidence),
-                )
-            )
             assert self.harness is not None
             projection = self.harness.project_tool_result(
                 observation,
@@ -795,9 +747,6 @@ class _EpisodeToolAccumulator:
 
     def consume_sub_research(self, result: SubResearchResult) -> None:
         self.traces.extend(result.traces)
-        self.progress.record_branches(
-            result.branches, refused_reason=result.refused_reason
-        )
         for branch in result.branches:
             # 分支里跑的工具此前**一条事件都不发**：只有 branch_started /
             # branch_completed 这对括号，中间发生了什么在事件流里是黑的。
@@ -896,67 +845,6 @@ class _EpisodeContinuationState:
     # run() 绑 sub_research 工具时用的当前 context 引用；resume 换 context 也要更新它。
     # None = 本 episode 没有协调器、没绑该工具（分支里的嵌套 Episode、参考 loop）。
     context_ref: _ContextRef | None = None
-
-
-STEP_PHASES: tuple[str, ...] = (
-    "model_pending",
-    "model_settled",
-    "before_tool_dispatch",
-    "tools_settled",
-    "before_finish",
-)
-
-
-@dataclass(frozen=True)
-class StepPoint:
-    """``manual_drive().step()`` 停下的那个点（运行底座 P4）。只给驱动方 / 竞态测试看。"""
-
-    phase: str
-    llm_calls: int
-    tool_calls: int
-    turn_id: str = ""
-
-
-class EpisodeDrive:
-    """一次性的单步驱动器：包着 ``ContinuousAgentEpisode._drive`` 生成器。
-
-    ``step()`` 跑到下一个 ``StepPoint``（终态时回 ``None`` 并填好 ``outcome``）；
-    ``run_until(phase)`` 连跑到某类步点；``run_to_end()`` 排空。生成器抛过异常后不可再驱动。
-    """
-
-    def __init__(self, generator: Generator[StepPoint, None, AgentOutcome]) -> None:
-        self._generator = generator
-        self.outcome: AgentOutcome | None = None
-        self.finished = False
-        self.steps: list[StepPoint] = []
-
-    def step(self) -> StepPoint | None:
-        if self.finished:
-            return None
-        try:
-            point = next(self._generator)
-        except StopIteration as stop:
-            self.outcome = stop.value
-            self.finished = True
-            return None
-        self.steps.append(point)
-        return point
-
-    def run_until(self, phase: str) -> StepPoint | None:
-        """跑到下一个 ``phase`` 步点；先到终态就回 ``None``。"""
-
-        if phase not in STEP_PHASES:
-            raise ValueError(f"unknown step phase: {phase!r}")
-        while True:
-            point = self.step()
-            if point is None or point.phase == phase:
-                return point
-
-    def run_to_end(self) -> AgentOutcome:
-        while not self.finished:
-            self.step()
-        assert self.outcome is not None
-        return self.outcome
 
 
 class ContinuousAgentEpisode:
@@ -1092,54 +980,6 @@ class ContinuousAgentEpisode:
         registry: ResearchToolRegistry,
         _continuation_sink: list[_EpisodeContinuationState] | None = None,
     ) -> AgentOutcome:
-        """跑到终态。控制流全在 ``_drive`` 里；这里只是把生成器排空（P4 ``step()``）。"""
-
-        return self.manual_drive(
-            task_frame=task_frame,
-            context=context,
-            registry=registry,
-            _continuation_sink=_continuation_sink,
-        ).run_to_end()
-
-    def manual_drive(
-        self,
-        *,
-        task_frame: TaskFrame,
-        context: ResearchRunContext,
-        registry: ResearchToolRegistry,
-        _continuation_sink: list[_EpisodeContinuationState] | None = None,
-    ) -> EpisodeDrive:
-        """单步驱动（运行底座 P4 / 工单 #31）：每次 ``step()`` 跑到下一个效果边界停下。
-
-        与 ``run()`` 是**同一段代码**——``run()`` 就是把这个生成器排空。停下的点只有五种
-        （``STEP_PHASES``）：模型意图已 durable、结算未发（``model_pending``）；模型结算刚落
-        （``model_settled``）；工具意图将落、批次未派发（``before_tool_dispatch``）；批次结算
-        刚落（``tools_settled``）；终局 ``finish`` 将落（``before_finish``）。竞态目录
-        （``conformance/races/``）就是在这些点上把取消 / steer / restore 插进去，两种顺序各跑一遍。
-
-        为什么是生成器而不是状态机重写：run() 有几十个局部变量与十来个 return 点，改成
-        显式状态对象等于重写一遍控制流、再靠测试证明它没变；生成器让**同一份代码**在
-        ``yield`` 处暂停，局部变量原地保留，事件序、写序、消息序逐字节不变（全量套件在
-        严格派生下就是证明）。代价是驱动对象一次性：生成器抛过异常就不能再 ``step()``。
-        """
-
-        return EpisodeDrive(
-            self._drive(
-                task_frame=task_frame,
-                context=context,
-                registry=registry,
-                _continuation_sink=_continuation_sink,
-            )
-        )
-
-    def _drive(
-        self,
-        *,
-        task_frame: TaskFrame,
-        context: ResearchRunContext,
-        registry: ResearchToolRegistry,
-        _continuation_sink: list[_EpisodeContinuationState] | None = None,
-    ) -> Generator[StepPoint, None, AgentOutcome]:
         # EpisodeScope 在这里构造——这是 Episode 的入口，contract、注册表、
         # 身份都齐了。第 3 步把接缝接到了执行路径上，但生产链路一直没人构造 Scope，
         # 于是事件、调用登记和 dump 收据在生产里都不发生（机制休眠）。
@@ -1156,9 +996,6 @@ class ContinuousAgentEpisode:
         # 只在真有下游 sink 时才挂：否则 ``dump()`` 的 ``event_sink_attached``
         # 会在没人接收时报 True——收据不说谎优先于形式上"接线了"。
         #
-        # Scope 内的副本不能约束还持有原 registry 的消费者；先绑定本地引用，
-        # 再生成配置快照、绑 episode 工具、拼提示词与播种账本。
-        registry = registry.for_context(context)
         # 证据账本要在绑 sub_research 之前建：分支证据经它的 branch_sink 进父账本。
         # 建得早不改任何事件——它只依赖 context。
         evidence_ledger = EvidenceLedger(
@@ -1180,23 +1017,15 @@ class ContinuousAgentEpisode:
         ledger.active_context = context
         # INV-R5：收件箱在账本之后、任何模型请求之前建好——从此外部输入只有这一扇门。
         # 收不收由 harness 判（§5 第 2 条接触点）；子研究回灌也走它（§6.4 第 3 条）。
-        # 落盘的 store 顺带给箱子一个跨进程投递槽（CLI steer，工单 #30 第 5 条）；内存 store 没有。
-        inbox = Inbox(
-            ledger,
-            admit=self._harness.admit_inbox_message,
-            spool=spool_dir_for(self._store, ledger.episode_id),
-        )
+        inbox = Inbox(ledger, admit=self._harness.admit_inbox_message)
         ledger.inbox = inbox
         self._active_inbox = inbox
-        # 研究进展账要在绑 episode 工具之前建：分支结果在批执行器线程里回来时直接记进它。
-        progress = ResearchProgressTracker()
-        registry = self._with_episode_bound_tools(
+        registry = self._with_sub_research_tool(
             task_frame=task_frame,
             context_ref=context_ref,
             registry=registry,
             evidence_ledger=evidence_ledger,
             ledger=ledger,
-            progress=progress,
         )
         episode_scope = EpisodeScope(
             episode_id=context.contract.task_id,
@@ -1244,7 +1073,6 @@ class ContinuousAgentEpisode:
             ledger=ledger,
             evidence_ledger=evidence_ledger,
             harness=self._harness,
-            progress=progress,
         )
         _seed_opening_prefetch(accumulator, messages, registry)
         continuation_state: _EpisodeContinuationState | None = None
@@ -1337,9 +1165,7 @@ class ContinuousAgentEpisode:
 
             # INV-R5：每次模型请求前认领 next_step（pi steering）。先于历史折叠——
             # 认领的是 user 消息，折叠只碰 tool 消息，两者互不改写；先于对账是必然。
-            if self._claim_inbox(messages=messages, ledger=ledger, target="next_step"):
-                # 外部递了话（用户改方向 / 分支回灌）：新方向的第一批不算原地踏步。
-                accumulator.progress.note_external_input()
+            self._claim_inbox(messages=messages, ledger=ledger, target="next_step")
             # 历史折叠先于对账：它改的是模型即将看到的 tool 消息正文，并以
             # ``history_compacted`` 事件承载替换后的正文，所以对账必须在它之后。
             self._compact_history_for_model(
@@ -1353,13 +1179,11 @@ class ContinuousAgentEpisode:
             ledger.verify_model_visible(messages)
             # INV-R2：模型请求前的意图（含预留 turn_id）。菜单在意图之前算——它只读状态，
             # 不是外部效果；``tool_menu`` 事件因此仍先于 ``model_intent``。
-            definitions = (
-                [] if finalization_started else self._available_tool_definitions(
-                    tool_session=tool_session,
-                    registry=registry,
-                    context=context,
-                    ledger=ledger,
-                )
+            definitions = self._available_tool_definitions(
+                tool_session=tool_session,
+                registry=registry,
+                context=context,
+                ledger=ledger,
             )
             turn_id = ledger.record_model_intent(
                 timeout_asked=timeout,
@@ -1369,8 +1193,6 @@ class ContinuousAgentEpisode:
                 retries_remaining=1,
                 context=context,
             )
-            # P4 步点①：意图已 durable、结算未发——INV-R2 的「不确定窗口」入口。
-            yield StepPoint("model_pending", llm_calls, tool_calls, turn_id=turn_id)
             model_started = monotonic()
             try:
                 # 线格式只在这里出现：loop 全程 EpisodeMessage，边界一次转换。
@@ -1467,22 +1289,6 @@ class ContinuousAgentEpisode:
                     ),
                 },
             )
-            if not turn.tool_calls and not turn.error:
-                # 写作轮（没点工具的模型轮）超出研究额度的部分从合成保留的余量里出。
-                # 账本 initial_seconds = total − reserve 是研究额度，reserve 本就是留给
-                # 写结论的钱，但此前写作轮照样从研究额度扣：2026-09-08 GLM 思考臂
-                # max 档 reserve 抬到 240 后研究额度缩到 360，写作 181s 一到账本就溢出、
-                # 墙钟还剩 167s 却报 deadline_exhausted（收据 glm-ceiling-20260907 §7）。
-                # 只铸差额、不铸整段：sol 写作 15–40s 研究额度盖得住 → 一笔不铸、账本
-                # 逐字节同前；余量尽量留给修复（修复也从同一段余量铸）。
-                self._grant_writing_shortfall(
-                    context=context,
-                    ledger=ledger,
-                    elapsed=model_elapsed,
-                    llm_calls=llm_calls,
-                )
-            # P4 步点②：模型结算刚落，下一件外部效果（派发 / 收口）还没开始。
-            yield StepPoint("model_settled", llm_calls, tool_calls, turn_id=turn_id)
             if not _consume_root_seconds(context, model_elapsed):
                 if context.root_budget is not None:
                     context.root_budget.settle_seconds(seconds=model_elapsed)
@@ -1746,8 +1552,6 @@ class ContinuousAgentEpisode:
                         tool_calls=tool_calls,
                         invalid_actions=invalid_actions,
                     )
-                # P4 步点③：工具批次将派发（意图 tool_request 在 _dispatch 前由 ledger 落）。
-                yield StepPoint("before_tool_dispatch", llm_calls, tool_calls, turn_id=turn_id)
                 batch_started = monotonic()
                 batch = tool_session.execute(
                     turn.tool_calls,
@@ -1763,8 +1567,6 @@ class ContinuousAgentEpisode:
                 batch_elapsed = max(0.0, monotonic() - batch_started)
                 tool_calls += batch.executed_count
                 invalid_actions += accumulator.consume(batch, context)
-                # P4 步点④：这一批的结算（tool_result / tool_error）全部落账。
-                yield StepPoint("tools_settled", llm_calls, tool_calls, turn_id=turn_id)
                 halt = self._harness.halt_after_tool_batch(
                     context=context,
                     batch_errors=tuple(item.error for item in batch.items),
@@ -1803,12 +1605,6 @@ class ContinuousAgentEpisode:
                         executed_count=fb_batch.executed_count,
                         batch_elapsed=fb_elapsed,
                     )
-                progress_view = self._research_progress_view(
-                    accumulator=accumulator,
-                    tool_session=tool_session,
-                    registry=registry,
-                    context=context,
-                )
                 injected = self._append_tool_budget_state(
                     messages=messages,
                     ledger=ledger,
@@ -1830,7 +1626,6 @@ class ContinuousAgentEpisode:
                         ),
                     ),
                     per_batch_cap=batch_call_cap(context.policy),
-                    progress=progress_view,
                 )
                 if injected:
                     ledger.time_budget_injected = True
@@ -1857,20 +1652,6 @@ class ContinuousAgentEpisode:
                         messages=messages,
                         ledger=ledger,
                         reason="snapshot_surface_satisfied",
-                    )
-                # 停滞收口（06 号单）：连续 N 批零新证据且已有证据在手，研究阶段关门。
-                # 关门前模型已连续两轮看到 stalled 建议与「再一批就收口」的预告；
-                # 已有证据一条不丢，收口只是不再让它原地重复调用。
-                if (
-                    not finalization_started
-                    and progress_view is not None
-                    and accumulator.progress.should_finalize()
-                ):
-                    finalization_started = True
-                    self._begin_finalization(
-                        messages=messages,
-                        ledger=ledger,
-                        reason="research_stalled",
                     )
                 # 这一批的结算全部落下、无在飞外部效果：程序计数器回到规划 / 收口。
                 ledger.put_state(
@@ -1961,9 +1742,6 @@ class ContinuousAgentEpisode:
             assert admission.status is not None
             status, draft = admission.status, admission.draft
             bindings, current_gaps = admission.bindings, admission.gaps
-            # P4 步点⑤：终局已获准入、finish 事件将落（其它停机路径经 _stopped_outcome /
-            # _cancelled_outcome / _recover_finalization 直接返回，不设步点）。
-            yield StepPoint("before_finish", llm_calls, tool_calls, turn_id=turn_id)
             ledger.record_runtime_result()
             ledger.add(
                 "finish",
@@ -2161,8 +1939,7 @@ class ContinuousAgentEpisode:
         accumulator = state.accumulator
         messages = state.messages
         tool_session = state.tool_session
-        registry = state.registry.for_context(context)
-        state.registry = registry
+        registry = state.registry
         task_frame = state.task_frame
         repair_seconds = max(0.0, float(goal.remaining_seconds))
         if context.root_budget is not None:
@@ -2200,16 +1977,6 @@ class ContinuousAgentEpisode:
                 repair_tool_context,
                 contract=downgraded_contract,
             )
-        # 同名 runner/contract 可能在修复入口被替换：Scope 诊断与执行必须
-        # 使用同一份当前注册表，不能只有 state.registry 更新、Scope 仍授权旧实现。
-        rebound_scope = tool_session.bind_scope(
-            registry=registry, context=repair_tool_context,
-        )
-        if rebound_scope is not None:
-            state.episode_scope = rebound_scope
-            registry = rebound_scope.registry
-            state.registry = registry
-            ledger.derive_mismatch_sink = rebound_scope.record_derive_mismatch
         # 修复轮的时钟账，记在动手之前。
         #
         # 这三个数是 judge 那次诊断里 ``timeout_asked`` 的同位物：judge 看着像元凶，
@@ -2603,16 +2370,6 @@ class ContinuousAgentEpisode:
         )
         if fallback is None:
             return None
-        # 这一枪是应用替模型点的，模型没有说过——但下一次请求里它的 tool 消息必须有
-        # assistant.tool_calls 声明，否则 OpenAI 兼容接口回 400（2026-09-09 M3 / M6 真实
-        # run 第 3/4 轮就是这样失败的）。声明是模型可见内容：先落 durable 事件再进
-        # messages（INV-R1），且在派发意图（tool_request）之前（声明 → 意图 → 效果）。
-        record_application_tool_call(
-            accumulator.messages,
-            accumulator.ledger,
-            call=fallback.call,
-            source="empty_pool_fallback",
-        )
         started = monotonic()
         extras = {fallback.call.call_id: fallback.request_extras}
         fallback_batch = tool_session.execute(
@@ -2841,7 +2598,7 @@ class ContinuousAgentEpisode:
                 )
         return result
 
-    def _with_episode_bound_tools(
+    def _with_sub_research_tool(
         self,
         *,
         task_frame: TaskFrame,
@@ -2849,30 +2606,15 @@ class ContinuousAgentEpisode:
         registry: ResearchToolRegistry,
         evidence_ledger: EvidenceLedger,
         ledger: _EpisodeLedger,
-        progress: ResearchProgressTracker | None = None,
     ) -> ResearchToolRegistry:
-        """把只有 episode 期才绑得出 runner 的工具并进注册表：``derived_calculation`` 与 ``sub_research``。
+        """有协调器的 episode 把 ``sub_research`` 绑成模型可点的工具并进注册表。
 
-        两个都要这一个 episode 的证据账本，装配层（``build_episode_registry``）拿不到，
-        所以在这里绑（没账本不挂）。授权仍由 contract 决定：不在 ``allowed_capabilities``
-        里的工具 ``authorized_specs`` 根本不会摆给模型。
-
-        ``derived_calculation``（spec capability-amplification §3.4）：读的是账本对象，
-        模型第 N 轮算的是前 N-1 轮取到的证据。
-
-        ``sub_research``（spec 2026-09-03）：不新建子代理，包现有协调器；前台同步、深度 1。
-        没有协调器（分支里的嵌套 Episode、参考 loop）就不挂——工具不存在，而不是存在但报错。
+        spec 2026-09-03：不新建子代理，包现有协调器；前台同步、深度 1。没有协调器
+        （分支里的嵌套 Episode、参考 loop）就原样返回——工具不存在，而不是存在但报错。
+        授权仍由 contract 决定：``sub_research`` 不在 ``allowed_capabilities`` 里时，
+        ``authorized_specs`` 根本不会把它摆给模型。
         """
 
-        registry = registry.with_specs(
-            bind_derived_calculation_tool(
-                evidence_ledger=evidence_ledger,
-                # 身份由装配层折进注册表（``ResearchToolRegistry.calc_loader``）。
-                # 本层只转交、不解析——EpisodeScope.user_id 恒为 "" 这条边界不动。
-                # None = 装配方没给身份，走 load_calculation_record 的默认解析。
-                calc_loader=getattr(registry, "calc_loader", None),
-            )
-        )
         coordinator = self._sub_research_coordinator
         if coordinator is None:
             return registry
@@ -2881,11 +2623,6 @@ class ContinuousAgentEpisode:
             # 与 PLAN 路径同一组 durable 事件（branch_started / completed / failed），
             # 事件流的消费者不必区分分支是模型点的还是 PLAN 批的。
             self._record_branch_events(ledger, goals=goals, result=result)
-            if progress is not None:
-                # 分支状态进研究进展账（工具路径的证据本身经 tool_result 进 consume）。
-                progress.record_branches(
-                    result.branches, refused_reason=result.refused_reason
-                )
 
         spec = bind_sub_research_tool(
             coordinator=coordinator,
@@ -2982,9 +2719,9 @@ class ContinuousAgentEpisode:
         ledger: _EpisodeLedger,
     ) -> list[dict[str, object]]:
         menu = tool_session.menu(registry=registry, context=context)
-        # 每个开放工具的模型步都留实际菜单：configure 早于动态工具装配，且合同
-        # 授权不等于预算/去重裁剪后的可见集合。与参照 loop 同源，UI 只投影标签。
-        ledger.add("tool_menu", menu.to_payload())
+        # 只在真藏了工具时记账：无裁剪轮的事件流与改前逐字节相同。
+        if menu.hidden:
+            ledger.add("tool_menu", menu.to_payload())
         return tool_definitions_for_menu(menu, registry=registry, context=context)
 
     @staticmethod
@@ -3019,38 +2756,6 @@ class ContinuousAgentEpisode:
         )
 
     @staticmethod
-    def _research_progress_view(
-        *,
-        accumulator: _EpisodeToolAccumulator,
-        tool_session: EpisodeToolBatchSession,
-        registry: ResearchToolRegistry,
-        context: ResearchRunContext,
-    ) -> dict[str, object] | None:
-        """批后收账并算给模型看的研究进展块；开关关时返回 None（逐字节同前）。
-
-        ``tools_short_of_window``：菜单裁剪关着（生产 ``WORKBENCH_TOOL_MENU_HIDE=off``）时，
-        申报窗大于下一轮工具窗的工具仍然可见——点了必超时白烧一轮。这里把「可用但装不下」
-        这个事实递给模型，而不是替它藏菜单。
-        """
-
-        if not progress_enabled():
-            return None
-        accumulator.progress.close_batch()
-        menu = tool_session.menu(registry=registry, context=context)
-        visible = set(menu.visible)
-        short_of_window = [
-            spec.name
-            for spec in registry.authorized_specs(context.contract.allowed_capabilities)
-            if spec.name in visible
-            and spec.min_window_seconds is not None
-            and float(spec.min_window_seconds) > float(menu.would_grant)
-        ]
-        return accumulator.progress.model_view(
-            available_tools=menu.visible,
-            tools_short_of_window=short_of_window,
-        )
-
-    @staticmethod
     def _append_tool_budget_state(
         *,
         messages: list[EpisodeMessage],
@@ -3059,7 +2764,6 @@ class ContinuousAgentEpisode:
         remaining_seconds: float | None = None,
         total_seconds: float | None = None,
         per_batch_cap: int | None = None,
-        progress: Mapping[str, object] | None = None,
     ) -> bool:
         if not messages or messages[-1].role != "tool":
             return False
@@ -3116,10 +2820,6 @@ class ContinuousAgentEpisode:
                 "收敛到最有把握的方向，宁可少查也要留出写结论的时间。"
             )
             injected = True
-        if progress:
-            # 研究进展账（06 号单）叠在同一个预算块里：不新增事件种类、不改派生规则，
-            # 模型在同一处读「还剩多少」和「刚才那批有没有新东西」。
-            budget["research_progress"] = dict(progress)
         payload["runtime_budget"] = budget
         model_content = json.dumps(payload, ensure_ascii=False)
         # 这是对最后一条 tool 消息的**覆写**，不是追加：durable 侧记整段新 content，
@@ -3242,12 +2942,6 @@ class ContinuousAgentEpisode:
         )
         recovery_started = monotonic()
         try:
-            recovery_options = {}
-            priority_hook = getattr(self._harness, "recovery_evidence_priority", None)
-            if callable(priority_hook):
-                priority = priority_hook(context=context, evidence=tuple(accumulator.evidence))
-                if isinstance(priority, tuple) and priority:
-                    recovery_options["evidence_priority"] = priority
             turn = self._finalizer.recover(
                 task_frame=task_frame,
                 context=context,
@@ -3259,7 +2953,6 @@ class ContinuousAgentEpisode:
                 on_prompt=lambda system, user: record_prompt_assembled(
                     ledger, system=system, user=user, source=PROMPT_SOURCE_FINALIZER
                 ),
-                **recovery_options,
             )
         except Exception as exc:
             budget_remaining = _consume_root_seconds(
@@ -3502,61 +3195,6 @@ class ContinuousAgentEpisode:
             cleaned = str(value or "").strip()
             if cleaned and cleaned not in target:
                 target.append(cleaned)
-
-    @staticmethod
-    def _grant_writing_shortfall(
-        *,
-        context: ResearchRunContext,
-        ledger: "_EpisodeLedger",
-        elapsed: float,
-        llm_calls: int,
-    ) -> float:
-        """写作轮超出研究额度的秒数，从根账本的余量（= 合成保留）里铸一笔补上。
-
-        余量 = ``hard_seconds_cap − allocated_seconds``，正是档位表留给写结论的
-        ``synthesis_reserve``。只铸 ``min(差额, 余量)``：研究额度盖得住的写作轮
-        一笔不铸（sol 路径逐字节同前），铸不满时照旧走 ``consume_seconds`` 失败 →
-        ``_carry_just_written_finish`` 补救。修复轮从同一段余量铸窗，所以这里
-        绝不预铸整段 reserve。账本鸭子类型：替身没有 ``grant`` 就什么也不做。
-        """
-
-        root = context.root_budget
-        if root is None or elapsed <= 0.0:
-            return 0.0
-        grant_fn = getattr(root, "grant", None)
-        if not callable(grant_fn):
-            return 0.0
-        remaining = max(0.0, float(getattr(root, "remaining_seconds", 0.0) or 0.0))
-        shortfall = max(0.0, float(elapsed) - remaining)
-        if shortfall <= 1e-9:
-            return 0.0
-        hard_cap = float(getattr(root, "hard_seconds_cap", 0.0) or 0.0)
-        allocated = float(getattr(root, "allocated_seconds", hard_cap) or 0.0)
-        headroom = max(0.0, hard_cap - allocated)
-        seconds = min(shortfall, headroom)
-        if seconds <= 1e-9:
-            return 0.0
-        episode_id = str(getattr(root, "episode_id", "") or "").strip()
-        grant = BudgetGrant(
-            grant_id=f"writing-{episode_id}-{int(llm_calls)}",
-            episode_id=episode_id,
-            cycle=0,
-            calls_granted=0,
-            seconds_granted=seconds,
-        )
-        if not grant_fn(grant):
-            return 0.0
-        ledger.add(
-            "writing_grant",
-            {
-                "seconds_granted": round(seconds, 3),
-                "model_elapsed": round(float(elapsed), 3),
-                "shortfall": round(shortfall, 3),
-                "headroom_before": round(headroom, 3),
-                "llm_calls": int(llm_calls),
-            },
-        )
-        return seconds
 
     def _carry_just_written_finish(
         self,

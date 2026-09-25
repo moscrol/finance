@@ -22,12 +22,6 @@ class IssueCode(str, Enum):
 
     EVIDENCE_EMPTY_HASH = "evidence_empty_hash"
     EVIDENCE_DUPLICATE_HASH = "evidence_duplicate_hash"
-    # 契约外输出绑定分两档（2026-09-09 判官修复 01 第一刀）：
-    # - EXTRA_OUTPUT_BINDING：多做的一块研究，引用的哈希都在证据池里 → 从契约结构
-    #   里隔离出去（STRIP_OK），必需输出照常进语义判官，正文仍逐句核验。
-    # - UNKNOWN_OUTPUT_BINDING：契约外且引用了池里没有 / 重复的哈希 → 编造引用，
-    #   保持 BLOCK。旧实现两种都 BLOCK，让已完成的核心答案被一个多余字段连坐。
-    EXTRA_OUTPUT_BINDING = "extra_output_binding"
     UNKNOWN_OUTPUT_BINDING = "unknown_output_binding"
     MISSING_REQUIRED_OUTPUT = "missing_required_output"
     GROUNDING_BASIS_MISMATCH = "grounding_basis_mismatch"
@@ -67,7 +61,6 @@ class Issue:
 RELEASE_POLICY: dict[IssueCode, ReleaseAction] = {
     IssueCode.EVIDENCE_EMPTY_HASH: ReleaseAction.BLOCK,
     IssueCode.EVIDENCE_DUPLICATE_HASH: ReleaseAction.BLOCK,
-    IssueCode.EXTRA_OUTPUT_BINDING: ReleaseAction.STRIP_OK,
     IssueCode.UNKNOWN_OUTPUT_BINDING: ReleaseAction.BLOCK,
     IssueCode.MISSING_REQUIRED_OUTPUT: ReleaseAction.BLOCK,
     IssueCode.GROUNDING_BASIS_MISMATCH: ReleaseAction.BLOCK,

@@ -38,17 +38,6 @@
     <string>36</string>
     <key>REVIEW_GATE_LOCK_DELAY_SECONDS</key>
     <string>10</string>
-    <!-- finalize 也必须带档位（2026-09-12 补）：三道质检闸门（data / l2 / all）
-         的 plan 参数缺省读这个变量，未设即按 full 期望裁判，plan=local 下不抓的
-         fact_theme_flow_daily 会被判成断档 → 20:40 守卫中止 → 方法飞轮轮不到。
-         装机副本此前手工加过 local，仓内源一直没有：重装就会静默丢掉它。
-         与 sync 源保持同值，改档两份一起改。 -->
-    <key>REVIEW_SYNC_PLAN</key>
-    <string>local</string>
-    <!-- 手动 `nightly_full_review.sh sync|all` 的同步编排器也从这棵树取，
-         与 sync plist 同值；不设会退到 CODE_ROOT，那是部分 rsync 的运行快照。 -->
-    <key>FINANCE_SYNC_CODE_ROOT</key>
-    <string>/Users/a77/finance-workspace-sync</string>
   </dict>
   <key>RunAtLoad</key>
   <false/>
