@@ -19,7 +19,7 @@ ae3干净树：Python16259P/0F/93S/2X；定向118P；前端123P、E2E34P/2S；re
 批13在f650取得C1-C7 PASS_WITH_LIMITS，不转给ae3。ae3批14/16-19虽25P但无合格终稿；批20实际23P/2F，两例遇沙箱内clean-checkout守卫，事后宿主诊断干净，根因未证实。终稿又含额外claim，未交付。供应探针非模型新写；C6六次嵌入作者函数体调用，standalone作者pytest为0。
 
 ## 下一步
-零外呼诊断已完成：旧候选同sandbox直接rehearsal clean；新main724候选以本地clone进入等价sandbox，`_code_revision=(4706,false)`，rehearsal通过。批20的dirty失败仍无法重现，不能宣称根因或修复，不重跑/补签批20。报告schema离线预检最大4932<6000，负例16项通过。此前独审失败前不追加付费请求；当前4706仍无独立QC。合入与生产授权均false，生产要重新冻结与逐字授权，WAL存在即停。#802已关闭留6446指针。
+零外呼诊断：旧候选sandbox clean；main724 clone `_code_revision=(4706,false)`、rehearsal通过；实际toolEnv三探针25P，Git 226调用全exit0、status stdout空，仅sandbox warning。批20身份失败仍不可重现，不改guard、不补签。schema最大4932，16负例通过。4706无独审；不追加付费请求。合入/生产均false；生产需重新冻结、逐字授权，WAL即停。#802留6446。
 
 ## 踩过的坑
 16-18首拒收实际是6000字符限额，不是最初判断的claim格式。19来源说明超字段长度；20仍有真实失败。运行根ready-only脚本未执行，不是就绪证据。原全量XML含JWT形内容，只保留本机原件和归档哈希。
