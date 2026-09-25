@@ -27,7 +27,7 @@
 ## 收据
 
 - 运行输出：`probe.json`。
-- 同一树定向回归：`clean-targeted-receipt.json`，绑定 `6d4bb99d1`，117P/0F/0S，包含脚本回归、纠偏、用户记忆、退出状态和 episode 工具测试。
+- 同一树定向回归：`clean-targeted-receipt.json`，绑定 `ec806440c`，117P/0F/0S，包含脚本回归、纠偏、用户记忆、退出状态和 episode 工具测试。
 - 代码收据需绑定收据内的准确 revision；本报告不把这组离线结果移签给生产版本。
 
 ## 可复现

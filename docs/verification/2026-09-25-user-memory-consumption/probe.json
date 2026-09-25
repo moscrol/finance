@@ -1,6 +1,6 @@
 {
   "status": "PASS",
-  "scope": "temporary_ledger_writer_to_memory_lookup; no_workbench_ingest_no_model_no_real_user_state",
+  "scope": "temporary_ledger_writer_to_prime_and_memory_lookup; no_workbench_ingest_no_model_no_real_user_state",
   "write_path": "canonical_corrections_record_correction_in_temporary_users_root",
   "alice_record_id": "cb4947c48f99",
   "alice_correction_sha256": "66d2f8aa66d27063cfeea7db5432218f34a9064c904a0bdfc57164ca0cebaaad",
@@ -20,6 +20,11 @@
     ],
     "gaps": []
   },
+  "alice_cli_prime_before_withdrawal": {
+    "corrections_present": true,
+    "corrections_sha256": "22d4b8ade55f25aa25871b2f942327f3527229f36116affc5125e24d40c617e7",
+    "warnings_count": 1
+  },
   "bob_cross_user_control": {
     "recalled_corrections": 0,
     "registered": true,
@@ -32,6 +37,11 @@
       "用户记忆中没有与本题相关的历史判断"
     ]
   },
+  "bob_cli_prime_control": {
+    "corrections_present": false,
+    "corrections_sha256": null,
+    "warnings_count": 1
+  },
   "alice_after_withdrawal": {
     "recalled_corrections": 0,
     "registered": true,
@@ -43,6 +53,11 @@
     "gaps": [
       "用户记忆中没有与本题相关的历史判断"
     ]
+  },
+  "alice_cli_prime_after_withdrawal": {
+    "corrections_present": false,
+    "corrections_sha256": null,
+    "warnings_count": 1
   },
   "missing_identity": {
     "memory_lookup_registered": false
