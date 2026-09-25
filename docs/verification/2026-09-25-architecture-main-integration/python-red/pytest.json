@@ -1,0 +1,36 @@
+{
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "python_version": "3.12.13",
+  "dependency_fingerprint": "e1c50cb821a30f00",
+  "tree": "/Users/a77/fwp-wt-architecture-audit-0924",
+  "revision": "fa7b8094253d3f0887a1e7e85127a75a30a9f9da",
+  "branch": "feat/architecture-audit-0924",
+  "dirty": false,
+  "dirty_paths": [],
+  "worktree_dirty_total": 0,
+  "dependency_gate_bypassed": false,
+  "target": "/Users/a77/fwp-wt-architecture-audit-0924",
+  "scope": {
+    "ignore": [],
+    "ignore_glob": [],
+    "deselect": [],
+    "keyword": "",
+    "markexpr": "",
+    "maxfail": 0,
+    "last_failed": false,
+    "collected": 16498
+  },
+  "counts": {
+    "passed": 16421,
+    "failed": 1,
+    "error": 0,
+    "skipped": 74,
+    "xfailed": 2,
+    "xpassed": 0
+  },
+  "failed_ids": [
+    "tests/test_daily_agent.py::DailyAgentTest::test_daily_agent_summarizes_daily_surfaces_and_logic_routes"
+  ],
+  "exit_status": 1,
+  "finished_at": "2026-09-25T05:52:05+00:00"
+}

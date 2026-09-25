@@ -48,6 +48,7 @@ SPT 的 PASS 不证明人工审批权属、手工框架字段、方法卡生成�
 4. 生产和预算前置满足后，按规格执行六类输入及纠正/跨用户两例真入口消费。卖方、Knevo 仍沿原 owner 在途工单推进。本轮不声称它们的新生产验收已经完成。
 5. 用户纠正台账 → `memory_lookup`、跨用户隔离与撤回的离线前置见 `docs/verification/2026-09-25-user-memory-consumption/README.md`。只证明当时已有台账读取链，后续写侧/自动预取另见下一项。
 6. Workbench P0纠偏写侧与P1记忆开口读侧已在审计分支完成临时根验收（`9533417c3`，干净641P）；下一轮首请求可自动收到新写的相关纠偏，空/超时/失败分别为缺口。见 `docs/verification/2026-09-25-workbench-correction-ingest/README.md`。这是无模型装配/送达PASS，真实模型采用和金融质量UNKNOWN；未合main/部署。随后`3047cb1ee`补进程内HTTP入口三场景，干净794P；另开空会话排除历史回显，核对同用户/跨用户/撤回及Episode身份哈希，范围与主干漂移预检见同一纠偏报告，不签真实网络或浏览器UI。
+7. 后续将冻结主干`9d5b9800a`整合至审计分支，并修正缺审计输入的旧每日摘要测试夹具。`698fd172d`干净四叶门禁通过：Python16423P/0F/74S/2X、frontend123P、e2e34P/2S、registry五项exit0。首轮红结果与新收据均见`docs/verification/2026-09-25-architecture-main-integration/README.md`；仅签该候选，不代签文档HEAD、main或生产。常规隔离e2e不等于纠偏生产UI验收，阶段B真实消费及质量仍待前置与授权。
 
 ## 精确重跑
 

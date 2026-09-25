@@ -50,7 +50,8 @@ P1 开口读侧已在审计分支 `9533417c3` 接通并通过临时根测试，�
 | Workbench HTTP 路由的进程内离线送达 | PASS，后续 `3047cb1ee` 续验，见下节 |
 | 部署服务 HTTP / 浏览器 UI、CLI 对照、真实模型实际采纳 | UNKNOWN；本轮未运行 |
 | 金融回答质量、长时间并发稳定性 | UNKNOWN |
-| 合 main、生产装配与部署、完整发布门禁 | BLOCKED；未实施，仍需 owner 复核和用户确认 |
+| 审计候选四叶工程门禁 | PASS；后续 `698fd172d` 整合续验，见下节及独立收据 |
+| 合 main、生产装配与部署 | BLOCKED；未实施，仍需 owner 复核、生产前置和用户确认 |
 
 范围与取舍：
 
@@ -80,7 +81,7 @@ cd /Users/a77/fwp-wt-architecture-audit-0924
 - 从真实 Episode 检查点核对 user/conversation/run/message 身份及记忆 content hash。模型工具调用为零，socket 连接守卫未发现网络尝试；所有用户、会话、run、Episode、部署台账根均指向临时目录。
 - 另一用户不能读取写入侧会话；用户也不能读取另一用户研究 run。这只证明当前 API 的用户分区隔离，不签登录认证或生产部署配置。
 
-验收状态：写入 **PASS**；进程内 HTTP 首请求送达 **PASS**；真实模型采用与金融质量 **UNKNOWN**；完整发布门禁、合入与部署 **BLOCKED**。
+该轮验收状态：写入 **PASS**；进程内 HTTP 首请求送达 **PASS**；真实模型采用与金融质量 **UNKNOWN**。当时只有定向回归；后续工程门禁见“主干整合续验”，合入与部署仍 **BLOCKED**。
 
 干净回归收据：`clean-http-receipt.json`，**794P/0F/0S**，`dirty=false`，精确 24 文件清单见 `target`。包含原 P0/P1 范围与 API/会话集成测试。全仓 Ruff、差异检查、提交门禁通过。收据校验器在 `3047cb1ee` 上 exit 0；后续文档提交不是受测 revision，不移签。该定向回归不是全仓发布门禁。
 
@@ -89,11 +90,19 @@ cd /Users/a77/fwp-wt-architecture-audit-0924
 /Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest -q intelligence/tests/test_workbench_correction_http.py
 ```
 
-### 主干与生产边界
+### 历史预检与生产边界（HTTP 续验时）
 
 截至 2026-09-25T04:46:15Z，冻结比较 `3047cb1ee` 与 fetch 后的 `gitea/main=1751e21e0fd30642e0b223604b64b30e38c46f41`：ahead 31 / behind 218。`git merge-tree --write-tree --name-only` 返回 1，唯一文本冲突为 `.claude/lessons_learned.md`；双方独立经验均应保留。产品门页、episode protocol/tools 和编排测试自动合并，但尚未做语义兼容审查或组合测试，不能据此认证集成。没有开始实际 merge，也没有改 main。
 
 本轮开工对 `127.0.0.1:8792/api/readiness` 的只读探测 15 秒超时，无有效 HTTP 结论。历史 09-25 01:43 的 503 只代表历史采样，当前生产就绪为 **UNKNOWN**；未恢复服务、部署或接管相邻 owner 的数据/索引工作。
+
+## 主干整合续验
+
+随后将冻结主干 `9d5b9800a5500e6f64875432f8df3a06713d6f52` 合入审计分支，合并提交 `fa7b80942`。双方经验记录均保留，没有合回 main。首轮全仓发现每日摘要旧成功夹具缺审计文件却要求 PASS；`698fd172d` 仅补齐测试夹具及缺失状态传播反例，没有放松运行时审计规则。
+
+`698fd172d` 干净四叶工程门禁通过：Python **16423P/0F/74S/2X**，完整收集16499项；前端123P、e2e34P/2S，registry五项exit0。另在自适应研究开关on环境跑HTTP三场景及相关回归17P。首轮红收据原样保留，旧794P不移签。
+
+完整范围、原件、收据校验与并发条件见 `docs/verification/2026-09-25-architecture-main-integration/README.md`。常规隔离e2e不是纠偏生产UI验收；真实模型采用及质量仍UNKNOWN，生产发布BLOCKED。后继文档HEAD不继承受测SHA；合入仍需验收和用户确认。
 
 ## P0 可复现
 
