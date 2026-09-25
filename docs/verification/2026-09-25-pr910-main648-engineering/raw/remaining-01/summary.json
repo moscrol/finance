@@ -1,0 +1,76 @@
+{
+  "started_at": "2026-09-25T09:55:23.706419+00:00",
+  "pid": 4406,
+  "script_sha256": "bce304036cde525b46a36df62cfe1a10dd35c9e15d48c6729e7202fe8685e8ab",
+  "revisions": {
+    "910": "4e4d93a55bfd919b1c42bcb60f079ae56741fc3f",
+    "911": "a52a3a9759a1d1d33fc5e19c86e35576394dd546"
+  },
+  "baseline": "64847b7a173bfb7191012638e8ec044ea31e0513",
+  "python": "/Users/a77/fwp-wt-pi-research/.venv-workbench/bin/python",
+  "dependency_fingerprint": "66726d345bf37ce5",
+  "paid_model_requests": 0,
+  "scope": "unexecuted leaves only; not an independent review",
+  "prior_910_receipt": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-01/910/receipts/gate-0df6qTxE/pytest.json",
+  "steps": [
+    {
+      "pr": "910",
+      "label": "prior-full-receipt-check",
+      "exit": 0,
+      "status": "completed"
+    },
+    {
+      "pr": "911",
+      "label": "doctor",
+      "exit": 0,
+      "status": "completed"
+    },
+    {
+      "pr": "911",
+      "label": "ruff",
+      "exit": 0,
+      "status": "completed"
+    },
+    {
+      "pr": "911",
+      "label": "registry-parse",
+      "exit": 0,
+      "status": "completed"
+    },
+    {
+      "pr": "911",
+      "label": "registry-check",
+      "exit": 0,
+      "status": "completed"
+    },
+    {
+      "pr": "911",
+      "label": "registry-tables",
+      "exit": 0,
+      "status": "completed"
+    },
+    {
+      "pr": "911",
+      "label": "registry-views",
+      "exit": 0,
+      "status": "completed"
+    },
+    {
+      "pr": "911",
+      "label": "ledger-crosswalk",
+      "exit": 0,
+      "status": "completed"
+    },
+    {
+      "pr": "911",
+      "label": "diff-check",
+      "exit": 0,
+      "status": "completed"
+    }
+  ],
+  "status": "STOPPED_BASELINE_DRIFT",
+  "finished_at": "2026-09-25T10:02:21Z",
+  "stop_reason": "main advanced to 643a2888ea14079035bc8b080129e3e4145d5685 with runtime changes while frontend was waiting for resources",
+  "stop_action": "Verified owned PID 4406 command and no children, sent SIGTERM, verified PID absent; no foreign processes changed",
+  "unstarted": ["910/frontend", "911/targeted", "911/python-full", "911/frontend"]
+}

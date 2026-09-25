@@ -1,0 +1,27 @@
+{"label": "python-full", "command": ["bash", "scripts/run_main_gate.sh", "--pytest-args", "-q -p no:cacheprovider --basetemp=/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-01/910/full-tmp --junitxml=/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-01/910/full.xml"], "cwd": "/Users/a77/fwp-wt-pr910-main-0925", "revision": "4e4d93a55bfd919b1c42bcb60f079ae56741fc3f", "started_at": "2026-09-25T09:21:05.853345+00:00", "timeout_seconds": 2700, "status": "starting", "exit": null, "timed_out": false, "executed": null, "failures": null, "errors": null, "skipped": null, "failed_cases": [], "junit_status": "not_evaluated", "output_mode": "combined_stdout_stderr"}
+== gate @ 4e4d93a55bfd tree=/Users/a77/fwp-wt-pr910-main-0925 py=/Users/a77/fwp-wt-pi-research/.venv-workbench/bin/python receipt=/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-01/910/receipts/gate-0df6qTxE/pytest.json
+== ruff check .
+All checks passed!
+== pytest -q -p no:cacheprovider --basetemp=/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-01/910/full-tmp --junitxml=/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-01/910/full.xml
+== pytest raw log: /Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-01/910/receipts/gate-0df6qTxE/pytest.log.txt
+tests/test_pipeline_p0.py::test_mainline_partial_writes_succeeded_themes_as_degraded[exception]
+tests/test_pipeline_p0.py::test_mainline_partial_writes_succeeded_themes_as_degraded[empty_groups]
+tests/test_pipeline_p0.py::test_mainline_partial_writes_succeeded_themes_as_degraded[empty_stocks]
+tests/test_pipeline_p0.py::test_mainline_empty_theme_list_is_failed_without_writing
+  /Users/a77/fwp-wt-pr910-main-0925/market_feature_store/sync/sync_fupanhui_mainline_daily.py:66: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = datetime.utcnow().isoformat()
+
+tests/test_pipeline_p0.py::test_mainline_sector_failure_keeps_previous_snapshot[response0]
+tests/test_pipeline_p0.py::test_mainline_sector_failure_keeps_previous_snapshot[response1]
+  /Users/a77/fwp-wt-pr910-main-0925/market_feature_store/sync/sync_fupanhui_mainline_sector_daily.py:121: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = datetime.utcnow().isoformat()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+- generated xml file: /Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-01/910/full.xml -
+16232 passed, 75 skipped, 2 xfailed, 18 warnings in 1730.23s (0:28:50)
+== receipt /Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-01/910/receipts/gate-0df6qTxE/pytest.json
+   revision=4e4d93a55bfd dirty=False target=/Users/a77/fwp-wt-pr910-main-0925
+   passed=16232 failed=0 error=0 skipped=75 xfailed=2 xpassed=0
+== 门禁绿，basetemp 已清: /Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-01/910/full-tmp（要保留请设 GATE_KEEP_BASETEMP=1）
+
+EXIT=0 STATUS=completed

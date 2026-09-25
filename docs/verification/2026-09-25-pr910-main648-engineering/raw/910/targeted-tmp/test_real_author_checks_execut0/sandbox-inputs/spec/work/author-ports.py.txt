@@ -1,0 +1,33 @@
+
+import errno
+import json
+from pathlib import Path
+import sys
+from unittest.mock import patch
+import pytest
+from scripts.review_probes import diagnose_llm_timeout as probe
+
+class ReviewHTTPServer(probe.ThreadingHTTPServer):
+    def server_bind(self):
+        assert self.server_address == ('127.0.0.1', 0)
+        for port in range(26001, 26009):
+            self.server_address = ('127.0.0.1', port)
+            try:
+                return super().server_bind()
+            except OSError as error:
+                if error.errno != errno.EADDRINUSE:
+                    raise
+        raise RuntimeError('review loopback ports unavailable')
+
+observations = []
+original = probe.run_judge_case
+
+def observe(*args, **kwargs):
+    result = original(*args, **kwargs)
+    observations.append(result)
+    return result
+
+with patch.object(probe, 'ThreadingHTTPServer', ReviewHTTPServer), patch.object(probe, 'run_judge_case', observe):
+    code = pytest.main(sys.argv[1:])
+Path(__file__).with_suffix('.json').write_text(json.dumps(observations, indent=2))
+raise SystemExit(code)
