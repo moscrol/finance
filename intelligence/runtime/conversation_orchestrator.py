@@ -1813,12 +1813,19 @@ class TurnOrchestrator:
                     "content": previous.content,
                 }
             try:
+                prior_intent = TurnIntent.from_dict(previous.turn_intent) if previous else None
+                themes = (
+                    [prior_intent.primary_subject]
+                    if prior_intent is not None and prior_intent.primary_subject
+                    else []
+                )
                 result = workbench_correction_ingest.maybe_record_workbench_correction(
                     userspace.user_space(user_id).corrections_path,
                     user_text=query,
                     previous_assistant=previous_payload,
                     conversation_id=conversation_id,
                     corrected_message_id=(previous.message_id if previous else ""),
+                    themes=themes,
                 )
             except Exception as exc:  # fail-open: research must still run
                 result = workbench_correction_ingest.CorrectionIngestResult(

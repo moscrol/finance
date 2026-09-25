@@ -144,6 +144,8 @@ def record_validated_judgment(
 def load_judgments(
     path: str | Path,
     window: int = DEFAULT_WINDOW,
+    *,
+    strict: bool = False,
 ) -> tuple[list[dict[str, Any]], str | None]:
     """读取最近 ``window`` 条核心判断（按出现顺序）。文件不存在时返回空列表。"""
     p = Path(path).expanduser()
@@ -161,9 +163,13 @@ def load_judgments(
         try:
             rec = json.loads(line)
         except Exception:
+            if strict:
+                raise ValueError("invalid judgment ledger row") from None
             continue
         if isinstance(rec, dict):
             raw.append(rec)
+        elif strict:
+            raise ValueError("invalid judgment ledger row")
     # 记忆退出机制（memory_status）：先应用追加式状态覆盖（归档/撤销的不再召回），
     # 台账无状态行时行为不变。
     from intelligence.services.memory_status import apply_status_overrides
