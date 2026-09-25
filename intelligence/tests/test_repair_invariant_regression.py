@@ -172,45 +172,12 @@ def test_no_progress_refuses_grant_regardless_of_tier() -> None:
 
 
 # --- ARL-0014 finding 5: a bare new hash must not unlock repair budget ---
-#
-# 2026-09-09 判官修复 01（evidence-judge.md 实测一）把这条 invariant 收窄成它原本要防
-# 的东西：「光有一个新 hash」不是进展——没有 targets 账、或只重复支持已覆盖输出，
-# 都记 0。**来源家族**不再是内容进展的门：同一交易所的第二份公告补上了此前未覆盖
-# 的输出，就是进展；家族是否独立另记在 ``CoverageDelta.new_source_families``。
-# 旧断言「同源新页关掉缺口也不算进展」正是被复现的误挡，见
-# docs/superpowers/plans/2026-09-09-capability-upgrade/evidence-judge.md。
 
 
-def test_same_source_family_closing_a_gap_is_content_progress_but_not_independence() -> None:
+def test_same_source_family_is_not_independent_progress() -> None:
     same_family = _progress(new_id="h2", family="fam-a")
-    assert same_family.effective_new_evidence == 1
-    assert same_family.coverage_delta.progressed is True
-    assert same_family.coverage_delta.new_source_families == 0
-
-    other_family = _progress(new_id="h2", family="fam-b")
-    assert other_family.coverage_delta.progressed is True
-    assert other_family.coverage_delta.new_source_families == 1
-
-
-def test_same_source_family_page_without_new_target_is_not_progress() -> None:
-    """同源新页只重复支持已覆盖输出（或没绑到任何输出）：内容零进展。"""
-
-    untargeted = ProgressSnapshot(
-        before_evidence_ids=("h1",),
-        after_evidence_ids=("h1", "h2"),
-        before_covered_outputs=("conclusion",),
-        after_covered_outputs=("conclusion",),
-        before_open_gaps=(),
-        after_open_gaps=(),
-        independent_source_families=("fam-a",),
-        before_evidence_source_families=(("h1", "fam-a"),),
-        after_evidence_source_families=(("h1", "fam-a"), ("h2", "fam-a")),
-        before_evidence_targets=(("h1", ("conclusion",)),),
-        after_evidence_targets=(("h1", ("conclusion",)), ("h2", ())),
-    )
-    assert untargeted.effective_new_evidence == 0
-    assert untargeted.coverage_delta.progressed is False
-    assert untargeted.coverage_delta.new_source_families == 0
+    assert same_family.effective_new_evidence == 0
+    assert same_family.coverage_delta.progressed is False
 
 
 def test_evidence_for_already_covered_output_is_not_progress() -> None:

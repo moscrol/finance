@@ -240,16 +240,13 @@ def is_contract_rewrite_only(
     rejected_claims: tuple[str, ...] = (),
     semantic_gap_outputs: tuple[str, ...] = (),
 ) -> bool:
-    """缺口全是表达槽（跟踪四态/TTL/下期关注，或排序矩阵/改判条件…），没有证据/语义缺口。"""
-    from intelligence.services.ranking_contract import RANKING_CONTRACT_OUTPUT_ID_SET
-
+    """缺口全是跟踪表达槽（四态/TTL/下期关注），没有证据/语义缺口。"""
     if rejected_claims or semantic_gap_outputs:
         return False
     missing = tuple(missing_outputs or ())
     if not missing:
         return False
-    expression_slots = TRACK_CONTRACT_OUTPUT_ID_SET | RANKING_CONTRACT_OUTPUT_ID_SET
-    return all(item in expression_slots for item in missing)
+    return all(item in TRACK_CONTRACT_OUTPUT_ID_SET for item in missing)
 
 
 def parse_prior_verdict_check(answer: str) -> str | None:

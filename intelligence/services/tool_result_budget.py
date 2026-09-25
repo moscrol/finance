@@ -44,71 +44,11 @@ no model call, clock, or randomness, so the same observation always yields the
 same bytes.  A provider's prompt cache keys on the exact prefix; a preview that
 varied per call would invalidate the cache on every resume and cost more than
 the tokens it saved.
-
-Layer 1b（2026-09-07，spec ``2026-09-07-episode-history-compaction-design.md`` §3.1）：
-``lean_tool_observation`` 去掉**空值**与 ``independent_key``。上面的红线一条不破——
-一条非空的 ``contradicts`` 仍在、非空的 ``freshness`` 仍在；被去掉的是 ``"supports": []``
-``"contradicts": []`` ``"evidence_tier": ""`` ``"source_date": "None"`` 这类每条都带、
-但不携带任何信息的键，以及只给校验器判来源独立性用的 ``independent_key``（宪法与绑定
-都不引用它）。同题 17 个 run 实测：sub_research 那条 5.2 万字的 evidence JSON 里 2/3 是
-这种脚手架；红线内可去掉的合计 −21%。缺省关（``ASK_EPISODE_LEAN_OBSERVATION``），A/B 拍板后翻。
 """
 
 from __future__ import annotations
 
-import os
 from typing import Any, Mapping
-
-LEAN_OBSERVATION_ENV = "ASK_EPISODE_LEAN_OBSERVATION"
-# 顶层这些键在空的时候对模型没有信息量（hash 已由 strip_hashes_for_model 换成 E 号）。
-_LEAN_TOP_LEVEL_WHEN_EMPTY = frozenset(
-    {"evidence_hashes", "payload_field_names", "payload_sha256", "dataset", "caliber"}
-)
-# 每条证据里只给校验器用、模型从不引用的键。
-_LEAN_EVIDENCE_DROP = frozenset({"independent_key"})
-_EMPTY_VALUES: tuple[object, ...] = ("", "None", None)
-
-
-def lean_observation_enabled() -> bool:
-    raw = str(os.environ.get(LEAN_OBSERVATION_ENV) or "").strip().lower()
-    return raw in {"on", "1", "true", "yes"}
-
-
-def _is_empty(value: object) -> bool:
-    if value in _EMPTY_VALUES:
-        return True
-    return isinstance(value, (list, tuple, dict)) and len(value) == 0
-
-
-def lean_tool_observation(payload: Mapping[str, Any]) -> dict[str, Any]:
-    """去掉模型视图里的空值与 ``independent_key``；非空字段一个不动。
-
-    与 ``budget_tool_observation`` 同样是纯函数、不动输入。红线（来源 / 时点 / 分档 /
-    缺口 / 非空的 supports·contradicts·freshness）全部保留：空列表不是「没有矛盾」的
-    声明，只是这条证据没有被标注过。
-    """
-
-    leaned: dict[str, Any] = {}
-    for key, value in payload.items():
-        if key in _LEAN_TOP_LEVEL_WHEN_EMPTY and _is_empty(value):
-            continue
-        leaned[key] = value
-    raw_evidence = payload.get("evidence")
-    if isinstance(raw_evidence, list):
-        items: list[Any] = []
-        for item in raw_evidence:
-            if not isinstance(item, Mapping):
-                items.append(item)
-                continue
-            items.append(
-                {
-                    key: value
-                    for key, value in item.items()
-                    if key not in _LEAN_EVIDENCE_DROP and not _is_empty(value)
-                }
-            )
-        leaned["evidence"] = items
-    return leaned
 
 # Matches ``agent_research._MAX_OBSERVATION_CHARS`` so the two engines bound
 # their context the same way.  Engine B has had this cap for a while; Engine A
@@ -206,12 +146,6 @@ def budget_tool_observation(
         # hash or an evidence id as an argument.  Keep this list in sync with
         # ``episode_protocol.strip_hashes_for_model``; the pairing is pinned by
         # ``test_context_budget_names_only_model_visible_fields``.
-        #
-        # 2026-09-11: 「取不回来」只对「按证据编号 / 哈希取」成立。cap02 落地后存在一条
-        # 真实的节级重读路径：``agent_research.deep_read_evidence`` 把命中页整节按
-        # ``kb_rag.DEEP_READ_ITEM_CHARS``（与本文件 detail 上限同值）切成段级证据，并在
-        # 观察值里给出「同页其余章节」目录。指令里只说「取不回」会教模型放弃一条
-        # 存在的动作，所以这里把那条路径写明（blocked/02 B-1 建议②）。
         budgeted["context_budget"] = {
             "truncated": True,
             "omitted_chars": omitted_chars,
@@ -232,10 +166,8 @@ def budget_tool_observation(
                 "证据编号、来源、时点、分级与缺口都完整。"
                 "不要因为叙述变短而重复同一次查询——重查得到的是同一份预览。"
                 "引用时用证据编号（E1、E2…），不要誊抄哈希。"
-                "被截掉的原文没有工具能按证据编号取回，但不等于没有返回："
-                "kb_search 命中页的整节会另以「深读《章节名》N/M」段落送来（每段完整不截），"
-                "观察值里还有「同页其余章节」目录——缺哪一节就用 kb_search 检索「页名 章节名」"
-                "把那节读出来。还不够再换更窄的查询，或把它写成缺口。"
+                "被截掉的原文没有工具可以取回；若这条证据不够支撑结论，"
+                "请换一个更窄的查询，或把它写成缺口。"
             ),
         }
 

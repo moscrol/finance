@@ -5,10 +5,6 @@ metadata:
 description: UP线更新与个股UP/偏离度查询（布林带变体）。触发词：UP线更新、up线、UP线、查UP、个股UP、UP偏离度、偏离UP。
 ---
 
-> **⚠ 2026-09-11 飞书整体退役（#727）后的实际可用性**：本 skill 的 UP 计算口径（UP = MA26 + 0.764×STD26，偏离度 =（最新价/UP − 1）×100%）是它的价值所在，已按用户要求保留（#729）。
-> 但它的**股票清单来自飞书自选股/强势股/大成交三张表**（`fetch_all_records`），行情走 iFinD——飞书凭证退役、本机亦无 iFinD token，故**当前跑不通**。
-> 要复活：把清单换成 DuckDB 侧来源（`fact_stock_daily` / 自选股表落库），行情换 `market_feature_store` 日线即可，公式部分不用动。
-
 # UP 线更新
 
 ## 触发条件

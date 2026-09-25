@@ -33,7 +33,9 @@ AUTHORIZED_PHYSICAL_PATHS = (
     # DDL 正典（原 sector_schema.sql 的七个对象已并入这里）
     "market_feature_store/schema.sql",
     # main 设计下的合法写入方，各自按 snapshot_id 分代写入
-    # （飞书那三个写入方已随自建应用退役删除，2026-09-11）
+    "market_feature_store/sync/sync_feishu_sector_daily.py",
+    "market_feature_store/sync/sync_feishu_sector_marginal.py",
+    "market_feature_store/sync/sync_feishu_sector_resonance.py",
     "market_feature_store/sync/sync_fupanhui_sector_daily.py",
     "market_feature_store/sync/sync_fupanhui_sector_stock_daily.py",
 )

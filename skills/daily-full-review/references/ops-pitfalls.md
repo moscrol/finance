@@ -123,22 +123,12 @@
 
 | job | 时间 | 命令 | 跑什么 |
 |---|---|---|---|
-| `com.financeworkspace.daily-full-review-sync` | 18:30 | `nightly-full-review-s7.sh <date>` | 同步段（全 fact 同步 + same/cross-day 门），走 staging + 原子换名，不依赖 L2 |
+| `com.financeworkspace.daily-full-review-sync` | 18:30 | `nightly_full_review.sh sync` | 同步段（全 fact 同步 + same/cross-day 门），不依赖 L2 |
 | `com.financeworkspace.fidelity-daily-agent` | 20:05 | `run_fidelity_daily_agent.sh` | theme-candidates 合同校验 + agent-daily（`--semantic-rag-top-n 0`）+ kb-queue-receive |
-| `com.financeworkspace.daily-full-review-finalize` | 20:40 | `nightly_full_review.sh finalize` | **L2 → sync 守卫（复查 same-day-gate）→ 生成段**（含研究队列 + receive）→ 终极门 → 方法飞轮 |
+| `com.financeworkspace.daily-full-review-finalize` | 20:40 | `nightly_full_review.sh finalize` | sync 守卫（复查 same-day-gate）→ L2 → 生成段（含研究队列 + receive）→ 终极门 |
 
-**手动补跑两条分开跑、都要跑**（工单 #51，见 SKILL.md「一键入口」的完整写法）：先
-`nightly-full-review-s7.sh <date>`，再 `nightly_full_review.sh finalize <date>`，两个
-退出码分别接住。别用 `&&` 串——同步一失败 finalize 不启动，当天 L2 跟着丢；也别用裸
-分号——那样同步失败会被收尾的成功掩盖。
-
-`nightly_full_review.sh` 现在**只接受 `finalize`**：`sync` / `all`（含只传日期的缺省
-`all`）自 2026-09-12 起在加锁前就被拒绝并打印替代命令，因为它们直调同步器、绕开
-staging 直写生产库。date 参数顺序无关。旧的单 job plist 已 bootout 并重命名为 `.retired`。
-
-L2 排在同步守卫**之前**是刻意的：L2 读逐笔日包，不依赖同步段产物，同步失败不该连坐它
-（9-10 / 9-11 两天的 `feature_l2_*` 就是被连坐丢的）。但生成段的门没松——守卫不过仍
-中止生成，L2 失败也仍挡住生成。
+手动补跑用 `nightly_full_review.sh [date]`（phase=all，全量；跨日补跑也用它）。
+脚本带 phase 参数（`sync`/`finalize`/`all`），date 参数顺序无关。旧的单 job plist 已 bootout 并重命名为 `.retired`。
 
 近期踩坑（调度/脚本层已修，记此防复发）：
 
@@ -232,15 +222,9 @@ L2 排在同步守卫**之前**是刻意的：L2 读逐笔日包，不依赖同�
 - **S7 夜跑 sync（2026-08-16）**：18:30 不再直接跑仓内
   `nightly_full_review.sh sync`。入口是
   `~/.local/bin/nightly-full-review-s7.sh`，写锁只落 staging，成功才
-  `os.replace` 进生产库。子进程的 `run_review_sync.py` **自 09-09 起按
-  `FINANCE_CODE_ROOT` 取**（两个 plist 已设 = `/Users/a77/finance-workspace-runtime`
-  软链，切流自动跟随；缺省仍回落主树）——08-16 让它跑脏主树的理由（未提交的
-  主线 static 回退）早已合入，而主树后来是别的 agent 的脏检出。注意 s7.sh 自己
-  **不设**这个变量，绕过 plist 手跑时要自己带上，否则回落脏主树。安装件
-  `~/.local/bin/nightly-review-sync-staged.py` **没有仓内 .py 源**，改它必须留
-  `.bak-*` 备份并写回执（本次 `.bak-pre-coderoot-20260909`、plist
-  `.bak-pre-local-20260909`，见 `docs/verification/2026-09-09-cutover-0909.md`）。
-  **不要**为了 S7 去切 8792——S7 不在 `intelligence/`。详见
+  `os.replace` 进生产库。子进程仍用 private 工作树上的
+  `run_review_sync.py`（那棵树有未提交的主线 static 回退）。**不要**为了
+  S7 去切 8792——S7 不在 `intelligence/`。详见
   `docs/handoffs/2026-08-16-s7-nightly-staging.md`。
 
 - **Token 编码 U+2028/U+2029**：macOS 环境变量可能尾部带 Unicode 行分隔符，导致 hmac 校验失败返回 401。

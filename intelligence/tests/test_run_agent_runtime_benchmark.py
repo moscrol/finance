@@ -1058,9 +1058,7 @@ def test_live_runner_uses_fresh_context_per_backend_without_cross_arm_state(
         encoding="utf-8",
     )
     output = tmp_path / "live.json"
-    # 持有对象本身而不是 id()：第一臂的 context 被回收后，第二臂的新对象可能拿到同一个
-    # 地址，`id(a) != id(b)` 就假红（2026-09-07 全量门禁撞上一次：4845507632 == 4845507632）。
-    contexts: list[object] = []
+    context_ids: list[int] = []
 
     class FakeRuntime:
         def __init__(self, backend: str) -> None:
@@ -1068,7 +1066,7 @@ def test_live_runner_uses_fresh_context_per_backend_without_cross_arm_state(
 
         def run(self, *, task_frame, context, registry):
             del registry
-            contexts.append(context)
+            context_ids.append(id(context))
             evidence: list[AgentEvidence] = []
             bindings: list[OutputEvidenceBinding] = []
             for index, required in enumerate(context.contract.required_outputs):
@@ -1166,8 +1164,8 @@ def test_live_runner_uses_fresh_context_per_backend_without_cross_arm_state(
         "continuous_glm",
         "sdk_glm",
     ]
-    assert len(contexts) == 2
-    assert contexts[0] is not contexts[1]
+    assert len(context_ids) == 2
+    assert context_ids[0] != context_ids[1]
     assert payload["summary"]["arm_count"] == 2
     assert arms[0]["citations"] == [
         {

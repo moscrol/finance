@@ -1,8 +1,0 @@
-独立复核E2 P3d小片：固定应用1f6ebc5de9e906ccedf70c0377d45919fb5f7b34，diff dcd57d60..1f6ebc5d。开发树/Users/a77/fwp-wt-e2-boundary-closeout，不在作者树改动；另用干净detached工作树。pytest/ruff只用/Users/a77/finance-workspace-private/.venv-workbench/bin/python，每shell显式cd。
-约束：只读应用，不修改原题/评分/原46针，不提交/推送/合并/部署；不调金融模型/金融API、不读生产用户台账/主库。所有场景使用临时stores与脚本化生产者；禁止IO计数尝试，不能只抛异常防被吞掉。报告必须落盘，服务失败也写已验/未验，不把退出码或作者绿测当独立通过。
-读AGENTS、产品门材料小节、v10设计D4/D7、docs/handoffs/2026-09-15-e2-p3d-prior-read-ceiling.md。前P3b/P3c+返修独立报告在docs/verification/e2-boundary-closeout/qc-301dcd9e/report.md，只作已审基底。
-本片仅修TurnOrchestrator在controller返回本轮TaskFrame之后、Episode之前四个生产者：inherited answer spec、stance pack、research_project.prior_for_turn、perspective_lab.active_runtime_prompt。同一material_contract.data_scope=material_only时停止调用，非受限路径保持；旧代码工厂只丢内容，无法撤销提前读取。
-请独立查：canonical frame和legacy重建frame一致；继承旧intent不放宽本轮scope；旧答产物/stance/项目先验/视角读取均零；项目先验异常被吞仍计尝试；普通/full/local_only成对正例真正到读取；材料原文/题号不丢；调用方注入frame更换和边界scope判据；不要仅重复作者16针。可跑相邻orchestrator/Episode，但不必全仓。
-作者证据：干净1f6ebc5d定向210P，全仓9797P/83skip/2xfail；4处各单独删闸均4F/12P；这是作者回归不是你的放行依据。初始16F是夹具漏needs_template，修夹具后才4F/12P产品红基线；全仓首跑被工具240秒时限中断，无结论，均保留原日志。
-范围外：controller之前的历史/context与QueryResolver读取；预取前歧义/可信继承澄清；全部九类输入过滤/来源身份；恢复/压缩/子研究；确定性/legacy回落及交付后的读取；local_only各先验真实IO审计；local_only原题号槽、P4–P7。不要把本片通过称零读取整链/完整P3/合并/部署/产品通过。若范围内发现按P1/P2/P3给路径行号、行为、复现与影响；范围外发现单列。
-最终报告P3d通过/退修/阻塞仅限本片，列具体命令/临时探针路径/计数与未覆盖，保留源码日志，不清理证据。

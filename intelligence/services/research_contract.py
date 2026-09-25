@@ -19,9 +19,6 @@ from intelligence.services.query_understanding import QueryEnvelope
 from intelligence.services.route_table import owner_skills_from_route_table
 from intelligence.services.evidence_capabilities import EvidencePlan, EvidenceRequirement
 from intelligence.services.task_frame import TaskFrame
-from intelligence.services.material_contract import MaterialContract
-from intelligence.services.material_permissions import restrict_read_capabilities
-from intelligence.services.historical_research.intent import HistoryIntent
 
 AnswerOwner: TypeAlias = Literal[
     "stock-deep-dive",
@@ -207,7 +204,6 @@ class TurnIntent:
     task_frame_hash: str = ""
     pending_task_frame: dict[str, object] | None = None
     clarification_rounds: int = 0
-    history_intent: HistoryIntent | None = None
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
@@ -273,10 +269,6 @@ class TurnIntent:
                 not isinstance(item, str) for item in items
             ):
                 return None
-        try:
-            history_intent = HistoryIntent.from_dict(value.get("history_intent"))
-        except (ValueError, TypeError):
-            return None
         return cls(
             primary_subject=primary_subject,
             secondary_topics=tuple(secondary_topics),
@@ -294,7 +286,6 @@ class TurnIntent:
             task_frame_hash=task_frame_hash,
             pending_task_frame=pending_task_frame,
             clarification_rounds=clarification_rounds,
-            history_intent=history_intent,
         )
 
 
@@ -389,28 +380,6 @@ class ResearchDeadline:
         )
 
 
-# 单个 episode 的产品级硬顶：任何 tier、升档、grant 都不得越过。2026-09-06 之前这两个
-# 数（24 次 / 240s）就是 deep 档本身，写死在 promote_caps 与 tier_promotion 两处；
-# 加 max 档后抬到 max 档的账本上限，并收成一对常数，改一处两处同时变。
-# 2026-09-07 二改：48 → 60 / 32 → 40。三道可拆题 9 支分支读数见 runtime/sub_research.branch_limits：
-# 分支调用从父账本扣，max 档 3 支 × 10 次 = 30，父臂自己还要 10+ 次；起步 32 会把父臂饿死。
-PRODUCT_MAX_TOOL_CALLS = 60
-PRODUCT_MAX_SECONDS = 600.0
-
-RESEARCH_TIERS: frozenset[str] = frozenset({"quick", "standard", "deep", "max"})
-
-# turn 级 LLM 调用保险丝（``ResearchExecutionPolicy.max_llm_calls``，缺省 40）按档位放大。
-# 2026-09-07 04:11 读数：max 形状 + 两次 sub_research（5 支分支合计 28 次模型调用）把 40 烧穿，
-# 最后一个要发的调用是**判官**——被拒后 judge unavailable、答案降级。保险丝的对象是失控，
-# 不是并行分支的正常开销；max 档给 120：5 支 × 10 + 父臂 ~15 + 判官 3 + 控制器 ~5 ≈ 75。
-LLM_CALL_FUSE_BY_TIER: dict[str, int] = {"max": 120}
-DEFAULT_LLM_CALL_FUSE = 40
-
-
-def llm_call_fuse_for_tier(tier: str | None) -> int:
-    return LLM_CALL_FUSE_BY_TIER.get(str(tier or "").strip().lower(), DEFAULT_LLM_CALL_FUSE)
-
-
 @dataclass(frozen=True)
 class ResearchPolicy:
     """Generic owner 的确定性档位，不允许由 LLM 提高上限。"""
@@ -426,11 +395,6 @@ class ResearchPolicy:
             "quick": cls("quick", 3, 30.0, 20.0),
             "standard": cls("standard", 6, 90.0, 20.0),
             "deep": cls("deep", 12, 240.0, 48.0),
-            # 「能力 max」档（用户 2026-09-06 决策：先找到能力上限，再按超限的部分设约束，
-            # 而不是上来就约束）。knevo 同题打了 22 次工具；我们 standard 档 8 次里
-            # 2 次零授予。这一档给足调用与墙钟，出口硬层（admit_finish / 判官 / 来源分档）
-            # 一字不动——放开的是输入侧预算，不是正确性。
-            "max": cls("max", 40, PRODUCT_MAX_SECONDS, 60.0),
         }
         return policies.get(tier, policies["standard"])
 
@@ -441,8 +405,6 @@ class StageCaps:
 
     tool_batch_seconds: float
     judge_window_seconds: float
-    # 单次判官尝试的档位地板；None = 沿用 verifier 构造时配置的帽（历史行为）。
-    judge_attempt_seconds: float | None = None
 
 
 # Shared judge window per second of synthesis reserve.  Current deep reserve
@@ -454,21 +416,6 @@ _JUDGE_WINDOW_PER_RESERVE = 50.0 / 48.0
 # Floor standard to deep's 50s. 08-20: first attempt uses the full window
 # (cap 50), not window×0.5. Does not change synthesis_reserve or tool_batch.
 _STANDARD_JUDGE_WINDOW_FLOOR = 50.0
-# max 档判官：单次尝试 75s、共享窗 150s（= 两次完整尝试）。
-#
-# 2026-09-07 max 档 D5 两发 judge=unavailable（glm-5.3-flash 思考臂，答案 21/27 句、
-# 判官载荷 13.3K/13.6K 字符）。把留在收据里的 judge_request 原样重放 grok-4.6
-# （grok-cli 1.0.5，与生产同二进制）n=6：44.1 / 60.6 / 50.6 / 12.4 / 58.4 / 53.3s，
-# p50 52.0、max 60.6，**4/6 超过 50s 单次帽**；给足 180s 时 6/6 返回有效判定
-# （拒 0–13 句）。也就是在 max 档载荷上 50s 帽是「中位数即超时」，不再是尾部。
-# 75 = 实测 max 60.6 加约 24% 余量（n=6 小样本，余量比 GLM 修复帽的 16% 放宽）。
-# 窗取两次完整尝试：首发超时后仍能发一次完整重试，重试机制才有意义——此前
-# 首发吃满整窗、第二发拿 0 秒，收据写「deadline exhausted」而根期限还剩 400s+。
-#
-# 只加 max 档：quick / standard / deep 的窗与帽一字不变（standard 地板 50、deep
-# 48×50/48=50 仍由上面两条钉住）。收据 ~/.finance-runtime/glm-ceiling-20260907/。
-_MAX_TIER_JUDGE_ATTEMPT_SECONDS = 75.0
-_MAX_TIER_JUDGE_WINDOW_FLOOR = 2.0 * _MAX_TIER_JUDGE_ATTEMPT_SECONDS
 
 
 def derive_stage_caps(policy: ResearchPolicy) -> StageCaps:
@@ -483,16 +430,11 @@ def derive_stage_caps(policy: ResearchPolicy) -> StageCaps:
     total = max(0.0, float(policy.total_seconds))
     reserve = max(0.0, float(policy.synthesis_reserve))
     judge_window = reserve * _JUDGE_WINDOW_PER_RESERVE
-    judge_attempt: float | None = None
     if policy.tier == "standard":
         judge_window = max(judge_window, _STANDARD_JUDGE_WINDOW_FLOOR)
-    elif policy.tier == "max":
-        judge_window = max(judge_window, _MAX_TIER_JUDGE_WINDOW_FLOOR)
-        judge_attempt = _MAX_TIER_JUDGE_ATTEMPT_SECONDS
     return StageCaps(
         tool_batch_seconds=max(0.0, total - reserve),
         judge_window_seconds=judge_window,
-        judge_attempt_seconds=judge_attempt,
     )
 
 
@@ -545,8 +487,6 @@ class RootBudgetLedger(Protocol):
     ) -> bool: ...
 
     def consume_call(self, *, seconds: float) -> None: ...
-
-    def consume_call_slot(self) -> None: ...
 
     def consume_seconds(self, *, seconds: float) -> None: ...
 
@@ -652,11 +592,7 @@ class InMemoryRootBudgetLedger:
             seconds_cap = float(hard_seconds_cap)
         except (TypeError, ValueError):
             return False
-        if (
-            seconds_cap < 0
-            or hard_calls_cap > PRODUCT_MAX_TOOL_CALLS
-            or seconds_cap > PRODUCT_MAX_SECONDS
-        ):
+        if seconds_cap < 0 or hard_calls_cap > 24 or seconds_cap > 240.0:
             return False
         with self._lock:
             if episode != self.episode_id:
@@ -687,20 +623,6 @@ class InMemoryRootBudgetLedger:
                 raise ValueError("root seconds budget exhausted")
             self.remaining_calls -= 1
             self.remaining_seconds = max(0.0, self.remaining_seconds - seconds)
-
-    def consume_call_slot(self) -> None:
-        """Spend one finance-tool call slot without debiting wall time.
-
-        分支视图用它向父账本记调用。秒是墙钟：三支并行跑 150s 对父臂只是 150s，
-        由父臂对 ``sub_research`` 那一批做批结算时按墙钟记**一次**；分支自己的秒只记在
-        自己的视图里。2026-09-07 候选口读数：分支把秒累加记到父账本（450s）+ 批结算
-        再记 180s，540s 的账本在墙钟 190s 归零，父臂墙钟还剩 396s 却 deadline_exhausted。
-        """
-
-        with self._lock:
-            if self.remaining_calls <= 0:
-                raise ValueError("root call budget exhausted")
-            self.remaining_calls -= 1
 
     def consume_seconds(self, *, seconds: float) -> None:
         """Debit wall time without spending a finance-tool call slot."""
@@ -768,7 +690,6 @@ def root_budget_for_policy(
         "quick": 4,
         "standard": 8,
         "deep": 24,
-        "max": PRODUCT_MAX_TOOL_CALLS,
     }.get(str(policy.tier).strip().lower(), policy.max_steps)
     with _LIVE_ROOT_BUDGETS_LOCK:
         if episode in _LIVE_ROOT_BUDGETS:
@@ -837,8 +758,7 @@ class RequiredOutput:
 @dataclass(frozen=True)
 class OutputStatus:
     output_id: str
-    # fulfilled is D5's answered projection; legal_gap is disclosed, not answered.
-    status: Literal["fulfilled", "legal_gap", "gap", "missing"]
+    status: Literal["fulfilled", "gap", "missing"]
     evidence_ids: tuple[str, ...] = ()
     gap: str = ""
 
@@ -863,13 +783,8 @@ class ResearchTaskContract:
     evidence_plan: EvidencePlan = field(default_factory=EvidencePlan)
     contract_version: str = "1"
     task_frame_hash: str = ""
-    material_contract: MaterialContract | None = None
 
     def __post_init__(self) -> None:
-        if isinstance(self.material_contract, dict):
-            object.__setattr__(self, "material_contract", MaterialContract.from_dict(self.material_contract))
-        if self.material_contract is not None and not isinstance(self.material_contract, MaterialContract):
-            raise ResearchContractError("material_contract 必须是 MaterialContract")
         # Backwards compatibility for callers that expand ``to_dict()`` into
         # the constructor (older tests/integrations predate EvidencePlan).
         if isinstance(self.evidence_plan, dict):
@@ -896,7 +811,7 @@ class ResearchTaskContract:
             )
         if not self.task_id.strip() or not self.question.strip():
             raise ResearchContractError("task_id/question 不能为空")
-        if self.research_tier not in RESEARCH_TIERS:
+        if self.research_tier not in {"quick", "standard", "deep"}:
             raise ResearchContractError(f"未知研究档位：{self.research_tier}")
         if any(not item.output_id.strip() for item in self.required_outputs):
             raise ResearchContractError("required output id 不能为空")
@@ -908,22 +823,6 @@ class ResearchTaskContract:
         for requirement in self.evidence_plan.requirements:
             if not requirement.provider_name.strip() or not requirement.capability.strip():
                 raise ResearchContractError("evidence plan requirement 必须声明 provider/capability")
-        if self.material_contract is not None and self.material_contract.data_scope == "material_only":
-            if self.allowed_capabilities or self.evidence_plan.requirements:
-                raise ResearchContractError("material_only 不允许读能力或材料外证据计划")
-            if any(output.evidence_types for output in self.required_outputs):
-                raise ResearchContractError("material_only 输出槽不能要求材料外工具证据")
-            for question in self.material_contract.questions:
-                matches = tuple(item for item in self.required_outputs if item.output_id == f"answer_{question.question_id}")
-                if len(matches) != 1 or not matches[0].required:
-                    raise ResearchContractError("material_only 每题须保留唯一必需输出槽：" + question.question_id)
-        if self.material_contract is not None and self.material_contract.data_scope == "local_only":
-            if restrict_read_capabilities(tuple(self.allowed_capabilities), "local_only") != tuple(self.allowed_capabilities):
-                raise ResearchContractError("local_only 含未审定的读取能力")
-            if any(item.capability not in self.allowed_capabilities for item in self.evidence_plan.requirements):
-                raise ResearchContractError("local_only 证据计划超出冻结读取授权")
-            if any(cap not in self.allowed_capabilities for output in self.required_outputs for cap in output.evidence_types):
-                raise ResearchContractError("local_only 输出工具证据超出冻结读取授权")
         mandatory = set(self.evidence_plan.mandatory_capabilities)
         if not mandatory.issubset(set(self.allowed_capabilities)):
             raise ResearchContractError(
@@ -946,7 +845,6 @@ class ResearchTaskContract:
             "evidence_plan": self.evidence_plan.to_dict(),
             "contract_version": self.contract_version,
             "task_frame_hash": self.task_frame_hash,
-            **({"material_contract": self.material_contract.to_dict()} if self.material_contract is not None else {}),
         }
 
     @classmethod
@@ -1024,7 +922,6 @@ class ResearchTaskContract:
             evidence_plan=evidence_plan,
             contract_version=str(value.get("contract_version") or "1"),
             task_frame_hash=str(value.get("task_frame_hash") or ""),
-            material_contract=(MaterialContract.from_dict(value["material_contract"]) if "material_contract" in value else None),
         )
 
 
@@ -1082,10 +979,6 @@ class ResearchRunContext:
     # R-20260827-09：此前阶段表止步于 trace，episode 拿不到。空元组 = 无
     # owner 阶段，构造逐字节兼容。永不作为证据。
     retrieval_stages: tuple[str, ...] = ()
-    # Domain research state. Full result rows live in RunStore artifacts, not prompts.
-    history_intent: HistoryIntent | None = None
-    history_results: list[dict[str, object]] = field(default_factory=list)
-    history_artifact_index: list[dict[str, object]] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
