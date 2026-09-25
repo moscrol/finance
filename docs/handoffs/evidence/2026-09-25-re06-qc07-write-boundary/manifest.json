@@ -132,9 +132,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-consent/commands/001-write/output.log",
-      "archive": "io-preflight/execute-consent/commands/001-write/output.log",
+      "archive": "io-preflight/execute-consent/commands/001-write/output.log.txt",
       "bytes": 194,
-      "sha256": "834c6e05081f0b718bd824ab42e0ad41f41ea9a6d15a0a0d82e9249532067059"
+      "sha256": "834c6e05081f0b718bd824ab42e0ad41f41ea9a6d15a0a0d82e9249532067059",
+      "initial_archive_path": "io-preflight/execute-consent/commands/001-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-consent/commands/001-write/request.json",
@@ -150,9 +151,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-consent/commands/002-read/output.log",
-      "archive": "io-preflight/execute-consent/commands/002-read/output.log",
+      "archive": "io-preflight/execute-consent/commands/002-read/output.log.txt",
       "bytes": 16,
-      "sha256": "70ea06053509b85e86aaa7ae9a844c489068f32741581cb6b773af42e272d088"
+      "sha256": "70ea06053509b85e86aaa7ae9a844c489068f32741581cb6b773af42e272d088",
+      "initial_archive_path": "io-preflight/execute-consent/commands/002-read/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-consent/commands/002-read/request.json",
@@ -168,9 +170,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-consent/commands/003-read/output.log",
-      "archive": "io-preflight/execute-consent/commands/003-read/output.log",
+      "archive": "io-preflight/execute-consent/commands/003-read/output.log.txt",
       "bytes": 8,
-      "sha256": "0682c5f2076f099c34cfdd15a9e063849ed437a49677e6fcc5b4198c76575be5"
+      "sha256": "0682c5f2076f099c34cfdd15a9e063849ed437a49677e6fcc5b4198c76575be5",
+      "initial_archive_path": "io-preflight/execute-consent/commands/003-read/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-consent/commands/003-read/request.json",
@@ -186,9 +189,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-consent/commands/004-read/output.log",
-      "archive": "io-preflight/execute-consent/commands/004-read/output.log",
+      "archive": "io-preflight/execute-consent/commands/004-read/output.log.txt",
       "bytes": 738,
-      "sha256": "c68e0337dbed8601c206810bbc9c60b16aa29d8ce011ddf385a93237f1860e0c"
+      "sha256": "c68e0337dbed8601c206810bbc9c60b16aa29d8ce011ddf385a93237f1860e0c",
+      "initial_archive_path": "io-preflight/execute-consent/commands/004-read/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-consent/commands/004-read/request.json",
@@ -204,9 +208,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-consent/commands/005-write/output.log",
-      "archive": "io-preflight/execute-consent/commands/005-write/output.log",
+      "archive": "io-preflight/execute-consent/commands/005-write/output.log.txt",
       "bytes": 1664,
-      "sha256": "80f1cf816064a281a1f22dd6c579b3277eee9593f4c7ce4156b7512cac72fba1"
+      "sha256": "80f1cf816064a281a1f22dd6c579b3277eee9593f4c7ce4156b7512cac72fba1",
+      "initial_archive_path": "io-preflight/execute-consent/commands/005-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-consent/commands/005-write/request.json",
@@ -222,9 +227,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-consent/commands/006-write/output.log",
-      "archive": "io-preflight/execute-consent/commands/006-write/output.log",
+      "archive": "io-preflight/execute-consent/commands/006-write/output.log.txt",
       "bytes": 657,
-      "sha256": "15800f44ea4f205d14c26ee1a203160b8883ef465620335f80b1446b0e7f4e22"
+      "sha256": "15800f44ea4f205d14c26ee1a203160b8883ef465620335f80b1446b0e7f4e22",
+      "initial_archive_path": "io-preflight/execute-consent/commands/006-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-consent/commands/006-write/request.json",
@@ -240,9 +246,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-consent/commands/007-write/output.log",
-      "archive": "io-preflight/execute-consent/commands/007-write/output.log",
+      "archive": "io-preflight/execute-consent/commands/007-write/output.log.txt",
       "bytes": 1651,
-      "sha256": "7f8cc1cf189d6acfbec8f804ebd903f7f04177750bbb088c354a569c2a3f25d3"
+      "sha256": "7f8cc1cf189d6acfbec8f804ebd903f7f04177750bbb088c354a569c2a3f25d3",
+      "initial_archive_path": "io-preflight/execute-consent/commands/007-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-consent/commands/007-write/request.json",
@@ -258,9 +265,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-consent/commands/008-write/output.log",
-      "archive": "io-preflight/execute-consent/commands/008-write/output.log",
+      "archive": "io-preflight/execute-consent/commands/008-write/output.log.txt",
       "bytes": 1653,
-      "sha256": "2b999a80b395a49c251cf1453d097237effc1f210402ca9067db2ede57120ea2"
+      "sha256": "2b999a80b395a49c251cf1453d097237effc1f210402ca9067db2ede57120ea2",
+      "initial_archive_path": "io-preflight/execute-consent/commands/008-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-consent/commands/008-write/request.json",
@@ -276,9 +284,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-consent/commands/009-write/output.log",
-      "archive": "io-preflight/execute-consent/commands/009-write/output.log",
+      "archive": "io-preflight/execute-consent/commands/009-write/output.log.txt",
       "bytes": 657,
-      "sha256": "15800f44ea4f205d14c26ee1a203160b8883ef465620335f80b1446b0e7f4e22"
+      "sha256": "15800f44ea4f205d14c26ee1a203160b8883ef465620335f80b1446b0e7f4e22",
+      "initial_archive_path": "io-preflight/execute-consent/commands/009-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-consent/commands/009-write/request.json",
@@ -294,9 +303,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-consent/commands/010-read/output.log",
-      "archive": "io-preflight/execute-consent/commands/010-read/output.log",
+      "archive": "io-preflight/execute-consent/commands/010-read/output.log.txt",
       "bytes": 911,
-      "sha256": "3dd2d79f0f47f11609722f8fa380580ca2cd9c4e5451afb439c5df9bad2f6637"
+      "sha256": "3dd2d79f0f47f11609722f8fa380580ca2cd9c4e5451afb439c5df9bad2f6637",
+      "initial_archive_path": "io-preflight/execute-consent/commands/010-read/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-consent/commands/010-read/request.json",
@@ -312,9 +322,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-consent/commands/011-read/output.log",
-      "archive": "io-preflight/execute-consent/commands/011-read/output.log",
+      "archive": "io-preflight/execute-consent/commands/011-read/output.log.txt",
       "bytes": 361,
-      "sha256": "1e189f0a192bf3d9354663ca1f1268e80ff5bd3b2185467299c305439e0e9809"
+      "sha256": "1e189f0a192bf3d9354663ca1f1268e80ff5bd3b2185467299c305439e0e9809",
+      "initial_archive_path": "io-preflight/execute-consent/commands/011-read/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-consent/commands/011-read/request.json",
@@ -330,9 +341,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-consent/commands/012-write/output.log",
-      "archive": "io-preflight/execute-consent/commands/012-write/output.log",
+      "archive": "io-preflight/execute-consent/commands/012-write/output.log.txt",
       "bytes": 215,
-      "sha256": "923773aa1ee1faf85c33c50fed04816a2846792c4cb536abf592eb5c3713074f"
+      "sha256": "923773aa1ee1faf85c33c50fed04816a2846792c4cb536abf592eb5c3713074f",
+      "initial_archive_path": "io-preflight/execute-consent/commands/012-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-consent/commands/012-write/request.json",
@@ -348,9 +360,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-consent/commands/013-write/output.log",
-      "archive": "io-preflight/execute-consent/commands/013-write/output.log",
+      "archive": "io-preflight/execute-consent/commands/013-write/output.log.txt",
       "bytes": 709,
-      "sha256": "8256aadbb7fb3cac11a9a14a6731a436bcf64f32365132c23abe614869960e39"
+      "sha256": "8256aadbb7fb3cac11a9a14a6731a436bcf64f32365132c23abe614869960e39",
+      "initial_archive_path": "io-preflight/execute-consent/commands/013-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-consent/commands/013-write/request.json",
@@ -366,9 +379,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-consent/commands/014-write/output.log",
-      "archive": "io-preflight/execute-consent/commands/014-write/output.log",
+      "archive": "io-preflight/execute-consent/commands/014-write/output.log.txt",
       "bytes": 657,
-      "sha256": "15800f44ea4f205d14c26ee1a203160b8883ef465620335f80b1446b0e7f4e22"
+      "sha256": "15800f44ea4f205d14c26ee1a203160b8883ef465620335f80b1446b0e7f4e22",
+      "initial_archive_path": "io-preflight/execute-consent/commands/014-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-consent/commands/014-write/request.json",
@@ -384,9 +398,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-consent/commands/015-write/output.log",
-      "archive": "io-preflight/execute-consent/commands/015-write/output.log",
+      "archive": "io-preflight/execute-consent/commands/015-write/output.log.txt",
       "bytes": 709,
-      "sha256": "974d8893b6201c1e5eea3c581103ce2298c2bf4a2ff607bcba6feabb0f8b9bc5"
+      "sha256": "974d8893b6201c1e5eea3c581103ce2298c2bf4a2ff607bcba6feabb0f8b9bc5",
+      "initial_archive_path": "io-preflight/execute-consent/commands/015-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-consent/commands/015-write/request.json",
@@ -402,9 +417,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-consent/commands/016-write/output.log",
-      "archive": "io-preflight/execute-consent/commands/016-write/output.log",
+      "archive": "io-preflight/execute-consent/commands/016-write/output.log.txt",
       "bytes": 647,
-      "sha256": "0e7a5e43b1bbc04ce94013fed0207c1557130f7493f107f67b42fcc0a3de7c7c"
+      "sha256": "0e7a5e43b1bbc04ce94013fed0207c1557130f7493f107f67b42fcc0a3de7c7c",
+      "initial_archive_path": "io-preflight/execute-consent/commands/016-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-consent/commands/016-write/request.json",
@@ -420,15 +436,17 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-consent/direct-os.log",
-      "archive": "io-preflight/execute-consent/direct-os.log",
+      "archive": "io-preflight/execute-consent/direct-os.log.txt",
       "bytes": 24,
-      "sha256": "0901d468829d3a56dd5cb9759ac263beea4366bc4715d7f1fd858d0cbe3d0d38"
+      "sha256": "0901d468829d3a56dd5cb9759ac263beea4366bc4715d7f1fd858d0cbe3d0d38",
+      "initial_archive_path": "io-preflight/execute-consent/direct-os.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-e2/commands/001-write/output.log",
-      "archive": "io-preflight/execute-e2/commands/001-write/output.log",
+      "archive": "io-preflight/execute-e2/commands/001-write/output.log.txt",
       "bytes": 189,
-      "sha256": "5f2eb444806e5ceeae2fe5877c59d5a31add9e67e0b085290f1650bf00d4a36f"
+      "sha256": "5f2eb444806e5ceeae2fe5877c59d5a31add9e67e0b085290f1650bf00d4a36f",
+      "initial_archive_path": "io-preflight/execute-e2/commands/001-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-e2/commands/001-write/request.json",
@@ -444,9 +462,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-e2/commands/002-read/output.log",
-      "archive": "io-preflight/execute-e2/commands/002-read/output.log",
+      "archive": "io-preflight/execute-e2/commands/002-read/output.log.txt",
       "bytes": 16,
-      "sha256": "70ea06053509b85e86aaa7ae9a844c489068f32741581cb6b773af42e272d088"
+      "sha256": "70ea06053509b85e86aaa7ae9a844c489068f32741581cb6b773af42e272d088",
+      "initial_archive_path": "io-preflight/execute-e2/commands/002-read/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-e2/commands/002-read/request.json",
@@ -462,9 +481,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-e2/commands/003-read/output.log",
-      "archive": "io-preflight/execute-e2/commands/003-read/output.log",
+      "archive": "io-preflight/execute-e2/commands/003-read/output.log.txt",
       "bytes": 8,
-      "sha256": "0682c5f2076f099c34cfdd15a9e063849ed437a49677e6fcc5b4198c76575be5"
+      "sha256": "0682c5f2076f099c34cfdd15a9e063849ed437a49677e6fcc5b4198c76575be5",
+      "initial_archive_path": "io-preflight/execute-e2/commands/003-read/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-e2/commands/003-read/request.json",
@@ -480,9 +500,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-e2/commands/004-read/output.log",
-      "archive": "io-preflight/execute-e2/commands/004-read/output.log",
+      "archive": "io-preflight/execute-e2/commands/004-read/output.log.txt",
       "bytes": 738,
-      "sha256": "c68e0337dbed8601c206810bbc9c60b16aa29d8ce011ddf385a93237f1860e0c"
+      "sha256": "c68e0337dbed8601c206810bbc9c60b16aa29d8ce011ddf385a93237f1860e0c",
+      "initial_archive_path": "io-preflight/execute-e2/commands/004-read/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-e2/commands/004-read/request.json",
@@ -498,9 +519,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-e2/commands/005-write/output.log",
-      "archive": "io-preflight/execute-e2/commands/005-write/output.log",
+      "archive": "io-preflight/execute-e2/commands/005-write/output.log.txt",
       "bytes": 1654,
-      "sha256": "8c9e821cc21d9c9d25a9075e3dff59c5632a551f26d1af2fd7a50c9807cdc4e8"
+      "sha256": "8c9e821cc21d9c9d25a9075e3dff59c5632a551f26d1af2fd7a50c9807cdc4e8",
+      "initial_archive_path": "io-preflight/execute-e2/commands/005-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-e2/commands/005-write/request.json",
@@ -516,9 +538,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-e2/commands/006-write/output.log",
-      "archive": "io-preflight/execute-e2/commands/006-write/output.log",
+      "archive": "io-preflight/execute-e2/commands/006-write/output.log.txt",
       "bytes": 657,
-      "sha256": "15800f44ea4f205d14c26ee1a203160b8883ef465620335f80b1446b0e7f4e22"
+      "sha256": "15800f44ea4f205d14c26ee1a203160b8883ef465620335f80b1446b0e7f4e22",
+      "initial_archive_path": "io-preflight/execute-e2/commands/006-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-e2/commands/006-write/request.json",
@@ -534,9 +557,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-e2/commands/007-write/output.log",
-      "archive": "io-preflight/execute-e2/commands/007-write/output.log",
+      "archive": "io-preflight/execute-e2/commands/007-write/output.log.txt",
       "bytes": 1646,
-      "sha256": "71f27919c292cf834414ccec71bb1266dbec9e05e11802031d38f400dad05b7c"
+      "sha256": "71f27919c292cf834414ccec71bb1266dbec9e05e11802031d38f400dad05b7c",
+      "initial_archive_path": "io-preflight/execute-e2/commands/007-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-e2/commands/007-write/request.json",
@@ -552,9 +576,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-e2/commands/008-write/output.log",
-      "archive": "io-preflight/execute-e2/commands/008-write/output.log",
+      "archive": "io-preflight/execute-e2/commands/008-write/output.log.txt",
       "bytes": 1651,
-      "sha256": "16de65e9468eaa16d58ad24d40398da14c7a527c648653f5074e43e98fccb25e"
+      "sha256": "16de65e9468eaa16d58ad24d40398da14c7a527c648653f5074e43e98fccb25e",
+      "initial_archive_path": "io-preflight/execute-e2/commands/008-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-e2/commands/008-write/request.json",
@@ -570,9 +595,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-e2/commands/009-write/output.log",
-      "archive": "io-preflight/execute-e2/commands/009-write/output.log",
+      "archive": "io-preflight/execute-e2/commands/009-write/output.log.txt",
       "bytes": 657,
-      "sha256": "15800f44ea4f205d14c26ee1a203160b8883ef465620335f80b1446b0e7f4e22"
+      "sha256": "15800f44ea4f205d14c26ee1a203160b8883ef465620335f80b1446b0e7f4e22",
+      "initial_archive_path": "io-preflight/execute-e2/commands/009-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-e2/commands/009-write/request.json",
@@ -588,9 +614,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-e2/commands/010-read/output.log",
-      "archive": "io-preflight/execute-e2/commands/010-read/output.log",
+      "archive": "io-preflight/execute-e2/commands/010-read/output.log.txt",
       "bytes": 914,
-      "sha256": "6c4016e6a5e008fcb95deec8c8cbbcaf353b72b13046da172530ae3e528d6fdd"
+      "sha256": "6c4016e6a5e008fcb95deec8c8cbbcaf353b72b13046da172530ae3e528d6fdd",
+      "initial_archive_path": "io-preflight/execute-e2/commands/010-read/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-e2/commands/010-read/request.json",
@@ -606,9 +633,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-e2/commands/011-read/output.log",
-      "archive": "io-preflight/execute-e2/commands/011-read/output.log",
+      "archive": "io-preflight/execute-e2/commands/011-read/output.log.txt",
       "bytes": 361,
-      "sha256": "1e189f0a192bf3d9354663ca1f1268e80ff5bd3b2185467299c305439e0e9809"
+      "sha256": "1e189f0a192bf3d9354663ca1f1268e80ff5bd3b2185467299c305439e0e9809",
+      "initial_archive_path": "io-preflight/execute-e2/commands/011-read/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-e2/commands/011-read/request.json",
@@ -624,9 +652,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-e2/commands/012-write/output.log",
-      "archive": "io-preflight/execute-e2/commands/012-write/output.log",
+      "archive": "io-preflight/execute-e2/commands/012-write/output.log.txt",
       "bytes": 210,
-      "sha256": "5b224c79c2dcd2e1c63778dee94ffd7afde067ca922956f79478d823402f9727"
+      "sha256": "5b224c79c2dcd2e1c63778dee94ffd7afde067ca922956f79478d823402f9727",
+      "initial_archive_path": "io-preflight/execute-e2/commands/012-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-e2/commands/012-write/request.json",
@@ -642,9 +671,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-e2/commands/013-write/output.log",
-      "archive": "io-preflight/execute-e2/commands/013-write/output.log",
+      "archive": "io-preflight/execute-e2/commands/013-write/output.log.txt",
       "bytes": 709,
-      "sha256": "8256aadbb7fb3cac11a9a14a6731a436bcf64f32365132c23abe614869960e39"
+      "sha256": "8256aadbb7fb3cac11a9a14a6731a436bcf64f32365132c23abe614869960e39",
+      "initial_archive_path": "io-preflight/execute-e2/commands/013-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-e2/commands/013-write/request.json",
@@ -660,9 +690,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-e2/commands/014-write/output.log",
-      "archive": "io-preflight/execute-e2/commands/014-write/output.log",
+      "archive": "io-preflight/execute-e2/commands/014-write/output.log.txt",
       "bytes": 657,
-      "sha256": "15800f44ea4f205d14c26ee1a203160b8883ef465620335f80b1446b0e7f4e22"
+      "sha256": "15800f44ea4f205d14c26ee1a203160b8883ef465620335f80b1446b0e7f4e22",
+      "initial_archive_path": "io-preflight/execute-e2/commands/014-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-e2/commands/014-write/request.json",
@@ -678,9 +709,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-e2/commands/015-write/output.log",
-      "archive": "io-preflight/execute-e2/commands/015-write/output.log",
+      "archive": "io-preflight/execute-e2/commands/015-write/output.log.txt",
       "bytes": 709,
-      "sha256": "974d8893b6201c1e5eea3c581103ce2298c2bf4a2ff607bcba6feabb0f8b9bc5"
+      "sha256": "974d8893b6201c1e5eea3c581103ce2298c2bf4a2ff607bcba6feabb0f8b9bc5",
+      "initial_archive_path": "io-preflight/execute-e2/commands/015-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-e2/commands/015-write/request.json",
@@ -696,9 +728,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-e2/commands/016-write/output.log",
-      "archive": "io-preflight/execute-e2/commands/016-write/output.log",
+      "archive": "io-preflight/execute-e2/commands/016-write/output.log.txt",
       "bytes": 647,
-      "sha256": "0e7a5e43b1bbc04ce94013fed0207c1557130f7493f107f67b42fcc0a3de7c7c"
+      "sha256": "0e7a5e43b1bbc04ce94013fed0207c1557130f7493f107f67b42fcc0a3de7c7c",
+      "initial_archive_path": "io-preflight/execute-e2/commands/016-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-e2/commands/016-write/request.json",
@@ -714,15 +747,17 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-e2/direct-os.log",
-      "archive": "io-preflight/execute-e2/direct-os.log",
+      "archive": "io-preflight/execute-e2/direct-os.log.txt",
       "bytes": 24,
-      "sha256": "0901d468829d3a56dd5cb9759ac263beea4366bc4715d7f1fd858d0cbe3d0d38"
+      "sha256": "0901d468829d3a56dd5cb9759ac263beea4366bc4715d7f1fd858d0cbe3d0d38",
+      "initial_archive_path": "io-preflight/execute-e2/direct-os.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-timer/commands/001-write/output.log",
-      "archive": "io-preflight/execute-timer/commands/001-write/output.log",
+      "archive": "io-preflight/execute-timer/commands/001-write/output.log.txt",
       "bytes": 192,
-      "sha256": "c575753a5246a24143cf2b3b88bfc7748d05f89c87cd6bd5c525660b1d35ff9a"
+      "sha256": "c575753a5246a24143cf2b3b88bfc7748d05f89c87cd6bd5c525660b1d35ff9a",
+      "initial_archive_path": "io-preflight/execute-timer/commands/001-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-timer/commands/001-write/request.json",
@@ -738,9 +773,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-timer/commands/002-read/output.log",
-      "archive": "io-preflight/execute-timer/commands/002-read/output.log",
+      "archive": "io-preflight/execute-timer/commands/002-read/output.log.txt",
       "bytes": 16,
-      "sha256": "70ea06053509b85e86aaa7ae9a844c489068f32741581cb6b773af42e272d088"
+      "sha256": "70ea06053509b85e86aaa7ae9a844c489068f32741581cb6b773af42e272d088",
+      "initial_archive_path": "io-preflight/execute-timer/commands/002-read/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-timer/commands/002-read/request.json",
@@ -756,9 +792,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-timer/commands/003-read/output.log",
-      "archive": "io-preflight/execute-timer/commands/003-read/output.log",
+      "archive": "io-preflight/execute-timer/commands/003-read/output.log.txt",
       "bytes": 8,
-      "sha256": "0682c5f2076f099c34cfdd15a9e063849ed437a49677e6fcc5b4198c76575be5"
+      "sha256": "0682c5f2076f099c34cfdd15a9e063849ed437a49677e6fcc5b4198c76575be5",
+      "initial_archive_path": "io-preflight/execute-timer/commands/003-read/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-timer/commands/003-read/request.json",
@@ -774,9 +811,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-timer/commands/004-read/output.log",
-      "archive": "io-preflight/execute-timer/commands/004-read/output.log",
+      "archive": "io-preflight/execute-timer/commands/004-read/output.log.txt",
       "bytes": 738,
-      "sha256": "c68e0337dbed8601c206810bbc9c60b16aa29d8ce011ddf385a93237f1860e0c"
+      "sha256": "c68e0337dbed8601c206810bbc9c60b16aa29d8ce011ddf385a93237f1860e0c",
+      "initial_archive_path": "io-preflight/execute-timer/commands/004-read/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-timer/commands/004-read/request.json",
@@ -792,9 +830,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-timer/commands/005-write/output.log",
-      "archive": "io-preflight/execute-timer/commands/005-write/output.log",
+      "archive": "io-preflight/execute-timer/commands/005-write/output.log.txt",
       "bytes": 1660,
-      "sha256": "be5d0e4711b9b9352beb5a589e063d1b1b35cdcfd65d0916d5d6969ab31d7015"
+      "sha256": "be5d0e4711b9b9352beb5a589e063d1b1b35cdcfd65d0916d5d6969ab31d7015",
+      "initial_archive_path": "io-preflight/execute-timer/commands/005-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-timer/commands/005-write/request.json",
@@ -810,9 +849,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-timer/commands/006-write/output.log",
-      "archive": "io-preflight/execute-timer/commands/006-write/output.log",
+      "archive": "io-preflight/execute-timer/commands/006-write/output.log.txt",
       "bytes": 657,
-      "sha256": "15800f44ea4f205d14c26ee1a203160b8883ef465620335f80b1446b0e7f4e22"
+      "sha256": "15800f44ea4f205d14c26ee1a203160b8883ef465620335f80b1446b0e7f4e22",
+      "initial_archive_path": "io-preflight/execute-timer/commands/006-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-timer/commands/006-write/request.json",
@@ -828,9 +868,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-timer/commands/007-write/output.log",
-      "archive": "io-preflight/execute-timer/commands/007-write/output.log",
+      "archive": "io-preflight/execute-timer/commands/007-write/output.log.txt",
       "bytes": 1649,
-      "sha256": "1585c66869b23794b4e6febfae36ae0555fd109b8d2492807553edd33e62595a"
+      "sha256": "1585c66869b23794b4e6febfae36ae0555fd109b8d2492807553edd33e62595a",
+      "initial_archive_path": "io-preflight/execute-timer/commands/007-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-timer/commands/007-write/request.json",
@@ -846,9 +887,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-timer/commands/008-write/output.log",
-      "archive": "io-preflight/execute-timer/commands/008-write/output.log",
+      "archive": "io-preflight/execute-timer/commands/008-write/output.log.txt",
       "bytes": 1651,
-      "sha256": "f7838f364d1186b3baf4f6afff5882c81e10b15444ee97d9bf33c318a686a0d2"
+      "sha256": "f7838f364d1186b3baf4f6afff5882c81e10b15444ee97d9bf33c318a686a0d2",
+      "initial_archive_path": "io-preflight/execute-timer/commands/008-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-timer/commands/008-write/request.json",
@@ -864,9 +906,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-timer/commands/009-write/output.log",
-      "archive": "io-preflight/execute-timer/commands/009-write/output.log",
+      "archive": "io-preflight/execute-timer/commands/009-write/output.log.txt",
       "bytes": 657,
-      "sha256": "15800f44ea4f205d14c26ee1a203160b8883ef465620335f80b1446b0e7f4e22"
+      "sha256": "15800f44ea4f205d14c26ee1a203160b8883ef465620335f80b1446b0e7f4e22",
+      "initial_archive_path": "io-preflight/execute-timer/commands/009-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-timer/commands/009-write/request.json",
@@ -882,9 +925,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-timer/commands/010-read/output.log",
-      "archive": "io-preflight/execute-timer/commands/010-read/output.log",
+      "archive": "io-preflight/execute-timer/commands/010-read/output.log.txt",
       "bytes": 911,
-      "sha256": "3dd2d79f0f47f11609722f8fa380580ca2cd9c4e5451afb439c5df9bad2f6637"
+      "sha256": "3dd2d79f0f47f11609722f8fa380580ca2cd9c4e5451afb439c5df9bad2f6637",
+      "initial_archive_path": "io-preflight/execute-timer/commands/010-read/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-timer/commands/010-read/request.json",
@@ -900,9 +944,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-timer/commands/011-read/output.log",
-      "archive": "io-preflight/execute-timer/commands/011-read/output.log",
+      "archive": "io-preflight/execute-timer/commands/011-read/output.log.txt",
       "bytes": 361,
-      "sha256": "1e189f0a192bf3d9354663ca1f1268e80ff5bd3b2185467299c305439e0e9809"
+      "sha256": "1e189f0a192bf3d9354663ca1f1268e80ff5bd3b2185467299c305439e0e9809",
+      "initial_archive_path": "io-preflight/execute-timer/commands/011-read/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-timer/commands/011-read/request.json",
@@ -918,9 +963,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-timer/commands/012-write/output.log",
-      "archive": "io-preflight/execute-timer/commands/012-write/output.log",
+      "archive": "io-preflight/execute-timer/commands/012-write/output.log.txt",
       "bytes": 213,
-      "sha256": "fff1751067d6eb918d711c92af6ebf732eff9d656a0870f8331a5ac3e8c9821d"
+      "sha256": "fff1751067d6eb918d711c92af6ebf732eff9d656a0870f8331a5ac3e8c9821d",
+      "initial_archive_path": "io-preflight/execute-timer/commands/012-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-timer/commands/012-write/request.json",
@@ -936,9 +982,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-timer/commands/013-write/output.log",
-      "archive": "io-preflight/execute-timer/commands/013-write/output.log",
+      "archive": "io-preflight/execute-timer/commands/013-write/output.log.txt",
       "bytes": 709,
-      "sha256": "8256aadbb7fb3cac11a9a14a6731a436bcf64f32365132c23abe614869960e39"
+      "sha256": "8256aadbb7fb3cac11a9a14a6731a436bcf64f32365132c23abe614869960e39",
+      "initial_archive_path": "io-preflight/execute-timer/commands/013-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-timer/commands/013-write/request.json",
@@ -954,9 +1001,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-timer/commands/014-write/output.log",
-      "archive": "io-preflight/execute-timer/commands/014-write/output.log",
+      "archive": "io-preflight/execute-timer/commands/014-write/output.log.txt",
       "bytes": 657,
-      "sha256": "15800f44ea4f205d14c26ee1a203160b8883ef465620335f80b1446b0e7f4e22"
+      "sha256": "15800f44ea4f205d14c26ee1a203160b8883ef465620335f80b1446b0e7f4e22",
+      "initial_archive_path": "io-preflight/execute-timer/commands/014-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-timer/commands/014-write/request.json",
@@ -972,9 +1020,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-timer/commands/015-write/output.log",
-      "archive": "io-preflight/execute-timer/commands/015-write/output.log",
+      "archive": "io-preflight/execute-timer/commands/015-write/output.log.txt",
       "bytes": 709,
-      "sha256": "974d8893b6201c1e5eea3c581103ce2298c2bf4a2ff607bcba6feabb0f8b9bc5"
+      "sha256": "974d8893b6201c1e5eea3c581103ce2298c2bf4a2ff607bcba6feabb0f8b9bc5",
+      "initial_archive_path": "io-preflight/execute-timer/commands/015-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-timer/commands/015-write/request.json",
@@ -990,9 +1039,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-timer/commands/016-write/output.log",
-      "archive": "io-preflight/execute-timer/commands/016-write/output.log",
+      "archive": "io-preflight/execute-timer/commands/016-write/output.log.txt",
       "bytes": 647,
-      "sha256": "0e7a5e43b1bbc04ce94013fed0207c1557130f7493f107f67b42fcc0a3de7c7c"
+      "sha256": "0e7a5e43b1bbc04ce94013fed0207c1557130f7493f107f67b42fcc0a3de7c7c",
+      "initial_archive_path": "io-preflight/execute-timer/commands/016-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-timer/commands/016-write/request.json",
@@ -1008,15 +1058,17 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/execute-timer/direct-os.log",
-      "archive": "io-preflight/execute-timer/direct-os.log",
+      "archive": "io-preflight/execute-timer/direct-os.log.txt",
       "bytes": 24,
-      "sha256": "0901d468829d3a56dd5cb9759ac263beea4366bc4715d7f1fd858d0cbe3d0d38"
+      "sha256": "0901d468829d3a56dd5cb9759ac263beea4366bc4715d7f1fd858d0cbe3d0d38",
+      "initial_archive_path": "io-preflight/execute-timer/direct-os.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-consent/commands/001-write/output.log",
-      "archive": "io-preflight/explore-consent/commands/001-write/output.log",
+      "archive": "io-preflight/explore-consent/commands/001-write/output.log.txt",
       "bytes": 194,
-      "sha256": "61631190899757e53fb20ca1af9fc841606072931d6e3943b020d6d8a0b5f698"
+      "sha256": "61631190899757e53fb20ca1af9fc841606072931d6e3943b020d6d8a0b5f698",
+      "initial_archive_path": "io-preflight/explore-consent/commands/001-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-consent/commands/001-write/request.json",
@@ -1032,9 +1084,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-consent/commands/002-read/output.log",
-      "archive": "io-preflight/explore-consent/commands/002-read/output.log",
+      "archive": "io-preflight/explore-consent/commands/002-read/output.log.txt",
       "bytes": 16,
-      "sha256": "70ea06053509b85e86aaa7ae9a844c489068f32741581cb6b773af42e272d088"
+      "sha256": "70ea06053509b85e86aaa7ae9a844c489068f32741581cb6b773af42e272d088",
+      "initial_archive_path": "io-preflight/explore-consent/commands/002-read/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-consent/commands/002-read/request.json",
@@ -1050,9 +1103,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-consent/commands/003-read/output.log",
-      "archive": "io-preflight/explore-consent/commands/003-read/output.log",
+      "archive": "io-preflight/explore-consent/commands/003-read/output.log.txt",
       "bytes": 8,
-      "sha256": "0682c5f2076f099c34cfdd15a9e063849ed437a49677e6fcc5b4198c76575be5"
+      "sha256": "0682c5f2076f099c34cfdd15a9e063849ed437a49677e6fcc5b4198c76575be5",
+      "initial_archive_path": "io-preflight/explore-consent/commands/003-read/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-consent/commands/003-read/request.json",
@@ -1068,9 +1122,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-consent/commands/004-read/output.log",
-      "archive": "io-preflight/explore-consent/commands/004-read/output.log",
+      "archive": "io-preflight/explore-consent/commands/004-read/output.log.txt",
       "bytes": 738,
-      "sha256": "c68e0337dbed8601c206810bbc9c60b16aa29d8ce011ddf385a93237f1860e0c"
+      "sha256": "c68e0337dbed8601c206810bbc9c60b16aa29d8ce011ddf385a93237f1860e0c",
+      "initial_archive_path": "io-preflight/explore-consent/commands/004-read/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-consent/commands/004-read/request.json",
@@ -1086,9 +1141,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-consent/commands/005-write/output.log",
-      "archive": "io-preflight/explore-consent/commands/005-write/output.log",
+      "archive": "io-preflight/explore-consent/commands/005-write/output.log.txt",
       "bytes": 1664,
-      "sha256": "80f1cf816064a281a1f22dd6c579b3277eee9593f4c7ce4156b7512cac72fba1"
+      "sha256": "80f1cf816064a281a1f22dd6c579b3277eee9593f4c7ce4156b7512cac72fba1",
+      "initial_archive_path": "io-preflight/explore-consent/commands/005-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-consent/commands/005-write/request.json",
@@ -1104,9 +1160,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-consent/commands/006-write/output.log",
-      "archive": "io-preflight/explore-consent/commands/006-write/output.log",
+      "archive": "io-preflight/explore-consent/commands/006-write/output.log.txt",
       "bytes": 657,
-      "sha256": "15800f44ea4f205d14c26ee1a203160b8883ef465620335f80b1446b0e7f4e22"
+      "sha256": "15800f44ea4f205d14c26ee1a203160b8883ef465620335f80b1446b0e7f4e22",
+      "initial_archive_path": "io-preflight/explore-consent/commands/006-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-consent/commands/006-write/request.json",
@@ -1122,9 +1179,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-consent/commands/007-write/output.log",
-      "archive": "io-preflight/explore-consent/commands/007-write/output.log",
+      "archive": "io-preflight/explore-consent/commands/007-write/output.log.txt",
       "bytes": 1651,
-      "sha256": "7f8cc1cf189d6acfbec8f804ebd903f7f04177750bbb088c354a569c2a3f25d3"
+      "sha256": "7f8cc1cf189d6acfbec8f804ebd903f7f04177750bbb088c354a569c2a3f25d3",
+      "initial_archive_path": "io-preflight/explore-consent/commands/007-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-consent/commands/007-write/request.json",
@@ -1140,9 +1198,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-consent/commands/008-write/output.log",
-      "archive": "io-preflight/explore-consent/commands/008-write/output.log",
+      "archive": "io-preflight/explore-consent/commands/008-write/output.log.txt",
       "bytes": 1653,
-      "sha256": "2b999a80b395a49c251cf1453d097237effc1f210402ca9067db2ede57120ea2"
+      "sha256": "2b999a80b395a49c251cf1453d097237effc1f210402ca9067db2ede57120ea2",
+      "initial_archive_path": "io-preflight/explore-consent/commands/008-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-consent/commands/008-write/request.json",
@@ -1158,9 +1217,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-consent/commands/009-write/output.log",
-      "archive": "io-preflight/explore-consent/commands/009-write/output.log",
+      "archive": "io-preflight/explore-consent/commands/009-write/output.log.txt",
       "bytes": 657,
-      "sha256": "15800f44ea4f205d14c26ee1a203160b8883ef465620335f80b1446b0e7f4e22"
+      "sha256": "15800f44ea4f205d14c26ee1a203160b8883ef465620335f80b1446b0e7f4e22",
+      "initial_archive_path": "io-preflight/explore-consent/commands/009-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-consent/commands/009-write/request.json",
@@ -1176,9 +1236,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-consent/commands/010-read/output.log",
-      "archive": "io-preflight/explore-consent/commands/010-read/output.log",
+      "archive": "io-preflight/explore-consent/commands/010-read/output.log.txt",
       "bytes": 911,
-      "sha256": "3dd2d79f0f47f11609722f8fa380580ca2cd9c4e5451afb439c5df9bad2f6637"
+      "sha256": "3dd2d79f0f47f11609722f8fa380580ca2cd9c4e5451afb439c5df9bad2f6637",
+      "initial_archive_path": "io-preflight/explore-consent/commands/010-read/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-consent/commands/010-read/request.json",
@@ -1194,9 +1255,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-consent/commands/011-read/output.log",
-      "archive": "io-preflight/explore-consent/commands/011-read/output.log",
+      "archive": "io-preflight/explore-consent/commands/011-read/output.log.txt",
       "bytes": 361,
-      "sha256": "1e189f0a192bf3d9354663ca1f1268e80ff5bd3b2185467299c305439e0e9809"
+      "sha256": "1e189f0a192bf3d9354663ca1f1268e80ff5bd3b2185467299c305439e0e9809",
+      "initial_archive_path": "io-preflight/explore-consent/commands/011-read/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-consent/commands/011-read/request.json",
@@ -1212,9 +1274,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-consent/commands/012-write/output.log",
-      "archive": "io-preflight/explore-consent/commands/012-write/output.log",
+      "archive": "io-preflight/explore-consent/commands/012-write/output.log.txt",
       "bytes": 215,
-      "sha256": "6b732f3fc117315930af48b302cbbda069f098f8c3b6319a574b219f36ecc4f9"
+      "sha256": "6b732f3fc117315930af48b302cbbda069f098f8c3b6319a574b219f36ecc4f9",
+      "initial_archive_path": "io-preflight/explore-consent/commands/012-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-consent/commands/012-write/request.json",
@@ -1230,9 +1293,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-consent/commands/013-write/output.log",
-      "archive": "io-preflight/explore-consent/commands/013-write/output.log",
+      "archive": "io-preflight/explore-consent/commands/013-write/output.log.txt",
       "bytes": 709,
-      "sha256": "7584c2d66339a51cfb0dbcabcea461ca307a3ef1308d83a982fa9727bae42961"
+      "sha256": "7584c2d66339a51cfb0dbcabcea461ca307a3ef1308d83a982fa9727bae42961",
+      "initial_archive_path": "io-preflight/explore-consent/commands/013-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-consent/commands/013-write/request.json",
@@ -1248,9 +1312,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-consent/commands/014-write/output.log",
-      "archive": "io-preflight/explore-consent/commands/014-write/output.log",
+      "archive": "io-preflight/explore-consent/commands/014-write/output.log.txt",
       "bytes": 709,
-      "sha256": "a23d3b44561b725d871309149f2b7445b56fa4b43ca9d5b15db4fd49b0ad88fa"
+      "sha256": "a23d3b44561b725d871309149f2b7445b56fa4b43ca9d5b15db4fd49b0ad88fa",
+      "initial_archive_path": "io-preflight/explore-consent/commands/014-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-consent/commands/014-write/request.json",
@@ -1266,9 +1331,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-consent/commands/015-write/output.log",
-      "archive": "io-preflight/explore-consent/commands/015-write/output.log",
+      "archive": "io-preflight/explore-consent/commands/015-write/output.log.txt",
       "bytes": 647,
-      "sha256": "0e7a5e43b1bbc04ce94013fed0207c1557130f7493f107f67b42fcc0a3de7c7c"
+      "sha256": "0e7a5e43b1bbc04ce94013fed0207c1557130f7493f107f67b42fcc0a3de7c7c",
+      "initial_archive_path": "io-preflight/explore-consent/commands/015-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-consent/commands/015-write/request.json",
@@ -1284,15 +1350,17 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-consent/direct-os.log",
-      "archive": "io-preflight/explore-consent/direct-os.log",
+      "archive": "io-preflight/explore-consent/direct-os.log.txt",
       "bytes": 24,
-      "sha256": "0901d468829d3a56dd5cb9759ac263beea4366bc4715d7f1fd858d0cbe3d0d38"
+      "sha256": "0901d468829d3a56dd5cb9759ac263beea4366bc4715d7f1fd858d0cbe3d0d38",
+      "initial_archive_path": "io-preflight/explore-consent/direct-os.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-e2/commands/001-write/output.log",
-      "archive": "io-preflight/explore-e2/commands/001-write/output.log",
+      "archive": "io-preflight/explore-e2/commands/001-write/output.log.txt",
       "bytes": 189,
-      "sha256": "b42732b6aa0cc401ae58c1b31314007207b372b0f7cae2fcd8239eeb4371609b"
+      "sha256": "b42732b6aa0cc401ae58c1b31314007207b372b0f7cae2fcd8239eeb4371609b",
+      "initial_archive_path": "io-preflight/explore-e2/commands/001-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-e2/commands/001-write/request.json",
@@ -1308,9 +1376,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-e2/commands/002-read/output.log",
-      "archive": "io-preflight/explore-e2/commands/002-read/output.log",
+      "archive": "io-preflight/explore-e2/commands/002-read/output.log.txt",
       "bytes": 16,
-      "sha256": "70ea06053509b85e86aaa7ae9a844c489068f32741581cb6b773af42e272d088"
+      "sha256": "70ea06053509b85e86aaa7ae9a844c489068f32741581cb6b773af42e272d088",
+      "initial_archive_path": "io-preflight/explore-e2/commands/002-read/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-e2/commands/002-read/request.json",
@@ -1326,9 +1395,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-e2/commands/003-read/output.log",
-      "archive": "io-preflight/explore-e2/commands/003-read/output.log",
+      "archive": "io-preflight/explore-e2/commands/003-read/output.log.txt",
       "bytes": 8,
-      "sha256": "0682c5f2076f099c34cfdd15a9e063849ed437a49677e6fcc5b4198c76575be5"
+      "sha256": "0682c5f2076f099c34cfdd15a9e063849ed437a49677e6fcc5b4198c76575be5",
+      "initial_archive_path": "io-preflight/explore-e2/commands/003-read/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-e2/commands/003-read/request.json",
@@ -1344,9 +1414,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-e2/commands/004-read/output.log",
-      "archive": "io-preflight/explore-e2/commands/004-read/output.log",
+      "archive": "io-preflight/explore-e2/commands/004-read/output.log.txt",
       "bytes": 738,
-      "sha256": "c68e0337dbed8601c206810bbc9c60b16aa29d8ce011ddf385a93237f1860e0c"
+      "sha256": "c68e0337dbed8601c206810bbc9c60b16aa29d8ce011ddf385a93237f1860e0c",
+      "initial_archive_path": "io-preflight/explore-e2/commands/004-read/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-e2/commands/004-read/request.json",
@@ -1362,9 +1433,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-e2/commands/005-write/output.log",
-      "archive": "io-preflight/explore-e2/commands/005-write/output.log",
+      "archive": "io-preflight/explore-e2/commands/005-write/output.log.txt",
       "bytes": 1654,
-      "sha256": "8c9e821cc21d9c9d25a9075e3dff59c5632a551f26d1af2fd7a50c9807cdc4e8"
+      "sha256": "8c9e821cc21d9c9d25a9075e3dff59c5632a551f26d1af2fd7a50c9807cdc4e8",
+      "initial_archive_path": "io-preflight/explore-e2/commands/005-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-e2/commands/005-write/request.json",
@@ -1380,9 +1452,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-e2/commands/006-write/output.log",
-      "archive": "io-preflight/explore-e2/commands/006-write/output.log",
+      "archive": "io-preflight/explore-e2/commands/006-write/output.log.txt",
       "bytes": 657,
-      "sha256": "15800f44ea4f205d14c26ee1a203160b8883ef465620335f80b1446b0e7f4e22"
+      "sha256": "15800f44ea4f205d14c26ee1a203160b8883ef465620335f80b1446b0e7f4e22",
+      "initial_archive_path": "io-preflight/explore-e2/commands/006-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-e2/commands/006-write/request.json",
@@ -1398,9 +1471,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-e2/commands/007-write/output.log",
-      "archive": "io-preflight/explore-e2/commands/007-write/output.log",
+      "archive": "io-preflight/explore-e2/commands/007-write/output.log.txt",
       "bytes": 1646,
-      "sha256": "71f27919c292cf834414ccec71bb1266dbec9e05e11802031d38f400dad05b7c"
+      "sha256": "71f27919c292cf834414ccec71bb1266dbec9e05e11802031d38f400dad05b7c",
+      "initial_archive_path": "io-preflight/explore-e2/commands/007-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-e2/commands/007-write/request.json",
@@ -1416,9 +1490,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-e2/commands/008-write/output.log",
-      "archive": "io-preflight/explore-e2/commands/008-write/output.log",
+      "archive": "io-preflight/explore-e2/commands/008-write/output.log.txt",
       "bytes": 1651,
-      "sha256": "16de65e9468eaa16d58ad24d40398da14c7a527c648653f5074e43e98fccb25e"
+      "sha256": "16de65e9468eaa16d58ad24d40398da14c7a527c648653f5074e43e98fccb25e",
+      "initial_archive_path": "io-preflight/explore-e2/commands/008-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-e2/commands/008-write/request.json",
@@ -1434,9 +1509,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-e2/commands/009-write/output.log",
-      "archive": "io-preflight/explore-e2/commands/009-write/output.log",
+      "archive": "io-preflight/explore-e2/commands/009-write/output.log.txt",
       "bytes": 657,
-      "sha256": "15800f44ea4f205d14c26ee1a203160b8883ef465620335f80b1446b0e7f4e22"
+      "sha256": "15800f44ea4f205d14c26ee1a203160b8883ef465620335f80b1446b0e7f4e22",
+      "initial_archive_path": "io-preflight/explore-e2/commands/009-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-e2/commands/009-write/request.json",
@@ -1452,9 +1528,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-e2/commands/010-read/output.log",
-      "archive": "io-preflight/explore-e2/commands/010-read/output.log",
+      "archive": "io-preflight/explore-e2/commands/010-read/output.log.txt",
       "bytes": 914,
-      "sha256": "6c4016e6a5e008fcb95deec8c8cbbcaf353b72b13046da172530ae3e528d6fdd"
+      "sha256": "6c4016e6a5e008fcb95deec8c8cbbcaf353b72b13046da172530ae3e528d6fdd",
+      "initial_archive_path": "io-preflight/explore-e2/commands/010-read/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-e2/commands/010-read/request.json",
@@ -1470,9 +1547,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-e2/commands/011-read/output.log",
-      "archive": "io-preflight/explore-e2/commands/011-read/output.log",
+      "archive": "io-preflight/explore-e2/commands/011-read/output.log.txt",
       "bytes": 361,
-      "sha256": "1e189f0a192bf3d9354663ca1f1268e80ff5bd3b2185467299c305439e0e9809"
+      "sha256": "1e189f0a192bf3d9354663ca1f1268e80ff5bd3b2185467299c305439e0e9809",
+      "initial_archive_path": "io-preflight/explore-e2/commands/011-read/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-e2/commands/011-read/request.json",
@@ -1488,9 +1566,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-e2/commands/012-write/output.log",
-      "archive": "io-preflight/explore-e2/commands/012-write/output.log",
+      "archive": "io-preflight/explore-e2/commands/012-write/output.log.txt",
       "bytes": 210,
-      "sha256": "03e1f7dea61d361a520453f6678bad2bc7b7fc5f9ac3eeb30b579a80aa196b93"
+      "sha256": "03e1f7dea61d361a520453f6678bad2bc7b7fc5f9ac3eeb30b579a80aa196b93",
+      "initial_archive_path": "io-preflight/explore-e2/commands/012-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-e2/commands/012-write/request.json",
@@ -1506,9 +1585,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-e2/commands/013-write/output.log",
-      "archive": "io-preflight/explore-e2/commands/013-write/output.log",
+      "archive": "io-preflight/explore-e2/commands/013-write/output.log.txt",
       "bytes": 709,
-      "sha256": "7584c2d66339a51cfb0dbcabcea461ca307a3ef1308d83a982fa9727bae42961"
+      "sha256": "7584c2d66339a51cfb0dbcabcea461ca307a3ef1308d83a982fa9727bae42961",
+      "initial_archive_path": "io-preflight/explore-e2/commands/013-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-e2/commands/013-write/request.json",
@@ -1524,9 +1604,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-e2/commands/014-write/output.log",
-      "archive": "io-preflight/explore-e2/commands/014-write/output.log",
+      "archive": "io-preflight/explore-e2/commands/014-write/output.log.txt",
       "bytes": 709,
-      "sha256": "a23d3b44561b725d871309149f2b7445b56fa4b43ca9d5b15db4fd49b0ad88fa"
+      "sha256": "a23d3b44561b725d871309149f2b7445b56fa4b43ca9d5b15db4fd49b0ad88fa",
+      "initial_archive_path": "io-preflight/explore-e2/commands/014-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-e2/commands/014-write/request.json",
@@ -1542,9 +1623,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-e2/commands/015-write/output.log",
-      "archive": "io-preflight/explore-e2/commands/015-write/output.log",
+      "archive": "io-preflight/explore-e2/commands/015-write/output.log.txt",
       "bytes": 647,
-      "sha256": "0e7a5e43b1bbc04ce94013fed0207c1557130f7493f107f67b42fcc0a3de7c7c"
+      "sha256": "0e7a5e43b1bbc04ce94013fed0207c1557130f7493f107f67b42fcc0a3de7c7c",
+      "initial_archive_path": "io-preflight/explore-e2/commands/015-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-e2/commands/015-write/request.json",
@@ -1560,15 +1642,17 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-e2/direct-os.log",
-      "archive": "io-preflight/explore-e2/direct-os.log",
+      "archive": "io-preflight/explore-e2/direct-os.log.txt",
       "bytes": 24,
-      "sha256": "0901d468829d3a56dd5cb9759ac263beea4366bc4715d7f1fd858d0cbe3d0d38"
+      "sha256": "0901d468829d3a56dd5cb9759ac263beea4366bc4715d7f1fd858d0cbe3d0d38",
+      "initial_archive_path": "io-preflight/explore-e2/direct-os.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-timer/commands/001-write/output.log",
-      "archive": "io-preflight/explore-timer/commands/001-write/output.log",
+      "archive": "io-preflight/explore-timer/commands/001-write/output.log.txt",
       "bytes": 192,
-      "sha256": "0c851eef7e3af3389208324f1122ae35ff0ef2b67a27b2c809d21ee40d9b1d1a"
+      "sha256": "0c851eef7e3af3389208324f1122ae35ff0ef2b67a27b2c809d21ee40d9b1d1a",
+      "initial_archive_path": "io-preflight/explore-timer/commands/001-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-timer/commands/001-write/request.json",
@@ -1584,9 +1668,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-timer/commands/002-read/output.log",
-      "archive": "io-preflight/explore-timer/commands/002-read/output.log",
+      "archive": "io-preflight/explore-timer/commands/002-read/output.log.txt",
       "bytes": 16,
-      "sha256": "70ea06053509b85e86aaa7ae9a844c489068f32741581cb6b773af42e272d088"
+      "sha256": "70ea06053509b85e86aaa7ae9a844c489068f32741581cb6b773af42e272d088",
+      "initial_archive_path": "io-preflight/explore-timer/commands/002-read/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-timer/commands/002-read/request.json",
@@ -1602,9 +1687,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-timer/commands/003-read/output.log",
-      "archive": "io-preflight/explore-timer/commands/003-read/output.log",
+      "archive": "io-preflight/explore-timer/commands/003-read/output.log.txt",
       "bytes": 8,
-      "sha256": "0682c5f2076f099c34cfdd15a9e063849ed437a49677e6fcc5b4198c76575be5"
+      "sha256": "0682c5f2076f099c34cfdd15a9e063849ed437a49677e6fcc5b4198c76575be5",
+      "initial_archive_path": "io-preflight/explore-timer/commands/003-read/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-timer/commands/003-read/request.json",
@@ -1620,9 +1706,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-timer/commands/004-read/output.log",
-      "archive": "io-preflight/explore-timer/commands/004-read/output.log",
+      "archive": "io-preflight/explore-timer/commands/004-read/output.log.txt",
       "bytes": 738,
-      "sha256": "c68e0337dbed8601c206810bbc9c60b16aa29d8ce011ddf385a93237f1860e0c"
+      "sha256": "c68e0337dbed8601c206810bbc9c60b16aa29d8ce011ddf385a93237f1860e0c",
+      "initial_archive_path": "io-preflight/explore-timer/commands/004-read/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-timer/commands/004-read/request.json",
@@ -1638,9 +1725,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-timer/commands/005-write/output.log",
-      "archive": "io-preflight/explore-timer/commands/005-write/output.log",
+      "archive": "io-preflight/explore-timer/commands/005-write/output.log.txt",
       "bytes": 1660,
-      "sha256": "be5d0e4711b9b9352beb5a589e063d1b1b35cdcfd65d0916d5d6969ab31d7015"
+      "sha256": "be5d0e4711b9b9352beb5a589e063d1b1b35cdcfd65d0916d5d6969ab31d7015",
+      "initial_archive_path": "io-preflight/explore-timer/commands/005-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-timer/commands/005-write/request.json",
@@ -1656,9 +1744,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-timer/commands/006-write/output.log",
-      "archive": "io-preflight/explore-timer/commands/006-write/output.log",
+      "archive": "io-preflight/explore-timer/commands/006-write/output.log.txt",
       "bytes": 657,
-      "sha256": "15800f44ea4f205d14c26ee1a203160b8883ef465620335f80b1446b0e7f4e22"
+      "sha256": "15800f44ea4f205d14c26ee1a203160b8883ef465620335f80b1446b0e7f4e22",
+      "initial_archive_path": "io-preflight/explore-timer/commands/006-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-timer/commands/006-write/request.json",
@@ -1674,9 +1763,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-timer/commands/007-write/output.log",
-      "archive": "io-preflight/explore-timer/commands/007-write/output.log",
+      "archive": "io-preflight/explore-timer/commands/007-write/output.log.txt",
       "bytes": 1649,
-      "sha256": "1585c66869b23794b4e6febfae36ae0555fd109b8d2492807553edd33e62595a"
+      "sha256": "1585c66869b23794b4e6febfae36ae0555fd109b8d2492807553edd33e62595a",
+      "initial_archive_path": "io-preflight/explore-timer/commands/007-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-timer/commands/007-write/request.json",
@@ -1692,9 +1782,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-timer/commands/008-write/output.log",
-      "archive": "io-preflight/explore-timer/commands/008-write/output.log",
+      "archive": "io-preflight/explore-timer/commands/008-write/output.log.txt",
       "bytes": 1651,
-      "sha256": "f7838f364d1186b3baf4f6afff5882c81e10b15444ee97d9bf33c318a686a0d2"
+      "sha256": "f7838f364d1186b3baf4f6afff5882c81e10b15444ee97d9bf33c318a686a0d2",
+      "initial_archive_path": "io-preflight/explore-timer/commands/008-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-timer/commands/008-write/request.json",
@@ -1710,9 +1801,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-timer/commands/009-write/output.log",
-      "archive": "io-preflight/explore-timer/commands/009-write/output.log",
+      "archive": "io-preflight/explore-timer/commands/009-write/output.log.txt",
       "bytes": 657,
-      "sha256": "15800f44ea4f205d14c26ee1a203160b8883ef465620335f80b1446b0e7f4e22"
+      "sha256": "15800f44ea4f205d14c26ee1a203160b8883ef465620335f80b1446b0e7f4e22",
+      "initial_archive_path": "io-preflight/explore-timer/commands/009-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-timer/commands/009-write/request.json",
@@ -1728,9 +1820,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-timer/commands/010-read/output.log",
-      "archive": "io-preflight/explore-timer/commands/010-read/output.log",
+      "archive": "io-preflight/explore-timer/commands/010-read/output.log.txt",
       "bytes": 911,
-      "sha256": "3dd2d79f0f47f11609722f8fa380580ca2cd9c4e5451afb439c5df9bad2f6637"
+      "sha256": "3dd2d79f0f47f11609722f8fa380580ca2cd9c4e5451afb439c5df9bad2f6637",
+      "initial_archive_path": "io-preflight/explore-timer/commands/010-read/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-timer/commands/010-read/request.json",
@@ -1746,9 +1839,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-timer/commands/011-read/output.log",
-      "archive": "io-preflight/explore-timer/commands/011-read/output.log",
+      "archive": "io-preflight/explore-timer/commands/011-read/output.log.txt",
       "bytes": 361,
-      "sha256": "1e189f0a192bf3d9354663ca1f1268e80ff5bd3b2185467299c305439e0e9809"
+      "sha256": "1e189f0a192bf3d9354663ca1f1268e80ff5bd3b2185467299c305439e0e9809",
+      "initial_archive_path": "io-preflight/explore-timer/commands/011-read/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-timer/commands/011-read/request.json",
@@ -1764,9 +1858,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-timer/commands/012-write/output.log",
-      "archive": "io-preflight/explore-timer/commands/012-write/output.log",
+      "archive": "io-preflight/explore-timer/commands/012-write/output.log.txt",
       "bytes": 213,
-      "sha256": "012a1a14502c990ffe8d4345ccb0672fa099b583f171ce71723fc0d92c0c561f"
+      "sha256": "012a1a14502c990ffe8d4345ccb0672fa099b583f171ce71723fc0d92c0c561f",
+      "initial_archive_path": "io-preflight/explore-timer/commands/012-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-timer/commands/012-write/request.json",
@@ -1782,9 +1877,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-timer/commands/013-write/output.log",
-      "archive": "io-preflight/explore-timer/commands/013-write/output.log",
+      "archive": "io-preflight/explore-timer/commands/013-write/output.log.txt",
       "bytes": 709,
-      "sha256": "7584c2d66339a51cfb0dbcabcea461ca307a3ef1308d83a982fa9727bae42961"
+      "sha256": "7584c2d66339a51cfb0dbcabcea461ca307a3ef1308d83a982fa9727bae42961",
+      "initial_archive_path": "io-preflight/explore-timer/commands/013-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-timer/commands/013-write/request.json",
@@ -1800,9 +1896,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-timer/commands/014-write/output.log",
-      "archive": "io-preflight/explore-timer/commands/014-write/output.log",
+      "archive": "io-preflight/explore-timer/commands/014-write/output.log.txt",
       "bytes": 709,
-      "sha256": "a23d3b44561b725d871309149f2b7445b56fa4b43ca9d5b15db4fd49b0ad88fa"
+      "sha256": "a23d3b44561b725d871309149f2b7445b56fa4b43ca9d5b15db4fd49b0ad88fa",
+      "initial_archive_path": "io-preflight/explore-timer/commands/014-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-timer/commands/014-write/request.json",
@@ -1818,9 +1915,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-timer/commands/015-write/output.log",
-      "archive": "io-preflight/explore-timer/commands/015-write/output.log",
+      "archive": "io-preflight/explore-timer/commands/015-write/output.log.txt",
       "bytes": 647,
-      "sha256": "0e7a5e43b1bbc04ce94013fed0207c1557130f7493f107f67b42fcc0a3de7c7c"
+      "sha256": "0e7a5e43b1bbc04ce94013fed0207c1557130f7493f107f67b42fcc0a3de7c7c",
+      "initial_archive_path": "io-preflight/explore-timer/commands/015-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-timer/commands/015-write/request.json",
@@ -1836,21 +1934,24 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/explore-timer/direct-os.log",
-      "archive": "io-preflight/explore-timer/direct-os.log",
+      "archive": "io-preflight/explore-timer/direct-os.log.txt",
       "bytes": 24,
-      "sha256": "0901d468829d3a56dd5cb9759ac263beea4366bc4715d7f1fd858d0cbe3d0d38"
+      "sha256": "0901d468829d3a56dd5cb9759ac263beea4366bc4715d7f1fd858d0cbe3d0d38",
+      "initial_archive_path": "io-preflight/explore-timer/direct-os.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/native-child.log",
-      "archive": "io-preflight/native-child.log",
+      "archive": "io-preflight/native-child.log.txt",
       "bytes": 69,
-      "sha256": "8ff94113859cb5de4ea91adc08e96423415508e311e89a7a9eee164c64d9a5c3"
+      "sha256": "8ff94113859cb5de4ea91adc08e96423415508e311e89a7a9eee164c64d9a5c3",
+      "initial_archive_path": "io-preflight/native-child.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/profile-generation.log",
-      "archive": "io-preflight/profile-generation.log",
+      "archive": "io-preflight/profile-generation.log.txt",
       "bytes": 0,
-      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "initial_archive_path": "io-preflight/profile-generation.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/receipt.json",
@@ -1860,9 +1961,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-consent/commands/001-write/output.log",
-      "archive": "io-preflight/report-consent/commands/001-write/output.log",
+      "archive": "io-preflight/report-consent/commands/001-write/output.log.txt",
       "bytes": 192,
-      "sha256": "ce0cc84fbb3e5588ccb0841cbfb37b6e9167b69ab0bcfbc5b1b55899afeee8a8"
+      "sha256": "ce0cc84fbb3e5588ccb0841cbfb37b6e9167b69ab0bcfbc5b1b55899afeee8a8",
+      "initial_archive_path": "io-preflight/report-consent/commands/001-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-consent/commands/001-write/request.json",
@@ -1878,9 +1980,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-consent/commands/002-read/output.log",
-      "archive": "io-preflight/report-consent/commands/002-read/output.log",
+      "archive": "io-preflight/report-consent/commands/002-read/output.log.txt",
       "bytes": 16,
-      "sha256": "70ea06053509b85e86aaa7ae9a844c489068f32741581cb6b773af42e272d088"
+      "sha256": "70ea06053509b85e86aaa7ae9a844c489068f32741581cb6b773af42e272d088",
+      "initial_archive_path": "io-preflight/report-consent/commands/002-read/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-consent/commands/002-read/request.json",
@@ -1896,9 +1999,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-consent/commands/003-read/output.log",
-      "archive": "io-preflight/report-consent/commands/003-read/output.log",
+      "archive": "io-preflight/report-consent/commands/003-read/output.log.txt",
       "bytes": 8,
-      "sha256": "0682c5f2076f099c34cfdd15a9e063849ed437a49677e6fcc5b4198c76575be5"
+      "sha256": "0682c5f2076f099c34cfdd15a9e063849ed437a49677e6fcc5b4198c76575be5",
+      "initial_archive_path": "io-preflight/report-consent/commands/003-read/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-consent/commands/003-read/request.json",
@@ -1914,9 +2018,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-consent/commands/004-read/output.log",
-      "archive": "io-preflight/report-consent/commands/004-read/output.log",
+      "archive": "io-preflight/report-consent/commands/004-read/output.log.txt",
       "bytes": 738,
-      "sha256": "c68e0337dbed8601c206810bbc9c60b16aa29d8ce011ddf385a93237f1860e0c"
+      "sha256": "c68e0337dbed8601c206810bbc9c60b16aa29d8ce011ddf385a93237f1860e0c",
+      "initial_archive_path": "io-preflight/report-consent/commands/004-read/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-consent/commands/004-read/request.json",
@@ -1932,9 +2037,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-consent/commands/005-write/output.log",
-      "archive": "io-preflight/report-consent/commands/005-write/output.log",
+      "archive": "io-preflight/report-consent/commands/005-write/output.log.txt",
       "bytes": 1664,
-      "sha256": "80f1cf816064a281a1f22dd6c579b3277eee9593f4c7ce4156b7512cac72fba1"
+      "sha256": "80f1cf816064a281a1f22dd6c579b3277eee9593f4c7ce4156b7512cac72fba1",
+      "initial_archive_path": "io-preflight/report-consent/commands/005-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-consent/commands/005-write/request.json",
@@ -1950,9 +2056,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-consent/commands/006-write/output.log",
-      "archive": "io-preflight/report-consent/commands/006-write/output.log",
+      "archive": "io-preflight/report-consent/commands/006-write/output.log.txt",
       "bytes": 657,
-      "sha256": "15800f44ea4f205d14c26ee1a203160b8883ef465620335f80b1446b0e7f4e22"
+      "sha256": "15800f44ea4f205d14c26ee1a203160b8883ef465620335f80b1446b0e7f4e22",
+      "initial_archive_path": "io-preflight/report-consent/commands/006-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-consent/commands/006-write/request.json",
@@ -1968,9 +2075,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-consent/commands/007-write/output.log",
-      "archive": "io-preflight/report-consent/commands/007-write/output.log",
+      "archive": "io-preflight/report-consent/commands/007-write/output.log.txt",
       "bytes": 1651,
-      "sha256": "7f8cc1cf189d6acfbec8f804ebd903f7f04177750bbb088c354a569c2a3f25d3"
+      "sha256": "7f8cc1cf189d6acfbec8f804ebd903f7f04177750bbb088c354a569c2a3f25d3",
+      "initial_archive_path": "io-preflight/report-consent/commands/007-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-consent/commands/007-write/request.json",
@@ -1986,9 +2094,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-consent/commands/008-write/output.log",
-      "archive": "io-preflight/report-consent/commands/008-write/output.log",
+      "archive": "io-preflight/report-consent/commands/008-write/output.log.txt",
       "bytes": 1653,
-      "sha256": "2b999a80b395a49c251cf1453d097237effc1f210402ca9067db2ede57120ea2"
+      "sha256": "2b999a80b395a49c251cf1453d097237effc1f210402ca9067db2ede57120ea2",
+      "initial_archive_path": "io-preflight/report-consent/commands/008-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-consent/commands/008-write/request.json",
@@ -2004,9 +2113,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-consent/commands/009-write/output.log",
-      "archive": "io-preflight/report-consent/commands/009-write/output.log",
+      "archive": "io-preflight/report-consent/commands/009-write/output.log.txt",
       "bytes": 657,
-      "sha256": "15800f44ea4f205d14c26ee1a203160b8883ef465620335f80b1446b0e7f4e22"
+      "sha256": "15800f44ea4f205d14c26ee1a203160b8883ef465620335f80b1446b0e7f4e22",
+      "initial_archive_path": "io-preflight/report-consent/commands/009-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-consent/commands/009-write/request.json",
@@ -2022,9 +2132,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-consent/commands/010-read/output.log",
-      "archive": "io-preflight/report-consent/commands/010-read/output.log",
+      "archive": "io-preflight/report-consent/commands/010-read/output.log.txt",
       "bytes": 911,
-      "sha256": "3dd2d79f0f47f11609722f8fa380580ca2cd9c4e5451afb439c5df9bad2f6637"
+      "sha256": "3dd2d79f0f47f11609722f8fa380580ca2cd9c4e5451afb439c5df9bad2f6637",
+      "initial_archive_path": "io-preflight/report-consent/commands/010-read/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-consent/commands/010-read/request.json",
@@ -2040,9 +2151,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-consent/commands/011-read/output.log",
-      "archive": "io-preflight/report-consent/commands/011-read/output.log",
+      "archive": "io-preflight/report-consent/commands/011-read/output.log.txt",
       "bytes": 361,
-      "sha256": "1e189f0a192bf3d9354663ca1f1268e80ff5bd3b2185467299c305439e0e9809"
+      "sha256": "1e189f0a192bf3d9354663ca1f1268e80ff5bd3b2185467299c305439e0e9809",
+      "initial_archive_path": "io-preflight/report-consent/commands/011-read/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-consent/commands/011-read/request.json",
@@ -2058,9 +2170,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-consent/commands/012-write/output.log",
-      "archive": "io-preflight/report-consent/commands/012-write/output.log",
+      "archive": "io-preflight/report-consent/commands/012-write/output.log.txt",
       "bytes": 657,
-      "sha256": "15800f44ea4f205d14c26ee1a203160b8883ef465620335f80b1446b0e7f4e22"
+      "sha256": "15800f44ea4f205d14c26ee1a203160b8883ef465620335f80b1446b0e7f4e22",
+      "initial_archive_path": "io-preflight/report-consent/commands/012-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-consent/commands/012-write/request.json",
@@ -2076,9 +2189,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-consent/commands/013-write/output.log",
-      "archive": "io-preflight/report-consent/commands/013-write/output.log",
+      "archive": "io-preflight/report-consent/commands/013-write/output.log.txt",
       "bytes": 707,
-      "sha256": "0ce106f09b84526372f31befb5a06f2fc610611e139b2a60d63ee38bac0ce531"
+      "sha256": "0ce106f09b84526372f31befb5a06f2fc610611e139b2a60d63ee38bac0ce531",
+      "initial_archive_path": "io-preflight/report-consent/commands/013-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-consent/commands/013-write/request.json",
@@ -2094,9 +2208,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-consent/commands/014-write/output.log",
-      "archive": "io-preflight/report-consent/commands/014-write/output.log",
+      "archive": "io-preflight/report-consent/commands/014-write/output.log.txt",
       "bytes": 647,
-      "sha256": "0e7a5e43b1bbc04ce94013fed0207c1557130f7493f107f67b42fcc0a3de7c7c"
+      "sha256": "0e7a5e43b1bbc04ce94013fed0207c1557130f7493f107f67b42fcc0a3de7c7c",
+      "initial_archive_path": "io-preflight/report-consent/commands/014-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-consent/commands/014-write/request.json",
@@ -2112,15 +2227,17 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-consent/direct-os.log",
-      "archive": "io-preflight/report-consent/direct-os.log",
+      "archive": "io-preflight/report-consent/direct-os.log.txt",
       "bytes": 24,
-      "sha256": "0901d468829d3a56dd5cb9759ac263beea4366bc4715d7f1fd858d0cbe3d0d38"
+      "sha256": "0901d468829d3a56dd5cb9759ac263beea4366bc4715d7f1fd858d0cbe3d0d38",
+      "initial_archive_path": "io-preflight/report-consent/direct-os.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-e2/commands/001-write/output.log",
-      "archive": "io-preflight/report-e2/commands/001-write/output.log",
+      "archive": "io-preflight/report-e2/commands/001-write/output.log.txt",
       "bytes": 187,
-      "sha256": "451578fcff021434d74ec2713a0d9f672be140983cf38ccdc804b0ee9c9da7f9"
+      "sha256": "451578fcff021434d74ec2713a0d9f672be140983cf38ccdc804b0ee9c9da7f9",
+      "initial_archive_path": "io-preflight/report-e2/commands/001-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-e2/commands/001-write/request.json",
@@ -2136,9 +2253,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-e2/commands/002-read/output.log",
-      "archive": "io-preflight/report-e2/commands/002-read/output.log",
+      "archive": "io-preflight/report-e2/commands/002-read/output.log.txt",
       "bytes": 16,
-      "sha256": "70ea06053509b85e86aaa7ae9a844c489068f32741581cb6b773af42e272d088"
+      "sha256": "70ea06053509b85e86aaa7ae9a844c489068f32741581cb6b773af42e272d088",
+      "initial_archive_path": "io-preflight/report-e2/commands/002-read/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-e2/commands/002-read/request.json",
@@ -2154,9 +2272,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-e2/commands/003-read/output.log",
-      "archive": "io-preflight/report-e2/commands/003-read/output.log",
+      "archive": "io-preflight/report-e2/commands/003-read/output.log.txt",
       "bytes": 8,
-      "sha256": "0682c5f2076f099c34cfdd15a9e063849ed437a49677e6fcc5b4198c76575be5"
+      "sha256": "0682c5f2076f099c34cfdd15a9e063849ed437a49677e6fcc5b4198c76575be5",
+      "initial_archive_path": "io-preflight/report-e2/commands/003-read/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-e2/commands/003-read/request.json",
@@ -2172,9 +2291,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-e2/commands/004-read/output.log",
-      "archive": "io-preflight/report-e2/commands/004-read/output.log",
+      "archive": "io-preflight/report-e2/commands/004-read/output.log.txt",
       "bytes": 738,
-      "sha256": "c68e0337dbed8601c206810bbc9c60b16aa29d8ce011ddf385a93237f1860e0c"
+      "sha256": "c68e0337dbed8601c206810bbc9c60b16aa29d8ce011ddf385a93237f1860e0c",
+      "initial_archive_path": "io-preflight/report-e2/commands/004-read/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-e2/commands/004-read/request.json",
@@ -2190,9 +2310,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-e2/commands/005-write/output.log",
-      "archive": "io-preflight/report-e2/commands/005-write/output.log",
+      "archive": "io-preflight/report-e2/commands/005-write/output.log.txt",
       "bytes": 1654,
-      "sha256": "8c9e821cc21d9c9d25a9075e3dff59c5632a551f26d1af2fd7a50c9807cdc4e8"
+      "sha256": "8c9e821cc21d9c9d25a9075e3dff59c5632a551f26d1af2fd7a50c9807cdc4e8",
+      "initial_archive_path": "io-preflight/report-e2/commands/005-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-e2/commands/005-write/request.json",
@@ -2208,9 +2329,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-e2/commands/006-write/output.log",
-      "archive": "io-preflight/report-e2/commands/006-write/output.log",
+      "archive": "io-preflight/report-e2/commands/006-write/output.log.txt",
       "bytes": 657,
-      "sha256": "15800f44ea4f205d14c26ee1a203160b8883ef465620335f80b1446b0e7f4e22"
+      "sha256": "15800f44ea4f205d14c26ee1a203160b8883ef465620335f80b1446b0e7f4e22",
+      "initial_archive_path": "io-preflight/report-e2/commands/006-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-e2/commands/006-write/request.json",
@@ -2226,9 +2348,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-e2/commands/007-write/output.log",
-      "archive": "io-preflight/report-e2/commands/007-write/output.log",
+      "archive": "io-preflight/report-e2/commands/007-write/output.log.txt",
       "bytes": 1646,
-      "sha256": "71f27919c292cf834414ccec71bb1266dbec9e05e11802031d38f400dad05b7c"
+      "sha256": "71f27919c292cf834414ccec71bb1266dbec9e05e11802031d38f400dad05b7c",
+      "initial_archive_path": "io-preflight/report-e2/commands/007-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-e2/commands/007-write/request.json",
@@ -2244,9 +2367,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-e2/commands/008-write/output.log",
-      "archive": "io-preflight/report-e2/commands/008-write/output.log",
+      "archive": "io-preflight/report-e2/commands/008-write/output.log.txt",
       "bytes": 1651,
-      "sha256": "16de65e9468eaa16d58ad24d40398da14c7a527c648653f5074e43e98fccb25e"
+      "sha256": "16de65e9468eaa16d58ad24d40398da14c7a527c648653f5074e43e98fccb25e",
+      "initial_archive_path": "io-preflight/report-e2/commands/008-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-e2/commands/008-write/request.json",
@@ -2262,9 +2386,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-e2/commands/009-write/output.log",
-      "archive": "io-preflight/report-e2/commands/009-write/output.log",
+      "archive": "io-preflight/report-e2/commands/009-write/output.log.txt",
       "bytes": 657,
-      "sha256": "15800f44ea4f205d14c26ee1a203160b8883ef465620335f80b1446b0e7f4e22"
+      "sha256": "15800f44ea4f205d14c26ee1a203160b8883ef465620335f80b1446b0e7f4e22",
+      "initial_archive_path": "io-preflight/report-e2/commands/009-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-e2/commands/009-write/request.json",
@@ -2280,9 +2405,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-e2/commands/010-read/output.log",
-      "archive": "io-preflight/report-e2/commands/010-read/output.log",
+      "archive": "io-preflight/report-e2/commands/010-read/output.log.txt",
       "bytes": 914,
-      "sha256": "6c4016e6a5e008fcb95deec8c8cbbcaf353b72b13046da172530ae3e528d6fdd"
+      "sha256": "6c4016e6a5e008fcb95deec8c8cbbcaf353b72b13046da172530ae3e528d6fdd",
+      "initial_archive_path": "io-preflight/report-e2/commands/010-read/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-e2/commands/010-read/request.json",
@@ -2298,9 +2424,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-e2/commands/011-read/output.log",
-      "archive": "io-preflight/report-e2/commands/011-read/output.log",
+      "archive": "io-preflight/report-e2/commands/011-read/output.log.txt",
       "bytes": 361,
-      "sha256": "1e189f0a192bf3d9354663ca1f1268e80ff5bd3b2185467299c305439e0e9809"
+      "sha256": "1e189f0a192bf3d9354663ca1f1268e80ff5bd3b2185467299c305439e0e9809",
+      "initial_archive_path": "io-preflight/report-e2/commands/011-read/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-e2/commands/011-read/request.json",
@@ -2316,9 +2443,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-e2/commands/012-write/output.log",
-      "archive": "io-preflight/report-e2/commands/012-write/output.log",
+      "archive": "io-preflight/report-e2/commands/012-write/output.log.txt",
       "bytes": 657,
-      "sha256": "15800f44ea4f205d14c26ee1a203160b8883ef465620335f80b1446b0e7f4e22"
+      "sha256": "15800f44ea4f205d14c26ee1a203160b8883ef465620335f80b1446b0e7f4e22",
+      "initial_archive_path": "io-preflight/report-e2/commands/012-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-e2/commands/012-write/request.json",
@@ -2334,9 +2462,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-e2/commands/013-write/output.log",
-      "archive": "io-preflight/report-e2/commands/013-write/output.log",
+      "archive": "io-preflight/report-e2/commands/013-write/output.log.txt",
       "bytes": 707,
-      "sha256": "0ce106f09b84526372f31befb5a06f2fc610611e139b2a60d63ee38bac0ce531"
+      "sha256": "0ce106f09b84526372f31befb5a06f2fc610611e139b2a60d63ee38bac0ce531",
+      "initial_archive_path": "io-preflight/report-e2/commands/013-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-e2/commands/013-write/request.json",
@@ -2352,9 +2481,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-e2/commands/014-write/output.log",
-      "archive": "io-preflight/report-e2/commands/014-write/output.log",
+      "archive": "io-preflight/report-e2/commands/014-write/output.log.txt",
       "bytes": 647,
-      "sha256": "0e7a5e43b1bbc04ce94013fed0207c1557130f7493f107f67b42fcc0a3de7c7c"
+      "sha256": "0e7a5e43b1bbc04ce94013fed0207c1557130f7493f107f67b42fcc0a3de7c7c",
+      "initial_archive_path": "io-preflight/report-e2/commands/014-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-e2/commands/014-write/request.json",
@@ -2370,15 +2500,17 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-e2/direct-os.log",
-      "archive": "io-preflight/report-e2/direct-os.log",
+      "archive": "io-preflight/report-e2/direct-os.log.txt",
       "bytes": 24,
-      "sha256": "0901d468829d3a56dd5cb9759ac263beea4366bc4715d7f1fd858d0cbe3d0d38"
+      "sha256": "0901d468829d3a56dd5cb9759ac263beea4366bc4715d7f1fd858d0cbe3d0d38",
+      "initial_archive_path": "io-preflight/report-e2/direct-os.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-timer/commands/001-write/output.log",
-      "archive": "io-preflight/report-timer/commands/001-write/output.log",
+      "archive": "io-preflight/report-timer/commands/001-write/output.log.txt",
       "bytes": 190,
-      "sha256": "411e27cb10de983882ad9f6eea061e0b6b5f668f24f4de1dd72e9323aafeb30d"
+      "sha256": "411e27cb10de983882ad9f6eea061e0b6b5f668f24f4de1dd72e9323aafeb30d",
+      "initial_archive_path": "io-preflight/report-timer/commands/001-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-timer/commands/001-write/request.json",
@@ -2394,9 +2526,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-timer/commands/002-read/output.log",
-      "archive": "io-preflight/report-timer/commands/002-read/output.log",
+      "archive": "io-preflight/report-timer/commands/002-read/output.log.txt",
       "bytes": 16,
-      "sha256": "70ea06053509b85e86aaa7ae9a844c489068f32741581cb6b773af42e272d088"
+      "sha256": "70ea06053509b85e86aaa7ae9a844c489068f32741581cb6b773af42e272d088",
+      "initial_archive_path": "io-preflight/report-timer/commands/002-read/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-timer/commands/002-read/request.json",
@@ -2412,9 +2545,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-timer/commands/003-read/output.log",
-      "archive": "io-preflight/report-timer/commands/003-read/output.log",
+      "archive": "io-preflight/report-timer/commands/003-read/output.log.txt",
       "bytes": 8,
-      "sha256": "0682c5f2076f099c34cfdd15a9e063849ed437a49677e6fcc5b4198c76575be5"
+      "sha256": "0682c5f2076f099c34cfdd15a9e063849ed437a49677e6fcc5b4198c76575be5",
+      "initial_archive_path": "io-preflight/report-timer/commands/003-read/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-timer/commands/003-read/request.json",
@@ -2430,9 +2564,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-timer/commands/004-read/output.log",
-      "archive": "io-preflight/report-timer/commands/004-read/output.log",
+      "archive": "io-preflight/report-timer/commands/004-read/output.log.txt",
       "bytes": 738,
-      "sha256": "c68e0337dbed8601c206810bbc9c60b16aa29d8ce011ddf385a93237f1860e0c"
+      "sha256": "c68e0337dbed8601c206810bbc9c60b16aa29d8ce011ddf385a93237f1860e0c",
+      "initial_archive_path": "io-preflight/report-timer/commands/004-read/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-timer/commands/004-read/request.json",
@@ -2448,9 +2583,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-timer/commands/005-write/output.log",
-      "archive": "io-preflight/report-timer/commands/005-write/output.log",
+      "archive": "io-preflight/report-timer/commands/005-write/output.log.txt",
       "bytes": 1660,
-      "sha256": "be5d0e4711b9b9352beb5a589e063d1b1b35cdcfd65d0916d5d6969ab31d7015"
+      "sha256": "be5d0e4711b9b9352beb5a589e063d1b1b35cdcfd65d0916d5d6969ab31d7015",
+      "initial_archive_path": "io-preflight/report-timer/commands/005-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-timer/commands/005-write/request.json",
@@ -2466,9 +2602,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-timer/commands/006-write/output.log",
-      "archive": "io-preflight/report-timer/commands/006-write/output.log",
+      "archive": "io-preflight/report-timer/commands/006-write/output.log.txt",
       "bytes": 657,
-      "sha256": "15800f44ea4f205d14c26ee1a203160b8883ef465620335f80b1446b0e7f4e22"
+      "sha256": "15800f44ea4f205d14c26ee1a203160b8883ef465620335f80b1446b0e7f4e22",
+      "initial_archive_path": "io-preflight/report-timer/commands/006-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-timer/commands/006-write/request.json",
@@ -2484,9 +2621,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-timer/commands/007-write/output.log",
-      "archive": "io-preflight/report-timer/commands/007-write/output.log",
+      "archive": "io-preflight/report-timer/commands/007-write/output.log.txt",
       "bytes": 1649,
-      "sha256": "1585c66869b23794b4e6febfae36ae0555fd109b8d2492807553edd33e62595a"
+      "sha256": "1585c66869b23794b4e6febfae36ae0555fd109b8d2492807553edd33e62595a",
+      "initial_archive_path": "io-preflight/report-timer/commands/007-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-timer/commands/007-write/request.json",
@@ -2502,9 +2640,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-timer/commands/008-write/output.log",
-      "archive": "io-preflight/report-timer/commands/008-write/output.log",
+      "archive": "io-preflight/report-timer/commands/008-write/output.log.txt",
       "bytes": 1651,
-      "sha256": "f7838f364d1186b3baf4f6afff5882c81e10b15444ee97d9bf33c318a686a0d2"
+      "sha256": "f7838f364d1186b3baf4f6afff5882c81e10b15444ee97d9bf33c318a686a0d2",
+      "initial_archive_path": "io-preflight/report-timer/commands/008-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-timer/commands/008-write/request.json",
@@ -2520,9 +2659,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-timer/commands/009-write/output.log",
-      "archive": "io-preflight/report-timer/commands/009-write/output.log",
+      "archive": "io-preflight/report-timer/commands/009-write/output.log.txt",
       "bytes": 657,
-      "sha256": "15800f44ea4f205d14c26ee1a203160b8883ef465620335f80b1446b0e7f4e22"
+      "sha256": "15800f44ea4f205d14c26ee1a203160b8883ef465620335f80b1446b0e7f4e22",
+      "initial_archive_path": "io-preflight/report-timer/commands/009-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-timer/commands/009-write/request.json",
@@ -2538,9 +2678,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-timer/commands/010-read/output.log",
-      "archive": "io-preflight/report-timer/commands/010-read/output.log",
+      "archive": "io-preflight/report-timer/commands/010-read/output.log.txt",
       "bytes": 911,
-      "sha256": "3dd2d79f0f47f11609722f8fa380580ca2cd9c4e5451afb439c5df9bad2f6637"
+      "sha256": "3dd2d79f0f47f11609722f8fa380580ca2cd9c4e5451afb439c5df9bad2f6637",
+      "initial_archive_path": "io-preflight/report-timer/commands/010-read/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-timer/commands/010-read/request.json",
@@ -2556,9 +2697,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-timer/commands/011-read/output.log",
-      "archive": "io-preflight/report-timer/commands/011-read/output.log",
+      "archive": "io-preflight/report-timer/commands/011-read/output.log.txt",
       "bytes": 361,
-      "sha256": "1e189f0a192bf3d9354663ca1f1268e80ff5bd3b2185467299c305439e0e9809"
+      "sha256": "1e189f0a192bf3d9354663ca1f1268e80ff5bd3b2185467299c305439e0e9809",
+      "initial_archive_path": "io-preflight/report-timer/commands/011-read/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-timer/commands/011-read/request.json",
@@ -2574,9 +2716,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-timer/commands/012-write/output.log",
-      "archive": "io-preflight/report-timer/commands/012-write/output.log",
+      "archive": "io-preflight/report-timer/commands/012-write/output.log.txt",
       "bytes": 657,
-      "sha256": "15800f44ea4f205d14c26ee1a203160b8883ef465620335f80b1446b0e7f4e22"
+      "sha256": "15800f44ea4f205d14c26ee1a203160b8883ef465620335f80b1446b0e7f4e22",
+      "initial_archive_path": "io-preflight/report-timer/commands/012-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-timer/commands/012-write/request.json",
@@ -2592,9 +2735,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-timer/commands/013-write/output.log",
-      "archive": "io-preflight/report-timer/commands/013-write/output.log",
+      "archive": "io-preflight/report-timer/commands/013-write/output.log.txt",
       "bytes": 707,
-      "sha256": "0ce106f09b84526372f31befb5a06f2fc610611e139b2a60d63ee38bac0ce531"
+      "sha256": "0ce106f09b84526372f31befb5a06f2fc610611e139b2a60d63ee38bac0ce531",
+      "initial_archive_path": "io-preflight/report-timer/commands/013-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-timer/commands/013-write/request.json",
@@ -2610,9 +2754,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-timer/commands/014-write/output.log",
-      "archive": "io-preflight/report-timer/commands/014-write/output.log",
+      "archive": "io-preflight/report-timer/commands/014-write/output.log.txt",
       "bytes": 647,
-      "sha256": "0e7a5e43b1bbc04ce94013fed0207c1557130f7493f107f67b42fcc0a3de7c7c"
+      "sha256": "0e7a5e43b1bbc04ce94013fed0207c1557130f7493f107f67b42fcc0a3de7c7c",
+      "initial_archive_path": "io-preflight/report-timer/commands/014-write/output.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-timer/commands/014-write/request.json",
@@ -2628,9 +2773,10 @@
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/io-boundary-preflight-1790333132620/report-timer/direct-os.log",
-      "archive": "io-preflight/report-timer/direct-os.log",
+      "archive": "io-preflight/report-timer/direct-os.log.txt",
       "bytes": 24,
-      "sha256": "0901d468829d3a56dd5cb9759ac263beea4366bc4715d7f1fd858d0cbe3d0d38"
+      "sha256": "0901d468829d3a56dd5cb9759ac263beea4366bc4715d7f1fd858d0cbe3d0d38",
+      "initial_archive_path": "io-preflight/report-timer/direct-os.log"
     },
     {
       "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/artifact-checkpoint-preflight-0925.json",
@@ -2896,5 +3042,11 @@
       "bytes": 2219,
       "sha256": "5ad1baa44e135710926457f7e75f125b6a27b931e4374b03728a503c7af6f49a"
     }
-  ]
+  ],
+  "archive_path_adjustment": {
+    "reason": "repository rejects *.log; UTF-8 text snapshots use *.log.txt",
+    "files": 146,
+    "original_runtime_files_unchanged": true,
+    "bytes_unchanged": true
+  }
 }
