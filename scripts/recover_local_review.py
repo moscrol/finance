@@ -6,8 +6,8 @@ on MARKET_FEATURE_STORE_DB=.staging; only a fully successful, run-bound status
 allows run_daily_full_staged to publish. Reuses the local plan and both gates.
 The stock anchor for the later day is loaded first, but derived days are ordered.
 
-Hash-bound Tencent manifests support input preparation only, in a new isolated
---prepare-dir. This mode returns 2 (not releasable), even when input preparation
+Hash-bound Tencent manifests and the fixed September 21 historical candidate
+support input preparation only, in a new isolated --prepare-dir. This mode returns 2 (not releasable), even when input preparation
 succeeds. It never runs derived steps or publishes an incomplete database.
 """
 from __future__ import annotations
@@ -128,6 +128,49 @@ def prepare_quote_child(args) -> int:
     return 2
 
 
+def prepare_candidate_child(args) -> int:
+    from market_feature_store import db
+    from market_feature_store.sync.sync_mootdx_stock_daily import BULK_UPSERT_SQL, COLS
+    from scripts.historical_candidate_recovery import load_manifest, plan_missing_rows, rows_fingerprint
+    import pandas as pd
+
+    if not args.prepare_dir or db.DB_PATH.resolve().parent != args.prepare_dir.resolve():
+        raise RuntimeError('historical candidate requires the isolated preparation directory')
+    prepared = load_manifest(args.candidate_manifest, args.candidate_manifest_sha256)
+    query = f'SELECT {", ".join(COLS)} FROM fact_stock_daily WHERE trade_date=?'
+    con = db.connect()
+    try:
+        con.execute('BEGIN TRANSACTION')
+        try:
+            existing = con.execute(query, [prepared.trade_date]).fetchall()
+            additions = plan_missing_rows(prepared, existing)
+            con.register('_buf_df', pd.DataFrame(additions, columns=COLS))
+            try:
+                con.execute(BULK_UPSERT_SQL)
+            finally:
+                con.unregister('_buf_df')
+            readback = con.execute(query, [prepared.trade_date]).fetchall()
+            expected = [*existing, *additions]
+            if len(readback) != len(expected) or set(readback) != set(expected):
+                raise RuntimeError('historical gap preparation readback differs from exact plan')
+            con.execute('COMMIT')
+        except Exception:
+            con.execute('ROLLBACK')
+            raise
+    finally:
+        con.close()
+    status = {'run_id': os.environ['MARKET_FEATURE_STORE_RUN_ID'],
+              'trade_date': str(prepared.trade_date), 'ok': False, 'input_prepared': True,
+              'quality_gates_attempted': False, 'publication_attempted': False,
+              'steps': [{'label': 'historical-candidate-gaps', 'status': 'prepared',
+                         'days': [prepared.evidence], 'written_rows': len(additions),
+                         'preserved_rows': len(existing), 'all_columns_readback_equal': True,
+                         'prepared_rows_sha256': rows_fingerprint(readback)}]}
+    with Path(str(db.DB_PATH) + '.status.json').open('x', encoding='utf-8') as handle:
+        json.dump(status, handle, ensure_ascii=False, allow_nan=False)
+    return 2
+
+
 def child(args) -> int:
     from market_feature_store import db
     from market_feature_store.sync import sync_eastmoney_stock_snapshot as snapshot_module
@@ -138,6 +181,8 @@ def child(args) -> int:
         raise RuntimeError('child requires the staging publisher, not a direct write')
     if getattr(args, 'quote_manifest', None):
         return prepare_quote_child(args)
+    if getattr(args, 'candidate_manifest', None):
+        return prepare_candidate_child(args)
     raw, rows = validate_inputs(args.history_day, args.snapshot_day, args.history, args.snapshot)
     # Replay captured official bytes through the unchanged parser and date gate.
     with patch.object(snapshot_module, 'fetch_snapshot', return_value=raw):
@@ -212,18 +257,32 @@ def main(argv=None) -> int:
     parser.add_argument('--snapshot', type=Path)
     parser.add_argument('--quote-manifest', type=Path)
     parser.add_argument('--quote-manifest-sha256')
+    parser.add_argument('--candidate-manifest', type=Path)
+    parser.add_argument('--candidate-manifest-sha256')
     parser.add_argument('--prepare-dir', type=Path, help='New isolated directory; never publishes')
     parser.add_argument('--receipt', type=Path, required=True)
     parser.add_argument('--child', action='store_true', help=argparse.SUPPRESS)
     args = parser.parse_args(argv)
-    for name in ('quote_manifest', 'prepare_dir', 'receipt'):
+    for name in ('quote_manifest', 'candidate_manifest', 'prepare_dir', 'receipt'):
         value = getattr(args, name)
         if value is not None:
             setattr(args, name, value.expanduser().absolute())
     os.environ['REVIEW_SYNC_PLAN'] = 'local'
     legacy = (args.history_day, args.snapshot_day, args.history, args.snapshot)
+    candidate_options = (args.candidate_manifest, args.candidate_manifest_sha256)
     quote_options = (args.quote_manifest, args.quote_manifest_sha256, args.prepare_dir)
-    if any(quote_options):
+    if any(candidate_options):
+        if (not all(candidate_options) or not args.prepare_dir or any(legacy)
+                or args.quote_manifest or args.quote_manifest_sha256):
+            parser.error('candidate manifest, SHA256 and prepare directory required; no other inputs')
+        if args.child:
+            return child(args)
+        from scripts.historical_candidate_recovery import load_manifest
+        prepared = load_manifest(args.candidate_manifest, args.candidate_manifest_sha256)
+        target_day = str(prepared.trade_date)
+        if args.receipt.exists() or args.receipt.is_symlink():
+            raise FileExistsError('preparation receipt must be new')
+    elif any(quote_options):
         if not all(quote_options) or any(legacy):
             parser.error('quote manifest, SHA256 and prepare directory are required together; no legacy inputs')
         if args.child:
@@ -247,16 +306,17 @@ def main(argv=None) -> int:
     if target != db.DB_PATH.resolve() or str(target).endswith('.staging'):
         raise RuntimeError('parent requires the explicit existing canonical database')
     child_options = list(argv if argv is not None else sys.argv[1:])
-    if args.quote_manifest:
-        child_options = ['--quote-manifest', str(args.quote_manifest),
-                         '--quote-manifest-sha256', args.quote_manifest_sha256,
+    if args.quote_manifest or args.candidate_manifest:
+        mode = 'quote' if args.quote_manifest else 'candidate'
+        child_options = [f'--{mode}-manifest', str(getattr(args, f'{mode}_manifest')),
+                         f'--{mode}-manifest-sha256', getattr(args, f'{mode}_manifest_sha256'),
                          '--prepare-dir', str(args.prepare_dir), '--receipt', str(args.receipt)]
     command = [sys.executable, '-u', str(Path(__file__).resolve()), *child_options, '--child']
     with nightly_lock():
         kwargs = {'prepare_dir': args.prepare_dir} if args.prepare_dir is not None else {}
         result = run_daily_full_staged(target_day, child_argv=command,
                                        kind='local-review-recovery', pre_swap_backup=True, **kwargs)
-    with args.receipt.open('x' if args.quote_manifest else 'w', encoding='utf-8') as handle:
+    with args.receipt.open('x' if args.prepare_dir is not None else 'w', encoding='utf-8') as handle:
         json.dump(result, handle, ensure_ascii=False, indent=2, default=str, allow_nan=False)
     return result['rc']
 
