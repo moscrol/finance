@@ -1,0 +1,51 @@
+{
+  "status": "PASS",
+  "scope": "temporary_ledger_writer_to_memory_lookup; no_workbench_ingest_no_model_no_real_user_state",
+  "write_path": "canonical_corrections_record_correction_in_temporary_users_root",
+  "alice_record_id": "cb4947c48f99",
+  "alice_correction_sha256": "66d2f8aa66d27063cfeea7db5432218f34a9064c904a0bdfc57164ca0cebaaad",
+  "alice_before_withdrawal": {
+    "recalled_corrections": 1,
+    "registered": true,
+    "trace_status": "success",
+    "evidence_count": 1,
+    "evidence_detail_sha256": [
+      "6484cb709720f8c295c3b0744636e5c97ef360f3b2f1c4df06e3aba1c2ca522a"
+    ],
+    "evidence_tiers": [
+      "user_memory"
+    ],
+    "source_labels": [
+      "用户自己纠正过的方法论（台账 corrections；先验，非市场事实）"
+    ],
+    "gaps": []
+  },
+  "bob_cross_user_control": {
+    "recalled_corrections": 0,
+    "registered": true,
+    "trace_status": "empty",
+    "evidence_count": 0,
+    "evidence_detail_sha256": [],
+    "evidence_tiers": [],
+    "source_labels": [],
+    "gaps": [
+      "用户记忆中没有与本题相关的历史判断"
+    ]
+  },
+  "alice_after_withdrawal": {
+    "recalled_corrections": 0,
+    "registered": true,
+    "trace_status": "empty",
+    "evidence_count": 0,
+    "evidence_detail_sha256": [],
+    "evidence_tiers": [],
+    "source_labels": [],
+    "gaps": [
+      "用户记忆中没有与本题相关的历史判断"
+    ]
+  },
+  "missing_identity": {
+    "memory_lookup_registered": false
+  },
+  "inputs_unchanged": true
+}
