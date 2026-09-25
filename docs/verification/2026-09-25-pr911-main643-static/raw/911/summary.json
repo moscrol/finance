@@ -1,0 +1,84 @@
+{
+  "pr": "911",
+  "tree": "/Users/a77/fwp-wt-pr911-main-0925",
+  "revision": "eb59c4a2fb4dbe77a349bd8545b942aa4df8db14",
+  "baseline": "643a2888ea14079035bc8b080129e3e4145d5685",
+  "tree_oid": "0f6574d527efcc627bbfbe81b1569a0c15a9ba40",
+  "python": "/Users/a77/fwp-wt-pi-research/.venv-workbench/bin/python",
+  "dependency_fingerprint": "66726d345bf37ce5",
+  "script_sha256": "4f0752374abfd3f70dd2135ea2373e381393ae9b305e2ee28456bed25734f0d7",
+  "started_at": "2026-09-25T10:07:29.720485+00:00",
+  "steps": [
+    {
+      "label": "doctor",
+      "exit": 0,
+      "status": "completed"
+    },
+    {
+      "label": "ruff",
+      "exit": 0,
+      "status": "completed"
+    },
+    {
+      "label": "registry-parse",
+      "exit": 0,
+      "status": "completed"
+    },
+    {
+      "label": "registry-check",
+      "exit": 0,
+      "status": "completed"
+    },
+    {
+      "label": "registry-tables",
+      "exit": 0,
+      "status": "completed"
+    },
+    {
+      "label": "registry-views",
+      "exit": 0,
+      "status": "completed"
+    },
+    {
+      "label": "ledger-crosswalk",
+      "exit": 0,
+      "status": "completed"
+    },
+    {
+      "label": "diff-check",
+      "exit": 0,
+      "status": "completed"
+    },
+    {
+      "label": "code-map",
+      "exit": 0,
+      "status": "completed"
+    }
+  ],
+  "dynamic_attempt_started": false,
+  "paid_model_requests": 0,
+  "independent_review": false,
+  "status": "STATIC_PASS_DYNAMIC_NOT_STARTED",
+  "resource_admission": {
+    "admitted": false,
+    "foreign_pytest": [
+      {
+        "pid": 4484,
+        "pgid": 4425,
+        "command": "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -u -m pytest -q -p no:cacheprovider --basetemp=/Users/a77/.finance-runtime/reviews/agent-foundation-0924/deploy/authorized-data-09/pytest-tmp"
+      },
+      {
+        "pid": 18495,
+        "pgid": 18441,
+        "command": "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -u -m pytest -q -p no:cacheprovider --basetemp=/Users/a77/.finance-runtime/reviews/pi-session-inventory-20260924/truthup8/basetemp"
+      }
+    ],
+    "disk_free_bytes": 51082706944,
+    "minimum_free_bytes": 21474836480,
+    "excluded_groups": [],
+    "scope": "point-in-time; all detected pytest processes, not just full suites; no reservation",
+    "observed_at": "2026-09-25T10:07:40.338087+00:00"
+  },
+  "dynamic_blocker": "foreign pytest or insufficient disk",
+  "finished_at": "2026-09-25T10:07:40.456859+00:00"
+}

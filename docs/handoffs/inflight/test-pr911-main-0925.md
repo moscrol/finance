@@ -1,26 +1,24 @@
 ## 这个分支做什么
-#911研究链测试前向最新main并补门禁；发布仍走feat/pi-research-loop，保持WIP。
+#911研究链测试前向main并补门禁；发布feat/pi-research-loop，保持WIP。
 
 ## 决策与被否方案
-| 选择 / 否掉 | 理由 |
-| --- | --- |
-| 新main前向后冻结 / 旧56P移签 | 基座新增启动归因、隔离及沙箱测试 |
-| 两PR分账 / 整包数字拼接 | 候选对象不同 |
-| 每叶复查、有限等待 / 放宽准入 | 即时采样不预约资源，不动他人进程 |
-展开：`docs/handoffs/2026-09-25-pr911-main9d5-gates.md`。
+- 运行时漂移重冻结 / 旧56P移签：#930改变请求体与预算。
+- 按PR分账 / 借#910全仓：组合与分母不同。
+- 只停自有等待 / 放宽准入：不干预外部进程。
+展开：`docs/handoffs/2026-09-25-pr911-main643-engineering.md`。
 
 ## 当前状态
-代码8dec2a856b76cec21fae6daae1ed7505fb838dcc，基座9d5b9800a5500e6f64875432f8df3a06713d6f52；预览/实际树32f55112相同，无冲突或手改源码。后续文档HEAD不自动继承收据。
+代码候选eb59c4a2fb4dbe77a349bd8545b942aa4df8db14，基座643a2888ea14079035bc8b080129e3e4145d5685；无冲突吸收#930四文件，未手改源码。后续文档HEAD另计。
 
 ## 已验证
-固定Python=`/Users/a77/fwp-wt-pi-research/.venv-workbench/bin/python`，依赖66726d345bf37ce5；干净8dec上doctor/Ruff/diff/registry四项/crosswalk均过，地图已刷新。
-归档`docs/verification/2026-09-25-pr911-main9d5-gates/`；原根`~/.finance-runtime/reviews/pr910-911-main9d5-20260925/`。
+新候选doctor/Ruff/registry四项/crosswalk/PR diff-check过，地图已刷新。原件`docs/verification/2026-09-25-pr911-main643-static/`。
+历史a52a3a975（main648）也只跑静态，没有pytest；原件`2026-09-25-pr911-main648-engineering/`，0767f60a8的28文件Git哈希核验通过。共有审计的#910全仓16232P不属本PR；旧56P不移签。
 
 ## 未验证 / 已知边界
-8dec没有新pytest读数/收据。串行计划在#910前置被外部pytest阻挡；十分钟21次采样拒绝，attempt02未创建，监督进程已退出。旧86da两文件56P不移签，共有归档的7P是#910合并前诊断而非本PR证据。全仓/前端/E2E与独审均缺。
+eb59无定向/全仓Python/前端/E2E收据。10:07:40 UTC准入被外部pytest4484/18495拒绝，动态未启动。旧批自有监督已退出，无后台等待。付费授权/请求0，独审未做，未合main/L6/8792部署。
 
 ## 下一步
-资源允许另根重跑两文件和四叶；main漂移先重评。工程齐后明确申请独审额度。当前付费授权/请求0，旧撤销批不能恢复，不自动合main/解除WIP/部署。
+资源允许后另根冻结当时干净HEAD，先复核main漂移；跑`intelligence/tests/conformance/test_research_chain.py`与`intelligence/tests/test_workbench_research_chain.py`，再完整Python、前端/浏览器。固定`/Users/a77/fwp-wt-pi-research/.venv-workbench/bin/python`，依赖66726d345bf37ce5。工程齐后明确申请独审额度，不恢复旧撤销批。
 
 ## 踩过的坑
-模型/数据/判官脚本化，TestClient不证TCP/浏览器/8792或自然金融质量。L6/真实来源、自主子研究、反证修订未验。资源拒绝不等于产品红，也不等于PASS。
+模型/数据/判官脚本化，TestClient不证TCP/浏览器/8792或自然金融质量。真实来源、自主子研究、反证修订未验。WIP可能使mergeable=false，不能声称代码冲突；文档HEAD也不自动继承测试收据。
