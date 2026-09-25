@@ -1,0 +1,14 @@
+PASS C4_shared_deadline_wins :: exc=LLMDeadlineExceeded dt=0.52
+PASS C2_synthesis_forwards :: {'timeout': 10.0, 'expires': 1346612.185884083, 'cancelled': None, 'now': 1346611.687295166}
+PASS C2_stream_forwards :: {'timeout': 10.0, 'expires': 1346612.185884083, 'cancelled': <function main.<locals>.<lambda> at 0x107bd20c0>, 'now': 1346611.688638958}
+PASS C2_message_forwards :: {'timeout': 10.0, 'expires': 1346612.185884083, 'cancelled': None, 'now': 1346611.688912666}
+PASS C2_synthesis_stream_forwards :: {'timeout': 10, 'expires': 1346612.185884083, 'cancelled': <function main.<locals>.<lambda> at 0x107bd20c0>, 'now': 1346611.688981875}
+PASS call_timeout_slice :: v=0.500
+PASS call_timeout_slice2 :: v=10.000
+Traceback (most recent call last):
+  File "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/probes/probe_deadline_forward_v2.py", line 100, in <module>
+    main()
+  File "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/probes/probe_deadline_forward_v2.py", line 86, in main
+    ledger = R.LLMCallLedger(max_calls=0, max_seconds=None)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: LLMCallLedger.__init__() got an unexpected keyword argument 'max_seconds'

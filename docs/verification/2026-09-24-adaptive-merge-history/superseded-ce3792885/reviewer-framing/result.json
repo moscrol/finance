@@ -1,0 +1,25 @@
+{
+  "scope": "host fixture diagnosis, NOT independent QC; old CHANGES_REQUIRED retained",
+  "reviewer_source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260924-0024/quality/work/probes/probe_c1_transport_v2.py",
+  "original_sha256": "3cce5e4038adb6055225b98466a278a4fd94705e57b36d41e8570496cafb8f48",
+  "results": [
+    {
+      "case": "original",
+      "exit_code": 1,
+      "source_sha256": "3cce5e4038adb6055225b98466a278a4fd94705e57b36d41e8570496cafb8f48"
+    },
+    {
+      "case": "length_only",
+      "exit_code": 1,
+      "source_sha256": "7d6607603ce75cf66ca0dac8e288ed194c2d04856e13f630efe7e90d4f82bc1d"
+    },
+    {
+      "case": "length_and_lines",
+      "exit_code": 0,
+      "source_sha256": "a15f6d905c815b30aa2bfd5a919aa99c59e45d7caf485add6c2beb00c4183095"
+    }
+  ],
+  "old_source_unchanged": true,
+  "model_requests": 0,
+  "runtime_edited": false
+}

@@ -1,0 +1,29 @@
+```json
+{
+  "complete": true,
+  "claims_examined": [
+    "C1",
+    "C2",
+    "C3",
+    "C4",
+    "C5",
+    "C6"
+  ],
+  "probe_files": [
+    "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/work/probes/probe_transport_v2.py",
+    "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/work/probes/probe_refine_deadline.py",
+    "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/work/probes/probe_judge_window.py"
+  ],
+  "limits": "探针为评审独立编写（非作者测试、非历史回执、非模型请求）；本阶段仅读源码+写探针，未执行任何代码。本地fake HTTP仅用TCP 26001-26003。模型请求计数：本阶段0次模型调用以外的测试。",
+  "notes": "源码覆盖：llm_http_transport.py全文（urlopen/HTTPResponse/_worker，Timer->os._exit(124)、monotonic绝对deadline、select轮询0.05s、父侧_check）；llm_refine.py 184-229（Deadline.call_timeout=min(slice,remaining)与_open_deadline_http_response）、1139-1309（_post_chat/_post_chat_synthesis/complete）、1366-1569（流式与非流式消息路径）、2236-2350（_post_chat_stream(_raw)）。五个调用点均经_open_deadline_http_response传递deadline（流式另传is_cancelled），与C2一致，行为验证交给探针F3矩阵。探针边界映射：C1->P1/P2/P3/P6（含trickle流、父停读、取消）；C2/C4->F1/F3（10s片vs0.5s共享deadline、五个调用点转发矩阵、切片与deadline取值不同以可检测缺失转发）；C3->J1/J2（0.8s判官窗口vs~2.9s迟到payload，payload不被接受，root剩余按墙钟）；C5->P4/F4/J3（零预算无请求、过期root优先于新鲜切片、root耗尽vs子窗口耗尽区分）；C6->P5（子进程启动计入预算，2.0s响应头在1.0s deadline内被截断）。正例控制：P1/F2。verifier层unavailable/report_received记账未直接探（属执行阶段可补），本阶段以transport/wrapper行为覆盖C3核心。注意probe_transport.py（v1）的P4有缺陷，请执行v2。",
+  "next_stage_commands": [
+    "cd /Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/work/probes && /Users/a77/finance-workspace-private/.venv-workbench/bin/python probe_transport_v2.py",
+    "cd /Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/work/probes && /Users/a77/finance-workspace-private/.venv-workbench/bin/python probe_refine_deadline.py",
+    "cd /Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/quality/work/probes && /Users/a77/finance-workspace-private/.venv-workbench/bin/python probe_judge_window.py"
+  ],
+  "stage": "explore",
+  "axis": "quality",
+  "revision": "ac11027fa75ee6a988ab90ab81e0329159964643",
+  "baseline": "626d8a508c1c988ff094110b371987e6afdcdd15"
+}
+```

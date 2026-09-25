@@ -1,0 +1,15 @@
+{
+  "status": "BLOCKED_NO_RETRY",
+  "do_not_resume": true,
+  "revision": "e7a6cb412865fdd189cf51a17f93622fa3d4fe55",
+  "stages": [],
+  "new_model_requests": 0,
+  "prior_batches_requests": 74,
+  "cumulative_request_cap": 152,
+  "reason": "Host original-path admission found 10 passed / 6 fixture setup errors per axis: git init cannot stat batch-root metadata. No paid stage started.",
+  "first_host_probe": "exit 120 with empty output; not counted as executed test failures; preserved",
+  "second_host_probe": "pipe output exposes 6 git-init setup errors; simple file/pipe controls both exit 0, so broad file-write explanation is not established",
+  "evidence_root": "/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0326",
+  "closed_at": "2026-09-23T20:09:23.941030+00:00",
+  "production_identity_compared": false
+}

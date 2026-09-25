@@ -1,0 +1,20 @@
+57:MIN_VIABLE_LLM_SECONDS = float(os.environ.get("LLM_MIN_VIABLE_SECONDS", "15"))
+194:    def require_remaining(self, minimum: float = 0.0) -> float:
+213:        remaining = self.require_remaining(minimum)
+400:    ``synthesize_messages()`` 用的是「LLM 合成超过共享截止时间」，改产出串的人
+792:    min_viable_seconds: float | None,
+799:    ``min_viable_seconds`` 为 None 时不设闸门——这是默认值，因为 ``timeout``
+802:    调用方才该显式传入（见 MIN_VIABLE_LLM_SECONDS 的实测依据）。
+804:    if min_viable_seconds is None or timeout >= min_viable_seconds:
+808:        f"{min_viable_seconds:.0f}s），已跳过调用以保留合成预算"
+1169:            call_deadline.require_remaining(0.001)
+1221:            call_deadline.require_remaining(0.001)
+1243:    min_viable_seconds: float | None = None,
+1266:    insufficient = _insufficient_budget_reason(timeout, min_viable_seconds)
+1275:            remaining = deadline.require_remaining(0.001)
+1548:            call_deadline.require_remaining(0.001)
+1594:    min_viable_seconds: float | None = None,
+1628:    insufficient = _insufficient_budget_reason(timeout, min_viable_seconds)
+1636:            remaining = deadline.require_remaining(0.001)
+2173:            remaining = phase_deadline.require_remaining(1)
+2197:            return None, "LLM 合成超过共享截止时间，已降级为模板"

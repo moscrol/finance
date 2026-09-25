@@ -1,0 +1,82 @@
+{
+  "complete": true,
+  "verdict": "BLOCKED_INCOMPLETE_EVIDENCE",
+  "claims": [
+    {
+      "id": "C1",
+      "status": "not_verified",
+      "evidence": "静态：explore全读llm_http_transport.py（monotonic绝对deadline、select轮询0.05s、Timer->os._exit(124)、父侧_check）。行为：probe_transport_v2.py运行exit0，P1/P2/P4/P5/P6 PASS（trickle dt=1.52、delta=0、startup dt=1.01、stalled parent dt=1.97）。但P3取消路径FAIL：抛HTTPDeadlineExceeded而非T.HTTPStreamCancelled；shell无法定位源文件（No such file/Operation not permitted）且inspect导入失败，未能确认HTTPStreamCancelled是否存在，取消语义未验证。核心截止/停读已证，取消未证，整claim记not_verified"
+    },
+    {
+      "id": "C2",
+      "status": "not_verified",
+      "evidence": "静态：llm_refine.py行184-229/1139-1309/1366-1569/2236-2350五调用点均经_open_deadline_http_response传deadline（流式另传is_cancelled）。行为：probe_refine_deadline.py F3转发矩阵未运行，无行为证据"
+    },
+    {
+      "id": "C3",
+      "status": "not_verified",
+      "evidence": "静态：Deadline.call_timeout=min(slice,remaining)支持判官窗口截断。行为：probe_judge_window.py未运行；report_received=False/unavailable=True记账、迟到payload拒绝、root剩余按墙钟均无行为证据"
+    },
+    {
+      "id": "C4",
+      "status": "not_verified",
+      "evidence": "静态可见wrapper转发共享deadline，但probe_refine_deadline.py F1（10s slice vs 0.5s shared vs 2.9s fixture）未运行，缺失转发不可检测，无行为证据"
+    },
+    {
+      "id": "C5",
+      "status": "not_verified",
+      "evidence": "部分行为已证：P4 expired deadline零请求delta=0（transport层）。root耗尽vs判官子窗口耗尽区分（J3）及refine层F4未运行，claim部分未证，记not_verified"
+    },
+    {
+      "id": "C6",
+      "status": "verified",
+      "evidence": "P5行为PASS：2.0s延迟响应头在1.0s deadline内被截断dt=1.01，子进程启动计入授予预算；探针用独立子进程HTTP调用，与claim语义一致"
+    },
+    {
+      "id": "C7",
+      "status": "verified",
+      "evidence": "claims.md确认历史回执仅属7ad61a0d；本候选ac11027含main合并与产品修复，本评审未将历史回执用作当期证据，author_tests当期计数为0"
+    }
+  ],
+  "findings": [],
+  "author_tests": {
+    "passed": 0,
+    "failed": 0,
+    "skipped": 0,
+    "note": "作者pytest当期未运行（closeout强制提前、时间预算挤占）；历史回执不计入"
+  },
+  "reviewer_probes": {
+    "passed": 5,
+    "failed": 1,
+    "not_run": 2,
+    "detail": "probe_transport_v2.py运行1次：P1/P2/P4/P5/P6 PASS，P3 FAIL（抛HTTPDeadlineExceeded而非T.HTTPStreamCancelled，属探针期望错误或产品无该类型，未及修正）。probe_refine_deadline.py、probe_judge_window.py未运行"
+  },
+  "intentional_control": {
+    "run": false,
+    "classification": "not_run",
+    "note": "positive_control.py未在closeout前执行，无有意失败控制观测"
+  },
+  "failures": [
+    {
+      "command": "probe_transport_v2.py P3",
+      "classification": "probe_implementation_error_candidate",
+      "reason": "取消路径抛HTTPDeadlineExceeded而非HTTPStreamCancelled；grep/find因沙箱拒绝读candidate目录，inspect导入路径intelligence.llm_http_transport失败，未能判定是探针类型面错误还是产品缺陷"
+    },
+    {
+      "command": "probe_refine_deadline.py / probe_judge_window.py / author pytest / positive_control.py",
+      "classification": "not_run",
+      "reason": "closeout强制提前，C2/C3/C4行为验证与作者测试、有意失败控制全部缺失"
+    }
+  ],
+  "limits": [
+    "shell沙箱拒绝直接读取candidate目录（Operation not permitted），源码核查依赖explore阶段记录，P3异常类型无法当期确认",
+    "C2/C3/C4关键行为探针与作者测试、有意失败控制均未运行，非通过性缺失",
+    "C3 verifier层unavailable/report_received记账未直接探测",
+    "P3失败分类存疑（探针期望vs产品缺陷），未构成对产品的finding",
+    "自然L6保持NOT_PASSED；latest-head/main门与本评审无关"
+  ],
+  "stage": "report",
+  "axis": "quality",
+  "revision": "ac11027fa75ee6a988ab90ab81e0329159964643",
+  "baseline": "626d8a508c1c988ff094110b371987e6afdcdd15"
+}

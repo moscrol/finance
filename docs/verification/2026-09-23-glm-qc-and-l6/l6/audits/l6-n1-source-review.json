@@ -1,0 +1,31 @@
+{
+  "episode_sha256": "397ef6f396a29a538e339974d2ced10d8d633e4a798252023e43e3fb965b4b41",
+  "reviewer": "Host source-level acceptance audit, not an independent financial analyst verdict",
+  "all_numeric_conditions_reviewed": false,
+  "claims": [
+    {
+      "sentence": "- **证伪条件**（任一触发即判事件驱动逻辑失效）：① 量价背离——成交额萎缩至9月22日112.27亿元（E9）的三分之一以下，且收盘跌回9月21日246.45元（E10）下方；",
+      "evidence_hash": "a7b922b48803c994",
+      "source_excerpt": "交易日=2026-09-22；股票代码=688041.SH；收盘价=256；成交额元=11226516458.33；成交量股=42733900",
+      "additional_source": {
+        "evidence_hash": "45b6f7fd016e5981",
+        "source_excerpt": "交易日=2026-09-21；股票代码=688041.SH；收盘价=246.45；成交额元=5741931539.99；成交量股=23511274"
+      },
+      "entity_matches": true,
+      "date_matches": true,
+      "window_matches": true,
+      "unit_matches": true,
+      "numeric_supported": true,
+      "condition_retained_in_public": false,
+      "basis": "E9 is 688041.SH on 2026-09-22. 11226516458.33 yuan / 100000000 = 112.2651645833 yi yuan, rounded to 112.27. E10 independently supplies 2026-09-21 close 246.45 yuan. Both anchors and their dates match the sentence. The one-third threshold is explicitly labeled by the preceding draft as an analyst-selected method parameter, not a reported market fact. This review verifies factual anchors and faithful conditional delivery, not the predictive value of that strategy. The full condition is present in the sequence-60 repair draft and outcome.draft; semantic_verifier.sentence_verdicts deletes it at preflight with novel_numeric_condition. The public answer retains the standalone historical numbers but not this if-condition, so the loss is real."
+    }
+  ],
+  "late_reports": [],
+  "expected_verdict": "NOT_PASSED",
+  "separate_transport_state": "judge_status=unavailable; four flash requests cancelled near 75 seconds, not a returned late report",
+  "additional_observations": [
+    "The deleted sentence contained the falsification heading. Remaining falsification branches are renumbered 4 and 5 under the preceding fulfillment section, so the opposing conditions lose their semantic grouping.",
+    "A separate next-watch sentence was deleted for novel_numeric_condition and the final answer appends a missing track_next_watch warning. That sentence is not counted as a source-supported numerical counterexample here.",
+    "One proven loss is sufficient to reject L6; this is not a claim that every numerical statement or every deletion has been reviewed."
+  ]
+}

@@ -1,0 +1,77 @@
+"""Read-only regression of the sealed L6 source, never a natural re-submission."""
+import argparse
+from dataclasses import fields, replace
+import hashlib
+import json
+from pathlib import Path
+import socket
+import subprocess
+import sys
+from types import SimpleNamespace
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--repo', type=Path, required=True)
+parser.add_argument('--output', type=Path, required=True)
+args = parser.parse_args()
+sys.path.insert(0, str(args.repo))
+attempts = []
+def deny(*args, **kwargs):
+    attempts.append('network')
+    raise AssertionError('offline source regression only')
+socket.socket.connect = socket.socket.connect_ex = socket.create_connection = deny
+from intelligence.services import episode_semantic_verifier as semantic
+from intelligence.services.agent_research import AgentEvidence, StructuredObservation
+from intelligence.services.agent_runtime import OutputEvidenceBinding
+from intelligence.services.research_contract import ResearchTaskContract
+
+root = Path('/Users/a77/.finance-runtime/reviews/pr868-l6-glm-20260923-1945')
+path = root / 'live/L6-N1/raw-run/continuous-episode.json'
+raw = path.read_bytes()
+sha = hashlib.sha256(raw).hexdigest()
+assert sha == '397ef6f396a29a538e339974d2ced10d8d633e4a798252023e43e3fb965b4b41'
+episode = json.loads(raw)
+claim = json.loads((root / 'audits/l6-n1-source-review.json').read_text())['claims'][0]
+allowed = {field.name for field in fields(AgentEvidence)}
+evidence = []
+for row in episode['outcome']['evidence']:
+    data = {k: v for k, v in row.items() if k in allowed}
+    data['observations'] = tuple(StructuredObservation(**v) for v in row.get('observations', ()))
+    for name in ('supports', 'contradicts', 'derived_from'):
+        data[name] = tuple(data.get(name, ()))
+    evidence.append(AgentEvidence(**data))
+outcome = SimpleNamespace(evidence=tuple(evidence), draft=episode['outcome']['draft'],
+                          bindings=tuple(OutputEvidenceBinding(**v) for v in episode['outcome']['bindings']))
+view = SimpleNamespace(outcome=outcome, contract=ResearchTaskContract.from_dict(episode['contract']))
+sentences = semantic._numbered_sentences(outcome.draft)
+index = next(r['index'] for r in sentences if r['text'] == claim['sentence'])
+original = semantic._novel_numeric_condition_indexes(sentences, view)
+assert index not in original, original
+source_quantities = semantic._bound_evidence_quantities(outcome)
+checks = {}
+for quantity, expected in [('112.27亿元', True), ('112.26亿元', False), ('112.28亿元', False),
+                           ('112.27万元', False), ('112.27万亿元', False), ('112.27%', False), ('246.45', True)]:
+    actual = semantic._quantity_supported_by_evidence(quantity, source_quantities, sentence=claim['sentence'])
+    checks[quantity] = {'expected': expected, 'actual': actual}
+    assert actual is expected, (quantity, actual)
+for item in evidence:
+    if item.content_hash == claim['evidence_hash']:
+        assert '成交额元=11226516458.33' in item.detail
+mutated = tuple(replace(item, detail=item.detail.replace('成交额元=11226516458.33', '成交量股=11226516458.33'))
+                if item.content_hash == claim['evidence_hash'] else item for item in evidence)
+wrong_view = SimpleNamespace(contract=view.contract, outcome=SimpleNamespace(
+    evidence=mutated, draft=outcome.draft, bindings=outcome.bindings))
+wrong = semantic._novel_numeric_condition_indexes(sentences, wrong_view)
+assert index in wrong, wrong
+restored = semantic._novel_numeric_condition_indexes(sentences, view)
+assert restored == original
+assert path.read_bytes() == raw and not attempts
+revision = subprocess.check_output(['git', '-C', str(args.repo), 'rev-parse', 'HEAD'], text=True).strip()
+report = {'status': 'PASS', 'candidate': revision, 'episode_sha256': sha,
+          'scope': 'mechanical read-only regression, not independent QC or natural acceptance',
+          'sentence_index': index, 'original_rejections': original, 'wrong_unit_control_rejections': wrong,
+          'restored_rejections': restored, 'quantity_checks': checks, 'source_unchanged': True,
+          'network_attempts': 0, 'real_model_requests': 0,
+          'semantic_source_sha256': hashlib.sha256(Path(semantic.__file__).read_bytes()).hexdigest()}
+with args.output.open('x') as stream:
+    json.dump(report, stream, ensure_ascii=False, indent=2)
+print(json.dumps(report, ensure_ascii=False))

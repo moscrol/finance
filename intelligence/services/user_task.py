@@ -490,6 +490,12 @@ _B_PREVIOUS_EVIDENCE_ONLY_RE = re.compile("^" + _B_PREVIOUS_EVIDENCE_ONLY_HEAD)
 _B_LOCAL_ONLY_PHRASES: tuple[str, ...] = (
     "不要联网", "不联网", "别查实时", "不读外部",
 )
+# Require a source noun: "本地化语言" and "本地企业" are not read restrictions.
+_B_LOCAL_SOURCE_PATTERN = (
+    r"(?:只|仅)(?:使用|用|读取|查阅|查|限于?)\s*本地"
+    r"\s*(?:(?:已有|现有|存量)\s*)?的?\s*(?:资料|数据|知识库|材料|档案)"
+)
+_B_LOCAL_SOURCE_RE = re.compile(_B_LOCAL_SOURCE_PATTERN)
 _B_RELAX_PHRASES: tuple[str, ...] = ("可以查真实数据", "结合最新行情", "结合当前行情")
 # ② 基底继承（续轮声明）：
 _CONTINUATION_HEAD_PHRASES: tuple[str, ...] = ("继续", "接着", "同上", "沿用上一轮", "沿用上轮")
@@ -515,6 +521,7 @@ _SENT_SPLIT_RE = re.compile(
         *_B_MATERIAL_ONLY_PHRASES, *_B_LOCAL_ONLY_PHRASES, *_B_RELAX_PHRASES,
         *_CONTINUATION_HEAD_PHRASES, "其余条件不变", "假设", "如果",
     ))
+    + "|" + _B_LOCAL_SOURCE_PATTERN
     + "|" + _B_PREVIOUS_EVIDENCE_ONLY_HEAD + r"))"
 )
 # 虚构前提声明：「以下是完全虚构的研究案例」「均为虚构」「纯属虚构」等（句中即算，
@@ -571,6 +578,10 @@ def _state_head(text: str) -> str:
     return _STATE_PREFIX_RE.sub("", text.strip())
 
 
+def _is_local_only_head(head: str) -> bool:
+    return head.startswith(_B_LOCAL_ONLY_PHRASES) or bool(_B_LOCAL_SOURCE_RE.match(head))
+
+
 def _sentences(text: str) -> list[str]:
     return [s.strip() for s in _SENT_SPLIT_RE.split(text) if s.strip()]
 
@@ -604,8 +615,11 @@ def _state_op_in_sentence(sent: str) -> str | None:
     if not s:
         return None
     head = _state_head(s)
+    # ``_is_local_only_head`` 覆盖 ``_B_LOCAL_ONLY_PHRASES`` 与「只用本地已有资料」
+    # 这类带来源名词的句式；放宽词表单列，避免把它塞进本地词表改变语义。
     if (is_material_only_instruction(head)
-            or head.startswith(_B_LOCAL_ONLY_PHRASES + _B_RELAX_PHRASES)):
+            or _is_local_only_head(head)
+            or head.startswith(_B_RELAX_PHRASES)):
         return "constraint_b"
     if (head.startswith(_CONTINUATION_HEAD_PHRASES) or "其余条件不变" in s
             or _PREVIOUS_ANSWER_REVIEW_RE.match(head) or _SCOPE_CONTINUATION_RE.search(s)):
@@ -1065,12 +1079,12 @@ def classify_top_level_regions(text: str) -> TopLevelRegions:
     for span in instructions:
         if span.kind != "constraint_b":
             continue
-        head = _state_head(span.text)
+        head = _state_head(span.visible_text)
         if head.startswith(_B_MATERIAL_ONLY_PHRASES):
             message_scope = "material_only"
         elif head.startswith(_B_RELAX_PHRASES):
             message_scope = "full"
-        elif head.startswith(_B_LOCAL_ONLY_PHRASES) and message_scope == "full":
+        elif _is_local_only_head(head) and message_scope == "full":
             message_scope = "local_only"
     if message_scope != "material_only" and any(s.kind == "constraint_b" for s in q_spans):
         uncertain.append("question_scoped_data_scope")

@@ -1,0 +1,97 @@
+"""Independent probe: late judge payload + root vs subwindow remaining (C3/C4/C5).
+
+Fake SSE judge fixture on port 26003 with ~2.9s total stream. Boundaries:
+- J1 late judge: judge-style call with 0.8s budget (deadline) against the 2.9s
+  fixture must fail LLMDeadlineExceeded BEFORE the payload arrives; the
+  transport never returns the late body (payload not accepted). Assert elapsed
+  wall clock ~0.8s and no content leaked.
+- J2 root remaining reflects wall clock: construct root Deadline(1.2s), spend
+  ~0.8s on the failed judge call, then root.remaining() must be ~0.4s
+  (expired root vs judge subwindow distinction: subwindow 0.8 < root 1.2).
+- J3 expired root vs fresh subwindow: root already expired (remaining 0) with a
+  nominally fresh 5s slice -> Deadline.require_remaining / call_timeout must
+  refuse (root exhaustion wins over slice).
+- J4 streaming cancel at refine layer: _post_chat_message_stream with
+  is_cancelled flipping after connect raises LLMStreamCancelled (or
+  LLMStreamAlreadyEmitted carrying it) quickly, before fixture completion.
+Run: python probe_judge_window.py
+"""
+import http.server, json, sys, threading, time, socketserver
+sys.path.insert(0, "/Users/a77/.finance-runtime/reviews/pr868-repaired-20260923-2111/candidate")
+from intelligence.services import llm_refine as R
+import urllib.request
+
+PORT = 26003
+DELAY = 2.9
+
+class H(http.server.BaseHTTPRequestHandler):
+    protocol_version = "HTTP/1.1"
+    def log_message(self, *a): pass
+    def do_POST(self):
+        self.rfile.read(int(self.headers.get("Content-Length") or 0))
+        self.send_response(200); self.send_header("Content-Type", "text/event-stream"); self.end_headers()
+        time.sleep(DELAY)  # late payload: whole verdict arrives only at ~2.9s
+        verdict = {"choices": [{"delta": {"content": "PASS"}, "finish_reason": "stop"}], "usage": {}}
+        for line in (f"data: {json.dumps(verdict)}\n\n", "data: [DONE]\n\n"):
+            self.wfile.write(line.encode()); self.wfile.flush()
+
+class S(socketserver.ThreadingTCPServer):
+    allow_reuse_address = True
+    daemon_threads = True
+
+srv = S(("127.0.0.1", PORT), H)
+threading.Thread(target=srv.serve_forever, daemon=True).start()
+time.sleep(0.3)
+base = f"http://127.0.0.1:{PORT}"
+results = []
+def check(name, cond, extra=""):
+    results.append((name, bool(cond), extra)); print(("PASS" if cond else "FAIL"), name, extra)
+
+prov = R.LLMProvider(name="fake", api_key="k", base_url=base, model="m")
+msgs = [{"role": "user", "content": "judge"}]
+
+# J1+J2 late judge within an unexpired root
+root = R.Deadline.from_timeout(1.2)
+judge_subwindow = R.Deadline.from_timeout(0.8)
+t0 = time.monotonic()
+accepted = {"content": None}
+try:
+    out = R._post_chat(prov, msgs, timeout=10.0, deadline=judge_subwindow)
+    accepted["content"] = out
+    check("J1 late judge rejected", False, f"payload accepted: {out!r}")
+except R.LLMDeadlineExceeded:
+    dt = time.monotonic() - t0
+    check("J1 late judge rejected", accepted["content"] is None and 0.6 < dt < 2.4, f"dt={dt:.2f}")
+except Exception as e:
+    check("J1 late judge rejected", False, f"wrong exc {type(e).__name__}")
+rem = root.remaining()
+check("J2 root remaining wall clock", 0.15 < rem < 0.6, f"remaining={rem:.2f} (root 1.2s minus ~0.8s)")
+
+# J3 expired root wins over fresh slice
+expired_root = R.Deadline.from_timeout(0.0)
+try:
+    expired_root.call_timeout(5.0, minimum=0.001)
+    check("J3 expired root refused", False, "slice granted on expired root")
+except R.LLMDeadlineExceeded:
+    check("J3 expired root refused", True)
+ct = root.call_timeout(10.0, minimum=0.001)
+check("J3 fresh subwindow slices", ct <= root.remaining() + 1e-6, f"call_timeout={ct:.2f} <= remaining")
+
+# J4 cancel at refine streaming layer
+state = {"c": False}
+t0 = time.monotonic()
+try:
+    R._post_chat_message_stream(
+        prov, msgs, timeout=10.0, temperature=0.1, tools=None, tool_choice=None,
+        disable_thinking=None, on_content_delta=lambda s: state.__setitem__("c", True),
+        is_cancelled=lambda: state["c"], deadline=R.Deadline.from_timeout(8.0),
+    )
+    check("J4 stream cancel", False, "no exception")
+except (R.LLMStreamCancelled, R.LLMStreamAlreadyEmitted) as e:
+    dt = time.monotonic() - t0
+    check("J4 stream cancel", dt < 2.5, f"{type(e).__name__} dt={dt:.2f}")
+except Exception as e:
+    check("J4 stream cancel", False, f"wrong exc {type(e).__name__}: {e}")
+
+srv.shutdown()
+print("SUMMARY", sum(1 for _, ok, _ in results if ok), "/", len(results))

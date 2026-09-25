@@ -1,0 +1,14 @@
+import json
+from pathlib import Path
+from datetime import datetime, timezone
+
+ROOT=Path('/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260924-0400')
+for axis in ('spec','quality'):
+ for stage in ('gateway','explore','execute','report'):
+  assert not (ROOT/axis/stage).exists()
+  assert not (ROOT/axis/(stage+'.controller.json')).exists()
+  assert not (ROOT/axis/(stage+'-shim')).exists()
+record={'status':'BLOCKED_NO_RETRY','do_not_resume':True,'revision':'e7a6cb412865fdd189cf51a17f93622fa3d4fe55','stages':[],'new_model_requests':0,'prior_batches_requests':74,'cumulative_request_cap':152,'reason':'Host original-path admission found 10 passed / 6 fixture setup errors per axis: git init cannot stat batch-root metadata. No paid stage started.','first_host_probe':'exit 120 with empty output; not counted as executed test failures; preserved','second_host_probe':'pipe output exposes 6 git-init setup errors; simple file/pipe controls both exit 0, so broad file-write explanation is not established','evidence_root':str(Path(__file__).resolve().parent),'closed_at':datetime.now(timezone.utc).isoformat(),'production_identity_compared':False}
+for name in ('batch.json','closure-unadmitted.json'):
+ with (ROOT/name).open('x') as out: json.dump(record,out,indent=2)
+print(json.dumps(record))

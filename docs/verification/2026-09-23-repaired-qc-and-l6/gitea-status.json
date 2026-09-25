@@ -1,0 +1,31 @@
+{
+  "comments": [
+    {
+      "issue": 868,
+      "comment_id": 6498,
+      "body_sha256": "b62f289aa72fa823ecaf3c313a18949d443b538bdcfd37478c4b32806bf5602b",
+      "original_exact_body_readback_before_title_timeout": true,
+      "marker_readback_verified": true,
+      "url": "http://127.0.0.1:3300/a77/finance-workspace-private/pulls/868#issuecomment-6498"
+    },
+    {
+      "issue": 852,
+      "comment_id": 6500,
+      "body_sha256": "a6f79e5d6c6c3a54f0a7cf54cdea2ed8b7f1dd4505c18f3e2569b7136e1ea99d",
+      "original_exact_body_readback_before_title_timeout": true,
+      "marker_readback_verified": true,
+      "url": "http://127.0.0.1:3300/a77/finance-workspace-private/issues/852#issuecomment-6500"
+    }
+  ],
+  "title": "WIP: fix(llm): 传输层绝对截止（#72，独审覆盖及L6预检阻塞）",
+  "title_write_response": "TIMED_OUT",
+  "title_readback_matches": true,
+  "wip": true,
+  "merged": false,
+  "pushed": false,
+  "deployed": false,
+  "local_candidate": "ac11027fa75ee6a988ab90ab81e0329159964643",
+  "remote_head_last_observed_before_sync": "4f39716d8998",
+  "remote_head_recheck": "NOT_VERIFIED: pull detail and ls-remote read timeouts; no code write requested",
+  "comments_resent": false
+}

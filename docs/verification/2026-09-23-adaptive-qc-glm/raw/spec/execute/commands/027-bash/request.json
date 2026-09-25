@@ -1,0 +1,1 @@
+{"toolCallId":"call_3f6d0ba64f064102978e5349","params":{"command":"cd /Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260923-1707/spec/work/probes && /Users/a77/finance-workspace-private/.venv-workbench/bin/python probe_c4_wrapper_deadline_v2.py; echo \"EXIT=$?\"","timeout":60}}

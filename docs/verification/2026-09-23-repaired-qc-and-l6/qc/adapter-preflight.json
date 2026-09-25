@@ -1,0 +1,11 @@
+{
+  "status": "PASS",
+  "model_requests": 0,
+  "fake_requests": 1,
+  "checks": [
+    "GLM-only model admission",
+    "official host/port/path",
+    "payload and temperature preserved",
+    "durable accounting and shutdown"
+  ]
+}

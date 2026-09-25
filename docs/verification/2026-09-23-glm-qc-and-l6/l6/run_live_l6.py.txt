@@ -1,0 +1,531 @@
+"""Run the authorized three-question L6 acceptance in one isolated sidecar."""
+from __future__ import annotations
+
+import argparse
+from datetime import datetime, timezone
+import hashlib
+import json
+import os
+from pathlib import Path
+import select
+import shlex
+import signal
+import subprocess
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
+
+CANDIDATE = "31f1b40dd788d36c71da249d59fb769c50d7cd30"
+PYTHON = Path("/Users/a77/finance-workspace-private/.venv-workbench/bin/python")
+LAUNCHER_EXPORTS = Path(__file__).with_name("launcher-exports.sh")
+SHIM = Path(__file__).with_name("glm_l6_shim.py")
+PROTOCOL = json.loads(Path(__file__).with_name("protocol-coherent.json").read_text())
+PRODUCTION_HEALTH = "http://127.0.0.1:8792/api/health"
+WORKBENCH_PORT = 19897
+SHIM_PORT = 19898
+PRODUCTION_LOCK = Path("/tmp/finance-8792-live.lock")
+QUESTIONS = PROTOCOL["questions"]
+
+
+class HTTPStatusError(RuntimeError):
+    def __init__(self, status: int):
+        super().__init__(f"HTTP status {status}")
+        self.status = status
+
+
+def dump(path: Path, value: object) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+def now() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def request(base: str, path: str, payload=None, *, method: str | None = None, timeout: float = 30):
+    data = json.dumps(payload, ensure_ascii=False).encode() if payload is not None else None
+    req = urllib.request.Request(
+        base + path,
+        data=data,
+        headers={"Content-Type": "application/json"},
+        method=method or ("POST" if data is not None else "GET"),
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as response:
+            raw = response.read()
+    except urllib.error.HTTPError as exc:
+        raise HTTPStatusError(exc.code) from None
+    if not raw:
+        return {}
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        return {"raw_response_bytes": len(raw)}
+
+
+def identity(repo: Path) -> dict[str, str]:
+    return {
+        "revision": subprocess.check_output(
+            ["git", "rev-parse", "HEAD"], cwd=repo, text=True
+        ).strip(),
+        "status": subprocess.check_output(
+            ["git", "status", "--porcelain"], cwd=repo, text=True
+        ).strip(),
+    }
+
+
+def production_identity(payload: dict) -> dict:
+    runtime = payload.get("runtime") or {}
+    return {
+        key: runtime.get(key)
+        for key in (
+            "source_revision",
+            "source_dirty",
+            "code_root",
+            "loaded_code_root",
+            "loaded_tree_fingerprint",
+            "repo_tree_fingerprint",
+            "dependency_fingerprint",
+            "python_prefix",
+            "code_matches_repo",
+            "users_dir",
+            "agent_runtime",
+        )
+    }
+
+
+def sidecar_identity(health: dict, repo: Path) -> dict:
+    runtime = health.get("runtime") or {}
+    expected_root = str(repo.resolve())
+    actual = {
+        "source_revision": runtime.get("source_revision"),
+        "source_dirty": runtime.get("source_dirty"),
+        "code_root": runtime.get("code_root"),
+        "loaded_code_root": runtime.get("loaded_code_root"),
+        "loaded_tree_fingerprint": runtime.get("loaded_tree_fingerprint"),
+        "repo_tree_fingerprint": runtime.get("repo_tree_fingerprint"),
+        "dependency_fingerprint": runtime.get("dependency_fingerprint"),
+        "python_prefix": runtime.get("python_prefix"),
+        "python_version": runtime.get("python_version"),
+    }
+    if actual["source_revision"] != CANDIDATE:
+        raise RuntimeError("sidecar revision mismatch")
+    if actual["source_dirty"] is not False:
+        raise RuntimeError("sidecar source tree is dirty")
+    if actual["code_root"] != expected_root or actual["loaded_code_root"] != str(repo / "intelligence"):
+        raise RuntimeError("sidecar loaded the wrong code root")
+    if actual["loaded_tree_fingerprint"] != actual["repo_tree_fingerprint"]:
+        raise RuntimeError("sidecar code fingerprint does not match repository fingerprint")
+    if actual["python_prefix"] != str(PYTHON.parent.parent):
+        raise RuntimeError("sidecar Python prefix mismatch")
+    return actual
+
+
+def sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for block in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def verify_manifest(preparation: Path) -> dict:
+    manifest = json.loads((preparation / "frozen-data-manifest.json").read_text())
+    mismatches = []
+    checked = 0
+    for relative, expected in manifest.items():
+        path = preparation / "data" / relative
+        if not path.is_file():
+            mismatches.append({"path": relative, "reason": "missing"})
+            continue
+        checked += 1
+        actual_bytes = path.stat().st_size
+        actual_sha = sha256(path)
+        if actual_bytes != expected["bytes"] or actual_sha != expected["sha256"]:
+            mismatches.append({
+                "path": relative,
+                "expected_bytes": expected["bytes"],
+                "actual_bytes": actual_bytes,
+                "expected_sha256": expected["sha256"],
+                "actual_sha256": actual_sha,
+            })
+    return {"checked": checked, "manifest_entries": len(manifest), "mismatches": mismatches}
+
+
+def kill_process(process: subprocess.Popen | None) -> None:
+    if process is None or process.poll() is not None:
+        return
+    try:
+        os.killpg(process.pid, signal.SIGTERM)
+        process.wait(timeout=20)
+    except subprocess.TimeoutExpired:
+        os.killpg(process.pid, signal.SIGKILL)
+        process.wait(timeout=10)
+
+
+def wait_for_health(base: str, process: subprocess.Popen, out: Path, repo: Path, user: str) -> dict:
+    deadline = time.monotonic() + 420
+    last_live = {}
+    while time.monotonic() < deadline:
+        if process.poll() is not None:
+            raise RuntimeError("sidecar exited during startup")
+        try:
+            last_live = request(base, "/api/health", timeout=10)
+            sidecar_identity(last_live, repo)
+            try:
+                ready = request(base, f"/api/health/ready?user={urllib.parse.quote(user)}", timeout=30)
+            except HTTPStatusError as exc:
+                if exc.status != 503:
+                    raise
+                time.sleep(2)
+                continue
+            if ready.get("status") == "ready":
+                dump(out / "health.json", last_live)
+                dump(out / "readiness.json", ready)
+                return last_live
+        except (OSError, urllib.error.URLError):
+            pass
+        time.sleep(2)
+    raise RuntimeError("sidecar readiness timed out")
+
+
+def run_question(base: str, out: Path, user: str, question: dict, process: subprocess.Popen) -> dict:
+    question_dir = out / question["id"]
+    question_dir.mkdir()
+    dump(question_dir / "question.json", question)
+    if process.poll() is not None:
+        raise RuntimeError("sidecar exited before submit")
+    conversation = request(
+        base,
+        "/api/conversations",
+        {"user": user, "title": f"L6 natural acceptance {question['id']}"},
+    )
+    dump(question_dir / "conversation.json", conversation)
+    conversation_id = conversation["conversation_id"]
+    submitted_at = now()
+    with (question_dir / "submission-reservation.json").open("x") as stream:
+        json.dump({"reserved": 1, "resubmissions": 0, "followups": 0, "at": submitted_at}, stream)
+    try:
+        submitted = request(
+            base,
+            f"/api/conversations/{conversation_id}/messages",
+            {
+                "user": user,
+                "content": question["text"],
+                "skill_mode": "hybrid",
+                "perspective_mode": "neutral",
+            },
+        )
+    except HTTPStatusError as exc:
+        dump(question_dir / "submission-error.json", {"status": exc.status, "at": submitted_at})
+        raise
+    dump(question_dir / "submission.json", submitted)
+    run_id = submitted["run_id"]
+    message_id = submitted["assistant_message_id"]
+    dump(question_dir / "submission-count.json", {"accepted_submissions": 1, "resubmissions": 0, "followups": 0})
+    started = time.monotonic()
+    deadline = started + 900
+    with (question_dir / "polls.jsonl").open("w", encoding="utf-8") as polls:
+        while time.monotonic() < deadline:
+            state = request(f"http://127.0.0.1:{SHIM_PORT}", "/_status")
+            if state.get("stopped_for"):
+                result = {"id": question["id"], "run_id": run_id, "status": "blocked_provider", "reason": state["stopped_for"]}
+                dump(question_dir / "result.json", result)
+                return result
+            run = request(base, f"/api/runs/{run_id}?user={urllib.parse.quote(user)}")
+            polls.write(json.dumps(run, ensure_ascii=False) + "\n")
+            polls.flush()
+            dump(question_dir / "run.json", run)
+            status = run.get("status")
+            if status in {"failed", "cancelled"}:
+                result = {
+                    "id": question["id"],
+                    "run_id": run_id,
+                    "status": status,
+                    "elapsed_seconds": round(time.monotonic() - started, 2),
+                }
+                dump(question_dir / "result.json", result)
+                return result
+            if status == "completed" and not run.get("delivery_pending"):
+                messages = request(
+                    base,
+                    f"/api/conversations/{conversation_id}/messages?user={urllib.parse.quote(user)}",
+                )
+                dump(question_dir / "messages.json", messages)
+                items = messages.get("messages", []) if isinstance(messages, dict) else messages
+                answer = next((item for item in items if item.get("message_id") == message_id), None)
+                if answer and answer.get("content"):
+                    dump(question_dir / "message.json", answer)
+                    (question_dir / "answer.md").write_text(answer["content"], encoding="utf-8")
+                    source = out / "users" / user / "runs" / run_id
+                    if source.is_dir():
+                        subprocess.run(["cp", "-R", str(source), str(question_dir / "raw-run")], check=True)
+                    result = {
+                        "id": question["id"],
+                        "run_id": run_id,
+                        "status": status,
+                        "elapsed_seconds": round(time.monotonic() - started, 2),
+                    }
+                    dump(question_dir / "result.json", result)
+                    return result
+            time.sleep(2)
+    result = {
+        "id": question["id"],
+        "run_id": run_id,
+        "status": "deadline_exceeded",
+        "elapsed_seconds": round(time.monotonic() - started, 2),
+    }
+    dump(question_dir / "result.json", result)
+    return result
+
+
+def scan_for_secret(root: Path, secret: str) -> list[str]:
+    matches = []
+    needle = secret.encode()
+    for path in root.rglob("*"):
+        if not path.is_file():
+            continue
+        with path.open("rb") as stream:
+            while block := stream.read(1024 * 1024):
+                if needle in block:
+                    matches.append(str(path.relative_to(root)))
+                    break
+    return matches
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--repo", type=Path, required=True)
+    parser.add_argument("--preparation", type=Path, required=True)
+    parser.add_argument("--output", type=Path, required=True)
+    args = parser.parse_args()
+    repo = args.repo.resolve()
+    preparation = args.preparation.resolve()
+    out = args.output.resolve()
+    if out.exists():
+        raise SystemExit(f"refuse to overwrite evidence root: {out}")
+    os.umask(0o077)
+    out.mkdir(parents=True)
+    assert PROTOCOL["authorization"]["approved"] is True
+    assert json.loads((preparation / "audit.json").read_text())["verdict"] == "PREFLIGHT_READY"
+    assert not verify_manifest(preparation)["mismatches"]
+    assert not json.loads(Path(__file__).with_name("strict-deadline.json").read_text())["deadline_violations"]
+    assert json.loads(Path(__file__).with_name("positive-control.json").read_text())["verdict"] == "NOT_PASSED"
+    assert json.loads(Path(__file__).with_name("proxy-offline-check.json").read_text())["status"] == "PASS"
+    before = identity(repo)
+    if before != {"revision": CANDIDATE, "status": ""}:
+        raise SystemExit(f"candidate identity mismatch: {before}")
+    if PRODUCTION_LOCK.exists():
+        raise SystemExit("production live lock exists")
+    for port in (WORKBENCH_PORT, SHIM_PORT):
+        probe = subprocess.run(["/usr/sbin/lsof", "-nP", f"-iTCP:{port}", "-sTCP:LISTEN"], capture_output=True, text=True)
+        if probe.returncode == 0:
+            raise SystemExit(f"reserved L6 port is busy: {port}")
+    production_before = request("http://127.0.0.1:8792", "/api/health")
+    dump(out / "production-before.json", production_before)
+    dump(out / "protocol.json", {
+        "state": "LIVE_STARTED_PENDING_AUDIT",
+        "frozen_protocol_sha256": sha256(Path(__file__).with_name("protocol-coherent.json")),
+        "authorization": PROTOCOL["authorization"],
+        "candidate_revision": CANDIDATE,
+        "questions": QUESTIONS,
+        "initial_submissions_per_question": 1,
+        "resubmissions": 0,
+        "followups": 0,
+        "concurrency": 1,
+        "workbench_port": WORKBENCH_PORT,
+        "shim_port": SHIM_PORT,
+        "writer": "glm-5.3",
+        "judge": "glm-5.3-flash",
+        "semantic_judge": "llm",
+        "evidence_judge": "auto",
+        "data_root": str(preparation / "data"),
+        "kb_inputs_frozen": False,
+        "external_inputs_frozen": False,
+        "started_at": now(),
+    })
+    user = PROTOCOL["entrypoint"]["user"]
+    users = out / "users"
+    episodes = out / "episodes"
+    data = preparation / "data"
+    shim_process = None
+    workbench_process = None
+    key = ""
+    results = []
+    stopped_for = None
+    lock_path = Path(f"/tmp/finance-l6-natural-{WORKBENCH_PORT}.lock")
+    lock_owned = False
+    try:
+        with lock_path.open("x") as stream:
+            json.dump({"pid": os.getpid(), "output": str(out)}, stream)
+        lock_owned = True
+        shim_process = subprocess.Popen(
+            [str(PYTHON), str(SHIM), "--listen", str(SHIM_PORT), "--upstream-port", "443",
+             "--output", str(out / "shim"), "--max-requests", "100", "--request-seconds", "75",
+             "--lifetime-seconds", "3300"],
+            stdout=subprocess.PIPE, stderr=(out / "shim.log").open("w"), text=True,
+            start_new_session=True,
+        )
+        assert select.select([shim_process.stdout], [], [], 5)[0], "shim startup timeout"
+        assert json.loads(shim_process.stdout.readline())["port"] == SHIM_PORT
+        key_result = subprocess.run(
+            ["/usr/bin/security", "find-generic-password", "-a", "a77", "-s", "finance-workbench-glm", "-w"],
+            capture_output=True, text=True, timeout=30,
+        )
+        if key_result.returncode or not key_result.stdout.strip():
+            raise RuntimeError("GLM key unavailable")
+        key = key_result.stdout.strip()
+        gateway_request = urllib.request.Request(
+            f"http://127.0.0.1:{SHIM_PORT}/v1/chat/completions",
+            data=json.dumps({"model": "glm-5.3", "messages": [{"role": "user", "content": "Reply exactly OK."}],
+                             "max_tokens": 256, "reasoning_effort": "low"}).encode(),
+            headers={"Content-Type": "application/json", "Authorization": "Bearer " + key},
+        )
+        with urllib.request.urlopen(gateway_request, timeout=77) as response:
+            payload = json.load(response)
+            assert response.status == 200 and payload.get("choices"), "gateway preflight failed"
+            dump(out / "gateway.json", {"status": "PASS", "requests": 1, "served_model": payload.get("model")})
+        shell = f"""
+set -euo pipefail
+set -a
+. <(grep '^export ' {shlex.quote(str(LAUNCHER_EXPORTS))})
+set +a
+export WORKBENCH_REPO_ROOT={shlex.quote(str(repo))}
+export PYTHONPATH={shlex.quote(str(repo))}
+export FINANCE_WS={shlex.quote(str(data))}
+export MARKET_FEATURE_STORE_DB={shlex.quote(str(data / 'db/market_feature_store.duckdb'))}
+export MARKET_SNAPSHOT_DIR={shlex.quote(str(data / 'market_snapshot'))}
+export FORESIGHT_USERS_DIR={shlex.quote(str(users))}
+export FORESIGHT_EPISODE_STORE={shlex.quote(str(episodes))}
+export FORESIGHT_USER={shlex.quote(user)}
+export WORKBENCH_GROUNDED_PRESENTER=0
+export WORKBENCH_PERSIST_LLM_CONTEXT=1
+export RAG_WORKER_ENABLED=1
+export RAG_BGE_MODEL=/Users/a77/.cache/huggingface/hub/models--BAAI--bge-m3/snapshots/5617a9f61b028005a4858fdac845db406aefb181
+export ASK_SEMANTIC_JUDGE=llm
+export ASK_EVIDENCE_JUDGE=auto
+export WORKBENCH_ADAPTIVE_RESEARCH=off
+export WORKBENCH_CONTINUOUS_TURN_TIMEOUT_SECONDS=900
+export LLM_TIMEOUT=75
+export FORESIGHT_BUILTIN_LLM_BASE_URL=http://127.0.0.1:{SHIM_PORT}/v1
+export LLM_BASE_URL=http://127.0.0.1:{SHIM_PORT}/v1
+export LLM_JUDGE_BASE_URL=http://127.0.0.1:{SHIM_PORT}/v1
+export HF_HUB_OFFLINE=1
+export TRANSFORMERS_OFFLINE=1
+unset WORKBENCH_TOOL_AUTHORIZATION
+mkdir -p {shlex.quote(str(users))} {shlex.quote(str(episodes))}
+cd {shlex.quote(str(repo))}
+exec {shlex.quote(str(PYTHON))} -m uvicorn intelligence.api.app:app --host 127.0.0.1 --port {WORKBENCH_PORT}
+""".strip()
+        workbench_process = subprocess.Popen(
+            ["/bin/zsh", "-c", shell],
+            stdout=(out / "workbench.log").open("w"), stderr=subprocess.STDOUT,
+            env={"HOME": str(Path.home()), "PATH": "/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin", "LANG": "C.UTF-8"},
+            start_new_session=True,
+        )
+        base = f"http://127.0.0.1:{WORKBENCH_PORT}"
+        health = wait_for_health(base, workbench_process, out, repo, user)
+        ready = json.loads((out / "readiness.json").read_text())
+        if not ready.get("checks", {}).get("rag_worker"):
+            raise RuntimeError("RAG worker is not ready")
+        config = request(
+            base,
+            "/api/llm/config",
+            {
+                "user": user,
+                "provider": "openai",
+                "api_key": key,
+                "base_url": f"http://127.0.0.1:{SHIM_PORT}/v1",
+                "model": "glm-5.3",
+                "remember": False,
+            },
+            method="PUT",
+        )
+        dump(out / "writer-config-redacted.json", {
+            "provider": config.get("provider"),
+            "model": config.get("model"),
+            "base_url": config.get("base_url"),
+            "configured": True,
+            "remember": False,
+        })
+        dump(out / "served-models.json", {
+            "writer_requested": "glm-5.3",
+            "writer_gateway": f"http://127.0.0.1:{SHIM_PORT}/v1",
+            "judge_requested": "glm-5.3-flash",
+            "semantic_judge_mode": "llm",
+            "evidence_judge_mode": "auto",
+        })
+        for question in QUESTIONS:
+            try:
+                result = run_question(base, out, user, question, workbench_process)
+            except HTTPStatusError as exc:
+                stopped_for = {"question": question["id"], "status": exc.status, "reason": "gateway_or_api_http_error"}
+                dump(out / "batch-blocker.json", stopped_for)
+                if exc.status in {400, 429}:
+                    break
+                raise
+            results.append(result)
+            if result["status"] != "completed":
+                stopped_for = {"question": question["id"], "reason": f"run_{result['status']}"}
+                dump(out / "batch-blocker.json", stopped_for)
+                break
+        dump(out / "results.json", results)
+        return_code = 0 if len(results) == len(QUESTIONS) and all(r["status"] == "completed" for r in results) else 2
+    finally:
+        try:
+            if workbench_process is not None and workbench_process.poll() is None:
+                try:
+                    request(f"http://127.0.0.1:{WORKBENCH_PORT}", f"/api/llm/config?user={urllib.parse.quote(user)}", method="DELETE", timeout=15)
+                except Exception:
+                    pass
+        finally:
+            kill_process(workbench_process)
+            kill_process(shim_process)
+            if shim_process is not None and shim_process.stdout is not None:
+                shim_process.stdout.close()
+            if lock_owned and lock_path.exists() and json.loads(lock_path.read_text()).get("pid") == os.getpid():
+                lock_path.unlink()
+        try:
+            production_after = request("http://127.0.0.1:8792", "/api/health")
+            dump(out / "production-after.json", production_after)
+        except Exception as exc:
+            dump(out / "production-after-error.json", {"error_type": type(exc).__name__})
+        after = identity(repo)
+        dump(out / "execution.json", {
+            "identity_before": before,
+            "identity_after": after,
+            "production_identity_unchanged": (
+                production_identity(production_before)
+                == production_identity(locals().get("production_after", {}))
+            ),
+            "owned_ports_released": all(subprocess.run(
+                ["/usr/sbin/lsof", "-nP", f"-iTCP:{port}", "-sTCP:LISTEN"],
+                capture_output=True, text=True,
+            ).returncode == 1 for port in (WORKBENCH_PORT, SHIM_PORT)),
+            "production_lock_unchanged": not PRODUCTION_LOCK.exists(),
+            "stopped_for": stopped_for,
+            "finished_at": now(),
+        })
+        manifest = verify_manifest(preparation)
+        dump(out / "frozen-data-closure.json", manifest)
+        matches = scan_for_secret(out, key) if key else []
+        dump(out / "key-scan.json", {"key_match_files": matches, "key_persisted": bool(matches)})
+        if after != before:
+            dump(out / "wrapper-error.json", {"error_type": "candidate_identity_changed"})
+        if key and matches:
+            dump(out / "wrapper-error.json", {"error_type": "credential_persisted"})
+        if (out / "shim/counts.json").exists():
+            dump(out / "shim-counts-final.json", json.loads((out / "shim/counts.json").read_text()))
+
+    if after != before or (key and matches):
+        return 1
+    return return_code
+
+
+if __name__ == "__main__":
+    try:
+        raise SystemExit(main())
+    except Exception as exc:
+        print(json.dumps({"error_type": type(exc).__name__}), flush=True)
+        raise SystemExit(1) from None

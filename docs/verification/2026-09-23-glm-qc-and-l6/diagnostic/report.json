@@ -1,0 +1,35 @@
+{
+  "scope": "host offline mechanical diagnosis on pinned candidate, not independent QC or a new live batch",
+  "candidate": "31f1b40dd788d36c71da249d59fb769c50d7cd30",
+  "episode_sha256": "397ef6f396a29a538e339974d2ced10d8d633e4a798252023e43e3fb965b4b41",
+  "sentence_index": 10,
+  "sentence": "- **证伪条件**（任一触发即判事件驱动逻辑失效）：① 量价背离——成交额萎缩至9月22日112.27亿元（E9）的三分之一以下，且收盘跌回9月21日246.45元（E10）下方；",
+  "actual_short_circuit_trace": [
+    {
+      "quantity": "112.27亿元",
+      "supported": false
+    }
+  ],
+  "anchor_support_by_current_gate": {
+    "112.27亿元": false,
+    "246.45": true
+  },
+  "original_rejections": [
+    10,
+    13
+  ],
+  "unit_explicit_control_rejections": [
+    13
+  ],
+  "restored_rejections": [
+    10,
+    13
+  ],
+  "control_change": "Only in-memory E9.detail appended 成交额=112.27亿元, arithmetically equal to original 11226516458.33 yuan at shown precision; source file unchanged.",
+  "fraction_text_unchanged_in_control": true,
+  "finding": "Correct currency-scale conversion 112.27亿元 is rejected; adding only unit-explicit equivalent to copied evidence makes this exact sentence pass. This identifies the failure for this sentence, not every numeric deletion.",
+  "network_attempts": 0,
+  "real_model_requests": 0,
+  "source_unchanged": true,
+  "semantic_source_sha256": "fc97835b6db98e5ed37cdb6eefaae1944d6d7a6cf4ae45d1731109533bc63112"
+}

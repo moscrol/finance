@@ -1,0 +1,17 @@
+        requested_model=provider.model,
+        endpoint_id=provider_endpoint_id(provider),
+        transport="cli" if provider.transport == "cli" or provider.base_url.startswith("cli://") else "http",
+        request_sha256=_canonical_sha256(messages),
+        started_at=datetime.now(timezone.utc).isoformat(),
+    )
+
+
+UNLABELLED_PURPOSE = "unlabelled"
+
+
+@dataclass
+class LLMCallLedger:
+    records: list[LLMCallRecord] = field(default_factory=list)
+    # 硬预算（P1-B 消费闭环）：非 None 时，尝试数达到上限后新调用被拒发
+
+[truncated; total lines=2605, selected=628:642; request a later offset]

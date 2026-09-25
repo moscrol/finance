@@ -1,0 +1,1 @@
+{"ready": true, "shape": [1, 1024]}

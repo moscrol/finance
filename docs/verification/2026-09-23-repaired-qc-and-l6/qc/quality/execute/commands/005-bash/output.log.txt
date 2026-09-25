@@ -1,0 +1,10 @@
+66-t0 = time.monotonic()
+67-try:
+68-    with T.urlopen(req("/trickle"), timeout=10.0, is_cancelled=lambda: state["cancel"]) as r:
+69-        for _ in r:
+70-            state["cancel"] = True
+71:    check("P3 cancel", False, "no exception")
+72-except T.HTTPStreamCancelled:
+73:    check("P3 cancel", time.monotonic() - t0 < 3.0, f"dt={time.monotonic()-t0:.2f}")
+74-except Exception as e:
+75:    check("P3 cancel", False, f"wrong exc {type(e).__name__}")

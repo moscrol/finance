@@ -1,0 +1,34 @@
+{
+  "scope": "offline diagnosis only; dirty source hashes bound; no acceptance claim",
+  "source_before": {
+    "revision": "0165aa7eee022802522b20d49c92992f8e29a559",
+    "status": " M intelligence/services/llm_http_transport.py\n M intelligence/tests/test_llm_timeout_diagnostic.py\n M scripts/review_probes/diagnose_llm_timeout.py\n M scripts/review_probes/prepare_adaptive_l6.py\n M scripts/review_probes/prepare_pi_review_repair.py\n M tests/test_pi_review_repair.py\n?? scripts/review_probes/retrieval_readiness_worker.py\n?? tests/test_retrieval_readiness.py\n",
+    "source_sha256": {
+      "intelligence/services/llm_http_transport.py": "a34b6763ac82c6a44a975b9f93b5a5b2df4b866b4d2f859bb9f9b56949313d20",
+      "scripts/review_probes/diagnose_llm_timeout.py": "6a1c456f8e8a6a353e7b628676df5af98f4d1693e01c1026201f0df513790a9e",
+      "scripts/review_probes/prepare_adaptive_l6.py": "2b876eb6d3e04f8c19ae3cc6ab2063271eafba1877ec17c23502e558fc0a8207",
+      "scripts/review_probes/retrieval_readiness_worker.py": "c41a82b43d37d9af12856a4c039b3cae292f985fc4c4712f1d577cb709f502c1"
+    },
+    "loadavg": [
+      18.2470703125,
+      28.18505859375,
+      42.41064453125
+    ]
+  },
+  "pid": 23032,
+  "strict": {
+    "invocations": 1,
+    "timeout_seconds": 0.8,
+    "tolerance_seconds": 0.2,
+    "controller_limit_seconds": 45
+  },
+  "retrieval": {
+    "invocations": 1,
+    "limit_seconds": 120,
+    "offline": true
+  },
+  "real_model_requests": 0,
+  "retries": 0,
+  "natural_questions": 0,
+  "independent_diagnostics": true
+}
