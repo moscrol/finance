@@ -20,7 +20,7 @@
 所有批次无自动重试，原始收据均已归档。
 
 ## 证据归档
-- 新归档：`docs/verification/2026-09-25-backfill-302132-quality-0710/`，795份、3,799,001字节，manifest SHA `b5443a4c4ac33df18d87efeb331c1eb37a63ea49ef786c9d23c91947bb265600`。
+- 新归档：`docs/verification/2026-09-25-backfill-302132-quality-0710/`，797份、3,803,807字节，manifest SHA `e9bfd26ad6d7c8731e9b7861930c595679843be399abf4bfe533334d8de82943`。
 - 旧归档：`docs/verification/2026-09-25-backfill-302132-quality-continuation/`，保持不改。
 - 最新批次：`/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-10/`
 - 动态状态：`/Users/a77/.finance-runtime/reviews/backfill-302132-0923/CURRENT.json`

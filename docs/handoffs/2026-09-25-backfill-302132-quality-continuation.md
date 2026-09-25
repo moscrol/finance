@@ -20,7 +20,7 @@
 07-10合计69次请求；04-10合计121次请求；均无自动重试。10的C3结论仅覆盖合成数据上的10个外部验收入口断言，生产形 `64/39/161` 未直接观察，所以C3 claim仍为 `not_verified`。C1/C2/C4-C7不在本批次范围，不能升级为完整QC或整体批准。
 
 ## 证据位置
-- 07-10原始归档：`docs/verification/2026-09-25-backfill-302132-quality-0710/`，795份、3,799,001字节，manifest SHA `b5443a4c4ac33df18d87efeb331c1eb37a63ea49ef786c9d23c91947bb265600`。
+- 07-10原始归档：`docs/verification/2026-09-25-backfill-302132-quality-0710/`，797份、3,803,807字节，manifest SHA `e9bfd26ad6d7c8731e9b7861930c595679843be399abf4bfe533334d8de82943`。
 - 04-06原始归档：`docs/verification/2026-09-25-backfill-302132-quality-continuation/`，保持不改。
 - 最新批次原始目录：`~/.finance-runtime/reviews/pr813-glm-qc-20260925-10/`。
 - 动态状态：`~/.finance-runtime/reviews/backfill-302132-0923/CURRENT.json`。

@@ -69,8 +69,8 @@
   "merge_authorized": false,
   "production_authorized": false,
   "sealed_at": "2026-09-25T02:02:42.569571+00:00",
-  "archive_files": 795,
-  "archive_bytes": 3799001,
-  "manifest_sha256": "b5443a4c4ac33df18d87efeb331c1eb37a63ea49ef786c9d23c91947bb265600",
+  "archive_files": 797,
+  "archive_bytes": 3803807,
+  "manifest_sha256": "e9bfd26ad6d7c8731e9b7861930c595679843be399abf4bfe533334d8de82943",
   "destination": "/Users/a77/fwp-wt-backfill-302132-0923/docs/verification/2026-09-25-backfill-302132-quality-0710"
 }

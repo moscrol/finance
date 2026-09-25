@@ -1,0 +1,18 @@
+{
+  "comment_id": 7021,
+  "url": "http://127.0.0.1:3300/a77/finance-workspace-private/pulls/813#issuecomment-7021",
+  "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+  "baseline": "4cc15e703f81bce8abadee00f68caacdb0c72b4d",
+  "remote_main": {
+    "07": "fe9fdbfd70a637efc5bcf0cfecf74080a8d6a90c",
+    "08": "fe9fdbfd70a637efc5bcf0cfecf74080a8d6a90c",
+    "09": "4db9a42b69b0d30bcf55b2eafb64151a6c1bb317",
+    "10": "4db9a42b69b0d30bcf55b2eafb64151a6c1bb317"
+  },
+  "body_sha256": "20b96f17a864fe242d4458055cbb2ec986515c4a80668f86524c05bd2520b51f",
+  "published_at": "2026-09-25T02:10:24.286444+00:00",
+  "state": "open",
+  "merged": false,
+  "merge_authorized": false,
+  "production_authorized": false
+}

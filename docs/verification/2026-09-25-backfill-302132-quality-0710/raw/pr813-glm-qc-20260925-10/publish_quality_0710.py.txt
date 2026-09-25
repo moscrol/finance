@@ -1,0 +1,66 @@
+"""Publish the 07-10 quality continuation without changing product refs."""
+from datetime import datetime, timezone
+import hashlib
+import json
+from pathlib import Path
+import sys
+
+DOCS = Path('/Users/a77/fwp-wt-backfill-302132-0923')
+STATE = Path('/Users/a77/.finance-runtime/reviews/backfill-302132-0923/CURRENT.json')
+BUNDLE = 'docs/verification/2026-09-25-backfill-302132-quality-0710'
+REV = '3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59'
+BASE = '4cc15e703f81bce8abadee00f68caacdb0c72b4d'
+MARKER = '<!-- wo83-quality-20260925-07-10 -->'
+sys.path.insert(0, str(DOCS))
+from scripts import gitea_pr
+
+pr = gitea_pr._api('GET', '/pulls/813')
+assert pr['state'] == 'open' and not pr.get('merged') and pr['head']['sha'] == REV
+summary = json.loads((DOCS / BUNDLE / 'summary.json').read_text())
+observed = summary['observed_main']
+body = f'''{MARKER}
+## #83续推：Quality批07-10已封存，C3局部 PASS_WITH_LIMITS
+
+状态 **{summary['status']}**；固定候选 `{REV}` / base `{BASE}` 未变，批07-08观测 main `{observed['07']}`，批09-10观测 main `{observed['09']}`；这些 main 组合均未验收。
+
+- 批07-10共69次 GLM 请求：07探索耗尽无交付；08因准备漏复制fixture依赖导致collection error；09因探针残留旧 `/06/candidate` 路径导致collection error；10完整进入report。
+- 批10首 bash 原始收据通过（exit 1，含 `intentional probe_bug`）；两组给定来源供应探针真实执行 **10 passed / 0 failed / 0 errors**，作者测试0。
+- 批10唯一 `deliver_stage` 终稿通过标准schema，结论为 `PASS_WITH_LIMITS`。这只证明合成DuckDB及外部验收入口的局部行为；C3生产形 `64/39/161` 仍 `not_verified`，C1/C2/C4-C7未审。
+
+795份新增原件已逐项解码、长度和SHA核验，归档 `{BUNDLE}`；04-06旧归档不变。未改/推产品、未合main、未写生产；PR继续WIP/open/unmerged。
+
+[新增归档](http://127.0.0.1:3300/a77/finance-workspace-private/src/branch/fix/backfill-302132-0923/{BUNDLE}/README.md) | [续推交接](http://127.0.0.1:3300/a77/finance-workspace-private/src/branch/fix/backfill-302132-0923/docs/handoffs/2026-09-25-backfill-302132-quality-continuation.md)
+'''
+old = [c for c in gitea_pr._api('GET', '/issues/813/comments?limit=100') if MARKER in c.get('body', '')]
+assert len(old) <= 1
+comment = old[0] if old else gitea_pr._api('POST', '/issues/813/comments', {'body': body})
+if old and comment['body'] != body:
+    comment = gitea_pr._api('PATCH', f"/issues/comments/{comment['id']}", {'body': body})
+assert comment['body'] == body
+prefix = f'''## 最新状态：2026-09-25，Quality批07-10局部PASS_WITH_LIMITS，C3生产数值未验证
+
+固定候选 `{REV}` / base `{BASE}`；批07-08观测 main `{observed['07']}`，批09-10观测 main `{observed['09']}`，均未验收。批07-10共69次请求：07/08/09分别无结构交付、fixture collection error、旧路径 collection error；批10供应探针10P，终稿通过标准schema但仅为C3局部 `PASS_WITH_LIMITS`。C3生产形64/39/161、C1/C2/C4-C7和当前main工程门禁仍缺。795份原件已封存，见评论 {comment['id']}。未改/推产品、未合入/生产，WIP保留。
+
+---
+
+'''
+if not (pr.get('body') or '').startswith(prefix):
+    gitea_pr._api('PATCH', '/pulls/813', {'body': prefix + (pr.get('body') or '')})
+after = gitea_pr._api('GET', '/pulls/813')
+assert after['state'] == 'open' and not after.get('merged') and after['head']['sha'] == REV and after['body'].startswith(prefix)
+receipt = {
+    'comment_id': comment['id'],
+    'url': comment.get('html_url'),
+    'revision': REV,
+    'baseline': BASE,
+    'remote_main': observed,
+    'body_sha256': hashlib.sha256(body.encode()).hexdigest(),
+    'published_at': datetime.now(timezone.utc).isoformat(),
+    'state': 'open',
+    'merged': False,
+    'merge_authorized': False,
+    'production_authorized': False,
+}
+output = Path('/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-10/publication.json')
+output.write_text(json.dumps(receipt, ensure_ascii=False, indent=2) + '\n')
+print(json.dumps(receipt, ensure_ascii=False))

@@ -8,7 +8,7 @@
     "09",
     "10"
   ],
-  "verified_files": 795,
+  "verified_files": 797,
   "entries": [
     {
       "source_root": "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-07",
@@ -7164,6 +7164,24 @@
       "bytes": 3454,
       "sha256": "6edacce92f92a09aacaeeb2de7af2c2dfc05096be7e5ab801df8694e3f197821",
       "archive_sha256": "6edacce92f92a09aacaeeb2de7af2c2dfc05096be7e5ab801df8694e3f197821"
+    },
+    {
+      "source_root": "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-10",
+      "source": "publish_quality_0710.py",
+      "archive": "raw/pr813-glm-qc-20260925-10/publish_quality_0710.py.txt",
+      "encoding": "identity",
+      "bytes": 4094,
+      "sha256": "6c75fd90ecd26faa3355801cb3956263783b42ef8eea73f7e00d35905beec70c",
+      "archive_sha256": "6c75fd90ecd26faa3355801cb3956263783b42ef8eea73f7e00d35905beec70c"
+    },
+    {
+      "source_root": "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-10",
+      "source": "publication.json",
+      "archive": "raw/pr813-glm-qc-20260925-10/publication.json",
+      "encoding": "identity",
+      "bytes": 712,
+      "sha256": "3fcde4922b1eb320cd155c060a28cbfdc1f7e7cf12381e7db9475a88616c1f73",
+      "archive_sha256": "3fcde4922b1eb320cd155c060a28cbfdc1f7e7cf12381e7db9475a88616c1f73"
     }
   ],
   "excluded": [
