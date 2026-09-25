@@ -47,6 +47,25 @@ def test_regenerable_caches_do_not_block_but_other_ignored_content_does():
     assert safety.is_cache_path('a/b/__pycache__/c.pyc') and not safety.is_cache_path('a/b/cache_notes.md')
 
 
+def test_launcher_pointing_at_home_itself_does_not_block_every_tree(tmp_path, monkeypatch):
+    home = tmp_path / 'home'
+    tree = home / 'fwp-wt-x'
+    tree.mkdir(parents=True)
+    launch = home / 'Library/LaunchAgents/exec-server.plist'
+    launch.parent.mkdir(parents=True)
+    monkeypatch.setattr(safety.subprocess, 'run', lambda *a, **kw: subprocess.CompletedProcess([], 0, '', ''))
+    # 2026-09-25：一份 WorkingDirectory=$HOME 的 plist 把家目录下 37 棵树全判成「被 launchd 引用」。
+    # $HOME（以及 / 、/Users）不是任何一棵树的代码根。
+    launch.write_bytes(plistlib.dumps({'WorkingDirectory': str(home), 'ProgramArguments': ['/bin/echo']}))
+    context = safety.sample_context(timeout=1, home=home)
+    assert not context['errors']
+    assert not safety.context_blockers(str(tree), context)
+    # 指到树本身（或树里的文件）的引用仍然算。
+    launch.write_bytes(plistlib.dumps({'WorkingDirectory': str(tree)}))
+    context = safety.sample_context(timeout=1, home=home)
+    assert any('exec-server.plist' in b for b in safety.context_blockers(str(tree), context))
+
+
 def test_directory_watch_handles_are_not_process_usage(tmp_path, monkeypatch):
     root = tmp_path / 'tree'
     root.mkdir()
