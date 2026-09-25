@@ -26,10 +26,15 @@
    - 数据行 `| 成交额跌破 | 100亿 | 80亿 |` 于是只留条件列，阈值被筛掉，等于放宽。
    - 两个掩码因此都挪到「抽数前一刻」。补两条表格用例，用 monkeypatch 核过三种放置：修复前表头行也被误删；早掩全漏；现方案只删数据行。
 5. 用修复树重放 L6-N1：句 13 不删，句 10 不变。逐数量核对后更正了旧 README 的一处说法：句 13 的 `1000` 其实有出处（已绑定 E26「海光1000系列CPU」、E27「CPU1000系列」），真正无出处的只有 `10月`。
-6. 全存档差分重放（`diff_replay_archive.py`），两臂只差两个掩码：
-   - 扫 4078 份，1266 份可重建。
-   - 12 句误删解除，其余数量照旧受审且有出处。
+6. 全存档差分重放（`diff_replay_archive.py`），两臂只差两个掩码。扫 4078 份，1266 份可重建。首跑结果：
+   - 11 句误删解除（首版文档误写 12，是把变化清单的行数当成了解除句数）。
    - 1 句新删：「③未来20交易日双红日计数≥7与否。」。它的 `≥7` 原先只被证据里数据源标签 `AKShare · D7 逐季财报` 的 7「背书」。
+7. 看兄弟会话的 L6 批 2 存档时，发现 `scripts/judge_loss_point_replay.py::_rebuild_outcome`（09-09）把证据的 `observations` 置空。数值门 09-21 起读观察值，所以首跑比生产少一路支撑。补回观察值后重跑（`diff-replay-archive-with-observations-eed1ec80a.json`）：
+   - 14 份 episode、10 份不同稿有变化。
+   - **9 句误删解除**，新删仍是同 1 句。
+   - 少掉的 2 句在生产里本来就没删：`10月` 碰巧被值为 10 的观察值「支撑」。
+   - 修那个重放工具另开了任务，不在本 PR。
+8. L6 批 2 的 T3 存档（90 个观察值）：生产删了句 13/14/15/22，修复后句 22（`…（10月末三季报窗口）`）解除。13/14 是批 2 的新形状，15 是泛指量词「一个报告期」。
 
 ## 决策
 
@@ -55,11 +60,17 @@
 - 新增用例：`intelligence/tests/test_episode_semantic_verifier.py` 18 条，修复前 14 红 4 绿。另有 `test_episode_numeric_citations.py` CE4 新钉 1 条。
 - 数值门相关 7 个测试文件共 622 passed（本地读数，收据在 `~/.finance-runtime/test-receipts/`）。
 - 四叶（ruff + 全量 pytest / registry / 前端 / e2e）在本快照所在提交的 head 上跑，读数只贴 PR #932 评论。本文件不抄会漂的总数。
-- 重放产物都在 `~/.finance-runtime/reviews/l6-numeric-replay-20260925/`：`replay-fix-numeric-preflight-f3d18e6cc.json`、`sentence10-fix-…json`、`diff-replay-archive-f3d18e6cc.json`，README 末节是修复后结论。
+- 重放产物都在 `~/.finance-runtime/reviews/l6-numeric-replay-20260925/`：
+  - `replay-fix-numeric-preflight-f3d18e6cc.json`
+  - `sentence10-fix-…json`
+  - `diff-replay-archive-f3d18e6cc.json`（丢观察值的首跑）
+  - `diff-replay-archive-with-observations-eed1ec80a.json`（以此为准）
+  - README 末两节是修复后结论与更正。
 - **不成立的结论**：
   - 全存档差分只覆盖 1266 份可重建 episode。803 份旧 schema 与 2009 份无 contract/outcome 的存档没压到。
   - 没跑 live，没动 8792 与生产库。
-  - 「12 解 1 删」是存档稿上的机械差分，不是线上发生率。
+  - 「9 解 1 删」是存档稿上的机械差分，不是线上发生率。
+  - 丢观察值那次首跑的数字（11 解 1 删）不代表生产行为。
 
 ## 后续要做
 
