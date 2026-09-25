@@ -1,0 +1,8 @@
+{"pr": "910", "label": "prior-targeted-receipt-check", "exit": 0, "status": "completed"}
+Traceback (most recent call last):
+  File "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/continue_remaining.py", line 121, in <module>
+    if not step('911', 'targeted', [PY, '-B', '-m', 'pytest', '-q', '-p', 'no:cacheprovider',
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/continue_remaining.py", line 81, in step
+    raise RuntimeError(f'admission wait budget exhausted before {pr}/{label}')
+RuntimeError: admission wait budget exhausted before 911/targeted

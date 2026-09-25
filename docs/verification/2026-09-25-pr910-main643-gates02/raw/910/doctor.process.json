@@ -1,0 +1,27 @@
+{
+  "label": "doctor",
+  "command": [
+    "/Users/a77/fwp-wt-pi-research/.venv-workbench/bin/python",
+    "scripts/workspace.py",
+    "doctor"
+  ],
+  "cwd": "/Users/a77/fwp-wt-pr910-main-0925",
+  "revision": "d300cb305abae97360a82cb932968bf37164be9e",
+  "started_at": "2026-09-25T10:34:22.396730+00:00",
+  "timeout_seconds": 180,
+  "status": "completed",
+  "exit": 0,
+  "timed_out": false,
+  "executed": null,
+  "failures": null,
+  "errors": null,
+  "skipped": null,
+  "failed_cases": [],
+  "junit_status": "not_evaluated",
+  "output_mode": "combined_stdout_stderr",
+  "pid": 53814,
+  "process_group": 53814,
+  "process_group_cleanup": "already_absent",
+  "finished_at": "2026-09-25T10:34:23.012049+00:00",
+  "elapsed_seconds": 0.6150787500664592
+}

@@ -1,0 +1,25 @@
+{
+  "purpose": "Resume unexecuted offline engineering leaves on the same exact HEADs",
+  "initial_supervisor_pid": 53799,
+  "initial_completed_target": "910/tests/test_pi_review_repair.py",
+  "initial_completed_counts": {"passed": 74, "failed": 0, "error": 0, "skipped": 0},
+  "initial_stop": {
+    "reason": "Replace per-step 600-second waiting with one cumulative 1800-second admission-wait allowance without replaying completed tests",
+    "observed_active_step": "911/targeted resource admission",
+    "command_identity_checked": true,
+    "no_children_checked_before_signal": true,
+    "signal": "SIGTERM",
+    "handler_records_interruption": true,
+    "pid_absence_verified_after_signal": true
+  },
+  "continuation_supervisor_pid": 68375,
+  "continuation_script": "continue_remaining.py",
+  "initial_results_are_not_overwritten": true,
+  "prior_910_receipt_rechecked": true,
+  "revision_910": "d300cb305abae97360a82cb932968bf37164be9e",
+  "revision_911": "1a61be4e74e162ebae39d29723d343a2ebdbdfd9",
+  "paid_model_authorization": false,
+  "paid_model_requests": 0,
+  "independent_review": false,
+  "foreign_processes_changed": false
+}

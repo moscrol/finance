@@ -1,0 +1,41 @@
+[
+  {
+    "admitted": false,
+    "foreign_pytest": [
+      {
+        "pid": 53449,
+        "pgid": 53446,
+        "command": "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -m pytest -q -p no:cacheprovider --basetemp=/tmp/architecture-http-validation-78b25943f.3dbLzZ/regression-tmp intelligence/tests/test_workbench_correction_http.py intelligence/tests/test_workbench_api.py intelligence/tests/test_workbench_conversation_integration.py intelligence/tests/test_memory_opening_prefetch.py intelligence/tests/test_workbench_correction_ingest.py intelligence/tests/test_episode_factory.py intelligence/tests/test_episode_tools.py intelligence/tests/test_episode_protocol.py intelligence/tests/test_episode_verifier.py intelligence/tests/test_user_memory.py intelligence/tests/test_corrections.py intelligence/tests/test_judgments.py intelligence/tests/test_memory_status.py intelligence/tests/test_e2_local_freeze.py intelligence/tests/test_e2_runtime_ceiling.py intelligence/tests/test_evidence_capabilities.py intelligence/tests/test_agent_episode.py intelligence/tests/test_conversation_orchestrator.py intelligence/tests/test_capability_wiring_closeout.py intelligence/tests/test_capability_monotonicity.py intelligence/tests/test_asof_prefetch_calendar.py intelligence/tests/test_asof_prefetch_dual_red.py intelligence/tests/test_asof_prefetch_regime_analog.py intelligence/tests/test_asof_prefetch_theme_snapshot.py"
+      }
+    ],
+    "disk_free_bytes": 48971681792,
+    "minimum_free_bytes": 21474836480,
+    "excluded_groups": [],
+    "scope": "point-in-time; all detected pytest processes, not just full suites; no reservation",
+    "observed_at": "2026-09-25T10:34:25.308515+00:00"
+  },
+  {
+    "admitted": false,
+    "foreign_pytest": [
+      {
+        "pid": 53449,
+        "pgid": 53446,
+        "command": "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -m pytest -q -p no:cacheprovider --basetemp=/tmp/architecture-http-validation-78b25943f.3dbLzZ/regression-tmp intelligence/tests/test_workbench_correction_http.py intelligence/tests/test_workbench_api.py intelligence/tests/test_workbench_conversation_integration.py intelligence/tests/test_memory_opening_prefetch.py intelligence/tests/test_workbench_correction_ingest.py intelligence/tests/test_episode_factory.py intelligence/tests/test_episode_tools.py intelligence/tests/test_episode_protocol.py intelligence/tests/test_episode_verifier.py intelligence/tests/test_user_memory.py intelligence/tests/test_corrections.py intelligence/tests/test_judgments.py intelligence/tests/test_memory_status.py intelligence/tests/test_e2_local_freeze.py intelligence/tests/test_e2_runtime_ceiling.py intelligence/tests/test_evidence_capabilities.py intelligence/tests/test_agent_episode.py intelligence/tests/test_conversation_orchestrator.py intelligence/tests/test_capability_wiring_closeout.py intelligence/tests/test_capability_monotonicity.py intelligence/tests/test_asof_prefetch_calendar.py intelligence/tests/test_asof_prefetch_dual_red.py intelligence/tests/test_asof_prefetch_regime_analog.py intelligence/tests/test_asof_prefetch_theme_snapshot.py"
+      }
+    ],
+    "disk_free_bytes": 49000914944,
+    "minimum_free_bytes": 21474836480,
+    "excluded_groups": [],
+    "scope": "point-in-time; all detected pytest processes, not just full suites; no reservation",
+    "observed_at": "2026-09-25T10:34:55.339629+00:00"
+  },
+  {
+    "admitted": true,
+    "foreign_pytest": [],
+    "disk_free_bytes": 48953442304,
+    "minimum_free_bytes": 21474836480,
+    "excluded_groups": [],
+    "scope": "point-in-time; all detected pytest processes, not just full suites; no reservation",
+    "observed_at": "2026-09-25T10:35:25.367163+00:00"
+  }
+]

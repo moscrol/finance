@@ -1,0 +1,939 @@
+{
+  "schema_version": 1,
+  "pr": "910",
+  "revision": "d300cb305abae97360a82cb932968bf37164be9e",
+  "archive_tree": "/Users/a77/fwp-wt-pr868-current-0925",
+  "candidate_head_is_not_moved_by_archiving": true,
+  "baseline": "643a2888ea14079035bc8b080129e3e4145d5685",
+  "created_at": "2026-09-25T11:11:33.299635+00:00",
+  "files": [
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/diff-check.log",
+      "sha256": "11c1c6a42db4e61755f2d752427593d03f16a7271330a5137b2fe4c999b66b60",
+      "bytes": 532,
+      "path": "raw/910/diff-check.log.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/diff-check.process.json",
+      "sha256": "20160685c2522ef454ea0999d332d13ae710bf0adbd90590dea36a9b65df3edb",
+      "bytes": 740,
+      "path": "raw/910/diff-check.process.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/doctor.log",
+      "sha256": "06d6ecbb14e021e2aba98a1b5928758dce659b5b494a3b5200fd769c326b88c4",
+      "bytes": 5044,
+      "path": "raw/910/doctor.log.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/doctor.process.json",
+      "sha256": "af05f33d790eae2a8d54aeefcf4594abfb48450db78a46576956f7cbb3257ca8",
+      "bytes": 748,
+      "path": "raw/910/doctor.process.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/ledger-crosswalk.log",
+      "sha256": "ef723c59b92f945c3c1db58cc436fa11f2d5795d51502d5f8176727f78e89d42",
+      "bytes": 2568,
+      "path": "raw/910/ledger-crosswalk.log.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/ledger-crosswalk.process.json",
+      "sha256": "a7916f07e793268ebfcb289a122ae56c63a34e7cc0dea894bbc1ad936f3223cb",
+      "bytes": 763,
+      "path": "raw/910/ledger-crosswalk.process.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/registry-check.log",
+      "sha256": "fe0e72ed5366b51e9fdcb128de5e3a7449a223eed510cf0ed271e374d87ca797",
+      "bytes": 590,
+      "path": "raw/910/registry-check.log.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/registry-check.process.json",
+      "sha256": "334f89bf573b6caa14180c127d88b8198be1d4d708029e1a3dfd7ba770e16595",
+      "bytes": 761,
+      "path": "raw/910/registry-check.process.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/registry-parse.log",
+      "sha256": "1b7647128931a3a5d0d4828196ec91ec9871bd0de041100496e1426ac5d71f1c",
+      "bytes": 665,
+      "path": "raw/910/registry-parse.log.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/registry-parse.process.json",
+      "sha256": "836aabdf5047d271dbfe05c88cfe6edb32eb98bf2bb03d98b3d39ed9e21e06af",
+      "bytes": 774,
+      "path": "raw/910/registry-parse.process.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/registry-tables.log",
+      "sha256": "6067b3481eb09020d4ec335c2a052f4981b5cfbd25df09407087ce7b85986039",
+      "bytes": 695,
+      "path": "raw/910/registry-tables.log.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/registry-tables.process.json",
+      "sha256": "cd0d00e751970d890aa5f2f8da36f413457e30f1e1bae84b1b687f19323b3421",
+      "bytes": 787,
+      "path": "raw/910/registry-tables.process.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/registry-views.log",
+      "sha256": "e9b1bdd50e854fefded2d6fbe591da0cc4df5643c2daf5db3d8122bfc767e4e9",
+      "bytes": 645,
+      "path": "raw/910/registry-views.log.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/registry-views.process.json",
+      "sha256": "09bfcf80bb27699afaa1b486c6b1c506d91d4497e593f728685be7fb01c84d81",
+      "bytes": 785,
+      "path": "raw/910/registry-views.process.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/ruff.log",
+      "sha256": "acaf28a28d95c0201d23b58f75c8db7abe84f37ca2eefa522232f4d339f23a41",
+      "bytes": 556,
+      "path": "raw/910/ruff.log.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/ruff.process.json",
+      "sha256": "d7ec9106b217a9c42f3929f815591ee9540065abe13a2fcfef0f25b23a1a60ce",
+      "bytes": 749,
+      "path": "raw/910/ruff.process.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/summary.json",
+      "sha256": "0b1b784ed095d5149fd32ea266bdad8281439f8a3a03f20605e069449a517819",
+      "bytes": 1914,
+      "path": "raw/910/summary.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-receipt-check.log",
+      "sha256": "b99df584369c7c32521a32c1a1794cd18e92de062820d6704102860a0fb97368",
+      "bytes": 1814,
+      "path": "raw/910/targeted-receipt-check.log.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-receipt-check.process.json",
+      "sha256": "bc88cd705b38a3605fcdc14e073f73b51bbbbbd1ffde30c7ea8eea68ca2bd427",
+      "bytes": 1091,
+      "path": "raw/910/targeted-receipt-check.process.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-receipt.json",
+      "sha256": "ba6a46912e2bbcde8f96d478d52e37273e6446affe32951f3c049fc36c3b5a57",
+      "bytes": 841,
+      "path": "raw/910/targeted-receipt.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_real_author_checks_execut0/sandbox-inputs/spec/config.json",
+      "sha256": "4f8cf2096dbb3a824c8a817fd8d64469fcd4f2bd686444e977bfa2505530f478",
+      "bytes": 712,
+      "path": "raw/910/targeted-tmp/test_real_author_checks_execut0/sandbox-inputs/spec/config.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_real_author_checks_execut0/sandbox-inputs/spec/offline-tool-run/commands/001-bash/output.log",
+      "sha256": "3ead6297813f1f3f9740d91afdd34cbe7629548db1d59cad93426d931aaaf470",
+      "bytes": 281,
+      "path": "raw/910/targeted-tmp/test_real_author_checks_execut0/sandbox-inputs/spec/offline-tool-run/commands/001-bash/output.log.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_real_author_checks_execut0/sandbox-inputs/spec/offline-tool-run/commands/001-bash/request.json",
+      "sha256": "093b5ba07e736ac6f961dbf7bb63ce3de5e9cca694affbd5f053ec47d76f5292",
+      "bytes": 968,
+      "path": "raw/910/targeted-tmp/test_real_author_checks_execut0/sandbox-inputs/spec/offline-tool-run/commands/001-bash/request.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_real_author_checks_execut0/sandbox-inputs/spec/offline-tool-run/commands/001-bash/result.json",
+      "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+      "bytes": 14,
+      "path": "raw/910/targeted-tmp/test_real_author_checks_execut0/sandbox-inputs/spec/offline-tool-run/commands/001-bash/result.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_real_author_checks_execut0/sandbox-inputs/spec/offline-tool-run/credential.json",
+      "sha256": "b327c5ff5cf0989fb4569610836842ef2dbe06686fc92d33a0c4efaff5478a35",
+      "bytes": 292,
+      "path": "raw/910/targeted-tmp/test_real_author_checks_execut0/sandbox-inputs/spec/offline-tool-run/credential.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_real_author_checks_execut0/sandbox-inputs/spec/tools.sb",
+      "sha256": "8e0ab4f61f1cf6b1d44a1b1a2cd41af796f46d1881f0226da535162c6cf060cc",
+      "bytes": 2258,
+      "path": "raw/910/targeted-tmp/test_real_author_checks_execut0/sandbox-inputs/spec/tools.sb.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_real_author_checks_execut0/sandbox-inputs/spec/work/author-checks.xml",
+      "sha256": "e47a8c11e5621de3fe5a172d858e12d7121f4e8e1f7c98d876b3ccf80c1a32e9",
+      "bytes": 691,
+      "path": "raw/910/targeted-tmp/test_real_author_checks_execut0/sandbox-inputs/spec/work/author-checks.xml",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_real_author_checks_execut0/sandbox-inputs/spec/work/author-ports.json",
+      "sha256": "33ef1d6086b6ede67f738c0a7bbc4287e9fd3432f034a31a7b935a1b6091c167",
+      "bytes": 4430,
+      "path": "raw/910/targeted-tmp/test_real_author_checks_execut0/sandbox-inputs/spec/work/author-ports.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_real_author_checks_execut0/sandbox-inputs/spec/work/author-ports.py",
+      "sha256": "d7f9aee42a4ac1864e6a0ff78e7fe1ef75f4ec78e8a2dc765b3706f370e31884",
+      "bytes": 1072,
+      "path": "raw/910/targeted-tmp/test_real_author_checks_execut0/sandbox-inputs/spec/work/author-ports.py.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_real_author_checks_execut1/sandbox-inputs/quality/config.json",
+      "sha256": "4161746deddd82449bd81d52a405caae9a9419d3d69a199b96a692710de18f0f",
+      "bytes": 715,
+      "path": "raw/910/targeted-tmp/test_real_author_checks_execut1/sandbox-inputs/quality/config.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_real_author_checks_execut1/sandbox-inputs/quality/offline-tool-run/commands/001-bash/output.log",
+      "sha256": "057c5809f4a1552534dddff931cfc01aa933827995982b714712a51401617fec",
+      "bytes": 284,
+      "path": "raw/910/targeted-tmp/test_real_author_checks_execut1/sandbox-inputs/quality/offline-tool-run/commands/001-bash/output.log.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_real_author_checks_execut1/sandbox-inputs/quality/offline-tool-run/commands/001-bash/request.json",
+      "sha256": "7e7eea97c7fdf86893679f794d402ed89f3a1c3551a5d11ea22be4f115ba444d",
+      "bytes": 977,
+      "path": "raw/910/targeted-tmp/test_real_author_checks_execut1/sandbox-inputs/quality/offline-tool-run/commands/001-bash/request.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_real_author_checks_execut1/sandbox-inputs/quality/offline-tool-run/commands/001-bash/result.json",
+      "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+      "bytes": 14,
+      "path": "raw/910/targeted-tmp/test_real_author_checks_execut1/sandbox-inputs/quality/offline-tool-run/commands/001-bash/result.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_real_author_checks_execut1/sandbox-inputs/quality/offline-tool-run/credential.json",
+      "sha256": "b327c5ff5cf0989fb4569610836842ef2dbe06686fc92d33a0c4efaff5478a35",
+      "bytes": 292,
+      "path": "raw/910/targeted-tmp/test_real_author_checks_execut1/sandbox-inputs/quality/offline-tool-run/credential.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_real_author_checks_execut1/sandbox-inputs/quality/tools.sb",
+      "sha256": "6327b288bb4cf3ca2bc36087edcf1805fb3bf43e29d07b29a65ef9711edbd6ce",
+      "bytes": 2264,
+      "path": "raw/910/targeted-tmp/test_real_author_checks_execut1/sandbox-inputs/quality/tools.sb.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_real_author_checks_execut1/sandbox-inputs/quality/work/author-checks.xml",
+      "sha256": "a721e70cc6a9779da411e6f64ffc28e9554a2cfe088d24b287deda67474da67b",
+      "bytes": 691,
+      "path": "raw/910/targeted-tmp/test_real_author_checks_execut1/sandbox-inputs/quality/work/author-checks.xml",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_real_author_checks_execut1/sandbox-inputs/quality/work/author-ports.json",
+      "sha256": "d68ed41b9c497178a15edb261dd2c6fbf6e92d8cc9aad092223064669272fe9c",
+      "bytes": 4429,
+      "path": "raw/910/targeted-tmp/test_real_author_checks_execut1/sandbox-inputs/quality/work/author-ports.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_real_author_checks_execut1/sandbox-inputs/quality/work/author-ports.py",
+      "sha256": "d7f9aee42a4ac1864e6a0ff78e7fe1ef75f4ec78e8a2dc765b3706f370e31884",
+      "bytes": 1072,
+      "path": "raw/910/targeted-tmp/test_real_author_checks_execut1/sandbox-inputs/quality/work/author-ports.py.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_real_author_checks_execut2/sandbox-inputs/spec/config.json",
+      "sha256": "4f8cf2096dbb3a824c8a817fd8d64469fcd4f2bd686444e977bfa2505530f478",
+      "bytes": 712,
+      "path": "raw/910/targeted-tmp/test_real_author_checks_execut2/sandbox-inputs/spec/config.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_real_author_checks_execut2/sandbox-inputs/spec/offline-tool-run/commands/001-bash/output.log",
+      "sha256": "c4f269f4e28f77d83442e88d0c9ed19d78f9a6bec185ce3cba3267d9c303041c",
+      "bytes": 283,
+      "path": "raw/910/targeted-tmp/test_real_author_checks_execut2/sandbox-inputs/spec/offline-tool-run/commands/001-bash/output.log.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_real_author_checks_execut2/sandbox-inputs/spec/offline-tool-run/commands/001-bash/request.json",
+      "sha256": "088967e0e0e1b2687b4c500372b750dbd6a7fe1fcb1d1b758315176c6c996cb0",
+      "bytes": 519,
+      "path": "raw/910/targeted-tmp/test_real_author_checks_execut2/sandbox-inputs/spec/offline-tool-run/commands/001-bash/request.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_real_author_checks_execut2/sandbox-inputs/spec/offline-tool-run/commands/001-bash/result.json",
+      "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+      "bytes": 14,
+      "path": "raw/910/targeted-tmp/test_real_author_checks_execut2/sandbox-inputs/spec/offline-tool-run/commands/001-bash/result.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_real_author_checks_execut2/sandbox-inputs/spec/offline-tool-run/credential.json",
+      "sha256": "b327c5ff5cf0989fb4569610836842ef2dbe06686fc92d33a0c4efaff5478a35",
+      "bytes": 292,
+      "path": "raw/910/targeted-tmp/test_real_author_checks_execut2/sandbox-inputs/spec/offline-tool-run/credential.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_real_author_checks_execut2/sandbox-inputs/spec/tools.sb",
+      "sha256": "7fe67909f8f024db1b55913bc4104bc43b305e5408727a9b8e7698943463ca58",
+      "bytes": 2258,
+      "path": "raw/910/targeted-tmp/test_real_author_checks_execut2/sandbox-inputs/spec/tools.sb.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_real_author_checks_execut2/sandbox-inputs/spec/work/author-checks.xml",
+      "sha256": "cf11e2ffdd58df6943680840c52ac6d8556ff8399ddfd53d56dec84fac97df49",
+      "bytes": 8887,
+      "path": "raw/910/targeted-tmp/test_real_author_checks_execut2/sandbox-inputs/spec/work/author-checks.xml",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_real_author_checks_execut3/sandbox-inputs/quality/config.json",
+      "sha256": "4161746deddd82449bd81d52a405caae9a9419d3d69a199b96a692710de18f0f",
+      "bytes": 715,
+      "path": "raw/910/targeted-tmp/test_real_author_checks_execut3/sandbox-inputs/quality/config.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_real_author_checks_execut3/sandbox-inputs/quality/offline-tool-run/commands/001-bash/output.log",
+      "sha256": "4768fe2d83e5e09d3a0fb7d0c6864de23f1537e3e21e84fb373e3365316aaec5",
+      "bytes": 286,
+      "path": "raw/910/targeted-tmp/test_real_author_checks_execut3/sandbox-inputs/quality/offline-tool-run/commands/001-bash/output.log.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_real_author_checks_execut3/sandbox-inputs/quality/offline-tool-run/commands/001-bash/request.json",
+      "sha256": "b1247b7e359e9c39d74bd5d780c9ea1f9fbde9c9243785876bf17d3c4fed58ef",
+      "bytes": 525,
+      "path": "raw/910/targeted-tmp/test_real_author_checks_execut3/sandbox-inputs/quality/offline-tool-run/commands/001-bash/request.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_real_author_checks_execut3/sandbox-inputs/quality/offline-tool-run/commands/001-bash/result.json",
+      "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+      "bytes": 14,
+      "path": "raw/910/targeted-tmp/test_real_author_checks_execut3/sandbox-inputs/quality/offline-tool-run/commands/001-bash/result.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_real_author_checks_execut3/sandbox-inputs/quality/offline-tool-run/credential.json",
+      "sha256": "b327c5ff5cf0989fb4569610836842ef2dbe06686fc92d33a0c4efaff5478a35",
+      "bytes": 292,
+      "path": "raw/910/targeted-tmp/test_real_author_checks_execut3/sandbox-inputs/quality/offline-tool-run/credential.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_real_author_checks_execut3/sandbox-inputs/quality/tools.sb",
+      "sha256": "54bddf337ccae598ceda120b515d21ab2c91c789976594b1c1f0cbd07e092eaf",
+      "bytes": 2264,
+      "path": "raw/910/targeted-tmp/test_real_author_checks_execut3/sandbox-inputs/quality/tools.sb.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_real_author_checks_execut3/sandbox-inputs/quality/work/author-checks.xml",
+      "sha256": "fcf54e35e9b5eb67c90eb88e9e1c28e7d8ce17f6612166a2359c0c9a0e070662",
+      "bytes": 8887,
+      "path": "raw/910/targeted-tmp/test_real_author_checks_execut3/sandbox-inputs/quality/work/author-checks.xml",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_sandbox_preflight_collect0/sandbox-inputs/spec/sandbox-preflight/commands/001-write/output.log",
+      "sha256": "1f5680f0db7645aa67777993182989baa9ba9b61ff9aca36cb8408d4d9ee1bf9",
+      "bytes": 178,
+      "path": "raw/910/targeted-tmp/test_sandbox_preflight_collect0/sandbox-inputs/spec/sandbox-preflight/commands/001-write/output.log.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_sandbox_preflight_collect0/sandbox-inputs/spec/sandbox-preflight/commands/001-write/request.json",
+      "sha256": "a416228773375d9c34414a27f5e672c1890bb5386a53874340838c8b99c67bd3",
+      "bytes": 2563,
+      "path": "raw/910/targeted-tmp/test_sandbox_preflight_collect0/sandbox-inputs/spec/sandbox-preflight/commands/001-write/request.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_sandbox_preflight_collect0/sandbox-inputs/spec/sandbox-preflight/commands/001-write/result.json",
+      "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+      "bytes": 14,
+      "path": "raw/910/targeted-tmp/test_sandbox_preflight_collect0/sandbox-inputs/spec/sandbox-preflight/commands/001-write/result.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_sandbox_preflight_collect0/sandbox-inputs/spec/sandbox-preflight/commands/002-read/output.log",
+      "sha256": "16d781bfb402210fe6d84cf6c6450ccba3326fceb19af96acdc9d25032152e8d",
+      "bytes": 2308,
+      "path": "raw/910/targeted-tmp/test_sandbox_preflight_collect0/sandbox-inputs/spec/sandbox-preflight/commands/002-read/output.log.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_sandbox_preflight_collect0/sandbox-inputs/spec/sandbox-preflight/commands/002-read/request.json",
+      "sha256": "8ad927f5c5804ee501084aae6b24e0193fefd59da94620b85148920726091c5d",
+      "bytes": 208,
+      "path": "raw/910/targeted-tmp/test_sandbox_preflight_collect0/sandbox-inputs/spec/sandbox-preflight/commands/002-read/request.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_sandbox_preflight_collect0/sandbox-inputs/spec/sandbox-preflight/commands/002-read/result.json",
+      "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+      "bytes": 14,
+      "path": "raw/910/targeted-tmp/test_sandbox_preflight_collect0/sandbox-inputs/spec/sandbox-preflight/commands/002-read/result.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_sandbox_preflight_collect0/sandbox-inputs/spec/sandbox-preflight/commands/003-bash/output.log",
+      "sha256": "92e8d6e667d6be88a6f095660f0577d9d67e847d7cbef5c824a9d4c68402e1e0",
+      "bytes": 65,
+      "path": "raw/910/targeted-tmp/test_sandbox_preflight_collect0/sandbox-inputs/spec/sandbox-preflight/commands/003-bash/output.log.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_sandbox_preflight_collect0/sandbox-inputs/spec/sandbox-preflight/commands/003-bash/request.json",
+      "sha256": "c7d3de6b2492e32d25ba274485240d1bf17a7c7e2961e5d19df35d9423c86b22",
+      "bytes": 273,
+      "path": "raw/910/targeted-tmp/test_sandbox_preflight_collect0/sandbox-inputs/spec/sandbox-preflight/commands/003-bash/request.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_sandbox_preflight_collect0/sandbox-inputs/spec/sandbox-preflight/commands/003-bash/result.json",
+      "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+      "bytes": 14,
+      "path": "raw/910/targeted-tmp/test_sandbox_preflight_collect0/sandbox-inputs/spec/sandbox-preflight/commands/003-bash/result.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_sandbox_preflight_collect0/sandbox-inputs/spec/sandbox-preflight/commands/004-bash/output.log",
+      "sha256": "e67b7b5c9853714bc99faf2c16963ba52b6825d6b984c59bd3c263cc58caa03a",
+      "bytes": 10130,
+      "path": "raw/910/targeted-tmp/test_sandbox_preflight_collect0/sandbox-inputs/spec/sandbox-preflight/commands/004-bash/output.log.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_sandbox_preflight_collect0/sandbox-inputs/spec/sandbox-preflight/commands/004-bash/request.json",
+      "sha256": "1bc79e4f11fa0decceaddfe70f1b47c1ce754812ecfff7585640e7572f8ce098",
+      "bytes": 286,
+      "path": "raw/910/targeted-tmp/test_sandbox_preflight_collect0/sandbox-inputs/spec/sandbox-preflight/commands/004-bash/request.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_sandbox_preflight_collect0/sandbox-inputs/spec/sandbox-preflight/commands/004-bash/result.json",
+      "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+      "bytes": 14,
+      "path": "raw/910/targeted-tmp/test_sandbox_preflight_collect0/sandbox-inputs/spec/sandbox-preflight/commands/004-bash/result.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_sandbox_preflight_collect0/sandbox-inputs/spec/sandbox-preflight/commands/005-read/output.log",
+      "sha256": "291a66b745763e9ce17dac746c27174ba74ab29d02ea7ab30c6f03e873044348",
+      "bytes": 1002,
+      "path": "raw/910/targeted-tmp/test_sandbox_preflight_collect0/sandbox-inputs/spec/sandbox-preflight/commands/005-read/output.log.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_sandbox_preflight_collect0/sandbox-inputs/spec/sandbox-preflight/commands/005-read/request.json",
+      "sha256": "358a70d55635d2606211c8532c1f2bba6599b909a9f94ecd783602421700de36",
+      "bytes": 135,
+      "path": "raw/910/targeted-tmp/test_sandbox_preflight_collect0/sandbox-inputs/spec/sandbox-preflight/commands/005-read/request.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_sandbox_preflight_collect0/sandbox-inputs/spec/sandbox-preflight/commands/005-read/result.json",
+      "sha256": "d67659d29dad50e65ac903e33dc7ef4a692331d96253553956300d1fcfa5786a",
+      "bytes": 14,
+      "path": "raw/910/targeted-tmp/test_sandbox_preflight_collect0/sandbox-inputs/spec/sandbox-preflight/commands/005-read/result.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_sandbox_preflight_collect0/sandbox-inputs/spec/sandbox-preflight/commands/006-write/output.log",
+      "sha256": "23b6047831e90499c51f32c4d2da4a55033c736e819b711e2d80972df92d69e4",
+      "bytes": 319,
+      "path": "raw/910/targeted-tmp/test_sandbox_preflight_collect0/sandbox-inputs/spec/sandbox-preflight/commands/006-write/output.log.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_sandbox_preflight_collect0/sandbox-inputs/spec/sandbox-preflight/commands/006-write/request.json",
+      "sha256": "abf624f30e01436a9c8f9bcf06906d628c688633a0df3b3a02ac790d6f5d9779",
+      "bytes": 210,
+      "path": "raw/910/targeted-tmp/test_sandbox_preflight_collect0/sandbox-inputs/spec/sandbox-preflight/commands/006-write/request.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_sandbox_preflight_collect0/sandbox-inputs/spec/sandbox-preflight/commands/006-write/result.json",
+      "sha256": "d67659d29dad50e65ac903e33dc7ef4a692331d96253553956300d1fcfa5786a",
+      "bytes": 14,
+      "path": "raw/910/targeted-tmp/test_sandbox_preflight_collect0/sandbox-inputs/spec/sandbox-preflight/commands/006-write/result.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_sandbox_preflight_collect0/sandbox-inputs/spec/sandbox-preflight/commands/007-write/output.log",
+      "sha256": "23b6047831e90499c51f32c4d2da4a55033c736e819b711e2d80972df92d69e4",
+      "bytes": 319,
+      "path": "raw/910/targeted-tmp/test_sandbox_preflight_collect0/sandbox-inputs/spec/sandbox-preflight/commands/007-write/output.log.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_sandbox_preflight_collect0/sandbox-inputs/spec/sandbox-preflight/commands/007-write/request.json",
+      "sha256": "981b947761027bb133835a69a0e256fed5d469b865c77c2ba8a210b09b3f8676",
+      "bytes": 214,
+      "path": "raw/910/targeted-tmp/test_sandbox_preflight_collect0/sandbox-inputs/spec/sandbox-preflight/commands/007-write/request.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_sandbox_preflight_collect0/sandbox-inputs/spec/sandbox-preflight/commands/007-write/result.json",
+      "sha256": "d67659d29dad50e65ac903e33dc7ef4a692331d96253553956300d1fcfa5786a",
+      "bytes": 14,
+      "path": "raw/910/targeted-tmp/test_sandbox_preflight_collect0/sandbox-inputs/spec/sandbox-preflight/commands/007-write/result.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_sandbox_preflight_collect0/sandbox-inputs/spec/sandbox-preflight/commands/008-write/output.log",
+      "sha256": "ce6e60c65dc50f292afc3468f7175e5c1e5c91d67959f31e16376484d2bb8d48",
+      "bytes": 179,
+      "path": "raw/910/targeted-tmp/test_sandbox_preflight_collect0/sandbox-inputs/spec/sandbox-preflight/commands/008-write/output.log.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_sandbox_preflight_collect0/sandbox-inputs/spec/sandbox-preflight/commands/008-write/request.json",
+      "sha256": "af0316ee83057ee0872746b27d3b1634f98a2ab92351ba39a85b49f6b96801ec",
+      "bytes": 269,
+      "path": "raw/910/targeted-tmp/test_sandbox_preflight_collect0/sandbox-inputs/spec/sandbox-preflight/commands/008-write/request.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_sandbox_preflight_collect0/sandbox-inputs/spec/sandbox-preflight/commands/008-write/result.json",
+      "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+      "bytes": 14,
+      "path": "raw/910/targeted-tmp/test_sandbox_preflight_collect0/sandbox-inputs/spec/sandbox-preflight/commands/008-write/result.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_sandbox_preflight_collect0/sandbox-inputs/spec/sandbox-preflight/commands/009-bash/output.log",
+      "sha256": "47de9b69d1d1e520d603f136629673d6bffd5aaac9ed12cc7e5323823405aa1b",
+      "bytes": 341,
+      "path": "raw/910/targeted-tmp/test_sandbox_preflight_collect0/sandbox-inputs/spec/sandbox-preflight/commands/009-bash/output.log.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_sandbox_preflight_collect0/sandbox-inputs/spec/sandbox-preflight/commands/009-bash/request.json",
+      "sha256": "795a89104d4c616e3c15b8a5a378dadbad6238128e2b704836870da54327b016",
+      "bytes": 283,
+      "path": "raw/910/targeted-tmp/test_sandbox_preflight_collect0/sandbox-inputs/spec/sandbox-preflight/commands/009-bash/request.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_sandbox_preflight_collect0/sandbox-inputs/spec/sandbox-preflight/commands/009-bash/result.json",
+      "sha256": "d67659d29dad50e65ac903e33dc7ef4a692331d96253553956300d1fcfa5786a",
+      "bytes": 14,
+      "path": "raw/910/targeted-tmp/test_sandbox_preflight_collect0/sandbox-inputs/spec/sandbox-preflight/commands/009-bash/result.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_sandbox_preflight_collect0/sandbox-inputs/spec/sandbox-preflight/controller-stop.json",
+      "sha256": "d9d25bae4808b77154b6800b100689ae531ca8f69f1c61361aa9ec5d6e7a2c8c",
+      "bytes": 84,
+      "path": "raw/910/targeted-tmp/test_sandbox_preflight_collect0/sandbox-inputs/spec/sandbox-preflight/controller-stop.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_sandbox_preflight_collect0/sandbox-inputs/spec/sandbox-preflight/credential.json",
+      "sha256": "42aca8349b12990a204b49227813293cc89899e2e9a2b32bc58daf36b5e2c108",
+      "bytes": 292,
+      "path": "raw/910/targeted-tmp/test_sandbox_preflight_collect0/sandbox-inputs/spec/sandbox-preflight/credential.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_sandbox_preflight_collect0/sandbox-inputs/spec/sandbox-preflight/payload-shapes.jsonl",
+      "sha256": "212bb1e2e0df44585b45653612c4c8759bf53cde4ed16884018e9945ce9a2812",
+      "bytes": 2592,
+      "path": "raw/910/targeted-tmp/test_sandbox_preflight_collect0/sandbox-inputs/spec/sandbox-preflight/payload-shapes.jsonl",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_sandbox_preflight_collect0/sandbox-inputs/spec/sandbox-preflight/receipt.json",
+      "sha256": "4d37e635978ffb99b59983d23036cc2bbd448a642f25bb0fadc51e3f2dd2db67",
+      "bytes": 724,
+      "path": "raw/910/targeted-tmp/test_sandbox_preflight_collect0/sandbox-inputs/spec/sandbox-preflight/receipt.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_sandbox_preflight_collect0/sandbox-inputs/spec/sandbox-preflight/request-admissions.jsonl",
+      "sha256": "894c16f86097bfd54c6c768c065d872b5881682eaa2cb2e7861fd76f8879ac7e",
+      "bytes": 2081,
+      "path": "raw/910/targeted-tmp/test_sandbox_preflight_collect0/sandbox-inputs/spec/sandbox-preflight/request-admissions.jsonl",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_sandbox_preflight_collect1/sandbox-inputs/quality/sandbox-preflight/commands/001-write/output.log",
+      "sha256": "2f4a9292d870c30d80902b541d58cc4037c0a387337f1404bb18f0ef557bf5d1",
+      "bytes": 181,
+      "path": "raw/910/targeted-tmp/test_sandbox_preflight_collect1/sandbox-inputs/quality/sandbox-preflight/commands/001-write/output.log.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_sandbox_preflight_collect1/sandbox-inputs/quality/sandbox-preflight/commands/001-write/request.json",
+      "sha256": "30c11cf184e64ca466c01c619ea7602863c45c64c2ce5b6658476839e0c3211b",
+      "bytes": 2572,
+      "path": "raw/910/targeted-tmp/test_sandbox_preflight_collect1/sandbox-inputs/quality/sandbox-preflight/commands/001-write/request.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_sandbox_preflight_collect1/sandbox-inputs/quality/sandbox-preflight/commands/001-write/result.json",
+      "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+      "bytes": 14,
+      "path": "raw/910/targeted-tmp/test_sandbox_preflight_collect1/sandbox-inputs/quality/sandbox-preflight/commands/001-write/result.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_sandbox_preflight_collect1/sandbox-inputs/quality/sandbox-preflight/commands/002-read/output.log",
+      "sha256": "688d418df8852cd83ab2a9692942d9d93f6e427a5dbfcf8282bf4a743479e7e5",
+      "bytes": 2314,
+      "path": "raw/910/targeted-tmp/test_sandbox_preflight_collect1/sandbox-inputs/quality/sandbox-preflight/commands/002-read/output.log.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_sandbox_preflight_collect1/sandbox-inputs/quality/sandbox-preflight/commands/002-read/request.json",
+      "sha256": "f67056d677aa2f39b999dae42f87447f2ea7e0a1e154d827e9ac153928c6418a",
+      "bytes": 211,
+      "path": "raw/910/targeted-tmp/test_sandbox_preflight_collect1/sandbox-inputs/quality/sandbox-preflight/commands/002-read/request.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_sandbox_preflight_collect1/sandbox-inputs/quality/sandbox-preflight/commands/002-read/result.json",
+      "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+      "bytes": 14,
+      "path": "raw/910/targeted-tmp/test_sandbox_preflight_collect1/sandbox-inputs/quality/sandbox-preflight/commands/002-read/result.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_sandbox_preflight_collect1/sandbox-inputs/quality/sandbox-preflight/commands/003-bash/output.log",
+      "sha256": "92e8d6e667d6be88a6f095660f0577d9d67e847d7cbef5c824a9d4c68402e1e0",
+      "bytes": 65,
+      "path": "raw/910/targeted-tmp/test_sandbox_preflight_collect1/sandbox-inputs/quality/sandbox-preflight/commands/003-bash/output.log.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_sandbox_preflight_collect1/sandbox-inputs/quality/sandbox-preflight/commands/003-bash/request.json",
+      "sha256": "41067873111ce85be45ce6ece0cb78e936062d681bb83a43acc046684ac0ff5a",
+      "bytes": 276,
+      "path": "raw/910/targeted-tmp/test_sandbox_preflight_collect1/sandbox-inputs/quality/sandbox-preflight/commands/003-bash/request.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_sandbox_preflight_collect1/sandbox-inputs/quality/sandbox-preflight/commands/003-bash/result.json",
+      "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+      "bytes": 14,
+      "path": "raw/910/targeted-tmp/test_sandbox_preflight_collect1/sandbox-inputs/quality/sandbox-preflight/commands/003-bash/result.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_sandbox_preflight_collect1/sandbox-inputs/quality/sandbox-preflight/commands/004-bash/output.log",
+      "sha256": "858baded872702f277edf16aadf992959b0f1885f57a5a125ba39432ef95995c",
+      "bytes": 10130,
+      "path": "raw/910/targeted-tmp/test_sandbox_preflight_collect1/sandbox-inputs/quality/sandbox-preflight/commands/004-bash/output.log.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_sandbox_preflight_collect1/sandbox-inputs/quality/sandbox-preflight/commands/004-bash/request.json",
+      "sha256": "1bc79e4f11fa0decceaddfe70f1b47c1ce754812ecfff7585640e7572f8ce098",
+      "bytes": 286,
+      "path": "raw/910/targeted-tmp/test_sandbox_preflight_collect1/sandbox-inputs/quality/sandbox-preflight/commands/004-bash/request.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_sandbox_preflight_collect1/sandbox-inputs/quality/sandbox-preflight/commands/004-bash/result.json",
+      "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+      "bytes": 14,
+      "path": "raw/910/targeted-tmp/test_sandbox_preflight_collect1/sandbox-inputs/quality/sandbox-preflight/commands/004-bash/result.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_sandbox_preflight_collect1/sandbox-inputs/quality/sandbox-preflight/commands/005-read/output.log",
+      "sha256": "1388e3e64bf7c45d5e94a06e2f95b9cb003194f50c103498cd577399be5b6f3a",
+      "bytes": 1005,
+      "path": "raw/910/targeted-tmp/test_sandbox_preflight_collect1/sandbox-inputs/quality/sandbox-preflight/commands/005-read/output.log.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_sandbox_preflight_collect1/sandbox-inputs/quality/sandbox-preflight/commands/005-read/request.json",
+      "sha256": "358a70d55635d2606211c8532c1f2bba6599b909a9f94ecd783602421700de36",
+      "bytes": 135,
+      "path": "raw/910/targeted-tmp/test_sandbox_preflight_collect1/sandbox-inputs/quality/sandbox-preflight/commands/005-read/request.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_sandbox_preflight_collect1/sandbox-inputs/quality/sandbox-preflight/commands/005-read/result.json",
+      "sha256": "d67659d29dad50e65ac903e33dc7ef4a692331d96253553956300d1fcfa5786a",
+      "bytes": 14,
+      "path": "raw/910/targeted-tmp/test_sandbox_preflight_collect1/sandbox-inputs/quality/sandbox-preflight/commands/005-read/result.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_sandbox_preflight_collect1/sandbox-inputs/quality/sandbox-preflight/commands/006-write/output.log",
+      "sha256": "d6862a44c3366ff05e44f7e1d214d7df731c977141c3905a13f27cc6cce1b5c0",
+      "bytes": 322,
+      "path": "raw/910/targeted-tmp/test_sandbox_preflight_collect1/sandbox-inputs/quality/sandbox-preflight/commands/006-write/output.log.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_sandbox_preflight_collect1/sandbox-inputs/quality/sandbox-preflight/commands/006-write/request.json",
+      "sha256": "408599d1e009c2fd08169d258bb7661aaa1b489edb2ef8440c2c106fe5ba0a6f",
+      "bytes": 213,
+      "path": "raw/910/targeted-tmp/test_sandbox_preflight_collect1/sandbox-inputs/quality/sandbox-preflight/commands/006-write/request.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_sandbox_preflight_collect1/sandbox-inputs/quality/sandbox-preflight/commands/006-write/result.json",
+      "sha256": "d67659d29dad50e65ac903e33dc7ef4a692331d96253553956300d1fcfa5786a",
+      "bytes": 14,
+      "path": "raw/910/targeted-tmp/test_sandbox_preflight_collect1/sandbox-inputs/quality/sandbox-preflight/commands/006-write/result.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_sandbox_preflight_collect1/sandbox-inputs/quality/sandbox-preflight/commands/007-write/output.log",
+      "sha256": "d6862a44c3366ff05e44f7e1d214d7df731c977141c3905a13f27cc6cce1b5c0",
+      "bytes": 322,
+      "path": "raw/910/targeted-tmp/test_sandbox_preflight_collect1/sandbox-inputs/quality/sandbox-preflight/commands/007-write/output.log.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_sandbox_preflight_collect1/sandbox-inputs/quality/sandbox-preflight/commands/007-write/request.json",
+      "sha256": "5521a48dce8938cd3aa66e024d01362e5fb960d89f15152e1d429c5bc47d340d",
+      "bytes": 217,
+      "path": "raw/910/targeted-tmp/test_sandbox_preflight_collect1/sandbox-inputs/quality/sandbox-preflight/commands/007-write/request.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_sandbox_preflight_collect1/sandbox-inputs/quality/sandbox-preflight/commands/007-write/result.json",
+      "sha256": "d67659d29dad50e65ac903e33dc7ef4a692331d96253553956300d1fcfa5786a",
+      "bytes": 14,
+      "path": "raw/910/targeted-tmp/test_sandbox_preflight_collect1/sandbox-inputs/quality/sandbox-preflight/commands/007-write/result.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_sandbox_preflight_collect1/sandbox-inputs/quality/sandbox-preflight/commands/008-write/output.log",
+      "sha256": "74750817a9d3a3f520f324cb13c618f109e9b47f0db005793add078c3e10b1c6",
+      "bytes": 182,
+      "path": "raw/910/targeted-tmp/test_sandbox_preflight_collect1/sandbox-inputs/quality/sandbox-preflight/commands/008-write/output.log.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_sandbox_preflight_collect1/sandbox-inputs/quality/sandbox-preflight/commands/008-write/request.json",
+      "sha256": "b6c62791cf69d42fa7c5748b5e41114f1592dabbcb5745258e1cba506fe5bb14",
+      "bytes": 272,
+      "path": "raw/910/targeted-tmp/test_sandbox_preflight_collect1/sandbox-inputs/quality/sandbox-preflight/commands/008-write/request.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_sandbox_preflight_collect1/sandbox-inputs/quality/sandbox-preflight/commands/008-write/result.json",
+      "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+      "bytes": 14,
+      "path": "raw/910/targeted-tmp/test_sandbox_preflight_collect1/sandbox-inputs/quality/sandbox-preflight/commands/008-write/result.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_sandbox_preflight_collect1/sandbox-inputs/quality/sandbox-preflight/commands/009-bash/output.log",
+      "sha256": "55b5842b96627ddf306ecd13d95b1f56618b59f7031fd1ae036fd1a748e390c5",
+      "bytes": 344,
+      "path": "raw/910/targeted-tmp/test_sandbox_preflight_collect1/sandbox-inputs/quality/sandbox-preflight/commands/009-bash/output.log.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_sandbox_preflight_collect1/sandbox-inputs/quality/sandbox-preflight/commands/009-bash/request.json",
+      "sha256": "920b9c8a60f9ea54ab945d2549644ffde57f1d80f843961e18660f2336e38223",
+      "bytes": 286,
+      "path": "raw/910/targeted-tmp/test_sandbox_preflight_collect1/sandbox-inputs/quality/sandbox-preflight/commands/009-bash/request.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_sandbox_preflight_collect1/sandbox-inputs/quality/sandbox-preflight/commands/009-bash/result.json",
+      "sha256": "d67659d29dad50e65ac903e33dc7ef4a692331d96253553956300d1fcfa5786a",
+      "bytes": 14,
+      "path": "raw/910/targeted-tmp/test_sandbox_preflight_collect1/sandbox-inputs/quality/sandbox-preflight/commands/009-bash/result.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_sandbox_preflight_collect1/sandbox-inputs/quality/sandbox-preflight/controller-stop.json",
+      "sha256": "d9d25bae4808b77154b6800b100689ae531ca8f69f1c61361aa9ec5d6e7a2c8c",
+      "bytes": 84,
+      "path": "raw/910/targeted-tmp/test_sandbox_preflight_collect1/sandbox-inputs/quality/sandbox-preflight/controller-stop.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_sandbox_preflight_collect1/sandbox-inputs/quality/sandbox-preflight/credential.json",
+      "sha256": "b46713067dc85095e0e8e14b21fd04f2c24dd1805c5a8c2332c47d0061a55a9c",
+      "bytes": 292,
+      "path": "raw/910/targeted-tmp/test_sandbox_preflight_collect1/sandbox-inputs/quality/sandbox-preflight/credential.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_sandbox_preflight_collect1/sandbox-inputs/quality/sandbox-preflight/payload-shapes.jsonl",
+      "sha256": "212bb1e2e0df44585b45653612c4c8759bf53cde4ed16884018e9945ce9a2812",
+      "bytes": 2592,
+      "path": "raw/910/targeted-tmp/test_sandbox_preflight_collect1/sandbox-inputs/quality/sandbox-preflight/payload-shapes.jsonl",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_sandbox_preflight_collect1/sandbox-inputs/quality/sandbox-preflight/receipt.json",
+      "sha256": "4d37e635978ffb99b59983d23036cc2bbd448a642f25bb0fadc51e3f2dd2db67",
+      "bytes": 724,
+      "path": "raw/910/targeted-tmp/test_sandbox_preflight_collect1/sandbox-inputs/quality/sandbox-preflight/receipt.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_sandbox_preflight_collect1/sandbox-inputs/quality/sandbox-preflight/request-admissions.jsonl",
+      "sha256": "836521a7717d1e8e7237b33ef3f2638c1c2be6923087f9b5f1cb942ec90c9b4d",
+      "bytes": 2081,
+      "path": "raw/910/targeted-tmp/test_sandbox_preflight_collect1/sandbox-inputs/quality/sandbox-preflight/request-admissions.jsonl",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted.admission.json",
+      "sha256": "f3a70088d458c91c47184e0e1ba35cf6830a41f017753cb008bdf98aaa298517",
+      "bytes": 3867,
+      "path": "raw/910/targeted.admission.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted.log",
+      "sha256": "b1c30cf20c96cbbad3d4a523cf42b445a78be10dc7041f12bc8d749ee4d35e6c",
+      "bytes": 1202,
+      "path": "raw/910/targeted.log.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted.process.json",
+      "sha256": "2ce31f250fc95674c178c40fe2507b9e2a13901872cb9fc2c153283b115c1c8a",
+      "bytes": 1026,
+      "path": "raw/910/targeted.process.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted.xml",
+      "sha256": "26d55d24758e6292100d6235f05a8b43fb652ef8b4347880cea57f0af8da40a4",
+      "bytes": 10297,
+      "path": "raw/910/targeted.xml",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/audit_results.py",
+      "sha256": "f7f8a7b38af57c90c6b1e791406224e679352aea9687a20b794234fff4bb6ff3",
+      "bytes": 5748,
+      "path": "raw/audit_results.py.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/audited-results.json",
+      "sha256": "ac5cb125a807c1845ad0bb578202ccd294cf1e95ed1ece75dbb49c8e002c9803",
+      "bytes": 16116,
+      "path": "raw/audited-results.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/continuation-context.json",
+      "sha256": "3a95bdad7ac771b1912c91b1f74eb8aac2f413e26e22e97815dd0c9f111fabcc",
+      "bytes": 1140,
+      "path": "raw/continuation-context.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/continue_remaining.py",
+      "sha256": "51152537b218a7add653aadf0697a25fd215e977864ee16a3cafba8352ac0368",
+      "bytes": 7388,
+      "path": "raw/continue_remaining.py.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/remaining-01/910/prior-targeted-receipt-check.log",
+      "sha256": "53d3cfbaba87faf834c614e1111220ce5705e7a0083929129f8ec2de2e80aaf2",
+      "bytes": 1820,
+      "path": "raw/remaining-01/910/prior-targeted-receipt-check.log.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/remaining-01/910/prior-targeted-receipt-check.process.json",
+      "sha256": "875ff46fb5c19afa2708f91237ad1f43fbccb92a4698acce4c9fc904aba62811",
+      "bytes": 1099,
+      "path": "raw/remaining-01/910/prior-targeted-receipt-check.process.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/remaining-01/summary.json",
+      "sha256": "f6f0a3b9db5a3197ef35a642a55a36f0849e69fdd8c7feb0045f1948c2ca3d27",
+      "bytes": 3377,
+      "path": "raw/remaining-01/summary.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/remaining-supervisor.log",
+      "sha256": "0e176c8fe975ee6051831b4cbd9f1483eea13f95bbe1937ed4b5f5f822563732",
+      "bytes": 694,
+      "path": "raw/remaining-supervisor.log.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/run_gates.py",
+      "sha256": "5d5cf2ef43003b136da341b6d49763c48b8a8ae8b2ab7531f8cea4c9431d6668",
+      "bytes": 8071,
+      "path": "raw/run_gates.py.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/seal_results.py",
+      "sha256": "92535edcc08d80a5890fbe870305845a80838c515a3afdac3c13b44e7ff6da48",
+      "bytes": 3840,
+      "path": "raw/seal_results.py.txt",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/started.json",
+      "sha256": "588dade6832ee74ae3cd4fb4d03ec0bb7953b4fdf58301dfb5711c3f7cb96a12",
+      "bytes": 178,
+      "path": "raw/started.json",
+      "storage": "git-original"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/supervisor.log",
+      "sha256": "ca209d36a7229c058721a375dd387c95ca438b681b9ab5c934d15429d09d72b0",
+      "bytes": 2051,
+      "path": "raw/supervisor.log.txt",
+      "storage": "git-original"
+    }
+  ],
+  "scope": "per-candidate engineering originals; common audit files explicitly identify both PRs",
+  "independent_review": false,
+  "paid_model_requests": 0,
+  "excluded": "disposable fixtures except selected nested author evidence; previous-run receipts"
+}

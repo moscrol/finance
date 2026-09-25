@@ -1,0 +1,63 @@
+{
+  "pr": "911",
+  "tree": "/Users/a77/fwp-wt-pr911-main-0925",
+  "revision": "1a61be4e74e162ebae39d29723d343a2ebdbdfd9",
+  "tree_oid": "d6452e07b3b0d0ffe7276650bc4f9c296236b71d",
+  "baseline": "643a2888ea14079035bc8b080129e3e4145d5685",
+  "observed_main": "72402839075e3eefdee7b185db015a0545096b22",
+  "main_drift_paths": [
+    "docs/handoffs/2026-09-25-l6-batch2-and-judge-effort.md",
+    "docs/handoffs/inflight/feat-adaptive-research-loop.md",
+    "docs/superpowers/specs/2026-09-01-workorders-INDEX.md"
+  ],
+  "python": "/Users/a77/fwp-wt-pi-research/.venv-workbench/bin/python",
+  "dependency_fingerprint": "66726d345bf37ce5",
+  "steps": [
+    {
+      "label": "doctor",
+      "exit": 0,
+      "status": "completed"
+    },
+    {
+      "label": "ruff",
+      "exit": 0,
+      "status": "completed"
+    },
+    {
+      "label": "registry-parse",
+      "exit": 0,
+      "status": "completed"
+    },
+    {
+      "label": "registry-check",
+      "exit": 0,
+      "status": "completed"
+    },
+    {
+      "label": "registry-tables",
+      "exit": 0,
+      "status": "completed"
+    },
+    {
+      "label": "registry-views",
+      "exit": 0,
+      "status": "completed"
+    },
+    {
+      "label": "ledger-crosswalk",
+      "exit": 0,
+      "status": "completed"
+    },
+    {
+      "label": "diff-check",
+      "exit": 0,
+      "status": "completed"
+    }
+  ],
+  "paid_model_requests": 0,
+  "independent_review": false,
+  "status": "STOPPED_INCOMPLETE",
+  "active_step": "targeted",
+  "error": "KeyboardInterrupt: owned supervisor received signal 15",
+  "finished_at": "2026-09-25T10:38:35.249053+00:00"
+}

@@ -1,0 +1,62 @@
+[
+  {
+    "admitted": false,
+    "foreign_pytest": [
+      {
+        "pid": 56350,
+        "pgid": 56318,
+        "command": "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -u -m pytest -q -p no:cacheprovider -o tmp_path_retention_policy=failed --basetemp=/Users/a77/.finance-runtime/reviews/pr813-ready-main724-0925/python-temp --junitxml=/Users/a77/.finance-runtime/reviews/pr813-ready-main724-0925/pytest.xml --durations=20"
+      }
+    ],
+    "disk_free_bytes": 48854466560,
+    "minimum_free_bytes": 21474836480,
+    "excluded_groups": [],
+    "scope": "point-in-time; all detected pytest processes, not just full suites; no reservation",
+    "observed_at": "2026-09-25T10:36:56.977698+00:00"
+  },
+  {
+    "admitted": false,
+    "foreign_pytest": [
+      {
+        "pid": 56350,
+        "pgid": 56318,
+        "command": "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -u -m pytest -q -p no:cacheprovider -o tmp_path_retention_policy=failed --basetemp=/Users/a77/.finance-runtime/reviews/pr813-ready-main724-0925/python-temp --junitxml=/Users/a77/.finance-runtime/reviews/pr813-ready-main724-0925/pytest.xml --durations=20"
+      }
+    ],
+    "disk_free_bytes": 48854298624,
+    "minimum_free_bytes": 21474836480,
+    "excluded_groups": [],
+    "scope": "point-in-time; all detected pytest processes, not just full suites; no reservation",
+    "observed_at": "2026-09-25T10:37:27.005280+00:00"
+  },
+  {
+    "admitted": false,
+    "foreign_pytest": [
+      {
+        "pid": 56350,
+        "pgid": 56318,
+        "command": "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -u -m pytest -q -p no:cacheprovider -o tmp_path_retention_policy=failed --basetemp=/Users/a77/.finance-runtime/reviews/pr813-ready-main724-0925/python-temp --junitxml=/Users/a77/.finance-runtime/reviews/pr813-ready-main724-0925/pytest.xml --durations=20"
+      }
+    ],
+    "disk_free_bytes": 48854470656,
+    "minimum_free_bytes": 21474836480,
+    "excluded_groups": [],
+    "scope": "point-in-time; all detected pytest processes, not just full suites; no reservation",
+    "observed_at": "2026-09-25T10:37:57.074111+00:00"
+  },
+  {
+    "admitted": false,
+    "foreign_pytest": [
+      {
+        "pid": 56350,
+        "pgid": 56318,
+        "command": "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -u -m pytest -q -p no:cacheprovider -o tmp_path_retention_policy=failed --basetemp=/Users/a77/.finance-runtime/reviews/pr813-ready-main724-0925/python-temp --junitxml=/Users/a77/.finance-runtime/reviews/pr813-ready-main724-0925/pytest.xml --durations=20"
+      }
+    ],
+    "disk_free_bytes": 49712914432,
+    "minimum_free_bytes": 21474836480,
+    "excluded_groups": [],
+    "scope": "point-in-time; all detected pytest processes, not just full suites; no reservation",
+    "observed_at": "2026-09-25T10:38:27.106586+00:00"
+  }
+]

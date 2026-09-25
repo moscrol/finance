@@ -1,0 +1,177 @@
+[
+  {
+    "scenario": "judge_late_report",
+    "timeout_input_seconds": 0.8,
+    "wall_elapsed_seconds": 0.8028772498946637,
+    "request_count": 1,
+    "attempts": [
+      {
+        "timeout_seconds": 0.7989297499880195,
+        "phase": "headers",
+        "events": [
+          {
+            "event": "spawn_started",
+            "elapsed_ms": 0
+          },
+          {
+            "event": "spawned",
+            "elapsed_ms": 2
+          },
+          {
+            "event": "request_sent",
+            "elapsed_ms": 2
+          },
+          {
+            "event": "headers",
+            "elapsed_ms": 47,
+            "status": 200
+          },
+          {
+            "event": "closed",
+            "elapsed_ms": 801,
+            "returncode": 124,
+            "reap_ms": 1
+          }
+        ],
+        "status": 200,
+        "headers_ms": 47,
+        "returncode": 124,
+        "reap_ms": 1,
+        "elapsed_ms": 801
+      }
+    ],
+    "remaining_root_seconds": 8.797010334208608,
+    "final_timeout_asked": 0.0,
+    "final_attempt_index": 1,
+    "final_exc_class": null,
+    "final_issue": "semantic judge window exhausted by prior attempt",
+    "report_received": false,
+    "unavailable": true,
+    "last_dispatched_failure": {
+      "judge_attempt_index": 0,
+      "timeout_asked": 0.8,
+      "remaining_seconds_at_entry": 9.599955167155713,
+      "issue": "semantic judge transient provider error",
+      "exc_class": "LLMDeadlineExceeded",
+      "http_status": null
+    },
+    "records": [
+      {
+        "caller": "chat",
+        "elapsed_ms": 801,
+        "status": "failed",
+        "reason": "timeout",
+        "purpose": "judge"
+      }
+    ]
+  },
+  {
+    "scenario": "judge_window_stalls",
+    "timeout_input_seconds": 0.8,
+    "wall_elapsed_seconds": 0.8044156669639051,
+    "request_count": 2,
+    "attempts": [
+      {
+        "timeout_seconds": 0.39999683294445276,
+        "phase": "request_sent",
+        "events": [
+          {
+            "event": "spawn_started",
+            "elapsed_ms": 0
+          },
+          {
+            "event": "spawned",
+            "elapsed_ms": 2
+          },
+          {
+            "event": "request_sent",
+            "elapsed_ms": 2
+          },
+          {
+            "event": "closed",
+            "elapsed_ms": 404,
+            "returncode": 124,
+            "reap_ms": 0
+          }
+        ],
+        "returncode": 124,
+        "reap_ms": 0,
+        "elapsed_ms": 404
+      },
+      {
+        "timeout_seconds": 0.3956303757149726,
+        "phase": "request_sent",
+        "events": [
+          {
+            "event": "spawn_started",
+            "elapsed_ms": 0
+          },
+          {
+            "event": "spawned",
+            "elapsed_ms": 2
+          },
+          {
+            "event": "request_sent",
+            "elapsed_ms": 2
+          },
+          {
+            "event": "closed",
+            "elapsed_ms": 399,
+            "returncode": -9,
+            "reap_ms": 1
+          }
+        ],
+        "returncode": -9,
+        "reap_ms": 1,
+        "elapsed_ms": 399
+      }
+    ],
+    "remaining_root_seconds": 8.79544937517494,
+    "final_timeout_asked": 0.0,
+    "final_attempt_index": 2,
+    "final_exc_class": null,
+    "final_issue": "semantic judge window exhausted by prior attempt",
+    "report_received": false,
+    "unavailable": true,
+    "last_dispatched_failure": {
+      "judge_attempt_index": 1,
+      "timeout_asked": 0.395635041827336,
+      "remaining_seconds_at_entry": 9.195578875020146,
+      "issue": "semantic judge transient provider error",
+      "exc_class": "LLMDeadlineExceeded",
+      "http_status": null
+    },
+    "records": [
+      {
+        "caller": "chat",
+        "elapsed_ms": 404,
+        "status": "failed",
+        "reason": "timeout",
+        "purpose": "judge"
+      },
+      {
+        "caller": "chat",
+        "elapsed_ms": 400,
+        "status": "failed",
+        "reason": "timeout",
+        "purpose": "judge"
+      }
+    ]
+  },
+  {
+    "scenario": "judge_root_expired",
+    "timeout_input_seconds": 0.0,
+    "wall_elapsed_seconds": 2.095801755785942e-05,
+    "request_count": 0,
+    "attempts": [],
+    "remaining_root_seconds": 0.0,
+    "final_timeout_asked": 0.0,
+    "final_attempt_index": null,
+    "final_exc_class": null,
+    "final_issue": "semantic judge deadline exhausted",
+    "report_received": false,
+    "unavailable": true,
+    "last_dispatched_failure": null,
+    "records": []
+  }
+]

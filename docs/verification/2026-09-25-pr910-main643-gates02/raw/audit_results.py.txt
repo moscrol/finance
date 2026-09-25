@@ -1,0 +1,107 @@
+"""Summarize exact receipts and nested author checks without transferring verdicts."""
+from datetime import datetime, timezone
+import hashlib
+import json
+from pathlib import Path
+import subprocess
+import xml.etree.ElementTree as ET
+
+ROOT = Path(__file__).resolve().parent
+REVISIONS = {'910': 'd300cb305abae97360a82cb932968bf37164be9e',
+             '911': '1a61be4e74e162ebae39d29723d343a2ebdbdfd9'}
+BASE = '643a2888ea14079035bc8b080129e3e4145d5685'
+
+
+def load(path):
+    return json.loads(path.read_text())
+
+
+def file_identity(path):
+    raw = path.read_bytes()
+    return {'path': str(path), 'sha256': hashlib.sha256(raw).hexdigest(), 'bytes': len(raw)}
+
+
+def junit(path):
+    cases = list(ET.parse(path).getroot().iter('testcase'))
+    return {**file_identity(path), 'total': len(cases),
+            'failures': sum(c.find('failure') is not None for c in cases),
+            'errors': sum(c.find('error') is not None for c in cases),
+            'skipped': [c.attrib for c in cases if c.find('skipped') is not None]}
+
+
+report = {'observed_at': datetime.now(timezone.utc).isoformat(), 'baseline': BASE,
+          'revisions': REVISIONS, 'independent_review': False, 'candidates': {}}
+for pr, revision in REVISIONS.items():
+    tree = Path(f'/Users/a77/fwp-wt-pr{pr}-main-0925')
+    row = {'current_head': subprocess.check_output(['git', '-C', str(tree), 'rev-parse', 'HEAD'], text=True).strip(),
+           'current_status': subprocess.check_output(['git', '-C', str(tree), 'status', '--porcelain'], text=True),
+           'receipts': [], 'frontend': []}
+    assert row['current_head'] == revision and not row['current_status']
+    for out in (ROOT / pr, ROOT / 'remaining-01' / pr):
+        receipts = list((out / 'receipts').glob('gate-*/pytest.json'))
+        if (out / 'targeted-receipt.json').is_file():
+            receipts.append(out / 'targeted-receipt.json')
+        for path in receipts:
+            data = load(path)
+            assert data['revision'] == revision and not data['dirty']
+            assert data['dependency_fingerprint'] == '66726d345bf37ce5'
+            assert data['exit_status'] == 0 and data['counts']['failed'] == data['counts']['error'] == 0
+            xml = out / ('targeted.xml' if path.name == 'targeted-receipt.json' else 'full.xml')
+            parsed = junit(xml)
+            assert parsed['total'] == sum(data['counts'].values()) == data['scope']['collected']
+            assert parsed['failures'] == parsed['errors'] == 0
+            row['receipts'].append({**file_identity(path), 'data': data, 'junit': parsed})
+        front = out / 'frontend/frontend.json'
+        if front.is_file():
+            data = load(front)
+            assert data['revision'] == revision
+            assert data['complete'] and data['identity_stable'] and not data['dirty'] and data['exit_code'] == 0
+            assert len(data['checks']) == 6
+            for check in data['checks']:
+                raw = (front.parent / check['log']).read_bytes()
+                assert check['exit_code'] == 0
+                assert hashlib.sha256(raw).hexdigest() == check['log_sha256']
+                assert len(raw) == check['log_bytes']
+            row['frontend'].append({**file_identity(front), 'data': data})
+    report['candidates'][pr] = row
+inner = []
+for xml in sorted((ROOT / '910/targeted-tmp').glob('test_real_author_checks_execut[0-9]*/sandbox-inputs/*/work/author-checks.xml')):
+    parsed = junit(xml)
+    assert parsed['total'] in (3, 66) and parsed['failures'] == parsed['errors'] == 0 and not parsed['skipped']
+    row = {'axis': xml.parent.parent.name, 'claim': 'C3' if parsed['total'] == 3 else 'C7', 'junit': parsed}
+    if row['claim'] == 'C3':
+        observations = load(xml.with_name('author-ports.json'))
+        late = next(item for item in observations if item['scenario'] == 'judge_late_report')
+        assert late['report_received'] is False and late['unavailable'] is True and late['request_count'] == 1
+        assert late['last_dispatched_failure']['exc_class'] == 'LLMDeadlineExceeded'
+        row['observations'] = observations
+    inner.append(row)
+assert sorted((row['axis'], row['claim']) for row in inner) == [
+    ('quality', 'C3'), ('quality', 'C7'), ('spec', 'C3'), ('spec', 'C7')]
+report['nested_910_author_checks'] = inner
+report['nested_counts_are_not_added_to_outer_totals'] = True
+remaining = load(ROOT / 'remaining-01/summary.json')
+assert remaining['status'] != 'RUNNING'
+report['continuation_status'] = remaining['status']
+report['remaining_admission_wait_seconds'] = remaining['remaining_admission_wait_seconds']
+admission = ROOT / 'remaining-01/911/targeted.admission.json'
+if admission.is_file():
+    samples = load(admission)
+    report['continuation_911_admission'] = {
+        **file_identity(admission), 'samples': len(samples),
+        'first_observed_at': samples[0]['observed_at'],
+        'last_observed_at': samples[-1]['observed_at'],
+        'ever_admitted': any(sample['admitted'] for sample in samples),
+        'observed_foreign_pids': sorted({row['pid'] for sample in samples for row in sample['foreign_pytest']}),
+    }
+report['started_dynamic_steps'] = {
+    pr: sorted(str(path.relative_to(ROOT)) for out in (ROOT / pr, ROOT / 'remaining-01' / pr)
+               for label in ('targeted', 'frontend', 'python-full')
+               if (path := out / f'{label}.process.json').is_file())
+    for pr in REVISIONS
+}
+path = ROOT / 'audited-results.json'
+assert not path.exists(), 'audit artifacts are write-once'
+path.write_text(json.dumps(report, ensure_ascii=False, indent=2) + '\n')
+print(json.dumps({'result': str(path), 'pr_receipts': {pr: len(row['receipts']) for pr, row in report['candidates'].items()},
+                  'nested_author_suites': len(inner)}))

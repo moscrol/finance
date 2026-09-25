@@ -1,0 +1,508 @@
+{
+  "observed_at": "2026-09-25T11:11:22.875713+00:00",
+  "baseline": "643a2888ea14079035bc8b080129e3e4145d5685",
+  "revisions": {
+    "910": "d300cb305abae97360a82cb932968bf37164be9e",
+    "911": "1a61be4e74e162ebae39d29723d343a2ebdbdfd9"
+  },
+  "independent_review": false,
+  "candidates": {
+    "910": {
+      "current_head": "d300cb305abae97360a82cb932968bf37164be9e",
+      "current_status": "",
+      "receipts": [
+        {
+          "path": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-receipt.json",
+          "sha256": "ba6a46912e2bbcde8f96d478d52e37273e6446affe32951f3c049fc36c3b5a57",
+          "bytes": 841,
+          "data": {
+            "interpreter": "/Users/a77/fwp-wt-pi-research/.venv-workbench/bin/python",
+            "python_version": "3.12.13",
+            "dependency_fingerprint": "66726d345bf37ce5",
+            "tree": "/Users/a77/fwp-wt-pr910-main-0925",
+            "revision": "d300cb305abae97360a82cb932968bf37164be9e",
+            "branch": "fix/pr910-main-0925",
+            "dirty": false,
+            "dirty_paths": [],
+            "worktree_dirty_total": 0,
+            "dependency_gate_bypassed": false,
+            "target": "tests/test_pi_review_repair.py",
+            "scope": {
+              "ignore": [],
+              "ignore_glob": [],
+              "deselect": [],
+              "keyword": "",
+              "markexpr": "",
+              "maxfail": 0,
+              "last_failed": false,
+              "collected": 74
+            },
+            "counts": {
+              "passed": 74,
+              "failed": 0,
+              "error": 0,
+              "skipped": 0,
+              "xfailed": 0,
+              "xpassed": 0
+            },
+            "failed_ids": [],
+            "exit_status": 0,
+            "finished_at": "2026-09-25T10:36:53+00:00"
+          },
+          "junit": {
+            "path": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted.xml",
+            "sha256": "26d55d24758e6292100d6235f05a8b43fb652ef8b4347880cea57f0af8da40a4",
+            "bytes": 10297,
+            "total": 74,
+            "failures": 0,
+            "errors": 0,
+            "skipped": []
+          }
+        }
+      ],
+      "frontend": []
+    },
+    "911": {
+      "current_head": "1a61be4e74e162ebae39d29723d343a2ebdbdfd9",
+      "current_status": "",
+      "receipts": [],
+      "frontend": []
+    }
+  },
+  "nested_910_author_checks": [
+    {
+      "axis": "spec",
+      "claim": "C3",
+      "junit": {
+        "path": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_real_author_checks_execut0/sandbox-inputs/spec/work/author-checks.xml",
+        "sha256": "e47a8c11e5621de3fe5a172d858e12d7121f4e8e1f7c98d876b3ccf80c1a32e9",
+        "bytes": 691,
+        "total": 3,
+        "failures": 0,
+        "errors": 0,
+        "skipped": []
+      },
+      "observations": [
+        {
+          "scenario": "judge_late_report",
+          "timeout_input_seconds": 0.8,
+          "wall_elapsed_seconds": 0.802139415871352,
+          "request_count": 1,
+          "attempts": [
+            {
+              "timeout_seconds": 0.7986775839235634,
+              "phase": "headers",
+              "events": [
+                {
+                  "event": "spawn_started",
+                  "elapsed_ms": 0
+                },
+                {
+                  "event": "spawned",
+                  "elapsed_ms": 2
+                },
+                {
+                  "event": "request_sent",
+                  "elapsed_ms": 2
+                },
+                {
+                  "event": "headers",
+                  "elapsed_ms": 48,
+                  "status": 200
+                },
+                {
+                  "event": "closed",
+                  "elapsed_ms": 800,
+                  "returncode": 124,
+                  "reap_ms": 0
+                }
+              ],
+              "status": 200,
+              "headers_ms": 48,
+              "returncode": 124,
+              "reap_ms": 0,
+              "elapsed_ms": 800
+            }
+          ],
+          "remaining_root_seconds": 8.797732041915879,
+          "final_timeout_asked": 0.0,
+          "final_attempt_index": 1,
+          "final_exc_class": null,
+          "final_issue": "semantic judge window exhausted by prior attempt",
+          "report_received": false,
+          "unavailable": true,
+          "last_dispatched_failure": {
+            "judge_attempt_index": 0,
+            "timeout_asked": 0.8,
+            "remaining_seconds_at_entry": 9.599945833906531,
+            "issue": "semantic judge transient provider error",
+            "exc_class": "LLMDeadlineExceeded",
+            "http_status": null
+          },
+          "records": [
+            {
+              "caller": "chat",
+              "elapsed_ms": 800,
+              "status": "failed",
+              "reason": "timeout",
+              "purpose": "judge"
+            }
+          ]
+        },
+        {
+          "scenario": "judge_window_stalls",
+          "timeout_input_seconds": 0.8,
+          "wall_elapsed_seconds": 0.8040023341309279,
+          "request_count": 2,
+          "attempts": [
+            {
+              "timeout_seconds": 0.39999391697347164,
+              "phase": "request_sent",
+              "events": [
+                {
+                  "event": "spawn_started",
+                  "elapsed_ms": 0
+                },
+                {
+                  "event": "spawned",
+                  "elapsed_ms": 2
+                },
+                {
+                  "event": "request_sent",
+                  "elapsed_ms": 2
+                },
+                {
+                  "event": "closed",
+                  "elapsed_ms": 404,
+                  "returncode": -9,
+                  "reap_ms": 1
+                }
+              ],
+              "returncode": -9,
+              "reap_ms": 1,
+              "elapsed_ms": 404
+            },
+            {
+              "timeout_seconds": 0.3954542081337422,
+              "phase": "request_sent",
+              "events": [
+                {
+                  "event": "spawn_started",
+                  "elapsed_ms": 0
+                },
+                {
+                  "event": "spawned",
+                  "elapsed_ms": 2
+                },
+                {
+                  "event": "request_sent",
+                  "elapsed_ms": 3
+                },
+                {
+                  "event": "closed",
+                  "elapsed_ms": 399,
+                  "returncode": 124,
+                  "reap_ms": 0
+                }
+              ],
+              "returncode": 124,
+              "reap_ms": 0,
+              "elapsed_ms": 399
+            }
+          ],
+          "remaining_root_seconds": 8.795855291187763,
+          "final_timeout_asked": 0.0,
+          "final_attempt_index": 2,
+          "final_exc_class": null,
+          "final_issue": "semantic judge window exhausted by prior attempt",
+          "report_received": false,
+          "unavailable": true,
+          "last_dispatched_failure": {
+            "judge_attempt_index": 1,
+            "timeout_asked": 0.3954646670725197,
+            "remaining_seconds_at_entry": 9.195395125076175,
+            "issue": "semantic judge transient provider error",
+            "exc_class": "LLMDeadlineExceeded",
+            "http_status": null
+          },
+          "records": [
+            {
+              "caller": "chat",
+              "elapsed_ms": 404,
+              "status": "failed",
+              "reason": "timeout",
+              "purpose": "judge"
+            },
+            {
+              "caller": "chat",
+              "elapsed_ms": 399,
+              "status": "failed",
+              "reason": "timeout",
+              "purpose": "judge"
+            }
+          ]
+        },
+        {
+          "scenario": "judge_root_expired",
+          "timeout_input_seconds": 0.0,
+          "wall_elapsed_seconds": 1.787487417459488e-05,
+          "request_count": 0,
+          "attempts": [],
+          "remaining_root_seconds": 0.0,
+          "final_timeout_asked": 0.0,
+          "final_attempt_index": null,
+          "final_exc_class": null,
+          "final_issue": "semantic judge deadline exhausted",
+          "report_received": false,
+          "unavailable": true,
+          "last_dispatched_failure": null,
+          "records": []
+        }
+      ]
+    },
+    {
+      "axis": "quality",
+      "claim": "C3",
+      "junit": {
+        "path": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_real_author_checks_execut1/sandbox-inputs/quality/work/author-checks.xml",
+        "sha256": "a721e70cc6a9779da411e6f64ffc28e9554a2cfe088d24b287deda67474da67b",
+        "bytes": 691,
+        "total": 3,
+        "failures": 0,
+        "errors": 0,
+        "skipped": []
+      },
+      "observations": [
+        {
+          "scenario": "judge_late_report",
+          "timeout_input_seconds": 0.8,
+          "wall_elapsed_seconds": 0.8028772498946637,
+          "request_count": 1,
+          "attempts": [
+            {
+              "timeout_seconds": 0.7989297499880195,
+              "phase": "headers",
+              "events": [
+                {
+                  "event": "spawn_started",
+                  "elapsed_ms": 0
+                },
+                {
+                  "event": "spawned",
+                  "elapsed_ms": 2
+                },
+                {
+                  "event": "request_sent",
+                  "elapsed_ms": 2
+                },
+                {
+                  "event": "headers",
+                  "elapsed_ms": 47,
+                  "status": 200
+                },
+                {
+                  "event": "closed",
+                  "elapsed_ms": 801,
+                  "returncode": 124,
+                  "reap_ms": 1
+                }
+              ],
+              "status": 200,
+              "headers_ms": 47,
+              "returncode": 124,
+              "reap_ms": 1,
+              "elapsed_ms": 801
+            }
+          ],
+          "remaining_root_seconds": 8.797010334208608,
+          "final_timeout_asked": 0.0,
+          "final_attempt_index": 1,
+          "final_exc_class": null,
+          "final_issue": "semantic judge window exhausted by prior attempt",
+          "report_received": false,
+          "unavailable": true,
+          "last_dispatched_failure": {
+            "judge_attempt_index": 0,
+            "timeout_asked": 0.8,
+            "remaining_seconds_at_entry": 9.599955167155713,
+            "issue": "semantic judge transient provider error",
+            "exc_class": "LLMDeadlineExceeded",
+            "http_status": null
+          },
+          "records": [
+            {
+              "caller": "chat",
+              "elapsed_ms": 801,
+              "status": "failed",
+              "reason": "timeout",
+              "purpose": "judge"
+            }
+          ]
+        },
+        {
+          "scenario": "judge_window_stalls",
+          "timeout_input_seconds": 0.8,
+          "wall_elapsed_seconds": 0.8044156669639051,
+          "request_count": 2,
+          "attempts": [
+            {
+              "timeout_seconds": 0.39999683294445276,
+              "phase": "request_sent",
+              "events": [
+                {
+                  "event": "spawn_started",
+                  "elapsed_ms": 0
+                },
+                {
+                  "event": "spawned",
+                  "elapsed_ms": 2
+                },
+                {
+                  "event": "request_sent",
+                  "elapsed_ms": 2
+                },
+                {
+                  "event": "closed",
+                  "elapsed_ms": 404,
+                  "returncode": 124,
+                  "reap_ms": 0
+                }
+              ],
+              "returncode": 124,
+              "reap_ms": 0,
+              "elapsed_ms": 404
+            },
+            {
+              "timeout_seconds": 0.3956303757149726,
+              "phase": "request_sent",
+              "events": [
+                {
+                  "event": "spawn_started",
+                  "elapsed_ms": 0
+                },
+                {
+                  "event": "spawned",
+                  "elapsed_ms": 2
+                },
+                {
+                  "event": "request_sent",
+                  "elapsed_ms": 2
+                },
+                {
+                  "event": "closed",
+                  "elapsed_ms": 399,
+                  "returncode": -9,
+                  "reap_ms": 1
+                }
+              ],
+              "returncode": -9,
+              "reap_ms": 1,
+              "elapsed_ms": 399
+            }
+          ],
+          "remaining_root_seconds": 8.79544937517494,
+          "final_timeout_asked": 0.0,
+          "final_attempt_index": 2,
+          "final_exc_class": null,
+          "final_issue": "semantic judge window exhausted by prior attempt",
+          "report_received": false,
+          "unavailable": true,
+          "last_dispatched_failure": {
+            "judge_attempt_index": 1,
+            "timeout_asked": 0.395635041827336,
+            "remaining_seconds_at_entry": 9.195578875020146,
+            "issue": "semantic judge transient provider error",
+            "exc_class": "LLMDeadlineExceeded",
+            "http_status": null
+          },
+          "records": [
+            {
+              "caller": "chat",
+              "elapsed_ms": 404,
+              "status": "failed",
+              "reason": "timeout",
+              "purpose": "judge"
+            },
+            {
+              "caller": "chat",
+              "elapsed_ms": 400,
+              "status": "failed",
+              "reason": "timeout",
+              "purpose": "judge"
+            }
+          ]
+        },
+        {
+          "scenario": "judge_root_expired",
+          "timeout_input_seconds": 0.0,
+          "wall_elapsed_seconds": 2.095801755785942e-05,
+          "request_count": 0,
+          "attempts": [],
+          "remaining_root_seconds": 0.0,
+          "final_timeout_asked": 0.0,
+          "final_attempt_index": null,
+          "final_exc_class": null,
+          "final_issue": "semantic judge deadline exhausted",
+          "report_received": false,
+          "unavailable": true,
+          "last_dispatched_failure": null,
+          "records": []
+        }
+      ]
+    },
+    {
+      "axis": "spec",
+      "claim": "C7",
+      "junit": {
+        "path": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_real_author_checks_execut2/sandbox-inputs/spec/work/author-checks.xml",
+        "sha256": "cf11e2ffdd58df6943680840c52ac6d8556ff8399ddfd53d56dec84fac97df49",
+        "bytes": 8887,
+        "total": 66,
+        "failures": 0,
+        "errors": 0,
+        "skipped": []
+      }
+    },
+    {
+      "axis": "quality",
+      "claim": "C7",
+      "junit": {
+        "path": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/targeted-tmp/test_real_author_checks_execut3/sandbox-inputs/quality/work/author-checks.xml",
+        "sha256": "fcf54e35e9b5eb67c90eb88e9e1c28e7d8ce17f6612166a2359c0c9a0e070662",
+        "bytes": 8887,
+        "total": 66,
+        "failures": 0,
+        "errors": 0,
+        "skipped": []
+      }
+    }
+  ],
+  "nested_counts_are_not_added_to_outer_totals": true,
+  "continuation_status": "STOPPED_INCOMPLETE",
+  "remaining_admission_wait_seconds": 0,
+  "continuation_911_admission": {
+    "path": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/remaining-01/911/targeted.admission.json",
+    "sha256": "717e3a67d5ab06e2034c914fc1f2ca32e6434c63f589c5fe0f8d2c93515f58b5",
+    "bytes": 74428,
+    "samples": 61,
+    "first_observed_at": "2026-09-25T10:40:24.199298+00:00",
+    "last_observed_at": "2026-09-25T11:10:27.386757+00:00",
+    "ever_admitted": false,
+    "observed_foreign_pids": [
+      15769,
+      28228,
+      56350,
+      68145,
+      69258,
+      74058,
+      75627,
+      79380
+    ]
+  },
+  "started_dynamic_steps": {
+    "910": [
+      "910/targeted.process.json"
+    ],
+    "911": []
+  }
+}

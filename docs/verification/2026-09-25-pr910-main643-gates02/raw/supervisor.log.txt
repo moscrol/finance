@@ -1,0 +1,27 @@
+{"pr": "910", "label": "doctor", "exit": 0, "status": "completed"}
+{"pr": "910", "label": "ruff", "exit": 0, "status": "completed"}
+{"pr": "910", "label": "registry-parse", "exit": 0, "status": "completed"}
+{"pr": "910", "label": "registry-check", "exit": 0, "status": "completed"}
+{"pr": "910", "label": "registry-tables", "exit": 0, "status": "completed"}
+{"pr": "910", "label": "registry-views", "exit": 0, "status": "completed"}
+{"pr": "910", "label": "ledger-crosswalk", "exit": 0, "status": "completed"}
+{"pr": "910", "label": "diff-check", "exit": 0, "status": "completed"}
+{"pr": "910", "label": "targeted", "exit": 0, "status": "completed"}
+{"pr": "910", "label": "targeted-receipt-check", "exit": 0, "status": "completed"}
+{"pr": "911", "label": "doctor", "exit": 0, "status": "completed"}
+{"pr": "911", "label": "ruff", "exit": 0, "status": "completed"}
+{"pr": "911", "label": "registry-parse", "exit": 0, "status": "completed"}
+{"pr": "911", "label": "registry-check", "exit": 0, "status": "completed"}
+{"pr": "911", "label": "registry-tables", "exit": 0, "status": "completed"}
+{"pr": "911", "label": "registry-views", "exit": 0, "status": "completed"}
+{"pr": "911", "label": "ledger-crosswalk", "exit": 0, "status": "completed"}
+{"pr": "911", "label": "diff-check", "exit": 0, "status": "completed"}
+Traceback (most recent call last):
+  File "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/run_gates.py", line 129, in <module>
+    if not step(pr, 'targeted', [PY, '-B', '-m', 'pytest', '-q', '-p', 'no:cacheprovider',
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/run_gates.py", line 82, in step
+    time.sleep(min(30, max(0, until - time.monotonic())))
+  File "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/run_gates.py", line 45, in interrupted
+    raise KeyboardInterrupt(f'owned supervisor received signal {signum}')
+KeyboardInterrupt: owned supervisor received signal 15

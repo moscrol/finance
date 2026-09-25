@@ -1,0 +1,134 @@
+{
+  "pid": 68375,
+  "started_at": "2026-09-25T10:40:23.288633+00:00",
+  "script_sha256": "51152537b218a7add653aadf0697a25fd215e977864ee16a3cafba8352ac0368",
+  "revisions": {
+    "910": "d300cb305abae97360a82cb932968bf37164be9e",
+    "911": "1a61be4e74e162ebae39d29723d343a2ebdbdfd9"
+  },
+  "baseline": "643a2888ea14079035bc8b080129e3e4145d5685",
+  "python": "/Users/a77/fwp-wt-pi-research/.venv-workbench/bin/python",
+  "dependency_fingerprint": "66726d345bf37ce5",
+  "paid_model_requests": 0,
+  "independent_review": false,
+  "steps": [
+    {
+      "pr": "910",
+      "label": "prior-targeted-receipt-check",
+      "exit": 0,
+      "status": "completed"
+    }
+  ],
+  "status": "STOPPED_INCOMPLETE",
+  "remaining_admission_wait_seconds": 0,
+  "prior": {
+    "910": {
+      "path": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/910/summary.json",
+      "sha256": "0b1b784ed095d5149fd32ea266bdad8281439f8a3a03f20605e069449a517819",
+      "steps": [
+        {
+          "label": "doctor",
+          "exit": 0,
+          "status": "completed"
+        },
+        {
+          "label": "ruff",
+          "exit": 0,
+          "status": "completed"
+        },
+        {
+          "label": "registry-parse",
+          "exit": 0,
+          "status": "completed"
+        },
+        {
+          "label": "registry-check",
+          "exit": 0,
+          "status": "completed"
+        },
+        {
+          "label": "registry-tables",
+          "exit": 0,
+          "status": "completed"
+        },
+        {
+          "label": "registry-views",
+          "exit": 0,
+          "status": "completed"
+        },
+        {
+          "label": "ledger-crosswalk",
+          "exit": 0,
+          "status": "completed"
+        },
+        {
+          "label": "diff-check",
+          "exit": 0,
+          "status": "completed"
+        },
+        {
+          "label": "targeted",
+          "exit": 0,
+          "status": "completed"
+        },
+        {
+          "label": "targeted-receipt-check",
+          "exit": 0,
+          "status": "completed"
+        }
+      ]
+    },
+    "911": {
+      "path": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-02/911/summary.json",
+      "sha256": "c7e6b9be2a28d47357f176b4883e974f6e616afd49103f2cc3d15b07b99fdebd",
+      "steps": [
+        {
+          "label": "doctor",
+          "exit": 0,
+          "status": "completed"
+        },
+        {
+          "label": "ruff",
+          "exit": 0,
+          "status": "completed"
+        },
+        {
+          "label": "registry-parse",
+          "exit": 0,
+          "status": "completed"
+        },
+        {
+          "label": "registry-check",
+          "exit": 0,
+          "status": "completed"
+        },
+        {
+          "label": "registry-tables",
+          "exit": 0,
+          "status": "completed"
+        },
+        {
+          "label": "registry-views",
+          "exit": 0,
+          "status": "completed"
+        },
+        {
+          "label": "ledger-crosswalk",
+          "exit": 0,
+          "status": "completed"
+        },
+        {
+          "label": "diff-check",
+          "exit": 0,
+          "status": "completed"
+        }
+      ]
+    }
+  },
+  "active_step": {
+    "pr": "911",
+    "label": "targeted"
+  },
+  "error": "RuntimeError: admission wait budget exhausted before 911/targeted",
+  "finished_at": "2026-09-25T11:10:27.388069+00:00"
+}
