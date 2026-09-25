@@ -117,21 +117,25 @@ def sample_context(*, timeout: float, home: Path | None = None) -> dict:
     references, errors = [], []
     try:
         proc = subprocess.run(
-            ["lsof", "-nP", "-S", "2", "-w", "-d", "^mem", "-Fpcfn"],
+            ["lsof", "-nP", "-S", "2", "-w", "-d", "^mem", "-Fpcftn"],
             capture_output=True, text=True, timeout=timeout,
         )
         if proc.returncode:
             errors.append("lsof 采样失败; process usage unknown")
         else:
-            pid = command = fd = "?"
+            pid = command = fd = kind = "?"
             for record in proc.stdout.splitlines():
                 if record.startswith("p"):
-                    pid, command, fd = record[1:], "?", "?"
+                    pid, command, fd, kind = record[1:], "?", "?", "?"
                 elif record.startswith("c"):
                     command = record[1:]
                 elif record.startswith("f"):
-                    fd = record[1:]
+                    fd, kind = record[1:], "?"
+                elif record.startswith("t"):
+                    kind = record[1:]
                 elif record.startswith("n/"):
+                    if _is_directory_watch(fd, kind):
+                        continue
                     references.append({"kind": "process", "path": os.path.realpath(record[1:]),
                                        "source": f"pid={pid} {command} fd={fd}"})
     except (OSError, subprocess.SubprocessError) as exc:
@@ -189,9 +193,27 @@ def context_blockers(path: str, context: dict) -> list[str]:
     return sorted(set(blockers))
 
 
+def _is_directory_watch(fd: str, kind: str) -> bool:
+    """A numbered descriptor on a DIR is a file watcher (Claude Code / editors hold thousands),
+    not usage of the tree. cwd/rtd/txt and every regular file still count."""
+    return kind == "DIR" and fd.isdigit()
+
+
+# Regenerable build/test caches. Anything else that is ignored (evidence DBs, users/, snapshots)
+# still blocks: the tool must not decide on the user's behalf that data is disposable.
+CACHE_IGNORED = frozenset({"__pycache__", ".pytest_cache", ".ruff_cache", ".mypy_cache",
+                           "node_modules", ".DS_Store"})
+
+
+def is_cache_path(path: str) -> bool:
+    parts = path.rstrip("/").split("/")
+    return any(part in CACHE_IGNORED or part.endswith(".pyc") or part.startswith(".venv")
+               for part in parts)
+
+
 def file_blockers(state: dict) -> list[str]:
     return ([f"未提交: {path}" for path in state["paths"]]
-            + [f"ignored 内容: {path}" for path in state["ignored"]])
+            + [f"ignored 内容: {path}" for path in state["ignored"] if not is_cache_path(path)])
 
 
 def main(argv: list[str] | None = None) -> int:
