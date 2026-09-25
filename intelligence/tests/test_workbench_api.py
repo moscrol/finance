@@ -676,11 +676,17 @@ def test_production_continuous_adapter_shares_provider_client_across_gates(
     assert adapter._repair_seconds_cap == repair_seconds_cap_for("zhipu")
 
 
-def _glm_thinking_adapter(monkeypatch, tmp_path: Path, *, model: str, effort: str | None):
+def _glm_thinking_adapter(
+    monkeypatch, tmp_path: Path, *, model: str, effort: str | None, effort_by_model: str | None = None
+):
     if effort is None:
         monkeypatch.delenv("LLM_REASONING_EFFORT", raising=False)
     else:
         monkeypatch.setenv("LLM_REASONING_EFFORT", effort)
+    if effort_by_model is None:
+        monkeypatch.delenv("LLM_REASONING_EFFORT_BY_MODEL", raising=False)
+    else:
+        monkeypatch.setenv("LLM_REASONING_EFFORT_BY_MODEL", effort_by_model)
     monkeypatch.delenv("ASK_SYNTHESIS_RESERVE_FLOOR", raising=False)
     providers = (
         app_module.LLMProvider(
@@ -750,6 +756,29 @@ def test_continuous_adapter_keeps_tier_reserve_for_sol_and_non_thinking_glm(
         glm_unset._synthesis_reserve_for_task(tier="standard", question_type="market_cause")
         == 75.0
     )
+
+
+def test_continuous_adapter_budgets_read_the_per_model_effort_like_the_payload(
+    monkeypatch, tmp_path: Path
+) -> None:
+    """按模型设的推理档必须同时进请求体与时限表：链首命中 max 就取 240 / 200 的地板；
+    只给判官设低档时写手链首不命中，预算逐字节同前（与全局未设一致）。"""
+
+    head_max = _glm_thinking_adapter(
+        monkeypatch, tmp_path, model="glm-5.3-flash", effort=None, effort_by_model="glm-5.3-flash:max"
+    )
+    assert head_max._synthesis_reserve_for_task(tier="max", question_type="theme_analysis") == 240.0
+    assert head_max._repair_seconds_cap == 200.0
+
+    judge_only = _glm_thinking_adapter(
+        monkeypatch, tmp_path, model="glm-5.3", effort=None, effort_by_model="glm-5.3-flash:low"
+    )
+    unset = _glm_thinking_adapter(monkeypatch, tmp_path, model="glm-5.3", effort=None)
+    for tier, question_type in (("max", "theme_analysis"), ("standard", "market_cause")):
+        assert judge_only._synthesis_reserve_for_task(
+            tier=tier, question_type=question_type
+        ) == unset._synthesis_reserve_for_task(tier=tier, question_type=question_type)
+    assert judge_only._repair_seconds_cap == unset._repair_seconds_cap
 
 
 def test_production_adapter_composes_sdk_glm_without_changing_verifier(
