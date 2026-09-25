@@ -1,0 +1,56 @@
+"""Preserve this batch's completed nested evidence before successful temp cleanup."""
+import hashlib
+import json
+from pathlib import Path
+import time
+import xml.etree.ElementTree as ET
+
+ROOT = Path(__file__).parent / 'attempt02'
+OUT = ROOT / 'inner-author'
+OUT.mkdir(exist_ok=False)
+saved = {}
+started = time.monotonic()
+while time.monotonic() - started < 2400:
+    files = (ROOT / 'python-tmp').glob('*/sandbox-inputs/*/work/author-checks.xml')
+    for source in sorted({p.resolve() for p in files}):
+        try:
+            data = source.read_bytes()
+            cases = list(ET.fromstring(data).iter('testcase'))
+            if not cases:
+                continue
+            claim = 'c7' if all('test_main_gate_receipt' in c.get('classname', '') for c in cases) else 'c3'
+            axis = source.parents[1].name
+            assert axis in {'spec', 'quality'}
+            name = f'{axis}-{claim}'
+            if name in saved:
+                continue
+            fields = source.with_name('author-ports.json')
+            observations = fields.read_bytes() if claim == 'c3' else None
+            if observations is not None:
+                json.loads(observations)
+        except (OSError, ET.ParseError, json.JSONDecodeError):
+            continue
+        target = OUT / (name + '.xml')
+        with target.open('xb') as stream:
+            stream.write(data)
+        if observations is not None:
+            with (OUT / (name + '-fields.json')).open('xb') as stream:
+                stream.write(observations)
+        saved[name] = {'source': str(source), 'sha256': hashlib.sha256(data).hexdigest(),
+                       'cases': len(cases), 'failed': sum(c.find('failure') is not None for c in cases),
+                       'errors': sum(c.find('error') is not None for c in cases),
+                       'skipped': sum(c.find('skipped') is not None for c in cases)}
+    if len(saved) == 4:
+        break
+    state = json.loads((ROOT / 'engineering.json').read_text())
+    if state['status'] != 'running':
+        break
+    time.sleep(2)
+manifest = {'candidate': 'fb41cebdaa6a186c14bd402f0f2dd83705f64421',
+            'role': 'nested_author_checks_not_independent_review_not_additive',
+            'complete': len(saved) == 4, 'artifacts': saved}
+with (OUT / 'manifest.json').open('x') as stream:
+    json.dump(manifest, stream, indent=2)
+    stream.write('\n')
+print(json.dumps(manifest), flush=True)
+raise SystemExit(0 if manifest['complete'] else 1)

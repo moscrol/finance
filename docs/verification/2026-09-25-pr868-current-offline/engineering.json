@@ -1,0 +1,64 @@
+{
+  "candidate": "fb41cebdaa6a186c14bd402f0f2dd83705f64421",
+  "baseline": "fe9fdbfd70a637efc5bcf0cfecf74080a8d6a90c",
+  "tree": "/Users/a77/fwp-wt-pr868-current-0925",
+  "python": "/Users/a77/fwp-wt-pi-research/.venv-workbench/bin/python",
+  "started_at": "2026-09-25T01:50:44.762190+00:00",
+  "steps": [
+    {
+      "label": "c3-original",
+      "exit": 1,
+      "status": "completed",
+      "expected_exit": 1,
+      "accepted_for_scope": true
+    },
+    {
+      "label": "c3-corrected",
+      "exit": 1,
+      "status": "completed",
+      "expected_exit": 0,
+      "accepted_for_scope": false
+    }
+  ],
+  "admissions": [
+    {
+      "label": "c3-original",
+      "time": "2026-09-25T01:50:44.997699+00:00",
+      "load_1m": 7.1123046875,
+      "max_load": 8,
+      "free_gib": 67.73544311523438,
+      "min_free_gib": 20,
+      "identity_ok": true,
+      "ports": [],
+      "ports_free": true,
+      "admitted": true
+    },
+    {
+      "label": "c3-corrected",
+      "time": "2026-09-25T01:50:46.267708+00:00",
+      "load_1m": 7.1123046875,
+      "max_load": 8,
+      "free_gib": 67.72801971435547,
+      "min_free_gib": 20,
+      "identity_ok": true,
+      "ports": [],
+      "ports_free": true,
+      "admitted": true
+    }
+  ],
+  "status": "failed",
+  "scope": "offline_author_and_engineering_only",
+  "real_model_requests": 0,
+  "supervisor_pid": 30238,
+  "probe_sources": {
+    "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260925-c3c7/spec/work/probes/probe_c3_judge_window.py": "179f79c830df0afd4ba842cc6d78dc434daaed6004e2f98b0fe19b5efd8a6b5f",
+    "/Users/a77/.finance-runtime/reviews/pr868-current-20260925/c3-author/original.py": "179f79c830df0afd4ba842cc6d78dc434daaed6004e2f98b0fe19b5efd8a6b5f",
+    "/Users/a77/.finance-runtime/reviews/pr868-current-20260925/c3-author/corrected.py": "d23b42a0520166f0141f2ccdb9d74e5da9639211c96cb1af1f12181caf28f5ae",
+    "/Users/a77/.finance-runtime/reviews/pr868-current-20260925/c3-author/replay.py": "b7961f6a14356c98f1767c05b52697f22943b02f873d6b6556cadf1c813dcb77"
+  },
+  "failed_step": "c3-corrected",
+  "finished_at": "2026-09-25T01:50:47.945813+00:00",
+  "revision_after": "fb41cebdaa6a186c14bd402f0f2dd83705f64421",
+  "status_after": "",
+  "probe_sources_unchanged": true
+}

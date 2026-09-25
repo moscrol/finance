@@ -1,0 +1,218 @@
+{
+  "candidate": "fb41cebdaa6a186c14bd402f0f2dd83705f64421",
+  "baseline": "fe9fdbfd70a637efc5bcf0cfecf74080a8d6a90c",
+  "tree": "/Users/a77/fwp-wt-pr868-current-0925",
+  "python": "/Users/a77/fwp-wt-pi-research/.venv-workbench/bin/python",
+  "started_at": "2026-09-25T01:52:56.379311+00:00",
+  "steps": [
+    {
+      "label": "c3-original",
+      "exit": 1,
+      "status": "completed",
+      "expected_exit": 1,
+      "accepted_for_scope": true
+    },
+    {
+      "label": "c3-corrected",
+      "exit": 0,
+      "status": "completed",
+      "expected_exit": 0,
+      "accepted_for_scope": true
+    },
+    {
+      "label": "doctor",
+      "exit": 0,
+      "status": "completed",
+      "expected_exit": 0,
+      "accepted_for_scope": true
+    },
+    {
+      "label": "registry-parse",
+      "exit": 0,
+      "status": "completed",
+      "expected_exit": 0,
+      "accepted_for_scope": true
+    },
+    {
+      "label": "registry-check",
+      "exit": 0,
+      "status": "completed",
+      "expected_exit": 0,
+      "accepted_for_scope": true
+    },
+    {
+      "label": "registry-tables",
+      "exit": 0,
+      "status": "completed",
+      "expected_exit": 0,
+      "accepted_for_scope": true
+    },
+    {
+      "label": "registry-views",
+      "exit": 0,
+      "status": "completed",
+      "expected_exit": 0,
+      "accepted_for_scope": true
+    },
+    {
+      "label": "ledger-crosswalk",
+      "exit": 0,
+      "status": "completed",
+      "expected_exit": 0,
+      "accepted_for_scope": true
+    },
+    {
+      "label": "frontend",
+      "exit": 0,
+      "status": "completed",
+      "expected_exit": 0,
+      "accepted_for_scope": true
+    },
+    {
+      "label": "python",
+      "exit": 0,
+      "status": "completed",
+      "expected_exit": 0,
+      "accepted_for_scope": true
+    }
+  ],
+  "admissions": [
+    {
+      "label": "c3-original",
+      "time": "2026-09-25T01:52:57.076550+00:00",
+      "load_1m": 7.45703125,
+      "max_load": 8,
+      "free_gib": 66.79951095581055,
+      "min_free_gib": 20,
+      "identity_ok": true,
+      "ports": [],
+      "ports_free": true,
+      "admitted": true
+    },
+    {
+      "label": "c3-corrected",
+      "time": "2026-09-25T01:52:57.945313+00:00",
+      "load_1m": 7.45703125,
+      "max_load": 8,
+      "free_gib": 66.77798843383789,
+      "min_free_gib": 20,
+      "identity_ok": true,
+      "ports": [],
+      "ports_free": true,
+      "admitted": true
+    },
+    {
+      "label": "doctor",
+      "time": "2026-09-25T01:52:59.446171+00:00",
+      "load_1m": 7.42041015625,
+      "max_load": 8,
+      "free_gib": 66.7574577331543,
+      "min_free_gib": 20,
+      "identity_ok": true,
+      "ports": [],
+      "ports_free": true,
+      "admitted": true
+    },
+    {
+      "label": "registry-parse",
+      "time": "2026-09-25T01:53:00.415662+00:00",
+      "load_1m": 7.42041015625,
+      "max_load": 8,
+      "free_gib": 66.7569465637207,
+      "min_free_gib": 20,
+      "identity_ok": true,
+      "ports": [],
+      "ports_free": true,
+      "admitted": true
+    },
+    {
+      "label": "registry-check",
+      "time": "2026-09-25T01:53:00.662354+00:00",
+      "load_1m": 7.42041015625,
+      "max_load": 8,
+      "free_gib": 66.75677871704102,
+      "min_free_gib": 20,
+      "identity_ok": true,
+      "ports": [],
+      "ports_free": true,
+      "admitted": true
+    },
+    {
+      "label": "registry-tables",
+      "time": "2026-09-25T01:53:00.942316+00:00",
+      "load_1m": 7.42041015625,
+      "max_load": 8,
+      "free_gib": 66.75627517700195,
+      "min_free_gib": 20,
+      "identity_ok": true,
+      "ports": [],
+      "ports_free": true,
+      "admitted": true
+    },
+    {
+      "label": "registry-views",
+      "time": "2026-09-25T01:53:01.197246+00:00",
+      "load_1m": 7.42041015625,
+      "max_load": 8,
+      "free_gib": 67.75666046142578,
+      "min_free_gib": 20,
+      "identity_ok": true,
+      "ports": [],
+      "ports_free": true,
+      "admitted": true
+    },
+    {
+      "label": "ledger-crosswalk",
+      "time": "2026-09-25T01:53:01.396071+00:00",
+      "load_1m": 7.42041015625,
+      "max_load": 8,
+      "free_gib": 67.75648880004883,
+      "min_free_gib": 20,
+      "identity_ok": true,
+      "ports": [],
+      "ports_free": true,
+      "admitted": true
+    },
+    {
+      "label": "frontend",
+      "time": "2026-09-25T01:53:01.767896+00:00",
+      "load_1m": 7.42041015625,
+      "max_load": 8,
+      "free_gib": 67.75628280639648,
+      "min_free_gib": 20,
+      "identity_ok": true,
+      "ports": [
+        19981,
+        19984
+      ],
+      "ports_free": true,
+      "admitted": true
+    },
+    {
+      "label": "python",
+      "time": "2026-09-25T01:54:55.709417+00:00",
+      "load_1m": 7.4091796875,
+      "max_load": 8,
+      "free_gib": 69.90310287475586,
+      "min_free_gib": 20,
+      "identity_ok": true,
+      "ports": [],
+      "ports_free": true,
+      "admitted": true
+    }
+  ],
+  "status": "completed",
+  "scope": "offline_author_and_engineering_only",
+  "real_model_requests": 0,
+  "supervisor_pid": 32425,
+  "probe_sources": {
+    "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260925-c3c7/spec/work/probes/probe_c3_judge_window.py": "179f79c830df0afd4ba842cc6d78dc434daaed6004e2f98b0fe19b5efd8a6b5f",
+    "/Users/a77/.finance-runtime/reviews/pr868-current-20260925/attempt02/c3-author/original.py": "179f79c830df0afd4ba842cc6d78dc434daaed6004e2f98b0fe19b5efd8a6b5f",
+    "/Users/a77/.finance-runtime/reviews/pr868-current-20260925/attempt02/c3-author/corrected.py": "6a252d21467fb7e3d073fb96a41b0a1472dbaaf281a4e71c1d36c01cfa52262b",
+    "/Users/a77/.finance-runtime/reviews/pr868-current-20260925/attempt02/c3-author/replay.py": "fdf5d2d64b4566a09c0673b621565e725d6bb10d3562e625e08b18bac0994dfd"
+  },
+  "finished_at": "2026-09-25T02:24:59.215217+00:00",
+  "revision_after": "fb41cebdaa6a186c14bd402f0f2dd83705f64421",
+  "status_after": "",
+  "probe_sources_unchanged": true
+}

@@ -1,0 +1,119 @@
+"""Author-only C2/C4 integration check: current-main payload compatibility + deadlines.
+
+Real subprocess HTTP over isolated loopback fixtures from the candidate diagnostic.
+No paid model, production config, release verdict, or independent review evidence.
+"""
+from contextlib import contextmanager
+import json
+import os
+import threading
+import time
+from unittest import mock
+
+from scripts.review_probes import diagnose_llm_timeout as fixture
+
+llm = fixture.llm_refine
+NAMES = ('_post_chat', '_post_chat_synthesis', '_post_chat_message',
+         '_post_chat_message_stream', '_post_chat_stream_raw')
+MESSAGES = [{"role": "system", "content": "offline fixture"},
+            {"role": "user", "content": "offline fixture"}]
+TOOLS = [{"type": "function", "function": {"name": "noop", "parameters": {"type": "object"}}}]
+
+
+def run_case(name, mode):
+    streaming = name in NAMES[-2:]
+    endpoint = 'tools_stream_trickle' if streaming else ('fast' if mode == 'fast' else 'body_trickle')
+    fixture_budget = 0.02 if mode == 'fast' else 0.8
+    cancelled = threading.Event()
+    cancel_check = cancelled.is_set
+    cancelled_at = []
+    observed = []
+    deltas = []
+    timers = []
+    original = llm._open_deadline_http_response
+    shared = llm.Deadline.from_timeout(10.0 if mode == 'cancel' else 0.5)
+
+    @contextmanager
+    def observing_open(request, timeout, *, deadline=None, is_cancelled=None):
+        payload = json.loads(request.data)
+        observed.append({"timeout": timeout, "shared_identity": deadline is shared,
+                         "cancellation_identity": is_cancelled is cancel_check,
+                         "temperature_present": 'temperature' in payload,
+                         "tool_choice_present": 'tool_choice' in payload,
+                         "thinking": payload.get('thinking')})
+        with original(request, timeout, deadline=deadline, is_cancelled=is_cancelled) as response:
+            if mode == 'cancel':
+                def trigger():
+                    cancelled_at.append(time.monotonic())
+                    cancelled.set()
+                timer = threading.Timer(0.1, trigger)
+                timers.append(timer)
+                timer.start()
+            yield response
+
+    with fixture.local_endpoint(endpoint, fixture_budget) as (provider, requests, attempts):
+        with (mock.patch.dict(os.environ, {
+            'LLM_COMPAT_PAYLOAD': 'offline-model:temperature.omit+thinking.disabled+tool_choice.omit',
+        }), mock.patch.object(llm, '_open_deadline_http_response', observing_open),
+              llm.call_ledger_scope(max_calls=1, reuse_existing=False)):
+            shared = llm.Deadline.from_timeout(10.0 if mode == 'cancel' else 0.5)
+            started = time.monotonic()
+            error = None
+            result = None
+            try:
+                if name == '_post_chat':
+                    result = llm._post_chat(provider, MESSAGES, 10, temperature=0, deadline=shared)
+                elif name == '_post_chat_synthesis':
+                    result = llm._post_chat_synthesis(provider, MESSAGES, 10, 0, 300, 1000, deadline=shared)
+                elif name == '_post_chat_message':
+                    result = llm._post_chat_message(provider, MESSAGES, 10, temperature=0,
+                                                   tools=TOOLS, tool_choice='auto', deadline=shared)
+                elif name == '_post_chat_message_stream':
+                    result = llm._post_chat_message_stream(provider, MESSAGES, 10, 0, TOOLS, 'auto',
+                                                          False, deltas.append, cancel_check, deadline=shared)
+                else:
+                    result = llm._post_chat_stream_raw(provider, MESSAGES, 10, 0, deltas.append,
+                                                      None, cancel_check, shared, 300, 1000)
+            except Exception as exc:
+                error = type(exc).__name__
+            finally:
+                ended = time.monotonic()
+                for timer in timers:
+                    timer.cancel()
+                    timer.join()
+        case = {"call_site": name, "mode": mode, "elapsed": ended - started,
+                "error": error, "result_present": result is not None, "requests": len(requests),
+                "observed": observed, "attempts": attempts, "emitted_chars": sum(map(len, deltas)),
+                "cancelled": cancelled.is_set(),
+                "cancel_to_stop": ended - cancelled_at[0] if cancelled_at else None}
+    print(json.dumps(case), flush=True)
+    assert len(observed) == len(attempts) == len(requests) == 1, 'expected one real request'
+    assert observed[0]['shared_identity'] and observed[0]['timeout'] == 10, 'shared deadline not forwarded'
+    assert not observed[0]['temperature_present'] and not observed[0]['tool_choice_present'], 'compat omit missing'
+    assert observed[0]['thinking'] == {'type': 'disabled'}, 'compat thinking rewrite missing'
+    assert 'headers_ms' in attempts[0], 'target body phase not reached'
+    assert attempts[0]['events'][-1]['event'] == 'closed', 'transport did not close'
+    if streaming:
+        assert observed[0]['cancellation_identity'], 'cancellation not forwarded'
+        assert deltas, 'stream never yielded content'
+    if mode == 'fast':
+        assert error is None and result is not None, 'timely positive control failed'
+        assert case['elapsed'] <= 0.7, 'positive control overran shared deadline tolerance'
+    elif mode == 'deadline':
+        assert error in {'LLMDeadlineExceeded', 'LLMStreamAlreadyEmitted'}, 'wrong failure class'
+        assert result is None and case['elapsed'] <= 0.7, 'shared deadline not enforced'
+    else:
+        assert cancelled.is_set() and case['cancel_to_stop'] is not None, 'cancel trigger missing'
+        assert error in {'LLMStreamCancelled', 'LLMStreamAlreadyEmitted'}, 'wrong cancel failure class'
+        assert result is None and case['cancel_to_stop'] < 0.7 and case['elapsed'] < 1, 'cancel not enforced'
+
+
+failures = []
+for name in NAMES:
+    for mode in ('fast', 'deadline', *(['cancel'] if name in NAMES[-2:] else [])):
+        try:
+            run_case(name, mode)
+        except Exception as exc:
+            failures.append({"call_site": name, "mode": mode, "error": f"{type(exc).__name__}: {exc}"})
+print(json.dumps({"subcases": 12, "failures": failures, "role": "author_not_independent"}), flush=True)
+raise SystemExit(1 if failures else 0)

@@ -1,0 +1,170 @@
+"""C3 probe (reviewer-authored): late semantic judge payload vs 0.8s window + timely control.
+
+Contract pinned: SemanticEpisodeVerifier(judge_timeout=...)._run_judge_once(request_dict, deadline)
+returns a _JudgeCall whose report/unavailable/issue/exc_class fields, the call_ledger_scope
+records (status/reason) and ResearchDeadline.remaining() must together show:
+ - late body (trickled ~2.9s past a 0.8s window): failed/timeout, report_received=False,
+   unavailable=True, payload not accepted, root remaining reflects elapsed wall clock;
+ - timely answer: report received, unavailable=False.
+
+Own local fake judge endpoint on allowed TCP 26001-26008. Positive control (timely)
+plus protective failure (late). Prints one JSON line per case and a summary line.
+"""
+from __future__ import annotations
+
+import json
+import os
+import sys
+import threading
+import time
+from contextlib import contextmanager
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from unittest import mock
+
+from intelligence.services import episode_semantic_verifier as semantic
+from intelligence.services import llm_refine
+from intelligence.services.research_contract import ResearchDeadline, ResearchPolicy
+
+BUDGET = 0.8
+REPORT = '{"passed":true,"rejected_sentence_indexes":[],"issues":[]}'
+BODY = json.dumps({
+    "id": "rev-judge-fixture", "model": "rev-model",
+    "choices": [{"message": {"content": REPORT}, "finish_reason": "stop"}],
+}).encode()
+_OK_STATES = {"success", "ok", "passed"}
+
+
+@contextmanager
+def fake_judge(mode: str):
+    stop = threading.Event()
+    seen: list[float] = []
+    events: list[str] = []
+
+    class Handler(BaseHTTPRequestHandler):
+        def log_message(self, *_a):
+            pass
+
+        def do_POST(self):  # noqa: N802
+            self.rfile.read(int(self.headers["Content-Length"]))
+            seen.append(time.monotonic())
+            try:
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(BODY)))
+                self.end_headers()
+            except OSError:
+                return
+            if mode == "timely":
+                self.wfile.write(BODY)
+                return
+            # Late case: ~10 pieces spaced ~0.29s -> ~2.9s total body time.
+            width = max(1, len(BODY) // 10)
+            pieces = [BODY[i:i + width] for i in range(0, len(BODY), width)]
+            for index, piece in enumerate(pieces):
+                if index and stop.wait(0.29):
+                    return
+                try:
+                    self.wfile.write(piece)
+                    self.wfile.flush()
+                except OSError:
+                    return
+
+    server = None
+    for port in range(26001, 26009):
+        try:
+            server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
+            break
+        except OSError:
+            continue
+    if server is None:
+        raise RuntimeError("no allowed port in 26001-26008 free")
+    thread = threading.Thread(target=server.serve_forever, kwargs={"poll_interval": 0.02})
+    thread.start()
+    provider = llm_refine.LLMProvider(
+        "rev-judge", "fixture", f"http://127.0.0.1:{server.server_port}/v1", "rev-model")
+    real_opener = llm_refine.llm_http_transport.urlopen
+
+    def observe(event, **fields):
+        events.append(event)
+
+    def opener(request, timeout, **kwargs):
+        return real_opener(request, timeout, observer=observe, **kwargs)
+
+    try:
+        with llm_refine.http_transport_override(opener):
+            yield provider, seen, events
+    finally:
+        stop.set()
+        server.shutdown()
+        server.server_close()
+        thread.join()
+
+
+def run(mode: str) -> dict:
+    with fake_judge(mode) as (provider, seen, events):
+        verifier = semantic.SemanticEpisodeVerifier(judge_timeout=BUDGET)
+        verifier._active_policy = ResearchPolicy.for_tier("standard")
+        with (
+            mock.patch.object(llm_refine, "judge_provider_chain", return_value=(provider,)),
+            mock.patch.dict(os.environ, {"ASK_SEMANTIC_JUDGE_WINDOW": str(BUDGET)}),
+            llm_refine.call_ledger_scope(max_calls=3, reuse_existing=False) as ledger,
+        ):
+            deadline = ResearchDeadline.from_timeout(BUDGET * 12)
+            before = deadline.remaining()
+            started = time.monotonic()
+            call = verifier._run_judge_once({"sentences": []}, deadline)
+            elapsed = time.monotonic() - started
+            records = [{k: row.get(k) for k in ("status", "reason", "purpose")}
+                       for row in ledger.summary()["records"]]
+    return {
+        "mode": mode, "requests": len(seen), "events": list(events),
+        "elapsed_seconds": elapsed, "root_before": before, "root_after": deadline.remaining(),
+        "report_received": call.report is not None, "unavailable": call.unavailable,
+        "issue": call.issue, "exc_class": call.exc_class,
+        "last_dispatched_failure": call.last_dispatched_failure,
+        "timeout_asked": call.timeout_asked, "judge_attempt_index": call.judge_attempt_index,
+        "records": records,
+    }
+
+
+def main() -> int:
+    late = run("late")
+    timely = run("timely")
+    for case in (late, timely):
+        print(json.dumps({k: v for k, v in case.items() if k != "events"},
+                         ensure_ascii=False))
+    failures: list[str] = []
+    # --- late (protective failure) ---
+    if late["requests"] < 1:
+        failures.append("late: judge endpoint never received a request")
+    if "request_sent" not in late["events"] or "headers" not in late["events"]:
+        failures.append(f"late: body-read phase not reached, events={late['events']}")
+    if late["report_received"]:
+        failures.append("late: late payload was accepted (report is not None)")
+    if not late["unavailable"]:
+        failures.append("late: unavailable is not True")
+    if not (late["exc_class"] or late["issue"]):
+        failures.append("late: neither exc_class nor issue records the failure")
+    if late["elapsed_seconds"] > BUDGET + 0.6:
+        failures.append(f"late: wall time {late['elapsed_seconds']:.2f}s exceeded 0.8s budget")
+    if not late["records"]:
+        failures.append("late: call ledger has no record")
+    elif not any(row["status"] not in _OK_STATES for row in late["records"]):
+        failures.append(f"late: no failed ledger record: {late['records']}")
+    if late["root_after"] > late["root_before"] - 0.4:
+        failures.append(
+            f"late: root remaining {late['root_after']:.2f}s does not reflect elapsed wall clock "
+            f"(before {late['root_before']:.2f}s)")
+    # --- timely (positive control) ---
+    if timely["requests"] < 1:
+        failures.append("timely: judge endpoint never received a request")
+    if not timely["report_received"] or timely["unavailable"]:
+        failures.append("timely: report was not received / marked unavailable")
+    if timely["records"] and not any(row["status"] in _OK_STATES for row in timely["records"]):
+        failures.append(f"timely: no success ledger record: {timely['records']}")
+    print(json.dumps({"subcases": 2, "failures": failures}, ensure_ascii=False))
+    return 1 if failures else 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -1,0 +1,18 @@
+{
+  "read_at": "2026-09-25T02:19:19.801283+00:00",
+  "role": "other_session_old_candidate_not_transferred",
+  "files": {
+    "STATE.md": {
+      "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260925-c3/STATE.md",
+      "sha256": "024240e0f2a7bf0a613adf542056ff1b4db247c76b1dfdf3348f23d19e2d55c5"
+    },
+    "host-audit.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260925-c3/host-audit.json",
+      "sha256": "c55deff89c60b7802efef627e54411036c6a90979d9d877f87f18d319f8c81ef"
+    },
+    "spec/report/submission.json": {
+      "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260925-c3/spec/report/submission.json",
+      "sha256": "3e4dcff704179179715db208738eef11324356e4fcfd07e4778a3e76fef904c7"
+    }
+  }
+}

@@ -1,0 +1,97 @@
+{"label": "format-check", "command": ["git", "diff", "--check", "fe9fdbfd70a637efc5bcf0cfecf74080a8d6a90c", "fb41cebdaa6a186c14bd402f0f2dd83705f64421"], "cwd": "/Users/a77/fwp-wt-pr868-current-0925", "revision": "fb41cebdaa6a186c14bd402f0f2dd83705f64421", "started_at": "2026-09-25T02:03:27.584482+00:00", "timeout_seconds": 30, "status": "starting", "exit": null, "timed_out": false, "executed": null, "failures": null, "errors": null, "skipped": null, "failed_cases": [], "junit_status": "not_evaluated", "output_mode": "combined_stdout_stderr"}
+docs/verification/2026-09-23-adaptive-qc-glm/raw/spec/report/commands/015-bash/output.txt:2: trailing whitespace.
++001-bash => 
+docs/verification/2026-09-23-adaptive-qc-glm/raw/spec/report/commands/015-bash/output.txt:4: trailing whitespace.
++002-bash => 
+docs/verification/2026-09-23-adaptive-qc-glm/raw/spec/report/commands/015-bash/output.txt:6: trailing whitespace.
++003-bash => 
+docs/verification/2026-09-23-adaptive-qc-glm/raw/spec/report/commands/015-bash/output.txt:8: trailing whitespace.
++004-bash => 
+docs/verification/2026-09-23-adaptive-qc-glm/raw/spec/report/commands/015-bash/output.txt:10: trailing whitespace.
++005-read => 
+docs/verification/2026-09-23-adaptive-qc-glm/raw/spec/report/commands/015-bash/output.txt:12: trailing whitespace.
++006-bash => 
+docs/verification/2026-09-23-adaptive-qc-glm/raw/spec/report/commands/015-bash/output.txt:14: trailing whitespace.
++007-bash => 
+docs/verification/2026-09-23-adaptive-qc-glm/raw/spec/report/commands/015-bash/output.txt:16: trailing whitespace.
++008-bash => 
+docs/verification/2026-09-23-adaptive-qc-glm/raw/spec/report/commands/015-bash/output.txt:18: trailing whitespace.
++009-write => 
+docs/verification/2026-09-23-adaptive-qc-glm/raw/spec/report/commands/015-bash/output.txt:20: trailing whitespace.
++010-bash => 
+docs/verification/2026-09-23-adaptive-qc-glm/raw/spec/report/commands/015-bash/output.txt:22: trailing whitespace.
++011-bash => 
+docs/verification/2026-09-23-adaptive-qc-glm/raw/spec/report/commands/015-bash/output.txt:24: trailing whitespace.
++012-bash => 
+docs/verification/2026-09-23-adaptive-qc-glm/raw/spec/report/commands/015-bash/output.txt:26: trailing whitespace.
++013-write => 
+docs/verification/2026-09-23-adaptive-qc-glm/raw/spec/report/commands/015-bash/output.txt:28: trailing whitespace.
++014-bash => 
+docs/verification/2026-09-23-adaptive-qc-glm/raw/spec/report/commands/015-bash/output.txt:30: trailing whitespace.
++015-bash => 
+docs/verification/2026-09-23-adaptive-qc-glm/raw/spec/report/commands/015-bash/output.txt:32: trailing whitespace.
++016-bash => 
+docs/verification/2026-09-23-adaptive-qc-glm/raw/spec/report/commands/015-bash/output.txt:34: trailing whitespace.
++017-bash => 
+docs/verification/2026-09-23-adaptive-qc-glm/raw/spec/report/commands/015-bash/output.txt:36: trailing whitespace.
++018-bash => 
+docs/verification/2026-09-23-adaptive-qc-glm/raw/spec/report/commands/015-bash/output.txt:38: trailing whitespace.
++019-bash => 
+docs/verification/2026-09-23-adaptive-qc-glm/raw/spec/report/commands/015-bash/output.txt:40: trailing whitespace.
++020-write => 
+docs/verification/2026-09-23-adaptive-qc-glm/raw/spec/report/commands/015-bash/output.txt:42: trailing whitespace.
++021-bash => 
+docs/verification/2026-09-23-adaptive-qc-glm/raw/spec/report/commands/015-bash/output.txt:44: trailing whitespace.
++022-bash => 
+docs/verification/2026-09-23-adaptive-qc-glm/raw/spec/report/commands/015-bash/output.txt:46: trailing whitespace.
++023-write => 
+docs/verification/2026-09-23-adaptive-qc-glm/raw/spec/report/commands/017-bash/output.txt:12: trailing whitespace.
++BASH: cd /Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260923-1707/spec/work/probes && python3 - <<'EOF' ; import re ; p = "probe_c1_stream_deadline.py" ; s = open(p).read() ; s = s.replace('''        assert resp.process.poll() is 
+docs/verification/2026-09-23-admission-diagnostic/mutation-exit_zero_only.log.txt:17: trailing whitespace.
++    
+docs/verification/2026-09-23-admission-diagnostic/mutation-exit_zero_only.log.txt:21: trailing whitespace.
++    
+docs/verification/2026-09-23-admission-diagnostic/mutation-exit_zero_only.log.txt:42: trailing whitespace.
++    
+docs/verification/2026-09-23-admission-diagnostic/mutation-exit_zero_only.log.txt:46: trailing whitespace.
++    
+docs/verification/2026-09-23-admission-diagnostic/mutation-exit_zero_only.log.txt:67: trailing whitespace.
++    
+docs/verification/2026-09-23-admission-diagnostic/mutation-exit_zero_only.log.txt:71: trailing whitespace.
++    
+docs/verification/2026-09-23-admission-diagnostic/mutation-exit_zero_only.log.txt:92: trailing whitespace.
++    
+docs/verification/2026-09-23-admission-diagnostic/mutation-exit_zero_only.log.txt:96: trailing whitespace.
++    
+docs/verification/2026-09-23-admission-diagnostic/mutation-exit_zero_only.log.txt:117: trailing whitespace.
++    
+docs/verification/2026-09-23-admission-diagnostic/mutation-exit_zero_only.log.txt:121: trailing whitespace.
++    
+docs/verification/2026-09-23-admission-diagnostic/mutation-exit_zero_only.xml:13: trailing whitespace.
++    
+docs/verification/2026-09-23-admission-diagnostic/mutation-exit_zero_only.xml:17: trailing whitespace.
++    
+docs/verification/2026-09-23-admission-diagnostic/mutation-exit_zero_only.xml:35: trailing whitespace.
++    
+docs/verification/2026-09-23-admission-diagnostic/mutation-exit_zero_only.xml:39: trailing whitespace.
++    
+docs/verification/2026-09-23-admission-diagnostic/mutation-exit_zero_only.xml:57: trailing whitespace.
++    
+docs/verification/2026-09-23-admission-diagnostic/mutation-exit_zero_only.xml:61: trailing whitespace.
++    
+docs/verification/2026-09-23-admission-diagnostic/mutation-exit_zero_only.xml:79: trailing whitespace.
++    
+docs/verification/2026-09-23-admission-diagnostic/mutation-exit_zero_only.xml:83: trailing whitespace.
++    
+docs/verification/2026-09-23-admission-diagnostic/mutation-exit_zero_only.xml:101: trailing whitespace.
++    
+docs/verification/2026-09-23-admission-diagnostic/mutation-exit_zero_only.xml:105: trailing whitespace.
++    
+docs/verification/2026-09-23-glm-qc-and-l6/qc/spec/execute/commands/012-bash/output.log.txt:1: trailing whitespace.
++PASS B1_via_wrapper_no_bypass 
+docs/verification/2026-09-23-glm-qc-and-l6/qc/spec/execute/commands/013-bash/output.log.txt:9: trailing whitespace.
++PASS C2_gate_none_by_default 
+docs/verification/2026-09-23-repaired-qc-and-l6/qc/quality/report-packet.md:1062: new blank line at EOF.
+docs/verification/2026-09-23-repaired-qc-and-l6/qc/spec/report-packet.md:1752: new blank line at EOF.
+
+EXIT=2 STATUS=completed

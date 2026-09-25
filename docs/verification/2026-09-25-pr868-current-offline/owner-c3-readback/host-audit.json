@@ -1,0 +1,175 @@
+{
+  "schema": "pr868-host-audit/v1",
+  "batch": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260925-c3",
+  "candidate": "f2610293fdbe21eaaaeb9b73d9769a1d746a9735",
+  "axis": "spec",
+  "owned_claims": [
+    "C3"
+  ],
+  "authorization": {
+    "user_quote_verbatim": "批准执行",
+    "batch_cap": 39,
+    "cumulative_cap": 354
+  },
+  "requests": {
+    "gateway": 4,
+    "explore": 8,
+    "execute": 5,
+    "report": 1
+  },
+  "batch_requests": 18,
+  "cumulative_requests": 333,
+  "reviewer": {
+    "verdict": "PASS",
+    "C3": "verified",
+    "findings": [],
+    "reviewer_probes": {
+      "failed": 0,
+      "passed": 1,
+      "subcases": 2,
+      "total": 1
+    },
+    "author_tests": {
+      "commands": [
+        "pytest -q intelligence/tests/test_llm_timeout_diagnostic.py tests/test_main_gate_receipt.py -k 'violation_uses or cli_strict or existing_receipt or rejects_unbounded or endpoint_guard or retains_complete_output or output_pipeline_failure or receipts_inside_disposable' (candidate 原路径, junitxml=author-tests.xml)"
+      ],
+      "failed": 0,
+      "passed": 16,
+      "skipped": 0
+    }
+  },
+  "probe": {
+    "path": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260925-c3/spec/work/probes/probe_c3_judge_window_v2.py",
+    "sha256": "dcfb31f08b4e89df2d864ed778a3714b0940b73958583f947cab6732e7c2929f",
+    "written_in_stage": "explore (mtime 10:04, stage 10:04:04-10:05:08)",
+    "draft_bug_fixed": "observer(event, **fields) instead of list.append"
+  },
+  "host_reruns": [
+    {
+      "run": 1,
+      "late_elapsed": 0.808,
+      "late_report_received": false,
+      "late_unavailable": true,
+      "late_records": [
+        {
+          "status": "failed",
+          "reason": "timeout",
+          "purpose": "judge"
+        }
+      ],
+      "late_root_charged": 0.812,
+      "late_events_tail": [
+        "headers",
+        "closed"
+      ],
+      "timely_report_received": true,
+      "timely_passed": true,
+      "timely_records": [
+        {
+          "status": "success",
+          "reason": null,
+          "purpose": "judge"
+        }
+      ],
+      "failures": []
+    },
+    {
+      "run": 2,
+      "late_elapsed": 0.805,
+      "late_report_received": false,
+      "late_unavailable": true,
+      "late_records": [
+        {
+          "status": "failed",
+          "reason": "timeout",
+          "purpose": "judge"
+        }
+      ],
+      "late_root_charged": 0.806,
+      "late_events_tail": [
+        "headers",
+        "closed"
+      ],
+      "timely_report_received": true,
+      "timely_passed": true,
+      "timely_records": [
+        {
+          "status": "success",
+          "reason": null,
+          "purpose": "judge"
+        }
+      ],
+      "failures": []
+    },
+    {
+      "run": 3,
+      "late_elapsed": 0.81,
+      "late_report_received": false,
+      "late_unavailable": true,
+      "late_records": [
+        {
+          "status": "failed",
+          "reason": "timeout",
+          "purpose": "judge"
+        }
+      ],
+      "late_root_charged": 0.824,
+      "late_events_tail": [
+        "headers",
+        "closed"
+      ],
+      "timely_report_received": true,
+      "timely_passed": true,
+      "timely_records": [
+        {
+          "status": "success",
+          "reason": null,
+          "purpose": "judge"
+        }
+      ],
+      "failures": []
+    }
+  ],
+  "host_widened_window_control": {
+    "script": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260925-c3/host-rerun/widened_window_control.py",
+    "window_seconds": 5.0,
+    "observed": {
+      "elapsed_seconds": 3.1592417089268565,
+      "events": [
+        "spawn_started",
+        "spawned",
+        "request_sent",
+        "headers",
+        "eof",
+        "closed"
+      ],
+      "report_received": true,
+      "report_passed": true,
+      "unavailable": false,
+      "records": [
+        {
+          "status": "success",
+          "reason": null,
+          "purpose": "judge"
+        }
+      ]
+    },
+    "meaning": "same ~2.9 s trickled body is received when the window allows it, so the 0.8 s rejection is caused by the window, not by the fixture framing"
+  },
+  "host_decision": "C3 host-accepted with limits",
+  "limits": [
+    "probe sets verifier._active_policy directly and patches judge_provider_chain; unit-level behaviour of _run_judge_once, not a full episode",
+    "late case: final _JudgeCall carries attempt 1 issue \"window exhausted by prior attempt\"; the dispatched attempt 0 failure (LLMDeadlineExceeded, timeout_asked 0.8) is in last_dispatched_failure",
+    "loopback fake judge only; no production concurrency; L6 natural-corpus acceptance and latest-head gates are out of scope"
+  ],
+  "aggregate_on_candidate": {
+    "C1": "verified (earlier batch)",
+    "C2": "verified (earlier batch)",
+    "C3": "verified (this batch, host-accepted)",
+    "C4": "verified (earlier batch)",
+    "C5": "verified (earlier batch)",
+    "C6": "verified (earlier batch)",
+    "C7": "verified (batch c3c7)",
+    "product_findings": 0
+  }
+}

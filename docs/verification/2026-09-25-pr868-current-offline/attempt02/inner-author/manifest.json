@@ -1,0 +1,39 @@
+{
+  "candidate": "fb41cebdaa6a186c14bd402f0f2dd83705f64421",
+  "role": "nested_author_checks_not_independent_review_not_additive",
+  "complete": true,
+  "artifacts": {
+    "spec-c3": {
+      "source": "/Users/a77/.finance-runtime/reviews/pr868-current-20260925/attempt02/python-tmp/test_real_author_checks_execut0/sandbox-inputs/spec/work/author-checks.xml",
+      "sha256": "4c7dfd685b17e60b650acab191c17a9e29c4632ee4d4d1be23559ecaff883bf0",
+      "cases": 3,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "quality-c3": {
+      "source": "/Users/a77/.finance-runtime/reviews/pr868-current-20260925/attempt02/python-tmp/test_real_author_checks_execut1/sandbox-inputs/quality/work/author-checks.xml",
+      "sha256": "5430eb5eb43af12aff2a93ef5d5019134a17911d3bb6b9f473a2332675e00796",
+      "cases": 3,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "spec-c7": {
+      "source": "/Users/a77/.finance-runtime/reviews/pr868-current-20260925/attempt02/python-tmp/test_real_author_checks_execut2/sandbox-inputs/spec/work/author-checks.xml",
+      "sha256": "595c83edfa45304246e67882e43fc420190e021fa5234a1ee4a777494d510827",
+      "cases": 66,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "quality-c7": {
+      "source": "/Users/a77/.finance-runtime/reviews/pr868-current-20260925/attempt02/python-tmp/test_real_author_checks_execut3/sandbox-inputs/quality/work/author-checks.xml",
+      "sha256": "e53c126abbc168696ea98c3e492786a0fdda58e55c9a255a54d8d670df1f2a56",
+      "cases": 66,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  }
+}

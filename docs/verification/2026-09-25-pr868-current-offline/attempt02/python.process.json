@@ -1,0 +1,28 @@
+{
+  "label": "python",
+  "command": [
+    "bash",
+    "scripts/run_main_gate.sh",
+    "--pytest-args",
+    "-q -rsx -p no:cacheprovider --basetemp=/Users/a77/.finance-runtime/reviews/pr868-current-20260925/attempt02/python-tmp --junitxml=/Users/a77/.finance-runtime/reviews/pr868-current-20260925/attempt02/python.xml"
+  ],
+  "cwd": "/Users/a77/fwp-wt-pr868-current-0925",
+  "revision": "fb41cebdaa6a186c14bd402f0f2dd83705f64421",
+  "started_at": "2026-09-25T01:54:55.726889+00:00",
+  "timeout_seconds": 2400,
+  "status": "completed",
+  "exit": 0,
+  "timed_out": false,
+  "executed": null,
+  "failures": null,
+  "errors": null,
+  "skipped": null,
+  "failed_cases": [],
+  "junit_status": "not_evaluated",
+  "output_mode": "combined_stdout_stderr",
+  "pid": 36490,
+  "process_group": 36490,
+  "process_group_cleanup": "already_absent",
+  "finished_at": "2026-09-25T02:24:59.205027+00:00",
+  "elapsed_seconds": 1803.4782656659372
+}

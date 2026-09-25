@@ -1,0 +1,29 @@
+{
+  "label": "c3-original",
+  "command": [
+    "/Users/a77/fwp-wt-pi-research/.venv-workbench/bin/python",
+    "-u",
+    "-B",
+    "/Users/a77/.finance-runtime/reviews/pr868-current-20260925/attempt02/c3-author/replay.py",
+    "original"
+  ],
+  "cwd": "/Users/a77/fwp-wt-pr868-current-0925",
+  "revision": "fb41cebdaa6a186c14bd402f0f2dd83705f64421",
+  "started_at": "2026-09-25T01:52:57.094015+00:00",
+  "timeout_seconds": 30,
+  "status": "completed",
+  "exit": 1,
+  "timed_out": false,
+  "executed": null,
+  "failures": null,
+  "errors": null,
+  "skipped": null,
+  "failed_cases": [],
+  "junit_status": "not_evaluated",
+  "output_mode": "combined_stdout_stderr",
+  "pid": 32437,
+  "process_group": 32437,
+  "process_group_cleanup": "already_absent",
+  "finished_at": "2026-09-25T01:52:57.846046+00:00",
+  "elapsed_seconds": 0.7516617500223219
+}

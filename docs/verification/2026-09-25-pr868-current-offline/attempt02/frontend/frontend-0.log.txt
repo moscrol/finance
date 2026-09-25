@@ -1,0 +1,43 @@
+Lockfile is up to date, resolution step is skipped
+Progress: resolved 1, reused 0, downloaded 0, added 0
+Packages: +294
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+Progress: resolved 294, reused 294, downloaded 0, added 173
+Progress: resolved 294, reused 294, downloaded 0, added 294, done
+
+dependencies:
++ dompurify 3.2.6
++ lucide-react 0.468.0
++ marked 15.0.12
++ react 19.1.0
++ react-dom 19.1.0
+
+devDependencies:
++ @eslint/js 9.29.0
++ @playwright/test 1.53.2
++ @testing-library/jest-dom 6.6.3
++ @testing-library/react 16.3.0
++ @testing-library/user-event 14.6.1
++ @types/node 22.15.29
++ @types/react 19.1.8
++ @types/react-dom 19.1.6
++ @vitejs/plugin-react 4.5.2
++ eslint 9.29.0
++ eslint-plugin-react-hooks 5.2.0
++ eslint-plugin-react-refresh 0.4.20
++ globals 16.2.0
++ jsdom 26.1.0
++ typescript 5.8.3
++ typescript-eslint 8.34.1
++ vite 6.3.5
++ vitest 3.2.4
+
+╭ Warning ─────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│   Ignored build scripts: esbuild.                                            │
+│   Run "pnpm approve-builds" to pick which dependencies should be allowed     │
+│   to run scripts.                                                            │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+Done in 2.5s using pnpm v10.12.1

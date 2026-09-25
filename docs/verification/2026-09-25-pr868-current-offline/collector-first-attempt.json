@@ -1,0 +1,7 @@
+{
+  "pid": 56699,
+  "command": "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -u /Users/a77/.finance-runtime/reviews/pr868-current-20260925/preserve_inner.py",
+  "status": "stopped_owned_collector_only",
+  "reason": "pytest truncated directory name before the final e; no artifacts copied; corrected glob uses sandbox layout rather than test name",
+  "test_process_touched": false
+}

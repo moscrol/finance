@@ -1,0 +1,56 @@
+"""Author replay of the sealed probe with the original, stricter deadline gate."""
+import importlib.util
+import json
+from pathlib import Path
+import sys
+
+variant = sys.argv[1]
+assert variant in {"original", "corrected"}
+source = Path(__file__).with_name(variant + ".py")
+spec = importlib.util.spec_from_file_location("author_replay", source)
+probe = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(probe)
+failures = []
+for mode in ("timely", "late"):
+    try:
+        case = probe.run(mode)
+    except Exception as exc:
+        failures.append(f"{mode}: probe raised {type(exc).__name__}: {exc}")
+        print(json.dumps({"mode": mode, "probe_error": failures[-1]}), flush=True)
+        continue
+    print(json.dumps(case), flush=True)
+
+    def check(condition, reason):
+        if not condition:
+            failures.append(f"{mode}: {reason}")
+
+    check(case["requests"] == 1, "expected exactly one request")
+    check("headers" in case["events"], "body phase not reached")
+    check("closed" in case["events"], "transport close not observed")
+    check(case["elapsed_seconds"] <= 1.0, "exceeded 0.8s + 0.2s tolerance")
+    check(len(case["records"]) == 1, "expected exactly one ledger entry")
+    check(all(r["purpose"] == "judge" for r in case["records"]), "wrong ledger purpose")
+    spent = case["root_before"] - case["root_after"]
+    check(case["elapsed_seconds"] <= spent <= case["elapsed_seconds"] + 0.2,
+          "root consumption does not match wall time plus local cleanup")
+    if mode == "timely":
+        check(case["report_received"] is True, "positive control report missing")
+        check(case["unavailable"] is False, "positive control marked unavailable")
+        check(all(r["status"] == "success" for r in case["records"]), "success not recorded")
+    else:
+        check(case["report_received"] is False, "late report accepted")
+        check(case["unavailable"] is True, "late report not marked unavailable")
+        check(all(r["status"] == "failed" and r["reason"] == "timeout"
+                  for r in case["records"]), "failed/timeout not recorded")
+        check(case["exc_class"] is None and case["timeout_asked"] == 0.0,
+              "window exhaustion misreported as another dispatched call")
+        check(case["judge_attempt_index"] == 1 and case["issue"] == probe.semantic.WINDOW_EXHAUSTED_ISSUE,
+              "window exhaustion attribution missing")
+        previous = case.get("last_dispatched_failure") or {}
+        check(previous.get("exc_class") == "LLMDeadlineExceeded"
+              and previous.get("judge_attempt_index") == 0
+              and 0 < previous.get("timeout_asked", 0) <= probe.BUDGET,
+              "previous dispatched timeout not preserved separately")
+print(json.dumps({"variant": variant, "subcases": 2, "failures": failures,
+                  "evidence_role": "author_replay_not_independent"}), flush=True)
+sys.exit(1 if failures else 0)

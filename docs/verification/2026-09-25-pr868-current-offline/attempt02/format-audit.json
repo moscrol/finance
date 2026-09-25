@@ -1,0 +1,18 @@
+{
+  "candidate": "fb41cebdaa6a186c14bd402f0f2dd83705f64421",
+  "base": "fe9fdbfd70a637efc5bcf0cfecf74080a8d6a90c",
+  "format_exit": 2,
+  "warning_files": [
+    "docs/verification/2026-09-23-adaptive-qc-glm/raw/spec/report/commands/015-bash/output.txt",
+    "docs/verification/2026-09-23-adaptive-qc-glm/raw/spec/report/commands/017-bash/output.txt",
+    "docs/verification/2026-09-23-admission-diagnostic/mutation-exit_zero_only.log.txt",
+    "docs/verification/2026-09-23-admission-diagnostic/mutation-exit_zero_only.xml",
+    "docs/verification/2026-09-23-glm-qc-and-l6/qc/spec/execute/commands/012-bash/output.log.txt",
+    "docs/verification/2026-09-23-glm-qc-and-l6/qc/spec/execute/commands/013-bash/output.log.txt",
+    "docs/verification/2026-09-23-repaired-qc-and-l6/qc/quality/report-packet.md",
+    "docs/verification/2026-09-23-repaired-qc-and-l6/qc/spec/report-packet.md"
+  ],
+  "unchanged_from_owner": true,
+  "outside_archive_exit": 0,
+  "waiver": false
+}

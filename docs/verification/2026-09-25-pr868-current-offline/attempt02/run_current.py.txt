@@ -1,0 +1,121 @@
+"""One-shot author replay and engineering gates; no model/review authorization."""
+from datetime import datetime, timezone
+import hashlib
+import json
+import os
+from pathlib import Path
+import shutil
+import socket
+import subprocess
+import sys
+import time
+
+ROOT = Path('/Users/a77/fwp-wt-pr868-current-0925')
+OUT = Path(__file__).parent
+REV = 'fb41cebdaa6a186c14bd402f0f2dd83705f64421'
+BASE = 'fe9fdbfd70a637efc5bcf0cfecf74080a8d6a90c'
+PY = '/Users/a77/fwp-wt-pi-research/.venv-workbench/bin/python'
+SEALED = Path('/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260925-c3c7/spec/work/probes/probe_c3_judge_window.py')
+sys.path.insert(0, str(ROOT))
+from scripts.review_probes.run_extraction_mutations import _run_logged_command, save_json
+
+env = {key: os.environ[key] for key in ('PATH', 'HOME', 'LANG', 'TMPDIR') if key in os.environ}
+env.update(FWP_WORKBENCH_PYTHON=PY, PYTHONDONTWRITEBYTECODE='1', PYTHONPATH=str(ROOT),
+           FORESIGHT_LLM_KEYCHAIN='0', FWP_TEST_RECEIPT_DIR=str(OUT / 'receipts'),
+           FORESIGHT_USERS_DIR=str(OUT / 'isolated-users'))
+state = {'candidate': REV, 'baseline': BASE, 'tree': str(ROOT), 'python': PY,
+         'started_at': datetime.now(timezone.utc).isoformat(), 'steps': [],
+         'admissions': [], 'status': 'running', 'scope': 'offline_author_and_engineering_only',
+         'real_model_requests': 0, 'supervisor_pid': os.getpid()}
+assert not (OUT / 'engineering.json').exists()
+
+
+def git(*args):
+    return subprocess.check_output(['git', '-C', str(ROOT), *args], text=True).strip()
+
+
+def sha(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+assert sha(SEALED) == sha(OUT / 'c3-author/original.py')
+state['probe_sources'] = {str(p): sha(p) for p in (
+    SEALED, OUT / 'c3-author/original.py', OUT / 'c3-author/corrected.py', OUT / 'c3-author/replay.py')}
+
+
+def admission(label, ports):
+    load = os.getloadavg()[0]
+    free_gib = shutil.disk_usage(OUT).free / 1024**3
+    identity_ok = git('rev-parse', 'HEAD') == REV and not git('status', '--porcelain')
+    sockets = []
+    ports_free = True
+    try:
+        for port in ports:
+            sock = socket.socket()
+            sockets.append(sock)
+            sock.bind(('127.0.0.1', port))
+    except OSError:
+        ports_free = False
+    finally:
+        for sock in sockets:
+            sock.close()
+    row = {'label': label, 'time': datetime.now(timezone.utc).isoformat(),
+           'load_1m': load, 'max_load': 8, 'free_gib': free_gib, 'min_free_gib': 20,
+           'identity_ok': identity_ok, 'ports': list(ports), 'ports_free': ports_free}
+    row['admitted'] = load < 8 and free_gib >= 20 and identity_ok and ports_free
+    state['admissions'].append(row)
+    save_json(OUT / 'engineering.json', state)
+    return row['admitted']
+
+
+steps = [
+    ('c3-original', [PY, '-u', '-B', str(OUT / 'c3-author/replay.py'), 'original'], 30, (), 1),
+    ('c3-corrected', [PY, '-u', '-B', str(OUT / 'c3-author/replay.py'), 'corrected'], 30, (), 0),
+    ('doctor', [PY, 'scripts/workspace.py', 'doctor'], 60, (), 0),
+    ('registry-parse', [PY, 'scripts/build_registry.py', 'check-parseability'], 60, (), 0),
+    ('registry-check', [PY, 'scripts/build_registry.py', 'check'], 60, (), 0),
+    ('registry-tables', [PY, 'scripts/build_registry.py', 'backfill-tables', '--check'], 60, (), 0),
+    ('registry-views', [PY, 'scripts/build_registry.py', 'generate-views', '--check'], 60, (), 0),
+    ('ledger-crosswalk', [PY, 'scripts/audit_ledger_spec_crosswalk.py'], 60, (), 0),
+    ('frontend', [PY, 'scripts/run_frontend_gate.py', '--tree', str(ROOT),
+                  '--expect-revision', REV, '--output', str(OUT / 'frontend'),
+                  '--python', PY, '--workbench-port', '19981', '--re06-port', '19984'],
+                  900, (19981, 19984), 0),
+    ('python', ['bash', 'scripts/run_main_gate.sh', '--pytest-args',
+                f'-q -rsx -p no:cacheprovider --basetemp={OUT / "python-tmp"} --junitxml={OUT / "python.xml"}'],
+               2400, (), 0),
+]
+try:
+    for label, cmd, timeout, ports, expected in steps:
+        for attempt in range(11):
+            if admission(label, ports):
+                break
+            if attempt < 10:
+                time.sleep(30)
+        else:
+            state.update(status='blocked_admission', blocked_step=label)
+            break
+        result = _run_logged_command(ROOT, OUT, label, cmd, env, timeout=timeout)
+        accepted = result['status'] == 'completed' and result['exit'] == expected
+        if label == 'c3-original' and accepted:
+            rows = [json.loads(line) for line in (OUT / 'c3-original.log').read_text().splitlines()
+                    if line.startswith('{')]
+            cases = [row for row in rows if row.get('mode') in {'timely', 'late'}]
+            accepted = len(cases) == 2 and all(row.get('exc_class') == 'TypeError' for row in cases)
+        state['steps'].append({'label': label, 'exit': result['exit'], 'status': result['status'],
+                               'expected_exit': expected, 'accepted_for_scope': accepted})
+        save_json(OUT / 'engineering.json', state)
+        if not accepted:
+            state.update(status='failed', failed_step=label)
+            break
+    else:
+        state['status'] = 'completed'
+finally:
+    state['finished_at'] = datetime.now(timezone.utc).isoformat()
+    state['revision_after'] = git('rev-parse', 'HEAD')
+    state['status_after'] = git('status', '--porcelain')
+    state['probe_sources_unchanged'] = all(sha(Path(p)) == digest for p, digest in state['probe_sources'].items())
+    if state['revision_after'] != REV or state['status_after'] or not state['probe_sources_unchanged']:
+        state['status'] = 'identity_changed'
+    save_json(OUT / 'engineering.json', state)
+sys.exit(0 if state['status'] == 'completed' else 1)

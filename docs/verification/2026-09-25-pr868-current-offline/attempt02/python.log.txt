@@ -1,0 +1,27 @@
+{"label": "python", "command": ["bash", "scripts/run_main_gate.sh", "--pytest-args", "-q -rsx -p no:cacheprovider --basetemp=/Users/a77/.finance-runtime/reviews/pr868-current-20260925/attempt02/python-tmp --junitxml=/Users/a77/.finance-runtime/reviews/pr868-current-20260925/attempt02/python.xml"], "cwd": "/Users/a77/fwp-wt-pr868-current-0925", "revision": "fb41cebdaa6a186c14bd402f0f2dd83705f64421", "started_at": "2026-09-25T01:54:55.726889+00:00", "timeout_seconds": 2400, "status": "starting", "exit": null, "timed_out": false, "executed": null, "failures": null, "errors": null, "skipped": null, "failed_cases": [], "junit_status": "not_evaluated", "output_mode": "combined_stdout_stderr"}
+== gate @ fb41cebdaa6a tree=/Users/a77/fwp-wt-pr868-current-0925 py=/Users/a77/fwp-wt-pi-research/.venv-workbench/bin/python receipt=/Users/a77/.finance-runtime/reviews/pr868-current-20260925/attempt02/receipts/gate-kjCOgwV8/pytest.json
+== ruff check .
+All checks passed!
+== pytest -q -rsx -p no:cacheprovider --basetemp=/Users/a77/.finance-runtime/reviews/pr868-current-20260925/attempt02/python-tmp --junitxml=/Users/a77/.finance-runtime/reviews/pr868-current-20260925/attempt02/python.xml
+== pytest raw log: /Users/a77/.finance-runtime/reviews/pr868-current-20260925/attempt02/receipts/gate-kjCOgwV8/pytest.log.txt
+SKIPPED [1] tests/test_river_slice.py:212: 需要真库 db/market_feature_store.duckdb
+SKIPPED [1] tests/test_river_slice.py:226: 需要真库 db/market_feature_store.duckdb
+SKIPPED [1] tests/test_river_slice.py:244: 需要真库 db/market_feature_store.duckdb
+SKIPPED [1] tests/test_river_slice.py:257: 需要真库 db/market_feature_store.duckdb
+SKIPPED [1] tests/test_river_window.py:39: 需要真库 db/market_feature_store.duckdb
+SKIPPED [1] tests/test_river_window.py:48: 需要真库 db/market_feature_store.duckdb
+SKIPPED [1] tests/test_river_window.py:61: 需要真库 db/market_feature_store.duckdb
+SKIPPED [1] tests/test_river_window.py:71: 需要真库 db/market_feature_store.duckdb
+SKIPPED [1] tests/test_river_window.py:78: 需要真库 db/market_feature_store.duckdb
+SKIPPED [1] tests/test_river_window.py:86: 需要真库 db/market_feature_store.duckdb
+SKIPPED [1] tests/test_river_window.py:101: 需要真库 db/market_feature_store.duckdb
+SKIPPED [1] tests/test_river_window.py:110: 需要真库 db/market_feature_store.duckdb
+XFAIL intelligence/tests/conformance/test_inv5_repair_reentry.py::test_gap_triggers_resume_or_an_explicit_unsupported_receipt[codex_headless] - [baseline] 修复静默跳过：continuous_turn_adapter._resume_for_gap 对无 resume 的 session 返回 None，无任何收据（L1181-1184）；codex 档判官照跑、修复缺席不可观测。2026-08-29 登记（阳性对照，证明套件能抓静默缺席）。
+XFAIL intelligence/tests/test_fine_grained_route_length_gate.py::test_kol_review_example_preexisting_miss - 存量缺陷，与长度闸无关：该 example 与 kol_review 自己的路由 pattern 对不上，在未改动的生产快照（2efdff46）上同样返回 None。修好 pattern 后此处转 XPASS，到时移除本标记并把该例并入 ROUTE_EXAMPLES。
+16243 passed, 75 skipped, 2 xfailed, 18 warnings in 1771.02s (0:29:31)
+== receipt /Users/a77/.finance-runtime/reviews/pr868-current-20260925/attempt02/receipts/gate-kjCOgwV8/pytest.json
+   revision=fb41cebdaa6a dirty=False target=/Users/a77/fwp-wt-pr868-current-0925
+   passed=16243 failed=0 error=0 skipped=75 xfailed=2 xpassed=0
+== 门禁绿，basetemp 已清: /Users/a77/.finance-runtime/reviews/pr868-current-20260925/attempt02/python-tmp（要保留请设 GATE_KEEP_BASETEMP=1）
+
+EXIT=0 STATUS=completed

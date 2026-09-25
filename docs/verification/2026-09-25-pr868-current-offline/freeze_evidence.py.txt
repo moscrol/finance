@@ -1,0 +1,115 @@
+"""Freeze this batch's evidence only after its exact-candidate gates terminate."""
+from datetime import datetime, timezone
+import hashlib
+import json
+from pathlib import Path
+import subprocess
+import xml.etree.ElementTree as ET
+
+ROOT = Path(__file__).parent
+RUN = ROOT / 'attempt02'
+TREE = Path('/Users/a77/fwp-wt-pr868-current-0925')
+REV = 'fb41cebdaa6a186c14bd402f0f2dd83705f64421'
+DEST = TREE / 'docs/verification/2026-09-25-pr868-current-offline'
+
+
+def load(path):
+    return json.loads(path.read_text())
+
+
+def sha(data):
+    return hashlib.sha256(data).hexdigest()
+
+
+state = load(RUN / 'engineering.json')
+assert state['status'] == 'completed' and state['revision_after'] == REV and state['status_after'] == ''
+assert all(row['accepted_for_scope'] for row in state['steps'])
+assert state['probe_sources_unchanged']
+assert load(ROOT / 'engineering.json')['failed_step'] == 'c3-corrected'
+assert load(RUN / 'compat-author.process.json')['exit'] == 0
+assert load(RUN / 'receipt-check.process.json')['exit'] == 0
+assert load(RUN / 'inner-author/manifest.json')['complete']
+assert subprocess.check_output(['git', '-C', str(TREE), 'rev-parse', 'HEAD'], text=True).strip() == REV
+assert subprocess.check_output(['git', '-C', str(TREE), 'status', '--porcelain'], text=True) == ''
+receipt = load(RUN / 'receipts/gate-kjCOgwV8/pytest.json')
+assert receipt['revision'] == REV
+
+cases = list(ET.parse(RUN / 'python.xml').getroot().iter('testcase'))
+old_cases = list(ET.parse(ROOT.parent / 'pr868-combined-20260925/attempt02/python.xml').getroot().iter('testcase'))
+
+
+def statuses(items):
+    result = {}
+    for case in items:
+        ident = case.get('classname', '') + '::' + case.get('name', '')
+        assert ident not in result, ident
+        status = 'passed'
+        for child in ('failure', 'error', 'skipped'):
+            element = case.find(child)
+            if element is not None:
+                status = child + ':' + element.get('type', '') + ':' + element.get('message', '')
+        result[ident] = status
+    return result
+
+
+before, after = statuses(old_cases), statuses(cases)
+summary = {'role': 'comparison_not_receipt_transfer', 'old_candidate': 'adbe0ba11822f02530def67e4c375af28f6e23f2',
+           'candidate': REV, 'collected': len(cases), 'counts': receipt['counts'],
+           'added': sorted(set(after) - set(before)), 'removed': sorted(set(before) - set(after)),
+           'status_changes': [{'id': key, 'before': before[key], 'after': after[key]}
+                              for key in sorted(set(before) & set(after)) if before[key] != after[key]],
+           'focus': {name: {'cases': sum(name in c.get('classname', '') for c in cases),
+                            'nonpasses': [c.get('name') for c in cases if name in c.get('classname', '')
+                                          and any(c.find(k) is not None for k in ('failure', 'error', 'skipped'))]}
+                     for name in ('test_research_chain', 'test_workbench_research_chain',
+                                  'test_pi_review_repair', 'test_llm_timeout_diagnostic', 'test_main_gate_receipt')}}
+
+selected = []
+for name in ('engineering.json', 'run_current.py', 'c3-original.log', 'c3-original.process.json',
+             'c3-corrected.log', 'c3-corrected.process.json', 'compat_author_probe.py',
+             'review-plan.md', 'preserve_inner.py', 'freeze_evidence.py', 'collector-first-attempt.json'):
+    selected.append(ROOT / name)
+selected += sorted((ROOT / 'c3-author').glob('*'))
+selected += sorted(p for p in (ROOT / 'owner-c3-readback').rglob('*') if p.is_file())
+for name in ('engineering.json', 'run_current.py', 'c3-original.log', 'c3-original.process.json',
+             'c3-corrected.log', 'c3-corrected.process.json', 'compat-admission.json',
+             'compat-author.log', 'compat-author.process.json', 'doctor.log',
+             'registry-parse.log', 'registry-check.log', 'registry-tables.log',
+             'registry-views.log', 'ledger-crosswalk.log', 'python.log', 'python.process.json',
+             'receipt-check.log', 'receipt-check.process.json', 'format-check.log',
+             'format-audit.json', 'receipts/gate-kjCOgwV8/pytest.json',
+             'receipts/gate-kjCOgwV8/pytest.log.txt', 'frontend/frontend.json'):
+    selected.append(RUN / name)
+selected += sorted((RUN / 'c3-author').glob('*'))
+selected += sorted((RUN / 'inner-author').glob('*'))
+selected += sorted((RUN / 'frontend').glob('frontend-*.log.txt'))
+assert all(p.is_file() and not p.is_symlink() for p in selected)
+assert len(selected) == len(set(selected))
+DEST.mkdir(exist_ok=False)
+manifest = {'candidate': REV, 'baseline': state['baseline'],
+            'frozen_at': datetime.now(timezone.utc).isoformat(),
+            'role': 'author_offline_only_no_independent_review_no_release_authority',
+            'files': {}, 'external_artifacts': {}}
+for source in selected:
+    relative = source.relative_to(ROOT)
+    if source.suffix == '.py':
+        relative = Path(str(relative) + '.txt')
+    target = DEST / relative
+    target.parent.mkdir(parents=True, exist_ok=True)
+    data = source.read_bytes()
+    with target.open('xb') as stream:
+        stream.write(data)
+    assert target.read_bytes() == data
+    manifest['files'][str(relative)] = {'source': str(source), 'sha256': sha(data), 'bytes': len(data)}
+for path in (RUN / 'python.xml', ROOT.parent / 'pr868-combined-20260925/attempt02/python.xml'):
+    data = path.read_bytes()
+    manifest['external_artifacts'][str(path)] = {'sha256': sha(data), 'bytes': len(data), 'reason': 'large per-case JUnit retained externally'}
+with (DEST / 'junit-comparison.json').open('x') as stream:
+    json.dump(summary, stream, ensure_ascii=False, indent=2)
+    stream.write('\n')
+with (DEST / 'manifest.json').open('x') as stream:
+    json.dump(manifest, stream, indent=2)
+    stream.write('\n')
+print(json.dumps({'archive': str(DEST), 'files': len(selected), 'collected': len(cases),
+                  'added': len(summary['added']), 'removed': len(summary['removed']),
+                  'status_changes': len(summary['status_changes'])}))
