@@ -29,6 +29,7 @@
 | 晨汇原料 | 知识库仓 `wiki/raw/briefings/<date>/` | 原文 | morning-briefing | 是 | — |
 | 卖方原文 | 知识库仓 `wiki/raw/sellside/` | md/pdf 转写 | material-router（表定）/ 近月实写 sellside-coverage-cross | 是 | — |
 | 卖方观点事件 | 知识库仓 `wiki/raw/theme-radar/opinion-store/opinion-events.jsonl` | JSONL | opinion-cross | 是 | `复盘/winrate/*.html`（不提交） |
+| 卖方事件更正 | 知识库仓 `wiki/raw/theme-radar/opinion-store/corrections/<batch_id>.json` | 不可覆盖 JSON，逐事件绑定原记录哈希、前一修订、原文字符锚点；时间由写入者盖章 | 金融仓 `scripts/review_opinion_events.py`（校验整批后加锁发布，重放同批幂等）；不改原事件 | 是 | `intelligence.services.opinion_events` 按知识截止投影；接催化归因、Workbench 卖方流及教学/事件定价研究构建入口；后两者为事后聚合，不等于严格PIT或 river 目录同步 |
 | 晨汇 Tier 事件（晨汇正文 Tier 1 / 2 / 3 条目的确定性投影：维度 / 是否盘面共振 / 主题 / 信号 / 映射标的 / 双链 / 材料日 / 最早可知日 / 写成日；一条条目一行，全量重建、可复现） | 知识库仓 `wiki/raw/theme-radar/opinion-store/briefing-tier-events.jsonl` | JSONL | 知识库 `skills/morning-briefing/scripts/extract_tier_events.py`（morning-briefing Stage 4.5；`--check` 作收尾门禁） | 是 | 金融仓 `build-labels --kb-wiki` → `tf.briefing_*` / 河对象 `teaching_briefing` / 带读「消息面」一行 |
 | 机构胜率 | `~/kb_work/winrate_cache/` + `~/kb_work/winrate/` | md | refresh_winrate | 仓外 | 同上 |
 | 每日运营总账 | `build_daily_ops_ledger.py` 输出 | JSON | 该脚本 | 生成物 | cockpit |

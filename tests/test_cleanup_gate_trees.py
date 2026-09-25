@@ -40,7 +40,7 @@ def age_tree(path: Path) -> None:
     os.utime(path, (old, old), follow_symlinks=False)
 
 
-def run_cleanup(repo: Path, home: Path, fake_lsof_body: str, *, apply: bool = True):
+def run_cleanup(repo: Path, home: Path, fake_lsof_body: str, *, apply: bool = True, extra_args=()):
     fakebin = home / "bin"
     fakebin.mkdir(parents=True, exist_ok=True)
     (fakebin / "lsof").write_text(f"#!/bin/sh\n{fake_lsof_body}\n")
@@ -51,7 +51,7 @@ def run_cleanup(repo: Path, home: Path, fake_lsof_body: str, *, apply: bool = Tr
         PATH=f"{fakebin}{os.pathsep}{env['PATH']}",
         LSOF_TIMEOUT="2",
     )
-    args = ["bash", str(SCRIPT), "--repo", str(repo), "--days", "0"]
+    args = ["bash", str(SCRIPT), "--repo", str(repo), "--days", "0", *extra_args]
     if apply:
         args.append("--apply")
     return subprocess.run(args, env=env, capture_output=True, text=True, timeout=20)
@@ -154,3 +154,67 @@ def test_malformed_plist_stops_cleanup(tmp_path):
     assert result.returncode == 4
     assert candidate.exists()
     assert "broken.plist" in result.stderr
+
+
+def test_cache_only_ignored_content_no_longer_blocks(tmp_path):
+    # 2026-09-24 实测：dry-run 报 0 棵可删，125 棵被 __pycache__/.pytest_cache 挡住。缓存是可再生的，不是内容。
+    repo = make_repo(tmp_path, ignored=True)
+    (repo / ".gitignore").write_text("evidence/\n__pycache__/\n.pytest_cache/\n")
+    git(repo, "add", "--", ".gitignore")
+    git(repo, "commit", "-m", "ignore caches")
+    candidate = add_detached(repo, tmp_path / "candidate")
+    (candidate / ".pytest_cache").mkdir()
+    (candidate / ".pytest_cache/v").write_text("x")
+    (candidate / "__pycache__").mkdir()
+    (candidate / "__pycache__/m.cpython-312.pyc").write_bytes(b"\0")
+    age_tree(candidate)
+
+    result = run_cleanup(repo, tmp_path / "home", "exit 0")
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert not candidate.exists()
+    assert "RM" in result.stdout
+
+
+def test_directory_watch_handle_does_not_block(tmp_path):
+    # 一个 Claude Code 会话在几百棵树里持有数千个 DIR 句柄（文件监视器）；fd 是数字且类型 DIR 不算在用。
+    repo = make_repo(tmp_path)
+    candidate = add_detached(repo, tmp_path / "candidate")
+    age_tree(candidate)
+    result = run_cleanup(
+        repo, tmp_path / "home", f"printf 'p7\\ncclaude\\nf5\\ntDIR\\nn{candidate}\\n'",
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert not candidate.exists()
+
+
+def test_locked_tree_is_skipped_with_its_reason_by_default(tmp_path):
+    repo = make_repo(tmp_path)
+    candidate = add_detached(repo, tmp_path / "candidate")
+    git(repo, "worktree", "lock", "--reason", "PR999 fixed gate candidate", str(candidate))
+    age_tree(candidate)
+
+    result = run_cleanup(repo, tmp_path / "home", "exit 0")
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert candidate.exists()
+    assert "上锁" in result.stdout and "PR999" in result.stdout
+
+
+def test_release_merged_locks_unlocks_only_trees_already_in_base(tmp_path):
+    repo = make_repo(tmp_path)
+    merged = add_detached(repo, tmp_path / "merged")
+    git(repo, "worktree", "lock", "--reason", "PR999 fixed gate candidate", str(merged))
+    pending = add_detached(repo, tmp_path / "pending")
+    (pending / "file").write_text("candidate work")
+    git(pending, "add", "--", "file")
+    git(pending, "commit", "-m", "unmerged candidate")
+    git(repo, "worktree", "lock", "--reason", "PR1000 in progress", str(pending))
+    age_tree(merged)
+    age_tree(pending)
+
+    result = run_cleanup(repo, tmp_path / "home", "exit 0", extra_args=["--release-merged-locks"])
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert not merged.exists() and "锁已过期" in result.stdout
+    assert pending.exists() and "PR1000" in result.stdout

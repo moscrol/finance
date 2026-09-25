@@ -17,14 +17,20 @@
 #   bash scripts/cleanup_gate_trees.sh --days 3         # 只动 3 天没动过的（默认 2）
 #   bash scripts/cleanup_gate_trees.sh --repo <path>    # 别的仓（如知识库仓）
 #   bash scripts/cleanup_gate_trees.sh --base main      # 基线引用（默认 gitea/main，没有则 main）
+#   bash scripts/cleanup_gate_trees.sh --release-merged-locks
+#        # 上锁的树默认只报 SKIP（锁是别的会话留的话）；加此参数后，锁上的树若 HEAD 已进基线
+#        # （门禁候选已合入，锁的理由已消失）则先 unlock 再拆。HEAD 不在基线的锁树仍不动。
 # 环境变量：LSOF_TIMEOUT（默认 120 秒）、CLEANUP_STATUS_TIMEOUT（默认 30 秒/树）、CLEANUP_TIMEOUT（默认 120 秒/轮）。
 # 退出码：0 完成；4 无法完成安全审计（拒绝盲删）；5 参数错。
+# 2026-09-24：ignored 里的 __pycache__/.pytest_cache/.ruff_cache/node_modules/.venv* 不再算「有内容」，
+# 进程判「在用」不再把编辑器/Claude 的目录监视句柄当使用（见 worktree_safety.py）；此前 dry-run 恒为 0 棵。
 set -uo pipefail
 
-APPLY=0; DAYS=2; REPO=""; BASE=""
+APPLY=0; DAYS=2; REPO=""; BASE=""; RELEASE_LOCKS=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --apply) APPLY=1; shift ;;
+    --release-merged-locks) RELEASE_LOCKS=1; shift ;;
     --days)
       [ $# -ge 2 ] || { echo "--days 缺少参数" >&2; exit 5; }
       case "$2" in ''|*[!0-9]*) echo "--days 必须是非负整数: $2" >&2; exit 5 ;; esac
@@ -33,7 +39,7 @@ while [ $# -gt 0 ]; do
       [ $# -ge 2 ] || { echo "$1 缺少参数" >&2; exit 5; }
       if [ "$1" = --repo ]; then REPO="$2"; else BASE="$2"; fi
       shift 2 ;;
-    -h|--help) sed -n '2,20p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,26p' "$0"; exit 0 ;;
     *) echo "unknown arg: $1" >&2; exit 5 ;;
   esac
 done
@@ -92,12 +98,22 @@ has_recent_activity() {
 
 gb() { awk -v k="$1" 'BEGIN{printf "%.1f", k/1048576}'; }
 TOTAL=0; N=0; FAILURES=0
-consider() {   # consider <registered-path> <why>
-  local raw="$1" why="$2" p reason="" k
+consider() {   # consider <registered-path> <why> <head-sha> <lock-reason-or-empty>
+  local raw="$1" why="$2" head="${3:-}" lock="${4:-}" p reason="" k unlock=0
   check_deadline
   p="$(canonical_dir "$raw")" || { echo "  SKIP  $raw  (无法解析路径)"; return 0; }
   [ "$p" = "$MAIN_TREE" ] && return 0
   [ -d "$raw" ] || return 0
+  if [ -n "$lock" ]; then
+    # 锁是某个会话钉住门禁候选的信号。只有候选已进基线（分支已合，或 detached HEAD 是基线祖先）
+    # 且调用方明说 --release-merged-locks 时才解；否则原样跳过，把锁的理由打出来。
+    if [ "$RELEASE_LOCKS" = 1 ] && { case "$why" in 已合*) true ;; *) false ;; esac \
+         || { [ -n "$head" ] && python3 "$SAFETY" ancestor --path "$REPO" --head "$head" --base "$BASE_SHA" --timeout "$STATUS_LIMIT"; }; }; then
+      unlock=1; why="$why, 锁已过期: ${lock#locked}"
+    else
+      echo "  SKIP  $raw  (上锁: ${lock#locked})"; return 0
+    fi
+  fi
   if ! reason="$(python3 "$SAFETY" check --path "$raw" --context "$TMP/context.json" --timeout "$STATUS_LIMIT")"; then
     echo "  FAIL  $raw  (安全采样失败，整轮停止)" >&2
     exit 4
@@ -106,6 +122,9 @@ consider() {   # consider <registered-path> <why>
   if [ -n "$reason" ]; then echo "  SKIP  $raw  ($reason)"; return 0; fi
   k=$(du -xsk "$raw" 2>/dev/null | cut -f1); TOTAL=$((TOTAL + k)); N=$((N + 1))
   if [ "$APPLY" = 1 ]; then
+    if [ "$unlock" = 1 ] && ! git -C "$REPO" worktree unlock -- "$raw" >/dev/null 2>&1; then
+      echo "  FAIL  $raw  (git worktree unlock 失败)" >&2; FAILURES=1; return 0
+    fi
     if git -C "$REPO" worktree remove --force -- "$raw" >/dev/null 2>&1; then echo "  RM    $(gb "$k")G  $raw  [$why]"
     else echo "  FAIL  $raw  (git worktree remove 失败)" >&2; FAILURES=1; fi
   else
@@ -114,11 +133,15 @@ consider() {   # consider <registered-path> <why>
 }
 
 echo "仓 $REPO  基线 $BASE=${BASE_SHA:0:12}  阈值 ${DAYS} 天  模式 $([ "$APPLY" = 1 ] && echo 真删 || echo dry-run)"
+# 每块：worktree <path> / HEAD <sha> / branch <ref> 或 detached / 可选 locked[ <reason>] / 空行。
+# 空行才输出一行，锁的理由才能跟到同一棵树上；最后一块没有空行，END 补输出。
 git -C "$REPO" worktree list --porcelain \
-  | awk '/^worktree /{p=substr($0,10)} /^branch /{print p"\t"substr($0,8)} /^detached/{print p"\tDETACHED"}' > "$TMP/wts"
-while IFS=$'	' read -r p b; do
-  if [ "$b" = DETACHED ]; then consider "$p" "detached"
-  elif python3 "$SAFETY" ancestor --path "$REPO" --head "$b" --base "$BASE_SHA" --timeout "$STATUS_LIMIT"; then consider "$p" "已合 ${b#refs/heads/}"
+  | awk 'function flush(){ if (p != "") print p"\t"b"\t"h"\t"l; p=b=h=l="" }
+         /^worktree /{flush(); p=substr($0,10)} /^HEAD /{h=substr($0,6)} /^branch /{b=substr($0,8)}
+         /^detached/{b="DETACHED"} /^locked/{l=$0} /^$/{flush()} END{flush()}' > "$TMP/wts"
+while IFS=$'	' read -r p b h l; do
+  if [ "$b" = DETACHED ]; then consider "$p" "detached" "$h" "$l"
+  elif python3 "$SAFETY" ancestor --path "$REPO" --head "$b" --base "$BASE_SHA" --timeout "$STATUS_LIMIT"; then consider "$p" "已合 ${b#refs/heads/}" "$h" "$l"
   fi
 done < "$TMP/wts"
 if [ "$APPLY" = 1 ]; then
