@@ -104,9 +104,11 @@ cd /Users/a77/fwp-wt-architecture-audit-0924
 
 完整范围、原件、收据校验与并发条件见 `docs/verification/2026-09-25-architecture-main-integration/README.md`。常规隔离e2e不是纠偏生产UI验收；真实模型采用及质量仍UNKNOWN，生产发布BLOCKED。后继文档HEAD不继承受测SHA；合入仍需验收和用户确认。
 
-## HTTP 异常续推（未运行）
+## HTTP 异常续验
 
-后续测试候选 `c367aa2a7` 扩展自适应研究 on/off、坏台账、读取异常/超时/busy/迟到、写入权限/磁盘满及恢复检查，只改测试。全仓 Ruff 与提交静态检查通过；资源准入持续检测到其他 pytest，因此本轮没有启动测试，动态结果为 **BLOCKED**，不移签旧 HTTP 或四叶收据。09:28Z 生产只读 health200，readiness15秒超时，仍 UNKNOWN。详见 `docs/verification/2026-09-25-workbench-memory-faults/README.md`。
+测试候选 `c367aa2a7` 扩展自适应研究 on/off、坏台账、读取异常/超时/busy/迟到、写入权限/磁盘满及恢复检查，只改测试。此前资源阻塞未启动pytest的原件保留；后续在干净 `78b25943fb126636f4df33255f2f6827a3f7818f` 实际执行：HTTP **22P**，24文件相关回归 **824P/0F/0error/0S**（包含22P），两份收据同SHA校验通过，全仓Ruff通过。该结果不移签到`c367aa2a7`或后继文档HEAD，也不签新四叶、真实模型采用或生产稳定性。
+
+本次未重采生产readiness，仍UNKNOWN；09:28Z的health200和readiness15秒超时仅是上轮采样。完整范围与归档见 `docs/verification/2026-09-25-workbench-memory-faults/README.md`。
 
 ## P0 可复现
 

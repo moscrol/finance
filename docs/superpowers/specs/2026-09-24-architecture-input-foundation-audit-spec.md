@@ -93,7 +93,7 @@ SPT、风远和 Knevo 是按输入事件更新的链路，不因为当天没有�
 - [x] HTTP进程内续验：真实API/路由/编排/装配/Episode串联，临时纠偏写入后另开空会话，首provider回调收到记忆；另一用户及撤回后为空，检查点身份与哈希一致。`3047cb1ee`干净794P，仅新增测试。真实网络/UI、模型采纳及质量仍UNKNOWN；当时主干漂移预检尚未集成，后续见下一项。
 - [x] 冻结主干`9d5b9800a`整合到审计分支`fa7b80942`；全仓抓到每日摘要旧成功夹具缺审计文件却要求PASS。`698fd172d`补齐夹具并加WARN传播反例，不放松运行时。新候选四叶门禁通过：Python16423P/0F/74S/2X（完整收集16499）、frontend123P、e2e34P/2S、registry五项exit0；首轮红收据保留。见`docs/verification/2026-09-25-architecture-main-integration/README.md`。仅签该SHA，未合main/部署，真实采用/质量仍UNKNOWN。
 - [ ] 全部人工条目/原始审批权属、风远修订与旧patch的机器追溯关系。旧记载14条人工写入，仅4条本轮字面互证，不移用总数代签。
-- [ ] HTTP异常候选`c367aa2a7`的动态验收：已补坏台账、读失败/超时/busy/迟到及写失败恢复，自适应on/off均覆盖；Ruff及提交静态检查通过。资源门持续拒绝，本轮未启动pytest，不算通过。证据与续跑入口：`docs/verification/2026-09-25-workbench-memory-faults/README.md`。
+- [x] HTTP异常候选`c367aa2a7`已在干净`78b25943f`续验：坏台账、读失败/超时/busy/迟到及写失败恢复，自适应on/off共22P；24文件相关回归824P/0F/0S（包含22P），两收据同SHA校验通过，全仓Ruff通过。上轮资源阻塞原件保留，新增结果另存；不签新四叶、真实采用或生产稳定性。证据：`docs/verification/2026-09-25-workbench-memory-faults/README.md`。
 - [ ] 数据/发布前置闭合后的真实 Episode、CLI 对照与回答质量验收。
 
 这些检查未调用模型，不替代本阶段的完成条件。
