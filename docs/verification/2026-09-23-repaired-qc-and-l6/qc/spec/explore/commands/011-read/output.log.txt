@@ -1,0 +1,122 @@
+class _JudgeCall:
+    report: answer_model.GroundingJudgeReport | None
+    unavailable: bool
+    correlated: bool
+    issue: str = ""
+    root_deadline_exhausted: bool = False
+    transient_provider_failure: bool = False
+    # Fail closed: only explicitly classified deadline/transient failures may
+    # opt into deletion-only candidate release. Malformed provider output must
+    # never inherit release eligibility from a dataclass default.
+    monotonic_release_safe: bool = False
+    timeout_asked: float | None = None
+    timeout_configured: float | None = None
+    remaining_seconds_at_entry: float | None = None
+    exc_class: str | None = None
+    http_status: int | None = None
+    judge_attempt_index: int | None = None
+    request: dict[str, object] | None = None
+    material_review_calls: tuple[dict[str, object], ...] = ()
+    last_dispatched_failure: dict[str, object] | None = None
+
+
+def _judge_failure_identity(value: object) -> tuple[str | None, int | None]:
+    """Capture the raw failure class before llm_refine flattens it.
+
+    ``_failure_reason`` maps TimeoutError → ``timeout``; this helper keeps
+    TimeoutError / HTTPError / ConnectionError distinguishable for H8/H9.
+    Exception messages are discarded so public artifacts stay sanitized.
+    """
+
+    if isinstance(value, BaseException):
+        status = getattr(value, "code", None)
+        if isinstance(status, int) and 100 <= status <= 599:
+            return type(value).__name__, status
+        return type(value).__name__, None
+    text = str(value or "").strip()
+    if not text:
+        return None, None
+    http = re.search(r"HTTP\s+(\d{3})", text, re.IGNORECASE)
+    if http is not None:
+        return "HTTPError", int(http.group(1))
+    boxed = re.search(r"（([^）]+)）", text)
+    if boxed is not None:
+        name = boxed.group(1).strip()
+        if re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]+", name):
+            return name, None
+    if re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]+", text):
+        return text, None
+    return None, None
+
+
+def _deadline_remaining_seconds(deadline: object) -> float | None:
+    """Duck-typed remaining(); test stubs may only implement synthesis_timeout."""
+
+    remaining = getattr(deadline, "remaining", None)
+    if not callable(remaining):
+        return None
+    try:
+        return float(remaining())
+    except Exception:
+        return None
+
+
+def _attach_judge_clock(
+    outcome: SemanticEpisodeOutcome,
+    call: _JudgeCall,
+) -> SemanticEpisodeOutcome:
+    pending_request = (
+        dict(call.request)
+        if outcome.judge_status == "unavailable" and call.request is not None
+        else None
+    )
+    return replace(
+        outcome,
+        timeout_asked=call.timeout_asked,
+        timeout_configured=call.timeout_configured,
+        remaining_seconds_at_entry=call.remaining_seconds_at_entry,
+        exc_class=call.exc_class,
+        http_status=call.http_status,
+        judge_attempt_index=call.judge_attempt_index,
+        judge_request=pending_request,
+        material_review_calls=call.material_review_calls,
+        last_dispatched_failure=call.last_dispatched_failure,
+    )
+
+
+# ---------------------------------------------------------------------------
+# V11 · 判官引导的一次有界回检索
+# 设计：docs/superpowers/specs/2026-08-22-v11-judge-guided-retrieval-design.md
+# 接进默认路径：2026-09-09 判官修复 01 第三刀（任务包 01-judge-recovery-goal-brief.md）
+#
+# 只在「纯语义早退」那条路上开火：首判拒了句、_plan_repair_indexes 为空（没有机械
+# 句要删）、V8 已把语义拒句降成 issue 准备直接出门。此时用被拒句拼一条确定性 query
+# 回库一次，检回新卡就让判官再看同一份草稿一眼；判官明确放过的句子撤标（从
+# _semantic_reject_texts 拿掉），其余原样。不改 draft、不进 _repair、不加第二修复窗、
+# 每 episode 最多一枪、旗标在 IO 之前预占、预算不够就当 V8 没发生过。
+# ---------------------------------------------------------------------------
+GUIDED_RETRIEVE_ENV = "FINANCE_V11_GUIDED_RETRIEVE"
+# 复用 episode_tools.retrieve_kb 的 min(timeout, 30.0)，不新发明 16 / 25 / 45。
+GUIDED_RETRIEVE_CAP_SECONDS = 30.0
+GUIDED_QUERY_MAX_CHARS = 80
+GUIDED_SENTENCE_MAX_CHARS = 40
+GUIDED_MAX_SENTENCES = 3
+GUIDED_MAX_SUPPORT_EVIDENCE = 6
+GUIDED_OUTCOMES = (
+    "skipped",
+    "retrieved_empty",
+    "retrieved_no_rejudge",
+    "lifted",
+    "still_annotated",
+)
+_GUIDED_META_STOPWORDS = (
+    "无据",
+    "因果",
+    "发明",
+    "环节",
+    "外部原因",
+    "偷渡",
+    "证明不了",
+    "质量不够",
+
+[truncated; total lines=7075, selected=1188:1307; request a later offset]

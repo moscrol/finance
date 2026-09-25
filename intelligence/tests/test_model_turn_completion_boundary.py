@@ -1,9 +1,9 @@
 """A parseable tool call / FINAL_JSON is not proof that generation completed."""
 from __future__ import annotations
 
+import contextlib
 import io
 import json
-from unittest.mock import patch
 
 import pytest
 
@@ -137,7 +137,11 @@ def test_transport_preserves_truncation_reason(stream):
     choice = {"message": {"content": "ok"}, "finish_reason": "length"}
     response = (_FakeResponse(sse({"choices": [{"delta": {"content": "ok"}, "finish_reason": "length"}]}))
                 if stream else io.BytesIO(json.dumps({"choices": [choice]}).encode()))
-    with patch.object(llm_refine.urllib.request, "urlopen", return_value=response):
+    # The HTTP boundary is llm_http_transport (a cancellable worker), not
+    # urllib.request.urlopen; inject the fake response at the documented seam.
+    with llm_refine.http_transport_override(
+        lambda request, timeout, **kwargs: contextlib.nullcontext(response)
+    ):
         if stream:
             result = llm_refine._post_chat_message_stream(
                 _provider("a"), [], 5, 0, [], "auto", True, lambda _: None,

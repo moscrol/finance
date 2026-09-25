@@ -1,0 +1,79 @@
+{
+  "complete": true,
+  "author_tests": {
+    "passed": 10,
+    "failed": 0,
+    "skipped": 0,
+    "commands": [
+      "env FWX_TEST_RECEIPT=0 pytest -q -p no:cacheprovider -k 'violation_uses or cli_strict or existing_receipt or rejects_unbounded or endpoint_guard' candidate_copy_intelligence/tests/test_llm_timeout_diagnostic.py --basetemp=pytest-tmp --junitxml=author-tests.xml (via work/run_author_tests.py, cwd=work) -> 10 passed, 25 deselected"
+    ]
+  },
+  "reviewer_probes": {
+    "passed": 0,
+    "failed": 3,
+    "commands": [
+      "python probe_transport_v2.py -> ModuleNotFoundError: No module named 'services' (exit 1)",
+      "PYTHONPATH=candidate_copy_intelligence python probe_transport_v2.py -> ModuleNotFoundError: No module named 'intelligence' (exit 1)",
+      "PYTHONPATH=candidate_copy_intelligence:work python probe_transport_v2.py -> ModuleNotFoundError: No module named 'intelligence' (llm_refine 绝对导入), exit 1"
+    ]
+  },
+  "intentional_control": {
+    "observed_failed": true,
+    "classification": "probe_bug/intentional_control",
+    "command": "python -B .../spec/work/positive_control.py -> AssertionError 'intentional probe_bug control', exit 1"
+  },
+  "failures": [
+    {
+      "command": "pytest (absolute candidate path, 两次)",
+      "classification": "environment_block",
+      "reason": "沙箱 stat '/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0011' Operation not permitted，pytest 收集失败 exit 2；源代码经 cp -R 复制到 work/candidate_copy_intelligence (部分目录 users/.git 等被拒绝，intelligence 完整) 后改用相对路径运行成功"
+    },
+    {
+      "command": "python probe_transport_v2.py (及两次修正 PYTHONPATH)",
+      "classification": "probe_bug/environment",
+      "reason": "探针自身 ROOT 相对路径解析错误(上溯5级得到 .finance-runtime/candidate)，且 candidate 顶层不可直接访问，探针未作 candidate 路径注入，3 次调用均因 import services/intelligence 失败退出；未达到行为断言层，probe_wrapper.py / probe_judge_window.py 因同结构问题未运行"
+    }
+  ],
+  "claim_evidence": {
+    "C1": {
+      "static": "parsed.json 记录 T1-T4 trickle 死线/取消流/停滞父进程 124 回收设计",
+      "behavior": "探针未运行，无行为证据",
+      "missing": "全部行为覆盖缺失 (probe transport v2 导入失败)"
+    },
+    "C2": {
+      "static": "probe_wrapper W1-W5 设计覆盖五调用路径",
+      "behavior": "未运行",
+      "missing": "行为证据缺失"
+    },
+    "C3": {
+      "static": "W6 迟到载荷拒绝+台账 reason 设计；episode 字段未断言",
+      "behavior": "未运行",
+      "missing": "行为证据缺失；report_received/unavailable 字段本就无探针"
+    },
+    "C4": {
+      "static": "T6b 0.5s 共享死线 vs 0.4s 片设计、W 路径 2.9s 慢服务器截断",
+      "behavior": "未运行",
+      "missing": "行为证据缺失"
+    },
+    "C5": {
+      "static": "W7/W8 零预算无 HTTP 连接/无预留消费设计",
+      "behavior": "未运行",
+      "missing": "行为证据缺失"
+    },
+    "C6": {
+      "static": "T5/T6a spawn 计入预算、请求前拒绝设计",
+      "behavior": "未运行",
+      "missing": "行为证据缺失"
+    },
+    "C7": {
+      "static": "证据归属声明，无行为探针",
+      "behavior": "不适用",
+      "missing": "按 parsed.json 属声明性内容"
+    }
+  },
+  "limits": "作者纯验证测试 10/10 通过（复制品路径，FWX_TEST_RECEIPT=0）。三位上一阶段探针均未能执行：探针脚本内 ROOT 路径推导错误且沙箱禁止访问 candidate 目录与上级目录，两次 PYTHONPATH 修正尝试均失败（llm_refine 绝对导入 intelligence 包），按预算与关停指令不再重试，记为 not_verified 而非产品缺陷。C1-C6 行为覆盖全部缺失。探针数量按脚本调用计 3 次失败（同一脚本含子用例未展开）。",
+  "stage": "execute",
+  "axis": "spec",
+  "revision": "5e6974d3946f48c4f27c8847830d1a17c0529b41",
+  "baseline": "c9dd71dfd678855b61662100ec74625b92ad1f1b"
+}

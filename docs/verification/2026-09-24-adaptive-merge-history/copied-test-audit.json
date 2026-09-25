@@ -1,0 +1,18 @@
+{
+  "spec": {
+    "copy_path": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260924-0024/spec/work/candidate_copy_intelligence/tests/test_llm_timeout_diagnostic.py",
+    "original_sha256": "cc7f3f02f915f11207c56f46873732abedeb07e1db159724d02e41078e7c96b3",
+    "copy_sha256": "cc7f3f02f915f11207c56f46873732abedeb07e1db159724d02e41078e7c96b3",
+    "same_test_bytes": true,
+    "accepted_as_original_candidate_tests": false,
+    "reason": "Different collection root and missing original conftest/config context; author copied-test observations only"
+  },
+  "quality": {
+    "copy_path": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260924-0024/quality/work/cand-intelligence/test_llm_timeout_diagnostic.py",
+    "original_sha256": "cc7f3f02f915f11207c56f46873732abedeb07e1db159724d02e41078e7c96b3",
+    "copy_sha256": "cc7f3f02f915f11207c56f46873732abedeb07e1db159724d02e41078e7c96b3",
+    "same_test_bytes": true,
+    "accepted_as_original_candidate_tests": false,
+    "reason": "Different collection root and missing original conftest/config context; author copied-test observations only"
+  }
+}

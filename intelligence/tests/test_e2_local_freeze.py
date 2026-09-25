@@ -18,13 +18,13 @@ from intelligence.services.research_contract import ResearchContractError, Resea
 from intelligence.services.research_tool_registry import ResearchToolRegistry, ToolSpec, UnknownResearchTool
 
 
-def local_frame():
-    return understand_query("不要联网。今天市场怎么样？").task_frame
+def local_frame(query="不要联网。今天市场怎么样？"):
+    return understand_query(query).task_frame
 
 
-def local_context():
+def local_context(query="不要联网。今天市场怎么样？"):
     return build_episode_context(
-        local_frame(), task_id=f"local-read-{uuid4().hex}", capabilities=tuple(sorted(LOCAL_READ_CAPABILITIES)) + (
+        local_frame(query), task_id=f"local-read-{uuid4().hex}", capabilities=tuple(sorted(LOCAL_READ_CAPABILITIES)) + (
             "market_data", "financial_data", "news_search", "web_search", "kb_search", "evidence_search", "graph_lookup",
         ), today="2026-07-24", latest_data_date="2026-07-24", timeout=30, synthesis_reserve=0,
     )
@@ -99,8 +99,12 @@ def test_registry_clones_preserve_ceiling_and_unknown_additions_are_not_visible(
     assert registry.with_read_scope("material_only").with_read_scope("full").read_scope == "material_only"
 
 
+@pytest.mark.parametrize("query", [
+    "不要联网。今天市场怎么样？",
+    "只用本地已有资料，判断中际旭创最近是否存在已确认的重大风险；没有查到的部分请单独列出。",
+])
 @pytest.mark.parametrize("source_state", ["current", "missing", "empty", "stale"])
-def test_audited_local_queries_run_against_only_temporary_sources(tmp_path, monkeypatch, source_state):
+def test_audited_local_queries_run_against_only_temporary_sources(tmp_path, monkeypatch, source_state, query):
     finance = tmp_path / "finance"
     db = finance / "db" / "market_feature_store.duckdb"
     db.parent.mkdir(parents=True)
@@ -148,7 +152,7 @@ def test_audited_local_queries_run_against_only_temporary_sources(tmp_path, monk
     monkeypatch.setattr(episode_tools.evidence_search, "default_semantic_judge", fail_external)
     monkeypatch.setattr(episode_tools, "_opening_prefetch_evidence", fail_external)
     monkeypatch.setattr(episode_tools, "_calc_loader_for", fail_external)
-    frame, context = local_frame(), local_context()
+    frame, context = local_frame(query), local_context(query)
     registry = episode_tools.build_episode_registry(
         frame, context, finance_root=finance, knowledge_wiki=wiki, memory_users_root=users,
         l3_runner=fail_external, sub_research_runner=fail_external, derived_calculation_runner=fail_external,

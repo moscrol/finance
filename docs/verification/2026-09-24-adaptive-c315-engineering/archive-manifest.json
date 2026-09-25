@@ -1,0 +1,410 @@
+{
+  "engineering/gates.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0205/gates.json",
+    "encoding": "raw",
+    "source_bytes": 2621,
+    "source_sha256": "f0a1bcd3054a77765cc1c83d4f54742deba840a60bf43c3ecbb61045c682ff00",
+    "stored_bytes": 2621,
+    "stored_sha256": "f0a1bcd3054a77765cc1c83d4f54742deba840a60bf43c3ecbb61045c682ff00"
+  },
+  "engineering/python.log.txt": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0205/python.log.txt",
+    "encoding": "raw",
+    "source_bytes": 3033,
+    "source_sha256": "5646a8be247b69c10219f71440d6c30fe2d6ef76be0e907ebd27c21be1ef681d",
+    "stored_bytes": 3033,
+    "stored_sha256": "5646a8be247b69c10219f71440d6c30fe2d6ef76be0e907ebd27c21be1ef681d"
+  },
+  "engineering/run_gates.py.txt": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0205/run_gates.py",
+    "encoding": "raw",
+    "source_bytes": 2592,
+    "source_sha256": "6725666b16b6eb0f03ce76b2028726c97b9a2be96d7d30097c1e0755168430a0",
+    "stored_bytes": 2592,
+    "stored_sha256": "6725666b16b6eb0f03ce76b2028726c97b9a2be96d7d30097c1e0755168430a0"
+  },
+  "engineering/cancellation-triplet.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0205/cancellation-triplet.json",
+    "encoding": "raw",
+    "source_bytes": 4562,
+    "source_sha256": "d38369e68be687736fc498afedc188d5bdd5d089c7654dbad001ff7b16b4cbdd",
+    "stored_bytes": 4562,
+    "stored_sha256": "d38369e68be687736fc498afedc188d5bdd5d089c7654dbad001ff7b16b4cbdd"
+  },
+  "engineering/admission-mutations.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0205/admission-mutations.json",
+    "encoding": "raw",
+    "source_bytes": 1744,
+    "source_sha256": "cf97bb306cb25495fb9ffe9c607ab3f12006d81dbf671eea24e61ff882d727fe",
+    "stored_bytes": 1744,
+    "stored_sha256": "cf97bb306cb25495fb9ffe9c607ab3f12006d81dbf671eea24e61ff882d727fe"
+  },
+  "engineering/admission-mutation-coverage.log.txt": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0205/admission-mutation-coverage.log.txt",
+    "encoding": "raw",
+    "source_bytes": 17444,
+    "source_sha256": "d62a75eaf909894bf33afbf9206eff3ce3b02c708bdb6abb77088e1e624e5e51",
+    "stored_bytes": 17444,
+    "stored_sha256": "d62a75eaf909894bf33afbf9206eff3ce3b02c708bdb6abb77088e1e624e5e51"
+  },
+  "engineering/admission-mutation-wiring.log.txt.encoded.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0205/admission-mutation-wiring.log.txt",
+    "encoding": "base64-json",
+    "source_bytes": 1689,
+    "source_sha256": "a656e5d8f010d7c531cae7f93984ad7e064ba2241e67c10b86dd529c06f52d97",
+    "stored_bytes": 2409,
+    "stored_sha256": "985abbaf90423577f136e475832fa9638edbf61ec0c9ff3e34562516f416a502"
+  },
+  "engineering/admission-mutation-restored.log.txt": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0205/admission-mutation-restored.log.txt",
+    "encoding": "raw",
+    "source_bytes": 99,
+    "source_sha256": "cd6d5eee063a51030f5c3e8fe3139ddc91b7f5a7105bff25e10b947ef3c5449d",
+    "stored_bytes": 99,
+    "stored_sha256": "cd6d5eee063a51030f5c3e8fe3139ddc91b7f5a7105bff25e10b947ef3c5449d"
+  },
+  "engineering/run_l6_gate_mutations.py.txt": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0205/run_l6_gate_mutations.py",
+    "encoding": "raw",
+    "source_bytes": 1688,
+    "source_sha256": "2435c8cf2536a376dbee25993fa0c2be63c61e7a00eb3f01f544bdde8b6c38cc",
+    "stored_bytes": 1688,
+    "stored_sha256": "2435c8cf2536a376dbee25993fa0c2be63c61e7a00eb3f01f544bdde8b6c38cc"
+  },
+  "engineering/l6_gate_mutant.py.txt": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0205/l6_gate_mutant.py",
+    "encoding": "raw",
+    "source_bytes": 1721,
+    "source_sha256": "3701c5e4e809d352259f20c96d0c4b394a2b4754f742748150c3a3f05c021571",
+    "stored_bytes": 1721,
+    "stored_sha256": "3701c5e4e809d352259f20c96d0c4b394a2b4754f742748150c3a3f05c021571"
+  },
+  "engineering/rag-keepalive-diagnostic.log.txt": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0205/rag-keepalive-diagnostic.log.txt",
+    "encoding": "raw",
+    "source_bytes": 219,
+    "source_sha256": "6c445a370277994d29ac52feeb3fde75fd3053a6d83f8441e7dcf636e74bdb71",
+    "stored_bytes": 219,
+    "stored_sha256": "6c445a370277994d29ac52feeb3fde75fd3053a6d83f8441e7dcf636e74bdb71"
+  },
+  "engineering/rag-keepalive-diagnostic.xml": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0205/rag-keepalive-diagnostic.xml",
+    "encoding": "raw",
+    "source_bytes": 1460,
+    "source_sha256": "3256b90750cc3e32be2821f0674d345c57a89b4721aacd1395776889740c97a6",
+    "stored_bytes": 1460,
+    "stored_sha256": "3256b90750cc3e32be2821f0674d345c57a89b4721aacd1395776889740c97a6"
+  },
+  "engineering/rag-pair-failed-retention.log.txt": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0205/rag-pair-failed-retention.log.txt",
+    "encoding": "raw",
+    "source_bytes": 222,
+    "source_sha256": "c42c50d875da8a9cb39d296e435fe6efcc285252ecf849544ac44bd78db55b36",
+    "stored_bytes": 222,
+    "stored_sha256": "c42c50d875da8a9cb39d296e435fe6efcc285252ecf849544ac44bd78db55b36"
+  },
+  "engineering/rag-pair-failed-retention.xml": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0205/rag-pair-failed-retention.xml",
+    "encoding": "raw",
+    "source_bytes": 8419,
+    "source_sha256": "c7df23306204b890abe853534c22814b04b541da8ccd1c2212eab6fbf1afb21a",
+    "stored_bytes": 8419,
+    "stored_sha256": "c7df23306204b890abe853534c22814b04b541da8ccd1c2212eab6fbf1afb21a"
+  },
+  "engineering/rag-neighbours.log.txt": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0205/rag-neighbours.log.txt",
+    "encoding": "raw",
+    "source_bytes": 292,
+    "source_sha256": "629b1a72cf0fa230ef28e0ca6f454ebe682d50ac128b4af9ec73710e99971fb2",
+    "stored_bytes": 292,
+    "stored_sha256": "629b1a72cf0fa230ef28e0ca6f454ebe682d50ac128b4af9ec73710e99971fb2"
+  },
+  "engineering/rag-neighbours.xml": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0205/rag-neighbours.xml",
+    "encoding": "raw",
+    "source_bytes": 16816,
+    "source_sha256": "1f6b08ab4fb4ec62ca88fe9975ef32dab0a4a0a8fc21aa810217f7ff2390cc81",
+    "stored_bytes": 16816,
+    "stored_sha256": "1f6b08ab4fb4ec62ca88fe9975ef32dab0a4a0a8fc21aa810217f7ff2390cc81"
+  },
+  "engineering/rag-full-collection.log.txt": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0205/rag-full-collection.log.txt",
+    "encoding": "raw",
+    "source_bytes": 243,
+    "source_sha256": "c71c798e660831cfdf3f4328184d438e23d7d399dbf6de2b0c94b20bd3f0ef94",
+    "stored_bytes": 243,
+    "stored_sha256": "c71c798e660831cfdf3f4328184d438e23d7d399dbf6de2b0c94b20bd3f0ef94"
+  },
+  "engineering/rag-full-collection.xml": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0205/rag-full-collection.xml",
+    "encoding": "raw",
+    "source_bytes": 1461,
+    "source_sha256": "38c715c5b363a2f0073ca690643643266145495bbb628933b918a7738882f249",
+    "stored_bytes": 1461,
+    "stored_sha256": "38c715c5b363a2f0073ca690643643266145495bbb628933b918a7738882f249"
+  },
+  "engineering/rag-prefix-result.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0205/rag-prefix-result.json",
+    "encoding": "raw",
+    "source_bytes": 659,
+    "source_sha256": "e2451f675176d4052bfa56cee5fe02dedb49cc360d7a4195af527dc83d1e96c8",
+    "stored_bytes": 659,
+    "stored_sha256": "e2451f675176d4052bfa56cee5fe02dedb49cc360d7a4195af527dc83d1e96c8"
+  },
+  "engineering/rag-prefix-selection.json.encoded.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0205/rag-prefix-selection.json",
+    "encoding": "gzip-base64-json",
+    "source_bytes": 1211475,
+    "source_sha256": "c56f83c225e634b68705dd903778e9704627fabc7b9aed6e5141fccc84414069",
+    "stored_bytes": 228817,
+    "stored_sha256": "ccc3f4344019a85a57dc9db5c3edb6400c8cd479b322f293c9b61687651c3f6b"
+  },
+  "engineering/rag-prefix.log.txt": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0205/rag-prefix.log.txt",
+    "encoding": "raw",
+    "source_bytes": 9215,
+    "source_sha256": "c465d34fca8bc7d4c2e4d90828b917d1162ea8b008c5fd7e830319bdb49395a5",
+    "stored_bytes": 9215,
+    "stored_sha256": "c465d34fca8bc7d4c2e4d90828b917d1162ea8b008c5fd7e830319bdb49395a5"
+  },
+  "engineering/rag-prefix.xml.encoded.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0205/rag-prefix.xml",
+    "encoding": "gzip-base64-json",
+    "source_bytes": 1185777,
+    "source_sha256": "82b06fe5bbc929e251ea674606afbede51565927fd0bbe795260ca481d17b033",
+    "stored_bytes": 199493,
+    "stored_sha256": "d975f9fff1a29a05f282fda3171ad28183d81d15a36f7c553526231a5db70b77"
+  },
+  "engineering/rag_prefix_diagnostic.py.txt": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0205/rag_prefix_diagnostic.py",
+    "encoding": "raw",
+    "source_bytes": 804,
+    "source_sha256": "b8c159a3c96212747031eb7576daf1df378f00190e7c035d4b0fdc62d3618ac5",
+    "stored_bytes": 804,
+    "stored_sha256": "b8c159a3c96212747031eb7576daf1df378f00190e7c035d4b0fdc62d3618ac5"
+  },
+  "engineering/run_rag_prefix_diagnostic.py.txt": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0205/run_rag_prefix_diagnostic.py",
+    "encoding": "raw",
+    "source_bytes": 1858,
+    "source_sha256": "4cbd1047ac4af24712b2f3d55c56463e3442284aaffb1baea1e032648b282eff",
+    "stored_bytes": 1858,
+    "stored_sha256": "4cbd1047ac4af24712b2f3d55c56463e3442284aaffb1baea1e032648b282eff"
+  },
+  "engineering/log-retention-before.log.txt.encoded.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0205/log-retention-before.log.txt",
+    "encoding": "base64-json",
+    "source_bytes": 8688,
+    "source_sha256": "69482108316021bed33ce32eb4128e8f59830050e913965b554f9e2b694746ce",
+    "stored_bytes": 11741,
+    "stored_sha256": "405002803fd0285f68e16cba82701fd0bbfddc35358c7399f7d5cd972671ac1b"
+  },
+  "engineering/log-retention-before.xml.encoded.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0205/log-retention-before.xml",
+    "encoding": "base64-json",
+    "source_bytes": 11857,
+    "source_sha256": "1dea015df51076fc6e5d1479e05da2b44ac98fe772efad8a0f38812443b19f2a",
+    "stored_bytes": 15970,
+    "stored_sha256": "2a4eff30745e63a9c80a977783f322f5f97145fba3ddf4902e9d4e35fc397735"
+  },
+  "engineering/log-boundary-before.log.txt.encoded.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0205/log-boundary-before.log.txt",
+    "encoding": "base64-json",
+    "source_bytes": 6278,
+    "source_sha256": "d4bdfcf3ed88cd34391273c0f4a29e34da828ae726a6d2a8c06f0066a4ffbe40",
+    "stored_bytes": 8529,
+    "stored_sha256": "0f99824d3f7a647edb889356030a4057780243719cef982786fd2598b7dabb9d"
+  },
+  "engineering/log-boundary-before.xml.encoded.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0205/log-boundary-before.xml",
+    "encoding": "base64-json",
+    "source_bytes": 9849,
+    "source_sha256": "d45edd05257bc7edd5d67f1b54206722df83833abfedf47ed8e84f99f575fd38",
+    "stored_bytes": 13289,
+    "stored_sha256": "5095ce52a41b0751b737f2012423105405245a1b0d1cbe409abb37adf3213e1e"
+  },
+  "engineering/log-retention-fixed.log.txt": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0205/log-retention-fixed.log.txt",
+    "encoding": "raw",
+    "source_bytes": 216,
+    "source_sha256": "6c1e72d452fc2712ee893d571ab66549d1f8154cd542e646c8de605c2bf3aa0e",
+    "stored_bytes": 216,
+    "stored_sha256": "6c1e72d452fc2712ee893d571ab66549d1f8154cd542e646c8de605c2bf3aa0e"
+  },
+  "engineering/log-retention-fixed.xml": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0205/log-retention-fixed.xml",
+    "encoding": "raw",
+    "source_bytes": 9671,
+    "source_sha256": "8c8d7e75c1cc810c38ea9c9fc79025cad1c317186c58ff1b6da062edfb226ab5",
+    "stored_bytes": 9671,
+    "stored_sha256": "8c8d7e75c1cc810c38ea9c9fc79025cad1c317186c58ff1b6da062edfb226ab5"
+  },
+  "engineering/whole-pr-format.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0205/whole-pr-format.json",
+    "encoding": "raw",
+    "source_bytes": 554,
+    "source_sha256": "c9068f1f215c5e2b77efbb6bf86eb5c32e56358c4d9b74572315436b3fab4a09",
+    "stored_bytes": 554,
+    "stored_sha256": "c9068f1f215c5e2b77efbb6bf86eb5c32e56358c4d9b74572315436b3fab4a09"
+  },
+  "engineering/whole-pr-format.log.txt.encoded.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0205/whole-pr-format.log.txt",
+    "encoding": "base64-json",
+    "source_bytes": 6046,
+    "source_sha256": "33fb1c74b417ca103f1a9b58f608265adac1cc054d238a1bc7b3955323dbba16",
+    "stored_bytes": 8221,
+    "stored_sha256": "cb2f60f1258dadf0632205ffef9d753d57a526e82a5b161032c112b12c14bf31"
+  },
+  "engineering/history-git-verification.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0205/history-git-verification.json",
+    "encoding": "raw",
+    "source_bytes": 195,
+    "source_sha256": "ddcbe285b5567ea6d5483e43eeb99bfd822f625006f061b5b561057816f193cd",
+    "stored_bytes": 195,
+    "stored_sha256": "ddcbe285b5567ea6d5483e43eeb99bfd822f625006f061b5b561057816f193cd"
+  },
+  "engineering/pytest-receipt.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0205/python-receipts/gate-C61dBEV0/pytest.json",
+    "encoding": "raw",
+    "source_bytes": 1646,
+    "source_sha256": "06ecbfca3382b580cd668bc07f4e98ca8c39c96654638bfcc97eccfc0e560b25",
+    "stored_bytes": 1646,
+    "stored_sha256": "06ecbfca3382b580cd668bc07f4e98ca8c39c96654638bfcc97eccfc0e560b25"
+  },
+  "engineering/parseability.log.txt": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0205/parseability.log.txt",
+    "encoding": "raw",
+    "source_bytes": 95,
+    "source_sha256": "b51e9381db04ba38043f910bb96bef5b2fa938766a50778afad648b006d47abe",
+    "stored_bytes": 95,
+    "stored_sha256": "b51e9381db04ba38043f910bb96bef5b2fa938766a50778afad648b006d47abe"
+  },
+  "engineering/registry.log.txt": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0205/registry.log.txt",
+    "encoding": "raw",
+    "source_bytes": 121,
+    "source_sha256": "cd23fc68109e09614cda1546571454ec5b5cfc79323009e7435c563b71047b3a",
+    "stored_bytes": 121,
+    "stored_sha256": "cd23fc68109e09614cda1546571454ec5b5cfc79323009e7435c563b71047b3a"
+  },
+  "engineering/tables.log.txt": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0205/tables.log.txt",
+    "encoding": "raw",
+    "source_bytes": 116,
+    "source_sha256": "362c2b566827eb15434ae230b1ce60edad2006c45ff08836d0a24fc744447261",
+    "stored_bytes": 116,
+    "stored_sha256": "362c2b566827eb15434ae230b1ce60edad2006c45ff08836d0a24fc744447261"
+  },
+  "engineering/views.log.txt": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0205/views.log.txt",
+    "encoding": "raw",
+    "source_bytes": 68,
+    "source_sha256": "9730a43a0a4535867153d7ac0afd888b1feaaa96f3846b2922c39a16ad068e89",
+    "stored_bytes": 68,
+    "stored_sha256": "9730a43a0a4535867153d7ac0afd888b1feaaa96f3846b2922c39a16ad068e89"
+  },
+  "engineering/ledger.log.txt": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0205/ledger.log.txt",
+    "encoding": "raw",
+    "source_bytes": 2049,
+    "source_sha256": "ca7a472accc65e6c7040d664a83d42637444a549b67087a3097569c84f5b0e43",
+    "stored_bytes": 2049,
+    "stored_sha256": "ca7a472accc65e6c7040d664a83d42637444a549b67087a3097569c84f5b0e43"
+  },
+  "frontend/frontend.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0205/frontend/frontend.json",
+    "encoding": "raw",
+    "source_bytes": 2539,
+    "source_sha256": "20f4819dcee1f17cc3ab2045eec6b72a0f94ffc327dcf66e4ffb1e1eede05895",
+    "stored_bytes": 2539,
+    "stored_sha256": "20f4819dcee1f17cc3ab2045eec6b72a0f94ffc327dcf66e4ffb1e1eede05895"
+  },
+  "frontend/frontend-0.log.txt": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0205/frontend/frontend-0.log.txt",
+    "encoding": "raw",
+    "source_bytes": 1878,
+    "source_sha256": "425c2c7623a68af9e8ab29e69309a9fae0663e297fc9434059b65ea20105918d",
+    "stored_bytes": 1878,
+    "stored_sha256": "425c2c7623a68af9e8ab29e69309a9fae0663e297fc9434059b65ea20105918d"
+  },
+  "frontend/frontend-1.log.txt.encoded.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0205/frontend/frontend-1.log.txt",
+    "encoding": "base64-json",
+    "source_bytes": 154,
+    "source_sha256": "79876b5b5d4cfdb44424fec9416b943d57d997404ecc0c7a535fc4c3581125b3",
+    "stored_bytes": 364,
+    "stored_sha256": "5dc50b2a326be70f3a5a49d5338c9aeca2ae2d37c1b5458fc6df4a673e091176"
+  },
+  "frontend/frontend-2.log.txt.encoded.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0205/frontend/frontend-2.log.txt",
+    "encoding": "base64-json",
+    "source_bytes": 252,
+    "source_sha256": "26b32e0a2e360d8671fd0d80dfd4ccba9a1b2e0f84079d07cd6705dee103837a",
+    "stored_bytes": 492,
+    "stored_sha256": "58d65ce4c76b6a648664868b1c2de910fcf49e0202d9030d57965b62f3e84745"
+  },
+  "frontend/frontend-3.log.txt.encoded.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0205/frontend/frontend-3.log.txt",
+    "encoding": "base64-json",
+    "source_bytes": 1509,
+    "source_sha256": "c09e8806b9326b1f892c0d96b6bc9e33b98fd5d4c8acc945074396958b9eba2c",
+    "stored_bytes": 2169,
+    "stored_sha256": "8b9d70c96fe36af0b767601d883db29a62c7174940e98285fec606305d11737c"
+  },
+  "frontend/frontend-4.log.txt": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0205/frontend/frontend-4.log.txt",
+    "encoding": "raw",
+    "source_bytes": 995,
+    "source_sha256": "78f14ae5e483fd72e1cb12cf374ee84cb916fc594481f4b9219e652080bd1b8b",
+    "stored_bytes": 995,
+    "stored_sha256": "78f14ae5e483fd72e1cb12cf374ee84cb916fc594481f4b9219e652080bd1b8b"
+  },
+  "frontend/frontend-5.log.txt": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0205/frontend/frontend-5.log.txt",
+    "encoding": "raw",
+    "source_bytes": 12791,
+    "source_sha256": "300109a66939f73a263d96fdc7bd6e51573c44cb6a4b362582af84f96668f719",
+    "stored_bytes": 12791,
+    "stored_sha256": "300109a66939f73a263d96fdc7bd6e51573c44cb6a4b362582af84f96668f719"
+  },
+  "qc/batch.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260924-0208/batch.json",
+    "encoding": "raw",
+    "source_bytes": 204,
+    "source_sha256": "198238612fc2c62fc35438a585bafe2ac760e9cb4b081106916acd88b197f418",
+    "stored_bytes": 204,
+    "stored_sha256": "198238612fc2c62fc35438a585bafe2ac760e9cb4b081106916acd88b197f418"
+  },
+  "qc/closure-unadmitted.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260924-0208/closure-unadmitted.json",
+    "encoding": "raw",
+    "source_bytes": 1126,
+    "source_sha256": "db39fc602242b2f9fee6c3be5b7b7f95025bc860b078c99918643b3b152fa653",
+    "stored_bytes": 1126,
+    "stored_sha256": "db39fc602242b2f9fee6c3be5b7b7f95025bc860b078c99918643b3b152fa653"
+  },
+  "l6/preflight-controller.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-l6-20260924-0210/preflight-controller.json",
+    "encoding": "raw",
+    "source_bytes": 160,
+    "source_sha256": "3506ac48b32852fda9170d48ccd959842f9e1d23026e86263782dc074e96452e",
+    "stored_bytes": 160,
+    "stored_sha256": "3506ac48b32852fda9170d48ccd959842f9e1d23026e86263782dc074e96452e"
+  },
+  "l6/closure-unadmitted.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-l6-20260924-0210/closure-unadmitted.json",
+    "encoding": "raw",
+    "source_bytes": 1127,
+    "source_sha256": "890d60ca30d459e4f995d917a341b4d94ac394b5c4f152bad8c371c6658ea619",
+    "stored_bytes": 1127,
+    "stored_sha256": "890d60ca30d459e4f995d917a341b4d94ac394b5c4f152bad8c371c6658ea619"
+  },
+  "l6/protocol-coherent.json": {
+    "source": "/Users/a77/.finance-runtime/reviews/pr868-l6-20260924-0210/protocol-coherent.json",
+    "encoding": "raw",
+    "source_bytes": 5762,
+    "source_sha256": "48098a9f8f0c97bc2cad7c8f4bbbce32413bfe008a7b4d8127a58a51b34a4f14",
+    "stored_bytes": 5762,
+    "stored_sha256": "48098a9f8f0c97bc2cad7c8f4bbbce32413bfe008a7b4d8127a58a51b34a4f14"
+  }
+}

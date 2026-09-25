@@ -1,0 +1,21 @@
+== gate @ ce379288595b tree=/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0135/candidate py=/Users/a77/finance-workspace-private/.venv-workbench/bin/python receipt=/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0135/python-receipts/gate-L1O707KF/pytest.json
+== ruff check .
+All checks passed!
+== pytest -q -p no:cacheprovider --basetemp=/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0135/python-basetemp
+........................................................................ [ 91%]
+........................................................................ [ 91%]
+........................................................................ [ 92%]
+....................sssss............................................... [ 92%]
+........................................................................ [ 93%]
+..............................................................ssssssssss [ 93%]
+sssssssssssssssssssss................................................... [ 94%]
+........................................................................ [ 94%]
+........................................................................ [ 95%]
+........................................................................ [ 95%]
+...............................................................ssssss... [ 95%]
+......sssssssss...............................ssssssssssssssssssssssssss [ 96%]
+ss...................................................................... [ 96%]
+........................................................................ [ 97%]
+.........................................scripts/run_main_gate.sh: line 117: 52409 Terminated: 15          FWP_TEST_RECEIPT_DIR="$RECEIPT_DIR" FWP_TEST_RECEIPT_PATH="$LATEST" FWP_TEST_RECEIPT_OWNER_PID="" "$PY" -m pytest $PYTEST_ARGS 2>&1
+     52410 Done                    | tail -15
+没找到本轮收据 /Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0135/python-receipts/gate-L1O707KF/pytest.json（pytest 收据未写出；不会回退 latest.json）

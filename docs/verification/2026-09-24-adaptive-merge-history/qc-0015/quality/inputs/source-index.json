@@ -1,0 +1,2044 @@
+[
+  {
+    "file": "intelligence/services/llm_http_transport.py",
+    "sha256": "a34b6763ac82c6a44a975b9f93b5a5b2df4b866b4d2f859bb9f9b56949313d20",
+    "lines": 314,
+    "symbols": [
+      {
+        "name": "HTTPDeadlineExceeded",
+        "start": 28,
+        "end": 29
+      },
+      {
+        "name": "HTTPStreamCancelled",
+        "start": 32,
+        "end": 33
+      },
+      {
+        "name": "_headers",
+        "start": 41,
+        "end": 45
+      },
+      {
+        "name": "_raise_remote_error",
+        "start": 48,
+        "end": 71
+      },
+      {
+        "name": "HTTPResponse",
+        "start": 74,
+        "end": 212
+      },
+      {
+        "name": "urlopen",
+        "start": 215,
+        "end": 259
+      },
+      {
+        "name": "_worker",
+        "start": 262,
+        "end": 310
+      },
+      {
+        "name": "__init__",
+        "start": 75,
+        "end": 84
+      },
+      {
+        "name": "_check",
+        "start": 86,
+        "end": 92
+      },
+      {
+        "name": "_wait",
+        "start": 94,
+        "end": 103
+      },
+      {
+        "name": "send_request",
+        "start": 105,
+        "end": 117
+      },
+      {
+        "name": "_receive",
+        "start": 119,
+        "end": 142
+      },
+      {
+        "name": "open",
+        "start": 144,
+        "end": 151
+      },
+      {
+        "name": "_chunks",
+        "start": 153,
+        "end": 166
+      },
+      {
+        "name": "read",
+        "start": 168,
+        "end": 171
+      },
+      {
+        "name": "__iter__",
+        "start": 173,
+        "end": 184
+      },
+      {
+        "name": "__enter__",
+        "start": 186,
+        "end": 188
+      },
+      {
+        "name": "__exit__",
+        "start": 190,
+        "end": 191
+      },
+      {
+        "name": "close",
+        "start": 193,
+        "end": 212
+      },
+      {
+        "name": "emit",
+        "start": 263,
+        "end": 265
+      },
+      {
+        "name": "LoopbackOnly",
+        "start": 284,
+        "end": 294
+      },
+      {
+        "name": "http_request",
+        "start": 287,
+        "end": 292
+      }
+    ]
+  },
+  {
+    "file": "intelligence/services/llm_refine.py",
+    "sha256": "367b8570709c5abaebca2974432257e5ae38366a45ce9ed645177e20b590a97d",
+    "lines": 2605,
+    "symbols": [
+      {
+        "name": "_llm_request_headers",
+        "start": 91,
+        "end": 103
+      },
+      {
+        "name": "LLMProvider",
+        "start": 120,
+        "end": 126
+      },
+      {
+        "name": "http_transport_override",
+        "start": 140,
+        "end": 151
+      },
+      {
+        "name": "LLMStreamCancelled",
+        "start": 154,
+        "end": 155
+      },
+      {
+        "name": "LLMStreamingUnsupported",
+        "start": 158,
+        "end": 159
+      },
+      {
+        "name": "LLMDeadlineExceeded",
+        "start": 162,
+        "end": 163
+      },
+      {
+        "name": "LLMOutputTooLong",
+        "start": 166,
+        "end": 167
+      },
+      {
+        "name": "LLMCallBudgetExceeded",
+        "start": 170,
+        "end": 171
+      },
+      {
+        "name": "LLMStreamAlreadyEmitted",
+        "start": 174,
+        "end": 180
+      },
+      {
+        "name": "Deadline",
+        "start": 184,
+        "end": 215
+      },
+      {
+        "name": "_open_deadline_http_response",
+        "start": 219,
+        "end": 229
+      },
+      {
+        "name": "detect_providers",
+        "start": 232,
+        "end": 283
+      },
+      {
+        "name": "detect_provider",
+        "start": 286,
+        "end": 288
+      },
+      {
+        "name": "judge_provider",
+        "start": 291,
+        "end": 336
+      },
+      {
+        "name": "judge_fallback_provider",
+        "start": 339,
+        "end": 357
+      },
+      {
+        "name": "judge_provider_chain",
+        "start": 360,
+        "end": 379
+      },
+      {
+        "name": "_provider_failure_reason",
+        "start": 382,
+        "end": 392
+      },
+      {
+        "name": "stable_llm_fallback_reason",
+        "start": 395,
+        "end": 471
+      },
+      {
+        "name": "provider_override",
+        "start": 475,
+        "end": 480
+      },
+      {
+        "name": "LLMCallRecord",
+        "start": 492,
+        "end": 522
+      },
+      {
+        "name": "LLMCallContext",
+        "start": 526,
+        "end": 530
+      },
+      {
+        "name": "call_provenance_scope",
+        "start": 539,
+        "end": 545
+      },
+      {
+        "name": "_canonical_sha256",
+        "start": 548,
+        "end": 552
+      },
+      {
+        "name": "provider_endpoint_id",
+        "start": 555,
+        "end": 566
+      },
+      {
+        "name": "_metadata_string",
+        "start": 569,
+        "end": 570
+      },
+      {
+        "name": "_LLMCallAttempt",
+        "start": 574,
+        "end": 617
+      },
+      {
+        "name": "_new_call_attempt",
+        "start": 620,
+        "end": 633
+      },
+      {
+        "name": "LLMCallLedger",
+        "start": 640,
+        "end": 739
+      },
+      {
+        "name": "_record_to_dict",
+        "start": 742,
+        "end": 750
+      },
+      {
+        "name": "_has_usage",
+        "start": 753,
+        "end": 754
+      },
+      {
+        "name": "_tokens_by_purpose",
+        "start": 757,
+        "end": 771
+      },
+      {
+        "name": "_estimated_share",
+        "start": 774,
+        "end": 787
+      },
+      {
+        "name": "_insufficient_budget_reason",
+        "start": 790,
+        "end": 809
+      },
+      {
+        "name": "_tally_failure_reasons",
+        "start": 812,
+        "end": 820
+      },
+      {
+        "name": "call_ledger_scope",
+        "start": 830,
+        "end": 847
+      },
+      {
+        "name": "_budget_rejection",
+        "start": 850,
+        "end": 855
+      },
+      {
+        "name": "_reserve_llm_call",
+        "start": 858,
+        "end": 867
+      },
+      {
+        "name": "current_call_ledger",
+        "start": 870,
+        "end": 871
+      },
+      {
+        "name": "call_purpose",
+        "start": 882,
+        "end": 893
+      },
+      {
+        "name": "current_call_purpose",
+        "start": 896,
+        "end": 897
+      },
+      {
+        "name": "_retry_delay_seconds",
+        "start": 915,
+        "end": 919
+      },
+      {
+        "name": "_failure_reason",
+        "start": 937,
+        "end": 958
+      },
+      {
+        "name": "_record_llm_call",
+        "start": 961,
+        "end": 1015
+      },
+      {
+        "name": "synthesis_thinking_disabled",
+        "start": 1018,
+        "end": 1022
+      },
+      {
+        "name": "_apply_thinking_controls",
+        "start": 1034,
+        "end": 1043
+      },
+      {
+        "name": "_stable_finish_reason",
+        "start": 1046,
+        "end": 1052
+      },
+      {
+        "name": "_build_user_prompt",
+        "start": 1066,
+        "end": 1073
+      },
+      {
+        "name": "_complete_cli_judge",
+        "start": 1076,
+        "end": 1122
+      },
+      {
+        "name": "_chat_payload",
+        "start": 1125,
+        "end": 1136
+      },
+      {
+        "name": "_post_chat",
+        "start": 1139,
+        "end": 1192
+      },
+      {
+        "name": "_post_chat_synthesis",
+        "start": 1195,
+        "end": 1234
+      },
+      {
+        "name": "complete",
+        "start": 1237,
+        "end": 1309
+      },
+      {
+        "name": "_ToolCallAssembler",
+        "start": 1312,
+        "end": 1363
+      },
+      {
+        "name": "_post_chat_message_stream",
+        "start": 1366,
+        "end": 1503
+      },
+      {
+        "name": "_post_chat_message",
+        "start": 1506,
+        "end": 1569
+      },
+      {
+        "name": "_served_model_from_body",
+        "start": 1572,
+        "end": 1583
+      },
+      {
+        "name": "chat_with_tools",
+        "start": 1586,
+        "end": 1680
+      },
+      {
+        "name": "_extract_json",
+        "start": 1683,
+        "end": 1697
+      },
+      {
+        "name": "_as_lines",
+        "start": 1700,
+        "end": 1705
+      },
+      {
+        "name": "RefineResult",
+        "start": 1709,
+        "end": 1713
+      },
+      {
+        "name": "refine",
+        "start": 1716,
+        "end": 1729
+      },
+      {
+        "name": "refine_or_reason",
+        "start": 1732,
+        "end": 1773
+      },
+      {
+        "name": "SynthesisResult",
+        "start": 1812,
+        "end": 1817
+      },
+      {
+        "name": "_build_synthesis_prompt",
+        "start": 1820,
+        "end": 1863
+      },
+      {
+        "name": "build_synthesis_messages",
+        "start": 1866,
+        "end": 1934
+      },
+      {
+        "name": "_required_outputs_block",
+        "start": 1981,
+        "end": 1998
+      },
+      {
+        "name": "_registry_document",
+        "start": 2001,
+        "end": 2016
+      },
+      {
+        "name": "build_decision_brief_messages",
+        "start": 2030,
+        "end": 2046
+      },
+      {
+        "name": "build_grounded_composer_messages",
+        "start": 2049,
+        "end": 2086
+      },
+      {
+        "name": "build_grounding_judge_messages",
+        "start": 2089,
+        "end": 2104
+      },
+      {
+        "name": "followup_user_content",
+        "start": 2115,
+        "end": 2120
+      },
+      {
+        "name": "synthesize_messages",
+        "start": 2123,
+        "end": 2233
+      },
+      {
+        "name": "_post_chat_stream",
+        "start": 2236,
+        "end": 2273
+      },
+      {
+        "name": "_post_chat_stream_raw",
+        "start": 2276,
+        "end": 2353
+      },
+      {
+        "name": "synthesize_messages_stream",
+        "start": 2379,
+        "end": 2495
+      },
+      {
+        "name": "gate_revision_user_content",
+        "start": 2507,
+        "end": 2510
+      },
+      {
+        "name": "claim_binding_revision_user_content",
+        "start": 2513,
+        "end": 2526
+      },
+      {
+        "name": "grounded_composer_system_prompt",
+        "start": 2529,
+        "end": 2532
+      },
+      {
+        "name": "fulfillment_revision_user_content",
+        "start": 2535,
+        "end": 2584
+      },
+      {
+        "name": "synthesize",
+        "start": 2587,
+        "end": 2605
+      },
+      {
+        "name": "from_timeout",
+        "start": 188,
+        "end": 189
+      },
+      {
+        "name": "remaining",
+        "start": 191,
+        "end": 192
+      },
+      {
+        "name": "require_remaining",
+        "start": 194,
+        "end": 198
+      },
+      {
+        "name": "call_timeout",
+        "start": 200,
+        "end": 215
+      },
+      {
+        "name": "observe_response",
+        "start": 589,
+        "end": 605
+      },
+      {
+        "name": "observe_result",
+        "start": 607,
+        "end": 617
+      },
+      {
+        "name": "over_budget",
+        "start": 653,
+        "end": 658
+      },
+      {
+        "name": "headroom",
+        "start": 660,
+        "end": 670
+      },
+      {
+        "name": "try_reserve",
+        "start": 672,
+        "end": 688
+      },
+      {
+        "name": "rejection_reason",
+        "start": 690,
+        "end": 694
+      },
+      {
+        "name": "reject",
+        "start": 696,
+        "end": 699
+      },
+      {
+        "name": "record",
+        "start": 701,
+        "end": 703
+      },
+      {
+        "name": "records_for_call",
+        "start": 705,
+        "end": 707
+      },
+      {
+        "name": "summary",
+        "start": 709,
+        "end": 739
+      },
+      {
+        "name": "__init__",
+        "start": 1322,
+        "end": 1324
+      },
+      {
+        "name": "add",
+        "start": 1326,
+        "end": 1360
+      },
+      {
+        "name": "assembled",
+        "start": 1362,
+        "end": 1363
+      },
+      {
+        "name": "_tracked_delta",
+        "start": 2410,
+        "end": 2413
+      }
+    ]
+  },
+  {
+    "file": "intelligence/services/episode_semantic_verifier.py",
+    "sha256": "25559c737b7e7b1f55a8acbbbbc6a998f15d913471fc23399a0e357069fbd7cf",
+    "lines": 7075,
+    "symbols": [
+      {
+        "name": "semantic_judge_window_seconds",
+        "start": 159,
+        "end": 170
+      },
+      {
+        "name": "judge_attempt_seconds",
+        "start": 173,
+        "end": 189
+      },
+      {
+        "name": "policy_for_contract",
+        "start": 192,
+        "end": 198
+      },
+      {
+        "name": "_FinalizerJudgeProvider",
+        "start": 204,
+        "end": 214
+      },
+      {
+        "name": "_judge_report_tools",
+        "start": 508,
+        "end": 524
+      },
+      {
+        "name": "compact_judge_payload",
+        "start": 627,
+        "end": 666
+      },
+      {
+        "name": "dumps_judge_request",
+        "start": 669,
+        "end": 673
+      },
+      {
+        "name": "SemanticEpisodeOutcome",
+        "start": 677,
+        "end": 838
+      },
+      {
+        "name": "semantic_repair_feedback",
+        "start": 841,
+        "end": 894
+      },
+      {
+        "name": "_unresolved_publication_feedback",
+        "start": 897,
+        "end": 927
+      },
+      {
+        "name": "with_unresolved_review_publication",
+        "start": 930,
+        "end": 944
+      },
+      {
+        "name": "with_unreviewed_revision_publication",
+        "start": 952,
+        "end": 974
+      },
+      {
+        "name": "_retained_delivery_hashes",
+        "start": 977,
+        "end": 992
+      },
+      {
+        "name": "_recheck_research_delivery",
+        "start": 995,
+        "end": 1080
+      },
+      {
+        "name": "recheck_material_public_delivery",
+        "start": 1083,
+        "end": 1177
+      },
+      {
+        "name": "_HygieneSnapshot",
+        "start": 1181,
+        "end": 1184
+      },
+      {
+        "name": "_JudgeCall",
+        "start": 1188,
+        "end": 1207
+      },
+      {
+        "name": "_judge_failure_identity",
+        "start": 1210,
+        "end": 1236
+      },
+      {
+        "name": "_deadline_remaining_seconds",
+        "start": 1239,
+        "end": 1248
+      },
+      {
+        "name": "_attach_judge_clock",
+        "start": 1251,
+        "end": 1271
+      },
+      {
+        "name": "guided_retrieve_enabled",
+        "start": 1319,
+        "end": 1328
+      },
+      {
+        "name": "build_guided_query",
+        "start": 1331,
+        "end": 1371
+      },
+      {
+        "name": "GuidedRetrievalTelemetry",
+        "start": 1375,
+        "end": 1396
+      },
+      {
+        "name": "_guided_support_row",
+        "start": 1399,
+        "end": 1406
+      },
+      {
+        "name": "SemanticEpisodeVerifier",
+        "start": 1409,
+        "end": 4211
+      },
+      {
+        "name": "_gap_label",
+        "start": 4214,
+        "end": 4226
+      },
+      {
+        "name": "_latest_evidence_date",
+        "start": 4229,
+        "end": 4242
+      },
+      {
+        "name": "_required_output_degraded_note",
+        "start": 4250,
+        "end": 4257
+      },
+      {
+        "name": "_with_required_output_degrade_mark",
+        "start": 4260,
+        "end": 4265
+      },
+      {
+        "name": "_shrink_verified_for_marker_loss",
+        "start": 4268,
+        "end": 4346
+      },
+      {
+        "name": "_gap_task_context",
+        "start": 4349,
+        "end": 4355
+      },
+      {
+        "name": "_contract_slots_all_fulfilled",
+        "start": 4358,
+        "end": 4393
+      },
+      {
+        "name": "_material_questions_settled",
+        "start": 4396,
+        "end": 4415
+      },
+      {
+        "name": "_can_semantically_release_partial",
+        "start": 4418,
+        "end": 4450
+      },
+      {
+        "name": "_numbered_sentences",
+        "start": 4453,
+        "end": 4457
+      },
+      {
+        "name": "_mechanical_reasons_by_index",
+        "start": 4460,
+        "end": 4484
+      },
+      {
+        "name": "_issues_naming_sentence",
+        "start": 4487,
+        "end": 4497
+      },
+      {
+        "name": "_sentence_verdict_record",
+        "start": 4500,
+        "end": 4549
+      },
+      {
+        "name": "_reconcile_issue_sentence_indexes",
+        "start": 4552,
+        "end": 4585
+      },
+      {
+        "name": "_apply_numeric_condition_gate",
+        "start": 4588,
+        "end": 4624
+      },
+      {
+        "name": "v8_semantic_degrade_enabled",
+        "start": 4627,
+        "end": 4631
+      },
+      {
+        "name": "_unresolved_evidence_ordinal_indexes",
+        "start": 4634,
+        "end": 4650
+      },
+      {
+        "name": "_mechanical_sentence_indexes",
+        "start": 4653,
+        "end": 4667
+      },
+      {
+        "name": "_partition_rejected_indexes",
+        "start": 4670,
+        "end": 4686
+      },
+      {
+        "name": "_apply_unresolved_evidence_ordinal_gate",
+        "start": 4689,
+        "end": 4724
+      },
+      {
+        "name": "_required_grounded_output_ids",
+        "start": 4727,
+        "end": 4740
+      },
+      {
+        "name": "_sentence_in_required_grounded_block",
+        "start": 4743,
+        "end": 4763
+      },
+      {
+        "name": "_semantic_disposition",
+        "start": 4766,
+        "end": 4795
+      },
+      {
+        "name": "_mark_ranking_row_priority",
+        "start": 4798,
+        "end": 4821
+      },
+      {
+        "name": "_apply_sentence_rewrites",
+        "start": 4824,
+        "end": 4831
+      },
+      {
+        "name": "_unknown_stock_code_indexes",
+        "start": 4841,
+        "end": 4864
+      },
+      {
+        "name": "_semantic_degrade_labels",
+        "start": 4867,
+        "end": 4878
+      },
+      {
+        "name": "_is_meta_disclosure",
+        "start": 4890,
+        "end": 4892
+      },
+      {
+        "name": "_apply_meta_disclosure_exemption",
+        "start": 4895,
+        "end": 4937
+      },
+      {
+        "name": "_apply_optional_rejudge_deadline",
+        "start": 4940,
+        "end": 4965
+      },
+      {
+        "name": "_optional_rejudge_allows_monotonic_release",
+        "start": 4968,
+        "end": 4978
+      },
+      {
+        "name": "_mask_bound_short_date_heading",
+        "start": 4981,
+        "end": 4997
+      },
+      {
+        "name": "_with_financial_repair_debt",
+        "start": 5000,
+        "end": 5048
+      },
+      {
+        "name": "_financial_claim_mismatch_indexes",
+        "start": 5051,
+        "end": 5068
+      },
+      {
+        "name": "_novel_numeric_condition_indexes",
+        "start": 5071,
+        "end": 5201
+      },
+      {
+        "name": "draft_sentence_count",
+        "start": 5204,
+        "end": 5207
+      },
+      {
+        "name": "numeric_condition_repair_feedback",
+        "start": 5210,
+        "end": 5226
+      },
+      {
+        "name": "numeric_condition_unsupported",
+        "start": 5229,
+        "end": 5242
+      },
+      {
+        "name": "_mismatched_weekday_indexes",
+        "start": 5245,
+        "end": 5277
+      },
+      {
+        "name": "_mismatched_path_trend_indexes",
+        "start": 5280,
+        "end": 5317
+      },
+      {
+        "name": "_turnover_path_directions",
+        "start": 5320,
+        "end": 5392
+      },
+      {
+        "name": "_path_assertion_scope",
+        "start": 5395,
+        "end": 5409
+      },
+      {
+        "name": "_turnover_bridge_is_locally_bound",
+        "start": 5412,
+        "end": 5423
+      },
+      {
+        "name": "_inverted_turnover_bridge_is_locally_bound",
+        "start": 5426,
+        "end": 5427
+      },
+      {
+        "name": "_bound_turnover_series",
+        "start": 5430,
+        "end": 5448
+      },
+      {
+        "name": "_full_dates_in",
+        "start": 5451,
+        "end": 5467
+      },
+      {
+        "name": "_evidence_corpus",
+        "start": 5470,
+        "end": 5480
+      },
+      {
+        "name": "_bound_evidence_dates",
+        "start": 5483,
+        "end": 5494
+      },
+      {
+        "name": "_evidence_by_ordinal",
+        "start": 5497,
+        "end": 5507
+      },
+      {
+        "name": "_asserted_source_dates",
+        "start": 5525,
+        "end": 5541
+      },
+      {
+        "name": "_mismatched_evidence_date_indexes",
+        "start": 5544,
+        "end": 5573
+      },
+      {
+        "name": "_cited_outside_slot_binding_indexes",
+        "start": 5581,
+        "end": 5632
+      },
+      {
+        "name": "_bound_evidence_quantities",
+        "start": 5635,
+        "end": 5685
+      },
+      {
+        "name": "_normalize_quantity",
+        "start": 5688,
+        "end": 5695
+      },
+      {
+        "name": "_bound_observation_values",
+        "start": 5698,
+        "end": 5715
+      },
+      {
+        "name": "_quantity_supported_by_evidence",
+        "start": 5718,
+        "end": 5755
+      },
+      {
+        "name": "_parse_quantity",
+        "start": 5758,
+        "end": 5774
+      },
+      {
+        "name": "_quantity_dimension",
+        "start": 5777,
+        "end": 5784
+      },
+      {
+        "name": "_same_quantity_dimension",
+        "start": 5787,
+        "end": 5793
+      },
+      {
+        "name": "_rounded_quantity_matches",
+        "start": 5796,
+        "end": 5829
+      },
+      {
+        "name": "slot_line_for_observations",
+        "start": 5841,
+        "end": 5866
+      },
+      {
+        "name": "_restore_lost_observations",
+        "start": 5869,
+        "end": 5889
+      },
+      {
+        "name": "_gaps_with_lost_observations",
+        "start": 5892,
+        "end": 5919
+      },
+      {
+        "name": "_without_deleted_claims",
+        "start": 5922,
+        "end": 5945
+      },
+      {
+        "name": "_drop_rejected_sentences",
+        "start": 5948,
+        "end": 5991
+      },
+      {
+        "name": "_reconcile_explicit_list_counts",
+        "start": 5994,
+        "end": 6058
+      },
+      {
+        "name": "_next_ordered_group_count",
+        "start": 6061,
+        "end": 6088
+      },
+      {
+        "name": "_next_list_group_count",
+        "start": 6091,
+        "end": 6111
+      },
+      {
+        "name": "_next_parenthesized_group_count",
+        "start": 6114,
+        "end": 6136
+      },
+      {
+        "name": "_parse_small_count",
+        "start": 6139,
+        "end": 6164
+      },
+      {
+        "name": "_render_small_count",
+        "start": 6167,
+        "end": 6176
+      },
+      {
+        "name": "_renumber_ordered_list_items",
+        "start": 6179,
+        "end": 6198
+      },
+      {
+        "name": "_renumber_circled_list_items",
+        "start": 6201,
+        "end": 6219
+      },
+      {
+        "name": "_renumber_parenthesized_list_items",
+        "start": 6222,
+        "end": 6260
+      },
+      {
+        "name": "_marker_loss_gap_sentence",
+        "start": 6263,
+        "end": 6293
+      },
+      {
+        "name": "_marker_loss_issues",
+        "start": 6296,
+        "end": 6304
+      },
+      {
+        "name": "_semantic_tool_call_statuses",
+        "start": 6307,
+        "end": 6369
+      },
+      {
+        "name": "_semantic_tool_status_registry",
+        "start": 6372,
+        "end": 6399
+      },
+      {
+        "name": "_verified_quantities_for_judge",
+        "start": 6402,
+        "end": 6434
+      },
+      {
+        "name": "_semantic_evidence_projection",
+        "start": 6437,
+        "end": 6443
+      },
+      {
+        "name": "_ProjectionTelemetry",
+        "start": 6447,
+        "end": 6452
+      },
+      {
+        "name": "_project_semantic_evidence",
+        "start": 6455,
+        "end": 6552
+      },
+      {
+        "name": "_repair_wiped_all_required",
+        "start": 6555,
+        "end": 6560
+      },
+      {
+        "name": "_required_evidence_outputs",
+        "start": 6563,
+        "end": 6569
+      },
+      {
+        "name": "_answer_grounding_mode",
+        "start": 6572,
+        "end": 6583
+      },
+      {
+        "name": "_lost_grounded_output_substance",
+        "start": 6586,
+        "end": 6606
+      },
+      {
+        "name": "_judge_system_prompt",
+        "start": 6609,
+        "end": 6653
+      },
+      {
+        "name": "_call_flexible",
+        "start": 6656,
+        "end": 6744
+      },
+      {
+        "name": "_stable_semantic_judge_error",
+        "start": 6747,
+        "end": 6839
+      },
+      {
+        "name": "complete_judge_attempt_seconds",
+        "start": 6842,
+        "end": 6857
+      },
+      {
+        "name": "leftover_window_blocks_complete_attempt",
+        "start": 6860,
+        "end": 6871
+      },
+      {
+        "name": "_semantic_attempt_timeouts",
+        "start": 6874,
+        "end": 6900
+      },
+      {
+        "name": "semantic_attempts_for_window",
+        "start": 6903,
+        "end": 6924
+      },
+      {
+        "name": "semantic_total_judge_window",
+        "start": 6927,
+        "end": 6941
+      },
+      {
+        "name": "_should_retry_semantic_judge",
+        "start": 6944,
+        "end": 6958
+      },
+      {
+        "name": "_next_slot_switches_judge",
+        "start": 6961,
+        "end": 6980
+      },
+      {
+        "name": "_sanitize_public_answer",
+        "start": 6983,
+        "end": 7039
+      },
+      {
+        "name": "_private_tokens",
+        "start": 7042,
+        "end": 7054
+      },
+      {
+        "name": "_contains_private_token",
+        "start": 7057,
+        "end": 7064
+      },
+      {
+        "name": "__post_init__",
+        "start": 725,
+        "end": 753
+      },
+      {
+        "name": "to_dict",
+        "start": 755,
+        "end": 838
+      },
+      {
+        "name": "__post_init__",
+        "start": 1394,
+        "end": 1396
+      },
+      {
+        "name": "__init__",
+        "start": 1419,
+        "end": 1452
+      },
+      {
+        "name": "_record_sentence_verdicts",
+        "start": 1454,
+        "end": 1487
+      },
+      {
+        "name": "_finalize_outcome",
+        "start": 1489,
+        "end": 1517
+      },
+      {
+        "name": "_note_semantic_reject",
+        "start": 1519,
+        "end": 1533
+      },
+      {
+        "name": "_plan_repair_indexes",
+        "start": 1535,
+        "end": 1617
+      },
+      {
+        "name": "_repair_work_pending",
+        "start": 1619,
+        "end": 1622
+      },
+      {
+        "name": "_take_pending_rewrites",
+        "start": 1624,
+        "end": 1627
+      },
+      {
+        "name": "_project_semantic_quality_marks",
+        "start": 1629,
+        "end": 1654
+      },
+      {
+        "name": "verify",
+        "start": 1656,
+        "end": 1732
+      },
+      {
+        "name": "_guided_retrieve_and_rejudge",
+        "start": 1734,
+        "end": 1908
+      },
+      {
+        "name": "_verify_inner",
+        "start": 1910,
+        "end": 2736
+      },
+      {
+        "name": "_transient_failure_candidate",
+        "start": 2738,
+        "end": 2781
+      },
+      {
+        "name": "_reject_material_gaps",
+        "start": 2783,
+        "end": 2882
+      },
+      {
+        "name": "_judge_request",
+        "start": 2884,
+        "end": 2980
+      },
+      {
+        "name": "_clocked_judge_call",
+        "start": 2982,
+        "end": 3026
+      },
+      {
+        "name": "_judge_attempt_cap",
+        "start": 3028,
+        "end": 3031
+      },
+      {
+        "name": "_window_starved_issue",
+        "start": 3034,
+        "end": 3044
+      },
+      {
+        "name": "_run_judge",
+        "start": 3046,
+        "end": 3095
+      },
+      {
+        "name": "_run_judge_once",
+        "start": 3097,
+        "end": 3489
+      },
+      {
+        "name": "_parse_tool_report",
+        "start": 3492,
+        "end": 3507
+      },
+      {
+        "name": "_invoke_injected",
+        "start": 3510,
+        "end": 3563
+      },
+      {
+        "name": "_parse_report",
+        "start": 3566,
+        "end": 3679
+      },
+      {
+        "name": "_apply_unattempted_claim_rewrite",
+        "start": 3681,
+        "end": 3705
+      },
+      {
+        "name": "_apply_kb_gap_proof_rewrite",
+        "start": 3707,
+        "end": 3720
+      },
+      {
+        "name": "_withhold_public_source",
+        "start": 3722,
+        "end": 3742
+      },
+      {
+        "name": "_maybe_withhold_stub",
+        "start": 3744,
+        "end": 3769
+      },
+      {
+        "name": "_maybe_withhold_after_repair",
+        "start": 3771,
+        "end": 3806
+      },
+      {
+        "name": "_emit_withheld_repair",
+        "start": 3808,
+        "end": 3865
+      },
+      {
+        "name": "_repair",
+        "start": 3867,
+        "end": 3922
+      },
+      {
+        "name": "_completed_public",
+        "start": 3924,
+        "end": 3966
+      },
+      {
+        "name": "_marker_loss_or_withhold",
+        "start": 3968,
+        "end": 4018
+      },
+      {
+        "name": "_marker_loss_partial_public",
+        "start": 4020,
+        "end": 4076
+      },
+      {
+        "name": "_gap_answer",
+        "start": 4079,
+        "end": 4204
+      },
+      {
+        "name": "_generic_gap_answer",
+        "start": 4207,
+        "end": 4211
+      },
+      {
+        "name": "public_names",
+        "start": 7004,
+        "end": 7018
+      },
+      {
+        "name": "skipped",
+        "start": 1751,
+        "end": 1752
+      }
+    ]
+  },
+  {
+    "file": "intelligence/tests/test_llm_timeout_diagnostic.py",
+    "sha256": "cc7f3f02f915f11207c56f46873732abedeb07e1db159724d02e41078e7c96b3",
+    "lines": 288,
+    "symbols": [
+      {
+        "name": "test_violation_uses_actual_wall_time_not_timeout_quote",
+        "start": 14,
+        "end": 19
+      },
+      {
+        "name": "test_real_fast_loopback_preserves_one_attempt_and_restores_transport",
+        "start": 22,
+        "end": 37
+      },
+      {
+        "name": "test_zero_deadline_has_no_http_or_billing_attempt",
+        "start": 40,
+        "end": 44
+      },
+      {
+        "name": "test_real_slow_response_is_cancelled_without_accepting_late_payload",
+        "start": 52,
+        "end": 63
+      },
+      {
+        "name": "test_real_late_judge_report_is_rejected_at_the_transport_boundary",
+        "start": 66,
+        "end": 72
+      },
+      {
+        "name": "test_stalled_parent_still_stops_the_worker_at_the_deadline",
+        "start": 75,
+        "end": 101
+      },
+      {
+        "name": "test_call_timeout_never_outlives_the_shared_research_deadline",
+        "start": 104,
+        "end": 125
+      },
+      {
+        "name": "test_refine_wrapper_forwards_the_shared_deadline_to_the_transport",
+        "start": 128,
+        "end": 150
+      },
+      {
+        "name": "test_shared_window_zero_rejection_is_not_a_third_request",
+        "start": 153,
+        "end": 164
+      },
+      {
+        "name": "test_expired_root_is_distinct_from_exhausted_judge_window",
+        "start": 167,
+        "end": 172
+      },
+      {
+        "name": "test_cli_strict_mode_is_a_real_wall_clock_gate",
+        "start": 176,
+        "end": 189
+      },
+      {
+        "name": "test_startup_timeout_is_not_body_coverage",
+        "start": 193,
+        "end": 199
+      },
+      {
+        "name": "test_header_stalls_and_zero_deadlines_have_distinct_coverage",
+        "start": 202,
+        "end": 210
+      },
+      {
+        "name": "test_strict_mode_rejects_missing_coverage_even_inside_deadline",
+        "start": 213,
+        "end": 226
+      },
+      {
+        "name": "test_real_cancel_can_interrupt_a_partial_line_without_a_consumer_callback",
+        "start": 229,
+        "end": 249
+      },
+      {
+        "name": "test_partial_line_cannot_trigger_cancellation_from_the_iterator_body",
+        "start": 252,
+        "end": 262
+      },
+      {
+        "name": "test_existing_receipt_is_never_overwritten",
+        "start": 265,
+        "end": 271
+      },
+      {
+        "name": "test_probe_rejects_unbounded_or_nonfinite_waits",
+        "start": 275,
+        "end": 279
+      },
+      {
+        "name": "test_endpoint_guard_rejects_external_hosts_before_network",
+        "start": 282,
+        "end": 288
+      }
+    ]
+  },
+  {
+    "file": "scripts/review_probes/diagnose_llm_timeout.py",
+    "sha256": "6a1c456f8e8a6a353e7b628676df5af98f4d1693e01c1026201f0df513790a9e",
+    "lines": 317,
+    "symbols": [
+      {
+        "name": "local_endpoint",
+        "start": 54,
+        "end": 153
+      },
+      {
+        "name": "run_case",
+        "start": 156,
+        "end": 195
+      },
+      {
+        "name": "run_judge_case",
+        "start": 198,
+        "end": 231
+      },
+      {
+        "name": "violations",
+        "start": 234,
+        "end": 236
+      },
+      {
+        "name": "coverage_gaps",
+        "start": 239,
+        "end": 261
+      },
+      {
+        "name": "source_identity",
+        "start": 264,
+        "end": 278
+      },
+      {
+        "name": "main",
+        "start": 281,
+        "end": 313
+      },
+      {
+        "name": "Handler",
+        "start": 59,
+        "end": 115
+      },
+      {
+        "name": "open_real",
+        "start": 126,
+        "end": 144
+      },
+      {
+        "name": "git",
+        "start": 265,
+        "end": 266
+      },
+      {
+        "name": "log_message",
+        "start": 60,
+        "end": 61
+      },
+      {
+        "name": "wait",
+        "start": 63,
+        "end": 64
+      },
+      {
+        "name": "send",
+        "start": 66,
+        "end": 74
+      },
+      {
+        "name": "do_POST",
+        "start": 76,
+        "end": 115
+      },
+      {
+        "name": "observe",
+        "start": 134,
+        "end": 142
+      }
+    ]
+  },
+  {
+    "file": "scripts/review_probes/adaptive_l6_batch.py",
+    "sha256": "f849feeb8cde3f9384e8365ce2f825e98db79b6340de558faabe261c191854fa",
+    "lines": 82,
+    "symbols": [
+      {
+        "name": "await_source_audit",
+        "start": 18,
+        "end": 40
+      },
+      {
+        "name": "run_audited_batch",
+        "start": 43,
+        "end": 82
+      }
+    ]
+  },
+  {
+    "file": "scripts/review_probes/prepare_adaptive_l6_runner.py",
+    "sha256": "1fdc06ec5b4501e54e27bfe2fc3da5b279800566e4fbb30800fc48350ff3ca4a",
+    "lines": 113,
+    "symbols": [
+      {
+        "name": "prepare",
+        "start": 20,
+        "end": 100
+      },
+      {
+        "name": "main",
+        "start": 103,
+        "end": 109
+      }
+    ]
+  },
+  {
+    "file": "scripts/review_probes/prepare_pi_review_repair.py",
+    "sha256": "3f7b38e28abd6b2650575a8bcd52b4ae9e49b12a0fbc3fa8ae4fae7149665843",
+    "lines": 172,
+    "symbols": [
+      {
+        "name": "digest",
+        "start": 30,
+        "end": 31
+      },
+      {
+        "name": "replace_once",
+        "start": 34,
+        "end": 37
+      },
+      {
+        "name": "prepare",
+        "start": 40,
+        "end": 160
+      },
+      {
+        "name": "main",
+        "start": 163,
+        "end": 168
+      }
+    ]
+  },
+  {
+    "file": "scripts/review_probes/pi_review_protocol.mjs",
+    "sha256": "05360fd5433f0af6f6a8c5c8c37289a3008be1803d9e898a4caef62049e03492",
+    "lines": 178,
+    "symbols": []
+  },
+  {
+    "file": "tests/test_adaptive_l6_audit.py",
+    "sha256": "a6b4b7355476ce4076bff8f14030b35cfab29d1681c0e1b7c70b9ea42866515a",
+    "lines": 314,
+    "symbols": [
+      {
+        "name": "sample",
+        "start": 23,
+        "end": 72
+      },
+      {
+        "name": "test_repaired_status_cannot_hide_a_source_supported_lost_condition",
+        "start": 75,
+        "end": 80
+      },
+      {
+        "name": "test_bad_review_binding_fails_closed",
+        "start": 84,
+        "end": 93
+      },
+      {
+        "name": "test_incomplete_review_and_unobserved_mechanisms_are_not_pass",
+        "start": 96,
+        "end": 110
+      },
+      {
+        "name": "test_no_vacuous_pass_without_supported_claim_or_actual_model_revision",
+        "start": 114,
+        "end": 124
+      },
+      {
+        "name": "test_adopted_late_report_fails_even_without_repair",
+        "start": 127,
+        "end": 132
+      },
+      {
+        "name": "test_content_gate_controls_real_loopback_submissions",
+        "start": 139,
+        "end": 218
+      },
+      {
+        "name": "test_content_gate_invalid_budget_sends_nothing",
+        "start": 222,
+        "end": 230
+      },
+      {
+        "name": "test_manifest_refuses_symlinks",
+        "start": 233,
+        "end": 236
+      },
+      {
+        "name": "test_clone_never_overwrites_an_existing_input",
+        "start": 239,
+        "end": 246
+      },
+      {
+        "name": "protocol",
+        "start": 249,
+        "end": 265
+      },
+      {
+        "name": "test_fresh_runner_wires_source_audit_and_inherits_no_receipts",
+        "start": 268,
+        "end": 289
+      },
+      {
+        "name": "test_authorized_original_scope_is_valid",
+        "start": 292,
+        "end": 293
+      },
+      {
+        "name": "test_prepare_rejects_scope_expansion_or_missing_approval",
+        "start": 299,
+        "end": 314
+      },
+      {
+        "name": "Peer",
+        "start": 144,
+        "end": 154
+      },
+      {
+        "name": "submit",
+        "start": 156,
+        "end": 164
+      },
+      {
+        "name": "check",
+        "start": 166,
+        "end": 195
+      },
+      {
+        "name": "log_message",
+        "start": 145,
+        "end": 146
+      },
+      {
+        "name": "do_POST",
+        "start": 148,
+        "end": 154
+      },
+      {
+        "name": "advance",
+        "start": 188,
+        "end": 189
+      }
+    ]
+  },
+  {
+    "file": "tests/test_pi_review_repair.py",
+    "sha256": "18ac4c8f36ba5f1435aaac79d740c56cee0cedae01c4100fbab99518f02ef87a",
+    "lines": 380,
+    "symbols": [
+      {
+        "name": "dump",
+        "start": 24,
+        "end": 26
+      },
+      {
+        "name": "load",
+        "start": 29,
+        "end": 30
+      },
+      {
+        "name": "test_prepare_preserves_sealed_inputs_and_refuses_reuse",
+        "start": 33,
+        "end": 56
+      },
+      {
+        "name": "test_prepare_fails_closed_on_changed_archive",
+        "start": 59,
+        "end": 66
+      },
+      {
+        "name": "runtime",
+        "start": 70,
+        "end": 92
+      },
+      {
+        "name": "peer",
+        "start": 96,
+        "end": 152
+      },
+      {
+        "name": "tool",
+        "start": 155,
+        "end": 157
+      },
+      {
+        "name": "run",
+        "start": 160,
+        "end": 161
+      },
+      {
+        "name": "gateway",
+        "start": 164,
+        "end": 186
+      },
+      {
+        "name": "test_real_cli_menu_startup_zero_requests",
+        "start": 189,
+        "end": 194
+      },
+      {
+        "name": "test_real_cli_gateway_protocol",
+        "start": 198,
+        "end": 236
+      },
+      {
+        "name": "stage_fixture",
+        "start": 239,
+        "end": 253
+      },
+      {
+        "name": "test_real_stage_runner_delivers_without_followup",
+        "start": 258,
+        "end": 273
+      },
+      {
+        "name": "test_reviewer_identity_injection_stops_without_followup",
+        "start": 280,
+        "end": 289
+      },
+      {
+        "name": "test_exhausted_stage_rejects_before_any_provider_request",
+        "start": 293,
+        "end": 307
+      },
+      {
+        "name": "test_real_stage_menu_startup_zero_requests",
+        "start": 311,
+        "end": 324
+      },
+      {
+        "name": "test_missing_cli_delivery_tool_fails_before_provider",
+        "start": 327,
+        "end": 337
+      },
+      {
+        "name": "test_delivery_with_sibling_tool_is_blocked",
+        "start": 340,
+        "end": 351
+      },
+      {
+        "name": "test_gateway_controller_requires_completed_state",
+        "start": 355,
+        "end": 380
+      },
+      {
+        "name": "Fake",
+        "start": 99,
+        "end": 132
+      },
+      {
+        "name": "reply",
+        "start": 203,
+        "end": 219
+      },
+      {
+        "name": "reply",
+        "start": 359,
+        "end": 372
+      },
+      {
+        "name": "log_message",
+        "start": 100,
+        "end": 101
+      },
+      {
+        "name": "do_POST",
+        "start": 103,
+        "end": 132
+      }
+    ]
+  },
+  {
+    "file": "scripts/review_probes/prepare_adaptive_l6.py",
+    "sha256": "2b876eb6d3e04f8c19ae3cc6ab2063271eafba1877ec17c23502e558fc0a8207",
+    "lines": 333,
+    "symbols": [
+      {
+        "name": "digest",
+        "start": 34,
+        "end": 39
+      },
+      {
+        "name": "dump",
+        "start": 42,
+        "end": 45
+      },
+      {
+        "name": "manifest",
+        "start": 48,
+        "end": 55
+      },
+      {
+        "name": "clone",
+        "start": 58,
+        "end": 74
+      },
+      {
+        "name": "code_identity",
+        "start": 77,
+        "end": 89
+      },
+      {
+        "name": "production_health",
+        "start": 92,
+        "end": 98
+      },
+      {
+        "name": "validate_authorization",
+        "start": 101,
+        "end": 126
+      },
+      {
+        "name": "freeze_data",
+        "start": 129,
+        "end": 196
+      },
+      {
+        "name": "retrieval_probe",
+        "start": 199,
+        "end": 255
+      },
+      {
+        "name": "main",
+        "start": 258,
+        "end": 329
+      },
+      {
+        "name": "git",
+        "start": 78,
+        "end": 81
+      }
+    ]
+  },
+  {
+    "file": "scripts/review_probes/retrieval_readiness_worker.py",
+    "sha256": "c41a82b43d37d9af12856a4c039b3cae292f985fc4c4712f1d577cb709f502c1",
+    "lines": 46,
+    "symbols": [
+      {
+        "name": "probe",
+        "start": 15,
+        "end": 42
+      },
+      {
+        "name": "emit",
+        "start": 18,
+        "end": 19
+      }
+    ]
+  },
+  {
+    "file": "tests/test_retrieval_readiness.py",
+    "sha256": "62ca92975be81001d98887049b35fa38cc60cbf195f6f3cb9a23cca92d67207d",
+    "lines": 102,
+    "symbols": [
+      {
+        "name": "fixture_library",
+        "start": 14,
+        "end": 25
+      },
+      {
+        "name": "test_real_worker_requires_expected_shape_without_creating_cache",
+        "start": 29,
+        "end": 51
+      },
+      {
+        "name": "test_import_failure_is_visible_before_any_model_load",
+        "start": 54,
+        "end": 61
+      },
+      {
+        "name": "test_exit_zero_without_a_valid_final_result_is_not_ready",
+        "start": 70,
+        "end": 80
+      },
+      {
+        "name": "test_timeout_preserves_last_phase_and_does_not_retry",
+        "start": 83,
+        "end": 102
+      },
+      {
+        "name": "run",
+        "start": 73,
+        "end": 75
+      },
+      {
+        "name": "run",
+        "start": 87,
+        "end": 95
+      }
+    ]
+  }
+]

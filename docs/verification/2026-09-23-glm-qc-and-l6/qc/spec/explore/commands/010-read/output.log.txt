@@ -1,0 +1,117 @@
+)
+# 共享窗被**上一次尝试**吃光、本次拿到 0 秒——与「根期限到点」是两回事。
+# 2026-09-07 max 档 D5 两发收据：judge_attempt_index=1、timeout_asked=0.0，
+# remaining_seconds_at_entry=415/469，却写着 deadline exhausted，归因被带偏了一轮。
+WINDOW_EXHAUSTED_ISSUE = "semantic judge window exhausted by prior attempt"
+ROOT_DEADLINE_EXHAUSTED_ISSUE = "semantic judge deadline exhausted"
+
+
+def semantic_judge_window_seconds(policy: ResearchPolicy | None = None) -> float:
+    """Total window shared by all judge attempts.
+
+    Bookgap S3: the source of truth is ``derive_stage_caps`` (a fraction of
+    synthesis reserve).  ``ASK_SEMANTIC_JUDGE_WINDOW`` can only lower it.
+    One complete attempt is ``min(per_attempt_cap, window)`` — the 0.5
+    pre-split was retired after the 08-20 grok tail (46.7s) could not fit
+    in half of the 50s floor.
+    """
+
+    caps = derive_stage_caps(policy or policy_for_env())
+    return apply_env_ceiling(caps.judge_window_seconds, "ASK_SEMANTIC_JUDGE_WINDOW")
+
+
+def judge_attempt_seconds(
+    configured_attempt_timeout: float,
+    policy: ResearchPolicy | None = None,
+) -> float:
+    """Per-attempt cap: the configured value, floored by the tier's own cap.
+
+    档位地板只有 max 档有（``derive_stage_caps``）；其余档位返回配置值，
+    与改动前逐字节一致。``policy`` 缺省走 ``policy_for_env()``——注意那读的是
+    ``ASK_RESEARCH_TIER``，生产设的是 ``WORKBENCH_RESEARCH_TIER``，所以 episode
+    路径必须把合同上的真实档位传进来，不能靠缺省。
+    """
+
+    configured = max(0.1, float(configured_attempt_timeout))
+    floor = derive_stage_caps(policy or policy_for_env()).judge_attempt_seconds
+    if floor is None:
+        return configured
+    return max(configured, float(floor))
+
+
+def policy_for_contract(contract: object | None) -> ResearchPolicy | None:
+    """The episode's real tier from its contract; None when there is no contract."""
+
+    tier = getattr(contract, "research_tier", None)
+    if not isinstance(tier, str) or not tier.strip():
+        return None
+    return ResearchPolicy.for_tier(tier.strip().lower())
+MAX_SEMANTIC_JUDGE_ATTEMPTS = 3
+JudgeFn = Callable[..., object]
+
+
+@runtime_checkable
+class _FinalizerJudgeProvider(Protocol):
+    """Minimal seam the verifier needs from a finalizer.
+
+    The verifier never calls ``recover()`` — it only reads ``_model`` as a
+    fallback judge client.  Defining this Protocol here (in the domain layer)
+    lets ``runtime/episode_finalizer`` satisfy it structurally, instead of the
+    domain layer importing a runtime module.  This is the dependency inversion
+    that breaks the only seam in the layer gate.
+    """
+
+    _model: AgentModelClient
+
+_CONTROL_FIELD_RE = re.compile(
+    r"(?:\b(?:content[_ ]?hash|evidence[_ ]?hash|internal[_ ]?locator|"
+    r"system[_ ]?prompt|tool[_ ]?calls?)\b\s*[:=]?|"
+    r"\bhash\b\s*[:=]|\bprovider(?:[_ ]?name)?\b\s*[:=]|"
+    r"\b_?provider_(?:attempts?|trace)\b\s*[:=]?|"
+    r"\bendpoint\b\s*[:=]|"
+    r"证据哈希|内容哈希|内部定位|系统提示|工具调用)",
+    re.IGNORECASE,
+)
+_STRICT_JSON_FENCE_RE = re.compile(
+    r"\A```(?:json)?[ \t]*\r?\n(?P<body>\{.*\})\r?\n```[ \t]*\Z",
+    re.DOTALL | re.IGNORECASE,
+)
+_HTTP_STATUS_ERROR_RE = re.compile(
+    r"\b(?:http(?:\s+status)?|status(?:[_\s]+code)?|code)\s*[:=]?\s*(\d{3})\b",
+    re.IGNORECASE,
+)
+_ISSUE_SENTENCE_INDEX_RE = re.compile(
+    r"(?:第\s*(\d+)\s*句|句\s*(\d+)|sentence\s*#?\s*(\d+))",
+    re.IGNORECASE,
+)
+# 拒句账（P2 第一步）的枚举值。字符串进产物，改名等于改契约，读侧脚本按这些值统计。
+VERDICT_STAGE_PREFLIGHT = "preflight"
+VERDICT_STAGE_JUDGE = "judge"
+# V11：回检索后的 grounding 重判放过了首判拒掉的语义句。
+VERDICT_STAGE_GUIDED_REJUDGE = "guided_rejudge"
+VERDICT_DELETED = "deleted"
+VERDICT_DEMOTED = "demoted_to_issue"
+VERDICT_LIFTED = "lifted"
+# 2026-09-21：第四个动词。判官说「数字没问题、拒的是别的」（排序无依据 / 文风泄漏）
+# 时，确定性改写句子而不是整句删或原样保留；账上记改写后的文本。
+VERDICT_REWRITTEN = "rewritten"
+VERDICT_REASON_JUDGE = "judge"
+VERDICT_REASON_GUIDED_EVIDENCE = "guided_retrieval_evidence"
+VERDICT_REASON_NUMERIC = "novel_numeric_condition"
+VERDICT_REASON_WEEKDAY = "calendar_weekday"
+VERDICT_REASON_PATH = "path_trend"
+VERDICT_REASON_ORDINAL = "unresolved_evidence_ordinal"
+VERDICT_REASON_EVIDENCE_DATE = "evidence_date_mismatch"
+VERDICT_REASON_STOCK_CODE = "unknown_stock_code"
+VERDICT_REASON_FINANCIAL = "financial_claim_mismatch"
+_FINANCIAL_CLAIM_ISSUE = Issue(
+    IssueCode.NUMERIC_UNSUPPORTED, "financial_claim",
+    "financial claim contradicts bound arithmetic, period or source kind",
+)
+# #55 census：引用了槽绑定之外的 E 只记账不删句（R-20260821-06 的既定裁决）。
+# stage / decision / reason 三个都是新值，读侧按 stage 过滤即可把它与拒句账分开。
+VERDICT_STAGE_CENSUS = "census"
+# Final projection/recovery uses the same finite checks on newly delivered text.
+VERDICT_STAGE_DELIVERY = "delivery"
+
+[truncated; total lines=7054, selected=150:264; request a later offset]

@@ -1,0 +1,14 @@
+{
+  "status": "BLOCKED_PROVIDER_OR_ROUNDTRIP",
+  "requests": 4,
+  "pi_requests": 3,
+  "tiny_requests": 1,
+  "exit_code": 0,
+  "timed_out": false,
+  "failed_stop_reasons": [],
+  "tool_executions": 3,
+  "sentinel_returned": true,
+  "written_copy_matches": false,
+  "elapsed_seconds": 26.053105750121176,
+  "purpose": "gateway preflight only, not QC"
+}

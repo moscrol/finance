@@ -1,0 +1,126 @@
+"""Run one new bounded independent batch, axes and phases serially."""
+import hashlib
+import json
+import os
+from pathlib import Path
+import subprocess
+import time
+
+ROOT = Path('/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260924-0400')
+REV = 'e7a6cb412865fdd189cf51a17f93622fa3d4fe55'
+TREE = Path(__file__).resolve().parent/'candidate'
+PY = '/Users/a77/finance-workspace-private/.venv-workbench/bin/python'
+ENV = {k: os.environ[k] for k in ('PATH','HOME','LANG','TMPDIR') if k in os.environ}
+ENV['PYTHONDONTWRITEBYTECODE'] = '1'
+RECORD = {'status':'PRECHECK','revision':REV,'stages':[],'automatic_retries':0,'prior_batches_requests':74,'cumulative_request_cap':152}
+assert not (ROOT/'batch.json').exists()
+
+
+def save():
+    temporary=ROOT/'batch.tmp'
+    temporary.write_text(json.dumps(RECORD,indent=2)+'\n')
+    temporary.replace(ROOT/'batch.json')
+
+
+def run(name, command):
+    with (ROOT/(name+'.driver.log.txt')).open('xb') as out:
+        result=subprocess.run(command,env=ENV,stdout=out,stderr=subprocess.STDOUT)
+    if result.returncode:
+        raise RuntimeError(name+' exit '+str(result.returncode))
+
+
+def packet(axis):
+    base=ROOT/axis
+    parts=['# Same-axis immutable evidence packet\nNo model reasoning or other-axis conclusions included. Host packaging is not a verdict.\n']
+    manifest={}
+    def include(path):
+        raw=path.read_bytes()
+        key=str(path.relative_to(base))
+        manifest[key]={'sha256':hashlib.sha256(raw).hexdigest(),'bytes':len(raw)}
+        parts.append('\n## '+key+'\n\n'+raw.decode()+'\n')
+    include(base/'inputs/claims.md')
+    include(base/'config.json')
+    for phase in ('explore','execute'):
+        include(base/phase/'parsed.json')
+        record=json.loads((base/phase/'execution.json').read_text())
+        summary={k:record.get(k) for k in ('stage','status','revision','baseline','requests','elapsed_seconds','errors','report_structural','inputs_unchanged','candidate_before','candidate_after','model_identities','probe_sha256')}
+        parts.append('\n## '+phase+' controller summary\n'+json.dumps(summary,ensure_ascii=False)+'\n')
+    for path in sorted((base/'work/probes').glob('*.py')):
+        include(path)
+    for folder in sorted((base/'execute/commands').iterdir()):
+        if folder.name.endswith('-deliver_stage'):
+            continue
+        for name in ('request.json','result.json','output.log'):
+            path=folder/name
+            if path.is_file(): include(path)
+    body='\n'.join(parts)
+    assert len(body.encode())<=160000, len(body.encode())
+    with (base/'report-packet.md').open('x') as f: f.write(body)
+    with (base/'report-packet-manifest.json').open('x') as f:
+        json.dump({'axis':axis,'inputs':manifest,'reasoning_excluded':True,'truncated_files':[],'packet_sha256':hashlib.sha256(body.encode()).hexdigest(),'packet_bytes':len(body.encode())},f,indent=2)
+
+
+save()
+try:
+    gate_path=Path(__file__).resolve().parent/'gates.json'
+    gate=json.loads(gate_path.read_text())
+    assert gate['complete'] is True and gate['revision']==REV
+    assert len(gate['checks'])==7
+    assert {check['name'] for check in gate['checks']}=={'python','frontend','parseability','registry','tables','views','ledger'}
+    assert all(type(check['exit_code']) is int and check['exit_code']==0 for check in gate['checks']), 'Engineering gate is red; no paid batch admitted'
+    assert subprocess.check_output(['git','-C',str(TREE),'rev-parse','HEAD'],text=True).strip()==REV
+    assert not subprocess.check_output(['git','-C',str(TREE),'status','--porcelain'],text=True).strip()
+    authorization=json.loads((ROOT/'authorization.json').read_text())
+    assert authorization['candidate']==REV and authorization['prior_batches_charged']==74
+    assert authorization['cumulative_request_cap_including_prior_batches']==152
+    for name,sha in authorization['inputs_sha256'].items():
+        assert hashlib.sha256((ROOT/name).read_bytes()).hexdigest()==sha, name
+    receipt_path=Path(__file__).resolve().parent/'python-receipts/gate-Pq59hxEb/pytest.json'
+    receipt=json.loads(receipt_path.read_text())
+    assert receipt['target']==str(TREE) and receipt['scope']['collected']>0
+    assert receipt['scope']=={'ignore':[],'ignore_glob':[],'deselect':[],'keyword':'','markexpr':'','maxfail':0,'last_failed':False,'collected':receipt['scope']['collected']}
+    run('python-receipt-admission',[PY,'-B',str(TREE/'scripts/main_gate_receipt.py'),str(receipt_path),'--revision',REV,'--tree',str(TREE),'--pytest-exit','0'])
+    RECORD['status']='RUNNING'
+    save()
+    run('adapter', [PY,'-B',str(ROOT/'probe_adapter.py')])
+    assert json.loads((ROOT/'adapter-preflight.json').read_text())['status']=='PASS'
+    for axis in ('spec','quality'):
+        for stage in ('gateway','explore','execute','report'):
+            if stage=='execute':
+                run(axis+'-bridge',[PY,'-B',str(ROOT/'bridge_stage.py'),axis,'explore'])
+            if stage=='report': packet(axis)
+            RECORD['running']=axis+'/'+stage
+            save()
+            charged = 74 + sum(row['charged_requests'] for row in RECORD['stages'])
+            reserve = {'gateway':4,'explore':17,'execute':17,'report':1}[stage]
+            assert charged + reserve <= 152, 'Cumulative budget cannot be reset'
+            RECORD['reservation']={'axis':axis,'stage':stage,'max_requests':reserve,'charged_before':charged}
+            save()
+            start=time.monotonic()
+            receipt={}
+            try:
+                run(axis+'-'+stage,[PY,'-B',str(ROOT/axis/'run_control.py'),stage])
+            finally:
+                path=ROOT/axis/(stage+'.controller.json')
+                if path.is_file():
+                    try:
+                        receipt=json.loads(path.read_text())
+                    except (OSError,ValueError) as error:
+                        receipt={'status':'UNREADABLE_CONTROLLER','error_type':type(error).__name__}
+                if not isinstance(receipt,dict): receipt={'status':'MALFORMED_CONTROLLER'}
+                counts=receipt.get('shim_counts',{})
+                requests=counts.get('requests') if isinstance(counts,dict) else None
+                known=type(requests) is int and requests>=0
+                charge=requests if known else reserve
+                RECORD['stages'].append({'axis':axis,'stage':stage,'status':receipt.get('status','UNKNOWN'),'seconds':round(time.monotonic()-start,3),'requests':requests,'actual_count_known':known,'charged_requests':charge,'reserved_requests':reserve})
+                RECORD.pop('reservation',None)
+                RECORD['cumulative_charged_requests']=74+sum(row['charged_requests'] for row in RECORD['stages'])
+                save()
+            assert known and requests<=reserve, 'unknown or exceeded request charge'
+            assert receipt['status']=='COMPLETE', receipt
+    RECORD.update(status='COMPLETED_AWAITING_EVIDENCE_AUDIT',running=None)
+except Exception as exc:
+    RECORD.update(status='BLOCKED_NO_RETRY',error=str(exc))
+finally:
+    save()
+    print(json.dumps(RECORD),flush=True)

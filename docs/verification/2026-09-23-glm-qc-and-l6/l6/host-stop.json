@@ -1,0 +1,16 @@
+{
+  "reason": "L6-N1 source audit found an evidence-anchored condition removed after actual repair",
+  "action": "Cancel already-inflight L6-N2 and submit no L6-N3",
+  "endpoint": "http://127.0.0.1:19897/api/runs/run_20260923_200211_404490/cancel?user=adaptive-l6-glm-20260923-1945",
+  "method": "POST",
+  "observed_response": {
+    "run_id": "run_20260923_200211_404490",
+    "status": "cancelled",
+    "cancel_requested": true
+  },
+  "cancel_requests": 1,
+  "resubmissions": 0,
+  "followups": 0,
+  "host_control_limit": "Controller advances on run completion before host source audit. N2 was already submitted when N1 source-level failure was established. This overlap is disclosed; N2 must not be presented as a product failure, completed acceptance, or zero-submission question. Future controller needs an audit barrier before next submission.",
+  "production_change": false
+}

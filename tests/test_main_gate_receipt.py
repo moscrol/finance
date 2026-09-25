@@ -84,6 +84,58 @@ def readback(repo, tmp_path, data, baseline=None):
     return run_gate(repo, tmp_path, *args)
 
 
+@pytest.mark.parametrize("fails", [False, True])
+def test_gate_retains_complete_output_beside_its_own_receipt(repo, tmp_path, fails):
+    _commit_sample(repo, f'''def test_output():
+    print("gate-output-first-marker")
+    for index in range(50):
+        print("intermediate", index)
+    print("gate-output-last-marker")
+    assert {not fails}
+''')
+    result = run_gate(repo, tmp_path, "--pytest-args", "-q -s -p no:cacheprovider test_sample.py")
+    assert result.returncode == int(fails), result.stdout + result.stderr
+    own = list((tmp_path / "receipts").glob("gate-*/pytest.json"))
+    assert len(own) == 1
+    log = own[0].with_name("pytest.log.txt")
+    assert log.is_file(), "the console tail is not the full pytest evidence"
+    text = log.read_text()
+    assert "gate-output-first-marker" in text and "gate-output-last-marker" in text
+    assert str(log) in result.stdout
+    if not fails:
+        assert "gate-output-first-marker" not in result.stdout
+    assert json.loads(own[0].read_text())["exit_status"] == int(fails)
+
+
+@pytest.mark.parametrize("tool", ["tee", "tail"])
+def test_output_pipeline_failure_cannot_report_green(repo, tmp_path, tool):
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    fake = bin_dir / tool
+    fake.write_text("#!/bin/sh\ncat >/dev/null\nexit 7\n")
+    fake.chmod(0o755)
+    result = run_gate(repo, tmp_path, extra_env={
+        "PATH": str(bin_dir) + os.pathsep + os.environ["PATH"],
+    })
+    assert result.returncode == 4, result.stdout + result.stderr
+    assert "pytest output pipeline failed" in result.stderr
+    own = list((tmp_path / "receipts").glob("gate-*/pytest.json"))
+    assert len(own) == 1
+    assert json.loads(own[0].read_text())["exit_status"] == 0
+
+
+@pytest.mark.parametrize("nested", [False, True])
+def test_gate_refuses_receipts_inside_disposable_basetemp(repo, tmp_path, nested):
+    base = tmp_path / "disposable"
+    receipts = base / "receipts" if nested else base
+    result = run_gate(repo, tmp_path, "--pytest-args", f"-q --basetemp={base}", extra_env={
+        "FWP_TEST_RECEIPT_DIR": str(receipts),
+    })
+    assert result.returncode == 4, result.stdout + result.stderr
+    assert "receipt directory overlaps disposable basetemp" in result.stderr
+    assert "== pytest" not in result.stdout
+
+
 def test_valid_receipt_readback(repo, tmp_path):
     result = readback(repo, tmp_path, receipt(repo))
     assert result.returncode == 0, result.stdout + result.stderr

@@ -1,0 +1,95 @@
+{"event": "started", "monotonic": 1333084.021779208}
+{"event": "listening", "monotonic": 1333084.030728125, "port": 19899}
+{"event": "admitted", "monotonic": 1333089.764468791, "request": 1, "temperature_removed": false}
+{"event": "dispatched", "monotonic": 1333089.951885875, "request": 1}
+{"event": "headers", "monotonic": 1333092.876012541, "request": 1, "status": 200}
+{"elapsed_seconds": 7.947183, "event": "finished", "monotonic": 1333097.714269208, "outcome": "completed", "request": 1, "status": 200}
+{"event": "admitted", "monotonic": 1333097.865752083, "request": 2, "temperature_removed": false}
+{"event": "dispatched", "monotonic": 1333097.99064525, "request": 2}
+{"event": "headers", "monotonic": 1333101.558515208, "request": 2, "status": 200}
+{"elapsed_seconds": 5.043404, "event": "finished", "monotonic": 1333102.910223666, "outcome": "completed", "request": 2, "status": 200}
+{"event": "admitted", "monotonic": 1333103.006063958, "request": 3, "temperature_removed": false}
+{"event": "dispatched", "monotonic": 1333103.109047208, "request": 3}
+{"event": "headers", "monotonic": 1333106.079406958, "request": 3, "status": 200}
+{"elapsed_seconds": 3.744883, "event": "finished", "monotonic": 1333106.751885833, "outcome": "completed", "request": 3, "status": 200}
+{"event": "admitted", "monotonic": 1333106.81057875, "request": 4, "temperature_removed": false}
+{"event": "dispatched", "monotonic": 1333106.913403125, "request": 4}
+{"event": "headers", "monotonic": 1333118.775818583, "request": 4, "status": 200}
+{"elapsed_seconds": 14.03743, "event": "finished", "monotonic": 1333120.848791875, "outcome": "completed", "request": 4, "status": 200}
+{"event": "admitted", "monotonic": 1333120.982227666, "request": 5, "temperature_removed": false}
+{"event": "dispatched", "monotonic": 1333121.091697958, "request": 5}
+{"event": "headers", "monotonic": 1333123.476784875, "request": 5, "status": 200}
+{"elapsed_seconds": 4.643272, "event": "finished", "monotonic": 1333125.6265645, "outcome": "completed", "request": 5, "status": 200}
+{"event": "admitted", "monotonic": 1333125.782515791, "request": 6, "temperature_removed": false}
+{"event": "dispatched", "monotonic": 1333125.896013916, "request": 6}
+{"event": "headers", "monotonic": 1333129.969189583, "request": 6, "status": 200}
+{"elapsed_seconds": 5.680836, "event": "finished", "monotonic": 1333131.464288041, "outcome": "completed", "request": 6, "status": 200}
+{"event": "admitted", "monotonic": 1333131.54578475, "request": 7, "temperature_removed": false}
+{"event": "dispatched", "monotonic": 1333131.653536791, "request": 7}
+{"event": "headers", "monotonic": 1333134.880721125, "request": 7, "status": 200}
+{"elapsed_seconds": 9.325903, "event": "finished", "monotonic": 1333140.872541333, "outcome": "completed", "request": 7, "status": 200}
+{"event": "admitted", "monotonic": 1333141.267542125, "request": 8, "temperature_removed": false}
+{"event": "dispatched", "monotonic": 1333141.369150416, "request": 8}
+{"event": "headers", "monotonic": 1333144.818745125, "request": 8, "status": 200}
+{"elapsed_seconds": 4.666552, "event": "finished", "monotonic": 1333145.93497975, "outcome": "completed", "request": 8, "status": 200}
+{"event": "admitted", "monotonic": 1333146.063081541, "request": 9, "temperature_removed": false}
+{"event": "dispatched", "monotonic": 1333146.267095541, "request": 9}
+{"event": "headers", "monotonic": 1333152.775867041, "request": 9, "status": 200}
+{"elapsed_seconds": 6.755909, "event": "finished", "monotonic": 1333152.821018375, "outcome": "completed", "request": 9, "status": 200}
+{"event": "admitted", "monotonic": 1333152.952121125, "request": 10, "temperature_removed": false}
+{"event": "dispatched", "monotonic": 1333153.064502541, "request": 10}
+{"event": "headers", "monotonic": 1333153.873027625, "request": 10, "status": 200}
+{"elapsed_seconds": 2.856329, "event": "finished", "monotonic": 1333155.809576541, "outcome": "completed", "request": 10, "status": 200}
+{"event": "admitted", "monotonic": 1333156.317680666, "request": 11, "temperature_removed": false}
+{"event": "dispatched", "monotonic": 1333156.436479333, "request": 11}
+{"event": "headers", "monotonic": 1333162.6438535, "request": 11, "status": 200}
+{"elapsed_seconds": 6.325384, "event": "finished", "monotonic": 1333162.645167625, "outcome": "completed", "request": 11, "status": 200}
+{"event": "admitted", "monotonic": 1333164.127543416, "request": 12, "temperature_removed": false}
+{"event": "dispatched", "monotonic": 1333164.2295385, "request": 12}
+{"event": "headers", "monotonic": 1333168.202729875, "request": 12, "status": 200}
+{"elapsed_seconds": 9.300931, "event": "finished", "monotonic": 1333173.429507833, "outcome": "completed", "request": 12, "status": 200}
+{"event": "admitted", "monotonic": 1333173.538263666, "request": 13, "temperature_removed": false}
+{"event": "dispatched", "monotonic": 1333173.651461375, "request": 13}
+{"event": "headers", "monotonic": 1333177.614561041, "request": 13, "status": 200}
+{"elapsed_seconds": 4.84567, "event": "finished", "monotonic": 1333178.384832833, "outcome": "completed", "request": 13, "status": 200}
+{"event": "admitted", "monotonic": 1333178.499556125, "request": 14, "temperature_removed": false}
+{"event": "dispatched", "monotonic": 1333178.613518916, "request": 14}
+{"event": "headers", "monotonic": 1333183.16849, "request": 14, "status": 200}
+{"elapsed_seconds": 8.593909, "event": "finished", "monotonic": 1333187.094463166, "outcome": "completed", "request": 14, "status": 200}
+{"event": "admitted", "monotonic": 1333191.153084666, "request": 15, "temperature_removed": false}
+{"event": "dispatched", "monotonic": 1333191.259130916, "request": 15}
+{"event": "headers", "monotonic": 1333195.231155416, "request": 15, "status": 200}
+{"elapsed_seconds": 12.020176, "event": "finished", "monotonic": 1333203.174221083, "outcome": "completed", "request": 15, "status": 200}
+{"event": "admitted", "monotonic": 1333203.359507708, "request": 16, "temperature_removed": false}
+{"event": "dispatched", "monotonic": 1333203.466183666, "request": 16}
+{"event": "headers", "monotonic": 1333207.928464791, "request": 16, "status": 200}
+{"elapsed_seconds": 17.790089, "event": "finished", "monotonic": 1333221.150741083, "outcome": "completed", "request": 16, "status": 200}
+{"event": "admitted", "monotonic": 1333221.317797625, "request": 17, "temperature_removed": false}
+{"event": "dispatched", "monotonic": 1333221.429146875, "request": 17}
+{"event": "headers", "monotonic": 1333226.344447208, "request": 17, "status": 200}
+{"elapsed_seconds": 13.941276, "event": "finished", "monotonic": 1333235.260023625, "outcome": "completed", "request": 17, "status": 200}
+{"event": "admitted", "monotonic": 1333235.377256208, "request": 18, "temperature_removed": false}
+{"event": "dispatched", "monotonic": 1333235.487661416, "request": 18}
+{"event": "headers", "monotonic": 1333236.46362275, "request": 18, "status": 200}
+{"elapsed_seconds": 6.582548, "event": "finished", "monotonic": 1333241.960892791, "outcome": "completed", "request": 18, "status": 200}
+{"event": "admitted", "monotonic": 1333242.059218375, "request": 19, "temperature_removed": false}
+{"event": "dispatched", "monotonic": 1333242.170036041, "request": 19}
+{"event": "headers", "monotonic": 1333245.537838375, "request": 19, "status": 200}
+{"elapsed_seconds": 6.355152, "event": "finished", "monotonic": 1333248.415363208, "outcome": "completed", "request": 19, "status": 200}
+{"event": "admitted", "monotonic": 1333248.529768583, "request": 20, "temperature_removed": false}
+{"event": "dispatched", "monotonic": 1333248.636232791, "request": 20}
+{"event": "headers", "monotonic": 1333252.522721291, "request": 20, "status": 200}
+{"elapsed_seconds": 4.038828, "event": "finished", "monotonic": 1333252.569803833, "outcome": "completed", "request": 20, "status": 200}
+{"event": "admitted", "monotonic": 1333252.647257416, "request": 21, "temperature_removed": false}
+{"event": "dispatched", "monotonic": 1333252.750830416, "request": 21}
+{"event": "headers", "monotonic": 1333253.996299416, "request": 21, "status": 200}
+{"elapsed_seconds": 7.743598, "event": "finished", "monotonic": 1333260.391750916, "outcome": "completed", "request": 21, "status": 200}
+{"event": "admitted", "monotonic": 1333260.553826375, "request": 22, "temperature_removed": false}
+{"event": "dispatched", "monotonic": 1333260.662028416, "request": 22}
+{"event": "headers", "monotonic": 1333266.758934291, "request": 22, "status": 200}
+{"elapsed_seconds": 9.11168, "event": "finished", "monotonic": 1333269.666499791, "outcome": "completed", "request": 22, "status": 200}
+{"event": "admitted", "monotonic": 1333269.812454958, "request": 23, "temperature_removed": false}
+{"event": "dispatched", "monotonic": 1333269.931413583, "request": 23}
+{"event": "headers", "monotonic": 1333271.603834875, "request": 23, "status": 200}
+{"elapsed_seconds": 120.021381, "event": "finished", "monotonic": 1333389.835273791, "outcome": "failed", "request": 23, "status": 200}
+{"event": "shutdown", "monotonic": 1333390.867767416}

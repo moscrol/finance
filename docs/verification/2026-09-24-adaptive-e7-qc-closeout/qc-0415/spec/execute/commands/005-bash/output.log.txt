@@ -1,0 +1,104 @@
+----------------------------------------
+Exception occurred during processing of request from ('127.0.0.1', 61076)
+Traceback (most recent call last):
+  File "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/socketserver.py", line 697, in process_request_thread
+    self.finish_request(request, client_address)
+  File "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/socketserver.py", line 766, in __init__
+    self.handle()
+  File "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/http/server.py", line 440, in handle
+    self.handle_one_request()
+  File "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/http/server.py", line 428, in handle_one_request
+    method()
+  File "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260924-0415/spec/work/probes/transport_boundary_probe_v2.py", line 37, in do_POST
+    self.wfile.write(body[i:i + 1])
+  File "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/socketserver.py", line 845, in write
+    self._sock.sendall(b)
+BrokenPipeError: [Errno 32] Broken pipe
+----------------------------------------
+----------------------------------------
+Exception occurred during processing of request from ('127.0.0.1', 61078)
+Traceback (most recent call last):
+  File "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/socketserver.py", line 697, in process_request_thread
+    self.finish_request(request, client_address)
+  File "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/socketserver.py", line 766, in __init__
+    self.handle()
+  File "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/http/server.py", line 440, in handle
+    self.handle_one_request()
+  File "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/http/server.py", line 428, in handle_one_request
+    method()
+  File "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260924-0415/spec/work/probes/transport_boundary_probe_v2.py", line 37, in do_POST
+    self.wfile.write(body[i:i + 1])
+  File "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/socketserver.py", line 845, in write
+    self._sock.sendall(b)
+BrokenPipeError: [Errno 32] Broken pipe
+----------------------------------------
+----------------------------------------
+Exception occurred during processing of request from ('127.0.0.1', 61079)
+Traceback (most recent call last):
+  File "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/socketserver.py", line 697, in process_request_thread
+    self.finish_request(request, client_address)
+  File "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/socketserver.py", line 766, in __init__
+    self.handle()
+  File "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/http/server.py", line 440, in handle
+    self.handle_one_request()
+  File "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/http/server.py", line 428, in handle_one_request
+    method()
+  File "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260924-0415/spec/work/probes/transport_boundary_probe_v2.py", line 37, in do_POST
+    self.wfile.write(body[i:i + 1])
+  File "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/socketserver.py", line 845, in write
+    self._sock.sendall(b)
+BrokenPipeError: [Errno 32] Broken pipe
+----------------------------------------
+[
+ {
+  "subcase": "success_ok",
+  "pass": true,
+  "trigger_reached": true,
+  "status": 200,
+  "body_len": 64,
+  "wall": 0.05
+ },
+ {
+  "subcase": "body_deadline_0p5_of_10",
+  "pass": true,
+  "trigger_reached": true,
+  "exception": "HTTPDeadlineExceeded",
+  "wall": 0.506
+ },
+ {
+  "subcase": "slow_headers_deadline",
+  "pass": true,
+  "trigger_reached": true,
+  "exception": "HTTPDeadlineExceeded",
+  "wall": 0.507
+ },
+ {
+  "subcase": "cancel_midstream",
+  "pass": true,
+  "trigger_reached": true,
+  "exception": "HTTPStreamCancelled",
+  "cancel_to_stop": 0.012,
+  "headers_observed": true
+ },
+ {
+  "subcase": "zero_deadline_no_spawn",
+  "pass": true,
+  "trigger_reached": true,
+  "exception": "HTTPDeadlineExceeded",
+  "observer_events": []
+ },
+ {
+  "subcase": "stalled_parent_timer",
+  "pass": true,
+  "trigger_reached": true,
+  "exception": "HTTPDeadlineExceeded",
+  "wall": 2.58
+ }
+]
+SUBCASES total=6 failed=0 []

@@ -1,0 +1,24 @@
+{
+  "scope": "diagnosis only; full gate remains RED",
+  "candidate": "c315cfdaa96a5b18cedb060b09ddc92ec2a14559",
+  "command": [
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "-B",
+    "-m",
+    "pytest",
+    "-q",
+    "-x",
+    "-p",
+    "no:cacheprovider",
+    "-p",
+    "rag_prefix_diagnostic",
+    "-o",
+    "tmp_path_retention_policy=failed",
+    "--basetemp=/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0205/rag-prefix-tmp",
+    "--junitxml=/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0205/rag-prefix.xml"
+  ],
+  "complete": true,
+  "pid": 6113,
+  "exit_code": 1,
+  "seconds": 1016.111
+}

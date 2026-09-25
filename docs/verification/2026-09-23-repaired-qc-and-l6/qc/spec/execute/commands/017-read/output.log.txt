@@ -1,0 +1,32 @@
+def call_ledger_scope(
+    max_calls: int | None = None,
+    *,
+    reuse_existing: bool = True,
+) -> Iterator[LLMCallLedger]:
+    """开启 turn 级 LLM 调用台账；已有活动台账时复用（不重置嵌套作用域）。
+
+    ``max_calls`` 只在新建台账时生效；嵌套复用时以外层限额为准。"""
+    existing = _CALL_LEDGER.get()
+    if existing is not None and reuse_existing:
+        yield existing
+        return
+    ledger = LLMCallLedger(max_calls=max_calls)
+    token = _CALL_LEDGER.set(ledger)
+    try:
+        yield ledger
+    finally:
+        _CALL_LEDGER.reset(token)
+
+
+def _budget_rejection() -> str | None:
+    """入口预算检查：超额时返回拒发 reason，未超额/无台账返回 None。"""
+    ledger = _CALL_LEDGER.get()
+    if ledger is not None and ledger.over_budget():
+        return ledger.reject()
+    return None
+
+
+def _reserve_llm_call() -> None:
+    """Reserve one attempt at the actual HTTP boundary.
+
+[truncated; total lines=2605, selected=830:859; request a later offset]

@@ -1,0 +1,42 @@
+1237:def complete(
+def complete(
+    messages: list[dict],
+    model_override: str | None = None,
+    timeout: float = DEFAULT_LLM_TIMEOUT,
+    temperature: float = 0.2,
+    *,
+    min_viable_seconds: float | None = None,
+    max_tokens: int | None = None,
+) -> tuple[str | None, "LLMProvider | None", str]:
+    """Generic OpenAI-compatible chat call shared across services.
+
+    Returns ``(content, provider, reason)``. On any failure (no key, HTTP error,
+    network error) ``content`` is ``None`` and ``reason`` explains why so callers
+    can degrade gracefully — same contract as :func:`refine_or_reason`.
+    """
+    context = _CALL_PROVENANCE.get()
+    if context is not None:
+        context.selected_attempt_id = None
+        context.identity_state = IDENTITY_NOT_CALLED
+    rejection = _budget_rejection()
+    if rejection is not None:
+        return None, None, rejection
+    providers = detect_providers(model_override)
+    if not providers:
+        return None, None, (
+            "未配置 LLM key。设置 DEEPSEEK_API_KEY / MOONSHOT_API_KEY / "
+            "DASHSCOPE_API_KEY / ZHIPU_API_KEY / OPENAI_API_KEY 或通用 "
+            "LLM_API_KEY(+LLM_BASE_URL,+LLM_MODEL) 即可启用"
+        )
+    insufficient = _insufficient_budget_reason(timeout, min_viable_seconds)
+    if insufficient is not None:
+        return None, None, insufficient
+    deadline = Deadline.from_timeout(timeout)
+    failures: list[tuple[LLMProvider, str]] = []
+    from intelligence.services.grok_cli_judge import is_cli_judge_provider
+
+    for provider in providers:
+        try:
+            remaining = deadline.require_remaining(0.001)
+            if is_cli_judge_provider(provider):
+                content = _complete_cli_judge(provider, messages, remaining)

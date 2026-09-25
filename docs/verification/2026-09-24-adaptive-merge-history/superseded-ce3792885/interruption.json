@@ -1,0 +1,24 @@
+{
+  "revision": "ce379288595b5a809aea14cd02671acf10d0278c",
+  "started": "2026-09-23T17:35:57.920820+00:00",
+  "complete": true,
+  "checks": [
+    {
+      "name": "python",
+      "exit_code": 143,
+      "scope": "SIGTERM termination; no completed pytest receipt"
+    }
+  ],
+  "running": null,
+  "status": "ABORTED_SUPERSEDED",
+  "finished": "2026-09-23T18:07:19.619045+00:00",
+  "reason": "Candidate replaced by c315cfdaa after admission/probe fixes. SIGINT did not terminate within 120s; SIGTERM then ended the owned pytest. No completed receipt or full-pass claim.",
+  "not_run": [
+    "frontend",
+    "parseability",
+    "registry",
+    "tables",
+    "views",
+    "ledger"
+  ]
+}

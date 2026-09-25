@@ -1,0 +1,159 @@
+"""Probe 1 (independent, reviewer-authored): transport-level deadline/cancel/startup.
+
+Exercises intelligence.services.llm_http_transport.urlopen directly against a
+local fake HTTP server (port 26001). Cases:
+  T1 success            : normal fast body read succeeds (positive control).
+  T2 body deadline      : 0.8s deadline on ~2.9s trickling body -> HTTPDeadlineExceeded,
+                          wall clock well under fixture duration; worker reaped.
+  T3 cancellation       : is_cancelled flips true at 0.3s -> HTTPStreamCancelled,
+                          stop latency < 0.7s (distinct from deadline path).
+  T4 expired deadline   : deadline already in the past -> HTTPDeadlineExceeded
+                          BEFORE any subprocess spawn (observer saw no spawn_started).
+  T5 startup inclusion  : deadline expires after spawn but before headers on a
+                          delayed-headers endpoint -> HTTPDeadlineExceeded, elapsed
+                          ~= deadline remainder (startup counted), worker reaped.
+"""
+import json
+import sys
+import threading
+import time
+import urllib.request
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+from intelligence.services import llm_http_transport as T
+
+PORT = 26001
+RESULTS = []
+
+
+class Handler(BaseHTTPRequestHandler):
+    protocol_version = "HTTP/1.1"
+
+    def log_message(self, *a):
+        pass
+
+    def do_POST(self):
+        mode = self.path.strip("/").split("?")[0]
+        if mode == "fast":
+            body = json.dumps({"ok": True}).encode()
+            self.send_response(200)
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+        if mode == "slow_body":
+            self.send_response(200)
+            self.send_header("Content-Length", "60")
+            self.send_header("Content-Type", "text/plain")
+            self.end_headers()
+            for _ in range(30):
+                self.wfile.write(b"x")
+                self.wfile.flush()
+                time.sleep(0.1)
+            return
+        if mode == "slow_headers":
+            time.sleep(3.0)
+            body = json.dumps({"ok": True}).encode()
+            self.send_response(200)
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+        self.send_response(404)
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
+
+def record(name, ok, detail):
+    RESULTS.append((name, ok, detail))
+    print(f"{'PASS' if ok else 'FAIL'} {name}: {detail}")
+
+
+def framed_check():
+    r = urllib.request.urlopen(f"http://127.0.0.1:{PORT}/fast", data=b"{}", timeout=5)
+    assert json.loads(r.read())["ok"] is True
+    print("endpoint framing verified")
+
+
+def observer_events():
+    events = []
+    return events, (lambda kind, **kw: events.append((kind, time.monotonic())))
+
+
+def case(name, mode, timeout, expect, max_elapsed, deadline=None, cancel_after=None):
+    url = f"http://127.0.0.1:{PORT}/{mode}"
+    req = urllib.request.Request(url, data=b"{}", method="POST")
+    events, obs = observer_events()
+    flag = {"on": False}
+    if cancel_after is not None:
+        timer = threading.Timer(cancel_after, lambda: flag.__setitem__("on", True))
+        timer.start()
+    else:
+        timer = None
+    started = time.monotonic()
+    exc = None
+    resp = None
+    try:
+        resp = T.urlopen(req, timeout, deadline=deadline,
+                         is_cancelled=(lambda: flag["on"]) if cancel_after is not None else None,
+                         observer=obs)
+        body = resp.read()
+        result = ("ok", len(body))
+    except BaseException as e:
+        exc = e
+        result = (type(e).__name__,)
+    finally:
+        if resp is not None:
+            resp.close()
+        if timer is not None:
+            timer.cancel()
+            timer.join()
+    elapsed = time.monotonic() - started
+    ok = (exc is not None and type(exc).__name__ == expect and elapsed < max_elapsed
+          and (timer is not None or True))
+    # reap check when a response object existed
+    if resp is not None and resp.process.returncode is None:
+        ok = False
+    if exc is None and expect == "success":
+        ok = elapsed < max_elapsed
+    record(name, ok,
+           f"exc={exc!r} elapsed={elapsed:.2f}s max={max_elapsed} events={[e[0] for e in events]}")
+    return events
+
+
+def main():
+    server = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    time.sleep(0.2)
+    framed_check()
+
+    case("T1_success", "fast", 5, expect="success", max_elapsed=3)
+    case("T2_body_deadline", "slow_body", 0.8, expect="HTTPDeadlineExceeded", max_elapsed=2.0)
+    events = case("T3_cancel", "slow_body", 10, cancel_after=0.3,
+                  expect="HTTPStreamCancelled", max_elapsed=2.0)
+    # cancellation must be latency-bound, not deadline-bound
+    if "spawn_started" not in [e[0] for e in events]:
+        record("T3_spawn_observed", False, "no spawn event")
+    else:
+        record("T3_spawn_observed", True, "spawn observed")
+
+    # T4: expired deadline -> rejection before spawn
+    events = case("T4_expired", "fast", 10,
+                  deadline=T.__dict__ and type("D", (), {"expires_at": time.monotonic() - 1})(),
+                  expect="HTTPDeadlineExceeded", max_elapsed=1.0)
+    kinds = [e[0] for e in events]
+    record("T4_no_spawn", "spawn_started" not in kinds, f"events={kinds}")
+
+    # T5: deadline that expires shortly after spawn, before headers arrive
+    case("T5_startup_in_budget", "slow_headers", 10,
+         deadline=type("D", (), {"expires_at": time.monotonic() + 0.6})(),
+         expect="HTTPDeadlineExceeded", max_elapsed=2.0)
+
+    server.shutdown()
+    failed = [r for r in RESULTS if not r[1]]
+    print(f"summary: {len(RESULTS) - len(failed)}/{len(RESULTS)} subcases passed")
+    sys.exit(1 if failed else 0)
+
+
+if __name__ == "__main__":
+    main()

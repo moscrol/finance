@@ -1,0 +1,7 @@
+{
+  "provider": "openai",
+  "model": "glm-5.3",
+  "base_url": null,
+  "configured": true,
+  "remember": false
+}

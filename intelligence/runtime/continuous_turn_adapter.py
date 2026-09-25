@@ -33,12 +33,16 @@ from intelligence.services.episode_projection import project_durable_events
 from intelligence.services.episode_progress import EpisodeProgress
 from intelligence.services.episode_store import EPISODE_LOG_VERSION
 from intelligence.services.episode_semantic_verifier import (
+    semantic_repair_feedback,
     DEFAULT_JUDGE_TIMEOUT_SECONDS,
     SemanticEpisodeOutcome,
     comparison_baseline_unsupported,
     draft_sentence_count,
+    numeric_condition_repair_feedback,
     numeric_condition_unsupported,
     recheck_material_public_delivery,
+    with_unresolved_review_publication,
+    with_unreviewed_revision_publication,
 )
 from intelligence.services.rejudge_pending import append_pending_from_artifact
 from intelligence.services.episode_tools import (
@@ -101,6 +105,20 @@ CONTINUOUS_FAST_PATH_TYPES = FAST_PATH_RUNNER_SUPPORTED_TYPES
 _SUCCESSFUL_REPAIR_STOP_REASONS = frozenset(
     {"model_finish", "repair_model_finish"}
 )
+
+
+def _repair_changed_submission(before: AgentOutcome, after: AgentOutcome) -> bool:
+    """修复轮有没有交出一份新的提交稿（正文或绑定变了）。
+
+    与 ``FinanceResearchHarness.admit_repair_result`` 的 ``revised_without_tool``
+    同一口径；区别是那边拿它判「算不算进展」，这边拿它判「手里的审查结果还对不对
+    得上正文」——两个问题正交：一次诚实的降级重写可以既「无进展」又「必须复核」。
+    """
+
+    return (
+        before.draft.strip() != after.draft.strip()
+        or before.bindings != after.bindings
+    )
 _TERMINAL_REPAIR_STOP_REASONS = frozenset(
     {
         "repair_deadline_exhausted",
@@ -502,6 +520,8 @@ class ContinuousTurnAdapter:
         backfill_turns = 0
         delivery_repair_attempted = False
         semantic_verifier_stale = False
+        # 终局修复改了稿但没来得及复核：公开的仍是旧稿，发布上限要压 partial 并告知。
+        unreviewed_revision = False
         attempts_before = _ledger_attempt_count()
         phase_recorder = PhaseRecorder()
         try:
@@ -833,7 +853,7 @@ class ContinuousTurnAdapter:
                 session is not None
                 and (
                     semantic.gap_output_ids
-                    or semantic.rejected_claim_indexes
+                    or semantic_repair_feedback(semantic)
                     or semantic.verified.missing_outputs
                 )
                 and repair_attempts < max_repair_cycles
@@ -864,6 +884,7 @@ class ContinuousTurnAdapter:
                         *(f"claim_index:{index}" for index in semantic.rejected_claim_indexes),
                         *semantic.delivery_repair_notes,
                     ),
+                    review_feedback=semantic_repair_feedback(semantic),
                     # 判官删了哪几句、为什么删：修复轮的作者必须看得到，
                     # 否则只能对着「缺某个输出」重发同一份结构。
                     rejected_claim_notes=_rejected_claim_notes(semantic, context),
@@ -874,6 +895,7 @@ class ContinuousTurnAdapter:
                     repair_attempts -= 1
                     break
                 previous_snapshot = current_snapshot
+                previous_outcome = outcome
                 outcome, structural, delivery_only = repaired
                 if outcome.persistence == "failed":
                     return self._storage_failed_result(outcome, context)
@@ -907,13 +929,21 @@ class ContinuousTurnAdapter:
                     outcome=outcome,
                     repair_attempts=repair_attempts,
                 )
-                if (
-                    repair_terminal
-                    or self._is_cancelled()
-                    or root_deadline.expired
-                ):
+                revised = _repair_changed_submission(previous_outcome, outcome)
+                if self._is_cancelled() or root_deadline.expired:
+                    semantic_verifier_stale = True
+                    unreviewed_revision = revised
+                    break
+                if repair_terminal and not revised:
+                    # 终局修复没交出新稿（截止带旧稿 / 原样重发）：手里的审查结果
+                    # 仍对着这份正文，只是事件账不同，不值一次判官。
                     semantic_verifier_stale = True
                     break
+                # 终局修复只要真改了稿（正文或绑定），就必须对新稿重跑判官——
+                # 2026-09-21 冒烟 2：无工具修复 + 模型如实自报 partial 被底座判
+                # 「无进展」(repair_model_stop)，这里曾按终局跳过复核，三句错句随
+                # 旧稿原样发布。终局只约束「不再开下一轮修复」（while 条件里的
+                # not repair_terminal），不豁免「公开的正文必须是被审过的那份」。
                 semantic_candidate = self._verify_semantics(
                     frame=frame,
                     structural=structural,
@@ -1132,7 +1162,12 @@ class ContinuousTurnAdapter:
             status = "degraded"
         else:
             status = "failed"
-        publication = self._harness.assess_publication(context=context)
+        publication = with_unresolved_review_publication(
+            self._harness.assess_publication(context=context), semantic,
+        )
+        publication = with_unreviewed_revision_publication(
+            publication, unreviewed_revision=unreviewed_revision,
+        )
         if status == "completed" and publication.max_status == "partial":
             status = "partial"
         if not answer and final_outcome.evidence:
@@ -1439,6 +1474,7 @@ class ContinuousTurnAdapter:
         rejected_claims: tuple[str, ...],
         rejected_claim_notes: tuple[str, ...] = (),
         semantic_gap_outputs: tuple[str, ...] = (),
+        review_feedback: tuple[str, ...] = (),
         allow_delivery_repair: bool = True,
     ) -> tuple[AgentOutcome, VerifiedEpisodeOutcome, bool] | None:
         root_budget = context.root_budget
@@ -1471,6 +1507,9 @@ class ContinuousTurnAdapter:
             rejected_claims=rejected_claims,
             semantic_gap_outputs=semantic_gap_outputs,
         )
+        # Diagnostics enrich the repair goal, not the domain's budget classification.
+        if review_feedback:
+            need = replace(need, rejected_claims=review_feedback)
         warrant = self._harness.warrant_repair(
             progress=progress,
             cycle=cycle,
@@ -1584,7 +1623,12 @@ class ContinuousTurnAdapter:
         )
         if admission is None or not admission.backfill:
             return None
-        candidate = resume(admission.goal)
+        # The grant is fixed before diagnostics are added; no extra repair turn.
+        goal = replace(
+            admission.goal,
+            unsupported_claims=numeric_condition_repair_feedback(structural),
+        )
+        candidate = resume(goal)
         if not isinstance(candidate, AgentOutcome):
             raise TypeError("episode session resume must return AgentOutcome")
         if candidate.persistence == "failed":

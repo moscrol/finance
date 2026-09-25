@@ -1,0 +1,118 @@
+{
+  "review_schema": 1,
+  "question": "L6-Q1",
+  "run_id": "run_20260923_142128_565528",
+  "episode_path": "../L6-Q1/raw-run/continuous-episode.json",
+  "episode_sha256": "e633a45dc4d6e84315b96949a731530237f2551cc43ae49726522354630e7020",
+  "candidate_revision": "31f1b40dd788d36c71da249d59fb769c50d7cd30",
+  "review_method": "逐句核对公开 draft 中可核验事实与 outcome.evidence.detail；不把模型推理框架伪装成市场证据",
+  "all_numeric_conditions_reviewed": true,
+  "claims": [
+    {
+      "sentence": "整体盘面日期为2026-09-22（来源：本地DuckDB·MARKET_DAILY，E1）",
+      "evidence_hash": "bbe0db37b6be0d5e",
+      "source_excerpt": "市场数据截至：2026-09-22。该日期是本轮整体盘面日期。",
+      "entity_matches": true,
+      "date_matches": true,
+      "window_matches": true,
+      "unit_matches": true,
+      "numeric_supported": true,
+      "claim_class": "market_data_boundary"
+    },
+    {
+      "sentence": "上证指数3952.128点、当日+0.06%（2026-09-22，E5）",
+      "evidence_hash": "fcd7de04d0c086c3",
+      "source_excerpt": "上证指数：3952.128 点，当日 0.06%。",
+      "entity_matches": true,
+      "date_matches": true,
+      "window_matches": true,
+      "unit_matches": true,
+      "numeric_supported": true,
+      "claim_class": "market_index_fact"
+    },
+    {
+      "sentence": "全市场成交额、涨跌家数、量比、强势股涨幅均缺失（2026-09-22，E3/E4/E6）",
+      "evidence_hash": "9147c8c50151852b",
+      "source_excerpt": "全市场成交额：- 亿元；较前一日 -%；量比 -%。",
+      "entity_matches": true,
+      "date_matches": true,
+      "window_matches": true,
+      "unit_matches": true,
+      "numeric_supported": true,
+      "claim_class": "missing_market_fields"
+    },
+    {
+      "sentence": "全市场成交额、涨跌家数、量比、强势股涨幅均缺失（2026-09-22，E3/E4/E6）",
+      "evidence_hash": "95da8e05ad0676ba",
+      "source_excerpt": "涨跌结构：上涨 - 家；涨停 - 家；跌停 - 家。",
+      "entity_matches": true,
+      "date_matches": true,
+      "window_matches": true,
+      "unit_matches": true,
+      "numeric_supported": true,
+      "claim_class": "missing_market_fields"
+    },
+    {
+      "sentence": "全市场成交额、涨跌家数、量比、强势股涨幅均缺失（2026-09-22，E3/E4/E6）",
+      "evidence_hash": "1cc7e0b043307aac",
+      "source_excerpt": "强势股状态：未标注；平均涨幅 -%；边际变化 -%。",
+      "entity_matches": true,
+      "date_matches": true,
+      "window_matches": true,
+      "unit_matches": true,
+      "numeric_supported": true,
+      "claim_class": "missing_market_fields"
+    },
+    {
+      "sentence": "市场阶段与量能状态未标注（E2）",
+      "evidence_hash": "f0f7491f77af2002",
+      "source_excerpt": "市场阶段：未标注；量能状态：未标注。",
+      "entity_matches": true,
+      "date_matches": true,
+      "window_matches": true,
+      "unit_matches": true,
+      "numeric_supported": true,
+      "claim_class": "missing_market_fields"
+    },
+    {
+      "sentence": "主线题材与核心板块明细仅更新至2026-09-18，早于盘面日2026-09-22，当前题材级主线未知（E7/E8）",
+      "evidence_hash": "a4052ac91dc0b0c2",
+      "source_excerpt": "主线题材汇总仅截至 2026-09-18，早于整体盘面日期 2026-09-22；当前题材级主线未知，不展示旧题材名称。",
+      "entity_matches": true,
+      "date_matches": true,
+      "window_matches": true,
+      "unit_matches": true,
+      "numeric_supported": true,
+      "claim_class": "market_data_freshness_boundary"
+    },
+    {
+      "sentence": "主线题材与核心板块明细仅更新至2026-09-18，早于盘面日2026-09-22，当前题材级主线未知（E7/E8）",
+      "evidence_hash": "2f04f330970186a9",
+      "source_excerpt": "局部数据提示：核心板块明细仅更新到 2026-09-18，早于整体盘面日期 2026-09-22；只能作历史参考。",
+      "entity_matches": true,
+      "date_matches": true,
+      "window_matches": true,
+      "unit_matches": true,
+      "numeric_supported": true,
+      "claim_class": "market_data_freshness_boundary"
+    }
+  ],
+  "non_evidence_sentences": [
+    {
+      "text": "确认方向——股价相对本轮高点回撤受控且放量站稳、题材重新进入核心板块明细、下期财报营收增速与净利率环比改善",
+      "classification": "model_framework_not_market_fact",
+      "reason": "这是未绑定本轮直接证据的条件框架；没有把它当作已兑现条件，也没有给出伪造阈值。"
+    },
+    {
+      "text": "证伪方向——跌破本轮行情起涨位且缩量阴跌、题材明细持续缺席、下期财报营收增速低于前值或毛利率下滑",
+      "classification": "model_framework_not_market_fact",
+      "reason": "这是未绑定本轮直接证据的条件框架；应随个股、财务和题材证据补齐后再判断。"
+    }
+  ],
+  "late_reports": [],
+  "review_limitations": [
+    "semantic_verifier.judge_status=unavailable；没有独立语义判官裁决。",
+    "Q1 的 finance_query 返回 parse_error，不能把该工具失败解释为寒武纪本地没有数据。",
+    "Q1 的 repair 未生成新稿；缺失的跟踪契约元素仍未补齐。"
+  ]
+}

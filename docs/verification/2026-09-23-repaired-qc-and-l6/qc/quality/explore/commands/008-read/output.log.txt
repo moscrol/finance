@@ -1,0 +1,122 @@
+def _post_chat_stream(
+    provider: LLMProvider,
+    messages: list[dict],
+    timeout: int,
+    temperature: float,
+    on_delta: Callable[[str], None],
+    on_connected: Callable[[], None] | None,
+    is_cancelled: Callable[[], bool] | None,
+    deadline: Deadline,
+    max_tokens: int,
+    max_chars: int,
+) -> tuple[str, str | None]:
+    _reserve_llm_call()
+    started = time.monotonic()
+    attempt = _new_call_attempt(provider, messages)
+    try:
+        result = _post_chat_stream_raw(
+            provider,
+            messages,
+            timeout,
+            temperature,
+            on_delta,
+            on_connected,
+            is_cancelled,
+            deadline,
+            max_tokens,
+            max_chars,
+            attempt=attempt,
+        )
+        attempt.observe_result(result[0])
+    except Exception as exc:
+        attempt.observe_response(response=exc)
+        _record_llm_call(
+            "synthesis_stream", provider, "failed", started, _failure_reason(exc), attempt=attempt,
+        )
+        raise
+    _record_llm_call("synthesis_stream", provider, "success", started, attempt=attempt)
+    return result
+
+
+def _post_chat_stream_raw(
+    provider: LLMProvider,
+    messages: list[dict],
+    timeout: int,
+    temperature: float,
+    on_delta: Callable[[str], None],
+    on_connected: Callable[[], None] | None,
+    is_cancelled: Callable[[], bool] | None,
+    deadline: Deadline,
+    max_tokens: int,
+    max_chars: int,
+    *,
+    attempt: _LLMCallAttempt | None = None,
+) -> tuple[str, str | None]:
+    url = provider.base_url.rstrip("/") + "/chat/completions"
+    payload = _chat_payload(
+        provider, messages, temperature, stream=True, max_tokens=max_tokens,
+    )
+    _apply_thinking_controls(payload, disable_thinking=synthesis_thinking_disabled())
+    request = urllib.request.Request(
+        url,
+        data=json.dumps(payload).encode("utf-8"),
+        headers=_llm_request_headers(provider, Accept="text/event-stream"),
+        method="POST",
+    )
+    chunks: list[str] = []
+    output_chars = 0
+    finish_reason: str | None = None
+    with _open_deadline_http_response(
+        request, timeout=timeout, deadline=deadline, is_cancelled=is_cancelled,
+    ) as response:
+        if attempt is not None:
+            attempt.observe_response(response=response)
+        if on_connected is not None:
+            on_connected()
+        try:
+            for raw_line in response:
+                if deadline.remaining() <= 0:
+                    raise LLMDeadlineExceeded()
+                if is_cancelled is not None and is_cancelled():
+                    raise LLMStreamCancelled()
+                line = raw_line.decode("utf-8", "replace").strip()
+                if not line.startswith("data:"):
+                    continue
+                data = line[5:].strip()
+                if data == "[DONE]":
+                    if finish_reason is None and chunks:
+                        finish_reason = "stop"
+                    break
+                try:
+                    event = json.loads(data)
+                    if attempt is not None:
+                        attempt.observe_response(event)
+                    choice = event["choices"][0]
+                    finish_reason = (
+                        _stable_finish_reason(choice.get("finish_reason"))
+                        or finish_reason
+                    )
+                    delta = choice["delta"].get("content")
+                except (json.JSONDecodeError, KeyError, IndexError, TypeError):
+                    continue
+                if isinstance(delta, str) and delta:
+                    output_chars += len(delta)
+                    if output_chars > max_chars:
+                        raise LLMOutputTooLong()
+                    on_delta(delta)
+                    chunks.append(delta)
+        except (OSError, ValueError) as exc:
+            if deadline.remaining() <= 0:
+                raise LLMDeadlineExceeded() from exc
+            raise
+        finally:
+            if attempt is not None:
+                attempt.observe_result("".join(chunks))
+    deadline.require_remaining(0.001)
+    if not chunks:
+        raise LLMStreamingUnsupported()
+    return "".join(chunks), finish_reason
+
+
+
+[truncated; total lines=2605, selected=2236:2355; request a later offset]

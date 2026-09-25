@@ -1,0 +1,117 @@
+"""C1 探针:llm_http_transport.urlopen 的绝对单调 deadline、慢速/滴流响应、
+停滞父进程读取、流式取消。所有服务器为本地 127.0.0.1 固定端口 26001-26004。
+边界:
+  A 成功路径(正向):deadline 充足时完整读回 body。
+  B 滴流响应:服务器每 0.3s 发一字节,总时长 > deadline;期望 HTTPDeadlineExceeded,
+    且实际耗时 <= deadline + 0.5s 松弛(单调绝对 deadline 覆盖整个读取过程)。
+  C 停滞父进程:打开响应后父进程 sleep 超过 deadline 不读;worker Timer os._exit(124)
+    应终止进程,随后父进程读取得到 OSError(worker 在响应完成前退出)。
+  D 流式取消:is_cancelled 在收到首块后翻 True,期望 HTTPStreamCancelled。
+  E 过期 deadline:timeout=0 期望立刻 HTTPDeadlineExceeded,不发起子进程 HTTP。
+运行: candidate 为根目录, PYTHONPATH=. python probes/probe_transport.py
+"""
+import sys, time, threading, json
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+sys.path.insert(0, ".")
+from intelligence.services import llm_http_transport as T
+import urllib.request
+
+RESULTS = []
+
+def check(name, cond, detail=""):
+    RESULTS.append((name, bool(cond), detail))
+    print(("PASS " if cond else "FAIL ") + name + " :: " + detail)
+
+class Slow(BaseHTTPRequestHandler):
+    def do_POST(self):
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream")
+        self.end_headers()
+        for i in range(20):  # 20 * 0.3s = 6s >> deadline
+            self.wfile.write(b"data: x\n\n")
+            self.wfile.flush()
+            time.sleep(0.3)
+    def log_message(self, *a): pass
+
+def serve(port, handler=Slow):
+    srv = ThreadingHTTPServer(("127.0.0.1", port), handler)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    return srv
+
+def req(port):
+    return urllib.request.Request(
+        f"http://127.0.0.1:{port}/chat/completions",
+        data=b"{}", method="POST",
+        headers={"Content-Type": "application/json"})
+
+def main():
+    serve(26001); serve(26002); serve(26003); serve(26004)
+
+    # A 成功路径: 短首块后即结束 (用 26004 上一个快速 handler)
+    # 复用 Slow 但 deadline 9s 足够读几块后手动 close 不等待; 改为直接完整读 6s, deadline=10
+    t0 = time.monotonic()
+    try:
+        with T.urlopen(req(26004), 10.0) as r:
+            body = r.read()
+        check("A_success_body_received", r.status == 200 and len(body) > 0, f"status={r.status} len={len(body)}")
+    except Exception as e:
+        check("A_success_body_received", False, repr(e))
+
+    # B 滴流, deadline=1.0
+    t0 = time.monotonic()
+    try:
+        with T.urlopen(req(26001), 1.0) as r:
+            r.read()
+        check("B_trickle_deadline", False, "no exception")
+    except T.HTTPDeadlineExceeded:
+        dt = time.monotonic() - t0
+        check("B_trickle_deadline", dt < 1.6, f"elapsed={dt:.2f}")
+    except Exception as e:
+        check("B_trickle_deadline", False, repr(e))
+
+    # C 停滞父进程: 打开后不读, sleep 2s (deadline 1s), worker 应被 Timer 杀死
+    t0 = time.monotonic()
+    try:
+        resp = T.urlopen(req(26002), 1.0)
+        time.sleep(2.0)
+        try:
+            data = resp.read()
+            check("C_stalled_parent_killed", False, f"read returned {len(data)} bytes")
+        except (OSError, T.HTTPDeadlineExceeded) as e:
+            dt = time.monotonic() - t0
+            rc = resp.process.poll()
+            check("C_stalled_parent_killed", True, f"exc={type(e).__name__} rc={rc} dt={dt:.2f}")
+            resp.close()
+    except Exception as e:
+        check("C_stalled_parent_killed", False, repr(e))
+
+    # D 流式取消
+    cancel = {"flag": False}
+    def is_cancelled():
+        return cancel["flag"]
+    try:
+        with T.urlopen(req(26003), 10.0, is_cancelled=is_cancelled) as r:
+            n = 0
+            for line in r:
+                n += 1
+                if n >= 2:
+                    cancel["flag"] = True
+            check("D_stream_cancel", False, "iteration completed")
+    except T.HTTPStreamCancelled:
+        check("D_stream_cancel", True, "HTTPStreamCancelled raised")
+    except Exception as e:
+        check("D_stream_cancel", False, repr(e))
+
+    # E 过期 deadline: timeout=0
+    try:
+        T.urlopen(req(26001), 0.0)
+        check("E_expired_immediate", False, "no exception")
+    except T.HTTPDeadlineExceeded:
+        check("E_expired_immediate", True, "immediate reject")
+
+    print(json.dumps([{"name": n, "pass": p, "detail": d} for n, p, d in RESULTS]))
+    sys.exit(0 if all(p for _, p, _ in RESULTS) else 1)
+
+if __name__ == "__main__":
+    main()

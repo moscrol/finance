@@ -1,0 +1,44 @@
+"""Run each engineering leaf once on the pinned isolated candidate."""
+from datetime import datetime, timezone
+import json
+import os
+from pathlib import Path
+import subprocess
+import time
+
+ROOT = Path(__file__).resolve().parent
+TREE = ROOT / 'candidate'
+PY = '/Users/a77/finance-workspace-private/.venv-workbench/bin/python'
+REV = 'c315cfdaa96a5b18cedb060b09ddc92ec2a14559'
+ENV = {k: os.environ[k] for k in ('PATH', 'HOME', 'LANG', 'TMPDIR') if k in os.environ}
+ENV.update(PYTHONDONTWRITEBYTECODE='1', FWP_TEST_RECEIPT_DIR=str(ROOT/'python-receipts'))
+COMMANDS = [
+    ('python', ['bash', 'scripts/run_main_gate.sh', '--pytest-args', '-q -p no:cacheprovider -o tmp_path_retention_policy=failed --basetemp='+str(ROOT/'python-basetemp')]),
+    ('frontend', [PY, '-B', 'scripts/run_frontend_gate.py', '--tree', str(TREE), '--expect-revision', REV, '--output', str(ROOT/'frontend'), '--python', PY, '--workbench-port', '19981', '--re06-port', '19984']),
+    ('parseability', [PY, '-B', 'scripts/build_registry.py', 'check-parseability']),
+    ('registry', [PY, '-B', 'scripts/build_registry.py', 'check']),
+    ('tables', [PY, '-B', 'scripts/build_registry.py', 'backfill-tables', '--check']),
+    ('views', [PY, '-B', 'scripts/build_registry.py', 'generate-views', '--check']),
+    ('ledger', [PY, '-B', 'scripts/audit_ledger_spec_crosswalk.py']),
+]
+receipt = {'revision': REV, 'started': datetime.now(timezone.utc).isoformat(), 'complete': False, 'checks': []}
+path = ROOT/'gates.json'
+assert not path.exists()
+previous=Path('/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0135/gates.json')
+receipt['running']='waiting_for_previous_gate_to_finish'
+path.write_text(json.dumps(receipt, indent=2)+'\n')
+until=time.monotonic()+7200
+while not json.loads(previous.read_text())['complete']:
+    assert time.monotonic()<until, 'previous engineering gate did not finish'
+    time.sleep(15)
+for name, command in COMMANDS:
+    start = time.monotonic()
+    receipt['running'] = name
+    path.write_text(json.dumps(receipt, indent=2)+'\n')
+    with (ROOT/(name+'.log.txt')).open('xb') as out:
+        result = subprocess.run(command, cwd=TREE, env=ENV, stdout=out, stderr=subprocess.STDOUT)
+    receipt['checks'].append({'name': name, 'command': command, 'exit_code': result.returncode, 'seconds': round(time.monotonic()-start, 3)})
+    path.write_text(json.dumps(receipt, indent=2)+'\n')
+    print(json.dumps(receipt['checks'][-1]), flush=True)
+receipt.update(complete=True, running=None, finished=datetime.now(timezone.utc).isoformat())
+path.write_text(json.dumps(receipt, indent=2)+'\n')

@@ -1,0 +1,30 @@
+"""Red/green sandbox metadata diagnosis, using the original candidate tests."""
+import json
+import os
+from pathlib import Path
+import subprocess
+
+ROOT=Path(__file__).resolve().parent
+OUT=ROOT/'sandbox-metadata'
+OUT.mkdir(exist_ok=False)
+WORK=OUT/'work'
+WORK.mkdir()
+TREE=ROOT/'candidate'
+OLD=Path('/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260924-0024/spec')
+OLD_TREE='/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0011/candidate'
+PY='/Users/a77/finance-workspace-private/.venv-workbench/bin/python'
+policy=(OLD/'tools.sb').read_text().replace(str(OLD),str(OUT)).replace(OLD_TREE,str(TREE))
+(OUT/'before.sb').write_text(policy)
+ancestors=list(TREE.parents)
+extra='\n(allow file-read-metadata '+ ' '.join('(literal '+json.dumps(str(p))+')' for p in ancestors)+')\n'
+(OUT/'after.sb').write_text(policy+extra)
+env={'HOME':str(WORK),'PATH':'/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin','LANG':'C.UTF-8','TMPDIR':str(WORK),'PYTHONDONTWRITEBYTECODE':'1','PYTHONPATH':str(TREE),'FWP_TEST_RECEIPT':'0','FORESIGHT_USERS_DIR':str(WORK/'users')}
+rows=[]
+for phase in ('before','after'):
+ command=['/usr/bin/sandbox-exec','-f',str(OUT/(phase+'.sb')),PY,'-B','-m','pytest','-q','-p','no:cacheprovider',str(TREE/'intelligence/tests/test_llm_timeout_diagnostic.py'),'-k','violation_uses or cli_strict or existing_receipt or rejects_unbounded or endpoint_guard','--basetemp='+str(WORK/phase)]
+ with (OUT/(phase+'.log.txt')).open('xb') as f:
+  result=subprocess.run(command,cwd=TREE,env=env,stdout=f,stderr=subprocess.STDOUT,timeout=30)
+ rows.append({'phase':phase,'exit_code':result.returncode,'command':command})
+print(json.dumps(rows))
+(OUT/'result.json').write_text(json.dumps({'scope':'host sandbox diagnosis only, not independent reviewer tests','runs':rows,'metadata_only_paths':[str(p) for p in ancestors]},indent=2)+'\n')
+assert rows[0]['exit_code']==2 and rows[1]['exit_code']==0

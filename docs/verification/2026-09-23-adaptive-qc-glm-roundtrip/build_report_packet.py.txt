@@ -1,0 +1,39 @@
+"""Index same-axis observations verbatim, excluding reasoning and other-axis output."""
+import hashlib
+import json
+from pathlib import Path
+import sys
+
+ROOT = Path(__file__).resolve().parent
+axis = sys.argv[1]
+assert axis in {'spec', 'quality'}
+base = ROOT / axis
+parts = []
+manifest = []
+
+def add(path):
+    data = path.read_bytes()
+    manifest.append({'path': str(path.relative_to(base)), 'sha256': hashlib.sha256(data).hexdigest(), 'bytes': len(data)})
+    parts.append('\n## ' + str(path.relative_to(base)) + '\n' + data.decode() + '\n')
+
+for name in ['claims.md', 'code-tip-to-candidate.diffstat.txt']:
+    add(base / 'inputs' / name)
+for stage in ['explore', 'execute']:
+    execution = json.loads((base / stage / 'execution.json').read_text())
+    assert execution['status'] == 'STAGE_COMPLETE'
+    add(base / stage / 'submission.json')
+for path in sorted((base / 'work/probes').glob('*.py')):
+    add(path)
+for path in sorted((base / 'execute/commands').glob('*-bash')):
+    for name in ['request.json', 'result.json', 'output.log']:
+        add(path / name)
+xml = base / 'work/author-tests.xml'
+if xml.exists():
+    add(xml)
+packet = ''.join(parts)
+assert len(packet.encode()) <= 160000, 'packet too large; stop, no silent truncation'
+with (base / 'report-packet.md').open('x') as f:
+    f.write(packet)
+with (base / 'report-packet-manifest.json').open('x') as f:
+    json.dump({'same_axis_only': True, 'chain_of_thought_excluded': True, 'files': manifest}, f, indent=2)
+print(json.dumps({'axis': axis, 'packet_bytes': len(packet.encode()), 'files': len(manifest)}))

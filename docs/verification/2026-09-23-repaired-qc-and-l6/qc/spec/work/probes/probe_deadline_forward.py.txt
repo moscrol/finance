@@ -1,0 +1,122 @@
+"""C2/C4/C5 探针:deadline 转发、timeout 片与共享 deadline 的区分、零预算。
+边界:
+  1 行为探针(C4): timeout=10s 片, 共享 Deadline 只剩 0.5s, 后端为 2.9s 慢响应
+    (本地 26005 fake)。若 _post_chat_synthesis 正确转发共享 deadline, 调用在
+    ~0.5s 内以 LLMDeadlineExceeded 失败, 而不是等完 2.9s。
+  2 转发断言(C2): 用 http_transport_override 拦截, 分别驱动
+    _post_chat_synthesis / _post_chat_message_stream / _post_chat_message /
+    _post_chat_stream_raw, 检查 deadline 参数与(流式)is_cancelled 均被转发,
+    且 timeout 与 deadline.expires_at 数值不同(防同值夹具)。
+  3 Deadline.call_timeout(C4): 10s 片 + 0.5s 剩余 → 0.5s; 剩余 20s + 10s 片 → 10s。
+  4 零预算(C5): LLMCallLedger max_calls=0 时, _reserve_llm_call 在任何 HTTP 前抛
+    LLMCallBudgetExceeded(拦截器断言未被调用)。
+运行: PYTHONPATH=. python probes/probe_deadline_forward.py
+"""
+import sys, time, json, threading, dataclasses
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+sys.path.insert(0, ".")
+from intelligence.services import llm_refine as R
+
+RESULTS = []
+def check(name, cond, detail=""):
+    RESULTS.append((name, bool(cond), detail))
+    print(("PASS " if cond else "FAIL ") + name + " :: " + detail)
+
+PROV = R.LLMProvider(name="fake", base_url="http://127.0.0.1:26005", api_key="k")
+
+class Slow29(BaseHTTPRequestHandler):
+    def do_POST(self):
+        time.sleep(2.9)
+        body = json.dumps({"choices": [{"message": {"content": "ok"}, "finish_reason": "stop"}]}).encode()
+        self.send_response(200); self.send_header("Content-Length", str(len(body))); self.end_headers()
+        self.wfile.write(body)
+    def log_message(self, *a): pass
+
+def fake_stream_response(req, timeout, *, deadline=None, is_cancelled=None, **kw):
+    """模拟一个永远在 deadline 上的慢流: open 即返回, 读时阻塞到 deadline 由传输层终止。"""
+    raise AssertionError("interceptor should not be reached in behavioral case")
+
+def main():
+    srv = ThreadingHTTPServer(("127.0.0.1", 26005), Slow29)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+
+    # 1 行为探针: 10s 片 vs 0.5s 共享 deadline
+    dl = R.Deadline.from_timeout(0.5)
+    t0 = time.monotonic()
+    try:
+        R._post_chat_synthesis(PROV, [{"role": "user", "content": "hi"}], 10.0, 0.2, 16, 1000, deadline=dl)
+        check("C4_shared_deadline_wins", False, "no exception, ran to completion")
+    except R.LLMDeadlineExceeded:
+        dt = time.monotonic() - t0
+        check("C4_shared_deadline_wins", dt < 1.5, f"elapsed={dt:.2f} (10s slice, 0.5s shared)")
+    except Exception as e:
+        dt = time.monotonic() - t0
+        check("C4_shared_deadline_wins", isinstance(e, R.LLMDeadlineExceeded), f"elapsed={dt:.2f} exc={type(e).__name__} {e}")
+
+    # 2 转发断言
+    captured = []
+    class Cap:
+        def __call__(self, request, timeout, *, deadline=None, is_cancelled=None, **kw):
+            captured.append({"timeout": timeout, "expires": getattr(deadline, "expires_at", None),
+                             "cancelled": is_cancelled, "now": time.monotonic()})
+            raise AssertionError("capture")
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+    calls = []
+    def run_site(fn, streaming):
+        captured.clear()
+        try:
+            fn()
+        except AssertionError:
+            pass
+        c = captured[0] if captured else {}
+        ok = (c.get("expires") is not None
+              and abs(c["expires"] - (time.monotonic() + 0.5)) < 1.0
+              and abs(c.get("timeout", -1) - 10.0) < 1e-6
+              and (not streaming or callable(c.get("cancelled"))))
+        return ok, c
+
+    dl2 = R.Deadline.from_timeout(0.5)
+    canc = lambda: False
+    with R.http_transport_override(Cap()):
+        ok, c = run_site(lambda: R._post_chat_synthesis(PROV, [{"role":"user","content":"x"}], 10.0, 0.2, 16, 1000, deadline=dl2), False)
+        check("C2_synthesis_forwards_deadline", ok, str(c))
+        ok, c = run_site(lambda: R._post_chat_message_stream(PROV, [{"role":"user","content":"x"}], 10.0, 0.2, None, None, None, lambda s: None, canc, deadline=dl2), True)
+        check("C2_stream_forwards_deadline_and_cancel", ok, str(c))
+        ok, c = run_site(lambda: R._post_chat_stream_raw(PROV, [{"role":"user","content":"x"}], 10, 0.2, lambda s: None, None, canc, dl2, 16, 1000), True)
+        check("C2_synthesis_stream_forwards", ok, str(c))
+        # _post_chat_message 单独探针 (26005)
+        ok, c = run_site(lambda: R._post_chat_message(PROV, [{"role":"user","content":"x"}], 10.0, 0.2, deadline=dl2), False)
+        check("C2_message_forwards_deadline", ok, str(c))
+
+    # 3 call_timeout
+    dl3 = R.Deadline.from_timeout(0.5)
+    v = dl3.call_timeout(10.0, minimum=0.001)
+    check("call_timeout_slice", 0.4 < v <= 0.51, f"v={v:.3f}")
+    dl4 = R.Deadline.from_timeout(20.0)
+    v = dl4.call_timeout(10.0, minimum=0.001)
+    check("call_timeout_slice2", 9.5 < v <= 10.0, f"v={v:.3f}")
+
+    # 4 零预算
+    hit = {"n": 0}
+    class Count:
+        def __call__(self, *a, **k):
+            hit["n"] += 1
+            raise AssertionError("http reached")
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+    ledger = R.LLMCallLedger(max_calls=0, max_seconds=None)
+    with R.call_ledger_scope(ledger):
+        with R.http_transport_override(Count()):
+            try:
+                R._post_chat_synthesis(PROV, [{"role":"user","content":"x"}], 5.0, 0.2, 16, 1000, deadline=R.Deadline.from_timeout(5.0))
+                check("C5_zero_budget_no_http", False, "no exception")
+            except R.LLMCallBudgetExceeded:
+                check("C5_zero_budget_no_http", hit["n"] == 0, f"http_calls={hit['n']}")
+
+    print(json.dumps([{"name": n, "pass": p, "detail": d} for n, p, _ in RESULTS]))
+    sys.exit(0 if all(p for _, p, _ in RESULTS) else 1)
+
+if __name__ == "__main__":
+    main()
