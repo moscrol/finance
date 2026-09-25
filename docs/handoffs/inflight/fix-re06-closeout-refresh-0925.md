@@ -1,22 +1,22 @@
-# RE06 锁定候选在途
+# RE06 独审拒收在途
 
 ## 这个分支做什么
-承接#73本地工程/独审。固定a30e7e4594ac（base03352758c）；文档提交不移签。R=`~/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked`，Q=`R/qc-execution-final-06`。
+#73固定a30e7e4594ac/base03352758c的本地有界工程/独审。R=`~/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked`，Q=`R/qc-execution-final-06`。文档/工具提交不移签候选。
 
 ## 当前状态
-09-25 12:04+0800：本轮0模型，实际181/218余37，无本任务后台。首次资源准入后，11:50执行边界被load13.35/pytest3预计4拒绝exit75；不重试/不杀外部任务。final06未启gateway。e2已prepare-only冻结准入；修冻结目录复用、当前工具清单、typed提示和Pi非零exit异常分流，原探针断言不动。详见`2026-09-25-re06-controller-alignment-and-drift.md`及Q/continuation-0925.json。
+09-25 17:35+0800：执行预检PASS，gateway2请求PASS；e2 execute3请求，阳性对照被资源拒绝exit75后，模型用write把自身执行收据覆盖成占位文字。仅终止本任务PID/组48820，runner记录BLOCKED、无终稿；已退出无后台。reviewer/author未执行。新增5请求，累计186/218余32。原件不恢复，本批不再用。详见`2026-09-25-re06-qc06-receipt-write-rejection.md`及R/qc06-integrity-audit-0925/incident.json。
 
 ## 决策与被否方案
-复用原探针另绑当前工具，不覆盖原manifest。对照失败按原exit/收据分类，不全局吞异常。资源拒绝停，不自动等。主干漂移不调阈值、不移签。
+收据损坏即拒收，不续模型补报告；不按marker伪造恢复原件。文件工具改组/阶段允许清单，探针create-only，不只提示勿写。任意探针仍需独立OS写权限，不把helper绿当全链闭合。
 
 ## 未验证 / 已知边界
-新版控制器仅离线通过，真实沙箱执行边界未过；三组独审/C1-C10及C2语义判官缺覆盖，作者测试不能补签。#76自然验收与发布另授权。末核main79861f07e；正式合并漂移27>5，exit1，旧工程绿不能作当前合入门禁。未push/PR/合main/生产；不接管#61/#868/#884。
+新review_artifact_writer.py仅离线验，尚未接入新批次。旧file_tool和sandbox都允许写整个work，探针子进程仍可能写其他收据。三组独审/C1-C10/C2语义路径与#76自然验收仍缺。main64847b7a1正式漂移54>5拒收，a30e工程绿不能用于当前合入。未push/PR/合main/生产，不接管邻线。
 
 ## 下一步
-用户续推后先跑R/inspect_status.py并查资源。人工运行Q/execution_boundary_preflight_v3.py，全PASS才gateway最多2。e2已冻结，不再stage_admission重复创建：run_stage_v3.py execute e2，然后check_execution_v3.py e2；失败即停。其余探索/执行/报告串行。需合入时另固定新main组合和全门，不能更改当前冻结身份。
+先R/inspect_status.py核账。禁止重跑final06/重复prepare。接入新文件写入器，并分离模型产物与宿主证据的OS写权限；实跑越权反例后重新规划余32请求，不能沿用原37计划或自动加预算/重试。固定候选审查与新main组合工程各自准入。
 
 ## 踩过的坑
-Pi实际CLI=/opt/homebrew/bin/pi；Q无独立pi。run_probe baseline首个调用，禁止bash；故意失败exit1不是工具链失败，实际exit/marker/hash须一致。原manifest属旧探索，execution-manifest属当前包装器。preparation写6终稿有误，实际8，阶段总35+gateway2恰余37。新版离线收据带0925，旧PASS不继承；失败原件保留。
+工具交付不等于测试过；完整预检PASS也只覆盖已测路径。收据在work可写根内不算不可变；chmod文件不防可写父目录替换。原marker hash42f28d10仅证原字节曾存在，不是备份。check_execution实际JSONDecodeError/exit1，不是有效执行检查PASS。原文件保留现场。
 
 ## 已验证
-固定锁定环境Python3.12.13/httpx0.28.1/Node22：15470P/86S/2X、15558收集、真实exit0；前端122P/E2E34P2S、registry五项0。唯一pytest收据R/receipts/gate-a2kwxg5I/pytest.json。本轮身份/环境/范围一致，唯漂移拒收。菜单/工件/边界及真实SDK模拟exit0/1/75/127离线PASS，0pytest/模型，不是独审。
+候选a30e锁定Python3.12.13/httpx0.28.1/Node22工程15470P/86S/2X、前端122P/E2E34P2S、registry五项0。此次预检Python5P1预期F/UI1P1预期F、作者仅收集109；非业务独审。新writer标准库unittest13项及Ruff通过，含真实临时CLI/撤保护覆盖/软硬链接，0新pytest或模型；日志在事件审计目录。
