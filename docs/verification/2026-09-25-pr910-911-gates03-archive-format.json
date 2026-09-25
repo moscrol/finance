@@ -1,0 +1,9 @@
+{
+  "observed_at": "2026-09-25T11:56:16.306383+00:00",
+  "check": "git diff --cached --check on the selected evidence paths",
+  "exit_code": 2,
+  "stdout": "docs/verification/2026-09-25-pr910-main12d-gates03/raw/remaining-01/910/frontend/frontend-1.log.txt:4: new blank line at EOF.\ndocs/verification/2026-09-25-pr910-main12d-gates03/raw/remaining-01/910/frontend/frontend-2.log.txt:4: new blank line at EOF.\ndocs/verification/2026-09-25-pr910-main12d-gates03/raw/remaining-01/910/frontend/frontend-3.log.txt:21: new blank line at EOF.\ndocs/verification/2026-09-25-pr911-main12d-gates03/raw/911/frontend/frontend-1.log.txt:4: new blank line at EOF.\ndocs/verification/2026-09-25-pr911-main12d-gates03/raw/911/frontend/frontend-2.log.txt:4: new blank line at EOF.\ndocs/verification/2026-09-25-pr911-main12d-gates03/raw/911/frontend/frontend-3.log.txt:21: new blank line at EOF.\n",
+  "stderr": "",
+  "disposition": "Preserve exact original log bytes and retain nonzero archive-format result. No main merge or blanket format PASS is claimed; candidate source checks are separate.",
+  "raw_logs_modified": false
+}

@@ -1,0 +1,10 @@
+{"label": "frontend", "command": ["/Users/a77/fwp-wt-pi-research/.venv-workbench/bin/python", "scripts/run_frontend_gate.py", "--tree", "/Users/a77/fwp-wt-pr910-main-0925", "--expect-revision", "2da72eef44787c910b5affbce47eea1e837ee7ae", "--output", "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-03/remaining-01/910/frontend", "--python", "/Users/a77/fwp-wt-pi-research/.venv-workbench/bin/python", "--workbench-port", "20991", "--re06-port", "20994"], "cwd": "/Users/a77/fwp-wt-pr910-main-0925", "revision": "2da72eef44787c910b5affbce47eea1e837ee7ae", "started_at": "2026-09-25T11:31:04.077959+00:00", "timeout_seconds": 1800, "status": "starting", "exit": null, "timed_out": false, "executed": null, "failures": null, "errors": null, "skipped": null, "failed_cases": [], "junit_status": "not_evaluated", "output_mode": "combined_stdout_stderr"}
+{"command": ["pnpm", "install", "--frozen-lockfile"], "exit_code": 0}
+{"command": ["pnpm", "lint"], "exit_code": 0}
+{"command": ["pnpm", "typecheck"], "exit_code": 0}
+{"command": ["pnpm", "test"], "exit_code": 0}
+{"command": ["pnpm", "build"], "exit_code": 0}
+{"command": ["pnpm", "test:e2e"], "exit_code": 0}
+{"receipt": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-03/remaining-01/910/frontend/frontend.json", "exit_code": 0}
+
+EXIT=0 STATUS=completed

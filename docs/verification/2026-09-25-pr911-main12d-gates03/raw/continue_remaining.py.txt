@@ -1,0 +1,152 @@
+"""Continue #910 frontend and both full Python leaves; use distinct ports and no admission waiting."""
+from datetime import datetime, timezone
+import hashlib
+import importlib
+import json
+import os
+from pathlib import Path
+import signal
+import socket
+import sys
+import time
+
+ROOT = Path(__file__).resolve().parent
+OUT = ROOT / 'remaining-01'
+PY = '/Users/a77/fwp-wt-pi-research/.venv-workbench/bin/python'
+BASE = '12d91dc733e1a29ceb54668fb934513bd10da4e9'
+REVISIONS = {'911': '34e31a25681868e26ddaaaf5d91854ec21be51ee',
+             '910': '2da72eef44787c910b5affbce47eea1e837ee7ae'}
+TARGETS = ['intelligence/tests/conformance/test_research_chain.py',
+           'intelligence/tests/test_workbench_research_chain.py']
+sys.path.insert(0, '/Users/a77/fwp-wt-pr910-main-0925')
+helpers = importlib.import_module('scripts.review_probes.run_extraction_mutations')
+observe = importlib.import_module('scripts.review_probes.gate_resources').observe
+fingerprint = importlib.import_module('scripts.check_test_receipt')._fingerprint
+assert sys.executable == PY and fingerprint() == '66726d345bf37ce5'
+OUT.mkdir(exist_ok=False)
+report = {'pid': os.getpid(), 'started_at': datetime.now(timezone.utc).isoformat(),
+          'script_sha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+          'revisions': REVISIONS, 'baseline': BASE, 'python': PY,
+          'dependency_fingerprint': fingerprint(), 'paid_model_requests': 0,
+          'independent_review': False, 'steps': [], 'status': 'RUNNING',
+          'remaining_admission_wait_seconds': 0, 'prior': {}}
+
+
+def save(path, value):
+    temporary = path.with_suffix(path.suffix + '.tmp')
+    temporary.write_text(json.dumps(value, ensure_ascii=False, indent=2) + '\n')
+    temporary.replace(path)
+
+
+def identity(pr):
+    tree = Path(f'/Users/a77/fwp-wt-pr{pr}-main-0925')
+    assert helpers.git(tree, 'rev-parse', 'HEAD') == REVISIONS[pr]
+    assert not helpers.git(tree, 'status', '--porcelain')
+    assert fingerprint() == '66726d345bf37ce5'
+    return tree
+
+
+def interrupted(signum, frame):
+    raise KeyboardInterrupt(f'owned supervisor received signal {signum}')
+
+
+signal.signal(signal.SIGTERM, interrupted)
+for pr in REVISIONS:
+    identity(pr)
+    path = ROOT / pr / 'summary.json'
+    prior = json.loads(path.read_text())
+    assert prior['status'] == 'STOPPED_INCOMPLETE' and prior['revision'] == REVISIONS[pr]
+    assert all(step['exit'] == 0 and step['status'] == 'completed' for step in prior['steps'])
+    assert not (ROOT / pr / 'python-full.process.json').exists()
+    report['prior'][pr] = {'path': str(path), 'sha256': hashlib.sha256(path.read_bytes()).hexdigest(), 'steps': prior['steps']}
+assert not (ROOT / '910/frontend').exists()
+front = ROOT / '911/frontend/frontend.json'
+front_data = json.loads(front.read_text())
+assert front_data['revision'] == REVISIONS['911'] and front_data['identity_stable'] and not front_data['dirty']
+assert front_data['complete'] and front_data['exit_code'] == 0 and len(front_data['checks']) == 6
+for check in front_data['checks']:
+    raw = (front.parent / check['log']).read_bytes()
+    assert check['exit_code'] == 0 and len(raw) == check['log_bytes']
+    assert hashlib.sha256(raw).hexdigest() == check['log_sha256']
+report['prior_frontend_receipt'] = {'path': str(front), 'sha256': hashlib.sha256(front.read_bytes()).hexdigest(), 'pr': '911'}
+save(OUT / 'summary.json', report)
+
+
+def step(pr, label, command, *, timeout=180, heavy=False, ports=(), receipt=None):
+    tree = identity(pr)
+    out = OUT / pr
+    out.mkdir(exist_ok=True)
+    report['active_step'] = {'pr': pr, 'label': label}
+    save(OUT / 'summary.json', report)
+    if heavy:
+        samples = []
+        while True:
+            sample = observe(tree, minimum_free=20 * 1024**3)
+            samples.append(sample)
+            save(out / f'{label}.admission.json', samples)
+            if sample['admitted']:
+                break
+            if report['remaining_admission_wait_seconds'] <= 0:
+                raise RuntimeError(f'admission wait budget exhausted before {pr}/{label}')
+            start = time.monotonic()
+            time.sleep(min(30, report['remaining_admission_wait_seconds']))
+            report['remaining_admission_wait_seconds'] = max(0, report['remaining_admission_wait_seconds'] - (time.monotonic() - start))
+            save(OUT / 'summary.json', report)
+        identity(pr)
+    for port in ports:
+        with socket.socket() as sock:
+            sock.bind(('127.0.0.1', port))
+    env = {key: os.environ[key] for key in ('PATH', 'HOME', 'LANG', 'TMPDIR') if key in os.environ}
+    env.update(FWP_WORKBENCH_PYTHON=PY, PYTHONPATH=str(tree), PYTHONDONTWRITEBYTECODE='1',
+               FORESIGHT_LLM_KEYCHAIN='0', FORESIGHT_USERS_DIR=str(out / 'isolated-users'),
+               FINANCE_DEPLOY_LEDGER=str(out / 'deploy-ledger.jsonl'),
+               FWP_TEST_RECEIPT_DIR=str(out / 'receipts'))
+    if receipt:
+        env['FWP_TEST_RECEIPT_PATH'] = str(receipt)
+    result = helpers._run_logged_command(tree, out, label, command, env, timeout=timeout)
+    identity(pr)
+    row = {'pr': pr, 'label': label, 'exit': result['exit'], 'status': result['status']}
+    report['steps'].append(row)
+    report['active_step'] = None
+    save(OUT / 'summary.json', report)
+    print(json.dumps(row), flush=True)
+    return row['exit'] == 0 and row['status'] == 'completed'
+
+
+def receipt_check(pr, label, path, targets=()):
+    command = [PY, 'scripts/check_test_receipt.py', str(path), '--expect-revision', REVISIONS[pr],
+               '--main-ref', BASE, '--base-drift-max', '0']
+    for target in targets:
+        command += ['--require-target', target]
+    if not targets:
+        command.append('--require-full-scope')
+    if not step(pr, label, command):
+        raise RuntimeError(f'{pr}/{label} rejected its receipt')
+
+
+try:
+    receipt_check('910', 'prior-targeted-receipt-check', ROOT / '910/targeted-receipt.json', ['tests/test_pi_review_repair.py'])
+    receipt_check('911', 'prior-targeted-receipt-check', ROOT / '911/targeted-receipt.json', TARGETS)
+    step('910', 'frontend', [PY, 'scripts/run_frontend_gate.py', '--tree', str(identity('910')),
+         '--expect-revision', REVISIONS['910'], '--output', str(OUT / '910/frontend'),
+         '--python', PY, '--workbench-port', '20991', '--re06-port', '20994'],
+         timeout=1800, heavy=True, ports=(20991, 20994))
+    for pr in REVISIONS:
+        out = OUT / pr
+        step(pr, 'python-full', ['bash', 'scripts/run_main_gate.sh', '--pytest-args',
+             '-q -p no:cacheprovider --basetemp=' + str(out / 'full-tmp') + ' --junitxml=' + str(out / 'full.xml')],
+             timeout=2700, heavy=True, ports=(*range(26001, 26009), 19899) if pr == '910' else (19899,))
+        receipts = list((out / 'receipts').glob('gate-*/pytest.json'))
+        if len(receipts) != 1:
+            raise RuntimeError(f'expected exactly one full receipt for {pr}')
+        report[f'python_{pr}_receipt'] = str(receipts[0])
+        report[f'python_{pr}_counts'] = json.loads(receipts[0].read_text())['counts']
+        receipt_check(pr, 'full-receipt-check', receipts[0])
+    report['status'] = ('REMAINING_LEAVES_PASS_NOT_INDEPENDENT_REVIEW' if all(
+        row['exit'] == 0 and row['status'] == 'completed' for row in report['steps']) else 'REMAINING_LEAVES_FAILED')
+except BaseException as exc:
+    report.update(status='STOPPED_INCOMPLETE', error=f'{type(exc).__name__}: {exc}')
+    raise
+finally:
+    report['finished_at'] = datetime.now(timezone.utc).isoformat()
+    save(OUT / 'summary.json', report)

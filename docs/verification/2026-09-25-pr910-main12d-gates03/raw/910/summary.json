@@ -1,0 +1,78 @@
+{
+  "pr": "910",
+  "tree": "/Users/a77/fwp-wt-pr910-main-0925",
+  "revision": "2da72eef44787c910b5affbce47eea1e837ee7ae",
+  "tree_oid": "2883b2d568b9f697d1448b1dfd2cae1b4f88296e",
+  "baseline": "12d91dc733e1a29ceb54668fb934513bd10da4e9",
+  "observed_main": "12d91dc733e1a29ceb54668fb934513bd10da4e9",
+  "main_drift_paths": [],
+  "python": "/Users/a77/fwp-wt-pi-research/.venv-workbench/bin/python",
+  "dependency_fingerprint": "66726d345bf37ce5",
+  "steps": [
+    {
+      "label": "doctor",
+      "exit": 0,
+      "status": "completed"
+    },
+    {
+      "label": "ruff",
+      "exit": 0,
+      "status": "completed"
+    },
+    {
+      "label": "registry-parse",
+      "exit": 0,
+      "status": "completed"
+    },
+    {
+      "label": "registry-check",
+      "exit": 0,
+      "status": "completed"
+    },
+    {
+      "label": "registry-tables",
+      "exit": 0,
+      "status": "completed"
+    },
+    {
+      "label": "registry-views",
+      "exit": 0,
+      "status": "completed"
+    },
+    {
+      "label": "ledger-crosswalk",
+      "exit": 0,
+      "status": "completed"
+    },
+    {
+      "label": "diff-check",
+      "exit": 0,
+      "status": "completed"
+    },
+    {
+      "label": "targeted",
+      "exit": 0,
+      "status": "completed"
+    },
+    {
+      "label": "targeted-receipt-check",
+      "exit": 0,
+      "status": "completed"
+    }
+  ],
+  "paid_model_requests": 0,
+  "independent_review": false,
+  "admission_wait_budget_seconds": 0,
+  "status": "STOPPED_INCOMPLETE",
+  "active_step": "frontend",
+  "targeted_counts": {
+    "passed": 74,
+    "failed": 0,
+    "error": 0,
+    "skipped": 0,
+    "xfailed": 0,
+    "xpassed": 0
+  },
+  "error": "OSError: [Errno 48] Address already in use",
+  "finished_at": "2026-09-25T11:28:43.003289+00:00"
+}

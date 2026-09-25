@@ -1,0 +1,8 @@
+{"label": "targeted", "command": ["/Users/a77/fwp-wt-pi-research/.venv-workbench/bin/python", "-B", "-m", "pytest", "-q", "-p", "no:cacheprovider", "--basetemp=/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-03/910/targeted-tmp", "--junitxml=/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-03/910/targeted.xml", "tests/test_pi_review_repair.py"], "cwd": "/Users/a77/fwp-wt-pr910-main-0925", "revision": "2da72eef44787c910b5affbce47eea1e837ee7ae", "started_at": "2026-09-25T11:26:05.668579+00:00", "timeout_seconds": 900, "status": "starting", "exit": null, "timed_out": false, "executed": null, "failures": null, "errors": null, "skipped": null, "failed_cases": [], "junit_status": "not_evaluated", "output_mode": "combined_stdout_stderr"}
+........................................................................ [ 97%]
+..                                                                       [100%]读数收据: /Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-03/910/targeted-receipt.json
+
+- generated xml file: /Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-03/910/targeted.xml -
+74 passed in 79.96s (0:01:19)
+
+EXIT=0 STATUS=completed

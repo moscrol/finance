@@ -1,0 +1,11 @@
+{"pr": "910", "label": "prior-targeted-receipt-check", "exit": 0, "status": "completed"}
+{"pr": "911", "label": "prior-targeted-receipt-check", "exit": 0, "status": "completed"}
+{"pr": "910", "label": "frontend", "exit": 0, "status": "completed"}
+{"pr": "911", "label": "python-full", "exit": 0, "status": "completed"}
+{"pr": "911", "label": "full-receipt-check", "exit": 0, "status": "completed"}
+Traceback (most recent call last):
+  File "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-03/continue_remaining.py", line 136, in <module>
+    step(pr, 'python-full', ['bash', 'scripts/run_main_gate.sh', '--pytest-args',
+  File "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-03/continue_remaining.py", line 90, in step
+    raise RuntimeError(f'admission wait budget exhausted before {pr}/{label}')
+RuntimeError: admission wait budget exhausted before 910/python-full

@@ -1,0 +1,27 @@
+{
+  "observed_at": "2026-09-25T11:49:53.825196+00:00",
+  "tested_baseline": "12d91dc733e1a29ceb54668fb934513bd10da4e9",
+  "observed_main": "e159c564440c69abe17f106ae721fd25348a1865",
+  "drift_paths": [
+    "docs/handoffs/2026-09-25-numeric-preflight-model-number.md",
+    "docs/handoffs/inflight/fix-numeric-preflight-model-number-0925.md",
+    "intelligence/services/episode_semantic_verifier.py",
+    "intelligence/tests/test_episode_numeric_citations.py",
+    "intelligence/tests/test_episode_semantic_verifier.py"
+  ],
+  "log": [
+    "e159c5644 Merge pull request 'fix(verifier): 数值预检不把型号数字与单独月份当阈值（L6-N1 句 13）' (#932) from fix/numeric-preflight-model-number-0925 into main",
+    "1659528dd docs(handoff): #932 记 L6 批 2 两种形状改由 local_d1bf0c0c 修",
+    "0f3a70aa8 docs(handoff): #932 更正全存档差分计数并补重放保真度说明",
+    "eed1ec80a docs(handoff): #932 数值预检型号/月份修复的在途交接与决策快照",
+    "15d33c76f Merge remote-tracking branch 'gitea/main' into fix/numeric-preflight-model-number-0925",
+    "f3d18e6cc fix(verifier): 数值预检不把型号数字与单独月份当阈值"
+  ],
+  "candidate_heads": {
+    "910": "2da72eef44787c910b5affbce47eea1e837ee7ae",
+    "911": "34e31a25681868e26ddaaaf5d91854ec21be51ee"
+  },
+  "absorbed_this_drift": false,
+  "receipt_transfer_allowed": false,
+  "policy": "Preserve frozen WIP evidence; any future integration candidate requires its own validation"
+}

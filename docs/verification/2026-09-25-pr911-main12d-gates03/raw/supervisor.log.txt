@@ -1,0 +1,27 @@
+{"pr": "911", "label": "doctor", "exit": 0, "status": "completed"}
+{"pr": "911", "label": "ruff", "exit": 0, "status": "completed"}
+{"pr": "911", "label": "registry-parse", "exit": 0, "status": "completed"}
+{"pr": "911", "label": "registry-check", "exit": 0, "status": "completed"}
+{"pr": "911", "label": "registry-tables", "exit": 0, "status": "completed"}
+{"pr": "911", "label": "registry-views", "exit": 0, "status": "completed"}
+{"pr": "911", "label": "ledger-crosswalk", "exit": 0, "status": "completed"}
+{"pr": "911", "label": "diff-check", "exit": 0, "status": "completed"}
+{"pr": "911", "label": "targeted", "exit": 0, "status": "completed"}
+{"pr": "911", "label": "targeted-receipt-check", "exit": 0, "status": "completed"}
+{"pr": "910", "label": "doctor", "exit": 0, "status": "completed"}
+{"pr": "910", "label": "ruff", "exit": 0, "status": "completed"}
+{"pr": "910", "label": "registry-parse", "exit": 0, "status": "completed"}
+{"pr": "910", "label": "registry-check", "exit": 0, "status": "completed"}
+{"pr": "910", "label": "registry-tables", "exit": 0, "status": "completed"}
+{"pr": "910", "label": "registry-views", "exit": 0, "status": "completed"}
+{"pr": "910", "label": "ledger-crosswalk", "exit": 0, "status": "completed"}
+{"pr": "910", "label": "diff-check", "exit": 0, "status": "completed"}
+{"pr": "910", "label": "targeted", "exit": 0, "status": "completed"}
+{"pr": "910", "label": "targeted-receipt-check", "exit": 0, "status": "completed"}
+{"pr": "911", "label": "frontend", "exit": 0, "status": "completed"}
+Traceback (most recent call last):
+  File "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-03/run_gates.py", line 137, in <module>
+    step(pr, 'frontend', [PY, 'scripts/run_frontend_gate.py', '--tree', str(identity(pr)),
+  File "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-03/run_gates.py", line 86, in step
+    sock.bind(('127.0.0.1', port))
+OSError: [Errno 48] Address already in use

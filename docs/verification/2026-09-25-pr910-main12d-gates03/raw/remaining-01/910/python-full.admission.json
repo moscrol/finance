@@ -1,0 +1,17 @@
+[
+  {
+    "admitted": false,
+    "foreign_pytest": [
+      {
+        "pid": 80907,
+        "pgid": 80808,
+        "command": "/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -u -m pytest -q -p no:cacheprovider --basetemp=/Users/a77/.finance-runtime/reviews/pi-session-inventory-20260924/truthup9/basetemp"
+      }
+    ],
+    "disk_free_bytes": 50154049536,
+    "minimum_free_bytes": 21474836480,
+    "excluded_groups": [],
+    "scope": "point-in-time; all detected pytest processes, not just full suites; no reservation",
+    "observed_at": "2026-09-25T11:46:43.514334+00:00"
+  }
+]

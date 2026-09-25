@@ -1,0 +1,28 @@
+{
+  "label": "python-full",
+  "command": [
+    "bash",
+    "scripts/run_main_gate.sh",
+    "--pytest-args",
+    "-q -p no:cacheprovider --basetemp=/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-03/remaining-01/911/full-tmp --junitxml=/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-03/remaining-01/911/full.xml"
+  ],
+  "cwd": "/Users/a77/fwp-wt-pr911-main-0925",
+  "revision": "34e31a25681868e26ddaaaf5d91854ec21be51ee",
+  "started_at": "2026-09-25T11:32:22.096047+00:00",
+  "timeout_seconds": 2700,
+  "status": "completed",
+  "exit": 0,
+  "timed_out": false,
+  "executed": null,
+  "failures": null,
+  "errors": null,
+  "skipped": null,
+  "failed_cases": [],
+  "junit_status": "not_evaluated",
+  "output_mode": "combined_stdout_stderr",
+  "pid": 63813,
+  "process_group": 63813,
+  "process_group_cleanup": "already_absent",
+  "finished_at": "2026-09-25T11:46:42.730164+00:00",
+  "elapsed_seconds": 860.6339007089846
+}

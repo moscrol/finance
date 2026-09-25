@@ -1,0 +1,163 @@
+"""Run each frozen PR's offline leaves serially; never transfer receipts or restart a prior batch."""
+from datetime import datetime, timezone
+import hashlib
+import importlib
+import json
+import os
+from pathlib import Path
+import signal
+import socket
+import sys
+import time
+
+ROOT = Path(__file__).resolve().parent
+PY = '/Users/a77/fwp-wt-pi-research/.venv-workbench/bin/python'
+BASE = '12d91dc733e1a29ceb54668fb934513bd10da4e9'
+OBSERVED_MAIN = BASE
+SPECS = {
+    '911': ('34e31a25681868e26ddaaaf5d91854ec21be51ee', [
+        'intelligence/tests/conformance/test_research_chain.py',
+        'intelligence/tests/test_workbench_research_chain.py']),
+    '910': ('2da72eef44787c910b5affbce47eea1e837ee7ae', ['tests/test_pi_review_repair.py']),
+}
+sys.path.insert(0, '/Users/a77/fwp-wt-pr910-main-0925')
+helpers = importlib.import_module('scripts.review_probes.run_extraction_mutations')
+observe = importlib.import_module('scripts.review_probes.gate_resources').observe
+fingerprint = importlib.import_module('scripts.check_test_receipt')._fingerprint
+assert sys.executable == PY and fingerprint() == '66726d345bf37ce5'
+
+
+def save(path, data):
+    tmp = path.with_suffix(path.suffix + '.tmp')
+    tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2) + '\n')
+    tmp.replace(path)
+
+
+def identity(pr):
+    tree = Path(f'/Users/a77/fwp-wt-pr{pr}-main-0925')
+    assert helpers.git(tree, 'rev-parse', 'HEAD') == SPECS[pr][0]
+    assert not helpers.git(tree, 'status', '--porcelain')
+    assert fingerprint() == '66726d345bf37ce5'
+    return tree
+
+
+def interrupted(signum, frame):
+    raise KeyboardInterrupt(f'owned supervisor received signal {signum}')
+
+
+signal.signal(signal.SIGTERM, interrupted)
+with (ROOT / 'started.json').open('x') as stream:
+    json.dump({'pid': os.getpid(), 'started_at': datetime.now(timezone.utc).isoformat(),
+               'script_sha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+               'paid_authorization': False}, stream)
+reports = {}
+for pr, (revision, targets) in SPECS.items():
+    tree = identity(pr)
+    (ROOT / pr).mkdir(exist_ok=False)
+    reports[pr] = {'pr': pr, 'tree': str(tree), 'revision': revision,
+                   'tree_oid': helpers.git(tree, 'rev-parse', 'HEAD^{tree}'),
+                   'baseline': BASE, 'observed_main': OBSERVED_MAIN,
+                   'main_drift_paths': helpers.git(tree, 'diff', '--name-only', BASE + '..' + OBSERVED_MAIN).splitlines(),
+                   'python': PY, 'dependency_fingerprint': fingerprint(), 'steps': [],
+                   'paid_model_requests': 0, 'independent_review': False, 'admission_wait_budget_seconds': 0, 'status': 'RUNNING'}
+    assert all(path.startswith('docs/') for path in reports[pr]['main_drift_paths'])
+    save(ROOT / pr / 'summary.json', reports[pr])
+
+
+def step(pr, label, command, *, timeout=180, heavy=False, ports=(), receipt=None):
+    tree = identity(pr)
+    out, report = ROOT / pr, reports[pr]
+    report['active_step'] = label
+    save(out / 'summary.json', report)
+    if heavy:
+        until = time.monotonic()
+        samples = []
+        while True:
+            samples.append(observe(tree, minimum_free=20 * 1024**3))
+            save(out / f'{label}.admission.json', samples)
+            if samples[-1]['admitted']:
+                break
+            if time.monotonic() >= until:
+                raise RuntimeError(f'resource wait expired before {pr}/{label}')
+            time.sleep(min(30, max(0, until - time.monotonic())))
+        identity(pr)
+    for port in ports:
+        with socket.socket() as sock:
+            sock.bind(('127.0.0.1', port))
+    env = {key: os.environ[key] for key in ('PATH', 'HOME', 'LANG', 'TMPDIR') if key in os.environ}
+    env.update(FWP_WORKBENCH_PYTHON=PY, PYTHONPATH=str(tree), PYTHONDONTWRITEBYTECODE='1',
+               FORESIGHT_LLM_KEYCHAIN='0', FORESIGHT_USERS_DIR=str(out / 'isolated-users'),
+               FINANCE_DEPLOY_LEDGER=str(out / 'deploy-ledger.jsonl'),
+               FWP_TEST_RECEIPT_DIR=str(out / 'receipts'))
+    if receipt:
+        env['FWP_TEST_RECEIPT_PATH'] = str(receipt)
+    result = helpers._run_logged_command(tree, out, label, command, env, timeout=timeout)
+    identity(pr)
+    row = {'label': label, 'exit': result['exit'], 'status': result['status']}
+    report['steps'].append(row)
+    report['active_step'] = None
+    save(out / 'summary.json', report)
+    print(json.dumps({'pr': pr, **row}), flush=True)
+    return row['exit'] == 0 and row['status'] == 'completed'
+
+
+def receipt_check(pr, label, path, *, full=False):
+    command = [PY, 'scripts/check_test_receipt.py', str(path), '--expect-revision', SPECS[pr][0],
+               '--main-ref', BASE, '--base-drift-max', '0']
+    if full:
+        command.append('--require-full-scope')
+    else:
+        for target in SPECS[pr][1]:
+            command += ['--require-target', target]
+    step(pr, label, command)
+
+
+try:
+    for pr, (revision, targets) in SPECS.items():
+        out = ROOT / pr
+        for label, args in (
+            ('doctor', ['scripts/workspace.py', 'doctor']),
+            ('ruff', ['-m', 'ruff', 'check', '.']),
+            ('registry-parse', ['scripts/build_registry.py', 'check-parseability']),
+            ('registry-check', ['scripts/build_registry.py', 'check']),
+            ('registry-tables', ['scripts/build_registry.py', 'backfill-tables', '--check']),
+            ('registry-views', ['scripts/build_registry.py', 'generate-views', '--check']),
+            ('ledger-crosswalk', ['scripts/audit_ledger_spec_crosswalk.py']),
+        ):
+            step(pr, label, [PY, *args])
+        step(pr, 'diff-check', ['git', 'diff', '--check', BASE + '...HEAD'])
+        if not step(pr, 'targeted', [PY, '-B', '-m', 'pytest', '-q', '-p', 'no:cacheprovider',
+                    '--basetemp=' + str(out / 'targeted-tmp'), '--junitxml=' + str(out / 'targeted.xml'), *targets],
+                    timeout=900, heavy=True, ports=range(26001, 26009) if pr == '910' else (),
+                    receipt=out / 'targeted-receipt.json'):
+            raise RuntimeError(f'{pr} targeted checks failed; inspect before full run')
+        reports[pr]['targeted_counts'] = json.loads((out / 'targeted-receipt.json').read_text())['counts']
+        receipt_check(pr, 'targeted-receipt-check', out / 'targeted-receipt.json')
+    for pr, (revision, _) in SPECS.items():
+        step(pr, 'frontend', [PY, 'scripts/run_frontend_gate.py', '--tree', str(identity(pr)),
+             '--expect-revision', revision, '--output', str(ROOT / pr / 'frontend'),
+             '--python', PY, '--workbench-port', '20981', '--re06-port', '20984'],
+             timeout=1800, heavy=True, ports=(20981, 20984))
+    for pr in SPECS:
+        out = ROOT / pr
+        step(pr, 'python-full', ['bash', 'scripts/run_main_gate.sh', '--pytest-args',
+             '-q -p no:cacheprovider --basetemp=' + str(out / 'full-tmp') + ' --junitxml=' + str(out / 'full.xml')],
+             timeout=2700, heavy=True, ports=(*range(26001, 26009), 19899) if pr == '910' else (19899,))
+        receipts = list((out / 'receipts').glob('gate-*/pytest.json'))
+        if len(receipts) != 1:
+            raise RuntimeError(f'expected exactly one full receipt for {pr}')
+        reports[pr]['python_receipt'] = str(receipts[0])
+        reports[pr]['python_counts'] = json.loads(receipts[0].read_text())['counts']
+        receipt_check(pr, 'full-receipt-check', receipts[0], full=True)
+        reports[pr]['status'] = ('ENGINEERING_GATES_PASS_NOT_INDEPENDENT_REVIEW' if all(
+            row['exit'] == 0 and row['status'] == 'completed' for row in reports[pr]['steps']) else 'ENGINEERING_GATES_FAILED')
+        save(out / 'summary.json', reports[pr])
+except BaseException as exc:
+    for report in reports.values():
+        if report['status'] == 'RUNNING':
+            report.update(status='STOPPED_INCOMPLETE', error=f'{type(exc).__name__}: {exc}')
+    raise
+finally:
+    for pr, report in reports.items():
+        report['finished_at'] = datetime.now(timezone.utc).isoformat()
+        save(ROOT / pr / 'summary.json', report)

@@ -1,0 +1,187 @@
+{
+  "pid": 63422,
+  "started_at": "2026-09-25T11:31:03.010582+00:00",
+  "script_sha256": "56581dc13e43496a2d2f3827d62cf3fbce49701e7feca92585960077de22e16a",
+  "revisions": {
+    "911": "34e31a25681868e26ddaaaf5d91854ec21be51ee",
+    "910": "2da72eef44787c910b5affbce47eea1e837ee7ae"
+  },
+  "baseline": "12d91dc733e1a29ceb54668fb934513bd10da4e9",
+  "python": "/Users/a77/fwp-wt-pi-research/.venv-workbench/bin/python",
+  "dependency_fingerprint": "66726d345bf37ce5",
+  "paid_model_requests": 0,
+  "independent_review": false,
+  "steps": [
+    {
+      "pr": "910",
+      "label": "prior-targeted-receipt-check",
+      "exit": 0,
+      "status": "completed"
+    },
+    {
+      "pr": "911",
+      "label": "prior-targeted-receipt-check",
+      "exit": 0,
+      "status": "completed"
+    },
+    {
+      "pr": "910",
+      "label": "frontend",
+      "exit": 0,
+      "status": "completed"
+    },
+    {
+      "pr": "911",
+      "label": "python-full",
+      "exit": 0,
+      "status": "completed"
+    },
+    {
+      "pr": "911",
+      "label": "full-receipt-check",
+      "exit": 0,
+      "status": "completed"
+    }
+  ],
+  "status": "STOPPED_INCOMPLETE",
+  "remaining_admission_wait_seconds": 0,
+  "prior": {
+    "911": {
+      "path": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-03/911/summary.json",
+      "sha256": "4c47801d2cdd71939435fc94f6acba00dc0fda258ea6fe3bffb719d12b3ff102",
+      "steps": [
+        {
+          "label": "doctor",
+          "exit": 0,
+          "status": "completed"
+        },
+        {
+          "label": "ruff",
+          "exit": 0,
+          "status": "completed"
+        },
+        {
+          "label": "registry-parse",
+          "exit": 0,
+          "status": "completed"
+        },
+        {
+          "label": "registry-check",
+          "exit": 0,
+          "status": "completed"
+        },
+        {
+          "label": "registry-tables",
+          "exit": 0,
+          "status": "completed"
+        },
+        {
+          "label": "registry-views",
+          "exit": 0,
+          "status": "completed"
+        },
+        {
+          "label": "ledger-crosswalk",
+          "exit": 0,
+          "status": "completed"
+        },
+        {
+          "label": "diff-check",
+          "exit": 0,
+          "status": "completed"
+        },
+        {
+          "label": "targeted",
+          "exit": 0,
+          "status": "completed"
+        },
+        {
+          "label": "targeted-receipt-check",
+          "exit": 0,
+          "status": "completed"
+        },
+        {
+          "label": "frontend",
+          "exit": 0,
+          "status": "completed"
+        }
+      ]
+    },
+    "910": {
+      "path": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-03/910/summary.json",
+      "sha256": "fbd76dd65c68a4b082bb2ff03ebd25e666de81d925fb43608eb46cb4981672a3",
+      "steps": [
+        {
+          "label": "doctor",
+          "exit": 0,
+          "status": "completed"
+        },
+        {
+          "label": "ruff",
+          "exit": 0,
+          "status": "completed"
+        },
+        {
+          "label": "registry-parse",
+          "exit": 0,
+          "status": "completed"
+        },
+        {
+          "label": "registry-check",
+          "exit": 0,
+          "status": "completed"
+        },
+        {
+          "label": "registry-tables",
+          "exit": 0,
+          "status": "completed"
+        },
+        {
+          "label": "registry-views",
+          "exit": 0,
+          "status": "completed"
+        },
+        {
+          "label": "ledger-crosswalk",
+          "exit": 0,
+          "status": "completed"
+        },
+        {
+          "label": "diff-check",
+          "exit": 0,
+          "status": "completed"
+        },
+        {
+          "label": "targeted",
+          "exit": 0,
+          "status": "completed"
+        },
+        {
+          "label": "targeted-receipt-check",
+          "exit": 0,
+          "status": "completed"
+        }
+      ]
+    }
+  },
+  "prior_frontend_receipt": {
+    "path": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-03/911/frontend/frontend.json",
+    "sha256": "19ae0512bafca032c6ec8aa377f711f95fc402446c96c253563090972aea9f0b",
+    "pr": "911"
+  },
+  "active_step": {
+    "pr": "910",
+    "label": "python-full"
+  },
+  "python_911_receipt": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-03/remaining-01/911/receipts/gate-EoUvopbp/pytest.json",
+  "python_911_counts": {
+    "passed": 16266,
+    "failed": 0,
+    "error": 0,
+    "skipped": 75,
+    "xfailed": 2,
+    "xpassed": 0
+  },
+  "error": "RuntimeError: admission wait budget exhausted before 910/python-full",
+  "finished_at": "2026-09-25T11:46:43.514722+00:00"
+}

@@ -1,0 +1,13 @@
+{"label": "targeted", "command": ["/Users/a77/fwp-wt-pi-research/.venv-workbench/bin/python", "-B", "-m", "pytest", "-q", "-p", "no:cacheprovider", "--basetemp=/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-03/911/targeted-tmp", "--junitxml=/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-03/911/targeted.xml", "intelligence/tests/conformance/test_research_chain.py", "intelligence/tests/test_workbench_research_chain.py"], "cwd": "/Users/a77/fwp-wt-pr911-main-0925", "revision": "34e31a25681868e26ddaaaf5d91854ec21be51ee", "started_at": "2026-09-25T11:25:56.083398+00:00", "timeout_seconds": 900, "status": "starting", "exit": null, "timed_out": false, "executed": null, "failures": null, "errors": null, "skipped": null, "failed_cases": [], "junit_status": "not_evaluated", "output_mode": "combined_stdout_stderr"}
+........................................................                 [100%]读数收据: /Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-03/911/targeted-receipt.json
+
+=============================== warnings summary ===============================
+../fwp-wt-pi-research/.venv-workbench/lib/python3.12/site-packages/fastapi/testclient.py:1
+  /Users/a77/fwp-wt-pi-research/.venv-workbench/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+- generated xml file: /Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-03/911/targeted.xml -
+56 passed, 1 warning in 6.66s
+
+EXIT=0 STATUS=completed

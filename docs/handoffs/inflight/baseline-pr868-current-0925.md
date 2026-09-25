@@ -1,28 +1,29 @@
 ## 这个分支做什么
-#910/#911协调与证据索引；本树不是代码候选。本轮新收据只提交本树，保持两张PR受测HEAD不动。
+#910/#911协调与证据索引，不是代码候选；证据只提交本树，不移动受测HEAD。
 
 ## 决策与被否方案
-- 固定HEAD / 为纯文档漂移前向：main724相对已吸收main643仅三份文档。
-- 未完成步骤续跑 / 重跑74项：同SHA与环境收据重新核验通过。
-- 协调分支归档 / 改受测分支HEAD：避免文档提交自身让版本失配。
-- 30分钟有限等待 / 放宽准入或无限后台：不干预其他会话。
-展开：`docs/handoffs/2026-09-25-pr910-911-fixed-head-gates02.md`。
+- 开跑前吸收#933，再冻结 / 给旧SHA移签：运行时已变，须新证据。
+- 分端口只续未完成叶子 / 重跑已绿或改原日志：同SHA收据可核验复用。
+- 按PR聚合 / 全批STOPPED一概涂绿或丢掉已完成叶子：范围分别记账。
+- 固定至结束并另记#932漂移 / 长门禁反复换候选：最新组合另验。
+展开：`docs/handoffs/2026-09-25-pr910-911-main12d-gates03.md`。
 
 ## 当前状态
-#910固定d300cb305abae97360a82cb932968bf37164be9e，树`~/fwp-wt-pr910-main-0925`。
-#911固定1a61be4e74e162ebae39d29723d343a2ebdbdfd9，树`~/fwp-wt-pr911-main-0925`。
-两PR保持WIP/open/未合入。原PR的inflight为上轮快照，本轮状态以此索引及PR最新评论为准。
+受测基座12d91dc73；#910固定2da72eef44787c910b5affbce47eea1e837ee7ae，#911固定34e31a25681868e26ddaaaf5d91854ec21be51ee，已非强推发布。
+树`~/fwp-wt-pr910-main-0925`、`~/fwp-wt-pr911-main-0925`。WIP/open/未合入；PR旧inflight已落后，以此索引及最新评论为准。自有57164/63422退出，无后台。
 
 ## 已验证
-两个当前HEAD的doctor/Ruff/registry四项/crosswalk/PR diff-check过。
-#910当前HEAD定向74P/0F/0E/0S，收据及续跑读回都过；沙箱C3各3P、C7各66P，仅作者内层，不重复计数。
-本树归档`docs/verification/2026-09-25-pr910-main643-gates02/`（132原件）、`2026-09-25-pr911-main643-gates02/`（29原件）。原根`~/.finance-runtime/reviews/pr910-911-complete-20260925-02/`。
+两HEAD静态全过；定向#910 74P、#911 56P，各精确收据及续段重验通过。两边前端六步过，各123单测/浏览器34P2S。
+#911完整Python16266P/0F/0E/75S/2X/0XP，collected16343；完整范围/精确身份验签过，按PR聚合PASS_NOT_INDEPENDENT_REVIEW。
+本树归档`docs/verification/2026-09-25-pr910-main12d-gates03/`及`2026-09-25-pr911-main12d-gates03/`；原根`~/.finance-runtime/reviews/pr910-911-complete-20260925-03/`。#911大JUnit外置，manifest留大小/哈希。
 
 ## 未验证 / 已知边界
-#911定向、两边全仓Python/前端/E2E均未启动。续段30分钟61次准入全部拒绝，STOPPED_INCOMPLETE；自有53799/68375已退出，无后台，没动外部进程。旧4e4d的16232P不移签。付费授权/模型请求0；独审、自然金融质量、真实来源、自主子研究、反证修订、L6、8792未新增验证，未合main或部署。
+#910全仓未启动，外部pytest准入拒绝，零额外等待；聚合INCOMPLETE。main随后到e159c5644（#932运行时），未吸收或验证其集成组合，漂移JSON在本树verification。旧74/16232与#911全仓都不移签。75S/2X非通过；内层C3/C7不重复计数或称独审。
+付费授权/模型请求0；未独审、合main、L6、部署；金融质量、真实来源、自主子研究/反证修订、8792未新增证明。
 
 ## 下一步
-安排无外部pytest的测试窗口，另根继续未完成步骤；先核当前HEAD/环境/main漂移，同版本可复核后复用74项。固定`/Users/a77/fwp-wt-pi-research/.venv-workbench/bin/python`，依赖66726d345bf37ce5。不恢复撤销批，不动owner/19899/8792。
+补固定候选只缺#910全仓及完整范围验签，先查准入/HEAD/环境；若前向新main则另冻另验。固定`/Users/a77/fwp-wt-pi-research/.venv-workbench/bin/python`，依赖66726d345bf37ce5。独审另批，不恢复撤销批，不动owner/19899/8792。
 
 ## 踩过的坑
-准入采样不预约机器；后来者仍可启动。共同文件的另一PR结果不能借用；脚本命令不等于执行结果。WIP的mergeable=false不证明冲突。
+归档6份原日志尾空行令diff-check exit2，原字节/非零回执保留，不称格式全绿。
+采样不预约资源；端口顺序复用曾瞬时绑定拒绝，后续可绑定不证明根因。归档需核Git字节，脚本计划不等于执行；WIP mergeable=false不证明冲突。

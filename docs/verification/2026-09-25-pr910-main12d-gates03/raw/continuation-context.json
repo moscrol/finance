@@ -1,0 +1,35 @@
+{
+  "purpose": "Resume unexecuted leaves on the same exact main12d candidates",
+  "initial_supervisor_pid": 57164,
+  "initial_completed_dynamic_leaves": ["911/targeted", "910/targeted", "911/frontend"],
+  "initial_stop": {
+    "stage": "910/frontend pre-execution port binding check",
+    "error": "OSError: [Errno 48] Address already in use",
+    "frontend_process_started": false,
+    "supervisor_absence_verified": true
+  },
+  "operator_observation_after_stop": {
+    "lsof_listeners_20981_20984": [],
+    "connect_ex_20981": 61,
+    "connect_ex_20984": 61,
+    "bind_20981": "ok",
+    "bind_20984": "ok",
+    "bind_20991": "ok",
+    "bind_20994": "ok",
+    "root_cause": "Not proven; later probes establish the original ports were no longer listening and were bindable, not the exact transient state at failure"
+  },
+  "continuation_supervisor_pid": 63422,
+  "continuation_script": "continue_remaining.py",
+  "continuation_frontend_ports_for_910": [20991, 20994],
+  "prior_receipts_rechecked": ["910/targeted", "911/targeted", "911/frontend identity and all six raw-log hashes"],
+  "initial_results_are_not_overwritten": true,
+  "remaining_leaves": ["910/frontend", "911/python-full", "910/python-full"],
+  "additional_admission_wait_seconds": 0,
+  "revision_910": "2da72eef44787c910b5affbce47eea1e837ee7ae",
+  "revision_911": "34e31a25681868e26ddaaaf5d91854ec21be51ee",
+  "baseline": "12d91dc733e1a29ceb54668fb934513bd10da4e9",
+  "paid_model_authorization": false,
+  "paid_model_requests": 0,
+  "independent_review": false,
+  "foreign_processes_changed": false
+}

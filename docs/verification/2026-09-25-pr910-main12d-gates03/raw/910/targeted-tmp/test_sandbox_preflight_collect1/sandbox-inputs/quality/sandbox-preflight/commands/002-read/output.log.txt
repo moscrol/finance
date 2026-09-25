@@ -1,0 +1,33 @@
+import errno, os, socket, subprocess
+from pathlib import Path
+import intelligence.services.llm_refine
+p=Path("/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-03/910/targeted-tmp/test_sandbox_preflight_collect1/sandbox-inputs/quality/work/allowed.txt"); p.write_text('ok'); assert p.read_text()=='ok'
+for target in ["/Users/a77/fwp-wt-pr910-main-0925/.git", "/Users/a77/fwp-wt-pr910-main-0925/docs/handoffs/2026-09-22-adaptive-deadline-transport.md", '/Users/a77/.pi/agent/models.json', '/Users/a77/finance-worktrees/adaptive-research-loop/intelligence/services/llm_refine.py']:
+ try: Path(target).read_bytes()
+ except PermissionError: pass
+ else: raise AssertionError('forbidden read: '+target)
+for target in ["/Users/a77/fwp-wt-pr910-main-0925/sandbox-forbidden-write","/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-03/910/targeted-tmp/test_sandbox_preflight_collect1/sandbox-inputs/quality/sandbox-forbidden-write"]:
+ try: fd=os.open(target,os.O_WRONLY|os.O_CREAT,0o600)
+ except PermissionError: pass
+ else: os.close(fd); raise AssertionError('forbidden write')
+for host,port in [('127.0.0.1',18788),('127.0.0.1',54340),('127.0.0.1',19899),('127.0.0.1',8792),('192.0.2.1',443)]:
+ s=socket.socket(); s.settimeout(0.2)
+ try: s.connect((host,port))
+ except OSError as e: assert e.errno in (errno.EPERM,errno.EACCES),e
+ else: raise AssertionError('network allowed: '+str((host,port)))
+ finally: s.close()
+s=socket.socket(); s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+for port in range(26001,26009):
+ try: s.bind(('127.0.0.1',port)); break
+ except OSError as e:
+  if e.errno != errno.EADDRINUSE: raise
+else: raise AssertionError('all authorized fake-service ports unavailable')
+s.listen(1)
+c=socket.create_connection(s.getsockname(), timeout=1); peer,_=s.accept(); peer.close(); c.close(); s.close()
+assert not any('TOKEN' in k or 'API_KEY' in k for k in os.environ)
+assert os.environ.get('FWP_WORKBENCH_PYTHON') == "/Users/a77/fwp-wt-pi-research/.venv-workbench/bin/python"
+assert 'FWP_ALLOW_ANY_PYTHON' not in os.environ
+try: subprocess.run(['/usr/bin/security', 'help'], capture_output=True, timeout=3)
+except PermissionError: pass
+else: raise AssertionError('keychain CLI execution allowed')
+print('sandbox boundaries, offline loopback and candidate import passed')

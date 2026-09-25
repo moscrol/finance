@@ -1,0 +1,27 @@
+{
+  "label": "registry-check",
+  "command": [
+    "/Users/a77/fwp-wt-pi-research/.venv-workbench/bin/python",
+    "scripts/build_registry.py",
+    "check"
+  ],
+  "cwd": "/Users/a77/fwp-wt-pr911-main-0925",
+  "revision": "34e31a25681868e26ddaaaf5d91854ec21be51ee",
+  "started_at": "2026-09-25T11:25:54.933156+00:00",
+  "timeout_seconds": 180,
+  "status": "completed",
+  "exit": 0,
+  "timed_out": false,
+  "executed": null,
+  "failures": null,
+  "errors": null,
+  "skipped": null,
+  "failed_cases": [],
+  "junit_status": "not_evaluated",
+  "output_mode": "combined_stdout_stderr",
+  "pid": 57217,
+  "process_group": 57217,
+  "process_group_cleanup": "already_absent",
+  "finished_at": "2026-09-25T11:25:55.013708+00:00",
+  "elapsed_seconds": 0.08035562513396144
+}
