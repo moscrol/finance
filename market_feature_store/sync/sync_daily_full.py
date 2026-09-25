@@ -471,6 +471,7 @@ def run_daily_full_staged(
     child_argv: list[str] | None = None,
     kind: str = "daily-full",
     pre_swap_backup: bool = False,
+    prepare_dir: Path | None = None,
 ) -> dict:
     """staging 编排的公共入口：先取运行互斥锁，再进编排本体。
 
@@ -479,6 +480,8 @@ def run_daily_full_staged(
     进 staging 的收据一起没了）。因此互斥锁在任何清理之前取得、覆盖本轮
     全生命周期（db.hold_run_mutex，锁在独立文件上，读写双方无感）。
     拿不到锁立即 rc=2，不做任何清理、不动 staging、不动生产库。
+    prepare_dir 必须全新：只在该目录准备输入，保留普通 staging；无论子进程
+    是否成功都返回 rc=2，不进入备份/发布。输入成功另看 input_prepared。
     """
     target = _db.DB_PATH
     try:
@@ -490,13 +493,15 @@ def run_daily_full_staged(
                 child_argv=child_argv,
                 kind=kind,
                 pre_swap_backup=pre_swap_backup,
+                prepare_dir=prepare_dir,
             )
     except _db.DatabaseLockedError as exc:
         reason = f"{exc}；本轮不做任何清理与换名"
         print(f"[staging] {reason}", flush=True)
         return {
             "target": str(target),
-            "staging": str(_db.staging_path(target)),
+            "staging": str((prepare_dir / (target.name + '.staging'))
+                           if prepare_dir is not None else _db.staging_path(target)),
             "swapped": False,
             "rc": 2,
             "reason": reason,
@@ -514,6 +519,7 @@ def _run_daily_full_staged_locked(
     child_argv: list[str] | None = None,
     kind: str = "daily-full",
     pre_swap_backup: bool = False,
+    prepare_dir: Path | None = None,
 ) -> dict:
     """daily-full 的 staging 编排: 同步全程不持有生产库写锁 (bookgap S7)。
 
@@ -544,7 +550,8 @@ def _run_daily_full_staged_locked(
     started_mono = time.monotonic()
     run_id = uuid.uuid4().hex[:12]
     target = _db.DB_PATH
-    staging = _db.staging_path(target)
+    staging = (prepare_dir / (target.name + '.staging')
+               if prepare_dir is not None else _db.staging_path(target))
     status_json = Path(str(staging) + ".status.json")
     result: dict = {
         "target": str(target),
@@ -560,6 +567,16 @@ def _run_daily_full_staged_locked(
         "backup": None,
         "publish": None,
     }
+
+    if prepare_dir is not None:
+        result["preparation_only"] = True
+        # A separate, exclusively created evidence directory preserves old failures.
+        # This mode always returns before either publication path, even for rc=0.
+        try:
+            prepare_dir.mkdir(parents=True, exist_ok=False)
+        except OSError as exc:
+            result["reason"] = f"prepare directory must be new: {exc}"
+            return result
 
     result["stale_staging_removed"] = _db.remove_stale_staging(staging)
     if result["stale_staging_removed"]:
@@ -698,6 +715,11 @@ def _run_daily_full_staged_locked(
         return _abort(
             "status.json 缺本轮 run_id 或不匹配（疑似上一轮遗留/非本轮产物），不换名"
         )
+    if prepare_dir is not None:
+        result["input_prepared"] = (child_rc == 2 and status.get("input_prepared") is True
+                                    and status.get("ok") is False)
+        return _abort("preparation-only staging retained; publication not attempted")
+
     if child_rc not in (0, 1):
         return _abort(f"子进程异常退出 (rc={child_rc}), 不换名")
 

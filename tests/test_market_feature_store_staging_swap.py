@@ -159,6 +159,35 @@ def test_probe_no_active_writer_detects_cross_process_lock(tmp_path):
 # 编排: 成功路径 / 收据 (判据 3 的离线臂)
 # ---------------------------------------------------------------------------
 
+@pytest.mark.parametrize('child_code', [CHILD_OK, CHILD_FAILED_STEP, CHILD_SELFKILL])
+def test_preparation_mode_never_publishes_even_a_successful_child(prod_db, tmp_path, child_code):
+    before = _sha256(prod_db)
+    ordinary_staging = db.staging_path(prod_db)
+    ordinary_staging.write_bytes(b'preserved earlier failure')
+    output = tmp_path / 'new-preparation'
+    result = sdf.run_daily_full_staged(child_argv=_child(child_code), prepare_dir=output,
+                                       pre_swap_backup=True)
+    assert result['rc'] == 2 and result['swapped'] is False
+    assert result['backup'] is None and result['publish'] is None
+    assert _sha256(prod_db) == before
+    assert ordinary_staging.read_bytes() == b'preserved earlier failure'
+    assert Path(result['staging']).parent == output
+    assert Path(result['staging']).exists()
+
+
+def test_preparation_mode_refuses_to_overwrite_an_existing_directory(prod_db, tmp_path):
+    output = tmp_path / 'old-preparation'
+    output.mkdir()
+    evidence = output / (prod_db.name + '.staging')
+    evidence.write_bytes(b'old incomplete database')
+    before = _sha256(prod_db)
+    result = sdf.run_daily_full_staged(child_argv=_child(CHILD_OK), prepare_dir=output)
+    assert result['rc'] == 2 and result['child_returncode'] is None
+    assert 'must be new' in result['reason']
+    assert evidence.read_bytes() == b'old incomplete database'
+    assert _sha256(prod_db) == before
+
+
 def test_receipt_row_present_after_swap(prod_db):
     result = sdf.run_daily_full_staged(child_argv=_child(CHILD_OK))
     assert result["swapped"] is True

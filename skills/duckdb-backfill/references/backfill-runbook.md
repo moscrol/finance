@@ -150,6 +150,64 @@ python3 $S write    --trade-date 2026-09-08   # 单次短事务 upsert + 回读
 - `pre_close` 是**裸价前收**（与 mootdx 同基，非东财的除息调整基）→ 次日锚天然有 0.1~0.3% 的除息股对不上，属坑③同类差异，`validate` 的门槛设在 2%。
 - `source='sina:stock_zh_a_daily'`，已加入 `VALUE_SOURCE_PREFIXES` 白名单（见坑①下方），否则 `stitch-sector-stocks` 会把全部 403 个板块按 `shortfall` 跳过。
 
+## 日期化腾讯原文取证（不是写入路径）
+
+东财快照不可用、需要独立名称/参考前收证据时，使用 `scripts/capture_dated_quotes.py`，再用
+`scripts/audit_dated_quote_capture.py` 离线复验。腾讯此端点只给最新行情；日期参数是拒收错日的闸，不能补抓已经过去的历史截面。
+
+先准备 JSON：`{"trade_date":"YYYY-MM-DD","scope_basis":"范围来源及缺口说明","codes":["600000.SH"]}`。
+范围应对照底库、当日新增代码及日期化停复牌目录；保留来源路径/哈希。目录可能混入 B 股，按证券类型筛出 A 股后才声明范围。
+抓取器复用 `hithink_stock_preview` 的 A 股身份和已知交易日检查，范围抓齐不代表上市全集已经核验。
+
+```bash
+python3 scripts/capture_dated_quotes.py --trade-date YYYY-MM-DD --scope-json /path/scope.json --output-dir /path/new-capture
+python3 scripts/audit_dated_quote_capture.py --trade-date YYYY-MM-DD --capture-dir /path/new-capture --json /path/new-replay.json
+```
+
+输出目录必须不存在；每批先落原文再校验，连接失败或非 200 停止且不重试，语义失败保留原件且最终失败。
+退出 0 只证明声明范围的日期/身份/量额校验通过；零成交不自动等于停牌，B 股也不能补 A 股分母。
+这些产物不写 DuckDB、不授发布权；既有 staging 恢复器的来源合同和逐日验收仍须另外闭合。
+
+## 腾讯原文的隔离输入准备
+
+`scripts/recover_local_review.py --quote-manifest ... --prepare-dir ...` 只补隔离副本的空白个股日，
+不覆盖已有目标日、不计算板块/市场派生、不发布。新浪历史 + 东财快照的旧模式保持独立，参数不能混用。
+恢复清单按日期递增，每日独立声明范围；路径相对清单文件解析：
+
+```json
+{
+  "contract_version": "dated-quote-recovery-v1",
+  "days": [{
+    "trade_date": "2026-09-24",
+    "scope_basis": "范围来源、缺口及非官方全集边界",
+    "declared_codes": ["600000.SH"],
+    "captures": [{"directory": "capture", "receipt_sha256": "<64位小写SHA256>"}],
+    "suspensions": {"path": "suspensions.raw", "sha256": "<64位小写SHA256>"}
+  }]
+}
+```
+
+停复牌原件须为成功且完整的单页东财目录；按 A/B 股和完整交易时段筛选，未来/已结束事件不解释当日缺口。
+声明范围必须精确分成活跃报价和有区间证据的停牌身份。停牌保留在范围收据中，不生成平价行；
+捕获的零成交身份必须被目录解释。哈希绑定内容、防止验证后换输入，但不等于供应商签名或交易所认证。
+
+```bash
+MARKET_FEATURE_STORE_DB=/path/source.duckdb FINANCE_WS=/path/workspace \
+  python3 scripts/recover_local_review.py \
+  --quote-manifest /path/manifest.json --quote-manifest-sha256 "$MANIFEST_SHA256" \
+  --prepare-dir /path/new-preparation --receipt /path/new-result.json
+```
+
+运行前由核验过的清单取得 `MANIFEST_SHA256`。输出目录和收据必须全新；先校验所有日期的字节，再由已有 staging
+编排在锁内克隆，子进程再次校验并事务写入、逐字段回读。来源为 `tencent:captured-dated-quote`，名称和参考价取同日报价，
+金额元转亿元、股数转手。沿用恢复合同，canonical `turnover` 为 NULL，不把未知分母的供应商百分比当标准换手率；
+逐股 `observed_turnover_pct`、`name_source`、`name_observed_at` 保留在输入收据。不是丢弃原值，也不借旧 canonical 名称、不伪装成东财。
+
+**父、子退出码始终为 2（不可发布）**，输入成功看收据 `input_prepared=true`、`swapped=false` 和子状态 `ok=false`。
+子进程的 2 还防止其他调用方漏传 `prepare_dir` 时误入普通发布路径；隔离模式的父编排即使遇到退出 0 的子进程也不发布。
+旧普通 staging 不清理。冻结板块身份、历史修复、同日/跨日/L2 门和最终部署仍需另行完成；
+禁止把该副本手动换入生产或把输入成功改标为整轮恢复成功。
+
 ## Useful commands
 
 ```bash
