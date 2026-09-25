@@ -1,8 +1,8 @@
 # Workbench 记忆异常：HTTP 离线验收
 
-后续进展：已把固定主干`724028390`实际合入审计分支，生成`bb556febd`。该组合仅静态检查通过，四叶因20分钟资源等待均未启动，状态BLOCKED。本页以下22P/824P仍只签`78b25943f`。最新整合与续跑入口：`docs/verification/2026-09-25-architecture-main724-integration/README.md`。
+后续进展：main724整合组合已在干净`097a99745`完成四叶PASS，Python16444P/0F/74S/2X、frontend123P、e2e34P/2S、registry五项0；首轮环境红原件保留。新主干1341f5c22仅文本预检，未整合验收。本页以下22P/824P仍只签`78b25943f`。最新证据与边界：`docs/verification/2026-09-25-architecture-main724-integration/README.md`。
 
-## 当前结论
+## 当时结论
 
 测试实现：`c367aa2a702e3a40bf826982c4e936a3f50b3f14`；实际受测干净版本：`78b25943fb126636f4df33255f2f6827a3f7818f`。本次续验没有改测试或运行时，只执行既有候选并归档证据。
 

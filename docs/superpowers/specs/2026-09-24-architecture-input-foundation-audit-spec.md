@@ -94,7 +94,8 @@ SPT、风远和 Knevo 是按输入事件更新的链路，不因为当天没有�
 - [x] 冻结主干`9d5b9800a`整合到审计分支`fa7b80942`；全仓抓到每日摘要旧成功夹具缺审计文件却要求PASS。`698fd172d`补齐夹具并加WARN传播反例，不放松运行时。新候选四叶门禁通过：Python16423P/0F/74S/2X（完整收集16499）、frontend123P、e2e34P/2S、registry五项exit0；首轮红收据保留。见`docs/verification/2026-09-25-architecture-main-integration/README.md`。仅签该SHA，未合main/部署，真实采用/质量仍UNKNOWN。
 - [ ] 全部人工条目/原始审批权属、风远修订与旧patch的机器追溯关系。旧记载14条人工写入，仅4条本轮字面互证，不移用总数代签。
 - [x] HTTP异常候选`c367aa2a7`已在干净`78b25943f`续验：坏台账、读失败/超时/busy/迟到及写失败恢复，自适应on/off共22P；24文件相关回归824P/0F/0S（包含22P），两收据同SHA校验通过，全仓Ruff通过。上轮资源阻塞原件保留，新增结果另存；不签新四叶、真实采用或生产稳定性。证据：`docs/verification/2026-09-25-workbench-memory-faults/README.md`。
-- [ ] 新组合`bb556febd`的同SHA四叶：已实际merge固定主干`724028390`，包含按模型推理强度与API预算接线，干净树Ruff/差异检查PASS；20分钟41次资源观测均拒绝，四叶未启动，不能继承旧绿。等待器已退出，见`docs/verification/2026-09-25-architecture-main724-integration/README.md`。
+- [x] main724组合的同SHA四叶已在干净`097a99745`完成：Python16444P/0F/74S/2X，完整收集16520；frontend123P、e2e34P/2S、registry五项exit0，完整收据校验通过。首轮PATH漏uvx导致16443P/1F原件保留，仅补环境后完整重跑，不改源码或断言。见`docs/verification/2026-09-25-architecture-main724-integration/validation-097a99745/README.md`。
+- [ ] 测试后主干`1341f5c22`新增数值校验与双红时间轴证据修复，新组合只做文本合并预检exit0，尚未实际整合或验证；097四叶不能移签。冻结下一批组合、独立验收并取得用户确认后才能合入。
 - [ ] 数据/发布前置闭合后的真实 Episode、CLI 对照与回答质量验收。
 
 这些检查未调用模型，不替代本阶段的完成条件。

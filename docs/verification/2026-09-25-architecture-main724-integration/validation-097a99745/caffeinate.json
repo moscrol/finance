@@ -1,0 +1,12 @@
+{
+  "pid": 65922,
+  "watched_pid": 49216,
+  "started_at": "2026-09-25T16:45:57.541977+00:00",
+  "command": [
+    "/usr/bin/caffeinate",
+    "-i",
+    "-w",
+    "49216"
+  ],
+  "scope": "prevent idle sleep only until owned pytest exits; no persistent power configuration change"
+}
