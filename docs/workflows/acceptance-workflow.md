@@ -149,6 +149,25 @@ launchctl bootstrap "gui/$(id -u)" ~/Library/LaunchAgents/com.a77.finance-workbe
 
 **完成判据**：台账行合入 main；需要用户拍板的事项在行里显式标「待裁决」。
 
+## 无端口启动归属
+
+`check` 对账被 `port=null` 的测试服务启动行阻断时，不删历史、不补造生产 switch，也不按脚本名或位置参数猜端口。
+先核对同次运行的单进程 Uvicorn 日志（PID 与监听端口）以及启动后五分钟内的 health JSON（时区、代码根与 revision）。
+将原件保留在稳定树外目录，使用 `deploy_ledger.startup_row_sha256(row)` 得到原行规范化 JSON 的 SHA256，再执行：
+
+```bash
+"$PY" scripts/audit_deploy_ledger.py attribute-startup \
+  --target-sha256 "$ROW_SHA256" --port "$PORT" \
+  --server-log "$SERVER_LOG" --server-log-sha256 "$LOG_SHA256" \
+  --health-snapshot "$HEALTH_JSON" --health-sha256 "$HEALTH_SHA256" \
+  --reason "已核同次运行的进程、端口、时间、代码根和版本"
+```
+
+默认只读；核对计划后加 `--apply`，只向同一本账追加 `startup_port_attribution`。原行保留，补记不成为新的启动或切换，不能改变后续事件的顺序。
+读取器每次重新核证据哈希；证据丢失、变化、归属冲突或重复原行都恢复未知。只有 startup 可补记，switch 仍须在实际切换时显式记录端口。
+`check/homes` 使用补记，旧版本读取器仍会保守报错，必须明确使用含此修复的代码根；这不是生产代码已升级的证明。
+证据只是本机保存的运行观测，不是密码学签名认证。手工拼出的日志不构成可采信原件。
+
 ## 坑（都踩过）
 
 - **`smoke_workbench_self_use.py` 的收据 schema 会漂，别照旧收据抄字段名**（2026-08-21 实测补入，与上面 §4 那条「字段找不到 = 假红」同型）。现版本**不再发** `source_revision` / `code_root` / `grounded` / `question` / `user`，换成了 `gate_receipt` / `gate_receipt_table` / `readiness` / `retrieval` / `content_degraded_count` / `judge_unavailable_count`。拿 08-19 的 `20260819-post-d2ebf693-changdian.json` 当模板去读 `source_revision`，会得到 `None` 并误报成「切换没生效」。**revision 一律以验证 ② 的 health 三读为准**，收据只用来看 degrade / secret_scan / 口径。
