@@ -107,6 +107,11 @@ consider() {   # consider <registered-path> <why> <head-sha> <lock-reason-or-emp
   if [ -n "$lock" ]; then
     # 锁是某个会话钉住门禁候选的信号。只有候选已进基线（分支已合，或 detached HEAD 是基线祖先）
     # 且调用方明说 --release-merged-locks 时才解；否则原样跳过，把锁的理由打出来。
+    # 锁理由里写了 retain / 保留 / 留待 的是「留到某个授权事件」（如 #60 的安装预演树：候选已合入 main，
+    # 但装不装还没授权），不是「留到合入」，永远不自动解。2026-09-25 dry-run 差点把四棵预演树当过期锁拆掉。
+    if printf '%s' "$lock" | grep -qiE 'retain|保留|留待|keep until'; then
+      echo "  SKIP  $raw  (上锁且理由要求保留: ${lock#locked})"; return 0
+    fi
     if [ "$RELEASE_LOCKS" = 1 ] && { case "$why" in 已合*) true ;; *) false ;; esac \
          || { [ -n "$head" ] && python3 "$SAFETY" ancestor --path "$REPO" --head "$head" --base "$BASE_SHA" --timeout "$STATUS_LIMIT"; }; }; then
       unlock=1; why="$why, 锁已过期: ${lock#locked}"
