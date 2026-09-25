@@ -1,0 +1,18 @@
+[
+  {
+    "pr": 910,
+    "head_at_retarget": "2d7b99e6d798269133bce146d36ab46be451ef91",
+    "previous_base": "feat/adaptive-research-loop",
+    "base": "main",
+    "wip_preserved": true,
+    "merged": false
+  },
+  {
+    "pr": 911,
+    "head_at_retarget": "6c6a6774fcd2667078071a9356e6a21394d114f8",
+    "previous_base": "feat/adaptive-research-loop",
+    "base": "main",
+    "wip_preserved": true,
+    "merged": false
+  }
+]
