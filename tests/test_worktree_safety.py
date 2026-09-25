@@ -31,6 +31,63 @@ def test_status_paths_preserve_rename_and_unusual_names():
     assert ignored == ['evidence/']
 
 
+def test_regenerable_caches_do_not_block_but_other_ignored_content_does():
+    state = {'paths': [], 'unknown_reason': '', 'ignored': [
+        '__pycache__/', 'intelligence/__pycache__/x.cpython-312.pyc', '.pytest_cache/', '.ruff_cache/',
+        'intelligence/webapp/node_modules/', '.venv-workbench/', '.venv/', '.DS_Store',
+        'tmp/recovery-20260921/market.duckdb', 'intelligence/users/default/workbench.sqlite3', 'evidence/',
+    ]}
+    blockers = safety.file_blockers(state)
+    assert blockers == [
+        'ignored 内容: tmp/recovery-20260921/market.duckdb',
+        'ignored 内容: intelligence/users/default/workbench.sqlite3',
+        'ignored 内容: evidence/',
+    ]
+    # 2026-09-24 dry-run 报 0 棵可删：125 棵被 __pycache__/.pytest_cache 挡住。缓存不是内容。
+    assert safety.is_cache_path('a/b/__pycache__/c.pyc') and not safety.is_cache_path('a/b/cache_notes.md')
+
+
+def test_launcher_pointing_at_home_itself_does_not_block_every_tree(tmp_path, monkeypatch):
+    home = tmp_path / 'home'
+    tree = home / 'fwp-wt-x'
+    tree.mkdir(parents=True)
+    launch = home / 'Library/LaunchAgents/exec-server.plist'
+    launch.parent.mkdir(parents=True)
+    monkeypatch.setattr(safety.subprocess, 'run', lambda *a, **kw: subprocess.CompletedProcess([], 0, '', ''))
+    # 2026-09-25：一份 WorkingDirectory=$HOME 的 plist 把家目录下 37 棵树全判成「被 launchd 引用」。
+    # $HOME（以及 / 、/Users）不是任何一棵树的代码根。
+    launch.write_bytes(plistlib.dumps({'WorkingDirectory': str(home), 'ProgramArguments': ['/bin/echo']}))
+    context = safety.sample_context(timeout=1, home=home)
+    assert not context['errors']
+    assert not safety.context_blockers(str(tree), context)
+    # 指到树本身（或树里的文件）的引用仍然算。
+    launch.write_bytes(plistlib.dumps({'WorkingDirectory': str(tree)}))
+    context = safety.sample_context(timeout=1, home=home)
+    assert any('exec-server.plist' in b for b in safety.context_blockers(str(tree), context))
+
+
+def test_directory_watch_handles_are_not_process_usage(tmp_path, monkeypatch):
+    root = tmp_path / 'tree'
+    root.mkdir()
+    (root / 'sub').mkdir()
+    other = tmp_path / 'other'
+    other.mkdir()
+    # 一个 Claude Code 会话在 ~210 棵树里持有 3000+ 个目录句柄（kqueue 文件监视器）：
+    # fd 是数字、类型 DIR，不算「在用」；cwd / 普通文件句柄仍算。
+    output = (
+        f'p7\ncclaude\nf5\ntDIR\nn{root / "sub"}\n'
+        f'p8\ncpytest\nfcwd\ntDIR\nn{other}\n'
+        f'p9\ncpython\nf3\ntREG\nn{other / "x.py"}\n'
+    )
+    monkeypatch.setattr(safety.subprocess, 'run', lambda *a, **kw: subprocess.CompletedProcess([], 0, output, ''))
+    context = safety.sample_context(timeout=1, home=tmp_path / 'home')
+    assert not context['errors']
+    assert not safety.context_blockers(str(root), context)
+    blockers = safety.context_blockers(str(other), context)
+    assert any('pid=8 pytest fd=cwd' in b for b in blockers)
+    assert any('pid=9 python fd=3' in b for b in blockers)
+
+
 def test_context_retains_pid_plist_and_runtime_link(tmp_path, monkeypatch):
     root = tmp_path / 'tree with spaces'
     root.mkdir()

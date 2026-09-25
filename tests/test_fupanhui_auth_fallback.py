@@ -18,6 +18,14 @@ from market_feature_store.sources import fupanhui_source as fs
 
 
 class TestApiGetPublicAuthFallback:
+    @pytest.fixture(autouse=True)
+    def _direct_opt_in(self, monkeypatch):
+        monkeypatch.setattr(fs, "DIRECT_MODE", True)
+        monkeypatch.setenv("FUPANHUI_MIN_INTERVAL", "0")
+        fs.reset_session_hygiene()
+        yield
+        fs.reset_session_hygiene()
+
     def test_401_falls_back_to_cdp_api_get(self, monkeypatch):
         calls = []
 

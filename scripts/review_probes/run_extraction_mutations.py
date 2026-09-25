@@ -17,6 +17,7 @@
     python scripts/review_probes/run_extraction_mutations.py --suite stock-amount --output <新目录>
     python scripts/review_probes/run_extraction_mutations.py --suite finance-absence --output <新目录>
     python scripts/review_probes/run_extraction_mutations.py --suite finance-return --output <新目录>
+    python scripts/review_probes/run_extraction_mutations.py --suite workbench-sidecar --output <新目录>
 
 默认仍跑工单 #53；其他合同复用 --definitions <仓内 JSON> --tests <测试路径...>，
 不复制 runner。stock-amount 验证区间成交额，finance-absence 验证非命中边界，
@@ -64,6 +65,9 @@ SUITES = {
         "intelligence/tests/test_rag_worker.py",
         "intelligence/tests/test_rag_worker_keepalive.py",
     ], "scripts/review_probes/rag_transport_mutations.json"),
+    "workbench-sidecar": ([
+        "intelligence/tests/test_workbench_sidecar_isolation.py",
+    ], "scripts/review_probes/workbench_sidecar_mutations.json"),
     "research-delivery": ([
         "intelligence/tests/test_calculation_result_delivery.py",
         "intelligence/tests/test_research_delivery_checks.py",
@@ -96,6 +100,28 @@ def git(root: Path, *args: str) -> str:
 
 def digest(raw: bytes) -> str:
     return hashlib.sha256(raw).hexdigest()
+
+
+def validate_source(source: str, relative: str) -> None:
+    if Path(relative).suffix != ".sh":
+        compile(source, relative, "exec")
+        return
+    shells = {
+        "#!/bin/zsh": ["zsh", "-f", "-n"],
+        "#!/usr/bin/env zsh": ["zsh", "-f", "-n"],
+        "#!/bin/bash": ["bash", "--noprofile", "--norc", "-n"],
+        "#!/usr/bin/env bash": ["bash", "--noprofile", "--norc", "-n"],
+        "#!/bin/sh": ["sh", "-n"],
+        "#!/usr/bin/env sh": ["sh", "-n"],
+    }
+    command = shells.get(source.partition("\n")[0].strip())
+    if command is None:
+        raise ValueError("shell mutation requires a supported shebang")
+    # Only parse shell syntax; do not execute mutations or inherited startup hooks.
+    subprocess.run(
+        command, input=source, text=True, capture_output=True, check=True, timeout=10,
+        env={"PATH": os.environ.get("PATH", "/usr/bin:/bin")},
+    )
 
 
 def save_json(path: Path, value: dict) -> None:
@@ -298,7 +324,7 @@ def main() -> int:
             old, new = mutation["old"], mutation["new"]
             assert source.count(old) == 1, (ident, "anchor must match exactly once")
             changed = source.replace(old, new, 1)
-            compile(changed, relative, "exec")
+            validate_source(changed, relative)
             try:
                 path.write_text(changed, encoding="utf-8")
                 (out / f"{ident}.diff").write_text(git(root, "diff", "--", relative) + "\n", encoding="utf-8")

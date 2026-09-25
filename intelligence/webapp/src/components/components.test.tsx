@@ -1977,6 +1977,65 @@ describe("Workbench navigation reliability", () => {
     );
   });
 
+  it("shares the artifact listing within one conversation restore without publishing early", async () => {
+    apiMocks.listConversations.mockResolvedValue(conversations);
+    apiMocks.getConversationMessages.mockResolvedValue([
+      { ...assistantMessage, content: "First restored answer" },
+      { ...assistantMessage, message_id: "msg_second", run_id: "run_second", content: "Second restored answer" },
+    ]);
+    apiMocks.getRun.mockImplementation(async (runId: string) => ({
+      ...bundle.run, run_id: runId, status: "completed", artifacts: [],
+    }));
+    const listing = deferred<ArtifactDescriptor[]>();
+    apiMocks.listArtifacts.mockReturnValue(listing.promise);
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(await screen.findByRole("button", { name: "问答" }));
+    await waitFor(() => expect(apiMocks.getRun).toHaveBeenCalledTimes(2));
+    expect(screen.queryByText("First restored answer")).toBeNull();
+    await act(async () => listing.resolve([]));
+    expect(await screen.findByText("Second restored answer")).toBeVisible();
+    expect(screen.getByText("First restored answer")).toBeVisible();
+    expect(apiMocks.listArtifacts).toHaveBeenCalledTimes(1);
+    expect(apiMocks.listArtifacts).toHaveBeenCalledWith({ category: "run" }, "default");
+
+    await user.click(screen.getByRole("button", { name: /^液冷跟踪/ }));
+    expect(await screen.findByText("Second restored answer")).toBeVisible();
+    expect(apiMocks.listArtifacts).toHaveBeenCalledTimes(2);
+  });
+
+  it("retries a failed shared artifact listing on the next conversation restore", async () => {
+    apiMocks.listConversations.mockResolvedValue(conversations);
+    apiMocks.getConversationMessages.mockResolvedValue([
+      { ...assistantMessage, content: "Restored after registry failure" },
+      { ...assistantMessage, message_id: "msg_second", run_id: "run_second" },
+    ]);
+    apiMocks.getRun.mockImplementation(async (runId: string) => ({
+      ...bundle.run, run_id: runId, status: "completed", artifacts: [],
+    }));
+    apiMocks.listArtifacts.mockRejectedValueOnce(new Error("registry unavailable")).mockResolvedValue([]);
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(await screen.findByRole("button", { name: "问答" }));
+    await screen.findByText("Restored after registry failure");
+    expect(apiMocks.listArtifacts).toHaveBeenCalledTimes(1);
+    await user.click(screen.getByRole("button", { name: /^液冷跟踪/ }));
+    await screen.findByText("Restored after registry failure");
+    expect(apiMocks.listArtifacts).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not start an unused artifact listing when run loads all fail", async () => {
+    apiMocks.listConversations.mockResolvedValue(conversations);
+    apiMocks.getConversationMessages.mockResolvedValue([assistantMessage]);
+    apiMocks.getRun.mockRejectedValue(new Error("run unavailable"));
+    apiMocks.listArtifacts.mockRejectedValue(new Error("must not be requested"));
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(await screen.findByRole("button", { name: "问答" }));
+    await screen.findByText(assistantMessage.content);
+    expect(apiMocks.listArtifacts).not.toHaveBeenCalled();
+  });
+
   it("seeds the credits line from bootstrap and refreshes it once a question is accepted", async () => {
     apiMocks.listConversations.mockResolvedValue(conversations);
     apiMocks.getBootstrap.mockResolvedValue({
