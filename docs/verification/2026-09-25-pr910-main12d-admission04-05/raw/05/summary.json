@@ -1,0 +1,36 @@
+{
+  "pid": 28479,
+  "started_at": "2026-09-25T15:30:45.801227+00:00",
+  "script_sha256": "5c11a8be272e392f955c5f5e3b588a81ee43cf60c421a70b62c6ec526130aad0",
+  "revision": "2da72eef44787c910b5affbce47eea1e837ee7ae",
+  "baseline": "12d91dc733e1a29ceb54668fb934513bd10da4e9",
+  "tree": "/Users/a77/fwp-wt-pr910-main-0925",
+  "python": "/Users/a77/fwp-wt-pi-research/.venv-workbench/bin/python",
+  "dependency_fingerprint": "66726d345bf37ce5",
+  "prior_archive_revision": "2b088cb3216d5e572740b2855fd2ed752a000ca3",
+  "paid_model_requests": 0,
+  "independent_review": false,
+  "steps": [
+    {
+      "label": "prior-archive-check",
+      "exit": 0,
+      "status": "completed"
+    },
+    {
+      "label": "prior-targeted-receipt-check",
+      "exit": 0,
+      "status": "completed"
+    }
+  ],
+  "attempt_started": false,
+  "admission_wait_budget_seconds": 0,
+  "status": "RESOURCE_WAIT_EXPIRED",
+  "active_step": "python-full-admission",
+  "prior_originals_verified": 145,
+  "prior_frontend_receipt": {
+    "path": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-03/remaining-01/910/frontend/frontend.json",
+    "sha256": "5761e7fe146ca4d10d017d248ccb9ea16045cc5daa75579eca4a5a4382d159f2"
+  },
+  "error": "RuntimeError: bounded resource wait expired; full pytest not started",
+  "finished_at": "2026-09-25T15:30:48.191183+00:00"
+}

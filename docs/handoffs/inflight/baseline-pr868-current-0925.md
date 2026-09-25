@@ -6,11 +6,11 @@
 - 分端口只续未完成叶子 / 重跑已绿或改原日志：同SHA收据可核验复用。
 - 按PR聚合 / 全批STOPPED一概涂绿或丢掉已完成叶子：范围分别记账。
 - 固定至结束并另记#932漂移 / 长门禁反复换候选：最新组合另验。
-展开：`docs/handoffs/2026-09-25-pr910-911-main12d-gates03.md`。
+展开：`docs/handoffs/2026-09-25-pr910-911-main12d-gates03.md`；续跑阻塞见`2026-09-25-pr910-admission04-05.md`。
 
 ## 当前状态
 受测基座12d91dc73；#910固定2da72eef44787c910b5affbce47eea1e837ee7ae，#911固定34e31a25681868e26ddaaaf5d91854ec21be51ee，已非强推发布。
-树`~/fwp-wt-pr910-main-0925`、`~/fwp-wt-pr911-main-0925`。WIP/open/未合入；PR旧inflight已落后，以此索引及最新评论为准。自有57164/63422退出，无后台。
+树`~/fwp-wt-pr910-main-0925`、`~/fwp-wt-pr911-main-0925`。WIP/open/未合入；PR旧inflight已落后，以此索引及最新评论为准。第03批评论7253/7255已回读。自有57164/63422/14749/28479均退出，无后台。
 
 ## 已验证
 两HEAD静态全过；定向#910 74P、#911 56P，各精确收据及续段重验通过。两边前端六步过，各123单测/浏览器34P2S。
@@ -18,11 +18,11 @@
 本树归档`docs/verification/2026-09-25-pr910-main12d-gates03/`及`2026-09-25-pr911-main12d-gates03/`；原根`~/.finance-runtime/reviews/pr910-911-complete-20260925-03/`。#911大JUnit外置，manifest留大小/哈希。
 
 ## 未验证 / 已知边界
-#910全仓未启动，外部pytest准入拒绝，零额外等待；聚合INCOMPLETE。main随后到e159c5644（#932运行时），未吸收或验证其集成组合，漂移JSON在本树verification。旧74/16232与#911全仓都不移签。75S/2X非通过；内层C3/C7不重复计数或称独审。
+#910全仓仍未启动：第04批300秒11次准入拒绝；第05批前观察空闲、最终又被新外部pytest阻挡，零等待1次拒绝，均attempt_started=false。两批重验原件145份/定向/前端，不新增通过数；归档`2026-09-25-pr910-main12d-admission04-05`。聚合INCOMPLETE。main随后到e159c5644（#932运行时），未吸收或验证其集成组合，漂移JSON在本树verification。旧74/16232与#911全仓都不移签。75S/2X非通过；内层C3/C7不重复计数或称独审。
 付费授权/模型请求0；未独审、合main、L6、部署；金融质量、真实来源、自主子研究/反证修订、8792未新增证明。
 
 ## 下一步
-补固定候选只缺#910全仓及完整范围验签，先查准入/HEAD/环境；若前向新main则另冻另验。固定`/Users/a77/fwp-wt-pi-research/.venv-workbench/bin/python`，依赖66726d345bf37ce5。独审另批，不恢复撤销批，不动owner/19899/8792。
+先协调无外部pytest的测试窗口，不连续建批次抢空档。固定候选只缺#910全仓及完整范围验签，先查准入/HEAD/环境；若前向新main则另冻另验。固定`/Users/a77/fwp-wt-pi-research/.venv-workbench/bin/python`，依赖66726d345bf37ce5。独审另批，不恢复撤销批，不动owner/19899/8792。
 
 ## 踩过的坑
 归档6份原日志尾空行令diff-check exit2，原字节/非零回执保留，不称格式全绿。

@@ -1,0 +1,66 @@
+"""Seal two unstarted full-test attempts without modifying earlier evidence or candidate HEADs."""
+from datetime import datetime, timezone
+import hashlib
+import json
+from pathlib import Path
+import shutil
+import subprocess
+
+COORD = Path('/Users/a77/fwp-wt-pr868-current-0925')
+REV = '2da72eef44787c910b5affbce47eea1e837ee7ae'
+BASE = '12d91dc733e1a29ceb54668fb934513bd10da4e9'
+ROOT = Path(__file__).resolve().parent.parent
+DEST = COORD / 'docs/verification/2026-09-25-pr910-main12d-admission04-05'
+assert not subprocess.check_output(['git', '-C', str(COORD), 'status', '--porcelain'], text=True).strip()
+for pr, expected in [('910', REV), ('911', '34e31a25681868e26ddaaaf5d91854ec21be51ee')]:
+    tree = Path(f'/Users/a77/fwp-wt-pr{pr}-main-0925')
+    assert subprocess.check_output(['git', '-C', str(tree), 'rev-parse', 'HEAD'], text=True).strip() == expected
+    assert not subprocess.check_output(['git', '-C', str(tree), 'status', '--porcelain'], text=True).strip()
+DEST.mkdir(exist_ok=False)
+records = []
+attempts = {}
+
+
+def copy(source, relative):
+    assert source.is_file() and not source.is_symlink()
+    target = DEST / 'raw' / relative
+    if target.suffix in {'.py', '.log', '.sb'}:
+        target = target.with_name(target.name + '.txt')
+    target.parent.mkdir(parents=True, exist_ok=True)
+    raw = source.read_bytes()
+    shutil.copyfile(source, target)
+    assert target.read_bytes() == raw
+    records.append({'source': str(source), 'path': target.relative_to(DEST).as_posix(),
+                    'sha256': hashlib.sha256(raw).hexdigest(), 'bytes': len(raw)})
+
+
+for attempt in ('04', '05'):
+    root = ROOT / f'pr910-main12d-full-20260925-{attempt}'
+    summary = json.loads((root / 'summary.json').read_text())
+    assert summary['status'] == 'RESOURCE_WAIT_EXPIRED' and not summary['attempt_started']
+    assert summary['revision'] == REV and summary['baseline'] == BASE
+    assert summary['dependency_fingerprint'] == '66726d345bf37ce5'
+    assert summary['prior_originals_verified'] == 145
+    assert all(step['exit'] == 0 and step['status'] == 'completed' for step in summary['steps'])
+    assert not (root / 'python-full.process.json').exists() and not (root / 'full.xml').exists()
+    assert not list(root.glob('receipts/gate-*/pytest.json'))
+    process = subprocess.run(['ps', '-p', str(summary['pid']), '-o', 'command='], capture_output=True, text=True)
+    assert process.returncode == 1
+    samples = json.loads((root / 'python-full.admission.json').read_text())
+    assert samples and not any(sample['admitted'] for sample in samples)
+    attempts[attempt] = {'status': summary['status'], 'attempt_started': False,
+                         'samples': len(samples), 'started_at': summary['started_at'],
+                         'finished_at': summary['finished_at'], 'supervisor_absent': True,
+                         'observed_foreign_pids': sorted({row['pid'] for sample in samples for row in sample['foreign_pytest']})}
+    for source in sorted(root.iterdir()):
+        if source.is_file():
+            copy(source, Path(attempt) / source.name)
+publication = ROOT / 'pr910-911-complete-20260925-03'
+for name in ('post_updates.py', 'pr910-comment.md', 'pr911-comment.md', 'pr910-readback.json', 'pr911-readback.json'):
+    copy(publication / name, Path('publication03') / name)
+manifest = {'created_at': datetime.now(timezone.utc).isoformat(), 'revision': REV,
+            'baseline': BASE, 'attempts': attempts, 'files': records,
+            'paid_model_requests': 0, 'independent_review': False,
+            'claim': 'Prior evidence revalidated; no new pytest executed; candidate HEADs unchanged'}
+(DEST / 'manifest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n')
+print(json.dumps({'archive': str(DEST), 'originals': len(records), 'attempts': attempts}, ensure_ascii=False))

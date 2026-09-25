@@ -1,0 +1,166 @@
+{
+  "created_at": "2026-09-25T15:34:16.541745+00:00",
+  "revision": "2da72eef44787c910b5affbce47eea1e837ee7ae",
+  "baseline": "12d91dc733e1a29ceb54668fb934513bd10da4e9",
+  "attempts": {
+    "04": {
+      "status": "RESOURCE_WAIT_EXPIRED",
+      "attempt_started": false,
+      "samples": 11,
+      "started_at": "2026-09-25T15:16:22.935458+00:00",
+      "finished_at": "2026-09-25T15:21:25.692119+00:00",
+      "supervisor_absent": true,
+      "observed_foreign_pids": [
+        2733
+      ]
+    },
+    "05": {
+      "status": "RESOURCE_WAIT_EXPIRED",
+      "attempt_started": false,
+      "samples": 1,
+      "started_at": "2026-09-25T15:30:45.801227+00:00",
+      "finished_at": "2026-09-25T15:30:48.191183+00:00",
+      "supervisor_absent": true,
+      "observed_foreign_pids": [
+        28307
+      ]
+    }
+  },
+  "files": [
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-main12d-full-20260925-04/prior-archive-check.log",
+      "path": "raw/04/prior-archive-check.log.txt",
+      "sha256": "01cf5cdc77f6f66f5591eaa6831e8a7348c9ff8b331b756cf7b15f0220409933",
+      "bytes": 932
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-main12d-full-20260925-04/prior-archive-check.process.json",
+      "path": "raw/04/prior-archive-check.process.json",
+      "sha256": "3ed60d45c7d1261812ffe6e4c81a0f3b4176a2ca961d974f90b79a94d4d07879",
+      "bytes": 942
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-main12d-full-20260925-04/prior-targeted-receipt-check.log",
+      "path": "raw/04/prior-targeted-receipt-check.log.txt",
+      "sha256": "ece224597a420c9f6f6013d896e62b2b641c87c431025ba6e25151aa7ff63524",
+      "bytes": 1820
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-main12d-full-20260925-04/prior-targeted-receipt-check.process.json",
+      "path": "raw/04/prior-targeted-receipt-check.process.json",
+      "sha256": "6c1bb1e2841ddb02f86c02171e194988feadf7772122732921a8378ffe84074e",
+      "bytes": 1100
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-main12d-full-20260925-04/python-full.admission.json",
+      "path": "raw/04/python-full.admission.json",
+      "sha256": "251be164d21bfdc2dbc66f9f1c839ef07a615ef4d6f8e8800ff6ff5f7639ac2b",
+      "bytes": 8627
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-main12d-full-20260925-04/run_full.py",
+      "path": "raw/04/run_full.py.txt",
+      "sha256": "a33ab683538ed52c15454f6a8adf824231d8fb417f6ddffc8ed3dabca95b0781",
+      "bytes": 7326
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-main12d-full-20260925-04/summary.json",
+      "path": "raw/04/summary.json",
+      "sha256": "968680b7ac4e282162dea64058cdf77599ec74132a12785c160d4c146acab639",
+      "bytes": 1346
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-main12d-full-20260925-04/supervisor.log",
+      "path": "raw/04/supervisor.log.txt",
+      "sha256": "4cebad38d3df4dbd758b4a1591ae96bdad44013aef814a53587a690d2a7f6cdd",
+      "bytes": 439
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-main12d-full-20260925-05/prior-archive-check.log",
+      "path": "raw/05/prior-archive-check.log.txt",
+      "sha256": "55d79e2a307c56ebc9ea52302a95be792831ce991fce8eef3266f317d627f6b6",
+      "bytes": 932
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-main12d-full-20260925-05/prior-archive-check.process.json",
+      "path": "raw/05/prior-archive-check.process.json",
+      "sha256": "ad093935053ab185c2778e84aac870124912bd034114c499761db1ff48186064",
+      "bytes": 942
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-main12d-full-20260925-05/prior-targeted-receipt-check.log",
+      "path": "raw/05/prior-targeted-receipt-check.log.txt",
+      "sha256": "54e13a6a915985a48ddd3a7d030b91e44d1803bad0701ac7dab33543eb15be2d",
+      "bytes": 1820
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-main12d-full-20260925-05/prior-targeted-receipt-check.process.json",
+      "path": "raw/05/prior-targeted-receipt-check.process.json",
+      "sha256": "499830933ec9778d503bdf0282efd8c0196213d8cb66cb0c9df7f9613ffcbff1",
+      "bytes": 1100
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-main12d-full-20260925-05/python-full.admission.json",
+      "path": "raw/05/python-full.admission.json",
+      "sha256": "8c5f3b6caabc0a2c90d2bfe644834b1387faabf2ee204a37a5729b7c53441dec",
+      "bytes": 630
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-main12d-full-20260925-05/run_full.py",
+      "path": "raw/05/run_full.py.txt",
+      "sha256": "5c11a8be272e392f955c5f5e3b588a81ee43cf60c421a70b62c6ec526130aad0",
+      "bytes": 7324
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-main12d-full-20260925-05/seal_attempts.py",
+      "path": "raw/05/seal_attempts.py.txt",
+      "sha256": "0db312b5668613c9e0bc39a293332dac7238378b96b3927d10a85c6c2e591e02",
+      "bytes": 3839
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-main12d-full-20260925-05/summary.json",
+      "path": "raw/05/summary.json",
+      "sha256": "b2eaa5b5a4667bb07fc1503d3787fbe9eb89d00c0d7c73dd9f01e1cb19b77ee6",
+      "bytes": 1344
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-main12d-full-20260925-05/supervisor.log",
+      "path": "raw/05/supervisor.log.txt",
+      "sha256": "cfaccbcc883bfe34b86af69fe15c172cc748ee701654545914dd18544351cb9b",
+      "bytes": 439
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-03/post_updates.py",
+      "path": "raw/publication03/post_updates.py.txt",
+      "sha256": "ced76c43f06184d94dfc433732870670cb65b3567ad452b36d0d4f492b6f68f4",
+      "bytes": 2018
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-03/pr910-comment.md",
+      "path": "raw/publication03/pr910-comment.md",
+      "sha256": "ef417d0a3e012f34ab32bd8d6bb6ee8c01a090ab38b698f4893a70351c2b683a",
+      "bytes": 2103
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-03/pr911-comment.md",
+      "path": "raw/publication03/pr911-comment.md",
+      "sha256": "83808b196f72169ced0156d08f1a611d97e3772e0c892b598ba085e25c39fd22",
+      "bytes": 2275
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-03/pr910-readback.json",
+      "path": "raw/publication03/pr910-readback.json",
+      "sha256": "fab458e66f53294267f5f9de347861af5b02953048665db40f2016a7dbdde7d6",
+      "bytes": 644
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-03/pr911-readback.json",
+      "path": "raw/publication03/pr911-readback.json",
+      "sha256": "8552555512698e7d7d68109502c823524c0c11e74ed2596b585f26d46266b17b",
+      "bytes": 629
+    }
+  ],
+  "paid_model_requests": 0,
+  "independent_review": false,
+  "claim": "Prior evidence revalidated; no new pytest executed; candidate HEADs unchanged"
+}

@@ -1,0 +1,144 @@
+"""Complete only PR910's full Python leaf on its unchanged candidate; bounded admission wait."""
+from datetime import datetime, timezone
+import hashlib
+import importlib
+import json
+import os
+from pathlib import Path
+import signal
+import socket
+import sys
+import time
+import xml.etree.ElementTree as ET
+
+ROOT = Path(__file__).resolve().parent
+TREE = Path('/Users/a77/fwp-wt-pr910-main-0925')
+PRIOR = Path('/Users/a77/.finance-runtime/reviews/pr910-911-complete-20260925-03')
+COORD = Path('/Users/a77/fwp-wt-pr868-current-0925')
+ARCHIVE_REV = '2b088cb3216d5e572740b2855fd2ed752a000ca3'
+REV = '2da72eef44787c910b5affbce47eea1e837ee7ae'
+BASE = '12d91dc733e1a29ceb54668fb934513bd10da4e9'
+PY = '/Users/a77/fwp-wt-pi-research/.venv-workbench/bin/python'
+sys.path.insert(0, str(TREE))
+helpers = importlib.import_module('scripts.review_probes.run_extraction_mutations')
+observe = importlib.import_module('scripts.review_probes.gate_resources').observe
+fingerprint = importlib.import_module('scripts.check_test_receipt')._fingerprint
+report = {'pid': os.getpid(), 'started_at': datetime.now(timezone.utc).isoformat(),
+          'script_sha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+          'revision': REV, 'baseline': BASE, 'tree': str(TREE), 'python': PY,
+          'dependency_fingerprint': '66726d345bf37ce5', 'prior_archive_revision': ARCHIVE_REV,
+          'paid_model_requests': 0, 'independent_review': False, 'steps': [],
+          'attempt_started': False, 'admission_wait_budget_seconds': 0, 'status': 'RUNNING'}
+assert not (ROOT / 'summary.json').exists(), 'never restart a recorded batch'
+
+
+def save(name, value):
+    path = ROOT / name
+    tmp = path.with_suffix(path.suffix + '.tmp')
+    tmp.write_text(json.dumps(value, ensure_ascii=False, indent=2) + '\n')
+    tmp.replace(path)
+
+
+def identity():
+    assert sys.executable == PY
+    assert helpers.git(TREE, 'rev-parse', 'HEAD') == REV
+    assert not helpers.git(TREE, 'status', '--porcelain')
+    assert fingerprint() == report['dependency_fingerprint']
+
+
+def interrupted(signum, frame):
+    raise KeyboardInterrupt(f'owned supervisor received signal {signum}')
+
+
+def step(label, command, timeout=180):
+    identity()
+    report['active_step'] = label
+    save('summary.json', report)
+    env = {key: os.environ[key] for key in ('PATH', 'HOME', 'LANG', 'TMPDIR') if key in os.environ}
+    env.update(FWP_WORKBENCH_PYTHON=PY, PYTHONPATH=str(TREE), PYTHONDONTWRITEBYTECODE='1',
+               FORESIGHT_LLM_KEYCHAIN='0', FORESIGHT_USERS_DIR=str(ROOT / 'isolated-users'),
+               FINANCE_DEPLOY_LEDGER=str(ROOT / 'deploy-ledger.jsonl'),
+               FWP_TEST_RECEIPT_DIR=str(ROOT / 'receipts'))
+    result = helpers._run_logged_command(TREE, ROOT, label, command, env, timeout=timeout)
+    identity()
+    row = {'label': label, 'exit': result['exit'], 'status': result['status']}
+    report['steps'].append(row)
+    report['active_step'] = None
+    save('summary.json', report)
+    print(json.dumps(row), flush=True)
+    if row['exit'] != 0 or row['status'] != 'completed':
+        raise RuntimeError(f'{label} failed: {row}')
+
+
+signal.signal(signal.SIGTERM, interrupted)
+save('summary.json', report)
+try:
+    identity()
+    archive = 'docs/verification/2026-09-25-pr910-main12d-gates03'
+    step('prior-archive-check', [PY, 'scripts/check_evidence_archive.py', archive,
+                              '--repo', str(COORD), '--revision', ARCHIVE_REV])
+    manifest = json.loads(helpers.git(COORD, 'show', f'{ARCHIVE_REV}:{archive}/manifest.json'))
+    assert manifest['revision'] == REV and manifest['baseline'] == BASE
+    for record in manifest['files']:
+        source = Path(record['source'])
+        assert source.is_relative_to(PRIOR)
+        raw = source.read_bytes()
+        assert len(raw) == record['bytes'] and hashlib.sha256(raw).hexdigest() == record['sha256']
+    report['prior_originals_verified'] = len(manifest['files'])
+    step('prior-targeted-receipt-check', [PY, 'scripts/check_test_receipt.py',
+         str(PRIOR / '910/targeted-receipt.json'), '--expect-revision', REV,
+         '--main-ref', BASE, '--base-drift-max', '0', '--require-target', 'tests/test_pi_review_repair.py'])
+    front = PRIOR / 'remaining-01/910/frontend/frontend.json'
+    data = json.loads(front.read_text())
+    assert data['revision'] == REV and data['identity_stable'] and not data['dirty']
+    assert data['complete'] and data['exit_code'] == 0 and len(data['checks']) == 6
+    for check in data['checks']:
+        raw = (front.parent / check['log']).read_bytes()
+        assert check['exit_code'] == 0 and len(raw) == check['log_bytes']
+        assert hashlib.sha256(raw).hexdigest() == check['log_sha256']
+    report['prior_frontend_receipt'] = {'path': str(front), 'sha256': hashlib.sha256(front.read_bytes()).hexdigest()}
+    prior = json.loads((PRIOR / 'audited-results.json').read_text())['candidates']['910']
+    assert prior['missing_successful_steps'] == ['full-receipt-check', 'python-full']
+    report['active_step'] = 'python-full-admission'
+    save('summary.json', report)
+    deadline = time.monotonic() + report['admission_wait_budget_seconds']
+    samples = []
+    while True:
+        identity()
+        sample = observe(TREE, minimum_free=20 * 1024**3)
+        samples.append(sample)
+        save('python-full.admission.json', samples)
+        if sample['admitted']:
+            break
+        if time.monotonic() >= deadline:
+            report['status'] = 'RESOURCE_WAIT_EXPIRED'
+            raise RuntimeError('bounded resource wait expired; full pytest not started')
+        time.sleep(min(30, max(0, deadline - time.monotonic())))
+    ports = []
+    for port in (*range(26001, 26009), 19899):
+        with socket.socket() as sock:
+            sock.bind(('127.0.0.1', port))
+        ports.append(port)
+        save('ports.json', {'checked_ports': ports, 'observed_at': datetime.now(timezone.utc).isoformat()})
+    report['attempt_started'] = True
+    step('python-full', ['bash', 'scripts/run_main_gate.sh', '--pytest-args',
+         '-q -p no:cacheprovider --basetemp=' + str(ROOT / 'full-tmp') + ' --junitxml=' + str(ROOT / 'full.xml')], timeout=2700)
+    receipts = list((ROOT / 'receipts').glob('gate-*/pytest.json'))
+    assert len(receipts) == 1
+    step('full-receipt-check', [PY, 'scripts/check_test_receipt.py', str(receipts[0]),
+         '--expect-revision', REV, '--main-ref', BASE, '--base-drift-max', '0', '--require-full-scope'])
+    receipt = json.loads(receipts[0].read_text())
+    cases = list(ET.parse(ROOT / 'full.xml').getroot().iter('testcase'))
+    assert len(cases) == receipt['scope']['collected'] == sum(receipt['counts'].values())
+    assert not any(c.find('failure') is not None or c.find('error') is not None for c in cases)
+    assert receipt['exit_status'] == 0 and receipt['counts']['failed'] == receipt['counts']['error'] == 0
+    report.update(status='ENGINEERING_GATES_PASS_NOT_INDEPENDENT_REVIEW',
+                  full_receipt=str(receipts[0]), counts=receipt['counts'], collected=len(cases))
+except BaseException as exc:
+    if report['status'] == 'RUNNING':
+        report['status'] = 'STOPPED_INCOMPLETE'
+    report['error'] = f'{type(exc).__name__}: {exc}'
+    raise
+finally:
+    report['finished_at'] = datetime.now(timezone.utc).isoformat()
+    save('summary.json', report)

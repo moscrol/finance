@@ -1,0 +1,11 @@
+{"label": "prior-archive-check", "command": ["/Users/a77/fwp-wt-pi-research/.venv-workbench/bin/python", "scripts/check_evidence_archive.py", "docs/verification/2026-09-25-pr910-main12d-gates03", "--repo", "/Users/a77/fwp-wt-pr868-current-0925", "--revision", "2b088cb3216d5e572740b2855fd2ed752a000ca3"], "cwd": "/Users/a77/fwp-wt-pr910-main-0925", "revision": "2da72eef44787c910b5affbce47eea1e837ee7ae", "started_at": "2026-09-25T15:16:23.159345+00:00", "timeout_seconds": 180, "status": "starting", "exit": null, "timed_out": false, "executed": null, "failures": null, "errors": null, "skipped": null, "failed_cases": [], "junit_status": "not_evaluated", "output_mode": "combined_stdout_stderr"}
+{
+  "revision": "2b088cb3216d5e572740b2855fd2ed752a000ca3",
+  "archive": "docs/verification/2026-09-25-pr910-main12d-gates03",
+  "manifest_files": 147,
+  "committed_files": 147,
+  "ok": true,
+  "errors": []
+}
+
+EXIT=0 STATUS=completed

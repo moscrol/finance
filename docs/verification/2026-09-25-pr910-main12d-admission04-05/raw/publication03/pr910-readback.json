@@ -1,0 +1,19 @@
+{
+  "observed_at": "2026-09-25T15:18:01.891856+00:00",
+  "pr": "910",
+  "head_sha": "2da72eef44787c910b5affbce47eea1e837ee7ae",
+  "comment_id": 7253,
+  "body_sha256": "ef417d0a3e012f34ab32bd8d6bb6ee8c01a090ab38b698f4893a70351c2b683a",
+  "readback_match": true,
+  "state": {
+    "number": 910,
+    "state": "open",
+    "merged": false,
+    "head": "fix/pr868-delivery-validation-0924",
+    "head_sha": "2da72eef4478",
+    "base": "main",
+    "mergeable_claimed_by_gitea": false,
+    "title": "WIP: fix(review): #868 路径交付校验与沙箱作者测试准入",
+    "url": "http://127.0.0.1:3300/a77/finance-workspace-private/pulls/910"
+  }
+}

@@ -1,0 +1,6 @@
+{"label": "prior-archive-check", "exit": 0, "status": "completed"}
+{"label": "prior-targeted-receipt-check", "exit": 0, "status": "completed"}
+Traceback (most recent call last):
+  File "/Users/a77/.finance-runtime/reviews/pr910-main12d-full-20260925-04/run_full.py", line 115, in <module>
+    raise RuntimeError('bounded resource wait expired; full pytest not started')
+RuntimeError: bounded resource wait expired; full pytest not started

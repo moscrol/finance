@@ -1,0 +1,35 @@
+"""Post exact-SHA engineering updates and verify readback; never alter PR guards."""
+from datetime import datetime, timezone
+import hashlib
+import importlib
+import json
+from pathlib import Path
+import subprocess
+import sys
+
+ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, '/Users/a77/fwp-wt-pr910-main-0925')
+gitea = importlib.import_module('scripts.gitea_pr')
+expected = {'910': '2da72eef44787c910b5affbce47eea1e837ee7ae',
+            '911': '34e31a25681868e26ddaaaf5d91854ec21be51ee'}
+for pr, revision in expected.items():
+    destination = ROOT / f'pr{pr}-readback.json'
+    assert not destination.exists(), 'do not repost completed updates'
+    state = gitea._api('GET', f'/pulls/{pr}')
+    assert state['state'] == 'open' and not state['merged'] and state['title'].startswith('WIP:')
+    assert state['base']['ref'] == 'main' and state['head']['sha'] == revision
+    tree = Path(f'/Users/a77/fwp-wt-pr{pr}-main-0925')
+    assert subprocess.check_output(['git', '-C', str(tree), 'rev-parse', 'HEAD'], text=True).strip() == revision
+    assert not subprocess.check_output(['git', '-C', str(tree), 'status', '--porcelain'], text=True).strip()
+    body = (ROOT / f'pr{pr}-comment.md').read_text()
+    comment = gitea._api('POST', f'/issues/{pr}/comments', {'body': body})
+    readback = gitea._api('GET', f'/issues/comments/{comment["id"]}')
+    assert readback['body'] == body
+    after = gitea._api('GET', f'/pulls/{pr}')
+    assert after['head']['sha'] == revision and after['state'] == 'open' and not after['merged']
+    assert after['base']['ref'] == 'main' and after['title'].startswith('WIP:')
+    result = {'observed_at': datetime.now(timezone.utc).isoformat(), 'pr': pr, 'head_sha': revision,
+              'comment_id': comment['id'], 'body_sha256': hashlib.sha256(body.encode()).hexdigest(),
+              'readback_match': True, 'state': gitea._summary(after)}
+    destination.write_text(json.dumps(result, ensure_ascii=False, indent=2) + '\n')
+    print(json.dumps(result, ensure_ascii=False))

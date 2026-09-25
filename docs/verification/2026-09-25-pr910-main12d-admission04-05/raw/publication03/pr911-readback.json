@@ -1,0 +1,19 @@
+{
+  "observed_at": "2026-09-25T15:18:02.351012+00:00",
+  "pr": "911",
+  "head_sha": "34e31a25681868e26ddaaaf5d91854ec21be51ee",
+  "comment_id": 7255,
+  "body_sha256": "83808b196f72169ced0156d08f1a611d97e3772e0c892b598ba085e25c39fd22",
+  "readback_match": true,
+  "state": {
+    "number": 911,
+    "state": "open",
+    "merged": false,
+    "head": "feat/pi-research-loop",
+    "head_sha": "34e31a256818",
+    "base": "main",
+    "mergeable_claimed_by_gitea": false,
+    "title": "WIP: test(research): Pi式观察驱动研究链，精确组合#868",
+    "url": "http://127.0.0.1:3300/a77/finance-workspace-private/pulls/911"
+  }
+}
