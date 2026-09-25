@@ -1,0 +1,11 @@
+"""Keep the default user-store fallback inside this isolated test invocation."""
+import os
+from pathlib import Path
+
+from intelligence import userspace
+
+ROOT=Path(__file__).resolve().parents[1]
+TARGET=Path(os.environ['QC_ISOLATED_USERS_DIR']).resolve()
+assert TARGET.is_relative_to((ROOT/'work').resolve())
+TARGET.mkdir(parents=True,exist_ok=True)
+userspace.USERS_DIR=TARGET

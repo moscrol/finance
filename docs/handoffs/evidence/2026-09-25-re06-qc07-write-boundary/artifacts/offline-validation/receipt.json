@@ -1,0 +1,97 @@
+{
+  "at": "2026-09-25T10:47:56.593595+00:00",
+  "revision": "a30e7e4594ac09310271739c8beb30ee8b2cd3ef",
+  "baseline": "03352758cf9b31e3f5d179b517be48cb89588679",
+  "status": "RUNNING",
+  "real_model_requests": 0,
+  "pytest_invocations": 0,
+  "checks": [
+    {
+      "name": "unittest",
+      "command": [
+        "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/candidate/.venv-workbench/bin/python",
+        "-B",
+        "-m",
+        "unittest",
+        "tests.test_review_io_sandbox",
+        "tests.test_review_artifact_writer",
+        "-v"
+      ],
+      "exit_code": 0,
+      "expected_exit": 0,
+      "log": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/offline-validation/unittest.log.txt",
+      "sha256": "5e80809cb8e1bce59aa16b2124522ada819e1f0a2c39e43da64c496887269436"
+    },
+    {
+      "name": "ruff",
+      "command": [
+        "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/candidate/.venv-workbench/bin/python",
+        "-m",
+        "ruff",
+        "check",
+        "scripts/review_probes/review_io_sandbox.py",
+        "scripts/review_probes/review_artifact_writer.py",
+        "tests/test_review_io_sandbox.py",
+        "tests/test_review_artifact_writer.py"
+      ],
+      "exit_code": 0,
+      "expected_exit": 0,
+      "log": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/offline-validation/ruff.log.txt",
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    {
+      "name": "environment",
+      "command": [
+        "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/candidate/.venv-workbench/bin/python",
+        "-I",
+        "-c",
+        "import sys,httpx;print(sys.version);print(httpx.__version__);assert sys.version_info[:3]==(3,12,13);assert httpx.__version__==\"0.28.1\""
+      ],
+      "exit_code": 0,
+      "expected_exit": 0,
+      "log": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/offline-validation/environment.log.txt",
+      "sha256": "b1f47700074f69ad4da2c39aebfd6a5338da6e46e7187a3bf376ef58441fb150"
+    },
+    {
+      "name": "freeze-e2-inputs",
+      "command": [
+        "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/candidate/.venv-workbench/bin/python",
+        "-B",
+        "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/stage_admission_v3.py",
+        "execute",
+        "e2",
+        "--prepare-only"
+      ],
+      "exit_code": 0,
+      "expected_exit": 0,
+      "log": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/offline-validation/freeze-e2-inputs.log.txt",
+      "sha256": "db76eea7462512d2db71e45d6e8502804cdc24b7b0883a4cbc4471ecf48f6363"
+    },
+    {
+      "name": "gateway-not-admitted",
+      "command": [
+        "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/candidate/.venv-workbench/bin/python",
+        "-B",
+        "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/run_gateway.py"
+      ],
+      "exit_code": 1,
+      "expected_exit": 1,
+      "log": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/offline-validation/gateway-not-admitted.log.txt",
+      "sha256": "74d545649406f90d9154a7393ccc3bef23cf216d5419c1f1f13fd8939c335748"
+    },
+    {
+      "name": "stage-not-admitted",
+      "command": [
+        "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/candidate/.venv-workbench/bin/python",
+        "-B",
+        "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/run_stage_v3.py",
+        "execute",
+        "e2"
+      ],
+      "exit_code": 1,
+      "expected_exit": 1,
+      "log": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/offline-validation/stage-not-admitted.log.txt",
+      "sha256": "d4e566c2a6ae769aebf62cde1d3e1cab9beae2d8b95226c8fa27e02736fe1d84"
+    }
+  ]
+}

@@ -1,0 +1,53 @@
+"""Stage-scoped file transport. Identity comes from host argv, never model params."""
+import json
+from pathlib import Path
+import sys
+
+from review_artifact_writer import ARTIFACTS, GROUPS, write_artifact
+
+ROOT = Path(__file__).resolve().parent
+stage, group = sys.argv[1:]
+assert stage in ARTIFACTS and group in GROUPS
+config = json.loads((ROOT / 'config.json').read_text())
+request = json.load(sys.stdin)
+kind, params = request['kind'], request['params']
+tree = Path(config['tree']).resolve()
+work = ROOT / 'work'
+raw = params['path'].removeprefix('@')
+lexical = Path(raw) if Path(raw).is_absolute() else tree / raw
+if kind == 'write':
+    write_artifact(work, group, stage, lexical, params['content'])
+    print(f'Wrote {len(params["content"].encode())} bytes to {lexical}')
+elif kind == 'read':
+    target = lexical.resolve(strict=True)
+    roots = [tree, work / group, ROOT / 'evidence' / group, ROOT / 'inputs' / f'frozen-explore-{group}-v3']
+    files = [ROOT / 'inputs' / name for name in (
+        f'source-map-{group}.md', f'source-identity-{group}.json', f'probe-migration-{group}.patch',
+    )]
+    files.append(ROOT / 'stage-execution-checks-v3' / f'{group}.json')
+    if group == 'consent':
+        files.append(ROOT / 'inputs/transaction-sites.json')
+    if not any(target.is_relative_to(base) for base in roots) and target not in files:
+        raise PermissionError('read outside assigned review/source roots')
+    if target.name.startswith('.env') or target.name in {'auth.json', 'mcp_config.json', 'feishu_config.json'}:
+        raise PermissionError('credential file not readable')
+    lines = target.read_text().splitlines(keepends=True)
+    start = max(0, int(params.get('offset', 1)) - 1)
+    end = min(len(lines), start + min(int(params.get('limit', 120)), 120))
+    selected = []
+    size = 0
+    for line in lines[start:end]:
+        encoded = line.encode()
+        if size + len(encoded) > 6000:
+            break
+        selected.append(line)
+        size += len(encoded)
+    actual_end = start + len(selected)
+    if not selected and start < end:
+        print('[Single line exceeds 6000 bytes; this read is not verification of that line.]')
+    else:
+        print(''.join(selected), end='')
+        if actual_end < len(lines):
+            print(f'\n[truncated; total lines={len(lines)}, selected={start + 1}:{actual_end}; next offset={actual_end + 1}]')
+else:
+    raise ValueError('unsupported file operation')

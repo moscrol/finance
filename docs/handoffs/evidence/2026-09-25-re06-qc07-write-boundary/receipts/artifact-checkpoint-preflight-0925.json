@@ -1,0 +1,55 @@
+{
+  "status": "PASS",
+  "real_model_requests": 0,
+  "results": [
+    {
+      "stage": "explore",
+      "group": "timer",
+      "limit": 4,
+      "last_work_request_is_write_only": true
+    },
+    {
+      "stage": "explore",
+      "group": "consent",
+      "limit": 4,
+      "last_work_request_is_write_only": true
+    },
+    {
+      "stage": "execute",
+      "group": "e2",
+      "limit": 5,
+      "last_work_request_is_write_only": true
+    },
+    {
+      "stage": "execute",
+      "group": "timer",
+      "limit": 4,
+      "last_work_request_is_write_only": true
+    },
+    {
+      "stage": "execute",
+      "group": "consent",
+      "limit": 4,
+      "last_work_request_is_write_only": true
+    },
+    {
+      "stage": "report",
+      "group": "e2",
+      "limit": 2,
+      "last_work_request_is_write_only": true
+    },
+    {
+      "stage": "report",
+      "group": "timer",
+      "limit": 2,
+      "last_work_request_is_write_only": true
+    },
+    {
+      "stage": "report",
+      "group": "consent",
+      "limit": 2,
+      "last_work_request_is_write_only": true
+    }
+  ],
+  "source_sha256": "51b1e97455c7de5fe02aabd255db11c7731c86aa1ca9d197f853873b42a59d8f"
+}
