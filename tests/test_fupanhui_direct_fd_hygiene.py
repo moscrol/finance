@@ -39,6 +39,8 @@ def _raise_401(req, timeout=0):
 
 
 def test_mass_401_does_not_pile_open_fds(monkeypatch) -> None:
+    monkeypatch.setenv("FUPANHUI_MIN_INTERVAL", "0")
+    fs.reset_session_hygiene()
     monkeypatch.setattr(urllib.request, "urlopen", _raise_401)
 
     codes = [f"c{i}" for i in range(50)]
@@ -65,6 +67,8 @@ def test_mass_401_does_not_pile_open_fds(monkeypatch) -> None:
 def test_http_error_still_propagates_for_cdp_fallback(monkeypatch) -> None:
     """关 socket 不得改变异常语义：401 仍以 HTTPError 逃逸，api_get 靠它回退 CDP。"""
 
+    monkeypatch.setenv("FUPANHUI_MIN_INTERVAL", "0")
+    fs.reset_session_hygiene()
     monkeypatch.setattr(urllib.request, "urlopen", _raise_401)
     with pytest.raises(urllib.error.HTTPError):
         fs._direct_api_get("/api/v1/client/reviews/sector-cycle/x/kline")

@@ -2513,8 +2513,10 @@ def create_app(
                         90.0,
                     ),
                 )
-            except Exception as exc:  # noqa: BLE001 - fail closed at readiness
-                kb_rag.rag_worker.record_startup_failure(exc)
+            except Exception:  # noqa: BLE001 - fail closed at readiness
+                # prewarm records setup failures; registered workers own their
+                # failure/recovery state. Do not latch the same failure twice.
+                pass
         try:
             yield
         finally:

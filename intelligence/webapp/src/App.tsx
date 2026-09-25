@@ -185,7 +185,10 @@ export default function App() {
   }, [user]);
 
   const fetchRunBundle = useCallback(
-    async (runId: string): Promise<RunBundle> => {
+    async (
+      runId: string,
+      loadArtifacts = () => listArtifacts({ category: "run" }, user),
+    ): Promise<RunBundle> => {
       const run = await getRun(runId, user);
       const answerArtifact = run.artifacts.find(
         (item) => item.path === "answer.md",
@@ -201,7 +204,7 @@ export default function App() {
         getTrace(runId, user),
         getFollowups(runId, user),
         getRunContext(runId, user),
-        listArtifacts({ category: "run" }, user),
+        loadArtifacts(),
         answerArtifact
           ? getRunArtifactText(runId, answerArtifact.path, user).catch(
               () => null,
@@ -235,10 +238,16 @@ export default function App() {
             .filter((runId): runId is string => Boolean(runId)),
         ),
       ];
+      // Share one listing within this restore, never across users or later refreshes.
+      let artifactRequest: ReturnType<typeof listArtifacts> | undefined;
+      const loadArtifacts = () => {
+        artifactRequest ??= listArtifacts({ category: "run" }, user);
+        return artifactRequest;
+      };
       const [bundles, project, evolution] = await Promise.all([
         Promise.all(
           runIds.map((runId) =>
-            fetchRunBundle(runId)
+            fetchRunBundle(runId, loadArtifacts)
               .then((bundle) => [runId, bundle] as const)
               .catch(() => null),
           ),

@@ -2331,11 +2331,9 @@ class FinanceQuery:
             information_cutoff=information_cutoff,
             max_rows=self._limits.max_rows,
         )
-        timeout = min(
-            self._limits.timeout,
-            max(0.0, deadline.stage_timeout(self._limits.timeout)),
-        )
-        if timeout <= 0.001:
+        # Fix the absolute grant before connection setup or monitor scheduling.
+        query_deadline = deadline.bounded_stage(self._limits.timeout)
+        if query_deadline.remaining() <= 0.001:
             raise FinanceQueryTimedOut("finance query deadline exhausted")
         started = time.monotonic()
         connection: Any | None = None
@@ -2345,18 +2343,22 @@ class FinanceQuery:
             if cancelled():
                 raise FinanceQueryCancelled("finance query cancelled")
             connection = self._connect(str(self._db_path), read_only=True)
+            if cancelled():
+                raise FinanceQueryCancelled("finance query cancelled")
+            if query_deadline.expired:
+                raise FinanceQueryTimedOut("finance query deadline exhausted")
 
             def monitor() -> None:
-                expires_at = time.monotonic() + timeout
-                while not stop_monitor.wait(0.01):
+                while not stop_monitor.is_set():
                     if cancelled():
                         interrupted_for.append("cancelled")
                         connection.interrupt()
                         return
-                    if time.monotonic() >= expires_at:
+                    if query_deadline.expired:
                         interrupted_for.append("timeout")
                         connection.interrupt()
                         return
+                    stop_monitor.wait(min(0.01, query_deadline.remaining()))
 
             monitor_thread = Thread(
                 target=monitor,
@@ -2365,6 +2367,10 @@ class FinanceQuery:
             )
             monitor_thread.start()
             try:
+                if cancelled():
+                    raise FinanceQueryCancelled("finance query cancelled")
+                if query_deadline.expired:
+                    raise FinanceQueryTimedOut("finance query deadline exhausted")
                 cursor = connection.execute(
                     compiled.sql,
                     list(compiled.parameters),
@@ -2405,6 +2411,8 @@ class FinanceQuery:
             if connection is not None:
                 connection.close()
 
+        if query_deadline.expired:
+            raise FinanceQueryTimedOut("finance query statement timeout")
         elapsed = time.monotonic() - started
         fingerprint = hashlib.sha256(compiled.sql.encode("utf-8")).hexdigest()[:16]
         dataset = _DATASETS[spec.dataset]

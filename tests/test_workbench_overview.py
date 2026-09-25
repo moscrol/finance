@@ -158,6 +158,30 @@ def test_overview_keeps_each_data_granularity_fail_closed(tmp_path) -> None:
     assert signal["next_validation"] == "补公司基础资料，再做官方披露验证，不重复研究队列"
 
 
+def test_overview_sellside_uses_market_date_not_wall_clock(tmp_path) -> None:
+    repo = tmp_path / "repo"
+    wiki = tmp_path / "wiki"
+    (repo / "db").mkdir(parents=True)
+    _prepare_market_db(repo / "db" / "market_feature_store.duckdb")
+    store = wiki / "raw/theme-radar/opinion-store"
+    store.mkdir(parents=True)
+    events = [
+        {"event_id": "on-time", "report_date": "2026-07-09", "ingested_at": "2026-07-09", "concept": "known"},
+        {"event_id": "late", "report_date": "2026-07-10", "ingested_at": "2026-07-11", "concept": "late"},
+        {"event_id": "future", "report_date": "2026-07-11", "ingested_at": "2026-07-10", "concept": "future"},
+    ]
+    (store / "opinion-events.jsonl").write_text(
+        "".join(json.dumps(row) + "\n" for row in events), encoding="utf-8",
+    )
+    overview = build_workbench_overview(repo, wiki)
+    assert overview["as_of_date"] == "2026-07-10"
+    assert overview["sellside_date"] == "2026-07-09"
+    assert overview["sellside_flow"]["confirmation"][0]["theme"] == "known"
+    status = next(row for row in overview["data_status"] if row["key"] == "sellside")
+    assert status["status"] == "partial"
+    assert "late_ingestion" in status["message"]
+
+
 def test_overview_returns_explicit_missing_state_without_database(tmp_path) -> None:
     overview = build_workbench_overview(tmp_path / "repo", tmp_path / "wiki")
 
