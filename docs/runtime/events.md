@@ -5,7 +5,7 @@
 
 车道：durable 进重放日志与对账权威；live 只走实时出口。阶段来自 `episode_phase`，L1 步来自 `normalize_harness_trace`（评测口径），投影剔正文的字段来自 `episode_messages.MODEL_VISIBLE_TEXT_FIELDS`（对外 artifact 只留 sha256 与字符数）。
 
-durable 36 种 · live 3 种
+durable 35 种 · live 3 种
 
 | kind | 车道 | 阶段 | L1 步 | 投影剔正文字段 | 发射文件 |
 |---|---|---|---|---|---|
@@ -44,7 +44,6 @@ durable 36 种 · live 3 种
 | `tool_menu` | durable | — | — | — | `intelligence/runtime/agent_episode.py`, `intelligence/runtime/harness_reference_loop.py` |
 | `tool_request` | durable | research | tool | — | `intelligence/runtime/agent_episode.py`, `intelligence/runtime/harness_reference_loop.py`, `intelligence/runtime/headless_tool_gateway.py`, `intelligence/runtime/openai_agents_runtime.py` |
 | `tool_result` | durable | research | observe | model_content | `intelligence/runtime/agent_episode.py`, `intelligence/runtime/harness_reference_loop.py`, `intelligence/runtime/headless_tool_gateway.py`, `intelligence/runtime/openai_agents_runtime.py` |
-| `writing_grant` | durable | — | — | — | `intelligence/runtime/agent_episode.py` |
 | `tool/error` | live | — | — | — | — |
 | `tool/pre_execute` | live | — | — | — | — |
 | `tool/result` | live | — | — | — | — |

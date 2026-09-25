@@ -796,8 +796,9 @@ class HarnessReferenceLoop:
         ledger: _Ledger,
     ) -> list[dict[str, object]]:
         menu = session.menu(registry=registry, context=context)
-        # 与 Episode 同一格同一字：每步实际菜单落账，不从装配前快照猜可用集合。
-        ledger.add("tool_menu", menu.to_payload())
+        # 与 Episode 同一格同一字：藏了工具才记 tool_menu，无裁剪轮事件流不变。
+        if menu.hidden:
+            ledger.add("tool_menu", menu.to_payload())
         return tool_definitions_for_menu(menu, registry=registry, context=context)
 
 

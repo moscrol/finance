@@ -16,13 +16,8 @@
 ## 当前状态
 - **PR #588（round 2：四簇命名 + 规则草案回写）已合入 `gitea/main@2087c730`**（2026-09-05，派单口令「合 #588」= 用户确认；
   门禁收据 `~/.finance-runtime/test-receipts/20260904T153528Z-bf7a8f4a.json` 7710P/0F/15S）。主树已 `--ff-only` 到同一 SHA，
-  `registry-check` 通过（`recipes 6（pending-grilling: -）`）。
-- **Round 3（2026-09-05）在分支 `feat/money-effect-regime-rules` 上，PR #590 已开、未合**：赚钱效应规则模块 + CLI + 15 条测试落地，
-  但分位阈值版回放一致率 57.8%（< 70% 门槛；同子集绝对阈值 83.9%）→ **不翻 live、proactive 未接线**；MA5 (a′) 不成立；
-  题材周期 KB 材料定位完成（方法论类 0 篇）。三条 recipe 仍 `note`。详见下「Round 3」节；门禁读数见该 PR 正文。
-- **Round 4（2026-09-05）在分支 `feat/money-effect-regime-live` 上（叠在 #590 之上），PR 已开、未合**：用户在三条出路里
-  选 (1)「绝对阈值 + 定期重校准」→ 阈值换成冻结常量表 + 到期检测，一致率回到 **80.9%**，`money_effect_clustering`
-  **翻 `live`** 并接进 `daily_review`「市场情绪」节。详见下「Round 4」节。**#590 必须先合，#591 才有意义**（后者是前者的续）。
+  `registry-check` 通过（`recipes 6（pending-grilling: -）`）。round 3 在分支 `feat/money-effect-regime-rules` 上进行，
+  本文「Round 3」节随该分支的 PR 一起回写。
 - registry 编译完成：`registry-check` → `recipes 6（pending-grilling: -）`；`pytest tests/test_consumption_registry.py
   tests/test_tiered_sync_local.py` 18 passed；ruff 绿。
 - 全量门禁（`run_main_gate.sh`，干净树 `92dab79e`）：ruff 绿、pytest **7700P/0F/15S/1x**，收据
@@ -39,15 +34,6 @@
 2. `pytest -q tests/test_consumption_registry.py` → 全绿，其中 `test_recipe_status_matches_placeholder_state`
    守 status ↔ 占位一致。
 3. 读 registry `recipes` 段：三条各有 `joins`≥4 条、`proactive` 非「待定义」、`decisions` 2~3 条、`open` 1 条。
-4. round 4 的接线只能实跑验（`collect_daily_review` 全仓无单测，是**既有**缺口，不是本轮引入）：
-   ```
-   MARKET_FEATURE_STORE_DB=<主库> python3 -c "
-   from market_feature_store.reports import daily_review as dr; import json, tempfile, pathlib
-   t = pathlib.Path(tempfile.mkdtemp()); dr.build_daily_review(output_path=str(t/'r.md'), chart_path=str(t/'r.png'))
-   sec = next(s for s in json.loads((t/'r.json').read_text())['sections'] if s['id']=='sentiment')
-   print([b.get('text','')[:60] for b in sec['blocks'] if b.get('kind')=='note'])"
-   ```
-   应看到「赚钱效应状态：**…**」那一行。
 
 ## 探索结论（money_effect_clustering 第一段，只读生产库，实验代码不入仓）
 脚本与三份输出留在 `~/.finance-runtime/experiments/money-effect-20260904/`（`/tmp/mfs-analysis/` 同份）。
@@ -126,147 +112,24 @@ depth-3 86% 但有三片纯度 40~54% 的脏叶子（软区域）。手工收成
   （直觉：缩量普涨 ↔ 小票领涨，放量分化/巨量轮动 ↔ 大票领涨）。
 - 边界：2~3 天的碎段（#53/#56/#61/#71）是 zig-zag 阈值偏小的产物，Top 20 在 2 天段上噪声大；MA5_MIN_SWING 敏感性未测。
 
-## Round 3（2026-09-05，接手单 C；用户不在线，判断写在「决策与被否方案」）
-分支 `feat/money-effect-regime-rules`（树 `/Users/a77/fwp-wt-money-effect-regime`，基线 `gitea/main@6cc238df`）。
-实验产物：`~/.finance-runtime/experiments/money-effect-20260905/`（簇标签重出 + 分位反推 + 回放诊断）、
-`~/.finance-runtime/experiments/ma5-cycle-20260905/`（(a′) 交叉表 + MIN_SWING 三档），均不入仓。
-
-### 3-A 赚钱效应进生产：机制落地，**不翻 live**
-做了什么：
-- `market_feature_store/money_effect_regime.py`：4 条决策表（形状冻结自 round 2）、阈值改「最近 250 个窗口的经验分位」
-  （分位数从绝对阈值反推一次：26196 亿→P78、22114 亿→P59、464 家→P36、29%→P50、6 板→P75，唯一定义 `THRESHOLD_QUANTILES`）、
-  trailing 5 日均值、MIN_HISTORY 60（不足不出簇名）、**因果** 2 日去抖、fail closed、不落表；`forward_facts` 以切换日起算只列事实。
-- CLI `python3 -m market_feature_store.cli money-effect-regime [--as-of] [--json] [--replay-since D --cluster-labels PATH]`。
-- `tests/test_money_effect_regime.py` 15 条；**变异测试**：`DEBOUNCE_DAYS` 2→1 → `test_scenario_switch_count_with_production_debounce` 红
-  （1 failed / 14 passed，已还原）。
-- 取数层下沉：`FEATURES / _AUX_QUERIES / load_market_regime_vectors` 从 `intelligence/services/market_regime_analogs.py` 搬到
-  `market_feature_store/market_regime_vectors.py`，原处 re-export（既有 import 与双红棘轮测试不用改）。
-
-回放（真库只读，簇标签同 SEED 重出、四簇规模 91/60/85/41 与 round 2 一致）：
-
-| 标签器 | 窗口 | 与簇标签一致率 | 去抖后切换 |
-|---|---:|---:|---:|
-| round 2 绝对阈值（全 277 窗口） | 277 | 80.9%（复现 81%） | 21 |
-| round 2 绝对阈值（同 218 窗口子集） | 218 | **83.9%** | - |
-| **round 3 分位版（滚动 250，MIN_HISTORY 60）** | 218（2025-05-21~2026-09-02） | **57.8%**（去抖后 56.4%） | 14（≈ 每 15.6 窗口） |
-| 分位版，扩张窗口 lookback=∞ | 218 | 57.8%（与滚动 250 完全相同） | - |
-
-混淆（行=簇，列=分位规则）：巨量轮动 38/3/0/0；放量分化 23/51/0/6；主线引领 0/26/**0**/0；缩量普涨 2/32/0/37。
-按 lookback 长度：60~119 → 60%，120~199 → 34%，200~249 → 100%，=250（2026-08，28 窗口）→ 46%。
-
-**为什么低**（不是窗口长短——滚动 250 与 ∞ 结果相同）：簇标签是**全样本 z 标准化**（固定基线）的产物，因果分位基线在
-2025→2026 量能 1.5→3 万亿的单向趋势里必然滞后（2025-09 滚动 P59 只有 16,291 亿 vs 全样本 22,114），于是簇的「放量分化」被判
-「巨量轮动」，「主线引领」在规则②就被截走（0 命中）。样本末端两版阈值收敛（2026-08 P59 22,318 / P78 26,594 vs 22,114 / 26,196），
-今日两版同判。语义交叉表：分位版仍保「巨量轮动 → 主升 0 天」，但主线引领消失、放量分化膨胀到 112/218。
-**这条回放测的是趋势不是规则质量**：277 窗口不到 lookback 的 2 倍，只有 28 个窗口是满基线；拿因果-相对标签器对全样本-绝对标签器，
-分歧就是趋势本身。成立条件：对 2025-01~2026-09 这段单向抬量样本成立。
-
-决策与被否方案（用户不在线，按工单「< 70% 停下写原因，不硬上」）：
-- **不翻 live**，`status` 留 `note`；`joins` 写了实施路径；`open` 列 round 4 三条出路：(1) 绝对阈值 + 定期重校准（每 250 窗口重跑反推，
-  同子集 83.9%，可即刻翻 live；代价是校准日进 decisions）；(2) 保留分位版等库内 ≥ 500 窗口再评（≈ 2027 下半年）；(3) 换比较基准——
-  用滚动标准化重跑 k-means（本轮禁）。我的推荐是 (1)：「阈值会漂」的标准解法本来就有两种——动态基线与定期重校准，样本不够长时后者可测、前者不可测。
-- **proactive 未接线**：工单步骤 4 要接进一个消费者，但步骤 6 说不过门槛就停。接一个一致率 58% 的标签进日报，下游 agent-daily 会把它当事实
-  归因（本仓有「未映射」被解释成方向的前例）。选定落点 `market_feature_store/reports/daily_review.py`「市场情绪」节
-  （每日必跑、已读 `fact_market_daily`、有测试）；接法一行：`state = money_effect_regime.load_regime_state(con, td)` →
-  切换日 `_note(switch_headline)` + `_table_block(axis_rows)` + `_note(forward_facts_text)`，非切换日 `_note(one_line)`，不可用 `_note(one_line)`
-  也是一行。被否：接线但加「校准中」字样（下游模型不会因此少推一段）。
-- **取数层下沉**而不是从 `market_feature_store` 反向 import `intelligence`：此前两包之间零向上依赖，第一条就是包级环。被否：
-  模块改放 `intelligence/services/`（那样 daily_review 接线时还是要反向 import）。
-- 5 日窗口在**可用日序列**上滚（不是日历连续交易日），照实验口径；库里 2026-01~03 整段缺口会被窗口跨过——记在 `open`。
-- 今日（2026-09-02）：**缩量普涨**（连续第 9 窗口；成交额₅ 20,363 亿 / 新高₅ 858 / 份额₅ 26% / 连板₅ 6.0；只命中 boards_high）。
-
-### 3-B MA5 (a′)：**不成立**；碎段是 round 2「多周期 regime」的来源
-- R 榜个头 × 段内主导簇（k-means 与绝对规则两份标签，62/72 段有标签）：四簇 R 榜个头中位 4.0~4.5x，大/小对半
-  （巨量轮动 4/5、放量分化 8/8、主线引领 8/6、缩量普涨 11/12）→ regime 不区分 R 榜个头。
-- 随 regime 单调的是 **W 榜个头**（37.5x → 29.9x → 19.0x → 16.2x）与 **J(R,W)**（0.11 → 0.25）：量越大两榜越是两群人。
-  若继续，改问 (a″)；但 W 榜按 √amount 加权、与量能 regime 部分同源，先排除同源性再当发现。
-- MIN_SWING 300/500/800：段数 97/72/48，碎段（≤3 日）32/10/0，上升段 R 榜个头翻转率 33%/34%/**52%**——碎段清零就回到随机基线，
-  说明 34%<50% 是相邻碎段共享同一批领涨股的假象。生产 `turning_points.MA5_MIN_SWING=500` 不动（那是转折信号的口径）。
-- 不建 `feature_` 表、不翻 live。
-
-### 3-C 题材周期文档定位：方法论类 0 篇，结构化材料在 relations/
-只用 `rg --files` + frontmatter/标题行 + `query_relations.py stats`，未读正文。定位到：`theme_signals.json`（182 题材 ×
-recognition_timeline / progress_ruler / market_heat / price_signals / action_plan / `_meta.stage_floor`）、`pattern_library.json`
-（4 题材 × stages / key_signals）、`fupanhui_panorama.json`（2 全景）、27 篇 theme-radar 报告（26 篇带「## 发酵进度」）、1 篇
-`fermentation_report`。「36 篇」未定位到；含「周期」的 concepts 全是商品周期。清单写进 `theme_logic_cycle.joins`。
-
-## Round 4（2026-09-05，用户口令「1」= 选 (1) 绝对阈值 + 定期重校准）
-分支 `feat/money-effect-regime-live`（树 `/Users/a77/fwp-wt-regime-live`），叠在 #590 的头 `f983df57` 上。
-
-### 做了什么
-- `money_effect_regime.py`：`rolling_thresholds`（每天按最近 250 窗口取分位）→ 冻结常量表 `THRESHOLDS`
-  + `CALIBRATED_ON = 2026-09-05`。`THRESHOLD_QUANTILES` 保留但换了角色：它现在是**重校准的配方**
-  （同一组分位、新样本、重取绝对值），不再参与每天的判定。
-- 漂移看得见：`windows_since_calibration` / `recalibration_due`（> `RECALIBRATE_AFTER_WINDOWS = 250` 置位）
-  + `recalibration_note()` 缀进日报同一行；新增 `recalibration_report()` 与 CLI `--recalibration`（只报不改）。
-  **到期不 fail closed**——停报会把消费者饿死，漂移中的标签仍有信息，标明它在漂即可。
-- `MIN_HISTORY` / `PERCENTILE_LOOKBACK` 删除（冻结阈值不需要历史样本），`CALIBRATION_MIN_WINDOWS = 60`
-  只在重校准路径上守短样本。`regime_state_from_vectors` 的「样本不足」出口随之删掉（不留死分支）。
-- **接线**：`daily_review.collect_daily_review`「市场情绪」节——切换日 `switch_headline` + `axis_rows` 表 +
-  `forward_facts_text`，非切换日 `one_line`，不可用时 `one_line` 自报原因。
-- registry：`money_effect_clustering.status` → **`live`**；round 4 三条 `decisions`（含生效阈值、校准日、重校准周期）；
-  `open` 挪到 round 5。
-
-### 验收读数 [实测，生产代码路径跑真库只读]
-| 项 | 读数 |
-|---|---|
-| 与簇标签一致率（277 窗口） | **80.9%** 去抖前 / 78.0% 去抖后（复现 round 2 的 81%） |
-| 切换 | 去抖前 29 次 → 2 日去抖后 **21 次**（≈ 每 13.2 个窗口） |
-| 混淆 | 主线引领→缩量普涨 19、放量分化→缩量普涨 19（软边界，「其余」兜住） |
-| `--recalibration` 反向校验 | 同一组分位在当前 277 窗口重取 = 26199 / 22112 / 464 / 29 / 6，与冻结值四舍五入内重合 |
-| 今日（2026-09-02） | 缩量普涨，连续第 8 窗口；仅 `boards_high` 未命中（6.0 不 > 6.0） |
-| 日报接线 | `build_daily_review()` 真库实跑，`sections[sentiment]` 里出现该 note（见下「怎么验收」第 4 条） |
-
-### 变异测试（四发，逐条记录）
-| 变异 | 结果 |
-|---|---|
-| `DEBOUNCE_DAYS` 2→1 | **5 failed** ✅ |
-| `recalibration_note` 恒返回 `""` | **1 failed** ✅ |
-| `RECALIBRATE_AFTER_WINDOWS` 250→10⁹ | 首轮 **20 passed（漏网）** → 补 `test_production_recalibration_deadline_is_exactly_at_the_constant` 后 **1 failed** ✅ |
-| `RECALIBRATE_AFTER_WINDOWS` 250→249 / 阈值 22114→22000 | 首轮 **漏网**（上一条测试拿常数自己当参照系）→ 补 `test_production_constants_are_pinned_to_the_registry_ledger`（参照系放在 registry decisions）后各 **1 failed** ✅ |
-
-### 修掉一个被分位版掩盖的夹具缺陷
-`tests/_make_db` 把新高家数按 `//100` 写进 `fact_stock_high_daily`（600 家写 6 行）。分位阈值由样本自派生，
-**整体缩 100 倍测不出来**；换成绝对阈值后「新高 ≤ 464 家」恒真，DB 路径比内存路径少一次切换。
-已改为按真实量纲逐行写（`executemany`），并加 `test_db_fixture_reproduces_vector_magnitudes` 逐字段比对
-内存向量与库读回向量 + 整段 series 相等。**教训**：自适应阈值会让夹具的量纲错误隐身，换成绝对阈值才暴露。
-
-### 决策与被否方案
-- 选 (1) 而非 (2)/(3)：(2) 等库内 ≥ 500 窗口 ≈ 2027 下半年，一年不出活；(3) 换比较基准要重跑 k-means，
-  等于承认簇标签口径可变，那 round 2 的四簇命名也要重做。
-- 到期用**提示**不用 **fail closed**：见上。
-- 校准日/阈值/周期**同时写进代码与 registry**，并用测试把两处钉在一起——这是选 (1) 付的账，
-  靠人记必漂（本轮变异测试实证：不钉台账时改 249 全绿）。
-- `--recalibration` 只报不改：换阈值要连同新校准日进 decisions，是人的决定，不是脚本的。
-
 ## 未验证 / 已知边界
 - 三条 recipe 的阈值（N、Top N、权重）全部未回测；`theme_logic_cycle` 的四段判据是草案。
-- ~~原骨架写的「知识库 36 篇文档」清单未定位 [未实测]~~ round 3-C 已定位：方法论类 0 篇，结构化材料在 `relations/`（见 Round 3）。
+- 原骨架写的「知识库 36 篇文档」清单未定位 [未实测]。
 - 探索只跑了 k-means；没试层次聚类或 GMM。281 天样本、9 维，结论不外推到别的库。
 - 每日情绪向量里 `max_boards` / `double_red_theme_count` 分别只有 349 / 340 天有值，全维可用 281 天。
-- 赚钱效应分位版的回放是 in-sample 且样本不到 lookback 的 2 倍；样本外验证要等用户补完 09-03 / 09-04 后 2026-09 起的新窗口。
-- round 3 所有回放在真库只读跑；主库 mtime/体积未变（2026-09-03 15:10:52 / 1,798,320,128 字节，跑前跑后一致）。
 
 ## 下一步
-1. ~~命名四簇 → 规则草案 → 回放~~（round 2）；~~D 档模块 + CLI + 测试 + 分位重测~~（round 3-A，57.8% 未过门槛）；
-   ~~选 (1) → 冻结阈值 + 重校准机制 → 翻 live → 接线 daily_review~~（round 4，80.9%）。
-   **round 5 · 赚钱效应**：样本外验证（用户补完 09-03/04 后用 2026-09 起的新窗口看 80.9% 是否保持）；
-   主线引领 vs 缩量普涨的软边界（混淆 19 天）；2027 年那次到期重校准的执行。
-2. ~~MA5 案例表~~（round 2，(a) 不成立）；~~(a′) 交叉表 + MIN_SWING 敏感性~~（round 3-B，(a′) 不成立）。
-   **round 4 · MA5**：决定这条 recipe 是否继续；若继续只剩 (a″) 两榜分离度 / W 榜个头 × regime（先排除 √amount 同源性）。
-3. ~~定位知识库题材周期文档清单~~（round 3-C）。**round 4 · 题材周期**：题材级向量（逻辑轴维吃 `theme_signals.json`
-   recognition_timeline / stage_floor，盘面轴维从 `fact_*` 算）→ 签名法第一期 → 阈值回放。
-4. 三条任一实施并过验证后把 `status` 翻 `live`（实施路径已在 `joins`）。
+1. ~~命名四簇 → 规则草案 → 回放~~ 已做（round 2）。**round 3 · 赚钱效应进生产**：D 档模块（输入 D10 向量 → 5 日均 → 4 条决策表 → 2 日去抖）
+   + 主动扫描接 `proactive`；阈值先改滚动 250 日分位再重测一致率；用 2026-09 起的新窗口做样本外验证；做完翻 `live`。
+2. ~~MA5 案例表独立脚本~~ 已做，(a) 不成立。**round 3 · (a′)**：把 72 段的 R 榜个头与当日赚钱效应簇做交叉表；测 MA5_MIN_SWING 敏感性。
+   假设未成立前案例表不入 `feature_` 表。
+3. `theme_logic_cycle`：先定位知识库题材周期文档清单，再做题材级向量与阶段判据回放（未动）。
+4. 三条任一实施后把 `status` 翻 `live`，并把实施路径写进 `joins`。
 
 ## 踩过的坑
 - `tests/test_consumption_registry.py` 原断言「必须留 pending」是个只能拦第一次、拦不住最后一次的棘轮；改成逐条 status ↔ 占位一致才守得住真正的漂法。
 - 从 worktree 起 `connect(read_only=True)` 会解析到 worktree 自己的 `db/`（不存在）——探索脚本要显式 `MARKET_FEATURE_STORE_DB` 指主树。
 - venv 没有 sklearn；numpy 手写 k-means++ + 轮廓系数足够（281×9），不要为探索装依赖。
-- 用「与聚类标签的一致率」验证一个**自适应**阈值，会把样本内的量能趋势算成规则误差：k-means 用的是全样本标准化（固定基线），
-  滚动分位是相对基线，两者在单向趋势样本上必然分歧，且与 lookback 长短无关（250 与 ∞ 结果一样）。要么比较基准也改相对（滚动标准化再聚类），
-  要么等样本 ≥ 2× lookback。
-- 实验脚本的去抖是回看式（`labels[i+1]`）——离线统计没问题，搬进生产必须改因果式；两者切换次数相同、日期差 1 日，别拿次数相同当「实现一致」。
-- zig-zag 切段的碎段会让「相邻段翻转率」偏低（相邻碎段共享同一批领涨股），先扫 MIN_SWING 敏感性再解读翻转率。
 
 ## 工具沉淀
 「聚类找边界、规则守生产」+「状态类特征先窗口化再聚类」是可迁移方法，未成通用零件，不回写 KIT.md。

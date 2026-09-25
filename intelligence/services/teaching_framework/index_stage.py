@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from collections import Counter
 from datetime import datetime
-from typing import Any, Callable, Iterable, Mapping, Sequence
+from typing import Any, Callable, Iterable, Mapping
 
 from .flags import BREADTH_FIELDS, EPISODE_FIELDS, RANGE_SCALAR_STEMS, SECTOR_FIELDS, SOURCE_PREFIX, compute_flags
 from .stage_rules import (
@@ -177,8 +177,6 @@ EVIDENCE_INPUTS = (
     "index_new_high_60d",
     "mainline_share_trend_up",
     "volume_trend_up",
-    "macd_bottom_div_observe",
-    "macd_bottom_div_confirm",
 ) + tuple(view for view, _ in BAND_VIEWS)
 
 
@@ -265,12 +263,7 @@ def _is_view_scalar(label: str) -> bool:
         return True
     if stem in {name for name, _ in SECTOR_FIELDS}:  # 板块侧市场级：新高家数 / 双红题材数 / 涨停题材数 / 第一题材份额
         return True
-    if stem in STRUCTURE_SCALARS:  # 结构视角里的连续量：MACD 柱、当前笔第几天、距上次底背离几天
-        return True
     return any(stem.startswith(f"{prefix}_") and stem.endswith("d") for prefix in RANGE_SCALAR_STEMS)
-
-
-STRUCTURE_SCALARS = ("macd_hist", "macd_dif", "chan_stroke_day", "chan_pivot_strokes", "days_since_macd_bottom_div", "days_since_macd_top_div")
 
 
 def _quartiles(values: list[float]) -> dict[str, Any]:
@@ -370,45 +363,7 @@ EVENT_PREDICATES: dict[str, Any] = {
     # 第十一段：双量日 + 指数新高（不看来源）与 真正算进升级进入的日子（来源 = 高位震荡）分开读。
     "double_volume_new_high": lambda f, hits: f.get("tf.double_volume_day") is True and f.get("tf.index_new_high_20d") is True,
     "upgrade_entered": lambda f, hits: "主流主升2.0:E:upgrade_double_volume_new_high" in hits,
-    # 结构视角（创始人 09-08）：MACD 背离（DIF / 柱两种口径）、缠论笔背驰、三买 / 三卖——都记在被确认那一天，事后走势只作读数。
-    "macd_bottom_div_dif": lambda f, hits: f.get("tf.macd_bottom_div_dif") is True,
-    "macd_bottom_div_hist": lambda f, hits: f.get("tf.macd_bottom_div_hist") is True,
-    "macd_top_div_dif": lambda f, hits: f.get("tf.macd_top_div_dif") is True,
-    "macd_top_div_hist": lambda f, hits: f.get("tf.macd_top_div_hist") is True,
-    "chan_stroke_bottom_divergence": lambda f, hits: f.get("tf.chan_stroke_bottom_divergence") is True,
-    "chan_stroke_top_divergence": lambda f, hits: f.get("tf.chan_stroke_top_divergence") is True,
-    "chan_third_buy": lambda f, hits: f.get("tf.chan_third_buy") is True,
-    "chan_third_sell": lambda f, hits: f.get("tf.chan_third_sell") is True,
-    # 正式口径（第二十三段）：收盘摆动低点上的 DIF 背离——两低观察、三低确认、跌破锚点失效；顶背离 DIF 两高。
-    "macd_bottom_div_observe": lambda f, hits: f.get("tf.macd_bottom_div_observe") is True,
-    "macd_bottom_div_confirm": lambda f, hits: f.get("tf.macd_bottom_div_confirm") is True,
-    "macd_bottom_div_failed": lambda f, hits: f.get("tf.macd_bottom_div_failed") is True,
-    "macd_top_div": lambda f, hits: f.get("tf.macd_top_div") is True,
 }
-STRUCTURE_EVENTS = (
-    "macd_bottom_div_observe", "macd_bottom_div_confirm", "macd_bottom_div_failed", "macd_top_div",
-    "macd_bottom_div_dif", "macd_bottom_div_hist", "macd_top_div_dif", "macd_top_div_hist",
-    "chan_stroke_bottom_divergence", "chan_stroke_top_divergence", "chan_third_buy", "chan_third_sell",
-)
-
-
-def structure_events_by_stage(usable: list[Mapping[str, Any]]) -> dict[str, Any]:
-    """结构事件落在哪一段：事件 × 当日粗段的计数，加当日中枢位置（上 / 内 / 下）按段的分布。只数不判。"""
-    by_event: dict[str, Counter[str]] = {e: Counter() for e in STRUCTURE_EVENTS}
-    pivot_pos: dict[str, Counter[str]] = {}
-    for r in usable:
-        flags = r.get("flags") or {}
-        stage = str(r.get("stage_coarse"))
-        for e in STRUCTURE_EVENTS:
-            if flags.get(f"tf.{e}") is True:
-                by_event[e][stage] += 1
-        pos = flags.get("tf.chan_pivot_pos")
-        if pos is not None:
-            pivot_pos.setdefault(stage, Counter())[str(pos)] += 1
-    return {
-        "events_by_stage": {e: dict(sorted(c.items())) for e, c in by_event.items()},
-        "pivot_position_by_stage": {stage: dict(sorted(c.items())) for stage, c in sorted(pivot_pos.items())},
-    }
 FORWARD_HORIZONS = (3, 5, 10, 20)
 
 
@@ -560,16 +515,6 @@ SEPARATION_METRICS: tuple[tuple[str, str, str], ...] = (
     ("资金", "个股区间涨幅门槛 20 日 %", "tf.range_leader_entry_gain_20d_pct"),
     ("资金", "加权涨幅 %", "src.strength_avg_pct"),
     ("资金", "平均股价", "tf.stock_price_mean"),
-    # 第二十五段，创始人「认可」：三个广度维度进靶子（16 → 19 项）。进靶子前在 16 项上量过：η² 0.46 / 0.37 / 0.27。
-    ("赚钱效应", "20 日新高家数", "tf.new_high_20d_count"),
-    ("赚钱效应", "个股周均线上方占比 %", "tf.stock_above_ma5_share_pct"),
-    ("亏钱效应", "20 日新低家数", "tf.new_low_20d_count"),
-)
-# 候选维度——同一套 η² 读出来、单列，不进靶子平均；两半都分得开、创始人认了才挪进 SEPARATION_METRICS。
-CANDIDATE_METRICS: tuple[tuple[str, str, str], ...] = (
-    ("亏钱效应", "一年新低家数", "tf.new_low_1y_count"),
-    ("结构", "底背离观察广度 %（5 日内）", "tf.stock_div_bottom_observe_share_pct"),
-    ("结构", "顶背离广度 %（5 日内）", "tf.stock_div_top_share_pct"),
 )
 
 
@@ -638,15 +583,6 @@ def stage_separation(
         return out
 
     on_reference_days = [r for r in resolved if str(r.get("trade_date"))[:10] in ref_days] if reference else []
-    candidates: dict[str, Any] = {}
-    for family, name, label in CANDIDATE_METRICS:
-        parts = split(resolved)
-        levels = {stage: {"n": len(vs), "median": _median(vs)} for stage, vs in sorted(grouped(resolved, label, False).items())}
-        candidates[name] = {
-            "family": family, "label": label, "days": sum(v["n"] for v in levels.values()),
-            "eta2": {part: _eta_squared(grouped(rows, label, False)) for part, rows in parts.items()},
-            "level_by_stage": levels,
-        }
     metrics: dict[str, Any] = {}
     ours_better = platform_better = compared = 0
     for family, name, label in SEPARATION_METRICS:
@@ -686,7 +622,6 @@ def stage_separation(
         "train_until": train_until,
         "summary": summary,
         "metrics": metrics,
-        "candidates": candidates,
     }
 
 
@@ -698,28 +633,6 @@ def _flag_by_stage(usable: list[Mapping[str, Any]], label: str) -> dict[str, dic
             continue
         grouped.setdefault(str(r.get("stage_coarse")), Counter())[str(value).lower()] += 1
     return {stage: dict(sorted(c.items())) for stage, c in sorted(grouped.items())}
-
-
-FINE_EXIT_HORIZON = 30
-
-
-def stage_fine_exits(usable: Sequence[Mapping[str, Any]], horizon: int = FINE_EXIT_HORIZON) -> dict[str, dict[str, int]]:
-    """每个细分子态（fine ≠ coarse）之后落到哪个粗段：从该日往后数，第一个与当日粗段不同的有效粗段（未决日跳过），
-    ``horizon`` 个可用日内没换段记 ``still_same``。第二十四段：触碰周均 38 天里 37 天回落（19 左底向下、18 缩量右底）、
-    1 天升级共建主线——「上穿不配合放量基本都是回落」这句在数据上的形状。"""
-    out: dict[str, Counter[str]] = {}
-    for i, r in enumerate(usable):
-        fine, coarse = r.get("stage_fine"), r.get("stage_coarse")
-        if not fine or fine == coarse or coarse not in STAGES:
-            continue
-        nxt = "still_same"
-        for later in usable[i + 1 : i + 1 + horizon]:
-            c2 = later.get("stage_coarse")
-            if c2 in STAGES and c2 != coarse:
-                nxt = str(c2)
-                break
-        out.setdefault(str(fine), Counter())[nxt] += 1
-    return {fine: dict(sorted(c.items())) for fine, c in sorted(out.items())}
 
 
 def label_readouts(
@@ -794,7 +707,6 @@ def label_readouts(
         "days_gap": len(rows) - len(usable),
         "stage_coarse_distribution": dict(sorted(stages.items())),
         "stage_fine_distribution": dict(sorted(fine.items())),
-        "stage_fine_exits": stage_fine_exits(usable),
         "resolution_distribution": dict(sorted(resolutions.items())),
         "unresolved_days": unresolved,
         "unresolved_rate": round(unresolved / len(usable), 4) if usable else None,
@@ -849,8 +761,6 @@ def label_readouts(
             })
         },
         "views_by_event": views_by_event(usable),
-        # 结构视角（创始人 09-08「MACD 底背离和缠论」）：事件落在哪一段、中枢位置按段分布；事件后走势在 views_by_event 里。
-        "structure_events": structure_events_by_stage(usable),
         # 校准的靶子（创始人 09-08）：阶段对赚钱 / 亏钱效应与资金读数的区分力；平台一致率降为下面那块参考。
         "stage_separation": stage_separation(usable, reference, ((p.get("stage_bands_derived_from") or {}).get("train_until"))),
         "reference_comparison": (

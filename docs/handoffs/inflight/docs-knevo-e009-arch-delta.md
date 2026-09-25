@@ -1,8 +1,5 @@
 # docs/knevo-e009-arch-delta · 在途交接（2026-09-10）
 
-> **状态更新 2026-09-16**：本分支（含它所基于的 `docs/knevo-m-probes-verification`）已随 PR #749（合并提交 `8bb20aa9`）合入 main；README §六/§七/§八 的手工归并已完成，PR #685 已关闭并留接替指针，分支与工作树已删。
-> 下文「分支嵌套」一节已成历史。W4 的处置见 `ab-ledger.md`「W4 裁决建议」（建议暂停 B 线，待用户拍板）。
-
 ## 干什么
 把用户转贴的 knevo 架构自白（所有权标签/记忆=prior/护城河论）沉淀进 knevo-distill，
 并出 delta 工作清单。产出三个文件，已提交 `b8061ece`，pre-commit 全绿：

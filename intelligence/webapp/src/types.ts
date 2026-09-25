@@ -384,17 +384,6 @@ export interface SelfUseMaturity {
   passed: boolean;
 }
 
-export interface CreditsSummary {
-  enabled: boolean;
-  exempt: boolean;
-  /** 可用积分（未过期余量 − 在途预占 − 欠账，可为负）；钱包关闭或豁免用户为 null。 */
-  remaining: number | null;
-  /** 换算口径：100 积分 = 1 元。 */
-  points_per_yuan?: number;
-  /** 最近一笔会到期的积分的到期时刻（ISO）；没有会到期的为 null。 */
-  next_expiry: string | null;
-}
-
 export interface Bootstrap {
   user: string;
   workflows: Workflow[];
@@ -405,7 +394,6 @@ export interface Bootstrap {
   needs_human_action: number;
   data_cutoff: string | null;
   self_use_maturity: SelfUseMaturity;
-  credits?: CreditsSummary;
 }
 
 export type WorkbenchSection =

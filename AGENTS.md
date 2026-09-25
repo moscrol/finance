@@ -29,7 +29,7 @@ A 股量化复盘 + 研究工具集：fupanhui / iFinD / AKShare 数据经 `mark
 
 - 主库 `db/market_feature_store.duckdb`，星型模型，schema SSOT `market_feature_store/schema.sql`；表清单看 schema，不抄进文档。深挖前先查各 `fact_*` 的 `max(trade_date)` 验鲜（`docs/learning/current-duckdb-source.md`）。
 - `fact_sector_daily` / `fact_sector_stock_daily` 是 VIEW，只暴露 `published` 那版板块快照；写入目标是 `fact_sector_*_daily_generation`，主键含 `sector_universe_snapshot_id`，用 `db.get_published_snapshot_id(con, trade_date)` 解析（无 published 回退 `'legacy'`，当日出现 published 后 legacy 自动让位）。往 VIEW 里 upsert 会报 `Catalog Error`。这层存在是因为供应商会换板块代码和名单，没有它答不了「当时用的是哪一版清单」。
-- 覆盖率审计只能抓行数，抓不到「行在、值全 NULL」的空壳；重要回填后再抽 `price / pct_chg / amount` 非空或做跨日期 diff。底层 `fact_sector_stock_daily_generation` 已有行级 CHECK（至少带一个行情值），`quality.check_daily` 含空壳板块量具；2026-09-03 维护清过 810 万空壳行，2025-01-06~2026-03-30 成分股行情如实为缺，不是新断档。
+- 覆盖率审计只能抓行数，抓不到「行在、值全 NULL」的空壳；重要回填后再抽 `price / pct_chg / amount` 非空或做跨日期 diff。
 - 分析脚本只读 canonical `fact_*` 表（`detect_turning_points.py`、`backtest_sector.py`，库路径可用 `MARKET_FEATURE_STORE_DB` 覆盖，不存在则 fail closed）。
 - 复盘事实只走 `daily-full`。已退役 / 停用，勿跑勿恢复成第二条写入链：`scripts/sync_to_local.py`（无副作用 shim）、`scripts/fast_daily_sync.py`（写 VIEW 且拷昨日行改日期，值全空）、`scripts/backfill_sector_marginal.py`（写不存在的旧表）、旧库 `db/market.duckdb`、**飞书整体退役（Bitable 写入、IM 入口、自建应用与凭证，2026-09-11）**——自建应用与仓内全部飞书代码已删除，退役前只读导出在 `~/.finance-runtime/feishu-export-20260911/`，运维告警改走 `scripts/notify_ops.py`（零凭证）。
 - 台账（复盘验证 / 晨汇 / 卖方研报…）的 canonical 路径、格式与唯一写入者见 `docs/learning/ledger-map.md`，新增台账先登记。预注册号一律 `python3 scripts/claim_ledger_id.py claim --branch <分支>`，不手工「当日 max+1」（check-then-act 会撞号，号不回收）。
@@ -117,7 +117,6 @@ A 股量化复盘 + 研究工具集：fupanhui / iFinD / AKShare 数据经 `mark
 | 公司画像页 | 公司画像PPT |
 | 潜意识模式 | 开启潜意识模式、潜意识模式、进入潜意识、退出潜意识、收工、回读对话、巩固记忆、沉淀这轮、记进沉淀、潜意识开关 |
 | 行业概览 | 行业概览 |
-| stock-technicals | UP线、偏离度、自选股、回踩、均线、MA10、MA20、技术位 |
 
 跨仓引用（规范源在知识库仓，本仓不放正文）：
 

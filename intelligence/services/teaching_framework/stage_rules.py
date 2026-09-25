@@ -72,12 +72,6 @@ BAND_VIEWS: tuple[tuple[str, str], ...] = (
     # 缩量右底 1.25 / 左底向下 1.19）。同时试过的 负溢价天数 / 正负翻转次数 / 双红申万一级数 / 涨停领涨集合
     # 持续度 只作视角写出：单独或合并进带区都是训练期升、验证期降（详见 slice2 spec §6）。
     ("limit_premium_ma5_pct", "承接·昨日涨停股今日均涨幅5日均值"),
-    # 第二十五段（用户「认可，按照最优推进」）：三个广度维度先按 η² 单列量过（20 日新高 0.46 / 个股 MA5 上方占比 0.37 /
-    # 20 日新低 0.27），再作证据试五个变体——三个一起进时 16 项靶子 0.1490 → 0.1608、训 0.1548 → 0.1618、验 0.1989 → 0.2012
-    # 两半都升、未决日 54 → 35；单进 20 日新高或 20 日新低反而两半都降（它们分别只认顶部 / 底部，得配对）。
-    ("new_high_20d_count", "宽度·20日新高家数"),
-    ("stock_above_ma5_share_pct", "广度·个股周均线(MA5)上方占比"),
-    ("new_low_20d_count", "亏钱效应·20日新低家数"),
 )
 
 ENTRY_PREDICATES: dict[str, tuple[str, ...]] = {
@@ -137,10 +131,7 @@ def _left_down_volume_ok(v: Callable[[str], Any], rule: str) -> bool:
 # 第六段：「缩量右底是下穿后反弹到周均线那一段，然后又回踩探底」+ 第三轮「二次探底会有个
 # 缩量的过程」→ 回踩下穿之后、周期未被放量突破结束之前的缩量日。
 CONTINUING_PREDICATES: dict[str, tuple[str, ...]] = {
-    # 第二十三段：MACD 底背离（正式口径：DIF，两低观察 / 三低确认）——全 A 个股日线上它只在缩量右底与共建主线里值钱（58% vs 基准 50%，
-    # 主升 / 2.0 / 高位震荡 51%），所以只作这两段的证据候选（参数 structure_evidence，默认开；关掉只写出不计分）。
-    "缩量右底": ("H:shrink_after_retest", "H:macd_bottom_div"),
-    "共建主线": ("H:macd_bottom_div",),
+    "缩量右底": ("H:shrink_after_retest",),
     # 第十九段：主流主升是「成交占比不断放大、量能逐步放大的过程」——过程在持续，就是这一段的持续证据。
     "主流主升": ("H:share_and_volume_trend_up",),
 }
@@ -186,10 +177,9 @@ def stage_predicates(params: Mapping[str, Any] | None = None) -> dict[str, tuple
     extra: dict[str, tuple[str, ...]] = {}
     if (params or {}).get("upgrade_process_continuing"):
         extra["主流主升2.0"] = ("H:share_and_volume_trend_up",)
-    structure_on = (params or {}).get("structure_evidence", True)
     return {
         stage: ENTRY_PREDICATES[stage]
-        + tuple(pid for pid in CONTINUING_PREDICATES.get(stage, ()) if structure_on or pid != "H:macd_bottom_div")
+        + CONTINUING_PREDICATES.get(stage, ())
         + extra.get(stage, ())
         + tuple(f"H:in_band:{view}" for view in bands[stage])
         for stage in STAGES
@@ -296,10 +286,6 @@ def predicate_hits(
     # 第六段流程：回踩下穿之后（周期仍在）、放量突破之前的缩量日 = 缩量右底的「缩量的过程」。
     if v("below_ma_cycle_retest_seen") is True and v("volume_band") == "shrink":
         hits.append(("缩量右底", "H:shrink_after_retest"))
-    # 第二十三段：上证日线 MACD 底背离的观察 / 确认日，给缩量右底与共建主线各记一分（事件日才有，稀）。
-    if (params or {}).get("structure_evidence", True) and (v("macd_bottom_div_observe") is True or v("macd_bottom_div_confirm") is True):
-        hits.append(("缩量右底", "H:macd_bottom_div"))
-        hits.append(("共建主线", "H:macd_bottom_div"))
     # 持续证据：视角值落在该段的共性区间内（区间从平台参照标注的校准期算出，见参数文件）。
     for stage, bands in stage_bands(params).items():
         for view, (lo, hi) in bands.items():
@@ -388,8 +374,7 @@ def stage_fine(
     previous: str | None = None,
     params: Mapping[str, Any] | None = None,
 ) -> str:
-    """Fine stage: 见顶 marks the entry day of 高位震荡；二次探底 marks the retest-cross day inside 缩量右底；
-    触碰周均 marks the days of 左底向上 spent above the weekly MA without the volume breakout."""
+    """Fine stage: 见顶 marks the entry day of 高位震荡；二次探底 marks the retest-cross day inside 缩量右底."""
     if coarse not in STAGES:
         return "unassigned"
     if coarse == "高位震荡" and previous != coarse:
@@ -397,10 +382,6 @@ def stage_fine(
     # 第二十一段：二次探底是缩量右底的前段细标——回踩下穿当日。
     if coarse == "缩量右底" and flags.get("cross_below_kind") == "retest":
         return "二次探底"
-    # 第二十四段（创始人第七段「上穿要配合放量，不然基本都是回落」）：左底向上里站在周均线上方、还没放量突破的日子
-    # 单独叫「触碰周均」；周均线下方往上反弹的日子仍是素的左底向上。放量上穿本身是共建主线的进入证据，不在这里。
-    if coarse == "左底向上" and flags.get("above_week_ma") is True:
-        return "触碰周均"
     return coarse
 
 

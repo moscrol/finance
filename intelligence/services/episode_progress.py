@@ -98,7 +98,7 @@ _EVENT_PROJECTIONS: dict[str, tuple[str, str, str]] = {
 }
 
 # 公开词表：UI 进度覆盖的 kind。是车道表的精选子集，不是第二套分类。
-PROGRESS_EVENT_KINDS = frozenset(_EVENT_PROJECTIONS) | {"tool_menu"}
+PROGRESS_EVENT_KINDS = frozenset(_EVENT_PROJECTIONS)
 
 # 工具名 → 面向用户的中文标签。键必须是
 # ``research_tool_registry._DEFAULT_TOOL_METADATA`` 的子集，由
@@ -139,7 +139,7 @@ _TOOL_EVENT_TEMPLATES: dict[str, str] = {
 }
 
 
-# 固定进度句的闭集；动态菜单由 is_public_progress_message 用同一标签表校验。
+# 本模块能产出的全部公开句子，闭集。
 #
 # 为什么要把它导出去：``api.app._public_trace_step`` 会**丢掉** step 的
 # output_summary、按 stage 重新合成一句话——它必须这么防，因为 trace 步骤还有
@@ -150,9 +150,9 @@ _TOOL_EVENT_TEMPLATES: dict[str, str] = {
 # 回放也全绿，UI 上一个工具标签都没出现——**上游写了、下游不读**。
 #
 # 放行判据用「这句是不是我们自己生成的」而不是「这个 step 来自哪里」：后者要靠
-# step_id 前缀猜，前者用同一份固定句/标签表的封闭语法校验，不放行任意前缀文本。
+# step_id 前缀猜，前者是集合成员判断，且集合由同一份表生成，不会漂。
 def public_progress_messages() -> frozenset[str]:
-    """Fixed progress sentences; menu combinations use the label grammar below."""
+    """Every sentence this module can emit — the pass-through whitelist."""
 
     fixed = {message for _stage, message, _status in _EVENT_PROJECTIONS.values()}
     labelled = {
@@ -161,44 +161,6 @@ def public_progress_messages() -> frozenset[str]:
         for label in _TOOL_LABELS.values()
     }
     return frozenset(fixed | labelled)
-
-
-_MENU_PREFIX = "此步模型可调用工具："
-_MENU_SUFFIX = "。授权不代表已调用或服务可用。"
-_MENU_EMPTY = "此步未开放可调用工具。"
-_MENU_UNKNOWN = "此步工具菜单未记录；不能推断可调用范围。"
-_MENU_UNRECOGNIZED = "未识别工具（不展示名称）"
-
-
-def _tool_menu_message(visible: object) -> str:
-    """只读实际菜单，不从 allowed_capabilities / 凭证存在推测服务可用。"""
-
-    # EpisodeEvent 冻结后 list 是 tuple；缺字段/畸形不等于明确空菜单。
-    if not isinstance(visible, (list, tuple)) or any(
-        not isinstance(name, str) or not name for name in visible
-    ):
-        return _MENU_UNKNOWN
-    if not visible:
-        return _MENU_EMPTY
-    labels = list(dict.fromkeys(
-        _TOOL_LABELS.get(name, _MENU_UNRECOGNIZED) for name in visible
-    ))
-    return _MENU_PREFIX + "、".join(labels) + _MENU_SUFFIX
-
-
-def is_public_progress_message(message: str) -> bool:
-    """公开边界的闭集校验；动态菜单只许由既有中文枚举标签组成。
-
-    不按前缀放行自由文本，不枚举工具子集的所有排列（指数空间），也不新建工具表。
-    """
-
-    if message in public_progress_messages() or message in {_MENU_EMPTY, _MENU_UNKNOWN}:
-        return True
-    if not message.startswith(_MENU_PREFIX) or not message.endswith(_MENU_SUFFIX):
-        return False
-    labels = message[len(_MENU_PREFIX):-len(_MENU_SUFFIX)].split("、")
-    allowed = set(_TOOL_LABELS.values()) | {_MENU_UNRECOGNIZED}
-    return bool(labels) and len(labels) == len(set(labels)) and set(labels) <= allowed
 
 
 def _tool_label(payload: object) -> str | None:
@@ -216,17 +178,11 @@ def _tool_label(payload: object) -> str | None:
 def project_episode_progress(event: EpisodeEvent) -> EpisodeProgress | None:
     """Return a fixed public projection of one event.
 
-    只有工具名 / tool_menu.visible 作为中文标签枚举键；授权、调用、取回资料分别
-    展示。configure 在 episode 工具装配前产生，不能拿它冒充实际可调用菜单。
+    Every payload value is ignored except the tool name, which is resolved
+    through ``_TOOL_LABELS`` (see the module docstring) so that consecutive
+    tool calls stop rendering as the same sentence.
     """
 
-    if event.kind == "tool_menu":
-        return EpisodeProgress(
-            key=f"episode:{event.sequence}:tool_menu",
-            stage="planning",
-            message=_tool_menu_message(event.payload.get("visible")),
-            status="completed",
-        )
     projection = _EVENT_PROJECTIONS.get(event.kind)
     if projection is None:
         return None
@@ -309,5 +265,4 @@ __all__ = [
     "RunEpisodeProgressPublisher",
     "project_episode_progress",
     "public_progress_messages",
-    "is_public_progress_message",
 ]

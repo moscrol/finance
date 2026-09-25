@@ -1773,7 +1773,5 @@ def test_resume_no_longer_carries_repair_wording_or_verdict() -> None:
     assert "downgrade_unreachable(" in source
     tree = ast.parse(source)
     # 状态机 spec §5 第 4 条：loop 不再 import repair_coordinator 的任何领域判据——只剩值类型。
-    # BudgetGrant（frozen dataclass，写作轮差额铸窗 #659）与 RepairGoal 同属值类型；
-    # 判据函数（unreachable_repair_goal / apply_unreachable_downgrade…）仍被上面的 needle 挡住。
-    assert _import_from_names(tree, "intelligence.services.repair_coordinator") == {"BudgetGrant", "RepairGoal"}
+    assert _import_from_names(tree, "intelligence.services.repair_coordinator") == {"RepairGoal"}
     assert _import_from_names(tree, "intelligence.services.mandatory_satisfiability") == set()

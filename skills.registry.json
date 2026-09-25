@@ -1,13 +1,13 @@
 {
   "version": 2,
   "generator": "scripts/build_registry.py@1",
-  "generated_at": "2026-09-16T09:28:03Z",
+  "generated_at": "2026-09-15T13:28:26Z",
   "repos": [
     {
       "name": "finance-workspace-private",
       "short": "ws",
       "present": true,
-      "skills": 39
+      "skills": 38
     },
     {
       "name": "knowledge-base-private",
@@ -185,7 +185,7 @@
       ],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:6e7705428dbca6815b7355347f6c2dae1c4448a81a6bade2ed29b5ffed9fc81c",
+      "computedHash": "sha256:b8770e6cbc5fb9b085431e09b821caf65a37519c882f417ad41586e722efca91",
       "agentOnly": false,
       "views": []
     },
@@ -631,28 +631,6 @@
       "note": "",
       "entrypoint": null,
       "computedHash": "sha256:085bfe8f349e6c65454387fe32248ce8355b675e0bdc44d27b6cb01d3594d7d3",
-      "agentOnly": false,
-      "views": []
-    },
-    "ws/stock-technicals": {
-      "name": "stock-technicals",
-      "repo": "finance-workspace-private",
-      "sourceType": "local",
-      "skillPath": "skills/stock-technicals/SKILL.md",
-      "description": "个股技术位本地计算：均线（MA5/10/20/26）、UP 线与偏离度、中期/短线回踩筛选，支持自选股清单与历史回溯。触发词：UP线、偏离度、自选股、回踩、均线、MA10、MA20、技术位。注意：数据来自 DuckDB fact_stock_daily，不联网、不依赖外部表格；问历史某天必须传 --as-of。",
-      "triggers": [
-        "UP线",
-        "偏离度",
-        "自选股",
-        "回踩",
-        "均线",
-        "MA10",
-        "MA20",
-        "技术位"
-      ],
-      "note": "数据来自 DuckDB fact_stock_daily，不联网、不依赖外部表格；问历史某天必须传 --as-of。",
-      "entrypoint": null,
-      "computedHash": "sha256:2e9107e9ca51e433499a7346bbde1ec9e14bbf4778f8eaca46e8533f8b6db112",
       "agentOnly": false,
       "views": []
     },

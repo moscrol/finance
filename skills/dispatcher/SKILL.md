@@ -117,19 +117,6 @@ python3 rx.py -- "cd '/Users/lbq/Desktop/c c/金融' && python3 skills/dispatche
 | checkpoint-recheck-mac-setup | 夜间回检、checkpoint recheck | tool-wrapper | ✅ |
 | 公司画像页 | 公司画像、画像页、strip profile | generator | - |
 | 行业概览 | 行业概览、板块全景、行业全景 | generator | - |
-| stock-technicals | UP线、偏离度、自选股、回踩、均线、MA10、MA20 | query | ✅ cli stock-technicals |
-
-### 已退役 skill 的去处（飞书 2026-09-11 退役）
-
-旧名字还可能出现在历史对话或用户口中，按这张表改道，**不要去找已删的目录**：
-
-| 旧 skill | 现在怎么做 |
-|---|---|
-| `up-line` | `cli stock-technicals`（UP/偏离度是默认输出列） |
-| `watchlist-ma` | `cli stock-technicals --watchlist default --screen pullback` |
-| `top-gainers-feishu` | `cli interval-gainers` 取名单 → `cli stock-technicals --screen pullback` |
-| `advancers-chart` | `cli daily-review --chart-output <路径>`（涨家数+MA5 图一直是本地画的） |
-| `sector-data` | 抓取走 `cli sync-fupanhui-sector-daily`；量价齐升筛选走 `cli top-sectors --min-amount 500 --min-pct-chg 0 --min-diff-ratio 10` |
 
 ## 特殊路由规则
 

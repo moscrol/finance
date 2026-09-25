@@ -42,9 +42,8 @@
 ## 未验证 / 已知边界
 
 - Cloudflare Access 未建，隧道未开前 8792 不对外。SSE 每连接占一线程（≤10 人可接受）。
-- `kb_search` 66% 超时**根因已查清并有修**（#566：except 子句顺序让两个超时处置器成了死代码，超时被判 worker 不可用→回退 CLI 重载 4.3G 模型；已合 09-04）。收据 `docs/verification/2026-09-03-kb-search-timeout-root-cause.md`。**「预热后首查仍慢」那条推断已撤回**：修后同机实测 11.93s/13.58s。（0903f 回写，随 PR #569 落）
-- ~~KB 索引 stale，需重建索引，另立单~~ —— **该判断已更正，重建索引救不回来**。#566 修完 `kb_search` 不再超时，但 24 条命中被 `require_fresh` 全丢、`hits=0`。真因是两个独立缺陷：①**门的粒度**——`index_freshness` 是整库结论，manifest 一个指纹，一页变了整库判 stale（实测 14412 个入索引文件只有 37 个受影响 = 0.26%，99.74% 逐字节没变的页被连坐）；②**常驻 worker 把整库 verdict 在预热时算一次就冻住**，`rag update` 跑完不重启 worker 也不会变。另 ③ post-commit 自动重建 08-22 起五次没跑完、09-01 起被残留锁卡死（已清），当时告警里「post-commit 会自动重建」这句是假话。修在 KB 仓 `fix/rag-page-level-freshness` + 本仓 `fix/rag-worker-page-freshness`。收据同上。
-- `would_grant<1s` 时无地板工具照旧可见：09-03 三次 live 3/3「web_search 授 0 秒白烧一轮」→ #567 已给 web/news/fetch 补 5s 地板（用户已拍，09-11 已合，INDEX #39）；「`kb_search` 刚预热首查超时」推断已撤回（见上一条）。
+- `kb_search` 66% 超时是切前生产形状；探针首发作废只采复跑。
+- `would_grant<1s` 时无地板工具照旧可见：09-03 三次 live 3/3「web_search 授 0 秒白烧一轮」；`kb_search` 刚预热首查超时 3/3。两项待用户拍（能力放大线 inflight）。
 - 消融壳走 legacy `cli ask` 不经 episode 链，弃权效果须会话链重跑。
 
 ## 下一步（待用户）
