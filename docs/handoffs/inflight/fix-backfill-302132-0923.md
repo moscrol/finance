@@ -5,8 +5,8 @@
 
 ## 当前状态
 **ENGINEERING_PASS_QC_BLOCKED_SANDBOX_IDENTITY_AND_DELIVERY**，未合入就绪。PR813远端仍为ae3，继续WIP/open/unmerged；未写生产、未动8792/launchd。
-- 最新本地候选 `47061506f7de303a54e2f1c757c9ebb28f951da1`，树 `/Users/a77/fwp-wt-backfill-ready-main724-0925`，已合入 `gitea/main=72402839075e3eefdee7b185db015a0545096b22`。
-- 新候选工程：Python16325P/0F/72S/2X，收集16399；定向118P；前端/E2E完整通过；registry5；完整副本演练37检查通过，生产不变、回滚哈希匹配。等价sandbox rehearsal也返回clean并通过。收据根 `~/.finance-runtime/reviews/pr813-ready-main724-0925/`。
+- 最新本地候选 `4f12e65e44600ae2627c0f9e7ab206a14fd6dd13`，树 `/Users/a77/fwp-wt-backfill-ready-main-e159-0925`，已合入 `gitea/main=e159c564440c69abe17f106ae721fd25348a1865`。
+- 新候选工程：Python16349P/0F/72S/2X，收集16423；定向118P；前端/E2E完整通过；registry5；完整副本演练37检查通过，生产不变、回滚哈希匹配。收据根 `~/.finance-runtime/reviews/pr813-ready-main-e159-0925/`。
 - PR远端head仍 `ae3f812e1c1e142953b657ba41f30fce23e7c14a`；新候选未推送、未冒充PR收据。独审最后 `pr813-glm-qc-20260925-20/`，无新模型请求。
 
 ## 决策与被否方案
@@ -19,7 +19,7 @@ ae3干净树：Python16259P/0F/93S/2X；定向118P；前端123P、E2E34P/2S；re
 批13在f650取得C1-C7 PASS_WITH_LIMITS，不转给ae3。ae3批14/16-19虽25P但无合格终稿；批20实际23P/2F，两例遇沙箱内clean-checkout守卫，事后宿主诊断干净，根因未证实。终稿又含额外claim，未交付。供应探针非模型新写；C6六次嵌入作者函数体调用，standalone作者pytest为0。
 
 ## 下一步
-零外呼诊断：旧候选sandbox clean；main724 clone `_code_revision=(4706,false)`、rehearsal通过；实际toolEnv三探针25P，Git 226调用全exit0、status stdout空，仅sandbox warning。批20身份失败仍不可重现，不改guard、不补签。schema最大4932，16负例通过。4706无独审；不追加付费请求。合入/生产均false；生产需重新冻结、逐字授权，WAL即停。#802留6446。
+批20身份失败的零模型诊断仍不可重现，不改guard、不补签。QC批21冻结4f12/main e159，gateway4、explore2、execute4、report1共11请求；25个供应探针全通过，但唯一终稿因 `probe_provenance >600` 被拒，无accepted报告。schema最大4932，16负例通过。不追加重试；合入/生产均false，生产需重新冻结、逐字授权，WAL即停。#802留6446。
 
 ## 踩过的坑
 16-18首拒收实际是6000字符限额，不是最初判断的claim格式。19来源说明超字段长度；20仍有真实失败。运行根ready-only脚本未执行，不是就绪证据。原全量XML含JWT形内容，只保留本机原件和归档哈希。
