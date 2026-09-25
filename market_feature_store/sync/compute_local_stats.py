@@ -19,6 +19,7 @@ fact_sector_stock_daily 名单）写本地加工表，source 一律 ``local:*``�
 from __future__ import annotations
 
 import json
+import math
 from collections import defaultdict
 from datetime import date, datetime, timedelta, timezone
 
@@ -135,7 +136,11 @@ def carry_forward_universe(trade_date, *, con=None, provider: str = CARRY_PROVID
 # ---------------------------------------------------------------------------
 # 2. 涨跌停统计
 # ---------------------------------------------------------------------------
-def _limit_flags(con, td: date, lookback_days: int = 60) -> tuple[list[tuple], dict[str, list[tuple[date, bool]]]]:
+class InvalidStockName(ValueError):
+    """A required dated identity cannot be treated as a missing optional metric."""
+
+
+def _limit_flags(con, td: date, lookback_days: int = 60) -> tuple[list[tuple], dict[str, list[tuple[date, bool | None]]]]:
     """返回 (当日全A带涨跌停判定的行, 每只股近 lookback 天的 (日期, 是否涨停) 序列)。"""
     since = td - timedelta(days=lookback_days)
     rows = con.execute(
@@ -154,21 +159,29 @@ def _limit_flags(con, td: date, lookback_days: int = 60) -> tuple[list[tuple], d
         """,
         [since, td],
     ).fetchall()
-    series: dict[str, list[tuple[date, bool]]] = defaultdict(list)
+    series: dict[str, list[tuple[date, bool | None]]] = defaultdict(list)
     today: list[tuple] = []
     for r in rows:
         d = _as_date(r[0])
-        series[r[1]].append((d, bool(r[9])))
+        name = r[2]
+        valid_name = (isinstance(name, str) and bool(name.strip())
+                      and not any(ord(char) < 32 or ord(char) == 127 for char in name))
         if d == td:
+            if not valid_name:
+                raise InvalidStockName(f"invalid canonical stock name: {r[1]} @ {td}")
             today.append(r)
+        # Unknown historical identity is not a proven break in a limit streak.
+        series[r[1]].append((d, bool(r[9]) if valid_name else None))
     return today, series
 
 
-def _streak(seq: list[tuple[date, bool]], td: date) -> tuple[int, date | None]:
+def _streak(seq: list[tuple[date, bool | None]], td: date, *, stock_ts_code: str = "unknown") -> tuple[int, date | None]:
     k, first = 0, None
     for d, up in reversed(seq):
         if d > td:
             continue
+        if up is None:
+            raise InvalidStockName(f"invalid canonical stock name in consumed history: {stock_ts_code} @ {d}")
         if not up:
             break
         k += 1
@@ -209,7 +222,7 @@ def compute_limit_stats_local(trade_date, *, con=None, force: bool = False, min_
         up_stocks = {r[1]: r for r in today if r[9] and not r[8]}  # 涨停且非 ST
         market_lu = len(up_stocks)
         market_ld = sum(1 for r in today if r[10] and not r[8])
-        streaks = {code: _streak(series[code], td) for code in up_stocks}
+        streaks = {code: _streak(series[code], td, stock_ts_code=code) for code in up_stocks}
 
         members = con.execute(
             "SELECT sector_ts_code, sector_name, stock_ts_code, sw_l1 FROM fact_sector_stock_daily WHERE trade_date = ?",
@@ -224,6 +237,15 @@ def compute_limit_stats_local(trade_date, *, con=None, force: bool = False, min_
 
         coverage = None
         if recovery_members is not None:
+            bar_codes = {r[1] for r in today}
+            missing_bars = sorted({r[2] for r in members} - bar_codes)
+            if missing_bars:
+                raise ValueError(f"sector member missing canonical stock bar: {missing_bars[:10]}")
+            # Market-wide counts also consume bars outside the declared sectors.
+            invalid_closes = sorted(r[1] for r in today
+                                    if r[3] is None or not math.isfinite(r[3]) or r[3] <= 0)
+            if invalid_closes:
+                raise ValueError(f"invalid canonical stock bar close: {invalid_closes[:10]}")
             observed = defaultdict(list)
             for sector, _name, stock, _sw in members:
                 observed[sector].append(stock)
@@ -234,7 +256,7 @@ def compute_limit_stats_local(trade_date, *, con=None, force: bool = False, min_
             ).fetchall())
             # Do not silently skip a suspended name that was synthesized into
             # fact_stock_daily but dropped from the member projection.
-            if set(recovery_nontrading) & {r[1] for r in today}:
+            if set(recovery_nontrading) & bar_codes:
                 raise ValueError("nontrading identity has a stock bar")
             coverage = sector_coverage(declared_members=recovery_members, expected_counts=expected,
                                        observed_members=observed, suspended=recovery_nontrading)
@@ -658,7 +680,9 @@ def compute_stock_high_local(trade_date, *, con=None, force: bool = False) -> di
         streaks = {}
         try:
             today, series = _limit_flags(con, td)
-            streaks = {r[1]: _streak(series[r[1]], td)[0] for r in today if r[9]}
+            streaks = {r[1]: _streak(series[r[1]], td, stock_ts_code=r[1])[0] for r in today if r[9]}
+        except InvalidStockName:
+            raise
         except Exception:  # noqa: BLE001
             streaks = {}
         sw = dict(con.execute(
@@ -1075,7 +1099,7 @@ def core_leader_candidates(con, td: date, *, membership, aliases, index, kb_conc
                 best_score, best_edge, best_seat = s, edge, seat
         if best_edge is None:  # 无 KB 边时归到成员里板块名字典序最小的席位，保证归属确定
             best_seat = min(seats, key=lambda x: (x[0], x[3]))
-        boards, _first = _streak(series.get(stk, []), td)
+        boards, _first = _streak(series.get(stk, []), td, stock_ts_code=stk)
         cands.append({
             "code": stk, "name": row[2], "close": row[3], "pct_chg": row[5], "amount": row[6],
             "gain5": gain5.get(stk), "boards": boards, "limit_up": 1.0 if row[9] else 0.0,

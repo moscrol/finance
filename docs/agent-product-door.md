@@ -213,6 +213,26 @@ SSE 沿原总时限等待，超时不伪造完成。
 回归见 `test_rag_worker_transport.py`；撤保护复用 `run_extraction_mutations.py --suite rag-transport`。
 既有金融partial/引用/拒句账与最终发布门保持，不把检索修复等同整题质量通过。
 
+### RAG 启动失败与恢复（候选，未部署）
+
+启动前配置/实例构造失败由启动层记账；实例已注册后的失败由该 worker 独占，
+API 生命周期不再重复保存一份无法随自愈清除的全局错误。readiness 仍须所有已注册
+worker 就绪；成功查询不能抹掉另一实例或启动配置的失败。无实例的配置错误不自动重试。
+预热成功仍要求 `returncode=0` 且 `model_load_count>0`，不放宽 hybrid / 代际门禁。
+代际检查、恢复配方转换与保活启动异常同属实例失败；配方完整校验后才替换，保活启动完成后
+才标记 ready。关闭后的旧实例拒绝查询及预热，已调度的恢复也不能重新拉起已退役进程。
+请求 stdin 写入与 stdout/stderr 读取共用非阻塞 selector 及同一截止时间，避免长请求与
+启动错误输出互相堵住管道。部分请求超时必须终止进程，不能让下一条 JSON 接到残帧上；
+完整请求发出后的热进程首次超时仍按原策略保留。
+协议启动前的进程 stderr 与 stdout 同时非阻塞读取，私有尾部最多保留 4096 字节；
+公开 `workers.rag.last_error_diagnostic` 仅含阶段、固定原因、退出码、白名单异常类型，
+不输出原文、路径或查询。关闭进程清空尾部，成功恢复清空错误；管道注册失败也关闭 selector。
+并发关闭 stderr 后的读取按流结束处理，保留类型化退出错误，而非让检索层通用兜底处理 closed-file 异常；
+未关闭流的真实读取错误仍上抛，不用宽泛吞错伪装正常结束。常规查询响应合同不变。
+覆盖真实轻量子进程与应用 lifespan 的 503→200；不等于生产模型、金融质量或资源余量验收。
+回归 `test_rag_worker_startup_recovery.py`；撤保护复用 `scripts/review_probes/run_extraction_mutations.py`
+的 `--definitions scripts/review_probes/rag_startup_recovery_mutations.json --tests intelligence/tests/test_rag_worker_startup_recovery.py`。
+
 ### 专项研究纪律（Knevo 增量，2026-09-17 已合 main）
 
 `research_workflow_guidance.workflow_guidance` 给财报、事件推演、观点审查、事实核对、历史类比
@@ -701,6 +721,12 @@ adapter 在语义删句后按**核验过的公开正文**重算表达缺件，�
 当前结果均是探索研究：相似案例不等于独立验证，重叠窗口不当作独立样本；不支持的组合定义明确返回缺口。L2、晚间卖方与晨汇未同步目标范围为 `pending_sync`，没有安排同步。严格时点认证、样本独立性与正式方法晋升继续消费基础评价器合同；本工具不颁发认证。
 
 实现和分期验收见 [历史发现 spec](superpowers/specs/2026-09-09-historical-discovery-research-design.md) 与 [执行计划](superpowers/plans/2026-09-09-historical-discovery.md)。部署状态以运行服务 `/api/health` 的 revision 为准，仓内存在代码不等于线上已更新。
+
+### 卖方观点订正与可得性（分支候选，未部署）
+
+`fix/sellside-consumption-0922` 在原始事件外追加不可覆盖订正，统一读取层按报告日、首次入库和订正发布时刻取版本。Workbench 概览卖方流使用市场库交易日截止，无市场日不展示无截止数据；缺口进入既有 `data_status`，不是新的产品门。催化归因不再以晨汇存在掩盖卖方隔离或时间缺口，未核验转述不作硬证据优先项。
+
+教学叙事和事件定价日历在构建日读取订正投影，过滤或损坏显式记缺口；仍是事后研究，不证明各历史开盘已知。收益行必须匹配修订版本且计算时间不晚于截止，旧收益生成器尚未迁移。时间长河 `river._opinion_track` 仍读研报目录，不读此投影；分支探针通过不等于线上接通。合同见 [卖方观点消费](learning/opinion-consumption-contract.md)。
 
 ### 质量消融评测：结论只覆盖 legacy CLI ask
 

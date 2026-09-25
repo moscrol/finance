@@ -120,9 +120,132 @@ def test_generated_copy_current(model):
 def test_positioning_and_current_support(model):
     public = bp.build(bp.SRC.read_text(), model)
     assert "认知投降" in public and "认知复利" in public
-    assert "副业" in public and "自媒体" in public
+    # v1.4 经用户授权改为研究主干；“自媒体”不再是必须出现的旧文案。
+    assert "副业" in public and "资深投资者" in public
+    assert "取证、比较、计算" in public
+    assert "学习与判断校准是可选模式，不是使用门槛" in public
+    assert public.index("## 1 目标用户") < public.index("### 可选长期积累")
     support = public.split("### 希望社区提供的支持")[1].split(
         "### 进入收费阶段前的准备"
     )[0]
-    assert "产品打磨" in support and "一人创业交流" in support
-    assert "合规" not in support and "法务" not in support
+    # v1.6: founder owns first-round recruitment; community supports later validation.
+    assert "项目诊断" in support and "一人创业交流" in support
+    assert "首轮资深测评由创始人安排" in support
+    assert "不是首要请求" in support
+    assert "金融合规服务" in support
+    assert "资金" not in support and "法务" not in support
+
+
+def test_demo_is_one_historical_task_not_live_composite(model):
+    public = bp.build(bp.SRC.read_text(), model)
+    demo = public.split("### 现在能展示什么")[1].split("### Alpha 前")[0]
+    assert "2026-09-09" in demo and "M2" in demo
+    assert "77 个窗口，71 个缺失、1 个未成熟、5 个有效" in demo
+    assert "独立性未建立" in demo
+    assert "不冒充产品截图或当前现场执行" in demo
+    assert "不拼接其他局部验收" in demo
+
+
+def test_evidence_and_commercial_boundaries_preserved(model):
+    public = bp.build(bp.SRC.read_text(), model)
+    for required in (
+        "严格按当时所知回放还须有相应内容快照",
+        "不是保证模型两次回答一样",
+        "当前没有已验证护城河",
+        "不证明投资方法有效",
+        "3 块不等于 3 个独立个股样本",
+        "尚无外部用户和产品收入",
+        "尚未生效",
+        "本轮扩展产品叙事不自动扩展套餐",
+        "真实输出样本",
+        "专业评估",
+        "商业分发授权",
+    ):
+        assert required in public
+    for obsolete_claim in (
+        "通用 AI 助手不记得",
+        "通用 Agent 有模型没有框架",
+        "大厂不是做不到，是做了会伤",
+        "同一天同一对象两次读取结果完全一致",
+    ):
+        assert obsolete_claim not in public
+
+
+def test_validation_counts_research_and_optional_calibration_separately(model):
+    public = bp.build(bp.SRC.read_text(), model)
+    plan = public.split("## 5 验证计划与调整机制")[1].split("## 6 项目预算")[0]
+    assert "仅在自愿校准子组计算" in plan
+    assert "失败、重试和人工救场不得从分母删除" in plan
+    assert "自动存档不算主动保存" in plan
+    assert "创始人工时" in plan
+    assert "至少半数登记过判断，才考虑扩大" not in plan
+
+
+def test_public_copy_avoids_internal_jargon(model):
+    """对外版不带内部任务编号与运维术语；评审读不懂的词要么释义要么不出现（母本 v1.5）。"""
+    public = bp.build(bp.SRC.read_text(), model)
+    for jargon in ("M1–M5", "M6/UI", "质量门", "关系包", "六单季实数", "配对效果", "倒签"):
+        assert jargon not in public
+    assert "内部编号 M2" in public
+
+
+def test_founder_recruitment_and_later_community_support(model):
+    public = bp.build(bp.SRC.read_text(), model)
+    acquisition = public.split("### 先自主邀请测评")[1].split("### 单用户收入")[0]
+    assert "首轮由创始人邀请资深投资者" in acquisition
+    assert "资深用户认可不等于" in acquisition
+    assert "再与社区探索" in acquisition
+    for obsolete in ("从社区和公开内容招募首批用户", "100 人候补名单", "对接 3–10 名首批体验者"):
+        assert obsolete not in public
+    form = (ROOT / "docs/bp/2026-09-opc-application-form-answers.md").read_text()
+    assert "Foresight v1.7" in form
+    assert "首轮资深用户测评我自己安排" in form
+    assert "通过 OPC 社区与公开研究内容招募 3–10 人" not in form
+
+
+def test_collaborative_design_and_ninety_day_plan_are_not_results(model):
+    public = bp.build(bp.SRC.read_text(), model)
+    assert "提取前置是设计中的可选模式" in public
+    for goal in ("你在进步", "它在改进协作", "双方共同积累"):
+        assert goal in public
+    assert "不是完整跨日闭环已验收" in public
+    assert "模型理解问题、决定查什么" in public
+    assert "数据库与计算工具负责联立和核算" in public
+    for stage in ("第 1–30 天", "第 31–60 天", "第 61–90 天"):
+        assert stage in public
+    assert "不把日期当上线保证" in public
+    assert "算力和模型 API 额度是补充" in public
+    assert "破卷" not in public and "knevo" not in public.lower()
+
+
+def test_domain_methods_and_flow_vision_are_not_validated_results(model):
+    public = bp.build(bp.SRC.read_text(), model)
+    for required in (
+        "观测面就是研究问题的角度",
+        "发现规律与验证规律的数据须分开",
+        "历史高命中率不能保证泛化",
+        "当前没有已验证护城河",
+        "长期愿景：人机交互的心流平台",
+        "不是心理学心流效果已获证明",
+        "当前仍聚焦 A 股研究",
+    ):
+        assert required in public
+
+
+def test_enterprise_discovery_precedes_conditional_pilot(model):
+    public = bp.build(bp.SRC.read_text(), model)
+    enterprise = public.split("### 机构探索：")[1].split("### 进入收费阶段")[0]
+    for required in (
+        "同时可访谈", "当前无机构订单或收入证明", "不同时开发两套完整平台",
+        "验收标准", "数据授权", "权限隔离", "专业评估", "人工审核",
+        "首次实施费＋持续订阅", "不计原预算", "不得默认跨客户复用",
+    ):
+        assert required in enterprise
+    assert "个人订阅验证后再评估，单独报价" not in public
+
+
+def test_red_line_wording(model):
+    """对外红线只写「不荐股、不提供个股买卖建议」；不用法规原文动词「预测」认领能力（母本 v1.2 说明）。"""
+    public = bp.build(bp.SRC.read_text(), model)
+    assert "不荐股" in public and "不提供个股买卖建议" in public
+    assert "预测" not in public and "涨跌" not in public
