@@ -28,7 +28,7 @@
 ## 收据
 
 - 探针：`probe.json`。
-- 同一代码路径定向回归收据：`clean-targeted-receipt.json`，须绑定准确 revision；它包含纠偏服务、编排器、纠偏台账、用户态、记忆状态和 episode 工具测试。
+- 同一代码路径定向回归收据：`clean-targeted-receipt.json`，绑定 `f3d39d7d2`，231P/0F/0S；它包含纠偏服务、编排器、纠偏台账、用户态、记忆状态和 episode 工具测试。
 - 该收据只证明审计分支的临时状态，不移签生产版本。
 
 ## 可复现
