@@ -1,0 +1,5 @@
+import ast
+base = '/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-08/quality/work/probes/'
+for f in ['test_seeded_c3.py', 'test_earlier_fixture_adapter.py']:
+    ast.parse(open(base + f).read())
+    print('syntax OK', f)

@@ -1,0 +1,8 @@
+{
+  "status": "PREPARE_FAILED_NO_MODEL_REQUESTS",
+  "error": "source batch 08 did not contain probe_c3_acceptance_v2.py and test_new_c3_v1.py dependencies",
+  "source_batch": "pr813-glm-qc-20260925-08",
+  "candidate_revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+  "automatic_retries": 0,
+  "candidate_or_product_modified": false
+}

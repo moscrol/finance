@@ -1,0 +1,93 @@
+```json
+{
+  "author_test_counts": {
+    "collected": 0,
+    "errors": 0,
+    "failed": 0,
+    "passed": 0,
+    "skipped": 0
+  },
+  "claims": [
+    {
+      "claim": "Candidate's external acceptance entry (verify_302132_backfill_acceptance.py) rejects all six outside-window mutation classes (amount, timestamp, delete, insert, duplicate with clone-only PK removal, other_stock)",
+      "evidence": "test_seeded_c3.py 6/6 mutation cases passed against the actual external entry",
+      "state": "verified"
+    },
+    {
+      "claim": "Acceptance passes on unmodified baseline",
+      "evidence": "test_baseline_pass passed",
+      "state": "verified"
+    },
+    {
+      "claim": "New assertions with host-only pre-window fixture adapter (real pre-window row in baseline and clone, rebound receipt hashes): earlier_than_window and null_column mutations are rejected",
+      "evidence": "test_earlier_fixture_adapter.py 2/2 mutation cases passed",
+      "state": "verified"
+    },
+    {
+      "claim": "Baseline including the added earlier row still passes acceptance",
+      "evidence": "test_baseline_with_earlier_row_pass passed",
+      "state": "verified"
+    },
+    {
+      "claim": "Production-shaped 64/39/161 counts match production",
+      "evidence": "not directly observed in this bounded review",
+      "state": "out_of_scope"
+    }
+  ],
+  "findings": [
+    "All 7 prior C3 assertions verified against the actual external acceptance entry, not just the helper.",
+    "All 3 supplied new assertions with the host-only pre-window fixture repair verified; earlier-row baseline still passes.",
+    "Duplicate case discloses clone-only PK removal; not treated as a hidden baseline property.",
+    "No regressions observed in the supplied probe suite: 10 passed / 0 failed / 0 errors."
+  ],
+  "limits": [
+    "Production-shaped 64/39/161 counts remain a separate limitation; not directly observed.",
+    "No author tests executed (contract); author_test_counts all zero.",
+    "Synthetic DuckDB inside work only; no production, vendor, network, or credential access.",
+    "Supplied probes are prior reviewer assertions plus host fixture repairs re-executed fresh; they are evidence, not prior verdicts."
+  ],
+  "positive_control": {
+    "command": "OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 /Users/a77/finance-workspace-private/.venv-workbench/bin/python -B /Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-10/quality/work/positive_control.py",
+    "evidence": "execute/001-bash/request.json, result.json, output.log show exact command, exit code 1, traceback text 'intentional probe_bug control'",
+    "observed": true
+  },
+  "probe_provenance": {
+    "fixture_repairs": [
+      "test_seeded_c3.py: receipt-path/OTHER-date fixture repair",
+      "test_earlier_fixture_adapter.py: host-only adapter adding a real pre-window row to both baseline and clone and rebinding receipt hashes"
+    ],
+    "supplied_by": "prior reviewer assertions plus host fixture repairs supplied by controller; not prior verdicts",
+    "test_entry": "candidate scripts/verify_302132_backfill_acceptance.py actual external acceptance entry (not only helper)"
+  },
+  "reviewer_probe_counts": {
+    "collected": 10,
+    "errors": 0,
+    "failed": 0,
+    "passed": 10,
+    "skipped": 0
+  },
+  "supplied_probe_counts": {
+    "test_earlier_fixture_adapter.py": {
+      "passed": 3
+    },
+    "test_seeded_c3.py": {
+      "passed": 7
+    },
+    "total": 10
+  },
+  "supplied_probe_results": {
+    "basetemp": "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-10/quality/work/tmp/supplied",
+    "command": "direct pytest with both supplied test paths, --rootdir=work, --junitxml=work/probe-results-supplied.xml, --basetemp=work/tmp/supplied",
+    "duration_s": 16.94,
+    "failed": 0,
+    "passed": 10,
+    "syntax_check": "py_compile of both supplied files OK"
+  },
+  "supplied_xml": "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-10/quality/work/probe-results-supplied.xml",
+  "complete": true,
+  "stage": "execute",
+  "axis": "quality",
+  "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+  "baseline": "4cc15e703f81bce8abadee00f68caacdb0c72b4d"
+}
+```

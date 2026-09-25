@@ -1,0 +1,177 @@
+{
+  "raw_copies": [
+    {
+      "source": "explore/REPORT.md",
+      "copy": "work/phase-context/explore/REPORT.md",
+      "sha256": "1c42df948fbacad0f9d9f7c7dcbf1c3e9c42bb78d317b4ff8633c9c0242a0266"
+    },
+    {
+      "source": "explore/parsed.json",
+      "copy": "work/phase-context/explore/parsed.json",
+      "sha256": "6c13dd081a6039632d37b05934f11978f05a85c84285db948ec96cfc28375fd6"
+    },
+    {
+      "source": "explore/commands/001-read/output.log",
+      "copy": "work/phase-context/explore/commands/001-read/output.log",
+      "sha256": "ebb7aacea3c3248008f8e2e38a5392c2a46402e512d472325509c8d6aeb9c840"
+    },
+    {
+      "source": "explore/commands/001-read/request.json",
+      "copy": "work/phase-context/explore/commands/001-read/request.json",
+      "sha256": "8588190ff041e82214f133c0796e157bd90592ce214ddf819893c3968119de3f"
+    },
+    {
+      "source": "explore/commands/001-read/result.json",
+      "copy": "work/phase-context/explore/commands/001-read/result.json",
+      "sha256": "d67659d29dad50e65ac903e33dc7ef4a692331d96253553956300d1fcfa5786a"
+    },
+    {
+      "source": "explore/commands/002-read/output.log",
+      "copy": "work/phase-context/explore/commands/002-read/output.log",
+      "sha256": "96738415779bd58d6d8915058bd5047783a047fb7e983cb9e8a538f5743784a0"
+    },
+    {
+      "source": "explore/commands/002-read/request.json",
+      "copy": "work/phase-context/explore/commands/002-read/request.json",
+      "sha256": "7b947ec45d3ec5a707bb96d298e7fbaaa4a115bb1605cd7fb983bd170486a0ce"
+    },
+    {
+      "source": "explore/commands/002-read/result.json",
+      "copy": "work/phase-context/explore/commands/002-read/result.json",
+      "sha256": "d67659d29dad50e65ac903e33dc7ef4a692331d96253553956300d1fcfa5786a"
+    },
+    {
+      "source": "explore/commands/003-read/output.log",
+      "copy": "work/phase-context/explore/commands/003-read/output.log",
+      "sha256": "bde0c745d6d01869877883a6478c836428e368716c1a7d2a1945950e3d4850fc"
+    },
+    {
+      "source": "explore/commands/003-read/request.json",
+      "copy": "work/phase-context/explore/commands/003-read/request.json",
+      "sha256": "802ee7572d4ef99930b6ad799968af42802aec5dd72965fa5f9db50081c544e1"
+    },
+    {
+      "source": "explore/commands/003-read/result.json",
+      "copy": "work/phase-context/explore/commands/003-read/result.json",
+      "sha256": "d67659d29dad50e65ac903e33dc7ef4a692331d96253553956300d1fcfa5786a"
+    },
+    {
+      "source": "explore/commands/004-read/output.log",
+      "copy": "work/phase-context/explore/commands/004-read/output.log",
+      "sha256": "bde0c745d6d01869877883a6478c836428e368716c1a7d2a1945950e3d4850fc"
+    },
+    {
+      "source": "explore/commands/004-read/request.json",
+      "copy": "work/phase-context/explore/commands/004-read/request.json",
+      "sha256": "9bb449d18c0960026c5bb40ac11ca0de1cf1cb3a4bb6af87500aab88e244f8ba"
+    },
+    {
+      "source": "explore/commands/004-read/result.json",
+      "copy": "work/phase-context/explore/commands/004-read/result.json",
+      "sha256": "d67659d29dad50e65ac903e33dc7ef4a692331d96253553956300d1fcfa5786a"
+    },
+    {
+      "source": "explore/commands/005-read/output.log",
+      "copy": "work/phase-context/explore/commands/005-read/output.log",
+      "sha256": "ebb7aacea3c3248008f8e2e38a5392c2a46402e512d472325509c8d6aeb9c840"
+    },
+    {
+      "source": "explore/commands/005-read/request.json",
+      "copy": "work/phase-context/explore/commands/005-read/request.json",
+      "sha256": "4b08b0a848fb0d435027a9044fb695289d95d47802379f95397bbb8729c3734c"
+    },
+    {
+      "source": "explore/commands/005-read/result.json",
+      "copy": "work/phase-context/explore/commands/005-read/result.json",
+      "sha256": "d67659d29dad50e65ac903e33dc7ef4a692331d96253553956300d1fcfa5786a"
+    },
+    {
+      "source": "explore/commands/006-read/output.log",
+      "copy": "work/phase-context/explore/commands/006-read/output.log",
+      "sha256": "96738415779bd58d6d8915058bd5047783a047fb7e983cb9e8a538f5743784a0"
+    },
+    {
+      "source": "explore/commands/006-read/request.json",
+      "copy": "work/phase-context/explore/commands/006-read/request.json",
+      "sha256": "ce95377da67d1a08d0d48593a15ea412c2bdd03b290b72905d512e1972f5792e"
+    },
+    {
+      "source": "explore/commands/006-read/result.json",
+      "copy": "work/phase-context/explore/commands/006-read/result.json",
+      "sha256": "d67659d29dad50e65ac903e33dc7ef4a692331d96253553956300d1fcfa5786a"
+    },
+    {
+      "source": "explore/commands/007-read/output.log",
+      "copy": "work/phase-context/explore/commands/007-read/output.log",
+      "sha256": "9015175e1cda512034fef80537ac8fb4106d472d751fec069aa214398b20b131"
+    },
+    {
+      "source": "explore/commands/007-read/request.json",
+      "copy": "work/phase-context/explore/commands/007-read/request.json",
+      "sha256": "d3d5dd546ecf245af54204704f161a58c3e46a306bb5de8ba10236f644ed3d6f"
+    },
+    {
+      "source": "explore/commands/007-read/result.json",
+      "copy": "work/phase-context/explore/commands/007-read/result.json",
+      "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0"
+    },
+    {
+      "source": "explore/commands/008-read/output.log",
+      "copy": "work/phase-context/explore/commands/008-read/output.log",
+      "sha256": "e38308834a314d452f953f0acc5f6f60c6a75001846799d550fdcd79147d2f64"
+    },
+    {
+      "source": "explore/commands/008-read/request.json",
+      "copy": "work/phase-context/explore/commands/008-read/request.json",
+      "sha256": "fbbc946757e72b94743c7cd76c5d99713c91ed0113dc5484a808ca34e40d6a57"
+    },
+    {
+      "source": "explore/commands/008-read/result.json",
+      "copy": "work/phase-context/explore/commands/008-read/result.json",
+      "sha256": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0"
+    },
+    {
+      "source": "explore/commands/009-read/output.log",
+      "copy": "work/phase-context/explore/commands/009-read/output.log",
+      "sha256": "e09ab904b37c9f21115c43cfe10bc91e06fea8f88eb61f05633895888f2cc0fd"
+    },
+    {
+      "source": "explore/commands/009-read/request.json",
+      "copy": "work/phase-context/explore/commands/009-read/request.json",
+      "sha256": "c2a99ec35b538820d759aaec6a5bc32f513548dfb387e128b9fed39df95e4142"
+    },
+    {
+      "source": "explore/commands/009-read/result.json",
+      "copy": "work/phase-context/explore/commands/009-read/result.json",
+      "sha256": "d67659d29dad50e65ac903e33dc7ef4a692331d96253553956300d1fcfa5786a"
+    },
+    {
+      "source": "explore/commands/010-read/output.log",
+      "copy": "work/phase-context/explore/commands/010-read/output.log",
+      "sha256": "8dabe64430dd3e496b2bd9d6453808f18a74c36e5b38f1ff6fecff57bf25d11b"
+    },
+    {
+      "source": "explore/commands/010-read/request.json",
+      "copy": "work/phase-context/explore/commands/010-read/request.json",
+      "sha256": "e29baff83419658bbdd50e2283090c9bcdccf13157ec5c89fd4e2511fb5477b8"
+    },
+    {
+      "source": "explore/commands/010-read/result.json",
+      "copy": "work/phase-context/explore/commands/010-read/result.json",
+      "sha256": "d67659d29dad50e65ac903e33dc7ef4a692331d96253553956300d1fcfa5786a"
+    },
+    {
+      "source": "explore/commands/011-deliver_stage/request.json",
+      "copy": "work/phase-context/explore/commands/011-deliver_stage/request.json",
+      "sha256": "c0e7dd190778e0c3b18b9e941d5f663a7a63a01de930258f4e300a765874174b"
+    },
+    {
+      "source": "explore/commands/011-deliver_stage/result.json",
+      "copy": "work/phase-context/explore/commands/011-deliver_stage/result.json",
+      "sha256": "01570f0a8a48e48321e2e60514d8cda7b5142196a2d5565030f21130e41735e1"
+    }
+  ],
+  "original_probe_materializations": [],
+  "host_did_not_edit_probe_code": true,
+  "chain_of_thought_excluded": true
+}

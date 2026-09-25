@@ -1,0 +1,52 @@
+```json
+{
+  "claims_examined": [
+    {
+      "claim": "C3: _data_checks enforces clone-vs-baseline bidirectional zero-diff for other stocks (fact_stock_daily), target outside-window rows, retained in-window rows (full columns incl updated_at), and the two hithink source tables read entirely from the immutable production baseline (prod. schema), so oracle inputs are independent of the clone result",
+      "state": "verified",
+      "evidence": "candidate/scripts/verify_302132_backfill_acceptance.py::_data_checks lines ~502-540: xa() builds fwd/rev EXCEPT ALL counts against prod.{table}; checks fact_other_stocks_allcols, retained_rows_full_column_identical (SELECT * equality plus expected_total_rows - |write_keys| count), target_outside_window_allcols, hithink_source_untouched, hithink_adjustment_untouched; oracle reads use prod.fact_stock_daily_hithink and prod.fact_market_daily"
+    },
+    {
+      "claim": "C3: authorized keyset full-field oracle recomputes values from baseline hithink source plus frozen parquet and validates window/technical protected slices, golden triples, pinned values, and market_daily immutability; any data-check exception is captured as a structured FAIL (rc=2) and data checks are skipped when preflight/args/receipt schema fail (fail-closed)",
+      "state": "verified",
+      "evidence": "keyset_fullfield_oracle compares fact_stock_daily rows for write_keys (gap_parallel|gap_parquet|shell_date) against src built from prod. + read_parquet('{pq}'); technical_protected_allcols/window_protected_allcols use xa(); window_golden_triples, expected_window_counts_match_golden, technical_exact_set (cal64[25:]), pinned_technical_target_day, pinned_windows_target_day, market_daily_untouched; main() wraps _data_checks in try/except -> check('data_checks_error', False, ...) and emits data_checks_executed=False when spec_ok is False; rc 0 only on PASS"
+    },
+    {
+      "claim": "inputs/claims.md and inputs/source-map.md exist under quality/work/inputs/ as stated stage inputs",
+      "state": "not_verified",
+      "evidence": "reads of /Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-09/quality/work/inputs/claims.md and source-map.md both raised FileNotFoundError; bash listing prohibited in this stage so no alternative location could be confirmed"
+    }
+  ],
+  "limits": [
+    "inputs/claims.md and inputs/source-map.md were not found at the given paths; claims examined were reconstructed from the task brief and the candidate source itself",
+    "No bash, no test execution, no file writes, no new assertions in this stage (per contract); one incidental partial read of probes/test_seeded_c3.py header (50 lines) occurred while locating missing inputs - it was not used to form any explore claim and its contents remain execute-stage evidence",
+    "Production-shaped 64/39/161 counts and duplicate-case clone-only PK removal disclosures remain a separate limitation unless directly observed in execute",
+    "No production, network, or vendor access; synthetic DuckDB only in execute stage"
+  ],
+  "next_stage_commands": [
+    {
+      "command": "OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 /Users/a77/finance-workspace-private/.venv-workbench/bin/python -B /Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-09/quality/work/positive_control.py",
+      "purpose": "mandatory first bash call in execute; must exit 1 with intentional probe_bug text"
+    },
+    {
+      "command": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python -B /Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-09/quality/work/probes/test_seeded_c3.py",
+      "purpose": "seven prior C3 assertions with receipt-path/OTHER-date fixture repair, using actual external acceptance entry"
+    },
+    {
+      "command": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python -B /Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-09/quality/work/probes/test_earlier_fixture_adapter.py",
+      "purpose": "three prior new assertions with host-only pre-window-row fixture repair added to both baseline and clone"
+    }
+  ],
+  "no_tests_ran": true,
+  "probe_files": [
+    "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-09/quality/work/probes/test_seeded_c3.py",
+    "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-09/quality/work/probes/test_earlier_fixture_adapter.py"
+  ],
+  "probe_provenance": "Both suites are supplied prior-reviewer assertions plus host fixture repairs (receipt-path rebind and a real pre-window row added to both baseline and clone with receipt hashes rebound), not prior verdicts; they invoke the actual external acceptance entry scripts/verify_302132_backfill_acceptance.py, not only a helper. They must be executed fresh in the execute stage with provenance recorded. Neither probe file was intentionally read in this explore stage.",
+  "complete": true,
+  "stage": "explore",
+  "axis": "quality",
+  "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+  "baseline": "4cc15e703f81bce8abadee00f68caacdb0c72b4d"
+}
+```

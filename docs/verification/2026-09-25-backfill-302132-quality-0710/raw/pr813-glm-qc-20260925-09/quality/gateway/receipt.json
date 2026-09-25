@@ -1,0 +1,55 @@
+{
+  "status": "PASS",
+  "requests": 4,
+  "pi_requests": 3,
+  "tiny_requests": 1,
+  "exit_code": 0,
+  "timed_out": false,
+  "protocol_state": {
+    "phase": "complete",
+    "requests": 3,
+    "history": [
+      {
+        "event": "start",
+        "phase": "read",
+        "request": 0
+      },
+      {
+        "event": "request",
+        "phase": "read",
+        "request": 1
+      },
+      {
+        "event": "tool_result",
+        "phase": "write",
+        "request": 1
+      },
+      {
+        "event": "request",
+        "phase": "write",
+        "request": 2
+      },
+      {
+        "event": "tool_result",
+        "phase": "final",
+        "request": 2
+      },
+      {
+        "event": "request",
+        "phase": "final",
+        "request": 3
+      },
+      {
+        "event": "complete",
+        "phase": "complete",
+        "request": 3
+      }
+    ]
+  },
+  "failed_stop_reasons": [],
+  "tool_executions": 2,
+  "sentinel_returned": true,
+  "written_copy_matches": true,
+  "elapsed_seconds": 14.429949125042185,
+  "purpose": "gateway preflight only, not QC"
+}

@@ -1,0 +1,107 @@
+"""Archive fresh bounded quality batches 07-10 without product worktrees or secrets."""
+import base64
+from datetime import datetime, timezone
+import hashlib
+import json
+from pathlib import Path
+import re
+
+DOCS = Path('/Users/a77/fwp-wt-backfill-302132-0923')
+DEST = DOCS / 'docs/verification/2026-09-25-backfill-302132-quality-0710'
+ROOTS = [Path('/Users/a77/.finance-runtime/reviews') / f'pr813-glm-qc-20260925-{n:02d}' for n in (7, 8, 9, 10)]
+REV = '3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59'
+BASE = '4cc15e703f81bce8abadee00f68caacdb0c72b4d'
+ALLOWED = {'.py', '.mjs', '.sb', '.json', '.jsonl', '.md', '.log', '.xml', '.txt'}
+SKIP_NAMES = {'credential.json', 'auth.json', 'models-store.json'}
+
+def sha(raw):
+    return hashlib.sha256(raw).hexdigest()
+
+def save(path, value):
+    path.write_text(json.dumps(value, ensure_ascii=False, indent=2) + '\n')
+
+assert not DEST.exists()
+entries = []
+for root in ROOTS:
+    assert root.is_dir(), root
+    for path in sorted(root.rglob('*')):
+        rel = path.relative_to(root)
+        if path.is_symlink() or not path.is_file():
+            continue
+        if rel.parts[0] in {'candidate', '__pycache__'} or any(part in {'tmp', 'users', '.pytest_cache'} for part in rel.parts):
+            continue
+        if path.name in SKIP_NAMES or path.suffix.lower() in {'.duckdb', '.db', '.sqlite', '.sqlite3'}:
+            continue
+        if path.suffix.lower() not in ALLOWED:
+            continue
+        raw = path.read_bytes()
+        assert not re.search(rb'eyJ[A-Za-z0-9_-]{15,}\.[A-Za-z0-9_-]{15,}\.[A-Za-z0-9_-]{15,}', raw), str(path)
+        encoded = path.suffix.lower() in {'.log', '.xml', '.jsonl'} or bool(re.search(rb'[ \t]+\r?\n|\n\n\Z', raw))
+        archive_rel = Path('raw') / root.name / rel
+        stored = base64.encodebytes(raw) if encoded else raw
+        if encoded:
+            archive_rel = archive_rel.with_name(archive_rel.name + '.b64')
+        elif path.suffix.lower() in {'.py', '.mjs', '.sb'}:
+            archive_rel = archive_rel.with_name(archive_rel.name + '.txt')
+        target = DEST / archive_rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(stored)
+        entries.append({'source_root': str(root), 'source': str(rel), 'archive': str(archive_rel),
+                        'encoding': 'base64' if encoded else 'identity', 'bytes': len(raw),
+                        'sha256': sha(raw), 'archive_sha256': sha(stored)})
+
+manifest = {'schema': 'lossless-qc-archive/v1', 'revision': REV, 'baseline': BASE,
+            'batches': ['07', '08', '09', '10'], 'verified_files': len(entries), 'entries': entries,
+            'excluded': ['candidate worktrees', 'credentials/auth stores', 'temporary databases/users/caches', 'symlinks']}
+save(DEST / 'manifest.json', manifest)
+for entry in entries:
+    stored = (DEST / entry['archive']).read_bytes()
+    raw = base64.b64decode(stored) if entry['encoding'] == 'base64' else stored
+    assert sha(stored) == entry['archive_sha256'] and sha(raw) == entry['sha256'] and len(raw) == entry['bytes']
+
+configs = {root.name: json.loads((root / 'quality/config.json').read_text()) for root in ROOTS}
+summary = {
+    'status': 'SPEC_SCOPED_DELIVERED_QUALITY_PASS_WITH_LIMITS_C3_NOT_VERIFIED',
+    'revision': REV, 'baseline': BASE,
+    'observed_main': {key[-2:]: value['observed_main'] for key, value in configs.items()},
+    'candidate_unchanged': True,
+    'requests': {
+        '07': {'gateway': 4, 'explore': 8, 'execute': 0, 'report': 0, 'total': 12, 'status': 'EXPLORE_NO_DELIVERY'},
+        '08': {'gateway': 4, 'explore': 7, 'execute': 10, 'report': 0, 'total': 21, 'status': 'EXECUTE_COLLECTION_ERROR_NO_DELIVERY'},
+        '09': {'gateway': 4, 'explore': 5, 'execute': 12, 'report': 0, 'total': 21, 'status': 'EXECUTE_STALE_PATH_COLLECTION_ERROR_NO_DELIVERY'},
+        '10': {'gateway': 4, 'explore': 3, 'execute': 7, 'report': 1, 'total': 15, 'status': 'QUALITY_PASS_WITH_LIMITS'},
+    },
+    'total_requests': 69,
+    'quality_evidence': {
+        'batch': '10', 'verdict': 'PASS_WITH_LIMITS', 'reviewer_probe_counts': {'executed': 10, 'passed': 10, 'failed': 0, 'errors': 0, 'skipped': 0},
+        'supplied_probe_files': 2, 'supplied_cases': 10, 'author_tests': 0,
+        'positive_control': '10 execute/001-bash exit 1 with intentional probe_bug',
+        'c3_production_shape_counts': 'not_verified',
+        'host_evidence_audit': 'EVIDENCE_COUNTS_VALID',
+    },
+    'rejections': [
+        '07 explore reached request cap without structured delivery',
+        '08 supplied fixture dependency files were missing in the host preparation and pytest collection failed',
+        '09 supplied probes retained stale /06 absolute candidate paths and pytest collection failed',
+    ],
+    'merge_authorized': False, 'production_authorized': False,
+    'sealed_at': datetime.now(timezone.utc).isoformat(), 'archive_files': len(entries),
+    'archive_bytes': sum(entry['bytes'] for entry in entries),
+    'manifest_sha256': sha((DEST / 'manifest.json').read_bytes()), 'destination': str(DEST),
+}
+save(DEST / 'summary.json', summary)
+readme = f'''# #83 / PR #813 Quality batches 07-10
+
+状态 **{summary['status']}**。固定候选 `{REV}` / base `{BASE}`；本归档不构成合入或生产批准。
+
+- 07：gateway 4、explore 8；模型读取 `_data_checks` 后耗尽 explore 配额，未形成交付。原始请求、响应和 controller stop 已保留。
+- 08：gateway 4、explore 7、execute 10；首 bash 合同被执行，但 supplied test 入口缺少同目录 fixture 依赖，collection error，未交付。
+- 09：gateway 4、explore 5、execute 12；首 bash 合同通过，但 supplied probes 仍引用旧 `/06` candidate 路径，沙箱拒绝读取，collection error，未交付。
+- 10：gateway 4、explore 3、execute 7、report 1。宿主路径检查、离线预检和硬门测试通过；首 bash exit 1 且含 `intentional probe_bug`；两组 supplied probe 共 10/10 passed，author tests 0；唯一 report 通过最终 schema gate，verdict `PASS_WITH_LIMITS`。
+
+独立 Quality 结论只覆盖 C3 局部行为：外部 acceptance entry 的 10 个 synthetic supplied cases 均通过，C3 生产形 64/39/161 仍未直接观察，因此 C3 claim 为 `not_verified`。C1/C2/C4-C7 不在本批次范围；当前 main 组合未验收。
+
+原始源码、请求、响应、命令、XML、报告包、失败收据和 host audit 逐项保存，并按 manifest 做原字节校验；排除候选工作树、凭据/auth、临时 DB、用户目录、缓存和软链。
+'''
+(DEST / 'README.md').write_text(readme)
+print(json.dumps(summary, ensure_ascii=False))

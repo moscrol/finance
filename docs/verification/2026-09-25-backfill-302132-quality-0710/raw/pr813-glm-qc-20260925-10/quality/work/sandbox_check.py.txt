@@ -1,0 +1,31 @@
+import errno, os, socket, subprocess
+from pathlib import Path
+import intelligence.services.llm_refine
+p=Path("/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-10/quality/work/allowed.txt"); p.write_text('ok'); assert p.read_text()=='ok'
+for target in ["/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-10/candidate/docs/handoffs/2026-09-21-backfill-main-ready.md", '/Users/a77/.pi/agent/models.json', '/Users/a77/.finance-runtime/reviews/backfill-302132-0923/forward-02/tree/intelligence/services/llm_refine.py']:
+ try: Path(target).read_bytes()
+ except PermissionError: pass
+ else: raise AssertionError('forbidden read: '+target)
+for target in ["/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-10/candidate/sandbox-forbidden-write","/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-10/quality/sandbox-forbidden-write"]:
+ try: fd=os.open(target,os.O_WRONLY|os.O_CREAT,0o600)
+ except PermissionError: pass
+ else: os.close(fd); raise AssertionError('forbidden write')
+for host,port in [('127.0.0.1',18788),('127.0.0.1',54340),('127.0.0.1',19923),('127.0.0.1',8792),('192.0.2.1',443)]:
+ s=socket.socket(); s.settimeout(0.2)
+ try: s.connect((host,port))
+ except OSError as e: assert e.errno in (errno.EPERM,errno.EACCES),e
+ else: raise AssertionError('network allowed: '+str((host,port)))
+ finally: s.close()
+s=socket.socket(); s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+for port in range(26001,26009):
+ try: s.bind(('127.0.0.1',port)); break
+ except OSError as e:
+  if e.errno != errno.EADDRINUSE: raise
+else: raise AssertionError('all authorized fake-service ports unavailable')
+s.listen(1)
+c=socket.create_connection(s.getsockname(), timeout=1); peer,_=s.accept(); peer.close(); c.close(); s.close()
+try: subprocess.run(['/usr/bin/security','help'],capture_output=True,text=True,timeout=5)
+except PermissionError as e: assert e.errno in (errno.EPERM,errno.EACCES),e
+else: raise AssertionError('security executable allowed')
+assert not any('TOKEN' in k or 'API_KEY' in k for k in os.environ)
+print('sandbox boundaries, offline loopback and candidate import passed')

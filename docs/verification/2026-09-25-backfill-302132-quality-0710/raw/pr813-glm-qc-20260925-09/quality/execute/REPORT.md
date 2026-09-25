@@ -1,0 +1,59 @@
+```json
+{
+  "author_test_counts": {
+    "author_tests_run": 0,
+    "failed": 0,
+    "passed": 0,
+    "suite": "none — author tests not run per contract"
+  },
+  "claims": [
+    {
+      "claim": "C3: candidate acceptance oracle scripts/verify_302132_backfill_acceptance.py::_data_checks correctly FAILs outside-window clone mutations and PASSes an unmutated baseline with outside-window rows (as asserted by the supplied probe suites)",
+      "state": "not_verified"
+    }
+  ],
+  "findings": [
+    {
+      "detail": "Both supplied suites hardcode CAND=/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-06/candidate (a prior review's directory). This session's sandbox denies reads outside the -09 review root (verified: ls of the -06 candidate returns 'Operation not permitted'), so module import of the author test fixture helper raises PermissionError at collection. 0 of 10 supplied test items executed.",
+      "severity": "info",
+      "title": "Supplied probes unexecutable: stale candidate path outside sandbox"
+    }
+  ],
+  "limits": [
+    "Supplied probe suites (test_seeded_c3.py: 7 cases; test_earlier_fixture_adapter.py: 3 cases) could not be executed; C3 remains unverified this session.",
+    "Reviewer probe counts contain collection errors; PASS/PASS_WITH_LIMITS delivery is blocked by contract.",
+    "The production-shaped 64/39/161 counts remain a separate unobserved limitation.",
+    "No author tests, production access, or candidate reads in this session; candidate code itself was not inspected during execute."
+  ],
+  "positive_control": {
+    "evidence": "execute/001-bash/request.json, result.json, output.log show the exact command, exit code 1, and 'intentional probe_bug control'",
+    "observed": true
+  },
+  "probe_provenance": "Supplied files test_seeded_c3.py (7 cases: prior C3 assertions amount/timestamp/delete/insert/duplicate/other_stock/baseline-pass, with host receipt-path and OTHER-date fixture repairs) and test_earlier_fixture_adapter.py (3 cases: prior earlier-than-window/null-column assertions plus a host-only pre-window-row fixture repair rebinding receipt hashes to both baseline and clone). Per instructions these are prior reviewer assertions plus host fixture repairs, executed fresh this session; both use the external acceptance entry point scripts/verify_302132_backfill_acceptance.py, not only a helper. Syntax-checked via py_compile (clean). Not modified.",
+  "reviewer_probe_counts": {
+    "errors": 2,
+    "failed": 0,
+    "passed": 0,
+    "source": "probe-results-supplied.xml plus raw pytest output (exit 2, 2 collection errors, 0 tests run)"
+  },
+  "supplied_probe_counts": {
+    "collected_and_run": 0,
+    "collection_errors": 2,
+    "expected_cases": 10
+  },
+  "supplied_probe_results": {
+    "basetemp": ".../quality/work/tmp/supplied",
+    "exit_code": 2,
+    "junitxml": ".../quality/work/probe-results-supplied.xml",
+    "outcome": "2 collection errors, 0 tests run",
+    "reason": "PermissionError reading /Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-06/candidate/tests/test_repair_backfill_stock_history.py — hardcoded stale candidate path outside this session's sandbox",
+    "syntax_check": "py_compile clean on both supplied test files"
+  },
+  "supplied_xml": "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-09/quality/work/probe-results-supplied.xml",
+  "complete": true,
+  "stage": "execute",
+  "axis": "quality",
+  "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+  "baseline": "4cc15e703f81bce8abadee00f68caacdb0c72b4d"
+}
+```

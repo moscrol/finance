@@ -1,0 +1,155 @@
+{
+  "stage": "explore",
+  "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+  "baseline": "4cc15e703f81bce8abadee00f68caacdb0c72b4d",
+  "started_at": "2026-09-25T01:53:21.520580+00:00",
+  "complete": true,
+  "candidate_before": {
+    "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+    "status": ""
+  },
+  "author_before": {
+    "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+    "status": ""
+  },
+  "inputs_sha256": {
+    "config.json": "62a561adb008ad9c2294366be6f8b685eb87a35a68d0a1e3ee357281f1a88b04",
+    "review.mjs": "fa8524eccde0c1c06418849c03d3de2e4b060c6b46a4d36f5c3fc5efc7801aba",
+    "pi_review_protocol.mjs": "657e40bf2d8f8825a5345210876ac69417aed0cac857a2f899ec96280fa641d5",
+    "tools.sb": "eef1e44f23c2168216bac137d5a15b4a84342daea63a5dc1eea2880a94c66840",
+    "file_tool.py": "79125feff76d98407e3bf1d36cfa56c0086863bc0591afa499f3580a6dcf8972",
+    "provider-template.json": "8130824c44d453e1ba75aa396dd08e57761e8657cbdd0615f6bc3fa1a6261a66",
+    "pi-config/settings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+    "prompt-explore.md": "7f084b4b8036d7185f88c2b7abb91a6ce9dec0b310c90016bdacf32a9a59ef56"
+  },
+  "timeout_seconds": 600,
+  "max_requests": 10,
+  "automatic_retries": 0,
+  "command": [
+    "/opt/homebrew/bin/pi",
+    "--provider",
+    "glm-direct-review",
+    "--model",
+    "glm-5.3",
+    "--thinking",
+    "low",
+    "--models",
+    "glm-direct-review/glm-5.3",
+    "--no-session",
+    "--no-extensions",
+    "-e",
+    "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-09/quality/review.mjs",
+    "--no-skills",
+    "--no-prompt-templates",
+    "--no-context-files",
+    "--no-themes",
+    "--no-approve",
+    "--offline",
+    "--tools",
+    "read,write,deliver_stage",
+    "--mode",
+    "json",
+    "-p",
+    "--",
+    "<stage prompt>"
+  ],
+  "pid": 32929,
+  "probe_sha256": {
+    "work/probes/check_seed_syntax.py": "6f384ab2ff6d7b2cff406debfe18520da3f507e6f4c91db8ef28070eb7e31502",
+    "work/probes/probe_c3_acceptance_v2.py": "c87f37a4451678fe96cfc92353fe581ebe686035becb178d2df5e101bdebc572",
+    "work/probes/test_earlier_fixture_adapter.py": "37807e0b2d5a3aba69112e677edd06769a48c66a8aa50339cbfff90f436d3c2c",
+    "work/probes/test_new_c3_v1.py": "38613b568d3bfd90610e899970f920a24e4c180621052c2eece6c5f3da2ef22a",
+    "work/probes/test_seeded_c3.py": "155d751f1b37f58bef1503bbc6d2234f57fb9e85efc5dbd9144a478ebf7bb16a"
+  },
+  "status": "STAGE_COMPLETE",
+  "exit_code": 0,
+  "elapsed_seconds": 29.923,
+  "timed_out": false,
+  "requests": 5,
+  "responses": [
+    {
+      "admission": 1,
+      "status": 200
+    },
+    {
+      "admission": 2,
+      "status": 200
+    },
+    {
+      "admission": 3,
+      "status": 200
+    },
+    {
+      "admission": 4,
+      "status": 200
+    },
+    {
+      "admission": 5,
+      "status": 200
+    }
+  ],
+  "errors": [],
+  "candidate_after": {
+    "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+    "status": ""
+  },
+  "author_after": {
+    "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+    "status": ""
+  },
+  "inputs_unchanged": true,
+  "event_counts": {
+    "session": 1,
+    "agent_start": 1,
+    "turn_start": 5,
+    "message_start": 12,
+    "message_end": 12,
+    "message_update": 251,
+    "tool_execution_start": 6,
+    "tool_execution_end": 6,
+    "turn_end": 5,
+    "agent_end": 1,
+    "agent_settled": 1
+  },
+  "report_structural": true,
+  "model_identities": [
+    "glm-direct-review/glm-5.3"
+  ],
+  "usage": {
+    "input": 12038,
+    "output": 1568,
+    "cacheRead": 16064,
+    "cacheWrite": 0,
+    "totalTokens": 29670
+  },
+  "artifact_sha256": {
+    "tool-menu.json": "39e3504cd80b631965aac6d417704ccb6173983bdf4cb96f58abb1f9208b5461",
+    "payload-shapes.jsonl": "db1ad099eba2aba51e5b9808718f40f321d6c9d577ba88ac71df1eac87275d87",
+    "stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "parsed.json": "912f50cd05ddad192a7f1f1bd0bce62f4492c67484c486b8af48220a7c768c8c",
+    "REPORT.md": "2b84be352b5cad2166627780b88afbca3e9743ca0dcdc975285c6016528d389a",
+    "auth-reserved.json": "89d3a977d27d8a5032bbf88f303e090c5d2b24e52f34c59a7f97a56857472e04",
+    "credential.json": "5d6c5124a4f085ec1705fb08673d36708781e166f1e4939b110c6be57ff5c3c8",
+    "request-admissions.jsonl": "d2bdbcde6c4a6bb87b0b86bc71a2bf292e5a909279febbc0709339b70c8306b7",
+    "responses.jsonl": "2f023a4b8de62ff4ca3582121fdb28e7d98c51ec7e483d5dcd9751920d2eb949",
+    "events.jsonl": "49709df7efbd529999ebb83d99ec2e3158362e32ad7863d32656df720ae1728f",
+    "submission.json": "912f50cd05ddad192a7f1f1bd0bce62f4492c67484c486b8af48220a7c768c8c",
+    "commands/005-read/request.json": "f2e6bf602769600decf52c600d0f1196d850ff7d2243c6b790cb9d377211c48d",
+    "commands/005-read/result.json": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "commands/005-read/output.log": "e38308834a314d452f953f0acc5f6f60c6a75001846799d550fdcd79147d2f64",
+    "commands/006-deliver_stage/request.json": "29a859a551ebb1de0c63d44516c9a7863ffd4e5c0706ade53d094f0b144078b1",
+    "commands/006-deliver_stage/result.json": "01570f0a8a48e48321e2e60514d8cda7b5142196a2d5565030f21130e41735e1",
+    "commands/004-read/request.json": "d2c5eb0386652d82cc709985314b1d8f2c34d5233b759856f8ba7e567d785cb8",
+    "commands/004-read/result.json": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "commands/004-read/output.log": "9015175e1cda512034fef80537ac8fb4106d472d751fec069aa214398b20b131",
+    "commands/003-read/request.json": "131e3e960d54f6690190b03682d71aabad0a0e3aa5acd7859563e99cc3c62b4a",
+    "commands/003-read/result.json": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "commands/003-read/output.log": "155d751f1b37f58bef1503bbc6d2234f57fb9e85efc5dbd9144a478ebf7bb16a",
+    "commands/002-read/request.json": "66609c07ad832ff33aa3dff34f779ad85f916b88c9250acd299ca803539090cc",
+    "commands/002-read/result.json": "d67659d29dad50e65ac903e33dc7ef4a692331d96253553956300d1fcfa5786a",
+    "commands/002-read/output.log": "dd112493136d6834b482267b96ea01dc8aa4258b5e977d0c21433b82a91c3817",
+    "commands/001-read/request.json": "6835a5e778122e732ce4b8a326b48948ebbddd70d41e48816a59419ecabe0c2c",
+    "commands/001-read/result.json": "d67659d29dad50e65ac903e33dc7ef4a692331d96253553956300d1fcfa5786a",
+    "commands/001-read/output.log": "4080091fffddb2d9024707b74d9aef463cfce5c35efc46bdeb7423a02f0a26b7"
+  }
+}

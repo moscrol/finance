@@ -1,0 +1,27 @@
+{
+  "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+  "baseline": "4cc15e703f81bce8abadee00f68caacdb0c72b4d",
+  "observed_main": "fe9fdbfd70a637efc5bcf0cfecf74080a8d6a90c",
+  "axis": "quality",
+  "claims": [
+    "C3"
+  ],
+  "provider": "glm-direct-review/glm-5.3",
+  "request_cap": 25,
+  "stage_caps": {
+    "gateway": 4,
+    "explore": 10,
+    "execute": 10,
+    "report": 1
+  },
+  "private_route_port": 19923,
+  "automatic_retries": 0,
+  "merge_authorized": false,
+  "production_authorized": false,
+  "hard_gates": [
+    "first execute bash exact positive control",
+    "report raw control receipt",
+    "final required fields",
+    "no pass with failed reviewer cases"
+  ]
+}

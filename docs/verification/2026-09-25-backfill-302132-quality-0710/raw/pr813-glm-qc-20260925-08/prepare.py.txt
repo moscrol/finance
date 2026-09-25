@@ -1,0 +1,85 @@
+"""Prepare a fresh C3-only batch with controller-enforced order and report gates."""
+from datetime import datetime, timezone
+import hashlib
+import json
+from pathlib import Path
+import shutil
+import socket
+import subprocess
+
+ROOT = Path(__file__).resolve().parent
+OLD = ROOT.parent / 'pr813-glm-qc-20260925-07'
+CAND = ROOT / 'candidate'
+Q = ROOT / 'quality'
+AUTHOR = ROOT.parent / 'backfill-302132-0923/forward-02/tree'
+PY = '/Users/a77/finance-workspace-private/.venv-workbench/bin/python'
+REV = '3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59'
+PORT = 19923
+with socket.socket() as sock:
+    sock.bind(('127.0.0.1', PORT))
+assert not CAND.exists() and not (ROOT / 'report.json').exists()
+assert subprocess.check_output(['git', '-C', str(AUTHOR), 'rev-parse', 'HEAD'], text=True).strip() == REV
+assert not subprocess.check_output(['git', '-C', str(AUTHOR), 'status', '--porcelain'], text=True).strip()
+subprocess.run(['git', '-C', str(AUTHOR), 'worktree', 'add', '--detach', str(CAND), REV], check=True)
+for folder in ('work/probes', 'work/tmp', 'work/users', 'pi-config', 'inputs'):
+    (Q / folder).mkdir(parents=True)
+shutil.copytree(OLD / 'quality/sandbox-preflight-06', Q / 'sandbox-preflight-06')
+
+def copy(source, target, remap=True):
+    raw = source.read_bytes()
+    text = raw.decode()
+    if remap:
+        text = text.replace(str(OLD), str(ROOT)).replace('19917', str(PORT))
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(text)
+    return {'source': str(source), 'destination': str(target.relative_to(ROOT)),
+            'source_sha256': hashlib.sha256(raw).hexdigest(), 'sha256': hashlib.sha256(target.read_bytes()).hexdigest()}
+
+records = []
+for name in ('glm_credential.py', 'glm_review_shim.py', 'bridge_stage.py', 'report_packet.py', 'audit_axis.py', 'test_audit_axis.py'):
+    records.append(copy(OLD / name, ROOT / name))
+for name in ('review.mjs', 'pi_review_protocol.mjs', 'gateway.mjs', 'file_tool.py', 'provider-template.json',
+             'run_control.py', 'run_stage.py', 'sandbox_preflight.mjs', 'tools.sb', 'config.json',
+             'inputs/claims.md', 'inputs/source-map.md'):
+    records.append(copy(OLD / 'quality' / name, Q / name))
+for name in ('auth.json', 'models-store.json', 'settings.json'):
+    (Q / 'pi-config' / name).write_text('{}\n')
+for name in ('test_seeded_c3.py', 'test_earlier_fixture_adapter.py'):
+    records.append(copy(OLD / 'quality/work/probes' / name, Q / 'work/probes' / name))
+(Q / 'work/probes/check_seed_syntax.py').write_text('import ast\nfrom pathlib import Path\nfor path in sorted(Path(__file__).parent.glob("*.py")):\n    if path.name != "check_seed_syntax.py":\n        ast.parse(path.read_text())\nprint("seed syntax ok")\n')
+for path in sorted((Q / 'work/probes').glob('*.py')):
+    ast = __import__('ast')
+    ast.parse(path.read_text())
+config = json.loads((Q / 'config.json').read_text())
+docs = Path('/Users/a77/fwp-wt-backfill-302132-0923')
+main = dict(line.split()[::-1] for line in subprocess.check_output(['git', '-C', str(docs), 'ls-remote', 'gitea', 'refs/heads/main']).decode().splitlines())['refs/heads/main']
+config.update(tree=str(CAND), author=str(AUTHOR), axis='quality', revision=REV, private_route_port=PORT,
+              request_cap=25, request_caps={'gateway': 4, 'explore': 10, 'execute': 10, 'report': 1},
+              stage_caps={'gateway': 4, 'explore': 10, 'execute': 10, 'report': 1}, observed_main=main)
+(Q / 'config.json').write_text(json.dumps(config, ensure_ascii=False, indent=2) + '\n')
+common = f'''Independent bounded Quality review of PR #813, only C3. Candidate {CAND}, revision {REV}, baseline {config['baseline']}. Current main at prepare is {main} and is not integrated.
+
+Only writable root {Q}/work; Python {PY}. Synthetic DuckDB only inside work. No git/network/live vendors/credentials/production DB/deployments/candidate writes. Read precise candidate scripts/verify_302132_backfill_acceptance.py::_data_checks and supplied probes. The supplied probes are prior reviewer assertions plus host fixture repairs, not prior verdicts; execute them in this fresh session and keep provenance explicit. Do not modify supplied files. Do not run author tests; importing a fixture helper is not an author test.
+
+Supplied files to execute:
+- {Q}/work/probes/test_seeded_c3.py: seven cases, prior C3 assertions with receipt-path/OTHER-date fixture repair.
+- {Q}/work/probes/test_earlier_fixture_adapter.py: three cases, prior new assertions with a host-only fixture repair that adds a real pre-window row to both baseline and clone and rebinds receipt hashes. This is supplied evidence, not new authoring.
+Both suites use the actual external acceptance entry, not only a helper. Duplicate cases disclose clone-only PK removal. The production-shaped 64/39/161 counts remain a separate limitation unless directly observed.
+
+Hard controller contracts, enforced outside the model:
+1. In execute, the FIRST bash tool call must be exactly: OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 {PY} -B {Q}/work/positive_control.py. Reads before this are allowed; any other first bash is blocked and terminates the stage.
+2. The report delivery gate reads execute/001-bash/request.json, result.json and output.log. A claimed positive control is invalid unless those raw files show this exact command, exit code 1, and the intentional probe_bug text.
+3. A report must contain reviewer_probe_counts, author_test_counts, positive_control, claims, findings, limits, supplied_probe_counts, supplied_xml and probe_provenance. Legal claim states only verified/not_verified/out_of_scope. If reviewer counts contain failed or errors, PASS/PASS_WITH_LIMITS delivery is blocked.
+
+No production access, merge, deployment or approval is requested. Limits: gateway4, explore10, execute10, report1; each stage600s, request120s; no automatic retries. Call deliver_stage exactly once, alone, with {{"result": OBJECT}}; ordinary JSON text is not delivery. Omit stage/axis/revision/baseline/complete; controller adds identity.
+'''
+(Q / 'prompt-explore.md').write_text(common + f'''\nExplore only. Read inputs/claims.md, inputs/source-map.md, and the candidate's precise _data_checks implementation. Do not read either supplied probe file in this stage; their paths and provenance above are already fixed inputs for execute. Do not execute bash, do not write files, and do not create new assertions. After those three reads, call deliver_stage immediately with probe_files listing the two supplied paths, provenance, claims_examined, limits, and next_stage_commands. State that no tests ran.\n''')
+(Q / 'prompt-execute.md').write_text(common + f'''\nExecute: read the immutable explore context if useful. First bash contract is controller-enforced; send the exact positive_control command above as your first bash. Then syntax-check supplied files with ast.parse, and run one pytest command containing both supplied files with a fresh XML path {Q}/work/probe-results-supplied.xml and basetemp {Q}/work/tmp/supplied. No new tests or author tests are needed in this batch. Preserve raw logs and XML. Write EXECUTE.md and deliver with supplied_probe_results, reviewer_probe_counts matching the observed XML, author_test_counts all zero, positive_control observed, provenance, findings and limits.\n''')
+(Q / 'prompt-report.md').write_text(common + '''\nReport only: read immutable packet and call deliver_stage immediately. Do not output ordinary JSON. The controller validates the positive-control raw evidence and final schema. Since this batch's supplied suites should be counted as reviewer-executed evidence, report their actual combined XML counts as reviewer_probe_counts; use supplied_probe_counts only if you provide a separate breakdown, and name the XML path. Keep C3 not_verified if production-shaped numeric counts remain untested; PASS_WITH_LIMITS is allowed only when all observed reviewer cases pass. C1/C2/C4-C7 out_of_scope.\n''')
+plan = {'revision': REV, 'baseline': config['baseline'], 'observed_main': main, 'axis': 'quality', 'claims': ['C3'],
+        'provider': 'glm-direct-review/glm-5.3', 'request_cap': 25, 'stage_caps': config['stage_caps'],
+        'private_route_port': PORT, 'automatic_retries': 0, 'merge_authorized': False, 'production_authorized': False,
+        'hard_gates': ['first execute bash exact positive control', 'report raw control receipt', 'final required fields', 'no pass with failed reviewer cases']}
+(ROOT / 'plan.json').write_text(json.dumps(plan, ensure_ascii=False, indent=2) + '\n')
+(ROOT / 'prepare-manifest.json').write_text(json.dumps({'files': records, 'supplied_probe_sources': {str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted((Q / 'work/probes').glob('*.py'))}, 'controller_api_changes': 'review.mjs hard gates are applied in this fresh batch only', 'source_batch': 'pr813-glm-qc-20260925-06', 'source_receipts_not_reused': True}, ensure_ascii=False, indent=2) + '\n')
+print(json.dumps(plan, ensure_ascii=False))

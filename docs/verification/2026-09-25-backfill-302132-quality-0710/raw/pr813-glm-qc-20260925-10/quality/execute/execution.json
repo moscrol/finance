@@ -1,0 +1,161 @@
+{
+  "stage": "execute",
+  "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+  "baseline": "4cc15e703f81bce8abadee00f68caacdb0c72b4d",
+  "started_at": "2026-09-25T01:58:38.023981+00:00",
+  "complete": true,
+  "candidate_before": {
+    "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+    "status": ""
+  },
+  "author_before": {
+    "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+    "status": ""
+  },
+  "inputs_sha256": {
+    "config.json": "4fc2d8843c4a0f79f17abec47377eb2d3d13d803d9707c02ac79df0085818c86",
+    "review.mjs": "fa8524eccde0c1c06418849c03d3de2e4b060c6b46a4d36f5c3fc5efc7801aba",
+    "pi_review_protocol.mjs": "657e40bf2d8f8825a5345210876ac69417aed0cac857a2f899ec96280fa641d5",
+    "tools.sb": "656a63e06c05aa42748ee862f313b4248321908de57aada873950a58a9d5c33c",
+    "file_tool.py": "79125feff76d98407e3bf1d36cfa56c0086863bc0591afa499f3580a6dcf8972",
+    "provider-template.json": "8130824c44d453e1ba75aa396dd08e57761e8657cbdd0615f6bc3fa1a6261a66",
+    "pi-config/settings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+    "prompt-execute.md": "eb536837103345ebfb081345b2db2b561085eaf851b2fb5484121392e65e2f07"
+  },
+  "timeout_seconds": 600,
+  "max_requests": 14,
+  "automatic_retries": 0,
+  "command": [
+    "/opt/homebrew/bin/pi",
+    "--provider",
+    "glm-direct-review",
+    "--model",
+    "glm-5.3",
+    "--thinking",
+    "low",
+    "--models",
+    "glm-direct-review/glm-5.3",
+    "--no-session",
+    "--no-extensions",
+    "-e",
+    "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-10/quality/review.mjs",
+    "--no-skills",
+    "--no-prompt-templates",
+    "--no-context-files",
+    "--no-themes",
+    "--no-approve",
+    "--offline",
+    "--tools",
+    "read,write,bash,deliver_stage",
+    "--mode",
+    "json",
+    "-p",
+    "--",
+    "<stage prompt>"
+  ],
+  "pid": 44416,
+  "probe_sha256": {
+    "work/probes/check_seed_syntax.py": "6f384ab2ff6d7b2cff406debfe18520da3f507e6f4c91db8ef28070eb7e31502",
+    "work/probes/probe_c3_acceptance_v2.py": "f570dfb9b8d5cdc4520bc63e0e076b118b79a05431d9795a31b66e3f28de35ef",
+    "work/probes/test_earlier_fixture_adapter.py": "37807e0b2d5a3aba69112e677edd06769a48c66a8aa50339cbfff90f436d3c2c",
+    "work/probes/test_new_c3_v1.py": "7347552f61a5cb1856e26a24b143084fd7eeefcc93a81f05f6a38da2197d17fd",
+    "work/probes/test_seeded_c3.py": "155d751f1b37f58bef1503bbc6d2234f57fb9e85efc5dbd9144a478ebf7bb16a"
+  },
+  "status": "STAGE_COMPLETE",
+  "exit_code": 0,
+  "elapsed_seconds": 56.436,
+  "timed_out": false,
+  "requests": 7,
+  "responses": [
+    {
+      "admission": 1,
+      "status": 200
+    },
+    {
+      "admission": 2,
+      "status": 200
+    },
+    {
+      "admission": 3,
+      "status": 200
+    },
+    {
+      "admission": 4,
+      "status": 200
+    },
+    {
+      "admission": 5,
+      "status": 200
+    },
+    {
+      "admission": 6,
+      "status": 200
+    },
+    {
+      "admission": 7,
+      "status": 200
+    }
+  ],
+  "errors": [],
+  "candidate_after": {
+    "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+    "status": ""
+  },
+  "author_after": {
+    "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+    "status": ""
+  },
+  "inputs_unchanged": true,
+  "event_counts": {
+    "session": 1,
+    "agent_start": 1,
+    "turn_start": 7,
+    "message_start": 15,
+    "message_end": 15,
+    "message_update": 21,
+    "tool_execution_start": 7,
+    "tool_execution_update": 27,
+    "tool_execution_end": 7,
+    "turn_end": 7,
+    "agent_end": 1,
+    "agent_settled": 1
+  },
+  "report_structural": true,
+  "model_identities": [
+    "glm-direct-review/glm-5.3"
+  ],
+  "usage": {
+    "input": 3015,
+    "output": 2067,
+    "cacheRead": 15936,
+    "cacheWrite": 0,
+    "totalTokens": 21018
+  },
+  "artifact_sha256": {
+    "tool-menu.json": "031219d7560595519047d75f96150dafbbf65dc463bd3f8c20d208242e95ad67",
+    "payload-shapes.jsonl": "4460fe027d0ceb0a780a05c812e6ab6e0143bca0b299a088b710302aa00d20f1",
+    "stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "parsed.json": "95e8fff48917a658dcda29350ce4c487bc417215e37bfd016acb93acc3365428",
+    "REPORT.md": "40adfab27e083eb39399f281420659835b922eb1af50b01a52d42dc95f8a094e",
+    "auth-reserved.json": "89d3a977d27d8a5032bbf88f303e090c5d2b24e52f34c59a7f97a56857472e04",
+    "credential.json": "5d6c5124a4f085ec1705fb08673d36708781e166f1e4939b110c6be57ff5c3c8",
+    "request-admissions.jsonl": "b81cb47689766003b3517d0b8e7beba42bffd7274cda930bf087904c88b39a88",
+    "responses.jsonl": "04303acf9b777e4d8229baecaf86544f4cdb3bad675a4d52653f9bba59556372",
+    "events.jsonl": "4644d7016778a5948fa49e2bb97c35a48872a207f29dc5e5ebe5b5245c13ead8",
+    "submission.json": "95e8fff48917a658dcda29350ce4c487bc417215e37bfd016acb93acc3365428",
+    "commands/005-deliver_stage/request.json": "cf723a987d5a78810193604fefbb1aa6b71247d61138a04a0aec259cc0619eb9",
+    "commands/005-deliver_stage/result.json": "01570f0a8a48e48321e2e60514d8cda7b5142196a2d5565030f21130e41735e1",
+    "commands/002-bash/request.json": "3e26ed28bf28418b6175add37e70a884243c021ec5b7ccb2d4bd4fdbd1d58789",
+    "commands/002-bash/result.json": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "commands/002-bash/output.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "commands/003-bash/request.json": "8dd5a1502e755bca5640a1dbfe3b2383ed924e2bc7064cea77a9b349fbd932e1",
+    "commands/003-bash/result.json": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "commands/003-bash/output.log": "23bf1916fdb92bd327c9919708afa3f7117dde5f166dd8d4c89d3ebbe1a2f146",
+    "commands/001-bash/request.json": "e6b6921a68b0c6a925f5014397d591091ae665282d40a96174ac35fd980e03a2",
+    "commands/001-bash/result.json": "d67659d29dad50e65ac903e33dc7ef4a692331d96253553956300d1fcfa5786a",
+    "commands/001-bash/output.log": "e68c275e3b4291ab6c227e77a8c58ccc3cd0e63667047360f677a3018f58e52e",
+    "commands/004-write/request.json": "1ad32346e248152eb0113406a045c9cc2bd15c58e6e0fcb699fb0d8b68ab2aba",
+    "commands/004-write/result.json": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "commands/004-write/output.log": "2618303b66b8f6ec691ae4cefa2475e3df860bc090254a28cd4b887cb8ddd914"
+  }
+}

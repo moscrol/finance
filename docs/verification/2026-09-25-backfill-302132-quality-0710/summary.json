@@ -1,0 +1,76 @@
+{
+  "status": "SPEC_SCOPED_DELIVERED_QUALITY_PASS_WITH_LIMITS_C3_NOT_VERIFIED",
+  "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+  "baseline": "4cc15e703f81bce8abadee00f68caacdb0c72b4d",
+  "observed_main": {
+    "07": "fe9fdbfd70a637efc5bcf0cfecf74080a8d6a90c",
+    "08": "fe9fdbfd70a637efc5bcf0cfecf74080a8d6a90c",
+    "09": "4db9a42b69b0d30bcf55b2eafb64151a6c1bb317",
+    "10": "4db9a42b69b0d30bcf55b2eafb64151a6c1bb317"
+  },
+  "candidate_unchanged": true,
+  "requests": {
+    "07": {
+      "gateway": 4,
+      "explore": 8,
+      "execute": 0,
+      "report": 0,
+      "total": 12,
+      "status": "EXPLORE_NO_DELIVERY"
+    },
+    "08": {
+      "gateway": 4,
+      "explore": 7,
+      "execute": 10,
+      "report": 0,
+      "total": 21,
+      "status": "EXECUTE_COLLECTION_ERROR_NO_DELIVERY"
+    },
+    "09": {
+      "gateway": 4,
+      "explore": 5,
+      "execute": 12,
+      "report": 0,
+      "total": 21,
+      "status": "EXECUTE_STALE_PATH_COLLECTION_ERROR_NO_DELIVERY"
+    },
+    "10": {
+      "gateway": 4,
+      "explore": 3,
+      "execute": 7,
+      "report": 1,
+      "total": 15,
+      "status": "QUALITY_PASS_WITH_LIMITS"
+    }
+  },
+  "total_requests": 69,
+  "quality_evidence": {
+    "batch": "10",
+    "verdict": "PASS_WITH_LIMITS",
+    "reviewer_probe_counts": {
+      "executed": 10,
+      "passed": 10,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "supplied_probe_files": 2,
+    "supplied_cases": 10,
+    "author_tests": 0,
+    "positive_control": "10 execute/001-bash exit 1 with intentional probe_bug",
+    "c3_production_shape_counts": "not_verified",
+    "host_evidence_audit": "EVIDENCE_COUNTS_VALID"
+  },
+  "rejections": [
+    "07 explore reached request cap without structured delivery",
+    "08 supplied fixture dependency files were missing in the host preparation and pytest collection failed",
+    "09 supplied probes retained stale /06 absolute candidate paths and pytest collection failed"
+  ],
+  "merge_authorized": false,
+  "production_authorized": false,
+  "sealed_at": "2026-09-25T02:02:42.569571+00:00",
+  "archive_files": 795,
+  "archive_bytes": 3799001,
+  "manifest_sha256": "b5443a4c4ac33df18d87efeb331c1eb37a63ea49ef786c9d23c91947bb265600",
+  "destination": "/Users/a77/fwp-wt-backfill-302132-0923/docs/verification/2026-09-25-backfill-302132-quality-0710"
+}

@@ -1,0 +1,17 @@
+Independent bounded Quality review of PR #813, only C3. Candidate /Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-08/candidate, revision 3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59, baseline 4cc15e703f81bce8abadee00f68caacdb0c72b4d. Current main at prepare is fe9fdbfd70a637efc5bcf0cfecf74080a8d6a90c and is not integrated.
+
+Only writable root /Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-08/quality/work; Python /Users/a77/finance-workspace-private/.venv-workbench/bin/python. Synthetic DuckDB only inside work. No git/network/live vendors/credentials/production DB/deployments/candidate writes. Read precise candidate scripts/verify_302132_backfill_acceptance.py::_data_checks and supplied probes. The supplied probes are prior reviewer assertions plus host fixture repairs, not prior verdicts; execute them in this fresh session and keep provenance explicit. Do not modify supplied files. Do not run author tests; importing a fixture helper is not an author test.
+
+Supplied files to execute:
+- /Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-08/quality/work/probes/test_seeded_c3.py: seven cases, prior C3 assertions with receipt-path/OTHER-date fixture repair.
+- /Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-08/quality/work/probes/test_earlier_fixture_adapter.py: three cases, prior new assertions with a host-only fixture repair that adds a real pre-window row to both baseline and clone and rebinds receipt hashes. This is supplied evidence, not new authoring.
+Both suites use the actual external acceptance entry, not only a helper. Duplicate cases disclose clone-only PK removal. The production-shaped 64/39/161 counts remain a separate limitation unless directly observed.
+
+Hard controller contracts, enforced outside the model:
+1. In execute, the FIRST bash tool call must be exactly: OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 /Users/a77/finance-workspace-private/.venv-workbench/bin/python -B /Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-08/quality/work/positive_control.py. Reads before this are allowed; any other first bash is blocked and terminates the stage.
+2. The report delivery gate reads execute/001-bash/request.json, result.json and output.log. A claimed positive control is invalid unless those raw files show this exact command, exit code 1, and the intentional probe_bug text.
+3. A report must contain reviewer_probe_counts, author_test_counts, positive_control, claims, findings, limits, supplied_probe_counts, supplied_xml and probe_provenance. Legal claim states only verified/not_verified/out_of_scope. If reviewer counts contain failed or errors, PASS/PASS_WITH_LIMITS delivery is blocked.
+
+No production access, merge, deployment or approval is requested. Limits: gateway4, explore10, execute10, report1; each stage600s, request120s; no automatic retries. Call deliver_stage exactly once, alone, with {"result": OBJECT}; ordinary JSON text is not delivery. Omit stage/axis/revision/baseline/complete; controller adds identity.
+
+Explore only. Read inputs/claims.md, inputs/source-map.md, and the candidate's precise _data_checks implementation. Do not read either supplied probe file in this stage; their paths and provenance above are already fixed inputs for execute. Do not execute bash, do not write files, and do not create new assertions. After those three reads, call deliver_stage immediately with probe_files listing the two supplied paths, provenance, claims_examined, limits, and next_stage_commands. State that no tests ran.

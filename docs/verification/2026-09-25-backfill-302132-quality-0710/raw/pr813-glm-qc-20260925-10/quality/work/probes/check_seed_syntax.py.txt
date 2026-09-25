@@ -1,0 +1,6 @@
+import ast
+from pathlib import Path
+for path in sorted(Path(__file__).parent.glob("*.py")):
+    if path.name != "check_seed_syntax.py":
+        ast.parse(path.read_text())
+print("seed syntax ok")

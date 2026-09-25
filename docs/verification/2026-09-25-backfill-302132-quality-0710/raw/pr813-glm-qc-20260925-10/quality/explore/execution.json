@@ -1,0 +1,144 @@
+{
+  "stage": "explore",
+  "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+  "baseline": "4cc15e703f81bce8abadee00f68caacdb0c72b4d",
+  "started_at": "2026-09-25T01:58:03.307078+00:00",
+  "complete": true,
+  "candidate_before": {
+    "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+    "status": ""
+  },
+  "author_before": {
+    "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+    "status": ""
+  },
+  "inputs_sha256": {
+    "config.json": "4fc2d8843c4a0f79f17abec47377eb2d3d13d803d9707c02ac79df0085818c86",
+    "review.mjs": "fa8524eccde0c1c06418849c03d3de2e4b060c6b46a4d36f5c3fc5efc7801aba",
+    "pi_review_protocol.mjs": "657e40bf2d8f8825a5345210876ac69417aed0cac857a2f899ec96280fa641d5",
+    "tools.sb": "656a63e06c05aa42748ee862f313b4248321908de57aada873950a58a9d5c33c",
+    "file_tool.py": "79125feff76d98407e3bf1d36cfa56c0086863bc0591afa499f3580a6dcf8972",
+    "provider-template.json": "8130824c44d453e1ba75aa396dd08e57761e8657cbdd0615f6bc3fa1a6261a66",
+    "pi-config/settings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+    "prompt-explore.md": "6f34212af019d77945ebcc61d9a45ea9d2514efe3c3b55b656e32efcdf9f6bd6"
+  },
+  "timeout_seconds": 600,
+  "max_requests": 10,
+  "automatic_retries": 0,
+  "command": [
+    "/opt/homebrew/bin/pi",
+    "--provider",
+    "glm-direct-review",
+    "--model",
+    "glm-5.3",
+    "--thinking",
+    "low",
+    "--models",
+    "glm-direct-review/glm-5.3",
+    "--no-session",
+    "--no-extensions",
+    "-e",
+    "/Users/a77/.finance-runtime/reviews/pr813-glm-qc-20260925-10/quality/review.mjs",
+    "--no-skills",
+    "--no-prompt-templates",
+    "--no-context-files",
+    "--no-themes",
+    "--no-approve",
+    "--offline",
+    "--tools",
+    "read,write,deliver_stage",
+    "--mode",
+    "json",
+    "-p",
+    "--",
+    "<stage prompt>"
+  ],
+  "pid": 43898,
+  "probe_sha256": {
+    "work/probes/check_seed_syntax.py": "6f384ab2ff6d7b2cff406debfe18520da3f507e6f4c91db8ef28070eb7e31502",
+    "work/probes/probe_c3_acceptance_v2.py": "f570dfb9b8d5cdc4520bc63e0e076b118b79a05431d9795a31b66e3f28de35ef",
+    "work/probes/test_earlier_fixture_adapter.py": "37807e0b2d5a3aba69112e677edd06769a48c66a8aa50339cbfff90f436d3c2c",
+    "work/probes/test_new_c3_v1.py": "7347552f61a5cb1856e26a24b143084fd7eeefcc93a81f05f6a38da2197d17fd",
+    "work/probes/test_seeded_c3.py": "155d751f1b37f58bef1503bbc6d2234f57fb9e85efc5dbd9144a478ebf7bb16a"
+  },
+  "status": "STAGE_COMPLETE",
+  "exit_code": 0,
+  "elapsed_seconds": 25.728,
+  "timed_out": false,
+  "requests": 3,
+  "responses": [
+    {
+      "admission": 1,
+      "status": 200
+    },
+    {
+      "admission": 2,
+      "status": 200
+    },
+    {
+      "admission": 3,
+      "status": 200
+    }
+  ],
+  "errors": [],
+  "candidate_after": {
+    "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+    "status": ""
+  },
+  "author_after": {
+    "revision": "3c5b3c9a6f0c1fe9401c424bc5ac396cf46fbc59",
+    "status": ""
+  },
+  "inputs_unchanged": true,
+  "event_counts": {
+    "session": 1,
+    "agent_start": 1,
+    "turn_start": 3,
+    "message_start": 9,
+    "message_end": 9,
+    "message_update": 65,
+    "tool_execution_start": 5,
+    "tool_execution_end": 5,
+    "turn_end": 3,
+    "agent_end": 1,
+    "agent_settled": 1
+  },
+  "report_structural": true,
+  "model_identities": [
+    "glm-direct-review/glm-5.3"
+  ],
+  "usage": {
+    "input": 12683,
+    "output": 1231,
+    "cacheRead": 11584,
+    "cacheWrite": 0,
+    "totalTokens": 25498
+  },
+  "artifact_sha256": {
+    "tool-menu.json": "39e3504cd80b631965aac6d417704ccb6173983bdf4cb96f58abb1f9208b5461",
+    "payload-shapes.jsonl": "4a9f5d3414882bf43b38e74fa00d5a83caa0d1192098d558d5b7a9f1144a6b68",
+    "stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "parsed.json": "2b832a58bab458c4136c82ba2f707a5d9ac2175cef16ac0a770db80a7c642543",
+    "REPORT.md": "16bc2e869fbd91dcbc08089927934b6c7104157cf2e207a95bc862c0ac237a38",
+    "auth-reserved.json": "89d3a977d27d8a5032bbf88f303e090c5d2b24e52f34c59a7f97a56857472e04",
+    "credential.json": "5d6c5124a4f085ec1705fb08673d36708781e166f1e4939b110c6be57ff5c3c8",
+    "request-admissions.jsonl": "0bdf6cc1b0a5c550972a1317b0d5758327972722c88b282afed07ae79ef23c83",
+    "responses.jsonl": "80527bc76d9beb5b3ca6717cf268760df2e001550dae5de75f8a7110ecab32e2",
+    "events.jsonl": "3c2f1a348d9c9cd7387fa7dd2c6c50bcdeb98e2115be7ea1eeb47f76753c347b",
+    "submission.json": "2b832a58bab458c4136c82ba2f707a5d9ac2175cef16ac0a770db80a7c642543",
+    "commands/005-deliver_stage/request.json": "6bc7a077db25f359a9a10b794fc287fc0e1edce58253e734e3d0432a6c4f0041",
+    "commands/005-deliver_stage/result.json": "01570f0a8a48e48321e2e60514d8cda7b5142196a2d5565030f21130e41735e1",
+    "commands/004-read/request.json": "52b4b910733b43c07b02cf1cd3b7fa50e51e8c500b433b1632c62f613a3d6c8d",
+    "commands/004-read/result.json": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "commands/004-read/output.log": "e38308834a314d452f953f0acc5f6f60c6a75001846799d550fdcd79147d2f64",
+    "commands/003-read/request.json": "0cc88becc8a912bea3268a9d4fc8108befeb09a1740038c361d0a4c34e43af7f",
+    "commands/003-read/result.json": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "commands/003-read/output.log": "9015175e1cda512034fef80537ac8fb4106d472d751fec069aa214398b20b131",
+    "commands/002-read/request.json": "108466b76bfe26a8b997b81e0a088e28dcc7e41aded55bc6226c262619fff44a",
+    "commands/002-read/result.json": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "commands/002-read/output.log": "86daa152039dea6530ca8f9227838438a7f0bc8dbbc6df1804c390f1d138b5d7",
+    "commands/001-read/request.json": "d01f1d93bfd4dcf8b525fcbc763b6a5b2534275d4dacf686d6f2177ee576d4c4",
+    "commands/001-read/result.json": "6041df3e9b345d68be886f995c452395674ea950cd3ca9992c13b64f3aa9cbd0",
+    "commands/001-read/output.log": "742bdc7d3578311d1a342e19acd2db02217b74e685d39d02e1f8b227324395f5"
+  }
+}
