@@ -124,5 +124,14 @@ def test_positioning_and_current_support(model):
     support = public.split("### 希望社区提供的支持")[1].split(
         "### 进入收费阶段前的准备"
     )[0]
-    assert "产品打磨" in support and "一人创业交流" in support
-    assert "合规" not in support and "法务" not in support
+    # v1.1 起诉求改为项目诊断 / 产业资源（含金融合规服务）/ 算力与一人创业交流；v1.0 曾明确排除合规支持
+    assert "项目诊断" in support and "一人创业交流" in support
+    assert "金融合规服务" in support
+    assert "资金" not in support and "法务" not in support
+
+
+def test_red_line_wording(model):
+    """对外红线只写「不荐股、不提供个股买卖建议」；不用法规原文动词「预测」认领能力（母本 v1.2 说明）。"""
+    public = bp.build(bp.SRC.read_text(), model)
+    assert "不荐股" in public and "不提供个股买卖建议" in public
+    assert "预测" not in public and "涨跌" not in public

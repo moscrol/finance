@@ -82,15 +82,15 @@ def build_daily_review_plan(options: DailyReviewOptions, paths: ProjectPaths | N
 
     plan.append(CommandSpec(
         name="quality-gate",
-        argv=["python3", "scripts/check_daily_review_data.py", date, "--phase", "data"],
+        argv=["/Users/a77/finance-workspace-private/.venv-workbench/bin/python", "scripts/check_daily_review_data.py", date, "--phase", "data"],
         outputs=[],
     ))
 
     plan.append(CommandSpec(
         name="cross-day-quality-gate",
+        # OPC 2026-09-17 临时：走 scripts/check_daily_plan_local.py（sync 树 + --plan）
         argv=[
-            "python3", "-m", "market_feature_store.cli", "check-daily",
-            "--trade-date", date,
+            "/Users/a77/finance-workspace-private/.venv-workbench/bin/python", "scripts/check_daily_plan_local.py", date,
             "--json", str(paths.finance_root / "skills" / "daily-full-review" / "state" / f"quality-{date}.json"),
         ],
         outputs=[],
