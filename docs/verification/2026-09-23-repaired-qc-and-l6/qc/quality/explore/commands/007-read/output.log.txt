@@ -1,0 +1,207 @@
+def _post_chat_message_stream(
+    provider: LLMProvider,
+    messages: list[dict],
+    timeout: float,
+    temperature: float,
+    tools: list[dict] | None,
+    tool_choice: str | dict | None,
+    disable_thinking: bool | None,
+    on_content_delta: Callable[[str], None],
+    is_cancelled: Callable[[], bool] | None = None,
+    *,
+    deadline: Deadline | None = None,
+) -> dict:
+    """Stream one tools-enabled turn, returning the same message dict shape.
+
+    Everything downstream (``ModelTurn`` parsing, the agent loop, the episode
+    ledger) consumes the non-streaming shape, so this returns exactly that and
+    keeps streaming an implementation detail of the transport.  The only extra
+    is ``_streamed_chars``: the caller needs to know whether anything already
+    crossed to the user before deciding it may retry.
+    """
+
+    _reserve_llm_call()
+    url = provider.base_url.rstrip("/") + "/chat/completions"
+    payload = _chat_payload(
+        provider, messages, temperature, stream=True,
+        # 没有它就拿不到 usage：非流式响应里 usage 是顶层字段，流式下只在
+        # 最后一个 chunk 出现，且要显式开。丢了它 episode 的 token 账会归零。
+        stream_options={"include_usage": True},
+    )
+    _apply_thinking_controls(
+        payload,
+        disable_thinking=(
+            disable_thinking is True
+            or (disable_thinking is None and os.environ.get("LLM_THINKING") == "disabled")
+        ),
+    )
+    if tools:
+        payload["tools"] = tools
+        if tool_choice is not None:
+            payload["tool_choice"] = tool_choice
+    request = urllib.request.Request(
+        url,
+        data=json.dumps(payload).encode("utf-8"),
+        headers=_llm_request_headers(provider, Accept="text/event-stream"),
+        method="POST",
+    )
+    started = time.monotonic()
+    attempt = _new_call_attempt(provider, messages)
+    content_chunks: list[str] = []
+    streamed_chars = 0
+    calls = _ToolCallAssembler()
+    finish_reason: str | None = None
+    usage: dict | None = None
+    served_model = ""
+    saw_any_chunk = False
+    call_deadline = deadline or Deadline.from_timeout(timeout)
+    try:
+        with _open_deadline_http_response(
+            request, timeout=timeout, deadline=call_deadline, is_cancelled=is_cancelled,
+        ) as response:
+            attempt.observe_response(response=response)
+            for raw_line in response:
+                if is_cancelled is not None and is_cancelled():
+                    raise LLMStreamCancelled()
+                line = raw_line.decode("utf-8", "replace").strip()
+                if not line.startswith("data:"):
+                    continue
+                data = line[5:].strip()
+                if data == "[DONE]":
+                    break
+                try:
+                    event = json.loads(data)
+                except json.JSONDecodeError:
+                    continue
+                saw_any_chunk = True
+                attempt.observe_response(event)
+                if not served_model and isinstance(event, dict):
+                    served_model = _served_model_from_body(event)
+                event_usage = event.get("usage")
+                if isinstance(event_usage, dict):
+                    usage = dict(event_usage)
+                choices = event.get("choices")
+                if not isinstance(choices, list) or not choices:
+                    continue
+                choice = choices[0]
+                if not isinstance(choice, dict):
+                    continue
+                finish_reason = (
+                    _stable_finish_reason(choice.get("finish_reason")) or finish_reason
+                )
+                delta = choice.get("delta")
+                if not isinstance(delta, dict):
+                    continue
+                calls.add(delta.get("tool_calls"))
+                piece = delta.get("content")
+                if isinstance(piece, str) and piece:
+                    content_chunks.append(piece)
+                    # 回调放在**收集之后**：即便下游抛异常，已收到的正文也已
+                    # 记账，重试资格的判断不会因为回调炸了而误判成"还没吐字"。
+                    streamed_chars += len(piece)
+                    on_content_delta(piece)
+            if call_deadline.remaining() <= 0:
+                raise LLMDeadlineExceeded()
+    except Exception as exc:
+        attempt.observe_result({"content": "".join(content_chunks), "tool_calls": calls.assembled()})
+        _record_llm_call(
+            "chat_tools_stream", provider, "failed", started, _failure_reason(exc), attempt=attempt,
+        )
+        if streamed_chars:
+            raise LLMStreamAlreadyEmitted(str(exc)) from exc
+        raise
+    if not saw_any_chunk:
+        _record_llm_call(
+            "chat_tools_stream", provider, "failed", started, "streaming_unsupported", attempt=attempt,
+        )
+        raise LLMStreamingUnsupported()
+    message: dict = {
+        "role": "assistant",
+        "content": "".join(content_chunks),
+        "_streamed_chars": streamed_chars,
+    }
+    assembled = calls.assembled()
+    if assembled:
+        message["tool_calls"] = assembled
+    # EOF / [DONE] closes transport, not model generation. Keep the received
+    # content and usage, but never pass a known-incomplete stream as legacy.
+    message["_finish_reason"] = finish_reason or "missing_finish_reason"
+    if usage is not None:
+        message["_usage"] = usage
+    message["_served_model"] = served_model
+    attempt.observe_result(message)
+    _record_llm_call(
+        "chat_tools_stream", provider, "success" if finish_reason else "failed", started,
+        "" if finish_reason else "incomplete_model_response:missing_finish_reason",
+        attempt=attempt,
+    )
+    return message
+
+
+def _post_chat_message(
+    provider: LLMProvider,
+    messages: list[dict],
+    timeout: float,
+    temperature: float = 0.2,
+    tools: list[dict] | None = None,
+    tool_choice: str | dict | None = None,
+    disable_thinking: bool | None = None,
+    *,
+    deadline: Deadline | None = None,
+) -> dict:
+    """Like :func:`_post_chat` but returns the full assistant *message* dict.
+
+    The message may contain ``tool_calls`` (OpenAI-compatible function calling)
+    in addition to / instead of ``content`` — needed to drive an agent loop."""
+    _reserve_llm_call()
+    url = provider.base_url.rstrip("/") + "/chat/completions"
+    payload = _chat_payload(provider, messages, temperature)
+    _apply_thinking_controls(
+        payload,
+        disable_thinking=(
+            disable_thinking is True
+            or (disable_thinking is None and os.environ.get("LLM_THINKING") == "disabled")
+        ),
+    )
+    if tools:
+        payload["tools"] = tools
+        if tool_choice is not None:
+            payload["tool_choice"] = tool_choice
+    data = json.dumps(payload).encode("utf-8")
+    req = urllib.request.Request(
+        url,
+        data=data,
+        headers=_llm_request_headers(provider),
+        method="POST",
+    )
+    started = time.monotonic()
+    attempt = _new_call_attempt(provider, messages)
+    call_deadline = deadline or Deadline.from_timeout(timeout)
+    try:
+        with _open_deadline_http_response(req, timeout=timeout, deadline=call_deadline) as resp:
+            body = json.loads(resp.read().decode("utf-8"))
+            call_deadline.require_remaining(0.001)
+            attempt.observe_response(body, resp)
+        choice = body["choices"][0]
+        message = dict(choice["message"])
+        finish_reason = _stable_finish_reason(choice.get("finish_reason"))
+        if finish_reason is not None:
+            message["_finish_reason"] = finish_reason
+        attempt.observe_result(message)
+    except Exception as exc:
+        attempt.observe_response(response=exc)
+        _record_llm_call(
+            "chat_tools", provider, "failed", started, _failure_reason(exc), attempt=attempt,
+        )
+        raise
+    _record_llm_call("chat_tools", provider, "success", started, attempt=attempt)
+    usage = body.get("usage")
+    if isinstance(usage, dict):
+        # Usage is adapter metadata only. Preserve counts without returning the
+        # request prompt, provider body, or hidden reasoning payload.
+        message["_usage"] = dict(usage)
+    message["_served_model"] = _served_model_from_body(body)
+    return message
+
+
+[truncated; total lines=2605, selected=1366:1570; request a later offset]

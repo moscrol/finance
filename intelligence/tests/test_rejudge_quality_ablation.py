@@ -54,7 +54,7 @@ class _HTTPResponse:
 def _configure_http(monkeypatch, transport):
     provider = llm_refine.LLMProvider("fixture", "secret", "https://example.invalid/v1", "grok-4.1")
     monkeypatch.setitem(rejudge._JUDGE_OVERRIDE, "provider", provider)
-    monkeypatch.setattr(llm_refine.urllib.request, "urlopen", transport)
+    monkeypatch.setattr(llm_refine.llm_http_transport, "urlopen", transport)
     return provider
 
 
@@ -64,7 +64,7 @@ def test_new_batch_uses_current_spec_rejudges_all_and_checkpoints_before_call(tm
     destination = tmp_path / "new.json"
     calls = []
 
-    def transport(request, **_kwargs):
+    def transport(request, timeout=0.0, **_kwargs):
         checkpoint = json.loads(destination.read_text())
         assert checkpoint["manifest"]["answer_manifest"] is not None
         assert checkpoint["manifest"]["run_manifest"]["judge_spec"]["requested_model"] == "grok-4.1"
@@ -128,7 +128,7 @@ def test_pending_failure_keeps_full_old_and_new_attempts(tmp_path, monkeypatch):
     ]}
     artifact["answers"][0]["judge"] = deepcopy(previous)
 
-    def transport(request, **_kwargs):
+    def transport(request, timeout=0.0, **_kwargs):
         raise urllib.error.HTTPError(request.full_url, 503, "outage", {}, None)
 
     _configure_http(monkeypatch, transport)

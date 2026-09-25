@@ -1,0 +1,110 @@
+{
+  "status": "PASS",
+  "scope": "host author probe only",
+  "live_model_requests": 0,
+  "source_before": {
+    "revision": "31f1b40dd788d36c71da249d59fb769c50d7cd30",
+    "status": "",
+    "source_sha256": {
+      "intelligence/services/llm_refine.py": "367b8570709c5abaebca2974432257e5ae38366a45ce9ed645177e20b590a97d",
+      "intelligence/services/llm_http_transport.py": "c695f5fdfa14b5353da3efd21952a37101d2f6cdbf8e2bcb294acf58e3f8c4c5"
+    }
+  },
+  "source_after": {
+    "revision": "31f1b40dd788d36c71da249d59fb769c50d7cd30",
+    "status": "",
+    "source_sha256": {
+      "intelligence/services/llm_refine.py": "367b8570709c5abaebca2974432257e5ae38366a45ce9ed645177e20b590a97d",
+      "intelligence/services/llm_http_transport.py": "c695f5fdfa14b5353da3efd21952a37101d2f6cdbf8e2bcb294acf58e3f8c4c5"
+    }
+  },
+  "python": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "python_version": "3.12.13",
+  "probe_sha256": "594594e47fd757eeca318597202b7c9922a1ae40522b965632a5962c5c0c0928",
+  "mutation": "AST delete exactly one is_cancelled keyword at wrapper opener call",
+  "mutation_storage": "in process memory only; candidate files untouched",
+  "call_budget_seconds": 10,
+  "cancel_after_seconds": 0.3,
+  "upstream_stall_seconds": 1.6,
+  "assertion_max_seconds": 1.0,
+  "phases": {
+    "baseline": [
+      {
+        "path": "wrapper",
+        "exception": "LLMStreamCancelled",
+        "elapsed_seconds": 0.33060412504710257,
+        "requests": 1,
+        "attempts": 1,
+        "passed": true
+      },
+      {
+        "path": "tools_stream",
+        "exception": "LLMStreamCancelled",
+        "elapsed_seconds": 0.31944166612811387,
+        "requests": 1,
+        "attempts": 1,
+        "passed": true
+      },
+      {
+        "path": "synthesis_stream",
+        "exception": "LLMStreamCancelled",
+        "elapsed_seconds": 0.3565833328757435,
+        "requests": 1,
+        "attempts": 1,
+        "passed": true
+      }
+    ],
+    "mutation": [
+      {
+        "path": "wrapper",
+        "exception": null,
+        "elapsed_seconds": 1.7053292079363018,
+        "requests": 1,
+        "attempts": 1,
+        "passed": false
+      },
+      {
+        "path": "tools_stream",
+        "exception": "LLMStreamCancelled",
+        "elapsed_seconds": 1.7114571251440793,
+        "requests": 1,
+        "attempts": 1,
+        "passed": false
+      },
+      {
+        "path": "synthesis_stream",
+        "exception": "LLMStreamCancelled",
+        "elapsed_seconds": 1.7412150842137635,
+        "requests": 1,
+        "attempts": 1,
+        "passed": false
+      }
+    ],
+    "restored": [
+      {
+        "path": "wrapper",
+        "exception": "LLMStreamCancelled",
+        "elapsed_seconds": 0.35486591700464487,
+        "requests": 1,
+        "attempts": 1,
+        "passed": true
+      },
+      {
+        "path": "tools_stream",
+        "exception": "LLMStreamCancelled",
+        "elapsed_seconds": 0.34767404198646545,
+        "requests": 1,
+        "attempts": 1,
+        "passed": true
+      },
+      {
+        "path": "synthesis_stream",
+        "exception": "LLMStreamCancelled",
+        "elapsed_seconds": 0.3530994157772511,
+        "requests": 1,
+        "attempts": 1,
+        "passed": true
+      }
+    ]
+  }
+}

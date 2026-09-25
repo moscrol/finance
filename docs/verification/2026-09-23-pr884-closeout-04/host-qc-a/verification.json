@@ -1,0 +1,45 @@
+{
+  "revision": "db2605d1b1a6a929d9bac468c84ef6aeaddce9ff",
+  "role": "host-modified K3 probes; NOT independent acceptance",
+  "accepted": true,
+  "baseline": 17,
+  "restored": 17,
+  "mutations": {
+    "mutation-c1": [
+      "test_k3_c1_repair_and_tool_entries_share_the_fence",
+      "AssertionError: [C1-REPAIR-FENCE]"
+    ],
+    "mutation-c2-strong": [
+      "test_k3_c2_evidence_v3_roundtrip_and_tamper",
+      "Failed: DID NOT RAISE <class 'ValueError'>"
+    ]
+  },
+  "source_unchanged": true,
+  "original_k3_report_unchanged": true,
+  "independent_verdict_unchanged": "BLOCKED",
+  "rejected_intermediate": {
+    "baseline-1": "Host forgot TMPDIR under write-denying sandbox; no tests ran",
+    "mutation-c2": "Only error text changed; another validation still rejected the data, not an accepted withdrawal witness"
+  },
+  "strengthening": "Tamper both admitted and presented titles consistently; withdrawing digest protection now accepts tampered data and triggers DID NOT RAISE",
+  "artifacts_sha256": {
+    "baseline-2/junit.xml": "8b436ce8cfe1081fee65ed679efbb6eb282b3ff0406be70d3b2ee32deee43f91",
+    "restored/junit.xml": "850e968e23ec5b57fc04db1f76cadb4af924ac5e5d13ba1494f05bbc25ab1488",
+    "baseline-3/junit.xml": "a1e6bc059ebb70d01df53def3551b81da2548d61383aa10da26f1d1b95cb8f9d",
+    "restored-3/junit.xml": "55a0dfeddd442571f466e89351f44bfefe119e3d1cb36d0eec3c34c6810f935e",
+    "mutation-c1/junit.xml": "bcef5fa2aa1bb88e74208249539b207f94020e1c54dec9c4390023eb07c9516c",
+    "mutation-c2-strong/junit.xml": "0ea6ba5880eca405345d98eef409f1b68f194cdb86a95629dd69691d69be9120",
+    "mutation-c2-strong.log.txt": "22d0e3463cee5235caf0df021ac27c241c3865ccce17fe16f0178ba07a24a8d2",
+    "mutation-c1.log.txt": "da7705de3284e9d6aa2fe4222d1102f0867676bd9be229d0ef07f862fbe54b14",
+    "restored-3.log.txt": "bdba4bfd417b71534810f04885d54c3abee60385b6e57bf638eb2b86835349af",
+    "baseline-1.log.txt": "a85b29b5b3b6114b62632623a676f79387e8f00b3febf04d04eaef6796d71b7f",
+    "baseline-3.log.txt": "db883103d5b14a1832b32e77e17bdd9d68c8bdacf9fe694bb235b3340811a54f",
+    "baseline-2.log.txt": "ab8479c42490e542f8088341f2fffa963f3c1a9b134b39320f6b2799209bd8c4",
+    "mutation-c2.log.txt": "8428fe33641b52c7aecb799b2b7dda79c83f8228ece6857fdee4b516681779ff",
+    "restored.log.txt": "e468f94f8706e5dbed147f89fa9f2d4f020d61b11a6c5b6e362ae9387b29cff1",
+    "entry.py": "359767ecaccf34284f043164fedcb8d3d505ea90b891fb41b553db6eb0b76d8f",
+    "test_k3_c1.py": "be9d3b60e37e27f13ca701b4b9c65769847bd9192d24619f04840a3e3abc86ec",
+    "test_k3_c3.py": "09e357e2700eb3541f64183f1733c51f9fb5340b82bbb2f1f92111cfe794c59d",
+    "test_k3_c2.py": "408e6495a2c73e89541c679e8a43f04bd4ab5e5412027d408db8ad58c1a9aab5"
+  }
+}

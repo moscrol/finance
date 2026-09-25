@@ -1,0 +1,77 @@
+FF....                                                                   [100%]
+=================================== FAILURES ===================================
+_ test_c1_failed_insert_keeps_spool_file_and_blocks_claim[deferred_short_circuit] _
+
+inbox_mod = <module 'k3_shadow_episode_inbox'>
+tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/k3-host-acceptance/shadow/pytest/test_c1_failed_insert_keeps_sp0')
+failure_shape = 'deferred_short_circuit'
+
+    @pytest.mark.parametrize(
+        "failure_shape",
+        ["deferred_short_circuit", "mid_insert_write"],
+        ids=["deferred_short_circuit", "mid_insert_write"],
+    )
+    def test_c1_failed_insert_keeps_spool_file_and_blocks_claim(inbox_mod, tmp_path, failure_shape):
+        ledger = RecordingLedger()
+        inbox, spool = _make_inbox(inbox_mod, ledger, tmp_path)
+        # 先有一条 durable 在途消息，证明失败前通道是好的。
+        first = inbox.send(user_message("在途消息", source="probe"), target="next_step")
+        assert first.accepted
+        ledger.fail_next("inbox_inserted")  # 故障在下一次 add 时置位
+        if failure_shape == "deferred_short_circuit":
+            # 形状 A：故障已被前一次直接投递踩爆（经 add 置位），spool 条的 send 在入口短路。
+            tripped = inbox.send(user_message("直接投递", source="probe"), target="next_step")
+            assert not tripped.accepted and tripped.reason == "storage_failed"
+        # 形状 B（mid_insert_write）：spool 条自己的 inbox_inserted add 炸掉。
+        path = inbox_mod.write_spool_record(
+            spool, inbox_mod.SpoolRecord("sp-fail", "保存失败期间的话")
+        )
+        original_bytes = path.read_bytes()
+    
+>       assert inbox.ingest_spool() == 0, "insert 没落账就不许销毁运输副本"
+E       AssertionError: insert 没落账就不许销毁运输副本
+E       assert 1 == 0
+E        +  where 1 = ingest_spool()
+E        +    where ingest_spool = <k3_shadow_episode_inbox.Inbox object at 0x106df8620>.ingest_spool
+
+../../runtime-probe-k3-writer-20260923-03/k3/work/inbox_checks.py:137: AssertionError
+__ test_c1_failed_insert_keeps_spool_file_and_blocks_claim[mid_insert_write] ___
+
+inbox_mod = <module 'k3_shadow_episode_inbox'>
+tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/k3-host-acceptance/shadow/pytest/test_c1_failed_insert_keeps_sp1')
+failure_shape = 'mid_insert_write'
+
+    @pytest.mark.parametrize(
+        "failure_shape",
+        ["deferred_short_circuit", "mid_insert_write"],
+        ids=["deferred_short_circuit", "mid_insert_write"],
+    )
+    def test_c1_failed_insert_keeps_spool_file_and_blocks_claim(inbox_mod, tmp_path, failure_shape):
+        ledger = RecordingLedger()
+        inbox, spool = _make_inbox(inbox_mod, ledger, tmp_path)
+        # 先有一条 durable 在途消息，证明失败前通道是好的。
+        first = inbox.send(user_message("在途消息", source="probe"), target="next_step")
+        assert first.accepted
+        ledger.fail_next("inbox_inserted")  # 故障在下一次 add 时置位
+        if failure_shape == "deferred_short_circuit":
+            # 形状 A：故障已被前一次直接投递踩爆（经 add 置位），spool 条的 send 在入口短路。
+            tripped = inbox.send(user_message("直接投递", source="probe"), target="next_step")
+            assert not tripped.accepted and tripped.reason == "storage_failed"
+        # 形状 B（mid_insert_write）：spool 条自己的 inbox_inserted add 炸掉。
+        path = inbox_mod.write_spool_record(
+            spool, inbox_mod.SpoolRecord("sp-fail", "保存失败期间的话")
+        )
+        original_bytes = path.read_bytes()
+    
+>       assert inbox.ingest_spool() == 0, "insert 没落账就不许销毁运输副本"
+E       AssertionError: insert 没落账就不许销毁运输副本
+E       assert 1 == 0
+E        +  where 1 = ingest_spool()
+E        +    where ingest_spool = <k3_shadow_episode_inbox.Inbox object at 0x106c65c40>.ingest_spool
+
+../../runtime-probe-k3-writer-20260923-03/k3/work/inbox_checks.py:137: AssertionError
+- generated xml file: /Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/k3-host-acceptance/shadow.xml -
+=========================== short test summary info ============================
+FAILED ../../runtime-probe-k3-writer-20260923-03/k3/work/inbox_checks.py::test_c1_failed_insert_keeps_spool_file_and_blocks_claim[deferred_short_circuit]
+FAILED ../../runtime-probe-k3-writer-20260923-03/k3/work/inbox_checks.py::test_c1_failed_insert_keeps_spool_file_and_blocks_claim[mid_insert_write]
+2 failed, 4 passed in 3.06s

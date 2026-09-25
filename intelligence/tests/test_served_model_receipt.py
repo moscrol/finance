@@ -53,7 +53,7 @@ def _post(body: dict) -> dict:
     with (
         mock.patch.object(llm_refine, "_reserve_llm_call"),
         mock.patch.object(llm_refine, "_record_llm_call"),
-        mock.patch("urllib.request.urlopen", return_value=_JsonResponse(body)),
+        mock.patch("intelligence.services.llm_http_transport.urlopen", return_value=_JsonResponse(body)),
     ):
         return llm_refine._post_chat_message(
             PROVIDER,

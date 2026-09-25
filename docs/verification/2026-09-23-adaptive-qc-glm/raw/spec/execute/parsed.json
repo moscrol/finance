@@ -1,0 +1,30 @@
+{
+  "stage": "execute",
+  "axis": "spec",
+  "revision": "31f1b40dd788d36c71da249d59fb769c50d7cd30",
+  "baseline": "9a02279863733c9b9f60fd92fcc7e840fa83f878",
+  "complete": true,
+  "author_tests": {
+    "passed": 0,
+    "failed": 0
+  },
+  "reviewer_probes": {
+    "passed": 3,
+    "failed": 3
+  },
+  "positive_control": {
+    "classification": "intentional_positive_control",
+    "observed_exit": 1
+  },
+  "product_findings": [],
+  "limits": [
+    "EXECUTE.md 未落盘（工具关闭），本交付为替代文本",
+    "作者测试未运行（0/0），不作独立验证",
+    "C3/C5/C6 无行为探针，仅部分静态阅读；代码无字面 report_received 字段",
+    "C2 五调用点枚举部分依赖探索期原始工具输出；探索 REPORT.md 存在虚假'未执行'记录已证实，不作收据",
+    "C7 依据宿主 diffstat 与读码，未运行 git",
+    "探针失败 3 例均为 probe_bug（初版C1瞬时死亡断言、初版C4零请求假设、变体C4互斥断言），未放宽任何时间阈值",
+    "探索期提前运行/就地改探针属流程偏差，单列不计正式通过数",
+    "仅用回环 26001-26004，无外网与生产端口"
+  ]
+}

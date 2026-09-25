@@ -1,0 +1,80 @@
+"""Create fresh review inputs; never copy earlier model output or verdicts."""
+import ast
+import json
+from pathlib import Path
+import shutil
+
+ROOT = Path(__file__).resolve().parent
+OLD = ROOT.parent / 'pr868-glm-qc-20260923-1707'
+FILES = ['review.mjs', 'gateway.mjs', 'run_control.py', 'run_stage.py', 'file_tool.py',
+         'tools.sb', 'provider-template.json', 'pi-config/settings.json', 'config.json',
+         'sandbox_preflight.mjs']
+for name in ['glm_review_shim.py', 'glm_credential.py', 'probe_adapter.py', 'bridge_stage.py']:
+    shutil.copyfile(OLD / name, ROOT / name)
+for axis in ['spec', 'quality']:
+    dest = ROOT / axis
+    assert not dest.exists()
+    for name in FILES:
+        source = OLD / 'spec' / name
+        text = source.read_text().replace(str(OLD / 'spec'), str(dest))
+        target = dest / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(text)
+    shutil.copytree(OLD / 'spec/inputs', dest / 'inputs')
+    cfg = json.loads((dest / 'config.json').read_text())
+    cfg.update(axis=axis, thinking='low')
+    (dest / 'config.json').write_text(json.dumps(cfg, indent=2) + '\n')
+    for name in ['tmp', 'users', 'probes']:
+        (dest / 'work' / name).mkdir(parents=True)
+    index = []
+    for name in ['intelligence/services/llm_http_transport.py', 'intelligence/services/llm_refine.py',
+                 'intelligence/services/episode_semantic_verifier.py',
+                 'intelligence/tests/test_llm_timeout_diagnostic.py',
+                 'scripts/review_probes/diagnose_llm_timeout.py']:
+        tree = ast.parse((Path(cfg['tree']) / name).read_text())
+        index.append({'file': name, 'symbols': [
+            {'name': n.name, 'start': n.lineno, 'end': n.end_lineno}
+            for n in ast.walk(tree) if isinstance(n, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef))]})
+    (dest / 'inputs/source-index.json').write_text(json.dumps(index, indent=2) + '\n')
+    common = f'''You are the independent {axis} reviewer for #75, PR #868. No product edits, merge, deployment or natural finance questions.
+Candidate: {cfg['tree']}
+Revision: {cfg['revision']}; baseline: {cfg['baseline']}.
+Python: {cfg['python']}. Writable work: {dest / 'work'}.
+Read claims: {dest / 'inputs/claims.md'}. Symbol/line index: {dest / 'inputs/source-index.json'}.
+Only source and this axis are readable; other reviews, credentials and production are inaccessible.
+Network only local fake services on TCP 26001-26008. Never use ephemeral port 0 without mapping it into this range. Never use production, gateways, external services or nested sandbox-exec.
+Budget: 24 requests maximum, 120 seconds per request, 600 seconds per stage, retries 0. Closeout is forced after 16 normal requests or 420 seconds; finish earlier when possible. GLM reasoning_effort=low; server-side thinking is not claimed disabled.
+Use deliver_stage as the final action, which saves YOUR structured result and terminates immediately, without another model turn. Keep the submitted JSON under 6000 characters. It must contain stage, axis='{axis}', revision, baseline, complete=true; complete means delivered, NEVER all claims passed. Use Chinese for explanations.
+Counts must distinguish author tests, independently authored reviewer probes, intentional failing control and model requests. Tests are not model requests. Historical receipts are not current test counts.
+'''
+    explore = common + f'''
+Stage EXPLORE: read source, independently design and WRITE small runnable Python probes under {dest / 'work/probes'}; do NOT run anything. bash is disabled. read/write/deliver_stage only.
+Spec challenges C1-C7 individually; Quality seeks actual correctness regressions (file, line, input, observed incorrect result) and may independently find no defects. Neither axis sees the other's work.
+Read source-index and claims, then core source. Key transport is llm_http_transport.py (small); llm_refine.py wrapper 180-230, calls 1139-1310, 1366-1569, 2236-2350; semantic verifier symbol index locates judge window logic.
+Cover actual wall-clock deadline, stalled-parent worker stop, cancelled streaming, distinct 10s timeout/0.5s shared deadline, late judge rejection, expired root versus judge subwindow, zero budget/no reservation, and subprocess startup included in budget. A source grep alone cannot verify behavior. Use positive success plus protective failure cases. Small deterministic mocks may complement local fake HTTP; state which boundary each exercises. Read author diagnostics only as interface references, do not relabel author tests as independent probes.
+Do not overwrite probes; write a new version if correction is necessary. Avoid long suites; 2-4 focused files are sufficient. No testing in this stage. Submit paths and commands directly with deliver_stage.
+Required JSON extra fields: probe_files (actual absolute paths), claims_examined, limits, next_stage_commands (exact commands for execute). No final PASS verdict here.
+'''
+    execute = common + f'''
+Stage EXECUTE: first read {dest / 'explore/parsed.json'} and the probe files it names. These are your SAME-axis previous-stage evidence, not a verdict. Run those probes and targeted author tests separately. Do not invent results or silently overwrite failed probes. Any correction must be a NEW file, preserving original failures. Use at most one corrected variant per failed probe; repeated error means not_verified.
+Use bash only for a SINGLE direct command at a time, no shell chaining, pipes, echo EXIT, or output truncation. Raw output and real exit code are captured. Do not import main-worktree code.
+Run the intentional failing control exactly once: {cfg['python']} -B {dest / 'work/positive_control.py'}. It MUST fail and be classified probe_bug/intentional_control, never product defect.
+For author tests, select at least the pure validation cases from intelligence/tests/test_llm_timeout_diagnostic.py using pytest -q -p no:cacheprovider -k 'violation_uses or cli_strict or existing_receipt or rejects_unbounded or endpoint_guard' and --basetemp={dest / 'work/pytest-tmp'} --junitxml={dest / 'work/author-tests.xml'}. Broader loopback author tests need an explicit reviewer-owned port adapter or must remain unrun. FWP_TEST_RECEIPT=0 is already set.
+Required JSON extra fields: author_tests={{passed,failed,skipped,commands}}, reviewer_probes={{passed,failed,commands}} (denominator is script invocations, not hidden assertions), intentional_control={{observed_failed,classification,command}}, failures (every failure with command reference, classification and reason), claim_evidence (C1-C7 with static/behavior evidence and missing coverage), limits. No final verdict. Include ALL failed executions, even a later corrected probe passes.
+'''
+    report = common + '''
+Stage REPORT: no tool except deliver_stage. Your full compact same-axis evidence packet follows. It contains source references, explore/execute deliverables, actual probe code and raw command outputs/exit codes, without private reasoning or other-axis conclusions. Do not run or alter tests. Judge only evidence delivered. Missing evidence is not_verified or BLOCKED, never inferred success.
+Return required fields stage='report', axis, revision, baseline, complete=true, verdict (PASS / PASS_WITH_LIMITS / CHANGES_REQUIRED / BLOCKED_INCOMPLETE_EVIDENCE), claims (C1-C7 each id/status verified|not_verified|out_of_scope/evidence), findings (severity/file/line/trigger/observed/impact; empty if none), author_tests, reviewer_probes, intentional_control, failures, limits. A verified claim needs the correct observed behavior, not just a zero script exit or favorable earlier-stage summary. Classify probe implementation errors separately. Natural L6 remains NOT_PASSED and latest-head/main gates are outside this review.
+'''
+    for stage, text in [('explore', explore), ('execute', execute), ('report', report)]:
+        (dest / f'prompt-{stage}.md').write_text(text)
+protocol = {'candidate': cfg['revision'], 'baseline': cfg['baseline'], 'axes': ['spec','quality'],
+            'stages': ['explore','execute','report'], 'max_requests_per_stage': 24,
+            'request_seconds': 120, 'stage_seconds': 600, 'automatic_retries': 0,
+            'max_batch_requests': 152, 'model': 'glm-5.3', 'reasoning_effort': 'low',
+            'upstream': cfg['upstream_url'], 'independent_axes': True,
+            'failure_stops_batch': True, 'final_delivery': 'model-authored terminating deliver_stage tool',
+            'prior_model_outputs_inherited': False, 'production_changes': False,
+            'natural_finance_requests': 0, 'user_authorization': 'continue independent review; existing GLM authorized'}
+(ROOT / 'protocol.json').write_text(json.dumps(protocol, indent=2) + '\n')
+print(ROOT)

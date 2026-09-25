@@ -1,0 +1,80 @@
+{
+  "status": "PASS",
+  "ready": true,
+  "root": "/Users/a77/.finance-runtime/reviews/pr868-l6-repaired-20260923-2118/preparation/data/market_snapshot",
+  "date": "2026-09-22",
+  "files": {
+    "root": "/Users/a77/.finance-runtime/reviews/pr868-l6-repaired-20260923-2118/preparation/data/market_snapshot",
+    "daily": "/Users/a77/.finance-runtime/reviews/pr868-l6-repaired-20260923-2118/preparation/data/market_snapshot/2026-09-22.json",
+    "latest": "/Users/a77/.finance-runtime/reviews/pr868-l6-repaired-20260923-2118/preparation/data/market_snapshot/latest.json",
+    "meta": "/Users/a77/.finance-runtime/reviews/pr868-l6-repaired-20260923-2118/preparation/data/market_snapshot/meta.json"
+  },
+  "summary": {
+    "theme_count": 39,
+    "strong_stock_count": 63,
+    "market_stage": "下跌阶段",
+    "latest_trade_date": "2026-09-22",
+    "requested_trade_date": "2026-09-22",
+    "served_trade_date": "2026-09-22",
+    "provider": "akshare_exact",
+    "source": "AkShare",
+    "source_updated_at": null,
+    "quality": "complete",
+    "freshness": "fresh"
+  },
+  "meta": {
+    "schema_version": "1.1-akshare",
+    "latest_trade_date": "2026-09-22",
+    "requested_trade_date": "2026-09-22",
+    "served_trade_date": "2026-09-22",
+    "updated_at": "2026-09-22T16:49:58.341488+08:00",
+    "source": "AkShare",
+    "provider": "akshare_exact",
+    "source_data_date": "2026-09-22",
+    "source_updated_at": null,
+    "freshness": "fresh",
+    "quality": "complete",
+    "source_errors": [
+      "stock_zh_a_spot_em: ConnectionError: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))"
+    ],
+    "provenance": {}
+  },
+  "errors": [],
+  "warnings": [],
+  "contract": {
+    "daily_files": [
+      "YYYY-MM-DD.json",
+      "latest.json",
+      "meta.json"
+    ],
+    "required_daily_top_level": [
+      "schema_version",
+      "trade_date",
+      "market",
+      "themes",
+      "strong_stocks"
+    ],
+    "required_market_fields": [
+      "stage",
+      "total_amount",
+      "amount_ratio",
+      "advancers",
+      "decliners",
+      "limit_up",
+      "limit_down",
+      "capacity_top3"
+    ],
+    "required_theme_fields": [
+      "concept",
+      "priority_score",
+      "trigger_types"
+    ],
+    "required_stock_fields": [
+      "stock_name",
+      "stock_ts_code",
+      "concepts",
+      "pct_chg",
+      "amount"
+    ]
+  }
+}

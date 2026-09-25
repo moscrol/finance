@@ -1,0 +1,138 @@
+"""K3 independent probe C5: same-instance run/resume/step/close reentry,
+exception cleanup, sequential reuse, independent instances in parallel.
+
+Named semantic assertions are marked ASSERT:C5-*.
+"""
+import threading
+from pathlib import Path
+
+import pytest
+
+WORK = Path('/Users/a77/.finance-runtime/reviews/pr884-closeout-20260923-04/review-b/k3/work')
+import intelligence.userspace as u
+u.USERS_DIR = WORK / 'users'
+
+from intelligence.runtime.agent_episode import ContinuousAgentEpisode
+from intelligence.services.agent_runtime import ModelTurn
+from intelligence.services.episode_store import EpisodeWriterBusy, MemoryEpisodeStore
+from intelligence.tests.conformance.fixtures import (
+    ScenarioProbe, ScriptedModelClient, ScriptedToolCall, ScriptedTurn,
+    completed_finish, make_context, make_frame, make_registry,
+)
+from intelligence.tests.conformance.races._drive import build_rig
+
+
+def test_same_runner_rejects_concurrent_run_and_second_drive():
+    rig = build_rig("k3-c5-owner")
+    other = build_rig("k3-c5-other")
+    shared = rig.episode
+    drive = shared.manual_drive(task_frame=rig.frame, context=rig.context, registry=rig.registry)
+    contender = shared.manual_drive(task_frame=other.frame, context=other.context, registry=other.registry)
+    try:
+        assert drive.step().phase == "model_pending"
+        # ASSERT:C5-1 second drive on the same runner is refused even with a new task id
+        with pytest.raises(EpisodeWriterBusy):
+            contender.step()
+        # ASSERT:C5-2 run() (the drain-all entry) is equally refused while paused
+        with pytest.raises(EpisodeWriterBusy):
+            shared.run(task_frame=other.frame, context=other.context, registry=other.registry)
+        # ASSERT:C5-3 the refused contender left no trace and the owner is untouched
+        assert rig.oracle.load("k3-c5-other") == ((), None)
+        assert other.model.calls == 0
+    finally:
+        contender.close()
+        drive.close()
+
+
+def test_step_close_mutual_exclusion_and_close_after_step():
+    rig = build_rig("k3-c5-mutex")
+    gate = threading.Event()
+    entered = threading.Event()
+
+    def _hook():
+        entered.set()
+        gate.wait(10)
+
+    rig.model.on_call[1] = _hook
+    drive = rig.start()
+    result: dict[str, object] = {}
+
+    def _step():
+        try:
+            result["point"] = drive.step()
+        except BaseException as exc:  # noqa: BLE001
+            result["error"] = exc
+
+    worker = threading.Thread(target=_step, daemon=True)
+    worker.start()
+    # wait until the model call is genuinely in flight
+    assert entered.wait(10)
+    assert rig.model.calls == 1
+    # ASSERT:C5-4 close() during an executing step raises busy, does not finish the drive
+    with pytest.raises(EpisodeWriterBusy):
+        drive.close()
+    assert not drive.finished
+    # ASSERT:C5-5 a second step() during an executing step raises busy
+    with pytest.raises(EpisodeWriterBusy):
+        drive.step()
+    gate.set()
+    worker.join(10)
+    assert "error" not in result and result["point"].phase == "model_pending"
+    # ASSERT:C5-6 after the step returned, close() works and later step() is a no-op
+    drive.close()
+    assert drive.finished
+    assert drive.step() is None
+
+
+def test_exception_cleans_up_and_runner_is_sequentially_reusable():
+    store = MemoryEpisodeStore()
+
+    class BoomModel:
+        calls = 0
+
+        def complete(self, *, messages, tools, timeout) -> ModelTurn:
+            self.calls += 1
+            raise RuntimeError("k3 boom")
+
+    probe = ScenarioProbe()
+    frame = make_frame()
+    ctx = make_context(frame, task_id="k3-c5-boom")
+    episode = ContinuousAgentEpisode(BoomModel(), store=store)
+    inbox_before = None
+    with pytest.raises(RuntimeError):
+        drive = episode.manual_drive(task_frame=frame, context=ctx, registry=make_registry(probe))
+        try:
+            drive.step()
+        finally:
+            inbox_before = episode.inbox
+    # ASSERT:C5-7 the failed drive's inbox is closed for late input
+    assert inbox_before is None or inbox_before.closed
+    # ASSERT:C5-8 control lock released: a fresh task on the same runner runs to done
+    rig2 = build_rig("k3-c5-reuse", store=None)
+    episode2 = ContinuousAgentEpisode(rig2.model._inner, store=store)
+    outcome = episode2.run(task_frame=rig2.frame, context=rig2.context, registry=rig2.registry)
+    assert outcome.status == "completed"
+    _events, state = store.load("k3-c5-reuse")
+    assert state is not None and state.terminal
+
+
+def test_independent_instances_run_in_parallel():
+    rig_a = build_rig("k3-c5-par-a")
+    rig_b = build_rig("k3-c5-par-b")
+    barrier = threading.Barrier(2)
+    rig_a.model.on_call[1] = lambda: barrier.wait(10)
+    rig_b.model.on_call[1] = lambda: barrier.wait(10)
+    outcomes: dict[str, object] = {}
+
+    def go(rig):
+        outcomes[rig.task_id] = rig.episode.run(
+            task_frame=rig.frame, context=rig.context, registry=rig.registry)
+
+    threads = [threading.Thread(target=go, args=(r,)) for r in (rig_a, rig_b)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(30)
+    # ASSERT:C5-9 distinct runner instances do not block each other
+    assert set(outcomes) == {"k3-c5-par-a", "k3-c5-par-b"}
+    assert all(o.status == "completed" for o in outcomes.values())

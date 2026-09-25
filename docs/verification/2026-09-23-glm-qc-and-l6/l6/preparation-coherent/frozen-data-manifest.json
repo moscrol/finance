@@ -1,0 +1,3006 @@
+{
+  "db/market_feature_store.duckdb": {
+    "bytes": 3855626240,
+    "sha256": "75ff8d41eebf1a514140081c2899c9b4fd8df7287a0e5e3462fd52f3c975c941"
+  },
+  "market_feature_store/exports/2026-04-01-theme-backfill-queue.json": {
+    "bytes": 19182,
+    "sha256": "26599cfe7a7a8c6bef4c7dc56a82a03ee69b3600578640eaa832af549ba8c435"
+  },
+  "market_feature_store/exports/2026-04-01-theme-candidates-qa.md": {
+    "bytes": 7279,
+    "sha256": "86ac14d2204b37253e7838c44a412c680b85b01fea2c3c007d119d0dd04c2bb7"
+  },
+  "market_feature_store/exports/2026-04-01-theme-candidates.json": {
+    "bytes": 984238,
+    "sha256": "dc33728018246c4a03878b9653c427be56942f4469e766123121fea348b69edf"
+  },
+  "market_feature_store/exports/2026-04-01-theme-candidates.md": {
+    "bytes": 25366,
+    "sha256": "8c6580321587c99becd7dbf780c7bc72bfed2aef505eb7e801338ecb49a428a4"
+  },
+  "market_feature_store/exports/2026-04-02-theme-backfill-queue.json": {
+    "bytes": 26690,
+    "sha256": "cc3d120b224b06401e3ad7579adc02ee7551e966aba08757bb147968b5a0d4ff"
+  },
+  "market_feature_store/exports/2026-04-02-theme-candidates-qa.md": {
+    "bytes": 6919,
+    "sha256": "e3ea25aa81c14ca8077c3fd474c7c007b7eee78cfa05d6c6190c55481dd8feef"
+  },
+  "market_feature_store/exports/2026-04-02-theme-candidates.json": {
+    "bytes": 860838,
+    "sha256": "646ffa3a06b2224132bee4ea919f38438ed3117bcbd014dee515aab214cafaff"
+  },
+  "market_feature_store/exports/2026-04-02-theme-candidates.md": {
+    "bytes": 23800,
+    "sha256": "60c30b26a127db1d5078cf3b002120b80f23590d2f6806893cc35aa10b630ce5"
+  },
+  "market_feature_store/exports/2026-04-03-theme-backfill-queue.json": {
+    "bytes": 15709,
+    "sha256": "250508c7e070088a6a86bb36e76f56b34b4caf5a6bef5d6a6420dbf459e4aa13"
+  },
+  "market_feature_store/exports/2026-04-03-theme-candidates-qa.md": {
+    "bytes": 7045,
+    "sha256": "1fd7f022c55aaa2b5d12b150cd241d78c97c443afb560178008f97742a671218"
+  },
+  "market_feature_store/exports/2026-04-03-theme-candidates.json": {
+    "bytes": 957695,
+    "sha256": "a903336bee89b257491d8528d29a5b4d1ad7d97ec5a1ec0211c4b29bcb947e94"
+  },
+  "market_feature_store/exports/2026-04-03-theme-candidates.md": {
+    "bytes": 25777,
+    "sha256": "a5cf67ef182dae5a6aa51c1725f7e55582215475d77a421e0ca5134feae79697"
+  },
+  "market_feature_store/exports/2026-04-07-theme-backfill-queue.json": {
+    "bytes": 21129,
+    "sha256": "e302166fdd90958182cab3f707c0265f50e0797b20214274ab511efb508a5fcc"
+  },
+  "market_feature_store/exports/2026-04-07-theme-candidates-qa.md": {
+    "bytes": 7030,
+    "sha256": "f0cf6afd0493effe72967bec6854be18c006f92aa11a1d7f01a971ff2eb80f90"
+  },
+  "market_feature_store/exports/2026-04-07-theme-candidates.json": {
+    "bytes": 899978,
+    "sha256": "71c1d1f382fe2766304a12b804969da48f9d73eba037c5b4d60b81c537bedd5b"
+  },
+  "market_feature_store/exports/2026-04-07-theme-candidates.md": {
+    "bytes": 26485,
+    "sha256": "b32633132797fde06dc9f45c7e6452dde3a1b6063e57c8ba9ae9d2e0659f390c"
+  },
+  "market_feature_store/exports/2026-05-25-theme-backfill-queue.json": {
+    "bytes": 12333,
+    "sha256": "361d55583e2b0035f2791ec10376af1897100c5b4b5aa8cdc9849ae5637dd19c"
+  },
+  "market_feature_store/exports/2026-05-25-theme-candidates-qa.md": {
+    "bytes": 7650,
+    "sha256": "cdd439d0433643e9c47925357b9913e03e74f9300e4125d5d48c4d5307b91346"
+  },
+  "market_feature_store/exports/2026-05-25-theme-candidates.json": {
+    "bytes": 1123736,
+    "sha256": "72a62c98055dba8112c03778f285c0b66276acc12c59eb89fe8f6456225d00f0"
+  },
+  "market_feature_store/exports/2026-05-25-theme-candidates.md": {
+    "bytes": 28589,
+    "sha256": "850202b160b73a14f68a8bbd4436c49acf09e1f90aa4f31f7776b4fbf0cf3769"
+  },
+  "market_feature_store/exports/2026-06-02-20d-plus-new-highs.md": {
+    "bytes": 47493,
+    "sha256": "80a1008b307894c80297b998f5f8d2dfb976cb4d53b7a3df69bdd3743da67394"
+  },
+  "market_feature_store/exports/2026-06-05-theme-backfill-queue.json": {
+    "bytes": 20075,
+    "sha256": "96fcca3493d15ba40032fa9ab9ed72e3d88152089412c90a084464e5b85aceec"
+  },
+  "market_feature_store/exports/2026-06-05-theme-candidates-qa.md": {
+    "bytes": 7620,
+    "sha256": "c52bf3c83c3bddb6d7c2f2423e3984d6598360ae9bedea6467dd9c3b2d74ea89"
+  },
+  "market_feature_store/exports/2026-06-05-theme-candidates.json": {
+    "bytes": 993823,
+    "sha256": "df5781a1415c80ae7acde79dd01e878f4164a8e77ced83f8985c7f945b57cb2f"
+  },
+  "market_feature_store/exports/2026-06-05-theme-candidates.md": {
+    "bytes": 24705,
+    "sha256": "632cca18774b9ca8c12c575cb3e237f78d0522e7493b5bffbef6d900105a0f3a"
+  },
+  "market_feature_store/exports/2026-06-09-theme-backfill-queue.json": {
+    "bytes": 15115,
+    "sha256": "194b0c154fcf5b2c3a64f506bf202252a7e6e45f091c3815d31cb26d76517347"
+  },
+  "market_feature_store/exports/2026-06-09-theme-candidates-qa.md": {
+    "bytes": 6569,
+    "sha256": "37980cbbdea3c725a8465aa8008a20643ad81b5bc5ed87ecaf70766c247b5956"
+  },
+  "market_feature_store/exports/2026-06-09-theme-candidates.json": {
+    "bytes": 1002877,
+    "sha256": "bbe2383e78e4d523960900ac4142bd615ccbebf0a0bf20fb5c5c44f9a17d6c93"
+  },
+  "market_feature_store/exports/2026-06-09-theme-candidates.md": {
+    "bytes": 25793,
+    "sha256": "00f54d81b033d779fd6cb1cc255cdcbbbfa6693b790dc11a667cd5651a840f8d"
+  },
+  "market_feature_store/exports/2026-06-10-theme-backfill-queue.json": {
+    "bytes": 14481,
+    "sha256": "38b983c71f79019544c4d55921ea40688b3ab735564772a73c28cdeea16e32f9"
+  },
+  "market_feature_store/exports/2026-06-10-theme-backfill-review-queue.json": {
+    "bytes": 6577,
+    "sha256": "11ba34cd43ce3d2ee3a0e2457806faf01a58c3b8492d8a7009d161b2ac124b67"
+  },
+  "market_feature_store/exports/2026-06-10-theme-backfill-review-queue.md": {
+    "bytes": 1990,
+    "sha256": "59fa354fcce3e6c04ed08d6e57b3c7092a03bf9786b083744617dfe17f9c640d"
+  },
+  "market_feature_store/exports/2026-06-10-theme-candidates-qa.md": {
+    "bytes": 6768,
+    "sha256": "ce7b9335bca76fcdc64b7b2f6ae77a7a7efbb1e73957e173e7edf6e049748aaf"
+  },
+  "market_feature_store/exports/2026-06-10-theme-candidates.json": {
+    "bytes": 996625,
+    "sha256": "496195f0b3f312d342ebc39086d3666b0b4b7070883713e9c7539067901eb948"
+  },
+  "market_feature_store/exports/2026-06-10-theme-candidates.md": {
+    "bytes": 25582,
+    "sha256": "e96eb902410bd8001fbce642998dac419a8d3b3a8ba66b8b403a496227309218"
+  },
+  "market_feature_store/exports/2026-06-11-daily-agent.json": {
+    "bytes": 213104,
+    "sha256": "3549baec7bc64212240b15fde83742f293f04149f8b28556c7e1b375d9d0752d"
+  },
+  "market_feature_store/exports/2026-06-11-daily-agent.md": {
+    "bytes": 14985,
+    "sha256": "7ed105e0dc0b08769642e3739e2f06e9d6b0c6ccd495347bfe5654d06823e41c"
+  },
+  "market_feature_store/exports/2026-06-11-daily-workflow-summary.json": {
+    "bytes": 12629,
+    "sha256": "76f1fd2b8a4932912d01d9cc86202d0a295456dc3161b4da636f6e76fee6bb6b"
+  },
+  "market_feature_store/exports/2026-06-11-logic-match-光刻胶.json": {
+    "bytes": 6924,
+    "sha256": "3668bfc397e49ad197e5086c30bbd3c2e8104aa23e17372554fc8cd6a9f8d8e7"
+  },
+  "market_feature_store/exports/2026-06-11-logic-match-光刻胶.md": {
+    "bytes": 2632,
+    "sha256": "d4747b569a99f8bfa0040d1e41d38b16c62ecbb62763beaefce4d9857402b66f"
+  },
+  "market_feature_store/exports/2026-06-11-theme-backfill-queue.json": {
+    "bytes": 18991,
+    "sha256": "2f63130f93a114fd1bb4f9c5e810712ba6268ea3545b0b08c504a8a92439b121"
+  },
+  "market_feature_store/exports/2026-06-11-theme-backfill-review-queue.json": {
+    "bytes": 9364,
+    "sha256": "14aa5805801b0c9312455fbc810eb779e5ac909dbd87948ed37326ba414d7803"
+  },
+  "market_feature_store/exports/2026-06-11-theme-backfill-review-queue.md": {
+    "bytes": 2713,
+    "sha256": "694f669315cc7a55207fbaff1384f78fa89862b5d8ea3d7b3a30565095365030"
+  },
+  "market_feature_store/exports/2026-06-11-theme-candidates.json": {
+    "bytes": 956644,
+    "sha256": "8f6b065fb86b86bf2d6562de668ca914c83008077ce2f6af809d9c831d6e118d"
+  },
+  "market_feature_store/exports/2026-06-11-theme-candidates.md": {
+    "bytes": 24341,
+    "sha256": "46d360d803ef295babcdf32654cb7343388a35b9266c85421e9f8204b87520a5"
+  },
+  "market_feature_store/exports/2026-06-12-daily-workflow-summary.json": {
+    "bytes": 11628,
+    "sha256": "6f9046136493602ab1d421c6a925a4b9d5e776b8878a2932be8d2301d0bd9921"
+  },
+  "market_feature_store/exports/2026-06-12-strategy-forward-validation.json": {
+    "bytes": 29186,
+    "sha256": "edc7835e6d2dd3251de291b66eda0f8f1825125895c876c9a1ba7c72684f4eb3"
+  },
+  "market_feature_store/exports/2026-06-12-strategy-forward-validation.md": {
+    "bytes": 3309,
+    "sha256": "16c4a69cb0bc63441c20dd1db8f707bcf61f780eb60e68b70b9b79b1c60ed1f8"
+  },
+  "market_feature_store/exports/2026-06-12-theme-backfill-queue.json": {
+    "bytes": 22808,
+    "sha256": "25e42e18f2a2c3f769ffcafa29ee2962ba70b5f24775f44ba6cfd7ec892d8da7"
+  },
+  "market_feature_store/exports/2026-06-12-theme-backfill-review-queue.json": {
+    "bytes": 9481,
+    "sha256": "95a33341700081752a451afae397f6172d59b3a25a7bb81cb703d81b7f29fea9"
+  },
+  "market_feature_store/exports/2026-06-12-theme-backfill-review-queue.md": {
+    "bytes": 2565,
+    "sha256": "21bf5c9a2821e6358de5aa25b18d7da80349b55b5f6831c31ee6f3372257be3a"
+  },
+  "market_feature_store/exports/2026-06-12-theme-candidates.json": {
+    "bytes": 1029671,
+    "sha256": "e2f7bde86642cdc4b8d1456182e2f647b261cbfe17d949d29ddd2d21c05327ec"
+  },
+  "market_feature_store/exports/2026-06-12-theme-candidates.md": {
+    "bytes": 25307,
+    "sha256": "171d2374bc4093e2d7d66267577f9f40d576750a52bbb931460a50224b39c6a4"
+  },
+  "market_feature_store/exports/2026-06-15-daily-workflow-summary.json": {
+    "bytes": 11515,
+    "sha256": "f48a94da73a3847f21fbc7802fe8a25d09e19e8f4587c2077b5898ffae80f08a"
+  },
+  "market_feature_store/exports/2026-06-15-theme-backfill-queue.json": {
+    "bytes": 20783,
+    "sha256": "9dbd907ac9b5cee52957653bb5d74cdf519b3f44021e2400d4b043a451d540fa"
+  },
+  "market_feature_store/exports/2026-06-15-theme-backfill-review-queue.json": {
+    "bytes": 16311,
+    "sha256": "6ba1ec0e4e5e12960db10c3045db8b7542921c8ec3f936ea23b022012697db64"
+  },
+  "market_feature_store/exports/2026-06-15-theme-backfill-review-queue.md": {
+    "bytes": 4197,
+    "sha256": "d9356195e2c450f1790ad3b5c52755a1753a5c1a7fabf7aa31524bbc3c4cb838"
+  },
+  "market_feature_store/exports/2026-06-15-theme-candidates.json": {
+    "bytes": 1024141,
+    "sha256": "6ee4c66fe0a718d255dd54cc942556fa78059941af4e54056194b5b685ac43e9"
+  },
+  "market_feature_store/exports/2026-06-15-theme-candidates.md": {
+    "bytes": 22052,
+    "sha256": "33cd578b1b7cf301643c1c584f7e1fd9c1d1bc8cf97558a4113dca8228effeba"
+  },
+  "market_feature_store/exports/2026-06-16-daily-workflow-summary.json": {
+    "bytes": 11694,
+    "sha256": "49334c2d2b4e77cb41e38defe6bda62c86e7f0b9243d257c452549fd74b4d63a"
+  },
+  "market_feature_store/exports/2026-06-16-theme-backfill-queue.json": {
+    "bytes": 14323,
+    "sha256": "e7a123e3223d70e0d4daeaf53f174111cc3e93dab06ca35dc9e81a499a953e56"
+  },
+  "market_feature_store/exports/2026-06-16-theme-backfill-review-queue.json": {
+    "bytes": 7691,
+    "sha256": "0f84d9034f9932fb0d948aff2f5ccebff9dfa97b4fc9edf2f9e8518db63917a1"
+  },
+  "market_feature_store/exports/2026-06-16-theme-backfill-review-queue.md": {
+    "bytes": 2150,
+    "sha256": "48788f962b62c32a227af844fab18b3d13cd1c2ff0d00657841d723df721ffc9"
+  },
+  "market_feature_store/exports/2026-06-16-theme-candidates.json": {
+    "bytes": 1075554,
+    "sha256": "798b83c2aac65dc9dc6e2dfe9725c5db9c8d9bed94a54194877d96f3bc3eb35a"
+  },
+  "market_feature_store/exports/2026-06-16-theme-candidates.md": {
+    "bytes": 28056,
+    "sha256": "e5163c2e180e45ce025a189fdce20299911d88a3029b73c89183f7887b1640ea"
+  },
+  "market_feature_store/exports/2026-06-17-daily-workflow-summary.json": {
+    "bytes": 10731,
+    "sha256": "82910a093501a0db4ef3c13d6ded9063a3dcafdd479a77999b56d888d1da5be8"
+  },
+  "market_feature_store/exports/2026-06-17-theme-backfill-queue.json": {
+    "bytes": 10897,
+    "sha256": "c42174dd335320bef8ea1848c5b38364474f4a3663b527c95e74f1a7682169cb"
+  },
+  "market_feature_store/exports/2026-06-17-theme-backfill-review-queue.json": {
+    "bytes": 1374,
+    "sha256": "f5e2d769e600d54b31df96ff2f882f7ad50a9b384e8c6b0375cd61742abc3227"
+  },
+  "market_feature_store/exports/2026-06-17-theme-backfill-review-queue.md": {
+    "bytes": 723,
+    "sha256": "1bd86baf4bea118c281eba86d144bfa80e862822e4041a2cd3c7c6f42d55de89"
+  },
+  "market_feature_store/exports/2026-06-17-theme-candidates.json": {
+    "bytes": 1089533,
+    "sha256": "4c88cafa7bf5d9b628ea43d63c7ef418125f10d9de1ab7043a6c7a293f8c9c39"
+  },
+  "market_feature_store/exports/2026-06-17-theme-candidates.md": {
+    "bytes": 27706,
+    "sha256": "e6e24fabdbf361e8aa75756fa3bd59f0346d834785a526d6be22894944c0c502"
+  },
+  "market_feature_store/exports/2026-06-21-daily-ops-ledger.json": {
+    "bytes": 7557,
+    "sha256": "8f65ac0391aa70ae9983d9e71ab8014e4b13d741a12e8b4b530a7d6d2424a87e"
+  },
+  "market_feature_store/exports/2026-06-21-daily-ops-ledger.md": {
+    "bytes": 2358,
+    "sha256": "8192e1fcb076df6be8a6d2781184f383f3a542a92f10bdd520f704cf2194379e"
+  },
+  "market_feature_store/exports/2026-06-22-daily-agent.json": {
+    "bytes": 80069,
+    "sha256": "4e7b9707f457b4e0baf3754268fec9407581403ac246098cf8f4193a03cbf069"
+  },
+  "market_feature_store/exports/2026-06-22-daily-agent.md": {
+    "bytes": 5960,
+    "sha256": "29001c116e4c42c95b5ccc38d6778846b91bff1277ba50439437d27a4872fc76"
+  },
+  "market_feature_store/exports/2026-06-22-daily-workflow-summary.json": {
+    "bytes": 7166,
+    "sha256": "30cae5b07bb66fd69e1faed23583cc4215ff96665ce483dc1819979f0aaf6691"
+  },
+  "market_feature_store/exports/2026-06-22-theme-backfill-queue.json": {
+    "bytes": 20872,
+    "sha256": "9f5868e26b95875edb841afda15a15d393275cee435efea23c557052f42741f6"
+  },
+  "market_feature_store/exports/2026-06-22-theme-backfill-review-queue.json": {
+    "bytes": 5882,
+    "sha256": "28fb745b2d457cf248d098929980c5ee9fcfc39826d2c1cd151b36524be93d57"
+  },
+  "market_feature_store/exports/2026-06-22-theme-backfill-review-queue.md": {
+    "bytes": 1797,
+    "sha256": "e64201c4478406b0a95ed282862ecab6bc6006d4edad4d50a6410c68c53df3e8"
+  },
+  "market_feature_store/exports/2026-06-22-theme-candidates.json": {
+    "bytes": 773405,
+    "sha256": "e82023ced529b6418b92a0ef495affba397172371b1e0a732ae5260c04c8fcf9"
+  },
+  "market_feature_store/exports/2026-06-22-theme-candidates.md": {
+    "bytes": 26439,
+    "sha256": "fa7d6d468ac02a4b2875126730e5acc374dfd30de96f1e27fcd2f2145ffae32e"
+  },
+  "market_feature_store/exports/2026-06-23-theme-backfill-queue.json": {
+    "bytes": 13249,
+    "sha256": "dd1917fd4146c4a31bd95cdd37396c57fcc75cff8ddb0aa81c4be8f46e0ab0b9"
+  },
+  "market_feature_store/exports/2026-06-23-theme-backfill-review-queue.json": {
+    "bytes": 5665,
+    "sha256": "b1b474ce9b28084ba6b221bbaec1a172b01ac284aa08ef6c9001ef6624803cc5"
+  },
+  "market_feature_store/exports/2026-06-23-theme-backfill-review-queue.md": {
+    "bytes": 1750,
+    "sha256": "eb9ecba49b5c532e321953a54948c997e2af544f06c5d6bf28e0ea740d69512c"
+  },
+  "market_feature_store/exports/2026-06-23-theme-candidates.json": {
+    "bytes": 1076795,
+    "sha256": "5632d420ad7e424cef68f1cf07d889693322800fb85aec2af91d86dc0f3fa011"
+  },
+  "market_feature_store/exports/2026-06-23-theme-candidates.md": {
+    "bytes": 25803,
+    "sha256": "5d7debb39ab3c9851dbfeba172708bfce5d6b3998425b813ddd362345ed21e24"
+  },
+  "market_feature_store/exports/2026-06-24-daily-agent.json": {
+    "bytes": 107247,
+    "sha256": "7ef8c91b865b8c089ac9dd15f751590bf95dfde253b632a3b6dd312bc3164410"
+  },
+  "market_feature_store/exports/2026-06-24-daily-agent.md": {
+    "bytes": 6643,
+    "sha256": "3ff455a78d2fafcd0019f22e882d3c52ed9aa0f5fb97f9ddc5b3c8e3621c2c7e"
+  },
+  "market_feature_store/exports/2026-06-24-theme-backfill-queue.json": {
+    "bytes": 9540,
+    "sha256": "f1725178e3c1001dcff2c5ac857ac827a809ee9e036cd2b9be7deda61d29f387"
+  },
+  "market_feature_store/exports/2026-06-24-theme-backfill-review-queue.json": {
+    "bytes": 5685,
+    "sha256": "9788969e86659866dc92ce1a0f9469e895bae1230ba2791db55fa8f65df00b48"
+  },
+  "market_feature_store/exports/2026-06-24-theme-backfill-review-queue.md": {
+    "bytes": 1785,
+    "sha256": "eacf17fcff5642a3fc8aae6943e529f7fdbc02e87d6c5580f39d91af7f83d592"
+  },
+  "market_feature_store/exports/2026-06-24-theme-candidates.json": {
+    "bytes": 1101900,
+    "sha256": "57311ddba6cf696ef9ac2a054ff6ffe88d9af550f48712133f76816d858d0034"
+  },
+  "market_feature_store/exports/2026-06-24-theme-candidates.md": {
+    "bytes": 25520,
+    "sha256": "be939a9b02c7be10ec80c6242cb60f8edf56d5deab477d863c2e55745e949773"
+  },
+  "market_feature_store/exports/2026-06-25-daily-agent.json": {
+    "bytes": 109762,
+    "sha256": "8c3f4b7665b3463c1db353dfd010f45cc5ccf6398d6f975ae158902ca842e680"
+  },
+  "market_feature_store/exports/2026-06-25-daily-agent.md": {
+    "bytes": 6699,
+    "sha256": "c014226dc6c9562989ef501c6420dcfc53c8e1f20f3bb449fd8db040625f1e3b"
+  },
+  "market_feature_store/exports/2026-06-25-theme-backfill-queue.json": {
+    "bytes": 10901,
+    "sha256": "bfeaed92410bba65caf6089fc68e1a0a838d6f07f0c71b4b441c8d01bf48d60b"
+  },
+  "market_feature_store/exports/2026-06-25-theme-backfill-review-queue.json": {
+    "bytes": 5035,
+    "sha256": "94e0b3310fcd7e5b527fed01fea28a53825a1393a4e5b06e5d5562a48eda58d9"
+  },
+  "market_feature_store/exports/2026-06-25-theme-backfill-review-queue.md": {
+    "bytes": 1568,
+    "sha256": "27d2073928b5fdec17b5ffce968f121a2336eeed62687fadb3bfaaf6d9d572ad"
+  },
+  "market_feature_store/exports/2026-06-25-theme-candidates.json": {
+    "bytes": 1158110,
+    "sha256": "c629f2e690495fbbe32afd703e6810bb8fbb97c82d9568a4db3f4c6dce45704a"
+  },
+  "market_feature_store/exports/2026-06-25-theme-candidates.md": {
+    "bytes": 27888,
+    "sha256": "9ead85b27a20813449b619ed2a1dd245ab581c33a29578bcb0defe1d7c85d4b6"
+  },
+  "market_feature_store/exports/2026-06-26-daily-agent.json": {
+    "bytes": 228372,
+    "sha256": "432a64aad70c59f15110eb9259d8fd44652dac74b5613134d9a921046204115e"
+  },
+  "market_feature_store/exports/2026-06-26-daily-agent.md": {
+    "bytes": 14968,
+    "sha256": "f171405b5f98e61587ecfbf999d8d860b1e9e3535a82a4a223b26ba1b3072834"
+  },
+  "market_feature_store/exports/2026-06-26-daily-workflow-summary.json": {
+    "bytes": 2040,
+    "sha256": "3dcac6abfd35c1adce7246046875631cb105e5f8c75d96a4d07bb8db9897a5d0"
+  },
+  "market_feature_store/exports/2026-06-26-ingest-action-plan.json": {
+    "bytes": 9810,
+    "sha256": "f5b5b9c665031c0728454dbed10e9b424fee02c827980df6410c5cdb5bf2f201"
+  },
+  "market_feature_store/exports/2026-06-26-ingest-action-plan.md": {
+    "bytes": 3069,
+    "sha256": "f173c65863a9d4033e9b2006229d3f5b6c5fef5cc0761dc9aba701b773e26172"
+  },
+  "market_feature_store/exports/2026-06-26-ingest-status-ledger-indexed.json": {
+    "bytes": 58470,
+    "sha256": "af0ee5df63932188ce4ff6aa174283abc157a7c48fbfe002a0b30d80d200bce1"
+  },
+  "market_feature_store/exports/2026-06-26-ingest-status-ledger-indexed.md": {
+    "bytes": 5775,
+    "sha256": "a192b1116e2d6c19c1c41f869a3940c855711dab665420215328c626a6d77f23"
+  },
+  "market_feature_store/exports/2026-06-26-ingest-status-ledger.json": {
+    "bytes": 43354,
+    "sha256": "1b0ad0a3461bbdf330a066e77dfe5e32e9a72c081788dcb73412c7b8e2c31096"
+  },
+  "market_feature_store/exports/2026-06-26-ingest-status-ledger.md": {
+    "bytes": 5935,
+    "sha256": "896e4a24a228d29e3fbb430d5b2529253de60d68fad68969f9aadbd0d6eb51f0"
+  },
+  "market_feature_store/exports/2026-06-26-theme-backfill-queue.json": {
+    "bytes": 10286,
+    "sha256": "6dfbbaa8fb268f5375303e0853b605d142c05c9907c0ed81f254a5791ef6dc02"
+  },
+  "market_feature_store/exports/2026-06-26-theme-backfill-review-queue.json": {
+    "bytes": 4095,
+    "sha256": "208197ad1a9b409a6875b640861fa7acc1e3bae684efbf76d498093502cfd5a3"
+  },
+  "market_feature_store/exports/2026-06-26-theme-backfill-review-queue.md": {
+    "bytes": 1378,
+    "sha256": "4be445e502cdc2a6e5512c08a207f52b2d37eec99e8a5489151cbb164e0ead26"
+  },
+  "market_feature_store/exports/2026-06-26-theme-candidates.json": {
+    "bytes": 1091041,
+    "sha256": "556a20ab5d6ef9959d95299d5896442ec2c24b07b6714c4cd5e5cd2c04688e70"
+  },
+  "market_feature_store/exports/2026-06-26-theme-candidates.md": {
+    "bytes": 25290,
+    "sha256": "074c3442355740356df88a948fd495129c35a0414797b9ed0c5db7853f4c271f"
+  },
+  "market_feature_store/exports/2026-06-29-daily-agent.json": {
+    "bytes": 241946,
+    "sha256": "2761e5672924f158f7077da0552d1c36dbe528dfd425ea2f524a42957b8901e4"
+  },
+  "market_feature_store/exports/2026-06-29-daily-agent.md": {
+    "bytes": 15611,
+    "sha256": "73df04e8d21cc15c671b0a4669d1f39239079e7568fafe165706c0aebec32962"
+  },
+  "market_feature_store/exports/2026-06-29-theme-backfill-queue.json": {
+    "bytes": 10211,
+    "sha256": "f0c8a07bf8561bf3e2f08639c2b2117fd88101d4f93b44481e1f2505f52af4d2"
+  },
+  "market_feature_store/exports/2026-06-29-theme-backfill-review-queue.json": {
+    "bytes": 3990,
+    "sha256": "017cb852d4e6c21b5f87c97416fb044707c1f4bb470e8a35974ca02abcbe376f"
+  },
+  "market_feature_store/exports/2026-06-29-theme-backfill-review-queue.md": {
+    "bytes": 1373,
+    "sha256": "bf487919c6d8c95de9d58c58f1341684308434c0bbac61141f2e01dc90a2c4f1"
+  },
+  "market_feature_store/exports/2026-06-29-theme-candidates.json": {
+    "bytes": 1112613,
+    "sha256": "4cf911ff19a0cec21929a77436aeb1d734799372a6a4ba011249ed3393fa3618"
+  },
+  "market_feature_store/exports/2026-06-29-theme-candidates.md": {
+    "bytes": 25879,
+    "sha256": "dedd841960a50f8e42aa413defed0a541649caee1efd93daae9adc981932ccd3"
+  },
+  "market_feature_store/exports/2026-07-01-daily-agent.json": {
+    "bytes": 207440,
+    "sha256": "78164dc7edd44d0c6de2f2b340adbaf328e32692e6287196dc0b83369c8a0e1b"
+  },
+  "market_feature_store/exports/2026-07-01-daily-agent.md": {
+    "bytes": 14258,
+    "sha256": "841422ef04ea32ed87abf0aea9acbcb0a03aaf399a1326aea967a86435f745ef"
+  },
+  "market_feature_store/exports/2026-07-01-daily-workflow-summary.json": {
+    "bytes": 2116,
+    "sha256": "5ac66ba88165e46bdc4d9b79ece84beacb19a38ab8deb565250448ccaff8bb63"
+  },
+  "market_feature_store/exports/2026-07-01-theme-backfill-queue.json": {
+    "bytes": 11898,
+    "sha256": "addc3b848f4366e7a7ba1fb5c269c5657005e65bcbe883c30a29948d93e660b6"
+  },
+  "market_feature_store/exports/2026-07-01-theme-backfill-review-queue.json": {
+    "bytes": 512,
+    "sha256": "2e6cd536f266025af4d1a01fe7a25aee993386cf1aa7ba2cff5abb65603ca8fc"
+  },
+  "market_feature_store/exports/2026-07-01-theme-backfill-review-queue.md": {
+    "bytes": 485,
+    "sha256": "d6dd6ffd50d85a50b7667f20f8e95d5da28aae30211ffd82f0805fe715a0b0cd"
+  },
+  "market_feature_store/exports/2026-07-01-theme-candidates.json": {
+    "bytes": 1101975,
+    "sha256": "bfa68df3e650eae60377d1dd753f09cb66fe10ec0235fa1fd7c1ed15decfee5a"
+  },
+  "market_feature_store/exports/2026-07-01-theme-candidates.md": {
+    "bytes": 26098,
+    "sha256": "fef7c1e5bfb3020aac40b273e418bed7881f650632892e3c832b880f6794650c"
+  },
+  "market_feature_store/exports/2026-07-07-advancers-ma5.png": {
+    "bytes": 570618,
+    "sha256": "2f1cbaf24a77788b821218073ca54fc043619ca1427ba29d4e7827ad5838466a"
+  },
+  "market_feature_store/exports/2026-07-07-daily-agent.json": {
+    "bytes": 247892,
+    "sha256": "6e4f6665b715863e5a2e72be9af0b073c22777dda8837bd812424228ce8ab509"
+  },
+  "market_feature_store/exports/2026-07-07-daily-agent.md": {
+    "bytes": 16736,
+    "sha256": "b6c83143fee2c5cfa877331e68df5a11ec37ca439d330250c7583ebd354ec7c2"
+  },
+  "market_feature_store/exports/2026-07-07-daily-review.md": {
+    "bytes": 45617,
+    "sha256": "5eeb4f3b7e9eb9a3ccd86008fe75bdae2c01914833b7169d58d44554c6a49bd9"
+  },
+  "market_feature_store/exports/2026-07-07-daily-workflow-summary.json": {
+    "bytes": 19696,
+    "sha256": "cc9fd80bcb21f5494a23d825a3b4f7df5ae3bc3bf47c725c6b1370abea67ce85"
+  },
+  "market_feature_store/exports/2026-07-07-kb-ingest-queue.json": {
+    "bytes": 10382,
+    "sha256": "2a03f27a79deacbb4847fcbb5a36878bb7a8a09495d05020fab28c0474050d3c"
+  },
+  "market_feature_store/exports/2026-07-07-market-triggered-theme-brief.md": {
+    "bytes": 9398,
+    "sha256": "8c513bb12f8655c8439f48c8483913c8bd5d1acf6a0513d5c4d33ec91e4a6f24"
+  },
+  "market_feature_store/exports/2026-07-07-theme-backfill-queue.json": {
+    "bytes": 15810,
+    "sha256": "360b4aa4fa05466de79e6dc8e7bcd19b24a3de5aec98edae8bfc8cc4b60363ec"
+  },
+  "market_feature_store/exports/2026-07-07-theme-backfill-review-queue.json": {
+    "bytes": 5733,
+    "sha256": "9246a7ff690023c132eb55ce136ac51c5d31c7e12de410b2c1511feb555e3e1c"
+  },
+  "market_feature_store/exports/2026-07-07-theme-backfill-review-queue.md": {
+    "bytes": 1828,
+    "sha256": "34a9020f12b2ba0696d91cbc236e2fbb445efda2a4971f1de1b653e58e0e1418"
+  },
+  "market_feature_store/exports/2026-07-07-theme-candidates.json": {
+    "bytes": 715848,
+    "sha256": "5bc364b6664d0636d9f6e8747a3e8b1ad34a8135449d45511174c205a1aa1276"
+  },
+  "market_feature_store/exports/2026-07-07-theme-candidates.md": {
+    "bytes": 24019,
+    "sha256": "e3de4c3f8fb8b22a539924cbb965669c602186ba171c49e446bea968e5710f06"
+  },
+  "market_feature_store/exports/2026-07-07-triggered-themes.json": {
+    "bytes": 51252,
+    "sha256": "2d325b928320428b722cf583dd8e6679f20253412dd220a015ee8931b61f2cf0"
+  },
+  "market_feature_store/exports/2026-07-08-advancers-ma5.png": {
+    "bytes": 570331,
+    "sha256": "b9086613f83cd1b9aa17f8141259e6435b0974e4ca6da0d77b460c307cafd5f2"
+  },
+  "market_feature_store/exports/2026-07-08-daily-agent.json": {
+    "bytes": 267425,
+    "sha256": "ed0838d07c90c937724d4b92208e11b1a3dbd7774ed16c902023d1be517070d5"
+  },
+  "market_feature_store/exports/2026-07-08-daily-agent.md": {
+    "bytes": 19334,
+    "sha256": "ff651196ce55942834721d450dd7c75d3164b277bf4e289243f81e6e1d283946"
+  },
+  "market_feature_store/exports/2026-07-08-daily-review.md": {
+    "bytes": 47009,
+    "sha256": "40abae1905eed1bdb43155fdf8f2ff6cbb5237e044ba6071a2743ffa4c3dcfbd"
+  },
+  "market_feature_store/exports/2026-07-08-daily-workflow-summary.json": {
+    "bytes": 19763,
+    "sha256": "7160d3b63dfa514e6c467f5edd58f6d37d89b2e52c38329941670691e3ba9302"
+  },
+  "market_feature_store/exports/2026-07-08-kb-ingest-queue.json": {
+    "bytes": 23549,
+    "sha256": "f47fba14ef20e05ca662cc37493dd006bc14483df08626d04c3afbfcf62d8719"
+  },
+  "market_feature_store/exports/2026-07-08-market-triggered-theme-brief.md": {
+    "bytes": 10018,
+    "sha256": "3b1d853f869c2b7919a9f38a8cc12f25811e8f33a04ded1d5436e474c0af67e0"
+  },
+  "market_feature_store/exports/2026-07-08-theme-backfill-queue.json": {
+    "bytes": 9619,
+    "sha256": "576f74397e0c03ab99f816e49abb012da8516ec50ab3cc9f33963fd0ea20b20b"
+  },
+  "market_feature_store/exports/2026-07-08-theme-backfill-review-queue.json": {
+    "bytes": 3151,
+    "sha256": "0ab3d9614b236e3cfb97e105bf4a14bed87004848ee480c7d7d1faff74eee340"
+  },
+  "market_feature_store/exports/2026-07-08-theme-backfill-review-queue.md": {
+    "bytes": 1151,
+    "sha256": "f8fe1fdaa322b263053a551ed7f63e1e51c7112444919ee30d583c2a7afa1a72"
+  },
+  "market_feature_store/exports/2026-07-08-theme-candidates.json": {
+    "bytes": 1042577,
+    "sha256": "3fcc51412461e6be30077def522d22e67fcd13a7c8c502933bc4c021f06b06cf"
+  },
+  "market_feature_store/exports/2026-07-08-theme-candidates.md": {
+    "bytes": 24909,
+    "sha256": "6968fadeff1eb75e5f5dbb3b511b596f2e1a769faa8f69cbe1dce68d540814aa"
+  },
+  "market_feature_store/exports/2026-07-08-triggered-themes.json": {
+    "bytes": 59669,
+    "sha256": "261ac6bb63a795dae08643bf376e1b98b4d975d119dc5c176e4a6948ff0f90ea"
+  },
+  "market_feature_store/exports/2026-07-09-advancers-ma5.png": {
+    "bytes": 572778,
+    "sha256": "e136fa194f8bac388beab87b208e95032d5129f657c13dfa9418598b41c4fb1e"
+  },
+  "market_feature_store/exports/2026-07-09-daily-agent.json": {
+    "bytes": 281000,
+    "sha256": "381c8e8884a58fb70f38732b6d04de62d27986290c9ac9627587bc4158451c38"
+  },
+  "market_feature_store/exports/2026-07-09-daily-agent.md": {
+    "bytes": 19929,
+    "sha256": "2cf33656c4824286a8f7bc93e43e120be7f2d7e347da2c0b34ffc654d0c3f60d"
+  },
+  "market_feature_store/exports/2026-07-09-daily-review.md": {
+    "bytes": 48609,
+    "sha256": "e98ed9e054065084a28002ea9d5e0005a6db4c0c206aa4f5de21554d369b77dc"
+  },
+  "market_feature_store/exports/2026-07-09-daily-workflow-summary.json": {
+    "bytes": 16227,
+    "sha256": "b60111461879db2e5186085912e3beea801c323f2d9c7902e88b4d9d0ad9af84"
+  },
+  "market_feature_store/exports/2026-07-09-kb-ingest-queue.json": {
+    "bytes": 22570,
+    "sha256": "cf43d944fcd9f7a36f63224007100b82a5ad37467729e4c9cd93739e794492ea"
+  },
+  "market_feature_store/exports/2026-07-09-market-triggered-theme-brief.md": {
+    "bytes": 10597,
+    "sha256": "6cbacceb9377f27bc04cebf734c94b20b6c502991e599c93b8d63e7e417b8842"
+  },
+  "market_feature_store/exports/2026-07-09-theme-backfill-queue.json": {
+    "bytes": 11842,
+    "sha256": "3413387d96b5180016a1a6850f935de9952aa36a9c76cb979b1c1241802860c3"
+  },
+  "market_feature_store/exports/2026-07-09-theme-backfill-review-queue.json": {
+    "bytes": 3233,
+    "sha256": "4d812d3eb5ced8a867010392d083cddba5d08b3065d42e047674f443494ae0ed"
+  },
+  "market_feature_store/exports/2026-07-09-theme-backfill-review-queue.md": {
+    "bytes": 1162,
+    "sha256": "e87a6bcc00724b236ffad888ace9ec55bd0b7b48f93353e261deb0be31b6d9e3"
+  },
+  "market_feature_store/exports/2026-07-09-theme-candidates.json": {
+    "bytes": 1052544,
+    "sha256": "31994235a7ded9dc92b7f81724c06cdbb8eb080e6f0106a7495bffa1befc1674"
+  },
+  "market_feature_store/exports/2026-07-09-theme-candidates.md": {
+    "bytes": 27484,
+    "sha256": "98126b3fcf223463c4ec7cff50d8051d6cb51f2dbd9587c177ceff14b2a59a3c"
+  },
+  "market_feature_store/exports/2026-07-09-triggered-themes.json": {
+    "bytes": 60579,
+    "sha256": "9958dfce2123587160aa0340ca0c1f61622c4080d461988825f6568da940fb8a"
+  },
+  "market_feature_store/exports/2026-07-10-advancers-ma5.png": {
+    "bytes": 572723,
+    "sha256": "d98028121d00cd490f2cf815223fad87cacb0ce4b39ac29b01b01c73dd69bde5"
+  },
+  "market_feature_store/exports/2026-07-10-daily-agent.json": {
+    "bytes": 279381,
+    "sha256": "5e3d68886dd59c6c2daae333f91ea48ed76adc2472217235cf3c2e7ebbbf9628"
+  },
+  "market_feature_store/exports/2026-07-10-daily-agent.md": {
+    "bytes": 20056,
+    "sha256": "7e41a95514cdc6db3dcf8728b71a598f76bd8bf57915bce379b98d7aa5778ffd"
+  },
+  "market_feature_store/exports/2026-07-10-daily-review.md": {
+    "bytes": 49595,
+    "sha256": "e1781b926487326301366fafde64cfdf43a0ec13c6bff345d127bed780d48644"
+  },
+  "market_feature_store/exports/2026-07-10-daily-workflow-summary.json": {
+    "bytes": 19971,
+    "sha256": "ec4b3914c7ad4c0f188e6a22fc729147716464198cc7aaec05462d5ad417c413"
+  },
+  "market_feature_store/exports/2026-07-10-kb-ingest-queue.json": {
+    "bytes": 22778,
+    "sha256": "5c4ed2837eafb9ffe2305ecec8db3c6f157e36b6597088f18e8d8f3419cace34"
+  },
+  "market_feature_store/exports/2026-07-10-market-triggered-theme-brief.md": {
+    "bytes": 10326,
+    "sha256": "a9f661f1f94cb67ffbb17c89b16943c0ed1e6cfaf0c192f6bf79db1deca79d81"
+  },
+  "market_feature_store/exports/2026-07-10-theme-backfill-queue.json": {
+    "bytes": 18584,
+    "sha256": "cc2b9757e78ea55fdf06d4e99c86fe95f52426e374bfc4cbdf07d8bcd7694f81"
+  },
+  "market_feature_store/exports/2026-07-10-theme-backfill-review-queue.json": {
+    "bytes": 6583,
+    "sha256": "67307a7cd13a5c79d886848de22bfe08dd59f15b47e9a6d3a6588ccc8201c400"
+  },
+  "market_feature_store/exports/2026-07-10-theme-backfill-review-queue.md": {
+    "bytes": 1907,
+    "sha256": "cc5623e84e1c450cbf379cd039504a8fc3819c2fdd45bbad105f26ea394c2b7d"
+  },
+  "market_feature_store/exports/2026-07-10-theme-candidates.json": {
+    "bytes": 1043624,
+    "sha256": "5051982f4398bbae48f74d438d36cab9c6f01ef6511d3af3e4d11a77b98c9fbc"
+  },
+  "market_feature_store/exports/2026-07-10-theme-candidates.md": {
+    "bytes": 27585,
+    "sha256": "a9920085df2f392562dc1ad2931885595d8de651673a30fe0b1521100d68789b"
+  },
+  "market_feature_store/exports/2026-07-10-triggered-themes.json": {
+    "bytes": 62987,
+    "sha256": "ca1e02981c71fa9e43e25175d9d51779ef3f7e7fdbbf10b444bd197aff8491d0"
+  },
+  "market_feature_store/exports/2026-07-13-advancers-ma5.png": {
+    "bytes": 572391,
+    "sha256": "eabe36f92f019a647ee7188f1726085c9321e96346cd11228480ac324aee2f27"
+  },
+  "market_feature_store/exports/2026-07-13-daily-agent.json": {
+    "bytes": 252988,
+    "sha256": "960962400fb471cb5e3ceed49d1d91448c84de5cb9e30bd0d68ca1141000df03"
+  },
+  "market_feature_store/exports/2026-07-13-daily-agent.md": {
+    "bytes": 15817,
+    "sha256": "0f3dbd3dfcef24f0c017ef59e75b7771a2bb3026197313209f4636169e50ebe3"
+  },
+  "market_feature_store/exports/2026-07-13-daily-review.md": {
+    "bytes": 39801,
+    "sha256": "d4c864b00bb550fe25c38bce8d2c6d605fb2a8aabc20f7112a3b845d1600970c"
+  },
+  "market_feature_store/exports/2026-07-13-daily-workflow-summary.json": {
+    "bytes": 19655,
+    "sha256": "b6aa795ad1062ac3b43796268d0e4d0b9dcab4b7cc3d66e6ecab70101306d0df"
+  },
+  "market_feature_store/exports/2026-07-13-kb-ingest-queue.json": {
+    "bytes": 3969,
+    "sha256": "8e0dc11371d809ec7e5a220b627458608e9976eef6e5b8d0c71753fba31261ea"
+  },
+  "market_feature_store/exports/2026-07-13-market-triggered-theme-brief.md": {
+    "bytes": 9631,
+    "sha256": "268ace65d9d0b2143c51656ab3af5ee98bab0b449414f2004b940c0b681346c2"
+  },
+  "market_feature_store/exports/2026-07-13-theme-backfill-queue.json": {
+    "bytes": 11036,
+    "sha256": "2e92aa5dac8f88ddd4da28eafcd184d920c47ed454e19d95b57b3679e1c219b2"
+  },
+  "market_feature_store/exports/2026-07-13-theme-backfill-review-queue.json": {
+    "bytes": 2324,
+    "sha256": "169c13f01e625ce9c3babb49f507224a988335b4b6436129d9340d074780d1cb"
+  },
+  "market_feature_store/exports/2026-07-13-theme-backfill-review-queue.md": {
+    "bytes": 965,
+    "sha256": "483299eaaa5da0914672dc7bb8c20baf7d57e004c3e6b912286917d0136ac713"
+  },
+  "market_feature_store/exports/2026-07-13-theme-candidates.json": {
+    "bytes": 1020298,
+    "sha256": "ee8c30114f9be68b9d61281923d56133abbf272ff8160f7804333d8690cdec3e"
+  },
+  "market_feature_store/exports/2026-07-13-theme-candidates.md": {
+    "bytes": 25654,
+    "sha256": "402de3fb016cda035665b49ed7658f7e490ba86ced4cb99741bf7aee31261388"
+  },
+  "market_feature_store/exports/2026-07-13-triggered-themes.json": {
+    "bytes": 60426,
+    "sha256": "2ba7c81cc192ab3fa8f5e53cfd3aec2082210228219d0f76f06710e8d1324307"
+  },
+  "market_feature_store/exports/2026-07-14-advancers-ma5.png": {
+    "bytes": 575099,
+    "sha256": "8c1a0166ee0956e751f96941ae989f662c3e95f3b3e83d0e4a4d3b49d8daea05"
+  },
+  "market_feature_store/exports/2026-07-14-daily-agent.json": {
+    "bytes": 230961,
+    "sha256": "510232334de79ef0242a028366c7f620262fb0e61b3c98927ef4c3a42cd733d3"
+  },
+  "market_feature_store/exports/2026-07-14-daily-agent.md": {
+    "bytes": 16568,
+    "sha256": "a54307e6fc275a2b361ddcf6cb4e166a241f3f2f8d93226d2c1399f8e0334999"
+  },
+  "market_feature_store/exports/2026-07-14-daily-review.md": {
+    "bytes": 41881,
+    "sha256": "4c12f755721ce0b3d837739a0ddb168dcab2da588bcae449756842b6cf0c7bb2"
+  },
+  "market_feature_store/exports/2026-07-14-daily-workflow-summary.json": {
+    "bytes": 20154,
+    "sha256": "af4a1467f856fe95653e5952129e4bd03d1ffe7aca44d8818d3ee40c43c2ef5f"
+  },
+  "market_feature_store/exports/2026-07-14-kb-ingest-queue.json": {
+    "bytes": 16008,
+    "sha256": "2dba646218d8e0fa18b54c12caba73d669788942c79d56b7273d7071b806e81f"
+  },
+  "market_feature_store/exports/2026-07-14-market-triggered-theme-brief.md": {
+    "bytes": 7848,
+    "sha256": "766c4c6843d4628f00392769e0f2ba34b7abaca01d87b0ce1d2a64dac6b135ab"
+  },
+  "market_feature_store/exports/2026-07-14-theme-backfill-queue.json": {
+    "bytes": 14115,
+    "sha256": "cf940ef060e3911ec2cba2b7697ce6373c941e84adb0eb08d612f8babf19de72"
+  },
+  "market_feature_store/exports/2026-07-14-theme-backfill-review-queue.json": {
+    "bytes": 7225,
+    "sha256": "89436a477228abbe44dc15cccc806a32c081c9a058ead791ccd0a9952abc1961"
+  },
+  "market_feature_store/exports/2026-07-14-theme-backfill-review-queue.md": {
+    "bytes": 2137,
+    "sha256": "c0830aba69d5b7d95a1e95bf6c3f8993db07901da5f91cddfa07f909dbb571cc"
+  },
+  "market_feature_store/exports/2026-07-14-theme-candidates.json": {
+    "bytes": 773494,
+    "sha256": "5b1964e52525616a4797656dd95ed395787eec76ba4df8a9691dca7919a22f60"
+  },
+  "market_feature_store/exports/2026-07-14-theme-candidates.md": {
+    "bytes": 21448,
+    "sha256": "3cb3d089ce732e9a6ce2d3cfb3ff526d41a0fda7ea998a310bf86770a71c74d1"
+  },
+  "market_feature_store/exports/2026-07-14-triggered-themes.json": {
+    "bytes": 45360,
+    "sha256": "6623057952d668641fa4f7aaad092bf9169aa3cb65ca4d89580c675177ab22e4"
+  },
+  "market_feature_store/exports/2026-07-15-advancers-ma5.png": {
+    "bytes": 573907,
+    "sha256": "1ae50323e13f9b0d7f7cefa8c8dd213e28d73a18de51b38146e9a5940125fe33"
+  },
+  "market_feature_store/exports/2026-07-15-daily-agent.json": {
+    "bytes": 20551936,
+    "sha256": "6bd3c25062a06b2a8f77317e2e98db738e73392dfa74090dcd8957d91916677f"
+  },
+  "market_feature_store/exports/2026-07-15-daily-agent.md": {
+    "bytes": 19624,
+    "sha256": "438c2be280959ca8c3612005d8e050c83b8e69adc630a313697a328965cbf836"
+  },
+  "market_feature_store/exports/2026-07-15-daily-review.md": {
+    "bytes": 41220,
+    "sha256": "e2ae82df6373057a8a6c86db106215cbb3bd95ae392d1854dcbd9132dd709205"
+  },
+  "market_feature_store/exports/2026-07-15-daily-workflow-summary.json": {
+    "bytes": 11188,
+    "sha256": "3bcccef3f4bb4f0ae103d7fe487771100da5760ec6f761f2962a94bccb805d1b"
+  },
+  "market_feature_store/exports/2026-07-15-kb-ingest-queue.json": {
+    "bytes": 14518,
+    "sha256": "635a7f67006baf19fe29c26a144180ac3b8d51524cc81a1c64949fa7bdfa8820"
+  },
+  "market_feature_store/exports/2026-07-15-market-triggered-theme-brief.md": {
+    "bytes": 11030,
+    "sha256": "9f00ad4185c841afca15005df296656e026810a7e0f959a8f9049d8b09e10b02"
+  },
+  "market_feature_store/exports/2026-07-15-theme-backfill-queue.json": {
+    "bytes": 17252,
+    "sha256": "9427c1c5fbcd125747ffda7ba02861fac516e3f0843bca2b63846c79110a9c87"
+  },
+  "market_feature_store/exports/2026-07-15-theme-backfill-review-queue.json": {
+    "bytes": 7583,
+    "sha256": "57a8046136209b9d7c3c5e2e4472b83cc9cd8a2c67d9ce6b36a00f5473b6575f"
+  },
+  "market_feature_store/exports/2026-07-15-theme-backfill-review-queue.md": {
+    "bytes": 2161,
+    "sha256": "9bc3efc8941dc3c26ebe1bc8d22e9e8c9dbef1ea820a62068b5bf01b5e88f809"
+  },
+  "market_feature_store/exports/2026-07-15-theme-candidates.json": {
+    "bytes": 5099380,
+    "sha256": "da6257bd60f5d354fa193174dcdbabc02c8e89835404ca7f8e301eaae73f1820"
+  },
+  "market_feature_store/exports/2026-07-15-theme-candidates.md": {
+    "bytes": 28688,
+    "sha256": "5735be328da061eac45cd70a83b4ed64f0efcc810559ac4a976ea69a75413827"
+  },
+  "market_feature_store/exports/2026-07-15-triggered-themes.json": {
+    "bytes": 65430,
+    "sha256": "82c6c8c28bc8d277e3235459222a3ce27ddc86556631983ea7eb51dc17e373c3"
+  },
+  "market_feature_store/exports/2026-07-16-advancers-ma5.png": {
+    "bytes": 574096,
+    "sha256": "4bc8d38d329158a589da87eafc6cb5e96a2122b23d74a5200d86b27badeb30bb"
+  },
+  "market_feature_store/exports/2026-07-16-daily-agent.json": {
+    "bytes": 23660860,
+    "sha256": "251f9910025a17cdfdc50ed0f819496891b85d342272b017dbc9e3c4eea5c50f"
+  },
+  "market_feature_store/exports/2026-07-16-daily-agent.md": {
+    "bytes": 20044,
+    "sha256": "d9403094c23f7aaef96d9173513e0442d867db46ef0ecd0f94295e3a3c421b36"
+  },
+  "market_feature_store/exports/2026-07-16-daily-review.md": {
+    "bytes": 39504,
+    "sha256": "7303223cd0530ced48656331ef25f42a7940e98c361b3094b3b8f1f9dddcfb2e"
+  },
+  "market_feature_store/exports/2026-07-16-daily-workflow-summary.json": {
+    "bytes": 23305,
+    "sha256": "7b6f21e46d6058065f72f65cb01886cc8b0300aca9753d1bec73055a827824b8"
+  },
+  "market_feature_store/exports/2026-07-16-kb-ingest-queue.json": {
+    "bytes": 12703,
+    "sha256": "04955d784215ac334698206f60424bb5295aa3e785dd1ec8bd378a2aa79fb5eb"
+  },
+  "market_feature_store/exports/2026-07-16-market-triggered-theme-brief.md": {
+    "bytes": 9680,
+    "sha256": "f7909c76ccce5e4c65b8f5d9424560fd6188fae7bd0b7d0c09094b51c2bb3028"
+  },
+  "market_feature_store/exports/2026-07-16-theme-backfill-queue.json": {
+    "bytes": 14935,
+    "sha256": "8a868fc681e4b4cd24a0fefe3b307267e70285df8fc3ab17003463145d7a6624"
+  },
+  "market_feature_store/exports/2026-07-16-theme-backfill-review-queue.json": {
+    "bytes": 7487,
+    "sha256": "1a7dc931e16f26f9b6a9fdcdd57d4ac37cada629d8ed4e77e8c747e671e5a555"
+  },
+  "market_feature_store/exports/2026-07-16-theme-backfill-review-queue.md": {
+    "bytes": 2144,
+    "sha256": "d7ffbee988fc40b31d81a4a3e6ea4e49fe4ede47adbe27892089f69d661844ab"
+  },
+  "market_feature_store/exports/2026-07-16-theme-candidates.json": {
+    "bytes": 5392264,
+    "sha256": "6a753e755982777d101b826736fefc37055d715c56aa1c1acdbc1b5606434598"
+  },
+  "market_feature_store/exports/2026-07-16-theme-candidates.md": {
+    "bytes": 27234,
+    "sha256": "791e46e4f5cc0108b7f25ca00e573e3f3148ea2382794b5b5fbdb23fa010a977"
+  },
+  "market_feature_store/exports/2026-07-16-triggered-themes.json": {
+    "bytes": 62695,
+    "sha256": "431ed9c2cc14ae6e9066b76e6361d6e8910caa522a32f07f67b7cc1cf72a075d"
+  },
+  "market_feature_store/exports/2026-07-17-advancers-ma5.png": {
+    "bytes": 577755,
+    "sha256": "577cbe5abf12bea648da1d7cf6607bd36bef1d8f628c212c596e9e1db09f9983"
+  },
+  "market_feature_store/exports/2026-07-17-daily-agent.json": {
+    "bytes": 22705372,
+    "sha256": "3de8455c3a183d96cab7afd5d54963762290a6e676f40797ac44ff556c294550"
+  },
+  "market_feature_store/exports/2026-07-17-daily-agent.md": {
+    "bytes": 19969,
+    "sha256": "a078ff35658baeb91b58bed9043e7a8de067063ca70a1949b2fbdb533c1bb316"
+  },
+  "market_feature_store/exports/2026-07-17-daily-review.md": {
+    "bytes": 36471,
+    "sha256": "ed1c5688aa428c95238aa9d2285c92c4f32a8e9df4878fc8ca3e4d49c35120b7"
+  },
+  "market_feature_store/exports/2026-07-17-daily-workflow-summary.json": {
+    "bytes": 38115,
+    "sha256": "854033ec4191ccc2cabb14454513472723682fb72b215bb1a462366e866a11ca"
+  },
+  "market_feature_store/exports/2026-07-17-kb-ingest-queue.json": {
+    "bytes": 12707,
+    "sha256": "71cb6c3990592ca5804023b18694c31cdee0572043c63126874a27909ce35fcf"
+  },
+  "market_feature_store/exports/2026-07-17-market-triggered-theme-brief.md": {
+    "bytes": 8494,
+    "sha256": "3e97b7fe7b77062d0efc49686fa8119590799907f25bbc29c6554c7f0b1cf398"
+  },
+  "market_feature_store/exports/2026-07-17-theme-backfill-queue.json": {
+    "bytes": 13855,
+    "sha256": "9c7ba551c86ac256b6d103392d928fa2ae0b33cb3cd08a4e9e76bf2d250b0051"
+  },
+  "market_feature_store/exports/2026-07-17-theme-backfill-review-queue.json": {
+    "bytes": 7354,
+    "sha256": "738555cc63a501c9cb8fc9ca432d36efd60ff4169941ccbb9316fd9119378597"
+  },
+  "market_feature_store/exports/2026-07-17-theme-backfill-review-queue.md": {
+    "bytes": 2154,
+    "sha256": "c6b2e122e917cd8c6119a5c868af92d3d26aa81ad381bb4b52dcfd658682c3ef"
+  },
+  "market_feature_store/exports/2026-07-17-theme-candidates.json": {
+    "bytes": 5373026,
+    "sha256": "b917231a58c70df8292a3da9aa6dac9476998d0b04f4ae8a0c678feaa8c6a238"
+  },
+  "market_feature_store/exports/2026-07-17-theme-candidates.md": {
+    "bytes": 25828,
+    "sha256": "47981630fa8c8b44aaf0c11b18085305d6500e145e1e7c5dccbb0dc4bc58ce7a"
+  },
+  "market_feature_store/exports/2026-07-17-triggered-themes.json": {
+    "bytes": 57546,
+    "sha256": "1f16b87a71e76b47225cc35813bd4585523ecef88cd165f0b3e48370ab2913a9"
+  },
+  "market_feature_store/exports/2026-07-20-advancers-ma5.png": {
+    "bytes": 577251,
+    "sha256": "65a830800394ecf1265f033357d5eedebbf75721974dace9d62a94ca1c08432c"
+  },
+  "market_feature_store/exports/2026-07-20-daily-agent.json": {
+    "bytes": 26255143,
+    "sha256": "99d382722d56d044e7bf9cc1628b2ced530437739446b66c565e89edb76b3a39"
+  },
+  "market_feature_store/exports/2026-07-20-daily-agent.md": {
+    "bytes": 21090,
+    "sha256": "238c29693ba5c284e8a2b2378cfe0bf052231a212a11ea9215e8ce185f1d26cb"
+  },
+  "market_feature_store/exports/2026-07-20-daily-review.md": {
+    "bytes": 40302,
+    "sha256": "8809b5d6c90e7e146e6a34bbdfb138d6679fdf7502663a451e4c16de31ad4021"
+  },
+  "market_feature_store/exports/2026-07-20-daily-workflow-summary.json": {
+    "bytes": 7537,
+    "sha256": "cbd491228a581537542d4b704726762548b1291577166c4045da1f378263e54b"
+  },
+  "market_feature_store/exports/2026-07-20-kb-ingest-queue.json": {
+    "bytes": 12739,
+    "sha256": "91e82da702488a1394be018c459869acf22da157196aeb653543019000e35c8e"
+  },
+  "market_feature_store/exports/2026-07-20-market-triggered-theme-brief.md": {
+    "bytes": 9651,
+    "sha256": "335971cf58ab1390a60a6f8cce178156d6594c51ef5fd392ddfb176d3e7b9a65"
+  },
+  "market_feature_store/exports/2026-07-20-theme-backfill-queue.json": {
+    "bytes": 16489,
+    "sha256": "39efc76a1a88abd7d77531013552721ab625e40284fc92ac4a6b1695270f21ea"
+  },
+  "market_feature_store/exports/2026-07-20-theme-backfill-review-queue.json": {
+    "bytes": 6674,
+    "sha256": "5b978c3c5164db8660d6cb87eefd7b18afa3052d464fc52e634b772aaa66fb0b"
+  },
+  "market_feature_store/exports/2026-07-20-theme-backfill-review-queue.md": {
+    "bytes": 1993,
+    "sha256": "04a7da09d23044ce563288f008835f10a8abc2f1b94eb85b85cd393235b57534"
+  },
+  "market_feature_store/exports/2026-07-20-theme-candidates.json": {
+    "bytes": 4520947,
+    "sha256": "da2883ef762494b2ec794fe92df8daf53b8e6aa567f3efa40d7279646457e6cd"
+  },
+  "market_feature_store/exports/2026-07-20-theme-candidates.md": {
+    "bytes": 27356,
+    "sha256": "a15e92c2342d66fd7e593a177f1152758a9a6495b2a42ed539f187f9e31134f3"
+  },
+  "market_feature_store/exports/2026-07-20-triggered-themes.json": {
+    "bytes": 64443,
+    "sha256": "c7a3468435312da0b8a7b846dbc90706c887159de9c60e5f3eb745223ee84ee8"
+  },
+  "market_feature_store/exports/2026-07-22-advancers-ma5.png": {
+    "bytes": 579684,
+    "sha256": "ef5cae6e1d032a21e6464ccf0a4876c4033391bd18925e2d965c6ceb906fff92"
+  },
+  "market_feature_store/exports/2026-07-22-daily-review.md": {
+    "bytes": 42673,
+    "sha256": "98fc4ebf829bb43c0d9d62fb3a9a99bab6c2382402cc02b4ab9fe527a7414bbe"
+  },
+  "market_feature_store/exports/2026-07-22-daily-workflow-summary.json": {
+    "bytes": 44383,
+    "sha256": "904c9a82aa541e0e327aa39fab9e471d701edbb8c655312dd8efc836ef6a7550"
+  },
+  "market_feature_store/exports/2026-07-22-market-triggered-theme-brief.md": {
+    "bytes": 10339,
+    "sha256": "00348115876414535405d2b9013411c33b57b38d81e508e235b23bba7e67aea6"
+  },
+  "market_feature_store/exports/2026-07-22-theme-backfill-queue.json": {
+    "bytes": 12636,
+    "sha256": "c66eb56bdf7e47fcbc5b729c492173bb7b2c92a91a52e13d7c99cf4c3d1ce056"
+  },
+  "market_feature_store/exports/2026-07-22-theme-backfill-review-queue.json": {
+    "bytes": 8484,
+    "sha256": "94f33e0353f91f90ed021a9f0db543a5559eca2617cafd972789035453994b5a"
+  },
+  "market_feature_store/exports/2026-07-22-theme-backfill-review-queue.md": {
+    "bytes": 2418,
+    "sha256": "d6e8432abaf8dc047311d2e3944efd0bc002f24a5fa0101b8ec3604cdd44947e"
+  },
+  "market_feature_store/exports/2026-07-22-theme-candidates.json": {
+    "bytes": 4276448,
+    "sha256": "069d73ec0c2ab0adfd355e0f85d2501d1b6457f689ae0a12dd91861ba19552ed"
+  },
+  "market_feature_store/exports/2026-07-22-theme-candidates.md": {
+    "bytes": 26529,
+    "sha256": "f70c43dde1edc96706cfd4e88758c71a812d26bd27b25ab4cf3d454030987271"
+  },
+  "market_feature_store/exports/2026-07-22-triggered-themes.json": {
+    "bytes": 63464,
+    "sha256": "69d94a8cdce8918bad05139a7213a2a200ca98c214488dc0ccf09fd03d84bf8a"
+  },
+  "market_feature_store/exports/2026-07-23-advancers-ma5.png": {
+    "bytes": 581236,
+    "sha256": "232e4400ce605d0ac1e79d5cbf1c8f2e23c67464f9ceb8dbdee495865d5843c1"
+  },
+  "market_feature_store/exports/2026-07-23-daily-agent.json": {
+    "bytes": 25787595,
+    "sha256": "33f9bceded3514fe85f6e32c34b196f343256cc252bc41e83477ace45e303ac5"
+  },
+  "market_feature_store/exports/2026-07-23-daily-agent.md": {
+    "bytes": 20570,
+    "sha256": "ad41ab35bc95dff890cce8e79a0be73df2179f6297e78ae379eb8e8a19ac26fe"
+  },
+  "market_feature_store/exports/2026-07-23-daily-review.md": {
+    "bytes": 43481,
+    "sha256": "3a77a0ff4a6d8d87e673d70222a0414ae04846f81d8ee8f7a64145c75a6ec3be"
+  },
+  "market_feature_store/exports/2026-07-23-daily-workflow-summary.json": {
+    "bytes": 23283,
+    "sha256": "f4a18bcec5d65aeb994895293ddf3152c714cc2edc1e7b9149ea7d0f9dd9c5b9"
+  },
+  "market_feature_store/exports/2026-07-23-kb-ingest-queue.json": {
+    "bytes": 8356,
+    "sha256": "23095f8eca20e834b23ab0edb84f4489c96c5ebc3a20343cc00e8e5f4bba56ae"
+  },
+  "market_feature_store/exports/2026-07-23-market-triggered-theme-brief.md": {
+    "bytes": 10335,
+    "sha256": "37e9ad0dc2a146f0113e397691412742fb7df173373d217a43d0737605987fb8"
+  },
+  "market_feature_store/exports/2026-07-23-theme-backfill-queue.json": {
+    "bytes": 16430,
+    "sha256": "21076ea2214cbf18babcea8115398b7cc1d76de2015776badbef704d3deb2225"
+  },
+  "market_feature_store/exports/2026-07-23-theme-backfill-review-queue.json": {
+    "bytes": 9230,
+    "sha256": "fee00d5c63587d76ae5da02c4ddad7628c4ea0fff00350d716e2b6fb7438a58b"
+  },
+  "market_feature_store/exports/2026-07-23-theme-backfill-review-queue.md": {
+    "bytes": 2556,
+    "sha256": "ccf723881792323f221d89f0bbb33e14f1838eebb4762871ca7d2f4de4026aca"
+  },
+  "market_feature_store/exports/2026-07-23-theme-candidates.json": {
+    "bytes": 4560202,
+    "sha256": "fcc2aaadfe56bca517a4bc2095ceaa88ce75fb4893f47abf840e6555789f01d6"
+  },
+  "market_feature_store/exports/2026-07-23-theme-candidates.md": {
+    "bytes": 27209,
+    "sha256": "5c4cd0023a074c14d4cab0d155ee98b6c27d3d49c694e1ff2f3833fb0942657d"
+  },
+  "market_feature_store/exports/2026-07-23-triggered-themes.json": {
+    "bytes": 63637,
+    "sha256": "5adc0314f56c97798ab5e3203789528aaf10fcffb6c1b20875f437d083e806d0"
+  },
+  "market_feature_store/exports/2026-07-24-advancers-ma5.png": {
+    "bytes": 581614,
+    "sha256": "351f887a937cedd1227c14dd91643f1a9ad0c083db4b207d189a1ec35a196eb5"
+  },
+  "market_feature_store/exports/2026-07-24-daily-agent.json": {
+    "bytes": 23776013,
+    "sha256": "b92fc3b2e8a40c38228df24324c582bf1906bc328251b3fb51a6f17265422002"
+  },
+  "market_feature_store/exports/2026-07-24-daily-agent.md": {
+    "bytes": 20739,
+    "sha256": "dab1affdf969b895e92f3727c840a0be7c369725c06ff8edb30e81fbf4de7fc7"
+  },
+  "market_feature_store/exports/2026-07-24-daily-review.md": {
+    "bytes": 40919,
+    "sha256": "3293b46d5b06436a2f3a8c1235e3bbbd980730b2d55b7a4d804c96436705cac7"
+  },
+  "market_feature_store/exports/2026-07-24-daily-workflow-summary.json": {
+    "bytes": 23034,
+    "sha256": "d1567429fdcb73d43684a022ae2259675e555595a3aba53ac15682e3f3bd5c52"
+  },
+  "market_feature_store/exports/2026-07-24-kb-ingest-queue.json": {
+    "bytes": 11101,
+    "sha256": "d39797aa4dbee61a8c1b5a8e3e0454d668286d6dba6f7490a856bb537ca2ffb9"
+  },
+  "market_feature_store/exports/2026-07-24-market-triggered-theme-brief.md": {
+    "bytes": 8678,
+    "sha256": "b5436145b6a82e56e9d2d41d7b7034a6e4f961ff126c2c218256d6579f6a6c98"
+  },
+  "market_feature_store/exports/2026-07-24-theme-backfill-queue.json": {
+    "bytes": 17211,
+    "sha256": "b8c84d42463750332e9bf18573df5c91e958ecb0039cae443d3e67a9d18e4735"
+  },
+  "market_feature_store/exports/2026-07-24-theme-backfill-review-queue.json": {
+    "bytes": 4849,
+    "sha256": "fbab9ed4a0f76d23cae49b3df4b9cc17966fc3ae0b897f6f8eba8a24d3ea6e5d"
+  },
+  "market_feature_store/exports/2026-07-24-theme-backfill-review-queue.md": {
+    "bytes": 1563,
+    "sha256": "d79f80700c3efcaa43b2072286e98dbfe9dc73ec7f9869395ced031876f1cce0"
+  },
+  "market_feature_store/exports/2026-07-24-theme-candidates.json": {
+    "bytes": 4296745,
+    "sha256": "753371e4b41ca71bc50ebbbf39fd98dbbee4a38d7310671a64115c75b2314ec5"
+  },
+  "market_feature_store/exports/2026-07-24-theme-candidates.md": {
+    "bytes": 25567,
+    "sha256": "eddc792670c7b658488a143046d53ce39d0c98a777c410ea853ba0dc255e6568"
+  },
+  "market_feature_store/exports/2026-07-24-triggered-themes.json": {
+    "bytes": 56093,
+    "sha256": "939beb3bf90f93a7ddab44008cb9ccdb0bcad6b57f477bf0e2b7cd5d9e3b6200"
+  },
+  "market_feature_store/exports/2026-07-28-advancers-ma5.png": {
+    "bytes": 585907,
+    "sha256": "7689614ec818f91b22323c883165a42fd3b7360e6d52853954e5659fb2dd4e3a"
+  },
+  "market_feature_store/exports/2026-07-28-daily-review.md": {
+    "bytes": 43478,
+    "sha256": "4b56b0a81618d45c46949539712c5f2e37da01375441f1fbe005c9106c8caea8"
+  },
+  "market_feature_store/exports/2026-07-28-daily-workflow-summary.json": {
+    "bytes": 13637,
+    "sha256": "f78f26af9e2e5dcbe5fcdf8d35d67395b2613bc0e2540676751a7ffebfea6ba0"
+  },
+  "market_feature_store/exports/2026-07-28-market-triggered-theme-brief.md": {
+    "bytes": 9095,
+    "sha256": "0c1017e69df45a8bc513f1590b46c3139a86987315b470b2ea0614b745003eb0"
+  },
+  "market_feature_store/exports/2026-07-28-theme-backfill-queue.json": {
+    "bytes": 22852,
+    "sha256": "11e29265e0cf6bd8648c704e70e6516adb23bd0b74b9bf570b53dec6efcde826"
+  },
+  "market_feature_store/exports/2026-07-28-theme-candidates.json": {
+    "bytes": 5746595,
+    "sha256": "d2f90476f835baefd9d796ddee3ed20f1b8f146e16d1b9523fb7cb968bf86c71"
+  },
+  "market_feature_store/exports/2026-07-28-theme-candidates.md": {
+    "bytes": 24545,
+    "sha256": "3dc59d6accabbf4d38153f1cb6332232416c677c3a3fbeff6c867b3c07f8bf6d"
+  },
+  "market_feature_store/exports/2026-07-28-triggered-themes.json": {
+    "bytes": 56222,
+    "sha256": "7af70ad72a568c764f61cc767234c7b2a5456f3807a0afc11301af4a552954ef"
+  },
+  "market_feature_store/exports/2026-07-29-advancers-ma5.png": {
+    "bytes": 585747,
+    "sha256": "118b00e7040bc33b83a911871655e75ad629188642e66c321095f4c6943d6e38"
+  },
+  "market_feature_store/exports/2026-07-29-daily-review.md": {
+    "bytes": 54898,
+    "sha256": "547c735e6f4d34ffc3c17332a0d804b80ce9ba77672df12950b8f70cd4aac5eb"
+  },
+  "market_feature_store/exports/2026-07-29-daily-workflow-summary.json": {
+    "bytes": 14248,
+    "sha256": "c1d6483c28ad3d568e07db89c2c7c031b883a4648b7bc80ec18b4932fa9812cf"
+  },
+  "market_feature_store/exports/2026-07-29-market-triggered-theme-brief.md": {
+    "bytes": 9793,
+    "sha256": "6d641c5aa8ba96f0e06e2a26704784979d3cb6eec27c5d7cf64bd4f0365e92cc"
+  },
+  "market_feature_store/exports/2026-07-29-theme-backfill-queue.json": {
+    "bytes": 26279,
+    "sha256": "56ca1247ec523e361b906934bc0d1e87129a7b2efc082a9d8e2c3e846473e2c5"
+  },
+  "market_feature_store/exports/2026-07-29-theme-candidates.json": {
+    "bytes": 4491593,
+    "sha256": "c9a3b68e01fd2309164e8dde4d8f8744ce5b366711907187139cec403f81d484"
+  },
+  "market_feature_store/exports/2026-07-29-theme-candidates.md": {
+    "bytes": 27428,
+    "sha256": "9631034bed7746ec8af02f1a563aa5e36a98958e2e9c8be899973bdd74309b07"
+  },
+  "market_feature_store/exports/2026-07-29-triggered-themes.json": {
+    "bytes": 63607,
+    "sha256": "548359bcfe41432b74cf771abf36eba724fa6738d7626b15e345072cd49ac3e5"
+  },
+  "market_feature_store/exports/2026-07-30-advancers-ma5.png": {
+    "bytes": 587859,
+    "sha256": "51003e5aec21485c70f842d94449b56b5d174806436e5d7e245ec9ad2c452503"
+  },
+  "market_feature_store/exports/2026-07-30-daily-review.md": {
+    "bytes": 42069,
+    "sha256": "1237fda3d36792a062ee354f299a37a629f2ea94e2fb20de77d69a7b308f05f0"
+  },
+  "market_feature_store/exports/2026-07-30-daily-workflow-summary.json": {
+    "bytes": 20001,
+    "sha256": "fae03b50bbf7374e0b3836a10defa61f72101fc740aadd77ea038c0d44727910"
+  },
+  "market_feature_store/exports/2026-07-30-market-triggered-theme-brief.md": {
+    "bytes": 9327,
+    "sha256": "c1acd725c6b41b123cf36fc5bf5db106e5a0888ecbe040c1a8a03e8a99178aea"
+  },
+  "market_feature_store/exports/2026-07-30-theme-backfill-queue.json": {
+    "bytes": 21538,
+    "sha256": "082494c50faa84737401d0430318a41b370aa49cfb9e2cb195de37774591dba9"
+  },
+  "market_feature_store/exports/2026-07-30-theme-backfill-review-queue.json": {
+    "bytes": 7304,
+    "sha256": "9d08c0b765ff8b2399e241ca7ffcd35c9697f36cc65ed9f0de2acdf8fdf7db28"
+  },
+  "market_feature_store/exports/2026-07-30-theme-backfill-review-queue.md": {
+    "bytes": 2225,
+    "sha256": "81749719e715a588c19a8cb083f2a7e2c044c9919b03408fe8d28be47fe860b8"
+  },
+  "market_feature_store/exports/2026-07-30-theme-candidates.json": {
+    "bytes": 5069383,
+    "sha256": "bd50abecb15d76242826463fc12ec7ba0f0e0616498eb0d684fe2cac1312cf0f"
+  },
+  "market_feature_store/exports/2026-07-30-theme-candidates.md": {
+    "bytes": 26432,
+    "sha256": "c6871e3a102430b81b8ed71f9249108fdb899b4ea5f875bd20c6d278cf0a77a9"
+  },
+  "market_feature_store/exports/2026-07-30-triggered-themes.json": {
+    "bytes": 57464,
+    "sha256": "9b8ee21e79f6eae7b275f73312fe37780e30b3c6d2148364102c017888b7d977"
+  },
+  "market_feature_store/exports/2026-07-31-advancers-ma5.png": {
+    "bytes": 589238,
+    "sha256": "1778113ac8b15ddca06615c903ab7853f8b54e09a714465587a212dcd2aa1925"
+  },
+  "market_feature_store/exports/2026-07-31-daily-review.md": {
+    "bytes": 48202,
+    "sha256": "80db3371bac96e3dc850485a64bdc835a9ccb1b7ef13ef9c2d9e303d78619ed8"
+  },
+  "market_feature_store/exports/2026-07-31-theme-candidates.json": {
+    "bytes": 1562,
+    "sha256": "bca80bd57c7341cf38a3773003e9e61ca74faac5a9d29a0c6dcefc6c023387b7"
+  },
+  "market_feature_store/exports/2026-07-31-theme-candidates.md": {
+    "bytes": 1555,
+    "sha256": "8ed8845a36f24ada5cd2e17143558817d960ebf06dc7b6e6d3f58417a09b9912"
+  },
+  "market_feature_store/exports/2026-08-03-advancers-ma5.png": {
+    "bytes": 591851,
+    "sha256": "1711c6b960fd78e92dae73e26ddc85c284494075e19997b990942ae717c09dc2"
+  },
+  "market_feature_store/exports/2026-08-03-daily-review.md": {
+    "bytes": 43034,
+    "sha256": "39ab0d4ecd0f0a9cc1c5ea3ef5521e25d89ecc674e093fdb7400415c56e6bf44"
+  },
+  "market_feature_store/exports/2026-08-04-advancers-ma5.png": {
+    "bytes": 591163,
+    "sha256": "9992c23433fcde9df0d0a1e0da690618b44ecc8b7f8efb01f498defa883a050d"
+  },
+  "market_feature_store/exports/2026-08-04-daily-review.md": {
+    "bytes": 48092,
+    "sha256": "5675f6d414f14c0c43e0da81a46cc0afd716e6b64d642bd62235253199873bf8"
+  },
+  "market_feature_store/exports/2026-08-04-daily-workflow-summary.json": {
+    "bytes": 21372,
+    "sha256": "d51dada26ae3b4b5fa50c545a15e1bfc2839f6133f5179110c5e57097e76c489"
+  },
+  "market_feature_store/exports/2026-08-04-market-triggered-theme-brief.md": {
+    "bytes": 10190,
+    "sha256": "ac283b6a3d309564ae58d8a92f433338b7a04ba40a244f594e4a755c0bfa7b8e"
+  },
+  "market_feature_store/exports/2026-08-04-theme-backfill-queue.json": {
+    "bytes": 22302,
+    "sha256": "7c5ad6b70cc8e2a112b67f658cafdbbc167e7e5832ca787af2e2d07c3e4d15e3"
+  },
+  "market_feature_store/exports/2026-08-04-theme-backfill-review-queue.json": {
+    "bytes": 5722,
+    "sha256": "8f9ca105107c70f6e7b9c1b83e1fbe2fcfed9af88a182e93587ece590acd9912"
+  },
+  "market_feature_store/exports/2026-08-04-theme-backfill-review-queue.md": {
+    "bytes": 1733,
+    "sha256": "1cc5dd3298cc10b42891b65d770ee59ff56705d821dbb0e02171af3c7fd7767b"
+  },
+  "market_feature_store/exports/2026-08-04-theme-candidates.json": {
+    "bytes": 7981475,
+    "sha256": "3f40a80a334c0c37315034f692c5ae9e74c2620185407422860339adb03a71f5"
+  },
+  "market_feature_store/exports/2026-08-04-theme-candidates.md": {
+    "bytes": 27926,
+    "sha256": "d923c911d46925b812c0826c487bf3f2e35d01bf7eecb13edc09973cef0e5403"
+  },
+  "market_feature_store/exports/2026-08-04-triggered-themes.json": {
+    "bytes": 65328,
+    "sha256": "7dfa9185d29334eeb27f9ac922cfa0c716848148c3d6c71ffa3e931c7591e391"
+  },
+  "market_feature_store/exports/2026-08-05-advancers-ma5.png": {
+    "bytes": 592098,
+    "sha256": "75b6da4d96ddfe47f07d59cb73edf980ecd12b545f3578a97d26cf9c40452072"
+  },
+  "market_feature_store/exports/2026-08-05-daily-review.md": {
+    "bytes": 53340,
+    "sha256": "c081ed60a97869672157bee14eec61ec84ef06b5c61799ded7a6fd17e28b7168"
+  },
+  "market_feature_store/exports/2026-08-05-daily-workflow-summary.json": {
+    "bytes": 21394,
+    "sha256": "78c7570f865d884931adddf119dd64137ece52fa92976795b6ef4f18ad19dd52"
+  },
+  "market_feature_store/exports/2026-08-05-market-triggered-theme-brief.md": {
+    "bytes": 10195,
+    "sha256": "8ec4b058d9471d778b2ced3623baafb3987986a1fa75c38a302cd8e88b511650"
+  },
+  "market_feature_store/exports/2026-08-05-theme-backfill-queue.json": {
+    "bytes": 24407,
+    "sha256": "e56dcc2c53bec45e82c99ec51f5661891723b901a751a1678af52f64db451b21"
+  },
+  "market_feature_store/exports/2026-08-05-theme-backfill-review-queue.json": {
+    "bytes": 8184,
+    "sha256": "3e69d5ca2b628289efed471d66e8fe2cb8dab9a3dc084ee22f93be102c88e58f"
+  },
+  "market_feature_store/exports/2026-08-05-theme-backfill-review-queue.md": {
+    "bytes": 2329,
+    "sha256": "db0e1140a0ffa521f31e169bfd678535f6cbb1ab9c441e64492a719e886f46e4"
+  },
+  "market_feature_store/exports/2026-08-05-theme-candidates.json": {
+    "bytes": 5805953,
+    "sha256": "865d100660108ce0e09538d63f0fa19397271d193460cf9e963b469ba6db5cde"
+  },
+  "market_feature_store/exports/2026-08-05-theme-candidates.md": {
+    "bytes": 27666,
+    "sha256": "73c7dcd8ceab902784c50ff62c35056a6bdff169f814d03304179c0e46a0b938"
+  },
+  "market_feature_store/exports/2026-08-05-triggered-themes.json": {
+    "bytes": 66029,
+    "sha256": "5e9676be74bdef430b47158fe8a3c98cc313bcc22ea191fd50412e5f986d15fd"
+  },
+  "market_feature_store/exports/2026-08-06-advancers-ma5.png": {
+    "bytes": 592201,
+    "sha256": "d577083baa593e114f683a1a8b769c1074f734731e002921dc19da0d04b8aa54"
+  },
+  "market_feature_store/exports/2026-08-06-daily-review.md": {
+    "bytes": 37342,
+    "sha256": "7923358b868c2d93d7ea87cd8f84639796be9f13bb67327f46282bd8e765d3ec"
+  },
+  "market_feature_store/exports/2026-08-06-daily-workflow-summary.json": {
+    "bytes": 21196,
+    "sha256": "42842848288913ad50320b2cc9e8d7e25062e8501ffbef2a992a3edd0c010f69"
+  },
+  "market_feature_store/exports/2026-08-06-market-triggered-theme-brief.md": {
+    "bytes": 9313,
+    "sha256": "85cef1d6e1c10df9aac8baa35cbddae0e9b58dc9b6c449ed155f1085e7b7dd97"
+  },
+  "market_feature_store/exports/2026-08-06-theme-backfill-queue.json": {
+    "bytes": 22381,
+    "sha256": "13493af43b2735e4011c5c5b679de8bac82789d4e19a893d13658ad78c4c3196"
+  },
+  "market_feature_store/exports/2026-08-06-theme-backfill-review-queue.json": {
+    "bytes": 11594,
+    "sha256": "8e5d756da8654054c1585fabda3954fe7a4dfe7b93974c677ea10a3c27f0bac8"
+  },
+  "market_feature_store/exports/2026-08-06-theme-backfill-review-queue.md": {
+    "bytes": 3177,
+    "sha256": "2b14d445048ade6adc7f41f2bcc43ef4843c8159196d88f7c37a74994794c07b"
+  },
+  "market_feature_store/exports/2026-08-06-theme-candidates.json": {
+    "bytes": 5211077,
+    "sha256": "26b23a9255879aa32d8924e447e730bd5c8a382cd745ba170b4998aa0eaca1a1"
+  },
+  "market_feature_store/exports/2026-08-06-theme-candidates.md": {
+    "bytes": 24553,
+    "sha256": "95497465d6e4c582150b0e4d5783dadc6d0b5bac20ebd680dfd75aaf00023202"
+  },
+  "market_feature_store/exports/2026-08-06-triggered-themes.json": {
+    "bytes": 58254,
+    "sha256": "3c855b9ab06117fadf0bd600216d6e770fbc0363b50865101dc8d4864bd2421d"
+  },
+  "market_feature_store/exports/2026-08-07-advancers-ma5.png": {
+    "bytes": 592586,
+    "sha256": "2bff5f19e2012333cba4727e46ef43aeaf83ad70acbcc086b4295295469a2923"
+  },
+  "market_feature_store/exports/2026-08-07-daily-agent.json": {
+    "bytes": 25785474,
+    "sha256": "585df13b76ecfdde8e2baa5a09cb5c5ad183c7fecda2ccecaaac0fac4e137301"
+  },
+  "market_feature_store/exports/2026-08-07-daily-agent.md": {
+    "bytes": 20759,
+    "sha256": "08792d2de8991e5ee4b0f8c75e7b57e9c7323e2dce8fdd5199c44e149338a18b"
+  },
+  "market_feature_store/exports/2026-08-07-daily-review.md": {
+    "bytes": 39144,
+    "sha256": "2c04a958eca955de328ea34b98e659a55b1524041194663a76ccf8ea245c8226"
+  },
+  "market_feature_store/exports/2026-08-07-daily-workflow-summary.json": {
+    "bytes": 23520,
+    "sha256": "a48b12f8a92c51e78f540cdc1904f5ad07de74690436bb35e8a13b940e7a1c70"
+  },
+  "market_feature_store/exports/2026-08-07-kb-ingest-queue.json": {
+    "bytes": 14215,
+    "sha256": "92e540e390ee1f49d3c51ca8e3e9d7510a22067b8ae09871df9f1612f0231775"
+  },
+  "market_feature_store/exports/2026-08-07-market-triggered-theme-brief.md": {
+    "bytes": 10296,
+    "sha256": "6482c180e14f87b29d1a9c9e66e3108c390455e0434a48a2b73ecf032196477a"
+  },
+  "market_feature_store/exports/2026-08-07-theme-backfill-queue.json": {
+    "bytes": 15498,
+    "sha256": "bf8cb8401b4fe89b8d0ea3b2259ffbf91a6505558c8f36db9846dac2793ada80"
+  },
+  "market_feature_store/exports/2026-08-07-theme-backfill-review-queue.json": {
+    "bytes": 8400,
+    "sha256": "1736e6d842b39093c4826546cd7413a257563e88775d16265bbfb8c12c3efe53"
+  },
+  "market_feature_store/exports/2026-08-07-theme-backfill-review-queue.md": {
+    "bytes": 2358,
+    "sha256": "7d16a488de065e79d54e72b5db1cf6cef2c758cff2bcef43c940ad91ae7fd10f"
+  },
+  "market_feature_store/exports/2026-08-07-theme-candidates.json": {
+    "bytes": 5781415,
+    "sha256": "970c179b4d0607759663758deadd3376b5dc91aae3205fda81b0d95e12bd5f35"
+  },
+  "market_feature_store/exports/2026-08-07-theme-candidates.md": {
+    "bytes": 28136,
+    "sha256": "d56cdcd73248a102ad5de418268dcfae4d75f87fcf7f8b5281751710683f3e57"
+  },
+  "market_feature_store/exports/2026-08-07-triggered-themes.json": {
+    "bytes": 66117,
+    "sha256": "fea9fe1b1cd8264043326d52d645fc21c987ecdf1808d6756fa0910dcb054ecd"
+  },
+  "market_feature_store/exports/2026-08-12-advancers-ma5.png": {
+    "bytes": 595900,
+    "sha256": "f0bbfc3ede1765e5d0e9a98eddffc5892483a486e2bbf8006f25cee38e117b7b"
+  },
+  "market_feature_store/exports/2026-08-12-daily-review.md": {
+    "bytes": 36997,
+    "sha256": "bbdc49e13ad70dbaf841d76de4ea694e16a292a535fa5bd0c0d1e2579dbddd23"
+  },
+  "market_feature_store/exports/2026-08-13-advancers-ma5.png": {
+    "bytes": 597497,
+    "sha256": "4684ded7d6408247d05e2e99a967d72af3b3cff2bdb3536f856fac7d87c2cb60"
+  },
+  "market_feature_store/exports/2026-08-13-daily-review.md": {
+    "bytes": 36384,
+    "sha256": "6795b18a85b84a9c0b075bd7e8867f028dd2fd2c39fc90de2423a0925ead4e15"
+  },
+  "market_feature_store/exports/2026-08-13-daily-workflow-summary.json": {
+    "bytes": 16641,
+    "sha256": "75421eeab74852ba0a890a0953f7fdef09bbd450c557f72db38fd8a5674decb6"
+  },
+  "market_feature_store/exports/2026-08-13-kb-ingest-queue.json": {
+    "bytes": 12866,
+    "sha256": "911113624f12a9037170b23ec8a41bc0b24bd98d2c993e67f174569ed18d9b42"
+  },
+  "market_feature_store/exports/2026-08-13-market-triggered-theme-brief.md": {
+    "bytes": 10183,
+    "sha256": "37fa200d009d173eae683f96d6ec61c336c9661eb4ac470f7ae5ffe10a9921b9"
+  },
+  "market_feature_store/exports/2026-08-13-research-queue.json": {
+    "bytes": 12389,
+    "sha256": "ef39848967fd55dbdd5b8a832b49ee6344a8748404fc8c908d30eeeae5803368"
+  },
+  "market_feature_store/exports/2026-08-13-research-queue.md": {
+    "bytes": 3183,
+    "sha256": "f524ae4c5ced55a455cae04e84ea2586a782211f968a566fd4cc87838c680c57"
+  },
+  "market_feature_store/exports/2026-08-13-theme-backfill-queue.json": {
+    "bytes": 23565,
+    "sha256": "31ee85c38a3915b099b720e274cd2a1c2dd48756cf5a1bbd31406141099400f4"
+  },
+  "market_feature_store/exports/2026-08-13-theme-backfill-review-queue.json": {
+    "bytes": 7409,
+    "sha256": "0a4e03639bc071abdcf025dbca79becec1451c47cb12a5fa38987c0314045218"
+  },
+  "market_feature_store/exports/2026-08-13-theme-backfill-review-queue.md": {
+    "bytes": 2130,
+    "sha256": "9fd4c7cb6f5ad43de79f00a991a606ee6f28d68a54bde5de78ff706bbbe4cb7c"
+  },
+  "market_feature_store/exports/2026-08-13-theme-candidates.json": {
+    "bytes": 5474052,
+    "sha256": "3fd635a955f404b5b5cde552cbcfa1cc63f54c304cfbc7487e9888329d849969"
+  },
+  "market_feature_store/exports/2026-08-13-theme-candidates.md": {
+    "bytes": 28190,
+    "sha256": "794a57f1c1532386e47ffdc8d4e8375ba5f4b056f913c9c8a487659d259b1a19"
+  },
+  "market_feature_store/exports/2026-08-13-triggered-themes.json": {
+    "bytes": 66271,
+    "sha256": "7db74c28da490796a70217467b1c27f554e4b2ccfe31ba1969fc1ca948dc2334"
+  },
+  "market_feature_store/exports/2026-08-17-daily-agent-summary.json": {
+    "bytes": 2887,
+    "sha256": "dd3528e1d4bcca4c7c3cc1952803788a2e12d11a5a477e1d3c83b79534333d1b"
+  },
+  "market_feature_store/exports/2026-08-17-daily-agent.json": {
+    "bytes": 29831735,
+    "sha256": "f5557e0d04cd5649a87de4753835a454a82411aca05b993d49dc67ac7b2a88f9"
+  },
+  "market_feature_store/exports/2026-08-17-daily-agent.md": {
+    "bytes": 20055,
+    "sha256": "0c7d2d64c3909fa1f6d34c8bee29e33bc0af650fc2ae3083ed53ddd1a580e06a"
+  },
+  "market_feature_store/exports/2026-08-17-kb-ingest-queue.json": {
+    "bytes": 15959,
+    "sha256": "639c4247a7fd9af81c6d77950228c0d794de74521ae2aecd5e33f85e38be2e90"
+  },
+  "market_feature_store/exports/2026-08-17-research-queue.json": {
+    "bytes": 13102,
+    "sha256": "33ba9c030ed8484365d506189751ef3e818db05394055547bbc733ab5d99352c"
+  },
+  "market_feature_store/exports/2026-08-17-research-queue.md": {
+    "bytes": 3244,
+    "sha256": "119c4f1a988519c9ff55929bb7e175028dda1addbdc1098b68de2f54a354c926"
+  },
+  "market_feature_store/exports/2026-08-17-theme-candidates.json": {
+    "bytes": 5920364,
+    "sha256": "a39750b8b2252bf6901b8950199696a2007f4f5f59446d9ea99f38e92c3f692b"
+  },
+  "market_feature_store/exports/2026-08-17-theme-candidates.md": {
+    "bytes": 29076,
+    "sha256": "9af9c71801816d6e83e1f3d94cbda9fedb71c6f409cd6b398f03e43305217892"
+  },
+  "market_feature_store/exports/2026-08-18-advancers-ma5.png": {
+    "bytes": 598338,
+    "sha256": "c0c1b00b1f5fe9f97711c6db60218b540bdc9f01d5d0f3b612cc0fb8a8afe656"
+  },
+  "market_feature_store/exports/2026-08-18-daily-agent.json": {
+    "bytes": 30724093,
+    "sha256": "86b6536032930a59a20613a001732923800c10335f81e2ae724c46619cf985d4"
+  },
+  "market_feature_store/exports/2026-08-18-daily-agent.md": {
+    "bytes": 19554,
+    "sha256": "c12cf327346bcf66afbd8e5928810626a04c71fadb793eef384a06458ec3d005"
+  },
+  "market_feature_store/exports/2026-08-18-daily-review.md": {
+    "bytes": 37621,
+    "sha256": "a9af01137ab72d7928b5b101fe06bfef3d1f2d4406e8da632b96f4b01b70f3ef"
+  },
+  "market_feature_store/exports/2026-08-18-daily-workflow-summary.json": {
+    "bytes": 26214,
+    "sha256": "8406977f3f0879588fc064d71ad8d4cb5664417366fc27619ddd79c243b2cef5"
+  },
+  "market_feature_store/exports/2026-08-18-kb-ingest-queue.json": {
+    "bytes": 17116,
+    "sha256": "8d85a8920b82d8392534839fdbfde134c43d5ab380b5401d5110a70b930ec68b"
+  },
+  "market_feature_store/exports/2026-08-18-market-triggered-theme-brief.md": {
+    "bytes": 9866,
+    "sha256": "681b9c4a32d9ab22ca990ab0ecf0b71294ee2b8a4333e3b682b62f0634966fb6"
+  },
+  "market_feature_store/exports/2026-08-18-research-queue.json": {
+    "bytes": 12411,
+    "sha256": "3a9388893de86db18f6f349837374ced4fad8030f2ad046c226145e83f6903b6"
+  },
+  "market_feature_store/exports/2026-08-18-research-queue.md": {
+    "bytes": 2989,
+    "sha256": "79c8fb6ef52cb22598a2960a7120c8c0397939f30adb6ce1c3dbfa83951b9751"
+  },
+  "market_feature_store/exports/2026-08-18-theme-backfill-queue.json": {
+    "bytes": 14768,
+    "sha256": "4d7dba049166f927717853438718799fc4c0af3911e27f2e98ecdeb7daa423f3"
+  },
+  "market_feature_store/exports/2026-08-18-theme-backfill-review-queue.json": {
+    "bytes": 9107,
+    "sha256": "d30e41662fab36b4273d0bdacaf6b5ea6e0094ca8edb800dd77e4461d83091ae"
+  },
+  "market_feature_store/exports/2026-08-18-theme-backfill-review-queue.md": {
+    "bytes": 2547,
+    "sha256": "cae2c9c71e3a46c9c0502897b8d86d6411f6e93e228060e0fa6889e11bcca7da"
+  },
+  "market_feature_store/exports/2026-08-18-theme-candidates.json": {
+    "bytes": 5734096,
+    "sha256": "fb0bae376b92a774b68b0926ff28732aa3a730182606a0b9f6d252f0a5f9650c"
+  },
+  "market_feature_store/exports/2026-08-18-theme-candidates.md": {
+    "bytes": 27438,
+    "sha256": "5a4b9e1b23d5c5abe40df08a06e8d818afc1564e920d67e5ab52750b0e74254d"
+  },
+  "market_feature_store/exports/2026-08-18-triggered-themes.json": {
+    "bytes": 63938,
+    "sha256": "f540df5958d153d1f1eb35fc711b5fa5dfcf022ae19a2743c1aeb529630b43fc"
+  },
+  "market_feature_store/exports/2026-08-19-advancers-ma5.png": {
+    "bytes": 601298,
+    "sha256": "cec64d390d4585517fdb6ede7ae59d8f858bf99e4ed2ad83cee0576e8e018214"
+  },
+  "market_feature_store/exports/2026-08-19-daily-agent.json": {
+    "bytes": 25481591,
+    "sha256": "a84684dddab9367b0df3d90d0ba8fefc9bfbdeae72ee7318f8d0138c6f7198a0"
+  },
+  "market_feature_store/exports/2026-08-19-daily-agent.md": {
+    "bytes": 18875,
+    "sha256": "7e0f690148aeeb0dcc25b38c7397928ca768deb60766f331a8629bc75cd92ed0"
+  },
+  "market_feature_store/exports/2026-08-19-daily-review.md": {
+    "bytes": 30631,
+    "sha256": "5a78a4e3ea7695e3e190558c43a8e9aa0a617daf930588c2e11a6721bfaa9eaf"
+  },
+  "market_feature_store/exports/2026-08-19-daily-workflow-summary.json": {
+    "bytes": 25825,
+    "sha256": "7c29ef25863ab6f2e5b794ecafe3de065573e872b9be2116702960928f16c03a"
+  },
+  "market_feature_store/exports/2026-08-19-kb-ingest-queue.json": {
+    "bytes": 14631,
+    "sha256": "d74e95af84d41b572fa025de0b0ffd8f81e971330eccc5f63164b01ca5418140"
+  },
+  "market_feature_store/exports/2026-08-19-market-triggered-theme-brief.md": {
+    "bytes": 8181,
+    "sha256": "a8e534137fe3c3fb93c728d060146ea32e10c5ac8eff90b7d60a9951d85f4650"
+  },
+  "market_feature_store/exports/2026-08-19-research-queue.json": {
+    "bytes": 10888,
+    "sha256": "404fac738f6fe761192f61b79704a18c77d94264b8cdf23ee551a3120af4dcc7"
+  },
+  "market_feature_store/exports/2026-08-19-research-queue.md": {
+    "bytes": 2885,
+    "sha256": "95af9b341b43ef159facf5ef9bbefa79489765aba8df7d77501c220ceb10f25c"
+  },
+  "market_feature_store/exports/2026-08-19-theme-backfill-queue.json": {
+    "bytes": 13610,
+    "sha256": "ddf1a745601d858a17b9ca0f261ecc946e480faac6f764b764723ed0d3e48a6e"
+  },
+  "market_feature_store/exports/2026-08-19-theme-backfill-review-queue.json": {
+    "bytes": 5806,
+    "sha256": "5fb30a74ffa2f7cdededa6025204655ec8e9104032482f044a5fe2a4d6cd3c9f"
+  },
+  "market_feature_store/exports/2026-08-19-theme-backfill-review-queue.md": {
+    "bytes": 1801,
+    "sha256": "ebef6b12a4b48318077ff4cf3550a44ddec93648b5e0c32d62533d105fc6c9bf"
+  },
+  "market_feature_store/exports/2026-08-19-theme-candidates.json": {
+    "bytes": 5488741,
+    "sha256": "32e225ac8ec64a1c3535665fb7c66d4bd1d74462890c834f74101d5b8dd16f0c"
+  },
+  "market_feature_store/exports/2026-08-19-theme-candidates.md": {
+    "bytes": 24168,
+    "sha256": "ad6e1ba13671c8ed897fa3d4bc41f5c3b561982bb5f0002d0815e0d0babf4fe8"
+  },
+  "market_feature_store/exports/2026-08-19-triggered-themes.json": {
+    "bytes": 55347,
+    "sha256": "248e340a9e037ad37f6cb80e76716472c3a6a2eccb3043dbf437ba124b02c827"
+  },
+  "market_feature_store/exports/2026-08-20-advancers-ma5.png": {
+    "bytes": 602550,
+    "sha256": "9f22ab5a563c196e5081f377618f872a5a95d6fdfec759ee86d39b7eacb85a3e"
+  },
+  "market_feature_store/exports/2026-08-20-daily-agent.json": {
+    "bytes": 32510199,
+    "sha256": "36187ab8581868160f27a394e9fe34b1827980db652ac4d19af497697201149b"
+  },
+  "market_feature_store/exports/2026-08-20-daily-agent.md": {
+    "bytes": 18911,
+    "sha256": "6047d0af159f41e68578055b01f0b034aaf52000ebfe89e20947f648fd615d3e"
+  },
+  "market_feature_store/exports/2026-08-20-daily-review.md": {
+    "bytes": 35408,
+    "sha256": "742339a96f92ba5b00cb8a3ff90ea7ed7507fb679bb2afe75d4e29d0ce4c68aa"
+  },
+  "market_feature_store/exports/2026-08-20-daily-workflow-summary.json": {
+    "bytes": 26349,
+    "sha256": "ce2b173221208f2985fd9714353b642d589e96a9785841eef150cb7ea0293d0b"
+  },
+  "market_feature_store/exports/2026-08-20-kb-ingest-queue.json": {
+    "bytes": 16030,
+    "sha256": "2ce319849cbd2765be1c0b7096083fcac210baf9bced7883de062be817bc01f5"
+  },
+  "market_feature_store/exports/2026-08-20-market-triggered-theme-brief.md": {
+    "bytes": 10893,
+    "sha256": "2cb2b6effc76d6877c8f9b80d3f0a3c2ef5a01d71fb21747ed73d4106db6b364"
+  },
+  "market_feature_store/exports/2026-08-20-research-queue.json": {
+    "bytes": 11525,
+    "sha256": "9d6c926abd23a5a2fb04817dfdb58cb8032999e4b69ee3c2d753fcb39bb6819b"
+  },
+  "market_feature_store/exports/2026-08-20-research-queue.md": {
+    "bytes": 2538,
+    "sha256": "3d34d2f30d26d7840eab92f1e5ea4ef2eb32e71256816cdbc95c46c91ae2d6fd"
+  },
+  "market_feature_store/exports/2026-08-20-theme-backfill-queue.json": {
+    "bytes": 27824,
+    "sha256": "327a7feab328710f9b87e6c3af51eef5c4d37870827ba38559a907b449caf4b5"
+  },
+  "market_feature_store/exports/2026-08-20-theme-backfill-review-queue.json": {
+    "bytes": 12191,
+    "sha256": "4b4a9fb2cdac138f846b44249a5c665d1a80d9113ddb793f2c1114622fab2663"
+  },
+  "market_feature_store/exports/2026-08-20-theme-backfill-review-queue.md": {
+    "bytes": 3179,
+    "sha256": "6ec2fa366671fd85c00451d86692963477af1764e0781b27fa3026ec8fe09c2b"
+  },
+  "market_feature_store/exports/2026-08-20-theme-candidates.json": {
+    "bytes": 5792709,
+    "sha256": "e30a7930cc6ae288c0113e1f71b1fe4ba14c3ce1b368b5901061278cb4186953"
+  },
+  "market_feature_store/exports/2026-08-20-theme-candidates.md": {
+    "bytes": 28312,
+    "sha256": "e79d283ed073ce10e361ae75e2b267d4b8009b09724432d697190fd919dd03ea"
+  },
+  "market_feature_store/exports/2026-08-20-triggered-themes.json": {
+    "bytes": 67828,
+    "sha256": "3549d1fee2836e685b9c1bf5f3393301c6f289abf2da6f9232e321c568a83407"
+  },
+  "market_feature_store/exports/2026-08-21-advancers-ma5.png": {
+    "bytes": 602384,
+    "sha256": "386d168331ccd566d1a273a69790842ee513a956e130741d4f5b64c6400f3793"
+  },
+  "market_feature_store/exports/2026-08-21-daily-agent.json": {
+    "bytes": 28394681,
+    "sha256": "8e47938f847268a0fca5ebf8352bdc70919e7be723fff25ae7fe44930fb247a4"
+  },
+  "market_feature_store/exports/2026-08-21-daily-agent.md": {
+    "bytes": 19085,
+    "sha256": "f180a912ebba12f72bdccca7ab02cdc6a7a1db845e07c06b9a43f84e58bc43d7"
+  },
+  "market_feature_store/exports/2026-08-21-daily-review.md": {
+    "bytes": 32892,
+    "sha256": "e429042e933725b08ffd9cea3a85d0b2b807c763179c4d5121dd09ee8f15a50c"
+  },
+  "market_feature_store/exports/2026-08-21-daily-workflow-summary.json": {
+    "bytes": 25852,
+    "sha256": "fcae6148fb0aeeecae1b03067f67a2dd0565b4e1eb6da3e564c8e4c4f97a1613"
+  },
+  "market_feature_store/exports/2026-08-21-kb-ingest-queue.json": {
+    "bytes": 13036,
+    "sha256": "b107cb20ad8592b6ad692968dacf945d16d6cfcee6f5a36f42807993c2251ea2"
+  },
+  "market_feature_store/exports/2026-08-21-market-triggered-theme-brief.md": {
+    "bytes": 8607,
+    "sha256": "43473ae54c8b74ffa63f2dba74e764fdbed4ec472ba2d05ba62a8f00fab93a59"
+  },
+  "market_feature_store/exports/2026-08-21-research-queue.json": {
+    "bytes": 11922,
+    "sha256": "39f18c3eace4b9299d054c4a6212a4dd6087ad6ec6772c866093d6dd4910844a"
+  },
+  "market_feature_store/exports/2026-08-21-research-queue.md": {
+    "bytes": 2794,
+    "sha256": "11dd429f706a94843a8e3e1f8f837d403c3eb4e73bbcf45803fe1b196ca6ee04"
+  },
+  "market_feature_store/exports/2026-08-21-theme-backfill-queue.json": {
+    "bytes": 16537,
+    "sha256": "4da25945828aeef07ee1b7434878a5b85a1acf49da0d4abe1a0e09d62766bdf0"
+  },
+  "market_feature_store/exports/2026-08-21-theme-backfill-review-queue.json": {
+    "bytes": 5678,
+    "sha256": "ddbb1c78c6a30474eae8da20ed410618835d004cbdbfa46269122ab1c0a10852"
+  },
+  "market_feature_store/exports/2026-08-21-theme-backfill-review-queue.md": {
+    "bytes": 1752,
+    "sha256": "a04323d7c2e53e4045aa4eadd575dd23e54009c1f522ee74f13067c843a783d2"
+  },
+  "market_feature_store/exports/2026-08-21-theme-candidates.json": {
+    "bytes": 5378501,
+    "sha256": "1c8386828d7850f19b639557f62cd965c9312fcf33b485894f2fae539c31416c"
+  },
+  "market_feature_store/exports/2026-08-21-theme-candidates.md": {
+    "bytes": 25776,
+    "sha256": "10594fd58bed623bdb89f09a32f6f88bfe52ac25480585418e8eca7ccdcdf009"
+  },
+  "market_feature_store/exports/2026-08-21-triggered-themes.json": {
+    "bytes": 54943,
+    "sha256": "11ab753b243c44222bce983b5bf729377b0e2d5cfebb5ea6740204d910e2ccd1"
+  },
+  "market_feature_store/exports/2026-08-24-advancers-ma5.png": {
+    "bytes": 603715,
+    "sha256": "31cb8ea868631e7ab58110a0ed92cc33b18875b2850e7bcfae48f5992c564b91"
+  },
+  "market_feature_store/exports/2026-08-24-daily-agent.json": {
+    "bytes": 35810084,
+    "sha256": "024eab04c4c551d74317dc6cdbd6b8612d0659f24a9602460f7d9767dd23eb7d"
+  },
+  "market_feature_store/exports/2026-08-24-daily-agent.md": {
+    "bytes": 19024,
+    "sha256": "aed6cb8000a0d9212993e5827c31175e2f6294822c8659fb5ee616367142f431"
+  },
+  "market_feature_store/exports/2026-08-24-daily-review.md": {
+    "bytes": 32726,
+    "sha256": "dbd2677466b8f0df51ce782304893e16ad79feb3a3099d8d56e80d22309a044c"
+  },
+  "market_feature_store/exports/2026-08-24-daily-workflow-summary.json": {
+    "bytes": 26197,
+    "sha256": "78a8d79656c978d68a1f721903507dbfe5b12cb913e39690dab0ee649b07705d"
+  },
+  "market_feature_store/exports/2026-08-24-kb-ingest-queue.json": {
+    "bytes": 15869,
+    "sha256": "09ffc03c5a69b922ca4d2af7b77846ba71813ccdfaa6437b67dd4d40140d71c4"
+  },
+  "market_feature_store/exports/2026-08-24-market-triggered-theme-brief.md": {
+    "bytes": 10206,
+    "sha256": "52eeffc410f36c68e07a6d4be44d66f11c2ae5e17a8dc0169b2845fdd02c62ee"
+  },
+  "market_feature_store/exports/2026-08-24-research-queue.json": {
+    "bytes": 11141,
+    "sha256": "dad05ca7f4f4fbc1813db8550b4ee32f6562c434b7453c0ab7f3f397a36e6ee4"
+  },
+  "market_feature_store/exports/2026-08-24-research-queue.md": {
+    "bytes": 2682,
+    "sha256": "9983784d4940e5c72da9a23202758e08145890da2a6b1200778b941df5340021"
+  },
+  "market_feature_store/exports/2026-08-24-theme-backfill-queue.json": {
+    "bytes": 15015,
+    "sha256": "74ba91661d5234ba7f0d5594b5df47fbb0068cc9c6fcbd8b0dbb7bde7d1d05c8"
+  },
+  "market_feature_store/exports/2026-08-24-theme-backfill-review-queue.json": {
+    "bytes": 7626,
+    "sha256": "b4b8cb2a8239e4648ff1455e8356bf53e2c77343d88777d99e7d56f2870e0e5d"
+  },
+  "market_feature_store/exports/2026-08-24-theme-backfill-review-queue.md": {
+    "bytes": 2181,
+    "sha256": "9d834192f72c72954813ba6f4504a338e43c656a10915d97c808d040fe85aaf3"
+  },
+  "market_feature_store/exports/2026-08-24-theme-candidates.json": {
+    "bytes": 8113131,
+    "sha256": "12b3a9f83e8b324eea30d8cc1ff02d82e79bff917553b30120d2b73f8e189006"
+  },
+  "market_feature_store/exports/2026-08-24-theme-candidates.md": {
+    "bytes": 25732,
+    "sha256": "b17e0b6501f8d8eaa776a7c7ab15461a38a086eef245b167e2b29cb358d01155"
+  },
+  "market_feature_store/exports/2026-08-24-triggered-themes.json": {
+    "bytes": 65435,
+    "sha256": "486a6d62740491040141f9fc98915af982e3634e9947408fac37483e97bd6aac"
+  },
+  "market_feature_store/exports/2026-08-25-advancers-ma5.png": {
+    "bytes": 604843,
+    "sha256": "75cdcfbb588a087d462ed6aca5295e55bd611d916fc9115a082ec46b11821975"
+  },
+  "market_feature_store/exports/2026-08-25-daily-agent.json": {
+    "bytes": 26914801,
+    "sha256": "b039b7f1c74168399170767dc8e59ded7148556eafecc2a2e825d2a4d629aeb5"
+  },
+  "market_feature_store/exports/2026-08-25-daily-agent.md": {
+    "bytes": 19543,
+    "sha256": "524ee5f728aa4db33ae4709ce61800a68bd4907450b5a1d40fe2b49a57441f95"
+  },
+  "market_feature_store/exports/2026-08-25-daily-review.md": {
+    "bytes": 35259,
+    "sha256": "8a246c8219a7e8925005686cba915a7457adeb2dab4e9b190c2fc5b4022cca09"
+  },
+  "market_feature_store/exports/2026-08-25-daily-workflow-summary.json": {
+    "bytes": 7930,
+    "sha256": "45e0bbb0e881580cd144b50dc25733d099672b83d28dc21a107ba9a43d82f6fd"
+  },
+  "market_feature_store/exports/2026-08-25-kb-ingest-queue.json": {
+    "bytes": 15423,
+    "sha256": "67dac87ab8586c1b68db0298643bcd5025d83e6bf0345593dd94b3bac0e88d68"
+  },
+  "market_feature_store/exports/2026-08-25-market-triggered-theme-brief.md": {
+    "bytes": 9172,
+    "sha256": "d397784e0cf26a3281b03f4fcee7f3f5daac99fd675e1be2283c0fe7f41495b2"
+  },
+  "market_feature_store/exports/2026-08-25-research-queue.json": {
+    "bytes": 12257,
+    "sha256": "335e91a4f0416d02db99667e392a0665cdd4ac9c934f1f7dff86ce9f5253e075"
+  },
+  "market_feature_store/exports/2026-08-25-research-queue.md": {
+    "bytes": 3191,
+    "sha256": "9bbda62901c88bf30f993a8ec880279bfa8ab63a035342593d7eab8ef1ce1a65"
+  },
+  "market_feature_store/exports/2026-08-25-theme-backfill-queue.json": {
+    "bytes": 26524,
+    "sha256": "4fc5c53b22da94bb4565648c2e358d54fdfb6a5298be77e190bcff496c4b3173"
+  },
+  "market_feature_store/exports/2026-08-25-theme-backfill-review-queue.json": {
+    "bytes": 7353,
+    "sha256": "b3f21ebc31f30a0d3f30d8e4aee33a8421fa58dd9b750aebc6332da983e9323e"
+  },
+  "market_feature_store/exports/2026-08-25-theme-backfill-review-queue.md": {
+    "bytes": 2117,
+    "sha256": "c49fd7c6fd3fac2dc45278cdfd2808de63e57ca6269be3ab21cf5016f155a66e"
+  },
+  "market_feature_store/exports/2026-08-25-theme-candidates.json": {
+    "bytes": 8038306,
+    "sha256": "ed53268bb2b3ebda0a95c9541306d174d9d068a87c410b2c36ea12a9847d8955"
+  },
+  "market_feature_store/exports/2026-08-25-theme-candidates.md": {
+    "bytes": 27408,
+    "sha256": "956c4384b8e2dcf4083041a16437a38fab86da28768f8592a576864c6801e800"
+  },
+  "market_feature_store/exports/2026-08-25-triggered-themes.json": {
+    "bytes": 57698,
+    "sha256": "a485e761489855c9ea158b9c9a056a7e3ac9c48e81a1d9f36ecca11c2015f0fb"
+  },
+  "market_feature_store/exports/2026-08-26-advancers-ma5.png": {
+    "bytes": 606855,
+    "sha256": "942a430b80867181b6d27d71a3946b9fca4edda1d7a97445083d2653daef80b6"
+  },
+  "market_feature_store/exports/2026-08-26-daily-agent.json": {
+    "bytes": 26222843,
+    "sha256": "5400decdade6e21ca14522bc33cf0477cadda3a37bf38fadbadb3f02fcdcaa4d"
+  },
+  "market_feature_store/exports/2026-08-26-daily-agent.md": {
+    "bytes": 18800,
+    "sha256": "ef7e073248f74aa6cff85379c675814345577e6d0534ad9136d3f189eb627990"
+  },
+  "market_feature_store/exports/2026-08-26-daily-review.md": {
+    "bytes": 35936,
+    "sha256": "1397a91a25e0d208e851374a20fc9622b51d1269f69a319e70c3c04c39b4b6f6"
+  },
+  "market_feature_store/exports/2026-08-26-daily-workflow-summary.json": {
+    "bytes": 22174,
+    "sha256": "d764ec78ce25c3f930c976ab4730807814f385300fe7a4f068f4173566f50bf6"
+  },
+  "market_feature_store/exports/2026-08-26-kb-ingest-queue.json": {
+    "bytes": 17501,
+    "sha256": "049956e50569b0d10684a4b020fc980367ca85a21f05e9fee68046f15543808c"
+  },
+  "market_feature_store/exports/2026-08-26-market-triggered-theme-brief.md": {
+    "bytes": 13680,
+    "sha256": "283fa7953d3795823c5841d8dccf5580f661c9877871166196d1351a1902d469"
+  },
+  "market_feature_store/exports/2026-08-26-research-queue.json": {
+    "bytes": 11900,
+    "sha256": "b4c84c65b40cfde5bfc73784d0ebe545af22cc562c5b76d3a2f40cfea3cf4912"
+  },
+  "market_feature_store/exports/2026-08-26-research-queue.md": {
+    "bytes": 2609,
+    "sha256": "d9ca4f43e767f5653d672946caba613ae108a1ea17540b2b0d5ed89a51ea47a4"
+  },
+  "market_feature_store/exports/2026-08-26-theme-backfill-queue.json": {
+    "bytes": 25956,
+    "sha256": "a7f6f656c80d856110232132b32549330abfdd7a89c0c78568ac5a08c6af9f26"
+  },
+  "market_feature_store/exports/2026-08-26-theme-backfill-review-queue.json": {
+    "bytes": 11556,
+    "sha256": "dfa8ecf215a3720bc32aba26a7026eed212c6cbed1d8a036f4f351e962fa2206"
+  },
+  "market_feature_store/exports/2026-08-26-theme-backfill-review-queue.md": {
+    "bytes": 3212,
+    "sha256": "545d1aa5467c55dcaffab745b03661b9f0eb93ae89df202e83501ebe9baf877d"
+  },
+  "market_feature_store/exports/2026-08-26-theme-candidates.json": {
+    "bytes": 5489878,
+    "sha256": "b68747ea235c678c08509170ebead2f8e75563315c0216dc3afe4c4b1f6fa28d"
+  },
+  "market_feature_store/exports/2026-08-26-theme-candidates.md": {
+    "bytes": 25854,
+    "sha256": "725957e9519a836de9858d97d911ebe13de538194300b919b1c12c6361a0789e"
+  },
+  "market_feature_store/exports/2026-08-26-triggered-themes.json": {
+    "bytes": 98580,
+    "sha256": "03c34c452224740e0ff125a5b4f5c04653154690d630567b0f41f8f0cb0afade"
+  },
+  "market_feature_store/exports/2026-08-27-advancers-ma5.png": {
+    "bytes": 607877,
+    "sha256": "bbc4a59404834cbdf056c7e2685032c4f329d61e9384391ccdab294738a60008"
+  },
+  "market_feature_store/exports/2026-08-27-daily-agent.json": {
+    "bytes": 28281857,
+    "sha256": "e403c74eea22df48ce43784bcb94814a14f76e1c42785b089f237ad72243020d"
+  },
+  "market_feature_store/exports/2026-08-27-daily-agent.md": {
+    "bytes": 19582,
+    "sha256": "ce429fa23db8f36a9a0d9ab1ed77a82841bb55ffa55c67f2f573b1955f5d3996"
+  },
+  "market_feature_store/exports/2026-08-27-daily-review.md": {
+    "bytes": 54350,
+    "sha256": "52bdafce80d25541d8a6565fa9503b1e4412b26bccd5ab540565fe4624fd678e"
+  },
+  "market_feature_store/exports/2026-08-27-daily-workflow-summary.json": {
+    "bytes": 28571,
+    "sha256": "6815b3244ebe8fe8394a5f6f40f77f7de6b9b33d2c4d6c90820b9989408fec6e"
+  },
+  "market_feature_store/exports/2026-08-27-framework-interpretation.md": {
+    "bytes": 8802,
+    "sha256": "58b9497d8e3f14a1ecf80589d475bd9bfef37454caf74680b9e4e2511fdc8c0b"
+  },
+  "market_feature_store/exports/2026-08-27-kb-ingest-queue.json": {
+    "bytes": 13235,
+    "sha256": "a931e8293d2ca6df1089c707d47d5a025dacc7a3be92b0dfecfbe5ffb4eb366a"
+  },
+  "market_feature_store/exports/2026-08-27-market-triggered-theme-brief.md": {
+    "bytes": 16835,
+    "sha256": "709aa06a551539edee53b21fce5b9bb96826b50537535b64c8420e58a37d1e52"
+  },
+  "market_feature_store/exports/2026-08-27-research-queue.json": {
+    "bytes": 13165,
+    "sha256": "66984a5e1a8ee3d8a28317030302d7cc2d74ff00d2dd555502fe0aa0fae17649"
+  },
+  "market_feature_store/exports/2026-08-27-research-queue.md": {
+    "bytes": 3217,
+    "sha256": "354f23325917a6a49af9650f33cd5a0f4dd7be05c399e5129119d5d496ebb075"
+  },
+  "market_feature_store/exports/2026-08-27-theme-backfill-queue.json": {
+    "bytes": 16226,
+    "sha256": "9cf3bbd7590bcb2a31dab6bf823974b68e85bf939a47e065f55e4ac15a8ff9e0"
+  },
+  "market_feature_store/exports/2026-08-27-theme-backfill-review-queue.json": {
+    "bytes": 7597,
+    "sha256": "4e6ad7c4af7c7c2581935a972a7371df4f3214f15c6be1f6cecde4d48b4a98b4"
+  },
+  "market_feature_store/exports/2026-08-27-theme-backfill-review-queue.md": {
+    "bytes": 2143,
+    "sha256": "a2bf84877afc2f379cfb90b7aee6672fc6f2b1dee15452becf8156d4b6bc4bae"
+  },
+  "market_feature_store/exports/2026-08-27-theme-candidates.json": {
+    "bytes": 5502833,
+    "sha256": "98db4074dd774eac92833ccd98ce8718511495d6988b01b70a898027c2718b27"
+  },
+  "market_feature_store/exports/2026-08-27-theme-candidates.md": {
+    "bytes": 28723,
+    "sha256": "42a866770f1757754804ab8c08526c1c1c74d32a4dff9ef80fbcc2f2572c8de7"
+  },
+  "market_feature_store/exports/2026-08-27-triggered-themes.json": {
+    "bytes": 130294,
+    "sha256": "d4832af73899f806d7d87ebbe54383c9d7f677103eaa3d51de7203c7e73082bc"
+  },
+  "market_feature_store/exports/2026-08-28-advancers-ma5.png": {
+    "bytes": 607689,
+    "sha256": "f88c3c00257fa1d2381992275a21af7a922940d7788c18ff49de3548ce680a5d"
+  },
+  "market_feature_store/exports/2026-08-28-daily-agent-summary.json": {
+    "bytes": 2874,
+    "sha256": "74eefbedbfdc8d4a3d1aac523c209105512cf1759ebf96938588bbfc491d1aed"
+  },
+  "market_feature_store/exports/2026-08-28-daily-agent.json": {
+    "bytes": 23081357,
+    "sha256": "b80864fb9fcf7dce1850c29388e68b210b24d59082f454d46c26d69613726466"
+  },
+  "market_feature_store/exports/2026-08-28-daily-agent.md": {
+    "bytes": 18029,
+    "sha256": "f67d9db17e4226d838a255c64d0e069888ee3b30e85034c9688162ce0f0fe58d"
+  },
+  "market_feature_store/exports/2026-08-28-daily-review.md": {
+    "bytes": 44800,
+    "sha256": "d8c3a2eb0f93df31e0b8535d220e6afc9d74dec686d2f802253453f465aca736"
+  },
+  "market_feature_store/exports/2026-08-28-daily-workflow-summary.json": {
+    "bytes": 27501,
+    "sha256": "71a54c294bb1e526d1c08babe7ef17222a4374ad7b0cc832b9591c93f6d454c6"
+  },
+  "market_feature_store/exports/2026-08-28-framework-interpretation.md": {
+    "bytes": 8755,
+    "sha256": "4ad92ef083ad7cb866258b94ea682e56a57a66498c7b01850c7b9a2e10407018"
+  },
+  "market_feature_store/exports/2026-08-28-ima-gap.json": {
+    "bytes": 4800,
+    "sha256": "8221edd2fff253aa0245d636dff62f0669a0b34f8617633adaada09952305850"
+  },
+  "market_feature_store/exports/2026-08-28-ima-gap.md": {
+    "bytes": 1772,
+    "sha256": "65fbba5aae35eaab9d3cea18ea7bc6a2dda0d91b0d6264f1301cf22d0bcdaa3d"
+  },
+  "market_feature_store/exports/2026-08-28-kb-ingest-queue.json": {
+    "bytes": 13295,
+    "sha256": "d57535ded11ee7192c376fe3747a85ec37c583934a23004fea90cd7fd323d75a"
+  },
+  "market_feature_store/exports/2026-08-28-market-triggered-theme-brief.md": {
+    "bytes": 13225,
+    "sha256": "31a0814d57ca7db8a9185f5b2c7e021a88f3930062d12d038f1fb8f25d198556"
+  },
+  "market_feature_store/exports/2026-08-28-research-queue.json": {
+    "bytes": 10386,
+    "sha256": "01d3b522ce3f2ada4206cb801093d0faadbd6675e4a44b22c131b0cd24fed30e"
+  },
+  "market_feature_store/exports/2026-08-28-research-queue.md": {
+    "bytes": 2431,
+    "sha256": "de55418fd5e5c5b89a86b8a217dbaa315633deb97b6cb87a8d0e150f22731952"
+  },
+  "market_feature_store/exports/2026-08-28-theme-backfill-queue.json": {
+    "bytes": 21830,
+    "sha256": "ffccbe7d39d8fbaf5d680e6edf67dd56acceab7c1ce4641b25bfb920a917f010"
+  },
+  "market_feature_store/exports/2026-08-28-theme-backfill-review-queue.json": {
+    "bytes": 9940,
+    "sha256": "500a136ffa5033533946b3d8bfd99d116e39e6035bdbc4c36f3e89d5f2c04881"
+  },
+  "market_feature_store/exports/2026-08-28-theme-backfill-review-queue.md": {
+    "bytes": 2794,
+    "sha256": "58171b490946a8b40e95e8cb9db60eadd8b1c6b3b08ae73ecaa415df0e3f2586"
+  },
+  "market_feature_store/exports/2026-08-28-theme-candidates.json": {
+    "bytes": 5806769,
+    "sha256": "ba456041d0d1ae66a7dfafdaa54d54d9fb7bbc904b089f573aa6091da2b26842"
+  },
+  "market_feature_store/exports/2026-08-28-theme-candidates.md": {
+    "bytes": 24848,
+    "sha256": "de81e90e8e788c7b006e0ab59233ac744bf3683b46a376ce477726c140b79d39"
+  },
+  "market_feature_store/exports/2026-08-28-triggered-themes.json": {
+    "bytes": 96118,
+    "sha256": "e5d8c41b56ed49db92a798eec61b3c5ce0538010aee26442d9db76518b7bdb46"
+  },
+  "market_feature_store/exports/2026-08-31-advancers-ma5.png": {
+    "bytes": 606704,
+    "sha256": "8a2558826f7c761db86023d90e09912a376f96707971d2a049936a7794aacf00"
+  },
+  "market_feature_store/exports/2026-08-31-daily-agent.json": {
+    "bytes": 29962078,
+    "sha256": "59fe1b4bffb6a6531221a298f0662b9d427a5698b382a0e21111077bd9b7346a"
+  },
+  "market_feature_store/exports/2026-08-31-daily-agent.md": {
+    "bytes": 18972,
+    "sha256": "49bde3c5187bb162c1842d12d63d3bc88122b7d7f61504077f4bb3131a16610a"
+  },
+  "market_feature_store/exports/2026-08-31-daily-review.md": {
+    "bytes": 51253,
+    "sha256": "e5661af84b363256f7d250dad07448ef713b30a0234a2784668727083c51ede7"
+  },
+  "market_feature_store/exports/2026-08-31-daily-workflow-summary-resume.json": {
+    "bytes": 15258,
+    "sha256": "3b71a8f39701331137a58c73413738460402f850b6683fbbec0ff5ea53f4fb79"
+  },
+  "market_feature_store/exports/2026-08-31-daily-workflow-summary.json": {
+    "bytes": 25549,
+    "sha256": "f5ff8f9c05a401541270d509beb28171e705c8e58103037d9c29dfdf86c380e4"
+  },
+  "market_feature_store/exports/2026-08-31-framework-interpretation.md": {
+    "bytes": 8677,
+    "sha256": "2864340efee8d8cdbefe537b2e04d440e817136b9259598025f57f5b2101a16c"
+  },
+  "market_feature_store/exports/2026-08-31-ima-gap.json": {
+    "bytes": 4492,
+    "sha256": "aa858258ccfc04e8c80274e516c8ca62f8d50c91939c118794668ec385473d0b"
+  },
+  "market_feature_store/exports/2026-08-31-ima-gap.md": {
+    "bytes": 1597,
+    "sha256": "7b35e3071774f89767cd62b18c346833b4221d43bc5b0c88c88279b0ac8d1f7b"
+  },
+  "market_feature_store/exports/2026-08-31-kb-ingest-queue.json": {
+    "bytes": 25771,
+    "sha256": "e2edad301cddcb2d03eed9e6eb36508e165778c82db37e9de403880adea9ffb1"
+  },
+  "market_feature_store/exports/2026-08-31-market-triggered-theme-brief.md": {
+    "bytes": 10427,
+    "sha256": "51e661a1e2e59650e2fa8a1a50147dcd00e4e72e39a29a308d46a82827a002b1"
+  },
+  "market_feature_store/exports/2026-08-31-research-queue.json": {
+    "bytes": 11667,
+    "sha256": "853b2441ea03223268cd134cd5b47f4e6155f43455a162b4964736281851a003"
+  },
+  "market_feature_store/exports/2026-08-31-research-queue.md": {
+    "bytes": 2520,
+    "sha256": "1e8d9e90e5d7eebc1a46c734bb0a7846aeca467fdbe58f0d458735426c23f677"
+  },
+  "market_feature_store/exports/2026-08-31-theme-backfill-queue.json": {
+    "bytes": 23460,
+    "sha256": "ce9084e1389aec863014354c6f80019221f91965a295df6a139d02899ea3f235"
+  },
+  "market_feature_store/exports/2026-08-31-theme-backfill-review-queue.json": {
+    "bytes": 16149,
+    "sha256": "569d30768b3a2316331aaac2f0ee18c7ac887bddf5823738fa7c0fec8a98fed0"
+  },
+  "market_feature_store/exports/2026-08-31-theme-backfill-review-queue.md": {
+    "bytes": 4224,
+    "sha256": "5930f1bcaba41ed53689e7d8386e44ba50d6baf28aec52d85b77553b144a67b5"
+  },
+  "market_feature_store/exports/2026-08-31-theme-candidates.json": {
+    "bytes": 5763875,
+    "sha256": "0d66c0fed337837aa140bd7f32fc2d5596aa072b0fe7cce49f81c9e35a1f334a"
+  },
+  "market_feature_store/exports/2026-08-31-theme-candidates.md": {
+    "bytes": 22779,
+    "sha256": "8e66e8bdd738dc32c9cdd0b9800dddeb940768193661611cd67a01dc12702dce"
+  },
+  "market_feature_store/exports/2026-08-31-triggered-themes.json": {
+    "bytes": 85365,
+    "sha256": "d2f1e114f5fdd6af2fcfd1c6fb25fe6c0d37bd5087d42a7e336ca70e8a1d83d1"
+  },
+  "market_feature_store/exports/2026-09-01-advancers-ma5.png": {
+    "bytes": 606057,
+    "sha256": "4730501357f76b302cf8f9b0c7bacc73ef5f612b557ea16410d1a6bf5b694fa3"
+  },
+  "market_feature_store/exports/2026-09-01-daily-agent.json": {
+    "bytes": 23951088,
+    "sha256": "8fd2b1395a19e8b5fff1531070a6d1a543b86c8c3b3d2deaabd25627dc2a2fdc"
+  },
+  "market_feature_store/exports/2026-09-01-daily-agent.md": {
+    "bytes": 18865,
+    "sha256": "17211076fe5a99669a70b211dd3487c4bb02b75b8f8a96b26f88dd3b655736a6"
+  },
+  "market_feature_store/exports/2026-09-01-daily-review.md": {
+    "bytes": 44697,
+    "sha256": "3015c8d1500b6095272ddb741c5941c521185b9bb3a4c705fbed65e155777fc9"
+  },
+  "market_feature_store/exports/2026-09-01-daily-workflow-summary.json": {
+    "bytes": 15179,
+    "sha256": "ea18fcb9cacbc09ffb823e0a6cdf629c471dad41393f066d7e668ee83f2354b5"
+  },
+  "market_feature_store/exports/2026-09-01-framework-interpretation.md": {
+    "bytes": 8636,
+    "sha256": "03ee59233649d0cb53ba85dfe4f4194b2637b48eb9735470bf2cb4a1f397d4cd"
+  },
+  "market_feature_store/exports/2026-09-01-ima-gap.json": {
+    "bytes": 3458,
+    "sha256": "9fb5ac9165ad64ac5e3c181c2177fbb20cab66dda5c0fee7f34131144bc0ded2"
+  },
+  "market_feature_store/exports/2026-09-01-ima-gap.md": {
+    "bytes": 1349,
+    "sha256": "778993d983033a4640eeb64ea3f867234b7f58654f871a64ed0f00efe91c1154"
+  },
+  "market_feature_store/exports/2026-09-01-kb-ingest-queue.json": {
+    "bytes": 21982,
+    "sha256": "bb4396317ea44ebdbb9f27aa583d2fc9cae8c195d278d841a8b32bd26b28b737"
+  },
+  "market_feature_store/exports/2026-09-01-market-triggered-theme-brief.md": {
+    "bytes": 16307,
+    "sha256": "eaac8a65febff7bc07b233b10feddf1364d4bcd89c1b65af8485c67c08097124"
+  },
+  "market_feature_store/exports/2026-09-01-research-queue.json": {
+    "bytes": 11370,
+    "sha256": "b69ab998464302f6a9f2e181298a95938cb3b82016899c8fe83e9a76180c7186"
+  },
+  "market_feature_store/exports/2026-09-01-research-queue.md": {
+    "bytes": 2301,
+    "sha256": "b5c1f47d7cef786c09a558a1fd96fafc8908b579ba51dba65d9992c66ce194b0"
+  },
+  "market_feature_store/exports/2026-09-01-theme-backfill-queue.json": {
+    "bytes": 26797,
+    "sha256": "80359ad1c2a83cc0606f452c808dfa68973f7f0e7fa25a50f9c9d85efe9e22aa"
+  },
+  "market_feature_store/exports/2026-09-01-theme-backfill-review-queue.json": {
+    "bytes": 16849,
+    "sha256": "de620dd13e135643f9dc8f44e9762514989716e1c3a3a203058f4c22f8ced921"
+  },
+  "market_feature_store/exports/2026-09-01-theme-backfill-review-queue.md": {
+    "bytes": 4359,
+    "sha256": "79277093757f08de9b80906487ec9aa5e423f8793e6694e5ca59db9c6e80a504"
+  },
+  "market_feature_store/exports/2026-09-01-theme-candidates.json": {
+    "bytes": 5542012,
+    "sha256": "07beab188bdfcfbf08a6caad94034fc6bb1c5c27675542c10829aacac18f935d"
+  },
+  "market_feature_store/exports/2026-09-01-theme-candidates.md": {
+    "bytes": 24128,
+    "sha256": "d019d61f60f93f5838a26c2b5142580dede028f1c98f36cdf5a4c1a963a8a956"
+  },
+  "market_feature_store/exports/2026-09-01-triggered-themes.json": {
+    "bytes": 98958,
+    "sha256": "dcb8fc31f9de33ef2c1b8a586a911dbf345e6ba4ae8c4330f657e39c697947e7"
+  },
+  "market_feature_store/exports/2026-09-02-advancers-ma5.png": {
+    "bytes": 607788,
+    "sha256": "98e8e48995b2b8d4745b6c379deb087534eae8686e00dc7a7255576ccd15f167"
+  },
+  "market_feature_store/exports/2026-09-02-daily-agent-summary.json": {
+    "bytes": 2770,
+    "sha256": "f7166edd444677538de3767b9fae4fafb20f94b2b31c139b8ba150f6e163e3e1"
+  },
+  "market_feature_store/exports/2026-09-02-daily-agent.json": {
+    "bytes": 18448804,
+    "sha256": "0aee42cfe8f48f109f3197ff4205e18004772af12ebb1f5c4dbe368c36cf9a11"
+  },
+  "market_feature_store/exports/2026-09-02-daily-agent.md": {
+    "bytes": 19140,
+    "sha256": "3f7ed7de1c378fdd0218fba767a15fef28c1a554e02853ec3c68ed2e536bb073"
+  },
+  "market_feature_store/exports/2026-09-02-daily-review.md": {
+    "bytes": 41170,
+    "sha256": "e70b80af97d0a010f04098d1f4186ff867fb4c5f623f20db6883594a54e96085"
+  },
+  "market_feature_store/exports/2026-09-02-daily-workflow-summary.json": {
+    "bytes": 29880,
+    "sha256": "f350ef16aae7a294175c14b2e53da67f11197a6f4633f3f8f16ed580fb3e4cc5"
+  },
+  "market_feature_store/exports/2026-09-02-framework-interpretation.md": {
+    "bytes": 8576,
+    "sha256": "993a44fef64965a1ede79e5752ed84d68fa4c8d0bf9bc235eaf9e997ce25f332"
+  },
+  "market_feature_store/exports/2026-09-02-ima-gap.json": {
+    "bytes": 3494,
+    "sha256": "cd4961a4ce626178ec0656f15bc179c35988d956b22e75505fe5554836ff3c58"
+  },
+  "market_feature_store/exports/2026-09-02-ima-gap.md": {
+    "bytes": 1304,
+    "sha256": "17bdf31c778ba46bb41371f3becfe091710774bedeefd2e496e5c5281f832745"
+  },
+  "market_feature_store/exports/2026-09-02-kb-ingest-queue.json": {
+    "bytes": 18098,
+    "sha256": "e2a5e0de0a6d6e0f0fa07d02f2a4c6b825829610592dae3fbec0c8a985fcb81d"
+  },
+  "market_feature_store/exports/2026-09-02-market-triggered-theme-brief.md": {
+    "bytes": 15448,
+    "sha256": "9ed475a4313635f011ca458e0f408613d3e0e858e6f00100e26a750e99852781"
+  },
+  "market_feature_store/exports/2026-09-02-research-queue.json": {
+    "bytes": 11178,
+    "sha256": "0ae5d53b4ce09fad6de6a74b2eb487fb424a640d36ab4a20d4548832b9ca9a14"
+  },
+  "market_feature_store/exports/2026-09-02-research-queue.md": {
+    "bytes": 2675,
+    "sha256": "229e28e321adbed133a2f91d3e73139c810587b1a7f6117d73b6948169b7c8e4"
+  },
+  "market_feature_store/exports/2026-09-02-theme-backfill-queue.json": {
+    "bytes": 22741,
+    "sha256": "3eaa029c2e806bf9233438c6b8977868d078ddfb24c2d31baad03d19c1d11485"
+  },
+  "market_feature_store/exports/2026-09-02-theme-backfill-review-queue.json": {
+    "bytes": 11399,
+    "sha256": "716d6646ede942e227cb475d32a1fc876c0118945d0fcb2407523defece02fac"
+  },
+  "market_feature_store/exports/2026-09-02-theme-backfill-review-queue.md": {
+    "bytes": 3204,
+    "sha256": "1a7c81e01c1a6816f731c46bf22603f3ab101d3cd7da231f1c62fd1954c9460c"
+  },
+  "market_feature_store/exports/2026-09-02-theme-candidates.json": {
+    "bytes": 5351963,
+    "sha256": "ca9fee1fba2ab8b3a45bda26d4d781d149dad19741b64d17e36cc735dd3d7b72"
+  },
+  "market_feature_store/exports/2026-09-02-theme-candidates.md": {
+    "bytes": 24521,
+    "sha256": "5f2a017bae7babc9b536a395a57a74bbe672190b4e9b69b635d0368bf4447047"
+  },
+  "market_feature_store/exports/2026-09-02-triggered-themes.json": {
+    "bytes": 81061,
+    "sha256": "941ae9083322e3ff1827348ac948d4453d168c5d8c54ee1dd9ebc3a9d530caea"
+  },
+  "market_feature_store/exports/2026-09-07-daily-agent-summary.json": {
+    "bytes": 2840,
+    "sha256": "24a0420cdd7e7912df555aa7846a60f19ae51288d310fe3094995f75043ad8e4"
+  },
+  "market_feature_store/exports/2026-09-07-daily-agent.json": {
+    "bytes": 25080782,
+    "sha256": "f7dfdd20f8e4007839842eaba067ee7355b875c47006057886bee85782c8a0c3"
+  },
+  "market_feature_store/exports/2026-09-07-daily-agent.md": {
+    "bytes": 19542,
+    "sha256": "8b59600f2a0298b2fb01f4b5d2384a8effdb3ee2053f9545d198f3756fddc0d4"
+  },
+  "market_feature_store/exports/2026-09-07-ima-gap.json": {
+    "bytes": 3921,
+    "sha256": "de67dc551f591789026c3bd3e6dbe6d87a6dd9c3bdb95e820743f94601538cb0"
+  },
+  "market_feature_store/exports/2026-09-07-ima-gap.md": {
+    "bytes": 1289,
+    "sha256": "d8c3c1c7e90e62b6adc1c67e45953ec2bd4d3fb799e79b78076a0f7e9b23f5f7"
+  },
+  "market_feature_store/exports/2026-09-07-kb-ingest-queue.json": {
+    "bytes": 17481,
+    "sha256": "26393febdbc80dbdeda0dea72e1a167f87905517b0e516c9d91781ada8d939d6"
+  },
+  "market_feature_store/exports/2026-09-07-research-queue.json": {
+    "bytes": 12673,
+    "sha256": "9153cf0c906ffeef258bd364ded938697ea99e4acead4c76b557dc79e4303fe2"
+  },
+  "market_feature_store/exports/2026-09-07-research-queue.md": {
+    "bytes": 2793,
+    "sha256": "c26e76ee3e9fbed11ba8308d0e8130e2b61f330832761204e7460fb97e7d1979"
+  },
+  "market_feature_store/exports/2026-09-07-theme-candidates.json": {
+    "bytes": 5492719,
+    "sha256": "15ec5e955b0ed120699f9f4ab48b6f93884a2d7743aadabcd1ad9e3514593b5a"
+  },
+  "market_feature_store/exports/2026-09-07-theme-candidates.md": {
+    "bytes": 29242,
+    "sha256": "db5d18630ece324c903ac473f266020b0ae556509e0d99b17703178cb302d7e1"
+  },
+  "market_feature_store/exports/2026-09-09-daily-agent-summary.json": {
+    "bytes": 2629,
+    "sha256": "7dc507d217ffd8450c37ffe6b35cb2896ce23ffa7742d37f57d77ea115ebe769"
+  },
+  "market_feature_store/exports/2026-09-09-daily-agent.json": {
+    "bytes": 24134014,
+    "sha256": "3abefa44be9ac90f06176b1cf3b8ac4bab95dd142e4b8823dce8b74cbe1a959d"
+  },
+  "market_feature_store/exports/2026-09-09-daily-agent.md": {
+    "bytes": 18803,
+    "sha256": "8a806f4e07eb1755d8db563b3cf132a03a9a957095beb391e9a73dfb124e20c6"
+  },
+  "market_feature_store/exports/2026-09-09-ima-gap.json": {
+    "bytes": 7042,
+    "sha256": "4ece341d69e8a08888013ef8ba83bea491a3e4b817149b60a4711fb637a5a232"
+  },
+  "market_feature_store/exports/2026-09-09-ima-gap.md": {
+    "bytes": 2472,
+    "sha256": "2da249a5a8695b78acecd822d5fcbdd8bec84a5d51696675ded5fdb8347d6ad5"
+  },
+  "market_feature_store/exports/2026-09-09-kb-ingest-queue.json": {
+    "bytes": 5687,
+    "sha256": "fc2c411b37a2cb33d5d1c9e6015bc24d6f0062a2f03230be900ee9185127e4e2"
+  },
+  "market_feature_store/exports/2026-09-09-research-queue.json": {
+    "bytes": 12520,
+    "sha256": "02e56a35beab8b15c23792e08e5d3e56ba9c20f7fb50a17dcfdfb32f72ec1f06"
+  },
+  "market_feature_store/exports/2026-09-09-research-queue.md": {
+    "bytes": 3581,
+    "sha256": "6081dedef79363db9f4009ae08af4aad151e42772771cef045b87b33414b1beb"
+  },
+  "market_feature_store/exports/2026-09-09-theme-candidates.json": {
+    "bytes": 5765677,
+    "sha256": "2c39dce1f282beb56c2fdee10d55ec1a6aa84ecfae8e02bcbe7b7687fdb088e5"
+  },
+  "market_feature_store/exports/2026-09-09-theme-candidates.md": {
+    "bytes": 28521,
+    "sha256": "0e0060be1fb1f3f2c88264c9005a48125cc62fb0d163084f68cff755688f367d"
+  },
+  "market_feature_store/exports/2026-09-14-daily-agent-summary.json": {
+    "bytes": 2926,
+    "sha256": "c0e77528695c245dfc852ae60790c6f51a93697c12bc919a99f05c4b2625a12e"
+  },
+  "market_feature_store/exports/2026-09-14-daily-agent.json": {
+    "bytes": 23800219,
+    "sha256": "1f256a33cbdb3e60d6ba37937c0b909a11c0b7b6a88361785e2368c3be3dcadf"
+  },
+  "market_feature_store/exports/2026-09-14-daily-agent.md": {
+    "bytes": 19304,
+    "sha256": "a982843e1e1eb7db5328daccec6f1d23bd6caf42ba731e09a3677f2e201f9131"
+  },
+  "market_feature_store/exports/2026-09-14-daily-workflow-summary.json": {
+    "bytes": 14943,
+    "sha256": "338aab60b9fa971ebbda020748e4c4e30f6df8e149b0124cab98b7506382b0e3"
+  },
+  "market_feature_store/exports/2026-09-14-data-requests.json": {
+    "bytes": 9903,
+    "sha256": "a2603835015ea93841e3864157f2c048cda101ff785ec2255e456cc497590755"
+  },
+  "market_feature_store/exports/2026-09-14-ima-gap.json": {
+    "bytes": 4503,
+    "sha256": "a8b75bc2f31576726d43506a765cbdac32e84b463d3be3ed95434e595b98e068"
+  },
+  "market_feature_store/exports/2026-09-14-ima-gap.md": {
+    "bytes": 1654,
+    "sha256": "03bd9f0691ec24e0bbb68fadb78cee2d1ebb46c14ba4148c65effd3d14b47c95"
+  },
+  "market_feature_store/exports/2026-09-14-kb-ingest-queue.json": {
+    "bytes": 12942,
+    "sha256": "e573a5ad098a3044182205f2c622c3dcd74a5867da4fd30cb3d349887b284953"
+  },
+  "market_feature_store/exports/2026-09-14-research-queue.json": {
+    "bytes": 12284,
+    "sha256": "a9ecbeb195f5486f3f04d3e2b5df8ec0ad97ac32b05aaf78f94a41d1bab88906"
+  },
+  "market_feature_store/exports/2026-09-14-research-queue.md": {
+    "bytes": 2993,
+    "sha256": "fb15f6f0fbab23bea4f8d760ab30f00040edcd4bd2b07cb0388c7329d326cb1e"
+  },
+  "market_feature_store/exports/2026-09-14-theme-candidates.json": {
+    "bytes": 5212898,
+    "sha256": "91d9bb66872a4ae2fbf84bde8e9a82a632bfc24b78a607e7a9a7e9062022bdb6"
+  },
+  "market_feature_store/exports/2026-09-14-theme-candidates.md": {
+    "bytes": 28384,
+    "sha256": "3a87c0de2561edf7dcaa8f55e556a0a09fe6cb64c48fb89acd0d0fbf631a5482"
+  },
+  "market_feature_store/exports/2026-09-15-daily-agent-summary.json": {
+    "bytes": 2799,
+    "sha256": "eb6d8957a2c1563eef32d0d79e588ab39a9973af3af1a6a30021dc2d31ac793f"
+  },
+  "market_feature_store/exports/2026-09-15-daily-agent.json": {
+    "bytes": 22664685,
+    "sha256": "20d585a2312125f3046222f1c8c6c09da62c65c35779e297bedcaa8c70c11aac"
+  },
+  "market_feature_store/exports/2026-09-15-daily-agent.md": {
+    "bytes": 19524,
+    "sha256": "c8d28a23010b85ce9fd65820472177b57f837cbad200e648501b61bab7d7a0b2"
+  },
+  "market_feature_store/exports/2026-09-15-daily-workflow-summary.json": {
+    "bytes": 14942,
+    "sha256": "f2c039652c49a58ae2e6262a7ca43671f132d2a0a10ef09c7a8615aca0d8492b"
+  },
+  "market_feature_store/exports/2026-09-15-data-requests.json": {
+    "bytes": 9903,
+    "sha256": "844d731b457705d76eb0c08f206394022f99bc98df12477de3e469b8ef353b7a"
+  },
+  "market_feature_store/exports/2026-09-15-ima-gap.json": {
+    "bytes": 6454,
+    "sha256": "3accf33db0f537022533253bbc054c3441db2891ae92d37c7dd8b5a56b13484e"
+  },
+  "market_feature_store/exports/2026-09-15-ima-gap.md": {
+    "bytes": 2158,
+    "sha256": "67383081f146a55b277e4ce3aa8c3de669623745d9674790b31cde9274b9d08c"
+  },
+  "market_feature_store/exports/2026-09-15-kb-ingest-queue.json": {
+    "bytes": 11573,
+    "sha256": "979d509524805423db049b1ace2910266fd54c406e38e1b33234c0119bb53ed1"
+  },
+  "market_feature_store/exports/2026-09-15-research-queue.json": {
+    "bytes": 12948,
+    "sha256": "e02574f070e6fd3c0c3b148d12c357c4f7a7cff232aa0b737c3d16c9cdc90794"
+  },
+  "market_feature_store/exports/2026-09-15-research-queue.md": {
+    "bytes": 3411,
+    "sha256": "ba4894543f0eab0bd4e151decc233fd6f04ef2d6436b62c4c7a5b10ba6fbe44f"
+  },
+  "market_feature_store/exports/2026-09-15-theme-candidates.json": {
+    "bytes": 5240361,
+    "sha256": "734eebc4ddfd7764aa538c3b4308c6e29563eef2353c3c4681f08ff46e8ed638"
+  },
+  "market_feature_store/exports/2026-09-15-theme-candidates.md": {
+    "bytes": 28003,
+    "sha256": "bef93e8774286b31f078fac6c3974a5a9ce6e36d0d99a895135b54209c98b608"
+  },
+  "market_feature_store/exports/2026-09-16-advancers-ma5.png": {
+    "bytes": 614376,
+    "sha256": "60ad58ac765ad0cb34fcfea764ab8999262d639c96090d12b1c4b8856a569fa1"
+  },
+  "market_feature_store/exports/2026-09-16-daily-agent.json": {
+    "bytes": 24329209,
+    "sha256": "0771e7ea50c4e60b8cf27db198a3f3bb7a817e1c5bf2d89eceabb68746ac34d2"
+  },
+  "market_feature_store/exports/2026-09-16-daily-agent.md": {
+    "bytes": 20670,
+    "sha256": "0b25827806056326ba5e980197461d1e204acac6e4efb9c648a3c20ae6fd8994"
+  },
+  "market_feature_store/exports/2026-09-16-daily-post-recovery-summary.json": {
+    "bytes": 15201,
+    "sha256": "0adb156e82451cf02ca48c33809ff9d167e6217561eb92c8988c6a9aaca77613"
+  },
+  "market_feature_store/exports/2026-09-16-daily-review.json": {
+    "bytes": 98943,
+    "sha256": "f2c3854aa00d88ea1cf220a98eadbe972a4bfdb864a9d65ee1a40469e365886e"
+  },
+  "market_feature_store/exports/2026-09-16-daily-review.md": {
+    "bytes": 53441,
+    "sha256": "b822a0f50fff20470c1af21a71e2aafa3a222759b28de9a3865488b4b82015a0"
+  },
+  "market_feature_store/exports/2026-09-16-daily-workflow-summary.json": {
+    "bytes": 32449,
+    "sha256": "dfd2600caf8e379f052bf0a594854dc42929b6c9d357a000b8ba0929d36f0a90"
+  },
+  "market_feature_store/exports/2026-09-16-data-requests.json": {
+    "bytes": 50539,
+    "sha256": "80a7cc4fc20e1252e9159c134bbf5c4efa7d30c8ba1b65ca1a2ccb191088fe13"
+  },
+  "market_feature_store/exports/2026-09-16-framework-interpretation.md": {
+    "bytes": 12878,
+    "sha256": "c61b52d19216d1d52dd2c8f3c9236ab28eb3fd64f0e7c1610d801ec5e0a831ba"
+  },
+  "market_feature_store/exports/2026-09-16-ima-gap.json": {
+    "bytes": 6263,
+    "sha256": "67b756a4835ce3b7ac4d5605062b74faf10dec87495b8734442f122748607f26"
+  },
+  "market_feature_store/exports/2026-09-16-ima-gap.md": {
+    "bytes": 2102,
+    "sha256": "6f6fadd9e152bafeae2c71d8fb020ae6a880a4b74732bf0f358d18c7d501793e"
+  },
+  "market_feature_store/exports/2026-09-16-kb-ingest-queue.json": {
+    "bytes": 14849,
+    "sha256": "cc66c5c581487c5490375968b309ae1faa38d2339d6c81bbc04a42bbf2560d16"
+  },
+  "market_feature_store/exports/2026-09-16-market-triggered-theme-brief.md": {
+    "bytes": 17754,
+    "sha256": "08a28727da73c5959b2f2d7da84acdc0168c7125503cc95c82e9856b0fb8b8b0"
+  },
+  "market_feature_store/exports/2026-09-16-research-queue.json": {
+    "bytes": 14931,
+    "sha256": "6f303124259a6c2bb70c54d72c737fa40cca262e1e0a0474f47ecddef52dc685"
+  },
+  "market_feature_store/exports/2026-09-16-research-queue.md": {
+    "bytes": 3689,
+    "sha256": "c564480c50b9da60ea89710eb7116ef0248d530c59977f1fe11acb21903121b9"
+  },
+  "market_feature_store/exports/2026-09-16-strategy1-row.json": {
+    "bytes": 2459,
+    "sha256": "35b5f8494d298921ac528f94131e83d5adb55f419f4b2b221bf68f751cf7d8ce"
+  },
+  "market_feature_store/exports/2026-09-16-theme-backfill-queue.json": {
+    "bytes": 23330,
+    "sha256": "0ffcdb38406e43cc9a2e213457c08953a9e4fcf14eeb616357b9f73b0e8a69e0"
+  },
+  "market_feature_store/exports/2026-09-16-theme-backfill-review-queue.json": {
+    "bytes": 8477,
+    "sha256": "73002bb7fbc649eb951210043c46179799b6149779366c3f7c7904958a022323"
+  },
+  "market_feature_store/exports/2026-09-16-theme-backfill-review-queue.md": {
+    "bytes": 2319,
+    "sha256": "e9c776d48b4cc4b1e808a2983a5f0c4554d0b65f2ca9c3f557f4fc1c9d4413ee"
+  },
+  "market_feature_store/exports/2026-09-16-theme-candidates.json": {
+    "bytes": 5438229,
+    "sha256": "0c43e7601348e324b95ed4fe290513f557ac454a89456e27c8a9ddc359191c8e"
+  },
+  "market_feature_store/exports/2026-09-16-theme-candidates.md": {
+    "bytes": 29752,
+    "sha256": "b2c40ca1437a88740c034f79963179130b4f76fab1070ab3f8575b8460b77ce9"
+  },
+  "market_feature_store/exports/2026-09-16-triggered-themes.json": {
+    "bytes": 132312,
+    "sha256": "36a529f5d9c1408f93ba91546688a1b548951cfcb8662b108a0a8b2596496ae2"
+  },
+  "market_feature_store/exports/2026-09-17-advancers-ma5.png": {
+    "bytes": 614869,
+    "sha256": "bcea07dbbd9f3d59437fb2d386df74a38acd30db4289cfc96a3ef56087ff0fdd"
+  },
+  "market_feature_store/exports/2026-09-17-daily-agent.json": {
+    "bytes": 24035969,
+    "sha256": "420ad771d4f1803234bec05760d03116f9a71fb354f319f7d67ca34234520b2f"
+  },
+  "market_feature_store/exports/2026-09-17-daily-agent.md": {
+    "bytes": 20249,
+    "sha256": "f22869b15044307c5e301892214245172cb25bed8d06f3d9031de5ba46aca620"
+  },
+  "market_feature_store/exports/2026-09-17-daily-post-recovery-summary.json": {
+    "bytes": 15086,
+    "sha256": "722f68f9faf99c4849407c528b9d8316eca2e60d19c5709471dac50beb011893"
+  },
+  "market_feature_store/exports/2026-09-17-daily-review.json": {
+    "bytes": 81648,
+    "sha256": "3f1645b1acf7af227da45314bcbc0b5e94501ee689a685e6e2da5f9361ca9da5"
+  },
+  "market_feature_store/exports/2026-09-17-daily-review.md": {
+    "bytes": 43236,
+    "sha256": "f7b5d757f0b3ff385e457038165fca6af7d92a46d67f3c53c5d80e0973e64b89"
+  },
+  "market_feature_store/exports/2026-09-17-daily-workflow-summary.json": {
+    "bytes": 32383,
+    "sha256": "48456eb2dcefe840c6aceb274738963f36340556344171a2a0fb81955677d5c8"
+  },
+  "market_feature_store/exports/2026-09-17-data-requests.json": {
+    "bytes": 50539,
+    "sha256": "c588378e674d04c8d4fb9ad26410e5016130dba60099d34d043f3be78313caaf"
+  },
+  "market_feature_store/exports/2026-09-17-framework-interpretation.md": {
+    "bytes": 12906,
+    "sha256": "73f333e0abbb95366b08cc4bc9bff5ea8470a22450c24c2a1311f4796980ade8"
+  },
+  "market_feature_store/exports/2026-09-17-ima-gap.json": {
+    "bytes": 6050,
+    "sha256": "17129646a146cdebcfde2ffcb7f7775b9e1d65df45eec9441af8909525824fda"
+  },
+  "market_feature_store/exports/2026-09-17-ima-gap.md": {
+    "bytes": 2076,
+    "sha256": "202435ef3c0b3c9434abd8bacff651f0e3214082a277c8edba143cee6a931f28"
+  },
+  "market_feature_store/exports/2026-09-17-kb-ingest-queue.json": {
+    "bytes": 15456,
+    "sha256": "d738cd1ab1a31f8fae883242a9be46f146e2376e287135a804eb35cf11c3e11c"
+  },
+  "market_feature_store/exports/2026-09-17-market-triggered-theme-brief.md": {
+    "bytes": 17391,
+    "sha256": "1e3e7bae780e77a21f3fb4f85cf9010420d4f3ddaaaffa3b90163dc880c8b9bc"
+  },
+  "market_feature_store/exports/2026-09-17-research-queue.json": {
+    "bytes": 12396,
+    "sha256": "22fc76bb875cf6a2ae490f493292900bce2d81fc2155ebf94033f758e620c391"
+  },
+  "market_feature_store/exports/2026-09-17-research-queue.md": {
+    "bytes": 2996,
+    "sha256": "7219fba4df41911d41d52ed76ecd472d6c59ade759e812fc974e5d7f66843f1c"
+  },
+  "market_feature_store/exports/2026-09-17-strategy1-row.json": {
+    "bytes": 2096,
+    "sha256": "dc913a620d3b729c9aa9e218de088826843bb085653dada6d1fe29fe9a5aa644"
+  },
+  "market_feature_store/exports/2026-09-17-theme-backfill-queue.json": {
+    "bytes": 18906,
+    "sha256": "e9d461f8602653936c620a3923514a9af53faccb1508aa2d0f93562cd541586f"
+  },
+  "market_feature_store/exports/2026-09-17-theme-backfill-review-queue.json": {
+    "bytes": 6615,
+    "sha256": "9ced0334b824f00f9694dbeb922403a3c96636bc1b179de8740df7beaacef58f"
+  },
+  "market_feature_store/exports/2026-09-17-theme-backfill-review-queue.md": {
+    "bytes": 1972,
+    "sha256": "35d3b9f4efd08f5708d55e3028a61a675cf800125f9e2f9e2453cf211f541f97"
+  },
+  "market_feature_store/exports/2026-09-17-theme-candidates.json": {
+    "bytes": 5534041,
+    "sha256": "293cdc3016139a171cce911a1b1fd6c17889b4e7a53bac42fbc67d5c1afc14a4"
+  },
+  "market_feature_store/exports/2026-09-17-theme-candidates.md": {
+    "bytes": 27651,
+    "sha256": "8e24c8fc4fd6f63ed86dcfa557faa63f438ab937759f7ba40825f4c6e825b680"
+  },
+  "market_feature_store/exports/2026-09-17-triggered-themes.json": {
+    "bytes": 124721,
+    "sha256": "419d3d9e1c2e5e1e2e996665cc69cb4ac588fbf02f57455ba30c2a664a87273e"
+  },
+  "market_feature_store/exports/2026-09-18-advancers-ma5.png": {
+    "bytes": 614888,
+    "sha256": "aae16a44e5bbd8415dfe413613b8cc42e6800c715be8faf078f134007c3b3e1b"
+  },
+  "market_feature_store/exports/2026-09-18-daily-agent-summary.json": {
+    "bytes": 2644,
+    "sha256": "b7264734e7390a77c048d18bedae4c89f26bcf647eabf27207374a0b241e5d59"
+  },
+  "market_feature_store/exports/2026-09-18-daily-agent.json": {
+    "bytes": 23888742,
+    "sha256": "133a9245e8469270433780a6a6967402be1b9d0de7206e246b0ff41d10388c7a"
+  },
+  "market_feature_store/exports/2026-09-18-daily-agent.md": {
+    "bytes": 20248,
+    "sha256": "fe5b4d98581f237d6372b8eec38b4a7008b875da38bded5148cddaabc061b351"
+  },
+  "market_feature_store/exports/2026-09-18-daily-review.json": {
+    "bytes": 98551,
+    "sha256": "5665fe0d74755679e8a77a4715190c86e7505568d7251ee16127f9532c4bce35"
+  },
+  "market_feature_store/exports/2026-09-18-daily-review.md": {
+    "bytes": 52479,
+    "sha256": "fa7d29356339d504531feb3d3c18963e324fd8e0473dc5b54e35c1f416be45d6"
+  },
+  "market_feature_store/exports/2026-09-18-daily-workflow-summary.json": {
+    "bytes": 33152,
+    "sha256": "0066186dbf68b889e198929ede4d0f5abeed3597cd45e2c1dc9491c14e208d99"
+  },
+  "market_feature_store/exports/2026-09-18-data-requests.json": {
+    "bytes": 50561,
+    "sha256": "49f5552a23e14685d34eb9076419971e5c942717fb3ba65c37a1f18fdf84617a"
+  },
+  "market_feature_store/exports/2026-09-18-framework-interpretation.md": {
+    "bytes": 12911,
+    "sha256": "809df0bdccb672aa42964dd82ef09aa1cf5c2f0adc776017bc0d745625a0e651"
+  },
+  "market_feature_store/exports/2026-09-18-ima-gap.json": {
+    "bytes": 6926,
+    "sha256": "815e407fe343ea5d074dfe7a64736529318eae8936d461978aaec05713651285"
+  },
+  "market_feature_store/exports/2026-09-18-ima-gap.md": {
+    "bytes": 2268,
+    "sha256": "1b511b4d417369c85d11bb1139c08a9e0df1e731eaa1d1945a6e478f1060d92f"
+  },
+  "market_feature_store/exports/2026-09-18-kb-ingest-queue.json": {
+    "bytes": 10179,
+    "sha256": "9533d28e0f39d702360293f4975a3d4c8adc672c4c66b480b76fd6f5a81f72aa"
+  },
+  "market_feature_store/exports/2026-09-18-market-triggered-theme-brief.md": {
+    "bytes": 17860,
+    "sha256": "bb26b5b2c07456b89c898a86511049ece872c07ccb312515623ee03be32bbe78"
+  },
+  "market_feature_store/exports/2026-09-18-research-queue.json": {
+    "bytes": 14270,
+    "sha256": "9bf2a8b9c856e790fe8012ec57436cf0fd7b25d392ccad6e69931e31cb323616"
+  },
+  "market_feature_store/exports/2026-09-18-research-queue.md": {
+    "bytes": 3741,
+    "sha256": "1de2e7ad1dd3146186f27542d2bdf25cf6b6fa2664407bdafb7254ff03aee6d5"
+  },
+  "market_feature_store/exports/2026-09-18-strategy1-row.json": {
+    "bytes": 2455,
+    "sha256": "10fd0cbaf706c611f6e9fadcdc3093c755f1c5916bd54701c3e1e6c39dce59a7"
+  },
+  "market_feature_store/exports/2026-09-18-theme-backfill-queue.json": {
+    "bytes": 23854,
+    "sha256": "17e55f1940f11fcd3a2501294ef6744d0e64ba91e8592ab175092c1e33346a6e"
+  },
+  "market_feature_store/exports/2026-09-18-theme-backfill-review-queue.json": {
+    "bytes": 5845,
+    "sha256": "ccd6f2a56e7aa7ce706948d5bbf970a4aaf86d2357a29567a92548d4d876a80e"
+  },
+  "market_feature_store/exports/2026-09-18-theme-backfill-review-queue.md": {
+    "bytes": 1737,
+    "sha256": "c43ed40ff3b25873f5fe689f13d829a4d2ab9b4f90bc4b55063804255fafbfc1"
+  },
+  "market_feature_store/exports/2026-09-18-theme-candidates.json": {
+    "bytes": 5740652,
+    "sha256": "ac2ae7fa0cdb479048e87a8b2315a0da400a091cb9abff9a421aaadd414be223"
+  },
+  "market_feature_store/exports/2026-09-18-theme-candidates.md": {
+    "bytes": 30094,
+    "sha256": "f410489d580b1c60adec5cc983a6618f792bc257eaea71772f13f1514e5c4594"
+  },
+  "market_feature_store/exports/2026-09-18-triggered-themes.json": {
+    "bytes": 125642,
+    "sha256": "5a197b27e16df6b358e5982c2f5a701c286b67053f10fba127afd1639e5ffc28"
+  },
+  "market_feature_store/exports/logic-match-batch-recent3-top8-20260621.json": {
+    "bytes": 138995,
+    "sha256": "cd1f25b8fde0a400df58e8b0f332ce293bbabaa76c25bd43486e7955391f0a90"
+  },
+  "market_feature_store/exports/logic-match-batch-recent3-top8-20260621.md": {
+    "bytes": 1660,
+    "sha256": "a9daa584911e5b5fdb0d7250064190264caef7e9fd0de7fe1da8f54eb73b9328"
+  },
+  "market_snapshot/2026-07-17.json": {
+    "bytes": 10789,
+    "sha256": "3640c12c0027ce13f9f8b4303d66b758d6c8719be96660e33ee45deeac148fc4"
+  },
+  "market_snapshot/2026-07-20.json": {
+    "bytes": 15259,
+    "sha256": "a22a6d0ff5a772b078290bd48f5c3316d3df64ce1797a4cf660cc3bc971353f7"
+  },
+  "market_snapshot/2026-07-22.json": {
+    "bytes": 15467,
+    "sha256": "0f460808cf9d05c36ae0c9b20e79ce8f403fcdce2a3680474861f756d11c47ef"
+  },
+  "market_snapshot/2026-07-23.json": {
+    "bytes": 15366,
+    "sha256": "20c21ef471037dc6945c0f9db1b68a7454c2e031f4f28a2abe340fee6c64bef1"
+  },
+  "market_snapshot/2026-07-27.json": {
+    "bytes": 14541,
+    "sha256": "cf805ddb77b99d4571acfed12faed10b6e7e2cb6bca5250df91c389d03eecabb"
+  },
+  "market_snapshot/2026-07-28.json": {
+    "bytes": 14672,
+    "sha256": "c431284563a23998c699d51eb680cac213a24d9e4a51c81b13bdf895b227da08"
+  },
+  "market_snapshot/2026-07-30.json": {
+    "bytes": 19034,
+    "sha256": "bd5f53322d2fab11371143788c02925c60c4484202961ca6f1f7e50474c4762c"
+  },
+  "market_snapshot/2026-07-31.json": {
+    "bytes": 32384,
+    "sha256": "ee83e948ec843d06f16e05b733b6b9f4ed853f262158de567cb3778e0f212148"
+  },
+  "market_snapshot/2026-08-03.json": {
+    "bytes": 24626,
+    "sha256": "e9112ab3911846189bd45bf88cf818f96d6000a4e846472d696d2e3ee2b226e9"
+  },
+  "market_snapshot/2026-08-04.json": {
+    "bytes": 39562,
+    "sha256": "c71391e1591f6ecbfe03b45f560db350ea4c57f01b052167ef2fd08b4ddd5a85"
+  },
+  "market_snapshot/2026-08-05.json": {
+    "bytes": 31111,
+    "sha256": "e57575f8db84f9e91dcb22321ce25b84dd9fa2c392378a98cfb240ea2d34bafc"
+  },
+  "market_snapshot/2026-08-06.json": {
+    "bytes": 14894,
+    "sha256": "fd158f76d7deda60548334a650677235085f7050507e36771d03d277d5e252d5"
+  },
+  "market_snapshot/2026-08-07.json": {
+    "bytes": 23102,
+    "sha256": "2260a8666f748117203c529bb846c454940eb1a72fd7f5dc967925a76016a1ee"
+  },
+  "market_snapshot/2026-08-10.json": {
+    "bytes": 31944,
+    "sha256": "df5b47d4c52b313e81944f8b6d2914d2cbad518e9f7a300a87e2b2d1928c9616"
+  },
+  "market_snapshot/2026-08-11.json": {
+    "bytes": 19282,
+    "sha256": "3769f1f5132e30b39c10aed2a8f8152e3969191df02468fe026f863d8526f3ae"
+  },
+  "market_snapshot/2026-08-12.json": {
+    "bytes": 29300,
+    "sha256": "b615e68a8d06052658fa9446a4c2befc2cc658ae465b6d65638924c014b47c36"
+  },
+  "market_snapshot/2026-08-13.json": {
+    "bytes": 20631,
+    "sha256": "454395ece0e6c3a7a58c87509a7308de240ebb2627046358c9ab78a1325634e6"
+  },
+  "market_snapshot/2026-08-14.json": {
+    "bytes": 22394,
+    "sha256": "e8bd935dc691086552e2f50237e36d06b7c7ee05274f8c03becce439056ada10"
+  },
+  "market_snapshot/2026-08-17.json": {
+    "bytes": 34259,
+    "sha256": "938890331c33b3511d1089776eef17d240a5b937a0e4f1ce8cfacb420aba9b39"
+  },
+  "market_snapshot/2026-08-18.json": {
+    "bytes": 25230,
+    "sha256": "39e9492f43f9a6602454250772d931a131333efb47e7cc8557e8eadcdfdecac5"
+  },
+  "market_snapshot/2026-08-19.json": {
+    "bytes": 12946,
+    "sha256": "eff348ade0beaf80268b2353fe99f27bd28f02a4a2c67639eda3703b56320294"
+  },
+  "market_snapshot/2026-08-20.json": {
+    "bytes": 24128,
+    "sha256": "057d8fe3e4228c239e583b42eb0094129db3f84bb0f131b887e498dcf39d5570"
+  },
+  "market_snapshot/2026-08-21.json": {
+    "bytes": 18126,
+    "sha256": "71afa8e7e3b37ca14aea89ee63446dac48885adf4ec54d92e31c85466ab740f5"
+  },
+  "market_snapshot/2026-08-24.json": {
+    "bytes": 14132,
+    "sha256": "a8f23e396b5b325260e7d77f0418f9a64a9f9ea9d1c8123ea5fcea30d9a8ef6f"
+  },
+  "market_snapshot/2026-08-25.json": {
+    "bytes": 14585,
+    "sha256": "19837de6392757eef875b0d0a11cfbd52a028e144192f4614312886c5d40c446"
+  },
+  "market_snapshot/2026-08-26.json": {
+    "bytes": 18335,
+    "sha256": "16ba2b8dec467a6f532702d4b32a1168381d048d7dff0dcc414a063c2846a04c"
+  },
+  "market_snapshot/2026-08-27.json": {
+    "bytes": 14936,
+    "sha256": "a0bb10da7a5ecc005be9f17e7cd025a253efc5c79c904f3acf480e7945fa9d6b"
+  },
+  "market_snapshot/2026-08-28.json": {
+    "bytes": 14900,
+    "sha256": "786425e4d1320b33071c59a3cf40a71dd9a93401e0631463e8098019c9af68d5"
+  },
+  "market_snapshot/2026-08-31.json": {
+    "bytes": 14949,
+    "sha256": "89466c08ac63e4ca2ad84a3f8c2c534938a641bcb72e1b3f056a13d946a3028e"
+  },
+  "market_snapshot/2026-09-01.json": {
+    "bytes": 15247,
+    "sha256": "4d11cad175e871be5ea5f262bc35831001daa5e32faef4fc939db948f70c914c"
+  },
+  "market_snapshot/2026-09-02.json": {
+    "bytes": 15197,
+    "sha256": "5d751ae098c51b281df9b76898f019aa4a761b17a8fc9a5d77650029086eb088"
+  },
+  "market_snapshot/2026-09-03.json": {
+    "bytes": 16497,
+    "sha256": "b1c9aab7750e1a1cc92d4a10b226254acc96b603bd5b19e70202233532b3a5be"
+  },
+  "market_snapshot/2026-09-04.json": {
+    "bytes": 14814,
+    "sha256": "936d386da2123f9d6d76825bbf768eee9e85aaaa9bb6f1eb1385ec6977bd411d"
+  },
+  "market_snapshot/2026-09-07.json": {
+    "bytes": 28401,
+    "sha256": "08f3a7164e37e6ea63ef0c67e00e2638a78ee42e25c425817149fc70ead45dee"
+  },
+  "market_snapshot/2026-09-08.json": {
+    "bytes": 24273,
+    "sha256": "2ad849f73be542faccc11c4725b68a7529c37ea48fb8872e88d8b2c19d64b26d"
+  },
+  "market_snapshot/2026-09-09.json": {
+    "bytes": 16610,
+    "sha256": "5d38bdb8a3609c33949d9dc16dc6f7b38fbb63298dc6c72ff08681532d5d9b9e"
+  },
+  "market_snapshot/2026-09-10.json": {
+    "bytes": 13832,
+    "sha256": "d087ab4276d5246539fc94eadfa9e36c8ed163433b8b5e480c4fb5a1267340fd"
+  },
+  "market_snapshot/2026-09-11.json": {
+    "bytes": 13687,
+    "sha256": "32e0266d57ee2b79777cd92f968b90cfcf98edddb384f9b37dd72d6f370cd12d"
+  },
+  "market_snapshot/2026-09-14.json": {
+    "bytes": 19821,
+    "sha256": "12901931c98bb9436b72384a47311c7de034015696be2c31559e08e4f4ad677d"
+  },
+  "market_snapshot/2026-09-15.json": {
+    "bytes": 14155,
+    "sha256": "a7e165f950dd17dd281cbc6bb38d1064281f6e0aec6b507536224689b777b384"
+  },
+  "market_snapshot/2026-09-17.json": {
+    "bytes": 15538,
+    "sha256": "df5a838e3a3953ec774f1aea443ceceddb94b889c2eddeda1b3f5fdb3a608046"
+  },
+  "market_snapshot/2026-09-18.json": {
+    "bytes": 26916,
+    "sha256": "20e1bb715ea594ff8048717978027949d39cab063b55a882df8feb97294e92c4"
+  },
+  "market_snapshot/2026-09-21.json": {
+    "bytes": 32995,
+    "sha256": "b89dfe42d45b8b943601ce39b089d536745a158d827b32e32dbeb4894d93b8b9"
+  },
+  "market_snapshot/2026-09-22.json": {
+    "bytes": 22193,
+    "sha256": "fce24f71111dd06dce74acb8891c9b9ed7f177dcb3edad9ed164dfac336ad044"
+  },
+  "market_snapshot/fund_flow/2026-09-11.json": {
+    "bytes": 370011,
+    "sha256": "89e4a35f4f32f4fdfc9b9a9bb209b4129373dc6e61e5aa18c3b38879e355536d"
+  },
+  "market_snapshot/fund_flow/2026-09-15.json": {
+    "bytes": 369135,
+    "sha256": "61134fcf5c0196243b9964f0f46261e067a8a109c6e84911f57f3db8d80f41d8"
+  },
+  "market_snapshot/latest.json": {
+    "bytes": 22193,
+    "sha256": "fce24f71111dd06dce74acb8891c9b9ed7f177dcb3edad9ed164dfac336ad044"
+  },
+  "market_snapshot/market_snapshot_sync_status.json": {
+    "bytes": 1030,
+    "sha256": "f98d758b0c640a22981c7e9a90ab9ed40d9ecafa0268799bb9ea5e045702d100"
+  },
+  "market_snapshot/meta.json": {
+    "bytes": 554,
+    "sha256": "ac002d47ffa3fd75b0a35e0760c3e2a67b5af38c5f7c637ebe5df9a4cc83a79c"
+  }
+}

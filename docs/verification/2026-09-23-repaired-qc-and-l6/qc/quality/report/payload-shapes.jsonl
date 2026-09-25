@@ -1,0 +1,1 @@
+{"admission":1,"stage":"report","stream":true,"model":"glm-5.3","tools":["deliver_stage"],"temperature_removed":false,"reasoning_effort":"low","max_completion_tokens":8192}

@@ -1,0 +1,34 @@
+{
+  "status": "PASS",
+  "real_model_requests": 0,
+  "fake_upstream_requests": 3,
+  "measurements": [
+    {
+      "model": "glm-5.3",
+      "first_chunk_seconds": 0.011605625040829182
+    },
+    {
+      "model": "glm-5.3-flash",
+      "first_chunk_seconds": 0.23110720794647932
+    }
+  ],
+  "counts": {
+    "active": 0,
+    "cancelled": 0,
+    "completed": 2,
+    "dispatched": 3,
+    "dropped_temperature": 0,
+    "failed": 1,
+    "requests": 3,
+    "shutdown_complete": true,
+    "stopped_for": "http_400"
+  },
+  "checks": [
+    "writer and flash judge whitelist",
+    "payload unchanged",
+    "unbuffered first chunk",
+    "unapproved model never dispatched",
+    "400 prevents subsequent dispatch",
+    "durable accounting and cleanup"
+  ]
+}

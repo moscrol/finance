@@ -200,6 +200,47 @@ def test_apply_writes_day_and_leaves_other_days_alone() -> None:
     assert written[0] == "hithink:daily-k-10d" and written[1] is None
 
 
+def test_apply_refuses_rows_added_after_default_plan() -> None:
+    with _con(_codes(3)) as con:
+        _seed_canonical(con, _codes(3), PREV)
+        plan = build_bridge_day(con, TD)
+        _seed_canonical(con, _codes(3), TD, close=99.0)
+        before = con.execute("SELECT * FROM fact_stock_daily ORDER BY 1, 2").fetchall()
+        with pytest.raises(BridgeRefused, match="已有 3 行"):
+            apply_bridge_day(con, plan)
+        assert con.execute("SELECT * FROM fact_stock_daily ORDER BY 1, 2").fetchall() == before
+
+
+def test_apply_default_plan_cannot_be_replayed() -> None:
+    with _con(_codes(3)) as con:
+        plan = build_bridge_day(con, TD)
+        apply_bridge_day(con, plan)
+        before = con.execute("SELECT * FROM fact_stock_daily ORDER BY 1, 2").fetchall()
+        with pytest.raises(BridgeRefused, match="已有 3 行"):
+            apply_bridge_day(con, plan)
+        assert con.execute("SELECT * FROM fact_stock_daily ORDER BY 1, 2").fetchall() == before
+
+
+def test_apply_explicit_replace_policy_still_works() -> None:
+    with _con(_codes(3)) as con:
+        _seed_canonical(con, _codes(3), TD, close=99.0)
+        plan = build_bridge_day(con, TD, policy=BridgePolicy(allow_replace_existing=True))
+        result = apply_bridge_day(con, plan)
+        assert result["deleted_replaced"] == 3
+        assert con.execute("SELECT DISTINCT close FROM fact_stock_daily").fetchall() == [(10.0,)]
+
+
+@pytest.mark.parametrize("allow", [False, None, 1, "true", "false"])
+def test_apply_requires_boolean_true_to_replace(allow) -> None:
+    with _con(_codes(3)) as con:
+        plan = build_bridge_day(con, TD)
+        plan["policy"]["allow_replace_existing"] = allow
+        _seed_canonical(con, _codes(3), TD, close=99.0)
+        with pytest.raises(BridgeRefused):
+            apply_bridge_day(con, plan)
+        assert con.execute("SELECT DISTINCT close FROM fact_stock_daily").fetchall() == [(99.0,)]
+
+
 def test_apply_is_atomic_on_failure() -> None:
     """写入中途失败必须整体回滚，不留半天数据。"""
     con = _con(_codes(3))

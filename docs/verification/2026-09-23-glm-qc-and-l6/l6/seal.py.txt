@@ -1,0 +1,159 @@
+"""Bind the stopped L6 batch to immutable evidence, excluding model reasoning."""
+from collections import Counter
+from datetime import datetime, timezone
+from decimal import Decimal, ROUND_HALF_UP
+import hashlib
+import json
+from pathlib import Path
+import re
+import shutil
+import subprocess
+
+ROOT = Path(__file__).resolve().parent
+TREE = Path('/Users/a77/finance-worktrees/adaptive-research-loop')
+DEST = TREE / 'docs/verification/2026-09-23-glm-qc-and-l6/l6'
+LIVE = ROOT / 'live'
+
+
+def load(path):
+    return json.loads(path.read_text())
+
+
+def sha(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def save(path, data):
+    with path.open('x') as stream:
+        json.dump(data, stream, ensure_ascii=False, indent=2)
+        stream.write('\n')
+
+
+execution = load(LIVE / 'execution.json')
+assert execution['production_identity_unchanged'] and execution['owned_ports_released']
+assert execution['production_lock_unchanged']
+assert execution['identity_before'] == execution['identity_after']
+assert execution['identity_after']['status'] == ''
+assert load(LIVE / 'frozen-data-closure.json') == {'checked': 751, 'manifest_entries': 751, 'mismatches': []}
+assert not load(LIVE / 'key-scan.json')['key_persisted']
+assert not (LIVE / 'L6-N3').exists()
+assert not Path('/tmp/finance-l6-natural-19897.lock').exists()
+assert all(subprocess.run(['/usr/sbin/lsof', '-nP', f'-iTCP:{port}', '-sTCP:LISTEN'], capture_output=True).returncode == 1 for port in [19897, 19898, 19899])
+assert all(sha(ROOT / name) == value for name, value in load(ROOT / 'live-inputs.json').items())
+counts = load(LIVE / 'shim-counts-final.json')
+assert counts['requests'] == counts['dispatched'] == 20
+assert counts['completed'] == 15 and counts['cancelled'] == 5
+assert counts['active'] == counts['failed'] == 0 and counts['shutdown_complete']
+rows = [json.loads(line) for line in (LIVE / 'shim/requests.jsonl').read_text().splitlines()]
+models = Counter(row['model'] for row in rows if row['event'] == 'payload_metadata')
+assert dict(models) == {'glm-5.3': 15, 'glm-5.3-flash': 5}
+results = load(LIVE / 'results.json')
+assert [row['status'] for row in results] == ['completed', 'cancelled']
+for name in ['L6-N1', 'L6-N2']:
+    assert load(LIVE / name / 'submission-count.json')['accepted_submissions'] == 1
+review = load(ROOT / 'audits/l6-n1-source-review.json')
+audit = load(ROOT / 'audits/l6-n1-audit.json')
+episode_path = LIVE / 'L6-N1/raw-run/continuous-episode.json'
+episode = load(episode_path)
+assert sha(episode_path) == audit['episode_sha256'] == review['episode_sha256']
+assert audit['verdict'] == 'NOT_PASSED' and audit['model_revision_observed']
+evidence = {row['content_hash']: row for row in episode['outcome']['evidence']}
+claim = review['claims'][0]
+assert claim['sentence'] in episode['outcome']['draft']
+assert claim['sentence'] not in (LIVE / 'L6-N1/answer.md').read_text()
+for binding in [claim, claim['additional_source']]:
+    assert binding['source_excerpt'] in evidence[binding['evidence_hash']]['detail']
+assert (Decimal('11226516458.33') / Decimal('100000000')).quantize(Decimal('.01'), rounding=ROUND_HALF_UP) == Decimal('112.27')
+assert '**证伪条件**' not in (LIVE / 'L6-N1/answer.md').read_text()
+drafts = []
+for event in episode['events']:
+    payload = event.get('payload', {})
+    if event['kind'] != 'model_turn' or payload.get('error'):
+        continue
+    try:
+        value = json.loads(payload.get('content') or 'null')
+    except ValueError:
+        continue
+    if isinstance(value, dict) and isinstance(value.get('draft'), str):
+        drafts.append({'sequence': event['sequence'], 'phase': payload.get('phase'),
+                       'served_model': payload.get('served_model'), 'draft': value['draft']})
+semantic_keys = ['status', 'judge_status', 'judge_mode', 'sentence_verdicts', 'issues', 'degrade_class',
+                 'last_dispatched_failure', 'timeout_configured', 'timeout_asked', 'remaining_seconds_at_entry',
+                 'v11_rejudge_called', 'v11_outcome', 'v11_triggered', 'v11_skip_reason']
+save(ROOT / 'audits/l6-n1-source-extract.json', {
+    'record_kind': 'derived_allowlisted_fields_not_raw_episode', 'episode_sha256': sha(episode_path),
+    'raw_episode': str(episode_path), 'repair_attempts': episode['repair_attempts'], 'drafts': drafts,
+    'evidence': [{key: row.get(key) for key in ['content_hash', 'title', 'detail', 'source_date', 'tool']}
+                 for row in episode['outcome']['evidence']],
+    'semantic_verifier': {key: episode['semantic_verifier'].get(key) for key in semantic_keys},
+    'tool_results': [{'sequence': event['sequence'], 'tool': event.get('payload', {}).get('tool'),
+                      'status': event.get('payload', {}).get('status'), 'error': event.get('payload', {}).get('error')}
+                     for event in episode['events'] if event['kind'] == 'tool_result'],
+    'reasoning_excluded': True,
+})
+record = {
+    'record_kind': 'host_source_acceptance_audit_not_independent_financial_qc', 'status': 'NOT_PASSED',
+    'candidate_revision': execution['identity_after']['revision'],
+    'initial_submissions': {'L6-N1': 1, 'L6-N2': 1, 'L6-N3': 0}, 'resubmissions': 0, 'followups': 0,
+    'real_model_requests': 20, 'gateway_requests': 1, 'writer_requests': 14, 'judge_requests': 5,
+    'requests_by_model': dict(models), 'request_counts': counts,
+    'questions': [
+        {**results[0], 'quality_verdict': 'NOT_PASSED', 'model_revision_observed': True,
+         'episode_repair_attempts': 1, 'successful_repair_phase_drafts': 2,
+         'reason': 'evidence_supported_numeric_condition_deleted', 'judge_status': 'unavailable',
+         'evidence_hash': audit['episode_sha256']},
+        {**results[1], 'quality_verdict': 'NOT_EXERCISED', 'reason': 'host_cancelled_after_N1_source_failure',
+         'not_a_product_failure': True},
+        {'id': 'L6-N3', 'status': 'not_submitted', 'quality_verdict': 'NOT_EXERCISED'}],
+    'strict_deadline_probe': {'scenarios': 13, 'violations': 0, 'scope': 'loopback synthetic, not natural late-return proof'},
+    'positive_control': 'NOT_PASSED', 'natural_late_report_observed': False, 'natural_late_report_adopted': False,
+    'natural_late_report_branch': 'NOT_EXERCISED', 'independent_financial_review': False,
+    'failure_is_not_only_judge_unavailability': True,
+    'data_preflight_amendment': 'Production snapshot 09-23 was newer than canonical DB 09-22; rejected preflight retained. New coherent clone uses sealed 09-22 source matching predeclared question cutoff; no question changed.',
+    'data_as_of': '2026-09-22', 'sector_views_as_of': '2026-09-18', 'kb_external_inputs_frozen': False,
+    'controller_limit': 'N2 was submitted on N1 run completion before host source audit; cancelled immediately after confirmed content failure. An audit barrier is still required before future next-question admission.',
+    'protocol_modified_during_live': False, 'inputs_unchanged': True, 'production_identity_unchanged': True,
+    'frozen_files_unchanged': 751, 'ports_released': [19897, 19898], 'owned_lock_released': True,
+    'old_failed_batches_unchanged': True, 'merged': False, 'deployed': False,
+    'closed_at': datetime.now(timezone.utc).isoformat(),
+}
+save(ROOT / 'report.json', record)
+save(ROOT / 'protocol-closure.json', {'state': 'AUDIT_COMPLETE_NOT_PASSED', 'can_execute': False,
+                                     'initial_submissions_actual': record['initial_submissions'],
+                                     'report_sha256': sha(ROOT / 'report.json')})
+key = subprocess.check_output(['/usr/bin/security', 'find-generic-password', '-a', 'a77', '-s', 'finance-workbench-glm', '-w']).strip()
+patterns = [re.compile(rb'(?i)bearer\s+[a-z0-9_.-]{24,}'), re.compile(rb'\bsk-[A-Za-z0-9_-]{16,}')]
+private, copies, hits = {}, {}, []
+for path in sorted(ROOT.rglob('*')):
+    rel = path.relative_to(ROOT)
+    if not path.is_file() or path.is_symlink() or any(part in rel.parts for part in ['data', 'pycache', '__pycache__']):
+        continue
+    data = path.read_bytes()
+    private[str(rel)] = {'sha256': sha(path), 'bytes': len(data)}
+    if key in data or any(pattern.search(data) for pattern in patterns):
+        hits.append(str(rel))
+    if any(part in rel.parts for part in ['users', 'episodes', 'raw-run']):
+        continue
+    if path.name in {'events.jsonl', 'polls.jsonl', 'messages.json', 'message.json', 'workbench.log'}:
+        continue
+    target = str(rel)
+    if path.suffix in {'.py', '.sh', '.log'}:
+        target += '.txt'
+    copies[path] = target
+assert not hits, hits
+del key
+save(ROOT / 'private-manifest.json', private)
+save(ROOT / 'key-scan.json', {'status': 'PASS', 'files_scanned': len(private), 'hits': [], 'frozen_market_bytes_excluded': True})
+copies[ROOT / 'private-manifest.json'] = 'private-manifest.json'
+copies[ROOT / 'key-scan.json'] = 'key-scan.json'
+DEST.mkdir(parents=True, exist_ok=False)
+archive = {}
+for source, target in copies.items():
+    destination = DEST / target
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(source, destination)
+    assert sha(source) == sha(destination)
+    archive[target] = {'source': str(source), 'sha256': sha(source)}
+save(DEST / 'archive-manifest.json', archive)
+print(json.dumps({'status': record['status'], 'archived_files': len(archive), 'real_model_requests': 20,
+                  'actual_submissions': record['initial_submissions'], 'key_scan': 'PASS'}))

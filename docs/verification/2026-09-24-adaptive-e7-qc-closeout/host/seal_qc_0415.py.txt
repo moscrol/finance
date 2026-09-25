@@ -1,0 +1,22 @@
+import json
+import os
+from datetime import datetime, timezone
+from pathlib import Path
+import subprocess
+
+HERE=Path(__file__).resolve().parent
+ROOT=Path('/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260924-0415')
+audit=json.loads((ROOT/'host-evidence-audit.json').read_text())
+assert audit['status']=='BLOCKED_INCOMPLETE_INDEPENDENT_EVIDENCE' and audit['cumulative_requests']==131
+processes=subprocess.check_output(['ps','-axo','pid=,ppid=,command='],text=True)
+owned=[]
+for line in processes.splitlines():
+ fields=line.strip().split(None,2)
+ if len(fields)!=3 or int(fields[0])==os.getpid(): continue
+ if str(ROOT) in fields[2] or str(HERE/'run_qc_0415.py') in fields[2] or (str(HERE/'candidate') in fields[2] and 'llm_http_transport.py' in fields[2]): owned.append(line)
+assert not owned,owned
+port=subprocess.run(['lsof','-nP','-iTCP:19899','-sTCP:LISTEN'],capture_output=True,text=True)
+assert port.returncode in (0,1)
+result={'status':'SEALED_BLOCKED','do_not_resume':True,'closed_at':datetime.now(timezone.utc).isoformat(),'revision':audit['revision'],'new_requests':57,'cumulative_requests':131,'remaining_under_152_cap':21,'owned_live_processes':owned,'listen_port_observation':{'port':19899,'exit_code':port.returncode,'stdout':port.stdout,'stderr':port.stderr},'shim_active_requests':0,'all_executed_shims_shutdown_complete':True,'natural_submissions':0,'production_identity_compared':False,'reviewer_verdicts':{'spec':'PASS_WITH_LIMITS; C3/C7 not_verified','quality':None},'quality_stop':'malformed JSON string in execute deliver_stage; no report stage','host_verdict_override':False,'further_paid_admission':False,'reason':'Original authorized per-axis 4/17/17/1 plan cannot be completed within remaining 21 without a new allocation or changed plan; no automatic retries or old-batch completion.'}
+with (ROOT/'closure-current-turn.json').open('x') as out: json.dump(result,out,indent=2)
+print(json.dumps(result))

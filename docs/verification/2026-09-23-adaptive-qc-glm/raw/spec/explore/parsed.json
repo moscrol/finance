@@ -1,0 +1,30 @@
+{
+  "stage": "explore",
+  "axis": "spec",
+  "revision": "31f1b40dd788d36c71da249d59fb769c50d7cd30",
+  "baseline": "9a02279863733c9b9f60fd92fcc7e840fa83f878",
+  "complete": true,
+  "probe_files": [
+    "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260923-1707/spec/work/probes/probe_c1_stream_deadline.py",
+    "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260923-1707/spec/work/probes/probe_c1_stalled_parent.py",
+    "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260923-1707/spec/work/probes/probe_c4_wrapper_deadline.py"
+  ],
+  "claims_examined": [
+    "C1",
+    "C2",
+    "C4"
+  ],
+  "limits": [
+    "probe_c4_wrapper_deadline.py 已写未运行，结论未定",
+    "C3/C5/C6/C7 未审查",
+    "C2 仅静态读调用点，未做行为反例",
+    "EXPLORE.md 未落盘",
+    "作者测试未运行，不作为独立验证"
+  ],
+  "next_stage_commands": [
+    "/Users/a77/finance-workbench-private/.venv-workbench/bin/python /Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260923-1707/spec/work/probes/probe_c4_wrapper_deadline.py",
+    "为 episode_semantic_verifier 写迟到判官(0.8s预算 vs ~2.9s回包)行为探针验证C3",
+    "为零预算(root耗尽 vs judge子窗耗尽)写区分探针验证C5",
+    "静态核对 7ad61a0d3fd9..31f1b40 diff 仅文档以归档C7"
+  ]
+}

@@ -1,0 +1,29 @@
+== gate @ c315cfdaa96a tree=/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0205/candidate py=/Users/a77/finance-workspace-private/.venv-workbench/bin/python receipt=/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0205/python-receipts/gate-C61dBEV0/pytest.json
+== ruff check .
+All checks passed!
+== pytest -q -p no:cacheprovider -o tmp_path_retention_policy=failed --basetemp=/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0205/python-basetemp
+tests/test_pipeline_p0.py::test_mainline_sector_failure_keeps_previous_snapshot[response0]
+tests/test_pipeline_p0.py::test_mainline_sector_failure_keeps_previous_snapshot[response1]
+  /Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0205/candidate/market_feature_store/sync/sync_fupanhui_mainline_sector_daily.py:121: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = datetime.utcnow().isoformat()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_rag_worker_keepalive.py::test_keepalive_is_off_by_default
+FAILED intelligence/tests/test_rag_worker_keepalive.py::test_keepalive_touches_an_idle_warm_worker_without_reloading
+FAILED intelligence/tests/test_rag_worker_keepalive.py::test_keepalive_not_due_right_after_real_traffic
+FAILED intelligence/tests/test_rag_worker_keepalive.py::test_keepalive_does_not_queue_behind_a_real_query
+FAILED intelligence/tests/test_rag_worker_keepalive.py::test_close_stops_keepalive_thread
+FAILED intelligence/tests/test_rag_worker_keepalive.py::test_status_exposes_rss_and_idle
+FAILED intelligence/tests/test_rag_worker_keepalive.py::test_module_status_aggregates_rss_idle_and_keepalive_counters
+7 failed, 15383 passed, 85 skipped, 2 xfailed, 17 warnings in 2387.35s (0:39:47)
+== receipt /Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0205/python-receipts/gate-C61dBEV0/pytest.json
+   revision=c315cfdaa96a dirty=False target=/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0205/candidate
+   passed=15383 failed=7 error=0 skipped=85 xfailed=2 xpassed=0
+   RED intelligence/tests/test_rag_worker_keepalive.py::test_close_stops_keepalive_thread
+   RED intelligence/tests/test_rag_worker_keepalive.py::test_keepalive_does_not_queue_behind_a_real_query
+   RED intelligence/tests/test_rag_worker_keepalive.py::test_keepalive_is_off_by_default
+   RED intelligence/tests/test_rag_worker_keepalive.py::test_keepalive_not_due_right_after_real_traffic
+   RED intelligence/tests/test_rag_worker_keepalive.py::test_keepalive_touches_an_idle_warm_worker_without_reloading
+   RED intelligence/tests/test_rag_worker_keepalive.py::test_module_status_aggregates_rss_idle_and_keepalive_counters
+   RED intelligence/tests/test_rag_worker_keepalive.py::test_status_exposes_rss_and_idle

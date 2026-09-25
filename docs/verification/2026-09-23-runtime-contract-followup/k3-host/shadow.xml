@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="2" skipped="0" tests="6" time="3.098" timestamp="2026-09-23T13:40:45.086678+08:00" hostname="77deMacBook-Air.local"><testcase classname="runtime-probe-k3-writer-20260923-03.k3.work.inbox_checks" name="test_c1_failed_insert_keeps_spool_file_and_blocks_claim[deferred_short_circuit]" time="0.167"><failure message="AssertionError: insert 没落账就不许销毁运输副本&#10;assert 1 == 0&#10; +  where 1 = ingest_spool()&#10; +    where ingest_spool = &lt;k3_shadow_episode_inbox.Inbox object at 0x106df8620&gt;.ingest_spool">inbox_mod = &lt;module 'k3_shadow_episode_inbox'&gt;
+tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/k3-host-acceptance/shadow/pytest/test_c1_failed_insert_keeps_sp0')
+failure_shape = 'deferred_short_circuit'
+
+    @pytest.mark.parametrize(
+        "failure_shape",
+        ["deferred_short_circuit", "mid_insert_write"],
+        ids=["deferred_short_circuit", "mid_insert_write"],
+    )
+    def test_c1_failed_insert_keeps_spool_file_and_blocks_claim(inbox_mod, tmp_path, failure_shape):
+        ledger = RecordingLedger()
+        inbox, spool = _make_inbox(inbox_mod, ledger, tmp_path)
+        # 先有一条 durable 在途消息，证明失败前通道是好的。
+        first = inbox.send(user_message("在途消息", source="probe"), target="next_step")
+        assert first.accepted
+        ledger.fail_next("inbox_inserted")  # 故障在下一次 add 时置位
+        if failure_shape == "deferred_short_circuit":
+            # 形状 A：故障已被前一次直接投递踩爆（经 add 置位），spool 条的 send 在入口短路。
+            tripped = inbox.send(user_message("直接投递", source="probe"), target="next_step")
+            assert not tripped.accepted and tripped.reason == "storage_failed"
+        # 形状 B（mid_insert_write）：spool 条自己的 inbox_inserted add 炸掉。
+        path = inbox_mod.write_spool_record(
+            spool, inbox_mod.SpoolRecord("sp-fail", "保存失败期间的话")
+        )
+        original_bytes = path.read_bytes()
+    
+&gt;       assert inbox.ingest_spool() == 0, "insert 没落账就不许销毁运输副本"
+E       AssertionError: insert 没落账就不许销毁运输副本
+E       assert 1 == 0
+E        +  where 1 = ingest_spool()
+E        +    where ingest_spool = &lt;k3_shadow_episode_inbox.Inbox object at 0x106df8620&gt;.ingest_spool
+
+../../runtime-probe-k3-writer-20260923-03/k3/work/inbox_checks.py:137: AssertionError</failure></testcase><testcase classname="runtime-probe-k3-writer-20260923-03.k3.work.inbox_checks" name="test_c1_failed_insert_keeps_spool_file_and_blocks_claim[mid_insert_write]" time="0.041"><failure message="AssertionError: insert 没落账就不许销毁运输副本&#10;assert 1 == 0&#10; +  where 1 = ingest_spool()&#10; +    where ingest_spool = &lt;k3_shadow_episode_inbox.Inbox object at 0x106c65c40&gt;.ingest_spool">inbox_mod = &lt;module 'k3_shadow_episode_inbox'&gt;
+tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/k3-host-acceptance/shadow/pytest/test_c1_failed_insert_keeps_sp1')
+failure_shape = 'mid_insert_write'
+
+    @pytest.mark.parametrize(
+        "failure_shape",
+        ["deferred_short_circuit", "mid_insert_write"],
+        ids=["deferred_short_circuit", "mid_insert_write"],
+    )
+    def test_c1_failed_insert_keeps_spool_file_and_blocks_claim(inbox_mod, tmp_path, failure_shape):
+        ledger = RecordingLedger()
+        inbox, spool = _make_inbox(inbox_mod, ledger, tmp_path)
+        # 先有一条 durable 在途消息，证明失败前通道是好的。
+        first = inbox.send(user_message("在途消息", source="probe"), target="next_step")
+        assert first.accepted
+        ledger.fail_next("inbox_inserted")  # 故障在下一次 add 时置位
+        if failure_shape == "deferred_short_circuit":
+            # 形状 A：故障已被前一次直接投递踩爆（经 add 置位），spool 条的 send 在入口短路。
+            tripped = inbox.send(user_message("直接投递", source="probe"), target="next_step")
+            assert not tripped.accepted and tripped.reason == "storage_failed"
+        # 形状 B（mid_insert_write）：spool 条自己的 inbox_inserted add 炸掉。
+        path = inbox_mod.write_spool_record(
+            spool, inbox_mod.SpoolRecord("sp-fail", "保存失败期间的话")
+        )
+        original_bytes = path.read_bytes()
+    
+&gt;       assert inbox.ingest_spool() == 0, "insert 没落账就不许销毁运输副本"
+E       AssertionError: insert 没落账就不许销毁运输副本
+E       assert 1 == 0
+E        +  where 1 = ingest_spool()
+E        +    where ingest_spool = &lt;k3_shadow_episode_inbox.Inbox object at 0x106c65c40&gt;.ingest_spool
+
+../../runtime-probe-k3-writer-20260923-03/k3/work/inbox_checks.py:137: AssertionError</failure></testcase><testcase classname="runtime-probe-k3-writer-20260923-03.k3.work.inbox_checks" name="test_c2_durable_insert_then_unlink_single_claim_derives" time="0.064" /><testcase classname="runtime-probe-k3-writer-20260923-03.k3.work.inbox_checks" name="test_c3_late_spool_after_close_kept_and_not_written" time="0.003" /><testcase classname="runtime-probe-k3-writer-20260923-03.k3.work.inbox_checks" name="test_c4_crash_window_is_at_least_once_reconciled_by_spool_id" time="0.003" /><testcase classname="runtime-probe-k3-writer-20260923-03.k3.work.inbox_checks" name="test_c5_corrupt_spool_quarantined_without_fabricating" time="0.008" /></testsuite></testsuites>

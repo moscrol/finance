@@ -1,0 +1,13 @@
+25:    "schema_version", "kind", "episode_id", "information_cutoff", "entries",
+28:_FIELDS_BY_VERSION = {
+43:_ATOM_FIELDS = _LEGACY_ATOM_FIELDS | {"io_effect"}
+51:        if payload.pop("io_effect") != "unknown":
+78:    if version >= 3 and atom["io_effect"] not in ("local_read", "external_or_mixed", "unknown"):
+191:    schema_version: int = 3
+203:            "schema_version": self.schema_version, "kind": "episode_evidence", "episode_id": self.episode_id,
+205:            "entries": [entry.to_dict(version=self.schema_version) for entry in self.entries],
+208:        if self.schema_version == 1:
+211:            body["presentations"] = [item.to_dict(version=self.schema_version) for item in self.presentations]
+219:        if not isinstance(raw, dict) or type(raw.get("schema_version")) is not int or raw["schema_version"] not in _FIELDS_BY_VERSION:
+221:        version = raw["schema_version"]
+222:        raw = _object(raw, _FIELDS_BY_VERSION[version], "snapshot")

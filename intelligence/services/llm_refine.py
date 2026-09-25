@@ -38,6 +38,7 @@ from dataclasses import asdict, dataclass, field, replace
 from datetime import datetime, timezone
 
 from intelligence.call_identity import IDENTITY_NOT_CALLED, IDENTITY_REPORTED, IDENTITY_UNREPORTED
+from intelligence.services import llm_http_transport
 from intelligence.services.llm_usage import (
     USAGE_SOURCE_API,
     USAGE_SOURCE_ESTIMATED,
@@ -129,9 +130,28 @@ _PROVIDER_OVERRIDE: ContextVar[LLMProvider | None] = ContextVar(
     "llm_provider_override",
     default=None,
 )
+_HTTP_TRANSPORT_OVERRIDE: ContextVar[Callable[..., object] | None] = ContextVar(
+    "llm_http_transport_override",
+    default=None,
+)
 
 
-class LLMStreamCancelled(RuntimeError):
+@contextmanager
+def http_transport_override(opener: Callable[..., object]):
+    """Explicitly replace the HTTP boundary for tests or offline harnesses.
+
+    Production leaves this unset and always uses the cancellable worker. The
+    ContextVar keeps an injected opener scoped to the current turn/thread.
+    """
+
+    token = _HTTP_TRANSPORT_OVERRIDE.set(opener)
+    try:
+        yield
+    finally:
+        _HTTP_TRANSPORT_OVERRIDE.reset(token)
+
+
+class LLMStreamCancelled(llm_http_transport.HTTPStreamCancelled):
     pass
 
 
@@ -139,7 +159,7 @@ class LLMStreamingUnsupported(RuntimeError):
     pass
 
 
-class LLMDeadlineExceeded(RuntimeError):
+class LLMDeadlineExceeded(llm_http_transport.HTTPDeadlineExceeded):
     pass
 
 
@@ -193,6 +213,20 @@ class Deadline:
         remaining = self.require_remaining(minimum)
         limit = max(0.0, float(timeout or 0.0))
         return min(remaining, limit) if limit > 0 else remaining
+
+
+@contextmanager
+def _open_deadline_http_response(request, timeout: float, *, deadline: Deadline, is_cancelled=None):
+    opener = _HTTP_TRANSPORT_OVERRIDE.get() or llm_http_transport.urlopen
+    try:
+        with opener(
+            request, timeout, deadline=deadline, is_cancelled=is_cancelled,
+        ) as response:
+            yield response
+    except llm_http_transport.HTTPDeadlineExceeded as exc:
+        raise LLMDeadlineExceeded() from exc
+    except llm_http_transport.HTTPStreamCancelled as exc:
+        raise LLMStreamCancelled() from exc
 
 
 def detect_providers(model_override: str | None = None) -> tuple[LLMProvider, ...]:
@@ -904,7 +938,7 @@ def _failure_reason(exc: BaseException) -> str:
     """把异常压成一行可聚合的原因，供台账统计（不含 URL/密钥等敏感串）。"""
     if isinstance(exc, urllib.error.HTTPError):
         return f"http_{exc.code}"
-    if isinstance(exc, TimeoutError) or isinstance(exc, socket.timeout):
+    if isinstance(exc, (LLMDeadlineExceeded, TimeoutError, socket.timeout)):
         return "timeout"
     if isinstance(exc, urllib.error.URLError):
         inner = getattr(exc, "reason", None)
@@ -995,6 +1029,48 @@ def synthesis_thinking_disabled() -> bool:
 # 设了本 env 就压过 disable_thinking：thinking=enabled + reasoning_effort=值；没设则老行为一字不变。
 # 只在 GLM 出口的启动器里设；sol@cockpit 那条不设，请求体逐字节同前。
 REASONING_EFFORT_ENV = "LLM_REASONING_EFFORT"
+
+# 2026-09-10 逐参数二分实测（8080 网关，kimi-k3）：system 消息、tools、
+# temperature=0.0 三者同现时约八成请求被上游拒答（HTTP 400/502，与内容、
+# thinking、tool_choice、中英文无关）；摘掉 temperature 字段或换 1.0 即恢复 200。
+# gpt-5.6-sol 对同组合无此问题。该 env 按「模型名前缀 → 动作」声明改写表，动作
+# 以 + 分隔，支持 thinking.omit / thinking.enabled / thinking.disabled /
+# tool_choice.omit / temperature.omit / temperature:<值>（如
+# "kimi-k3:temperature.omit"），只动被点名的字段，其余逐字节同前；
+# 生产出口 sol@cockpit 不设此值，行为不变。
+COMPAT_PAYLOAD_ENV = "LLM_COMPAT_PAYLOAD"
+
+
+def _apply_compat_payload(payload: dict, *, model: str) -> None:
+    """按 ``LLM_COMPAT_PAYLOAD`` 改写表改写/摘除 payload 的指定字段。"""
+
+    spec = str(os.environ.get(COMPAT_PAYLOAD_ENV) or "").strip()
+    if not spec:
+        return
+    model = (model or "").strip().lower()
+    for clause in spec.split(","):
+        clause = clause.strip()
+        if ":" not in clause:
+            continue
+        prefix, _, actions = clause.partition(":")
+        if not model.startswith(prefix.strip().lower()):
+            continue
+        for action in actions.split("+"):
+            action = action.strip().lower()
+            if action == "thinking.omit":
+                payload.pop("thinking", None)
+            elif action in ("thinking.enabled", "thinking.disabled"):
+                payload["thinking"] = {"type": action.split(".")[1]}
+            elif action == "tool_choice.omit":
+                payload.pop("tool_choice", None)
+            elif action == "temperature.omit":
+                payload.pop("temperature", None)
+            elif action.startswith("temperature:"):
+                try:
+                    payload["temperature"] = float(action.split(":", 1)[1])
+                except ValueError:
+                    continue
+        return
 
 
 def _apply_thinking_controls(payload: dict, *, disable_thinking: bool) -> None:
@@ -1108,6 +1184,8 @@ def _post_chat(
     timeout: float,
     temperature: float = 0.2,
     max_tokens: int | None = None,
+    *,
+    deadline: Deadline | None = None,
 ) -> str:
     _reserve_llm_call()
     url = provider.base_url.rstrip("/") + "/chat/completions"
@@ -1117,6 +1195,7 @@ def _post_chat(
     _apply_thinking_controls(
         payload, disable_thinking=os.environ.get("LLM_THINKING") == "disabled"
     )
+    _apply_compat_payload(payload, model=provider.model)
     data = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(
         url,
@@ -1126,9 +1205,11 @@ def _post_chat(
     )
     started = time.monotonic()
     attempt = _new_call_attempt(provider, messages)
+    call_deadline = deadline or Deadline.from_timeout(timeout)
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
+        with _open_deadline_http_response(req, timeout=timeout, deadline=call_deadline) as resp:
             body = json.loads(resp.read().decode("utf-8"))
+            call_deadline.require_remaining(0.001)
             attempt.observe_response(body, resp)
         content = body["choices"][0]["message"]["content"]
         attempt.observe_result(content)
@@ -1161,11 +1242,14 @@ def _post_chat_synthesis(
     temperature: float,
     max_tokens: int,
     max_chars: int,
+    *,
+    deadline: Deadline | None = None,
 ) -> tuple[str, str | None]:
     _reserve_llm_call()
     url = provider.base_url.rstrip("/") + "/chat/completions"
     payload = _chat_payload(provider, messages, temperature, max_tokens=max_tokens)
     _apply_thinking_controls(payload, disable_thinking=synthesis_thinking_disabled())
+    _apply_compat_payload(payload, model=provider.model)
     request = urllib.request.Request(
         url,
         data=json.dumps(payload).encode("utf-8"),
@@ -1174,9 +1258,11 @@ def _post_chat_synthesis(
     )
     started = time.monotonic()
     attempt = _new_call_attempt(provider, messages)
+    call_deadline = deadline or Deadline.from_timeout(timeout)
     try:
-        with urllib.request.urlopen(request, timeout=timeout) as resp:
+        with _open_deadline_http_response(request, timeout=timeout, deadline=call_deadline) as resp:
             body = json.loads(resp.read().decode("utf-8"))
+            call_deadline.require_remaining(0.001)
             attempt.observe_response(body, resp)
         choice = body["choices"][0]
         content = choice["message"]["content"]
@@ -1235,9 +1321,22 @@ def complete(
                 content = _complete_cli_judge(provider, messages, remaining)
             else:
                 if max_tokens is None:
-                    content = _post_chat(provider, messages, remaining, temperature)
+                    content = _post_chat(
+                        provider,
+                        messages,
+                        remaining,
+                        temperature,
+                        deadline=deadline,
+                    )
                 else:
-                    content = _post_chat(provider, messages, remaining, temperature, max_tokens=max_tokens)
+                    content = _post_chat(
+                        provider,
+                        messages,
+                        remaining,
+                        temperature,
+                        max_tokens=max_tokens,
+                        deadline=deadline,
+                    )
         except LLMCallBudgetExceeded as exc:
             return None, None, str(exc)
         except urllib.error.HTTPError as exc:  # pragma: no cover - network
@@ -1245,6 +1344,8 @@ def complete(
         except Exception as exc:  # pragma: no cover - network
             failures.append((provider, f"LLM 调用失败（{type(exc).__name__}）"))
         else:
+            if deadline.remaining() <= 0:
+                return None, provider, "LLM 调用失败（LLMDeadlineExceeded）"
             return content, provider, ""
         if deadline.remaining() <= 0:
             break
@@ -1316,6 +1417,8 @@ def _post_chat_message_stream(
     disable_thinking: bool | None,
     on_content_delta: Callable[[str], None],
     is_cancelled: Callable[[], bool] | None = None,
+    *,
+    deadline: Deadline | None = None,
 ) -> dict:
     """Stream one tools-enabled turn, returning the same message dict shape.
 
@@ -1345,6 +1448,7 @@ def _post_chat_message_stream(
         payload["tools"] = tools
         if tool_choice is not None:
             payload["tool_choice"] = tool_choice
+    _apply_compat_payload(payload, model=provider.model)
     request = urllib.request.Request(
         url,
         data=json.dumps(payload).encode("utf-8"),
@@ -1360,8 +1464,11 @@ def _post_chat_message_stream(
     usage: dict | None = None
     served_model = ""
     saw_any_chunk = False
+    call_deadline = deadline or Deadline.from_timeout(timeout)
     try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:
+        with _open_deadline_http_response(
+            request, timeout=timeout, deadline=call_deadline, is_cancelled=is_cancelled,
+        ) as response:
             attempt.observe_response(response=response)
             for raw_line in response:
                 if is_cancelled is not None and is_cancelled():
@@ -1403,6 +1510,8 @@ def _post_chat_message_stream(
                     # 记账，重试资格的判断不会因为回调炸了而误判成"还没吐字"。
                     streamed_chars += len(piece)
                     on_content_delta(piece)
+            if call_deadline.remaining() <= 0:
+                raise LLMDeadlineExceeded()
     except Exception as exc:
         attempt.observe_result({"content": "".join(content_chunks), "tool_calls": calls.assembled()})
         _record_llm_call(
@@ -1447,6 +1556,8 @@ def _post_chat_message(
     tools: list[dict] | None = None,
     tool_choice: str | dict | None = None,
     disable_thinking: bool | None = None,
+    *,
+    deadline: Deadline | None = None,
 ) -> dict:
     """Like :func:`_post_chat` but returns the full assistant *message* dict.
 
@@ -1466,6 +1577,7 @@ def _post_chat_message(
         payload["tools"] = tools
         if tool_choice is not None:
             payload["tool_choice"] = tool_choice
+    _apply_compat_payload(payload, model=provider.model)
     data = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(
         url,
@@ -1475,9 +1587,11 @@ def _post_chat_message(
     )
     started = time.monotonic()
     attempt = _new_call_attempt(provider, messages)
+    call_deadline = deadline or Deadline.from_timeout(timeout)
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
+        with _open_deadline_http_response(req, timeout=timeout, deadline=call_deadline) as resp:
             body = json.loads(resp.read().decode("utf-8"))
+            call_deadline.require_remaining(0.001)
             attempt.observe_response(body, resp)
         choice = body["choices"][0]
         message = dict(choice["message"])
@@ -1578,6 +1692,7 @@ def chat_with_tools(
                     disable_thinking,
                     on_content_delta,
                     is_cancelled,
+                    deadline=deadline,
                 )
             else:
                 msg = _post_chat_message(
@@ -1588,6 +1703,7 @@ def chat_with_tools(
                     tools=tools,
                     tool_choice=tool_choice,
                     disable_thinking=disable_thinking,
+                    deadline=deadline,
                 )
         except LLMCallBudgetExceeded as exc:
             return None, None, str(exc)
@@ -2116,6 +2232,7 @@ def synthesize_messages(
                     temperature,
                     max_tokens,
                     max_chars,
+                    deadline=phase_deadline,
                 )
             break
         except LLMCallBudgetExceeded as exc:
@@ -2221,6 +2338,7 @@ def _post_chat_stream_raw(
         provider, messages, temperature, stream=True, max_tokens=max_tokens,
     )
     _apply_thinking_controls(payload, disable_thinking=synthesis_thinking_disabled())
+    _apply_compat_payload(payload, model=provider.model)
     request = urllib.request.Request(
         url,
         data=json.dumps(payload).encode("utf-8"),
@@ -2230,15 +2348,11 @@ def _post_chat_stream_raw(
     chunks: list[str] = []
     output_chars = 0
     finish_reason: str | None = None
-    with urllib.request.urlopen(request, timeout=timeout) as response:
+    with _open_deadline_http_response(
+        request, timeout=timeout, deadline=deadline, is_cancelled=is_cancelled,
+    ) as response:
         if attempt is not None:
             attempt.observe_response(response=response)
-        deadline_timer = threading.Timer(
-            max(0.001, deadline.remaining()),
-            response.close,
-        )
-        deadline_timer.daemon = True
-        deadline_timer.start()
         if on_connected is not None:
             on_connected()
         try:
@@ -2278,9 +2392,9 @@ def _post_chat_stream_raw(
                 raise LLMDeadlineExceeded() from exc
             raise
         finally:
-            deadline_timer.cancel()
             if attempt is not None:
                 attempt.observe_result("".join(chunks))
+    deadline.require_remaining(0.001)
     if not chunks:
         raise LLMStreamingUnsupported()
     return "".join(chunks), finish_reason
@@ -2333,6 +2447,9 @@ def synthesize_messages_stream(
             "DASHSCOPE_API_KEY / ZHIPU_API_KEY / OPENAI_API_KEY 或通用 LLM_API_KEY 即可启用"
         )
     shared_deadline = deadline or Deadline.from_timeout(timeout)
+    shared_deadline = Deadline(min(
+        shared_deadline.expires_at, time.monotonic() + float(timeout),
+    )) if timeout else shared_deadline
     # 流式已经吐给用户多少字。下面两条回退非流式的路径必须先看它——见
     # ``_stream_fallback_blocked``。
     streamed_chars = 0

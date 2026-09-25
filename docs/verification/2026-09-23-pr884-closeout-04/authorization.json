@@ -1,0 +1,20 @@
+{
+  "user_text": "那你继续做到done，直到可以收尾部署",
+  "source": "Current conversation: user message following the completed disk cleanup and BLOCKED status explanation, 2026-09-23",
+  "authorized_work": "Continue PR884 fixes and verification until ready for closeout and deployment; preserve prior failed evidence",
+  "operator_execution_plan": {
+    "merge_main_into_pr_branch": true,
+    "engineering_gates": "New frozen revision, new output directory, complete suite; no scope exclusions or result splicing",
+    "python_timeout_seconds": 1800,
+    "foreign_full_pytest_limit_at_admission": 0,
+    "disk_admission_gib": 12,
+    "disk_stop_gib": 8,
+    "independent_review": "Up to three bounded C1-C8 batches on the same immutable candidate, mirasim-kimi/kimi-k3; no model fallback or quota purchase",
+    "review_batch_max_exploration_requests": 32,
+    "review_batch_max_total_provider_requests": 33,
+    "review_batch_reserved_report_requests": 1,
+    "review_batch_max_seconds": 1200,
+    "review_tools": "Offline, no credentials, temporary test data only; candidate source read-only",
+    "production_mutations": "Not part of validation. Readiness is not a claim that merge or deployment has already occurred."
+  }
+}

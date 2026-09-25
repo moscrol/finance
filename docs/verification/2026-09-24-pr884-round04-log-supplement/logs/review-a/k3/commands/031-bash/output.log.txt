@@ -1,0 +1,101 @@
+
+    task_id: str
+    oracle: WriteOrderOracle
+    signal: CancelSignal
+    model: EffectAwareModel
+    probe: ScenarioProbe
+    frame: TaskFrame
+    context: ResearchRunContext
+    registry: ResearchToolRegistry
+    episode: ContinuousAgentEpisode
+    drive: EpisodeDrive | None = None
+    points: list[StepPoint] = field(default_factory=list)
+
+    def start(self) -> EpisodeDrive:
+        self.drive = self.episode.manual_drive(
+            task_frame=self.frame, context=self.context, registry=self.registry
+        )
+        return self.drive
+
+    def run_until(self, phase: str) -> StepPoint | None:
+        assert self.drive is not None
+        point = self.drive.run_until(phase)
+        self.points = list(self.drive.steps)
+        return point
+
+    def finish(self) -> AgentOutcome:
+        assert self.drive is not None
+        outcome = self.drive.run_to_end()
+        self.points = list(self.drive.steps)
+        return outcome
+
+    def stored_events(self) -> tuple[EpisodeEvent, ...]:
+        events, _state = self.oracle.load(self.task_id)
+        return events
+
+    def stored_state(self):
+        _events, state = self.oracle.load(self.task_id)
+        return state
+
+
+def build_rig(
+    task_id: str,
+    *,
+    turns: Sequence[ScriptedTurn] | None = None,
+    during_tool: Hook | None = None,
+    store: WriteOrderOracle | None = None,
+) -> Rig:
+    oracle = store if store is not None else WriteOrderOracle()
+    probe = ScenarioProbe()
+    signal = CancelSignal()
+    frame = make_frame()
+    context = make_context(frame, task_id=task_id)
+    model = EffectAwareModel(
+        ScriptedModelClient(list(turns if turns is not None else tool_then_finish()), probe),
+        oracle,
+    )
+    episode = ContinuousAgentEpisode(model, is_cancelled=signal, store=oracle)
+    return Rig(
+        task_id=task_id,
+        oracle=oracle,
+        signal=signal,
+        model=model,
+        probe=probe,
+        frame=frame,
+        context=context,
+        registry=effect_registry(oracle, during_tool=during_tool),
+        episode=episode,
+    )
+
+
+# ── 尺子 ───────────────────────────────────────────────────────────────
+
+
+def kinds(events: Sequence[EpisodeEvent], *names: str) -> list[str]:
+    wanted = set(names)
+    return [event.kind for event in events if not wanted or event.kind in wanted]
+
+
+def only(events: Sequence[EpisodeEvent], kind: str) -> list[EpisodeEvent]:
+    return [event for event in events if event.kind == kind]
+
+
+def finish_event(events: Sequence[EpisodeEvent]) -> EpisodeEvent:
+    finishes = only(events, "finish")
+    assert len(finishes) == 1, f"恰一条 finish，实际 {len(finishes)}"
+    return finishes[0]
+
+
+def model_pairs(events: Sequence[EpisodeEvent]) -> dict[str, tuple[int, int | None]]:
+    """turn_id → (意图序号, 结算序号或 None)。"""
+
+    pairs: dict[str, tuple[int, int | None]] = {}
+    for event in events:
+        turn_id = str(event.payload.get("turn_id") or "")
+        if not turn_id:
+            continue
+        if event.kind == "model_intent":
+            pairs[turn_id] = (event.sequence, None)
+        elif event.kind in MODEL_SETTLEMENTS and turn_id in pairs:
+            intent, _ = pairs[turn_id]
+            pairs[turn_id] = (intent, event.sequence)

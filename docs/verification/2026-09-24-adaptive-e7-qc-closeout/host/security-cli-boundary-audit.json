@@ -1,0 +1,22 @@
+{
+  "raw_sha256": "4418672cdbc35e288dedb7af893de33bb0513db64c332abcbacaafeefa05b849",
+  "new_execution": false,
+  "first_and_second_controller_failures_preserved": true,
+  "matcher_error": "execv() does not match the observed execvp(); no permission standard relaxed",
+  "credential_read_attempted": false,
+  "scope": "literal /usr/bin/security help, not all keychain APIs",
+  "checks": [
+    {
+      "axis": "spec",
+      "original_help_command_allowed": true,
+      "new_rule_explicitly_denies_executable": true,
+      "original_controller_exit_remains": 1
+    },
+    {
+      "axis": "quality",
+      "original_help_command_allowed": true,
+      "new_rule_explicitly_denies_executable": true,
+      "original_controller_exit_remains": 1
+    }
+  ]
+}

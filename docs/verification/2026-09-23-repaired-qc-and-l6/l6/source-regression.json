@@ -1,0 +1,51 @@
+{
+  "status": "PASS",
+  "candidate": "ac11027fa75ee6a988ab90ab81e0329159964643",
+  "episode_sha256": "397ef6f396a29a538e339974d2ced10d8d633e4a798252023e43e3fb965b4b41",
+  "scope": "mechanical read-only regression, not independent QC or natural acceptance",
+  "sentence_index": 10,
+  "original_rejections": [
+    13
+  ],
+  "wrong_unit_control_rejections": [
+    10,
+    13
+  ],
+  "restored_rejections": [
+    13
+  ],
+  "quantity_checks": {
+    "112.27亿元": {
+      "expected": true,
+      "actual": true
+    },
+    "112.26亿元": {
+      "expected": false,
+      "actual": false
+    },
+    "112.28亿元": {
+      "expected": false,
+      "actual": false
+    },
+    "112.27万元": {
+      "expected": false,
+      "actual": false
+    },
+    "112.27万亿元": {
+      "expected": false,
+      "actual": false
+    },
+    "112.27%": {
+      "expected": false,
+      "actual": false
+    },
+    "246.45": {
+      "expected": true,
+      "actual": true
+    }
+  },
+  "source_unchanged": true,
+  "network_attempts": 0,
+  "real_model_requests": 0,
+  "semantic_source_sha256": "25559c737b7e7b1f55a8acbbbbc6a998f15d913471fc23399a0e357069fbd7cf"
+}

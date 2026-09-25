@@ -1,0 +1,42 @@
+"""Expose immutable prior-stage tool evidence to a fresh session, never reasoning."""
+import hashlib
+import json
+from pathlib import Path
+import shutil
+import sys
+root = Path(__file__).resolve().parent
+axis, previous = sys.argv[1:]
+assert axis in {'spec', 'quality'} and previous in {'explore', 'execute'}
+base = root / axis
+source = base / previous
+out = base / 'work' / 'phase-context' / previous
+out.mkdir(parents=True, exist_ok=False)
+manifest = []
+def copy(path, target):
+    target.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(path, target)
+    manifest.append({'source': str(path.relative_to(base)), 'copy': str(target.relative_to(base)),
+                     'sha256': hashlib.sha256(path.read_bytes()).hexdigest()})
+for name in ['REPORT.md', 'parsed.json']:
+    copy(source / name, out / name)
+for path in sorted((source / 'commands').rglob('*')):
+    if path.is_file() and path.name in {'request.json', 'result.json', 'output.log'}:
+        copy(path, out / path.relative_to(source))
+originals = []
+if previous == 'explore':
+    for path in sorted((source / 'commands').glob('*-write/request.json')):
+        args = json.loads(path.read_text())['params']
+        target = Path(args['path'])
+        if not target.is_absolute():
+            target = Path(json.loads((base/'config.json').read_text())['tree']) / target
+        if target.suffix != '.py' or target.parent != base / 'work/probes':
+            continue
+        historical = out / 'original-probes' / (path.parent.name + '-' + target.name)
+        historical.parent.mkdir(exist_ok=True)
+        historical.write_text(args['content'])
+        originals.append({'request': str(path.relative_to(base)), 'copy': str(historical.relative_to(base)),
+                          'sha256': hashlib.sha256(historical.read_bytes()).hexdigest()})
+with (out / 'copy-manifest.json').open('x') as f:
+    json.dump({'raw_copies': manifest, 'original_probe_materializations': originals,
+               'host_did_not_edit_probe_code': True, 'chain_of_thought_excluded': True}, f, indent=2)
+print(json.dumps({'context': str(out), 'copies': len(manifest), 'initial_probes': len(originals)}))

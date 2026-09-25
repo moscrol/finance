@@ -1,0 +1,52 @@
+"""Run the resource regression with a semantic old-behavior mutation."""
+import hashlib
+import importlib.util
+import json
+from pathlib import Path
+import sys
+import unittest
+from unittest.mock import patch
+
+ROOT = Path(__file__).resolve().parent
+TREE = Path('/Users/a77/fwp-wt-runtime-postmerge-qc-0923')
+sys.path.insert(0, str(TREE))
+from scripts.review_probes import gate_resources
+
+source = TREE / 'scripts/review_probes/gate_resources.py'
+tests = TREE / 'tests/test_review_gate_resources.py'
+initial = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in (source, tests)}
+spec = importlib.util.spec_from_file_location('resource_tests', tests)
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+
+
+def run(label, name=None):
+    suite = (unittest.defaultTestLoader.loadTestsFromName(name, module) if name
+             else unittest.defaultTestLoader.loadTestsFromModule(module))
+    path = ROOT / (label + '.log.txt')
+    with path.open('x') as stream:
+        result = unittest.TextTestRunner(stream=stream, verbosity=2).run(suite)
+    return {'tests': result.testsRun, 'passed': result.wasSuccessful(),
+            'failures': [case.id() for case, _ in result.failures],
+            'errors': [case.id() for case, _ in result.errors],
+            'log': path.name, 'log_sha256': hashlib.sha256(path.read_bytes()).hexdigest()}
+
+
+baseline = run('admission-baseline')
+original = gate_resources.is_pytest_process
+with patch.object(gate_resources, 'is_pytest_process',
+                  side_effect=lambda exe, cmd: original(exe, cmd) and '--junitxml=' in cmd):
+    mutation = run('admission-mutation-report-required',
+                   'GateResourceTests.test_pytest_without_report_option_blocks')
+restored = run('admission-restored')
+assert baseline['passed'] and restored['passed']
+assert mutation['tests'] == 1 and not mutation['errors']
+assert mutation['failures'] == ['resource_tests.GateResourceTests.test_pytest_without_report_option_blocks']
+assert initial == {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in (source, tests)}
+result = {'accepted': True, 'kind': 'host unittest plus semantic mutation, not independent review or full gate',
+          'baseline': baseline, 'mutation': mutation, 'restored': restored,
+          'source_sha256': initial, 'source_unchanged': True}
+with (ROOT / 'admission-verification.json').open('x') as stream:
+    json.dump(result, stream, indent=2)
+    stream.write('\n')
+print(json.dumps(result, indent=2))

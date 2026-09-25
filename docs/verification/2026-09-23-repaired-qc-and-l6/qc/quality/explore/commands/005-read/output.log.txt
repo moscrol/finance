@@ -1,0 +1,152 @@
+    """
+
+
+@dataclass(frozen=True)
+class Deadline:
+    expires_at: float
+
+    @classmethod
+    def from_timeout(cls, timeout: float) -> "Deadline":
+        return cls(time.monotonic() + max(0.0, float(timeout)))
+
+    def remaining(self) -> float:
+        return max(0.0, self.expires_at - time.monotonic())
+
+    def require_remaining(self, minimum: float = 0.0) -> float:
+        remaining = self.remaining()
+        if remaining < minimum:
+            raise LLMDeadlineExceeded()
+        return remaining
+
+    def call_timeout(self, timeout: float, *, minimum: float = 1.0) -> float:
+        """本次调用真正的超时 = min(调用方给的时间片, 共享 deadline 剩余)。
+
+        修一个静默失效：``timeout`` 参数此前只在 ``deadline is None`` 时被用来
+        构造 Deadline（``deadline or Deadline.from_timeout(timeout)``）。一旦调用
+        方显式传 deadline —— grounded 三段链一直这么传 —— 时间片就只是个装饰，
+        每一段都能吃掉整条 deadline。
+
+        实测代价（2026-08-03 单题）：brief 分到 22s 片、实际跑了 69.7s，composer
+        进场只剩 20.2s，必然超时降级。分片算得很认真，消费端根本没读——预算字段
+        必须在**强制点**被读取，只是「传下去了」不等于「被执行了」。
+        """
+
+        remaining = self.require_remaining(minimum)
+        limit = max(0.0, float(timeout or 0.0))
+        return min(remaining, limit) if limit > 0 else remaining
+
+
+@contextmanager
+def _open_deadline_http_response(request, timeout: float, *, deadline: Deadline, is_cancelled=None):
+    opener = _HTTP_TRANSPORT_OVERRIDE.get() or llm_http_transport.urlopen
+    try:
+        with opener(
+            request, timeout, deadline=deadline, is_cancelled=is_cancelled,
+        ) as response:
+            yield response
+    except llm_http_transport.HTTPDeadlineExceeded as exc:
+        raise LLMDeadlineExceeded() from exc
+    except llm_http_transport.HTTPStreamCancelled as exc:
+        raise LLMStreamCancelled() from exc
+
+
+def detect_providers(model_override: str | None = None) -> tuple[LLMProvider, ...]:
+    """Resolve configured providers in deterministic fallback order."""
+    configured = _PROVIDER_OVERRIDE.get()
+    if configured is not None:
+        if model_override:
+            return (replace(configured, model=model_override),)
+        return (configured,)
+    generic = os.environ.get("LLM_API_KEY")
+    if generic:
+        base = os.environ.get("LLM_BASE_URL") or os.environ.get("OPENAI_BASE_URL") or "https://api.openai.com/v1"
+        model = model_override or os.environ.get("LLM_MODEL") or "gpt-4o-mini"
+        return (LLMProvider(name="custom", api_key=generic, base_url=base, model=model),)
+    providers: list[LLMProvider] = []
+    seen: set[tuple[str, str, str]] = set()
+    managed_key = os.environ.get("FORESIGHT_BUILTIN_LLM_API_KEY")
+    if managed_key:
+        managed_base_url = (
+            os.environ.get("FORESIGHT_BUILTIN_LLM_BASE_URL")
+            or "https://open.bigmodel.cn/api/coding/paas/v4"
+        )
+        managed_model = (
+            model_override
+            or os.environ.get("FORESIGHT_BUILTIN_LLM_MODEL")
+            or "glm-5.2"
+        )
+        providers.append(
+            LLMProvider(
+                name="zhipu",
+                api_key=managed_key,
+                base_url=managed_base_url,
+                model=managed_model,
+            )
+        )
+        seen.add((managed_key, managed_base_url, managed_model))
+    for name, env_key, base, default_model in _PROVIDERS:
+        key = os.environ.get(env_key)
+        if key:
+            base_url = os.environ.get("LLM_BASE_URL") or os.environ.get("OPENAI_BASE_URL") or base
+            model = model_override or os.environ.get("LLM_MODEL") or default_model
+            identity = (key, base_url, model)
+            if identity in seen:
+                continue
+            seen.add(identity)
+            providers.append(
+                LLMProvider(
+                    name=name,
+                    api_key=key,
+                    base_url=base_url,
+                    model=model,
+                )
+            )
+    return tuple(providers)
+
+
+def detect_provider(model_override: str | None = None) -> LLMProvider | None:
+    """Resolve the preferred LLM provider from environment variables."""
+    return next(iter(detect_providers(model_override)), None)
+
+
+def judge_provider() -> LLMProvider | None:
+    """语义审（grounding judge / evidence judge）的独立 provider 解析。
+
+    背景（双审查 ③）：composer 与 judge 走同一 provider 存在相关性失败——
+    同一模型的系统性偏差会同时骗过创作与审稿。配置以下 env 后语义审走
+    独立模型；未配置返回 None，调用方回落主 provider（行为不变）：
+    - ``LLM_JUDGE_BACKEND=grok-cli``（别名 ``grok`` / ``cli``）：Grok Build TUI
+      无头 ``-p``，与 HTTP 合成模型解耦。PATH 上有 ``grok`` 不会自动开。
+    - ``LLM_JUDGE_API_KEY``（+ ``LLM_JUDGE_BASE_URL`` + ``LLM_JUDGE_MODEL``）：
+      完全独立的 judge 端点；
+    - 仅 ``LLM_JUDGE_MODEL``：同 key/端点、不同模型（次优但仍降低相关性）。
+
+    显式 ``LLM_JUDGE_BACKEND=grok-cli`` 优先于 ``LLM_JUDGE_API_KEY``。
+    后端已声明但二进制缺失时仍返回 CLI provider：调用失败记 unavailable，
+    不静默退回相关自审。
+    """
+    from intelligence.services.grok_cli_judge import (
+        CLI_GROK_URL,
+        DEFAULT_MODEL as GROK_DEFAULT_MODEL,
+        grok_cli_backend_enabled,
+    )
+
+    if grok_cli_backend_enabled():
+        model = os.environ.get("LLM_JUDGE_MODEL") or GROK_DEFAULT_MODEL
+        return LLMProvider(
+            name="grok-cli-judge",
+            api_key="",
+            base_url=CLI_GROK_URL,
+            model=model,
+            transport="cli",
+        )
+    key = os.environ.get("LLM_JUDGE_API_KEY")
+    base = os.environ.get("LLM_JUDGE_BASE_URL")
+    model = os.environ.get("LLM_JUDGE_MODEL")
+    if key:
+        return LLMProvider(
+            name="judge",
+            api_key=key,
+            base_url=base or "https://api.openai.com/v1",
+
+[truncated; total lines=2605, selected=180:329; request a later offset]

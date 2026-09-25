@@ -1,0 +1,5 @@
+Traceback (most recent call last):
+  File "/Users/a77/.finance-runtime/reviews/pr884-closeout-20260923-04/record_blocked.py", line 86, in <module>
+    assert item["host_evidence_acceptance"] == "BLOCKED"
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError

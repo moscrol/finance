@@ -1,0 +1,20 @@
+71:    check("P3 cancel", False, "no exception")
+72-except T.HTTPStreamCancelled:
+73:    check("P3 cancel", time.monotonic() - t0 < 3.0, f"dt={time.monotonic()-t0:.2f}")
+74-except Exception as e:
+75:    check("P3 cancel", False, f"wrong exc {type(e).__name__}")
+76-
+77-before = hits["n"]
+78-try:
+79-    T.urlopen(req("/fast"), timeout=5.0, deadline=llm_refine.Deadline(time.monotonic() - 1.0))
+80-    check("P4 expired no request", False, "no exception")
+81-except T.HTTPDeadlineExceeded:
+82-    time.sleep(0.2)
+83-    check("P4 expired no request", hits["n"] == before, f"delta={hits['n']-before}")
+84-except Exception as e:
+85-    check("P4 expired no request", False, f"wrong exc {type(e).__name__}")
+86-
+87-t0 = time.monotonic()
+88-try:
+89-    with T.urlopen(req("/slowheaders"), timeout=1.0) as r:
+90-        r.read()

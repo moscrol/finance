@@ -211,7 +211,7 @@ def sync_fact_sector_stock_daily(
     limit: int | None = None,
     only_missing: bool = True,
     sleep: float = 0.3,
-    chunk: int = 10,
+    chunk: int = 4,
     max_attempts: int = 3,
 ) -> dict:
     """批量回补某交易日的成分股快照。

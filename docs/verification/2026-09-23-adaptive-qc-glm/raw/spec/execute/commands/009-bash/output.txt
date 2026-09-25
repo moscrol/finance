@@ -1,0 +1,36 @@
+/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260923-1707/spec/work/phase-context/explore/commands/:
+total 0
+drwxr-xr-x@ 25 a77  staff  800 Sep 23 17:28 .
+drwxr-xr-x@  7 a77  staff  224 Sep 23 17:28 ..
+drwxr-xr-x@  5 a77  staff  160 Sep 23 17:28 001-bash
+drwxr-xr-x@  5 a77  staff  160 Sep 23 17:28 002-bash
+drwxr-xr-x@  5 a77  staff  160 Sep 23 17:28 003-bash
+drwxr-xr-x@  5 a77  staff  160 Sep 23 17:28 004-bash
+drwxr-xr-x@  5 a77  staff  160 Sep 23 17:28 005-read
+drwxr-xr-x@  5 a77  staff  160 Sep 23 17:28 006-bash
+drwxr-xr-x@  5 a77  staff  160 Sep 23 17:28 007-bash
+drwxr-xr-x@  5 a77  staff  160 Sep 23 17:28 008-bash
+drwxr-xr-x@  5 a77  staff  160 Sep 23 17:28 009-write
+drwxr-xr-x@  5 a77  staff  160 Sep 23 17:28 010-bash
+drwxr-xr-x@  5 a77  staff  160 Sep 23 17:28 011-bash
+drwxr-xr-x@  5 a77  staff  160 Sep 23 17:28 012-bash
+drwxr-xr-x@  5 a77  staff  160 Sep 23 17:28 013-write
+drwxr-xr-x@  5 a77  staff  160 Sep 23 17:28 014-bash
+drwxr-xr-x@  5 a77  staff  160 Sep 23 17:28 015-bash
+drwxr-xr-x@  5 a77  staff  160 Sep 23 17:28 016-bash
+drwxr-xr-x@  5 a77  staff  160 Sep 23 17:28 017-bash
+drwxr-xr-x@  5 a77  staff  160 Sep 23 17:28 018-bash
+drwxr-xr-x@  5 a77  staff  160 Sep 23 17:28 019-bash
+drwxr-xr-x@  5 a77  staff  160 Sep 23 17:28 020-write
+drwxr-xr-x@  5 a77  staff  160 Sep 23 17:28 021-bash
+drwxr-xr-x@  5 a77  staff  160 Sep 23 17:28 022-bash
+drwxr-xr-x@  5 a77  staff  160 Sep 23 17:28 023-write
+
+/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260923-1707/spec/work/phase-context/explore/original-probes/:
+total 32
+drwxr-xr-x@ 6 a77  staff   192 Sep 23 17:28 .
+drwxr-xr-x@ 7 a77  staff   224 Sep 23 17:28 ..
+-rw-r--r--@ 1 a77  staff  3124 Sep 23 17:28 009-write-probe_c1_stream_deadline.py
+-rw-r--r--@ 1 a77  staff  3169 Sep 23 17:28 013-write-probe_c1_stalled_parent.py
+-rw-r--r--@ 1 a77  staff  2647 Sep 23 17:28 020-write-probe_c4_wrapper_deadline.py
+-rw-r--r--@ 1 a77  staff  3286 Sep 23 17:28 023-write-probe_c4_wrapper_deadline.py

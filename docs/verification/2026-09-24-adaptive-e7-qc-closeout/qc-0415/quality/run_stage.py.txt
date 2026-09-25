@@ -1,0 +1,143 @@
+"""Run exactly one isolated GLM stage with fixed identity and fresh logs."""
+from datetime import datetime, timezone
+import hashlib
+import json
+import os
+from pathlib import Path
+import re
+import signal
+import subprocess
+import sys
+import time
+
+ROOT = Path(__file__).resolve().parent
+CONFIG = json.loads((ROOT / 'config.json').read_text())
+STAGE = sys.argv[1]
+assert STAGE in {'explore', 'execute', 'report'}
+OUT = ROOT / STAGE
+
+def identity(tree):
+    def git(*args):
+        return subprocess.check_output(['git', '-C', tree, *args], text=True, env={**os.environ, 'GIT_OPTIONAL_LOCKS': '0'}).strip()
+    return {'revision': git('rev-parse', 'HEAD'), 'status': git('status', '--porcelain', '--untracked-files=all')}
+
+def digest(p):
+    return hashlib.sha256(p.read_bytes()).hexdigest()
+
+def load_claims(value):
+    claims = value.get('claims', []) if value else []
+    return len(claims) == 7 and {c.get('id') for c in claims} == {f'C{i}' for i in range(1, 8)} and all(c.get('status') in {'verified', 'not_verified', 'out_of_scope'} for c in claims)
+
+
+def main():
+    assert json.loads((ROOT / 'gateway/receipt.json').read_text())['status'] == 'PASS'
+    assert json.loads((ROOT / 'sandbox-preflight-04/receipt.json').read_text())['status'] == 'PASS'
+    if STAGE != 'explore':
+        previous = 'explore' if STAGE == 'execute' else 'execute'
+        prior = json.loads((ROOT / previous / 'execution.json').read_text())
+        assert prior['status'] == 'STAGE_COMPLETE', prior['status']
+    candidate_before = identity(CONFIG['tree'])
+    author_before = identity(CONFIG['author'])
+    assert candidate_before == author_before == {'revision': CONFIG['revision'], 'status': ''}
+    OUT.mkdir(exist_ok=False)
+    (OUT / 'commands').mkdir()
+    prompt = (ROOT / ('prompt-' + STAGE + '.md')).read_text()
+    if STAGE == 'report':
+        packet = ROOT / 'report-packet.md'
+        assert packet.is_file() and packet.stat().st_size <= 160000
+        prompt += '\n' + packet.read_text()
+    watched = [ROOT / name for name in ['config.json', 'review.mjs', 'pi_review_protocol.mjs', 'tools.sb', 'file_tool.py', 'provider-template.json', 'pi-config/settings.json', 'prompt-' + STAGE + '.md']]
+    hashes = {str(p.relative_to(ROOT)): digest(p) for p in watched}
+    env = {'HOME': '/Users/a77', 'PATH': '/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin',
+           'LANG': 'C.UTF-8', 'TMPDIR': str(ROOT / 'work/tmp'), 'PYTHONDONTWRITEBYTECODE': '1',
+           'PYTHONPATH': CONFIG['tree'], 'GIT_OPTIONAL_LOCKS': '0',
+           'PI_CODING_AGENT_DIR': str(ROOT / 'pi-config'), 'PI_OFFLINE': '1', 'PI_TELEMETRY': '0',
+           'REVIEW_OUTPUT_DIR': str(OUT), 'REVIEW_PHASE': STAGE}
+    cmd = ['/opt/homebrew/bin/pi', '--provider', 'glm-direct-review', '--model', 'glm-5.3',
+           '--thinking', CONFIG['thinking'], '--models', 'glm-direct-review/glm-5.3', '--no-session',
+           '--no-extensions', '-e', str(ROOT / 'review.mjs'), '--no-skills', '--no-prompt-templates',
+           '--no-context-files', '--no-themes', '--no-approve', '--offline', '--tools', ','.join(CONFIG['stage_tools'][STAGE]),
+           '--mode', 'json', '-p', '--', prompt]
+    record = {'stage': STAGE, 'revision': CONFIG['revision'], 'baseline': CONFIG['baseline'],
+              'started_at': datetime.now(timezone.utc).isoformat(), 'complete': False,
+              'candidate_before': candidate_before, 'author_before': author_before,
+              'inputs_sha256': hashes, 'timeout_seconds': 600, 'max_requests': {'explore': 17, 'execute': 17, 'report': 1}[STAGE],
+              'automatic_retries': 0, 'command': cmd[:-1] + ['<stage prompt>']}
+    def save():
+        (OUT / 'execution.json').write_text(json.dumps(record, ensure_ascii=False, indent=2) + '\n')
+    save()
+    start = time.monotonic()
+    timed_out = False
+    with (OUT / 'events.jsonl').open('xb') as stdout, (OUT / 'stderr.log').open('xb') as stderr:
+        proc = subprocess.Popen(cmd, cwd=CONFIG['tree'], env=env, stdin=subprocess.DEVNULL,
+                                stdout=stdout, stderr=stderr, start_new_session=True)
+        record['pid'] = proc.pid
+        save()
+        try:
+            proc.wait(timeout=600)
+        except subprocess.TimeoutExpired:
+            timed_out = True
+            os.killpg(proc.pid, signal.SIGTERM)
+            try:
+                proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                os.killpg(proc.pid, signal.SIGKILL)
+                proc.wait()
+    counts, messages = {}, []
+    for line in (OUT / 'events.jsonl').read_text().splitlines():
+        try:
+            e = json.loads(line)
+        except ValueError:
+            counts['invalid_json'] = counts.get('invalid_json', 0) + 1
+            continue
+        kind = e.get('type', 'unknown')
+        counts[kind] = counts.get(kind, 0) + 1
+        if kind == 'message_end' and e.get('message', {}).get('role') == 'assistant':
+            messages.append(e['message'])
+    def rows(name):
+        p = OUT / name
+        return [json.loads(line) for line in p.read_text().splitlines()] if p.exists() else []
+    admissions = rows('request-admissions.jsonl')
+    errors = [m.get('errorMessage', m.get('stopReason')) for m in messages if m.get('stopReason') in {'error', 'aborted', 'length'}]
+    report = OUT / 'REPORT.md'
+    parsed = None
+    if report.exists():
+        for body in re.findall(r'```json\s*(.*?)```', report.read_text(), flags=re.S):
+            try:
+                value = json.loads(body)
+            except ValueError:
+                continue
+            if isinstance(value, dict) and value.get('revision') == CONFIG['revision']:
+                parsed = value
+    submission = OUT / 'submission.json'
+    if not submission.exists() or json.loads(submission.read_text()) != parsed:
+        parsed = None
+    if parsed:
+        (OUT / 'parsed.json').write_text(json.dumps(parsed, ensure_ascii=False, indent=2) + '\n')
+    candidate_after = identity(CONFIG['tree'])
+    author_after = identity(CONFIG['author'])
+    unchanged = hashes == {str(p.relative_to(ROOT)): digest(p) for p in watched}
+    structural = bool(parsed and parsed.get('stage') == STAGE and parsed.get('axis') == CONFIG['axis'] and parsed.get('complete') is True and parsed.get('baseline') == CONFIG['baseline'])
+    probe_files = sorted((ROOT / 'work/probes').glob('*.py'))
+    if STAGE == 'explore':
+        structural = structural and bool(probe_files) and bool(parsed.get('probe_files'))
+        structural = structural and all(Path(p).is_file() and Path(p).resolve().is_relative_to(ROOT / 'work/probes') for p in parsed.get('probe_files', []))
+    if STAGE == 'report':
+        structural = structural and load_claims(parsed)
+    if STAGE == 'explore':
+        structural = structural and not any((OUT / 'commands').glob('*-bash'))
+    record['probe_sha256'] = {str(p.relative_to(ROOT)): digest(p) for p in probe_files}
+    ok = proc.returncode == 0 and not timed_out and not errors and structural and unchanged and candidate_before == candidate_after and author_before == author_after
+    record.update(complete=True, status='STAGE_COMPLETE' if ok else 'BLOCKED_STAGE_OR_PROVIDER',
+                  exit_code=proc.returncode, elapsed_seconds=round(time.monotonic()-start, 3),
+                  timed_out=timed_out, requests=len(admissions), responses=rows('responses.jsonl'),
+                  errors=errors, candidate_after=candidate_after, author_after=author_after,
+                  inputs_unchanged=unchanged, event_counts=counts, report_structural=structural,
+                  model_identities=sorted({str(m.get('provider')) + '/' + str(m.get('model')) for m in messages}),
+                  usage={k: sum(m.get('usage', {}).get(k, 0) or 0 for m in messages) for k in ['input','output','cacheRead','cacheWrite','totalTokens']},
+                  artifact_sha256={str(p.relative_to(OUT)): digest(p) for p in OUT.rglob('*') if p.is_file() and not p.is_symlink() and p.name != 'execution.json'})
+    save()
+    print(json.dumps({k: record[k] for k in ['stage','status','requests','elapsed_seconds','errors','report_structural']}, ensure_ascii=False), flush=True)
+
+if __name__ == '__main__':
+    main()

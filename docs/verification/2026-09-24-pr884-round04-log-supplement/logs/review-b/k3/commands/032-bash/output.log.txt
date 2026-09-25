@@ -1,0 +1,15 @@
+
+==================================== ERRORS ====================================
+______________________________ ERROR collecting . ______________________________
+/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/runner.py:341: in from_call
+    result: TResult | None = func()
+/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/runner.py:389: in collect
+    return list(collector.collect())
+/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/main.py:523: in collect
+    for direntry in scandir(self.path):
+/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/pathlib.py:963: in scandir
+    scandir_iter = os.scandir(path)
+E   PermissionError: [Errno 1] Operation not permitted: '/Users/a77/.finance-runtime/reviews/pr884-closeout-20260923-04'
+=========================== short test summary info ============================
+ERROR .. - PermissionError: [Errno 1] Operation not permitted: '/Users/a77/.f...
+1 error in 0.04s

@@ -1,0 +1,7 @@
+{"command": ["pnpm", "install", "--frozen-lockfile"], "exit_code": 0}
+{"command": ["pnpm", "lint"], "exit_code": 0}
+{"command": ["pnpm", "typecheck"], "exit_code": 0}
+{"command": ["pnpm", "test"], "exit_code": 0}
+{"command": ["pnpm", "build"], "exit_code": 0}
+{"command": ["pnpm", "test:e2e"], "exit_code": 0}
+{"receipt": "/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0326/frontend/frontend.json", "exit_code": 0}

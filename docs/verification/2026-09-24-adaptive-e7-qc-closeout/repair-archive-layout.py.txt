@@ -1,0 +1,47 @@
+"""Use text archive carriers for 85 raw log copies; never mutate runtime originals."""
+import base64
+import hashlib
+import json
+from pathlib import Path
+import re
+import subprocess
+
+HERE=Path(__file__).resolve().parent
+TREE=Path('/Users/a77/finance-worktrees/adaptive-research-loop')
+REL=Path('docs/verification/2026-09-24-adaptive-e7-qc-closeout')
+DEST=TREE/REL
+manifest_path=DEST/'archive-manifest.json'
+old_manifest=manifest_path.read_bytes()
+manifest=json.loads(old_manifest)
+gap=json.loads((HERE/'e7-archive-first-git-failure.json').read_text())
+assert len(gap['missing_files'])==85
+paths=gap['missing_files']
+for full in paths:
+ name=str(Path(full).relative_to(REL))
+ row=manifest[name]
+ assert name.endswith('.log') and row['encoding']=='raw'
+ raw=(TREE/full).read_bytes()
+ assert hashlib.sha256(raw).hexdigest()==row['stored_sha256']
+ assert raw==Path(row['source']).read_bytes()
+ assert not (TREE/(full+'.txt')).exists()
+subprocess.run(['git','-C',str(TREE),'rm','--cached','--',*paths],check=True,stdout=subprocess.PIPE)
+renamed={}
+for full in paths:
+ name=str(Path(full).relative_to(REL))
+ new=name+'.txt'
+ (DEST/name).rename(DEST/new)
+ manifest[new]=manifest.pop(name)
+ renamed[name]=new
+ assert hashlib.sha256((DEST/new).read_bytes()).hexdigest()==manifest[new]['stored_sha256']
+manifest_path.write_text(json.dumps(manifest,indent=2)+'\n')
+ignored=subprocess.run(['git','-C',str(TREE),'check-ignore','--stdin'],input='\n'.join(str(REL/name) for name in renamed.values())+'\n',capture_output=True,text=True)
+assert ignored.returncode==1 and not ignored.stdout
+failure=HERE/'e7-archive-log-repair-commit.log.txt'
+raw=failure.read_bytes()
+assert b'block-forbidden-files' in raw and b'Failed' in raw
+payload={'encoding':'base64-json','source_sha256':hashlib.sha256(raw).hexdigest(),'source_bytes':len(raw),'data':base64.b64encode(raw).decode('ascii')}
+(DEST/'log-extension-hook-failure.encoded.json').write_text(json.dumps(payload,indent=2)+'\n')
+record={'status':'LAYOUT_REPAIRED_NOT_YET_GIT_VERIFIED','original_manifest_sha256':hashlib.sha256(old_manifest).hexdigest(),'new_manifest_sha256':hashlib.sha256(manifest_path.read_bytes()).hexdigest(),'renamed_count':len(renamed),'mapping':renamed,'source_files_modified':False,'source_and_stored_bytes_modified':False,'global_ignore_or_hook_modified':False,'no_verify_used':False,'first_force_add_commit_rejected':True,'renamed_files_ignored':False}
+with (DEST/'archive-layout-repair.json').open('x') as out: json.dump(record,out,indent=2)
+(DEST/'repair-archive-layout.py.txt').write_bytes(Path(__file__).read_bytes())
+print(json.dumps({k:v for k,v in record.items() if k!='mapping'}))

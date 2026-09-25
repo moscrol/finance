@@ -1,0 +1,100 @@
+=== around 1167 ===
+    )
+    data = json.dumps(payload).encode("utf-8")
+    req = urllib.request.Request(
+        url,
+        data=data,
+        headers=_llm_request_headers(provider),
+        method="POST",
+    )
+    started = time.monotonic()
+    attempt = _new_call_attempt(provider, messages)
+    call_deadline = deadline or Deadline.from_timeout(timeout)
+    try:
+        with _open_deadline_http_response(req, timeout=timeout, deadline=call_deadline) as resp:
+            body = json.loads(resp.read().decode("utf-8"))
+            call_deadline.require_remaining(0.001)
+            attempt.observe_response(body, resp)
+        content = body["choices"][0]["message"]["content"]
+        attempt.observe_result(content)
+    except Exception as exc:
+=== around 1219 ===
+    payload = _chat_payload(provider, messages, temperature, max_tokens=max_tokens)
+    _apply_thinking_controls(payload, disable_thinking=synthesis_thinking_disabled())
+    request = urllib.request.Request(
+        url,
+        data=json.dumps(payload).encode("utf-8"),
+        headers=_llm_request_headers(provider),
+        method="POST",
+    )
+    started = time.monotonic()
+    attempt = _new_call_attempt(provider, messages)
+    call_deadline = deadline or Deadline.from_timeout(timeout)
+    try:
+        with _open_deadline_http_response(request, timeout=timeout, deadline=call_deadline) as resp:
+            body = json.loads(resp.read().decode("utf-8"))
+            call_deadline.require_remaining(0.001)
+            attempt.observe_response(body, resp)
+        choice = body["choices"][0]
+        content = choice["message"]["content"]
+        attempt.observe_result(content)
+=== around 1424 ===
+    )
+    started = time.monotonic()
+    attempt = _new_call_attempt(provider, messages)
+    content_chunks: list[str] = []
+    streamed_chars = 0
+    calls = _ToolCallAssembler()
+    finish_reason: str | None = None
+    usage: dict | None = None
+    served_model = ""
+    saw_any_chunk = False
+    call_deadline = deadline or Deadline.from_timeout(timeout)
+    try:
+        with _open_deadline_http_response(
+            request, timeout=timeout, deadline=call_deadline, is_cancelled=is_cancelled,
+        ) as response:
+            attempt.observe_response(response=response)
+            for raw_line in response:
+                if is_cancelled is not None and is_cancelled():
+                    raise LLMStreamCancelled()
+=== around 1546 ===
+            payload["tool_choice"] = tool_choice
+    data = json.dumps(payload).encode("utf-8")
+    req = urllib.request.Request(
+        url,
+        data=data,
+        headers=_llm_request_headers(provider),
+        method="POST",
+    )
+    started = time.monotonic()
+    attempt = _new_call_attempt(provider, messages)
+    call_deadline = deadline or Deadline.from_timeout(timeout)
+    try:
+        with _open_deadline_http_response(req, timeout=timeout, deadline=call_deadline) as resp:
+            body = json.loads(resp.read().decode("utf-8"))
+            call_deadline.require_remaining(0.001)
+            attempt.observe_response(body, resp)
+        choice = body["choices"][0]
+        message = dict(choice["message"])
+        finish_reason = _stable_finish_reason(choice.get("finish_reason"))
+=== around 2304 ===
+        provider, messages, temperature, stream=True, max_tokens=max_tokens,
+    )
+    _apply_thinking_controls(payload, disable_thinking=synthesis_thinking_disabled())
+    request = urllib.request.Request(
+        url,
+        data=json.dumps(payload).encode("utf-8"),
+        headers=_llm_request_headers(provider, Accept="text/event-stream"),
+        method="POST",
+    )
+    chunks: list[str] = []
+    output_chars = 0
+    finish_reason: str | None = None
+    with _open_deadline_http_response(
+        request, timeout=timeout, deadline=deadline, is_cancelled=is_cancelled,
+    ) as response:
+        if attempt is not None:
+            attempt.observe_response(response=response)
+        if on_connected is not None:
+            on_connected()

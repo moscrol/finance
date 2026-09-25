@@ -1,0 +1,159 @@
+"""Record an incomplete full gate without manufacturing pytest outcomes."""
+from pathlib import Path
+import datetime
+import hashlib
+import json
+import re
+import shutil
+import subprocess
+import sys
+
+root = Path(__file__).resolve().parent
+tree = root / "finance-workspace-private"
+revision = "db2605d1b1a6a929d9bac468c84ef6aeaddce9ff"
+base = "b59d6eed0356ae093b52bd291ab328628de8790e"
+proof = {}
+
+def read_json(path):
+    raw = path.read_bytes()
+    proof[str(path.relative_to(root))] = hashlib.sha256(raw).hexdigest()
+    return json.loads(raw)
+
+def save(name, data):
+    with (root / name).open("x") as stream:
+        json.dump(data, stream, ensure_ascii=False, indent=2)
+        stream.write("\n")
+
+records = {}
+for leaf in ("registry", "frontend", "python-native"):
+    item = read_json(root / leaf / "receipt.json")
+    assert item["complete"] and item["identity_stable"]
+    assert item["before"] == item["after"] == {"revision": revision, "status": ""}
+    assert item["driver_sha256"] == hashlib.sha256((root / "run.py").read_bytes()).hexdigest()
+    for check in item["checks"]:
+        path = root / leaf / (check["name"] + ".log.txt")
+        raw = path.read_bytes()
+        assert hashlib.sha256(raw).hexdigest() == check["log_sha256"]
+        proof[str(path.relative_to(root))] = check["log_sha256"]
+        if check["name"] == "sandbox-preflight":
+            assert json.loads(raw)["accepted"] is True
+    records[leaf] = item
+assert records["registry"]["accepted"] is records["frontend"]["accepted"] is True
+assert len(records["registry"]["checks"]) == 7
+native = records["python-native"]
+assert native["accepted"] is False and native["outer_sandbox_on_main_gate"] is False
+last = native["checks"][-1]
+assert last["name"] == "main-gate" and last["timed_out"] and last["exit_code"] == -9
+assert not list((root / "python-native/receipts").glob("gate-*/pytest.json"))
+assert not (root / "python-native/pytest.xml").exists()
+raw_log = (root / "python-native/main-gate.log.txt").read_text()
+assert "All checks passed!\n== pytest " in raw_log
+progress_paths = list((root / "python-native/receipts").glob("gate-*/pytest.log.txt"))
+assert len(progress_paths) == 1
+progress = progress_paths[0].read_bytes()
+assert len(progress) > 10000 and b"[ 96%]" in progress
+proof[str(progress_paths[0].relative_to(root))] = hashlib.sha256(progress).hexdigest()
+
+front = read_json(root / "frontend/gate/frontend.json")
+assert front["complete"] and front["identity_stable"] and not front["dirty"]
+assert front["revision"] == revision and front["exit_code"] == 0 and len(front["checks"]) == 6
+counts = {}
+for check in front["checks"]:
+    assert check["exit_code"] == 0
+    path = root / "frontend/gate" / check["log"]
+    raw = path.read_bytes()
+    assert hashlib.sha256(raw).hexdigest() == check["log_sha256"]
+    proof[str(path.relative_to(root))] = check["log_sha256"]
+    text = re.sub(r"\x1b\[[0-9;]*m", "", raw.decode())
+    if check["command"][-1] == "test":
+        counts["unit_passed"] = int(re.search(r"(?m)^\s*Tests\s+(\d+) passed", text)[1])
+    if check["command"][-1] == "test:e2e":
+        for name in ("passed", "skipped"):
+            counts["e2e_" + name] = int(re.search(r"(?m)^\s*(\d+) " + name + r"(?:\s|$)", text)[1])
+assert counts == {"unit_passed": 120, "e2e_passed": 34, "e2e_skipped": 2}
+
+processes = read_json(root / "processes.json")
+assert [p["exit_code"] for p in processes] == [0, 0, 1]
+pids = {read_json(root / "launch.json")["pid"], read_json(root / "reviews-launch.json")["pid"], *(p["pid"] for p in processes)}
+review_audit = read_json(root / "review-evidence-audit.json")
+assert review_audit["verdict"] == "BLOCKED"
+reviews = {}
+for batch in ("review-a", "review-b", "review-c"):
+    item = read_json(root / batch / "summary.json")
+    assert item["revision"] == revision and item["inputs_unchanged"]
+    assert item["identity_before"] == item["identity_after"] == {"revision": revision, "status": ""}
+    assert item["model_identities"] == ["mirasim-kimi/kimi-k3"]
+    assert item["host_evidence_acceptance"] == "BLOCKED"
+    pids.add(item["execution"]["pid"])
+    for stream in ("stdout", "stderr"):
+        path = root / batch / ("model." + stream + ".log")
+        assert hashlib.sha256(path.read_bytes()).hexdigest() == item["execution"][stream + "_sha256"]
+    reviews[batch] = item
+assert sum(item["provider_requests"] for item in reviews.values()) == 83
+assert reviews["review-c"]["execution"]["exit_code"] == 0
+assert reviews["review-c"]["model_errors"] and not reviews["review-c"]["report_structurally_complete"]
+assert all(reviews[batch]["report_structurally_complete"] and reviews[batch]["reviewer_verdict"] == "BLOCKED" for batch in ("review-a", "review-b"))
+host_a = read_json(root / "host-qc-a/verification.json")
+assert host_a["accepted"] and host_a["independent_verdict_unchanged"] == "BLOCKED"
+host_b = read_json(root / "host-qc-b-r2/receipt.json")
+assert host_b["exit_code"] == 0
+assert host_b["source_sha256"] == hashlib.sha256((root / "host-qc-b-r2/test_c5.py").read_bytes()).hexdigest()
+for group in ("runtime", "writer", "reentry", "inbox"):
+    assert read_json(root / "host-replay" / group / "host-audit.json")["accepted"] is True
+for item in records.values():
+    for check in item["checks"]:
+        pids.add(check["pid"])
+        pids.update(check.get("remaining_after_cleanup", []))
+ps = subprocess.run(["ps", "-p", ",".join(map(str, sorted(pids))), "-o", "pid,ppid,pgid,etime,state,command"], capture_output=True, text=True)
+assert ps.returncode == 1 and len(ps.stdout.splitlines()) == 1
+ports = subprocess.run(["lsof", "-nP", "-iTCP:19181", "-iTCP:19184", "-sTCP:LISTEN"], capture_output=True, text=True)
+assert ports.returncode == 1 and not ports.stdout.strip()
+assert subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=tree, text=True).strip() == revision
+assert not subprocess.check_output(["git", "status", "--porcelain"], cwd=tree, text=True).strip()
+cleanup = {"observed_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+           "observed_pids": sorted(pids), "ps_exit_code": ps.returncode, "ps_stdout": ps.stdout,
+           "ports": [19181, 19184], "port_listeners": [], "no_recorded_owned_processes_remaining": True,
+           "initial_cleanup_snapshot_retained": last["remaining_after_cleanup"],
+           "tree_preserved": str(tree), "reason": "Incomplete gate; preserve failed temporary state",
+           "pytest_basetemp_preserved": str(root / "python-native/pytest"),
+           "disk_free_bytes": shutil.disk_usage(root).free, "new_run_admission_floor_bytes": 12 * 1024**3,
+           "deleted_files": [], "original_logs_modified": False}
+save("cleanup.json", cleanup)
+
+archives = read_json(root / "archive-verification.json")
+assert archives["revision"] == revision and all(a["accepted"] for a in archives["archives"])
+preview = read_json(root / "merge-preview-pinned.json")
+latest = read_json(root / "latest-main-preview.json")
+assert preview["base"] == base and preview["head"] == revision and preview["clean"]
+assert preview["tree"] == subprocess.check_output(["git", "rev-parse", "HEAD^{tree}"], cwd=tree, text=True).strip()
+sys.path.insert(0, str(tree / "scripts"))
+import gitea_pr
+pr = gitea_pr._api("GET", "/pulls/884")
+assert pr["head"]["sha"] == revision and not pr["merged"] and pr["state"] == "open"
+assert pr["title"].startswith("WIP:")
+result = {"revision": revision, "integrated_base": base, "accepted": False, "verdict": "BLOCKED",
+          "recorded_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+          "reason": "Native Python full gate exceeded local deadline without a final receipt/JUnit; independent review incomplete and third batch ended in upstream 504", 
+          "ruff_passed": True, "python": {"suite_complete": False, "counts": None, "collected": None,
+          "test_outcome": "UNKNOWN", "gate_exit_code": -9, "wrapper_exit_code": 1,
+          "elapsed_seconds": last["elapsed_seconds"], "timeout_seconds": last["timeout"],
+          "remaining_at_initial_cleanup": last["remaining_after_cleanup"], "remaining_at_closeout": []},
+          "frontend": counts, "frontend_all_checks_passed": True, "registry_checks_passed": 5,
+          "conditional_workflow": read_json(root / "conditional-workflow.json"),
+          "full_scope_verified": False, "inventory_delta_verified": False,
+          "within_workflow_python_time_budget_on_this_host": False, "workflow_python_timeout_seconds": 900,
+          "ci_platform_executed": False, "merge_authorized": False, "merge_ready": False,
+          "runtime_independent_verdict": "BLOCKED", "runtime_contracts": review_audit["coverage"],
+          "review_evidence_audit": review_audit, "review_batch_summaries": reviews,
+          "host_replay_mutations": 28, "host_probe_repairs_are_independent_acceptance": False,
+          "pytest_progress_log_bytes": len(progress), "pytest_progress_is_not_a_terminal_receipt": True,
+          "environment": read_json(root / "python-native/toolchain.log.txt"),
+          "execution_context": "Python native with cleared credentials, isolated users, and per-test sandboxes. Other gates use preflight-verified outer sandbox. Not blanket OS network isolation.",
+          "resource_observation": {"disk_free_at_gate_start": last["disk_free_before"],
+          "disk_free_last": last["disk_free_last"], "concurrent_workloads": "Other full/targeted pytest processes observed; causal impact not independently established"},
+          "current_base_matches_tested_base": pr["base"]["sha"] == base,
+          "pr": {"head": pr["head"]["sha"], "base": pr["base"]["sha"], "state": "open", "merged": False, "title": pr["title"]},
+          "merge_preview": preview, "latest_main_preview": latest,
+          "archive_verification": archives, "artifacts_sha256": proof}
+save("verification.json", result)
+print(json.dumps({key: value for key, value in result.items() if key != "artifacts_sha256"}, ensure_ascii=False, indent=2))

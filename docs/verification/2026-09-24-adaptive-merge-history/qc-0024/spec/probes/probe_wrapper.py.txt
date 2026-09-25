@@ -1,0 +1,157 @@
+"""Probe 2 — C2/C3(wrapper)/C4/C5: llm_refine call sites vs a slow local server.
+
+Server on 127.0.0.1:26003 answers after 2.9s (late payload).
+Subcases:
+  W1 C4/C2 _post_chat            timeout=10, shared deadline=0.5s -> LLMDeadlineExceeded < 1.5s
+  W2 C2     _post_chat_synthesis same boundary
+  W3 C2     _post_chat_message   same boundary (non-stream tools)
+  W4 C2/C1  _post_chat_message_stream with cancellation (flip during stream)
+  W5 C2     _post_chat_stream    (synthesis streaming path)
+  W6 C3(wrapper) late judge payload: slow server completes AFTER deadline already
+      failed; assert ledger record failed/timeout-ish reason and no success,
+      and elapsed reflects wall clock (< 1.5s), i.e. payload not accepted.
+  W7 C5 exhausted root deadline (expires_at past) -> no HTTP connection, no
+      ledger reservation consumed.
+  W8 C5 exhausted judge subwindow vs root: deadline with remaining time but a
+      per-call slice of 0 via Deadline.call_timeout semantics — verify
+      call_timeout(0.0...) clamps; plus expired Deadline rejects before spawn.
+Exit nonzero on any non-control failure. Each subcase reports trigger reached.
+"""
+import os
+import sys
+import time
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.abspath(os.path.join(HERE, "..", "..", "..", "..", "..", "candidate"))
+sys.path.insert(0, os.path.join(ROOT, "intelligence"))
+sys.path.insert(0, HERE)
+
+import fake_server
+from services import llm_refine as R
+
+PORT = 26003
+DELAY = 2.9
+results = []
+
+
+def record(name, ok, detail):
+    results.append((name, ok, detail))
+    print(f"[{'PASS' if ok else 'FAIL'}] {name}: {detail}", flush=True)
+
+
+def provider():
+    return R.LLMProvider(name="fake", api_key="k", base_url=f"http://127.0.0.1:{PORT}/v1", model="fake-m")
+
+
+def msgs():
+    return [{"role": "user", "content": "hi"}]
+
+
+def slow_call(name, fn, *a, **kw):
+    with R.call_ledger_scope() as ledger:
+        t0 = time.monotonic()
+        try:
+            fn(*a, **kw)
+            record(name, False, "completed against 2.9s server with 0.5s deadline")
+        except R.LLMDeadlineExceeded:
+            dt = time.monotonic() - t0
+            recs = ledger.records_for_call(None) if hasattr(ledger, "records_for_call") else []
+            failed = [r for r in recs if r.status == "failed"]
+            record(name, dt < 1.5,
+                   f"LLMDeadlineExceeded at {dt:.2f}s; failed_records={len(failed)} "
+                   f"reasons={[r.reason for r in failed]}")
+        except R.LLMStreamCancelled:
+            dt = time.monotonic() - t0
+            record(name, dt < 1.5, f"LLMStreamCancelled at {dt:.2f}s (cancellation reached)")
+        except Exception as e:
+            record(name, False, f"wrong exc {type(e).__name__}: {e}")
+
+
+def main():
+    srv = fake_server.start(PORT, "slow_json", delay=DELAY)
+    p = provider()
+    d05 = lambda: R.Deadline.from_timeout(0.5)
+    d30 = lambda: R.Deadline.from_timeout(30)
+
+    slow_call("W1_post_chat", R._post_chat, p, msgs(), 10, deadline=d05())
+    slow_call("W2_post_chat_synthesis", R._post_chat_synthesis, p, msgs(), 10, 0.2, 100, 10000, deadline=d05())
+    slow_call("W3_post_chat_message", R._post_chat_message, p, msgs(), 10, deadline=d05())
+    slow_call("W5_post_chat_stream", R._post_chat_stream, p, msgs(), 10, 0.2,
+              lambda s: None, None, None, d05(), 100, 10000)
+
+    # W4: streaming path with cancellation (fast trickle so stream is live)
+    srv2 = fake_server.start(26004, "trickle_sse", interval=0.05)
+    state = {"c": False}
+
+    def cancelled():
+        return state["c"]
+
+    with R.call_ledger_scope() as ledger:
+        t0 = time.monotonic()
+        try:
+            def on_delta(piece):
+                state["c"] = True  # cancel after first delta reaches wrapper
+
+            R._post_chat_message_stream(p2(provider=srv2), msgs(), 30, 0.2, None, None, None,
+                                        on_delta, cancelled, deadline=d30())
+            record("W4_stream_cancel", False, "completed after cancellation")
+        except R.LLMStreamCancelled:
+            dt = time.monotonic() - t0
+            record("W4_stream_cancel", dt < 5.0, f"LLMStreamCancelled at {dt:.2f}s after first delta")
+        except Exception as e:
+            record("W4_stream_cancel", False, f"wrong exc {type(e).__name__}: {e}")
+
+    # W6 C3 wrapper-level: late judge payload not accepted; root wall clock kept.
+    with R.call_ledger_scope() as ledger:
+        t0 = time.monotonic()
+        try:
+            R._post_chat(p, msgs(), 10, deadline=R.Deadline.from_timeout(0.8))
+            record("W6_late_payload", False, "late payload accepted (content returned)")
+        except R.LLMDeadlineExceeded:
+            dt = time.monotonic() - t0
+            recs = getattr(ledger, "records", None)
+            recs = recs() if callable(recs) else recs
+            reasons = [getattr(r, "reason", None) for r in (recs or [])]
+            record("W6_late_payload", dt < 1.8 and bool(recs),
+                   f"rejected at {dt:.2f}s (server needed {DELAY}s); ledger reasons={reasons}; "
+                   f"server connections={srv.stats['connections']}")
+
+    # W7 C5 exhausted root: expired deadline -> no new HTTP connection, no ledger record
+    cons = srv.stats["connections"]
+    with R.call_ledger_scope() as ledger:
+        try:
+            R._post_chat(p, msgs(), 10, deadline=R.Deadline.from_timeout(0.0))
+            record("W7_zero_budget_root", False, "call proceeded with zero budget")
+        except R.LLMDeadlineExceeded:
+            new_cons = srv.stats["connections"] - cons
+            recs = getattr(ledger, "records", None)
+            recs = recs() if callable(recs) else recs
+            record("W7_zero_budget_root", new_cons == 0,
+                   f"rejected pre-HTTP (new_connections={new_cons}, ledger_records={len(recs or [])}) => no reservation")
+        except Exception as e:
+            record("W7_zero_budget_root", False, f"wrong exc {type(e).__name__}: {e}")
+
+    # W8 root-vs-subwindow distinction: slice clamp semantics
+    try:
+        d = R.Deadline.from_timeout(5.0)
+        slice_val = d.call_timeout(0.5)
+        d2 = R.Deadline.from_timeout(0.0)
+        slice_expired = d2.call_timeout(10.0)
+        ok = abs(slice_val - 0.5) < 0.05 and slice_expired <= 0.0
+        record("W8_root_vs_subwindow", ok,
+               f"5s root with 0.5s slice -> {slice_val:.3f}s; expired root with 10s slice -> {slice_expired:.3f}s")
+    except Exception as e:
+        record("W8_root_vs_subwindow", False, f"unexpected {type(e).__name__}: {e}")
+
+    srv.shutdown(); srv2.shutdown()
+    fails = [n for n, ok, _ in results if not ok]
+    print(f"SUBCASES total={len(results)} failed={len(fails)} {fails}")
+    sys.exit(1 if fails else 0)
+
+
+def p2(provider=None, **kw):
+    return R.LLMProvider(name="fake2", api_key="k", base_url="http://127.0.0.1:26004/v1", model="fake-m")
+
+
+if __name__ == "__main__":
+    main()

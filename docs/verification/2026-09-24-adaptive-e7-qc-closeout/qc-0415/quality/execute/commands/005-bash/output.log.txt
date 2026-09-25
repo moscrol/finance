@@ -1,0 +1,8 @@
+endpoint framing verified
+PASS P__post_chat: reached=True deadline_fwd=True cancel_fwd=False timeout=10 downstream=None
+PASS P__post_chat_synthesis: reached=True deadline_fwd=True cancel_fwd=False timeout=10 downstream=None
+PASS P__post_chat_message_stream: reached=True deadline_fwd=True cancel_fwd=True timeout=10 downstream=LLMStreamAlreadyEmitted: 'NoneType' object is not callable
+PASS P__post_chat_message: reached=True deadline_fwd=True cancel_fwd=False timeout=10 downstream=None
+PASS P__post_chat_stream: reached=True deadline_fwd=True cancel_fwd=True timeout=10 downstream=None
+PASS Z1_zero_budget_no_http: exc=LLMDeadlineExceeded served=0
+summary: 6/6 subcases passed

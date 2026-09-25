@@ -1,0 +1,28 @@
+"""Preserve all help-only observations before evaluating the original predicate."""
+import hashlib
+import json
+import os
+from pathlib import Path
+import subprocess
+
+ROOT=Path(__file__).resolve().parent
+OLD=Path('/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260924-0208')
+ENV={key:os.environ[key] for key in ('PATH','HOME','LANG','TMPDIR') if key in os.environ}
+rows=[]
+for axis in ('spec','quality'):
+ source=OLD/axis/'tools.sb'
+ original=source.read_bytes()
+ patched=ROOT/(axis+'.security-boundary-v2.sb')
+ with patched.open('xb') as output:
+  output.write(original+b'\n(deny process-exec (literal "/usr/bin/security"))\n')
+ for name,profile in [('original-policy',source),('deny-cli-control',patched)]:
+  args=['/usr/bin/sandbox-exec','-f',str(profile),'/usr/bin/security','help']
+  result=subprocess.run(args,capture_output=True,text=True,env=ENV,timeout=10)
+  rows.append({'axis':axis,'case':name,'command':args,'profile_sha256':hashlib.sha256(profile.read_bytes()).hexdigest(),'exit_code':result.returncode,'stdout':result.stdout,'stderr':result.stderr,'original_predicate':result.returncode!=0 and 'execv()' in result.stderr and 'Operation not permitted' in result.stderr})
+ assert source.read_bytes()==original
+receipt={'credential_read_attempted':False,'model_requests':0,'old_batch_resumed':False,'original_profiles_modified':False,'first_diagnostic':'original-policy group passed; deny group assertion failed before raw-output persistence; original script/profiles retained','scope':'execution of /usr/bin/security help only; not proof about every credential API','checks':rows}
+with (ROOT/'security-cli-boundary-v2.json').open('x') as output:
+ json.dump(receipt,output,indent=2)
+print(json.dumps([{key:row[key] for key in ('axis','case','exit_code','stderr','original_predicate')} for row in rows]))
+assert all(x['exit_code']==0 for x in rows if x['case']=='original-policy')
+assert all(x['original_predicate'] for x in rows if x['case']=='deny-cli-control')

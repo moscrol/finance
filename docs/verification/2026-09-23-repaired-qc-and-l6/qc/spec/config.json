@@ -1,0 +1,34 @@
+{
+  "tree": "/Users/a77/.finance-runtime/reviews/pr868-repaired-20260923-2111/candidate",
+  "python": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "author": "/Users/a77/.finance-runtime/reviews/pr868-repaired-20260923-2111/candidate",
+  "revision": "ac11027fa75ee6a988ab90ab81e0329159964643",
+  "baseline": "626d8a508c1c988ff094110b371987e6afdcdd15",
+  "axis": "spec",
+  "thinking": "low",
+  "max_output_tokens": 8192,
+  "provider": "glm-direct-review",
+  "model": "glm-5.3",
+  "upstream_port": 443,
+  "upstream_url": "https://open.bigmodel.cn/api/coding/paas/v4",
+  "stage_tools": {
+    "gateway": [
+      "read",
+      "write"
+    ],
+    "explore": [
+      "read",
+      "write",
+      "deliver_stage"
+    ],
+    "execute": [
+      "read",
+      "write",
+      "bash",
+      "deliver_stage"
+    ],
+    "report": [
+      "deliver_stage"
+    ]
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "identity_before": {
+    "revision": "fe548838b21f5c0a605f73333593cbd1ce805c2f",
+    "status": ""
+  },
+  "identity_after": {
+    "revision": "fe548838b21f5c0a605f73333593cbd1ce805c2f",
+    "status": ""
+  },
+  "command": [
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "--basetemp=/Users/a77/.finance-runtime/reviews/pr868-admission-diagnostic-20260923-2218/pytest",
+    "intelligence/tests/test_llm_timeout_diagnostic.py",
+    "intelligence/tests/test_llm_call_ledger_usage.py",
+    "intelligence/tests/test_llm_refine_tool_stream.py",
+    "intelligence/tests/test_episode_semantic_verifier.py",
+    "tests/test_pi_review_repair.py",
+    "tests/test_adaptive_l6_audit.py",
+    "tests/test_retrieval_readiness.py"
+  ],
+  "exit_code": 0,
+  "elapsed_seconds": 70.85627899994142
+}

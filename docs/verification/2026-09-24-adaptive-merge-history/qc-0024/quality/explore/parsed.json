@@ -1,0 +1,27 @@
+{
+  "complete": true,
+  "probe_files": [
+    "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260924-0024/quality/work/probes/probe_c1_transport_v2.py",
+    "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260924-0024/quality/work/probes/probe_c2_refine_calls.py",
+    "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260924-0024/quality/work/probes/probe_c3_c5_judge_window.py"
+  ],
+  "claims_examined": [
+    "C1",
+    "C2",
+    "C3",
+    "C4",
+    "C5",
+    "C6"
+  ],
+  "limits": "本阶段仅阅读源码并撰写探针，未执行任何代码（bash 禁用）。v1 探针含错误块，未删除，执行阶段应仅使用 v2。判官晚载荷/取消等均以本地 127.0.0.1:26001-26008 假 HTTP 服务为边界；episode_semantic_verifier 仅测纯窗口函数（duck-type 假 ResearchDeadline），未端到端驱动完整 verifier。C3 的 report_received/unavailable 字段在语义结果对象上的直接断言未覆盖（需在 execute 阶段视结果补充或如实报告缺口）。C2 转发验证依赖 http_transport_override 注入（生产路径无 override，仍经同一 _open_deadline_http_response 包装），并由 probe_c2 part_b 的真实传输层行为子例补强。",
+  "next_stage_commands": [
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python /Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260924-0024/quality/work/probes/probe_c1_transport_v2.py",
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python /Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260924-0024/quality/work/probes/probe_c2_refine_calls.py",
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python /Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260924-0024/quality/work/probes/probe_c3_c5_judge_window.py"
+  ],
+  "probe_design": "probe_c1_transport_v2: 7 子例 — A 正向成功；B trickle 流超绝对 deadline(触发于流式阶段)；C is_cancelled 流中取消(须已收到块)；D timeout=10 vs 共享 deadline=0.5 对 2.9s 服务(区分 10s 片与共享窗)；E 停滞父进程下 worker Timer 自杀须 returncode==124；F 已过期 deadline 不 spawn(observer 无 spawn_started)；G 0.6s 预算内含 spawn+request_sent 且被 1.5s header 延迟打断(C6 启动计入预算)。probe_c2_refine_calls: A 五个调用点(_post_chat/_post_chat_synthesis/_post_chat_message/_post_chat_message_stream/_post_chat_stream)经 override 记录 opener 验证 deadline 对象同一转发与流式 is_cancelled 转发；B 真实传输层 10s+0.5s 共享 deadline 行为；C 台账耗尽(call_ledger_scope max_calls=1 先 reserve)后 _post_chat 抛 LLMCallBudgetExceeded 且 opener 0 次调用(无 HTTP 无预订)。probe_c3_c5_judge_window: C3 晚判官载荷(0.8s 预算 vs 2.9s 上游)不得被接受；C5 根剩余 0 -> 尝试报价 ()(expired root)；根 300s 但判官窗残片 0.4s -> 无完整尝试(subwindow exhausted)；leftover_window_blocks_complete_attempt 三态(0.4 True / None False / 10 False)。",
+  "stage": "explore",
+  "axis": "quality",
+  "revision": "5e6974d3946f48c4f27c8847830d1a17c0529b41",
+  "baseline": "c9dd71dfd678855b61662100ec74625b92ad1f1b"
+}
