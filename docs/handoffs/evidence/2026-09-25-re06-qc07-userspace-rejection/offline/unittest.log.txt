@@ -1,0 +1,41 @@
+test_artifact_process_cannot_write_receipts_or_other_stage (tests.test_review_io_sandbox.ReviewIOTests.test_artifact_process_cannot_write_receipts_or_other_stage) ... ok
+test_child_cannot_link_evidence_into_scratch (tests.test_review_io_sandbox.ReviewIOTests.test_child_cannot_link_evidence_into_scratch) ... ok
+test_child_writes_only_own_scratch (tests.test_review_io_sandbox.ReviewIOTests.test_child_writes_only_own_scratch) ... ok
+test_literal_evidence_write_is_rejected (tests.test_review_io_sandbox.ReviewIOTests.test_literal_evidence_write_is_rejected) ... ok
+test_snapshot_regular_file_once (tests.test_review_io_sandbox.ReviewIOTests.test_snapshot_regular_file_once) ... ok
+test_snapshot_rejects_symlink_hardlink_fifo_and_large_file (tests.test_review_io_sandbox.ReviewIOTests.test_snapshot_rejects_symlink_hardlink_fifo_and_large_file) ... ok
+test_snapshot_rejects_symlink_parent (tests.test_review_io_sandbox.ReviewIOTests.test_snapshot_rejects_symlink_parent) ... ok
+test_unexpected_write_rule_is_rejected (tests.test_review_io_sandbox.ReviewIOTests.test_unexpected_write_rule_is_rejected) ... ok
+test_unknown_profile_is_rejected (tests.test_review_io_sandbox.ReviewIOTests.test_unknown_profile_is_rejected) ... ok
+test_without_os_restriction_receipt_overwrite_is_observable (tests.test_review_io_sandbox.ReviewIOTests.test_without_os_restriction_receipt_overwrite_is_observable) ... ok
+test_write_ancestor_of_evidence_is_rejected (tests.test_review_io_sandbox.ReviewIOTests.test_write_ancestor_of_evidence_is_rejected) ... ok
+test_write_inside_evidence_is_rejected (tests.test_review_io_sandbox.ReviewIOTests.test_write_inside_evidence_is_rejected) ... ok
+test_cli_real_request_rejects_receipt_and_allows_report (tests.test_review_artifact_writer.ArtifactWriterTests.test_cli_real_request_rejects_receipt_and_allows_report) ... ok
+test_each_stage_can_write_only_its_deliverables (tests.test_review_artifact_writer.ArtifactWriterTests.test_each_stage_can_write_only_its_deliverables) ... ok
+test_frozen_initial_probe_cannot_be_overwritten (tests.test_review_artifact_writer.ArtifactWriterTests.test_frozen_initial_probe_cannot_be_overwritten) ... ok
+test_group_and_frozen_input_boundaries (tests.test_review_artifact_writer.ArtifactWriterTests.test_group_and_frozen_input_boundaries) ... ok
+test_hardlink_cannot_truncate_receipt (tests.test_review_artifact_writer.ArtifactWriterTests.test_hardlink_cannot_truncate_receipt) ... ok
+test_inventory_and_ui_initial_are_group_scoped (tests.test_review_artifact_writer.ArtifactWriterTests.test_inventory_and_ui_initial_are_group_scoped) ... ok
+test_observed_receipt_overwrite_is_denied (tests.test_review_artifact_writer.ArtifactWriterTests.test_observed_receipt_overwrite_is_denied) ... ok
+test_other_host_evidence_paths_are_denied (tests.test_review_artifact_writer.ArtifactWriterTests.test_other_host_evidence_paths_are_denied) ... ok
+test_removing_policy_reproduces_the_overwrite (tests.test_review_artifact_writer.ArtifactWriterTests.test_removing_policy_reproduces_the_overwrite) ... ok
+test_supplemental_probe_is_create_only (tests.test_review_artifact_writer.ArtifactWriterTests.test_supplemental_probe_is_create_only) ... ok
+test_symlink_file_cannot_redirect_to_receipt (tests.test_review_artifact_writer.ArtifactWriterTests.test_symlink_file_cannot_redirect_to_receipt) ... ok
+test_symlink_parent_is_denied (tests.test_review_artifact_writer.ArtifactWriterTests.test_symlink_parent_is_denied) ... ok
+test_unknown_identity_and_traversal_fail_closed (tests.test_review_artifact_writer.ArtifactWriterTests.test_unknown_identity_and_traversal_fail_closed) ... ok
+test_all_owners_use_the_same_contract (tests.test_qc_userspace_isolation.QCUserspaceIsolationTests.test_all_owners_use_the_same_contract) ... ok
+test_current_scratch_explicit_and_cleared_environment_fallback (tests.test_qc_userspace_isolation.QCUserspaceIsolationTests.test_current_scratch_explicit_and_cleared_environment_fallback) ... ok
+test_explicit_default_disagreement_rejected (tests.test_qc_userspace_isolation.QCUserspaceIsolationTests.test_explicit_default_disagreement_rejected) ... ok
+test_missing_host_environment_rejected (tests.test_qc_userspace_isolation.QCUserspaceIsolationTests.test_missing_host_environment_rejected) ... ok
+test_missing_invocation_directory_rejected (tests.test_qc_userspace_isolation.QCUserspaceIsolationTests.test_missing_invocation_directory_rejected) ... ok
+test_old_work_root_rejected (tests.test_qc_userspace_isolation.QCUserspaceIsolationTests.test_old_work_root_rejected) ... ok
+test_other_invocation_and_evidence_targets_rejected (tests.test_qc_userspace_isolation.QCUserspaceIsolationTests.test_other_invocation_and_evidence_targets_rejected) ... ok
+test_relative_and_traversing_target_rejected (tests.test_qc_userspace_isolation.QCUserspaceIsolationTests.test_relative_and_traversing_target_rejected) ... ok
+test_restoring_old_work_guard_breaks_the_valid_scratch_contract (tests.test_qc_userspace_isolation.QCUserspaceIsolationTests.test_restoring_old_work_guard_breaks_the_valid_scratch_contract) ... ok
+test_symlink_target_rejected (tests.test_qc_userspace_isolation.QCUserspaceIsolationTests.test_symlink_target_rejected) ... ok
+test_unknown_owner_and_wrong_depth_rejected (tests.test_qc_userspace_isolation.QCUserspaceIsolationTests.test_unknown_owner_and_wrong_depth_rejected) ... ok
+
+----------------------------------------------------------------------
+Ran 36 tests in 0.798s
+
+OK

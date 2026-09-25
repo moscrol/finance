@@ -1,0 +1,55 @@
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/candidate/.venv-workbench/lib/python3.12/site-packages/pytest/__main__.py", line 9, in <module>
+    raise SystemExit(pytest.console_main())
+                     ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/candidate/.venv-workbench/lib/python3.12/site-packages/_pytest/config/__init__.py", line 201, in console_main
+    code = main()
+           ^^^^^^
+  File "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/candidate/.venv-workbench/lib/python3.12/site-packages/_pytest/config/__init__.py", line 156, in main
+    config = _prepareconfig(args, plugins)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/candidate/.venv-workbench/lib/python3.12/site-packages/_pytest/config/__init__.py", line 341, in _prepareconfig
+    config = pluginmanager.hook.pytest_cmdline_parse(
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/candidate/.venv-workbench/lib/python3.12/site-packages/pluggy/_hooks.py", line 512, in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/candidate/.venv-workbench/lib/python3.12/site-packages/pluggy/_manager.py", line 120, in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/candidate/.venv-workbench/lib/python3.12/site-packages/pluggy/_callers.py", line 167, in _multicall
+    raise exception
+  File "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/candidate/.venv-workbench/lib/python3.12/site-packages/pluggy/_callers.py", line 139, in _multicall
+    teardown.throw(exception)
+  File "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/candidate/.venv-workbench/lib/python3.12/site-packages/_pytest/helpconfig.py", line 105, in pytest_cmdline_parse
+    config = yield
+             ^^^^^
+  File "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/candidate/.venv-workbench/lib/python3.12/site-packages/pluggy/_callers.py", line 121, in _multicall
+    res = hook_impl.function(*args)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/candidate/.venv-workbench/lib/python3.12/site-packages/_pytest/config/__init__.py", line 1140, in pytest_cmdline_parse
+    self.parse(args)
+  File "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/candidate/.venv-workbench/lib/python3.12/site-packages/_pytest/config/__init__.py", line 1494, in parse
+    self._preparse(args, addopts=addopts)
+  File "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/candidate/.venv-workbench/lib/python3.12/site-packages/_pytest/config/__init__.py", line 1377, in _preparse
+    self.pluginmanager.consider_preparse(args, exclude_only=False)
+  File "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/candidate/.venv-workbench/lib/python3.12/site-packages/_pytest/config/__init__.py", line 787, in consider_preparse
+    self.consider_pluginarg(parg)
+  File "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/candidate/.venv-workbench/lib/python3.12/site-packages/_pytest/config/__init__.py", line 810, in consider_pluginarg
+    self.import_plugin(arg, consider_entry_points=True)
+  File "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/candidate/.venv-workbench/lib/python3.12/site-packages/_pytest/config/__init__.py", line 858, in import_plugin
+    __import__(importspec)
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+  File "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/candidate/.venv-workbench/lib/python3.12/site-packages/_pytest/assertion/rewrite.py", line 185, in exec_module
+    exec(co, module.__dict__)
+  File "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/inputs/qc_userspace_isolation.py", line 9, in <module>
+    assert TARGET.is_relative_to((ROOT/'work').resolve())
+AssertionError: assert False
+ +  where False = is_relative_to(PosixPath('/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/work'))
+ +    where is_relative_to = PosixPath('/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/scratch/controller-v3/controller_preflight-1790349291387123000/users').is_relative_to
+ +    and   PosixPath('/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/work') = resolve()
+ +      where resolve = (PosixPath('/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07') / 'work').resolve

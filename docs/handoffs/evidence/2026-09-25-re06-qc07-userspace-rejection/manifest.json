@@ -1,0 +1,103 @@
+{
+  "scope": "QC07 first real executor plugin rejection and separate offline repair",
+  "status": "BLOCKED_EXECUTOR_PLUGIN_IMPORT",
+  "archive_count": 16,
+  "artifacts": [
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/evidence/controller-v3/controller_preflight-1790349291387123000/child.sb",
+      "archive": "failure/evidence/controller-v3/controller_preflight-1790349291387123000/child.sb",
+      "bytes": 4230,
+      "sha256": "c1ec7cf2c16979b5641446ea4740e60889fe0f02bfeb1aab3f4418c22f2219cd"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/evidence/controller-v3/controller_preflight-1790349291387123000/receipt.json",
+      "archive": "failure/evidence/controller-v3/controller_preflight-1790349291387123000/receipt.json",
+      "bytes": 3674,
+      "sha256": "a4e40d8388b03c9cc3cd1e22cca2f9be40d1c39360736ced6959d047408270d3"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/evidence/controller-v3/controller_preflight-1790349291387123000/stdout.log.txt",
+      "archive": "failure/evidence/controller-v3/controller_preflight-1790349291387123000/stdout.log.txt",
+      "bytes": 5761,
+      "sha256": "0491a71a20dc9bbbf4a6ecb50456b2d3e6432c6926633c2e38f4239f9f8663ed"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/execution-boundary-preflight-v3-1790349291351155000/controller_preflight.log.txt",
+      "archive": "failure/execution-boundary-preflight-v3-1790349291351155000/controller_preflight.log.txt",
+      "bytes": 6104,
+      "sha256": "f736c464ffc27e3d2a31e3b55a3d27ea75c6cf942fca47cc5dab466e834ea2dc"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/execution-boundary-preflight-v3-1790349291351155000/receipt.json",
+      "archive": "failure/execution-boundary-preflight-v3-1790349291351155000/receipt.json",
+      "bytes": 803,
+      "sha256": "08ba3d5e6bef0d048aa29d4d42b457076ffb7aa6a23097ed322a7c88c0720740"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/execution_boundary_preflight_v3.py",
+      "archive": "frozen-sources/execution_boundary_preflight_v3.py.txt",
+      "bytes": 4037,
+      "sha256": "353852e358b0af7b7d29fbba709b119ac59d2acc46a5b92cb9f28e33947ed3bb"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/inputs/qc_userspace_isolation.py",
+      "archive": "frozen-sources/inputs/qc_userspace_isolation.py.txt",
+      "bytes": 375,
+      "sha256": "d132e700abfa926b5e87c3adeee84d152d705b43d7fead4f38c7a19b98b41b2e"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/run_probe_v3.py",
+      "archive": "frozen-sources/run_probe_v3.py.txt",
+      "bytes": 9636,
+      "sha256": "d6cc600c5298682c8bcb1f518864feafbb3e9623e3d68c38524c2e58b41d3786"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/work/reviewer-pytest-admissions.jsonl",
+      "archive": "frozen-sources/work/reviewer-pytest-admissions.jsonl.txt",
+      "bytes": 759,
+      "sha256": "48ff5d066ae593985fea658f7ed6cbcdfcabad0cca9e38bdb875234f67663111"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc07-userspace-incident-0925/budget.json",
+      "archive": "offline/budget.json",
+      "bytes": 3917,
+      "sha256": "85e240a60a714c6b90beaf0e70cf84afded270d2158a444bc0ad5e10bafc3dba"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc07-userspace-incident-0925/incident.json",
+      "archive": "offline/incident.json",
+      "bytes": 3027,
+      "sha256": "5faebdb2b85d1250c84cb2e281bf7e9b53c8cf295e5fb7fbc0f2a30bfc91ebb5"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc07-userspace-incident-0925/ruff.log.txt",
+      "archive": "offline/ruff.log.txt",
+      "bytes": 19,
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc07-userspace-incident-0925/unittest.log.txt",
+      "archive": "offline/unittest.log.txt",
+      "bytes": 5459,
+      "sha256": "a7c7009930c2e9ead2360ec1973a766605705466c3d2b600125f746e228a3fd5"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/record_qc07_userspace_failure.py",
+      "archive": "recorder.py.txt",
+      "bytes": 7224,
+      "sha256": "007730e9afbf1c5847128398c1e4a264d5f3906b39088e297d827e9761ce3d89"
+    },
+    {
+      "source": "/Users/a77/fwp-wt-re06-closeout-refresh-0925/scripts/review_probes/qc_userspace_isolation.py",
+      "archive": "repair/qc_userspace_isolation.py.txt",
+      "bytes": 1462,
+      "sha256": "a9b93fbf5ff230e651d7835b3355619aa7a0091f24f8a36797f6d22d18418551"
+    },
+    {
+      "source": "/Users/a77/fwp-wt-re06-closeout-refresh-0925/tests/test_qc_userspace_isolation.py",
+      "archive": "repair/test_qc_userspace_isolation.py.txt",
+      "bytes": 5878,
+      "sha256": "fecad581c7aaa6e1de7cbe34150b7c3cdfb736d4a96e0b592196c5d8e1f8a417"
+    }
+  ]
+}
