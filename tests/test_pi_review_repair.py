@@ -154,18 +154,22 @@ def test_prepare_fails_closed_on_changed_archive(tmp_path):
 def configure_sandbox(folder, tree):
     config = load(folder / "config.json")
     old_tree = config["tree"]
-    old_venv = str(Path(config["python"]).parent.parent)
+    old_venv = Path(config["python"]).parent.parent
     config.update(tree=str(tree), python=sys.executable)
     dump(folder / "config.json", config)
     profile = folder / "tools.sb"
-    profile.write_text(profile.read_text().replace(
+    policy = profile.read_text().replace(
         sandbox_metadata(Path(old_tree), folder), sandbox_metadata(tree, folder),
-    ).replace(old_tree, str(tree)).replace(
-        old_venv, str(Path(sys.executable).parent.parent),
-    ).replace(
-        f'(literal "{Path(old_venv).parent}")',
-        f'(literal "{Path(sys.executable).parent.parent.parent}")',
-    ))
+    ).replace(old_tree, str(tree))
+    # The disposable policy must follow the interpreter selected by this test run.
+    for selector, previous, current in (
+        ("subpath", old_venv, Path(sys.prefix)),
+        ("literal", old_venv.parent, Path(sys.prefix).parent),
+    ):
+        anchor = f"({selector} {json.dumps(str(previous))})"
+        assert policy.count(anchor) == 1
+        policy = policy.replace(anchor, f"({selector} {json.dumps(str(current))})")
+    profile.write_text(policy)
 
 
 def sandbox_inputs(tmp_path, axis, tree):
@@ -394,6 +398,36 @@ def runtime(tmp_path, peer):
         assert code.count(original) == 1
         control.write_text(code.replace(original, f"HTTPConnection('127.0.0.1', {peer['port']}, timeout=122)"))
     return root
+
+
+def test_runtime_sandbox_uses_selected_python_without_widening_access(runtime):
+    folder = runtime / "spec"
+    config = load(folder / "config.json")
+    tree = Path(config["tree"])
+    secret = tree / ".claude/private-fixture.txt"
+    secret.parent.mkdir()
+    secret.write_text("private fixture only")
+    allowed = folder / "work/allowed.txt"
+    forbidden = tree / "forbidden.txt"
+    script = """
+from pathlib import Path
+import sys
+assert sys.executable == sys.argv[1]
+Path(sys.argv[2]).write_text('allowed')
+for operation in (lambda: Path(sys.argv[3]).read_text(), lambda: Path(sys.argv[4]).write_text('forbidden')):
+    try:
+        operation()
+    except PermissionError:
+        pass
+    else:
+        raise AssertionError('sandbox boundary was widened')
+"""
+    proc = run(["/usr/bin/sandbox-exec", "-f", str(folder / "tools.sb"), config["python"], "-B", "-c",
+                script, sys.executable, str(allowed), str(secret), str(forbidden)], tree)
+    assert proc.returncode == 0, (proc.stdout, proc.stderr)
+    assert allowed.read_text() == "allowed"
+    assert secret.read_text() == "private fixture only"
+    assert not forbidden.exists()
 
 
 @pytest.fixture

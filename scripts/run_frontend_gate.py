@@ -67,11 +67,15 @@ def run_gate(
     if output.is_relative_to(tree):
         raise ValueError("--output must be outside the tested checkout")
     output.mkdir(parents=True, exist_ok=False)
+    # Test-server startup events must not leak into the canonical deployment ledger.
+    env = dict(os.environ if env is None else env)
+    env["FINANCE_DEPLOY_LEDGER"] = str(output / "deploy-ledger.jsonl")
     receipt = {
         "schema": 1,
         "leaf": "frontend",
         "tree": str(tree),
         "revision": expected_revision,
+        "deploy_ledger": env["FINANCE_DEPLOY_LEDGER"],
         "runner_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
         "started_at": now(),
         "identity_before": None,
