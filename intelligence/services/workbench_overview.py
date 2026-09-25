@@ -11,6 +11,7 @@ import duckdb
 from intelligence.services.market_moneyflow import load_moneyflow_snapshot
 from intelligence.services.forecast_learning import learning_feedback_projection
 from intelligence.services.research_queue import load_research_queue
+from intelligence.services.opinion_events import OpinionDataError, known_at, load_events
 
 
 _FRESHNESS_TABLES = (
@@ -495,13 +496,36 @@ def _aggregate_winrate(
 
 def _load_sellside(
     knowledge_wiki: Path,
+    *,
+    as_of: str | None = None,
+    warnings: list[str] | None = None,
 ) -> tuple[
     list[dict[str, object]],
     dict[str, list[dict[str, object]]],
     str | None,
 ]:
     store = knowledge_wiki / "raw" / "theme-radar" / "opinion-store"
-    outcomes = _read_jsonl(store / "outcomes.jsonl")
+    cutoff_date = as_of or date.today().isoformat()
+    try:
+        events = load_events(knowledge_wiki, as_of=cutoff_date, warnings=warnings)
+    except (OpinionDataError, OSError, UnicodeError) as exc:
+        events = []
+        if warnings is not None:
+            warnings.append(f"卖方事件源不可用，未回退原始事件：{exc}")
+    eligible = {event["event_id"]: event for event in events if event.get("event_id")}
+    def outcome_known(row: dict) -> bool:
+        try:
+            return known_at(row.get("computed_at")) <= known_at(cutoff_date)
+        except ValueError:
+            return False
+
+    # Outcomes for an older semantic revision cannot validate its replacement.
+    outcomes = [
+        row for row in _read_jsonl(store / "outcomes.jsonl")
+        if row.get("event_id") in eligible
+        and row.get("revision_id") == eligible[row["event_id"]].get("revision_id")
+        and outcome_known(row)
+    ]
     names = _source_names(store / "sources.json")
     win5 = _aggregate_winrate(outcomes, names, 5)
     win10 = _aggregate_winrate(outcomes, names, 10)
@@ -543,7 +567,6 @@ def _load_sellside(
         reverse=True,
     )
 
-    events = _read_jsonl(store / "opinion-events.jsonl")
     latest_date = max((str(row.get("report_date") or "") for row in events), default="") or None
     flow = {"priority": [], "confirmation": [], "caution": []}
     seen: set[tuple[str, str]] = set()
@@ -557,7 +580,11 @@ def _load_sellside(
             continue
         seen.add(dedupe)
         mentions = int(event.get("mention_count") or 0)
-        has_hard = bool(event.get("hard_evidence"))
+        has_hard = (
+            bool(event.get("hard_evidence"))
+            and event.get("evidence_layer") in {"L1", "L2"}
+            and event.get("verification_status") == "verified"
+        )
         if mentions >= 20:
             bucket = "caution"
             reason = "覆盖较拥挤，先观察兑现与掉队"
@@ -857,7 +884,9 @@ def build_workbench_overview(
     queue_path, queue_payload = _latest_research_queue(root, None)
     signal_payload = queue_payload or agent_payload
     agent_date = str(signal_payload.get("date") or agent_payload.get("date") or "") or None
-    winrate, sellside_flow, sellside_date = _load_sellside(wiki)
+    winrate = []
+    sellside_flow = {"priority": [], "confirmation": [], "caution": []}
+    sellside_date = None
     forecast_performance = _load_forecast_performance(root)
     learning_feedback = learning_feedback_projection(
         root / "docs" / "learning" / "forecast-lessons"
@@ -915,6 +944,13 @@ def build_workbench_overview(
             target_date = _date_text(
                 con.execute("SELECT MAX(trade_date) FROM fact_market_daily").fetchone()[0]
             )
+        sellside_warnings = []
+        if target_date:
+            winrate, sellside_flow, sellside_date = _load_sellside(
+                wiki, as_of=target_date, warnings=sellside_warnings,
+            )
+        else:
+            sellside_warnings.append("市场日期缺失，未读取无截止日的卖方观点")
         agent_path, agent_payload = _latest_daily_agent(root, target_date)
         queue_path, queue_payload = _latest_research_queue(root, target_date)
         signal_payload = queue_payload or agent_payload
@@ -968,6 +1004,14 @@ def build_workbench_overview(
                     l2_status["message"] = "扫描步骤不完整"
                 l2_status["row_count"] = sum(int(row[2] or 0) for row in markers)
         statuses.append(l2_status)
+        statuses.append({
+            "key": "sellside",
+            "label": "卖方观点",
+            "date": sellside_date,
+            "status": "partial" if sellside_warnings else "missing" if not sellside_date else "complete" if sellside_date == target_date else "stale",
+            "row_count": sum(len(items) for items in sellside_flow.values()),
+            "message": "；".join(sellside_warnings) or "按报告日及系统可得日截断；收益统计不代表严格历史回测",
+        })
         statuses.append(
             {
                 "key": "knowledge",
