@@ -141,8 +141,16 @@ def sample_context(*, timeout: float, home: Path | None = None) -> dict:
     except (OSError, subprocess.SubprocessError) as exc:
         errors.append(f"lsof 采样失败: {type(exc).__name__}; process usage unknown")
 
+    home_real = Path(os.path.realpath(home))
+
     def add_reference(raw: str, source: Path, kind: str = "launcher"):
-        references.append({"kind": kind, "path": os.path.realpath(raw), "source": str(source)})
+        target = Path(os.path.realpath(raw))
+        # A launcher whose WorkingDirectory is $HOME (or `/`, `/Users`) is not the code root of any
+        # tree; keeping it would mark every tree under the home directory as referenced.
+        # 2026-09-25: an exec-server plist whose WorkingDirectory was the home directory blocked 37 trees.
+        if kind != "process" and home_real.is_relative_to(target):
+            return
+        references.append({"kind": kind, "path": str(target), "source": str(source)})
 
     for directory, is_plist in ((home / "Library/LaunchAgents", True), (home / ".local/bin", False)):
         try:
