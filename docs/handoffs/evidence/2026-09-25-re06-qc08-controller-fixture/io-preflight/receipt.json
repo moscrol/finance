@@ -1,0 +1,106 @@
+{
+  "status": "PASS",
+  "real_model_requests": 0,
+  "pytest_invocations": 0,
+  "results": [
+    {
+      "group": "e2",
+      "stage": "explore",
+      "actual_sdk_file_tools": true,
+      "receipt_unchanged": true,
+      "direct_os_write_denied": true
+    },
+    {
+      "group": "e2",
+      "stage": "execute",
+      "actual_sdk_file_tools": true,
+      "receipt_unchanged": true,
+      "direct_os_write_denied": true
+    },
+    {
+      "group": "e2",
+      "stage": "report",
+      "actual_sdk_file_tools": true,
+      "receipt_unchanged": true,
+      "direct_os_write_denied": true
+    },
+    {
+      "group": "timer",
+      "stage": "explore",
+      "actual_sdk_file_tools": true,
+      "receipt_unchanged": true,
+      "direct_os_write_denied": true
+    },
+    {
+      "group": "timer",
+      "stage": "execute",
+      "actual_sdk_file_tools": true,
+      "receipt_unchanged": true,
+      "direct_os_write_denied": true
+    },
+    {
+      "group": "timer",
+      "stage": "report",
+      "actual_sdk_file_tools": true,
+      "receipt_unchanged": true,
+      "direct_os_write_denied": true
+    },
+    {
+      "group": "consent",
+      "stage": "explore",
+      "actual_sdk_file_tools": true,
+      "receipt_unchanged": true,
+      "direct_os_write_denied": true
+    },
+    {
+      "group": "consent",
+      "stage": "execute",
+      "actual_sdk_file_tools": true,
+      "receipt_unchanged": true,
+      "direct_os_write_denied": true
+    },
+    {
+      "group": "consent",
+      "stage": "report",
+      "actual_sdk_file_tools": true,
+      "receipt_unchanged": true,
+      "direct_os_write_denied": true
+    },
+    {
+      "role": "native_probe_child",
+      "scratch_write": true,
+      "receipt_and_artifact_and_frozen_write_denied": true,
+      "links_denied": true,
+      "descendant_restriction_inherited": true
+    }
+  ],
+  "source_sha256": {
+    "review_v3.mjs": "c5b287ce178cd57550999221c49944e4e8f6c9add6fea6b90429c0fdcb7b92e8",
+    "probe_execution_menu.mjs": "227530d607b6eb435325ecff1b38211a9a0ee08f3eaf1e4df9e77fc2a352606f",
+    "file_tool.py": "3abdab5f93a01578855a549c43c6e47a50156604bdf39188380a509e8f5ca057",
+    "review_artifact_writer.py": "8d66b0cc21351540246870b468d542cb90bc3d0e555f5fc3abbf4738240ff750",
+    "review_io_sandbox.py": "bf4f1f0c9e2f08855ddd95178ecadb2e6e429315232927e8305f49f45cd6c12b",
+    "prepare_write_profiles.py": "d0cac6275dc0d443185249646b2931be25ab4278144b91d58ca4c87705625d0c",
+    "config.json": "01664cd621f249d47f41aab02b8804c0e95124d786831e5c7274b72dde1a4e54",
+    "provider-template.json": "d3030f00ab3ba2d67c27d1fba2fcbdf60af34ea0d0d675e8bba704dfc54094b4",
+    "tools-v3.sb": "ca1d0ac4f98d379efe8bd1ef5a8fc9f2124d578c9cc234329c92fe2de06f2b1a",
+    "run_probe_v3.py": "d6cc600c5298682c8bcb1f518864feafbb3e9623e3d68c38524c2e58b41d3786",
+    "run_stage_v3.py": "fae524ab4fd5833366029b3b478d9b96feda6f3c9c3c7c25eeb3bb79e488c289",
+    "stage_admission_v3.py": "edc245bbfe47f66e92158c73e5d51de42b391b74c5600d7699e2ca3ec736d3fb",
+    "check_execution_v3.py": "a1a7f656b6100dfa0a9f7951afcc20bf86ce3f157c1b31e782bd1c4cbe246d99",
+    "run_gateway.py": "4cef6d45bd0a0ee525dff649fb1af8610c05b6592f6c27ebc0f1691ca011d3c1",
+    "execution_boundary_preflight_v3.py": "353852e358b0af7b7d29fbba709b119ac59d2acc46a5b92cb9f28e33947ed3bb",
+    "io_boundary_preflight.mjs": "017593a7473de85fc3b530307adbae2ba82b3d1256e7473071b89cca2777d218",
+    "model-explore-e2.sb": "f3fe8c4e4650b0cf4da0a43512878bb928474fd5b574a853e1ab027e17b03d3c",
+    "model-execute-e2.sb": "c64ab4055bf89066485bcf570fbfbbc953abc10d4d13c7ab4462314bebc8df06",
+    "model-report-e2.sb": "7a1f388f880aed1649e5f12252310f392fda68f0470ab8fef806fffaa8fd11b3",
+    "model-explore-timer.sb": "35c05eb075aa7a63bbe729dafce2d99a335b4d68dcc03337591ff45fc6ec940f",
+    "model-execute-timer.sb": "9882304b320049fcfc777b8ec18a0d04044dfe2f303ef5d43ac1f14af316e5ec",
+    "model-report-timer.sb": "1e6b00d15a86f98c366a6cab409d2bfacb08870e2d6fa7a5702ec20d02207cc8",
+    "model-explore-consent.sb": "ced9e16463860590a6162e3ccfd410f912b30a6dfa79f1bc8a1c8e8111868eae",
+    "model-execute-consent.sb": "a2e89c17709d7bd8d9eaa2bfa2fb51bab1b0919041fd6ef8292bb986487d4ec7",
+    "model-report-consent.sb": "982db35d52c48b13c42a84dec19d73ef266e194a426184051c12acd0a7525bda"
+  },
+  "evidence": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-08/io-boundary-preflight-1790351397854",
+  "scope": "file-tool and OS boundaries only; actual pytest/UI wrapper execution requires a separate resource-admitted preflight"
+}

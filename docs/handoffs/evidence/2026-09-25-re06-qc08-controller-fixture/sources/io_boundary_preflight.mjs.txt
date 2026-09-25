@@ -1,0 +1,93 @@
+// Real SDK file tools and sandbox processes, isolated fixtures, no model/pytest.
+import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+
+const root = path.dirname(fileURLToPath(import.meta.url));
+const config = JSON.parse(fs.readFileSync(path.join(root, 'config.json')));
+const out = path.join(root, 'io-boundary-preflight-' + Date.now());
+const fixture = path.join(out, 'fixture');
+fs.mkdirSync(fixture, { recursive: true });
+const copied = ['review_v3.mjs', 'probe_execution_menu.mjs', 'file_tool.py', 'review_artifact_writer.py', 'review_io_sandbox.py', 'prepare_write_profiles.py', 'config.json', 'provider-template.json'];
+for (const name of copied) fs.copyFileSync(path.join(root, name), path.join(fixture, name));
+fs.writeFileSync(path.join(fixture, 'tools-v3.sb'), fs.readFileSync(path.join(root, 'tools-v3.sb'), 'utf8').replaceAll(path.join(root, 'work'), path.join(fixture, 'work')));
+for (const name of ['work/tmp', 'work/users', 'inputs', 'evidence', 'scratch']) fs.mkdirSync(path.join(fixture, name), { recursive: true });
+const generated = spawnSync(config.python, ['-B', path.join(fixture, 'prepare_write_profiles.py')], { encoding: 'utf8' });
+fs.writeFileSync(path.join(out, 'profile-generation.log'), generated.stdout + generated.stderr);
+assert.equal(generated.status, 0, generated.stderr);
+const { install } = await import(pathToFileURL(path.join(fixture, 'review_v3.mjs')));
+const now = Math.floor(Date.now() / 1000);
+const token = 'fixture.' + Buffer.from(JSON.stringify({ plan: 'plus', exp: now + 4000, plan_exp: now + 4000 })).toString('base64url') + '.fixture';
+const results = [];
+for (const group of ['e2', 'timer', 'consent']) {
+  const owned = path.join(fixture, 'work', group);
+  const evidence = path.join(fixture, 'evidence', group);
+  fs.mkdirSync(evidence);
+  const receipt = path.join(evidence, 'receipt.json');
+  fs.writeFileSync(receipt, 'original');
+  for (const stage of ['explore', 'execute', 'report']) {
+    process.env.REVIEW_PHASE = stage;
+    process.env.REVIEW_GROUP = group;
+    const stageOut = path.join(out, stage + '-' + group);
+    fs.mkdirSync(path.join(stageOut, 'commands'), { recursive: true });
+    const tools = new Map();
+    install({ on() {}, registerTool(tool) { tools.set(tool.name, tool); }, registerProvider() {} }, { out: stageOut, token });
+    const write = (name, target, content = 'fixture artifact') => tools.get('write').execute(name, { path: target, content });
+    const read = target => tools.get('read').execute('read', { path: target, limit: 10 });
+    const doc = path.join(owned, { explore: 'EXPLORE.md', execute: 'EXECUTE.md', report: 'FINAL.md' }[stage]);
+    await write('owned', doc);
+    assert.match((await read(doc)).content[0].text, /fixture artifact/);
+    await read(receipt);
+    await read(path.join(config.tree, 'intelligence/services/product_value/consent.py'));
+    const other = group === 'e2' ? 'timer' : 'e2';
+    for (const target of [receipt, path.join(owned, 'runs/receipt.json'), path.join(fixture, 'inputs/host.json'), path.join(fixture, 'work', other, 'EXPLORE.md'), path.join(owned, stage === 'report' ? 'EXECUTE.md' : 'FINAL.md')]) {
+      await assert.rejects(write('forbidden', target));
+    }
+    await assert.rejects(read(path.join(fixture, 'work', other, 'probes/test_reviewer.py')));
+    await assert.rejects(read(path.join(root, 'config.json')));
+    if (stage !== 'report') {
+      const probe = path.join(owned, 'probes', `test_reviewer_${stage}.py`);
+      await write('new-probe', probe, 'def test_example():\n    assert True\n');
+      await assert.rejects(write('overwrite-probe', probe));
+      if (stage === 'execute') await assert.rejects(write('frozen-name', path.join(owned, 'probes/test_reviewer.py')));
+    } else {
+      await assert.rejects(write('report-probe', path.join(owned, 'probes/test_reviewer_report.py')));
+    }
+    fs.unlinkSync(doc);
+    fs.symlinkSync(receipt, doc);
+    await assert.rejects(write('symlink', doc));
+    fs.unlinkSync(doc);
+    fs.linkSync(receipt, doc);
+    await assert.rejects(write('hardlink', doc));
+    assert.equal(fs.readFileSync(receipt, 'utf8'), 'original');
+    fs.unlinkSync(doc);
+    const policy = path.join(fixture, `model-${stage}-${group}.sb`);
+    const code = `from pathlib import Path\np=Path(${JSON.stringify(receipt)})\ntry: p.write_text('corrupt')\nexcept PermissionError: pass\nelse: raise AssertionError('OS write boundary absent')\nprint('OS receipt write denied')\n`;
+    const child = spawnSync('/usr/bin/sandbox-exec', ['-f', policy, config.python, '-I', '-B', '-c', code], { encoding: 'utf8' });
+    fs.writeFileSync(path.join(stageOut, 'direct-os.log'), child.stdout + child.stderr);
+    assert.equal(child.status, 0, child.stderr);
+    results.push({ group, stage, actual_sdk_file_tools: true, receipt_unchanged: true, direct_os_write_denied: true });
+  }
+}
+const scratch = path.join(fixture, 'scratch', 'native-child');
+fs.mkdirSync(scratch);
+const guard = path.join(fixture, 'evidence/e2/receipt.json');
+const childCode = `from pathlib import Path\nimport os, subprocess, sys\nscratch=Path(${JSON.stringify(scratch)})\n(scratch/'allowed').write_text('ok')\nsource=Path(${JSON.stringify(guard)})\nfor raw in [${JSON.stringify(guard)}, ${JSON.stringify(path.join(fixture, 'work/e2/EXECUTE.md'))}, ${JSON.stringify(path.join(root, 'inputs/frozen-explore-e2-v3/probes/test_reviewer.py'))}]:\n    try: Path(raw).write_text('corrupt')\n    except PermissionError: pass\n    else: raise AssertionError('write escaped: '+raw)\nfor name, link in [('soft',os.symlink),('hard',os.link)]:\n    try:\n        target=scratch/name\n        link(source,target)\n        target.write_text('corrupt')\n    except PermissionError: pass\n    else: raise AssertionError(name+' link escaped')\ncode='from pathlib import Path; Path('+repr(str(source))+').write_text(\"corrupt\")'\nchild=subprocess.run([sys.executable,'-I','-c',code],capture_output=True,text=True)\nassert child.returncode!=0 and 'PermissionError' in child.stderr\nprint('scratch allowed; protected writes, links and descendant write denied')\n`;
+const hostCode = `import sys\nfrom pathlib import Path\nsys.path.insert(0,${JSON.stringify(root)})\nfrom review_io_sandbox import narrow_write_policy\nroot=Path(${JSON.stringify(fixture)})\nprofile=narrow_write_policy((root/'tools-v3.sb').read_text(),root/'work',directories=(Path(${JSON.stringify(scratch)}),),protected=(root/'evidence',root/'inputs',root/'work'))\n(root/'native-child.sb').write_text(profile)\n`;
+const policyResult = spawnSync(config.python, ['-I', '-B', '-c', hostCode], { encoding: 'utf8' });
+assert.equal(policyResult.status, 0, policyResult.stderr);
+const nativeChild = spawnSync('/usr/bin/sandbox-exec', ['-f', path.join(fixture, 'native-child.sb'), config.python, '-I', '-B', '-c', childCode], { encoding: 'utf8', env: { HOME: scratch, TMPDIR: scratch, PATH: '/usr/bin:/bin' } });
+fs.writeFileSync(path.join(out, 'native-child.log'), nativeChild.stdout + nativeChild.stderr);
+assert.equal(nativeChild.status, 0, nativeChild.stderr);
+assert.equal(fs.readFileSync(guard, 'utf8'), 'original');
+results.push({ role: 'native_probe_child', scratch_write: true, receipt_and_artifact_and_frozen_write_denied: true, links_denied: true, descendant_restriction_inherited: true });
+const files = [...copied, 'tools-v3.sb', 'run_probe_v3.py', 'run_stage_v3.py', 'stage_admission_v3.py', 'check_execution_v3.py', 'run_gateway.py', 'execution_boundary_preflight_v3.py', 'io_boundary_preflight.mjs'];
+for (const group of ['e2', 'timer', 'consent']) for (const stage of ['explore', 'execute', 'report']) files.push(`model-${stage}-${group}.sb`);
+const source_sha256 = Object.fromEntries(files.map(name => [name, createHash('sha256').update(fs.readFileSync(path.join(root, name))).digest('hex')]));
+const record = { status: 'PASS', real_model_requests: 0, pytest_invocations: 0, results, source_sha256, evidence: out, scope: 'file-tool and OS boundaries only; actual pytest/UI wrapper execution requires a separate resource-admitted preflight' };
+fs.writeFileSync(path.join(out, 'receipt.json'), JSON.stringify(record, null, 2), { flag: 'wx' });
+fs.writeFileSync(path.join(root, 'io-boundary-preflight.json'), JSON.stringify(record, null, 2), { flag: 'wx' });
+console.log(JSON.stringify(record));

@@ -1,0 +1,111 @@
+{
+  "at": "2026-09-25T15:56:40.915206+00:00",
+  "status": "BLOCKED_CONTROLLER_FIXTURE",
+  "revision": "a30e7e4594ac09310271739c8beb30ee8b2cd3ef",
+  "baseline": "03352758cf9b31e3f5d179b517be48cb89588679",
+  "model_requests_added": 0,
+  "automatic_dynamic_retries": 0,
+  "pytest_invocations": 1,
+  "controller_counts": {
+    "tests": 10,
+    "passed": 8,
+    "failed": 2,
+    "errors": 0,
+    "skipped": 0,
+    "xfailed": 0,
+    "collected": 10,
+    "collected_source": "pytest_stdout"
+  },
+  "failures": {
+    "test_deliberate_controller_red": "assert 1 == 2",
+    "test_other_artifacts_and_frozen_probes_are_not_writable": "FileNotFoundError: [Errno 2] No such file or directory: '/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-08/evidence/e2/counterfeit.json'"
+  },
+  "actual_receipt": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-08/evidence/controller-v3/controller_preflight-1790351478303257000/receipt.json",
+  "actual_receipt_sha256": "0b814c942e11c191c441c61e6b10ec9e9a50999eb91afc5e43a41775a07c4b76",
+  "userspace_plugin_reached_test_collection": true,
+  "controller_extra_failure": "missing evidence/e2 parent before permission assertion",
+  "fixture_repair_installed_in_qc08": false,
+  "ui_and_gateway_and_independent_review_started": false,
+  "offline_repair_checks": [
+    {
+      "name": "unittest",
+      "command": [
+        "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/candidate/.venv-workbench/bin/python",
+        "-B",
+        "-m",
+        "unittest",
+        "tests.test_review_io_sandbox",
+        "tests.test_review_artifact_writer",
+        "tests.test_qc_userspace_isolation",
+        "-v"
+      ],
+      "exit_code": 0,
+      "log_sha256": "78909a091e7eda9498b005cd143732bd4d24b2070d9845aed73aa7583a94dc96"
+    },
+    {
+      "name": "ruff",
+      "command": [
+        "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/candidate/.venv-workbench/bin/python",
+        "-m",
+        "ruff",
+        "check",
+        "scripts/review_probes/review_io_sandbox.py",
+        "scripts/review_probes/review_artifact_writer.py",
+        "scripts/review_probes/qc_userspace_isolation.py",
+        "tests/test_review_io_sandbox.py",
+        "tests/test_review_artifact_writer.py",
+        "tests/test_qc_userspace_isolation.py"
+      ],
+      "exit_code": 0,
+      "log_sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    }
+  ],
+  "old_archives": [
+    {
+      "archive": "2026-09-25-re06-qc07-write-boundary",
+      "all_archived_bytes_unchanged": true,
+      "unchanged_sources": 481,
+      "exceptions": [
+        {
+          "source": "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-07/work/reviewer-pytest-admissions.jsonl",
+          "reason": "previously recorded append-only resource ledger"
+        }
+      ]
+    },
+    {
+      "archive": "2026-09-25-re06-qc07-userspace-rejection",
+      "all_archived_bytes_unchanged": true,
+      "unchanged_sources": 16,
+      "exceptions": []
+    }
+  ],
+  "host_invocation_error": {
+    "source": "observed command-tool result, not raw process-log archive",
+    "command": [
+      "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/candidate/.venv-workbench/bin/python",
+      "-B",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "/Users/a77/fwp-wt-re06-closeout-refresh-0925/tests",
+      "-p",
+      "test_review_io_sandbox.py",
+      "-v"
+    ],
+    "cwd": "/Users/a77/finance-workspace-private",
+    "exit_code": 1,
+    "error": "ModuleNotFoundError: No module named 'scripts.review_probes'",
+    "correction": "explicit unittest top-level worktree; subsequent scoped checks recorded separately"
+  },
+  "not_verified": [
+    "new fixture through full executor",
+    "UI controller",
+    "author collection",
+    "gateway",
+    "E2 independent review",
+    "C1-C10",
+    "natural acceptance",
+    "new main integration"
+  ]
+}

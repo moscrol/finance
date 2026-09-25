@@ -1,0 +1,6 @@
+Traceback (most recent call last):
+  File "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-08/io-boundary-preflight-1790351397854/fixture/file_tool.py", line 19, in <module>
+    write_artifact(work, group, stage, lexical, params['content'])
+  File "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-08/io-boundary-preflight-1790351397854/fixture/review_artifact_writer.py", line 82, in write_artifact
+    raise PermissionError('artifact must be a single-link regular file')
+PermissionError: artifact must be a single-link regular file

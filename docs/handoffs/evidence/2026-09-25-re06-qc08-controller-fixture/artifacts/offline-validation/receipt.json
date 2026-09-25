@@ -1,0 +1,170 @@
+{
+  "at": "2026-09-25T15:49:54.256055+00:00",
+  "status": "OFFLINE_PASS_DYNAMIC_NOT_RUN",
+  "real_model_requests": 0,
+  "pytest_invocations": 0,
+  "revision": "a30e7e4594ac09310271739c8beb30ee8b2cd3ef",
+  "checks": [
+    {
+      "name": "unittest",
+      "command": [
+        "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/candidate/.venv-workbench/bin/python",
+        "-B",
+        "-m",
+        "unittest",
+        "tests.test_review_io_sandbox",
+        "tests.test_review_artifact_writer",
+        "tests.test_qc_userspace_isolation",
+        "-v"
+      ],
+      "exit_code": 0,
+      "expected_exit": 0,
+      "log_sha256": "697cd69047556d3b8b64287600357c0553d87ad450947af4e7f555fbf6371f3e"
+    },
+    {
+      "name": "environment",
+      "command": [
+        "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/candidate/.venv-workbench/bin/python",
+        "-I",
+        "-c",
+        "import sys,httpx;print(sys.version);print(httpx.__version__);assert sys.version_info[:3]==(3,12,13);assert httpx.__version__==\"0.28.1\""
+      ],
+      "exit_code": 0,
+      "expected_exit": 0,
+      "log_sha256": "b1f47700074f69ad4da2c39aebfd6a5338da6e46e7187a3bf376ef58441fb150"
+    },
+    {
+      "name": "node",
+      "command": [
+        "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/toolchain/bin/node",
+        "-e",
+        "console.log(process.version);if(process.version!=='v22.23.2')process.exit(1)"
+      ],
+      "exit_code": 0,
+      "expected_exit": 0,
+      "log_sha256": "c42fcf0db5a550bda2f566fcdc21955df3e5a8ec3aeb90ac533f3776e7fce32a"
+    },
+    {
+      "name": "write-profiles",
+      "command": [
+        "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/candidate/.venv-workbench/bin/python",
+        "-B",
+        "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-08/prepare_write_profiles.py"
+      ],
+      "exit_code": 0,
+      "expected_exit": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "freeze-e2-inputs",
+      "command": [
+        "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/candidate/.venv-workbench/bin/python",
+        "-B",
+        "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-08/stage_admission_v3.py",
+        "execute",
+        "e2",
+        "--prepare-only"
+      ],
+      "exit_code": 0,
+      "expected_exit": 0,
+      "log_sha256": "221e88ad29d203481b89903667fb21a23a78da6d9af147761777211fa2c9882f"
+    },
+    {
+      "name": "io-boundary",
+      "command": [
+        "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/toolchain/bin/node",
+        "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-08/io_boundary_preflight.mjs"
+      ],
+      "exit_code": 0,
+      "expected_exit": 0,
+      "log_sha256": "c41d1756c6172e42db046db1091bcab59921babd3fb6cabb95aeb35b81b68e6a"
+    },
+    {
+      "name": "stage-boundary",
+      "command": [
+        "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/toolchain/bin/node",
+        "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-08/stage_boundary_preflight_v3.mjs",
+        "stage-boundary-preflight-v3-0925.json"
+      ],
+      "exit_code": 0,
+      "expected_exit": 0,
+      "log_sha256": "c425c2c3e2e4030160c3e22419005fbc7c96451a4cad998b4c80b670ed6065ab"
+    },
+    {
+      "name": "menu",
+      "command": [
+        "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/toolchain/bin/node",
+        "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-08/probe_menu_preflight.mjs",
+        "probe-menu-preflight-0925.json"
+      ],
+      "exit_code": 0,
+      "expected_exit": 0,
+      "log_sha256": "dfe3f5862c6aaafd3268a5df5a9661df0ff61a92f8f524550eb334f751685852"
+    },
+    {
+      "name": "transport",
+      "command": [
+        "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/toolchain/bin/node",
+        "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-08/probe_transport_preflight.mjs"
+      ],
+      "exit_code": 0,
+      "expected_exit": 0,
+      "log_sha256": "2b24777abf0300f533dd0d1f5596547bc4e89ed5f817f8dfa67d8f6cd7d9a312"
+    },
+    {
+      "name": "artifact-checkpoint",
+      "command": [
+        "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/toolchain/bin/node",
+        "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-08/artifact_checkpoint_preflight.mjs",
+        "artifact-checkpoint-preflight-0925.json"
+      ],
+      "exit_code": 0,
+      "expected_exit": 0,
+      "log_sha256": "d73278d78e470abf82c282c68a430255e09ad4630c4313d04b3b64df86ed8ade"
+    },
+    {
+      "name": "gateway-not-admitted",
+      "command": [
+        "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/candidate/.venv-workbench/bin/python",
+        "-B",
+        "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-08/run_gateway.py"
+      ],
+      "exit_code": 1,
+      "expected_exit": 1,
+      "log_sha256": "858a4952b606ebfa2cfc6a2111bf94c8c61dc0db1ab69e2b6c7a430b69c6433b"
+    },
+    {
+      "name": "stage-not-admitted",
+      "command": [
+        "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/candidate/.venv-workbench/bin/python",
+        "-B",
+        "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-08/run_stage_v3.py",
+        "execute",
+        "e2"
+      ],
+      "exit_code": 1,
+      "expected_exit": 1,
+      "log_sha256": "2ca636ab0d044338645a52a475518e6d9f79d92273dbcf6383f81a383f0d1e68"
+    },
+    {
+      "name": "other-group-not-admitted",
+      "command": [
+        "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/candidate/.venv-workbench/bin/python",
+        "-B",
+        "/Users/a77/.finance-runtime/reviews/pi-closeout-execution-20260924/re06-a30e-locked/qc-evidence-isolated-08/run_stage_v3.py",
+        "execute",
+        "timer"
+      ],
+      "exit_code": 1,
+      "expected_exit": 1,
+      "log_sha256": "b0ca8f17c21bc702f173915f8439086c5c5b74ce1428edffd477a339c5ca0fbd"
+    }
+  ],
+  "helpers_sha256": {
+    "run_probe_v3.py": "d6cc600c5298682c8bcb1f518864feafbb3e9623e3d68c38524c2e58b41d3786",
+    "inputs/qc_userspace_isolation.py": "a9b93fbf5ff230e651d7835b3355619aa7a0091f24f8a36797f6d22d18418551",
+    "review_v3.mjs": "c5b287ce178cd57550999221c49944e4e8f6c9add6fea6b90429c0fdcb7b92e8",
+    "credential-bootstrap.mjs": "bc8370943522c32f72d26c23fc905d661c76fda6f12337a9dd3709d049688ee8"
+  },
+  "inspector_sha256": "6c665fb832395b6ef44737b1811c0446f7f388f5218c1531e49c54dc5e7a1007"
+}
