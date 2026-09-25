@@ -2148,6 +2148,46 @@ def test_local_gate_accepts_units_the_model_attaches_to_structured_observations(
     assert "1800 亿" not in result.public_answer
 
 
+def test_local_gate_keeps_sector_timeline_caliber_units_and_counts() -> None:
+    """2026-09-25 L6-T3（低空经济）：双红时间轴证据的口径是裸数 ``amount>500``（单位只在
+    逐日行列名 ``成交额亿`` 里），逐日恰 N 行、其中 K 行双红。模型写「amount>500亿」与
+    「本期 N 日 K 天」都是对证据的转述，却被数字门判「证据里没有的数量」整句删。证据由
+    生产方（asof_prefetch）补写单位与计数后应保留；越界的新数（501亿、N+1 日）仍须删。"""
+
+    from intelligence.services.asof_prefetch import (
+        format_sector_timeline,
+        sector_timeline_observations,
+    )
+
+    rows = [
+        {"trade_date": "2026-09-14", "pct_chg": 0.4, "amount": 620.5, "diff_ratio": 12.5},
+        {"trade_date": "2026-09-15", "pct_chg": -0.3, "amount": 480.2, "diff_ratio": 3.2},
+        {"trade_date": "2026-09-16", "pct_chg": 1.2, "amount": 655.1, "diff_ratio": 15.4},
+        {"trade_date": "2026-09-17", "pct_chg": 0.8, "amount": 470.3, "diff_ratio": 11.2},
+        {"trade_date": "2026-09-18", "pct_chg": -1.1, "amount": 530.6, "diff_ratio": -4.4},
+    ]
+    window = {"sector_name": "低空经济", "start": "2026-09-14", "end": "2026-09-18"}
+    frame, structural = _structural(
+        "若板块再现双红（amount>500亿，E1）并形成连日序列，则交易面升级。"
+        "若双红继续零星（本期 5 日 2 天，E1），则维持震荡发酵判断。"
+        "若板块成交额跌回 amount>501亿（E1）以下，则交易面降级。"
+        "若本期 6 日内双红不再出现，则逻辑失效。",
+        detail=format_sector_timeline(rows, **window),
+        observations=sector_timeline_observations(rows, **window),
+    )
+
+    result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+        frame=frame,
+        structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+
+    assert "若板块再现双红（amount>500亿，E1）并形成连日序列" in result.public_answer
+    assert "若双红继续零星（本期 5 日 2 天，E1）" in result.public_answer
+    assert "amount>501亿" not in result.public_answer
+    assert "若本期 6 日内双红不再出现" not in result.public_answer
+
+
 @pytest.mark.parametrize(
     ("detail", "quantity", "supported"),
     [
