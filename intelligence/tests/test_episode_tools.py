@@ -348,20 +348,12 @@ def test_valuation_registry_exposes_structured_financial_anchor(
         capabilities=("market_data",),
         timeout=30.0,
     )
-    # 工单 04 起 runner 走 ``_financials_bundle_for_llm``（块 + 行同出一次取数）；替身回一个
-    # 只有块、没有行的 bundle，证据投影与 as_of 语义与此前逐字节一致。
     monkeypatch.setattr(
         episode_tools.ask_blocks,
-        "_financials_bundle_for_llm",
-        lambda *_args, **_kwargs: episode_tools.market_financials.FinancialsBundle(
-            ts_code="688323.SH",
-            name="瑞华泰",
-            rows=(),
-            result=None,
-            block=(
-                "## 逐季财报数据块 [D7]\n"
-                "- 2026-06-30：营收4.20亿元，归母净利0.52亿元，毛利率38.5%"
-            ),
+        "_financials_block_for_llm",
+        lambda *_args, **_kwargs: (
+            "## 逐季财报数据块 [D7]\n"
+            "- 2026-06-30：营收4.20亿元，归母净利0.52亿元，毛利率38.5%"
         ),
     )
     registry = build_episode_registry(
@@ -386,95 +378,6 @@ def test_valuation_registry_exposes_structured_financial_anchor(
     assert observation.trace.status == "success"
 
 
-def test_financial_data_takes_several_subjects_and_attaches_structured_observations(
-    tmp_path,
-    monkeypatch,
-) -> None:
-    """工单 04：subjects 一次取几家，每家一个 D7 块；数据行挂带口径 / 单位的观察值；未解析的那家写进观察文本。"""
-
-    mf = episode_tools.market_financials
-    rows_by_subject = {
-        "贵州茅台": (
-            "600519.SH",
-            "贵州茅台",
-            [mf.QuarterFinancials("2026中报", "2026-06-30", 922.78, 1.3, 445.17, -1.95, 89.56, 50.75, ocf_yi=706.91)],
-        ),
-        "000858": (
-            "000858.SZ",
-            "五粮液",
-            [mf.QuarterFinancials("2026中报", "2026-06-30", 500.12, -3.0, 190.5, -5.1, 77.1, 38.2)],
-        ),
-    }
-    seen: list[str] = []
-
-    def fake_bundle(query, *_args, **_kwargs):
-        seen.append(str(query))
-        hit = rows_by_subject.get(str(query))
-        if hit is None:
-            return None
-        ts_code, name, rows = hit
-        return mf.FinancialsBundle(
-            ts_code=ts_code,
-            name=name,
-            rows=tuple(rows),
-            result=None,
-            block=mf.build_financials_block(name, ts_code, rows),
-        )
-
-    monkeypatch.setattr(episode_tools.ask_blocks, "_financials_bundle_for_llm", fake_bundle)
-    frame = _valuation_frame()
-    context = build_episode_context(
-        frame,
-        task_id="financial-data-subjects",
-        capabilities=("financial_data",),
-        timeout=30.0,
-    )
-    registry = build_episode_registry(
-        frame,
-        context,
-        finance_root=tmp_path / "finance",
-        knowledge_wiki=tmp_path / "wiki",
-        l3_runner=None,
-    )
-
-    observation = registry.execute(
-        "financial_data",
-        {"subjects": ["贵州茅台", "000858", "不存在的公司"]},
-        context=context,
-        step_id="financial-data-subjects:1",
-    )
-
-    assert seen == ["贵州茅台", "000858", "不存在的公司"]
-    structured = {
-        (obs.subject, obs.metric): obs.value
-        for item in observation.evidence
-        for obs in item.observations
-    }
-    assert structured[("600519.SH", "revenue_cum_yi")] == 922.78
-    assert structured[("600519.SH", "ocf_cum_yi")] == 706.91
-    assert structured[("000858.SZ", "net_profit_cum_yi")] == 190.5
-    assert all(obs.as_of == "2026-06-30" for item in observation.evidence for obs in item.observations)
-    assert "「不存在的公司」未能解析为 A 股标的" in observation.observation
-    # 模型视图看不到 observations 字段，观察文本开头要说清有哪些指标可算、覆盖哪段报告期。
-    assert "结构化观察值：贵州茅台（600519.SH） 报告期 2026-06-30～2026-06-30" in observation.observation
-    assert "revenue_cum_yi" in observation.observation and "to_single_quarter" in observation.observation
-    assert observation.observation.index("结构化观察值") < observation.observation.index("| 2026中报")
-    assert "subjects=3; resolved=2" in observation.trace.detail
-    # 观察值不进内容哈希：同一行有没有观察值，证据身份不变。
-    from intelligence.services.agent_research import evidence_content_hash
-
-    assert all(item.content_hash == evidence_content_hash(item) for item in observation.evidence)
-
-
-def test_parse_financial_data_request_reads_both_runner_input_shapes() -> None:
-    assert episode_tools.parse_financial_data_request("2024年报") == ("2024年报", ())
-    assert episode_tools.parse_financial_data_request("") == ("", ())
-    assert episode_tools.parse_financial_data_request(
-        '{"report_period": "2025三季报", "subjects": ["贵州茅台", " 000858 "]}'
-    ) == ("2025三季报", ("贵州茅台", "000858"))
-    assert episode_tools.parse_financial_data_request("{not json") == ("{not json", ())
-
-
 def test_valuation_tools_reuse_shared_entity_anchor_for_subject_resolution(
     tmp_path: Path,
     monkeypatch,
@@ -494,13 +397,7 @@ def test_valuation_tools_reuse_shared_entity_anchor_for_subject_resolution(
 
     def fake_financials(query, *_args, **_kwargs):
         captured["financials"] = str(query)
-        return episode_tools.market_financials.FinancialsBundle(
-            ts_code="688323.SH",
-            name="瑞华泰",
-            rows=(),
-            result=None,
-            block="逐季财务数据：2026Q1 营收4亿元，归母净利0.5亿元。",
-        )
+        return "逐季财务数据：2026Q1 营收4亿元，归母净利0.5亿元。"
 
     monkeypatch.setattr(
         episode_tools.ask_blocks,
@@ -509,7 +406,7 @@ def test_valuation_tools_reuse_shared_entity_anchor_for_subject_resolution(
     )
     monkeypatch.setattr(
         episode_tools.ask_blocks,
-        "_financials_bundle_for_llm",
+        "_financials_block_for_llm",
         fake_financials,
     )
     frame = _valuation_frame()
@@ -2137,95 +2034,6 @@ def test_finance_query_date_filter_is_compensated_not_rejected(
     assert "trade_date eq 2026-07-24" in observation.observation
 
 
-def test_empty_filtered_sector_query_discloses_universe_exit(
-    tmp_path: Path,
-) -> None:
-    """R-20260828-06 R5：问句日无行但板块曾在清单里，必须披露构成要素退出。
-
-    live 现场：contains「航空发动机」→「结构化查询无结果」→ 模型放宽成「航空」，
-    近邻替代。空结果要把「最后一次出现 + 其后退出」交给模型，不能只说无结果。
-    """
-
-    finance_root = tmp_path / "finance"
-    db_path = finance_root / "db" / "market_feature_store.duckdb"
-    db_path.parent.mkdir(parents=True)
-    connection = duckdb.connect(str(db_path))
-    connection.execute(
-        """
-        create table fact_sector_daily(
-            trade_date date,
-            sector_ts_code varchar,
-            sector_name varchar,
-            pct_chg double,
-            amount double,
-            diff_ratio double
-        )
-        """
-    )
-    connection.executemany(
-        "insert into fact_sector_daily values (?, ?, ?, ?, ?, ?)",
-        [
-            ("2026-07-24", "990001.FI", "航空发动机", 1.2, 100.0, 2.0),
-            ("2026-08-19", "990002.FI", "航空", -4.3, 261.26, 73.8),
-            ("2026-08-19", "990003.FI", "芯片", -6.49, 11075.22, 2.85),
-        ],
-    )
-    connection.close()
-    frame = TaskFrame(
-        raw_question="2026-08-19 航空发动机板块的边际量和成交额是多少",
-        user_goal="取指定交易日板块边际量与成交额",
-        question_type="quick_fact",
-        subject="航空发动机",
-        subject_kind="theme",
-        market_scope="A股",
-        timeframe="2026-08-19",
-        required_outputs=("fact_value",),
-        assumptions=(),
-        ambiguities=(),
-        clarification_question=None,
-        evidence_policy="current_fact_evidence",
-        confidence=0.95,
-    )
-    context = build_episode_context(
-        frame,
-        task_id="r05-retired-sector-exit",
-        capabilities=("market_data", "finance_query"),
-        timeout=10.0,
-        synthesis_reserve=0.0,
-        today="2026-08-28",
-        latest_data_date="2026-08-27",
-    )
-    registry = build_episode_registry(
-        frame,
-        context,
-        finance_root=finance_root,
-        knowledge_wiki=tmp_path / "wiki",
-        l3_runner=None,
-    )
-    result = registry.execute(
-        "finance_query",
-        {
-            "dataset": "sector_daily",
-            "metrics": ["amount", "marginal_volume_pct"],
-            "dimensions": ["sector_name", "trade_date"],
-            "filters": [
-                {"field": "sector_name", "op": "contains", "value": "航空发动机"}
-            ],
-            "time_range": {"start": "2026-08-19", "end": "2026-08-19"},
-            "group_by": [],
-            "order_by": [],
-            "limit": 5,
-        },
-        context=context,
-        step_id="r05-retired-sector-exit:1",
-    )
-
-    assert "构成要素退出" in result.observation
-    assert "2026-07-24" in result.observation
-    assert "结构化查询无结果" not in result.observation
-    assert "261.26" not in result.observation
-
-
 @pytest.mark.parametrize(
     ("failure", "failure_code", "expected_gap"),
     [
@@ -2624,33 +2432,8 @@ def test_memory_lookup_recalls_user_judgements_as_prior_not_fact(tmp_path) -> No
     assert {item.evidence_tier for item in result.evidence} == {"user_memory"}
     # The source label has to self-declare: it is the only semantics the model sees.
     assert all("非市场事实" in item.source for item in result.evidence)
-    # W1：记忆证据不得携带事实级新鲜度——全部自报 historical。
-    assert {item.freshness for item in result.evidence} == {"historical"}
-    # W2：出处逐条自持——台账归属名进 source，日期进 source_date。
-    by_title = {item.title: item for item in result.evidence}
-    assert "台账 judgments" in by_title["用户历史判断"].source
-    assert "台账 corrections" in by_title["用户纠偏原则"].source
-    assert by_title["用户历史判断"].source_date == "2026-07-01"
-    assert by_title["用户纠偏原则"].source_date == "2026-07-02"
     # Locators point at the fixture, never the real ledger.
     assert all(str(users_root) in item.internal_locator for item in result.evidence)
-
-
-def test_memory_evidence_tier_is_pinned_to_prior_grade() -> None:
-    """W1 防线主体：错误升级证据等级（user_memory → 事实级）必须在这里变红。
-
-    来源白名单只是辅助：来源全对也不证明条目正文不含旧价格/旧订单，
-    所以防线落在证据分级：记忆证据永远是独立一档，不得冒充事实档。
-    """
-    assert episode_tools._USER_MEMORY_EVIDENCE_TIER == "user_memory"
-    assert episode_tools._USER_MEMORY_EVIDENCE_TIER not in {
-        "public_web",
-        "news",
-        "official",
-        "local_db",
-    }
-    # 召回池来源清单与 user_memory 侧契约一致（双侧各钉一半，防单侧改掉）。
-    assert user_memory.RECALL_SOURCES == ("judgments", "corrections", "methods")
 
 
 def test_memory_lookup_appends_peer_hit_when_category_has_enough_verdicts(tmp_path) -> None:
@@ -2669,23 +2452,21 @@ def test_memory_lookup_appends_peer_hit_when_category_has_enough_verdicts(tmp_pa
         + "\n",
         encoding="utf-8",
     )
-    # 类别刚够 PEER_HIT_MIN_N 条终态判定（跟常量走；2026-09-04 前是 2，三条就出胜率行）
-    n_ck, hits = user_memory.PEER_HIT_MIN_N, user_memory.PEER_HIT_MIN_N - 1
     (root / "checkpoints.jsonl").write_text(
         "\n".join(
             json.dumps(
                 {"id": f"c{i}", "claim": f"光刻胶{i}", "category": "生命周期推演", "due": "2026-06-01"},
                 ensure_ascii=False,
             )
-            for i in range(1, n_ck + 1)
+            for i in range(1, 4)
         )
         + "\n",
         encoding="utf-8",
     )
     (root / "verdicts.jsonl").write_text(
         "\n".join(
-            json.dumps({"id": f"c{i}", "verdict": "hit" if i <= hits else "miss"}, ensure_ascii=False)
-            for i in range(1, n_ck + 1)
+            json.dumps({"id": f"c{i}", "verdict": verdict}, ensure_ascii=False)
+            for i, verdict in enumerate(("hit", "hit", "miss"), start=1)
         )
         + "\n",
         encoding="utf-8",
@@ -2702,7 +2483,7 @@ def test_memory_lookup_appends_peer_hit_when_category_has_enough_verdicts(tmp_pa
         step_id="memory-lookup-peer-hit:1",
     )
     details = [item.detail for item in result.evidence]
-    assert any(f"同类判断历史 {hits}/{n_ck} 命中（分母=已裁决数）" in detail for detail in details)
+    assert any("同类判断历史 2/3 命中（分母=已裁决数）" in detail for detail in details)
     assert all("99" not in detail for detail in details)
 
 

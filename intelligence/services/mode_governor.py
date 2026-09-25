@@ -1,14 +1,12 @@
-"""Adaptive quick/deep authority for one model-owned research plan.
-
-只裁决「该做多深」。裁决落到预算合同上的动作（提 caps、铸 grant、换 policy）住在
-``intelligence/runtime/tier_promotion.apply_mode_promotion``——领域层不碰账本。
-"""
+"""Adaptive quick/deep authority for one model-owned research plan."""
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from typing import Literal, cast
 
+from intelligence.services.repair_coordinator import BudgetGrant
+from intelligence.services.research_contract import ResearchPolicy, ResearchRunContext
 from intelligence.services.research_plan import ResearchPlan
 
 
@@ -156,27 +154,8 @@ def _deep_decision(
     )
 
 
-# 模型没请求 deep 时，改由治理侧发起升档所需的可观察条件条数。
-#
-# 为什么不是 1（= 模型请求 deep 时的门槛）：模型主动交 PLAN 本身就是一条信息，
-# 少了它就该要更多佐证。为什么不是 3：`separable_sub_research_branch` 与
-# `multiple_independent_entities` 常常同时成立，3 会让治理侧发起几乎不可达。
-_UNREQUESTED_DEEP_MIN_CONDITIONS = 2
-
-
 class ModeGovernor:
-    """Approve research depth from observable, code-owned signals.
-
-    深度有两条来源：模型在 PLAN 里请求，或治理侧按可观察信号自行发起。**第二条
-    是 2026-09-03 补的**——2026-08-17 生产模型从 gpt-5.6-terra 换成 GLM 后，deep
-    升档归零：同日同码 gpt 交 PLAN 30%（24/80、44/154）、glm-5.2 是 0%（0/20、
-    0/12），全量批 deep gpt 48/417 对 glm 2/385。升档链的第一环是模型「可以」
-    主动交的 PLAN，GLM 几乎不交，链就断了，子研究协调器因此休眠 12 天而所有门禁
-    全绿（`docs/verification/2026-09-03-plan-deep-rate-by-model.md`）。
-
-    把一个承重的控制决定挂在「模型愿不愿意配合」上，就是这个失败形状；observable
-    信号本来就是 code-owned 的，让它们能独立发起，链路不再随模型而断。
-    """
+    """Approve model-requested depth from observable, code-owned signals."""
 
     def decide(self, plan: ResearchPlan, signals: ModeSignals) -> ModeDecision:
         if not isinstance(plan, ResearchPlan):
@@ -209,19 +188,6 @@ class ModeGovernor:
                 conditions=observable,
             )
         if requested == "quick":
-            # 治理侧自行发起：模型没提，但可观察条件够多，且 deep 的两个前置都在。
-            # 这里重复检查 dependencies/deadline 而不是把本分支挪到它们之后，是为了
-            # 让「模型请求 quick」那条路的 reason 逐字不变——只新增一条出口。
-            if (
-                len(observable) >= _UNREQUESTED_DEEP_MIN_CONDITIONS
-                and signals.dependencies_available
-                and signals.deep_deadline_available
-            ):
-                return _deep_decision(
-                    requested_mode=requested,
-                    reason="observable_complexity_without_plan",
-                    conditions=observable,
-                )
             return _quick_decision(
                 requested_mode=requested,
                 reason="model_requested_quick",
@@ -256,8 +222,73 @@ class ModeGovernor:
             conditions=observable,
         )
 
-    # 「升」的账本动作（提 caps / 铸 grant / 换 policy）在 ``runtime/tier_promotion``
-    # ``apply_mode_promotion``：领域裁决、底座记账，本类不再持有账本。
+    def apply(
+        self,
+        context: ResearchRunContext,
+        decision: ModeDecision,
+    ) -> ResearchRunContext:
+        """Apply one approved deep promotion to the existing episode authority."""
+
+        if not isinstance(context, ResearchRunContext):
+            raise TypeError("context must be ResearchRunContext")
+        if not isinstance(decision, ModeDecision):
+            raise TypeError("decision must be ModeDecision")
+        if not decision.approved or decision.effective_mode != "deep":
+            return context
+        if decision.tool_call_cap > 24 or decision.target_seconds > 240.0:
+            raise ValueError("deep decision exceeds product cap")
+        root = context.root_budget
+        if root is None:
+            raise ValueError("deep promotion requires one root budget ledger")
+
+        episode_id = context.contract.task_id
+        promotion_id = f"mode-promotion:{episode_id}:deep"
+        allocated_calls = root.allocated_calls
+        allocated_seconds = root.allocated_seconds
+        if not root.promote_caps(
+            episode_id=episode_id,
+            promotion_id=promotion_id,
+            hard_calls_cap=decision.tool_call_cap,
+            hard_seconds_cap=decision.target_seconds,
+        ):
+            raise ValueError("root budget refused deep promotion")
+
+        deep_policy = ResearchPolicy.for_tier("deep")
+        target_allocated_seconds = max(
+            0.0,
+            decision.target_seconds - deep_policy.synthesis_reserve,
+        )
+        calls_granted = max(0, decision.tool_call_cap - allocated_calls)
+        seconds_granted = max(0.0, target_allocated_seconds - allocated_seconds)
+        if calls_granted or seconds_granted:
+            if calls_granted <= 0 or seconds_granted <= 0:
+                raise ValueError("deep budget allocation is internally inconsistent")
+            grant = BudgetGrant(
+                grant_id=f"grant-{promotion_id}",
+                episode_id=episode_id,
+                cycle=0,
+                calls_granted=calls_granted,
+                seconds_granted=seconds_granted,
+            )
+            if not root.grant(grant):
+                raise ValueError("root budget refused deep allocation")
+
+        deadline_extension = max(
+            0.0,
+            decision.target_seconds - context.policy.total_seconds,
+        )
+        promoted_deadline = replace(
+            context.deadline,
+            expires_at=context.deadline.expires_at + deadline_extension,
+            synthesis_reserve=deep_policy.synthesis_reserve,
+        )
+        if context.policy.tier == "deep" and deadline_extension == 0.0:
+            promoted_deadline = context.deadline
+        return replace(
+            context,
+            policy=deep_policy,
+            deadline=promoted_deadline,
+        )
 
 
 __all__ = [

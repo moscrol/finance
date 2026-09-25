@@ -1,4 +1,0 @@
-{"id": "r1", "as_of": "2026-09-14", "entity_id": "S1", "arm": "llm", "confidence_probability": 0.7, "pit_grade": "strict", "memory_bucket": "post_cutoff", "model": "synthetic-model", "model_version": "v0", "synthetic": true}
-{"id": "r2", "as_of": "2026-09-14", "entity_id": "S2", "arm": "llm", "confidence_probability": 0.35, "pit_grade": "trade_date_only", "memory_bucket": "post_cutoff", "model": "synthetic-model", "synthetic": true}
-{"id": "r3", "as_of": "2026-09-15", "entity_id": "S1", "arm": "llm", "confidence_probability": "high", "pit_grade": "strict", "memory_bucket": "post_cutoff", "model": "synthetic-model", "synthetic": true}
-{"id": "r4", "as_of": "2026-09-15", "entity_id": "S3", "arm": "other_arm", "confidence_probability": 0.5, "pit_grade": "strict", "memory_bucket": "post_cutoff", "model": "synthetic-model", "synthetic": true}

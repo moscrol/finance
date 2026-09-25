@@ -16,10 +16,8 @@ from intelligence.services.entity_anchor import EntityAnchor
 from intelligence.services.market_analogs import parse_analog_intent
 from intelligence.services.market_regime_analogs import parse_regime_intent
 from intelligence.services.market_midterm import parse_midterm_intent
-from intelligence.services.route_table import fine_grained_route_length_ok
 from intelligence.services.scenario_tree import parse_scenario_intent
 from intelligence.services.task_frame import TaskFrame, build_task_frame
-from intelligence.services.user_task import resolve_nicknames, split_user_message
 
 
 SubjectKind = Literal[
@@ -110,23 +108,6 @@ _DATED_MARKET_REVIEW_RE = re.compile(
 _DATED_MARKET_TOPIC_RE = re.compile(
     r"双红|涨停|跌停|连板|梯队|断层|主线|新高|新低"
     r"|涨家数|跌家数|量能|缩量|放量|成交额|市场阶段|市场情绪|赚钱效应"
-    # 「8.18的复盘数据你怎么解读」（2026-09-09 真实流量，05 冻结题 Q04）：日期 + 复盘，
-    # 没有「行情/盘面/市场」三件套，此前落到通用检索、timeframe 也是 None。
-    # 「复盘」这个词只在带日期时才到这里（is_dated_market_review 先查日期），
-    # 「这一波农业…请事后复盘」没有日期，不会被吞。
-    r"|复盘"
-)
-# 信封层只为「8.18的复盘数据你怎么解读」这类说法补 dated_market_review：日期 + 复盘。
-# 不收「解读」：「2026-07-23 的市场情绪怎么解读」在冻结三十题里按通用研究验收
-# （direct_answer / evidence_boundary），改它的题型会让 dry-run 契约出缺口。
-_DATED_REVIEW_INTERPRET_RE = re.compile(r"复盘")
-# 「这一波农业是怎么走出来的」：波次指代 + 题材名，事后归因 / 回放题的主语。
-_WAVE_SUBJECT_RE = re.compile(
-    r"这(?:一)?波([一-鿿]{2,6}?)(?:行情|板块|题材|股)?(?:是怎么|怎么|为什么|为何|的|，|,)"
-)
-# 材料评述：贴了材料 + 「站得住 / 靠谱 / 提纯 / 硬事实 / 推测」——评的是材料本身的说法。
-_MATERIAL_CRITIQUE_RE = re.compile(
-    r"站得住|靠谱|可信|提纯|硬事实|推测|评述|点评|漏洞|反方|有没有问题|挑出|分开|区分"
 )
 _FULL_DATE_RE = re.compile(
     r"(?<!\d)(20\d{2})(?:年|[-/.])(\d{1,2})(?:月|[-/.])(\d{1,2})日?(?!\d)"
@@ -274,12 +255,8 @@ _MARKET_WATCH_RE = re.compile(
     r"(?:有什么|有哪些|哪些)?(?:值得关注|看点|主线|机会)"
     r"|(?:今天|今日)(?:的)?(?:市场|行情|盘面|大盘)(?:怎么样|如何|表现如何)"
     r"|(?:今天|今日)(?:的)?(?:A股|市场|行情|盘面|大盘)?复盘"
-    # 召回工单（2026-08-27-market-watch-recall-workorder）三处放宽：
-    # ①时间词表补「本周/近期/最近」；②市场名词与主线之间允许一个「最X(的)」
-    # 型限定词（枚举形状「最+1..3字」，题材名不会以最开头，防插词漏召回同时
-    # 不给题材名开缝）；③新增「市场资金…主线」语序反分支（见下）。
-    r"|(?:目前|当前|现在|本周|近期|最近)(?:的)?(?:A股|市场|行情|盘面|大盘)(?:的)?"
-    r"(?:最[\u4e00-\u9fff]{1,3}的?)?(?:主线|结构|看点|机会)(?:是什么|有哪些|怎么样|如何)?"
+    r"|(?:目前|当前|现在)(?:的)?(?:A股|市场|行情|盘面|大盘)(?:的)?"
+    r"(?:主线|结构|看点|机会)(?:是什么|有哪些|怎么样|如何)?"
     # 「今天大盘处于什么阶段」：market_stage 本身就是 fact_market_daily 的字段，
     # 这是最典型的当日盘面提问。市场名词必须在，否则会吞掉
     # 「固态电池现在处于什么阶段」这类题材问题。
@@ -292,13 +269,8 @@ _MARKET_WATCH_RE = re.compile(
     r"(?:处于|在)(?:什么|哪个|哪一)?阶段"
     # 「当前主线是哪几个方向」：主线在本项目里专指全市场主线，前面不需要再有主语。
     # 限定必须位于句首或分句首，避免「固态电池当前主线逻辑」被当成大盘提问。
-    r"|(?:(?<=^)|(?<=[，。；？！、,;?!]))(?:目前|当前|现在|今天|今日|本周|近期|最近)(?:的)?"
+    r"|(?:(?<=^)|(?<=[，。；？！、,;?!]))(?:目前|当前|现在|今天|今日)(?:的)?"
     r"主线(?:是|有)?(?:什么|哪些|哪几个|哪个)"
-    # 「市场资金现在在围绕什么主线交易」：市场名词在时间词之前的语序反问法。
-    # 锚在分句首 + 必须带「资金」——「液冷市场资金在追什么主线」以题材名开头，
-    # 锚保证不吞（与上面「阶段」分支同一招）。
-    r"|(?:(?<=^)|(?<=[，。；？！、,;?!]))(?:A股|市场|大盘|盘面|行情)(?:的)?资金"
-    r"[^。？！]{0,10}?(?:什么|哪些|哪个|哪条|哪几个)?主线"
 )
 # 自选简报（watchlist_digest）：自选标记 ∧ 当日/简报标记，无序合取
 # （spec 2026-08-26-watchlist-digest-pack-design §5）。
@@ -328,11 +300,6 @@ _MARKET_FORECAST_RE = re.compile(
     # 「给出对 07-22 的研判」——研判/展望在句尾、后面没有「市场/大盘」时，
     # 第一个分支匹配不到。
     r"|(?:给出|做|说说|谈谈)[^。？！]{0,14}(?:研判|展望|预判)"
-    # 「基于周五的行情，周一该怎么操作」（2026-09-09 真实流量，05 冻结题 Q12）：
-    # 下一个交易日的应对 = 后市推演。只认「行情/盘面 + 操作/应对」或
-    # 「周一/下周一/下个交易日 + 怎么操作」，不吞个股「要不要止损」。
-    r"|基于[^。？！]{0,12}(?:行情|盘面)[^。？！]{0,16}(?:操作|应对|怎么办|怎么做)"
-    r"|(?:周一|下周一|下个交易日|明天|明日)[^。？！]{0,12}(?:怎么操作|如何操作|怎么应对|如何应对|该怎么做|怎么办)"
 )
 # 无序合取：句尾「本周行情的展望」/「写一下本周展望」认不出有序支。
 # 不并进 _MARKET_FORECAST_RE，避免把「怎么看」类题材题一并放宽。
@@ -662,32 +629,6 @@ def market_review_requested_date(
         if candidate <= anchor:
             return candidate.isoformat()
     return None
-
-
-_YEARLESS_QUANTITY_PREFIX_RE = re.compile(r"[涨跌幅率价值为达到约是了升降]$|\d$|[.．]$")
-
-
-def _single_metric_or_listing(text: str) -> bool:
-    """单指标取值（多少 / 几家）或名单明细（哪些 / 列出）——不是「一份复盘」。"""
-
-    from intelligence.services.market_timeseries import parse_single_metric_intent
-
-    compact = re.sub(r"\s+", "", str(text or ""))
-    if parse_single_metric_intent(compact) is not None:
-        return True
-    return bool(_PROGRAM_AGGREGATE_RE.search(compact) or _PROGRAM_DETAIL_RE.search(compact))
-
-
-def _yearless_timeframe(text: str, *, today: date | None = None) -> str | None:
-    """「8.18 / 8月18日」→ ISO 日期；前面是数量词（涨幅8.5）的不算。"""
-
-    compact = re.sub(r"\s+", "", str(text or ""))
-    match = _YEARLESS_DATE_RE.search(compact)
-    if match is None:
-        return None
-    if _YEARLESS_QUANTITY_PREFIX_RE.search(compact[: match.start()]):
-        return None
-    return market_review_requested_date(match.group(0), today=today)
 
 
 @lru_cache(maxsize=1)
@@ -1440,13 +1381,7 @@ def understand_query(
     matched_theme: str | None = None,
     anchor: EntityAnchor | None = None,
 ) -> QueryEnvelope:
-    raw_text = str(query or "").strip()
-    # 贴了材料的消息：正则路由只看问题部分。材料正文里的题材别名、六位数字、日期
-    # 会把「这篇研报站得住吗」路由成题材研究或当日复盘（2026-09-09 基线实测）。
-    # TaskFrame 仍由完整原文构造，材料身份在那里登记。
-    parts = split_user_message(raw_text)
-    text = parts.question or raw_text
-    has_materials = bool(parts.materials)
+    text = str(query or "").strip()
     operators = _research_operators(
         text,
         matched_theme=matched_theme,
@@ -1481,7 +1416,7 @@ def understand_query(
             operators=operators,
             required_outputs=required_outputs,
         )
-        frame = build_task_frame(raw_text, legacy)
+        frame = build_task_frame(text, legacy)
         # ``QueryEnvelope`` remains a backwards-compatible adapter.  Its
         # historical raw/date/operator fields stay byte-for-byte stable while
         # all new consumers use the attached canonical frame.
@@ -1500,34 +1435,6 @@ def understand_query(
             month_horizon_match.group(0) if month_horizon_match else None,
         )
     )
-    if timeframe is None:
-        # 无年份日期（8.18 / 8月18日）：此前只有复盘类正则会解析它，「那8.19呢」这种
-        # 追问 timeframe 落 None、继承上一轮日期。这里按不晚于今天的最近同月同日解析，
-        # 但「涨幅8.5」「跌了2.3」这类前面是数量词的数字不算日期。
-        timeframe = _yearless_timeframe(text)
-
-    if has_materials and _MATERIAL_CRITIQUE_RE.search(text):
-        return envelope(
-            "kol_review",
-            "unknown",
-            None,
-            "评估用户提供材料里的主张：分开硬事实、推测与证据缺口，并给出反方",
-            timeframe,
-            "explicit",
-            0.9,
-        )
-    if has_materials and not parts.question:
-        # 只贴了材料没提问（常见于把研报正文直接丢进来）：默认做材料提纯，
-        # 而不是让材料正文里的题材词把它路由成题材研究。
-        return envelope(
-            "kol_review",
-            "unknown",
-            None,
-            "用户只提供了材料未提问：提取要点，分开硬事实与推测，并核对可核验项",
-            timeframe,
-            "explicit",
-            0.7,
-        )
 
     cause_hit = _market_cause_hit(
         text,
@@ -1593,13 +1500,7 @@ def understand_query(
             0.98,
         )
 
-    # 与 turn_controller 的细粒度路由同一把闸（阈值 SSOT：
-    # route_table.FINE_GRAINED_ROUTE_MAX_CHARS），但**闸必须量完整原文 raw_text**：
-    # 此处的 text 已被 split_user_message 换成材料拆分后的短尾问，量尾问等于没闸——
-    # 2026-09-13 QC S1 实测：802 字材料 + 短尾问「公告涉及的甲乙丙…哪些有正式订单？」
-    # 尾问三提示词凑齐且长度过关，仍被劫进 disclosure_scan。匹配器读尾问（材料路由
-    # 语义），入场闸读全文（材料段的词面共现是巧合），两者作用域不能混。
-    if is_disclosure_scan_query(text) and fine_grained_route_length_ok(raw_text):
+    if is_disclosure_scan_query(text):
         buckets = parse_disclosure_buckets(text)
         subject = "、".join(bucket.name for bucket in buckets) or None
         return envelope(
@@ -1637,34 +1538,6 @@ def understand_query(
             0.98,
         )
 
-    # 带日期的盘面复盘：此前只有 turn_controller 的确定性路由 / owner router 认它，
-    # 信封本身给 general_finance_qa，TaskFrame 的证据政策与产出物就跟着错。
-    # 「8.18的复盘数据你怎么解读」进不了三件套正则，靠上面新加的「复盘」话题词。
-    review_date = market_review_requested_date(text)
-    if (
-        review_date is not None
-        and anchor is None
-        and not any(term in text.lower() for term in _EXTERNAL_MARKET_TERMS)
-        # 只接「日期 + 复盘 / 解读」这种三件套正则认不出的说法。三件套本来就能认的
-        # 经典句式（「复盘7月16日的A股市场」）信封继续给 general_finance_qa、由
-        # turn_controller 的确定性路由送进日报工作流——那是既有锁
-        # （test_watchlist_digest_pack 负例表）钉住的观测行为，不在本单范围内改。
-        and _DATED_MARKET_REVIEW_RE.search(text) is None
-        and _DATED_REVIEW_INTERPRET_RE.search(text) is not None
-        # 与 turn_controller 的确定性路由同一条守卫：「2026-02-17 涨停家数多少」要的是
-        # 一个数（quick_fact），不是一份复盘；名单 / 明细题也留给原路由决定。
-        and not _single_metric_or_listing(text)
-    ):
-        return envelope(
-            "dated_market_review",
-            "market_pattern",
-            None,
-            "复盘指定交易日的盘面结构、主线与风险信号",
-            review_date,
-            "market_anchor",
-            0.95,
-        )
-
     if anchor is None:
         news_target = _news_impact_target(text)
         if news_target is not None:
@@ -1681,18 +1554,10 @@ def understand_query(
     if "comparison" in operators and not any(
         term in text for term in ("什么是", "定义")
     ):
-        # 「宁王和迪王谁的估值更贵」：两家公司用代称，实体解析认不出，主体为空。
-        # 代称表在 user_task；这里只把它们并成比较主体，假设说明由 TaskFrame 写。
-        nicknames = resolve_nicknames(text)
-        subject = (
-            "、".join(canonical for _alias, canonical in nicknames)
-            if len(nicknames) >= 2
-            else None
-        )
         return envelope(
             "comparison",
-            "company" if subject else "unknown",
-            subject,
+            "unknown",
+            None,
             "比较对象、关键差异与证据边界",
             timeframe,
             "explicit",
@@ -1720,18 +1585,6 @@ def understand_query(
             timeframe,
             "ticker" if anchor.matched_by == "code" else "entity",
             1.0,
-        )
-
-    nicknames = resolve_nicknames(text)
-    if len(nicknames) == 1:
-        return envelope(
-            _company_question_type(text),
-            "company",
-            nicknames[0][1],
-            _decision_goal(text),
-            timeframe,
-            "alias",
-            0.86,
         )
 
     ticker = _TICKER_RE.search(text)
@@ -1819,25 +1672,6 @@ def understand_query(
             "candidate",
             0.98,
         )
-
-    wave = _WAVE_SUBJECT_RE.search(re.sub(r"\s+", "", text))
-    if wave is not None:
-        wave_subject = wave.group(1).strip()
-        if (
-            len(wave_subject) >= 2
-            and wave_subject not in _GENERIC_EXPLICIT_SUBJECTS
-            and not wave_subject.startswith(_GENERIC_EXPLICIT_PREFIXES)
-            and wave_subject not in {"行情", "市场", "反弹", "下跌", "上涨"}
-        ):
-            return envelope(
-                "theme_analysis",
-                "theme",
-                wave_subject,
-                "事后复盘这一波行情的起点、扩散路径与可检验特征",
-                timeframe,
-                "explicit",
-                0.8,
-            )
 
     folded_text = text.casefold()
     for alias in _theme_aliases():

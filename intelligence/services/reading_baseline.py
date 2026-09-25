@@ -338,9 +338,7 @@ _PENDING_RULES: tuple[tuple[ReadingRule, str, str], ...] = (
             source="SPT 画像 risk_triggers 第 3 条",
         ),
         "G1",
-        "G1a 已接线（2026-09-11）：fact_theme_limit_stock_daily 的封板时点已由 [D18] 块输出；"
-        "仍卡 G1b：同表 open_times 恒 NULL（静默降级，需外呼 fupanhui 比对 payload 字段名），"
-        "「换手是否充分」那半边做不了，故本规则整体继续 pending",
+        "G1a：fact_theme_limit_stock_daily 有封板时间但无块输出；G1b：同表 open_times 恒 NULL（静默降级）",
     ),
     (
         ReadingRule(

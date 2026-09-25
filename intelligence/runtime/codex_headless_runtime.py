@@ -13,7 +13,6 @@ import re
 import shlex
 import shutil
 import subprocess
-import sys
 import tempfile
 import time
 import tomllib
@@ -30,12 +29,11 @@ from intelligence.services.agent_runtime import (
 )
 from intelligence.services.episode_protocol import (
     SYSTEM_PROMPT_DYNAMIC_BOUNDARY,
+    build_episode_input,
+    expand_episode_snapshot_bindings,
     finish_json_schema,
-)
-from intelligence.services.research_harness import (
-    FinanceResearchHarness,
-    FinishAdmission,
-    ResearchHarness,
+    split_episode_prompt,
+    validate_episode_finish,
 )
 from intelligence.runtime.headless_tool_gateway import (
     HeadlessGatewaySnapshot,
@@ -318,10 +316,6 @@ class HeadlessIsolationReceipt:
     live_root_read: str
     codex_version: str
     command_sha256: str
-    python_executable: str = ""
-    probe_returncode: int | None = None
-    probe_stdout: str = ""
-    probe_stderr: str = ""
 
     def __post_init__(self) -> None:
         if self.status not in {"proven", "unproven"}:
@@ -340,15 +334,12 @@ class HeadlessIsolationReceipt:
             raise ValueError("invalid isolation Codex version")
         if not re.fullmatch(r"[0-9a-f]{64}", self.command_sha256):
             raise ValueError("invalid isolation command hash")
-        if self.status == "proven" and (
-            {
-                self.public_tcp,
-                self.loopback,
-                self.unix_socket,
-                self.live_root_read,
-            } != {"denied"}
-            or self.probe_returncode not in (None, 0)
-        ):
+        if self.status == "proven" and {
+            self.public_tcp,
+            self.loopback,
+            self.unix_socket,
+            self.live_root_read,
+        } != {"denied"}:
             raise ValueError("proven isolation receipt must deny every probe")
 
     @classmethod
@@ -363,7 +354,7 @@ class HeadlessIsolationReceipt:
             command_sha256="0" * 64,
         )
 
-    def to_dict(self) -> dict[str, str | int | None]:
+    def to_dict(self) -> dict[str, str]:
         return {
             "status": self.status,
             "public_tcp": self.public_tcp,
@@ -372,10 +363,6 @@ class HeadlessIsolationReceipt:
             "live_root_read": self.live_root_read,
             "codex_version": self.codex_version,
             "command_sha256": self.command_sha256,
-            "python_executable": self.python_executable,
-            "probe_returncode": self.probe_returncode,
-            "probe_stdout": self.probe_stdout,
-            "probe_stderr": self.probe_stderr,
         }
 
 
@@ -478,12 +465,7 @@ class CodexHeadlessRuntime:
         sealed_fixture: bool = False,
         isolation_probe: HeadlessIsolationProbe | None = None,
         instruction_root: Path | None = None,
-        harness: ResearchHarness | None = None,
     ) -> None:
-        # 终局准入与 prompt 归领域 harness；本 runtime 只管 codex exec 与网关。
-        self._harness: ResearchHarness = (
-            harness if harness is not None else FinanceResearchHarness()
-        )
         selected_transport = str(
             transport or os.environ.get("CODEX_HEADLESS_TRANSPORT") or "subprocess"
         ).strip().lower()
@@ -696,8 +678,6 @@ class CodexHeadlessRuntime:
                     parsed=parsed,
                     context=context,
                     snapshot=snapshot,
-                    registry=registry,
-                    harness=self._harness,
                 )
                 if (
                     finish_issue in {"headless_invalid_finish", "headless_no_finish"}
@@ -742,8 +722,6 @@ class CodexHeadlessRuntime:
                         parsed=repair_parsed,
                         context=context,
                         snapshot=repair_snapshot,
-                        registry=registry,
-                        harness=self._harness,
                     )
                     parsed = _merge_parsed_usage(parsed, repair_parsed)
                     process = repair_process
@@ -785,7 +763,6 @@ class CodexHeadlessRuntime:
             context=context,
             registry=registry,
             wrapper_path=gateway.wrapper_path,
-            harness=self._harness,
         )
         return self._command_from_prompt(
             prompt=prompt,
@@ -810,14 +787,13 @@ class CodexHeadlessRuntime:
         evidence = [public_agent_evidence(item) for item in snapshot.evidence]
         # SYSTEM_PROMPT_DYNAMIC_BOUNDARY: repair prompt is per-turn user JSON.
         _ = SYSTEM_PROMPT_DYNAMIC_BOUNDARY
-        _system, task_user = self._harness.assemble_prompt(task_frame, context, registry)
         prompt = (
             "研究阶段已经关闭，禁止调用任何工具或运行命令。"
             "上一份终止输出未通过固定 JSON 协议；只修复终止 envelope，"
             "不得增加新事实。只能使用下面列出的证据哈希，缺失输出必须写 gap。"
             "只输出符合给定 schema 的 JSON 对象。\n"
             f"失败原因：{failure_reason}\n"
-            f"任务：{task_user}\n"
+            f"任务：{build_episode_input(task_frame, context, registry)}\n"
             f"证据：{json.dumps(evidence, ensure_ascii=False)}\n"
             f"现有缺口：{json.dumps(list(snapshot.gaps), ensure_ascii=False)}"
         )
@@ -942,17 +918,15 @@ class CodexHeadlessRuntime:
         if self._is_cancelled():
             issues.append("cancelled")
 
-        admission: FinishAdmission | None = None
+        finish = None
         if not issues and parsed.final_text:
-            candidate = self._harness.admit_finish(
-                parsed.final_text,
-                context=context,
-                evidence=snapshot.evidence,
-                registry=registry,
-            )
-            if candidate.accepted:
-                admission = candidate
-            else:
+            try:
+                finish = validate_episode_finish(
+                    parsed.final_text,
+                    context=context,
+                    evidence=snapshot.evidence,
+                )
+            except ValueError:
                 issues.append("headless_invalid_finish")
         elif not parsed.final_text and not issues:
             issues.append("headless_no_finish")
@@ -1036,15 +1010,18 @@ class CodexHeadlessRuntime:
         for issue in unique_issues:
             if issue not in gaps:
                 gaps.append(issue)
-        if admission is not None:
-            assert admission.status is not None
-            # 本 runtime 的 gap 口径：snapshot gap + issue + 模型声明 gap，不并绑定 gap。
-            for gap in admission.declared_gaps:
+        if finish is not None:
+            for gap in finish.gaps:
                 if gap not in gaps:
                     gaps.append(gap)
-            bindings = admission.bindings
-            status = admission.status
-            draft = admission.draft
+            bindings = expand_episode_snapshot_bindings(
+                bindings=finish.bindings,
+                evidence=snapshot.evidence,
+                registry=registry,
+                draft=finish.draft,
+            )
+            status = finish.status
+            draft = finish.draft
             stop_reason = (
                 "headless_finalization_recovered" if recovered else "model_finish"
             )
@@ -1192,11 +1169,6 @@ def probe_sealed_isolation(
     working_directory = Path(cwd).resolve()
     if not binary or not working_directory.is_dir():
         raise ValueError("invalid isolation probe inputs")
-    # The probe uses only the standard library. Resolve the host interpreter's
-    # venv symlink: its entry point can live in the denied repository even when
-    # the real binary lives in an allowed system directory. PATH must not select
-    # a different interpreter, and fixing startup must not widen sandbox access.
-    python_executable = str(Path(sys.executable).resolve())
     probe_home = Path(tempfile.mkdtemp(prefix="codex-isolation-probe-"))
     live_root = Path(__file__).resolve().parents[2] / "AGENTS.md"
     probe_script = """import json
@@ -1252,7 +1224,7 @@ print(json.dumps(results, sort_keys=True))
         "-C",
         str(working_directory),
         "--sandbox-state-disable-network",
-        python_executable,
+        str(shutil.which("python3") or "/opt/homebrew/bin/python3"),
         "-c",
         probe_script,
     )
@@ -1309,10 +1281,6 @@ print(json.dumps(results, sort_keys=True))
         live_root_read=values["live_root_read"],
         codex_version=version or "unknown",
         command_sha256=command_sha256,
-        python_executable=python_executable,
-        probe_returncode=completed.returncode,
-        probe_stdout=completed.stdout[:4096],
-        probe_stderr=completed.stderr[:4096],
     )
 
 
@@ -1322,9 +1290,7 @@ def _headless_prompt(
     context: ResearchRunContext,
     registry: ResearchToolRegistry,
     wrapper_path: Path,
-    harness: ResearchHarness | None = None,
 ) -> str:
-    prompt_owner = harness if harness is not None else FinanceResearchHarness()
     definitions = registry.tool_definitions(context.contract.allowed_capabilities)
     tools = ", ".join(
         str(
@@ -1335,7 +1301,7 @@ def _headless_prompt(
         for item in definitions
     )
     schema_block = json.dumps(definitions, ensure_ascii=False)
-    system, user = prompt_owner.assemble_prompt(task_frame, context, registry)
+    system, user = split_episode_prompt(task_frame, context, registry)
     # SYSTEM_PROMPT_DYNAMIC_BOUNDARY: constitution first; wrapper + user JSON
     # rebuild each turn. cache_control is not implemented this increment.
     _ = SYSTEM_PROMPT_DYNAMIC_BOUNDARY
@@ -1436,8 +1402,6 @@ def _finish_issue(
     parsed: _ParsedJSONL,
     context: ResearchRunContext,
     snapshot: HeadlessGatewaySnapshot,
-    registry: ResearchToolRegistry,
-    harness: ResearchHarness,
 ) -> str | None:
     if process.timed_out:
         return "headless_timeout"
@@ -1447,13 +1411,13 @@ def _finish_issue(
         return "headless_process_failed"
     if not parsed.final_text:
         return "headless_no_finish"
-    admission = harness.admit_finish(
-        parsed.final_text,
-        context=context,
-        evidence=snapshot.evidence,
-        registry=registry,
-    )
-    if not admission.accepted:
+    try:
+        validate_episode_finish(
+            parsed.final_text,
+            context=context,
+            evidence=snapshot.evidence,
+        )
+    except ValueError:
         return "headless_invalid_finish"
     return None
 

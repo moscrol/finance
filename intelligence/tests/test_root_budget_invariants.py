@@ -14,7 +14,6 @@ from uuid import uuid4
 
 import pytest
 
-from intelligence.runtime.tier_promotion import apply_mode_promotion
 from intelligence.services.mode_governor import ModeGovernor, ModeSignals
 from intelligence.services.repair_coordinator import BudgetGrant
 from intelligence.services.research_contract import (
@@ -233,7 +232,7 @@ def test_deep_promotion_keeps_tier_caps_deadline_reserve_aligned() -> None:
             ),
             ModeSignals(evidence_domains=("盘面", "新闻")),
         )
-        promoted = apply_mode_promotion(context, decision)
+        promoted = ModeGovernor().apply(context, decision)
         root = promoted.root_budget
         assert root is not None
         assert promoted.policy.tier == "deep"

@@ -568,7 +568,6 @@ class CollectOptions:
     # workbench 源专用：会话目录扫描（与 events_path 单文件模型并存）。
     conversations_dir: Optional[str] = None
     since_days: Optional[int] = None
-    now: Optional[datetime] = None
 
 
 def resolve_store_dir(explicit: Optional[str]) -> Path:
@@ -755,7 +754,7 @@ def run_collect(options: CollectOptions) -> Dict[str, object]:
         if options.source != "workbench":
             raise SystemExit("--conversations-dir 仅支持 workbench 源")
         events = read_workbench_conversations(
-            options.conversations_dir, since_days=options.since_days, now=options.now
+            options.conversations_dir, since_days=options.since_days
         )
     else:
         if not options.events_path:

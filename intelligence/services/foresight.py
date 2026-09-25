@@ -69,7 +69,7 @@ class ForesightOptions:
     checkpoints_file: str | Path | None = None
     verdicts_file: str | Path | None = None
     use_calibration: bool = True
-    calibration_min_n: int = checkpoints.DEFAULT_CALIBRATION_MIN_N
+    calibration_min_n: int = 2
 
 
 @dataclass
@@ -594,20 +594,6 @@ def _compose_system_prompt(options: ForesightOptions, result: ForesightResult) -
             prompt += (
                 "\n\n==== 下期关注对照（上次跟踪留下的强制输入，先对照再发问）====\n"
                 + watch_rendered
-            )
-        # 排序题留下的改判条件（10 号单）：同一本 checkpoints 的另一类 source，
-        # 让「什么变化会改排序」成为下一次发问的对照输入，而不只是躺在正文里。
-        from intelligence.services.ranking_contract import (
-            open_flip_condition_records,
-            render_flip_conditions_for_prompt,
-        )
-
-        open_flips = open_flip_condition_records(watch_rows, watch_verdicts)
-        flips_rendered = render_flip_conditions_for_prompt(open_flips)
-        if flips_rendered:
-            prompt += (
-                "\n\n==== 改判条件对照（上次排序留下的观察点，命中即重排、先对照再发问）====\n"
-                + flips_rendered
             )
     return prompt
 

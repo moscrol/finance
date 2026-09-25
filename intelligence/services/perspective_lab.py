@@ -21,7 +21,6 @@
 - ``perspectives/articles/<id>/raw/``            文章原文（本地私用）
 - ``perspectives/debates.jsonl``                 每次合议的机器可读记录
 - ``perspectives/outcomes.jsonl``                P2：假设验证台账（本版只预留）
-- ``perspectives/exam/<id>.json``                已知题/边题金标（用户态；``perspective exam``）
 
 本模块只用标准库，不依赖 duckdb / 联网，可离线运行、可独立单测。
 """
@@ -695,59 +694,8 @@ def active_runtime_prompt(
         return ""
 
 
-class ProfileRegressionError(ValueError):
-    """整表回写会丢掉磁盘上已有的人工/棘轮字段。"""
-
-
-# 只减不增。换措辞（同长度）放行——考卷禁语改写、数字剥离都走这条路。
-_PROFILE_RATCHET_LISTS = (
-    "market_lenses",
-    "opportunity_preferences",
-    "risk_triggers",
-    "evidence_hierarchy",
-    "reasoning_patterns",
-    "anti_patterns",
-    "falsification_style",
-    "contradictions",
-    "honest_boundaries",
-    "patch_history",
-)
-
-
-def _profile_regression_reasons(disk: dict[str, Any], incoming: dict[str, Any]) -> list[str]:
-    reasons: list[str] = []
-    disk_n = int((disk.get("confidence") or {}).get("article_count") or 0)
-    inc_n = int((incoming.get("confidence") or {}).get("article_count") or 0)
-    if inc_n < disk_n:
-        reasons.append(f"article_count {disk_n}→{inc_n}")
-    for key in _PROFILE_RATCHET_LISTS:
-        old = disk.get(key) or []
-        new = incoming.get(key) or []
-        if isinstance(old, list) and isinstance(new, list) and len(new) < len(old):
-            reasons.append(f"{key} {len(old)}→{len(new)}")
-    return reasons
-
-
-def _save_profile(
-    us: UserSpace,
-    profile: dict[str, Any],
-    *,
-    allow_regression: bool = False,
-) -> Path:
+def _save_profile(us: UserSpace, profile: dict[str, Any]) -> Path:
     path = profile_path(us, str(profile.get("id")))
-    if path.is_file() and not allow_regression:
-        try:
-            disk = json.loads(path.read_text(encoding="utf-8"))
-        except json.JSONDecodeError:
-            disk = None
-        if isinstance(disk, dict):
-            reasons = _profile_regression_reasons(disk, profile)
-            if reasons:
-                raise ProfileRegressionError(
-                    "拒写画像：整表回写会丢掉已有字段（"
-                    + "；".join(reasons)
-                    + "）。先重读磁盘再改，或直接编辑 JSON。"
-                )
     profile["updated_at"] = _now_iso()
     path.write_text(json.dumps(profile, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return path
@@ -871,8 +819,6 @@ def ingest_article(
     with mpath.open("a", encoding="utf-8") as fh:
         fh.write(json.dumps(record, ensure_ascii=False) + "\n")
 
-    # 写完原文再重读：入档期间若有人改了 HOW/四表，不得用入场时的内存副本盖回去。
-    profile = load_profile(us, perspective_id)
     # 更新画像置信度（确定性：只改样本数与置信度标签，不动认知字段）
     conf = profile.setdefault("confidence", {})
     count = len(existing) + 1
@@ -893,155 +839,24 @@ def ingest_article(
 # 多角色合议（P0 确定性版）
 # --------------------------------------------------------------------------- #
 def _hit_terms(terms: list[str], facts: str) -> list[str]:
-    """确定性信号匹配：画像里的信号词有没有出现在硬事实摘要里（子串命中）。
-
-    条目整条命中（短词条目的既有语义）之外，还按信号针命中：蒸馏闭环写进画像的
-    条目是「利多不涨+连板高标同时出现（板块抱团踩踏前兆，优先减仓）」这类完整
-    判断句，整条子串对真实 facts 结构性永远落空——2026-08-27 真画像 fengyuan
-    跑考卷方向恒 none 的病根。针 = 条目按标点/括号/连接号切出的 ≥2 字片段，
-    任一针出现在 facts 即条目命中；<2 字碎片（如「1/3」拆出的「3」）不作针。
-    """
+    """确定性信号匹配：画像里的信号词有没有出现在硬事实摘要里（子串命中）。"""
     norm_facts = re.sub(r"\s+", "", facts)
-    hits: list[str] = []
-    for term in terms:
-        if not term:
-            continue
-        whole = re.sub(r"\s+", "", term)
-        if whole in norm_facts:
-            hits.append(term)
-            continue
-        needles = [
-            n
-            for n in re.split(r"[+＋（）()，,；;。、：:/\s]+|且|同时|以及", term)
-            if len(n) >= 2
-        ]
-        if any(re.sub(r"\s+", "", n) in norm_facts for n in needles):
-            hits.append(term)
-    return hits
+    return [t for t in terms if t and re.sub(r"\s+", "", t) in norm_facts]
 
 
-# 诚实边界：只从「不可靠」子句抽主题针，避免「只覆盖 X」把覆盖域误判成弃权域。
-_UNRELIABLE_MARKERS = (
-    "未覆盖",
-    "不覆盖",
-    "不适用",
-    "不该用",
-    "不可靠",
-    "无依据",
-    "超出",
-    "不能用",
-)
-_COVERAGE_MARKERS = ("只覆盖", "仅覆盖", "只适用于", "仅适用于")
-_BOUNDARY_STOP = frozenset(
-    {
-        "领域",
-        "题材",
-        "范围",
-        "样本",
-        "视角",
-        "该视角",
-        "本视角",
-        "主线",
-        "不可靠",
-        "无依据",
-        "市场",
-    }
-)
-
-
-def matching_boundaries(boundaries: list[str], question: str, facts: str) -> list[str]:
-    """题面+硬事实是否落到某条诚实边界的不可靠侧。返回命中的原文字符串。"""
-    haystack = re.sub(r"\s+", "", f"{question}{facts}")
-    hits: list[str] = []
-    for raw in boundaries:
-        boundary = str(raw or "").strip()
-        if not boundary:
-            continue
-        clauses = [p.strip() for p in re.split(r"[，,；;。]", boundary) if p.strip()]
-        unreliable = [c for c in clauses if any(m in c for m in _UNRELIABLE_MARKERS)]
-        selected = unreliable or [c for c in clauses if not _is_coverage_only(c)]
-        if not selected:
-            continue
-        needles: list[str] = []
-        for clause in selected:
-            needles.extend(_boundary_needles(clause))
-        if any(re.sub(r"\s+", "", n) in haystack for n in needles if n):
-            hits.append(boundary)
-        elif re.sub(r"\s+", "", boundary) in haystack:
-            hits.append(boundary)
-    return hits
-
-
-def _is_coverage_only(clause: str) -> bool:
-    return any(m in clause for m in _COVERAGE_MARKERS) and not any(
-        m in clause for m in _UNRELIABLE_MARKERS
-    )
-
-
-def _boundary_needles(clause: str) -> list[str]:
-    text = clause
-    for marker in _UNRELIABLE_MARKERS + _COVERAGE_MARKERS:
-        text = text.replace(marker, " ")
-    needles: list[str] = []
-    for tok in re.split(r"[与和及、/\s]+", text):
-        tok = tok.strip()
-        for stop in _BOUNDARY_STOP:
-            if tok.endswith(stop) and len(tok) > len(stop):
-                tok = tok[: -len(stop)]
-        if len(tok) >= 2 and tok not in _BOUNDARY_STOP:
-            needles.append(tok)
-    return needles
-
-
-def evaluate_role(
-    profile: dict[str, Any],
-    *,
-    question: str,
-    facts: str,
-) -> dict[str, Any]:
-    """单角色确定性判定：边界弃权优先，否则信号词命中推出方向。
-
-    考卷与合议共用，避免「考试一套、辩论一套」。
-    """
-    matched = matching_boundaries(list(profile.get("honest_boundaries") or []), question, facts)
-    opportunity_hits = _hit_terms(list(profile.get("opportunity_preferences") or []), facts)
-    risk_hits = _hit_terms(list(profile.get("risk_triggers") or []), facts)
-    abstain = bool(matched)
-    if abstain:
-        opportunity_hits, risk_hits = [], []
-    if abstain:
-        direction = "abstain"
-    elif opportunity_hits and risk_hits:
-        direction = "mixed"
-    elif risk_hits:
-        direction = "risk"
-    elif opportunity_hits:
-        direction = "opportunity"
-    else:
-        direction = "none"
-    return {
-        "perspective_id": profile.get("id"),
-        "display_name": profile.get("display_name"),
-        "abstain": abstain,
-        "matched_boundaries": matched,
-        "opportunity_hits": opportunity_hits,
-        "risk_hits": risk_hits,
-        "anti_patterns": list(profile.get("anti_patterns") or []),
-        "falsification_style": list(profile.get("falsification_style") or []),
-        "direction": direction,
-    }
-
-
-def _role_section(profile: dict[str, Any], facts: str, *, question: str = "") -> dict[str, Any]:
-    ev = evaluate_role(profile, question=question, facts=facts)
+def _role_section(profile: dict[str, Any], facts: str) -> dict[str, Any]:
     lenses = profile.get("market_lenses") or []
     conf = profile.get("confidence") or {}
     low_sample = profile.get("type") == "blogger" and conf.get("profile_confidence") != "medium"
     return {
-        **ev,
+        "perspective_id": profile.get("id"),
+        "display_name": profile.get("display_name"),
         "lenses": [f"{ln.get('name')}：{ln.get('description')}" for ln in lenses],
+        "opportunity_hits": _hit_terms(profile.get("opportunity_preferences") or [], facts),
+        "risk_hits": _hit_terms(profile.get("risk_triggers") or [], facts),
         "confirm_signals": list(profile.get("opportunity_preferences") or []),
         "falsify_signals": list(profile.get("risk_triggers") or []),
+        "falsification_style": list(profile.get("falsification_style") or []),
         "blind_spots": list(profile.get("anti_patterns") or []),
         "low_sample": low_sample,
     }
@@ -1074,7 +889,7 @@ def run_debate(
     day = str(date or _today()).strip()
 
     profiles = [load_profile(us, pid) for pid in perspective_ids]
-    sections = [_role_section(p, facts, question=query) for p in profiles]
+    sections = [_role_section(p, facts) for p in profiles]
 
     # 裁判层（确定性）：共同风险命中 = 共识；只有单角色命中的 = 分歧点。
     risk_sets = {s["perspective_id"]: set(s["risk_hits"]) for s in sections}
@@ -1106,27 +921,9 @@ def run_debate(
     for i, s in enumerate(sections, 1):
         lines += [
             f"### 2.{i} {s['display_name']}（{s['perspective_id']}）",
-        ]
-        if s.get("abstain"):
-            lines.append(
-                "- ⚠️ 弃权：命中诚实边界（"
-                + "；".join(s.get("matched_boundaries") or [])
-                + "），不得输出该视角观点"
-            )
-        empty_opp = (
-            "无（已弃权）"
-            if s.get("abstain")
-            else "无（硬事实中未出现该角色偏好的机会特征）"
-        )
-        empty_risk = (
-            "无（已弃权）"
-            if s.get("abstain")
-            else "无（硬事实中未出现该角色的降权信号）"
-        )
-        lines += [
             f"- 市场镜头：{'；'.join(s['lenses']) or '（画像未填写，请编辑 profile）'}",
-            f"- 命中的机会信号：{'；'.join(s['opportunity_hits']) or empty_opp}",
-            f"- 命中的风险信号：{'；'.join(s['risk_hits']) or empty_risk}",
+            f"- 命中的机会信号：{'；'.join(s['opportunity_hits']) or '无（硬事实中未出现该角色偏好的机会特征）'}",
+            f"- 命中的风险信号：{'；'.join(s['risk_hits']) or '无（硬事实中未出现该角色的降权信号）'}",
             f"- 确认信号清单：{'；'.join(s['confirm_signals']) or '（画像未填写）'}",
             f"- 反证信号清单：{'；'.join(s['falsify_signals']) or '（画像未填写）'}",
             f"- 证伪风格：{'；'.join(s['falsification_style']) or '（画像未填写）'}",

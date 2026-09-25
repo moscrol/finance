@@ -1,119 +1,20 @@
-from intelligence.runtime.repair_budget import (
+from intelligence.services.evidence_ledger import EvidenceLedgerSnapshot
+from intelligence.services.repair_coordinator import (
     BACKFILL_BUDGET_FRACTION,
+    RepairAdmission,
     admit_backfill_repair,
     admit_repair,
+    build_repair_goal,
     grant_for_backfill,
     grant_for_cold_restart,
     grant_for_delivery_repair,
     grant_for_progress,
     grant_for_transient_model_retry,
-)
-from intelligence.services.evidence_ledger import EvidenceLedgerSnapshot
-from intelligence.services.repair_coordinator import (
-    BudgetGrant,
-    RepairAdmission,
-    RepairFailureShape,
-    RepairNeed,
-    build_repair_goal,
-    cycle_within_tier,
     progress_from_ledger,
-    repair_is_warranted,
-    repair_work_units,
-    warrant_repair,
+    should_reenter,
+    BudgetGrant,
 )
 from intelligence.services.research_contract import InMemoryRootBudgetLedger
-
-
-# ── 调用形状适配：领域判定在这里算好递进底座（生产里这一步在 adapter 问 harness）──
-
-
-def _progress_grant(goal, progress, *, root_budget, research_tier, tools_open=True, seconds_cap=None):
-    return grant_for_progress(
-        goal,
-        root_budget=root_budget,
-        warranted=repair_is_warranted(progress, cycle=goal.cycle, research_tier=research_tier),
-        work_units=repair_work_units(goal),
-        tools_open=tools_open,
-        seconds_cap=seconds_cap,
-    )
-
-
-def _delivery_grant(goal, *, root_budget, research_tier, evidence_count, seconds_cap=None):
-    return grant_for_delivery_repair(
-        goal,
-        root_budget=root_budget,
-        cycle_allowed=cycle_within_tier(goal.cycle, research_tier=research_tier),
-        evidence_count=evidence_count,
-        seconds_cap=seconds_cap,
-    )
-
-
-def _cold_grant(goal, progress, *, root_budget, seconds_cap=None):
-    return grant_for_cold_restart(
-        goal,
-        progress,
-        root_budget=root_budget,
-        work_units=repair_work_units(goal),
-        seconds_cap=seconds_cap,
-    )
-
-
-def _admit(
-    *,
-    episode_id,
-    missing_outputs=(),
-    missing_capabilities=(),
-    rejected_claims=(),
-    attempted_actions=(),
-    previous_progress,
-    remaining_calls,
-    remaining_seconds,
-    cycle,
-    root_budget,
-    research_tier,
-    tools_open=True,
-    allow_delivery_repair=True,
-    delivery_candidate=False,
-    contract_rewrite_candidate=False,
-    cold_restart_candidate=False,
-    evidence_count=0,
-    seconds_cap=None,
-):
-    probe = build_repair_goal(
-        episode_id=episode_id,
-        missing_outputs=missing_outputs,
-        missing_capabilities=missing_capabilities,
-        previous_progress=previous_progress,
-        remaining_calls=remaining_calls,
-        remaining_seconds=remaining_seconds,
-        cycle=cycle,
-    )
-    need = RepairNeed(
-        missing_outputs=tuple(missing_outputs),
-        missing_capabilities=tuple(missing_capabilities),
-        rejected_claims=tuple(rejected_claims),
-        shape=RepairFailureShape(
-            delivery=delivery_candidate,
-            cold_restart=cold_restart_candidate,
-            contract_rewrite=contract_rewrite_candidate,
-        ),
-        work_units=repair_work_units(probe),
-    )
-    return admit_repair(
-        need,
-        warrant_repair(previous_progress, cycle=cycle, research_tier=research_tier),
-        episode_id=episode_id,
-        attempted_actions=attempted_actions,
-        previous_progress=previous_progress,
-        remaining_calls=remaining_calls,
-        remaining_seconds=remaining_seconds,
-        cycle=cycle,
-        root_budget=root_budget,
-        tools_open=tools_open,
-        allow_delivery_repair=allow_delivery_repair,
-        evidence_count=evidence_count,
-        seconds_cap=seconds_cap,
-    )
 
 
 def _snap(*, evidence: tuple[str, ...], covered: tuple[str, ...], gaps: tuple[str, ...], family: str):
@@ -166,7 +67,7 @@ def test_repair_goal_has_no_query_authority_and_budget_grant_respects_hard_cap()
         remaining_seconds=42,
     )
     assert not hasattr(goal, "next_query")
-    assert repair_is_warranted(progress, cycle=1, research_tier="quick")
+    assert should_reenter(progress, cycle=1, max_cycles=1)
     root = InMemoryRootBudgetLedger(
         episode_id="episode-1",
         initial_calls=3,
@@ -175,7 +76,7 @@ def test_repair_goal_has_no_query_authority_and_budget_grant_respects_hard_cap()
         hard_seconds_cap=38,
     )
     assert (
-        _progress_grant(
+        grant_for_progress(
             goal,
             progress,
             root_budget=root,
@@ -193,7 +94,7 @@ def test_repair_goal_has_no_query_authority_and_budget_grant_respects_hard_cap()
         initial_seconds=30,
         hard_seconds_cap=60,
     )
-    grant = _progress_grant(
+    grant = grant_for_progress(
         goal,
         progress,
         root_budget=accepted_root,
@@ -232,7 +133,7 @@ def test_single_gap_repair_still_gets_full_window() -> None:
         hard_seconds_cap=240.0,
     )
 
-    grant = _progress_grant(
+    grant = grant_for_progress(
         goal,
         progress,
         root_budget=root,
@@ -263,7 +164,7 @@ def test_single_gap_delivery_repair_gets_full_window() -> None:
         hard_seconds_cap=240.0,
     )
 
-    grant = _delivery_grant(
+    grant = grant_for_delivery_repair(
         goal,
         root_budget=root,
         research_tier="quick",
@@ -301,7 +202,7 @@ def test_grant_for_progress_rejects_cycle_above_code_owned_tier_cap() -> None:
     )
 
     assert (
-        _progress_grant(
+        grant_for_progress(
             goal,
             progress,
             root_budget=root,
@@ -338,7 +239,7 @@ def test_closed_research_window_grants_seconds_without_tool_calls() -> None:
     )
     root.consume_call(seconds=8.0)
 
-    grant = _progress_grant(
+    grant = grant_for_progress(
         goal,
         progress,
         root_budget=root,
@@ -369,7 +270,7 @@ def test_admit_repair_returns_one_execution_ready_delivery_admission() -> None:
     )
     root.consume_seconds(seconds=1.0)
 
-    admission = _admit(
+    admission = admit_repair(
         episode_id="episode-admission",
         missing_outputs=("direct",),
         previous_progress=progress,
@@ -420,7 +321,7 @@ def test_delivery_repair_does_not_relabel_unbound_evidence_as_research_progress(
     research_root.consume_seconds(seconds=1.0)
 
     assert (
-        _progress_grant(
+        grant_for_progress(
             goal,
             progress,
             root_budget=research_root,
@@ -429,7 +330,7 @@ def test_delivery_repair_does_not_relabel_unbound_evidence_as_research_progress(
         )
         is None
     )
-    grant = _delivery_grant(
+    grant = grant_for_delivery_repair(
         goal,
         root_budget=research_root,
         research_tier="standard",
@@ -462,7 +363,7 @@ def test_root_budget_rejects_a_grant_from_another_episode() -> None:
         hard_seconds_cap=60,
     )
     assert (
-        _progress_grant(
+        grant_for_progress(
             goal,
             progress,
             root_budget=root,
@@ -624,7 +525,7 @@ def test_cold_restart_admits_starved_episode_with_tool_open_grant() -> None:
         hard_seconds_cap=300.0,
     )
 
-    admission = _admit(
+    admission = admit_repair(
         episode_id="episode-starved",
         missing_outputs=("direct", "counterpoint"),
         attempted_actions=("finance_query:duckdb", "kb_search:rag"),
@@ -667,7 +568,7 @@ def test_cold_restart_requires_adapter_observed_starvation() -> None:
         hard_seconds_cap=300.0,
     )
 
-    admission = _admit(
+    admission = admit_repair(
         episode_id="episode-no-flag",
         missing_outputs=("direct",),
         attempted_actions=(),
@@ -697,7 +598,7 @@ def test_cold_restart_fires_for_zero_trace_starvation() -> None:
         hard_seconds_cap=300.0,
     )
 
-    admission = _admit(
+    admission = admit_repair(
         episode_id="episode-zero-trace",
         missing_outputs=("direct",),
         attempted_actions=(),
@@ -738,7 +639,7 @@ def test_cold_restart_refuses_when_any_evidence_exists() -> None:
         hard_seconds_cap=300.0,
     )
 
-    assert _cold_grant(goal, progress, root_budget=root) is None
+    assert grant_for_cold_restart(goal, progress, root_budget=root) is None
 
 
 def test_cold_restart_is_single_shot_cycle_one_only() -> None:
@@ -761,7 +662,7 @@ def test_cold_restart_is_single_shot_cycle_one_only() -> None:
         hard_seconds_cap=300.0,
     )
 
-    assert _cold_grant(goal, progress, root_budget=root) is None
+    assert grant_for_cold_restart(goal, progress, root_budget=root) is None
 
 
 def test_cold_restart_fails_closed_without_root_headroom() -> None:
@@ -783,7 +684,7 @@ def test_cold_restart_fails_closed_without_root_headroom() -> None:
         hard_seconds_cap=30.0,
     )
 
-    assert _cold_grant(goal, progress, root_budget=root) is None
+    assert grant_for_cold_restart(goal, progress, root_budget=root) is None
     assert root.allocated_seconds == 30.0
 
 
@@ -805,7 +706,7 @@ def test_contract_rewrite_candidate_uses_tool_closed_delivery_not_progress() -> 
         hard_seconds_cap=40.0,
     )
 
-    admission = _admit(
+    admission = admit_repair(
         episode_id="episode-track-rewrite",
         missing_outputs=("track_quad_or_baseline", "track_ttl"),
         previous_progress=progress,
@@ -848,7 +749,7 @@ def test_delivery_candidate_never_falls_through_to_cold_restart() -> None:
         hard_seconds_cap=30.0,
     )
 
-    admission = _admit(
+    admission = admit_repair(
         episode_id="episode-delivery-x",
         missing_outputs=("direct",),
         attempted_actions=("finance_query:duckdb",),
@@ -988,137 +889,3 @@ def test_admit_backfill_repair_does_not_need_coverage_progress() -> None:
     assert admission.backfill is True
     assert admission.goal.missing_evidence_modes == ("market_data",)
     assert admission.grant.seconds_granted == 80.0 * BACKFILL_BUDGET_FRACTION
-
-
-def _ledger(
-    *,
-    evidence: dict[str, tuple[str, tuple[str, ...]]],
-    covered: tuple[str, ...],
-    gaps: tuple[str, ...],
-) -> EvidenceLedgerSnapshot:
-    """``evidence``: id → (来源家族, 指向的输出)。"""
-
-    return EvidenceLedgerSnapshot(
-        evidence_ids=tuple(evidence),
-        covered_outputs=covered,
-        open_gaps=gaps,
-        independent_source_families=tuple(
-            dict.fromkeys(family for family, _ in evidence.values())
-        ),
-        evidence_source_families=tuple(
-            (evidence_id, family) for evidence_id, (family, _) in evidence.items()
-        ),
-        evidence_targets=tuple(
-            (evidence_id, targets) for evidence_id, (_, targets) in evidence.items()
-        ),
-    )
-
-
-def test_progress_counts_content_not_source_family_four_arms() -> None:
-    """2026-09-09 判官修复 01 复现一（evidence-judge.md 实测一）四臂矩阵。
-
-    内容进展与来源独立性分开算：同源新公告补上财务锚是进展；新网站转载旧闻
-    不是进展但记一个独立来源；重抓同页两边都不算。
-    """
-
-    before = _ledger(
-        evidence={"old-page": ("official", ("context",))},
-        covered=("context",),
-        gaps=("financial_anchor",),
-    )
-
-    # 臂 1：同源新页补上财务锚——内容进展成立，独立性 0（旧实现在此记 0 并拒修）
-    same_source = progress_from_ledger(
-        before,
-        _ledger(
-            evidence={
-                "old-page": ("official", ("context",)),
-                "new-page": ("official", ("financial_anchor",)),
-            },
-            covered=("context", "financial_anchor"),
-            gaps=(),
-        ),
-    )
-    assert same_source.new_evidence_ids == ("new-page",)
-    delta = same_source.coverage_delta
-    assert (
-        delta.new_evidence,
-        delta.narrowed_gaps,
-        delta.newly_supported_outputs,
-        delta.new_source_families,
-    ) == (1, 1, 1, 0)
-    assert delta.progressed
-    assert warrant_repair(same_source, cycle=2, research_tier="deep").warranted
-
-    # 臂 2：重抓同一页（同 hash，台账幂等）——零进展
-    duplicate = progress_from_ledger(before, before)
-    assert duplicate.new_evidence_ids == ()
-    assert not duplicate.coverage_delta.progressed
-    assert duplicate.coverage_delta.new_source_families == 0
-
-    # 臂 3：新来源转载旧闻，只重复支持已覆盖输出——内容零进展，独立性 +1
-    repost = progress_from_ledger(
-        before,
-        _ledger(
-            evidence={
-                "old-page": ("official", ("context",)),
-                "repost": ("news", ("context",)),
-            },
-            covered=("context",),
-            gaps=("financial_anchor",),
-        ),
-    )
-    assert repost.new_evidence_ids == ()
-    assert repost.coverage_delta.new_source_families == 1
-    assert not repost.coverage_delta.progressed
-    assert not warrant_repair(repost, cycle=2, research_tier="deep").warranted
-
-    # 臂 4：新来源新页补上财务锚——内容进展 + 独立性 1
-    new_source = progress_from_ledger(
-        before,
-        _ledger(
-            evidence={
-                "old-page": ("official", ("context",)),
-                "new-page": ("exchange", ("financial_anchor",)),
-            },
-            covered=("context", "financial_anchor"),
-            gaps=(),
-        ),
-    )
-    assert (new_source.coverage_delta.new_evidence, new_source.coverage_delta.new_source_families) == (1, 1)
-    assert new_source.coverage_delta.progressed
-
-    payload = same_source.to_dict()
-    assert payload["new_evidence_ids"] == ["new-page"]
-    assert payload["coverage_delta"]["new_source_families"] == 0
-    goal = build_repair_goal(
-        episode_id="episode-progress",
-        missing_outputs=("counterpoint",),
-        previous_progress=new_source,
-        remaining_calls=1,
-        remaining_seconds=10.0,
-        cycle=2,
-    )
-    assert goal.to_dict()["evidence_progress"]["new_source_families"] == 1
-
-
-def test_progress_without_target_ledger_stays_fail_closed() -> None:
-    """不知道新证据指向哪里，就不能说它推进了什么：无 targets 账记 0。"""
-
-    before = EvidenceLedgerSnapshot(
-        evidence_ids=(),
-        covered_outputs=(),
-        open_gaps=("counterpoint",),
-        independent_source_families=(),
-    )
-    after = EvidenceLedgerSnapshot(
-        evidence_ids=("e1",),
-        covered_outputs=("counterpoint",),
-        open_gaps=(),
-        independent_source_families=("news",),
-        evidence_source_families=(("e1", "news"),),
-    )
-    progress = progress_from_ledger(before, after)
-    assert progress.effective_new_evidence == 0
-    assert progress.coverage_delta.new_source_families == 0
-    assert not progress.coverage_delta.progressed

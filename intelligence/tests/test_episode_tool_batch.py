@@ -15,11 +15,8 @@ from intelligence.runtime import episode_tool_batch
 from intelligence.services import agent_research, query_ledger
 from intelligence.services.agent_runtime import ModelToolCall
 from intelligence.runtime.episode_tool_batch import (
-    EpisodeToolBatchSession,
     ToolBatchExecutor,
     ToolCallResult,
-    ToolDispatchClock,
-    stage_timeout_granted_detail,
     tool_batch_timeout_seconds,
 )
 from intelligence.services.evidence_capabilities import (
@@ -962,195 +959,6 @@ def test_available_tool_names_remove_collected_episode_snapshot() -> None:
     ) == ("kb_search",)
 
 
-def _menu_registry(*, kb_floor: float | None) -> ResearchToolRegistry:
-    return ResearchToolRegistry(
-        (
-            ToolSpec(
-                name="market_data",
-                capability="market_data",
-                description="fast local snapshot",
-                cost="local",
-                freshness="current",
-                runner=lambda query, _context: _evidence_result("market_data", query),
-            ),
-            ToolSpec(
-                name="kb_search",
-                capability="kb_search",
-                description="rag search",
-                cost="local",
-                freshness="stable",
-                runner=lambda query, _context: _evidence_result("kb_search", query),
-                min_window_seconds=kb_floor,
-            ),
-        )
-    )
-
-
-def _window_context(*, total: float, reserve: float) -> ResearchRunContext:
-    return replace(
-        _context(allowed=("market_data", "kb_search")),
-        deadline=ResearchDeadline.from_timeout(total, synthesis_reserve=reserve),
-        policy=ResearchPolicy("quick", 4, total, reserve),
-    )
-
-
-def test_menu_hides_tool_whose_min_window_exceeds_this_turns_grant() -> None:
-    """总窗 30 / reserve 15 → 本轮工具窗 15s；申报最少 20s 的 kb_search 不上菜单。
-
-    2026-09-03 生产读数：kb_search 66% 以 tool_timeout 收场、每次烧掉约 23s。这里
-    只裁可见性：would_grant 与派发点 ``deadline.stage_timeout(tool_batch_timeout_seconds)``
-    是同一套算术，授予本身一个字不改。
-    """
-
-    session = ToolBatchExecutor().new_session()
-    context = _window_context(total=30.0, reserve=15.0)
-    menu = session.menu(registry=_menu_registry(kb_floor=20.0), context=context)
-
-    assert menu.visible == ("market_data",)
-    assert menu.hidden == (("kb_search", 20.0),)
-    # 同一套算术；两次读单调钟相差微秒级，用容差比。
-    assert abs(
-        menu.would_grant
-        - context.deadline.stage_timeout(
-            episode_tool_batch.tool_batch_timeout_seconds(context.policy)
-        )
-    ) < 0.05
-    assert 0.0 < menu.would_grant < 20.0
-    assert menu.to_payload() == {
-        "visible": ["market_data"],
-        "hidden": ["kb_search"],
-        "min_window_seconds": {"kb_search": 20.0},
-        "would_grant": round(menu.would_grant, 3),
-        "reason": "min_window_exceeds_grant",
-    }
-    assert session.available_tool_names(
-        registry=_menu_registry(kb_floor=20.0), context=context
-    ) == ("market_data",)
-
-
-def test_menu_keeps_tool_when_window_fits_or_no_floor_declared() -> None:
-    session = ToolBatchExecutor().new_session()
-    wide = _window_context(total=90.0, reserve=30.0)  # 工具窗 60s ≥ 20s
-    fits = session.menu(registry=_menu_registry(kb_floor=20.0), context=wide)
-    assert fits.visible == ("kb_search", "market_data")
-    assert fits.hidden == ()
-
-    narrow = _window_context(total=30.0, reserve=15.0)
-    undeclared = session.menu(registry=_menu_registry(kb_floor=None), context=narrow)
-    assert undeclared.visible == ("kb_search", "market_data")
-    assert undeclared.hidden == ()
-
-
-def test_production_registry_declares_three_kinds_of_floor() -> None:
-    """三类地板用途不同：RAG 两条是「这活本来就要那么久」（实测尾巴）；三条网络工具是零授予护栏
-    （不是 p95 保证）；``sub_research`` 是设计常数——一支分支的时间上限（spec 2026-09-03 §4：
-    ``min_window_seconds = MAX_SECONDS_PER_BRANCH``），两边相等由 ``test_sub_research_tool`` 钉。
-
-    结构化本地工具仍不登记——它们 p95 < 0.3s，任何授予都够。
-    """
-
-    from intelligence.services.research_tool_registry import MIN_WINDOW_SECONDS, default_registry
-
-    assert MIN_WINDOW_SECONDS == {
-        "kb_search": 20.0,
-        "evidence_search": 30.0,
-        "web_search": 5.0,
-        "news_search": 5.0,
-        "web_fetch": 5.0,
-        "sub_research": 60.0,
-    }
-    runners = {
-        name: (lambda query, _context: _evidence_result("x", query))
-        for name in (
-            "kb_search",
-            "market_data",
-            "financial_data",
-            "web_search",
-            "news_search",
-            "web_fetch",
-        )
-    }
-    specs = {spec.name: spec for spec in default_registry(runners).authorized_specs()}
-    assert specs["kb_search"].min_window_seconds == 20.0
-    assert specs["web_search"].min_window_seconds == 5.0
-    assert specs["news_search"].min_window_seconds == 5.0
-    assert specs["web_fetch"].min_window_seconds == 5.0
-    assert all(specs[name].min_window_seconds is None for name in ("market_data", "financial_data"))
-
-
-def _network_registry() -> ResearchToolRegistry:
-    """地板取自**生产那张表**，不写字面量。
-
-    写死 5.0 的话，生产表哪天漏了 `web_search` 这两条行为钉照样全绿——钉住的
-    就只是「menu 会按 floor 裁剪」这个机制，而不是「web_search 真有地板」。
-    """
-
-    from intelligence.services.research_tool_registry import MIN_WINDOW_SECONDS
-
-    return ResearchToolRegistry(
-        (
-            ToolSpec(
-                name="market_data",
-                capability="market_data",
-                description="fast local snapshot",
-                cost="local",
-                freshness="current",
-                runner=lambda query, _context: _evidence_result("market_data", query),
-            ),
-            ToolSpec(
-                name="web_search",
-                capability="web_search",
-                description="bing web search",
-                cost="network",
-                freshness="current",
-                runner=lambda query, _context: _evidence_result("web_search", query),
-                min_window_seconds=MIN_WINDOW_SECONDS.get("web_search"),
-            ),
-        )
-    )
-
-
-def _network_window_context(*, total: float, reserve: float) -> ResearchRunContext:
-    return replace(
-        _context(allowed=("market_data", "web_search")),
-        deadline=ResearchDeadline.from_timeout(total, synthesis_reserve=reserve),
-        policy=ResearchPolicy("quick", 4, total, reserve),
-    )
-
-
-def test_near_zero_grant_hides_web_search_instead_of_burning_a_turn() -> None:
-    """`would_grant≈0` 那一刻 web_search 不该还在菜单上。
-
-    2026-09-03 live 三次复现同一形状：第二轮 would_grant=0，web_search 因无地板
-    照旧可见 → 模型点了（查询词里已写着答案，它想核实）→ 授 0 秒 → 立即
-    `tool_timeout` → 白烧一整轮。离线收据里同样有 1 次零授权。
-    """
-
-    session = ToolBatchExecutor().new_session()
-    context = _network_window_context(total=30.0, reserve=29.9)
-    menu = session.menu(registry=_network_registry(), context=context)
-
-    assert menu.would_grant < 5.0
-    assert menu.visible == ("market_data",)
-    assert menu.hidden == (("web_search", 5.0),)
-
-
-def test_ordinary_grant_keeps_web_search_visible() -> None:
-    """阳性对照：地板是零授予护栏，不是把网络工具关掉。
-
-    生产实授中位 23.2s，远在 5s 之上——没有这条，上面那条用「永远藏 web_search」
-    也能全绿。
-    """
-
-    session = ToolBatchExecutor().new_session()
-    context = _network_window_context(total=90.0, reserve=30.0)
-    menu = session.menu(registry=_network_registry(), context=context)
-
-    assert menu.would_grant >= 5.0
-    assert menu.visible == ("market_data", "web_search")
-    assert menu.hidden == ()
-
-
 def test_same_session_serializes_concurrent_duplicate_admission() -> None:
     runner_started = Event()
     release_runner = Event()
@@ -1919,11 +1727,7 @@ def test_expired_standard_batch_stamps_time_gate_clock_without_running_tools() -
     assert asked == 70.0
     assert runner_calls == 0
     assert result.executed_count == 0
-    # 零授权 = 没派发，不是超时（INV-R4）。
-    assert [item.error for item in result.items] == ["tool_not_dispatched"] * 4
-    assert [item.detail for item in result.items] == [
-        stage_timeout_granted_detail(0.0)
-    ] * 4
+    assert [item.error for item in result.items] == ["tool_timeout"] * 4
     for item in result.items:
         clock = _clock_payload(item)
         assert set(_DISPATCH_CLOCK_KEYS) <= set(clock)
@@ -1934,34 +1738,6 @@ def test_expired_standard_batch_stamps_time_gate_clock_without_running_tools() -
         assert clock["turn_elapsed_at_dispatch"] == 60.0
         assert item.queued_ms is None
         assert item.elapsed_ms is None
-
-
-def test_result_stamps_positive_grant_on_elapsed_timeout() -> None:
-    """真跑再超时也要带实授值，不能只覆盖 granted=0。"""
-
-    clock = ToolDispatchClock(
-        batch_grant_asked=30.0,
-        stage_timeout_granted=11.5,
-        episode_remaining_at_dispatch=71.5,
-        remaining_slots_at_dispatch=4,
-        turn_elapsed_at_dispatch=8.9,
-    )
-    result = EpisodeToolBatchSession._result(
-        [
-            ToolCallResult(
-                ModelToolCall("e1", "kb_search", {"query": "q"}),
-                "timeout",
-                error="tool_timeout",
-                detail="TimeoutError: RAW_TIMEOUT_EXCEPTION_SENTINEL",
-            )
-        ],
-        executed_count=0,
-        normalized_queries=(),
-        clock=clock,
-    )
-    assert result.items[0].error == "tool_timeout"
-    assert result.items[0].detail == "stage_timeout_granted=11.5"
-    assert result.items[0].dispatch_clock == clock
 
 
 def test_slot_gate_keeps_count_clock_while_time_window_still_open() -> None:
@@ -2027,11 +1803,8 @@ def test_r13_frozen_starvation_shape_replays_two_distinct_gates() -> None:
         turn_elapsed_at_dispatch=60.0,
     )
 
-    # 夹具是 09-01 前的老词表：零授权当时也写 tool_timeout。工单 #28（INV-R4）起
-    # 零授权未派发是 tool_not_dispatched——重放按新词表判，夹具原文不改（它是史料）。
-    expected = ["tool_not_dispatched" if error == "tool_timeout" else error for error in errors]
-    assert [item.error for item in result.items] == expected
-    time_gate = [item for item in result.items if item.error == "tool_not_dispatched"]
+    assert [item.error for item in result.items] == errors
+    time_gate = [item for item in result.items if item.error == "tool_timeout"]
     slot_gate = [item for item in result.items if item.error == "tool_budget_exhausted"]
     assert len(time_gate) == 4
     assert len(slot_gate) == 1

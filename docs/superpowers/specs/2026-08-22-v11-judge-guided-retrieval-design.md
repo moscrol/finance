@@ -11,17 +11,7 @@
 
 > 角色分离沿 R2/R3 纪律：本文件是设计合同，不是施工 diff。合并需验收方复算 + 用户确认。
 
-> **实施状态（2026-09-09，判官修复 01 第三刀，分支 `fix/judge-recovery-01`）**：§3–§7 已按本文接进
-> `episode_semantic_verifier.py`（`build_guided_query` / `_guided_retrieve_and_rejudge` /
-> `GuidedRetrievalTelemetry`，`verify(..., retrieve_fn=)`）与 `continuous_turn_adapter.py`
-> （`_build_guided_retriever` 走本回合注册表的 `kb_search`，授予秒数以 `bounded_stage` 绝对子窗到达执行者），
-> 测试 `intelligence/tests/test_v11_judge_guided_retrieval.py`（§5.5 ①–⑦ 全覆盖），读方
-> `scripts/audit_ceiling_sensors.py`（`v11_*`，缺字段 unjudgeable）。**与本文的两处偏离**：
-> ① §7.3 默认关 → 默认开（环境变量 `FINANCE_V11_GUIDED_RETRIEVE=0` 回滚），依据任务包
-> 01 范围合同「不能只接一个永远不开的开关」；② §5.4 的「撤【质检存疑】标」已无公开落点——
-> `_annotate_semantic_rejects` 自 V8 收敛后直接返回原文，存疑只在 issues / 控制面，故 lifted
-> 的用户可见效果为零，价值在遥测可区分四结局 + `sentence_verdicts` 的 `lifted` 账。§8 A/B
-> 尚未跑；台账行 `R-20260822-05` 未立（等验收方）。
+---
 
 ## 交付物覆盖自查（§B3 八项，缺一即不合格）
 

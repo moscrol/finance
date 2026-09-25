@@ -104,9 +104,9 @@ python3 rx.py -- "cd '/Users/lbq/Desktop/c c/金融' && python3 skills/dispatche
 | report-search | 搜研报、找研报、研报搜索 | tool-wrapper | ✅ |
 | hithink-market-query | 股票价格、ETF行情、涨跌幅 | tool-wrapper | ✅ cli.py |
 | top-gainers | 涨幅排行、涨幅前N、区间涨幅 | pipeline | ✅ query_sectors.py |
-| top-gainers-feishu | 强势股入库、涨幅入库、区间强势 | pipeline | ✅ query_ma.py（写入步已停） |
-| high-volume-gainers | 大成交排行、大成交涨幅、加权涨幅 | pipeline | ✅ write.py（写入步已停） |
-| advancers-chart | 涨家数折线图、涨家数走势、涨跌趋势图 | generator | ✅ sync.py（写入步已停） |
+| top-gainers-feishu | 强势股入库、涨幅入库、区间强势 | pipeline | ✅ |
+| high-volume-gainers | 大成交排行、大成交涨幅、加权涨幅 | pipeline | ✅ write.py |
+| advancers-chart | 涨家数折线图、涨家数走势、涨跌趋势图 | generator | ✅ sync.py |
 | limit-advance | 晋级 | pipeline | ✅ scrape.py |
 | sector-data | 边际量、板块数据、抓取板块 | pipeline | - |
 | watchlist-ma | 自选股均线、自选股MA、自选股过滤 | tool-wrapper | ✅ query.py |
@@ -117,19 +117,6 @@ python3 rx.py -- "cd '/Users/lbq/Desktop/c c/金融' && python3 skills/dispatche
 | checkpoint-recheck-mac-setup | 夜间回检、checkpoint recheck | tool-wrapper | ✅ |
 | 公司画像页 | 公司画像、画像页、strip profile | generator | - |
 | 行业概览 | 行业概览、板块全景、行业全景 | generator | - |
-| stock-technicals | UP线、偏离度、自选股、回踩、均线、MA10、MA20 | query | ✅ cli stock-technicals |
-
-### 已退役 skill 的去处（飞书 2026-09-11 退役）
-
-旧名字还可能出现在历史对话或用户口中，按这张表改道，**不要去找已删的目录**：
-
-| 旧 skill | 现在怎么做 |
-|---|---|
-| `up-line` | `cli stock-technicals`（UP/偏离度是默认输出列） |
-| `watchlist-ma` | `cli stock-technicals --watchlist default --screen pullback` |
-| `top-gainers-feishu` | `cli interval-gainers` 取名单 → `cli stock-technicals --screen pullback` |
-| `advancers-chart` | `cli daily-review --chart-output <路径>`（涨家数+MA5 图一直是本地画的） |
-| `sector-data` | 抓取走 `cli sync-fupanhui-sector-daily`；量价齐升筛选走 `cli top-sectors --min-amount 500 --min-pct-chg 0 --min-diff-ratio 10` |
 
 ## 特殊路由规则
 

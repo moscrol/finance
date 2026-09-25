@@ -35,16 +35,12 @@ from intelligence.services.episode_semantic_verifier import SemanticEpisodeVerif
 from intelligence.services.episode_verifier import verify_episode_outcome
 from intelligence.services.evidence_capabilities import EvidencePlan, EvidenceRequirement
 from intelligence.services.evidence_ledger import EvidenceLedgerSnapshot
-from intelligence.runtime.tier_promotion import apply_mode_promotion
 from intelligence.services.mode_governor import ModeGovernor, ModeSignals
 from intelligence.services.provider_observability import ProviderTrace
-from intelligence.runtime.repair_budget import admit_repair
 from intelligence.services.repair_coordinator import (
     RepairAdmission,
-    RepairFailureShape,
-    RepairNeed,
+    admit_repair,
     progress_from_ledger,
-    warrant_repair,
 )
 from intelligence.services.research_contract import (
     InMemoryRootBudgetLedger,
@@ -163,25 +159,18 @@ def test_matrix_model_timeout_zero_evidence_is_single_shot_cold_restart() -> Non
         remaining_seconds=root.remaining_seconds,
         evidence_count=0,
     )
-    # 领域申请（冷启动形状、一个格）在这里手写；生产里由 adapter 问 harness。
-    cold_need = RepairNeed(
-        missing_outputs=("direct",),
-        missing_capabilities=(),
-        rejected_claims=(),
-        shape=RepairFailureShape(delivery=False, cold_restart=True, contract_rewrite=False),
-        work_units=1,
-    )
     first = admit_repair(
-        cold_need,
-        warrant_repair(_starved_progress(), cycle=1, research_tier="standard"),
         episode_id="fault-timeout-zero",
+        missing_outputs=("direct",),
         attempted_actions=("market_data",),
         previous_progress=_starved_progress(),
         remaining_calls=root.remaining_calls,
         remaining_seconds=root.remaining_seconds,
         cycle=1,
         root_budget=root,
+        research_tier="standard",
         tools_open=False,
+        cold_restart_candidate=True,
         evidence_count=0,
     )
     assert isinstance(first, RepairAdmission)
@@ -195,16 +184,17 @@ def test_matrix_model_timeout_zero_evidence_is_single_shot_cold_restart() -> Non
         repair_attempts=1,
     )
     second = admit_repair(
-        cold_need,
-        warrant_repair(_starved_progress(), cycle=2, research_tier="standard"),
         episode_id="fault-timeout-zero",
+        missing_outputs=("direct",),
         attempted_actions=("market_data",),
         previous_progress=_starved_progress(),
         remaining_calls=root.remaining_calls,
         remaining_seconds=root.remaining_seconds,
         cycle=2,
         root_budget=root,
+        research_tier="standard",
         tools_open=False,
+        cold_restart_candidate=True,
         evidence_count=0,
     )
     assert second is None
@@ -591,7 +581,7 @@ def test_matrix_deep_promotion_then_cancel_starts_no_new_tool_calls() -> None:
         ),
         ModeSignals(evidence_domains=("盘面", "新闻")),
     )
-    promoted = apply_mode_promotion(context, decision)
+    promoted = ModeGovernor().apply(context, decision)
     assert promoted.policy.tier == "deep"
     root = promoted.root_budget
     assert root is not None

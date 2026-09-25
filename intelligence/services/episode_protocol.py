@@ -9,7 +9,6 @@ import json
 import re
 from typing import cast
 
-from intelligence.services import compliance_gate
 from intelligence.services.agent_research import AgentEvidence
 from intelligence.services.agent_runtime import (
     EpisodeStatus,
@@ -20,8 +19,6 @@ from intelligence.services.episode_output_substance import (
     required_outputs_without_substance,
 )
 from intelligence.services import knowledge_injection_policy
-from intelligence.services.judgment_delta import episode_judgment_delta_rule
-from intelligence.services.pricing_split import episode_pricing_split_rule
 from intelligence.services.research_contract import (
     FORWARD_HYPOTHESIS_OUTPUT_IDS,
     ResearchRunContext,
@@ -32,21 +29,11 @@ from intelligence.services.degraded_fallback import (
     episode_rule as degraded_episode_rule,
 )
 from intelligence.services.longtail_baseline import episode_rule
-from intelligence.services.ranking_contract import (
-    RANKING_CONTRACT_OUTPUT_ID_SET,
-    episode_ranking_rule,
-)
 from intelligence.services.scenario_tree import episode_scenario_rule
-from intelligence.services.track_contract import (
-    TRACK_CONTRACT_OUTPUT_ID_SET,
-    episode_track_rule,
-)
+from intelligence.services.track_contract import episode_track_rule
 
 
 _FINISH_STATUSES = frozenset({"completed", "partial"})
-# 与 research_tool_registry._DEFAULT_TOOL_METADATA 里的工具名同一字面量；这里不 import
-# derived_calculation 模块（它反向依赖注册表，成环），只认名字。
-DERIVED_CALCULATION_TOOL = "derived_calculation"
 # A few OpenAI-compatible adapters append one unmatched quote after an
 # otherwise exact fenced payload. Accept only that observed one-character
 # suffix; arbitrary prose before/after the fence remains invalid.
@@ -154,29 +141,10 @@ def _question_type_rules(
     # （单一真本源，与 legacy ask_synthesis 版同模块），此处只做条件注入——
     # 非跟踪题得到空串。从模块导入的文本不进 build_episode_instructions 的
     # 静态契约指纹（test_episode_protocol 只提取该函数体内的字符串常量）。
-    # 排序与情景契约（10 号单）同一条注入口：多对象排序题命中才有文本，其它题空串。
-    # 历史发现题（怎么走出来）不叠情景契约，避免和 history 自己的答法打架。
     track_rule = episode_track_rule(
         task_frame.raw_question,
         task_frame.question_type,
-    )
-    if context.history_intent is None:
-        track_rule += episode_scenario_rule(
-            task_frame.raw_question,
-            task_frame.question_type,
-        )
-    track_rule += episode_ranking_rule(
-        task_frame.raw_question,
-        task_frame.question_type,
-        conversation_context=context.conversation_context,
-    )
-    # 判断增量契约（q17 Q8 回灌）与产业/定价二分契约（q17 Q4 回灌）：同一条注入口，
-    # 材料型判断题 / 定价状态题命中才有文本，其它题空串。
-    track_rule += episode_judgment_delta_rule(
-        task_frame.raw_question,
-        task_frame.question_type,
-    )
-    track_rule += episode_pricing_split_rule(
+    ) + episode_scenario_rule(
         task_frame.raw_question,
         task_frame.question_type,
     )
@@ -373,17 +341,9 @@ def build_episode_input(
 ) -> str:
     """Serialize the per-turn task, cutoff, rules, and tool table."""
 
-    # task_id 是 `run_<时间戳>:msg_<hex>`，每次运行都不同、模型也用不上（协议不解析它，
-    # 终局只认 task_frame_hash 与证据序号）。留在 prompt 里的后果是首轮请求永不字节稳定：
-    # hex 串的 BPE 分词数随机差几个 token——2026-09-03 两条 loop 同题首轮 input_tokens
-    # 14513 vs 14517、09-02 又反向差 2，追到的就是它。去掉后同题首轮请求跨运行逐字节相同，
-    # A/B 硬门与 prompt 缓存都靠得住。contract 其它字段一个不动。
-    contract_for_model = {
-        key: value for key, value in context.contract.to_dict().items() if key != "task_id"
-    }
     payload: dict[str, object] = {
         "task_frame": task_frame.to_dict(),
-        "research_contract": contract_for_model,
+        "research_contract": context.contract.to_dict(),
         "today": context.today,
         "latest_data_date": context.latest_data_date,
         "information_cutoff": context.information_cutoff.to_dict(),
@@ -401,10 +361,6 @@ def build_episode_input(
         ),
         "question_type_rules": _question_type_rules(task_frame, context),
     }
-    from intelligence.services.material_delivery import material_delivery_payload, material_question_outputs
-
-    if material_question_outputs(context.contract):
-        payload["material_delivery"] = material_delivery_payload(context.contract)
     # 市场态题型（market_watch）不注入：三轮消融实测该题型上判读基线稳定负贡献
     # （主线题七读数全 ≤0），与 Engine B 合成侧共用 knowledge_injection_policy 门控。
     baseline = knowledge_injection_policy.reading_guidance_for(task_frame.question_type)
@@ -434,19 +390,6 @@ def build_episode_input(
         payload["stance_pack_rule"] = (
             "先验袋不是市场事实；现价只许来自 quote_bag；空袋必须写缺口；"
             "袋外价格不得出现；动作只写条件"
-        )
-    stages = tuple(getattr(context, "retrieval_stages", ()) or ())
-    if stages:
-        # R-20260827-09 送达层：owner 工作流的阶段表此前只进 trace，模型在
-        # episode 里从未见过——四臂 D5 上表现为「计划列了 company_mapping、
-        # 执行零次实体解析查询」。只在非空时注入：无阶段轮逐字节不变。
-        payload["retrieval_stages"] = list(stages)
-        payload["retrieval_stages_rule"] = (
-            "retrieval_stages 是本题型的标准检索阶段序列，用于规划工具调用的"
-            "顺序与覆盖面：每个阶段都应有对应的检索/取数调用伺候"
-            "（如 chain_stages/company_mapping 需要图谱查询或板块×个股类取数），"
-            "伺候不了的阶段必须在答案中声明缺口；阶段表本身不是证据，"
-            "也不改变 research_contract 的证据边界"
         )
     return json.dumps(payload, ensure_ascii=False)
 
@@ -525,19 +468,11 @@ REJECTION_KINDS: dict[str, RejectionKind] = {
     "evidence_type_floor": RejectionKind.SUBSTANCE,
     "no_substantive_answer": RejectionKind.SUBSTANCE,
     "missing_evidence": RejectionKind.SUBSTANCE,
-    # 结构合法、内容越产品红线（对「明天哪个方向」答成领涨判断）→ 回灌改写成观察剧本
-    "forward_direction_call": RejectionKind.SUBSTANCE,
     # 地基破坏 → 硬拒
     "unknown_output": RejectionKind.INTEGRITY,
     "forged_hash": RejectionKind.INTEGRITY,
-    # 派生计算证据没有输入哈希链：算出来的数指不回它算的证据，与伪造哈希同一族——
-    # 证据体系的地基问题，不是写法问题（spec capability-amplification §3.4）。
-    "derived_without_inputs": RejectionKind.INTEGRITY,
     # 抄漏最后一位：结构滑档，不是伪造。见 `_is_unique_one_char_truncation`。
     "truncated_hash": RejectionKind.FORMAT,
-    # 把跟踪题表达槽（track_ttl / track_next_watch / track_quad_or_baseline）当 output 绑：
-    # 是系统自己在修复目标里给的 id，不是伪造——回灌重写。
-    "expression_slot_binding": RejectionKind.FORMAT,
 }
 
 
@@ -597,37 +532,6 @@ def rejection_response(error: BaseException) -> RejectionResponse:
 
 def _reject(code: str, message: str) -> EpisodeFinishRejection:
     return EpisodeFinishRejection(code, message)
-
-
-def forward_direction_call_hits(
-    draft: str, *, question: str
-) -> tuple[compliance_gate.Hit, ...]:
-    """「明天哪个方向」这类问法的答案里，有没有对下一交易日的领涨 / 方向判断。
-
-    出口硬门（2026-09-07，D9 读数）：问句不是这类就不查（宁可漏不可滥——
-    「长电科技怎么看」里写「次日更容易高开分歧」不归这里管）；是这类问法则整篇
-    按子句扫，条件句免检（观察剧本的升级 / 降级条件天然长成「若明天开盘 X 高开」）。
-    词表与判据都住在 ``compliance_gate``（一份词表多个消费者），这里只做接线。
-    """
-
-    if not compliance_gate.is_next_day_direction_question(question):
-        return ()
-    return tuple(compliance_gate.forward_call_hits(draft))
-
-
-def forward_direction_call_message(hits: tuple[compliance_gate.Hit, ...]) -> str:
-    """回灌给模型的可修正提示：说清越了哪条线、要改成什么形状、命中在哪。"""
-
-    excerpts = "；".join(f"「{hit.context}」" for hit in hits[:3])
-    return (
-        "这道题问的是明天哪个方向，产品不输出方向或领涨判断（不预测涨跌；"
-        "「第二天的方向」一律写成观察剧本）。请把 draft 改写成观察剧本："
-        "① 明天要看的 2–4 个变量，只到指数 / 板块 / 题材，不点个股；"
-        "② 每个变量的升级条件与降级 / 放弃条件，写成可核验的数值或事件；"
-        "③ 末尾一句「以上是观察项，不是投资建议」。"
-        "不得写「最可能先动的是 X」「首选 / 次选」「明天会涨 / 会跌」这类判断。"
-        f"本次命中：{excerpts}"
-    )
 
 
 ABSENT_REJECTION_CODE = "none"
@@ -834,13 +738,6 @@ def validate_episode_finish(
     draft = _normalize_natural_language_layout(draft)
     if status == "completed" and not draft.strip():
         raise _reject("empty_draft", "completed finish draft must be non-empty")
-    forward_hits = forward_direction_call_hits(
-        draft, question=context.contract.question
-    )
-    if forward_hits:
-        raise _reject(
-            "forward_direction_call", forward_direction_call_message(forward_hits)
-        )
     raw_gaps = decoded.get("gaps", [])
     if not isinstance(raw_gaps, list) or any(
         not isinstance(item, str) for item in raw_gaps
@@ -865,27 +762,6 @@ def validate_episode_finish(
             basis=str(raw.get("basis") or "evidence"),
         )
         if binding.output_id not in allowed_outputs:
-            if binding.output_id in TRACK_CONTRACT_OUTPUT_ID_SET:
-                # 跟踪题的表达槽（四态 / TTL / 下期关注）由 track_contract 以合成 id 并进
-                # 修复目标的 missing_answer_elements，模型看见 id 就当 output 去绑——
-                # 2026-09-07 两轮 theme_track 修复 2/2 死在这里：系统自己要的东西被自己
-                # 当「越界输出」硬拒（INTEGRITY 不回灌、不恢复）。它不是伪造，是把正文
-                # 要求当成了绑定槛；按 FORMAT 回灌，告诉模型写进 draft、不进 bindings。
-                raise _reject(
-                    "expression_slot_binding",
-                    f"{binding.output_id} 是正文表达要求，不是可绑定的 output_id："
-                    "把「复核期限：YYYY-MM-DD」「下期关注：…」这类内容写进 draft，"
-                    "bindings 里只保留契约列出的 output_id",
-                )
-            if binding.output_id in RANKING_CONTRACT_OUTPUT_ID_SET:
-                # 排序题表达槽（矩阵 / 改判条件 / 竞争解释 / 下一步）同理：系统自己在
-                # 修复目标里给的 id，按 FORMAT 回灌而不是当伪造输出硬拒。
-                raise _reject(
-                    "expression_slot_binding",
-                    f"{binding.output_id} 是正文表达要求，不是可绑定的 output_id："
-                    "把公司矩阵表、改判条件表、「竞争解释」「下一步」段写进 draft，"
-                    "bindings 里只保留契约列出的 output_id",
-                )
             raise _reject(
                 "unknown_output",
                 f"unknown required output: {binding.output_id}",
@@ -936,21 +812,6 @@ def validate_episode_finish(
                 f"required output lacks evidence type {binding.output_id}: "
                 + ",".join(missing_floor),
             )
-        # 派生计算产物没有输入哈希链就不是证据（spec capability-amplification §3.4 / §5 第 16 条）：
-        # 一段算出来的数如果说不清算的是哪几条证据，既不可复现也无法与 provider 数对账。
-        derived_without_inputs = tuple(
-            evidence_hash
-            for evidence_hash in binding.evidence_hashes
-            if evidence_by_hash[evidence_hash].tool == DERIVED_CALCULATION_TOOL
-            and not evidence_by_hash[evidence_hash].derived_from
-        )
-        if derived_without_inputs:
-            raise _reject(
-                "derived_without_inputs",
-                f"{binding.output_id} 绑定的派生计算证据没有 input_evidence_hashes: "
-                + ",".join(derived_without_inputs)
-                + "；派生数必须能指回它算的那几条证据",
-            )
 
     binding_map = {item.output_id: item for item in bindings}
     empty_outputs = tuple(
@@ -998,18 +859,6 @@ def validate_episode_finish(
     if relocated_gaps:
         gaps = tuple(dict.fromkeys((*gaps, *relocated_gaps)))
     binding_map = {item.output_id: item for item in bindings}
-    from intelligence.services.material_delivery import (
-        material_delivery_missing_outputs,
-        with_all_material_gaps_notice,
-    )
-
-    material_missing = material_delivery_missing_outputs(context.contract, draft, tuple(bindings))
-    if material_missing:
-        raise _reject(
-            "no_substantive_answer",
-            "material question missing, repeated, over length, or gap not disclosed: "
-            + ",".join(material_missing),
-        )
     if status == "completed":
         missing = []
         for required in context.contract.required_outputs:
@@ -1029,7 +878,6 @@ def validate_episode_finish(
                 "missing_evidence",
                 "required output lacks evidence: " + ",".join(missing),
             )
-    draft = with_all_material_gaps_notice(context.contract, draft, tuple(bindings))
     return EpisodeFinish(
         status=cast(EpisodeStatus, status),
         draft=draft,

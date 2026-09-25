@@ -1,8 +1,0 @@
-独立复核 E2 P3b/P3c 及返修，固定 /tmp/e2-qc-301dcd9e @ 301dcd9e1eef5095424027ffa703bfeab2472cc6。最终必须形成完整中文报告，写 /tmp/e2-qc-301dcd9e-report.md（可用bash/python写报告）。先写报告再清临时数据，探针源码和日志保留在/tmp以便宿主归档；不能删除这些证据。结束时也输出结论。
-你是全新独立审查进程，与作者同型号但无其会话上下文。只读应用，不改应用/原题/评分/46针，不提交/合并/推送/部署；不调用金融模型/金融API、不读生产用户数据/主库。所有探针临时数据；每shell显式cd。pytest/ruff只能 /Users/a77/finance-workspace-private/.venv-workbench/bin/python。
-先核对git身份/状态，读AGENTS.md与docs/agent-product-door.md材料小节、设计 docs/learning/knevo-distill/recheck/2026-09-12-t23-nogrok/E2-DESIGN-material-contract-2026-09-13.md D4/A16。检查三个应用diff：P3b=e0051804..8ea6c5c1；P3c=812b4d46..b4ba6fb5；返修=c942fcd1..301dcd9e。
-前次独立审查已执行71次工具、相邻709passed/12skip、独立31passed/2failed（日志中公开形成P3b限定通过/P3c退修，最终答复因并发额度中断；不当作完整放行）。核心两反例同源：原始registry认证runner在batch/repair被同名unknown替换，模型菜单和执行会拒绝，但Scope仍用旧registry授权allowed=true，tool/error的reason为空；未复现外呼越权，参数解析/派发意图尝试均0。
-返修新增Scope.for_execution、batch锁内绑定、repair更新state.episode_scope，保留累积诊断与更严read_scope。请独立查反例关闭及新增回归：同名unknown/mixed变体、不同capability/删除工具、contract/ceiling收窄、批菜单/执行一致性、repair授权记录、拒绝前解析/dispatch计数、历史accumulator与sink保留、旧immutable scope不被篡改、普通full本地runner正例。不要只看作者新增四针。重点审scope重绑会否越权/换task、临时contract降级、并发批次/晚结果在新scope记错账。不要要求恶意Python强隔离，io_effect仅可信装配声明。
-P3b亦需复核local_only同源能力/requirements/输出evidence_types与真实认证runner路径，至少实跑现有test_e2_local_freeze.py的临时DuckDB/JSON/用户台账测试。可跑相邻测试，但勿浪费在全仓（作者另跑）。每个禁止IO探针计数尝试，防异常被吞；允许测试启动明确的离线测试子进程，不把审查器自己拦掉的测试脚本报代码缺陷。
-范围外且不能冒充已完成：controller早读/普通上下文来源过滤、预取前歧义/继承澄清、registry_factory内部已发生IO、压缩/崩溃恢复/子研究/确定性旁路、local_only原题号槽、P4-P7。内存repair不等于崩溃恢复纯度。
-报告请分别裁定P3b/P3c+返修通过/退修/阻塞；发现按P1/P2/P3列路径行号+行为+复现；无发现写测试命令/计数、临时探针路径、IO尝试与未覆盖边界；结论只限本片，不颁发完整P3/合并/产品验收通过。若时间不足或模型失败仍写已验证/未验证的报告，不自动判过。

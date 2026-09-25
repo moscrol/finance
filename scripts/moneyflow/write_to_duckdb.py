@@ -85,9 +85,6 @@ def _format_message(message, stats):
             f"entries={shared.get('entries', 0)} "
             f"path={shared.get('path', '')}"
         )
-    missing_pct = (stats or {}).get("pct_chg_canonical_missing")
-    if missing_pct is not None:
-        parts.append(f"pct_chg_canonical_missing={missing_pct}")
     if (stats or {}).get("nonempty_count") is not None:
         parts.append(
             f"nonempty={(stats or {}).get('nonempty_count')} "
@@ -176,156 +173,6 @@ def _mark_complete(con, date, step, row_count, stats):
     _mark_status(con, date, step, "complete", row_count, stats, None)
 
 
-def mark_calendar(date, verdict, source, reason):
-    """交易日判定落台账（2026-09-13 QC S2）。
-
-    step='calendar'、status=verdict（trading/closed/unknown），message 记判定来源
-    与理由。每跑必写：unknown 不再只在 stderr 吼一声就无迹可查；trading/closed
-    也记，于是「无 calendar 行」唯一地意味着「本副本还没带这版修复」，语义不含糊。
-    刻意不做 is_trading_day 守卫——本行记录的就是日历判定本身，守卫它等于循环论证。
-    """
-    con = connect()
-    try:
-        init_db(con)
-        _mark_status(
-            con,
-            date,
-            "calendar",
-            verdict,
-            None,
-            None,
-            f"calendar verdict source={source}: {reason}",
-        )
-    finally:
-        con.close()
-
-
-def _missing_detail_path(date, codes):
-    """缺失日线代码完整明细落盘（>20 个时台账只带前 20 + 指针，明细不截断）。"""
-    detail_dir = Path(
-        os.environ.get(
-            "L2_REPAIR_DETAIL_DIR",
-            "~/.finance-runtime/db-repair/l2-pct-chg-missing",
-        )
-    ).expanduser()
-    detail_dir.mkdir(parents=True, exist_ok=True)
-    path = detail_dir / f"{date}.txt"
-    path.write_text("\n".join(codes) + "\n", encoding="utf-8")
-    return path
-
-
-def repair_pct_chg(date):
-    """把当日 L2 两表的 pct_change 回填为日线口径（2026-09-13 QC E3 旧窗口收口）。
-
-    旧窗口（ClickHouse/wind 时代）行的 pct_change 是「末笔/首笔」日内口径，与日线
-    pct_chg 系统性背离。逐笔数据本身无缺陷、资金流各列不动——只回填这一列：
-    从 fact_stock_daily 按 6 位代码直填；缺日线的行写 NULL 并计数（不拿日内口径
-    冒充）。幂等：值已正确的行被重写成同样的值。刻意不用 duck_pct_chg_map——它按
-    config.DUCKDB_PATH 另开连接，回填必须与写入同一库（测试才能指向 tmp 库）。
-
-    二轮 QC 返修（三个 P2）：
-    1. 库不存在直接 FileNotFoundError——connect 会新建空库，路径配错绝不能报 complete；
-    2. 分母拆开记：target_rows（当日总行）/ distinct_codes / matched_rows / null_rows，
-       同代码跨 scan_type 多行时行数与代码数不再混淆；
-    3. 缺日线代码 >20 时完整明细落盘（L2_REPAIR_DETAIL_DIR 可覆盖），台账带指针不截断。
-    零目标（当日两表无行）标 noop 不标 complete。
-    """
-    import market_feature_store.db as mfs_db
-
-    db_file = Path(mfs_db.DB_PATH)
-    if not db_file.is_file():
-        raise FileNotFoundError(
-            f"目标库不存在：{db_file}（repair 不新建空库——路径配错必须报错，"
-            "不能写 complete 误报修复成功）"
-        )
-    tables = ("feature_l2_capital_flow_daily", "feature_l2_quant_orders_daily")
-    con = connect()
-    try:
-        init_db(con)
-        con.execute("BEGIN TRANSACTION")
-        pct_map = {
-            r[0]: float(r[1])
-            for r in con.execute(
-                "SELECT substr(stock_ts_code, 1, 6), pct_chg FROM fact_stock_daily "
-                "WHERE trade_date = ? AND pct_chg IS NOT NULL",
-                [date],
-            ).fetchall()
-        }
-        parts = []
-        missing_codes = set()
-        total_target = 0
-        for table in tables:
-            short = "capital" if "capital" in table else "quant"
-            target_rows = con.execute(
-                f"SELECT COUNT(*) FROM {table} WHERE trade_date = ?", [date]
-            ).fetchone()[0]
-            codes = [
-                r[0]
-                for r in con.execute(
-                    f"SELECT DISTINCT stock_code FROM {table} WHERE trade_date = ?",
-                    [date],
-                ).fetchall()
-            ]
-            missing = []
-            for code in codes:
-                pct = pct_map.get(code)
-                con.execute(
-                    f"UPDATE {table} SET pct_change = ? "
-                    "WHERE trade_date = ? AND stock_code = ?",
-                    [pct, date, code],
-                )
-                if pct is None:
-                    missing.append(code)
-            # 行级分母：缺日线代码覆盖的行数（同代码可跨 scan_type 占多行）
-            null_rows = (
-                con.execute(
-                    f"SELECT COUNT(*) FROM {table} WHERE trade_date = ? "
-                    "AND stock_code IN (SELECT UNNEST(?::TEXT[]))",
-                    [date, missing],
-                ).fetchone()[0]
-                if missing
-                else 0
-            )
-            matched_rows = target_rows - null_rows
-            missing_codes.update(missing)
-            total_target += target_rows
-            parts.append(
-                f"{short} target_rows={target_rows} distinct_codes={len(codes)} "
-                f"matched_rows={matched_rows} null_rows={null_rows}"
-            )
-        if total_target == 0:
-            _mark_status(
-                con, date, "repair_pct_chg", "noop", None, None,
-                "repair_pct_chg: 当日两表无目标行，无操作（非 complete）",
-            )
-            con.execute("COMMIT")
-            print(f"DuckDB: l2-moneyflow {date} repair_pct_chg 无目标行，标记 noop")
-            return "noop"
-        msg = "repair_pct_chg: " + "; ".join(parts)
-        if missing_codes:
-            ordered = sorted(missing_codes)
-            if len(ordered) <= 20:
-                msg += f"; missing_daily={'/'.join(ordered)}"
-            else:
-                detail = _missing_detail_path(date, ordered)
-                msg += (
-                    f"; missing_daily={'/'.join(ordered[:20])} "
-                    f"(+{len(ordered) - 20} more, full={detail})"
-                )
-        _mark_status(con, date, "repair_pct_chg", "complete", None, None, msg)
-        con.execute("COMMIT")
-        print(f"DuckDB: {msg}")
-        return msg
-    except Exception:
-        try:
-            con.execute("ROLLBACK")
-        except Exception:
-            pass
-        raise
-    finally:
-        con.close()
-
-
 def mark_failed(date, message, steps=STEPS, only_running=True):
     """把步骤标记为 failed（默认只覆盖仍处于 running 的步骤）。"""
     con = connect()
@@ -369,16 +216,12 @@ def write_capital_flow(date, scan_type, res, big_thr, prev_limitup_date=None, st
         if not res.empty
         else res
     )
-    missing_pct = int(res["当日涨幅%"].isna().sum()) if not res.empty else 0
-    stats = {**(stats or {}), "pct_chg_canonical_missing": missing_pct}
     now = datetime.now()
     rows = [(date, scan_type, r["code"], to_ts_code(r["code"]), r["name"],
              float(r["主买净额(万)"]), float(r["总买净额(万)"]),
              float(r["流通市值(亿)"]),
              None if pd.isna(r["综合得分"]) else float(r["综合得分"]),
-             # 当日涨幅%：日线口径（收盘/前收）；行情缺口日为 NULL，不充日内口径
-             None if pd.isna(r["当日涨幅%"]) else float(r["当日涨幅%"]),
-             float(big_thr), i + 1,
+             float(r["当日涨幅%"]), float(big_thr), i + 1,
              prev_limitup_date, SOURCE, now)
             for i, r in df.iterrows()]
     zero_problem = _zero_result_problem(scan_type, len(rows), stats)
@@ -425,14 +268,11 @@ def write_quant_orders(date, res, big_thr, quant_thr, stats=None):
         if not res.empty
         else res
     )
-    missing_pct = int(res["当日涨幅%"].isna().sum()) if not res.empty else 0
-    stats = {**(stats or {}), "pct_chg_canonical_missing": missing_pct}
     now = datetime.now()
     rows = [(date, r["code"], to_ts_code(r["code"]), r["name"],
              float(r["量化单总额(万)"]), float(r["占大单买入%"]),
              int(r["簇数"]), int(r["笔数"]), str(r["最大簇"]),
-             None if pd.isna(r["当日涨幅%"]) else float(r["当日涨幅%"]),
-             float(quant_thr), float(big_thr),
+             float(r["当日涨幅%"]), float(quant_thr), float(big_thr),
              i + 1, SOURCE, now)
             for i, r in df.iterrows()]
     con = connect()
@@ -461,13 +301,6 @@ def write_quant_orders(date, res, big_thr, quant_thr, stats=None):
 
 
 def main():
-    if len(sys.argv) >= 5 and sys.argv[1] == "--calendar":
-        reason = " ".join(sys.argv[5:]) if len(sys.argv) > 5 else ""
-        mark_calendar(sys.argv[2], sys.argv[3], sys.argv[4], reason)
-        print(
-            f"DuckDB: l2-moneyflow {sys.argv[2]} 日历判定 {sys.argv[3]} 已落台账"
-        )
-        return
     if len(sys.argv) == 3 and sys.argv[1] == "--begin":
         begin_l2_run(sys.argv[2])
         print(f"DuckDB: l2-moneyflow {sys.argv[2]} 标记为 running")
@@ -477,18 +310,9 @@ def main():
         mark_failed(sys.argv[2], message)
         print(f"DuckDB: l2-moneyflow {sys.argv[2]} 未完成步骤标记为 failed")
         return
-    if len(sys.argv) == 3 and sys.argv[1] == "--repair-pct-chg":
-        try:
-            repair_pct_chg(sys.argv[2])
-        except FileNotFoundError as exc:
-            print(f"✗ {exc}", file=sys.stderr)
-            sys.exit(2)
-        return
     if len(sys.argv) < 4:
         print(
             "用法: python3 write_to_duckdb.py --begin <日期> | --fail <日期> [原因] | "
-            "--calendar <日期> <trading|closed|unknown> <判定来源> [理由] | "
-            "--repair-pct-chg <日期> | "
             "<csv路径> <limitup|top100|quant> <日期>"
         )
         return

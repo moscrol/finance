@@ -41,7 +41,7 @@ curl -s -X POST "http://localhost:3456/eval?target=TARGET_ID" \
 
 ### 阶段3：写入电子表格（Spreadsheet）
 
-目标表 `sector_marginal_sheet`（sheet_id: `e8a204`；spreadsheet token 取自 `~/.claude/shared/feishu_config.json` 的 `tables.sector_marginal_sheet`，不写进仓）。
+目标表 `sector_marginal_sheet`（token: `AHqIwJyMKiglO2kokwYcHRjJnWd`，sheet_id: `e8a204`）。
 
 布局：A列=板块名，后续列=各日期边际量，第一行是日期表头。
 

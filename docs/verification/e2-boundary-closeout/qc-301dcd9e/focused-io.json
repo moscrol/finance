@@ -1,8 +1,0 @@
-{
-  "forbidden_attempts": [],
-  "allowed_infrastructure_children": [
-    "['git', 'rev-parse', '--abbrev-ref', 'HEAD']",
-    "['git', 'rev-parse', '--short', 'HEAD']",
-    "['git', 'status', '--porcelain']"
-  ]
-}

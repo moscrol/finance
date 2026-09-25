@@ -215,41 +215,6 @@ research 请求 / research 结果 / repair / finalizing），并**不包含** `c
 事件只保存 source event identity、受控状态/计数摘要和输入 SHA-256；不保存
 prompt、答案正文、工具参数、命令 stdout、绝对路径、凭据或个人信息。
 
-### claude-console-session（react 对照臂实验产物 → L1 九步；档 A：纯文档映射）
-
-> 2026-08-28 落表（工单
-> `docs/superpowers/specs/2026-08-27-longtail-react-gap-remediation-workorder.md` §P1）。
-> **本 kind 无 normalizer 代码实现**——`normalize_harness_trace.py` 不认识它，`--kind auto`
-> 不会命中。这是刻意的档 A 范围：映射只服务人工/脚本化跨臂 M2 对齐，不进生产投影管线；
-> 「本表与代码分歧即缺陷」条款对本小节**不适用**（无代码可分歧）。档 B（react 驱动器补
-> plan 地标）见工单 §P1，只改实验驱动器 `~/.finance-runtime/four-arm-20260827/scripts/`，
-> 不改生产。
-
-产物形状（[实测] 四臂 D2 样本）：顶层 `case_id / question / as_of / required_outputs /
-allowed_capabilities / authorized_tools / code_root` + `calls[]`（`step_id / tool /
-arguments / elapsed_seconds / called_at / error`）+ `answer / answer_sha256 /
-finished_at / tool_call_count`。
-
-| L1 step | 投影来源 | provenance | 损耗声明 |
-|---|---|---|---|
-| `configure` | 顶层 `allowed_capabilities` / `authorized_tools` / `code_root` / `as_of`（装配合同地标） | `normalized` | 无 system prompt 正文（刻意不落盘） |
-| `intent` | `question` + `required_outputs` | `normalized` | — |
-| `plan` | v1 产物**不可表达**（无决策事件）；**v2 起 `session.plan` 地标**（step 预算 + 工具白名单，`landmark_version=2`，2026-08-28 档 B 落驱动器，下轮实验首个 prepare 生效） | `normalized` | v1：一等损耗，M2 报告必须列 `residual_uncertainty`；v2：地标只记驱动器真实决定的两件事，不硬造逐步计划 |
-| `route` | **结构性不存在**（单引擎、无 skill 分派），同 codex `route` 先例（§8「结构性差异非缺口」） | — | 不造事件凑指标 |
-| `retrieve` | **归并进 `tool`**：驱动器对检索类调用与其他调用同形（都是 `calls[]`），无独立检索面 | — | 归并损耗；按调用的 tool 名回分检索/取数属「按事件名猜」，禁止 |
-| `tool` | `calls[].tool` + `arguments`（原生顺序） | `normalized` | — |
-| `observe` | `calls[].elapsed_seconds` + `error` + **`payload_sha256` / `evidence_count` / `observation` / `evidence[:evidence_limit]`**（勘误 2026-08-28：首版本行按工单摘要抄成「只有存在性证据」，对着真产物验证后不成立——四臂三题 call 记录均为 15 键富记录） | `normalized` | `evidence` 正文按 `evidence_limit` 截断，非完整原始载荷；`error=None` ≠ 结果可用 |
-| `synthesize` | `answer`（终态） | `normalized` | 无中间稿 |
-| `stop` | `finished_at` + `answer_sha256` | `normalized` | — |
-
-**前缀门槛核算**：M2 前缀可比门槛为 `configure → intent → plan` 三步两侧非空
-（workbench / codex 为 3/3）；本 kind **v1 产物**（无 `session.plan` 键，四臂 20260827
-全部产物属之）`plan` 结构性缺失 → **2/3**，`plan` 损耗必须原样进报告的
-`residual_uncertainty` 并配 Observability prescription；**v2 产物**（有 `plan` 键）
-→ **3/3**。observe 的「无内容证据」旧声明已勘误（见上表），不再作为 residual 项。
-首批消费本表的报告：`~/.finance-runtime/react-gap-m2-20260828/`（D2 / D5 双侧对齐，
-其 residual #2 按本勘误作废，勘误注记见报告文件头）。
-
 ## 7. Comparison contract and evidence boundary
 
 `compare_sequences()` 只对已映射的步骤做序列比较。若一侧没有任何 mapped event，
