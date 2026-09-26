@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import shlex
 import subprocess
@@ -256,10 +257,32 @@ def test_sandbox_interpreter_binding_without_git_access(tmp_path, axis, binding)
         assert not list((folder / "offline-tool-run/commands").iterdir())
 
 
+RETIRED_OWNER_TREE = "/finance-worktrees/adaptive-research-loop/"
+
+
+def repoint_retired_read_control(folder, tree):
+    """Keep the archived out-of-candidate read control evaluable in disposable inputs.
+
+    The sealed preflight names the #868 owner's live worktree, retired on 2026-09-26.
+    A missing path raises ENOENT, not EPERM, so the control proves nothing and the
+    preflight stops before its later checks. Point it at an existing file in a protected
+    candidate subtree that the generated policy must still deny; outside-home reads stay
+    covered by the archived credential-path control.
+    """
+    stand_in = tree / ".claude/settings.json"
+    assert stand_in.is_file()
+    preflight = folder / "sandbox_preflight.mjs"
+    body = preflight.read_text()
+    retired = re.findall(r"'([^']*" + re.escape(RETIRED_OWNER_TREE) + r"[^']*)'", body)
+    assert len(retired) == 1, retired
+    preflight.write_text(body.replace(f"'{retired[0]}'", json.dumps(str(stand_in))))
+
+
 @pytest.mark.parametrize("axis", ["spec", "quality"])
 @pytest.mark.parametrize("removed_guard", [None, "metadata", "keychain"])
 def test_sandbox_preflight_collects_real_author_tests(tmp_path, axis, removed_guard):
     folder = sandbox_inputs(tmp_path, axis, ARCHIVE.parents[2])
+    repoint_retired_read_control(folder, ARCHIVE.parents[2])
     if removed_guard:
         profile = folder / "tools.sb"
         guard = (sandbox_metadata(ARCHIVE.parents[2], folder) if removed_guard == "metadata"
