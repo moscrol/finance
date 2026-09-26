@@ -1,0 +1,22 @@
+{
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "python_version": "3.12.13",
+  "dependency_fingerprint": "3328bed61f3e21ea",
+  "tree": "/Users/a77/fwp-wt-nightly-review-0917",
+  "revision": "6356ffd5e703b30948f687baaaf60102bf97f0a5",
+  "branch": "fix/nightly-review-0917",
+  "dirty": false,
+  "dirty_paths": [],
+  "worktree_dirty_total": 2,
+  "dependency_gate_bypassed": false,
+  "target": "tests/test_recover_local_review.py tests/test_index_local_fallback_boundary.py tests/test_backfill_sina_resume.py tests/test_tiered_sync_local.py::test_refresh_completed_members_after_base_quote_repair tests/test_market_feature_store_staging_swap.py::test_receipt_row_present_after_swap tests/test_market_feature_store_staging_swap.py::test_crash_without_status_json_does_not_swap tests/test_market_feature_store_staging_swap.py::test_sigkill_during_staging_leaves_production_bytes_unchanged tests/test_market_feature_store_staging_swap.py::test_pre_swap_backup_created_with_fingerprint_and_receipt tests/test_market_feature_store_staging_swap.py::test_stale_status_from_previous_round_does_not_swap tests/test_market_feature_store_staging_swap.py::test_status_run_id_mismatch_refused tests/test_market_feature_store_staging_swap.py::test_run_mutex_refuses_second_round_before_any_cleanup",
+  "counts": {
+    "passed": 36,
+    "failed": 0,
+    "error": 0,
+    "skipped": 0
+  },
+  "failed_ids": [],
+  "exit_status": 0,
+  "finished_at": "2026-09-20T05:10:09+00:00"
+}

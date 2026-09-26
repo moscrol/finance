@@ -1,0 +1,7 @@
+{
+  "time": "2026-09-21T09:53:43.895018+00:00",
+  "target_pid": 51140,
+  "observed": "51140 51124 51114 /opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python -m pytest -q -p no:cacheprovider",
+  "signal": "SIGINT",
+  "reason": "Diagnostic duplicate of existing #814 receipt implementation; stop redundant full run, preserve all output and make no full-suite PASS claim."
+}

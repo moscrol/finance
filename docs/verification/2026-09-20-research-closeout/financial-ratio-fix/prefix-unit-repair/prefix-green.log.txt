@@ -1,0 +1,3 @@
+.............................                                            [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260920T040324Z-7149e236.json
+
+29 passed, 105 deselected in 0.42s

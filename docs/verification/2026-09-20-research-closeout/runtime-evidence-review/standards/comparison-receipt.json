@@ -1,0 +1,53 @@
+{
+  "candidate": "a7f5cc06c087c2d9db896450bb6033851e8e5789",
+  "candidate_status": "",
+  "base": "6b70e54034b0fab736430d7e3d00d6f4f7fd617a",
+  "baseline_source_checks": [
+    {
+      "path": "intelligence/runtime/agent_episode.py",
+      "sha256": "867d1d03fc5ae477d3542a1eaad6749848eb900afb568ed7238181ccb3b199f9",
+      "matches_git_blob": true
+    },
+    {
+      "path": "intelligence/runtime/glm_agent_runtime.py",
+      "sha256": "8244d20ec3e7aafa296eec5247d619e4f64683898cd4555a339f85d5868b542a",
+      "matches_git_blob": true
+    },
+    {
+      "path": "intelligence/runtime/sub_research.py",
+      "sha256": "394febfe277b6b1b3d97439c6990b4be0509b2890d345ddf57906b748156fdb1",
+      "matches_git_blob": true
+    },
+    {
+      "path": "intelligence/services/evidence_ledger.py",
+      "sha256": "daee3e84c6b1eaae5f06a24f93ae51ab8f2f0e4b0e0c79e5b6ec4a3ab2b15908",
+      "matches_git_blob": true
+    },
+    {
+      "path": "intelligence/services/episode_store.py",
+      "sha256": "a541d720cc3630318220827d042f159c951b750956c5efe1fced8f429cfccf79",
+      "matches_git_blob": true
+    },
+    {
+      "path": "intelligence/services/agent_research.py",
+      "sha256": "3ca9b625d241b8abcdc3789c05f96ec8e2601ace595fb046a9d94764dab32463",
+      "matches_git_blob": true
+    },
+    {
+      "path": "intelligence/tests/test_sub_research_persistence.py",
+      "sha256": "047eaa63cbc2fecd66e83ac72778cb7065a5b240320f57499d29b62eb695e1ba",
+      "matches_git_blob": true
+    },
+    {
+      "path": "intelligence/tests/test_sub_research_tool.py",
+      "sha256": "ebe2b3d9550c655adf89e1f3858f549aeab8bb93ff027efb2a16fe15d4cc8791",
+      "matches_git_blob": true
+    }
+  ],
+  "probe_sha256": "0359efb1d4c9f6f7c01ad1421645d55f5318dcc2a030e29312d4abd74b410d91",
+  "conclusions": {
+    "same_metadata": "both durable/partial/model_finish; parent 2 calls",
+    "different_supports": "base durable/partial/model_finish parent 2; candidate failed/storage_failed parent 1"
+  },
+  "external_model_calls": 0
+}

@@ -1,0 +1,21 @@
+{
+  "sha": "c9bd82ff2e25fe2727347329706f7aeb98444ee8",
+  "command": [
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "-m",
+    "pytest",
+    "-p",
+    "receipt_redirect",
+    "-p",
+    "no:cacheprovider",
+    "-q",
+    "tests/test_history_tool_diagnostics.py",
+    "--basetemp",
+    "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/issue790-existing/pytest-temp"
+  ],
+  "exit_code": 0,
+  "elapsed": 1.14,
+  "dirty_after": false,
+  "log_sha256": "7019626630becb7317f92aeaebcffaaf6b1aee4dfe8807ab45dd199d0d3b3fe3",
+  "scope": "Existing typed diagnostics and scripted Episode repair only; not bounded retry policy or natural model quality."
+}

@@ -1,0 +1,760 @@
+
+> market-intelligence-workbench@0.1.0 test:e2e /Users/a77/fwp-wt-history-forward-boundary-0921/intelligence/webapp
+> playwright test --reporter\=list\,json --output /Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results
+
+(node:10618) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+[workbench] INFO:     Started server process [10631]
+[workbench] INFO:     Waiting for application startup.
+[workbench] INFO:     Application startup complete.
+[workbench] INFO:     Uvicorn running on http://127.0.0.1:19851 (Press CTRL+C to quit)
+[research-evolution-binding] INFO:     Started server process [10668]
+[research-evolution-binding] INFO:     Waiting for application startup.
+[research-evolution-binding] INFO:     Application startup complete.
+[research-evolution-binding] INFO:     Uvicorn running on http://127.0.0.1:19854 (Press CTRL+C to quit)
+
+Running 36 tests using 1 worker
+
+(node:10802) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:10802) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:10802) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  1 [desktop] › e2e/research-evolution-binding.spec.ts:30:3 › 研究进化 · 绑定真链路（带真实市场库的隔离服务） › 表单建绑定 → 服务端落账 → 投影刷新为已绑定 (2ms)
+(node:10853) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:10853) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:10853) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  2 [desktop] › e2e/research-evolution-timing.spec.ts:6:1 › I14：隐藏暂停应用内活跃，原始区间保留完整端到端时间 (1ms)
+(node:10861) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:10861) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:10861) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  3 [desktop] › e2e/research-evolution.spec.ts:46:3 › 研究进化面板 › 接口在真实服务上可达，缺输入如实报「还判不了」 (3ms)
+(node:10901) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:10901) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:10901) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  4 [desktop] › e2e/research-evolution.spec.ts:73:3 › 研究进化面板 › 未认证模式拒绝任意换用户，且不泄漏他人会话是否存在 (64ms)
+  ✓  5 [desktop] › e2e/research-evolution.spec.ts:90:3 › 研究进化面板 › R1 回归针：空 run_id 的 continuation 必须 422，不能默默进消息口 (25ms)
+  ✓  6 [desktop] › e2e/research-evolution.spec.ts:116:3 › 研究进化面板 › R8 回归针：未知动作返回 400，actor 必须等于登录用户 (26ms)
+  ✘  7 [desktop] › e2e/research-evolution.spec.ts:146:3 › 研究进化面板 · 浏览器渲染 › 维护页在浏览器里渲染，空态写的是「尚不能比较变化」 (0ms)
+(node:10999) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:10999) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:10999) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  8 [desktop] › e2e/workbench.spec.ts:87:1 › structured workbench keeps five surfaces available (2ms)
+(node:11021) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:11021) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:11021) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  9 [desktop] › e2e/workbench.spec.ts:109:1 › model settings switch between managed model and session BYOK (2ms)
+(node:11031) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:11031) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:11031) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  10 [desktop] › e2e/workbench.spec.ts:143:1 › real chat persists three fresh turns, skills, SSE, and regeneration (2ms)
+(node:11041) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:11041) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:11041) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  11 [desktop] › e2e/workbench.spec.ts:222:1 › stock deep-dive owns and continues a traceable Workbench answer (2ms)
+(node:11049) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:11049) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:11049) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  12 [desktop] › e2e/workbench.spec.ts:263:1 › stop preserves cancellation and responsive drawers remain closable (1ms)
+(node:11055) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:11055) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:11055) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  13 [tablet] › e2e/research-evolution-binding.spec.ts:30:3 › 研究进化 · 绑定真链路（带真实市场库的隔离服务） › 表单建绑定 → 服务端落账 → 投影刷新为已绑定 (1ms)
+(node:11079) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:11079) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:11079) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  14 [tablet] › e2e/research-evolution-timing.spec.ts:6:1 › I14：隐藏暂停应用内活跃，原始区间保留完整端到端时间 (2ms)
+(node:11089) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:11089) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:11089) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  15 [tablet] › e2e/research-evolution.spec.ts:46:3 › 研究进化面板 › 接口在真实服务上可达，缺输入如实报「还判不了」 (2ms)
+(node:11096) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:11096) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:11096) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  16 [tablet] › e2e/research-evolution.spec.ts:73:3 › 研究进化面板 › 未认证模式拒绝任意换用户，且不泄漏他人会话是否存在 (81ms)
+  ✓  17 [tablet] › e2e/research-evolution.spec.ts:90:3 › 研究进化面板 › R1 回归针：空 run_id 的 continuation 必须 422，不能默默进消息口 (23ms)
+  ✓  18 [tablet] › e2e/research-evolution.spec.ts:116:3 › 研究进化面板 › R8 回归针：未知动作返回 400，actor 必须等于登录用户 (32ms)
+  ✘  19 [tablet] › e2e/research-evolution.spec.ts:146:3 › 研究进化面板 · 浏览器渲染 › 维护页在浏览器里渲染，空态写的是「尚不能比较变化」 (0ms)
+(node:11112) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:11112) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:11112) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  20 [tablet] › e2e/workbench.spec.ts:87:1 › structured workbench keeps five surfaces available (3ms)
+(node:11123) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:11123) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:11123) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  21 [tablet] › e2e/workbench.spec.ts:109:1 › model settings switch between managed model and session BYOK (3ms)
+(node:11128) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:11128) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:11128) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  22 [tablet] › e2e/workbench.spec.ts:143:1 › real chat persists three fresh turns, skills, SSE, and regeneration (3ms)
+(node:11138) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:11138) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:11138) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  23 [tablet] › e2e/workbench.spec.ts:222:1 › stock deep-dive owns and continues a traceable Workbench answer (1ms)
+(node:11149) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:11149) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:11149) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  24 [tablet] › e2e/workbench.spec.ts:263:1 › stop preserves cancellation and responsive drawers remain closable (2ms)
+(node:11159) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:11159) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:11159) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  25 [mobile] › e2e/research-evolution-binding.spec.ts:30:3 › 研究进化 · 绑定真链路（带真实市场库的隔离服务） › 表单建绑定 → 服务端落账 → 投影刷新为已绑定 (2ms)
+(node:11172) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:11172) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:11172) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  26 [mobile] › e2e/research-evolution-timing.spec.ts:6:1 › I14：隐藏暂停应用内活跃，原始区间保留完整端到端时间 (3ms)
+(node:11185) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:11185) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:11185) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  27 [mobile] › e2e/research-evolution.spec.ts:46:3 › 研究进化面板 › 接口在真实服务上可达，缺输入如实报「还判不了」 (2ms)
+(node:11193) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:11193) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:11193) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  28 [mobile] › e2e/research-evolution.spec.ts:73:3 › 研究进化面板 › 未认证模式拒绝任意换用户，且不泄漏他人会话是否存在 (81ms)
+  ✓  29 [mobile] › e2e/research-evolution.spec.ts:90:3 › 研究进化面板 › R1 回归针：空 run_id 的 continuation 必须 422，不能默默进消息口 (23ms)
+  ✓  30 [mobile] › e2e/research-evolution.spec.ts:116:3 › 研究进化面板 › R8 回归针：未知动作返回 400，actor 必须等于登录用户 (27ms)
+  ✘  31 [mobile] › e2e/research-evolution.spec.ts:146:3 › 研究进化面板 · 浏览器渲染 › 维护页在浏览器里渲染，空态写的是「尚不能比较变化」 (0ms)
+(node:11200) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:11200) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:11200) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  32 [mobile] › e2e/workbench.spec.ts:87:1 › structured workbench keeps five surfaces available (2ms)
+(node:11211) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:11211) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:11211) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  33 [mobile] › e2e/workbench.spec.ts:109:1 › model settings switch between managed model and session BYOK (2ms)
+(node:11219) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:11219) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:11219) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  34 [mobile] › e2e/workbench.spec.ts:143:1 › real chat persists three fresh turns, skills, SSE, and regeneration (2ms)
+(node:11230) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:11230) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:11230) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  35 [mobile] › e2e/workbench.spec.ts:222:1 › stock deep-dive owns and continues a traceable Workbench answer (3ms)
+(node:11235) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:11235) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:11235) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  36 [mobile] › e2e/workbench.spec.ts:263:1 › stop preserves cancellation and responsive drawers remain closable (3ms)
+
+
+  1) [desktop] › e2e/research-evolution-binding.spec.ts:30:3 › 研究进化 · 绑定真链路（带真实市场库的隔离服务） › 表单建绑定 → 服务端落账 → 投影刷新为已绑定 
+
+    Error: browserType.launch: Executable doesn't exist at /Users/a77/Library/Caches/ms-playwright/chromium_headless_shell-1179/chrome-mac/headless_shell
+    ╔═════════════════════════════════════════════════════════════════════════╗
+    ║ Looks like Playwright Test or Playwright was just installed or updated. ║
+    ║ Please run the following command to download new browsers:              ║
+    ║                                                                         ║
+    ║     pnpm exec playwright install                                        ║
+    ║                                                                         ║
+    ║ <3 Playwright Team                                                      ║
+    ╚═════════════════════════════════════════════════════════════════════════╝
+
+    attachment #1: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../../.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/research-evolution-binding-48cce-务）-表单建绑定-→-服务端落账-→-投影刷新为已绑定-desktop/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace ../../../.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/research-evolution-binding-48cce-务）-表单建绑定-→-服务端落账-→-投影刷新为已绑定-desktop/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2) [desktop] › e2e/research-evolution-timing.spec.ts:6:1 › I14：隐藏暂停应用内活跃，原始区间保留完整端到端时间 ───────────
+
+    Error: browserType.launch: Executable doesn't exist at /Users/a77/Library/Caches/ms-playwright/chromium_headless_shell-1179/chrome-mac/headless_shell
+    ╔═════════════════════════════════════════════════════════════════════════╗
+    ║ Looks like Playwright Test or Playwright was just installed or updated. ║
+    ║ Please run the following command to download new browsers:              ║
+    ║                                                                         ║
+    ║     pnpm exec playwright install                                        ║
+    ║                                                                         ║
+    ║ <3 Playwright Team                                                      ║
+    ╚═════════════════════════════════════════════════════════════════════════╝
+
+    attachment #1: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../../.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/research-evolution-timing-I14：隐藏暂停应用内活跃，原始区间保留完整端到端时间-desktop/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace ../../../.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/research-evolution-timing-I14：隐藏暂停应用内活跃，原始区间保留完整端到端时间-desktop/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  3) [desktop] › e2e/research-evolution.spec.ts:46:3 › 研究进化面板 › 接口在真实服务上可达，缺输入如实报「还判不了」 ────────────
+
+    Error: browserType.launch: Executable doesn't exist at /Users/a77/Library/Caches/ms-playwright/chromium_headless_shell-1179/chrome-mac/headless_shell
+    ╔═════════════════════════════════════════════════════════════════════════╗
+    ║ Looks like Playwright Test or Playwright was just installed or updated. ║
+    ║ Please run the following command to download new browsers:              ║
+    ║                                                                         ║
+    ║     pnpm exec playwright install                                        ║
+    ║                                                                         ║
+    ║ <3 Playwright Team                                                      ║
+    ╚═════════════════════════════════════════════════════════════════════════╝
+
+    attachment #1: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../../.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/research-evolution-研究进化面板-接口在真实服务上可达，缺输入如实报「还判不了」-desktop/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace ../../../.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/research-evolution-研究进化面板-接口在真实服务上可达，缺输入如实报「还判不了」-desktop/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  4) [desktop] › e2e/research-evolution.spec.ts:146:3 › 研究进化面板 · 浏览器渲染 › 维护页在浏览器里渲染，空态写的是「尚不能比较变化」 ─
+
+    Error: browserType.launch: Executable doesn't exist at /Users/a77/Library/Caches/ms-playwright/chromium_headless_shell-1179/chrome-mac/headless_shell
+    ╔═════════════════════════════════════════════════════════════════════════╗
+    ║ Looks like Playwright Test or Playwright was just installed or updated. ║
+    ║ Please run the following command to download new browsers:              ║
+    ║                                                                         ║
+    ║     pnpm exec playwright install                                        ║
+    ║                                                                         ║
+    ║ <3 Playwright Team                                                      ║
+    ╚═════════════════════════════════════════════════════════════════════════╝
+
+    attachment #1: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../../.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/research-evolution-研究进化面板-·-浏览器渲染-维护页在浏览器里渲染，空态写的是「尚不能比较变化」-desktop/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace ../../../.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/research-evolution-研究进化面板-·-浏览器渲染-维护页在浏览器里渲染，空态写的是「尚不能比较变化」-desktop/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  5) [desktop] › e2e/workbench.spec.ts:87:1 › structured workbench keeps five surfaces available ───
+
+    Error: browserType.launch: Executable doesn't exist at /Users/a77/Library/Caches/ms-playwright/chromium_headless_shell-1179/chrome-mac/headless_shell
+    ╔═════════════════════════════════════════════════════════════════════════╗
+    ║ Looks like Playwright Test or Playwright was just installed or updated. ║
+    ║ Please run the following command to download new browsers:              ║
+    ║                                                                         ║
+    ║     pnpm exec playwright install                                        ║
+    ║                                                                         ║
+    ║ <3 Playwright Team                                                      ║
+    ╚═════════════════════════════════════════════════════════════════════════╝
+
+    attachment #1: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../../.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/workbench-structured-workbench-keeps-five-surfaces-available-desktop/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace ../../../.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/workbench-structured-workbench-keeps-five-surfaces-available-desktop/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  6) [desktop] › e2e/workbench.spec.ts:109:1 › model settings switch between managed model and session BYOK 
+
+    Error: browserType.launch: Executable doesn't exist at /Users/a77/Library/Caches/ms-playwright/chromium_headless_shell-1179/chrome-mac/headless_shell
+    ╔═════════════════════════════════════════════════════════════════════════╗
+    ║ Looks like Playwright Test or Playwright was just installed or updated. ║
+    ║ Please run the following command to download new browsers:              ║
+    ║                                                                         ║
+    ║     pnpm exec playwright install                                        ║
+    ║                                                                         ║
+    ║ <3 Playwright Team                                                      ║
+    ╚═════════════════════════════════════════════════════════════════════════╝
+
+    attachment #1: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../../.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/workbench-model-settings-s-75f3f-aged-model-and-session-BYOK-desktop/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace ../../../.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/workbench-model-settings-s-75f3f-aged-model-and-session-BYOK-desktop/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  7) [desktop] › e2e/workbench.spec.ts:143:1 › real chat persists three fresh turns, skills, SSE, and regeneration 
+
+    Error: browserType.launch: Executable doesn't exist at /Users/a77/Library/Caches/ms-playwright/chromium_headless_shell-1179/chrome-mac/headless_shell
+    ╔═════════════════════════════════════════════════════════════════════════╗
+    ║ Looks like Playwright Test or Playwright was just installed or updated. ║
+    ║ Please run the following command to download new browsers:              ║
+    ║                                                                         ║
+    ║     pnpm exec playwright install                                        ║
+    ║                                                                         ║
+    ║ <3 Playwright Team                                                      ║
+    ╚═════════════════════════════════════════════════════════════════════════╝
+
+    attachment #1: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../../.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/workbench-real-chat-persis-70efd-skills-SSE-and-regeneration-desktop/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace ../../../.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/workbench-real-chat-persis-70efd-skills-SSE-and-regeneration-desktop/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  8) [desktop] › e2e/workbench.spec.ts:222:1 › stock deep-dive owns and continues a traceable Workbench answer 
+
+    Error: browserType.launch: Executable doesn't exist at /Users/a77/Library/Caches/ms-playwright/chromium_headless_shell-1179/chrome-mac/headless_shell
+    ╔═════════════════════════════════════════════════════════════════════════╗
+    ║ Looks like Playwright Test or Playwright was just installed or updated. ║
+    ║ Please run the following command to download new browsers:              ║
+    ║                                                                         ║
+    ║     pnpm exec playwright install                                        ║
+    ║                                                                         ║
+    ║ <3 Playwright Team                                                      ║
+    ╚═════════════════════════════════════════════════════════════════════════╝
+
+    attachment #1: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../../.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/workbench-stock-deep-dive--65c17--traceable-Workbench-answer-desktop/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace ../../../.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/workbench-stock-deep-dive--65c17--traceable-Workbench-answer-desktop/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  9) [desktop] › e2e/workbench.spec.ts:263:1 › stop preserves cancellation and responsive drawers remain closable 
+
+    Error: browserType.launch: Executable doesn't exist at /Users/a77/Library/Caches/ms-playwright/chromium_headless_shell-1179/chrome-mac/headless_shell
+    ╔═════════════════════════════════════════════════════════════════════════╗
+    ║ Looks like Playwright Test or Playwright was just installed or updated. ║
+    ║ Please run the following command to download new browsers:              ║
+    ║                                                                         ║
+    ║     pnpm exec playwright install                                        ║
+    ║                                                                         ║
+    ║ <3 Playwright Team                                                      ║
+    ╚═════════════════════════════════════════════════════════════════════════╝
+
+    attachment #1: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../../.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/workbench-stop-preserves-c-17318-ive-drawers-remain-closable-desktop/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace ../../../.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/workbench-stop-preserves-c-17318-ive-drawers-remain-closable-desktop/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  10) [tablet] › e2e/research-evolution-binding.spec.ts:30:3 › 研究进化 · 绑定真链路（带真实市场库的隔离服务） › 表单建绑定 → 服务端落账 → 投影刷新为已绑定 
+
+    Error: browserType.launch: Executable doesn't exist at /Users/a77/Library/Caches/ms-playwright/chromium_headless_shell-1179/chrome-mac/headless_shell
+    ╔═════════════════════════════════════════════════════════════════════════╗
+    ║ Looks like Playwright Test or Playwright was just installed or updated. ║
+    ║ Please run the following command to download new browsers:              ║
+    ║                                                                         ║
+    ║     pnpm exec playwright install                                        ║
+    ║                                                                         ║
+    ║ <3 Playwright Team                                                      ║
+    ╚═════════════════════════════════════════════════════════════════════════╝
+
+    attachment #1: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../../.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/research-evolution-binding-48cce-务）-表单建绑定-→-服务端落账-→-投影刷新为已绑定-tablet/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace ../../../.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/research-evolution-binding-48cce-务）-表单建绑定-→-服务端落账-→-投影刷新为已绑定-tablet/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  11) [tablet] › e2e/research-evolution-timing.spec.ts:6:1 › I14：隐藏暂停应用内活跃，原始区间保留完整端到端时间 ───────────
+
+    Error: browserType.launch: Executable doesn't exist at /Users/a77/Library/Caches/ms-playwright/chromium_headless_shell-1179/chrome-mac/headless_shell
+    ╔═════════════════════════════════════════════════════════════════════════╗
+    ║ Looks like Playwright Test or Playwright was just installed or updated. ║
+    ║ Please run the following command to download new browsers:              ║
+    ║                                                                         ║
+    ║     pnpm exec playwright install                                        ║
+    ║                                                                         ║
+    ║ <3 Playwright Team                                                      ║
+    ╚═════════════════════════════════════════════════════════════════════════╝
+
+    attachment #1: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../../.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/research-evolution-timing-I14：隐藏暂停应用内活跃，原始区间保留完整端到端时间-tablet/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace ../../../.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/research-evolution-timing-I14：隐藏暂停应用内活跃，原始区间保留完整端到端时间-tablet/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  12) [tablet] › e2e/research-evolution.spec.ts:46:3 › 研究进化面板 › 接口在真实服务上可达，缺输入如实报「还判不了」 ────────────
+
+    Error: browserType.launch: Executable doesn't exist at /Users/a77/Library/Caches/ms-playwright/chromium_headless_shell-1179/chrome-mac/headless_shell
+    ╔═════════════════════════════════════════════════════════════════════════╗
+    ║ Looks like Playwright Test or Playwright was just installed or updated. ║
+    ║ Please run the following command to download new browsers:              ║
+    ║                                                                         ║
+    ║     pnpm exec playwright install                                        ║
+    ║                                                                         ║
+    ║ <3 Playwright Team                                                      ║
+    ╚═════════════════════════════════════════════════════════════════════════╝
+
+    attachment #1: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../../.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/research-evolution-研究进化面板-接口在真实服务上可达，缺输入如实报「还判不了」-tablet/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace ../../../.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/research-evolution-研究进化面板-接口在真实服务上可达，缺输入如实报「还判不了」-tablet/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  13) [tablet] › e2e/research-evolution.spec.ts:146:3 › 研究进化面板 · 浏览器渲染 › 维护页在浏览器里渲染，空态写的是「尚不能比较变化」 ─
+
+    Error: browserType.launch: Executable doesn't exist at /Users/a77/Library/Caches/ms-playwright/chromium_headless_shell-1179/chrome-mac/headless_shell
+    ╔═════════════════════════════════════════════════════════════════════════╗
+    ║ Looks like Playwright Test or Playwright was just installed or updated. ║
+    ║ Please run the following command to download new browsers:              ║
+    ║                                                                         ║
+    ║     pnpm exec playwright install                                        ║
+    ║                                                                         ║
+    ║ <3 Playwright Team                                                      ║
+    ╚═════════════════════════════════════════════════════════════════════════╝
+
+    attachment #1: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../../.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/research-evolution-研究进化面板-·-浏览器渲染-维护页在浏览器里渲染，空态写的是「尚不能比较变化」-tablet/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace ../../../.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/research-evolution-研究进化面板-·-浏览器渲染-维护页在浏览器里渲染，空态写的是「尚不能比较变化」-tablet/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  14) [tablet] › e2e/workbench.spec.ts:87:1 › structured workbench keeps five surfaces available ───
+
+    Error: browserType.launch: Executable doesn't exist at /Users/a77/Library/Caches/ms-playwright/chromium_headless_shell-1179/chrome-mac/headless_shell
+    ╔═════════════════════════════════════════════════════════════════════════╗
+    ║ Looks like Playwright Test or Playwright was just installed or updated. ║
+    ║ Please run the following command to download new browsers:              ║
+    ║                                                                         ║
+    ║     pnpm exec playwright install                                        ║
+    ║                                                                         ║
+    ║ <3 Playwright Team                                                      ║
+    ╚═════════════════════════════════════════════════════════════════════════╝
+
+    attachment #1: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../../.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/workbench-structured-workbench-keeps-five-surfaces-available-tablet/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace ../../../.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/workbench-structured-workbench-keeps-five-surfaces-available-tablet/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  15) [tablet] › e2e/workbench.spec.ts:109:1 › model settings switch between managed model and session BYOK 
+
+    Error: browserType.launch: Executable doesn't exist at /Users/a77/Library/Caches/ms-playwright/chromium_headless_shell-1179/chrome-mac/headless_shell
+    ╔═════════════════════════════════════════════════════════════════════════╗
+    ║ Looks like Playwright Test or Playwright was just installed or updated. ║
+    ║ Please run the following command to download new browsers:              ║
+    ║                                                                         ║
+    ║     pnpm exec playwright install                                        ║
+    ║                                                                         ║
+    ║ <3 Playwright Team                                                      ║
+    ╚═════════════════════════════════════════════════════════════════════════╝
+
+    attachment #1: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../../.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/workbench-model-settings-s-75f3f-aged-model-and-session-BYOK-tablet/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace ../../../.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/workbench-model-settings-s-75f3f-aged-model-and-session-BYOK-tablet/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  16) [tablet] › e2e/workbench.spec.ts:143:1 › real chat persists three fresh turns, skills, SSE, and regeneration 
+
+    Error: browserType.launch: Executable doesn't exist at /Users/a77/Library/Caches/ms-playwright/chromium_headless_shell-1179/chrome-mac/headless_shell
+    ╔═════════════════════════════════════════════════════════════════════════╗
+    ║ Looks like Playwright Test or Playwright was just installed or updated. ║
+    ║ Please run the following command to download new browsers:              ║
+    ║                                                                         ║
+    ║     pnpm exec playwright install                                        ║
+    ║                                                                         ║
+    ║ <3 Playwright Team                                                      ║
+    ╚═════════════════════════════════════════════════════════════════════════╝
+
+    attachment #1: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../../.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/workbench-real-chat-persis-70efd-skills-SSE-and-regeneration-tablet/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace ../../../.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/workbench-real-chat-persis-70efd-skills-SSE-and-regeneration-tablet/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  17) [tablet] › e2e/workbench.spec.ts:222:1 › stock deep-dive owns and continues a traceable Workbench answer 
+
+    Error: browserType.launch: Executable doesn't exist at /Users/a77/Library/Caches/ms-playwright/chromium_headless_shell-1179/chrome-mac/headless_shell
+    ╔═════════════════════════════════════════════════════════════════════════╗
+    ║ Looks like Playwright Test or Playwright was just installed or updated. ║
+    ║ Please run the following command to download new browsers:              ║
+    ║                                                                         ║
+    ║     pnpm exec playwright install                                        ║
+    ║                                                                         ║
+    ║ <3 Playwright Team                                                      ║
+    ╚═════════════════════════════════════════════════════════════════════════╝
+
+    attachment #1: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../../.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/workbench-stock-deep-dive--65c17--traceable-Workbench-answer-tablet/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace ../../../.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/workbench-stock-deep-dive--65c17--traceable-Workbench-answer-tablet/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  18) [tablet] › e2e/workbench.spec.ts:263:1 › stop preserves cancellation and responsive drawers remain closable 
+
+    Error: browserType.launch: Executable doesn't exist at /Users/a77/Library/Caches/ms-playwright/chromium_headless_shell-1179/chrome-mac/headless_shell
+    ╔═════════════════════════════════════════════════════════════════════════╗
+    ║ Looks like Playwright Test or Playwright was just installed or updated. ║
+    ║ Please run the following command to download new browsers:              ║
+    ║                                                                         ║
+    ║     pnpm exec playwright install                                        ║
+    ║                                                                         ║
+    ║ <3 Playwright Team                                                      ║
+    ╚═════════════════════════════════════════════════════════════════════════╝
+
+    attachment #1: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../../.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/workbench-stop-preserves-c-17318-ive-drawers-remain-closable-tablet/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace ../../../.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/workbench-stop-preserves-c-17318-ive-drawers-remain-closable-tablet/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  19) [mobile] › e2e/research-evolution-binding.spec.ts:30:3 › 研究进化 · 绑定真链路（带真实市场库的隔离服务） › 表单建绑定 → 服务端落账 → 投影刷新为已绑定 
+
+    Error: browserType.launch: Executable doesn't exist at /Users/a77/Library/Caches/ms-playwright/chromium_headless_shell-1179/chrome-mac/headless_shell
+    ╔═════════════════════════════════════════════════════════════════════════╗
+    ║ Looks like Playwright Test or Playwright was just installed or updated. ║
+    ║ Please run the following command to download new browsers:              ║
+    ║                                                                         ║
+    ║     pnpm exec playwright install                                        ║
+    ║                                                                         ║
+    ║ <3 Playwright Team                                                      ║
+    ╚═════════════════════════════════════════════════════════════════════════╝
+
+    attachment #1: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../../.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/research-evolution-binding-48cce-务）-表单建绑定-→-服务端落账-→-投影刷新为已绑定-mobile/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace ../../../.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/research-evolution-binding-48cce-务）-表单建绑定-→-服务端落账-→-投影刷新为已绑定-mobile/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  20) [mobile] › e2e/research-evolution-timing.spec.ts:6:1 › I14：隐藏暂停应用内活跃，原始区间保留完整端到端时间 ───────────
+
+    Error: browserType.launch: Executable doesn't exist at /Users/a77/Library/Caches/ms-playwright/chromium_headless_shell-1179/chrome-mac/headless_shell
+    ╔═════════════════════════════════════════════════════════════════════════╗
+    ║ Looks like Playwright Test or Playwright was just installed or updated. ║
+    ║ Please run the following command to download new browsers:              ║
+    ║                                                                         ║
+    ║     pnpm exec playwright install                                        ║
+    ║                                                                         ║
+    ║ <3 Playwright Team                                                      ║
+    ╚═════════════════════════════════════════════════════════════════════════╝
+
+    attachment #1: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../../.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/research-evolution-timing-I14：隐藏暂停应用内活跃，原始区间保留完整端到端时间-mobile/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace ../../../.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/research-evolution-timing-I14：隐藏暂停应用内活跃，原始区间保留完整端到端时间-mobile/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  21) [mobile] › e2e/research-evolution.spec.ts:46:3 › 研究进化面板 › 接口在真实服务上可达，缺输入如实报「还判不了」 ────────────
+
+    Error: browserType.launch: Executable doesn't exist at /Users/a77/Library/Caches/ms-playwright/chromium_headless_shell-1179/chrome-mac/headless_shell
+    ╔═════════════════════════════════════════════════════════════════════════╗
+    ║ Looks like Playwright Test or Playwright was just installed or updated. ║
+    ║ Please run the following command to download new browsers:              ║
+    ║                                                                         ║
+    ║     pnpm exec playwright install                                        ║
+    ║                                                                         ║
+    ║ <3 Playwright Team                                                      ║
+    ╚═════════════════════════════════════════════════════════════════════════╝
+
+    attachment #1: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../../.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/research-evolution-研究进化面板-接口在真实服务上可达，缺输入如实报「还判不了」-mobile/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace ../../../.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/research-evolution-研究进化面板-接口在真实服务上可达，缺输入如实报「还判不了」-mobile/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  22) [mobile] › e2e/research-evolution.spec.ts:146:3 › 研究进化面板 · 浏览器渲染 › 维护页在浏览器里渲染，空态写的是「尚不能比较变化」 ─
+
+    Error: browserType.launch: Executable doesn't exist at /Users/a77/Library/Caches/ms-playwright/chromium_headless_shell-1179/chrome-mac/headless_shell
+    ╔═════════════════════════════════════════════════════════════════════════╗
+    ║ Looks like Playwright Test or Playwright was just installed or updated. ║
+    ║ Please run the following command to download new browsers:              ║
+    ║                                                                         ║
+    ║     pnpm exec playwright install                                        ║
+    ║                                                                         ║
+    ║ <3 Playwright Team                                                      ║
+    ╚═════════════════════════════════════════════════════════════════════════╝
+
+    attachment #1: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../../.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/research-evolution-研究进化面板-·-浏览器渲染-维护页在浏览器里渲染，空态写的是「尚不能比较变化」-mobile/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace ../../../.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/research-evolution-研究进化面板-·-浏览器渲染-维护页在浏览器里渲染，空态写的是「尚不能比较变化」-mobile/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  23) [mobile] › e2e/workbench.spec.ts:87:1 › structured workbench keeps five surfaces available ───
+
+    Error: browserType.launch: Executable doesn't exist at /Users/a77/Library/Caches/ms-playwright/chromium_headless_shell-1179/chrome-mac/headless_shell
+    ╔═════════════════════════════════════════════════════════════════════════╗
+    ║ Looks like Playwright Test or Playwright was just installed or updated. ║
+    ║ Please run the following command to download new browsers:              ║
+    ║                                                                         ║
+    ║     pnpm exec playwright install                                        ║
+    ║                                                                         ║
+    ║ <3 Playwright Team                                                      ║
+    ╚═════════════════════════════════════════════════════════════════════════╝
+
+    attachment #1: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../../.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/workbench-structured-workbench-keeps-five-surfaces-available-mobile/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace ../../../.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/workbench-structured-workbench-keeps-five-surfaces-available-mobile/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  24) [mobile] › e2e/workbench.spec.ts:109:1 › model settings switch between managed model and session BYOK 
+
+    Error: browserType.launch: Executable doesn't exist at /Users/a77/Library/Caches/ms-playwright/chromium_headless_shell-1179/chrome-mac/headless_shell
+    ╔═════════════════════════════════════════════════════════════════════════╗
+    ║ Looks like Playwright Test or Playwright was just installed or updated. ║
+    ║ Please run the following command to download new browsers:              ║
+    ║                                                                         ║
+    ║     pnpm exec playwright install                                        ║
+    ║                                                                         ║
+    ║ <3 Playwright Team                                                      ║
+    ╚═════════════════════════════════════════════════════════════════════════╝
+
+    attachment #1: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../../.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/workbench-model-settings-s-75f3f-aged-model-and-session-BYOK-mobile/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace ../../../.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/workbench-model-settings-s-75f3f-aged-model-and-session-BYOK-mobile/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  25) [mobile] › e2e/workbench.spec.ts:143:1 › real chat persists three fresh turns, skills, SSE, and regeneration 
+
+    Error: browserType.launch: Executable doesn't exist at /Users/a77/Library/Caches/ms-playwright/chromium_headless_shell-1179/chrome-mac/headless_shell
+    ╔═════════════════════════════════════════════════════════════════════════╗
+    ║ Looks like Playwright Test or Playwright was just installed or updated. ║
+    ║ Please run the following command to download new browsers:              ║
+    ║                                                                         ║
+    ║     pnpm exec playwright install                                        ║
+    ║                                                                         ║
+    ║ <3 Playwright Team                                                      ║
+    ╚═════════════════════════════════════════════════════════════════════════╝
+
+    attachment #1: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../../.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/workbench-real-chat-persis-70efd-skills-SSE-and-regeneration-mobile/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace ../../../.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/workbench-real-chat-persis-70efd-skills-SSE-and-regeneration-mobile/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  26) [mobile] › e2e/workbench.spec.ts:222:1 › stock deep-dive owns and continues a traceable Workbench answer 
+
+    Error: browserType.launch: Executable doesn't exist at /Users/a77/Library/Caches/ms-playwright/chromium_headless_shell-1179/chrome-mac/headless_shell
+    ╔═════════════════════════════════════════════════════════════════════════╗
+    ║ Looks like Playwright Test or Playwright was just installed or updated. ║
+    ║ Please run the following command to download new browsers:              ║
+    ║                                                                         ║
+    ║     pnpm exec playwright install                                        ║
+    ║                                                                         ║
+    ║ <3 Playwright Team                                                      ║
+    ╚═════════════════════════════════════════════════════════════════════════╝
+
+    attachment #1: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../../.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/workbench-stock-deep-dive--65c17--traceable-Workbench-answer-mobile/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace ../../../.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/workbench-stock-deep-dive--65c17--traceable-Workbench-answer-mobile/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  27) [mobile] › e2e/workbench.spec.ts:263:1 › stop preserves cancellation and responsive drawers remain closable 
+
+    Error: browserType.launch: Executable doesn't exist at /Users/a77/Library/Caches/ms-playwright/chromium_headless_shell-1179/chrome-mac/headless_shell
+    ╔═════════════════════════════════════════════════════════════════════════╗
+    ║ Looks like Playwright Test or Playwright was just installed or updated. ║
+    ║ Please run the following command to download new browsers:              ║
+    ║                                                                         ║
+    ║     pnpm exec playwright install                                        ║
+    ║                                                                         ║
+    ║ <3 Playwright Team                                                      ║
+    ╚═════════════════════════════════════════════════════════════════════════╝
+
+    attachment #1: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../../.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/workbench-stop-preserves-c-17318-ive-drawers-remain-closable-mobile/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace ../../../.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/workbench-stop-preserves-c-17318-ive-drawers-remain-closable-mobile/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  27 failed
+    [desktop] › e2e/research-evolution-binding.spec.ts:30:3 › 研究进化 · 绑定真链路（带真实市场库的隔离服务） › 表单建绑定 → 服务端落账 → 投影刷新为已绑定 
+    [desktop] › e2e/research-evolution-timing.spec.ts:6:1 › I14：隐藏暂停应用内活跃，原始区间保留完整端到端时间 ────────────
+    [desktop] › e2e/research-evolution.spec.ts:46:3 › 研究进化面板 › 接口在真实服务上可达，缺输入如实报「还判不了」 ─────────────
+    [desktop] › e2e/research-evolution.spec.ts:146:3 › 研究进化面板 · 浏览器渲染 › 维护页在浏览器里渲染，空态写的是「尚不能比较变化」 ──
+    [desktop] › e2e/workbench.spec.ts:87:1 › structured workbench keeps five surfaces available ────
+    [desktop] › e2e/workbench.spec.ts:109:1 › model settings switch between managed model and session BYOK 
+    [desktop] › e2e/workbench.spec.ts:143:1 › real chat persists three fresh turns, skills, SSE, and regeneration 
+    [desktop] › e2e/workbench.spec.ts:222:1 › stock deep-dive owns and continues a traceable Workbench answer 
+    [desktop] › e2e/workbench.spec.ts:263:1 › stop preserves cancellation and responsive drawers remain closable 
+    [tablet] › e2e/research-evolution-binding.spec.ts:30:3 › 研究进化 · 绑定真链路（带真实市场库的隔离服务） › 表单建绑定 → 服务端落账 → 投影刷新为已绑定 
+    [tablet] › e2e/research-evolution-timing.spec.ts:6:1 › I14：隐藏暂停应用内活跃，原始区间保留完整端到端时间 ─────────────
+    [tablet] › e2e/research-evolution.spec.ts:46:3 › 研究进化面板 › 接口在真实服务上可达，缺输入如实报「还判不了」 ──────────────
+    [tablet] › e2e/research-evolution.spec.ts:146:3 › 研究进化面板 · 浏览器渲染 › 维护页在浏览器里渲染，空态写的是「尚不能比较变化」 ───
+    [tablet] › e2e/workbench.spec.ts:87:1 › structured workbench keeps five surfaces available ─────
+    [tablet] › e2e/workbench.spec.ts:109:1 › model settings switch between managed model and session BYOK 
+    [tablet] › e2e/workbench.spec.ts:143:1 › real chat persists three fresh turns, skills, SSE, and regeneration 
+    [tablet] › e2e/workbench.spec.ts:222:1 › stock deep-dive owns and continues a traceable Workbench answer 
+    [tablet] › e2e/workbench.spec.ts:263:1 › stop preserves cancellation and responsive drawers remain closable 
+    [mobile] › e2e/research-evolution-binding.spec.ts:30:3 › 研究进化 · 绑定真链路（带真实市场库的隔离服务） › 表单建绑定 → 服务端落账 → 投影刷新为已绑定 
+    [mobile] › e2e/research-evolution-timing.spec.ts:6:1 › I14：隐藏暂停应用内活跃，原始区间保留完整端到端时间 ─────────────
+    [mobile] › e2e/research-evolution.spec.ts:46:3 › 研究进化面板 › 接口在真实服务上可达，缺输入如实报「还判不了」 ──────────────
+    [mobile] › e2e/research-evolution.spec.ts:146:3 › 研究进化面板 · 浏览器渲染 › 维护页在浏览器里渲染，空态写的是「尚不能比较变化」 ───
+    [mobile] › e2e/workbench.spec.ts:87:1 › structured workbench keeps five surfaces available ─────
+    [mobile] › e2e/workbench.spec.ts:109:1 › model settings switch between managed model and session BYOK 
+    [mobile] › e2e/workbench.spec.ts:143:1 › real chat persists three fresh turns, skills, SSE, and regeneration 
+    [mobile] › e2e/workbench.spec.ts:222:1 › stock deep-dive owns and continues a traceable Workbench answer 
+    [mobile] › e2e/workbench.spec.ts:263:1 › stop preserves cancellation and responsive drawers remain closable 
+  9 passed (32.5s)
+ ELIFECYCLE  Command failed with exit code 1.

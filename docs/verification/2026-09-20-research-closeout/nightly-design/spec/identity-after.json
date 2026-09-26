@@ -1,0 +1,67 @@
+{
+  "sampled_at": "2026-09-20T05:20:07.307755+00:00",
+  "commands": [
+    {
+      "argv": [
+        "git",
+        "rev-parse",
+        "HEAD"
+      ],
+      "exit_code": 0,
+      "stdout": "6356ffd5e703b30948f687baaaf60102bf97f0a5\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "git",
+        "status",
+        "--porcelain=v1",
+        "-z"
+      ],
+      "exit_code": 0,
+      "stdout": "?? skills/daily-full-review/state/quality-2026-09-16.json\u0000?? skills/daily-full-review/state/quality-2026-09-17.json\u0000",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "git",
+        "diff",
+        "--quiet"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "git",
+        "diff",
+        "--cached",
+        "--quiet"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    }
+  ],
+  "sha256": {
+    ".claude/lessons_learned.md": "87358ec9f03518599a1ca85d5b38b124a1866bc26b651a1daa254d2767d14fc6",
+    "docs/handoffs/2026-09-17-local-review-recovery.md": "c27e4b89d8637943623b32b6bc16462ca9ca40fd015f05bfbdf382ed690a13b0",
+    "docs/handoffs/inflight/fix-nightly-review-0917.md": "3778f7fa06c9662b66ce38e372528cc12fcf7675ea1dad391de24af85f0d03d3",
+    "market_feature_store/cli.py": "3db66aacd4f50b13cdcb4ac7c1780d73f30dc8ca433aec99d4fa633baa78fc65",
+    "market_feature_store/sync/sync_akshare_index_daily.py": "3e3581ecd2d876bd1f8bb4685c3f479bf15544e992bfc0e8cbf5cd47972808f6",
+    "market_feature_store/sync/sync_local_sector_members.py": "7c2dcaedd2b97628955ff033319471841af8cccb55366ba083ee68ef72ec2813",
+    "scripts/recover_local_review.py": "7cfd75d55d0dc02a55f866f827e416c5ac30c3c4d20dfb99579e2f1e6239b506",
+    "skills/daily-full-review/references/ops-pitfalls.md": "f4a77c4c6087033be7bd3477f85722bb1a12baa985ad3dff35fe469fbfb6395f",
+    "skills/daily-full-review/scripts/run_review_sync.py": "f0ac9fd7d95421e37c08f6890624f9d7fabb542e93ea67c9a7bc25930c2cf985",
+    "skills/duckdb-backfill/references/backfill-runbook.md": "d1af1816b4fecfbc4b8601668dc893ed68f234c9a984d35cd6d3bdc3147a80e1",
+    "skills/duckdb-backfill/scripts/backfill_stock_daily_sina.py": "5669adb55bc1222400c226c8e9feb77c5e215680a453f7c5dc17d25513524e15",
+    "tests/test_backfill_sina_resume.py": "84bd0cc1485a781d08cbc0d514e5b01018fc486eb581070da47f4c0c33572551",
+    "tests/test_index_local_fallback_boundary.py": "9bd9b101bde772ca2b2605bc098ccc88125007d3d9c30bdd5921acf84132dbaf",
+    "tests/test_recover_local_review.py": "eb82ef4800f47461505e0325156ffeb14d0848b98ca7829cee29708d8e4c8655",
+    "tests/test_tiered_sync_local.py": "f2b73801944c08041beaff8b63606051e7820d54995526ce422b2cc3bfdaf3d9"
+  },
+  "same_status_as_before": true,
+  "same_diff_file_hashes_as_before": true,
+  "note": "No source edits, index mutations, live network, production DB reads, launchd or service actions. Two pre-existing untracked quality JSON files retained."
+}

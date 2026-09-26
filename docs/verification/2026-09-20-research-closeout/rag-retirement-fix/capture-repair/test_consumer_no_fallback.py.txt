@@ -1,0 +1,88 @@
+from __future__ import annotations
+
+import os
+from pathlib import Path
+from unittest import mock
+
+import pytest
+
+from intelligence.services import kb_rag, rag_worker
+from intelligence.services.rag_worker import WorkerResponse
+from intelligence.tests.test_rag_worker_generation import (
+    _activate,
+    _managed_generation,
+)
+
+
+def _environment(binding: dict[str, str]) -> dict[str, str]:
+    return {
+        "RAG_WORKER_ENABLED": "1",
+        "KB_RAG_GENERATION": binding["sha"],
+        "RAG_GENERATION_MANIFEST": binding["manifest"],
+        "RAG_GENERATIONS_ROOT": binding["root"],
+        "KB_RAG_CODE_ROOT": binding["code"],
+        "KB_RAG_PYTHON": binding["python"],
+        "KB_VAULT": binding["wiki"],
+        "RAG_INDEX_DIR": binding["standard"],
+        "KB_RAG_FULL_INDEX_DIR": binding["full"],
+    }
+
+
+@pytest.mark.parametrize("missing", ["full", "python"])
+def test_first_managed_capture_must_not_fall_back_to_cli(
+    tmp_path: Path,
+    missing: str,
+) -> None:
+    binding = _managed_generation(tmp_path, "alpha")
+    _activate(binding)
+    environment = _environment(binding)
+
+    if missing == "full":
+        Path(binding["full"]).rmdir()
+    else:
+        missing_python = tmp_path / "missing-venv" / "bin" / "python"
+        binding["python"] = str(missing_python)
+        environment["KB_RAG_PYTHON"] = str(missing_python)
+        manifest_path = Path(binding["manifest"])
+        # Keep the complete managed binding internally consistent while making
+        # the declared interpreter absent. Recompute the manifest SHA binding.
+        import hashlib
+        import json
+
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["runtime"]["executable"] = str(missing_python)
+        manifest_path.write_text(
+            json.dumps(manifest, sort_keys=True) + "\n", encoding="utf-8"
+        )
+        environment["KB_RAG_GENERATION"] = hashlib.sha256(
+            manifest_path.read_bytes()
+        ).hexdigest()
+        current_path = Path(binding["root"]) / "current.json"
+        current = json.loads(current_path.read_text(encoding="utf-8"))
+        current["manifest_sha256"] = environment["KB_RAG_GENERATION"]
+        current_path.write_text(
+            json.dumps(current, sort_keys=True) + "\n", encoding="utf-8"
+        )
+
+    cli_response = WorkerResponse(0, "[]", "")
+    with (
+        mock.patch.dict(os.environ, environment, clear=False),
+        mock.patch.object(kb_rag.subprocess, "run", return_value=cli_response) as cli,
+    ):
+        result = kb_rag.retrieve(
+            "identity-bound query",
+            Path(binding["wiki"]),
+            index_dir=Path(binding["standard"]),
+            code_root=Path(binding["code"]),
+            python_executable=binding["python"],
+            worker_enabled=True,
+        )
+
+    # Approved contract: explicit managed-identity failures must stop at the
+    # dedicated generation boundary and must never run the legacy CLI.
+    cli.assert_not_called()
+    assert result.telemetry.fallback_reason == (
+        "persistent_worker_generation_unavailable"
+    )
+    assert result.telemetry.status == "error"
+    assert rag_worker.status()["configured_workers"] == 0

@@ -1,0 +1,842 @@
+diff --git a/intelligence/services/episode_evidence.py b/intelligence/services/episode_evidence.py
+index a633b2a1b..5acd38199 100644
+--- a/intelligence/services/episode_evidence.py
++++ b/intelligence/services/episode_evidence.py
+@@ -6,11 +6,12 @@ presentation order. Neither digest authenticates a user or an external source.
+ """
+ from __future__ import annotations
+ 
+-from dataclasses import asdict, dataclass
+-from datetime import date
++from dataclasses import asdict, dataclass, replace
++from datetime import date, datetime
+ import hashlib
+ import json
+ import math
++import re
+ from typing import TYPE_CHECKING
+ 
+ from intelligence.services.agent_research import AgentEvidence, StructuredObservation
+@@ -20,15 +21,19 @@ if TYPE_CHECKING:
+     from collections.abc import Iterable
+     from intelligence.services.evidence_ledger import EvidenceLedger
+ 
+-_FIELDS = frozenset({
++_COMMON_FIELDS = frozenset({
+     "schema_version", "kind", "episode_id", "information_cutoff", "entries",
+-    "presented_hashes", "covered_outputs", "open_gaps", "sha256",
++    "covered_outputs", "open_gaps", "sha256",
+ })
++_FIELDS_BY_VERSION = {
++    1: _COMMON_FIELDS | {"presented_hashes"},
++    2: _COMMON_FIELDS | {"presentations"},
++}
+ _STRING_FIELDS = (
+     "tool", "title", "detail", "source", "internal_locator", "evidence_tier",
+     "independent_key", "freshness", "content_hash", "publisher_kind", "document_type",
+ )
+-# Explicit v1 schema: a new AgentEvidence field must make capture fail closed
++# Explicit atom schema: a new AgentEvidence field must make capture fail closed
+ # until its persistence/validation semantics have been deliberately chosen.
+ _ATOM_FIELDS = frozenset((*_STRING_FIELDS,
+     "source_date", "supports", "contradicts", "derived_from", "observations",
+@@ -113,36 +118,95 @@ class EvidenceCheckpointEntry:
+         }
+ 
+ 
++@dataclass(frozen=True)
++class EvidencePresentation:
++    atom: AgentEvidence
++    classification: str
++
++    def to_dict(self) -> dict[str, object]:
++        return {
++            "atom": _json_copy(asdict(self.atom), path="presentation.atom"),
++            "classification": self.classification,
++        }
++
++
++def _presentation_source_day(value: str) -> date | None:
++    """Normalize complete calendar expressions, without searching surrounding text."""
++    normalized = value.strip()
++    match = re.fullmatch(r"([0-9]{4})-([0-9]{1,2})-([0-9]{1,2})([Tt ].+)?", normalized)
++    if match is not None:
++        year, month, day, clock = match.groups()
++        normalized = f"{year}-{int(month):02d}-{int(day):02d}{clock or ''}"
++    elif re.fullmatch(r"[0-9]{8}(?:[Tt ].+)?", normalized) is None:
++        return None
++    try:
++        return date.fromisoformat(normalized)
++    except ValueError:
++        try:
++            return datetime.fromisoformat(normalized).date()
++        except ValueError:
++            return None
++
++
++def classify_presentation(
++    item: AgentEvidence, original: AgentEvidence | None, cutoff: date | None,
++) -> str:
++    """Request links may vary; every other admitted field still belongs to the first writer."""
++    if original is not None:
++        if replace(item, supports=original.supports, contradicts=original.contradicts) != original:
++            raise ValueError("presented evidence differs from its admitted original")
++        return "admitted"
++    # The registry can expose future-only results as a dated notice. This is a
++    # presentation, never a fact admission or an inferred coverage target. Parse
++    # the complete date value: a title or a valid prefix plus junk grants nothing.
++    if cutoff is not None and isinstance(item.source_date, str):
++        source_day = _presentation_source_day(item.source_date)
++        if source_day is not None and source_day > cutoff:
++            return "future_of_cutoff"
++    raise ValueError("presented evidence is absent from the ledger and is not valid future material")
++
++
+ @dataclass(frozen=True)
+ class EpisodeEvidenceSnapshot:
+     episode_id: str
+     information_cutoff: date | None
+     entries: tuple[EvidenceCheckpointEntry, ...]
+-    presented_hashes: tuple[str, ...]
++    presentations: tuple[EvidencePresentation, ...]
+     covered_outputs: tuple[str, ...]
+     open_gaps: tuple[str, ...]
++    schema_version: int = 2
++
++    @property
++    def presented_hashes(self) -> tuple[str, ...]:
++        return tuple(item.atom.content_hash for item in self.presentations)
+ 
+     @property
+     def presented_evidence(self) -> tuple[AgentEvidence, ...]:
+-        by_hash = {entry.atom.content_hash: entry.atom for entry in self.entries}
+-        return tuple(by_hash[digest] for digest in self.presented_hashes)
++        return tuple(item.atom for item in self.presentations)
+ 
+     def to_dict(self) -> dict[str, object]:
+         body = {
+-            "schema_version": 1, "kind": "episode_evidence", "episode_id": self.episode_id,
++            "schema_version": self.schema_version, "kind": "episode_evidence", "episode_id": self.episode_id,
+             "information_cutoff": self.information_cutoff.isoformat() if self.information_cutoff else None,
+             "entries": [entry.to_dict() for entry in self.entries],
+-            "presented_hashes": list(self.presented_hashes),
+             "covered_outputs": list(self.covered_outputs), "open_gaps": list(self.open_gaps),
+         }
++        if self.schema_version == 1:
++            body["presented_hashes"] = list(self.presented_hashes)
++        else:
++            body["presentations"] = [item.to_dict() for item in self.presentations]
+         return {**body, "sha256": _digest(body)}
+ 
+     @classmethod
+     def from_dict(cls, payload: object, *, episode_id: str) -> EpisodeEvidenceSnapshot:
+         from intelligence.services.evidence_ledger import _clean, _cutoff_status
+ 
+-        raw = _object(_json_copy(payload, path="evidence_snapshot"), _FIELDS, "snapshot")
+-        if type(raw["schema_version"]) is not int or raw["schema_version"] != 1 or raw["kind"] != "episode_evidence":
++        raw = _json_copy(payload, path="evidence_snapshot")
++        if not isinstance(raw, dict) or type(raw.get("schema_version")) is not int or raw["schema_version"] not in _FIELDS_BY_VERSION:
++            raise ValueError("unsupported evidence snapshot version/kind")
++        version = raw["schema_version"]
++        raw = _object(raw, _FIELDS_BY_VERSION[version], "snapshot")
++        if raw["kind"] != "episode_evidence":
+             raise ValueError("unsupported evidence snapshot version/kind")
+         if not isinstance(raw["episode_id"], str) or raw["episode_id"] != episode_id or not episode_id or episode_id != episode_id.strip():
+             raise ValueError("evidence snapshot episode identity mismatch")
+@@ -179,14 +243,32 @@ class EpisodeEvidenceSnapshot:
+             if status is None or status != entry["cutoff_status"]:
+                 raise ValueError("evidence source date/cutoff status mismatch")
+             entries.append(EvidenceCheckpointEntry(atom, targets, owner, status))
+-        presented = _strings(raw["presented_hashes"], canonical=True)
+-        if not set(presented).issubset(identities):
+-            raise ValueError("presented evidence is absent from the ledger")
++        by_hash = {entry.atom.content_hash: entry.atom for entry in entries}
++        if version == 1:
++            presented = _strings(raw["presented_hashes"], canonical=True)
++            if not set(presented).issubset(identities):
++                raise ValueError("presented evidence is absent from the ledger")
++            presentations = [EvidencePresentation(by_hash[identity], "admitted") for identity in presented]
++        else:
++            if not isinstance(raw["presentations"], list):
++                raise ValueError("evidence presentations must be a list")
++            presentations = []
++            presented_ids: set[str] = set()
++            for record in raw["presentations"]:
++                presentation = _object(record, frozenset({"atom", "classification"}), "presentation")
++                atom = _atom(presentation["atom"])
++                if atom.content_hash in presented_ids:
++                    raise ValueError("duplicate presented evidence identity")
++                presented_ids.add(atom.content_hash)
++                classification = classify_presentation(atom, by_hash.get(atom.content_hash), cutoff)
++                if presentation["classification"] != classification:
++                    raise ValueError("evidence presentation classification mismatch")
++                presentations.append(EvidencePresentation(atom, classification))
+         covered = _strings(raw["covered_outputs"], canonical=True)
+         gaps = _strings(raw["open_gaps"], canonical=True)
+         if list(covered) != sorted(covered) or list(gaps) != sorted(gaps) or not set(covered).issubset(all_targets):
+             raise ValueError("evidence coverage/gaps do not reconcile with targets")
+-        return cls(episode_id, cutoff, tuple(entries), presented, covered, gaps)
++        return cls(episode_id, cutoff, tuple(entries), tuple(presentations), covered, gaps, version)
+ 
+ 
+ def capture_evidence_snapshot(
+diff --git a/intelligence/services/evidence_ledger.py b/intelligence/services/evidence_ledger.py
+index f123b9322..fb6f8ae68 100644
+--- a/intelligence/services/evidence_ledger.py
++++ b/intelligence/services/evidence_ledger.py
+@@ -222,14 +222,12 @@ class EvidenceLedger:
+         the ledger without acquiring an E-number.
+         """
+         from intelligence.services.episode_evidence import (
+-            EpisodeEvidenceSnapshot, EvidenceCheckpointEntry,
++            EpisodeEvidenceSnapshot, EvidenceCheckpointEntry, EvidencePresentation,
++            classify_presentation,
+         )
+ 
+         presented = tuple(presented_evidence)
+         with self._lock:
+-            for item in presented:
+-                if self._items.get(item.content_hash) != item:
+-                    raise ValueError("presented evidence differs from its admitted original")
+             snapshot = EpisodeEvidenceSnapshot(
+                 episode_id=episode_id, information_cutoff=self._cutoff,
+                 entries=tuple(EvidenceCheckpointEntry(
+@@ -237,7 +235,10 @@ class EvidenceLedger:
+                     branch_owner=self._branch_owners.get(identity),
+                     cutoff_status=_cutoff_status(item, self._cutoff),
+                 ) for identity, item in self._items.items()),
+-                presented_hashes=tuple(item.content_hash for item in presented),
++                presentations=tuple(EvidencePresentation(
++                    atom=item,
++                    classification=classify_presentation(item, self._items.get(item.content_hash), self._cutoff),
++                ) for item in presented),
+                 covered_outputs=tuple(sorted(self._covered_outputs)),
+                 open_gaps=tuple(sorted(self._open_gaps)),
+             )
+diff --git a/intelligence/tests/fixtures/run_supervisor.py b/intelligence/tests/fixtures/run_supervisor.py
+index e6fbf34d4..9dc82b62d 100644
+--- a/intelligence/tests/fixtures/run_supervisor.py
++++ b/intelligence/tests/fixtures/run_supervisor.py
+@@ -1,21 +1,57 @@
+ """Keep test-owned workers inside the lifetime of their patched dependencies."""
+ from __future__ import annotations
+ 
++from threading import Timer, current_thread
+ from typing import TYPE_CHECKING
+ 
+ if TYPE_CHECKING:
+     from fastapi.testclient import TestClient
+ 
+ 
++class _OwnedTimers(dict[tuple[str, str], Timer]):
++    """Record this supervisor's timers even after its completion callback pops them.
++
++    The supervisor already serializes all writes with its lock. After the test
++    joins its executor, no worker can create/start another timer in this list.
++    No global Timer factory or unrelated process thread is patched or inspected.
++    """
++
++    def __init__(self, timers: dict[tuple[str, str], Timer]) -> None:
++        super().__init__(timers)
++        self.owned = list(timers.values())
++
++    def __setitem__(self, key: tuple[str, str], timer: Timer) -> None:
++        self.owned.append(timer)
++        super().__setitem__(key, timer)
++
++
++def track_test_client_timers(client: TestClient) -> None:
++    """Register ownership before a fixture yields its client or accepts test work."""
++    supervisor = client.app.state.supervisor
++    with supervisor._lock:
++        if not isinstance(supervisor._timers, _OwnedTimers):
++            supervisor._timers = _OwnedTimers(supervisor._timers)
++
++
+ def drain_test_client(client: TestClient) -> None:
+-    """Cancel queued work and join running fakes before pytest undoes monkeypatch.
++    """Cancel queued work and join owned workers/timers before monkeypatch undo.
+ 
+     Production shutdown intentionally does not wait for slow IO. Tests own their
+     bounded runners and must release any gates before calling this helper. Access
+     to the private executor is confined to test infrastructure, not a new runtime
+-    shutdown policy. Waiting also covers completion callbacks/credit settlement.
++    shutdown policy. Waiting also covers completion callbacks/credit settlement
++    and already-fired timeout callbacks no longer in the active task table.
+     """
+     supervisor = client.app.state.supervisor
+     supervisor.shutdown()
+     supervisor._executor.shutdown(wait=True, cancel_futures=True)
++    with supervisor._lock:
++        if not isinstance(supervisor._timers, _OwnedTimers):
++            raise RuntimeError("register test timer ownership before submitting work")
++        timers = tuple(supervisor._timers.owned)
++    for timer in timers:
++        timer.cancel()
++    for timer in timers:
++        if timer is not current_thread() and timer.ident is not None:
++            timer.join()
+     client.close()
+diff --git a/intelligence/tests/test_api_credits.py b/intelligence/tests/test_api_credits.py
+index 780c15efc..77b8a9770 100644
+--- a/intelligence/tests/test_api_credits.py
++++ b/intelligence/tests/test_api_credits.py
+@@ -34,7 +34,7 @@ from intelligence.api.credits import (  # noqa: E402
+ from intelligence.api.quota import RunQuota  # noqa: E402
+ from intelligence.services import run_store as rs  # noqa: E402
+ from intelligence.services.run_store import RunStore  # noqa: E402
+-from intelligence.tests.fixtures.run_supervisor import drain_test_client  # noqa: E402
++from intelligence.tests.fixtures.run_supervisor import drain_test_client, track_test_client_timers  # noqa: E402
+ 
+ REPO_ROOT = Path(__file__).resolve().parents[2]
+ CLI = REPO_ROOT / "scripts" / "workbench_credits.py"
+@@ -675,6 +675,7 @@ def api(tmp_path, monkeypatch):
+                 run_supervisor=supervisor,
+             )
+         )
++        track_test_client_timers(client)
+         clients.append(client)
+         return client
+ 
+diff --git a/intelligence/tests/test_api_fixture_lifecycle.py b/intelligence/tests/test_api_fixture_lifecycle.py
+index d7044c5ae..7a6a970db 100644
+--- a/intelligence/tests/test_api_fixture_lifecycle.py
++++ b/intelligence/tests/test_api_fixture_lifecycle.py
+@@ -1,12 +1,14 @@
+ """Force late API workers to resolve runners during fixture teardown, not after it."""
+ from __future__ import annotations
+ 
++import os
+ import threading
+ 
+ import pytest
+ 
+ from intelligence.api import app as api_module
+ from intelligence.api.credits import CreditStore
++from intelligence.services.run_store import RunStore
+ from intelligence.tests import test_api_credits, test_api_quota, test_api_run_admission
+ 
+ 
+@@ -78,3 +80,127 @@ def test_api_fixture_joins_late_worker_before_restoring_runner(tmp_path, owner):
+                 client.app.state.supervisor.shutdown()
+                 client.app.state.supervisor._executor.shutdown(wait=True, cancel_futures=True)
+                 client.close()
++
++
++@pytest.mark.parametrize("owner", ["quota", "credits", "admission"])
++def test_fixture_waits_for_fired_timer_removed_from_supervisor_before_restoring_env(tmp_path, owner):
++    entered = threading.Event()
++    release = threading.Event()
++    worker_release = threading.Event()
++    forgotten = threading.Event()
++    joining = threading.Event()
++    teardown_observed = threading.Event()
++    teardown_done = threading.Event()
++    callback_done = threading.Event()
++    unrelated_release = threading.Event()
++    unrelated = threading.Timer(0, unrelated_release.wait)
++    unrelated.start()
++    observed = []
++    timers = []
++    errors = []
++    fixture = client = teardown_thread = None
++    with pytest.MonkeyPatch.context() as patch:
++        original_claim = RunStore.claim_failed_run
++
++        def parked_claim(store, *args, **kwargs):
++            value = original_claim(store, *args, **kwargs)
++            if kwargs.get("error") == "executor_timeout":
++                assert value[1]
++                timers.append(threading.current_thread())
++                entered.set()
++                try:
++                    if not release.wait(5):
++                        raise RuntimeError("test did not release its timer")
++                    observed.append(os.environ.get("FORESIGHT_USERS_DIR"))
++                finally:
++                    callback_done.set()
++            return value
++
++        patch.setattr(RunStore, "claim_failed_run", parked_claim)
++        factory = {
++            "quota": test_api_quota.quota_client,
++            "credits": test_api_credits.api,
++            "admission": test_api_run_admission.harness,
++        }[owner]
++        try:
++            fixture = factory.__wrapped__(tmp_path, patch)
++            value = next(fixture)
++            if owner == "quota":
++                client = value
++            elif owner == "credits":
++                client = value(CreditStore(enabled=False))
++            else:
++                client = value.build(api_module.RunSupervisor(max_workers=1, timeout_sec=0))
++                value.gate.release.set()
++            supervisor = client.app.state.supervisor
++            supervisor.timeout_sec = 0
++            fake_runner = api_module._run_ask
++            forget = supervisor._forget
++
++            def gated_runner(*args, **kwargs):
++                if not worker_release.wait(5):
++                    raise RuntimeError("test did not release its worker")
++                return fake_runner(*args, **kwargs)
++
++            def observed_forget(*args, **kwargs):
++                try:
++                    return forget(*args, **kwargs)
++                finally:
++                    forgotten.set()
++
++            patch.setattr(api_module, "_run_ask", gated_runner)
++            patch.setattr(supervisor, "_forget", observed_forget)
++            response = client.post("/api/runs", json={"question": "q", "user": "owner"})
++            assert response.status_code == 200
++            assert entered.wait(5)
++            fixture_env = os.environ.get("FORESIGHT_USERS_DIR")
++            worker_release.set()
++            assert forgotten.wait(5)
++            assert not supervisor._timers and supervisor.active_count() == 0
++            timer = timers[0]
++            join = timer.join
++
++            def observed_join(*args, **kwargs):
++                joining.set()
++                teardown_observed.set()
++                return join(*args, **kwargs)
++
++            patch.setattr(timer, "join", observed_join)
++
++            def teardown():
++                try:
++                    next(fixture)
++                except StopIteration:
++                    pass
++                except BaseException as exc:
++                    errors.append(exc)
++                finally:
++                    teardown_done.set()
++                    teardown_observed.set()
++
++            teardown_thread = threading.Thread(target=teardown)
++            teardown_thread.start()
++            assert teardown_observed.wait(5)
++            assert joining.is_set(), "fixture exited without joining its already-fired timer"
++            assert not teardown_done.is_set() and not callback_done.is_set()
++            release.set()
++            assert teardown_done.wait(5) and callback_done.is_set()
++            assert not errors and observed == [fixture_env]
++            assert unrelated.is_alive(), "fixture must not wait for unrelated process timers"
++            run = RunStore(user_id="owner").load_run(response.json()["run_id"])
++            assert run.status == "failed" and run.error == "executor_timeout"
++        finally:
++            release.set()
++            worker_release.set()
++            unrelated_release.set()
++            unrelated.join(5)
++            if teardown_thread is not None:
++                teardown_thread.join(5)
++            for timer in timers:
++                timer.join(5)
++            if fixture is not None:
++                fixture.close()
++            if client is not None:
++                client.app.state.supervisor.shutdown()
++                client.app.state.supervisor._executor.shutdown(wait=True, cancel_futures=True)
++                client.close()
+diff --git a/intelligence/tests/test_api_quota.py b/intelligence/tests/test_api_quota.py
+index 6b24c63c5..02b321566 100644
+--- a/intelligence/tests/test_api_quota.py
++++ b/intelligence/tests/test_api_quota.py
+@@ -14,7 +14,7 @@ from intelligence.api import app as app_module  # noqa: E402
+ from intelligence.api.quota import RunQuota  # noqa: E402
+ from intelligence.services import run_store as rs  # noqa: E402
+ from intelligence.services.run_store import RunStore  # noqa: E402
+-from intelligence.tests.fixtures.run_supervisor import drain_test_client  # noqa: E402
++from intelligence.tests.fixtures.run_supervisor import drain_test_client, track_test_client_timers  # noqa: E402
+ 
+ 
+ @pytest.fixture()
+@@ -126,6 +126,7 @@ def quota_client(tmp_path, monkeypatch):
+             run_quota=RunQuota(daily_limit=1, exempt_users=frozenset({"owner"})),
+         )
+     )
++    track_test_client_timers(client)
+     try:
+         yield client
+     finally:
+diff --git a/intelligence/tests/test_api_run_admission.py b/intelligence/tests/test_api_run_admission.py
+index f0c8fa991..49e9d0b5b 100644
+--- a/intelligence/tests/test_api_run_admission.py
++++ b/intelligence/tests/test_api_run_admission.py
+@@ -20,7 +20,7 @@ from intelligence.api.app import RunSupervisor  # noqa: E402
+ from intelligence.api.quota import RunQuota  # noqa: E402
+ from intelligence.services import run_store as rs  # noqa: E402
+ from intelligence.services.run_store import RunStore  # noqa: E402
+-from intelligence.tests.fixtures.run_supervisor import drain_test_client  # noqa: E402
++from intelligence.tests.fixtures.run_supervisor import drain_test_client, track_test_client_timers  # noqa: E402
+ 
+ 
+ def _wait_for(predicate: Callable[[], bool], *, timeout: float = 5.0) -> None:
+@@ -92,6 +92,7 @@ def harness(tmp_path, monkeypatch):
+                 run_quota=quota,
+             )
+         )
++        track_test_client_timers(client)
+         clients.append(client)
+         return client
+ 
+diff --git a/intelligence/tests/test_episode_evidence_presentations.py b/intelligence/tests/test_episode_evidence_presentations.py
+new file mode 100644
+index 000000000..a44a842ee
+--- /dev/null
++++ b/intelligence/tests/test_episode_evidence_presentations.py
+@@ -0,0 +1,290 @@
++"""Presentation links and cutoff notices survive without rewriting admitted facts."""
++from __future__ import annotations
++
++from copy import deepcopy
++from dataclasses import replace
++from datetime import date
++import json
++
++import pytest
++
++from intelligence.services import episode_evidence as snapshots
++from intelligence.services.agent_research import StructuredObservation
++from intelligence.services.episode_store import EpisodeState, JsonlEpisodeStore
++from intelligence.services.evidence_ledger import EvidenceLedger
++from intelligence.tests.test_episode_evidence_snapshot import _atom, _fixture, _resign
++
++
++def test_presentation_links_roundtrip_without_changing_first_writer_or_coverage():
++    ledger, presented, _ = _fixture()
++    before = ledger.snapshot()
++    changed = (replace(presented[0], supports=("new-request",), contradicts=()), presented[1])
++    payload = snapshots.capture_evidence_snapshot(
++        episode_id="episode", ledger=ledger, presented_evidence=changed,
++    )
++    decoded = snapshots.EpisodeEvidenceSnapshot.from_dict(payload, episode_id="episode")
++    restored = EvidenceLedger.from_recovery_snapshot(payload, episode_id="episode")
++    assert payload["schema_version"] == 2
++    assert decoded.presented_evidence == changed
++    assert decoded.presented_hashes == ("first", "second")
++    assert restored.items() == ledger.items()
++    assert restored.snapshot() == before == ledger.snapshot()
++    assert "new-request" not in dict(restored.snapshot().evidence_targets)["first"]
++    assert decoded.to_dict() == payload
++
++
++@pytest.mark.parametrize("changes", [
++    {"detail": "replacement"}, {"title": "replacement"}, {"source": "replacement"},
++    {"source_date": "2026-07-23"}, {"derived_from": ("replacement",)},
++    {"observations": (StructuredObservation("公司", "2026-07-24", "营收亿元", 99),)},
++    {"internal_locator": "replacement"}, {"deep_read": False},
++])
++def test_same_hash_presentations_may_not_replace_any_fact(changes):
++    ledger, presented, _ = _fixture()
++    with pytest.raises(ValueError):
++        snapshots.capture_evidence_snapshot(
++            episode_id="episode", ledger=ledger,
++            presented_evidence=(replace(presented[0], supports=("request",), **changes),),
++        )
++
++
++@pytest.mark.parametrize("source_date", [
++    "2026-07-25", "20260725", "2026-07-25T09:30:00+08:00",
++    "2026-7-25", "2026-7-25 09:30:00", " 2026-07-25 ",
++])
++def test_future_presentation_restores_exact_notice_but_cannot_cover_output(source_date):
++    ledger = EvidenceLedger(information_cutoff=date(2026, 7, 24))
++    future = _atom("future", source_date=source_date, title="原日期提示", supports=("future-output",))
++    assert ledger.append(future, covered_outputs=("future-output",)) == ()
++    payload = ledger.to_recovery_snapshot(episode_id="episode", presented_evidence=(future,))
++    decoded = snapshots.EpisodeEvidenceSnapshot.from_dict(payload, episode_id="episode")
++    restored = EvidenceLedger.from_recovery_snapshot(payload, episode_id="episode")
++    assert decoded.presented_evidence == (future,)
++    assert payload["presentations"][0]["classification"] == "future_of_cutoff"
++    assert restored.items() == ()
++    assert restored.snapshot().covered_outputs == ()
++    assert not restored.mark_output_covered("future-output", evidence_ids=("future",))
++    assert decoded.to_dict() == payload
++
++
++@pytest.mark.parametrize(("cutoff", "source_date"), [
++    (None, "2026-07-25"), (date(2026, 7, 24), None),
++    (date(2026, 7, 24), "2026-07-24"), (date(2026, 7, 24), "unknown"),
++    (date(2026, 7, 24), "2026-99-99"), (date(2026, 7, 24), "2026-07-25garbage"),
++    (None, "2026-7-25"), (date(2026, 7, 24), "2026-7-24"),
++    (date(2026, 7, 24), "2026-7-25garbage"), (date(2026, 7, 24), "正文2026-7-25"),
++    (date(2026, 7, 24), "/tmp/2026-7-25"), (date(2026, 7, 24), "2026-7-25 09:30:00+08:00garbage"),
++    (date(2026, 7, 24), "2026-W30-6"), (date(2026, 7, 24), "2026W306"),
++])
++def test_unadmitted_presentations_require_real_future_date_not_title(cutoff, source_date):
++    ledger = EvidenceLedger(information_cutoff=cutoff)
++    item = _atom("missing", source_date=source_date, title="晚于问句日 2026-07-24")
++    with pytest.raises(ValueError):
++        ledger.to_recovery_snapshot(episode_id="episode", presented_evidence=(item,))
++
++
++def test_v1_read_preserves_version_digest_and_presentation_semantics():
++    ledger, presented, payload = _fixture()
++    payload.pop("presentations")
++    payload.update(schema_version=1, presented_hashes=[item.content_hash for item in presented])
++    _resign(payload)
++    original = deepcopy(payload)
++    decoded = snapshots.EpisodeEvidenceSnapshot.from_dict(payload, episode_id="episode")
++    assert decoded.to_dict() == original
++    assert decoded.presented_evidence == presented
++    assert EvidenceLedger.from_recovery_snapshot(payload, episode_id="episode").snapshot() == ledger.snapshot()
++    state = EpisodeState(episode_id="episode", phase="planning", last_sequence=2,
++                         evidence_snapshot=payload, evidence_snapshot_sequence=2)
++    assert EpisodeState.from_dict(state.to_dict()).to_dict()["evidence_snapshot"] == original
++    assert ledger.to_recovery_snapshot(episode_id="episode", presented_evidence=presented)["schema_version"] == 2
++
++
++@pytest.mark.parametrize("mutation", ["missing", "extra", "duplicate", "unknown", "coverage", "digest"])
++def test_v1_reader_retains_strict_legacy_validation(mutation):
++    _, presented, payload = _fixture()
++    payload.pop("presentations")
++    payload.update(schema_version=1, presented_hashes=[item.content_hash for item in presented])
++    if mutation == "missing":
++        del payload["entries"][0]["atom"]["observations"]
++    elif mutation == "extra":
++        payload["presentations"] = []
++    elif mutation == "duplicate":
++        payload["presented_hashes"] = ["first", "first"]
++    elif mutation == "unknown":
++        payload["presented_hashes"] = ["missing"]
++    elif mutation == "coverage":
++        payload["covered_outputs"] = ["forged"]
++    _resign(payload)
++    if mutation == "digest":
++        payload["entries"][0]["atom"]["source_date"] = "2026-07-23"
++    with pytest.raises(ValueError):
++        snapshots.EpisodeEvidenceSnapshot.from_dict(payload, episode_id="episode")
++
++
++@pytest.mark.parametrize(("cutoff", "source_date"), [
++    (None, "2026-07-25"), ("2026-07-24", None), ("2026-07-24", "2026-07-24"),
++    ("2026-07-24", "unknown"), ("2026-07-24", "2026-07-25garbage"),
++    ("2026-07-24", "2026-7-25garbage"), ("2026-07-24", "正文2026-7-25"),
++    ("2026-07-24", "/tmp/2026-7-25"), ("2026-07-24", "2026-7-25 09:30:00+08:00garbage"),
++    ("2026-07-24", "2026-W30-6"),
++])
++def test_v2_reader_rechecks_future_classification_even_with_recomputed_digest(cutoff, source_date):
++    ledger = EvidenceLedger(information_cutoff=date(2026, 7, 24))
++    payload = ledger.to_recovery_snapshot(
++        episode_id="episode", presented_evidence=(_atom("future", source_date="2026-07-25"),),
++    )
++    payload["information_cutoff"] = cutoff
++    payload["presentations"][0]["atom"]["source_date"] = source_date
++    _resign(payload)
++    with pytest.raises(ValueError):
++        snapshots.EpisodeEvidenceSnapshot.from_dict(payload, episode_id="episode")
++
++
++@pytest.mark.parametrize(("path", "value"), [
++    (("presentations", 0, "atom", "detail"), "changed"),
++    (("presentations", 0, "atom", "source_date"), "2026-07-23"),
++    (("presentations", 0, "atom", "observations", 0, "value"), 99),
++    (("presentations", 0, "atom", "supports"), ["different-request"]),
++    (("presentations", 0, "classification"), "future_of_cutoff"),
++])
++def test_v2_digest_covers_full_presentation_and_classification(path, value):
++    _, _, payload = _fixture()
++    node = payload
++    for key in path[:-1]:
++        node = node[key]
++    node[path[-1]] = value
++    with pytest.raises(ValueError, match="digest"):
++        snapshots.EpisodeEvidenceSnapshot.from_dict(payload, episode_id="episode")
++    if path[-1] != "supports":
++        _resign(payload)
++        with pytest.raises(ValueError):
++            snapshots.EpisodeEvidenceSnapshot.from_dict(payload, episode_id="episode")
++
++
++@pytest.mark.parametrize("mutation", ["duplicate", "missing-atom", "missing-classification", "extra", "coverage", "admitted"])
++def test_future_presentation_schema_and_coverage_are_fail_closed(mutation):
++    ledger = EvidenceLedger(information_cutoff=date(2026, 7, 24))
++    payload = ledger.to_recovery_snapshot(
++        episode_id="episode", presented_evidence=(_atom("future", source_date="2026-07-25"),),
++    )
++    if mutation == "duplicate":
++        payload["presentations"].append(deepcopy(payload["presentations"][0]))
++    elif mutation.startswith("missing-"):
++        del payload["presentations"][0][mutation.removeprefix("missing-")]
++    elif mutation == "extra":
++        payload["presentations"][0]["unexpected"] = True
++    elif mutation == "coverage":
++        payload["covered_outputs"] = ["direct"]
++    else:
++        payload["presentations"][0]["classification"] = "admitted"
++    _resign(payload)
++    with pytest.raises(ValueError):
++        snapshots.EpisodeEvidenceSnapshot.from_dict(payload, episode_id="episode")
++
++
++@pytest.mark.parametrize("durable", [False, True])
++@pytest.mark.parametrize("future_only", [False, True])
++def test_real_episode_reaches_next_model_after_future_only_or_mixed_results(tmp_path, durable, future_only):
++    from intelligence.runtime.agent_episode import ContinuousAgentEpisode
++    from intelligence.services.research_contract import InformationCutoff
++    from intelligence.tests.test_agent_episode import (
++        ScriptedModel, _context, _finish_turn, _frame, _market_registry, _successful_runner, _tool_turn,
++    )
++
++    frame = _frame()
++    context = replace(_context(frame, max_steps=2), information_cutoff=InformationCutoff(date(2026, 7, 24), "requested"))
++    model = ScriptedModel([
++        _tool_turn("historical cutoff probe"),
++        _finish_turn(status="partial", draft="需补同日证据。", hashes=(), gap="缺少截止内证据"),
++    ])
++
++    def runner(query, tool_context):
++        evidence, observation, trace = _successful_runner(query, tool_context)
++        evidence = [replace(item, source_date="2026-07-25") for item in evidence]
++        if not future_only:
++            evidence.append(replace(evidence[0], source_date="2026-07-24", content_hash="in-cutoff"))
++        return evidence, observation, replace(trace, source_trade_date="2026-07-25")
++
++    store = JsonlEpisodeStore(tmp_path) if durable else None
++    outcome = ContinuousAgentEpisode(model, store=store).run(
++        task_frame=frame, context=context, registry=_market_registry(runner),
++    )
++    assert len(model.calls) == 2 and outcome.stop_reason == "model_finish"
++    assert outcome.persistence == ("durable" if durable else "ephemeral")
++    assert not any(event.kind == "persistence_failed" for event in outcome.events)
++    assert outcome.evidence[0].source_date == ("2026-07-25" if future_only else "2026-07-24")
++    if future_only:
++        assert "晚于问句日 2026-07-24" in outcome.evidence[0].title
++    if store is not None:
++        state = store.load(context.contract.task_id)[1]
++        decoded = snapshots.EpisodeEvidenceSnapshot.from_dict(state.evidence_snapshot, episode_id=context.contract.task_id)
++        restored = EvidenceLedger.from_recovery_snapshot(state.evidence_snapshot, episode_id=context.contract.task_id)
++        assert decoded.presented_evidence == outcome.evidence
++        if future_only:
++            assert restored.items() == ()
++            assert not restored.mark_output_covered("direct_assessment", evidence_ids=(outcome.evidence[0].content_hash,))
++
++
++@pytest.mark.parametrize("durable", [False, True])
++def test_real_glm_parent_mixed_batch_keeps_child_original_and_parent_request_links(tmp_path, durable):
++    from intelligence.runtime.glm_agent_runtime import GLMAgentRuntime
++    from intelligence.services.agent_research import evidence_content_hash
++    from intelligence.services.agent_runtime import ModelToolCall, ModelTurn
++    from intelligence.services.mode_governor import ModeSignals
++    from intelligence.services.provider_observability import ProviderTrace
++    from intelligence.services.research_contract import release_root_budget
++    from intelligence.services.research_tool_registry import ResearchToolRegistry, ToolSpec
++    from intelligence.tests.test_sub_research_tool import _context, _frame
++
++    class MixedModel:
++        parent_calls = 0
++        child_calls = 0
++
++        def complete(self, *, messages, tools, timeout):
++            child = "branch_findings" in json.dumps(messages[:2], ensure_ascii=False)
++            if child:
++                self.child_calls += 1
++                if self.child_calls == 1:
++                    return ModelTurn("", (ModelToolCall("child-tool", "market_data", {"query": "child"}),))
++            else:
++                self.parent_calls += 1
++                if self.parent_calls == 1:
++                    return ModelTurn("", (
++                        ModelToolCall("direct-tool", "market_data", {"query": "direct"}),
++                        ModelToolCall("branch-tool", "sub_research", {"goals": ["核验甲"]}),
++                    ))
++            return ModelTurn(json.dumps({
++                "status": "partial", "draft": "证据仍不足。", "gaps": ["待核验"], "bindings": [],
++            }, ensure_ascii=False), ())
++
++    context = _context("max", allowed=("market_data", "sub_research"))
++    model = MixedModel()
++
++    def runner(query, _):
++        item = _atom(source_date="2026-07-21",
++                     supports=(("direct-output" if query == "direct" else "branch-output"),), contradicts=())
++        item = replace(item, content_hash=evidence_content_hash(item))
++        return [item], "原件证据", ProviderTrace(provider="fixture", capability="market_data", status="success")
++
++    registry = ResearchToolRegistry((ToolSpec(
++        name="market_data", capability="market_data", description="行情", cost="local", freshness="current", runner=runner,
++    ),))
++    store = JsonlEpisodeStore(tmp_path) if durable else None
++    try:
++        outcome = GLMAgentRuntime(client=model, episode_store=store,
++                                 mode_signals=lambda *_: ModeSignals(user_mode="deep")).run(
++            task_frame=_frame(), context=context, registry=registry,
++        )
++        assert model.parent_calls == model.child_calls == 2
++        assert outcome.stop_reason == "model_finish"
++        assert outcome.persistence == ("durable" if durable else "ephemeral")
++        assert outcome.evidence[0].supports == ("direct-output",)
++        if store is not None:
++            state = store.load(context.contract.task_id)[1]
++            decoded = snapshots.EpisodeEvidenceSnapshot.from_dict(state.evidence_snapshot, episode_id=context.contract.task_id)
++            assert decoded.presented_evidence == outcome.evidence
++            assert decoded.entries[0].atom.supports == ("branch-output",)
++            assert decoded.entries[0].branch_owner is not None
++            assert "direct-output" not in decoded.entries[0].targets
++    finally:
++        release_root_budget(context.contract.task_id)
+diff --git a/intelligence/tests/test_episode_evidence_snapshot.py b/intelligence/tests/test_episode_evidence_snapshot.py
+index eb6ba0c8a..4f34b7a00 100644
+--- a/intelligence/tests/test_episode_evidence_snapshot.py
++++ b/intelligence/tests/test_episode_evidence_snapshot.py
+@@ -95,7 +95,7 @@ def test_restored_ledger_keeps_cutoff_gate_and_duplicate_owner_first_writer():
+ 
+ 
+ @pytest.mark.parametrize(("path", "value"), [
+-    (("schema_version",), True), (("schema_version",), 2), (("kind",), "public_evidence"),
++    (("schema_version",), True), (("schema_version",), 3), (("kind",), "public_evidence"),
+     (("episode_id",), "other"), (("information_cutoff",), "2026-99-99"),
+     (("entries", 0, "atom", "source_date"), "2026-07-25"),
+     (("entries", 0, "atom", "source_date"), "unknown"),
+@@ -112,7 +112,8 @@ def test_restored_ledger_keeps_cutoff_gate_and_duplicate_owner_first_writer():
+     (("entries", 0, "targets"), ["direct", "direct"]),
+     (("entries", 0, "branch_owner"), ""),
+     (("entries", 0, "cutoff_status"), "verified"),
+-    (("presented_hashes",), ["missing"]), (("presented_hashes",), ["first", "first"]),
++    (("presentations", 0, "atom", "content_hash"), "missing"),
++    (("presentations", 1, "atom", "content_hash"), "first"),
+     (("covered_outputs",), ["not-targeted"]), (("open_gaps",), [" duplicate "]),
+     (("unexpected",), True),
+ ])
+@@ -128,7 +129,7 @@ def test_semantically_invalid_snapshot_is_rejected_even_with_recomputed_digest(p
+ 
+ 
+ @pytest.mark.parametrize("path", [
+-    ("entries",), ("presented_hashes",), ("information_cutoff",),
++    ("entries",), ("presentations",), ("information_cutoff",),
+     ("entries", 0, "branch_owner"), ("entries", 0, "cutoff_status"),
+     ("entries", 0, "atom", "observations"), ("entries", 0, "atom", "source_date"),
+     ("entries", 0, "atom", "derived_from"), ("entries", 0, "atom", "internal_locator"),
+@@ -241,7 +242,8 @@ def test_loop_checkpoints_capture_received_full_atoms_not_the_public_event_proje
+ 
+ 
+ @pytest.mark.parametrize("expired", [False, True])
+-def test_restore_keeps_original_capture_position_when_synthesizing_settlements(tmp_path, expired):
++@pytest.mark.parametrize("version", [1, 2])
++def test_restore_keeps_original_capture_position_when_synthesizing_settlements(tmp_path, expired, version):
+     from datetime import datetime, timedelta
+     from intelligence.runtime.agent_episode import ContinuousAgentEpisode
+     from intelligence.services.episode_restore import restore_episode
+@@ -255,7 +257,13 @@ def test_restore_keeps_original_capture_position_when_synthesizing_settlements(t
+     rig.run_until("tools_settled")
+     rig.run_until("model_pending")
+     events, checkpoint = live.load(rig.task_id)
+-    assert checkpoint.evidence_snapshot["presented_hashes"]
++    assert checkpoint.evidence_snapshot["presentations"]
++    if version == 1:
++        payload = checkpoint.to_dict()["evidence_snapshot"]
++        payload["presented_hashes"] = [item["atom"]["content_hash"] for item in payload.pop("presentations")]
++        payload["schema_version"] = 1
++        _resign(payload)
++        checkpoint = replace(checkpoint, evidence_snapshot=payload)
+     # Retry=0 exercises synthetic model_error -> finalizing, not just a readonly plan.
+     checkpoint = replace(checkpoint, retry={"remaining": 0})
+     rig.finish()

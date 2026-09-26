@@ -1,0 +1,568 @@
+{
+  "passed": true,
+  "before": {
+    "kb": {
+      "sha": "3a21010323eababb54ce8519093fd60dbacb9451",
+      "dirty": ""
+    },
+    "finance": {
+      "sha": "4ace5ec2e9b7735d90eb15bc2351fa193c1120b8",
+      "dirty": ""
+    }
+  },
+  "after": {
+    "kb": {
+      "sha": "3a21010323eababb54ce8519093fd60dbacb9451",
+      "dirty": ""
+    },
+    "finance": {
+      "sha": "4ace5ec2e9b7735d90eb15bc2351fa193c1120b8",
+      "dirty": ""
+    }
+  },
+  "probe_sha256": "fdf194f4c0d6b129d015e1f97045b0ab98b31f1c09578fcb7994a27ebaf39efb",
+  "rows": [
+    {
+      "stage": "initial-warm",
+      "kind": "standard",
+      "epoch": "alpha",
+      "pid": 23168,
+      "model_load_count": 1,
+      "hits": [
+        {
+          "page_id": "sources/order",
+          "file_path": "wiki/sources/order.md",
+          "title": "order",
+          "score": -0.274653,
+          "best_chunk_id": "wiki/sources/order.md::0",
+          "section": "Order",
+          "content_hash": "956c9fb9d1ababea4f5b41c328b4fd7ee6a4df77",
+          "via_neighbor": false,
+          "evidence_layer": "L3",
+          "fact_hardness": "hard_fact",
+          "source_type": "official_disclosure",
+          "source_quality": "",
+          "publish_time": "2026-09-01",
+          "available_time": "2026-09-01",
+          "review_required": "",
+          "source_refs": [
+            "scratch-filing"
+          ],
+          "content_validity": "valid",
+          "index_built_at": "2026-09-20T05:42:48Z",
+          "index_source_revision": "manifest:v1:a8e38440fad4c0b0ec2deee9f8a67f72ca4e97058675f9027475ecc18b36d032",
+          "index_freshness": "fresh",
+          "snippet": "epochalpha signed order confirmed.",
+          "evidence_text": "命中块 wiki/sources/order.md::0: epochalpha signed order confirmed.",
+          "display_excerpt": "epochalpha signed order confirmed.",
+          "llm_evidence_text": "命中块 wiki/sources/order.md::0: epochalpha signed order confirmed.",
+          "evidence_chunk_ids": [
+            "wiki/sources/order.md::0"
+          ],
+          "evidence_query_terms": [
+            "epochalpha"
+          ],
+          "evidence_char_budget": 1200,
+          "index_format_version": 2,
+          "applied_filters": {}
+        }
+      ],
+      "negative_hits": [],
+      "status": {
+        "state": "ready",
+        "active": true,
+        "model_load_count": 1,
+        "prewarm_latency_ms": null,
+        "last_error_type": null,
+        "last_latency_ms": 3,
+        "abandoned_in_flight": 0,
+        "consecutive_timeouts": 0,
+        "rss_bytes": 47562752,
+        "idle_seconds": 0.0,
+        "keepalive_interval_seconds": 0.0,
+        "keepalive_thread_alive": false,
+        "counters": {
+          "queries_served": 3,
+          "timeouts_abandoned_kept_warm": 0,
+          "timeouts_killed": 0,
+          "stale_responses_drained": 0,
+          "recoveries": 0,
+          "keepalive_sent": 0,
+          "keepalive_timeouts": 0,
+          "keepalive_skipped_busy": 0
+        }
+      }
+    },
+    {
+      "stage": "initial-warm",
+      "kind": "full",
+      "epoch": "alpha",
+      "pid": 23187,
+      "model_load_count": 1,
+      "hits": [
+        {
+          "page_id": "raw/original",
+          "file_path": "raw/original.md",
+          "title": "original",
+          "score": 0.0,
+          "best_chunk_id": "raw/original.md::0",
+          "section": "Original",
+          "content_hash": "96c6ec4ef536d2dcb3c6c2552f23a83b78533686",
+          "via_neighbor": false,
+          "evidence_layer": "",
+          "fact_hardness": "",
+          "source_type": "",
+          "source_quality": "",
+          "publish_time": "",
+          "available_time": "",
+          "review_required": "",
+          "source_refs": [],
+          "content_validity": "valid",
+          "index_built_at": "2026-09-20T05:42:48Z",
+          "index_source_revision": "manifest:v1:da70fa5927666ae8be7bd3d05bd78ec753dcf28a188d1a34eb19a1f8e5129bff",
+          "index_freshness": "fresh",
+          "snippet": "rawalpha isolated source text.",
+          "evidence_text": "命中块 raw/original.md::0: rawalpha isolated source text.",
+          "display_excerpt": "rawalpha isolated source text.",
+          "llm_evidence_text": "命中块 raw/original.md::0: rawalpha isolated source text.",
+          "evidence_chunk_ids": [
+            "raw/original.md::0"
+          ],
+          "evidence_query_terms": [
+            "rawalpha"
+          ],
+          "evidence_char_budget": 1200,
+          "index_format_version": 2,
+          "applied_filters": {}
+        }
+      ],
+      "negative_hits": [],
+      "status": {
+        "state": "ready",
+        "active": true,
+        "model_load_count": 1,
+        "prewarm_latency_ms": null,
+        "last_error_type": null,
+        "last_latency_ms": 4,
+        "abandoned_in_flight": 0,
+        "consecutive_timeouts": 0,
+        "rss_bytes": 48054272,
+        "idle_seconds": 0.0,
+        "keepalive_interval_seconds": 0.0,
+        "keepalive_thread_alive": false,
+        "counters": {
+          "queries_served": 3,
+          "timeouts_abandoned_kept_warm": 0,
+          "timeouts_killed": 0,
+          "stale_responses_drained": 0,
+          "recoveries": 0,
+          "keepalive_sent": 0,
+          "keepalive_timeouts": 0,
+          "keepalive_skipped_busy": 0
+        }
+      }
+    },
+    {
+      "stage": "retired-before-first-query-baseline-bug",
+      "kind": "standard",
+      "status": {
+        "state": "ready",
+        "active": true,
+        "model_load_count": 1,
+        "prewarm_latency_ms": null,
+        "last_error_type": null,
+        "last_latency_ms": 3,
+        "abandoned_in_flight": 0,
+        "consecutive_timeouts": 0,
+        "rss_bytes": 47562752,
+        "idle_seconds": 0.9,
+        "keepalive_interval_seconds": 0.0,
+        "keepalive_thread_alive": false,
+        "counters": {
+          "queries_served": 3,
+          "timeouts_abandoned_kept_warm": 0,
+          "timeouts_killed": 0,
+          "stale_responses_drained": 0,
+          "recoveries": 0,
+          "keepalive_sent": 0,
+          "keepalive_timeouts": 0,
+          "keepalive_skipped_busy": 0
+        }
+      }
+    },
+    {
+      "stage": "retired-before-first-query-baseline-bug",
+      "kind": "full",
+      "status": {
+        "state": "ready",
+        "active": true,
+        "model_load_count": 1,
+        "prewarm_latency_ms": null,
+        "last_error_type": null,
+        "last_latency_ms": 4,
+        "abandoned_in_flight": 0,
+        "consecutive_timeouts": 0,
+        "rss_bytes": 48054272,
+        "idle_seconds": 0.6,
+        "keepalive_interval_seconds": 0.0,
+        "keepalive_thread_alive": false,
+        "counters": {
+          "queries_served": 3,
+          "timeouts_abandoned_kept_warm": 0,
+          "timeouts_killed": 0,
+          "stale_responses_drained": 0,
+          "recoveries": 0,
+          "keepalive_sent": 0,
+          "keepalive_timeouts": 0,
+          "keepalive_skipped_busy": 0
+        }
+      }
+    },
+    {
+      "stage": "retired-after-switch",
+      "kind": "standard",
+      "returncode": 1,
+      "stderr": "MaintenanceError: worker generation retired; restart and prewarm both indexes",
+      "status": {
+        "state": "ready",
+        "active": true,
+        "model_load_count": 1,
+        "prewarm_latency_ms": null,
+        "last_error_type": null,
+        "last_latency_ms": 3,
+        "abandoned_in_flight": 0,
+        "consecutive_timeouts": 0,
+        "rss_bytes": 47562752,
+        "idle_seconds": 0.0,
+        "keepalive_interval_seconds": 0.0,
+        "keepalive_thread_alive": false,
+        "counters": {
+          "queries_served": 4,
+          "timeouts_abandoned_kept_warm": 0,
+          "timeouts_killed": 0,
+          "stale_responses_drained": 0,
+          "recoveries": 0,
+          "keepalive_sent": 0,
+          "keepalive_timeouts": 0,
+          "keepalive_skipped_busy": 0
+        }
+      }
+    },
+    {
+      "stage": "retired-after-switch",
+      "kind": "full",
+      "returncode": 1,
+      "stderr": "MaintenanceError: worker generation retired; restart and prewarm both indexes",
+      "status": {
+        "state": "ready",
+        "active": true,
+        "model_load_count": 1,
+        "prewarm_latency_ms": null,
+        "last_error_type": null,
+        "last_latency_ms": 3,
+        "abandoned_in_flight": 0,
+        "consecutive_timeouts": 0,
+        "rss_bytes": 48054272,
+        "idle_seconds": 0.0,
+        "keepalive_interval_seconds": 0.0,
+        "keepalive_thread_alive": false,
+        "counters": {
+          "queries_served": 4,
+          "timeouts_abandoned_kept_warm": 0,
+          "timeouts_killed": 0,
+          "stale_responses_drained": 0,
+          "recoveries": 0,
+          "keepalive_sent": 0,
+          "keepalive_timeouts": 0,
+          "keepalive_skipped_busy": 0
+        }
+      }
+    },
+    {
+      "stage": "new-generation-warm",
+      "kind": "standard",
+      "epoch": "beta",
+      "pid": 23209,
+      "model_load_count": 1,
+      "hits": [
+        {
+          "page_id": "sources/order",
+          "file_path": "wiki/sources/order.md",
+          "title": "order",
+          "score": -0.274653,
+          "best_chunk_id": "wiki/sources/order.md::0",
+          "section": "Order",
+          "content_hash": "aca54f01f0177436251af5b6fb77f8d462997d73",
+          "via_neighbor": false,
+          "evidence_layer": "L3",
+          "fact_hardness": "hard_fact",
+          "source_type": "official_disclosure",
+          "source_quality": "",
+          "publish_time": "2026-09-01",
+          "available_time": "2026-09-01",
+          "review_required": "",
+          "source_refs": [
+            "scratch-filing"
+          ],
+          "content_validity": "valid",
+          "index_built_at": "2026-09-20T05:42:49Z",
+          "index_source_revision": "manifest:v1:ece0be59a5174015792ed8174fe9617202cd0e6f6c8f109b90d449a29e0c4977",
+          "index_freshness": "fresh",
+          "snippet": "epochbeta signed order confirmed.",
+          "evidence_text": "命中块 wiki/sources/order.md::0: epochbeta signed order confirmed.",
+          "display_excerpt": "epochbeta signed order confirmed.",
+          "llm_evidence_text": "命中块 wiki/sources/order.md::0: epochbeta signed order confirmed.",
+          "evidence_chunk_ids": [
+            "wiki/sources/order.md::0"
+          ],
+          "evidence_query_terms": [
+            "epochbeta"
+          ],
+          "evidence_char_budget": 1200,
+          "index_format_version": 2,
+          "applied_filters": {}
+        }
+      ],
+      "negative_hits": [],
+      "status": {
+        "state": "ready",
+        "active": true,
+        "model_load_count": 1,
+        "prewarm_latency_ms": null,
+        "last_error_type": null,
+        "last_latency_ms": 3,
+        "abandoned_in_flight": 0,
+        "consecutive_timeouts": 0,
+        "rss_bytes": 47742976,
+        "idle_seconds": 0.0,
+        "keepalive_interval_seconds": 0.0,
+        "keepalive_thread_alive": false,
+        "counters": {
+          "queries_served": 3,
+          "timeouts_abandoned_kept_warm": 0,
+          "timeouts_killed": 0,
+          "stale_responses_drained": 0,
+          "recoveries": 0,
+          "keepalive_sent": 0,
+          "keepalive_timeouts": 0,
+          "keepalive_skipped_busy": 0
+        }
+      }
+    },
+    {
+      "stage": "new-generation-warm",
+      "kind": "full",
+      "epoch": "beta",
+      "pid": 23215,
+      "model_load_count": 1,
+      "hits": [
+        {
+          "page_id": "raw/original",
+          "file_path": "raw/original.md",
+          "title": "original",
+          "score": 0.0,
+          "best_chunk_id": "raw/original.md::0",
+          "section": "Original",
+          "content_hash": "076ca3ff1163f96d095b5cc2644f8dd390553721",
+          "via_neighbor": false,
+          "evidence_layer": "",
+          "fact_hardness": "",
+          "source_type": "",
+          "source_quality": "",
+          "publish_time": "",
+          "available_time": "",
+          "review_required": "",
+          "source_refs": [],
+          "content_validity": "valid",
+          "index_built_at": "2026-09-20T05:42:49Z",
+          "index_source_revision": "manifest:v1:6ff2deb4ff5adce7d51600e103c68f21666d3c263b8a5195fc200a60a896b9fe",
+          "index_freshness": "fresh",
+          "snippet": "rawbeta isolated source text.",
+          "evidence_text": "命中块 raw/original.md::0: rawbeta isolated source text.",
+          "display_excerpt": "rawbeta isolated source text.",
+          "llm_evidence_text": "命中块 raw/original.md::0: rawbeta isolated source text.",
+          "evidence_chunk_ids": [
+            "raw/original.md::0"
+          ],
+          "evidence_query_terms": [
+            "rawbeta"
+          ],
+          "evidence_char_budget": 1200,
+          "index_format_version": 2,
+          "applied_filters": {}
+        }
+      ],
+      "negative_hits": [],
+      "status": {
+        "state": "ready",
+        "active": true,
+        "model_load_count": 1,
+        "prewarm_latency_ms": null,
+        "last_error_type": null,
+        "last_latency_ms": 3,
+        "abandoned_in_flight": 0,
+        "consecutive_timeouts": 0,
+        "rss_bytes": 47906816,
+        "idle_seconds": 0.0,
+        "keepalive_interval_seconds": 0.0,
+        "keepalive_thread_alive": false,
+        "counters": {
+          "queries_served": 3,
+          "timeouts_abandoned_kept_warm": 0,
+          "timeouts_killed": 0,
+          "stale_responses_drained": 0,
+          "recoveries": 0,
+          "keepalive_sent": 0,
+          "keepalive_timeouts": 0,
+          "keepalive_skipped_busy": 0
+        }
+      }
+    },
+    {
+      "stage": "explicit-rollback-warm",
+      "kind": "standard",
+      "epoch": "alpha",
+      "pid": 23220,
+      "model_load_count": 1,
+      "hits": [
+        {
+          "page_id": "sources/order",
+          "file_path": "wiki/sources/order.md",
+          "title": "order",
+          "score": -0.274653,
+          "best_chunk_id": "wiki/sources/order.md::0",
+          "section": "Order",
+          "content_hash": "956c9fb9d1ababea4f5b41c328b4fd7ee6a4df77",
+          "via_neighbor": false,
+          "evidence_layer": "L3",
+          "fact_hardness": "hard_fact",
+          "source_type": "official_disclosure",
+          "source_quality": "",
+          "publish_time": "2026-09-01",
+          "available_time": "2026-09-01",
+          "review_required": "",
+          "source_refs": [
+            "scratch-filing"
+          ],
+          "content_validity": "valid",
+          "index_built_at": "2026-09-20T05:42:48Z",
+          "index_source_revision": "manifest:v1:a8e38440fad4c0b0ec2deee9f8a67f72ca4e97058675f9027475ecc18b36d032",
+          "index_freshness": "fresh",
+          "snippet": "epochalpha signed order confirmed.",
+          "evidence_text": "命中块 wiki/sources/order.md::0: epochalpha signed order confirmed.",
+          "display_excerpt": "epochalpha signed order confirmed.",
+          "llm_evidence_text": "命中块 wiki/sources/order.md::0: epochalpha signed order confirmed.",
+          "evidence_chunk_ids": [
+            "wiki/sources/order.md::0"
+          ],
+          "evidence_query_terms": [
+            "epochalpha"
+          ],
+          "evidence_char_budget": 1200,
+          "index_format_version": 2,
+          "applied_filters": {}
+        }
+      ],
+      "negative_hits": [],
+      "status": {
+        "state": "ready",
+        "active": true,
+        "model_load_count": 1,
+        "prewarm_latency_ms": null,
+        "last_error_type": null,
+        "last_latency_ms": 3,
+        "abandoned_in_flight": 0,
+        "consecutive_timeouts": 0,
+        "rss_bytes": 47759360,
+        "idle_seconds": 0.0,
+        "keepalive_interval_seconds": 0.0,
+        "keepalive_thread_alive": false,
+        "counters": {
+          "queries_served": 3,
+          "timeouts_abandoned_kept_warm": 0,
+          "timeouts_killed": 0,
+          "stale_responses_drained": 0,
+          "recoveries": 0,
+          "keepalive_sent": 0,
+          "keepalive_timeouts": 0,
+          "keepalive_skipped_busy": 0
+        }
+      }
+    },
+    {
+      "stage": "explicit-rollback-warm",
+      "kind": "full",
+      "epoch": "alpha",
+      "pid": 23227,
+      "model_load_count": 1,
+      "hits": [
+        {
+          "page_id": "raw/original",
+          "file_path": "raw/original.md",
+          "title": "original",
+          "score": 0.0,
+          "best_chunk_id": "raw/original.md::0",
+          "section": "Original",
+          "content_hash": "96c6ec4ef536d2dcb3c6c2552f23a83b78533686",
+          "via_neighbor": false,
+          "evidence_layer": "",
+          "fact_hardness": "",
+          "source_type": "",
+          "source_quality": "",
+          "publish_time": "",
+          "available_time": "",
+          "review_required": "",
+          "source_refs": [],
+          "content_validity": "valid",
+          "index_built_at": "2026-09-20T05:42:48Z",
+          "index_source_revision": "manifest:v1:da70fa5927666ae8be7bd3d05bd78ec753dcf28a188d1a34eb19a1f8e5129bff",
+          "index_freshness": "fresh",
+          "snippet": "rawalpha isolated source text.",
+          "evidence_text": "命中块 raw/original.md::0: rawalpha isolated source text.",
+          "display_excerpt": "rawalpha isolated source text.",
+          "llm_evidence_text": "命中块 raw/original.md::0: rawalpha isolated source text.",
+          "evidence_chunk_ids": [
+            "raw/original.md::0"
+          ],
+          "evidence_query_terms": [
+            "rawalpha"
+          ],
+          "evidence_char_budget": 1200,
+          "index_format_version": 2,
+          "applied_filters": {}
+        }
+      ],
+      "negative_hits": [],
+      "status": {
+        "state": "ready",
+        "active": true,
+        "model_load_count": 1,
+        "prewarm_latency_ms": null,
+        "last_error_type": null,
+        "last_latency_ms": 4,
+        "abandoned_in_flight": 0,
+        "consecutive_timeouts": 0,
+        "rss_bytes": 47628288,
+        "idle_seconds": 0.0,
+        "keepalive_interval_seconds": 0.0,
+        "keepalive_thread_alive": false,
+        "counters": {
+          "queries_served": 3,
+          "timeouts_abandoned_kept_warm": 0,
+          "timeouts_killed": 0,
+          "stale_responses_drained": 0,
+          "recoveries": 0,
+          "keepalive_sent": 0,
+          "keepalive_timeouts": 0,
+          "keepalive_skipped_busy": 0
+        }
+      }
+    }
+  ],
+  "real_finance_worker": true,
+  "changed_v2_source": true,
+  "closed_workers": 6,
+  "production_service": false,
+  "network": false,
+  "model": "hash/offline; BM25 queries"
+}

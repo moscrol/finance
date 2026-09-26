@@ -199,16 +199,26 @@ def material_claim_rows(verified: VerifiedEpisodeOutcome, sentences: list[dict[s
     question_outputs = {f"answer_{qid}" for qid, _, _ in spans}
     rows = []
     for binding in verified.outcome.bindings:
+        is_question = binding.output_id in question_outputs
+        matched_indexes = set()
         for claim in binding.claims:
             for sentence in sentences:
                 if sentence["text"] != claim.text.strip():
                     continue
-                if binding.output_id in question_outputs and binding.output_id not in owners[sentence["index"]]:
+                if is_question and (
+                    binding.output_id not in owners[sentence["index"]]
+                    or sentence["index"] in matched_indexes
+                ):
                     continue
                 rows.append({
                     "claim_id": f"c{len(rows) + 1}", "sentence_index": sentence["index"],
                     "output_id": binding.output_id, **claim.to_dict(),
                 })
+                if is_question:
+                    # Question claims are ordered occurrences, not a text-keyed cross product.
+                    # Do not consume other texts: a public projection may have removed a claim.
+                    matched_indexes.add(sentence["index"])
+                    break
     return rows
 
 

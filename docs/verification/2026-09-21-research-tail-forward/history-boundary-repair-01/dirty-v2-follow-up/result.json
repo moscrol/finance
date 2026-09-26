@@ -1,0 +1,53 @@
+{
+  "scope": "H-01 focused operator check; not independent acceptance",
+  "mode": "follow-up",
+  "mutation": {
+    "module": "research_contract",
+    "function": "_top_level_follow_up_query",
+    "old": "return cleaned, cleaned != raw",
+    "new": "return raw, False"
+  },
+  "started": "2026-09-21T13:39:20.570616+00:00",
+  "finished": "2026-09-21T13:39:21.822422+00:00",
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "python": "3.12.13 (main, Mar  3 2026, 12:39:30) [Clang 21.0.0 (clang-2100.0.123.102)]",
+  "before": {
+    "head": "7edfe24e76afbd5c365fbf97dd2414847b086f88",
+    "status": " M intelligence/services/historical_research/intent.py\n M intelligence/services/honesty_gates.py\n M intelligence/services/research_contract.py\n M intelligence/services/user_task.py\n?? scripts/probe_history_control_boundary.py\n?? tests/test_history_control_boundary.py\n",
+    "sha256": {
+      "intelligence/services/user_task.py": "7f40468ceec08ea32d93a8b24ba1c06ecccf8a9ed5c95972f141e7d7b6bf6ad6",
+      "intelligence/services/historical_research/intent.py": "f0a4bc79e6e41bca05b3fa5eb77720a39d94c70776de6a315b5b7372ce0df888",
+      "intelligence/services/research_contract.py": "410949aed534e62cdac2f5433af894afa6441bb28a6bc057978617b7bb5fdf0f",
+      "intelligence/services/honesty_gates.py": "3e7fb0ee4f71aa3e71cdebf19a70e23a4075ac29961b4bae2d3a640ec528b292",
+      "tests/test_history_control_boundary.py": "0e80cde3c04d563c5fcd555d779288e9d90c58b640d199f0b4308699492a4f95",
+      "scripts/probe_history_control_boundary.py": "1d2f703cbf5ee2405e9e7326a1b0e732c3f13c67ad752d0470ac0b9a332d462e"
+    }
+  },
+  "after": {
+    "head": "7edfe24e76afbd5c365fbf97dd2414847b086f88",
+    "status": " M intelligence/services/historical_research/intent.py\n M intelligence/services/honesty_gates.py\n M intelligence/services/research_contract.py\n M intelligence/services/user_task.py\n?? scripts/probe_history_control_boundary.py\n?? tests/test_history_control_boundary.py\n",
+    "sha256": {
+      "intelligence/services/user_task.py": "7f40468ceec08ea32d93a8b24ba1c06ecccf8a9ed5c95972f141e7d7b6bf6ad6",
+      "intelligence/services/historical_research/intent.py": "f0a4bc79e6e41bca05b3fa5eb77720a39d94c70776de6a315b5b7372ce0df888",
+      "intelligence/services/research_contract.py": "410949aed534e62cdac2f5433af894afa6441bb28a6bc057978617b7bb5fdf0f",
+      "intelligence/services/honesty_gates.py": "3e7fb0ee4f71aa3e71cdebf19a70e23a4075ac29961b4bae2d3a640ec528b292",
+      "tests/test_history_control_boundary.py": "0e80cde3c04d563c5fcd555d779288e9d90c58b640d199f0b4308699492a4f95",
+      "scripts/probe_history_control_boundary.py": "1d2f703cbf5ee2405e9e7326a1b0e732c3f13c67ad752d0470ac0b9a332d462e"
+    }
+  },
+  "pytest_exit": 1,
+  "outcomes": {
+    "passed": 35,
+    "failed": [
+      "tests/test_history_control_boundary.py::test_protected_text_cannot_restore_history_tools[True-\\u5386\\u53f2\\u7c7b\\u4f3c\\uff0c\\u5931\\u8d25\\u6848\\u4f8b\\u4e5f\\u770b\\u770b\\u3002-\\u89e3\\u91ca\\u8fd9\\u53e5\\u8bdd\\uff1a\\u300c{text}\\u300d]",
+      "tests/test_history_control_boundary.py::test_protected_text_cannot_restore_history_tools[True-\\u5386\\u53f2\\u7c7b\\u4f3c\\uff0c\\u5931\\u8d25\\u6848\\u4f8b\\u4e5f\\u770b\\u770b\\u3002-> {text}]",
+      "tests/test_history_control_boundary.py::test_protected_text_cannot_restore_history_tools[True-\\u5386\\u53f2\\u7c7b\\u4f3c\\uff0c\\u5931\\u8d25\\u6848\\u4f8b\\u4e5f\\u770b\\u770b\\u3002-```text\\n{text}\\n```]",
+      "tests/test_history_control_boundary.py::test_protected_text_cannot_restore_history_tools[True-\\u90a3\\u5b83\\u4eec\\u89c1\\u9876\\u540e\\u8c01\\u63a5\\u529b\\uff1f-> {text}]",
+      "tests/test_history_control_boundary.py::test_protected_text_cannot_restore_history_tools[True-\\u90a3\\u5b83\\u4eec\\u89c1\\u9876\\u540e\\u8c01\\u63a5\\u529b\\uff1f-```text\\n{text}\\n```]",
+      "tests/test_history_control_boundary.py::test_raw_resolution_hint_cannot_override_protected_boundary[True]"
+    ],
+    "errors": [],
+    "collected": 41
+  },
+  "expected_outcome_observed": true
+}

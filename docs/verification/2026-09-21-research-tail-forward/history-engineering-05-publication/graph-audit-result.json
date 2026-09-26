@@ -1,0 +1,9 @@
+{
+  "command": [
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "/Users/a77/agent-memory/scripts/graph_audit.py"
+  ],
+  "exit_code": 0,
+  "log_sha256": "0c2d7759dc58a0b333fc79da695d6d2c1c2c7edd108a7e8f3709b4d7ca17ff59",
+  "scope": "static symbol audit only; not behavior or merged-state acceptance"
+}

@@ -1,0 +1,30 @@
+"""H-02 assertions unchanged; diagnostic output accepts an absent material contract."""
+import json
+
+import pytest
+
+from tests.test_history_control_boundary import _decide, _project, no_external_io, trusted_history
+from tests.test_history_permission_inheritance import no_model_calls
+from intelligence.services.user_task import top_level_message_text
+
+__all__ = ["no_external_io", "trusted_history", "no_model_calls"]
+
+
+@pytest.mark.parametrize("query", [
+    "材料如下：\n那它们见顶后谁接力？",
+    "「那它们见顶后谁接力？",
+])
+def test_unresolved_input_container_cannot_restore_history(query, trusted_history, tmp_path):
+    previous, history = trusted_history
+    decision = _decide(query, previous, history)
+    control, context, names = _project(decision, tmp_path)
+    print(json.dumps({
+        "query": query, "partition": top_level_message_text(query),
+        "terminal_kind": control.terminal_kind,
+        "history_intent": context.history_intent.to_dict() if context.history_intent else None,
+        "data_scope": (context.contract.material_contract.data_scope
+                       if context.contract.material_contract else None),
+        "allowed_capabilities": context.contract.allowed_capabilities,
+        "history_tools": names,
+    }, ensure_ascii=False))
+    assert context.history_intent is None and names == ()

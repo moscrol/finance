@@ -1,0 +1,73 @@
+"""One-shot operator runner: fixed detached review, bounded wait, raw events retained.
+
+This is an execution record for this batch, not a replacement for #814 or a
+repository review framework. No automatic retry, source edits, or paid provider.
+"""
+from pathlib import Path
+import datetime
+import json
+import os
+import signal
+import subprocess
+import sys
+
+NAME = sys.argv[1]
+SHAS = {
+    "history": "7edfe24e76afbd5c365fbf97dd2414847b086f88",
+    "runtime": "cb16cd463db5c19b3187a5137009791082874653",
+    "financial": "d82cb16b5ef31d23339a1bef7084a0dcb8221e15",
+}
+SHA = SHAS[NAME]
+ROOT = Path(f"/Users/a77/fwp-wt-{NAME}-forward-review-0921")
+OUT = Path("/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921") / f"{NAME}-sol-review"
+
+
+def now():
+    return datetime.datetime.now(datetime.UTC).isoformat()
+
+
+def identity():
+    return {
+        "revision": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip(),
+        "status": subprocess.check_output(["git", "status", "--porcelain=v1"], cwd=ROOT, text=True),
+    }
+
+
+os.umask(0o022)
+before = identity()
+assert before == {"revision": SHA, "status": ""}, before
+assert not (OUT / "process.json").exists(), "No automatic restart or evidence overwrite"
+cmd = [
+    "/Applications/ChatGPT.app/Contents/Resources/codex", "exec", "-m", "gpt-5.6-sol",
+    "-c", 'model_reasoning_effort="high"', "-c", 'service_tier="default"',
+    "-s", "workspace-write", "--add-dir", str(OUT), "-C", str(ROOT), "--json",
+    "-o", str(OUT / "report.md"), "-",
+]
+record = {"started_at": now(), "head": SHA, "identity_before": before, "command": cmd,
+          "auth": "existing ChatGPT subscription", "overall_timeout_seconds": 1200,
+          "scope": "single independent session: Spec then Quality; no retry"}
+with (OUT / "prompt.md").open("rb") as inp, (OUT / "events.jsonl").open("xb") as events, (OUT / "stderr.txt").open("xb") as err:
+    proc = subprocess.Popen(cmd, stdin=inp, stdout=events, stderr=err, cwd=ROOT, start_new_session=True)
+    record["pid"] = proc.pid
+    (OUT / "process.json").write_text(json.dumps(record, ensure_ascii=False, indent=2) + "\n")
+    timed_out = False
+    try:
+        rc = proc.wait(timeout=1200)
+    except subprocess.TimeoutExpired:
+        timed_out = True
+        os.killpg(proc.pid, signal.SIGINT)
+        try:
+            rc = proc.wait(timeout=30)
+        except subprocess.TimeoutExpired:
+            os.killpg(proc.pid, signal.SIGTERM)
+            try:
+                rc = proc.wait(timeout=15)
+            except subprocess.TimeoutExpired:
+                os.killpg(proc.pid, signal.SIGKILL)
+                rc = proc.wait()
+record.update(finished_at=now(), exit_code=rc, timed_out=timed_out, identity_after=identity())
+record["identity_stable"] = record["identity_after"] == before
+record["report_exists"] = (OUT / "report.md").exists()
+record["note"] = "Process completion is not an acceptance verdict; operator must check report and raw evidence."
+(OUT / "completion.json").write_text(json.dumps(record, ensure_ascii=False, indent=2) + "\n")
+print(json.dumps(record, ensure_ascii=False))

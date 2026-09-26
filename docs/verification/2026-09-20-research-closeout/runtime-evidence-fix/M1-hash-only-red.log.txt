@@ -1,0 +1,218 @@
+FFFFFFFFFFF..                                                            [100%]
+=================================== FAILURES ===================================
+_______ test_same_hash_presentations_may_not_replace_any_fact[changes0] ________
+
+changes = {'detail': 'replacement'}
+
+    @pytest.mark.parametrize("changes", [
+        {"detail": "replacement"}, {"title": "replacement"}, {"source": "replacement"},
+        {"source_date": "2026-07-23"}, {"derived_from": ("replacement",)},
+        {"observations": (StructuredObservation("公司", "2026-07-24", "营收亿元", 99),)},
+        {"internal_locator": "replacement"}, {"deep_read": False},
+    ])
+    def test_same_hash_presentations_may_not_replace_any_fact(changes):
+        ledger, presented, _ = _fixture()
+>       with pytest.raises(ValueError):
+E       Failed: DID NOT RAISE <class 'ValueError'>
+
+intelligence/tests/test_episode_evidence_presentations.py:44: Failed
+_______ test_same_hash_presentations_may_not_replace_any_fact[changes1] ________
+
+changes = {'title': 'replacement'}
+
+    @pytest.mark.parametrize("changes", [
+        {"detail": "replacement"}, {"title": "replacement"}, {"source": "replacement"},
+        {"source_date": "2026-07-23"}, {"derived_from": ("replacement",)},
+        {"observations": (StructuredObservation("公司", "2026-07-24", "营收亿元", 99),)},
+        {"internal_locator": "replacement"}, {"deep_read": False},
+    ])
+    def test_same_hash_presentations_may_not_replace_any_fact(changes):
+        ledger, presented, _ = _fixture()
+>       with pytest.raises(ValueError):
+E       Failed: DID NOT RAISE <class 'ValueError'>
+
+intelligence/tests/test_episode_evidence_presentations.py:44: Failed
+_______ test_same_hash_presentations_may_not_replace_any_fact[changes2] ________
+
+changes = {'source': 'replacement'}
+
+    @pytest.mark.parametrize("changes", [
+        {"detail": "replacement"}, {"title": "replacement"}, {"source": "replacement"},
+        {"source_date": "2026-07-23"}, {"derived_from": ("replacement",)},
+        {"observations": (StructuredObservation("公司", "2026-07-24", "营收亿元", 99),)},
+        {"internal_locator": "replacement"}, {"deep_read": False},
+    ])
+    def test_same_hash_presentations_may_not_replace_any_fact(changes):
+        ledger, presented, _ = _fixture()
+>       with pytest.raises(ValueError):
+E       Failed: DID NOT RAISE <class 'ValueError'>
+
+intelligence/tests/test_episode_evidence_presentations.py:44: Failed
+_______ test_same_hash_presentations_may_not_replace_any_fact[changes3] ________
+
+changes = {'source_date': '2026-07-23'}
+
+    @pytest.mark.parametrize("changes", [
+        {"detail": "replacement"}, {"title": "replacement"}, {"source": "replacement"},
+        {"source_date": "2026-07-23"}, {"derived_from": ("replacement",)},
+        {"observations": (StructuredObservation("公司", "2026-07-24", "营收亿元", 99),)},
+        {"internal_locator": "replacement"}, {"deep_read": False},
+    ])
+    def test_same_hash_presentations_may_not_replace_any_fact(changes):
+        ledger, presented, _ = _fixture()
+>       with pytest.raises(ValueError):
+E       Failed: DID NOT RAISE <class 'ValueError'>
+
+intelligence/tests/test_episode_evidence_presentations.py:44: Failed
+_______ test_same_hash_presentations_may_not_replace_any_fact[changes4] ________
+
+changes = {'derived_from': ('replacement',)}
+
+    @pytest.mark.parametrize("changes", [
+        {"detail": "replacement"}, {"title": "replacement"}, {"source": "replacement"},
+        {"source_date": "2026-07-23"}, {"derived_from": ("replacement",)},
+        {"observations": (StructuredObservation("公司", "2026-07-24", "营收亿元", 99),)},
+        {"internal_locator": "replacement"}, {"deep_read": False},
+    ])
+    def test_same_hash_presentations_may_not_replace_any_fact(changes):
+        ledger, presented, _ = _fixture()
+>       with pytest.raises(ValueError):
+E       Failed: DID NOT RAISE <class 'ValueError'>
+
+intelligence/tests/test_episode_evidence_presentations.py:44: Failed
+_______ test_same_hash_presentations_may_not_replace_any_fact[changes5] ________
+
+changes = {'observations': (StructuredObservation(subject='公司', as_of='2026-07-24', metric='营收亿元', value=99),)}
+
+    @pytest.mark.parametrize("changes", [
+        {"detail": "replacement"}, {"title": "replacement"}, {"source": "replacement"},
+        {"source_date": "2026-07-23"}, {"derived_from": ("replacement",)},
+        {"observations": (StructuredObservation("公司", "2026-07-24", "营收亿元", 99),)},
+        {"internal_locator": "replacement"}, {"deep_read": False},
+    ])
+    def test_same_hash_presentations_may_not_replace_any_fact(changes):
+        ledger, presented, _ = _fixture()
+>       with pytest.raises(ValueError):
+E       Failed: DID NOT RAISE <class 'ValueError'>
+
+intelligence/tests/test_episode_evidence_presentations.py:44: Failed
+_______ test_same_hash_presentations_may_not_replace_any_fact[changes6] ________
+
+changes = {'internal_locator': 'replacement'}
+
+    @pytest.mark.parametrize("changes", [
+        {"detail": "replacement"}, {"title": "replacement"}, {"source": "replacement"},
+        {"source_date": "2026-07-23"}, {"derived_from": ("replacement",)},
+        {"observations": (StructuredObservation("公司", "2026-07-24", "营收亿元", 99),)},
+        {"internal_locator": "replacement"}, {"deep_read": False},
+    ])
+    def test_same_hash_presentations_may_not_replace_any_fact(changes):
+        ledger, presented, _ = _fixture()
+>       with pytest.raises(ValueError):
+E       Failed: DID NOT RAISE <class 'ValueError'>
+
+intelligence/tests/test_episode_evidence_presentations.py:44: Failed
+_______ test_same_hash_presentations_may_not_replace_any_fact[changes7] ________
+
+changes = {'deep_read': False}
+
+    @pytest.mark.parametrize("changes", [
+        {"detail": "replacement"}, {"title": "replacement"}, {"source": "replacement"},
+        {"source_date": "2026-07-23"}, {"derived_from": ("replacement",)},
+        {"observations": (StructuredObservation("公司", "2026-07-24", "营收亿元", 99),)},
+        {"internal_locator": "replacement"}, {"deep_read": False},
+    ])
+    def test_same_hash_presentations_may_not_replace_any_fact(changes):
+        ledger, presented, _ = _fixture()
+>       with pytest.raises(ValueError):
+E       Failed: DID NOT RAISE <class 'ValueError'>
+
+intelligence/tests/test_episode_evidence_presentations.py:44: Failed
+__ test_v2_digest_covers_full_presentation_and_classification[path0-changed] ___
+
+path = ('presentations', 0, 'atom', 'detail'), value = 'changed'
+
+    @pytest.mark.parametrize(("path", "value"), [
+        (("presentations", 0, "atom", "detail"), "changed"),
+        (("presentations", 0, "atom", "source_date"), "2026-07-23"),
+        (("presentations", 0, "atom", "observations", 0, "value"), 99),
+        (("presentations", 0, "atom", "supports"), ["different-request"]),
+        (("presentations", 0, "classification"), "future_of_cutoff"),
+    ])
+    def test_v2_digest_covers_full_presentation_and_classification(path, value):
+        _, _, payload = _fixture()
+        node = payload
+        for key in path[:-1]:
+            node = node[key]
+        node[path[-1]] = value
+        with pytest.raises(ValueError, match="digest"):
+            snapshots.EpisodeEvidenceSnapshot.from_dict(payload, episode_id="episode")
+        if path[-1] != "supports":
+            _resign(payload)
+>           with pytest.raises(ValueError):
+E           Failed: DID NOT RAISE <class 'ValueError'>
+
+intelligence/tests/test_episode_evidence_presentations.py:150: Failed
+_ test_v2_digest_covers_full_presentation_and_classification[path1-2026-07-23] _
+
+path = ('presentations', 0, 'atom', 'source_date'), value = '2026-07-23'
+
+    @pytest.mark.parametrize(("path", "value"), [
+        (("presentations", 0, "atom", "detail"), "changed"),
+        (("presentations", 0, "atom", "source_date"), "2026-07-23"),
+        (("presentations", 0, "atom", "observations", 0, "value"), 99),
+        (("presentations", 0, "atom", "supports"), ["different-request"]),
+        (("presentations", 0, "classification"), "future_of_cutoff"),
+    ])
+    def test_v2_digest_covers_full_presentation_and_classification(path, value):
+        _, _, payload = _fixture()
+        node = payload
+        for key in path[:-1]:
+            node = node[key]
+        node[path[-1]] = value
+        with pytest.raises(ValueError, match="digest"):
+            snapshots.EpisodeEvidenceSnapshot.from_dict(payload, episode_id="episode")
+        if path[-1] != "supports":
+            _resign(payload)
+>           with pytest.raises(ValueError):
+E           Failed: DID NOT RAISE <class 'ValueError'>
+
+intelligence/tests/test_episode_evidence_presentations.py:150: Failed
+_____ test_v2_digest_covers_full_presentation_and_classification[path2-99] _____
+
+path = ('presentations', 0, 'atom', 'observations', 0, 'value'), value = 99
+
+    @pytest.mark.parametrize(("path", "value"), [
+        (("presentations", 0, "atom", "detail"), "changed"),
+        (("presentations", 0, "atom", "source_date"), "2026-07-23"),
+        (("presentations", 0, "atom", "observations", 0, "value"), 99),
+        (("presentations", 0, "atom", "supports"), ["different-request"]),
+        (("presentations", 0, "classification"), "future_of_cutoff"),
+    ])
+    def test_v2_digest_covers_full_presentation_and_classification(path, value):
+        _, _, payload = _fixture()
+        node = payload
+        for key in path[:-1]:
+            node = node[key]
+        node[path[-1]] = value
+        with pytest.raises(ValueError, match="digest"):
+            snapshots.EpisodeEvidenceSnapshot.from_dict(payload, episode_id="episode")
+        if path[-1] != "supports":
+            _resign(payload)
+>           with pytest.raises(ValueError):
+E           Failed: DID NOT RAISE <class 'ValueError'>
+
+intelligence/tests/test_episode_evidence_presentations.py:150: Failed
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_episode_evidence_presentations.py::test_same_hash_presentations_may_not_replace_any_fact[changes0]
+FAILED intelligence/tests/test_episode_evidence_presentations.py::test_same_hash_presentations_may_not_replace_any_fact[changes1]
+FAILED intelligence/tests/test_episode_evidence_presentations.py::test_same_hash_presentations_may_not_replace_any_fact[changes2]
+FAILED intelligence/tests/test_episode_evidence_presentations.py::test_same_hash_presentations_may_not_replace_any_fact[changes3]
+FAILED intelligence/tests/test_episode_evidence_presentations.py::test_same_hash_presentations_may_not_replace_any_fact[changes4]
+FAILED intelligence/tests/test_episode_evidence_presentations.py::test_same_hash_presentations_may_not_replace_any_fact[changes5]
+FAILED intelligence/tests/test_episode_evidence_presentations.py::test_same_hash_presentations_may_not_replace_any_fact[changes6]
+FAILED intelligence/tests/test_episode_evidence_presentations.py::test_same_hash_presentations_may_not_replace_any_fact[changes7]
+FAILED intelligence/tests/test_episode_evidence_presentations.py::test_v2_digest_covers_full_presentation_and_classification[path0-changed]
+FAILED intelligence/tests/test_episode_evidence_presentations.py::test_v2_digest_covers_full_presentation_and_classification[path1-2026-07-23]
+FAILED intelligence/tests/test_episode_evidence_presentations.py::test_v2_digest_covers_full_presentation_and_classification[path2-99]
+11 failed, 2 passed, 33 deselected in 0.19s

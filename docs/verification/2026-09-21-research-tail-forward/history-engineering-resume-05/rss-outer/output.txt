@@ -1,0 +1,17 @@
+FF                                                                       [100%]
+=================================== FAILURES ===================================
+_______________________ test_status_exposes_rss_and_idle _______________________
+intelligence/tests/test_rag_worker_keepalive.py:183: in test_status_exposes_rss_and_idle
+    assert isinstance(after["rss_bytes"], int) and after["rss_bytes"] > 0
+E   assert (False)
+E    +  where False = isinstance(None, int)
+________ test_module_status_aggregates_rss_idle_and_keepalive_counters _________
+intelligence/tests/test_rag_worker_keepalive.py:209: in test_module_status_aggregates_rss_idle_and_keepalive_counters
+    assert isinstance(payload["rss_bytes"], int) and payload["rss_bytes"] > 0
+E   assert (False)
+E    +  where False = isinstance(None, int)
+- generated xml file: /Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/rss-outer/junit.xml -
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_rag_worker_keepalive.py::test_status_exposes_rss_and_idle
+FAILED intelligence/tests/test_rag_worker_keepalive.py::test_module_status_aggregates_rss_idle_and_keepalive_counters
+2 failed in 0.72s

@@ -1,0 +1,75 @@
+"""Record a complete E2E retry without changing the earlier interrupted attempt."""
+import hashlib
+import json
+import os
+from pathlib import Path
+import shutil
+import signal
+import socket
+import subprocess
+import time
+
+from resume import ROOT, OUT, PY, SHA, PROFILE, MIN_FREE, ident, now, save
+
+
+def main():
+    before = ident()
+    assert before['head'] == SHA and not before['status']
+    folder = OUT / 'e2e-private-browser'
+    folder.mkdir(exist_ok=False)
+    for port in (19851, 19854):
+        with socket.socket() as probe:
+            probe.bind(('127.0.0.1', port))
+    env = {
+        'HOME': '/Users/a77', 'PATH': '/Users/a77/.local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin',
+        'LANG': 'en_US.UTF-8', 'TMPDIR': '/tmp', 'PYTHONDONTWRITEBYTECODE': '1',
+        'FWP_TEST_RECEIPT': '0', 'WORKBENCH_PYTHON': PY, 'WORKBENCH_E2E_PORT': '19851',
+        'RE06_E2E_PORT': '19854', 'RE06_E2E_URL': 'http://127.0.0.1:19854', 'CI': '1', 'NO_COLOR': '1',
+        'PLAYWRIGHT_JSON_OUTPUT_NAME': str(folder / 'report.json'),
+        'PLAYWRIGHT_BROWSERS_PATH': str(OUT / 'browsers'),
+    }
+    command = ['pnpm', 'test:e2e', '--reporter=list,json', '--output', str(folder / 'test-results')]
+    record = {'before': before, 'started_at': now(), 'command': command, 'env': env,
+              'timeout_seconds': 600, 'min_free_bytes': MIN_FREE, 'sandbox_profile': PROFILE,
+              'runner_sha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(), 'signals': []}
+    save(folder / 'start.json', record)
+    start = time.monotonic()
+    reason = None
+    with (folder / 'output.txt').open('x') as log:
+        proc = subprocess.Popen(['/usr/bin/sandbox-exec', '-p', PROFILE, *command], cwd=ROOT / 'intelligence/webapp',
+                                env=env, stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
+        while proc.poll() is None:
+            if shutil.disk_usage(OUT).free < MIN_FREE:
+                reason = 'disk-space-floor'
+            elif time.monotonic() - start >= 600:
+                reason = 'timeout'
+            if reason:
+                for sig, grace in ((signal.SIGINT, 20), (signal.SIGTERM, 8), (signal.SIGKILL, 5)):
+                    try:
+                        os.killpg(proc.pid, sig)
+                        record['signals'].append(sig.name)
+                    except ProcessLookupError:
+                        break
+                    try:
+                        proc.wait(timeout=grace)
+                        break
+                    except subprocess.TimeoutExpired:
+                        pass
+                break
+            time.sleep(1)
+        rc = proc.wait(timeout=5)
+    record.update({'after': ident(), 'finished_at': now(), 'elapsed_seconds': time.monotonic() - start,
+                   'exit_code': rc, 'stop_reason': reason,
+                   'log_sha256': hashlib.sha256((folder / 'output.txt').read_bytes()).hexdigest()})
+    report = folder / 'report.json'
+    if report.exists():
+        data = json.loads(report.read_text())
+        record['report_sha256'] = hashlib.sha256(report.read_bytes()).hexdigest()
+        record['stats'] = data['stats']
+        record['errors'] = data.get('errors', [])
+    save(folder / 'result.json', record)
+    print(json.dumps(record, ensure_ascii=False))
+
+
+if __name__ == '__main__':
+    main()

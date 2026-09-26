@@ -1,0 +1,215 @@
+{
+  "root": "/Users/a77/fwp-wt-financial-ratio-units-0920",
+  "sha": "d8d6196baebdb1108a81ae01466e9df6397dc4fc",
+  "cases": [
+    {
+      "case": "header_bp",
+      "mode": "off",
+      "input": "| 报告期 | 含金量(bp) |\n|---|---|\n|2026中报|1.588|",
+      "findings": [
+        {
+          "start": 36,
+          "end": 41,
+          "code": "calculation_value_unverified",
+          "replacement": " 待核对 "
+        }
+      ],
+      "public": "| 报告期 | 含金量(bp) |\n|---|---|\n|2026中报| 待核对 |\n\n部分逐期比率缺少可核对的计算结果，已保留其他数据；对应比率仍需核对。",
+      "status": "partial",
+      "repair_output_ids": [
+        "direct_assessment"
+      ]
+    },
+    {
+      "case": "header_basis_points",
+      "mode": "off",
+      "input": "| 报告期 | 含金量（基点） |\n|---|---|\n|2026中报|1.588|",
+      "findings": [
+        {
+          "start": 36,
+          "end": 41,
+          "code": "calculation_value_unverified",
+          "replacement": " 待核对 "
+        }
+      ],
+      "public": "| 报告期 | 含金量（基点） |\n|---|---|\n|2026中报| 待核对 |\n\n部分逐期比率缺少可核对的计算结果，已保留其他数据；对应比率仍需核对。",
+      "status": "partial",
+      "repair_output_ids": [
+        "direct_assessment"
+      ]
+    },
+    {
+      "case": "cell_bp_control",
+      "mode": "off",
+      "input": "| 报告期 | 含金量 |\n|---|---|\n|2026中报|1.588bp|",
+      "findings": [
+        {
+          "start": 32,
+          "end": 39,
+          "code": "calculation_value_unverified",
+          "replacement": " 待核对 "
+        }
+      ],
+      "public": "| 报告期 | 含金量 |\n|---|---|\n|2026中报| 待核对 |\n\n部分逐期比率缺少可核对的计算结果，已保留其他数据；对应比率仍需核对。",
+      "status": "partial",
+      "repair_output_ids": [
+        "direct_assessment"
+      ]
+    },
+    {
+      "case": "header_percent_control",
+      "mode": "off",
+      "input": "| 报告期 | 含金量(%) |\n|---|---|\n|2026中报|158.8|",
+      "findings": [],
+      "public": "| 报告期 | 含金量(%) |\n|---|---|\n|2026中报|158.8|",
+      "status": "completed",
+      "repair_output_ids": []
+    },
+    {
+      "case": "raw_ratio_control",
+      "mode": "off",
+      "input": "| 报告期 | 含金量 |\n|---|---|\n|2026中报|1.588|",
+      "findings": [],
+      "public": "| 报告期 | 含金量 |\n|---|---|\n|2026中报|1.588|",
+      "status": "completed",
+      "repair_output_ids": []
+    },
+    {
+      "case": "comma_neighbor",
+      "mode": "off",
+      "input": "收入为100亿元[E1]，查询为空，所以公司没有公告，利润为20亿元[E1]。",
+      "findings": [
+        {
+          "start": 0,
+          "end": 39,
+          "code": "disclosure_absence_inference",
+          "replacement": ""
+        }
+      ],
+      "public": "公告检索范围尚未核实完整；不能据此断言公司没有公告或尚未兑现。",
+      "status": "partial",
+      "repair_output_ids": [
+        "direct_assessment"
+      ]
+    },
+    {
+      "case": "header_bp",
+      "mode": "llm",
+      "input": "| 报告期 | 含金量(bp) |\n|---|---|\n|2026中报|1.588|",
+      "findings": [
+        {
+          "start": 36,
+          "end": 41,
+          "code": "calculation_value_unverified",
+          "replacement": " 待核对 "
+        }
+      ],
+      "public": "| 报告期 | 含金量(bp) |\n|---|---|\n|2026中报| 待核对 |\n\n部分逐期比率缺少可核对的计算结果，已保留其他数据；对应比率仍需核对。",
+      "status": "partial",
+      "repair_output_ids": [
+        "direct_assessment"
+      ]
+    },
+    {
+      "case": "header_basis_points",
+      "mode": "llm",
+      "input": "| 报告期 | 含金量（基点） |\n|---|---|\n|2026中报|1.588|",
+      "findings": [
+        {
+          "start": 36,
+          "end": 41,
+          "code": "calculation_value_unverified",
+          "replacement": " 待核对 "
+        }
+      ],
+      "public": "| 报告期 | 含金量（基点） |\n|---|---|\n|2026中报| 待核对 |\n\n部分逐期比率缺少可核对的计算结果，已保留其他数据；对应比率仍需核对。",
+      "status": "partial",
+      "repair_output_ids": [
+        "direct_assessment"
+      ]
+    },
+    {
+      "case": "cell_bp_control",
+      "mode": "llm",
+      "input": "| 报告期 | 含金量 |\n|---|---|\n|2026中报|1.588bp|",
+      "findings": [
+        {
+          "start": 32,
+          "end": 39,
+          "code": "calculation_value_unverified",
+          "replacement": " 待核对 "
+        }
+      ],
+      "public": "| 报告期 | 含金量 |\n|---|---|\n|2026中报| 待核对 |\n\n部分逐期比率缺少可核对的计算结果，已保留其他数据；对应比率仍需核对。",
+      "status": "partial",
+      "repair_output_ids": [
+        "direct_assessment"
+      ]
+    },
+    {
+      "case": "header_percent_control",
+      "mode": "llm",
+      "input": "| 报告期 | 含金量(%) |\n|---|---|\n|2026中报|158.8|",
+      "findings": [],
+      "public": "| 报告期 | 含金量(%) |\n|---|---|\n|2026中报|158.8|",
+      "status": "completed",
+      "repair_output_ids": []
+    },
+    {
+      "case": "raw_ratio_control",
+      "mode": "llm",
+      "input": "| 报告期 | 含金量 |\n|---|---|\n|2026中报|1.588|",
+      "findings": [],
+      "public": "| 报告期 | 含金量 |\n|---|---|\n|2026中报|1.588|",
+      "status": "completed",
+      "repair_output_ids": []
+    },
+    {
+      "case": "comma_neighbor",
+      "mode": "llm",
+      "input": "收入为100亿元[E1]，查询为空，所以公司没有公告，利润为20亿元[E1]。",
+      "findings": [
+        {
+          "start": 0,
+          "end": 39,
+          "code": "disclosure_absence_inference",
+          "replacement": ""
+        }
+      ],
+      "public": "公告检索范围尚未核实完整；不能据此断言公司没有公告或尚未兑现。",
+      "status": "partial",
+      "repair_output_ids": [
+        "direct_assessment"
+      ]
+    }
+  ],
+  "formula_alias_cases": [
+    {
+      "label": "含金量",
+      "input_ratio": 1.5879551631960822,
+      "product_ratio": 9.999,
+      "financial_gaps": [
+        "计算产物 0123456789abcdef 的 现金流比率.含金量[2026中报] 与同报告期原始输入复算不一致"
+      ],
+      "delivery_findings": []
+    },
+    {
+      "label": "净现比",
+      "input_ratio": 1.5879551631960822,
+      "product_ratio": 9.999,
+      "financial_gaps": [
+        "计算产物 0123456789abcdef 的 现金流比率.净现比[2026中报] 与同报告期原始输入复算不一致"
+      ],
+      "delivery_findings": []
+    },
+    {
+      "label": "OCF/净利润",
+      "input_ratio": 1.5879551631960822,
+      "product_ratio": 9.999,
+      "financial_gaps": [
+        "计算产物 0123456789abcdef 的 现金流比率.OCF/净利润[2026中报] 与同报告期原始输入复算不一致"
+      ],
+      "delivery_findings": []
+    }
+  ]
+}

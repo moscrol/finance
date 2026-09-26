@@ -1,0 +1,1678 @@
+{
+  "files": [
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/author-gates-verified.json",
+      "archive": "author-gates-verified.json",
+      "bytes": 4351,
+      "sha256": "a1673ad49603dbfdc7046a3c1d2eda4fd464de39f73425c9a453cbd6e24732a4"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/code-map-before.log",
+      "archive": "code-map-before.log.txt",
+      "bytes": 12085,
+      "sha256": "4b46f9c05ff8eeb3e686b94b4be6839664e846b7a1aa52174be9d242d1407ab8"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/code-map-fix.patch",
+      "archive": "code-map-fix.patch.txt",
+      "bytes": 6036,
+      "sha256": "fa3962d673df6ff4e252e418e76502330c3c8f147a827adcd2c84aac39fae484"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/code-map-tests.patch",
+      "archive": "code-map-tests.patch.txt",
+      "bytes": 6242,
+      "sha256": "d932e9f310f20c6dd0d2c24501ef785dfd79018195017baee6b431f650a5aef4"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/financial-api-diagnostic.log",
+      "archive": "financial-api-diagnostic.log.txt",
+      "bytes": 14613,
+      "sha256": "79021bdb98c8108c03a932076564e6b7c8c848c7556c87a1922d0860b46fbf53"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/financial-build.log",
+      "archive": "financial-build.log.txt",
+      "bytes": 713,
+      "sha256": "29beb12c6585f5c5b9dad9294266766554c1283b8c80d847a3de92bc1ef959fd"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/financial-checks-source.patch",
+      "archive": "financial-checks-source.patch.txt",
+      "bytes": 28595,
+      "sha256": "f8ce383adaeab2c2e704b6c252137d86b5148e23e34b02368ca07fcd1023d460"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/financial-commit.txt",
+      "archive": "financial-commit.txt",
+      "bytes": 22613,
+      "sha256": "cf7291101966d108add5dc1c5649ac7d617aada8cd2c883874b7874368f2f9f4"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/financial-conflicts.patch",
+      "archive": "financial-conflicts.patch.txt",
+      "bytes": 64925,
+      "sha256": "d30fc4e56e913e6cb0a4e47f76c276e184aa3b0b910164c2da3a91b51211ee58"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/financial-create-tree.log",
+      "archive": "financial-create-tree.log.txt",
+      "bytes": 729,
+      "sha256": "505dcfac95d96c5b6efb51b28b8794d0ba350dc4f62a3c9596599dda41fed655"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/financial-crosswalk.rc",
+      "archive": "financial-crosswalk.rc",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/financial-crosswalk.txt",
+      "archive": "financial-crosswalk.txt",
+      "bytes": 2012,
+      "sha256": "9ed7c141075c3d2f9f0c5df65b30bcffb1d26473080f6e7825d43bcbaad51ecd"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/financial-frontend-first.log",
+      "archive": "financial-frontend-first.log.txt",
+      "bytes": 25020,
+      "sha256": "347924cb204ba5c7e07492b1d548d14919b25eb6da50fcf24e070d9c1829a75f"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/financial-frontend-fixed.log",
+      "archive": "financial-frontend-fixed.log.txt",
+      "bytes": 49360,
+      "sha256": "c98d876c03aded7c508d15dfa58621c45b8400731b4243a1445c6c1d46d688e1"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/financial-frontend-gates/frontend-0.log.txt",
+      "archive": "financial-frontend-gates/frontend-0.log.txt",
+      "bytes": 995,
+      "sha256": "d3bf2f3a0dc8b59fe220348eb1b7b264431cb6e233d3b9ba5234571b965ac130"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/financial-frontend-gates/frontend-1.log.txt",
+      "archive": "financial-frontend-gates/frontend-1.log.txt",
+      "bytes": 117,
+      "sha256": "f93bcd40348ab511bc038273f8f1e2d44f2f2d4b793fc5a602c988b4b1fd3af8"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/financial-frontend-gates/frontend-2.log.txt",
+      "archive": "financial-frontend-gates/frontend-2.log.txt",
+      "bytes": 215,
+      "sha256": "bf96a8a6b565d872839d9ff0ca5d5346cb424e95b738ec3708bc55568993c4d4"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/financial-frontend-gates/frontend-3.log.txt",
+      "archive": "financial-frontend-gates/frontend-3.log.txt",
+      "bytes": 1433,
+      "sha256": "57c133fa573731241d837f37c35fa469c2d27a65f197e4fe492c0bed23d61345"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/financial-frontend-gates/frontend-4.log.txt",
+      "archive": "financial-frontend-gates/frontend-4.log.txt",
+      "bytes": 921,
+      "sha256": "dfc376e757d662b0534bedf99b8f5f5b285a31d59b35c705498f88f7813222a2"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/financial-frontend-gates/frontend-5.log.txt",
+      "archive": "financial-frontend-gates/frontend-5.log.txt",
+      "bytes": 12752,
+      "sha256": "77a43a44b803295e47291af553d82b1fa1c37641d6c363f10199d05f74391ba1"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/financial-frontend-gates/frontend.json",
+      "archive": "financial-frontend-gates/frontend.json",
+      "bytes": 2500,
+      "sha256": "23149c35cf783732d2c4e72a7605ac969b249017d92495b279670cbd71e6680d"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/financial-frontend-launcher.log",
+      "archive": "financial-frontend-launcher.log.txt",
+      "bytes": 451,
+      "sha256": "154f10b6e08de206007052122728ece3561c87460fd58314a1ab04b43daca8ff"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/financial-frontend-publication-order.log",
+      "archive": "financial-frontend-publication-order.log.txt",
+      "bytes": 845,
+      "sha256": "d2abee7a488c3c993536935d511242d4afe02328bcc4da9f438aa5424418c1bd"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/financial-frontend.pid",
+      "archive": "financial-frontend.pid",
+      "bytes": 5,
+      "sha256": "b7c7c0a7f4ad67dd3e91ba5af33c79fbb37894a794b092d2a76dd81901df6f5e"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/financial-gates-launcher.log",
+      "archive": "financial-gates-launcher.log.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/financial-gates.done",
+      "archive": "financial-gates.done",
+      "bytes": 9,
+      "sha256": "37a40f08d8548dba289b9b0bb35bcf63b359f6d37ee86044ebc6b6da080b9ec1"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/financial-gates.pid",
+      "archive": "financial-gates.pid",
+      "bytes": 5,
+      "sha256": "044a54e0699d0ed99e77a43ef92c4f01f05608217ec0751c81549341a8ac3d90"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/financial-gates.sh",
+      "archive": "financial-gates.sh.txt",
+      "bytes": 1439,
+      "sha256": "f762022dc0d4c8a0e4b082bf71f6b12de5a900f54e9bf5d5b1f0eeb8bfeb9498"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/financial-identity-after.txt",
+      "archive": "financial-identity-after.txt",
+      "bytes": 41,
+      "sha256": "9d7f1e85d3b8bc6f0084adf9f8ae64f8dc1a8de6889677a779b66c18e8d6189b"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/financial-identity-before.txt",
+      "archive": "financial-identity-before.txt",
+      "bytes": 41,
+      "sha256": "9d7f1e85d3b8bc6f0084adf9f8ae64f8dc1a8de6889677a779b66c18e8d6189b"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/financial-install.log",
+      "archive": "financial-install.log.txt",
+      "bytes": 1937,
+      "sha256": "606c139cacf6d12c20e058250b635edb23a24299e7f7b1d3e2fa954318039cf5"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/financial-lint.log",
+      "archive": "financial-lint.log.txt",
+      "bytes": 117,
+      "sha256": "f93bcd40348ab511bc038273f8f1e2d44f2f2d4b793fc5a602c988b4b1fd3af8"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/financial-map-build.txt",
+      "archive": "financial-map-build.txt",
+      "bytes": 137,
+      "sha256": "cd48e1fc4d17b9b7295f86f988c8744850e8c64cf6267577e50eec55110bd187"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/financial-map-query.json",
+      "archive": "financial-map-query.json",
+      "bytes": 18786,
+      "sha256": "7324ffa3c8886fe5a726b1e86d340920df4c311a63e5067d6e0d11edcb46ba1b"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/financial-merge.txt",
+      "archive": "financial-merge.txt",
+      "bytes": 2245,
+      "sha256": "13b567c511599f1b8e88ad7f0d3d05869006169d0e79e4fbe67524a32a6399dd"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/financial-new-seams-fixed.log",
+      "archive": "financial-new-seams-fixed.log.txt",
+      "bytes": 186,
+      "sha256": "c9948c33aeae31fc52f29d942182b670d4e32d572a02b58b9acaab43efd614a4"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/financial-new-seams.log",
+      "archive": "financial-new-seams.log.txt",
+      "bytes": 2193,
+      "sha256": "b1c0c7fb50b18bbfe020cdc9d76471ee1215218e63a49796607d29228e394cb9"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/financial-pr-open.json",
+      "archive": "financial-pr-open.json",
+      "bytes": 385,
+      "sha256": "519675d8c9abc2e7102f66284e82af1572988d640e2805bfe1692d1d4c445838"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/financial-pr.md",
+      "archive": "financial-pr.md",
+      "bytes": 2691,
+      "sha256": "14d4844897a94326bc32aa812dc76b6f16ead8e8b4d28abc4359c75dd7be3d88"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/financial-publication-seams.log",
+      "archive": "financial-publication-seams.log.txt",
+      "bytes": 185,
+      "sha256": "a50ca8a017431f3661809478b731f1beff7bd5b7901d0b690df7019e384b02ea"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/financial-pytest.log",
+      "archive": "financial-pytest.log.txt",
+      "bytes": 19032,
+      "sha256": "d5ef480f37470b067b277227ff307dec50d3226f5158bce07140449e56c35241"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/financial-pytest.rc",
+      "archive": "financial-pytest.rc",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/financial-python-receipt.json",
+      "archive": "financial-python-receipt.json",
+      "bytes": 658,
+      "sha256": "0d86a664399460ceb1eacf67b03279404c29891d23f52f066a39c7c0fb1eff75"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/financial-rag-failure.log",
+      "archive": "financial-rag-failure.log.txt",
+      "bytes": 5696,
+      "sha256": "7260f01c4762f361fe69f07f802b09fffedeee1265224e42992c274d4bae8b03"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/financial-rag-fixed.log",
+      "archive": "financial-rag-fixed.log.txt",
+      "bytes": 268,
+      "sha256": "b3cd05505a70e2d302a96731bb93190aebb7fc5bb1198cb9dc7e5058d4c50892"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/financial-ratio-units-0920-current.patch",
+      "archive": "financial-ratio-units-0920-current.patch.txt",
+      "bytes": 86040,
+      "sha256": "8b121e4077e97a61099916185b6c1f92dc2ca9402e42fbe5228463e4d179ecea"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/financial-ratio-units-0920-increment.patch",
+      "archive": "financial-ratio-units-0920-increment.patch.txt",
+      "bytes": 27324,
+      "sha256": "a2cc58487e766eddcbc675d2ee4868cf36e1d68ddb11095ad735100b503d2c9d"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/financial-ratio-units-0920-merge-tree.txt",
+      "archive": "financial-ratio-units-0920-merge-tree.txt",
+      "bytes": 5401,
+      "sha256": "2fc2e129ab261de9b4f328ef7137c516ecef1c17a243c438b8e48e0a090385f2"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/financial-receipt-check.txt",
+      "archive": "financial-receipt-check.txt",
+      "bytes": 831,
+      "sha256": "020c8ca68e41088b8962d20231583ecf1862b729c7a515c93de2d95f99794363"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/financial-registry-backfill-tables_--check.rc",
+      "archive": "financial-registry-backfill-tables_--check.rc",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/financial-registry-backfill-tables_--check.txt",
+      "archive": "financial-registry-backfill-tables_--check.txt",
+      "bytes": 116,
+      "sha256": "362c2b566827eb15434ae230b1ce60edad2006c45ff08836d0a24fc744447261"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/financial-registry-check-parseability.rc",
+      "archive": "financial-registry-check-parseability.rc",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/financial-registry-check-parseability.txt",
+      "archive": "financial-registry-check-parseability.txt",
+      "bytes": 95,
+      "sha256": "b2d7a8d77df0fdc0f638e93d711f397b07859eb91e6aa5d45d793a52f2abef60"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/financial-registry-check.rc",
+      "archive": "financial-registry-check.rc",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/financial-registry-check.txt",
+      "archive": "financial-registry-check.txt",
+      "bytes": 33,
+      "sha256": "8c996aaec0fcd03defec5afb55f6ebb96935c7a5bc571e1811410de6339fe0df"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/financial-registry-generate-views_--check.rc",
+      "archive": "financial-registry-generate-views_--check.rc",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/financial-registry-generate-views_--check.txt",
+      "archive": "financial-registry-generate-views_--check.txt",
+      "bytes": 68,
+      "sha256": "9730a43a0a4535867153d7ac0afd888b1feaaa96f3846b2922c39a16ad068e89"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/financial-resolution.json",
+      "archive": "financial-resolution.json",
+      "bytes": 16622,
+      "sha256": "2ca40b2d49cd1504ab83929646700626f2f2acada1bbab16e599adb52553f27b"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/financial-ruff-first.txt",
+      "archive": "financial-ruff-first.txt",
+      "bytes": 19,
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/financial-ruff-frozen.log",
+      "archive": "financial-ruff-frozen.log.txt",
+      "bytes": 19,
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/financial-ruff.rc",
+      "archive": "financial-ruff.rc",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/financial-seams-first.log",
+      "archive": "financial-seams-first.log.txt",
+      "bytes": 1923,
+      "sha256": "d68335b458167de4a5c80b6684997f65a15541938f5ac7a6158a082a96420268"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/financial-seams-second-process.json",
+      "archive": "financial-seams-second-process.json",
+      "bytes": 2954,
+      "sha256": "4264b290d282d7b055ace785a59eca3940fc3686b1ee58ca9e5220539fc742b2"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/financial-seams-second.log",
+      "archive": "financial-seams-second.log.txt",
+      "bytes": 2451,
+      "sha256": "6fa8c0b54be8300d0f2695e992c609556ee1137377941794f89b11b6f6253fa4"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/financial-typecheck.log",
+      "archive": "financial-typecheck.log.txt",
+      "bytes": 215,
+      "sha256": "bf96a8a6b565d872839d9ff0ca5d5346cb424e95b738ec3708bc55568993c4d4"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/financial-verifier-source.patch",
+      "archive": "financial-verifier-source.patch.txt",
+      "bytes": 30704,
+      "sha256": "339ab24ca483670d73f70e4b0ac39046916e2377689f4c1c0a7f5aa1e633aefb"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/gate-fix-crosswalk.rc",
+      "archive": "gate-fix-crosswalk.rc",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/gate-fix-crosswalk.txt",
+      "archive": "gate-fix-crosswalk.txt",
+      "bytes": 2017,
+      "sha256": "566647b99c8cb67d09353907eab508605089f30a4efb7b03873223d45499cb27"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/gate-fix-frontend-gates/frontend-0.log.txt",
+      "archive": "gate-fix-frontend-gates/frontend-0.log.txt",
+      "bytes": 1818,
+      "sha256": "cb637e0c659ec6c767f12871f297cfb97cfae950ec71c034049cf5f8cb7ea4cf"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/gate-fix-frontend-gates/frontend-1.log.txt",
+      "archive": "gate-fix-frontend-gates/frontend-1.log.txt",
+      "bytes": 122,
+      "sha256": "bc0a0594596ab4e1878d8ec4c52d47b46a296a8b9e92ebda2faeaa4d2d6c80ca"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/gate-fix-frontend-gates/frontend-2.log.txt",
+      "archive": "gate-fix-frontend-gates/frontend-2.log.txt",
+      "bytes": 220,
+      "sha256": "88a8a503d73af135c56742e30cb87b721fbb68ba60a00958d7fc91892bdbce00"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/gate-fix-frontend-gates/frontend-3.log.txt",
+      "archive": "gate-fix-frontend-gates/frontend-3.log.txt",
+      "bytes": 1445,
+      "sha256": "85f8d7e1bb10ed1ae5fb84740cad646092fbb2275565912a7573b855fceead3c"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/gate-fix-frontend-gates/frontend-4.log.txt",
+      "archive": "gate-fix-frontend-gates/frontend-4.log.txt",
+      "bytes": 931,
+      "sha256": "3a6b3541feb648d07a91ab19f803b92459b98155206f81553d03028bf3c62a29"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/gate-fix-frontend-gates/frontend-5.log.txt",
+      "archive": "gate-fix-frontend-gates/frontend-5.log.txt",
+      "bytes": 12762,
+      "sha256": "40c3564c2f2b2809b7da5c8da3a12a208202305c53210bbc725d4cc782fae07b"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/gate-fix-frontend-gates/frontend.json",
+      "archive": "gate-fix-frontend-gates/frontend.json",
+      "bytes": 2505,
+      "sha256": "e8a70861567410f783457d53ccf3197828eda665a3071c8db103209071e5d32a"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/gate-fix-frontend-launcher.log",
+      "archive": "gate-fix-frontend-launcher.log.txt",
+      "bytes": 450,
+      "sha256": "7957d44772acf277d6b6101e2ab3527ea30d2b78cb977b82990cea4f8ecf4b97"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/gate-fix-frontend.pid",
+      "archive": "gate-fix-frontend.pid",
+      "bytes": 5,
+      "sha256": "3a591f9c132bc5cc59f753ea10995a68de34d762f1ac85341d33880d90bcff5a"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/gate-fix-gates.done",
+      "archive": "gate-fix-gates.done",
+      "bytes": 9,
+      "sha256": "37a40f08d8548dba289b9b0bb35bcf63b359f6d37ee86044ebc6b6da080b9ec1"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/gate-fix-gates.pid",
+      "archive": "gate-fix-gates.pid",
+      "bytes": 5,
+      "sha256": "7e0fc9ac7204af61702391009a40a624d1a3ab597e7b392eec6fae31535b0c4f"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/gate-fix-gates.sh",
+      "archive": "gate-fix-gates.sh.txt",
+      "bytes": 1322,
+      "sha256": "846eb20e0144704c65bca219c29dee00bd214fab3cb7a5167ccf69f6176a07e4"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/gate-fix-identity-after.txt",
+      "archive": "gate-fix-identity-after.txt",
+      "bytes": 41,
+      "sha256": "ee6edb78508c11c75041404ccd1f229f43e555e9e4d440d049a559f1dc8d5c2b"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/gate-fix-identity-before.txt",
+      "archive": "gate-fix-identity-before.txt",
+      "bytes": 41,
+      "sha256": "ee6edb78508c11c75041404ccd1f229f43e555e9e4d440d049a559f1dc8d5c2b"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/gate-fix-interrupted-receipt.json",
+      "archive": "gate-fix-interrupted-receipt.json",
+      "bytes": 672,
+      "sha256": "54f3c1055f4556bac5644cc73309bc2fba6c3b58eef7b68a457570ccf8799dc8"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/gate-fix-launcher.log",
+      "archive": "gate-fix-launcher.log.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/gate-fix-main-gate.log",
+      "archive": "gate-fix-main-gate.log.txt",
+      "bytes": 1504,
+      "sha256": "108ed0da2d3aa6c8ecb12660e9258573592d371f97bb39898e84d06a027c7a47"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/gate-fix-main-gate.rc",
+      "archive": "gate-fix-main-gate.rc",
+      "bytes": 2,
+      "sha256": "7de1555df0c2700329e815b93b32c571c3ea54dc967b89e81ab73b9972b72d1d"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/gate-fix-operator-stop.json",
+      "archive": "gate-fix-operator-stop.json",
+      "bytes": 447,
+      "sha256": "f773e6ec6cdbbcf7951449341cbaa67864ce28376aa7b7e4a5d50e93e679e5e9"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/gate-fix-registry-backfill-tables_--check.rc",
+      "archive": "gate-fix-registry-backfill-tables_--check.rc",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/gate-fix-registry-backfill-tables_--check.txt",
+      "archive": "gate-fix-registry-backfill-tables_--check.txt",
+      "bytes": 116,
+      "sha256": "362c2b566827eb15434ae230b1ce60edad2006c45ff08836d0a24fc744447261"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/gate-fix-registry-check-parseability.rc",
+      "archive": "gate-fix-registry-check-parseability.rc",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/gate-fix-registry-check-parseability.txt",
+      "archive": "gate-fix-registry-check-parseability.txt",
+      "bytes": 95,
+      "sha256": "b2d7a8d77df0fdc0f638e93d711f397b07859eb91e6aa5d45d793a52f2abef60"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/gate-fix-registry-check.rc",
+      "archive": "gate-fix-registry-check.rc",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/gate-fix-registry-check.txt",
+      "archive": "gate-fix-registry-check.txt",
+      "bytes": 33,
+      "sha256": "8c996aaec0fcd03defec5afb55f6ebb96935c7a5bc571e1811410de6339fe0df"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/gate-fix-registry-generate-views_--check.rc",
+      "archive": "gate-fix-registry-generate-views_--check.rc",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/gate-fix-registry-generate-views_--check.txt",
+      "archive": "gate-fix-registry-generate-views_--check.txt",
+      "bytes": 68,
+      "sha256": "9730a43a0a4535867153d7ac0afd888b1feaaa96f3846b2922c39a16ad068e89"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/gate-fix-targeted-receipt.json",
+      "archive": "gate-fix-targeted-receipt.json",
+      "bytes": 651,
+      "sha256": "8ad46fa766d762df7f87349cbf693beda2977e40762735e196586ce389e81288"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/gate-map-build.log",
+      "archive": "gate-map-build.log.txt",
+      "bytes": 137,
+      "sha256": "12c84c047c7a1a635717768abf2b9e6cf5f2d1b38556b0d42eeb0201cbe44df5"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/gate-map-query.json",
+      "archive": "gate-map-query.json",
+      "bytes": 15334,
+      "sha256": "567e3012e2654bfcf4a641fec40608c294f53d82fcde26ce344119d8c1f4b7ad"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/gate-mutations/archive-exit-green/pytest.log",
+      "archive": "gate-mutations/archive-exit-green/pytest.log.txt",
+      "bytes": 14747,
+      "sha256": "2713d388366aaadd674cbe0ac97ba3da65a1bebca5bd43f3a24ce0db16d18a4b"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/gate-mutations/archive-exit-green/scripts/run_main_gate.sh",
+      "archive": "gate-mutations/archive-exit-green/scripts/run_main_gate.sh.txt",
+      "bytes": 8223,
+      "sha256": "206b3f1619997716262381a1031a4b1f800e0daf66598b3a825d6d3a06f98ae7"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/gate-mutations/archive-exit-green/tests/test_run_main_gate.py",
+      "archive": "gate-mutations/archive-exit-green/tests/test_run_main_gate.py.txt",
+      "bytes": 5446,
+      "sha256": "f89cd476d106ed43f6c566c586038b1352fae0a74cb943ae24d9e1ee6340add8"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/gate-mutations/baseline/pytest.log",
+      "archive": "gate-mutations/baseline/pytest.log.txt",
+      "bytes": 100,
+      "sha256": "40cfe65c36c06519785b81284095ffa63c1cc749b87f7dbf7f780da1e60e9c2d"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/gate-mutations/baseline/scripts/run_main_gate.sh",
+      "archive": "gate-mutations/baseline/scripts/run_main_gate.sh.txt",
+      "bytes": 8199,
+      "sha256": "b5df370c2af74a07f430a5065e963465a2b72e2e3bcf19994c107b3d5d1a6f9b"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/gate-mutations/baseline/tests/test_run_main_gate.py",
+      "archive": "gate-mutations/baseline/tests/test_run_main_gate.py.txt",
+      "bytes": 5446,
+      "sha256": "f89cd476d106ed43f6c566c586038b1352fae0a74cb943ae24d9e1ee6340add8"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/gate-mutations/dirty-is-green/pytest.log",
+      "archive": "gate-mutations/dirty-is-green/pytest.log.txt",
+      "bytes": 2065,
+      "sha256": "d3d1160cd461cf1d283c682592e7a6ce95270bb2718141facafd45897117d531"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/gate-mutations/dirty-is-green/scripts/run_main_gate.sh",
+      "archive": "gate-mutations/dirty-is-green/scripts/run_main_gate.sh.txt",
+      "bytes": 8149,
+      "sha256": "2e60f1b1e17c4d874ed647e44540c5fc1f4e64e851fd7b27cde2566bd6f9cc1c"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/gate-mutations/dirty-is-green/tests/test_run_main_gate.py",
+      "archive": "gate-mutations/dirty-is-green/tests/test_run_main_gate.py.txt",
+      "bytes": 5446,
+      "sha256": "f89cd476d106ed43f6c566c586038b1352fae0a74cb943ae24d9e1ee6340add8"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/gate-mutations/global-latest/pytest.log",
+      "archive": "gate-mutations/global-latest/pytest.log.txt",
+      "bytes": 12573,
+      "sha256": "b814939c1567edfe8de1aa22f0cd2652792596bebf6bce9bd00b503ba9456d35"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/gate-mutations/global-latest/scripts/run_main_gate.sh",
+      "archive": "gate-mutations/global-latest/scripts/run_main_gate.sh.txt",
+      "bytes": 8257,
+      "sha256": "c5c2666191fae99c7de13126ddd8bb1db76226058acab8605f24d1f574b36cea"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/gate-mutations/global-latest/tests/test_run_main_gate.py",
+      "archive": "gate-mutations/global-latest/tests/test_run_main_gate.py.txt",
+      "bytes": 5446,
+      "sha256": "f89cd476d106ed43f6c566c586038b1352fae0a74cb943ae24d9e1ee6340add8"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/gate-mutations/hide-interrupted/pytest.log",
+      "archive": "gate-mutations/hide-interrupted/pytest.log.txt",
+      "bytes": 9443,
+      "sha256": "f85bd8eaa6cb6fc035036b63a30ef352cf8dff665ba8f063efce4a098049b5ec"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/gate-mutations/hide-interrupted/scripts/run_main_gate.sh",
+      "archive": "gate-mutations/hide-interrupted/scripts/run_main_gate.sh.txt",
+      "bytes": 8179,
+      "sha256": "e84a4b3692d58a64be9a1bf52170f6110f930fe8a9eb618a3d532743eff2dc86"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/gate-mutations/hide-interrupted/tests/test_run_main_gate.py",
+      "archive": "gate-mutations/hide-interrupted/tests/test_run_main_gate.py.txt",
+      "bytes": 5446,
+      "sha256": "f89cd476d106ed43f6c566c586038b1352fae0a74cb943ae24d9e1ee6340add8"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/gate-mutations/restored/pytest.log",
+      "archive": "gate-mutations/restored/pytest.log.txt",
+      "bytes": 99,
+      "sha256": "3422f4868e19996b98cebd5cfe3f60493aa00fa0b7ec7c6f75b15109f1bbf33d"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/gate-mutations/restored/scripts/run_main_gate.sh",
+      "archive": "gate-mutations/restored/scripts/run_main_gate.sh.txt",
+      "bytes": 8199,
+      "sha256": "b5df370c2af74a07f430a5065e963465a2b72e2e3bcf19994c107b3d5d1a6f9b"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/gate-mutations/restored/tests/test_run_main_gate.py",
+      "archive": "gate-mutations/restored/tests/test_run_main_gate.py.txt",
+      "bytes": 5446,
+      "sha256": "f89cd476d106ed43f6c566c586038b1352fae0a74cb943ae24d9e1ee6340add8"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/gate-mutations/results.json",
+      "archive": "gate-mutations/results.json",
+      "bytes": 1137,
+      "sha256": "f4a47f412788d879be1db5928763092a6c36e153f6823cf16fb448cd180599d2"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/gate-mutations/skip-exit-agreement/pytest.log",
+      "archive": "gate-mutations/skip-exit-agreement/pytest.log.txt",
+      "bytes": 1522,
+      "sha256": "a173e8cb9fd64a0aa5b389aa679f463e42b21175000dfe00949a497acd5957c7"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/gate-mutations/skip-exit-agreement/scripts/run_main_gate.sh",
+      "archive": "gate-mutations/skip-exit-agreement/scripts/run_main_gate.sh.txt",
+      "bytes": 8171,
+      "sha256": "bbaa39432d2740de12f8fefd62c6e2a74152bc667e9b9f4786bd74238934263f"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/gate-mutations/skip-exit-agreement/tests/test_run_main_gate.py",
+      "archive": "gate-mutations/skip-exit-agreement/tests/test_run_main_gate.py.txt",
+      "bytes": 5446,
+      "sha256": "f89cd476d106ed43f6c566c586038b1352fae0a74cb943ae24d9e1ee6340add8"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/gate-mutations/skip-run-identity/pytest.log",
+      "archive": "gate-mutations/skip-run-identity/pytest.log.txt",
+      "bytes": 3121,
+      "sha256": "47e9335561bf82bc5caa0acf27e472b45d348e37a7657cb7da9f43b45f202377"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/gate-mutations/skip-run-identity/scripts/run_main_gate.sh",
+      "archive": "gate-mutations/skip-run-identity/scripts/run_main_gate.sh.txt",
+      "bytes": 8140,
+      "sha256": "b269abee7ef64c01fb9a58f8225b935438bdbbb14581a130e55be7cf9c11f6de"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/gate-mutations/skip-run-identity/tests/test_run_main_gate.py",
+      "archive": "gate-mutations/skip-run-identity/tests/test_run_main_gate.py.txt",
+      "bytes": 5446,
+      "sha256": "f89cd476d106ed43f6c566c586038b1352fae0a74cb943ae24d9e1ee6340add8"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/gate-mutations-launcher.log",
+      "archive": "gate-mutations-launcher.log.txt",
+      "bytes": 779,
+      "sha256": "5c58e0b9b6cccc198df376569be6f529f93f33b542e8164c31c097197c824fb7"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/gate-receipt-commit.txt",
+      "archive": "gate-receipt-commit.txt",
+      "bytes": 5721,
+      "sha256": "3556aa730864359c0462f557bdd5a3886e3c96374cb7dde0c4a8dfe50a3fb580"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/gate-receipt-diagnostic-source.patch",
+      "archive": "gate-receipt-diagnostic-source.patch.txt",
+      "bytes": 12163,
+      "sha256": "d3f7bfa9bf0af0e8565409df105b33c286b1746ff32f5ceb979b35169c8525b1"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/gate-receipt-fixed-expanded.log",
+      "archive": "gate-receipt-fixed-expanded.log.txt",
+      "bytes": 186,
+      "sha256": "2fb17da677acbd52170291485107753f8932d8eab69a83995ca18d0c99ab64aa"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/gate-receipt-fixed.log",
+      "archive": "gate-receipt-fixed.log.txt",
+      "bytes": 186,
+      "sha256": "cb1e6dceb5546907f23e682437536697ef2148f099d8b4f5da4b5893d4867074"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/gate-receipt-red.log",
+      "archive": "gate-receipt-red.log.txt",
+      "bytes": 15194,
+      "sha256": "4be462cd0a4ed6ac5b4faf8319fb8f80a77a8f88c0b5e7f6b6da9bf2390b8966"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/gate-self-test-frozen.log",
+      "archive": "gate-self-test-frozen.log.txt",
+      "bytes": 659,
+      "sha256": "93601b4290933d6e9e926829669a1120a1059a15b10ecee2c4d2e2b8d730e123"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-binding-pr.md",
+      "archive": "history-binding-pr.md",
+      "bytes": 1178,
+      "sha256": "40c008f8a47e188a97d8c34984bccac37a238014a7cd38d6434a7838fb6800c5"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-closeout-0920-current.patch",
+      "archive": "history-closeout-0920-current.patch.txt",
+      "bytes": 59818,
+      "sha256": "89a19c5204e804cee9b129dab8a5572fc4516243aa73504b4cecfb467c810511"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-closeout-0920-increment.patch",
+      "archive": "history-closeout-0920-increment.patch.txt",
+      "bytes": 18784,
+      "sha256": "eb6fa571c434537502d7133c31178f56e502359ce7ba063af067c2745978a64b"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-closeout-0920-merge-tree.txt",
+      "archive": "history-closeout-0920-merge-tree.txt",
+      "bytes": 1918,
+      "sha256": "5d42beb393e8f84f926115d36dc40c4129da6a56f42c573e533524fb7c3dd117"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-commit-retry.txt",
+      "archive": "history-commit-retry.txt",
+      "bytes": 26613,
+      "sha256": "45acd1109f767e66b9b92b4b0974c9171308c37017e19cb7d2aaa6b1c77f0bb5"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-commit.txt",
+      "archive": "history-commit.txt",
+      "bytes": 5574,
+      "sha256": "2eb08235b087149a6f1386827667107c4ce858c5ae4e3bf219ca7305025f4d13"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-crosswalk.rc",
+      "archive": "history-crosswalk.rc",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-crosswalk.txt",
+      "archive": "history-crosswalk.txt",
+      "bytes": 2010,
+      "sha256": "088e1a897223981073d262b57911c0afe063d5589924495df5a0e5cdd51f03dc"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-fixture-conflicts.patch",
+      "archive": "history-fixture-conflicts.patch.txt",
+      "bytes": 12251,
+      "sha256": "629a2b164e1b57a9b140faeb545d06169be715d5a4dfb1544c47392c04fd4f41"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-frontend-gates/frontend-0.log.txt",
+      "archive": "history-frontend-gates/frontend-0.log.txt",
+      "bytes": 1878,
+      "sha256": "83c45bdef8d56138361258e4de1764f3e570cd7454f558c36d54b99aa55aadbf"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-frontend-gates/frontend-1.log.txt",
+      "archive": "history-frontend-gates/frontend-1.log.txt",
+      "bytes": 115,
+      "sha256": "f1cec847fde1f8bdf321fe546bc73a9a5ef4e39d5e0ee7b58614ff9cc49d401b"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-frontend-gates/frontend-2.log.txt",
+      "archive": "history-frontend-gates/frontend-2.log.txt",
+      "bytes": 213,
+      "sha256": "9aabf77aa9241447f4bc03abf947ccefb060aafd427dee69df379c88b7aa0a14"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-frontend-gates/frontend-3.log.txt",
+      "archive": "history-frontend-gates/frontend-3.log.txt",
+      "bytes": 2734,
+      "sha256": "99c63b2b497c19a9c1fd96860650d15bae349d557201752dc491276af6b4fe10"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-frontend-gates/frontend-4.log.txt",
+      "archive": "history-frontend-gates/frontend-4.log.txt",
+      "bytes": 917,
+      "sha256": "dad77463dc27f91135a188f2496cb51ca73671ad64d222b62ef6166e78c7dfe5"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-frontend-gates/frontend-5.log.txt",
+      "archive": "history-frontend-gates/frontend-5.log.txt",
+      "bytes": 12754,
+      "sha256": "c943ba176e901507f4e78679c2544aa9aa9b66a9fb8af121ab2918861feec80f"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-frontend-gates/frontend.json",
+      "archive": "history-frontend-gates/frontend.json",
+      "bytes": 2502,
+      "sha256": "79754aa86863c090929cea4560cc2cb87f46b886f9c7614009052653542abd70"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-frontend-launcher.log",
+      "archive": "history-frontend-launcher.log.txt",
+      "bytes": 449,
+      "sha256": "ae587c6429db1e29a3d1c6e11ef60ef0c1a046cc03c6fa08fe318540374e6a50"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-frontend.pid",
+      "archive": "history-frontend.pid",
+      "bytes": 5,
+      "sha256": "18f7aab67194ae5c974fec6d7c6a6729a9a65a35cd256dc44c811088af20dd55"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-gates-launcher.log",
+      "archive": "history-gates-launcher.log.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-gates.done",
+      "archive": "history-gates.done",
+      "bytes": 9,
+      "sha256": "37a40f08d8548dba289b9b0bb35bcf63b359f6d37ee86044ebc6b6da080b9ec1"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-gates.pid",
+      "archive": "history-gates.pid",
+      "bytes": 5,
+      "sha256": "972620c9dd4cb736e323c74665a846aee468bfa169b4abe69e3a9fdc0009d0b2"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-gates.sh",
+      "archive": "history-gates.sh.txt",
+      "bytes": 1315,
+      "sha256": "6bfd06094d12a2e0a8477d5b4e9d2f5c445a4f5c34c12e372165e60d496c40d3"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-identity-after.txt",
+      "archive": "history-identity-after.txt",
+      "bytes": 41,
+      "sha256": "f9c07bfc6373ab2481fd1c4f39f3a6a51192afdad1984226313ad5044111b74c"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-identity-before.txt",
+      "archive": "history-identity-before.txt",
+      "bytes": 41,
+      "sha256": "f9c07bfc6373ab2481fd1c4f39f3a6a51192afdad1984226313ad5044111b74c"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-integration-paths.txt",
+      "archive": "history-integration-paths.txt",
+      "bytes": 18217,
+      "sha256": "a27d1bd09dc5c6357275e4dcc86cc5514a49005d7c8df3360f357cd4a6e287d1"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-main-gate.log",
+      "archive": "history-main-gate.log.txt",
+      "bytes": 1785,
+      "sha256": "5f3adb11a08b314e8d9c517fee932fa2a2ac05334770287ef465e2de806c28f7"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-main-gate.rc",
+      "archive": "history-main-gate.rc",
+      "bytes": 2,
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-map-build.txt",
+      "archive": "history-map-build.txt",
+      "bytes": 137,
+      "sha256": "18ca750a813c61c10642c6e51756328ab2e73050bfc3f9f09afe475996bbe426"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-new-seams-fixed.log",
+      "archive": "history-new-seams-fixed.log.txt",
+      "bytes": 185,
+      "sha256": "553e8202e66144aef95445a2740fa9cccdaffba05d0477aaf224ea3ea6fbaeac"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-new-seams.log",
+      "archive": "history-new-seams.log.txt",
+      "bytes": 7365,
+      "sha256": "89ab96d1e57e9f73544fe28d1ceb491487b4b1710fd714e988afaffeeccdc496"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-pr-open.json",
+      "archive": "history-pr-open.json",
+      "bytes": 367,
+      "sha256": "6babb3776dae54a9f7356d3b01b8a5c35ae00a6a8c816a8f3f6463ca2f702329"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-pr.md",
+      "archive": "history-pr.md",
+      "bytes": 2163,
+      "sha256": "e1c1b3a9cb055634816befd8b82c5a15258bb1286dd7587cae5d53c5daeb81a6"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-python-receipt.json",
+      "archive": "history-python-receipt.json",
+      "bytes": 652,
+      "sha256": "3c4394b58169b72716ce1e24e7831f0c219aa80fc90240ef0ea0ed57fa785921"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-receipt-check.txt",
+      "archive": "history-receipt-check.txt",
+      "bytes": 801,
+      "sha256": "17cb3cac12640e1481e9418135786828dd70b584a8c5522f8b4e3cc433f42a58"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-receipt-replay-fixed-gate.log",
+      "archive": "history-receipt-replay-fixed-gate.log.txt",
+      "bytes": 211,
+      "sha256": "4c11c458ae304a29f01a070e703eb34fe1e7d19840ab549067f86fee4624aa4d"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-registry-backfill-tables_--check.rc",
+      "archive": "history-registry-backfill-tables_--check.rc",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-registry-backfill-tables_--check.txt",
+      "archive": "history-registry-backfill-tables_--check.txt",
+      "bytes": 116,
+      "sha256": "362c2b566827eb15434ae230b1ce60edad2006c45ff08836d0a24fc744447261"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-registry-check-parseability.rc",
+      "archive": "history-registry-check-parseability.rc",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-registry-check-parseability.txt",
+      "archive": "history-registry-check-parseability.txt",
+      "bytes": 95,
+      "sha256": "b2d7a8d77df0fdc0f638e93d711f397b07859eb91e6aa5d45d793a52f2abef60"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-registry-check.rc",
+      "archive": "history-registry-check.rc",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-registry-check.txt",
+      "archive": "history-registry-check.txt",
+      "bytes": 33,
+      "sha256": "8c996aaec0fcd03defec5afb55f6ebb96935c7a5bc571e1811410de6339fe0df"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-registry-generate-views_--check.rc",
+      "archive": "history-registry-generate-views_--check.rc",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-registry-generate-views_--check.txt",
+      "archive": "history-registry-generate-views_--check.txt",
+      "bytes": 68,
+      "sha256": "9730a43a0a4535867153d7ac0afd888b1feaaa96f3846b2922c39a16ad068e89"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-resolution.json",
+      "archive": "history-resolution.json",
+      "bytes": 20204,
+      "sha256": "ff0c8cc963c1cec5e442f087f2766c042d5b6bfeaee67e7788e4f34753e52f66"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-seams-first.log",
+      "archive": "history-seams-first.log.txt",
+      "bytes": 748,
+      "sha256": "d2e5ca1c4f2fb906b119bf0603b36acc4a3b65c0fba4c56fd539bd3aadcecc9a"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/ownership-main-gate-existing.sh",
+      "archive": "ownership-main-gate-existing.sh.txt",
+      "bytes": 3693,
+      "sha256": "c2be1f281293747ed192e8a49a32b457a67402000191da8f7a075986178dafca"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/ownership-main-gate-receipt-existing.py",
+      "archive": "ownership-main-gate-receipt-existing.py.txt",
+      "bytes": 4600,
+      "sha256": "214cfccb730fca7448a1a5f6fba4acabb52814e2de2dfb64cc9efb033d64f679"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/reviewer-host-probe.txt",
+      "archive": "reviewer-host-probe.txt",
+      "bytes": 979,
+      "sha256": "2682b3a4c639c54536eb2f24215076f2d50dc1317d603508806b1814b4a832be"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/reviewer-realpath-probe.txt",
+      "archive": "reviewer-realpath-probe.txt",
+      "bytes": 1379,
+      "sha256": "d9df478e10ac1ceb065d122eb0689abcfc34c67da0aefba5cc95b1776591fea2"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/reviewer-sol-realpath-probe.txt",
+      "archive": "reviewer-sol-realpath-probe.txt",
+      "bytes": 1950,
+      "sha256": "41f2e9ea76dda7d41e3cb2cd63a322ab8ae23130c39804f636c0a808faf90728"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/run-gate-receipt-mutations.py",
+      "archive": "run-gate-receipt-mutations.py.txt",
+      "bytes": 2738,
+      "sha256": "3f89ff2bebc788595c364e8846e8255441d3237f01758c5c2f1cbf79e6c2058e"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/runtime-catalog.txt",
+      "archive": "runtime-catalog.txt",
+      "bytes": 96,
+      "sha256": "5ca8b08b9f4067c256fab3397bc0183898ef577a95eedcae1e899695a31c22b4"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/runtime-commit.txt",
+      "archive": "runtime-commit.txt",
+      "bytes": 7903,
+      "sha256": "ccadd962b5a1ebf6c67b0f7f077f5b945897518279f76fc07e53e46f584a7949"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/runtime-conflicts.patch",
+      "archive": "runtime-conflicts.patch.txt",
+      "bytes": 18345,
+      "sha256": "e34ddfe58400c14d4a69e0924e72345665780510db83d1f5525eda4ce7d13003"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/runtime-crosswalk.rc",
+      "archive": "runtime-crosswalk.rc",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/runtime-crosswalk.txt",
+      "archive": "runtime-crosswalk.txt",
+      "bytes": 2010,
+      "sha256": "34e1fe9504cdd6dcba13164c956b62f43fe0557b78a8060e543ee64e3d9b334d"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/runtime-evidence-closeout-0920-current.patch",
+      "archive": "runtime-evidence-closeout-0920-current.patch.txt",
+      "bytes": 73511,
+      "sha256": "bf889085e814c1b25040f9c493b44a7a1c86a09adf924d0c33123c76f034fd53"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/runtime-evidence-closeout-0920-increment.patch",
+      "archive": "runtime-evidence-closeout-0920-increment.patch.txt",
+      "bytes": 41910,
+      "sha256": "84915cadc14395d37228ad83066a3ff7c4eec084a997cdaaa1898fb83746415b"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/runtime-evidence-closeout-0920-merge-tree.txt",
+      "archive": "runtime-evidence-closeout-0920-merge-tree.txt",
+      "bytes": 3828,
+      "sha256": "7d844e259336a6661daac14ef39915cc053186ea40fa8aca97f259e2913ace95"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/runtime-frontend-gates/frontend-0.log.txt",
+      "archive": "runtime-frontend-gates/frontend-0.log.txt",
+      "bytes": 1937,
+      "sha256": "8ca795014a31134569801946a53563b2c9929b682d81ce908540a30ae2415830"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/runtime-frontend-gates/frontend-1.log.txt",
+      "archive": "runtime-frontend-gates/frontend-1.log.txt",
+      "bytes": 115,
+      "sha256": "baac46cdfcbefb0d60db5b1ebd07ed2da567342cca2b81f84637b4b333f11ddc"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/runtime-frontend-gates/frontend-2.log.txt",
+      "archive": "runtime-frontend-gates/frontend-2.log.txt",
+      "bytes": 213,
+      "sha256": "f292bbaf54ede57147c634080602926092a8611068006af20cba51f3c9943d92"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/runtime-frontend-gates/frontend-3.log.txt",
+      "archive": "runtime-frontend-gates/frontend-3.log.txt",
+      "bytes": 1576,
+      "sha256": "0c81aec2dc12e583e4d0ec6cc41483d0dc69ed4e9b04e6fd70882b6fa65b62b8"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/runtime-frontend-gates/frontend-4.log.txt",
+      "archive": "runtime-frontend-gates/frontend-4.log.txt",
+      "bytes": 917,
+      "sha256": "0bc6b3841da1afb815cd06b468b74cdd1ae3a8f27de3af105b8f289ba34620cc"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/runtime-frontend-gates/frontend-5.log.txt",
+      "archive": "runtime-frontend-gates/frontend-5.log.txt",
+      "bytes": 12753,
+      "sha256": "9b9bbbe4e277adeda6df3de488823cfef6c9d7645b8bbd0f3d2a64d6d9a85a12"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/runtime-frontend-gates/frontend.json",
+      "archive": "runtime-frontend-gates/frontend.json",
+      "bytes": 2498,
+      "sha256": "1671198e2ca410208e9c4ca76d2357401f7f59232f9ea343bf490d3c4df5ff4d"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/runtime-frontend-launcher.log",
+      "archive": "runtime-frontend-launcher.log.txt",
+      "bytes": 449,
+      "sha256": "584cb73e50bdb5c607603abf30d2b2acb7b5511a85697872743ee7be71961f7d"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/runtime-frontend.pid",
+      "archive": "runtime-frontend.pid",
+      "bytes": 5,
+      "sha256": "4a260ecac55dbac4b3dee9e51e3c3d7632481a3ac96bf52292f7bc289e7b59bd"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/runtime-gates-launcher.log",
+      "archive": "runtime-gates-launcher.log.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/runtime-gates.done",
+      "archive": "runtime-gates.done",
+      "bytes": 9,
+      "sha256": "37a40f08d8548dba289b9b0bb35bcf63b359f6d37ee86044ebc6b6da080b9ec1"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/runtime-gates.pid",
+      "archive": "runtime-gates.pid",
+      "bytes": 5,
+      "sha256": "0e36e32f66e6b383f20222968b59e2667e35661c2fd784037276cd50ac63d47d"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/runtime-gates.sh",
+      "archive": "runtime-gates.sh.txt",
+      "bytes": 1315,
+      "sha256": "27cbf38d511ca632eb80a555d88b1d2998d846b45381344394588cef7eadd851"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/runtime-identity-after.txt",
+      "archive": "runtime-identity-after.txt",
+      "bytes": 41,
+      "sha256": "10c9ddec824a74e29e29a715d2f9e7e6aea9f653ea5a4f31722b531bab1c20e8"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/runtime-identity-before.txt",
+      "archive": "runtime-identity-before.txt",
+      "bytes": 41,
+      "sha256": "10c9ddec824a74e29e29a715d2f9e7e6aea9f653ea5a4f31722b531bab1c20e8"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/runtime-loop-source.patch",
+      "archive": "runtime-loop-source.patch.txt",
+      "bytes": 42813,
+      "sha256": "fe347507bc1f326d15b8db455c39e49b0affc3ef8c46fe45be3ba553a83ffc39"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/runtime-main-gate.log",
+      "archive": "runtime-main-gate.log.txt",
+      "bytes": 1785,
+      "sha256": "edafe8d663278e5e7efbf7aedb62071d0faa4b7af3360f02a2fdd33c0e367d21"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/runtime-main-gate.rc",
+      "archive": "runtime-main-gate.rc",
+      "bytes": 2,
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/runtime-map-build.txt",
+      "archive": "runtime-map-build.txt",
+      "bytes": 137,
+      "sha256": "69eb43c3a824fbed8780d866b3393c449459a6d6466866c38c51085a62fea2ff"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/runtime-map-frozen-build.txt",
+      "archive": "runtime-map-frozen-build.txt",
+      "bytes": 192,
+      "sha256": "a036f7eaa6bcdbbc2b7afd31f3edfdce13a5a2a439a86d79b34768023e6529e4"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/runtime-map-query.json",
+      "archive": "runtime-map-query.json",
+      "bytes": 16775,
+      "sha256": "270a005ea992563b685f357ea0c9c4e1d006fee75715d4b0c43bb03fa6e0c3dd"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/runtime-pr-open.json",
+      "archive": "runtime-pr-open.json",
+      "bytes": 359,
+      "sha256": "2529bd348b5b090f64842dd093e29e101876967845eb8ec5bb362cf8647a2a5c"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/runtime-pr.md",
+      "archive": "runtime-pr.md",
+      "bytes": 2130,
+      "sha256": "47eaacf71d32112a1be69a808641830a3193f41e491211325748fa6ccf2ddc25"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/runtime-python-receipt.json",
+      "archive": "runtime-python-receipt.json",
+      "bytes": 652,
+      "sha256": "e185e3f98a2f3cee00067612e7d5199566dba7b1075a67367c44cfbe46125bd9"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/runtime-receipt-check.txt",
+      "archive": "runtime-receipt-check.txt",
+      "bytes": 801,
+      "sha256": "98ad228467561cc9eeca26eec6ed8135b4b0965e37023f3baea3e42d90c6e966"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/runtime-receipt-replay-fixed-gate.log",
+      "archive": "runtime-receipt-replay-fixed-gate.log.txt",
+      "bytes": 211,
+      "sha256": "4a34cb75e4097d4ace5ccc6038791e1f3e4ca494c7096ab7601db506a07ef928"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/runtime-registry-backfill-tables_--check.rc",
+      "archive": "runtime-registry-backfill-tables_--check.rc",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/runtime-registry-backfill-tables_--check.txt",
+      "archive": "runtime-registry-backfill-tables_--check.txt",
+      "bytes": 116,
+      "sha256": "362c2b566827eb15434ae230b1ce60edad2006c45ff08836d0a24fc744447261"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/runtime-registry-check-parseability.rc",
+      "archive": "runtime-registry-check-parseability.rc",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/runtime-registry-check-parseability.txt",
+      "archive": "runtime-registry-check-parseability.txt",
+      "bytes": 95,
+      "sha256": "b2d7a8d77df0fdc0f638e93d711f397b07859eb91e6aa5d45d793a52f2abef60"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/runtime-registry-check.rc",
+      "archive": "runtime-registry-check.rc",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/runtime-registry-check.txt",
+      "archive": "runtime-registry-check.txt",
+      "bytes": 33,
+      "sha256": "8c996aaec0fcd03defec5afb55f6ebb96935c7a5bc571e1811410de6339fe0df"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/runtime-registry-generate-views_--check.rc",
+      "archive": "runtime-registry-generate-views_--check.rc",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/runtime-registry-generate-views_--check.txt",
+      "archive": "runtime-registry-generate-views_--check.txt",
+      "bytes": 68,
+      "sha256": "9730a43a0a4535867153d7ac0afd888b1feaaa96f3846b2922c39a16ad068e89"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/runtime-resolution.json",
+      "archive": "runtime-resolution.json",
+      "bytes": 3956,
+      "sha256": "db40f30a04d875ee8254d8be97a8d1b124a9058ff840d6ef5a2f04289d0e4d11"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/runtime-ruff-first.txt",
+      "archive": "runtime-ruff-first.txt",
+      "bytes": 19,
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/runtime-seams-first.log",
+      "archive": "runtime-seams-first.log.txt",
+      "bytes": 382737,
+      "sha256": "8d84c03932f165330a0651be7be36ac59dd82f4d2c136102ef0bd428e32895a8"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/runtime-seams-v3.log",
+      "archive": "runtime-seams-v3.log.txt",
+      "bytes": 828,
+      "sha256": "4a489e0fcb34ccb584efb2d28dbe839a829c4b77dfcd9855c63f0d1a9c1017d0"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/small-crosswalk.rc",
+      "archive": "small-crosswalk.rc",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/small-crosswalk.txt",
+      "archive": "small-crosswalk.txt",
+      "bytes": 2020,
+      "sha256": "fe2b7296324d38de1a4785a98070166f8c859370179a81457d1c8da01ccda667"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/small-fixes-after-path.log",
+      "archive": "small-fixes-after-path.log.txt",
+      "bytes": 279,
+      "sha256": "4a21839a322ca22fd19da7790dde7b64e13ad158aac0b91738d66e5d330ec725"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/small-fixes-after.log",
+      "archive": "small-fixes-after.log.txt",
+      "bytes": 1036,
+      "sha256": "f43b200b1e6730cae6afea125f533ef2894e3fee1b181409afa06ea37e352075"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/small-frontend-gates/frontend-0.log.txt",
+      "archive": "small-frontend-gates/frontend-0.log.txt",
+      "bytes": 1937,
+      "sha256": "bdabb092b5c33f4974ed347944c334fb57adfe1dfb43327490ae50052206b9db"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/small-frontend-gates/frontend-1.log.txt",
+      "archive": "small-frontend-gates/frontend-1.log.txt",
+      "bytes": 162,
+      "sha256": "7ffdbdfdb30e766609a97c6035e30c7c929b648f271025ee39d50a51f8dddac4"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/small-frontend-gates/frontend-2.log.txt",
+      "archive": "small-frontend-gates/frontend-2.log.txt",
+      "bytes": 260,
+      "sha256": "fd0b41278434b1fb66871acf2962d4c7c6c8df3f3aa961b069e149cdef2342ce"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/small-frontend-gates/frontend-3.log.txt",
+      "archive": "small-frontend-gates/frontend-3.log.txt",
+      "bytes": 2668,
+      "sha256": "126174c82990c8eeb8614232da244fda1313cff11a3da443e57bf40991996e25"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/small-frontend-gates/frontend-4.log.txt",
+      "archive": "small-frontend-gates/frontend-4.log.txt",
+      "bytes": 1011,
+      "sha256": "46de139b191cd45e9d88814ad5728f8536c1eb2433692c46b1cdc97f8630e16c"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/small-frontend-gates/frontend-5.log.txt",
+      "archive": "small-frontend-gates/frontend-5.log.txt",
+      "bytes": 12802,
+      "sha256": "469401af876d889230d1b4351285f87d540b62bf7c7a8dc960307a7fc6993389"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/small-frontend-gates/frontend.json",
+      "archive": "small-frontend-gates/frontend.json",
+      "bytes": 2548,
+      "sha256": "a917becb74de6f27fa9b4a9f03aba66b5eb6e60a7e5d5193ef5ac38636138c76"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/small-frontend-process.json",
+      "archive": "small-frontend-process.json",
+      "bytes": 557,
+      "sha256": "c19fab7408961e42cf924385cfa64d40b6465f6d5ceddda926fa78eb3db24e6a"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/small-frontend-runner.txt",
+      "archive": "small-frontend-runner.txt",
+      "bytes": 447,
+      "sha256": "081f7cf4da242761f95b3515d3e745f4ed97813cb3b0e209fa9c8a45e22e2a58"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/small-gates.done",
+      "archive": "small-gates.done",
+      "bytes": 9,
+      "sha256": "37a40f08d8548dba289b9b0bb35bcf63b359f6d37ee86044ebc6b6da080b9ec1"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/small-gates.sh",
+      "archive": "small-gates.sh.txt",
+      "bytes": 1352,
+      "sha256": "82a3044014c142b5693446c053d80d3eef467b9a69217b52f1be0fc93860cf56"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/small-identity-after.txt",
+      "archive": "small-identity-after.txt",
+      "bytes": 41,
+      "sha256": "a1e8469d0a8f9a119de61b6e623d218830c8ae61edcf2107c7f0ace9d7f24570"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/small-identity-before.txt",
+      "archive": "small-identity-before.txt",
+      "bytes": 41,
+      "sha256": "a1e8469d0a8f9a119de61b6e623d218830c8ae61edcf2107c7f0ace9d7f24570"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/small-map-build.rc",
+      "archive": "small-map-build.rc",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/small-map-build.txt",
+      "archive": "small-map-build.txt",
+      "bytes": 208,
+      "sha256": "2cb378cdccde37de2a5e0f1955ce484be5bdf8893ae16123bf569d55c1f4a6ae"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/small-pr-after-timeout.json",
+      "archive": "small-pr-after-timeout.json",
+      "bytes": 10380,
+      "sha256": "5a6e1be058d0189b5b47c51f29cd7f941137c9e030de930bf244cc6df8776e0d"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/small-pr.json",
+      "archive": "small-pr.json",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/small-pr.md",
+      "archive": "small-pr.md",
+      "bytes": 1738,
+      "sha256": "f7a2198a4ee4ab24399e87e245bce8622df1b5151a980d28adb367d8b528692e"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/small-pytest.log",
+      "archive": "small-pytest.log.txt",
+      "bytes": 18161,
+      "sha256": "257f1a0069b5def9942f5a3f2e16b770885ac62bb0a66ca1310e389a505f879d"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/small-pytest.rc",
+      "archive": "small-pytest.rc",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/small-python-process.json",
+      "archive": "small-python-process.json",
+      "bytes": 147,
+      "sha256": "6906b0ac027db20ec521af1348933c0ecb186a364d1bc8853c2613a5b5f7330a"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/small-python-receipt.json",
+      "archive": "small-python-receipt.json",
+      "bytes": 682,
+      "sha256": "c1278d88b5350e2b5edd440780109c64fc7306bcdbcba195628dd7555d8244eb"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/small-python-runner.txt",
+      "archive": "small-python-runner.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/small-registry-backfill-tables_--check.rc",
+      "archive": "small-registry-backfill-tables_--check.rc",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/small-registry-backfill-tables_--check.txt",
+      "archive": "small-registry-backfill-tables_--check.txt",
+      "bytes": 116,
+      "sha256": "362c2b566827eb15434ae230b1ce60edad2006c45ff08836d0a24fc744447261"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/small-registry-check-parseability.rc",
+      "archive": "small-registry-check-parseability.rc",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/small-registry-check-parseability.txt",
+      "archive": "small-registry-check-parseability.txt",
+      "bytes": 95,
+      "sha256": "b2d7a8d77df0fdc0f638e93d711f397b07859eb91e6aa5d45d793a52f2abef60"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/small-registry-check.rc",
+      "archive": "small-registry-check.rc",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/small-registry-check.txt",
+      "archive": "small-registry-check.txt",
+      "bytes": 33,
+      "sha256": "8c996aaec0fcd03defec5afb55f6ebb96935c7a5bc571e1811410de6339fe0df"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/small-registry-generate-views_--check.rc",
+      "archive": "small-registry-generate-views_--check.rc",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/small-registry-generate-views_--check.txt",
+      "archive": "small-registry-generate-views_--check.txt",
+      "bytes": 68,
+      "sha256": "9730a43a0a4535867153d7ac0afd888b1feaaa96f3846b2922c39a16ad068e89"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/small-review-events.jsonl",
+      "archive": "small-review-events.jsonl",
+      "bytes": 33374,
+      "sha256": "f92d2de1f91905075bc144ad9f6e01ae8b57ca857bf0aa67e837d05d6fd6b344"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/small-review-process.json",
+      "archive": "small-review-process.json",
+      "bytes": 155,
+      "sha256": "82f68bc7dc7a7a5a0550a38fc112cb7016f78723ae6ce818823c43f52f13829c"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/small-review-prompt.md",
+      "archive": "small-review-prompt.md",
+      "bytes": 1836,
+      "sha256": "08a307dcb7f9749ffe662df2381ea2961b1a058295c1d8cefbce314d553e4df8"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/small-review-report.md",
+      "archive": "small-review-report.md",
+      "bytes": 1274,
+      "sha256": "711851a93327bb4b57b1e83056c6564cfcd86e57e482b34b3aceca09a0688e6b"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/small-review-stderr.txt",
+      "archive": "small-review-stderr.txt",
+      "bytes": 181,
+      "sha256": "a8a363ebf69bd4ba9a772675cb0183db7020cad273c738723079ad0ed8df7cf4"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/small-ruff.rc",
+      "archive": "small-ruff.rc",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/small-ruff.txt",
+      "archive": "small-ruff.txt",
+      "bytes": 19,
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/small-sol-review/events.jsonl",
+      "archive": "small-sol-review/events.jsonl",
+      "bytes": 465305,
+      "sha256": "f17cd9365e6e383a3306afb5b8c67bc9086681bd4e4cff347dc85283153a61d5"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/small-sol-review/independent_probe.py",
+      "archive": "small-sol-review/independent_probe.py.txt",
+      "bytes": 4173,
+      "sha256": "5d601d2f1ed4633c8533bd4a02d6d8f415ead4bfd638b39c1e0d12c0aa8f5f58"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/small-sol-review/operator-qc.md",
+      "archive": "small-sol-review/operator-qc.md",
+      "bytes": 2287,
+      "sha256": "09f3bcf2b427e609c1f92d4d2967314512a991f43162437758bbb034b2353ee9"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/small-sol-review/process.json",
+      "archive": "small-sol-review/process.json",
+      "bytes": 707,
+      "sha256": "03a3e58723b7f20331de130b9ecf85122db58a4240907459419b224f9fd026e4"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/small-sol-review/prompt.md",
+      "archive": "small-sol-review/prompt.md",
+      "bytes": 2068,
+      "sha256": "bd1e725238c737abfa19fc3d83de8dc717457acb0f058a1c65fd6391216ddb7a"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/small-sol-review/report.md",
+      "archive": "small-sol-review/report.md",
+      "bytes": 4044,
+      "sha256": "cf432cb06ffa5cb3751990dac60e40c18c30d008eec342879effa8b9f8d72652"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/small-sol-review/stderr.txt",
+      "archive": "small-sol-review/stderr.txt",
+      "bytes": 143,
+      "sha256": "5bb9f1151e015e2f68387eb56f2e8b0abd976e7c90dff1366b6a916b1db49792"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/timer-before.log",
+      "archive": "timer-before.log.txt",
+      "bytes": 15564,
+      "sha256": "3a0c7acd4d60521b4b4bf4bbf819783bde006f58719a5ddbe8d3a4acc6b04b24"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/timer-fix.patch",
+      "archive": "timer-fix.patch.txt",
+      "bytes": 5829,
+      "sha256": "629e31b95cf24e68f7cddc7abcb9b7234519670016fa4e3c2f266370a94cd496"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/timer-tests.patch",
+      "archive": "timer-tests.patch.txt",
+      "bytes": 6163,
+      "sha256": "9f85c5a1dff7ac7202f58baef05e67e5792e7ffb5f38c62dc58b5afe7600634c"
+    }
+  ]
+}

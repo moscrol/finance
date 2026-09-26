@@ -1,0 +1,107 @@
+"""Execute one user-authorized continuation of an existing domain review.
+
+Batch-local operator record, not a new review framework. Resume the exact prior
+thread once, preserve old evidence bytes, bind clean source identity, and bound
+only this process group. No automatic retry or provider fallback. A report or
+exit zero is not an acceptance verdict. Remaining domains require operator
+inspection after each invocation (shared capacity failure stops the sequence).
+"""
+from pathlib import Path
+import datetime
+import hashlib
+import json
+import os
+import signal
+import subprocess
+import sys
+
+BASE = Path('/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921')
+CANDIDATES = {
+    'history': '7edfe24e76afbd5c365fbf97dd2414847b086f88',
+    'runtime': 'cb16cd463db5c19b3187a5137009791082874653',
+    'financial': 'd82cb16b5ef31d23339a1bef7084a0dcb8221e15',
+}
+NAME = sys.argv[1]
+SHA = CANDIDATES[NAME]
+TREE = Path(f'/Users/a77/fwp-wt-{NAME}-forward-review-0921')
+OLD = BASE / f'{NAME}-sol-review'
+OUT = BASE / f'{NAME}-sol-review-resume-01'
+TIMEOUT = 1200
+
+
+def now():
+    return datetime.datetime.now(datetime.UTC).isoformat()
+
+
+def identity():
+    return {
+        'revision': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=TREE, text=True).strip(),
+        'status': subprocess.check_output(['git', 'status', '--porcelain=v1', '--untracked-files=all'], cwd=TREE, text=True),
+    }
+
+
+def hashes(root):
+    return {
+        p.relative_to(root).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
+        for p in sorted(root.rglob('*')) if p.is_file()
+    }
+
+
+def save(name, value):
+    with (OUT / name).open('x') as f:
+        json.dump(value, f, ensure_ascii=False, indent=2)
+        f.write('\n')
+
+
+os.umask(0o022)
+assert (OUT / 'prompt.md').is_file()
+assert not (OUT / 'process.json').exists(), 'Continuation already attempted; no automatic retry'
+prior = json.loads((OLD / 'completion.json').read_text())
+assert prior['head'] == SHA and prior['exit_code'] == 1 and not prior['report_exists']
+threads = [j['thread_id'] for line in (OLD / 'events.jsonl').read_text().splitlines()
+           if (j := json.loads(line)).get('type') == 'thread.started']
+assert len(threads) == 1
+before = identity()
+assert before == {'revision': SHA, 'status': ''}, before
+old_hashes = hashes(OLD)
+save('prior-evidence-hashes.json', old_hashes)
+cmd = [
+    '/Applications/ChatGPT.app/Contents/Resources/codex', 'exec',
+    '-C', str(TREE), '-s', 'workspace-write', '--add-dir', str(OUT),
+    'resume', '-m', 'gpt-5.6-sol', '-c', 'model_reasoning_effort="high"',
+    '-c', 'service_tier="default"', '--json', '-o', str(OUT / 'report.md'),
+    threads[0], '-',
+]
+record = {
+    'started_at': now(), 'name': NAME, 'head': SHA,
+    'identity_before': before, 'resumed_thread': threads[0], 'command': cmd,
+    'authorization': {'user_quote': '执行', 'source': 'current conversation user message after #838 handoff; preceding next step was to complete three domain independent reviews', 'interpretation': 'one bounded continuation per domain, existing subscription only; no merge/deploy/paid review'},
+    'auth': 'existing ChatGPT subscription; login status verified',
+    'timeout_seconds': TIMEOUT, 'same_reviewer_session': True,
+    'retry_policy': 'one attempt only; operator inspects before another domain; shared capacity failure stops remaining domains',
+}
+with (OUT / 'prompt.md').open('rb') as inp, (OUT / 'events.jsonl').open('xb') as events, (OUT / 'stderr.txt').open('xb') as err:
+    proc = subprocess.Popen(cmd, cwd=TREE, stdin=inp, stdout=events, stderr=err, start_new_session=True)
+    record['pid'] = proc.pid
+    save('process.json', record)
+    timed_out = False
+    try:
+        rc = proc.wait(timeout=TIMEOUT)
+    except subprocess.TimeoutExpired:
+        timed_out = True
+        for sig, wait in ((signal.SIGINT, 30), (signal.SIGTERM, 15), (signal.SIGKILL, 15)):
+            if proc.poll() is not None:
+                break
+            os.killpg(proc.pid, sig)
+            try:
+                proc.wait(timeout=wait)
+            except subprocess.TimeoutExpired:
+                continue
+        rc = proc.wait()
+record.update(finished_at=now(), exit_code=rc, timed_out=timed_out, identity_after=identity())
+record['identity_stable'] = record['identity_after'] == before
+record['prior_evidence_unchanged'] = hashes(OLD) == old_hashes
+record['report_exists'] = (OUT / 'report.md').is_file()
+record['note'] = 'Completion is not acceptance; inspect verdict, actual commands and independent probes. Prior failed turn remains part of this same review session.'
+save('completion.json', record)
+print(json.dumps(record, ensure_ascii=False, indent=2))
