@@ -98,6 +98,33 @@ def test_tool_events_render_distinct_labels_not_one_repeated_sentence() -> None:
     assert market.message != mainline.message
 
 
+@pytest.mark.parametrize(
+    "payload,expected",
+    [
+        ({"ok": True, "tool": "capital_data"}, "两融/大宗/解禁数据查询已结束，未确认取得可用记录。"),
+        ({"ok": True, "tool": "capital_data", "evidence": []}, "两融/大宗/解禁数据查询已结束，未确认取得可用记录。"),
+        (
+            {"ok": False, "tool": "market_data", "evidence": [{"title": "snapshot"}]},
+            "盘面快照查询已结束，未确认取得可用记录。",
+        ),
+        ({"ok": True, "tool": "market_data", "evidence": [{"title": "snapshot"}]}, "已取得盘面快照。"),
+        ({"ok": True, "tool": "some_unregistered_tool"}, "查询已结束，未确认取得可用资料。"),
+    ],
+)
+def test_tool_result_claims_material_only_when_evidence_arrived(payload, expected) -> None:
+    """ok=True only says the call returned; it is not business data.
+
+    A missing or empty evidence list, or ok=False, must not reach the user as
+    「已取得…」: capital_data legitimately returns empty slices, and the old generic
+    sentence 「已取得一批可核验资料。」 announced material that never arrived.
+    """
+
+    progress = project_episode_progress(EpisodeEvent(7, "tool_result", payload))
+
+    assert progress is not None
+    assert progress.message == expected
+
+
 def test_unregistered_tool_falls_back_instead_of_leaking_its_name() -> None:
     """认不出来就 fail closed：退回通用句，绝不把工具名透出去。"""
 
