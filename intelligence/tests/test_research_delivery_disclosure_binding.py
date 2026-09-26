@@ -56,6 +56,37 @@ def test_absence_is_a_negator_crossed_with_a_disclosure_noun(claim):
     assert kept == "收入可核[E1]，查询返回空白。"
 
 
+@pytest.mark.parametrize(
+    "claim",
+    [
+        "公告检索接口返回失败，但2025年10月30日公告说明公司已完成回购[E3]。",
+        "查询返回空白，但2020年公告表明公司已完成回购[E3]。",
+        "公告检索返回失败，因此2020年公告的回购进度需另行核对。",
+        "检索接口返回失败，所以未来90天解禁公告以东财日程为准[E2]。",
+        "查询返回不完整，因此非公开发行公告需另行核对。",
+        "查询返回不完整，因此公告金额为0.52亿元需另行核对。",
+    ],
+)
+def test_a_character_inside_a_date_or_word_is_not_a_negator(claim):
+    """Dates carry 0, 未来 and 非公开 negate nothing: the whole sentence stays."""
+    for evidence in ((), _evidence("l3_lookup")):
+        assert disclosure_absence_findings(claim, (FAILED_LOOKUP,), evidence) == ()
+
+
+@pytest.mark.parametrize(
+    "claim",
+    [
+        "收入可核[E1]，查询返回空白，因此本期共0份公告。",
+        "收入可核[E1]，查询返回空白，因此公告数量为0。",
+        "收入可核[E1]，查询返回空白，因此本期未发布新公告。",
+    ],
+)
+def test_a_counted_zero_and_a_real_negation_are_still_absence(claim):
+    findings = disclosure_absence_findings(claim, (FAILED_LOOKUP,))
+    assert findings
+    assert remove_findings(claim, findings) == "收入可核[E1]，查询返回空白。"
+
+
 def test_a_venue_we_never_listed_keeps_its_sentence_and_its_citation():
     findings = disclosure_absence_findings(DRAFT, (FAILED_LOOKUP,), _evidence("l3_lookup"))
     kept = remove_findings(DRAFT, findings)

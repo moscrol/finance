@@ -324,8 +324,8 @@
   {
     "id": "disclosure-connective-free-residue",
     "path": "intelligence/services/research_delivery_checks.py",
-    "old": "_NEGATOR = r\"(?:没有|并无|不存在|毫无|缺(?:失|少)?|未|无|非|零|0)\"",
-    "new": "_NEGATOR = r\"(?:没有|并无|不存在|毫无|缺(?:失|少)?|未|无|非|0)\"",
+    "old": "_NEGATOR = r\"(?:没有|并无|不存在|毫无|缺(?:失|少)?|未(?!来)|无|零|(?<![\\d.,])0(?=\\s*[份条则项篇个]))\"",
+    "new": "_NEGATOR = r\"(?:没有|并无|不存在|毫无|缺(?:失|少)?|未(?!来)|无|(?<![\\d.,])0(?=\\s*[份条则项篇个]))\"",
     "targets": [
       "test_review_second_round_disclosure_controls"
     ]
@@ -547,7 +547,7 @@
   {
     "id": "absence-is-negator-times-noun",
     "path": "intelligence/services/research_delivery_checks.py",
-    "old": "_NEGATOR = r\"(?:没有|并无|不存在|毫无|缺(?:失|少)?|未|无|非|零|0)\"",
+    "old": "_NEGATOR = r\"(?:没有|并无|不存在|毫无|缺(?:失|少)?|未(?!来)|无|零|(?<![\\d.,])0(?=\\s*[份条则项篇个]))\"",
     "new": "_NEGATOR = r\"(?:没有|并无)\"",
     "targets": [
       "test_absence_is_a_negator_crossed_with_a_disclosure_noun"
@@ -665,6 +665,51 @@
     "targets": [
       "test_percent_units_period_labels_and_growth_are_not_conflated",
       "test_label_free_table_skips_a_change_column"
+    ]
+  },
+  {
+    "id": "absence-date-zero-is-not-a-negator",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "(?<![\\d.,])0(?=\\s*[份条则项篇个])",
+    "new": "0",
+    "targets": [
+      "test_a_character_inside_a_date_or_word_is_not_a_negator"
+    ]
+  },
+  {
+    "id": "absence-future-is-not-a-negator",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "未(?!来)",
+    "new": "未",
+    "targets": [
+      "test_a_character_inside_a_date_or_word_is_not_a_negator"
+    ]
+  },
+  {
+    "id": "absence-identity-negation-is-not-absence",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "未(?!来)|无|零|",
+    "new": "未(?!来)|无|非|零|",
+    "targets": [
+      "test_a_character_inside_a_date_or_word_is_not_a_negator"
+    ]
+  },
+  {
+    "id": "absence-amount-zero-is-not-empty",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "为\\s?0(?![\\d.])",
+    "new": "为\\s?0",
+    "targets": [
+      "test_a_character_inside_a_date_or_word_is_not_a_negator"
+    ]
+  },
+  {
+    "id": "absence-counted-zero-still-counts",
+    "path": "intelligence/services/research_delivery_checks.py",
+    "old": "(?<![\\d.,])0(?=\\s*[份条则项篇个])",
+    "new": "(?!)",
+    "targets": [
+      "test_a_counted_zero_and_a_real_negation_are_still_absence"
     ]
   }
 ]

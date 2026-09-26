@@ -34,11 +34,14 @@ _SEARCH_GAP = re.compile(
 # Absence is a composition, not a phrase list. A negator is a closed class and
 # so is the disclosure noun; enumerating their surface combinations is what let
 # '本期无任何披露文件' through while '零披露' was caught. Cross them instead.
-_NEGATOR = r"(?:没有|并无|不存在|毫无|缺(?:失|少)?|未|无|非|零|0)"
+# Only negators, though: a date's 0 ('2025年10月30日公告说明…'), 未来 ('未来90天解禁
+# 公告', the capital tool's own wording) and 非 ('非公开发行公告') negate nothing,
+# and reading them as negators deleted cited facts. A counted zero still counts.
+_NEGATOR = r"(?:没有|并无|不存在|毫无|缺(?:失|少)?|未(?!来)|无|零|(?<![\d.,])0(?=\s*[份条则项篇个]))"
 _DISCLOSURE_NOUN = r"(?:公告|披露(?:文件|文档|内容|记录)?|公示|官方信息)"
 _ABSENCE = re.compile(
     rf"{_NEGATOR}[^。！？；;\n]{{0,6}}{_DISCLOSURE_NOUN}"
-    rf"|{_DISCLOSURE_NOUN}[^。！？；;\n]{{0,4}}(?:为空|为零|为\s?0|为无)"
+    rf"|{_DISCLOSURE_NOUN}[^。！？；;\n]{{0,4}}(?:为空|为零|为\s?0(?![\d.])|为无)"
     r"|(?:新增)?官方信息差|尚未兑现|没有兑现"
 )
 _INFERENCE = re.compile(r"因此|所以|说明|表明|证明|坐实|意味着|可判定|可以认定|即可|即无")
