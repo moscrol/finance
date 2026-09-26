@@ -1,0 +1,25 @@
+{
+  "schema": "knevo-pasted-batch/v1",
+  "received_date": "2026-09-26",
+  "source": {
+    "path_description": "用户粘贴附件（原始文件不在仓库内）",
+    "archive": "user-paste.txt",
+    "sha256": "d631473700ecba5507af9361fd03d9e7bf482ca5512a07cf02f904956e09bbae",
+    "bytes": 61930,
+    "lines": 521,
+    "encoding": "UTF-8",
+    "note": "保留原始换行；切片边界按可见文本与界面元数据定位，空白间隔未丢弃于完整归档。"
+  },
+  "segments": [
+    {"id":"q1-question","kind":"question","lines":[1,13],"byte_start":0,"byte_end":1485,"sha256":"cd1cee529ccbab6d035440dd123777f4408f2fa26a2988f5df7d3f7709ad3aa7"},
+    {"id":"q1-ui","kind":"ui_metadata","lines":[14,17],"byte_start":1485,"byte_end":1576,"sha256":"a35538add124d35520d6bc62f34d785216227cf15596088da4e2bd9bc4f9ae05"},
+    {"id":"q1-answer","kind":"answer","lines":[23,163],"byte_start":1581,"byte_end":18440,"sha256":"19635537f56aab2c3013683bec007db338977fee58be600c052018e1803c4491"},
+    {"id":"q2-question","kind":"question","lines":[165,186],"byte_start":18441,"byte_end":20115,"sha256":"d6e335231adbdabf31b461b689564b18966174b81ff2f37da6ea1889acc592b0"},
+    {"id":"q2-ui","kind":"ui_metadata","lines":[187,190],"byte_start":20115,"byte_end":20206,"sha256":"0abadf59c62fb3cab32111a1c229a97538c368e20a67461bf5c326d3357ab896"},
+    {"id":"q2-answer","kind":"answer","lines":[196,380],"byte_start":20211,"byte_end":41318,"sha256":"2f689a46cf66d0e92cf33351b11563b853e49f02a527b2f0b71ba469753a39a0"},
+    {"id":"q3-question","kind":"question","lines":[382,406],"byte_start":41319,"byte_end":43096,"sha256":"3187cfea9c50b8191bc538c47a3c4fcde598681fe9ee516d969caec6f8cdf258"},
+    {"id":"q3-ui","kind":"ui_metadata","lines":[407,410],"byte_start":43096,"byte_end":43187,"sha256":"c7fa80e9a0f6ea9535e9d7afe2b654893505e554b8119d2c4e6c06bcba8e61e6"},
+    {"id":"q3-answer","kind":"answer","lines":[417,521],"byte_start":43193,"byte_end":61930,"sha256":"c8c61be4c56b25855606a9aac4751ea40c49ba39d99449915b0ded67f8f720b3"}
+  ],
+  "ui_metadata_note": "界面显示的用时 898s、275s、980s 和“本轮免费”只证明粘贴文本中可见这些字样，不证明服务端性能、工具调用或完整模型轨迹。"
+}
