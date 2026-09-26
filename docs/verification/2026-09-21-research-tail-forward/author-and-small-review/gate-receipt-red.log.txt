@@ -1,0 +1,177 @@
+FFFFFFF.FFF                                                              [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260921T093625Z-f2c3e9e1.json
+
+=================================== FAILURES ===================================
+______ test_actual_stdout_receipt_wins_over_global_latest_and_unused_dir _______
+
+gate = (<function gate.<locals>.run at 0x10876b2e0>, PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pyte...ounts': {'error': 0, 'failed': 0, 'passed': 3, 'skipped': 0}, 'dirty': False, 'exit_status': 0, 'failed_ids': [], ...})
+
+    def test_actual_stdout_receipt_wins_over_global_latest_and_unused_dir(gate):
+        run, receipt, _ = gate
+        result = run()
+>       assert result.returncode == 0, result.stdout + result.stderr
+E       AssertionError: == gate @ main dedc975  tree=/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3271/test_actual_stdout_receipt_win0/repo  dirty=0  py=/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3271/test_actual_stdout_receipt_win0/python
+E         == ruff check .
+E         == pytest -q -p no:cacheprovider
+E         warning-tail
+E         warning-tail
+E         warning-tail
+E         warning-tail
+E         warning-tail
+E         warning-tail
+E         warning-tail
+E         warning-tail
+E         warning-tail
+E         warning-tail
+E         warning-tail
+E         warning-tail
+E         warning-tail
+E         warning-tail
+E         warning-tail
+E         /private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3271/test_actual_stdout_receipt_win0/repo/run_main_gate.sh: line 82: LATEST�: unbound variable
+E         
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['/bin/bash', '/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-327...pytest-of-a77/pytest-3271/test_actual_stdout_receipt_win0/repo/run_main_gate.sh: line 82: LATEST�: unbound variable\n').returncode
+
+tests/test_run_main_gate.py:70: AssertionError
+_____________ test_missing_receipt_fails_closed_under_utf8_locale ______________
+
+gate = (<function gate.<locals>.run at 0x10887ec00>, PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pyte...ounts': {'error': 0, 'failed': 0, 'passed': 3, 'skipped': 0}, 'dirty': False, 'exit_status': 0, 'failed_ids': [], ...})
+
+    def test_missing_receipt_fails_closed_under_utf8_locale(gate):
+        run, receipt, _ = gate
+        receipt.unlink()
+        result = run()
+>       assert result.returncode == 4
+E       AssertionError: assert 1 == 4
+E        +  where 1 = CompletedProcess(args=['/bin/bash', '/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-327...pytest-of-a77/pytest-3271/test_missing_receipt_fails_clo0/repo/run_main_gate.sh: line 82: LATEST�: unbound variable\n').returncode
+
+tests/test_run_main_gate.py:79: AssertionError
+_______________ test_no_receipt_pointer_never_uses_stale_latest ________________
+
+gate = (<function gate.<locals>.run at 0x10887f100>, PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pyte...ounts': {'error': 0, 'failed': 0, 'passed': 3, 'skipped': 0}, 'dirty': False, 'exit_status': 0, 'failed_ids': [], ...})
+
+    def test_no_receipt_pointer_never_uses_stale_latest(gate):
+        run, _, _ = gate
+        result = run(updates={"OMIT_RECEIPT": "1"})
+>       assert result.returncode == 4
+E       AssertionError: assert 1 == 4
+E        +  where 1 = CompletedProcess(args=['/bin/bash', '/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-327...pytest-of-a77/pytest-3271/test_no_receipt_pointer_never_0/repo/run_main_gate.sh: line 82: LATEST�: unbound variable\n').returncode
+
+tests/test_run_main_gate.py:86: AssertionError
+____________ test_live_gate_checks_receipt_identity[revision-wrong] ____________
+
+gate = (<function gate.<locals>.run at 0x10887f7e0>, PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pyte...ounts': {'error': 0, 'failed': 0, 'passed': 3, 'skipped': 0}, 'dirty': False, 'exit_status': 0, 'failed_ids': [], ...})
+field = 'revision', value = 'wrong'
+
+    @pytest.mark.parametrize("field,value", [("revision", "wrong"), ("tree", "/other/tree")])
+    def test_live_gate_checks_receipt_identity(gate, field, value):
+        run, receipt, data = gate
+        receipt.write_text(json.dumps({**data, field: value}))
+>       assert run().returncode == 4
+E       AssertionError: assert 1 == 4
+E        +  where 1 = CompletedProcess(args=['/bin/bash', '/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-327...pytest-of-a77/pytest-3271/test_live_gate_checks_receipt_0/repo/run_main_gate.sh: line 82: LATEST�: unbound variable\n').returncode
+E        +    where CompletedProcess(args=['/bin/bash', '/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-327...pytest-of-a77/pytest-3271/test_live_gate_checks_receipt_0/repo/run_main_gate.sh: line 82: LATEST�: unbound variable\n') = <function gate.<locals>.run at 0x10887f7e0>()
+
+tests/test_run_main_gate.py:94: AssertionError
+___________ test_live_gate_checks_receipt_identity[tree-/other/tree] ___________
+
+gate = (<function gate.<locals>.run at 0x10887fc40>, PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pyte...ounts': {'error': 0, 'failed': 0, 'passed': 3, 'skipped': 0}, 'dirty': False, 'exit_status': 0, 'failed_ids': [], ...})
+field = 'tree', value = '/other/tree'
+
+    @pytest.mark.parametrize("field,value", [("revision", "wrong"), ("tree", "/other/tree")])
+    def test_live_gate_checks_receipt_identity(gate, field, value):
+        run, receipt, data = gate
+        receipt.write_text(json.dumps({**data, field: value}))
+>       assert run().returncode == 4
+E       AssertionError: assert 1 == 4
+E        +  where 1 = CompletedProcess(args=['/bin/bash', '/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-327...pytest-of-a77/pytest-3271/test_live_gate_checks_receipt_1/repo/run_main_gate.sh: line 82: LATEST�: unbound variable\n').returncode
+E        +    where CompletedProcess(args=['/bin/bash', '/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-327...pytest-of-a77/pytest-3271/test_live_gate_checks_receipt_1/repo/run_main_gate.sh: line 82: LATEST�: unbound variable\n') = <function gate.<locals>.run at 0x10887fc40>()
+
+tests/test_run_main_gate.py:94: AssertionError
+__________________ test_measured_exit_must_agree_with_receipt __________________
+
+gate = (<function gate.<locals>.run at 0x10887f4c0>, PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pyte...ounts': {'error': 0, 'failed': 0, 'passed': 3, 'skipped': 0}, 'dirty': False, 'exit_status': 0, 'failed_ids': [], ...})
+
+    def test_measured_exit_must_agree_with_receipt(gate):
+        run, _, _ = gate
+>       assert run(updates={"FAKE_EXIT": "1"}).returncode == 4
+E       AssertionError: assert 1 == 4
+E        +  where 1 = CompletedProcess(args=['/bin/bash', '/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-327...pytest-of-a77/pytest-3271/test_measured_exit_must_agree_0/repo/run_main_gate.sh: line 82: LATEST�: unbound variable\n').returncode
+E        +    where CompletedProcess(args=['/bin/bash', '/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-327...pytest-of-a77/pytest-3271/test_measured_exit_must_agree_0/repo/run_main_gate.sh: line 82: LATEST�: unbound variable\n') = <function gate.<locals>.run at 0x10887f4c0>(updates={'FAKE_EXIT': '1'})
+
+tests/test_run_main_gate.py:99: AssertionError
+______________ test_receipt_only_does_not_turn_a_failed_run_green ______________
+
+gate = (<function gate.<locals>.run at 0x10887ef20>, PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pyte...error': 0, 'failed': 1, 'passed': 3, 'skipped': 0}, 'dirty': False, 'exit_status': 1, 'failed_ids': ['test_bad'], ...})
+
+    def test_receipt_only_does_not_turn_a_failed_run_green(gate):
+        run, receipt, data = gate
+        data.update(exit_status=1, failed_ids=["test_bad"])
+        data["counts"].update(failed=1)
+        receipt.write_text(json.dumps(data))
+        result = run("--receipt", str(receipt))
+>       assert result.returncode == 1
+E       AssertionError: assert 0 == 1
+E        +  where 0 = CompletedProcess(args=['/bin/bash', '/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-327...ytest-3271/test_receipt_only_does_not_tur0/repo\n   passed=3 failed=1 error=0 skipped=0\n   RED test_bad\n', stderr='').returncode
+
+tests/test_run_main_gate.py:108: AssertionError
+__ test_incomplete_or_dirty_receipt_cannot_be_a_green_gate[exit_status-None] ___
+
+gate = (<function gate.<locals>.run at 0x10887ff60>, PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pyte...ounts': {'error': 0, 'failed': 0, 'passed': 3, 'skipped': 0}, 'dirty': False, 'exit_status': 0, 'failed_ids': [], ...})
+field = 'exit_status', value = None
+
+    @pytest.mark.parametrize("field,value", [("exit_status", None), ("counts", {}), ("dirty", True)])
+    def test_incomplete_or_dirty_receipt_cannot_be_a_green_gate(gate, field, value):
+        run, receipt, data = gate
+        receipt.write_text(json.dumps({**data, field: value}))
+>       assert run("--receipt", str(receipt)).returncode == 4
+E       AssertionError: assert 0 == 4
+E        +  where 0 = CompletedProcess(args=['/bin/bash', '/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-327...T/pytest-of-a77/pytest-3271/test_incomplete_or_dirty_recei0/repo\n   passed=3 failed=0 error=0 skipped=0\n', stderr='').returncode
+E        +    where CompletedProcess(args=['/bin/bash', '/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-327...T/pytest-of-a77/pytest-3271/test_incomplete_or_dirty_recei0/repo\n   passed=3 failed=0 error=0 skipped=0\n', stderr='') = <function gate.<locals>.run at 0x10887ff60>('--receipt', '/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3271/test_incomplete_or_dirty_recei0/this-run.json')
+E        +      where '/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3271/test_incomplete_or_dirty_recei0/this-run.json' = str(PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3271/test_incomplete_or_dirty_recei0/this-run.json'))
+
+tests/test_run_main_gate.py:129: AssertionError
+____ test_incomplete_or_dirty_receipt_cannot_be_a_green_gate[counts-value1] ____
+
+gate = (<function gate.<locals>.run at 0x1087f8360>, PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pyte...ounts': {'error': 0, 'failed': 0, 'passed': 3, 'skipped': 0}, 'dirty': False, 'exit_status': 0, 'failed_ids': [], ...})
+field = 'counts', value = {}
+
+    @pytest.mark.parametrize("field,value", [("exit_status", None), ("counts", {}), ("dirty", True)])
+    def test_incomplete_or_dirty_receipt_cannot_be_a_green_gate(gate, field, value):
+        run, receipt, data = gate
+        receipt.write_text(json.dumps({**data, field: value}))
+>       assert run("--receipt", str(receipt)).returncode == 4
+E       AssertionError: assert 0 == 4
+E        +  where 0 = CompletedProcess(args=['/bin/bash', '/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-327...a77/pytest-3271/test_incomplete_or_dirty_recei1/repo\n   passed=None failed=None error=None skipped=None\n', stderr='').returncode
+E        +    where CompletedProcess(args=['/bin/bash', '/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-327...a77/pytest-3271/test_incomplete_or_dirty_recei1/repo\n   passed=None failed=None error=None skipped=None\n', stderr='') = <function gate.<locals>.run at 0x1087f8360>('--receipt', '/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3271/test_incomplete_or_dirty_recei1/this-run.json')
+E        +      where '/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3271/test_incomplete_or_dirty_recei1/this-run.json' = str(PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3271/test_incomplete_or_dirty_recei1/this-run.json'))
+
+tests/test_run_main_gate.py:129: AssertionError
+_____ test_incomplete_or_dirty_receipt_cannot_be_a_green_gate[dirty-True] ______
+
+gate = (<function gate.<locals>.run at 0x1087f8860>, PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pyte...ounts': {'error': 0, 'failed': 0, 'passed': 3, 'skipped': 0}, 'dirty': False, 'exit_status': 0, 'failed_ids': [], ...})
+field = 'dirty', value = True
+
+    @pytest.mark.parametrize("field,value", [("exit_status", None), ("counts", {}), ("dirty", True)])
+    def test_incomplete_or_dirty_receipt_cannot_be_a_green_gate(gate, field, value):
+        run, receipt, data = gate
+        receipt.write_text(json.dumps({**data, field: value}))
+>       assert run("--receipt", str(receipt)).returncode == 4
+E       AssertionError: assert 0 == 4
+E        +  where 0 = CompletedProcess(args=['/bin/bash', '/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-327...T/pytest-of-a77/pytest-3271/test_incomplete_or_dirty_recei2/repo\n   passed=3 failed=0 error=0 skipped=0\n', stderr='').returncode
+E        +    where CompletedProcess(args=['/bin/bash', '/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-327...T/pytest-of-a77/pytest-3271/test_incomplete_or_dirty_recei2/repo\n   passed=3 failed=0 error=0 skipped=0\n', stderr='') = <function gate.<locals>.run at 0x1087f8860>('--receipt', '/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3271/test_incomplete_or_dirty_recei2/this-run.json')
+E        +      where '/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3271/test_incomplete_or_dirty_recei2/this-run.json' = str(PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-3271/test_incomplete_or_dirty_recei2/this-run.json'))
+
+tests/test_run_main_gate.py:129: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_run_main_gate.py::test_actual_stdout_receipt_wins_over_global_latest_and_unused_dir
+FAILED tests/test_run_main_gate.py::test_missing_receipt_fails_closed_under_utf8_locale
+FAILED tests/test_run_main_gate.py::test_no_receipt_pointer_never_uses_stale_latest
+FAILED tests/test_run_main_gate.py::test_live_gate_checks_receipt_identity[revision-wrong]
+FAILED tests/test_run_main_gate.py::test_live_gate_checks_receipt_identity[tree-/other/tree]
+FAILED tests/test_run_main_gate.py::test_measured_exit_must_agree_with_receipt
+FAILED tests/test_run_main_gate.py::test_receipt_only_does_not_turn_a_failed_run_green
+FAILED tests/test_run_main_gate.py::test_incomplete_or_dirty_receipt_cannot_be_a_green_gate[exit_status-None]
+FAILED tests/test_run_main_gate.py::test_incomplete_or_dirty_receipt_cannot_be_a_green_gate[counts-value1]
+FAILED tests/test_run_main_gate.py::test_incomplete_or_dirty_receipt_cannot_be_a_green_gate[dirty-True]
+10 failed, 1 passed in 4.42s

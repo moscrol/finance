@@ -1,0 +1,99 @@
+"""Read back publication and memory, keep metadata outside the immutable attempt pack."""
+import argparse
+from datetime import datetime, timezone
+import hashlib
+import json
+from pathlib import Path
+import subprocess
+import urllib.request
+
+OUT = Path(__file__).resolve().parent
+DOCS = Path('/Users/a77/fwp-wt-research-tail-closeout-docs-0921')
+MEM = Path('/Users/a77/agent-memory')
+ROOT = DOCS / 'docs/verification/2026-09-21-research-tail-forward'
+CODE = '442476f7def1013f1fadebaf6594971921147edc'
+
+
+def git(repo, *args):
+    return subprocess.check_output(['git', '-C', str(repo), *args], timeout=30)
+
+
+def sha(data):
+    return hashlib.sha256(data).hexdigest()
+
+
+def main(archive_revision, memory_revision):
+    archive_revision = git(DOCS, 'rev-parse', archive_revision).decode().strip()
+    memory_revision = git(MEM, 'rev-parse', memory_revision).decode().strip()
+    archive = json.loads((OUT / 'archive-check.json').read_text())
+    assert archive['archive_revision'] == archive_revision and all(i['ok'] for i in archive['archives'])
+    key = subprocess.check_output(['security', 'find-generic-password', '-s', 'gitea-local', '-a', 'a77-token', '-w'], timeout=15).decode().strip()
+    api = 'http://127.0.0.1:3300/api/v1/repos/a77/finance-workspace-private'
+    def get(path):
+        req = urllib.request.Request(api + path, headers={'Authorization': 'token ' + key})
+        with urllib.request.urlopen(req, timeout=15) as response:
+            return json.load(response)
+    publications = []
+    for number in (845, 838):
+        result = json.loads((OUT / f'pr-{number}/result.json').read_text())
+        pr = get(f'/pulls/{number}')
+        comment = get(f'/issues/comments/{result["comment_id"]}')
+        assert result['archive_revision'] == archive_revision
+        assert pr['head']['sha'] == result['head_at_publication'] and pr['state'] == 'open' and not pr['merged']
+        assert sha(pr['body'].encode()) == result['body_sha256']
+        original = json.loads((OUT / f'pr-{number}/comment-verified.json').read_text())
+        assert comment['body'] == original['body']
+        publications.append(result)
+    prior = get('/pulls/833')
+    assert prior['head']['sha'] == '7edfe24e76afbd5c365fbf97dd2414847b086f88'
+    assert prior['state'] == 'open' and not prior['merged']
+    refs = git(DOCS, 'ls-remote', 'gitea', 'refs/heads/fix/history-forward-boundary-0921',
+               'refs/heads/docs/research-tail-closeout-0921', 'refs/heads/fix/history-forward-0921').decode().splitlines()
+    remote = {line.split()[1]: line.split()[0] for line in refs}
+    assert remote['refs/heads/fix/history-forward-boundary-0921'] == CODE
+    assert remote['refs/heads/docs/research-tail-closeout-0921'] == archive_revision
+    memory_records = []
+    for path in ('20_projects/finance-workspace-private.md', '10_knowledge/finance-agent-capability-graph.md'):
+        committed = git(MEM, 'show', memory_revision + ':' + path)
+        work = (MEM / path).read_bytes()
+        memory_records.append({'path': path, 'committed_sha256': sha(committed),
+                               'working_sha256': sha(work), 'working_matches': committed == work})
+    metadata = ROOT / 'history-engineering-06-publication'
+    metadata.mkdir(exist_ok=False)
+    copied = []
+    sources = [p for p in OUT.iterdir() if p.is_file() and p.suffix in {'.py', '.json', '.md', '.txt'}]
+    sources.extend(p for folder in OUT.glob('pr-*') for p in folder.iterdir() if p.is_file())
+    for source in sorted(sources):
+        relative = source.relative_to(OUT)
+        if source.suffix == '.py':
+            relative = relative.with_name(relative.name + '.txt')
+        target = metadata / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        with target.open('xb') as stream:
+            stream.write(source.read_bytes())
+        copied.append({'path': target.relative_to(DOCS).as_posix(), 'sha256': sha(target.read_bytes())})
+    audit = json.loads((OUT / 'graph-audit-result.json').read_text())
+    assert audit['exit_code'] == 0
+    receipt = {'recorded_at': datetime.now(timezone.utc).isoformat(),
+               'scope': 'Publication/archive integrity; complete predeclared Python partition is not an official #814 receipt or independent acceptance.',
+               'source_revision': CODE, 'archive_revision': archive_revision, 'archive_check': archive,
+               'publications': publications, 'original_pr833_unchanged': prior['head']['sha'],
+               'remote_heads_at_publication': remote,
+               'memory': {'commit': memory_revision, 'files': memory_records}, 'static_graph_audit': audit,
+               'publication_metadata_files': copied, 'overall': 'CHANGES_REQUIRED',
+               'no_merge_deploy_production_or_paid_review': True,
+               'future_docs_tip_note': 'A later docs-only commit adds this receipt and final handoff; all nine test archives stay bound to archive_revision.'}
+    target = ROOT / 'history-engineering-06-publication-check.json'
+    with target.open('x') as stream:
+        json.dump(receipt, stream, ensure_ascii=False, indent=2)
+        stream.write('\n')
+    print(json.dumps({'receipt': str(target), 'comments': [i['comment_id'] for i in publications],
+                      'memory': memory_revision, 'archives': len(archive['archives'])}))
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--archive', required=True)
+    parser.add_argument('--memory', required=True)
+    args = parser.parse_args()
+    main(args.archive, args.memory)

@@ -1,0 +1,122 @@
+{
+  "before": {
+    "head": "442476f7def1013f1fadebaf6594971921147edc",
+    "status": "",
+    "index_sha256": "a3e7046c51d5d982fd1ee92326650671eee2fa1cbe8dffa045ba4af6b525d75f"
+  },
+  "after": {
+    "head": "442476f7def1013f1fadebaf6594971921147edc",
+    "status": "",
+    "index_sha256": "a3e7046c51d5d982fd1ee92326650671eee2fa1cbe8dffa045ba4af6b525d75f"
+  },
+  "plugin_sha256": "e35a9e750b43d6ccd4193c7f2f9beb07a917b1197e3fa6e5382c20bb8f722f69",
+  "runner_sha256": "ee23565139261e6ae15c484f00736c03ebd0e9df79cdb0a90922d7c88a383e5f",
+  "results": [
+    {
+      "mode": "environmental",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "--tb=short",
+        "-p",
+        "coverage_plugin7",
+        "--basetemp",
+        "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-06/environmental/tmp",
+        "--junitxml",
+        "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-06/environmental/junit.xml",
+        "intelligence/tests/test_calculation_sandbox.py",
+        "intelligence/tests/test_codex_headless_runtime.py",
+        "intelligence/tests/test_rag_worker_keepalive.py"
+      ],
+      "env": {
+        "HOME": "/Users/a77",
+        "PATH": "/Users/a77/.local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+        "LANG": "en_US.UTF-8",
+        "TMPDIR": "/tmp",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "FWP_TEST_RECEIPT": "0",
+        "PYTHONPATH": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-06:/Users/a77/fwp-wt-history-forward-boundary-0921",
+        "HISTORY_CHECK_OUTPUT": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-06/environmental",
+        "HISTORY_CHECK_MODE": "environmental"
+      },
+      "before": {
+        "head": "442476f7def1013f1fadebaf6594971921147edc",
+        "status": "",
+        "index_sha256": "a3e7046c51d5d982fd1ee92326650671eee2fa1cbe8dffa045ba4af6b525d75f"
+      },
+      "started_at": "2026-09-21T18:44:29.402264+00:00",
+      "outer_sandbox": false,
+      "sandbox_profile": null,
+      "timeout_seconds": 120,
+      "min_free_bytes": 2147483648,
+      "plugin_sha256": "e35a9e750b43d6ccd4193c7f2f9beb07a917b1197e3fa6e5382c20bb8f722f69",
+      "signals": [],
+      "finished_at": "2026-09-21T18:44:31.414179+00:00",
+      "elapsed_seconds": 2.011573125142604,
+      "exit_code": 0,
+      "stop_reason": null,
+      "after": {
+        "head": "442476f7def1013f1fadebaf6594971921147edc",
+        "status": "",
+        "index_sha256": "a3e7046c51d5d982fd1ee92326650671eee2fa1cbe8dffa045ba4af6b525d75f"
+      },
+      "log_sha256": "3dbeb10b424b67320d06d7a37b79c719d6d959c630ea7b4edbc51110dc526a23"
+    },
+    {
+      "mode": "ordinary",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "--tb=short",
+        "-p",
+        "coverage_plugin7",
+        "--basetemp",
+        "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-06/ordinary/tmp",
+        "--junitxml",
+        "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-06/ordinary/junit.xml"
+      ],
+      "env": {
+        "HOME": "/Users/a77",
+        "PATH": "/Users/a77/.local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+        "LANG": "en_US.UTF-8",
+        "TMPDIR": "/tmp",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "FWP_TEST_RECEIPT": "0",
+        "PYTHONPATH": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-06:/Users/a77/fwp-wt-history-forward-boundary-0921",
+        "HISTORY_CHECK_OUTPUT": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-06/ordinary",
+        "HISTORY_CHECK_MODE": "ordinary"
+      },
+      "before": {
+        "head": "442476f7def1013f1fadebaf6594971921147edc",
+        "status": "",
+        "index_sha256": "a3e7046c51d5d982fd1ee92326650671eee2fa1cbe8dffa045ba4af6b525d75f"
+      },
+      "started_at": "2026-09-21T18:44:31.673292+00:00",
+      "outer_sandbox": true,
+      "sandbox_profile": "(version 1)\n(allow default)\n(deny network-outbound)\n(allow network-outbound (remote ip \"localhost:*\"))\n(deny file-write* (subpath \"/Users/a77/finance-workspace-private\"))\n(deny file-write* (subpath \"/Users/a77/agent-memory\"))\n",
+      "timeout_seconds": 2400,
+      "min_free_bytes": 2147483648,
+      "plugin_sha256": "e35a9e750b43d6ccd4193c7f2f9beb07a917b1197e3fa6e5382c20bb8f722f69",
+      "signals": [],
+      "finished_at": "2026-09-21T19:06:17.765647+00:00",
+      "elapsed_seconds": 1306.0919249998406,
+      "exit_code": 0,
+      "stop_reason": null,
+      "after": {
+        "head": "442476f7def1013f1fadebaf6594971921147edc",
+        "status": "",
+        "index_sha256": "a3e7046c51d5d982fd1ee92326650671eee2fa1cbe8dffa045ba4af6b525d75f"
+      },
+      "log_sha256": "a35473de83f3cc158812bdad4aa6a5f71602ac733e4b242e6d2b6b93b500f2da"
+    }
+  ],
+  "source_sha": "442476f7def1013f1fadebaf6594971921147edc"
+}

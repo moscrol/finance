@@ -1,0 +1,47 @@
+
+> market-intelligence-workbench@0.1.0 test /Users/a77/fwp-wt-history-forward-boundary-0921/intelligence/webapp
+> vitest run
+
+
+ RUN  v3.2.4 /Users/a77/fwp-wt-history-forward-boundary-0921/intelligence/webapp
+
+ ✓ src/researchActivity.test.ts (2 tests) 9ms
+ ✓ src/api.test.ts (3 tests) 16ms
+ ✓ src/streamEventRegistry.test.ts (2 tests) 8ms
+ ✓ src/components/ResearchActivityControl.test.tsx (5 tests) 1410ms
+   ✓ 默认关闭，拒收同意不启动区间，也不影响其他研究控件  801ms
+ ✓ src/components/ResearchProjectPanel.test.tsx (5 tests) 1250ms
+   ✓ ResearchProjectPanel > renders judgment, open questions, triggers, prior note and rounds from the projection  868ms
+   ✓ ResearchProjectPanel > orders next questions as given and sends continuation of the last completed round on click  336ms
+ ✓ src/components/DailyReportView.test.tsx (4 tests) 2436ms
+   ✓ DailyReportView > renders the five report layers with reader-facing labels  794ms
+   ✓ DailyReportView > keeps glossary and the original report behind disclosure controls  1177ms
+ ✓ src/components/ResearchEvolutionPanel.test.tsx (18 tests) 3455ms
+   ✓ ResearchEvolutionPanel > 哈希与内部版本只在详情里出现，不上主屏  769ms
+   ✓ ResearchEvolutionPanel > 动作带上当前项版本与管理修订，幂等键随之变化  355ms
+   ✓ ResearchEvolutionPanel > 未入选的关键项要点名，不能只显示入选的三条  422ms
+   ✓ ResearchEvolutionPanel > R4：未绑定记录可以「从现在开始跟踪」，从受控目录勾选证据后提交绑定  331ms
+   ✓ ResearchEvolutionPanel > R5：练习先作答再评分，收据可以查看原件  517ms
+ ✓ src/components/components.test.tsx (71 tests) 18029ms
+   ✓ Workbench components > starts a workflow preset and submits from the unified composer  822ms
+   ✓ Workbench navigation reliability > opens on today and navigates across the five product surfaces  1067ms
+   ✓ Workbench navigation reliability > restores the latest conversation and submits in hybrid mode  929ms
+   ✓ Workbench navigation reliability > seeds the credits line from bootstrap and refreshes it once a question is accepted  1125ms
+   ✓ Workbench navigation reliability > submits an explicit KOL perspective without mixing other profiles  1054ms
+   ✓ Workbench navigation reliability > regenerates with the original user message perspective  374ms
+   ✓ Workbench navigation reliability > recovers a persisted terminal run after the stream disconnects  1034ms
+   ✓ Workbench navigation reliability > keeps polling while terminal ownership precedes report delivery  1558ms
+   ✓ Workbench navigation reliability > does not let an old finalization snapshot erase the next submitted turn  1424ms
+   ✓ Workbench navigation reliability > keeps cancel pending until polling confirms the cancelled state  1049ms
+   ✓ Workbench navigation reliability > closes the event stream and polling timer when unmounted  777ms
+   ✓ Workbench navigation reliability > configures session-only BYOK without exposing the key  773ms
+   ✓ Workbench navigation reliability > persists BYOK only after opt-in and can explicitly forget it  1267ms
+   ✓ Workbench navigation reliability > regenerates as a new message without replacing the old answer  745ms
+   ✓ Workbench navigation reliability > does not let a late conversation response replace the current thread  427ms
+   ✓ Workbench navigation reliability > does not let a late artifact response replace the current selection  645ms
+
+ Test Files  8 passed (8)
+      Tests  110 passed (110)
+   Start at  00:55:00
+   Duration  30.27s (transform 5.84s, setup 11.56s, collect 14.94s, tests 26.61s, environment 27.68s, prepare 5.64s)
+

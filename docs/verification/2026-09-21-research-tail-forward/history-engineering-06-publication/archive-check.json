@@ -1,0 +1,97 @@
+{
+  "recorded_at": "2026-09-21T19:13:25.523693+00:00",
+  "archive_revision": "3fd631017b4b40eec4926024f68af0976161da8f",
+  "archives": [
+    {
+      "revision": "3fd631017b4b40eec4926024f68af0976161da8f",
+      "archive": "docs/verification/2026-09-21-research-tail-forward/author-and-small-review",
+      "manifest_files": 281,
+      "committed_files": 281,
+      "ok": true,
+      "errors": []
+    },
+    {
+      "revision": "3fd631017b4b40eec4926024f68af0976161da8f",
+      "archive": "docs/verification/2026-09-21-research-tail-forward/domain-review-resume-01",
+      "manifest_files": 38,
+      "committed_files": 38,
+      "ok": true,
+      "errors": []
+    },
+    {
+      "revision": "3fd631017b4b40eec4926024f68af0976161da8f",
+      "archive": "docs/verification/2026-09-21-research-tail-forward/domain-reviews-blocked",
+      "manifest_files": 28,
+      "committed_files": 28,
+      "ok": true,
+      "errors": []
+    },
+    {
+      "revision": "3fd631017b4b40eec4926024f68af0976161da8f",
+      "archive": "docs/verification/2026-09-21-research-tail-forward/history-boundary-repair-01",
+      "manifest_files": 45,
+      "committed_files": 45,
+      "ok": true,
+      "errors": []
+    },
+    {
+      "revision": "3fd631017b4b40eec4926024f68af0976161da8f",
+      "archive": "docs/verification/2026-09-21-research-tail-forward/history-engineering-04",
+      "manifest_files": 212,
+      "committed_files": 212,
+      "ok": true,
+      "errors": []
+    },
+    {
+      "revision": "3fd631017b4b40eec4926024f68af0976161da8f",
+      "archive": "docs/verification/2026-09-21-research-tail-forward/history-engineering-resume-05",
+      "manifest_files": 49,
+      "committed_files": 49,
+      "ok": true,
+      "errors": []
+    },
+    {
+      "revision": "3fd631017b4b40eec4926024f68af0976161da8f",
+      "archive": "docs/verification/2026-09-21-research-tail-forward/history-engineering-resume-06",
+      "manifest_files": 33,
+      "committed_files": 33,
+      "ok": true,
+      "errors": []
+    },
+    {
+      "revision": "3fd631017b4b40eec4926024f68af0976161da8f",
+      "archive": "docs/verification/2026-09-21-research-tail-forward/history-permission-repair-02",
+      "manifest_files": 58,
+      "committed_files": 58,
+      "ok": true,
+      "errors": []
+    },
+    {
+      "revision": "3fd631017b4b40eec4926024f68af0976161da8f",
+      "archive": "docs/verification/2026-09-21-research-tail-forward/history-source-partition-03",
+      "manifest_files": 81,
+      "committed_files": 81,
+      "ok": true,
+      "errors": []
+    }
+  ],
+  "originals": [
+    {
+      "archive": "history-engineering-04",
+      "whole_originals_matching": 210,
+      "chunked_originals_matching": 0
+    },
+    {
+      "archive": "history-engineering-resume-05",
+      "whole_originals_matching": 44,
+      "chunked_originals_matching": 2
+    },
+    {
+      "archive": "history-engineering-resume-06",
+      "whole_originals_matching": 28,
+      "chunked_originals_matching": 2
+    }
+  ],
+  "old_eight_unchanged_from": "57f187de9c89f528bb79fdd8928c4a862b27fa60",
+  "total_manifest_members": 825
+}

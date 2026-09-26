@@ -1,0 +1,122 @@
+{
+  "recorded_at": "2026-09-21T10:44:22.585908+00:00",
+  "purpose": "operator verification of author engineering evidence, not independent or natural-quality acceptance",
+  "latest_main_observed": "f2c3e9e1a24f42ae9b1d5a8cb9e501ababd1330a",
+  "candidates": [
+    {
+      "name": "small",
+      "pr": 831,
+      "revision": "ea5c3a94618a15e37f914c8b1a13e271875e4337",
+      "tested_tree": "/Users/a77/fwp-wt-research-tail-integration-0921",
+      "python_receipt": "small-python-receipt.json",
+      "python_counts": {
+        "passed": 12444,
+        "failed": 0,
+        "error": 0,
+        "skipped": 87
+      },
+      "pytest_exit": 0,
+      "xfail": 2,
+      "leaf_exits": {
+        "small-registry-check-parseability.rc": 0,
+        "small-registry-backfill-tables_--check.rc": 0,
+        "small-registry-generate-views_--check.rc": 0,
+        "small-registry-check.rc": 0,
+        "small-pytest.rc": 0,
+        "small-map-build.rc": 0,
+        "small-crosswalk.rc": 0,
+        "small-ruff.rc": 0
+      },
+      "frontend_receipt": "small-frontend-gates/frontend.json",
+      "frontend_log_hashes_verified": true,
+      "original_wrapper_failed": false,
+      "history_runtime_wrapper_failure": null,
+      "new_main_and_joint_tree_tested": false
+    },
+    {
+      "name": "history",
+      "pr": 833,
+      "revision": "7edfe24e76afbd5c365fbf97dd2414847b086f88",
+      "tested_tree": "/Users/a77/fwp-wt-history-forward-0921",
+      "python_receipt": "history-python-receipt.json",
+      "python_counts": {
+        "passed": 12631,
+        "failed": 0,
+        "error": 0,
+        "skipped": 87
+      },
+      "pytest_exit": 0,
+      "xfail": 2,
+      "leaf_exits": {
+        "history-crosswalk.rc": 0,
+        "history-registry-generate-views_--check.rc": 0,
+        "history-registry-check-parseability.rc": 0,
+        "history-registry-backfill-tables_--check.rc": 0,
+        "history-main-gate.rc": 1,
+        "history-registry-check.rc": 0
+      },
+      "frontend_receipt": "history-frontend-gates/frontend.json",
+      "frontend_log_hashes_verified": true,
+      "original_wrapper_failed": true,
+      "history_runtime_wrapper_failure": "invalid receipt directory + UTF-8 shell variable expansion; explicit receipt validated separately",
+      "new_main_and_joint_tree_tested": false
+    },
+    {
+      "name": "runtime",
+      "pr": 834,
+      "revision": "cb16cd463db5c19b3187a5137009791082874653",
+      "tested_tree": "/Users/a77/fwp-wt-runtime-forward-0921",
+      "python_receipt": "runtime-python-receipt.json",
+      "python_counts": {
+        "passed": 12870,
+        "failed": 0,
+        "error": 0,
+        "skipped": 87
+      },
+      "pytest_exit": 0,
+      "xfail": 2,
+      "leaf_exits": {
+        "runtime-crosswalk.rc": 0,
+        "runtime-registry-check.rc": 0,
+        "runtime-registry-backfill-tables_--check.rc": 0,
+        "runtime-registry-check-parseability.rc": 0,
+        "runtime-main-gate.rc": 1,
+        "runtime-registry-generate-views_--check.rc": 0
+      },
+      "frontend_receipt": "runtime-frontend-gates/frontend.json",
+      "frontend_log_hashes_verified": true,
+      "original_wrapper_failed": true,
+      "history_runtime_wrapper_failure": "invalid receipt directory + UTF-8 shell variable expansion; explicit receipt validated separately",
+      "new_main_and_joint_tree_tested": false
+    },
+    {
+      "name": "financial",
+      "pr": 835,
+      "revision": "d82cb16b5ef31d23339a1bef7084a0dcb8221e15",
+      "tested_tree": "/Users/a77/fwp-wt-financial-forward-0921",
+      "python_receipt": "financial-python-receipt.json",
+      "python_counts": {
+        "passed": 13305,
+        "failed": 0,
+        "error": 0,
+        "skipped": 87
+      },
+      "pytest_exit": 0,
+      "xfail": 2,
+      "leaf_exits": {
+        "financial-ruff.rc": 0,
+        "financial-crosswalk.rc": 0,
+        "financial-registry-backfill-tables_--check.rc": 0,
+        "financial-registry-check.rc": 0,
+        "financial-pytest.rc": 0,
+        "financial-registry-check-parseability.rc": 0,
+        "financial-registry-generate-views_--check.rc": 0
+      },
+      "frontend_receipt": "financial-frontend-gates/frontend.json",
+      "frontend_log_hashes_verified": true,
+      "original_wrapper_failed": false,
+      "history_runtime_wrapper_failure": null,
+      "new_main_and_joint_tree_tested": false
+    }
+  ]
+}

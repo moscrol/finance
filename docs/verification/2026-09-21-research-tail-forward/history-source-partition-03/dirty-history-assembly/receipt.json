@@ -1,0 +1,55 @@
+{
+  "started": "2026-09-21T15:54:16.550536+00:00",
+  "finished": "2026-09-21T15:54:26.072857+00:00",
+  "scope": "focused operator check, not full gates or independent acceptance",
+  "command": [
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "--tb=short",
+    "--basetemp",
+    "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-source-partition-03/dirty-history-assembly/tmp",
+    "tests/test_history_control_boundary.py",
+    "tests/test_history_permission_inheritance.py",
+    "tests/test_history_source_partition.py",
+    "tests/test_history_market_anatomy.py",
+    "tests/test_history_local_read_execution.py",
+    "intelligence/tests/test_historical_research_episode.py",
+    "intelligence/tests/test_episode_factory.py",
+    "intelligence/tests/test_query_resolution.py"
+  ],
+  "before": {
+    "head": "7c99f389e9c72668663449dedeacd7fe4830cbdd\n",
+    "status": " M docs/agent-product-door.md\n M intelligence/services/research_contract.py\n M intelligence/services/task_frame.py\n M intelligence/services/user_task.py\n M scripts/probe_history_control_boundary.py\n?? tests/test_history_source_partition.py\n",
+    "sha256": {
+      "intelligence/services/user_task.py": "62ff216749854b98b0030f20870c587de4ff129a8d14cf2bcefa30f11b9f6544",
+      "intelligence/services/task_frame.py": "0691bd2d29590de2df6410616a70e140fd2a3527105f4e5acf711f285b3d78fa",
+      "intelligence/services/conversation_materials.py": "2f45557a033aeaf92cf7b7bfcfd0fbc4b64a27cc3ece0fcf8da1f5cf90263fc4",
+      "intelligence/services/turn_controller.py": "d58fce3f0b0f29fc237f037dd2dd9bf15d387fbe403adf416ce7264430328921",
+      "tests/test_history_source_partition.py": "5bfa7d75c8cc4ac8f6f5db432d4cfb0d426d00d86a645034fa7aadbbb616a293",
+      "tests/test_history_control_boundary.py": "0e80cde3c04d563c5fcd555d779288e9d90c58b640d199f0b4308699492a4f95",
+      "tests/test_history_permission_inheritance.py": "e33eab60a1cb6026bcc4cde50306f378bfe83170a7fa6330ece13033dce818f2",
+      "scripts/probe_history_control_boundary.py": "0086947679af3b70a1625f8a63c1e26479ba69f726d9ca704a34e8089e0f228b",
+      "docs/agent-product-door.md": "cc583fd8d5699b7bb0293a5a37f601b68208cf8b8cfd9ab46daa09d6489bfcf2"
+    }
+  },
+  "after": {
+    "head": "7c99f389e9c72668663449dedeacd7fe4830cbdd\n",
+    "status": " M docs/agent-product-door.md\n M intelligence/services/research_contract.py\n M intelligence/services/task_frame.py\n M intelligence/services/user_task.py\n M scripts/probe_history_control_boundary.py\n?? tests/test_history_source_partition.py\n",
+    "sha256": {
+      "intelligence/services/user_task.py": "62ff216749854b98b0030f20870c587de4ff129a8d14cf2bcefa30f11b9f6544",
+      "intelligence/services/task_frame.py": "0691bd2d29590de2df6410616a70e140fd2a3527105f4e5acf711f285b3d78fa",
+      "intelligence/services/conversation_materials.py": "2f45557a033aeaf92cf7b7bfcfd0fbc4b64a27cc3ece0fcf8da1f5cf90263fc4",
+      "intelligence/services/turn_controller.py": "d58fce3f0b0f29fc237f037dd2dd9bf15d387fbe403adf416ce7264430328921",
+      "tests/test_history_source_partition.py": "5bfa7d75c8cc4ac8f6f5db432d4cfb0d426d00d86a645034fa7aadbbb616a293",
+      "tests/test_history_control_boundary.py": "0e80cde3c04d563c5fcd555d779288e9d90c58b640d199f0b4308699492a4f95",
+      "tests/test_history_permission_inheritance.py": "e33eab60a1cb6026bcc4cde50306f378bfe83170a7fa6330ece13033dce818f2",
+      "scripts/probe_history_control_boundary.py": "0086947679af3b70a1625f8a63c1e26479ba69f726d9ca704a34e8089e0f228b",
+      "docs/agent-product-door.md": "cc583fd8d5699b7bb0293a5a37f601b68208cf8b8cfd9ab46daa09d6489bfcf2"
+    }
+  },
+  "exit": 0,
+  "timed_out": false,
+  "expected_exit": 0
+}

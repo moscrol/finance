@@ -1,0 +1,14 @@
+{
+  "recorded_at": "2026-09-21T19:14:29.287254+00:00",
+  "number": 838,
+  "source_revision": "442476f7def1013f1fadebaf6594971921147edc",
+  "archive_revision": "3fd631017b4b40eec4926024f68af0976161da8f",
+  "head_at_publication": "3fd631017b4b40eec4926024f68af0976161da8f",
+  "body_sha256": "56198e6722bc7ba5456fb9239f3bf09b710136fb3c9de202ea980b151cd76465",
+  "comment_id": 5560,
+  "url": "http://127.0.0.1:3300/a77/finance-workspace-private/pulls/838#issuecomment-5560",
+  "write_errors_readback_resolved": [],
+  "overall": "CHANGES_REQUIRED",
+  "independent_review": "NOT_RESTARTED",
+  "merge_deploy_production": "NOT_PERFORMED"
+}

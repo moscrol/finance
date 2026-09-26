@@ -1,0 +1,1 @@
+{"already_open": false, "number": 835, "state": "open", "merged": false, "head": "fix/financial-forward-0921", "head_sha": "d82cb16b5ef3", "base": "fix/research-tail-integration-0921", "mergeable_claimed_by_gitea": false, "title": "WIP: 财务比例与交付合同前向整合（保主干发布/材料保护）", "url": "http://127.0.0.1:3300/a77/finance-workspace-private/pulls/835"}

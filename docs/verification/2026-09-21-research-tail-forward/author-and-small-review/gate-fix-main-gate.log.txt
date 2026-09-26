@@ -1,0 +1,20 @@
+== gate @ fix/gate-receipt-selection-0921 c35f61d37  tree=/Users/a77/fwp-wt-gate-receipt-selection-0921  dirty=0  py=/Users/a77/finance-workspace-private/.venv-workbench/bin/python
+== ruff check .
+All checks passed!
+== pytest -q -p no:cacheprovider
+  File "/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py", line 1021, in finish
+    fin()
+  File "/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/fixtures.py", line 907, in _teardown_yield_fixture
+    next(it)
+  File "/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/tmpdir.py", line 271, in tmp_path
+    result_dict = request.node.stash[tmppath_result_key]
+                  ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+  File "/Users/a77/finance-workspace-private/.venv-workbench/lib/python3.12/site-packages/_pytest/stash.py", line 84, in __getitem__
+    return cast(T, self._storage[key])
+                   ~~~~~~~~~~~~~^^^^^
+KeyError: <_pytest.stash.StashKey object at 0x108302e60>
+读数收据: /Users/a77/.finance-runtime/test-receipts/20260921T095344Z-c35f61d3.json
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! KeyboardInterrupt !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/pathlib.py:1140: KeyboardInterrupt
+(to show a full traceback on KeyboardInterrupt use --full-trace)
+收据不可用于门禁：收据与 pytest 实测退出码不一致

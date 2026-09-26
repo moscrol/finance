@@ -1,0 +1,1 @@
+2026-09-21T09:16:13.123924Z ERROR codex_core::tools::router: error=failed to spawn code-mode host /Users/a77/.local/bin/codex-code-mode-host: No such file or directory (os error 2)
