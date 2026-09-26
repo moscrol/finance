@@ -1,0 +1,7 @@
+revision_before_commit=bc43ece9fc0550663645c2e8c57d57d7618b8e0d
+command=FWP_TEST_RECEIPT=0 /Users/a77/finance-workspace-private/.venv-workbench/bin/python -m pytest -q intelligence/tests/test_rag_worker_generation.py intelligence/tests/test_rag_worker.py intelligence/tests/test_rag_worker_keepalive.py intelligence/tests/test_kb_runtime_roots.py intelligence/tests/test_kb_filter_receipt.py
+........................................................................ [ 61%]
+..............................................                           [100%]
+118 passed in 5.31s
+command=/Users/a77/finance-workspace-private/.venv-workbench/bin/python -m ruff check <changed-and-adjacent>
+All checks passed!

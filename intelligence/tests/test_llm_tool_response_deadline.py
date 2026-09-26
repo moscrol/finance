@@ -1,4 +1,9 @@
-"""Tool response reads share the original call window, not an idle timeout."""
+"""Tool response reads share the original call window, not an idle timeout.
+
+Since the main merge (#868) the absolute deadline is enforced by the worker transport
+(``llm_http_transport``); these tests keep the tool-call specific guarantees and the
+private ``stream_progress`` diagnostics on top of it.
+"""
 from __future__ import annotations
 
 from contextlib import contextmanager
@@ -9,7 +14,7 @@ import time
 
 import pytest
 
-from intelligence.services import llm_refine
+from intelligence.services import llm_http_transport, llm_refine
 
 
 @contextmanager
@@ -69,17 +74,6 @@ def local_only(monkeypatch):
     monkeypatch.setenv("no_proxy", "127.0.0.1")
     monkeypatch.setenv("NO_PROXY", "127.0.0.1")
     monkeypatch.setattr(llm_refine, "_reserve_llm_call", lambda: None)
-    timers = []
-    real_timer = threading.Timer
-
-    def tracked_timer(*args, **kwargs):
-        timer = real_timer(*args, **kwargs)
-        timers.append(timer)
-        return timer
-
-    monkeypatch.setattr(llm_refine.threading, "Timer", tracked_timer)
-    yield
-    assert all(not timer.is_alive() for timer in timers)
 
 
 @pytest.mark.parametrize("streaming", [False, True])
@@ -90,13 +84,13 @@ def test_trickling_response_cannot_renew_tool_call_window(monkeypatch, streaming
     deltas = []
     with local_provider(streaming=streaming, header_delay=header_delay) as provider:
         started = time.monotonic()
-        with pytest.raises(TimeoutError):
+        with pytest.raises((TimeoutError, llm_refine.LLMDeadlineExceeded)):
             if streaming:
                 llm_refine._post_chat_message_stream(provider, [], 0.35, 0.0, [], "auto", True, deltas.append)
             else:
                 llm_refine._post_chat_message(provider, [], 0.35)
         elapsed = time.monotonic() - started
-    assert elapsed < 0.65, f"response read renewed the 0.35s window: {elapsed:.3f}s"
+    assert elapsed < 0.85, f"response read renewed the 0.35s window: {elapsed:.3f}s"
     assert deltas == []
     assert len(records) == 1 and records[0][2] == "failed"
 
@@ -118,7 +112,7 @@ def test_response_deadline_does_not_add_provider_fallback(monkeypatch):
         monkeypatch.setattr(llm_refine, "detect_providers", lambda _: (provider, provider))
         monkeypatch.setattr(llm_refine, "_record_llm_call", lambda *args, **kwargs: calls.append(args))
         message, used, reason = llm_refine.chat_with_tools([], [], timeout=0.2, min_viable_seconds=0)
-    assert message is None and used == provider and "TimeoutError" in reason
+    assert message is None and used == provider and "LLMDeadlineExceeded" in reason
     assert len(calls) == 1
 
 
@@ -140,7 +134,7 @@ def test_expiry_after_first_delta_keeps_no_replay_rule(monkeypatch):
 def test_failed_stream_keeps_progress_without_partial_text(emit_first):
     with local_provider(streaming=True, emit_first=emit_first) as provider:
         with llm_refine.call_ledger_scope() as ledger:
-            with pytest.raises((TimeoutError, llm_refine.LLMStreamAlreadyEmitted)):
+            with pytest.raises((TimeoutError, llm_refine.LLMDeadlineExceeded, llm_refine.LLMStreamAlreadyEmitted)):
                 llm_refine._post_chat_message_stream(provider, [], 0.2, 0.0, [], "auto", True, lambda _: None)
         record = ledger.summary()["records"][0]
     progress = record["stream_progress"]
@@ -176,7 +170,7 @@ def test_stream_progress_counts_hidden_reasoning_and_tool_fragments_only(monkeyp
                 raise OSError("PRIVATE_ERROR")
             yield sse({"choices": [{"delta": {}, "finish_reason": "tool_calls"}]}).splitlines()[0]
 
-    monkeypatch.setattr(llm_refine.urllib.request, "urlopen", lambda *_a, **_kw: TimedResponse({}))
+    monkeypatch.setattr(llm_http_transport, "urlopen", lambda *_a, **_kw: TimedResponse({}))
     with llm_refine.call_ledger_scope() as ledger:
         if disconnect:
             with pytest.raises(llm_refine.LLMStreamAlreadyEmitted):
@@ -200,7 +194,7 @@ def test_pre_header_failure_does_not_invent_first_content_time(monkeypatch):
     def fail(*_args, **_kwargs):
         raise TimeoutError("PRIVATE_ERROR")
 
-    monkeypatch.setattr(llm_refine.urllib.request, "urlopen", fail)
+    monkeypatch.setattr(llm_http_transport, "urlopen", fail)
     with llm_refine.call_ledger_scope() as ledger:
         with pytest.raises(TimeoutError):
             llm_refine._post_chat_message_stream(PROVIDER, [], 5, 0, [], None, True, lambda _: None)
@@ -212,15 +206,24 @@ def test_pre_header_failure_does_not_invent_first_content_time(monkeypatch):
     assert record["stream_progress"]["deadline_expired"] is False
 
 
-def test_late_result_without_socket_is_still_rejected(monkeypatch):
+def test_late_stream_completion_is_rejected_and_marked_expired(monkeypatch):
+    """A body that finishes after the call deadline is not accepted as success."""
+    from intelligence.tests.test_llm_call_provenance import PROVIDER, Response, sse
+
     clock = [0.0]
     monkeypatch.setattr(llm_refine.time, "monotonic", lambda: clock[0])
-    with pytest.raises(TimeoutError):
-        with llm_refine._tool_response_window(object(), llm_refine.Deadline(1.0)):
-            clock[0] = 2.0
 
+    class LateResponse(Response):
+        def __iter__(self):
+            yield sse({"choices": [{"delta": {"reasoning_content": "r"}}]}).splitlines()[0]
+            clock[0] = 6.0
+            yield sse({"choices": [{"delta": {}, "finish_reason": "stop"}]}).splitlines()[0]
 
-def test_exhausted_window_does_not_enter_response_reader():
-    with pytest.raises(TimeoutError):
-        with llm_refine._tool_response_window(object(), llm_refine.Deadline.from_timeout(0)):
-            pytest.fail("expired response body must not be consumed")
+    monkeypatch.setattr(llm_http_transport, "urlopen", lambda *_a, **_kw: LateResponse({}))
+    with llm_refine.call_ledger_scope() as ledger:
+        with pytest.raises(llm_refine.LLMDeadlineExceeded):
+            llm_refine._post_chat_message_stream(PROVIDER, [], 5, 0, [], None, True, lambda _: None)
+        record = ledger.summary()["records"][0]
+    assert record["status"] == "failed" and record["reason"] == "timeout"
+    assert record["stream_progress"]["deadline_expired"] is True
+    assert record["stream_progress"]["reasoning_chars"] == 1

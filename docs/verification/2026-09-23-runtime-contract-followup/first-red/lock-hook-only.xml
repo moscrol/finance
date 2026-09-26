@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="14.109" timestamp="2026-09-23T13:21:40.528462+08:00" hostname="77deMacBook-Air.local"><testcase classname="intelligence.tests.test_episode_writer" name="test_close_drains_inflight_delivery_before_releasing_writer" time="10.043"><failure message="assert False&#10; +  where False = wait(10)&#10; +    where wait = &lt;threading.Event at 0x107c5be30: unset&gt;.wait">intelligence/tests/test_episode_writer.py:244: in test_close_drains_inflight_delivery_before_releasing_writer
+    assert close_attempted.wait(10)
+E   assert False
+E    +  where False = wait(10)
+E    +    where wait = &lt;threading.Event at 0x107c5be30: unset&gt;.wait</failure></testcase></testsuite></testsuites>

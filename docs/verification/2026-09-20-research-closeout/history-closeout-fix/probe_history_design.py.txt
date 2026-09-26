@@ -1,0 +1,76 @@
+"""Read-only source review probes; synthetic DB and artifacts under this directory."""
+from __future__ import annotations
+
+import json
+from pathlib import Path
+import sys
+
+SOURCE = Path('/Users/a77/fwp-wt-history-closeout-0920')
+ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, str(SOURCE))
+
+from tests.test_history_market_anatomy import anatomy_db, run as query, record
+from tests.test_history_window_binding import _scenario, _read, _execute, _args, _context, _tools
+from tests.test_history_live_seams import _decide, FOLLOWUPS
+from intelligence.services.historical_research.episode import HistorySession
+
+
+def main():
+    import tempfile
+    import duckdb
+
+    with tempfile.TemporaryDirectory(prefix='probe-', dir=ROOT) as temporary:
+        temp = Path(temporary)
+        database = anatomy_db.__wrapped__(temp)
+        tools, context, session, original, ref, store, conversation, decision = _scenario(temp, database)
+        _read(tools, context, ref)
+        ranked = _execute(tools, context, **_args(original, ref))
+        rank_ref = ranked.telemetry['result_ref']
+        follow = _decide(store, conversation, FOLLOWUPS[1], decision.turn_intent, 2)
+        new_run = session.store.create_run(FOLLOWUPS[1], 'ask', session_id=session.conversation_id)
+        session3 = HistorySession(session.store, new_run.run_id, session.conversation_id)
+        context3 = _context(follow.task_frame)
+        tools3 = _tools(follow.task_frame, context3, database, session3)
+        _read(tools3, context3, rank_ref)
+        base = _args(original, ref, operation='trace_history', entity_codes=['A.FP', 'B.FP'],
+                     window_ref={'result_ref': rank_ref}, end='2026-01-29')
+        extended = _execute(tools3, context3, **base)
+        trace_ref = extended.telemetry['result_ref']
+        _read(tools3, context3, trace_ref)
+        result = {
+            'source_revision': 'c9bd82ff2e25fe2727347329706f7aeb98444ee8',
+            'extended_sector_binding': session3.read(trace_ref)['window_binding'],
+        }
+        try:
+            value = _execute(tools3, context3, **dict(base, entity_kind='stock', entity_codes=['S1', 'S2'],
+                window_ref={'result_ref': trace_ref}))
+            result['same_root_stock_via_extended_original'] = {'status': value.trace.status}
+        except ValueError as exc:
+            result['same_root_stock_via_extended_original'] = {'error': str(exc)}
+        value = _execute(tools3, context3, **dict(base, entity_kind='stock', entity_codes=['S1', 'S2']))
+        result['same_root_stock_via_original_rank'] = {'status': value.trace.status,
+            'binding': session3.read(value.telemetry['result_ref'])['window_binding']}
+
+        # No stock launch can be inferred from a sector member's price path.
+        sector = query(database)
+        stock = query(database, entity_kind='stock', entity_codes=['S1', 'S2'])
+        member = record(sector, 'member_leader', 'S2')
+        result['member_vs_stock_launch'] = {
+            'member': {key: member.get(key) for key in ('entity_code', 'rank', 'start', 'end', 'path_anchor', 'peak_date')},
+            'stock_signal': record(stock, 'launch_signal', 'S2'),
+        }
+        # Keep a no-trigger sector in the declared population.
+        with duckdb.connect(str(database)) as connection:
+            connection.execute("UPDATE fact_sector_daily SET diff_ratio=0 WHERE sector_ts_code='B.FP'")
+        control_trace = query(database)
+        result['untriggered_control'] = {
+            'universe': control_trace['universe'],
+            'records': [row for row in control_trace['rows']
+                        if row.get('entity_code') == 'B.FP' and row['record_kind'] != 'sector_succession'],
+        }
+        (ROOT / 'probe-results.json').write_text(json.dumps(result, ensure_ascii=False, indent=2) + '\n')
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+
+
+if __name__ == '__main__':
+    main()

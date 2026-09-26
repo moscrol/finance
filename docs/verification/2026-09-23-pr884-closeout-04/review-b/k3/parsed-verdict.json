@@ -1,0 +1,55 @@
+{
+  "revision": "db2605d1b1a6a929d9bac468c84ef6aeaddce9ff",
+  "baseline": "da761024ed54c46b8e650d1b86076e1f9d261ed2",
+  "verdict": "BLOCKED",
+  "checks": [
+    {
+      "id": "C1",
+      "status": "NOT_REVIEWED",
+      "evidence": "非本场范围"
+    },
+    {
+      "id": "C2",
+      "status": "NOT_REVIEWED",
+      "evidence": "非本场范围"
+    },
+    {
+      "id": "C3",
+      "status": "NOT_REVIEWED",
+      "evidence": "非本场范围"
+    },
+    {
+      "id": "C4",
+      "status": "PASS",
+      "evidence": "work/probes/probe_c4_writer_lock.py 3 passed（bt2）；跨进程子进程 c4_child.py 三入口均 BUSY、竞争者零追加、暂停驱动持锁、inode 稳定、O_NOFOLLOW 拒符号链接、restore 先锁后 load；作者基线 89 passed 仅作环境对照。限制：仅合作式本机锁，缺变异实验"
+    },
+    {
+      "id": "C5",
+      "status": "NOT_REVIEWED",
+      "evidence": "probe_c5_reentry.py bt3：同 runner 并发拒绝(C5-1/2/3)与独立实例并行(C5-9)绿；step/close 互斥、异常清理/顺序复用、resume 重入无已执行证据（探针修补版未运行，两例首红为我方探针缺陷，保留于 bt3）"
+    },
+    {
+      "id": "C6",
+      "status": "NOT_REVIEWED",
+      "evidence": "未执行独立动态探针"
+    },
+    {
+      "id": "C7",
+      "status": "NOT_REVIEWED",
+      "evidence": "未执行独立动态探针"
+    },
+    {
+      "id": "C8",
+      "status": "NOT_REVIEWED",
+      "evidence": "非本场范围"
+    }
+  ],
+  "issues": [],
+  "limits": [
+    "撤保护变异实验未执行",
+    "C5 子合同覆盖不完整，C6/C7 零动态证据",
+    "真实费用、跨机锁、完整崩溃续跑、真实模型/网络不在本场范围",
+    "C4 PASS 仅限合作式本机 flock 语义，不防直接 append/put_state 绕过"
+  ],
+  "complete": true
+}

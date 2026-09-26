@@ -265,6 +265,89 @@ def test_identical_sentences_in_two_questions_keep_position_identity():
     assert [(row["output_id"], row["sentence_index"]) for row in rows] == [("answer_q1", 2), ("answer_q2", 4)]
 
 
+@pytest.mark.parametrize("count", [2, 3])
+@pytest.mark.parametrize("separator", ["", "\n\n"])
+def test_repeated_claim_occurrences_keep_their_own_anchors(count, separator):
+    from intelligence.services.episode_protocol import validate_episode_finish
+    from intelligence.services.episode_semantic_verifier import _numbered_sentences
+    from intelligence.services.episode_verifier import verify_episode_outcome
+    from intelligence.services.material_claim_review import material_claim_rows
+    from intelligence.tests.test_e2_material_grounding import finish
+
+    _, context = setup()
+    sources = context.contract.material_grounding.materials
+    claims = tuple(ClaimSourceBinding(FACT, "material_fact", (
+        MaterialAnchor(sources[i % len(sources)].material_id, sources[i % len(sources)].text),
+    )) for i in range(count))
+    value = outcome(context, claims, text=separator.join([FACT] * count))
+    validate_episode_finish(finish(value), context=context, evidence=())
+    verified = verify_episode_outcome(context.contract, value)
+    assert verified.verified_status == "completed"
+    rows = material_claim_rows(verified, _numbered_sentences(value.draft))
+    assert [(row["claim_id"], row["sentence_index"]) for row in rows] == [
+        (f"c{i + 1}", i + 2) for i in range(count)
+    ]
+    assert [row["material_anchors"] for row in rows] == [
+        claim.to_dict()["material_anchors"] for claim in claims
+    ]
+
+
+@pytest.mark.parametrize("reverse_bindings", [False, True])
+def test_repeated_claim_occurrences_stay_in_their_original_question(reverse_bindings):
+    from intelligence.services.episode_semantic_verifier import _numbered_sentences
+    from intelligence.services.episode_verifier import verify_episode_outcome
+    from intelligence.services.material_claim_review import material_claim_rows
+    from intelligence.tests.test_e2_material_delivery import setup_delivery, outcome_for, answered_binding, BOUNDARY
+
+    _, context = setup_delivery()
+    text = "材料没有给出利润率。"
+    body = text + "计算需要同口径输入。" + text
+    value = outcome_for(context)
+    bindings = (answered_binding(context, "answer_q1", body), answered_binding(context, "answer_q2", body))
+    value = replace(value, draft=f"## q1\n{body}\n## q2\n{body}{BOUNDARY}", bindings=(
+        *(reversed(bindings) if reverse_bindings else bindings), value.bindings[2],
+    ))
+    rows = material_claim_rows(verify_episode_outcome(context.contract, value), _numbered_sentences(value.draft))
+    assert len(rows) == 6
+    assert {output: [row["sentence_index"] for row in rows if row["output_id"] == output]
+            for output in ("answer_q1", "answer_q2")} == {"answer_q1": [2, 3, 4], "answer_q2": [6, 7, 8]}
+
+
+def test_repeated_claim_occurrences_reject_only_the_unsupported_occurrence():
+    frame, context = setup()
+    question = context.contract.material_grounding.materials[-1]
+    unsupported = ClaimSourceBinding(FACT, "material_fact", (MaterialAnchor(question.material_id, question.text),))
+    value = outcome(context, (fact_claim(context), unsupported), text=FACT + FACT)
+    calls = []
+
+    def judge(request):
+        calls.append(request)
+        payload = reviewed(request)
+        for row, check in zip(request["material_claims"], payload["material_claim_checks"], strict=True):
+            if row["material_anchors"] == unsupported.to_dict()["material_anchors"]:
+                check.update(supported=False, support_kind="unsupported", anchor_indexes=[], reason="本次出现只绑定问句。")
+        return payload
+
+    result = verify(frame, context, value, judge)
+    assert calls and result.judge_status == "rejected"
+    assert [check["sentence_index"] for check in result.material_claim_checks if not check["supported"]] == [3]
+    assert result.status != "completed"
+
+
+def test_claim_projection_keeps_later_claims_when_an_earlier_sentence_is_removed():
+    from intelligence.services.episode_semantic_verifier import _numbered_sentences
+    from intelligence.services.episode_verifier import verify_episode_outcome
+    from intelligence.services.material_claim_review import material_claim_rows
+
+    _, context = setup()
+    earlier = "材料给出收入100万元。"
+    value = outcome(context, (fact_claim(context, earlier), fact_claim(context)), text=earlier + FACT)
+    verified = verify_episode_outcome(context.contract, value)
+    projected = replace(verified, outcome=replace(value, draft=value.draft.replace(earlier, "")))
+    rows = material_claim_rows(projected, _numbered_sentences(projected.outcome.draft))
+    assert [(row["text"], row["sentence_index"]) for row in rows] == [(FACT, 2)]
+
+
 def test_related_judge_tool_schema_and_parser_enforce_same_claim_checks():
     request = request_for(None)
     schema = _judge_report_tools(request)[0]["function"]["parameters"]

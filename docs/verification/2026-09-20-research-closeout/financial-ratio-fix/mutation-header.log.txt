@@ -1,0 +1,130 @@
+FFFFF....                                                                [100%]读数收据: /Users/a77/.finance-runtime/test-receipts/20260920T034834Z-d8d6196b.json
+
+=================================== FAILURES ===================================
+_ test_ratio_delta_units_are_unverified_at_either_table_location[\u542b\u91d1\u91cf(bp)-1.588] _
+
+header = '含金量(bp)', cell = '1.588'
+
+    @pytest.mark.parametrize("header,cell", [
+        ("含金量(bp)", "1.588"),
+        ("含金量(BP)", "1.588"),
+        ("含金量（基点）", "1.588"),
+        ("含金量(百分点)", "1.588"),
+        ("含金量(bp)", "1.588倍"),
+        ("含金量(%)", "158.8bp"),
+        ("含金量", "1.588bp"),
+        ("含金量", "1.588基点"),
+        ("含金量", "1.588个百分点"),
+    ])
+    def test_ratio_delta_units_are_unverified_at_either_table_location(header, cell):
+        draft = f"| 报告期 | OCF累计 | 含金量占位 |\n|---|---|---|\n|2026中报|706.91|{cell}|"
+        draft = draft.replace("含金量占位", header)
+        findings = calculation_copy_findings(draft, _financial_evidence())
+>       assert len(findings) == 1 and findings[0].code == "calculation_value_unverified"
+E       assert (0 == 1)
+E        +  where 0 = len(())
+
+intelligence/tests/test_research_delivery_checks.py:162: AssertionError
+_ test_ratio_delta_units_are_unverified_at_either_table_location[\u542b\u91d1\u91cf(BP)-1.588] _
+
+header = '含金量(BP)', cell = '1.588'
+
+    @pytest.mark.parametrize("header,cell", [
+        ("含金量(bp)", "1.588"),
+        ("含金量(BP)", "1.588"),
+        ("含金量（基点）", "1.588"),
+        ("含金量(百分点)", "1.588"),
+        ("含金量(bp)", "1.588倍"),
+        ("含金量(%)", "158.8bp"),
+        ("含金量", "1.588bp"),
+        ("含金量", "1.588基点"),
+        ("含金量", "1.588个百分点"),
+    ])
+    def test_ratio_delta_units_are_unverified_at_either_table_location(header, cell):
+        draft = f"| 报告期 | OCF累计 | 含金量占位 |\n|---|---|---|\n|2026中报|706.91|{cell}|"
+        draft = draft.replace("含金量占位", header)
+        findings = calculation_copy_findings(draft, _financial_evidence())
+>       assert len(findings) == 1 and findings[0].code == "calculation_value_unverified"
+E       assert (0 == 1)
+E        +  where 0 = len(())
+
+intelligence/tests/test_research_delivery_checks.py:162: AssertionError
+_ test_ratio_delta_units_are_unverified_at_either_table_location[\u542b\u91d1\u91cf\uff08\u57fa\u70b9\uff09-1.588] _
+
+header = '含金量（基点）', cell = '1.588'
+
+    @pytest.mark.parametrize("header,cell", [
+        ("含金量(bp)", "1.588"),
+        ("含金量(BP)", "1.588"),
+        ("含金量（基点）", "1.588"),
+        ("含金量(百分点)", "1.588"),
+        ("含金量(bp)", "1.588倍"),
+        ("含金量(%)", "158.8bp"),
+        ("含金量", "1.588bp"),
+        ("含金量", "1.588基点"),
+        ("含金量", "1.588个百分点"),
+    ])
+    def test_ratio_delta_units_are_unverified_at_either_table_location(header, cell):
+        draft = f"| 报告期 | OCF累计 | 含金量占位 |\n|---|---|---|\n|2026中报|706.91|{cell}|"
+        draft = draft.replace("含金量占位", header)
+        findings = calculation_copy_findings(draft, _financial_evidence())
+>       assert len(findings) == 1 and findings[0].code == "calculation_value_unverified"
+E       assert (0 == 1)
+E        +  where 0 = len(())
+
+intelligence/tests/test_research_delivery_checks.py:162: AssertionError
+_ test_ratio_delta_units_are_unverified_at_either_table_location[\u542b\u91d1\u91cf(\u767e\u5206\u70b9)-1.588] _
+
+header = '含金量(百分点)', cell = '1.588'
+
+    @pytest.mark.parametrize("header,cell", [
+        ("含金量(bp)", "1.588"),
+        ("含金量(BP)", "1.588"),
+        ("含金量（基点）", "1.588"),
+        ("含金量(百分点)", "1.588"),
+        ("含金量(bp)", "1.588倍"),
+        ("含金量(%)", "158.8bp"),
+        ("含金量", "1.588bp"),
+        ("含金量", "1.588基点"),
+        ("含金量", "1.588个百分点"),
+    ])
+    def test_ratio_delta_units_are_unverified_at_either_table_location(header, cell):
+        draft = f"| 报告期 | OCF累计 | 含金量占位 |\n|---|---|---|\n|2026中报|706.91|{cell}|"
+        draft = draft.replace("含金量占位", header)
+        findings = calculation_copy_findings(draft, _financial_evidence())
+>       assert len(findings) == 1 and findings[0].code == "calculation_value_unverified"
+E       assert (0 == 1)
+E        +  where 0 = len(())
+
+intelligence/tests/test_research_delivery_checks.py:162: AssertionError
+_ test_ratio_delta_units_are_unverified_at_either_table_location[\u542b\u91d1\u91cf(bp)-1.588\u500d] _
+
+header = '含金量(bp)', cell = '1.588倍'
+
+    @pytest.mark.parametrize("header,cell", [
+        ("含金量(bp)", "1.588"),
+        ("含金量(BP)", "1.588"),
+        ("含金量（基点）", "1.588"),
+        ("含金量(百分点)", "1.588"),
+        ("含金量(bp)", "1.588倍"),
+        ("含金量(%)", "158.8bp"),
+        ("含金量", "1.588bp"),
+        ("含金量", "1.588基点"),
+        ("含金量", "1.588个百分点"),
+    ])
+    def test_ratio_delta_units_are_unverified_at_either_table_location(header, cell):
+        draft = f"| 报告期 | OCF累计 | 含金量占位 |\n|---|---|---|\n|2026中报|706.91|{cell}|"
+        draft = draft.replace("含金量占位", header)
+        findings = calculation_copy_findings(draft, _financial_evidence())
+>       assert len(findings) == 1 and findings[0].code == "calculation_value_unverified"
+E       assert (0 == 1)
+E        +  where 0 = len(())
+
+intelligence/tests/test_research_delivery_checks.py:162: AssertionError
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_research_delivery_checks.py::test_ratio_delta_units_are_unverified_at_either_table_location[\u542b\u91d1\u91cf(bp)-1.588]
+FAILED intelligence/tests/test_research_delivery_checks.py::test_ratio_delta_units_are_unverified_at_either_table_location[\u542b\u91d1\u91cf(BP)-1.588]
+FAILED intelligence/tests/test_research_delivery_checks.py::test_ratio_delta_units_are_unverified_at_either_table_location[\u542b\u91d1\u91cf\uff08\u57fa\u70b9\uff09-1.588]
+FAILED intelligence/tests/test_research_delivery_checks.py::test_ratio_delta_units_are_unverified_at_either_table_location[\u542b\u91d1\u91cf(\u767e\u5206\u70b9)-1.588]
+FAILED intelligence/tests/test_research_delivery_checks.py::test_ratio_delta_units_are_unverified_at_either_table_location[\u542b\u91d1\u91cf(bp)-1.588\u500d]
+5 failed, 4 passed, 62 deselected in 0.27s

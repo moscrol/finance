@@ -1,0 +1,30 @@
+/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260923-1707/spec/inputs/:
+total 40
+drwxr-xr-x@  6 a77  staff   192 Sep 23 15:33 .
+drwxr-xr-x@ 38 a77  staff  1216 Sep 23 17:35 ..
+-rw-r--r--@  1 a77  staff   945 Sep 23 15:33 author-pytest-receipt.json
+-rw-r--r--@  1 a77  staff  6728 Sep 23 15:33 author-summary.json
+-rw-r--r--@  1 a77  staff  2444 Sep 23 15:33 claims.md
+-rw-r--r--@  1 a77  staff  2273 Sep 23 15:33 code-tip-to-candidate.diffstat.txt
+
+/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260923-1707/spec/work/:
+total 40
+drwxr-xr-x@ 12 a77  staff   384 Sep 23 17:28 .
+drwxr-xr-x@ 38 a77  staff  1216 Sep 23 17:35 ..
+-rw-r--r--@  1 a77  staff     2 Sep 23 17:16 allowed.txt
+lrwxr-xr-x@  1 a77  staff    79 Sep 23 17:16 escape.json -> /Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260923-1707/spec/config.json
+-rw-r--r--@  1 a77  staff    36 Sep 23 17:17 gateway-echo.txt
+-rw-r--r--@  1 a77  staff    36 Sep 23 17:16 gateway-fixture.txt
+drwxr-xr-x@  4 a77  staff   128 Sep 23 17:35 phase-context
+-rw-r--r--@  1 a77  staff    47 Sep 23 17:16 positive_control.py
+drwxr-xr-x@  6 a77  staff   192 Sep 23 17:33 probes
+-rw-r--r--@  1 a77  staff  1917 Sep 23 17:16 sandbox_check.py
+drwxr-xr-x@  3 a77  staff    96 Sep 23 17:16 tmp
+drwxr-xr-x@  2 a77  staff    64 Sep 23 17:08 users
+
+/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260923-1707/spec/work/phase-context/:
+total 0
+drwxr-xr-x@  4 a77  staff  128 Sep 23 17:35 .
+drwxr-xr-x@ 12 a77  staff  384 Sep 23 17:28 ..
+drwxr-xr-x@  6 a77  staff  192 Sep 23 17:35 execute
+drwxr-xr-x@  7 a77  staff  224 Sep 23 17:28 explore

@@ -1,0 +1,64 @@
+"""Offline real registry/runtime probe: future-only tool results stay a domain result."""
+from __future__ import annotations
+
+from dataclasses import replace
+from datetime import date, timedelta
+import json
+from pathlib import Path
+import sys
+from tempfile import TemporaryDirectory
+
+TREE = Path(sys.argv[1]).resolve()
+sys.path.insert(0, str(TREE))
+
+from intelligence.runtime.agent_episode import ContinuousAgentEpisode
+from intelligence.services.episode_store import JsonlEpisodeStore
+from intelligence.services.research_contract import InformationCutoff
+from intelligence.tests.test_agent_episode import (
+    ScriptedModel, _frame, _context, _market_registry, _successful_runner,
+    _tool_turn, _finish_turn,
+)
+
+
+def run(durable: bool, future_only: bool) -> dict[str, object]:
+    frame = _frame()
+    context = replace(_context(frame, max_steps=2), information_cutoff=InformationCutoff(date(2026, 7, 24), "requested"))
+    cutoff = context.information_cutoff.as_of_date
+    future_date = (cutoff + timedelta(days=1)).isoformat()
+    current_date = cutoff.isoformat()
+    model = ScriptedModel([
+        _tool_turn("historical cutoff probe"),
+        _finish_turn(status="partial", draft="这条资料晚于查询日，需补同日证据。", hashes=(), gap="缺少截止内证据"),
+    ])
+
+    def runner(query, tool_context):
+        evidence, observation, trace = _successful_runner(query, tool_context)
+        evidence = [replace(item, source_date=future_date) for item in evidence]
+        if not future_only:
+            evidence.append(replace(evidence[0], source_date=current_date, content_hash="in-cutoff"))
+        return evidence, observation, replace(trace, source_trade_date=future_date)
+
+    with TemporaryDirectory(prefix="future-evidence-", dir=Path(__file__).parent) as tmp:
+        store = JsonlEpisodeStore(Path(tmp)) if durable else None
+        try:
+            outcome = ContinuousAgentEpisode(model, store=store).run(
+                task_frame=frame, context=context, registry=_market_registry(runner),
+            )
+            payload = {
+                "durable": durable, "future_only": future_only,
+                "status": outcome.status, "stop_reason": outcome.stop_reason,
+                "draft": outcome.draft,
+                "persistence": outcome.persistence, "model_calls": len(model.calls),
+                "evidence": [{"title": item.title, "source_date": item.source_date} for item in outcome.evidence],
+                "persistence_failures": [dict(e.payload) for e in outcome.events if e.kind == "persistence_failed"],
+                "traces": [trace.status for trace in outcome.traces],
+            }
+        except Exception as exc:
+            payload = {"durable": durable, "future_only": future_only, "error": type(exc).__name__, "message": str(exc), "model_calls": len(model.calls)}
+        print(json.dumps(payload, ensure_ascii=False), flush=True)
+        return payload
+
+
+results = [run(durable, future_only) for durable in (False, True) for future_only in (False, True)]
+bad = [p for p in results if p.get("error") or p.get("stop_reason") == "storage_failed"]
+raise SystemExit(1 if bad else 0)

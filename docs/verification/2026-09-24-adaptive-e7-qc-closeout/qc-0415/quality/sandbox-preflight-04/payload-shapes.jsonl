@@ -1,0 +1,17 @@
+{"admission":1,"stage":"execute","stream":true,"model":"glm-5.3","tools":["bash","deliver_stage"],"temperature_removed":false,"reasoning_effort":"low"}
+{"admission":2,"stage":"execute","stream":true,"model":"glm-5.3","tools":["bash","deliver_stage"],"temperature_removed":false,"reasoning_effort":"low"}
+{"admission":3,"stage":"execute","stream":true,"model":"glm-5.3","tools":["bash","deliver_stage"],"temperature_removed":false,"reasoning_effort":"low"}
+{"admission":4,"stage":"execute","stream":true,"model":"glm-5.3","tools":["bash","deliver_stage"],"temperature_removed":false,"reasoning_effort":"low"}
+{"admission":5,"stage":"execute","stream":true,"model":"glm-5.3","tools":["bash","deliver_stage"],"temperature_removed":false,"reasoning_effort":"low"}
+{"admission":6,"stage":"execute","stream":true,"model":"glm-5.3","tools":["bash","deliver_stage"],"temperature_removed":false,"reasoning_effort":"low"}
+{"admission":7,"stage":"execute","stream":true,"model":"glm-5.3","tools":["bash","deliver_stage"],"temperature_removed":false,"reasoning_effort":"low"}
+{"admission":8,"stage":"execute","stream":true,"model":"glm-5.3","tools":["bash","deliver_stage"],"temperature_removed":false,"reasoning_effort":"low"}
+{"admission":9,"stage":"execute","stream":true,"model":"glm-5.3","tools":["bash","deliver_stage"],"temperature_removed":false,"reasoning_effort":"low"}
+{"admission":10,"stage":"execute","stream":true,"model":"glm-5.3","tools":["bash","deliver_stage"],"temperature_removed":false,"reasoning_effort":"low"}
+{"admission":11,"stage":"execute","stream":true,"model":"glm-5.3","tools":["bash","deliver_stage"],"temperature_removed":false,"reasoning_effort":"low"}
+{"admission":12,"stage":"execute","stream":true,"model":"glm-5.3","tools":["bash","deliver_stage"],"temperature_removed":false,"reasoning_effort":"low"}
+{"admission":13,"stage":"execute","stream":true,"model":"glm-5.3","tools":["bash","deliver_stage"],"temperature_removed":false,"reasoning_effort":"low"}
+{"admission":14,"stage":"execute","stream":true,"model":"glm-5.3","tools":["bash","deliver_stage"],"temperature_removed":false,"reasoning_effort":"low"}
+{"admission":15,"stage":"execute","stream":true,"model":"glm-5.3","tools":["bash","deliver_stage"],"temperature_removed":false,"reasoning_effort":"low"}
+{"admission":16,"stage":"execute","stream":true,"model":"glm-5.3","tools":["bash","deliver_stage"],"temperature_removed":false,"reasoning_effort":"low"}
+{"admission":17,"stage":"execute","stream":true,"model":"glm-5.3","tools":["bash","deliver_stage"],"temperature_removed":false,"reasoning_effort":"low"}

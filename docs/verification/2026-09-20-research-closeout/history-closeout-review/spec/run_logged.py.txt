@@ -1,0 +1,51 @@
+"""Run a bounded read-only review command and bind its output to source identity."""
+import datetime
+import hashlib
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+
+ROOT = Path(__file__).resolve().parent
+SOURCE = Path('/Users/a77/fwp-wt-history-closeout-0920')
+EXPECTED = 'e0f2a5c77e5b7d41eb4dcfe4d964d01b826b17e7'
+
+
+def identity():
+    def git(*args):
+        return subprocess.check_output(['git', *args], cwd=SOURCE, text=True)
+    return {'head': git('rev-parse', 'HEAD').strip(),
+            'branch': git('branch', '--show-current').strip(),
+            'status': git('status', '--porcelain=v1')}
+
+
+def main():
+    name, *command = sys.argv[1:]
+    before = identity()
+    assert before['head'] == EXPECTED and not before['status'], before
+    env = os.environ.copy()
+    env.update(PYTHONDONTWRITEBYTECODE='1', UV_OFFLINE='1')
+    env['PATH'] = '/Users/a77/.local/bin:/opt/homebrew/bin:' + env.get('PATH', '')
+    env['PYTHONPATH'] = str(SOURCE)
+    start = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    process = subprocess.run(command, cwd=SOURCE, env=env, capture_output=True, text=True)
+    after = identity()
+    output = process.stdout + process.stderr
+    (ROOT / (name + '.log')).write_text(output)
+    record = {'command': command, 'cwd': str(SOURCE), 'started_at': start,
+              'ended_at': datetime.datetime.now(datetime.timezone.utc).isoformat(),
+              'before': before, 'after': after, 'exit_status': process.returncode,
+              'output_sha256': hashlib.sha256(output.encode()).hexdigest(),
+              'env_overrides': {key: env[key] for key in
+                                ('PYTHONDONTWRITEBYTECODE', 'UV_OFFLINE', 'PATH', 'PYTHONPATH')}}
+    (ROOT / (name + '.receipt.json')).write_text(json.dumps(record, ensure_ascii=False, indent=2) + '\n')
+    print(json.dumps({'name': name, 'exit_status': process.returncode,
+                      'identity_unchanged': before == after, 'log': str(ROOT / (name + '.log'))}))
+    print(output[-5000:])
+    assert before == after, 'Source identity changed; stop attribution'
+    raise SystemExit(process.returncode)
+
+
+if __name__ == '__main__':
+    main()

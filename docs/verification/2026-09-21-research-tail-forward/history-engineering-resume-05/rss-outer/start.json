@@ -1,0 +1,34 @@
+{
+  "before": {
+    "head": "442476f7def1013f1fadebaf6594971921147edc",
+    "status": "",
+    "index_sha256": "a3e7046c51d5d982fd1ee92326650671eee2fa1cbe8dffa045ba4af6b525d75f"
+  },
+  "command": [
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "-p",
+    "no:cacheprovider",
+    "--tb=short",
+    "--basetemp",
+    "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/rss-outer/tmp",
+    "--junitxml",
+    "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/rss-outer/junit.xml",
+    "intelligence/tests/test_rag_worker_keepalive.py::test_status_exposes_rss_and_idle",
+    "intelligence/tests/test_rag_worker_keepalive.py::test_module_status_aggregates_rss_idle_and_keepalive_counters"
+  ],
+  "env": {
+    "HOME": "/Users/a77",
+    "PATH": "/Users/a77/.local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+    "LANG": "en_US.UTF-8",
+    "TMPDIR": "/tmp",
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "FWP_TEST_RECEIPT": "0",
+    "PYTHONPATH": "/Users/a77/fwp-wt-history-forward-boundary-0921"
+  },
+  "outer_sandbox": true,
+  "started_at": "2026-09-21T18:21:49.553776+00:00",
+  "runner_sha256": "df827578a8b7844a2520fd63249841c8bd98b615313525139bf2defd33791048"
+}

@@ -1,0 +1,38 @@
+{
+  "verdict": "BLOCKED_PREFLIGHT_COVERAGE",
+  "candidate": "5e6974d3946f48c4f27c8847830d1a17c0529b41",
+  "strict_deadline_violations": [],
+  "coverage_gaps": [
+    {
+      "scenario": "headers_then_body",
+      "reason": "target_phase_not_exercised"
+    },
+    {
+      "scenario": "tools_stream_partial_line",
+      "reason": "target_phase_not_exercised"
+    },
+    {
+      "scenario": "judge_window_stalls",
+      "reason": "target_phase_not_exercised"
+    },
+    {
+      "scenario": "judge_late_report",
+      "reason": "target_phase_not_exercised"
+    }
+  ],
+  "strict_exit_code": 1,
+  "initial_submissions": {
+    "L6-S1": 0,
+    "L6-S2": 0,
+    "L6-S3": 0
+  },
+  "real_model_requests": 0,
+  "resubmissions": 0,
+  "followups": 0,
+  "natural_acceptance": "NOT_EXERCISED",
+  "data_frozen": false,
+  "readiness_run": false,
+  "sidecar_started": false,
+  "direct_script_launch_error": "ModuleNotFoundError before any probe; preserved in strict-deadline.log.txt; proper module invocation is strict-module.log.txt",
+  "old_verdicts_unchanged": true
+}

@@ -1,0 +1,418 @@
+{
+  "schema": "rag-readiness-diagnostic-receipt/v1",
+  "sample_window": {
+    "start": "2026-09-22T17:58:43.633483+08:00",
+    "end": "2026-09-22T17:58:52.268776+08:00"
+  },
+  "candidate_revision": "a25cf7e244aad0392c617a8a5a02984a82b7f518",
+  "candidate_code_revision": "3451c1d652252da78760b8136cb6b4d6bb5dc777",
+  "candidate_clean_at_test": true,
+  "runtime_revision": "adcda94b5e401158f1c3aa51f210e1e8d0f0b713",
+  "runtime_matches_startup_fingerprint": true,
+  "http_readiness": {
+    "endpoint": "/api/readiness",
+    "samples": 1,
+    "retries": 0,
+    "curl_returncode": 0,
+    "http_status": "503",
+    "elapsed_ms": 780.664,
+    "captured_at": "2026-09-22T17:58:47.879606+08:00"
+  },
+  "status": "not_ready",
+  "missing_critical": [
+    "market_data_consistency"
+  ],
+  "rag_protocol": {
+    "available": true,
+    "query_protocol_compatible": true,
+    "supported_options": [
+      "--json",
+      "--k",
+      "--mode",
+      "--evidence-chars"
+    ],
+    "missing_required_options": [],
+    "missing_optional_options": [
+      "--evidence-layer",
+      "--fact-hardness",
+      "--source-type",
+      "--as-of",
+      "--receipt"
+    ],
+    "warning": "RAG CLI 使用 legacy query 协议"
+  },
+  "rag_worker": {
+    "enabled": true,
+    "state": "ready",
+    "active": 1,
+    "configured_workers": 1,
+    "model_load_count": 1,
+    "prewarm_latency_ms": 69366,
+    "last_error_type": null,
+    "lifecycle": "startup_prewarm",
+    "counters": {
+      "queries_served": 6,
+      "timeouts_abandoned_kept_warm": 0,
+      "timeouts_killed": 0,
+      "stale_responses_drained": 0,
+      "recoveries": 0,
+      "keepalive_sent": 0,
+      "keepalive_timeouts": 0,
+      "keepalive_skipped_busy": 0
+    },
+    "abandoned_in_flight": 0,
+    "rss_bytes": 1017380864,
+    "idle_seconds": 65964.0,
+    "keepalive_interval_seconds": 0.0
+  },
+  "market_database": {
+    "date": "2026-09-18",
+    "snapshot_date": "2026-09-22",
+    "consistent_with_snapshot": false,
+    "required_by_continuous_runtime": true
+  },
+  "market_snapshot_contract_summary": {
+    "theme_count": 39,
+    "strong_stock_count": 63,
+    "market_stage": "下跌阶段",
+    "latest_trade_date": "2026-09-22",
+    "requested_trade_date": "2026-09-22",
+    "served_trade_date": "2026-09-22",
+    "provider": "akshare_exact",
+    "source": "AkShare",
+    "source_updated_at": null,
+    "quality": "complete",
+    "freshness": "fresh"
+  },
+  "critical_fact_coverage": {
+    "fact_market_daily": {
+      "rows": 425,
+      "min_date": "2024-12-20",
+      "max_date": "2026-09-18",
+      "dates": {
+        "2026-09-18": {
+          "rows": 1,
+          "nonnull": {
+            "total_amount": 1,
+            "advancers": 1,
+            "sh_index_close": 1
+          },
+          "sources": [
+            [
+              "local:overview",
+              1
+            ]
+          ]
+        },
+        "2026-09-21": {
+          "rows": 0,
+          "nonnull": {
+            "total_amount": 0,
+            "advancers": 0,
+            "sh_index_close": 0
+          },
+          "sources": []
+        },
+        "2026-09-22": {
+          "rows": 0,
+          "nonnull": {
+            "total_amount": 0,
+            "advancers": 0,
+            "sh_index_close": 0
+          },
+          "sources": []
+        }
+      }
+    },
+    "fact_stock_daily": {
+      "rows": 3782743,
+      "min_date": "2023-09-01",
+      "max_date": "2026-09-18",
+      "dates": {
+        "2026-09-18": {
+          "rows": 5553,
+          "nonnull": {
+            "close": 5553,
+            "pct_chg": 5553,
+            "amount": 5552
+          },
+          "sources": [
+            [
+              "eastmoney:snapshot",
+              5553
+            ]
+          ]
+        },
+        "2026-09-21": {
+          "rows": 0,
+          "nonnull": {
+            "close": 0,
+            "pct_chg": 0,
+            "amount": 0
+          },
+          "sources": []
+        },
+        "2026-09-22": {
+          "rows": 0,
+          "nonnull": {
+            "close": 0,
+            "pct_chg": 0,
+            "amount": 0
+          },
+          "sources": []
+        }
+      }
+    },
+    "fact_sector_daily": {
+      "rows": 110716,
+      "min_date": "2024-12-25",
+      "max_date": "2026-09-18",
+      "dates": {
+        "2026-09-18": {
+          "rows": 403,
+          "nonnull": {
+            "pct_chg": 403,
+            "amount": 403,
+            "diff_ratio": 403
+          },
+          "sources": [
+            [
+              "local:agg/pct=eqw",
+              403
+            ]
+          ]
+        },
+        "2026-09-21": {
+          "rows": 0,
+          "nonnull": {
+            "pct_chg": 0,
+            "amount": 0,
+            "diff_ratio": 0
+          },
+          "sources": []
+        },
+        "2026-09-22": {
+          "rows": 0,
+          "nonnull": {
+            "pct_chg": 0,
+            "amount": 0,
+            "diff_ratio": 0
+          },
+          "sources": []
+        }
+      }
+    },
+    "fact_sector_stock_daily": {
+      "rows": 4520237,
+      "min_date": "2025-01-02",
+      "max_date": "2026-09-18",
+      "dates": {
+        "2026-09-18": {
+          "rows": 52769,
+          "nonnull": {
+            "price": 52769,
+            "pct_chg": 52769,
+            "amount": 52769
+          },
+          "sources": [
+            [
+              "local:stitch",
+              52769
+            ]
+          ]
+        },
+        "2026-09-21": {
+          "rows": 0,
+          "nonnull": {
+            "price": 0,
+            "pct_chg": 0,
+            "amount": 0
+          },
+          "sources": []
+        },
+        "2026-09-22": {
+          "rows": 0,
+          "nonnull": {
+            "price": 0,
+            "pct_chg": 0,
+            "amount": 0
+          },
+          "sources": []
+        }
+      }
+    },
+    "fact_mainline_sector_daily": {
+      "rows": 1920,
+      "min_date": "2026-04-01",
+      "max_date": "2026-09-18",
+      "dates": {
+        "2026-09-18": {
+          "rows": 71,
+          "nonnull": {
+            "today_pct": 0,
+            "amount": 0,
+            "strength": 0
+          },
+          "sources": [
+            [
+              "local:mainline-v1",
+              71
+            ]
+          ]
+        },
+        "2026-09-21": {
+          "rows": 0,
+          "nonnull": {
+            "today_pct": 0,
+            "amount": 0,
+            "strength": 0
+          },
+          "sources": []
+        },
+        "2026-09-22": {
+          "rows": 0,
+          "nonnull": {
+            "today_pct": 0,
+            "amount": 0,
+            "strength": 0
+          },
+          "sources": []
+        }
+      }
+    }
+  },
+  "all_trade_dated_fact_max_dates": {
+    "fact_auction_hithink": "2026-09-08",
+    "fact_auction_stock_daily": "2026-09-02",
+    "fact_core_leader_daily": "2026-09-18",
+    "fact_core_stock_daily": "2026-09-18",
+    "fact_dragon_hot_money_hithink": "2026-09-08",
+    "fact_dragon_seat_daily": "2026-09-02",
+    "fact_dragon_summary_daily": "2026-09-02",
+    "fact_dragon_tiger_daily": "2026-09-02",
+    "fact_dragon_tiger_hithink": "2026-09-08",
+    "fact_global_index_daily": "2026-09-02",
+    "fact_global_stock_daily": "2026-09-02",
+    "fact_hot_stock_rank_hithink": "2026-09-08",
+    "fact_leader_height_daily": "2026-09-18",
+    "fact_limit_advance_daily": "2026-09-18",
+    "fact_limit_advance_presence": "2026-09-02",
+    "fact_limit_pool_hithink": "2026-09-08",
+    "fact_mainline_sector_daily": "2026-09-18",
+    "fact_mainline_stock_daily": "2026-09-18",
+    "fact_mainline_theme_daily": "2026-09-18",
+    "fact_market_daily": "2026-09-18",
+    "fact_polymarket_macro_odds_daily": null,
+    "fact_sector_daily": "2026-09-18",
+    "fact_sector_daily_generation": "2026-09-18",
+    "fact_sector_kline_daily": "2026-09-08",
+    "fact_sector_period_rank_daily": "2026-09-18",
+    "fact_sector_stock_daily": "2026-09-18",
+    "fact_sector_stock_daily_generation": "2026-09-18",
+    "fact_sector_universe_daily": "2026-09-18",
+    "fact_stock_daily": "2026-09-18",
+    "fact_stock_daily_hithink": "2026-09-08",
+    "fact_stock_high_daily": "2026-09-18",
+    "fact_stock_technical_snapshot": null,
+    "fact_sw_l1_daily": "2026-09-18",
+    "fact_theme_flow_daily": "2026-09-15",
+    "fact_theme_limit_heat_daily": "2026-09-18",
+    "fact_theme_limit_stock_daily": "2026-09-18"
+  },
+  "index_metadata_only": {
+    "sampled_at": "2026-09-22T10:01:22.148423+00:00",
+    "kb_root": "/Users/a77/knowledge-base-private",
+    "index_dir": "/Users/a77/knowledge-base-private/.rag_index",
+    "built_at": "2026-09-18T13:23:40Z",
+    "num_chunks": 169635,
+    "age_days": 3.8595,
+    "max_age_days": 14,
+    "chunk_profile_matches_current_code": true,
+    "index_wide_stale_reasons": [],
+    "index_wide_unknown_reasons": [],
+    "source_dirty_metadata": true,
+    "vector_bm25_metadata_aligned": true,
+    "content_freshness": "NOT_EVALUATED",
+    "retrieval_quality": "NOT_EVALUATED",
+    "worker_loaded_identity": "NOT_EVALUATED",
+    "scope": "current on-disk metadata with current KB source and selected production RAG scalar settings; empty arrays, no index payload or wiki read"
+  },
+  "index_code_revision": "8a413cde59cd0d6a7757c845243024a3016b50bc",
+  "index_code_unchanged_during_sample": true,
+  "production_selected_settings": {
+    "RAG_MAX_INDEX_AGE_DAYS": null,
+    "RAG_CHUNK_MAX_TOKENS": null,
+    "RAG_CHUNK_TARGET_TOKENS": null,
+    "RAG_BGE_MAXLEN": null,
+    "RAG_CHUNK_LEAD_TOKENS": null,
+    "RAG_CHUNK_LEAD_TYPES": null,
+    "RAG_MODEL": null,
+    "KB_RAG_PYTHON": "/Users/a77/knowledge-base-private/.rag_venv/bin/python",
+    "ASK_SEMANTIC_JUDGE": null
+  },
+  "protected_unchanged": true,
+  "database_content_unchanged": true,
+  "database_sha256": "29c26d5cd4dc055b2bfd1429676128da87b372a19ad79bec273d2320364ed102",
+  "processes_unchanged": true,
+  "tests": {
+    "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "python_version": "3.12.13",
+    "dependency_fingerprint": "3328bed61f3e21ea",
+    "tree": "/Users/a77/fwp-wt-rag-probe-diagnostics-0921",
+    "revision": "a25cf7e244aad0392c617a8a5a02984a82b7f518",
+    "branch": "fix/rag-probe-diagnostics-0921",
+    "dirty": false,
+    "dirty_paths": [],
+    "worktree_dirty_total": 0,
+    "dependency_gate_bypassed": false,
+    "target": "intelligence/tests/test_kb_rag.py intelligence/tests/test_rag_probe_singleflight.py intelligence/tests/test_rag_worker.py intelligence/tests/test_workbench_api.py tests/test_rag_cli_startup_probe.py tests/test_rag_probe_singleflight_review.py",
+    "counts": {
+      "passed": 226,
+      "failed": 0,
+      "error": 0,
+      "skipped": 0
+    },
+    "failed_ids": [],
+    "exit_status": 0,
+    "finished_at": "2026-09-22T10:02:00+00:00"
+  },
+  "ruff": {
+    "exit_status": 0,
+    "scope": "eight PR implementation/test/probe Python files; not repository-wide"
+  },
+  "pr_status_before_closeout": {
+    "sampled_at": "2026-09-22T18:04:57.817568+08:00",
+    "number": 844,
+    "state": "open",
+    "merged": false,
+    "title": "WIP: fix(rag): readiness 探针耗时与安全失败分类",
+    "head_sha": "18c6215791e5b7cede3f228d2abfbe15e1b1a4d2",
+    "base_sha": "a2c8d1f90773fdf3dcb7cf53f5d9733590924ae1",
+    "mergeable_claimed_by_gitea": false
+  },
+  "mainline_nulls_interpretation": "local:mainline-v1 writer inserts membership columns only; empty numeric columns are not proof of a newly introduced corruption",
+  "overall_decision": "BLOCKED_MARKET_FRESHNESS_AND_PR_ACCEPTANCE",
+  "completed_this_round": [
+    "one bounded production readiness request",
+    "read-only canonical date and nonnull coverage audit",
+    "index metadata gates only",
+    "targeted author regression"
+  ],
+  "not_completed": [
+    "historical timeout root cause",
+    "real retrieval and page freshness",
+    "full merge gates",
+    "independent review",
+    "merge and deployment",
+    "market data recovery"
+  ],
+  "evidence_root": "/Users/a77/.finance-runtime/reviews/rag-readiness-resume-20260922T175900",
+  "raw_manifest_sha256": "c2b2f1d17aa7006281c8556eddc8378145ee1b62f13ae47ab2e980f8c9bc63f6",
+  "raw_manifest_entries": 33,
+  "limits": [
+    "one HTTP readiness sample, not timeout root-cause proof",
+    "no real retrieval, model request, merge, deployment, restart, index rebuild or market write",
+    "endpoint recovery and mkdir behavior not mocked or disabled",
+    "concurrent changes outside the sampled files are not ruled out"
+  ]
+}

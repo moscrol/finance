@@ -1,0 +1,1 @@
+{"toolCallId":"call_0275515d15554d50990dcfbf","params":{"content":"import os, sys\nos.chdir(\"/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260924-0024/spec/work\")\nos.environ[\"FWX_TEST_RECEIPT\"] = \"0\"\nsys.exit(os.system(\" \".join(sys.argv[1:])))\n","path":"/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260924-0024/spec/work/run_here.py"}}

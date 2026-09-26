@@ -1,0 +1,3 @@
+...................................................................................................................../Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-permission-repair-02/frozen-check-history-assembly/tmp/test_probe_script_preserves_or0/output/receipt.json
+.............................................................................................................................
+242 passed in 21.13s

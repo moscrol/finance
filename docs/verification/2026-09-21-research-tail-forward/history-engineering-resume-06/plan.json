@@ -1,0 +1,19 @@
+{
+  "started_at": "2026-09-21T18:44:29.264098+00:00",
+  "identity": {
+    "head": "442476f7def1013f1fadebaf6594971921147edc",
+    "status": "",
+    "index_sha256": "a3e7046c51d5d982fd1ee92326650671eee2fa1cbe8dffa045ba4af6b525d75f"
+  },
+  "source_revision": "442476f7def1013f1fadebaf6594971921147edc",
+  "runner_sha256": "ee23565139261e6ae15c484f00736c03ebd0e9df79cdb0a90922d7c88a383e5f",
+  "plugin_sha256": "e35a9e750b43d6ccd4193c7f2f9beb07a917b1197e3fa6e5382c20bb8f722f69",
+  "partition": "ordinary plus the seven exact environmental IDs in plugin; no assertion changes",
+  "limits": {
+    "ordinary_seconds": 2400,
+    "environmental_seconds": 120,
+    "min_free_bytes": 2147483648
+  },
+  "official_receipt": false,
+  "prior_attempt": "05 retained unchanged; no result reuse"
+}

@@ -1,0 +1,114 @@
+{
+  "source_revision": "c9bd82ff2e25fe2727347329706f7aeb98444ee8",
+  "extended_sector_binding": {
+    "end": "2026-01-29",
+    "ranking_end": "2026-01-22",
+    "ranking_start": "2026-01-17",
+    "relation": "extended_observation",
+    "root_query_id": "040da5f7c61fe53876f24f055a1d5c4b6f34cf5cb5c153f2084e074de4c03959",
+    "root_sample_id": "8925229aab1bfb2bf1cfe5522c043212432fedf7c6f5be206089455a719d29b9",
+    "source_end": "2026-01-22",
+    "source_query_id": "2e5a813e0e68516815bbcc86054655c2d8fe721f4fca2a40ffaa8c81461e58de",
+    "source_reference": {
+      "result_ref": "run_20260920_130205_473057/history-query-3550426967f796e6ede49999c92676f15d74824c57c54f1761e660c99962e3ce.json"
+    },
+    "source_start": "2026-01-17",
+    "start": "2026-01-17",
+    "version": "history-window-binding-v1"
+  },
+  "same_root_stock_via_extended_original": {
+    "status": "success"
+  },
+  "same_root_stock_via_original_rank": {
+    "status": "success",
+    "binding": {
+      "end": "2026-01-29",
+      "ranking_end": "2026-01-22",
+      "ranking_start": "2026-01-17",
+      "relation": "extended_observation",
+      "root_query_id": "040da5f7c61fe53876f24f055a1d5c4b6f34cf5cb5c153f2084e074de4c03959",
+      "root_sample_id": "8925229aab1bfb2bf1cfe5522c043212432fedf7c6f5be206089455a719d29b9",
+      "source_end": "2026-01-22",
+      "source_query_id": "2e5a813e0e68516815bbcc86054655c2d8fe721f4fca2a40ffaa8c81461e58de",
+      "source_reference": {
+        "result_ref": "run_20260920_130205_473057/history-query-3550426967f796e6ede49999c92676f15d74824c57c54f1761e660c99962e3ce.json"
+      },
+      "source_start": "2026-01-17",
+      "start": "2026-01-17",
+      "version": "history-window-binding-v1"
+    }
+  },
+  "member_vs_stock_launch": {
+    "member": {
+      "entity_code": "S2",
+      "rank": 2,
+      "start": "2026-01-10",
+      "end": "2026-01-12",
+      "path_anchor": "sector_signal_not_stock_launch",
+      "peak_date": "2026-01-29"
+    },
+    "stock_signal": {
+      "record_kind": "launch_signal",
+      "entity_kind": "stock",
+      "entity_code": "S2",
+      "entity_name": "S2",
+      "start": "2026-01-05",
+      "end": "2026-01-29",
+      "signal_date": null,
+      "signal_known_as_of": null,
+      "signal_status": "not_observed",
+      "earlier_signal_gap_dates": [],
+      "warmup_dates": [
+        "2026-01-05",
+        "2026-01-06",
+        "2026-01-07",
+        "2026-01-08",
+        "2026-01-09"
+      ],
+      "features": {},
+      "feature_coverage": {}
+    }
+  },
+  "untriggered_control": {
+    "universe": {
+      "entity_kind": "sector",
+      "entity_codes": [
+        "A.FP",
+        "B.FP"
+      ],
+      "start": "2026-01-05",
+      "end": "2026-01-29",
+      "record_counts": {
+        "launch_signal": 2,
+        "price_path": 1,
+        "member_leader": 2,
+        "sector_succession": 1
+      },
+      "selection": "declared codes; first signal after in-window warmup; no winner prefilter",
+      "membership": "sector signal-date snapshot only, never current membership"
+    },
+    "records": [
+      {
+        "record_kind": "launch_signal",
+        "entity_kind": "sector",
+        "entity_code": "B.FP",
+        "entity_name": "同名不同篮子",
+        "start": "2026-01-05",
+        "end": "2026-01-29",
+        "signal_date": null,
+        "signal_known_as_of": null,
+        "signal_status": "not_observed",
+        "earlier_signal_gap_dates": [],
+        "warmup_dates": [
+          "2026-01-05",
+          "2026-01-06",
+          "2026-01-07",
+          "2026-01-08",
+          "2026-01-09"
+        ],
+        "features": {},
+        "feature_coverage": {}
+      }
+    ]
+  }
+}

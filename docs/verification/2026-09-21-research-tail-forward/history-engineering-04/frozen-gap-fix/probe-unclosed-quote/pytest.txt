@@ -1,0 +1,128 @@
+.F........................FFFFFFFFFFFFFFFFFF...F....F............F.      [100%]
+=================================== FAILURES ===================================
+_ test_original_adjacent_counterexamples_cannot_restore_history[\u300c\u90a3\u5b83\u4eec\u89c1\u9876\u540e\u8c01\u63a5\u529b\uff1f] _
+tests/test_history_source_partition.py:30: in test_original_adjacent_counterexamples_cannot_restore_history
+    assert context.history_intent is None and names == ()
+E   AssertionError: assert (HistoryIntent(purpose='retrospective_discovery', requested_start='2026-01-01', requested_end='2026-09-15', scope='hist...=True, window_error=None, information_cutoff='2026-09-10', analysis_window_source='none', allow_window_extension=False) is None)
+E    +  where HistoryIntent(purpose='retrospective_discovery', requested_start='2026-01-01', requested_end='2026-09-15', scope='hist...=True, window_error=None, information_cutoff='2026-09-10', analysis_window_source='none', allow_window_extension=False) = ResearchRunContext(contract=ResearchTaskContract(task_id='history-boundary-706529ccfcb24538abc0333123729956', question...indow_source='none', allow_window_extension=False), history_results=[], history_artifact_index=[], prior_evidence=None).history_intent
+_ test_incomplete_quote_clarifies_without_capabilities[\u90a3\u5b83\u4eec\u89c1\u9876\u540e\u8c01\u63a5\u529b\uff1f-\u300c] _
+tests/test_history_source_partition.py:56: in test_incomplete_quote_clarifies_without_capabilities
+    assert not visible and uncertain
+E   AssertionError: assert (not '「那它们见顶后谁接力？')
+_ test_incomplete_quote_clarifies_without_capabilities[\u90a3\u5b83\u4eec\u89c1\u9876\u540e\u8c01\u63a5\u529b\uff1f-\u300e] _
+tests/test_history_source_partition.py:56: in test_incomplete_quote_clarifies_without_capabilities
+    assert not visible and uncertain
+E   AssertionError: assert (not '『那它们见顶后谁接力？')
+_ test_incomplete_quote_clarifies_without_capabilities[\u90a3\u5b83\u4eec\u89c1\u9876\u540e\u8c01\u63a5\u529b\uff1f-\u201c] _
+tests/test_history_source_partition.py:56: in test_incomplete_quote_clarifies_without_capabilities
+    assert not visible and uncertain
+E   AssertionError: assert (not '“那它们见顶后谁接力？')
+_ test_incomplete_quote_clarifies_without_capabilities[\u90a3\u5b83\u4eec\u89c1\u9876\u540e\u8c01\u63a5\u529b\uff1f-\u2018] _
+tests/test_history_source_partition.py:56: in test_incomplete_quote_clarifies_without_capabilities
+    assert not visible and uncertain
+E   AssertionError: assert (not '‘那它们见顶后谁接力？')
+_ test_incomplete_quote_clarifies_without_capabilities[\u90a3\u5b83\u4eec\u89c1\u9876\u540e\u8c01\u63a5\u529b\uff1f-"] _
+tests/test_history_source_partition.py:56: in test_incomplete_quote_clarifies_without_capabilities
+    assert not visible and uncertain
+E   assert (not '"那它们见顶后谁接力？')
+_ test_incomplete_quote_clarifies_without_capabilities[\u90a3\u5b83\u4eec\u89c1\u9876\u540e\u8c01\u63a5\u529b\uff1f-'] _
+tests/test_history_source_partition.py:56: in test_incomplete_quote_clarifies_without_capabilities
+    assert not visible and uncertain
+E   assert (not "'那它们见顶后谁接力？")
+_ test_incomplete_quote_clarifies_without_capabilities[\u4ee5\u524d\u6709\u6ca1\u6709\u7c7b\u4f3c\uff0c\u5931\u8d25\u6848\u4f8b\u4e5f\u770b\u770b-\u300c] _
+tests/test_history_source_partition.py:56: in test_incomplete_quote_clarifies_without_capabilities
+    assert not visible and uncertain
+E   AssertionError: assert (not '「以前有没有类似，失败案例也看看')
+_ test_incomplete_quote_clarifies_without_capabilities[\u4ee5\u524d\u6709\u6ca1\u6709\u7c7b\u4f3c\uff0c\u5931\u8d25\u6848\u4f8b\u4e5f\u770b\u770b-\u300e] _
+tests/test_history_source_partition.py:56: in test_incomplete_quote_clarifies_without_capabilities
+    assert not visible and uncertain
+E   AssertionError: assert (not '『以前有没有类似，失败案例也看看')
+_ test_incomplete_quote_clarifies_without_capabilities[\u4ee5\u524d\u6709\u6ca1\u6709\u7c7b\u4f3c\uff0c\u5931\u8d25\u6848\u4f8b\u4e5f\u770b\u770b-\u201c] _
+tests/test_history_source_partition.py:56: in test_incomplete_quote_clarifies_without_capabilities
+    assert not visible and uncertain
+E   AssertionError: assert (not '“以前有没有类似，失败案例也看看')
+_ test_incomplete_quote_clarifies_without_capabilities[\u4ee5\u524d\u6709\u6ca1\u6709\u7c7b\u4f3c\uff0c\u5931\u8d25\u6848\u4f8b\u4e5f\u770b\u770b-\u2018] _
+tests/test_history_source_partition.py:56: in test_incomplete_quote_clarifies_without_capabilities
+    assert not visible and uncertain
+E   AssertionError: assert (not '‘以前有没有类似，失败案例也看看')
+_ test_incomplete_quote_clarifies_without_capabilities[\u4ee5\u524d\u6709\u6ca1\u6709\u7c7b\u4f3c\uff0c\u5931\u8d25\u6848\u4f8b\u4e5f\u770b\u770b-"] _
+tests/test_history_source_partition.py:56: in test_incomplete_quote_clarifies_without_capabilities
+    assert not visible and uncertain
+E   assert (not '"以前有没有类似，失败案例也看看')
+_ test_incomplete_quote_clarifies_without_capabilities[\u4ee5\u524d\u6709\u6ca1\u6709\u7c7b\u4f3c\uff0c\u5931\u8d25\u6848\u4f8b\u4e5f\u770b\u770b-'] _
+tests/test_history_source_partition.py:56: in test_incomplete_quote_clarifies_without_capabilities
+    assert not visible and uncertain
+E   assert (not "'以前有没有类似，失败案例也看看")
+_ test_incomplete_quote_clarifies_without_capabilities[\u5e02\u76c8\u7387\u662f\u4ec0\u4e48\uff1f-\u300c] _
+tests/test_history_source_partition.py:56: in test_incomplete_quote_clarifies_without_capabilities
+    assert not visible and uncertain
+E   AssertionError: assert (not '「市盈率是什么？')
+_ test_incomplete_quote_clarifies_without_capabilities[\u5e02\u76c8\u7387\u662f\u4ec0\u4e48\uff1f-\u300e] _
+tests/test_history_source_partition.py:56: in test_incomplete_quote_clarifies_without_capabilities
+    assert not visible and uncertain
+E   AssertionError: assert (not '『市盈率是什么？')
+_ test_incomplete_quote_clarifies_without_capabilities[\u5e02\u76c8\u7387\u662f\u4ec0\u4e48\uff1f-\u201c] _
+tests/test_history_source_partition.py:56: in test_incomplete_quote_clarifies_without_capabilities
+    assert not visible and uncertain
+E   AssertionError: assert (not '“市盈率是什么？')
+_ test_incomplete_quote_clarifies_without_capabilities[\u5e02\u76c8\u7387\u662f\u4ec0\u4e48\uff1f-\u2018] _
+tests/test_history_source_partition.py:56: in test_incomplete_quote_clarifies_without_capabilities
+    assert not visible and uncertain
+E   AssertionError: assert (not '‘市盈率是什么？')
+_ test_incomplete_quote_clarifies_without_capabilities[\u5e02\u76c8\u7387\u662f\u4ec0\u4e48\uff1f-"] _
+tests/test_history_source_partition.py:56: in test_incomplete_quote_clarifies_without_capabilities
+    assert not visible and uncertain
+E   assert (not '"市盈率是什么？')
+_ test_incomplete_quote_clarifies_without_capabilities[\u5e02\u76c8\u7387\u662f\u4ec0\u4e48\uff1f-'] _
+tests/test_history_source_partition.py:56: in test_incomplete_quote_clarifies_without_capabilities
+    assert not visible and uncertain
+E   assert (not "'市盈率是什么？")
+_________ test_all_permission_readers_use_material_ownership[\u300c{}] _________
+tests/test_history_source_partition.py:71: in test_all_permission_readers_use_material_ownership
+    assert inherit_history_followup(container.format(FOLLOWUPS[0]), previous.history_intent) is None
+E   AssertionError: assert HistoryIntent(purpose='retrospective_discovery', requested_start='2026-01-01', requested_end='2026-09-15', scope='hist...=True, window_error=None, information_cutoff='2026-09-10', analysis_window_source='none', allow_window_extension=False) is None
+E    +  where HistoryIntent(purpose='retrospective_discovery', requested_start='2026-01-01', requested_end='2026-09-15', scope='hist...=True, window_error=None, information_cutoff='2026-09-10', analysis_window_source='none', allow_window_extension=False) = inherit_history_followup('「那它们见顶后谁接力？', HistoryIntent(purpose='retrospective_discovery', requested_start='2026-01-01', requested_end='2026-09-15', scope='hist...=True, window_error=None, information_cutoff='2026-09-10', analysis_window_source='none', allow_window_extension=False))
+E    +    where '「那它们见顶后谁接力？' = <built-in method format of str object at 0x108912b00>('那它们见顶后谁接力？')
+E    +      where <built-in method format of str object at 0x108912b00> = '「{}'.format
+E    +    and   HistoryIntent(purpose='retrospective_discovery', requested_start='2026-01-01', requested_end='2026-09-15', scope='hist...=True, window_error=None, information_cutoff='2026-09-10', analysis_window_source='none', allow_window_extension=False) = TurnIntent(primary_subject='农业', secondary_topics=(), question_type='theme_analysis', answer_owner='theme-research', c...True, window_error=None, information_cutoff='2026-09-10', analysis_window_source='none', allow_window_extension=False)).history_intent
+_ test_replay_does_not_promote_material_into_trusted_history[\u300c\u90a3\u5b83\u4eec\u89c1\u9876\u540e\u8c01\u63a5\u529b\uff1f] _
+tests/test_history_source_partition.py:87: in test_replay_does_not_promote_material_into_trusted_history
+    assert history.history_intent is None
+E   AssertionError: assert HistoryIntent(purpose='retrospective_discovery', requested_start='2026-01-01', requested_end='2026-09-15', scope='hist...=True, window_error=None, information_cutoff='2026-09-10', analysis_window_source='none', allow_window_extension=False) is None
+E    +  where HistoryIntent(purpose='retrospective_discovery', requested_start='2026-01-01', requested_end='2026-09-15', scope='hist...=True, window_error=None, information_cutoff='2026-09-10', analysis_window_source='none', allow_window_extension=False) = ConversationMaterials(items=(), unavailable=False, assistant_statements=(), base_contract=MaterialContract(classificat...True, window_error=None, information_cutoff='2026-09-10', analysis_window_source='none', allow_window_extension=False)).history_intent
+_ test_real_entry_does_not_recover_history_from_material[\u300c\u90a3\u5b83\u4eec\u89c1\u9876\u540e\u8c01\u63a5\u529b\uff1f] _
+tests/test_history_source_partition.py:167: in test_real_entry_does_not_recover_history_from_material
+    assert context.history_intent is None and names == ()
+E   AssertionError: assert (HistoryIntent(purpose='retrospective_discovery', requested_start='2026-01-01', requested_end='2026-09-15', scope='hist...=True, window_error=None, information_cutoff='2026-09-10', analysis_window_source='none', allow_window_extension=False) is None)
+E    +  where HistoryIntent(purpose='retrospective_discovery', requested_start='2026-01-01', requested_end='2026-09-15', scope='hist...=True, window_error=None, information_cutoff='2026-09-10', analysis_window_source='none', allow_window_extension=False) = ResearchRunContext(contract=ResearchTaskContract(task_id='history-boundary-022f53fdec9c4cb79da9ddf762f5ccd7', question...indow_source='none', allow_window_extension=False), history_results=[], history_artifact_index=[], prior_evidence=None).history_intent
+=========================== short test summary info ============================
+FAILED tests/test_history_source_partition.py::test_original_adjacent_counterexamples_cannot_restore_history[\u300c\u90a3\u5b83\u4eec\u89c1\u9876\u540e\u8c01\u63a5\u529b\uff1f] - AssertionError: assert (HistoryIntent(purpose='retrospective_discovery', requested_start='2026-01-01', requested_end='2026-09-15', scope='hist...=True, window_error=None, information_cutoff='2026-09-10', analysis_window_source='none', allow_window_extension=False) is None)
+ +  where HistoryIntent(purpose='retrospective_discovery', requested_start='2026-01-01', requested_end='2026-09-15', scope='hist...=True, window_error=None, information_cutoff='2026-09-10', analysis_window_source='none', allow_window_extension=False) = ResearchRunContext(contract=ResearchTaskContract(task_id='history-boundary-706529ccfcb24538abc0333123729956', question...indow_source='none', allow_window_extension=False), history_results=[], history_artifact_index=[], prior_evidence=None).history_intent
+FAILED tests/test_history_source_partition.py::test_incomplete_quote_clarifies_without_capabilities[\u90a3\u5b83\u4eec\u89c1\u9876\u540e\u8c01\u63a5\u529b\uff1f-\u300c] - AssertionError: assert (not '「那它们见顶后谁接力？')
+FAILED tests/test_history_source_partition.py::test_incomplete_quote_clarifies_without_capabilities[\u90a3\u5b83\u4eec\u89c1\u9876\u540e\u8c01\u63a5\u529b\uff1f-\u300e] - AssertionError: assert (not '『那它们见顶后谁接力？')
+FAILED tests/test_history_source_partition.py::test_incomplete_quote_clarifies_without_capabilities[\u90a3\u5b83\u4eec\u89c1\u9876\u540e\u8c01\u63a5\u529b\uff1f-\u201c] - AssertionError: assert (not '“那它们见顶后谁接力？')
+FAILED tests/test_history_source_partition.py::test_incomplete_quote_clarifies_without_capabilities[\u90a3\u5b83\u4eec\u89c1\u9876\u540e\u8c01\u63a5\u529b\uff1f-\u2018] - AssertionError: assert (not '‘那它们见顶后谁接力？')
+FAILED tests/test_history_source_partition.py::test_incomplete_quote_clarifies_without_capabilities[\u90a3\u5b83\u4eec\u89c1\u9876\u540e\u8c01\u63a5\u529b\uff1f-"] - assert (not '"那它们见顶后谁接力？')
+FAILED tests/test_history_source_partition.py::test_incomplete_quote_clarifies_without_capabilities[\u90a3\u5b83\u4eec\u89c1\u9876\u540e\u8c01\u63a5\u529b\uff1f-'] - assert (not "'那它们见顶后谁接力？")
+FAILED tests/test_history_source_partition.py::test_incomplete_quote_clarifies_without_capabilities[\u4ee5\u524d\u6709\u6ca1\u6709\u7c7b\u4f3c\uff0c\u5931\u8d25\u6848\u4f8b\u4e5f\u770b\u770b-\u300c] - AssertionError: assert (not '「以前有没有类似，失败案例也看看')
+FAILED tests/test_history_source_partition.py::test_incomplete_quote_clarifies_without_capabilities[\u4ee5\u524d\u6709\u6ca1\u6709\u7c7b\u4f3c\uff0c\u5931\u8d25\u6848\u4f8b\u4e5f\u770b\u770b-\u300e] - AssertionError: assert (not '『以前有没有类似，失败案例也看看')
+FAILED tests/test_history_source_partition.py::test_incomplete_quote_clarifies_without_capabilities[\u4ee5\u524d\u6709\u6ca1\u6709\u7c7b\u4f3c\uff0c\u5931\u8d25\u6848\u4f8b\u4e5f\u770b\u770b-\u201c] - AssertionError: assert (not '“以前有没有类似，失败案例也看看')
+FAILED tests/test_history_source_partition.py::test_incomplete_quote_clarifies_without_capabilities[\u4ee5\u524d\u6709\u6ca1\u6709\u7c7b\u4f3c\uff0c\u5931\u8d25\u6848\u4f8b\u4e5f\u770b\u770b-\u2018] - AssertionError: assert (not '‘以前有没有类似，失败案例也看看')
+FAILED tests/test_history_source_partition.py::test_incomplete_quote_clarifies_without_capabilities[\u4ee5\u524d\u6709\u6ca1\u6709\u7c7b\u4f3c\uff0c\u5931\u8d25\u6848\u4f8b\u4e5f\u770b\u770b-"] - assert (not '"以前有没有类似，失败案例也看看')
+FAILED tests/test_history_source_partition.py::test_incomplete_quote_clarifies_without_capabilities[\u4ee5\u524d\u6709\u6ca1\u6709\u7c7b\u4f3c\uff0c\u5931\u8d25\u6848\u4f8b\u4e5f\u770b\u770b-'] - assert (not "'以前有没有类似，失败案例也看看")
+FAILED tests/test_history_source_partition.py::test_incomplete_quote_clarifies_without_capabilities[\u5e02\u76c8\u7387\u662f\u4ec0\u4e48\uff1f-\u300c] - AssertionError: assert (not '「市盈率是什么？')
+FAILED tests/test_history_source_partition.py::test_incomplete_quote_clarifies_without_capabilities[\u5e02\u76c8\u7387\u662f\u4ec0\u4e48\uff1f-\u300e] - AssertionError: assert (not '『市盈率是什么？')
+FAILED tests/test_history_source_partition.py::test_incomplete_quote_clarifies_without_capabilities[\u5e02\u76c8\u7387\u662f\u4ec0\u4e48\uff1f-\u201c] - AssertionError: assert (not '“市盈率是什么？')
+FAILED tests/test_history_source_partition.py::test_incomplete_quote_clarifies_without_capabilities[\u5e02\u76c8\u7387\u662f\u4ec0\u4e48\uff1f-\u2018] - AssertionError: assert (not '‘市盈率是什么？')
+FAILED tests/test_history_source_partition.py::test_incomplete_quote_clarifies_without_capabilities[\u5e02\u76c8\u7387\u662f\u4ec0\u4e48\uff1f-"] - assert (not '"市盈率是什么？')
+FAILED tests/test_history_source_partition.py::test_incomplete_quote_clarifies_without_capabilities[\u5e02\u76c8\u7387\u662f\u4ec0\u4e48\uff1f-'] - assert (not "'市盈率是什么？")
+FAILED tests/test_history_source_partition.py::test_all_permission_readers_use_material_ownership[\u300c{}] - AssertionError: assert HistoryIntent(purpose='retrospective_discovery', requested_start='2026-01-01', requested_end='2026-09-15', scope='hist...=True, window_error=None, information_cutoff='2026-09-10', analysis_window_source='none', allow_window_extension=False) is None
+ +  where HistoryIntent(purpose='retrospective_discovery', requested_start='2026-01-01', requested_end='2026-09-15', scope='hist...=True, window_error=None, information_cutoff='2026-09-10', analysis_window_source='none', allow_window_extension=False) = inherit_history_followup('「那它们见顶后谁接力？', HistoryIntent(purpose='retrospective_discovery', requested_start='2026-01-01', requested_end='2026-09-15', scope='hist...=True, window_error=None, information_cutoff='2026-09-10', analysis_window_source='none', allow_window_extension=False))
+ +    where '「那它们见顶后谁接力？' = <built-in method format of str object at 0x108912b00>('那它们见顶后谁接力？')
+ +      where <built-in method format of str object at 0x108912b00> = '「{}'.format
+ +    and   HistoryIntent(purpose='retrospective_discovery', requested_start='2026-01-01', requested_end='2026-09-15', scope='hist...=True, window_error=None, information_cutoff='2026-09-10', analysis_window_source='none', allow_window_extension=False) = TurnIntent(primary_subject='农业', secondary_topics=(), question_type='theme_analysis', answer_owner='theme-research', c...True, window_error=None, information_cutoff='2026-09-10', analysis_window_source='none', allow_window_extension=False)).history_intent
+FAILED tests/test_history_source_partition.py::test_replay_does_not_promote_material_into_trusted_history[\u300c\u90a3\u5b83\u4eec\u89c1\u9876\u540e\u8c01\u63a5\u529b\uff1f] - AssertionError: assert HistoryIntent(purpose='retrospective_discovery', requested_start='2026-01-01', requested_end='2026-09-15', scope='hist...=True, window_error=None, information_cutoff='2026-09-10', analysis_window_source='none', allow_window_extension=False) is None
+ +  where HistoryIntent(purpose='retrospective_discovery', requested_start='2026-01-01', requested_end='2026-09-15', scope='hist...=True, window_error=None, information_cutoff='2026-09-10', analysis_window_source='none', allow_window_extension=False) = ConversationMaterials(items=(), unavailable=False, assistant_statements=(), base_contract=MaterialContract(classificat...True, window_error=None, information_cutoff='2026-09-10', analysis_window_source='none', allow_window_extension=False)).history_intent
+FAILED tests/test_history_source_partition.py::test_real_entry_does_not_recover_history_from_material[\u300c\u90a3\u5b83\u4eec\u89c1\u9876\u540e\u8c01\u63a5\u529b\uff1f] - AssertionError: assert (HistoryIntent(purpose='retrospective_discovery', requested_start='2026-01-01', requested_end='2026-09-15', scope='hist...=True, window_error=None, information_cutoff='2026-09-10', analysis_window_source='none', allow_window_extension=False) is None)
+ +  where HistoryIntent(purpose='retrospective_discovery', requested_start='2026-01-01', requested_end='2026-09-15', scope='hist...=True, window_error=None, information_cutoff='2026-09-10', analysis_window_source='none', allow_window_extension=False) = ResearchRunContext(contract=ResearchTaskContract(task_id='history-boundary-022f53fdec9c4cb79da9ddf762f5ccd7', question...indow_source='none', allow_window_extension=False), history_results=[], history_artifact_index=[], prior_evidence=None).history_intent
+22 failed, 45 passed in 1.72s

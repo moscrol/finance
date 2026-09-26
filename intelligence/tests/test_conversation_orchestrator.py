@@ -5848,7 +5848,7 @@ def test_openai_compatible_stream_forwards_real_provider_deltas(monkeypatch) -> 
     )
     monkeypatch.setattr(llm_refine, "detect_provider", lambda *_: provider)
     monkeypatch.setattr(
-        llm_refine.urllib.request,
+        llm_refine.llm_http_transport,
         "urlopen",
         lambda *args, **kwargs: _StreamingResponse(body),
     )
@@ -5883,7 +5883,7 @@ def test_synthesis_stream_payload_bounds_thinking_and_tokens(monkeypatch) -> Non
         captured["payload"] = json.loads(request.data.decode("utf-8"))
         return _StreamingResponse(body)
 
-    monkeypatch.setattr(llm_refine.urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setattr(llm_refine.llm_http_transport, "urlopen", fake_urlopen)
 
     result, reason = llm_refine.synthesize_messages_stream(
         [{"role": "user", "content": "question"}],
@@ -5906,7 +5906,7 @@ def test_synthesis_stream_length_finish_reason_fails_closed(monkeypatch) -> None
     )
     monkeypatch.setattr(llm_refine, "detect_provider", lambda *_: provider)
     monkeypatch.setattr(
-        llm_refine.urllib.request,
+        llm_refine.llm_http_transport,
         "urlopen",
         lambda *args, **kwargs: _StreamingResponse(body),
     )
@@ -5935,7 +5935,7 @@ def test_synthesis_stream_output_too_long_fails_closed(monkeypatch) -> None:
     )
     monkeypatch.setattr(llm_refine, "detect_provider", lambda *_: provider)
     monkeypatch.setattr(
-        llm_refine.urllib.request,
+        llm_refine.llm_http_transport,
         "urlopen",
         lambda *args, **kwargs: _StreamingResponse(body),
     )
@@ -5965,7 +5965,7 @@ def test_openai_stream_checks_cancellation_between_provider_deltas(
     )
     monkeypatch.setattr(llm_refine, "detect_provider", lambda *_: provider)
     monkeypatch.setattr(
-        llm_refine.urllib.request,
+        llm_refine.llm_http_transport,
         "urlopen",
         lambda *args, **kwargs: _StreamingResponse(body),
     )
@@ -6015,7 +6015,7 @@ def test_openai_stream_closes_blocking_response_at_absolute_deadline(
 
     monkeypatch.setattr(llm_refine, "detect_provider", lambda *_: provider)
     monkeypatch.setattr(
-        llm_refine.urllib.request,
+        llm_refine.llm_http_transport,
         "urlopen",
         lambda *args, **kwargs: BlockingResponse(),
     )

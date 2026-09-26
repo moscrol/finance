@@ -1,0 +1,116 @@
+def restore_episode(
+    episode_id: str,
+    store: EpisodeStore,
+    *,
+    registry: ResearchToolRegistry | None = None,
+    harness: ResearchHarness | None = None,
+    now: datetime | None = None,
+    context: ResearchRunContext | None = None,
+) -> RestoreResult:
+    """读状态 → 点查 → switch。返回下一动作（``plan``）或已闭合的终局（``outcome``）。
+
+    非终态必须有完整授权快照及调用方重新提供的 ``context`` / ``registry``，精确匹配后
+    才能合成日志/给计划；旧日志可 load 诊断，但不猜权限给恢复计划。确认完成态只读返回。
+    同一道门还要问「谁的」：``context.entry_identity`` 必须与检查点记下的入口身份逐字节相等，
+    两边都未绑定也算一致；一边有一边无是不匹配，没有任何一边可以替对方补上。
+    读前取得本机独占写者，活驱动存在时拒绝；返回时释放，plan 不是后续执行许可。
+    ``now`` 可注入，Tier A 套件用它把「截止已过 / 未过」两格都跑到。
+    """
+
+    with episode_writer(store, episode_id):
+        return _restore_owned(
+            episode_id, store, registry=registry, harness=harness, now=now, context=context,
+        )
+
+
+def _restore_owned(
+    episode_id: str,
+    store: EpisodeStore,
+    *,
+    registry: ResearchToolRegistry | None,
+    harness: ResearchHarness | None,
+    now: datetime | None,
+    context: ResearchRunContext | None,
+) -> RestoreResult:
+    domain = harness if harness is not None else FinanceResearchHarness()
+    moment = now if now is not None else datetime.now().astimezone()
+    loaded_events, state = store.load(episode_id)
+    if state is None:
+        raise RestoreUnavailable(f"{episode_id}: 没有 EpisodeState，拒绝从事件流推断位置")
+    if state.episode_id != episode_id:
+        raise RestoreUnavailable(f"{episode_id}: checkpoint episode identity mismatch")
+    if state.log_version != EPISODE_LOG_VERSION:
+        raise RestoreUnavailable(
+            f"{episode_id}: 日志版本 {state.log_version} != 读者 {EPISODE_LOG_VERSION}"
+        )
+    require_known_kinds(loaded_events)
+    if state.last_sequence > len(loaded_events):
+        raise RestoreUnavailable(
+            f"{episode_id}: 日志落后于状态（state.last_sequence={state.last_sequence} > "
+            f"{len(loaded_events)} 条事件）"
+        )
+    events = list(loaded_events)
+    task_frame_hash = _task_frame_hash(events)
+    # 检查点带来的未对账凭证原样带走（恢复不是对账，没资格消它们），本次新发现的再并进去。
+    current_unknown: UnreconciledEffects = unknown_effects_from_payload(
+        list(state.unreconciled_effects)
+    )
+    pending_unknown: list[UnknownEffect] = []
+
+    def result(
+        disposition: RestoreDisposition,
+        *,
+        synth: _Synthesizer | None,
+        plan: ResumePlan | None,
+        outcome: AgentOutcome | None,
+        state_after: EpisodeState,
+    ) -> RestoreResult:
+        return RestoreResult(
+            episode_id=episode_id,
+            disposition=disposition,
+            state_before=state,
+            state_after=state_after,
+            events=tuple(events),
+            synthesized=tuple(synth.synthesized) if synth is not None else (),
+            plan=plan,
+            outcome=outcome,
+            pending_inbox=pending_inbox_messages(loaded_events),
+            entry_identity_bound=state.entry_identity is not None,
+            unreconciled_effects=current_unknown,
+        )
+
+    latest_finish = next((e for e in reversed(events) if e.kind == "finish"), None)
+    if state.terminal:
+        # A visible finish alone does not prove the done checkpoint was ACKed.
+        # Nor may an old done checkpoint hide a later repair or failure suffix.
+        if (
+            latest_finish is None
+            or latest_finish.sequence != state.last_sequence
+            or state.last_sequence != len(events)
+        ):
+            raise RestoreUnavailable(f"{episode_id}: terminal checkpoint does not match the finish prefix")
+        return result("already_terminal", synth=None, plan=None, outcome=None, state_after=state)
+    if latest_finish is not None:
+        repair_checkpointed = any(
+            e.kind == "repair_reentry"
+            and latest_finish.sequence < e.sequence <= state.last_sequence
+            for e in events
+        )
+        if not repair_checkpointed:
+            raise RestoreUnavailable(f"{episode_id}: finish has no confirmed completion or repair checkpoint")
+        # Same-process repair can legally continue after a prior finish. Its
+        # newer checkpoint, not a historical finish, owns the recovery position.
+
+    # P1a stores linked episodes, but no driver yet restores their shared budget,
+    # branch delivery/ownership and in-flight effects together. Refuse BEFORE
+    # synthesizing events; a standalone retry would mint a second child tree.
+    if state.contract_snapshot.get("branch_parent") or any(
+        event.kind == "branch_started" for event in events
+    ):
+        raise RestoreUnavailable(f"{episode_id}: linked episode recovery requires child reconciliation")
+
+    # Saved authority is not a grant. The owning entry point must reauthorize;
+    # validate BEFORE any synthetic event/checkpoint, including expired closure.
+    # Absence cannot distinguish legacy data from a damaged new checkpoint.
+    # Both stay loadable for diagnosis, but neither may bypass this gate.
+    if state.authorization_snapshot is None or context is None or registry is None:

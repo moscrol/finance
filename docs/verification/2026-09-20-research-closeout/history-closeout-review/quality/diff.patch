@@ -1,0 +1,513 @@
+diff --git a/docs/handoffs/2026-09-20-history-closeout-fixes.md b/docs/handoffs/2026-09-20-history-closeout-fixes.md
+new file mode 100644
+index 00000000..5f0b51c5
+--- /dev/null
++++ b/docs/handoffs/2026-09-20-history-closeout-fixes.md
+@@ -0,0 +1,50 @@
++# 2026-09-20 · 历史窗口与代码地图收尾
++
++## 背景
++
++固定基线 `c9bd82ff2e25fe2727347329706f7aeb98444ee8` 已经实现历史原件读取、逐边谱系验证、窗口绑定、授权扩窗、观察终点互斥、并发预占与失败释放。本轮只处理两个已证实的剩余断点，不吸收较新的 main，也不重做已有合同。
++
++第一个断点的真实链是：rank 的排名窗为 2026-01-17..01-22；用户授权 sector trace 把观察终点扩到 01-29；读取该 trace 后，用它作为直接父件继续 stock trace 01-17..01-29。根候选和原始排名窗都未改变，但旧 `WindowSelection.reserve` 把直接父件的 `source_start/source_end` 放进稳定键，因父件从 rank 变成扩窗 trace 而误报 `history_window_selection_conflict`。改回引用旧 rank 原件则成功，证明失败来自稳定身份选错层级。
++
++第二个断点是固定基线全量的唯一失败 `tests/test_code_map.py::test_structure_probe_daily_full`。环境层缺 `uvx` 时，旧 `search_graph` 吞掉 `UvxMissing` 返回空列表；即使补齐 PATH，CRG 对命令词 `daily-full` 只命中 skill 路径，而 Python 实现以 `daily_full` 命名。只补 PATH、删除断言或 skip 都不能修复召回契约。
++
++## 发现与实施顺序
++
++1. 在独占树 `fix/history-closeout-0920` 从固定 c9 创建分支；主树和 `/Users/a77/fwp-wt-history-market-anatomy` 均未写。
++2. 复制历史设计探针到外部证据目录，只把 `SOURCE` 从旧只读树改成新树。原件 SHA256=`565abab164323fd671f5c9b0c6e4a59dd1a8f01b9a323b7f8ec188f8dc0e8779`，副本 SHA256=`0e8fc367a1105e26352dcba24f690523103f9f67d1ec505f4e1a665f6b0ff735`；diff 只有这一行。
++3. 基线探针复现：`same_root_stock_via_extended_original.error=history_window_selection_conflict`，而 `same_root_stock_via_original_rank.status=success`。
++4. 测试先红：加入真实混合父件续查、根/排名窗/观察终点拒绝、合法并发兄弟；3F。把稳定键改成 `root_query_id/root_sample_id/ranking_start/ranking_end` 后转绿。临时撤回该键再次得到 3F，恢复后相邻三组 78P。
++5. 代码地图测试先红：4F 分别钉原词+别名派发、稳定去重与总上限、普通查询单派发、`uvx_missing` 与合法零命中分账。
++6. 实现保留原词查询，并只对 ASCII 命令式连字符 token 生成一个下划线别名；最多两次 CRG 查询，跨查询按相对 path+symbol 首次命中去重，总命中上限20。没有硬编码任何业务路径或命中。
++7. `search_graph` 返回命中和不可用原因；`collect_query` 将缺 `uvx` 标成 `structure.state=unavailable, reason=uvx_missing`，合法空结果仍是 `missing, reason=null`。doors 与 narrative 继续独立呈现。
++8. 在提交 `7e5f2ccd` 上用实际 `/Users/a77/.local/bin/uvx` 执行 `code_map.py build --full`，得到 `ready n=30246`；原始结构探针独立执行通过，CLI `query daily-full` 返回 `market_feature_store/cli.py::cmd_daily_full` 等真实 CRG 符号。
++
++## 方案对比
++
++| 问题 | 方案 | 评价 | 结果 |
++|---|---|---|---|
++| 窗口稳定身份 | 继续用直接父件来源窗 | 合法扩窗后父件窗必变 | 否 |
++| 窗口稳定身份 | 从显示文本推断日期 | 绕开已保存谱系且不可审计 | 否 |
++| 窗口稳定身份 | 根候选 + 原始排名窗 | 跨父件稳定；直接边与授权仍由既有门验证 | 选定 |
++| `daily-full` 召回 | 只给 PATH 加 uvx | 后端可用但仍漏 Python 符号 | 否 |
++| `daily-full` 召回 | 特判 market_feature_store | 把预期答案写进查询层，无法迁移 | 否 |
++| `daily-full` 召回 | 原词 + 一个机械下划线别名 | 保留原命中，查询和返回均有界 | 选定 |
++| 缺后端 | 当作零命中 | 会形成错误的“没有实现”结论 | 否 |
++| 缺后端 | 显式 unavailable/reason | 与 doors/narrative 分层一致 | 选定 |
++
++## 验证与收据
++
++证据根：`/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-fix/`。
++
++- `probe-baseline-red.log` / `probe-after-fix.log`：同一探针前后结果。
++- `history-mutation-red.log`：撤回稳定键后的 3F；最终历史收据 `receipts/final-history/20260920T050817Z-7e5f2ccd.json` 为 78P。
++- 代码地图 TDD：`code-map-tests-red.log` 为 4F，`code-map-tests-green.log` 为定向 4P。
++- 最终代码地图收据 `receipts/final-code-map/20260920T050831Z-7e5f2ccd.json` 为 42P/3S；三个 skip 是依赖本机图状态的互斥夹具，不包括原始结构探针。
++- 实际结构探针收据 `receipts/code-map-actual/20260920T050744Z-7e5f2ccd.json` 为 1P；`code-map-actual-query.json` 保存真实三层查询结果。
++- Ruff：四个改动文件通过。未跑整仓和前端，不能外推全叶。
++
++## 后续与禁止事项
++
++先由主协调独立执行 Spec review，再执行 Quality review；只有两关都通过后才进入 PR/集成/main 全叶。禁止直接合 main，禁止调用真实模型或写生产事实。
++
++旧真实四题失败记录属于 `fbd8f2a6`。本枝没有重跑真实四题，因此不能宣称当前真实回答已通过。#791 的成员并集/相似排名正文忠实与独立启动对照组也不属于这两个补丁；窗口绑定测试通过不能替代这些验收。
+diff --git a/docs/handoffs/inflight/fix-history-closeout-0920.md b/docs/handoffs/inflight/fix-history-closeout-0920.md
+new file mode 100644
+index 00000000..87b2d91f
+--- /dev/null
++++ b/docs/handoffs/inflight/fix-history-closeout-0920.md
+@@ -0,0 +1,36 @@
++# fix/history-closeout-0920
++
++## 这个分支做什么
++从固定 `c9bd82ff` 收尾两项历史债：同根扩窗链的窗口预占误拒，以及 `daily-full` 结构图查询漏召回。
++
++## 决策与被否方案
++| 选定 | 否掉 | 理由 |
++|---|---|---|
++| 预占键=`root_query_id/root_sample_id/ranking_start/ranking_end` | 直接父件 `source_start/end`、显示文本猜窗 | 父件窗会随合法 trace 扩展；根排名窗才是稳定选择，逐边校验仍由既有解析/读取门负责 |
++| 原词后最多一次 `-`→`_` CRG 查询，按 path+symbol 去重，总上限20 | PATH-only、硬编码 market_feature_store、普通词多派发 | 保留原查询，有限补 Python 符号召回，不伪造命中 |
++| `uvx_missing` 显式 `structure=unavailable` | 吞异常成正常零命中 | 后端不可用与合法 `missing` 不能混同 |
++
++展开见 `docs/handoffs/2026-09-20-history-closeout-fixes.md`。
++
++## 当前状态
++- 已提交：`dca7c27e`（窗口稳定身份）、`7e5f2ccd`（代码地图别名/不可用语义）。
++- 工作树除本交接文档外干净；未合 main、未建 PR。
++- 原件读取与窗口绑定在 `c9bd82ff` 已有，本枝没有按旧交接重复施工。
++
++## 已验证
++- 历史设计探针副本：同根 stock 经扩窗 trace 原件由 conflict 转 success；原件/副本 SHA 已留外部证据。
++- 回退稳定键变异：新增 3 条链式/并发断言红；恢复后绿。
++- `test_history_window_binding.py + test_history_market_anatomy.py + test_history_live_seams.py`：78 passed。
++- `test_code_map.py`：42 passed, 3 skipped；实际 `uvx` 全量 build 后图 `ready n=30246 @7e5f2cc`。
++- 原始 `test_structure_probe_daily_full` 独立真实执行：1 passed；Ruff 四个改动文件通过。
++- 收据/日志：`/Users/a77/.finance-runtime/reviews/research-closeout-20260920/history-closeout-fix/`。
++
++## 未验证 / 已知边界
++- 未跑整仓/前端/真实模型/生产写入；旧真实四题失败属于 `fbd8f2a6`，本枝未重跑，不能称当前通过。
++- #791 成员并集/相似排名正文忠实、独立启动对照组不在本实施片；窗口测试不能关闭它们。
++
++## 下一步
++主协调按顺序做独立 Spec→Quality；通过后再决定建 PR/集成/main 全叶验证。本枝禁止直接合 main。
++
++## 踩过的坑
++`pytest | tee` 若未启用 pipefail，shell exit 不能代表 pytest；以收据 counts/exit_status 为准。外部探针副本只改 `SOURCE`，勿覆盖旧证据原件。
+diff --git a/intelligence/services/historical_research/window_binding.py b/intelligence/services/historical_research/window_binding.py
+index c4a585ef..011f889f 100644
+--- a/intelligence/services/historical_research/window_binding.py
++++ b/intelligence/services/historical_research/window_binding.py
+@@ -113,9 +113,12 @@ class WindowSelection:
+         if binding is None:
+             yield
+             return
+-        # A user-authorized observation extension keeps the reference fixed;
+-        # its explicitly labelled later endpoint is not a new ranking window.
+-        key = tuple(binding.get(k) for k in ("root_query_id", "root_sample_id", "source_start", "source_end"))
++        # Direct parents may be a rank original or one of its extended trace
++        # descendants. The stable selection is the root candidate and original
++        # ranking interval; direct-edge source windows are validated separately.
++        key = tuple(binding.get(k) for k in (
++            "root_query_id", "root_sample_id", "ranking_start", "ranking_end",
++        ))
+         with self._lock:
+             if self._key is not None and self._key != key:
+                 raise ValueError("history_window_selection_conflict: this turn already selected another reference/window; compare sector and stock on the same window")
+diff --git a/scripts/code_map.py b/scripts/code_map.py
+index 83c8b085..0c3cbd23 100755
+--- a/scripts/code_map.py
++++ b/scripts/code_map.py
+@@ -255,6 +255,8 @@ def collect_status(root: Path) -> tuple[dict[str, Any], int]:
+ 
+ 
+ DOORS_HIT_CAP = 20
++STRUCTURE_HIT_CAP = 20
++STRUCTURE_QUERY_CAP = 2
+ TITLE_MAX = 40
+ RETIRED_RE = re.compile(r"退役|禁止|已废弃|刻意|不要跑|停用")
+ HEADING_RE = re.compile(r"^(#{1,6})\s+")
+@@ -274,6 +276,9 @@ COMMUNITY_BANNER = (
+     "算法捆簇，不是 intelligence 分层审计。正门见 AGENTS.md 与 wiki/doors/。"
+ )
+ DRIFT_CONTEXT_RE = re.compile(r"退役|禁止|已废弃|刻意|不要跑|停用|废弃")
++PYTHON_COMMAND_TOKEN_RE = re.compile(
++    r"(?<![\w-])([A-Za-z][A-Za-z0-9]*(?:-[A-Za-z0-9]+)+)(?![\w-])"
++)
+ 
+ 
+ def tokenize(question: str) -> list[str]:
+@@ -509,24 +514,31 @@ def _relpath(path: str, root: Path) -> str:
+         return Path(path).name or Path(path).as_posix()
+ 
+ 
+-def search_graph(question: str, cwd: Path | None = None) -> list[dict[str, Any]]:
+-    """可搜时才调用。解析 CRG search 的 JSON results，不按行切开。"""
+-    root = cwd or repo_root()
+-    try:
+-        proc = run_crg_cli(["search", question], root)
+-    except UvxMissing:
+-        return []
+-    if proc.returncode != 0 or not proc.stdout.strip():
+-        return []
++def _structure_queries(question: str) -> tuple[str, ...]:
++    """Keep the literal query, plus one bounded command-to-symbol alias."""
++    alias = PYTHON_COMMAND_TOKEN_RE.sub(
++        lambda match: match.group(1).replace("-", "_"), question
++    )
++    queries = [question]
++    if alias != question:
++        queries.append(alias)
++    return tuple(queries[:STRUCTURE_QUERY_CAP])
++
++
++def _graph_hits(proc: subprocess.CompletedProcess[str], root: Path) -> tuple[list[dict[str, Any]], str | None]:
++    if proc.returncode != 0:
++        return [], "search_failed"
++    if not proc.stdout.strip():
++        return [], "empty_response"
+     try:
+         data = json.loads(proc.stdout)
+     except json.JSONDecodeError:
+-        return []
++        return [], "invalid_response"
+     rows = data.get("results") if isinstance(data, dict) else None
+     if not isinstance(rows, list):
+-        return []
++        return [], "invalid_response"
+     hits: list[dict[str, Any]] = []
+-    for item in rows[:DOORS_HIT_CAP]:
++    for item in rows[:STRUCTURE_HIT_CAP]:
+         if not isinstance(item, dict):
+             continue
+         name = str(item.get("name") or "")
+@@ -549,7 +561,33 @@ def search_graph(question: str, cwd: Path | None = None) -> list[dict[str, Any]]
+                 "retired": [],
+             }
+         )
+-    return hits
++    return hits, None
++
++
++def search_graph(
++    question: str, cwd: Path | None = None
++) -> tuple[list[dict[str, Any]], str | None]:
++    """Search literal text then one Python-symbol alias; report backend failure."""
++    root = cwd or repo_root()
++    hits: list[dict[str, Any]] = []
++    seen: set[tuple[str, str | None]] = set()
++    for query in _structure_queries(question):
++        try:
++            proc = run_crg_cli(["search", query], root)
++        except UvxMissing:
++            return hits, "uvx_missing"
++        query_hits, unavailable_reason = _graph_hits(proc, root)
++        if unavailable_reason is not None:
++            return hits, unavailable_reason
++        for hit in query_hits:
++            identity = (str(hit.get("path") or ""), hit.get("symbol"))
++            if identity in seen:
++                continue
++            seen.add(identity)
++            hits.append(hit)
++            if len(hits) >= STRUCTURE_HIT_CAP:
++                return hits, None
++    return hits, None
+ 
+ 
+ def detect_conflicts(
+@@ -690,20 +728,23 @@ def collect_query(root: Path, question: str) -> tuple[dict[str, Any], int]:
+     vault_state, door_hits = search_doors(root, tokens)
+     doors_state = "ok" if door_hits else "missing"
+ 
++    structure_reason = None
+     if status == "empty":
+         structure_state, structure_hits = "refused_empty", []
+     elif status == "error":
+         structure_state, structure_hits = "refused_error", []
+     else:
+-        structure_hits = search_graph(question, root)
+-        if status == "stale":
++        structure_hits, structure_reason = search_graph(question, root)
++        if structure_reason is not None:
++            structure_state = "unavailable"
++        elif status == "stale":
+             structure_state = "stale"
+         elif structure_hits:
+             structure_state = "ok"
+         else:
+             structure_state = "missing"
+ 
+-    if structure_state in {"refused_empty", "refused_error"}:
++    if structure_state in {"refused_empty", "refused_error", "unavailable"}:
+         structure_claim = "unavailable"
+     else:
+         structure_claim = structure_state if structure_state != "ok" else (
+@@ -732,6 +773,9 @@ def collect_query(root: Path, question: str) -> tuple[dict[str, Any], int]:
+         next_action = DRIFT_NEXT_ACTION
+     elif status in {"empty", "error"}:
+         next_action = EMPTY_NEXT_ACTION
++    elif structure_state == "unavailable":
++        hint = UVX_HINT if structure_reason == "uvx_missing" else "请检查 code-review-graph search"
++        next_action = f"structure 层不可用（{structure_reason}）：{hint}。正门见 layers.doors。"
+     else:
+         next_action = "正门见 layers.doors。叙事见 layers.narrative 或 ask。"
+     payload = {
+@@ -740,7 +784,11 @@ def collect_query(root: Path, question: str) -> tuple[dict[str, Any], int]:
+         "vault": vault_state,
+         "layers": {
+             "doors": {"state": doors_state, "hits": door_hits},
+-            "structure": {"state": structure_state, "hits": structure_hits},
++            "structure": {
++                "state": structure_state,
++                "reason": structure_reason,
++                "hits": structure_hits,
++            },
+             "narrative": {"state": narrative_state, "hits": narrative_hits},
+         },
+         "conflicts": conflicts,
+diff --git a/tests/test_code_map.py b/tests/test_code_map.py
+index 7a8d7aa1..9579d75c 100644
+--- a/tests/test_code_map.py
++++ b/tests/test_code_map.py
+@@ -621,7 +621,8 @@ def test_search_graph_parses_crg_json_results(tmp_path, monkeypatch):
+         return subprocess.CompletedProcess(["uvx"], 0, stdout, "")
+ 
+     monkeypatch.setattr(cm, "run_crg_cli", fake)
+-    hits = cm.search_graph("daily-full", root)
++    hits, unavailable_reason = cm.search_graph("daily-full", root)
++    assert unavailable_reason is None
+     assert hits
+     assert hits[0]["symbol"] == "cmd_daily_full"
+     assert hits[0]["path"].endswith("market_feature_store/cli.py")
+@@ -631,6 +632,95 @@ def test_search_graph_parses_crg_json_results(tmp_path, monkeypatch):
+     assert hits[1]["title"] == "test_daily_full_preflight.py"
+ 
+ 
++def test_search_graph_dispatches_hyphen_query_and_python_alias_with_bounded_dedup(
++    tmp_path, monkeypatch
++):
++    cm = _cm()
++    root = _init_repo(tmp_path)
++    calls = []
++    monkeypatch.setattr(cm, "STRUCTURE_HIT_CAP", 3)
++
++    def row(name, path, qualified):
++        return {"name": name, "file_path": str(root / path), "qualified_name": qualified}
++
++    responses = {
++        "daily-full": [
++            row("cmd_daily_full", "market_feature_store/cli.py", "original::cmd_daily_full"),
++            row("skill_daily_full", "skills/daily-full-review/SKILL.md", "original::skill_daily_full"),
++        ],
++        "daily_full": [
++            row("cmd_daily_full", "market_feature_store/cli.py", "alias::cmd_daily_full"),
++            row("run_daily_full", "market_feature_store/sync/sync_daily_full.py", "alias::run_daily_full"),
++            row("extra", "market_feature_store/extra.py", "alias::extra"),
++        ],
++    }
++
++    def fake(args, cwd):
++        calls.append(list(args))
++        return subprocess.CompletedProcess(
++            ["uvx"], 0, json.dumps({"status": "ok", "results": responses[args[1]]}), ""
++        )
++
++    monkeypatch.setattr(cm, "run_crg_cli", fake)
++    hits, unavailable_reason = cm.search_graph("daily-full", root)
++    assert unavailable_reason is None
++    assert calls == [["search", "daily-full"], ["search", "daily_full"]]
++    assert len(hits) == 3
++    assert hits[0]["excerpt"] == "original::cmd_daily_full"
++    assert [(hit["path"], hit["symbol"]) for hit in hits].count(
++        ("market_feature_store/cli.py", "cmd_daily_full")
++    ) == 1
++    assert any(hit["symbol"] == "run_daily_full" for hit in hits)
++    assert not any(hit["symbol"] == "extra" for hit in hits)
++
++
++def test_search_graph_ordinary_query_is_dispatched_once(tmp_path, monkeypatch):
++    cm = _cm()
++    root = _init_repo(tmp_path)
++    calls = []
++
++    def fake(args, cwd):
++        calls.append(list(args))
++        return subprocess.CompletedProcess(
++            ["uvx"], 0, json.dumps({"status": "ok", "results": []}), ""
++        )
++
++    monkeypatch.setattr(cm, "run_crg_cli", fake)
++    hits, unavailable_reason = cm.search_graph("rank_history", root)
++    assert hits == []
++    assert unavailable_reason is None
++    assert calls == [["search", "rank_history"]]
++
++
++def test_query_distinguishes_missing_structure_backend_from_zero_hits(tmp_path, monkeypatch):
++    cm = _cm()
++    root = _init_repo(tmp_path)
++    head = _git(root, "rev-parse", "HEAD")
++    _make_graph(root, n_nodes=1, git_head_sha=head)
++    (root / "AGENTS.md").write_text("daily-full gate\n", encoding="utf-8")
++    (root / "CLAUDE.md").write_text("daily-full gate\n", encoding="utf-8")
++
++    monkeypatch.setattr(cm, "_uvx_path", lambda: None)
++    unavailable, code = cm.collect_query(root, "daily-full")
++    assert code == 0
++    assert unavailable["layers"]["structure"]["state"] == "unavailable"
++    assert unavailable["layers"]["structure"]["reason"] == "uvx_missing"
++    assert unavailable["completeness_claim"]["structure"] == "unavailable"
++
++    monkeypatch.setattr(
++        cm,
++        "run_crg_cli",
++        lambda args, cwd: subprocess.CompletedProcess(
++            ["uvx"], 0, json.dumps({"status": "ok", "results": []}), ""
++        ),
++    )
++    empty, code = cm.collect_query(root, "ordinary_query")
++    assert code == 0
++    assert empty["layers"]["structure"]["state"] == "missing"
++    assert empty["layers"]["structure"]["reason"] is None
++    assert empty["completeness_claim"]["structure"] == "missing"
++
++
+ def test_code_map_skill_and_discovery_symlink():
+     skill = ROOT / "skills" / "code-map" / "SKILL.md"
+     text = skill.read_text(encoding="utf-8")
+@@ -706,7 +796,7 @@ def test_query_narrative_hits_steered_wiki_page(tmp_path, monkeypatch):
+         "# 复盘写入正门\n\nquery: daily-full\n正门是 market_feature_store.cli\n",
+         encoding="utf-8",
+     )
+-    monkeypatch.setattr(cm, "search_graph", lambda *a, **k: [])
++    monkeypatch.setattr(cm, "search_graph", lambda *a, **k: ([], None))
+     payload, code = cm.collect_query(root, "daily-full")
+     assert code == 0
+     assert payload["layers"]["narrative"]["state"] == "ok"
+@@ -726,7 +816,7 @@ def test_query_narrative_drift_sets_conflicts(tmp_path, monkeypatch):
+     wiki = root / ".code-review-graph" / "wiki" / "doors"
+     wiki.mkdir(parents=True)
+     (wiki / "oops.md").write_text("继续用飞书 Bitable 写复盘\n", encoding="utf-8")
+-    monkeypatch.setattr(cm, "search_graph", lambda *a, **k: [])
++    monkeypatch.setattr(cm, "search_graph", lambda *a, **k: ([], None))
+     monkeypatch.setattr(
+         cm,
+         "search_doors",
+@@ -757,7 +847,7 @@ def test_ask_is_extractive_markdown(tmp_path, monkeypatch):
+     root = _init_repo(tmp_path)
+     (root / "AGENTS.md").write_text("daily-full 正门\n", encoding="utf-8")
+     (root / "CLAUDE.md").write_text("daily-full 正门\n", encoding="utf-8")
+-    monkeypatch.setattr(cm, "search_graph", lambda *a, **k: [])
++    monkeypatch.setattr(cm, "search_graph", lambda *a, **k: ([], None))
+     text, code = cm.collect_ask(root, "daily-full")
+     assert code == 0
+     assert text.startswith("# daily-full")
+@@ -804,5 +894,3 @@ def test_full_build_writes_steering_door_pages(tmp_path, monkeypatch):
+     assert "算法捆簇" in index
+     assert "daily-review-door.md" in index
+     assert payload.get("wiki_generated") is True
+-
+-
+diff --git a/tests/test_history_window_binding.py b/tests/test_history_window_binding.py
+index f2b47ccc..c465d218 100644
+--- a/tests/test_history_window_binding.py
++++ b/tests/test_history_window_binding.py
+@@ -229,10 +229,27 @@ def test_explicit_extension_is_not_implied_by_authorized_end_or_cutoff(tmp_path,
+     args = _args(original, ref, operation="trace_history", entity_codes=["A.FP", "B.FP"],
+                  window_ref={"result_ref": rank_ref}, end="2026-01-29")
+     extended = _execute(next_tools, next_context, **args)
+-    binding = next_session.read(extended.telemetry["result_ref"])["window_binding"]
++    trace_ref = extended.telemetry["result_ref"]
++    binding = next_session.read(trace_ref)["window_binding"]
+     assert binding["relation"] == "extended_observation"
+     assert binding["source_end"] == original["rows"][0]["end"]
+     assert binding["end"] == "2026-01-29"
++    # The delivered extended trace is a valid direct parent for another analysis
++    # on the same root ranking window. Its source window is wider than the rank
++    # original, but that direct-edge detail must not look like a root-window swap.
++    # Read the saved trace original as the next direct parent, matching the
++    # cross-turn workflow even though this direct test also delivered its query.
++    _read(next_tools, next_context, trace_ref)
++    continued = _execute(next_tools, next_context, **dict(
++        args, entity_kind="stock", window_ref={"result_ref": trace_ref}))
++    continued_binding = next_session.read(continued.telemetry["result_ref"])["window_binding"]
++    assert continued_binding["root_query_id"] == binding["root_query_id"]
++    assert continued_binding["root_sample_id"] == binding["root_sample_id"]
++    assert (continued_binding["ranking_start"], continued_binding["ranking_end"]) == (
++        binding["ranking_start"], binding["ranking_end"])
++    assert continued_binding["source_query_id"] == next_session.read(trace_ref)["query_id"]
++    assert (continued_binding["source_start"], continued_binding["source_end"]) == (
++        binding["start"], binding["end"])
+     with pytest.raises(ValueError, match="history_window_observation_conflict"):
+         _execute(next_tools, next_context, **dict(args, end="2026-01-28"))
+     # Observation extension leaves the original ranking interval available.
+@@ -252,6 +269,66 @@ def test_explicit_extension_is_not_implied_by_authorized_end_or_cutoff(tmp_path,
+         _execute(next_tools, next_context, **dict(args, operation="rank_history"))
+ 
+ 
++def test_window_selection_uses_root_ranking_identity_and_observation_endpoint():
++    from intelligence.services.historical_research.window_binding import WindowSelection
++
++    base = {
++        "root_query_id": "root-a", "root_sample_id": "sample-a",
++        "ranking_start": "2026-01-17", "ranking_end": "2026-01-22",
++        "source_start": "2026-01-17", "source_end": "2026-01-22",
++        "start": "2026-01-17", "end": "2026-01-29",
++    }
++    mixed_parent = dict(base, source_start="2026-01-17", source_end="2026-01-29")
++    selection = WindowSelection()
++    with selection.reserve(base, observation=True):
++        with selection.reserve(mixed_parent, observation=True):
++            pass
++    for changed in (
++        dict(mixed_parent, root_query_id="root-b"),
++        dict(mixed_parent, root_sample_id="sample-b"),
++        dict(mixed_parent, ranking_start="2026-01-18"),
++        dict(mixed_parent, ranking_end="2026-01-23"),
++    ):
++        with pytest.raises(ValueError, match="history_window_selection_conflict"):
++            with selection.reserve(changed, observation=True):
++                pass
++    with pytest.raises(ValueError, match="history_window_observation_conflict"):
++        with selection.reserve(dict(mixed_parent, end="2026-01-30"), observation=True):
++            pass
++
++
++def test_window_selection_allows_parallel_same_root_mixed_parent_siblings():
++    from concurrent.futures import ThreadPoolExecutor
++    from threading import Event
++
++    from intelligence.services.historical_research.window_binding import WindowSelection
++
++    base = {
++        "root_query_id": "root-a", "root_sample_id": "sample-a",
++        "ranking_start": "2026-01-17", "ranking_end": "2026-01-22",
++        "source_start": "2026-01-17", "source_end": "2026-01-22",
++        "start": "2026-01-17", "end": "2026-01-29",
++    }
++    sibling = dict(base, source_end="2026-01-29")
++    entered, release = Event(), Event()
++    selection = WindowSelection()
++
++    def hold_first():
++        with selection.reserve(base, observation=True):
++            entered.set()
++            assert release.wait(5)
++
++    with ThreadPoolExecutor(max_workers=1) as pool:
++        first = pool.submit(hold_first)
++        try:
++            assert entered.wait(3)
++            with selection.reserve(sibling, observation=True):
++                pass
++        finally:
++            release.set()
++        first.result(5)
++
++
+ def test_source_identity_scope_and_cutoff_are_checked_before_query(tmp_path, anatomy_db, monkeypatch):
+     tools, context, session, original, ref, _, _, decision = _scenario(tmp_path, anatomy_db)
+     _read(tools, context, ref)

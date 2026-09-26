@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="0.189" timestamp="2026-09-23T22:26:18.968380+08:00" hostname="77deMacBook-Air.local"><testcase classname="intelligence.tests.test_llm_timeout_diagnostic" name="test_strict_mode_rejects_missing_coverage_even_inside_deadline" time="0.003"><failure message="assert 0 == 1&#10; +  where 0 = &lt;function main at 0x107b509a0&gt;()&#10; +    where &lt;function main at 0x107b509a0&gt; = probe.main">monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x107f6bec0&gt;
+tmp_path = PosixPath('/Users/a77/.finance-runtime/reviews/pr868-admission-diagnostic-20260923-2218/mutation-missing_coverage_guard/test_strict_mode_rejects_missi0')
+
+    def test_strict_mode_rejects_missing_coverage_even_inside_deadline(monkeypatch, tmp_path):
+        output = tmp_path / "receipt.json"
+        monkeypatch.setattr(probe, "SCENARIOS", ("body_stall",))
+        monkeypatch.setattr(probe, "JUDGE_SCENARIOS", ())
+        monkeypatch.setattr(probe, "source_identity", lambda: {"revision": "fixed"})
+        monkeypatch.setattr(probe, "run_case", lambda name, budget: {
+            "scenario": name, "timeout_input_seconds": budget, "wall_elapsed_seconds": 0.8,
+            "request_count": 0, "attempts": [{}],
+        })
+        monkeypatch.setattr(sys, "argv", ["probe", "--output", str(output), "--assert-deadline"])
+&gt;       assert probe.main() == 1
+E       assert 0 == 1
+E        +  where 0 = &lt;function main at 0x107b509a0&gt;()
+E        +    where &lt;function main at 0x107b509a0&gt; = probe.main
+
+intelligence/tests/test_llm_timeout_diagnostic.py:223: AssertionError</failure></testcase></testsuite></testsuites>

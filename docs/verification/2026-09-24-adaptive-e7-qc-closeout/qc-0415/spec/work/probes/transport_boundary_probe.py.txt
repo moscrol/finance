@@ -1,0 +1,155 @@
+"""Probe 1: llm_http_transport boundary behaviors (C1, C5-no-spawn, C6 timing basis).
+
+Fake loopback HTTP server on 127.0.0.1:26001 with modes selected by path:
+  /ok          -> immediate 200 with small body (positive control)
+  /stall       -> headers immediately, then 1 byte per 0.2s for ~5s (trickle)
+  /slowheaders -> sleeps 5s before sending anything
+Run directly: python transport_boundary_probe.py  (exit 0 = all non-control pass)
+"""
+import json, os, sys, time, threading
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from types import SimpleNamespace
+from urllib.request import Request
+
+sys.path.insert(0, "/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0326/candidate")
+from intelligence.services import llm_http_transport as T
+
+PORT = 26001
+RESULTS = []
+
+
+class H(BaseHTTPRequestHandler):
+    protocol_version = "HTTP/1.1"
+
+    def log_message(self, *a):
+        pass
+
+    def do_POST(self):
+        n = int(self.headers.get("Content-Length") or 0)
+        self.rfile.read(n)
+        mode = self.path.strip("/").split("?")[0]
+        if mode == "slowheaders":
+            time.sleep(5.0)
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", "64")
+        self.end_headers()
+        if mode == "stall":
+            body = b'{"choices": [{"message": {"content": "xx"}}], "usage": {}}'
+            for i in range(min(64, len(body))):
+                self.wfile.write(body[i:i + 1])
+                self.wfile.flush()
+                time.sleep(0.2)
+            return
+        self.wfile.write(b'{"choices": [{"message": {"content": "ok"}}], "usage": {}}\n'[:64].ljust(64, b" "))
+        self.wfile.flush()
+
+
+def req(path):
+    return Request(f"http://127.0.0.1:{PORT}/{path}", data=b"{}", method="POST",
+                   headers={"Content-Type": "application/json"})
+
+
+def record(name, ok, trigger, detail):
+    RESULTS.append({"subcase": name, "pass": bool(ok), "trigger_reached": bool(trigger), **detail})
+
+
+def main():
+    srv = ThreadingHTTPServer(("127.0.0.1", PORT), H)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    time.sleep(0.2)
+
+    # 1) positive control: success read
+    t0 = time.monotonic()
+    ev = []
+    with T.urlopen(req("ok"), 5, observer=lambda k, **kw: ev.append((k, time.monotonic()))) as r:
+        body = r.read()
+    record("success_ok", r.status == 200 and b'"content"' in body and time.monotonic() - t0 < 3,
+           r.status == 200, {"status": r.status, "body_len": len(body),
+                            "events": [k for k, _ in ev], "wall": round(time.monotonic() - t0, 3)})
+
+    # 2) distinct 10s timeout vs 0.5s shared deadline, trickling body
+    t0 = time.monotonic()
+    exc = None
+    try:
+        with T.urlopen(req("stall"), 10, deadline=SimpleNamespace(expires_at=time.monotonic() + 0.5)) as r:
+            r.read()
+    except BaseException as e:
+        exc = type(e).__name__
+    wall = time.monotonic() - t0
+    record("body_deadline_0p5_of_10", exc == "HTTPDeadlineExceeded" and wall < 2.0,
+           exc == "HTTPDeadlineExceeded" and wall < 10.0,
+           {"exception": exc, "wall": round(wall, 3)})
+
+    # 3) slow headers, short shared deadline
+    t0 = time.monotonic()
+    exc = None
+    try:
+        with T.urlopen(req("slowheaders"), 10,
+                       deadline=SimpleNamespace(expires_at=time.monotonic() + 0.5)) as r:
+            r.read()
+    except BaseException as e:
+        exc = type(e).__name__
+    wall = time.monotonic() - t0
+    record("slow_headers_deadline", exc == "HTTPDeadlineExceeded" and wall < 2.0,
+           exc == "HTTPDeadlineExceeded" and wall < 5.0,
+           {"exception": exc, "wall": round(wall, 3)})
+
+    # 4) cancellation mid-stream (no deadline pressure: 10s)
+    cancel_at = {"t": None}
+    ev = []
+    def is_cancelled():
+        if cancel_at["t"] is None:
+            cancel_at["t"] = time.monotonic()
+        return True
+    t0 = time.monotonic()
+    exc = None
+    try:
+        with T.urlopen(req("stall"), 10, is_cancelled=lambda: cancel_at["t"] is not None,
+                       observer=lambda k, **kw: ev.append((k, time.monotonic()))) as r:
+            r.read()
+    except BaseException as e:
+        exc = type(e).__name__
+    wall = time.monotonic() - t0
+    cancel_set = next((t for k, t in ev if k == "headers"), None)
+    # arm cancel 0.3s after headers via observer side effect
+    record("cancel_midstream", exc == "HTTPStreamCancelled" and wall < 2.0,
+           exc == "HTTPStreamCancelled" and any(k == "headers" for k, _ in ev),
+           {"exception": exc, "wall": round(wall, 3), "events": [k for k, _ in ev]})
+
+    # 5) zero remaining deadline: reject before subprocess spawn
+    ev = []
+    exc = None
+    try:
+        T.urlopen(req("ok"), 10, deadline=SimpleNamespace(expires_at=time.monotonic() - 0.001),
+                  observer=lambda k, **kw: ev.append(k))
+    except BaseException as e:
+        exc = type(e).__name__
+    record("zero_deadline_no_spawn", exc == "HTTPDeadlineExceeded" and ev == [],
+           exc == "HTTPDeadlineExceeded" and ev == [],
+           {"exception": exc, "observer_events": ev})
+
+    # 6) stalled parent: open headers, never read until after expiry (worker timer)
+    t0 = time.monotonic()
+    exc = None
+    try:
+        with T.urlopen(req("stall"), 1.2) as r:
+            r.open() if r.status == 0 else None
+            time.sleep(2.5)  # parent stalls past 1.2s budget
+            r.read()
+    except BaseException as e:
+        exc = type(e).__name__
+    wall = time.monotonic() - t0
+    record("stalled_parent_timer", exc in {"HTTPDeadlineExceeded", "OSError"} and 2.0 < wall < 5.0,
+           exc is not None and wall < 5.0,
+           {"exception": exc, "wall": round(wall, 3)})
+
+    srv.shutdown()
+    print(json.dumps(RESULTS, indent=1))
+    bad = [r["subcase"] for r in RESULTS if not r["pass"]]
+    print(f"SUBCASES total={len(RESULTS)} failed={len(bad)} {bad}")
+    sys.exit(1 if bad else 0)
+
+
+if __name__ == "__main__":
+    main()

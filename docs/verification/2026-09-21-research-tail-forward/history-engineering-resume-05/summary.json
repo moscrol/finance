@@ -1,0 +1,115 @@
+{
+  "source_revision": "442476f7def1013f1fadebaf6594971921147edc",
+  "identity": {
+    "head": "442476f7def1013f1fadebaf6594971921147edc",
+    "status": "",
+    "index_sha256": "a3e7046c51d5d982fd1ee92326650671eee2fa1cbe8dffa045ba4af6b525d75f"
+  },
+  "python": {
+    "ordinary": {
+      "outcomes": {
+        "passed": 12802,
+        "skipped": 87,
+        "xfailed": 2,
+        "failed": 2
+      },
+      "selected_count": 12893,
+      "collected_count": 12898,
+      "junit_suite": {
+        "name": "pytest",
+        "errors": "0",
+        "failures": "2",
+        "skipped": "89",
+        "tests": "12893",
+        "time": "1283.441",
+        "timestamp": "2026-09-22T01:57:58.804811+08:00",
+        "hostname": "77deMacBook-Air.local"
+      },
+      "elapsed_seconds": 1286.7328521248419
+    },
+    "native": {
+      "outcomes": {
+        "passed": 5
+      },
+      "selected_count": 5,
+      "collected_count": 47,
+      "junit_suite": {
+        "name": "pytest",
+        "errors": "0",
+        "failures": "0",
+        "skipped": "0",
+        "tests": "5",
+        "time": "1.205",
+        "timestamp": "2026-09-22T02:19:25.816093+08:00",
+        "hostname": "77deMacBook-Air.local"
+      },
+      "elapsed_seconds": 2.0065447501838207
+    },
+    "full_collected_test_ids": 12898,
+    "union_complete": true,
+    "overlap": 0,
+    "outcomes": {
+      "passed": 12807,
+      "skipped": 87,
+      "xfailed": 2,
+      "failed": 2
+    },
+    "failed_test_ids": [
+      "intelligence/tests/test_rag_worker_keepalive.py::test_module_status_aggregates_rss_idle_and_keepalive_counters",
+      "intelligence/tests/test_rag_worker_keepalive.py::test_status_exposes_rss_and_idle"
+    ],
+    "rss_diagnostics": {
+      "outer": {
+        "exit_code": 1,
+        "tests": 2,
+        "failures": 2,
+        "ps_probe": {
+          "returncode": 71,
+          "stdout": "",
+          "stderr": "sandbox-exec: execvp() of '/bin/ps' failed: Operation not permitted\n"
+        }
+      },
+      "native": {
+        "exit_code": 0,
+        "tests": 2,
+        "failures": 0,
+        "ps_probe": {
+          "returncode": 0,
+          "stdout": " 23488\n",
+          "stderr": ""
+        }
+      }
+    },
+    "note": "Complete disjoint collection coverage; original ordinary run has 2 failures due to outer sandbox denying ps. Both pass in a separate same-env native diagnostic. Not an unqualified green full-run or an official #814 receipt."
+  },
+  "e2e_first": {
+    "stats": {
+      "startTime": "2026-09-21T18:11:32.060Z",
+      "duration": 32489.256,
+      "expected": 9,
+      "skipped": 0,
+      "unexpected": 27,
+      "flaky": 0
+    },
+    "exit_code": 1,
+    "classification": "MISSING_BROWSER_EXECUTABLE"
+  },
+  "e2e_private_browser": {
+    "stats": {
+      "startTime": "2026-09-21T18:15:29.358Z",
+      "duration": 89325.409,
+      "expected": 34,
+      "skipped": 2,
+      "unexpected": 0,
+      "flaky": 0
+    },
+    "exit_code": 0,
+    "same_36_ids": true,
+    "retries": 0
+  },
+  "engineering": "E2E passed. Python full collection executed with 2 original environment failures and separate 2P diagnostic; no unqualified full-run green. Other leaves archived in 04 on same SHA.",
+  "overall": "CHANGES_REQUIRED / NOT_ACCEPTED",
+  "independent_review": "NOT_RESTARTED",
+  "natural_history_four_questions": "NOT_RERUN",
+  "merge_deploy_production": "NOT_PERFORMED"
+}

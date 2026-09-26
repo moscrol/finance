@@ -1,0 +1,43 @@
+{
+  "axis": "Spec",
+  "base": "6b70e54034b0fab736430d7e3d00d6f4f7fd617a",
+  "head": "a7f5cc06c087c2d9db896450bb6033851e8e5789",
+  "initial_status": "clean (observed by git status at review start)",
+  "final_status": "",
+  "branch": "fix/runtime-contracts-0918",
+  "python": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "finished_at": "2026-09-20T12:18:14.261780+08:00",
+  "selected_pytest": {
+    "exit": 0,
+    "passed": 80
+  },
+  "findings": [
+    {
+      "priority": "P1",
+      "id": "future-only-evidence-checkpoint-regression"
+    },
+    {
+      "priority": "P2",
+      "id": "fixture-timer-not-drained"
+    }
+  ],
+  "artifacts_sha256": {
+    "api-timer-candidate.exit": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+    "api-timer-candidate.log": "ba5f2abedca5261ef88beb1ae72abd9079a503ac6ad4294787fc81e74778bedb",
+    "base-identity.json": "f18a1b99a9703e7ae58a9f048484138ad6f425b8c0921e6496518639e7251ce8",
+    "future-evidence-base.exit": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+    "future-evidence-base.log": "b87c8b71c56921df0a80fd1e041d757e902ed710b84caa1f5baebbd2c55ed9d3",
+    "future-evidence-candidate.exit": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+    "future-evidence-candidate.log": "2edea54765b4c51564b8e21085f4510f483cc1bebd1796aaf073817cbb3369db",
+    "old-python-receipt-check.log": "e2379ffa33e6c2828ccbbc3f08bc05405bc517d835256f85eb41c6a863811123",
+    "old-receipt-verification.json": "1bb73e4e16e896d39a5b899110b6f28544277850139c80457514c367d77deee0",
+    "old-receipt-verification.log": "1bb73e4e16e896d39a5b899110b6f28544277850139c80457514c367d77deee0",
+    "probe_api_timer.py": "b47bdeccbb94d15882e06de569125d953a33d334cea02c99589c51e124630a37",
+    "probe_future_evidence.py": "b1db34dda0cbddced5b5b30787b614296928f44e9db254f1c0f8d4a4ada94eeb",
+    "reproduce.md": "5f4b73ca13aa6a3e29804260e8e721834905b449f58a50dcf0eef74ebfc20a42",
+    "selected.log": "87934c86411395aa0cc5aaab105a00e90102c1cbb9abb397da8b496c1eefd289",
+    "selected.xml": "35ce763b750844b8e4241616b30c0e7dbea8fde9e8f38a6ea023bc85613c67e8",
+    "spec-review.md": "57a3ea974390a488029f727478ee6f5b0b74161fcc556cbacea6ebeca13d1f87",
+    "verify_old_receipts.py": "22773545456ed1f027f9b2732e701eebb35278408960dda13bd87f975d2e4902"
+  }
+}

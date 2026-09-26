@@ -1,0 +1,288 @@
+detect private key..............................................................Passed
+check for added large files.....................................................Passed
+check for merge conflicts.......................................................Passed
+ruff check......................................................................Passed
+工作区事实：你在哪棵树、用哪个解释器............................................Passed
+- hook id: agent-workspace-facts
+- duration: 0.17s
+
+── 工作区事实（提交时自述，非风格检查）──
+  worktree : /Users/a77/fwp-wt-financial-forward-0921
+  分支     : fix/financial-forward-0921 @ ea5c3a946
+  解释器   : /Users/a77/finance-workspace-private/.venv-workbench/bin/python
+  依赖     : agents, duckdb, fastapi, pytest, ruff, uvicorn, yaml —— 全部可用（宿主 python3 没有，别用它）
+  若刚才某次 pytest 报 ModuleNotFoundError，那是解释器用错了，不是环境缺包。
+
+层级审计........................................................................Passed
+- hook id: layer-audit
+- duration: 1.84s
+
+========================================================================
+层级门禁 — intelligence/services/** 不得 import intelligence.runtime.*
+========================================================================
+  树        /Users/a77/fwp-wt-financial-forward-0921
+  分支      fix/financial-forward-0921
+  revision  ea5c3a946  ⚠️ 工作区有未提交改动
+  扫描      495 个模块（不含 tests）
+  分层依据  目录 intelligence/runtime/（22 个模块）
+
+✅ ERROR 0 条
+
+结论：通过，ERROR 0 条 == 基线（对 fix/financial-forward-0921@ea5c3a946 成立）
+
+路径字面量：不得新增写死的家目录................................................Passed
+- hook id: path-literals
+- duration: 0.49s
+
+========================================================================
+路径字面量门禁 — 不得新增写死的家目录（存量免检）
+========================================================================
+  树        /Users/a77/fwp-wt-financial-forward-0921
+  扫描      1701 个 .py（不含 .venv/tmp/缓存）
+  存量基线  23 文件 / 37 处
+  当前      23 文件 / 37 处
+
+✅ 无新增家目录字面量
+
+字段契约：不得新增「写了没人读」的字段..........................................Passed
+- hook id: unread-fields
+- duration: 2.08s
+
+================================================================
+字段契约门禁 — 属性写了但全仓没人读（存量免检）
+================================================================
+  扫描      558 个 .py（intelligence, market_feature_store，不含 tests）
+  存量基线  40 文件 / 100 字段
+  当前      38 文件 / 92 字段
+
+✅ 无新增「写了没人读」的字段
+
+dataset 注册：入库了的表 agent 要够得着.........................................Passed
+- hook id: dataset-registration
+- duration: 0.27s
+
+========================================================================
+dataset 注册审计 — 入库 vs agent 够得着（存量免检，只拦新增）
+========================================================================
+  schema.sql 声明   51 张 fact_/feature_ 表（CREATE TABLE）
+    ├ 已注册        34
+    └ 已写明豁免    17
+  另注册 VIEW       2 个（不在 CREATE TABLE 里，单列以免总数对不上）
+  空表检查          跳过（未提供可读的 DuckDB）
+
+✅ 每张 fact_/feature_ 表都有归属（注册或写明豁免）
+
+结论：通过（34 注册 + 17 豁免 = schema.sql 全部 51 张；另有 2 个注册的 VIEW）
+
+工具可达性：声明了的工具生产装配必须够得着......................................Passed
+- hook id: tool-reachability
+- duration: 0.49s
+
+========================================================================
+工具可达性审计 — 声明 vs 生产装配
+========================================================================
+  声明（_DEFAULT_TOOL_METADATA）      18 个
+  无条件装配（build_episode_registry） 12 个
+  条件装配（需额外输入）               6 个
+
+  ⓘ 以下工具在能力授权之外还需额外输入才装配得出来：
+      - derived_calculation: 仅在附加真实装配上下文中出现；需检查对应入口
+      - history_query: 已授权 finance_query，且真实 TaskFrame.history_intent 存在；无需 HistorySession 也可仅计算
+      - memory_lookup: 已授权 memory_lookup，且传入 memory_user 或 memory_users_root 身份
+      - read_history_result: 已授权 finance_query、history_intent，且传入通过同用户/同会话校验的 HistorySession（临时 RunStore 探针）
+      - save_history_research: 已授权 finance_query、history_intent，且传入通过同用户/同会话校验的 HistorySession（临时 RunStore 探针）
+      - sub_research: 已授权 sub_research，且运行时传入绑定协调器和父证据账本的 sub_research_runner
+    这不是缺陷，但生产入口若忘了传那个输入，它会静默永不装配。
+
+✅ 声明与装配一致，无够不着的工具
+
+结论：通过（对 18 个声明工具成立）
+
+运行时目录保鲜：events / tools / harness-seams 与源码一致.......................Passed
+- hook id: runtime-catalog-fresh
+- duration: 0.37s
+
+三张目录与源码一致
+
+红线：禁止提交 密钥/大二进制/缓存/虚拟环境/依赖.............(no files to check)Skipped
+[fix/financial-forward-0921 d82cb16b5] feat(financial): forward-port ratio and delivery contracts without dropping main guards
+ 215 files changed, 38372 insertions(+), 402 deletions(-)
+ create mode 100644 docs/handoffs/2026-09-17-8792-boundary-integration.md
+ create mode 100644 docs/handoffs/2026-09-17-8792-readiness-boundary-fixes.md
+ create mode 100644 docs/handoffs/2026-09-17-citation-numeric-gate.md
+ create mode 100644 docs/handoffs/2026-09-18-8792-boundary-live-acceptance.md
+ create mode 100644 docs/handoffs/2026-09-18-8792-boundary-r4.md
+ create mode 100644 docs/handoffs/2026-09-18-8792-boundary-retest.md
+ create mode 100644 docs/handoffs/2026-09-18-8792-financial-delivery-integration.md
+ create mode 100644 docs/handoffs/2026-09-18-8792-financial-r6-repair.md
+ create mode 100644 docs/handoffs/2026-09-18-8792-local-failure-repairs.md
+ create mode 100644 docs/handoffs/2026-09-19-8792-financial-publication-integration.md
+ create mode 100644 docs/handoffs/2026-09-20-financial-ratio-prefix-unit-repair.md
+ create mode 100644 docs/handoffs/2026-09-20-financial-ratio-units.md
+ create mode 100644 docs/handoffs/inflight/fix-8792-boundary-integration.md
+ create mode 100644 docs/handoffs/inflight/fix-8792-financial-r6-repair.md
+ create mode 100644 docs/handoffs/inflight/fix-8792-readiness-boundaries.md
+ create mode 100644 docs/handoffs/inflight/fix-citation-numeric-gate-0917.md
+ create mode 100644 docs/handoffs/inflight/fix-financial-ratio-units-0920.md
+ create mode 100644 docs/superpowers/plans/2026-09-20-financial-ratio-units.md
+ create mode 100644 docs/verification/2026-09-17-8792-boundary-integration/README.md
+ create mode 100644 docs/verification/2026-09-17-8792-boundary-integration/results.json
+ create mode 100644 docs/verification/2026-09-17-8792-readiness-fixes/README.md
+ create mode 100644 docs/verification/2026-09-17-8792-readiness-fixes/results.json
+ create mode 100644 docs/verification/2026-09-17-citation-numeric-gate/README.md
+ create mode 100644 docs/verification/2026-09-17-citation-numeric-gate/artifact-manifest.json
+ create mode 100644 docs/verification/2026-09-17-citation-numeric-gate/receipt.json
+ create mode 100644 docs/verification/2026-09-18-8792-boundary-live/README.md
+ create mode 100644 docs/verification/2026-09-18-8792-boundary-live/results.json
+ create mode 100644 docs/verification/2026-09-18-8792-boundary-r4/README.md
+ create mode 100644 docs/verification/2026-09-18-8792-boundary-r4/results.json
+ create mode 100644 docs/verification/2026-09-18-8792-boundary-repairs/README.md
+ create mode 100644 docs/verification/2026-09-18-8792-boundary-repairs/results.json
+ create mode 100644 docs/verification/2026-09-18-8792-boundary-retest/README.md
+ create mode 100644 docs/verification/2026-09-18-8792-boundary-retest/results.json
+ create mode 100644 docs/verification/2026-09-18-8792-financial-delivery-integration/README.md
+ create mode 100644 docs/verification/2026-09-18-8792-financial-delivery-integration/SHA256SUMS
+ create mode 100644 docs/verification/2026-09-18-8792-financial-delivery-integration/archive-replay.json
+ create mode 100644 docs/verification/2026-09-18-8792-financial-delivery-integration/closeout-state.json
+ create mode 100644 docs/verification/2026-09-18-8792-financial-delivery-integration/delivery-mutations.json
+ create mode 100644 docs/verification/2026-09-18-8792-financial-delivery-integration/e2e.txt
+ create mode 100644 docs/verification/2026-09-18-8792-financial-delivery-integration/engineering.json
+ create mode 100644 docs/verification/2026-09-18-8792-financial-delivery-integration/extraction-mutations.json
+ create mode 100644 docs/verification/2026-09-18-8792-financial-delivery-integration/financial-mutations.json
+ create mode 100644 docs/verification/2026-09-18-8792-financial-delivery-integration/frontend-build.txt
+ create mode 100644 docs/verification/2026-09-18-8792-financial-delivery-integration/frontend-lint.txt
+ create mode 100644 docs/verification/2026-09-18-8792-financial-delivery-integration/frontend-test.txt
+ create mode 100644 docs/verification/2026-09-18-8792-financial-delivery-integration/frontend-typecheck.txt
+ create mode 100644 docs/verification/2026-09-18-8792-financial-delivery-integration/graph-audit.txt
+ create mode 100644 docs/verification/2026-09-18-8792-financial-delivery-integration/harness-refs.txt
+ create mode 100644 docs/verification/2026-09-18-8792-financial-delivery-integration/integration-mutations.json
+ create mode 100644 docs/verification/2026-09-18-8792-financial-delivery-integration/manifest.json
+ create mode 100644 docs/verification/2026-09-18-8792-financial-delivery-integration/material-projection-development.txt
+ create mode 100644 docs/verification/2026-09-18-8792-financial-delivery-integration/mutation-failure-classification.json
+ create mode 100644 docs/verification/2026-09-18-8792-financial-delivery-integration/prior-extraction-failure-audit.json
+ create mode 100644 docs/verification/2026-09-18-8792-financial-delivery-integration/pytest-receipt.json
+ create mode 100644 docs/verification/2026-09-18-8792-financial-delivery-integration/pytest.txt
+ create mode 100644 docs/verification/2026-09-18-8792-financial-delivery-integration/receipt-check.txt
+ create mode 100644 docs/verification/2026-09-18-8792-financial-delivery-integration/registry-ambient-red.txt
+ create mode 100644 docs/verification/2026-09-18-8792-financial-delivery-integration/registry-pinned-ledger-crosswalk.txt
+ create mode 100644 docs/verification/2026-09-18-8792-financial-delivery-integration/registry-pinned-parseability.txt
+ create mode 100644 docs/verification/2026-09-18-8792-financial-delivery-integration/registry-pinned-registry.txt
+ create mode 100644 docs/verification/2026-09-18-8792-financial-delivery-integration/registry-pinned-tables.txt
+ create mode 100644 docs/verification/2026-09-18-8792-financial-delivery-integration/registry-pinned-views.txt
+ create mode 100644 docs/verification/2026-09-18-8792-financial-delivery-integration/registry-pinned.json
+ create mode 100644 docs/verification/2026-09-18-8792-financial-delivery-integration/related-development-invalid-target.txt
+ create mode 100644 docs/verification/2026-09-18-8792-financial-delivery-integration/related-development-valid.txt
+ create mode 100644 docs/verification/2026-09-18-8792-financial-delivery-integration/ruff.txt
+ create mode 100644 docs/verification/2026-09-18-8792-financial-delivery-integration/seams-first-red.txt
+ create mode 100644 docs/verification/2026-09-18-8792-financial-delivery-integration/seams-fixed-fixture.txt
+ create mode 100644 docs/verification/2026-09-18-8792-financial-delivery-integration/seams-repair-first.txt
+ create mode 100644 docs/verification/2026-09-18-8792-financial-delivery-integration/transplant-first.txt
+ create mode 100644 docs/verification/2026-09-18-8792-financial-delivery-integration/vault-lint-after.txt
+ create mode 100644 docs/verification/2026-09-18-8792-financial-delivery-integration/vault-lint-before.txt
+ create mode 100644 docs/verification/2026-09-18-8792-financial-delivery-integration/vault-lint-diff.json
+ create mode 100644 docs/verification/2026-09-18-8792-financial-r6-repair/README.md
+ create mode 100644 docs/verification/2026-09-18-8792-financial-r6-repair/SHA256SUMS
+ create mode 100644 docs/verification/2026-09-18-8792-financial-r6-repair/adversarial-first.txt
+ create mode 100644 docs/verification/2026-09-18-8792-financial-r6-repair/archive-replay.json
+ create mode 100644 docs/verification/2026-09-18-8792-financial-r6-repair/baseline-red.txt
+ create mode 100644 docs/verification/2026-09-18-8792-financial-r6-repair/deletion-completeness-green-named-but-red.txt
+ create mode 100644 docs/verification/2026-09-18-8792-financial-r6-repair/deletion-completeness-red.txt
+ create mode 100644 docs/verification/2026-09-18-8792-financial-r6-repair/e2e.txt
+ create mode 100644 docs/verification/2026-09-18-8792-financial-r6-repair/engineering.json
+ create mode 100644 docs/verification/2026-09-18-8792-financial-r6-repair/extraction-mutations.json
+ create mode 100644 docs/verification/2026-09-18-8792-financial-r6-repair/financial-mutations.json
+ create mode 100644 docs/verification/2026-09-18-8792-financial-r6-repair/frontend-build.txt
+ create mode 100644 docs/verification/2026-09-18-8792-financial-r6-repair/frontend-lint.txt
+ create mode 100644 docs/verification/2026-09-18-8792-financial-r6-repair/frontend-test.txt
+ create mode 100644 docs/verification/2026-09-18-8792-financial-r6-repair/frontend-typecheck.txt
+ create mode 100644 docs/verification/2026-09-18-8792-financial-r6-repair/graph-audit.txt
+ create mode 100644 docs/verification/2026-09-18-8792-financial-r6-repair/harness-refs.txt
+ create mode 100644 docs/verification/2026-09-18-8792-financial-r6-repair/manifest.json
+ create mode 100644 docs/verification/2026-09-18-8792-financial-r6-repair/prior-pytest-receipt.json
+ create mode 100644 docs/verification/2026-09-18-8792-financial-r6-repair/prior-pytest-red.txt
+ create mode 100644 docs/verification/2026-09-18-8792-financial-r6-repair/pytest-receipt.json
+ create mode 100644 docs/verification/2026-09-18-8792-financial-r6-repair/pytest.txt
+ create mode 100644 docs/verification/2026-09-18-8792-financial-r6-repair/receipt-check.txt
+ create mode 100644 docs/verification/2026-09-18-8792-financial-r6-repair/registry-ambient-red.txt
+ create mode 100644 docs/verification/2026-09-18-8792-financial-r6-repair/registry-pinned-ledger-crosswalk.txt
+ create mode 100644 docs/verification/2026-09-18-8792-financial-r6-repair/registry-pinned-parseability.txt
+ create mode 100644 docs/verification/2026-09-18-8792-financial-r6-repair/registry-pinned-registry.txt
+ create mode 100644 docs/verification/2026-09-18-8792-financial-r6-repair/registry-pinned-tables.txt
+ create mode 100644 docs/verification/2026-09-18-8792-financial-r6-repair/registry-pinned-views.txt
+ create mode 100644 docs/verification/2026-09-18-8792-financial-r6-repair/registry-pinned.json
+ create mode 100644 docs/verification/2026-09-18-8792-financial-r6-repair/ruff.txt
+ create mode 100644 docs/verification/2026-09-18-8792-financial-r6-repair/vault-lint-baseline.txt
+ create mode 100644 docs/verification/2026-09-18-8792-financial-r6-repair/vault-lint-closeout.txt
+ create mode 100644 docs/verification/2026-09-18-8792-financial-r6-repair/vault-lint-diff.json
+ create mode 100644 docs/verification/2026-09-19-8792-financial-publication-integration/README.md
+ create mode 100644 docs/verification/2026-09-19-8792-financial-publication-integration/SHA256SUMS
+ create mode 100644 docs/verification/2026-09-19-8792-financial-publication-integration/archive-replay.json
+ create mode 100644 docs/verification/2026-09-19-8792-financial-publication-integration/closeout-state.json
+ create mode 100644 docs/verification/2026-09-19-8792-financial-publication-integration/e2e.txt
+ create mode 100644 docs/verification/2026-09-19-8792-financial-publication-integration/engineering.json
+ create mode 100644 docs/verification/2026-09-19-8792-financial-publication-integration/extraction-mutations.json
+ create mode 100644 docs/verification/2026-09-19-8792-financial-publication-integration/financial-delivery-mutations.json
+ create mode 100644 docs/verification/2026-09-19-8792-financial-publication-integration/financial-r6-mutations.json
+ create mode 100644 docs/verification/2026-09-19-8792-financial-publication-integration/frontend-baseline-red.txt
+ create mode 100644 docs/verification/2026-09-19-8792-financial-publication-integration/frontend-build-development.txt
+ create mode 100644 docs/verification/2026-09-19-8792-financial-publication-integration/frontend-build.txt
+ create mode 100644 docs/verification/2026-09-19-8792-financial-publication-integration/frontend-development.txt
+ create mode 100644 docs/verification/2026-09-19-8792-financial-publication-integration/frontend-lint.txt
+ create mode 100644 docs/verification/2026-09-19-8792-financial-publication-integration/frontend-test.txt
+ create mode 100644 docs/verification/2026-09-19-8792-financial-publication-integration/frontend-typecheck.txt
+ create mode 100644 docs/verification/2026-09-19-8792-financial-publication-integration/graph-audit.txt
+ create mode 100644 docs/verification/2026-09-19-8792-financial-publication-integration/harness-refs.txt
+ create mode 100644 docs/verification/2026-09-19-8792-financial-publication-integration/manifest.json
+ create mode 100644 docs/verification/2026-09-19-8792-financial-publication-integration/mutation-failure-classification.json
+ create mode 100644 docs/verification/2026-09-19-8792-financial-publication-integration/publication-mutations.json
+ create mode 100644 docs/verification/2026-09-19-8792-financial-publication-integration/pytest-receipt.json
+ create mode 100644 docs/verification/2026-09-19-8792-financial-publication-integration/pytest.txt
+ create mode 100644 docs/verification/2026-09-19-8792-financial-publication-integration/receipt-check.txt
+ create mode 100644 docs/verification/2026-09-19-8792-financial-publication-integration/registry-ambient-red.txt
+ create mode 100644 docs/verification/2026-09-19-8792-financial-publication-integration/registry-pinned-ledger-crosswalk.txt
+ create mode 100644 docs/verification/2026-09-19-8792-financial-publication-integration/registry-pinned-parseability.txt
+ create mode 100644 docs/verification/2026-09-19-8792-financial-publication-integration/registry-pinned-registry.txt
+ create mode 100644 docs/verification/2026-09-19-8792-financial-publication-integration/registry-pinned-tables.txt
+ create mode 100644 docs/verification/2026-09-19-8792-financial-publication-integration/registry-pinned-views.txt
+ create mode 100644 docs/verification/2026-09-19-8792-financial-publication-integration/registry-pinned.json
+ create mode 100644 docs/verification/2026-09-19-8792-financial-publication-integration/related-development.txt
+ create mode 100644 docs/verification/2026-09-19-8792-financial-publication-integration/research-delivery-mutations.json
+ create mode 100644 docs/verification/2026-09-19-8792-financial-publication-integration/ruff.txt
+ create mode 100644 docs/verification/2026-09-19-8792-financial-publication-integration/seams-fixed-fixture.txt
+ create mode 100644 docs/verification/2026-09-19-8792-financial-publication-integration/transplant-baseline-red.txt
+ create mode 100644 docs/verification/2026-09-19-8792-financial-publication-integration/transplant-first.txt
+ create mode 100644 docs/verification/2026-09-19-8792-financial-publication-integration/vault-lint-after.txt
+ create mode 100644 docs/verification/2026-09-19-8792-financial-publication-integration/vault-lint-before.txt
+ create mode 100644 docs/verification/2026-09-19-8792-financial-publication-integration/vault-lint-diff.json
+ rename intelligence/api/static/assets/{index-DH207EFA.js => index-o4AWiRNg.js} (51%)
+ create mode 100644 intelligence/services/financial_claim_checks.py
+ create mode 100644 intelligence/services/financial_report_contract.py
+ create mode 100644 intelligence/services/research_delivery_checks.py
+ create mode 100644 intelligence/tests/fixtures/research_delivery_20260918.json
+ create mode 100644 intelligence/tests/test_boundary_gate_integration.py
+ create mode 100644 intelligence/tests/test_boundary_partial_delivery.py
+ create mode 100644 intelligence/tests/test_boundary_retest_regressions.py
+ create mode 100644 intelligence/tests/test_calculation_result_delivery.py
+ create mode 100644 intelligence/tests/test_episode_numeric_citations.py
+ create mode 100644 intelligence/tests/test_financial_contracts_r5.py
+ create mode 100644 intelligence/tests/test_financial_delivery_integration.py
+ create mode 100644 intelligence/tests/test_financial_forward_seams.py
+ create mode 100644 intelligence/tests/test_financial_publication_integration.py
+ create mode 100644 intelligence/tests/test_financial_r6_regressions.py
+ create mode 100644 intelligence/tests/test_frozen_research_delivery.py
+ create mode 100644 intelligence/tests/test_next_watch_boundaries.py
+ create mode 100644 intelligence/tests/test_rag_worker_transport.py
+ create mode 100644 intelligence/tests/test_readiness_boundary_regressions.py
+ create mode 100644 intelligence/tests/test_research_delivery_checks.py
+ create mode 100644 intelligence/tests/test_research_delivery_repair.py
+ create mode 100644 scripts/review_probes/financial_delivery_mutations.json
+ create mode 100644 scripts/review_probes/financial_r6_mutations.json
+ create mode 100644 scripts/review_probes/inspect_boundary_retest.py
+ create mode 100644 scripts/review_probes/publication_mutations.json
+ create mode 100644 scripts/review_probes/rag_transport_mutations.json
+ create mode 100644 scripts/review_probes/replay_boundary_failures.py
+ create mode 100644 scripts/review_probes/replay_financial_r6.py
+ create mode 100644 scripts/review_probes/replay_rag_buffered_late_response.py
+ create mode 100644 scripts/review_probes/research_delivery_mutations.json
+ create mode 100644 scripts/review_probes/run_boundary_repair_mutations.py
+ create mode 100644 scripts/review_probes/run_financial_contract_mutations.py

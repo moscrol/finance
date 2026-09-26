@@ -1,0 +1,9 @@
+{
+  "state": "waiting_for_spec_and_quality",
+  "knowledge_base_revision": "1254224be89e2c4974350b7f3e985dbedb5dc043",
+  "research_site_revision": "f606583867fe1cad8de96b06be1dd6cfe2b57e51",
+  "workbench_port": 19081,
+  "re06_port": 19084,
+  "frontend_runner": "/Users/a77/fwp-wt-open-work-spec/scripts/run_frontend_gate.py",
+  "python_registry_runner": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/gate_python_registry.py"
+}

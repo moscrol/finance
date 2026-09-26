@@ -1,0 +1,21 @@
+{
+  "status": "PASS",
+  "real_model_requests": 0,
+  "results": [
+    {
+      "stage": "explore",
+      "terminate": true,
+      "duplicate_rejected": true
+    },
+    {
+      "stage": "execute",
+      "terminate": true,
+      "duplicate_rejected": true
+    },
+    {
+      "stage": "report",
+      "terminate": true,
+      "duplicate_rejected": true
+    }
+  ]
+}

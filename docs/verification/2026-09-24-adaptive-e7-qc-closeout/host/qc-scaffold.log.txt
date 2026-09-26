@@ -1,0 +1,30 @@
+{
+  "status": "PREPARED_NOT_AUTHORIZED",
+  "source_archive": "/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0326/candidate/docs/verification/2026-09-23-adaptive-qc-glm-roundtrip",
+  "sealed_inputs_checked": 44,
+  "real_model_requests": 0,
+  "prior_stage_receipts_inherited": false,
+  "prior_model_outputs_inherited": false,
+  "historical_author_inputs_preserved": true,
+  "delivery_identity_owner": "controller; reviewer identity fields are forbidden",
+  "stage_tools": {
+    "gateway": [
+      "read",
+      "write"
+    ],
+    "explore": [
+      "read",
+      "write",
+      "deliver_stage"
+    ],
+    "execute": [
+      "read",
+      "write",
+      "bash",
+      "deliver_stage"
+    ],
+    "report": [
+      "deliver_stage"
+    ]
+  }
+}

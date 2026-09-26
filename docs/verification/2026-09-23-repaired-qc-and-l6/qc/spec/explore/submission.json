@@ -1,0 +1,28 @@
+{
+  "complete": true,
+  "claims_examined": [
+    "C1",
+    "C2",
+    "C3",
+    "C4",
+    "C5",
+    "C6",
+    "C7"
+  ],
+  "probe_files": [
+    "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/probes/probe_transport.py",
+    "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/probes/probe_deadline_forward_v2.py",
+    "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/probes/probe_judge_window.py"
+  ],
+  "notes": "本阶段仅阅读源码并撰写探针,未执行任何测试。探针均为独立编写(非作者测试重标),使用本地 127.0.0.1 固定端口 26001-26007 的 fake HTTP 服务,不触网、不碰生产。probe_transport.py 覆盖 C1:成功正向路径、滴流响应下的单调绝对 deadline、停滞父进程下 worker Timer 强杀(观察 returncode/EOF)、流式 is_cancelled 取消、已过期 deadline 立即拒绝且不发子进程。probe_deadline_forward_v2.py 覆盖 C2/C4/C5:_post_chat_synthesis 在 timeout=10s 片 + 0.5s 共享 Deadline + 2.9s 慢后端下须于 ~0.5s 内以 LLMDeadlineExceeded 失败(行为性探针,非同值夹具);用 http_transport_override 拦截验证 4 个调用点转发 deadline 与流式 is_cancelled,且 timeout 数值(10.0)与 deadline.expires_at(+0.5)不同值;Deadline.call_timeout 切片语义;零预算 LLMCallLedger(max_calls=0) 下 _reserve_llm_call 先于 HTTP 抛 LLMCallBudgetExceeded。probe_judge_window.py 覆盖 C3/C5/C6:0.8s 判官子窗口 + 2.9s 迟到载荷被 HTTPDeadlineExceeded 拒收;root 剩余 0.6s 主导且 root.remaining() 归零(区分 root 与判官子窗口);semantic_judge_window_seconds/judge_attempt_seconds 地板语义;极小预算(0.05s)下子进程启动计入预算导致失败 vs 充足预算成功(C6 的包含性验证,非基准数字)。已知风险:LLMCallLedger 构造参数(max_calls/max_seconds)未逐行核对源码,若签名不同需在 EXECUTE 阶段微调。C7 无行为探针:历史收据不属于本候选,已按声明处理,不重标计数。",
+  "limits": "bash 禁用;本阶段 read/write/deliver_stage only,无执行;网络仅限本地 fake 端口 26001-26007;预算 24 请求/420s 硬关停,当前已用约 12 请求。",
+  "next_stage_commands": [
+    "cd /Users/a77/.finance-runtime/reviews/pr868-repaired-20260923-2111/candidate && /Users/a77/finance-workspace-private/.venv-workbench/bin/python /Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/probes/probe_transport.py",
+    "cd /Users/a77/.finance-runtime/reviews/pr868-repaired-20260923-2111/candidate && /Users/a77/finance-workspace-private/.venv-workbench/bin/python /Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/probes/probe_deadline_forward_v2.py",
+    "cd /Users/a77/.finance-runtime/reviews/pr868-repaired-20260923-2111/candidate && /Users/a77/finance-workspace-private/.venv-workbench/bin/python /Users/a77/.finance-runtime/reviews/pr868-glm-qc-repaired-20260923-2115/spec/work/probes/probe_judge_window.py"
+  ],
+  "stage": "explore",
+  "axis": "spec",
+  "revision": "ac11027fa75ee6a988ab90ab81e0329159964643",
+  "baseline": "626d8a508c1c988ff094110b371987e6afdcdd15"
+}

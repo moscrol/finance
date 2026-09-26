@@ -1,0 +1,117 @@
+{
+  "status": "ready",
+  "timestamp": "2026-09-23T19:55:37+08:00",
+  "checks": {
+    "repo_root": true,
+    "knowledge_wiki": true,
+    "relations": true,
+    "vector_index": true,
+    "rag_runtime": true,
+    "market_snapshot": true,
+    "frontend_built": true,
+    "rag_query_protocol": true,
+    "rag_worker": true,
+    "run_store_writable": true,
+    "market_snapshot_contract": true,
+    "market_data_consistency": true,
+    "code_snapshot_matches_repo": true
+  },
+  "critical": {
+    "repo_root": true,
+    "run_store_writable": true,
+    "knowledge_wiki": true,
+    "relations": true,
+    "vector_index": true,
+    "rag_query_protocol": true,
+    "rag_worker": true,
+    "market_snapshot": true,
+    "market_data_consistency": true
+  },
+  "missing_critical": [],
+  "rag": {
+    "available": true,
+    "query_protocol_compatible": true,
+    "supported_options": [
+      "--json",
+      "--k",
+      "--mode",
+      "--evidence-chars"
+    ],
+    "missing_required_options": [],
+    "missing_optional_options": [
+      "--evidence-layer",
+      "--fact-hardness",
+      "--source-type",
+      "--as-of",
+      "--receipt"
+    ],
+    "warning": "RAG CLI 使用 legacy query 协议"
+  },
+  "market_snapshot": {
+    "status": "PASS",
+    "ready": true,
+    "date": "2026-09-22",
+    "requested_date": "2026-09-22",
+    "provider": "akshare_exact",
+    "source": "AkShare",
+    "summary": {
+      "theme_count": 39,
+      "strong_stock_count": 63,
+      "market_stage": "下跌阶段",
+      "latest_trade_date": "2026-09-22",
+      "requested_trade_date": "2026-09-22",
+      "served_trade_date": "2026-09-22",
+      "provider": "akshare_exact",
+      "source": "AkShare",
+      "source_updated_at": null,
+      "quality": "complete",
+      "freshness": "fresh"
+    },
+    "errors": [],
+    "warnings": []
+  },
+  "market_database": {
+    "date": "2026-09-22",
+    "snapshot_date": "2026-09-22",
+    "consistent_with_snapshot": true,
+    "required_by_continuous_runtime": true
+  },
+  "workers": {
+    "active": 0,
+    "queued": 0,
+    "capacity": 2,
+    "max_active_per_user": 0,
+    "max_queued": null,
+    "timeout_sec": 900,
+    "rag": {
+      "enabled": true,
+      "state": "ready",
+      "active": 1,
+      "configured_workers": 1,
+      "model_load_count": 1,
+      "prewarm_latency_ms": 29939,
+      "last_error_type": null,
+      "lifecycle": "startup_prewarm",
+      "counters": {
+        "queries_served": 1,
+        "timeouts_abandoned_kept_warm": 0,
+        "timeouts_killed": 0,
+        "stale_responses_drained": 0,
+        "recoveries": 0,
+        "keepalive_sent": 0,
+        "keepalive_timeouts": 0,
+        "keepalive_skipped_busy": 0
+      },
+      "abandoned_in_flight": 0,
+      "rss_bytes": 852836352,
+      "idle_seconds": 1.1,
+      "keepalive_interval_seconds": 0.0
+    }
+  },
+  "recovered_runs": 0,
+  "open_episodes": {
+    "count": 0,
+    "episode_ids": [],
+    "truncated": false
+  }
+}

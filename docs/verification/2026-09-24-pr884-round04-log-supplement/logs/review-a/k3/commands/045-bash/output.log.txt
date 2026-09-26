@@ -1,0 +1,56 @@
+class EpisodeDrive:
+    """一次性的单步驱动器：包着 ``ContinuousAgentEpisode._drive`` 生成器。
+
+    ``step()`` 跑到下一个 ``StepPoint``（终态时回 ``None`` 并填好 ``outcome``）；
+    ``run_until(phase)`` 连跑到某类步点；``run_to_end()`` 排空。生成器抛过异常后不可再驱动。
+    """
+
+    def __init__(self, generator: Generator[StepPoint, None, AgentOutcome]) -> None:
+        self._generator = generator
+        self.outcome: AgentOutcome | None = None
+        self.finished = False
+        self.steps: list[StepPoint] = []
+        self._operation_lock = Lock()
+
+    def step(self) -> StepPoint | None:
+        if not self._operation_lock.acquire(blocking=False):
+            raise EpisodeWriterBusy("episode drive operation is active")
+        try:
+            if self.finished:
+                return None
+            try:
+                point = next(self._generator)
+            except StopIteration as stop:
+                self.outcome = stop.value
+                self.finished = True
+                return None
+            except BaseException:
+                self.finished = True
+                raise
+            self.steps.append(point)
+            return point
+        finally:
+            self._operation_lock.release()
+
+    def close(self) -> None:
+        """Abandon a paused drive; an executing step must finish before closing."""
+        if not self._operation_lock.acquire(blocking=False):
+            raise EpisodeWriterBusy("episode drive operation is active")
+        try:
+            try:
+                self._generator.close()
+            finally:
+                self.finished = True
+        finally:
+            self._operation_lock.release()
+
+    def run_until(self, phase: str) -> StepPoint | None:
+        """跑到下一个 ``phase`` 步点；先到终态就回 ``None``。"""
+
+        if phase not in STEP_PHASES:
+            raise ValueError(f"unknown step phase: {phase!r}")
+        while True:
+            point = self.step()
+            if point is None or point.phase == phase:
+                return point
+

@@ -39,7 +39,7 @@
     "path": "intelligence/api/app.py",
     "old": "                        if pending:\n                            continue",
     "new": "                        if False and pending:\n                            continue",
-    "targets": ["test_sse_drains_commit_event_observed_between_reads"]
+    "targets": ["test_sse_drains_commit_event_observed_between_reads", "test_sse_drains_delivery_events_before_terminal_run"]
   },
   {
     "id": "probe-waits-for-publication",

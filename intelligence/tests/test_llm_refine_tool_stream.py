@@ -46,7 +46,7 @@ def call_stream(body: bytes, **kwargs):
         mock.patch.object(llm_refine, "_reserve_llm_call"),
         mock.patch.object(llm_refine, "_record_llm_call"),
         mock.patch(
-            "urllib.request.urlopen", return_value=_FakeResponse(body)
+            "intelligence.services.llm_http_transport.urlopen", return_value=_FakeResponse(body)
         ),
     ):
         message = llm_refine._post_chat_message_stream(
@@ -63,23 +63,25 @@ def call_stream(body: bytes, **kwargs):
     return message, deltas
 
 
-def _captured_payload(monkeypatch: pytest.MonkeyPatch) -> dict:
+def _captured_payload(
+    monkeypatch: pytest.MonkeyPatch, tools=None, tool_choice=None, provider: llm_refine.LLMProvider = PROVIDER
+) -> dict:
     """跑一次流式工具轮，抓 urlopen 收到的请求体。"""
 
     captured: dict = {}
 
-    def fake_urlopen(request, timeout):  # noqa: ARG001
+    def fake_urlopen(request, timeout=0.0, **_kwargs):  # noqa: ARG001
         captured.update(json.loads(request.data.decode("utf-8")))
         return _FakeResponse(sse({"choices": [{"delta": {"content": "ok"}, "finish_reason": "stop"}]}))
 
     with (
         mock.patch.object(llm_refine, "_reserve_llm_call"),
         mock.patch.object(llm_refine, "_record_llm_call"),
-        mock.patch("urllib.request.urlopen", side_effect=fake_urlopen),
+        mock.patch("intelligence.services.llm_http_transport.urlopen", side_effect=fake_urlopen),
     ):
         llm_refine._post_chat_message_stream(
-            PROVIDER, [{"role": "user", "content": "q"}], timeout=30.0, temperature=0.0,
-            tools=None, tool_choice=None, disable_thinking=True, on_content_delta=lambda _s: None,
+            provider, [{"role": "user", "content": "q"}], timeout=30.0, temperature=0.0,
+            tools=tools, tool_choice=tool_choice, disable_thinking=True, on_content_delta=lambda _s: None,
         )
     return captured
 
@@ -104,6 +106,7 @@ def test_reasoning_effort_env_forces_thinking_on_and_overrides_disable(monkeypat
 @pytest.mark.parametrize("global_effort", [None, "max"])
 def test_judge_effort_is_scoped_and_preserves_writer_payload(monkeypatch, global_effort) -> None:
     monkeypatch.delenv("LLM_JUDGE_REASONING_EFFORT", raising=False)
+    monkeypatch.delenv("LLM_REASONING_EFFORT_BY_MODEL", raising=False)
     if global_effort is None:
         monkeypatch.delenv("LLM_REASONING_EFFORT", raising=False)
     else:
@@ -128,6 +131,7 @@ def test_judge_effort_is_scoped_and_preserves_writer_payload(monkeypatch, global
 @pytest.mark.parametrize("judge_effort", [None, "", "  "])
 def test_unconfigured_judge_effort_keeps_global_controls(monkeypatch, judge_effort) -> None:
     monkeypatch.setenv("LLM_REASONING_EFFORT", "high")
+    monkeypatch.delenv("LLM_REASONING_EFFORT_BY_MODEL", raising=False)
     if judge_effort is None:
         monkeypatch.delenv("LLM_JUDGE_REASONING_EFFORT", raising=False)
     else:
@@ -136,6 +140,101 @@ def test_unconfigured_judge_effort_keeps_global_controls(monkeypatch, judge_effo
         payload = _captured_payload(monkeypatch)
     assert payload["thinking"] == {"type": "enabled"}
     assert payload["reasoning_effort"] == "high"
+WRITER = llm_refine.LLMProvider("zhipu", "test-key", "https://example.invalid/v4", "glm-5.3")
+JUDGE = llm_refine.LLMProvider("zhipu", "test-key", "https://example.invalid/v4", "glm-5.3-flash")
+
+
+def test_reasoning_effort_by_model_sets_only_the_matched_model(monkeypatch: pytest.MonkeyPatch) -> None:
+    """#76 L6（09-23 / 09-25）：判官 glm-5.3-flash 按默认强度思考，0/10 在 75s 内作答；全局
+    LLM_REASONING_EFFORT 会连写手一起改。LLM_REASONING_EFFORT_BY_MODEL 只给命中前缀的模型设强度，
+    命中时压过全局值；未设或未命中逐字节同前。首个命中的前缀生效（同 LLM_COMPAT_PAYLOAD）。"""
+
+    monkeypatch.delenv("LLM_REASONING_EFFORT", raising=False)
+    monkeypatch.delenv("LLM_REASONING_EFFORT_BY_MODEL", raising=False)
+    writer_before = _captured_payload(monkeypatch, provider=WRITER)
+    judge_before = _captured_payload(monkeypatch, provider=JUDGE)
+    assert writer_before["thinking"] == judge_before["thinking"] == {"type": "disabled"}
+    assert "reasoning_effort" not in writer_before and "reasoning_effort" not in judge_before
+
+    # 只命中判官：判官开思考且低档，写手请求体逐字节同前（前缀 glm-5.3-flash 不命中 glm-5.3）。
+    monkeypatch.setenv("LLM_REASONING_EFFORT_BY_MODEL", "glm-5.3-flash:low")
+    judge = _captured_payload(monkeypatch, provider=JUDGE)
+    assert judge["thinking"] == {"type": "enabled"} and judge["reasoning_effort"] == "low"
+    assert _captured_payload(monkeypatch, provider=WRITER) == writer_before
+    assert llm_refine.effective_reasoning_effort("GLM-5.3-Flash") == "low"
+    assert llm_refine.effective_reasoning_effort("glm-5.3") is None
+
+    # 按模型值压过全局值；未命中的模型仍走全局值。
+    monkeypatch.setenv("LLM_REASONING_EFFORT", "max")
+    assert _captured_payload(monkeypatch, provider=JUDGE)["reasoning_effort"] == "low"
+    assert _captured_payload(monkeypatch, provider=WRITER)["reasoning_effort"] == "max"
+
+    # 首个命中生效：具体前缀写在前面才会各取各的。
+    monkeypatch.setenv("LLM_REASONING_EFFORT_BY_MODEL", "glm-5.3-flash:low, glm-5.3:high")
+    assert _captured_payload(monkeypatch, provider=JUDGE)["reasoning_effort"] == "low"
+    assert _captured_payload(monkeypatch, provider=WRITER)["reasoning_effort"] == "high"
+
+    # 残缺条目（缺冒号 / 空前缀 / 空强度）不生效，回落到全局值。
+    monkeypatch.setenv("LLM_REASONING_EFFORT_BY_MODEL", "glm-5.3-flash, :low, glm-5.3-flash:")
+    assert _captured_payload(monkeypatch, provider=JUDGE)["reasoning_effort"] == "max"
+
+
+def test_compat_payload_env_rewrites_only_matched_model(monkeypatch: pytest.MonkeyPatch) -> None:
+    """8080 网关上 kimi-k3 在 system 与 tool_choice 同现时约八成拒答
+    （2026-09-10 逐参数二分，与内容、temperature、thinking 无关）；
+    LLM_COMPAT_PAYLOAD 按模型名前缀改写/摘除指定字段，未匹配或未设时逐字节同前。"""
+
+    monkeypatch.delenv("LLM_COMPAT_PAYLOAD", raising=False)
+    before = _captured_payload(monkeypatch, tools=[{"type": "function", "function": {"name": "f"}}], tool_choice="auto")
+    assert before["thinking"] == {"type": "disabled"} and before["tool_choice"] == "auto"
+
+    # 不匹配的前缀不改写。
+    monkeypatch.setenv("LLM_COMPAT_PAYLOAD", "kimi-k3:thinking.omit+tool_choice.omit")
+    unmatched = _captured_payload(monkeypatch, tools=[{"type": "function", "function": {"name": "f"}}], tool_choice="auto")
+    assert unmatched["thinking"] == {"type": "disabled"} and unmatched["tool_choice"] == "auto"
+
+    # 匹配的前缀摘除两个字段，其余逐字节同前（provider.model 是 glm-5.2，改用 glm 前缀）。
+    monkeypatch.setenv("LLM_COMPAT_PAYLOAD", "glm-5.2:thinking.omit+tool_choice.omit")
+    omitted = _captured_payload(monkeypatch, tools=[{"type": "function", "function": {"name": "f"}}], tool_choice="auto")
+    assert "thinking" not in omitted and "tool_choice" not in omitted
+    assert omitted == {k: v for k, v in before.items() if k not in ("thinking", "tool_choice")}
+
+    # 也可以强制 enabled。
+    monkeypatch.setenv("LLM_COMPAT_PAYLOAD", "glm:thinking.enabled")
+    enabled = _captured_payload(monkeypatch)
+    assert enabled["thinking"] == {"type": "enabled"}
+
+    # 非法动作不动 payload。
+    monkeypatch.setenv("LLM_COMPAT_PAYLOAD", "glm-5.2:oops")
+    untouched = _captured_payload(monkeypatch, tools=[{"type": "function", "function": {"name": "f"}}], tool_choice="auto")
+    assert untouched["thinking"] == {"type": "disabled"} and untouched["tool_choice"] == "auto"
+
+    # temperature.omit 摘除温度字段；temperature:<值> 改写。
+    monkeypatch.setenv("LLM_COMPAT_PAYLOAD", "glm-5.2:temperature.omit")
+    no_temp = _captured_payload(monkeypatch)
+    assert "temperature" not in no_temp
+    monkeypatch.setenv("LLM_COMPAT_PAYLOAD", "glm-5.2:temperature:0.6")
+    rewarmed = _captured_payload(monkeypatch)
+    assert rewarmed["temperature"] == 0.6
+
+
+def test_judge_scope_wins_over_per_model_effort_only_inside_judge_calls(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Both knobs exist after the #930 merge: purpose scope first, then model table, then global."""
+
+    monkeypatch.delenv("LLM_REASONING_EFFORT", raising=False)
+    monkeypatch.setenv("LLM_REASONING_EFFORT_BY_MODEL", "glm-5.3-flash:low")
+    monkeypatch.delenv("LLM_JUDGE_REASONING_EFFORT", raising=False)
+    with llm_refine.call_purpose("judge"):
+        assert _captured_payload(monkeypatch, provider=JUDGE)["reasoning_effort"] == "low"
+        assert "reasoning_effort" not in _captured_payload(monkeypatch, provider=WRITER)
+    monkeypatch.setenv("LLM_JUDGE_REASONING_EFFORT", "high")
+    with llm_refine.call_purpose("judge"):
+        assert _captured_payload(monkeypatch, provider=JUDGE)["reasoning_effort"] == "high"
+        assert _captured_payload(monkeypatch, provider=WRITER)["reasoning_effort"] == "high"
+        with llm_refine.call_purpose("writer"):
+            assert _captured_payload(monkeypatch, provider=JUDGE)["reasoning_effort"] == "low"
+            assert "reasoning_effort" not in _captured_payload(monkeypatch, provider=WRITER)
+    assert _captured_payload(monkeypatch, provider=JUDGE)["reasoning_effort"] == "low"
 
 
 def test_content_reaches_the_callback_piece_by_piece() -> None:
@@ -283,7 +382,7 @@ def test_failure_after_first_delta_is_a_different_exception() -> None:
     with (
         mock.patch.object(llm_refine, "_reserve_llm_call"),
         mock.patch.object(llm_refine, "_record_llm_call"),
-        mock.patch("urllib.request.urlopen", return_value=_ExplodingResponse(b"")),
+        mock.patch("intelligence.services.llm_http_transport.urlopen", return_value=_ExplodingResponse(b"")),
         pytest.raises(llm_refine.LLMStreamAlreadyEmitted),
     ):
         llm_refine._post_chat_message_stream(

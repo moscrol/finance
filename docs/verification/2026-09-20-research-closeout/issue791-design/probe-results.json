@@ -1,0 +1,162 @@
+{
+  "candidate": "c9bd82ff2e25fe2727347329706f7aeb98444ee8",
+  "main_fixed": "4ace5ec2e9b7735d90eb15bc2351fa193c1120b8",
+  "clean_before": true,
+  "clean_after": true,
+  "interpreter": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "original_union": {
+    "per_theme": {
+      "storage": 9,
+      "lithium": 10,
+      "solid": 7
+    },
+    "unique_stocks": 15,
+    "stock_codes": [
+      "001223.SZ",
+      "002213.SZ",
+      "002491.SZ",
+      "002531.SZ",
+      "002584.SZ",
+      "002585.SZ",
+      "002846.SZ",
+      "002882.SZ",
+      "600110.SH",
+      "600163.SH",
+      "603090.SH",
+      "603186.SH",
+      "603200.SH",
+      "605058.SH",
+      "605162.SH"
+    ],
+    "denominator": 32,
+    "expected_pct": 46.875,
+    "arithmetic_sum": 26,
+    "arithmetic_sum_pct": 81.25,
+    "scope": "2026-09-15 original selected three tag memberships; not causal attribution"
+  },
+  "aggregate_without_members": {
+    "rows": [
+      {
+        "trade_date": "2026-09-15",
+        "limit_up_count": 26,
+        "market_limit_up_count": 32
+      }
+    ],
+    "evidence": [
+      "交易日=2026-09-15；涨停家数=26；全市场涨停家数=32"
+    ],
+    "sql": "SELECT \"trade_date\" AS c0, SUM(\"limit_up_count\") AS c1, MAX(\"market_limit_up_count\") AS c2, MAX(\"trade_date\") AS __source_date FROM \"fact_theme_limit_heat_daily\" WHERE \"trade_date\" <= ? AND \"trade_date\" >= ? AND \"trade_date\" <= ? AND \"sector_ts_code\" IN (?, ?, ?) GROUP BY \"trade_date\" ORDER BY c0 DESC LIMIT ?",
+    "meaning": "Production query accepts occurrence sum; it does not compute or certify union share."
+  },
+  "original_d10_correct_order": [
+    {
+      "window": "2025-09-02~2025-09-29",
+      "distance": 0.313,
+      "forward_5": "指数0.07%/日均涨停58家/最高7板/日均双红22.6个"
+    },
+    {
+      "window": "2025-11-26~2025-12-23",
+      "distance": 0.37,
+      "forward_5": "指数1.15%/日均涨停73家/最高12板/日均双红17.0个"
+    },
+    {
+      "window": "2025-10-29~2025-11-25",
+      "distance": 0.395,
+      "forward_5": "指数0.72%/日均涨停60家/最高7板/日均双红13.4个"
+    }
+  ],
+  "current_history_projection": {
+    "original_query_id": "34b3ad0586c7fad9a6ed5929faa6036f8da8dfd9185f875036cf750cc53a6324",
+    "total_matched": 9,
+    "returned_count": 5,
+    "projected_distances": [
+      {
+        "sample": 0,
+        "entity_code": "990026.FP",
+        "start": "2026-08-04",
+        "distance": 0.46245020510027784
+      },
+      {
+        "sample": 1,
+        "entity_code": "990026.FP",
+        "start": "2026-07-28",
+        "distance": 0.6021519764530856
+      },
+      {
+        "sample": 2,
+        "entity_code": "990026.FP",
+        "start": "2026-08-18",
+        "distance": 0.8489930579575464
+      },
+      {
+        "sample": 3,
+        "entity_code": "990026.FP",
+        "start": "2026-08-11",
+        "distance": 0.9842579955218572
+      },
+      {
+        "sample": 4,
+        "entity_code": "990026.FP",
+        "start": "2026-07-14",
+        "distance": 1.135235614861062
+      }
+    ],
+    "candidate_order_and_values_preserved": true,
+    "saved_distance_definition": "mean absolute feature difference / max(abs(reference),1), plus missing-dimension share; no fitted transform or forward outcomes",
+    "distance_definition_in_model": false,
+    "distance_definition_in_telemetry": false,
+    "saved_excluded_count": 36,
+    "excluded_candidates_in_model": false,
+    "projected_keys": [
+      "decision_eligible",
+      "distance",
+      "end",
+      "entity_code",
+      "entity_count",
+      "entity_kind",
+      "entity_name",
+      "enumerated",
+      "feature",
+      "feature_cutoff",
+      "feature_differences",
+      "features",
+      "matching_use",
+      "null",
+      "observation_window",
+      "operation",
+      "pit_grade",
+      "promotion_eligible",
+      "research_only",
+      "result_ref",
+      "returned_count",
+      "role",
+      "rule",
+      "sample",
+      "sample_id",
+      "start",
+      "status",
+      "step_days",
+      "total_matched",
+      "truncated",
+      "unit",
+      "version",
+      "window_days"
+    ]
+  },
+  "boundary": "No model, production DB, network, implementation changes, or final-answer judge run. Query and model-facing projection only.",
+  "sha256": {
+    "40321402:docs/verification/2026-09-17-sector-history-comparison/artifact-manifest.json": "ec5c0f6d91c449e66641ea2150613929e5b4f06cb5d4b8fc2b2c1b6ab0c90f44",
+    "/Users/a77/.local/share/finance-workbench/diagnostics/20260917-sector-history-2030/components/postcheck-storage-limit-members.json": "445aef59b1472c65d66596c9f190b5ee7aaa2db68e07783844a8f36900c9d1c6",
+    "/Users/a77/.local/share/finance-workbench/diagnostics/20260917-sector-history-2030/components/postcheck-lithium-limit-members.json": "ae6a256ed26ab55a7208a2a6b71bcdde9bc671019b475641507d9e9a95b44a78",
+    "/Users/a77/.local/share/finance-workbench/diagnostics/20260917-sector-history-2030/components/postcheck-solid-limit-members.json": "b324d5f574c52e38924d5cc2a99982e6d4c74921dfd5dcee1e841414e1b9b388",
+    "40321402:docs/verification/2026-09-17-sector-history-comparison/evidence-excerpts.json": "cb5fb8e6bfc9e714070671814806ceafd1b5f74d40d4d90910f6e10b853076ac",
+    "87c719f8:docs/verification/2026-09-18-react-components-comparison/pcb-analogues.json": "1a22d395740dce289a9b75ba4aab2c1aa2d7ad45de9a2d1344fd06da9d210986",
+    "87c719f8:docs/verification/2026-09-18-react-components-comparison/runs/run_20260918_124822_549113/history-query-a4e34211bd57a564004c1e9fef42c0f9aaeb57c217aacf7b10a0bf74858c40d4.json": "a4e34211bd57a564004c1e9fef42c0f9aaeb57c217aacf7b10a0bf74858c40d4",
+    "/Users/a77/fwp-wt-history-market-anatomy/intelligence/services/finance_query.py": "38140a46d062fb6597bb0939abbf9fd164817a9a6d631f6ba800f57c3ab832a4",
+    "/Users/a77/fwp-wt-history-market-anatomy/intelligence/services/market_regime_analogs.py": "76c2c8dbf1bfa8fb8bc4e1f2be42b5f815c8cf5bbbb6d87921a275f7c1714d14",
+    "/Users/a77/fwp-wt-history-market-anatomy/market_feature_store/market_regime_vectors.py": "8cf11f2874ab2fdc40aa0a346c6925a5a04066f2f6de4d2e8d140de6846b4303",
+    "/Users/a77/fwp-wt-history-market-anatomy/intelligence/services/historical_research/query.py": "02a937de4e2b8c1fd56b2d6aad28e36d8a0d462c58eee923c910998d021d2105",
+    "/Users/a77/fwp-wt-history-market-anatomy/intelligence/services/historical_research/episode.py": "f3dac88ecec7ae6f46532c0ee3d26b806b50b4b91f8f713d147482c402c3f901",
+    "/Users/a77/fwp-wt-history-market-anatomy/intelligence/services/episode_semantic_verifier.py": "f0ede0588a48f9368003b3bd28e7bb6c9df79ab85b7362bebc842ef4827b6059"
+  }
+}

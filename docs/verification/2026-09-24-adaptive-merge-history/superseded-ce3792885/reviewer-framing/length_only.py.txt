@@ -1,0 +1,179 @@
+"""独立探针 C1/C4/C6 v2：llm_http_transport 边界行为（修正 v1 中 D 的冗余块）。"""
+import sys
+import threading
+import time
+import urllib.request
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+CAND = "/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0011/candidate"
+sys.path.insert(0, CAND)
+from intelligence.services import llm_http_transport as T  # noqa: E402
+from intelligence.services.llm_refine import Deadline  # noqa: E402
+
+RESULTS, FAILED = [], []
+
+
+def record(name, ok, detail):
+    RESULTS.append((name, ok, detail))
+    print(("PASS " if ok else "FAIL ") + name + " :: " + detail)
+    if not ok:
+        FAILED.append(name)
+
+
+class Handler(BaseHTTPRequestHandler):
+    protocol_version = "HTTP/1.1"
+    mode = "ok"
+
+    def log_message(self, *a):
+        pass
+
+    def do_POST(self):
+        mode = self.server.serve_mode
+        self.rfile.read(int(self.headers.get("Content-Length", 0)))
+        if mode == "delay_headers":
+            time.sleep(1.5)
+            body = b'{"ok": true}'
+            self.send_response(200)
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+        body = b'{"ok": true}'
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(100 if mode == "trickle" else len(body)))
+        self.end_headers()
+        if mode == "ok":
+            self.wfile.write(body)
+        elif mode == "trickle":
+            for _ in range(10):
+                time.sleep(0.3)
+                self.wfile.write(b"x" * 10)
+                self.wfile.flush()
+        elif mode == "delay_body":
+            time.sleep(2.9)
+            self.wfile.write(body)
+
+
+def pick_server():
+    for p in range(26001, 26009):
+        try:
+            srv = ThreadingHTTPServer(("127.0.0.1", p), Handler)
+            threading.Thread(target=srv.serve_forever, daemon=True).start()
+            return srv
+        except OSError:
+            continue
+    raise RuntimeError("no free port in 26001-26008")
+
+
+def req(srv):
+    return urllib.request.Request(
+        "http://127.0.0.1:%d/v1/chat/completions" % srv.server_address[1],
+        data=b"{}", headers={"Content-Type": "application/json"}, method="POST")
+
+
+def run():
+    # A 正向成功
+    srv = pick_server(); srv.serve_mode = "ok"
+    try:
+        r = T.urlopen(req(srv), 5.0); data = r.read()
+        record("A_success", data == b'{"ok": true}' and r.status == 200,
+               "status=%d" % r.status)
+        r.close()
+    except Exception as e:
+        record("A_success", False, "unexpected %r" % e)
+    srv.shutdown()
+
+    # B trickle 超绝对 deadline（C1 流读取含在 deadline；C3 晚载荷模式）
+    srv = pick_server(); srv.serve_mode = "trickle"
+    t0 = time.monotonic(); reached = 0
+    try:
+        r = T.urlopen(req(srv), 1.2)
+        for _ in r:
+            reached += 1
+        record("B_trickle_deadline", False, "completed, no trigger")
+    except T.HTTPDeadlineExceeded:
+        el = time.monotonic() - t0
+        record("B_trickle_deadline", reached >= 1 and el < 2.0,
+               "trigger reached (streaming), elapsed=%.2f deadline=1.2 chunks=%d" % (el, reached))
+    except Exception as e:
+        record("B_trickle_deadline", False, "wrong exc %r reached=%d" % (e, reached))
+    srv.shutdown()
+
+    # C 流中取消
+    srv = pick_server(); srv.serve_mode = "trickle"
+    box = {"cancel": False, "n": 0}
+    try:
+        r = T.urlopen(req(srv), 5.0, is_cancelled=lambda: box["cancel"])
+        for _ in r:
+            box["n"] += 1
+            if box["n"] >= 2:
+                box["cancel"] = True
+        record("C_stream_cancel", False, "completed, no trigger")
+    except T.HTTPStreamCancelled:
+        record("C_stream_cancel", box["n"] >= 1,
+               "cancel after %d stream chunks (trigger reached)" % box["n"])
+    except Exception as e:
+        record("C_stream_cancel", False, "wrong exc %r n=%d" % (e, box["n"]))
+    srv.shutdown()
+
+    # D timeout=10 vs 共享 deadline=0.5（C4 传输层边界）
+    srv = pick_server(); srv.serve_mode = "delay_body"
+    t0 = time.monotonic()
+    try:
+        r = T.urlopen(req(srv), 10.0, deadline=Deadline.from_timeout(0.5))
+        r.read()
+        record("D_shared_deadline", False, "completed against 2.9s server")
+    except T.HTTPDeadlineExceeded:
+        el = time.monotonic() - t0
+        record("D_shared_deadline", el < 1.5, "stopped %.2fs (timeout=10 shared=0.5 server=2.9)" % el)
+    except Exception as e:
+        record("D_shared_deadline", False, "wrong exc %r" % e)
+    srv.shutdown()
+
+    # E 停滞父进程：父不读，worker Timer os._exit(124)
+    srv = pick_server(); srv.serve_mode = "delay_body"
+    try:
+        r = T.urlopen(req(srv), 3.0)
+        time.sleep(4.0)
+        rc = r.process.poll()
+        record("E_stalled_parent", rc == 124, "worker rc=%r (expect 124 self-exit)" % rc)
+        r.close()
+    except Exception as e:
+        record("E_stalled_parent", False, "unexpected %r" % e)
+    srv.shutdown()
+
+    # F 已过期 deadline：不 spawn
+    srv = pick_server(); srv.serve_mode = "ok"
+    events = []
+    try:
+        T.urlopen(req(srv), 10.0, deadline=Deadline.from_timeout(0.0),
+                  observer=lambda n, **k: events.append(n))
+        record("F_expired_no_spawn", False, "no exception")
+    except T.HTTPDeadlineExceeded:
+        record("F_expired_no_spawn", "spawn_started" not in events, "events=%r" % events)
+    except Exception as e:
+        record("F_expired_no_spawn", False, "wrong exc %r" % e)
+    srv.shutdown()
+
+    # G C6 启动计入预算：0.6s 预算 vs 1.5s header 延迟
+    srv = pick_server(); srv.serve_mode = "delay_headers"
+    events = []; t0 = time.monotonic()
+    try:
+        r = T.urlopen(req(srv), 0.6, observer=lambda n, **k: events.append(n))
+        r.read()
+        record("G_startup_in_budget", False, "completed under 0.6s vs 1.5s server")
+    except T.HTTPDeadlineExceeded:
+        el = time.monotonic() - t0
+        record("G_startup_in_budget",
+               "spawn_started" in events and "request_sent" in events and el < 1.2,
+               "events=%r elapsed=%.2f" % (events, el))
+    except Exception as e:
+        record("G_startup_in_budget", False, "wrong exc %r" % e)
+    srv.shutdown()
+
+
+if __name__ == "__main__":
+    run()
+    print("subcases=%d failed=%d" % (len(RESULTS), len(FAILED)))
+    sys.exit(1 if FAILED else 0)

@@ -1,0 +1,46 @@
+{
+  "runner_sha256": "4fa9fd9a8e40507eb7a26e90f46928ac066551225cd6abb91d84370d3c427f32",
+  "results": [
+    {
+      "case": "Git failure after successful child",
+      "code": 2,
+      "passed": true
+    },
+    {
+      "case": "Initial untracked Unicode filename",
+      "code": 2,
+      "passed": true
+    },
+    {
+      "case": "Output symlink resolves inside checkout",
+      "passed": true
+    },
+    {
+      "case": "No child checks",
+      "code": 1,
+      "passed": true
+    },
+    {
+      "case": "Missing child cwd",
+      "code": 1,
+      "passed": true
+    },
+    {
+      "case": "Ambient GIT_DIR (outside clean-shell precondition)",
+      "code": 0,
+      "actual_sha": "353fc69b2f7a08b9190e00bbb1546f23f0de2538",
+      "claimed_sha": "c6247e154f7337aa41583970e3869e56d732a44f",
+      "identity_stable": true,
+      "dirty": false,
+      "supported_invocation": false
+    },
+    {
+      "case": "frontend-795 recorded identity and 6 log hashes",
+      "passed": true
+    },
+    {
+      "case": "frontend-796 recorded identity and 6 log hashes",
+      "passed": true
+    }
+  ]
+}

@@ -1,0 +1,90 @@
+"""CLI steer 的两半（工单 #30 范围第 5 条，INV-R5 不变）。
+
+投递槽：``Inbox`` 在认领点吞槽、三事实落账、坏文件隔离、关箱不吞；递话方：找 store、判终局、原子写、
+按 ``spool_id`` 对回执；CLI 出口码；loop 级：真 ``GLMAgentRuntime`` + ``JsonlEpisodeStore``，话不经
+``runtime.steer`` 只写槽（与 CLI 完全同一条路径），第二次模型请求前被认领。
+"""
+
+from __future__ import annotations
+
+import json
+import threading
+
+import pytest
+
+from intelligence import cli
+from intelligence.runtime.glm_agent_runtime import GLMAgentRuntime
+from intelligence.services.agent_runtime import EpisodeEvent, ModelTurn
+from intelligence.services.episode_inbox import (
+    INBOX_SPOOL_DIRNAME,
+    Inbox,
+    SpoolRecord,
+    read_spool_record,
+    spool_dir_for,
+    write_spool_record,
+)
+from intelligence.services.episode_messages import derive_messages, user_message
+from intelligence.services.episode_steer import (
+    EpisodeFinished,
+    EpisodeNotFound,
+    deliver_steer,
+    list_open_episodes,
+    read_receipt,
+    wait_receipt,
+)
+from intelligence.services.episode_store import EpisodeState, JsonlEpisodeStore, now_iso
+from intelligence.tests.conformance.fixtures import (
+    AUTHORIZED_TOOL,
+    ScenarioProbe,
+    ScriptedModelClient,
+    ScriptedToolCall,
+    ScriptedTurn,
+    completed_finish,
+    make_context,
+    make_frame,
+    make_registry,
+)
+
+
+class _Ledger:
+    def __init__(self) -> None:
+        self.events: list[EpisodeEvent] = []
+        self._lock = threading.Lock()
+
+    def add(self, kind: str, payload: dict[str, object]) -> EpisodeEvent:
+        with self._lock:
+            event = EpisodeEvent(len(self.events) + 1, kind, dict(payload))
+            self.events.append(event)
+            return event
+
+    def kinds(self) -> list[str]:
+        return [event.kind for event in self.events]
+
+
+def _record(spool_id: str, content: str, **overrides: object) -> SpoolRecord:
+    return SpoolRecord(spool_id=spool_id, content=content, created_at=now_iso(), **overrides)  # type: ignore[arg-type]
+
+
+def _open_episode(store: JsonlEpisodeStore, episode_id: str, *, phase: str = "model_pending") -> None:
+    store.append(episode_id, (EpisodeEvent(1, "task", {"question": "q"}),))
+    store.put_state(episode_id, EpisodeState(episode_id=episode_id, phase=phase, updated_at=now_iso()))  # type: ignore[arg-type]
+
+
+# ── 投递槽 × Inbox ─────────────────────────────────────────────────────────
+
+
+def test_spool_records_round_trip_and_sort_in_delivery_order(tmp_path) -> None:
+    spool = tmp_path / INBOX_SPOOL_DIRNAME
+    first = write_spool_record(spool, _record("a1", "先看北向资金"))
+    second = write_spool_record(spool, _record("b2", "再看两融", target="next_turn", wakeup=True))
+
+    assert sorted(spool.iterdir()) == [first, second]
+    assert first.suffix == ".json" and not list(spool.glob("*.tmp"))
+    got = read_spool_record(second)
+    assert got is not None
+    assert got == SpoolRecord(
+        spool_id="b2", content="再看两融", target="next_turn", source="cli", wakeup=True, created_at=got.created_at
+    )
+    with pytest.raises(ValueError):
+        write_spool_record(spool, SpoolRecord(spool_id="x", content="   "))
+    with pytest.raises(ValueError):

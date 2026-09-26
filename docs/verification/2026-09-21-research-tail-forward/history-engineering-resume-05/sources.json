@@ -1,0 +1,475 @@
+{
+  "source_revision": "442476f7def1013f1fadebaf6594971921147edc",
+  "files": [
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/README.md",
+      "target": "docs/verification/2026-09-21-research-tail-forward/history-engineering-resume-05/README.md",
+      "bytes": 4739,
+      "sha256": "702e42a66fa2fff84e11f1aa1bf2bc8cc828c764928565ac3771c60a35a0a4d5"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/analyze.py",
+      "target": "docs/verification/2026-09-21-research-tail-forward/history-engineering-resume-05/analyze.py.txt",
+      "bytes": 7557,
+      "sha256": "5376897e2a636d3743e87ad4384a92c24eeeee9e2f7db22a2d87738c9873a1c1"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/browser-install/output.txt",
+      "target": "docs/verification/2026-09-21-research-tail-forward/history-engineering-resume-05/browser-install/output.txt",
+      "bytes": 4645,
+      "sha256": "b561463d69c08c72228284bf15f290a0387dad28117c9a45bf06131cab22836e"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/browser-install/result.json",
+      "target": "docs/verification/2026-09-21-research-tail-forward/history-engineering-resume-05/browser-install/result.json",
+      "bytes": 1137,
+      "sha256": "c62071de3358c73fca319744fe5762167d4d83753fb3973312bb4198f2058d49"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/complete.json",
+      "target": "docs/verification/2026-09-21-research-tail-forward/history-engineering-resume-05/complete.json",
+      "bytes": 3594,
+      "sha256": "8ce5ea701ef152e69a12469ea246380bfa358ce20742610a15edde79f7ed5f53"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/coverage_plugin.py",
+      "target": "docs/verification/2026-09-21-research-tail-forward/history-engineering-resume-05/coverage_plugin.py.txt",
+      "bytes": 2623,
+      "sha256": "5b6025d79ee6bc78e6cc935568d8cd3096b87f2f33bacc52ebe48da2d79c7a89"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/diagnose_rss.py",
+      "target": "docs/verification/2026-09-21-research-tail-forward/history-engineering-resume-05/diagnose_rss.py.txt",
+      "bytes": 2952,
+      "sha256": "df827578a8b7844a2520fd63249841c8bd98b615313525139bf2defd33791048"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/output.txt",
+      "target": "docs/verification/2026-09-21-research-tail-forward/history-engineering-resume-05/e2e/output.txt",
+      "bytes": 83922,
+      "sha256": "d192d36ad13a00cf0125c10c8b3789cb08831012aef1928afee21dd1421159d5"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/report.json",
+      "target": "docs/verification/2026-09-21-research-tail-forward/history-engineering-resume-05/e2e/report.json",
+      "bytes": 150708,
+      "sha256": "bd73f87ebd95aa78f15c9ac9236d7fa51d28d3a60299f9f2d8eccb3f3855609b"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/result.json",
+      "target": "docs/verification/2026-09-21-research-tail-forward/history-engineering-resume-05/e2e/result.json",
+      "bytes": 2174,
+      "sha256": "61c0471f1231303bdcf6667097156602be44d3003c390c03414319a26c6b72e7"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/start.json",
+      "target": "docs/verification/2026-09-21-research-tail-forward/history-engineering-resume-05/e2e/start.json",
+      "bytes": 1509,
+      "sha256": "1e4040a48c87a022bdc44144949772211a4e2a108c4b8db199bbce6ddf6debc0"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e-private-browser/output.txt",
+      "target": "docs/verification/2026-09-21-research-tail-forward/history-engineering-resume-05/e2e-private-browser/output.txt",
+      "bytes": 13689,
+      "sha256": "2f57bfe6a076d450a3d30b16f4d7fe09ea1b055cab86bfafe802da691aaf4cb1"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e-private-browser/report.json",
+      "target": "docs/verification/2026-09-21-research-tail-forward/history-engineering-resume-05/e2e-private-browser/report.json",
+      "bytes": 78646,
+      "sha256": "04dfd19b508291fc6a8d0a88c39290e4964b9f2ab8e8c2bc6da01171203a584e"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e-private-browser/result.json",
+      "target": "docs/verification/2026-09-21-research-tail-forward/history-engineering-resume-05/e2e-private-browser/result.json",
+      "bytes": 2350,
+      "sha256": "c9dfc169bd44836cac8c80ce637afb7dce09508e0ae2c6ec8feb269622a6f8ba"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e-private-browser/start.json",
+      "target": "docs/verification/2026-09-21-research-tail-forward/history-engineering-resume-05/e2e-private-browser/start.json",
+      "bytes": 1686,
+      "sha256": "191092aaa60ecff2d06ad39e07489b2ec48db2a1bc9582905ecc017023eae4bf"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e-private-runner.log",
+      "target": "docs/verification/2026-09-21-research-tail-forward/history-engineering-resume-05/e2e-private-runner.log.txt",
+      "bytes": 2168,
+      "sha256": "271e85f39def9dc289d0373707563c9483094c865ef7fa1cb2284ad31b549173"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e-runner.log",
+      "target": "docs/verification/2026-09-21-research-tail-forward/history-engineering-resume-05/e2e-runner.log.txt",
+      "bytes": 1996,
+      "sha256": "682f389e2541d97689917203c54cb9d84b3cfe22e9c4b973f88dac1c6b1b5bad"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/install_browser.py",
+      "target": "docs/verification/2026-09-21-research-tail-forward/history-engineering-resume-05/install_browser.py.txt",
+      "bytes": 1952,
+      "sha256": "18942265c18892b4dd04f11079a88edee49b5926de36686c9ca24222eb4e3238"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/native/collection.json",
+      "target": "docs/verification/2026-09-21-research-tail-forward/history-engineering-resume-05/native/collection.json",
+      "bytes": 10600,
+      "sha256": "2cd7339219bf1aede0c9828a334f56c0f7bb61567345a11f6686918d72ff90da"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/native/junit.xml",
+      "target": "docs/verification/2026-09-21-research-tail-forward/history-engineering-resume-05/native/junit.xml",
+      "bytes": 993,
+      "sha256": "08d3dc96209c181eb4c564fc982b07cc36c9e12a6502b9dc7eb946d1db3f3db7"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/native/pytest.log",
+      "target": "docs/verification/2026-09-21-research-tail-forward/history-engineering-resume-05/native/pytest.log.txt",
+      "bytes": 255,
+      "sha256": "e50a309fd875cbe6d51350a2feb8f41c7064fb46c5015bbef2ec7eed9e194fdb"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/native/result.json",
+      "target": "docs/verification/2026-09-21-research-tail-forward/history-engineering-resume-05/native/result.json",
+      "bytes": 1424,
+      "sha256": "747ff8b6fdc5bfd8ff089b8586f5ffbc1704ca77ad4931d898478cafe6e92c72"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/native/session.json",
+      "target": "docs/verification/2026-09-21-research-tail-forward/history-engineering-resume-05/native/session.json",
+      "bytes": 66,
+      "sha256": "e84a33695f681feb51cdfb364921a5e3bcc124401e38ae200ac9261b97228767"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/native/start.json",
+      "target": "docs/verification/2026-09-21-research-tail-forward/history-engineering-resume-05/native/start.json",
+      "bytes": 1026,
+      "sha256": "191188835387be7a6b9d50f01d2f967bd71720683008f85cb25ab158068b8977"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/ordinary/collection.json",
+      "target": "docs/verification/2026-09-21-research-tail-forward/history-engineering-resume-05/ordinary/collection.json",
+      "bytes": 3182076,
+      "sha256": "5a01a779f912440348bb8d56199273272168472606c2229189b1fca8993f188c"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/ordinary/junit.xml",
+      "target": "docs/verification/2026-09-21-research-tail-forward/history-engineering-resume-05/ordinary/junit.xml",
+      "bytes": 2022012,
+      "sha256": "069569b5e8b44ef7fb47afcb9221c7af09859b50150bba84bcc6f516346574ad"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/ordinary/pytest.log",
+      "target": "docs/verification/2026-09-21-research-tail-forward/history-engineering-resume-05/ordinary/pytest.log.txt",
+      "bytes": 19647,
+      "sha256": "25658bdc724f8714179f3d1a851c4fc2660cd964261c8559fd9298d940e6ce23"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/ordinary/result.json",
+      "target": "docs/verification/2026-09-21-research-tail-forward/history-engineering-resume-05/ordinary/result.json",
+      "bytes": 1319,
+      "sha256": "8804351074994be48f38693685fe9ee56aab9b347afb80e64df2a5643aadef62"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/ordinary/session.json",
+      "target": "docs/verification/2026-09-21-research-tail-forward/history-engineering-resume-05/ordinary/session.json",
+      "bytes": 70,
+      "sha256": "c313571c9c9ae0a523e724b1604fa7a8b13caa1b94acabe5c8620bc62a213cbc"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/ordinary/start.json",
+      "target": "docs/verification/2026-09-21-research-tail-forward/history-engineering-resume-05/ordinary/start.json",
+      "bytes": 921,
+      "sha256": "a6e4cdcbdba4f6cc8c260e11334884b73697cb6e47bf85dcdcf95ee94eab2a10"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/resume.py",
+      "target": "docs/verification/2026-09-21-research-tail-forward/history-engineering-resume-05/resume.py.txt",
+      "bytes": 4205,
+      "sha256": "f16c708833a962a69a09563fe08dd179c74b280a3554b39f4d9d13fe92218251"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/rss-native/junit.xml",
+      "target": "docs/verification/2026-09-21-research-tail-forward/history-engineering-resume-05/rss-native/junit.xml",
+      "bytes": 510,
+      "sha256": "d3defce80ce3bc26c2d1baea8775419e0c15bc3ca845972673c3e281ac21cd79"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/rss-native/output.txt",
+      "target": "docs/verification/2026-09-21-research-tail-forward/history-engineering-resume-05/rss-native/output.txt",
+      "bytes": 244,
+      "sha256": "81893dd249fdc2d558ae866844fe8d836bb2dd0a08f650e185d9a553bc73ce28"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/rss-native/result.json",
+      "target": "docs/verification/2026-09-21-research-tail-forward/history-engineering-resume-05/rss-native/result.json",
+      "bytes": 1810,
+      "sha256": "8a711c65dd028028f52ab9309e9e428e5a8d0212b864d04bf2d6dfc2f64b6bbd"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/rss-native/start.json",
+      "target": "docs/verification/2026-09-21-research-tail-forward/history-engineering-resume-05/rss-native/start.json",
+      "bytes": 1328,
+      "sha256": "24ff86aa9e0e74034333c3319f2fb50e9d4870fe765fc172688a90797962a436"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/rss-outer/junit.xml",
+      "target": "docs/verification/2026-09-21-research-tail-forward/history-engineering-resume-05/rss-outer/junit.xml",
+      "bytes": 1193,
+      "sha256": "fbb2e20445948236707ba18658fefeddeb8c898f12a617763481a0b95aae1a4c"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/rss-outer/output.txt",
+      "target": "docs/verification/2026-09-21-research-tail-forward/history-engineering-resume-05/rss-outer/output.txt",
+      "bytes": 1259,
+      "sha256": "ce2932188e9739bff4813e7cdd0c45f2fa946f6dfb505f4d968e37555058a9f7"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/rss-outer/result.json",
+      "target": "docs/verification/2026-09-21-research-tail-forward/history-engineering-resume-05/rss-outer/result.json",
+      "bytes": 1869,
+      "sha256": "690cfd5f5108481c4716457bbcff2c65725f91bbb947c700378be08c30a8bfd0"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/rss-outer/start.json",
+      "target": "docs/verification/2026-09-21-research-tail-forward/history-engineering-resume-05/rss-outer/start.json",
+      "bytes": 1325,
+      "sha256": "54d0e948a622091330c7a5cbf95e123f53f5c0619cc38b5e02659f7cb59d827b"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/run_e2e.py",
+      "target": "docs/verification/2026-09-21-research-tail-forward/history-engineering-resume-05/run_e2e.py.txt",
+      "bytes": 3339,
+      "sha256": "081e1c504cdcb090f4c8ba43b35ceb37eeb4bf5e93a7cedd513cae9c12785da1"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/run_e2e_first.py",
+      "target": "docs/verification/2026-09-21-research-tail-forward/history-engineering-resume-05/run_e2e_first.py.txt",
+      "bytes": 3264,
+      "sha256": "18b03ba135078e50a4db101ed0598005ad0119dc01113d5c7ae0929839a1fbf3"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/runner.log",
+      "target": "docs/verification/2026-09-21-research-tail-forward/history-engineering-resume-05/runner.log.txt",
+      "bytes": 253,
+      "sha256": "d6975ba302404e331cc220c7495cea7d0b85f975b16baea97bd1ade189290748"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/seal.py",
+      "target": "docs/verification/2026-09-21-research-tail-forward/history-engineering-resume-05/seal.py.txt",
+      "bytes": 3667,
+      "sha256": "776440056d7be4b946fb6e6e8d8d2335aa4d24ac05d972be8720c2e684bf2dd6"
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/summary.json",
+      "target": "docs/verification/2026-09-21-research-tail-forward/history-engineering-resume-05/summary.json",
+      "bytes": 3367,
+      "sha256": "e3f60454a18eb01d3a3e27bd066eeb879daaaf7e5cfc63b76c21f1ed197e6c65"
+    }
+  ],
+  "lossless_chunks": [
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/ordinary/reports.jsonl",
+      "bytes": 8573535,
+      "sha256": "74303ed0e1a59bca27b0ad4642fd3d49b2e19d526a8f6186f03818e9cb10a182",
+      "parts": [
+        {
+          "target": "docs/verification/2026-09-21-research-tail-forward/history-engineering-resume-05/ordinary/reports.part-001.jsonl",
+          "bytes": 3145560,
+          "sha256": "bba9008b65130e59e981c1bba12b1a232287f66f690af7ba01435a417650ea56"
+        },
+        {
+          "target": "docs/verification/2026-09-21-research-tail-forward/history-engineering-resume-05/ordinary/reports.part-002.jsonl",
+          "bytes": 3145619,
+          "sha256": "2bb08302fcc604f9183b92cca69ab3c42c62303e7478cfdf6a0e4392c4f39b4d"
+        },
+        {
+          "target": "docs/verification/2026-09-21-research-tail-forward/history-engineering-resume-05/ordinary/reports.part-003.jsonl",
+          "bytes": 2282356,
+          "sha256": "70088750ad138be82bcdbd03ce6d4f42a48cbc4b5e6c13b897e914125d625422"
+        }
+      ]
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/native/reports.jsonl",
+      "bytes": 3246,
+      "sha256": "891e07d2329f14d39a9bd8da00c9f208fbc57e129ff9598a647dd552f3236c85",
+      "parts": [
+        {
+          "target": "docs/verification/2026-09-21-research-tail-forward/history-engineering-resume-05/native/reports.part-001.jsonl",
+          "bytes": 3246,
+          "sha256": "891e07d2329f14d39a9bd8da00c9f208fbc57e129ff9598a647dd552f3236c85"
+        }
+      ]
+    }
+  ],
+  "local_only_binary_trace_hashes": [
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/research-evolution-binding-48cce-务）-表单建绑定-→-服务端落账-→-投影刷新为已绑定-desktop/trace.zip",
+      "bytes": 1112,
+      "sha256": "d0ad84bb46285a258a1afec8f305d0dba303a01b1ebe56271e8ff7aabb12b6c5",
+      "archived": false
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/research-evolution-binding-48cce-务）-表单建绑定-→-服务端落账-→-投影刷新为已绑定-mobile/trace.zip",
+      "bytes": 1110,
+      "sha256": "413a9e19972de9b2b02380e8da61dd0293bb68a18b0be5a8ffe8082354f40d7c",
+      "archived": false
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/research-evolution-binding-48cce-务）-表单建绑定-→-服务端落账-→-投影刷新为已绑定-tablet/trace.zip",
+      "bytes": 1103,
+      "sha256": "bf58b0329d630b7c6020b7702d19f15d7063d11e80e97fa75c76150e566d697c",
+      "archived": false
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/research-evolution-timing-I14：隐藏暂停应用内活跃，原始区间保留完整端到端时间-desktop/trace.zip",
+      "bytes": 1111,
+      "sha256": "06f6ddc83576199724676a9fe9278d5d8b6279f3633dcebe8b655423bc0d305a",
+      "archived": false
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/research-evolution-timing-I14：隐藏暂停应用内活跃，原始区间保留完整端到端时间-mobile/trace.zip",
+      "bytes": 1111,
+      "sha256": "5909298393df2c2bde59d12956d166aa8f914ca4a39adcdda4f2770b684a6087",
+      "archived": false
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/research-evolution-timing-I14：隐藏暂停应用内活跃，原始区间保留完整端到端时间-tablet/trace.zip",
+      "bytes": 1106,
+      "sha256": "b2f771159160c10596434f951cd79931b4a457405026242106b8071cf3916158",
+      "archived": false
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/research-evolution-研究进化面板-·-浏览器渲染-维护页在浏览器里渲染，空态写的是「尚不能比较变化」-desktop/trace.zip",
+      "bytes": 1101,
+      "sha256": "d63d783a4dc32b0d821775e668d4ceb513dcddc5dc0a40944b848a8e82a3d309",
+      "archived": false
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/research-evolution-研究进化面板-·-浏览器渲染-维护页在浏览器里渲染，空态写的是「尚不能比较变化」-mobile/trace.zip",
+      "bytes": 1106,
+      "sha256": "e5e5cadf0eaf1997350946495db52f5b45746de26cfa904b92138035a8e02fc4",
+      "archived": false
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/research-evolution-研究进化面板-·-浏览器渲染-维护页在浏览器里渲染，空态写的是「尚不能比较变化」-tablet/trace.zip",
+      "bytes": 1108,
+      "sha256": "d9893961144e5ba83050218b1671e05c8b6480da6bc74b031b8c21df7844aadd",
+      "archived": false
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/research-evolution-研究进化面板-接口在真实服务上可达，缺输入如实报「还判不了」-desktop/trace.zip",
+      "bytes": 1113,
+      "sha256": "8ceb67c47d81231f3dc9cab6a2ead43e7ace5e7bb02cfb3d9b7ee8b312f632df",
+      "archived": false
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/research-evolution-研究进化面板-接口在真实服务上可达，缺输入如实报「还判不了」-mobile/trace.zip",
+      "bytes": 1112,
+      "sha256": "f15cba41e5fe12123e6b06ec2d224697626b21d8a5745529ff25061d9446eb70",
+      "archived": false
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/research-evolution-研究进化面板-接口在真实服务上可达，缺输入如实报「还判不了」-tablet/trace.zip",
+      "bytes": 1110,
+      "sha256": "db746b7a194fc0c9a4e82c48f6a81b7512e5a598b160d7c8f5633b5c38ff8f86",
+      "archived": false
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/workbench-model-settings-s-75f3f-aged-model-and-session-BYOK-desktop/trace.zip",
+      "bytes": 4892,
+      "sha256": "940d871522547a2c29577919b35bfa185157deacc0c5934d07a38bc7699d6c28",
+      "archived": false
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/workbench-model-settings-s-75f3f-aged-model-and-session-BYOK-mobile/trace.zip",
+      "bytes": 4895,
+      "sha256": "4e315885220163c3bef5afe5548242843ad4f10fcc75270b65434ee7f142b9fd",
+      "archived": false
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/workbench-model-settings-s-75f3f-aged-model-and-session-BYOK-tablet/trace.zip",
+      "bytes": 4894,
+      "sha256": "ce67045b0074bd9519fef7af7522e8cf59338dbe0da4d97e5ff0840cdda5fc88",
+      "archived": false
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/workbench-real-chat-persis-70efd-skills-SSE-and-regeneration-desktop/trace.zip",
+      "bytes": 4892,
+      "sha256": "ede718e9b1a9baf2ebcd42fbe83af0ce8ee123303e7517ed1bafb5eba9ab16f5",
+      "archived": false
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/workbench-real-chat-persis-70efd-skills-SSE-and-regeneration-mobile/trace.zip",
+      "bytes": 4891,
+      "sha256": "8eefda2a42277cc180d3ae3579894223ed0d2efb265c4001bf13bdb5d9051204",
+      "archived": false
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/workbench-real-chat-persis-70efd-skills-SSE-and-regeneration-tablet/trace.zip",
+      "bytes": 4899,
+      "sha256": "67f1aa7cb7e2912549c6e54e6609a4a1698628d0047bb6e7b32750a4a9e74841",
+      "archived": false
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/workbench-stock-deep-dive--65c17--traceable-Workbench-answer-desktop/trace.zip",
+      "bytes": 4891,
+      "sha256": "292ad2aa8bc94544a291225cfcc24f493be62a12765dfd52cb73e686b78da2c7",
+      "archived": false
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/workbench-stock-deep-dive--65c17--traceable-Workbench-answer-mobile/trace.zip",
+      "bytes": 4895,
+      "sha256": "a3f516c95cccd2d4bbad806600eb3514f8089a6f07cb3b22d27c9dcd6e1ae3d6",
+      "archived": false
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/workbench-stock-deep-dive--65c17--traceable-Workbench-answer-tablet/trace.zip",
+      "bytes": 4889,
+      "sha256": "db98f193c00524f15d4eb462cbeecb9292460a8248829fa9182a51273851e6e5",
+      "archived": false
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/workbench-stop-preserves-c-17318-ive-drawers-remain-closable-desktop/trace.zip",
+      "bytes": 4889,
+      "sha256": "3df28b0988051be099edda535a43cce97cb0fd097c11c6fbb986004fb59fac44",
+      "archived": false
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/workbench-stop-preserves-c-17318-ive-drawers-remain-closable-mobile/trace.zip",
+      "bytes": 4899,
+      "sha256": "897a259b250cc4f6178a6654d93039ff41b485606d2f6d6d129485654f4076cd",
+      "archived": false
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/workbench-stop-preserves-c-17318-ive-drawers-remain-closable-tablet/trace.zip",
+      "bytes": 4896,
+      "sha256": "bdd0b549f1e3e59b1affabdfeb83a61e7986d26f2157ac8eec8590b89658f586",
+      "archived": false
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/workbench-structured-workbench-keeps-five-surfaces-available-desktop/trace.zip",
+      "bytes": 4889,
+      "sha256": "5574d400290582de12697ec919c9310772ff0aafde4b8ae0f2b626590abd55ab",
+      "archived": false
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/workbench-structured-workbench-keeps-five-surfaces-available-mobile/trace.zip",
+      "bytes": 4892,
+      "sha256": "d9957228ab4d5141d4d83797d3d036268808c790c63d3dbc8c83397cbd08700f",
+      "archived": false
+    },
+    {
+      "source": "/Users/a77/.finance-runtime/reviews/research-tail-integration-20260921/history-engineering-resume-05/e2e/test-results/workbench-structured-workbench-keeps-five-surfaces-available-tablet/trace.zip",
+      "bytes": 4892,
+      "sha256": "173c2aea4c211d486cb57ed375177bf7831e58d4f609b06aa961152a43eca52c",
+      "archived": false
+    }
+  ],
+  "exclusions": [
+    "browser binaries",
+    "temporary test databases/users",
+    "pycache",
+    "trace zip bytes"
+  ]
+}

@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="2" skipped="0" tests="2" time="0.113" timestamp="2026-09-20T14:09:36.660635+08:00" hostname="77deMacBook-Air.local"><testcase classname=".finance-runtime.reviews.research-closeout-20260920.rag-retirement-review.spec.consumer-red-green.test_consumer_no_fallback" name="test_first_managed_capture_must_not_fall_back_to_cli[full]" time="0.004"><failure message="AssertionError: Expected 'run' to not have been called. Called 1 times.&#10;Calls: [call(['/Users/a77/finance-workspace-private/.venv-workbench/bin/python', '/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2975/test_first_managed_capture_mus0/generations-root/generations/alpha/code/scripts/rag_index.py', 'query', 'identity-bound query', '--k', '24', '--mode', 'hybrid', '--evidence-chars', '1500', '--stale-policy', 'warn', '--json', '--receipt'], capture_output=True, text=True, timeout=89.99937487510033, cwd='/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2975/test_first_managed_capture_mus0/generations-root/generations/alpha/code', env={'CODEX_APP_TOOLS_PIPE_PATH': '/tmp/codex-browser-use/4a9e7312-a025-4743-b453-ed54c6c467a8.sock', 'CODEX_CI': '1', 'CODEX_INTERNAL_ORIGINATOR_OVERRIDE': 'Codex Desktop', 'CODEX_MCP_NODE_PATH': '/Applications/ChatGPT.app/Contents/Resources/cua_node/bin/node', 'CODEX_PERMISSION_PROFILE': ':danger-full-access', 'CODEX_SAGE_BACKFILL_TRACKER_TAB_REUSE': '1', 'CODEX_SESSION_ID': '01a0bca6-ab06-7d11-aa00-75cb22254403', 'CODEX_SHELL': '1', 'CODEX_THREAD_ID': '01a0bca6-ab06-7d11-aa00-75cb22254403', 'CODEX_VERSION': '0.155.0-alpha.9.2', 'COLORTERM': '', 'COMMAND_MODE': 'unix2003', 'DISABLE_AUTO_UPDATE': 'true', 'FORESIGHT_USER': 'linxiaoqi5111', 'FORESIGHT_USERS_DIR': '/Users/a77/.local/share/finance-workbench/users', 'FPATH': '/opt/homebrew/share/zsh/site-functions:/Users/a77/.grok/completions/zsh:/opt/homebrew/share/zsh/site-functions:/usr/local/share/zsh/site-functions:/usr/share/zsh/site-functions:/usr/share/zsh/5.9/functions', 'GH_PAGER': 'cat', 'GIT_PAGER': 'cat', 'HOME': '/Users/a77', 'HOMEBREW_CELLAR': '/opt/homebrew/Cellar', 'HOMEBREW_PREFIX': '/opt/homebrew', 'HOMEBREW_REPOSITORY': '/opt/homebrew', 'INFOPATH': '/opt/homebrew/share/info:/opt/homebrew/share/info:', 'KNOWLEDGE_WIKI': '/Users/a77/knowledge-base-private/wiki', 'LANG': 'C.UTF-8', 'LC_ALL': 'C.UTF-8', 'LC_CTYPE': 'C.UTF-8', 'LEILA_BYOK_API_KEY': '[REDACTED_ENV_SECRET]', 'LOGNAME': 'a77', 'LOG_FORMAT': 'json', 'MallocNanoZone': '0', 'NODE_REPL_TRUSTED_BROWSER_CLIENT_SHA256S': '9230e2bd8b24b7ac7a0ba6774c64bf0d78ecdabbdd91d0ed627b02a587bae2df', 'NO_COLOR': '1', 'OLDPWD': '/Users/a77/fwp-wt-rag-retirement-closeout-0920', 'OSLogRateLimit': '64', 'PAGER': 'cat', 'PATH': '/Users/a77/.local/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/opt/pkg/env/active/bin:/opt/pmk/env/global/bin:/Users/a77/.codex/tmp/arg0/codex-arg0HQgSvt:/Users/a77/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override:/Users/a77/.kimi-code/bin:/Users/a77/.grok/bin:/Users/a77/.local/bin:/Users/a77/.codeium/windsurf/bin:/Users/a77/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback:/Applications/ChatGPT.app/Contents/Resources', 'PWD': '/Users/a77/fwp-wt-rag-retirement-closeout-0920', 'RUST_LOG': 'warn', 'SHELL': '/bin/zsh', 'SHLVL': '1', 'SSH_AUTH_SOCK': '/var/run/com.apple.launchd.wE72UADeq2/Listeners', 'SUBCONSCIOUS_VAULT': '/Users/a77/Desktop/stu/ai/ai', 'TERM': 'dumb', 'TMPDIR': '/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/', 'USER': 'a77', 'XPC_FLAGS': '0x0', 'XPC_SERVICE_NAME': '0', 'ZSH_TMUX_AUTOSTART': 'false', 'ZSH_TMUX_AUTOSTARTED': 'true', '__CF_USER_TEXT_ENCODING': '0x1F5:0x19:0x34', 'FWP_TEST_RECEIPT': '0', 'PYTHONDONTWRITEBYTECODE': '1', 'PYTHONPATH': '/Users/a77/fwp-wt-rag-retirement-closeout-0920', '_': '/Users/a77/finance-workspace-private/.venv-workbench/bin/python', 'PYTEST_VERSION': '8.3.5', 'PYTEST_CURRENT_TEST': '.finance-runtime/reviews/research-closeout-20260920/rag-retirement-review/spec/consumer-red-green/test_consumer_no_fallback.py::test_first_managed_capture_must_not_fall_back_to_cli[full] (call)', 'RAG_WORKER_ENABLED': '1', 'KB_RAG_GENERATION': 'af254c9546ef2212ebe40655db0cb5a29ae181b7fdcc733a39a5d7a90f28bf26', 'RAG_GENERATION_MANIFEST': '/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2975/test_first_managed_capture_mus0/generations-root/generations/alpha/manifest.json', 'RAG_GENERATIONS_ROOT': '/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2975/test_first_managed_capture_mus0/generations-root', 'KB_RAG_CODE_ROOT': '/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2975/test_first_managed_capture_mus0/generations-root/generations/alpha/code', 'KB_RAG_PYTHON': '/Users/a77/finance-workspace-private/.venv-workbench/bin/python', 'KB_VAULT': '/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2975/test_first_managed_capture_mus0/generations-root/generations/alpha/source/wiki', 'RAG_INDEX_DIR': '/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2975/test_first_managed_capture_mus0/generations-root/generations/alpha/standard', 'KB_RAG_FULL_INDEX_DIR': '/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2975/test_first_managed_capture_mus0/generations-root/generations/alpha/full', 'HF_HUB_OFFLINE': '1', 'TRANSFORMERS_OFFLINE': '1', 'HF_HUB_DISABLE_PROGRESS_BARS': '1', 'TRANSFORMERS_VERBOSITY': 'error', 'TQDM_DISABLE': '1'})].">tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2975/test_first_managed_capture_mus0')
+missing = 'full'
+
+    @pytest.mark.parametrize("missing", ["full", "python"])
+    def test_first_managed_capture_must_not_fall_back_to_cli(
+        tmp_path: Path,
+        missing: str,
+    ) -&gt; None:
+        binding = _managed_generation(tmp_path, "alpha")
+        _activate(binding)
+        environment = _environment(binding)
+    
+        if missing == "full":
+            Path(binding["full"]).rmdir()
+        else:
+            missing_python = tmp_path / "missing-venv" / "bin" / "python"
+            binding["python"] = str(missing_python)
+            environment["KB_RAG_PYTHON"] = str(missing_python)
+            manifest_path = Path(binding["manifest"])
+            # Keep the complete managed binding internally consistent while making
+            # the declared interpreter absent. Recompute the manifest SHA binding.
+            import hashlib
+            import json
+    
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["runtime"]["executable"] = str(missing_python)
+            manifest_path.write_text(
+                json.dumps(manifest, sort_keys=True) + "\n", encoding="utf-8"
+            )
+            environment["KB_RAG_GENERATION"] = hashlib.sha256(
+                manifest_path.read_bytes()
+            ).hexdigest()
+            current_path = Path(binding["root"]) / "current.json"
+            current = json.loads(current_path.read_text(encoding="utf-8"))
+            current["manifest_sha256"] = environment["KB_RAG_GENERATION"]
+            current_path.write_text(
+                json.dumps(current, sort_keys=True) + "\n", encoding="utf-8"
+            )
+    
+        cli_response = WorkerResponse(0, "[]", "")
+        with (
+            mock.patch.dict(os.environ, environment, clear=False),
+            mock.patch.object(kb_rag.subprocess, "run", return_value=cli_response) as cli,
+        ):
+            result = kb_rag.retrieve(
+                "identity-bound query",
+                Path(binding["wiki"]),
+                index_dir=Path(binding["standard"]),
+                code_root=Path(binding["code"]),
+                python_executable=binding["python"],
+                worker_enabled=True,
+            )
+    
+        # Approved contract: explicit managed-identity failures must stop at the
+        # dedicated generation boundary and must never run the legacy CLI.
+&gt;       cli.assert_not_called()
+
+../.finance-runtime/reviews/research-closeout-20260920/rag-retirement-review/spec/consumer-red-green/test_consumer_no_fallback.py:83: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = &lt;MagicMock name='run' id='4465771680'&gt;
+
+    def assert_not_called(self):
+        """assert that the mock was never called.
+        """
+        if self.call_count != 0:
+            msg = ("Expected '%s' to not have been called. Called %s times.%s"
+                   % (self._mock_name or 'mock',
+                      self.call_count,
+                      self._calls_repr()))
+&gt;           raise AssertionError(msg)
+E           AssertionError: Expected 'run' to not have been called. Called 1 times.
+E           Calls: [call(['/Users/a77/finance-workspace-private/.venv-workbench/bin/python', '/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2975/test_first_managed_capture_mus0/generations-root/generations/alpha/code/scripts/rag_index.py', 'query', 'identity-bound query', '--k', '24', '--mode', 'hybrid', '--evidence-chars', '1500', '--stale-policy', 'warn', '--json', '--receipt'], capture_output=True, text=True, timeout=89.99937487510033, cwd='/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2975/test_first_managed_capture_mus0/generations-root/generations/alpha/code', env={'CODEX_APP_TOOLS_PIPE_PATH': '/tmp/codex-browser-use/4a9e7312-a025-4743-b453-ed54c6c467a8.sock', 'CODEX_CI': '1', 'CODEX_INTERNAL_ORIGINATOR_OVERRIDE': 'Codex Desktop', 'CODEX_MCP_NODE_PATH': '/Applications/ChatGPT.app/Contents/Resources/cua_node/bin/node', 'CODEX_PERMISSION_PROFILE': ':danger-full-access', 'CODEX_SAGE_BACKFILL_TRACKER_TAB_REUSE': '1', 'CODEX_SESSION_ID': '01a0bca6-ab06-7d11-aa00-75cb22254403', 'CODEX_SHELL': '1', 'CODEX_THREAD_ID': '01a0bca6-ab06-7d11-aa00-75cb22254403', 'CODEX_VERSION': '0.155.0-alpha.9.2', 'COLORTERM': '', 'COMMAND_MODE': 'unix2003', 'DISABLE_AUTO_UPDATE': 'true', 'FORESIGHT_USER': 'linxiaoqi5111', 'FORESIGHT_USERS_DIR': '/Users/a77/.local/share/finance-workbench/users', 'FPATH': '/opt/homebrew/share/zsh/site-functions:/Users/a77/.grok/completions/zsh:/opt/homebrew/share/zsh/site-functions:/usr/local/share/zsh/site-functions:/usr/share/zsh/site-functions:/usr/share/zsh/5.9/functions', 'GH_PAGER': 'cat', 'GIT_PAGER': 'cat', 'HOME': '/Users/a77', 'HOMEBREW_CELLAR': '/opt/homebrew/Cellar', 'HOMEBREW_PREFIX': '/opt/homebrew', 'HOMEBREW_REPOSITORY': '/opt/homebrew', 'INFOPATH': '/opt/homebrew/share/info:/opt/homebrew/share/info:', 'KNOWLEDGE_WIKI': '/Users/a77/knowledge-base-private/wiki', 'LANG': 'C.UTF-8', 'LC_ALL': 'C.UTF-8', 'LC_CTYPE': 'C.UTF-8', 'LEILA_BYOK_API_KEY': '[REDACTED_ENV_SECRET]', 'LOGNAME': 'a77', 'LOG_FORMAT': 'json', 'MallocNanoZone': '0', 'NODE_REPL_TRUSTED_BROWSER_CLIENT_SHA256S': '9230e2bd8b24b7ac7a0ba6774c64bf0d78ecdabbdd91d0ed627b02a587bae2df', 'NO_COLOR': '1', 'OLDPWD': '/Users/a77/fwp-wt-rag-retirement-closeout-0920', 'OSLogRateLimit': '64', 'PAGER': 'cat', 'PATH': '/Users/a77/.local/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/opt/pkg/env/active/bin:/opt/pmk/env/global/bin:/Users/a77/.codex/tmp/arg0/codex-arg0HQgSvt:/Users/a77/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override:/Users/a77/.kimi-code/bin:/Users/a77/.grok/bin:/Users/a77/.local/bin:/Users/a77/.codeium/windsurf/bin:/Users/a77/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback:/Applications/ChatGPT.app/Contents/Resources', 'PWD': '/Users/a77/fwp-wt-rag-retirement-closeout-0920', 'RUST_LOG': 'warn', 'SHELL': '/bin/zsh', 'SHLVL': '1', 'SSH_AUTH_SOCK': '/var/run/com.apple.launchd.wE72UADeq2/Listeners', 'SUBCONSCIOUS_VAULT': '/Users/a77/Desktop/stu/ai/ai', 'TERM': 'dumb', 'TMPDIR': '/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/', 'USER': 'a77', 'XPC_FLAGS': '0x0', 'XPC_SERVICE_NAME': '0', 'ZSH_TMUX_AUTOSTART': 'false', 'ZSH_TMUX_AUTOSTARTED': 'true', '__CF_USER_TEXT_ENCODING': '0x1F5:0x19:0x34', 'FWP_TEST_RECEIPT': '0', 'PYTHONDONTWRITEBYTECODE': '1', 'PYTHONPATH': '/Users/a77/fwp-wt-rag-retirement-closeout-0920', '_': '/Users/a77/finance-workspace-private/.venv-workbench/bin/python', 'PYTEST_VERSION': '8.3.5', 'PYTEST_CURRENT_TEST': '.finance-runtime/reviews/research-closeout-20260920/rag-retirement-review/spec/consumer-red-green/test_consumer_no_fallback.py::test_first_managed_capture_must_not_fall_back_to_cli[full] (call)', 'RAG_WORKER_ENABLED': '1', 'KB_RAG_GENERATION': 'af254c9546ef2212ebe40655db0cb5a29ae181b7fdcc733a39a5d7a90f28bf26', 'RAG_GENERATION_MANIFEST': '/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2975/test_first_managed_capture_mus0/generations-root/generations/alpha/manifest.json', 'RAG_GENERATIONS_ROOT': '/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2975/test_first_managed_capture_mus0/generations-root', 'KB_RAG_CODE_ROOT': '/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2975/test_first_managed_capture_mus0/generations-root/generations/alpha/code', 'KB_RAG_PYTHON': '/Users/a77/finance-workspace-private/.venv-workbench/bin/python', 'KB_VAULT': '/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2975/test_first_managed_capture_mus0/generations-root/generations/alpha/source/wiki', 'RAG_INDEX_DIR': '/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2975/test_first_managed_capture_mus0/generations-root/generations/alpha/standard', 'KB_RAG_FULL_INDEX_DIR': '/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2975/test_first_managed_capture_mus0/generations-root/generations/alpha/full', 'HF_HUB_OFFLINE': '1', 'TRANSFORMERS_OFFLINE': '1', 'HF_HUB_DISABLE_PROGRESS_BARS': '1', 'TRANSFORMERS_VERBOSITY': 'error', 'TQDM_DISABLE': '1'})].
+
+/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/unittest/mock.py:910: AssertionError</failure></testcase><testcase classname=".finance-runtime.reviews.research-closeout-20260920.rag-retirement-review.spec.consumer-red-green.test_consumer_no_fallback" name="test_first_managed_capture_must_not_fall_back_to_cli[python]" time="0.003"><failure message="AssertionError: Expected 'run' to not have been called. Called 1 times.&#10;Calls: [call(['/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2975/test_first_managed_capture_mus1/missing-venv/bin/python', '/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2975/test_first_managed_capture_mus1/generations-root/generations/alpha/code/scripts/rag_index.py', 'query', 'identity-bound query', '--k', '24', '--mode', 'hybrid', '--evidence-chars', '1500', '--stale-policy', 'warn', '--json', '--receipt'], capture_output=True, text=True, timeout=89.99938312498853, cwd='/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2975/test_first_managed_capture_mus1/generations-root/generations/alpha/code', env={'CODEX_APP_TOOLS_PIPE_PATH': '/tmp/codex-browser-use/4a9e7312-a025-4743-b453-ed54c6c467a8.sock', 'CODEX_CI': '1', 'CODEX_INTERNAL_ORIGINATOR_OVERRIDE': 'Codex Desktop', 'CODEX_MCP_NODE_PATH': '/Applications/ChatGPT.app/Contents/Resources/cua_node/bin/node', 'CODEX_PERMISSION_PROFILE': ':danger-full-access', 'CODEX_SAGE_BACKFILL_TRACKER_TAB_REUSE': '1', 'CODEX_SESSION_ID': '01a0bca6-ab06-7d11-aa00-75cb22254403', 'CODEX_SHELL': '1', 'CODEX_THREAD_ID': '01a0bca6-ab06-7d11-aa00-75cb22254403', 'CODEX_VERSION': '0.155.0-alpha.9.2', 'COLORTERM': '', 'COMMAND_MODE': 'unix2003', 'DISABLE_AUTO_UPDATE': 'true', 'FORESIGHT_USER': 'linxiaoqi5111', 'FORESIGHT_USERS_DIR': '/Users/a77/.local/share/finance-workbench/users', 'FPATH': '/opt/homebrew/share/zsh/site-functions:/Users/a77/.grok/completions/zsh:/opt/homebrew/share/zsh/site-functions:/usr/local/share/zsh/site-functions:/usr/share/zsh/site-functions:/usr/share/zsh/5.9/functions', 'GH_PAGER': 'cat', 'GIT_PAGER': 'cat', 'HOME': '/Users/a77', 'HOMEBREW_CELLAR': '/opt/homebrew/Cellar', 'HOMEBREW_PREFIX': '/opt/homebrew', 'HOMEBREW_REPOSITORY': '/opt/homebrew', 'INFOPATH': '/opt/homebrew/share/info:/opt/homebrew/share/info:', 'KNOWLEDGE_WIKI': '/Users/a77/knowledge-base-private/wiki', 'LANG': 'C.UTF-8', 'LC_ALL': 'C.UTF-8', 'LC_CTYPE': 'C.UTF-8', 'LEILA_BYOK_API_KEY': '[REDACTED_ENV_SECRET]', 'LOGNAME': 'a77', 'LOG_FORMAT': 'json', 'MallocNanoZone': '0', 'NODE_REPL_TRUSTED_BROWSER_CLIENT_SHA256S': '9230e2bd8b24b7ac7a0ba6774c64bf0d78ecdabbdd91d0ed627b02a587bae2df', 'NO_COLOR': '1', 'OLDPWD': '/Users/a77/fwp-wt-rag-retirement-closeout-0920', 'OSLogRateLimit': '64', 'PAGER': 'cat', 'PATH': '/Users/a77/.local/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/opt/pkg/env/active/bin:/opt/pmk/env/global/bin:/Users/a77/.codex/tmp/arg0/codex-arg0HQgSvt:/Users/a77/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override:/Users/a77/.kimi-code/bin:/Users/a77/.grok/bin:/Users/a77/.local/bin:/Users/a77/.codeium/windsurf/bin:/Users/a77/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback:/Applications/ChatGPT.app/Contents/Resources', 'PWD': '/Users/a77/fwp-wt-rag-retirement-closeout-0920', 'RUST_LOG': 'warn', 'SHELL': '/bin/zsh', 'SHLVL': '1', 'SSH_AUTH_SOCK': '/var/run/com.apple.launchd.wE72UADeq2/Listeners', 'SUBCONSCIOUS_VAULT': '/Users/a77/Desktop/stu/ai/ai', 'TERM': 'dumb', 'TMPDIR': '/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/', 'USER': 'a77', 'XPC_FLAGS': '0x0', 'XPC_SERVICE_NAME': '0', 'ZSH_TMUX_AUTOSTART': 'false', 'ZSH_TMUX_AUTOSTARTED': 'true', '__CF_USER_TEXT_ENCODING': '0x1F5:0x19:0x34', 'FWP_TEST_RECEIPT': '0', 'PYTHONDONTWRITEBYTECODE': '1', 'PYTHONPATH': '/Users/a77/fwp-wt-rag-retirement-closeout-0920', '_': '/Users/a77/finance-workspace-private/.venv-workbench/bin/python', 'PYTEST_VERSION': '8.3.5', 'PYTEST_CURRENT_TEST': '.finance-runtime/reviews/research-closeout-20260920/rag-retirement-review/spec/consumer-red-green/test_consumer_no_fallback.py::test_first_managed_capture_must_not_fall_back_to_cli[python] (call)', 'RAG_WORKER_ENABLED': '1', 'KB_RAG_GENERATION': '18879f6a84744ed31960171595e205ea01d5e7a9fb7c7af8b3ad33db55d29ae9', 'RAG_GENERATION_MANIFEST': '/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2975/test_first_managed_capture_mus1/generations-root/generations/alpha/manifest.json', 'RAG_GENERATIONS_ROOT': '/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2975/test_first_managed_capture_mus1/generations-root', 'KB_RAG_CODE_ROOT': '/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2975/test_first_managed_capture_mus1/generations-root/generations/alpha/code', 'KB_RAG_PYTHON': '/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2975/test_first_managed_capture_mus1/missing-venv/bin/python', 'KB_VAULT': '/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2975/test_first_managed_capture_mus1/generations-root/generations/alpha/source/wiki', 'RAG_INDEX_DIR': '/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2975/test_first_managed_capture_mus1/generations-root/generations/alpha/standard', 'KB_RAG_FULL_INDEX_DIR': '/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2975/test_first_managed_capture_mus1/generations-root/generations/alpha/full', 'HF_HUB_OFFLINE': '1', 'TRANSFORMERS_OFFLINE': '1', 'HF_HUB_DISABLE_PROGRESS_BARS': '1', 'TRANSFORMERS_VERBOSITY': 'error', 'TQDM_DISABLE': '1'})].">tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2975/test_first_managed_capture_mus1')
+missing = 'python'
+
+    @pytest.mark.parametrize("missing", ["full", "python"])
+    def test_first_managed_capture_must_not_fall_back_to_cli(
+        tmp_path: Path,
+        missing: str,
+    ) -&gt; None:
+        binding = _managed_generation(tmp_path, "alpha")
+        _activate(binding)
+        environment = _environment(binding)
+    
+        if missing == "full":
+            Path(binding["full"]).rmdir()
+        else:
+            missing_python = tmp_path / "missing-venv" / "bin" / "python"
+            binding["python"] = str(missing_python)
+            environment["KB_RAG_PYTHON"] = str(missing_python)
+            manifest_path = Path(binding["manifest"])
+            # Keep the complete managed binding internally consistent while making
+            # the declared interpreter absent. Recompute the manifest SHA binding.
+            import hashlib
+            import json
+    
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["runtime"]["executable"] = str(missing_python)
+            manifest_path.write_text(
+                json.dumps(manifest, sort_keys=True) + "\n", encoding="utf-8"
+            )
+            environment["KB_RAG_GENERATION"] = hashlib.sha256(
+                manifest_path.read_bytes()
+            ).hexdigest()
+            current_path = Path(binding["root"]) / "current.json"
+            current = json.loads(current_path.read_text(encoding="utf-8"))
+            current["manifest_sha256"] = environment["KB_RAG_GENERATION"]
+            current_path.write_text(
+                json.dumps(current, sort_keys=True) + "\n", encoding="utf-8"
+            )
+    
+        cli_response = WorkerResponse(0, "[]", "")
+        with (
+            mock.patch.dict(os.environ, environment, clear=False),
+            mock.patch.object(kb_rag.subprocess, "run", return_value=cli_response) as cli,
+        ):
+            result = kb_rag.retrieve(
+                "identity-bound query",
+                Path(binding["wiki"]),
+                index_dir=Path(binding["standard"]),
+                code_root=Path(binding["code"]),
+                python_executable=binding["python"],
+                worker_enabled=True,
+            )
+    
+        # Approved contract: explicit managed-identity failures must stop at the
+        # dedicated generation boundary and must never run the legacy CLI.
+&gt;       cli.assert_not_called()
+
+../.finance-runtime/reviews/research-closeout-20260920/rag-retirement-review/spec/consumer-red-green/test_consumer_no_fallback.py:83: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = &lt;MagicMock name='run' id='4468487808'&gt;
+
+    def assert_not_called(self):
+        """assert that the mock was never called.
+        """
+        if self.call_count != 0:
+            msg = ("Expected '%s' to not have been called. Called %s times.%s"
+                   % (self._mock_name or 'mock',
+                      self.call_count,
+                      self._calls_repr()))
+&gt;           raise AssertionError(msg)
+E           AssertionError: Expected 'run' to not have been called. Called 1 times.
+E           Calls: [call(['/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2975/test_first_managed_capture_mus1/missing-venv/bin/python', '/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2975/test_first_managed_capture_mus1/generations-root/generations/alpha/code/scripts/rag_index.py', 'query', 'identity-bound query', '--k', '24', '--mode', 'hybrid', '--evidence-chars', '1500', '--stale-policy', 'warn', '--json', '--receipt'], capture_output=True, text=True, timeout=89.99938312498853, cwd='/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2975/test_first_managed_capture_mus1/generations-root/generations/alpha/code', env={'CODEX_APP_TOOLS_PIPE_PATH': '/tmp/codex-browser-use/4a9e7312-a025-4743-b453-ed54c6c467a8.sock', 'CODEX_CI': '1', 'CODEX_INTERNAL_ORIGINATOR_OVERRIDE': 'Codex Desktop', 'CODEX_MCP_NODE_PATH': '/Applications/ChatGPT.app/Contents/Resources/cua_node/bin/node', 'CODEX_PERMISSION_PROFILE': ':danger-full-access', 'CODEX_SAGE_BACKFILL_TRACKER_TAB_REUSE': '1', 'CODEX_SESSION_ID': '01a0bca6-ab06-7d11-aa00-75cb22254403', 'CODEX_SHELL': '1', 'CODEX_THREAD_ID': '01a0bca6-ab06-7d11-aa00-75cb22254403', 'CODEX_VERSION': '0.155.0-alpha.9.2', 'COLORTERM': '', 'COMMAND_MODE': 'unix2003', 'DISABLE_AUTO_UPDATE': 'true', 'FORESIGHT_USER': 'linxiaoqi5111', 'FORESIGHT_USERS_DIR': '/Users/a77/.local/share/finance-workbench/users', 'FPATH': '/opt/homebrew/share/zsh/site-functions:/Users/a77/.grok/completions/zsh:/opt/homebrew/share/zsh/site-functions:/usr/local/share/zsh/site-functions:/usr/share/zsh/site-functions:/usr/share/zsh/5.9/functions', 'GH_PAGER': 'cat', 'GIT_PAGER': 'cat', 'HOME': '/Users/a77', 'HOMEBREW_CELLAR': '/opt/homebrew/Cellar', 'HOMEBREW_PREFIX': '/opt/homebrew', 'HOMEBREW_REPOSITORY': '/opt/homebrew', 'INFOPATH': '/opt/homebrew/share/info:/opt/homebrew/share/info:', 'KNOWLEDGE_WIKI': '/Users/a77/knowledge-base-private/wiki', 'LANG': 'C.UTF-8', 'LC_ALL': 'C.UTF-8', 'LC_CTYPE': 'C.UTF-8', 'LEILA_BYOK_API_KEY': '[REDACTED_ENV_SECRET]', 'LOGNAME': 'a77', 'LOG_FORMAT': 'json', 'MallocNanoZone': '0', 'NODE_REPL_TRUSTED_BROWSER_CLIENT_SHA256S': '9230e2bd8b24b7ac7a0ba6774c64bf0d78ecdabbdd91d0ed627b02a587bae2df', 'NO_COLOR': '1', 'OLDPWD': '/Users/a77/fwp-wt-rag-retirement-closeout-0920', 'OSLogRateLimit': '64', 'PAGER': 'cat', 'PATH': '/Users/a77/.local/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/opt/pkg/env/active/bin:/opt/pmk/env/global/bin:/Users/a77/.codex/tmp/arg0/codex-arg0HQgSvt:/Users/a77/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override:/Users/a77/.kimi-code/bin:/Users/a77/.grok/bin:/Users/a77/.local/bin:/Users/a77/.codeium/windsurf/bin:/Users/a77/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback:/Applications/ChatGPT.app/Contents/Resources', 'PWD': '/Users/a77/fwp-wt-rag-retirement-closeout-0920', 'RUST_LOG': 'warn', 'SHELL': '/bin/zsh', 'SHLVL': '1', 'SSH_AUTH_SOCK': '/var/run/com.apple.launchd.wE72UADeq2/Listeners', 'SUBCONSCIOUS_VAULT': '/Users/a77/Desktop/stu/ai/ai', 'TERM': 'dumb', 'TMPDIR': '/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/', 'USER': 'a77', 'XPC_FLAGS': '0x0', 'XPC_SERVICE_NAME': '0', 'ZSH_TMUX_AUTOSTART': 'false', 'ZSH_TMUX_AUTOSTARTED': 'true', '__CF_USER_TEXT_ENCODING': '0x1F5:0x19:0x34', 'FWP_TEST_RECEIPT': '0', 'PYTHONDONTWRITEBYTECODE': '1', 'PYTHONPATH': '/Users/a77/fwp-wt-rag-retirement-closeout-0920', '_': '/Users/a77/finance-workspace-private/.venv-workbench/bin/python', 'PYTEST_VERSION': '8.3.5', 'PYTEST_CURRENT_TEST': '.finance-runtime/reviews/research-closeout-20260920/rag-retirement-review/spec/consumer-red-green/test_consumer_no_fallback.py::test_first_managed_capture_must_not_fall_back_to_cli[python] (call)', 'RAG_WORKER_ENABLED': '1', 'KB_RAG_GENERATION': '18879f6a84744ed31960171595e205ea01d5e7a9fb7c7af8b3ad33db55d29ae9', 'RAG_GENERATION_MANIFEST': '/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2975/test_first_managed_capture_mus1/generations-root/generations/alpha/manifest.json', 'RAG_GENERATIONS_ROOT': '/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2975/test_first_managed_capture_mus1/generations-root', 'KB_RAG_CODE_ROOT': '/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2975/test_first_managed_capture_mus1/generations-root/generations/alpha/code', 'KB_RAG_PYTHON': '/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2975/test_first_managed_capture_mus1/missing-venv/bin/python', 'KB_VAULT': '/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2975/test_first_managed_capture_mus1/generations-root/generations/alpha/source/wiki', 'RAG_INDEX_DIR': '/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2975/test_first_managed_capture_mus1/generations-root/generations/alpha/standard', 'KB_RAG_FULL_INDEX_DIR': '/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2975/test_first_managed_capture_mus1/generations-root/generations/alpha/full', 'HF_HUB_OFFLINE': '1', 'TRANSFORMERS_OFFLINE': '1', 'HF_HUB_DISABLE_PROGRESS_BARS': '1', 'TRANSFORMERS_VERBOSITY': 'error', 'TQDM_DISABLE': '1'})].
+
+/opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/lib/python3.12/unittest/mock.py:910: AssertionError</failure></testcase></testsuite></testsuites>

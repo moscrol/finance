@@ -1,0 +1,72 @@
+"""Probe 3 — judge window logic units (C3/C5 episode-level helpers).
+
+Subcases:
+  J1 semantic_judge_window_seconds: ASK_SEMANTIC_JUDGE_WINDOW env ceiling can
+     only LOWER the window (0.8s ceiling accepted).
+  J2 judge_attempt_seconds: configured value returned when tier floor is None;
+     never below configured floor for max tier (floor >= configured).
+  J3 _deadline_remaining_seconds: past vs future Deadline monotonic behavior.
+  J4 _judge_failure_identity: a deadline/timeout failure maps to a timeout
+     identity (supports C3 'recorded failed/timeout', distinct from success).
+Exit nonzero on failure.
+"""
+import os
+import sys
+import time
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.abspath(os.path.join(HERE, "..", "..", "..", "..", "..", "candidate"))
+sys.path.insert(0, os.path.join(ROOT, "intelligence"))
+
+from services import episode_semantic_verifier as V
+from services.llm_refine import Deadline, LLMDeadlineExceeded
+
+results = []
+
+
+def record(name, ok, detail):
+    results.append((name, ok, detail))
+    print(f"[{'PASS' if ok else 'FAIL'}] {name}: {detail}", flush=True)
+
+
+def main():
+    base = V.semantic_judge_window_seconds()
+    os.environ["ASK_SEMANTIC_JUDGE_WINDOW"] = "0.8"
+    try:
+        capped = V.semantic_judge_window_seconds()
+        record("J1_env_ceiling_lowers", abs(capped - 0.8) < 0.01 or capped <= 0.8,
+               f"base={base:.2f}s capped={capped:.2f}s (ceiling may only lower)")
+        os.environ["ASK_SEMANTIC_JUDGE_WINDOW"] = "999999"
+        raised = V.semantic_judge_window_seconds()
+        record("J1_env_ceiling_no_raise", raised <= base + 1e-6,
+               f"base={base:.2f}s raised_env={raised:.2f}s (cannot raise above cap)")
+    finally:
+        os.environ.pop("ASK_SEMANTIC_JUDGE_WINDOW", None)
+
+    cfg = V.judge_attempt_seconds(20.0)
+    record("J2_attempt_configured", cfg >= 20.0 - 1e-6, f"configured=20.0 -> {cfg}")
+
+    d = Deadline.from_timeout(1.0)
+    r1 = V._deadline_remaining_seconds(d)
+    time.sleep(0.05)
+    r2 = V._deadline_remaining_seconds(d)
+    record("J3_remaining_monotonic", r1 > r2 and r2 < 1.0 and r1 <= 1.0,
+           f"r1={r1:.3f} r2={r2:.3f} (wall-clock based)")
+    expired = Deadline.from_timeout(0.0)
+    record("J3_expired_zero", V._deadline_remaining_seconds(expired) <= 0.0,
+           f"expired deadline remaining={V._deadline_remaining_seconds(expired)}")
+
+    try:
+        ident = V._judge_failure_identity(LLMDeadlineExceeded())
+        record("J4_timeout_identity", "timeout" in str(ident).lower() or "deadline" in str(ident).lower(),
+               f"identity for LLMDeadlineExceeded = {ident}")
+    except Exception as e:
+        record("J4_timeout_identity", False, f"unexpected {type(e).__name__}: {e}")
+
+    fails = [n for n, ok, _ in results if not ok]
+    print(f"SUBCASES total={len(results)} failed={len(fails)} {fails}")
+    sys.exit(1 if fails else 0)
+
+
+if __name__ == "__main__":
+    main()

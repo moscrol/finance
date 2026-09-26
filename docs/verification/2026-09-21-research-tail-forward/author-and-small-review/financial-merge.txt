@@ -1,0 +1,34 @@
+Auto-merging .claude/lessons_learned.md
+CONFLICT (content): Merge conflict in .claude/lessons_learned.md
+Auto-merging docs/agent-product-door.md
+CONFLICT (content): Merge conflict in docs/agent-product-door.md
+Auto-merging intelligence/api/app.py
+CONFLICT (content): Merge conflict in intelligence/api/app.py
+Auto-merging intelligence/api/static/assets/index-DWf9m4Ox.js
+CONFLICT (rename/rename): intelligence/api/static/assets/index-DWf9m4Ox.js renamed to intelligence/api/static/assets/index-DH207EFA.js in HEAD and to intelligence/api/static/assets/index-Bkv-Nea0.js in fix/financial-ratio-units-0920.
+Auto-merging intelligence/api/static/index.html
+CONFLICT (content): Merge conflict in intelligence/api/static/index.html
+Auto-merging intelligence/runtime/continuous_turn_adapter.py
+CONFLICT (content): Merge conflict in intelligence/runtime/continuous_turn_adapter.py
+Auto-merging intelligence/services/episode_protocol.py
+Auto-merging intelligence/services/episode_semantic_verifier.py
+CONFLICT (content): Merge conflict in intelligence/services/episode_semantic_verifier.py
+Auto-merging intelligence/services/episode_verifier.py
+Auto-merging intelligence/services/mandatory_satisfiability.py
+CONFLICT (content): Merge conflict in intelligence/services/mandatory_satisfiability.py
+Auto-merging intelligence/services/rag_worker.py
+CONFLICT (content): Merge conflict in intelligence/services/rag_worker.py
+Auto-merging intelligence/services/research_harness.py
+Auto-merging intelligence/services/research_tool_registry.py
+Auto-merging intelligence/services/user_task.py
+Auto-merging intelligence/tests/test_episode_protocol.py
+Auto-merging intelligence/tests/test_rag_worker.py
+Auto-merging intelligence/tests/test_session_projection.py
+CONFLICT (content): Merge conflict in intelligence/tests/test_session_projection.py
+Auto-merging intelligence/tests/test_workbench_api.py
+Auto-merging intelligence/webapp/src/App.tsx
+CONFLICT (content): Merge conflict in intelligence/webapp/src/App.tsx
+Auto-merging intelligence/webapp/src/components/components.test.tsx
+Auto-merging intelligence/webapp/src/types.ts
+CONFLICT (content): Merge conflict in intelligence/webapp/src/types.ts
+Automatic merge failed; fix conflicts and then commit the result.

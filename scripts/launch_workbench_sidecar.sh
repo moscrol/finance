@@ -1,5 +1,5 @@
 #!/bin/zsh
-# 起一份验收用 Workbench sidecar：同一套生产 LLM / 判官 / KB 配置，换代码根与用户目录，不碰 8792。
+# 起一份验收用 Workbench sidecar：同一套生产 LLM / 判官 / KB 配置，隔离代码、用户与 Episode 存储，不碰 8792。
 #
 # 用法:
 #   zsh scripts/launch_workbench_sidecar.sh <port> <repo_root> <users_dir> <probe_user>
@@ -33,6 +33,8 @@ export WORKBENCH_REPO_ROOT="$REPO"
 export PYTHONPATH="$REPO"
 export FORESIGHT_USERS_DIR="$USERS"
 export FORESIGHT_USER="$USER_NAME"
+# Episode 默认随 FINANCE_WS 落生产 state，不能只隔离用户目录。
+export FORESIGHT_EPISODE_STORE="$USERS/.episodes"
 mkdir -p "$USERS"
 cd "$REPO"
 print -- "sidecar port=$PORT repo=$REPO users=$USERS user=$USER_NAME rev=$(git rev-parse --short HEAD 2>/dev/null || echo n/a)"

@@ -1,0 +1,4 @@
+Traceback (most recent call last):
+  File "/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260924-0024/spec/work/probes/probe_transport_v2.py", line 24, in <module>
+    from services import llm_http_transport as T
+ModuleNotFoundError: No module named 'services'

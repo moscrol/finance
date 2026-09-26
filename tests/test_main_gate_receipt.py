@@ -4,8 +4,10 @@ from __future__ import annotations
 import json
 import os
 import shutil
+import signal
 import subprocess
 import sys
+import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -35,9 +37,11 @@ def repo(tmp_path):
         "code_path_prefixes": ["test_", "conftest.py"],
     }))
     shutil.copy2(ROOT / "conftest.py", path / "conftest.py")
+    (path / "scripts").mkdir()
+    shutil.copy2(ROOT / "scripts/workspace_env.py", path / "scripts/workspace_env.py")
     (path / "test_sample.py").write_text("def test_ok():\n    assert True\n")
     (path / ".gitignore").write_text("__pycache__/\n.pytest_cache/\n.ruff_cache/\n")
-    git(path, "add", "--", "test-environment.json", "conftest.py", "test_sample.py", ".gitignore")
+    git(path, "add", "--", "test-environment.json", "conftest.py", "test_sample.py", ".gitignore", "scripts/workspace_env.py")
     git(path, "commit", "-m", "fixture")
     return path
 
@@ -78,6 +82,58 @@ def readback(repo, tmp_path, data, baseline=None):
         other.write_text(json.dumps(baseline))
         args += ["--baseline", str(other)]
     return run_gate(repo, tmp_path, *args)
+
+
+@pytest.mark.parametrize("fails", [False, True])
+def test_gate_retains_complete_output_beside_its_own_receipt(repo, tmp_path, fails):
+    _commit_sample(repo, f'''def test_output():
+    print("gate-output-first-marker")
+    for index in range(50):
+        print("intermediate", index)
+    print("gate-output-last-marker")
+    assert {not fails}
+''')
+    result = run_gate(repo, tmp_path, "--pytest-args", "-q -s -p no:cacheprovider test_sample.py")
+    assert result.returncode == int(fails), result.stdout + result.stderr
+    own = list((tmp_path / "receipts").glob("gate-*/pytest.json"))
+    assert len(own) == 1
+    log = own[0].with_name("pytest.log.txt")
+    assert log.is_file(), "the console tail is not the full pytest evidence"
+    text = log.read_text()
+    assert "gate-output-first-marker" in text and "gate-output-last-marker" in text
+    assert str(log) in result.stdout
+    if not fails:
+        assert "gate-output-first-marker" not in result.stdout
+    assert json.loads(own[0].read_text())["exit_status"] == int(fails)
+
+
+@pytest.mark.parametrize("tool", ["tee", "tail"])
+def test_output_pipeline_failure_cannot_report_green(repo, tmp_path, tool):
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    fake = bin_dir / tool
+    fake.write_text("#!/bin/sh\ncat >/dev/null\nexit 7\n")
+    fake.chmod(0o755)
+    result = run_gate(repo, tmp_path, extra_env={
+        "PATH": str(bin_dir) + os.pathsep + os.environ["PATH"],
+    })
+    assert result.returncode == 4, result.stdout + result.stderr
+    assert "pytest output pipeline failed" in result.stderr
+    own = list((tmp_path / "receipts").glob("gate-*/pytest.json"))
+    assert len(own) == 1
+    assert json.loads(own[0].read_text())["exit_status"] == 0
+
+
+@pytest.mark.parametrize("nested", [False, True])
+def test_gate_refuses_receipts_inside_disposable_basetemp(repo, tmp_path, nested):
+    base = tmp_path / "disposable"
+    receipts = base / "receipts" if nested else base
+    result = run_gate(repo, tmp_path, "--pytest-args", f"-q --basetemp={base}", extra_env={
+        "FWP_TEST_RECEIPT_DIR": str(receipts),
+    })
+    assert result.returncode == 4, result.stdout + result.stderr
+    assert "receipt directory overlaps disposable basetemp" in result.stderr
+    assert "== pytest" not in result.stdout
 
 
 def test_valid_receipt_readback(repo, tmp_path):
@@ -486,6 +542,78 @@ def test_gate_without_basetemp_flag_touches_nothing(repo, tmp_path):
     assert result.returncode == 0, result.stdout + result.stderr
     # 收据路径里会带本测试自己的名字（含 "basetemp"），所以只锁清理动作那句。
     assert "basetemp 已清" not in result.stdout
+
+
+@pytest.mark.parametrize("passed", [True, False])
+def test_gate_keeps_complete_output_without_changing_test_exit(repo, tmp_path, passed):
+    _commit_sample(repo, "def test_output():\n"
+                   "    for index in range(40):\n"
+                   "        print(f'gate-marker-{index:02d}')\n"
+                   f"    assert {passed}\n")
+    result = run_gate(repo, tmp_path, "--pytest-args",
+                      "-q -s -p no:cacheprovider test_sample.py")
+    assert result.returncode == (0 if passed else 1), result.stdout + result.stderr
+    logs = list((tmp_path / "receipts").glob("gate-*/pytest.log.txt"))
+    assert len(logs) == 1
+    text = logs[0].read_text()
+    assert "gate-marker-00" in text and "gate-marker-39" in text
+    assert "gate-marker-00" not in result.stdout
+    own = json.loads((logs[0].parent / "pytest.json").read_text())
+    assert own["exit_status"] == (0 if passed else 1)
+
+
+def test_gate_capture_failure_is_not_green_and_keeps_basetemp(repo, tmp_path):
+    _commit_sample(repo, USES_TMP)
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    fake_tee = fake_bin / "tee"
+    fake_tee.write_text("#!/bin/sh\n/bin/cat\nexit 1\n")
+    fake_tee.chmod(0o755)
+    bt = tmp_path / "bt"
+    result = run_gate(repo, tmp_path, "--pytest-args",
+                      f"-q -p no:cacheprovider --basetemp={bt} test_sample.py",
+                      extra_env={"PATH": f"{fake_bin}:{os.environ['PATH']}"})
+    assert result.returncode == 4, result.stdout + result.stderr
+    assert "output capture failed" in result.stderr
+    assert bt.exists()
+    own = list((tmp_path / "receipts").glob("gate-*/pytest.json"))
+    assert len(own) == 1
+    assert json.loads(own[0].read_text())["exit_status"] == 0
+
+
+def test_gate_interruption_retains_live_output_without_a_final_receipt(repo, tmp_path):
+    _commit_sample(repo, "import time\n\n\n"
+                   "def test_wait():\n"
+                   "    print('gate-live-before-stop', flush=True)\n"
+                   "    while True:\n"
+                   "        time.sleep(0.05)\n")
+    output = tmp_path / "controller.log"
+    with output.open("w") as log:
+        process = subprocess.Popen(
+            ["bash", str(GATE), "--pytest-args", "-q -s -p no:cacheprovider test_sample.py"],
+            cwd=repo, env=gate_env(tmp_path), stdout=log, stderr=log,
+            stdin=subprocess.DEVNULL, start_new_session=True,
+        )
+        try:
+            deadline = time.monotonic() + 20
+            while time.monotonic() < deadline:
+                logs = list((tmp_path / "receipts").glob("gate-*/pytest.log.txt"))
+                if logs and "gate-live-before-stop" in logs[0].read_text():
+                    break
+                assert process.poll() is None, output.read_text()
+                time.sleep(0.05)
+            else:
+                pytest.fail("live output not available before deadline: " + output.read_text())
+            assert process.poll() is None
+        finally:
+            try:
+                os.killpg(process.pid, signal.SIGTERM)
+            except ProcessLookupError:
+                pass
+            process.wait(timeout=10)
+    assert process.returncode != 0
+    assert "gate-live-before-stop" in logs[0].read_text()
+    assert not list((tmp_path / "receipts").glob("gate-*/pytest.json"))
 
 
 def test_writer_honors_override_without_overwriting_original(tmp_path, monkeypatch):

@@ -1,0 +1,16 @@
+{
+  "stage": "execute",
+  "expected": [
+    "read",
+    "write",
+    "bash",
+    "deliver_stage"
+  ],
+  "actual": [
+    "read",
+    "write",
+    "bash",
+    "deliver_stage"
+  ],
+  "status": "PASS"
+}

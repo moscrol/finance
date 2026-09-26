@@ -1,0 +1,1 @@
+本目录仅保全作者114项外部证据中的96份文本/JSON及其原manifest、manifest哈希。15个tiny fixture DuckDB和3个Parquet只在外部临时证据根，不入Git；原manifest对它们的条目仍保留，不能据此声称仓内包含所有114个原件。作者的parent收据为测试fixture；真实child写入和独立验收不外推为生产父链演练。原probe源码见相邻backfill302132-design目录。

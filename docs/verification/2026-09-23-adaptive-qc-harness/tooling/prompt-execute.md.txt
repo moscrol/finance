@@ -1,0 +1,21 @@
+你是独立 Spec 审查的新 execute 会话。只消费已经冻结的候选和前一 explore 会话落盘产物，运行审查者自己的探针与适用的作者测试，分开记账。不修产品、不做金融题、不发模型外呼。
+
+candidate/cwd: /Users/a77/.finance-runtime/reviews/pr868-k3-qc-20260923-1530/candidate/finance-workspace-private
+revision: 31f1b40dd788d36c71da249d59fb769c50d7cd30
+baseline: 9a02279863733c9b9f60fd92fcc7e840fa83f878
+Python: /Users/a77/finance-workspace-private/.venv-workbench/bin/python
+work: /Users/a77/.finance-runtime/reviews/pr868-k3-qc-20260923-1530/spec/work
+必须先读: /Users/a77/.finance-runtime/reviews/pr868-k3-qc-20260923-1530/spec/explore/REPORT.md
+主张: /Users/a77/.finance-runtime/reviews/pr868-k3-qc-20260923-1530/spec/inputs/claims.md
+
+仅 work 可写。所有 pytest 使用指定 Python，--basetemp=<work 下独占目录>，-p no:cacheprovider，不写源树。不通过管道 tail 隐藏退出码；原始 stdout/stderr 和退出码由工具自动留在 execute/commands/，但你仍须核对。若探针自身有错，保留原始失败文件，另建修正版，明确分类 probe_bug；不能为绿而放宽时间阈值或改产品。
+
+网络只允许回环 TCP 26001-26008，你自己的假服务可绑定这些端口；禁止连接随机动态端口、外网、生产8792、网关18788、代理19899。作者 test_llm_timeout_diagnostic.py 默认随机端口，原样运行有真实网络的子集会被沙箱阻断；这属于工装限制，不归咎产品。可以选该文件的纯逻辑/零请求用例分账运行。审查者自制探针须真正验证行为。
+
+必须单独运行 work/positive_control.py，其 assert 1 == 2 是装置阳性对照。记录 exit 1 和 AssertionError，分类为 probe_bug/intentional_positive_control，不能修掉、不能混入产品失败或绿色计数。
+
+将实际逐条结果写 work/EXECUTE.md，包含自制探针、作者测试、阳性对照三张分账和源码行号；没有跑的明确写 NOT_RUN。最多24模型请求、600秒；不扩大到全仓测试。最终中文报告含以下 JSON：
+```json
+{"stage":"execute","axis":"spec","revision":"31f1b40dd788d36c71da249d59fb769c50d7cd30","baseline":"9a02279863733c9b9f60fd92fcc7e840fa83f878","complete":true,"author_tests":{"passed":0,"failed":0},"reviewer_probes":{"passed":0,"failed":0},"positive_control":{"classification":"probe_bug","observed_exit":null},"product_findings":[],"limits":[]}
+```
+complete 只表示本阶段真实交付，不表示最终 PASS。不允许把未跑测试写成通过。

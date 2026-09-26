@@ -1,0 +1,50 @@
+{
+  "observed_at": "2026-09-23T11:43:26.662794+00:00",
+  "observed_pids": [
+    13671,
+    42340,
+    49113,
+    51152,
+    51240,
+    79622,
+    79625,
+    79630,
+    79637,
+    79640,
+    79643,
+    79646,
+    79665,
+    79681,
+    79686,
+    79691,
+    79698,
+    79713,
+    80086,
+    81762,
+    81771,
+    81783,
+    81810,
+    81848,
+    97764
+  ],
+  "ps_exit_code": 1,
+  "ps_stdout": "  PID  PPID  PGID ELAPSED STAT COMMAND\n",
+  "ports": [
+    19181,
+    19184
+  ],
+  "port_listeners": [],
+  "no_recorded_owned_processes_remaining": true,
+  "initial_cleanup_snapshot_retained": [
+    13671,
+    42340,
+    81848
+  ],
+  "tree_preserved": "/Users/a77/.finance-runtime/reviews/pr884-closeout-20260923-04/finance-workspace-private",
+  "reason": "Incomplete gate; preserve failed temporary state",
+  "pytest_basetemp_preserved": "/Users/a77/.finance-runtime/reviews/pr884-closeout-20260923-04/python-native/pytest",
+  "disk_free_bytes": 27176583168,
+  "new_run_admission_floor_bytes": 12884901888,
+  "deleted_files": [],
+  "original_logs_modified": false
+}

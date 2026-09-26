@@ -1,0 +1,25 @@
+{
+  "scope": "archive integrity and local cleanup only; not independent QC or engineering gate",
+  "checked_at": "2026-09-23T12:28:11.251008+00:00",
+  "status": "PASS",
+  "sealed_copies_and_private_sources_match": {
+    "qc": 282,
+    "l6": 75
+  },
+  "diagnostic_copies_match": 2,
+  "json_files_parsed": 222,
+  "archive_files_key_scanned": 363,
+  "key_matches": 0,
+  "strict_local_cases": 13,
+  "strict_local_violations": 0,
+  "inflight_bytes": 2460,
+  "no_product_or_harness_code_changes_this_batch": true,
+  "ports_released": [
+    19897,
+    19898,
+    19899
+  ],
+  "full_suite_run": false,
+  "qc_status": "BLOCKED_SPEC_EXECUTE_DELIVERY",
+  "l6_status": "NOT_PASSED"
+}

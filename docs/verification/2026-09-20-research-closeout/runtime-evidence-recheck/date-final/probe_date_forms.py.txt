@@ -1,0 +1,37 @@
+"""Same real registry/runtime route, with complete date forms already recognized upstream."""
+from pathlib import Path
+from dataclasses import replace
+from datetime import date
+import json
+import sys
+from tempfile import TemporaryDirectory
+
+sys.path.insert(0, sys.argv[1])
+from intelligence.runtime.agent_episode import ContinuousAgentEpisode
+from intelligence.services.closed_loop_retrieval import parse_source_date
+from intelligence.services.episode_store import JsonlEpisodeStore
+from intelligence.services.research_contract import InformationCutoff
+from intelligence.tests.test_agent_episode import ScriptedModel, _frame, _context, _market_registry, _successful_runner, _tool_turn, _finish_turn
+
+rows=[]
+for raw_date in ('2026-07-25', '20260725', '2026-07-25T09:30:00+08:00', '2026-7-25', '2026-7-25 09:30:00', ' 2026-07-25 '):
+    for durable in (False, True):
+        frame=_frame()
+        context=replace(_context(frame,max_steps=2),information_cutoff=InformationCutoff(date(2026,7,24),'requested'))
+        model=ScriptedModel([_tool_turn('historical cutoff probe'),_finish_turn(status='partial',draft='需补同日证据。',hashes=(),gap='缺截止内证据')])
+        def runner(query, tc):
+            evidence, observation, trace=_successful_runner(query,tc)
+            return [replace(e,source_date=raw_date) for e in evidence], observation, replace(trace,source_trade_date=raw_date)
+        row={'source_date':raw_date,'registry_date':str(parse_source_date(raw_date)),'durable':durable}
+        with TemporaryDirectory(prefix='date-form-',dir=Path(__file__).parent) as tmp:
+            try:
+                result=ContinuousAgentEpisode(model,store=JsonlEpisodeStore(Path(tmp)) if durable else None).run(task_frame=frame,context=context,registry=_market_registry(runner))
+                row.update(status=result.status,persistence=result.persistence,stop_reason=result.stop_reason,draft=result.draft,trace_status=[t.status for t in result.traces])
+            except Exception as exc:
+                row.update(error=type(exc).__name__,message=str(exc))
+        row['model_calls']=len(model.calls)
+        rows.append(row)
+out=Path(__file__).with_name('date-forms-results.json')
+out.write_text(json.dumps(rows,ensure_ascii=False,indent=2)+'\n')
+print(json.dumps(rows,ensure_ascii=False,indent=2))
+raise SystemExit(1 if any(r.get('error') or r.get('stop_reason')=='storage_failed' for r in rows) else 0)

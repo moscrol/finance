@@ -1,0 +1,13 @@
+diff --git a/intelligence/services/episode_inbox.py b/intelligence/services/episode_inbox.py
+index 1a75e183b..b325e0055 100644
+--- a/intelligence/services/episode_inbox.py
++++ b/intelligence/services/episode_inbox.py
+@@ -323,7 +323,7 @@ class Inbox:
+                     wakeup=record.wakeup,
+                     spool_id=record.spool_id,
+                 )
+-                if receipt.reason in {"inbox_closed", "storage_failed"}:
++                if receipt.reason in {"inbox_closed"}:
+                     # 没确认落账就不能删：保存失败也不把运输副本销毁。
+                     break
+                 # 至少 inserted 已落（拒收还有 discarded），运输单位可以销毁。

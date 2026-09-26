@@ -1,0 +1,14 @@
+{
+  "clones": [
+    {
+      "primitive": "market_feature_store.db.clone_to_staging",
+      "method": "clonefile",
+      "seconds": 0.15,
+      "bytes": 3855626240,
+      "source": "/Users/a77/.finance-runtime/reviews/pr868-l6-glm-20260923-1945/preparation-coherent/data/db/market_feature_store.duckdb",
+      "destination": "/Users/a77/.finance-runtime/reviews/pr868-l6-repaired-20260923-2118/preparation/data/db/market_feature_store.duckdb",
+      "sha256": "75ff8d41eebf1a514140081c2899c9b4fd8df7287a0e5e3462fd52f3c975c941"
+    }
+  ],
+  "real_model_requests": 0
+}

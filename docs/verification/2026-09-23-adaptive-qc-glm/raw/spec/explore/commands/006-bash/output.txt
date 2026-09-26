@@ -1,0 +1,13 @@
+162:class LLMDeadlineExceeded(llm_http_transport.HTTPDeadlineExceeded):
+184:class Deadline:
+185:    expires_at: float
+192:        return max(0.0, self.expires_at - time.monotonic())
+219:def _open_deadline_http_response(request, timeout: float, *, deadline: Deadline, is_cancelled=None):
+1167:        with _open_deadline_http_response(req, timeout=timeout, deadline=call_deadline) as resp:
+1219:        with _open_deadline_http_response(request, timeout=timeout, deadline=call_deadline) as resp:
+1424:        with _open_deadline_http_response(
+1546:        with _open_deadline_http_response(req, timeout=timeout, deadline=call_deadline) as resp:
+2153:            shared_deadline.expires_at,
+2157:        else shared_deadline.expires_at
+2304:    with _open_deadline_http_response(
+2404:        shared_deadline.expires_at, time.monotonic() + float(timeout),

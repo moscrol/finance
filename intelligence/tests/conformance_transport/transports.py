@@ -106,7 +106,7 @@ def install_transport(
 
     if transport == "http":
 
-        def fake_urlopen(request, timeout: float = 0.0):
+        def fake_urlopen(request, timeout: float = 0.0, **_kwargs):
             probe.invocations += 1
             probe.timeouts.append(float(timeout))
             if failure == "http_500":
@@ -117,7 +117,7 @@ def install_transport(
                 raise urllib.error.URLError("connection refused")
             return _FakeHttpResponse(content)
 
-        monkeypatch.setattr(llm_refine.urllib.request, "urlopen", fake_urlopen)
+        monkeypatch.setattr(llm_refine.llm_http_transport, "urlopen", fake_urlopen)
         return
 
     monkeypatch.setattr(

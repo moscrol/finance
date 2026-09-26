@@ -1,0 +1,44 @@
+"""Download this locked Playwright version's headless browser to a private root."""
+import hashlib
+import os
+from pathlib import Path
+import subprocess
+import time
+
+from resume import OUT, ROOT, SHA, ident, save, now
+
+
+def main():
+    folder = OUT / 'browser-install'
+    folder.mkdir(exist_ok=False)
+    before = ident()
+    assert before['head'] == SHA and not before['status']
+    env = {'HOME': '/Users/a77', 'PATH': '/Users/a77/.local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin',
+           'PLAYWRIGHT_BROWSERS_PATH': str(OUT / 'browsers'), 'CI': '1'}
+    command = ['pnpm', 'exec', 'playwright', 'install', '--only-shell', 'chromium']
+    start = time.monotonic()
+    with (folder / 'output.txt').open('x') as stream:
+        proc = subprocess.Popen(command, cwd=ROOT / 'intelligence/webapp', env=env,
+                                stdout=stream, stderr=subprocess.STDOUT, start_new_session=True)
+        reason = None
+        try:
+            rc = proc.wait(timeout=300)
+        except subprocess.TimeoutExpired:
+            import signal
+            os.killpg(proc.pid, signal.SIGTERM)
+            try:
+                rc = proc.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                os.killpg(proc.pid, signal.SIGKILL)
+                rc = proc.wait(timeout=5)
+            reason = 'timeout'
+    binaries = {str(p.relative_to(OUT)): hashlib.sha256(p.read_bytes()).hexdigest()
+                for p in (OUT / 'browsers').rglob('headless_shell') if p.is_file()}
+    record = {'recorded_at': now(), 'command': command, 'env': env, 'before': before, 'after': ident(),
+              'exit_code': rc, 'stop_reason': reason, 'elapsed_seconds': time.monotonic() - start,
+              'binaries': binaries, 'log_sha256': hashlib.sha256((folder / 'output.txt').read_bytes()).hexdigest()}
+    save(folder / 'result.json', record)
+    print({'exit_code': rc, 'binaries': binaries})
+
+
+if __name__ == '__main__': main()

@@ -1,0 +1,50 @@
+{
+  "sampled_at": "2026-09-20T04:32:56.971717+00:00",
+  "tree": "/Users/a77/fwp-wt-nightly-review-0917",
+  "commands": [
+    {
+      "command": [
+        "git",
+        "rev-parse",
+        "HEAD"
+      ],
+      "exit_code": 0,
+      "stdout": "6356ffd5e703b30948f687baaaf60102bf97f0a5\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "status",
+        "--porcelain=v1",
+        "-z"
+      ],
+      "exit_code": 0,
+      "stdout": "?? skills/daily-full-review/state/quality-2026-09-16.json\u0000?? skills/daily-full-review/state/quality-2026-09-17.json\u0000",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "diff",
+        "--stat",
+        "gitea/main...HEAD"
+      ],
+      "exit_code": 0,
+      "stdout": " .claude/lessons_learned.md                         |  10 ++\n docs/handoffs/2026-09-17-local-review-recovery.md  | 119 ++++++++++++++\n docs/handoffs/inflight/fix-nightly-review-0917.md  |  36 +++++\n market_feature_store/cli.py                        |   5 +\n .../sync/sync_akshare_index_daily.py               |   8 +\n .../sync/sync_local_sector_members.py              |   2 +-\n scripts/recover_local_review.py                    | 175 +++++++++++++++++++++\n .../daily-full-review/references/ops-pitfalls.md   |   9 ++\n .../daily-full-review/scripts/run_review_sync.py   |   2 +-\n .../duckdb-backfill/references/backfill-runbook.md |  10 ++\n .../scripts/backfill_stock_daily_sina.py           |  72 ++++++++-\n tests/test_backfill_sina_resume.py                 | 131 +++++++++++++++\n tests/test_index_local_fallback_boundary.py        |  63 ++++++++\n tests/test_recover_local_review.py                 | 121 ++++++++++++++\n tests/test_tiered_sync_local.py                    |  18 +++\n 15 files changed, 773 insertions(+), 8 deletions(-)\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "merge-tree",
+        "--write-tree",
+        "gitea/main",
+        "HEAD"
+      ],
+      "exit_code": 1,
+      "stdout": "da8452b9d541de27f34ff7db31ebe006f674a589\n100644 b30e72124f4d3ee258a49642854d2f5a6a7d8531 1\t.claude/lessons_learned.md\n100644 50bf34ef7cc55b0c18760810ac470e7bd347ce71 2\t.claude/lessons_learned.md\n100644 9e4a80b23b84ec50938ecc0e6377370943fb6aa3 3\t.claude/lessons_learned.md\n100644 3b5f204b8d328c1ab5746a4bfb78ea244d8680fb 1\tskills/daily-full-review/scripts/run_review_sync.py\n100644 0e1f8ffa905baffbcdfc8ed8e35fa627521eebed 2\tskills/daily-full-review/scripts/run_review_sync.py\n100644 a5b5c90a1198e5b232285bb5d3a91fb60d72d98e 3\tskills/daily-full-review/scripts/run_review_sync.py\n\nAuto-merging .claude/lessons_learned.md\nCONFLICT (content): Merge conflict in .claude/lessons_learned.md\nAuto-merging market_feature_store/cli.py\nAuto-merging skills/daily-full-review/scripts/run_review_sync.py\nCONFLICT (content): Merge conflict in skills/daily-full-review/scripts/run_review_sync.py\n",
+      "stderr": ""
+    }
+  ]
+}

@@ -26,7 +26,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install Python dependencies
-        run: python -m pip install -r intelligence/api/requirements.txt pytest PyYAML ruff==0.11.13 duckdb==1.4.3 numpy==2.2.1 pandas==2.2.3 requests==2.32.4
+        run: python -m pip install -r requirements-dev.lock
 
       - name: Lint Python with Ruff
         if: ${{ !cancelled() }}
@@ -86,7 +86,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install Python dependencies
-        run: python -m pip install -r intelligence/api/requirements.txt pytest PyYAML ruff==0.11.13 duckdb==1.4.3 numpy==2.2.1 pandas==2.2.3 requests==2.32.4
+        run: python -m pip install -r requirements-dev.lock
 
       - uses: actions/setup-node@v4
         with:

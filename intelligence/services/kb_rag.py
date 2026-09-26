@@ -27,8 +27,9 @@ import sys
 import time
 from collections import OrderedDict
 from collections.abc import Sequence
+from concurrent.futures import Future, TimeoutError as FutureTimeoutError
 from copy import deepcopy
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from threading import Lock
 
@@ -515,6 +516,9 @@ class RagCliProbe:
     missing_required_options: tuple[str, ...] = ()
     missing_optional_options: tuple[str, ...] = ()
     warning: str = ""
+    elapsed_ms: int | None = None
+    timeout_seconds: float | None = None
+    failure_kind: str = ""
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -524,7 +528,14 @@ class RagCliProbe:
             "missing_required_options": list(self.missing_required_options),
             "missing_optional_options": list(self.missing_optional_options),
             "warning": self.warning,
+            "elapsed_ms": self.elapsed_ms,
+            "timeout_seconds": self.timeout_seconds,
+            "failure_kind": self.failure_kind,
         }
+
+
+_PROBE_FLIGHTS_LOCK = Lock()
+_PROBE_FLIGHTS: dict[tuple[object, ...], Future[RagCliProbe]] = {}
 
 
 def kb_root(kb_wiki: str | Path) -> Path:
@@ -647,16 +658,23 @@ def prewarm(
     """Load the production hybrid retriever before serving user requests."""
     if not rag_worker.enabled():
         return rag_worker.status()
-    if not kb_wiki:
-        raise ValueError("knowledge wiki is required for RAG prewarm")
-    root = kb_root(kb_wiki)
-    runtime_root = _resolve_code_root(root)
-    script = runtime_root / RAG_SCRIPT_REL
-    index_dir = _resolve_index_dir(root)
-    if not script.is_file():
-        raise FileNotFoundError(script)
-    if not index_dir.is_dir():
-        raise FileNotFoundError(index_dir)
+    try:
+        if not kb_wiki:
+            raise ValueError("knowledge wiki is required for RAG prewarm")
+        root = kb_root(kb_wiki)
+        runtime_root = _resolve_code_root(root)
+        script = runtime_root / RAG_SCRIPT_REL
+        index_dir = _resolve_index_dir(root)
+        if not script.is_file():
+            raise FileNotFoundError(script)
+        if not index_dir.is_dir():
+            raise FileNotFoundError(index_dir)
+        python = _resolve_rag_python(runtime_root)
+        wiki = Path(kb_wiki).expanduser().resolve()
+    except Exception as exc:
+        # No worker exists yet to carry this failure into readiness.
+        rag_worker.record_startup_failure(exc)
+        raise
     # 预热必须和普通查询用同一个 stale 口径（见 `_run_rag_cli` 里同名分支）。
     # 漏掉它不是「少一个参数」而是换了一套失败语义：KB 侧 CLI 的默认是
     # `fail`，而 `_STALE_POLICY` 默认 `warn`——索引一旦过期，普通查询照常降级
@@ -674,60 +692,45 @@ def prewarm(
         prewarm_argv.extend(["--stale-policy", _STALE_POLICY])
     prewarm_argv.append("--json")
     rag_worker.prewarm(
-        python=_resolve_rag_python(runtime_root),
+        python=python,
         kb_root=runtime_root,
         index_dir=index_dir,
-        kb_wiki=Path(kb_wiki).expanduser().resolve(),
+        kb_wiki=wiki,
         argv=prewarm_argv,
         timeout=timeout,
     )
     return rag_worker.status()
 
 
-def probe_rag_cli(
-    kb_wiki: str | Path | None,
-    *,
-    timeout: int = 5,
+def _probe_failure(warning: str, kind: str) -> RagCliProbe:
+    return RagCliProbe(False, False, warning=warning, failure_kind=kind)
+
+
+def _probe_code_identity(root: Path) -> str:
+    # Include config's path helper without changing worker/cache identity contracts.
+    digest = hashlib.sha256(rag_worker.code_identity(root).encode())
+    helper = root / "skills/lib/repo_paths.py"
+    digest.update(helper.read_bytes() if helper.is_file() else b"missing-repo-paths")
+    return digest.hexdigest()
+
+
+def _probe_help_once(
+    command: list[str], root: Path, env: dict[str, str], timeout: float,
 ) -> RagCliProbe:
-    if not kb_wiki:
-        return RagCliProbe(
-            available=False,
-            query_protocol_compatible=False,
-            warning="未配置知识库 wiki 路径",
-        )
-    root = _resolve_code_root(kb_root(kb_wiki))
-    script = root / RAG_SCRIPT_REL
-    if not script.is_file():
-        return RagCliProbe(
-            available=False,
-            query_protocol_compatible=False,
-            warning="RAG CLI 脚本不存在",
-        )
     try:
         proc = subprocess.run(
-            [_resolve_rag_python(root), str(script), "query", "--help"],
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            cwd=str(root),
+            command, capture_output=True, text=True, timeout=timeout,
+            cwd=str(root), env=env,
         )
     except subprocess.TimeoutExpired:
-        return RagCliProbe(
-            available=False,
-            query_protocol_compatible=False,
-            warning="RAG CLI 能力探测超时",
-        )
+        return _probe_failure("RAG CLI 能力探测超时", "timeout")
+    except OSError:
+        return _probe_failure("RAG CLI 能力探测失败", "os_error")
     except Exception:
-        return RagCliProbe(
-            available=False,
-            query_protocol_compatible=False,
-            warning="RAG CLI 能力探测失败",
-        )
+        return _probe_failure("RAG CLI 能力探测失败", "execution_error")
     if proc.returncode != 0:
-        return RagCliProbe(
-            available=False,
-            query_protocol_compatible=False,
-            warning=f"RAG CLI 能力探测退出码 {proc.returncode}",
+        return _probe_failure(
+            f"RAG CLI 能力探测退出码 {proc.returncode}", "nonzero_exit",
         )
     help_text = f"{proc.stdout}\n{proc.stderr}"
     known_options = (*REQUIRED_QUERY_OPTIONS, *OPTIONAL_QUERY_OPTIONS)
@@ -750,7 +753,84 @@ def probe_rag_cli(
         missing_required_options=missing_required,
         missing_optional_options=missing_optional,
         warning=warning,
+        failure_kind="protocol_incompatible" if missing_required else "",
     )
+
+
+def probe_rag_cli(
+    kb_wiki: str | Path | None,
+    *,
+    timeout: float = 5,
+) -> RagCliProbe:
+    """Share only overlapping help checks; never retain a completed result."""
+    started = time.monotonic()
+    timeout_seconds = float(timeout)
+
+    def finish(result: RagCliProbe) -> RagCliProbe:
+        return replace(
+            result,
+            elapsed_ms=max(0, int((time.monotonic() - started) * 1000)),
+            timeout_seconds=timeout_seconds,
+        )
+
+    if not kb_wiki:
+        return finish(_probe_failure("未配置知识库 wiki 路径", "configuration"))
+    try:
+        root = _resolve_code_root(kb_root(kb_wiki))
+        script = root / RAG_SCRIPT_REL
+        if not script.is_file():
+            return finish(_probe_failure("RAG CLI 脚本不存在", "missing_script"))
+        command = [_resolve_rag_python(root), str(script), "query", "--help"]
+        env = dict(os.environ)
+        revision = _probe_code_identity(root)
+        # Partition by the actual child environment, keeping secrets out of the key.
+        env_digest = hashlib.sha256(json.dumps(env, sort_keys=True).encode()).digest()
+        key = (str(root), tuple(command), revision, env_digest, timeout_seconds)
+    except OSError:
+        return finish(_probe_failure("RAG CLI 能力探测失败", "os_error"))
+    except Exception:
+        return finish(_probe_failure("RAG CLI 能力探测失败", "execution_error"))
+
+    def verify_revision(result: RagCliProbe) -> RagCliProbe:
+        if result.query_protocol_compatible:
+            try:
+                if _probe_code_identity(root) != revision:
+                    return _probe_failure("RAG CLI 探测期间代码发生变化", "code_changed")
+            except OSError:
+                return _probe_failure("RAG CLI 能力探测失败", "os_error")
+            except Exception:
+                return _probe_failure("RAG CLI 能力探测失败", "execution_error")
+        return result
+
+    with _PROBE_FLIGHTS_LOCK:
+        flight = _PROBE_FLIGHTS.get(key)
+        shared = flight is not None
+        if flight is None:
+            flight = Future()
+            _PROBE_FLIGHTS[key] = flight
+
+    if shared:
+        try:
+            result = flight.result(timeout=timeout_seconds)
+        except FutureTimeoutError:
+            # Do not cancel another caller's child or retry after our wait expires.
+            result = _probe_failure("RAG CLI 能力探测超时", "timeout")
+        return finish(verify_revision(result))
+
+    try:
+        result = verify_revision(_probe_help_once(command, root, env, timeout_seconds))
+    except Exception:
+        result = _probe_failure("RAG CLI 能力探测失败", "execution_error")
+    except BaseException:
+        # An interrupted owner must wake its waiters and leave no poisoned entry.
+        with _PROBE_FLIGHTS_LOCK:
+            _PROBE_FLIGHTS.pop(key, None)
+            flight.set_result(_probe_failure("RAG CLI 能力探测失败", "execution_error"))
+        raise
+    with _PROBE_FLIGHTS_LOCK:
+        _PROBE_FLIGHTS.pop(key, None)
+        flight.set_result(result)
+    return finish(result)
 
 
 def _without_option(cmd: list[str], option: str) -> list[str]:

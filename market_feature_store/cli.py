@@ -1055,6 +1055,22 @@ def cmd_sync_stock_daily(args) -> int:
     return 0
 
 
+def cmd_bridge_stock_daily(args) -> int:
+    from .sync.bridge_hithink_stock_daily import BridgeRefused
+    from .sync.sync_daily_full import run_bridge_stock_daily_step
+
+    refused = _refuse_production_write(False)
+    if refused is not None:
+        return refused
+    try:
+        stats = run_bridge_stock_daily_step(args.trade_date, skip_existing=False)
+    except BridgeRefused as exc:
+        print(f"同花顺日线桥拒绝写入: {exc}")
+        return 2
+    print(json.dumps(stats, ensure_ascii=False, default=str))
+    return 0 if stats.get("written_rows", 0) > 0 else 1
+
+
 def cmd_fill_stock_daily_fallback(args) -> int:
     from .sync.fill_stock_daily_fallback import fill_stock_daily_fallback
 
@@ -1293,6 +1309,29 @@ def cmd_sync_hithink_dragon_auction(args) -> int:
         print("wrote sidecar (production db locked)")
     print(f"fingerprint={stats['fingerprint']}")
     return 0
+
+
+def cmd_sync_hithink_research(args) -> int:
+    from datetime import date as _date
+
+    from .sync.sync_hithink_research import (
+        PARTIAL_EXIT_CODE,
+        HithinkResearchError,
+        sync_hithink_research,
+    )
+
+    try:
+        stats = sync_hithink_research(
+            end_date=_date.fromisoformat(args.end_date) if args.end_date else None,
+            codes=args.thscodes.split(",") if args.thscodes is not None else None,
+            lookback_days=args.lookback_days,
+            history_only=args.history_only,
+        )
+    except (HithinkResearchError, ValueError) as exc:
+        print(f"hithink-research: {exc}")
+        return 2
+    print(json.dumps(stats, ensure_ascii=False))
+    return PARTIAL_EXIT_CODE if stats.get("status") == "partial" else 0
 
 
 def _daily_preflight_or_exit() -> int | None:
@@ -2453,6 +2492,12 @@ def build_parser() -> argparse.ArgumentParser:
     p_skd.add_argument("--progress-every", type=int, default=200, help="每处理多少只打一行心跳进度, 默认200; 0=关闭")
     p_skd.set_defaults(func=cmd_sync_stock_daily)
 
+    p_bridge = sub.add_parser(
+        "bridge-stock-daily", help="同花顺日线补 canonical 当日缺口（仅副本，拒绝覆盖已有日线）",
+    )
+    p_bridge.add_argument("--trade-date", required=True, help="交易日 YYYY-MM-DD")
+    p_bridge.set_defaults(func=cmd_bridge_stock_daily)
+
     p_fsf = sub.add_parser("fill-stock-daily-fallback",
                            help="当日兜底: 用 fact_sector_stock_daily 行情聚合补 fact_stock_daily(标 fallback)")
     p_fsf.add_argument("--trade-date", required=True, help="交易日 YYYY-MM-DD")
@@ -2545,6 +2590,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="不拉竞价终态（全市场约 56 次）",
     )
     p_htd.set_defaults(func=cmd_sync_hithink_dragon_auction)
+
+    p_htr = sub.add_parser(
+        "sync-hithink-research",
+        help="同花顺异动、热度轨迹、估值观察值；仅 staging/隔离库，非历史估值回填",
+    )
+    p_htr.add_argument("--end-date", default=None, help="自然日窗口末日，默认上海今天")
+    p_htr.add_argument("--thscodes", default=None, help="显式代码，逗号分隔；默认目标日热榜前30")
+    p_htr.add_argument("--lookback-days", type=int, default=30, help="热度自然日窗口，1..365")
+    p_htr.add_argument("--history-only", action="store_true", help="只取可回溯的热度，不取最新快照")
+    p_htr.set_defaults(func=cmd_sync_hithink_research)
 
     p_du = sub.add_parser("daily-update", help="一键日更同步+补字段+质检")
     p_du.add_argument("--trade-date", default=None, help="交易日 YYYY-MM-DD, 留空取最新")

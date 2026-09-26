@@ -1,0 +1,32 @@
+class SemanticEpisodeOutcome:
+    verified: VerifiedEpisodeOutcome
+    status: SemanticStatus
+    public_answer: str
+    judge_status: JudgeStatus
+    issues: tuple[str, ...] = ()
+    correlated_judge: bool = False
+    # #55：谁在判——"llm" 是第二模型判官，"deterministic" 是只有确定性门。与
+    # judge_status 正交：passed / repaired 在两种模式下都表示「过了门 / 门删了句
+    # 并修好」，JudgeStatus 闭集不扩（六个消费点按闭集分类）。
+    judge_mode: str = JUDGE_MODE_LLM
+    # #55 census：引用了槽绑定之外的 E 的句子数。只记账，不进任何删除决定。
+    cited_outside_slot_count: int = 0
+    gap_output_ids: tuple[str, ...] = ()
+    rejected_claim_indexes: tuple[int, ...] = ()
+    repair_output_ids: tuple[str, ...] = ()
+    # Local delivery repair is partial within a slot. These hashes preserve only
+    # already-bound citations still present in retained public text, NOT slot success.
+    delivery_retained_evidence_hashes: tuple[str, ...] = ()
+    delivery_repair_notes: tuple[str, ...] = ()
+    timeout_asked: float | None = None
+    timeout_configured: float | None = None
+    remaining_seconds_at_entry: float | None = None
+    exc_class: str | None = None
+    http_status: int | None = None
+    judge_attempt_index: int | None = None
+    judge_request: dict[str, object] | None = None
+    # A refused attempt must not inherit the preceding request's failure clock.
+    last_dispatched_failure: dict[str, object] | None = None
+    repair_withheld: bool = False
+
+[truncated; total lines=7054, selected=666:695; request a later offset]

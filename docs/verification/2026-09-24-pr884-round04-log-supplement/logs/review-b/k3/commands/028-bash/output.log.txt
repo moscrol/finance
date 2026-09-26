@@ -1,0 +1,6 @@
+138:def make_frame(question: str = "目前市场怎么看") -> TaskFrame:
+156:def make_context(
+203:def make_registry(probe: ScenarioProbe) -> ResearchToolRegistry:
+36:    from intelligence.services.episode_entry_identity import EpisodeEntryIdentity
+1303:    entry_identity: EpisodeEntryIdentity | None = None
+PYTHONPATH=/Users/a77/.finance-runtime/reviews/pr884-closeout-20260923-04/finance-workspace-private

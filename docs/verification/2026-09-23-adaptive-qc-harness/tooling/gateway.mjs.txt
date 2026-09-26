@@ -1,0 +1,20 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import bootstrap from './review.mjs';
+export default function (pi) {
+  bootstrap(pi);
+  const out = process.env.REVIEW_OUTPUT_DIR;
+  const fixture = path.resolve(out, '../work/gateway-fixture.txt');
+  let requests = 0;
+  pi.on('before_provider_request', () => {
+    if (++requests > 2) process.exit(75);
+  });
+  pi.on('tool_call', event => {
+    if (event.toolName !== 'read' || path.resolve(event.input?.path || '') !== fixture)
+      return {block: true, terminate: true, reason: 'Gateway preflight only permits its read fixture.'};
+  });
+  pi.on('message_end', event => {
+    const m = event.message;
+    if (m.role === 'assistant') fs.appendFileSync(path.join(out, 'model-results.jsonl'), JSON.stringify({request: requests, stop_reason: m.stopReason, provider: m.provider, model: m.model}) + '\n');
+  });
+}

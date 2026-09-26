@@ -1,0 +1,44 @@
+"""Audit sealed review artifacts without executing reviewer code or changing verdicts."""
+import hashlib
+import json
+from pathlib import Path
+import shlex
+import xml.etree.ElementTree as ET
+
+ROOT=Path('/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260924-0415')
+def load(path): return json.loads(path.read_text())
+def sha(path): return hashlib.sha256(path.read_bytes()).hexdigest()
+batch=load(ROOT/'batch.json')
+assert batch['status']=='BLOCKED_NO_RETRY'
+stages=[]
+for row in batch['stages']:
+ axis,stage=row['axis'],row['stage']
+ controller=load(ROOT/axis/(stage+'.controller.json'))
+ counts=controller['shim_counts']
+ assert counts['active']==0 and counts['shutdown_complete'] is True
+ assert counts['requests']==counts['dispatched']==row['requests']==row['charged_requests']
+ stages.append({'axis':axis,'stage':stage,'requests':row['requests'],'status':row['status'],'shutdown_complete':True})
+axes={}
+for axis in ('spec','quality'):
+ root=ROOT/axis
+ commands=[]
+ for directory in sorted((root/'execute/commands').iterdir()):
+  request=load(directory/'request.json')
+  result=load(directory/'result.json') if (directory/'result.json').exists() else None
+  raw=(directory/'output.log').read_text() if (directory/'output.log').exists() else ''
+  if 'command' not in request['params']: continue
+  command=request['params']['command']
+  args=shlex.split(command)
+  scripts=[arg for arg in args if '/work/probes/' in arg and arg.endswith('.py')]
+  commands.append({'id':directory.name,'command':command,'result':result,'probe_arguments':scripts,'output_sha256':sha(directory/'output.log') if (directory/'output.log').exists() else None,'output_tail':raw[-1800:]})
+ suites=[dict(node.attrib) for node in ET.parse(root/'work/author-tests.xml').getroot().iter('testsuite')]
+ execution=load(root/'execute/execution.json')
+ report=load(root/'report/submission.json') if (root/'report/submission.json').exists() else None
+ stop=load(root/'execute/controller-stop.json') if (root/'execute/controller-stop.json').exists() else None
+ axes[axis]={'author_junit':suites,'commands':commands,'candidate_before':execution['candidate_before'],'candidate_after':execution['candidate_after'],'inputs_unchanged':execution['inputs_unchanged'],'execution_complete':execution['complete'],'execution_status':execution['status'],'controller_stop':stop,'reviewer_verdict':report.get('verdict') if report else None,'not_verified_claims':[r['id'] for r in report['claims'] if r['status']!='verified'] if report else None,'host_verdict_override':False}
+ assert execution['candidate_before']==execution['candidate_after'] and execution['candidate_before']['status']=='' and execution['inputs_unchanged']
+new=sum(row['requests'] for row in stages)
+assert new==57 and 74+new==batch['cumulative_charged_requests']==131
+record={'status':'BLOCKED_INCOMPLETE_INDEPENDENT_EVIDENCE','scope':'Host artifact audit, not reviewer verdict; no reviewer code replayed','revision':batch['revision'],'new_requests':new,'cumulative_requests':131,'remaining_under_152_cap':21,'stages':stages,'axes':axes,'new_model_requests_from_audit':0,'natural_submissions':0,'do_not_resume':True,'production_identity_compared':False}
+with (ROOT/'host-evidence-audit.json').open('x') as stream: json.dump(record,stream,indent=2,ensure_ascii=False)
+print(json.dumps({'status':record['status'],'requests':131,'axes':axes},ensure_ascii=False,indent=2))

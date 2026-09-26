@@ -1,0 +1,8 @@
+{
+  "recorded_at": "2026-09-21T11:50:04.877618+00:00",
+  "status": "NOT_STARTED_SHARED_PROVIDER_CAPACITY",
+  "reason": "history continuation ended again at capacity; agreed serial stop policy",
+  "has_model_call": false,
+  "prompt_prepared_only": true,
+  "old_review_unchanged": true
+}

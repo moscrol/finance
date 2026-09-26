@@ -1,0 +1,31 @@
+regression=venv-entry-preserved
+command=FWP_TEST_RECEIPT=0 ... pytest -q intelligence/tests/test_rag_worker_generation.py -k frozen_environment_despite_ambient_rewrite
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_____ test_managed_launch_uses_frozen_environment_despite_ambient_rewrite ______
+
+tmp_path = PosixPath('/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/pytest-of-a77/pytest-2961/test_managed_launch_uses_froze0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1071d58e0>
+
+    def test_managed_launch_uses_frozen_environment_despite_ambient_rewrite(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        alpha = _managed_generation(tmp_path, "alpha")
+        beta = _managed_generation(tmp_path, "beta")
+        _activate(alpha)
+        _bind(monkeypatch, alpha)
+        worker = PersistentRagWorker(
+            alpha["python"], Path(alpha["code"]), Path(alpha["standard"]), Path(alpha["wiki"])
+        )
+>       assert worker.python == alpha["python"], "venv 入口本身是解释器身份的一部分"
+E       AssertionError: venv 入口本身是解释器身份的一部分
+E       assert '/opt/homebre...in/python3.12' == '/Users/a77/f...ch/bin/python'
+E         
+E         - /Users/a77/finance-workspace-private/.venv-workbench/bin/python
+E         + /opt/homebrew/Cellar/python@3.12/3.12.13_2/Frameworks/Python.framework/Versions/3.12/bin/python3.12
+
+intelligence/tests/test_rag_worker_generation.py:172: AssertionError
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_rag_worker_generation.py::test_managed_launch_uses_frozen_environment_despite_ambient_rewrite
+1 failed, 13 deselected in 0.06s
+observed_exit=1 expected_nonzero=true

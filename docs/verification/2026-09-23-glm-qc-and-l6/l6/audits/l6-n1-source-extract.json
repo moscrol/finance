@@ -1,0 +1,376 @@
+{
+  "record_kind": "derived_allowlisted_fields_not_raw_episode",
+  "episode_sha256": "397ef6f396a29a538e339974d2ced10d8d633e4a798252023e43e3fb965b4b41",
+  "raw_episode": "/Users/a77/.finance-runtime/reviews/pr868-l6-glm-20260923-1945/live/L6-N1/raw-run/continuous-episode.json",
+  "repair_attempts": 1,
+  "drafts": [
+    {
+      "sequence": 44,
+      "phase": null,
+      "served_model": "glm-5.3",
+      "draft": "**无上期基线，本期建立基线**（用户记忆无海光信息相关历史判断）。\n\n**本轮行情概况**：9月14日收盘223.69元为9月内低点，此后连涨，9月22日收256元、当日+3.88%（256 vs 前日246.45，E9/E10），成交额112.27亿元，较9月21日57.42亿元环比约+95%（E9/E10）。催化剂：9月22日公司发布首款面向端侧/嵌入式工控的CPU1000系列（E25/E26/E27），叠加当日Meta Muse应用登顶美区引发的「Agent时代CPU需求重估」叙事（E28/E30，外部观点候选，非已核验因果）。\n\n**可证伪的跟踪条件**（基准判断：本轮为「端侧CPU新品+CPU需求重估」双催化驱动的量价齐升，属事件+叙事型行情；不确定性高，下述条件任一触发即改判）。\n\n- **逻辑兑现**：① 量能维持——后续5个交易日日成交额持续≥60亿元（9月1–21日区间约26–65亿元，E9–E24）；② 价格站稳——收盘价不跌破9月17日突破平台232元（E12）且9月底前创260元以上新高（E9为现高256）；③ 叙事坐实——CPU1000系列获可核验的订单/客户公告（现仅有媒体发布报道E25–E27，缺一手公告）。\n- **证伪条件**：① 成交额3日内回落至40亿元以下且价格回落至246元（9月21日收盘，E10）下方；② 收盘跌破232元平台（E12）即事件驱动失效；③ 端侧CPU无后续订单/流片/客户落地公告，沦为纯叙事。\n\n**下期关注清单**：① 9月底前公司公告/互动平台是否披露CPU1000客户或订单——若无则叙事降级；② 10月三季报营收增速（缺一手中报/季报数据，本库未查得）；③ 日成交额与收盘价对照上列阈值，复核期限2026-10-22。\n\n**证据边界**：行情数据为同花顺未复权日K，截至2026-09-22（E9–E24）；9月22日当日涨幅、量比及主线结构数据本地缺失（E3/E4为空值，题材主线仅截至2026-09-18，E7）；催化剂归因仅来自当日媒体标题，属待验证线索，缺公司公告一手确认。"
+    },
+    {
+      "sequence": 52,
+      "phase": "repair",
+      "served_model": "glm-5.3",
+      "draft": "**无上期基线，本期建立基线**（用户记忆无海光信息相关历史判断）。\n\n**本轮行情概况**：9月14日收盘223.69元为9月内低点（E15），此后逐日走高，9月17日收232元（E12）、9月18日收241.38元（E11）、9月21日收246.45元（E10）、9月22日收256元（E9），当日涨幅按未复权收盘计约+3.88%；9月22日成交额112.27亿元、成交量4273.39万股（E9），较9月21日的57.42亿元、2351.13万股（E10）环比接近翻倍，为9月内最高量能。催化剂：9月22日公司发布首款面向端侧/嵌入式工控的CPU1000系列（E25/E26/E27，媒体转述，待公告确认），叠加当日「Meta Muse登顶美区、Agent时代CPU需求重估」叙事（E28/E30，外部观点候选，非已核验因果）。\n\n**可证伪的跟踪条件**（基准判断：本轮为端侧CPU新品+CPU需求重估双催化的事件型放量上攻；不确定性高。以下阈值均为我方基于已观测数值设定的**分析参数**，非市场事实，标注方式为「参照某证据日期数值的倍数/跌破位」）。\n\n- **逻辑兑现**：① 量能维持——后续5个交易日成交额持续不低于9月21日水平57.42亿元（E10）的一半以上；② 价格确认——收盘不跌破9月17日突破日收盘232元（E12），且突破9月22日高点256元（E9）；③ 叙事坐实——CPU1000系列出现可核验的客户/订单公告（现仅媒体发布报道，缺一手材料）。\n- **证伪条件**：① 成交额回落至9月22日112.27亿元（E9）的三分之一以下且收盘跌回9月21日246.45元（E10）下方；② 收盘跌破232元（E12）即事件驱动失效；③ 端侧CPU无订单/流片/客户落地，行情退化为纯叙事。\n\n**下期关注清单**：① 10月前公司公告/互动易是否披露CPU1000客户或订单——无则叙事降级；② 三季报营收增速（本库本轮未取得，缺基线数值）；③ 每日对照上述成交额与价格阈值。复核期限：2026-10-22。\n\n**证据边界**：行情为同花顺未复权日K，2026-09-01至09-22逐日完整（E9–E24）；9月22日全市场成交结构、涨停家数与当日题材主线归属本地缺失（对应快照字段为空，题材主线仅至2026-09-18，E7/E8）；催化剂归因全部来自当日财经媒体标题，属待验证线索。"
+    },
+    {
+      "sequence": 60,
+      "phase": "repair",
+      "served_model": "glm-5.3",
+      "draft": "**无上期基线，本期建立基线**（用户记忆无海光信息相关历史判断）。\n\n**本轮行情概况**：9月14日收盘223.69元为9月内低点（E15），此后逐日走高：9月17日收232元（E12）、9月18日收241.38元（E11）、9月21日收246.45元（E10）、9月22日收256元（E9），9月22日成交额112.27亿元、成交量4273.39万股（E9），较9月21日的57.42亿元、2351.13万股（E10）环比接近翻倍，为9月内最高量能。催化剂：9月22日公司发布首款面向端侧/嵌入式工控的CPU1000系列（E25/E26/E27，媒体转述，待公告确认），叠加当日「Meta Muse登顶美区、Agent时代CPU需求重估」叙事（E28/E30，外部观点候选，非已核验因果）。\n\n**可证伪的跟踪条件**（基准判断：本轮为端侧CPU新品+CPU需求重估双催化的事件型放量上攻，不确定性高）。以下阈值是**本人设定的分析方法参数，非市场事实**；每个锚点数值均标注来源与日期，用户可按自身风险偏好替换：\n\n- **逻辑兑现**（三条同时满足才视为逻辑坐实）：① 量能维持——后续5个交易日日成交额持续不低于9月21日实际值57.42亿元（E10，同花顺未复权日K）的一半；② 价格确认——收盘不跌破9月17日收盘232元（E12），并向上突破9月22日收盘256元（E9）；③ 叙事坐实——CPU1000系列出现公司公告或互动平台确认的客户/订单（目前仅有媒体发布报道 E25–E27）。\n- **证伪条件**（任一触发即判事件驱动逻辑失效）：① 量价背离——成交额萎缩至9月22日112.27亿元（E9）的三分之一以下，且收盘跌回9月21日246.45元（E10）下方；② 收盘跌破9月17日232元（E12）；③ 截至三季报披露前无任何端侧CPU订单/客户落地证据，行情退化为纯叙事。\n\n**下期关注清单**：① 10月前公告/互动易是否披露CPU1000客户或订单——无则叙事降级；② 三季报营收增速（本轮未取得，缺基线数值）；③ 逐日对照上述量价参数。复核期限：2026-10-22。\n\n**证据边界**：行情为同花顺未复权日K，2026-09-01至09-22逐日（E9–E24）；9月22日全市场成交结构、涨停家数与当日题材主线归属本地缺失（快照字段为空，题材主线仅至2026-09-18，E7/E8）；催化剂归因全部来自当日财经媒体标题，属待验证线索。"
+    }
+  ],
+  "evidence": [
+    {
+      "content_hash": "bbe0db37b6be0d5e",
+      "title": "市场数据截至：2026-09-22。该日期是本轮整体盘面日期。",
+      "detail": "市场数据截至：2026-09-22。该日期是本轮整体盘面日期。",
+      "source_date": "2026-09-22",
+      "tool": "market_data"
+    },
+    {
+      "content_hash": "f0f7491f77af2002",
+      "title": "市场阶段：未标注；量能状态：未标注。",
+      "detail": "市场阶段：未标注；量能状态：未标注。",
+      "source_date": "2026-09-22",
+      "tool": "market_data"
+    },
+    {
+      "content_hash": "9147c8c50151852b",
+      "title": "全市场成交额：- 亿元；较前一日 -%；量比 -%。",
+      "detail": "全市场成交额：- 亿元；较前一日 -%；量比 -%。",
+      "source_date": "2026-09-22",
+      "tool": "market_data"
+    },
+    {
+      "content_hash": "95da8e05ad0676ba",
+      "title": "涨跌结构：上涨 - 家；涨停 - 家；跌停 - 家。",
+      "detail": "涨跌结构：上涨 - 家；涨停 - 家；跌停 - 家。",
+      "source_date": "2026-09-22",
+      "tool": "market_data"
+    },
+    {
+      "content_hash": "fcd7de04d0c086c3",
+      "title": "上证指数：3952.128 点，当日 0.06%。",
+      "detail": "上证指数：3952.128 点，当日 0.06%。",
+      "source_date": "2026-09-22",
+      "tool": "market_data"
+    },
+    {
+      "content_hash": "1cc7e0b043307aac",
+      "title": "强势股状态：未标注；平均涨幅 -%；边际变化 -%。",
+      "detail": "强势股状态：未标注；平均涨幅 -%；边际变化 -%。",
+      "source_date": "2026-09-22",
+      "tool": "market_data"
+    },
+    {
+      "content_hash": "a4052ac91dc0b0c2",
+      "title": "主线题材汇总仅截至 2026-09-18，早于整体盘面日期 2026-09-22；当前题材级主线",
+      "detail": "主线题材汇总仅截至 2026-09-18，早于整体盘面日期 2026-09-22；当前题材级主线未知，不展示旧题材名称。",
+      "source_date": "2026-09-22",
+      "tool": "market_data"
+    },
+    {
+      "content_hash": "2f04f330970186a9",
+      "title": "局部数据提示：核心板块明细仅更新到 2026-09-18，早于整体盘面日期 2026-09-22",
+      "detail": "局部数据提示：核心板块明细仅更新到 2026-09-18，早于整体盘面日期 2026-09-22；只能作历史参考。",
+      "source_date": "2026-09-22",
+      "tool": "market_data"
+    },
+    {
+      "content_hash": "a7b922b48803c994",
+      "title": "同花顺个股日K（未复权并跑）（2026-09-22）",
+      "detail": "交易日=2026-09-22；股票代码=688041.SH；收盘价=256；成交额元=11226516458.33；成交量股=42733900",
+      "source_date": "2026-09-22",
+      "tool": "finance_query"
+    },
+    {
+      "content_hash": "45b6f7fd016e5981",
+      "title": "同花顺个股日K（未复权并跑）（2026-09-21）",
+      "detail": "交易日=2026-09-21；股票代码=688041.SH；收盘价=246.45；成交额元=5741931539.99；成交量股=23511274",
+      "source_date": "2026-09-21",
+      "tool": "finance_query"
+    },
+    {
+      "content_hash": "fc034e16bb96988e",
+      "title": "同花顺个股日K（未复权并跑）（2026-09-18）",
+      "detail": "交易日=2026-09-18；股票代码=688041.SH；收盘价=241.38；成交额元=6488472536.09；成交量股=26831418",
+      "source_date": "2026-09-18",
+      "tool": "finance_query"
+    },
+    {
+      "content_hash": "757e1957f0b3b24d",
+      "title": "同花顺个股日K（未复权并跑）（2026-09-17）",
+      "detail": "交易日=2026-09-17；股票代码=688041.SH；收盘价=232；成交额元=3020682459.99；成交量股=12925009",
+      "source_date": "2026-09-17",
+      "tool": "finance_query"
+    },
+    {
+      "content_hash": "5c65d72a10add010",
+      "title": "同花顺个股日K（未复权并跑）（2026-09-16）",
+      "detail": "交易日=2026-09-16；股票代码=688041.SH；收盘价=235.09；成交额元=4503004548.63；成交量股=19400342",
+      "source_date": "2026-09-16",
+      "tool": "finance_query"
+    },
+    {
+      "content_hash": "685f6903a63679e0",
+      "title": "同花顺个股日K（未复权并跑）（2026-09-15）",
+      "detail": "交易日=2026-09-15；股票代码=688041.SH；收盘价=224.6；成交额元=3355265540.33；成交量股=14820949",
+      "source_date": "2026-09-15",
+      "tool": "finance_query"
+    },
+    {
+      "content_hash": "e99a090f3f1cf010",
+      "title": "同花顺个股日K（未复权并跑）（2026-09-14）",
+      "detail": "交易日=2026-09-14；股票代码=688041.SH；收盘价=223.69；成交额元=3310494237.74；成交量股=14799762",
+      "source_date": "2026-09-14",
+      "tool": "finance_query"
+    },
+    {
+      "content_hash": "984a0723df2d4480",
+      "title": "同花顺个股日K（未复权并跑）（2026-09-11）",
+      "detail": "交易日=2026-09-11；股票代码=688041.SH；收盘价=230.89；成交额元=4336508415.83；成交量股=19005417",
+      "source_date": "2026-09-11",
+      "tool": "finance_query"
+    },
+    {
+      "content_hash": "dd6ab527f58e31be",
+      "title": "同花顺个股日K（未复权并跑）（2026-09-10）",
+      "detail": "交易日=2026-09-10；股票代码=688041.SH；收盘价=232.37；成交额元=3039215519.13；成交量股=13078701",
+      "source_date": "2026-09-10",
+      "tool": "finance_query"
+    },
+    {
+      "content_hash": "48d3399d7ce8926d",
+      "title": "同花顺个股日K（未复权并跑）（2026-09-09）",
+      "detail": "交易日=2026-09-09；股票代码=688041.SH；收盘价=235.8；成交额元=3973502044.92；成交量股=16630780",
+      "source_date": "2026-09-09",
+      "tool": "finance_query"
+    },
+    {
+      "content_hash": "61e5e6053ac6f075",
+      "title": "同花顺个股日K（未复权并跑）（2026-09-08）",
+      "detail": "交易日=2026-09-08；股票代码=688041.SH；收盘价=236.9；成交额元=4302560118.61；成交量股=17918714",
+      "source_date": "2026-09-08",
+      "tool": "finance_query"
+    },
+    {
+      "content_hash": "a182463770edaf0e",
+      "title": "同花顺个股日K（未复权并跑）（2026-09-07）",
+      "detail": "交易日=2026-09-07；股票代码=688041.SH；收盘价=242.71；成交额元=5648127324.28；成交量股=23544828",
+      "source_date": "2026-09-07",
+      "tool": "finance_query"
+    },
+    {
+      "content_hash": "87af0209fb1026fe",
+      "title": "同花顺个股日K（未复权并跑）（2026-09-04）",
+      "detail": "交易日=2026-09-04；股票代码=688041.SH；收盘价=243.67；成交额元=3324827302.73；成交量股=13503008",
+      "source_date": "2026-09-04",
+      "tool": "finance_query"
+    },
+    {
+      "content_hash": "e09b47ba892d67d6",
+      "title": "同花顺个股日K（未复权并跑）（2026-09-03）",
+      "detail": "交易日=2026-09-03；股票代码=688041.SH；收盘价=246.2；成交额元=2556543418.63；成交量股=10356750",
+      "source_date": "2026-09-03",
+      "tool": "finance_query"
+    },
+    {
+      "content_hash": "7151a45a95faaf7b",
+      "title": "同花顺个股日K（未复权并跑）（2026-09-02）",
+      "detail": "交易日=2026-09-02；股票代码=688041.SH；收盘价=247.21；成交额元=3442189234.87；成交量股=13956935",
+      "source_date": "2026-09-02",
+      "tool": "finance_query"
+    },
+    {
+      "content_hash": "ac45782911877b3f",
+      "title": "同花顺个股日K（未复权并跑）（2026-09-01）",
+      "detail": "交易日=2026-09-01；股票代码=688041.SH；收盘价=250.43；成交额元=3770081130.03；成交量股=14957496",
+      "source_date": "2026-09-01",
+      "tool": "finance_query"
+    },
+    {
+      "content_hash": "7113742bd76451b2",
+      "title": "海光信息发布首款嵌入式工控CPU 加速拓展边端设备市场",
+      "detail": "2026-09-22 17:46:39 科创板日报",
+      "source_date": "2026-09-22",
+      "tool": "news_search"
+    },
+    {
+      "content_hash": "afd9108a731ff70f",
+      "title": "海光信息推出海光1000系列CPU",
+      "detail": "2026-09-22 17:08:43 界面新闻",
+      "source_date": "2026-09-22",
+      "tool": "news_search"
+    },
+    {
+      "content_hash": "a77c567e650faea2",
+      "title": "海光信息发布首款面向端侧的算力芯片CPU1000系列",
+      "detail": "2026-09-22 16:08:45 财联社",
+      "source_date": "2026-09-22",
+      "tool": "news_search"
+    },
+    {
+      "content_hash": "3eb307d400e1006a",
+      "title": "Muse爆火点燃科技板块！海光信息涨超4%，科创人工智能ETF汇添富(589560)标的指数涨超3%！Agent需求催化CPU短缺发酵",
+      "detail": "2026-09-22 13:36:46 界面新闻",
+      "source_date": "2026-09-22",
+      "tool": "news_search"
+    },
+    {
+      "content_hash": "da0af99dc8d4d0af",
+      "title": "海光信息发布全新1000系列CPU，芯片设计领跑科技板块！科创芯片设计ETF国联安(588780)跟踪指数涨超3%",
+      "detail": "2026-09-22 11:49:31 界面新闻",
+      "source_date": "2026-09-22",
+      "tool": "news_search"
+    },
+    {
+      "content_hash": "17e6fc1b9bd77951",
+      "title": "Meta Muse 10天登顶美区榜首，Agent时代CPU需求重估！科创芯片设计ETF招商（589390）标的指数涨近4%，海光信息、澜起科技大幅高开",
+      "detail": "2026-09-22 10:32:35 21世纪经济报道",
+      "source_date": "2026-09-22",
+      "tool": "news_search"
+    }
+  ],
+  "semantic_verifier": {
+    "status": "partial",
+    "judge_status": "unavailable",
+    "judge_mode": "llm",
+    "sentence_verdicts": [
+      {
+        "stage": "preflight",
+        "judge_round": null,
+        "sentence_index": 10,
+        "sentence": "- **证伪条件**（任一触发即判事件驱动逻辑失效）：① 量价背离——成交额萎缩至9月22日112.27亿元（E9）的三分之一以下，且收盘跌回9月21日246.45元（E10）下方；",
+        "decision": "deleted",
+        "reasons": [
+          "novel_numeric_condition"
+        ],
+        "judge_issues": [],
+        "judge_reason_code": "",
+        "rewritten_to": "",
+        "cited_evidence_ordinals": [
+          "E9",
+          "E10"
+        ],
+        "unresolved_evidence_ordinals": [],
+        "bound_evidence_hashes": [
+          "a7b922b48803c994",
+          "45b6f7fd016e5981"
+        ],
+        "source_tiers": [
+          "L4_structured"
+        ]
+      },
+      {
+        "stage": "preflight",
+        "judge_round": null,
+        "sentence_index": 13,
+        "sentence": "**下期关注清单**：① 10月前公告/互动易是否披露CPU1000客户或订单——无则叙事降级；",
+        "decision": "deleted",
+        "reasons": [
+          "novel_numeric_condition"
+        ],
+        "judge_issues": [],
+        "judge_reason_code": "",
+        "rewritten_to": "",
+        "cited_evidence_ordinals": [],
+        "unresolved_evidence_ordinals": [],
+        "bound_evidence_hashes": [],
+        "source_tiers": []
+      }
+    ],
+    "issues": [
+      "code=numeric_unsupported subject=numeric_condition :: unsupported numeric condition without bound evidence",
+      "semantic judge window exhausted by prior attempt"
+    ],
+    "degrade_class": "judge_unavailable",
+    "last_dispatched_failure": {
+      "judge_attempt_index": 1,
+      "timeout_asked": 74.9914336251095,
+      "remaining_seconds_at_entry": 582.4994934580754,
+      "issue": "semantic judge transient provider error",
+      "exc_class": "LLMDeadlineExceeded",
+      "http_status": null
+    },
+    "timeout_configured": 75.0,
+    "timeout_asked": 0.0,
+    "remaining_seconds_at_entry": 507.49735437496565,
+    "v11_rejudge_called": false,
+    "v11_outcome": "skipped",
+    "v11_triggered": false,
+    "v11_skip_reason": null
+  },
+  "tool_results": [
+    {
+      "sequence": 12,
+      "tool": "finance_query",
+      "status": "parse_error",
+      "error": "parse_error"
+    },
+    {
+      "sequence": 13,
+      "tool": "finance_query",
+      "status": "parse_error",
+      "error": "parse_error"
+    },
+    {
+      "sequence": 14,
+      "tool": "memory_lookup",
+      "status": null,
+      "error": null
+    },
+    {
+      "sequence": 15,
+      "tool": "market_data",
+      "status": null,
+      "error": null
+    },
+    {
+      "sequence": 16,
+      "tool": "mainline_context",
+      "status": null,
+      "error": null
+    },
+    {
+      "sequence": 23,
+      "tool": "finance_query",
+      "status": "parse_error",
+      "error": "parse_error"
+    },
+    {
+      "sequence": 24,
+      "tool": "finance_query",
+      "status": "parse_error",
+      "error": "parse_error"
+    },
+    {
+      "sequence": 31,
+      "tool": "finance_query",
+      "status": "parse_error",
+      "error": "parse_error"
+    },
+    {
+      "sequence": 32,
+      "tool": "finance_query",
+      "status": null,
+      "error": null
+    },
+    {
+      "sequence": 39,
+      "tool": "finance_query",
+      "status": "parse_error",
+      "error": "parse_error"
+    },
+    {
+      "sequence": 40,
+      "tool": "news_search",
+      "status": null,
+      "error": null
+    }
+  ],
+  "reasoning_excluded": true
+}

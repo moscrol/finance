@@ -1,0 +1,38 @@
+{
+  "command": [
+    "/usr/bin/sandbox-exec",
+    "-f",
+    "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-reentry/host.sb",
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "-B",
+    "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-reentry/mutations/rejected_step_marks_finished-red/entry.py",
+    "-q",
+    "-p",
+    "no:randomly",
+    "-p",
+    "no:cacheprovider",
+    "--tb=short",
+    "--junitxml",
+    "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-reentry/mutations/rejected_step_marks_finished-red.xml",
+    "intelligence/tests/test_episode_writer_reentry.py",
+    "-k",
+    "test_rejected_concurrent_drive_operation_keeps_owner_live",
+    "--basetemp=/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-reentry/mutations/rejected_step_marks_finished-red/pytest"
+  ],
+  "cwd": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-reentry/scratch/contract-mutations-cnxt44_j/tree",
+  "env": {
+    "PATH": "/Users/a77/.pi/agent/bin:/Users/a77/.kimi-code/bin:/Users/a77/.grok/bin:/Users/a77/.local/bin:/Users/a77/.local/bin:/Users/a77/.codeium/windsurf/bin:/Users/a77/.local/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/opt/pkg/env/active/bin:/opt/pmk/env/global/bin:/Applications/Ghostty.app/Contents/MacOS",
+    "HOME": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-reentry/mutations/rejected_step_marks_finished-red/home",
+    "PYTHONPATH": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-reentry/scratch/contract-mutations-cnxt44_j/tree",
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "FWP_TEST_RECEIPT": "0",
+    "FORESIGHT_USERS_DIR": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-reentry/mutations/rejected_step_marks_finished-red/users",
+    "FORESIGHT_LLM_KEYCHAIN": "0",
+    "LANG": "en_US.UTF-8",
+    "TMPDIR": "/Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-reentry/mutations/rejected_step_marks_finished-red/tmp",
+    "KNOWLEDGE_WIKI": "/Users/a77/knowledge-base-private/wiki"
+  },
+  "timeout": 120,
+  "exit_code": 1,
+  "raw_sha256": "f93097c94d6e8f3896dfec3610df035d0c3f3f9e9b020d55f0fa96e6c7819e8f"
+}

@@ -1,0 +1,24 @@
+== gate @ e7a6cb412865 tree=/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0326/candidate py=/Users/a77/finance-workspace-private/.venv-workbench/bin/python receipt=/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0326/python-receipts/gate-Pq59hxEb/pytest.json
+== ruff check .
+All checks passed!
+== pytest -q -p no:cacheprovider -o tmp_path_retention_policy=failed --basetemp=/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0326/python-basetemp --junitxml=/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0326/python.junit.xml
+== full pytest output /Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0326/python-receipts/gate-Pq59hxEb/pytest.log
+tests/test_pipeline_p0.py::test_mainline_partial_writes_succeeded_themes_as_degraded[exception]
+tests/test_pipeline_p0.py::test_mainline_partial_writes_succeeded_themes_as_degraded[empty_groups]
+tests/test_pipeline_p0.py::test_mainline_partial_writes_succeeded_themes_as_degraded[empty_stocks]
+tests/test_pipeline_p0.py::test_mainline_empty_theme_list_is_failed_without_writing
+  /Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0326/candidate/market_feature_store/sync/sync_fupanhui_mainline_daily.py:66: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = datetime.utcnow().isoformat()
+
+tests/test_pipeline_p0.py::test_mainline_sector_failure_keeps_previous_snapshot[response0]
+tests/test_pipeline_p0.py::test_mainline_sector_failure_keeps_previous_snapshot[response1]
+  /Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0326/candidate/market_feature_store/sync/sync_fupanhui_mainline_sector_daily.py:121: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = datetime.utcnow().isoformat()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+- generated xml file: /Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0326/python.junit.xml -
+15396 passed, 85 skipped, 2 xfailed, 17 warnings in 1539.94s (0:25:39)
+== receipt /Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0326/python-receipts/gate-Pq59hxEb/pytest.json
+   revision=e7a6cb412865 dirty=False target=/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0326/candidate
+   passed=15396 failed=0 error=0 skipped=85 xfailed=2 xpassed=0
+== 门禁绿，basetemp 已清: /Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0326/python-basetemp（要保留请设 GATE_KEEP_BASETEMP=1）

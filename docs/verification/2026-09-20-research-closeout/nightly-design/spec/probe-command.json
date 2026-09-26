@@ -1,0 +1,13 @@
+{
+  "argv": [
+    "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/nightly-design/spec/probe_spec.py"
+  ],
+  "cwd": "/Users/a77/.finance-runtime/reviews/research-closeout-20260920/nightly-design/spec",
+  "exit_code": 0,
+  "elapsed_s": 1.1868740830104798,
+  "environment_overrides": {
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "GIT_OPTIONAL_LOCKS": "0"
+  }
+}

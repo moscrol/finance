@@ -1,0 +1,1 @@
+{"verdict": "FAIL", "failed": ["receipt_apply_schema", "receipt_verify_schema", "data_checks_executed"], "n": 22}

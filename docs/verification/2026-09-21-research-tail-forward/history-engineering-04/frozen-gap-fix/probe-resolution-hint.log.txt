@@ -1,0 +1,1 @@
+{"mode": "resolution-hint", "pytest_exit": 1, "passed": 40, "failed": 1, "errors": 0, "ok": true}

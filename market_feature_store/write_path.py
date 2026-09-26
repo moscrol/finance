@@ -97,11 +97,22 @@ def canonical_production_candidates() -> frozenset[Path]:
 
 def is_canonical_production(path: Path | str | None = None) -> bool:
     """目标是否为 canonical 生产库（不是 .staging、不是测试库、不是克隆）。"""
-    target = Path(path) if path is not None else DB_PATH
+    target = (Path(path) if path is not None else DB_PATH).expanduser().resolve()
+    candidates = canonical_production_candidates()
+    if target in candidates:
+        return True
     try:
-        return target.expanduser().resolve() in canonical_production_candidates()
-    except OSError:
+        target_stat = target.stat()
+    except FileNotFoundError:
         return False
+    # Hard links have different resolved paths but share the production file.
+    for candidate in candidates:
+        try:
+            if os.path.samestat(target_stat, candidate.stat()):
+                return True
+        except FileNotFoundError:
+            continue
+    return False
 
 
 def production_write_blocked(direct: bool, path: Path | str | None = None) -> str | None:
