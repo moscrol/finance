@@ -302,6 +302,14 @@ _DATE_TOKEN_RE = re.compile(
     r"(?<!\d)(?:0?[1-9]|1[0-2])/(?:0?[1-9]|[12]\d|3[01])(?!\d)|"
     r"(?<!\d)(?:0[1-9]|1[0-2])[-/.](?:0[1-9]|[12]\d|3[01])(?!\d))"
 )
+# 单独的月份是时间点不是数量：``10月前``、``2026年10月``、``9-10月``。2026-09-25
+# L6-N1 重放：``10月前公告…`` 的 10月 被当成证据里没有的阈值，整句删除。``6月以上``
+# 是时长门槛，照旧受审。只在抽数时掩、不并进上面的 _DATE_TOKEN_RE：那一步也喂表头
+# 识别，早掩会让 ``| 条件 | 10月 | 11月 |`` 被认成表头，数据行里的阈值就被筛掉了。
+_MONTH_TOKEN_RE = re.compile(
+    r"(?:20\d{2}年)?(?<![\d.])(?:0?[1-9]|1[0-2])"
+    r"(?:\s*(?:至|到|-|~|～|—)\s*(?:0?[1-9]|1[0-2]))?月(?!\s*(?:以上|以下))"
+)
 # 证据序号与季度标签不是数量：``（E6）``、``E47–E52``、``Q3/Q4``、``2026Q4``。
 # 2026-09-21 冒烟 3（run_20260921_123745_556321）：``E6``→6、``Q3``→3 被当成
 # 证据里没有的阈值，整句连坐删除。逐个 E 号剥，不剥分隔符——``E1，118 家`` 里的
@@ -309,6 +317,21 @@ _DATE_TOKEN_RE = re.compile(
 _QUARTER_TOKEN_RE = re.compile(
     r"(?<![A-Za-z0-9])(?:20\d{2})?(?:Q[1-4]|[1-4]Q)(?![0-9])"
     r"|(?<!\d)[一二三四1-4]季度"
+)
+# 字母紧贴数字的代号是名字不是数量：型号 ``CPU1000``/``H100``/``RTX4090``、指标周期
+# ``MA20``、版本 ``V3.1``。2026-09-25 L6-N1 重放：``CPU1000`` 的 1000 被当成证据里
+# 没有的阈值，整句删除。三类仍按数量审：估值 / 宏观缩写后紧贴的数是取值（``PE20``、
+# ``PMI49.8``；引用语法同样把 ``PE10`` 认作估值倍数）；单个 ``E`` 是引用号段，合法
+# 引用已由 strip_evidence_ordinals 剥掉，畸形的 ``E0``/``E1000`` 留给本门兜底；数字后
+# 紧跟单位或「以上/以下」的也是数量（``ROE15%``、``EPS1.2元``、``H100以上``）。中文
+# 前缀的 ``麒麟9000`` 与 ``成交额9000`` 在字面上分不开，不在此列。分段写死字母 / 数字
+# 交替，避免回溯爆炸。
+_ALNUM_IDENTIFIER_RE = re.compile(
+    r"(?<![A-Za-z0-9])"
+    r"(?!(?:PEG|PE|PB|PS|ROE|ROA|ROIC|EPS|BPS|PMI|CPI|PPI|GDP|[Ee])\d)"
+    r"[A-Za-z]+\d+(?:\.\d+)?(?:[A-Za-z]+\d+(?:\.\d+)?)*[A-Za-z]*"
+    r"(?!\.?\d|\s*(?:万亿元|万亿|亿元|万元|亿|元|个百分点|%|点|家|只|个|天|日|周|月|年"
+    r"|倍|成|以上|以下))"
 )
 _SHORT_DATE_HEADING_RE = re.compile(
     r"^\s*(?:[-*]\s*)?(?:\*\*)?[\"“「‘]?"
@@ -5183,6 +5206,10 @@ def _novel_numeric_condition_indexes(
             if labelled or condition_section:
                 start = 0
             candidate = candidate[start:]
+        # Month time points and names such as CPU1000 are masked for extraction
+        # only: they must not change which rows count as table headers or
+        # labelled conditions.
+        candidate = _ALNUM_IDENTIFIER_RE.sub(" ", _MONTH_TOKEN_RE.sub(" ", candidate))
         quantities = (
             *_ARABIC_QUANTITY_RE.findall(candidate),
             *_CHINESE_QUANTITY_RE.findall(candidate),
@@ -5679,8 +5706,9 @@ def _bound_evidence_quantities(outcome: AgentOutcome) -> frozenset[str]:
             )
         )
     # Evidence prose can cite other cards too: E27 must not authorize a real
-    # threshold of 27 in the answer. Match the answer-side quantity view.
-    corpus = strip_evidence_ordinals(" ".join(fields))
+    # threshold of 27 in the answer. Match the answer-side quantity view; the
+    # same holds for model numbers (evidence H100 must not authorize 100).
+    corpus = _ALNUM_IDENTIFIER_RE.sub(" ", strip_evidence_ordinals(" ".join(fields)))
     quantities = {
         _normalize_quantity(quantity)
         for quantity in (

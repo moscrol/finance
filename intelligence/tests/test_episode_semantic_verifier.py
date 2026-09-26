@@ -2242,6 +2242,77 @@ def test_local_gate_keeps_natural_l6_currency_condition():
     assert result.judge_status == "passed"
 
 
+# 2026-09-25 零额度重放（~/.finance-runtime/reviews/l6-numeric-replay-20260925/）：
+# 09-23 L6-N1 句 13 不引证据，却被预检以 novel_numeric_condition 整句删除。触发
+# token 是从型号 ``CPU1000`` 里抠出的 1000 和单独的月份 ``10月``，两个都不是阈值。
+_L6_N1_WATCH_ITEM = (
+    "**下期关注清单**：① 10月前公告/互动易是否披露CPU1000客户或订单——无则叙事降级；"
+)
+
+
+def test_local_gate_keeps_l6_watch_item_but_still_redacts_real_threshold() -> None:
+    frame, structural = _structural(
+        f"海光信息事件驱动逻辑仍在。\n{_L6_N1_WATCH_ITEM}\n若指数跌破3870点则失效。"
+    )
+    result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+        frame=frame, structurally_verified=structural,
+        deadline=ResearchDeadline.from_timeout(5),
+    )
+    assert "是否披露CPU1000客户或订单——无则叙事降级" in result.public_answer
+    assert "3870点" not in result.public_answer
+
+
+@pytest.mark.parametrize("model", ["CPU1000", "H100", "A100", "RTX4090", "iPhone15"])
+def test_numeric_gate_does_not_read_model_numbers_as_thresholds(model: str) -> None:
+    _, structural = _structural(f"若{model}订单落地不及预期，则叙事降级。")
+    assert numeric_condition_unsupported(structural) is False
+
+
+@pytest.mark.parametrize(
+    "when", ["10月前", "10月底", "11月中旬", "2026年10月前", "9-10月"],
+)
+def test_numeric_gate_does_not_read_month_time_points_as_thresholds(when: str) -> None:
+    _, structural = _structural(f"若{when}仍未公告大客户订单，则叙事降级。")
+    assert numeric_condition_unsupported(structural) is False
+
+
+@pytest.mark.parametrize(
+    "draft",
+    [
+        "若10月前指数跌破3870点，则反弹失效。",
+        "若H100订单落地后成交额仍跌破100亿元，则量能失效。",
+        "若估值回落至PE20倍以下，则逻辑失效。",
+        "若估值跌回PE20附近，则逻辑失效。",
+    ],
+)
+def test_numeric_gate_still_rejects_thresholds_beside_months_and_model_numbers(
+    draft: str,
+) -> None:
+    """只掩月份与型号本身；同句里证据没有的真阈值照删，估值缩写后的数仍是取值。"""
+    _, structural = _structural(draft)
+    assert numeric_condition_unsupported(structural) is True
+
+
+@pytest.mark.parametrize("columns", ["10月 | 11月", "H100 | A100"])
+def test_numeric_gate_month_or_model_header_does_not_hide_table_thresholds(
+    columns: str,
+) -> None:
+    """月份与型号只在抽数时掩：带它们的列头不能被认成条件表头、把数据行阈值筛掉。"""
+    _, structural = _structural(
+        f"**改判条件**\n| 条件 | {columns} |\n|---|---|---|\n| 成交额跌破 | 100亿 | 80亿 |"
+    )
+    feedback = [json.loads(item) for item in numeric_condition_repair_feedback(structural)]
+    assert [item["sentence"] for item in feedback] == ["| 成交额跌破 | 100亿 | 80亿 |"]
+
+
+def test_numeric_gate_model_number_in_evidence_does_not_authorize_threshold() -> None:
+    """证据侧用同一张数量视图：证据里的 ``H100`` 不给答案里的 100 背书。"""
+    _, structural = _structural(
+        "若股价跌破100元，则逻辑失效。", detail="公司推出H100替代方案",
+    )
+    assert numeric_condition_unsupported(structural) is True
+
+
 @pytest.mark.parametrize("existing_ceiling", ["completed", "partial"])
 def test_unreviewed_revision_caps_publication_without_touching_review(existing_ceiling) -> None:
     """终局修复改了稿却来不及复核：公开旧稿必须压 partial 并告知（冒烟 2 的丢稿形状）。"""
