@@ -1,0 +1,101 @@
+                cost="local",
+                freshness="current",
+                runner=runner,
+            ),
+        )
+    )
+
+
+def tool_then_finish() -> list[ScriptedTurn]:
+    """两轮脚本：一轮点工具、一轮给终局——够走完 planning → tools → finish 全路径。"""
+
+    return [
+        ScriptedTurn(tool_calls=(ScriptedToolCall(AUTHORIZED_TOOL, "市场宽度"),)),
+        ScriptedTurn(finish=completed_finish()),
+    ]
+
+
+@dataclass
+class Rig:
+    """一次竞态实验的全部把手。"""
+
+    task_id: str
+    oracle: WriteOrderOracle
+    signal: CancelSignal
+    model: EffectAwareModel
+    probe: ScenarioProbe
+    frame: TaskFrame
+    context: ResearchRunContext
+    registry: ResearchToolRegistry
+    episode: ContinuousAgentEpisode
+    drive: EpisodeDrive | None = None
+    points: list[StepPoint] = field(default_factory=list)
+
+    def start(self) -> EpisodeDrive:
+        self.drive = self.episode.manual_drive(
+            task_frame=self.frame, context=self.context, registry=self.registry
+        )
+        return self.drive
+
+    def run_until(self, phase: str) -> StepPoint | None:
+        assert self.drive is not None
+        point = self.drive.run_until(phase)
+        self.points = list(self.drive.steps)
+        return point
+
+    def finish(self) -> AgentOutcome:
+        assert self.drive is not None
+        outcome = self.drive.run_to_end()
+        self.points = list(self.drive.steps)
+        return outcome
+
+    def stored_events(self) -> tuple[EpisodeEvent, ...]:
+        events, _state = self.oracle.load(self.task_id)
+        return events
+
+    def stored_state(self):
+        _events, state = self.oracle.load(self.task_id)
+        return state
+
+
+def build_rig(
+    task_id: str,
+    *,
+    turns: Sequence[ScriptedTurn] | None = None,
+    during_tool: Hook | None = None,
+    store: WriteOrderOracle | None = None,
+) -> Rig:
+    oracle = store if store is not None else WriteOrderOracle()
+    probe = ScenarioProbe()
+    signal = CancelSignal()
+    frame = make_frame()
+    context = make_context(frame, task_id=task_id)
+    model = EffectAwareModel(
+        ScriptedModelClient(list(turns if turns is not None else tool_then_finish()), probe),
+        oracle,
+    )
+    episode = ContinuousAgentEpisode(model, is_cancelled=signal, store=oracle)
+    return Rig(
+        task_id=task_id,
+        oracle=oracle,
+        signal=signal,
+        model=model,
+        probe=probe,
+        frame=frame,
+        context=context,
+        registry=effect_registry(oracle, during_tool=during_tool),
+        episode=episode,
+    )
+
+
+# ── 尺子 ───────────────────────────────────────────────────────────────
+
+
+def kinds(events: Sequence[EpisodeEvent], *names: str) -> list[str]:
+    wanted = set(names)
+    return [event.kind for event in events if not wanted or event.kind in wanted]
+
+
+def only(events: Sequence[EpisodeEvent], kind: str) -> list[EpisodeEvent]:
+    return [event for event in events if event.kind == kind]
+

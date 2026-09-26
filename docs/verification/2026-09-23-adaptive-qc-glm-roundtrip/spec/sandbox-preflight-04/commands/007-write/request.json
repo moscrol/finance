@@ -1,0 +1,1 @@
+{"toolCallId":"positive","params":{"path":"/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260923-1830/spec/work/positive_control.py","content":"assert 1 == 2, \"intentional probe_bug control\"\n"}}

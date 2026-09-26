@@ -1,0 +1,10 @@
+{
+  "status": "BLOCKED_PROVIDER_HTTP_502",
+  "requests": 1,
+  "tiny": {
+    "status": 502,
+    "elapsed_seconds": 120.00989812496118,
+    "choices_present": false,
+    "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+}

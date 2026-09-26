@@ -1,0 +1,24 @@
+828:            if not self.ledger.settle_tool_request(call.call_id):
+829:                self.ledger.add("tool_request", request_payload)
+929:            self.ledger.add(
+961:        self.ledger.add(
+990:                self.ledger.add(
+1145:class EpisodeDrive:
+2492:        if state.ledger.store_failures:
+2494:        episode_id = state.ledger.episode_id
+2495:        if (state.ledger._store is not self._store
+2502:                events, checkpoint = self._store.load(state.ledger.episode_id)
+2503:                if events != tuple(state.ledger.events) or checkpoint != state.ledger.state:
+2522:        if state.ledger.store_failures:
+2527:        ledger = state.ledger
+        object.__setattr__(
+            self,
+            "unreconciled_effects",
+            tuple(_json_freeze(item.to_dict(), path="unreconciled_effects") for item in effects),
+        )
+
+    @property
+    def terminal(self) -> bool:
+        return self.phase == "done"
+
+    def to_dict(self) -> dict[str, object]:

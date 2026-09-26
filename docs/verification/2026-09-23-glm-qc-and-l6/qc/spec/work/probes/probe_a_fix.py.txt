@@ -1,0 +1,74 @@
+# -*- coding: utf-8
+# corrected variant of probe_a_transport.py (A2/A3 exception-type over-spec + A5 returncode polling)
+import http.server, sys, threading, time, urllib.request
+sys.path.insert(0, ".")
+from intelligence.services import llm_http_transport as T
+
+P_FAST, P_TRICKLE = 26001, 26002
+
+class H(http.server.BaseHTTPRequestHandler):
+    protocol_version = "HTTP/1.1"
+    def do_POST(self):
+        self.rfile.read(int(self.headers.get("Content-Length", 0) or 0))
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream")
+        self.send_header("Transfer-Encoding", "chunked")
+        self.end_headers()
+        for _ in range(40):
+            self.wfile.write(b"3\r\nabc\r\n")
+            self.wfile.flush()
+            time.sleep(0.1)
+    def log_message(self, *a): pass
+
+def serve(p):
+    s = http.server.ThreadingHTTPServer(("127.0.0.1", p), H)
+    threading.Thread(target=s.serve_forever, daemon=True).start()
+    return s
+
+def req(p):
+    return urllib.request.Request(f"http://127.0.0.1:{p}/c", data=b"{}",
+        headers={"Content-Type": "application/json"}, method="POST")
+
+def main():
+    serve(P_FAST); serve(P_TRICKLE); time.sleep(0.3)
+    ok = True
+    # A2': deadline enforced on trickle stream (any exception, elapsed ~1s not 4s)
+    t0 = time.monotonic()
+    exc = None
+    try:
+        with T.urlopen(req(P_TRICKLE), 1.0) as r:
+            for _ in r: pass
+    except Exception as e:
+        exc = e
+    el = time.monotonic() - t0
+    a2 = exc is not None and el < 2.0
+    print(f"A2' {'PASS' if a2 else 'FAIL'} exc={type(exc).__name__ if exc else None} elapsed={el:.2f}s (期望~1s)")
+    ok &= a2
+    # A3': mid-stream cancel stops far before 10s
+    st = {"c": False}
+    t0 = time.monotonic(); exc = None
+    try:
+        with T.urlopen(req(P_TRICKLE), 10.0, is_cancelled=lambda: st["c"]) as r:
+            for i, _ in enumerate(r):
+                if i == 3: st["c"] = True
+    except Exception as e:
+        exc = e
+    el = time.monotonic() - t0
+    a3 = exc is not None and el < 3.0
+    print(f"A3' {'PASS' if a3 else 'FAIL'} exc={type(exc).__name__ if exc else None} elapsed={el:.2f}s (期望<3s)")
+    ok &= a3
+    # A5': stalled parent, poll worker returncode over time
+    with T.urlopen(req(P_TRICKLE), 1.5) as r:
+        seen = None
+        for _ in range(40):
+            time.sleep(0.1)
+            rc = r.process.poll()
+            if rc is not None:
+                seen = rc; break
+        a5 = seen == 124
+        print(f"A5' {'PASS' if a5 else 'FAIL'} worker rc={seen} t={time.monotonic()-0:.2f}")
+    ok &= a5
+    print("SUMMARY probe_a_fix:", "PASS" if ok else "FAIL")
+    sys.exit(0 if ok else 1)
+
+main()

@@ -1309,7 +1309,7 @@ class OpenAIAgentsRuntime:
         repair_goal_event = EpisodeEvent(
             len(prefix) + 1,
             "repair_goal",
-            _bounded_repair_goal(effective_goal),
+            effective_goal.to_dict(),
         )
         repair_reentry_event = EpisodeEvent(
             len(prefix) + 2,
@@ -1338,10 +1338,9 @@ class OpenAIAgentsRuntime:
         )
         tools = state.run_state.tools()
         repair_snapshot = state.run_state.snapshot()
-        repair_input: dict[str, object] = {
-            "kind": "REPAIR_GOAL",
-            **_bounded_repair_goal(effective_goal),
-        }
+        repair_message = self._harness.repair_goal_message(
+            effective_goal, tools_open=bool(tools),
+        )
         # 修复轮的 system / task 与开场同源：同一 harness、同一 (system, user)。
         repair_system, repair_user = self._harness.assemble_prompt(
             state.task_frame,
@@ -1349,8 +1348,10 @@ class OpenAIAgentsRuntime:
             state.registry,
         )
         if state.continuation_input is None:
-            repair_input.update(
+            repair_message = json.dumps(
                 {
+                    "kind": "REPAIR_CONTEXT",
+                    "repair_goal_message": repair_message,
                     "task": json.loads(repair_user),
                     "evidence": [
                         public_agent_evidence(item)
@@ -1361,7 +1362,8 @@ class OpenAIAgentsRuntime:
                         binding.to_dict() for binding in previous.bindings
                     ],
                     "existing_gaps": list(previous.gaps),
-                }
+                },
+                ensure_ascii=False,
             )
         # SYSTEM_PROMPT_DYNAMIC_BOUNDARY: constitution stays system; repair
         # suffix and user/task JSON are per-turn. No cache_control this increment.
@@ -1383,7 +1385,7 @@ class OpenAIAgentsRuntime:
                     "snapshot 是同一 episode 的权威状态，只能据此完成交付，不得重启研究。"
                 )
             ),
-            input=json.dumps(repair_input, ensure_ascii=False),
+            input=repair_message,
             tools=tools,
             max_turns=max(1, available_calls + 1) if tools else 1,
             timeout=min(available_seconds, 30.0) if not tools else available_seconds,
@@ -1729,30 +1731,6 @@ def _failed_outcome(
         bindings=(),
         usage=AgentUsage(),
     )
-
-
-def _bounded_repair_goal(goal: RepairGoal) -> dict[str, object]:
-    def strings(values: tuple[str, ...]) -> list[str]:
-        return [str(value)[:500] for value in values[:20]]
-
-    return {
-        "episode_id": goal.episode_id,
-        "repair_goal_id": goal.repair_goal_id,
-        "cycle": goal.cycle,
-        "missing_answer_elements": strings(goal.missing_answer_elements),
-        "unsupported_claims": strings(goal.unsupported_claims),
-        "missing_evidence_modes": strings(goal.missing_evidence_modes),
-        "attempted_actions": strings(goal.attempted_actions),
-        "evidence_progress": {
-            "new_evidence": goal.evidence_progress.new_evidence,
-            "narrowed_gaps": goal.evidence_progress.narrowed_gaps,
-            "newly_supported_outputs": (
-                goal.evidence_progress.newly_supported_outputs
-            ),
-        },
-        "remaining_calls": max(0, int(goal.remaining_calls)),
-        "remaining_seconds": max(0.0, float(goal.remaining_seconds)),
-    }
 
 
 def _consume_root_seconds(context: ResearchRunContext, seconds: float) -> bool:

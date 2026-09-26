@@ -1,0 +1,35 @@
+    frame = make_frame()
+    context = make_context(frame, task_id="steer-cli-loop")
+    model = _HookedModel(
+        ScriptedModelClient(
+            [
+                ScriptedTurn(tool_calls=(ScriptedToolCall(AUTHORIZED_TOOL, "市场宽度"),)),
+                ScriptedTurn(finish=completed_finish()),
+            ],
+            probe,
+        )
+    )
+    runtime = GLMAgentRuntime(client=model, episode_store=JsonlEpisodeStore(root))
+    deliveries = []
+    # 「另一个进程」：不经 runtime.steer，只写槽——与 CLI 完全同一条路径。
+    model.on_call[1] = lambda: deliveries.append(
+        deliver_steer(store_root=root, episode_id="steer-cli-loop", content="先看北向资金")
+    )
+
+    outcome = runtime.run(task_frame=frame, context=context, registry=make_registry(probe))
+
+    assert outcome.status == "completed"
+    assert len(model.requests) == 2
+    assert "先看北向资金" not in [item.get("content") for item in model.requests[0]]
+    assert model.requests[1][-1] == {"role": "user", "content": "先看北向资金"}
+    kinds = [event.kind for event in outcome.events if event.kind.startswith("inbox_")]
+    assert kinds == ["inbox_inserted", "inbox_claimed"]
+    inserted = next(event for event in outcome.events if event.kind == "inbox_inserted").payload
+    assert inserted["spool_id"] == deliveries[0].spool_id and inserted["source"] == "cli"
+    # 槽已清空；回执从落盘日志读得回。
+    assert list(deliveries[0].spool_path.parent.iterdir()) == []
+    receipt = read_receipt(store_root=root, episode_id="steer-cli-loop", spool_id=deliveries[0].spool_id)
+    assert receipt is not None and receipt.fate == "claimed"
+    # 收口后再投：递话方按 state.json 终局拒投。
+    with pytest.raises(EpisodeFinished):
+        deliver_steer(store_root=root, episode_id="steer-cli-loop", content="晚了")

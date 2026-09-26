@@ -1,0 +1,18 @@
+"""Select the original collected prefix for diagnosis, never for a full gate."""
+import json
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent
+TARGET = 'intelligence/tests/test_rag_worker_keepalive.py::'
+
+
+def pytest_collection_modifyitems(config, items):
+    last = max(i for i, item in enumerate(items) if item.nodeid.startswith(TARGET))
+    selected, deselected = items[:last + 1], items[last + 1:]
+    (ROOT / 'rag-prefix-selection.json').write_text(json.dumps({
+        'scope': 'diagnostic prefix only; original full gate remains RED',
+        'collected': len(items), 'selected': len(selected),
+        'deselected': len(deselected), 'nodeids': [item.nodeid for item in selected],
+    }, indent=2) + '\n')
+    config.hook.pytest_deselected(items=deselected)
+    items[:] = selected

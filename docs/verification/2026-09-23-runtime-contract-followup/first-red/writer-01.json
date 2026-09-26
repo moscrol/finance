@@ -1,0 +1,7 @@
+{
+  "revision": "5f35da1723f74663a4803c4d1490c402a1d6db40",
+  "role": "host replay of pre-existing author tests; not K3 independent acceptance",
+  "wrapper_sha256": "7d3fba551693fbaeaeee484fb2723eda5676b40ac8419ec328849f11c2dc7f1f",
+  "accepted": false,
+  "error": "AssertionError(('disk_writer_not_exclusive', ('intelligence.tests.test_episode_writer', 'test_separate_process_cannot_restore_until_owner_releases'), \"AssertionError: assert {'busy': Fals...ox': [], ...}} == {'busy': True}\\n  \\n  Differing items:\\n  {'busy': False} != {'busy': True}\\n  Left contains 1 more item:\\n  {'result': {'disposition': 'resumable',\\n              'entry_identity_bound': False,\\n              'episode_id': 'restore-write-confirmation',...\\n  \\n  ...Full output truncated (36 lines hidden), use '-vv' to show\"))"
+}

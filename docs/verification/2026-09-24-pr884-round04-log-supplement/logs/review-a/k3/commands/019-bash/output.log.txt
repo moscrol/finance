@@ -1,0 +1,40 @@
+338:        self._local_store_failures: list[str] = []
+373:    def store_failures(self) -> list[str]:
+375:        failures = list(self._local_store_failures)
+381:        if self.store_failures:
+397:        self._local_store_failures.append(detail)
+404:        if self.store_failures:
+405:            return ModelTurn("", (), error="storage_failed", provider_attempts=0)
+415:        if self.store_failures:
+418:            if not any(e.kind == "persistence_failed" for e in self.events):
+419:                self.add("persistence_failed", {
+420:                    "status": "failed", "stop_reason": "storage_failed",
+421:                    "store_failures": list(self.store_failures),
+425:                status="failed", stop_reason="storage_failed",
+479:            if not self.store_failures:
+501:            if not self.store_failures:
+517:            if not self.store_failures:
+535:            if not self.store_failures:
+559:            store = self._store if not self.store_failures else None
+608:        if self.store_failures:
+627:        return not self.store_failures
+675:            event_payload.setdefault("store_failures", list(self.store_failures))
+676:            if self.store_failures:
+677:                event_payload.update(status="failed", stop_reason="storage_failed")
+706:        if self._event_sink is not None and not (kind == "finish" and self.store_failures):
+1263:            self._store.on_failure(lambda: self._cancel.request("hook", "storage_failed"))
+1472:            on_store_failure=lambda: self._cancel.request("hook", "storage_failed"),
+1482:            persistence_failed=lambda: bool(ledger.store_failures),
+1516:        tool_session.execution_failed = lambda: bool(ledger.store_failures)
+1576:            if ledger.store_failures:
+1578:                    task_frame=task_frame, status="failed", stop_reason="storage_failed",
+1797:            if ledger.store_failures:
+1804:                    task_frame=task_frame, status="failed", stop_reason="storage_failed",
+2415:            if ledger.store_failures:
+2492:        if state.ledger.store_failures:
+2522:        if state.ledger.store_failures:
+2975:        if remaining <= 0 or accumulator.ledger.store_failures:
+3204:        if ledger.store_failures:
+3208:                    "status": "failed", "error": "storage_failed",
+3293:            return not ledger.store_failures
+3679:        if ledger.store_failures:

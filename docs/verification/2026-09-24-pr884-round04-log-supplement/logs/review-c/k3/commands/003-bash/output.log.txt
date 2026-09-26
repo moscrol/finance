@@ -1,0 +1,9 @@
+     785 docs/agent-product-door.md
+     213 intelligence/services/episode_projection.py
+     207 intelligence/services/episode_event_lanes.py
+      26 intelligence/runtime/model_output_scope.py
+      46 intelligence/runtime/tool_result_scope.py
+    4151 intelligence/runtime/agent_episode.py
+    2587 intelligence/runtime/continuous_turn_adapter.py
+    3773 intelligence/api/app.py
+   11788 total

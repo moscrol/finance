@@ -1,0 +1,9 @@
+{
+  "revision": "ce379288595b5a809aea14cd02671acf10d0278c",
+  "baseline": "3bb81b9638f97b4773ce0f338df3a505b7c0162f",
+  "previous": "9bdac579918fd8e4259bb94699c0aaacbe964a44",
+  "tree": "00cf95af75c8236aa9f5bc5e7d7e5f61fe14e0ba",
+  "preview_tree": "4899259b8b435474ceee8068ba2ebfb942499226",
+  "resolution": "docs/verification/2026-09-22-independent-qc-batch/QUEUE.md",
+  "scope": "feature branch forward only, full gates pending"
+}

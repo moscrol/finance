@@ -1,0 +1,12 @@
+            call_site("_post_chat", llm._post_chat)
+            call_site("_post_chat_synthesis", llm._post_chat_synthesis,
+                      max_tokens=128, max_chars=1000)
+            call_site("_post_chat_message_stream", llm._post_chat_message_stream,
+                      is_cancelled=lambda: False)
+            call_site("_post_chat_message", llm._post_chat_message)
+            call_site("_post_chat_stream", llm._post_chat_stream)
+    finally:
+        llm._open_deadline_http_response = orig
+
+
+[truncated; total lines=166, selected=131:140; request a later offset]

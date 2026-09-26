@@ -1,0 +1,20 @@
+你是 #75 独立 quality 审查者，只审 #72 / PR #868 工程主张。不修产品，不做金融题，不把作者测试当独立验证，不知道另一轴结论。
+candidate/cwd: /Users/a77/.finance-runtime/reviews/pr868-k3-qc-20260923-1607/candidate/finance-workspace-private
+revision: 31f1b40dd788d36c71da249d59fb769c50d7cd30
+baseline: 9a02279863733c9b9f60fd92fcc7e840fa83f878
+Python: /Users/a77/finance-workspace-private/.venv-workbench/bin/python
+唯一可写 work: /Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260923-1707/quality/work
+主张与历史作者收据: /Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260923-1707/quality/inputs/claims.md 及同目录；原始作者树不可读。
+候选只读。源码入口 intelligence/services/llm_http_transport.py、llm_refine.py、episode_semantic_verifier.py，作者测试 intelligence/tests/test_llm_timeout_diagnostic.py。
+工具只准访问回环 TCP 26001–26008 自建假服务，不准随机动态端口、生产8792、网关18788/54340、代理19899或外网。不能嵌套sandbox-exec。工具无凭据。
+阶段最多24模型请求、600秒，每发120秒，GLM-5.3沿用既有非扩展思考配置，8192输出tokens，不允许重试或加额。只用可观察证据。
+
+这是全新 report 会话。只核证据写结论，不补跑、不修改探针。
+先读 /Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260923-1707/quality/explore/REPORT.md、/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260923-1707/quality/execute/REPORT.md、/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260923-1707/quality/work/EXECUTE.md；必须抽核 /Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260923-1707/quality/execute/commands 内真实命令、退出码和输出，不能只照抄摘要。
+Spec轴逐条C1-C7标verified/not_verified/out_of_scope；Quality轴报告具体现存正确性问题，无发现就写无发现，不凑数。两轴都须指出结论比测试更宽的部分。
+C7只核历史收据归属7ad61a0d3，不外推当前工装或联合main。C6不凭一次测试背书历史性能数字。作者、自造、阳性对照必须分账；assert1==2归probe_bug，不算产品缺陷。
+verdict仅允许PASS/PASS_WITH_LIMITS/CHANGES_REQUIRED/BLOCKED_<原因>。预算不足或缺关键行为证据不能包装成无发现。发现含文件:行、触发输入、实际输出、为何错。自然金融不在范围，不能覆盖L6 NOT_PASSED或授权合入。
+写 /Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260923-1707/quality/work/QUALITY_REPORT.md。最终中文简报加JSON，模板不预设结论：
+```json
+{"stage": "report", "axis": "quality", "revision": "31f1b40dd788d36c71da249d59fb769c50d7cd30", "baseline": "9a02279863733c9b9f60fd92fcc7e840fa83f878", "complete": true, "verdict": "<按证据选择>", "claims": [], "findings": [], "author_tests": {"passed": 0, "failed": 0}, "reviewer_probes": {"passed": 0, "failed": 0}, "positive_control": {"classification": "probe_bug", "observed_exit": null}, "limits": []}
+```

@@ -1,0 +1,130 @@
+{
+  "closure_schema": 1,
+  "protocol": "2026-09-23 L6 natural acceptance",
+  "overall_verdict": "NOT_PASSED",
+  "overall_verdict_reason": "三题协议未完成：Q1 为 partial 且语义判官 unavailable，Q2 在首轮和 repair 均 LLMDeadlineExceeded，Q3 按停批协议未执行。不得签发整体 PASS。",
+  "candidate": {
+    "revision": "31f1b40dd788d36c71da249d59fb769c50d7cd30",
+    "worktree_clean": true,
+    "candidate_unchanged_before_after": true,
+    "q1_episode_sha256": "e633a45dc4d6e84315b96949a731530237f2551cc43ae49726522354630e7020",
+    "frozen_manifest_sha256": "5796a9b742eb44b779ed44d94f6ece23ff243e203e7f980e524263b1d1085bbb"
+  },
+  "questions": [
+    {
+      "id": "L6-Q1",
+      "run_id": "run_20260923_142128_565528",
+      "status": "BLOCKED_JUDGE_UNAVAILABLE",
+      "quality_status": "NOT_PASSED",
+      "answer_status": "partial",
+      "judge_status": "unavailable",
+      "judge_mode": "llm",
+      "writer_observed": "kimi-k3-eas",
+      "tool_calls": 4,
+      "repair_attempts": 1,
+      "repair_status": "repair_model_unavailable",
+      "required_output_gap": [
+        "falsification_conditions",
+        "change_summary",
+        "track_quad_or_baseline",
+        "track_ttl",
+        "track_next_watch"
+      ],
+      "source_review": {
+        "path": "audits/q1-source-review.json",
+        "verdict_path": "audits/q1-source-review-audit.json",
+        "verdict": "BLOCKED_JUDGE_UNAVAILABLE"
+      },
+      "interpretation": "答案没有给出寒武纪伪造数值，已知大盘事实的日期和数值可逐句绑定；但独立语义判官不可用，条件框架没有本轮个股证据，且跟踪契约缺件。"
+    },
+    {
+      "id": "L6-Q2",
+      "run_id": "run_20260923_142823_856635",
+      "status": "NOT_EXERCISED",
+      "quality_status": "NOT_PASSED",
+      "answer_status": "failed",
+      "judge_status": "not_executed",
+      "writer_observed": "none",
+      "tool_calls": 0,
+      "repair_attempts": 1,
+      "repair_status": "repair_model_unavailable",
+      "audit_path": "audits/q2-execution-audit.json",
+      "interpretation": "没有进入本地查询阶段，不能作本地数据存在性、查询能力或板块相对强弱结论。"
+    },
+    {
+      "id": "L6-Q3",
+      "status": "NOT_EXERCISED",
+      "quality_status": "NOT_PASSED",
+      "judge_status": "not_executed",
+      "run_id": null,
+      "tool_calls": 0,
+      "reason": "Q2 run_failed 后按协议停批；不得补交。"
+    }
+  ],
+  "protocol_receipts": {
+    "initial_submissions_per_question": 1,
+    "resubmissions": 0,
+    "followups": 0,
+    "stopped_for": {
+      "question": "L6-Q2",
+      "reason": "run_failed"
+    },
+    "ports": {
+      "workbench": 19897,
+      "shim": 19898,
+      "released": true
+    },
+    "production": {
+      "identity_unchanged": true,
+      "lock_unchanged": true,
+      "touched": false
+    },
+    "frozen_inputs": {
+      "manifest_entries": 751,
+      "checked": 751,
+      "mismatches": [],
+      "key_persisted": false
+    },
+    "health_candidate_revision": "31f1b40dd788d36c71da249d59fb769c50d7cd30"
+  },
+  "harness_findings": [
+    {
+      "finding": "K3 shim BrokenPipeError",
+      "severity": "evidence_quality",
+      "status": "OPEN",
+      "detail": "shim.log 记录两次 BrokenPipeError；shim-counts-final.json 为 requests=0、dropped_temperature=0，因此计数不可作为 writer 请求计数收据。"
+    },
+    {
+      "finding": "Q1 semantic judge unavailable",
+      "severity": "acceptance_blocker",
+      "status": "OPEN",
+      "detail": "gate_receipt.judge_status=unavailable，不能把 structural/evidence 通过升级为质量 PASS。"
+    },
+    {
+      "finding": "Q2 writer unavailable",
+      "severity": "acceptance_blocker",
+      "status": "OPEN",
+      "detail": "首轮与 repair 均 LLMDeadlineExceeded，未产生工具调用或答案。"
+    },
+    {
+      "finding": "is_cancelled forwarding mutation survives",
+      "severity": "code_quality",
+      "status": "OPEN",
+      "detail": "既有严格变异探针仍发现 is_cancelled= 转发阳性，不能在本 closure 中忽略。"
+    }
+  ],
+  "artifacts": {
+    "execution": "execution.json",
+    "frozen_data": "frozen-data-closure.json",
+    "key_scan": "key-scan.json",
+    "q1_episode": "L6-Q1/raw-run/continuous-episode.json",
+    "q2_events": "episodes/run_20260923_142823_856635_msg_38b2b10243bb474880d42800aa06b736-90ab6a171db2/events.jsonl",
+    "q1_source_review": "audits/q1-source-review.json",
+    "q2_execution_audit": "audits/q2-execution-audit.json"
+  },
+  "merge_policy": {
+    "pr_868": "保持 WIP、open、未合入",
+    "merge_authorization": "未获得",
+    "deployment": "未执行"
+  }
+}

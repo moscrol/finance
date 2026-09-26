@@ -1,0 +1,13 @@
+83,86c83,84
+<         time.sleep(0.4)  # give the worker's own Timer a chance to fire
+<         rc = resp.process.poll()
+<         print(f"worker returncode after failure={rc}")
+<         assert rc is not None, "worker still alive 0.4s after deadline failure"
+---
+>         assert resp.process.poll() is not None, "worker still alive after failure"
+>         print(f"worker returncode={resp.process.returncode}")
+---diff-exit=1
+chunks=0 err=deadline elapsed=1.50
+worker returncode after failure=124
+PROBE_C1_STREAM_DEADLINE: PASS
+EXIT=0

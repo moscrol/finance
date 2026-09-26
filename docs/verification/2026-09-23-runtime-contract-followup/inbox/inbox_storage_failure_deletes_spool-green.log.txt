@@ -1,0 +1,3 @@
+..                                                                       [100%]
+- generated xml file: /Users/a77/.finance-runtime/reviews/runtime-contract-followup-20260923/runs/final-inbox/mutations/inbox_storage_failure_deletes_spool-green.xml -
+2 passed, 4 deselected in 0.78s

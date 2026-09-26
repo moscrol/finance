@@ -1,0 +1,65 @@
+{
+  "status": "COMPLETED_AWAITING_EVIDENCE_AUDIT",
+  "stages": [
+    {
+      "axis": "spec",
+      "stage": "gateway",
+      "status": "COMPLETE",
+      "seconds": 18.206,
+      "requests": 4
+    },
+    {
+      "axis": "spec",
+      "stage": "explore",
+      "status": "COMPLETE",
+      "seconds": 211.827,
+      "requests": 15
+    },
+    {
+      "axis": "spec",
+      "stage": "execute",
+      "status": "COMPLETE",
+      "seconds": 115.98,
+      "requests": 17
+    },
+    {
+      "axis": "spec",
+      "stage": "report",
+      "status": "COMPLETE",
+      "seconds": 17.829,
+      "requests": 1
+    },
+    {
+      "axis": "quality",
+      "stage": "gateway",
+      "status": "COMPLETE",
+      "seconds": 13.322,
+      "requests": 4
+    },
+    {
+      "axis": "quality",
+      "stage": "explore",
+      "status": "COMPLETE",
+      "seconds": 177.419,
+      "requests": 12
+    },
+    {
+      "axis": "quality",
+      "stage": "execute",
+      "status": "COMPLETE",
+      "seconds": 98.411,
+      "requests": 17
+    },
+    {
+      "axis": "quality",
+      "stage": "report",
+      "status": "COMPLETE",
+      "seconds": 29.023,
+      "requests": 1
+    }
+  ],
+  "automatic_retries": 0,
+  "prior_failed_gateway_requests": 3,
+  "cumulative_request_cap": 152,
+  "running": null
+}

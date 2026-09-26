@@ -1,0 +1,1 @@
+{"toolCallId":"call_51dad2e053514a68acbcadd0","params":{"command":"cd /Users/a77/.finance-runtime/reviews/pr868-k3-qc-20260923-1607/candidate/finance-workspace-private && grep -n \"report_received\\|judge_subwindow\\|subwindow\\|unavailable\" intelligence/services/episode_semantic_verifier.py | head -40"}}

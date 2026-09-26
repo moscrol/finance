@@ -1,0 +1,2 @@
+/Users/a77/finance-workspace-private/.venv-workbench/bin/python
+Python 3.12.13

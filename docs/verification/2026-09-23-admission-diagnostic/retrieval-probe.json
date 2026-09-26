@@ -1,0 +1,63 @@
+{
+  "ready": true,
+  "exit_code": 0,
+  "timeout_seconds": 120,
+  "wall_elapsed_seconds": 38.406616,
+  "last_event": {
+    "event": "complete",
+    "elapsed_seconds": 31.10285,
+    "ready": true,
+    "shape": [
+      1,
+      1024
+    ]
+  },
+  "events": [
+    {
+      "event": "started",
+      "elapsed_seconds": 3e-06
+    },
+    {
+      "event": "import_started",
+      "elapsed_seconds": 0.000406
+    },
+    {
+      "event": "import_complete",
+      "elapsed_seconds": 0.20032
+    },
+    {
+      "event": "load_started",
+      "elapsed_seconds": 0.200454
+    },
+    {
+      "event": "load_complete",
+      "elapsed_seconds": 27.180347
+    },
+    {
+      "event": "encode_started",
+      "elapsed_seconds": 27.951085
+    },
+    {
+      "event": "complete",
+      "elapsed_seconds": 31.10285,
+      "ready": true,
+      "shape": [
+        1,
+        1024
+      ]
+    }
+  ],
+  "worker": {
+    "bytes": 1433,
+    "sha256": "c41a82b43d37d9af12856a4c039b3cae292f985fc4c4712f1d577cb709f502c1"
+  },
+  "model_path": "/Users/a77/.cache/huggingface/hub/models--BAAI--bge-m3/snapshots/5617a9f61b028005a4858fdac845db406aefb181",
+  "offline": true,
+  "downloads": false,
+  "paid_model_requests": 0,
+  "model_weights_present": true,
+  "log": {
+    "bytes": 2477,
+    "sha256": "1d5ba564be1479c231b890f97ea16a66890c96124fa88f6b0af95cf9e235ebf3"
+  }
+}

@@ -1,0 +1,69 @@
+"""Reversibly preserve completed engineering, failed admission and sealed QC evidence."""
+import base64
+import gzip
+import hashlib
+import json
+from pathlib import Path
+import re
+
+HERE=Path(__file__).resolve().parent
+TREE=Path('/Users/a77/finance-worktrees/adaptive-research-loop')
+QC=Path('/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260924-0415')
+OLD=Path('/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260924-0400')
+DEST=TREE/'docs/verification/2026-09-24-adaptive-e7-qc-closeout'
+assert json.loads((QC/'closure-current-turn.json').read_text())['do_not_resume']
+assert not DEST.exists()
+DEST.mkdir()
+manifest={}
+patterns=rb'-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|\b(?:ghp_|glpat-|sk-proj-)[A-Za-z0-9_-]{20,}|\b[a-f0-9]{32}\.[A-Za-z0-9]{16,}\b'
+def add(source,relative):
+ assert source.is_file() and not source.is_symlink(),source
+ raw=source.read_bytes()
+ assert not re.search(patterns,raw),source
+ encoding='raw'
+ data=raw
+ if len(raw)>200000 or re.search(rb'[ \t]+\r?$',raw,re.M) or raw.endswith(b'\n\n'):
+  encoding='gzip-base64-json' if len(raw)>200000 else 'base64-json'
+  payload=gzip.compress(raw,mtime=0) if encoding.startswith('gzip') else raw
+  data=(json.dumps({'encoding':encoding,'source_sha256':hashlib.sha256(raw).hexdigest(),'source_bytes':len(raw),'data':base64.b64encode(payload).decode('ascii')},indent=2)+'\n').encode()
+  relative+='.encoded.json'
+ elif source.suffix in ('.py','.mjs','.sh','.sb'):
+  relative+='.txt'
+ assert relative not in manifest,relative
+ target=DEST/relative
+ target.parent.mkdir(parents=True,exist_ok=True)
+ target.write_bytes(data)
+ decoded=data
+ if encoding!='raw':
+  decoded=base64.b64decode(json.loads(data)['data'],validate=True)
+  if encoding.startswith('gzip'): decoded=gzip.decompress(decoded)
+ assert decoded==raw
+ manifest[relative]={'source':str(source),'encoding':encoding,'source_bytes':len(raw),'source_sha256':hashlib.sha256(raw).hexdigest(),'stored_bytes':len(data),'stored_sha256':hashlib.sha256(data).hexdigest()}
+
+for source in sorted(HERE.iterdir()):
+ if source.is_file() and source.name not in ('archive-commit.log.txt','active-qc-handoff-commit.log.txt','archive-e7.log.txt'):
+  add(source,'host/'+source.name)
+for directory in ['python-receipts/gate-Pq59hxEb','frontend','structured-delivery-candidate','structured-delivery-offline']:
+ for source in sorted((HERE/directory).rglob('*')):
+  if source.is_file(): add(source,str(source.relative_to(HERE)))
+for source in sorted(QC.iterdir()):
+ if source.is_file(): add(source,'qc-0415/'+source.name)
+for axis in ('spec','quality'):
+ root=QC/axis
+ for source in sorted(root.iterdir()):
+  if source.is_file(): add(source,'qc-0415/'+str(source.relative_to(QC)))
+ for directory in ['inputs','pi-config','sandbox-preflight-04','gateway','gateway-shim','explore','explore-shim','execute','execute-shim','report','report-shim','work/probes']:
+  for source in sorted((root/directory).rglob('*')):
+   if source.is_file() and not source.is_symlink() and source.suffix in ('.py','.mjs','.json','.jsonl','.txt','.md','.log','.sb','.sh'):
+    add(source,'qc-0415/'+str(source.relative_to(QC)))
+ for name in ['positive_control.py','gateway-fixture.txt','gateway-echo.txt','author-tests.xml','host-author.xml']:
+  source=root/'work'/name
+  if source.exists(): add(source,'qc-0415/'+str(source.relative_to(QC)))
+for name in ['batch.json','closure-unadmitted.json','authorization.json']:
+ add(OLD/name,'qc-0400/'+name)
+for axis in ('spec','quality'):
+ for name in ['tools.sb','config.json','sandbox_preflight.mjs','sandbox-preflight-04/receipt.json','work/host-author-v2.xml']:
+  source=OLD/axis/name
+  add(source,'qc-0400/'+str(source.relative_to(OLD)))
+(DEST/'archive-manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
+print(json.dumps({'files':len(manifest),'stored_bytes':sum(row['stored_bytes'] for row in manifest.values()),'decoded_mismatches':0,'secret_pattern_hits':0}))

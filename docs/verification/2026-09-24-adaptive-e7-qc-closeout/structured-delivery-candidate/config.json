@@ -1,0 +1,34 @@
+{
+  "tree": "/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0326/candidate",
+  "python": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+  "author": "/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0326/candidate",
+  "revision": "e7a6cb412865fdd189cf51a17f93622fa3d4fe55",
+  "baseline": "3bb81b9638f97b4773ce0f338df3a505b7c0162f",
+  "axis": "spec",
+  "thinking": "low",
+  "max_output_tokens": 8192,
+  "provider": "glm-direct-review",
+  "model": "glm-5.3",
+  "upstream_port": 443,
+  "upstream_url": "https://open.bigmodel.cn/api/coding/paas/v4",
+  "stage_tools": {
+    "gateway": [
+      "read",
+      "write"
+    ],
+    "explore": [
+      "read",
+      "write",
+      "deliver_stage"
+    ],
+    "execute": [
+      "read",
+      "write",
+      "bash",
+      "deliver_stage"
+    ],
+    "report": [
+      "deliver_stage"
+    ]
+  }
+}

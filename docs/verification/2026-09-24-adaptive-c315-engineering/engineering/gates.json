@@ -1,0 +1,98 @@
+{
+  "revision": "c315cfdaa96a5b18cedb060b09ddc92ec2a14559",
+  "started": "2026-09-23T18:01:03.970865+00:00",
+  "complete": true,
+  "checks": [
+    {
+      "name": "python",
+      "command": [
+        "bash",
+        "scripts/run_main_gate.sh",
+        "--pytest-args",
+        "-q -p no:cacheprovider -o tmp_path_retention_policy=failed --basetemp=/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0205/python-basetemp"
+      ],
+      "exit_code": 1,
+      "seconds": 2391.353
+    },
+    {
+      "name": "frontend",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-B",
+        "scripts/run_frontend_gate.py",
+        "--tree",
+        "/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0205/candidate",
+        "--expect-revision",
+        "c315cfdaa96a5b18cedb060b09ddc92ec2a14559",
+        "--output",
+        "/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0205/frontend",
+        "--python",
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "--workbench-port",
+        "19981",
+        "--re06-port",
+        "19984"
+      ],
+      "exit_code": 0,
+      "seconds": 136.348
+    },
+    {
+      "name": "parseability",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-B",
+        "scripts/build_registry.py",
+        "check-parseability"
+      ],
+      "exit_code": 0,
+      "seconds": 0.111
+    },
+    {
+      "name": "registry",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-B",
+        "scripts/build_registry.py",
+        "check"
+      ],
+      "exit_code": 0,
+      "seconds": 0.103
+    },
+    {
+      "name": "tables",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-B",
+        "scripts/build_registry.py",
+        "backfill-tables",
+        "--check"
+      ],
+      "exit_code": 0,
+      "seconds": 0.098
+    },
+    {
+      "name": "views",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-B",
+        "scripts/build_registry.py",
+        "generate-views",
+        "--check"
+      ],
+      "exit_code": 0,
+      "seconds": 0.069
+    },
+    {
+      "name": "ledger",
+      "command": [
+        "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+        "-B",
+        "scripts/audit_ledger_spec_crosswalk.py"
+      ],
+      "exit_code": 0,
+      "seconds": 0.28
+    }
+  ],
+  "running": null,
+  "finished": "2026-09-23T18:49:42.587811+00:00"
+}

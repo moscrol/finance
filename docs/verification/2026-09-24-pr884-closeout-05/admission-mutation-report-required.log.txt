@@ -1,0 +1,14 @@
+test_pytest_without_report_option_blocks (resource_tests.GateResourceTests.test_pytest_without_report_option_blocks) ... FAIL
+
+======================================================================
+FAIL: test_pytest_without_report_option_blocks (resource_tests.GateResourceTests.test_pytest_without_report_option_blocks)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/a77/fwp-wt-runtime-postmerge-qc-0923/tests/test_review_gate_resources.py", line 12, in test_pytest_without_report_option_blocks
+    self.assertFalse(result["admitted"])
+AssertionError: True is not false
+
+----------------------------------------------------------------------
+Ran 1 test in 0.001s
+
+FAILED (failures=1)

@@ -7,7 +7,7 @@
 #   bash scripts/run_main_gate.sh --receipt <收据.json>
 #   bash scripts/run_main_gate.sh --baseline <基线.json>  # 红集比较，不是合入门禁
 #   bash scripts/run_main_gate.sh --receipt <收据.json> --baseline <基线.json>
-# FWP_TEST_RECEIPT_DIR 指定收据根；每轮新建 gate-*/pytest.json，不读共享 latest.json。
+# FWP_TEST_RECEIPT_DIR 指定收据根；每轮新建 gate-*/pytest.json 和完整 pytest.log.txt，不读共享 latest.json。
 # --pytest-args 里显式给了 --basetemp=<dir> 时：门禁全绿即删该目录（红保留作证据）；GATE_KEEP_BASETEMP=1 强制保留。
 #   为什么：2026-09-23 盘上 pytest 临时区累计 30 GB，全是绿了也没人删的 basetemp；pytest 只保 3 个的自清理
 #   在并发跑 + 只读文件下失效。只认显式路径——默认编号目录（pytest-of-<user>/pytest-N）分不清是谁的。
@@ -37,8 +37,7 @@ while [ $# -gt 0 ]; do
 done
 
 # 仅用宿主标准库解析 JSON，测试本身仍用契约指定的解释器。
-PY="$(python3 -c 'import json,sys; from pathlib import Path; p=Path(sys.argv[1]); print(json.loads(p.read_text()).get("interpreter", "") if p.is_file() else "")' "$REPO/test-environment.json")" || exit 4
-[ -z "$PY" ] && PY="$REPO/.venv-workbench/bin/python"
+PY="$(python3 "$GATE_DIR/workspace_env.py" --repo "$REPO")" || exit 4
 if [ ! -x "$PY" ]; then
   echo "解释器不可执行: ${PY}" >&2
   exit 4
@@ -98,9 +97,14 @@ if [ -n "$RECEIPT_ONLY" ]; then
 else
   RECEIPT_DIR="${FWP_TEST_RECEIPT_DIR:-$HOME/.finance-runtime/test-receipts}"
   mkdir -p "$RECEIPT_DIR" || exit 4
-  RECEIPT_DIR="$(cd "$RECEIPT_DIR" && pwd)" || exit 4
+  RECEIPT_DIR="$(cd "$RECEIPT_DIR" && pwd -P)" || exit 4
+  if [ -n "$BASETEMP_REAL" ] && path_is_same_or_child "$RECEIPT_DIR" "$BASETEMP_REAL"; then
+    echo "receipt directory overlaps disposable basetemp; refusing pytest" >&2
+    exit 4
+  fi
   RUN_DIR="$(mktemp -d "$RECEIPT_DIR/gate-XXXXXXXX")" || exit 4
   LATEST="$RUN_DIR/pytest.json"
+  PYTEST_LOG="$RUN_DIR/pytest.log.txt"
   echo "== gate @ ${REV:0:12} tree=${REPO} py=${PY} receipt=${LATEST}"
   echo "== ruff check ."
   if ! "$PY" -m ruff check . ; then
@@ -108,11 +112,18 @@ else
     exit 1
   fi
   echo "== pytest ${PYTEST_ARGS}"
+  echo "== pytest raw log: ${PYTEST_LOG}"
+  # Retain live output even when interrupted, without treating it as a final receipt.
   # Preserve the existing whitespace-separated --pytest-args contract; never eval it.
   # shellcheck disable=SC2086
   FWP_TEST_RECEIPT_DIR="$RECEIPT_DIR" FWP_TEST_RECEIPT_PATH="$LATEST" \
-    FWP_TEST_RECEIPT_OWNER_PID="" "$PY" -m pytest $PYTEST_ARGS 2>&1 | tail -15
-  PYTEST_EXIT="${PIPESTATUS[0]}"
+    FWP_TEST_RECEIPT_OWNER_PID="" "$PY" -u -m pytest $PYTEST_ARGS 2>&1 | tee "$PYTEST_LOG" | tail -15
+  PIPE_EXITS=("${PIPESTATUS[@]}")
+  PYTEST_EXIT="${PIPE_EXITS[0]}"
+  if [ "${PIPE_EXITS[1]}" != 0 ] || [ "${PIPE_EXITS[2]}" != 0 ] || [ ! -f "$PYTEST_LOG" ]; then
+    echo "pytest output pipeline failed (output capture failed); receipt not accepted, full evidence is unavailable and basetemp retained." >&2
+    exit 4
+  fi
   CHECK_ARGS+=(--pytest-exit "$PYTEST_EXIT")
 fi
 AFTER_REV="$(git rev-parse HEAD)" || exit 4

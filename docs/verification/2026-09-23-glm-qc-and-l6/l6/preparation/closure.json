@@ -1,0 +1,16 @@
+{
+  "scope": "preparation only; no sidecar or model request",
+  "production_identity_unchanged": {
+    "source_revision": true,
+    "source_dirty": true,
+    "loaded_code_root": true,
+    "loaded_tree_fingerprint": true,
+    "code_matches_repo": true,
+    "users_dir": true,
+    "agent_runtime": true
+  },
+  "frozen_data_unchanged": null,
+  "code_identity_unchanged": true,
+  "sidecars_started": 0,
+  "locks_acquired": 0
+}

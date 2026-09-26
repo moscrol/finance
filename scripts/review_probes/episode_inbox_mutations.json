@@ -1,0 +1,9 @@
+[
+  {
+    "id": "inbox_storage_failure_deletes_spool",
+    "path": "intelligence/services/episode_inbox.py",
+    "old": "                if receipt.reason in {\"inbox_closed\", \"storage_failed\"}:\n",
+    "new": "                if receipt.reason in {\"inbox_closed\"}:\n",
+    "targets": ["test_c1_failed_insert_keeps_spool_file_and_blocks_claim"]
+  }
+]

@@ -1,0 +1,753 @@
+{
+  "schema_version": 3,
+  "scope": "synthetic loopback HTTP; no live model or content acceptance",
+  "source_before": {
+    "revision": "0165aa7eee022802522b20d49c92992f8e29a559",
+    "working_tree_status": "M intelligence/services/llm_http_transport.py\n M intelligence/tests/test_llm_timeout_diagnostic.py\n M scripts/review_probes/diagnose_llm_timeout.py\n M scripts/review_probes/prepare_adaptive_l6.py\n M scripts/review_probes/prepare_pi_review_repair.py\n M tests/test_pi_review_repair.py\n?? scripts/review_probes/retrieval_readiness_worker.py\n?? tests/test_retrieval_readiness.py",
+    "python": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "python_version": "3.12.13",
+    "platform": "macOS-26.4-arm64-arm-64bit",
+    "source_sha256": {
+      "scripts/review_probes/diagnose_llm_timeout.py": "6a1c456f8e8a6a353e7b628676df5af98f4d1693e01c1026201f0df513790a9e",
+      "intelligence/services/llm_refine.py": "367b8570709c5abaebca2974432257e5ae38366a45ce9ed645177e20b590a97d",
+      "intelligence/services/episode_semantic_verifier.py": "25559c737b7e7b1f55a8acbbbbc6a998f15d913471fc23399a0e357069fbd7cf",
+      "intelligence/services/research_contract.py": "098a6dafbd3b6b266fbae274c3e9b1288a1487e3630958f02969123c240bdf26",
+      "intelligence/services/llm_http_transport.py": "a34b6763ac82c6a44a975b9f93b5a5b2df4b866b4d2f859bb9f9b56949313d20"
+    }
+  },
+  "source_after": {
+    "revision": "0165aa7eee022802522b20d49c92992f8e29a559",
+    "working_tree_status": "M intelligence/services/llm_http_transport.py\n M intelligence/tests/test_llm_timeout_diagnostic.py\n M scripts/review_probes/diagnose_llm_timeout.py\n M scripts/review_probes/prepare_adaptive_l6.py\n M scripts/review_probes/prepare_pi_review_repair.py\n M tests/test_pi_review_repair.py\n?? scripts/review_probes/retrieval_readiness_worker.py\n?? tests/test_retrieval_readiness.py",
+    "python": "/Users/a77/finance-workspace-private/.venv-workbench/bin/python",
+    "python_version": "3.12.13",
+    "platform": "macOS-26.4-arm64-arm-64bit",
+    "source_sha256": {
+      "scripts/review_probes/diagnose_llm_timeout.py": "6a1c456f8e8a6a353e7b628676df5af98f4d1693e01c1026201f0df513790a9e",
+      "intelligence/services/llm_refine.py": "367b8570709c5abaebca2974432257e5ae38366a45ce9ed645177e20b590a97d",
+      "intelligence/services/episode_semantic_verifier.py": "25559c737b7e7b1f55a8acbbbbc6a998f15d913471fc23399a0e357069fbd7cf",
+      "intelligence/services/research_contract.py": "098a6dafbd3b6b266fbae274c3e9b1288a1487e3630958f02969123c240bdf26",
+      "intelligence/services/llm_http_transport.py": "a34b6763ac82c6a44a975b9f93b5a5b2df4b866b4d2f859bb9f9b56949313d20"
+    }
+  },
+  "scheduling_tolerance_seconds": 0.2,
+  "deadline_violations": [],
+  "coverage_gaps": [],
+  "cases": [
+    {
+      "scenario": "fast",
+      "timeout_input_seconds": 0.8,
+      "wall_elapsed_seconds": 0.19450012501329184,
+      "request_count": 1,
+      "attempts": [
+        {
+          "timeout_seconds": 0.7983257500454783,
+          "phase": "eof",
+          "events": [
+            {
+              "event": "spawn_started",
+              "elapsed_ms": 0
+            },
+            {
+              "event": "spawned",
+              "elapsed_ms": 4
+            },
+            {
+              "event": "request_sent",
+              "elapsed_ms": 4
+            },
+            {
+              "event": "headers",
+              "elapsed_ms": 189,
+              "status": 200
+            },
+            {
+              "event": "eof",
+              "elapsed_ms": 189
+            },
+            {
+              "event": "closed",
+              "elapsed_ms": 191,
+              "returncode": -9,
+              "reap_ms": 2
+            }
+          ],
+          "status": 200,
+          "headers_ms": 189,
+          "returncode": -9,
+          "reap_ms": 2,
+          "elapsed_ms": 191
+        }
+      ],
+      "requests": [
+        {
+          "stream_requested": false
+        }
+      ],
+      "content_present": true,
+      "reason": "",
+      "emitted_chars": 0,
+      "reserved_count": 1,
+      "records": [
+        {
+          "caller": "chat",
+          "elapsed_ms": 192,
+          "status": "success",
+          "reason": null
+        }
+      ]
+    },
+    {
+      "scenario": "header_delay",
+      "timeout_input_seconds": 0.8,
+      "wall_elapsed_seconds": 0.8050084169954062,
+      "request_count": 1,
+      "attempts": [
+        {
+          "timeout_seconds": 0.799981625052169,
+          "phase": "request_sent",
+          "events": [
+            {
+              "event": "spawn_started",
+              "elapsed_ms": 0
+            },
+            {
+              "event": "spawned",
+              "elapsed_ms": 3
+            },
+            {
+              "event": "request_sent",
+              "elapsed_ms": 3
+            },
+            {
+              "event": "closed",
+              "elapsed_ms": 804,
+              "returncode": -9,
+              "reap_ms": 4
+            }
+          ],
+          "returncode": -9,
+          "reap_ms": 4,
+          "elapsed_ms": 804
+        }
+      ],
+      "requests": [
+        {
+          "stream_requested": false
+        }
+      ],
+      "content_present": false,
+      "reason": "LLM 调用失败（LLMDeadlineExceeded）",
+      "emitted_chars": 0,
+      "reserved_count": 1,
+      "records": [
+        {
+          "caller": "chat",
+          "elapsed_ms": 804,
+          "status": "failed",
+          "reason": "timeout"
+        }
+      ]
+    },
+    {
+      "scenario": "body_stall",
+      "timeout_input_seconds": 0.8,
+      "wall_elapsed_seconds": 0.8077471670694649,
+      "request_count": 1,
+      "attempts": [
+        {
+          "timeout_seconds": 0.7999561671167612,
+          "phase": "headers",
+          "events": [
+            {
+              "event": "spawn_started",
+              "elapsed_ms": 0
+            },
+            {
+              "event": "spawned",
+              "elapsed_ms": 7
+            },
+            {
+              "event": "request_sent",
+              "elapsed_ms": 11
+            },
+            {
+              "event": "headers",
+              "elapsed_ms": 196,
+              "status": 200
+            },
+            {
+              "event": "closed",
+              "elapsed_ms": 807,
+              "returncode": 124,
+              "reap_ms": 2
+            }
+          ],
+          "status": 200,
+          "headers_ms": 196,
+          "returncode": 124,
+          "reap_ms": 2,
+          "elapsed_ms": 807
+        }
+      ],
+      "requests": [
+        {
+          "stream_requested": false
+        }
+      ],
+      "content_present": false,
+      "reason": "LLM 调用失败（LLMDeadlineExceeded）",
+      "emitted_chars": 0,
+      "reserved_count": 1,
+      "records": [
+        {
+          "caller": "chat",
+          "elapsed_ms": 807,
+          "status": "failed",
+          "reason": "timeout"
+        }
+      ]
+    },
+    {
+      "scenario": "headers_then_body",
+      "timeout_input_seconds": 0.8,
+      "wall_elapsed_seconds": 0.8082517080474645,
+      "request_count": 1,
+      "attempts": [
+        {
+          "timeout_seconds": 0.7999653331935406,
+          "phase": "headers",
+          "events": [
+            {
+              "event": "spawn_started",
+              "elapsed_ms": 0
+            },
+            {
+              "event": "spawned",
+              "elapsed_ms": 5
+            },
+            {
+              "event": "request_sent",
+              "elapsed_ms": 5
+            },
+            {
+              "event": "headers",
+              "elapsed_ms": 745,
+              "status": 200
+            },
+            {
+              "event": "closed",
+              "elapsed_ms": 807,
+              "returncode": -9,
+              "reap_ms": 3
+            }
+          ],
+          "status": 200,
+          "headers_ms": 745,
+          "returncode": -9,
+          "reap_ms": 3,
+          "elapsed_ms": 807
+        }
+      ],
+      "requests": [
+        {
+          "stream_requested": false
+        }
+      ],
+      "content_present": false,
+      "reason": "LLM 调用失败（LLMDeadlineExceeded）",
+      "emitted_chars": 0,
+      "reserved_count": 1,
+      "records": [
+        {
+          "caller": "chat",
+          "elapsed_ms": 808,
+          "status": "failed",
+          "reason": "timeout"
+        }
+      ]
+    },
+    {
+      "scenario": "body_trickle",
+      "timeout_input_seconds": 0.8,
+      "wall_elapsed_seconds": 0.8092693330254406,
+      "request_count": 1,
+      "attempts": [
+        {
+          "timeout_seconds": 0.7999861252028495,
+          "phase": "headers",
+          "events": [
+            {
+              "event": "spawn_started",
+              "elapsed_ms": 0
+            },
+            {
+              "event": "spawned",
+              "elapsed_ms": 4
+            },
+            {
+              "event": "request_sent",
+              "elapsed_ms": 4
+            },
+            {
+              "event": "headers",
+              "elapsed_ms": 192,
+              "status": 200
+            },
+            {
+              "event": "closed",
+              "elapsed_ms": 807,
+              "returncode": 124,
+              "reap_ms": 7
+            }
+          ],
+          "status": 200,
+          "headers_ms": 192,
+          "returncode": 124,
+          "reap_ms": 7,
+          "elapsed_ms": 808
+        }
+      ],
+      "requests": [
+        {
+          "stream_requested": false
+        }
+      ],
+      "content_present": false,
+      "reason": "LLM 调用失败（LLMDeadlineExceeded）",
+      "emitted_chars": 0,
+      "reserved_count": 1,
+      "records": [
+        {
+          "caller": "chat",
+          "elapsed_ms": 809,
+          "status": "failed",
+          "reason": "timeout"
+        }
+      ]
+    },
+    {
+      "scenario": "tools_stream_trickle",
+      "timeout_input_seconds": 0.8,
+      "wall_elapsed_seconds": 0.8057694998569787,
+      "request_count": 1,
+      "attempts": [
+        {
+          "timeout_seconds": 0.7999682500958443,
+          "phase": "headers",
+          "events": [
+            {
+              "event": "spawn_started",
+              "elapsed_ms": 0
+            },
+            {
+              "event": "spawned",
+              "elapsed_ms": 14
+            },
+            {
+              "event": "request_sent",
+              "elapsed_ms": 14
+            },
+            {
+              "event": "headers",
+              "elapsed_ms": 197,
+              "status": 200
+            },
+            {
+              "event": "closed",
+              "elapsed_ms": 803,
+              "returncode": -9,
+              "reap_ms": 3
+            }
+          ],
+          "status": 200,
+          "headers_ms": 197,
+          "returncode": -9,
+          "reap_ms": 3,
+          "elapsed_ms": 803
+        }
+      ],
+      "requests": [
+        {
+          "stream_requested": true
+        }
+      ],
+      "content_present": false,
+      "reason": "LLM 流式合成已输出后失败，不回退非流式（避免重复正文），已降级为模板",
+      "emitted_chars": 2,
+      "reserved_count": 1,
+      "records": [
+        {
+          "caller": "chat_tools_stream",
+          "elapsed_ms": 804,
+          "status": "failed",
+          "reason": "timeout"
+        }
+      ]
+    },
+    {
+      "scenario": "tools_stream_partial_line",
+      "timeout_input_seconds": 0.8,
+      "wall_elapsed_seconds": 0.8045152078848332,
+      "request_count": 1,
+      "attempts": [
+        {
+          "timeout_seconds": 0.7999915000982583,
+          "phase": "headers",
+          "events": [
+            {
+              "event": "spawn_started",
+              "elapsed_ms": 0
+            },
+            {
+              "event": "spawned",
+              "elapsed_ms": 4
+            },
+            {
+              "event": "request_sent",
+              "elapsed_ms": 5
+            },
+            {
+              "event": "headers",
+              "elapsed_ms": 217,
+              "status": 200
+            },
+            {
+              "event": "closed",
+              "elapsed_ms": 804,
+              "returncode": -9,
+              "reap_ms": 3
+            }
+          ],
+          "status": 200,
+          "headers_ms": 217,
+          "returncode": -9,
+          "reap_ms": 3,
+          "elapsed_ms": 804
+        }
+      ],
+      "requests": [
+        {
+          "stream_requested": true
+        }
+      ],
+      "content_present": false,
+      "reason": "LLM 调用失败（LLMDeadlineExceeded）",
+      "emitted_chars": 0,
+      "reserved_count": 1,
+      "records": [
+        {
+          "caller": "chat_tools_stream",
+          "elapsed_ms": 804,
+          "status": "failed",
+          "reason": "timeout"
+        }
+      ]
+    },
+    {
+      "scenario": "synthesis_stream_trickle",
+      "timeout_input_seconds": 1.2,
+      "wall_elapsed_seconds": 1.2057819170877337,
+      "request_count": 1,
+      "attempts": [
+        {
+          "timeout_seconds": 1.1999792919959873,
+          "phase": "headers",
+          "events": [
+            {
+              "event": "spawn_started",
+              "elapsed_ms": 0
+            },
+            {
+              "event": "spawned",
+              "elapsed_ms": 5
+            },
+            {
+              "event": "request_sent",
+              "elapsed_ms": 5
+            },
+            {
+              "event": "headers",
+              "elapsed_ms": 286,
+              "status": 200
+            },
+            {
+              "event": "closed",
+              "elapsed_ms": 1205,
+              "returncode": 124,
+              "reap_ms": 0
+            }
+          ],
+          "status": 200,
+          "headers_ms": 286,
+          "returncode": 124,
+          "reap_ms": 0,
+          "elapsed_ms": 1205
+        }
+      ],
+      "requests": [
+        {
+          "stream_requested": true
+        }
+      ],
+      "content_present": false,
+      "reason": "LLM 流式合成超过共享截止时间，已降级为模板",
+      "emitted_chars": 2,
+      "reserved_count": 1,
+      "records": [
+        {
+          "caller": "synthesis_stream",
+          "elapsed_ms": 1206,
+          "status": "failed",
+          "reason": "timeout"
+        }
+      ]
+    },
+    {
+      "scenario": "synthesis_stream_partial_line",
+      "timeout_input_seconds": 1.2,
+      "wall_elapsed_seconds": 1.204654166009277,
+      "request_count": 1,
+      "attempts": [
+        {
+          "timeout_seconds": 1.1999671247322112,
+          "phase": "headers",
+          "events": [
+            {
+              "event": "spawn_started",
+              "elapsed_ms": 0
+            },
+            {
+              "event": "spawned",
+              "elapsed_ms": 4
+            },
+            {
+              "event": "request_sent",
+              "elapsed_ms": 4
+            },
+            {
+              "event": "headers",
+              "elapsed_ms": 165,
+              "status": 200
+            },
+            {
+              "event": "closed",
+              "elapsed_ms": 1203,
+              "returncode": -9,
+              "reap_ms": 4
+            }
+          ],
+          "status": 200,
+          "headers_ms": 165,
+          "returncode": -9,
+          "reap_ms": 4,
+          "elapsed_ms": 1203
+        }
+      ],
+      "requests": [
+        {
+          "stream_requested": true
+        }
+      ],
+      "content_present": false,
+      "reason": "LLM 流式合成超过共享截止时间，已降级为模板",
+      "emitted_chars": 0,
+      "reserved_count": 1,
+      "records": [
+        {
+          "caller": "synthesis_stream",
+          "elapsed_ms": 1204,
+          "status": "failed",
+          "reason": "timeout"
+        }
+      ]
+    },
+    {
+      "scenario": "zero_deadline",
+      "timeout_input_seconds": 0.0,
+      "wall_elapsed_seconds": 8.433405309915543e-05,
+      "request_count": 0,
+      "attempts": [],
+      "requests": [],
+      "content_present": false,
+      "reason": "LLM 调用失败（LLMDeadlineExceeded）",
+      "emitted_chars": 0,
+      "reserved_count": 0,
+      "records": []
+    },
+    {
+      "scenario": "judge_window_stalls",
+      "timeout_input_seconds": 0.8,
+      "wall_elapsed_seconds": 0.8039102079346776,
+      "request_count": 2,
+      "attempts": [
+        {
+          "timeout_seconds": 0.39999249996617436,
+          "phase": "request_sent",
+          "events": [
+            {
+              "event": "spawn_started",
+              "elapsed_ms": 0
+            },
+            {
+              "event": "spawned",
+              "elapsed_ms": 4
+            },
+            {
+              "event": "request_sent",
+              "elapsed_ms": 4
+            },
+            {
+              "event": "closed",
+              "elapsed_ms": 403,
+              "returncode": 124,
+              "reap_ms": 0
+            }
+          ],
+          "returncode": 124,
+          "reap_ms": 0,
+          "elapsed_ms": 403
+        },
+        {
+          "timeout_seconds": 0.394105208106339,
+          "phase": "request_sent",
+          "events": [
+            {
+              "event": "spawn_started",
+              "elapsed_ms": 0
+            },
+            {
+              "event": "spawned",
+              "elapsed_ms": 3
+            },
+            {
+              "event": "request_sent",
+              "elapsed_ms": 3
+            },
+            {
+              "event": "closed",
+              "elapsed_ms": 396,
+              "returncode": 124,
+              "reap_ms": 2
+            }
+          ],
+          "returncode": 124,
+          "reap_ms": 2,
+          "elapsed_ms": 396
+        }
+      ],
+      "remaining_root_seconds": 8.795450625009835,
+      "final_timeout_asked": 0.0,
+      "final_attempt_index": 2,
+      "final_exc_class": null,
+      "final_issue": "semantic judge window exhausted by prior attempt",
+      "report_received": false,
+      "unavailable": true,
+      "last_dispatched_failure": {
+        "judge_attempt_index": 1,
+        "timeout_asked": 0.39412395791150634,
+        "remaining_seconds_at_entry": 9.193633917020634,
+        "issue": "semantic judge transient provider error",
+        "exc_class": "LLMDeadlineExceeded",
+        "http_status": null
+      },
+      "records": [
+        {
+          "caller": "chat",
+          "elapsed_ms": 404,
+          "status": "failed",
+          "reason": "timeout",
+          "purpose": "judge"
+        },
+        {
+          "caller": "chat",
+          "elapsed_ms": 397,
+          "status": "failed",
+          "reason": "timeout",
+          "purpose": "judge"
+        }
+      ]
+    },
+    {
+      "scenario": "judge_late_report",
+      "timeout_input_seconds": 0.8,
+      "wall_elapsed_seconds": 0.8205558331683278,
+      "request_count": 1,
+      "attempts": [
+        {
+          "timeout_seconds": 0.7999892921652645,
+          "phase": "headers",
+          "events": [
+            {
+              "event": "spawn_started",
+              "elapsed_ms": 0
+            },
+            {
+              "event": "spawned",
+              "elapsed_ms": 5
+            },
+            {
+              "event": "request_sent",
+              "elapsed_ms": 5
+            },
+            {
+              "event": "headers",
+              "elapsed_ms": 194,
+              "status": 200
+            },
+            {
+              "event": "closed",
+              "elapsed_ms": 819,
+              "returncode": 124,
+              "reap_ms": 1
+            }
+          ],
+          "status": 200,
+          "headers_ms": 194,
+          "returncode": 124,
+          "reap_ms": 1,
+          "elapsed_ms": 819
+        }
+      ],
+      "remaining_root_seconds": 8.779005625052378,
+      "final_timeout_asked": 0.0,
+      "final_attempt_index": 1,
+      "final_exc_class": null,
+      "final_issue": "semantic judge window exhausted by prior attempt",
+      "report_received": false,
+      "unavailable": true,
+      "last_dispatched_failure": {
+        "judge_attempt_index": 0,
+        "timeout_asked": 0.8,
+        "remaining_seconds_at_entry": 9.59985279198736,
+        "issue": "semantic judge transient provider error",
+        "exc_class": "LLMDeadlineExceeded",
+        "http_status": null
+      },
+      "records": [
+        {
+          "caller": "chat",
+          "elapsed_ms": 819,
+          "status": "failed",
+          "reason": "timeout",
+          "purpose": "judge"
+        }
+      ]
+    },
+    {
+      "scenario": "judge_root_expired",
+      "timeout_input_seconds": 0.0,
+      "wall_elapsed_seconds": 3.395788371562958e-05,
+      "request_count": 0,
+      "attempts": [],
+      "remaining_root_seconds": 0.0,
+      "final_timeout_asked": 0.0,
+      "final_attempt_index": null,
+      "final_exc_class": null,
+      "final_issue": "semantic judge deadline exhausted",
+      "report_received": false,
+      "unavailable": true,
+      "last_dispatched_failure": null,
+      "records": []
+    }
+  ]
+}

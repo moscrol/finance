@@ -68,14 +68,14 @@ def test_receipt_covers_calls_and_reuses_outer_budget(tmp_path, monkeypatch, cap
     provider = llm_refine.LLMProvider("fixture", "secret", "https://example.invalid/v1", "requested")
     requests = []
 
-    def transport(request, **_kwargs):
+    def transport(request, timeout=0.0, **_kwargs):
         requests.append(request)
         if len(requests) == 2:
             raise urllib.error.HTTPError(request.full_url, 503, "unavailable", {}, None)
         return _Response()
 
     monkeypatch.setattr(llm_refine, "detect_providers", lambda *_: (provider,))
-    monkeypatch.setattr(llm_refine.urllib.request, "urlopen", transport)
+    monkeypatch.setattr(llm_refine.llm_http_transport, "urlopen", transport)
     messages = [{"role": "user", "content": "question"}]
 
     def workflow(_options):
@@ -116,7 +116,7 @@ def test_exception_keeps_completed_calls_without_claiming_delivery(
 ):
     provider = llm_refine.LLMProvider("fixture", "secret", "https://example.invalid/v1", "requested")
     monkeypatch.setattr(llm_refine, "detect_providers", lambda *_: (provider,))
-    monkeypatch.setattr(llm_refine.urllib.request, "urlopen", lambda *_a, **_k: _Response())
+    monkeypatch.setattr(llm_refine.llm_http_transport, "urlopen", lambda *_a, **_k: _Response())
 
     def workflow(_options):
         assert llm_refine.complete([{"role": "user", "content": "question"}])[0] == "body"

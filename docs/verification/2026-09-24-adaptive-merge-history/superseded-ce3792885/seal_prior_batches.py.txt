@@ -1,0 +1,44 @@
+"""Seal completed failures without changing reviewer reports or old receipts."""
+from datetime import datetime, timezone
+import hashlib
+import json
+from pathlib import Path
+import subprocess
+
+OLD=Path('/Users/a77/.finance-runtime/reviews/pr868-merge-ready-20260924-0011')
+QC0=Path('/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260924-0015')
+QC=Path('/Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260924-0024')
+L6=Path('/Users/a77/.finance-runtime/reviews/pr868-l6-20260924-0026')
+
+def save(root,name,value):
+ with (root/name).open('x') as f: json.dump(value,f,ensure_ascii=False,indent=2)
+
+def digest(path): return hashlib.sha256(path.read_bytes()).hexdigest()
+
+spec=json.loads((QC/'spec/report/parsed.json').read_text())
+quality=json.loads((QC/'quality/report/parsed.json').read_text())
+requests=sum(x['requests'] for x in json.loads((QC/'batch.json').read_text())['stages'])
+assert requests==71
+save(QC,'host-evidence-audit.json',{
+ 'status':'BLOCKED_INCOMPLETE_INDEPENDENT_EVIDENCE','reviewer_verdicts':{'spec':spec['verdict'],'quality':quality['verdict']},
+ 'reviewer_reports_unchanged':{axis:digest(QC/axis/'report/parsed.json') for axis in ('spec','quality')},
+ 'actual_requests':requests,'prior_gateway_requests':3,'cumulative_requests':74,
+ 'first_two_execute_tools':{axis:[json.loads((QC/axis/'execute/commands'/f'{i:03d}-bash/result.json').read_text())['exitCode'] for i in (1,2)] for axis in ('spec','quality')},
+ 'original_candidate_author_tests_passed':0,'copied_author_test_results':'each reviewer reports 10P/25 deselected; not accepted as original-candidate runs',
+ 'quality_probe_scripts':{'passed':1,'failed':1,'subcases_passed':13,'subcases_failed':2,'report_count_discrepancy':'report says 12 passed; raw output is 5+8=13, and script denominator differs'},
+ 'spec_probe_scripts':{'passed':0,'failed':3,'reason':'imports failed; same probe retried twice instead of at most one corrected variant'},
+ 'host_framing_diagnosis':str(Path(__file__).resolve().parent/'reviewer-framing/result.json'),
+ 'boundary':'Host diagnosis identifies malformed fixture framing; does not amend CHANGES_REQUIRED or sign independent C1/C3/C5.',
+ 'sealed_at':datetime.now(timezone.utc).isoformat(),
+})
+strict=json.loads((L6/'strict-deadline.json').read_text())
+assert not strict['deadline_violations'] and len(strict['coverage_gaps'])==4
+save(L6,'audit.json',{'verdict':'BLOCKED_PREFLIGHT_COVERAGE','candidate':strict['source_before']['revision'],'strict_deadline_violations':[], 'coverage_gaps':strict['coverage_gaps'],'strict_exit_code':1,'initial_submissions':{'L6-S1':0,'L6-S2':0,'L6-S3':0},'real_model_requests':0,'resubmissions':0,'followups':0,'natural_acceptance':'NOT_EXERCISED','data_frozen':False,'readiness_run':False,'sidecar_started':False,'direct_script_launch_error':'ModuleNotFoundError before any probe; preserved in strict-deadline.log.txt; proper module invocation is strict-module.log.txt','old_verdicts_unchanged':True})
+ports={}
+for port in (19897,19898,19899):
+ proc=subprocess.run(['lsof','-nP',f'-iTCP:{port}','-sTCP:LISTEN'],capture_output=True,text=True)
+ ports[str(port)]={'exit_code':proc.returncode,'listeners':proc.stdout}
+assert all(not p['listeners'] for p in ports.values())
+for root in (QC0,QC,L6):
+ save(root,'closure-current-turn.json',{'sealed':True,'do_not_resume':True,'ports':ports,'production_mutations':0,'pushes':0,'main_merges':0,'deployments':0,'production_identity_comparison':'not performed in this preflight-only batch; no seven-field equality claim','files_sha256':{str(p.relative_to(root)):digest(p) for p in root.rglob('*') if p.is_file() and not p.is_symlink() and 'pi-config' not in p.parts and 'candidate_copy_intelligence' not in p.parts}})
+print(json.dumps({'sealed':[str(p) for p in (QC0,QC,L6)],'charged_model_requests':74}))

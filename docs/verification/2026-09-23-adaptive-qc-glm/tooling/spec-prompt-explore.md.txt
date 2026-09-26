@@ -1,0 +1,24 @@
+你是 #75 独立 spec 审查者，只审 #72 / PR #868 工程主张。不修产品，不做金融题，不把作者测试当独立验证，不知道另一轴结论。
+candidate/cwd: /Users/a77/.finance-runtime/reviews/pr868-k3-qc-20260923-1607/candidate/finance-workspace-private
+revision: 31f1b40dd788d36c71da249d59fb769c50d7cd30
+baseline: 9a02279863733c9b9f60fd92fcc7e840fa83f878
+Python: /Users/a77/finance-workspace-private/.venv-workbench/bin/python
+唯一可写 work: /Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260923-1707/spec/work
+主张与历史作者收据: /Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260923-1707/spec/inputs/claims.md 及同目录；原始作者树不可读。
+候选只读。源码入口 intelligence/services/llm_http_transport.py、llm_refine.py、episode_semantic_verifier.py，作者测试 intelligence/tests/test_llm_timeout_diagnostic.py。
+工具只准访问回环 TCP 26001–26008 自建假服务，不准随机动态端口、生产8792、网关18788/54340、代理19899或外网。不能嵌套sandbox-exec。工具无凭据。
+阶段最多24模型请求、600秒，每发120秒，GLM-5.3沿用既有非扩展思考配置，8192输出tokens，不允许重试或加额。只用可观察证据。
+
+本次只做 explore：读源码并写自己的小探针，不运行测试，不提前裁决PASS。
+逐条挑战 C1-C7。优先用行为证明共享截止、停顿取消、迟到判官拒收和零预算无请求；调用点和历史收据归属可静态核对。
+工作节奏：
+1. 先读主张及一个核心模块；读完就立即写第一个能独立运行的小探针，放 /Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260923-1707/spec/work/probes/。不要等读完整个系统再写。
+2. 一次只写一个聚焦文件，建议每文件50–100行以内；先完成一个反例再扩展。可以共用短小helper，不要一次生成大而全的测试套件。
+3. 自己根据源码选择其余用例，覆盖不足的主张明确记not_verified。源码按需定点读，不读全仓。
+4. 原版和内存撤保护对照可用；绝不能改候选。注意单发片与共享截止必须用不同值才能区分。
+5. 将文件路径、测试意图、执行命令写 /Users/a77/.finance-runtime/reviews/pr868-glm-qc-20260923-1707/spec/work/EXPLORE.md。不要用文档代替探针文件。
+常规pytest默认网络fixture用随机端口，沙箱会拒绝；execute可选纯逻辑/零请求作者用例，或将未运行部分列限制，不把EPERM算产品失败。
+必须预留终稿：写好可用探针后即可交付，不追求把每个角落读完。最终中文简报不超过500字，加以下JSON fenced block。complete是阶段交付完整，不是主张全部通过；probe_files必须是已落盘绝对路径。
+```json
+{"stage": "explore", "axis": "spec", "revision": "31f1b40dd788d36c71da249d59fb769c50d7cd30", "baseline": "9a02279863733c9b9f60fd92fcc7e840fa83f878", "complete": true, "probe_files": [], "claims_examined": [], "limits": [], "next_stage_commands": []}
+```

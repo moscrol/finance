@@ -1,0 +1,38 @@
+"""Fixed-revision targeted author tests, separate from offline diagnostic receipts."""
+import json
+import os
+from pathlib import Path
+import signal
+import subprocess
+import time
+
+ROOT = Path(__file__).resolve().parent
+TREE = Path('/Users/a77/finance-worktrees/adaptive-research-loop')
+PYTHON = '/Users/a77/finance-workspace-private/.venv-workbench/bin/python'
+TARGETS = ['intelligence/tests/test_llm_timeout_diagnostic.py', 'intelligence/tests/test_llm_call_ledger_usage.py',
+           'intelligence/tests/test_llm_refine_tool_stream.py', 'intelligence/tests/test_episode_semantic_verifier.py',
+           'tests/test_pi_review_repair.py', 'tests/test_adaptive_l6_audit.py', 'tests/test_retrieval_readiness.py']
+
+
+def identity():
+    return {name: subprocess.check_output(['git', '-C', str(TREE), *args], text=True).strip()
+            for name, args in {'revision': ['rev-parse', 'HEAD'], 'status': ['status', '--porcelain']}.items()}
+
+
+before = identity()
+assert not before['status'], before
+command = [PYTHON, '-m', 'pytest', '-q', '--basetemp=' + str(ROOT / 'pytest'), *TARGETS]
+with (ROOT / 'tests-start.json').open('x') as stream:
+    json.dump({'identity': before, 'command': command, 'limit_seconds': 600, 'pid': os.getpid()}, stream, indent=2)
+started = time.monotonic()
+with (ROOT / 'pytest.log').open('xb') as log:
+    proc = subprocess.Popen(command, cwd=TREE, stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
+    try:
+        code = proc.wait(timeout=600)
+    except subprocess.TimeoutExpired:
+        os.killpg(proc.pid, signal.SIGKILL)
+        proc.wait()
+        code = 124
+with (ROOT / 'tests-result.json').open('x') as stream:
+    json.dump({'identity_before': before, 'identity_after': identity(), 'command': command, 'exit_code': code,
+               'elapsed_seconds': time.monotonic() - started}, stream, indent=2)

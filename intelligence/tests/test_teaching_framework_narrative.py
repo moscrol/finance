@@ -50,6 +50,15 @@ def test_window_is_the_overnight_narrative_and_weekend_reports_belong_to_monday(
     assert set(NARRATIVE_FIELDS) <= set(d12)
 
 
+def test_recorded_at_compares_instants_not_timestamp_strings():
+    events = [
+        {**_ev("2026-01-05", "CPO"), "recorded_at": "2026-01-06T01:00:00+08:00"},
+        {**_ev("2026-01-05", "PCB"), "recorded_at": "2026-01-05T18:00:00+00:00"},
+    ]
+    daily = narrative_daily(events, CAL)
+    assert daily[date(2026, 1, 6)]["recorded_at"] == "2026-01-05T18:00:00+00:00"
+
+
 def test_stale_source_is_a_gap_not_zero():
     cal = CAL + ["2026-01-15", "2026-01-16", "2026-01-19", "2026-01-20", "2026-01-21", "2026-01-22"]
     daily = narrative_daily(EVENTS, cal, stale_after_days=7)

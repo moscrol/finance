@@ -1,0 +1,5 @@
+headers at 0.20s; parent now stalls 2.0s...
+worker returncode while parent stalled: 124
+after-resume outcome=deadline elapsed=2.20
+PROBE_C1_STALLED_PARENT: PASS
+EXIT=0

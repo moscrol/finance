@@ -1,0 +1,11 @@
+FAIL C1_first_call_succeeds n_http=0 reason='未配置 LLM key。设置 DEEPSEEK_API_KEY / MOONSHOT_API_KEY / DASHSCOPE_API_KEY / ZHIPU_API_KEY / OPENAI_API_KEY 或通用 LLM_API_KEY(+LLM_BASE_URL,+LLM_MODEL) 即可启用'
+FAIL C1_reservation_1 res=0
+FAIL C1_zero_budget_no_http n_http=0 reason='未配置 LLM key。设置 DEEPSEEK_API_KEY / MOONSHOT_API_KEY / DASHSCOPE_API_KEY / ZHIPU_API_KEY / OPENAI_API_KEY 或通用 LLM_API_KEY(+LLM_BASE_URL,+LLM_MODEL) 即可启用'
+FAIL C1_rejected_reason reason='未配置 LLM key。设置 DEEPSEEK_API_KEY / MOONSHOT_API_KEY / DASHSCOPE_API_KEY / ZHIPU_API_KEY / OPENAI_API_KEY 或通用 LLM_API_KEY(+LLM_BASE_URL,+LLM_MODEL) 即可启用'
+FAIL C1_no_new_reservation res=0 rej=0
+PASS C2_issue_strings_distinct window='semantic judge window exhausted by prior attempt' root='semantic judge deadline exhausted'
+PASS C2_root_expired_raises remaining=0.0
+PASS C2_root_alive_window_dead_ok remaining=0.500
+PASS C2_gate_none_by_default 
+PASS C2_gate_small_timeout reason='LLM 预算不足（剩余 0.2s < 最小可行 1s），已跳过调用以保留合成预算'
+SUMMARY probe_c: 5/10 passed

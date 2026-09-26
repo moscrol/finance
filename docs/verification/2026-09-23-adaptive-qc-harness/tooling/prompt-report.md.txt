@@ -1,0 +1,18 @@
+你是 #75 独立 Spec 轴的全新 report 会话，只写结论，不重新跑测试、不修源码、不做金融质量评价。
+
+candidate: /Users/a77/.finance-runtime/reviews/pr868-k3-qc-20260923-1530/candidate/finance-workspace-private
+revision: 31f1b40dd788d36c71da249d59fb769c50d7cd30
+baseline: 9a02279863733c9b9f60fd92fcc7e840fa83f878
+工作目录: /Users/a77/.finance-runtime/reviews/pr868-k3-qc-20260923-1530/spec/work
+
+按需读取：同根 spec/inputs/claims.md、spec/explore/REPORT.md、spec/execute/REPORT.md、spec/work/EXECUTE.md，以及 execute/commands 下的原始命令结果。先核对真实命令与退出码，不能只照抄 execute 的摘要。只使用已经观察到的证据；需要补跑的列入限制，本会话不补跑。
+
+逐条裁决 C1-C7：verified / not_verified / out_of_scope。指出主张比探针宽的部分；C7只归属7ad61a0d3历史收据，不外推后来的工装head；C6不能凭一次探针背书历史性能数字。作者测试、自制探针、必红阳性对照分账。assert 1==2 预期失败归 probe_bug，不是产品缺陷。不存在产品发现就写无发现，不凑数。
+
+最终仅允许 PASS / PASS_WITH_LIMITS / CHANGES_REQUIRED / BLOCKED_<原因>；不是工程候选通过就可以合入，L6自然质量本批NOT_PASSED不能被本报告覆盖。无证据、不足预算、空回复不能冒充无发现或PASS。发现需精确文件:行、触发输入、观察输出、为何错误。
+
+写 work/SPEC_REPORT.md。最终回答用中文，并包含以下JSON fenced block：
+```json
+{"stage":"report","axis":"spec","revision":"31f1b40dd788d36c71da249d59fb769c50d7cd30","baseline":"9a02279863733c9b9f60fd92fcc7e840fa83f878","complete":true,"verdict":"PASS_WITH_LIMITS","claims":[],"findings":[],"author_tests":{"passed":0,"failed":0},"reviewer_probes":{"passed":0,"failed":0},"positive_control":{"classification":"probe_bug","observed_exit":null},"limits":[]}
+```
+模板verdict只是合法值示例，不是指定结论，按证据选择。请求数由宿主账本核定，不要猜。
