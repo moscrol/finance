@@ -109,6 +109,27 @@ def test_legacy_alias_requires_self_use_timer_shape(field, value):
     assert measurement_scopes(event) == REQUIRED_MEASUREMENT_SCOPES
 
 
+def test_legacy_alias_requires_a_named_owner():
+    """participant 与 owner 同为空时 ``==`` 也成立；无主记录不得借别名变成纯计时。"""
+    event = activity_consent(0, "withdraw", "ownerless", "workbench-activity-v1")
+    event["owner_user_id"] = None
+    event["participant_id"] = None
+    assert measurement_scopes(event) == REQUIRED_MEASUREMENT_SCOPES
+
+
+def test_read_compat_never_mutates_the_event_it_reads():
+    """读取兼容只改解释、不改输入：分类与读侧时间线读完，事件对象必须原样。
+
+    上面的「无迁移」用例每次从台账重读，原地改写读到的 dict 它看不见；
+    2026-09-27 接手复核撤保护：别名分支顺手改写 payload.scopes，原有测试全绿。
+    """
+    events = timer_cycle("workbench-activity-v1")
+    before = deepcopy(events)
+    assert [measurement_scopes(event) for event in events] == [None, None]
+    assert M._consent_timeline(events) == {}
+    assert events == before
+
+
 @pytest.mark.parametrize("version,scopes", [
     ("workbench-activity-v1", ["logging"]),
     ("workbench-activity-v1", ["research", "logging", "blind_review"]),

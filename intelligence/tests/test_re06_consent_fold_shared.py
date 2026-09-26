@@ -155,6 +155,41 @@ def test_read_side_timeline_admits_pilot_records_only(tmp_path):
     assert set(timeline) == {"pilot-participant"}
 
 
+def test_pilot_participant_records_do_not_gate_the_owner_write_side(tmp_path):
+    """写侧只认 owner 自己的记录：试点参与者的部分授权不得翻掉 owner 的自用默认。
+
+    2026-09-27 接手复核撤保护：删掉写侧参与者过滤，原有测试全绿。
+    """
+    store = store_with(tmp_path, [
+        consent_event(0, "grant", ["research"], participant="pilot-participant", tag="pilot-partial"),
+    ])
+    assert store._measurement_consented(at(1)) is True
+    assert read_side_scopes(store, "pilot-participant", at(1)) == frozenset({"research"})
+
+
+def test_same_instant_grant_and_withdraw_nets_to_withdrawal_on_both_sides(tmp_path):
+    """同一时刻授权+撤回，两侧都按撤回算；任一侧私改排序键，两侧就在这里分叉。
+
+    上面的参数化用例只测共用函数本身；2026-09-27 接手复核撤保护：读侧改回私有折叠、
+    同刻让授权胜出，原有测试全绿。
+    """
+    store = store_with(tmp_path, [
+        consent_event(0, "withdraw", ["logging"], participant=OWNER, tag="tie-withdraw"),
+        consent_event(0, "grant", ["research", "logging"], participant=OWNER, tag="tie-grant"),
+    ])
+    assert read_side_scopes(store, OWNER, at(1)) == frozenset({"research"})
+    assert store._measurement_consented(at(1)) is False
+
+
+def test_read_side_folds_through_the_shared_function(tmp_path, monkeypatch):
+    """读侧同样不留私有副本：打桩 measure 引用的共用折叠，读侧结果必须跟着变。"""
+    store = store_with(tmp_path, [
+        consent_event(0, "grant", ["research", "logging"], participant="pilot-participant", tag="pilot"),
+    ])
+    monkeypatch.setattr(M, "scopes_at", lambda entries, when: frozenset({"stubbed"}))
+    assert read_side_scopes(store, "pilot-participant", at(1)) == frozenset({"stubbed"})
+
+
 def test_both_sides_reach_the_fold_through_the_shared_function(tmp_path, monkeypatch):
     """不留私有副本：改折叠只有一处可改。"""
     import intelligence.services.product_value.consent as C
