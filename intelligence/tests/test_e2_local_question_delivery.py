@@ -257,6 +257,32 @@ def test_local_unnumbered_and_full_numbered_tasks_keep_existing_slot_shape():
         assert not any(item.output_id.startswith("answer_q") for item in context.contract.required_outputs)
 
 
+def _slot_shape(query):
+    return [(item.output_id, item.required) for item in setup(query)[1].contract.required_outputs]
+
+
+def test_local_unnumbered_task_matches_the_ordinary_slot_shape():
+    """未编号本地题不走逐题分支：槽位与同题普通形状一致，不被压成只剩 evidence_boundary。
+
+    2026-09-27 接手复核撤保护：把工厂分支的 ``and material.questions`` 换成恒真，
+    上一条只查「没有 answer_q*」仍然全绿；对照普通形状才会变红。
+    """
+    assert _slot_shape("不要联网。今天市场怎么样？") == _slot_shape("今天市场怎么样？")
+
+
+def test_pre_numbering_local_contract_still_restores():
+    """跨轮恢复的判据是「合同里已有 answer_q*」，不是「有编号问题」。
+
+    本改动之前落盘的 local_only 会话带编号问题、却是普通槽位形状；恢复时不得因缺
+    answer_qN 集体报错。2026-09-27 接手复核撤保护：判据换成恒真，原有测试全绿，这条变红。
+    """
+    legacy = setup("不要联网。今天市场怎么样？")[1].contract.to_dict()
+    legacy["material_contract"]["questions"] = setup()[1].contract.to_dict()["material_contract"]["questions"]
+    restored = ResearchTaskContract.from_dict(legacy)
+    assert len(restored.material_contract.questions) == 2
+    assert not any(item.output_id.startswith("answer_q") for item in restored.required_outputs)
+
+
 def test_real_episode_reads_local_source_then_delivers_numbered_answers():
     frame, context = setup()
     reads = []
