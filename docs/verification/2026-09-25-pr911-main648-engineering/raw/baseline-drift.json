@@ -1,0 +1,23 @@
+{
+  "observed_at": "2026-09-25T10:02:21Z",
+  "tested_baseline": "64847b7a173bfb7191012638e8ec044ea31e0513",
+  "latest_main": "643a2888ea14079035bc8b080129e3e4145d5685",
+  "new_main_pr": 930,
+  "runtime_changed": true,
+  "changed_paths": [
+    "intelligence/api/app.py",
+    "intelligence/services/llm_refine.py",
+    "intelligence/tests/test_llm_refine_tool_stream.py",
+    "intelligence/tests/test_workbench_api.py"
+  ],
+  "merge_tree_previews": {
+    "910": "8f54874888043f8eea117d3148e6c9bf02153ed5",
+    "911": "4a179b66b3ed933806cb7b33a0c739ac4573dd28"
+  },
+  "decision": "Stop waiting batch, seal existing exact-revision receipts, forward candidates only after sealing; no receipt transfer",
+  "owned_wait_supervisor": 4406,
+  "owned_wait_supervisor_verified_exited": true,
+  "foreign_processes_untouched": true,
+  "paid_model_requests": 0,
+  "independent_review": false
+}
